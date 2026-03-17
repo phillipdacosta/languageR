@@ -3,23 +3,23 @@
   <ion-toolbar>
     <ion-buttons slot="start">
       <a class="app-icon-container" routerLink="/tabs/home">
-        <img src="assets/icons-app-bird.png" alt="Barnaby" class="app-icon">
+        <img src="assets/icons-app-bird.png" alt="Barnabi" class="app-icon">
       </a>
       <ion-button 
         class="back-btn"
-        *ngIf="!cameFromModal && !justLoggedIn"
+        *ngIf="hasNavigationHistory && !cameFromModal && !justLoggedIn"
         (click)="goBackToSearch()">
         <ion-icon name="arrow-back"></ion-icon>
       </ion-button>
       <ion-button 
         class="back-btn"
-        *ngIf="!cameFromModal && justLoggedIn"
+        *ngIf="hasNavigationHistory && !cameFromModal && justLoggedIn"
         (click)="navigateToHome()">
         <ion-icon name="arrow-back"></ion-icon>
       </ion-button>
       <ion-button 
         class="back-btn"
-        *ngIf="cameFromModal"
+        *ngIf="hasNavigationHistory && cameFromModal"
         (click)="handleBackClick($event)">
         <ion-icon name="arrow-back"></ion-icon>
       </ion-button>
@@ -54,7 +54,7 @@
 
         <!-- Floating Action Buttons -->
         <div class="hero-nav-buttons">
-          <button class="nav-btn back" (click)="goBackToSearch(); $event.stopPropagation()">
+          <button class="nav-btn back" *ngIf="hasNavigationHistory" (click)="goBackToSearch(); $event.stopPropagation()">
             <ion-icon name="arrow-back"></ion-icon>
           </button>
           <div class="nav-btn-group">
@@ -72,7 +72,7 @@
       <div class="mobile-hero no-video" *ngIf="!tutor.introductionVideo">
         <div class="hero-gradient"></div>
         <div class="hero-nav-buttons">
-          <button class="nav-btn back" (click)="goBackToSearch()">
+          <button class="nav-btn back" *ngIf="hasNavigationHistory" (click)="goBackToSearch()">
             <ion-icon name="arrow-back"></ion-icon>
           </button>
           <div class="nav-btn-group">

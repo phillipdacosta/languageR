@@ -648,7 +648,7 @@ router.put('/onboarding', verifyToken, async (req, res) => {
 // PUT /api/users/profile - Update user profile
 router.put('/profile', verifyToken, async (req, res) => {
   try {
-    const { bio, timezone, preferredLanguage, userType, picture, officeHoursEnabled, interfaceLanguage, showWalletBalance, remindersEnabled, aiAnalysisEnabled } = req.body;
+    const { bio, timezone, preferredLanguage, userType, picture, officeHoursEnabled, interfaceLanguage, showWalletBalance, remindersEnabled, aiAnalysisEnabled, calendarTimeFormat, calendarDefaultView } = req.body;
     console.log('📝 Updating profile for user:', req.user.sub, 'officeHoursEnabled:', officeHoursEnabled, 'aiAnalysisEnabled:', aiAnalysisEnabled);
     
     const user = await User.findOne({ auth0Id: req.user.sub });
@@ -706,7 +706,9 @@ router.put('/profile', verifyToken, async (req, res) => {
       officeHoursLastActive: user.profile?.officeHoursLastActive ?? null,
       showWalletBalance: showWalletBalance !== undefined ? showWalletBalance : (user.profile?.showWalletBalance ?? false),
       remindersEnabled: remindersEnabled !== undefined ? remindersEnabled : (user.profile?.remindersEnabled ?? true),
-      aiAnalysisEnabled: aiAnalysisEnabled !== undefined ? aiAnalysisEnabled : (user.profile?.aiAnalysisEnabled ?? true)
+      aiAnalysisEnabled: aiAnalysisEnabled !== undefined ? aiAnalysisEnabled : (user.profile?.aiAnalysisEnabled ?? true),
+      calendarTimeFormat: calendarTimeFormat !== undefined ? calendarTimeFormat : (user.profile?.calendarTimeFormat ?? '12h'),
+      calendarDefaultView: calendarDefaultView !== undefined ? calendarDefaultView : (user.profile?.calendarDefaultView ?? 'week')
     };
     
     console.log('📝 After update - showWalletBalance:', user.profile.showWalletBalance, 'remindersEnabled:', user.profile.remindersEnabled);
@@ -1213,15 +1215,34 @@ router.get('/tutors', verifyToken, async (req, res) => {
       return aViolations - bViolations; // Lower violations = higher priority
     });
     
-    // Batch fetch material counts for all tutors in one query
+    // Batch fetch material counts and real lesson stats for all tutors
     const tutorIds = tutors.map(t => t._id);
-    const materialCounts = await TutorMaterial.aggregate([
-      { $match: { tutorId: { $in: tutorIds }, status: 'published' } },
-      { $group: { _id: '$tutorId', count: { $sum: 1 } } }
+    const [materialCounts, lessonCounts, studentCounts] = await Promise.all([
+      TutorMaterial.aggregate([
+        { $match: { tutorId: { $in: tutorIds }, status: 'published' } },
+        { $group: { _id: '$tutorId', count: { $sum: 1 } } }
+      ]),
+      Lesson.aggregate([
+        { $match: { tutorId: { $in: tutorIds }, status: { $in: ['completed', 'ended_early'] } } },
+        { $group: { _id: '$tutorId', count: { $sum: 1 } } }
+      ]),
+      Lesson.aggregate([
+        { $match: { tutorId: { $in: tutorIds }, status: { $in: ['completed', 'ended_early'] } } },
+        { $group: { _id: '$tutorId', students: { $addToSet: '$studentId' } } },
+        { $project: { _id: 1, count: { $size: '$students' } } }
+      ])
     ]);
     const materialCountMap = {};
     for (const mc of materialCounts) {
       materialCountMap[mc._id.toString()] = mc.count;
+    }
+    const lessonCountMap = {};
+    for (const lc of lessonCounts) {
+      lessonCountMap[lc._id.toString()] = lc.count;
+    }
+    const studentCountMap = {};
+    for (const sc of studentCounts) {
+      studentCountMap[sc._id.toString()] = sc.count;
     }
 
     const formattedTutors = tutors.map(tutor => {
@@ -1261,7 +1282,8 @@ router.get('/tutors', verifyToken, async (req, res) => {
         gender: tutor.profile?.gender || 'Not specified',
         nativeSpeaker: tutor.profile?.nativeSpeaker || false,
         rating: tutor.stats?.rating || 0,
-        totalLessons: tutor.stats?.totalLessons || 0,
+        totalLessons: lessonCountMap[tutor._id.toString()] || 0,
+        students: studentCountMap[tutor._id.toString()] || 0,
         totalHours: tutor.stats?.totalHours || 0,
         joinedDate: tutor.createdAt,
         profile: tutor.profile, // Include full profile object for officeHoursEnabled and other features
@@ -2101,6 +2123,19 @@ router.get('/:userId/public', publicProfileLimiter, async (req, res) => {
       const hasPayPal = user.payoutProvider === 'paypal' && !!user.payoutDetails?.paypalEmail;
       const hasManual = user.payoutProvider === 'manual';
       const hasPayoutSetup = hasStripe || hasPayPal || hasManual;
+
+      // Compute real lesson/student counts from the Lesson collection
+      const completedFilter = { tutorId: user._id, status: { $in: ['completed', 'ended_early'] } };
+      const [lessonCount, uniqueStudents] = await Promise.all([
+        Lesson.countDocuments(completedFilter),
+        Lesson.distinct('studentId', completedFilter).then(ids => ids.length)
+      ]);
+
+      const tutorStats = {
+        ...(user.stats?.toObject ? user.stats.toObject() : (user.stats || {})),
+        totalLessons: lessonCount,
+        students: uniqueStudents
+      };
       
       res.json({
         success: true,
@@ -2121,9 +2156,8 @@ router.get('/:userId/public', publicProfileLimiter, async (req, res) => {
           videoThumbnail: user.onboardingData?.videoThumbnail || '',
           videoType: user.onboardingData?.videoType || 'upload',
           country: user.country || user.residenceCountry || '',
-          stats: user.stats || {},
+          stats: tutorStats,
           profile: user.profile || {},
-          // Payout and approval info for booking validation
           tutorApproved: user.tutorApproved,
           stripeConnectOnboarded: hasPayoutSetup,
           payoutProvider: user.payoutProvider,
@@ -2617,5 +2651,31 @@ const handleGetCredentialUrl = async (req, res) => {
 };
 router.get('/tutor/credential-url/:credentialType/:credentialId', verifyToken, handleGetCredentialUrl);
 router.get('/tutor/credential-url/:credentialType', verifyToken, handleGetCredentialUrl);
+
+// POST /api/users/tutor/accept-tos - Accept Terms of Service & Independent Contractor Agreement
+router.post('/tutor/accept-tos', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user || user.userType !== 'tutor') {
+      return res.status(403).json({ success: false, message: 'Only tutors can accept TOS' });
+    }
+
+    const { tosVersion } = req.body;
+    user.tosAcceptedAt = new Date();
+    user.tosVersion = tosVersion || '1.0';
+    await user.save();
+
+    console.log(`✅ [TOS] Tutor ${user.email} accepted TOS v${user.tosVersion}`);
+
+    res.json({
+      success: true,
+      tosAcceptedAt: user.tosAcceptedAt,
+      tosVersion: user.tosVersion
+    });
+  } catch (error) {
+    console.error('❌ Error accepting TOS:', error);
+    res.status(500).json({ success: false, message: 'Failed to accept TOS' });
+  }
+});
 
 module.exports = router;

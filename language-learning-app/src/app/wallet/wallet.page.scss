@@ -652,6 +652,12 @@ ion-header {
           font-size: 18px;
           color: #007aff;
         }
+
+        .payment-method-google {
+          width: 18px;
+          height: 18px;
+          object-fit: contain;
+        }
       }
       
       .payment-info {

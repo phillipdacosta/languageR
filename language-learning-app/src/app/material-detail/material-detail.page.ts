@@ -5,7 +5,8 @@ import { IonicModule, ToastController, ModalController, AlertController } from '
 import { RouterModule, ActivatedRoute, Router } from '@angular/router';
 import { Location } from '@angular/common';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { MaterialService, TutorMaterial, QuizResult } from '../services/material.service';
+import { trigger, transition, style, animate, state } from '@angular/animations';
+import { MaterialService, TutorMaterial, QuizResult, QuestionType } from '../services/material.service';
 import { UserService } from '../services/user.service';
 import { AuthService } from '../services/auth.service';
 import { SharedModule } from '../shared/shared.module';
@@ -17,7 +18,19 @@ import { take } from 'rxjs';
   templateUrl: './material-detail.page.html',
   styleUrls: ['./material-detail.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, RouterModule, FormsModule, SharedModule]
+  imports: [CommonModule, IonicModule, RouterModule, FormsModule, SharedModule],
+  animations: [
+    trigger('collapseLeft', [
+      state('visible', style({ opacity: 1, transform: 'translate3d(0,0,0)' })),
+      state('hidden', style({ opacity: 0, transform: 'translate3d(-30px,0,0)' })),
+      transition('visible => hidden', [
+        animate('280ms cubic-bezier(0.32, 0.72, 0, 1)')
+      ]),
+      transition('hidden => visible', [
+        animate('350ms cubic-bezier(0.32, 0.72, 0, 1)')
+      ])
+    ])
+  ]
 })
 export class MaterialDetailPage implements OnInit {
   material: TutorMaterial | null = null;
@@ -29,16 +42,28 @@ export class MaterialDetailPage implements OnInit {
   currentUser: any = null;
   isTutorOwner = false;
   channelInfo: { name: string; avatar: string | null; url: string; subs?: string } | null = null;
+  /** First 2 letters of channel name for avatar fallback (YouTube-style). */
+  channelInitials = '';
 
   // Quiz state
   quizMode: 'idle' | 'taking' | 'results' = 'idle';
-  selectedAnswers: (string | null)[] = [];
+  selectedAnswers: any[] = [];
   currentQuestionIndex = 0;
   quizResult: QuizResult | null = null;
   isSubmittingQuiz = false;
   isPurchasing = false;
 
+  // Ordering question state: shuffled items for each ordering question
+  orderingItems: string[][] = [];
+
+  // Fill-in-the-blank text input binding
+  fillBlankInput = '';
+
   isAuthenticated = false;
+  /** True when the right sidebar (quiz panel) is shown, so we hide duplicate info on the left. */
+  hasQuizSidebar = false;
+  /** True when the left column is collapsed. */
+  leftPanelHidden = false;
 
   constructor(
     private route: ActivatedRoute,
@@ -78,6 +103,7 @@ export class MaterialDetailPage implements OnInit {
         this.isLoading = false;
         if (res.success && res.material) {
           this.material = res.material;
+          this.hasQuizSidebar = !!(this.material.quiz && this.material.quiz.length > 0);
           if (this.material.videoEmbedUrl) {
             this.videoEmbedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.material.videoEmbedUrl);
           }
@@ -87,6 +113,9 @@ export class MaterialDetailPage implements OnInit {
           const tutorId = typeof this.material.tutorId === 'object' ? this.material.tutorId._id : this.material.tutorId;
           this.isTutorOwner = this.currentUser?.id === tutorId || this.currentUser?._id === tutorId;
           this.channelInfo = this.resolveChannelInfo();
+          this.channelInitials = this.channelInfo && !this.channelInfo.avatar
+            ? (this.channelInfo.name || '').slice(0, 2).toUpperCase()
+            : '';
           this.selectedAnswers = new Array(this.material.quiz?.length || 0).fill(null);
         }
       },
@@ -122,6 +151,10 @@ export class MaterialDetailPage implements OnInit {
     this.location.back();
   }
 
+  toggleLeftPanel() {
+    this.leftPanelHidden = !this.leftPanelHidden;
+  }
+
   goHome() {
     this.router.navigate(['/tabs/home']);
   }
@@ -146,11 +179,21 @@ export class MaterialDetailPage implements OnInit {
     await alert.present();
   }
 
+  get tutorId(): string | null {
+    if (!this.material?.tutorId) return null;
+    const t = this.material.tutorId;
+    return typeof t === 'object' && t._id ? t._id : typeof t === 'string' ? t : null;
+  }
+
   get tutorName(): string {
     if (!this.material?.tutorId) return 'Tutor';
     const t = this.material.tutorId;
     if (typeof t === 'string') return 'Tutor';
-    return t.firstName || t.name || 'Tutor';
+    const first = (t.firstName || '').trim();
+    const last = (t.lastName || '').trim();
+    if (first && last) return `${first} ${last.charAt(0).toUpperCase()}.`;
+    if (first) return first;
+    return t.name || 'Tutor';
   }
 
   get tutorPicture(): string | null {
@@ -167,6 +210,11 @@ export class MaterialDetailPage implements OnInit {
     if (!this.material?.createdAt) return '';
     const d = new Date(this.material.createdAt);
     return 'Added ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  goToTutorProfile(): void {
+    const id = this.tutorId;
+    if (id) this.router.navigate(['/tutor', id]);
   }
 
   get typeLabel(): string {
@@ -242,42 +290,116 @@ export class MaterialDetailPage implements OnInit {
     this.quizMode = 'taking';
     this.currentQuestionIndex = 0;
     this.selectedAnswers = new Array(this.material?.quiz?.length || 0).fill(null);
+    this.fillBlankInput = '';
     this.quizResult = null;
+
+    this.initOrderingState();
+    this.syncFillBlankInput();
   }
 
+  private initOrderingState() {
+    if (!this.material?.quiz) return;
+    this.orderingItems = [];
+
+    for (let qi = 0; qi < this.material.quiz.length; qi++) {
+      const q = this.material.quiz[qi];
+      if ((q.type || 'multiple_choice') === 'ordering' && q.correctOrder?.length) {
+        const shuffled = [...q.correctOrder];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        this.orderingItems.push(shuffled);
+        this.selectedAnswers[qi] = [...shuffled];
+      } else {
+        this.orderingItems.push([]);
+      }
+    }
+  }
+
+  private syncFillBlankInput() {
+    const q = this.currentQuestion;
+    if (!q) return;
+    if ((q.type || 'multiple_choice') === 'fill_blank') {
+      this.fillBlankInput = this.selectedAnswers[this.currentQuestionIndex] || '';
+    }
+  }
+
+  // Multiple choice
   selectAnswer(optionId: string) {
     this.selectedAnswers[this.currentQuestionIndex] = optionId;
+  }
+
+  // True/False
+  selectTrueFalse(val: boolean) {
+    this.selectedAnswers[this.currentQuestionIndex] = val;
+  }
+
+  // Fill in the blank
+  onFillBlankChange(text: string) {
+    this.fillBlankInput = text;
+    this.selectedAnswers[this.currentQuestionIndex] = text.trim() || null;
+  }
+
+  // Ordering: ion-reorder handler
+  onOrderingReorder(event: any) {
+    const qi = this.currentQuestionIndex;
+    const items = this.orderingItems[qi];
+    const movedItem = items.splice(event.detail.from, 1)[0];
+    items.splice(event.detail.to, 0, movedItem);
+    this.orderingItems[qi] = [...items];
+    this.selectedAnswers[qi] = [...items];
+    event.detail.complete(false);
+  }
+
+  get currentQuestionType(): QuestionType {
+    return this.currentQuestion?.type || 'multiple_choice';
   }
 
   nextQuestion() {
     if (this.currentQuestionIndex < (this.material?.quiz?.length || 0) - 1) {
       this.currentQuestionIndex++;
+      this.syncFillBlankInput();
     }
   }
 
   prevQuestion() {
     if (this.currentQuestionIndex > 0) {
       this.currentQuestionIndex--;
+      this.syncFillBlankInput();
     }
   }
 
   get canSubmitQuiz(): boolean {
-    return this.selectedAnswers.every(a => a !== null);
+    return this.selectedAnswers.every(a => a !== null && a !== '');
   }
 
   get currentQuestion(): any {
     return this.material?.quiz?.[this.currentQuestionIndex] || null;
   }
 
+  get isLastQuizQuestion(): boolean {
+    if (!this.material?.quiz?.length) return false;
+    return this.currentQuestionIndex === this.material.quiz.length - 1;
+  }
+
   get answeredCount(): number {
-    return this.selectedAnswers.filter(a => a !== null).length;
+    return this.selectedAnswers.filter(a => a !== null && a !== '').length;
   }
 
   submitQuiz() {
     if (!this.material || this.isSubmittingQuiz) return;
     this.isSubmittingQuiz = true;
 
-    const answers = this.selectedAnswers.map(a => a || '');
+    const answers = this.selectedAnswers.map((a, i) => {
+      const qType = this.material!.quiz[i]?.type || 'multiple_choice';
+      if (qType === 'multiple_choice') return a || '';
+      if (qType === 'fill_blank') return a || '';
+      if (qType === 'true_false') return a;
+      if (qType === 'ordering') return a || [];
+      return a;
+    });
+
     this.materialService.submitQuiz(this.material._id, answers).subscribe({
       next: (res) => {
         this.isSubmittingQuiz = false;
@@ -335,6 +457,8 @@ export class MaterialDetailPage implements OnInit {
     this.quizResult = null;
     this.selectedAnswers = new Array(this.material?.quiz?.length || 0).fill(null);
     this.currentQuestionIndex = 0;
+    this.fillBlankInput = '';
+    this.initOrderingState();
   }
 
   async reportProblem() {

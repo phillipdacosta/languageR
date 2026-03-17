@@ -31,6 +31,14 @@ $ob-accent: #222222;
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes gradientFlow {
+  0% { background-position: 0% 50%; }
+  25% { background-position: 100% 25%; }
+  50% { background-position: 50% 100%; }
+  75% { background-position: 0% 75%; }
+  100% { background-position: 0% 50%; }
+}
+
 .pre-step-inner {
   display: flex;
   flex-direction: column;
@@ -519,13 +527,35 @@ ion-header {
 
 // Left Column - Progress & Navigation
 .left-column {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 16px;
   overflow-y: auto;
   height: 100%;
   min-height: 0;
-  background: linear-gradient(181deg, #b0d7ff99 0%, #e0e5ffb5 30%, #fdf2f89c 70%, #fce7f34f 100%);
+
+  .left-column-mascot {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 72px;
+    height: auto;
+    opacity: 0.85;
+    pointer-events: none;
+    z-index: 1;
+  }
+  background: linear-gradient(
+    220deg,
+    rgba(66, 152, 211, 0.3) 0%,
+    rgba(224, 229, 255, 0.7) 20%,
+    rgba(255, 223, 170, 0.45) 40%,
+    rgba(253, 242, 248, 0.6) 60%,
+    rgba(252, 231, 243, 0.4) 80%,
+    rgba(66, 152, 211, 0.3) 100%
+  );
+  background-size: 300% 300%;
+  animation: gradientFlow 12s ease infinite;
   border-radius: 16px;
   padding: 20px;
   margin: -4px;

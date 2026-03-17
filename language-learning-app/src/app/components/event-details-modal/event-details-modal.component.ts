@@ -22,6 +22,7 @@ interface EventDetails {
   isOfficeHours?: boolean;
   isCancelled?: boolean;
   isLesson?: boolean;
+  isGoogleCalendar?: boolean;
   attendees?: any[];
   capacity?: number;
   thumbnail?: string;

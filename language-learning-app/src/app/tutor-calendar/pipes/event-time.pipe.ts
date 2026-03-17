@@ -7,7 +7,7 @@ import { getHoursInTz, getMinutesInTz } from '../../shared/timezone.utils';
   pure: true
 })
 export class EventTimePipe implements PipeTransform {
-  transform(event: any, timezone?: string): string {
+  transform(event: any, timezone?: string, timeFormat?: '12h' | '24h'): string {
     if (!event?.start || !event?.end) return '';
 
     const startTime = new Date(event.start);
@@ -15,17 +15,19 @@ export class EventTimePipe implements PipeTransform {
     const durationMs = endTime.getTime() - startTime.getTime();
     const durationMinutes = Math.round(durationMs / (1000 * 60));
 
-    const formattedTime = this.formatTime(startTime, timezone);
+    const formattedTime = this.formatTime(startTime, timezone, timeFormat === '24h');
     return `${formattedTime} (${durationMinutes}min)`;
   }
 
-  private formatTime(date: Date, timezone?: string): string {
-    let hours = getHoursInTz(date, timezone);
+  private formatTime(date: Date, timezone?: string, is24h: boolean = false): string {
+    const hours = getHoursInTz(date, timezone);
     const minutes = getMinutesInTz(date, timezone);
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12;
-    hours = hours ? hours : 12;
     const minutesStr = minutes < 10 ? '0' + minutes : minutes.toString();
-    return `${hours}:${minutesStr} ${ampm}`;
+    if (is24h) {
+      return `${hours.toString().padStart(2, '0')}:${minutesStr}`;
+    }
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+    return `${displayHours}:${minutesStr} ${ampm}`;
   }
 }

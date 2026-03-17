@@ -1,29 +1,28 @@
-<ion-content [fullscreen]="true" [scrollY]="false">
-  <!-- Inline Schedule Class Form (Tutors) -->
-  <div class="schedule-class-inline" *ngIf="showScheduleForm">
-    <app-schedule-class
-      [inline]="true"
-      (goBackEvent)="onScheduleGoBack()"
-      (classCreated)="onClassCreated()">
-    </app-schedule-class>
-  </div>
+<!-- Inline Schedule Class Form (Tutors) -->
+<div class="schedule-class-inline" *ngIf="showScheduleForm">
+  <app-schedule-class
+    [inline]="true"
+    (goBackEvent)="onScheduleGoBack()"
+    (classCreated)="onClassCreated()">
+  </app-schedule-class>
+</div>
 
-  <div class="explore-page" *ngIf="!showScheduleForm">
-    <!-- Page Header -->
-    <div class="page-header">
-      <div class="header-left">
-        <button class="back-btn" (click)="goBack()">
-          <ion-icon name="chevron-back"></ion-icon>
-        </button>
-        <h1 class="page-title">Explore Classes</h1>
-      </div>
+<div class="explore-page" *ngIf="!showScheduleForm">
+    <!-- Nav Bar -->
+    <div class="explore-nav-bar">
+      <button class="explore-nav-back" (click)="goBack()">
+        <ion-icon name="chevron-back-outline"></ion-icon>
+        <span>{{ 'EXPLORE_CLASSES.ANIM_GO_BACK' | translate }}</span>
+      </button>
+      <div class="explore-nav-title">{{ 'EXPLORE_CLASSES.PAGE_TITLE' | translate }}</div>
+      <div class="explore-nav-right"></div>
     </div>
 
     <!-- Tutor: Schedule Class button -->
     <div class="filters-trigger-container" *ngIf="isTutorUser">
       <button class="schedule-class-btn" (click)="scheduleClass()">
         <ion-icon name="add-outline"></ion-icon>
-        <span>Schedule Class</span>
+        <span>{{ 'EXPLORE_CLASSES.SCHEDULE_CLASS' | translate }}</span>
       </button>
     </div>
 
@@ -31,7 +30,7 @@
     <div class="filters-trigger-container" *ngIf="!isTutorUser">
       <button class="filters-trigger-btn" (click)="openFiltersModal()">
         <ion-icon name="options-outline"></ion-icon>
-        <span>Filters</span>
+        <span>{{ 'EXPLORE_CLASSES.FILTERS' | translate }}</span>
         <span class="filter-count" *ngIf="activeFilterCount > 0">{{ activeFilterCount }}</span>
       </button>
 
@@ -51,13 +50,13 @@
           "{{ filters.searchQuery }}"
         </span>
         <span class="filter-chip-preview" *ngIf="filters.sortBy !== 'date_asc'">
-          Sorted
+          {{ 'EXPLORE_CLASSES.SORTED' | translate }}
         </span>
       </div>
 
       <!-- Clear All -->
       <button class="clear-all-inline" *ngIf="activeFilterCount > 0" (click)="clearFilters()">
-        Clear all
+        {{ 'EXPLORE_CLASSES.CLEAR_ALL' | translate }}
       </button>
     </div>
 
@@ -66,22 +65,22 @@
       <!-- Loading State -->
       <div class="loading-container" *ngIf="isLoading">
         <ion-spinner name="crescent"></ion-spinner>
-        <p>Loading classes...</p>
+        <p>{{ 'EXPLORE_CLASSES.LOADING' | translate }}</p>
       </div>
 
       <!-- Empty State: No classes at all -->
       <div class="empty-state" *ngIf="!isLoading && publicClasses.length === 0">
         <ion-icon name="calendar-outline"></ion-icon>
-        <h2>Your classes will appear here</h2>
-        <p>Create classes to share with your students or publicize them to the world.</p>
+        <h2>{{ 'EXPLORE_CLASSES.EMPTY_TITLE' | translate }}</h2>
+        <p>{{ 'EXPLORE_CLASSES.EMPTY_DESC' | translate }}</p>
       </div>
 
       <!-- Empty State: No filter matches -->
       <div class="empty-state" *ngIf="!isLoading && filteredClasses.length === 0 && publicClasses.length > 0">
         <ion-icon name="search-outline"></ion-icon>
-        <h2>No classes match your filters</h2>
-        <p>Try adjusting your filters to find more classes.</p>
-        <button class="clear-filters-btn" (click)="clearFilters()">Clear Filters</button>
+        <h2>{{ 'EXPLORE_CLASSES.NO_MATCH_TITLE' | translate }}</h2>
+        <p>{{ 'EXPLORE_CLASSES.NO_MATCH_DESC' | translate }}</p>
+        <button class="clear-filters-btn" (click)="clearFilters()">{{ 'EXPLORE_CLASSES.CLEAR_FILTERS' | translate }}</button>
       </div>
 
       <!-- Classes Grid -->
@@ -94,8 +93,8 @@
                 <ion-icon name="people-outline"></ion-icon>
               </div>
             </div>
-            <span class="enrolled-badge" *ngIf="classItem.isEnrolled">Enrolled</span>
-            <span class="cancelled-badge" *ngIf="classItem.status === 'cancelled'">Cancelled</span>
+            <span class="enrolled-badge" *ngIf="classItem.isEnrolled">{{ 'EXPLORE_CLASSES.ENROLLED' | translate }}</span>
+            <span class="cancelled-badge" *ngIf="classItem.status === 'cancelled'">{{ 'EXPLORE_CLASSES.CANCELLED' | translate }}</span>
           </div>
 
           <!-- Card Info -->
@@ -117,7 +116,7 @@
               <span class="detail-item">{{ classItem.displayDuration }}</span>
             </div>
             <div class="card-bottom-row">
-              <span class="card-price">${{ classItem.displayPrice }} <span class="price-sub">/ student</span></span>
+              <span class="card-price">${{ classItem.displayPrice }} <span class="price-sub">{{ 'EXPLORE_CLASSES.PER_STUDENT' | translate }}</span></span>
               <div class="card-tags">
                 <span class="tag-level">{{ classItem.displayLevel }}</span>
                 <span class="tag-spots">{{ classItem.displayStudentCount }}</span>
@@ -126,15 +125,14 @@
             <button class="card-action-btn" *ngIf="!isTutorUser"
                     [disabled]="(classItem.isFull && !classItem.isEnrolled && !classItem.hasInvitation) || classItem.status === 'cancelled'"
                     (click)="handleClassAction(classItem, $event)">
-              <span *ngIf="classItem.status === 'cancelled'">Cancelled</span>
-              <span *ngIf="classItem.status !== 'cancelled' && classItem.isEnrolled">Enrolled</span>
-              <span *ngIf="classItem.status !== 'cancelled' && !classItem.isEnrolled && classItem.hasInvitation && classItem.invitationStatus === 'pending'">Respond</span>
-              <span *ngIf="classItem.status !== 'cancelled' && !classItem.isEnrolled && !classItem.hasInvitation && !classItem.isFull">Join</span>
-              <span *ngIf="classItem.status !== 'cancelled' && !classItem.isEnrolled && !classItem.hasInvitation && classItem.isFull">Full</span>
+              <span *ngIf="classItem.status === 'cancelled'">{{ 'EXPLORE_CLASSES.CANCELLED' | translate }}</span>
+              <span *ngIf="classItem.status !== 'cancelled' && classItem.isEnrolled">{{ 'EXPLORE_CLASSES.ENROLLED' | translate }}</span>
+              <span *ngIf="classItem.status !== 'cancelled' && !classItem.isEnrolled && classItem.hasInvitation && classItem.invitationStatus === 'pending'">{{ 'EXPLORE_CLASSES.RESPOND' | translate }}</span>
+              <span *ngIf="classItem.status !== 'cancelled' && !classItem.isEnrolled && !classItem.hasInvitation && !classItem.isFull">{{ 'EXPLORE_CLASSES.JOIN' | translate }}</span>
+              <span *ngIf="classItem.status !== 'cancelled' && !classItem.isEnrolled && !classItem.hasInvitation && classItem.isFull">{{ 'EXPLORE_CLASSES.FULL' | translate }}</span>
             </button>
           </div>
         </div>
       </div>
     </div>
   </div>
-</ion-content>

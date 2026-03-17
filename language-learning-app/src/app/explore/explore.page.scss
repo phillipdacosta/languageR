@@ -21,86 +21,55 @@ $bg-white: #ffffff;
 }
 
 .explore-page {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  background: $bg-white;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px 40px;
 }
 
-// Page header (replaces ion-header)
-.page-header {
+// Nav bar — matches create-material style
+.explore-nav-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 24px;
-  flex-shrink: 0;
-  border-bottom: 1px solid #ebebeb;
-
-  @media (max-width: 768px) {
-    padding: 12px 16px;
-  }
-
-  .header-left {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .back-btn {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    border: 1px solid $border-color;
-    background: $bg-white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: background 0.15s ease;
-
-    &:hover {
-      background: $bg-subtle;
-    }
-
-    ion-icon {
-      font-size: 20px;
-      color: $text-primary;
-    }
-  }
-
-  .page-title {
-    font-size: 22px;
-    font-weight: 700;
-    color: $text-primary;
-    margin: 0;
-    letter-spacing: -0.5px;
-
-    @media (max-width: 768px) {
-      font-size: 18px;
-    }
-  }
+  padding: 14px 0;
 }
 
-// Filters trigger bar (matches tutor-search)
+.explore-nav-back {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 6px 0;
+  transition: opacity 0.15s;
+
+  ion-icon { font-size: 20px; }
+  &:hover { opacity: 0.7; }
+  &:active { opacity: 0.5; }
+}
+
+.explore-nav-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1d1d1f;
+}
+
+.explore-nav-right {
+  min-width: 40px;
+}
+
+// Filters trigger bar
 .filters-trigger-container {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 16px 24px;
-  background: $bg-white;
-  border-bottom: 1px solid #ebebeb;
+  padding: 16px 0;
   flex-wrap: wrap;
-  flex-shrink: 0;
-
-  @media (min-width: 769px) {
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    padding: 20px 32px;
-  }
 
   @media (max-width: 768px) {
-    padding: 12px 16px;
     gap: 12px;
   }
 }
@@ -214,12 +183,8 @@ $bg-white: #ffffff;
   }
 }
 
-// Scrollable area
-.explore-scroll-area {
-  flex: 1;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-}
+// Scroll area
+.explore-scroll-area {}
 
 // Loading
 .loading-container {
@@ -298,26 +263,16 @@ $bg-white: #ffffff;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 24px;
-  padding: 24px;
-  max-width: 1400px;
-  margin: 0 auto;
+  padding: 24px 0;
 
   @media (min-width: 1025px) {
     grid-template-columns: repeat(3, 1fr);
     gap: 28px;
-    padding: 28px 40px;
-  }
-
-  @media (max-width: 768px) {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
-    padding: 16px;
   }
 
   @media (max-width: 480px) {
     grid-template-columns: 1fr;
     gap: 20px;
-    padding: 16px;
   }
 }
 
@@ -572,31 +527,8 @@ $bg-white: #ffffff;
     background: #000000;
   }
 
-  .page-header {
-    border-bottom-color: rgba(255, 255, 255, 0.08);
-
-    .back-btn {
-      background: #2c2c2e;
-      border-color: #3a3a3c;
-
-      &:hover {
-        background: #3a3a3c;
-      }
-
-      ion-icon {
-        color: #f5f5f7;
-      }
-    }
-
-    .page-title {
-      color: #f5f5f7;
-    }
-  }
-
-  .filters-trigger-container {
-    background: #000000;
-    border-bottom-color: rgba(255, 255, 255, 0.08);
-  }
+  .explore-nav-back { color: #4298d2; }
+  .explore-nav-title { color: #f5f5f7; }
 
   .schedule-class-btn {
     background: #4298d2;

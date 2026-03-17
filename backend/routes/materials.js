@@ -146,11 +146,40 @@ function validateQuiz(quiz) {
   if (!quiz || quiz.length === 0) return null;
   for (let i = 0; i < quiz.length; i++) {
     const q = quiz[i];
-    if (!q.question || !q.options || q.options.length < 2) {
-      return `Question ${i + 1} must have text and at least 2 options`;
-    }
-    if (!q.options.some(o => o.isCorrect)) {
-      return `Question ${i + 1} must have at least one correct answer`;
+    const num = i + 1;
+    if (!q.question) return `Question ${num} must have question text`;
+
+    const qType = q.type || 'multiple_choice';
+
+    switch (qType) {
+      case 'multiple_choice':
+        if (!q.options || q.options.length < 2)
+          return `Question ${num} must have at least 2 options`;
+        if (!q.options.some(o => o.isCorrect))
+          return `Question ${num} must have at least one correct answer`;
+        break;
+
+      case 'fill_blank':
+        if (!q.acceptedAnswers || q.acceptedAnswers.length === 0)
+          return `Question ${num} must have at least one accepted answer`;
+        if (!q.acceptedAnswers.some(a => a && a.trim()))
+          return `Question ${num} has empty accepted answers`;
+        break;
+
+      case 'true_false':
+        if (typeof q.correctAnswer !== 'boolean')
+          return `Question ${num} must specify the correct answer (true or false)`;
+        break;
+
+      case 'ordering':
+        if (!q.correctOrder || q.correctOrder.length < 2)
+          return `Question ${num} must have at least 2 items to order`;
+        if (q.correctOrder.some(item => !item || !item.trim()))
+          return `Question ${num} has empty ordering items`;
+        break;
+
+      default:
+        return `Question ${num} has an invalid type: ${qType}`;
     }
   }
   return null;
@@ -1008,16 +1037,54 @@ router.post('/:id/quiz/submit', verifyToken, async (req, res) => {
     let correct = 0;
     const results = material.quiz.map((q, i) => {
       const userAnswer = answers[i];
-      const correctOption = q.options.find(o => o.isCorrect);
-      const isCorrect = correctOption && correctOption._id.toString() === userAnswer;
+      const qType = q.type || 'multiple_choice';
+      let isCorrect = false;
+      let correctAnswerText = '';
+      let correctAnswerValue = null;
+
+      switch (qType) {
+        case 'multiple_choice': {
+          const correctOption = q.options.find(o => o.isCorrect);
+          isCorrect = !!(correctOption && correctOption._id.toString() === userAnswer);
+          correctAnswerText = correctOption?.text || '';
+          correctAnswerValue = correctOption?._id;
+          break;
+        }
+        case 'fill_blank': {
+          const trimmed = (userAnswer || '').toString().trim().toLowerCase();
+          isCorrect = (q.acceptedAnswers || []).some(
+            a => a.trim().toLowerCase() === trimmed
+          );
+          correctAnswerText = (q.acceptedAnswers || [])[0] || '';
+          correctAnswerValue = q.acceptedAnswers || [];
+          break;
+        }
+        case 'true_false': {
+          isCorrect = userAnswer === q.correctAnswer;
+          correctAnswerText = q.correctAnswer ? 'True' : 'False';
+          correctAnswerValue = q.correctAnswer;
+          break;
+        }
+        case 'ordering': {
+          const userOrder = Array.isArray(userAnswer) ? userAnswer : [];
+          const expected = q.correctOrder || [];
+          isCorrect = userOrder.length === expected.length &&
+            userOrder.every((item, idx) => item === expected[idx]);
+          correctAnswerText = expected.join(' → ');
+          correctAnswerValue = expected;
+          break;
+        }
+      }
+
       if (isCorrect) correct++;
 
       return {
         questionId: q._id,
         question: q.question,
+        type: qType,
         userAnswer,
-        correctAnswer: correctOption?._id,
-        correctAnswerText: correctOption?.text,
+        correctAnswer: correctAnswerValue,
+        correctAnswerText,
         isCorrect,
         explanation: q.explanation || null
       };

@@ -6,7 +6,7 @@
 
   <div class="modal-content">
     <!-- Title -->
-    <h2 class="modal-title">Crop Profile Picture</h2>
+    <h2 class="modal-title">{{ cropTitle }}</h2>
 
     <!-- Controls (moved above cropper for visibility) -->
     <div class="controls" *ngIf="showCropper">
@@ -44,7 +44,7 @@
         [imageChangedEvent]="imageChangedEvent"
         [imageFile]="imageFile"
         [maintainAspectRatio]="true"
-        [aspectRatio]="1"
+        [aspectRatio]="aspectRatio"
         [resizeToWidth]="400"
         [cropperMinWidth]="128"
         [onlyScaleDown]="true"

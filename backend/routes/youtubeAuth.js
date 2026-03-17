@@ -7,6 +7,38 @@ const crypto = require('crypto');
 
 const pendingStates = new Map();
 
+function buildCallbackHtml(success, error, origin) {
+  const payload = success
+    ? JSON.stringify({ type: 'youtube_linked', success: true })
+    : JSON.stringify({ type: 'youtube_linked', success: false, error: error || 'unknown' });
+  const message = success
+    ? 'YouTube channel linked successfully!'
+    : 'YouTube linking failed.';
+
+  return `<!DOCTYPE html>
+<html><head><title>YouTube – Barnabi</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; display: flex;
+    align-items: center; justify-content: center; height: 100vh; margin: 0;
+    background: #f5f5f7; color: #1d1d1f; text-align: center; }
+  .card { background: #fff; border-radius: 16px; padding: 40px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); max-width: 360px; }
+  .icon { font-size: 48px; margin-bottom: 12px; }
+  h2 { font-size: 18px; font-weight: 600; margin: 0 0 8px; }
+  p { font-size: 14px; color: #86868b; margin: 0; }
+</style></head>
+<body><div class="card">
+  <div class="icon">${success ? '✅' : '❌'}</div>
+  <h2>${message}</h2>
+  <p>You can close this window now.</p>
+</div>
+<script>
+  var msg = ${payload};
+  if (window.opener && !window.opener.closed) {
+    window.opener.postMessage(msg, '${origin}');
+  }
+</script></body></html>`;
+}
+
 function getOAuth2Client() {
   return new google.auth.OAuth2(
     process.env.GOOGLE_OAUTH_CLIENT_ID,
@@ -59,10 +91,8 @@ router.get('/youtube/callback', async (req, res) => {
   try {
     const { code, state, error } = req.query;
 
-    const sendError = (err) => res.send(`<html><body><script>
-      window.opener && window.opener.postMessage({ type: 'youtube_linked', success: false, error: '${err}' }, '*');
-      window.close();
-    </script><p>YouTube linking failed. You can close this window.</p></body></html>`);
+    const frontendOrigin = frontendUrl.replace(/\/$/, '');
+    const sendError = (err) => res.send(buildCallbackHtml(false, err, frontendOrigin));
 
     if (error) return sendError('access_denied');
     if (!code || !state) return sendError('missing_params');
@@ -102,16 +132,10 @@ router.get('/youtube/callback', async (req, res) => {
       'linkedChannels.youtubeRefreshToken': tokens.refresh_token || null,
     });
 
-    res.send(`<html><body><script>
-      window.opener && window.opener.postMessage({ type: 'youtube_linked', success: true }, '*');
-      window.close();
-    </script><p>YouTube linked! You can close this window.</p></body></html>`);
+    res.send(buildCallbackHtml(true, null, frontendOrigin));
   } catch (err) {
     console.error('YouTube OAuth callback error:', err);
-    res.send(`<html><body><script>
-      window.opener && window.opener.postMessage({ type: 'youtube_linked', success: false, error: 'auth_failed' }, '*');
-      window.close();
-    </script><p>YouTube linking failed. You can close this window.</p></body></html>`);
+    res.send(buildCallbackHtml(false, 'auth_failed', frontendOrigin));
   }
 });
 

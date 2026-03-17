@@ -10,10 +10,16 @@ export interface QuizOption {
   isCorrect?: boolean;
 }
 
+export type QuestionType = 'multiple_choice' | 'fill_blank' | 'true_false' | 'ordering';
+
 export interface QuizQuestion {
   _id?: string;
+  type: QuestionType;
   question: string;
   options: QuizOption[];
+  acceptedAnswers?: string[];
+  correctAnswer?: boolean;
+  correctOrder?: string[];
   explanation?: string;
 }
 
@@ -89,9 +95,11 @@ export interface LinkedChannels {
   youtubeChannelAvatar?: string | null;
   youtubeSubscriberCount?: string | null;
   youtubeVerified?: boolean;
+  vimeoChannelId?: string | null;
   vimeoChannelUrl?: string | null;
   vimeoChannelName?: string | null;
   vimeoChannelAvatar?: string | null;
+  vimeoVerified?: boolean;
   soundcloudProfileUrl?: string | null;
   soundcloudProfileName?: string | null;
   soundcloudProfileAvatar?: string | null;
@@ -104,8 +112,9 @@ export interface QuizResult {
   results: Array<{
     questionId: string;
     question: string;
-    userAnswer: string;
-    correctAnswer: string;
+    type: QuestionType;
+    userAnswer: any;
+    correctAnswer: any;
     correctAnswerText: string;
     isCorrect: boolean;
     explanation: string | null;
@@ -209,7 +218,7 @@ export class MaterialService {
     );
   }
 
-  submitQuiz(materialId: string, answers: string[]): Observable<{ success: boolean } & QuizResult> {
+  submitQuiz(materialId: string, answers: any[]): Observable<{ success: boolean } & QuizResult> {
     return this.userService.currentUser$.pipe(
       filter(user => !!user),
       take(1),
@@ -278,6 +287,35 @@ export class MaterialService {
         const headers = this.userService.getAuthHeadersSync();
         return this.http.get<{ url: string }>(
           `${environment.apiUrl}/auth/youtube/url`,
+          { headers }
+        );
+      })
+    );
+  }
+
+  getVimeoAuthUrl(): Observable<{ url: string }> {
+    return this.userService.currentUser$.pipe(
+      filter(user => !!user),
+      take(1),
+      switchMap(() => {
+        const headers = this.userService.getAuthHeadersSync();
+        return this.http.get<{ url: string }>(
+          `${environment.apiUrl}/auth/vimeo/url`,
+          { headers }
+        );
+      })
+    );
+  }
+
+  unlinkVimeo(): Observable<{ success: boolean }> {
+    return this.userService.currentUser$.pipe(
+      filter(user => !!user),
+      take(1),
+      switchMap(() => {
+        const headers = this.userService.getAuthHeadersSync();
+        return this.http.post<{ success: boolean }>(
+          `${environment.apiUrl}/auth/vimeo/unlink`,
+          {},
           { headers }
         );
       })

@@ -23,6 +23,7 @@
     
     <!-- Left Column: Progress & Navigation -->
     <div class="left-column">
+      <img src="assets/barnabi-notes.png" class="left-column-mascot" alt="" aria-hidden="true" />
       <!-- Header -->
       <div class="onboarding-header">
         <h1>Tutor Approval</h1>
@@ -581,6 +582,82 @@
           </div>
         </div>
 
+          <!-- TOS Step -->
+          <div *ngIf="currentStep.id === 'tos'" class="tos-step">
+            <!-- Already Accepted -->
+            <div *ngIf="steps[4].completed" class="status-card-large success">
+              <ion-icon name="checkmark-circle"></ion-icon>
+              <p>{{ 'TUTOR_APPROVAL.TOS_ACCEPTED' | translate }}</p>
+              <span class="accepted-date" *ngIf="tosAcceptedAt">
+                {{ 'TUTOR_APPROVAL.TOS_ACCEPTED_ON' | translate }} {{ tosAcceptedAt | date:'mediumDate' }}
+              </span>
+            </div>
+
+            <!-- Not Yet Accepted -->
+            <div *ngIf="!steps[4].completed" class="tos-content">
+              <div class="tos-scroll-area">
+                <h3 class="tos-section-title">{{ 'TUTOR_APPROVAL.TOS_IC_TITLE' | translate }}</h3>
+                <p class="tos-paragraph">{{ 'TUTOR_APPROVAL.TOS_IC_INTRO' | translate }}</p>
+
+                <div class="tos-clause">
+                  <div class="clause-number">1</div>
+                  <div class="clause-body">
+                    <h4>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_1_TITLE' | translate }}</h4>
+                    <p>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_1_BODY' | translate }}</p>
+                  </div>
+                </div>
+
+                <div class="tos-clause">
+                  <div class="clause-number">2</div>
+                  <div class="clause-body">
+                    <h4>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_2_TITLE' | translate }}</h4>
+                    <p>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_2_BODY' | translate }}</p>
+                  </div>
+                </div>
+
+                <div class="tos-clause">
+                  <div class="clause-number">3</div>
+                  <div class="clause-body">
+                    <h4>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_3_TITLE' | translate }}</h4>
+                    <p>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_3_BODY' | translate }}</p>
+                  </div>
+                </div>
+
+                <div class="tos-clause">
+                  <div class="clause-number">4</div>
+                  <div class="clause-body">
+                    <h4>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_4_TITLE' | translate }}</h4>
+                    <p>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_4_BODY' | translate }}</p>
+                  </div>
+                </div>
+
+                <div class="tos-clause">
+                  <div class="clause-number">5</div>
+                  <div class="clause-body">
+                    <h4>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_5_TITLE' | translate }}</h4>
+                    <p>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_5_BODY' | translate }}</p>
+                  </div>
+                </div>
+
+                <div class="tos-clause">
+                  <div class="clause-number">6</div>
+                  <div class="clause-body">
+                    <h4>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_6_TITLE' | translate }}</h4>
+                    <p>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_6_BODY' | translate }}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="tos-accept-row">
+                <label class="tos-checkbox-label">
+                  <input type="checkbox" [(ngModel)]="tosChecked" class="tos-checkbox-input">
+                  <span class="tos-checkmark"></span>
+                  <span class="tos-label-text">{{ 'TUTOR_APPROVAL.TOS_CHECKBOX_LABEL' | translate }}</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
         <!-- Primary Action Button (Photo & Video steps only) -->
         <ion-button 
           *ngIf="currentStep.id === 'photo' || currentStep.id === 'video'"
@@ -616,6 +693,18 @@
             slot="start">
           </ion-icon>
           {{ determinedPayoutMethod === 'stripe' ? 'Connect Stripe' : 'Connect PayPal' }}
+        </ion-button>
+
+        <!-- Primary Action Button (TOS step) -->
+        <ion-button 
+          *ngIf="currentStep.id === 'tos' && !steps[4].completed"
+          expand="block" 
+          size="large"
+          class="primary-action"
+          [disabled]="!tosChecked || isAcceptingTos"
+          (click)="acceptTos()">
+          <ion-icon name="shield-checkmark" slot="start"></ion-icon>
+          {{ 'TUTOR_APPROVAL.TOS_ACCEPT_BUTTON' | translate }}
         </ion-button>
       </div>
     </div>

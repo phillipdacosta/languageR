@@ -123,6 +123,9 @@ app.use('/api/admin', require('./routes/admin')); // Admin routes
 app.use('/api/transcription', require('./routes/transcription'));
 app.use('/api/materials', require('./routes/materials'));
 app.use('/api/auth', require('./routes/youtubeAuth'));
+app.use('/api/auth', require('./routes/vimeoAuth'));
+app.use('/api/auth', require('./routes/googleCalendarAuth'));
+app.use('/api', require('./routes/googleCalendarAuth')); // Mounts /api/webhooks/google-calendar
 app.use('/api/analysis', require('./routes/analysis'));
 app.use('/api/tutor-feedback', require('./routes/tutorFeedback'));
 app.use('/api/review-deck', require('./routes/review-deck'));
@@ -445,6 +448,35 @@ server.listen(PORT, '0.0.0.0', () => {
     });
   });
   console.log('⏰ Cron job started: Check material availability (every 6 hours)');
+
+  // Renew expiring Google Calendar watch channels every 12 hours
+  const gcalRoutes = require('./routes/googleCalendarAuth');
+  cron.schedule('0 */12 * * *', async () => {
+    if (!process.env.BACKEND_PUBLIC_URL) return;
+    console.log('[GCal Cron] Checking for expiring watch channels...');
+    try {
+      const User = require('./models/User');
+      const cutoff = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      const users = await User.find({
+        'googleCalendar.connected': true,
+        'googleCalendar.watchExpiration': { $lt: cutoff, $ne: null }
+      }).select('_id googleCalendar.watchChannelId');
+
+      console.log(`[GCal Cron] Found ${users.length} channels to renew`);
+      for (const user of users) {
+        try {
+          await gcalRoutes.stopWatch(user._id);
+          await gcalRoutes.registerWatch(user._id);
+          console.log(`[GCal Cron] Renewed watch for user ${user._id}`);
+        } catch (err) {
+          console.error(`[GCal Cron] Failed to renew for user ${user._id}:`, err.message);
+        }
+      }
+    } catch (err) {
+      console.error('[GCal Cron] Error in watch renewal job:', err.message);
+    }
+  });
+  console.log('⏰ Cron job started: Google Calendar watch renewal (every 12 hours)');
 
   // Initialize audio backup and retry cron jobs
   initializeAudioCronJobs();

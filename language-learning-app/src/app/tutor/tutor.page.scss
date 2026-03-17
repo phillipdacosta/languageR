@@ -1932,7 +1932,7 @@ ion-content {
 
 .materials-grid {
   display: flex;
-  gap: 14px;
+  gap: 10px;
   overflow-x: auto;
   overflow-y: hidden;
   scroll-snap-type: x mandatory;
@@ -1947,19 +1947,19 @@ ion-content {
 .material-tile {
   background: #fff;
   border: 1px solid #e5e5ea;
-  border-radius: 14px;
+  border-radius: 10px;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  min-width: 220px;
-  max-width: 220px;
+  min-width: 152px;
+  max-width: 152px;
   flex-shrink: 0;
   scroll-snap-align: start;
 
   &:not(.has-thumb) {
-    padding: 16px;
+    padding: 10px;
   }
 
   &:hover {
@@ -1972,14 +1972,14 @@ ion-content {
   }
 
   @media (min-width: 768px) {
-    min-width: 240px;
-    max-width: 240px;
+    min-width: 168px;
+    max-width: 168px;
   }
 }
 
 .material-tile-thumb {
   width: 100%;
-  height: 130px;
+  height: 84px;
   overflow: hidden;
 
   img {
@@ -1991,7 +1991,7 @@ ion-content {
 }
 
 .material-tile-body {
-  padding: 14px 16px 16px;
+  padding: 8px 10px 10px;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -2000,28 +2000,28 @@ ion-content {
 .material-tile-type {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 10px;
+  gap: 4px;
+  margin-bottom: 6px;
 
   ion-icon {
-    font-size: 16px;
+    font-size: 12px;
     color: #007aff;
   }
 
   span {
-    font-size: 12px;
+    font-size: 10px;
     font-weight: 600;
     color: #007aff;
     text-transform: uppercase;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.2px;
   }
 }
 
 .material-tile-title {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   color: #1d1d1f;
-  margin: 0 0 6px;
+  margin: 0 0 4px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -2029,49 +2029,49 @@ ion-content {
 }
 
 .material-tile-pitch {
-  font-size: 13px;
+  font-size: 11px;
   color: #92400e;
   background: #fffbeb;
-  border-radius: 8px;
-  padding: 8px 10px;
+  border-radius: 6px;
+  padding: 5px 8px;
   margin: 0 0 auto;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  line-height: 1.45;
+  line-height: 1.4;
 }
 
 .material-tile-desc {
-  font-size: 13px;
+  font-size: 11px;
   color: #86868b;
   margin: 0 0 auto;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  padding-bottom: 12px;
+  padding-bottom: 6px;
 }
 
 .material-tile-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: 10px;
+  padding-top: 6px;
   border-top: 1px solid #f2f2f7;
 }
 
 .material-tile-level {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 500;
   color: #86868b;
   background: #f2f2f7;
-  padding: 3px 8px;
-  border-radius: 6px;
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
 .material-tile-price {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
   color: #34c759;
 
@@ -2081,9 +2081,9 @@ ion-content {
 }
 
 .material-tile-date {
-  font-size: 11px;
+  font-size: 10px;
   color: #aaa;
-  margin-top: 8px;
+  margin-top: 4px;
   display: block;
 }
 

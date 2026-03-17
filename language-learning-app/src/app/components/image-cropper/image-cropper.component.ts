@@ -11,7 +11,9 @@ import { ImageCroppedEvent, LoadedImage } from 'ngx-image-cropper';
 export class ImageCropperComponent implements OnInit {
   @Input() imageChangedEvent: any;
   @Input() imageFile: File | undefined;
-  
+  @Input() aspectRatio = 1;
+  @Input() cropTitle = 'Crop Profile Picture';
+
   croppedImage: any = '';
   canvasRotation = 0;
   rotation = 0;

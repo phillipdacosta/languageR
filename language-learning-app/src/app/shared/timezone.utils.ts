@@ -126,7 +126,7 @@ export function getTimezoneLabel(timezone: string): string {
  * Falls back to browser timezone if none provided.
  * @param locale BCP 47 locale (e.g. 'en', 'fr', 'de') for localized output; defaults to 'en-US'.
  */
-export function formatTimeInTz(date: Date | string, timezone?: string, locale?: string): string {
+export function formatTimeInTz(date: Date | string, timezone?: string, locale?: string, hour12: boolean = true): string {
   try {
     const d = typeof date === 'string' ? new Date(date) : date;
     if (isNaN(d.getTime())) return '';
@@ -134,7 +134,7 @@ export function formatTimeInTz(date: Date | string, timezone?: string, locale?: 
     return d.toLocaleTimeString(loc, {
       hour: 'numeric',
       minute: '2-digit',
-      hour12: true,
+      hour12,
       ...(timezone ? { timeZone: timezone } : {})
     });
   } catch {

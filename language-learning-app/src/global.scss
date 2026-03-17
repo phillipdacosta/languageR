@@ -2169,6 +2169,77 @@ html.ion-palette-dark {
     color: #8e8e93 !important;
   }
 
+  // Coming up modal (all-lessons-modal) — full dark mode so it works in overlay
+  ion-modal.all-lessons-modal {
+    .airbnb-modal-ion-header {
+      --background: #1c1c1e !important;
+      --color: #f5f5f7 !important;
+    }
+    .airbnb-modal-ion-content {
+      --background: #1c1c1e !important;
+    }
+    .airbnb-modal-header {
+      border-bottom-color: #2c2c2e !important;
+      h2 { color: #f5f5f7 !important; }
+    }
+    .airbnb-modal-close,
+    .airbnb-modal-back {
+      border-color: #3a3a3c !important;
+      background: #2c2c2e !important;
+      &:hover { background: #3a3a3c !important; border-color: #48484a !important; }
+      ion-icon { color: #f5f5f7 !important; }
+    }
+    .airbnb-month-selector {
+      border-bottom-color: #2c2c2e !important;
+      background: #1c1c1e !important;
+    }
+    .airbnb-month-label { color: #f5f5f7 !important; }
+    .airbnb-clear-filter {
+      color: #ff6482 !important;
+      &:hover { color: #ff7b95 !important; }
+    }
+    .airbnb-calendar-btn {
+      border-color: #3a3a3c !important;
+      &:hover { background: #2c2c2e !important; border-color: #48484a !important; }
+      ion-icon { color: #f5f5f7 !important; }
+    }
+    .airbnb-date-title { color: #f5f5f7 !important; }
+    .airbnb-lesson-row {
+      border-bottom-color: #2c2c2e !important;
+      &:hover { background: #2c2c2e !important; }
+    }
+    .airbnb-lesson-date { color: #f5f5f7 !important; }
+    .airbnb-lesson-time { color: #8e8e93 !important; }
+    .airbnb-lesson-name { color: #f5f5f7 !important; }
+    .airbnb-lesson-cancelled { color: #ff7b95 !important; }
+    .airbnb-lesson-avatar-small {
+      background: #2c2c2e !important;
+      ion-icon { color: #636366 !important; }
+    }
+    .airbnb-no-lessons {
+      ion-icon { color: #3a3a3c !important; }
+      p { color: #8e8e93 !important; }
+    }
+    .airbnb-clear-filter-btn {
+      background: #f5f5f7 !important;
+      color: #1c1c1e !important;
+      &:hover { background: #ffffff !important; }
+    }
+    .airbnb-datepicker-view {
+      ion-datetime {
+        --background: #1c1c1e;
+        --background-rgb: 28, 28, 30;
+        color: #f5f5f7;
+      }
+    }
+    .datepicker-action .datepicker-set-btn {
+      background: #f5f5f7 !important;
+      color: #1c1c1e !important;
+      &:hover { background: #ffffff !important; }
+      &:disabled { background: #2c2c2e !important; color: #636366 !important; }
+    }
+  }
+
   // Generic modal content classes used inside various modals
   ion-modal .modal-header,
   ion-modal .modal-title,

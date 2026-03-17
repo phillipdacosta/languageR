@@ -13,8 +13,8 @@
     <div class="reschedule-banner-content">
       <ion-icon name="calendar-outline"></ion-icon>
       <div class="reschedule-text">
-        <strong>Reschedule Mode</strong>
-        <p>Select a time that works for both you and your student</p>
+        <strong>{{ 'TUTOR_CALENDAR.RESCHEDULE_MODE' | translate }}</strong>
+        <p>{{ 'TUTOR_CALENDAR.RESCHEDULE_DESC' | translate }}</p>
       </div>
     </div>
     <ion-button fill="clear" size="small" (click)="router.navigate(['/tabs/home'])">
@@ -25,79 +25,100 @@
   <ng-container *ngIf="isMobileView; else desktopCalendar">
     <div class="mobile-header">
       <div class="mobile-header-toggle">
-        <button type="button" [class.active]="mobileViewMode === 'day'" (click)="setMobileViewMode('day')" [disabled]="isScreenLocked()">Day</button>
-        <button type="button" [class.active]="mobileViewMode === 'agenda'" (click)="setMobileViewMode('agenda')" [disabled]="isScreenLocked()">Agenda</button>
+        <button type="button" [class.active]="mobileViewMode === 'day'" (click)="setMobileViewMode('day')" [disabled]="isScreenLocked()">{{ 'TUTOR_CALENDAR.DAY' | translate }}</button>
+        <button type="button" [class.active]="mobileViewMode === 'agenda'" (click)="setMobileViewMode('agenda')" [disabled]="isScreenLocked()">{{ 'TUTOR_CALENDAR.AGENDA' | translate }}</button>
       </div>
       <ion-button fill="clear" class="mobile-availability-btn" (click)="onSetUpAvailability()" [disabled]="isScreenLocked()">
         <ion-icon name="calendar-outline" slot="start"></ion-icon>
-        Set Availability
+        {{ 'TUTOR_CALENDAR.SET_AVAILABILITY' | translate }}
       </ion-button>
     </div>
 
     <div class="mobile-settings-wrapper" [class.open]="showMobileSettings">
       <div class="mobile-settings-panel" *ngIf="showMobileSettings || panelAnimating">
         <div class="panel-section">
-          <h3>Settings</h3>
-          <ion-list lines="none">
-            <ion-item button detail="false" (click)="setActiveTab('availability'); toggleMobileSettings()">
-              <ion-icon name="time-outline" slot="start"></ion-icon>
-              <ion-label>Availability</ion-label>
-            </ion-item>
-            <ion-item button detail="false" (click)="setActiveTab('booking'); toggleMobileSettings()">
-              <ion-icon name="calendar-outline" slot="start"></ion-icon>
-              <ion-label>Lesson booking settings</ion-label>
-            </ion-item>
-            <ion-item button detail="false" (click)="setActiveTab('calendar'); toggleMobileSettings()">
-              <ion-icon name="settings-outline" slot="start"></ion-icon>
-              <ion-label>Calendar settings</ion-label>
-            </ion-item>
-            <ion-item button detail="false" (click)="setActiveTab('google'); toggleMobileSettings()">
-              <ion-icon name="logo-google" slot="start"></ion-icon>
-              <ion-label>Google Calendar settings</ion-label>
-            </ion-item>
-          </ion-list>
-        </div>
-
-        <div class="panel-section">
-          <h3>View Options</h3>
-          <div class="option-item">
-            <ion-checkbox [(ngModel)]="showPopularSlots" (ionChange)="togglePopularSlots()"></ion-checkbox>
-            <label>Popular slots</label>
-          </div>
-        </div>
-
-        <div class="panel-section">
-          <h3>Quick Actions</h3>
-            <ion-button expand="block" class="schedule-lesson-btn" 
-                        (click)="onScheduleLesson(); toggleMobileSettings()"
-                        [disabled]="pendingFeedbackCount > 0 || (!currentUser?.picture) || (!currentUser?.tutorOnboarding?.videoApproved) || (!currentUser?.tutorOnboarding?.stripeConnected && !currentUser?.stripeConnectOnboarded)">
-              <ion-icon name="add-outline" slot="start"></ion-icon>
-              Schedule Class
-            </ion-button>
-            
+          <h3>{{ 'TUTOR_CALENDAR.QUICK_ACTIONS' | translate }}</h3>
             <ion-button expand="block" fill="outline" (click)="onAddTimeOff(); toggleMobileSettings()">
               <ion-icon name="time-outline" slot="start"></ion-icon>
-              Add time off
+              {{ 'TUTOR_CALENDAR.ADD_TIME_OFF' | translate }}
             </ion-button>
             <ion-button expand="block" fill="outline" (click)="onAddExtraSlots(); toggleMobileSettings()">
               <ion-icon name="add-circle-outline" slot="start"></ion-icon>
-              Add extra slots
+              {{ 'TUTOR_CALENDAR.ADD_EXTRA_SLOTS' | translate }}
             </ion-button>
-            
-            <ion-button expand="block" fill="outline" 
+            <ion-button expand="block" fill="outline"
                         (click)="onSetUpAvailability(); toggleMobileSettings()"
                         [disabled]="pendingFeedbackCount > 0 || (!currentUser?.picture) || (!currentUser?.tutorOnboarding?.videoApproved) || (!currentUser?.tutorOnboarding?.stripeConnected && !currentUser?.stripeConnectOnboarded)">
               <ion-icon name="settings-outline" slot="start"></ion-icon>
-              Set up availability
+              {{ 'TUTOR_CALENDAR.SET_UP_AVAILABILITY' | translate }}
             </ion-button>
-          </div>
+        </div>
 
-          <div class="panel-section">
-            <ion-button expand="block" class="google-btn" (click)="connectGoogleCalendar(); toggleMobileSettings()">
-              <ion-icon name="logo-google" slot="start"></ion-icon>
-              Connect calendar
-            </ion-button>
+        <!-- Calendar Settings -->
+        <div class="panel-section">
+          <div class="section-header" (click)="toggleCalendarSettings($event)">
+            <h3>{{ 'TUTOR_CALENDAR.CALENDAR_SETTINGS' | translate }}</h3>
+            <ion-icon name="chevron-down-outline" class="expand-icon" [class.expanded]="calendarSettingsExpanded"></ion-icon>
           </div>
+          <div class="settings-inline-content" [class.expanded]="calendarSettingsExpanded">
+            <div class="inline-setting-group">
+              <label class="inline-setting-label">Time format</label>
+              <div class="inline-segmented-control">
+                <button [class.active]="calendarTimeFormat === '12h'" (click)="updateCalendarSetting('timeFormat', '12h')">12h</button>
+                <button [class.active]="calendarTimeFormat === '24h'" (click)="updateCalendarSetting('timeFormat', '24h')">24h</button>
+              </div>
+            </div>
+            <div class="inline-setting-group">
+              <label class="inline-setting-label">Default view</label>
+              <div class="inline-segmented-control">
+                <button [class.active]="calendarDefaultView === 'week'" (click)="updateCalendarSetting('defaultView', 'week')">Week</button>
+                <button [class.active]="calendarDefaultView === 'day'" (click)="updateCalendarSetting('defaultView', 'day')">Day</button>
+              </div>
+            </div>
+            <div class="inline-setting-group">
+              <label class="inline-setting-label">Timezone</label>
+              <span class="inline-timezone">{{ tutorTimezoneLabel || 'Not set' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Google Calendar -->
+        <div class="panel-section">
+          <div class="section-header" (click)="toggleGcalSettings($event)">
+            <h3>
+              <img src="assets/google.png" alt="Google" class="google-logo-nav" />
+              Google Calendar
+            </h3>
+            <ion-icon name="chevron-down-outline" class="expand-icon" [class.expanded]="gcalSettingsExpanded"></ion-icon>
+          </div>
+          <div class="settings-inline-content" [class.expanded]="gcalSettingsExpanded">
+            <ng-container *ngIf="!gcalConnected">
+              <p class="inline-gcal-desc">Sync your Google Calendar to show busy times on your schedule.</p>
+              <ion-button expand="block" class="google-btn" (click)="connectGoogleCalendar()">
+                <img src="assets/google.png" alt="Google" class="google-logo-btn" slot="start" />
+                Connect Google Calendar
+              </ion-button>
+            </ng-container>
+            <ng-container *ngIf="gcalConnected">
+              <div class="inline-gcal-status">
+                <div class="status-indicator connected"></div>
+                <span>Connected</span>
+                <span class="gcal-email" *ngIf="gcalEmail">{{ gcalEmail }}</span>
+              </div>
+              <div class="inline-gcal-toggle">
+                <span>Block busy times</span>
+                <ion-toggle [(ngModel)]="gcalSyncEnabled" (ionChange)="onGcalSettingChange('syncEnabled')"></ion-toggle>
+              </div>
+              <div class="inline-gcal-toggle">
+                <span>Push lessons to Google</span>
+                <ion-toggle [(ngModel)]="gcalPushToGoogle" (ionChange)="onGcalSettingChange('pushToGoogle')"></ion-toggle>
+              </div>
+              <ion-button fill="clear" color="danger" size="small" (click)="disconnectGoogleCalendar()">
+                Disconnect
+              </ion-button>
+            </ng-container>
+          </div>
+        </div>
         </div>
     </div>
 
@@ -143,11 +164,11 @@
             <ion-button fill="clear" size="small" class="day-nav-btn" (click)="shiftMobileDays(4)" [disabled]="isScreenLocked()">
               <ion-icon name="chevron-forward-outline"></ion-icon>
             </ion-button>
-            <ion-button fill="clear" size="small" class="today-link" (click)="goToMobileToday()" [disabled]="isScreenLocked()">Today</ion-button>
+            <ion-button fill="clear" size="small" class="today-link" (click)="goToMobileToday()" [disabled]="isScreenLocked()">{{ 'TUTOR_CALENDAR.TODAY' | translate }}</ion-button>
           </div>
 
           <div class="mobile-date-header" *ngIf="selectedMobileDay as activeDay">
-            <div class="date-day">{{ activeDay.isToday ? 'Today' : activeDay.dayName }}</div>
+            <div class="date-day">{{ activeDay.isToday ? ('TUTOR_CALENDAR.TODAY' | translate) : activeDay.dayName }}</div>
             <div class="date-month">{{ activeDay.monthLabel }} {{ activeDay.dayNumber }}</div>
           </div>
 
@@ -172,7 +193,7 @@
               <div *ngFor="let item of mobileTimelineEvents" class="timeline-row" [class.past]="item.isPast" [class.happening-now]="item.isHappeningNow" [class.is-cancelled]="item.isCancelled" [@slideInUp]="item.isPast ? 'void' : 'in'">
                 <div class="time-column">
                   <div class="time-display" [class.now]="item.isHappeningNow">
-                    <span *ngIf="item.isHappeningNow" class="now-badge">Now</span>
+                    <span *ngIf="item.isHappeningNow" class="now-badge">{{ 'TUTOR_CALENDAR.NOW' | translate }}</span>
                     <span>{{ formatTime(item.start) }} ({{ formatDurationShort(item.durationMinutes) }})</span>
                   </div>
                 </div>
@@ -195,11 +216,14 @@
                       <div class="office-hours-corner-badge" *ngIf="item.isOfficeHours">
                         <ion-icon name="flash"></ion-icon>
                       </div>
-                      <div class="card-header" [class.has-avatar]="(item.avatarUrl && !item.isClass) || (item.isClass && item.thumbnail)">
-                        <ng-container *ngIf="item.avatarUrl && !item.isClass">
+                      <div class="card-header" [class.has-avatar]="(item.avatarUrl && !item.isClass) || (item.isClass && item.thumbnail) || item.color === '#6b7280'">
+                        <ng-container *ngIf="item.color === '#6b7280'">
+                          <img src="assets/google.png" alt="Google" class="card-avatar gcal-card-avatar" />
+                        </ng-container>
+                        <ng-container *ngIf="item.avatarUrl && !item.isClass && item.color !== '#6b7280'">
                           <img [src]="item.avatarUrl" alt="" class="card-avatar" />
                         </ng-container>
-                        <ng-container *ngIf="item.isClass">
+                        <ng-container *ngIf="item.isClass && item.color !== '#6b7280'">
                           <img *ngIf="item.thumbnail" [src]="item.thumbnail" alt="" class="card-avatar class-thumbnail" />
                           <ion-icon *ngIf="!item.thumbnail" name="people" class="card-avatar class-icon"></ion-icon>
                         </ng-container>
@@ -224,7 +248,7 @@
             <ng-template #emptyTimeline>
               <div class="timeline-empty">
                 <ion-icon name="calendar-outline"></ion-icon>
-                <p>No lessons</p>
+                <p>{{ 'TUTOR_CALENDAR.NO_LESSONS' | translate }}</p>
               </div>
             </ng-template>
           </ng-container>
@@ -245,7 +269,7 @@
             <ion-button fill="clear" size="small" class="day-nav-btn" (click)="shiftMobileDays(agendaDaysToShow)" [disabled]="isScreenLocked()">
               <ion-icon name="chevron-forward-outline"></ion-icon>
             </ion-button>
-            <ion-button fill="clear" size="small" class="today-link" (click)="goToMobileToday()" [disabled]="isScreenLocked()">Current Week</ion-button>
+            <ion-button fill="clear" size="small" class="today-link" (click)="goToMobileToday()" [disabled]="isScreenLocked()">{{ 'TUTOR_CALENDAR.CURRENT_WEEK' | translate }}</ion-button>
           </div>
           
           <!-- <div class="schedule-legend">
@@ -276,7 +300,7 @@
               <div class="agenda-section" *ngFor="let section of mobileAgendaSections">
                 <div class="agenda-header">
                   <div class="agenda-label-group">
-                    <div class="agenda-label" [class.is-today]="section.isToday">{{ section.isToday ? 'Today' : section.dayLabel }}</div>
+                    <div class="agenda-label" [class.is-today]="section.isToday">{{ section.isToday ? ('TUTOR_CALENDAR.TODAY' | translate) : section.dayLabel }}</div>
                     <div class="agenda-date">{{ section.dateLabel }}</div>
                   </div>
                   <div class="agenda-relative" *ngIf="section.relativeLabel">{{ section.relativeLabel }}</div>
@@ -303,11 +327,14 @@
                         </div>
                         <div class="time-range" *ngIf="item.type !== 'free'">{{ formatTime(item.start) }} • {{ formatTime(item.end) }}</div>
                         <ng-container *ngIf="item.type === 'event'; else agendaFreeBlock">
-                          <div class="card-header" [class.has-avatar]="(item.avatarUrl && !item.isClass) || (item.isClass && item.thumbnail)">
-                            <ng-container *ngIf="item.avatarUrl && !item.isClass">
+                          <div class="card-header" [class.has-avatar]="(item.avatarUrl && !item.isClass) || (item.isClass && item.thumbnail) || item.color === '#6b7280'">
+                            <ng-container *ngIf="item.color === '#6b7280'">
+                              <img src="assets/google.png" alt="Google" class="card-avatar gcal-card-avatar" />
+                            </ng-container>
+                            <ng-container *ngIf="item.avatarUrl && !item.isClass && item.color !== '#6b7280'">
                               <img [src]="item.avatarUrl" alt="" class="card-avatar" />
                             </ng-container>
-                            <ng-container *ngIf="item.isClass">
+                            <ng-container *ngIf="item.isClass && item.color !== '#6b7280'">
                               <img *ngIf="item.thumbnail" [src]="item.thumbnail" alt="" class="card-avatar class-thumbnail" />
                               <ion-icon *ngIf="!item.thumbnail" name="people" class="card-avatar class-icon"></ion-icon>
                             </ng-container>
@@ -328,8 +355,8 @@
                         </ng-container>
                         <ng-template #agendaFreeBlock>
                           <div class="free-slot-content" (click)="onFreeSlotClick(section.date, item); $event.stopPropagation()">
-                            <span class="free-duration">{{ formatDurationShort(item.durationMinutes) }} open</span>
-                            <button type="button" class="free-add-icon" aria-label="Add availability">
+                            <span class="free-duration">{{ formatDurationShort(item.durationMinutes) }} {{ 'TUTOR_CALENDAR.OPEN' | translate }}</span>
+                            <button type="button" class="free-add-icon" [attr.aria-label]="'TUTOR_CALENDAR.ADD_AVAILABILITY_LABEL' | translate">
                               <ion-icon name="add-outline"></ion-icon>
                             </button>
                           </div>
@@ -339,14 +366,14 @@
                   </div>
                 </div>
                 <ng-template #noAgendaEvents>
-                  <div class="agenda-empty">No events scheduled.</div>
+                  <div class="agenda-empty">{{ 'TUTOR_CALENDAR.NO_EVENTS_SCHEDULED_DAY' | translate }}</div>
                 </ng-template>
               </div>
             </div>
             <ng-template #agendaEmpty>
               <div class="timeline-empty">
                 <ion-icon name="sunny-outline"></ion-icon>
-                <p>No upcoming events.</p>
+                <p>{{ 'TUTOR_CALENDAR.NO_UPCOMING_EVENTS' | translate }}</p>
               </div>
             </ng-template>
           </ng-container>
@@ -368,7 +395,7 @@
       <div class="calendar-sidebar">
         <!-- Mobile Sidebar Header -->
         <div class="sidebar-header" (click)="toggleSidebar()">
-          <h3>Calendar Tools</h3>
+          <h3>{{ 'TUTOR_CALENDAR.CALENDAR_TOOLS' | translate }}</h3>
           <ion-icon
             name="chevron-down-outline"
             class="sidebar-expand-icon"
@@ -380,35 +407,35 @@
         <div class="sidebar-content" [class.expanded]="sidebarExpanded">
           <!-- Action Buttons -->
           <div class="action-buttons">
-            <ion-button size="small" class="schedule-lesson-btn" 
+            <!-- <ion-button size="small" class="schedule-lesson-btn" 
                         (click)="onScheduleLesson()"
                         [disabled]="pendingFeedbackCount > 0 || (!currentUser?.picture) || (!currentUser?.tutorOnboarding?.videoApproved) || (!currentUser?.tutorOnboarding?.stripeConnected && !currentUser?.stripeConnectOnboarded)">
               <ion-icon name="add-outline" slot="start"></ion-icon>
               Schedule Class
-            </ion-button>
+            </ion-button> -->
 
-            <ion-button expand="block" fill="outline" class="action-btn" (click)="onAddTimeOff()" [disabled]="isScreenLocked()">
+            <!-- <ion-button expand="block" fill="outline" class="action-btn" (click)="onAddTimeOff()" [disabled]="isScreenLocked()">
               <ion-icon name="time-outline" slot="start"></ion-icon>
-              Add time off
+              {{ 'TUTOR_CALENDAR.ADD_TIME_OFF' | translate }}
             </ion-button>
 
             <ion-button expand="block" fill="outline" class="action-btn" (click)="onAddExtraSlots()" [disabled]="isScreenLocked()">
               <ion-icon name="add-circle-outline" slot="start"></ion-icon>
-              Add extra slots
-            </ion-button>
+              {{ 'TUTOR_CALENDAR.ADD_EXTRA_SLOTS' | translate }}
+            </ion-button> -->
 
             <ion-button expand="block" fill="outline" class="action-btn" 
                         (click)="onSetUpAvailability()" 
                         [disabled]="pendingFeedbackCount > 0 || isScreenLocked() || (!currentUser?.picture) || (!currentUser?.tutorOnboarding?.videoApproved) || (!currentUser?.tutorOnboarding?.stripeConnected && !currentUser?.stripeConnectOnboarded)">
               <ion-icon name="settings-outline" slot="start"></ion-icon>
-              Set up availability
+              {{ 'TUTOR_CALENDAR.SET_UP_AVAILABILITY' | translate }}
             </ion-button>
           </div>
 
           <!-- Tags Section -->
           <div class="tags-section">
             <div class="section-header" (click)="toggleTags()">
-              <h4>Keys</h4>
+              <h4>{{ 'TUTOR_CALENDAR.KEYS' | translate }}</h4>
               <ion-icon
                 name="chevron-down-outline"
                 class="expand-icon"
@@ -418,35 +445,35 @@
             <div class="tag-list" [class.expanded]="tagsExpanded">
               <div class="tag-item" [style.border-left-color]="'#01140e2a'">
                 <div class="tag-color" style="background-color: #01140e2a;"></div>
-                <span>Your availability</span>
+                <span>{{ 'TUTOR_CALENDAR.YOUR_AVAILABILITY' | translate }}</span>
               </div>
               <div class="tag-item" [style.border-left-color]="'#3b82f6'">
                 <div class="tag-color" style="background-color: #3b82f6;"></div>
-                <span>Single lesson</span>
+                <span>{{ 'TUTOR_CALENDAR.SINGLE_LESSON' | translate }}</span>
               </div>
               <div class="tag-item" [style.border-left-color]="'#8b5cf6'">
                 <div class="tag-color" style="background-color: #8b5cf6;"></div>
-                <span>Class</span>
+                <span>{{ 'TUTOR_CALENDAR.CLASS' | translate }}</span>
               </div>
               <div class="tag-item" [style.border-left-color]="'#ec4899'">
                 <div class="tag-color" style="background-color: #ec4899;"></div>
-                <span>Weekly lesson</span>
+                <span>{{ 'TUTOR_CALENDAR.WEEKLY_LESSON' | translate }}</span>
               </div>
               <div class="tag-item" [style.border-left-color]="'#f59e0b'">
                 <div class="tag-color" style="background-color: #f59e0b;"></div>
-                <span>Time off</span>
+                <span>{{ 'TUTOR_CALENDAR.TIME_OFF' | translate }}</span>
               </div>
               <div class="tag-item" [style.border-left-color]="'#6b7280'">
                 <div class="tag-color" style="background-color: #6b7280;"></div>
-                <span>Google Calendar</span>
+                <span>{{ 'TUTOR_CALENDAR.GOOGLE_CALENDAR' | translate }}</span>
               </div>
             </div>
           </div>
 
           <!-- Lesson Status Section -->
-          <div class="lesson-status-section">
+          <!-- <div class="lesson-status-section">
             <div class="section-header" (click)="toggleLessonStatus()">
-              <h4>Lesson status</h4>
+              <h4>{{ 'TUTOR_CALENDAR.LESSON_STATUS' | translate }}</h4>
               <ion-icon
                 name="chevron-down-outline"
                 class="expand-icon"
@@ -456,18 +483,100 @@
             <div class="status-list" [class.expanded]="lessonStatusExpanded">
               <div class="status-item">
                 <ion-icon name="time-outline" class="status-icon"></ion-icon>
-                <span>Awaiting confirmation</span>
+                <span>{{ 'TUTOR_CALENDAR.AWAITING_CONFIRMATION' | translate }}</span>
               </div>
               <div class="status-item">
                 <ion-icon name="checkmark-circle-outline" class="status-icon"></ion-icon>
-                <span>Confirmed lesson</span>
+                <span>{{ 'TUTOR_CALENDAR.CONFIRMED_LESSON' | translate }}</span>
               </div>
               <div class="status-item">
                 <ion-icon name="calendar-outline" class="status-icon"></ion-icon>
-                <span>Requested time</span>
+                <span>{{ 'TUTOR_CALENDAR.REQUESTED_TIME' | translate }}</span>
+              </div>
+            </div>
+          </div> -->
+
+          <!-- Calendar Settings Section -->
+          <div class="calendar-settings-section">
+            <div class="section-header" (click)="toggleCalendarSettings($event)">
+              <h4>{{ 'TUTOR_CALENDAR.CALENDAR_SETTINGS' | translate }}</h4>
+              <ion-icon name="chevron-down-outline" class="expand-icon" [class.expanded]="calendarSettingsExpanded"></ion-icon>
+            </div>
+            <div class="settings-body" [class.expanded]="calendarSettingsExpanded">
+              <div class="sidebar-setting-group">
+                <label class="sidebar-setting-label">Time format</label>
+                <div class="sidebar-segmented-control">
+                  <button [class.active]="calendarTimeFormat === '12h'" (click)="updateCalendarSetting('timeFormat', '12h')">12-hour</button>
+                  <button [class.active]="calendarTimeFormat === '24h'" (click)="updateCalendarSetting('timeFormat', '24h')">24-hour</button>
+                </div>
+                <span class="sidebar-setting-hint">{{ calendarTimeFormat === '12h' ? 'e.g. 2:30 PM' : 'e.g. 14:30' }}</span>
+              </div>
+              <div class="sidebar-setting-group">
+                <label class="sidebar-setting-label">Default view</label>
+                <div class="sidebar-segmented-control">
+                  <button [class.active]="calendarDefaultView === 'week'" (click)="updateCalendarSetting('defaultView', 'week')">Week</button>
+                  <button [class.active]="calendarDefaultView === 'day'" (click)="updateCalendarSetting('defaultView', 'day')">Day</button>
+                </div>
+              </div>
+              <div class="sidebar-setting-group">
+                <label class="sidebar-setting-label">Timezone</label>
+                <div class="sidebar-timezone">
+                  <ion-icon name="globe-outline"></ion-icon>
+                  <span>{{ tutorTimezoneLabel || 'Not set' }}</span>
+                </div>
               </div>
             </div>
           </div>
+
+          <!-- Google Calendar Section -->
+          <div class="gcal-settings-section">
+            <div class="section-header" (click)="toggleGcalSettings($event)">
+              <h4>
+                <img src="assets/google.png" alt="Google" class="sidebar-gcal-logo" />
+                Google Calendar
+              </h4>
+              <ion-icon name="chevron-down-outline" class="expand-icon" [class.expanded]="gcalSettingsExpanded"></ion-icon>
+            </div>
+            <div class="settings-body" [class.expanded]="gcalSettingsExpanded">
+              <ng-container *ngIf="!gcalConnected">
+                <p class="sidebar-gcal-desc">Sync your Google Calendar to automatically block times when you're busy.</p>
+                <ion-button expand="block" class="gcal-connect-btn" (click)="connectGoogleCalendar()">
+                  <img src="assets/google.png" alt="Google" class="sidebar-gcal-btn-icon" slot="start" />
+                  Connect Google Calendar
+                </ion-button>
+              </ng-container>
+              <ng-container *ngIf="gcalConnected">
+                <div class="sidebar-gcal-status">
+                  <div class="status-dot connected"></div>
+                  <div class="status-text">
+                    <span class="status-label">Connected</span>
+                    <span class="status-email" *ngIf="gcalEmail">{{ gcalEmail }}</span>
+                  </div>
+                </div>
+                <p class="sidebar-last-sync" *ngIf="gcalLastSyncAt">Last synced {{ gcalLastSyncAt | date:'short' }}</p>
+                <div class="sidebar-gcal-toggles">
+                  <div class="sidebar-gcal-toggle-item">
+                    <div class="toggle-text">
+                      <span class="toggle-title">Block busy times</span>
+                      <span class="toggle-desc">Show Google events as unavailable</span>
+                    </div>
+                    <ion-toggle [(ngModel)]="gcalSyncEnabled" (ionChange)="onGcalSettingChange('syncEnabled')"></ion-toggle>
+                  </div>
+                  <div class="sidebar-gcal-toggle-item">
+                    <div class="toggle-text">
+                      <span class="toggle-title">Push lessons to Google</span>
+                      <span class="toggle-desc">Add Barnabi lessons to Google Calendar</span>
+                    </div>
+                    <ion-toggle [(ngModel)]="gcalPushToGoogle" (ionChange)="onGcalSettingChange('pushToGoogle')"></ion-toggle>
+                  </div>
+                </div>
+                <ion-button fill="clear" color="danger" size="small" class="sidebar-disconnect-btn" (click)="disconnectGoogleCalendar()">
+                  Disconnect Google Calendar
+                </ion-button>
+              </ng-container>
+            </div>
+          </div>
+
         </div> <!-- Close sidebar-content -->
       </div>
 
@@ -476,7 +585,7 @@
         <!-- Loading State for Desktop Calendar -->
         <div class="calendar-loading-overlay" *ngIf="!isDesktopCalendarReady">
           <ion-spinner name="crescent"></ion-spinner>
-          <p>Loading calendar...</p>
+          <p>{{ 'TUTOR_CALENDAR.LOADING_CALENDAR' | translate }}</p>
         </div>
         
         <!-- CUSTOM CALENDAR (NEW) -->
@@ -490,10 +599,15 @@
               <button class="nav-btn" type="button" (click)="navigateNext()">
                 <ion-icon name="chevron-forward"></ion-icon>
               </button>
-              <button class="today-btn" type="button" (click)="navigateToday()">Today</button>
+              <button class="today-btn" type="button" (click)="navigateToday()">{{ 'TUTOR_CALENDAR.TODAY' | translate }}</button>
+              <button class="gcal-sync-btn" type="button" *ngIf="gcalConnected" (click)="syncGoogleCalendar()" [disabled]="gcalSyncing">
+                <img src="assets/google.png" alt="Google" class="gcal-sync-icon" [class.spinning]="gcalSyncing" />
+                <span *ngIf="!gcalSyncing">Sync</span>
+                <span *ngIf="gcalSyncing">Syncing...</span>
+              </button>
               <div class="view-switcher view-switcher-mobile" *ngIf="isCompactToolbar">
-                <button [class.active]="customView === 'week'" (click)="switchView('week')">Week</button>
-                <button [class.active]="customView === 'day'" (click)="switchView('day')">Day</button>
+                <button [class.active]="customView === 'week'" (click)="switchView('week')">{{ 'TUTOR_CALENDAR.WEEK' | translate }}</button>
+                <button [class.active]="customView === 'day'" (click)="switchView('day')">{{ 'TUTOR_CALENDAR.DAY' | translate }}</button>
               </div>
             </div>
             <div class="toolbar-center">
@@ -530,23 +644,23 @@
                         <ion-icon name="rocket-outline"></ion-icon>
                       </div>
                       <div class="banner-text">
-                        <h3>Complete Your Profile Setup</h3>
+                        <h3>{{ 'TUTOR_CALENDAR.COMPLETE_PROFILE_SETUP' | translate }}</h3>
                         <p class="banner-items">
-                          <span *ngIf="!hasCustomProfilePhoto">Upload your profile photo</span>
+                          <span *ngIf="!hasCustomProfilePhoto">{{ 'TUTOR_CALENDAR.UPLOAD_PROFILE_PHOTO' | translate }}</span>
                           <span class="separator" *ngIf="!hasCustomProfilePhoto && ((!currentUser?.tutorOnboarding?.videoApproved) || (!currentUser?.tutorOnboarding?.stripeConnected && !currentUser?.stripeConnectOnboarded))"> | </span>
                           
-                          <span *ngIf="!currentUser?.tutorOnboarding?.videoApproved && (currentUser?.onboardingData?.pendingVideo || currentUser?.onboardingData?.introductionVideo)">Introduction video pending review</span>
-                          <span *ngIf="!currentUser?.tutorOnboarding?.videoApproved && !currentUser?.onboardingData?.pendingVideo && !currentUser?.onboardingData?.introductionVideo">Upload your introduction video</span>
+                          <span *ngIf="!currentUser?.tutorOnboarding?.videoApproved && (currentUser?.onboardingData?.pendingVideo || currentUser?.onboardingData?.introductionVideo)">{{ 'TUTOR_CALENDAR.VIDEO_PENDING_REVIEW' | translate }}</span>
+                          <span *ngIf="!currentUser?.tutorOnboarding?.videoApproved && !currentUser?.onboardingData?.pendingVideo && !currentUser?.onboardingData?.introductionVideo">{{ 'TUTOR_CALENDAR.UPLOAD_INTRO_VIDEO' | translate }}</span>
                           <span class="separator" *ngIf="!currentUser?.tutorOnboarding?.videoApproved && (!currentUser?.tutorOnboarding?.stripeConnected && !currentUser?.stripeConnectOnboarded)"> | </span>
                           
-                          <span *ngIf="!currentUser?.tutorOnboarding?.stripeConnected && !currentUser?.stripeConnectOnboarded">Connect your bank account</span>
+                          <span *ngIf="!currentUser?.tutorOnboarding?.stripeConnected && !currentUser?.stripeConnectOnboarded">{{ 'TUTOR_CALENDAR.CONNECT_BANK_ACCOUNT' | translate }}</span>
                           
-                          <span *ngIf="currentUser?.tutorOnboarding?.videoApproved && currentUser?.tutorOnboarding?.stripeConnected && currentUser?.stripeConnectOnboarded">Your profile is being reviewed</span>
+                          <span *ngIf="currentUser?.tutorOnboarding?.videoApproved && currentUser?.tutorOnboarding?.stripeConnected && currentUser?.stripeConnectOnboarded">{{ 'TUTOR_CALENDAR.PROFILE_BEING_REVIEWED' | translate }}</span>
                         </p>
                       </div>
                       <ion-button fill="solid" (click)="router.navigate(['/tutor-approval'])">
                         <ion-icon name="arrow-forward" slot="end"></ion-icon>
-                        Continue Setup
+                        {{ 'TUTOR_CALENDAR.CONTINUE_SETUP' | translate }}
                       </ion-button>
                     </div>
                   </ion-card-content>
@@ -558,20 +672,20 @@
                 <div class="feedback-banner-left">
                   <div class="feedback-banner-count">{{ pendingFeedbackCount }}</div>
                   <div class="feedback-banner-copy">
-                    <span class="feedback-banner-title">Feedback needed</span>
+                    <span class="feedback-banner-title">{{ 'TUTOR_CALENDAR.FEEDBACK_NEEDED' | translate }}</span>
                     <span class="feedback-banner-subtitle">{{ feedbackBannerSubtitle }}</span>
                   </div>
                 </div>
                 <button class="feedback-banner-cta">
-                  Review
+                  {{ 'TUTOR_CALENDAR.REVIEW' | translate }}
                   <ion-icon name="arrow-forward-outline"></ion-icon>
                 </button>
               </div>
             </div>
             <div class="toolbar-right" *ngIf="!isOnboardingIncomplete && pendingFeedbackCount === 0 && !isCompactToolbar">
               <div class="view-switcher">
-                <button [class.active]="customView === 'week'" (click)="switchView('week')">Week</button>
-                <button [class.active]="customView === 'day'" (click)="switchView('day')">Day</button>
+                <button [class.active]="customView === 'week'" (click)="switchView('week')">{{ 'TUTOR_CALENDAR.WEEK' | translate }}</button>
+                <button [class.active]="customView === 'day'" (click)="switchView('day')">{{ 'TUTOR_CALENDAR.DAY' | translate }}</button>
               </div>
             </div>
           </div>
@@ -608,6 +722,7 @@
                          style="border-radius: 5px;"
                          [class.availability-event]="event.isAvailability"
                          [class.class-event]="event.isClass"
+                         [class.gcal-event]="event.isGoogleCalendar"
                          [class.is-cancelled]="event.extendedProps?.isCancelled"
                          [style.top.px]="event | eventTop:userTz"
                          [style.height.px]="event | eventHeight"
@@ -620,22 +735,27 @@
                       <div class="calendar-trial-badge" 
                            *ngIf="event.extendedProps?.isTrialLesson">
                         <ion-icon name="star"></ion-icon>
-                        <span class="trial-tooltip">Trial lesson</span>
+                        <span class="trial-tooltip">{{ 'TUTOR_CALENDAR.TRIAL_LESSON' | translate }}</span>
                       </div>
                       
                       <div class="event-header">
                         <!-- First row: Time and duration (left aligned) -->
                         <div class="event-time-row">
-                          <div class="event-time">{{ event | eventTime:userTz }}</div>
+                          <div class="event-time">{{ event | eventTime:userTz:calendarTimeFormat }}</div>
                         </div>
                         
-                        <!-- Second row: Avatar and name (left aligned) -->
+                        <!-- Second row: Avatar/icon and name (left aligned) -->
                         <div class="event-info-row">
-                          <img *ngIf="event.studentAvatar && !event.isAvailability" 
+                          <img *ngIf="event.isGoogleCalendar" 
+                               src="assets/google.png" 
+                               alt="Google" 
+                               class="event-avatar gcal-avatar">
+                          <img *ngIf="event.studentAvatar && !event.isAvailability && !event.isGoogleCalendar" 
                                [src]="event.studentAvatar" 
                                class="event-avatar" 
-                               alt="Student avatar">
-                          <div class="event-title" *ngIf="!event.isAvailability">{{ event.studentName }}</div>
+                               [attr.alt]="'TUTOR_CALENDAR.STUDENT_AVATAR' | translate">
+                          <div class="event-title" *ngIf="event.isGoogleCalendar">{{ event.title }}</div>
+                          <div class="event-title" *ngIf="!event.isAvailability && !event.isGoogleCalendar">{{ event.studentName }}</div>
                           <div class="event-title" *ngIf="event.isAvailability">{{ event.title }}</div>
                         </div>
                       </div>
@@ -660,19 +780,19 @@
               <div class="day-view-free-hours" 
                    *ngIf="(events | freeHours:selectedDayForDayView) > 0">
                 <ion-icon name="time-outline"></ion-icon>
-                <span>{{ events | freeHours:selectedDayForDayView }}h available</span>
+                <span>{{ events | freeHours:selectedDayForDayView }}{{ 'TUTOR_CALENDAR.H_AVAILABLE' | translate }}</span>
                 <div class="hours-tooltip">
                   <div class="tooltip-row">
-                    <span class="tooltip-label">Total availability:</span>
+                    <span class="tooltip-label">{{ 'TUTOR_CALENDAR.TOTAL_AVAILABILITY' | translate }}</span>
                     <span class="tooltip-value">{{ events | totalAvailability:selectedDayForDayView }}h</span>
                   </div>
                   <div class="tooltip-row">
-                    <span class="tooltip-label">Booked lessons:</span>
+                    <span class="tooltip-label">{{ 'TUTOR_CALENDAR.BOOKED_LESSONS' | translate }}</span>
                     <span class="tooltip-value">{{ events | bookedHours:selectedDayForDayView }}h</span>
                   </div>
                   <div class="tooltip-divider"></div>
                   <div class="tooltip-row total">
-                    <span class="tooltip-label">Available:</span>
+                    <span class="tooltip-label">{{ 'TUTOR_CALENDAR.AVAILABLE_LABEL' | translate }}</span>
                     <span class="tooltip-value">{{ events | freeHours:selectedDayForDayView }}h</span>
                   </div>
                 </div>
@@ -698,6 +818,7 @@
                        style="border-radius: 5px;"
                        [class.availability-event]="event.isAvailability"
                        [class.class-event]="event.isClass"
+                       [class.gcal-event]="event.isGoogleCalendar"
                        [class.is-cancelled]="event.extendedProps?.isCancelled"
                        [style.top.px]="event | eventTop:userTz"
                        [style.height.px]="event | eventHeight"
@@ -707,22 +828,24 @@
                        (click)="handleEventClick(event)">
                     
                     <div class="event-header">
-                      <!-- First row: Time and duration (left aligned) -->
                       <div class="event-time-row">
-                        <div class="event-time">{{ event | eventTime:userTz }}</div>
+                        <div class="event-time">{{ event | eventTime:userTz:calendarTimeFormat }}</div>
                       </div>
                       
-                      <!-- Second row: Avatar and name (left aligned) -->
                       <div class="event-info-row">
-                        <img *ngIf="event.studentAvatar && !event.isAvailability" 
+                        <img *ngIf="event.isGoogleCalendar" 
+                             src="assets/google.png" 
+                             alt="Google" 
+                             class="event-avatar gcal-avatar">
+                        <img *ngIf="event.studentAvatar && !event.isAvailability && !event.isGoogleCalendar" 
                              [src]="event.studentAvatar" 
                              class="event-avatar" 
-                             alt="Student avatar">
-                        <div class="event-title" *ngIf="!event.isAvailability">
+                             [attr.alt]="'TUTOR_CALENDAR.STUDENT_AVATAR' | translate">
+                        <div class="event-title" *ngIf="event.isGoogleCalendar">{{ event.title }}</div>
+                        <div class="event-title" *ngIf="!event.isAvailability && !event.isGoogleCalendar">
                           {{ event.studentName }}
-                          <!-- Inline trial badge for day view -->
                           <span class="calendar-trial-inline" *ngIf="event.extendedProps?.isTrialLesson">
-                            <ion-icon name="star"></ion-icon> Trial
+                            <ion-icon name="star"></ion-icon> {{ 'TUTOR_CALENDAR.TRIAL' | translate }}
                           </span>
                         </div>
                         <div class="event-title" *ngIf="event.isAvailability">{{ event.title }}</div>
@@ -734,8 +857,8 @@
                 <ng-template #noEventsTemplate>
                   <div class="no-events-placeholder">
                     <ion-icon name="calendar-outline"></ion-icon>
-                    <h4>No events scheduled</h4>
-                    <p>You don't have any lessons or availability blocks for this day</p>
+                    <h4>{{ 'TUTOR_CALENDAR.NO_EVENTS_SCHEDULED' | translate }}</h4>
+                    <p>{{ 'TUTOR_CALENDAR.NO_EVENTS_DAY_DESC' | translate }}</p>
                   </div>
                 </ng-template>
 
@@ -798,14 +921,14 @@
   <ng-template>
     <ion-header class="airbnb-modal-ion-header">
       <div class="airbnb-modal-header">
-        <h2>Outstanding feedback</h2>
+        <h2>{{ 'TUTOR_CALENDAR.OUTSTANDING_FEEDBACK' | translate }}</h2>
         <button class="airbnb-modal-close" (click)="closeFeedbackModal()">
           <ion-icon name="close"></ion-icon>
         </button>
       </div>
       <div class="airbnb-month-selector">
         <div class="airbnb-month-left">
-          <span class="airbnb-month-label">{{ pendingFeedbackCount }} lesson{{ pendingFeedbackCount !== 1 ? 's' : '' }} need your feedback</span>
+          <span class="airbnb-month-label">{{ pendingFeedbackCount }} {{ pendingFeedbackCount !== 1 ? ('TUTOR_CALENDAR.LESSONS_NEED_FEEDBACK' | translate) : ('TUTOR_CALENDAR.LESSON_NEED_FEEDBACK' | translate) }}</span>
         </div>
         <div class="feedback-modal-icon">
           <ion-icon name="clipboard-outline"></ion-icon>
@@ -823,8 +946,8 @@
             </div>
             <div class="airbnb-lesson-right">
               <div class="airbnb-lesson-participant-info">
-                <div class="airbnb-lesson-name">{{ fb.studentName || 'Student' }}</div>
-                <div class="airbnb-feedback-pending">Pending</div>
+                <div class="airbnb-lesson-name">{{ fb.studentName || ('TUTOR_CALENDAR.STUDENT' | translate) }}</div>
+                <div class="airbnb-feedback-pending">{{ 'TUTOR_CALENDAR.PENDING' | translate }}</div>
               </div>
               <div class="airbnb-lesson-avatar-small">
                 <img *ngIf="fb.studentPicture" [src]="fb.studentPicture" [alt]="fb.studentName">
@@ -836,7 +959,7 @@
 
         <div class="airbnb-no-lessons" *ngIf="pendingFeedbackItems.length === 0">
           <ion-icon name="checkmark-circle-outline"></ion-icon>
-          <p>All feedback completed!</p>
+          <p>{{ 'TUTOR_CALENDAR.ALL_FEEDBACK_COMPLETED' | translate }}</p>
         </div>
       </div>
     </ion-content>

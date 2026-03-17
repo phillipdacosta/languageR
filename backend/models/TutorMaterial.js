@@ -1,11 +1,19 @@
 const mongoose = require('mongoose');
 
 const QuizQuestionSchema = new mongoose.Schema({
+  type: {
+    type: String,
+    enum: ['multiple_choice', 'fill_blank', 'true_false', 'ordering'],
+    default: 'multiple_choice'
+  },
   question: { type: String, required: true },
   options: [{
     text: { type: String, required: true },
     isCorrect: { type: Boolean, default: false }
   }],
+  acceptedAnswers: [{ type: String }],
+  correctAnswer: { type: Boolean },
+  correctOrder: [{ type: String }],
   explanation: { type: String }
 }, { _id: true });
 

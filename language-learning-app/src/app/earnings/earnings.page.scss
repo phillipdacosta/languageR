@@ -545,6 +545,31 @@ ion-toolbar {
     color: $text-secondary;
     font-weight: 400;
   }
+
+  .chart-change-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-variant-numeric: tabular-nums;
+
+    ion-icon {
+      font-size: 12px;
+    }
+
+    &.up {
+      color: #34c759;
+      background: rgba(52, 199, 89, 0.1);
+    }
+
+    &.down {
+      color: #ff3b30;
+      background: rgba(255, 59, 48, 0.1);
+    }
+  }
 }
 
 .chart-canvas-container {
@@ -2187,6 +2212,10 @@ ion-toolbar {
   .chart-total-row {
     .chart-total-amount { color: #f5f5f7 !important; &.masked { color: #555 !important; } }
     .chart-total-label { color: #8e8e93 !important; }
+    .chart-change-badge {
+      &.up { color: #30d158; background: rgba(48, 209, 88, 0.15); }
+      &.down { color: #ff453a; background: rgba(255, 69, 58, 0.15); }
+    }
   }
   .chart-empty-state { ion-icon { color: #555 !important; } p { color: #8e8e93 !important; } }
 

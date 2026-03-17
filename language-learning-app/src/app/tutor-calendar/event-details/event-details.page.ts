@@ -15,6 +15,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { environment } from '../../../environments/environment';
 import { CancelReasonModalComponent } from '../../components/cancel-reason-modal/cancel-reason-modal.component';
 import { ConfirmActionModalComponent } from '../../components/confirm-action-modal/confirm-action-modal.component';
+import { RescheduleLessonModalComponent } from '../../components/reschedule-lesson-modal/reschedule-lesson-modal.component';
 import { formatTimeInTz, formatDateInTz } from '../../shared/timezone.utils';
 
 // ── Interfaces ──────────────────────────────────────────────────
@@ -80,7 +81,7 @@ interface BillingData {
   templateUrl: './event-details.page.html',
   styleUrls: ['./event-details.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, CancelReasonModalComponent, ConfirmActionModalComponent]
+  imports: [CommonModule, IonicModule, CancelReasonModalComponent, ConfirmActionModalComponent, RescheduleLessonModalComponent]
 })
 export class EventDetailsPage implements OnInit, OnDestroy {
   eventId: string | null = null;
@@ -1193,6 +1194,53 @@ export class EventDetailsPage implements OnInit, OnDestroy {
   viewAnalysis() {
     if (!this.eventId) return;
     this.router.navigate(['/lesson-analysis', this.eventId]);
+  }
+
+  async openRescheduleModal() {
+    if (!this.lesson || this.lesson.status === 'cancelled' || !this.currentUser?.id || !this.eventId) return;
+
+    const otherParticipant = this.isTutorUser ? this.lesson.studentId : this.lesson.tutorId;
+    let participantId: string | null = null;
+    if (otherParticipant && typeof otherParticipant === 'object') {
+      participantId = (otherParticipant as any)?._id ?? (otherParticipant as any)?.id ?? null;
+    } else if (typeof otherParticipant === 'string') {
+      participantId = otherParticipant;
+    }
+
+    if (!participantId) {
+      const toast = await this.toastController.create({
+        message: 'Could not find participant information',
+        duration: 2000,
+        color: 'danger',
+        position: 'bottom'
+      });
+      await toast.present();
+      return;
+    }
+
+    const participantNameForModal = otherParticipant || this.participantName || 'Student';
+
+    const modal = await this.modalController.create({
+      component: RescheduleLessonModalComponent,
+      componentProps: {
+        lessonId: this.eventId,
+        lesson: this.lesson,
+        participantId,
+        participantName: participantNameForModal,
+        participantAvatar: this.participantPicture || undefined,
+        currentUserId: this.currentUser.id,
+        isTutor: this.isTutorUser,
+        showBackButton: false
+      },
+      cssClass: 'reschedule-lesson-modal'
+    });
+
+    await modal.present();
+    const result = await modal.onDidDismiss();
+
+    if (result.data?.rescheduled) {
+      this.loadEventDetails();
+    }
   }
 
   async cancelLesson() {

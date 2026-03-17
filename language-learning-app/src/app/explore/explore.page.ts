@@ -1,4 +1,4 @@
-import { Component, OnInit, Input, Output, EventEmitter, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, Input, Output, EventEmitter, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ToastController, ModalController } from '@ionic/angular';
@@ -11,6 +11,8 @@ import { formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
 import { ClassInvitationModalComponent } from '../components/class-invitation-modal/class-invitation-modal.component';
 import { ExploreFiltersModalComponent, ExploreFilters } from '../components/explore-filters-modal/explore-filters-modal.component';
 import { ScheduleClassPage } from '../tutor-calendar/schedule-class/schedule-class.page';
+import { TranslateService } from '@ngx-translate/core';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-explore',
@@ -19,7 +21,7 @@ import { ScheduleClassPage } from '../tutor-calendar/schedule-class/schedule-cla
   standalone: true,
   imports: [CommonModule, IonicModule, RouterModule, FormsModule, SharedModule, ScheduleClassPage]
 })
-export class ExplorePage implements OnInit {
+export class ExplorePage implements OnInit, OnDestroy {
   @Input() inline = false;
   @Output() goBackEvent = new EventEmitter<void>();
 
@@ -41,8 +43,21 @@ export class ExplorePage implements OnInit {
     searchQuery: ''
   };
 
+  private levelLabels: { [key: string]: string } = {};
+  private tutorFallback = '';
+  private durationSuffix = '';
+  private animScheduleLabel = '';
+  private animGoBackLabel = '';
+
+  private langSub?: Subscription;
+  private userSub?: Subscription;
+
   private get userTz(): string | undefined {
     return this.currentUser?.profile?.timezone || undefined;
+  }
+
+  private get isDarkMode(): boolean {
+    return document.documentElement.classList.contains('ion-palette-dark');
   }
 
   returningFromSchedule = false;
@@ -54,23 +69,56 @@ export class ExplorePage implements OnInit {
     private toast: ToastController,
     private sanitizer: DomSanitizer,
     private modalCtrl: ModalController,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private translate: TranslateService
   ) {}
 
   ngOnInit() {
-    this.userService.currentUser$.subscribe(user => {
+    this.buildTranslatedLabels();
+
+    this.langSub = this.translate.onLangChange.subscribe(() => {
+      this.buildTranslatedLabels();
+      if (this.publicClasses.length > 0) {
+        this.publicClasses = this.publicClasses.map(cls => this.enrichClassItem(cls));
+        this.applyFilters();
+      }
+    });
+
+    this.userSub = this.userService.currentUser$.subscribe(user => {
       this.currentUser = user;
       this.isTutorUser = user?.userType === 'tutor';
     });
     this.loadPublicClasses();
   }
 
+  ngOnDestroy() {
+    this.langSub?.unsubscribe();
+    this.userSub?.unsubscribe();
+  }
+
+  private buildTranslatedLabels() {
+    this.levelLabels = {
+      'any': this.translate.instant('EXPLORE_CLASSES.LEVEL_ANY'),
+      'beginner': this.translate.instant('EXPLORE_CLASSES.LEVEL_BEGINNER'),
+      'intermediate': this.translate.instant('EXPLORE_CLASSES.LEVEL_INTERMEDIATE'),
+      'advanced': this.translate.instant('EXPLORE_CLASSES.LEVEL_ADVANCED')
+    };
+    this.tutorFallback = this.translate.instant('EXPLORE_CLASSES.TUTOR_FALLBACK');
+    this.durationSuffix = this.translate.instant('EXPLORE_CLASSES.DURATION_MIN');
+    this.animScheduleLabel = this.translate.instant('EXPLORE_CLASSES.ANIM_SCHEDULE_CLASS');
+    this.animGoBackLabel = this.translate.instant('EXPLORE_CLASSES.ANIM_GO_BACK');
+  }
+
   scheduleClass() {
-    // === FLIP Animation: Schedule Class btn → Go back link ===
     const srcBtn = document.querySelector('.schedule-class-btn') as HTMLElement;
     const srcRect = srcBtn?.getBoundingClientRect();
 
-    const scheduleBtnLabel = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32" stroke-linecap="round"><line x1="256" y1="112" x2="256" y2="400"/><line x1="112" y1="256" x2="400" y2="256"/></svg><span>Schedule Class</span>';
+    const scheduleBtnLabel = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32" stroke-linecap="round"><line x1="256" y1="112" x2="256" y2="400"/><line x1="112" y1="256" x2="400" y2="256"/></svg><span>${this.animScheduleLabel}</span>`;
+
+    const dark = this.isDarkMode;
+    const btnBg = dark ? '#4298d2' : '#222222';
+    const btnFg = '#ffffff';
+    const linkColor = dark ? '#4298d2' : '#222222';
 
     let clone: HTMLElement | null = null;
     if (srcRect && srcBtn) {
@@ -92,8 +140,9 @@ export class ExplorePage implements OnInit {
         fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
         fontSize: '14px',
         fontWeight: '600',
-        color: '#ffffff',
-        backgroundColor: '#222222',
+        whiteSpace: 'nowrap',
+        color: btnFg,
+        backgroundColor: btnBg,
         border: 'none',
         borderRadius: '12px',
         transition: 'left 0.46s cubic-bezier(0.32, 0.72, 0, 1), top 0.46s cubic-bezier(0.32, 0.72, 0, 1), width 0.46s cubic-bezier(0.32, 0.72, 0, 1), height 0.46s cubic-bezier(0.32, 0.72, 0, 1), border-radius 0.46s cubic-bezier(0.32, 0.72, 0, 1), font-size 0.36s ease 0.1s, background-color 0.36s ease 0.1s, color 0.36s ease 0.1s',
@@ -105,13 +154,11 @@ export class ExplorePage implements OnInit {
     this.cdr.detectChanges();
 
     if (clone && srcRect) {
-      // Immediate feedback: float up slightly
       requestAnimationFrame(() => {
         if (!clone) return;
         clone.style.top = `${srcRect.top - 10}px`;
       });
 
-      // After layout, find go-back link and fly to it
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           const dest = document.querySelector('.schedule-class-inline .go-back-link') as HTMLElement;
@@ -122,13 +169,13 @@ export class ExplorePage implements OnInit {
             const destRect = dest.getBoundingClientRect();
 
             clone.style.transition = 'left 0.36s cubic-bezier(0.32, 0.72, 0, 1), top 0.36s cubic-bezier(0.32, 0.72, 0, 1), width 0.36s cubic-bezier(0.32, 0.72, 0, 1), height 0.36s cubic-bezier(0.32, 0.72, 0, 1), border-radius 0.36s cubic-bezier(0.32, 0.72, 0, 1), font-size 0.36s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.36s ease, color 0.36s ease';
-            clone.textContent = 'Go back';
+            clone.textContent = this.animGoBackLabel;
             clone.style.left = `${destRect.left}px`;
             clone.style.top = `${destRect.top}px`;
             clone.style.width = `${destRect.width}px`;
             clone.style.height = `${destRect.height}px`;
             clone.style.backgroundColor = 'transparent';
-            clone.style.color = '#222222';
+            clone.style.color = linkColor;
             clone.style.borderRadius = '0';
             clone.style.textDecoration = 'underline';
 
@@ -149,14 +196,18 @@ export class ExplorePage implements OnInit {
   }
 
   onScheduleGoBack() {
-    // === FLIP Animation: Go back link → Schedule Class btn ===
     const srcLink = document.querySelector('.schedule-class-inline .go-back-link') as HTMLElement;
     const srcRect = srcLink?.getBoundingClientRect();
+
+    const dark = this.isDarkMode;
+    const btnBg = dark ? '#4298d2' : '#222222';
+    const btnFg = '#ffffff';
+    const linkColor = dark ? '#4298d2' : '#222222';
 
     let clone: HTMLElement | null = null;
     if (srcRect) {
       clone = document.createElement('div');
-      clone.textContent = 'Go back';
+      clone.textContent = this.animGoBackLabel;
       Object.assign(clone.style, {
         position: 'fixed',
         left: `${srcRect.left}px`,
@@ -172,7 +223,8 @@ export class ExplorePage implements OnInit {
         fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
         fontSize: '14px',
         fontWeight: '600',
-        color: '#222222',
+        whiteSpace: 'nowrap',
+        color: linkColor,
         backgroundColor: 'transparent',
         textDecoration: 'underline',
         border: 'none',
@@ -194,15 +246,15 @@ export class ExplorePage implements OnInit {
           destBtn.style.transition = 'none';
           destBtn.style.opacity = '0';
 
-          clone.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32" stroke-linecap="round"><line x1="256" y1="112" x2="256" y2="400"/><line x1="112" y1="256" x2="400" y2="256"/></svg><span>Schedule Class</span>';
+          clone.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32" stroke-linecap="round"><line x1="256" y1="112" x2="256" y2="400"/><line x1="112" y1="256" x2="400" y2="256"/></svg><span>${this.animScheduleLabel}</span>`;
           clone.style.textDecoration = 'none';
           clone.style.gap = '8px';
           clone.style.left = `${destRect.left}px`;
           clone.style.top = `${destRect.top}px`;
           clone.style.width = `${destRect.width}px`;
           clone.style.height = `${destRect.height}px`;
-          clone.style.backgroundColor = '#222222';
-          clone.style.color = '#ffffff';
+          clone.style.backgroundColor = btnBg;
+          clone.style.color = btnFg;
           clone.style.borderRadius = '12px';
 
           setTimeout(() => {
@@ -256,7 +308,7 @@ export class ExplorePage implements OnInit {
         console.error('Error loading public classes:', error);
         this.isLoading = false;
         this.toast.create({
-          message: 'Failed to load classes',
+          message: this.translate.instant('EXPLORE_CLASSES.TOAST_LOAD_FAILED'),
           duration: 2000,
           color: 'danger'
         }).then(t => t.present());
@@ -276,7 +328,7 @@ export class ExplorePage implements OnInit {
       plainTextDescription: this.getPlainTextDescription(cls.description),
       displayDate: formatDateInTz(start, tz, { weekday: 'short', month: 'short', day: 'numeric', year: undefined }),
       displayTimeRange: `${startStr} – ${endStr}`,
-      displayDuration: `${cls.duration || Math.round((end.getTime() - start.getTime()) / 60000)} min`,
+      displayDuration: `${cls.duration || Math.round((end.getTime() - start.getTime()) / 60000)}${this.durationSuffix}`,
       displayTutorName: this.formatTutorName(cls.tutorId),
       displayLevel: this.getLevelLabel(cls.level),
       displayPrice: (cls.price || 0).toFixed(2),
@@ -396,24 +448,18 @@ export class ExplorePage implements OnInit {
   }
 
   getLevelLabel(level: string): string {
-    const levelMap: { [key: string]: string } = {
-      'any': 'Any Level',
-      'beginner': 'Beginner',
-      'intermediate': 'Intermediate',
-      'advanced': 'Advanced'
-    };
-    return levelMap[level] || 'Any Level';
+    return this.levelLabels[level] || this.levelLabels['any'] || level;
   }
 
   formatTutorName(tutorData: any): string {
-    if (!tutorData) return 'Tutor';
+    if (!tutorData) return this.tutorFallback;
     if (tutorData.firstName && tutorData.lastName) {
       return `${tutorData.firstName} ${tutorData.lastName.charAt(0).toUpperCase()}.`;
     }
     const fullName = tutorData.name || tutorData;
-    if (typeof fullName !== 'string') return 'Tutor';
+    if (typeof fullName !== 'string') return this.tutorFallback;
     const names = fullName.trim().split(' ');
-    if (names.length <= 1) return names[0] || 'Tutor';
+    if (names.length <= 1) return names[0] || this.tutorFallback;
     return `${names[0]} ${names[names.length - 1].charAt(0).toUpperCase()}.`;
   }
 
@@ -450,13 +496,13 @@ export class ExplorePage implements OnInit {
 
   async enrollInClass(classItem: any) {
     if (classItem.isEnrolled) {
-      (await this.toast.create({ message: 'You are already enrolled in this class', duration: 2000, color: 'primary' })).present();
+      (await this.toast.create({ message: this.translate.instant('EXPLORE_CLASSES.TOAST_ALREADY_ENROLLED'), duration: 2000, color: 'primary' })).present();
       return;
     }
     if (classItem.isFull) {
-      (await this.toast.create({ message: 'This class is full', duration: 2000, color: 'warning' })).present();
+      (await this.toast.create({ message: this.translate.instant('EXPLORE_CLASSES.TOAST_CLASS_FULL'), duration: 2000, color: 'warning' })).present();
       return;
     }
-    (await this.toast.create({ message: 'Direct enrollment for public classes will be available soon.', duration: 3000, color: 'primary' })).present();
+    (await this.toast.create({ message: this.translate.instant('EXPLORE_CLASSES.TOAST_ENROLL_SOON'), duration: 3000, color: 'primary' })).present();
   }
 }

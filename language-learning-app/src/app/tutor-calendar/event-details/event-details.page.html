@@ -145,7 +145,8 @@
       </div>
 
       <div class="ed-detail" *ngIf="isStudentUser && paymentMethodLabel">
-        <ion-icon [name]="paymentMethodIcon"></ion-icon>
+        <img *ngIf="paymentMethodIcon === 'logo-google'" src="assets/google.png" alt="Google Pay" class="ed-payment-method-google" />
+        <ion-icon *ngIf="paymentMethodIcon !== 'logo-google'" [name]="paymentMethodIcon"></ion-icon>
         <div>
           <span class="ed-detail-primary">{{ paymentMethodLabel }}</span>
           <span class="ed-detail-secondary">Payment method</span>
@@ -710,8 +711,8 @@
       <button
         class="ed-btn-cancel"
         *ngIf="canCancelLesson"
-        (click)="cancelLesson()">
-        Cancel lesson
+        (click)="openRescheduleModal()">
+        Reschedule
       </button>
     </div>
   </div>

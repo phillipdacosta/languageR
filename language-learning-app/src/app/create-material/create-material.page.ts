@@ -2,13 +2,15 @@ import { Component, OnInit, Input, Output, EventEmitter, ChangeDetectorRef } fro
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { IonicModule, ToastController, AlertController } from '@ionic/angular';
+import { IonicModule, ToastController, AlertController, ModalController } from '@ionic/angular';
 import { Router, RouterModule, ActivatedRoute } from '@angular/router';
-import { MaterialService, CreateMaterialPayload, QuizQuestion, MaterialType, TutorMaterial, LinkedChannels } from '../services/material.service';
+import { MaterialService, CreateMaterialPayload, QuizQuestion, QuestionType, MaterialType, TutorMaterial, LinkedChannels } from '../services/material.service';
 import { UserService } from '../services/user.service';
 import { SharedModule } from '../shared/shared.module';
+import { ImageCropperComponent } from '../components/image-cropper/image-cropper.component';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { QuillEditorComponent } from 'ngx-quill';
+import { TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 
 type Step = 'type' | 'pricing' | 'details' | 'quiz' | 'preview';
@@ -36,15 +38,15 @@ export class CreateMaterialPage implements OnInit {
   selectedType: MaterialType | null = null;
   selectedPricing: 'free' | 'paid' | null = null;
 
-  navBackLabel = 'Go Back';
+  navBackLabel = '';
   stepTitle = '';
 
-  private static stepTitles: Record<Step, string> = {
-    type: 'New Material',
-    pricing: 'Pricing',
-    details: 'Details',
-    quiz: 'Quiz Builder',
-    preview: 'Preview'
+  private stepTitleKeys: Record<Step, string> = {
+    type: 'CREATE_MATERIAL.STEP_NEW_MATERIAL',
+    pricing: 'CREATE_MATERIAL.STEP_PRICING',
+    details: 'CREATE_MATERIAL.STEP_DETAILS',
+    quiz: 'CREATE_MATERIAL.STEP_QUIZ_BUILDER',
+    preview: 'CREATE_MATERIAL.STEP_PREVIEW'
   };
 
   materialForm!: FormGroup;
@@ -83,12 +85,7 @@ export class CreateMaterialPage implements OnInit {
     'Finnish', 'Norwegian', 'Danish', 'Romanian', 'Ukrainian', 'Persian', 'Farsi'
   ];
 
-  levels = [
-    { value: 'beginner', label: 'Beginner' },
-    { value: 'intermediate', label: 'Intermediate' },
-    { value: 'advanced', label: 'Advanced' },
-    { value: 'any', label: 'All Levels' }
-  ];
+  levels: { value: string; label: string }[] = [];
 
   constructor(
     private fb: FormBuilder,
@@ -100,16 +97,39 @@ export class CreateMaterialPage implements OnInit {
     private sanitizer: DomSanitizer,
     private cdr: ChangeDetectorRef,
     private router: Router,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private modalCtrl: ModalController,
+    private translate: TranslateService
   ) {}
 
   ngOnInit() {
     this.initForm();
+    this.rebuildTranslatedLabels();
     this.loadMyMaterials();
     this.loadLinkedChannels();
+    this.updateNavState();
     this.userService.currentUser$.subscribe(u => {
       if (u) this.currentUserId = u.id;
     });
+    this.translate.onLangChange.subscribe(() => {
+      this.rebuildTranslatedLabels();
+      this.updateNavState();
+    });
+  }
+
+  private rebuildTranslatedLabels() {
+    this.levels = [
+      { value: 'beginner', label: this.translate.instant('CREATE_MATERIAL.LEVEL_BEGINNER') },
+      { value: 'intermediate', label: this.translate.instant('CREATE_MATERIAL.LEVEL_INTERMEDIATE') },
+      { value: 'advanced', label: this.translate.instant('CREATE_MATERIAL.LEVEL_ADVANCED') },
+      { value: 'any', label: this.translate.instant('CREATE_MATERIAL.LEVEL_ALL') }
+    ];
+    this.questionTypes = [
+      { value: 'multiple_choice', label: this.translate.instant('CREATE_MATERIAL.QUIZ_MC'), icon: 'list-outline' },
+      { value: 'fill_blank', label: this.translate.instant('CREATE_MATERIAL.QUIZ_FILL_BLANK'), icon: 'text-outline' },
+      { value: 'true_false', label: this.translate.instant('CREATE_MATERIAL.QUIZ_TRUE_FALSE'), icon: 'swap-horizontal-outline' },
+      { value: 'ordering', label: this.translate.instant('CREATE_MATERIAL.QUIZ_ORDERING'), icon: 'reorder-four-outline' }
+    ];
   }
 
   private initForm() {
@@ -186,18 +206,22 @@ export class CreateMaterialPage implements OnInit {
 
   updateNavState() {
     if (this.viewMode === 'library') {
-      this.navBackLabel = 'Back';
+      this.navBackLabel = this.translate.instant('CREATE_MATERIAL.NAV_BACK_SHORT');
       this.stepTitle = '';
       return;
     }
-    this.stepTitle = CreateMaterialPage.stepTitles[this.currentStep] || '';
+    this.stepTitle = this.translate.instant(this.stepTitleKeys[this.currentStep]) || '';
     const idx = this.stepOrder.indexOf(this.currentStep);
     if (idx <= 0 || (this.editingMaterialId && this.currentStep === 'details')) {
-      this.navBackLabel = 'My Materials';
+      this.navBackLabel = this.translate.instant('CREATE_MATERIAL.NAV_MY_MATERIALS');
     } else {
       const prevStep = this.stepOrder[idx - 1];
-      this.navBackLabel = CreateMaterialPage.stepTitles[prevStep] || 'Back';
+      this.navBackLabel = this.translate.instant(this.stepTitleKeys[prevStep]) || this.translate.instant('CREATE_MATERIAL.NAV_BACK_SHORT');
     }
+  }
+
+  previewMaterial(m: TutorMaterial) {
+    this.router.navigate(['/material', m._id]);
   }
 
   editMaterial(m: TutorMaterial) {
@@ -226,13 +250,36 @@ export class CreateMaterialPage implements OnInit {
     this.quizArray.clear();
     if (m.quiz?.length) {
       for (const q of m.quiz) {
+        const qType = q.type || 'multiple_choice';
+
         const opts = this.fb.array(
-          q.options.map(o => this.fb.group({ text: [o.text, Validators.required], isCorrect: [o.isCorrect || false] }))
+          (q.options || []).map(o => this.fb.group({ text: [o.text, Validators.required], isCorrect: [o.isCorrect || false] }))
         );
+
+        const acceptedAnswers = this.fb.array(
+          (q.acceptedAnswers || []).map(a => this.fb.control(a, Validators.required))
+        );
+        if (qType === 'fill_blank' && acceptedAnswers.length === 0) {
+          acceptedAnswers.push(this.fb.control('', Validators.required));
+        }
+
+        const correctOrder = this.fb.array(
+          (q.correctOrder || []).map(item => this.fb.control(item, Validators.required))
+        );
+        if (qType === 'ordering' && correctOrder.length < 2) {
+          while (correctOrder.length < 2) {
+            correctOrder.push(this.fb.control('', Validators.required));
+          }
+        }
+
         this.quizArray.push(this.fb.group({
+          type: [qType],
           question: [q.question, Validators.required],
           explanation: [q.explanation || ''],
-          options: opts
+          options: opts,
+          acceptedAnswers: acceptedAnswers,
+          correctAnswer: [q.correctAnswer ?? null],
+          correctOrder: correctOrder
         }));
       }
     }
@@ -246,22 +293,22 @@ export class CreateMaterialPage implements OnInit {
 
   async confirmDelete(m: TutorMaterial) {
     const alert = await this.alertCtrl.create({
-      header: 'Delete Material',
-      message: `Are you sure you want to delete "${m.title}"?`,
+      header: this.translate.instant('CREATE_MATERIAL.ALERT_DELETE_TITLE'),
+      message: this.translate.instant('CREATE_MATERIAL.ALERT_DELETE_MSG', { title: m.title }),
       buttons: [
-        { text: 'Cancel', role: 'cancel' },
+        { text: this.translate.instant('COMMON.CANCEL'), role: 'cancel' },
         {
-          text: 'Delete',
+          text: this.translate.instant('COMMON.DELETE'),
           role: 'destructive',
           handler: () => {
             this.materialService.deleteMaterial(m._id).subscribe({
               next: async (res) => {
                 if (res.success) {
-                  await this.showToast(res.softDeleted ? 'Material hidden (students retain access)' : 'Material deleted');
+                  await this.showTranslatedToast(res.softDeleted ? 'CREATE_MATERIAL.TOAST_SOFT_DELETED' : 'CREATE_MATERIAL.TOAST_DELETED');
                   this.loadMyMaterials();
                 }
               },
-              error: async () => await this.showToast('Failed to delete material')
+              error: async () => await this.showTranslatedToast('CREATE_MATERIAL.TOAST_DELETE_FAILED')
             });
           }
         }
@@ -273,24 +320,22 @@ export class CreateMaterialPage implements OnInit {
   async toggleArchive(m: TutorMaterial) {
     const isArchiving = m.status !== 'archived';
     const alert = await this.alertCtrl.create({
-      header: isArchiving ? 'Archive Material' : 'Publish Material',
-      message: isArchiving
-        ? `Are you sure you want to archive "${m.title}"? Students won't see it in search results.`
-        : `Re-publish "${m.title}"? It will become visible to students again.`,
+      header: this.translate.instant(isArchiving ? 'CREATE_MATERIAL.ALERT_ARCHIVE_TITLE' : 'CREATE_MATERIAL.ALERT_PUBLISH_TITLE'),
+      message: this.translate.instant(isArchiving ? 'CREATE_MATERIAL.ALERT_ARCHIVE_MSG' : 'CREATE_MATERIAL.ALERT_PUBLISH_MSG', { title: m.title }),
       buttons: [
-        { text: 'Cancel', role: 'cancel' },
+        { text: this.translate.instant('COMMON.CANCEL'), role: 'cancel' },
         {
-          text: isArchiving ? 'Archive' : 'Publish',
+          text: this.translate.instant(isArchiving ? 'CREATE_MATERIAL.ALERT_ARCHIVE_BTN' : 'CREATE_MATERIAL.ALERT_PUBLISH_BTN'),
           handler: () => {
             const newStatus = isArchiving ? 'archived' : 'published';
             this.materialService.updateMaterial(m._id, { status: newStatus } as any).subscribe({
               next: async (res) => {
                 if (res.success) {
-                  await this.showToast(isArchiving ? 'Material archived' : 'Material published');
+                  await this.showTranslatedToast(isArchiving ? 'CREATE_MATERIAL.TOAST_ARCHIVED' : 'CREATE_MATERIAL.TOAST_PUBLISHED');
                   this.loadMyMaterials();
                 }
               },
-              error: async () => await this.showToast('Failed to update material')
+              error: async () => await this.showTranslatedToast('CREATE_MATERIAL.TOAST_UPDATE_FAILED')
             });
           }
         }
@@ -310,9 +355,9 @@ export class CreateMaterialPage implements OnInit {
 
   getMaterialTypeLabel(type: string): string {
     switch (type) {
-      case 'video_quiz': return 'Video Quiz';
-      case 'reading': return 'Reading';
-      case 'listening': return 'Listening';
+      case 'video_quiz': return this.translate.instant('CREATE_MATERIAL.TYPE_VIDEO_QUIZ');
+      case 'reading': return this.translate.instant('CREATE_MATERIAL.TYPE_READING');
+      case 'listening': return this.translate.instant('CREATE_MATERIAL.TYPE_LISTENING');
       default: return '';
     }
   }
@@ -320,7 +365,9 @@ export class CreateMaterialPage implements OnInit {
   formatDate(iso: string): string {
     if (!iso) return '';
     const d = new Date(iso);
-    return 'Added ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const lang = this.translate.currentLang || 'en';
+    const dateStr = d.toLocaleDateString(lang, { month: 'short', day: 'numeric', year: 'numeric' });
+    return this.translate.instant('CREATE_MATERIAL.CARD_ADDED_DATE', { date: dateStr });
   }
 
   // ── Share links ─────────────────────────────────────────
@@ -336,10 +383,10 @@ export class CreateMaterialPage implements OnInit {
     try {
       await navigator.clipboard.writeText(link);
       this.copiedLinkId = materialId;
-      await this.showToast('Link copied! Share it with your students');
+      await this.showTranslatedToast('CREATE_MATERIAL.TOAST_LINK_COPIED');
       setTimeout(() => { this.copiedLinkId = null; }, 2500);
     } catch {
-      await this.showToast('Failed to copy link');
+      await this.showTranslatedToast('CREATE_MATERIAL.TOAST_COPY_FAILED');
     }
   }
 
@@ -348,27 +395,48 @@ export class CreateMaterialPage implements OnInit {
   }
 
   // ── Thumbnail ─────────────────────────────────────────
+  // Card thumb uses 16:10 aspect ratio; crop uploads to fit perfectly.
 
-  onThumbnailSelected(event: any) {
+  async onThumbnailSelected(event: any) {
     const file = event.target.files?.[0];
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      this.showToast('Please select an image file');
+      this.showTranslatedToast('CREATE_MATERIAL.TOAST_IMAGE_ONLY');
+      event.target.value = '';
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      this.showToast('Image must be under 5 MB');
+      this.showTranslatedToast('CREATE_MATERIAL.TOAST_IMAGE_SIZE');
+      event.target.value = '';
       return;
     }
 
-    this.thumbnailFile = file;
-    const reader = new FileReader();
-    reader.onload = (e: any) => {
-      this.thumbnailPreview = e.target.result;
-      this.cdr.detectChanges();
-    };
-    reader.readAsDataURL(file);
+    const modal = await this.modalCtrl.create({
+      component: ImageCropperComponent,
+      componentProps: {
+        imageChangedEvent: event,
+        aspectRatio: 16 / 10,
+        cropTitle: 'Crop cover image'
+      },
+      cssClass: 'image-cropper-modal'
+    });
+
+    await modal.present();
+
+    const { data, role } = await modal.onWillDismiss();
+
+    if (role === 'crop' && data) {
+      const croppedFile = new File([data], file.name, { type: 'image/png' });
+      this.thumbnailFile = croppedFile;
+      const reader = new FileReader();
+      reader.onload = (e: any) => {
+        this.thumbnailPreview = e.target.result;
+        this.cdr.detectChanges();
+      };
+      reader.readAsDataURL(croppedFile);
+    }
+    event.target.value = '';
   }
 
   removeThumbnail() {
@@ -433,6 +501,7 @@ export class CreateMaterialPage implements OnInit {
   editingVimeo = false;
   editingSoundCloud = false;
   isLinkingYouTube = false;
+  isLinkingVimeo = false;
 
   selectType(type: MaterialType) {
     this.selectedType = type;
@@ -451,7 +520,7 @@ export class CreateMaterialPage implements OnInit {
     const card = (event.currentTarget as HTMLElement);
     const srcRect = card.getBoundingClientRect();
     const iconName = type === 'video_quiz' ? 'videocam-outline' : type === 'reading' ? 'book-outline' : 'headset-outline';
-    const label = type === 'video_quiz' ? 'Video Quiz' : type === 'reading' ? 'Reading Comprehension' : 'Listening Exercise';
+    const label = this.getMaterialTypeLabel(type);
 
     const clone = document.createElement('div');
     const iconDiv = document.createElement('div');
@@ -579,24 +648,29 @@ export class CreateMaterialPage implements OnInit {
     if (titleCtrl?.invalid || langCtrl?.invalid) {
       titleCtrl?.markAsTouched();
       langCtrl?.markAsTouched();
-      this.showToast('Please fill in all required fields');
+      this.showTranslatedToast('CREATE_MATERIAL.TOAST_FILL_REQUIRED');
       return;
     }
 
     if (this.selectedType === 'video_quiz' && !this.videoPreviewUrl) {
-      this.showToast('Please enter a valid video URL');
+      this.showTranslatedToast('CREATE_MATERIAL.TOAST_VALID_VIDEO');
       return;
     }
     if (this.selectedType === 'reading') {
       const passageHtml = this.materialForm.value.passage || '';
       const stripped = passageHtml.replace(/<[^>]*>/g, '').trim();
       if (!stripped) {
-        this.showToast('Please enter a reading passage');
+        this.showTranslatedToast('CREATE_MATERIAL.TOAST_ENTER_PASSAGE');
         return;
       }
     }
     if (this.selectedType === 'listening' && !this.audioPreviewUrl) {
-      this.showToast('Please enter a valid audio URL');
+      this.showTranslatedToast('CREATE_MATERIAL.TOAST_VALID_AUDIO');
+      return;
+    }
+
+    if (this.selectedType !== 'video_quiz' && !this.thumbnailPreview) {
+      this.showTranslatedToast('CREATE_MATERIAL.TOAST_ADD_COVER');
       return;
     }
 
@@ -605,21 +679,53 @@ export class CreateMaterialPage implements OnInit {
   }
 
   goToPreview() {
-    const quizData: QuizQuestion[] = this.quizArray.value;
+    const quizData = this.quizArray.value;
     for (let i = 0; i < quizData.length; i++) {
       const q = quizData[i];
-      if (!q.question.trim()) {
-        this.showToast(`Question ${i + 1} needs a question`);
+      const num = i + 1;
+      if (!q.question?.trim()) {
+        this.showTranslatedToast('CREATE_MATERIAL.TOAST_Q_NEEDS_TEXT', { num });
         return;
       }
-      const filled = q.options.filter(o => o.text.trim());
-      if (filled.length < 2) {
-        this.showToast(`Question ${i + 1} needs at least 2 options`);
-        return;
-      }
-      if (!q.options.some(o => o.isCorrect && o.text.trim())) {
-        this.showToast(`Question ${i + 1} needs a correct answer`);
-        return;
+
+      const qType = q.type || 'multiple_choice';
+
+      switch (qType) {
+        case 'multiple_choice': {
+          const filled = (q.options || []).filter((o: any) => o.text.trim());
+          if (filled.length < 2) {
+            this.showTranslatedToast('CREATE_MATERIAL.TOAST_Q_NEEDS_OPTIONS', { num });
+            return;
+          }
+          if (!filled.some((o: any) => o.isCorrect)) {
+            this.showTranslatedToast('CREATE_MATERIAL.TOAST_Q_NEEDS_CORRECT', { num });
+            return;
+          }
+          break;
+        }
+        case 'fill_blank': {
+          const answers = (q.acceptedAnswers || []).filter((a: string) => a?.trim());
+          if (answers.length === 0) {
+            this.showTranslatedToast('CREATE_MATERIAL.TOAST_Q_NEEDS_ANSWER', { num });
+            return;
+          }
+          break;
+        }
+        case 'true_false': {
+          if (typeof q.correctAnswer !== 'boolean') {
+            this.showTranslatedToast('CREATE_MATERIAL.TOAST_Q_NEEDS_TF', { num });
+            return;
+          }
+          break;
+        }
+        case 'ordering': {
+          const items = (q.correctOrder || []).filter((item: string) => item?.trim());
+          if (items.length < 2) {
+            this.showTranslatedToast('CREATE_MATERIAL.TOAST_Q_NEEDS_ITEMS', { num });
+            return;
+          }
+          break;
+        }
       }
     }
     this.currentStep = 'preview';
@@ -719,16 +825,80 @@ export class CreateMaterialPage implements OnInit {
 
   // ── Quiz builder ───────────────────────────────────────
 
-  addQuestion() {
-    const questionGroup = this.fb.group({
-      question: ['', Validators.required],
-      explanation: [''],
-      options: this.fb.array([
-        this.createOption(true),
-        this.createOption()
-      ])
-    });
-    this.quizArray.push(questionGroup);
+  questionTypes: { value: QuestionType; label: string; icon: string }[] = [];
+
+  addQuestion(type: QuestionType = 'multiple_choice') {
+    let group: FormGroup;
+
+    switch (type) {
+      case 'fill_blank':
+        group = this.fb.group({
+          type: [type],
+          question: ['', Validators.required],
+          explanation: [''],
+          options: this.fb.array([]),
+          acceptedAnswers: this.fb.array([this.fb.control('', Validators.required)]),
+          correctAnswer: [null],
+          correctOrder: this.fb.array([])
+        });
+        break;
+
+      case 'true_false':
+        group = this.fb.group({
+          type: [type],
+          question: ['', Validators.required],
+          explanation: [''],
+          options: this.fb.array([]),
+          acceptedAnswers: this.fb.array([]),
+          correctAnswer: [true],
+          correctOrder: this.fb.array([])
+        });
+        break;
+
+      case 'ordering':
+        group = this.fb.group({
+          type: [type],
+          question: ['', Validators.required],
+          explanation: [''],
+          options: this.fb.array([]),
+          acceptedAnswers: this.fb.array([]),
+          correctAnswer: [null],
+          correctOrder: this.fb.array([
+            this.fb.control('', Validators.required),
+            this.fb.control('', Validators.required)
+          ])
+        });
+        break;
+
+      default:
+        group = this.fb.group({
+          type: ['multiple_choice'],
+          question: ['', Validators.required],
+          explanation: [''],
+          options: this.fb.array([
+            this.createOption(true),
+            this.createOption()
+          ]),
+          acceptedAnswers: this.fb.array([]),
+          correctAnswer: [null],
+          correctOrder: this.fb.array([])
+        });
+        break;
+    }
+
+    this.quizArray.push(group);
+  }
+
+  getQuestionType(qi: number): QuestionType {
+    return this.quizArray.at(qi).get('type')?.value || 'multiple_choice';
+  }
+
+  getQuestionTypeLabel(type: QuestionType): string {
+    return this.questionTypes.find(t => t.value === type)?.label || this.translate.instant('CREATE_MATERIAL.QUIZ_MC');
+  }
+
+  getQuestionTypeIcon(type: QuestionType): string {
+    return this.questionTypes.find(t => t.value === type)?.icon || 'list-outline';
   }
 
   private createOption(isCorrect = false): FormGroup {
@@ -765,6 +935,65 @@ export class CreateMaterialPage implements OnInit {
     }
   }
 
+  // Fill-in-the-blank helpers
+  getAcceptedAnswers(qi: number): FormArray {
+    return this.quizArray.at(qi).get('acceptedAnswers') as FormArray;
+  }
+
+  addAcceptedAnswer(qi: number) {
+    this.getAcceptedAnswers(qi).push(this.fb.control('', Validators.required));
+  }
+
+  removeAcceptedAnswer(qi: number, ai: number) {
+    const arr = this.getAcceptedAnswers(qi);
+    if (arr.length <= 1) return;
+    arr.removeAt(ai);
+  }
+
+  // True/false helper
+  setTrueFalseAnswer(qi: number, val: boolean) {
+    this.quizArray.at(qi).get('correctAnswer')?.setValue(val);
+  }
+
+  getTrueFalseAnswer(qi: number): boolean {
+    return this.quizArray.at(qi).get('correctAnswer')?.value ?? true;
+  }
+
+  // Ordering helpers
+  getOrderItems(qi: number): FormArray {
+    return this.quizArray.at(qi).get('correctOrder') as FormArray;
+  }
+
+  addOrderItem(qi: number) {
+    this.getOrderItems(qi).push(this.fb.control('', Validators.required));
+  }
+
+  removeOrderItem(qi: number, ii: number) {
+    const arr = this.getOrderItems(qi);
+    if (arr.length <= 2) return;
+    arr.removeAt(ii);
+  }
+
+  moveOrderItem(qi: number, fromIndex: number, direction: 'up' | 'down') {
+    const arr = this.getOrderItems(qi);
+    const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
+    if (toIndex < 0 || toIndex >= arr.length) return;
+    const item = arr.at(fromIndex);
+    const val = item.value;
+    arr.removeAt(fromIndex);
+    arr.insert(toIndex, this.fb.control(val, Validators.required));
+  }
+
+  reorderOrderItems(qi: number, event: any) {
+    const arr = this.getOrderItems(qi);
+    const from = event.detail.from;
+    const to = event.detail.to;
+    const val = arr.at(from).value;
+    arr.removeAt(from);
+    arr.insert(to, this.fb.control(val, Validators.required));
+    event.detail.complete(false);
+  }
+
   // ── Price slider ──────────────────────────────────────
 
   pricePin = (value: number) => `$${value}`;
@@ -782,8 +1011,10 @@ export class CreateMaterialPage implements OnInit {
       next: (res) => {
         this.isLoadingChannels = false;
         if (res.success) this.linkedChannels = res.linkedChannels || {};
+        this.updateVideoChannelStatus();
+        this.cdr.detectChanges();
       },
-      error: () => { this.isLoadingChannels = false; }
+      error: () => { this.isLoadingChannels = false; this.cdr.detectChanges(); }
     });
   }
 
@@ -798,21 +1029,30 @@ export class CreateMaterialPage implements OnInit {
           this.editingVimeo = false;
           this.editingSoundCloud = false;
           if (!this.linkedChannels.youtubeChannelName && this.linkedChannels.youtubeChannelUrl) {
-            await this.showToast('YouTube channel URL saved, but could not resolve channel info. Check the URL or contact support.');
+            await this.showTranslatedToast('CREATE_MATERIAL.TOAST_YT_URL_WARNING');
           } else {
-            await this.showToast('Channels saved');
+            await this.showTranslatedToast('CREATE_MATERIAL.TOAST_CHANNELS_SAVED');
           }
         }
       },
       error: async () => {
         this.isSavingChannels = false;
-        await this.showToast('Failed to save channels');
+        await this.showTranslatedToast('CREATE_MATERIAL.TOAST_CHANNELS_SAVE_FAILED');
       }
     });
   }
 
   hasLinkedChannel(): boolean {
     return !!(this.linkedChannels.youtubeChannelUrl || this.linkedChannels.vimeoChannelUrl || this.linkedChannels.soundcloudProfileUrl);
+  }
+
+  hasVideoChannel = false;
+
+  private updateVideoChannelStatus() {
+    this.hasVideoChannel = !!(
+      (this.linkedChannels.youtubeChannelName && this.linkedChannels.youtubeVerified) ||
+      (this.linkedChannels.vimeoChannelName && this.linkedChannels.vimeoVerified)
+    );
   }
 
   linkYouTube() {
@@ -829,16 +1069,19 @@ export class CreateMaterialPage implements OnInit {
           `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no`
         );
 
+        let messageReceived = false;
+
         const onMessage = (event: MessageEvent) => {
           if (event.data?.type !== 'youtube_linked') return;
+          messageReceived = true;
           window.removeEventListener('message', onMessage);
           this.isLinkingYouTube = false;
 
           if (event.data.success) {
             this.loadLinkedChannels();
-            this.showToast('YouTube channel linked successfully!');
+            this.showTranslatedToast('CREATE_MATERIAL.TOAST_YT_LINKED');
           } else {
-            this.showToast('YouTube linking failed. Please try again.');
+            this.showTranslatedToast('CREATE_MATERIAL.TOAST_YT_LINK_FAILED');
           }
           this.cdr.detectChanges();
         };
@@ -849,26 +1092,29 @@ export class CreateMaterialPage implements OnInit {
             clearInterval(checkClosed);
             window.removeEventListener('message', onMessage);
             this.isLinkingYouTube = false;
+            if (!messageReceived) {
+              this.loadLinkedChannels();
+            }
             this.cdr.detectChanges();
           }
-        }, 1000);
+        }, 500);
       },
       error: async (err) => {
         this.isLinkingYouTube = false;
         console.error('YouTube auth URL error:', err);
-        await this.showToast('Failed to start YouTube linking');
+        await this.showTranslatedToast('CREATE_MATERIAL.TOAST_YT_START_FAILED');
       }
     });
   }
 
   async unlinkYouTube() {
     const alert = await this.alertCtrl.create({
-      header: 'Unlink YouTube',
-      message: 'Are you sure you want to disconnect your YouTube channel?',
+      header: this.translate.instant('CREATE_MATERIAL.ALERT_UNLINK_YT_TITLE'),
+      message: this.translate.instant('CREATE_MATERIAL.ALERT_UNLINK_YT_MSG'),
       buttons: [
-        { text: 'Cancel', role: 'cancel' },
+        { text: this.translate.instant('COMMON.CANCEL'), role: 'cancel' },
         {
-          text: 'Unlink',
+          text: this.translate.instant('CREATE_MATERIAL.ALERT_UNLINK_BTN'),
           role: 'destructive',
           handler: () => {
             this.materialService.unlinkYouTube().subscribe({
@@ -879,9 +1125,90 @@ export class CreateMaterialPage implements OnInit {
                 this.linkedChannels.youtubeChannelAvatar = null;
                 this.linkedChannels.youtubeSubscriberCount = null;
                 this.linkedChannels.youtubeVerified = false;
-                this.showToast('YouTube channel unlinked');
+                this.updateVideoChannelStatus();
+                this.showTranslatedToast('CREATE_MATERIAL.TOAST_YT_UNLINKED');
               },
-              error: () => this.showToast('Failed to unlink YouTube')
+              error: () => this.showTranslatedToast('CREATE_MATERIAL.TOAST_YT_UNLINK_FAILED')
+            });
+          }
+        }
+      ]
+    });
+    alert.present();
+  }
+
+  linkVimeo() {
+    this.isLinkingVimeo = true;
+    this.materialService.getVimeoAuthUrl().subscribe({
+      next: (res) => {
+        const width = 500;
+        const height = 600;
+        const left = window.screenX + (window.innerWidth - width) / 2;
+        const top = window.screenY + (window.innerHeight - height) / 2;
+        const popup = window.open(
+          res.url,
+          'vimeo-auth',
+          `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no`
+        );
+
+        let messageReceived = false;
+
+        const onMessage = (event: MessageEvent) => {
+          if (event.data?.type !== 'vimeo_linked') return;
+          messageReceived = true;
+          window.removeEventListener('message', onMessage);
+          this.isLinkingVimeo = false;
+
+          if (event.data.success) {
+            this.loadLinkedChannels();
+            this.showTranslatedToast('CREATE_MATERIAL.TOAST_VIMEO_LINKED');
+          } else {
+            this.showTranslatedToast('CREATE_MATERIAL.TOAST_VIMEO_LINK_FAILED');
+          }
+          this.cdr.detectChanges();
+        };
+        window.addEventListener('message', onMessage);
+
+        const checkClosed = setInterval(() => {
+          if (!popup || popup.closed) {
+            clearInterval(checkClosed);
+            window.removeEventListener('message', onMessage);
+            this.isLinkingVimeo = false;
+            if (!messageReceived) {
+              this.loadLinkedChannels();
+            }
+            this.cdr.detectChanges();
+          }
+        }, 500);
+      },
+      error: async () => {
+        this.isLinkingVimeo = false;
+        await this.showTranslatedToast('CREATE_MATERIAL.TOAST_VIMEO_START_FAILED');
+      }
+    });
+  }
+
+  async unlinkVimeo() {
+    const alert = await this.alertCtrl.create({
+      header: this.translate.instant('CREATE_MATERIAL.ALERT_UNLINK_VIMEO_TITLE'),
+      message: this.translate.instant('CREATE_MATERIAL.ALERT_UNLINK_VIMEO_MSG'),
+      buttons: [
+        { text: this.translate.instant('COMMON.CANCEL'), role: 'cancel' },
+        {
+          text: this.translate.instant('CREATE_MATERIAL.ALERT_UNLINK_BTN'),
+          role: 'destructive',
+          handler: () => {
+            this.materialService.unlinkVimeo().subscribe({
+              next: () => {
+                this.linkedChannels.vimeoChannelId = null;
+                this.linkedChannels.vimeoChannelUrl = null;
+                this.linkedChannels.vimeoChannelName = null;
+                this.linkedChannels.vimeoChannelAvatar = null;
+                this.linkedChannels.vimeoVerified = false;
+                this.updateVideoChannelStatus();
+                this.showTranslatedToast('CREATE_MATERIAL.TOAST_VIMEO_UNLINKED');
+              },
+              error: () => this.showTranslatedToast('CREATE_MATERIAL.TOAST_VIMEO_UNLINK_FAILED')
             });
           }
         }
@@ -905,25 +1232,49 @@ export class CreateMaterialPage implements OnInit {
   async submit() {
     if (this.isSubmitting) return;
 
-    // Auto-remove empty trailing options, then validate
+    // Auto-remove empty trailing options for multiple choice
     for (let qi = this.quizArray.length - 1; qi >= 0; qi--) {
-      const opts = this.getOptions(qi);
-      for (let oi = opts.length - 1; oi >= 0; oi--) {
-        const text = (opts.at(oi).get('text')?.value || '').trim();
-        if (!text && opts.length > 2) {
-          opts.removeAt(oi);
+      if (this.getQuestionType(qi) === 'multiple_choice') {
+        const opts = this.getOptions(qi);
+        for (let oi = opts.length - 1; oi >= 0; oi--) {
+          const text = (opts.at(oi).get('text')?.value || '').trim();
+          if (!text && opts.length > 2) {
+            opts.removeAt(oi);
+          }
         }
       }
     }
 
-    const quizData: QuizQuestion[] = this.quizArray.value;
+    const quizData = this.quizArray.value;
     for (let i = 0; i < quizData.length; i++) {
       const q = quizData[i];
-      if (!q.question.trim()) { this.showToast(`Question ${i + 1} needs text`); return; }
-      const filledOptions = q.options.filter(o => o.text.trim());
-      if (filledOptions.length < 2) { this.showToast(`Question ${i + 1} needs at least 2 options`); return; }
-      if (!filledOptions.some(o => o.isCorrect)) { this.showToast(`Question ${i + 1} needs a correct answer`); return; }
-      if (q.options.some(o => !o.text.trim())) { this.showToast(`Question ${i + 1} has an empty option — fill it in or remove it`); return; }
+      const num = i + 1;
+      if (!q.question?.trim()) { this.showTranslatedToast('CREATE_MATERIAL.TOAST_Q_NEEDS_TEXT', { num }); return; }
+
+      const qType = q.type || 'multiple_choice';
+      switch (qType) {
+        case 'multiple_choice': {
+          const filledOptions = (q.options || []).filter((o: any) => o.text.trim());
+          if (filledOptions.length < 2) { this.showTranslatedToast('CREATE_MATERIAL.TOAST_Q_NEEDS_OPTIONS', { num }); return; }
+          if (!filledOptions.some((o: any) => o.isCorrect)) { this.showTranslatedToast('CREATE_MATERIAL.TOAST_Q_NEEDS_CORRECT', { num }); return; }
+          if ((q.options || []).some((o: any) => !o.text.trim())) { this.showTranslatedToast('CREATE_MATERIAL.TOAST_Q_EMPTY_OPTION', { num }); return; }
+          break;
+        }
+        case 'fill_blank': {
+          const answers = (q.acceptedAnswers || []).filter((a: string) => a?.trim());
+          if (answers.length === 0) { this.showTranslatedToast('CREATE_MATERIAL.TOAST_Q_NEEDS_ANSWER', { num }); return; }
+          break;
+        }
+        case 'true_false': {
+          if (typeof q.correctAnswer !== 'boolean') { this.showTranslatedToast('CREATE_MATERIAL.TOAST_Q_NEEDS_TF', { num }); return; }
+          break;
+        }
+        case 'ordering': {
+          const items = (q.correctOrder || []).filter((item: string) => item?.trim());
+          if (items.length < 2) { this.showTranslatedToast('CREATE_MATERIAL.TOAST_Q_NEEDS_ITEMS', { num }); return; }
+          break;
+        }
+      }
     }
 
     this.isSubmitting = true;
@@ -938,7 +1289,7 @@ export class CreateMaterialPage implements OnInit {
       } catch (err) {
         this.isUploadingThumbnail = false;
         this.isSubmitting = false;
-        await this.showToast('Failed to upload thumbnail. Try again.');
+        await this.showTranslatedToast('CREATE_MATERIAL.TOAST_UPLOAD_FAILED');
         return;
       }
     }
@@ -1002,13 +1353,13 @@ export class CreateMaterialPage implements OnInit {
           if (srcRect && !isEditing) {
             this.animatePublish(srcRect);
           } else {
-            await this.showToast(isEditing ? 'Material updated!' : 'Material published!');
+            await this.showTranslatedToast(isEditing ? 'CREATE_MATERIAL.TOAST_MATERIAL_UPDATED' : 'CREATE_MATERIAL.TOAST_MATERIAL_PUBLISHED');
           }
         }
       },
       error: async (err) => {
         this.isSubmitting = false;
-        await this.showToast(err?.error?.message || 'Failed to save material');
+        await this.showToast(err?.error?.message || this.translate.instant('CREATE_MATERIAL.TOAST_SAVE_FAILED'));
       }
     });
   }
@@ -1033,6 +1384,11 @@ export class CreateMaterialPage implements OnInit {
   private async showToast(message: string) {
     const toast = await this.toastCtrl.create({ message, duration: 3000, position: 'bottom' });
     await toast.present();
+  }
+
+  private async showTranslatedToast(key: string, params?: Record<string, any>) {
+    const message = this.translate.instant(key, params);
+    await this.showToast(message);
   }
 
   // ── Publish FLIP animation ─────────────────────────────
@@ -1104,14 +1460,32 @@ export class CreateMaterialPage implements OnInit {
 
   get formLevel(): string {
     const lvl = this.materialForm.value.level;
-    return this.levels.find(l => l.value === lvl)?.label || 'All Levels';
+    return this.levels.find(l => l.value === lvl)?.label || this.translate.instant('CREATE_MATERIAL.LEVEL_ALL');
+  }
+
+  get detailsTitle(): string {
+    switch (this.selectedType) {
+      case 'video_quiz': return this.translate.instant('CREATE_MATERIAL.DETAILS_VIDEO_TITLE');
+      case 'reading': return this.translate.instant('CREATE_MATERIAL.DETAILS_READING_TITLE');
+      case 'listening': return this.translate.instant('CREATE_MATERIAL.DETAILS_LISTENING_TITLE');
+      default: return '';
+    }
+  }
+
+  get detailsDesc(): string {
+    switch (this.selectedType) {
+      case 'video_quiz': return this.translate.instant('CREATE_MATERIAL.DETAILS_VIDEO_DESC');
+      case 'reading': return this.translate.instant('CREATE_MATERIAL.DETAILS_READING_DESC');
+      case 'listening': return this.translate.instant('CREATE_MATERIAL.DETAILS_LISTENING_DESC');
+      default: return '';
+    }
   }
 
   get typeLabel(): string {
     switch (this.selectedType) {
-      case 'video_quiz': return 'Video Quiz';
-      case 'reading': return 'Reading Comprehension';
-      case 'listening': return 'Listening Exercise';
+      case 'video_quiz': return this.translate.instant('CREATE_MATERIAL.TYPE_VIDEO_QUIZ');
+      case 'reading': return this.translate.instant('CREATE_MATERIAL.TYPE_READING');
+      case 'listening': return this.translate.instant('CREATE_MATERIAL.TYPE_LISTENING');
       default: return '';
     }
   }

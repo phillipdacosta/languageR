@@ -59,42 +59,36 @@
 }
 
 .back-nav {
-  padding: 20px 24px 16px;
+  padding: 20px 24px 16px 24px;
   display: block !important;
   width: 100%;
   border-bottom: 1px solid #EBEBEB;
-  
+
   .back-button {
-    --color: #222222;
-    --padding-start: 0;
-    --padding-end: 0;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    color: #222222;
     font-size: 15px;
     font-weight: 500;
     letter-spacing: -0.01em;
-    width: 100%;
-    justify-content: flex-start !important;
-    text-align: left !important;
-    margin: 0;
-    display: flex;
-    align-items: center;
-    transition: opacity 0.3s ease;
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', system-ui, sans-serif;
-    
+    transition: opacity 0.3s ease;
+
     ion-icon {
       font-size: 18px;
-      margin-right: 4px;
       flex-shrink: 0;
     }
-    
-    &::part(native) {
-      justify-content: flex-start !important;
-      text-align: left !important;
-    }
-    
+
     &:hover {
       opacity: 0.7;
     }
-    
+
     &:active {
       opacity: 0.5;
       transform: scale(0.98);
@@ -106,36 +100,10 @@
 @media (min-width: 769px) {
   .back-nav {
     display: block !important;
-    padding: 12px 24px 20px;
+    padding: 12px 24px 20px 24px;
     margin-bottom: 0;
-    margin-top: 60px; // Push down from top to match calendar
+    margin-top: 79px;
     border-bottom: 1px solid #EBEBEB;
-    
-    .back-button {
-      font-size: 15px;
-      font-weight: 400;
-      letter-spacing: -0.01em;
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-      
-      &::part(native) {
-        justify-content: flex-start !important;
-        text-align: left !important;
-      }
-      
-      &:hover {
-        opacity: 0.7;
-      }
-      
-      &:active {
-        transform: scale(0.98);
-        opacity: 0.5;
-      }
-      
-      ion-icon {
-        font-size: 18px;
-        margin-right: 4px;
-      }
-    }
   }
 }
 
@@ -151,32 +119,6 @@
     margin-bottom: 20px;
     margin-top: 0;
     width: 100%;
-    text-align: left;
-    
-    .back-button {
-      justify-content: flex-start !important; // Force left align
-      text-align: left !important;
-      width: 100%;
-      margin-left: 0 !important;
-      margin-right: auto !important;
-      --padding-start: 0 !important;
-      --padding-end: 0 !important;
-      display: flex;
-      align-items: center;
-      
-      &::part(native) {
-        justify-content: flex-start !important;
-        text-align: left !important;
-        padding-left: 0 !important;
-        padding-right: 0 !important;
-      }
-      
-      ion-icon {
-        margin-right: 8px;
-        flex-shrink: 0;
-        margin-left: 0 !important;
-      }
-    }
   }
 }
 
@@ -216,6 +158,13 @@
         font-size: 20px;
         color: #717171;
         transition: color 0.2s ease;
+      }
+
+      .google-logo-icon {
+        width: 20px;
+        height: 20px;
+        margin-right: 12px;
+        object-fit: contain;
       }
 
       &.active {
@@ -351,6 +300,14 @@
   margin-top: auto;
   padding: 24px;
   border-top: 1px solid #EBEBEB;
+
+  .google-btn .google-logo-icon.btn-icon {
+    width: 20px;
+    height: 20px;
+    margin-right: 8px;
+    object-fit: contain;
+    vertical-align: middle;
+  }
 
   .google-btn {
     --background: #222222;
@@ -1449,19 +1406,6 @@
   .back-nav {
     width: 100%;
     display: block !important;
-    
-    .back-button {
-      justify-content: flex-start !important;
-      text-align: left !important;
-      width: 100%;
-      --padding-start: 0;
-      --padding-end: 0;
-      
-      &::part(native) {
-        justify-content: flex-start !important;
-        text-align: left !important;
-      }
-    }
   }
 
   .main-content {
@@ -1506,7 +1450,7 @@
     display: flex;
     align-items: center;
     justify-content: flex-start;
-    padding: 12px 16px 0;
+    padding: 12px 16px 0 4px;
     gap: 12px;
 
     .mobile-back-button {
@@ -1917,7 +1861,7 @@ html {
     border-bottom-color: rgba(255, 255, 255, 0.12);
 
     .back-button {
-      --color: #f5f5f7;
+      color: #f5f5f7;
 
       ion-icon {
         color: #f5f5f7;
@@ -2252,6 +2196,76 @@ html {
     }
   }
 
+  // Settings panel content dark mode
+  .settings-panel-header {
+    .panel-icon { color: #f5f5f7; &.google-icon { color: #8ab4f8; } }
+    h2 { color: #f5f5f7; }
+    p { color: #8e8e93; }
+  }
+
+  .info-card {
+    background: #1c1c1e;
+    .info-card-icon { background: #2c2c2e; box-shadow: none; ion-icon { color: #f5f5f7; } }
+    .info-card-content h3 { color: #f5f5f7; }
+    .info-card-content p { color: #8e8e93; strong { color: #f5f5f7; } }
+  }
+
+  .setting-group {
+    .setting-label { color: #f5f5f7; }
+    .setting-hint { color: #8e8e93; }
+  }
+
+  .segmented-control {
+    border-color: #3a3a3c;
+    button {
+      background: #2c2c2e; color: #8e8e93;
+      &:not(:last-child) { border-right-color: #3a3a3c; }
+      &.active { background: #4298d2; color: #fff; }
+      &:not(.active):hover { background: #3a3a3c; color: #f5f5f7; }
+    }
+  }
+
+  .timezone-display {
+    background: #1c1c1e;
+    ion-icon { color: #8e8e93; }
+    span { color: #f5f5f7; }
+  }
+
+  .gcal-connect-card {
+    background: #1c1c1e;
+    h3 { color: #f5f5f7; }
+    p { color: #8e8e93; }
+    .gcal-connect-illustration {
+      .cal-icon-left { color: #f5f5f7; }
+      .cal-icon-right { color: #8ab4f8; }
+      .sync-icon { color: #8e8e93; }
+    }
+    .gcal-connect-btn { --background: #4298d2; &:hover { --background: #3583b8; } }
+  }
+
+  .gcal-status-card {
+    background: #1c1c1e;
+    .status-info h3 { color: #f5f5f7; }
+    .status-info p, .last-sync { color: #8e8e93; }
+  }
+
+  .gcal-settings-list { border-color: rgba(255,255,255,0.12); }
+  .gcal-setting-item {
+    background: #1c1c1e;
+    &:not(:last-child) { border-bottom-color: rgba(255,255,255,0.12); }
+    .setting-text h4 { color: #f5f5f7; }
+    .setting-text p { color: #8e8e93; }
+    ion-toggle { --background: #3a3a3c; --background-checked: #4298d2; }
+  }
+
+  .gcal-disconnect ion-button { --color: #ff6b6b; }
+
+  .day-time-slot.gcal-busy {
+    background: repeating-linear-gradient(-45deg, rgba(66,133,244,0.15), rgba(66,133,244,0.15) 8px, rgba(66,133,244,0.25) 8px, rgba(66,133,244,0.25) 16px);
+    border-color: rgba(66,133,244,0.4);
+    .gcal-icon.google-logo-icon { opacity: 0.9; }
+  }
+
   @media (max-width: 768px) {
     .mobile-settings-panel .panel-section {
       background: #1c1c1e;
@@ -2316,6 +2330,421 @@ html {
       box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.3);
     }
   }
+}
+
+// ============================================
+// SETTINGS PANEL CONTENT (Booking / Calendar / Google tabs)
+// ============================================
+
+.settings-panel-content {
+  padding: 48px;
+  max-width: 640px;
+  margin: 0 auto;
+
+  @media (max-width: 768px) {
+    padding: 24px 16px;
+  }
+}
+
+.settings-panel-header {
+  margin-bottom: 40px;
+  padding-top: 40px;
+  .panel-icon {
+    font-size: 32px;
+    color: #222222;
+    margin-bottom: 16px;
+    display: block;
+
+    &.google-logo-icon.google-icon {
+      width: 32px;
+      height: 32px;
+      object-fit: contain;
+    }
+  }
+
+  h2 {
+    font-size: 28px;
+    font-weight: 700;
+    color: #222222;
+    margin: 0 0 8px;
+    letter-spacing: -0.5px;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+
+    @media (max-width: 768px) {
+      font-size: 22px;
+    }
+  }
+
+  p {
+    font-size: 15px;
+    color: #717171;
+    margin: 0;
+    line-height: 1.5;
+    letter-spacing: -0.01em;
+  }
+}
+
+// ── Lesson Booking Info Cards ──
+
+.settings-info-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.info-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px;
+  background: #F7F7F7;
+  border-radius: 16px;
+  transition: background 0.2s ease;
+
+  .info-card-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+
+    ion-icon {
+      font-size: 22px;
+      color: #222222;
+    }
+  }
+
+  .info-card-content {
+    flex: 1;
+
+    h3 {
+      font-size: 15px;
+      font-weight: 600;
+      color: #222222;
+      margin: 0 0 4px;
+      letter-spacing: -0.01em;
+    }
+
+    p {
+      font-size: 14px;
+      color: #717171;
+      margin: 0;
+      line-height: 1.45;
+
+      strong {
+        color: #222222;
+        font-weight: 600;
+      }
+    }
+  }
+}
+
+// ── Calendar Settings Form ──
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.setting-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  .setting-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #222222;
+    letter-spacing: -0.01em;
+  }
+
+  .setting-hint {
+    font-size: 13px;
+    color: #717171;
+    letter-spacing: -0.01em;
+  }
+}
+
+.segmented-control {
+  display: flex;
+  border: 1px solid #DDDDDD;
+  border-radius: 12px;
+  overflow: hidden;
+  width: fit-content;
+
+  button {
+    padding: 10px 24px;
+    background: #ffffff;
+    border: none;
+    font-size: 14px;
+    font-weight: 500;
+    color: #717171;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+    letter-spacing: -0.01em;
+
+    &:not(:last-child) {
+      border-right: 1px solid #DDDDDD;
+    }
+
+    &.active {
+      background: #222222;
+      color: #ffffff;
+      font-weight: 600;
+    }
+
+    &:not(.active):hover {
+      background: #F7F7F7;
+    }
+  }
+}
+
+.timezone-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #F7F7F7;
+  border-radius: 12px;
+  width: fit-content;
+
+  ion-icon {
+    font-size: 18px;
+    color: #717171;
+  }
+
+  span {
+    font-size: 15px;
+    color: #222222;
+    font-weight: 500;
+  }
+}
+
+// ── Google Calendar ──
+
+.gcal-connect-card {
+  text-align: center;
+  padding: 40px 24px;
+  background: #F7F7F7;
+  border-radius: 20px;
+
+  .gcal-connect-illustration {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 24px;
+
+    .cal-icon-left, .cal-icon-right {
+      font-size: 36px;
+      color: #222222;
+    }
+
+    .cal-icon-right.google-logo-icon {
+      width: 36px;
+      height: 36px;
+      object-fit: contain;
+    }
+
+    .sync-icon {
+      font-size: 24px;
+      color: #717171;
+    }
+  }
+
+  h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #222222;
+    margin: 0 0 8px;
+  }
+
+  p {
+    font-size: 14px;
+    color: #717171;
+    margin: 0 0 24px;
+    line-height: 1.5;
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .gcal-connect-btn {
+    --background: #222222;
+    --color: #ffffff;
+    --border-radius: 12px;
+    height: 48px;
+    font-weight: 600;
+    font-size: 15px;
+    max-width: 300px;
+    margin: 0 auto;
+    text-transform: none;
+
+    .google-logo-icon.btn-icon {
+      width: 20px;
+      height: 20px;
+      margin-right: 8px;
+      object-fit: contain;
+      vertical-align: middle;
+    }
+
+    &:hover {
+      --background: #333333;
+    }
+  }
+}
+
+.gcal-connected {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.gcal-status-card {
+  padding: 20px;
+  background: #F7F7F7;
+  border-radius: 16px;
+
+  .status-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    .status-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #DDDDDD;
+
+      &.connected {
+        background: #34C759;
+      }
+    }
+
+    .status-info {
+      h3 {
+        font-size: 15px;
+        font-weight: 600;
+        color: #222222;
+        margin: 0;
+      }
+
+      p {
+        font-size: 13px;
+        color: #717171;
+        margin: 2px 0 0;
+      }
+    }
+  }
+
+  .last-sync {
+    font-size: 12px;
+    color: #717171;
+    margin: 12px 0 0;
+  }
+}
+
+.gcal-settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid #EBEBEB;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.gcal-setting-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px;
+  gap: 16px;
+  background: #ffffff;
+
+  &:not(:last-child) {
+    border-bottom: 1px solid #EBEBEB;
+  }
+
+  .setting-text {
+    flex: 1;
+
+    h4 {
+      font-size: 15px;
+      font-weight: 600;
+      color: #222222;
+      margin: 0 0 2px;
+    }
+
+    p {
+      font-size: 13px;
+      color: #717171;
+      margin: 0;
+      line-height: 1.4;
+    }
+  }
+
+  ion-toggle {
+    --background: #DDDDDD;
+    --background-checked: #222222;
+    --handle-background: #ffffff;
+    --handle-background-checked: #ffffff;
+  }
+}
+
+.gcal-disconnect {
+  padding-top: 8px;
+
+  ion-button {
+    --color: #FF385C;
+    font-size: 14px;
+    font-weight: 500;
+    text-transform: none;
+  }
+}
+
+// Google Calendar busy slot indicator on availability grid
+.day-time-slot.gcal-busy {
+  background: repeating-linear-gradient(
+    -45deg,
+    #e8f0fe,
+    #e8f0fe 8px,
+    #d2e3fc 8px,
+    #d2e3fc 16px
+  );
+  border-color: #a8c7fa;
+
+  &:hover {
+    background: repeating-linear-gradient(
+      -45deg,
+      #d2e3fc,
+      #d2e3fc 8px,
+      #bdd4f8 8px,
+      #bdd4f8 16px
+    );
+  }
+
+  .gcal-icon.google-logo-icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 11px;
+    height: 11px;
+    object-fit: contain;
+    opacity: 0.9;
+  }
+}
+
+// Mobile active item in settings panel
+.mobile-settings-panel ion-item.active-item {
+  --background: #F7F7F7;
+  font-weight: 600;
 }
 
 // ============================================

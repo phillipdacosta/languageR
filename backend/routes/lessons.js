@@ -14,6 +14,7 @@ const { RtcRole, RtcTokenBuilder } = require('agora-token');
 const { verifyToken, getUserFromRequest } = require('../middleware/videoUploadMiddleware');
 const { generateTrialLessonMessage } = require('../utils/systemMessages');
 const { formatNameWithInitial } = require('../utils/nameFormatter');
+const { pushLessonToGoogleCalendar, removeLessonFromGoogleCalendar, updateLessonOnGoogleCalendar } = require('../services/googleCalendarService');
 
 // Helper function to get socket ID by auth0Id
 async function getUserSocketId(auth0Id) {
@@ -432,6 +433,11 @@ router.post('/', verifyToken, async (req, res) => {
 
     console.log('📅 Lesson created successfully:', lesson._id);
 
+    // Push to tutor's Google Calendar (non-blocking)
+    pushLessonToGoogleCalendar(lesson).catch(err => {
+      console.error('[GCal] Non-blocking push failed:', err.message);
+    });
+
     // Format date and time for notifications
     const lessonDate = new Date(lesson.startTime);
     const formattedDate = lessonDate.toLocaleDateString('en-US', { 
@@ -825,6 +831,11 @@ router.post('/office-hours', verifyToken, async (req, res) => {
 
     // Populate tutor and student details for response
     await lesson.populate('tutorId studentId');
+
+    // Push to tutor's Google Calendar (non-blocking)
+    pushLessonToGoogleCalendar(lesson).catch(err => {
+      console.error('[GCal] Non-blocking push failed:', err.message);
+    });
 
     // Create notification for tutor
     const studentDisplayName = formatDisplayName(student);
@@ -1727,6 +1738,13 @@ router.patch('/:id/status', verifyToken, async (req, res) => {
     await lesson.save();
 
     console.log(`✅ Lesson ${lesson._id} status updated to: ${status}`);
+
+    // Sync with tutor's Google Calendar on status change (non-blocking)
+    if (status === 'cancelled') {
+      removeLessonFromGoogleCalendar(lesson).catch(err => {
+        console.error('[GCal] Non-blocking removal failed:', err.message);
+      });
+    }
 
     // If lesson is confirmed (tutor accepted office hours), notify student
     if (status === 'confirmed' && req.io && lesson.isOfficeHours) {
@@ -2959,6 +2977,11 @@ router.delete('/:id/cancel', verifyToken, async (req, res) => {
     lesson.isLateCancellation = isLateCancellation;
     
     await lesson.save();
+
+    // Remove from tutor's Google Calendar (non-blocking)
+    removeLessonFromGoogleCalendar(lesson).catch(err => {
+      console.error('[GCal] Non-blocking removal failed:', err.message);
+    });
     
     console.log(`🔴 [LESSON-CANCEL] Lesson ${lesson._id} cancelled by ${isTutor ? 'tutor' : 'student'}. Reason: ${lesson.cancelReason}${reasonText ? ` - "${reasonText}"` : ''} (Late: ${isLateCancellation})`);
     
@@ -3283,6 +3306,11 @@ router.post('/:id/respond-reschedule', verifyToken, async (req, res) => {
       lesson.rescheduleProposal.status = 'accepted';
       lesson.status = 'scheduled';
       await lesson.save();
+
+      // Update on tutor's Google Calendar (non-blocking)
+      updateLessonOnGoogleCalendar(lesson).catch(err => {
+        console.error('[GCal] Non-blocking reschedule update failed:', err.message);
+      });
 
       // Notify proposer
       const notification = new Notification({

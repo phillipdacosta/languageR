@@ -70,6 +70,14 @@ export class TutorOnboardingComponent implements OnInit {
       completed: false,
       icon: 'card',
       action: 'stripe-onboard'
+    },
+    {
+      id: 'tos',
+      title: 'Terms & Agreement',
+      description: 'Review and accept the terms of service',
+      completed: false,
+      icon: 'document-text',
+      action: 'accept-tos'
     }
   ];
 
@@ -93,6 +101,11 @@ export class TutorOnboardingComponent implements OnInit {
   determinedPayoutMethod: 'stripe' | 'paypal' | null = null;
   paypalEmail = '';
   paypalEmailError = '';
+
+  // TOS state
+  tosChecked = false;
+  tosAcceptedAt: Date | null = null;
+  isAcceptingTos = false;
 
   constructor(
     private userService: UserService,
@@ -140,6 +153,7 @@ export class TutorOnboardingComponent implements OnInit {
     this.steps[1].completed = status.videoApproved;
     this.steps[2].completed = status.credentialsApproved;
     this.steps[3].completed = status.stripeComplete;
+    this.steps[4].completed = status.tosComplete;
     
     // Update credential display state
     this.governmentIdStatus = status.governmentIdApproved ? 'approved' 
@@ -219,6 +233,12 @@ export class TutorOnboardingComponent implements OnInit {
         certifications: this.uploadedCertifications.length,
         additionalDocs: this.uploadedAdditionalDocs.length
       });
+
+      // Load TOS acceptance state
+      if (user.tosAcceptedAt) {
+        this.tosAcceptedAt = new Date(user.tosAcceptedAt);
+        this.tosChecked = true;
+      }
 
       // Update step 4 title/description based on payout provider
       if (user.payoutProvider === 'paypal') {
@@ -419,6 +439,37 @@ export class TutorOnboardingComponent implements OnInit {
       case 'stripe-onboard':
         await this.startStripeOnboarding();
         break;
+      case 'accept-tos':
+        await this.acceptTos();
+        break;
+    }
+  }
+
+  async acceptTos() {
+    if (!this.tosChecked || this.isAcceptingTos) return;
+
+    this.isAcceptingTos = true;
+    const loading = await this.loadingController.create({
+      message: 'Saving...',
+      spinner: 'crescent'
+    });
+    await loading.present();
+
+    try {
+      const result = await firstValueFrom(this.userService.acceptTos('1.0'));
+      if (result?.success) {
+        this.tosAcceptedAt = new Date(result.tosAcceptedAt);
+        this.showToast('Terms accepted successfully!', 'success');
+        await this.loadOnboardingStatus(false);
+      } else {
+        this.showToast('Failed to accept terms', 'danger');
+      }
+    } catch (error: any) {
+      console.error('Error accepting TOS:', error);
+      this.showToast(error.error?.message || 'Failed to accept terms', 'danger');
+    } finally {
+      this.isAcceptingTos = false;
+      await loading.dismiss();
     }
   }
 

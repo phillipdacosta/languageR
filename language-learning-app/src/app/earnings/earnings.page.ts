@@ -93,6 +93,11 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   chartPeriodLabel: string = '';
   chartTotal: string = '$0.00';
   chartHasData: boolean = false;
+  chartPercentChange: number = 0;
+  chartDollarChange: string = '';
+  chartShowPercent: boolean = false;
+  chartChangeDirection: 'up' | 'down' | 'flat' = 'flat';
+  chartPeriodAmountLabel: string = '';
   private userJoinDate: Date = new Date();
 
   loading: boolean = true;
@@ -550,47 +555,53 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     labels: string[];
     data: number[];
     total: number;
+    previousTotal: number;
     buckets: { start: Date; end: Date; label: string; value: number; isPartial: boolean }[];
     now: Date;
   } {
     const now = new Date();
     const weekMs = 7 * 24 * 60 * 60 * 1000;
 
-    // Determine the effective start date based on period
     let periodStart: Date;
+    let previousPeriodStart: Date;
+    let previousPeriodEnd: Date;
     switch (this.chartPeriod) {
       case '1m':
         periodStart = new Date(now.getTime() - 4 * weekMs);
+        previousPeriodEnd = new Date(periodStart.getTime() - 1);
+        previousPeriodStart = new Date(previousPeriodEnd.getTime() - 4 * weekMs);
         this.chartPeriodLabel = this.translateService.instant('EARNINGS.CHART_PERIOD_1M');
+        this.chartPeriodAmountLabel = this.translateService.instant('EARNINGS.CHART_AMOUNT_1M');
         break;
       case '6m':
         periodStart = new Date(now.getTime() - 26 * weekMs);
+        previousPeriodEnd = new Date(periodStart.getTime() - 1);
+        previousPeriodStart = new Date(previousPeriodEnd.getTime() - 26 * weekMs);
         this.chartPeriodLabel = this.translateService.instant('EARNINGS.CHART_PERIOD_6M');
+        this.chartPeriodAmountLabel = this.translateService.instant('EARNINGS.CHART_AMOUNT_6M');
         break;
       case 'all':
       default:
         periodStart = new Date(this.userJoinDate);
+        previousPeriodStart = periodStart;
+        previousPeriodEnd = periodStart;
         this.chartPeriodLabel = this.translateService.instant('EARNINGS.CHART_PERIOD_ALL');
+        this.chartPeriodAmountLabel = this.translateService.instant('EARNINGS.CHART_AMOUNT_ALL');
         break;
     }
 
-    // For fixed-range periods (1m, 6m), always show the full range so there are
-    // enough data points for smooth curves. Only "All Time" starts from the join date.
     const chartStart = this.chartPeriod === 'all'
       ? new Date(Math.max(this.userJoinDate.getTime(), periodStart.getTime()))
       : periodStart;
 
-    // Align to the Monday of the starting week
-    const startDay = chartStart.getDay(); // 0=Sun, 1=Mon, ...
+    const startDay = chartStart.getDay();
     const mondayOffset = startDay === 0 ? -6 : 1 - startDay;
     const firstMonday = new Date(chartStart);
     firstMonday.setDate(chartStart.getDate() + mondayOffset);
     firstMonday.setHours(0, 0, 0, 0);
 
-    // Build weekly buckets from firstMonday to now
     const buckets: { start: Date; end: Date; label: string; value: number; isPartial: boolean }[] = [];
     let current = new Date(firstMonday);
-    const dateFmt: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
 
     while (current <= now) {
       const weekEnd = new Date(current.getTime() + weekMs - 1);
@@ -606,7 +617,6 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       current = new Date(current.getTime() + weekMs);
     }
 
-    // Filter to only fully-confirmed earnings (not pending/on_hold).
     const confirmedTransferStatuses = ['available', 'pending_withdrawal', 'withdrawn', 'succeeded'];
     const apiSupportsTransferStatus = this.recentPayments.some(p => !!p.transferStatus);
 
@@ -616,8 +626,9 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       : this.recentPayments.filter(p =>
           p.status === 'paid' || p.status === 'succeeded');
 
-    // Fill buckets
     let total = 0;
+    let previousTotal = 0;
+
     validPayments.forEach(p => {
       const paymentDate = new Date(p.date);
       const earned = p.tutorPayout || 0;
@@ -631,11 +642,14 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       if (paymentDate >= firstMonday && paymentDate <= now) {
         total += earned;
       }
+      if (this.chartPeriod !== 'all' && paymentDate >= previousPeriodStart && paymentDate <= previousPeriodEnd) {
+        previousTotal += earned;
+      }
     });
 
     const labels = buckets.map(b => b.label);
     const data = buckets.map(b => b.value);
-    return { labels, data, total, buckets, now };
+    return { labels, data, total, previousTotal, buckets, now };
   }
 
   createEarningsChart() {
@@ -649,9 +663,28 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       this.earningsChart.destroy();
     }
 
-    const { labels, data, total, buckets, now } = this.getChartData();
+    const { labels, data, total, previousTotal, buckets, now } = this.getChartData();
     this.chartTotal = `$${total.toFixed(2)}`;
     this.chartHasData = data.some(v => v > 0);
+
+    if (this.chartPeriod === 'all') {
+      this.chartPercentChange = 0;
+      this.chartDollarChange = '';
+      this.chartShowPercent = false;
+      this.chartChangeDirection = 'flat';
+    } else {
+      const dollarDiff = total - previousTotal;
+      this.chartChangeDirection = dollarDiff > 0 ? 'up' : dollarDiff < 0 ? 'down' : 'flat';
+      this.chartDollarChange = (dollarDiff >= 0 ? '+' : '-') + '$' + Math.abs(dollarDiff).toFixed(2);
+
+      if (previousTotal >= 5) {
+        this.chartPercentChange = Math.round((dollarDiff / previousTotal) * 100);
+        this.chartShowPercent = Math.abs(this.chartPercentChange) <= 200;
+      } else {
+        this.chartPercentChange = 0;
+        this.chartShowPercent = false;
+      }
+    }
 
     const upperLabels = labels.map(l => l.toUpperCase());
 

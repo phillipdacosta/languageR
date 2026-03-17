@@ -22,7 +22,45 @@
       </button>
       
       <div class="event-details-container">
-        <!-- Event Header -->
+        <!-- Google Calendar Event -->
+        <ng-container *ngIf="event.isGoogleCalendar">
+          <div class="event-header">
+            <div class="event-icon gcal-icon-bg">
+              <img src="assets/google.png" alt="Google Calendar" class="gcal-modal-icon">
+            </div>
+            <div class="event-title-section">
+              <h2 class="event-title">{{ event.title }}</h2>
+              <div class="event-badges">
+                <span class="badge gcal-badge">
+                  <img src="assets/google.png" alt="" class="badge-gcal-icon">
+                  Google Calendar
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="event-details-section">
+            <div class="detail-row">
+              <ion-icon name="calendar-outline" class="detail-icon"></ion-icon>
+              <div class="detail-content">
+                <div class="detail-label">Date & Time</div>
+                <div class="detail-value">
+                  <div>{{ formatDate(event.start) }}</div>
+                  <div class="time-range">{{ formatTime(event.start) }} - {{ formatTime(event.end) }}</div>
+                  <div class="duration">{{ formatDuration(event.durationMinutes) }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="gcal-info-note">
+            <ion-icon name="information-circle-outline"></ion-icon>
+            <span>This event is synced from your Google Calendar.</span>
+          </div>
+        </ng-container>
+
+        <!-- Barnabi Event Header -->
+        <ng-container *ngIf="!event.isGoogleCalendar">
         <div class="event-header">
       <div class="event-icon" [style.background]="event.color || '#667eea'">
         <ion-icon 
@@ -55,8 +93,10 @@
         </div>
       </div>
     </div>
+        </ng-container>
 
-    <!-- Event Details -->
+    <!-- Event Details (Barnabi events only) -->
+    <ng-container *ngIf="!event.isGoogleCalendar">
     <div class="event-details-section">
       <!-- Date & Time -->
       <div class="detail-row">
@@ -87,7 +127,6 @@
         <div class="going-badge" *ngIf="event.attendees && event.attendees.length > 0">
           <span class="going-text">GOING</span>
           <div class="attendee-avatars-row">
-            <!-- Show up to 4 student avatars -->
             <ng-container *ngFor="let student of event.attendees.slice(0, 4); let i = index">
               <ion-avatar class="attendee-avatar" [style.z-index]="10 - i" [style.margin-left.px]="i > 0 ? -8 : 0">
                 <img 
@@ -99,7 +138,6 @@
                 <ion-icon *ngIf="!student?.picture && !student?.profilePicture" name="person"></ion-icon>
               </ion-avatar>
             </ng-container>
-            <!-- Show +X if more than 4 students -->
             <div class="more-attendees" *ngIf="event.attendees.length > 4">
               +{{ event.attendees.length - 4 }}
             </div>
@@ -141,7 +179,6 @@
 
       <!-- Action Buttons -->
       <div class="event-actions">
-        <!-- Join Button (for upcoming/in-progress lessons) -->
         <button 
           class="action-item join-button" 
           *ngIf="(event.lessonId || event.classId) && !event.isCancelled"
@@ -157,7 +194,6 @@
           <span>View Full Details</span>
         </button>
         
-        <!-- Cancel Button -->
         <button 
           class="action-item cancel-button" 
           *ngIf="canCancel && event.lessonId"
@@ -166,6 +202,7 @@
           <span>Cancel Lesson</span>
         </button>
       </div>
+    </ng-container>
     </div>
   </div>
 </div>

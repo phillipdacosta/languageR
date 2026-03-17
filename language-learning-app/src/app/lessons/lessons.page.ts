@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { IonicModule, LoadingController, ToastController, AlertController, ViewWillEnter, NavController } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
+import { TranslateService, TranslateModule } from '@ngx-translate/core';
 import { LessonService, Lesson } from '../services/lesson.service';
 import { ClassService } from '../services/class.service';
 import { UserService } from '../services/user.service';
@@ -65,7 +66,7 @@ interface ProcessedLesson {
   templateUrl: './lessons.page.html',
   styleUrls: ['./lessons.page.scss'],
   standalone: true,
-  imports: [CommonModule, FormsModule, IonicModule]
+  imports: [CommonModule, FormsModule, IonicModule, TranslateModule]
 })
 export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
   // Raw data
@@ -137,7 +138,8 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     private toastController: ToastController,
     private alertController: AlertController,
     private http: HttpClient,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private translate: TranslateService
   ) {}
 
   ngOnInit() {
@@ -160,6 +162,15 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     this.userService.getCurrentUser().pipe(
       takeUntil(this.destroy$)
     ).subscribe();
+
+    this.translate.onLangChange.pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(() => {
+      if (this.hasInitiallyLoaded) {
+        this.reprocessLessons();
+        this.updateFilterState();
+      }
+    });
 
     // Check for scrollToLesson query param
     this.route.queryParams.pipe(
@@ -210,7 +221,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     } catch (error) {
       console.error('Error loading lessons:', error);
       const toast = await this.toastController.create({
-        message: 'Failed to load lessons',
+        message: this.translate.instant('LESSONS_PAGE.TOAST_LOAD_FAILED'),
         duration: 3000,
         color: 'danger'
       });
@@ -226,15 +237,15 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     const firstStudent = cls.confirmedStudents?.[0];
     return {
       _id: cls._id,
-      tutorId: cls.tutorId || { _id: '', name: 'Unknown', email: '' },
+      tutorId: cls.tutorId || { _id: '', name: this.translate.instant('LESSONS_PAGE.UNKNOWN'), email: '' },
       studentId: isTutor
-        ? (firstStudent || { _id: '', name: `${cls.confirmedStudents?.length || 0} student(s)`, email: '' })
+        ? (firstStudent || { _id: '', name: `${cls.confirmedStudents?.length || 0}${this.translate.instant('LESSONS_PAGE.CLASS_STUDENTS')}`, email: '' })
         : { _id: this.currentUser?._id || '', name: this.currentUser?.name || '', email: this.currentUser?.email || '' },
       startTime: cls.startTime,
       endTime: cls.endTime,
       channelName: cls._id,
       status: cls.status === 'scheduled' ? 'scheduled' : cls.status === 'in_progress' ? 'in_progress' : cls.status === 'completed' ? 'completed' : 'cancelled',
-      subject: cls.name || 'Class',
+      subject: cls.name || this.translate.instant('LESSONS_PAGE.CLASS'),
       price: cls.price || 0,
       duration: cls.duration || 60,
       isClass: true,
@@ -310,19 +321,17 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     this.activeFilterCount = count;
     this.hasActiveSecondaryFilters = count > 0;
 
-    // Status label
     switch (this.selectedStatusFilter) {
-      case 'upcoming': this.statusFilterLabel = 'Upcoming'; break;
-      case 'completed': this.statusFilterLabel = 'Completed'; break;
-      case 'cancelled': this.statusFilterLabel = 'Cancelled'; break;
+      case 'upcoming': this.statusFilterLabel = this.translate.instant('LESSONS_PAGE.STAT_UPCOMING'); break;
+      case 'completed': this.statusFilterLabel = this.translate.instant('LESSONS_PAGE.STAT_COMPLETED'); break;
+      case 'cancelled': this.statusFilterLabel = this.translate.instant('LESSONS_PAGE.STAT_CANCELLED'); break;
       default: this.statusFilterLabel = ''; break;
     }
 
-    // Time label
     switch (this.selectedTimeFilter) {
-      case '7days': this.timeFilterLabel = 'Last 7 days'; break;
-      case '30days': this.timeFilterLabel = 'Last 30 days'; break;
-      case '3months': this.timeFilterLabel = 'Last 3 months'; break;
+      case '7days': this.timeFilterLabel = this.translate.instant('LESSONS_PAGE.LAST_7_DAYS'); break;
+      case '30days': this.timeFilterLabel = this.translate.instant('LESSONS_PAGE.LAST_30_DAYS'); break;
+      case '3months': this.timeFilterLabel = this.translate.instant('LESSONS_PAGE.LAST_3_MONTHS'); break;
       default: this.timeFilterLabel = ''; break;
     }
 
@@ -493,9 +502,9 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     return {
       id: lesson._id,
       lesson,
-      subject: lesson.subject || 'Lesson',
+      subject: lesson.subject || this.translate.instant('LESSONS_PAGE.ROLE_LESSON'),
       role,
-      roleLabel: role === 'student' ? 'Tutor' : 'Student',
+      roleLabel: role === 'student' ? this.translate.instant('LESSONS_PAGE.ROLE_TUTOR') : this.translate.instant('LESSONS_PAGE.ROLE_STUDENT'),
       otherName: other.name,
       otherPicture: other.picture === '/assets/default-avatar.png' ? '' : other.picture,
       otherInitials: initials.toUpperCase(),
@@ -612,7 +621,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     const participant = role === 'tutor' ? lesson.studentId : lesson.tutorId;
 
     if (!participant) {
-      return { name: 'Unknown', picture: '/assets/default-avatar.png' };
+      return { name: this.translate.instant('LESSONS_PAGE.UNKNOWN'), picture: '/assets/default-avatar.png' };
     }
 
     const p = participant as any;
@@ -630,7 +639,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
         formattedName = p.name;
       }
     } else {
-      formattedName = p.email || 'Unknown';
+      formattedName = p.email || this.translate.instant('LESSONS_PAGE.UNKNOWN');
     }
 
     const picture = p.picture || p.profilePicture || '/assets/default-avatar.png';
@@ -639,11 +648,11 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
 
   private getStatusText(lesson: Lesson): string {
     switch (lesson.status) {
-      case 'scheduled': return 'Scheduled';
-      case 'in_progress': return 'In Progress';
-      case 'completed': return 'Completed';
-      case 'cancelled': return 'Cancelled';
-      case 'pending_reschedule': return 'Pending';
+      case 'scheduled': return this.translate.instant('LESSONS_PAGE.STATUS_SCHEDULED');
+      case 'in_progress': return this.translate.instant('LESSONS_PAGE.STATUS_IN_PROGRESS');
+      case 'completed': return this.translate.instant('LESSONS_PAGE.STATUS_COMPLETED');
+      case 'cancelled': return this.translate.instant('LESSONS_PAGE.STATUS_CANCELLED');
+      case 'pending_reschedule': return this.translate.instant('LESSONS_PAGE.STATUS_PENDING');
       default: return lesson.status;
     }
   }
@@ -731,32 +740,32 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // Different issue types for students vs tutors
     const studentIssueTypes: { type: 'radio'; label: string; value: string }[] = [
-      { type: 'radio', label: "Tutor didn't show up", value: 'tutor_no_show' },
-      { type: 'radio', label: 'Lesson ended early', value: 'ended_early' },
-      { type: 'radio', label: 'Poor lesson quality', value: 'poor_quality' },
-      { type: 'radio', label: 'Inappropriate behavior', value: 'inappropriate' },
-      { type: 'radio', label: 'Technical issues', value: 'technical' },
-      { type: 'radio', label: 'Other', value: 'other' }
+      { type: 'radio', label: this.translate.instant('LESSONS_PAGE.ISSUE_TUTOR_NO_SHOW'), value: 'tutor_no_show' },
+      { type: 'radio', label: this.translate.instant('LESSONS_PAGE.ISSUE_ENDED_EARLY'), value: 'ended_early' },
+      { type: 'radio', label: this.translate.instant('LESSONS_PAGE.ISSUE_POOR_QUALITY'), value: 'poor_quality' },
+      { type: 'radio', label: this.translate.instant('LESSONS_PAGE.ISSUE_INAPPROPRIATE'), value: 'inappropriate' },
+      { type: 'radio', label: this.translate.instant('LESSONS_PAGE.ISSUE_TECHNICAL'), value: 'technical' },
+      { type: 'radio', label: this.translate.instant('LESSONS_PAGE.ISSUE_OTHER'), value: 'other' }
     ];
     const tutorIssueTypes: { type: 'radio'; label: string; value: string }[] = [
-      { type: 'radio', label: "Student didn't show up", value: 'student_no_show' },
-      { type: 'radio', label: 'Lesson ended early', value: 'ended_early' },
-      { type: 'radio', label: 'Inappropriate behavior', value: 'inappropriate' },
-      { type: 'radio', label: 'Technical issues', value: 'technical' },
-      { type: 'radio', label: 'Other', value: 'other' }
+      { type: 'radio', label: this.translate.instant('LESSONS_PAGE.ISSUE_STUDENT_NO_SHOW'), value: 'student_no_show' },
+      { type: 'radio', label: this.translate.instant('LESSONS_PAGE.ISSUE_ENDED_EARLY'), value: 'ended_early' },
+      { type: 'radio', label: this.translate.instant('LESSONS_PAGE.ISSUE_INAPPROPRIATE'), value: 'inappropriate' },
+      { type: 'radio', label: this.translate.instant('LESSONS_PAGE.ISSUE_TECHNICAL'), value: 'technical' },
+      { type: 'radio', label: this.translate.instant('LESSONS_PAGE.ISSUE_OTHER'), value: 'other' }
     ];
 
     const alert = await this.alertController.create({
-      header: 'Report Issue',
-      message: 'Please select the issue you experienced:',
+      header: this.translate.instant('LESSONS_PAGE.ALERT_REPORT_HEADER'),
+      message: this.translate.instant('LESSONS_PAGE.ALERT_REPORT_MESSAGE'),
       inputs: isStudentRole ? studentIssueTypes : tutorIssueTypes,
       buttons: [
-        { text: 'Cancel', role: 'cancel' },
+        { text: this.translate.instant('LESSONS_PAGE.ALERT_CANCEL'), role: 'cancel' },
         {
-          text: 'Next',
+          text: this.translate.instant('LESSONS_PAGE.ALERT_NEXT'),
           handler: (issueType) => {
             if (!issueType) {
-              this.showToast('Please select an issue type', 'warning');
+              this.showToast(this.translate.instant('LESSONS_PAGE.ALERT_SELECT_ISSUE'), 'warning');
               return false;
             }
             this.showIssueDetailsInput(lesson, issueType);
@@ -770,18 +779,18 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
 
   private async showIssueDetailsInput(lesson: Lesson, issueType: string) {
     const alert = await this.alertController.create({
-      header: 'Issue Details',
-      message: 'Please describe what happened:',
+      header: this.translate.instant('LESSONS_PAGE.ALERT_DETAILS_HEADER'),
+      message: this.translate.instant('LESSONS_PAGE.ALERT_DETAILS_MESSAGE'),
       inputs: [
-        { name: 'details', type: 'textarea', placeholder: 'Describe what happened...', attributes: { minlength: 10, maxlength: 500 } }
+        { name: 'details', type: 'textarea', placeholder: this.translate.instant('LESSONS_PAGE.ALERT_DETAILS_PLACEHOLDER'), attributes: { minlength: 10, maxlength: 500 } }
       ],
       buttons: [
-        { text: 'Cancel', role: 'cancel' },
+        { text: this.translate.instant('LESSONS_PAGE.ALERT_CANCEL'), role: 'cancel' },
         {
-          text: 'Submit Report',
+          text: this.translate.instant('LESSONS_PAGE.ALERT_SUBMIT'),
           handler: async (data) => {
             if (!data.details || data.details.length < 10) {
-              this.showToast('Please provide at least 10 characters', 'warning');
+              this.showToast(this.translate.instant('LESSONS_PAGE.ALERT_MIN_CHARS'), 'warning');
               return false;
             }
             await this.submitIssueReport(lesson, issueType, data.details);
@@ -794,7 +803,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   private async submitIssueReport(lesson: Lesson, issueType: string, details: string) {
-    const loading = await this.loadingController.create({ message: 'Submitting report...' });
+    const loading = await this.loadingController.create({ message: this.translate.instant('LESSONS_PAGE.TOAST_SUBMITTING') });
     await loading.present();
 
     try {
@@ -807,12 +816,12 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
 
       if (response.success) {
         lesson.issueReported = true;
-        await this.showToast('Issue reported successfully.', 'success');
+        await this.showToast(this.translate.instant('LESSONS_PAGE.TOAST_ISSUE_REPORTED'), 'success');
         await this.loadLessons();
       }
     } catch (error: any) {
       console.error('Error reporting issue:', error);
-      await this.showToast(error?.error?.message || 'Failed to report issue.', 'danger');
+      await this.showToast(error?.error?.message || this.translate.instant('LESSONS_PAGE.TOAST_REPORT_FAILED'), 'danger');
     } finally {
       await loading.dismiss();
     }

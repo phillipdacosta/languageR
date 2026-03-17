@@ -80,6 +80,8 @@ export interface User {
   isUSPersonForTax?: boolean | null;
   hasUSBankAccount?: boolean | null;
   taxInfoCompletedAt?: string;
+  tosAcceptedAt?: string;
+  tosVersion?: string;
   onboardingData?: {
     languages: string[];
     goals: string[];
@@ -104,9 +106,11 @@ export interface User {
     timezone: string;
     preferredLanguage: string;
     officeHoursEnabled?: boolean;
-    showWalletBalance?: boolean;  // Privacy setting for wallet display
-    remindersEnabled?: boolean;   // Lesson reminder notifications
-    aiAnalysisEnabled?: boolean;  // Enable/disable AI analysis of lessons
+    showWalletBalance?: boolean;
+    remindersEnabled?: boolean;
+    aiAnalysisEnabled?: boolean;
+    calendarTimeFormat?: '12h' | '24h';
+    calendarDefaultView?: 'week' | 'day';
   };
   stats?: {
     totalLessons: number;
@@ -164,6 +168,7 @@ export interface Tutor {
   nativeSpeaker: boolean;
   rating: number;
   totalLessons: number;
+  students?: number;
   totalHours: number;
   joinedDate: string;
   profile?: {
@@ -233,6 +238,7 @@ export class UserService {
     certificationsApproved: boolean;
     credentialsComplete: boolean; // All required credentials uploaded
     credentialsApproved: boolean; // All required credentials approved
+    tosComplete: boolean;
     fullyApproved: boolean;
     needsApproval: boolean;
   } | null>(null);
@@ -446,6 +452,8 @@ export class UserService {
       credentialsApproved
     });
 
+    const tosComplete = !!user.tosAcceptedAt;
+
     const fullyApproved = user.tutorApproved === true;
     
     // Needs approval if onboarding is complete but not fully approved
@@ -465,6 +473,7 @@ export class UserService {
       certificationsApproved,
       credentialsComplete,
       credentialsApproved,
+      tosComplete,
       fullyApproved,
       needsApproval
     };
@@ -613,7 +622,7 @@ export class UserService {
   /**
    * Update user profile
    */
-  updateProfile(profileData: Partial<User['profile']> & { interfaceLanguage?: string }): Observable<User> {
+  updateProfile(profileData: Partial<User['profile']> & { interfaceLanguage?: string; calendarTimeFormat?: string; calendarDefaultView?: string }): Observable<User> {
     return this.authService.user$.pipe(
       take(1),
       switchMap(user => {
@@ -934,6 +943,15 @@ export class UserService {
     );
   }
 
+  acceptTos(tosVersion: string = '1.0'): Observable<any> {
+    const headers = this.getAuthHeadersSync();
+    return this.http.post<any>(
+      `${this.apiUrl}/users/tutor/accept-tos`,
+      { tosVersion },
+      { headers }
+    );
+  }
+
   /**
    * Update user profile picture
    */
@@ -1200,6 +1218,82 @@ export class UserService {
           headers: this.getAuthHeaders(userEmail),
           responseType: 'blob'
         });
+      })
+    );
+  }
+
+  // ── Google Calendar ────────────────────────────────
+
+  getGoogleCalendarAuthUrl(): Observable<{ url: string }> {
+    return this.authService.user$.pipe(
+      take(1),
+      switchMap(user => {
+        const email = user?.email || 'unknown';
+        return this.http.get<{ url: string }>(
+          `${this.apiUrl}/auth/google-calendar/url`,
+          { headers: this.getAuthHeaders(email) }
+        );
+      })
+    );
+  }
+
+  disconnectGoogleCalendar(): Observable<{ success: boolean }> {
+    return this.authService.user$.pipe(
+      take(1),
+      switchMap(user => {
+        const email = user?.email || 'unknown';
+        return this.http.post<{ success: boolean }>(
+          `${this.apiUrl}/auth/google-calendar/disconnect`,
+          {},
+          { headers: this.getAuthHeaders(email) }
+        );
+      })
+    );
+  }
+
+  getGoogleCalendarStatus(): Observable<{
+    success: boolean;
+    connected: boolean;
+    email: string | null;
+    syncEnabled: boolean;
+    pushToGoogle: boolean;
+    lastSyncAt: string | null;
+  }> {
+    return this.authService.user$.pipe(
+      take(1),
+      switchMap(user => {
+        const email = user?.email || 'unknown';
+        return this.http.get<any>(
+          `${this.apiUrl}/auth/google-calendar/status`,
+          { headers: this.getAuthHeaders(email) }
+        );
+      })
+    );
+  }
+
+  updateGoogleCalendarSettings(settings: { syncEnabled?: boolean; pushToGoogle?: boolean }): Observable<{ success: boolean }> {
+    return this.authService.user$.pipe(
+      take(1),
+      switchMap(user => {
+        const email = user?.email || 'unknown';
+        return this.http.put<{ success: boolean }>(
+          `${this.apiUrl}/auth/google-calendar/settings`,
+          settings,
+          { headers: this.getAuthHeaders(email) }
+        );
+      })
+    );
+  }
+
+  getGoogleCalendarEvents(timeMin: string, timeMax: string): Observable<{ success: boolean; events: any[] }> {
+    return this.authService.user$.pipe(
+      take(1),
+      switchMap(user => {
+        const email = user?.email || 'unknown';
+        return this.http.get<{ success: boolean; events: any[] }>(
+          `${this.apiUrl}/auth/google-calendar/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}`,
+          { headers: this.getAuthHeaders(email) }
+        );
       })
     );
   }

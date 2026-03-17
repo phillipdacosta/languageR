@@ -1891,7 +1891,7 @@ ion-content {
   }
   
   .meta-today {
-    color: #008489;
+    color: #3f99d1;
     font-weight: 600;
   }
   
@@ -1985,7 +1985,7 @@ ion-content {
     &[disabled] {
       --background: transparent;
       --color: #9ca3af;
-      --border-color: #e5e7eb;
+      --border-color: #4298d24f;
     }
   }
   overflow: hidden;
@@ -2064,7 +2064,7 @@ ion-content {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 12px 0 4px;
+  padding: 12px 10px 4px;
   cursor: pointer;
   border-radius: 10px;
   transition: background 0.15s ease;
@@ -2530,7 +2530,7 @@ ion-content {
   animation: fadeInUp 0.45s ease-out 0.2s both;
   background: #ffffff;
   border-radius: 16px;
-  padding: 41px;
+  padding: 20px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.05);
   border: 1px solid rgba(0, 0, 0, 0.04);
   
@@ -2540,7 +2540,7 @@ ion-content {
   }
   
   @media (max-width: 600px) {
-    padding: 20px 16px;
+    padding: 20px;
     border-radius: 14px;
   }
 }
@@ -5685,7 +5685,7 @@ ion-content {
 .quick-action-card {
   background: #ffffff;
   border-radius: 14px;
-  padding: 15px 16px;
+  padding: 20px 16px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.05);
   border: 1px solid rgba(0, 0, 0, 0.04);
   display: flex;
@@ -5771,6 +5771,24 @@ ion-content {
   }
 }
 
+// When Coming Up card is present, quick actions are grouped on the right — tighter padding + smaller icons
+.grid-cell-actions:not(.full-width) .quick-action-card {
+  padding: 0 16px;
+
+  .qa-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+
+    ion-icon {
+      font-size: 18px;
+    }
+  }
+  .qa-label {
+    font-size: 12px;
+  }
+}
+
 // =============================================
 // EARNINGS CARD WIDGET — Sidebar
 // =============================================
@@ -5851,12 +5869,12 @@ ion-content {
       cursor: pointer;
       margin-bottom: 16px;
       line-height: 1.1;
-      
+
       .earnings-dots-display {
         color: #d1d5db;
         letter-spacing: 2px;
       }
-      
+
       @media (max-width: 600px) {
         font-size: 32px;
       }
@@ -10151,7 +10169,7 @@ ion-content {
       --color: #fff !important;
       &:hover { --background: #fff !important; --color: #1a1a1a !important; }
     }
-    .view-details-link { color: #60a5fa !important; }
+    .view-details-link { color: #4298d3 !important; }
   }
 
   // Compact earnings mobile card dark mode
@@ -10163,7 +10181,7 @@ ion-content {
       color: var(--ion-text-color, #fff) !important;
       .emc-dots { color: #555 !important; }
     }
-    .view-details-link { color: #60a5fa !important; }
+    .view-details-link { color: #4298d3 !important; }
   }
   
   // Sidebar stat cards dark mode
@@ -10252,7 +10270,7 @@ ion-content {
   .cu-extra-badge { border-color: #2a2a2a !important; }
   .coming-up-preview:hover { background: rgba(255, 255, 255, 0.04) !important; }
   .cu-status-badge {
-    &.confirmed { background: rgba(22, 163, 74, 0.15) !important; color: #4ade80 !important; }
+    &.confirmed {  color: #4ade80 !important; }
     &.in-progress { background: rgba(59, 130, 246, 0.15) !important; color: #60a5fa !important; }
     &.pending { background: rgba(217, 119, 6, 0.15) !important; color: #fbbf24 !important; }
     &.cancelled { background: rgba(220, 38, 38, 0.15) !important; color: #f87171 !important; }

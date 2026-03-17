@@ -70,7 +70,8 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('messageInput', { static: false }) messageInput?: ElementRef;
   cameFromModal = false;
   justLoggedIn = false;
-  returnTo: string | null = null; // Track where to return when back button is clicked
+  returnTo: string | null = null;
+  hasNavigationHistory = false;
   availabilityRefreshTrigger = 0;
   private backButtonSubscription: any;
   private routerSubscription: any;
@@ -173,6 +174,10 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     
     // Check where to return to when back button is clicked
     this.returnTo = this.route.snapshot.queryParamMap.get('returnTo');
+
+    // Detect if page was opened in a new tab (no in-app navigation history)
+    const navId = (this.router.getCurrentNavigation()?.id ?? window.history.state?.navigationId) || 1;
+    this.hasNavigationHistory = navId > 1;
     console.log('🔙 ReturnTo parameter:', this.returnTo);
     
     const startTime = performance.now();

@@ -69,6 +69,18 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   // UI State
   activeTab = 'availability';
   showPopularSlots = false;
+
+  // Calendar settings
+  calendarTimeFormat: '12h' | '24h' = '12h';
+  calendarDefaultView: 'week' | 'day' = 'week';
+
+  // Google Calendar state
+  gcalConnected = false;
+  gcalEmail: string | null = null;
+  gcalSyncEnabled = true;
+  gcalPushToGoogle = false;
+  gcalLastSyncAt: Date | null = null;
+  private gcalBusySlots = new Set<string>();
   selectedSlotsCount = 0;
   currentWeek: Date = new Date(); // First day currently shown in grid
   hasUnsavedChanges = false;
@@ -412,6 +424,8 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
       this.isSingleDayMode = false;
     }
     this.forceRefreshAvailability();
+    this.loadCalendarPreferences();
+    this.loadGoogleCalendarStatus();
   }
 
   // Force refresh availability data (with cache busting)
@@ -452,6 +466,7 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     
     this.loadExistingAvailability();
     this.loadBookedSlots();
+    this.loadGoogleCalendarEvents();
     
     // Clear timeout when loading completes (handled in loadExistingAvailability callback)
     // Store timeout ID for potential cleanup
@@ -781,13 +796,16 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   }
 
   private formatTime12Hour(hour: number, minute: number): string {
-    // Handle midnight (24:00 = 12:00 AM)
-    if (hour === 24) {
-      return '12:00 AM';
+    const displayMinute = minute === 0 ? '00' : '30';
+
+    if (this.calendarTimeFormat === '24h') {
+      const h = hour === 24 ? 0 : hour;
+      return `${String(h).padStart(2, '0')}:${displayMinute}`;
     }
+
+    if (hour === 24) return '12:00 AM';
     const period = hour >= 12 ? 'PM' : 'AM';
     const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-    const displayMinute = minute === 0 ? '00' : '30';
     return `${displayHour}:${displayMinute} ${period}`;
   }
 
@@ -1576,10 +1594,193 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     console.log('Popular slots toggled:', this.showPopularSlots);
   }
 
-  // Integration
+  // ── Google Calendar ──────────────────────────────
+
   connectGoogleCalendar() {
-    console.log('Connecting Google Calendar...');
-    // TODO: Implement Google Calendar integration
+    this.userService.getGoogleCalendarAuthUrl().subscribe({
+      next: (res) => {
+        const popup = window.open(res.url, 'google-calendar-auth', 'width=500,height=700,left=200,top=100');
+        let handled = false;
+
+        const onLinked = (success: boolean) => {
+          if (handled) return;
+          handled = true;
+          window.removeEventListener('message', messageHandler);
+          if (pollTimer) clearInterval(pollTimer);
+
+          if (success) {
+            this.loadGoogleCalendarStatus();
+            this.showToast('Google Calendar connected!', 'success');
+          } else {
+            this.showToast('Failed to connect Google Calendar.', 'danger');
+          }
+        };
+
+        const messageHandler = (event: MessageEvent) => {
+          if (event.data?.type === 'google_calendar_linked') {
+            onLinked(event.data.success);
+          }
+        };
+        window.addEventListener('message', messageHandler);
+
+        // Poll for popup close -- if user completes flow but postMessage doesn't fire
+        const pollTimer = setInterval(() => {
+          if (!popup || popup.closed) {
+            clearInterval(pollTimer);
+            if (!handled) {
+              // Popup closed -- check if connection succeeded
+              this.userService.getGoogleCalendarStatus().subscribe({
+                next: (status) => {
+                  if (status.connected && !handled) {
+                    onLinked(true);
+                  } else if (!handled) {
+                    handled = true;
+                    window.removeEventListener('message', messageHandler);
+                  }
+                  this.cdr.detectChanges();
+                }
+              });
+            }
+          }
+        }, 500);
+      },
+      error: () => this.showToast('Failed to start Google Calendar connection.', 'danger')
+    });
+  }
+
+  async disconnectGoogleCalendar() {
+    const alert = await this.alertController.create({
+      header: 'Disconnect Google Calendar?',
+      message: 'Your calendar events will no longer be synced.',
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Disconnect',
+          role: 'destructive',
+          handler: () => {
+            this.userService.disconnectGoogleCalendar().subscribe({
+              next: () => {
+                this.gcalConnected = false;
+                this.gcalEmail = null;
+                this.gcalSyncEnabled = false;
+                this.gcalPushToGoogle = false;
+                this.gcalLastSyncAt = null;
+                this.gcalBusySlots.clear();
+                this.cdr.detectChanges();
+                this.showToast('Google Calendar disconnected.', 'medium');
+              },
+              error: () => this.showToast('Failed to disconnect.', 'danger')
+            });
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  onGcalSettingChange(setting: 'syncEnabled' | 'pushToGoogle') {
+    const updates: any = {};
+    if (setting === 'syncEnabled') updates.syncEnabled = this.gcalSyncEnabled;
+    if (setting === 'pushToGoogle') updates.pushToGoogle = this.gcalPushToGoogle;
+
+    this.userService.updateGoogleCalendarSettings(updates).subscribe({
+      next: () => {
+        if (setting === 'syncEnabled' && this.gcalSyncEnabled) {
+          this.loadGoogleCalendarEvents();
+        } else if (setting === 'syncEnabled' && !this.gcalSyncEnabled) {
+          this.gcalBusySlots.clear();
+        }
+      }
+    });
+  }
+
+  private loadGoogleCalendarStatus() {
+    this.userService.getGoogleCalendarStatus().subscribe({
+      next: (status) => {
+        this.gcalConnected = status.connected;
+        this.gcalEmail = status.email;
+        this.gcalSyncEnabled = status.syncEnabled;
+        this.gcalPushToGoogle = status.pushToGoogle;
+        this.gcalLastSyncAt = status.lastSyncAt ? new Date(status.lastSyncAt) : null;
+        this.cdr.detectChanges();
+
+        if (this.gcalConnected && this.gcalSyncEnabled) {
+          this.loadGoogleCalendarEvents();
+        }
+      }
+    });
+  }
+
+  private loadGoogleCalendarEvents() {
+    if (!this.gcalConnected || !this.gcalSyncEnabled) return;
+
+    const dayArray = this.isSingleDayMode ? this.displayedWeekDays : this.weekDays;
+    if (!dayArray || dayArray.length === 0) return;
+
+    const firstDay = dayArray[0].date;
+    const lastDay = dayArray[dayArray.length - 1].date;
+
+    const timeMin = new Date(firstDay);
+    timeMin.setHours(0, 0, 0, 0);
+    const timeMax = new Date(lastDay);
+    timeMax.setHours(23, 59, 59, 999);
+
+    this.userService.getGoogleCalendarEvents(timeMin.toISOString(), timeMax.toISOString()).subscribe({
+      next: (res) => {
+        this.gcalBusySlots.clear();
+        for (const evt of res.events) {
+          if (evt.allDay) continue;
+          const start = new Date(evt.start);
+          const end = new Date(evt.end);
+          this.markGcalBusy(start, end);
+        }
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  private markGcalBusy(start: Date, end: Date) {
+    const dateStr = this.formatDateKey(start);
+    const startMinutes = start.getHours() * 60 + start.getMinutes();
+    const endMinutes = end.getHours() * 60 + end.getMinutes();
+    const startIdx = Math.floor(startMinutes / 30);
+    const endIdx = Math.ceil(endMinutes / 30);
+
+    for (let i = startIdx; i < endIdx; i++) {
+      this.gcalBusySlots.add(`${dateStr}-${i}`);
+    }
+  }
+
+  isGcalBusySlot(day: any, slotIndex: number): boolean {
+    if (!this.gcalSyncEnabled || this.gcalBusySlots.size === 0) return false;
+    const dateStr = this.formatDateKey(day.date);
+    return this.gcalBusySlots.has(`${dateStr}-${slotIndex}`);
+  }
+
+  // ── Calendar Settings ──────────────────────────────
+
+  updateCalendarSetting(setting: string, value: string) {
+    if (setting === 'timeFormat') {
+      this.calendarTimeFormat = value as '12h' | '24h';
+      this.userService.updateProfile({ calendarTimeFormat: value } as any).subscribe();
+      this.initializeTimeSlots();
+    } else if (setting === 'defaultView') {
+      this.calendarDefaultView = value as 'week' | 'day';
+      this.userService.updateProfile({ calendarDefaultView: value } as any).subscribe();
+    }
+  }
+
+  private loadCalendarPreferences() {
+    const user = this.userService.getCurrentUserValue();
+    if (user?.profile) {
+      this.calendarTimeFormat = (user.profile as any).calendarTimeFormat || '12h';
+      this.calendarDefaultView = (user.profile as any).calendarDefaultView || 'week';
+    }
+  }
+
+  private async showToast(message: string, color: string) {
+    const toast = await this.toastController.create({ message, duration: 2500, position: 'bottom', color });
+    await toast.present();
   }
 
   // Actions

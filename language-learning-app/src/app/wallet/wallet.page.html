@@ -128,7 +128,8 @@
                 <img [src]="getTutorPicture(payment)" [alt]="getTutorName(payment)" referrerpolicy="no-referrer">
               </ion-avatar>
               <div class="payment-icon-circle" *ngIf="!getTutorPicture(payment)">
-                <ion-icon [name]="getPaymentMethodIcon(payment.paymentMethod)"></ion-icon>
+                <img *ngIf="getPaymentMethodIcon(payment.paymentMethod) === 'logo-google'" src="assets/google.png" alt="Google Pay" class="payment-method-google" />
+                <ion-icon *ngIf="getPaymentMethodIcon(payment.paymentMethod) !== 'logo-google'" [name]="getPaymentMethodIcon(payment.paymentMethod)"></ion-icon>
               </div>
               
               <div class="payment-info">

@@ -133,7 +133,14 @@
       <div class="chart-total-row" *ngIf="chartHasData">
         <span class="chart-total-amount" *ngIf="showWalletBalance || walletTemporarilyVisible">{{ chartTotal }}</span>
         <span class="chart-total-amount masked" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$••••</span>
-        <span class="chart-total-label">{{ 'EARNINGS.TOTAL_EARNED' | translate }}</span>
+        <span class="chart-change-badge" 
+          *ngIf="chartChangeDirection !== 'flat' && chartPeriod !== 'all'"
+          [class.up]="chartChangeDirection === 'up'"
+          [class.down]="chartChangeDirection === 'down'">
+          <ion-icon [name]="chartChangeDirection === 'up' ? 'caret-up' : 'caret-down'"></ion-icon>
+          {{ chartDollarChange }}<span *ngIf="chartShowPercent"> ({{ chartPercentChange > 0 ? '+' : '' }}{{ chartPercentChange }}%)</span>
+        </span>
+        <span class="chart-total-label">{{ chartPeriodAmountLabel }}</span>
       </div>
 
       <div class="chart-canvas-container">

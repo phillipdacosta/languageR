@@ -280,7 +280,35 @@ const userSchema = new mongoose.Schema({
       type: Boolean,
       default: true,
       comment: 'Enable/disable AI analysis of lessons. When disabled, tutor must provide manual feedback.'
+    },
+    calendarTimeFormat: {
+      type: String,
+      enum: ['12h', '24h'],
+      default: '12h',
+      comment: 'Time display format on calendar (12-hour or 24-hour)'
+    },
+    calendarDefaultView: {
+      type: String,
+      enum: ['week', 'day'],
+      default: 'week',
+      comment: 'Default calendar view when opening availability setup'
     }
+  },
+  // Google Calendar integration
+  googleCalendar: {
+    connected: { type: Boolean, default: false },
+    accessToken: { type: String, default: null, select: false },
+    refreshToken: { type: String, default: null, select: false },
+    tokenExpiry: { type: Date, default: null },
+    calendarId: { type: String, default: 'primary', comment: 'Which Google Calendar to sync' },
+    email: { type: String, default: null, comment: 'Google account email used for calendar' },
+    syncEnabled: { type: Boolean, default: true, comment: 'Block availability when Google Calendar has events' },
+    pushToGoogle: { type: Boolean, default: true, comment: 'Push booked lessons to Google Calendar' },
+    lastSyncAt: { type: Date, default: null },
+    watchChannelId: { type: String, default: null },
+    watchResourceId: { type: String, default: null },
+    watchExpiration: { type: Date, default: null },
+    watchToken: { type: String, default: null }
   },
   // Native language for providing feedback in the user's language
   nativeLanguage: {
@@ -359,6 +387,16 @@ const userSchema = new mongoose.Schema({
       default: null,
       comment: 'Bank account details for manual transfers (encrypted/secure storage recommended)'
     }
+  },
+  tosAcceptedAt: {
+    type: Date,
+    default: null,
+    comment: 'When the tutor accepted the Terms of Service & Independent Contractor Agreement'
+  },
+  tosVersion: {
+    type: String,
+    default: null,
+    comment: 'Version of the TOS the tutor accepted (e.g. "1.0")'
   },
   defaultPaymentMethod: {
     type: String,
@@ -544,9 +582,12 @@ const userSchema = new mongoose.Schema({
     youtubeVerified: { type: Boolean, default: false },
     youtubeAccessToken: { type: String, default: null, select: false },
     youtubeRefreshToken: { type: String, default: null, select: false },
+    vimeoChannelId: { type: String, default: null },
     vimeoChannelUrl: { type: String, default: null, trim: true },
     vimeoChannelName: { type: String, default: null },
     vimeoChannelAvatar: { type: String, default: null },
+    vimeoVerified: { type: Boolean, default: false },
+    vimeoAccessToken: { type: String, default: null, select: false },
     soundcloudProfileUrl: { type: String, default: null, trim: true },
     soundcloudProfileName: { type: String, default: null },
     soundcloudProfileAvatar: { type: String, default: null }

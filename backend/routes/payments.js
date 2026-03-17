@@ -25,6 +25,7 @@ const { generateTrialLessonMessage } = require('../utils/systemMessages');
 const { formatNameWithInitial } = require('../utils/nameFormatter');
 const TutorFeedback = require('../models/TutorFeedback');
 const { toZonedTime } = require('date-fns-tz');
+const { pushLessonToGoogleCalendar } = require('../services/googleCalendarService');
 
 // Use shared name formatter
 const formatDisplayName = formatNameWithInitial;
@@ -463,6 +464,11 @@ router.post('/book-lesson-with-payment', verifyToken, async (req, res) => {
       const populatedLesson = await Lesson.findById(lesson._id)
         .populate('tutorId', 'name firstName lastName email picture interfaceLanguage onboardingData auth0Id')
         .populate('studentId', 'name firstName lastName email picture auth0Id');
+
+      // Push to tutor's Google Calendar (non-blocking)
+      pushLessonToGoogleCalendar(populatedLesson).catch(err => {
+        console.error('[GCal] Non-blocking push failed:', err.message);
+      });
 
       const student = populatedLesson.studentId;
       const tutor = populatedLesson.tutorId;

@@ -4,7 +4,7 @@
     <span>{{ navBackLabel }}</span>
   </button>
   <div class="cm-nav-title" *ngIf="viewMode === 'create'">
-    <span *ngIf="editingMaterialId">Editing Material</span>
+    <span *ngIf="editingMaterialId">{{ 'CREATE_MATERIAL.EDITING_MATERIAL' | translate }}</span>
     <span *ngIf="!editingMaterialId">{{ stepTitle }}</span>
   </div>
   <div class="cm-nav-right">
@@ -27,10 +27,10 @@
     <div class="cm-empty-icon">
       <ion-icon name="layers-outline"></ion-icon>
     </div>
-    <h3>Create your first material</h3>
-    <p>Build video quizzes, reading passages, or listening exercises for your students</p>
+    <h3>{{ 'CREATE_MATERIAL.LIBRARY_EMPTY_TITLE' | translate }}</h3>
+    <p>{{ 'CREATE_MATERIAL.LIBRARY_EMPTY_DESC' | translate }}</p>
     <button class="cm-btn-primary cm-btn-empty-create" (click)="startCreate()">
-      Get Started
+      {{ 'CREATE_MATERIAL.LIBRARY_GET_STARTED' | translate }}
       <ion-icon name="arrow-forward-outline"></ion-icon>
     </button>
   </div>
@@ -45,15 +45,15 @@
           <ion-icon name="checkmark-circle"></ion-icon>
         </div>
         <div class="cm-publish-banner-text">
-          <strong>Material published!</strong>
-          <p>Share this link with your students or in your video description</p>
+          <strong>{{ 'CREATE_MATERIAL.PUBLISH_BANNER_TITLE' | translate }}</strong>
+          <p>{{ 'CREATE_MATERIAL.PUBLISH_BANNER_DESC' | translate }}</p>
         </div>
       </div>
       <div class="cm-share-link-row">
         <input type="text" [value]="getShareLink(justPublishedId)" readonly class="cm-share-input" />
         <button class="cm-btn-copy" (click)="copyShareLink(justPublishedId)">
           <ion-icon [name]="copiedLinkId === justPublishedId ? 'checkmark-outline' : 'copy-outline'"></ion-icon>
-          {{ copiedLinkId === justPublishedId ? 'Copied' : 'Copy' }}
+          {{ copiedLinkId === justPublishedId ? ('CREATE_MATERIAL.PUBLISH_BANNER_COPIED' | translate) : ('CREATE_MATERIAL.PUBLISH_BANNER_COPY' | translate) }}
         </button>
       </div>
       <button class="cm-publish-banner-dismiss" (click)="dismissPublishBanner()">
@@ -62,32 +62,33 @@
     </div>
 
     <div class="cm-library-header">
-      <h1>My Materials</h1>
+      <h1>{{ 'CREATE_MATERIAL.LIBRARY_TITLE' | translate }}</h1>
       <div class="cm-library-actions">
         <button class="cm-btn-link-channels" (click)="showChannelLinking = !showChannelLinking">
           <ion-icon [name]="hasLinkedChannel() ? 'link' : 'link-outline'"></ion-icon>
-          {{ hasLinkedChannel() ? 'Channels linked' : 'Link channels' }}
+          {{ hasLinkedChannel() ? ('CREATE_MATERIAL.LIBRARY_CHANNELS_LINKED' | translate) : ('CREATE_MATERIAL.LIBRARY_LINK_CHANNELS' | translate) }}
         </button>
         <button class="cm-btn-primary cm-btn-create" (click)="startCreate()">
           <ion-icon name="add-outline"></ion-icon>
-          New
+          {{ 'CREATE_MATERIAL.LIBRARY_NEW' | translate }}
         </button>
       </div>
     </div>
 
-    <!-- Channel Linking Panel -->
-    <div class="cm-channel-panel" *ngIf="showChannelLinking">
+    <!-- Channel Linking Panel (animated open/close) -->
+    <div class="cm-channel-panel-wrapper" [class.is-open]="showChannelLinking">
+      <div class="cm-channel-panel">
       <div class="cm-channel-header">
-        <h3>Link your content channels</h3>
-        <p>Linking your channels helps verify content ownership and auto-approves your paid materials.</p>
+        <h3>{{ 'CREATE_MATERIAL.CHANNEL_HEADER' | translate }}</h3>
+        <p>{{ 'CREATE_MATERIAL.CHANNEL_DESC' | translate }}</p>
       </div>
       <div class="cm-channel-fields">
 
         <!-- YouTube (OAuth verified) -->
         <div class="cm-channel-field">
           <label>
-            <ion-icon name="logo-youtube"></ion-icon>
-            YouTube Channel
+            <img src="assets/youtube.png" alt="" class="cm-channel-label-icon" />
+            {{ 'CREATE_MATERIAL.CHANNEL_YOUTUBE' | translate }}
           </label>
           <div class="cm-channel-resolved" *ngIf="linkedChannels.youtubeChannelName && linkedChannels.youtubeVerified">
             <img [src]="linkedChannels.youtubeChannelAvatar" *ngIf="linkedChannels.youtubeChannelAvatar" class="cm-channel-avatar" referrerpolicy="no-referrer" />
@@ -95,44 +96,46 @@
               <span class="cm-channel-name">{{ linkedChannels.youtubeChannelName }}</span>
               <span class="cm-channel-subs" *ngIf="linkedChannels.youtubeSubscriberCount">{{ linkedChannels.youtubeSubscriberCount }}</span>
             </div>
-            <span class="cm-verified-badge"><ion-icon name="checkmark-circle"></ion-icon> Verified</span>
+            <span class="cm-verified-badge"><ion-icon name="checkmark-circle"></ion-icon> {{ 'CREATE_MATERIAL.CHANNEL_VERIFIED' | translate }}</span>
             <button class="cm-channel-remove" (click)="unlinkYouTube()">
               <ion-icon name="close-outline"></ion-icon>
             </button>
           </div>
           <button class="cm-youtube-signin" *ngIf="!linkedChannels.youtubeChannelName || !linkedChannels.youtubeVerified" (click)="linkYouTube()" [disabled]="isLinkingYouTube">
-            <ion-icon name="logo-youtube"></ion-icon>
-            <span *ngIf="!isLinkingYouTube">Sign in with YouTube</span>
-            <span *ngIf="isLinkingYouTube">Connecting...</span>
+            <img src="assets/youtube.png" alt="" class="cm-channel-btn-icon" />
+            <span *ngIf="!isLinkingYouTube">{{ 'CREATE_MATERIAL.CHANNEL_SIGN_IN_YOUTUBE' | translate }}</span>
+            <span *ngIf="isLinkingYouTube">{{ 'CREATE_MATERIAL.CHANNEL_CONNECTING' | translate }}</span>
           </button>
         </div>
 
-        <!-- Vimeo -->
+        <!-- Vimeo (OAuth verified) -->
         <div class="cm-channel-field">
           <label>
-            <ion-icon name="videocam-outline"></ion-icon>
-            Vimeo Profile
+            <img src="assets/vimeo.jpeg" alt="" class="cm-channel-label-icon" />
+            {{ 'CREATE_MATERIAL.CHANNEL_VIMEO' | translate }}
           </label>
-          <div class="cm-channel-resolved" *ngIf="linkedChannels.vimeoChannelName && !editingVimeo">
+          <div class="cm-channel-resolved" *ngIf="linkedChannels.vimeoChannelName && linkedChannels.vimeoVerified">
             <img [src]="linkedChannels.vimeoChannelAvatar" *ngIf="linkedChannels.vimeoChannelAvatar" class="cm-channel-avatar" referrerpolicy="no-referrer" />
             <div class="cm-channel-info">
               <span class="cm-channel-name">{{ linkedChannels.vimeoChannelName }}</span>
             </div>
-            <button class="cm-channel-edit" (click)="editingVimeo = true">
-              <ion-icon name="create-outline"></ion-icon>
-            </button>
-            <button class="cm-channel-remove" (click)="linkedChannels.vimeoChannelUrl = null; linkedChannels.vimeoChannelName = null; linkedChannels.vimeoChannelAvatar = null; saveLinkedChannels()">
+            <span class="cm-verified-badge"><ion-icon name="checkmark-circle"></ion-icon> {{ 'CREATE_MATERIAL.CHANNEL_VERIFIED' | translate }}</span>
+            <button class="cm-channel-remove" (click)="unlinkVimeo()">
               <ion-icon name="close-outline"></ion-icon>
             </button>
           </div>
-          <input *ngIf="!linkedChannels.vimeoChannelName || editingVimeo" type="url" [(ngModel)]="linkedChannels.vimeoChannelUrl" [ngModelOptions]="{standalone: true}" placeholder="https://vimeo.com/yourprofile" />
+          <button class="cm-vimeo-signin" *ngIf="!linkedChannels.vimeoChannelName || !linkedChannels.vimeoVerified" (click)="linkVimeo()" [disabled]="isLinkingVimeo">
+            <img src="assets/vimeo.jpeg" alt="" class="cm-channel-btn-icon" />
+            <span *ngIf="!isLinkingVimeo">{{ 'CREATE_MATERIAL.CHANNEL_SIGN_IN_VIMEO' | translate }}</span>
+            <span *ngIf="isLinkingVimeo">{{ 'CREATE_MATERIAL.CHANNEL_CONNECTING' | translate }}</span>
+          </button>
         </div>
 
         <!-- SoundCloud -->
         <div class="cm-channel-field">
           <label>
             <ion-icon name="musical-notes-outline"></ion-icon>
-            SoundCloud Profile
+            {{ 'CREATE_MATERIAL.CHANNEL_SOUNDCLOUD' | translate }}
           </label>
           <div class="cm-channel-resolved" *ngIf="linkedChannels.soundcloudProfileName && !editingSoundCloud">
             <img [src]="linkedChannels.soundcloudProfileAvatar" *ngIf="linkedChannels.soundcloudProfileAvatar" class="cm-channel-avatar" referrerpolicy="no-referrer" />
@@ -151,49 +154,60 @@
 
       </div>
       <div class="cm-channel-actions">
-        <button class="cm-btn-secondary cm-btn-sm" (click)="showChannelLinking = false; editingYouTube = false; editingVimeo = false; editingSoundCloud = false">Cancel</button>
+        <button class="cm-btn-secondary cm-btn-sm" (click)="showChannelLinking = false; editingYouTube = false; editingVimeo = false; editingSoundCloud = false">{{ 'COMMON.CANCEL' | translate }}</button>
         <button class="cm-btn-primary cm-btn-sm" (click)="saveLinkedChannels()" [disabled]="isSavingChannels">
           <ion-spinner *ngIf="isSavingChannels" name="crescent" style="width:14px;height:14px;color:#fff;margin-right:4px"></ion-spinner>
-          {{ isSavingChannels ? 'Verifying...' : 'Save Channels' }}
+          {{ isSavingChannels ? ('CREATE_MATERIAL.CHANNEL_VERIFYING' | translate) : ('CREATE_MATERIAL.CHANNEL_SAVE' | translate) }}
         </button>
+      </div>
       </div>
     </div>
 
     <div class="cm-library-list">
-      <div class="cm-material-card" *ngFor="let m of myMaterials" [class.archived]="m.status === 'archived'" [class.has-thumb]="m.thumbnailUrl">
-        <div class="cm-mc-thumb" *ngIf="m.thumbnailUrl">
-          <img [src]="m.thumbnailUrl" [alt]="m.title" />
+      <div class="cm-material-card" *ngFor="let m of myMaterials" [class.archived]="m.status === 'archived'">
+
+        <!-- Thumbnail area with overlaid badges -->
+        <div class="cm-mc-thumb">
+          <img *ngIf="m.thumbnailUrl" [src]="m.thumbnailUrl" [alt]="m.title" />
+          <div class="cm-mc-thumb-empty" *ngIf="!m.thumbnailUrl">
+            <ion-icon [name]="m.materialType === 'video_quiz' ? 'videocam' : m.materialType === 'reading' ? 'book' : 'headset'"></ion-icon>
+          </div>
+          <span class="cm-mc-status-badge" 
+            [class.draft]="m.status === 'draft'" 
+            [class.archived]="m.status === 'archived'"
+            *ngIf="m.status === 'draft' || m.status === 'archived'">{{ m.status }}</span>
         </div>
 
         <div class="cm-mc-body">
-          <!-- Media unavailable warning (paid only) -->
+          <!-- Media unavailable warning -->
           <div class="cm-mc-unavailable" *ngIf="m.mediaUnavailable && m.pricingType === 'paid'">
             <ion-icon name="warning-outline"></ion-icon>
-            <span>Video unavailable — update your link to avoid refunds</span>
+            <span>{{ 'CREATE_MATERIAL.CARD_VIDEO_UNAVAILABLE' | translate }}</span>
           </div>
 
-          <div class="cm-mc-top">
+          <!-- Type + Review badges row -->
+          <div class="cm-mc-badges">
             <span class="cm-mc-type-label">{{ getMaterialTypeLabel(m.materialType) }}</span>
-            <span class="cm-mc-review-badge" *ngIf="m.reviewStatus === 'pending_review'" title="Content pending admin verification">
-              <ion-icon name="time-outline"></ion-icon> Pending review
-            </span>
-            <span class="cm-mc-review-badge rejected" *ngIf="m.reviewStatus === 'rejected'" [title]="m.reviewNote || 'Content rejected by admin'">
-              <ion-icon name="close-circle-outline"></ion-icon> Rejected
-            </span>
             <span class="cm-mc-review-badge verified" *ngIf="m.channelVerified">
-              <ion-icon name="checkmark-circle-outline"></ion-icon> Verified
+              <ion-icon name="checkmark-circle"></ion-icon> {{ 'CREATE_MATERIAL.CARD_VERIFIED' | translate }}
             </span>
-            <span class="cm-mc-status" [class.published]="m.status === 'published'" [class.draft]="m.status === 'draft'" [class.archived]="m.status === 'archived'">{{ m.status }}</span>
+            <span class="cm-mc-review-badge" *ngIf="m.reviewStatus === 'pending_review'">
+              <ion-icon name="time-outline"></ion-icon> {{ 'CREATE_MATERIAL.CARD_PENDING' | translate }}
+            </span>
+            <span class="cm-mc-review-badge rejected" *ngIf="m.reviewStatus === 'rejected'">
+              <ion-icon name="close-circle-outline"></ion-icon> {{ 'CREATE_MATERIAL.CARD_REJECTED' | translate }}
+            </span>
           </div>
 
           <h3 class="cm-mc-title">{{ m.title }}</h3>
 
+          <div class="cm-mc-price-row">
+            <span class="cm-mc-price" [class.free]="m.pricingType !== 'paid'">{{ m.pricingType === 'paid' ? '$' + m.price : ('CREATE_MATERIAL.CARD_FREE' | translate) }}</span>
+            <span class="cm-mc-questions">{{ m.quiz.length !== 1 ? ('CREATE_MATERIAL.CARD_QUESTIONS_PLURAL' | translate:{count: m.quiz.length}) : ('CREATE_MATERIAL.CARD_QUESTIONS' | translate:{count: m.quiz.length}) }}</span>
+          </div>
+
           <div class="cm-mc-meta">
             <span>{{ m.language }}</span>
-            <span class="cm-mc-dot">·</span>
-            <span>{{ m.pricingType === 'paid' ? '$' + m.price : 'Free' }}</span>
-            <span class="cm-mc-dot">·</span>
-            <span>{{ m.quiz.length }} question{{ m.quiz.length !== 1 ? 's' : '' }}</span>
           </div>
 
           <div class="cm-mc-date">{{ formatDate(m.createdAt) }}</div>
@@ -205,17 +219,22 @@
             <div class="cm-mc-stat" *ngIf="m.pricingType === 'paid'"><ion-icon name="card-outline"></ion-icon> {{ m.stats.purchases }}</div>
           </div>
 
+          <button class="cm-mc-preview-btn" (click)="previewMaterial(m)">
+            <ion-icon name="eye-outline"></ion-icon>
+            {{ 'CREATE_MATERIAL.CARD_PREVIEW' | translate }}
+          </button>
+
           <div class="cm-mc-actions">
-            <button class="cm-mc-action" (click)="editMaterial(m)" title="Edit">
+            <button class="cm-mc-action" (click)="editMaterial(m)" [title]="'COMMON.EDIT' | translate">
               <ion-icon name="create-outline"></ion-icon>
             </button>
-            <button class="cm-mc-action" (click)="copyShareLink(m._id)" title="Share link">
+            <button class="cm-mc-action" (click)="copyShareLink(m._id)" [title]="'COMMON.SHARE' | translate">
               <ion-icon [name]="copiedLinkId === m._id ? 'checkmark-outline' : 'link-outline'"></ion-icon>
             </button>
-            <button class="cm-mc-action" (click)="toggleArchive(m)" [title]="m.status === 'archived' ? 'Publish' : 'Archive'">
+            <button class="cm-mc-action" (click)="toggleArchive(m)" [title]="m.status === 'archived' ? ('CREATE_MATERIAL.ALERT_PUBLISH_BTN' | translate) : ('CREATE_MATERIAL.ALERT_ARCHIVE_BTN' | translate)">
               <ion-icon [name]="m.status === 'archived' ? 'arrow-undo-outline' : 'archive-outline'"></ion-icon>
             </button>
-            <button class="cm-mc-action cm-mc-action--danger" (click)="confirmDelete(m)" title="Delete">
+            <button class="cm-mc-action cm-mc-action--danger" (click)="confirmDelete(m)" [title]="'COMMON.DELETE' | translate">
               <ion-icon name="trash-outline"></ion-icon>
             </button>
           </div>
@@ -240,19 +259,23 @@
   <!-- ═══════════ STEP 1: Material Type ═══════════ -->
   <div class="cm-step cm-step--compact" *ngIf="currentStep === 'type' && !editingMaterialId">
     <div class="cm-step-header cm-step-header--tight">
-      <h1>What would you like to create?</h1>
+      <h1>{{ 'CREATE_MATERIAL.TYPE_TITLE' | translate }}</h1>
     </div>
 
     <div class="cm-type-cards">
-      <button class="cm-type-card" data-type="video_quiz" (click)="onTypeCardClick($event, 'video_quiz')">
+      <button class="cm-type-card" [class.cm-type-disabled]="!hasVideoChannel" data-type="video_quiz" (click)="hasVideoChannel ? onTypeCardClick($event, 'video_quiz') : null" [disabled]="!hasVideoChannel">
         <div class="cm-type-icon">
           <ion-icon name="videocam-outline"></ion-icon>
         </div>
         <div class="cm-type-text">
-          <h3>Video Quiz</h3>
-          <p>Link a YouTube or Vimeo video and create comprehension questions</p>
+          <h3>{{ 'CREATE_MATERIAL.TYPE_VIDEO_QUIZ' | translate }}</h3>
+          <p *ngIf="hasVideoChannel">{{ 'CREATE_MATERIAL.TYPE_VIDEO_QUIZ_DESC' | translate }}</p>
+          <p *ngIf="!hasVideoChannel" class="cm-type-locked-note">
+            <ion-icon name="lock-closed-outline"></ion-icon>
+            {{ 'CREATE_MATERIAL.TYPE_VIDEO_QUIZ_LOCKED' | translate }}
+          </p>
         </div>
-        <ion-icon name="chevron-forward-outline" class="cm-type-arrow"></ion-icon>
+        <ion-icon *ngIf="hasVideoChannel" name="chevron-forward-outline" class="cm-type-arrow"></ion-icon>
       </button>
 
       <button class="cm-type-card" data-type="reading" (click)="onTypeCardClick($event, 'reading')">
@@ -260,8 +283,8 @@
           <ion-icon name="book-outline"></ion-icon>
         </div>
         <div class="cm-type-text">
-          <h3>Reading Comprehension</h3>
-          <p>Write a text passage and create questions to test understanding</p>
+          <h3>{{ 'CREATE_MATERIAL.TYPE_READING' | translate }}</h3>
+          <p>{{ 'CREATE_MATERIAL.TYPE_READING_DESC' | translate }}</p>
         </div>
         <ion-icon name="chevron-forward-outline" class="cm-type-arrow"></ion-icon>
       </button>
@@ -271,8 +294,8 @@
           <ion-icon name="headset-outline"></ion-icon>
         </div>
         <div class="cm-type-text">
-          <h3>Listening Exercise</h3>
-          <p>Link audio from SoundCloud, Spotify, or upload a direct file (.mp3, .wav) and add questions</p>
+          <h3>{{ 'CREATE_MATERIAL.TYPE_LISTENING' | translate }}</h3>
+          <p>{{ 'CREATE_MATERIAL.TYPE_LISTENING_DESC' | translate }}</p>
         </div>
         <ion-icon name="chevron-forward-outline" class="cm-type-arrow"></ion-icon>
       </button>
@@ -287,7 +310,7 @@
     </div>
 
     <div class="cm-step-header cm-step-header--tight">
-      <h1>How would you like to share this?</h1>
+      <h1>{{ 'CREATE_MATERIAL.PRICING_TITLE' | translate }}</h1>
     </div>
 
     <div class="cm-pricing-cards cm-pricing-cards--row">
@@ -295,16 +318,16 @@
         <div class="cm-pricing-icon cm-pricing-icon--sm">
           <ion-icon name="gift-outline"></ion-icon>
         </div>
-        <h3>Free</h3>
-        <p>Open to all students</p>
+        <h3>{{ 'CREATE_MATERIAL.PRICING_FREE' | translate }}</h3>
+        <p>{{ 'CREATE_MATERIAL.PRICING_FREE_DESC' | translate }}</p>
       </button>
 
       <button class="cm-pricing-card cm-pricing-card--compact" [class.selected]="selectedPricing === 'paid'" (click)="selectPricing('paid')">
         <div class="cm-pricing-icon cm-pricing-icon--sm">
           <ion-icon name="card-outline"></ion-icon>
         </div>
-        <h3>Paid</h3>
-        <p>Quiz behind paywall</p>
+        <h3>{{ 'CREATE_MATERIAL.PRICING_PAID' | translate }}</h3>
+        <p>{{ 'CREATE_MATERIAL.PRICING_PAID_DESC' | translate }}</p>
       </button>
     </div>
 
@@ -319,57 +342,57 @@
         <ion-icon name="shield-checkmark-outline"></ion-icon>
       </div>
       <div class="cm-policy-content">
-        <strong>Content availability policy</strong>
-        <p>When students pay for a video quiz, they expect the video to remain available. If the video is removed from YouTube or Vimeo after a purchase, affected students will be automatically refunded and the refund will be deducted from your earnings.</p>
-        <p>Please ensure your videos remain accessible for at least 90 days after any student purchase.</p>
+        <strong>{{ 'CREATE_MATERIAL.POLICY_TITLE' | translate }}</strong>
+        <p>{{ 'CREATE_MATERIAL.POLICY_DESC_1' | translate }}</p>
+        <p>{{ 'CREATE_MATERIAL.POLICY_DESC_2' | translate }}</p>
         <div class="cm-policy-actions">
           <label class="cm-policy-checkbox">
             <input type="checkbox" [(ngModel)]="videoPolicyDismissed" [ngModelOptions]="{standalone: true}" />
-            <span>Don't show this again</span>
+            <span>{{ 'CREATE_MATERIAL.POLICY_DONT_SHOW' | translate }}</span>
           </label>
-          <button class="cm-policy-dismiss" (click)="dismissVideoPolicy(videoPolicyDismissed)">Got it</button>
+          <button class="cm-policy-dismiss" (click)="dismissVideoPolicy(videoPolicyDismissed)">{{ 'CREATE_MATERIAL.POLICY_GOT_IT' | translate }}</button>
         </div>
       </div>
     </div>
 
     <div class="cm-step-header">
-      <h1>{{ selectedType === 'video_quiz' ? 'Video details' : selectedType === 'reading' ? 'Reading passage' : 'Listening details' }}</h1>
-      <p>{{ selectedType === 'video_quiz' ? 'Add your video and describe what students will learn' : selectedType === 'reading' ? 'Write the passage and describe what students will learn' : 'Add your audio source and describe what students will learn' }}</p>
+      <h1>{{ detailsTitle }}</h1>
+      <p>{{ detailsDesc }}</p>
     </div>
 
     <form [formGroup]="materialForm" class="cm-form">
       <div class="cm-field" [class.cm-field-error]="materialForm.get('title')?.invalid && materialForm.get('title')?.touched">
-        <label>Title <span class="required">*</span></label>
-        <input type="text" formControlName="title" placeholder="e.g. Spanish Listening Practice — Ordering Coffee" />
+        <label>{{ 'CREATE_MATERIAL.FIELD_TITLE' | translate }} <span class="required">*</span></label>
+        <input type="text" formControlName="title" [placeholder]="'CREATE_MATERIAL.FIELD_TITLE_PLACEHOLDER' | translate" />
         <span class="cm-field-hint cm-error-hint" *ngIf="materialForm.get('title')?.invalid && materialForm.get('title')?.touched">
-          Title must be at least 3 characters
+          {{ 'CREATE_MATERIAL.FIELD_TITLE_ERROR' | translate }}
         </span>
       </div>
 
       <div class="cm-field">
-        <label>Description</label>
-        <textarea formControlName="description" placeholder="What will students learn from this material?" rows="3"></textarea>
+        <label>{{ 'CREATE_MATERIAL.FIELD_DESCRIPTION' | translate }}</label>
+        <textarea formControlName="description" [placeholder]="'CREATE_MATERIAL.FIELD_DESCRIPTION_PLACEHOLDER' | translate" rows="3"></textarea>
       </div>
 
       <div class="cm-field">
-        <label>Why take this? <span class="cm-label-hint">Visible to students</span></label>
-        <textarea formControlName="whyTakeThis" placeholder="e.g. Perfect if you struggle with verb conjugations — this quiz covers the 20 most common patterns." rows="2" maxlength="300"></textarea>
+        <label>{{ 'CREATE_MATERIAL.FIELD_WHY_TAKE' | translate }} <span class="cm-label-hint">{{ 'CREATE_MATERIAL.FIELD_WHY_TAKE_HINT' | translate }}</span></label>
+        <textarea formControlName="whyTakeThis" [placeholder]="'CREATE_MATERIAL.FIELD_WHY_TAKE_PLACEHOLDER' | translate" rows="2" maxlength="300"></textarea>
         <span class="cm-char-count" *ngIf="materialForm.get('whyTakeThis')?.value">{{ materialForm.get('whyTakeThis')?.value?.length || 0 }}/300</span>
       </div>
 
       <div class="cm-field-row">
         <div class="cm-field" [class.cm-field-error]="materialForm.get('language')?.invalid && materialForm.get('language')?.touched">
-          <label>Language <span class="required">*</span></label>
+          <label>{{ 'CREATE_MATERIAL.FIELD_LANGUAGE' | translate }} <span class="required">*</span></label>
           <select formControlName="language">
-            <option value="" disabled>Select language</option>
+            <option value="" disabled>{{ 'CREATE_MATERIAL.FIELD_LANGUAGE_PLACEHOLDER' | translate }}</option>
             <option *ngFor="let lang of languages" [value]="lang">{{ lang }}</option>
           </select>
           <span class="cm-field-hint cm-error-hint" *ngIf="materialForm.get('language')?.invalid && materialForm.get('language')?.touched">
-            Please select a language
+            {{ 'CREATE_MATERIAL.FIELD_LANGUAGE_ERROR' | translate }}
           </span>
         </div>
         <div class="cm-field">
-          <label>Level</label>
+          <label>{{ 'CREATE_MATERIAL.FIELD_LEVEL' | translate }}</label>
           <select formControlName="level">
             <option *ngFor="let lvl of levels" [value]="lvl.value">{{ lvl.label }}</option>
           </select>
@@ -378,12 +401,15 @@
 
       <!-- Thumbnail -->
       <div class="cm-thumbnail-field">
-        <label>Cover Image <span class="cm-label-hint">Recommended</span></label>
+        <label>{{ 'CREATE_MATERIAL.FIELD_COVER_IMAGE' | translate }}
+          <span class="cm-label-hint" *ngIf="selectedType === 'video_quiz'">{{ 'CREATE_MATERIAL.FIELD_COVER_RECOMMENDED' | translate }}</span>
+          <span class="required" *ngIf="selectedType !== 'video_quiz'">*</span>
+        </label>
         <div class="cm-thumbnail-picker" *ngIf="!thumbnailPreview">
           <button type="button" class="cm-thumbnail-btn" (click)="thumbInput.click()">
             <ion-icon name="image-outline"></ion-icon>
-            <span>Add a cover image</span>
-            <span class="cm-thumbnail-hint">Makes your material stand out. JPG or PNG, max 5 MB.</span>
+            <span>{{ 'CREATE_MATERIAL.FIELD_COVER_ADD' | translate }}</span>
+            <span class="cm-thumbnail-hint">{{ 'CREATE_MATERIAL.FIELD_COVER_HINT' | translate }}</span>
           </button>
         </div>
         <div class="cm-thumbnail-preview" *ngIf="thumbnailPreview">
@@ -399,18 +425,18 @@
       <div class="cm-brand-tip" *ngIf="selectedType === 'video_quiz' || selectedType === 'listening'">
         <img src="assets/icons-app-bird.png" alt="" class="cm-brand-tip-icon" />
         <div class="cm-brand-tip-text">
-          <strong>Pro tip:</strong> Mention Barnaby in your {{ selectedType === 'video_quiz' ? 'video' : 'audio' }} to help students find your quiz and boost your visibility on the platform.
+          <strong>{{ 'CREATE_MATERIAL.PRO_TIP' | translate }}</strong> {{ selectedType === 'video_quiz' ? ('CREATE_MATERIAL.PRO_TIP_VIDEO' | translate) : ('CREATE_MATERIAL.PRO_TIP_AUDIO' | translate) }}
         </div>
       </div>
 
       <!-- Video Quiz: video URL -->
       <ng-container *ngIf="selectedType === 'video_quiz'">
         <div class="cm-field">
-          <label>Video URL <span class="required">*</span></label>
-          <input type="url" formControlName="videoUrl" placeholder="Paste a YouTube or Vimeo link" />
+          <label>{{ 'CREATE_MATERIAL.FIELD_VIDEO_URL' | translate }} <span class="required">*</span></label>
+          <input type="url" formControlName="videoUrl" [placeholder]="'CREATE_MATERIAL.FIELD_VIDEO_URL_PLACEHOLDER' | translate" />
           <span class="cm-field-hint" *ngIf="!videoPreviewUrl && materialForm.get('videoUrl')?.value">
             <ion-icon name="alert-circle-outline"></ion-icon>
-            Enter a valid YouTube or Vimeo URL
+            {{ 'CREATE_MATERIAL.FIELD_VIDEO_URL_ERROR' | translate }}
           </span>
         </div>
         <div class="cm-video-preview" *ngIf="videoPreviewUrl">
@@ -421,12 +447,12 @@
       <!-- Reading: passage (Quill editor) -->
       <ng-container *ngIf="selectedType === 'reading'">
         <div class="cm-field cm-quill-wrapper">
-          <label>Reading Passage <span class="required">*</span></label>
+          <label>{{ 'CREATE_MATERIAL.FIELD_READING_PASSAGE' | translate }} <span class="required">*</span></label>
           <quill-editor
             formControlName="passage"
             [modules]="quillConfig"
             [styles]="{minHeight: '200px'}"
-            placeholder="Write or paste the reading passage here...">
+            [placeholder]="'CREATE_MATERIAL.FIELD_READING_PLACEHOLDER' | translate">
           </quill-editor>
         </div>
       </ng-container>
@@ -434,11 +460,11 @@
       <!-- Listening: audio URL -->
       <ng-container *ngIf="selectedType === 'listening'">
         <div class="cm-field">
-          <label>Audio URL <span class="required">*</span></label>
-          <input type="url" formControlName="audioUrl" placeholder="Paste a SoundCloud, Spotify, or direct audio link (.mp3, .wav)" />
+          <label>{{ 'CREATE_MATERIAL.FIELD_AUDIO_URL' | translate }} <span class="required">*</span></label>
+          <input type="url" formControlName="audioUrl" [placeholder]="'CREATE_MATERIAL.FIELD_AUDIO_URL_PLACEHOLDER' | translate" />
           <span class="cm-field-hint" *ngIf="!audioPreviewUrl && materialForm.get('audioUrl')?.value">
             <ion-icon name="alert-circle-outline"></ion-icon>
-            Supported: SoundCloud, Spotify, or direct audio files (.mp3, .wav). For YouTube/Vimeo, use Video Quiz.
+            {{ 'CREATE_MATERIAL.FIELD_AUDIO_URL_ERROR' | translate }}
           </span>
         </div>
         <div class="cm-audio-preview" *ngIf="audioPreviewUrl && audioProviderType !== 'direct'">
@@ -453,7 +479,7 @@
 
       <!-- Price (paid only) -->
       <div class="cm-field cm-price-field" *ngIf="selectedPricing === 'paid'">
-        <label>Quiz Price (USD)</label>
+        <label>{{ 'CREATE_MATERIAL.FIELD_PRICE_LABEL' | translate }}</label>
         <div class="cm-price-slider-container">
           <ion-range
             [min]="1"
@@ -468,15 +494,15 @@
           </ion-range>
           <div class="cm-price-display">
             <span class="cm-price-value">${{ materialForm.get('price')?.value || 0 }}</span>
-            <span class="cm-price-note">per quiz per student</span>
+            <span class="cm-price-note">{{ 'CREATE_MATERIAL.FIELD_PRICE_PER_QUIZ' | translate }}</span>
           </div>
         </div>
-        <p class="cm-price-hint">Students view content for free, but pay to access the quiz</p>
+        <p class="cm-price-hint">{{ 'CREATE_MATERIAL.FIELD_PRICE_HINT' | translate }}</p>
       </div>
 
       <div class="cm-actions cm-actions--end">
         <button class="cm-btn-primary" (click)="goToQuizStep()">
-          Continue to Quiz
+          {{ 'CREATE_MATERIAL.CONTINUE_TO_QUIZ' | translate }}
           <ion-icon name="arrow-forward-outline"></ion-icon>
         </button>
       </div>
@@ -486,22 +512,22 @@
   <!-- ═══════════ STEP 4: Quiz Builder ═══════════ -->
   <div class="cm-step" *ngIf="currentStep === 'quiz'">
     <div class="cm-step-header">
-      <h1>Build your quiz</h1>
-      <p>Create multiple-choice questions to test comprehension</p>
+      <h1>{{ 'CREATE_MATERIAL.QUIZ_TITLE' | translate }}</h1>
+      <p>{{ 'CREATE_MATERIAL.QUIZ_DESC' | translate }}</p>
     </div>
 
     <div class="cm-quiz-instructions">
       <div class="cm-instruction-item">
         <ion-icon name="create-outline"></ion-icon>
-        <span>Write a question and add answer options (2–6 per question)</span>
+        <span>{{ 'CREATE_MATERIAL.QUIZ_INST_1' | translate }}</span>
       </div>
       <div class="cm-instruction-item">
         <ion-icon name="checkmark-circle-outline"></ion-icon>
-        <span>Tap the circle next to the <strong>correct</strong> answer to mark it</span>
+        <span>{{ 'CREATE_MATERIAL.QUIZ_INST_2' | translate }}</span>
       </div>
       <div class="cm-instruction-item">
         <ion-icon name="bulb-outline"></ion-icon>
-        <span>Optionally add an explanation shown after the student answers</span>
+        <span>{{ 'CREATE_MATERIAL.QUIZ_INST_3' | translate }}</span>
       </div>
     </div>
 
@@ -510,53 +536,127 @@
         <div class="cm-question-card" *ngFor="let q of quizArray.controls; let qi = index" [formGroupName]="qi">
           <div class="cm-question-header">
             <span class="cm-question-num">Q{{ qi + 1 }}</span>
+            <span class="cm-question-type-badge">
+              <ion-icon [name]="getQuestionTypeIcon(getQuestionType(qi))"></ion-icon>
+              {{ getQuestionTypeLabel(getQuestionType(qi)) }}
+            </span>
             <button class="cm-remove-question" (click)="removeQuestion(qi)">
               <ion-icon name="trash-outline"></ion-icon>
             </button>
           </div>
 
           <div class="cm-field">
-            <input type="text" formControlName="question" placeholder="Enter your question" />
+            <input type="text" formControlName="question"
+                   [placeholder]="getQuestionType(qi) === 'fill_blank' ? ('CREATE_MATERIAL.QUIZ_FILL_BLANK_PLACEHOLDER' | translate) :
+                                  getQuestionType(qi) === 'ordering' ? ('CREATE_MATERIAL.QUIZ_ORDERING_PLACEHOLDER' | translate) :
+                                  ('CREATE_MATERIAL.QUIZ_MC_PLACEHOLDER' | translate)" />
           </div>
 
-          <div class="cm-options-list" formArrayName="options">
-            <div class="cm-option-row" *ngFor="let opt of getOptions(qi).controls; let oi = index" [formGroupName]="oi">
-              <button class="cm-option-radio" [class.correct]="opt.get('isCorrect')?.value" (click)="setCorrectAnswer(qi, oi)">
-                <ion-icon [name]="opt.get('isCorrect')?.value ? 'checkmark-circle' : 'ellipse-outline'"></ion-icon>
-              </button>
-              <input type="text" formControlName="text" [placeholder]="'Option ' + 'ABCDEF'[oi]" />
-              <button class="cm-remove-option" (click)="removeOption(qi, oi)" *ngIf="getOptions(qi).length > 2">
-                <ion-icon name="close-outline"></ion-icon>
+          <!-- ── Multiple Choice ── -->
+          <ng-container *ngIf="getQuestionType(qi) === 'multiple_choice'">
+            <div class="cm-options-list" formArrayName="options">
+              <div class="cm-option-row" *ngFor="let opt of getOptions(qi).controls; let oi = index" [formGroupName]="oi">
+                <button class="cm-option-radio" [class.correct]="opt.get('isCorrect')?.value" (click)="setCorrectAnswer(qi, oi)">
+                  <ion-icon [name]="opt.get('isCorrect')?.value ? 'checkmark-circle' : 'ellipse-outline'"></ion-icon>
+                </button>
+                <input type="text" formControlName="text" [placeholder]="'Option ' + 'ABCDEF'[oi]" />
+                <button class="cm-remove-option" (click)="removeOption(qi, oi)" *ngIf="getOptions(qi).length > 2">
+                  <ion-icon name="close-outline"></ion-icon>
+                </button>
+              </div>
+            </div>
+            <button class="cm-add-option" (click)="addOption(qi)" *ngIf="getOptions(qi).length < 6">
+              <ion-icon name="add-outline"></ion-icon>
+              {{ 'CREATE_MATERIAL.QUIZ_ADD_OPTION' | translate }}
+            </button>
+          </ng-container>
+
+          <!-- ── Fill in the Blank ── -->
+          <ng-container *ngIf="getQuestionType(qi) === 'fill_blank'">
+            <div class="cm-fill-blank-section">
+              <label class="cm-section-label">{{ 'CREATE_MATERIAL.QUIZ_ACCEPTED_ANSWERS' | translate }}</label>
+              <p class="cm-section-hint">{{ 'CREATE_MATERIAL.QUIZ_ACCEPTED_HINT' | translate }}</p>
+              <div class="cm-accepted-answers" formArrayName="acceptedAnswers">
+                <div class="cm-accepted-row" *ngFor="let ans of getAcceptedAnswers(qi).controls; let ai = index">
+                  <input type="text" [formControlName]="ai" [placeholder]="'Answer ' + (ai + 1)" />
+                  <button class="cm-remove-option" (click)="removeAcceptedAnswer(qi, ai)" *ngIf="getAcceptedAnswers(qi).length > 1">
+                    <ion-icon name="close-outline"></ion-icon>
+                  </button>
+                </div>
+              </div>
+              <button class="cm-add-option" (click)="addAcceptedAnswer(qi)">
+                <ion-icon name="add-outline"></ion-icon>
+                {{ 'CREATE_MATERIAL.QUIZ_ADD_ALTERNATIVE' | translate }}
               </button>
             </div>
-          </div>
+          </ng-container>
 
-          <button class="cm-add-option" (click)="addOption(qi)" *ngIf="getOptions(qi).length < 6">
-            <ion-icon name="add-outline"></ion-icon>
-            Add option
-          </button>
+          <!-- ── True / False ── -->
+          <ng-container *ngIf="getQuestionType(qi) === 'true_false'">
+            <div class="cm-tf-section">
+              <label class="cm-section-label">{{ 'CREATE_MATERIAL.QUIZ_CORRECT_ANSWER' | translate }}</label>
+              <div class="cm-tf-toggle">
+                <button class="cm-tf-btn" [class.active]="getTrueFalseAnswer(qi) === true" (click)="setTrueFalseAnswer(qi, true)">
+                  <ion-icon name="checkmark-circle-outline"></ion-icon>
+                  {{ 'CREATE_MATERIAL.QUIZ_TRUE' | translate }}
+                </button>
+                <button class="cm-tf-btn" [class.active]="getTrueFalseAnswer(qi) === false" (click)="setTrueFalseAnswer(qi, false)">
+                  <ion-icon name="close-circle-outline"></ion-icon>
+                  {{ 'CREATE_MATERIAL.QUIZ_FALSE' | translate }}
+                </button>
+              </div>
+            </div>
+          </ng-container>
+
+          <!-- ── Ordering ── -->
+          <ng-container *ngIf="getQuestionType(qi) === 'ordering'">
+            <div class="cm-ordering-section">
+              <label class="cm-section-label">{{ 'CREATE_MATERIAL.QUIZ_ITEMS_CORRECT_ORDER' | translate }}</label>
+              <p class="cm-section-hint">{{ 'CREATE_MATERIAL.QUIZ_ITEMS_HINT' | translate }}</p>
+              <ion-reorder-group [disabled]="false" (ionItemReorder)="reorderOrderItems(qi, $event)" formArrayName="correctOrder">
+                <ion-item *ngFor="let item of getOrderItems(qi).controls; let ii = index" class="cm-reorder-item" lines="none">
+                  <span class="cm-order-num" slot="start">{{ ii + 1 }}</span>
+                  <ion-input type="text" [formControlName]="ii" [placeholder]="'Item ' + (ii + 1)"></ion-input>
+                  <button class="cm-remove-option" (click)="removeOrderItem(qi, ii)" *ngIf="getOrderItems(qi).length > 2" slot="end">
+                    <ion-icon name="close-outline"></ion-icon>
+                  </button>
+                  <ion-reorder slot="end"></ion-reorder>
+                </ion-item>
+              </ion-reorder-group>
+              <button class="cm-add-option" (click)="addOrderItem(qi)">
+                <ion-icon name="add-outline"></ion-icon>
+                {{ 'CREATE_MATERIAL.QUIZ_ADD_ITEM' | translate }}
+              </button>
+            </div>
+          </ng-container>
 
           <div class="cm-field cm-explanation-field">
-            <label>Explanation (optional)</label>
-            <textarea formControlName="explanation" placeholder="Explain the correct answer..." rows="2"></textarea>
+            <label>{{ 'CREATE_MATERIAL.QUIZ_EXPLANATION' | translate }}</label>
+            <textarea formControlName="explanation" [placeholder]="'CREATE_MATERIAL.QUIZ_EXPLANATION_PLACEHOLDER' | translate" rows="2"></textarea>
           </div>
         </div>
       </div>
     </div>
 
-    <button class="cm-add-question" (click)="addQuestion()">
-      <ion-icon name="add-circle-outline"></ion-icon>
-      Add Question
-    </button>
+    <!-- Question type picker -->
+    <div class="cm-add-question-picker">
+      <p class="cm-add-question-label">{{ 'CREATE_MATERIAL.QUIZ_ADD_QUESTION' | translate }}</p>
+      <div class="cm-question-type-grid">
+        <button class="cm-type-pick-btn" *ngFor="let t of questionTypes" (click)="addQuestion(t.value)">
+          <ion-icon [name]="t.icon"></ion-icon>
+          <span>{{ t.label }}</span>
+        </button>
+      </div>
+    </div>
 
     <div class="cm-quiz-empty" *ngIf="quizArray.length === 0">
       <ion-icon name="help-circle-outline"></ion-icon>
-      <p>No questions yet. Add at least one question for your quiz.</p>
+      <p>{{ 'CREATE_MATERIAL.QUIZ_EMPTY' | translate }}</p>
     </div>
 
     <div class="cm-actions cm-actions--end">
       <button class="cm-btn-primary" (click)="goToPreview()" [disabled]="quizArray.length === 0">
-        Preview Material
+        {{ 'CREATE_MATERIAL.QUIZ_PREVIEW_BTN' | translate }}
         <ion-icon name="arrow-forward-outline"></ion-icon>
       </button>
     </div>
@@ -565,32 +665,37 @@
   <!-- ═══════════ STEP 5: Preview ═══════════ -->
   <div class="cm-step" *ngIf="currentStep === 'preview'">
     <div class="cm-step-header">
-      <h1>Preview</h1>
-      <p>Review your material before {{ editingMaterialId ? 'saving' : 'publishing' }}</p>
+      <h1>{{ 'CREATE_MATERIAL.PREVIEW_TITLE' | translate }}</h1>
+      <p>{{ editingMaterialId ? ('CREATE_MATERIAL.PREVIEW_DESC_EDIT' | translate) : ('CREATE_MATERIAL.PREVIEW_DESC_NEW' | translate) }}</p>
     </div>
 
     <div class="cm-preview-card">
-      <!-- Cover image -->
-      <div class="cm-preview-thumbnail" *ngIf="thumbnailPreview">
+      <!-- Cover image (standalone only when there's no video in this step) -->
+      <div class="cm-preview-thumbnail" *ngIf="thumbnailPreview && !(selectedType === 'video_quiz' && videoPreviewUrl)">
         <img [src]="thumbnailPreview" alt="Cover" />
       </div>
 
-      <!-- Branded video preview -->
+      <!-- Branded video preview: cover image overlays the video when present -->
       <div class="cm-media-branded" *ngIf="selectedType === 'video_quiz' && videoPreviewUrl">
         <div class="cm-brand-bar">
-          <img src="assets/icons-app-bird.png" alt="Barnaby" class="cm-brand-logo" />
-          <span class="cm-brand-name">Barnaby</span>
+          <img src="assets/icons-app-bird.png" alt="Barnabi" class="cm-brand-logo" />
+          <span class="cm-brand-name">Barnabi</span>
         </div>
-        <div class="cm-preview-video">
-          <iframe [src]="videoPreviewUrl" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        <div class="cm-preview-video-wrap">
+          <div class="cm-preview-video">
+            <iframe [src]="videoPreviewUrl" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+          </div>
+          <div class="cm-preview-cover-overlay" *ngIf="thumbnailPreview">
+            <img [src]="thumbnailPreview" alt="Cover" />
+          </div>
         </div>
       </div>
 
       <!-- Branded audio preview -->
       <div class="cm-media-branded" *ngIf="selectedType === 'listening' && audioPreviewUrl && audioProviderType !== 'direct'">
         <div class="cm-brand-bar">
-          <img src="assets/icons-app-bird.png" alt="Barnaby" class="cm-brand-logo" />
-          <span class="cm-brand-name">Barnaby</span>
+          <img src="assets/icons-app-bird.png" alt="Barnabi" class="cm-brand-logo" />
+          <span class="cm-brand-name">Barnabi</span>
         </div>
         <div class="cm-preview-audio">
           <iframe [src]="audioPreviewUrl" frameborder="0" allow="autoplay; encrypted-media"></iframe>
@@ -614,27 +719,52 @@
         <div class="cm-preview-meta">
           <span class="cm-preview-badge">{{ formLanguage }}</span>
           <span class="cm-preview-badge">{{ formLevel }}</span>
-          <span class="cm-preview-badge" *ngIf="selectedPricing === 'free'">Free</span>
+          <span class="cm-preview-badge" *ngIf="selectedPricing === 'free'">{{ 'CREATE_MATERIAL.PRICING_FREE' | translate }}</span>
           <span class="cm-preview-badge paid" *ngIf="selectedPricing === 'paid'">${{ formPrice }}</span>
         </div>
       </div>
 
       <div class="cm-preview-passage" *ngIf="selectedType === 'reading' && formPassage">
-        <h3>Reading Passage</h3>
+        <h3>{{ 'CREATE_MATERIAL.PREVIEW_READING_PASSAGE' | translate }}</h3>
         <div class="cm-passage-text" [innerHTML]="formPassage"></div>
       </div>
 
       <div class="cm-preview-quiz">
-        <h3>Quiz · {{ previewQuiz.length }} question{{ previewQuiz.length !== 1 ? 's' : '' }}</h3>
+        <h3>{{ previewQuiz.length !== 1 ? ('CREATE_MATERIAL.PREVIEW_QUIZ_COUNT_PLURAL' | translate:{count: previewQuiz.length}) : ('CREATE_MATERIAL.PREVIEW_QUIZ_COUNT' | translate:{count: previewQuiz.length}) }}</h3>
         <div class="cm-preview-question" *ngFor="let q of previewQuiz; let i = index">
           <div class="cm-pq-header">
             <span class="cm-pq-num">{{ i + 1 }}</span>
             <span class="cm-pq-text">{{ q.question }}</span>
+            <span class="cm-pq-type">{{ getQuestionTypeLabel(q.type || 'multiple_choice') }}</span>
           </div>
-          <div class="cm-pq-options">
+
+          <!-- Multiple Choice preview -->
+          <div class="cm-pq-options" *ngIf="(q.type || 'multiple_choice') === 'multiple_choice'">
             <div class="cm-pq-option" *ngFor="let opt of q.options; let oi = index" [class.correct]="opt.isCorrect">
               <span class="cm-pq-letter">{{ 'ABCDEF'[oi] }}</span>
               <span>{{ opt.text }}</span>
+            </div>
+          </div>
+
+          <!-- Fill in the Blank preview -->
+          <div class="cm-pq-answers" *ngIf="q.type === 'fill_blank'">
+            <span class="cm-pq-answer-label">{{ 'CREATE_MATERIAL.PREVIEW_ACCEPTED' | translate }}</span>
+            <span class="cm-pq-answer-chip" *ngFor="let a of q.acceptedAnswers">{{ a }}</span>
+          </div>
+
+          <!-- True / False preview -->
+          <div class="cm-pq-tf" *ngIf="q.type === 'true_false'">
+            <span class="cm-pq-answer-label">{{ 'CREATE_MATERIAL.PREVIEW_ANSWER' | translate }}</span>
+            <span class="cm-pq-tf-value" [class.is-true]="q.correctAnswer">{{ q.correctAnswer ? ('CREATE_MATERIAL.QUIZ_TRUE' | translate) : ('CREATE_MATERIAL.QUIZ_FALSE' | translate) }}</span>
+          </div>
+
+          <!-- Ordering preview -->
+          <div class="cm-pq-order" *ngIf="q.type === 'ordering'">
+            <span class="cm-pq-answer-label">{{ 'CREATE_MATERIAL.PREVIEW_CORRECT_ORDER' | translate }}</span>
+            <div class="cm-pq-order-items">
+              <span class="cm-pq-order-item" *ngFor="let item of q.correctOrder; let idx = index">
+                <span class="cm-pq-order-num">{{ idx + 1 }}</span>{{ item }}
+              </span>
             </div>
           </div>
         </div>
@@ -645,14 +775,14 @@
     <div class="cm-attestation">
       <label class="cm-attestation-check">
         <input type="checkbox" [(ngModel)]="contentAttested" [ngModelOptions]="{standalone: true}" />
-        <span>I confirm that I own or have the rights to use all content in this material, including any linked videos, audio, and text.</span>
+        <span>{{ 'CREATE_MATERIAL.ATTEST_LABEL' | translate }}</span>
       </label>
     </div>
 
     <div class="cm-actions cm-actions--end">
       <button class="cm-btn-primary" (click)="submit()" [disabled]="isSubmitting || !contentAttested">
         <ion-spinner *ngIf="isSubmitting" name="crescent" class="cm-spinner"></ion-spinner>
-        <span *ngIf="!isSubmitting">{{ editingMaterialId ? 'Save Changes' : 'Publish Material' }}</span>
+        <span *ngIf="!isSubmitting">{{ editingMaterialId ? ('CREATE_MATERIAL.SUBMIT_SAVE' | translate) : ('CREATE_MATERIAL.SUBMIT_PUBLISH' | translate) }}</span>
       </button>
     </div>
   </div>

@@ -58,6 +58,10 @@ const LessonSchema = new mongoose.Schema({
     default: 0,
     comment: 'Amount charged as cancellation fee (if applicable)'
   },
+  googleCalendarEventId: {
+    type: String,
+    default: null
+  },
   subject: {
     type: String,
     default: 'Language Lesson'
