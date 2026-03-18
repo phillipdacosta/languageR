@@ -6030,64 +6030,77 @@ ion-content {
 
   // ── Calendar event cards ──
   .calendar-event {
-    background: #1c1c1e;
-    border-color: rgba(255, 255, 255, 0.08);
-    border-left-color: #4298d2;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    background: linear-gradient(180deg, #2a2a2a 0%, #252525 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-left: 3px solid #4298d2;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
 
     &:hover {
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+      background: linear-gradient(180deg, #323234 0%, #2a2a2c 100%) !important;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
     }
 
     &.past {
-      background: #1c1c1e;
+      background: linear-gradient(180deg, #252525 0%, #1f1f21 100%) !important;
+      opacity: 0.85;
     }
 
     &.class-event {
-      background: #1c1c1e;
+      background: linear-gradient(180deg, #2a2a2a 0%, #252525 100%) !important;
+      border-left-color: #a78bfa;
 
       .event-title {
-        color: #f5f5f7;
+        color: #ffffff !important;
       }
 
       .event-time {
-        color: #8e8e93;
+        color: rgba(255, 255, 255, 0.85) !important;
       }
     }
 
     &.availability-event {
-      background: rgba(52, 199, 89, 0.1);
+      background: linear-gradient(180deg, rgba(52, 199, 89, 0.22) 0%, rgba(52, 199, 89, 0.12) 100%) !important;
+      border-left-color: rgba(52, 199, 89, 0.6);
     }
 
     &.gcal-event {
-      background: #2c2c2e;
+      background: linear-gradient(180deg, #2a2a2a 0%, #252525 100%) !important;
       border-left-color: #8e8e93;
 
       .event-title {
-        color: #f5f5f7;
+        color: #ffffff !important;
       }
 
       .event-time {
-        color: #8e8e93;
+        color: rgba(255, 255, 255, 0.85) !important;
       }
     }
 
     &.is-cancelled {
-      background: #1c1c1e;
+      background: linear-gradient(180deg, #252525 0%, #1f1f21 100%) !important;
       border-left-color: #636366;
 
       .event-title,
       .event-time {
-        color: #636366;
+        color: #9a9a9c !important;
       }
     }
 
     .event-title {
-      color: #f5f5f7;
+      color: #ffffff !important;
     }
 
     .event-time {
-      color: #8e8e93;
+      color: rgba(255, 255, 255, 0.85) !important;
+    }
+
+    .event-subject {
+      color: rgba(255, 255, 255, 0.65) !important;
+    }
+
+    .gcal-avatar,
+    .event-avatar {
+      opacity: 1;
     }
   }
 

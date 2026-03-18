@@ -93,8 +93,9 @@
         <!-- Compact Earnings (mobile only) -->
         <div class="earnings-mobile-card" *ngIf="!insightsLoading" [class.skip-entry-animation]="returningFromEarnings">
           <div class="emc-balance" (click)="toggleWalletVisibility($event)">
-            <span *ngIf="!showWalletBalance && !walletTemporarilyVisible">$<span class="emc-dots">••••</span></span>
-            <span *ngIf="showWalletBalance || walletTemporarilyVisible">${{ tutorTotalEarnings.toFixed(2) }}</span>
+            <span *ngIf="earningsBalanceLoading" class="emc-balance-skeleton"><ion-skeleton-text animated style="width: 72px; height: 22px; display: block; border-radius: 6px;"></ion-skeleton-text></span>
+            <span *ngIf="!earningsBalanceLoading && !showWalletBalance && !walletTemporarilyVisible">$<span class="emc-dots">••••</span></span>
+            <span *ngIf="!earningsBalanceLoading && (showWalletBalance || walletTemporarilyVisible)">${{ tutorTotalEarnings.toFixed(2) }}</span>
           </div>
           <button class="view-details-link" (click)="navigateToEarnings()">
             {{ 'HOME.VIEW_DETAILS' | translate }}
@@ -822,8 +823,9 @@
           <div class="earnings-card-body">
             <div class="earnings-label">{{ 'HOME.TOTAL_BALANCE' | translate }}</div>
             <div class="earnings-balance" (click)="toggleWalletVisibility($event)">
-              <span *ngIf="!showWalletBalance && !walletTemporarilyVisible">$<span class="earnings-dots-display">••••</span></span>
-              <span *ngIf="showWalletBalance || walletTemporarilyVisible">${{ tutorTotalEarnings.toFixed(2) }}</span>
+              <span *ngIf="earningsBalanceLoading" class="earnings-balance-skeleton"><ion-skeleton-text animated style="width: 120px; height: 40px; display: block; border-radius: 8px;"></ion-skeleton-text></span>
+              <span *ngIf="!earningsBalanceLoading && !showWalletBalance && !walletTemporarilyVisible">$<span class="earnings-dots-display">••••</span></span>
+              <span *ngIf="!earningsBalanceLoading && (showWalletBalance || walletTemporarilyVisible)">${{ tutorTotalEarnings.toFixed(2) }}</span>
             </div>
             <div class="earnings-pending" *ngIf="tutorPendingEarnings > 0 && (showWalletBalance || walletTemporarilyVisible)">
               <span class="pending-label">{{ 'HOME.PENDING' | translate }}</span>

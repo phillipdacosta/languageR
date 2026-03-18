@@ -8,32 +8,32 @@
 </div>
 
 <div class="explore-page" *ngIf="!showScheduleForm">
-    <!-- Nav Bar -->
+    <!-- Nav Bar: Go back only -->
     <div class="explore-nav-bar">
       <button class="explore-nav-back" (click)="goBack()">
         <ion-icon name="chevron-back-outline"></ion-icon>
         <span>{{ 'EXPLORE_CLASSES.ANIM_GO_BACK' | translate }}</span>
       </button>
-      <div class="explore-nav-title">{{ 'EXPLORE_CLASSES.PAGE_TITLE' | translate }}</div>
-      <div class="explore-nav-right"></div>
     </div>
 
-    <!-- Tutor: Schedule Class button -->
-    <div class="filters-trigger-container" *ngIf="isTutorUser">
-      <button class="schedule-class-btn" (click)="scheduleClass()">
-        <ion-icon name="add-outline"></ion-icon>
-        <span>{{ 'EXPLORE_CLASSES.SCHEDULE_CLASS' | translate }}</span>
-      </button>
+    <!-- Header: Title + primary action (matches My Materials layout) -->
+    <div class="explore-header">
+      <h1 class="explore-header-title">{{ 'EXPLORE_CLASSES.PAGE_TITLE' | translate }}</h1>
+      <div class="explore-header-actions">
+        <button class="schedule-class-btn" *ngIf="isTutorUser" (click)="scheduleClass()">
+          <ion-icon name="add-outline"></ion-icon>
+          <span>{{ 'EXPLORE_CLASSES.SCHEDULE_CLASS' | translate }}</span>
+        </button>
+        <button class="filters-trigger-btn" *ngIf="!isTutorUser" (click)="openFiltersModal()">
+          <ion-icon name="options-outline"></ion-icon>
+          <span>{{ 'EXPLORE_CLASSES.FILTERS' | translate }}</span>
+          <span class="filter-count" *ngIf="activeFilterCount > 0">{{ activeFilterCount }}</span>
+        </button>
+      </div>
     </div>
 
-    <!-- Student: Filters Trigger Bar -->
-    <div class="filters-trigger-container" *ngIf="!isTutorUser">
-      <button class="filters-trigger-btn" (click)="openFiltersModal()">
-        <ion-icon name="options-outline"></ion-icon>
-        <span>{{ 'EXPLORE_CLASSES.FILTERS' | translate }}</span>
-        <span class="filter-count" *ngIf="activeFilterCount > 0">{{ activeFilterCount }}</span>
-      </button>
-
+    <!-- Student: Active filter chips and Clear all (only when filters applied) -->
+    <div class="filters-trigger-container" *ngIf="!isTutorUser && activeFilterCount > 0">
       <!-- Active Filter Chips -->
       <div class="active-filters-preview" *ngIf="activeFilterCount > 0">
         <span class="filter-chip-preview" *ngIf="filters.language && filters.language !== 'any'">

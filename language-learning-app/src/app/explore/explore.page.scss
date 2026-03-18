@@ -23,15 +23,14 @@ $bg-white: #ffffff;
 .explore-page {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0 20px 40px;
+  padding: 20px 20px 40px; // top matches home .content-wrapper (20px)
 }
 
-// Nav bar — matches create-material style
+// Nav bar — Go back only (matches My Materials)
 .explore-nav-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 14px 0;
+  padding: 14px 0 8px;
 }
 
 .explore-nav-back {
@@ -42,6 +41,7 @@ $bg-white: #ffffff;
   border: none;
   font-size: 15px;
   font-weight: 500;
+  color: #1d1d1f;
   cursor: pointer;
   padding: 6px 0;
   transition: opacity 0.15s;
@@ -51,14 +51,27 @@ $bg-white: #ffffff;
   &:active { opacity: 0.5; }
 }
 
-.explore-nav-title {
-  font-size: 20px;
-  font-weight: 600;
-  color: #1d1d1f;
+// Header row: title left, action button right (matches My Materials .cm-library-header)
+.explore-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 8px;
 }
 
-.explore-nav-right {
-  min-width: 40px;
+.explore-header-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #222;
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+
+.explore-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 // Filters trigger bar
@@ -528,7 +541,7 @@ $bg-white: #ffffff;
   }
 
   .explore-nav-back { color: #4298d2; }
-  .explore-nav-title { color: #f5f5f7; }
+  .explore-header-title { color: #f5f5f7; }
 
   .schedule-class-btn {
     background: #4298d2;

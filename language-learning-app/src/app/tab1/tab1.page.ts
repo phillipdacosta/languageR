@@ -119,6 +119,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   // Tutor earnings
   tutorTotalEarnings = 0;
   tutorPendingEarnings = 0;
+  earningsBalanceLoading = true; // true until first loadTutorEarnings() completes
   private _earningsVisibilityHandler: (() => void) | null = null;
   private _lastEarningsVisibilityRefresh = 0;
 
@@ -444,6 +445,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           this.loadAvailability();
           this.loadTutorEarnings(); // Load earnings for tutors
         } else {
+          this.earningsBalanceLoading = false; // No earnings balance for students
           // Load student-specific data
           this.loadStudentInsights();
           // Load wallet balance for students
@@ -6828,10 +6830,12 @@ navigateToLessons() {
         this.tutorPendingEarnings = response.balance.pending || 0;
         this.walletBalance = this.tutorTotalEarnings; // Show only available amount
         this.updateWalletDisplay(); // Update the hidden/revealed display
-        this.cdr.detectChanges();
       }
     } catch (error) {
       console.error('❌ [TAB1] Error loading tutor earnings:', error);
+    } finally {
+      this.earningsBalanceLoading = false;
+      this.cdr.detectChanges();
     }
   }
 

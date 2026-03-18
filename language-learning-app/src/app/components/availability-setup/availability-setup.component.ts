@@ -387,7 +387,7 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   }
 
   ngOnInit() {
-    // Reactively track tutor's timezone so it updates if changed from profile page
+    // Reactively track tutor's timezone and calendar preferences
     this.userService.currentUser$.pipe(takeUntil(this.destroy$)).subscribe(user => {
       const tz = user?.profile?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
       if (tz !== this.tutorTimezone) {
@@ -395,6 +395,13 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
         this.tutorTimezoneLabel = getTimezoneLabel(tz);
         this.updateCurrentTimePosition();
         setTimeout(() => this.scrollToCurrentTime(), 100);
+      }
+
+      const fmt = (user?.profile as any)?.calendarTimeFormat || '12h';
+      if (fmt !== this.calendarTimeFormat) {
+        this.calendarTimeFormat = fmt;
+        this.initializeTimeSlots();
+        this.cdr.detectChanges();
       }
     });
     
@@ -1775,6 +1782,7 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     if (user?.profile) {
       this.calendarTimeFormat = (user.profile as any).calendarTimeFormat || '12h';
       this.calendarDefaultView = (user.profile as any).calendarDefaultView || 'week';
+      this.initializeTimeSlots();
     }
   }
 
