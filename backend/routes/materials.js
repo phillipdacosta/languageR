@@ -2,8 +2,10 @@ const express = require('express');
 const router = express.Router();
 const TutorMaterial = require('../models/TutorMaterial');
 const MaterialPurchase = require('../models/MaterialPurchase');
+const MaterialProgress = require('../models/MaterialProgress');
 const MaterialView = require('../models/MaterialView');
 const MaterialReport = require('../models/MaterialReport');
+const LessonAnalysis = require('../models/LessonAnalysis');
 const User = require('../models/User');
 const Payment = require('../models/Payment');
 const { verifyToken, getUserFromRequest, uploadImage } = require('../middleware/videoUploadMiddleware');
@@ -205,7 +207,7 @@ router.post('/', verifyToken, async (req, res) => {
     }
 
     const {
-      title, description, whyTakeThis, language, level, materialType,
+      title, description, whyTakeThis, language, level, topics, materialType,
       videoUrl, passage, audioUrl, thumbnailUrl: customThumbnail,
       pricingType, price, quiz, status, contentAttested
     } = req.body;
@@ -235,6 +237,7 @@ router.post('/', verifyToken, async (req, res) => {
       whyTakeThis: whyTakeThis || '',
       language,
       level: level || 'any',
+      topics: Array.isArray(topics) ? topics.map(t => t.trim().toLowerCase()).filter(Boolean) : [],
       materialType: type,
       pricingType: pricingType || 'free',
       price: pricingType === 'paid' ? price : 0,
@@ -615,6 +618,127 @@ router.get('/tutor/:tutorId', async (req, res) => {
   }
 });
 
+// ── GET /api/materials/my-progress — Get student's material progress ────
+
+router.get('/my-progress', verifyToken, async (req, res) => {
+  try {
+    const user = await getUserFromRequest(req);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const progress = await MaterialProgress.find({ studentId: user._id })
+      .populate('materialId', 'title language level topics materialType thumbnailUrl')
+      .sort({ lastAttemptAt: -1 });
+
+    res.json({ success: true, progress });
+  } catch (error) {
+    console.error('Error fetching material progress:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ── GET /api/materials/recommended/:language — Struggle-matched recommendations ────
+
+function cefrToMaterialLevel(cefr) {
+  if (['A1', 'A2'].includes(cefr)) return 'beginner';
+  if (['B1', 'B2'].includes(cefr)) return 'intermediate';
+  return 'advanced';
+}
+
+router.get('/recommended/:language', verifyToken, async (req, res) => {
+  try {
+    const user = await getUserFromRequest(req);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const language = req.params.language;
+
+    const latestAnalysis = await LessonAnalysis.findOne({
+      studentId: user._id,
+      language,
+      status: 'completed'
+    }).sort({ lessonDate: -1 }).lean();
+
+    const studentCefr = latestAnalysis?.overallAssessment?.proficiencyLevel || 'A1';
+    const studentLevel = cefrToMaterialLevel(studentCefr);
+
+    const recentAnalyses = await LessonAnalysis.find({
+      studentId: user._id,
+      language,
+      status: 'completed'
+    })
+      .sort({ lessonDate: -1 })
+      .limit(5)
+      .select('topErrors errorPatterns progressionMetrics')
+      .lean();
+
+    const struggleKeywords = new Set();
+    recentAnalyses.forEach(a => {
+      (a.topErrors || []).forEach(e => {
+        if (e.issue) struggleKeywords.add(e.issue.toLowerCase().trim());
+      });
+      (a.errorPatterns || []).forEach(p => {
+        if (p.pattern) struggleKeywords.add(p.pattern.toLowerCase().trim());
+      });
+      (a.progressionMetrics?.persistentChallenges || []).forEach(c => {
+        struggleKeywords.add(c.toLowerCase().trim());
+      });
+    });
+
+    const completedMats = await MaterialProgress.find({
+      studentId: user._id,
+      completed: true
+    }).select('materialId').lean();
+    const completedIds = completedMats.map(c => c.materialId);
+
+    const materials = await TutorMaterial.find({
+      language: { $regex: new RegExp(`^${language}$`, 'i') },
+      level: { $in: [studentLevel, 'any'] },
+      status: 'published',
+      _id: { $nin: completedIds },
+      tutorId: { $ne: user._id }
+    })
+      .populate('tutorId', 'name firstName lastName picture')
+      .sort({ 'stats.averageScore': -1 })
+      .limit(30)
+      .lean();
+
+    const struggled = Array.from(struggleKeywords);
+    const scored = materials.map(m => {
+      const topics = (m.topics || []).map(t => t.toLowerCase());
+      let topicScore = 0;
+      const matchedStruggles = [];
+
+      struggled.forEach(s => {
+        const sWords = s.split(/\s+/);
+        topics.forEach(t => {
+          const tWords = t.split(/\s+/);
+          const overlap = sWords.some(sw => tWords.some(tw =>
+            tw.includes(sw) || sw.includes(tw)
+          ));
+          if (overlap) {
+            topicScore += 10;
+            matchedStruggles.push(s);
+          }
+        });
+      });
+
+      return { ...m, _topicScore: topicScore, _matchedStruggles: [...new Set(matchedStruggles)] };
+    });
+
+    scored.sort((a, b) => b._topicScore - a._topicScore);
+    const topMaterials = scored.slice(0, 10);
+
+    res.json({
+      success: true,
+      materials: topMaterials,
+      studentLevel: studentCefr,
+      struggles: struggled
+    });
+  } catch (error) {
+    console.error('Error getting recommended materials:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
 // ── GET /api/materials/:id — Get single material ─────────────────
 
 router.get('/:id', async (req, res) => {
@@ -723,7 +847,7 @@ router.put('/:id', verifyToken, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    const { title, description, whyTakeThis, language, level, videoUrl, passage, audioUrl, thumbnailUrl: customThumbnail, pricingType, price, quiz, status, contentAttested } = req.body;
+    const { title, description, whyTakeThis, language, level, topics, videoUrl, passage, audioUrl, thumbnailUrl: customThumbnail, pricingType, price, quiz, status, contentAttested } = req.body;
 
     // Video quiz URL update
     if (material.materialType === 'video_quiz' && videoUrl && videoUrl !== material.videoUrl) {
@@ -763,6 +887,10 @@ router.put('/:id', verifyToken, async (req, res) => {
     if (price !== undefined) material.price = pricingType === 'paid' ? price : 0;
     if (quiz !== undefined) material.quiz = quiz;
     if (status !== undefined) material.status = status;
+
+    if (topics !== undefined) {
+      material.topics = Array.isArray(topics) ? topics.map(t => t.trim().toLowerCase()).filter(Boolean) : [];
+    }
 
     // Content attestation on update
     if (contentAttested && !material.contentAttested) {
@@ -1102,6 +1230,35 @@ router.post('/:id/quiz/submit', verifyToken, async (req, res) => {
       $inc: { 'stats.quizAttempts': 1 },
       $set: { 'stats.averageScore': Math.round(newAvg) }
     });
+
+    // Persist per-student progress (MaterialProgress)
+    try {
+      const questionResults = results.map(r => ({
+        questionId: r.questionId,
+        correct: r.isCorrect,
+        attempts: 1
+      }));
+      const isCompleted = score >= 70;
+      let xpForAttempt = 10;
+      if (score === 100) xpForAttempt += 5;
+
+      await MaterialProgress.findOneAndUpdate(
+        { studentId: user._id, materialId: material._id },
+        {
+          $set: {
+            language: material.language,
+            lastAttemptAt: new Date(),
+            questionResults,
+            ...(isCompleted ? { completed: true, completedAt: new Date() } : {})
+          },
+          $inc: { attempts: 1, xpEarned: xpForAttempt },
+          $max: { bestScore: score }
+        },
+        { upsert: true, new: true }
+      );
+    } catch (progressErr) {
+      console.error('⚠️ Error saving material progress:', progressErr);
+    }
 
     res.json({
       success: true,

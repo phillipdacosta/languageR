@@ -129,7 +129,7 @@
             <ion-avatar class="conversation-avatar">
               <!-- System message: show app icon -->
               <img *ngIf="conversation.lastMessage?.isSystemMessage || conversation.lastMessage?.type === 'system'" 
-                   src="assets/icons-app-bird.png" 
+                   src="assets/icons-app-bird-2.png" 
                    alt="Barnabi" />
               <!-- Regular message: show user picture or fallback -->
               <img #avatarImg
@@ -314,7 +314,7 @@
 
             <!-- System Message -->
             <div *ngIf="message.type === 'system' || message.isSystemMessage" class="message-wrapper received">
-              <img src="assets/icons-app-bird.png" alt="Barnabi" class="message-avatar system-avatar">
+              <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="message-avatar system-avatar">
               <div class="message-bubble system-message" (click)="handleSystemMessageClick($event)">
                 <span class="message-text" [innerHTML]="message.content | markdownLink"></span>
                 <span class="message-timestamp">{{ message.createdAt | date: 'short' }}</span>
@@ -688,7 +688,7 @@
             <ion-avatar class="conversation-avatar">
               <!-- System message: show app icon -->
               <img *ngIf="conversation.lastMessage?.isSystemMessage || conversation.lastMessage?.type === 'system'" 
-                   src="assets/icons-app-bird.png" 
+                   src="assets/icons-app-bird-2.png" 
                    alt="Barnabi" />
               <!-- Regular message: show user picture or fallback -->
               <img #mobileAvatarImg
@@ -823,7 +823,7 @@
 
             <!-- System Message (Mobile) -->
             <div *ngIf="message.type === 'system' || message.isSystemMessage" class="message-wrapper received">
-              <img src="assets/icons-app-bird.png" alt="Barnabi" class="message-avatar system-avatar">
+              <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="message-avatar system-avatar">
               <div class="message-bubble system-message" (click)="handleSystemMessageClick($event)">
                 <span class="message-text" [innerHTML]="message.content | markdownLink"></span>
                 <span class="message-timestamp">{{ message.createdAt | date: 'short' }}</span>

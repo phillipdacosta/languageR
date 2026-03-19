@@ -383,6 +383,10 @@ export class AppComponent implements OnInit, OnDestroy {
           console.log('🔔 [APP] Processing', lessons.lessons.length, 'lessons for tutor');
           
           lessons.lessons.forEach((lesson: any) => {
+            if (lesson.status === 'cancelled') {
+              return;
+            }
+
             const startTime = new Date(lesson.startTime);
             const endTime = new Date(lesson.endTime);
             const minutesUntil = Math.floor((startTime.getTime() - now.getTime()) / 60000);
@@ -399,7 +403,6 @@ export class AppComponent implements OnInit, OnDestroy {
             });
             
             // Track lessons that are upcoming OR currently happening OR ended recently (within 1 hour)
-            // This ensures reminders show for lessons that started and persist until dismissed
             const shouldTrack = startTime > now || minutesSinceEnd < 60;
             
             if (shouldTrack) {
@@ -492,6 +495,10 @@ export class AppComponent implements OnInit, OnDestroy {
           console.log('🔔 [APP] Processing', response.lessons.length, 'lessons for student');
           
           response.lessons.forEach((lesson: any) => {
+            if (lesson.status === 'cancelled') {
+              return;
+            }
+
             const startTime = new Date(lesson.startTime);
             const endTime = new Date(lesson.endTime);
             const minutesUntil = Math.floor((startTime.getTime() - now.getTime()) / 60000);

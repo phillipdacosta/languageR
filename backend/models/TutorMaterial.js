@@ -55,6 +55,9 @@ const TutorMaterialSchema = new mongoose.Schema({
   },
   audioEmbedUrl: { type: String },
 
+  // ── Topic tags for recommendation matching ───────────
+  topics: [{ type: String, trim: true, lowercase: true }],
+
   // ── Tutor pitch (shown to students before purchase) ───
   whyTakeThis: { type: String, maxlength: 300 },
 

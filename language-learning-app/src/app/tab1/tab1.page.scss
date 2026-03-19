@@ -398,10 +398,18 @@ ion-content {
 
 // Content Wrapper
 .content-wrapper {
-  position: relative; // For absolute positioning of Smart Island
+  position: relative;
   padding: 20px 16px;
   max-width: 1200px;
   margin: 0 auto;
+
+  @media (max-width: 600px) {
+    padding: 16px 30px;
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100vh - 200px);
+    gap: 20px
+  }
 }
 
 // On desktop, the global toolbar is fixed; add top offset so content isn't hidden
@@ -478,6 +486,10 @@ ion-content {
 .hero-section {
   margin-bottom: 32px;
   position: relative;
+
+  @media (max-width: 600px) {
+    margin-bottom: 20px;
+  }
 }
 
 // Welcome Section (students only) - Airbnb-style
@@ -490,6 +502,11 @@ ion-content {
   @media (max-width: 968px) {
     margin-bottom: 24px;
   }
+
+  @media (max-width: 600px) {
+    margin-bottom: 16px;
+    flex-shrink: 0;
+  }
   
   .welcome-header {
     display: flex;
@@ -498,7 +515,8 @@ ion-content {
     gap: 16px;
     
     @media (max-width: 600px) {
-      gap: 12px;
+      gap: 10px;
+      padding-top: 23px;
     }
   }
   
@@ -507,6 +525,11 @@ ion-content {
     padding-bottom: 20px;
     position: relative;
     top: 20px;
+
+    @media (max-width: 600px) {
+      top: 10px;
+      padding-bottom: 12px;
+    }
   }
   
   .welcome-title {
@@ -1709,7 +1732,7 @@ ion-content {
   }
   
   @media (max-width: 600px) {
-    padding: 40px 24px;
+    padding: 36px 20px;
     border-radius: 16px;
   }
 }
@@ -2472,15 +2495,18 @@ ion-content {
   
   @media (max-width: 600px) {
     gap: 8px;
-    margin-top: 20px;
-    margin-bottom: 20px;
-    padding: 4px 2px;
+    margin-top: 16px;
+    margin-bottom: 8px;
+    padding: 4px 0;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
   }
 }
 
 .explore-pill {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   padding: 12px 20px;
   background: #ffffff;
@@ -2521,6 +2547,8 @@ ion-content {
     padding: 10px 16px;
     font-size: 13px;
     gap: 6px;
+    flex: 1 1 0;
+    min-width: 0;
     
     ion-icon {
       font-size: 16px;
@@ -5573,6 +5601,14 @@ ion-content {
       "upnext";
     gap: 20px;
   }
+
+  @media (max-width: 600px) {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 16px;
+    margin-bottom: 0;
+  }
 }
 
 .grid-cell-upnext {
@@ -5580,12 +5616,15 @@ ion-content {
   min-width: 0;
   display: flex;
   flex-direction: column;
+
+  @media (max-width: 600px) {
+    flex: 1;
+  }
   
-  // Remove ionic card default margins so card fills the cell
   .next-class-card {
     margin: 0;
     margin-bottom: 0;
-    flex: 1; // Fill grid cell height
+    flex: 1;
   }
   
   .empty-state-clean {
@@ -5593,24 +5632,101 @@ ion-content {
     flex: 1;
     display: flex;
     flex-direction: column;
-    min-height: 0; // Allow flex shrinking
+    min-height: 0;
   }
   
-  // Make inner content fill the parent height to match earnings widget
   .empty-state-clean-inner {
     flex: 1;
     display: flex;
     flex-direction: column;
-    justify-content: center; // Center content vertically when it doesn't fill
-    min-height: 0; // Allow flex shrinking
-    padding: 24px; // Match earnings widget padding instead of default 65px 32px
+    justify-content: center;
+    min-height: 0;
+    padding: 24px;
     
-    // When filled with lesson content, ensure it fills height
+    @media (max-width: 600px) {
+      padding: 28px 20px;
+      gap: 32px;
+    }
+
+    .empty-state-clean-icon {
+      @media (max-width: 600px) {
+        width: 72px;
+        height: 72px;
+        border-radius: 22px;
+        margin-bottom: 20px;
+
+        ion-icon {
+          font-size: 30px;
+        }
+      }
+    }
+
+    .empty-state-clean-text {
+      @media (max-width: 600px) {
+        margin-bottom: 28px;
+
+        h3 {
+          font-size: 22px;
+          margin-bottom: 10px;
+        }
+
+        p {
+          font-size: 15px;
+          line-height: 1.5;
+          max-width: 100%;
+        }
+      }
+    }
+
+    .empty-state-clean-btn {
+      @media (max-width: 600px) {
+        width: 100%;
+        height: 50px;
+        font-size: 15px;
+        --border-radius: 14px;
+      }
+    }
+
     &.upnext-filled {
       flex: 1;
-      justify-content: space-between; // Distribute content evenly
-      padding: 24px; // Match earnings widget padding
+      justify-content: center;
+      padding: 24px;
       gap: 20px;
+
+      @media (max-width: 600px) {
+        padding: 24px 20px;
+        gap: 10px;
+      }
+
+      .upnext-filled-avatar {
+        @media (max-width: 600px) {
+          width: 72px;
+          height: 72px;
+          border-radius: 20px;
+          margin-bottom: 6px;
+          top: 0;
+        }
+      }
+
+      .upnext-filled-text h3 {
+        @media (max-width: 600px) {
+          font-size: 21px;
+        }
+      }
+
+      .upnext-filled-actions {
+        @media (max-width: 600px) {
+          width: 100%;
+          margin-top: 4px;
+
+          .empty-state-clean-btn {
+            width: 100%;
+            height: 50px;
+            font-size: 15px;
+            --border-radius: 14px;
+          }
+        }
+      }
     }
   }
 
@@ -7135,6 +7251,32 @@ ion-content {
   &.active {
     --background: linear-gradient(135deg, #10b981 0%, #059669 100%);
     animation: pulse 2s infinite;
+  }
+
+  &.dark-join {
+    --background: #ffffff !important;
+    --background-hover: #e5e5e7 !important;
+    --background-activated: #e5e5e7 !important;
+    --background-focused: #e5e5e7 !important;
+    --color: #1d1d1f !important;
+    --opacity: 1 !important;
+    color: #1d1d1f !important;
+
+    &.active {
+      --background: #ffffff !important;
+      animation: none;
+    }
+
+    &[disabled] {
+      --background: rgba(255, 255, 255, 0.4) !important;
+      --color: rgba(29, 29, 31, 0.4) !important;
+      --opacity: 1 !important;
+      opacity: 1 !important;
+    }
+
+    ion-icon {
+      color: #1d1d1f !important;
+    }
   }
   
   ion-icon {
@@ -10376,9 +10518,15 @@ ion-content {
       --border-color: #666666 !important;
     }
     &.active {
-      --background: #222222 !important;
-      --color: #ffffff !important;
-      --border-color: #222222 !important;
+      --background: #ffffff !important;
+      --color: #1d1d1f !important;
+      --border-color: #ffffff !important;
+      animation: none !important;
+    }
+    &.active[disabled] {
+      --background: rgba(255, 255, 255, 0.5) !important;
+      --color: rgba(29, 29, 31, 0.5) !important;
+      --border-color: rgba(255, 255, 255, 0.5) !important;
     }
   }
 
@@ -10564,6 +10712,7 @@ ion-content {
       .starts-label-modern::after { background: #3a3a3a !important; }
     }
   }
+
   .up-next-menu-button {
     --color: #b0b0b5 !important;
     --color-hover: #e5e5e7 !important;

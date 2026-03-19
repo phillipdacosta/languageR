@@ -15,6 +15,7 @@ export class ImageCropperComponent implements OnInit {
   @Input() cropTitle = 'Crop Profile Picture';
 
   croppedImage: any = '';
+  croppedBase64: string | null = null;
   canvasRotation = 0;
   rotation = 0;
   scale = 1;
@@ -33,7 +34,22 @@ export class ImageCropperComponent implements OnInit {
   }
 
   imageCropped(event: ImageCroppedEvent) {
-    this.croppedImage = event.blob;
+    this.croppedBase64 = event.base64 || null;
+    if (this.croppedBase64) {
+      this.croppedImage = this.base64ToBlob(this.croppedBase64);
+    }
+  }
+
+  private base64ToBlob(base64: string): Blob {
+    const parts = base64.split(',');
+    const mime = parts[0].match(/:(.*?);/)?.[1] || 'image/png';
+    const byteString = atob(parts[1]);
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    for (let i = 0; i < byteString.length; i++) {
+      ia[i] = byteString.charCodeAt(i);
+    }
+    return new Blob([ab], { type: mime });
   }
 
   imageLoaded(image: LoadedImage) {

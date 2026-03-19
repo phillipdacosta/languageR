@@ -400,6 +400,29 @@
         </div>
       </div>
 
+      <!-- Topics Tags -->
+      <div class="cm-field cm-topics-field">
+        <label>Topics <span class="cm-label-hint">Help students find this material based on what they're working on</span></label>
+        <div class="cm-topics-input-row">
+          <input type="text"
+                 placeholder="e.g. subjunctive, past tense, articles..."
+                 [(ngModel)]="topicInput"
+                 [ngModelOptions]="{ standalone: true }"
+                 (keydown.enter)="addTopic($event)"
+                 class="cm-topic-input" />
+          <button type="button" class="cm-topic-add-btn" (click)="addTopic($event)" [disabled]="!topicInput?.trim()">Add</button>
+        </div>
+        <div class="cm-topics-chips" *ngIf="selectedTopics.length > 0">
+          <span class="cm-topic-chip" *ngFor="let topic of selectedTopics; let i = index">
+            {{ topic }}
+            <button type="button" class="cm-topic-remove" (click)="removeTopic(i)">&times;</button>
+          </span>
+        </div>
+        <div class="cm-topics-suggestions" *ngIf="availableSuggestions.length > 0">
+          <span class="cm-topic-suggestion" *ngFor="let s of availableSuggestions" (click)="addSuggestedTopic(s)">+ {{ s }}</span>
+        </div>
+      </div>
+
       <!-- Thumbnail -->
       <div class="cm-thumbnail-field">
         <label>{{ 'CREATE_MATERIAL.FIELD_COVER_IMAGE' | translate }}
@@ -424,7 +447,7 @@
 
       <!-- Branding tip for video/audio content -->
       <div class="cm-brand-tip" *ngIf="selectedType === 'video_quiz' || selectedType === 'listening'">
-        <img src="assets/icons-app-bird.png" alt="" class="cm-brand-tip-icon" />
+        <img src="assets/icons-app-bird-2.png" alt="" class="cm-brand-tip-icon" />
         <div class="cm-brand-tip-text">
           <strong>{{ 'CREATE_MATERIAL.PRO_TIP' | translate }}</strong> {{ selectedType === 'video_quiz' ? ('CREATE_MATERIAL.PRO_TIP_VIDEO' | translate) : ('CREATE_MATERIAL.PRO_TIP_AUDIO' | translate) }}
         </div>
@@ -679,15 +702,18 @@
       <!-- Branded video preview: cover image overlays the video when present -->
       <div class="cm-media-branded" *ngIf="selectedType === 'video_quiz' && videoPreviewUrl">
         <div class="cm-brand-bar">
-          <img src="assets/icons-app-bird.png" alt="Barnabi" class="cm-brand-logo" />
+          <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="cm-brand-logo" />
           <span class="cm-brand-name">Barnabi</span>
         </div>
         <div class="cm-preview-video-wrap">
           <div class="cm-preview-video">
-            <iframe [src]="videoPreviewUrl" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+            <iframe [src]="previewVideoPlaying ? videoAutoplayUrl : videoPreviewUrl" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
           </div>
-          <div class="cm-preview-cover-overlay" *ngIf="thumbnailPreview">
+          <div class="cm-preview-cover-overlay" *ngIf="thumbnailPreview && !previewVideoPlaying" (click)="playPreviewVideo()">
             <img [src]="thumbnailPreview" alt="Cover" />
+            <div class="cm-cover-play-btn">
+              <ion-icon name="play"></ion-icon>
+            </div>
           </div>
         </div>
       </div>
@@ -695,7 +721,7 @@
       <!-- Branded audio preview -->
       <div class="cm-media-branded" *ngIf="selectedType === 'listening' && audioPreviewUrl && audioProviderType !== 'direct'">
         <div class="cm-brand-bar">
-          <img src="assets/icons-app-bird.png" alt="Barnabi" class="cm-brand-logo" />
+          <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="cm-brand-logo" />
           <span class="cm-brand-name">Barnabi</span>
         </div>
         <div class="cm-preview-audio">

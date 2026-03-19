@@ -54,6 +54,7 @@ export class CreateMaterialPage implements OnInit {
 
   // Video quiz
   videoPreviewUrl: SafeResourceUrl | null = null;
+  videoAutoplayUrl: SafeResourceUrl | null = null;
   videoThumbnail: string | null = null;
 
   // Listening
@@ -63,8 +64,19 @@ export class CreateMaterialPage implements OnInit {
   // Thumbnail
   thumbnailFile: File | null = null;
   thumbnailPreview: string | null = null;
+  previewVideoPlaying = false;
   isUploadingThumbnail = false;
   existingThumbnailUrl: string | null = null;
+
+  // Topics
+  topicInput = '';
+  selectedTopics: string[] = [];
+  topicSuggestions = [
+    'verb conjugation', 'subjunctive', 'past tense', 'articles',
+    'prepositions', 'pronunciation', 'vocabulary', 'grammar',
+    'conditional', 'passive voice', 'word order', 'listening',
+    'reading comprehension', 'conversation', 'idioms', 'formal speech'
+  ];
 
   quillConfig = {
     toolbar: [
@@ -234,6 +246,9 @@ export class CreateMaterialPage implements OnInit {
     this.thumbnailFile = null;
     this.thumbnailPreview = m.thumbnailUrl || null;
     this.existingThumbnailUrl = m.thumbnailUrl || null;
+
+    // Pre-populate topics
+    this.selectedTopics = m.topics ? [...m.topics] : [];
 
     this.materialForm.patchValue({
       title: m.title,
@@ -443,6 +458,32 @@ export class CreateMaterialPage implements OnInit {
     this.thumbnailFile = null;
     this.thumbnailPreview = null;
     this.existingThumbnailUrl = null;
+  }
+
+  // ── Topic Methods ──────────────────────────────────────
+
+  get availableSuggestions(): string[] {
+    return this.topicSuggestions.filter(s => !this.selectedTopics.includes(s.toLowerCase()));
+  }
+
+  addTopic(event?: Event) {
+    event?.preventDefault();
+    const val = this.topicInput?.trim().toLowerCase();
+    if (val && !this.selectedTopics.includes(val)) {
+      this.selectedTopics.push(val);
+    }
+    this.topicInput = '';
+  }
+
+  removeTopic(index: number) {
+    this.selectedTopics.splice(index, 1);
+  }
+
+  addSuggestedTopic(topic: string) {
+    const val = topic.toLowerCase();
+    if (!this.selectedTopics.includes(val)) {
+      this.selectedTopics.push(val);
+    }
   }
 
   private async uploadThumbnailToGCS(): Promise<string> {
@@ -729,7 +770,12 @@ export class CreateMaterialPage implements OnInit {
       }
     }
     this.currentStep = 'preview';
+    this.previewVideoPlaying = false;
     this.updateNavState();
+  }
+
+  playPreviewVideo() {
+    this.previewVideoPlaying = true;
   }
 
   goBack() {
@@ -745,6 +791,7 @@ export class CreateMaterialPage implements OnInit {
   parseVideoUrl(url: string) {
     if (!url) {
       this.videoPreviewUrl = null;
+      this.videoAutoplayUrl = null;
       this.videoThumbnail = null;
       return;
     }
@@ -759,6 +806,9 @@ export class CreateMaterialPage implements OnInit {
         this.videoPreviewUrl = this.sanitizer.bypassSecurityTrustResourceUrl(
           `https://www.youtube.com/embed/${m[1]}?modestbranding=1&rel=0&showinfo=0`
         );
+        this.videoAutoplayUrl = this.sanitizer.bypassSecurityTrustResourceUrl(
+          `https://www.youtube.com/embed/${m[1]}?modestbranding=1&rel=0&showinfo=0&autoplay=1`
+        );
         this.videoThumbnail = `https://img.youtube.com/vi/${m[1]}/hqdefault.jpg`;
         return;
       }
@@ -769,11 +819,15 @@ export class CreateMaterialPage implements OnInit {
       this.videoPreviewUrl = this.sanitizer.bypassSecurityTrustResourceUrl(
         `https://player.vimeo.com/video/${vimeoMatch[1]}?title=0&byline=0&portrait=0`
       );
+      this.videoAutoplayUrl = this.sanitizer.bypassSecurityTrustResourceUrl(
+        `https://player.vimeo.com/video/${vimeoMatch[1]}?title=0&byline=0&portrait=0&autoplay=1`
+      );
       this.videoThumbnail = null;
       return;
     }
 
     this.videoPreviewUrl = null;
+    this.videoAutoplayUrl = null;
     this.videoThumbnail = null;
   }
 
@@ -1300,6 +1354,7 @@ export class CreateMaterialPage implements OnInit {
       whyTakeThis: this.materialForm.value.whyTakeThis || '',
       language: this.materialForm.value.language,
       level: this.materialForm.value.level,
+      topics: this.selectedTopics.length > 0 ? this.selectedTopics : undefined,
       materialType: this.selectedType!,
       pricingType: this.selectedPricing!,
       price: this.selectedPricing === 'paid' ? this.materialForm.value.price : 0,
@@ -1371,6 +1426,7 @@ export class CreateMaterialPage implements OnInit {
     this.materialForm.reset({ level: 'any', price: 0 });
     this.quizArray.clear();
     this.videoPreviewUrl = null;
+    this.videoAutoplayUrl = null;
     this.videoThumbnail = null;
     this.audioPreviewUrl = null;
     this.audioProviderType = null;
@@ -1379,6 +1435,8 @@ export class CreateMaterialPage implements OnInit {
     this.existingThumbnailUrl = null;
     this.isUploadingThumbnail = false;
     this.contentAttested = false;
+    this.selectedTopics = [];
+    this.topicInput = '';
   }
 
   private async showToast(message: string) {

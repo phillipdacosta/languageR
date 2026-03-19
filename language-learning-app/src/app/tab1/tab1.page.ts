@@ -92,6 +92,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   platformConfig: any = {};
   isWeb = false;
   isMobile = false;
+  isDarkModeActive = false;
   currentUser: User | null = null;
   private get userTz(): string | undefined { return this.currentUser?.profile?.timezone || undefined; }
   lessons: Lesson[] = [];
@@ -533,7 +534,15 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       });
   }
 
+  private _darkModeObserver?: MutationObserver;
+
   ngOnInit() {
+    this.isDarkModeActive = document.documentElement.classList.contains('ion-palette-dark');
+    this._darkModeObserver = new MutationObserver(() => {
+      this.isDarkModeActive = document.documentElement.classList.contains('ion-palette-dark');
+    });
+    this._darkModeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
     // Load user data and stats
     this.loadUserStats();
     
@@ -1644,6 +1653,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   }
 
   ngOnDestroy() {
+    this._darkModeObserver?.disconnect();
     if (this.resizeListener) {
       window.removeEventListener('resize', this.resizeListener);
     }

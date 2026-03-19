@@ -1,0 +1,121 @@
+<div class="flashcard-page">
+  <!-- Nav -->
+  <div class="fc-nav">
+    <button class="fc-nav-back" (click)="goBack()">
+      <ion-icon name="chevron-back-outline"></ion-icon>
+      <span>Back</span>
+    </button>
+    <span class="fc-nav-title">{{ language }} — Flashcards</span>
+  </div>
+
+  <!-- Stats Bar -->
+  <div class="fc-stats-bar" *ngIf="stats">
+    <div class="fc-stat">
+      <span class="fc-stat-number">{{ stats.dueNow }}</span>
+      <span class="fc-stat-label">Due</span>
+    </div>
+    <div class="fc-stat">
+      <span class="fc-stat-number">{{ stats.learning }}</span>
+      <span class="fc-stat-label">Learning</span>
+    </div>
+    <div class="fc-stat">
+      <span class="fc-stat-number">{{ stats.review }}</span>
+      <span class="fc-stat-label">Review</span>
+    </div>
+    <div class="fc-stat mastered">
+      <span class="fc-stat-number">{{ stats.mastered }}</span>
+      <span class="fc-stat-label">Mastered</span>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div class="fc-loading" *ngIf="isLoading">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Loading cards...</p>
+  </div>
+
+  <!-- Empty State -->
+  <div class="fc-empty" *ngIf="!isLoading && cards.length === 0 && !sessionComplete">
+    <div class="fc-empty-icon">
+      <ion-icon name="checkmark-circle-outline"></ion-icon>
+    </div>
+    <h2>All caught up!</h2>
+    <p>No cards due for review right now. New cards are created automatically from your lesson vocabulary.</p>
+    <button class="fc-btn-secondary" (click)="goBack()">Go Back</button>
+  </div>
+
+  <!-- Session Complete -->
+  <div class="fc-complete" *ngIf="sessionComplete" @cardFlip>
+    <div class="fc-complete-icon">
+      <ion-icon name="trophy-outline"></ion-icon>
+    </div>
+    <h2>Session Complete</h2>
+    <div class="fc-complete-stats">
+      <div class="fc-complete-stat">
+        <span class="big">{{ reviewedCount }}</span>
+        <span class="label">Reviewed</span>
+      </div>
+      <div class="fc-complete-stat">
+        <span class="big correct">{{ correctCount }}</span>
+        <span class="label">Correct</span>
+      </div>
+      <div class="fc-complete-stat">
+        <span class="big">{{ reviewedCount - correctCount }}</span>
+        <span class="label">To Retry</span>
+      </div>
+    </div>
+    <button class="fc-btn-primary" (click)="startNewSession()">Review More</button>
+    <button class="fc-btn-secondary" (click)="goBack()">Done</button>
+  </div>
+
+  <!-- Flashcard -->
+  <div class="fc-review-area" *ngIf="!isLoading && cards.length > 0 && !sessionComplete">
+    <!-- Progress -->
+    <div class="fc-progress">
+      <div class="fc-progress-bar">
+        <div class="fc-progress-fill" [style.width.%]="progressPercent"></div>
+      </div>
+      <span class="fc-progress-text">{{ currentIndex + 1 }} / {{ cards.length }}</span>
+    </div>
+
+    <!-- Card -->
+    <div class="fc-card" [class.flipped]="isFlipped" (click)="flipCard()" @cardFlip>
+      <div class="fc-card-inner">
+        <!-- Front (Term) -->
+        <div class="fc-card-front">
+          <span class="fc-card-status" [ngClass]="currentCard?.status || 'new'">{{ currentCard?.status }}</span>
+          <h1 class="fc-card-term">{{ currentCard?.term }}</h1>
+          <p class="fc-card-hint">Tap to reveal</p>
+        </div>
+        <!-- Back (Translation + Context) -->
+        <div class="fc-card-back">
+          <h1 class="fc-card-term">{{ currentCard?.term }}</h1>
+          <div class="fc-card-divider"></div>
+          <p class="fc-card-translation" *ngIf="currentCard?.translation">{{ currentCard?.translation }}</p>
+          <p class="fc-card-translation placeholder" *ngIf="!currentCard?.translation">No translation yet</p>
+          <p class="fc-card-context" *ngIf="currentCard?.context">{{ currentCard?.context }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rating Buttons (only when flipped) -->
+    <div class="fc-rating" *ngIf="isFlipped">
+      <button class="fc-rate-btn again" (click)="rateCard(0); $event.stopPropagation()">
+        <span class="fc-rate-label">Again</span>
+        <span class="fc-rate-sub">&lt; 1 min</span>
+      </button>
+      <button class="fc-rate-btn hard" (click)="rateCard(2); $event.stopPropagation()">
+        <span class="fc-rate-label">Hard</span>
+        <span class="fc-rate-sub">Today</span>
+      </button>
+      <button class="fc-rate-btn good" (click)="rateCard(4); $event.stopPropagation()">
+        <span class="fc-rate-label">Good</span>
+        <span class="fc-rate-sub">{{ currentCard?.interval === 0 ? '1 day' : (currentCard?.interval || 1) + ' days' }}</span>
+      </button>
+      <button class="fc-rate-btn easy" (click)="rateCard(5); $event.stopPropagation()">
+        <span class="fc-rate-label">Easy</span>
+        <span class="fc-rate-sub">{{ ((currentCard?.interval || 1) * 2.5) | number:'1.0-0' }} days</span>
+      </button>
+    </div>
+  </div>
+</div>

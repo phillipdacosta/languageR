@@ -60,6 +60,34 @@
       </button>
     </div>
 
+    <!-- Recommended Materials (Students Only) -->
+    <div class="recommended-section" *ngIf="!isTutorUser && !showScheduleForm && recommendedMaterials.length > 0">
+      <div class="recommended-header">
+        <h2 class="recommended-title">Recommended for You</h2>
+        <p class="recommended-subtitle" *ngIf="recommendedStruggles.length > 0">Based on your recent lessons</p>
+      </div>
+      <div class="recommended-scroll">
+        <div class="recommended-card" *ngFor="let mat of recommendedMaterials" (click)="viewMaterial(mat._id)">
+          <div class="rec-thumbnail" [style.background-image]="mat.thumbnailUrl ? 'url(' + mat.thumbnailUrl + ')' : 'none'">
+            <div class="rec-thumb-placeholder" *ngIf="!mat.thumbnailUrl">
+              <ion-icon [name]="mat.materialType === 'video_quiz' ? 'play-circle-outline' : mat.materialType === 'reading' ? 'book-outline' : 'headset-outline'"></ion-icon>
+            </div>
+            <span class="rec-type-badge">{{ mat.materialType === 'video_quiz' ? 'Video' : mat.materialType === 'reading' ? 'Reading' : 'Listening' }}</span>
+          </div>
+          <div class="rec-info">
+            <span class="rec-tutor">{{ formatMaterialTutorName(mat) }}</span>
+            <h3 class="rec-title">{{ mat.title }}</h3>
+            <div class="rec-tags" *ngIf="mat._matchedStruggles?.length > 0">
+              <span class="rec-match-tag" *ngFor="let s of mat._matchedStruggles.slice(0, 2)">{{ s }}</span>
+            </div>
+            <div class="rec-tags" *ngIf="mat.topics?.length > 0 && !mat._matchedStruggles?.length">
+              <span class="rec-topic-tag" *ngFor="let t of mat.topics.slice(0, 2)">{{ t }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Scrollable Content -->
     <div class="explore-scroll-area">
       <!-- Loading State -->

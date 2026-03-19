@@ -38,6 +38,7 @@ export class MaterialDetailPage implements OnInit {
   error: string | null = null;
 
   videoEmbedUrl: SafeResourceUrl | null = null;
+  videoAutoplayUrl: SafeResourceUrl | null = null;
   audioEmbedUrl: SafeResourceUrl | null = null;
   currentUser: any = null;
   isTutorOwner = false;
@@ -229,8 +230,19 @@ export class MaterialDetailPage implements OnInit {
   // ── Quiz flow ──────────────────────────────────────────
 
   isCheckingMedia = false;
+  videoCoverVisible = true;
   leftHidden = false;
   rightHidden = false;
+
+  playVideo() {
+    if (this.material?.videoEmbedUrl) {
+      const sep = this.material.videoEmbedUrl.includes('?') ? '&' : '?';
+      this.videoAutoplayUrl = this.sanitizer.bypassSecurityTrustResourceUrl(
+        this.material.videoEmbedUrl + sep + 'autoplay=1'
+      );
+    }
+    this.videoCoverVisible = false;
+  }
 
   togglePanel(panel: 'left' | 'right') {
     if (panel === 'left') {

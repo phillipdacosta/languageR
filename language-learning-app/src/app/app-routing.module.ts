@@ -154,6 +154,11 @@ const routes: Routes = [
     loadComponent: () => import('./material-detail/material-detail.page').then(m => m.MaterialDetailPage)
   },
   {
+    path: 'flashcard-review/:language',
+    loadComponent: () => import('./flashcard-review/flashcard-review.page').then(m => m.FlashcardReviewPage),
+    canActivate: [AuthGuard]
+  },
+  {
     path: 'lesson-analysis/:id',
     loadComponent: () => import('./lesson-analysis/lesson-analysis.page').then( m => m.LessonAnalysisPage),
     canActivate: [AuthGuard]

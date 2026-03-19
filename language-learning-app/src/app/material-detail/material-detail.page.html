@@ -68,16 +68,24 @@
             </div>
             <div class="md-media-branded" *ngIf="material.materialType === 'video_quiz' && videoEmbedUrl">
               <div class="md-brand-bar">
-                <img src="assets/icons-app-bird.png" alt="Barnabi" class="md-brand-logo" />
+                <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="md-brand-logo" />
                 <span class="md-brand-name">Barnabi</span>
               </div>
-              <div class="md-video">
-                <iframe [src]="videoEmbedUrl" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+              <div class="md-video-wrap">
+                <div class="md-video">
+                  <iframe [src]="videoCoverVisible ? videoEmbedUrl : (videoAutoplayUrl || videoEmbedUrl)" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                </div>
+                <div class="md-video-cover-overlay" *ngIf="material.thumbnailUrl && videoCoverVisible" (click)="playVideo()">
+                  <img [src]="material.thumbnailUrl" [alt]="material.title" />
+                  <div class="md-cover-play-btn">
+                    <ion-icon name="play"></ion-icon>
+                  </div>
+                </div>
               </div>
             </div>
             <div class="md-media-branded" *ngIf="material.materialType === 'listening' && audioEmbedUrl && material.audioProvider !== 'direct'">
               <div class="md-brand-bar">
-                <img src="assets/icons-app-bird.png" alt="Barnabi" class="md-brand-logo" />
+                <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="md-brand-logo" />
                 <span class="md-brand-name">Barnabi</span>
               </div>
               <div class="md-audio">

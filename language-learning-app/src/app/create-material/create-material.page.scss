@@ -1745,30 +1745,30 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  padding: 8px 0 0 28px;
+  gap: 8px;
+  padding: 10px 0 0 38px;
 }
 
 .cm-pq-answer-label {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: #717171;
 }
 
 .cm-pq-answer-chip {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   color: #222;
-  background: #f0f0f0;
-  padding: 4px 10px;
+  background: #e8e8ed;
+  padding: 6px 12px;
   border-radius: 8px;
 }
 
 .cm-pq-tf {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 0 0 28px;
+  gap: 10px;
+  padding: 10px 0 0 38px;
 }
 
 .cm-pq-tf-value {
@@ -1780,24 +1780,24 @@
 }
 
 .cm-pq-order {
-  padding: 8px 0 0 28px;
+  padding: 10px 0 0 38px;
 }
 
 .cm-pq-order-items {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .cm-pq-order-item {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 13px;
+  gap: 6px;
+  font-size: 14px;
   color: #222;
-  background: #f5f5f5;
-  padding: 4px 10px;
+  background: #e8e8ed;
+  padding: 6px 12px;
   border-radius: 8px;
 }
 
@@ -1883,12 +1883,40 @@
   position: absolute;
   inset: 0;
   z-index: 1;
+  cursor: pointer;
 
   img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
+  }
+
+  .cm-cover-play-btn {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease, background 0.2s ease;
+
+    ion-icon {
+      font-size: 28px;
+      color: #fff;
+      margin-left: 3px;
+    }
+  }
+
+  &:hover .cm-cover-play-btn {
+    transform: translate(-50%, -50%) scale(1.08);
+    background: rgba(0, 0, 0, 0.7);
   }
 }
 
@@ -2016,19 +2044,23 @@
 }
 
 .cm-preview-quiz {
-  padding: 20px;
+  padding: 24px;
   border-top: 1px solid #f0f0f0;
 
   h3 {
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 600;
     color: #222;
-    margin: 0 0 16px;
+    margin: 0 0 20px;
   }
 }
 
 .cm-preview-question {
-  margin-bottom: 16px;
+  padding: 18px;
+  margin-bottom: 14px;
+  background: #fafafa;
+  border-radius: 12px;
+  border: 1px solid #efefef;
 
   &:last-child {
     margin-bottom: 0;
@@ -2038,15 +2070,15 @@
 .cm-pq-header {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 12px;
+  margin-bottom: 14px;
 }
 
 .cm-pq-num {
-  width: 24px;
-  height: 24px;
-  background: #f0f0f0;
-  border-radius: 6px;
+  width: 26px;
+  height: 26px;
+  background: #e8e8ed;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2057,25 +2089,27 @@
 }
 
 .cm-pq-text {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
   color: #222;
-  line-height: 1.4;
+  line-height: 1.5;
+  flex: 1;
 }
 
 .cm-pq-options {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding-left: 34px;
+  gap: 10px;
+  padding-left: 38px;
 }
 
 .cm-pq-option {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
+  gap: 10px;
+  font-size: 14px;
   color: #717171;
+  padding: 6px 0;
 
   &.correct {
     color: #222;
@@ -2090,10 +2124,10 @@
 
 .cm-pq-letter {
   flex-shrink: 0;
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  background: #f0f0f0;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: #e8e8ed;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2878,8 +2912,12 @@
     border-top-color: #2c2c2e;
     h3 { color: #f5f5f7; }
   }
+  .cm-preview-question {
+    background: #2a2a2c;
+    border-color: #3a3a3c;
+  }
   .cm-pq-num {
-    background: #2c2c2e;
+    background: #3a3a3c;
     color: #8e8e93;
   }
   .cm-pq-text { color: #f5f5f7; }
@@ -2887,9 +2925,122 @@
   .cm-pq-option.correct { color: #f5f5f7; }
   .cm-pq-option.correct .cm-pq-letter { background: #4298d2; color: #fff; }
   .cm-pq-letter {
-    background: #2c2c2e;
+    background: #3a3a3c;
     color: #8e8e93;
   }
   .cm-preview-audio { background: #1c1c1e; }
   .cm-preview-audio-player { background: #2c2c2e; }
+
+  .cm-topic-input {
+    background: #2c2c2e !important;
+    border-color: #3a3a3c !important;
+    color: #f5f5f7 !important;
+  }
+  .cm-topic-chip {
+    background: #2c2c2e !important;
+    color: #f5f5f7 !important;
+  }
+  .cm-topic-suggestion {
+    background: #2c2c2e !important;
+    color: #8e8e93 !important;
+  }
+}
+
+// ── Topics Field ──────────────────────────────────────────
+.cm-topics-field {
+  margin-top: 4px;
+
+  label .cm-label-hint {
+    display: block;
+    font-weight: 400;
+    font-size: 12px;
+    color: #8e8e93;
+    margin-top: 2px;
+  }
+}
+
+.cm-topics-input-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.cm-topic-input {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #e5e5ea;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s ease;
+
+  &:focus { border-color: #007aff; }
+}
+
+.cm-topic-add-btn {
+  padding: 10px 18px;
+  background: #007aff;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+}
+
+.cm-topics-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.cm-topic-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f2f2f7;
+  color: #1c1c1e;
+  padding: 5px 12px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.cm-topic-remove {
+  background: none;
+  border: none;
+  font-size: 16px;
+  color: #8e8e93;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+
+  &:hover { color: #ff3b30; }
+}
+
+.cm-topics-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.cm-topic-suggestion {
+  background: #f2f2f7;
+  color: #8e8e93;
+  padding: 5px 12px;
+  border-radius: 16px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  &:hover { background: #e5e5ea; color: #1c1c1e; }
 }

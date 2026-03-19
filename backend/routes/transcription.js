@@ -2048,7 +2048,14 @@ async function analyzeLesson(transcriptId) {
     console.log(`   Summary: ${analysis.studentSummary?.substring(0, 100)}...`);
     
     console.log(`✅ Analysis completed for lesson ${transcript.lessonId}`);
-    
+
+    // Auto-create SRS vocabulary cards from analysis
+    try {
+      await createVocabularyCardsFromAnalysis(analysis, transcript);
+    } catch (vocabError) {
+      console.error('⚠️ Error creating vocabulary cards:', vocabError);
+    }
+
     // After analysis, update the next upcoming lesson with notes
     try {
       await updateNextLessonWithNotes(transcript.studentId, transcript.tutorId, analysis);
@@ -2209,6 +2216,56 @@ async function analyzeLesson(transcriptId) {
     
     throw error;
   }
+}
+
+/**
+ * Auto-create SRS VocabularyCards from a completed LessonAnalysis.
+ * Harvests suggestedWords and advancedWordsUsed — data already paid for.
+ */
+async function createVocabularyCardsFromAnalysis(analysis, transcript) {
+  const VocabularyCard = require('../models/VocabularyCard');
+
+  const vocab = analysis.vocabularyAnalysis;
+  if (!vocab) return;
+
+  const words = new Set();
+  (vocab.suggestedWords || []).forEach(w => words.add(w.trim().toLowerCase()));
+  (vocab.advancedWordsUsed || []).forEach(w => words.add(w.trim().toLowerCase()));
+
+  if (words.size === 0) return;
+
+  let created = 0;
+  for (const term of words) {
+    if (!term || term.length < 2) continue;
+    try {
+      await VocabularyCard.findOneAndUpdate(
+        {
+          studentId: transcript.studentId,
+          language: transcript.language,
+          term
+        },
+        {
+          $setOnInsert: {
+            studentId: transcript.studentId,
+            language: transcript.language,
+            term,
+            source: { type: 'lesson', lessonAnalysisId: analysis._id },
+            easeFactor: 2.5,
+            interval: 0,
+            repetitions: 0,
+            nextReviewDate: new Date(),
+            status: 'new'
+          }
+        },
+        { upsert: true, new: true }
+      );
+      created++;
+    } catch (err) {
+      if (err.code !== 11000) console.error('⚠️ Error creating vocab card:', err.message);
+    }
+  }
+
+  console.log(`📚 Created ${created} vocabulary cards from analysis for ${transcript.language}`);
 }
 
 /**

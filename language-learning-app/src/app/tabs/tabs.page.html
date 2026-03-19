@@ -5,7 +5,7 @@
     <ion-toolbar>
       <ion-buttons slot="start">
         <div class="app-icon-container" (click)="navigateTo('/tabs/home')">
-          <img src="assets/icons-app-bird.png" alt="Barnabi" class="app-icon">
+          <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="app-icon">
         </div>      </ion-buttons>
       <ion-buttons slot="end">
         <ion-button fill="clear" class="notification-btn" 
@@ -161,7 +161,7 @@
                 (error)="onNotificationImageError($event, notification)" />
               <!-- System notifications (video approved, etc) -->
               <div *ngIf="!notification.relatedUserPicture && isSystemNotification(notification.type)" class="notification-icon-wrapper system-notification">
-                <img src="assets/icons-app-bird.png" alt="App icon" class="app-logo-img" />
+                <img src="assets/icons-app-bird-2.png" alt="App icon" class="app-logo-img" />
               </div>
               <!-- Money notifications (earnings) -->
               <div *ngIf="!notification.relatedUserPicture && isMoneyNotification(notification.type)" class="notification-icon-wrapper payment-icon">

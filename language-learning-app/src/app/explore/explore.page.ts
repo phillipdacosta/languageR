@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { IonicModule, ToastController, ModalController } from '@ionic/angular';
 import { Router, RouterModule } from '@angular/router';
 import { ClassService } from '../services/class.service';
+import { MaterialService, TutorMaterial } from '../services/material.service';
 import { UserService } from '../services/user.service';
 import { DomSanitizer } from '@angular/platform-browser';
 import { SharedModule } from '../shared/shared.module';
@@ -32,6 +33,11 @@ export class ExplorePage implements OnInit, OnDestroy {
   isTutorUser = false;
   showScheduleForm = false;
   activeFilterCount = 0;
+
+  recommendedMaterials: any[] = [];
+  recommendedStruggles: string[] = [];
+  isLoadingRecommended = false;
+  studentLanguage = '';
 
   filters: ExploreFilters = {
     language: 'any',
@@ -64,6 +70,7 @@ export class ExplorePage implements OnInit, OnDestroy {
 
   constructor(
     private classService: ClassService,
+    private materialService: MaterialService,
     private userService: UserService,
     private router: Router,
     private toast: ToastController,
@@ -87,6 +94,10 @@ export class ExplorePage implements OnInit, OnDestroy {
     this.userSub = this.userService.currentUser$.subscribe(user => {
       this.currentUser = user;
       this.isTutorUser = user?.userType === 'tutor';
+      if (!this.isTutorUser && user?.onboardingData?.languages?.length) {
+        this.studentLanguage = user.onboardingData.languages[0];
+        this.loadRecommendedMaterials();
+      }
     });
     this.loadPublicClasses();
   }
@@ -468,6 +479,36 @@ export class ExplorePage implements OnInit, OnDestroy {
     const temp = document.createElement('div');
     temp.innerHTML = htmlDescription;
     return temp.textContent || temp.innerText || '';
+  }
+
+  loadRecommendedMaterials() {
+    if (!this.studentLanguage) return;
+    this.isLoadingRecommended = true;
+    this.materialService.getRecommendedMaterials(this.studentLanguage).subscribe({
+      next: (res) => {
+        this.isLoadingRecommended = false;
+        if (res.success) {
+          this.recommendedMaterials = res.materials || [];
+          this.recommendedStruggles = res.struggles || [];
+        }
+      },
+      error: () => {
+        this.isLoadingRecommended = false;
+      }
+    });
+  }
+
+  viewMaterial(materialId: string) {
+    this.router.navigate(['/material', materialId]);
+  }
+
+  formatMaterialTutorName(mat: any): string {
+    const tutor = mat.tutorId;
+    if (!tutor) return 'Tutor';
+    if (tutor.firstName && tutor.lastName) {
+      return `${tutor.firstName} ${tutor.lastName.charAt(0)}.`;
+    }
+    return tutor.name || 'Tutor';
   }
 
   viewClassDetails(classItem: any) {

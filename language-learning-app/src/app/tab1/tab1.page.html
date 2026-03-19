@@ -384,6 +384,7 @@
                   <ion-button 
                     class="join-button-modern"
                     [class.active]="isLessonInProgress(nextLesson?.lesson)"
+                    [class.dark-join]="isDarkModeActive"
                     [disabled]="!canJoinStudentLesson(nextLesson)"
                     (click)="joinStudentLesson(nextLesson); $event.stopPropagation()">
                     <ion-icon slot="start" [name]="isLessonInProgress(nextLesson?.lesson) ? 'videocam' : 'videocam-outline'"></ion-icon>

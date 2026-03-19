@@ -41,6 +41,7 @@ export interface TutorMaterial {
   audioUrl?: string;
   audioProvider?: 'soundcloud' | 'spotify' | 'direct';
   audioEmbedUrl?: string;
+  topics?: string[];
   whyTakeThis?: string;
   pricingType: 'free' | 'paid';
   price: number;
@@ -75,6 +76,7 @@ export interface CreateMaterialPayload {
   description?: string;
   language: string;
   level?: string;
+  topics?: string[];
   materialType: MaterialType;
   videoUrl?: string;
   passage?: string;
@@ -316,6 +318,34 @@ export class MaterialService {
         return this.http.post<{ success: boolean }>(
           `${environment.apiUrl}/auth/vimeo/unlink`,
           {},
+          { headers }
+        );
+      })
+    );
+  }
+
+  getRecommendedMaterials(language: string): Observable<{ success: boolean; materials: TutorMaterial[]; struggles: string[] }> {
+    return this.userService.currentUser$.pipe(
+      filter(user => !!user),
+      take(1),
+      switchMap(() => {
+        const headers = this.userService.getAuthHeadersSync();
+        return this.http.get<{ success: boolean; materials: TutorMaterial[]; struggles: string[] }>(
+          `${this.apiUrl}/recommended/${encodeURIComponent(language)}`,
+          { headers }
+        );
+      })
+    );
+  }
+
+  getMyMaterialProgress(): Observable<{ success: boolean; progress: any[] }> {
+    return this.userService.currentUser$.pipe(
+      filter(user => !!user),
+      take(1),
+      switchMap(() => {
+        const headers = this.userService.getAuthHeadersSync();
+        return this.http.get<{ success: boolean; progress: any[] }>(
+          `${this.apiUrl}/my-progress`,
           { headers }
         );
       })
