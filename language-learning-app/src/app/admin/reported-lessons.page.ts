@@ -6,6 +6,7 @@ import { HttpClient } from '@angular/common/http';
 import { UserService } from '../services/user.service';
 import { environment } from '../../environments/environment';
 import { firstValueFrom } from 'rxjs';
+import { getGlobalHour12 } from '../shared/timezone.utils';
 
 interface ReportedLesson {
   _id: string;
@@ -159,7 +160,7 @@ export class ReportedLessonsPage implements OnInit {
   getJoinTime(lesson: ReportedLesson, role: 'tutor' | 'student'): string {
     const joinedAt = role === 'tutor' ? lesson.tutorJoinedAt : lesson.studentJoinedAt;
     if (!joinedAt) return '—';
-    return new Date(joinedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+    return new Date(joinedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: getGlobalHour12() });
   }
 
   formatDate(date: string): string {
@@ -168,7 +169,8 @@ export class ReportedLessonsPage implements OnInit {
       day: 'numeric',
       year: 'numeric',
       hour: 'numeric',
-      minute: '2-digit'
+      minute: '2-digit',
+      hour12: getGlobalHour12()
     });
   }
 

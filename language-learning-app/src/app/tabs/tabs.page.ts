@@ -106,7 +106,6 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('tutorSearchBtn', { read: ElementRef }) tutorSearchBtn!: ElementRef;
   @ViewChild('calendarBtn', { read: ElementRef }) calendarBtn!: ElementRef;
   @ViewChild('lessonsBtn', { read: ElementRef }) lessonsBtn!: ElementRef;
-  @ViewChild('profileBtn', { read: ElementRef }) profileBtn!: ElementRef;
   
   // Sliding underline properties
   underlineLeft = 0;
@@ -453,8 +452,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       activeButton = this.messagesBtn;
     } else if (this.isCurrentRoute('/tabs/lessons') && this.lessonsBtn) {
       activeButton = this.lessonsBtn;
-    } else if (this.isCurrentRoute('/tabs/profile') && this.profileBtn) {
-      activeButton = this.profileBtn;
+    } else if (this.isCurrentRoute('/tabs/notifications') && this.notificationBtn) {
+      activeButton = this.notificationBtn;
     }
 
     if (activeButton && activeButton.nativeElement) {

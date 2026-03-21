@@ -282,7 +282,9 @@ router.post('/:feedbackId/submit', verifyToken, async (req, res) => {
             suggestedWords: []
           },
           progressionMetrics: {
-            speakingTimeMinutes: lesson.duration || 25
+            speakingTimeMinutes: lesson.clientSpeakingSeconds?.studentSeconds
+              ? Math.ceil(lesson.clientSpeakingSeconds.studentSeconds / 60)
+              : (lesson.duration || 25)
           },
           studentSummary: overallNotes || `Tutor feedback: ${strengths[0]}. Focus on: ${areasForImprovement[0]}.`,
           homeworkSuggestions: homework ? [homework] : [],

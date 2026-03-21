@@ -76,13 +76,19 @@ export class AppComponent implements OnInit, OnDestroy {
     // Show loading immediately when app starts to prevent any flash
     this.loadingService.show();
     
-    // Hide loading for public routes immediately
+    // Track previous URL for back-navigation (avoids YouTube iframe history issues)
+    let lastUrl = '';
     this.router.events.pipe(
       filter(event => event instanceof NavigationEnd),
       takeUntil(this.destroy$)
     ).subscribe((event: any) => {
       const url = event.urlAfterRedirects || event.url;
-      
+
+      if (lastUrl && !/^\/material\//.test(lastUrl)) {
+        sessionStorage.setItem('materialReferrer', lastUrl);
+      }
+      lastUrl = url;
+
       // List of public routes that don't need auth/onboarding checks
       const publicRoutes = ['/login', '/tutor/', '/signup'];
       const isPublicRoute = publicRoutes.some(route => url.includes(route));

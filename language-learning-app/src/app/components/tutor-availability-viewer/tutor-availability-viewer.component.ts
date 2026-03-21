@@ -10,7 +10,7 @@ import { Subject, asyncScheduler } from 'rxjs';
 import { takeUntil, timeout, observeOn } from 'rxjs/operators';
 import { firstValueFrom } from 'rxjs';
 import { detectUserTimezone, TIMEZONES, TimezoneOption, getTimezoneOffset } from '../../shared/timezone.constants';
-import { getTimezoneLabel, convertTimeToTimezone, utcToWallClock, wallClockToUtc } from '../../shared/timezone.utils';
+import { getTimezoneLabel, convertTimeToTimezone, utcToWallClock, wallClockToUtc, getGlobalHour12 } from '../../shared/timezone.utils';
 
 interface AvailabilityBlock {
   id: string;
@@ -318,8 +318,10 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   }
 
   formatTimeSlot(timeSlot: string): string {
-    // Format time slot for display (e.g., "12:30 PM")
     const hour = parseInt(timeSlot);
+    if (!getGlobalHour12()) {
+      return `${String(hour).padStart(2, '0')}:00`;
+    }
     const isPM = hour >= 12;
     const displayHour = hour > 12 ? hour - 12 : (hour === 0 ? 12 : hour);
     const period = isPM ? 'PM' : 'AM';
@@ -704,6 +706,9 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
 
   formatTime(time: string): string {
     const [hours, minutes] = time.split(':').map(Number);
+    if (!getGlobalHour12()) {
+      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    }
     const period = hours >= 12 ? 'PM' : 'AM';
     const displayHours = hours % 12 || 12;
     return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
@@ -1131,7 +1136,7 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     const startDate = new Date(this.confirmedDate);
     startDate.setHours(h, m, 0, 0);
 
-    const timeFmt: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit' };
+    const timeFmt: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit', hour12: getGlobalHour12() };
     this.confirmedTimeFormatted = startDate.toLocaleTimeString(undefined, timeFmt);
 
     if (this.confirmDuration) {

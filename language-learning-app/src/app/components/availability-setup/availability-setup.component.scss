@@ -883,6 +883,15 @@
     text-align: right;
     padding-right: 10px;
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', system-ui, sans-serif;
+    transition: color 0.25s ease, text-shadow 0.25s ease, transform 0.25s ease;
+  }
+
+  .time-slot-row.highlighted .time-label {
+    color: #007AFF;
+    font-weight: 600;
+    text-shadow: 0 0 8px rgba(0, 122, 255, 0.35);
+    transform: scale(1.05);
+    font-size: 12.5px;
   }
 }
 
@@ -934,11 +943,24 @@
   }
 
   &.popular {
-    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
     border-color: #fbbf24;
-    
+  }
+
+  &.popular-warm {
+    background: linear-gradient(135deg, #fefce8 0%, #fef3c7 100%);
+    border-color: #fde68a;
+
     &:hover {
-      background: linear-gradient(135deg, #fde68a 0%, #fcd34d 100%);
+      background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    }
+  }
+
+  &.popular-hot {
+    background: linear-gradient(135deg, #fde68a 0%, #fbbf24 100%);
+    border-color: #f59e0b;
+
+    &:hover {
+      background: linear-gradient(135deg, #fcd34d 0%, #f59e0b 100%);
     }
   }
 
@@ -1078,13 +1100,26 @@
         }
       }
 
-      &.popular {
-        background: #FFD60A;
+      &.popular-warm {
+        background: #FFF0B3;
         border-color: #FFD60A;
 
         &:hover {
+          background: #FFE680;
+        }
+
+        &.selected {
+          background: #222222;
+          border-color: #222222;
+        }
+      }
+
+      &.popular-hot {
+        background: #FFD60A;
+        border-color: #F59E0B;
+
+        &:hover {
           background: #FFC300;
-          border-color: #FFC300;
         }
 
         &.selected {
@@ -2093,6 +2128,11 @@ html {
     color: #8e8e93;
   }
 
+  .time-labels-column .time-slot-row.highlighted .time-label {
+    color: #0A84FF;
+    text-shadow: 0 0 10px rgba(10, 132, 255, 0.45);
+  }
+
   .day-time-slot {
     background: #1c1c1e;
     border-color: rgba(255, 255, 255, 0.1);
@@ -2116,12 +2156,21 @@ html {
       }
     }
 
-    &.popular {
-      background: rgba(251, 191, 36, 0.2);
-      border-color: rgba(251, 191, 36, 0.4);
+    &.popular-warm {
+      background: rgba(251, 191, 36, 0.12);
+      border-color: rgba(251, 191, 36, 0.3);
 
       &:hover {
-        background: rgba(251, 191, 36, 0.25);
+        background: rgba(251, 191, 36, 0.18);
+      }
+    }
+
+    &.popular-hot {
+      background: rgba(251, 191, 36, 0.25);
+      border-color: rgba(251, 191, 36, 0.5);
+
+      &:hover {
+        background: rgba(251, 191, 36, 0.32);
       }
     }
 

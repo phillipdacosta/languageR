@@ -374,6 +374,17 @@
               <ion-icon name="chevron-forward" class="chevron-icon"></ion-icon>
             </div>
           </ion-item>
+          <ion-item lines="none" class="time-format-item">
+            <ion-icon name="time-outline" slot="start"></ion-icon>
+            <ion-label>
+              <h3>Time Format</h3>
+              <p>{{ timeFormat === '12h' ? 'e.g. 2:30 PM' : 'e.g. 14:30' }}</p>
+            </ion-label>
+            <div slot="end" class="time-format-toggle">
+              <button [class.active]="timeFormat === '12h'" (click)="setTimeFormat('12h')">12h</button>
+              <button [class.active]="timeFormat === '24h'" (click)="setTimeFormat('24h')">24h</button>
+            </div>
+          </ion-item>
           <ion-item>
             <ion-icon name="language" slot="start"></ion-icon>
             <ion-label>{{ 'PROFILE_SCREEN.INTERFACE_LANGUAGE' | translate }}</ion-label>

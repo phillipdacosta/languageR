@@ -318,6 +318,13 @@ const LessonSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  // Client-reported speaking time from Agora volume indicators.
+  // Stored so tutor-feedback LessonAnalysis can use real data
+  // instead of falling back to the booked lesson duration.
+  clientSpeakingSeconds: {
+    studentSeconds: { type: Number, default: null },
+    tutorSeconds: { type: Number, default: null }
+  },
   // Agora Interactive Whiteboard room info
   whiteboardRoomUUID: {
     type: String,

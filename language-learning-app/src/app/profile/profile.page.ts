@@ -40,9 +40,10 @@ export class ProfilePage implements OnInit {
   isVideoApproved = false; // Track if tutor's video is approved
   hasPendingVideo = false; // Track if tutor has a pending video under review
   isDarkMode$: Observable<boolean>;
-  remindersEnabled: boolean = true; // Default to enabled
-  showWalletBalance: boolean = false; // Default to hidden
-  aiAnalysisEnabled: boolean = true; // Default to enabled
+  remindersEnabled: boolean = true;
+  showWalletBalance: boolean = false;
+  aiAnalysisEnabled: boolean = true;
+  timeFormat: '12h' | '24h' = '12h';
   
   // Video player modal state
   isVideoPlayerModalOpen = false;
@@ -236,10 +237,10 @@ export class ProfilePage implements OnInit {
         this.feedbackCountLoaded = true;
       }
       
-      // Load settings from user profile (database)
-      this.remindersEnabled = user?.profile?.remindersEnabled !== false; // Default true
-      this.showWalletBalance = user?.profile?.showWalletBalance || false; // Default false
-      this.aiAnalysisEnabled = user?.profile?.aiAnalysisEnabled !== false; // Default true
+      this.remindersEnabled = user?.profile?.remindersEnabled !== false;
+      this.showWalletBalance = user?.profile?.showWalletBalance || false;
+      this.aiAnalysisEnabled = user?.profile?.aiAnalysisEnabled !== false;
+      this.timeFormat = user?.profile?.calendarTimeFormat || '12h';
       
       // If user doesn't have a picture but Auth0 user does, reload after a short delay
       // This ensures the picture sync from Auth0 has completed
@@ -808,6 +809,15 @@ export class ProfilePage implements OnInit {
         // Revert on error
         this.aiAnalysisEnabled = !this.aiAnalysisEnabled;
       }
+    });
+  }
+
+  setTimeFormat(format: '12h' | '24h'): void {
+    if (format === this.timeFormat) return;
+    const prev = this.timeFormat;
+    this.timeFormat = format;
+    this.userService.updateTimeFormat(format).subscribe({
+      error: () => { this.timeFormat = prev; }
     });
   }
 

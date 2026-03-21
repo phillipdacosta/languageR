@@ -1028,7 +1028,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
                 handler: () => {
                   if (notification.lessonId || notification.data?.lessonId) {
                     const lessonId = notification.lessonId || notification.data?.lessonId;
-                    this.router.navigate(['/event', lessonId]);
+                    this.router.navigate(['/tabs/lessons', lessonId]);
                   }
                 }
               }
@@ -2752,6 +2752,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   // Calendar settings
   calendarTimeFormat: '12h' | '24h' = '12h';
   calendarDefaultView: 'week' | 'day' = 'week';
+  get shortDateTimeFormat(): string { return this.calendarTimeFormat === '24h' ? 'M/d/yy, HH:mm' : 'M/d/yy, h:mm a'; }
   tutorTimezoneLabel = '';
   calendarSettingsExpanded = false;
   gcalSettingsExpanded = false;

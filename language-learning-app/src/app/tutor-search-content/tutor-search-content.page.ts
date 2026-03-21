@@ -13,6 +13,7 @@ import { ClassService } from '../services/class.service';
 import { firstValueFrom } from 'rxjs';
 import { fromZonedTime } from 'date-fns-tz';
 import { VideoPlayerModalComponent } from './video-player-modal.component';
+import { getGlobalHour12 } from '../shared/timezone.utils';
 import { CountryFilterPopoverComponent } from './country-filter-popover.component';
 import { TutorFiltersModalComponent } from '../components/tutor-filters-modal/tutor-filters-modal.component';
 
@@ -2047,7 +2048,7 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
             const timeLabel = studentWall.toLocaleTimeString('en-US', {
               hour: 'numeric',
               minute: '2-digit',
-              hour12: true
+              hour12: getGlobalHour12()
             });
 
             availableSlots.push({ date: slotUtc, time: timeLabel });

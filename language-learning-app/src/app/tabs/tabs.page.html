@@ -85,17 +85,10 @@
           <ion-label>{{ 'TABS.LESSONS' | translate }}</ion-label>
         </button>
         
-        <button class="nav-button" 
-                [class.active]="isCurrentRoute('/tabs/profile')" 
-                (click)="navigateTo('/tabs/profile')"
-                #profileBtn>
-          <!-- <ion-icon name="person"></ion-icon> -->
-          <ion-label>{{ 'TABS.PROFILE' | translate }}</ion-label>
-        </button>
-        
         <!-- Notification Bell Icon -->
         <div class="notification-container">
           <button type="button" #notificationBtn class="nav-button notification-btn" 
+                  [class.active]="isCurrentRoute('/tabs/notifications')"
                   (click)="onNotificationButtonClick()"
                   (mouseenter)="onNotificationButtonMouseEnter()"
                   (mouseleave)="onNotificationButtonMouseLeave()">
@@ -104,8 +97,8 @@
           </button>
         </div>
         
-        <!-- User Profile Section (moved beside Profile button) -->
-        <div class="user-profile" *ngIf="currentUser">
+        <!-- User Avatar → Profile -->
+        <div class="user-profile" *ngIf="currentUser" (click)="navigateTo('/tabs/profile')" [class.active]="isCurrentRoute('/tabs/profile')">
           <ion-avatar class="user-avatar">
             <img *ngIf="currentUser.picture" [src]="currentUser.picture" [alt]="currentUser.name" referrerpolicy="no-referrer" (error)="onImageError($event)">
             <div class="user-initials" *ngIf="!currentUser.picture">{{ getUserInitials(currentUser) }}</div>

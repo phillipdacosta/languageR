@@ -113,10 +113,10 @@
           </div>
         </div>
 
-        <!-- Grammar accuracy progress -->
+        <!-- Grammar accuracy progress (AI-sourced only) -->
         <div
           class="progress-over-time-card"
-          *ngIf="getPreviousGrammarScore() !== null"
+          *ngIf="analysis.source !== 'tutor' && getPreviousGrammarScore() !== null"
         >
           <h4>📈 Grammar Accuracy Progress</h4>
           <div class="progress-comparison">
@@ -340,8 +340,8 @@
             </div>
           </div>
 
-          <!-- Error Rate -->
-          <div class="metric-card error-rate-card">
+          <!-- Error Rate (AI-sourced only) -->
+          <div class="metric-card error-rate-card" *ngIf="analysis.source !== 'tutor'">
             <div class="metric-icon">
               <ion-icon name="analytics"></ion-icon>
             </div>
@@ -356,8 +356,8 @@
             </div>
           </div>
 
-          <!-- Fluency -->
-          <div class="metric-card fluency-card">
+          <!-- Fluency (AI-sourced only) -->
+          <div class="metric-card fluency-card" *ngIf="analysis.source !== 'tutor'">
             <div class="metric-icon">
               <ion-icon name="flash"></ion-icon>
             </div>
@@ -372,8 +372,8 @@
             </div>
           </div>
 
-          <!-- Complex sentences -->
-          <div class="metric-card complexity-card">
+          <!-- Complex sentences (AI-sourced only) -->
+          <div class="metric-card complexity-card" *ngIf="analysis.source !== 'tutor'">
             <div class="metric-icon">
               <ion-icon name="git-branch"></ion-icon>
             </div>

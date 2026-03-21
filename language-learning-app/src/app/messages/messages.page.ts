@@ -10,9 +10,9 @@ import { ImageViewerModal } from './image-viewer-modal.component';
 import { MessageContextMenuComponent } from './message-context-menu.component';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
 import { TutorAvailabilitySelectionModalComponent } from '../components/tutor-availability-selection-modal/tutor-availability-selection-modal.component';
-import { formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
+import { formatTimeInTz, formatDateInTz, getGlobalHour12 } from '../shared/timezone.utils';
 import { Subject, BehaviorSubject, Subscription } from 'rxjs';
-import { takeUntil, debounceTime, take, switchMap } from 'rxjs/operators';
+import { takeUntil, debounceTime, take, switchMap, filter } from 'rxjs/operators';
 import { trigger, style, transition, animate } from '@angular/animations';
 
 @Component({
@@ -54,6 +54,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
 
   private destroy$ = new Subject<void>();
   
+  get shortDateTimeFormat(): string { return getGlobalHour12() ? 'M/d/yy, h:mm a' : 'M/d/yy, HH:mm'; }
   conversations: Conversation[] = [];
   selectedConversation: Conversation | null = null;
   messages: Message[] = [];
@@ -142,6 +143,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   private currentAnimationElements: {
     avatarClone?: HTMLElement;
     nameClone?: HTMLElement;
+    overlay?: HTMLElement;
     sourceAvatar?: HTMLElement;
     sourceName?: HTMLElement;
   } = {};
@@ -908,13 +910,11 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   // Ionic lifecycle hook - called every time the view leaves
   ionViewWillLeave() {
     this.isPageVisible = false;
-    
-    // Clear selected conversation when leaving the page
-    // This ensures users see the empty state when returning and can choose which conversation to view
-    // This prevents showing messages they're not ready to read
+
     this.selectedConversation = null;
-    this.messages = []; // Also clear messages to prevent showing stale data
-    // Notify service that no conversation is selected
+    this.hasConversationSelected = false;
+    this.messages = [];
+    this.stopLocalTimeClock();
     this.messagingService.setHasSelectedConversation(false);
   }
 
@@ -1151,12 +1151,9 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       
       // Ensure user is authenticated before making API call
       this.authService.user$.pipe(
+        filter(u => !!u && !!u.email),
         take(1),
         switchMap(user => {
-          if (!user || !user.email) {
-            console.warn('[MessagesPage] loadConversations: no authenticated user yet');
-            throw new Error('No authenticated user');
-          }
           console.log('[MessagesPage] loadConversations: user authenticated, fetching conversations');
           return this.messagingService.getConversations();
         })
@@ -1378,11 +1375,12 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     // Clean up any in-flight animation elements immediately
     if (this.currentAnimationElements.avatarClone) {
       this.currentAnimationElements.avatarClone.remove();
-      console.log('🧹 Removed avatar clone');
     }
     if (this.currentAnimationElements.nameClone) {
       this.currentAnimationElements.nameClone.remove();
-      console.log('🧹 Removed name clone');
+    }
+    if (this.currentAnimationElements.overlay) {
+      this.currentAnimationElements.overlay.remove();
     }
     if (this.currentAnimationElements.sourceAvatar) {
       this.currentAnimationElements.sourceAvatar.style.opacity = '1';
@@ -1471,6 +1469,9 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       if (this.currentAnimationElements.nameClone) {
         this.currentAnimationElements.nameClone.remove();
       }
+      if (this.currentAnimationElements.overlay) {
+        this.currentAnimationElements.overlay.remove();
+      }
       if (this.currentAnimationElements.sourceAvatar) {
         this.currentAnimationElements.sourceAvatar.style.opacity = '1';
       }
@@ -1546,11 +1547,14 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     const avatarRect = sourceAvatar.getBoundingClientRect();
     const nameRect = sourceName.getBoundingClientRect();
     
+    const flipCurve = 'cubic-bezier(0.32, 0.72, 0, 1)';
+    const isDark = document.documentElement.classList.contains('ion-palette-dark');
+
     // Create clones
     const avatarClone = sourceAvatar.cloneNode(true) as HTMLElement;
     const nameClone = sourceName.cloneNode(true) as HTMLElement;
-    
-    // Style clones to match source position
+
+    // Style clones at source position — no transition yet (set after reflow)
     Object.assign(avatarClone.style, {
       position: 'fixed',
       top: `${avatarRect.top}px`,
@@ -1560,10 +1564,12 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       margin: '0',
       zIndex: '10001',
       pointerEvents: 'none',
-      transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-      borderRadius: window.getComputedStyle(sourceAvatar).borderRadius
+      borderRadius: window.getComputedStyle(sourceAvatar).borderRadius,
+      boxShadow: 'none',
+      transform: 'scale(1)',
+      willChange: 'top, left, width, height, transform, box-shadow'
     });
-    
+
     Object.assign(nameClone.style, {
       position: 'fixed',
       top: `${nameRect.top}px`,
@@ -1572,138 +1578,176 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       margin: '0',
       zIndex: '10001',
       pointerEvents: 'none',
-      transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
       whiteSpace: 'nowrap',
       overflow: 'hidden',
       fontSize: window.getComputedStyle(sourceName).fontSize,
       fontWeight: window.getComputedStyle(sourceName).fontWeight,
-      color: window.getComputedStyle(sourceName).color
+      color: window.getComputedStyle(sourceName).color,
+      opacity: '1',
+      willChange: 'top, left, font-size, opacity'
     });
-    
-    // Store references to elements for cleanup
+
+    // Semi-transparent overlay behind flying clones
+    const overlay = document.createElement('div');
+    Object.assign(overlay.style, {
+      position: 'fixed',
+      inset: '0',
+      zIndex: '10000',
+      background: isDark ? 'rgba(0,0,0,0)' : 'rgba(0,0,0,0)',
+      transition: `background 0.35s ease`,
+      pointerEvents: 'none'
+    });
+
+    // Store references for cleanup
     this.currentAnimationElements = {
       avatarClone,
       nameClone,
+      overlay,
       sourceAvatar,
       sourceName
     };
-    
-    // Add clones to body
+
+    document.body.appendChild(overlay);
     document.body.appendChild(avatarClone);
     document.body.appendChild(nameClone);
-    
-    // Hide originals during animation
+
+    // Hide originals
     sourceAvatar.style.opacity = '0';
     sourceName.style.opacity = '0';
-    
-    // Pre-hide destination elements to prevent flash
-    // Do this BEFORE updating the view
+
+    // Phase 1: Lift — avatar scales up slightly + shadow, name fades slightly
+    requestAnimationFrame(() => {
+      avatarClone.style.transition = `transform 0.18s ease-out, box-shadow 0.18s ease-out`;
+      nameClone.style.transition = `opacity 0.15s ease`;
+      avatarClone.style.transform = 'scale(1.12)';
+      avatarClone.style.boxShadow = isDark
+        ? '0 8px 24px rgba(0,0,0,0.5)'
+        : '0 8px 24px rgba(0,0,0,0.18)';
+      nameClone.style.opacity = '0.5';
+      overlay.style.background = isDark ? 'rgba(0,0,0,0.25)' : 'rgba(0,0,0,0.06)';
+    });
+
+    // Pre-hide destination
     const preHideDestination = () => {
-      const headerAvatar = document.querySelector('.chat-view-mobile .chat-header .chat-avatar') as HTMLElement;
-      const headerName = document.querySelector('.chat-view-mobile .chat-header h3') as HTMLElement;
-      if (headerAvatar) headerAvatar.style.opacity = '0';
-      if (headerName) headerName.style.opacity = '0';
+      const ha = document.querySelector('.chat-view-mobile .chat-header .chat-avatar') as HTMLElement;
+      const hn = document.querySelector('.chat-view-mobile .chat-header h3') as HTMLElement;
+      if (ha) ha.style.opacity = '0';
+      if (hn) hn.style.opacity = '0';
     };
-    
+
     this.selectedConversation = conversation;
     this.hasConversationSelected = true;
     this.messagingService.setHasSelectedConversation(true);
     this.startLocalTimeClock();
-    
-    // Force immediate change detection to prevent any flicker
     this.cdr.detectChanges();
-    
-    // Pre-hide destination immediately after render
     preHideDestination();
-    
-    // Start loading messages immediately (don't wait for animation)
+
     Promise.resolve().then(() => {
       this.messages = [];
       this.isLoadingMessages = true;
-      this.cdr.detectChanges(); // Force update here too
+      this.cdr.detectChanges();
     });
-    
-    // Mark as read immediately
+
     if (conversation.otherUser && this.isPageVisible) {
       this.messagingService.markAsRead(conversation.otherUser.auth0Id).subscribe({
-        next: () => {
-          console.log(`✅ Conversation marked as read`);
-        }
+        next: () => console.log(`✅ Conversation marked as read`)
       });
     }
-    
-    // Load messages immediately
+
     setTimeout(() => {
       this.loadMessages(unreadCount, requestId);
     }, 0);
-    
+
     this.cdr.detectChanges();
-    
-    // Wait for header to render, then animate to destination (animation happens in parallel)
+
+    // Phase 2: Fly to destination (after lift settles)
     setTimeout(() => {
       const headerAvatar = document.querySelector('.chat-view-mobile .chat-header .chat-avatar') as HTMLElement;
       const headerName = document.querySelector('.chat-view-mobile .chat-header h3') as HTMLElement;
-      
+
       if (headerAvatar && headerName) {
-        // Set animation flag ONLY after confirming elements exist
         this.isAnimatingConversationTransition = true;
-        console.log('🎬 Animation flag SET (starting shared element transition)');
         const destAvatarRect = headerAvatar.getBoundingClientRect();
         const destNameRect = headerName.getBoundingClientRect();
-        
-        // Hide destination elements during animation
+
         headerAvatar.style.opacity = '0';
         headerName.style.opacity = '0';
-        
-        // Trigger reflow
-        avatarClone.offsetHeight;
-        nameClone.offsetHeight;
-        
-        // Animate clones to destination
+
+        // Switch to flight transitions
+        avatarClone.style.transition = [
+          `top 0.42s ${flipCurve}`,
+          `left 0.42s ${flipCurve}`,
+          `width 0.42s ${flipCurve}`,
+          `height 0.42s ${flipCurve}`,
+          `border-radius 0.42s ${flipCurve}`,
+          `transform 0.42s ${flipCurve}`,
+          `box-shadow 0.36s ease 0.06s`
+        ].join(', ');
+        nameClone.style.transition = [
+          `top 0.42s ${flipCurve}`,
+          `left 0.42s ${flipCurve}`,
+          `font-size 0.34s ease 0.06s`,
+          `font-weight 0.34s ease 0.06s`,
+          `opacity 0.2s ease 0.04s`
+        ].join(', ');
+
+        // Force reflow before applying destination values
+        void avatarClone.offsetHeight;
+
+        // Fly avatar to destination, settle back to scale(1), drop shadow
         Object.assign(avatarClone.style, {
           top: `${destAvatarRect.top}px`,
           left: `${destAvatarRect.left}px`,
           width: `${destAvatarRect.width}px`,
-          height: `${destAvatarRect.height}px`
+          height: `${destAvatarRect.height}px`,
+          transform: 'scale(1)',
+          boxShadow: 'none'
         });
-        
+
         Object.assign(nameClone.style, {
           top: `${destNameRect.top}px`,
           left: `${destNameRect.left}px`,
           fontSize: window.getComputedStyle(headerName).fontSize,
-          fontWeight: window.getComputedStyle(headerName).fontWeight
+          fontWeight: window.getComputedStyle(headerName).fontWeight,
+          opacity: '1'
         });
-        
-        // Clean up after animation completes
+
+        // Fade overlay out
+        overlay.style.background = 'rgba(0,0,0,0)';
+
+        // Snap-reveal after flight
         this.animationCleanupTimeout = setTimeout(() => {
-          avatarClone.remove();
-          nameClone.remove();
-          
-          // Show destination elements
+          headerAvatar.style.transition = 'none';
+          headerName.style.transition = 'none';
           headerAvatar.style.opacity = '1';
           headerName.style.opacity = '1';
-          
-          // Restore source elements
-          sourceAvatar.style.opacity = '1';
-          sourceName.style.opacity = '1';
-          
-          // Clear animation flag, timeout reference, and element references
-          this.isAnimatingConversationTransition = false;
-          this.animationCleanupTimeout = null;
-          this.currentAnimationElements = {};
-          console.log('🎬 Animation flag CLEARED (animation complete)');
-        }, 500); // Match transition duration
+
+          requestAnimationFrame(() => {
+            avatarClone.remove();
+            nameClone.remove();
+            overlay.remove();
+
+            sourceAvatar.style.opacity = '1';
+            sourceName.style.opacity = '1';
+            setTimeout(() => {
+              headerAvatar.style.transition = '';
+              headerName.style.transition = '';
+            }, 50);
+
+            this.isAnimatingConversationTransition = false;
+            this.animationCleanupTimeout = null;
+            this.currentAnimationElements = {};
+          });
+        }, 440);
       } else {
-        // Fallback if header not found - just clean up elements
-        // (flag was never set since we're in this fallback)
         avatarClone.remove();
         nameClone.remove();
+        overlay.remove();
         sourceAvatar.style.opacity = '1';
         sourceName.style.opacity = '1';
         this.currentAnimationElements = {};
-        console.log('⚠️ Header not found during animation - using fallback (no animation delay)');
       }
-    }, 50); // Small delay to ensure header is rendered
+    }, 200); // 200ms for the lift phase to settle
   }
   
   private resetChatContainer() {
@@ -1868,6 +1912,12 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
               // No unread messages - scroll to bottom with retry for late-rendering content
               await this.waitForMediaToLoad();
               this.scrollToBottomWithRetry();
+
+              // Make messages visible on mobile (scrollToFirstUnreadMessage does this internally)
+              if (this.platformService.isSmallScreen()) {
+                const ctr = this.getActiveChatContainer();
+                if (ctr) ctr.classList.add('messages-ready');
+              }
             }
             
             console.log(`✅ [${Date.now()}] Messages loaded and positioned`);
@@ -1883,11 +1933,15 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
         }
         console.error('Error loading messages:', error);
         this.isLoadingMessages = false;
-        this.cdr.detectChanges();
-        // If error is 404 (no messages yet), that's fine for new conversations
         if (error.status === 404) {
           this.messages = [];
         }
+        // Ensure messages are visible on mobile even on error
+        if (this.platformService.isSmallScreen()) {
+          const ctr = this.getActiveChatContainer();
+          if (ctr) ctr.classList.add('messages-ready');
+        }
+        this.cdr.detectChanges();
       },
       complete: () => {
         if (activeRequestId === this.messageLoadRequestId) {
@@ -2214,10 +2268,10 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
 
   scrollToBottom(skipAnimationCheck = false) {
     // If animation is happening and we haven't explicitly skipped the check, wait for it
-    const animationDelay = (!skipAnimationCheck && this.isAnimatingConversationTransition) ? 850 : 0;
+    const animationDelay = (!skipAnimationCheck && this.isAnimatingConversationTransition) ? 550 : 0;
     
     if (animationDelay > 0) {
-      console.log('⏳ scrollToBottom: Waiting for animations (850ms delay)');
+      console.log('⏳ scrollToBottom: Waiting for animations (550ms delay)');
       setTimeout(() => {
         this.scrollToBottomWithRetry();
       }, animationDelay);
@@ -2583,7 +2637,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     // Mobile needs more time due to animations
     const isMobile = this.platformService.isSmallScreen();
     const baseDelay = isMobile ? 300 : 100; // Extra time for mobile
-    const animationDelay = this.isAnimatingConversationTransition ? 850 : 0;
+    const animationDelay = this.isAnimatingConversationTransition ? 550 : 0;
     const totalDelay = baseDelay + animationDelay;
     
     console.log('📍 scrollToBottomElement (instant + delayed check)', { totalDelay });
@@ -3037,7 +3091,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
           timeZone: user.timezone,
           hour: 'numeric',
           minute: '2-digit',
-          hour12: true
+          hour12: getGlobalHour12()
         });
         return formatter.format(new Date());
       } catch (error) {
@@ -3281,11 +3335,9 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onMessagePressStart(message: Message, event: any) {
-    // Store the event target for later use
-    const pressedElement = event.target.closest('.message-bubble');
-    
+    const pressedElement = event.target.closest('.message-wrapper') || event.target.closest('.message-bubble');
+
     this.longPressTimer = setTimeout(async () => {
-      // Create a new event-like object with the stored element
       const eventData = {
         target: pressedElement,
         type: 'longpress'

@@ -231,6 +231,7 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   // Selection state
   isSelecting = false;
   selectionStart: SelectedSlot | null = null;
+  hoveredSlotIndex: number | null = null;
   selectedSlots = new Set<string>();
   bookedSlots = new Set<string>(); // New: Track booked lessons/classes
 
@@ -245,10 +246,11 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
 
   timeSlots: TimeSlot[] = [];
 
-  // Popular time slots (9:00 AM - 9:00 PM) in 30-min indices
-  // 9:00 -> index 18, 9:30 -> 19, ..., 20:30 -> 41. We'll highlight indices in [18, 41].
-  popularStartIndex = 18;
-  popularEndIndex = 41;
+  // Data-driven popular slots loaded from API
+  private popularSlotsSet = new Set<string>(); // "dayOfWeek-slotIndex"
+  private popularSlotsIntensity = new Map<string, number>(); // 0–1 intensity
+  popularSlotsLoaded = false;
+  popularSlotsIsEstimate = false; // true when using static fallback
   // Night time starts at 6:00 PM local (index 36)
   nightStartIndex = 36;
 
@@ -395,6 +397,7 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
         this.tutorTimezoneLabel = getTimezoneLabel(tz);
         this.updateCurrentTimePosition();
         setTimeout(() => this.scrollToCurrentTime(), 100);
+        this.loadPopularSlots(tz);
       }
 
       const fmt = (user?.profile as any)?.calendarTimeFormat || '12h';
@@ -1375,10 +1378,61 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   }
 
   isPopularSlot(dayIndex: number, slotIndex: number): boolean {
-    if (!this.showPopularSlots) return false;
-    // Do not mark popular during night hours
-    if (slotIndex >= this.nightStartIndex) return false;
-    return slotIndex >= this.popularStartIndex && slotIndex <= this.popularEndIndex;
+    if (!this.showPopularSlots || !this.popularSlotsLoaded) return false;
+    return this.popularSlotsSet.has(`${dayIndex}-${slotIndex}`);
+  }
+
+  getPopularIntensity(dayIndex: number, slotIndex: number): number {
+    return this.popularSlotsIntensity.get(`${dayIndex}-${slotIndex}`) || 0;
+  }
+
+  private loadPopularSlots(timezone: string) {
+    this.lessonService.getPopularSlots(timezone).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (response) => {
+        this.popularSlotsSet.clear();
+        this.popularSlotsIntensity.clear();
+
+        if (response.success && response.slots.length > 0 && !response.insufficientData) {
+          this.popularSlotsIsEstimate = false;
+          for (const slot of response.slots) {
+            if (slot.count >= response.threshold) {
+              const key = `${slot.dayOfWeek}-${slot.slotIndex}`;
+              this.popularSlotsSet.add(key);
+              this.popularSlotsIntensity.set(key, slot.intensity);
+            }
+          }
+        } else {
+          this.buildStaticFallbackSlots();
+        }
+
+        this.popularSlotsLoaded = true;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.buildStaticFallbackSlots();
+        this.popularSlotsLoaded = true;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  private buildStaticFallbackSlots() {
+    this.popularSlotsIsEstimate = true;
+    this.popularSlotsSet.clear();
+    this.popularSlotsIntensity.clear();
+
+    // Static recommendation: 9 AM – 9 PM (slot indices 18–41), all 7 days
+    // Peak hours 10 AM – 1 PM (slots 20–25) and 5 PM – 8 PM (slots 34–39) get higher intensity
+    for (let day = 0; day <= 6; day++) {
+      for (let slot = 18; slot <= 41; slot++) {
+        const key = `${day}-${slot}`;
+        this.popularSlotsSet.add(key);
+
+        const isPeakMorning = slot >= 20 && slot <= 25;
+        const isPeakEvening = slot >= 34 && slot <= 39;
+        this.popularSlotsIntensity.set(key, isPeakMorning || isPeakEvening ? 0.7 : 0.3);
+      }
+    }
   }
 
   isNightSlot(slotIndex: number): boolean {
@@ -1597,8 +1651,21 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   }
 
   togglePopularSlots() {
-    // Toggle popular slots visibility
-    console.log('Popular slots toggled:', this.showPopularSlots);
+    if (this.showPopularSlots && !this.popularSlotsLoaded && this.tutorTimezone) {
+      this.loadPopularSlots(this.tutorTimezone);
+    }
+  }
+
+  async showPopularSlotsInfo() {
+    const message = this.popularSlotsIsEstimate
+      ? 'Highlighted slots show generally popular times for online tutoring based on industry data. As more lessons are booked on the platform, this will update to reflect real student demand.'
+      : 'Highlighted slots show the most popular booking times across the platform over the last 90 days. Darker slots have higher demand. Offering availability during these times can help you get more bookings.';
+    const alert = await this.alertController.create({
+      header: 'Popular with Students',
+      message,
+      buttons: ['Got it']
+    });
+    await alert.present();
   }
 
   // ── Google Calendar ──────────────────────────────

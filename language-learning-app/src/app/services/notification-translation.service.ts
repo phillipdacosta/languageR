@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
 import { UserService } from './user.service';
 import { Notification } from './notification.service';
+import { getGlobalHour12 } from '../shared/timezone.utils';
 
 @Injectable({
   providedIn: 'root'
@@ -39,7 +40,7 @@ export class NotificationTranslationService {
       if (!raw) return '';
       const date = new Date(raw as string);
       if (isNaN(date.getTime())) return '';
-      return new Intl.DateTimeFormat(lang, { hour: 'numeric', minute: '2-digit', timeZone: tz }).format(date);
+      return new Intl.DateTimeFormat(lang, { hour: 'numeric', minute: '2-digit', hour12: getGlobalHour12(), timeZone: tz }).format(date);
     };
 
     const fmtMoney = (val: any): string => {

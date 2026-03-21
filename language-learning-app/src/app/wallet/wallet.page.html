@@ -144,7 +144,7 @@
                   </span>
                   <span *ngIf="payment.lessonId.subject" class="lesson-subject">{{ payment.lessonId.subject }}</span>
                   <span *ngIf="payment.lessonId.startTime && payment.lessonId.endTime" class="lesson-time">
-                    {{ payment.lessonId.startTime | date:'shortTime' }} - {{ payment.lessonId.endTime | date:'shortTime' }}
+                    {{ payment.lessonId.startTime | date:timePipeFormat }} - {{ payment.lessonId.endTime | date:timePipeFormat }}
                   </span>
                 </div>
                 <!-- Class Details (if available) -->
@@ -154,7 +154,7 @@
                   </span>
                   <span class="lesson-subject">{{ payment.classId.name || 'Class' }}</span>
                   <span *ngIf="payment.classId.startTime && payment.classId.endTime" class="lesson-time">
-                    {{ payment.classId.startTime | date:'shortTime' }} - {{ payment.classId.endTime | date:'shortTime' }}
+                    {{ payment.classId.startTime | date:timePipeFormat }} - {{ payment.classId.endTime | date:timePipeFormat }}
                   </span>
                 </div>
               </div>

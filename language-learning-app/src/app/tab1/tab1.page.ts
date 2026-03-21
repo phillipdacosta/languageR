@@ -362,6 +362,13 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   nextLessonOtherJoined = false;
   nextLessonOtherName = '';
 
+  // Previous lesson notes for the Up Next tutor-student pair
+  previousNotesData: any = null;
+  previousNotesLoading = false;
+  isPreviousNotesModalOpen = false;
+  previousNotesDate = '';
+  previousNotesScores: { label: string; value: number }[] = [];
+
   private resizeListener: any;
 
   constructor(
@@ -4862,7 +4869,7 @@ navigateToLessons() {
   navigateToLesson(lesson: Lesson) {
     // Navigate to event details page (same route for lessons and classes)
     if (lesson?._id) {
-      this.router.navigate(['/event', lesson._id]);
+      this.router.navigate(['/tabs/lessons', lesson._id]);
     }
   }
 
@@ -4919,6 +4926,49 @@ navigateToLessons() {
     } else {
       this.nextLessonOtherJoined = false;
       this.nextLessonOtherName = '';
+    }
+  }
+
+  private loadPreviousNotes() {
+    const nl = this.nextLesson;
+    if (!nl?.lesson?._id || nl.lesson.isClass) {
+      this.previousNotesData = null;
+      return;
+    }
+    this.previousNotesLoading = true;
+    this.lessonService.getPreviousNotes(nl.lesson._id).subscribe({
+      next: (res) => {
+        this.previousNotesData = res.hasPreviousNotes ? res : null;
+        this.previousNotesLoading = false;
+      },
+      error: () => {
+        this.previousNotesData = null;
+        this.previousNotesLoading = false;
+      }
+    });
+  }
+
+  showPreviousNotesModal() {
+    if (!this.previousNotesData?.analysis) return;
+    const a = this.previousNotesData.analysis;
+    this.previousNotesDate = new Date(this.previousNotesData.previousLessonDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+    const scores: { label: string; value: number }[] = [];
+    if (a.grammarAnalysis?.accuracyScore != null) scores.push({ label: 'Grammar', value: a.grammarAnalysis.accuracyScore });
+    if (a.fluencyAnalysis?.overallFluencyScore != null) scores.push({ label: 'Fluency', value: a.fluencyAnalysis.overallFluencyScore });
+    if (a.pronunciationAnalysis?.overallScore != null) scores.push({ label: 'Pronunciation', value: a.pronunciationAnalysis.overallScore });
+    this.previousNotesScores = scores;
+    this.isPreviousNotesModalOpen = true;
+  }
+
+  closePreviousNotesModal() {
+    this.isPreviousNotesModalOpen = false;
+  }
+
+  viewFullAnalysis() {
+    this.isPreviousNotesModalOpen = false;
+    if (this.previousNotesData?.previousLessonId) {
+      this.router.navigate(['/lesson-analysis', this.previousNotesData.previousLessonId]);
     }
   }
 
@@ -5487,6 +5537,7 @@ navigateToLessons() {
         this.nextLessonTimeLabel = this.getNextLessonTimeLabel();
         this.hadLessonsToday = this.hadLessonsEarlierToday();
         this.hadOnlyCancelledLessonsToday = this.checkHadOnlyCancelledLessonsToday();
+        this.loadPreviousNotes();
         console.log('✅ [TAB1] Skeleton hidden');
       }
     }

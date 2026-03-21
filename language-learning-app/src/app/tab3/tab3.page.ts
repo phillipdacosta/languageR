@@ -6,6 +6,7 @@ import { environment } from '../../environments/environment';
 import { UserService } from '../services/user.service';
 import { ProgressService, Struggle, StruggleResponse } from '../services/progress.service';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
+import { getGlobalHour12 } from '../shared/timezone.utils';
 
 // 🚀 PERFORMANCE FIX: Extend Struggle with cached expansion state
 interface ExpandableStruggle extends Struggle {
@@ -999,7 +1000,7 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
   
   formatTimeShort(date: Date | string): string {
     const d = new Date(date);
-    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: getGlobalHour12() });
   }
   
   formatFullDate(date: Date | string): string {

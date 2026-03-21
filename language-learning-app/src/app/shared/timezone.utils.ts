@@ -4,6 +4,21 @@
 import { fromZonedTime, toZonedTime } from 'date-fns-tz';
 
 /**
+ * Global hour12 preference. Updated by UserService when the user profile loads
+ * or the setting changes. All formatTimeInTz calls respect this unless the
+ * caller explicitly overrides hour12.
+ */
+let _globalHour12: boolean = true;
+
+export function setGlobalTimeFormat(format: '12h' | '24h') {
+  _globalHour12 = format !== '24h';
+}
+
+export function getGlobalHour12(): boolean {
+  return _globalHour12;
+}
+
+/**
  * Convert a wall-clock time (HH:mm on YYYY-MM-DD) from one IANA timezone to another.
  * Uses date-fns-tz for correct DST-aware conversion.
  */
@@ -78,13 +93,14 @@ export function utcToWallClock(
 }
 
 /**
- * Format a time in 12-hour format with AM/PM
- * @param timeStr Time string in HH:mm format (24-hour)
- * @returns Formatted time string like "2:30 PM"
+ * Format a time string (HH:mm) according to the global preference (12h or 24h).
  */
 export function formatTime12Hour(timeStr: string): string {
   try {
     const [hours, minutes] = timeStr.split(':').map(Number);
+    if (!_globalHour12) {
+      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    }
     const period = hours >= 12 ? 'PM' : 'AM';
     const displayHours = hours % 12 || 12;
     return `${displayHours}:${String(minutes).padStart(2, '0')} ${period}`;
@@ -125,8 +141,10 @@ export function getTimezoneLabel(timezone: string): string {
  * Format a UTC Date as a time string (e.g., "2:30 PM") in the given timezone.
  * Falls back to browser timezone if none provided.
  * @param locale BCP 47 locale (e.g. 'en', 'fr', 'de') for localized output; defaults to 'en-US'.
+ * @param hour12 Explicit override. When omitted, uses the global user preference set via setGlobalTimeFormat().
  */
-export function formatTimeInTz(date: Date | string, timezone?: string, locale?: string, hour12: boolean = true): string {
+export function formatTimeInTz(date: Date | string, timezone?: string, locale?: string, hour12?: boolean): string {
+  const h12 = hour12 !== undefined ? hour12 : _globalHour12;
   try {
     const d = typeof date === 'string' ? new Date(date) : date;
     if (isNaN(d.getTime())) return '';
@@ -134,7 +152,7 @@ export function formatTimeInTz(date: Date | string, timezone?: string, locale?: 
     return d.toLocaleTimeString(loc, {
       hour: 'numeric',
       minute: '2-digit',
-      hour12,
+      hour12: h12,
       ...(timezone ? { timeZone: timezone } : {})
     });
   } catch {

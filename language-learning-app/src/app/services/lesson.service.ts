@@ -196,13 +196,20 @@ export class LessonService {
   }
 
   // Record when the call ends and calculate actual billing
-  recordCallEnd(lessonId: string): Observable<{
+  recordCallEnd(
+    lessonId: string,
+    speakingTime?: { studentSeconds: number; tutorSeconds: number }
+  ): Observable<{
     success: boolean;
     actualCallEndTime: string;
     actualDurationMinutes: number;
     actualPrice: number;
   }> {
     const headers = this.userService.getAuthHeadersSync();
+    const body: any = {};
+    if (speakingTime) {
+      body.clientSpeakingSeconds = speakingTime;
+    }
     return this.http.post<{
       success: boolean;
       actualCallEndTime: string;
@@ -210,19 +217,21 @@ export class LessonService {
       actualPrice: number;
     }>(
       `${this.baseUrl}/${lessonId}/call-end`,
-      {},
+      body,
       { headers }
     );
   }
 
-  // Alias for recordCallEnd
-  endCall(lessonId: string): Observable<{
+  endCall(
+    lessonId: string,
+    speakingTime?: { studentSeconds: number; tutorSeconds: number }
+  ): Observable<{
     success: boolean;
     actualCallEndTime: string;
     actualDurationMinutes: number;
     actualPrice: number;
   }> {
-    return this.recordCallEnd(lessonId);
+    return this.recordCallEnd(lessonId, speakingTime);
   }
 
   // Save tutor's supplementary note
@@ -477,4 +486,94 @@ export class LessonService {
       { headers }
     );
   }
+
+  getPopularSlots(timezone: string): Observable<PopularSlotsResponse> {
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.get<PopularSlotsResponse>(
+      `${this.baseUrl}/popular-slots`,
+      { headers, params: { timezone, days: '90' } }
+    );
+  }
+
+  getPreviousNotes(lessonId: string): Observable<PreviousNotesResponse> {
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.get<PreviousNotesResponse>(
+      `${this.baseUrl}/previous-notes/${lessonId}`,
+      { headers }
+    );
+  }
+}
+
+export interface PreviousNotesAnalysis {
+  source?: string;
+  tutorNote: { text: string; quickImpression: string; homework: string; addedAt: string } | null;
+  overallAssessment: { summary: string; proficiencyLevel: string; progressFromLastLesson: string; confidence: number } | null;
+  progressionMetrics: {
+    persistentChallenges: string[];
+    keyImprovements: string[];
+    errorRate: number | null;
+    errorRateChange: number | null;
+    vocabularyGrowth: number | null;
+    fluencyImprovement: number | null;
+    grammarAccuracyChange: number | null;
+    confidenceLevel: number | null;
+    speakingTimeMinutes: number | null;
+  } | null;
+  strengths: string[];
+  areasForImprovement: string[];
+  topErrors: { rank: number; issue: string; impact: string; occurrences: number; teachingPriority: string }[];
+  errorPatterns: {
+    pattern: string;
+    frequency: number;
+    severity: string;
+    examples: { original: string; corrected: string; explanation: string }[];
+    practiceNeeded: string;
+  }[];
+  correctedExcerpts: { context: string; original: string; corrected: string; keyCorrections: string[] }[];
+  grammarAnalysis: {
+    accuracyScore: number;
+    suggestions: string[];
+    mistakeTypes: { type: string; frequency: number; severity: string; examples: string[] }[];
+  } | null;
+  fluencyAnalysis: {
+    overallFluencyScore: number;
+    speakingSpeed: string | null;
+    pauseFrequency: string | null;
+    fillerWords: { count: number; examples: string[] } | null;
+  } | null;
+  vocabularyAnalysis: {
+    vocabularyRange: string;
+    uniqueWordCount: number | null;
+    suggestedWords: string[];
+    advancedWordsUsed: string[];
+  } | null;
+  topicsDiscussed: string[];
+  recommendedFocus: string[];
+  suggestedExercises: string[];
+  homeworkSuggestions: string[];
+  studentSummary: string | null;
+}
+
+export interface PreviousNotesResponse {
+  success: boolean;
+  hasPreviousNotes: boolean;
+  previousLessonId?: string;
+  previousLessonDate?: string;
+  previousLessonSubject?: string;
+  analysis?: PreviousNotesAnalysis;
+}
+
+export interface PopularSlot {
+  dayOfWeek: number; // 0=Sun … 6=Sat
+  slotIndex: number; // 0–47 (30-min slots in a day)
+  count: number;
+  intensity: number; // 0–1 normalized
+}
+
+export interface PopularSlotsResponse {
+  success: boolean;
+  slots: PopularSlot[];
+  threshold: number;
+  maxCount: number;
+  insufficientData: boolean;
 }

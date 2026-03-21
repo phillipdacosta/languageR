@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ToastController, ModalController, AlertController } from '@ionic/angular';
@@ -32,7 +32,7 @@ import { take } from 'rxjs';
     ])
   ]
 })
-export class MaterialDetailPage implements OnInit {
+export class MaterialDetailPage implements OnInit, OnDestroy {
   material: TutorMaterial | null = null;
   isLoading = true;
   error: string | null = null;
@@ -65,6 +65,7 @@ export class MaterialDetailPage implements OnInit {
   hasQuizSidebar = false;
   /** True when the left column is collapsed. */
   leftPanelHidden = false;
+  private referrerUrl: string = '/tabs/home';
 
   constructor(
     private route: ActivatedRoute,
@@ -78,7 +79,9 @@ export class MaterialDetailPage implements OnInit {
     private modalCtrl: ModalController,
     private alertCtrl: AlertController,
     private cdr: ChangeDetectorRef
-  ) {}
+  ) {
+    this.referrerUrl = sessionStorage.getItem('materialReferrer') || '/tabs/home';
+  }
 
   ngOnInit() {
     this.userService.currentUser$.subscribe(u => {
@@ -106,7 +109,9 @@ export class MaterialDetailPage implements OnInit {
           this.material = res.material;
           this.hasQuizSidebar = !!(this.material.quiz && this.material.quiz.length > 0);
           if (this.material.videoEmbedUrl) {
-            this.videoEmbedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.material.videoEmbedUrl);
+            const sep = this.material.videoEmbedUrl.includes('?') ? '&' : '?';
+            const embedWithOrigin = this.material.videoEmbedUrl + sep + 'origin=' + encodeURIComponent(window.location.origin);
+            this.videoEmbedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(embedWithOrigin);
           }
           if (this.material.audioEmbedUrl) {
             this.audioEmbedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.material.audioEmbedUrl);
@@ -149,7 +154,18 @@ export class MaterialDetailPage implements OnInit {
   }
 
   goBack() {
-    this.location.back();
+    this.destroyEmbeds();
+    this.router.navigateByUrl(this.referrerUrl);
+  }
+
+  ngOnDestroy() {
+    this.destroyEmbeds();
+  }
+
+  private destroyEmbeds() {
+    this.videoEmbedUrl = null;
+    this.videoAutoplayUrl = null;
+    this.audioEmbedUrl = null;
   }
 
   toggleLeftPanel() {
@@ -237,8 +253,9 @@ export class MaterialDetailPage implements OnInit {
   playVideo() {
     if (this.material?.videoEmbedUrl) {
       const sep = this.material.videoEmbedUrl.includes('?') ? '&' : '?';
+      const origin = encodeURIComponent(window.location.origin);
       this.videoAutoplayUrl = this.sanitizer.bypassSecurityTrustResourceUrl(
-        this.material.videoEmbedUrl + sep + 'autoplay=1'
+        this.material.videoEmbedUrl + sep + 'autoplay=1&origin=' + origin
       );
     }
     this.videoCoverVisible = false;

@@ -62,13 +62,6 @@
           </div>
           <div class="settings-inline-content" [class.expanded]="calendarSettingsExpanded">
             <div class="inline-setting-group">
-              <label class="inline-setting-label">Time format</label>
-              <div class="inline-segmented-control">
-                <button [class.active]="calendarTimeFormat === '12h'" (click)="updateCalendarSetting('timeFormat', '12h')">12h</button>
-                <button [class.active]="calendarTimeFormat === '24h'" (click)="updateCalendarSetting('timeFormat', '24h')">24h</button>
-              </div>
-            </div>
-            <div class="inline-setting-group">
               <label class="inline-setting-label">Default view</label>
               <div class="inline-segmented-control">
                 <button [class.active]="calendarDefaultView === 'week'" (click)="updateCalendarSetting('defaultView', 'week')">Week</button>
@@ -504,14 +497,6 @@
             </div>
             <div class="settings-body" [class.expanded]="calendarSettingsExpanded">
               <div class="sidebar-setting-group">
-                <label class="sidebar-setting-label">Time format</label>
-                <div class="sidebar-segmented-control">
-                  <button [class.active]="calendarTimeFormat === '12h'" (click)="updateCalendarSetting('timeFormat', '12h')">12-hour</button>
-                  <button [class.active]="calendarTimeFormat === '24h'" (click)="updateCalendarSetting('timeFormat', '24h')">24-hour</button>
-                </div>
-                <span class="sidebar-setting-hint">{{ calendarTimeFormat === '12h' ? 'e.g. 2:30 PM' : 'e.g. 14:30' }}</span>
-              </div>
-              <div class="sidebar-setting-group">
                 <label class="sidebar-setting-label">Default view</label>
                 <div class="sidebar-segmented-control">
                   <button [class.active]="calendarDefaultView === 'week'" (click)="updateCalendarSetting('defaultView', 'week')">Week</button>
@@ -553,7 +538,7 @@
                     <span class="status-email" *ngIf="gcalEmail">{{ gcalEmail }}</span>
                   </div>
                 </div>
-                <p class="sidebar-last-sync" *ngIf="gcalLastSyncAt">Last synced {{ gcalLastSyncAt | date:'short' }}</p>
+                <p class="sidebar-last-sync" *ngIf="gcalLastSyncAt">Last synced {{ gcalLastSyncAt | date:shortDateTimeFormat }}</p>
                 <div class="sidebar-gcal-toggles">
                   <div class="sidebar-gcal-toggle-item">
                     <div class="toggle-text">

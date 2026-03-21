@@ -8,6 +8,8 @@ import { LessonService, Lesson } from '../../services/lesson.service';
 import { ClassService } from '../../services/class.service';
 import { UserService, User } from '../../services/user.service';
 import { TutorFeedbackService, TutorFeedback } from '../../services/tutor-feedback.service';
+import { SharedModule } from '../../shared/shared.module';
+import { TutorAvailabilitySelectionModalComponent } from '../../components/tutor-availability-selection-modal/tutor-availability-selection-modal.component';
 import { FlipTransitionService } from '../../services/flip-transition.service';
 import { PlatformService } from '../../services/platform.service';
 import { WalletService } from '../../services/wallet.service';
@@ -17,6 +19,7 @@ import { CancelReasonModalComponent } from '../../components/cancel-reason-modal
 import { ConfirmActionModalComponent } from '../../components/confirm-action-modal/confirm-action-modal.component';
 import { RescheduleLessonModalComponent } from '../../components/reschedule-lesson-modal/reschedule-lesson-modal.component';
 import { formatTimeInTz, formatDateInTz } from '../../shared/timezone.utils';
+import { MaterialService, TutorMaterial } from '../../services/material.service';
 
 // ── Interfaces ──────────────────────────────────────────────────
 interface AnalysisData {
@@ -81,7 +84,7 @@ interface BillingData {
   templateUrl: './event-details.page.html',
   styleUrls: ['./event-details.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, CancelReasonModalComponent, ConfirmActionModalComponent, RescheduleLessonModalComponent]
+  imports: [CommonModule, IonicModule, SharedModule, CancelReasonModalComponent, ConfirmActionModalComponent, RescheduleLessonModalComponent]
 })
 export class EventDetailsPage implements OnInit, OnDestroy {
   eventId: string | null = null;
@@ -130,7 +133,34 @@ export class EventDetailsPage implements OnInit, OnDestroy {
   participantPicture = '';
   participantInitial = '';
   participantRole = ''; // "Student" or "Tutor"
+  participantCountry = '';
   tutorId: string | null = null; // For navigation to tutor profile (students only)
+
+  // Sidebar info
+  participantBio = '';
+  participantLanguages: string[] = [];
+  participantRate = '';
+  participantRating = '';
+  participantExperienceLevel = '';
+  participantGoals: string[] = [];
+  participantNativeLanguage = '';
+  participantId: string | null = null;
+  lessonsWithParticipant = 0;
+  recentLessons: { _id: string; subject: string; dateLabel: string; durationLabel: string }[] = [];
+
+  // Tutor stats (student view)
+  tutorStatsRating = '';
+  tutorStatsRatingRounded = 0;
+  tutorStatsTotalLessons = 0;
+  tutorStatsStudents = 0;
+  tutorAvailableNow = false;
+
+  // Content channels & materials
+  hasLinkedChannels = false;
+  linkedChannels: any = null;
+  tutorMaterials: (TutorMaterial & { _addedDate?: string; _typeIcon?: string; _typeLabel?: string })[] = [];
+  channelsSectionExpanded = true;
+  materialsSectionExpanded = true;
 
   // Tip info
   hasTip = false;
@@ -174,6 +204,13 @@ export class EventDetailsPage implements OnInit, OnDestroy {
   hasTutorNote = false;
   hasTutorFeedback = false;
   hasHomework = false;
+
+  // Previous lesson notes for this tutor-student pair
+  previousNotesData: any = null;
+  hasPreviousNotes = false;
+  previousNotesIsAiSource = false;
+  previousNotesDate = '';
+  previousNotesSanitized: SafeHtml | null = null;
 
   // Pre-computed score colors (no functions in template)
   grammarScoreColor = '#6b7280';
@@ -244,7 +281,8 @@ export class EventDetailsPage implements OnInit, OnDestroy {
     private loadingController: LoadingController,
     private location: Location,
     private flipTransition: FlipTransitionService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private materialService: MaterialService
   ) {}
 
   ngOnInit() {
@@ -285,10 +323,27 @@ export class EventDetailsPage implements OnInit, OnDestroy {
     this.loading = true;
 
     this.lessonService.getLesson(this.eventId).subscribe({
-      next: (response) => {
+      next: (response: any) => {
         if (response.success && response.lesson) {
           this.lesson = response.lesson;
           this.isClass = false;
+          this.lessonsWithParticipant = response.lessonsCompleted || 0;
+          // Tutor stats from backend aggregation (not from populated user)
+          if (response.tutorStats) {
+            const ts = response.tutorStats;
+            if (ts.rating && Number(ts.rating) >= 4.0) {
+              this.tutorStatsRating = Number(ts.rating).toFixed(1);
+              this.tutorStatsRatingRounded = Math.round(Number(ts.rating));
+            }
+            this.tutorStatsTotalLessons = ts.totalLessons || 0;
+            this.tutorStatsStudents = ts.students || 0;
+          }
+          this.recentLessons = (response.recentLessons || []).map((l: any) => ({
+            _id: l._id,
+            subject: l.subject || 'Language Lesson',
+            dateLabel: formatDateInTz(l.startTime, this.userTz, { month: 'short', day: 'numeric' }),
+            durationLabel: l.duration < 60 ? `${l.duration}m` : `${Math.floor(l.duration / 60)}h${l.duration % 60 ? ` ${l.duration % 60}m` : ''}`
+          }));
           // loading stays true — skeleton visible until all additional data loads
           this.computeAllProperties();
           this.loadAdditionalData();
@@ -339,7 +394,7 @@ export class EventDetailsPage implements OnInit, OnDestroy {
     }
 
     // Track all pending requests — skeleton stays until everything resolves
-    this.pendingRequests = 4; // analysis + feedback + billing + payment
+    this.pendingRequests = 5; // analysis + feedback + billing + payment + previous notes
     if (this.isStudentUser) {
       this.pendingRequests++; // + payment method
     }
@@ -424,6 +479,25 @@ export class EventDetailsPage implements OnInit, OnDestroy {
         }
       });
     }
+
+    // Load previous lesson notes for this tutor-student pair
+    this.lessonService.getPreviousNotes(this.eventId).subscribe({
+      next: (res) => {
+        if (res.hasPreviousNotes && res.analysis) {
+          this.previousNotesData = res;
+          this.hasPreviousNotes = true;
+          this.previousNotesIsAiSource = res.analysis.source !== 'tutor';
+          this.previousNotesDate = new Date(res.previousLessonDate!).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          if (res.analysis.tutorNote?.text) {
+            this.previousNotesSanitized = this.sanitizer.bypassSecurityTrustHtml(res.analysis.tutorNote.text);
+          }
+        }
+        this.onRequestComplete();
+      },
+      error: () => {
+        this.onRequestComplete();
+      }
+    });
   }
 
   private loadPaymentDetails(retryCount = 0) {
@@ -659,6 +733,7 @@ export class EventDetailsPage implements OnInit, OnDestroy {
       this.participantPicture = p.picture || '';
       this.participantInitial = (p.name || p.firstName || 'P').charAt(0).toUpperCase();
       this.participantRole = this.isTutorUser ? 'Student' : 'Tutor';
+      this.participantCountry = p.country || p.residenceCountry || '';
     }
 
     // Pre-compute tutor display name for student view ("Phillip D.")
@@ -670,11 +745,96 @@ export class EventDetailsPage implements OnInit, OnDestroy {
         ? `${tFirst} ${tLast.charAt(0).toUpperCase()}.`
         : tutor.name || 'Your tutor';
       
-      // Store tutor ID for navigation (students only)
-      if (this.isStudentUser) {
-        this.tutorId = tutor._id?.toString() || tutor.toString() || null;
+      this.tutorId = tutor._id?.toString() || tutor.toString() || null;
+    }
+
+    // Sidebar data
+    if (p) {
+      const pAny = p as any;
+      this.participantId = pAny._id?.toString() || pAny.auth0Id || null;
+      this.participantBio = pAny.onboardingData?.bio || pAny.onboardingData?.summary || pAny.profile?.bio || '';
+      this.participantLanguages = pAny.onboardingData?.languages || [];
+      this.participantExperienceLevel = pAny.onboardingData?.experienceLevel || '';
+      this.participantGoals = pAny.onboardingData?.goals || [];
+      this.participantNativeLanguage = pAny.nativeLanguage || '';
+      if (!this.isTutorUser && pAny.onboardingData?.hourlyRate) {
+        this.participantRate = `$${pAny.onboardingData.hourlyRate}/hr`;
+      }
+      if (pAny.rating && Number(pAny.rating) >= 4.0) {
+        this.participantRating = Number(pAny.rating).toFixed(1);
       }
     }
+
+    // Tutor-specific sidebar data (available to both roles)
+    const tutorData = this.lesson.tutorId as any;
+    if (tutorData) {
+      if (this.isStudentUser && tutorData?.profile?.officeHoursEnabled && tutorData?.profile?.officeHoursLastActive) {
+        const elapsed = Date.now() - new Date(tutorData.profile.officeHoursLastActive).getTime();
+        this.tutorAvailableNow = elapsed < 120000;
+      }
+
+      const ch = tutorData?.linkedChannels;
+      this.hasLinkedChannels = !!(ch?.youtubeChannelName || ch?.vimeoChannelName || ch?.soundcloudProfileName);
+      this.linkedChannels = ch || null;
+
+      if (this.tutorId) {
+        this.loadTutorMaterials();
+      }
+    }
+
+    // Tutor sees channels/materials collapsed by default
+    if (this.isTutorUser) {
+      this.channelsSectionExpanded = false;
+      this.materialsSectionExpanded = false;
+    }
+  }
+
+  private loadTutorMaterials() {
+    if (!this.tutorId) return;
+    this.materialService.getTutorMaterials(this.tutorId).subscribe({
+      next: (res) => {
+        this.tutorMaterials = (res.materials || [])
+          .filter(m => m.status === 'published')
+          .map(m => ({
+            ...m,
+            _addedDate: this.formatMaterialDate(m.createdAt),
+            _typeIcon: this.getMaterialTypeIcon(m.materialType),
+            _typeLabel: this.getMaterialTypeLabel(m.materialType)
+          }));
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.tutorMaterials = [];
+      }
+    });
+  }
+
+  private formatMaterialDate(dateStr: string): string {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return `Added ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+  }
+
+  getMaterialTypeIcon(type: string): string {
+    switch (type) {
+      case 'video_quiz': return 'videocam';
+      case 'reading': return 'book';
+      case 'listening': return 'headset';
+      default: return 'document';
+    }
+  }
+
+  getMaterialTypeLabel(type: string): string {
+    switch (type) {
+      case 'video_quiz': return 'VIDEO QUIZ';
+      case 'reading': return 'READING';
+      case 'listening': return 'LISTENING';
+      default: return 'MATERIAL';
+    }
+  }
+
+  openMaterial(material: TutorMaterial) {
+    this.router.navigate(['/material', material._id]);
   }
 
   private computeTip() {
@@ -1196,6 +1356,11 @@ export class EventDetailsPage implements OnInit, OnDestroy {
     this.router.navigate(['/lesson-analysis', this.eventId]);
   }
 
+  viewPreviousAnalysis() {
+    if (!this.previousNotesData?.previousLessonId) return;
+    this.router.navigate(['/lesson-analysis', this.previousNotesData.previousLessonId]);
+  }
+
   async openRescheduleModal() {
     if (!this.lesson || this.lesson.status === 'cancelled' || !this.currentUser?.id || !this.eventId) return;
 
@@ -1382,6 +1547,14 @@ export class EventDetailsPage implements OnInit, OnDestroy {
     this.feedbackSectionExpanded = !this.feedbackSectionExpanded;
   }
 
+  toggleChannelsSection() {
+    this.channelsSectionExpanded = !this.channelsSectionExpanded;
+  }
+
+  toggleMaterialsSection() {
+    this.materialsSectionExpanded = !this.materialsSectionExpanded;
+  }
+
   viewFeedback() {
     // Scroll to the feedback section or show in a modal
     // For now, just scroll to the tutor feedback/note section
@@ -1396,10 +1569,64 @@ export class EventDetailsPage implements OnInit, OnDestroy {
   }
 
   openTutorProfile() {
-    // Only allow navigation for students viewing tutor info
     if (this.isStudentUser && this.tutorId) {
       this.router.navigate(['/tutor', this.tutorId]);
     }
+  }
+
+  messageParticipant() {
+    if (!this.participantId) return;
+    const param = this.isTutorUser ? 'userId' : 'tutorId';
+    this.router.navigate(['/tabs/messages'], { queryParams: { [param]: this.participantId } });
+  }
+
+  openLesson(lessonId: string) {
+    this.router.navigate(['/tabs/lessons', lessonId]);
+  }
+
+  async bookLesson() {
+    if (!this.tutorId || !this.lesson?.tutorId) return;
+    const tutor = this.lesson.tutorId;
+    const nameParts = (tutor.name || '').split(' ');
+
+    const modal = await this.modalController.create({
+      component: TutorAvailabilitySelectionModalComponent,
+      componentProps: {
+        tutors: [{
+          id: tutor._id,
+          _id: tutor._id,
+          firstName: nameParts[0] || '',
+          lastName: nameParts.slice(1).join(' ') || '',
+          name: tutor.name,
+          picture: tutor.picture
+        }],
+        title: 'Book a Lesson'
+      },
+      cssClass: 'tutor-availability-selection-modal'
+    });
+    await modal.present();
+  }
+
+  async shareTutor() {
+    if (!this.tutorId) return;
+    const url = `${window.location.origin}/tutor/${this.tutorId}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `Learn with ${this.participantName}`,
+          text: `Check out ${this.participantName} on our platform!`,
+          url
+        });
+      } else {
+        await navigator.clipboard.writeText(url);
+        const toast = await this.toastController.create({
+          message: 'Link copied to clipboard',
+          duration: 2000,
+          position: 'bottom'
+        });
+        await toast.present();
+      }
+    } catch {}
   }
 
   // getScoreColor / getLevelLabel are now pre-computed — see calcScoreColor / computeClassProperties

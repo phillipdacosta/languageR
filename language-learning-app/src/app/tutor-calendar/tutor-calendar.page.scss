@@ -108,7 +108,7 @@ ion-content {
 
 // Sidebar content
 .sidebar-content {
-  padding: 24px;
+  padding: 4px 18px 7px 18px;
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -130,8 +130,9 @@ ion-content {
 
 .action-buttons {
   display: flex;
+  position: relative;
   flex-direction: column;
-  gap: 10px;
+  top: 10px;
 }
 
 .schedule-lesson-btn {
@@ -250,7 +251,7 @@ ion-content {
   padding: 0;
   border: none;
   border-top: 1px solid #EBEBEB;
-  padding-top: 20px;
+  padding: 20px 6px 0px 6px;
   transition: all 0.2s ease;
 }
 
@@ -367,7 +368,7 @@ ion-content {
   border-radius: 0;
   padding: 0;
   border: none;
-  border-top: 1px solid #EBEBEB;
+  // border-top: 1px solid #EBEBEB;
   padding-top: 20px;
   transition: all 0.2s ease;
 

@@ -11,6 +11,7 @@ import { Subject, firstValueFrom } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { WalletTopupModalComponent } from '../components/wallet-topup-modal/wallet-topup-modal.component';
 import { HttpClient } from '@angular/common/http';
+import { getGlobalHour12 } from '../shared/timezone.utils';
 
 // Import Stripe
 declare var Stripe: any;
@@ -23,6 +24,7 @@ declare var Stripe: any;
   imports: [CommonModule, FormsModule, IonicModule, RouterModule]
 })
 export class WalletPage implements OnInit, OnDestroy {
+  get timePipeFormat(): string { return getGlobalHour12() ? 'h:mm a' : 'HH:mm'; }
   balance: WalletBalance | null = null;
   transactions: WalletTransaction[] = [];
   paymentHistory: PaymentHistory[] = []; // NEW: All payment methods
@@ -381,7 +383,8 @@ export class WalletPage implements OnInit, OnDestroy {
       day: 'numeric',
       year: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      hour12: getGlobalHour12()
     });
   }
 

@@ -1165,12 +1165,217 @@ router.get('/student/:studentId', verifyToken, async (req, res) => {
   }
 });
 
+/**
+ * @route   GET /api/lessons/previous-notes/:lessonId
+ * @desc    Get the most recent completed lesson's analysis/tutor-note
+ *          for the same tutor-student pair as the given lesson.
+ * @access  Private
+ */
+router.get('/previous-notes/:lessonId', verifyToken, async (req, res) => {
+  try {
+    const lesson = await Lesson.findById(req.params.lessonId)
+      .select('tutorId studentId startTime')
+      .lean();
+    if (!lesson) {
+      return res.status(404).json({ success: false, message: 'Lesson not found' });
+    }
+
+    const tutorId = lesson.tutorId;
+    const studentId = lesson.studentId;
+
+    // Find the most recent prior lesson (any status) that has a completed analysis
+    const previousLessons = await Lesson.find({
+      tutorId,
+      studentId,
+      startTime: { $lt: lesson.startTime },
+      status: { $in: ['completed', 'ended_early'] }
+    }).select('_id startTime subject').sort({ startTime: -1 }).limit(10).lean();
+
+    if (!previousLessons.length) {
+      return res.json({ success: true, hasPreviousNotes: false });
+    }
+
+    const lessonIds = previousLessons.map(l => l._id);
+    const analyses = await LessonAnalysis.find({
+      lessonId: { $in: lessonIds },
+      status: 'completed'
+    })
+      .select('lessonId source tutorNote overallAssessment progressionMetrics strengths areasForImprovement errorPatterns topErrors correctedExcerpts grammarAnalysis fluencyAnalysis vocabularyAnalysis topicsDiscussed recommendedFocus suggestedExercises homeworkSuggestions studentSummary lessonDate')
+      .lean();
+
+    if (!analyses.length) {
+      return res.json({ success: true, hasPreviousNotes: false });
+    }
+
+    const analysisMap = new Map(analyses.map(a => [String(a.lessonId), a]));
+    let matchedLesson = null;
+    let analysis = null;
+    for (const pl of previousLessons) {
+      const a = analysisMap.get(String(pl._id));
+      if (a) {
+        matchedLesson = pl;
+        analysis = a;
+        break;
+      }
+    }
+
+    if (!matchedLesson || !analysis) {
+      return res.json({ success: true, hasPreviousNotes: false });
+    }
+
+    const a = analysis;
+    res.json({
+      success: true,
+      hasPreviousNotes: true,
+      previousLessonId: matchedLesson._id,
+      previousLessonDate: matchedLesson.startTime,
+      previousLessonSubject: matchedLesson.subject,
+      analysis: {
+        source: a.source || 'ai',
+        tutorNote: a.tutorNote || null,
+        overallAssessment: a.overallAssessment || null,
+        progressionMetrics: a.progressionMetrics ? {
+          persistentChallenges: a.progressionMetrics.persistentChallenges || [],
+          keyImprovements: a.progressionMetrics.keyImprovements || [],
+          errorRate: a.progressionMetrics.errorRate ?? null,
+          errorRateChange: a.progressionMetrics.errorRateChange ?? null,
+          vocabularyGrowth: a.progressionMetrics.vocabularyGrowth ?? null,
+          fluencyImprovement: a.progressionMetrics.fluencyImprovement ?? null,
+          grammarAccuracyChange: a.progressionMetrics.grammarAccuracyChange ?? null,
+          confidenceLevel: a.progressionMetrics.confidenceLevel ?? null,
+          speakingTimeMinutes: a.progressionMetrics.speakingTimeMinutes ?? null
+        } : null,
+        strengths: a.strengths || [],
+        areasForImprovement: a.areasForImprovement || [],
+        topErrors: (a.topErrors || []).map(e => ({
+          rank: e.rank,
+          issue: e.issue,
+          impact: e.impact,
+          occurrences: e.occurrences,
+          teachingPriority: e.teachingPriority
+        })),
+        errorPatterns: (a.errorPatterns || []).slice(0, 5).map(ep => ({
+          pattern: ep.pattern,
+          frequency: ep.frequency,
+          severity: ep.severity,
+          examples: (ep.examples || []).slice(0, 2),
+          practiceNeeded: ep.practiceNeeded
+        })),
+        correctedExcerpts: (a.correctedExcerpts || []).slice(0, 3).map(ce => ({
+          context: ce.context,
+          original: ce.original,
+          corrected: ce.corrected,
+          keyCorrections: ce.keyCorrections || []
+        })),
+        grammarAnalysis: a.grammarAnalysis ? {
+          accuracyScore: a.grammarAnalysis.accuracyScore,
+          suggestions: a.grammarAnalysis.suggestions || [],
+          mistakeTypes: (a.grammarAnalysis.mistakeTypes || []).map(mt => ({
+            type: mt.type,
+            frequency: mt.frequency,
+            severity: mt.severity,
+            examples: (mt.examples || []).slice(0, 2)
+          }))
+        } : null,
+        fluencyAnalysis: a.fluencyAnalysis ? {
+          overallFluencyScore: a.fluencyAnalysis.overallFluencyScore,
+          speakingSpeed: a.fluencyAnalysis.speakingSpeed || null,
+          pauseFrequency: a.fluencyAnalysis.pauseFrequency || null,
+          fillerWords: a.fluencyAnalysis.fillerWords || null
+        } : null,
+        vocabularyAnalysis: a.vocabularyAnalysis ? {
+          vocabularyRange: a.vocabularyAnalysis.vocabularyRange,
+          uniqueWordCount: a.vocabularyAnalysis.uniqueWordCount ?? null,
+          suggestedWords: a.vocabularyAnalysis.suggestedWords || [],
+          advancedWordsUsed: a.vocabularyAnalysis.advancedWordsUsed || []
+        } : null,
+        topicsDiscussed: a.topicsDiscussed || [],
+        recommendedFocus: a.recommendedFocus || [],
+        suggestedExercises: a.suggestedExercises || [],
+        homeworkSuggestions: a.homeworkSuggestions || [],
+        studentSummary: a.studentSummary || null
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching previous notes:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch previous notes' });
+  }
+});
+
+/**
+ * @route   GET /api/lessons/popular-slots
+ * @desc    Get aggregated popular booking slots based on real lesson data.
+ *          Returns a heatmap of day-of-week × 30-min slot popularity.
+ *          Slots are converted to the requesting user's timezone.
+ * @query   timezone - IANA timezone (default: UTC)
+ *          days     - lookback window in days (default: 90, max: 365)
+ * @access  Private
+ */
+router.get('/popular-slots', verifyToken, async (req, res) => {
+  try {
+    const { timezone = 'UTC', days = 90 } = req.query;
+    const lookbackDays = Math.min(parseInt(days) || 90, 365);
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - lookbackDays);
+
+    const pipeline = [
+      {
+        $match: {
+          startTime: { $gte: cutoffDate },
+          status: { $in: ['completed', 'scheduled', 'confirmed', 'in_progress'] }
+        }
+      },
+      {
+        $project: {
+          dayOfWeek: { $dayOfWeek: { date: '$startTime', timezone } },
+          hour: { $hour: { date: '$startTime', timezone } },
+          minute: { $minute: { date: '$startTime', timezone } }
+        }
+      },
+      {
+        $addFields: {
+          slotIndex: { $add: [{ $multiply: ['$hour', 2] }, { $cond: [{ $gte: ['$minute', 30] }, 1, 0] }] }
+        }
+      },
+      {
+        $group: {
+          _id: { dayOfWeek: '$dayOfWeek', slotIndex: '$slotIndex' },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { count: -1 } }
+    ];
+
+    const results = await Lesson.aggregate(pipeline);
+    const totalBookings = results.reduce((sum, r) => sum + r.count, 0);
+
+    if (results.length === 0 || totalBookings < 5) {
+      return res.json({ success: true, slots: [], threshold: 0, maxCount: 0, insufficientData: true });
+    }
+
+    const maxCount = results[0].count;
+    const threshold = 1;
+
+    const slots = results.map(r => ({
+      dayOfWeek: r._id.dayOfWeek - 1,
+      slotIndex: r._id.slotIndex,
+      count: r.count,
+      intensity: Math.min(1, r.count / maxCount)
+    }));
+
+    res.json({ success: true, slots, threshold, maxCount, insufficientData: false });
+  } catch (error) {
+    console.error('Error fetching popular slots:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch popular slots' });
+  }
+});
+
 // Get lesson details (protected - contains sensitive data)
 router.get('/:id', verifyToken, async (req, res) => {
   try {
     const lesson = await Lesson.findById(req.params.id)
-      .populate('tutorId', 'name email picture firstName lastName profile auth0Id profilePicture')
-      .populate('studentId', 'name email picture firstName lastName profile auth0Id profilePicture');
+      .populate('tutorId', 'name email picture firstName lastName profile auth0Id profilePicture onboardingData.bio onboardingData.summary onboardingData.languages onboardingData.hourlyRate nativeLanguage rating stats linkedChannels country residenceCountry')
+      .populate('studentId', 'name email picture firstName lastName profile auth0Id profilePicture onboardingData.bio onboardingData.summary onboardingData.languages onboardingData.experienceLevel onboardingData.goals nativeLanguage rating stats country residenceCountry');
 
     if (!lesson) {
       return res.status(404).json({ 
@@ -1196,9 +1401,59 @@ router.get('/:id', verifyToken, async (req, res) => {
     const lessonObj = lesson.toObject();
     lessonObj.participants = participantsObj;
 
+    // Pair stats + tutor stats + recent lesson history
+    let lessonsCompleted = 0;
+    let recentLessons = [];
+    let tutorStats = null;
+    const tutorObjId = lesson.tutorId?._id;
+    const studentObjId = lesson.studentId?._id;
+
+    if (tutorObjId && studentObjId) {
+      const [pairCount, history, tutorLessonCount, tutorStudentCount] = await Promise.all([
+        Lesson.countDocuments({
+          tutorId: tutorObjId,
+          studentId: studentObjId,
+          status: { $in: ['completed', 'ended_early'] }
+        }),
+        Lesson.find({
+          tutorId: tutorObjId,
+          studentId: studentObjId,
+          status: 'completed',
+          _id: { $ne: lesson._id }
+        })
+        .select('_id subject startTime duration')
+        .sort({ startTime: -1 })
+        .limit(5)
+        .lean(),
+        Lesson.countDocuments({
+          tutorId: tutorObjId,
+          status: { $in: ['completed', 'ended_early'] }
+        }),
+        Lesson.distinct('studentId', {
+          tutorId: tutorObjId,
+          status: { $in: ['completed', 'ended_early'] }
+        })
+      ]);
+      lessonsCompleted = pairCount;
+      recentLessons = history.map(l => ({
+        _id: l._id,
+        subject: l.subject || 'Language Lesson',
+        startTime: l.startTime,
+        duration: l.duration || 60
+      }));
+      tutorStats = {
+        rating: lesson.tutorId?.stats?.rating || 0,
+        totalLessons: tutorLessonCount,
+        students: tutorStudentCount.length
+      };
+    }
+
     res.json({ 
       success: true, 
-      lesson: lessonObj
+      lesson: lessonObj,
+      lessonsCompleted,
+      recentLessons,
+      tutorStats
     });
   } catch (error) {
     console.error('❌ Error fetching lesson:', error);
@@ -2233,6 +2488,16 @@ router.post('/:id/call-end', verifyToken, async (req, res) => {
       
       // Mark lesson as ended early (prevents rejoining, but allows auto-finalize to process it)
       lesson.status = 'ended_early';
+      
+      // Store client-reported speaking time (from Agora volume indicators)
+      const { clientSpeakingSeconds } = req.body || {};
+      if (clientSpeakingSeconds && typeof clientSpeakingSeconds.studentSeconds === 'number') {
+        lesson.clientSpeakingSeconds = {
+          studentSeconds: clientSpeakingSeconds.studentSeconds,
+          tutorSeconds: clientSpeakingSeconds.tutorSeconds || 0
+        };
+        console.log(`🗣️ Stored client speaking time: student=${clientSpeakingSeconds.studentSeconds}s, tutor=${clientSpeakingSeconds.tutorSeconds}s`);
+      }
       
       await lesson.save();
       console.log(`⏱️ Call ended early for lesson ${lesson._id}: ${lesson.actualDurationMinutes} minutes`);

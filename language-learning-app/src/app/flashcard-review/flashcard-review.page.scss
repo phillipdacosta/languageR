@@ -371,34 +371,7 @@
 }
 
 // ── Dark Mode ──────────────────────────────────────────
-@media (prefers-color-scheme: dark) {
-  .fc-nav-title { color: #fff; }
-
-  .fc-stat {
-    background: #1c1c1e;
-    &.mastered { background: rgba(46, 125, 50, 0.15); }
-  }
-
-  .fc-stat-number { color: #fff; }
-  .fc-stat-label { color: #8e8e93; }
-
-  .fc-card-front, .fc-card-back {
-    background: #1c1c1e;
-    border-color: rgba(255, 255, 255, 0.1);
-    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.3);
-  }
-
-  .fc-card-term { color: #fff; }
-  .fc-card-hint { color: #636366; }
-  .fc-card-divider { background: #38383a; }
-  .fc-card-context { color: #aeaeb2; }
-
-  .fc-empty h2, .fc-complete h2 { color: #fff; }
-  .fc-complete-stat .big { color: #fff; }
-  .fc-progress-bar { background: #2c2c2e; }
-}
-
-:host-context(.ion-palette-dark) {
+:host-context(html.ion-palette-dark) {
   .fc-nav-title { color: #fff; }
 
   .fc-stat {

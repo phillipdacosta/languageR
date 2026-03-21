@@ -153,17 +153,23 @@
     display: flex;
     align-items: center;
     margin-left: 8px;
-    padding: 4px;
-    border-radius: 8px;
-    transition: background-color 0.2s ease;
+    padding: 3px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 2px solid transparent;
     
     &:hover {
       background-color: rgba(0, 0, 0, 0.05);
     }
+
+    &.active {
+      border-color: #000000;
+    }
     
     .user-avatar {
-      width: 36px;
-      height: 36px;
+      width: 34px;
+      height: 34px;
       overflow: hidden;
       
       &,
@@ -1663,6 +1669,10 @@ ion-tab-button {
       &:hover {
         background-color: rgba(255, 255, 255, 0.08);
       }
+
+      &.active {
+        border-color: #ffffff;
+      }
       
       .user-avatar img {
         border-radius: 50% !important;
@@ -1883,8 +1893,8 @@ ion-tab-button {
   }
 }
 
-// Dark mode support (system preference fallback)
-@media (prefers-color-scheme: dark) {
+// Dark mode support
+:host-context(html.ion-palette-dark) {
   .platform-web {
     --ion-tab-bar-background: #1a1a1a;
     --ion-tab-bar-border-color: #333333;
@@ -1957,6 +1967,10 @@ ion-tab-button {
       
       &:hover {
         background-color: rgba(255, 255, 255, 0.08);
+      }
+
+      &.active {
+        border-color: #ffffff;
       }
       
       .user-avatar img {

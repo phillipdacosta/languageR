@@ -5716,10 +5716,15 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
       // ── 5. BACKGROUND: Fire-and-forget cleanup (runs AFTER navigation) ──
       // These are all non-blocking. If any fail, cron jobs provide a safety net.
+      const localSpeakingSeconds = flushLocalSeconds;
+      const remoteSpeakingSeconds = this.syncedRemoteSpeakingSeconds;
+      const clientSpeakingSeconds = userRole === 'student'
+        ? { studentSeconds: Math.round(localSpeakingSeconds), tutorSeconds: Math.round(remoteSpeakingSeconds) }
+        : { studentSeconds: Math.round(remoteSpeakingSeconds), tutorSeconds: Math.round(localSpeakingSeconds) };
       this.runBackgroundCleanup({
         lessonId, userRole, isPermanentEnd, otherParticipantEnded,
         transcriptionEnabled, transcriptId, transcriptionAlreadyDone,
-        vocabItems, goalItems
+        vocabItems, goalItems, clientSpeakingSeconds
       });
       
       // After navigation, prompt tutor to add note (always for tutors, regardless of who ended)
@@ -5756,6 +5761,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     transcriptionAlreadyDone: boolean;
     vocabItems: any[];
     goalItems: any[];
+    clientSpeakingSeconds: { studentSeconds: number; tutorSeconds: number };
   }): Promise<void> {
     try {
       // 1. Stop audio capture (if still running)
@@ -5789,7 +5795,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       // 4. Finalize lesson (for permanent/on-time exits)
       if (ctx.isPermanentEnd && ctx.lessonId) {
         try {
-          await firstValueFrom(this.lessonService.endCall(ctx.lessonId));
+          await firstValueFrom(this.lessonService.endCall(ctx.lessonId, ctx.clientSpeakingSeconds));
           console.log('✅ Background: lesson finalized via call-end');
         } catch (e) { console.warn('⚠️ Background: call-end failed (cron will finalize):', e); }
       }

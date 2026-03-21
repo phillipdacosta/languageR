@@ -146,8 +146,8 @@ const routes: Routes = [
   },
   {
     path: 'event/:id',
-    loadComponent: () => import('./tutor-calendar/event-details/event-details.page').then(m => m.EventDetailsPage),
-    canActivate: [AuthGuard]
+    redirectTo: 'tabs/lessons/:id',
+    pathMatch: 'full'
   },
   {
     path: 'material/:id',

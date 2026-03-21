@@ -1890,7 +1890,7 @@ $ob-accent: #222222;
 }
 
 // Dark mode for TOS
-@media (prefers-color-scheme: dark) {
+:host-context(html.ion-palette-dark) {
   .tos-step {
     .status-card-large.success {
       background: rgba(34, 197, 94, 0.1);

@@ -16,7 +16,7 @@
       <h3>View Options</h3>
       <div class="option-item">
         <ion-checkbox [(ngModel)]="showPopularSlots" (ionChange)="togglePopularSlots()"></ion-checkbox>
-        <label>Popular slots</label>
+        <label>Popular with students</label>
       </div>
     </div>
 
@@ -50,8 +50,8 @@
       <h3>VIEW OPTIONS</h3>
       <div class="option-item">
         <ion-checkbox [(ngModel)]="showPopularSlots" (ionChange)="togglePopularSlots()"></ion-checkbox>
-        <label>Popular slots</label>
-        <ion-button fill="clear" size="small" class="info-button">
+        <label>Popular with students</label>
+        <ion-button fill="clear" size="small" class="info-button" (click)="showPopularSlotsInfo()">
           <ion-icon name="information-circle-outline"></ion-icon>
         </ion-button>
       </div>
@@ -163,22 +163,24 @@
 
           <div class="time-slots" #timeSlotsContainer>
             <div class="time-labels-column">
-              <div class="time-slot-row" *ngFor="let hour of timeSlots">
+              <div class="time-slot-row" *ngFor="let hour of timeSlots; let i = index" [class.highlighted]="hoveredSlotIndex === i">
                 <div class="time-label">{{ hour.display }}</div>
               </div>
             </div>
-            <div class="all-day-columns">
+            <div class="all-day-columns" (mouseleave)="hoveredSlotIndex = null">
               <div class="day-column-wrapper" *ngFor="let day of displayedWeekDays">
                 <div class="day-time-slot"
                      *ngFor="let hour of timeSlots; let i = index"
                      [class.selected]="isSlotSelected(day.index, i)"
                      [class.popular]="isPopularSlot(day.index, i)"
+                     [class.popular-warm]="isPopularSlot(day.index, i) && getPopularIntensity(day.index, i) < 0.5"
+                     [class.popular-hot]="isPopularSlot(day.index, i) && getPopularIntensity(day.index, i) >= 0.5"
                      [class.night]="isNightSlot(i)"
                      [class.past]="isPastSlot(day.index, i)"
                      [class.booked]="isSlotBooked(day.index, i)"
                      [class.gcal-busy]="isGcalBusySlot(day, i)"
                      (mousedown)="startSelection(day.index, i, $event)"
-                     (mouseenter)="continueSelection(day.index, i)"
+                     (mouseenter)="hoveredSlotIndex = i; continueSelection(day.index, i)"
                      (mouseup)="endSelection()">
                   <div class="slot-indicator" *ngIf="isSlotSelected(day.index, i)"></div>
                   <ion-icon *ngIf="isSlotBooked(day.index, i)" name="lock-closed" class="booked-icon"></ion-icon>

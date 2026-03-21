@@ -400,7 +400,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     // It will try to load a lesson first, then fall back to class if not found
     const eventId = lessonId || classId;
     if (eventId) {
-      this.router.navigate(['/event', eventId]);
+      this.router.navigate(['/tabs/lessons', eventId]);
     }
   }
 

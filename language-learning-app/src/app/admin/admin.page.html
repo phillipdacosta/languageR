@@ -296,7 +296,7 @@
           </thead>
           <tbody>
             <tr *ngFor="let payment of allPayments">
-              <td>{{ payment.date | date:'MMM d, h:mm a' }}</td>
+              <td>{{ payment.date | date:timePipeFormat }}</td>
               <td>{{ payment.studentName }}</td>
               <td>{{ payment.tutorName }}</td>
               <td class="lesson-id-cell">
@@ -322,7 +322,7 @@
               <td class="release-date-cell">
                 <div *ngIf="payment.earningsReleaseDate && payment.paymentStatus !== 'refunded' && payment.paymentStatus !== 'cancelled'">
                   <div [class.past-release]="isPastReleaseDate(payment.earningsReleaseDate)">
-                    {{ payment.earningsReleaseDate | date:'MMM d, h:mm a' }}
+                    {{ payment.earningsReleaseDate | date:timePipeFormat }}
                   </div>
                   <div class="processing-time" *ngIf="!isPastReleaseDate(payment.earningsReleaseDate)">
                     Processes: {{ getProcessingTime(payment.earningsReleaseDate) }}

@@ -26,7 +26,7 @@ function extractVideoInfo(url) {
       return {
         provider: 'youtube',
         videoId: m[1],
-        embedUrl: `https://www.youtube.com/embed/${m[1]}?modestbranding=1&rel=0&showinfo=0`,
+        embedUrl: `https://www.youtube.com/embed/${m[1]}?modestbranding=1&rel=0&showinfo=0&enablejsapi=1`,
         thumbnailUrl: `https://img.youtube.com/vi/${m[1]}/hqdefault.jpg`
       };
     }

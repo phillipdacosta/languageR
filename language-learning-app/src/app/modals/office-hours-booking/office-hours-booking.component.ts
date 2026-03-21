@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController, ToastController } from '@ionic/angular';
 import { LessonService } from '../../services/lesson.service';
 import { Router } from '@angular/router';
+import { getGlobalHour12 } from '../../shared/timezone.utils';
 
 @Component({
   selector: 'app-office-hours-booking',
@@ -21,6 +22,7 @@ export class OfficeHoursBookingComponent implements OnInit {
   selectedDuration: number = 7;
   bookingType: 'instant' | 'scheduled' = 'instant';
   scheduledTime?: string; // For scheduled bookings
+  get scheduledTimePipeFormat(): string { return getGlobalHour12() ? 'EEE, MMM d, y h:mm a' : 'EEE, MMM d, y HH:mm'; }
   notes: string = '';
   isLoading = false;
   showConfirmation = false; // For price confirmation step
@@ -166,10 +168,10 @@ export class OfficeHoursBookingComponent implements OnInit {
     if (this.bookingType === 'instant') {
       const now = new Date();
       now.setMinutes(now.getMinutes() + 2); // Adding 2 min buffer
-      return now.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
+      return now.toLocaleTimeString('en-US', {
+        hour: 'numeric',
         minute: '2-digit',
-        hour12: true 
+        hour12: getGlobalHour12()
       });
     }
     return '';

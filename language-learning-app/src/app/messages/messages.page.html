@@ -196,12 +196,12 @@
       <div class="stable-chat-header" 
            [style.opacity]="hasConversationSelected ? '1' : '0'"
            [style.pointer-events]="hasConversationSelected ? 'auto' : 'none'">
-           <ion-avatar class="stable-chat-avatar">
+           <!-- <ion-avatar class="stable-chat-avatar">
             <img [src]="selectedConversation?.otherUser?.picture" *ngIf="selectedConversation?.otherUser?.picture" referrerpolicy="no-referrer" />
             <div class="avatar-fallback" *ngIf="!selectedConversation?.otherUser?.picture && selectedConversation">
               {{ selectedConversation?.otherUser?.name?.charAt(0) || '?' }}
             </div>
-          </ion-avatar>
+          </ion-avatar> -->
         <div class="stable-chat-name-group">
           <div class="stable-chat-name" 
                [textContent]="selectedConversation?.otherUser?.name || ''"
@@ -317,18 +317,15 @@
               <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="message-avatar system-avatar">
               <div class="message-bubble system-message" (click)="handleSystemMessageClick($event)">
                 <span class="message-text" [innerHTML]="message.content | markdownLink"></span>
-                <span class="message-timestamp">{{ message.createdAt | date: 'short' }}</span>
+                <span class="message-timestamp">{{ message.createdAt | date: shortDateTimeFormat }}</span>
               </div>
             </div>
 
               <!-- Regular Message Bubble -->
               <div *ngIf="message.type !== 'system' && !message.isSystemMessage"
                    class="message-wrapper"
-                   [class.has-reactions]="message.reactions && message.reactions.length > 0">
-              <div class="message-bubble" 
-                   [class.sent]="message.senderId === getCurrentUserId()"
-                   [class.received]="message.senderId !== getCurrentUserId()"
-                   [class.highlighted]="highlightedMessageId === message.id"
+                   [class.has-reactions]="message.reactions && message.reactions.length > 0"
+                   [class.is-mine]="message.senderId === getCurrentUserId()"
                    (mousedown)="onMessagePressStart(message, $event)"
                    (touchstart)="onMessagePressStart(message, $event)"
                    (mouseup)="onMessagePressEnd($event)"
@@ -336,6 +333,29 @@
                    (mouseleave)="onMessagePressEnd($event)"
                    (touchcancel)="onMessagePressEnd($event)"
                    (press)="onMessageTap(message, $event)">
+              <!-- Desktop avatar -->
+              <img class="msg-avatar"
+                   *ngIf="message.senderId === getCurrentUserId() && currentUser?.picture"
+                   [src]="currentUser.picture" referrerpolicy="no-referrer" />
+              <img class="msg-avatar"
+                   *ngIf="message.senderId !== getCurrentUserId() && selectedConversation?.otherUser?.picture"
+                   [src]="selectedConversation!.otherUser!.picture" referrerpolicy="no-referrer" />
+              <div class="msg-avatar msg-avatar-fallback"
+                   *ngIf="(message.senderId === getCurrentUserId() && !currentUser?.picture) || (message.senderId !== getCurrentUserId() && !selectedConversation?.otherUser?.picture)">
+                {{ message.senderId === getCurrentUserId() ? (currentUser?.name?.charAt(0) || '?') : (selectedConversation?.otherUser?.name?.charAt(0) || '?') }}
+              </div>
+              <div class="msg-body">
+              <div class="msg-header">
+                <span class="msg-sender-name"
+                      *ngIf="message.senderId !== getCurrentUserId()">{{ selectedConversation?.otherUser?.name }}</span>
+                <span class="msg-sender-name is-me"
+                      *ngIf="message.senderId === getCurrentUserId()">You</span>
+                <span class="msg-header-time">{{ formatTime(message.createdAt) }}</span>
+              </div>
+              <div class="message-bubble" 
+                   [class.sent]="message.senderId === getCurrentUserId()"
+                   [class.received]="message.senderId !== getCurrentUserId()"
+                   [class.highlighted]="highlightedMessageId === message.id">
                 
                 <!-- Replied-to message preview (if this is a reply) -->
                 <div *ngIf="message.replyTo" 
@@ -402,6 +422,7 @@
                   </div>
                 </div>
               </div>
+              </div><!-- /msg-body -->
               </div> <!-- Close message-wrapper for regular messages -->
             </div> <!-- Close message iteration -->
             </div> <!-- Close messages.length > 0 div -->
@@ -826,7 +847,7 @@
               <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="message-avatar system-avatar">
               <div class="message-bubble system-message" (click)="handleSystemMessageClick($event)">
                 <span class="message-text" [innerHTML]="message.content | markdownLink"></span>
-                <span class="message-timestamp">{{ message.createdAt | date: 'short' }}</span>
+                <span class="message-timestamp">{{ message.createdAt | date: shortDateTimeFormat }}</span>
               </div>
             </div>
 

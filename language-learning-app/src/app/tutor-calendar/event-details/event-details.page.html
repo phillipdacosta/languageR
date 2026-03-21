@@ -1,12 +1,5 @@
 <ion-header class="ion-no-border">
-  <ion-toolbar>
-    <ion-buttons slot="start">
-      <button class="go-back-btn" (click)="goBack()">
-        <ion-icon name="chevron-back-outline"></ion-icon>
-        <span>Back</span>
-      </button>
-    </ion-buttons>
-  </ion-toolbar>
+  <ion-toolbar></ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true">
@@ -66,9 +59,18 @@
 
     <!-- Actual Content (enters DOM only after ALL data loads) -->
     <div class="ed-content" *ngIf="!loading && lesson && !isClass">
-      <!-- ── Top: Status + Title ──────────────────────────────── -->
+
+      <div class="ed-layout">
+        <!-- ═══ LEFT: Main Column ═══════════════════════════════ -->
+        <div class="ed-main">
+
+      <!-- ── Top: Back + Status + Title ──────────────────────── -->
       <header class="ed-header">
         <div class="ed-header-top">
+          <button class="ed-back-btn" (click)="goBack()">
+            <ion-icon name="chevron-back-outline"></ion-icon>
+            <span>Back</span>
+          </button>
           <div class="ed-status-row">
             <span class="ed-status" [ngClass]="statusClass">{{ statusLabel }}</span>
             <span class="ed-type-label" *ngIf="lesson?.isTrialLesson">Trial lesson</span>
@@ -78,105 +80,119 @@
         <h1 class="ed-title">{{ lesson?.subject || 'Language Lesson' }}</h1>
       </header>
 
-    <div class="ed-divider"></div>
+    <!-- ── Participant Card (inline) ─────────────────────────── -->
+    <section class="ed-row ed-participant-inline">
+      <div class="ed-profile-top">
+        <div class="ed-profile-avatar-lg"
+          [class.clickable]="isStudentUser && tutorId"
+          (click)="openTutorProfile()">
+          <img *ngIf="participantPicture" [src]="participantPicture" [alt]="participantName" referrerpolicy="no-referrer">
+          <span *ngIf="!participantPicture" class="ed-avatar-placeholder-lg">{{ participantInitial }}</span>
+        </div>
 
-    <!-- ── Participant ──────────────────────────────────────── -->
-    <section class="ed-row">
-      <div 
-        class="ed-host"
-        [class.clickable]="isStudentUser && tutorId"
-        (click)="openTutorProfile()"
-        *ngIf="isStudentUser && tutorId; else nonClickableHost">
-        <div class="ed-host-avatar" *ngIf="participantPicture">
-          <img [src]="participantPicture" [alt]="participantName" referrerpolicy="no-referrer">
+        <div class="ed-profile-main">
+          <h3 class="ed-profile-name"
+            [class.clickable]="isStudentUser && tutorId"
+            (click)="openTutorProfile()">{{ participantName }}</h3>
+
+          <div class="ed-tutor-details">
+            <span class="ed-detail-item ed-detail-languages" *ngIf="participantLanguages.length">
+              <ng-container *ngFor="let lang of participantLanguages; let last = last">{{ lang }}{{ !last ? ', ' : '' }}</ng-container>
+              <span class="ed-tutor-label">{{ participantRole | lowercase }}</span>
+            </span>
+            <span class="ed-detail-item ed-detail-location" *ngIf="participantCountry">
+              <app-flag-icon [country]="participantCountry" [size]="16"></app-flag-icon>
+              From {{ participantCountry }}
+            </span>
+          </div>
+
+          <div class="ed-stats-pills">
+            <span class="ed-pill" *ngIf="tutorStatsRating && isStudentUser">
+              <ion-icon name="star"></ion-icon>
+              {{ tutorStatsRating }}
+            </span>
+            <span class="ed-pill" *ngIf="lessonsWithParticipant">
+              <ion-icon name="school-outline"></ion-icon>
+              {{ lessonsWithParticipant }} lessons together
+            </span>
+          </div>
         </div>
-        <div class="ed-host-avatar placeholder" *ngIf="!participantPicture">
-          {{ participantInitial }}
-        </div>
-        <div class="ed-host-text">
-          <span class="ed-host-role">{{ participantRole }}</span>
-          <span class="ed-host-name">{{ participantName }}</span>
-        </div>
-        <ion-icon name="chevron-forward-outline" class="ed-host-chevron"></ion-icon>
       </div>
-      <ng-template #nonClickableHost>
-        <div class="ed-host">
-          <div class="ed-host-avatar" *ngIf="participantPicture">
-            <img [src]="participantPicture" [alt]="participantName" referrerpolicy="no-referrer">
-          </div>
-          <div class="ed-host-avatar placeholder" *ngIf="!participantPicture">
-            {{ participantInitial }}
-          </div>
-          <div class="ed-host-text">
-            <span class="ed-host-role">{{ participantRole }}</span>
-            <span class="ed-host-name">{{ participantName }}</span>
-          </div>
-        </div>
-      </ng-template>
+
+      <div class="ed-quick-actions">
+        <button class="ed-action-pill" *ngIf="participantId" (click)="messageParticipant()">
+          <ion-icon name="chatbubble-outline"></ion-icon>
+          Message
+        </button>
+        <button class="ed-action-pill" *ngIf="isStudentUser && tutorId" (click)="shareTutor()">
+          <ion-icon name="share-outline"></ion-icon>
+          Share
+        </button>
+        <button class="ed-action-pill" *ngIf="isStudentUser && tutorId" (click)="bookLesson()">
+          <ion-icon name="calendar-outline"></ion-icon>
+          Book
+        </button>
+      </div>
     </section>
 
-    <div class="ed-divider"></div>
-
-    <!-- ── Key Details ──────────────────────────────────────── -->
+    <!-- ── Lesson Details (with optional Call Summary) ────── -->
     <section class="ed-row">
       <h2 class="ed-section-label">Lesson details</h2>
 
-      <div class="ed-detail">
-        <ion-icon name="calendar-outline"></ion-icon>
-        <div>
-          <span class="ed-detail-primary">{{ formattedDate }}</span>
-          <span class="ed-detail-secondary">{{ formattedTimeRange }}</span>
-        </div>
-      </div>
+      <div class="ed-details-split">
+        <div class="ed-details-col">
+          <div class="ed-detail">
+            <ion-icon name="calendar-outline"></ion-icon>
+            <div>
+              <span class="ed-detail-primary">{{ formattedDate }}</span>
+              <span class="ed-detail-secondary">{{ formattedTimeRange }}</span>
+            </div>
+          </div>
 
-      <div class="ed-detail">
-        <ion-icon name="time-outline"></ion-icon>
-        <div>
-          <span class="ed-detail-primary">{{ formattedDuration }}</span>
-          <span class="ed-detail-secondary" *ngIf="lesson?.bookingType && lesson?.bookingType !== 'scheduled'">{{ lesson?.bookingType === 'office_hours' ? 'Office Hours' : 'Instant booking' }}</span>
-        </div>
-      </div>
+          <div class="ed-detail">
+            <ion-icon name="time-outline"></ion-icon>
+            <div>
+              <span class="ed-detail-primary">{{ formattedDuration }}</span>
+              <span class="ed-detail-secondary" *ngIf="lesson?.bookingType && lesson?.bookingType !== 'scheduled'">{{ lesson?.bookingType === 'office_hours' ? 'Office Hours' : 'Instant booking' }}</span>
+            </div>
+          </div>
 
-      <div class="ed-detail" *ngIf="formattedPrice">
-        <ion-icon name="card-outline"></ion-icon>
-        <div>
-          <span class="ed-detail-primary">{{ formattedPrice }}</span>
-        </div>
-      </div>
+          <div class="ed-detail" *ngIf="formattedPrice">
+            <ion-icon name="card-outline"></ion-icon>
+            <div>
+              <span class="ed-detail-primary">{{ formattedPrice }}</span>
+            </div>
+          </div>
 
-      <div class="ed-detail" *ngIf="isStudentUser && paymentMethodLabel">
-        <img *ngIf="paymentMethodIcon === 'logo-google'" src="assets/google.png" alt="Google Pay" class="ed-payment-method-google" />
-        <ion-icon *ngIf="paymentMethodIcon !== 'logo-google'" [name]="paymentMethodIcon"></ion-icon>
-        <div>
-          <span class="ed-detail-primary">{{ paymentMethodLabel }}</span>
-          <span class="ed-detail-secondary">Payment method</span>
+          <div class="ed-detail" *ngIf="isStudentUser && paymentMethodLabel">
+            <img *ngIf="paymentMethodIcon === 'logo-google'" src="assets/google.png" alt="Google Pay" class="ed-payment-method-google" />
+            <ion-icon *ngIf="paymentMethodIcon !== 'logo-google'" [name]="paymentMethodIcon"></ion-icon>
+            <div>
+              <span class="ed-detail-primary">{{ paymentMethodLabel }}</span>
+              <span class="ed-detail-secondary">Payment method</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="ed-details-col" *ngIf="billingData && (formattedActualDuration || formattedActualPrice)">
+          <div class="ed-detail" *ngIf="formattedActualDuration">
+            <ion-icon name="stopwatch-outline"></ion-icon>
+            <div>
+              <span class="ed-detail-primary">{{ formattedActualDuration }}</span>
+              <span class="ed-detail-secondary">Actual duration</span>
+            </div>
+          </div>
+
+          <div class="ed-detail" *ngIf="formattedActualPrice">
+            <ion-icon name="receipt-outline"></ion-icon>
+            <div>
+              <span class="ed-detail-primary">{{ formattedActualPrice }}</span>
+              <span class="ed-detail-secondary">Final charge</span>
+            </div>
+          </div>
         </div>
       </div>
     </section>
-
-    <!-- ── Call Summary (completed) ─────────────────────────── -->
-    <ng-container *ngIf="billingData && (formattedActualDuration || formattedActualPrice)">
-      <div class="ed-divider"></div>
-      <section class="ed-row">
-        <h2 class="ed-section-label">Call summary</h2>
-
-        <div class="ed-detail" *ngIf="formattedActualDuration">
-          <ion-icon name="stopwatch-outline"></ion-icon>
-          <div>
-            <span class="ed-detail-primary">{{ formattedActualDuration }}</span>
-            <span class="ed-detail-secondary">Actual duration</span>
-          </div>
-        </div>
-
-        <div class="ed-detail" *ngIf="formattedActualPrice">
-          <ion-icon name="receipt-outline"></ion-icon>
-          <div>
-            <span class="ed-detail-primary">{{ formattedActualPrice }}</span>
-            <span class="ed-detail-secondary">Final charge</span>
-          </div>
-        </div>
-      </section>
-    </ng-container>
 
     <!-- ── Feedback Status Banner ────────────────────────────── -->
     <ng-container *ngIf="isLessonCompleted && !feedbackLoading && !analysisLoading">
@@ -270,6 +286,7 @@
       </section>
     </ng-container>
 
+
     <!-- ── Analysis (Student only) ───────────────────────── -->
     <ng-container *ngIf="hasAnalysis && isStudentUser">
       <div class="ed-divider"></div>
@@ -289,8 +306,8 @@
           </div>
         </div>
 
-        <!-- Scores -->
-        <div class="ed-scores" *ngIf="analysisData?.grammarAnalysis || analysisData?.fluencyAnalysis || analysisData?.pronunciationAnalysis">
+        <!-- Scores (AI-sourced only — tutor-sourced scores are derived approximations, not real measurements) -->
+        <div class="ed-scores" *ngIf="isAiAnalysis && (analysisData?.grammarAnalysis || analysisData?.fluencyAnalysis || analysisData?.pronunciationAnalysis)">
           <div class="ed-score" *ngIf="analysisData?.grammarAnalysis?.accuracyScore != null">
             <span class="ed-score-num" [style.color]="grammarScoreColor">{{ analysisData?.grammarAnalysis?.accuracyScore }}</span>
             <span class="ed-score-name">Grammar</span>
@@ -568,6 +585,211 @@
       </section>
     </ng-container>
 
+        </div><!-- /ed-main -->
+
+        <!-- ═══ RIGHT: Sidebar ════════════════════════════════ -->
+        <aside class="ed-sidebar">
+
+          <!-- Previous Lesson Notes -->
+          <div class="ed-sidebar-card ed-previous-notes-card" *ngIf="hasPreviousNotes">
+            <h4 class="ed-sidebar-card-title">Notes from last lesson <span class="ed-date-sub">{{ previousNotesDate }}</span></h4>
+
+            <span class="ed-impression" *ngIf="previousNotesData?.analysis?.tutorNote?.quickImpression">{{ previousNotesData.analysis.tutorNote.quickImpression }}</span>
+            <div class="ed-rich-body" *ngIf="previousNotesSanitized" [innerHTML]="previousNotesSanitized"></div>
+
+            <p class="ed-body" *ngIf="!previousNotesSanitized && previousNotesData?.analysis?.overallAssessment?.summary">
+              {{ previousNotesData.analysis.overallAssessment.summary }}
+            </p>
+            <p class="ed-body ed-italic" *ngIf="previousNotesData?.analysis?.overallAssessment?.progressFromLastLesson">
+              {{ previousNotesData.analysis.overallAssessment.progressFromLastLesson }}
+            </p>
+
+            <div class="ed-scores" *ngIf="previousNotesIsAiSource && (previousNotesData?.analysis?.grammarAnalysis || previousNotesData?.analysis?.fluencyAnalysis)">
+              <div class="ed-score" *ngIf="previousNotesData?.analysis?.grammarAnalysis?.accuracyScore != null">
+                <span class="ed-score-num">{{ previousNotesData.analysis.grammarAnalysis.accuracyScore }}</span>
+                <span class="ed-score-name">Grammar</span>
+              </div>
+              <div class="ed-score" *ngIf="previousNotesData?.analysis?.fluencyAnalysis?.overallFluencyScore != null">
+                <span class="ed-score-num">{{ previousNotesData.analysis.fluencyAnalysis.overallFluencyScore }}</span>
+                <span class="ed-score-name">Fluency</span>
+              </div>
+            </div>
+
+            <div class="ed-pn-block" *ngIf="previousNotesData?.analysis?.progressionMetrics?.persistentChallenges?.length">
+              <h3 class="ed-sub-label ed-warn">Recurring challenges</h3>
+              <div class="ed-tag-list">
+                <span class="ed-tag ed-tag-warn" *ngFor="let c of previousNotesData.analysis.progressionMetrics.persistentChallenges">{{ c }}</span>
+              </div>
+            </div>
+
+            <div class="ed-pn-block" *ngIf="previousNotesData?.analysis?.topErrors?.length">
+              <h3 class="ed-sub-label">Key mistakes</h3>
+              <div class="ed-pn-error" *ngFor="let e of previousNotesData.analysis.topErrors">
+                <div class="ed-pn-error-row">
+                  <span class="ed-pn-error-issue">{{ e.issue }}</span>
+                  <span class="ed-pn-severity" [attr.data-severity]="e.impact">{{ e.impact }}</span>
+                </div>
+                <p class="ed-pn-error-detail" *ngIf="e.teachingPriority">{{ e.teachingPriority }}</p>
+              </div>
+            </div>
+
+            <div class="ed-pn-block" *ngIf="previousNotesData?.analysis?.correctedExcerpts?.length">
+              <h3 class="ed-sub-label">Before &amp; after</h3>
+              <div class="ed-pn-excerpt" *ngFor="let ex of previousNotesData.analysis.correctedExcerpts">
+                <div class="ed-pn-diff-line ed-pn-diff-original">
+                  <span class="ed-pn-diff-marker">Said</span> {{ ex.original }}
+                </div>
+                <div class="ed-pn-diff-line ed-pn-diff-corrected">
+                  <span class="ed-pn-diff-marker">Fix</span> {{ ex.corrected }}
+                </div>
+              </div>
+            </div>
+
+            <div class="ed-pn-block" *ngIf="previousNotesData?.analysis?.strengths?.length">
+              <h3 class="ed-sub-label ed-good">Strengths</h3>
+              <div class="ed-tag-list">
+                <span class="ed-tag ed-tag-good" *ngFor="let s of previousNotesData.analysis.strengths">{{ s }}</span>
+              </div>
+            </div>
+
+            <div class="ed-pn-block" *ngIf="previousNotesData?.analysis?.areasForImprovement?.length">
+              <h3 class="ed-sub-label">Areas to work on</h3>
+              <ul class="ed-pn-list">
+                <li *ngFor="let a of previousNotesData.analysis.areasForImprovement">{{ a }}</li>
+              </ul>
+            </div>
+
+            <div class="ed-pn-block" *ngIf="previousNotesData?.analysis?.tutorNote?.homework">
+              <h3 class="ed-sub-label">Homework</h3>
+              <p class="ed-body">{{ previousNotesData.analysis.tutorNote.homework }}</p>
+            </div>
+
+            <div class="ed-pn-block" *ngIf="previousNotesData?.analysis?.suggestedExercises?.length">
+              <h3 class="ed-sub-label">Suggested exercises</h3>
+              <ul class="ed-pn-list">
+                <li *ngFor="let ex of previousNotesData.analysis.suggestedExercises">{{ ex }}</li>
+              </ul>
+            </div>
+
+            <div class="ed-pn-block" *ngIf="previousNotesData?.analysis?.recommendedFocus?.length">
+              <h3 class="ed-sub-label">Recommended focus</h3>
+              <ul class="ed-pn-list">
+                <li *ngFor="let f of previousNotesData.analysis.recommendedFocus">{{ f }}</li>
+              </ul>
+            </div>
+
+            <button class="link-btn" (click)="viewPreviousAnalysis()">View full analysis →</button>
+          </div>
+
+          <!-- Content Channels (student view only) -->
+          <div class="ed-sidebar-card ed-channels-card" *ngIf="isStudentUser && hasLinkedChannels">
+            <div class="ed-sidebar-card-header" [class.collapsible]="isTutorUser" (click)="isTutorUser && toggleChannelsSection()">
+              <h4 class="ed-sidebar-card-title">Content Channels</h4>
+              <ion-icon
+                *ngIf="isTutorUser"
+                [name]="channelsSectionExpanded ? 'chevron-up-outline' : 'chevron-down-outline'"
+                class="ed-sidebar-toggle-icon">
+              </ion-icon>
+            </div>
+            <div class="ed-collapsible-content" [class.collapsed]="!channelsSectionExpanded">
+              <div class="ed-channels-list">
+                <a class="ed-channel-chip" *ngIf="linkedChannels?.youtubeChannelName" [href]="linkedChannels.youtubeChannelUrl" target="_blank" rel="noopener">
+                  <img *ngIf="linkedChannels.youtubeChannelAvatar" [src]="linkedChannels.youtubeChannelAvatar" class="ed-channel-avatar" referrerpolicy="no-referrer" />
+                  <div class="ed-channel-info">
+                    <span class="ed-channel-name">{{ linkedChannels.youtubeChannelName }}</span>
+                    <span class="ed-channel-meta" *ngIf="linkedChannels.youtubeSubscriberCount">{{ linkedChannels.youtubeSubscriberCount }}</span>
+                  </div>
+                  <ion-icon name="logo-youtube" class="ed-channel-icon yt"></ion-icon>
+                </a>
+                <a class="ed-channel-chip" *ngIf="linkedChannels?.vimeoChannelName" [href]="linkedChannels.vimeoChannelUrl" target="_blank" rel="noopener">
+                  <img *ngIf="linkedChannels.vimeoChannelAvatar" [src]="linkedChannels.vimeoChannelAvatar" class="ed-channel-avatar" referrerpolicy="no-referrer" />
+                  <div class="ed-channel-info">
+                    <span class="ed-channel-name">{{ linkedChannels.vimeoChannelName }}</span>
+                    <span class="ed-channel-meta">Vimeo</span>
+                  </div>
+                  <ion-icon name="videocam-outline" class="ed-channel-icon vimeo"></ion-icon>
+                </a>
+                <a class="ed-channel-chip" *ngIf="linkedChannels?.soundcloudProfileName" [href]="linkedChannels.soundcloudProfileUrl" target="_blank" rel="noopener">
+                  <img *ngIf="linkedChannels.soundcloudProfileAvatar" [src]="linkedChannels.soundcloudProfileAvatar" class="ed-channel-avatar" referrerpolicy="no-referrer" />
+                  <div class="ed-channel-info">
+                    <span class="ed-channel-name">{{ linkedChannels.soundcloudProfileName }}</span>
+                    <span class="ed-channel-meta">SoundCloud</span>
+                  </div>
+                  <ion-icon name="musical-notes-outline" class="ed-channel-icon sc"></ion-icon>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Learning Materials (student view only) -->
+          <div class="ed-sidebar-card ed-materials-card" *ngIf="isStudentUser && tutorMaterials.length">
+            <div class="ed-sidebar-card-header" [class.collapsible]="isTutorUser" (click)="isTutorUser && toggleMaterialsSection()">
+              <h4 class="ed-sidebar-card-title">Learning Materials</h4>
+              <ion-icon
+                *ngIf="isTutorUser"
+                [name]="materialsSectionExpanded ? 'chevron-up-outline' : 'chevron-down-outline'"
+                class="ed-sidebar-toggle-icon">
+              </ion-icon>
+            </div>
+            <div class="ed-collapsible-content" [class.collapsed]="!materialsSectionExpanded">
+              <p class="ed-materials-subtitle">{{ tutorMaterials.length }} available</p>
+              <div class="ed-materials-scroll">
+                <div class="ed-material-tile" *ngFor="let m of tutorMaterials" (click)="openMaterial(m)" [class.has-thumb]="m.thumbnailUrl">
+                  <div class="ed-material-thumb" *ngIf="m.thumbnailUrl">
+                    <img [src]="m.thumbnailUrl" [alt]="m.title" />
+                  </div>
+                  <div class="ed-material-body">
+                    <div class="ed-material-type">
+                      <ion-icon [name]="m._typeIcon"></ion-icon>
+                      <span>{{ m._typeLabel }}</span>
+                    </div>
+                    <h5 class="ed-material-title">{{ m.title }}</h5>
+                    <p class="ed-material-pitch" *ngIf="m.whyTakeThis">{{ m.whyTakeThis }}</p>
+                    <div class="ed-material-footer">
+                      <span class="ed-material-level">{{ m.level | titlecase }}</span>
+                      <span class="ed-material-price" *ngIf="m.pricingType === 'free'">Free</span>
+                      <span class="ed-material-price paid" *ngIf="m.pricingType === 'paid'">${{ m.price }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Actions Card -->
+          <div class="ed-sidebar-card ed-actions-card"
+            *ngIf="showJoinButton || canCancelLesson || (isLessonCompleted && isStudentUser && tutorId) || (hasAnalysis && isStudentUser)">
+            <button
+              class="ed-sidebar-btn ed-btn-primary-full"
+              *ngIf="showJoinButton"
+              [disabled]="!canJoinLesson"
+              (click)="joinLesson()">
+              {{ joinLabel }}
+            </button>
+            <button
+              class="ed-sidebar-btn ed-btn-outline"
+              *ngIf="canCancelLesson"
+              (click)="openRescheduleModal()">
+              Reschedule
+            </button>
+            <button
+              class="ed-sidebar-btn ed-btn-outline"
+              *ngIf="isLessonCompleted && isStudentUser && tutorId"
+              (click)="openTutorProfile()">
+              Book again
+            </button>
+            <button
+              class="ed-sidebar-btn ed-btn-outline"
+              *ngIf="hasAnalysis && isStudentUser"
+              (click)="viewAnalysis()">
+              View full analysis
+            </button>
+          </div>
+
+
+        </aside>
+      </div><!-- /ed-layout -->
+
     <!-- Bottom spacer for sticky bar -->
     <div class="ed-bottom-spacer" *ngIf="showJoinButton || canCancelLesson"></div>
   </div>
@@ -693,8 +915,8 @@
 
 </ion-content>
 
-<!-- ── Sticky Bottom Bar ────────────────────────────────────── -->
-<ion-footer class="ion-no-border" *ngIf="!loading && !error && (showJoinButton || canCancelLesson) && !isClass">
+<!-- ── Sticky Bottom Bar (mobile only — desktop uses sidebar) ── -->
+<ion-footer class="ion-no-border ed-mobile-footer" *ngIf="!loading && !error && (showJoinButton || canCancelLesson) && !isClass">
   <div class="ed-action-bar">
     <div class="ed-action-info" *ngIf="formattedPrice">
       <span class="ed-action-price">{{ formattedPrice }}</span>

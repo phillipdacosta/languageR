@@ -513,7 +513,7 @@ export class ExplorePage implements OnInit, OnDestroy {
 
   viewClassDetails(classItem: any) {
     if (classItem._id) {
-      this.router.navigate(['/event', classItem._id]);
+      this.router.navigate(['/tabs/lessons', classItem._id]);
     }
   }
 

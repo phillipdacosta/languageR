@@ -73,7 +73,7 @@
               </div>
               <div class="md-video-wrap">
                 <div class="md-video">
-                  <iframe [src]="videoCoverVisible ? videoEmbedUrl : (videoAutoplayUrl || videoEmbedUrl)" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                  <iframe [src]="videoCoverVisible ? videoEmbedUrl : (videoAutoplayUrl || videoEmbedUrl)" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="origin"></iframe>
                 </div>
                 <div class="md-video-cover-overlay" *ngIf="material.thumbnailUrl && videoCoverVisible" (click)="playVideo()">
                   <img [src]="material.thumbnailUrl" [alt]="material.title" />

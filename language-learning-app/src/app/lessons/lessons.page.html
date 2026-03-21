@@ -13,8 +13,8 @@
   <div class="lessons-page">
     <h1 class="page-title">{{ 'LESSONS_PAGE.PAGE_TITLE' | translate }}</h1>
 
-    <!-- Stats Summary Row -->
-    <div class="stats-row">
+    <!-- Stats Summary Row (shown when loaded so numbers and layout are stable) -->
+    <div class="stats-row" *ngIf="!isLoading">
       <div class="stat-pill">
         <span class="stat-number">{{ totalCount }}</span>
         <span class="stat-label">{{ 'LESSONS_PAGE.STAT_TOTAL' | translate }}</span>
@@ -27,8 +27,8 @@
         <span class="stat-number">{{ completedCount }}</span>
         <span class="stat-label">{{ 'LESSONS_PAGE.STAT_COMPLETED' | translate }}</span>
       </div>
-      <div class="stat-pill" *ngIf="cancelledCount > 0">
-        <span class="stat-number cancelled">{{ cancelledCount }}</span>
+      <div class="stat-pill">
+        <span class="stat-number" [class.cancelled]="cancelledCount > 0">{{ cancelledCount }}</span>
         <span class="stat-label">{{ 'LESSONS_PAGE.STAT_CANCELLED' | translate }}</span>
       </div>
     </div>

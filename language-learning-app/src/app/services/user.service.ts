@@ -5,6 +5,7 @@ import { map, tap, take, switchMap, catchError } from 'rxjs/operators';
 import { AuthService } from './auth.service';
 import { environment } from '../../environments/environment';
 import { SupportedLanguage } from './language.service';
+import { setGlobalTimeFormat } from '../shared/timezone.utils';
 
 export interface User {
   id: string;
@@ -331,14 +332,21 @@ export class UserService {
 
   // Public method to get auth headers for current user (synchronous)
   public getAuthHeadersSync(): HttpHeaders {
-    // First try to get the current user from the BehaviorSubject (synchronous)
     let currentUser = this.currentUserSubject.value;
     let userEmail = currentUser?.email;
     
-    // If not available, check if we can get it from localStorage or another source
+    // Fallback: try localStorage cached email if BehaviorSubject hasn't loaded yet
+    if (!userEmail) {
+      try {
+        const cached = localStorage.getItem('currentUserEmail');
+        if (cached) {
+          userEmail = cached;
+        }
+      } catch {}
+    }
+
     if (!userEmail) {
       console.warn('⚠️ getAuthHeadersSync: No user email available yet');
-      // Return empty headers instead of 'unknown' to prevent malformed token
       return new HttpHeaders({
         'Content-Type': 'application/json'
       });
@@ -388,7 +396,14 @@ export class UserService {
       tap(user => {
         this.currentUserSubject.next(user);
         this.initialLoadComplete = true;
+
+        // Cache email for resilient auth header generation on page refresh
+        if (user?.email) {
+          try { localStorage.setItem('currentUserEmail', user.email); } catch {}
+        }
         
+        setGlobalTimeFormat(user?.profile?.calendarTimeFormat || '12h');
+
         // Update tutor approval status if user is a tutor
         if (user.userType === 'tutor') {
           this.updateTutorApprovalStatus(user);
@@ -632,7 +647,10 @@ export class UserService {
         });
       }),
       map(response => response.user),
-      tap(user => this.currentUserSubject.next(user))
+      tap(user => {
+        this.currentUserSubject.next(user);
+        setGlobalTimeFormat(user?.profile?.calendarTimeFormat || '12h');
+      })
     );
   }
 
@@ -693,6 +711,29 @@ export class UserService {
   getRemindersEnabled(): boolean {
     const currentUser = this.currentUserSubject.value;
     return currentUser?.profile?.remindersEnabled !== false; // Default true
+  }
+
+  /**
+   * Get the user's preferred time format (12h or 24h). Defaults to 12h.
+   */
+  getTimeFormat(): '12h' | '24h' {
+    const currentUser = this.currentUserSubject.value;
+    return currentUser?.profile?.calendarTimeFormat || '12h';
+  }
+
+  /**
+   * Whether the user prefers 24-hour time format.
+   */
+  get is24h(): boolean {
+    return this.getTimeFormat() === '24h';
+  }
+
+  /**
+   * Update the user's time format preference.
+   */
+  updateTimeFormat(format: '12h' | '24h'): Observable<User> {
+    setGlobalTimeFormat(format);
+    return this.updateProfile({ calendarTimeFormat: format });
   }
 
   /**

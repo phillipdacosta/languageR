@@ -2,7 +2,7 @@
 <ion-content>
   
   <!-- Hidden Earnings Component (for modal only) -->
-  <div style="position: absolute; left: -9999px; opacity: 0; pointer-events: none;">
+  <div class="visually-hidden-container">
     <app-earnings #earningsComponent [inline]="true" (goBackEvent)="onEarningsGoBack()" (balanceChanged)="onEarningsBalanceChanged($event)"></app-earnings>
   </div>
 
@@ -377,6 +377,13 @@
                   <span class="in-call-text">{{ 'HOME.PARTICIPANT_IN_CALL' | translate:{ name: nextLessonOtherName } }}</span>
                 </div>
 
+                <!-- Previous lesson notes link -->
+                <button class="previous-notes-link" *ngIf="previousNotesData" (click)="showPreviousNotesModal(); $event.stopPropagation()">
+                  <ion-icon name="document-text-outline"></ion-icon>
+                  <span>Notes from last lesson</span>
+                  <ion-icon name="chevron-forward-outline" class="chevron"></ion-icon>
+                </button>
+
                 <!-- Starts In Card (matches tutor design) -->
                 <div class="starts-in-card" *ngIf="nextLesson.lesson?.status !== 'cancelled'">
                   <span class="starts-label-modern">{{ isLessonInProgress(nextLesson?.lesson) ? ('HOME.STARTED' | translate) : ('HOME.STARTS_IN' | translate) }}</span>
@@ -470,13 +477,13 @@
                               class="stacked-avatar"
                               [style.zIndex]="card.avatars.length - i"
                               [style.marginLeft]="i === 0 ? '0' : '-12px'">
-                    <img [src]="avatar" alt="Tutor">
+                    <img [src]="avatar" alt="Tutor" referrerpolicy="no-referrer">
                   </ion-avatar>
                 </div>
                 
                 <!-- Single Avatar (for tutor recommendations, pending ratings) -->
                 <ion-avatar class="single-avatar" *ngIf="card.avatarUrl && !card.avatars">
-                  <img [src]="card.avatarUrl" alt="User">
+                  <img [src]="card.avatarUrl" alt="User" referrerpolicy="no-referrer">
                 </ion-avatar>
                 
                 <!-- Icon (when no avatars) -->
@@ -578,7 +585,7 @@
           (click)="openFeedbackForm(feedback.lessonId, feedback._id)"
         >
           <ion-avatar class="feedback-avatar">
-            <img [src]="feedback.studentPicture" *ngIf="feedback.studentPicture" />
+            <img [src]="feedback.studentPicture" *ngIf="feedback.studentPicture" referrerpolicy="no-referrer" />
             <div class="avatar-placeholder" *ngIf="!feedback.studentPicture">
               {{ feedback.studentName?.charAt(0) || 'S' }}
             </div>
@@ -738,6 +745,13 @@
           <span class="in-call-text">{{ 'HOME.PARTICIPANT_IN_CALL' | translate:{ name: nextLessonOtherName } }}</span>
         </div>
 
+        <!-- Previous lesson notes link -->
+        <button class="previous-notes-link" *ngIf="previousNotesData" (click)="showPreviousNotesModal()">
+          <ion-icon name="document-text-outline"></ion-icon>
+          <span>Notes from last lesson</span>
+          <ion-icon name="chevron-forward-outline" class="chevron"></ion-icon>
+        </button>
+
         <div class="upnext-filled-actions" *ngIf="nextClass.lesson?.status !== 'cancelled'">
           <ion-button 
             fill="outline" 
@@ -860,7 +874,7 @@
               </div>
               <div class="cu-preview-center">
                 <div class="cu-avatar">
-                  <img *ngIf="timelineEvents[0].avatar" [src]="timelineEvents[0].avatar" [alt]="timelineEvents[0].name">
+                  <img *ngIf="timelineEvents[0].avatar" [src]="timelineEvents[0].avatar" [alt]="timelineEvents[0].name" referrerpolicy="no-referrer">
                   <ion-icon *ngIf="!timelineEvents[0].avatar" name="person"></ion-icon>
                 </div>
                 <span class="cu-name">{{ timelineEvents[0].name }}</span>
@@ -877,19 +891,19 @@
       <!-- Quick Actions (Row 2, Right / full-width when no Coming Up) -->
       <div class="grid-cell-actions" *ngIf="!isMobile && !isLoadingLessons" [class.full-width]="timelineEvents.length === 0">
         <div class="actions-grid">
-          <div class="quick-action-card" (click)="navigateToExplore()">
+          <div class="quick-action-card qa-classes" (click)="navigateToExplore()">
             <div class="qa-icon"><ion-icon name="people-outline"></ion-icon></div>
             <span class="qa-label">{{ 'HOME.CLASSES' | translate }}</span>
           </div>
-          <div class="quick-action-card" (click)="navigateToCreateMaterial()">
+          <div class="quick-action-card qa-create-material" (click)="navigateToCreateMaterial()">
             <div class="qa-icon"><ion-icon name="create-outline"></ion-icon></div>
             <span class="qa-label">{{ 'HOME.CREATE_MATERIAL' | translate }}</span>
           </div>
-          <div class="quick-action-card">
+          <div class="quick-action-card qa-forum">
             <div class="qa-icon"><ion-icon name="chatbubbles-outline"></ion-icon></div>
             <span class="qa-label">{{ 'HOME.FORUM' | translate }}</span>
           </div>
-          <div class="quick-action-card">
+          <div class="quick-action-card qa-rating">
             <div class="qa-icon"><ion-icon name="star"></ion-icon></div>
             <span class="qa-label">{{ 'HOME.STATS_RATING' | translate }} {{ tutorRating }}</span>
           </div>
@@ -1057,9 +1071,13 @@
         <ion-icon name="create-outline"></ion-icon>
         {{ 'HOME.CREATE_MATERIAL' | translate }}
       </button>
-      <button class="explore-pill">
+      <button class="explore-pill explore-pill-forum">
         <ion-icon name="chatbubbles-outline"></ion-icon>
         {{ 'HOME.FORUM' | translate }}
+      </button>
+      <button class="explore-pill explore-pill-rating" type="button">
+        <ion-icon name="star"></ion-icon>
+        {{ 'HOME.STATS_RATING' | translate }} {{ tutorRating }}
       </button>
     </div>
 
@@ -1250,7 +1268,7 @@
                 <div class="airbnb-lesson-cancelled" *ngIf="event.isCancelled">{{ 'HOME.CANCELLED' | translate }}</div>
               </div>
               <div class="airbnb-lesson-avatar-small">
-                <img *ngIf="event.avatar" [src]="event.avatar" [alt]="event.name">
+                <img *ngIf="event.avatar" [src]="event.avatar" [alt]="event.name" referrerpolicy="no-referrer">
                 <ion-icon *ngIf="!event.avatar" name="person"></ion-icon>
               </div>
             </div>
@@ -1328,7 +1346,7 @@
                 <div class="airbnb-feedback-pending">{{ 'HOME.FEEDBACK_PENDING' | translate }}</div>
               </div>
               <div class="airbnb-lesson-avatar-small">
-                <img *ngIf="fb.studentPicture" [src]="fb.studentPicture" [alt]="fb.studentName">
+                <img *ngIf="fb.studentPicture" [src]="fb.studentPicture" [alt]="fb.studentName" referrerpolicy="no-referrer">
                 <ion-icon *ngIf="!fb.studentPicture" name="person"></ion-icon>
               </div>
             </div>
@@ -1341,5 +1359,186 @@
         </div>
       </div>
     </ion-content>
+  </ng-template>
+</ion-modal>
+
+<!-- Previous Lesson Notes Modal -->
+<ion-modal
+  [isOpen]="isPreviousNotesModalOpen"
+  (didDismiss)="closePreviousNotesModal()"
+  cssClass="previous-notes-modal">
+  <ng-template>
+    <div class="pn-modal" *ngIf="previousNotesData?.analysis">
+      <div class="pn-header">
+        <div class="pn-header-text">
+          <h2 class="pn-title">Notes from last lesson</h2>
+          <span class="pn-date">{{ previousNotesDate }}</span>
+        </div>
+        <button class="pn-close" (click)="closePreviousNotesModal()">
+          <ion-icon name="close"></ion-icon>
+        </button>
+      </div>
+
+      <div class="pn-body">
+        <!-- Tutor impression + note -->
+        <p class="pn-impression" *ngIf="previousNotesData.analysis.tutorNote?.quickImpression">
+          {{ previousNotesData.analysis.tutorNote.quickImpression }}
+        </p>
+        <div class="pn-note-text" *ngIf="previousNotesData.analysis.tutorNote?.text" [innerHTML]="previousNotesData.analysis.tutorNote.text"></div>
+        <p class="pn-summary" *ngIf="!previousNotesData.analysis.tutorNote?.text && previousNotesData.analysis.overallAssessment?.summary">
+          {{ previousNotesData.analysis.overallAssessment.summary }}
+        </p>
+        <p class="pn-progress" *ngIf="previousNotesData.analysis.overallAssessment?.progressFromLastLesson">
+          {{ previousNotesData.analysis.overallAssessment.progressFromLastLesson }}
+        </p>
+
+        <!-- Scores -->
+        <div class="pn-scores" *ngIf="previousNotesScores.length">
+          <div class="pn-score-pill" *ngFor="let s of previousNotesScores">
+            <span class="pn-score-value">{{ s.value }}</span>
+            <span class="pn-score-label">{{ s.label }}</span>
+          </div>
+        </div>
+
+        <!-- Persistent Challenges -->
+        <div class="pn-section" *ngIf="previousNotesData.analysis.progressionMetrics?.persistentChallenges?.length">
+          <h3 class="pn-section-label pn-label-warn">Recurring challenges</h3>
+          <ul class="pn-tag-list">
+            <li class="pn-tag pn-tag-warn" *ngFor="let c of previousNotesData.analysis.progressionMetrics.persistentChallenges">{{ c }}</li>
+          </ul>
+        </div>
+
+        <!-- Top Errors -->
+        <div class="pn-section" *ngIf="previousNotesData.analysis.topErrors?.length">
+          <h3 class="pn-section-label">Key mistakes</h3>
+          <div class="pn-error-card" *ngFor="let e of previousNotesData.analysis.topErrors">
+            <div class="pn-error-header">
+              <span class="pn-error-issue">{{ e.issue }}</span>
+              <span class="pn-severity-badge" [attr.data-severity]="e.impact">{{ e.impact }}</span>
+            </div>
+            <p class="pn-error-detail" *ngIf="e.teachingPriority">{{ e.teachingPriority }}</p>
+            <span class="pn-error-count" *ngIf="e.occurrences">{{ e.occurrences }} occurrence{{ e.occurrences > 1 ? 's' : '' }}</span>
+          </div>
+        </div>
+
+        <!-- Corrected Excerpts (before/after) -->
+        <div class="pn-section" *ngIf="previousNotesData.analysis.correctedExcerpts?.length">
+          <h3 class="pn-section-label">Before &amp; after</h3>
+          <div class="pn-excerpt-card" *ngFor="let ex of previousNotesData.analysis.correctedExcerpts">
+            <p class="pn-excerpt-context" *ngIf="ex.context">{{ ex.context }}</p>
+            <div class="pn-excerpt-diff">
+              <div class="pn-excerpt-line pn-excerpt-original">
+                <span class="pn-excerpt-marker">Student said</span>
+                <span>{{ ex.original }}</span>
+              </div>
+              <div class="pn-excerpt-line pn-excerpt-corrected">
+                <span class="pn-excerpt-marker">Corrected</span>
+                <span>{{ ex.corrected }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Error Patterns -->
+        <div class="pn-section" *ngIf="previousNotesData.analysis.errorPatterns?.length">
+          <h3 class="pn-section-label">Error patterns</h3>
+          <div class="pn-pattern-card" *ngFor="let ep of previousNotesData.analysis.errorPatterns">
+            <div class="pn-pattern-header">
+              <span class="pn-pattern-name">{{ ep.pattern }}</span>
+              <span class="pn-severity-badge" [attr.data-severity]="ep.severity">{{ ep.severity }}</span>
+            </div>
+            <div class="pn-pattern-examples" *ngIf="ep.examples?.length">
+              <div class="pn-pattern-example" *ngFor="let ex of ep.examples">
+                <span class="pn-ex-original" *ngIf="ex.original">"{{ ex.original }}"</span>
+                <span class="pn-ex-arrow" *ngIf="ex.original && ex.corrected">→</span>
+                <span class="pn-ex-corrected" *ngIf="ex.corrected">"{{ ex.corrected }}"</span>
+              </div>
+            </div>
+            <p class="pn-pattern-practice" *ngIf="ep.practiceNeeded">{{ ep.practiceNeeded }}</p>
+          </div>
+        </div>
+
+        <!-- Strengths -->
+        <div class="pn-section" *ngIf="previousNotesData.analysis.strengths?.length">
+          <h3 class="pn-section-label pn-label-good">Strengths</h3>
+          <ul class="pn-tag-list">
+            <li class="pn-tag pn-tag-good" *ngFor="let s of previousNotesData.analysis.strengths">{{ s }}</li>
+          </ul>
+        </div>
+
+        <!-- Areas for Improvement -->
+        <div class="pn-section" *ngIf="previousNotesData.analysis.areasForImprovement?.length">
+          <h3 class="pn-section-label">Areas to work on</h3>
+          <ul class="pn-bullet-list">
+            <li *ngFor="let a of previousNotesData.analysis.areasForImprovement">{{ a }}</li>
+          </ul>
+        </div>
+
+        <!-- Filler words -->
+        <div class="pn-section" *ngIf="previousNotesData.analysis.fluencyAnalysis?.fillerWords?.count">
+          <h3 class="pn-section-label">Filler words</h3>
+          <div class="pn-filler-row">
+            <span class="pn-filler-count">{{ previousNotesData.analysis.fluencyAnalysis.fillerWords.count }}x</span>
+            <span class="pn-filler-examples" *ngIf="previousNotesData.analysis.fluencyAnalysis.fillerWords.examples?.length">
+              {{ previousNotesData.analysis.fluencyAnalysis.fillerWords.examples.join(', ') }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Vocabulary insights -->
+        <div class="pn-section" *ngIf="previousNotesData.analysis.vocabularyAnalysis?.suggestedWords?.length || previousNotesData.analysis.vocabularyAnalysis?.advancedWordsUsed?.length">
+          <h3 class="pn-section-label">Vocabulary</h3>
+          <div class="pn-vocab-row" *ngIf="previousNotesData.analysis.vocabularyAnalysis.advancedWordsUsed?.length">
+            <span class="pn-vocab-sublabel">Used well</span>
+            <div class="pn-tag-list pn-tag-inline">
+              <span class="pn-tag pn-tag-good" *ngFor="let w of previousNotesData.analysis.vocabularyAnalysis.advancedWordsUsed">{{ w }}</span>
+            </div>
+          </div>
+          <div class="pn-vocab-row" *ngIf="previousNotesData.analysis.vocabularyAnalysis.suggestedWords?.length">
+            <span class="pn-vocab-sublabel">Suggested to learn</span>
+            <div class="pn-tag-list pn-tag-inline">
+              <span class="pn-tag pn-tag-neutral" *ngFor="let w of previousNotesData.analysis.vocabularyAnalysis.suggestedWords">{{ w }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Homework -->
+        <div class="pn-section" *ngIf="previousNotesData.analysis.tutorNote?.homework">
+          <h3 class="pn-section-label">Homework</h3>
+          <p class="pn-section-text">{{ previousNotesData.analysis.tutorNote.homework }}</p>
+        </div>
+
+        <!-- Suggested Exercises -->
+        <div class="pn-section" *ngIf="previousNotesData.analysis.suggestedExercises?.length">
+          <h3 class="pn-section-label">Suggested exercises</h3>
+          <ul class="pn-bullet-list">
+            <li *ngFor="let ex of previousNotesData.analysis.suggestedExercises">{{ ex }}</li>
+          </ul>
+        </div>
+
+        <!-- Recommended focus -->
+        <div class="pn-section" *ngIf="previousNotesData.analysis.recommendedFocus?.length">
+          <h3 class="pn-section-label">Recommended focus</h3>
+          <ul class="pn-bullet-list">
+            <li *ngFor="let f of previousNotesData.analysis.recommendedFocus">{{ f }}</li>
+          </ul>
+        </div>
+
+        <!-- Key improvements -->
+        <div class="pn-section" *ngIf="previousNotesData.analysis.progressionMetrics?.keyImprovements?.length">
+          <h3 class="pn-section-label pn-label-good">Improvements since last time</h3>
+          <ul class="pn-tag-list">
+            <li class="pn-tag pn-tag-good" *ngFor="let imp of previousNotesData.analysis.progressionMetrics.keyImprovements">{{ imp }}</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="pn-footer">
+        <button class="pn-action-btn" (click)="viewFullAnalysis()">
+          Show full analysis
+          <ion-icon name="arrow-forward-outline"></ion-icon>
+        </button>
+      </div>
+    </div>
   </ng-template>
 </ion-modal>

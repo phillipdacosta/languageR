@@ -3,13 +3,14 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Location } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
-import { LoadingController, AlertController, ToastController, IonicModule } from '@ionic/angular';
+import { LoadingController, AlertController, ToastController, ModalController, IonicModule } from '@ionic/angular';
+import { TutorAvailabilitySelectionModalComponent } from '../components/tutor-availability-selection-modal/tutor-availability-selection-modal.component';
 import { CommonModule } from '@angular/common';
 import { LessonAnalysis } from '../services/transcription.service';
 import { ReviewDeckService, ReviewDeckItem } from '../services/review-deck.service';
 import { UserService } from '../services/user.service';
 import { LessonService } from '../services/lesson.service';
-import { formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
+import { formatTimeInTz, formatDateInTz, getGlobalHour12 } from '../shared/timezone.utils';
 
 interface LessonInfo {
   _id: string;
@@ -43,6 +44,7 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
   lesson: LessonInfo | null = null;
   loading = true;
   error: string | null = null;
+  get shortDateTimeFormat(): string { return getGlobalHour12() ? 'M/d/yy, h:mm a' : 'M/d/yy, HH:mm'; }
   canGenerate = false;
   private pollingInterval: any = null;
   pollCount = 0;
@@ -76,7 +78,8 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
     private alertCtrl: AlertController,
     private toastCtrl: ToastController,
     private reviewDeckService: ReviewDeckService,
-    private lessonService: LessonService
+    private lessonService: LessonService,
+    private modalCtrl: ModalController
   ) {}
 
   ngOnInit() {
@@ -309,10 +312,28 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
   }
 
   async rebook() {
-    // Navigate to tutor profile to book again
-    if (this.lesson?.tutor._id) {
-      this.router.navigate(['/tutor', this.lesson.tutor._id]);
-    }
+    if (!this.lesson?.tutor) return;
+
+    const tutor = this.lesson.tutor;
+    const nameParts = (tutor.name || '').split(' ');
+
+    const modal = await this.modalCtrl.create({
+      component: TutorAvailabilitySelectionModalComponent,
+      componentProps: {
+        tutors: [{
+          id: tutor._id,
+          _id: tutor._id,
+          firstName: nameParts[0] || '',
+          lastName: nameParts.slice(1).join(' ') || '',
+          name: tutor.name,
+          picture: tutor.picture
+        }],
+        title: 'Book Again'
+      },
+      cssClass: 'tutor-availability-selection-modal'
+    });
+
+    await modal.present();
   }
 
   /**

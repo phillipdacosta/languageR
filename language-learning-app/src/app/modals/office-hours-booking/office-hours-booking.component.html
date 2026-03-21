@@ -174,7 +174,7 @@
     <!-- If scheduled, show time -->
     <div class="scheduled-summary" *ngIf="bookingType === 'scheduled' && scheduledTime">
       <ion-icon name="calendar"></ion-icon>
-      <span>{{ scheduledTime | date:'EEE, MMM d, y h:mm a' }}</span>
+      <span>{{ scheduledTime | date:scheduledTimePipeFormat }}</span>
     </div>
 
     <!-- Confirm Button -->

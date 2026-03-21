@@ -6,6 +6,7 @@ import { HttpClient } from '@angular/common/http';
 import { UserService } from '../services/user.service';
 import { environment } from '../../environments/environment';
 import { firstValueFrom } from 'rxjs';
+import { getGlobalHour12 } from '../shared/timezone.utils';
 
 interface ReviewMaterial {
   _id: string;
@@ -202,7 +203,7 @@ export class MaterialReviewPage implements OnInit {
 
   formatDate(iso: string): string {
     return new Date(iso).toLocaleDateString('en-US', {
-      month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit'
+      month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: getGlobalHour12()
     });
   }
 }

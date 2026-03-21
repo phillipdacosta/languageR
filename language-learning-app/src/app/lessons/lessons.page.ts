@@ -676,7 +676,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   onLessonClick(pl: ProcessedLesson, _event?: MouseEvent) {
-    this.router.navigate(['/event', pl.id]);
+    this.router.navigate(['/tabs/lessons', pl.id]);
   }
 
   viewFeedback(pl: ProcessedLesson) {

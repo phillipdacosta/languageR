@@ -11,7 +11,7 @@ import { firstValueFrom } from 'rxjs';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { CardManagementModalComponent } from '../components/card-management-modal/card-management-modal.component';
 import { environment } from '../../environments/environment';
-import { wallClockToUtc, formatTimeInTz } from '../shared/timezone.utils';
+import { wallClockToUtc, formatTimeInTz, getGlobalHour12 } from '../shared/timezone.utils';
 import { detectUserTimezone } from '../shared/timezone.constants';
 
 // Declare Stripe
@@ -969,7 +969,7 @@ export class CheckoutPage implements OnInit, OnDestroy {
 
   private format12h(d: Date): string {
     const tz = this.slotTimezone || detectUserTimezone();
-    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: tz });
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: getGlobalHour12(), timeZone: tz });
   }
 
   get timeRange(): string {
