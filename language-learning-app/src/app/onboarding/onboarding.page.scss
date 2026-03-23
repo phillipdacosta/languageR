@@ -20,7 +20,7 @@ $ob-accent: #222222;
   align-items: center;
   justify-content: center;
   height: 100vh;
-  background: #ffffff;
+  background: linear-gradient(180deg, #ffffff 0%, #f9f9fb 100%);
   padding: 24px;
   animation: preStepFadeIn 0.5s ease;
   overflow: hidden;
@@ -91,6 +91,33 @@ $ob-accent: #222222;
 
     &.visible {
       opacity: 1;
+    }
+  }
+}
+
+.pre-step-subtitle {
+  font-size: 15px;
+  color: $ob-text-tertiary;
+  margin: -16px 0 20px 0;
+  text-align: center;
+  font-weight: 400;
+  letter-spacing: -0.1px;
+}
+
+.pre-step-legal {
+  font-size: 12px;
+  color: $ob-text-tertiary;
+  text-align: center;
+  margin-top: 16px;
+  line-height: 1.5;
+
+  a {
+    color: $ob-text-secondary;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+
+    &:hover {
+      color: $ob-text-primary;
     }
   }
 }
@@ -309,7 +336,7 @@ $ob-accent: #222222;
   .welcome-revealed & {
     opacity: 1;
     transform: translateY(0);
-    max-height: 500px;
+    max-height: 1500px;
   }
 }
 
@@ -318,44 +345,161 @@ $ob-accent: #222222;
   font-weight: 400;
   color: $ob-text-secondary;
   line-height: 1.6;
-  margin: 0 0 40px;
+  margin: 0 0 28px;
   max-width: 400px;
   margin-left: auto;
   margin-right: auto;
 }
 
+.welcome-body .pre-step-cta {
+  width: auto;
+  min-width: 220px;
+  max-width: 320px;
+  padding: 14px 40px;
+}
+
 .welcome-features {
   display: flex;
-  justify-content: center;
-  gap: 32px;
-  margin-bottom: 44px;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 32px;
+  max-width: 380px;
+  margin-left: auto;
+  margin-right: auto;
 
-  .welcome-feature {
+  .welcome-feature-card {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 10px;
+    gap: 14px;
+    padding: 14px 16px;
+    background: #ffffff;
+    border: 1px solid $ob-border-light;
+    border-radius: 14px;
+    text-align: left;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+      border-color: $ob-border;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
 
     .feature-icon {
-      width: 52px;
-      height: 52px;
-      border-radius: 16px;
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
       background: $ob-bg-subtle;
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: background 0.2s ease;
+      flex-shrink: 0;
 
       ion-icon {
-        font-size: 24px;
+        font-size: 20px;
         color: $ob-text-primary;
       }
     }
 
-    span {
+    .feature-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+
+      .feature-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: $ob-text-primary;
+        letter-spacing: -0.1px;
+      }
+
+      .feature-desc {
+        font-size: 12px;
+        color: $ob-text-tertiary;
+        line-height: 1.4;
+      }
+    }
+  }
+}
+
+// How it works stepper
+.welcome-how-it-works {
+  margin-bottom: 32px;
+  text-align: center;
+
+  .how-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: $ob-text-tertiary;
+    margin: 0 0 14px 0;
+  }
+
+  .how-steps {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+  }
+
+  .how-step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .how-num {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: $ob-text-primary;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .how-text {
       font-size: 13px;
       font-weight: 500;
       color: $ob-text-secondary;
+      white-space: nowrap;
+    }
+  }
+
+  .how-connector {
+    width: 24px;
+    height: 1px;
+    background: $ob-border;
+    margin: 0 6px;
+    flex-shrink: 0;
+  }
+}
+
+// Trust Signals (Welcome page)
+.welcome-trust {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid $ob-border-light;
+
+  .trust-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    ion-icon {
+      font-size: 16px;
+      color: $ob-text-tertiary;
+    }
+
+    span {
+      font-size: 12px;
+      font-weight: 500;
+      color: $ob-text-tertiary;
       white-space: nowrap;
     }
   }
@@ -388,21 +532,49 @@ $ob-accent: #222222;
   }
 
   .welcome-features {
-    gap: 20px;
+    gap: 10px;
 
-    .welcome-feature .feature-icon {
-      width: 44px;
-      height: 44px;
-      border-radius: 12px;
+    .welcome-feature-card {
+      padding: 12px 14px;
 
-      ion-icon {
-        font-size: 20px;
+      .feature-icon {
+        width: 40px;
+        height: 40px;
+      }
+
+      .feature-text .feature-desc {
+        font-size: 11px;
       }
     }
+  }
 
-    .welcome-feature span {
-      font-size: 12px;
+  .welcome-how-it-works {
+    .how-steps {
+      flex-wrap: wrap;
+      gap: 8px;
     }
+
+    .how-connector {
+      display: none;
+    }
+
+    .how-step {
+      .how-text {
+        font-size: 12px;
+      }
+    }
+  }
+
+  .welcome-trust {
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+    padding-top: 12px;
+  }
+
+  .pre-step-subtitle {
+    font-size: 13px;
+    margin: -12px 0 16px 0;
   }
 }
 
@@ -416,31 +588,8 @@ ion-header {
     border-bottom: 1px solid rgba(0, 0, 0, 0.08);
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
     
-    .app-icon-container {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 8px;
-      margin-left: 4px;
-      cursor: pointer;
-      border-radius: 8px;
-      transition: background-color 0.2s ease, transform 0.15s ease;
-      
-      &:hover {
-        background-color: rgba(0, 0, 0, 0.05);
-      }
-      
-      &:active {
-        transform: scale(0.95);
-      }
-      
-      .app-icon {
-        width: 42px;
-        height: 42px;
-        border-radius: 10px;
-      }
-    }
-    
+    /* .app-icon-container / .app-icon / .app-name: global.scss (onboarding match) */
+
     .lang-switch-btn {
       display: flex;
       align-items: center;
@@ -535,16 +684,6 @@ ion-header {
   height: 100%;
   min-height: 0;
 
-  .left-column-mascot {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    width: 72px;
-    height: auto;
-    opacity: 0.85;
-    pointer-events: none;
-    z-index: 1;
-  }
   background: linear-gradient(
     220deg,
     rgba(66, 152, 211, 0.3) 0%,
@@ -630,41 +769,80 @@ ion-header {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  
+  gap: 0;
+  position: relative;
+
   .step-item {
     display: flex;
     align-items: flex-start;
-    gap: 10px;
-    padding: 12px;
-    border-radius: 12px;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
     cursor: pointer;
-    transition: background 0.25s ease, border-color 0.25s ease;
-    border: 1px solid transparent;
-    
+    transition: background 0.25s ease;
+    position: relative;
+
+    // Vertical connector line between step indicators
+    &:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      left: calc(12px + 13px);
+      top: calc(10px + 28px + 2px);
+      bottom: -2px;
+      width: 2px;
+      background: $ob-border-light;
+      transition: background 0.3s ease;
+    }
+
+    &.completed:not(:last-child)::after {
+      background: #34C759;
+    }
+
     &:hover {
-      background: $ob-bg-hover;
+      background: rgba(0, 0, 0, 0.03);
     }
-    
+
     &.current {
-      background: $ob-bg-subtle;
-      border-color: $ob-accent;
+      background: rgba(0, 0, 0, 0.04);
+
+      .step-info h3 {
+        color: $ob-text-primary;
+      }
     }
-    
+
     &.completed {
-      opacity: 0.7;
-      
       .step-indicator {
-        background: #34C759 !important;
-        opacity: 1 !important;
-        
+        background: #34C759;
+
         ion-icon {
           color: white;
           font-size: 14px;
         }
       }
+
+      .step-info h3 {
+        color: $ob-text-secondary;
+      }
+
+      .step-info p {
+        color: $ob-text-tertiary;
+      }
     }
-    
+
+    &:not(.current):not(.completed) {
+      .step-indicator {
+        background: rgba(0, 0, 0, 0.06);
+      }
+
+      .step-info h3 {
+        color: $ob-text-secondary;
+      }
+
+      .step-info p {
+        color: $ob-text-tertiary;
+      }
+    }
+
     .step-indicator {
       width: 28px;
       height: 28px;
@@ -674,39 +852,44 @@ ion-header {
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
-      transition: background 0.25s ease, transform 0.15s ease;
-      
+      transition: background 0.3s ease, box-shadow 0.3s ease;
+      z-index: 1;
+
       .step-number {
         font-size: 12px;
         font-weight: 600;
         color: $ob-text-secondary;
       }
     }
-    
+
     &.current .step-indicator {
       background: $ob-accent;
-      
+      box-shadow: 0 0 0 3px rgba(34, 34, 34, 0.12);
+
       .step-number {
         color: white;
       }
     }
-    
+
     .step-info {
       flex: 1;
-      
+      padding-top: 3px;
+
       h3 {
         margin: 0 0 2px 0;
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 600;
         color: $ob-text-primary;
-        letter-spacing: -0.2px;
+        letter-spacing: -0.1px;
+        transition: color 0.25s ease;
       }
-      
+
       p {
         margin: 0;
-        font-size: 12px;
+        font-size: 11px;
         color: $ob-text-secondary;
         line-height: 1.3;
+        transition: color 0.25s ease;
       }
     }
   }
@@ -714,23 +897,26 @@ ion-header {
   // Review step at the bottom of the sidebar
   .step-item.review-step {
     margin-top: 8px;
-    border-top: 1px solid $ob-border-light;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
     padding-top: 14px;
-    opacity: 1;
-    
+
+    &::after {
+      display: none !important;
+    }
+
     .review-indicator {
       background: $ob-accent !important;
-      
+
       ion-icon {
         color: white;
         font-size: 14px;
       }
     }
-    
+
     .step-info h3 {
       color: $ob-accent;
     }
-    
+
     &:hover {
       background: rgba($ob-accent, 0.06);
     }
@@ -778,12 +964,54 @@ ion-header {
 
 // Right Column - Step Content
 .right-column {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 0;
   height: 100%;
   min-height: 0;
   overflow: hidden;
+  padding-top: 0;
+}
+
+// Step transition animation
+@keyframes stepFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// Thin progress bar at top of right column
+.right-col-progress {
+  width: 100%;
+  height: 3px;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 2px;
+  overflow: hidden;
+  flex-shrink: 0;
+
+  .right-col-progress-fill {
+    height: 100%;
+    background: $ob-accent;
+    border-radius: 2px;
+    transition: width 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+}
+
+.right-column-mascot {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 72px;
+  height: auto;
+  opacity: 0.85;
+  pointer-events: none;
+  z-index: 10;
 }
 
 .step-content-scrollable {
@@ -791,6 +1019,7 @@ ion-header {
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 8px;
+  padding-top: 20px;
   min-height: 0;
   max-height: 100%;
   
@@ -819,20 +1048,26 @@ ion-header {
   text-align: center;
   padding: 0 0 40px 0;
   margin: 0 auto;
-  
+
+  > div {
+    animation: stepFadeIn 0.3s ease-out;
+  }
+
   .step-title {
-    font-size: 20px;
+    font-size: 26px;
     font-weight: 700;
     color: $ob-text-primary;
-    margin: 0 0 6px 0;
-    letter-spacing: -0.5px;
+    margin: 0 0 8px 0;
+    letter-spacing: -0.6px;
+    line-height: 1.2;
   }
-  
+
   .step-description {
-    font-size: 14px;
-    color: $ob-text-secondary;
-    margin: 0 0 24px 0;
+    font-size: 15px;
+    color: $ob-text-tertiary;
+    margin: 0 0 28px 0;
     line-height: 1.5;
+    font-weight: 400;
   }
 }
 
@@ -1147,14 +1382,50 @@ ion-header {
 }
 
 .custom-goal-input {
-  margin-top: 16px;
+  margin-top: 20px;
+  animation: stepFadeIn 0.25s ease-out;
 
   label {
     display: block;
     font-size: 13px;
     font-weight: 600;
     color: $ob-text-secondary;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
+    letter-spacing: 0.1px;
+  }
+
+  .custom-goal-textarea {
+    width: 100%;
+    padding: 14px 16px;
+    border: 1.5px solid $ob-border;
+    border-radius: 12px;
+    font-size: 15px;
+    font-family: inherit;
+    color: $ob-text-primary;
+    background: #ffffff;
+    resize: none;
+    line-height: 1.5;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+    &:focus {
+      outline: none;
+      border-color: $ob-text-primary;
+      box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.04);
+    }
+
+    &::placeholder {
+      color: #c7c7cc;
+      font-weight: 400;
+    }
+  }
+
+  .custom-goal-hint {
+    display: block;
+    text-align: right;
+    font-size: 12px;
+    color: #c7c7cc;
+    margin-top: 6px;
+    font-variant-numeric: tabular-nums;
   }
 }
 
@@ -1296,14 +1567,52 @@ ion-header {
 }
 
 .date-picker-wrapper {
-  margin-top: 16px;
+  margin-top: 20px;
+  animation: stepFadeIn 0.25s ease-out;
 
   label {
     display: block;
     font-size: 13px;
     font-weight: 600;
     color: $ob-text-secondary;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
+    letter-spacing: 0.1px;
+  }
+
+  input[type="date"] {
+    width: 100%;
+    padding: 14px 16px;
+    border: 1.5px solid $ob-border;
+    border-radius: 12px;
+    font-size: 15px;
+    font-family: inherit;
+    color: $ob-text-primary;
+    background: #ffffff;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    appearance: none;
+    -webkit-appearance: none;
+
+    &:focus {
+      outline: none;
+      border-color: $ob-text-primary;
+      box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.04);
+    }
+
+    &::-webkit-date-and-time-value {
+      text-align: left;
+    }
+
+    &::-webkit-calendar-picker-indicator {
+      opacity: 0.5;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      transition: opacity 0.2s ease;
+
+      &:hover {
+        opacity: 0.8;
+      }
+    }
   }
 }
 
@@ -1443,158 +1752,261 @@ ion-header {
 }
 
 // ==========================================
-// Preview Page
+// Preview Page — Two-column layout
 // ==========================================
 .preview-container {
   width: 100%;
   height: 100vh;
-  overflow-y: auto;
+  overflow: hidden;
+  background: linear-gradient(160deg, #f8f8fa 0%, #f2f2f5 40%, #eeeef2 100%);
+  animation: stepFadeIn 0.35s ease-out;
+}
+
+.preview-layout {
   display: flex;
-  align-items: flex-start;
+  width: 100%;
+  height: 100%;
+}
+
+// Left hero column
+.preview-hero-col {
+  width: 42%;
+  min-width: 340px;
+  display: flex;
+  align-items: center;
   justify-content: center;
-  padding: 24px;
-  background: linear-gradient(135deg, #fafafa 0%, #f5f5f7 50%, #f0f0f2 100%);
-  
-  // Ensure content starts at top
-  &::-webkit-scrollbar {
-    width: 8px;
+  padding: 48px 40px;
+  background: #ffffff;
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 10%;
+    height: 80%;
+    width: 1px;
+    background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.06) 50%, transparent 100%);
   }
-  
-  &::-webkit-scrollbar-track {
-    background: transparent;
+}
+
+.preview-hero-inner {
+  max-width: 360px;
+  width: 100%;
+}
+
+.preview-hero-badge {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #34c759 0%, #30b350 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 12px rgba(52, 199, 89, 0.25);
+
+  ion-icon {
+    font-size: 26px;
+    color: #fff;
   }
-  
-  &::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 4px;
-    
-    &:hover {
-      background: rgba(0, 0, 0, 0.3);
+}
+
+.preview-hero-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: $ob-text-primary;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+}
+
+.preview-hero-subtitle {
+  font-size: 15px;
+  color: $ob-text-secondary;
+  margin: 0 0 32px 0;
+  line-height: 1.55;
+}
+
+.preview-hero-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 36px;
+  padding: 20px;
+  background: #f9f9fb;
+  border-radius: 14px;
+
+  .preview-summary-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    .summary-emoji {
+      font-size: 20px;
+      flex-shrink: 0;
+      width: 28px;
+      text-align: center;
+    }
+
+    .summary-text {
+      font-size: 15px;
+      font-weight: 500;
+      color: $ob-text-primary;
+      line-height: 1.4;
     }
   }
 }
 
-.preview-card {
-  width: 100%;
-  max-width: 640px;
-  background: white;
-  border-radius: 20px;
-  padding: 40px 36px;
-  margin: 0 auto;
-  margin-top: 24px;
-  margin-bottom: 24px;
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.04),
-    0 4px 12px rgba(0, 0, 0, 0.06),
-    0 8px 24px rgba(0, 0, 0, 0.04);
-  animation: fadeInUp 0.4s ease;
-}
+.preview-hero-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 
-.preview-header {
-  text-align: center;
-  margin-bottom: 32px;
-  
-  .preview-icon-circle {
-    width: 56px;
-    height: 56px;
-    border-radius: 16px;
-    background: $ob-accent;
+  .submit-action {
+    --background: #222222;
+    --background-activated: #000000;
+    --background-hover: #111111;
+    --color: #ffffff;
+    --border-radius: 14px;
+    --box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    height: 52px;
+    font-size: 16px;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: -0.2px;
+    width: 100%;
+
+    .btn-spinner {
+      width: 20px;
+      height: 20px;
+      margin-right: 8px;
+    }
+  }
+
+  .preview-back-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 0 auto 16px auto;
-    
-    ion-icon {
-      font-size: 28px;
-      color: white;
-    }
-  }
-  
-  .preview-title {
-    font-size: 24px;
-    font-weight: 700;
-    color: $ob-text-primary;
-    margin: 0 0 8px 0;
-    letter-spacing: -0.5px;
-  }
-  
-  .preview-subtitle {
-    font-size: 15px;
+    gap: 6px;
+    background: none;
+    border: none;
+    font-size: 14px;
+    font-weight: 500;
     color: $ob-text-secondary;
-    margin: 0;
-    line-height: 1.5;
+    cursor: pointer;
+    padding: 10px;
+    border-radius: 10px;
+    transition: color 0.2s ease;
+
+    ion-icon { font-size: 16px; }
+
+    &:hover { color: $ob-text-primary; }
   }
 }
 
-.preview-sections {
+// Right details column
+.preview-details-col {
+  flex: 1;
+  overflow-y: auto;
+  padding: 48px 40px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  margin-bottom: 32px;
-}
+  gap: 16px;
+  align-content: center;
+  justify-content: center;
 
-.preview-section {
-  border: 1px solid $ob-border-light;
-  border-radius: 14px;
-  padding: 18px 20px;
-  
-  .preview-section-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 14px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid $ob-border-light;
-    
-    ion-icon {
-      font-size: 20px;
-      color: $ob-accent;
-    }
-    
-    h3 {
-      font-size: 15px;
-      font-weight: 600;
-      color: $ob-text-primary;
-      margin: 0;
-      flex: 1;
-    }
-    
-    .edit-link {
-      background: none;
-      border: none;
-      color: #007AFF;
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-      padding: 4px 8px;
-      border-radius: 6px;
-      transition: background 0.2s ease;
-      
-      &:hover {
-        background: rgba(0, 122, 255, 0.08);
-      }
-    }
+  &::-webkit-scrollbar { width: 6px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(0,0,0,0.12);
+    border-radius: 3px;
   }
 }
 
-.preview-row {
+.preview-detail-card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 20px 24px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 14px rgba(0,0,0,0.05);
+  max-width: 520px;
+  width: 100%;
+  animation: stepFadeIn 0.3s ease-out;
+
+  &:nth-child(2) { animation-delay: 0.06s; }
+  &:nth-child(3) { animation-delay: 0.12s; }
+}
+
+.preview-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+
+  .preview-detail-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: #f2f2f7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    ion-icon {
+      font-size: 16px;
+      color: $ob-text-primary;
+    }
+  }
+
+  h3 {
+    font-size: 15px;
+    font-weight: 600;
+    color: $ob-text-primary;
+    margin: 0;
+    flex: 1;
+  }
+
+  .edit-link {
+    background: none;
+    border: none;
+    color: #007AFF;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: 6px;
+    transition: background 0.2s ease;
+
+    &:hover { background: rgba(0, 122, 255, 0.08); }
+  }
+}
+
+.preview-detail-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.preview-detail-row {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  padding: 8px 0;
-  
-  & + .preview-row {
-    border-top: 1px solid rgba(0, 0, 0, 0.04);
+  padding: 10px 0;
+
+  & + .preview-detail-row {
+    border-top: 1px solid rgba(0,0,0,0.04);
   }
-  
-  .preview-label {
+
+  .detail-label {
     font-size: 14px;
     color: $ob-text-secondary;
     flex-shrink: 0;
     margin-right: 16px;
   }
-  
-  .preview-value {
+
+  .detail-value {
     font-size: 14px;
     font-weight: 500;
     color: $ob-text-primary;
@@ -1603,55 +2015,38 @@ ion-header {
   }
 }
 
-.preview-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  
-  .preview-back-btn {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: none;
-    border: none;
-    font-size: 15px;
-    font-weight: 500;
-    color: $ob-text-secondary;
-    cursor: pointer;
-    padding: 10px 16px;
-    border-radius: 10px;
-    transition: background 0.2s ease, color 0.2s ease;
-    
-    ion-icon {
-      font-size: 18px;
-    }
-    
-    &:hover {
-      background: $ob-bg-hover;
-      color: $ob-text-primary;
-    }
+// Mobile: stack columns
+@media (max-width: 768px) {
+  .preview-container {
+    overflow-y: auto;
+    height: auto;
+    min-height: 100vh;
   }
-  
-  .submit-action {
-    --background: #222222;
-    --background-activated: #000000;
-    --background-hover: #000000;
-    --color: #ffffff;
-    --border-radius: 12px;
-    --box-shadow: none;
-    height: 48px;
-    font-size: 15px;
-    font-weight: 600;
-    text-transform: none;
-    letter-spacing: -0.2px;
-    min-width: 200px;
-    
-    .btn-spinner {
-      width: 20px;
-      height: 20px;
-      margin-right: 8px;
-    }
+
+  .preview-layout {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .preview-hero-col {
+    width: 100%;
+    min-width: 0;
+    padding: 32px 24px;
+
+    &::after { display: none; }
+  }
+
+  .preview-hero-inner {
+    max-width: 100%;
+  }
+
+  .preview-details-col {
+    padding: 24px;
+    overflow-y: visible;
+  }
+
+  .preview-detail-card {
+    max-width: 100%;
   }
 }
 

@@ -997,7 +997,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
 
   private loadStudentPlanContext() {
     try {
-      const lesson = this.lessonService.getCurrentLesson();
+      const lesson = this.currentLessonData;
       if (!lesson) return;
       const studentId = lesson.studentId?._id || lesson.studentId;
       if (!studentId) return;

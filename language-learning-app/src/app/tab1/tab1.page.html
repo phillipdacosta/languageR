@@ -816,7 +816,8 @@
         </div>
         <ion-button 
           [disabled]="pendingFeedbackCount > 0"
-          fill="solid" 
+          fill="solid"
+          expand="block"
           class="empty-state-clean-btn"
           routerLink="{{ hasAvailability ? '/tabs/tutor-calendar' : '/tabs/availability-setup' }}">
           <span [@buttonTextFade]="buttonTextState" class="button-text-animated">

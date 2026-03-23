@@ -483,7 +483,14 @@
     "LANG_SELECT": {
       "TITLE": "Dilinizi seçin",
       "SUBTITLE": "Uygulama genelinde kullanmak istediğiniz dili seçin",
-      "CONFIRM": "Devam"
+      "CONFIRM": "Devam",
+      "CHOOSE_SUBTITLE": "Choose your preferred language for the app"
+    },
+    "LEGAL": {
+      "AGREE_PREFIX": "By continuing, you agree to our",
+      "TERMS": "Terms of Service",
+      "AND": "and",
+      "PRIVACY": "Privacy Policy"
     },
     "COUNTRY_MODAL": {
       "ORIGIN_TITLE": "Menşe ülkenizi seçin",
@@ -511,7 +518,29 @@
       "TUTOR_GREETING": "Barnabi'ye Hoş Geldiniz",
       "TUTOR_SUBTITLE": "Öğretmen topluluğumuza katılın ve dünya genelinde öğrencilere ders vermeye başlayın. Profilinizi hazırlayalım.",
       "CTA": "Başlayın",
-      "BACK": "Dili Değiştir"
+      "BACK": "Dili Değiştir",
+      "TRUST_SECURE": "Private & secure",
+      "TRUST_TIME": "Takes 2 minutes",
+      "TRUST_FREE": "No credit card needed to sign up",
+      "FEAT1_TITLE": "Find a Tutor",
+      "FEAT1_DESC": "Browse verified tutors who match your goals and schedule",
+      "FEAT2_TITLE": "Start Lesson",
+      "FEAT2_DESC": "Join HD video lessons from anywhere, on any device",
+      "FEAT3_TITLE": "Track Progress",
+      "FEAT3_DESC": "See your improvement with AI-powered insights after every lesson",
+      "TUTOR_FEAT1_TITLE": "Set Your Schedule",
+      "TUTOR_FEAT1_DESC": "Control when you're available to teach",
+      "TUTOR_FEAT2_TITLE": "Teach Live",
+      "TUTOR_FEAT2_DESC": "HD video lessons with built-in teaching tools",
+      "TUTOR_FEAT3_TITLE": "Get Paid",
+      "TUTOR_FEAT3_DESC": "Earn on your terms with transparent payouts",
+      "HOW_LABEL": "How it works",
+      "HOW_STEP1": "Set up your profile",
+      "HOW_STEP2": "Find a tutor",
+      "HOW_STEP3": "Start learning",
+      "TUTOR_HOW_STEP1": "Build your profile",
+      "TUTOR_HOW_STEP2": "Set availability",
+      "TUTOR_HOW_STEP3": "Start teaching"
     },
     "NAV": {
       "PREVIOUS": "Önceki",
@@ -968,7 +997,6 @@
     "FEEDBACK_PENDING": "Geri Bildirim Bekliyor",
     "LEAVE_FEEDBACK": "Geri Bildirim Bırak",
     "ADD_NOTE": "Not Ekle",
-
     "MODAL_FILTERS_TITLE": "Filtreler",
     "SELECTED": "Seçili",
     "TIME_PERIOD": "Zaman dilimi",
@@ -987,14 +1015,12 @@
     "STATUS_CANCELLED": "İptal Edilen",
     "SHOW_LESSON": "{{count}} ders göster",
     "SHOW_LESSONS": "{{count}} ders göster",
-
     "NOTE_MODAL_TITLE": "Bu Ders İçin Notunuz",
     "QUICK_IMPRESSION": "Hızlı İzlenim",
     "YOUR_NOTE": "Notunuz",
     "HOMEWORK": "Ödev",
     "EDIT": "Düzenle",
     "CLOSE": "Kapat",
-
     "TOAST_LOAD_FAILED": "Dersler yüklenemedi",
     "UNKNOWN": "Bilinmeyen",
     "CLASS_STUDENTS": " öğrenci",
@@ -1005,7 +1031,6 @@
     "STATUS_SCHEDULED": "Planlandı",
     "STATUS_IN_PROGRESS": "Devam Ediyor",
     "STATUS_PENDING": "Beklemede",
-
     "ISSUE_TUTOR_NO_SHOW": "Öğretmen gelmedi",
     "ISSUE_STUDENT_NO_SHOW": "Öğrenci gelmedi",
     "ISSUE_ENDED_EARLY": "Ders erken bitti",
@@ -1013,7 +1038,6 @@
     "ISSUE_INAPPROPRIATE": "Uygunsuz davranış",
     "ISSUE_TECHNICAL": "Teknik sorunlar",
     "ISSUE_OTHER": "Diğer",
-
     "ALERT_REPORT_HEADER": "Sorun Bildir",
     "ALERT_REPORT_MESSAGE": "Yaşadığınız sorunu seçin:",
     "ALERT_CANCEL": "İptal",
@@ -1024,7 +1048,6 @@
     "ALERT_DETAILS_PLACEHOLDER": "Ne olduğunu açıklayın...",
     "ALERT_SUBMIT": "Rapor Gönder",
     "ALERT_MIN_CHARS": "En az 10 karakter girin",
-
     "TOAST_SUBMITTING": "Rapor gönderiliyor...",
     "TOAST_ISSUE_REPORTED": "Sorun başarıyla bildirildi.",
     "TOAST_REPORT_FAILED": "Sorun bildirimi başarısız oldu."

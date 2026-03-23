@@ -483,7 +483,14 @@
     "LANG_SELECT": {
       "TITLE": "اختر لغتك",
       "SUBTITLE": "اختر اللغة التي تريد استخدامها في جميع أنحاء التطبيق",
-      "CONFIRM": "متابعة"
+      "CONFIRM": "متابعة",
+      "CHOOSE_SUBTITLE": "Choose your preferred language for the app"
+    },
+    "LEGAL": {
+      "AGREE_PREFIX": "By continuing, you agree to our",
+      "TERMS": "Terms of Service",
+      "AND": "and",
+      "PRIVACY": "Privacy Policy"
     },
     "COUNTRY_MODAL": {
       "ORIGIN_TITLE": "اختر بلدك الأصلي",
@@ -511,7 +518,29 @@
       "TUTOR_GREETING": "مرحباً بك في Barnabi",
       "TUTOR_SUBTITLE": "انضم إلى مجتمع المعلمين لدينا وابدأ بتعليم الطلاب حول العالم. لنجهّز ملفك الشخصي.",
       "CTA": "ابدأ الآن",
-      "BACK": "تغيير اللغة"
+      "BACK": "تغيير اللغة",
+      "TRUST_SECURE": "Private & secure",
+      "TRUST_TIME": "Takes 2 minutes",
+      "TRUST_FREE": "No credit card needed to sign up",
+      "FEAT1_TITLE": "Find a Tutor",
+      "FEAT1_DESC": "Browse verified tutors who match your goals and schedule",
+      "FEAT2_TITLE": "Start Lesson",
+      "FEAT2_DESC": "Join HD video lessons from anywhere, on any device",
+      "FEAT3_TITLE": "Track Progress",
+      "FEAT3_DESC": "See your improvement with AI-powered insights after every lesson",
+      "TUTOR_FEAT1_TITLE": "Set Your Schedule",
+      "TUTOR_FEAT1_DESC": "Control when you're available to teach",
+      "TUTOR_FEAT2_TITLE": "Teach Live",
+      "TUTOR_FEAT2_DESC": "HD video lessons with built-in teaching tools",
+      "TUTOR_FEAT3_TITLE": "Get Paid",
+      "TUTOR_FEAT3_DESC": "Earn on your terms with transparent payouts",
+      "HOW_LABEL": "How it works",
+      "HOW_STEP1": "Set up your profile",
+      "HOW_STEP2": "Find a tutor",
+      "HOW_STEP3": "Start learning",
+      "TUTOR_HOW_STEP1": "Build your profile",
+      "TUTOR_HOW_STEP2": "Set availability",
+      "TUTOR_HOW_STEP3": "Start teaching"
     },
     "NAV": {
       "PREVIOUS": "السابق",
@@ -968,7 +997,6 @@
     "FEEDBACK_PENDING": "بانتظار التقييم",
     "LEAVE_FEEDBACK": "ترك تقييم",
     "ADD_NOTE": "إضافة ملاحظة",
-
     "MODAL_FILTERS_TITLE": "الفلاتر",
     "SELECTED": "محدد",
     "TIME_PERIOD": "الفترة الزمنية",
@@ -987,14 +1015,12 @@
     "STATUS_CANCELLED": "الملغاة",
     "SHOW_LESSON": "عرض {{count}} درس",
     "SHOW_LESSONS": "عرض {{count}} دروس",
-
     "NOTE_MODAL_TITLE": "ملاحظتك لهذا الدرس",
     "QUICK_IMPRESSION": "انطباع سريع",
     "YOUR_NOTE": "ملاحظتك",
     "HOMEWORK": "واجب منزلي",
     "EDIT": "تعديل",
     "CLOSE": "إغلاق",
-
     "TOAST_LOAD_FAILED": "فشل تحميل الدروس",
     "UNKNOWN": "غير معروف",
     "CLASS_STUDENTS": " طالب(طلاب)",
@@ -1005,7 +1031,6 @@
     "STATUS_SCHEDULED": "مجدول",
     "STATUS_IN_PROGRESS": "جارٍ",
     "STATUS_PENDING": "معلّق",
-
     "ISSUE_TUTOR_NO_SHOW": "لم يحضر المعلم",
     "ISSUE_STUDENT_NO_SHOW": "لم يحضر الطالب",
     "ISSUE_ENDED_EARLY": "انتهى الدرس مبكراً",
@@ -1013,7 +1038,6 @@
     "ISSUE_INAPPROPRIATE": "سلوك غير لائق",
     "ISSUE_TECHNICAL": "مشاكل تقنية",
     "ISSUE_OTHER": "أخرى",
-
     "ALERT_REPORT_HEADER": "الإبلاغ عن مشكلة",
     "ALERT_REPORT_MESSAGE": "يرجى اختيار المشكلة التي واجهتها:",
     "ALERT_CANCEL": "إلغاء",
@@ -1024,7 +1048,6 @@
     "ALERT_DETAILS_PLACEHOLDER": "صف ما حدث...",
     "ALERT_SUBMIT": "إرسال التقرير",
     "ALERT_MIN_CHARS": "يرجى إدخال 10 أحرف على الأقل",
-
     "TOAST_SUBMITTING": "جارٍ إرسال التقرير...",
     "TOAST_ISSUE_REPORTED": "تم الإبلاغ عن المشكلة بنجاح.",
     "TOAST_REPORT_FAILED": "فشل الإبلاغ عن المشكلة."

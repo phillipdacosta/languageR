@@ -482,7 +482,14 @@
     "LANG_SELECT": {
       "TITLE": "Оберіть свою мову",
       "SUBTITLE": "Виберіть мову, яку ви хочете використовувати в додатку",
-      "CONFIRM": "Продовжити"
+      "CONFIRM": "Продовжити",
+      "CHOOSE_SUBTITLE": "Choose your preferred language for the app"
+    },
+    "LEGAL": {
+      "AGREE_PREFIX": "By continuing, you agree to our",
+      "TERMS": "Terms of Service",
+      "AND": "and",
+      "PRIVACY": "Privacy Policy"
     },
     "COUNTRY_MODAL": {
       "ORIGIN_TITLE": "Оберіть країну походження",
@@ -510,7 +517,29 @@
       "TUTOR_GREETING": "Ласкаво просимо до Barnabi",
       "TUTOR_SUBTITLE": "Приєднуйтесь до нашої спільноти репетиторів та починайте навчати студентів з усього світу. Підготуймо ваш профіль.",
       "CTA": "Розпочати",
-      "BACK": "Змінити мову"
+      "BACK": "Змінити мову",
+      "TRUST_SECURE": "Private & secure",
+      "TRUST_TIME": "Takes 2 minutes",
+      "TRUST_FREE": "No credit card needed to sign up",
+      "FEAT1_TITLE": "Find a Tutor",
+      "FEAT1_DESC": "Browse verified tutors who match your goals and schedule",
+      "FEAT2_TITLE": "Start Lesson",
+      "FEAT2_DESC": "Join HD video lessons from anywhere, on any device",
+      "FEAT3_TITLE": "Track Progress",
+      "FEAT3_DESC": "See your improvement with AI-powered insights after every lesson",
+      "TUTOR_FEAT1_TITLE": "Set Your Schedule",
+      "TUTOR_FEAT1_DESC": "Control when you're available to teach",
+      "TUTOR_FEAT2_TITLE": "Teach Live",
+      "TUTOR_FEAT2_DESC": "HD video lessons with built-in teaching tools",
+      "TUTOR_FEAT3_TITLE": "Get Paid",
+      "TUTOR_FEAT3_DESC": "Earn on your terms with transparent payouts",
+      "HOW_LABEL": "How it works",
+      "HOW_STEP1": "Set up your profile",
+      "HOW_STEP2": "Find a tutor",
+      "HOW_STEP3": "Start learning",
+      "TUTOR_HOW_STEP1": "Build your profile",
+      "TUTOR_HOW_STEP2": "Set availability",
+      "TUTOR_HOW_STEP3": "Start teaching"
     },
     "NAV": {
       "PREVIOUS": "Попередній",
@@ -967,7 +996,6 @@
     "FEEDBACK_PENDING": "Очікування відгуку",
     "LEAVE_FEEDBACK": "Залишити відгук",
     "ADD_NOTE": "Додати нотатку",
-
     "MODAL_FILTERS_TITLE": "Фільтри",
     "SELECTED": "Обрано",
     "TIME_PERIOD": "Період",
@@ -986,14 +1014,12 @@
     "STATUS_CANCELLED": "Скасовані",
     "SHOW_LESSON": "Показати {{count}} урок",
     "SHOW_LESSONS": "Показати {{count}} уроків",
-
     "NOTE_MODAL_TITLE": "Ваша нотатка до уроку",
     "QUICK_IMPRESSION": "Швидке враження",
     "YOUR_NOTE": "Ваша нотатка",
     "HOMEWORK": "Домашнє завдання",
     "EDIT": "Редагувати",
     "CLOSE": "Закрити",
-
     "TOAST_LOAD_FAILED": "Не вдалося завантажити уроки",
     "UNKNOWN": "Невідомо",
     "CLASS_STUDENTS": " учень(ів)",
@@ -1004,7 +1030,6 @@
     "STATUS_SCHEDULED": "Заплановано",
     "STATUS_IN_PROGRESS": "В процесі",
     "STATUS_PENDING": "Очікування",
-
     "ISSUE_TUTOR_NO_SHOW": "Репетитор не з'явився",
     "ISSUE_STUDENT_NO_SHOW": "Учень не з'явився",
     "ISSUE_ENDED_EARLY": "Урок закінчився раніше",
@@ -1012,7 +1037,6 @@
     "ISSUE_INAPPROPRIATE": "Неналежна поведінка",
     "ISSUE_TECHNICAL": "Технічні проблеми",
     "ISSUE_OTHER": "Інше",
-
     "ALERT_REPORT_HEADER": "Повідомити про проблему",
     "ALERT_REPORT_MESSAGE": "Оберіть проблему, з якою ви зіткнулися:",
     "ALERT_CANCEL": "Скасувати",
@@ -1023,7 +1047,6 @@
     "ALERT_DETAILS_PLACEHOLDER": "Опишіть, що сталося...",
     "ALERT_SUBMIT": "Надіслати звіт",
     "ALERT_MIN_CHARS": "Введіть щонайменше 10 символів",
-
     "TOAST_SUBMITTING": "Надсилання звіту...",
     "TOAST_ISSUE_REPORTED": "Проблему успішно надіслано.",
     "TOAST_REPORT_FAILED": "Не вдалося надіслати звіт."

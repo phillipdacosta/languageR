@@ -338,26 +338,7 @@ ion-content {
   }
 }
 
-.app-icon-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px;
-  cursor: pointer;
-  border-radius: 8px;
-  transition: background-color 0.2s ease, transform 0.2s ease;
-  
-  &:active {
-    transform: scale(0.95);
-    background-color: rgba(0, 0, 0, 0.05);
-  }
-  
-  .app-icon {
-    width: 40px;
-    height: 40px;
-    object-fit: contain;
-  }
-}
+// App toolbar brand: global .app-icon-container (matches onboarding)
 
 .header-avatar {
   width: 56px;
@@ -1982,9 +1963,13 @@ ion-content {
 
 .upnext-filled-actions {
   margin-top: 0;
-  width: 50%;
+  width: 100%;
+  max-width: 292px;
 
   .empty-state-clean-btn {
+    width: 100%;
+    margin-inline: 0;
+
     &.active {
       --background: #222222 !important;
       --color: #ffffff !important;
@@ -5768,6 +5753,11 @@ ion-content {
       gap: 32px;
     }
 
+    &:not(.upnext-filled) > .empty-state-clean-btn {
+      width: 100%;
+      max-width: 292px;
+    }
+
     .empty-state-clean-icon {
       @media (max-width: 600px) {
         width: 72px;
@@ -5837,6 +5827,7 @@ ion-content {
       .upnext-filled-actions {
         @media (max-width: 600px) {
           width: 100%;
+          max-width: 100%;
           margin-top: 4px;
 
           .empty-state-clean-btn {
@@ -6164,7 +6155,7 @@ ion-content {
   
   .withdraw-btn {
     --border-radius: 12px;
-    --border-color: #222222;
+    --border-color: #cfcfcf;
     --color: #222222;
     --border-width: 1px;
     font-weight: 600;
@@ -10473,9 +10464,9 @@ ion-content {
       .pending-label { color: #999 !important; }
     }
     .withdraw-btn {
-      --border-color: #fff !important;
+      --border-color: #4d4d4d !important;
       --color: #fff !important;
-      &:hover { --background: #fff !important; --color: #1a1a1a !important; }
+      &:hover { --background: #fff !important; --color: #1a1a1a !important; --border-color: #fff !important; }
     }
     .view-details-link { color: #4298d3 !important; }
   }

@@ -337,7 +337,14 @@
     "LANG_SELECT": {
       "TITLE": "Elige tu idioma",
       "SUBTITLE": "Selecciona el idioma que deseas usar en toda la aplicación",
-      "CONFIRM": "Continuar"
+      "CONFIRM": "Continuar",
+      "CHOOSE_SUBTITLE": "Elige tu idioma preferido para la app"
+    },
+    "LEGAL": {
+      "AGREE_PREFIX": "Al continuar, aceptas nuestros",
+      "TERMS": "Términos de servicio",
+      "AND": "y",
+      "PRIVACY": "Política de privacidad"
     },
     "COUNTRY_MODAL": {
       "ORIGIN_TITLE": "Selecciona tu país de origen",
@@ -365,7 +372,29 @@
       "TUTOR_GREETING": "Bienvenido a Barnabi",
       "TUTOR_SUBTITLE": "Únete a nuestra comunidad de tutores y comienza a enseñar a estudiantes de todo el mundo. Preparemos tu perfil.",
       "CTA": "Comenzar",
-      "BACK": "Cambiar idioma"
+      "BACK": "Cambiar idioma",
+      "TRUST_SECURE": "Privado y seguro",
+      "TRUST_TIME": "Toma 2 minutos",
+      "TRUST_FREE": "No se necesita tarjeta de crédito para registrarse",
+      "FEAT1_TITLE": "Encuentra un tutor",
+      "FEAT1_DESC": "Busca tutores verificados que se adapten a tus objetivos y horario",
+      "FEAT2_TITLE": "Inicia una clase",
+      "FEAT2_DESC": "Únete a clases en video HD desde cualquier lugar y dispositivo",
+      "FEAT3_TITLE": "Sigue tu progreso",
+      "FEAT3_DESC": "Ve tu mejora con análisis impulsados por IA después de cada clase",
+      "TUTOR_FEAT1_TITLE": "Define tu horario",
+      "TUTOR_FEAT1_DESC": "Controla cuándo estás disponible para enseñar",
+      "TUTOR_FEAT2_TITLE": "Enseña en vivo",
+      "TUTOR_FEAT2_DESC": "Clases en video HD con herramientas de enseñanza integradas",
+      "TUTOR_FEAT3_TITLE": "Recibe pagos",
+      "TUTOR_FEAT3_DESC": "Gana a tu ritmo con pagos transparentes",
+      "HOW_LABEL": "Cómo funciona",
+      "HOW_STEP1": "Configura tu perfil",
+      "HOW_STEP2": "Encuentra un tutor",
+      "HOW_STEP3": "Empieza a aprender",
+      "TUTOR_HOW_STEP1": "Crea tu perfil",
+      "TUTOR_HOW_STEP2": "Define tu disponibilidad",
+      "TUTOR_HOW_STEP3": "Empieza a enseñar"
     },
     "NAV": {
       "PREVIOUS": "Anterior",

@@ -482,7 +482,14 @@
     "LANG_SELECT": {
       "TITLE": "Valitse kielesi",
       "SUBTITLE": "Valitse kieli, jota haluat käyttää sovelluksessa",
-      "CONFIRM": "Jatka"
+      "CONFIRM": "Jatka",
+      "CHOOSE_SUBTITLE": "Choose your preferred language for the app"
+    },
+    "LEGAL": {
+      "AGREE_PREFIX": "By continuing, you agree to our",
+      "TERMS": "Terms of Service",
+      "AND": "and",
+      "PRIVACY": "Privacy Policy"
     },
     "COUNTRY_MODAL": {
       "ORIGIN_TITLE": "Valitse alkuperämaasi",
@@ -510,7 +517,29 @@
       "TUTOR_GREETING": "Tervetuloa Barnabiin",
       "TUTOR_SUBTITLE": "Liity opettajayhteisöömme ja aloita opiskelijoiden opettaminen maailmanlaajuisesti. Laitetaan profiilisi valmiiksi.",
       "CTA": "Aloita",
-      "BACK": "Vaihda kieli"
+      "BACK": "Vaihda kieli",
+      "TRUST_SECURE": "Private & secure",
+      "TRUST_TIME": "Takes 2 minutes",
+      "TRUST_FREE": "No credit card needed to sign up",
+      "FEAT1_TITLE": "Find a Tutor",
+      "FEAT1_DESC": "Browse verified tutors who match your goals and schedule",
+      "FEAT2_TITLE": "Start Lesson",
+      "FEAT2_DESC": "Join HD video lessons from anywhere, on any device",
+      "FEAT3_TITLE": "Track Progress",
+      "FEAT3_DESC": "See your improvement with AI-powered insights after every lesson",
+      "TUTOR_FEAT1_TITLE": "Set Your Schedule",
+      "TUTOR_FEAT1_DESC": "Control when you're available to teach",
+      "TUTOR_FEAT2_TITLE": "Teach Live",
+      "TUTOR_FEAT2_DESC": "HD video lessons with built-in teaching tools",
+      "TUTOR_FEAT3_TITLE": "Get Paid",
+      "TUTOR_FEAT3_DESC": "Earn on your terms with transparent payouts",
+      "HOW_LABEL": "How it works",
+      "HOW_STEP1": "Set up your profile",
+      "HOW_STEP2": "Find a tutor",
+      "HOW_STEP3": "Start learning",
+      "TUTOR_HOW_STEP1": "Build your profile",
+      "TUTOR_HOW_STEP2": "Set availability",
+      "TUTOR_HOW_STEP3": "Start teaching"
     },
     "NAV": {
       "PREVIOUS": "Edellinen",
@@ -967,7 +996,6 @@
     "FEEDBACK_PENDING": "Palaute odottaa",
     "LEAVE_FEEDBACK": "Anna palautetta",
     "ADD_NOTE": "Lisää muistiinpano",
-
     "MODAL_FILTERS_TITLE": "Suodattimet",
     "SELECTED": "Valittu",
     "TIME_PERIOD": "Ajanjakso",
@@ -986,14 +1014,12 @@
     "STATUS_CANCELLED": "Peruttu",
     "SHOW_LESSON": "Näytä {{count}} oppitunti",
     "SHOW_LESSONS": "Näytä {{count}} oppituntia",
-
     "NOTE_MODAL_TITLE": "Muistiinpanosi tästä oppitunnista",
     "QUICK_IMPRESSION": "Pikakommentti",
     "YOUR_NOTE": "Muistiinpanosi",
     "HOMEWORK": "Kotitehtävä",
     "EDIT": "Muokkaa",
     "CLOSE": "Sulje",
-
     "TOAST_LOAD_FAILED": "Oppituntien lataaminen epäonnistui",
     "UNKNOWN": "Tuntematon",
     "CLASS_STUDENTS": " oppilas(ta)",
@@ -1004,7 +1030,6 @@
     "STATUS_SCHEDULED": "Aikataulutettu",
     "STATUS_IN_PROGRESS": "Käynnissä",
     "STATUS_PENDING": "Odottaa",
-
     "ISSUE_TUTOR_NO_SHOW": "Opettaja ei saapunut paikalle",
     "ISSUE_STUDENT_NO_SHOW": "Oppilas ei saapunut paikalle",
     "ISSUE_ENDED_EARLY": "Oppitunti päättyi aikaisin",
@@ -1012,7 +1037,6 @@
     "ISSUE_INAPPROPRIATE": "Sopimaton käytös",
     "ISSUE_TECHNICAL": "Tekniset ongelmat",
     "ISSUE_OTHER": "Muu",
-
     "ALERT_REPORT_HEADER": "Ilmoita ongelma",
     "ALERT_REPORT_MESSAGE": "Valitse kohtaamasi ongelma:",
     "ALERT_CANCEL": "Peruuta",
@@ -1023,7 +1047,6 @@
     "ALERT_DETAILS_PLACEHOLDER": "Kuvaile mitä tapahtui...",
     "ALERT_SUBMIT": "Lähetä raportti",
     "ALERT_MIN_CHARS": "Anna vähintään 10 merkkiä",
-
     "TOAST_SUBMITTING": "Lähetetään raporttia...",
     "TOAST_ISSUE_REPORTED": "Ongelma ilmoitettu onnistuneesti.",
     "TOAST_REPORT_FAILED": "Ongelman ilmoittaminen epäonnistui."

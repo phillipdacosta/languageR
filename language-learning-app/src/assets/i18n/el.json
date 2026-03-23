@@ -482,7 +482,14 @@
     "LANG_SELECT": {
       "TITLE": "Επιλέξτε τη γλώσσα σας",
       "SUBTITLE": "Επιλέξτε τη γλώσσα που θέλετε να χρησιμοποιήσετε σε όλη την εφαρμογή",
-      "CONFIRM": "Συνέχεια"
+      "CONFIRM": "Συνέχεια",
+      "CHOOSE_SUBTITLE": "Choose your preferred language for the app"
+    },
+    "LEGAL": {
+      "AGREE_PREFIX": "By continuing, you agree to our",
+      "TERMS": "Terms of Service",
+      "AND": "and",
+      "PRIVACY": "Privacy Policy"
     },
     "COUNTRY_MODAL": {
       "ORIGIN_TITLE": "Επιλέξτε τη χώρα καταγωγής σας",
@@ -510,7 +517,29 @@
       "TUTOR_GREETING": "Καλώς ήρθατε στο Barnabi",
       "TUTOR_SUBTITLE": "Γίνετε μέλος της κοινότητας καθηγητών μας και ξεκινήστε να διδάσκετε μαθητές παγκοσμίως. Ας ετοιμάσουμε το προφίλ σας.",
       "CTA": "Ξεκινήστε",
-      "BACK": "Αλλαγή γλώσσας"
+      "BACK": "Αλλαγή γλώσσας",
+      "TRUST_SECURE": "Private & secure",
+      "TRUST_TIME": "Takes 2 minutes",
+      "TRUST_FREE": "No credit card needed to sign up",
+      "FEAT1_TITLE": "Find a Tutor",
+      "FEAT1_DESC": "Browse verified tutors who match your goals and schedule",
+      "FEAT2_TITLE": "Start Lesson",
+      "FEAT2_DESC": "Join HD video lessons from anywhere, on any device",
+      "FEAT3_TITLE": "Track Progress",
+      "FEAT3_DESC": "See your improvement with AI-powered insights after every lesson",
+      "TUTOR_FEAT1_TITLE": "Set Your Schedule",
+      "TUTOR_FEAT1_DESC": "Control when you're available to teach",
+      "TUTOR_FEAT2_TITLE": "Teach Live",
+      "TUTOR_FEAT2_DESC": "HD video lessons with built-in teaching tools",
+      "TUTOR_FEAT3_TITLE": "Get Paid",
+      "TUTOR_FEAT3_DESC": "Earn on your terms with transparent payouts",
+      "HOW_LABEL": "How it works",
+      "HOW_STEP1": "Set up your profile",
+      "HOW_STEP2": "Find a tutor",
+      "HOW_STEP3": "Start learning",
+      "TUTOR_HOW_STEP1": "Build your profile",
+      "TUTOR_HOW_STEP2": "Set availability",
+      "TUTOR_HOW_STEP3": "Start teaching"
     },
     "NAV": {
       "PREVIOUS": "Προηγούμενο",
@@ -967,7 +996,6 @@
     "FEEDBACK_PENDING": "Εκκρεμεί Αξιολόγηση",
     "LEAVE_FEEDBACK": "Αφήστε Αξιολόγηση",
     "ADD_NOTE": "Προσθήκη Σημείωσης",
-
     "MODAL_FILTERS_TITLE": "Φίλτρα",
     "SELECTED": "Επιλεγμένα",
     "TIME_PERIOD": "Χρονική περίοδος",
@@ -986,14 +1014,12 @@
     "STATUS_CANCELLED": "Ακυρωμένα",
     "SHOW_LESSON": "Εμφάνιση {{count}} μαθήματος",
     "SHOW_LESSONS": "Εμφάνιση {{count}} μαθημάτων",
-
     "NOTE_MODAL_TITLE": "Η Σημείωσή σας για αυτό το Μάθημα",
     "QUICK_IMPRESSION": "Γρήγορη Εντύπωση",
     "YOUR_NOTE": "Η Σημείωσή σας",
     "HOMEWORK": "Εργασία",
     "EDIT": "Επεξεργασία",
     "CLOSE": "Κλείσιμο",
-
     "TOAST_LOAD_FAILED": "Αποτυχία φόρτωσης μαθημάτων",
     "UNKNOWN": "Άγνωστο",
     "CLASS_STUDENTS": " μαθητής/ές",
@@ -1004,7 +1030,6 @@
     "STATUS_SCHEDULED": "Προγραμματισμένο",
     "STATUS_IN_PROGRESS": "Σε Εξέλιξη",
     "STATUS_PENDING": "Σε Αναμονή",
-
     "ISSUE_TUTOR_NO_SHOW": "Ο καθηγητής δεν εμφανίστηκε",
     "ISSUE_STUDENT_NO_SHOW": "Ο μαθητής δεν εμφανίστηκε",
     "ISSUE_ENDED_EARLY": "Το μάθημα τελείωσε νωρίς",
@@ -1012,7 +1037,6 @@
     "ISSUE_INAPPROPRIATE": "Ακατάλληλη συμπεριφορά",
     "ISSUE_TECHNICAL": "Τεχνικά προβλήματα",
     "ISSUE_OTHER": "Άλλο",
-
     "ALERT_REPORT_HEADER": "Αναφορά Προβλήματος",
     "ALERT_REPORT_MESSAGE": "Επιλέξτε το πρόβλημα που αντιμετωπίσατε:",
     "ALERT_CANCEL": "Ακύρωση",
@@ -1023,7 +1047,6 @@
     "ALERT_DETAILS_PLACEHOLDER": "Περιγράψτε τι συνέβη...",
     "ALERT_SUBMIT": "Υποβολή Αναφοράς",
     "ALERT_MIN_CHARS": "Εισάγετε τουλάχιστον 10 χαρακτήρες",
-
     "TOAST_SUBMITTING": "Υποβολή αναφοράς...",
     "TOAST_ISSUE_REPORTED": "Το πρόβλημα αναφέρθηκε επιτυχώς.",
     "TOAST_REPORT_FAILED": "Αποτυχία αναφοράς προβλήματος."

@@ -49,6 +49,56 @@
   --ion-line-height-tight: 1.2;
   --ion-line-height-normal: 1.5;
   --ion-line-height-relaxed: 1.6;
+
+  /* Barnabi toolbar wordmark + icon (matches onboarding / tutor-onboarding) */
+  --app-brand-icon-size: 42px;
+  --app-brand-icon-radius: 10px;
+  --app-brand-name-size: 17px;
+  --app-brand-name-weight: 600;
+  --app-brand-name-color: #000000;
+  --app-brand-name-letter-spacing: 0.2px;
+  --app-brand-name-margin-left: 10px;
+}
+
+/* ── App toolbar brand: bird icon + "Barnabi" (shared across tabs, tutor, etc.) ── */
+.app-icon-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  margin-left: 4px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background-color 0.2s ease, transform 0.15s ease;
+  text-decoration: none;
+  color: inherit;
+  box-sizing: border-box;
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+
+  .app-icon {
+    width: var(--app-brand-icon-size);
+    height: var(--app-brand-icon-size);
+    border-radius: var(--app-brand-icon-radius);
+    object-fit: contain;
+    flex-shrink: 0;
+  }
+
+  .app-name {
+    font-size: var(--app-brand-name-size);
+    font-weight: var(--app-brand-name-weight);
+    color: var(--app-brand-name-color);
+    letter-spacing: var(--app-brand-name-letter-spacing);
+    margin-left: var(--app-brand-name-margin-left);
+    line-height: 1.1;
+    white-space: nowrap;
+  }
 }
 
 * {

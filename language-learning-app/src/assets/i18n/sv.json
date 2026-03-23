@@ -483,7 +483,14 @@
     "LANG_SELECT": {
       "TITLE": "Välj ditt språk",
       "SUBTITLE": "Välj det språk du vill använda i hela appen",
-      "CONFIRM": "Fortsätt"
+      "CONFIRM": "Fortsätt",
+      "CHOOSE_SUBTITLE": "Choose your preferred language for the app"
+    },
+    "LEGAL": {
+      "AGREE_PREFIX": "By continuing, you agree to our",
+      "TERMS": "Terms of Service",
+      "AND": "and",
+      "PRIVACY": "Privacy Policy"
     },
     "COUNTRY_MODAL": {
       "ORIGIN_TITLE": "Välj ditt ursprungsland",
@@ -511,7 +518,29 @@
       "TUTOR_GREETING": "Välkommen till Barnabi",
       "TUTOR_SUBTITLE": "Gå med i vår lärargemenskap och börja undervisa elever världen över. Låt oss förbereda din profil.",
       "CTA": "Kom igång",
-      "BACK": "Byt språk"
+      "BACK": "Byt språk",
+      "TRUST_SECURE": "Private & secure",
+      "TRUST_TIME": "Takes 2 minutes",
+      "TRUST_FREE": "No credit card needed to sign up",
+      "FEAT1_TITLE": "Find a Tutor",
+      "FEAT1_DESC": "Browse verified tutors who match your goals and schedule",
+      "FEAT2_TITLE": "Start Lesson",
+      "FEAT2_DESC": "Join HD video lessons from anywhere, on any device",
+      "FEAT3_TITLE": "Track Progress",
+      "FEAT3_DESC": "See your improvement with AI-powered insights after every lesson",
+      "TUTOR_FEAT1_TITLE": "Set Your Schedule",
+      "TUTOR_FEAT1_DESC": "Control when you're available to teach",
+      "TUTOR_FEAT2_TITLE": "Teach Live",
+      "TUTOR_FEAT2_DESC": "HD video lessons with built-in teaching tools",
+      "TUTOR_FEAT3_TITLE": "Get Paid",
+      "TUTOR_FEAT3_DESC": "Earn on your terms with transparent payouts",
+      "HOW_LABEL": "How it works",
+      "HOW_STEP1": "Set up your profile",
+      "HOW_STEP2": "Find a tutor",
+      "HOW_STEP3": "Start learning",
+      "TUTOR_HOW_STEP1": "Build your profile",
+      "TUTOR_HOW_STEP2": "Set availability",
+      "TUTOR_HOW_STEP3": "Start teaching"
     },
     "NAV": {
       "PREVIOUS": "Föregående",
@@ -968,7 +997,6 @@
     "FEEDBACK_PENDING": "Feedback väntar",
     "LEAVE_FEEDBACK": "Lämna feedback",
     "ADD_NOTE": "Lägg till anteckning",
-
     "MODAL_FILTERS_TITLE": "Filter",
     "SELECTED": "Valt",
     "TIME_PERIOD": "Tidsperiod",
@@ -987,14 +1015,12 @@
     "STATUS_CANCELLED": "Avbokad",
     "SHOW_LESSON": "Visa {{count}} lektion",
     "SHOW_LESSONS": "Visa {{count}} lektioner",
-
     "NOTE_MODAL_TITLE": "Din anteckning för denna lektion",
     "QUICK_IMPRESSION": "Snabbt intryck",
     "YOUR_NOTE": "Din anteckning",
     "HOMEWORK": "Läxa",
     "EDIT": "Redigera",
     "CLOSE": "Stäng",
-
     "TOAST_LOAD_FAILED": "Kunde inte ladda lektioner",
     "UNKNOWN": "Okänd",
     "CLASS_STUDENTS": " elev(er)",
@@ -1005,7 +1031,6 @@
     "STATUS_SCHEDULED": "Schemalagd",
     "STATUS_IN_PROGRESS": "Pågående",
     "STATUS_PENDING": "Väntande",
-
     "ISSUE_TUTOR_NO_SHOW": "Läraren dök inte upp",
     "ISSUE_STUDENT_NO_SHOW": "Eleven dök inte upp",
     "ISSUE_ENDED_EARLY": "Lektionen avslutades tidigt",
@@ -1013,7 +1038,6 @@
     "ISSUE_INAPPROPRIATE": "Olämpligt beteende",
     "ISSUE_TECHNICAL": "Tekniska problem",
     "ISSUE_OTHER": "Annat",
-
     "ALERT_REPORT_HEADER": "Rapportera problem",
     "ALERT_REPORT_MESSAGE": "Välj problemet du upplevde:",
     "ALERT_CANCEL": "Avbryt",
@@ -1024,7 +1048,6 @@
     "ALERT_DETAILS_PLACEHOLDER": "Beskriv vad som hände...",
     "ALERT_SUBMIT": "Skicka rapport",
     "ALERT_MIN_CHARS": "Ange minst 10 tecken",
-
     "TOAST_SUBMITTING": "Skickar rapport...",
     "TOAST_ISSUE_REPORTED": "Problemet har rapporterats.",
     "TOAST_REPORT_FAILED": "Kunde inte rapportera problem."

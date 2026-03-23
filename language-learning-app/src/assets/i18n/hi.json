@@ -483,7 +483,14 @@
     "LANG_SELECT": {
       "TITLE": "अपनी भाषा चुनें",
       "SUBTITLE": "पूरे ऐप में उपयोग करने के लिए भाषा चुनें",
-      "CONFIRM": "जारी रखें"
+      "CONFIRM": "जारी रखें",
+      "CHOOSE_SUBTITLE": "Choose your preferred language for the app"
+    },
+    "LEGAL": {
+      "AGREE_PREFIX": "By continuing, you agree to our",
+      "TERMS": "Terms of Service",
+      "AND": "and",
+      "PRIVACY": "Privacy Policy"
     },
     "COUNTRY_MODAL": {
       "ORIGIN_TITLE": "अपना मूल देश चुनें",
@@ -511,7 +518,29 @@
       "TUTOR_GREETING": "स्पीक फ़्रीली में आपका स्वागत है",
       "TUTOR_SUBTITLE": "हमारे ट्यूटर समुदाय से जुड़ें और दुनिया भर के छात्रों को पढ़ाना शुरू करें। चलिए आपकी प्रोफ़ाइल तैयार करते हैं।",
       "CTA": "शुरू करें",
-      "BACK": "भाषा बदलें"
+      "BACK": "भाषा बदलें",
+      "TRUST_SECURE": "Private & secure",
+      "TRUST_TIME": "Takes 2 minutes",
+      "TRUST_FREE": "No credit card needed to sign up",
+      "FEAT1_TITLE": "Find a Tutor",
+      "FEAT1_DESC": "Browse verified tutors who match your goals and schedule",
+      "FEAT2_TITLE": "Start Lesson",
+      "FEAT2_DESC": "Join HD video lessons from anywhere, on any device",
+      "FEAT3_TITLE": "Track Progress",
+      "FEAT3_DESC": "See your improvement with AI-powered insights after every lesson",
+      "TUTOR_FEAT1_TITLE": "Set Your Schedule",
+      "TUTOR_FEAT1_DESC": "Control when you're available to teach",
+      "TUTOR_FEAT2_TITLE": "Teach Live",
+      "TUTOR_FEAT2_DESC": "HD video lessons with built-in teaching tools",
+      "TUTOR_FEAT3_TITLE": "Get Paid",
+      "TUTOR_FEAT3_DESC": "Earn on your terms with transparent payouts",
+      "HOW_LABEL": "How it works",
+      "HOW_STEP1": "Set up your profile",
+      "HOW_STEP2": "Find a tutor",
+      "HOW_STEP3": "Start learning",
+      "TUTOR_HOW_STEP1": "Build your profile",
+      "TUTOR_HOW_STEP2": "Set availability",
+      "TUTOR_HOW_STEP3": "Start teaching"
     },
     "NAV": {
       "PREVIOUS": "पिछला",
@@ -968,7 +997,6 @@
     "FEEDBACK_PENDING": "प्रतिक्रिया लंबित",
     "LEAVE_FEEDBACK": "प्रतिक्रिया दें",
     "ADD_NOTE": "नोट जोड़ें",
-
     "MODAL_FILTERS_TITLE": "फ़िल्टर",
     "SELECTED": "चयनित",
     "TIME_PERIOD": "समय अवधि",
@@ -987,14 +1015,12 @@
     "STATUS_CANCELLED": "रद्द",
     "SHOW_LESSON": "{{count}} पाठ दिखाएँ",
     "SHOW_LESSONS": "{{count}} पाठ दिखाएँ",
-
     "NOTE_MODAL_TITLE": "इस पाठ के लिए आपका नोट",
     "QUICK_IMPRESSION": "त्वरित प्रभाव",
     "YOUR_NOTE": "आपका नोट",
     "HOMEWORK": "गृहकार्य",
     "EDIT": "संपादित करें",
     "CLOSE": "बंद करें",
-
     "TOAST_LOAD_FAILED": "पाठ लोड करने में विफल",
     "UNKNOWN": "अज्ञात",
     "CLASS_STUDENTS": " छात्र",
@@ -1005,7 +1031,6 @@
     "STATUS_SCHEDULED": "निर्धारित",
     "STATUS_IN_PROGRESS": "चल रहा है",
     "STATUS_PENDING": "लंबित",
-
     "ISSUE_TUTOR_NO_SHOW": "ट्यूटर नहीं आया",
     "ISSUE_STUDENT_NO_SHOW": "छात्र नहीं आया",
     "ISSUE_ENDED_EARLY": "पाठ जल्दी समाप्त हो गया",
@@ -1013,7 +1038,6 @@
     "ISSUE_INAPPROPRIATE": "अनुचित व्यवहार",
     "ISSUE_TECHNICAL": "तकनीकी समस्याएँ",
     "ISSUE_OTHER": "अन्य",
-
     "ALERT_REPORT_HEADER": "समस्या की रिपोर्ट करें",
     "ALERT_REPORT_MESSAGE": "कृपया अपनी समस्या चुनें:",
     "ALERT_CANCEL": "रद्द करें",
@@ -1024,7 +1048,6 @@
     "ALERT_DETAILS_PLACEHOLDER": "बताएँ क्या हुआ...",
     "ALERT_SUBMIT": "रिपोर्ट सबमिट करें",
     "ALERT_MIN_CHARS": "कृपया कम से कम 10 अक्षर दर्ज करें",
-
     "TOAST_SUBMITTING": "रिपोर्ट सबमिट हो रही है...",
     "TOAST_ISSUE_REPORTED": "समस्या सफलतापूर्वक रिपोर्ट की गई।",
     "TOAST_REPORT_FAILED": "समस्या रिपोर्ट करने में विफल।"

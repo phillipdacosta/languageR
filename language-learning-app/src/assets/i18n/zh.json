@@ -483,7 +483,14 @@
     "LANG_SELECT": {
       "TITLE": "选择您的语言",
       "SUBTITLE": "选择您希望在整个应用中使用的语言",
-      "CONFIRM": "继续"
+      "CONFIRM": "继续",
+      "CHOOSE_SUBTITLE": "Choose your preferred language for the app"
+    },
+    "LEGAL": {
+      "AGREE_PREFIX": "By continuing, you agree to our",
+      "TERMS": "Terms of Service",
+      "AND": "and",
+      "PRIVACY": "Privacy Policy"
     },
     "COUNTRY_MODAL": {
       "ORIGIN_TITLE": "选择您的原籍国",
@@ -511,7 +518,29 @@
       "TUTOR_GREETING": "欢迎来到 Barnabi",
       "TUTOR_SUBTITLE": "加入我们的导师社区，开始向全球学生授课。让我们准备好您的个人资料。",
       "CTA": "开始",
-      "BACK": "更改语言"
+      "BACK": "更改语言",
+      "TRUST_SECURE": "Private & secure",
+      "TRUST_TIME": "Takes 2 minutes",
+      "TRUST_FREE": "No credit card needed to sign up",
+      "FEAT1_TITLE": "Find a Tutor",
+      "FEAT1_DESC": "Browse verified tutors who match your goals and schedule",
+      "FEAT2_TITLE": "Start Lesson",
+      "FEAT2_DESC": "Join HD video lessons from anywhere, on any device",
+      "FEAT3_TITLE": "Track Progress",
+      "FEAT3_DESC": "See your improvement with AI-powered insights after every lesson",
+      "TUTOR_FEAT1_TITLE": "Set Your Schedule",
+      "TUTOR_FEAT1_DESC": "Control when you're available to teach",
+      "TUTOR_FEAT2_TITLE": "Teach Live",
+      "TUTOR_FEAT2_DESC": "HD video lessons with built-in teaching tools",
+      "TUTOR_FEAT3_TITLE": "Get Paid",
+      "TUTOR_FEAT3_DESC": "Earn on your terms with transparent payouts",
+      "HOW_LABEL": "How it works",
+      "HOW_STEP1": "Set up your profile",
+      "HOW_STEP2": "Find a tutor",
+      "HOW_STEP3": "Start learning",
+      "TUTOR_HOW_STEP1": "Build your profile",
+      "TUTOR_HOW_STEP2": "Set availability",
+      "TUTOR_HOW_STEP3": "Start teaching"
     },
     "NAV": {
       "PREVIOUS": "上一步",
@@ -968,7 +997,6 @@
     "FEEDBACK_PENDING": "待反馈",
     "LEAVE_FEEDBACK": "留下反馈",
     "ADD_NOTE": "添加笔记",
-
     "MODAL_FILTERS_TITLE": "筛选",
     "SELECTED": "已选择",
     "TIME_PERIOD": "时间范围",
@@ -987,14 +1015,12 @@
     "STATUS_CANCELLED": "已取消",
     "SHOW_LESSON": "显示 {{count}} 节课程",
     "SHOW_LESSONS": "显示 {{count}} 节课程",
-
     "NOTE_MODAL_TITLE": "本节课的笔记",
     "QUICK_IMPRESSION": "简短印象",
     "YOUR_NOTE": "您的笔记",
     "HOMEWORK": "作业",
     "EDIT": "编辑",
     "CLOSE": "关闭",
-
     "TOAST_LOAD_FAILED": "加载课程失败",
     "UNKNOWN": "未知",
     "CLASS_STUDENTS": " 名学生",
@@ -1005,7 +1031,6 @@
     "STATUS_SCHEDULED": "已安排",
     "STATUS_IN_PROGRESS": "进行中",
     "STATUS_PENDING": "待处理",
-
     "ISSUE_TUTOR_NO_SHOW": "导师未出席",
     "ISSUE_STUDENT_NO_SHOW": "学生未出席",
     "ISSUE_ENDED_EARLY": "课程提前结束",
@@ -1013,7 +1038,6 @@
     "ISSUE_INAPPROPRIATE": "不当行为",
     "ISSUE_TECHNICAL": "技术问题",
     "ISSUE_OTHER": "其他",
-
     "ALERT_REPORT_HEADER": "报告问题",
     "ALERT_REPORT_MESSAGE": "请选择您遇到的问题：",
     "ALERT_CANCEL": "取消",
@@ -1024,7 +1048,6 @@
     "ALERT_DETAILS_PLACEHOLDER": "描述发生了什么...",
     "ALERT_SUBMIT": "提交报告",
     "ALERT_MIN_CHARS": "请至少输入10个字符",
-
     "TOAST_SUBMITTING": "正在提交报告...",
     "TOAST_ISSUE_REPORTED": "问题已成功报告。",
     "TOAST_REPORT_FAILED": "报告问题失败。"

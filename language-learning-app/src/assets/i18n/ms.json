@@ -479,7 +479,14 @@
     "LANG_SELECT": {
       "TITLE": "Pilih bahasa anda",
       "SUBTITLE": "Pilih bahasa yang anda mahu gunakan di seluruh aplikasi",
-      "CONFIRM": "Teruskan"
+      "CONFIRM": "Teruskan",
+      "CHOOSE_SUBTITLE": "Choose your preferred language for the app"
+    },
+    "LEGAL": {
+      "AGREE_PREFIX": "By continuing, you agree to our",
+      "TERMS": "Terms of Service",
+      "AND": "and",
+      "PRIVACY": "Privacy Policy"
     },
     "COUNTRY_MODAL": {
       "ORIGIN_TITLE": "Pilih Negara Asal Anda",
@@ -507,7 +514,29 @@
       "TUTOR_GREETING": "Selamat Datang ke Barnabi",
       "TUTOR_SUBTITLE": "Sertai komuniti tutor kami dan mula mengajar pelajar di seluruh dunia. Mari sediakan profil anda.",
       "CTA": "Mula",
-      "BACK": "Tukar Bahasa"
+      "BACK": "Tukar Bahasa",
+      "TRUST_SECURE": "Private & secure",
+      "TRUST_TIME": "Takes 2 minutes",
+      "TRUST_FREE": "No credit card needed to sign up",
+      "FEAT1_TITLE": "Find a Tutor",
+      "FEAT1_DESC": "Browse verified tutors who match your goals and schedule",
+      "FEAT2_TITLE": "Start Lesson",
+      "FEAT2_DESC": "Join HD video lessons from anywhere, on any device",
+      "FEAT3_TITLE": "Track Progress",
+      "FEAT3_DESC": "See your improvement with AI-powered insights after every lesson",
+      "TUTOR_FEAT1_TITLE": "Set Your Schedule",
+      "TUTOR_FEAT1_DESC": "Control when you're available to teach",
+      "TUTOR_FEAT2_TITLE": "Teach Live",
+      "TUTOR_FEAT2_DESC": "HD video lessons with built-in teaching tools",
+      "TUTOR_FEAT3_TITLE": "Get Paid",
+      "TUTOR_FEAT3_DESC": "Earn on your terms with transparent payouts",
+      "HOW_LABEL": "How it works",
+      "HOW_STEP1": "Set up your profile",
+      "HOW_STEP2": "Find a tutor",
+      "HOW_STEP3": "Start learning",
+      "TUTOR_HOW_STEP1": "Build your profile",
+      "TUTOR_HOW_STEP2": "Set availability",
+      "TUTOR_HOW_STEP3": "Start teaching"
     },
     "NAV": {
       "PREVIOUS": "Sebelumnya",
@@ -964,7 +993,6 @@
     "FEEDBACK_PENDING": "Maklum Balas Belum Selesai",
     "LEAVE_FEEDBACK": "Beri Maklum Balas",
     "ADD_NOTE": "Tambah Nota",
-
     "MODAL_FILTERS_TITLE": "Penapis",
     "SELECTED": "Dipilih",
     "TIME_PERIOD": "Tempoh masa",
@@ -983,14 +1011,12 @@
     "STATUS_CANCELLED": "Dibatalkan",
     "SHOW_LESSON": "Paparkan {{count}} pelajaran",
     "SHOW_LESSONS": "Paparkan {{count}} pelajaran",
-
     "NOTE_MODAL_TITLE": "Nota Anda untuk Pelajaran Ini",
     "QUICK_IMPRESSION": "Tanggapan Ringkas",
     "YOUR_NOTE": "Nota Anda",
     "HOMEWORK": "Kerja Rumah",
     "EDIT": "Edit",
     "CLOSE": "Tutup",
-
     "TOAST_LOAD_FAILED": "Gagal memuatkan pelajaran",
     "UNKNOWN": "Tidak diketahui",
     "CLASS_STUDENTS": " pelajar",
@@ -1001,7 +1027,6 @@
     "STATUS_SCHEDULED": "Dijadualkan",
     "STATUS_IN_PROGRESS": "Sedang Berlangsung",
     "STATUS_PENDING": "Belum Selesai",
-
     "ISSUE_TUTOR_NO_SHOW": "Tutor tidak hadir",
     "ISSUE_STUDENT_NO_SHOW": "Pelajar tidak hadir",
     "ISSUE_ENDED_EARLY": "Pelajaran tamat awal",
@@ -1009,7 +1034,6 @@
     "ISSUE_INAPPROPRIATE": "Tingkah laku tidak wajar",
     "ISSUE_TECHNICAL": "Masalah teknikal",
     "ISSUE_OTHER": "Lain-lain",
-
     "ALERT_REPORT_HEADER": "Laporkan Isu",
     "ALERT_REPORT_MESSAGE": "Sila pilih isu yang anda alami:",
     "ALERT_CANCEL": "Batal",
@@ -1020,7 +1044,6 @@
     "ALERT_DETAILS_PLACEHOLDER": "Terangkan apa yang berlaku...",
     "ALERT_SUBMIT": "Hantar Laporan",
     "ALERT_MIN_CHARS": "Sila masukkan sekurang-kurangnya 10 aksara",
-
     "TOAST_SUBMITTING": "Menghantar laporan...",
     "TOAST_ISSUE_REPORTED": "Isu berjaya dilaporkan.",
     "TOAST_REPORT_FAILED": "Gagal melaporkan isu."

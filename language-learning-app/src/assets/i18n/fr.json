@@ -337,7 +337,14 @@
     "LANG_SELECT": {
       "TITLE": "Choisissez votre langue",
       "SUBTITLE": "Sélectionnez la langue que vous souhaitez utiliser dans l'application",
-      "CONFIRM": "Continuer"
+      "CONFIRM": "Continuer",
+      "CHOOSE_SUBTITLE": "Choisissez votre langue préférée pour l'application"
+    },
+    "LEGAL": {
+      "AGREE_PREFIX": "En continuant, vous acceptez nos",
+      "TERMS": "Conditions d'utilisation",
+      "AND": "et",
+      "PRIVACY": "Politique de confidentialité"
     },
     "COUNTRY_MODAL": {
       "ORIGIN_TITLE": "Sélectionnez votre pays d'origine",
@@ -365,7 +372,29 @@
       "TUTOR_GREETING": "Bienvenue sur Barnabi",
       "TUTOR_SUBTITLE": "Rejoignez notre communauté de tuteurs et commencez à enseigner à des étudiants du monde entier. Préparons votre profil.",
       "CTA": "Commencer",
-      "BACK": "Changer de langue"
+      "BACK": "Changer de langue",
+      "TRUST_SECURE": "Privé et sécurisé",
+      "TRUST_TIME": "Prend 2 minutes",
+      "TRUST_FREE": "Pas de carte bancaire requise pour s'inscrire",
+      "FEAT1_TITLE": "Trouvez un tuteur",
+      "FEAT1_DESC": "Parcourez des tuteurs vérifiés qui correspondent à vos objectifs et votre emploi du temps",
+      "FEAT2_TITLE": "Commencez une leçon",
+      "FEAT2_DESC": "Rejoignez des cours vidéo HD depuis n'importe où, sur n'importe quel appareil",
+      "FEAT3_TITLE": "Suivez vos progrès",
+      "FEAT3_DESC": "Visualisez votre progression grâce à des analyses alimentées par l'IA après chaque cours",
+      "TUTOR_FEAT1_TITLE": "Définissez vos horaires",
+      "TUTOR_FEAT1_DESC": "Contrôlez quand vous êtes disponible pour enseigner",
+      "TUTOR_FEAT2_TITLE": "Enseignez en direct",
+      "TUTOR_FEAT2_DESC": "Cours vidéo HD avec des outils pédagogiques intégrés",
+      "TUTOR_FEAT3_TITLE": "Soyez payé",
+      "TUTOR_FEAT3_DESC": "Gagnez à votre rythme avec des paiements transparents",
+      "HOW_LABEL": "Comment ça marche",
+      "HOW_STEP1": "Créez votre profil",
+      "HOW_STEP2": "Trouvez un tuteur",
+      "HOW_STEP3": "Commencez à apprendre",
+      "TUTOR_HOW_STEP1": "Créez votre profil",
+      "TUTOR_HOW_STEP2": "Définissez votre disponibilité",
+      "TUTOR_HOW_STEP3": "Commencez à enseigner"
     },
     "NAV": {
       "PREVIOUS": "Précédent",

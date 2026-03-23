@@ -46,30 +46,7 @@ $transition: all 0.2s ease;
   }
 }
 
-.app-icon-container {
-  display: flex;
-  align-items: center;
-  padding: 8px;
-  cursor: pointer;
-  border-radius: 8px;
-  transition: background-color 0.2s ease, transform 0.2s ease;
-
-  &:hover {
-    background-color: rgba(0, 0, 0, 0.05);
-    transform: scale(1.05);
-  }
-
-  &:active {
-    transform: scale(0.95);
-  }
-
-  .app-icon {
-    width: 36px;
-    height: 36px;
-    object-fit: contain;
-    border-radius: 8px;
-  }
-}
+// App brand: global .app-icon-container (matches onboarding)
 
 // ============================================
 // Header (Desktop Only)

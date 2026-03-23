@@ -35,26 +35,9 @@
   margin-left: 16px;
 }
 
-.md-toolbar-icon {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  padding: 6px 8px;
-  border-radius: 10px;
-  transition: background-color 0.2s ease;
-  &:hover { background-color: rgba(0, 0, 0, 0.04); }
-}
-
-.md-toolbar-logo {
-  width: 40px;
-  height: 40px;
-  object-fit: contain;
-}
-
-.md-toolbar-name {
-  color: #000;
-  letter-spacing: 0.2px;
-  margin-left: 10px;
+/* Brand uses global .app-icon-container + .app-icon + .app-name (onboarding match) */
+.md-toolbar-brand {
+  margin-left: 0;
 }
 
 .md-toolbar-end {
@@ -1210,8 +1193,14 @@
     background: rgba(28, 28, 30, 0.92) !important;
   }
 
-  .md-toolbar-name { color: #fff; }
-  .md-toolbar-icon:hover { background-color: rgba(255, 255, 255, 0.08); }
+  .md-toolbar-brand {
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.08);
+    }
+    .app-name {
+      color: #ffffff;
+    }
+  }
   ion-content { --background: #000000; }
 
   .md-back-btn {

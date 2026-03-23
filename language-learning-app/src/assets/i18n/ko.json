@@ -483,7 +483,14 @@
     "LANG_SELECT": {
       "TITLE": "언어를 선택하세요",
       "SUBTITLE": "앱 전체에서 사용할 언어를 선택하세요",
-      "CONFIRM": "계속"
+      "CONFIRM": "계속",
+      "CHOOSE_SUBTITLE": "Choose your preferred language for the app"
+    },
+    "LEGAL": {
+      "AGREE_PREFIX": "By continuing, you agree to our",
+      "TERMS": "Terms of Service",
+      "AND": "and",
+      "PRIVACY": "Privacy Policy"
     },
     "COUNTRY_MODAL": {
       "ORIGIN_TITLE": "출신 국가를 선택하세요",
@@ -511,7 +518,29 @@
       "TUTOR_GREETING": "Barnabi에 오신 것을 환영합니다",
       "TUTOR_SUBTITLE": "튜터 커뮤니티에 참여하여 전 세계 학생들을 가르치기 시작하세요. 프로필을 준비합시다.",
       "CTA": "시작하기",
-      "BACK": "언어 변경"
+      "BACK": "언어 변경",
+      "TRUST_SECURE": "Private & secure",
+      "TRUST_TIME": "Takes 2 minutes",
+      "TRUST_FREE": "No credit card needed to sign up",
+      "FEAT1_TITLE": "Find a Tutor",
+      "FEAT1_DESC": "Browse verified tutors who match your goals and schedule",
+      "FEAT2_TITLE": "Start Lesson",
+      "FEAT2_DESC": "Join HD video lessons from anywhere, on any device",
+      "FEAT3_TITLE": "Track Progress",
+      "FEAT3_DESC": "See your improvement with AI-powered insights after every lesson",
+      "TUTOR_FEAT1_TITLE": "Set Your Schedule",
+      "TUTOR_FEAT1_DESC": "Control when you're available to teach",
+      "TUTOR_FEAT2_TITLE": "Teach Live",
+      "TUTOR_FEAT2_DESC": "HD video lessons with built-in teaching tools",
+      "TUTOR_FEAT3_TITLE": "Get Paid",
+      "TUTOR_FEAT3_DESC": "Earn on your terms with transparent payouts",
+      "HOW_LABEL": "How it works",
+      "HOW_STEP1": "Set up your profile",
+      "HOW_STEP2": "Find a tutor",
+      "HOW_STEP3": "Start learning",
+      "TUTOR_HOW_STEP1": "Build your profile",
+      "TUTOR_HOW_STEP2": "Set availability",
+      "TUTOR_HOW_STEP3": "Start teaching"
     },
     "NAV": {
       "PREVIOUS": "이전",
@@ -968,7 +997,6 @@
     "FEEDBACK_PENDING": "피드백 대기 중",
     "LEAVE_FEEDBACK": "피드백 남기기",
     "ADD_NOTE": "메모 추가",
-
     "MODAL_FILTERS_TITLE": "필터",
     "SELECTED": "선택됨",
     "TIME_PERIOD": "기간",
@@ -987,14 +1015,12 @@
     "STATUS_CANCELLED": "취소",
     "SHOW_LESSON": "수업 {{count}}개 표시",
     "SHOW_LESSONS": "수업 {{count}}개 표시",
-
     "NOTE_MODAL_TITLE": "이 수업에 대한 메모",
     "QUICK_IMPRESSION": "간단한 소감",
     "YOUR_NOTE": "내 메모",
     "HOMEWORK": "숙제",
     "EDIT": "편집",
     "CLOSE": "닫기",
-
     "TOAST_LOAD_FAILED": "수업을 불러오지 못했습니다",
     "UNKNOWN": "알 수 없음",
     "CLASS_STUDENTS": " 명의 학생",
@@ -1005,7 +1031,6 @@
     "STATUS_SCHEDULED": "예약됨",
     "STATUS_IN_PROGRESS": "진행 중",
     "STATUS_PENDING": "대기 중",
-
     "ISSUE_TUTOR_NO_SHOW": "튜터가 나타나지 않았습니다",
     "ISSUE_STUDENT_NO_SHOW": "학생이 나타나지 않았습니다",
     "ISSUE_ENDED_EARLY": "수업이 일찍 끝났습니다",
@@ -1013,7 +1038,6 @@
     "ISSUE_INAPPROPRIATE": "부적절한 행동",
     "ISSUE_TECHNICAL": "기술적 문제",
     "ISSUE_OTHER": "기타",
-
     "ALERT_REPORT_HEADER": "문제 신고",
     "ALERT_REPORT_MESSAGE": "경험한 문제를 선택해 주세요:",
     "ALERT_CANCEL": "취소",
@@ -1024,7 +1048,6 @@
     "ALERT_DETAILS_PLACEHOLDER": "무슨 일이 있었는지 설명해 주세요...",
     "ALERT_SUBMIT": "신고 제출",
     "ALERT_MIN_CHARS": "최소 10자 이상 입력해 주세요",
-
     "TOAST_SUBMITTING": "신고 제출 중...",
     "TOAST_ISSUE_REPORTED": "문제가 성공적으로 신고되었습니다.",
     "TOAST_REPORT_FAILED": "문제 신고에 실패했습니다."

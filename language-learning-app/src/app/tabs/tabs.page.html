@@ -6,7 +6,9 @@
       <ion-buttons slot="start">
         <div class="app-icon-container" (click)="navigateTo('/tabs/home')">
           <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="app-icon">
-        </div>      </ion-buttons>
+          <span class="app-name">Barnabi</span>
+        </div>
+      </ion-buttons>
       <ion-buttons slot="end">
         <ion-button fill="clear" class="notification-btn" 
                     (click)="navigateTo('/tabs/notifications')"
@@ -32,7 +34,6 @@
         <span class="app-name">Barnabi</span>
       </div>
 
-      <!-- <span class="app-name">Barnabi</span> -->
       <div class="desktop-nav-buttons" slot="end" #navButtonsContainer>
         <!-- Sliding underline indicator -->
         <div class="nav-underline-indicator" 

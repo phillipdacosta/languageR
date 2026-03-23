@@ -483,7 +483,14 @@
     "LANG_SELECT": {
       "TITLE": "言語を選択",
       "SUBTITLE": "アプリ全体で使用する言語を選択してください",
-      "CONFIRM": "続ける"
+      "CONFIRM": "続ける",
+      "CHOOSE_SUBTITLE": "Choose your preferred language for the app"
+    },
+    "LEGAL": {
+      "AGREE_PREFIX": "By continuing, you agree to our",
+      "TERMS": "Terms of Service",
+      "AND": "and",
+      "PRIVACY": "Privacy Policy"
     },
     "COUNTRY_MODAL": {
       "ORIGIN_TITLE": "出身国を選択",
@@ -511,7 +518,29 @@
       "TUTOR_GREETING": "Barnabi へようこそ",
       "TUTOR_SUBTITLE": "講師コミュニティに参加して、世界中の生徒に教え始めましょう。プロフィールを準備しましょう。",
       "CTA": "始める",
-      "BACK": "言語を変更"
+      "BACK": "言語を変更",
+      "TRUST_SECURE": "Private & secure",
+      "TRUST_TIME": "Takes 2 minutes",
+      "TRUST_FREE": "No credit card needed to sign up",
+      "FEAT1_TITLE": "Find a Tutor",
+      "FEAT1_DESC": "Browse verified tutors who match your goals and schedule",
+      "FEAT2_TITLE": "Start Lesson",
+      "FEAT2_DESC": "Join HD video lessons from anywhere, on any device",
+      "FEAT3_TITLE": "Track Progress",
+      "FEAT3_DESC": "See your improvement with AI-powered insights after every lesson",
+      "TUTOR_FEAT1_TITLE": "Set Your Schedule",
+      "TUTOR_FEAT1_DESC": "Control when you're available to teach",
+      "TUTOR_FEAT2_TITLE": "Teach Live",
+      "TUTOR_FEAT2_DESC": "HD video lessons with built-in teaching tools",
+      "TUTOR_FEAT3_TITLE": "Get Paid",
+      "TUTOR_FEAT3_DESC": "Earn on your terms with transparent payouts",
+      "HOW_LABEL": "How it works",
+      "HOW_STEP1": "Set up your profile",
+      "HOW_STEP2": "Find a tutor",
+      "HOW_STEP3": "Start learning",
+      "TUTOR_HOW_STEP1": "Build your profile",
+      "TUTOR_HOW_STEP2": "Set availability",
+      "TUTOR_HOW_STEP3": "Start teaching"
     },
     "NAV": {
       "PREVIOUS": "前へ",
@@ -968,7 +997,6 @@
     "FEEDBACK_PENDING": "フィードバック待ち",
     "LEAVE_FEEDBACK": "フィードバックを残す",
     "ADD_NOTE": "メモを追加",
-
     "MODAL_FILTERS_TITLE": "フィルター",
     "SELECTED": "選択済み",
     "TIME_PERIOD": "期間",
@@ -987,14 +1015,12 @@
     "STATUS_CANCELLED": "キャンセル",
     "SHOW_LESSON": "{{count}} 件のレッスンを表示",
     "SHOW_LESSONS": "{{count}} 件のレッスンを表示",
-
     "NOTE_MODAL_TITLE": "このレッスンのメモ",
     "QUICK_IMPRESSION": "簡単な感想",
     "YOUR_NOTE": "あなたのメモ",
     "HOMEWORK": "宿題",
     "EDIT": "編集",
     "CLOSE": "閉じる",
-
     "TOAST_LOAD_FAILED": "レッスンの読み込みに失敗しました",
     "UNKNOWN": "不明",
     "CLASS_STUDENTS": " 人の生徒",
@@ -1005,7 +1031,6 @@
     "STATUS_SCHEDULED": "予約済み",
     "STATUS_IN_PROGRESS": "進行中",
     "STATUS_PENDING": "保留中",
-
     "ISSUE_TUTOR_NO_SHOW": "講師が来なかった",
     "ISSUE_STUDENT_NO_SHOW": "生徒が来なかった",
     "ISSUE_ENDED_EARLY": "レッスンが早く終了した",
@@ -1013,7 +1038,6 @@
     "ISSUE_INAPPROPRIATE": "不適切な行動",
     "ISSUE_TECHNICAL": "技術的な問題",
     "ISSUE_OTHER": "その他",
-
     "ALERT_REPORT_HEADER": "問題を報告",
     "ALERT_REPORT_MESSAGE": "経験した問題を選択してください：",
     "ALERT_CANCEL": "キャンセル",
@@ -1024,7 +1048,6 @@
     "ALERT_DETAILS_PLACEHOLDER": "何が起こったか説明してください...",
     "ALERT_SUBMIT": "報告を送信",
     "ALERT_MIN_CHARS": "10文字以上で入力してください",
-
     "TOAST_SUBMITTING": "報告を送信中...",
     "TOAST_ISSUE_REPORTED": "問題が正常に報告されました。",
     "TOAST_REPORT_FAILED": "問題の報告に失敗しました。"

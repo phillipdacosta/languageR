@@ -337,7 +337,14 @@
     "LANG_SELECT": {
       "TITLE": "Wählen Sie Ihre Sprache",
       "SUBTITLE": "Wählen Sie die Sprache, die Sie in der gesamten App verwenden möchten",
-      "CONFIRM": "Weiter"
+      "CONFIRM": "Weiter",
+      "CHOOSE_SUBTITLE": "Wählen Sie Ihre bevorzugte Sprache für die App"
+    },
+    "LEGAL": {
+      "AGREE_PREFIX": "Durch Fortfahren stimmen Sie unseren",
+      "TERMS": "Nutzungsbedingungen",
+      "AND": "und",
+      "PRIVACY": "Datenschutzrichtlinie"
     },
     "COUNTRY_MODAL": {
       "ORIGIN_TITLE": "Wählen Sie Ihr Herkunftsland",
@@ -365,7 +372,29 @@
       "TUTOR_GREETING": "Willkommen bei Barnabi",
       "TUTOR_SUBTITLE": "Treten Sie unserer Tutoren-Community bei und unterrichten Sie Schüler weltweit. Bereiten wir Ihr Profil vor.",
       "CTA": "Loslegen",
-      "BACK": "Sprache ändern"
+      "BACK": "Sprache ändern",
+      "TRUST_SECURE": "Privat und sicher",
+      "TRUST_TIME": "Dauert 2 Minuten",
+      "TRUST_FREE": "Keine Kreditkarte für die Anmeldung erforderlich",
+      "FEAT1_TITLE": "Finden Sie einen Tutor",
+      "FEAT1_DESC": "Durchsuchen Sie verifizierte Tutoren, die zu Ihren Zielen und Ihrem Zeitplan passen",
+      "FEAT2_TITLE": "Starten Sie eine Lektion",
+      "FEAT2_DESC": "Nehmen Sie an HD-Videolektionen teil, von überall und auf jedem Gerät",
+      "FEAT3_TITLE": "Verfolgen Sie Ihren Fortschritt",
+      "FEAT3_DESC": "Sehen Sie Ihre Verbesserung mit KI-gestützten Analysen nach jeder Lektion",
+      "TUTOR_FEAT1_TITLE": "Legen Sie Ihren Zeitplan fest",
+      "TUTOR_FEAT1_DESC": "Bestimmen Sie, wann Sie zum Unterrichten verfügbar sind",
+      "TUTOR_FEAT2_TITLE": "Unterrichten Sie live",
+      "TUTOR_FEAT2_DESC": "HD-Videolektionen mit integrierten Lehrwerkzeugen",
+      "TUTOR_FEAT3_TITLE": "Werden Sie bezahlt",
+      "TUTOR_FEAT3_DESC": "Verdienen Sie zu Ihren Bedingungen mit transparenten Auszahlungen",
+      "HOW_LABEL": "So funktioniert's",
+      "HOW_STEP1": "Profil einrichten",
+      "HOW_STEP2": "Tutor finden",
+      "HOW_STEP3": "Lernen starten",
+      "TUTOR_HOW_STEP1": "Profil erstellen",
+      "TUTOR_HOW_STEP2": "Verfügbarkeit festlegen",
+      "TUTOR_HOW_STEP3": "Unterrichten starten"
     },
     "NAV": {
       "PREVIOUS": "Zurück",

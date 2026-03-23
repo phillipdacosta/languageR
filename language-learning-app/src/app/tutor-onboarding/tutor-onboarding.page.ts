@@ -763,7 +763,13 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
     }
   }
 
+  previewNativeLanguageName: string = '';
+  previewSelectedLanguages: string = '';
+
   showPreviewPage() {
+    const nativeLang = this.nativeLanguageOptions.find(l => l.code === this.nativeLanguage);
+    this.previewNativeLanguageName = nativeLang ? nativeLang.name : this.nativeLanguage;
+    this.previewSelectedLanguages = this.selectedLanguages.join(', ');
     this.showPreview = true;
     this.hasReachedPreview = true;
     // Scroll to top when preview page is shown
@@ -863,11 +869,6 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
 
       // Show the welcome/congrats page
       this.showWelcome = true;
-
-      // Auto-redirect after 4 seconds
-      setTimeout(() => {
-        this.navigateToHome();
-      }, 4000);
     } catch (error) {
       console.error('Error completing tutor onboarding:', error);
       this.isSubmitting = false;

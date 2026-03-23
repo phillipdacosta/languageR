@@ -479,7 +479,14 @@
     "LANG_SELECT": {
       "TITLE": "زبان خود را انتخاب کنید",
       "SUBTITLE": "زبانی را که می‌خواهید در سراسر برنامه استفاده کنید انتخاب کنید",
-      "CONFIRM": "ادامه"
+      "CONFIRM": "ادامه",
+      "CHOOSE_SUBTITLE": "Choose your preferred language for the app"
+    },
+    "LEGAL": {
+      "AGREE_PREFIX": "By continuing, you agree to our",
+      "TERMS": "Terms of Service",
+      "AND": "and",
+      "PRIVACY": "Privacy Policy"
     },
     "COUNTRY_MODAL": {
       "ORIGIN_TITLE": "کشور مبدأ خود را انتخاب کنید",
@@ -507,7 +514,29 @@
       "TUTOR_GREETING": "به Barnabi خوش آمدید",
       "TUTOR_SUBTITLE": "به جامعه معلمان ما بپیوندید و آموزش دانش‌آموزان در سراسر جهان را آغاز کنید. بیایید پروفایل شما را آماده کنیم.",
       "CTA": "شروع کنید",
-      "BACK": "تغییر زبان"
+      "BACK": "تغییر زبان",
+      "TRUST_SECURE": "Private & secure",
+      "TRUST_TIME": "Takes 2 minutes",
+      "TRUST_FREE": "No credit card needed to sign up",
+      "FEAT1_TITLE": "Find a Tutor",
+      "FEAT1_DESC": "Browse verified tutors who match your goals and schedule",
+      "FEAT2_TITLE": "Start Lesson",
+      "FEAT2_DESC": "Join HD video lessons from anywhere, on any device",
+      "FEAT3_TITLE": "Track Progress",
+      "FEAT3_DESC": "See your improvement with AI-powered insights after every lesson",
+      "TUTOR_FEAT1_TITLE": "Set Your Schedule",
+      "TUTOR_FEAT1_DESC": "Control when you're available to teach",
+      "TUTOR_FEAT2_TITLE": "Teach Live",
+      "TUTOR_FEAT2_DESC": "HD video lessons with built-in teaching tools",
+      "TUTOR_FEAT3_TITLE": "Get Paid",
+      "TUTOR_FEAT3_DESC": "Earn on your terms with transparent payouts",
+      "HOW_LABEL": "How it works",
+      "HOW_STEP1": "Set up your profile",
+      "HOW_STEP2": "Find a tutor",
+      "HOW_STEP3": "Start learning",
+      "TUTOR_HOW_STEP1": "Build your profile",
+      "TUTOR_HOW_STEP2": "Set availability",
+      "TUTOR_HOW_STEP3": "Start teaching"
     },
     "NAV": {
       "PREVIOUS": "قبلی",
@@ -964,7 +993,6 @@
     "FEEDBACK_PENDING": "در انتظار بازخورد",
     "LEAVE_FEEDBACK": "ثبت بازخورد",
     "ADD_NOTE": "افزودن یادداشت",
-
     "MODAL_FILTERS_TITLE": "فیلترها",
     "SELECTED": "انتخاب‌شده",
     "TIME_PERIOD": "بازه زمانی",
@@ -983,14 +1011,12 @@
     "STATUS_CANCELLED": "لغو شده",
     "SHOW_LESSON": "نمایش {{count}} درس",
     "SHOW_LESSONS": "نمایش {{count}} درس",
-
     "NOTE_MODAL_TITLE": "یادداشت شما برای این درس",
     "QUICK_IMPRESSION": "برداشت سریع",
     "YOUR_NOTE": "یادداشت شما",
     "HOMEWORK": "تکلیف",
     "EDIT": "ویرایش",
     "CLOSE": "بستن",
-
     "TOAST_LOAD_FAILED": "بارگذاری دروس ناموفق بود",
     "UNKNOWN": "ناشناخته",
     "CLASS_STUDENTS": " دانش‌آموز(ان)",
@@ -1001,7 +1027,6 @@
     "STATUS_SCHEDULED": "زمان‌بندی شده",
     "STATUS_IN_PROGRESS": "در حال انجام",
     "STATUS_PENDING": "در انتظار",
-
     "ISSUE_TUTOR_NO_SHOW": "معلم حاضر نشد",
     "ISSUE_STUDENT_NO_SHOW": "دانش‌آموز حاضر نشد",
     "ISSUE_ENDED_EARLY": "درس زودتر تمام شد",
@@ -1009,7 +1034,6 @@
     "ISSUE_INAPPROPRIATE": "رفتار نامناسب",
     "ISSUE_TECHNICAL": "مشکلات فنی",
     "ISSUE_OTHER": "سایر",
-
     "ALERT_REPORT_HEADER": "گزارش مشکل",
     "ALERT_REPORT_MESSAGE": "لطفاً مشکلی که تجربه کردید را انتخاب کنید:",
     "ALERT_CANCEL": "لغو",
@@ -1020,7 +1044,6 @@
     "ALERT_DETAILS_PLACEHOLDER": "توضیح دهید چه اتفاقی افتاد...",
     "ALERT_SUBMIT": "ارسال گزارش",
     "ALERT_MIN_CHARS": "لطفاً حداقل ۱۰ کاراکتر وارد کنید",
-
     "TOAST_SUBMITTING": "در حال ارسال گزارش...",
     "TOAST_ISSUE_REPORTED": "مشکل با موفقیت گزارش شد.",
     "TOAST_REPORT_FAILED": "گزارش مشکل ناموفق بود."

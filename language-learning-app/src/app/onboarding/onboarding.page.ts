@@ -674,8 +674,13 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   previewGoalLabel: string = '';
   previewLevelLabel: string = '';
   previewTimelineLabel: string = '';
+  previewNativeLanguageName: string = '';
+  previewSelectedLanguages: string = '';
 
   private computePreviewLabels() {
+    const nativeLang = this.nativeLanguageOptions.find(l => l.code === this.nativeLanguage);
+    this.previewNativeLanguageName = nativeLang ? nativeLang.name : this.nativeLanguage;
+    this.previewSelectedLanguages = this.selectedLanguages.join(', ');
     if (this.learningGoalType === 'other') {
       this.previewGoalLabel = this.learningGoalDescription || 'Custom goal';
     } else {
@@ -896,13 +901,7 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
 
       this.isSubmitting = false;
 
-      // Show the welcome/congrats page
       this.showWelcome = true;
-
-      // Auto-redirect after 4 seconds
-      setTimeout(() => {
-        this.navigateToHome();
-      }, 4000);
     } catch (error: any) {
       console.error('❌ Error completing onboarding:', error);
       this.isSubmitting = false;

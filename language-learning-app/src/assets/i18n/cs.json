@@ -482,7 +482,14 @@
     "LANG_SELECT": {
       "TITLE": "Zvolte svůj jazyk",
       "SUBTITLE": "Vyberte jazyk, který chcete používat v celé aplikaci",
-      "CONFIRM": "Pokračovat"
+      "CONFIRM": "Pokračovat",
+      "CHOOSE_SUBTITLE": "Choose your preferred language for the app"
+    },
+    "LEGAL": {
+      "AGREE_PREFIX": "By continuing, you agree to our",
+      "TERMS": "Terms of Service",
+      "AND": "and",
+      "PRIVACY": "Privacy Policy"
     },
     "COUNTRY_MODAL": {
       "ORIGIN_TITLE": "Vyberte svou zemi původu",
@@ -510,7 +517,29 @@
       "TUTOR_GREETING": "Vítejte v Barnabi",
       "TUTOR_SUBTITLE": "Připojte se k naší komunitě lektorů a začněte vyučovat studenty po celém světě. Připravíme váš profil.",
       "CTA": "Začít",
-      "BACK": "Změnit jazyk"
+      "BACK": "Změnit jazyk",
+      "TRUST_SECURE": "Private & secure",
+      "TRUST_TIME": "Takes 2 minutes",
+      "TRUST_FREE": "No credit card needed to sign up",
+      "FEAT1_TITLE": "Find a Tutor",
+      "FEAT1_DESC": "Browse verified tutors who match your goals and schedule",
+      "FEAT2_TITLE": "Start Lesson",
+      "FEAT2_DESC": "Join HD video lessons from anywhere, on any device",
+      "FEAT3_TITLE": "Track Progress",
+      "FEAT3_DESC": "See your improvement with AI-powered insights after every lesson",
+      "TUTOR_FEAT1_TITLE": "Set Your Schedule",
+      "TUTOR_FEAT1_DESC": "Control when you're available to teach",
+      "TUTOR_FEAT2_TITLE": "Teach Live",
+      "TUTOR_FEAT2_DESC": "HD video lessons with built-in teaching tools",
+      "TUTOR_FEAT3_TITLE": "Get Paid",
+      "TUTOR_FEAT3_DESC": "Earn on your terms with transparent payouts",
+      "HOW_LABEL": "How it works",
+      "HOW_STEP1": "Set up your profile",
+      "HOW_STEP2": "Find a tutor",
+      "HOW_STEP3": "Start learning",
+      "TUTOR_HOW_STEP1": "Build your profile",
+      "TUTOR_HOW_STEP2": "Set availability",
+      "TUTOR_HOW_STEP3": "Start teaching"
     },
     "NAV": {
       "PREVIOUS": "Předchozí",
@@ -967,7 +996,6 @@
     "FEEDBACK_PENDING": "Zpětná vazba čeká",
     "LEAVE_FEEDBACK": "Zanechat zpětnou vazbu",
     "ADD_NOTE": "Přidat poznámku",
-
     "MODAL_FILTERS_TITLE": "Filtry",
     "SELECTED": "Vybráno",
     "TIME_PERIOD": "Časové období",
@@ -986,14 +1014,12 @@
     "STATUS_CANCELLED": "Zrušená",
     "SHOW_LESSON": "Zobrazit {{count}} lekci",
     "SHOW_LESSONS": "Zobrazit {{count}} lekcí",
-
     "NOTE_MODAL_TITLE": "Vaše poznámka k této lekci",
     "QUICK_IMPRESSION": "Rychlý dojem",
     "YOUR_NOTE": "Vaše poznámka",
     "HOMEWORK": "Domácí úkol",
     "EDIT": "Upravit",
     "CLOSE": "Zavřít",
-
     "TOAST_LOAD_FAILED": "Nepodařilo se načíst lekce",
     "UNKNOWN": "Neznámé",
     "CLASS_STUDENTS": " student(ů)",
@@ -1004,7 +1030,6 @@
     "STATUS_SCHEDULED": "Naplánováno",
     "STATUS_IN_PROGRESS": "Probíhá",
     "STATUS_PENDING": "Čeká se",
-
     "ISSUE_TUTOR_NO_SHOW": "Lektor se nedostavil",
     "ISSUE_STUDENT_NO_SHOW": "Student se nedostavil",
     "ISSUE_ENDED_EARLY": "Lekce skončila předčasně",
@@ -1012,7 +1037,6 @@
     "ISSUE_INAPPROPRIATE": "Nevhodné chování",
     "ISSUE_TECHNICAL": "Technické problémy",
     "ISSUE_OTHER": "Jiné",
-
     "ALERT_REPORT_HEADER": "Nahlásit problém",
     "ALERT_REPORT_MESSAGE": "Vyberte prosím problém, který jste zažili:",
     "ALERT_CANCEL": "Zrušit",
@@ -1023,7 +1047,6 @@
     "ALERT_DETAILS_PLACEHOLDER": "Popište, co se stalo...",
     "ALERT_SUBMIT": "Odeslat hlášení",
     "ALERT_MIN_CHARS": "Zadejte prosím alespoň 10 znaků",
-
     "TOAST_SUBMITTING": "Odesílání hlášení...",
     "TOAST_ISSUE_REPORTED": "Problém úspěšně nahlášen.",
     "TOAST_REPORT_FAILED": "Nepodařilo se nahlásit problém."

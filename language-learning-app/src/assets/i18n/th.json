@@ -482,7 +482,14 @@
     "LANG_SELECT": {
       "TITLE": "เลือกภาษาของคุณ",
       "SUBTITLE": "เลือกภาษาที่คุณต้องการใช้ตลอดทั้งแอป",
-      "CONFIRM": "ดำเนินการต่อ"
+      "CONFIRM": "ดำเนินการต่อ",
+      "CHOOSE_SUBTITLE": "Choose your preferred language for the app"
+    },
+    "LEGAL": {
+      "AGREE_PREFIX": "By continuing, you agree to our",
+      "TERMS": "Terms of Service",
+      "AND": "and",
+      "PRIVACY": "Privacy Policy"
     },
     "COUNTRY_MODAL": {
       "ORIGIN_TITLE": "เลือกประเทศต้นทางของคุณ",
@@ -510,7 +517,29 @@
       "TUTOR_GREETING": "ยินดีต้อนรับสู่ Barnabi",
       "TUTOR_SUBTITLE": "เข้าร่วมชุมชนติวเตอร์ของเราและเริ่มสอนนักเรียนทั่วโลก มาเตรียมโปรไฟล์ของคุณกัน",
       "CTA": "เริ่มต้น",
-      "BACK": "เปลี่ยนภาษา"
+      "BACK": "เปลี่ยนภาษา",
+      "TRUST_SECURE": "Private & secure",
+      "TRUST_TIME": "Takes 2 minutes",
+      "TRUST_FREE": "No credit card needed to sign up",
+      "FEAT1_TITLE": "Find a Tutor",
+      "FEAT1_DESC": "Browse verified tutors who match your goals and schedule",
+      "FEAT2_TITLE": "Start Lesson",
+      "FEAT2_DESC": "Join HD video lessons from anywhere, on any device",
+      "FEAT3_TITLE": "Track Progress",
+      "FEAT3_DESC": "See your improvement with AI-powered insights after every lesson",
+      "TUTOR_FEAT1_TITLE": "Set Your Schedule",
+      "TUTOR_FEAT1_DESC": "Control when you're available to teach",
+      "TUTOR_FEAT2_TITLE": "Teach Live",
+      "TUTOR_FEAT2_DESC": "HD video lessons with built-in teaching tools",
+      "TUTOR_FEAT3_TITLE": "Get Paid",
+      "TUTOR_FEAT3_DESC": "Earn on your terms with transparent payouts",
+      "HOW_LABEL": "How it works",
+      "HOW_STEP1": "Set up your profile",
+      "HOW_STEP2": "Find a tutor",
+      "HOW_STEP3": "Start learning",
+      "TUTOR_HOW_STEP1": "Build your profile",
+      "TUTOR_HOW_STEP2": "Set availability",
+      "TUTOR_HOW_STEP3": "Start teaching"
     },
     "NAV": {
       "PREVIOUS": "ก่อนหน้า",
@@ -967,7 +996,6 @@
     "FEEDBACK_PENDING": "รอความคิดเห็น",
     "LEAVE_FEEDBACK": "ให้ความคิดเห็น",
     "ADD_NOTE": "เพิ่มบันทึก",
-
     "MODAL_FILTERS_TITLE": "ตัวกรอง",
     "SELECTED": "เลือกแล้ว",
     "TIME_PERIOD": "ช่วงเวลา",
@@ -986,14 +1014,12 @@
     "STATUS_CANCELLED": "ยกเลิก",
     "SHOW_LESSON": "แสดง {{count}} บทเรียน",
     "SHOW_LESSONS": "แสดง {{count}} บทเรียน",
-
     "NOTE_MODAL_TITLE": "บันทึกของคุณสำหรับบทเรียนนี้",
     "QUICK_IMPRESSION": "ความประทับใจสั้นๆ",
     "YOUR_NOTE": "บันทึกของคุณ",
     "HOMEWORK": "การบ้าน",
     "EDIT": "แก้ไข",
     "CLOSE": "ปิด",
-
     "TOAST_LOAD_FAILED": "โหลดบทเรียนล้มเหลว",
     "UNKNOWN": "ไม่ทราบ",
     "CLASS_STUDENTS": " นักเรียน",
@@ -1004,7 +1030,6 @@
     "STATUS_SCHEDULED": "มีกำหนดแล้ว",
     "STATUS_IN_PROGRESS": "กำลังดำเนินการ",
     "STATUS_PENDING": "รอดำเนินการ",
-
     "ISSUE_TUTOR_NO_SHOW": "ติวเตอร์ไม่มา",
     "ISSUE_STUDENT_NO_SHOW": "นักเรียนไม่มา",
     "ISSUE_ENDED_EARLY": "บทเรียนจบก่อนเวลา",
@@ -1012,7 +1037,6 @@
     "ISSUE_INAPPROPRIATE": "พฤติกรรมไม่เหมาะสม",
     "ISSUE_TECHNICAL": "ปัญหาทางเทคนิค",
     "ISSUE_OTHER": "อื่นๆ",
-
     "ALERT_REPORT_HEADER": "รายงานปัญหา",
     "ALERT_REPORT_MESSAGE": "กรุณาเลือกปัญหาที่คุณพบ:",
     "ALERT_CANCEL": "ยกเลิก",
@@ -1023,7 +1047,6 @@
     "ALERT_DETAILS_PLACEHOLDER": "อธิบายสิ่งที่เกิดขึ้น...",
     "ALERT_SUBMIT": "ส่งรายงาน",
     "ALERT_MIN_CHARS": "กรุณาระบุอย่างน้อย 10 ตัวอักษร",
-
     "TOAST_SUBMITTING": "กำลังส่งรายงาน...",
     "TOAST_ISSUE_REPORTED": "รายงานปัญหาสำเร็จ",
     "TOAST_REPORT_FAILED": "รายงานปัญหาล้มเหลว"

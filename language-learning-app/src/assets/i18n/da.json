@@ -483,7 +483,14 @@
     "LANG_SELECT": {
       "TITLE": "Vælg dit sprog",
       "SUBTITLE": "Vælg det sprog, du gerne vil bruge i hele appen",
-      "CONFIRM": "Fortsæt"
+      "CONFIRM": "Fortsæt",
+      "CHOOSE_SUBTITLE": "Choose your preferred language for the app"
+    },
+    "LEGAL": {
+      "AGREE_PREFIX": "By continuing, you agree to our",
+      "TERMS": "Terms of Service",
+      "AND": "and",
+      "PRIVACY": "Privacy Policy"
     },
     "COUNTRY_MODAL": {
       "ORIGIN_TITLE": "Vælg dit oprindelsesland",
@@ -511,7 +518,29 @@
       "TUTOR_GREETING": "Velkommen til Barnabi",
       "TUTOR_SUBTITLE": "Bliv en del af vores underviserfællesskab og begynd at undervise elever verden over. Lad os gøre din profil klar.",
       "CTA": "Kom i gang",
-      "BACK": "Skift sprog"
+      "BACK": "Skift sprog",
+      "TRUST_SECURE": "Private & secure",
+      "TRUST_TIME": "Takes 2 minutes",
+      "TRUST_FREE": "No credit card needed to sign up",
+      "FEAT1_TITLE": "Find a Tutor",
+      "FEAT1_DESC": "Browse verified tutors who match your goals and schedule",
+      "FEAT2_TITLE": "Start Lesson",
+      "FEAT2_DESC": "Join HD video lessons from anywhere, on any device",
+      "FEAT3_TITLE": "Track Progress",
+      "FEAT3_DESC": "See your improvement with AI-powered insights after every lesson",
+      "TUTOR_FEAT1_TITLE": "Set Your Schedule",
+      "TUTOR_FEAT1_DESC": "Control when you're available to teach",
+      "TUTOR_FEAT2_TITLE": "Teach Live",
+      "TUTOR_FEAT2_DESC": "HD video lessons with built-in teaching tools",
+      "TUTOR_FEAT3_TITLE": "Get Paid",
+      "TUTOR_FEAT3_DESC": "Earn on your terms with transparent payouts",
+      "HOW_LABEL": "How it works",
+      "HOW_STEP1": "Set up your profile",
+      "HOW_STEP2": "Find a tutor",
+      "HOW_STEP3": "Start learning",
+      "TUTOR_HOW_STEP1": "Build your profile",
+      "TUTOR_HOW_STEP2": "Set availability",
+      "TUTOR_HOW_STEP3": "Start teaching"
     },
     "NAV": {
       "PREVIOUS": "Forrige",
@@ -968,7 +997,6 @@
     "FEEDBACK_PENDING": "Feedback afventer",
     "LEAVE_FEEDBACK": "Giv feedback",
     "ADD_NOTE": "Tilføj note",
-
     "MODAL_FILTERS_TITLE": "Filtre",
     "SELECTED": "Valgt",
     "TIME_PERIOD": "Tidsperiode",
@@ -987,14 +1015,12 @@
     "STATUS_CANCELLED": "Aflyst",
     "SHOW_LESSON": "Vis {{count}} lektion",
     "SHOW_LESSONS": "Vis {{count}} lektioner",
-
     "NOTE_MODAL_TITLE": "Din note til denne lektion",
     "QUICK_IMPRESSION": "Hurtigt indtryk",
     "YOUR_NOTE": "Din note",
     "HOMEWORK": "Lektie",
     "EDIT": "Rediger",
     "CLOSE": "Luk",
-
     "TOAST_LOAD_FAILED": "Kunne ikke indlæse lektioner",
     "UNKNOWN": "Ukendt",
     "CLASS_STUDENTS": " elev(er)",
@@ -1005,7 +1031,6 @@
     "STATUS_SCHEDULED": "Planlagt",
     "STATUS_IN_PROGRESS": "I gang",
     "STATUS_PENDING": "Afventer",
-
     "ISSUE_TUTOR_NO_SHOW": "Underviseren mødte ikke op",
     "ISSUE_STUDENT_NO_SHOW": "Eleven mødte ikke op",
     "ISSUE_ENDED_EARLY": "Lektionen sluttede tidligt",
@@ -1013,7 +1038,6 @@
     "ISSUE_INAPPROPRIATE": "Upassende adfærd",
     "ISSUE_TECHNICAL": "Tekniske problemer",
     "ISSUE_OTHER": "Andet",
-
     "ALERT_REPORT_HEADER": "Rapporter problem",
     "ALERT_REPORT_MESSAGE": "Vælg venligst det problem du oplevede:",
     "ALERT_CANCEL": "Annuller",
@@ -1024,7 +1048,6 @@
     "ALERT_DETAILS_PLACEHOLDER": "Beskriv hvad der skete...",
     "ALERT_SUBMIT": "Indsend rapport",
     "ALERT_MIN_CHARS": "Angiv venligst mindst 10 tegn",
-
     "TOAST_SUBMITTING": "Indsender rapport...",
     "TOAST_ISSUE_REPORTED": "Problem rapporteret.",
     "TOAST_REPORT_FAILED": "Kunne ikke rapportere problem."
