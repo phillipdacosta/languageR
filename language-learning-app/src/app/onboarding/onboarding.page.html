@@ -211,8 +211,8 @@
             <span *ngIf="currentStep <= 4" class="step-number">4</span>
           </div>
           <div class="step-info">
-            <h3>{{ 'ONBOARDING.STUDENT.SIDEBAR_GOALS' | translate }}</h3>
-            <p>{{ 'ONBOARDING.STUDENT.SIDEBAR_GOALS_DESC' | translate }}</p>
+            <h3>Your Goal</h3>
+            <p>What you want to achieve</p>
           </div>
         </div>
 
@@ -226,8 +226,23 @@
             <span *ngIf="currentStep <= 5" class="step-number">5</span>
           </div>
           <div class="step-info">
-            <h3>{{ 'ONBOARDING.STUDENT.SIDEBAR_EXPERIENCE' | translate }}</h3>
-            <p>{{ 'ONBOARDING.STUDENT.SIDEBAR_EXPERIENCE_DESC' | translate }}</p>
+            <h3>Your Level</h3>
+            <p>Where you're starting from</p>
+          </div>
+        </div>
+
+        <div 
+          class="step-item"
+          [class.completed]="currentStep > 6"
+          [class.current]="currentStep === 6"
+          (click)="currentStep > 5 ? currentStep = 6 : null">
+          <div class="step-indicator">
+            <ion-icon *ngIf="currentStep > 6" name="checkmark-circle"></ion-icon>
+            <span *ngIf="currentStep <= 6" class="step-number">6</span>
+          </div>
+          <div class="step-info">
+            <h3>Timeline</h3>
+            <p>Your target pace</p>
           </div>
         </div>
 
@@ -338,57 +353,90 @@
           </div>
         </div>
 
-        <!-- Step 4: Learning Goals -->
+        <!-- Step 4: What's your goal? -->
         <div *ngIf="currentStep === 4">
-          <h2 class="step-title">{{ 'ONBOARDING.STUDENT.STEP4_TITLE' | translate }}</h2>
-          <p class="step-description">{{ 'ONBOARDING.STUDENT.STEP4_SUBTITLE' | translate }}</p>
+          <h2 class="step-title">What's your goal?</h2>
+          <p class="step-description">This helps us create a personalized learning path for you.</p>
 
-          <div class="goals-list">
+          <div class="goal-cards-grid">
             <button 
-              *ngFor="let goal of availableGoals"
-              class="goal-button"
-              [class.selected]="learningGoals.includes(goal.value)"
-              (click)="toggleGoal(goal.value)">
-              <ion-icon 
-                [name]="learningGoals.includes(goal.value) ? 'checkbox' : 'square-outline'"
-                class="checkbox-icon">
-              </ion-icon>
-              <span>{{ goal.key | translate }}</span>
+              *ngFor="let goal of goalTypeOptions"
+              class="goal-type-card"
+              [class.selected]="learningGoalType === goal.value"
+              (click)="setLearningGoalType(goal.value)">
+              <div class="goal-type-icon">
+                <ion-icon [name]="goal.icon"></ion-icon>
+              </div>
+              <div class="goal-type-text">
+                <span class="goal-type-label">{{ goal.label }}</span>
+                <span class="goal-type-desc">{{ goal.description }}</span>
+              </div>
+              <div class="goal-type-check" *ngIf="learningGoalType === goal.value">
+                <ion-icon name="checkmark-circle"></ion-icon>
+              </div>
+            </button>
+          </div>
+
+          <div class="custom-goal-input" *ngIf="learningGoalType === 'other'">
+            <label>Describe your goal</label>
+            <input 
+              type="text"
+              [(ngModel)]="learningGoalDescription"
+              placeholder="e.g., Connect with my partner's family"
+              class="modern-input">
+          </div>
+        </div>
+
+        <!-- Step 5: Where are you now? -->
+        <div *ngIf="currentStep === 5">
+          <h2 class="step-title">Where are you now?</h2>
+          <p class="step-description">No pressure -- this just helps us start you at the right place.</p>
+
+          <div class="level-cards-list">
+            <button 
+              *ngFor="let level of levelOptions"
+              class="level-card"
+              [class.selected]="selfAssessedLevel === level.value"
+              (click)="setSelfAssessedLevel(level.value)">
+              <div class="level-card-text">
+                <span class="level-card-label">{{ level.label }}</span>
+                <span class="level-card-desc">{{ level.description }}</span>
+              </div>
+              <div class="level-card-check" *ngIf="selfAssessedLevel === level.value">
+                <ion-icon name="checkmark-circle"></ion-icon>
+              </div>
             </button>
           </div>
         </div>
 
-        <!-- Step 5: Experience & Schedule -->
-        <div *ngIf="currentStep === 5">
-          <h2 class="step-title">{{ 'ONBOARDING.STUDENT.STEP5_TITLE' | translate }}</h2>
-          <p class="step-description">{{ 'ONBOARDING.STUDENT.STEP5_SUBTITLE' | translate }}</p>
+        <!-- Step 6: Timeline -->
+        <div *ngIf="currentStep === 6">
+          <h2 class="step-title">Do you have a target date?</h2>
+          <p class="step-description">This helps us pace your learning plan. You can always change it later.</p>
 
-          <div class="form-fields">
-            <div class="form-field">
-              <label>{{ 'ONBOARDING.STUDENT.STEP5_LEVEL' | translate }}</label>
-              <div class="options-list">
-                <button 
-                  *ngFor="let level of experienceLevels"
-                  class="option-button-block"
-                  [class.selected]="experienceLevel === level.value"
-                  (click)="setExperienceLevel(level.value)">
-                  {{ level.key | translate }}
-                </button>
+          <div class="timeline-cards-list">
+            <button 
+              *ngFor="let tl of timelineOptions"
+              class="timeline-card"
+              [class.selected]="goalTimeline === tl.value"
+              (click)="setGoalTimeline(tl.value)">
+              <div class="timeline-card-icon">
+                <ion-icon [name]="tl.icon"></ion-icon>
               </div>
-            </div>
+              <span class="timeline-card-label">{{ tl.label }}</span>
+              <div class="timeline-card-check" *ngIf="goalTimeline === tl.value">
+                <ion-icon name="checkmark-circle"></ion-icon>
+              </div>
+            </button>
+          </div>
 
-            <div class="form-field">
-              <label>{{ 'ONBOARDING.STUDENT.STEP5_FREQUENCY' | translate }}</label>
-              <div class="options-list">
-                <button 
-                  *ngFor="let schedule of scheduleOptions"
-                  class="option-button-block"
-                  [class.selected]="preferredSchedule === schedule.value"
-                  (click)="setPreferredSchedule(schedule.value)">
-                  {{ schedule.key | translate }}
-                </button>
-              </div>
-            </div>
+          <div class="date-picker-wrapper" *ngIf="goalTimeline === 'specific_date'">
+            <label>Target date</label>
+            <input 
+              type="date"
+              [(ngModel)]="goalTargetDate"
+              class="modern-input"
+              [min]="'2026-04-01'">
           </div>
         </div>
       </div>
@@ -456,33 +504,33 @@
       <div class="preview-section">
         <div class="preview-section-header">
           <ion-icon name="globe"></ion-icon>
-          <h3>{{ 'ONBOARDING.STUDENT.PREVIEW_LEARNING_PREFS' | translate }}</h3>
+          <h3>Languages</h3>
           <button class="edit-link" (click)="goBackToEdit(3)">{{ 'ONBOARDING.NAV.EDIT' | translate }}</button>
         </div>
         <div class="preview-row">
-          <span class="preview-label">{{ 'ONBOARDING.STUDENT.PREVIEW_LEARNING' | translate }}</span>
+          <span class="preview-label">Learning</span>
           <span class="preview-value">{{ selectedLanguages.join(', ') }}</span>
-        </div>
-        <div class="preview-row">
-          <span class="preview-label">{{ 'ONBOARDING.STUDENT.PREVIEW_GOALS' | translate }}</span>
-          <span class="preview-value">{{ translatedGoalsList }}</span>
         </div>
       </div>
 
-      <!-- Experience -->
+      <!-- Goal & Level -->
       <div class="preview-section">
         <div class="preview-section-header">
-          <ion-icon name="school"></ion-icon>
-          <h3>{{ 'ONBOARDING.STUDENT.PREVIEW_EXPERIENCE' | translate }}</h3>
-          <button class="edit-link" (click)="goBackToEdit(5)">{{ 'ONBOARDING.NAV.EDIT' | translate }}</button>
+          <ion-icon name="rocket"></ion-icon>
+          <h3>Goal & Level</h3>
+          <button class="edit-link" (click)="goBackToEdit(4)">{{ 'ONBOARDING.NAV.EDIT' | translate }}</button>
         </div>
         <div class="preview-row">
-          <span class="preview-label">{{ 'ONBOARDING.STUDENT.PREVIEW_LEVEL' | translate }}</span>
-          <span class="preview-value">{{ translatedExperienceLevel }}</span>
+          <span class="preview-label">Goal</span>
+          <span class="preview-value">{{ previewGoalLabel }}</span>
         </div>
         <div class="preview-row">
-          <span class="preview-label">{{ 'ONBOARDING.STUDENT.PREVIEW_SCHEDULE' | translate }}</span>
-          <span class="preview-value">{{ translatedSchedule }}</span>
+          <span class="preview-label">Current Level</span>
+          <span class="preview-value">{{ previewLevelLabel }}</span>
+        </div>
+        <div class="preview-row">
+          <span class="preview-label">Timeline</span>
+          <span class="preview-value">{{ previewTimelineLabel }}</span>
         </div>
       </div>
     </div>

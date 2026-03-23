@@ -24,7 +24,7 @@
   --ed-red: #d93900;
 
   ion-content {
-    --background: #fff;
+    --background: #f5f5f7;
   }
 }
 
@@ -1572,6 +1572,40 @@ ion-header {
     max-height: 2000px;
     opacity: 1;
     margin-top: 12px;
+  }
+}
+
+/* ── Learning Plan Card (in sidebar) ───────────────────── */
+.ed-plan-card {
+  .ed-plan-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 6px 0;
+
+    .ed-plan-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: #8e8e93;
+      flex-shrink: 0;
+      margin-right: 8px;
+    }
+
+    .ed-plan-value {
+      font-size: 13px;
+      font-weight: 500;
+      color: #1c1c1e;
+      text-align: right;
+    }
+  }
+
+  .ed-plan-summary {
+    font-size: 13px;
+    color: #636366;
+    line-height: 1.5;
+    margin: 8px 0 0 0;
+    padding-top: 8px;
+    border-top: 1px solid #f2f2f7;
   }
 }
 

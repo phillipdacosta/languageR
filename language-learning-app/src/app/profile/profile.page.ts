@@ -19,6 +19,7 @@ import { getTimezoneLabel, formatTimeInTz, formatDateInTz } from '../shared/time
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { environment } from '../../environments/environment';
 import { TutorFeedbackService } from '../services/tutor-feedback.service';
+import { LearningPlanService, GOAL_TYPE_LABELS, LEVEL_LABELS } from '../services/learning-plan.service';
 
 @Component({
   selector: 'app-profile',
@@ -82,6 +83,14 @@ export class ProfilePage implements OnInit {
   recentPayments: any[] = [];
   loadingEarnings = false;
 
+  // Learning Goal display (students only, precomputed for template)
+  learningGoalDisplay: string = '';
+  learningGoalIcon: string = 'rocket-outline';
+  learningGoalLevelDisplay: string = '';
+  learningGoalTimelineDisplay: string = '';
+  goalCooldownActive: boolean = false;
+  goalCooldownDateDisplay: string = '';
+
   constructor(
     private authService: AuthService,
     private userService: UserService,
@@ -98,7 +107,8 @@ export class ProfilePage implements OnInit {
     private http: HttpClient,
     private platform: Platform,
     private websocketService: WebSocketService,
-    private tutorFeedbackService: TutorFeedbackService
+    private tutorFeedbackService: TutorFeedbackService,
+    private learningPlanService: LearningPlanService
   ) {
     this.user$ = this.authService.user$;
     this.isAuthenticated$ = this.authService.isAuthenticated$;
@@ -235,6 +245,7 @@ export class ProfilePage implements OnInit {
       } else {
         // Not a tutor — mark feedback as loaded so visibility badge doesn't wait
         this.feedbackCountLoaded = true;
+        this.computeLearningGoalDisplay(user);
       }
       
       this.remindersEnabled = user?.profile?.remindersEnabled !== false;
@@ -581,6 +592,77 @@ export class ProfilePage implements OnInit {
   isStudent(): boolean {
     const user = this.isViewingOtherUser ? this.viewingUser : this.currentUser;
     return user?.userType === 'student';
+  }
+
+  private computeLearningGoalDisplay(user: any) {
+    const goal = user?.onboardingData?.learningGoal;
+    if (!goal?.type) {
+      this.learningGoalDisplay = '';
+      return;
+    }
+
+    const GOAL_ICONS: Record<string, string> = {
+      conversational: 'chatbubbles-outline',
+      exam_prep: 'school-outline',
+      professional: 'briefcase-outline',
+      travel: 'airplane-outline',
+      relocation: 'home-outline',
+      other: 'sparkles-outline'
+    };
+
+    this.learningGoalDisplay = GOAL_TYPE_LABELS[goal.type] || goal.type;
+    if (goal.type === 'other' && goal.description) {
+      this.learningGoalDisplay = goal.description;
+    }
+    this.learningGoalIcon = GOAL_ICONS[goal.type] || 'rocket-outline';
+    this.learningGoalLevelDisplay = goal.selfAssessedLevel
+      ? (LEVEL_LABELS[goal.selfAssessedLevel] || goal.selfAssessedLevel) : '';
+
+    if (goal.timeline === 'specific_date' && goal.targetDate) {
+      this.learningGoalTimelineDisplay = `By ${new Date(goal.targetDate).toLocaleDateString()}`;
+    } else if (goal.timeline === 'few_months') {
+      this.learningGoalTimelineDisplay = 'Within a few months';
+    } else {
+      this.learningGoalTimelineDisplay = 'No rush, steady progress';
+    }
+
+    // Check cooldown from any existing plan
+    if (user?.onboardingData?.languages?.length) {
+      this.learningPlanService.getPlan(user.onboardingData.languages[0])
+        .pipe(take(1)).subscribe({
+          next: (res: any) => {
+            if (res.plan?.lastGoalChangedAt) {
+              const lastChanged = new Date(res.plan.lastGoalChangedAt);
+              const daysSince = (Date.now() - lastChanged.getTime()) / (1000 * 60 * 60 * 24);
+              if (daysSince < 7) {
+                this.goalCooldownActive = true;
+                const nextDate = new Date(lastChanged.getTime() + 7 * 24 * 60 * 60 * 1000);
+                this.goalCooldownDateDisplay = nextDate.toLocaleDateString('en-US', {
+                  month: 'short', day: 'numeric', year: 'numeric'
+                });
+              }
+            }
+          },
+          error: () => {}
+        });
+    }
+  }
+
+  async openGoalEditor() {
+    const alert = await this.alertController.create({
+      header: 'Change Learning Goal',
+      message: 'Changing your goal will regenerate your learning plan. You can only change it once every 7 days.',
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Change Goal',
+          handler: () => {
+            this.router.navigate(['/onboarding']);
+          }
+        }
+      ]
+    });
+    await alert.present();
   }
 
   getDisplayUser(): any {

@@ -20,6 +20,7 @@ import { ConfirmActionModalComponent } from '../../components/confirm-action-mod
 import { RescheduleLessonModalComponent } from '../../components/reschedule-lesson-modal/reschedule-lesson-modal.component';
 import { formatTimeInTz, formatDateInTz } from '../../shared/timezone.utils';
 import { MaterialService, TutorMaterial } from '../../services/material.service';
+import { LearningPlanService, LearningPlanSummary, GOAL_TYPE_LABELS } from '../../services/learning-plan.service';
 
 // ── Interfaces ──────────────────────────────────────────────────
 interface AnalysisData {
@@ -162,6 +163,13 @@ export class EventDetailsPage implements OnInit, OnDestroy {
   channelsSectionExpanded = true;
   materialsSectionExpanded = true;
 
+  // Learning Plan summary (sidebar)
+  edPlanGoalLabel = '';
+  edPlanPhaseLabel = '';
+  edPlanNextFocus = '';
+  edPlanStudentSummary = '';
+  edHasPlan = false;
+
   // Tip info
   hasTip = false;
   tipAmount = '';
@@ -282,7 +290,8 @@ export class EventDetailsPage implements OnInit, OnDestroy {
     private location: Location,
     private flipTransition: FlipTransitionService,
     private cdr: ChangeDetectorRef,
-    private materialService: MaterialService
+    private materialService: MaterialService,
+    private learningPlanService: LearningPlanService
   ) {}
 
   ngOnInit() {
@@ -397,6 +406,26 @@ export class EventDetailsPage implements OnInit, OnDestroy {
     this.pendingRequests = 5; // analysis + feedback + billing + payment + previous notes
     if (this.isStudentUser) {
       this.pendingRequests++; // + payment method
+    }
+
+    // Load learning plan summary (non-blocking sidebar data)
+    if (this.isTutorUser && this.participantId) {
+      this.learningPlanService.getStudentPlanSummary(this.participantId).subscribe({
+        next: (res) => {
+          if (res.success && res.summaries?.length) {
+            const s = res.summaries[0];
+            this.edPlanGoalLabel = GOAL_TYPE_LABELS[s.goal?.type] || s.goal?.description || '';
+            this.edPlanPhaseLabel = s.currentPhase
+              ? `Phase ${s.currentPhaseIndex + 1} of ${s.totalPhases}: ${s.currentPhase.title}`
+              : '';
+            this.edPlanNextFocus = s.nextLessonFocus || '';
+            this.edPlanStudentSummary = s.studentSummary || '';
+            this.edHasPlan = true;
+            this.cdr.detectChanges();
+          }
+        },
+        error: () => {}
+      });
     }
 
     // Load analysis

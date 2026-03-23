@@ -585,7 +585,7 @@ router.put('/onboarding', verifyToken, async (req, res) => {
       }
     } else {
       // Handle student onboarding data
-      const { languages, goals, experienceLevel, preferredSchedule } = req.body;
+      const { languages, goals, experienceLevel, preferredSchedule, learningGoal } = req.body;
       user.onboardingData = {
         languages: languages || [],
         goals: goals || [],
@@ -593,6 +593,16 @@ router.put('/onboarding', verifyToken, async (req, res) => {
         preferredSchedule: preferredSchedule || '',
         completedAt: new Date()
       };
+      if (learningGoal && learningGoal.type) {
+        user.onboardingData.learningGoal = {
+          type: learningGoal.type,
+          description: learningGoal.description || '',
+          targetLevel: learningGoal.targetLevel || '',
+          selfAssessedLevel: learningGoal.selfAssessedLevel || null,
+          timeline: learningGoal.timeline || 'no_rush',
+          targetDate: learningGoal.targetDate || null
+        };
+      }
     }
     
     try {

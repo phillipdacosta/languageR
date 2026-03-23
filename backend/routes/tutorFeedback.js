@@ -359,6 +359,63 @@ router.post('/:feedbackId/submit', verifyToken, async (req, res) => {
       }
     }
     
+    // ── Update or create learning plan after tutor feedback ─────────────
+    try {
+      const LearningPlanModel = require('../models/LearningPlan');
+      const learningPlanService = require('../services/learningPlanService');
+
+      const planStudent = student || await User.findById(feedback.studentId).catch(() => null) || await User.findOne({ auth0Id: feedback.studentId });
+
+      if (planStudent && lesson) {
+        const planLang = (lesson.subject || 'Unknown').replace(/\s*lesson$/i, '').trim() || lesson.subject || 'Unknown';
+        const existingPlan = await LearningPlanModel.findOne({
+          studentId: planStudent._id,
+          language: planLang,
+          status: 'active'
+        });
+
+        if (existingPlan) {
+          const latestAnalysis = await LessonAnalysis.findOne({
+            lessonId: feedback.lessonId,
+            status: 'completed'
+          }).lean();
+          if (latestAnalysis) {
+            await learningPlanService.updatePlanAfterLesson(existingPlan._id, latestAnalysis);
+          }
+        } else if (lesson.isTrialLesson && planStudent.onboardingData?.learningGoal?.type) {
+          const newPlan = await learningPlanService.generateInitialPlan(planStudent._id, planLang);
+
+          if (newPlan) {
+            const goalLabel = learningPlanService.GOAL_TYPE_LABELS[planStudent.onboardingData.learningGoal.type] || 'reach your goal';
+            await Notification.create({
+              userId: planStudent._id,
+              type: 'learning_plan_ready',
+              title: 'Your Learning Plan is Ready! 🎯',
+              message: `Based on your first lesson, we've created a personalized path to help you ${goalLabel.toLowerCase()} in <strong>${planLang}</strong>.`,
+              data: {
+                language: planLang,
+                planId: newPlan._id.toString(),
+                hasActionButton: true,
+                actionButtonText: 'View Plan',
+                actionRoute: '/tabs/progress'
+              },
+              read: false
+            });
+
+            const io = req.app.get('io');
+            if (io && planStudent.auth0Id) {
+              io.to(`user:${planStudent.auth0Id}`).emit('learning_plan_ready', {
+                language: planLang,
+                planId: newPlan._id.toString()
+              });
+            }
+          }
+        }
+      }
+    } catch (planErr) {
+      console.error('⚠️ Learning plan update after tutor feedback failed (non-blocking):', planErr.message);
+    }
+
     // ── Check for progress milestone (every 5 lessons) ─────────────
     // Since tutor feedback creates a LessonAnalysis, we need to check if
     // the student just hit a 5-lesson milestone.

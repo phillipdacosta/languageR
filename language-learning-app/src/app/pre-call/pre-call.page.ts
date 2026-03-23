@@ -11,6 +11,7 @@ import { TranscriptionService, LessonAnalysis } from '../services/transcription.
 import { ReminderService } from '../services/reminder.service';
 import { firstValueFrom } from 'rxjs';
 import { Subject, takeUntil } from 'rxjs';
+import { LearningPlanService, LearningPlanSummary, GOAL_TYPE_LABELS } from '../services/learning-plan.service';
 
 @Component({
   selector: 'app-pre-call',
@@ -71,6 +72,15 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
   // AI Previous Lesson Notes (for tutors)
   previousLessonNotes: LessonAnalysis | null = null;
   loadingPreviousNotes = false;
+
+  // Learning Plan context (for tutors viewing student plan)
+  planSummary: LearningPlanSummary | null = null;
+  planGoalLabel = '';
+  planPhaseLabel = '';
+  planNextFocus = '';
+  planStudentSummary = '';
+  planSelfAssessedLevel = '';
+  hasPlanData = false;
   
   // Error recovery
   showRetryButton = false;
@@ -99,7 +109,8 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     private transcriptionService: TranscriptionService,
     private websocketService: WebSocketService,
     private cdr: ChangeDetectorRef,
-    private reminderService: ReminderService
+    private reminderService: ReminderService,
+    private learningPlanService: LearningPlanService
   ) {}
 
   async ngOnInit() {
@@ -294,6 +305,11 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       this.loadPreviousLessonNotes();
     } else {
       console.log('⏭️ NOT calling loadPreviousLessonNotes() - Reason: isTrialLesson');
+    }
+
+    // Load student's learning plan for tutor context
+    if (this.isTutor) {
+      this.loadStudentPlanContext();
     }
 
     // Connect to WebSocket and listen for lesson presence
@@ -976,6 +992,36 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       console.error('❌ Error loading previous lesson notes:', error);
       this.previousLessonNotes = null;
       this.loadingPreviousNotes = false;
+    }
+  }
+
+  private loadStudentPlanContext() {
+    try {
+      const lesson = this.lessonService.getCurrentLesson();
+      if (!lesson) return;
+      const studentId = lesson.studentId?._id || lesson.studentId;
+      if (!studentId) return;
+
+      this.learningPlanService.getStudentPlanSummary(studentId).subscribe({
+        next: (res) => {
+          if (res.success && res.summaries?.length) {
+            const summary = res.summaries[0];
+            this.planSummary = summary;
+            this.planGoalLabel = GOAL_TYPE_LABELS[summary.goal?.type] || summary.goal?.description || '';
+            this.planPhaseLabel = summary.currentPhase
+              ? `Phase ${summary.currentPhaseIndex + 1} of ${summary.totalPhases}: ${summary.currentPhase.title}`
+              : '';
+            this.planNextFocus = summary.nextLessonFocus || '';
+            this.planStudentSummary = summary.studentSummary || '';
+            this.planSelfAssessedLevel = summary.selfAssessedLevel || '';
+            this.hasPlanData = true;
+            this.cdr.detectChanges();
+          }
+        },
+        error: () => {}
+      });
+    } catch (err) {
+      console.error('⚠️ Error loading student plan context:', err);
     }
   }
 

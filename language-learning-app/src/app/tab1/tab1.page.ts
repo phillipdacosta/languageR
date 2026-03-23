@@ -35,6 +35,7 @@ import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { SmartIslandService, DynamicCard } from '../services/smart-island.service';
 import { TranslateService } from '@ngx-translate/core';
+import { LearningPlanService, LearningPlan } from '../services/learning-plan.service';
 
 @Component({
   selector: 'app-tab1',
@@ -240,6 +241,15 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   hasCustomProfilePhoto = false; // True only if user has uploaded a custom photo (not Google photo)
   isTutorUser = false; // Use property instead of function call in template
   isStudentUser = false; // Use property instead of function call in template
+
+  // Learning Plan precomputed properties (no functions in template)
+  learningPlanData: any = null;
+  learningPlanCurrentPhase = 0;
+  learningPlanTotalPhases = 0;
+  learningPlanPhaseTitle = '';
+  learningPlanSummary = '';
+  learningPlanNextFocus = '';
+  learningPlanPhaseDots: boolean[] = [];
   
   // Cache of current students array for efficient label updates
   private currentStudents: any[] = [];
@@ -398,7 +408,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     private smartIslandService: SmartIslandService,
     private navCtrl: NavController,
     private translateService: TranslateService,
-    private activatedRoute: ActivatedRoute
+    private activatedRoute: ActivatedRoute,
+    private learningPlanService: LearningPlanService
   ) {
     // Subscribe to currentUser$ observable to get updates automatically
     // Use asyncScheduler to prevent synchronous emission from blocking
@@ -432,6 +443,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         // (due to asyncScheduler), so loadPendingFeedback() was skipped.
         if (this.isTutorUser) {
           this.loadPendingFeedback();
+        }
+
+        if (this.isStudentUser && user?.onboardingData?.languages?.length) {
+          this.loadLearningPlan(user.onboardingData.languages[0]);
         }
         
         // Check tutor onboarding status when user loads
@@ -2130,6 +2145,32 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.router.navigate(['/tabs/lessons']);
   }
   
+  loadLearningPlan(language: string) {
+    this.learningPlanService.getPlan(language).pipe(take(1)).subscribe({
+      next: (res) => {
+        if (res.success && res.plan) {
+          const plan = res.plan;
+          this.learningPlanData = plan;
+          this.learningPlanCurrentPhase = plan.currentPhaseIndex + 1;
+          this.learningPlanTotalPhases = plan.phases.length;
+          const activePhase = plan.phases[plan.currentPhaseIndex];
+          this.learningPlanPhaseTitle = activePhase?.title || '';
+          this.learningPlanSummary = plan.studentSummary || '';
+          this.learningPlanNextFocus = plan.nextLessonFocus || '';
+          this.learningPlanPhaseDots = plan.phases.map(
+            (p: any) => p.status === 'completed' || p.status === 'active'
+          );
+          this.cdr.detectChanges();
+        }
+      },
+      error: () => {}
+    });
+  }
+
+  navigateToProgressPlan() {
+    this.router.navigate(['/tabs/progress']);
+  }
+
   navigateToExplore() {
     this._savedScrollBeforeExplore = this._scrollElRef?.scrollTop || 0;
     this.showExploreView = true;

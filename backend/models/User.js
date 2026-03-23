@@ -184,6 +184,27 @@ const userSchema = new mongoose.Schema({
       type: String,
       trim: true
     },
+    // Structured learning goal (student-only, powers the Learning Plan)
+    learningGoal: {
+      type: {
+        type: String,
+        enum: ['conversational', 'exam_prep', 'professional', 'travel', 'relocation', 'other'],
+        default: null
+      },
+      description: { type: String, default: '' },
+      targetLevel: { type: String, default: '' },
+      selfAssessedLevel: {
+        type: String,
+        enum: ['complete_beginner', 'some_basics', 'simple_conversations', 'intermediate', 'advanced', null],
+        default: null
+      },
+      timeline: {
+        type: String,
+        enum: ['specific_date', 'few_months', 'no_rush', null],
+        default: null
+      },
+      targetDate: { type: Date, default: null }
+    },
     // Tutor-specific fields
     experience: {
       type: String,

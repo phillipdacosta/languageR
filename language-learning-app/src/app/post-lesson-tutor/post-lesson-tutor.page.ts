@@ -8,6 +8,7 @@ import { LessonAnalysis } from '../services/transcription.service';
 import { UserService } from '../services/user.service';
 import { LessonService } from '../services/lesson.service';
 import { TutorFeedbackService } from '../services/tutor-feedback.service';
+import { LearningPlanService } from '../services/learning-plan.service';
 import { firstValueFrom } from 'rxjs';
 import { formatTimeInTz, formatDateInTz, isSameDayInTimezone } from '../shared/timezone.utils';
 
@@ -81,6 +82,23 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
   customStrength: string = '';
   customAreaToImprove: string = '';
 
+  // Learning Plan overrides
+  showPlanOverride = false;
+  planOverrideAction: string = '';
+  planOverrideFocus: string = '';
+  planOverrideNote: string = '';
+  hasActivePlan = false;
+  planStudentId: string = '';
+  planLanguage: string = '';
+
+  planOverrideActions = [
+    { value: '', label: 'No change needed' },
+    { value: 'advance_phase', label: 'Student is ready for the next phase' },
+    { value: 'extend_phase', label: 'Student needs more time in this phase' },
+    { value: 'adjust_focus', label: 'Adjust focus for next lesson' },
+    { value: 'add_note', label: 'Add a note for other tutors' }
+  ];
+
   impressionOptions = [
     { value: 'excellent', label: '🌟 Excellent Progress!', color: 'success' },
     { value: 'great', label: '✅ Great Job!', color: 'primary' },
@@ -148,7 +166,8 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
     private loadingCtrl: LoadingController,
     private alertCtrl: AlertController,
     private toastCtrl: ToastController,
-    private tutorFeedbackService: TutorFeedbackService
+    private tutorFeedbackService: TutorFeedbackService,
+    private learningPlanService: LearningPlanService
   ) {}
 
   async ngOnInit() {
@@ -217,10 +236,29 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
         console.log('✅ POST-LESSON-TUTOR: Lesson info loaded:', this.lesson);
         console.log('✅ POST-LESSON-TUTOR: Student info:', this.student);
         console.log('🤖 POST-LESSON-TUTOR: Student AI enabled:', this.studentAiEnabled);
+
+        this.checkForActivePlan();
       }
     } catch (error) {
       console.error('❌ POST-LESSON-TUTOR: Error loading lesson info:', error);
     }
+  }
+
+  private checkForActivePlan() {
+    const studentId = typeof this.student === 'object' ? (this.student as any)?._id : this.student;
+    if (!studentId) return;
+
+    this.planStudentId = studentId;
+    this.planLanguage = (this.lesson?.subject || '').replace(/\s*lesson$/i, '').trim() || this.lesson?.subject || '';
+
+    this.learningPlanService.getStudentPlanSummary(studentId).subscribe({
+      next: (res) => {
+        if (res.success && res.summaries?.length) {
+          this.hasActivePlan = true;
+        }
+      },
+      error: () => {}
+    });
   }
 
   async loadAnalysis() {
@@ -362,6 +400,20 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
           } catch (fbError) {
             console.warn('⚠️ POST-LESSON-TUTOR: Could not mark TutorFeedback as completed:', fbError);
             // Non-blocking — the tutor note was already saved successfully
+          }
+        }
+
+        // Submit tutor override to learning plan if selected
+        if (this.hasActivePlan && this.planOverrideAction && this.planStudentId) {
+          try {
+            await firstValueFrom(this.learningPlanService.submitTutorOverride({
+              studentId: this.planStudentId,
+              language: this.planLanguage,
+              action: this.planOverrideAction,
+              note: this.planOverrideNote || this.planOverrideFocus || undefined
+            }));
+          } catch (overrideErr) {
+            console.warn('⚠️ Learning plan override failed (non-blocking):', overrideErr);
           }
         }
 

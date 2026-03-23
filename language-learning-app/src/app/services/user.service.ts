@@ -130,6 +130,14 @@ export interface OnboardingData {
   goals: string[];
   experienceLevel: string;
   preferredSchedule: string;
+  learningGoal?: {
+    type: string;
+    description?: string;
+    targetLevel?: string;
+    selfAssessedLevel?: string;
+    timeline?: string;
+    targetDate?: string | null;
+  };
 }
 
 export interface TutorOnboardingData {

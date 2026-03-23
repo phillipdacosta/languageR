@@ -54,8 +54,6 @@ export class AppComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
-    // Initialize language service with default language
-    // Will be updated when user profile loads
     this.languageService.initializeLanguage();
     
     // Ensure theme is applied immediately when app initializes
@@ -632,4 +630,5 @@ export class AppComponent implements OnInit, OnDestroy {
       console.error('❌ [APP] Error in syncStripeStatus:', error);
     }
   }
+
 }

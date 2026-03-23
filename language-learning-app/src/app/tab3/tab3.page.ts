@@ -5,6 +5,7 @@ import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { UserService } from '../services/user.service';
 import { ProgressService, Struggle, StruggleResponse } from '../services/progress.service';
+import { LearningPlanService, LearningPlan, LearningPlanPhase } from '../services/learning-plan.service';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
 import { getGlobalHour12 } from '../shared/timezone.utils';
 
@@ -144,6 +145,17 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
   
   // Coaching metrics (tutors only)
   coachingMetrics: any = null;
+
+  // Learning Plan roadmap (students only)
+  learningPlan: LearningPlan | null = null;
+  learningPlanPhases: LearningPlanPhase[] = [];
+  learningPlanCurrentPhase = 0;
+  learningPlanTotalPhases = 0;
+  learningPlanStudentSummary = '';
+  learningPlanNextFocus = '';
+  learningPlanGoalLabel = '';
+  learningPlanHasPlan = false;
+  expandedPhaseIndex: number | null = null;
   
   private radarChart: Chart | null = null;
   private lineChart: Chart | null = null;
@@ -153,7 +165,8 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
     private http: HttpClient,
     private userService: UserService,
     private progressService: ProgressService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private learningPlanService: LearningPlanService
   ) {}
 
   ngOnInit() {
@@ -208,12 +221,48 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
       if (user?.userType === 'student') {
         console.log('📊 [Tab3] Loading analyses for student');
         this.loadAnalyses();
+        if (user.onboardingData?.languages?.length) {
+          this.loadLearningPlanForProgress(user.onboardingData.languages[0]);
+        }
       } else if (user?.userType === 'tutor') {
         console.log('🎓 [Tab3] User is tutor - loading coaching metrics');
         this.loading = false;
         this.loadCoachingMetrics();
       }
     });
+  }
+
+  loadLearningPlanForProgress(language: string) {
+    this.learningPlanService.getPlan(language).subscribe({
+      next: (res) => {
+        if (res.success && res.plan) {
+          this.learningPlan = res.plan;
+          this.learningPlanPhases = res.plan.phases;
+          this.learningPlanCurrentPhase = res.plan.currentPhaseIndex;
+          this.learningPlanTotalPhases = res.plan.phases.length;
+          this.learningPlanStudentSummary = res.plan.studentSummary;
+          this.learningPlanNextFocus = res.plan.nextLessonFocus;
+          this.learningPlanHasPlan = true;
+
+          const GOAL_LABELS: Record<string, string> = {
+            conversational: 'Become conversational',
+            exam_prep: 'Prepare for an exam',
+            professional: 'Use it for work',
+            travel: 'Travel and get by',
+            relocation: 'Moving to a new country',
+            other: 'Custom goal'
+          };
+          this.learningPlanGoalLabel = res.plan.goal?.description
+            || GOAL_LABELS[res.plan.goal?.type] || '';
+          this.cdr.detectChanges();
+        }
+      },
+      error: () => { this.learningPlanHasPlan = false; }
+    });
+  }
+
+  togglePhaseExpand(index: number) {
+    this.expandedPhaseIndex = this.expandedPhaseIndex === index ? null : index;
   }
 
   async loadAnalyses() {

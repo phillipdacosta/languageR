@@ -319,6 +319,33 @@
 
     <!-- Student-specific sections -->
     <ng-container *ngIf="isStudent()">
+      <!-- My Learning Goal Card -->
+      <ion-card class="learning-goal-card" *ngIf="!isViewingOtherUser && learningGoalDisplay">
+        <ion-card-header>
+          <ion-card-title>My Learning Goal</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <div class="lg-goal-row">
+            <div class="lg-goal-icon">
+              <ion-icon [name]="learningGoalIcon"></ion-icon>
+            </div>
+            <div class="lg-goal-info">
+              <span class="lg-goal-type">{{ learningGoalDisplay }}</span>
+              <span class="lg-goal-level" *ngIf="learningGoalLevelDisplay">{{ learningGoalLevelDisplay }}</span>
+              <span class="lg-goal-timeline" *ngIf="learningGoalTimelineDisplay">{{ learningGoalTimelineDisplay }}</span>
+            </div>
+          </div>
+          <div class="lg-cooldown-notice" *ngIf="goalCooldownActive">
+            <ion-icon name="time-outline"></ion-icon>
+            <span>You can update your goal again on {{ goalCooldownDateDisplay }}</span>
+          </div>
+          <ion-button fill="outline" size="small" class="lg-edit-btn" (click)="openGoalEditor()" [disabled]="goalCooldownActive">
+            <ion-icon name="create-outline" slot="start"></ion-icon>
+            Edit Goal
+          </ion-button>
+        </ion-card-content>
+      </ion-card>
+
       <!-- About Section -->
       <ion-card class="content-card" *ngIf="getDisplayUser()?.bio">
         <ion-card-header>

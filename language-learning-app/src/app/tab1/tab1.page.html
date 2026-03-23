@@ -1045,6 +1045,22 @@
     </ion-card>
     -->
     
+    <!-- Learning Plan Summary Card (Students) -->
+    <div class="learning-plan-card" *ngIf="isStudentUser && learningPlanData" (click)="navigateToProgressPlan()">
+      <div class="lp-phase-indicator">
+        <span class="lp-phase-label">Phase {{ learningPlanCurrentPhase }} of {{ learningPlanTotalPhases }}</span>
+        <div class="lp-phase-dots">
+          <span *ngFor="let dot of learningPlanPhaseDots" class="lp-dot" [class.filled]="dot"></span>
+        </div>
+      </div>
+      <h3 class="lp-phase-title">{{ learningPlanPhaseTitle }}</h3>
+      <p class="lp-summary">{{ learningPlanSummary }}</p>
+      <div class="lp-focus" *ngIf="learningPlanNextFocus">
+        <ion-icon name="bulb-outline"></ion-icon>
+        <span>Focus area: {{ learningPlanNextFocus }}</span>
+      </div>
+    </div>
+
     <!-- Explore Pills — Students -->
     <div class="explore-pills" *ngIf="isStudentUser && !isLoadingLessons">
       <button class="explore-pill">

@@ -31,7 +31,7 @@
 
 // Content styling
 .profile-content {
-  --background: #ffffff;
+  --background: #f5f5f7;
   --padding-top: 0;
   --padding-bottom: 0;
   --padding-start: 0;
@@ -511,6 +511,89 @@
   
   ion-icon {
     font-size: 16px;
+  }
+}
+
+// Learning Goal Card (Students)
+.learning-goal-card {
+  margin: 0;
+  padding: 32px 0;
+  border-bottom: 1px solid #ebebeb;
+  border-radius: 0;
+  box-shadow: none;
+
+  ion-card-header {
+    padding: 0 0 16px 0;
+    ion-card-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1c1c1e;
+    }
+  }
+
+  ion-card-content {
+    padding: 0;
+  }
+
+  .lg-goal-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 12px;
+  }
+
+  .lg-goal-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: #f2f2f7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    ion-icon {
+      font-size: 22px;
+      color: #636366;
+    }
+  }
+
+  .lg-goal-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .lg-goal-type {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1c1c1e;
+  }
+
+  .lg-goal-level, .lg-goal-timeline {
+    font-size: 14px;
+    color: #8e8e93;
+  }
+
+  .lg-cooldown-notice {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #8e8e93;
+    background: #f2f2f7;
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+
+    ion-icon { font-size: 16px; }
+  }
+
+  .lg-edit-btn {
+    --border-color: #d1d1d6;
+    --color: #636366;
+    font-size: 14px;
+    font-weight: 500;
   }
 }
 

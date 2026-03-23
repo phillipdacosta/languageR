@@ -2063,7 +2063,61 @@ async function analyzeLesson(transcriptId) {
       console.error('⚠️ Error updating next lesson notes:', notesError);
       // Don't fail the analysis if notes update fails
     }
-    
+
+    // After analysis is saved, update or create learning plan
+    try {
+      const LearningPlanModel = require('../models/LearningPlan');
+      const learningPlanService = require('../services/learningPlanService');
+      const Lesson = require('../models/Lesson');
+
+      const existingPlan = await LearningPlanModel.findOne({
+        studentId: transcript.studentId,
+        language: transcript.language,
+        status: 'active'
+      });
+
+      if (existingPlan) {
+        await learningPlanService.updatePlanAfterLesson(existingPlan._id, analysis);
+      } else if (analysis.lessonId) {
+        const lessonForPlan = await Lesson.findById(analysis.lessonId);
+        if (lessonForPlan?.isTrialLesson) {
+          const studentUser = await User.findById(transcript.studentId);
+          if (studentUser?.onboardingData?.learningGoal?.type) {
+            const newPlan = await learningPlanService.generateInitialPlan(transcript.studentId, transcript.language);
+
+            if (newPlan) {
+              const Notification = require('../models/Notification');
+              const goalLabel = learningPlanService.GOAL_TYPE_LABELS[studentUser.onboardingData.learningGoal.type] || 'reach your goal';
+              await Notification.create({
+                userId: transcript.studentId,
+                type: 'learning_plan_ready',
+                title: 'Your Learning Plan is Ready! 🎯',
+                message: `Based on your first lesson, we've created a personalized path to help you ${goalLabel.toLowerCase()} in <strong>${transcript.language}</strong>.`,
+                data: {
+                  language: transcript.language,
+                  planId: newPlan._id.toString(),
+                  hasActionButton: true,
+                  actionButtonText: 'View Plan',
+                  actionRoute: '/tabs/progress'
+                },
+                read: false
+              });
+
+              const io = req.app.get('io');
+              if (io && studentUser.auth0Id) {
+                io.to(`user:${studentUser.auth0Id}`).emit('learning_plan_ready', {
+                  language: transcript.language,
+                  planId: newPlan._id.toString()
+                });
+              }
+            }
+          }
+        }
+      }
+    } catch (planError) {
+      console.error('⚠️ Learning plan update failed (non-blocking):', planError);
+    }
+
     // Check if student hit a milestone (5, 10, 15, etc. lessons in this language)
     // ONLY count regular lessons (exclude trial & quick office hours)
     try {

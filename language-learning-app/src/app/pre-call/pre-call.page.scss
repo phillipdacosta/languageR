@@ -512,6 +512,59 @@
     }
   }
 
+  // Learning Plan Context Card
+  .learning-plan-context-card {
+    background: #ffffff;
+    border: 1px solid #ebebeb;
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 16px;
+
+    .notes-header {
+      margin-bottom: 16px;
+      h3 {
+        font-size: 16px;
+        font-weight: 700;
+        color: #1c1c1e;
+        margin: 0;
+      }
+    }
+
+    .lpc-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 8px 0;
+      border-bottom: 1px solid #f2f2f7;
+
+      &:last-of-type { border-bottom: none; }
+
+      .lpc-label {
+        font-size: 13px;
+        font-weight: 500;
+        color: #8e8e93;
+        flex-shrink: 0;
+        margin-right: 12px;
+      }
+
+      .lpc-value {
+        font-size: 14px;
+        font-weight: 500;
+        color: #1c1c1e;
+        text-align: right;
+      }
+    }
+
+    .lpc-summary {
+      font-size: 13px;
+      color: #636366;
+      line-height: 1.5;
+      margin: 12px 0 0 0;
+      padding-top: 12px;
+      border-top: 1px solid #f2f2f7;
+    }
+  }
+
   // Previous Lesson Notes Card — Clean Airbnb Design
   .previous-notes-card {
     background: #ffffff;

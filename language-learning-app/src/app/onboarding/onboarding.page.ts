@@ -20,7 +20,7 @@ import { CountrySelectModalComponent } from '../components/country-select-modal/
 export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   user$: Observable<any>;
   currentStep = 1;
-  totalSteps = 5; // Students: Name + Native Language + Languages + Goals + Experience/Schedule
+  totalSteps = 6; // Students: Name + Native Language + Languages + Goal + Level + Timeline
   currentUser: User | null = null;
 
   // Language selection pre-step
@@ -119,6 +119,36 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   learningGoals: string[] = [];
   experienceLevel = '';
   preferredSchedule = '';
+
+  // Structured learning goal (new flow)
+  learningGoalType: string = '';
+  learningGoalDescription: string = '';
+  selfAssessedLevel: string = '';
+  goalTimeline: string = 'no_rush';
+  goalTargetDate: string = '';
+
+  goalTypeOptions = [
+    { value: 'conversational', label: 'Become conversational', icon: 'chatbubbles-outline', description: 'Hold natural conversations with native speakers' },
+    { value: 'exam_prep', label: 'Prepare for an exam', icon: 'school-outline', description: 'DELF, DELE, JLPT, or other certification' },
+    { value: 'professional', label: 'Use it for work', icon: 'briefcase-outline', description: 'Meetings, emails, and business communication' },
+    { value: 'travel', label: 'Travel and get by', icon: 'airplane-outline', description: 'Navigate confidently while traveling abroad' },
+    { value: 'relocation', label: 'Moving to a new country', icon: 'home-outline', description: 'Settle in and handle daily life in a new place' },
+    { value: 'other', label: 'Something else', icon: 'sparkles-outline', description: "I'll describe my goal" }
+  ];
+
+  levelOptions = [
+    { value: 'complete_beginner', label: 'Complete beginner', description: "I haven't studied this language before" },
+    { value: 'some_basics', label: 'I know some basics', description: 'I can say a few words and simple phrases' },
+    { value: 'simple_conversations', label: 'I can hold simple conversations', description: 'I get by with everyday topics' },
+    { value: 'intermediate', label: "I'm intermediate", description: 'I can express myself but want to improve' },
+    { value: 'advanced', label: "I'm advanced", description: "I'm refining my skills and nuance" }
+  ];
+
+  timelineOptions = [
+    { value: 'specific_date', label: 'By a specific date', icon: 'calendar-outline' },
+    { value: 'few_months', label: 'Within a few months', icon: 'time-outline' },
+    { value: 'no_rush', label: 'No rush, just steady progress', icon: 'leaf-outline' }
+  ];
 
   // Tutor-specific data
   tutorCountry = '';
@@ -622,6 +652,48 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     this.translatedSchedule = sched ? this.translateService.instant(sched.key) : value;
   }
 
+  setLearningGoalType(value: string) {
+    this.learningGoalType = value;
+    if (value !== 'other') {
+      this.learningGoalDescription = '';
+    }
+  }
+
+  setSelfAssessedLevel(value: string) {
+    this.selfAssessedLevel = value;
+  }
+
+  setGoalTimeline(value: string) {
+    this.goalTimeline = value;
+    if (value !== 'specific_date') {
+      this.goalTargetDate = '';
+    }
+  }
+
+  // Precomputed labels for the preview page (no functions in templates)
+  previewGoalLabel: string = '';
+  previewLevelLabel: string = '';
+  previewTimelineLabel: string = '';
+
+  private computePreviewLabels() {
+    if (this.learningGoalType === 'other') {
+      this.previewGoalLabel = this.learningGoalDescription || 'Custom goal';
+    } else {
+      const goalOpt = this.goalTypeOptions.find(o => o.value === this.learningGoalType);
+      this.previewGoalLabel = goalOpt?.label || this.learningGoalType;
+    }
+
+    const levelOpt = this.levelOptions.find(o => o.value === this.selfAssessedLevel);
+    this.previewLevelLabel = levelOpt?.label || this.selfAssessedLevel;
+
+    if (this.goalTimeline === 'specific_date' && this.goalTargetDate) {
+      this.previewTimelineLabel = `By ${this.goalTargetDate}`;
+    } else {
+      const tlOpt = this.timelineOptions.find(o => o.value === this.goalTimeline);
+      this.previewTimelineLabel = tlOpt?.label || 'No rush';
+    }
+  }
+
   // Tutor-specific methods
   setTutorCountry(country: string) {
     this.tutorCountry = country;
@@ -670,6 +742,7 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   showPreviewPage() {
+    this.computePreviewLabels();
     this.showPreview = true;
     this.hasReachedPreview = true;
     // Scroll to top when preview page is shown
@@ -747,18 +820,33 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
           })
         ).toPromise();
       } else {
+        // Map self-assessed level to legacy experienceLevel for backward compat
+        const legacyLevel = this.selfAssessedLevel === 'complete_beginner' || this.selfAssessedLevel === 'some_basics'
+          ? 'Beginner'
+          : this.selfAssessedLevel === 'intermediate' || this.selfAssessedLevel === 'simple_conversations'
+            ? 'Intermediate'
+            : this.selfAssessedLevel === 'advanced' ? 'Advanced' : 'Beginner';
+
         // Student onboarding
-        const onboardingData: OnboardingData & { userType: string; picture?: string; nativeLanguage?: string; interfaceLanguage?: string } = {
+        const onboardingData: OnboardingData & { userType: string; picture?: string; nativeLanguage?: string; interfaceLanguage?: string; learningGoal?: any } = {
           userType: 'student',
           firstName: this.formatName(this.firstName),
           lastName: this.formatName(this.lastName),
           nativeLanguage: this.nativeLanguage,
           interfaceLanguage: this.selectedInterfaceLanguage,
           languages: this.selectedLanguages,
-          goals: this.learningGoals,
-          experienceLevel: this.experienceLevel,
-          preferredSchedule: this.preferredSchedule,
-          picture: auth0User.picture
+          goals: this.learningGoals.length > 0 ? this.learningGoals : [this.learningGoalType],
+          experienceLevel: legacyLevel,
+          preferredSchedule: this.preferredSchedule || 'Flexible schedule',
+          picture: auth0User.picture,
+          learningGoal: {
+            type: this.learningGoalType,
+            description: this.learningGoalDescription,
+            targetLevel: '',
+            selfAssessedLevel: this.selfAssessedLevel,
+            timeline: this.goalTimeline,
+            targetDate: this.goalTimeline === 'specific_date' && this.goalTargetDate ? this.goalTargetDate : null
+          }
         };
 
         console.log('💾 Saving student onboarding data (user will be created if needed)');
@@ -901,15 +989,19 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   canProceed(): boolean {
     switch (this.currentStep) {
       case 1:
-        return this.firstName.trim() !== '' && this.lastName.trim() !== ''; // Name step
+        return this.firstName.trim() !== '' && this.lastName.trim() !== '';
       case 2:
-        return this.nativeLanguage !== ''; // Native language step
+        return this.nativeLanguage !== '';
       case 3:
-        return this.selectedLanguages.length > 0; // Learning languages step
+        return this.selectedLanguages.length > 0;
       case 4:
-        return this.learningGoals.length > 0; // Goals step
+        if (!this.learningGoalType) return false;
+        if (this.learningGoalType === 'other' && !this.learningGoalDescription.trim()) return false;
+        return true;
       case 5:
-        return this.experienceLevel !== '' && this.preferredSchedule !== ''; // Experience/Schedule step
+        return this.selfAssessedLevel !== '';
+      case 6:
+        return this.goalTimeline !== '';
       default:
         return false;
     }

@@ -208,6 +208,30 @@
         </div>
       </div>
 
+      <!-- Learning Plan Override (optional) -->
+      <div class="plan-override-section" *ngIf="hasActivePlan">
+        <div class="plan-override-header" (click)="showPlanOverride = !showPlanOverride">
+          <span class="plan-override-title">Learning Plan Adjustment</span>
+          <ion-icon [name]="showPlanOverride ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon>
+        </div>
+        <div class="plan-override-body" *ngIf="showPlanOverride">
+          <div class="form-group">
+            <label>Action</label>
+            <select [(ngModel)]="planOverrideAction" class="plan-override-select">
+              <option *ngFor="let opt of planOverrideActions" [value]="opt.value">{{ opt.label }}</option>
+            </select>
+          </div>
+          <div class="form-group" *ngIf="planOverrideAction === 'adjust_focus'">
+            <label>Suggested Focus</label>
+            <ion-input [(ngModel)]="planOverrideFocus" placeholder="e.g., past tense conjugation" maxlength="200"></ion-input>
+          </div>
+          <div class="form-group" *ngIf="planOverrideAction">
+            <label>Note <span class="opt">(Optional)</span></label>
+            <ion-textarea [(ngModel)]="planOverrideNote" placeholder="Additional context..." rows="2" maxlength="300"></ion-textarea>
+          </div>
+        </div>
+      </div>
+
       <!-- Actions -->
       <div class="actions">
         <button class="btn-primary" [disabled]="isSubmitDisabled" (click)="submitNote()">

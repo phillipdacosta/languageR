@@ -172,6 +172,42 @@
         </div>
       </div>
       
+      <!-- Learning Plan Context (for tutors) -->
+      <div class="learning-plan-context-card" *ngIf="isTutor && hasPlanData">
+        <div class="notes-header">
+          <h3>Learning Plan</h3>
+        </div>
+        <div class="lpc-row" *ngIf="planGoalLabel">
+          <span class="lpc-label">Goal</span>
+          <span class="lpc-value">{{ planGoalLabel }}</span>
+        </div>
+        <div class="lpc-row" *ngIf="planPhaseLabel">
+          <span class="lpc-label">Current Phase</span>
+          <span class="lpc-value">{{ planPhaseLabel }}</span>
+        </div>
+        <div class="lpc-row" *ngIf="planNextFocus">
+          <span class="lpc-label">Suggested Focus</span>
+          <span class="lpc-value">{{ planNextFocus }}</span>
+        </div>
+        <p class="lpc-summary" *ngIf="planStudentSummary">{{ planStudentSummary }}</p>
+      </div>
+
+      <!-- Trial Lesson Plan Context (shows goal + level only) -->
+      <div class="learning-plan-context-card" *ngIf="isTutor && isTrialLesson && !hasPlanData && planSelfAssessedLevel">
+        <div class="notes-header">
+          <h3>Student Context</h3>
+        </div>
+        <div class="lpc-row" *ngIf="planGoalLabel">
+          <span class="lpc-label">Goal</span>
+          <span class="lpc-value">{{ planGoalLabel }}</span>
+        </div>
+        <div class="lpc-row" *ngIf="planSelfAssessedLevel">
+          <span class="lpc-label">Self-Assessed Level</span>
+          <span class="lpc-value">{{ planSelfAssessedLevel }}</span>
+        </div>
+        <p class="lpc-summary">First lesson -- assess current level, identify gaps, discuss preferences.</p>
+      </div>
+
       <!-- Previous Lesson Notes (for tutors and students, not trial lessons) -->
       <div class="previous-notes-card" *ngIf="!isTrialLesson && (previousLessonNotes || loadingPreviousNotes)">
         <div class="notes-header">

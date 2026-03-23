@@ -590,6 +590,24 @@
         <!-- ═══ RIGHT: Sidebar ════════════════════════════════ -->
         <aside class="ed-sidebar">
 
+          <!-- Learning Plan Summary -->
+          <div class="ed-sidebar-card ed-plan-card" *ngIf="edHasPlan">
+            <h4 class="ed-sidebar-card-title">Learning Plan</h4>
+            <div class="ed-plan-row" *ngIf="edPlanGoalLabel">
+              <span class="ed-plan-label">Goal</span>
+              <span class="ed-plan-value">{{ edPlanGoalLabel }}</span>
+            </div>
+            <div class="ed-plan-row" *ngIf="edPlanPhaseLabel">
+              <span class="ed-plan-label">Phase</span>
+              <span class="ed-plan-value">{{ edPlanPhaseLabel }}</span>
+            </div>
+            <div class="ed-plan-row" *ngIf="edPlanNextFocus">
+              <span class="ed-plan-label">Focus</span>
+              <span class="ed-plan-value">{{ edPlanNextFocus }}</span>
+            </div>
+            <p class="ed-plan-summary" *ngIf="edPlanStudentSummary">{{ edPlanStudentSummary }}</p>
+          </div>
+
           <!-- Previous Lesson Notes -->
           <div class="ed-sidebar-card ed-previous-notes-card" *ngIf="hasPreviousNotes">
             <h4 class="ed-sidebar-card-title">Notes from last lesson <span class="ed-date-sub">{{ previousNotesDate }}</span></h4>

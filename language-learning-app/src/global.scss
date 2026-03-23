@@ -3432,6 +3432,33 @@ ion-modal.previous-notes-modal {
 }
 
 // =============================================================
+// GLOBAL AMBIENT GRADIENT
+// =============================================================
+// Lives inside <ion-app> in app.component.html so it shares
+// Ionic's stacking context and renders above all page content.
+#ambient-gradient {
+  position: fixed;
+  top: 0;
+  left: -20%;
+  right: -20%;
+  bottom: 0;
+  background:
+    radial-gradient(ellipse 90% 70% at 82% 12%, rgba(217, 175, 75, 0.045) 0%, transparent 55%),
+    radial-gradient(ellipse 80% 50% at 50% 35%, rgba(59, 130, 246, 0.04) 0%, transparent 55%),
+    radial-gradient(ellipse 100% 60% at 20% 85%, rgba(99, 102, 241, 0.06) 0%, transparent 55%);
+  pointer-events: none;
+  z-index: 99999;
+  filter: blur(50px);
+}
+
+html.ion-palette-dark #ambient-gradient {
+  background:
+    radial-gradient(ellipse 90% 70% at 82% 12%, rgba(217, 175, 75, 0.06) 0%, transparent 55%),
+    radial-gradient(ellipse 80% 50% at 50% 35%, rgba(59, 130, 246, 0.05) 0%, transparent 55%),
+    radial-gradient(ellipse 100% 60% at 20% 85%, rgba(99, 102, 241, 0.08) 0%, transparent 55%);
+}
+
+// =============================================================
 // SHARED ELEMENT TRANSITIONS — Airbnb-style FLIP morphing
 // =============================================================
 // Individual elements (title, balance, links) morph between

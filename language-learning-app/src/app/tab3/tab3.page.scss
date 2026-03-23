@@ -20,6 +20,240 @@ $purple: #8b5cf6;
   font-family: $font-stack;
 }
 
+// =============================================
+// LEARNING PLAN ROADMAP
+// =============================================
+.plan-roadmap-container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 20px 20px 0;
+
+  .plan-roadmap-header {
+    margin-bottom: 20px;
+
+    .plan-roadmap-title-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .plan-roadmap-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: #1c1c1e;
+      letter-spacing: -0.3px;
+      margin: 0;
+    }
+
+    .plan-roadmap-goal {
+      font-size: 13px;
+      font-weight: 500;
+      color: #8e8e93;
+      background: #f2f2f7;
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+
+    .plan-roadmap-summary {
+      font-size: 14px;
+      color: #636366;
+      line-height: 1.5;
+      margin: 0;
+    }
+  }
+
+  .plan-roadmap-phases {
+    position: relative;
+    padding-left: 20px;
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: 11px;
+      top: 16px;
+      bottom: 16px;
+      width: 2px;
+      background: #e5e5ea;
+    }
+  }
+
+  .plan-phase {
+    position: relative;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    border-radius: 12px;
+    background: white;
+    cursor: pointer;
+    transition: background 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+      background: #fafafa;
+    }
+
+    &.completed {
+      .plan-phase-dot {
+        background: #34c759;
+        color: white;
+        ion-icon { font-size: 12px; }
+      }
+      .plan-phase-name { color: #8e8e93; }
+    }
+
+    &.active {
+      background: white;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.06);
+
+      .plan-phase-dot {
+        background: white;
+        border: 2px solid #1c1c1e;
+
+        .phase-active-ring {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: #1c1c1e;
+        }
+      }
+      .plan-phase-name { font-weight: 600; color: #1c1c1e; }
+    }
+
+    &.locked {
+      opacity: 0.55;
+      .plan-phase-dot {
+        background: #e5e5ea;
+        ion-icon { font-size: 10px; color: #8e8e93; }
+      }
+    }
+  }
+
+  .plan-phase-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .plan-phase-dot {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    position: relative;
+    left: -28px;
+    margin-right: -16px;
+    z-index: 1;
+  }
+
+  .plan-phase-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+
+    .plan-phase-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #8e8e93;
+    }
+
+    .plan-phase-name {
+      font-size: 15px;
+      font-weight: 500;
+      color: #48484a;
+    }
+  }
+
+  .plan-phase-progress {
+    font-size: 12px;
+    font-weight: 500;
+    color: #8e8e93;
+    white-space: nowrap;
+  }
+
+  .plan-phase-chevron {
+    font-size: 16px;
+    color: #c7c7cc;
+  }
+
+  .plan-phase-details {
+    padding: 12px 0 4px 0;
+    margin-left: 8px;
+
+    .plan-phase-description {
+      font-size: 14px;
+      color: #636366;
+      line-height: 1.5;
+      margin: 0 0 10px 0;
+    }
+
+    .plan-phase-focus-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+
+      .plan-focus-tag {
+        font-size: 12px;
+        font-weight: 500;
+        color: #48484a;
+        background: #f2f2f7;
+        padding: 4px 10px;
+        border-radius: 6px;
+      }
+    }
+
+    .plan-phase-exit {
+      font-size: 13px;
+      color: #8e8e93;
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      margin: 0;
+
+      ion-icon { font-size: 14px; margin-top: 2px; }
+    }
+  }
+
+  .plan-next-focus {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 16px;
+    padding: 14px 16px;
+    background: #f2f2f7;
+    border-radius: 12px;
+
+    ion-icon {
+      font-size: 20px;
+      color: #8e8e93;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .plan-next-focus-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #8e8e93;
+      margin-bottom: 2px;
+    }
+
+    .plan-next-focus-text {
+      display: block;
+      font-size: 14px;
+      color: #1c1c1e;
+      line-height: 1.4;
+    }
+  }
+}
+
 .progress-container {
   max-width: 1100px;
   margin: 0 auto;

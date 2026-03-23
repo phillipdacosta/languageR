@@ -109,6 +109,63 @@
     </div>
   </div>
 
+  <!-- Learning Plan Roadmap (Students — shown above main progress) -->
+  <div class="plan-roadmap-container" *ngIf="!loading && learningPlanHasPlan">
+    <div class="plan-roadmap-header">
+      <div class="plan-roadmap-title-row">
+        <h2 class="plan-roadmap-title">Learning Plan</h2>
+        <span class="plan-roadmap-goal" *ngIf="learningPlanGoalLabel">{{ learningPlanGoalLabel }}</span>
+      </div>
+      <p class="plan-roadmap-summary" *ngIf="learningPlanStudentSummary">{{ learningPlanStudentSummary }}</p>
+    </div>
+
+    <div class="plan-roadmap-phases">
+      <div 
+        *ngFor="let phase of learningPlanPhases; let i = index"
+        class="plan-phase"
+        [class.completed]="phase.status === 'completed'"
+        [class.active]="phase.status === 'active'"
+        [class.locked]="phase.status === 'locked'"
+        [class.expanded]="expandedPhaseIndex === i"
+        (click)="togglePhaseExpand(i)">
+        <div class="plan-phase-header">
+          <div class="plan-phase-dot">
+            <ion-icon name="checkmark" *ngIf="phase.status === 'completed'"></ion-icon>
+            <span *ngIf="phase.status === 'active'" class="phase-active-ring"></span>
+            <ion-icon name="lock-closed" *ngIf="phase.status === 'locked'"></ion-icon>
+          </div>
+          <div class="plan-phase-info">
+            <span class="plan-phase-label">Phase {{ i + 1 }}</span>
+            <span class="plan-phase-name">{{ phase.title }}</span>
+          </div>
+          <div class="plan-phase-progress" *ngIf="phase.status === 'active'">
+            <span>{{ phase.lessonsCompleted }} of ~{{ phase.estimatedLessons }}</span>
+          </div>
+          <ion-icon [name]="expandedPhaseIndex === i ? 'chevron-up' : 'chevron-down'" class="plan-phase-chevron"></ion-icon>
+        </div>
+
+        <div class="plan-phase-details" *ngIf="expandedPhaseIndex === i">
+          <p class="plan-phase-description">{{ phase.description }}</p>
+          <div class="plan-phase-focus-tags" *ngIf="phase.focusAreas?.length">
+            <span *ngFor="let area of phase.focusAreas" class="plan-focus-tag">{{ area }}</span>
+          </div>
+          <p class="plan-phase-exit" *ngIf="phase.exitCriteria">
+            <ion-icon name="flag-outline"></ion-icon>
+            {{ phase.exitCriteria }}
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="plan-next-focus" *ngIf="learningPlanNextFocus">
+      <ion-icon name="bulb-outline"></ion-icon>
+      <div>
+        <span class="plan-next-focus-label">Next lesson focus</span>
+        <span class="plan-next-focus-text">{{ learningPlanNextFocus }}</span>
+      </div>
+    </div>
+  </div>
+
   <!-- Main Progress View (Students) -->
   <div class="progress-container" *ngIf="!loading && !error && analyses.length > 0">
     
