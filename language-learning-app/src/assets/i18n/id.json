@@ -37,7 +37,10 @@
     "SEND": "Kirim",
     "YES": "Ya",
     "NO": "Tidak",
-    "OK": "OK"
+    "OK": "OK",
+    "TRANSLATE": "Terjemahkan",
+    "TRANSLATING": "Menerjemahkan...",
+    "SHOW_ORIGINAL": "Tampilkan asli"
   },
   "TABS": {
     "HOME": "Beranda",
@@ -315,6 +318,50 @@
     "WITHDRAW_STATUS_CANCELLED": "Dibatalkan",
     "OK": "OK",
     "GOT_IT": "Mengerti"
+  },
+  "MESSAGES": {
+    "TITLE": "Pesan",
+    "NEW_MESSAGE": "Pesan Baru",
+    "TYPE_MESSAGE": "Tulis pesan...",
+    "NO_MESSAGES": "Belum ada pesan",
+    "CONVERSATIONS": "Percakapan",
+    "SEARCH_CONVERSATIONS": "Cari percakapan",
+    "SEARCH_BY_NAME": "Cari berdasarkan nama",
+    "ALL": "Semua",
+    "UNREAD": "Belum dibaca",
+    "SEARCH_EMPTY_TITLE": "Tidak ditemukan",
+    "SEARCH_EMPTY_HINT": "Coba cari dengan nama lain",
+    "NO_CONVERSATIONS_YET": "Belum ada percakapan",
+    "NO_MESSAGES_YET": "Belum ada pesan",
+    "START_CONVERSATION": "Mulai percakapan!",
+    "SELECT_CONVERSATION": "Pilih percakapan",
+    "EMPTY_STATE_STUDENT": "Temukan tutor menggunakan 'Cari Tutor' di menu atas dan mulai perjalanan belajar Anda!",
+    "EMPTY_STATE_STUDENT_MOBILE": "Mulai percakapan dengan mengirim pesan ke tutor dari profil mereka.",
+    "EMPTY_STATE_TUTOR": "Pesan dari siswa akan muncul di sini.",
+    "EMPTY_STATE_TUTOR_DESKTOP": "Anda akan bisa berinteraksi dengan siswa di sini!",
+    "EMPTY_STATE_STUDENT_DESKTOP": "Anda akan bisa berinteraksi dengan tutor di sini!",
+    "CHOOSE_CONVERSATION": "Pilih percakapan dari daftar untuk mulai mengirim pesan",
+    "TODAY": "Hari ini",
+    "YESTERDAY": "Kemarin",
+    "YOU": "Anda",
+    "TRIAL_LESSON_SYSTEM_MESSAGE": {
+      "TITLE": "New Trial Lesson Scheduled",
+      "INTRO": "A new student has booked a trial lesson with you.",
+      "STUDENT_LABEL": "Student",
+      "DATE_LABEL": "Date",
+      "START_TIME_LABEL": "Start Time",
+      "DURATION_LABEL": "Duration",
+      "DURATION_MINUTES": "{{duration}} minutes",
+      "PREPARATION_INTRO": "This is your first session together, so it's a great opportunity to make a strong impression. Here are a few suggestions to help you prepare:",
+      "TIP_1": "Review the student's",
+      "TIP_1_LINK": "profile",
+      "TIP_1_SUFFIX": "to understand their level, goals, and interests.",
+      "TIP_2": "Arrive a few minutes early—you can join the lesson directly from your Home Page or the Lessons tab.",
+      "TIP_3": "Prepare a short introduction activity to help break the ice and understand their speaking ability.",
+      "TIP_4": "Ask about their objectives and preferred learning style; this will help guide future lessons.",
+      "TIP_5": "Be welcoming and supportive—trial sessions often determine whether the student will continue with you.",
+      "SUPPORT_TEXT": "If you have any questions, feel free to contact support at any time."
+    }
   },
   "NOTIFICATIONS": {
     "TITLE": "Notifikasi",
@@ -1158,5 +1205,10 @@
     "PAYMENT_SETUP_REQUIRED": "Pengaturan Pembayaran Diperlukan",
     "PAYMENT_SETUP_MSG": "Anda harus menyelesaikan pengaturan pembayaran sebelum membuat kelas atau mengatur ketersediaan. Silakan atur metode pembayaran di tab Profil.",
     "GO_TO_PROFILE": "Ke Profil"
+  },
+  "EVENT_DETAILS": {
+    "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",
+    "SIDEBAR_NOTES_EMPTY_DESC_STUDENT": "When you complete another lesson with this tutor, notes and analysis from that session can appear here so you can see progress over time.",
+    "SIDEBAR_NOTES_EMPTY_DESC_TUTOR": "When this student completes another lesson with you, notes and analysis from their previous session can appear here for quick context."
   }
 }

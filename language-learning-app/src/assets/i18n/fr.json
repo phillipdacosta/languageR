@@ -37,7 +37,10 @@
     "SEND": "Envoyer",
     "YES": "Oui",
     "NO": "Non",
-    "OK": "OK"
+    "OK": "OK",
+    "TRANSLATE": "Traduire",
+    "TRANSLATING": "Traduction...",
+    "SHOW_ORIGINAL": "Voir l'original"
   },
   "HOME": {
     "TITLE": "Accueil",
@@ -645,6 +648,24 @@
     "NO_MESSAGES": "Pas encore de messages",
     "CONVERSATIONS": "Conversations",
     "SEARCH_CONVERSATIONS": "Rechercher des conversations",
+    "SEARCH_BY_NAME": "Rechercher par nom",
+    "ALL": "Tous",
+    "UNREAD": "Non lus",
+    "SEARCH_EMPTY_TITLE": "Introuvable",
+    "SEARCH_EMPTY_HINT": "Essayez de rechercher avec un autre nom",
+    "NO_CONVERSATIONS_YET": "Pas encore de conversations",
+    "NO_MESSAGES_YET": "Pas encore de messages",
+    "START_CONVERSATION": "Lancez la conversation !",
+    "SELECT_CONVERSATION": "Sélectionnez une conversation",
+    "EMPTY_STATE_STUDENT": "Trouvez un tuteur en utilisant 'Trouver des Tuteurs' dans le menu supérieur et commencez votre parcours d'apprentissage !",
+    "EMPTY_STATE_STUDENT_MOBILE": "Commencez une conversation en envoyant un message à un tuteur depuis son profil.",
+    "EMPTY_STATE_TUTOR": "Les messages des étudiants apparaîtront ici.",
+    "EMPTY_STATE_TUTOR_DESKTOP": "Vous pourrez interagir avec les étudiants ici !",
+    "EMPTY_STATE_STUDENT_DESKTOP": "Vous pourrez interagir avec les tuteurs ici !",
+    "CHOOSE_CONVERSATION": "Choisissez une conversation dans la liste pour commencer à discuter",
+    "TODAY": "Aujourd'hui",
+    "YESTERDAY": "Hier",
+    "YOU": "Vous",
     "TRIAL_LESSON_SYSTEM_MESSAGE": {
       "TITLE": "Nouvelle leçon d'essai programmée",
       "INTRO": "Un nouvel étudiant a réservé une leçon d'essai avec vous.",
@@ -1300,5 +1321,10 @@
     "PAYMENT_SETUP_REQUIRED": "Configuration du Paiement Requise",
     "PAYMENT_SETUP_MSG": "Vous devez compléter la configuration du paiement avant de créer des cours ou de définir des disponibilités. Veuillez configurer votre méthode de paiement dans l'onglet Profil.",
     "GO_TO_PROFILE": "Aller au Profil"
+  },
+  "EVENT_DETAILS": {
+    "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",
+    "SIDEBAR_NOTES_EMPTY_DESC_STUDENT": "When you complete another lesson with this tutor, notes and analysis from that session can appear here so you can see progress over time.",
+    "SIDEBAR_NOTES_EMPTY_DESC_TUTOR": "When this student completes another lesson with you, notes and analysis from their previous session can appear here for quick context."
   }
 }

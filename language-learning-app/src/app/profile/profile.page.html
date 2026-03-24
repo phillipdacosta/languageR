@@ -1,14 +1,10 @@
-<ion-header [translucent]="true" class="ion-no-border">
-  <ion-toolbar>
-    <ion-title>{{ isViewingOtherUser ? (getDisplayUser()?.name || ('PROFILE_SCREEN.PROFILE' | translate)) : ('PROFILE_SCREEN.PROFILE' | translate) }}</ion-title>
-    <ion-buttons slot="start" *ngIf="isViewingOtherUser">
-      <ion-back-button defaultHref="/tabs"></ion-back-button>
-    </ion-buttons>
-  </ion-toolbar>
-</ion-header> 
-
-<ion-content [fullscreen]="true" class="profile-content">
+<ion-content class="profile-content">
       <div class="profile-container" *ngIf="getDisplayUser()">
+        <!-- Back button when viewing another user's profile -->
+        <button class="inline-back-btn" *ngIf="isViewingOtherUser" (click)="goBack()">
+          <ion-icon name="chevron-back-outline"></ion-icon>
+          <span>Back</span>
+        </button>
         <!-- User Profile Card -->
         <ion-card class="profile-card">
           <ion-card-header>

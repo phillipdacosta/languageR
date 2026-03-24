@@ -10,6 +10,7 @@ import { ImageViewerModal } from './image-viewer-modal.component';
 import { MessageContextMenuComponent } from './message-context-menu.component';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
 import { TutorAvailabilitySelectionModalComponent } from '../components/tutor-availability-selection-modal/tutor-availability-selection-modal.component';
+import { TranslateService } from '@ngx-translate/core';
 import { formatTimeInTz, formatDateInTz, getGlobalHour12 } from '../shared/timezone.utils';
 import { Subject, BehaviorSubject, Subscription } from 'rxjs';
 import { takeUntil, debounceTime, take, switchMap, filter } from 'rxjs/operators';
@@ -227,7 +228,8 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     private modalController: ModalController,
     private alertController: AlertController,
     private toastController: ToastController,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private translateService: TranslateService
   ) {}
 
   ngOnInit() {
@@ -2843,19 +2845,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
 
   formatTime(timestamp: string): string {
     const date = new Date(timestamp);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-    if (days === 0) {
-      return formatTimeInTz(date, this.userTz);
-    } else if (days === 1) {
-      return 'Yesterday';
-    } else if (days < 7) {
-      return formatDateInTz(date, this.userTz, { weekday: 'short', month: undefined, day: undefined, year: undefined });
-    } else {
-      return formatDateInTz(date, this.userTz, { month: 'short', day: 'numeric', year: undefined });
-    }
+    return formatTimeInTz(date, this.userTz);
   }
 
   formatDate(timestamp: string): string {
@@ -2863,13 +2853,19 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
+    const locale = this.userLocale;
 
     if (date.toDateString() === today.toDateString()) {
-      return 'Today';
+      return this.translateService.instant('MESSAGES.TODAY');
     } else if (date.toDateString() === yesterday.toDateString()) {
-      return 'Yesterday';
+      return this.translateService.instant('MESSAGES.YESTERDAY');
     } else {
-      return formatDateInTz(date, this.userTz, { month: 'long', day: 'numeric', year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined });
+      return formatDateInTz(date, this.userTz, {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
+      }, locale);
     }
   }
 
@@ -2888,6 +2884,10 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
 
   private get userTz(): string | undefined {
     return this.currentUser?.profile?.timezone || undefined;
+  }
+
+  private get userLocale(): string {
+    return this.translateService.currentLang || this.translateService.defaultLang || 'en';
   }
 
   // Handle clicks on links within system messages

@@ -37,7 +37,10 @@
     "SEND": "送信",
     "YES": "はい",
     "NO": "いいえ",
-    "OK": "OK"
+    "OK": "OK",
+    "TRANSLATE": "翻訳",
+    "TRANSLATING": "翻訳中...",
+    "SHOW_ORIGINAL": "原文を表示"
   },
   "HOME": {
     "TITLE": "ホーム",
@@ -315,6 +318,50 @@
     "ANALYTICS": "分析",
     "PROFILE": "プロフィール",
     "LOGOUT": "ログアウト"
+  },
+  "MESSAGES": {
+    "TITLE": "メッセージ",
+    "NEW_MESSAGE": "新しいメッセージ",
+    "TYPE_MESSAGE": "メッセージを入力...",
+    "NO_MESSAGES": "メッセージはありません",
+    "CONVERSATIONS": "会話",
+    "SEARCH_CONVERSATIONS": "会話を検索",
+    "SEARCH_BY_NAME": "名前で検索",
+    "ALL": "すべて",
+    "UNREAD": "未読",
+    "SEARCH_EMPTY_TITLE": "見つかりませんでした",
+    "SEARCH_EMPTY_HINT": "別の名前で検索してみてください",
+    "NO_CONVERSATIONS_YET": "まだ会話はありません",
+    "NO_MESSAGES_YET": "まだメッセージはありません",
+    "START_CONVERSATION": "会話を始めましょう！",
+    "SELECT_CONVERSATION": "会話を選択してください",
+    "EMPTY_STATE_STUDENT": "上部メニューの「チューターを探す」でチューターを見つけて、学習の旅を始めましょう！",
+    "EMPTY_STATE_STUDENT_MOBILE": "チューターのプロフィールからメッセージを送って会話を始めましょう。",
+    "EMPTY_STATE_TUTOR": "生徒からのメッセージがここに表示されます。",
+    "EMPTY_STATE_TUTOR_DESKTOP": "ここで生徒とやり取りできます！",
+    "EMPTY_STATE_STUDENT_DESKTOP": "ここでチューターとやり取りできます！",
+    "CHOOSE_CONVERSATION": "リストから会話を選んでメッセージを始めましょう",
+    "TODAY": "今日",
+    "YESTERDAY": "昨日",
+    "YOU": "あなた",
+    "TRIAL_LESSON_SYSTEM_MESSAGE": {
+      "TITLE": "New Trial Lesson Scheduled",
+      "INTRO": "A new student has booked a trial lesson with you.",
+      "STUDENT_LABEL": "Student",
+      "DATE_LABEL": "Date",
+      "START_TIME_LABEL": "Start Time",
+      "DURATION_LABEL": "Duration",
+      "DURATION_MINUTES": "{{duration}} minutes",
+      "PREPARATION_INTRO": "This is your first session together, so it's a great opportunity to make a strong impression. Here are a few suggestions to help you prepare:",
+      "TIP_1": "Review the student's",
+      "TIP_1_LINK": "profile",
+      "TIP_1_SUFFIX": "to understand their level, goals, and interests.",
+      "TIP_2": "Arrive a few minutes early—you can join the lesson directly from your Home Page or the Lessons tab.",
+      "TIP_3": "Prepare a short introduction activity to help break the ice and understand their speaking ability.",
+      "TIP_4": "Ask about their objectives and preferred learning style; this will help guide future lessons.",
+      "TIP_5": "Be welcoming and supportive—trial sessions often determine whether the student will continue with you.",
+      "SUPPORT_TEXT": "If you have any questions, feel free to contact support at any time."
+    }
   },
   "NOTIFICATIONS": {
     "TITLE": "通知",
@@ -1159,5 +1206,10 @@
     "PAYMENT_SETUP_REQUIRED": "支払い設定が必要です",
     "PAYMENT_SETUP_MSG": "クラスの作成や空き時間の設定の前に支払い設定を完了する必要があります。プロフィールタブで支払い方法を設定してください。",
     "GO_TO_PROFILE": "プロフィールへ"
+  },
+  "EVENT_DETAILS": {
+    "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",
+    "SIDEBAR_NOTES_EMPTY_DESC_STUDENT": "When you complete another lesson with this tutor, notes and analysis from that session can appear here so you can see progress over time.",
+    "SIDEBAR_NOTES_EMPTY_DESC_TUTOR": "When this student completes another lesson with you, notes and analysis from their previous session can appear here for quick context."
   }
 }

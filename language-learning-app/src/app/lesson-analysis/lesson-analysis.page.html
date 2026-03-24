@@ -71,6 +71,16 @@
     <main class="la-main" [class.la-main--full]="!lesson">
       <div class="la-scroll">
 
+        <!-- Translate toggle -->
+        <div class="la-translate-row" *ngIf="analysisId && analysisSource !== 'tutor'">
+          <button class="la-translate-btn" (click)="toggleTranslation()" [disabled]="translating" [class.showing-translation]="showingTranslation">
+            <ion-icon name="language-outline" aria-hidden="true"></ion-icon>
+            <span *ngIf="translating">{{ 'COMMON.TRANSLATING' | translate }}</span>
+            <span *ngIf="!translating && !showingTranslation">{{ 'COMMON.TRANSLATE' | translate }}</span>
+            <span *ngIf="!translating && showingTranslation">{{ 'COMMON.SHOW_ORIGINAL' | translate }}</span>
+          </button>
+        </div>
+
         <!-- Status banners -->
         <div class="la-banners" *ngIf="analysis?.status === 'failed' || getCelebrationMessage() || getWarningMessage()">
           <div class="la-banner la-banner--warn" *ngIf="analysis?.status === 'failed'">

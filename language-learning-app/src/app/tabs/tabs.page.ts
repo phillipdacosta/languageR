@@ -107,9 +107,11 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('calendarBtn', { read: ElementRef }) calendarBtn!: ElementRef;
   @ViewChild('lessonsBtn', { read: ElementRef }) lessonsBtn!: ElementRef;
   
-  // Sliding underline properties
+  // Sliding pill indicator (desktop nav): position/size animate like the former underline
   underlineLeft = 0;
+  underlineTop = 0;
   underlineWidth = 0;
+  underlineHeight = 0;
   // Note: notifications array removed - now using notifications$ observable from service
   isLoadingNotifications = false;
   // Messages dropdown state
@@ -167,6 +169,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     // Add window resize listener for reactive viewport detection
     this.resizeListener = () => {
       this.showTabs = this.shouldShowTabs();
+      setTimeout(() => this.updateUnderline(), 50);
     };
     window.addEventListener('resize', this.resizeListener);
     
@@ -187,6 +190,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
         
         // Preload conversations in background for faster dropdown
         this.refreshConversationsInBackground();
+
+        setTimeout(() => this.updateUnderline(), 100);
       });
     
     // Connect to WebSocket
@@ -433,9 +438,10 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
 
   // Update sliding underline position based on active route
   updateUnderline() {
-    // Only update on desktop (when showTabs is false)
-    if (this.showTabs || !this.navButtonsContainer) {
+    // Pill nav styling only applies from 992px up; keep indicator out of DOM when hidden
+    if (this.showTabs || !this.navButtonsContainer || window.innerWidth < 992) {
       this.underlineWidth = 0;
+      this.underlineHeight = 0;
       return;
     }
 
@@ -459,16 +465,14 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     if (activeButton && activeButton.nativeElement) {
       const containerRect = this.navButtonsContainer.nativeElement.getBoundingClientRect();
       const buttonRect = activeButton.nativeElement.getBoundingClientRect();
-      
-      // For messages button, use label width instead of button width (to exclude badge)
-      const labelElement = activeButton.nativeElement.querySelector('ion-label');
-      const widthToUse = labelElement ? labelElement.getBoundingClientRect().width : buttonRect.width;
-      
-      // Calculate position relative to container
+
       this.underlineLeft = buttonRect.left - containerRect.left;
-      this.underlineWidth = widthToUse;
+      this.underlineTop = buttonRect.top - containerRect.top;
+      this.underlineWidth = buttonRect.width;
+      this.underlineHeight = buttonRect.height;
     } else {
       this.underlineWidth = 0;
+      this.underlineHeight = 0;
     }
   }
 
@@ -573,10 +577,6 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     // Update underline position after view is initialized
     setTimeout(() => {
       this.updateUnderline();
-      // Also update on window resize
-      window.addEventListener('resize', () => {
-        setTimeout(() => this.updateUnderline(), 50);
-      });
     }, 100);
   }
 
@@ -629,14 +629,15 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       clearTimeout(this.notificationHoverTimer);
       this.notificationHoverTimer = null;
     }
-    
-    // Close dropdown if it's open
+
+    // Toggle dropdown on click (navigation temporarily disabled)
     if (this.isNotificationDropdownOpen) {
       this.closeNotificationDropdown();
+    } else {
+      this.isNotificationDropdownOpen = true;
+      this.loadNotifications();
+      this.calculateDropdownPosition();
     }
-    
-    // Navigate to notifications page
-    this.router.navigate(['/tabs/notifications']);
   }
   
   onNotificationButtonMouseEnter() {

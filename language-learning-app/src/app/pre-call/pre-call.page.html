@@ -212,8 +212,16 @@
       <div class="previous-notes-card" *ngIf="!isTrialLesson && (previousLessonNotes || loadingPreviousNotes)">
         <div class="notes-header">
           <h3>Last Lesson Notes</h3>
-          <div class="notes-date" *ngIf="previousLessonNotes && !loadingPreviousNotes">
-            {{ previousLessonNotes.lessonDate | date:'MMM d, y' }}
+          <div class="notes-header-right" *ngIf="previousLessonNotes && !loadingPreviousNotes">
+            <button class="pc-translate-btn" *ngIf="prevNotesAnalysisId && previousLessonNotes?.source !== 'tutor'" (click)="togglePrevNotesTranslation()" [disabled]="prevNotesTranslating" [class.showing-translation]="prevNotesShowingTranslation">
+              <ion-icon name="language-outline" aria-hidden="true"></ion-icon>
+              <span *ngIf="prevNotesTranslating">{{ 'COMMON.TRANSLATING' | translate }}</span>
+              <span *ngIf="!prevNotesTranslating && !prevNotesShowingTranslation">{{ 'COMMON.TRANSLATE' | translate }}</span>
+              <span *ngIf="!prevNotesTranslating && prevNotesShowingTranslation">{{ 'COMMON.SHOW_ORIGINAL' | translate }}</span>
+            </button>
+            <div class="notes-date">
+              {{ previousLessonNotes.lessonDate | date:'MMM d, y' }}
+            </div>
           </div>
         </div>
         

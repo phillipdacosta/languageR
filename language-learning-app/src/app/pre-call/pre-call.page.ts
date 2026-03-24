@@ -12,6 +12,7 @@ import { ReminderService } from '../services/reminder.service';
 import { firstValueFrom } from 'rxjs';
 import { Subject, takeUntil } from 'rxjs';
 import { LearningPlanService, LearningPlanSummary, GOAL_TYPE_LABELS } from '../services/learning-plan.service';
+import { AnalysisTranslationService } from '../services/analysis-translation.service';
 
 @Component({
   selector: 'app-pre-call',
@@ -71,7 +72,11 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
   
   // AI Previous Lesson Notes (for tutors)
   previousLessonNotes: LessonAnalysis | null = null;
+  originalPreviousLessonNotes: LessonAnalysis | null = null;
   loadingPreviousNotes = false;
+  prevNotesAnalysisId: string | null = null;
+  prevNotesTranslating = false;
+  prevNotesShowingTranslation = false;
 
   // Learning Plan context (for tutors viewing student plan)
   planSummary: LearningPlanSummary | null = null;
@@ -110,7 +115,8 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     private websocketService: WebSocketService,
     private cdr: ChangeDetectorRef,
     private reminderService: ReminderService,
-    private learningPlanService: LearningPlanService
+    private learningPlanService: LearningPlanService,
+    private analysisTranslation: AnalysisTranslationService
   ) {}
 
   async ngOnInit() {
@@ -976,10 +982,11 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
             hasRecommendedFocus: !!analysis.recommendedFocus?.length
           });
           this.previousLessonNotes = analysis;
+          this.originalPreviousLessonNotes = { ...analysis };
           this.loadingPreviousNotes = false;
+          this.initPrevNotesTranslation(analysis);
         },
         error: (error) => {
-          // No previous non-trial lessons - that's okay
           console.log('ℹ️ No previous lesson notes available (first regular lesson or no analyses yet)', {
             status: error.status,
             message: error.message
@@ -2182,6 +2189,66 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     });
 
     await alert.present();
+  }
+
+  private initPrevNotesTranslation(analysis: LessonAnalysis) {
+    this.prevNotesAnalysisId = (analysis as any)._id || null;
+    this.prevNotesShowingTranslation = false;
+
+    if (this.prevNotesAnalysisId) {
+      const user = this.userService.getCurrentUserValue();
+      const targetLang = user?.nativeLanguage || 'en';
+      const cached = (analysis as any).translations?.[targetLang];
+      if (cached) {
+        this.analysisTranslation.seedFromResponse(this.prevNotesAnalysisId, cached);
+      }
+      if (this.analysisTranslation.isShowingTranslated(this.prevNotesAnalysisId)) {
+        const t = this.analysisTranslation.getTranslation(this.prevNotesAnalysisId);
+        if (t && this.originalPreviousLessonNotes) {
+          this.previousLessonNotes = this.analysisTranslation.applyTranslation(this.originalPreviousLessonNotes, t) as LessonAnalysis;
+          this.prevNotesShowingTranslation = true;
+        }
+      }
+    }
+  }
+
+  togglePrevNotesTranslation() {
+    if (!this.prevNotesAnalysisId) return;
+
+    if (this.prevNotesShowingTranslation) {
+      this.analysisTranslation.showOriginal(this.prevNotesAnalysisId);
+      this.previousLessonNotes = this.originalPreviousLessonNotes ? { ...this.originalPreviousLessonNotes } : this.previousLessonNotes;
+      this.prevNotesShowingTranslation = false;
+      this.cdr.detectChanges();
+      return;
+    }
+
+    if (this.analysisTranslation.hasTranslation(this.prevNotesAnalysisId)) {
+      this.analysisTranslation.showTranslated(this.prevNotesAnalysisId);
+      const t = this.analysisTranslation.getTranslation(this.prevNotesAnalysisId);
+      if (t && this.originalPreviousLessonNotes) {
+        this.previousLessonNotes = this.analysisTranslation.applyTranslation(this.originalPreviousLessonNotes, t) as LessonAnalysis;
+      }
+      this.prevNotesShowingTranslation = true;
+      this.cdr.detectChanges();
+      return;
+    }
+
+    this.prevNotesTranslating = true;
+    this.analysisTranslation.translate(this.prevNotesAnalysisId).subscribe({
+      next: (t) => {
+        if (this.originalPreviousLessonNotes) {
+          this.previousLessonNotes = this.analysisTranslation.applyTranslation(this.originalPreviousLessonNotes, t) as LessonAnalysis;
+        }
+        this.prevNotesTranslating = false;
+        this.prevNotesShowingTranslation = true;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.prevNotesTranslating = false;
+        this.cdr.detectChanges();
+      }
+    });
   }
 }
 

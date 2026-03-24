@@ -69,11 +69,14 @@
         <div class="ed-header-top">
           <button class="ed-back-btn" (click)="goBack()">
             <ion-icon name="chevron-back-outline"></ion-icon>
-            <span>Back</span>
+            <span>Go back</span>
           </button>
           <div class="ed-status-row">
             <span class="ed-status" [ngClass]="statusClass">{{ statusLabel }}</span>
-            <span class="ed-type-label" *ngIf="lesson?.isTrialLesson">Trial lesson</span>
+            <span class="ed-trial-badge" *ngIf="lesson?.isTrialLesson">
+              <ion-icon name="star" aria-hidden="true"></ion-icon>
+              {{ 'HOME.STATUS_TRIAL' | translate }}
+            </span>
             <span class="ed-type-label" *ngIf="lesson?.isOfficeHours">Office hours</span>
           </div>
         </div>
@@ -106,6 +109,35 @@
             </span>
           </div>
 
+          <div class="ed-inline-channels" *ngIf="isStudentUser && hasLinkedChannels">
+            <div class="ed-channels-list">
+              <a class="ed-channel-chip" *ngIf="linkedChannels?.youtubeChannelName" [href]="linkedChannels.youtubeChannelUrl" target="_blank" rel="noopener">
+                <img *ngIf="linkedChannels.youtubeChannelAvatar" [src]="linkedChannels.youtubeChannelAvatar" class="ed-channel-avatar" referrerpolicy="no-referrer" />
+                <div class="ed-channel-info">
+                  <span class="ed-channel-name">{{ linkedChannels.youtubeChannelName }}</span>
+                  <span class="ed-channel-meta" *ngIf="linkedChannels.youtubeSubscriberCount">{{ linkedChannels.youtubeSubscriberCount }}</span>
+                </div>
+                <ion-icon name="logo-youtube" class="ed-channel-icon yt"></ion-icon>
+              </a>
+              <a class="ed-channel-chip" *ngIf="linkedChannels?.vimeoChannelName" [href]="linkedChannels.vimeoChannelUrl" target="_blank" rel="noopener">
+                <img *ngIf="linkedChannels.vimeoChannelAvatar" [src]="linkedChannels.vimeoChannelAvatar" class="ed-channel-avatar" referrerpolicy="no-referrer" />
+                <div class="ed-channel-info">
+                  <span class="ed-channel-name">{{ linkedChannels.vimeoChannelName }}</span>
+                  <span class="ed-channel-meta">Vimeo</span>
+                </div>
+                <ion-icon name="videocam-outline" class="ed-channel-icon vimeo"></ion-icon>
+              </a>
+              <a class="ed-channel-chip" *ngIf="linkedChannels?.soundcloudProfileName" [href]="linkedChannels.soundcloudProfileUrl" target="_blank" rel="noopener">
+                <img *ngIf="linkedChannels.soundcloudProfileAvatar" [src]="linkedChannels.soundcloudProfileAvatar" class="ed-channel-avatar" referrerpolicy="no-referrer" />
+                <div class="ed-channel-info">
+                  <span class="ed-channel-name">{{ linkedChannels.soundcloudProfileName }}</span>
+                  <span class="ed-channel-meta">SoundCloud</span>
+                </div>
+                <ion-icon name="musical-notes-outline" class="ed-channel-icon sc"></ion-icon>
+              </a>
+            </div>
+          </div>
+
           <div class="ed-stats-pills">
             <span class="ed-pill" *ngIf="tutorStatsRating && isStudentUser">
               <ion-icon name="star"></ion-icon>
@@ -120,15 +152,15 @@
       </div>
 
       <div class="ed-quick-actions">
-        <button class="ed-action-pill" *ngIf="participantId" (click)="messageParticipant()">
+        <button class="ed-action-pill ed-action-pill--sm" *ngIf="participantId" (click)="messageParticipant()">
           <ion-icon name="chatbubble-outline"></ion-icon>
           Message
         </button>
-        <button class="ed-action-pill" *ngIf="isStudentUser && tutorId" (click)="shareTutor()">
+        <button class="ed-action-pill ed-action-pill--sm" *ngIf="isStudentUser && tutorId" (click)="shareTutor()">
           <ion-icon name="share-outline"></ion-icon>
           Share
         </button>
-        <button class="ed-action-pill" *ngIf="isStudentUser && tutorId" (click)="bookLesson()">
+        <button class="ed-action-pill ed-action-pill--sm" *ngIf="isStudentUser && tutorId" (click)="bookLesson()">
           <ion-icon name="calendar-outline"></ion-icon>
           Book
         </button>
@@ -608,41 +640,49 @@
             <p class="ed-plan-summary" *ngIf="edPlanStudentSummary">{{ edPlanStudentSummary }}</p>
           </div>
 
-          <!-- Previous Lesson Notes -->
-          <div class="ed-sidebar-card ed-previous-notes-card" *ngIf="hasPreviousNotes">
-            <h4 class="ed-sidebar-card-title">Notes from last lesson <span class="ed-date-sub">{{ previousNotesDate }}</span></h4>
+          <!-- Sidebar Notes (current lesson analysis OR previous lesson notes) -->
+          <div class="ed-sidebar-card ed-previous-notes-card" *ngIf="hasSidebarNotes">
+            <div class="ed-sidebar-card-header">
+              <h4 class="ed-sidebar-card-title">{{ sidebarNotesTitle }} <span class="ed-date-sub" *ngIf="sidebarNotesDateSub">{{ sidebarNotesDateSub }}</span></h4>
+              <button class="ed-translate-btn" *ngIf="sidebarNotesAnalysisId && sidebarNotesIsAi" (click)="toggleSidebarTranslation()" [disabled]="sidebarNotesTranslating" [class.showing-translation]="sidebarNotesShowingTranslation">
+                <ion-icon name="language-outline" aria-hidden="true"></ion-icon>
+                <span *ngIf="sidebarNotesTranslating">{{ 'COMMON.TRANSLATING' | translate }}</span>
+                <span *ngIf="!sidebarNotesTranslating && !sidebarNotesShowingTranslation">{{ 'COMMON.TRANSLATE' | translate }}</span>
+                <span *ngIf="!sidebarNotesTranslating && sidebarNotesShowingTranslation">{{ 'COMMON.SHOW_ORIGINAL' | translate }}</span>
+              </button>
+            </div>
 
-            <span class="ed-impression" *ngIf="previousNotesData?.analysis?.tutorNote?.quickImpression">{{ previousNotesData.analysis.tutorNote.quickImpression }}</span>
-            <div class="ed-rich-body" *ngIf="previousNotesSanitized" [innerHTML]="previousNotesSanitized"></div>
+            <span class="ed-impression" *ngIf="sidebarNotesAnalysis?.tutorNote?.quickImpression">{{ sidebarNotesAnalysis.tutorNote.quickImpression }}</span>
+            <div class="ed-rich-body" *ngIf="sidebarNotesSanitized" [innerHTML]="sidebarNotesSanitized"></div>
 
-            <p class="ed-body" *ngIf="!previousNotesSanitized && previousNotesData?.analysis?.overallAssessment?.summary">
-              {{ previousNotesData.analysis.overallAssessment.summary }}
+            <p class="ed-body" *ngIf="!sidebarNotesSanitized && sidebarNotesAnalysis?.overallAssessment?.summary">
+              {{ sidebarNotesAnalysis.overallAssessment.summary }}
             </p>
-            <p class="ed-body ed-italic" *ngIf="previousNotesData?.analysis?.overallAssessment?.progressFromLastLesson">
-              {{ previousNotesData.analysis.overallAssessment.progressFromLastLesson }}
+            <p class="ed-body ed-italic" *ngIf="sidebarNotesAnalysis?.overallAssessment?.progressFromLastLesson">
+              {{ sidebarNotesAnalysis.overallAssessment.progressFromLastLesson }}
             </p>
 
-            <div class="ed-scores" *ngIf="previousNotesIsAiSource && (previousNotesData?.analysis?.grammarAnalysis || previousNotesData?.analysis?.fluencyAnalysis)">
-              <div class="ed-score" *ngIf="previousNotesData?.analysis?.grammarAnalysis?.accuracyScore != null">
-                <span class="ed-score-num">{{ previousNotesData.analysis.grammarAnalysis.accuracyScore }}</span>
+            <div class="ed-scores" *ngIf="sidebarNotesIsAi && (sidebarNotesAnalysis?.grammarAnalysis || sidebarNotesAnalysis?.fluencyAnalysis)">
+              <div class="ed-score" *ngIf="sidebarNotesAnalysis?.grammarAnalysis?.accuracyScore != null">
+                <span class="ed-score-num">{{ sidebarNotesAnalysis.grammarAnalysis.accuracyScore }}</span>
                 <span class="ed-score-name">Grammar</span>
               </div>
-              <div class="ed-score" *ngIf="previousNotesData?.analysis?.fluencyAnalysis?.overallFluencyScore != null">
-                <span class="ed-score-num">{{ previousNotesData.analysis.fluencyAnalysis.overallFluencyScore }}</span>
+              <div class="ed-score" *ngIf="sidebarNotesAnalysis?.fluencyAnalysis?.overallFluencyScore != null">
+                <span class="ed-score-num">{{ sidebarNotesAnalysis.fluencyAnalysis.overallFluencyScore }}</span>
                 <span class="ed-score-name">Fluency</span>
               </div>
             </div>
 
-            <div class="ed-pn-block" *ngIf="previousNotesData?.analysis?.progressionMetrics?.persistentChallenges?.length">
+            <div class="ed-pn-block" *ngIf="sidebarNotesAnalysis?.progressionMetrics?.persistentChallenges?.length">
               <h3 class="ed-sub-label ed-warn">Recurring challenges</h3>
               <div class="ed-tag-list">
-                <span class="ed-tag ed-tag-warn" *ngFor="let c of previousNotesData.analysis.progressionMetrics.persistentChallenges">{{ c }}</span>
+                <span class="ed-tag ed-tag-warn" *ngFor="let c of sidebarNotesAnalysis.progressionMetrics.persistentChallenges">{{ c }}</span>
               </div>
             </div>
 
-            <div class="ed-pn-block" *ngIf="previousNotesData?.analysis?.topErrors?.length">
+            <div class="ed-pn-block" *ngIf="sidebarNotesAnalysis?.topErrors?.length">
               <h3 class="ed-sub-label">Key mistakes</h3>
-              <div class="ed-pn-error" *ngFor="let e of previousNotesData.analysis.topErrors">
+              <div class="ed-pn-error" *ngFor="let e of sidebarNotesAnalysis.topErrors">
                 <div class="ed-pn-error-row">
                   <span class="ed-pn-error-issue">{{ e.issue }}</span>
                   <span class="ed-pn-severity" [attr.data-severity]="e.impact">{{ e.impact }}</span>
@@ -651,9 +691,9 @@
               </div>
             </div>
 
-            <div class="ed-pn-block" *ngIf="previousNotesData?.analysis?.correctedExcerpts?.length">
+            <div class="ed-pn-block" *ngIf="sidebarNotesAnalysis?.correctedExcerpts?.length">
               <h3 class="ed-sub-label">Before &amp; after</h3>
-              <div class="ed-pn-excerpt" *ngFor="let ex of previousNotesData.analysis.correctedExcerpts">
+              <div class="ed-pn-excerpt" *ngFor="let ex of sidebarNotesAnalysis.correctedExcerpts">
                 <div class="ed-pn-diff-line ed-pn-diff-original">
                   <span class="ed-pn-diff-marker">Said</span> {{ ex.original }}
                 </div>
@@ -663,80 +703,49 @@
               </div>
             </div>
 
-            <div class="ed-pn-block" *ngIf="previousNotesData?.analysis?.strengths?.length">
+            <div class="ed-pn-block" *ngIf="sidebarNotesAnalysis?.strengths?.length">
               <h3 class="ed-sub-label ed-good">Strengths</h3>
               <div class="ed-tag-list">
-                <span class="ed-tag ed-tag-good" *ngFor="let s of previousNotesData.analysis.strengths">{{ s }}</span>
+                <span class="ed-tag ed-tag-good" *ngFor="let s of sidebarNotesAnalysis.strengths">{{ s }}</span>
               </div>
             </div>
 
-            <div class="ed-pn-block" *ngIf="previousNotesData?.analysis?.areasForImprovement?.length">
+            <div class="ed-pn-block" *ngIf="sidebarNotesAnalysis?.areasForImprovement?.length">
               <h3 class="ed-sub-label">Areas to work on</h3>
               <ul class="ed-pn-list">
-                <li *ngFor="let a of previousNotesData.analysis.areasForImprovement">{{ a }}</li>
+                <li *ngFor="let a of sidebarNotesAnalysis.areasForImprovement">{{ a }}</li>
               </ul>
             </div>
 
-            <div class="ed-pn-block" *ngIf="previousNotesData?.analysis?.tutorNote?.homework">
+            <div class="ed-pn-block" *ngIf="sidebarNotesAnalysis?.tutorNote?.homework">
               <h3 class="ed-sub-label">Homework</h3>
-              <p class="ed-body">{{ previousNotesData.analysis.tutorNote.homework }}</p>
+              <p class="ed-body">{{ sidebarNotesAnalysis.tutorNote.homework }}</p>
             </div>
 
-            <div class="ed-pn-block" *ngIf="previousNotesData?.analysis?.suggestedExercises?.length">
+            <div class="ed-pn-block" *ngIf="sidebarNotesAnalysis?.suggestedExercises?.length">
               <h3 class="ed-sub-label">Suggested exercises</h3>
               <ul class="ed-pn-list">
-                <li *ngFor="let ex of previousNotesData.analysis.suggestedExercises">{{ ex }}</li>
+                <li *ngFor="let ex of sidebarNotesAnalysis.suggestedExercises">{{ ex }}</li>
               </ul>
             </div>
 
-            <div class="ed-pn-block" *ngIf="previousNotesData?.analysis?.recommendedFocus?.length">
+            <div class="ed-pn-block" *ngIf="sidebarNotesAnalysis?.recommendedFocus?.length">
               <h3 class="ed-sub-label">Recommended focus</h3>
               <ul class="ed-pn-list">
-                <li *ngFor="let f of previousNotesData.analysis.recommendedFocus">{{ f }}</li>
+                <li *ngFor="let f of sidebarNotesAnalysis.recommendedFocus">{{ f }}</li>
               </ul>
             </div>
 
-            <button class="link-btn" (click)="viewPreviousAnalysis()">View full analysis →</button>
+            <button class="link-btn" (click)="viewSidebarAnalysis()">View full analysis →</button>
           </div>
 
-          <!-- Content Channels (student view only) -->
-          <div class="ed-sidebar-card ed-channels-card" *ngIf="isStudentUser && hasLinkedChannels">
-            <div class="ed-sidebar-card-header" [class.collapsible]="isTutorUser" (click)="isTutorUser && toggleChannelsSection()">
-              <h4 class="ed-sidebar-card-title">Content Channels</h4>
-              <ion-icon
-                *ngIf="isTutorUser"
-                [name]="channelsSectionExpanded ? 'chevron-up-outline' : 'chevron-down-outline'"
-                class="ed-sidebar-toggle-icon">
-              </ion-icon>
+          <!-- Prior lesson notes / analysis: empty when no earlier session summary -->
+          <div class="ed-sidebar-card ed-sidebar-notes-empty" *ngIf="showSidebarNotesEmpty">
+            <div class="ed-sidebar-empty-icon" aria-hidden="true">
+              <ion-icon name="document-text-outline"></ion-icon>
             </div>
-            <div class="ed-collapsible-content" [class.collapsed]="!channelsSectionExpanded">
-              <div class="ed-channels-list">
-                <a class="ed-channel-chip" *ngIf="linkedChannels?.youtubeChannelName" [href]="linkedChannels.youtubeChannelUrl" target="_blank" rel="noopener">
-                  <img *ngIf="linkedChannels.youtubeChannelAvatar" [src]="linkedChannels.youtubeChannelAvatar" class="ed-channel-avatar" referrerpolicy="no-referrer" />
-                  <div class="ed-channel-info">
-                    <span class="ed-channel-name">{{ linkedChannels.youtubeChannelName }}</span>
-                    <span class="ed-channel-meta" *ngIf="linkedChannels.youtubeSubscriberCount">{{ linkedChannels.youtubeSubscriberCount }}</span>
-                  </div>
-                  <ion-icon name="logo-youtube" class="ed-channel-icon yt"></ion-icon>
-                </a>
-                <a class="ed-channel-chip" *ngIf="linkedChannels?.vimeoChannelName" [href]="linkedChannels.vimeoChannelUrl" target="_blank" rel="noopener">
-                  <img *ngIf="linkedChannels.vimeoChannelAvatar" [src]="linkedChannels.vimeoChannelAvatar" class="ed-channel-avatar" referrerpolicy="no-referrer" />
-                  <div class="ed-channel-info">
-                    <span class="ed-channel-name">{{ linkedChannels.vimeoChannelName }}</span>
-                    <span class="ed-channel-meta">Vimeo</span>
-                  </div>
-                  <ion-icon name="videocam-outline" class="ed-channel-icon vimeo"></ion-icon>
-                </a>
-                <a class="ed-channel-chip" *ngIf="linkedChannels?.soundcloudProfileName" [href]="linkedChannels.soundcloudProfileUrl" target="_blank" rel="noopener">
-                  <img *ngIf="linkedChannels.soundcloudProfileAvatar" [src]="linkedChannels.soundcloudProfileAvatar" class="ed-channel-avatar" referrerpolicy="no-referrer" />
-                  <div class="ed-channel-info">
-                    <span class="ed-channel-name">{{ linkedChannels.soundcloudProfileName }}</span>
-                    <span class="ed-channel-meta">SoundCloud</span>
-                  </div>
-                  <ion-icon name="musical-notes-outline" class="ed-channel-icon sc"></ion-icon>
-                </a>
-              </div>
-            </div>
+            <h4 class="ed-sidebar-card-title ed-sidebar-notes-empty-title">{{ 'EVENT_DETAILS.SIDEBAR_NOTES_EMPTY_TITLE' | translate }}</h4>
+            <p class="ed-sidebar-empty-text">{{ sidebarNotesEmptyDescKey | translate }}</p>
           </div>
 
           <!-- Learning Materials (student view only) -->

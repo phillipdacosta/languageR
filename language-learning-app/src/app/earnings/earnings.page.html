@@ -557,59 +557,87 @@
           <p class="modal-description">{{ 'EARNINGS.WITHDRAW_DESC' | translate }}</p>
         </div>
 
-        <!-- Available Balance Card -->
-        <!-- Two-Column Container -->
+        <!-- 2×2 grid: row2 fees cell and payout method share height -->
         <div class="withdrawal-container">
-          
-          <!-- LEFT COLUMN: Balance & Fee Breakdown -->
-          <div class="left-column">
-            
-            <!-- Available Balance -->
-            <div class="balance-card">
-              <div class="balance-label">{{ 'EARNINGS.WITHDRAW_BALANCE_LABEL' | translate }}</div>
-              <div class="balance-amount">${{ formatCurrency(balance.available) }}</div>
-              <div class="balance-note" *ngIf="selectedWithdrawalMethod === 'paypal'">{{ 'EARNINGS.WITHDRAW_MIN_PAYPAL' | translate }}</div>
-            </div>
+          <div class="balance-card withdrawal-grid-balance">
+            <div class="balance-label">{{ 'EARNINGS.WITHDRAW_BALANCE_LABEL' | translate }}</div>
+            <div class="balance-amount">${{ formatCurrency(balance.available) }}</div>
+            <div class="balance-note" *ngIf="selectedWithdrawalMethod === 'paypal'">{{ 'EARNINGS.WITHDRAW_MIN_PAYPAL' | translate }}</div>
+          </div>
 
-            <!-- Fee Breakdown Card (PayPal) -->
-            <div class="fee-breakdown-card" *ngIf="selectedWithdrawalMethod === 'paypal'">
-              <!-- Show breakdown when amount is valid -->
-              <div *ngIf="withdrawalAmount >= 10; else paypalPlaceholder">
-                <div class="breakdown-row">
-                  <span class="breakdown-label">{{ 'EARNINGS.WITHDRAW_AMOUNT_LABEL' | translate }}</span>
-                  <span class="breakdown-value">${{ formatCurrency(withdrawalAmount) }}</span>
+          <div class="amount-section withdrawal-grid-amount">
+            <label class="section-label">{{ 'EARNINGS.WITHDRAW_AMOUNT_SECTION' | translate }}</label>
+            <div class="amount-input-wrapper">
+              <div class="currency-symbol">$</div>
+              <input
+                type="text"
+                inputmode="decimal"
+                class="amount-input"
+                [(ngModel)]="formattedWithdrawalAmount"
+                (keydown)="onWithdrawalKeydown($event)"
+                (blur)="onWithdrawalAmountBlur()"
+                placeholder="0.00">
+              <button class="max-button" (click)="setMaxWithdrawalAmount()">MAX</button>
+            </div>
+            <div class="amount-error-slot" aria-live="polite">
+              <p
+                class="amount-error"
+                *ngIf="withdrawalAmount > balance.available">
+                {{ 'EARNINGS.WITHDRAW_EXCEEDS_BALANCE' | translate }}
+              </p>
+              <p
+                class="amount-error"
+                *ngIf="withdrawalAmount <= balance.available && selectedWithdrawalMethod === 'paypal' && withdrawalAmount > 0 && withdrawalAmount < 10">
+                {{ 'EARNINGS.WITHDRAW_MIN_10' | translate }}
+              </p>
+              <p
+                class="amount-error"
+                *ngIf="withdrawalAmount <= balance.available && selectedWithdrawalMethod === 'stripe_connect' && withdrawalAmount > 0 && withdrawalAmount < 0.01">
+                {{ 'EARNINGS.WITHDRAW_INVALID_AMOUNT' | translate }}
+              </p>
+            </div>
+          </div>
+
+          <div class="withdrawal-grid-fees">
+            <!-- Fee Breakdown Card (PayPal): fixed-height swap — no layout jump -->
+            <div class="fee-breakdown-card fee-breakdown-card--paypal" *ngIf="selectedWithdrawalMethod === 'paypal'">
+              <div class="fee-breakdown-swap">
+                <div class="fee-breakdown-panel" [class.is-visible]="withdrawalAmount >= 10">
+                  <div class="breakdown-row">
+                    <span class="breakdown-label">{{ 'EARNINGS.WITHDRAW_AMOUNT_LABEL' | translate }}</span>
+                    <span class="breakdown-value">${{ formatCurrency(withdrawalAmount) }}</span>
+                  </div>
+                  <div class="breakdown-row fee-row">
+                    <span class="breakdown-label">
+                      {{ 'EARNINGS.WITHDRAW_PAYPAL_FEE' | translate }}
+                      <ion-icon
+                        name="information-circle-outline"
+                        class="fee-info-icon"
+                        (click)="showPayPalFeeInfo()">
+                      </ion-icon>
+                    </span>
+                    <span class="breakdown-value fee-value">-${{ formatCurrency(calculatePayPalFee(withdrawalAmount)) }}</span>
+                  </div>
+                  <div class="fee-note">
+                    <ion-icon name="alert-circle-outline"></ion-icon>
+                    <span>{{ 'EARNINGS.WITHDRAW_FEE_NOTE' | translate }}</span>
+                  </div>
+                  <div class="breakdown-divider"></div>
+                  <div class="breakdown-row total-row">
+                    <span class="breakdown-label">{{ 'EARNINGS.WITHDRAW_YOU_RECEIVE' | translate }}</span>
+                    <span class="breakdown-value total">${{ formatCurrency(getNetAmount()) }}</span>
+                  </div>
                 </div>
-                <div class="breakdown-row fee-row">
-                  <span class="breakdown-label">
-                    {{ 'EARNINGS.WITHDRAW_PAYPAL_FEE' | translate }}
-                    <ion-icon 
-                      name="information-circle-outline" 
-                      class="fee-info-icon"
-                      (click)="showPayPalFeeInfo()">
-                    </ion-icon>
-                  </span>
-                  <span class="breakdown-value fee-value">-${{ formatCurrency(calculatePayPalFee(withdrawalAmount)) }}</span>
-                </div>
-                <div class="fee-note">
-                  <ion-icon name="alert-circle-outline"></ion-icon>
-                  <span>{{ 'EARNINGS.WITHDRAW_FEE_NOTE' | translate }}</span>
-                </div>
-                <div class="breakdown-divider"></div>
-                <div class="breakdown-row total-row">
-                  <span class="breakdown-label">{{ 'EARNINGS.WITHDRAW_YOU_RECEIVE' | translate }}</span>
-                  <span class="breakdown-value total">${{ formatCurrency(getNetAmount()) }}</span>
+                <div class="fee-breakdown-panel" [class.is-visible]="withdrawalAmount < 10">
+                  <div class="breakdown-placeholder">
+                    <ion-icon name="calculator-outline"></ion-icon>
+                    <p>{{ 'EARNINGS.WITHDRAW_FEE_PLACEHOLDER' | translate }}</p>
+                  </div>
                 </div>
               </div>
-              <!-- Placeholder when amount is invalid -->
-              <ng-template #paypalPlaceholder>
-                <div class="breakdown-placeholder">
-                  <ion-icon name="calculator-outline"></ion-icon>
-                  <p>{{ 'EARNINGS.WITHDRAW_FEE_PLACEHOLDER' | translate }}</p>
-                </div>
-              </ng-template>
             </div>
 
-            <!-- Fee Breakdown Card (Stripe) - No fees, always show badge -->
+            <!-- Fee Breakdown Card (Stripe): "You will receive" always present — value fades in -->
             <div class="fee-breakdown-card stripe-card" *ngIf="selectedWithdrawalMethod === 'stripe_connect'">
               <div class="no-fee-badge">
                 <ion-icon name="checkmark-circle"></ion-icon>
@@ -619,57 +647,30 @@
                 <ion-icon name="flash-outline"></ion-icon>
                 <span>{{ 'EARNINGS.WITHDRAW_STRIPE_INSTANT' | translate }}</span>
               </div>
-              <!-- Only show amount details when valid (Stripe has no minimum) -->
-              <div *ngIf="withdrawalAmount >= 0.01">
+              <div class="stripe-receive-section">
                 <div class="breakdown-divider"></div>
                 <div class="breakdown-row total-row">
                   <span class="breakdown-label">{{ 'EARNINGS.WITHDRAW_YOU_RECEIVE' | translate }}</span>
-                  <span class="breakdown-value total">${{ formatCurrency(withdrawalAmount) }}</span>
+                  <span
+                    class="breakdown-value total stripe-receive-value"
+                    [class.stripe-receive-value--muted]="withdrawalAmount < 0.01">
+                    <ng-container *ngIf="withdrawalAmount >= 0.01">${{ formatCurrency(withdrawalAmount) }}</ng-container>
+                    <ng-container *ngIf="withdrawalAmount < 0.01">—</ng-container>
+                  </span>
                 </div>
               </div>
             </div>
 
           </div>
 
-          <!-- RIGHT COLUMN: Amount Input & Method Selection -->
-          <div class="right-column">
-            
-            <!-- Amount Input -->
-            <div class="amount-section">
-              <label class="section-label">{{ 'EARNINGS.WITHDRAW_AMOUNT_SECTION' | translate }}</label>
-              <div class="amount-input-wrapper">
-                <div class="currency-symbol">$</div>
-                <input 
-                  type="text" 
-                  inputmode="decimal"
-                  class="amount-input"
-                  [(ngModel)]="formattedWithdrawalAmount"
-                  (keydown)="onWithdrawalKeydown($event)"
-                  (blur)="onWithdrawalAmountBlur()"
-                  placeholder="0.00">
-                <button class="max-button" (click)="setMaxWithdrawalAmount()">MAX</button>
-              </div>
-              <div class="amount-error" *ngIf="selectedWithdrawalMethod === 'paypal' && withdrawalAmount < 10 && withdrawalAmount > 0">
-                {{ 'EARNINGS.WITHDRAW_MIN_10' | translate }}
-              </div>
-              <div class="amount-error" *ngIf="selectedWithdrawalMethod === 'stripe_connect' && withdrawalAmount < 0.01 && withdrawalAmount > 0">
-                {{ 'EARNINGS.WITHDRAW_INVALID_AMOUNT' | translate }}
-              </div>
-              <div class="amount-error" *ngIf="withdrawalAmount > balance.available">
-                {{ 'EARNINGS.WITHDRAW_EXCEEDS_BALANCE' | translate }}
-              </div>
-            </div>
-
-            <!-- Payout Method Selection -->
-            <div class="method-section">
-              <label class="section-label">{{ 'EARNINGS.WITHDRAW_PAYOUT_METHOD' | translate }}</label>
-              
+          <div class="method-section withdrawal-grid-method">
               <!-- Stripe Option -->
               <div 
                 *ngIf="payoutProvider === 'stripe'"
                 class="method-card"
                 [class.selected]="selectedWithdrawalMethod === 'stripe_connect'"
                 (click)="selectWithdrawalMethod('stripe_connect')">
+                <span class="method-card-inline-label">{{ 'EARNINGS.WITHDRAW_PAYOUT_METHOD' | translate }}</span>
                 <div class="method-content">
                   <div class="method-icon paypal">
                     <img src="assets/icon/stripe-icon.png" alt="Stripe" name="logo-paypal">
@@ -693,6 +694,7 @@
                 class="method-card"
                 [class.selected]="selectedWithdrawalMethod === 'paypal'"
                 (click)="selectWithdrawalMethod('paypal')">
+                <span class="method-card-inline-label">{{ 'EARNINGS.WITHDRAW_PAYOUT_METHOD' | translate }}</span>
                 <div class="method-content">
                   <div class="method-icon paypal">
                     <img src="assets/icon/paypal-icon.png" alt="PayPal" name="logo-paypal">
@@ -711,34 +713,37 @@
               </div>
 
               <div *ngIf="payoutProvider === 'none'" class="no-method-message">
-                <ion-icon name="alert-circle-outline"></ion-icon>
-                <p>{{ 'EARNINGS.WITHDRAW_NO_METHOD' | translate }}</p>
+                <span class="method-card-inline-label">{{ 'EARNINGS.WITHDRAW_PAYOUT_METHOD' | translate }}</span>
+                <div class="no-method-message-row">
+                  <ion-icon name="alert-circle-outline"></ion-icon>
+                  <p>{{ 'EARNINGS.WITHDRAW_NO_METHOD' | translate }}</p>
+                </div>
               </div>
-            </div>
-
           </div>
 
         </div>
 
-        <!-- Action Buttons (Full Width Below Columns) -->
-        <div class="button-container">
-          <ion-button 
-            expand="block" 
-            fill="outline"
-            (click)="closeWithdrawalModal()">
-            {{ 'EARNINGS.WITHDRAW_CANCEL' | translate }}
-          </ion-button>
-          <ion-button 
-            expand="block"
-            [disabled]="!canWithdraw()"
-            (click)="confirmWithdrawal()">
-            {{ 'EARNINGS.WITHDRAW_REQUEST' | translate }}
-          </ion-button>
-        </div>
-
-
       </div>
     </ion-content>
+
+    <ion-footer *ngIf="!withdrawalSuccess" class="withdrawal-modal-footer ion-no-border">
+      <div class="withdrawal-modal-actions">
+        <ion-button
+          expand="block"
+          fill="outline"
+          class="withdrawal-action-btn withdrawal-action-btn--cancel"
+          (click)="closeWithdrawalModal()">
+          {{ 'EARNINGS.WITHDRAW_CANCEL' | translate }}
+        </ion-button>
+        <ion-button
+          expand="block"
+          class="withdrawal-action-btn withdrawal-action-btn--primary"
+          [disabled]="!canWithdraw()"
+          (click)="confirmWithdrawal()">
+          {{ 'EARNINGS.WITHDRAW_REQUEST' | translate }}
+        </ion-button>
+      </div>
+    </ion-footer>
   </ng-template>
 </ion-modal>
 

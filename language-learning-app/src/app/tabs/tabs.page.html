@@ -10,8 +10,7 @@
         </div>
       </ion-buttons>
       <ion-buttons slot="end">
-        <ion-button fill="clear" class="notification-btn" 
-                    (click)="navigateTo('/tabs/notifications')"
+        <ion-button fill="clear" class="notification-btn"
                     (mouseenter)="onNotificationButtonMouseEnter()"
                     (mouseleave)="onNotificationButtonMouseLeave()">
           <ion-icon name="notifications-outline"></ion-icon>
@@ -36,9 +35,11 @@
 
       <div class="desktop-nav-buttons" slot="end" #navButtonsContainer>
         <!-- Sliding underline indicator -->
-        <div class="nav-underline-indicator" 
-             [style.left.px]="underlineLeft" 
+        <div class="nav-underline-indicator"
+             [style.left.px]="underlineLeft"
+             [style.top.px]="underlineTop"
              [style.width.px]="underlineWidth"
+             [style.height.px]="underlineHeight"
              *ngIf="underlineWidth > 0"></div>
         
         <button class="nav-button" 
@@ -46,7 +47,7 @@
                 (click)="navigateTo('/tabs/home')"
                 #homeBtn>
           <!-- <ion-icon name="home"></ion-icon> -->
-          <ion-label>{{ 'TABS.HOME' | translate }}</ion-label>
+          <ion-label [attr.data-text]="'TABS.HOME' | translate">{{ 'TABS.HOME' | translate }}</ion-label>
           </button>
         
         <button *ngIf="currentUser?.userType === 'student'" 
@@ -55,7 +56,7 @@
                 (click)="navigateTo('/tabs/tutor-search')"
                 #tutorSearchBtn>
           <!-- <ion-icon name="search"></ion-icon> -->
-          <ion-label>{{ 'TABS.FIND_TUTORS' | translate }}</ion-label>
+          <ion-label [attr.data-text]="'TABS.FIND_TUTORS' | translate">{{ 'TABS.FIND_TUTORS' | translate }}</ion-label>
         </button>
         
         <button *ngIf="currentUser?.userType === 'tutor'" 
@@ -64,7 +65,7 @@
                 (click)="navigateTo('/tabs/tutor-calendar')"
                 #calendarBtn>
           <!-- <ion-icon name="calendar"></ion-icon> -->
-          <ion-label>{{ 'TABS.CALENDAR' | translate }}</ion-label>
+          <ion-label [attr.data-text]="'TABS.CALENDAR' | translate">{{ 'TABS.CALENDAR' | translate }}</ion-label>
         </button>
         
         <button class="nav-button messages-button" 
@@ -74,7 +75,7 @@
                 (mouseleave)="onMessagesButtonMouseLeave()"
                 #messagesBtn>
           <!-- <ion-icon name="chatbubbles"></ion-icon> -->
-          <ion-label>{{ 'TABS.MESSAGES' | translate }}</ion-label>
+          <ion-label [attr.data-text]="'TABS.MESSAGES' | translate">{{ 'TABS.MESSAGES' | translate }}</ion-label>
           <span class="new-badge" *ngIf="(unreadCount$ | async)! > 0">new</span>
         </button>
         
@@ -83,7 +84,7 @@
                 (click)="navigateTo('/tabs/lessons')"
                 #lessonsBtn>
           <!-- <ion-icon name="book-outline"></ion-icon> -->
-          <ion-label>{{ 'TABS.LESSONS' | translate }}</ion-label>
+          <ion-label [attr.data-text]="'TABS.LESSONS' | translate">{{ 'TABS.LESSONS' | translate }}</ion-label>
         </button>
         
         <!-- Notification Bell Icon -->

@@ -227,7 +227,8 @@ const userSchema = new mongoose.Schema({
     },
     hourlyRate: {
       type: Number,
-      default: 25
+      default: 25,
+      min: [10, 'Minimum hourly rate is $10']
     },
     introductionVideo: {
       type: String,

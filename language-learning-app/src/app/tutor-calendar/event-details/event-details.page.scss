@@ -104,12 +104,12 @@
   padding: 0 var(--ed-pad-x) 40px;
   min-height: 400px;
   position: relative;
-  top: 55px;
+  top: 85px;
 }
 
 @media (min-width: 960px) {
   .ed {
-    max-width: 1080px;
+    max-width: 1200px;
   }
 }
 
@@ -293,6 +293,32 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+
+  /* Same as home `.lesson-status-badges .status-badge.badge-trial` (orange pill + star) */
+  .ed-trial-badge {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    line-height: 1;
+    white-space: nowrap;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, #ff9500 0%, #ff6b35 100%) !important;
+    color: #ffffff !important;
+    -webkit-background-clip: padding-box;
+    background-clip: padding-box;
+    box-shadow: none;
+
+    ion-icon {
+      font-size: 12px !important;
+      color: #ffffff !important;
+    }
+  }
 }
 
 .ed-status {
@@ -1436,8 +1462,8 @@ ion-header {
     padding-top: 0;
     border-top: none;
     margin-top: 0;
-    position: sticky;
-    top: 16px;
+    position: relative;
+    top: 80px;
     align-self: flex-start;
     gap: 10px;
   }
@@ -1470,18 +1496,18 @@ ion-header {
   }
 
   .ed-channel-chip {
-    padding: 8px 10px;
-    gap: 8px;
+    padding: 5px 8px;
+    gap: 6px;
   }
 
   .ed-channel-avatar {
-    width: 30px;
-    height: 30px;
+    width: 24px;
+    height: 24px;
   }
 
-  .ed-channel-name { font-size: 12px; }
+  .ed-channel-name { font-size: 11px; }
   .ed-channel-meta { font-size: 10px; }
-  .ed-channel-icon { font-size: 16px; }
+  .ed-channel-icon { font-size: 14px; }
 
   .ed-materials-card .ed-materials-subtitle {
     margin: -2px 0 8px;
@@ -1529,6 +1555,69 @@ ion-header {
     display: flex;
     gap: 16px;
     align-items: flex-start;
+  }
+
+  .ed-profile-main {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+
+    .ed-profile-name,
+    .ed-tutor-details,
+    .ed-stats-pills,
+    .ed-quick-actions {
+      width: 100%;
+    }
+  }
+
+  /* Compact pills: ~same height as Message, hug content (no full-width bar) */
+  .ed-inline-channels {
+    margin-top: 8px;
+    align-self: flex-start;
+    width: auto;
+    max-width: 100%;
+
+    .ed-channels-list {
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .ed-channel-chip {
+      flex: 0 0 auto;
+      width: fit-content;
+      max-width: min(100%, 210px);
+      padding: 5px 10px;
+      gap: 5px;
+      border-radius: 7px;
+      box-sizing: border-box;
+    }
+
+    .ed-channel-info {
+      flex: 0 1 auto;
+      min-width: 0;
+      max-width: 128px;
+    }
+
+    .ed-channel-avatar {
+      width: 22px;
+      height: 22px;
+    }
+
+    .ed-channel-name {
+      font-size: 12px;
+      line-height: 1.2;
+    }
+
+    .ed-channel-meta {
+      font-size: 10px;
+      line-height: 1.2;
+    }
+
+    .ed-channel-icon {
+      font-size: 14px;
+    }
   }
 
   .ed-quick-actions {
@@ -1611,11 +1700,61 @@ ion-header {
 
 /* ── Previous Notes Card (in sidebar) ──────────────────── */
 .ed-previous-notes-card {
+  .ed-sidebar-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    gap: 8px;
+
+    .ed-sidebar-card-title {
+      margin: 0;
+    }
+  }
+
   .ed-sidebar-card-title {
     display: flex;
     align-items: baseline;
     gap: 8px;
     flex-wrap: wrap;
+  }
+
+  .ed-translate-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: transparent;
+    font-size: 11px;
+    font-weight: 500;
+    color: #6b7280;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+
+    ion-icon {
+      font-size: 14px;
+    }
+
+    &:hover:not(:disabled) {
+      background: #f3f4f6;
+      color: #374151;
+      border-color: #9ca3af;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    &.showing-translation {
+      background: #eff6ff;
+      border-color: #93c5fd;
+      color: #2563eb;
+    }
   }
 
   .ed-impression {
@@ -1633,6 +1772,42 @@ ion-header {
 
   .link-btn {
     margin-top: 16px;
+  }
+}
+
+/* ── Sidebar: no prior lesson notes / analysis ─────────── */
+.ed-sidebar-notes-empty {
+  text-align: center;
+  padding: 28px 20px;
+
+  .ed-sidebar-notes-empty-title {
+    margin-bottom: 8px;
+    text-align: center;
+  }
+
+  .ed-sidebar-empty-icon {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 14px;
+    border-radius: 12px;
+    background: #f2f2f7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    ion-icon {
+      font-size: 26px;
+      color: #8e8e93;
+    }
+  }
+
+  .ed-sidebar-empty-text {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.45;
+    color: var(--ed-text-secondary);
+    text-align: center;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
   }
 }
 
@@ -1812,6 +1987,19 @@ ion-header {
   }
 }
 
+.ed-action-pill--sm {
+  flex: 0 0 auto;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 4px;
+  border-radius: 7px;
+
+  ion-icon {
+    font-size: 14px;
+  }
+}
+
 /* ── Sidebar Buttons ─────────────────────────────────── */
 .ed-sidebar-btn {
   display: block;
@@ -1871,23 +2059,21 @@ ion-header {
   gap: 8px;
 }
 
-/* ── Content Channels Card ──────────────────────────── */
-.ed-channels-card {
-  .ed-channels-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
+/* ── Content channel chips (inline under tutor details or legacy list) ── */
+.ed-channels-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .ed-channel-chip {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: 6px;
+  padding: 6px 10px;
   background: #f8f9fa;
   border: 1px solid #e5e5e5;
-  border-radius: 12px;
+  border-radius: 8px;
   text-decoration: none;
   color: inherit;
   cursor: pointer;
@@ -1900,8 +2086,8 @@ ion-header {
 }
 
 .ed-channel-avatar {
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   object-fit: cover;
   flex-shrink: 0;
@@ -1915,7 +2101,7 @@ ion-header {
 }
 
 .ed-channel-name {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--ed-text-primary);
   overflow: hidden;
@@ -1924,12 +2110,12 @@ ion-header {
 }
 
 .ed-channel-meta {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--ed-text-tertiary);
 }
 
 .ed-channel-icon {
-  font-size: 18px;
+  font-size: 15px;
   flex-shrink: 0;
 
   &.yt { color: #ff0000; }
@@ -2354,8 +2540,19 @@ ion-header {
     color: #f5f5f7;
   }
 
-  .ed-back-btn:hover {
-    background: rgba(255, 255, 255, 0.08);
+  /* Match create-material .cm-nav-back in dark mode */
+  .ed-back-btn {
+    color: #4298d2;
+
+    &:hover {
+      background: none;
+      color: #4298d2;
+      opacity: 0.7;
+    }
+
+    &:active {
+      opacity: 0.5;
+    }
   }
 
   .state-container {
@@ -2400,6 +2597,15 @@ ion-header {
   .ed-type-label {
     background: #2c2c2e;
     color: #8e8e93;
+  }
+
+  .ed-status-row .ed-trial-badge {
+    background: linear-gradient(135deg, #ff9500 0%, #ff6b35 100%) !important;
+    color: #ffffff !important;
+
+    ion-icon {
+      color: #ffffff !important;
+    }
   }
 
   .ed-count {
@@ -2656,6 +2862,14 @@ ion-header {
     border-color: rgba(255, 255, 255, 0.1);
   }
 
+  .ed-sidebar-notes-empty .ed-sidebar-empty-icon {
+    background: #2c2c2e;
+
+    ion-icon {
+      color: #636366;
+    }
+  }
+
   .ed-profile-avatar-lg {
     background: #2c2c2e;
   }
@@ -2766,4 +2980,21 @@ ion-header {
   .ed-material-footer { border-top-color: #2c2c2e; }
   .ed-material-level { background: #2c2c2e; color: #aaa; }
   .ed-material-pitch { background: #2c2200; color: #fbbf24; }
+
+  .ed-translate-btn {
+    border-color: #3a3a3c;
+    color: #8e8e93;
+
+    &:hover:not(:disabled) {
+      background: #2c2c2e;
+      color: #f5f5f7;
+      border-color: #48484a;
+    }
+
+    &.showing-translation {
+      background: rgba(66, 152, 210, 0.15);
+      border-color: rgba(66, 152, 210, 0.4);
+      color: #4298d2;
+    }
+  }
 }

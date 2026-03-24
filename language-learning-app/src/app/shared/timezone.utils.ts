@@ -11,7 +11,7 @@ import { fromZonedTime, toZonedTime } from 'date-fns-tz';
 let _globalHour12: boolean = true;
 
 export function setGlobalTimeFormat(format: '12h' | '24h') {
-  _globalHour12 = format !== '24h';
+  _globalHour12 = format === '12h';
 }
 
 export function getGlobalHour12(): boolean {

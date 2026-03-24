@@ -88,6 +88,12 @@ router.post('/', verifyToken, async (req, res) => {
       }
     }
 
+    // Enforce minimum price of $10 per student
+    const finalPrice = price || 0;
+    if (finalPrice > 0 && finalPrice < 10) {
+      return res.status(400).json({ success: false, message: 'Minimum lesson price is $10.00' });
+    }
+
     const created = [];
     for (let i = 0; i < count; i++) {
       const s = i === 0 || recType === 'none' ? new Date(startTime) : nextOccurrence(startTime, i, recType);
@@ -103,7 +109,7 @@ router.post('/', verifyToken, async (req, res) => {
         duration: duration || 60,
         isPublic: !!isPublic,
         thumbnail: thumbnail || null,
-        price: price || 0,
+        price: finalPrice,
         useSuggestedPricing: useSuggestedPricing !== undefined ? useSuggestedPricing : true,
         suggestedPrice: suggestedPrice || 0,
         startTime: s,

@@ -6,13 +6,15 @@ import { TranscriptionService, LessonAnalysis } from '../../services/transcripti
 import { ReviewDeckService, ReviewDeckItem } from '../../services/review-deck.service';
 import { UserService } from '../../services/user.service';
 import { LessonService } from '../../services/lesson.service';
+import { AnalysisTranslationService } from '../../services/analysis-translation.service';
+import { TranslateModule } from '@ngx-translate/core';
 
 @Component({
   selector: 'app-lesson-summary',
   templateUrl: './lesson-summary.component.html',
   styleUrls: ['./lesson-summary.component.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule]
+  imports: [CommonModule, IonicModule, TranslateModule]
 })
 export class LessonSummaryComponent implements OnInit {
   @Input() lessonId!: string;
@@ -38,6 +40,12 @@ export class LessonSummaryComponent implements OnInit {
   savedCorrections: Set<string> = new Set();
   reviewDeckItems: ReviewDeckItem[] = [];
   
+  // Translation
+  analysisId: string | null = null;
+  originalAnalysis: LessonAnalysis | null = null;
+  translating = false;
+  showingTranslation = false;
+
   // Expose Math for template
   Math = Math;
 
@@ -49,7 +57,8 @@ export class LessonSummaryComponent implements OnInit {
     private toastController: ToastController,
     private router: Router,
     private userService: UserService,
-    private lessonService: LessonService
+    private lessonService: LessonService,
+    private analysisTranslation: AnalysisTranslationService
   ) {}
 
   ngOnInit() {
@@ -101,6 +110,7 @@ export class LessonSummaryComponent implements OnInit {
             this.analysis = analysis;
             this.loading = false;
             clearInterval(interval);
+            this.initTranslationState();
             console.log('✅ Analysis loaded successfully');
           } else if (analysis.status === 'failed' || analysis.status === 'insufficient_data') {
             this.analysisUnavailable = true;
@@ -556,5 +566,62 @@ export class LessonSummaryComponent implements OnInit {
     
     await this.modalController.dismiss();
     this.router.navigate(['/tutor-profile', this.tutorInfo.id]);
+  }
+
+  private initTranslationState() {
+    if (!this.analysis) return;
+    this.analysisId = (this.analysis as any)._id || null;
+    this.originalAnalysis = { ...this.analysis };
+
+    if (this.analysisId) {
+      const user = this.userService.getCurrentUserValue();
+      const targetLang = user?.nativeLanguage || 'en';
+      const cached = (this.analysis as any).translations?.[targetLang];
+      if (cached) {
+        this.analysisTranslation.seedFromResponse(this.analysisId, cached);
+      }
+      if (this.analysisTranslation.isShowingTranslated(this.analysisId)) {
+        const t = this.analysisTranslation.getTranslation(this.analysisId);
+        if (t && this.originalAnalysis) {
+          this.analysis = this.analysisTranslation.applyTranslation(this.originalAnalysis, t) as LessonAnalysis;
+          this.showingTranslation = true;
+        }
+      }
+    }
+  }
+
+  toggleTranslation() {
+    if (!this.analysisId) return;
+
+    if (this.showingTranslation) {
+      this.analysisTranslation.showOriginal(this.analysisId);
+      this.analysis = this.originalAnalysis ? { ...this.originalAnalysis } : this.analysis;
+      this.showingTranslation = false;
+      return;
+    }
+
+    if (this.analysisTranslation.hasTranslation(this.analysisId)) {
+      this.analysisTranslation.showTranslated(this.analysisId);
+      const t = this.analysisTranslation.getTranslation(this.analysisId);
+      if (t && this.originalAnalysis) {
+        this.analysis = this.analysisTranslation.applyTranslation(this.originalAnalysis, t) as LessonAnalysis;
+      }
+      this.showingTranslation = true;
+      return;
+    }
+
+    this.translating = true;
+    this.analysisTranslation.translate(this.analysisId).subscribe({
+      next: (t) => {
+        if (this.originalAnalysis) {
+          this.analysis = this.analysisTranslation.applyTranslation(this.originalAnalysis, t) as LessonAnalysis;
+        }
+        this.translating = false;
+        this.showingTranslation = true;
+      },
+      error: () => {
+        this.translating = false;
+      }
+    });
   }
 }

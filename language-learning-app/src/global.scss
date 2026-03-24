@@ -2182,6 +2182,12 @@ html.ion-palette-dark {
       ion-icon { color: #e5e5e5 !important; }
       &:hover { background: rgba(255, 255, 255, 0.08) !important; }
     }
+    .pn-translate-btn {
+      border-color: rgba(255, 255, 255, 0.15) !important;
+      color: #8e8e93 !important;
+      &:hover:not(:disabled) { background: rgba(255, 255, 255, 0.06) !important; color: #f5f5f7 !important; }
+      &.showing-translation { background: rgba(0, 113, 227, 0.15) !important; border-color: rgba(77, 163, 255, 0.3) !important; color: #4da3ff !important; }
+    }
     .pn-impression { color: #f5f5f7 !important; }
     .pn-note-text, .pn-summary, .pn-section-text, .pn-bullet-list { color: #c7c7cc !important; }
     .pn-progress { color: #8e8e93 !important; }
@@ -2467,7 +2473,17 @@ html.ion-palette-dark {
           background: rgba(0, 138, 5, 0.12) !important;
           span { color: #f5f5f7 !important; }
         }
+
+        .stripe-receive-value--muted {
+          color: #8e8e93 !important;
+          opacity: 0.72 !important;
+        }
       }
+    }
+
+    .fee-breakdown-card--paypal .breakdown-placeholder {
+      ion-icon { color: #636366 !important; }
+      p { color: #8e8e93 !important; }
     }
 
     .amount-section {
@@ -2487,10 +2503,15 @@ html.ion-palette-dark {
           &:hover { background: #fff !important; }
         }
       }
+
+      .amount-error {
+        color: #ff7b72 !important;
+      }
     }
 
     .method-section {
-      .section-label { color: #f5f5f7 !important; }
+      .section-label,
+      .method-card-inline-label { color: #f5f5f7 !important; }
       .method-card {
         background: #333336 !important;
         border: 1px solid rgba(255, 255, 255, 0.12) !important;
@@ -2514,17 +2535,29 @@ html.ion-palette-dark {
       }
     }
 
-    .button-container ion-button {
-      &[fill="outline"] {
-        --border-color: rgba(255, 255, 255, 0.2) !important;
-        --color: #f5f5f7 !important;
-        --background: transparent !important;
-        &:hover { --border-color: rgba(255, 255, 255, 0.35) !important; }
-      }
-      &:not([fill="outline"]) {
+    ion-footer.withdrawal-modal-footer {
+      --background: #{$modal-bg-dark} !important;
+      background: #{$modal-bg-dark} !important;
+      border-top-color: rgba(255, 255, 255, 0.08) !important;
+      box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.35) !important;
+    }
+
+    .withdrawal-modal-actions ion-button.withdrawal-action-btn--cancel {
+      --border-color: rgba(255, 255, 255, 0.22) !important;
+      --color: #f5f5f7 !important;
+      --background: transparent !important;
+      &:hover {
         --background: #f5f5f7 !important;
-        --color: #000 !important;
-        --background-hover: #ffffff !important;
+        --color: #000000 !important;
+      }
+    }
+
+    .withdrawal-modal-actions ion-button.withdrawal-action-btn--primary {
+      --background: #f5f5f7 !important;
+      --color: #000000 !important;
+      --background-hover: #ffffff !important;
+      &:disabled {
+        opacity: 0.35 !important;
       }
     }
 
@@ -3067,6 +3100,33 @@ ion-modal.previous-notes-modal {
     font-size: 14px;
     font-weight: 400;
     color: #717171;
+  }
+
+  .pn-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .pn-translate-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: none;
+    font-size: 12px;
+    font-weight: 500;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    ion-icon { font-size: 15px; }
+    &:hover:not(:disabled) { background: rgba(0, 0, 0, 0.04); color: #1d1d1f; }
+    &.showing-translation { background: rgba(0, 113, 227, 0.08); border-color: rgba(0, 113, 227, 0.2); color: #0071e3; }
+    &:disabled { opacity: 0.5; cursor: default; }
   }
 
   .pn-close {

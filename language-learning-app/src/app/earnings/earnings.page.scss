@@ -1543,14 +1543,79 @@ ion-toolbar {
   ion-content {
     --background: #{$bg-subtle};
   }
+
+  ion-footer.withdrawal-modal-footer {
+    --background: #{$bg-subtle};
+    background: $bg-subtle;
+    border-top: 1px solid $border;
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.06);
+  }
+
+  .withdrawal-modal-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding: 16px 20px;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    max-width: 880px;
+    margin: 0 auto;
+    width: 100%;
+    box-sizing: border-box;
+
+    @media (max-width: 768px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  // Match home earnings card "Withdraw Funds" (.withdraw-btn on tab1)
+  .withdrawal-action-btn {
+    margin: 0;
+    --border-radius: 12px;
+    font-weight: 600;
+    font-size: 15px;
+    text-transform: none;
+    letter-spacing: 0;
+    min-height: 48px;
+    transition: all 0.2s ease;
+  }
+
+  .withdrawal-action-btn--cancel {
+    --border-width: 1px;
+    --border-color: #cfcfcf;
+    --color: #222222;
+    --background: transparent;
+
+    &:hover {
+      --background: #222222;
+      --color: #ffffff;
+    }
+  }
+
+  .withdrawal-action-btn--primary {
+    --background: #222222;
+    --color: #ffffff;
+    --background-hover: #333333;
+    --box-shadow: none;
+
+    &:disabled {
+      opacity: 0.35;
+    }
+  }
   
   .modal-content {
     max-width: 880px;
     margin: 0 auto;
-    padding: 40px 20px 20px;
+    padding: 40px 20px 28px;
     display: flex;
     flex-direction: column;
     overflow-y: auto;
+  }
+
+  @media (max-width: 768px) {
+    .withdrawal-modal-actions {
+      padding-left: 16px;
+      padding-right: 16px;
+    }
   }
 }
 
@@ -1608,20 +1673,118 @@ ion-toolbar {
 .withdrawal-container {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 24px;
+  grid-template-rows: auto auto;
+  column-gap: 24px;
+  row-gap: 16px;
   margin-bottom: 20px;
-  
-  @media (max-width: 768px) {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-}
+  align-items: stretch;
 
-.left-column,
-.right-column {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  .withdrawal-grid-balance {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .withdrawal-grid-amount {
+    grid-column: 2;
+    grid-row: 1;
+    margin-bottom: 0;
+  }
+
+  .withdrawal-grid-fees {
+    grid-column: 1;
+    grid-row: 2;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+
+    > .fee-breakdown-card {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    > .fee-breakdown-card--paypal .fee-breakdown-swap {
+      flex: 1 1 auto;
+      min-height: 292px;
+    }
+  }
+
+  .method-section.withdrawal-grid-method {
+    grid-column: 2;
+    grid-row: 2;
+    margin-bottom: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    align-self: stretch;
+
+    .method-card-inline-label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: $text-primary;
+      margin: 0 0 12px;
+      letter-spacing: -0.01em;
+    }
+
+    .method-card {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: flex-start;
+      margin-bottom: 0;
+      min-height: 0;
+      border-radius: $radius;
+      padding: 16px;
+
+      &.selected {
+        padding: 15px;
+      }
+
+      .method-content {
+        width: 100%;
+        flex: 1;
+        display: flex;
+        align-items: center;
+        min-height: 0;
+      }
+    }
+
+    .no-method-message {
+      flex: 1 1 auto;
+      margin-bottom: 0;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12px;
+
+      .no-method-message-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+    }
+  }
+
+  @media (max-width: 768px) {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+
+    .withdrawal-grid-method .method-card {
+      flex: 0 1 auto;
+      min-height: auto;
+    }
+
+    .withdrawal-grid-fees > .fee-breakdown-card {
+      flex: 0 1 auto;
+    }
+
+    .withdrawal-grid-fees > .fee-breakdown-card--paypal .fee-breakdown-swap {
+      flex: 0 1 auto;
+    }
+  }
 }
 
 // Balance Card (in modal)
@@ -1809,6 +1972,55 @@ ion-toolbar {
         color: $text-primary;
       }
     }
+
+    .stripe-receive-section {
+      margin-top: 4px;
+    }
+
+    .stripe-receive-value {
+      transition:
+        color 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .stripe-receive-value--muted {
+      color: $text-tertiary;
+      opacity: 0.55;
+      font-weight: 600;
+    }
+  }
+}
+
+// PayPal fee card: crossfade panels inside fixed min-height (no jump when amount crosses $10)
+.fee-breakdown-card--paypal {
+  .fee-breakdown-swap {
+    position: relative;
+    min-height: 292px;
+  }
+
+  .fee-breakdown-panel {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+      opacity 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+      visibility 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+
+    &.is-visible {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+  }
+
+  .breakdown-placeholder {
+    padding: 32px 16px 24px;
+    min-height: 200px;
+    justify-content: center;
   }
 }
 
@@ -1881,11 +2093,30 @@ ion-toolbar {
       &:hover { background: #444; }
     }
   }
-  
+
+  .amount-error-slot {
+    min-height: 40px;
+    margin-top: 8px;
+  }
+
   .amount-error {
-    margin-top: 6px;
+    margin: 0;
     font-size: 13px;
+    line-height: 1.4;
     color: $accent-red;
+    animation: withdrawalErrorReveal 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+@keyframes withdrawalErrorReveal {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -2017,48 +2248,6 @@ ion-toolbar {
       font-size: 14px;
       color: #8B5E00;
     }
-  }
-}
-
-// Button Container (modal)
-.button-container {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 12px;
-  
-  ion-button {
-    --border-radius: 8px;
-    --padding-top: 12px;
-    --padding-bottom: 12px;
-    font-weight: 600;
-    font-size: 15px;
-    text-transform: none;
-    letter-spacing: -0.2px;
-    margin: 0;
-    
-    &[fill="outline"] {
-      --border-width: 1px;
-      --border-color: #{$border};
-      --color: #{$text-primary};
-      
-      &:hover {
-        --border-color: #{$text-secondary};
-      }
-    }
-    
-    &:not([fill="outline"]) {
-      --background: #{$text-primary};
-      --background-hover: #444;
-      
-      &:disabled {
-        opacity: 0.3;
-      }
-    }
-  }
-  
-  @media (max-width: 768px) {
-    grid-template-columns: 1fr;
   }
 }
 

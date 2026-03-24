@@ -10,7 +10,9 @@ import { LessonAnalysis } from '../services/transcription.service';
 import { ReviewDeckService, ReviewDeckItem } from '../services/review-deck.service';
 import { UserService } from '../services/user.service';
 import { LessonService } from '../services/lesson.service';
+import { AnalysisTranslationService } from '../services/analysis-translation.service';
 import { formatTimeInTz, formatDateInTz, getGlobalHour12 } from '../shared/timezone.utils';
+import { TranslateModule } from '@ngx-translate/core';
 
 interface LessonInfo {
   _id: string;
@@ -36,7 +38,7 @@ interface LessonInfo {
   templateUrl: './lesson-analysis.page.html',
   styleUrls: ['./lesson-analysis.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule]
+  imports: [CommonModule, IonicModule, TranslateModule]
 })
 export class LessonAnalysisPage implements OnInit, OnDestroy {
   lessonId: string = '';
@@ -61,6 +63,12 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
   currentAudio: HTMLAudioElement | null = null;
   playingWordId: string | null = null;
   
+  // Translation
+  analysisId: string | null = null;
+  originalAnalysis: LessonAnalysis | null = null;
+  translating = false;
+  showingTranslation = false;
+
   // Expose Math for template
   Math = Math;
 
@@ -79,7 +87,8 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
     private toastCtrl: ToastController,
     private reviewDeckService: ReviewDeckService,
     private lessonService: LessonService,
-    private modalCtrl: ModalController
+    private modalCtrl: ModalController,
+    private analysisTranslation: AnalysisTranslationService
   ) {}
 
   ngOnInit() {
@@ -166,8 +175,8 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
       else if (this.analysis?.status === 'processing' || this.analysis?.status === 'pending') {
         this.startPolling();
       } else {
-        // Stop polling if analysis is complete or failed
         this.stopPolling();
+        this.initTranslationState();
       }
     } catch (err: any) {
       console.error('Error loading analysis:', err);
@@ -917,5 +926,62 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
       });
       await toast.present();
     }
+  }
+
+  private initTranslationState() {
+    if (!this.analysis) return;
+    this.analysisId = (this.analysis as any)._id || null;
+    this.originalAnalysis = { ...this.analysis };
+
+    if (this.analysisId) {
+      const user = this.userService.getCurrentUserValue();
+      const targetLang = user?.nativeLanguage || 'en';
+      const cached = (this.analysis as any).translations?.[targetLang];
+      if (cached) {
+        this.analysisTranslation.seedFromResponse(this.analysisId, cached);
+      }
+      if (this.analysisTranslation.isShowingTranslated(this.analysisId)) {
+        const t = this.analysisTranslation.getTranslation(this.analysisId);
+        if (t && this.originalAnalysis) {
+          this.analysis = this.analysisTranslation.applyTranslation(this.originalAnalysis, t) as LessonAnalysis;
+          this.showingTranslation = true;
+        }
+      }
+    }
+  }
+
+  toggleTranslation() {
+    if (!this.analysisId) return;
+
+    if (this.showingTranslation) {
+      this.analysisTranslation.showOriginal(this.analysisId);
+      this.analysis = this.originalAnalysis ? { ...this.originalAnalysis } : this.analysis;
+      this.showingTranslation = false;
+      return;
+    }
+
+    if (this.analysisTranslation.hasTranslation(this.analysisId)) {
+      this.analysisTranslation.showTranslated(this.analysisId);
+      const t = this.analysisTranslation.getTranslation(this.analysisId);
+      if (t && this.originalAnalysis) {
+        this.analysis = this.analysisTranslation.applyTranslation(this.originalAnalysis, t) as LessonAnalysis;
+      }
+      this.showingTranslation = true;
+      return;
+    }
+
+    this.translating = true;
+    this.analysisTranslation.translate(this.analysisId).subscribe({
+      next: (t) => {
+        if (this.originalAnalysis) {
+          this.analysis = this.analysisTranslation.applyTranslation(this.originalAnalysis, t) as LessonAnalysis;
+        }
+        this.translating = false;
+        this.showingTranslation = true;
+      },
+      error: () => {
+        this.translating = false;
+      }
+    });
   }
 }

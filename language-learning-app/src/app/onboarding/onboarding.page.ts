@@ -738,7 +738,7 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   setTutorHourlyRate(rate: number) {
-    this.tutorHourlyRate = rate;
+    this.tutorHourlyRate = Math.max(10, rate);
   }
 
   // Helper method to check if user is a tutor (from localStorage)

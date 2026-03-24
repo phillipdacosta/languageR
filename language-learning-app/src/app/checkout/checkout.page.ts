@@ -1112,16 +1112,15 @@ export class CheckoutPage implements OnInit, OnDestroy {
           this.selectedCardId = this.defaultCard.stripePaymentMethodId;
           console.log('✅ Auto-selected saved-card as payment method');
         } else if (this.savedCards.length === 0) {
-          // No saved cards, show add card form
           this.isAddingNewCard = true;
-          // Mount Stripe elements after view updates (increased timeout for reliability)
+          this.selectedPaymentMethod = 'new-card';
           setTimeout(() => this.mountStripeElements(), 300);
         }
       }
     } catch (error) {
       console.error('Error loading saved cards:', error);
-      // Show add card form on error
       this.isAddingNewCard = true;
+      this.selectedPaymentMethod = 'new-card';
       setTimeout(() => this.mountStripeElements(), 300);
     }
   }
@@ -1458,7 +1457,7 @@ export class CheckoutPage implements OnInit, OnDestroy {
       // Save card if checkbox is checked
       if (this.saveCardForFuture) {
         try {
-          await firstValueFrom(
+          const saveRes = await firstValueFrom(
             this.http.post<any>(
               `${environment.apiUrl}/payments/save-payment-method`,
               { 
@@ -1469,9 +1468,11 @@ export class CheckoutPage implements OnInit, OnDestroy {
             )
           );
           console.log('✅ Card saved for future use');
+          if (saveRes?.stripeCustomerId && this.currentUser) {
+            this.currentUser.stripeCustomerId = saveRes.stripeCustomerId;
+          }
         } catch (saveError) {
           console.warn('Could not save card for future use:', saveError);
-          // Continue with payment even if save fails
         }
       }
 

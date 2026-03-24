@@ -354,7 +354,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
 
   get is24h(): boolean {
-    return this.calendarTimeFormat === '24h';
+    return false;
   }
 
   formatTime(date: Date): string {
@@ -1502,9 +1502,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
 
   private convertLessonsToEvents(lessons: Lesson[]): void {
-    
-    // Convert all lessons to events (including cancelled) to show them crossed out
-    const allLessons = lessons;
+
+    // Filter out orphaned lessons from failed payments
+    const allLessons = lessons.filter(l => !(l.status === 'cancelled' && (l as any).cancelReason === 'payment_failed'));
     
     const lessonEvents = allLessons.map(lesson => {
       const student = lesson.studentId as any;

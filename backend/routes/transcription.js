@@ -8,7 +8,7 @@ const LessonTranscript = require('../models/LessonTranscript');
 const LessonAnalysis = require('../models/LessonAnalysis');
 const Lesson = require('../models/Lesson');
 const User = require('../models/User');
-const { transcribeAudio, analyzeLessonTranscript, generateProgressReport } = require('../services/aiService');
+const { transcribeAudio, analyzeLessonTranscript, generateProgressReport, translateAnalysisFields } = require('../services/aiService');
 const { uploadAudio, getSignedUrl } = require('../services/cloudStorageService');
 const { assessPronunciationScore, intelligentSampleSegments } = require('../services/gpt4PronunciationService');
 const { assessSegmentPronunciation } = require('../services/pronunciationService');
@@ -1371,10 +1371,15 @@ router.get('/lesson/:lessonId/analysis', verifyToken, async (req, res) => {
     // Add populated tutor/student to analysis
     analysis.tutorId = tutor;
     analysis.studentId = student;
+
+    // Ensure translations Map is a plain object for JSON serialization
+    if (analysis.translations instanceof Map) {
+      analysis.translations = Object.fromEntries(analysis.translations);
+    }
     
     res.json({
       success: true,
-      analysis: analysis,  // Return the full LessonAnalysis document with populated users
+      analysis: analysis,
       lesson: {
         _id: analysis.lessonId?._id,
         subject: analysis.lessonId?.subject || analysis.language + ' Lesson',
@@ -1445,8 +1450,13 @@ router.get('/student/:studentId/latest', verifyToken, async (req, res) => {
     if (!previousAnalysis) {
       return res.status(404).json({ message: 'No previous analysis found' });
     }
+
+    const result = previousAnalysis.toObject();
+    if (result.translations instanceof Map) {
+      result.translations = Object.fromEntries(result.translations);
+    }
     
-    res.json(previousAnalysis);
+    res.json(result);
     
   } catch (error) {
     console.error('❌ Error getting latest analysis:', error);
@@ -2615,6 +2625,45 @@ router.post('/analysis/:analysisId/retry', verifyToken, async (req, res) => {
       success: false, 
       message: error.message || 'Analysis retry failed'
     });
+  }
+});
+
+/**
+ * @route   POST /api/transcription/analysis/:analysisId/translate
+ * @desc    Translate analysis prose fields to a target language (cached in DB)
+ * @access  Private
+ */
+router.post('/analysis/:analysisId/translate', verifyToken, async (req, res) => {
+  try {
+    const { analysisId } = req.params;
+    const { targetLanguage } = req.body;
+
+    if (!targetLanguage || typeof targetLanguage !== 'string' || targetLanguage.length < 2) {
+      return res.status(400).json({ success: false, message: 'targetLanguage is required' });
+    }
+
+    const analysis = await LessonAnalysis.findById(analysisId);
+    if (!analysis) {
+      return res.status(404).json({ success: false, message: 'Analysis not found' });
+    }
+
+    const cached = analysis.translations?.get(targetLanguage);
+    if (cached) {
+      return res.json({ success: true, translation: cached, cached: true });
+    }
+
+    const translated = await translateAnalysisFields(analysis.toObject(), targetLanguage);
+
+    if (!analysis.translations) {
+      analysis.translations = new Map();
+    }
+    analysis.translations.set(targetLanguage, translated);
+    await analysis.save();
+
+    res.json({ success: true, translation: translated, cached: false });
+  } catch (error) {
+    console.error('❌ Error translating analysis:', error);
+    res.status(500).json({ success: false, message: error.message || 'Translation failed' });
   }
 });
 

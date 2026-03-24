@@ -245,14 +245,14 @@
                       fill="outline"
                       type="number"
                       formControlName="customPrice"
-                      min="1" 
+                      min="10" 
                       step="0.50"
-                      placeholder="0.00">
+                      placeholder="10.00">
                       <span slot="start" class="currency-symbol">$</span>
                     </ion-input>
                     <ion-note class="error-note" [class.visible]="!form.value.useSuggestedPricing && form.controls.customPrice?.touched && form.controls.customPrice?.invalid">
                       <span *ngIf="!form.value.useSuggestedPricing && form.controls.customPrice?.touched && form.controls.customPrice?.invalid && form.controls.customPrice?.errors?.['required']">Price is required</span>
-                      <span *ngIf="!form.value.useSuggestedPricing && form.controls.customPrice?.touched && form.controls.customPrice?.invalid && form.controls.customPrice?.errors?.['min']">Minimum $1.00</span>
+                      <span *ngIf="!form.value.useSuggestedPricing && form.controls.customPrice?.touched && form.controls.customPrice?.invalid && form.controls.customPrice?.errors?.['min']">Minimum $10.00</span>
                     </ion-note>
                   </div>
                 </div>

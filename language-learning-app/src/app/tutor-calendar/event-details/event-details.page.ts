@@ -1,10 +1,11 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Location } from '@angular/common';
-import { IonicModule, ModalController, ToastController, LoadingController } from '@ionic/angular';
+import { IonicModule, ModalController, ToastController, LoadingController, ViewWillEnter, ViewDidEnter } from '@ionic/angular';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { LessonService, Lesson } from '../../services/lesson.service';
+import { AnalysisTranslationService } from '../../services/analysis-translation.service';
 import { ClassService } from '../../services/class.service';
 import { UserService, User } from '../../services/user.service';
 import { TutorFeedbackService, TutorFeedback } from '../../services/tutor-feedback.service';
@@ -24,6 +25,7 @@ import { LearningPlanService, LearningPlanSummary, GOAL_TYPE_LABELS } from '../.
 
 // ── Interfaces ──────────────────────────────────────────────────
 interface AnalysisData {
+  _id?: string;
   overallAssessment?: {
     proficiencyLevel?: string;
     confidence?: number;
@@ -67,6 +69,7 @@ interface AnalysisData {
   };
   source?: string;
   status?: string;
+  translations?: Record<string, any>;
 }
 
 interface BillingData {
@@ -87,7 +90,7 @@ interface BillingData {
   standalone: true,
   imports: [CommonModule, IonicModule, SharedModule, CancelReasonModalComponent, ConfirmActionModalComponent, RescheduleLessonModalComponent]
 })
-export class EventDetailsPage implements OnInit, OnDestroy {
+export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewDidEnter {
   eventId: string | null = null;
   lesson: any = null;
   classData: any = null;
@@ -160,7 +163,6 @@ export class EventDetailsPage implements OnInit, OnDestroy {
   hasLinkedChannels = false;
   linkedChannels: any = null;
   tutorMaterials: (TutorMaterial & { _addedDate?: string; _typeIcon?: string; _typeLabel?: string })[] = [];
-  channelsSectionExpanded = true;
   materialsSectionExpanded = true;
 
   // Learning Plan summary (sidebar)
@@ -216,9 +218,27 @@ export class EventDetailsPage implements OnInit, OnDestroy {
   // Previous lesson notes for this tutor-student pair
   previousNotesData: any = null;
   hasPreviousNotes = false;
+  /** True after getPreviousNotes resolves and there is no prior lesson summary for the sidebar */
+  showSidebarNotesEmpty = false;
+  sidebarNotesEmptyDescKey = 'EVENT_DETAILS.SIDEBAR_NOTES_EMPTY_DESC_STUDENT';
   previousNotesIsAiSource = false;
   previousNotesDate = '';
   previousNotesSanitized: SafeHtml | null = null;
+
+  // Unified sidebar notes (shows current lesson analysis OR previous notes)
+  sidebarNotesSource: 'current' | 'previous' | null = null;
+  sidebarNotesTitle = '';
+  sidebarNotesDateSub = '';
+  sidebarNotesAnalysis: any = null;
+  sidebarNotesOriginalAnalysis: any = null;
+  sidebarNotesIsAi = false;
+  sidebarNotesSanitized: SafeHtml | null = null;
+  hasSidebarNotes = false;
+  sidebarNotesLessonId: string | null = null;
+  sidebarNotesAnalysisId: string | null = null;
+  sidebarNotesTranslating = false;
+  sidebarNotesShowingTranslation = false;
+  sidebarNotesTranslationCache: any = null;
 
   // Pre-computed score colors (no functions in template)
   grammarScoreColor = '#6b7280';
@@ -291,8 +311,43 @@ export class EventDetailsPage implements OnInit, OnDestroy {
     private flipTransition: FlipTransitionService,
     private cdr: ChangeDetectorRef,
     private materialService: MaterialService,
-    private learningPlanService: LearningPlanService
+    private learningPlanService: LearningPlanService,
+    private analysisTranslation: AnalysisTranslationService
   ) {}
+
+  ionViewWillEnter() {
+    this.syncTranslationOnEnter();
+  }
+
+  ionViewDidEnter() {
+    this.syncTranslationOnEnter();
+  }
+
+  private syncTranslationOnEnter() {
+    if (!this.sidebarNotesAnalysisId || !this.sidebarNotesOriginalAnalysis) return;
+
+    const hasTranslation = this.analysisTranslation.hasTranslation(this.sidebarNotesAnalysisId);
+    if (!hasTranslation) return;
+
+    const showing = this.analysisTranslation.isShowingTranslated(this.sidebarNotesAnalysisId);
+    const translation = this.analysisTranslation.getTranslation(this.sidebarNotesAnalysisId);
+
+    if (showing && translation && !this.sidebarNotesShowingTranslation) {
+      this.sidebarNotesAnalysis = this.analysisTranslation.applyTranslation(this.sidebarNotesOriginalAnalysis, translation);
+      this.sidebarNotesSanitized = this.sidebarNotesAnalysis.tutorNote?.text
+        ? this.sanitizer.bypassSecurityTrustHtml(this.sidebarNotesAnalysis.tutorNote.text)
+        : null;
+      this.sidebarNotesShowingTranslation = true;
+      this.cdr.detectChanges();
+    } else if (!showing && this.sidebarNotesShowingTranslation) {
+      this.sidebarNotesAnalysis = this.sidebarNotesOriginalAnalysis;
+      this.sidebarNotesSanitized = this.sidebarNotesOriginalAnalysis?.tutorNote?.text
+        ? this.sanitizer.bypassSecurityTrustHtml(this.sidebarNotesOriginalAnalysis.tutorNote.text)
+        : null;
+      this.sidebarNotesShowingTranslation = false;
+      this.cdr.detectChanges();
+    }
+  }
 
   ngOnInit() {
     this.eventId = this.route.snapshot.paramMap.get('id');
@@ -407,6 +462,21 @@ export class EventDetailsPage implements OnInit, OnDestroy {
     if (this.isStudentUser) {
       this.pendingRequests++; // + payment method
     }
+
+    this.hasPreviousNotes = false;
+    this.previousNotesData = null;
+    this.previousNotesSanitized = null;
+    this.showSidebarNotesEmpty = false;
+    this.sidebarNotesEmptyDescKey = 'EVENT_DETAILS.SIDEBAR_NOTES_EMPTY_DESC_STUDENT';
+    this.hasSidebarNotes = false;
+    this.sidebarNotesSource = null;
+    this.sidebarNotesAnalysis = null;
+    this.sidebarNotesOriginalAnalysis = null;
+    this.sidebarNotesSanitized = null;
+    this.sidebarNotesAnalysisId = null;
+    this.sidebarNotesTranslating = false;
+    this.sidebarNotesShowingTranslation = false;
+    this.sidebarNotesTranslationCache = null;
 
     // Load learning plan summary (non-blocking sidebar data)
     if (this.isTutorUser && this.participantId) {
@@ -564,6 +634,7 @@ export class EventDetailsPage implements OnInit, OnDestroy {
     this.pendingRequests--;
     if (this.pendingRequests <= 0) {
       this.computeFeedbackStatus();
+      this.resolveSidebarNotes();
       this.loading = false;
       this.cdr.detectChanges();
       this.landFlipTransition();
@@ -733,7 +804,7 @@ export class EventDetailsPage implements OnInit, OnDestroy {
     }
 
     // Time range
-    this.formattedTimeRange = `${formatTimeInTz(start, this.userTz)} – ${formatTimeInTz(end, this.userTz)}`;
+    this.formattedTimeRange = `${formatTimeInTz(start, this.userTz, undefined, true)} – ${formatTimeInTz(end, this.userTz, undefined, true)}`;
 
     // Duration
     const mins = this.lesson.duration || 60;
@@ -811,9 +882,8 @@ export class EventDetailsPage implements OnInit, OnDestroy {
       }
     }
 
-    // Tutor sees channels/materials collapsed by default
+    // Tutor sees materials collapsed by default in sidebar
     if (this.isTutorUser) {
-      this.channelsSectionExpanded = false;
       this.materialsSectionExpanded = false;
     }
   }
@@ -900,7 +970,7 @@ export class EventDetailsPage implements OnInit, OnDestroy {
       this.cancelledByLabel = cancelledByMap[this.lesson.cancelledBy] || 'Unknown';
       this.cancelReasonLabel = this.lesson.cancelReasonText || this.lesson.cancelReason || 'No reason provided';
       this.cancelledAtLabel = this.lesson.cancelledAt
-        ? `${formatDateInTz(this.lesson.cancelledAt, this.userTz, { month: 'short', day: 'numeric', year: 'numeric' })} ${formatTimeInTz(this.lesson.cancelledAt, this.userTz)}`
+        ? `${formatDateInTz(this.lesson.cancelledAt, this.userTz, { month: 'short', day: 'numeric', year: 'numeric' })} ${formatTimeInTz(this.lesson.cancelledAt, this.userTz, undefined, true)}`
         : '';
     }
   }
@@ -958,7 +1028,7 @@ export class EventDetailsPage implements OnInit, OnDestroy {
       const s = new Date(rp.proposedStartTime);
       const e = new Date(rp.proposedEndTime);
       if (!isNaN(s.getTime()) && !isNaN(e.getTime())) {
-        this.proposedTimeRange = `${formatDateInTz(s, this.userTz, { month: 'short', day: 'numeric', year: undefined })} at ${formatTimeInTz(s, this.userTz)} – ${formatTimeInTz(e, this.userTz)}`;
+        this.proposedTimeRange = `${formatDateInTz(s, this.userTz, { month: 'short', day: 'numeric', year: undefined })} at ${formatTimeInTz(s, this.userTz, undefined, true)} – ${formatTimeInTz(e, this.userTz, undefined, true)}`;
       }
     }
   }
@@ -993,6 +1063,118 @@ export class EventDetailsPage implements OnInit, OnDestroy {
     if (score >= 80) return '#10b981';
     if (score >= 60) return '#f59e0b';
     return '#ef4444';
+  }
+
+  private resolveSidebarNotes() {
+    this.sidebarNotesShowingTranslation = false;
+    this.sidebarNotesTranslationCache = null;
+    this.sidebarNotesTranslating = false;
+
+    if (this.hasAnalysis && this.analysisData) {
+      this.sidebarNotesSource = 'current';
+      this.sidebarNotesTitle = 'Lesson notes';
+      this.sidebarNotesDateSub = '';
+      this.sidebarNotesOriginalAnalysis = this.analysisData;
+      this.sidebarNotesIsAi = this.isAiAnalysis;
+      this.sidebarNotesLessonId = this.eventId;
+      this.sidebarNotesAnalysisId = this.analysisData._id || null;
+      this.hasSidebarNotes = true;
+      this.showSidebarNotesEmpty = false;
+      this.seedAndApplyTranslation(this.analysisData, this.analysisData.translations);
+    } else if (this.hasPreviousNotes && this.previousNotesData?.analysis) {
+      this.sidebarNotesSource = 'previous';
+      this.sidebarNotesTitle = 'Notes from last lesson';
+      this.sidebarNotesDateSub = this.previousNotesDate;
+      this.sidebarNotesOriginalAnalysis = this.previousNotesData.analysis;
+      this.sidebarNotesIsAi = this.previousNotesIsAiSource;
+      this.sidebarNotesLessonId = this.previousNotesData.previousLessonId;
+      this.sidebarNotesAnalysisId = this.previousNotesData.analysisId || null;
+      this.hasSidebarNotes = true;
+      this.showSidebarNotesEmpty = false;
+      this.seedAndApplyTranslation(this.previousNotesData.analysis, this.previousNotesData.translations);
+    } else {
+      this.sidebarNotesSource = null;
+      this.hasSidebarNotes = false;
+      this.sidebarNotesAnalysis = null;
+      this.sidebarNotesOriginalAnalysis = null;
+      this.sidebarNotesSanitized = null;
+      this.sidebarNotesAnalysisId = null;
+      this.showSidebarNotesEmpty = true;
+      this.sidebarNotesEmptyDescKey = this.isTutorUser
+        ? 'EVENT_DETAILS.SIDEBAR_NOTES_EMPTY_DESC_TUTOR'
+        : 'EVENT_DETAILS.SIDEBAR_NOTES_EMPTY_DESC_STUDENT';
+    }
+  }
+
+  private seedAndApplyTranslation(analysis: any, translations?: Record<string, any>) {
+    const targetLang = this.currentUser?.nativeLanguage || 'en';
+    const cached = translations?.[targetLang];
+    if (cached && this.sidebarNotesAnalysisId) {
+      this.analysisTranslation.seedFromResponse(this.sidebarNotesAnalysisId, cached);
+    }
+    this.refreshSidebarFromTranslationState();
+    if (!this.sidebarNotesShowingTranslation) {
+      this.sidebarNotesAnalysis = analysis;
+      this.sidebarNotesSanitized = analysis.tutorNote?.text
+        ? this.sanitizer.bypassSecurityTrustHtml(analysis.tutorNote.text)
+        : null;
+    }
+  }
+
+  viewSidebarAnalysis() {
+    if (!this.sidebarNotesLessonId) return;
+    this.router.navigate(['/lesson-analysis', this.sidebarNotesLessonId]);
+  }
+
+  toggleSidebarTranslation() {
+    if (!this.sidebarNotesAnalysisId) return;
+
+    if (this.sidebarNotesShowingTranslation) {
+      this.analysisTranslation.showOriginal(this.sidebarNotesAnalysisId);
+      this.refreshSidebarFromTranslationState();
+      return;
+    }
+
+    if (this.analysisTranslation.hasTranslation(this.sidebarNotesAnalysisId)) {
+      this.analysisTranslation.showTranslated(this.sidebarNotesAnalysisId);
+      this.refreshSidebarFromTranslationState();
+      return;
+    }
+
+    this.sidebarNotesTranslating = true;
+    this.analysisTranslation.translate(this.sidebarNotesAnalysisId).subscribe({
+      next: () => {
+        this.sidebarNotesTranslating = false;
+        this.refreshSidebarFromTranslationState();
+      },
+      error: () => {
+        this.sidebarNotesTranslating = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  private refreshSidebarFromTranslationState() {
+    if (!this.sidebarNotesAnalysisId || !this.sidebarNotesOriginalAnalysis) return;
+
+    const hasTranslation = this.analysisTranslation.hasTranslation(this.sidebarNotesAnalysisId);
+    const showing = this.analysisTranslation.isShowingTranslated(this.sidebarNotesAnalysisId);
+    const translation = this.analysisTranslation.getTranslation(this.sidebarNotesAnalysisId);
+
+    if (hasTranslation && showing && translation) {
+      this.sidebarNotesAnalysis = this.analysisTranslation.applyTranslation(this.sidebarNotesOriginalAnalysis, translation);
+      this.sidebarNotesSanitized = this.sidebarNotesAnalysis.tutorNote?.text
+        ? this.sanitizer.bypassSecurityTrustHtml(this.sidebarNotesAnalysis.tutorNote.text)
+        : null;
+      this.sidebarNotesShowingTranslation = true;
+    } else {
+      this.sidebarNotesAnalysis = this.sidebarNotesOriginalAnalysis;
+      this.sidebarNotesSanitized = this.sidebarNotesOriginalAnalysis?.tutorNote?.text
+        ? this.sanitizer.bypassSecurityTrustHtml(this.sidebarNotesOriginalAnalysis.tutorNote.text)
+        : null;
+      this.sidebarNotesShowingTranslation = false;
+    }
+    this.cdr.detectChanges();
   }
 
   private computeFeedbackProperties() {
@@ -1203,7 +1385,7 @@ export class EventDetailsPage implements OnInit, OnDestroy {
     } else {
       this.formattedDate = formatDateInTz(start, this.userTz, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
     }
-    this.formattedTimeRange = `${formatTimeInTz(start, this.userTz)} – ${formatTimeInTz(end, this.userTz)}`;
+    this.formattedTimeRange = `${formatTimeInTz(start, this.userTz, undefined, true)} – ${formatTimeInTz(end, this.userTz, undefined, true)}`;
     this.formattedDuration = `${this.classData.duration || 60} minutes`;
     this.formattedPrice = this.classData.price ? `$${this.classData.price.toFixed(2)}` : 'Free';
 
@@ -1574,10 +1756,6 @@ export class EventDetailsPage implements OnInit, OnDestroy {
 
   toggleFeedbackSection() {
     this.feedbackSectionExpanded = !this.feedbackSectionExpanded;
-  }
-
-  toggleChannelsSection() {
-    this.channelsSectionExpanded = !this.channelsSectionExpanded;
   }
 
   toggleMaterialsSection() {

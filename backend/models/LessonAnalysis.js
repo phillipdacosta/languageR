@@ -250,6 +250,36 @@ const lessonAnalysisSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'
     }
+  },
+
+  // Cached translations of prose fields, keyed by language code
+  translations: {
+    type: Map,
+    of: {
+      translatedAt: Date,
+      summary: String,
+      progressFromLastLesson: String,
+      studentSummary: String,
+      tutorNoteText: String,
+      tutorNoteQuickImpression: String,
+      tutorNoteHomework: String,
+      strengths: [String],
+      areasForImprovement: [String],
+      recommendedFocus: [String],
+      suggestedExercises: [String],
+      homeworkSuggestions: [String],
+      topErrors: [{
+        issue: String,
+        teachingPriority: String
+      }],
+      correctedExcerpts: [{
+        context: String,
+        keyCorrections: [String]
+      }],
+      persistentChallenges: [String],
+      keyImprovements: [String]
+    },
+    default: {}
   }
   
 }, {

@@ -502,6 +502,15 @@ export class LessonService {
       { headers }
     );
   }
+
+  translateAnalysis(analysisId: string, targetLanguage: string): Observable<{ success: boolean; translation: any; cached: boolean }> {
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.post<{ success: boolean; translation: any; cached: boolean }>(
+      `${environment.backendUrl}/api/transcription/analysis/${analysisId}/translate`,
+      { targetLanguage },
+      { headers }
+    );
+  }
 }
 
 export interface PreviousNotesAnalysis {
@@ -560,7 +569,9 @@ export interface PreviousNotesResponse {
   previousLessonId?: string;
   previousLessonDate?: string;
   previousLessonSubject?: string;
+  analysisId?: string;
   analysis?: PreviousNotesAnalysis;
+  translations?: Record<string, any>;
 }
 
 export interface PopularSlot {

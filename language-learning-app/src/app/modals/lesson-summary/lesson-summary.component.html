@@ -38,7 +38,17 @@
     <!-- RIGHT SIDE: Analysis (Scrollable) -->
     <div class="right-panel" [class.full-width]="!tutorInfo">
       <div class="analysis-content">
-        
+
+        <!-- Translate toggle -->
+        <div class="ls-translate-row" *ngIf="analysisId">
+          <button class="ls-translate-btn" (click)="toggleTranslation()" [disabled]="translating" [class.showing-translation]="showingTranslation">
+            <ion-icon name="language-outline" aria-hidden="true"></ion-icon>
+            <span *ngIf="translating">{{ 'COMMON.TRANSLATING' | translate }}</span>
+            <span *ngIf="!translating && !showingTranslation">{{ 'COMMON.TRANSLATE' | translate }}</span>
+            <span *ngIf="!translating && showingTranslation">{{ 'COMMON.SHOW_ORIGINAL' | translate }}</span>
+          </button>
+        </div>
+
         <!-- Celebration / warning pill at top -->
         <div class="pill-banner" *ngIf="getCelebrationMessage()">
           {{ getCelebrationMessage() }}

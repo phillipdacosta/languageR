@@ -37,7 +37,10 @@
     "SEND": "Send",
     "YES": "Yes",
     "NO": "No",
-    "OK": "OK"
+    "OK": "OK",
+    "TRANSLATE": "Translate",
+    "TRANSLATING": "Translating...",
+    "SHOW_ORIGINAL": "Show original"
   },
   "HOME": {
     "TITLE": "Home",
@@ -646,6 +649,24 @@
     "NO_MESSAGES": "No messages yet",
     "CONVERSATIONS": "Conversations",
     "SEARCH_CONVERSATIONS": "Search conversations",
+    "SEARCH_BY_NAME": "Search by name",
+    "ALL": "All",
+    "UNREAD": "Unread",
+    "SEARCH_EMPTY_TITLE": "Hmm, can't find that",
+    "SEARCH_EMPTY_HINT": "Try searching with a different name",
+    "NO_CONVERSATIONS_YET": "No conversations yet",
+    "NO_MESSAGES_YET": "No messages yet",
+    "START_CONVERSATION": "Start the conversation!",
+    "SELECT_CONVERSATION": "Select a conversation",
+    "EMPTY_STATE_STUDENT": "Find a tutor using 'Find Tutors' in the top menu and begin your learning journey!",
+    "EMPTY_STATE_STUDENT_MOBILE": "Start a conversation by messaging a tutor from their profile.",
+    "EMPTY_STATE_TUTOR": "Student messages will appear here.",
+    "EMPTY_STATE_TUTOR_DESKTOP": "You'll be able to interact with students here!",
+    "EMPTY_STATE_STUDENT_DESKTOP": "You'll be able to interact with tutors here!",
+    "CHOOSE_CONVERSATION": "Choose a conversation from the list to start messaging",
+    "TODAY": "Today",
+    "YESTERDAY": "Yesterday",
+    "YOU": "You",
     "TRIAL_LESSON_SYSTEM_MESSAGE": {
       "TITLE": "New Trial Lesson Scheduled",
       "INTRO": "A new student has booked a trial lesson with you.",
@@ -664,69 +685,6 @@
       "TIP_5": "Be welcoming and supportive—trial sessions often determine whether the student will continue with you.",
       "SUPPORT_TEXT": "If you have any questions, feel free to contact support at any time."
     }
-  },
-  "NOTIFICATIONS": {
-    "TITLE": "Notifications",
-    "NO_NOTIFICATIONS": "No notifications",
-    "MARK_READ": "Mark as read",
-    "CLEAR_ALL": "Clear all"
-  },
-  "LOGIN": {
-    "TITLE": "Sign In",
-    "SUBTITLE": "Continue your language learning journey",
-    "SIGN_IN": "Sign In",
-    "SIGN_UP": "Sign Up",
-    "FORGOT_PASSWORD": "Forgot Password?",
-    "OR": "or",
-    "CONTINUE_WITH": "Continue with {{provider}}"
-  },
-  "ERRORS": {
-    "GENERIC": "Something went wrong. Please try again.",
-    "NETWORK": "Network error. Please check your connection.",
-    "NOT_FOUND": "Not found",
-    "UNAUTHORIZED": "Please log in to continue",
-    "REQUIRED_FIELD": "This field is required",
-    "INVALID_EMAIL": "Invalid email address"
-  },
-  "TABS": {
-    "HOME": "Home",
-    "SEARCH": "Search",
-    "FIND_TUTORS": "Find Tutors",
-    "CALENDAR": "Calendar",
-    "MESSAGES": "Messages",
-    "LESSONS": "Lessons",
-    "PROGRESS": "Progress",
-    "ANALYTICS": "Analytics",
-    "PROFILE": "Profile",
-    "LOGOUT": "Logout"
-  },
-  "PROFILE_SCREEN": {
-    "REMOVE": "Remove",
-    "CHANGE": "Change",
-    "CHANGE_PICTURE": "Change Photo",
-    "VERIFIED": "Verified",
-    "LEARNING_PROGRESS": "Learning Progress",
-    "LESSONS_COMPLETED": "Lessons Completed",
-    "TOTAL_STUDY_TIME": "Total Study Time",
-    "DAY_STREAK": "Day Streak",
-    "SETTINGS": "Settings",
-    "REVIEW_DECK": "Review Deck",
-    "REVIEW_DECK_DESC": "Practice saved corrections",
-    "NOTIFICATIONS": "Notifications",
-    "TIMEZONE": "Timezone",
-    "INTERFACE_LANGUAGE": "Interface Language",
-    "DARK_MODE": "Dark Mode",
-    "HELP_SUPPORT": "Help & Support",
-    "SIGN_OUT": "Sign Out",
-    "TEACHING_STATS": "Teaching Stats",
-    "LESSONS_TAUGHT": "Lessons Taught",
-    "HOURS_TAUGHT": "Hours Taught",
-    "RATING": "Rating",
-    "PROFILE": "Profile",
-    "INTRO_VIDEO": "Introduction Video",
-    "INTRO_VIDEO_SUBTITLE": "Help students get to know you better",
-    "INTRO_VIDEO_DESC": "Upload a short video introducing yourself and explaining your teaching style. This video will be shown to students when they're browsing tutors.",
-    "PAYOUTS": "Payouts"
   },
   "NOTIFICATIONS": {
     "TITLE": "Notifications",
@@ -866,6 +824,68 @@
       "DEFAULT": "Notification"
     }
   },
+  "LOGIN": {
+    "TITLE": "Sign In",
+    "SUBTITLE": "Continue your language learning journey",
+    "SIGN_IN": "Sign In",
+    "SIGN_UP": "Sign Up",
+    "FORGOT_PASSWORD": "Forgot Password?",
+    "OR": "or",
+    "CONTINUE_WITH": "Continue with {{provider}}"
+  },
+  "ERRORS": {
+    "GENERIC": "Something went wrong. Please try again.",
+    "NETWORK": "Network error. Please check your connection.",
+    "NOT_FOUND": "Not found",
+    "UNAUTHORIZED": "Please log in to continue",
+    "REQUIRED_FIELD": "This field is required",
+    "INVALID_EMAIL": "Invalid email address"
+  },
+  "EVENT_DETAILS": {
+    "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",
+    "SIDEBAR_NOTES_EMPTY_DESC_STUDENT": "When you complete another lesson with this tutor, notes and analysis from that session can appear here so you can see progress over time.",
+    "SIDEBAR_NOTES_EMPTY_DESC_TUTOR": "When this student completes another lesson with you, notes and analysis from their previous session can appear here for quick context."
+  },
+  "TABS": {
+    "HOME": "Home",
+    "SEARCH": "Search",
+    "FIND_TUTORS": "Find Tutors",
+    "CALENDAR": "Calendar",
+    "MESSAGES": "Messages",
+    "LESSONS": "Lessons",
+    "PROGRESS": "Progress",
+    "ANALYTICS": "Analytics",
+    "PROFILE": "Profile",
+    "LOGOUT": "Logout"
+  },
+  "PROFILE_SCREEN": {
+    "REMOVE": "Remove",
+    "CHANGE": "Change",
+    "CHANGE_PICTURE": "Change Photo",
+    "VERIFIED": "Verified",
+    "LEARNING_PROGRESS": "Learning Progress",
+    "LESSONS_COMPLETED": "Lessons Completed",
+    "TOTAL_STUDY_TIME": "Total Study Time",
+    "DAY_STREAK": "Day Streak",
+    "SETTINGS": "Settings",
+    "REVIEW_DECK": "Review Deck",
+    "REVIEW_DECK_DESC": "Practice saved corrections",
+    "NOTIFICATIONS": "Notifications",
+    "TIMEZONE": "Timezone",
+    "INTERFACE_LANGUAGE": "Interface Language",
+    "DARK_MODE": "Dark Mode",
+    "HELP_SUPPORT": "Help & Support",
+    "SIGN_OUT": "Sign Out",
+    "TEACHING_STATS": "Teaching Stats",
+    "LESSONS_TAUGHT": "Lessons Taught",
+    "HOURS_TAUGHT": "Hours Taught",
+    "RATING": "Rating",
+    "PROFILE": "Profile",
+    "INTRO_VIDEO": "Introduction Video",
+    "INTRO_VIDEO_SUBTITLE": "Help students get to know you better",
+    "INTRO_VIDEO_DESC": "Upload a short video introducing yourself and explaining your teaching style. This video will be shown to students when they're browsing tutors.",
+    "PAYOUTS": "Payouts"
+  },
   "TUTOR_APPROVAL": {
     "TOS_ACCEPTED": "Terms Accepted",
     "TOS_ACCEPTED_ON": "Accepted on",
@@ -892,7 +912,6 @@
     "NAV_MY_MATERIALS": "My Materials",
     "EDITING_MATERIAL": "Editing Material",
     "STEP_OF": "{{current}}/{{total}}",
-
     "LIBRARY_LOADING": "Loading...",
     "LIBRARY_EMPTY_TITLE": "Create your first material",
     "LIBRARY_EMPTY_DESC": "Build video quizzes, reading passages, or listening exercises for your students",
@@ -901,12 +920,10 @@
     "LIBRARY_LINK_CHANNELS": "Link channels",
     "LIBRARY_CHANNELS_LINKED": "Channels linked",
     "LIBRARY_NEW": "New",
-
     "PUBLISH_BANNER_TITLE": "Material published!",
     "PUBLISH_BANNER_DESC": "Share this link with your students or in your video description",
     "PUBLISH_BANNER_COPIED": "Copied",
     "PUBLISH_BANNER_COPY": "Copy",
-
     "CHANNEL_HEADER": "Link your content channels",
     "CHANNEL_DESC": "Linking your channels helps verify content ownership and auto-approves your paid materials.",
     "CHANNEL_YOUTUBE": "YouTube Channel",
@@ -919,7 +936,6 @@
     "CHANNEL_CANCEL": "Cancel",
     "CHANNEL_SAVE": "Save Channels",
     "CHANNEL_VERIFYING": "Verifying...",
-
     "CARD_VIDEO_UNAVAILABLE": "Video unavailable — update your link to avoid refunds",
     "CARD_VERIFIED": "Verified",
     "CARD_PENDING": "Pending",
@@ -929,7 +945,6 @@
     "CARD_QUESTIONS_PLURAL": "{{count}} questions",
     "CARD_ADDED_DATE": "Added {{date}}",
     "CARD_PREVIEW": "Preview",
-
     "TYPE_TITLE": "What would you like to create?",
     "TYPE_VIDEO_QUIZ": "Video Quiz",
     "TYPE_VIDEO_QUIZ_DESC": "Link a YouTube or Vimeo video and create comprehension questions",
@@ -938,26 +953,22 @@
     "TYPE_READING_DESC": "Write a text passage and create questions to test understanding",
     "TYPE_LISTENING": "Listening Exercise",
     "TYPE_LISTENING_DESC": "Link audio from SoundCloud, Spotify, or upload a direct file (.mp3, .wav) and add questions",
-
     "PRICING_TITLE": "How would you like to share this?",
     "PRICING_FREE": "Free",
     "PRICING_FREE_DESC": "Open to all students",
     "PRICING_PAID": "Paid",
     "PRICING_PAID_DESC": "Quiz behind paywall",
-
     "POLICY_TITLE": "Content availability policy",
     "POLICY_DESC_1": "When students pay for a video quiz, they expect the video to remain available. If the video is removed from YouTube or Vimeo after a purchase, affected students will be automatically refunded and the refund will be deducted from your earnings.",
     "POLICY_DESC_2": "Please ensure your videos remain accessible for at least 90 days after any student purchase.",
     "POLICY_DONT_SHOW": "Don't show this again",
     "POLICY_GOT_IT": "Got it",
-
     "DETAILS_VIDEO_TITLE": "Video details",
     "DETAILS_VIDEO_DESC": "Add your video and describe what students will learn",
     "DETAILS_READING_TITLE": "Reading passage",
     "DETAILS_READING_DESC": "Write the passage and describe what students will learn",
     "DETAILS_LISTENING_TITLE": "Listening details",
     "DETAILS_LISTENING_DESC": "Add your audio source and describe what students will learn",
-
     "FIELD_TITLE": "Title",
     "FIELD_TITLE_PLACEHOLDER": "e.g. Spanish Listening Practice — Ordering Coffee",
     "FIELD_TITLE_ERROR": "Title must be at least 3 characters",
@@ -974,11 +985,9 @@
     "FIELD_COVER_RECOMMENDED": "Recommended",
     "FIELD_COVER_ADD": "Add a cover image",
     "FIELD_COVER_HINT": "Makes your material stand out. You'll crop to the card shape (16:10). JPG or PNG, max 5 MB.",
-
     "PRO_TIP": "Pro tip:",
     "PRO_TIP_VIDEO": "Mention Barnabi in your video to help students find your quiz and boost your visibility on the platform.",
     "PRO_TIP_AUDIO": "Mention Barnabi in your audio to help students find your quiz and boost your visibility on the platform.",
-
     "FIELD_VIDEO_URL": "Video URL",
     "FIELD_VIDEO_URL_PLACEHOLDER": "Paste a YouTube or Vimeo link",
     "FIELD_VIDEO_URL_ERROR": "Enter a valid YouTube or Vimeo URL",
@@ -987,28 +996,22 @@
     "FIELD_AUDIO_URL": "Audio URL",
     "FIELD_AUDIO_URL_PLACEHOLDER": "Paste a SoundCloud, Spotify, or direct audio link (.mp3, .wav)",
     "FIELD_AUDIO_URL_ERROR": "Supported: SoundCloud, Spotify, or direct audio files (.mp3, .wav). For YouTube/Vimeo, use Video Quiz.",
-
     "FIELD_PRICE_LABEL": "Quiz Price (USD)",
     "FIELD_PRICE_PER_QUIZ": "per quiz per student",
     "FIELD_PRICE_HINT": "Students view content for free, but pay to access the quiz",
-
     "CONTINUE_TO_QUIZ": "Continue to Quiz",
-
     "QUIZ_TITLE": "Build your quiz",
     "QUIZ_DESC": "Add different question types to test comprehension",
     "QUIZ_INST_1": "Choose a question type and write your question",
     "QUIZ_INST_2": "Set the correct answer for each question",
     "QUIZ_INST_3": "Optionally add an explanation shown after the student answers",
-
     "QUIZ_MC": "Multiple Choice",
     "QUIZ_FILL_BLANK": "Fill in the Blank",
     "QUIZ_TRUE_FALSE": "True / False",
     "QUIZ_ORDERING": "Ordering",
-
     "QUIZ_MC_PLACEHOLDER": "Enter your question",
     "QUIZ_FILL_BLANK_PLACEHOLDER": "e.g. The cat ___ on the mat (use ___ for the blank)",
     "QUIZ_ORDERING_PLACEHOLDER": "e.g. Put these words in the correct order",
-
     "QUIZ_ADD_OPTION": "Add option",
     "QUIZ_ACCEPTED_ANSWERS": "Accepted answers",
     "QUIZ_ACCEPTED_HINT": "Add all correct answers (checked case-insensitively)",
@@ -1021,11 +1024,9 @@
     "QUIZ_ADD_ITEM": "Add item",
     "QUIZ_EXPLANATION": "Explanation (optional)",
     "QUIZ_EXPLANATION_PLACEHOLDER": "Explain the correct answer...",
-
     "QUIZ_ADD_QUESTION": "Add a question",
     "QUIZ_EMPTY": "No questions yet. Choose a question type above to get started.",
     "QUIZ_PREVIEW_BTN": "Preview Material",
-
     "PREVIEW_TITLE": "Preview",
     "PREVIEW_DESC_NEW": "Review your material before publishing",
     "PREVIEW_DESC_EDIT": "Review your material before saving",
@@ -1035,16 +1036,13 @@
     "PREVIEW_ACCEPTED": "Accepted:",
     "PREVIEW_ANSWER": "Answer:",
     "PREVIEW_CORRECT_ORDER": "Correct order:",
-
     "ATTEST_LABEL": "I confirm that I own or have the rights to use all content in this material, including any linked videos, audio, and text.",
     "SUBMIT_PUBLISH": "Publish Material",
     "SUBMIT_SAVE": "Save Changes",
-
     "LEVEL_BEGINNER": "Beginner",
     "LEVEL_INTERMEDIATE": "Intermediate",
     "LEVEL_ADVANCED": "Advanced",
     "LEVEL_ALL": "All Levels",
-
     "TOAST_FILL_REQUIRED": "Please fill in all required fields",
     "TOAST_VALID_VIDEO": "Please enter a valid video URL",
     "TOAST_ENTER_PASSAGE": "Please enter a reading passage",
@@ -1084,7 +1082,6 @@
     "TOAST_VIMEO_START_FAILED": "Failed to start Vimeo linking",
     "TOAST_VIMEO_UNLINKED": "Vimeo account unlinked",
     "TOAST_VIMEO_UNLINK_FAILED": "Failed to unlink Vimeo",
-
     "ALERT_DELETE_TITLE": "Delete Material",
     "ALERT_DELETE_MSG": "Are you sure you want to delete \"{{title}}\"?",
     "ALERT_ARCHIVE_TITLE": "Archive Material",
@@ -1098,7 +1095,6 @@
     "ALERT_UNLINK_VIMEO_TITLE": "Unlink Vimeo",
     "ALERT_UNLINK_VIMEO_MSG": "Are you sure you want to disconnect your Vimeo account?",
     "ALERT_UNLINK_BTN": "Unlink",
-
     "STEP_NEW_MATERIAL": "New Material",
     "STEP_PRICING": "Pricing",
     "STEP_DETAILS": "Details",
@@ -1173,7 +1169,6 @@
     "FEEDBACK_PENDING": "Feedback Pending",
     "LEAVE_FEEDBACK": "Leave Feedback",
     "ADD_NOTE": "Add Note",
-
     "MODAL_FILTERS_TITLE": "Filters",
     "SELECTED": "Selected",
     "TIME_PERIOD": "Time period",
@@ -1192,14 +1187,12 @@
     "STATUS_CANCELLED": "Cancelled",
     "SHOW_LESSON": "Show {{count}} lesson",
     "SHOW_LESSONS": "Show {{count}} lessons",
-
     "NOTE_MODAL_TITLE": "Your Note for This Lesson",
     "QUICK_IMPRESSION": "Quick Impression",
     "YOUR_NOTE": "Your Note",
     "HOMEWORK": "Homework",
     "EDIT": "Edit",
     "CLOSE": "Close",
-
     "TOAST_LOAD_FAILED": "Failed to load lessons",
     "UNKNOWN": "Unknown",
     "CLASS_STUDENTS": " student(s)",
@@ -1210,7 +1203,6 @@
     "STATUS_SCHEDULED": "Scheduled",
     "STATUS_IN_PROGRESS": "In Progress",
     "STATUS_PENDING": "Pending",
-
     "ISSUE_TUTOR_NO_SHOW": "Tutor didn't show up",
     "ISSUE_STUDENT_NO_SHOW": "Student didn't show up",
     "ISSUE_ENDED_EARLY": "Lesson ended early",
@@ -1218,7 +1210,6 @@
     "ISSUE_INAPPROPRIATE": "Inappropriate behavior",
     "ISSUE_TECHNICAL": "Technical issues",
     "ISSUE_OTHER": "Other",
-
     "ALERT_REPORT_HEADER": "Report Issue",
     "ALERT_REPORT_MESSAGE": "Please select the issue you experienced:",
     "ALERT_CANCEL": "Cancel",
@@ -1229,7 +1220,6 @@
     "ALERT_DETAILS_PLACEHOLDER": "Describe what happened...",
     "ALERT_SUBMIT": "Submit Report",
     "ALERT_MIN_CHARS": "Please provide at least 10 characters",
-
     "TOAST_SUBMITTING": "Submitting report...",
     "TOAST_ISSUE_REPORTED": "Issue reported successfully.",
     "TOAST_REPORT_FAILED": "Failed to report issue."

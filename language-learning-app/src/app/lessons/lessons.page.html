@@ -1,9 +1,4 @@
-<ion-header class="ion-no-border">
-  <ion-toolbar class="lessons-toolbar">
-  </ion-toolbar>
-</ion-header>
-
-<ion-content [fullscreen]="true">
+<ion-content>
   <ion-refresher slot="fixed" (ionRefresh)="doRefresh($event)">
     <ion-refresher-content></ion-refresher-content>
   </ion-refresher>
@@ -13,22 +8,22 @@
   <div class="lessons-page">
     <h1 class="page-title">{{ 'LESSONS_PAGE.PAGE_TITLE' | translate }}</h1>
 
-    <!-- Stats Summary Row (shown when loaded so numbers and layout are stable) -->
-    <div class="stats-row" *ngIf="!isLoading">
-      <div class="stat-pill">
-        <span class="stat-number">{{ totalCount }}</span>
+    <!-- Stats Summary Row -->
+    <div class="stats-row">
+      <div class="stat-pill" [class.skeleton]="isLoading">
+        <span class="stat-number">{{ isLoading ? '–' : totalCount }}</span>
         <span class="stat-label">{{ 'LESSONS_PAGE.STAT_TOTAL' | translate }}</span>
       </div>
-      <div class="stat-pill">
-        <span class="stat-number">{{ upcomingCount }}</span>
+      <div class="stat-pill" [class.skeleton]="isLoading">
+        <span class="stat-number">{{ isLoading ? '–' : upcomingCount }}</span>
         <span class="stat-label">{{ 'LESSONS_PAGE.STAT_UPCOMING' | translate }}</span>
       </div>
-      <div class="stat-pill">
-        <span class="stat-number">{{ completedCount }}</span>
+      <div class="stat-pill" [class.skeleton]="isLoading">
+        <span class="stat-number">{{ isLoading ? '–' : completedCount }}</span>
         <span class="stat-label">{{ 'LESSONS_PAGE.STAT_COMPLETED' | translate }}</span>
       </div>
-      <div class="stat-pill">
-        <span class="stat-number" [class.cancelled]="cancelledCount > 0">{{ cancelledCount }}</span>
+      <div class="stat-pill" [class.skeleton]="isLoading">
+        <span class="stat-number" [class.cancelled]="!isLoading && cancelledCount > 0">{{ isLoading ? '–' : cancelledCount }}</span>
         <span class="stat-label">{{ 'LESSONS_PAGE.STAT_CANCELLED' | translate }}</span>
       </div>
     </div>

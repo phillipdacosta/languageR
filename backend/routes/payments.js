@@ -352,13 +352,24 @@ router.post('/book-lesson-with-payment', verifyToken, async (req, res) => {
       });
     }
 
-    // 7. CHECK: Price is valid (must be non-negative)
+    // 7. CHECK: Price is valid (must be non-negative and meet minimum)
     if (lessonData.price < 0) {
       console.log('❌ Booking rejected: Invalid price', { price: lessonData.price });
       return res.status(400).json({
         success: false,
         message: 'Invalid lesson price.',
         code: 'INVALID_PRICE'
+      });
+    }
+
+    // Enforce minimum hourly rate of $10 (backend safeguard)
+    const tutorRate = tutor.hourlyRate || tutor.onboardingData?.hourlyRate || 25;
+    if (tutorRate < 10) {
+      console.log('❌ Booking rejected: Tutor rate below minimum', { tutorRate });
+      return res.status(400).json({
+        success: false,
+        message: 'Tutor hourly rate is below the platform minimum of $10/hr.',
+        code: 'RATE_BELOW_MINIMUM'
       });
     }
 
@@ -672,12 +683,14 @@ router.post('/book-lesson-with-payment', verifyToken, async (req, res) => {
         lesson: populatedLesson
       });
     } catch (paymentError) {
-      // If payment fails, cancel the lesson
-      console.error('❌ Payment failed, cancelling lesson:', paymentError);
-      lesson.status = 'cancelled';
-      lesson.cancelReason = 'payment_failed';
-      await lesson.save();
-      
+      console.error('❌ Payment failed, removing orphaned lesson:', paymentError);
+      try {
+        await Lesson.findByIdAndDelete(lesson._id);
+        console.log(`🗑️ Deleted orphaned lesson ${lesson._id}`);
+      } catch (deleteErr) {
+        console.error('❌ Could not delete orphaned lesson:', deleteErr);
+      }
+
       throw new Error(`Payment failed: ${paymentError.message}`);
     }
   } catch (error) {

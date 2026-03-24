@@ -669,6 +669,10 @@ export class ProfilePage implements OnInit {
     return this.isViewingOtherUser ? this.viewingUser : this.currentUser;
   }
 
+  goBack(): void {
+    this.router.navigate(['/tabs']);
+  }
+
   private get userTz(): string | undefined {
     return this.currentUser?.profile?.timezone || undefined;
   }

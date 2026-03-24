@@ -914,7 +914,7 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
       case 7:
         return this.profileBio.length > 0; // Bio step
       case 8:
-        return this.hourlyRate > 0; // Hourly rate step
+        return this.hourlyRate >= 10; // Minimum $10/hr for platform profitability
       case 9:
         return !this.hasVideoLinkPending; // Video is optional, but block if user has an unsubmitted link
       default:

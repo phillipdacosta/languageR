@@ -407,7 +407,7 @@ ion-content {
 // On desktop, the global toolbar is fixed; add top offset so content isn't hidden
 @media (min-width: 769px) {
   .content-wrapper {
-    padding-top: 100px; // compensate for fixed desktop toolbar height
+    padding-top: 70px; // compensate for fixed desktop toolbar height
   }
 }
 
@@ -1813,13 +1813,15 @@ ion-content {
     }
   }
   
-  // Badges row above avatar
+  // Badges row — positioned absolutely so it doesn't push content down
   .upnext-filled-badges {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
     display: flex;
     gap: 8px;
-    justify-content: center;
-    margin-bottom: 16px;
-    min-height: 0;
+    z-index: 2;
     
     &:empty {
       display: none;

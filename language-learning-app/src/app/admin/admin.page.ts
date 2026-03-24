@@ -75,12 +75,28 @@ interface PlatformRevenue {
         owed: number;
         tutorsCount: number;
         note: string;
+        inFlight: number;
+        inFlightCount: number;
+        totalNeeded: number;
+        historicalSent: number;
+        historicalCount: number;
       };
     };
     safeToWithdraw: number;
     recognizedRevenue: number;
     discrepancy: number;
     warning: string | null;
+  };
+  payoutCosts?: {
+    totalPayPalSenderFees: number;
+    totalPayPalTutorFees: number;
+    paypalFeeProfit: number;
+    truePlatformProfit: number;
+    totalWithdrawals: number;
+    paypalWithdrawals: number;
+    stripeWithdrawals: number;
+    totalAmountWithdrawn: number;
+    totalNetAmountSent: number;
   };
 }
 

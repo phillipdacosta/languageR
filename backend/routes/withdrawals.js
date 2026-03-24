@@ -5,6 +5,7 @@ const withdrawalService = require('../services/withdrawalService');
 const User = require('../models/User');
 const Payment = require('../models/Payment');
 const Notification = require('../models/Notification');
+const Withdrawal = require('../models/Withdrawal');
 
 /**
  * GET /api/withdrawals/balance
@@ -211,7 +212,7 @@ router.get('/balance', verifyToken, async (req, res) => {
  */
 router.post('/request', verifyToken, async (req, res) => {
   try {
-    const { amount, method } = req.body;
+    const { amount, method, idempotencyKey } = req.body;
     
     // Validation
     if (!amount || typeof amount !== 'number' || amount <= 0) {
@@ -226,6 +227,20 @@ router.post('/request', verifyToken, async (req, res) => {
         success: false, 
         message: 'Invalid withdrawal method. Must be "stripe_connect" or "paypal"' 
       });
+    }
+
+    // Idempotency: if client sent a key, check for an existing withdrawal with it
+    if (idempotencyKey) {
+      const existing = await Withdrawal.findOne({ idempotencyKey });
+      if (existing) {
+        console.log(`⚠️ Duplicate withdrawal request (idempotencyKey=${idempotencyKey}), returning existing ${existing._id}`);
+        return res.json({
+          success: true,
+          withdrawal: existing,
+          message: 'Withdrawal already submitted',
+          duplicate: true
+        });
+      }
     }
     
     const user = await User.findOne({ auth0Id: req.user.sub });
@@ -248,7 +263,8 @@ router.post('/request', verifyToken, async (req, res) => {
     const withdrawal = await withdrawalService.requestWithdrawal({
       tutorId: user._id,
       amount,
-      method
+      method,
+      idempotencyKey: idempotencyKey || null
     });
     
     console.log(`✅ Withdrawal request created: ${withdrawal._id}`);

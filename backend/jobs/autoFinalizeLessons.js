@@ -269,11 +269,10 @@ async function finalizeLesson(lesson, endTime = new Date()) {
         // Calculate actual price for office hours (per-minute billing)
         if (lesson.isOfficeHours) {
           const tutor = await User.findById(lesson.tutorId);
-          const standardRate = tutor?.onboardingData?.hourlyRate || 25;
+          const standardRate = Math.max(10, tutor?.onboardingData?.hourlyRate || 25);
           const standardDuration = 50; // Standard lesson duration
           const perMinuteRate = standardRate / standardDuration;
           
-          // Calculate actual price based on actual time used
           const calculatedPrice = Math.round(perMinuteRate * actualMinutes * 100) / 100;
           lesson.actualPrice = calculatedPrice;
           lesson.billingStatus = 'charged';

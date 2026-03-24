@@ -12,6 +12,14 @@ const withdrawalSchema = new mongoose.Schema({
     required: true,
     index: true
   },
+
+  idempotencyKey: {
+    type: String,
+    default: null,
+    index: true,
+    sparse: true,
+    comment: 'Client-generated UUID to prevent duplicate withdrawal requests'
+  },
   
   amount: {
     type: Number,
@@ -84,7 +92,13 @@ const withdrawalSchema = new mongoose.Schema({
   paypalFee: {
     type: Number,
     default: 0,
-    comment: 'PayPal payout fee ($0.25 or 2%, whichever is higher, max $20)'
+    comment: 'PayPal fee charged to the tutor (deducted from withdrawal amount)'
+  },
+
+  paypalSenderFee: {
+    type: Number,
+    default: 0,
+    comment: 'PayPal sender fee charged to the platform for sending the payout (2% of netAmount, min $0.25, max $20)'
   },
   
   netAmount: {
@@ -167,6 +181,10 @@ withdrawalSchema.virtual('feePercentage').get(function() {
   if (this.amount === 0) return 0;
   const totalFees = this.platformFee + this.stripeFee + this.paypalFee;
   return ((totalFees / this.amount) * 100).toFixed(2);
+});
+
+withdrawalSchema.virtual('totalPlatformCost').get(function() {
+  return (this.paypalSenderFee || 0) + (this.stripeFee || 0);
 });
 
 // Ensure virtuals are included in JSON output

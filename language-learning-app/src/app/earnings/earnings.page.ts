@@ -935,8 +935,8 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       return;
     }
 
-    // Set default values and open modal
-    this.withdrawalAmount = this.balance.available;
+    // Start at $0.00 so the tutor enters an amount (MAX still fills available balance)
+    this.withdrawalAmount = 0;
     
     // Auto-select the configured payout method
     if (this.payoutProvider === 'stripe') {
@@ -1068,7 +1068,19 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       return;
     }
 
-    // Show confirmation alert
+    // Re-fetch balance so we catch withdrawals made from another tab/device
+    await this.loadBalance();
+
+    if (this.withdrawalAmount > this.balance.available) {
+      const toast = await this.toastController.create({
+        message: this.translateService.instant('EARNINGS.WITHDRAW_INSUFFICIENT'),
+        duration: 3000,
+        color: 'danger'
+      });
+      await toast.present();
+      return;
+    }
+
     const methodLabel = this.selectedWithdrawalMethod === 'stripe_connect' ? 'Stripe Connect' : 'PayPal';
     const alert = await this.alertController.create({
       header: this.translateService.instant('EARNINGS.WITHDRAW_CONFIRM_TITLE'),
@@ -1119,10 +1131,12 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     this.withdrawing = true;
 
     try {
+      const idempotencyKey = crypto.randomUUID();
       const response = await firstValueFrom(
         this.http.post<any>(`${environment.apiUrl}/withdrawals/request`, {
           amount,
-          method
+          method,
+          idempotencyKey
         }, {
           headers: this.userService.getAuthHeadersSync()
         })

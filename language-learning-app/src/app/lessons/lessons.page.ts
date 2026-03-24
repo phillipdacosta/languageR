@@ -210,9 +210,9 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
         ? classResponse.classes.map((cls: any) => this.classToLessonShape(cls))
         : [];
 
-      this.allLessons = [...lessons, ...classesAsLessons].sort((a, b) =>
-        new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
-      );
+      this.allLessons = [...lessons, ...classesAsLessons]
+        .filter(l => !(l.status === 'cancelled' && (l as any).cancelReason === 'payment_failed'))
+        .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
 
       this.computeCounts();
       this.extractUniqueParticipants();
@@ -423,10 +423,11 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     const startStr = formatTimeInTz(start, tz);
     const endStr = formatTimeInTz(end, tz);
 
-    const fmtMonth = formatDateInTz(start, tz, { month: 'short', day: undefined, year: undefined });
-    const fmtDayNum = formatDateInTz(start, tz, { day: 'numeric', month: undefined, year: undefined });
-    const fmtWeekday = formatDateInTz(start, tz, { weekday: 'long', month: undefined, day: undefined, year: undefined });
-    const fmtMonthLong = formatDateInTz(start, tz, { month: 'long', day: undefined, year: undefined });
+    const locale = this.translate.currentLang || this.translate.defaultLang || 'en';
+    const fmtMonth = formatDateInTz(start, tz, { month: 'short', day: undefined, year: undefined }, locale);
+    const fmtDayNum = formatDateInTz(start, tz, { day: 'numeric', month: undefined, year: undefined }, locale);
+    const fmtWeekday = formatDateInTz(start, tz, { weekday: 'long', month: undefined, day: undefined, year: undefined }, locale);
+    const fmtMonthLong = formatDateInTz(start, tz, { month: 'long', day: undefined, year: undefined }, locale);
 
     // Status
     let status = lesson.status;

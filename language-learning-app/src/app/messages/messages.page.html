@@ -66,7 +66,7 @@
       <!-- Left Column: Conversation List -->
       <div class="conversations-panel">
         <div class="conversations-header">
-          <h2>Messages</h2>
+          <h2>{{ 'MESSAGES.TITLE' | translate }}</h2>
           <div class="header-actions">
             <ion-button fill="clear" size="small">
               <ion-icon name="create-outline"></ion-icon>
@@ -83,7 +83,7 @@
           <input
             type="text"
             class="search-input"
-            placeholder="Search by name"
+            [placeholder]="'MESSAGES.SEARCH_BY_NAME' | translate"
             [value]="searchTerm"
             (input)="onSearchChange($any($event.target).value)"
           />
@@ -101,13 +101,13 @@
             class="filter-button" 
             [class.active]="conversationsFilter === 'all'"
             (click)="setConversationsFilter('all')">
-            All
+            {{ 'MESSAGES.ALL' | translate }}
           </button>
           <button 
             class="filter-button" 
             [class.active]="conversationsFilter === 'unread'"
             (click)="setConversationsFilter('unread')">
-            Unread
+            {{ 'MESSAGES.UNREAD' | translate }}
           </button>
         </div>
 
@@ -145,9 +145,7 @@
             <div class="conversation-info">
               <div class="conversation-header-row">
                 <h3>{{ conversation.otherUser?.name || 'Unknown User' }}</h3>
-                <span class="timestamp">
-                  {{ formatTime(conversation.lastMessage.createdAt) }}
-                </span>
+                <span class="timestamp">{{ formatTime(conversation.lastMessage.createdAt) }}</span>
               </div>
               <div class="conversation-preview-row">
                 <p class="preview-text" 
@@ -157,10 +155,9 @@
                     {{ conversation.otherUser?.name }}: {{ conversation.lastMessage.content }}
                   </span>
                   <span *ngIf="conversation.lastMessage.type === 'reaction' && conversation.lastMessage.senderId === getCurrentUserId()">
-                    You: {{ conversation.lastMessage.content }}
+                    {{ 'MESSAGES.YOU' | translate }}: {{ conversation.lastMessage.content }}
                   </span>
-                  <!-- Regular messages with You: prefix -->
-                  <span *ngIf="conversation.lastMessage.type !== 'reaction' && conversation.lastMessage.senderId === getCurrentUserId()">You: </span>
+                  <span *ngIf="conversation.lastMessage.type !== 'reaction' && conversation.lastMessage.senderId === getCurrentUserId()">{{ 'MESSAGES.YOU' | translate }}: </span>
                   <!-- Regular message content -->
                   <span *ngIf="conversation.lastMessage.type !== 'reaction' && conversation.lastMessage.type !== 'system' && !conversation.lastMessage.isSystemMessage">{{ conversation.lastMessage.content }}</span>
                   <!-- System messages with HTML -->
@@ -177,16 +174,16 @@
         <!-- Search Empty State -->
         <div *ngIf="!isInitialLoad && searchTerm && filteredConversations.length === 0 && conversations.length > 0" class="empty-state search-empty-state" [@fadeInOut]>
           <ion-icon name="search-outline" class="empty-icon"></ion-icon>
-          <p>Hmm, can't find that</p>
-          <p class="empty-hint">Try searching with a different name</p>
+          <p>{{ 'MESSAGES.SEARCH_EMPTY_TITLE' | translate }}</p>
+          <p class="empty-hint">{{ 'MESSAGES.SEARCH_EMPTY_HINT' | translate }}</p>
         </div>
 
         <!-- Empty State -->
         <div *ngIf="!isInitialLoad && conversations.length === 0 && showEmptyState && !searchTerm" class="empty-state" [@fadeInOut]>
           <ion-icon name="chatbubbles-outline" class="empty-icon"></ion-icon>
-          <p>No conversations yet</p>
-          <p class="empty-hint" *ngIf="currentUserType === 'student'">Find a tutor using 'Find Tutors' in the top menu and begin your learning journey!</p>
-          <p class="empty-hint" *ngIf="currentUserType === 'tutor'">Student messages will appear here.</p>
+          <p>{{ 'MESSAGES.NO_CONVERSATIONS_YET' | translate }}</p>
+          <p class="empty-hint" *ngIf="currentUserType === 'student'">{{ 'MESSAGES.EMPTY_STATE_STUDENT' | translate }}</p>
+          <p class="empty-hint" *ngIf="currentUserType === 'tutor'">{{ 'MESSAGES.EMPTY_STATE_TUTOR' | translate }}</p>
         </div>
       </div>
 
@@ -299,8 +296,8 @@
             <!-- Empty State -->
             <div *ngIf="messages.length === 0" class="empty-state">
               <ion-icon name="chatbubbles-outline" class="empty-icon"></ion-icon>
-              <h2>No messages yet</h2>
-              <p>Start the conversation!</p>
+              <h2>{{ 'MESSAGES.NO_MESSAGES_YET' | translate }}</h2>
+              <p>{{ 'MESSAGES.START_CONVERSATION' | translate }}</p>
             </div>
             
             <!-- Messages -->
@@ -349,7 +346,7 @@
                 <span class="msg-sender-name"
                       *ngIf="message.senderId !== getCurrentUserId()">{{ selectedConversation?.otherUser?.name }}</span>
                 <span class="msg-sender-name is-me"
-                      *ngIf="message.senderId === getCurrentUserId()">You</span>
+                      *ngIf="message.senderId === getCurrentUserId()">{{ 'MESSAGES.YOU' | translate }}</span>
                 <span class="msg-header-time">{{ formatTime(message.createdAt) }}</span>
               </div>
               <div class="message-bubble" 
@@ -481,7 +478,7 @@
           <ion-input
             #messageInput
             [(ngModel)]="newMessage"
-            placeholder="Type a message"
+            [placeholder]="'MESSAGES.TYPE_MESSAGE' | translate"
             (ionInput)="onInputChange()"
             (keydown.enter)="sendMessage()"
             class="message-input"
@@ -638,15 +635,13 @@
       <div class="chat-panel-empty" [style.display]="hasConversationSelected || selectedConversation ? 'none' : 'flex'">
         <div class="empty-chat-state">
           <ion-icon name="chatbubbles-outline" class="empty-chat-icon"></ion-icon>
-          <h2>{{ conversations.length === 0 ? "No conversations yet" : "Select a conversation" }}</h2>
+          <h2>{{ (conversations.length === 0 ? 'MESSAGES.NO_CONVERSATIONS_YET' : 'MESSAGES.SELECT_CONVERSATION') | translate }}</h2>
           <p>
-            {{
-              conversations.length === 0
-                ? currentUserType === 'tutor'
-                  ? "You'll be able to interact with students here!"
-                  : "You'll be able to interact with tutors here!"
-                : "Choose a conversation from the list to start messaging"
-            }}
+            {{ (conversations.length === 0
+                ? (currentUserType === 'tutor'
+                  ? 'MESSAGES.EMPTY_STATE_TUTOR_DESKTOP'
+                  : 'MESSAGES.EMPTY_STATE_STUDENT_DESKTOP')
+                : 'MESSAGES.CHOOSE_CONVERSATION') | translate }}
           </p>
                   </div>
       </div>
@@ -657,7 +652,7 @@
       <!-- Conversation List View (Mobile) -->
       <div class="conversations-panel" *ngIf="!selectedConversation">
         <div class="conversations-header">
-          <h2>Messages</h2>
+          <h2>{{ 'MESSAGES.TITLE' | translate }}</h2>
         </div>
 
         <!-- Mobile: Conversations Search Header -->
@@ -666,7 +661,7 @@
           <input
             type="text"
             class="search-input"
-            placeholder="Search by name"
+            [placeholder]="'MESSAGES.SEARCH_BY_NAME' | translate"
             [value]="searchTerm"
             (input)="onSearchChange($any($event.target).value)"
           />
@@ -684,13 +679,13 @@
             class="filter-button" 
             [class.active]="conversationsFilter === 'all'"
             (click)="setConversationsFilter('all')">
-            All
+            {{ 'MESSAGES.ALL' | translate }}
           </button>
           <button 
             class="filter-button" 
             [class.active]="conversationsFilter === 'unread'"
             (click)="setConversationsFilter('unread')">
-            Unread
+            {{ 'MESSAGES.UNREAD' | translate }}
           </button>
         </div>
 
@@ -725,9 +720,7 @@
             <div class="conversation-info">
               <div class="conversation-header-row">
                 <h3>{{ conversation.otherUser?.name || 'Unknown User' }}</h3>
-                <span class="timestamp">
-                  {{ formatTime(conversation.lastMessage.createdAt) }}
-                </span>
+                <span class="timestamp">{{ formatTime(conversation.lastMessage.createdAt) }}</span>
               </div>
               <div class="conversation-preview-row">
                 <p class="preview-text">
@@ -736,7 +729,7 @@
                     {{ conversation.otherUser?.name }}: {{ conversation.lastMessage.content }}
                   </span>
                   <span *ngIf="conversation.lastMessage.type === 'reaction' && conversation.lastMessage.senderId === getCurrentUserId()">
-                    You: {{ conversation.lastMessage.content }}
+                    {{ 'MESSAGES.YOU' | translate }}: {{ conversation.lastMessage.content }}
                   </span>
                   <!-- Regular message content -->
                   <span *ngIf="conversation.lastMessage.type !== 'reaction' && conversation.lastMessage.type !== 'system' && !conversation.lastMessage.isSystemMessage">{{ conversation.lastMessage.content }}</span>
@@ -754,15 +747,15 @@
         <!-- Search Empty State (Mobile) -->
         <div *ngIf="!isInitialLoad && searchTerm && filteredConversations.length === 0 && conversations.length > 0" class="empty-state search-empty-state" [@fadeInOut]>
           <ion-icon name="search-outline" class="empty-icon"></ion-icon>
-          <h2>Hmm, can't find that</h2>
-          <p class="empty-hint">Try searching with a different name</p>
+          <h2>{{ 'MESSAGES.SEARCH_EMPTY_TITLE' | translate }}</h2>
+          <p class="empty-hint">{{ 'MESSAGES.SEARCH_EMPTY_HINT' | translate }}</p>
         </div>
 
         <div *ngIf="!isInitialLoad && conversations.length === 0 && showEmptyState && !searchTerm" class="empty-state" [@fadeInOut]>
           <ion-icon name="chatbubbles-outline" class="empty-icon"></ion-icon>
-          <h2>No messages yet</h2>
-          <p *ngIf="currentUserType === 'student'">Start a conversation by messaging a tutor from their profile.</p>
-          <p *ngIf="currentUserType === 'tutor'">Student messages will appear here.</p>
+          <h2>{{ 'MESSAGES.NO_MESSAGES_YET' | translate }}</h2>
+          <p *ngIf="currentUserType === 'student'">{{ 'MESSAGES.EMPTY_STATE_STUDENT_MOBILE' | translate }}</p>
+          <p *ngIf="currentUserType === 'tutor'">{{ 'MESSAGES.EMPTY_STATE_TUTOR' | translate }}</p>
         </div>
       </div>
 
@@ -830,8 +823,8 @@
             <!-- Empty State -->
             <div *ngIf="messages.length === 0" class="empty-state">
               <ion-icon name="chatbubbles-outline" class="empty-icon"></ion-icon>
-              <h2>No messages yet</h2>
-              <p>Start the conversation!</p>
+              <h2>{{ 'MESSAGES.NO_MESSAGES_YET' | translate }}</h2>
+              <p>{{ 'MESSAGES.START_CONVERSATION' | translate }}</p>
             </div>
             
             <!-- Messages -->
@@ -983,7 +976,7 @@
           <ion-input
             #messageInput
             [(ngModel)]="newMessage"
-            placeholder="Type a message"
+            [placeholder]="'MESSAGES.TYPE_MESSAGE' | translate"
             (ionInput)="onInputChange()"
             (keydown.enter)="sendMessage()"
             [disabled]="isUploading || isRecording">

@@ -1,50 +1,3 @@
-// Header styling - hide on mobile, show on desktop
-.desktop-only-header {
-  display: none;
-  
-  @media (min-width: 768px) {
-    display: block;
-    
-    ion-toolbar {
-      --background: rgba(255, 255, 255, 0.8);
-      --border-color: transparent;
-      --border-width: 0;
-      --min-height: 44px;
-      backdrop-filter: blur(20px) saturate(180%);
-      -webkit-backdrop-filter: blur(20px) saturate(180%);
-    }
-    
-    ion-title {
-      font-size: 17px;
-      font-weight: 500;
-    }
-  }
-}
-
-ion-header {
-  @media (min-width: 768px) {
-    ion-toolbar {
-      --background: rgba(255, 255, 255, 0.8);
-      --border-color: transparent;
-      --border-width: 0;
-      --min-height: 44px;
-      backdrop-filter: blur(20px) saturate(180%);
-      -webkit-backdrop-filter: blur(20px) saturate(180%);
-    }
-    
-    ion-title {
-      font-size: 17px;
-      font-weight: 500;
-      letter-spacing: -0.01em;
-      color: #1d1d1f;
-    }
-    
-    ion-back-button {
-      --color: #007aff;
-    }
-  }
-}
-
 .notifications-content {
   --background: #f5f5f7;
   
@@ -57,19 +10,18 @@ ion-header {
 
 .notification-page-container {
   padding: 20px 16px;
-  padding-bottom: 40px; // Extra padding at bottom for scrolling
+  padding-bottom: 40px;
   display: flex;
   flex-direction: column;
   gap: 0;
-  max-width: 800px; // Reduced from 1200px
+  max-width: 1100px;
   margin: 0 auto;
-  
-  // Desktop styling
+
   @media (min-width: 769px) {
-    padding-top: 20px; // Add some spacing after sticky header
+    padding-top: 20px;
     padding-left: 16px;
     padding-right: 16px;
-    padding-bottom: 60px; // More padding on desktop
+    padding-bottom: 60px;
     gap: 32px;
   }
 }
@@ -81,22 +33,23 @@ ion-header {
   width: 100%;
   background: #f5f5f7;
   z-index: 10;
-  box-shadow: 0 0px 3px 0px rgba(0, 0, 0, 0.08);  
-  @media (min-width: 768px) {
-    top: 0;
-    box-shadow: 0 0px 3px 0px rgba(0, 0, 0, 0.08);  }
+  box-shadow: 0 0px 3px 0px rgba(0, 0, 0, 0.08);
+
+  @media (min-width: 769px) {
+    margin-top: 70px;
+    top: 56px;
+  }
 }
 
-// Header Section
 // Sticky header wrapper - contains title, button, and search (constrained width)
 .sticky-header-wrapper {
-  max-width: 800px; // Reduced from 1200px
+  max-width: 1100px;
   margin: 0 auto;
-  padding: 39px 16px 13px 16px;
+  padding: 16px 16px 13px;
   background: transparent;
-  
-  @media (min-width: 768px) {
-    padding: 39px 16px 13px 16px; // Add padding to push content below toolbar (44px toolbar + 20px spacing)
+
+  @media (min-width: 769px) {
+    padding: 20px 16px 13px;
   }
 }
 
@@ -120,21 +73,15 @@ ion-header {
 }
 
 .notification-page-title {
-  font-size: 22px;
-  font-weight: 800;
-  color: var(--ion-text-color, #1f2937);
+  font-size: 24px;
+  font-weight: 600;
+  color: #222222;
+  letter-spacing: -0.3px;
   margin: 0;
   line-height: 1.2;
   display: flex;
   align-items: center;
   gap: 8px;
-  
-  @media (min-width: 768px) {
-    font-size: 22px;
-    font-weight: 800;
-    margin: 0;
-    gap: 10px;
-  }
 }
 
 .unread-count-badge {

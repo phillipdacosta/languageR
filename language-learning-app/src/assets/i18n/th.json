@@ -37,7 +37,10 @@
     "SEND": "ส่ง",
     "YES": "ใช่",
     "NO": "ไม่",
-    "OK": "ตกลง"
+    "OK": "ตกลง",
+    "TRANSLATE": "แปล",
+    "TRANSLATING": "กำลังแปล...",
+    "SHOW_ORIGINAL": "แสดงต้นฉบับ"
   },
   "TABS": {
     "HOME": "หน้าหลัก",
@@ -315,6 +318,50 @@
     "WITHDRAW_STATUS_CANCELLED": "ยกเลิกแล้ว",
     "OK": "ตกลง",
     "GOT_IT": "เข้าใจแล้ว"
+  },
+  "MESSAGES": {
+    "TITLE": "ข้อความ",
+    "NEW_MESSAGE": "ข้อความใหม่",
+    "TYPE_MESSAGE": "พิมพ์ข้อความ...",
+    "NO_MESSAGES": "ยังไม่มีข้อความ",
+    "CONVERSATIONS": "การสนทนา",
+    "SEARCH_CONVERSATIONS": "ค้นหาการสนทนา",
+    "SEARCH_BY_NAME": "ค้นหาตามชื่อ",
+    "ALL": "ทั้งหมด",
+    "UNREAD": "ยังไม่ได้อ่าน",
+    "SEARCH_EMPTY_TITLE": "ไม่พบ",
+    "SEARCH_EMPTY_HINT": "ลองค้นหาด้วยชื่ออื่น",
+    "NO_CONVERSATIONS_YET": "ยังไม่มีการสนทนา",
+    "NO_MESSAGES_YET": "ยังไม่มีข้อความ",
+    "START_CONVERSATION": "เริ่มการสนทนา!",
+    "SELECT_CONVERSATION": "เลือกการสนทนา",
+    "EMPTY_STATE_STUDENT": "ค้นหาติวเตอร์โดยใช้ 'ค้นหาติวเตอร์' ในเมนูด้านบนและเริ่มต้นการเรียนรู้!",
+    "EMPTY_STATE_STUDENT_MOBILE": "เริ่มการสนทนาโดยส่งข้อความถึงติวเตอร์จากโปรไฟล์ของพวกเขา",
+    "EMPTY_STATE_TUTOR": "ข้อความจากนักเรียนจะปรากฏที่นี่",
+    "EMPTY_STATE_TUTOR_DESKTOP": "คุณจะสามารถสื่อสารกับนักเรียนได้ที่นี่!",
+    "EMPTY_STATE_STUDENT_DESKTOP": "คุณจะสามารถสื่อสารกับติวเตอร์ได้ที่นี่!",
+    "CHOOSE_CONVERSATION": "เลือกการสนทนาจากรายการเพื่อเริ่มแชท",
+    "TODAY": "วันนี้",
+    "YESTERDAY": "เมื่อวาน",
+    "YOU": "คุณ",
+    "TRIAL_LESSON_SYSTEM_MESSAGE": {
+      "TITLE": "New Trial Lesson Scheduled",
+      "INTRO": "A new student has booked a trial lesson with you.",
+      "STUDENT_LABEL": "Student",
+      "DATE_LABEL": "Date",
+      "START_TIME_LABEL": "Start Time",
+      "DURATION_LABEL": "Duration",
+      "DURATION_MINUTES": "{{duration}} minutes",
+      "PREPARATION_INTRO": "This is your first session together, so it's a great opportunity to make a strong impression. Here are a few suggestions to help you prepare:",
+      "TIP_1": "Review the student's",
+      "TIP_1_LINK": "profile",
+      "TIP_1_SUFFIX": "to understand their level, goals, and interests.",
+      "TIP_2": "Arrive a few minutes early—you can join the lesson directly from your Home Page or the Lessons tab.",
+      "TIP_3": "Prepare a short introduction activity to help break the ice and understand their speaking ability.",
+      "TIP_4": "Ask about their objectives and preferred learning style; this will help guide future lessons.",
+      "TIP_5": "Be welcoming and supportive—trial sessions often determine whether the student will continue with you.",
+      "SUPPORT_TEXT": "If you have any questions, feel free to contact support at any time."
+    }
   },
   "NOTIFICATIONS": {
     "TITLE": "การแจ้งเตือน",
@@ -1158,5 +1205,10 @@
     "PAYMENT_SETUP_REQUIRED": "ต้องตั้งค่าการชำระเงิน",
     "PAYMENT_SETUP_MSG": "คุณต้องตั้งค่าการชำระเงินก่อนสร้างคลาสเรียนหรือตั้งค่าเวลาว่าง กรุณาตั้งค่าวิธีรับเงินในแท็บโปรไฟล์",
     "GO_TO_PROFILE": "ไปที่โปรไฟล์"
+  },
+  "EVENT_DETAILS": {
+    "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",
+    "SIDEBAR_NOTES_EMPTY_DESC_STUDENT": "When you complete another lesson with this tutor, notes and analysis from that session can appear here so you can see progress over time.",
+    "SIDEBAR_NOTES_EMPTY_DESC_TUTOR": "When this student completes another lesson with you, notes and analysis from their previous session can appear here for quick context."
   }
 }

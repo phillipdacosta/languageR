@@ -37,7 +37,10 @@
     "SEND": "Enviar",
     "YES": "Sim",
     "NO": "Não",
-    "OK": "OK"
+    "OK": "OK",
+    "TRANSLATE": "Traduzir",
+    "TRANSLATING": "Traduzindo...",
+    "SHOW_ORIGINAL": "Ver original"
   },
   "HOME": {
     "TITLE": "Início",
@@ -645,6 +648,24 @@
     "NO_MESSAGES": "Ainda não há mensagens",
     "CONVERSATIONS": "Conversas",
     "SEARCH_CONVERSATIONS": "Pesquisar conversas",
+    "SEARCH_BY_NAME": "Pesquisar por nome",
+    "ALL": "Todos",
+    "UNREAD": "Não lidos",
+    "SEARCH_EMPTY_TITLE": "Não encontrado",
+    "SEARCH_EMPTY_HINT": "Tente pesquisar com outro nome",
+    "NO_CONVERSATIONS_YET": "Nenhuma conversa ainda",
+    "NO_MESSAGES_YET": "Nenhuma mensagem ainda",
+    "START_CONVERSATION": "Inicie a conversa!",
+    "SELECT_CONVERSATION": "Selecione uma conversa",
+    "EMPTY_STATE_STUDENT": "Encontre um tutor usando 'Encontrar Tutores' no menu superior e comece sua jornada de aprendizado!",
+    "EMPTY_STATE_STUDENT_MOBILE": "Inicie uma conversa enviando uma mensagem para um tutor a partir do perfil dele.",
+    "EMPTY_STATE_TUTOR": "As mensagens dos alunos aparecerão aqui.",
+    "EMPTY_STATE_TUTOR_DESKTOP": "Você poderá interagir com alunos aqui!",
+    "EMPTY_STATE_STUDENT_DESKTOP": "Você poderá interagir com tutores aqui!",
+    "CHOOSE_CONVERSATION": "Escolha uma conversa da lista para começar a conversar",
+    "TODAY": "Hoje",
+    "YESTERDAY": "Ontem",
+    "YOU": "Você",
     "TRIAL_LESSON_SYSTEM_MESSAGE": {
       "TITLE": "Nova Aula Experimental Agendada",
       "INTRO": "Um novo aluno reservou uma aula experimental com você.",
@@ -1300,5 +1321,10 @@
     "PAYMENT_SETUP_REQUIRED": "Configuração de Pagamento Necessária",
     "PAYMENT_SETUP_MSG": "Você deve concluir a configuração de pagamento antes de criar aulas ou definir disponibilidade. Por favor configure seu método de pagamento na aba Perfil.",
     "GO_TO_PROFILE": "Ir para o Perfil"
+  },
+  "EVENT_DETAILS": {
+    "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",
+    "SIDEBAR_NOTES_EMPTY_DESC_STUDENT": "When you complete another lesson with this tutor, notes and analysis from that session can appear here so you can see progress over time.",
+    "SIDEBAR_NOTES_EMPTY_DESC_TUTOR": "When this student completes another lesson with you, notes and analysis from their previous session can appear here for quick context."
   }
 }

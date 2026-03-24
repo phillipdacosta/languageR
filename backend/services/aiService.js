@@ -2079,10 +2079,66 @@ Respond ONLY with valid JSON in this format:
   }
 }
 
+/**
+ * Translate prose fields of a lesson analysis to a target language.
+ * Uses GPT-4o-mini for contextual translation that preserves quoted
+ * target-language speech and only translates the surrounding explanation text.
+ */
+async function translateAnalysisFields(analysis, targetLanguageCode) {
+  const targetLang = getLanguageName(targetLanguageCode);
+
+  const fieldsToTranslate = {
+    summary: analysis.overallAssessment?.summary || '',
+    progressFromLastLesson: analysis.overallAssessment?.progressFromLastLesson || '',
+    studentSummary: analysis.studentSummary || '',
+    tutorNoteText: analysis.tutorNote?.text || '',
+    tutorNoteQuickImpression: analysis.tutorNote?.quickImpression || '',
+    tutorNoteHomework: analysis.tutorNote?.homework || '',
+    strengths: analysis.strengths || [],
+    areasForImprovement: analysis.areasForImprovement || [],
+    recommendedFocus: analysis.recommendedFocus || [],
+    suggestedExercises: analysis.suggestedExercises || [],
+    homeworkSuggestions: analysis.homeworkSuggestions || [],
+    topErrors: (analysis.topErrors || []).map(e => ({ issue: e.issue || '', teachingPriority: e.teachingPriority || '' })),
+    correctedExcerpts: (analysis.correctedExcerpts || []).map(e => ({ context: e.context || '', keyCorrections: e.keyCorrections || [] })),
+    persistentChallenges: analysis.progressionMetrics?.persistentChallenges || [],
+    keyImprovements: analysis.progressionMetrics?.keyImprovements || [],
+    topicsDiscussed: analysis.topicsDiscussed || []
+  };
+
+  const completion = await getOpenAIClient().chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [
+      {
+        role: 'system',
+        content: `You are a professional translator. Translate ALL text values in the provided JSON to ${targetLang}.
+
+RULES:
+- Translate ONLY the text values, preserve all JSON keys exactly as they are.
+- When you encounter quoted speech in a foreign language (e.g. "Ich habe meine Freundin getroffen"), keep those quotes in the original language — only translate the surrounding explanation text and parenthetical translations.
+- Preserve any HTML tags as-is.
+- Preserve emoji characters as-is.
+- Return valid JSON only, matching the exact same structure as the input.`
+      },
+      {
+        role: 'user',
+        content: JSON.stringify(fieldsToTranslate)
+      }
+    ],
+    temperature: 0.3,
+    response_format: { type: 'json_object' }
+  });
+
+  const translated = JSON.parse(completion.choices[0].message.content);
+  translated.translatedAt = new Date();
+  return translated;
+}
+
 module.exports = {
   transcribeAudio,
   analyzeLessonTranscript,
   generateProgressReport,
-  filterAndPrioritizeErrors
+  filterAndPrioritizeErrors,
+  translateAnalysisFields
 };
 

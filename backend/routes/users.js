@@ -566,7 +566,7 @@ router.put('/onboarding', verifyToken, async (req, res) => {
         schedule: schedule || '',
         summary: formatText(summary || ''),
         bio: formatText(bio || ''),
-        hourlyRate: hourlyRate || 25,
+        hourlyRate: Math.max(10, hourlyRate || 25),
         introductionVideo: introductionVideo || '',
         videoThumbnail: videoThumbnail || '',
         videoType: videoType || 'upload',

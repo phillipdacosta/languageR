@@ -1123,7 +1123,7 @@ export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, Afte
       customPriceControl?.setValue(null);
     } else {
       // Using custom pricing - add validators and pre-fill with suggested price
-      customPriceControl?.setValidators([Validators.required, Validators.min(1)]);
+      customPriceControl?.setValidators([Validators.required, Validators.min(10)]);
       customPriceControl?.setValue(this.suggestedPrice);
     }
     customPriceControl?.updateValueAndValidity();

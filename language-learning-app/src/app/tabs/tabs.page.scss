@@ -160,40 +160,59 @@
   .desktop-nav-buttons {
     display: flex;
     align-items: center;
-    gap: 32px;
+    gap: 14px;
     margin-right: 16px;
-    position: relative; // For sliding underline positioning
-    
-    // Sliding underline indicator
-    .nav-underline-indicator {
-      position: absolute;
-      bottom: -1px; // Position at bottom of toolbar (accounting for border)
-      height: 2px;
-      background-color: #000000;
-      transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                  width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      z-index: 10;
-    }
-    
+    position: relative; // For sliding pill / underline positioning
+
     // Only apply Airbnb-style tabs on desktop (min-width: 992px)
     @media (min-width: 992px) {
+      // Slides between tabs like the legacy underline; draws the active pill border
+      .nav-underline-indicator {
+        display: block;
+        position: absolute;
+        z-index: 0;
+        box-sizing: border-box;
+        border-radius: 100px;
+        border: 1px solid #e8e8e8;
+        background: transparent;
+        pointer-events: none;
+        transition:
+          left 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+          width 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+          top 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+          height 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
       .nav-button {
         display: flex;
         flex-direction: row;
         align-items: center;
         justify-content: center;
-        padding: 0;
+        padding: 6px 12px;
         background: transparent;
-        border: none;
-        border-radius: 0;
+        border: 1px solid transparent;
+        border-radius: 100px;
         cursor: pointer;
-        transition: color 0.2s ease;
+        transition:
+          color 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+          border-color 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+          background 0.38s cubic-bezier(0.4, 0, 0.2, 1);
         color: #717171;
         text-decoration: none;
         position: relative;
+        z-index: 1;
         gap: 8px;
         height: auto;
         min-width: auto;
+        outline: none;
+        box-shadow: none;
+        -webkit-tap-highlight-color: transparent;
+
+        &:focus,
+        &:focus-visible {
+          outline: none;
+          box-shadow: none;
+        }
         
         // Icons commented out
         // ion-icon {
@@ -203,49 +222,64 @@
         // }
         
         ion-label {
+          display: inline-flex;
+          flex-direction: column;
+          align-items: center;
           font-size: 14px;
           font-weight: 400;
           letter-spacing: -0.01em;
-          transition: color 0.2s ease, font-weight 0.2s ease;
           color: inherit;
+          transition: color 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+
+          &::after {
+            content: attr(data-text);
+            font-weight: 600;
+            height: 0;
+            overflow: hidden;
+            visibility: hidden;
+            pointer-events: none;
+            user-select: none;
+          }
         }
-        
+
         &:hover {
           background: transparent;
           color: #222222;
           transform: none;
           box-shadow: none;
         }
-        
+
         &.active {
           background: transparent;
           color: #222222;
+          border-color: transparent;
           box-shadow: none;
           transform: none;
-          
+
           ion-label {
-            color: #222222;
+            color: #0060a3;
             font-weight: 600;
           }
         }
-        
+
         &.notification-btn {
           position: relative;
-          
+
           ion-icon {
             font-size: 18px;
-            color: inherit; // Inherit from parent (will be #717171 or #222222)
-            transition: color 0.2s ease;
+            color: inherit;
+            display: block;
+            transition: color 0.38s cubic-bezier(0.4, 0, 0.2, 1);
           }
-          
+
           .notification-dot {
             position: absolute;
             width: 11px;
             height: 11px;
             background-color: #ff3b30;
             border-radius: 50%;
-            top: -3px;
-            right: -3px;
+            top: 1px;
+            right: 9px;
             border: 2px solid white;
             box-shadow: 0 2px 4px rgba(255, 59, 48, 0.5);
             z-index: 999;
@@ -303,8 +337,17 @@
           animation: newBadgeSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
       }
+
+      .notification-container {
+        z-index: 1;
+      }
+
+      .user-profile {
+        position: relative;
+        z-index: 1;
+      }
     }
-    
+
     // Fallback for smaller screens (keep original style)
     @media (max-width: 991px) {
       .nav-button {
@@ -1648,25 +1691,21 @@ ion-tab-button {
     }
     
     .desktop-nav-buttons {
-      .nav-underline-indicator {
-        background-color: #ffffff !important;
-      }
-
       .nav-button {
         color: rgba(255, 255, 255, 0.6);
         background: transparent !important;
         border: none !important;
-        
+
         &:hover {
           background: transparent !important;
           color: #ffffff;
         }
-        
+
         &.active {
           background: transparent !important;
           color: #ffffff !important;
           box-shadow: none !important;
-          
+
           ion-label {
             color: #ffffff !important;
             font-weight: 600;
@@ -1676,24 +1715,93 @@ ion-tab-button {
         ion-label {
           color: inherit;
         }
-        
+
         &.logout-button {
           &:hover {
             background: transparent !important;
             color: #ff453a !important;
           }
         }
-        
+
         &.notification-btn {
           color: rgba(255, 255, 255, 0.6);
-          
+
           &:hover {
             color: #ffffff;
           }
-          
+
           .notification-dot {
             border-color: #1c1c1e !important;
           }
+        }
+      }
+
+      @media (min-width: 992px) {
+        .nav-underline-indicator {
+          display: block;
+          position: absolute;
+          z-index: 0;
+          box-sizing: border-box;
+          border-radius: 100px;
+          border: 1px solid rgba(255, 255, 255, 0.22);
+          background: transparent;
+          pointer-events: none;
+          transition:
+            left 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+            width 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+            top 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+            height 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .nav-button {
+          border: 1px solid transparent !important;
+          border-radius: 100px;
+          padding: 6px 12px;
+          transition:
+            color 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+            border-color 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+          z-index: 1;
+
+          ion-label {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 14px;
+            font-weight: 400;
+            transition: color 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+
+            &::after {
+              content: attr(data-text);
+              font-weight: 600;
+              height: 0;
+              overflow: hidden;
+              visibility: hidden;
+              pointer-events: none;
+              user-select: none;
+            }
+          }
+
+          &.active {
+            border-color: transparent !important;
+
+            ion-label {
+              font-weight: 600;
+            }
+          }
+
+          &.notification-btn ion-icon {
+            display: block;
+            transition: color 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+          }
+        }
+
+        .notification-container {
+          z-index: 1;
+        }
+
+        .user-profile {
+          position: relative;
+          z-index: 1;
         }
       }
     }
@@ -1947,25 +2055,21 @@ ion-tab-button {
     }
     
     .desktop-nav-buttons {
-      .nav-underline-indicator {
-        background-color: #ffffff !important;
-      }
-
       .nav-button {
         color: rgba(255, 255, 255, 0.6);
         background: transparent !important;
         border: none !important;
-        
+
         &:hover {
           background: transparent !important;
           color: #ffffff;
         }
-        
+
         &.active {
           background: transparent !important;
           color: #ffffff !important;
           box-shadow: none !important;
-          
+
           ion-label {
             color: #ffffff !important;
             font-weight: 600;
@@ -1975,24 +2079,93 @@ ion-tab-button {
         ion-label {
           color: inherit;
         }
-        
+
         &.logout-button {
           &:hover {
             background: transparent !important;
             color: #ff453a !important;
           }
         }
-        
+
         &.notification-btn {
           color: rgba(255, 255, 255, 0.6);
-          
+
           &:hover {
             color: #ffffff;
           }
-          
+
           .notification-dot {
             border-color: #1c1c1e !important;
           }
+        }
+      }
+
+      @media (min-width: 992px) {
+        .nav-underline-indicator {
+          display: block;
+          position: absolute;
+          z-index: 0;
+          box-sizing: border-box;
+          border-radius: 100px;
+          border: 1px solid rgba(255, 255, 255, 0.22);
+          background: transparent;
+          pointer-events: none;
+          transition:
+            left 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+            width 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+            top 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+            height 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .nav-button {
+          border: 1px solid transparent !important;
+          border-radius: 100px;
+          padding: 6px 12px;
+          transition:
+            color 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+            border-color 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+          z-index: 1;
+
+          ion-label {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 14px;
+            font-weight: 400;
+            transition: color 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+
+            &::after {
+              content: attr(data-text);
+              font-weight: 600;
+              height: 0;
+              overflow: hidden;
+              visibility: hidden;
+              pointer-events: none;
+              user-select: none;
+            }
+          }
+
+          &.active {
+            border-color: transparent !important;
+
+            ion-label {
+              font-weight: 600;
+            }
+          }
+
+          &.notification-btn ion-icon {
+            display: block;
+            transition: color 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+          }
+        }
+
+        .notification-container {
+          z-index: 1;
+        }
+
+        .user-profile {
+          position: relative;
+          z-index: 1;
         }
       }
     }

@@ -37,7 +37,10 @@
     "SEND": "보내기",
     "YES": "예",
     "NO": "아니요",
-    "OK": "확인"
+    "OK": "확인",
+    "TRANSLATE": "번역",
+    "TRANSLATING": "번역 중...",
+    "SHOW_ORIGINAL": "원문 보기"
   },
   "HOME": {
     "TITLE": "홈",
@@ -315,6 +318,50 @@
     "ANALYTICS": "분석",
     "PROFILE": "프로필",
     "LOGOUT": "로그아웃"
+  },
+  "MESSAGES": {
+    "TITLE": "메시지",
+    "NEW_MESSAGE": "새 메시지",
+    "TYPE_MESSAGE": "메시지를 입력하세요...",
+    "NO_MESSAGES": "메시지가 없습니다",
+    "CONVERSATIONS": "대화",
+    "SEARCH_CONVERSATIONS": "대화 검색",
+    "SEARCH_BY_NAME": "이름으로 검색",
+    "ALL": "전체",
+    "UNREAD": "읽지 않음",
+    "SEARCH_EMPTY_TITLE": "찾을 수 없습니다",
+    "SEARCH_EMPTY_HINT": "다른 이름으로 검색해 보세요",
+    "NO_CONVERSATIONS_YET": "아직 대화가 없습니다",
+    "NO_MESSAGES_YET": "아직 메시지가 없습니다",
+    "START_CONVERSATION": "대화를 시작하세요!",
+    "SELECT_CONVERSATION": "대화를 선택하세요",
+    "EMPTY_STATE_STUDENT": "상단 메뉴의 '튜터 찾기'를 사용하여 튜터를 찾고 학습 여정을 시작하세요!",
+    "EMPTY_STATE_STUDENT_MOBILE": "튜터 프로필에서 메시지를 보내 대화를 시작하세요.",
+    "EMPTY_STATE_TUTOR": "학생 메시지가 여기에 표시됩니다.",
+    "EMPTY_STATE_TUTOR_DESKTOP": "여기서 학생들과 소통할 수 있습니다!",
+    "EMPTY_STATE_STUDENT_DESKTOP": "여기서 튜터와 소통할 수 있습니다!",
+    "CHOOSE_CONVERSATION": "목록에서 대화를 선택하여 메시지를 시작하세요",
+    "TODAY": "오늘",
+    "YESTERDAY": "어제",
+    "YOU": "나",
+    "TRIAL_LESSON_SYSTEM_MESSAGE": {
+      "TITLE": "New Trial Lesson Scheduled",
+      "INTRO": "A new student has booked a trial lesson with you.",
+      "STUDENT_LABEL": "Student",
+      "DATE_LABEL": "Date",
+      "START_TIME_LABEL": "Start Time",
+      "DURATION_LABEL": "Duration",
+      "DURATION_MINUTES": "{{duration}} minutes",
+      "PREPARATION_INTRO": "This is your first session together, so it's a great opportunity to make a strong impression. Here are a few suggestions to help you prepare:",
+      "TIP_1": "Review the student's",
+      "TIP_1_LINK": "profile",
+      "TIP_1_SUFFIX": "to understand their level, goals, and interests.",
+      "TIP_2": "Arrive a few minutes early—you can join the lesson directly from your Home Page or the Lessons tab.",
+      "TIP_3": "Prepare a short introduction activity to help break the ice and understand their speaking ability.",
+      "TIP_4": "Ask about their objectives and preferred learning style; this will help guide future lessons.",
+      "TIP_5": "Be welcoming and supportive—trial sessions often determine whether the student will continue with you.",
+      "SUPPORT_TEXT": "If you have any questions, feel free to contact support at any time."
+    }
   },
   "NOTIFICATIONS": {
     "TITLE": "알림",
@@ -1159,5 +1206,10 @@
     "PAYMENT_SETUP_REQUIRED": "결제 설정 필요",
     "PAYMENT_SETUP_MSG": "클래스를 만들거나 가용 시간을 설정하기 전에 결제 설정을 완료해야 합니다. 프로필 탭에서 지급 방법을 설정해 주세요.",
     "GO_TO_PROFILE": "프로필로 이동"
+  },
+  "EVENT_DETAILS": {
+    "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",
+    "SIDEBAR_NOTES_EMPTY_DESC_STUDENT": "When you complete another lesson with this tutor, notes and analysis from that session can appear here so you can see progress over time.",
+    "SIDEBAR_NOTES_EMPTY_DESC_TUTOR": "When this student completes another lesson with you, notes and analysis from their previous session can appear here for quick context."
   }
 }

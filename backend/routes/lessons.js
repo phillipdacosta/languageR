@@ -804,8 +804,8 @@ router.post('/office-hours', verifyToken, async (req, res) => {
       });
     }
 
-    // Calculate price based on tutor's hourly rate
-    const standardRate = tutor.onboardingData?.hourlyRate || 25;
+    // Calculate price based on tutor's hourly rate (minimum $10/hr enforced)
+    const standardRate = Math.max(10, tutor.onboardingData?.hourlyRate || 25);
     const standardDuration = 50; // Standard lesson duration
     const price = Math.round((standardRate / standardDuration) * duration * 100) / 100;
 
@@ -1200,7 +1200,7 @@ router.get('/previous-notes/:lessonId', verifyToken, async (req, res) => {
       lessonId: { $in: lessonIds },
       status: 'completed'
     })
-      .select('lessonId source tutorNote overallAssessment progressionMetrics strengths areasForImprovement errorPatterns topErrors correctedExcerpts grammarAnalysis fluencyAnalysis vocabularyAnalysis topicsDiscussed recommendedFocus suggestedExercises homeworkSuggestions studentSummary lessonDate')
+      .select('lessonId source tutorNote overallAssessment progressionMetrics strengths areasForImprovement errorPatterns topErrors correctedExcerpts grammarAnalysis fluencyAnalysis vocabularyAnalysis topicsDiscussed recommendedFocus suggestedExercises homeworkSuggestions studentSummary lessonDate translations')
       .lean();
 
     if (!analyses.length) {
@@ -1230,6 +1230,7 @@ router.get('/previous-notes/:lessonId', verifyToken, async (req, res) => {
       previousLessonId: matchedLesson._id,
       previousLessonDate: matchedLesson.startTime,
       previousLessonSubject: matchedLesson.subject,
+      analysisId: a._id,
       analysis: {
         source: a.source || 'ai',
         tutorNote: a.tutorNote || null,
@@ -1294,7 +1295,8 @@ router.get('/previous-notes/:lessonId', verifyToken, async (req, res) => {
         suggestedExercises: a.suggestedExercises || [],
         homeworkSuggestions: a.homeworkSuggestions || [],
         studentSummary: a.studentSummary || null
-      }
+      },
+      translations: a.translations instanceof Map ? Object.fromEntries(a.translations) : (a.translations || {})
     });
   } catch (error) {
     console.error('Error fetching previous notes:', error);
@@ -2463,12 +2465,11 @@ router.post('/:id/call-end', verifyToken, async (req, res) => {
       if (lesson.isOfficeHours) {
         // Get tutor's rate
         const tutor = await User.findById(lesson.tutorId);
-        const standardRate = tutor?.onboardingData?.hourlyRate || 25;
+        const standardRate = Math.max(10, tutor?.onboardingData?.hourlyRate || 25);
         const standardDuration = 50; // Standard lesson duration
         const perMinuteRate = standardRate / standardDuration;
         
         // Calculate actual price based on actual time used (no cap)
-        // This ensures tutors are paid fairly for all time worked
         const calculatedPrice = Math.round(perMinuteRate * actualMinutes * 100) / 100;
         lesson.actualPrice = calculatedPrice;
         lesson.billingStatus = 'charged';

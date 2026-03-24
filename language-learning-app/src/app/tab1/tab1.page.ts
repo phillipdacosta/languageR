@@ -36,6 +36,7 @@ import { environment } from '../../environments/environment';
 import { SmartIslandService, DynamicCard } from '../services/smart-island.service';
 import { TranslateService } from '@ngx-translate/core';
 import { LearningPlanService, LearningPlan } from '../services/learning-plan.service';
+import { AnalysisTranslationService } from '../services/analysis-translation.service';
 
 @Component({
   selector: 'app-tab1',
@@ -379,6 +380,13 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   previousNotesDate = '';
   previousNotesScores: { label: string; value: number }[] = [];
 
+  // Previous notes translation
+  prevNotesAnalysisId: string | null = null;
+  prevNotesOriginalAnalysis: any = null;
+  prevNotesDisplayAnalysis: any = null;
+  prevNotesTranslating = false;
+  prevNotesShowingTranslation = false;
+
   private resizeListener: any;
 
   constructor(
@@ -409,7 +417,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     private navCtrl: NavController,
     private translateService: TranslateService,
     private activatedRoute: ActivatedRoute,
-    private learningPlanService: LearningPlanService
+    private learningPlanService: LearningPlanService,
+    private analysisTranslation: AnalysisTranslationService
   ) {
     // Subscribe to currentUser$ observable to get updates automatically
     // Use asyncScheduler to prevent synchronous emission from blocking
@@ -1298,6 +1307,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   }
 
   ionViewWillEnter() {
+    this.refreshPrevNotesTranslationState();
     console.log('🔄 [TAB1] ========== ionViewWillEnter START ==========');
     console.log('🔄 [TAB1] ionViewWillEnter - hasInitiallyLoaded:', this._hasInitiallyLoaded, 'lastFetch:', new Date(this._lastDataFetch).toLocaleTimeString());
     console.log('🔄 [TAB1] currentUser:', {
@@ -3676,7 +3686,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   
   getTimeRangeOnly(lesson: Lesson): string {
     const tz = this.userTz;
-    return `${formatTimeInTz(lesson.startTime, tz)} — ${formatTimeInTz(lesson.endTime, tz)}`;
+    return `${formatTimeInTz(lesson.startTime, tz, undefined, true)} — ${formatTimeInTz(lesson.endTime, tz, undefined, true)}`;
   }
 
   /**
@@ -4981,6 +4991,7 @@ navigateToLessons() {
       next: (res) => {
         this.previousNotesData = res.hasPreviousNotes ? res : null;
         this.previousNotesLoading = false;
+        this.initPrevNotesTranslation();
       },
       error: () => {
         this.previousNotesData = null;
@@ -4989,9 +5000,32 @@ navigateToLessons() {
     });
   }
 
+  private initPrevNotesTranslation() {
+    if (!this.previousNotesData?.analysis) return;
+    this.prevNotesAnalysisId = this.previousNotesData.analysisId || null;
+    this.prevNotesOriginalAnalysis = this.previousNotesData.analysis;
+    this.prevNotesDisplayAnalysis = this.previousNotesData.analysis;
+    this.prevNotesShowingTranslation = false;
+
+    if (this.prevNotesAnalysisId) {
+      const targetLang = this.currentUser?.nativeLanguage || 'en';
+      const cached = this.previousNotesData.translations?.[targetLang];
+      if (cached) {
+        this.analysisTranslation.seedFromResponse(this.prevNotesAnalysisId, cached);
+      }
+      if (this.analysisTranslation.isShowingTranslated(this.prevNotesAnalysisId)) {
+        const t = this.analysisTranslation.getTranslation(this.prevNotesAnalysisId);
+        if (t) {
+          this.prevNotesDisplayAnalysis = this.analysisTranslation.applyTranslation(this.prevNotesOriginalAnalysis, t);
+          this.prevNotesShowingTranslation = true;
+        }
+      }
+    }
+  }
+
   showPreviousNotesModal() {
     if (!this.previousNotesData?.analysis) return;
-    const a = this.previousNotesData.analysis;
+    const a = this.prevNotesDisplayAnalysis || this.previousNotesData.analysis;
     this.previousNotesDate = new Date(this.previousNotesData.previousLessonDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
     const scores: { label: string; value: number }[] = [];
@@ -5000,6 +5034,54 @@ navigateToLessons() {
     if (a.pronunciationAnalysis?.overallScore != null) scores.push({ label: 'Pronunciation', value: a.pronunciationAnalysis.overallScore });
     this.previousNotesScores = scores;
     this.isPreviousNotesModalOpen = true;
+  }
+
+  private refreshPrevNotesTranslationState() {
+    if (!this.prevNotesAnalysisId || !this.prevNotesOriginalAnalysis) return;
+    const showing = this.analysisTranslation.isShowingTranslated(this.prevNotesAnalysisId);
+    const t = this.analysisTranslation.getTranslation(this.prevNotesAnalysisId);
+    if (showing && t) {
+      this.prevNotesDisplayAnalysis = this.analysisTranslation.applyTranslation(this.prevNotesOriginalAnalysis, t);
+      this.prevNotesShowingTranslation = true;
+    } else if (!showing && this.prevNotesShowingTranslation) {
+      this.prevNotesDisplayAnalysis = this.prevNotesOriginalAnalysis;
+      this.prevNotesShowingTranslation = false;
+    }
+  }
+
+  togglePrevNotesTranslation() {
+    if (!this.prevNotesAnalysisId) return;
+
+    if (this.prevNotesShowingTranslation) {
+      this.analysisTranslation.showOriginal(this.prevNotesAnalysisId);
+      this.prevNotesDisplayAnalysis = this.prevNotesOriginalAnalysis;
+      this.prevNotesShowingTranslation = false;
+      return;
+    }
+
+    if (this.analysisTranslation.hasTranslation(this.prevNotesAnalysisId)) {
+      this.analysisTranslation.showTranslated(this.prevNotesAnalysisId);
+      const t = this.analysisTranslation.getTranslation(this.prevNotesAnalysisId);
+      if (t) {
+        this.prevNotesDisplayAnalysis = this.analysisTranslation.applyTranslation(this.prevNotesOriginalAnalysis, t);
+      }
+      this.prevNotesShowingTranslation = true;
+      return;
+    }
+
+    this.prevNotesTranslating = true;
+    this.analysisTranslation.translate(this.prevNotesAnalysisId).subscribe({
+      next: (t) => {
+        this.prevNotesDisplayAnalysis = this.analysisTranslation.applyTranslation(this.prevNotesOriginalAnalysis, t);
+        this.prevNotesTranslating = false;
+        this.prevNotesShowingTranslation = true;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.prevNotesTranslating = false;
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   closePreviousNotesModal() {
@@ -5364,12 +5446,12 @@ navigateToLessons() {
         console.log('  - today start:', today.toISOString());
         console.log('  - sevenDaysAgo:', sevenDaysAgo.toISOString());
         
-        // Separate cancelled lessons (show recent and future cancellations)
+        // Separate cancelled lessons (show recent and future cancellations, exclude payment failures)
         this.cancelledLessons = allLessons
           .filter(l => {
             if (l.status !== 'cancelled') return false;
+            if ((l as any).cancelReason === 'payment_failed') return false;
             const lessonTime = new Date(l.startTime).getTime();
-            // Show cancelled lessons from last 7 days or future
             return lessonTime >= sevenDaysAgo.getTime();
           })
           .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());

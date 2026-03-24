@@ -37,7 +37,7 @@ class WithdrawalService {
    * @param {String} method - 'stripe_connect' or 'paypal'
    * @returns {Object} Withdrawal record
    */
-  async requestWithdrawal({ tutorId, amount, method }) {
+  async requestWithdrawal({ tutorId, amount, method, idempotencyKey }) {
     console.log(`\n💰 [WITHDRAWAL] Request initiated: tutorId=${tutorId}, amount=$${amount}, method=${method}`);
     
     // Get tutor for pre-flight validation (method config, minimum amounts)
@@ -211,6 +211,7 @@ class WithdrawalService {
         tutorId,
         amount: roundedAmount,
         method,
+        idempotencyKey: idempotencyKey || undefined,
         paymentIds: paymentsToInclude,
         platformFee,
         stripeFee,
@@ -427,10 +428,18 @@ class WithdrawalService {
       
       withdrawal.paypalBatchId = result.batchId;
       withdrawal.paypalPayoutItemId = result.payoutItemId;
+
+      // Estimate PayPal sender fee (charged to the platform by PayPal)
+      // Standard PayPal Payouts pricing: 2% of payout amount, min $0.25, max $20
+      let senderFee = Math.max(0.25, withdrawal.netAmount * 0.02);
+      senderFee = Math.min(senderFee, 20);
+      senderFee = Math.round(senderFee * 100) / 100;
+      withdrawal.paypalSenderFee = senderFee;
+
       await withdrawal.save();
       
       console.log(`✅ [PAYPAL] Payout created: Batch=${result.batchId}`);
-      console.log(`💸 Payout amount: $${withdrawal.netAmount.toFixed(2)} (after $${withdrawal.paypalFee.toFixed(2)} fee)`);
+      console.log(`💸 Payout amount: $${withdrawal.netAmount.toFixed(2)} (tutor fee: $${withdrawal.paypalFee.toFixed(2)}, platform sender fee: $${senderFee.toFixed(2)})`);
       
     } catch (error) {
       console.error(`❌ [PAYPAL] Payout failed:`, error.message);

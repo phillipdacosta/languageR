@@ -37,7 +37,10 @@
     "SEND": "发送",
     "YES": "是",
     "NO": "否",
-    "OK": "确定"
+    "OK": "确定",
+    "TRANSLATE": "翻译",
+    "TRANSLATING": "翻译中...",
+    "SHOW_ORIGINAL": "显示原文"
   },
   "HOME": {
     "TITLE": "首页",
@@ -315,6 +318,50 @@
     "ANALYTICS": "分析",
     "PROFILE": "个人资料",
     "LOGOUT": "退出"
+  },
+  "MESSAGES": {
+    "TITLE": "消息",
+    "NEW_MESSAGE": "新消息",
+    "TYPE_MESSAGE": "输入消息...",
+    "NO_MESSAGES": "暂无消息",
+    "CONVERSATIONS": "对话",
+    "SEARCH_CONVERSATIONS": "搜索对话",
+    "SEARCH_BY_NAME": "按名称搜索",
+    "ALL": "全部",
+    "UNREAD": "未读",
+    "SEARCH_EMPTY_TITLE": "未找到",
+    "SEARCH_EMPTY_HINT": "尝试搜索其他名称",
+    "NO_CONVERSATIONS_YET": "暂无对话",
+    "NO_MESSAGES_YET": "暂无消息",
+    "START_CONVERSATION": "开始对话吧！",
+    "SELECT_CONVERSATION": "选择一个对话",
+    "EMPTY_STATE_STUDENT": "使用顶部菜单中的'查找导师'来寻找导师，开始您的学习之旅！",
+    "EMPTY_STATE_STUDENT_MOBILE": "从导师的个人资料中发送消息开始对话。",
+    "EMPTY_STATE_TUTOR": "学生消息将显示在此处。",
+    "EMPTY_STATE_TUTOR_DESKTOP": "您将能够在此与学生互动！",
+    "EMPTY_STATE_STUDENT_DESKTOP": "您将能够在此与导师互动！",
+    "CHOOSE_CONVERSATION": "从列表中选择一个对话开始聊天",
+    "TODAY": "今天",
+    "YESTERDAY": "昨天",
+    "YOU": "你",
+    "TRIAL_LESSON_SYSTEM_MESSAGE": {
+      "TITLE": "New Trial Lesson Scheduled",
+      "INTRO": "A new student has booked a trial lesson with you.",
+      "STUDENT_LABEL": "Student",
+      "DATE_LABEL": "Date",
+      "START_TIME_LABEL": "Start Time",
+      "DURATION_LABEL": "Duration",
+      "DURATION_MINUTES": "{{duration}} minutes",
+      "PREPARATION_INTRO": "This is your first session together, so it's a great opportunity to make a strong impression. Here are a few suggestions to help you prepare:",
+      "TIP_1": "Review the student's",
+      "TIP_1_LINK": "profile",
+      "TIP_1_SUFFIX": "to understand their level, goals, and interests.",
+      "TIP_2": "Arrive a few minutes early—you can join the lesson directly from your Home Page or the Lessons tab.",
+      "TIP_3": "Prepare a short introduction activity to help break the ice and understand their speaking ability.",
+      "TIP_4": "Ask about their objectives and preferred learning style; this will help guide future lessons.",
+      "TIP_5": "Be welcoming and supportive—trial sessions often determine whether the student will continue with you.",
+      "SUPPORT_TEXT": "If you have any questions, feel free to contact support at any time."
+    }
   },
   "NOTIFICATIONS": {
     "TITLE": "通知",
@@ -1159,5 +1206,10 @@
     "PAYMENT_SETUP_REQUIRED": "需要设置支付",
     "PAYMENT_SETUP_MSG": "创建课程或设置可用时间之前，您必须完成支付设置。请在个人资料标签中设置收款方式。",
     "GO_TO_PROFILE": "前往个人资料"
+  },
+  "EVENT_DETAILS": {
+    "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",
+    "SIDEBAR_NOTES_EMPTY_DESC_STUDENT": "When you complete another lesson with this tutor, notes and analysis from that session can appear here so you can see progress over time.",
+    "SIDEBAR_NOTES_EMPTY_DESC_TUTOR": "When this student completes another lesson with you, notes and analysis from their previous session can appear here for quick context."
   }
 }

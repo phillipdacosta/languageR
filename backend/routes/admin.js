@@ -1293,6 +1293,44 @@ router.get('/platform-revenue', verifyToken, requireAdmin, async (req, res) => {
     
     // Total PayPal needed = Owed balances + Withdrawals in flight
     const totalPayPalNeeded = owedToPayPalTutors + paypalWithdrawalsInFlight;
+
+    // 4. Aggregate payout costs (all-time) for true profit calculation
+    const payoutCostAggregation = await Withdrawal.aggregate([
+      {
+        $match: {
+          status: { $in: ['completed', 'processing'] }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalPayPalSenderFees: { $sum: { $ifNull: ['$paypalSenderFee', 0] } },
+          totalPayPalTutorFees: { $sum: { $cond: [{ $eq: ['$method', 'paypal'] }, { $ifNull: ['$paypalFee', 0] }, 0] } },
+          totalWithdrawalCount: { $sum: 1 },
+          paypalWithdrawalCount: { $sum: { $cond: [{ $eq: ['$method', 'paypal'] }, 1, 0] } },
+          stripeWithdrawalCount: { $sum: { $cond: [{ $eq: ['$method', 'stripe_connect'] }, 1, 0] } },
+          totalAmountWithdrawn: { $sum: '$amount' },
+          totalNetAmountSent: { $sum: '$netAmount' }
+        }
+      }
+    ]);
+
+    const payoutCosts = payoutCostAggregation[0] || {
+      totalPayPalSenderFees: 0,
+      totalPayPalTutorFees: 0,
+      totalWithdrawalCount: 0,
+      paypalWithdrawalCount: 0,
+      stripeWithdrawalCount: 0,
+      totalAmountWithdrawn: 0,
+      totalNetAmountSent: 0
+    };
+
+    // True profit = Net platform revenue - PayPal sender fees + PayPal fees collected from tutors
+    // PayPal fees collected from tutors offset the sender fees (what you keep from the fee spread)
+    const totalPayPalSenderFees = payoutCosts.totalPayPalSenderFees;
+    const totalPayPalTutorFees = payoutCosts.totalPayPalTutorFees;
+    const paypalFeeProfit = totalPayPalTutorFees - totalPayPalSenderFees;
+    const truePlatformProfit = totalNetPlatformRevenue - totalPayPalSenderFees;
     
     console.log(`\n   💳 Owed to Stripe Tutors: $${owedToStripeTutors.toFixed(2)} (${stripeTutorsCount} tutors)`);
     console.log(`   💰 Owed to PayPal Tutors: $${owedToPayPalTutors.toFixed(2)} (${paypalTutorsCount} tutors)`);
@@ -1300,7 +1338,10 @@ router.get('/platform-revenue', verifyToken, requireAdmin, async (req, res) => {
       console.log(`   ⏳ PayPal Withdrawals in Flight: $${paypalWithdrawalsInFlight.toFixed(2)} (${activePayPalWithdrawals.length} withdrawal(s))`);
     }
     console.log(`   💰 TOTAL PayPal Needed: $${totalPayPalNeeded.toFixed(2)}`);
-    console.log(`   📊 Historical: $${totalPayPalSent.toFixed(2)} sent via PayPal (${paypalWithdrawalCount} withdrawals)`)
+    console.log(`   📊 Historical: $${totalPayPalSent.toFixed(2)} sent via PayPal (${paypalWithdrawalCount} withdrawals)`);
+    console.log(`   📊 PayPal sender fees (platform cost): $${totalPayPalSenderFees.toFixed(2)}`);
+    console.log(`   📊 PayPal fees collected from tutors: $${totalPayPalTutorFees.toFixed(2)}`);
+    console.log(`   📊 True platform profit: $${truePlatformProfit.toFixed(2)}`);
     
     const totalOwedToTutors = totalTutorsPending + totalTutorsAvailable;
     console.log(`\n   Total Tutors with Balances: ${tutorsWithBalances}`);
@@ -1370,7 +1411,6 @@ router.get('/platform-revenue', verifyToken, requireAdmin, async (req, res) => {
         paymentsPerPage: limitNum,
         hasMore
       },
-      // ✅ NEW: Safe withdrawal information
       withdrawalInfo: {
         currentStripeBalance: parseFloat(currentStripeBalance.toFixed(2)),
         stripePendingBalance: parseFloat(stripePendingBalance.toFixed(2)),
@@ -1380,7 +1420,6 @@ router.get('/platform-revenue', verifyToken, requireAdmin, async (req, res) => {
           tutorsAvailable: parseFloat(totalTutorsAvailable.toFixed(2)),
           tutorsCount: tutorsWithBalances
         },
-        // 💰 NEW: Breakdown by payout method
         byPayoutMethod: {
           stripe: {
             owed: parseFloat(owedToStripeTutors.toFixed(2)),
@@ -1390,13 +1429,29 @@ router.get('/platform-revenue', verifyToken, requireAdmin, async (req, res) => {
           paypal: {
             owed: parseFloat(owedToPayPalTutors.toFixed(2)),
             tutorsCount: paypalTutorsCount,
-            note: 'Requires funds in your PayPal Business account'
+            note: 'Requires funds in your PayPal Business account',
+            inFlight: parseFloat(paypalWithdrawalsInFlight.toFixed(2)),
+            inFlightCount: activePayPalWithdrawals.length,
+            totalNeeded: parseFloat(totalPayPalNeeded.toFixed(2)),
+            historicalSent: parseFloat(totalPayPalSent.toFixed(2)),
+            historicalCount: paypalWithdrawalCount
           }
         },
         safeToWithdraw: parseFloat(safeToWithdraw.toFixed(2)),
         recognizedRevenue: parseFloat(totalNetPlatformRevenue.toFixed(2)),
         discrepancy: parseFloat(discrepancy.toFixed(2)),
         warning: warningMessage
+      },
+      payoutCosts: {
+        totalPayPalSenderFees: parseFloat(totalPayPalSenderFees.toFixed(2)),
+        totalPayPalTutorFees: parseFloat(totalPayPalTutorFees.toFixed(2)),
+        paypalFeeProfit: parseFloat(paypalFeeProfit.toFixed(2)),
+        truePlatformProfit: parseFloat(truePlatformProfit.toFixed(2)),
+        totalWithdrawals: payoutCosts.totalWithdrawalCount,
+        paypalWithdrawals: payoutCosts.paypalWithdrawalCount,
+        stripeWithdrawals: payoutCosts.stripeWithdrawalCount,
+        totalAmountWithdrawn: parseFloat(payoutCosts.totalAmountWithdrawn.toFixed(2)),
+        totalNetAmountSent: parseFloat(payoutCosts.totalNetAmountSent.toFixed(2))
       }
     });
     

@@ -112,31 +112,41 @@ class PaymentService {
           throw new Error('Stripe Payment Method ID required for saved card payments');
         }
         
-        // If customer ID is missing, create one
+        const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
+        // Ensure customer exists and PM is attached
         let customerIdToUse = stripeCustomerId;
         if (!customerIdToUse) {
           console.log('💳 [HYBRID] No Stripe customer ID found, creating one...');
-          const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
           const student = await User.findById(userId);
           
           const customer = await stripe.customers.create({
             email: student.email,
             name: student.name || `${student.firstName} ${student.lastName}`,
-            metadata: {
-              userId: userId.toString()
-            }
+            metadata: { userId: userId.toString() }
           });
           
-          // Update user with new customer ID
           student.stripeCustomerId = customer.id;
           await student.save();
           customerIdToUse = customer.id;
           console.log('✅ [HYBRID] Created Stripe customer:', customerIdToUse);
         }
 
+        // Ensure PM is attached to the correct customer
+        const pm = await stripe.paymentMethods.retrieve(stripePaymentMethodId);
+        if (pm.customer === customerIdToUse) {
+          console.log('✅ [HYBRID] PM already attached to correct customer');
+        } else if (pm.customer) {
+          console.log(`⚠️ [HYBRID] PM attached to ${pm.customer}, expected ${customerIdToUse} — using PM's customer`);
+          customerIdToUse = pm.customer;
+          await User.findByIdAndUpdate(userId, { stripeCustomerId: customerIdToUse });
+        } else {
+          await stripe.paymentMethods.attach(stripePaymentMethodId, { customer: customerIdToUse });
+          console.log('✅ [HYBRID] PM attached to customer');
+        }
+
         const tutor = lesson.tutorId;
         
-        // Check tutor's payout method
         const hasStripeConnect = tutor.stripeConnectAccountId && tutor.stripeConnectOnboarded;
         
         console.log(`💳 [HYBRID] Processing card portion for tutor with payout: ${tutor.payoutProvider}`, {
@@ -144,7 +154,6 @@ class PaymentService {
           paymentMethodAmount
         });
 
-        const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
         const paymentIntentParams = {
           amount: Math.round(paymentMethodAmount * 100),
           currency: 'usd',
@@ -239,32 +248,41 @@ class PaymentService {
         throw new Error('Stripe Payment Method ID required for saved card payments');
       }
 
-      // If customer ID is missing, create one
+      const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
+      // Ensure customer exists
       let customerIdToUse = stripeCustomerId;
       if (!customerIdToUse) {
         console.log('💳 No Stripe customer ID found, creating one...');
-        const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
         const student = await User.findById(userId);
         
         const customer = await stripe.customers.create({
           email: student.email,
           name: student.name || `${student.firstName} ${student.lastName}`,
-          metadata: {
-            userId: userId.toString()
-          }
+          metadata: { userId: userId.toString() }
         });
         
-        // Update user with new customer ID
         student.stripeCustomerId = customer.id;
         await student.save();
         customerIdToUse = customer.id;
         console.log('✅ Created Stripe customer:', customerIdToUse);
       }
 
-      // Get tutor info
+      // Ensure PM is attached to the correct customer
+      const pm = await stripe.paymentMethods.retrieve(stripePaymentMethodId);
+      if (pm.customer === customerIdToUse) {
+        console.log('✅ PM already attached to correct customer');
+      } else if (pm.customer) {
+        console.log(`⚠️ PM attached to ${pm.customer}, expected ${customerIdToUse} — using PM's customer`);
+        customerIdToUse = pm.customer;
+        await User.findByIdAndUpdate(userId, { stripeCustomerId: customerIdToUse });
+      } else {
+        await stripe.paymentMethods.attach(stripePaymentMethodId, { customer: customerIdToUse });
+        console.log('✅ PM attached to customer');
+      }
+
       const tutor = lesson.tutorId;
       
-      // Check tutor's payout method
       const hasStripeConnect = tutor.stripeConnectAccountId && tutor.stripeConnectOnboarded;
       const hasPayPal = tutor.payoutProvider === 'paypal' && !!tutor.payoutDetails?.paypalEmail;
       const hasManual = tutor.payoutProvider === 'manual';
@@ -275,10 +293,6 @@ class PaymentService {
         hasManual
       });
 
-      // Create PaymentIntent with saved card
-      // Note: We call Stripe directly here instead of using stripeService.createPaymentIntent
-      // because we need to pass additional params (confirm, off_session, etc.)
-      const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
       const paymentIntentParams = {
         amount: Math.round(amount * 100), // Convert to cents
         currency: 'usd',
