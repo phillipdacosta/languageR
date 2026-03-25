@@ -1,7 +1,7 @@
 import { Component, OnInit, AfterViewInit, ViewChild, ElementRef, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Location } from '@angular/common';
-import { AlertController, LoadingController, ToastController } from '@ionic/angular';
+import { AlertController, LoadingController, ToastController, ViewWillEnter } from '@ionic/angular';
 import { UserService } from '../services/user.service';
 import { LessonService } from '../services/lesson.service';
 import { ClassService } from '../services/class.service';
@@ -10,7 +10,7 @@ import { WebSocketService } from '../services/websocket.service';
 import { TranscriptionService, LessonAnalysis } from '../services/transcription.service';
 import { ReminderService } from '../services/reminder.service';
 import { firstValueFrom } from 'rxjs';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, Subscription, takeUntil } from 'rxjs';
 import { LearningPlanService, LearningPlanSummary, GOAL_TYPE_LABELS } from '../services/learning-plan.service';
 import { AnalysisTranslationService } from '../services/analysis-translation.service';
 
@@ -20,7 +20,7 @@ import { AnalysisTranslationService } from '../services/analysis-translation.ser
   styleUrls: ['./pre-call.page.scss'],
   standalone: false,
 })
-export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
+export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter {
   @ViewChild('videoPreview', { static: false }) videoPreviewRef!: ElementRef<HTMLVideoElement>;
   @ViewChild('agoraPreview', { static: false }) agoraPreviewRef!: ElementRef<HTMLDivElement>;
 
@@ -77,6 +77,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
   prevNotesAnalysisId: string | null = null;
   prevNotesTranslating = false;
   prevNotesShowingTranslation = false;
+  private translationSub?: Subscription;
 
   // Learning Plan context (for tutors viewing student plan)
   planSummary: LearningPlanSummary | null = null;
@@ -124,11 +125,17 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     this.lessonId = params['lessonId'] || '';
     this.isClass = params['isClass'] === 'true';
     const isOfficeHours = params['officeHours'] === 'true';
-    
-    // Suppress the lesson reminder for this lesson while on pre-call
+
     if (this.lessonId) {
       this.reminderService.suppressForLesson(this.lessonId);
     }
+
+    this.translationSub = this.analysisTranslation.onTranslationChanged().subscribe(changedId => {
+      if (changedId === this.prevNotesAnalysisId) {
+        this.refreshPrevNotesTranslationState();
+        this.cdr.detectChanges();
+      }
+    });
     const waitingForTutor = params['waitingForTutor'] === 'true';
     
     console.log('🚀 PRE-CALL ngOnInit() - Query Params:', {
@@ -373,9 +380,11 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       });
   }
 
+  ionViewWillEnter() {
+    this.refreshPrevNotesTranslationState();
+  }
+
   async ngAfterViewInit() {
-    // Request camera/mic access for preview after view is initialized
-    // This ensures videoPreviewRef is available
     await this.setupPreview();
     
     // Safety: ensure isLoading never stays stuck (e.g., if getUserMedia hangs)
@@ -1033,9 +1042,8 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy() {
-    console.log('🚪 PreCall: ngOnDestroy() called - cleaning up resources...');
-    
-    // Unsuppress the lesson reminder (unless entering classroom — video-call will suppress it)
+    this.translationSub?.unsubscribe();
+
     if (this.lessonId && !this.isEnteringClassroom) {
       this.reminderService.unsuppressForLesson(this.lessonId);
     }
@@ -2202,13 +2210,22 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       if (cached) {
         this.analysisTranslation.seedFromResponse(this.prevNotesAnalysisId, cached);
       }
-      if (this.analysisTranslation.isShowingTranslated(this.prevNotesAnalysisId)) {
-        const t = this.analysisTranslation.getTranslation(this.prevNotesAnalysisId);
-        if (t && this.originalPreviousLessonNotes) {
-          this.previousLessonNotes = this.analysisTranslation.applyTranslation(this.originalPreviousLessonNotes, t) as LessonAnalysis;
-          this.prevNotesShowingTranslation = true;
-        }
-      }
+      this.refreshPrevNotesTranslationState();
+    }
+  }
+
+  private refreshPrevNotesTranslationState() {
+    if (!this.prevNotesAnalysisId || !this.originalPreviousLessonNotes) return;
+
+    const showing = this.analysisTranslation.isShowingTranslated(this.prevNotesAnalysisId);
+    const t = this.analysisTranslation.getTranslation(this.prevNotesAnalysisId);
+
+    if (showing && t && !this.prevNotesShowingTranslation) {
+      this.previousLessonNotes = this.analysisTranslation.applyTranslation(this.originalPreviousLessonNotes, t) as LessonAnalysis;
+      this.prevNotesShowingTranslation = true;
+    } else if (!showing && this.prevNotesShowingTranslation) {
+      this.previousLessonNotes = { ...this.originalPreviousLessonNotes } as LessonAnalysis;
+      this.prevNotesShowingTranslation = false;
     }
   }
 

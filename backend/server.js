@@ -25,13 +25,28 @@ const { initializeAudioCronJobs } = require('./cron/audioBackupCron');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:8100',
-    methods: ['GET', 'POST'],
-    credentials: true
-  }
-});
+
+const allowedOrigins = [
+  process.env.CORS_ORIGIN || 'http://localhost:8100',
+  'http://localhost:8100',
+  'capacitor://localhost',
+  'http://localhost'
+].filter(Boolean);
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log('CORS blocked origin:', origin);
+      callback(null, true);
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  credentials: true
+};
+
+const io = new Server(server, { cors: corsOptions });
 const PORT = process.env.PORT || 3000;
 
 // Health check route for Render - MUST be first, before any middleware
@@ -47,11 +62,8 @@ app.get('/health', (req, res) => {
 // Middleware
 app.use(helmet());
 app.use(morgan('combined'));
-app.use(cookieParser()); // Add cookie parser middleware
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:8100',
-  credentials: true
-}));
+app.use(cookieParser());
+app.use(cors(corsOptions));
 
 // IMPORTANT: Skip JSON/URL parsing for file upload routes
 // Multer handles multipart/form-data, express.json() should not touch it

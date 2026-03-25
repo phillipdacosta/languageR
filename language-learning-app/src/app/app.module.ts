@@ -9,7 +9,12 @@ import { IonicModule, IonicRouteStrategy } from '@ionic/angular';
 import { IonicStorageModule } from '@ionic/storage-angular';
 
 import { AuthModule, AuthHttpInterceptor } from '@auth0/auth0-angular';
+import { Capacitor } from '@capacitor/core';
 import { environment } from '../environments/environment';
+
+const authRedirectUri = Capacitor.isNativePlatform()
+  ? 'com.languageapp.learning://callback'
+  : environment.auth0.redirectUri;
 
 // Translation imports
 import { TranslateModule } from '@ngx-translate/core';
@@ -51,17 +56,16 @@ import { IonicModule as IonicModuleImport } from '@ionic/angular';
       domain: environment.auth0.domain,
       clientId: environment.auth0.clientId,
       authorizationParams: {
-        redirect_uri: environment.auth0.redirectUri,
+        redirect_uri: authRedirectUri,
         audience: environment.auth0.audience,
         scope: 'openid profile email'
       },
-      // Disable HTTP interceptor for now - we'll use dev tokens
       httpInterceptor: {
         allowedList: []
       },
-      useRefreshTokens: false,
+      useRefreshTokens: Capacitor.isNativePlatform(),
       cacheLocation: 'localstorage',
-      skipRedirectCallback: false
+      skipRedirectCallback: Capacitor.isNativePlatform()
     }),
     TranslateModule.forRoot()
   ],

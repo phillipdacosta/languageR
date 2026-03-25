@@ -8,7 +8,7 @@ import { AuthService } from '../services/auth.service';
 import { UserService, User } from '../services/user.service';
 import { WalletService } from '../services/wallet.service';
 import { Observable, takeUntil, take, filter, firstValueFrom, observeOn, asyncScheduler } from 'rxjs';
-import { Subject } from 'rxjs';
+import { Subject, Subscription } from 'rxjs';
 import { LessonService, Lesson } from '../services/lesson.service';
 import { ClassService, ClassInvitation } from '../services/class.service';
 import { ClassInvitationModalComponent } from '../components/class-invitation-modal/class-invitation-modal.component';
@@ -383,6 +383,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   // Previous notes translation
   prevNotesAnalysisId: string | null = null;
   prevNotesOriginalAnalysis: any = null;
+  private translationSub?: Subscription;
   prevNotesDisplayAnalysis: any = null;
   prevNotesTranslating = false;
   prevNotesShowingTranslation = false;
@@ -574,7 +575,13 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     });
     this._darkModeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 
-    // Load user data and stats
+    this.translationSub = this.analysisTranslation.onTranslationChanged().subscribe(changedId => {
+      if (changedId === this.prevNotesAnalysisId) {
+        this.refreshPrevNotesTranslationState();
+        this.cdr.detectChanges();
+      }
+    });
+
     this.loadUserStats();
     
     // Subscribe to wallet balance updates for students
@@ -1686,6 +1693,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
 
   ngOnDestroy() {
     this._darkModeObserver?.disconnect();
+    this.translationSub?.unsubscribe();
     if (this.resizeListener) {
       window.removeEventListener('resize', this.resizeListener);
     }

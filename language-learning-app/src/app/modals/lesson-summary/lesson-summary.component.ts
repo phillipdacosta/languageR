@@ -46,6 +46,14 @@ export class LessonSummaryComponent implements OnInit {
   translating = false;
   showingTranslation = false;
 
+  // Pre-computed template properties
+  progressNoteVisible = false;
+  progressColorClass = '';
+  progressIcon = 'trending-up';
+  mainFocusText = '';
+  hasPersistentChallenges = false;
+  uniqueCorrectedExcerpts: any[] = [];
+
   // Expose Math for template
   Math = Math;
 
@@ -72,7 +80,7 @@ export class LessonSummaryComponent implements OnInit {
     if (this.mockAnalysis) {
       this.analysis = this.mockAnalysis;
       this.loading = false;
-      // Mock tutor info
+      this.computeDerivedProperties();
       this.tutorInfo = {
         firstName: 'Mary',
         lastInitial: 'J',
@@ -110,6 +118,7 @@ export class LessonSummaryComponent implements OnInit {
             this.analysis = analysis;
             this.loading = false;
             clearInterval(interval);
+            this.computeDerivedProperties();
             this.initTranslationState();
             console.log('✅ Analysis loaded successfully');
           } else if (analysis.status === 'failed' || analysis.status === 'insufficient_data') {
@@ -134,233 +143,71 @@ export class LessonSummaryComponent implements OnInit {
     }, 2000); // Check every 2 seconds
   }
 
-  /**
-   * Get unique corrected excerpts that aren't already shown in error patterns
-   */
-  getUniqueCorrectedExcerpts() {
-    if (!this.analysis?.correctedExcerpts || !this.analysis?.errorPatterns) {
-      return this.analysis?.correctedExcerpts || [];
-    }
-    
-    // Collect all original texts from error patterns
-    const errorPatternOriginals = new Set<string>();
-    this.analysis.errorPatterns.forEach(pattern => {
-      pattern.examples?.forEach(example => {
-        if (example.original) {
-          errorPatternOriginals.add(example.original.trim().toLowerCase());
-        }
-      });
-    });
-    
-    // Filter out excerpts that match error pattern examples
-    return this.analysis.correctedExcerpts.filter(excerpt => {
-      const excerptOriginal = excerpt.original?.trim().toLowerCase() || '';
-      return !errorPatternOriginals.has(excerptOriginal);
-    });
-  }
+  private computeDerivedProperties() {
+    if (!this.analysis) return;
 
-  /**
-   * Determine if progress text should be shown
-   * Hide for native speakers (C2) or first lessons
-   */
-  shouldShowProgress(): boolean {
-    if (!this.analysis?.overallAssessment?.progressFromLastLesson) {
-      return false;
-    }
-    
-    const progressText = this.analysis.overallAssessment.progressFromLastLesson.toLowerCase();
-    const proficiencyLevel = this.analysis.overallAssessment.proficiencyLevel?.toUpperCase();
-    
-    // Don't show progress for native speakers (C2)
-    if (proficiencyLevel === 'C2') {
-      return false;
-    }
-    
-    // Don't show if it's explicitly a first lesson
-    if (progressText.includes('first analyzed lesson') || progressText.includes('baseline established')) {
-      return false;
-    }
-    
-    return true;
-  }
+    // Progress note
+    const progressText = this.analysis.overallAssessment?.progressFromLastLesson || '';
+    const level = this.analysis.overallAssessment?.proficiencyLevel?.toUpperCase() || '';
+    const lower = progressText.toLowerCase();
 
-  /**
-   * Get the appropriate icon for progress direction
-   */
-  getProgressIcon(): string {
-    if (!this.analysis?.overallAssessment?.progressFromLastLesson) {
-      return 'trending-up';
-    }
-    
-    const progressText = this.analysis.overallAssessment.progressFromLastLesson.toLowerCase();
-    
-    // Check for decrease indicators
-    if (progressText.includes('decreased') || 
-        progressText.includes('declined') || 
-        progressText.includes('worsened') ||
-        progressText.includes('dropped') ||
-        progressText.includes('fell')) {
-      return 'trending-down';
-    }
-    
-    // Check for increase indicators
-    if (progressText.includes('increased') || 
-        progressText.includes('improved') || 
-        progressText.includes('enhanced') ||
-        progressText.includes('expanded') ||
-        progressText.includes('grew')) {
-      return 'trending-up';
-    }
-    
-    // Default to neutral/up if unclear
-    return 'trending-up';
-  }
+    this.progressNoteVisible = !!progressText
+      && level !== 'C2'
+      && !lower.includes('first analyzed lesson')
+      && !lower.includes('baseline established');
 
-  /**
-   * Get the appropriate color class for progress
-   */
-  getProgressColorClass(): string {
-    if (!this.analysis?.overallAssessment?.progressFromLastLesson) {
-      return '';
+    if (lower.includes('decreased') || lower.includes('declined') || lower.includes('worsened')) {
+      this.progressColorClass = 'progress-decrease';
+    } else if (lower.includes('increased') || lower.includes('improved') || lower.includes('expanded')) {
+      this.progressColorClass = 'progress-increase';
+    } else {
+      this.progressColorClass = 'progress-neutral';
     }
-    
-    const progressText = this.analysis.overallAssessment.progressFromLastLesson.toLowerCase();
-    
-    // Red for decreases
-    if (progressText.includes('decreased') || 
-        progressText.includes('declined') || 
-        progressText.includes('worsened')) {
-      return 'progress-decrease';
-    }
-    
-    // Green for increases
-    if (progressText.includes('increased') || 
-        progressText.includes('improved') || 
-        progressText.includes('expanded')) {
-      return 'progress-increase';
-    }
-    
-    // Neutral for stable/remained
-    return 'progress-neutral';
-  }
 
-  /**
-   * Get main focus for next lesson
-   */
-  getMainFocus(): string {
-    if (!this.analysis) return '';
-    
-    // Priority 1: Top error if high priority
-    if (this.analysis.topErrors && this.analysis.topErrors.length > 0) {
-      const topError = this.analysis.topErrors[0];
-      // Check for high priority/impact
-      if (topError.impact === 'high' || 
-          (topError.teachingPriority && topError.teachingPriority.toLowerCase().includes('high'))) {
-        return topError.issue;
+    if (lower.includes('decreased') || lower.includes('declined') || lower.includes('worsened') || lower.includes('dropped') || lower.includes('fell')) {
+      this.progressIcon = 'trending-down';
+    } else {
+      this.progressIcon = 'trending-up';
+    }
+
+    // Main focus
+    if (this.analysis.topErrors?.length) {
+      const top = this.analysis.topErrors[0];
+      if (top.impact === 'high' || top.teachingPriority?.toLowerCase().includes('high')) {
+        this.mainFocusText = top.issue;
       }
     }
-    
-    // Priority 2: First recommended focus
-    if (this.analysis.recommendedFocus && this.analysis.recommendedFocus.length > 0) {
-      return this.analysis.recommendedFocus[0];
+    if (!this.mainFocusText && this.analysis.recommendedFocus?.length) {
+      this.mainFocusText = this.analysis.recommendedFocus[0];
     }
-    
-    // Priority 3: First area for improvement
-    if (this.analysis.areasForImprovement && this.analysis.areasForImprovement.length > 0) {
-      return this.analysis.areasForImprovement[0];
+    if (!this.mainFocusText && this.analysis.areasForImprovement?.length) {
+      this.mainFocusText = this.analysis.areasForImprovement[0];
     }
-    
-    return 'Continue practicing conversation skills';
+
+    // Persistent challenges (filter out "None identified")
+    const challenges = this.analysis.progressionMetrics?.persistentChallenges || [];
+    this.hasPersistentChallenges = challenges.length > 0
+      && !(challenges.length === 1 && (challenges[0].toLowerCase().includes('none') || challenges[0].toLowerCase().includes('n/a')));
+
+    // Unique corrected excerpts (filter out duplicates already in error patterns)
+    if (this.analysis.correctedExcerpts?.length) {
+      const errorPatternOriginals = new Set<string>();
+      this.analysis.errorPatterns?.forEach(pattern => {
+        pattern.examples?.forEach(example => {
+          if (example.original) {
+            errorPatternOriginals.add(example.original.trim().toLowerCase());
+          }
+        });
+      });
+      this.uniqueCorrectedExcerpts = this.analysis.correctedExcerpts.filter(excerpt => {
+        const orig = excerpt.original?.trim().toLowerCase() || '';
+        return !errorPatternOriginals.has(orig);
+      });
+    } else {
+      this.uniqueCorrectedExcerpts = [];
+    }
   }
 
-  /**
-   * Check if persistent challenges only contains "None identified"
-   */
-  isOnlyNoneIdentified(challenges: string[]): boolean {
-    if (!challenges || challenges.length === 0) return true;
-    if (challenges.length === 1 && 
-        (challenges[0].toLowerCase().includes('none') || 
-         challenges[0].toLowerCase().includes('n/a'))) {
-      return true;
-    }
-    return false;
-  }
-
-  /**
-   * Get celebratory message based on performance
-   */
-  getCelebrationMessage(): string | null {
-    if (!this.analysis) return null;
-    
-    const metrics = this.analysis.progressionMetrics;
-    const level = this.analysis.overallAssessment.proficiencyLevel;
-    
-    // Native speaker
-    if (level === 'C2') {
-      return '🎯 Native-level fluency maintained!';
-    }
-    
-    // Grammar improvement
-    if (metrics?.grammarAccuracyChange && metrics.grammarAccuracyChange > 0) {
-      return `🔥 Grammar improved ${metrics.grammarAccuracyChange}% since last session!`;
-    }
-    
-    // Vocabulary growth
-    if (metrics?.vocabularyGrowth && metrics.vocabularyGrowth > 3) {
-      return `🥳 Your vocabulary grew by ${metrics.vocabularyGrowth} words!`;
-    }
-    
-    // Error rate decrease
-    if (metrics?.errorRateChange && metrics.errorRateChange < 0) {
-      const improvement = Math.abs(metrics.errorRateChange);
-      return `✨ ${improvement}% fewer errors than last time!`;
-    }
-    
-    // Level up
-    if (metrics?.proficiencyChange === 'improved') {
-      return `🎉 Congratulations! You leveled up to ${level}!`;
-    }
-    
-    return null;
-  }
-
-  /**
-   * Get warning message if performance declined
-   */
-  getWarningMessage(): string | null {
-    if (!this.analysis) return null;
-    
-    const metrics = this.analysis.progressionMetrics;
-    
-    // More errors
-    if (metrics?.errorRateChange && metrics.errorRateChange > 5) {
-      return `⚠️ More errors today (${metrics.errorRateChange}% increase) — let's review them next time`;
-    }
-    
-    // Grammar declined
-    if (metrics?.grammarAccuracyChange && metrics.grammarAccuracyChange < -5) {
-      return `⚠️ Grammar accuracy dropped ${Math.abs(metrics.grammarAccuracyChange)}% — focus on fundamentals`;
-    }
-    
-    return null;
-  }
-
-  /**
-   * Get previous grammar score for progress visualization
-   */
-  getPreviousGrammarScore(): number | null {
-    if (!this.analysis?.progressionMetrics?.grammarAccuracyChange) {
-      return null;
-    }
-    
-    const current = this.analysis.grammarAnalysis.accuracyScore;
-    const change = this.analysis.progressionMetrics.grammarAccuracyChange;
-    return current - change;
-  }
-
-  /**
-   * Show confidence tooltip
-   */
   async showConfidenceTooltip() {
     const alert = await this.alertController.create({
       header: 'Confidence Score',
@@ -597,6 +444,7 @@ export class LessonSummaryComponent implements OnInit {
       this.analysisTranslation.showOriginal(this.analysisId);
       this.analysis = this.originalAnalysis ? { ...this.originalAnalysis } : this.analysis;
       this.showingTranslation = false;
+      this.computeDerivedProperties();
       return;
     }
 
@@ -607,6 +455,7 @@ export class LessonSummaryComponent implements OnInit {
         this.analysis = this.analysisTranslation.applyTranslation(this.originalAnalysis, t) as LessonAnalysis;
       }
       this.showingTranslation = true;
+      this.computeDerivedProperties();
       return;
     }
 
@@ -618,6 +467,7 @@ export class LessonSummaryComponent implements OnInit {
         }
         this.translating = false;
         this.showingTranslation = true;
+        this.computeDerivedProperties();
       },
       error: () => {
         this.translating = false;

@@ -1,4 +1,7 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, NgZone } from '@angular/core';
+import { App as CapacitorApp, URLOpenListenerEvent } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
+import { Capacitor } from '@capacitor/core';
 import { LoadingService } from './services/loading.service';
 import { ThemeService } from './services/theme.service';
 import { WebSocketService } from './services/websocket.service';
@@ -45,13 +48,43 @@ export class AppComponent implements OnInit, OnDestroy {
     private languageService: LanguageService,
     private earlyExitService: EarlyExitService,
     private router: Router,
+    private zone: NgZone,
     private reminderService: ReminderService,
     private lessonService: LessonService,
     private classService: ClassService,
     private tutorFeedbackService: TutorFeedbackService,
     private alertController: AlertController,
     private toastController: ToastController
-  ) {}
+  ) {
+    this.initializeDeepLinks();
+  }
+
+  private initializeDeepLinks() {
+    if (!Capacitor.isNativePlatform()) return;
+
+    CapacitorApp.addListener('appUrlOpen', async (event: URLOpenListenerEvent) => {
+      await Browser.close();
+
+      this.zone.run(async () => {
+        const isCallback = event.url.includes('callback') &&
+          (event.url.includes('code=') || event.url.includes('error='));
+
+        if (isCallback) {
+          try {
+            await this.authService.handleAuthCallback(event.url).toPromise();
+            this.router.navigate(['/tabs'], { replaceUrl: true });
+          } catch (error) {
+            console.error('Auth callback error:', error);
+            this.router.navigate(['/login'], { replaceUrl: true });
+          }
+        } else {
+          const slug = event.url.replace(/^[^:]+:\/\//, '');
+          const path = slug.startsWith('/') ? slug : '/' + slug;
+          this.router.navigateByUrl(path);
+        }
+      });
+    });
+  }
 
   ngOnInit() {
     this.languageService.initializeLanguage();

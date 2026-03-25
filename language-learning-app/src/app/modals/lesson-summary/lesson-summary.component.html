@@ -49,21 +49,13 @@
           </button>
         </div>
 
-        <!-- Celebration / warning pill at top -->
-        <div class="pill-banner" *ngIf="getCelebrationMessage()">
-          {{ getCelebrationMessage() }}
-        </div>
-        <div class="pill-banner pill-banner--warning" *ngIf="getWarningMessage()">
-          {{ getWarningMessage() }}
-        </div>
-
         <!-- CEFR Level Jump Banner -->
         <div class="level-jump-banner" *ngIf="analysis.progressionMetrics?.previousProficiencyLevel && analysis.progressionMetrics?.previousProficiencyLevel !== analysis.overallAssessment.proficiencyLevel">
           <ion-icon name="trophy"></ion-icon>
           <span>You've moved from <strong>{{ analysis.progressionMetrics?.previousProficiencyLevel }}</strong> to <strong>{{ analysis.overallAssessment.proficiencyLevel }}</strong> since your last session!</span>
         </div>
 
-        <!-- Hero row: Level badge + Vocabulary chip -->
+        <!-- Level badge -->
         <div class="level-hero-row">
           <div class="level-section">
             <div class="level-badge-large">
@@ -80,22 +72,11 @@
             </div>
             <div
               class="progress-note"
-              *ngIf="shouldShowProgress()"
-              [class]="getProgressColorClass()"
+              *ngIf="progressNoteVisible"
+              [class]="progressColorClass"
             >
-              <ion-icon [name]="getProgressIcon()"></ion-icon>
+              <ion-icon [name]="progressIcon"></ion-icon>
               {{ analysis.overallAssessment.progressFromLastLesson }}
-            </div>
-          </div>
-
-          <div class="level-side-chip">
-            <div class="side-chip-label">Vocabulary</div>
-            <div class="side-chip-value">
-              {{ analysis.vocabularyAnalysis.uniqueWordCount }} words
-            </div>
-            <div class="side-chip-change" *ngIf="analysis.progressionMetrics?.vocabularyGrowth && (analysis.progressionMetrics?.vocabularyGrowth || 0) > 0">
-              <ion-icon name="trending-up"></ion-icon>
-              +{{ analysis.progressionMetrics?.vocabularyGrowth || 0 }}
             </div>
           </div>
         </div>
@@ -123,56 +104,6 @@
           </div>
         </div>
 
-        <!-- Grammar accuracy progress (AI-sourced only) -->
-        <div
-          class="progress-over-time-card"
-          *ngIf="analysis.source !== 'tutor' && getPreviousGrammarScore() !== null"
-        >
-          <h4>📈 Grammar Accuracy Progress</h4>
-          <div class="progress-comparison">
-            <div class="progress-item previous">
-              <div class="progress-label">Last Session</div>
-              <div class="progress-value">
-                {{ getPreviousGrammarScore() }}%
-              </div>
-            </div>
-            <div class="progress-arrow">
-              <ion-icon
-                [name]="
-                  (analysis.progressionMetrics?.grammarAccuracyChange || 0) >= 0
-                    ? 'arrow-up'
-                    : 'arrow-down'
-                "
-                [style.color]="
-                  (analysis.progressionMetrics?.grammarAccuracyChange || 0) >= 0
-                    ? '#10b981'
-                    : '#ef4444'
-                "
-              ></ion-icon>
-              <span
-                class="progress-change"
-                [style.color]="
-                  (analysis.progressionMetrics?.grammarAccuracyChange || 0) >= 0
-                    ? '#10b981'
-                    : '#ef4444'
-                "
-              >
-                {{
-                  (analysis.progressionMetrics?.grammarAccuracyChange || 0) > 0
-                    ? '+'
-                    : ''
-                }}{{ analysis.progressionMetrics?.grammarAccuracyChange || 0 }}%
-              </span>
-            </div>
-            <div class="progress-item current">
-              <div class="progress-label">This Session</div>
-              <div class="progress-value">
-                {{ analysis.grammarAnalysis.accuracyScore }}%
-              </div>
-            </div>
-          </div>
-        </div>
-
         <!-- Advanced Words Used -->
         <div class="advanced-words-section" *ngIf="analysis.vocabularyAnalysis?.advancedWordsUsed?.length">
           <div class="section-icon">✨</div>
@@ -196,12 +127,12 @@
         </div>
 
         <!-- Main Focus Next Lesson -->
-        <div class="main-focus-card" *ngIf="getMainFocus()">
+        <div class="main-focus-card" *ngIf="mainFocusText">
           <div class="main-focus-header">
             <ion-icon name="bulb"></ion-icon>
             <h4>Main Focus Next Lesson</h4>
           </div>
-          <p class="main-focus-text">{{ getMainFocus() }}</p>
+          <p class="main-focus-text">{{ mainFocusText }}</p>
         </div>
 
         <!-- Top Priority Errors -->
@@ -292,7 +223,7 @@
         </ion-card>
 
         <!-- Corrected Excerpts with Save -->
-        <ion-card *ngIf="getUniqueCorrectedExcerpts()?.length" class="excerpts-card">
+        <ion-card *ngIf="uniqueCorrectedExcerpts?.length" class="excerpts-card">
           <ion-card-header>
             <ion-card-title>
               <ion-icon name="chatbox-ellipses"></ion-icon>
@@ -301,7 +232,7 @@
           </ion-card-header>
           <ion-card-content>
             <div
-              *ngFor="let excerpt of getUniqueCorrectedExcerpts()"
+              *ngFor="let excerpt of uniqueCorrectedExcerpts"
               class="excerpt-item"
             >
               <div class="excerpt-context">{{ excerpt.context }}</div>
@@ -335,69 +266,14 @@
           </ion-card-content>
         </ion-card>
 
-        <!-- Stats Grid -->
-        <div class="stats-grid">
-          <!-- Speaking Time -->
-          <div class="metric-card time-card">
-            <div class="metric-icon">
-              <ion-icon name="time"></ion-icon>
-            </div>
-            <div class="metric-content">
-              <div class="metric-value">
-                {{ analysis.progressionMetrics?.speakingTimeMinutes || 0 }}m
-              </div>
-              <div class="metric-label">Speaking Time</div>
-            </div>
-          </div>
-
-          <!-- Error Rate (AI-sourced only) -->
-          <div class="metric-card error-rate-card" *ngIf="analysis.source !== 'tutor'">
-            <div class="metric-icon">
-              <ion-icon name="analytics"></ion-icon>
-            </div>
-            <div class="metric-content">
-              <div class="metric-value">
-                {{ analysis.progressionMetrics?.errorRate || 0 }}
-              </div>
-              <div class="metric-label">Errors/Minute</div>
-              <div class="metric-change" *ngIf="analysis.progressionMetrics?.errorRateChange && (analysis.progressionMetrics?.errorRateChange || 0) !== 0">
-                {{ (analysis.progressionMetrics?.errorRateChange || 0) > 0 ? '+' : '' }}{{ analysis.progressionMetrics?.errorRateChange || 0 }}
-              </div>
-            </div>
-          </div>
-
-          <!-- Fluency (AI-sourced only) -->
-          <div class="metric-card fluency-card" *ngIf="analysis.source !== 'tutor'">
-            <div class="metric-icon">
-              <ion-icon name="flash"></ion-icon>
-            </div>
-            <div class="metric-content">
-              <div class="metric-value">
-                {{ analysis.fluencyAnalysis?.overallFluencyScore || 0 }}
-              </div>
-              <div class="metric-label">Fluency Score</div>
-              <div class="metric-change positive" *ngIf="analysis.progressionMetrics?.fluencyImprovement && (analysis.progressionMetrics?.fluencyImprovement || 0) > 0">
-                +{{ analysis.progressionMetrics?.fluencyImprovement || 0 }}
-              </div>
-            </div>
-          </div>
-
-          <!-- Complex sentences (AI-sourced only) -->
-          <div class="metric-card complexity-card" *ngIf="analysis.source !== 'tutor'">
-            <div class="metric-icon">
-              <ion-icon name="git-branch"></ion-icon>
-            </div>
-            <div class="metric-content">
-              <div class="metric-value">
-                {{ analysis.progressionMetrics?.complexSentencesUsed || 0 }}
-              </div>
-              <div class="metric-label">Complex Sentences</div>
-            </div>
-          </div>
+        <!-- Speaking Time -->
+        <div class="speaking-time-chip" *ngIf="analysis.progressionMetrics?.speakingTimeMinutes">
+          <ion-icon name="mic-outline"></ion-icon>
+          <span>You spoke for <strong>{{ analysis.progressionMetrics?.speakingTimeMinutes }} min</strong> this lesson</span>
         </div>
 
         <!-- Persistent Challenges (Keep an eye on) -->
-        <div class="persistent-challenges-section" *ngIf="analysis.progressionMetrics?.persistentChallenges?.length && !isOnlyNoneIdentified(analysis.progressionMetrics?.persistentChallenges || [])">
+        <div class="persistent-challenges-section" *ngIf="hasPersistentChallenges">
           <div class="section-header">
             <ion-icon name="eye"></ion-icon>
             <h4>Keep an eye on...</h4>

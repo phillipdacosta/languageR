@@ -1,9 +1,9 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Location } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
-import { LoadingController, AlertController, ToastController, ModalController, IonicModule } from '@ionic/angular';
+import { LoadingController, AlertController, ToastController, ModalController, IonicModule, ViewWillEnter } from '@ionic/angular';
 import { TutorAvailabilitySelectionModalComponent } from '../components/tutor-availability-selection-modal/tutor-availability-selection-modal.component';
 import { CommonModule } from '@angular/common';
 import { LessonAnalysis } from '../services/transcription.service';
@@ -13,6 +13,7 @@ import { LessonService } from '../services/lesson.service';
 import { AnalysisTranslationService } from '../services/analysis-translation.service';
 import { formatTimeInTz, formatDateInTz, getGlobalHour12 } from '../shared/timezone.utils';
 import { TranslateModule } from '@ngx-translate/core';
+import { Subscription } from 'rxjs';
 
 interface LessonInfo {
   _id: string;
@@ -40,7 +41,7 @@ interface LessonInfo {
   standalone: true,
   imports: [CommonModule, IonicModule, TranslateModule]
 })
-export class LessonAnalysisPage implements OnInit, OnDestroy {
+export class LessonAnalysisPage implements OnInit, OnDestroy, ViewWillEnter {
   lessonId: string = '';
   analysis: LessonAnalysis | null = null;
   lesson: LessonInfo | null = null;
@@ -68,6 +69,7 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
   originalAnalysis: LessonAnalysis | null = null;
   translating = false;
   showingTranslation = false;
+  private translationSub?: Subscription;
 
   // Expose Math for template
   Math = Math;
@@ -88,13 +90,13 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
     private reviewDeckService: ReviewDeckService,
     private lessonService: LessonService,
     private modalCtrl: ModalController,
-    private analysisTranslation: AnalysisTranslationService
+    private analysisTranslation: AnalysisTranslationService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
     this.lessonId = this.route.snapshot.paramMap.get('id') || '';
     if (this.lessonId) {
-      // Wait for user to be loaded before making API calls
       this.userService.getCurrentUser().subscribe(user => {
         if (user) {
           console.log('✅ User loaded, fetching analysis...');
@@ -106,13 +108,24 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
       this.error = 'No lesson ID provided';
       this.loading = false;
     }
+
+    this.translationSub = this.analysisTranslation.onTranslationChanged().subscribe(changedId => {
+      if (changedId === this.analysisId) {
+        this.syncTranslationState();
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  ionViewWillEnter() {
+    this.syncTranslationState();
   }
 
   ngOnDestroy() {
-    // Clean up polling interval on component destroy
     if (this.pollingInterval) {
       clearInterval(this.pollingInterval);
     }
+    this.translationSub?.unsubscribe();
   }
 
   async loadAnalysis() {
@@ -940,13 +953,22 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
       if (cached) {
         this.analysisTranslation.seedFromResponse(this.analysisId, cached);
       }
-      if (this.analysisTranslation.isShowingTranslated(this.analysisId)) {
-        const t = this.analysisTranslation.getTranslation(this.analysisId);
-        if (t && this.originalAnalysis) {
-          this.analysis = this.analysisTranslation.applyTranslation(this.originalAnalysis, t) as LessonAnalysis;
-          this.showingTranslation = true;
-        }
-      }
+      this.syncTranslationState();
+    }
+  }
+
+  private syncTranslationState() {
+    if (!this.analysisId || !this.originalAnalysis) return;
+
+    const showing = this.analysisTranslation.isShowingTranslated(this.analysisId);
+    const t = this.analysisTranslation.getTranslation(this.analysisId);
+
+    if (showing && t && !this.showingTranslation) {
+      this.analysis = this.analysisTranslation.applyTranslation(this.originalAnalysis, t) as LessonAnalysis;
+      this.showingTranslation = true;
+    } else if (!showing && this.showingTranslation) {
+      this.analysis = { ...this.originalAnalysis } as LessonAnalysis;
+      this.showingTranslation = false;
     }
   }
 

@@ -22,6 +22,7 @@ import { RescheduleLessonModalComponent } from '../../components/reschedule-less
 import { formatTimeInTz, formatDateInTz } from '../../shared/timezone.utils';
 import { MaterialService, TutorMaterial } from '../../services/material.service';
 import { LearningPlanService, LearningPlanSummary, GOAL_TYPE_LABELS } from '../../services/learning-plan.service';
+import { Subscription } from 'rxjs';
 
 // ── Interfaces ──────────────────────────────────────────────────
 interface AnalysisData {
@@ -239,6 +240,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   sidebarNotesTranslating = false;
   sidebarNotesShowingTranslation = false;
   sidebarNotesTranslationCache: any = null;
+  private translationSub?: Subscription;
 
   // Pre-computed score colors (no functions in template)
   grammarScoreColor = '#6b7280';
@@ -371,9 +373,17 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         }
       }
     });
+
+    this.translationSub = this.analysisTranslation.onTranslationChanged().subscribe(changedId => {
+      if (changedId === this.sidebarNotesAnalysisId) {
+        this.refreshSidebarFromTranslationState();
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   ngOnDestroy() {
+    this.translationSub?.unsubscribe();
     if (this.countdownInterval) {
       clearInterval(this.countdownInterval);
     }
