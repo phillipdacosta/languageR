@@ -8,9 +8,6 @@
     <ion-segment-button value="payments">
       <ion-label>Payment Monitoring</ion-label>
     </ion-segment-button>
-    <ion-segment-button value="tutors">
-      <ion-label>Tutor Review</ion-label>
-    </ion-segment-button>
   </ion-segment>
 </ion-header>
 
@@ -182,55 +179,6 @@
         <ion-icon name="checkmark-done-circle-outline"></ion-icon>
         <h2>All Systems Healthy!</h2>
         <p>No payment issues detected</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- TUTOR REVIEW TAB -->
-  <div *ngIf="selectedTab === 'tutors'" class="tutor-container">
-    <div *ngIf="loadingTutors" class="loading-container">
-      <ion-spinner></ion-spinner>
-    </div>
-
-    <div *ngIf="!loadingTutors" class="review-container">
-      <h2>Pending Approval ({{ pendingTutors.length }})</h2>
-
-      <div *ngIf="pendingTutors.length === 0" class="empty-state">
-        <ion-icon name="checkmark-done-circle-outline"></ion-icon>
-        <p>No tutors pending approval</p>
-      </div>
-
-      <div *ngFor="let tutor of pendingTutors" class="tutor-card">
-        <div class="tutor-info">
-          <img [src]="tutor.picture" *ngIf="tutor.picture" alt="{{tutor.name}}">
-          <div>
-            <h3>{{ tutor.name || tutor.email }}</h3>
-            <p>{{ tutor.email }}</p>
-            
-            <div class="status-badges">
-              <ion-badge *ngIf="tutor.stripeConnectOnboarded" color="success">
-                <ion-icon name="checkmark-circle"></ion-icon> Stripe
-              </ion-badge>
-              <ion-badge *ngIf="tutor.payoutProvider === 'paypal'" color="success">
-                <ion-icon name="checkmark-circle"></ion-icon> PayPal
-              </ion-badge>
-              <ion-badge *ngIf="tutor.payoutProvider === 'manual'" color="warning">
-                <ion-icon name="alert-circle"></ion-icon> Manual
-              </ion-badge>
-            </div>
-          </div>
-        </div>
-
-        <div class="action-buttons">
-          <ion-button color="success" (click)="approveVideo(tutor)">
-            <ion-icon name="checkmark-circle" slot="start"></ion-icon>
-            Approve
-          </ion-button>
-          <ion-button color="danger" (click)="rejectVideo(tutor)">
-            <ion-icon name="close-circle" slot="start"></ion-icon>
-            Reject
-          </ion-button>
-        </div>
       </div>
     </div>
   </div>

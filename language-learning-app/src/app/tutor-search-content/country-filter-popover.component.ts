@@ -26,7 +26,7 @@ import { PopoverController, NavParams } from '@ionic/angular';
           *ngFor="let country of filteredCountries"
           class="country-item"
           [class.selected]="isSelected(country)"
-          (click)="selectCountry(country)">
+          (click)="toggleCountry(country)">
           <app-flag-icon 
             *ngIf="country !== 'Any country'"
             [country]="country" 
@@ -39,6 +39,23 @@ import { PopoverController, NavParams } from '@ionic/angular';
             class="check-icon">
           </ion-icon>
         </div>
+      </div>
+
+      <div class="popover-footer">
+        <ion-button 
+          fill="clear" 
+          size="small" 
+          (click)="clearAll()"
+          class="clear-btn">
+          Clear all
+        </ion-button>
+        <ion-button 
+          fill="solid" 
+          size="small" 
+          (click)="applySelection()"
+          class="apply-btn">
+          Apply ({{ selectedCountries.length }})
+        </ion-button>
       </div>
     </div>
   `,
@@ -165,6 +182,33 @@ import { PopoverController, NavParams } from '@ionic/angular';
       flex-shrink: 0;
     }
 
+    .popover-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      border-top: 1px solid #e5e7eb;
+      flex-shrink: 0;
+      gap: 8px;
+    }
+
+    .clear-btn {
+      --color: #6b7280;
+      font-size: 13px;
+      margin: 0;
+      height: 32px;
+    }
+
+    .apply-btn {
+      --background: #3b82f6;
+      --color: #ffffff;
+      font-size: 13px;
+      margin: 0;
+      height: 32px;
+      flex: 1;
+      font-weight: 500;
+    }
+
     /* No results message */
     .no-results {
       padding: 20px 10px;
@@ -177,7 +221,7 @@ import { PopoverController, NavParams } from '@ionic/angular';
 })
 export class CountryFilterPopoverComponent implements OnInit {
   countries: string[] = [];
-  selectedCountry: string = 'any';
+  selectedCountries: string[] = [];
   searchTerm: string = '';
   filteredCountries: string[] = [];
 
@@ -188,7 +232,15 @@ export class CountryFilterPopoverComponent implements OnInit {
 
   ngOnInit() {
     this.countries = this.navParams.get('countries') || [];
-    this.selectedCountry = this.navParams.get('selectedCountry') || 'any';
+    const selectedCountriesParam = this.navParams.get('selectedCountries') || [];
+    // Handle both array and single string for backward compatibility
+    if (Array.isArray(selectedCountriesParam)) {
+      this.selectedCountries = [...selectedCountriesParam];
+    } else if (selectedCountriesParam && selectedCountriesParam !== 'any') {
+      this.selectedCountries = [selectedCountriesParam];
+    } else {
+      this.selectedCountries = [];
+    }
     this.filteredCountries = [...this.countries];
   }
 
@@ -210,13 +262,36 @@ export class CountryFilterPopoverComponent implements OnInit {
   }
 
   isSelected(country: string): boolean {
-    return this.selectedCountry === country || (country === 'Any country' && this.selectedCountry === 'any');
+    if (country === 'Any country') {
+      return this.selectedCountries.length === 0;
+    }
+    return this.selectedCountries.includes(country);
   }
 
-  selectCountry(country: string) {
-    // Immediately apply the selection and close
+  toggleCountry(country: string) {
+    if (country === 'Any country') {
+      // Selecting "Any country" clears all selections
+      this.selectedCountries = [];
+      return;
+    }
+
+    const index = this.selectedCountries.indexOf(country);
+    if (index > -1) {
+      // Deselect
+      this.selectedCountries.splice(index, 1);
+    } else {
+      // Select
+      this.selectedCountries.push(country);
+    }
+  }
+
+  clearAll() {
+    this.selectedCountries = [];
+  }
+
+  applySelection() {
     this.popoverController.dismiss({
-      selectedCountry: country
+      selectedCountries: this.selectedCountries
     });
   }
 }

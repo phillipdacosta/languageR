@@ -1,718 +1,1811 @@
-/* Background similar to a soft dashboard card */
-.page-background {
-  min-height: 100%;
-  display: flex;
-  justify-content: center;
-  padding: 24px 16px 32px;
-  background: radial-gradient(circle at top left, #f4f1ff 0, #f7fbff 40%, #ffffff 100%);
+// =============================================
+// LESSONS PAGE – AIRBNB / APPLE INSPIRED
+// =============================================
+
+// ─── Variables ─────────────────────────────
+$text-primary: #222222;
+$text-secondary: #717171;
+$text-muted: #B0B0B0;
+$border-light: #EBEBEB;
+$bg-page: #ffffff;
+$bg-hover: #F7F7F7;
+$bg-subtle: #F7F7F7;
+$radius-lg: 16px;
+$radius-md: 12px;
+$radius-sm: 8px;
+$shadow-card:
+  0 1px 2px rgba(0, 0, 0, 0.04),
+  0 4px 12px rgba(0, 0, 0, 0.06),
+  0 8px 24px rgba(0, 0, 0, 0.04);
+$transition-fast: 0.15s ease;
+
+// ─── Scrollbar Stability ──────────────────
+// Reserve scrollbar gutter so content doesn't shift left
+// when the lesson list becomes long enough to scroll.
+:host {
+  ion-content {
+    --overflow: auto;
+  }
+
+  ion-content::part(scroll) {
+    scrollbar-gutter: stable;
+  }
 }
 
-.lessons-shell {
-  width: 100%;
-  max-width: 900px;
+// ─── Entry Animations ─────────────────────
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
-/* Top header area */
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  gap: 16px;
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.page-header-text h1 {
-  margin: 0 0 6px;
-  font-size: 22px;
-  font-weight: 700;
-  color: #111827;
-}
-
-.page-header-text p {
-  margin: 0;
-  font-size: 14px;
-  color: #6b7280;
-}
-
-.page-header-badge {
-  min-width: 96px;
-  padding: 10px 14px;
-  border-radius: 999px;
-  background: #ffffff;
-  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.08);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-.page-header-badge .badge-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: #6366f1;
+// ─── Page Title ─────────────────────────────
+.page-title {
+  font-size: 24px;
   font-weight: 600;
+  color: $text-primary;
+  letter-spacing: -0.3px;
+  margin: 0 0 20px 0;
+  line-height: 1.2;
 }
 
-.page-header-badge .badge-value {
-  font-size: 22px;
-  font-weight: 700;
-  color: #111827;
-  margin-top: 4px;
+// ─── Page Container ────────────────────────
+.lessons-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 20px 16px 40px;
+  animation: fadeIn 0.35s ease-out;
+
+  @media (min-width: 769px) {
+    padding-top: 90px;
+  }
+
+  @media (max-width: 600px) {
+    padding: 16px 16px 32px;
+  }
 }
 
-/* Filters Section */
-.filters-section {
+// ─── Stats Row ─────────────────────────────
+.stats-row {
   display: flex;
   gap: 12px;
-  margin-bottom: 24px;
-  flex-wrap: wrap;
-  
-  @media (max-width: 600px) {
-    flex-direction: column;
-    gap: 16px;
-  }
+  margin-bottom: 28px;
+  padding: 0 4px;
+  animation: fadeInUp 0.4s ease-out both;
 }
 
-.filter-group {
+.stat-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   flex: 1;
-  min-width: 200px;
-  
-  @media (max-width: 600px) {
-    min-width: 100%;
+  padding: 16px 12px;
+  background: $bg-subtle;
+  border-radius: $radius-md;
+  transition: background $transition-fast;
+
+  &:hover {
+    background: darken($bg-subtle, 2%);
+  }
+
+  &.skeleton {
+    .stat-number {
+      color: transparent;
+      background: linear-gradient(90deg, #e8e8ed 25%, #f2f2f7 50%, #e8e8ed 75%);
+      background-size: 200% 100%;
+      animation: shimmerPulse 1.5s ease-in-out infinite;
+      border-radius: 6px;
+      min-width: 24px;
+      min-height: 22px;
+    }
   }
 }
 
-.filter-label {
-  display: block;
-  font-size: 12px;
-  font-weight: 600;
-  color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 8px;
+@keyframes shimmerPulse {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
-.filter-select {
-  --background: #ffffff;
-  --border-radius: 12px;
-  --padding-start: 16px;
-  --padding-end: 16px;
-  border: 1px solid #e5e7eb;
+.stat-number {
+  font-size: 24px;
+  font-weight: 700;
+  color: $text-primary;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+
+  &.cancelled {
+    color: #E31C5F;
+  }
+}
+
+.stat-label {
+  font-size: 13px;
+  font-weight: 400;
+  color: $text-secondary;
+  margin-top: 2px;
+}
+
+// ─── Filter Tabs ───────────────────────────
+.filter-tabs-container {
+  margin-bottom: 24px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  text-align: center;
+  animation: fadeInUp 0.4s 0.05s ease-out both;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.filter-tabs {
+  display: inline-flex;
+  gap: 8px;
+  padding: 0 4px;
+  white-space: nowrap;
+}
+
+.filter-tab {
+  padding: 10px 20px;
+  border-radius: 24px;
+  border: 1.5px solid $border-light;
+  background: #ffffff;
   font-size: 14px;
   font-weight: 500;
-  width: 100%;
-  
-  &::part(icon) {
-    color: #6366f1;
+  color: $text-primary;
+  cursor: pointer;
+  transition: all $transition-fast;
+  white-space: nowrap;
+  letter-spacing: -0.1px;
+
+  &:hover {
+    background: $bg-hover;
+    border-color: darken($border-light, 8%);
+  }
+
+  &.active {
+    background: $text-primary;
+    color: #ffffff;
+    border-color: $text-primary;
   }
 }
 
-.lessons-container {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #9ca3af;
-  margin-bottom: 4px;
-}
-
-.page-header-badge .badge-value {
-  font-size: 18px;
-  font-weight: 700;
-  color: #111827;
-}
-
-/* Main container/card region */
-.lessons-container {
-  background: #ffffff;
-  border-radius: 24px;
-  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
-  padding: 20px 18px 24px;
-}
-
-/* Loading & empty states styled as a central card */
-.state-card {
-  text-align: center;
-  padding: 40px 16px;
+// ─── Airbnb-style Filters Trigger ─────────
+.filters-trigger-container {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding: 0 4px;
+  flex-wrap: wrap;
+  animation: fadeInUp 0.4s 0.1s ease-out both;
+
+  @media (max-width: 600px) {
+    gap: 10px;
+  }
 }
 
-.state-card ion-icon {
-  font-size: 52px;
-  color: #6366f1;
-}
-
-.state-card h2 {
-  margin: 8px 0 4px;
-  font-size: 20px;
-  font-weight: 700;
-  color: #111827;
-}
-
-.state-card p {
-  margin: 0 0 16px;
-  font-size: 14px;
-  color: #6b7280;
-  max-width: 320px;
-}
-
-.state-card ion-spinner {
-  margin-top: 8px;
-}
-
-.primary-cta {
-  --border-radius: 999px;
-  font-weight: 600;
-}
-
-/* List of lesson cards */
-.lessons-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-/* Card style closer to the “Lesson Complete” design */
-.lesson-card {
-  border-radius: 18px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
-  border: 1px solid #e5e7eb;
-  overflow: hidden;
-}
-
-.lesson-card ion-card-header {
-  padding-bottom: 4px;
-}
-
-/* Header row */
-.lesson-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.lesson-title-block {
-  flex: 1;
-}
-
-.lesson-pill {
+.filters-trigger-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: #eef2ff;
-  margin-bottom: 8px;
-}
-
-.lesson-pill .pill-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #6366f1;
-}
-
-.lesson-pill .pill-value {
-  font-size: 12px;
-  font-weight: 600;
-  color: #111827;
-}
-
-.lesson-title-block ion-card-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: #111827;
-  margin-bottom: 2px;
-}
-
-.lesson-title-block ion-card-subtitle {
-  font-size: 13px;
-  color: #6b7280;
-}
-
-.badges-container {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: flex-end;
-}
-
-.status-chip {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  border-radius: 999px;
-  
-  ion-icon {
-    font-size: 14px;
-  }
-}
-
-.trial-chip {
-  --background: linear-gradient(135deg, #ff9500 0%, #ff6b35 100%);
-  --color: #ffffff;
-  
-  ion-icon {
-    color: #ffffff;
-  }
-  
-  ion-label {
-    color: #ffffff;
-  }
-}
-
-/* Meta row (Duration / Price / Participant) */
-.lesson-meta-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin: 8px 0 16px;
-}
-
-.meta-block {
-  flex: 1 1 90px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: #f9fafb;
-}
-
-.meta-label {
-  display: block;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #9ca3af;
-  margin-bottom: 2px;
-}
-
-.meta-value {
+  gap: 8px;
+  padding: 12px 20px;
+  background: #fff;
+  border: 2px solid $text-primary;
+  border-radius: 30px;
   font-size: 14px;
   font-weight: 600;
-  color: #111827;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
+  color: $text-primary;
+  cursor: pointer;
+  transition: all 0.2s ease;
 
-.payment-badge {
-  --background: rgba(16, 185, 129, 0.1);
-  --color: #10b981;
-  font-size: 10px;
-  font-weight: 600;
-  padding: 2px 8px;
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  
+  &:hover {
+    background: $bg-subtle;
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+
   ion-icon {
+    font-size: 18px;
+  }
+
+  .filter-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    background: $text-primary;
+    color: #fff;
+    border-radius: 11px;
     font-size: 12px;
+    font-weight: 600;
   }
 }
 
-/* Participant strip */
-.participant-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.participant-info ion-avatar {
-  width: 44px;
-  height: 44px;
-  border: 2px solid #e5e7eb;
-}
-
-.participant-details h3 {
-  margin: 0 0 2px;
-  font-size: 15px;
-  font-weight: 600;
-  color: #111827;
-}
-
-.participant-details p {
-  margin: 0;
-  font-size: 13px;
-  color: #6b7280;
-}
-
-/* Divider between info & actions */
-.divider {
-  height: 1px;
-  width: 100%;
-  background: #e5e7eb;
-  margin: 4px 0 12px;
-}
-
-/* Actions section */
-.lesson-actions {
-  margin-top: 4px;
-}
-
-.join-ready ion-button {
-  --border-radius: 14px;
-  font-weight: 600;
-  height: 48px;
-}
-
-.helper-text {
-  margin: 8px 0 0;
-  font-size: 12px;
-  color: #6b7280;
-  text-align: center;
-}
-
-.waiting-info {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding: 14px 12px;
-  background: #f9fafb;
-  border-radius: 14px;
-}
-
-.waiting-info ion-icon {
-  font-size: 22px;
-  color: #6366f1;
-  margin-bottom: 4px;
-}
-
-.waiting-info p {
-  margin: 0 0 8px;
-  font-size: 13px;
-  color: #4b5563;
-}
-
-.waiting-info ion-button {
-  --border-radius: 999px;
-  font-size: 12px;
-}
-
-.rejoin-block ion-button {
-  --border-radius: 14px;
-  font-weight: 600;
-  height: 48px;
-}
-
-/* Completed / cancelled info (banner style) */
-.status-info {
+.active-filters-preview {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
-  border-radius: 12px;
+  flex-wrap: wrap;
+  flex: 1;
+
+  @media (max-width: 600px) {
+    order: 3;
+    flex-basis: 100%;
+  }
+}
+
+.filter-chip-preview {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: $bg-subtle;
+  border-radius: 20px;
   font-size: 13px;
   font-weight: 500;
-  margin-top: 4px;
-  flex-wrap: wrap;
+  color: $text-primary;
 }
 
-.completed-info {
-  background: rgba(22, 163, 74, 0.08);
-  color: #166534;
-  
-  .analysis-status-container {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
+.clear-all-inline {
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: $text-primary;
+  text-decoration: underline;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+
+  &:hover {
+    opacity: 0.7;
   }
-  
-  .view-analysis-btn {
-    --padding-start: 12px;
-    --padding-end: 12px;
-    font-size: 13px;
-    text-transform: none;
+}
+
+// ─── Loading State ─────────────────────────
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 96px 24px;
+  gap: 16px;
+  min-height: 300px;
+  animation: fadeIn 0.3s ease-out both;
+
+  p {
+    font-size: 15px;
+    color: $text-secondary;
+    margin: 0;
+  }
+
+  ion-spinner {
+    width: 32px;
     height: 32px;
   }
-  
-  .analysis-generating {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 12px;
-    background: rgba(59, 130, 246, 0.1);
-    border-radius: 6px;
-    color: #3b82f6;
-    font-size: 13px;
-    font-weight: 500;
-    
-    ion-spinner {
-      width: 16px;
-      height: 16px;
-    }
-  }
-  
-  .analysis-unavailable {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    background: rgba(107, 114, 128, 0.1);
-    border-radius: 6px;
-    color: #6b7280;
-    font-size: 13px;
-    font-weight: 500;
-    
-    ion-icon {
-      font-size: 16px;
-    }
-  }
 }
 
-.cancelled-info {
-  background: rgba(239, 68, 68, 0.08);
-  color: #b91c1c;
-}
-
-.status-info ion-icon {
-  font-size: 18px;
-}
-
-/* End of list message */
-.end-of-list {
+// ─── Empty State ───────────────────────────
+.empty-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
-  padding: 32px 16px;
-  color: #9ca3af;
-  
+  padding: 80px 24px;
+  gap: 14px;
+  min-height: 300px;
+  animation: fadeInUp 0.4s 0.1s ease-out both;
+}
+
+.empty-icon-circle {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: $bg-subtle;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+
   ion-icon {
-    font-size: 48px;
-    margin-bottom: 12px;
-    opacity: 0.5;
-  }
-  
-  p {
-    margin: 0;
-    font-size: 14px;
-    font-weight: 500;
+    font-size: 32px;
+    color: $text-muted;
   }
 }
 
-/* Responsive tweaks */
-@media (max-width: 768px) {
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
+.empty-container h3 {
+  font-size: 20px;
+  font-weight: 600;
+  color: $text-primary;
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+
+.empty-container p {
+  font-size: 15px;
+  color: $text-secondary;
+  margin: 0;
+  max-width: 300px;
+  line-height: 1.5;
+}
+
+.airbnb-primary-btn {
+  margin-top: 12px;
+  padding: 14px 32px;
+  background: $text-primary;
+  color: #ffffff;
+  border: none;
+  border-radius: $radius-sm;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all $transition-fast;
+
+  &:hover {
+    background: #000000;
+    transform: scale(1.02);
   }
 
-  .lessons-container {
-    padding: 16px 14px 20px;
-  }
-
-  .lesson-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .lesson-meta-row {
-    flex-direction: column;
+  &:active {
+    transform: scale(0.98);
   }
 }
 
-// Coaching Stats Card
-.coaching-stats-card {
-  margin-bottom: 24px;
-  border-radius: 16px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  border: 1px solid #e5e7eb;
+// ─── Lessons Card (wrapper) ────────────────
+.lessons-card {
   background: #ffffff;
-  
-  ion-card-header {
-    padding-bottom: 12px;
-    border-bottom: 1px solid #f3f4f6;
-    
-    ion-card-title {
+  border-radius: $radius-lg;
+  box-shadow: $shadow-card;
+  overflow: hidden;
+  animation: fadeIn 0.4s 0.1s ease-out both;
+}
+
+// ─── Lessons List ──────────────────────────
+.lessons-list {
+  display: flex;
+  flex-direction: column;
+}
+
+// ─── Individual Lesson Row ─────────────────
+.lesson-row {
+  border-bottom: 1px solid $border-light;
+  transition: background $transition-fast;
+
+  &.last-item {
+    border-bottom: none;
+  }
+
+  &.is-cancelled {
+    .lesson-subject,
+    .lesson-time,
+    .lesson-meta,
+    .participant-name {
+      opacity: 0.5;
+    }
+
+    .lesson-date-block {
+      opacity: 0.45;
+    }
+  }
+
+  &.is-expanded {
+    background: #FAFAFA;
+  }
+}
+
+.lesson-row-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 24px;
+  cursor: pointer;
+  transition: background $transition-fast;
+
+  &:hover {
+    background: $bg-hover;
+  }
+
+  @media (max-width: 600px) {
+    padding: 16px;
+    gap: 12px;
+  }
+}
+
+// ─── Date Block ────────────────────────────
+.lesson-date-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: $radius-md;
+  background: $bg-subtle;
+  flex-shrink: 0;
+}
+
+.date-month {
+  font-size: 11px;
+  font-weight: 600;
+  color: $text-secondary;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  line-height: 1;
+}
+
+.date-day {
+  font-size: 22px;
+  font-weight: 700;
+  color: $text-primary;
+  line-height: 1.2;
+  letter-spacing: -0.5px;
+}
+
+// ─── Info Block ────────────────────────────
+.lesson-info-block {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.lesson-subject {
+  font-size: 16px;
+  font-weight: 600;
+  color: $text-primary;
+  letter-spacing: -0.2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lesson-time {
+  font-size: 14px;
+  font-weight: 400;
+  color: $text-secondary;
+  line-height: 1.3;
+}
+
+.lesson-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: $text-secondary;
+  margin-top: 1px;
+}
+
+.lesson-duration,
+.lesson-price {
+  font-weight: 400;
+}
+
+.meta-sep {
+  color: $text-muted;
+  font-size: 10px;
+}
+
+.trial-badge {
+  display: inline-flex;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #FF9500, #FF6B35);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.class-students-meta {
+  font-size: 12px;
+  color: $text-muted;
+  font-weight: 500;
+}
+
+.stacked-avatars {
+  display: flex;
+  align-items: center;
+
+  .stacked-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 2px solid #ffffff;
+    margin-left: -8px;
+    flex-shrink: 0;
+    background: #e5e5ea;
+
+    &:first-child {
+      margin-left: 0;
+    }
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .avatar-initials {
+      width: 100%;
+      height: 100%;
       display: flex;
       align-items: center;
-      gap: 10px;
-      font-size: 18px;
-      font-weight: 700;
-      color: #111827;
-      
-      ion-icon {
-        font-size: 24px;
-        color: #6366f1;
-      }
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+      color: #ffffff;
+      background: #222222;
     }
   }
-  
-  ion-card-content {
-    padding: 20px;
-  }
-  
-  .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    margin-bottom: 20px;
-    
-    @media (max-width: 768px) {
-      grid-template-columns: 1fr;
-      gap: 12px;
-    }
-  }
-  
-  .stat-item {
-    text-align: center;
-    padding: 16px;
-    background: #f9fafb;
-    border-radius: 12px;
-    border: 1px solid #e5e7eb;
-    transition: all 0.2s ease;
-    
-    &:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    }
-  }
-  
-  .stat-label {
+
+  .stacked-overflow {
+    margin-left: 6px;
     font-size: 12px;
     font-weight: 600;
-    color: #6b7280;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 8px;
+    color: $text-muted;
+    white-space: nowrap;
   }
-  
-  .stat-value {
-    font-size: 28px;
-    font-weight: 700;
-    color: #111827;
-    
-    &.highlight {
-      color: #10b981;
+}
+
+.no-attendees {
+  font-size: 13px;
+  font-weight: 500;
+  color: $text-muted;
+}
+
+.tip-sent-badge {
+  font-size: 12px;
+  font-weight: 500;
+  color: #059669;
+  font-style: italic;
+}
+
+// ─── Right Block (Participant + Status) ────
+.lesson-right-block {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  padding-left: 8px;
+}
+
+.lesson-participant-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.participant-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: $text-primary;
+  white-space: nowrap;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  @media (max-width: 500px) {
+    max-width: 80px;
+  }
+}
+
+.lesson-status-badge {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1px;
+
+  &.status-scheduled {
+    color: #007AFF;
+  }
+
+  &.status-in_progress {
+    color: #60a5fa;
+  }
+
+  &.status-completed {
+    color: #8E8E93;
+  }
+
+  &.status-cancelled {
+    color: #E31C5F;
+  }
+
+  &.status-pending_reschedule {
+    color: #FF9500;
+  }
+}
+
+.participant-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: $bg-subtle;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid $border-light;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.avatar-initials {
+  font-size: 16px;
+  font-weight: 600;
+  color: $text-secondary;
+}
+
+// ─── Expanded Actions Row ──────────────────
+.lesson-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 24px 16px 92px; // Aligned with info block (24px + 52px date + 16px gap)
+  flex-wrap: wrap;
+
+  @media (max-width: 600px) {
+    padding: 0 16px 14px 16px;
+  }
+}
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: $radius-sm;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all $transition-fast;
+  border: none;
+  letter-spacing: -0.1px;
+
+  ion-icon {
+    font-size: 16px;
+  }
+
+  &.primary {
+    background: $text-primary;
+    color: #ffffff;
+
+    &:hover {
+      background: #000000;
     }
   }
-  
-  .badge-status-container {
-    padding-top: 16px;
-    border-top: 1px solid #f3f4f6;
-  }
-  
-  .badge-status {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 16px;
-    border-radius: 12px;
-    font-size: 14px;
-    font-weight: 600;
-    
-    &.active {
-      background: rgba(16, 185, 129, 0.1);
-      color: #10b981;
-      
-      ion-icon {
-        font-size: 20px;
-      }
+
+  &.subtle {
+    background: transparent;
+    color: $text-secondary;
+    border: 1px solid $border-light;
+
+    &:hover {
+      background: $bg-hover;
+      border-color: darken($border-light, 8%);
     }
   }
-  
-  .badge-requirements {
-    padding: 16px;
-    background: #f9fafb;
-    border-radius: 12px;
-    
-    .requirements-title {
-      font-size: 14px;
-      font-weight: 600;
-      color: #111827;
-      margin: 0 0 12px 0;
-    }
-    
-    .requirements-list {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-      
-      li {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 8px 0;
-        font-size: 13px;
-        color: #6b7280;
-        
-        ion-icon {
-          font-size: 18px;
-          color: #d1d5db;
-          flex-shrink: 0;
-        }
-        
-        &.met {
-          color: #10b981;
-          font-weight: 500;
-          
-          ion-icon {
-            color: #10b981;
-          }
-        }
-      }
+
+  &.join {
+    background: #34C759;
+    color: #ffffff;
+
+    &:hover {
+      background: #2DB84D;
     }
   }
 }
 
-// Highlight animation for scrolled-to lesson
+// ─── Feedback Pending Badge ───────────────
+.feedback-pending-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: #FFF7ED;
+  font-size: 13px;
+  font-weight: 500;
+  color: #C2410C;
+  letter-spacing: -0.1px;
+}
+
+.pending-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #F97316;
+  flex-shrink: 0;
+}
+
+// ─── Student Awaiting Tutor Feedback ──────
+.student-feedback-awaiting {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: #F0F4FF;
+  font-size: 13px;
+  font-weight: 500;
+  color: #4B5EAA;
+  letter-spacing: -0.1px;
+
+  ion-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+    color: #6B7FCC;
+  }
+}
+
+.action-generating {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #007AFF;
+  font-weight: 500;
+
+  ion-spinner {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+.action-unavailable {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: $text-muted;
+
+  ion-icon {
+    font-size: 16px;
+  }
+}
+
+.action-analysis-unavailable {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: #f5f5f7;
+  font-size: 13px;
+  font-weight: 500;
+  color: #86868b;
+  letter-spacing: -0.1px;
+
+  ion-icon {
+    font-size: 15px;
+  }
+}
+
+.action-issue-reported {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(251, 191, 36, 0.08);
+  border-radius: $radius-sm;
+  font-size: 13px;
+  font-weight: 500;
+  color: #92400E;
+
+  ion-icon {
+    font-size: 16px;
+  }
+}
+
+.action-issue-resolved {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(52, 199, 89, 0.08);
+  border-radius: $radius-sm;
+  font-size: 13px;
+  font-weight: 500;
+  color: #2e7d32;
+
+  ion-icon {
+    font-size: 16px;
+  }
+}
+
+// ─── Lessons Footer ────────────────────────
+.lessons-footer {
+  display: flex;
+  justify-content: center;
+  padding: 16px 24px;
+  border-top: 1px solid $border-light;
+}
+
+.footer-count {
+  font-size: 14px;
+  font-weight: 500;
+  color: $text-secondary;
+}
+
+// ─── End Message ───────────────────────────
+.end-message {
+  text-align: center;
+  padding: 24px 16px;
+
+  p {
+    font-size: 14px;
+    color: $text-muted;
+    font-weight: 400;
+    margin: 0;
+  }
+}
+
+// ─── Highlight Animation ───────────────────
 .highlight-lesson {
   animation: highlightPulse 2s ease-in-out;
 }
 
 @keyframes highlightPulse {
   0%, 100% {
-    transform: scale(1);
-    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+    background: transparent;
   }
-  50% {
-    transform: scale(1.02);
-    box-shadow: 0 15px 40px rgba(99, 102, 241, 0.3);
+  25%, 75% {
+    background: rgba(0, 122, 255, 0.06);
   }
 }
 
-// Report Issue Button Styling
-.report-issue-btn {
-  margin-top: 8px;
-  font-size: 13px;
-  --padding-start: 10px;
-  --padding-end: 10px;
-  height: 32px;
-  
-  ion-icon {
-    font-size: 16px;
-  }
-  
-  &:hover {
-    --background: rgba(107, 114, 128, 0.08);
-  }
+// =============================================
+// TUTOR NOTE MODAL – AIRBNB STYLE
+// =============================================
+.note-modal-container {
+  background: white;
+  border-radius: 24px;
+  padding: 0;
+  max-width: 480px;
+  width: 100%;
+  margin: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
 }
 
-// Issue Reported Indicator
-.issue-reported-indicator {
+.note-modal-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 12px;
-  padding: 8px 12px;
-  background: rgba(251, 191, 36, 0.1);
-  border-left: 3px solid #f59e0b;
-  border-radius: 6px;
-  
-  ion-icon {
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid $border-light;
+
+  h2 {
     font-size: 18px;
-    color: #f59e0b;
-    flex-shrink: 0;
-  }
-  
-  span {
-    font-size: 13px;
-    font-weight: 500;
-    color: #92400e;
+    font-weight: 600;
+    color: $text-primary;
+    margin: 0;
+    letter-spacing: -0.2px;
   }
 }
 
+.note-modal-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: $bg-subtle;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background $transition-fast;
+
+  ion-icon {
+    font-size: 18px;
+    color: $text-primary;
+  }
+
+  &:hover {
+    background: $border-light;
+  }
+}
+
+.note-modal-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.note-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.note-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: $text-secondary;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.note-impression {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: capitalize;
+
+  &.impression-excellent {
+    background: #ECFDF5;
+    color: #059669;
+  }
+
+  &.impression-good {
+    background: #EFF6FF;
+    color: #2563EB;
+  }
+
+  &.impression-needs-work {
+    background: #FEF3C7;
+    color: #D97706;
+  }
+
+  &.impression-struggling {
+    background: #FEE2E2;
+    color: #DC2626;
+  }
+}
+
+.note-text {
+  font-size: 15px;
+  color: $text-primary;
+  line-height: 1.6;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.note-modal-actions {
+  display: flex;
+  gap: 12px;
+  padding: 20px 24px;
+  border-top: 1px solid $border-light;
+  background: #FAFAFA;
+}
+
+.note-action-btn {
+  flex: 1;
+  padding: 14px 20px;
+  border-radius: $radius-md;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all $transition-fast;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  ion-icon {
+    font-size: 18px;
+  }
+
+  &.edit {
+    background: $text-primary;
+    color: white;
+    border: none;
+
+    &:hover {
+      background: #000000;
+    }
+  }
+
+  &.close {
+    background: white;
+    color: $text-primary;
+    border: 1.5px solid #DDDDDD;
+
+    &:hover {
+      background: $bg-hover;
+      border-color: $text-primary;
+    }
+  }
+}
+
+// =============================================
+// LESSONS FILTERS MODAL – AIRBNB STYLE
+// =============================================
+.lf-header {
+  ion-toolbar {
+    --background: #fff;
+    --border-width: 0;
+    padding: 8px 0;
+
+    ion-title {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -0.2px;
+    }
+  }
+
+  .lf-close-btn {
+    --color: #{$text-primary};
+    font-size: 22px;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: $border-light;
+  }
+}
+
+.lf-content {
+  --background: #fff;
+  --padding-start: 24px;
+  --padding-end: 24px;
+  --padding-top: 16px;
+  --padding-bottom: 100px;
+}
+
+.lf-section {
+  padding: 4px 0;
+}
+
+.lf-section-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: $text-primary;
+  margin: 0 0 16px;
+  letter-spacing: -0.3px;
+}
+
+.lf-divider {
+  height: 1px;
+  background: $border-light;
+  margin: 24px 0;
+}
+
+// Time period grid
+.lf-time-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+
+  @media (min-width: 500px) {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.lf-time-btn {
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid #dddddd;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: $text-primary;
+  cursor: pointer;
+  transition: background 0.25s ease, border-color 0.25s ease, color 0.25s ease, font-weight 0.25s ease, transform 0.15s ease;
+  text-align: center;
+
+  &:hover {
+    border-color: #b0b0b0;
+  }
+
+  &.active {
+    border-color: $text-primary;
+    border-width: 2px;
+    background: $bg-subtle;
+    font-weight: 600;
+  }
+}
+
+// Participant list
+.lf-participant-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.lf-participant-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 14px 12px;
+  background: none;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.25s ease;
+  text-align: left;
+
+  &:hover {
+    background: $bg-hover;
+  }
+
+  &.active {
+    background: #f0f0f0;
+  }
+
+  .lf-participant-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  span {
+    font-size: 15px;
+    font-weight: 400;
+    color: $text-primary;
+  }
+
+  &.active span {
+    font-weight: 500;
+  }
+}
+
+.lf-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  &.fallback {
+    background: $bg-subtle;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    ion-icon {
+      font-size: 16px;
+      color: $text-muted;
+    }
+  }
+}
+
+.lf-check {
+  width: 24px;
+  height: 24px;
+  background: $text-primary;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  animation: lfCheckPop 0.25s cubic-bezier(0.32, 0.72, 0, 1) both;
+
+  ion-icon {
+    font-size: 14px;
+    color: #fff;
+  }
+}
+
+@keyframes lfCheckPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  70% {
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+// Selected Chips (top cap) — smooth reveal/collapse
+.lf-selected-section {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.35s cubic-bezier(0.32, 0.72, 0, 1),
+              opacity 0.3s ease,
+              margin 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+  margin-bottom: 0;
+
+  &.visible {
+    max-height: 200px;
+    opacity: 1;
+    margin-bottom: 0;
+  }
+
+  .lf-selected-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+
+// Divider that accompanies selected section
+.lf-divider-selected {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  margin: 0;
+  transition: max-height 0.35s cubic-bezier(0.32, 0.72, 0, 1),
+              opacity 0.3s ease,
+              margin 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+
+  &.visible {
+    max-height: 1px;
+    opacity: 1;
+    margin: 24px 0;
+  }
+}
+
+@keyframes lfChipEnter {
+  0% {
+    opacity: 0;
+    transform: scale(0.85) translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.lf-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  background: #fff;
+  border: 1px solid $text-primary;
+  border-radius: 30px;
+  font-size: 14px;
+  font-weight: 500;
+  color: $text-primary;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+  animation: lfChipEnter 0.3s cubic-bezier(0.32, 0.72, 0, 1) both;
+
+  &:hover {
+    background: $bg-hover;
+  }
+
+  &:active {
+    transform: scale(0.96);
+  }
+
+  ion-icon {
+    font-size: 14px;
+    color: $text-secondary;
+  }
+}
+
+// Status list
+.lf-status-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lf-status-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 12px;
+  background: none;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.25s ease;
+  text-align: left;
+
+  &:hover {
+    background: $bg-hover;
+  }
+
+  &.active {
+    background: #f0f0f0;
+  }
+
+  span:not(.lf-status-dot) {
+    font-size: 15px;
+    font-weight: 400;
+    color: $text-primary;
+    flex: 1;
+  }
+
+  &.active span:not(.lf-status-dot) {
+    font-weight: 500;
+  }
+}
+
+.lf-status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+
+  &.dot-all {
+    background: $text-secondary;
+  }
+
+  &.dot-upcoming {
+    background: #007AFF;
+  }
+
+  &.dot-completed {
+    background: #34C759;
+  }
+
+  &.dot-cancelled {
+    background: #E31C5F;
+  }
+}
+
+// Scrollbar for participant list
+.lf-participant-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.lf-participant-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.lf-participant-list::-webkit-scrollbar-thumb {
+  background: #dddddd;
+  border-radius: 3px;
+
+  &:hover {
+    background: #b0b0b0;
+  }
+}
+
+// Modal footer
+.lf-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border-top: 1px solid $border-light;
+  padding: 16px 24px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 100;
+}
+
+.lf-footer-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lf-clear-btn {
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  font-size: 16px;
+  font-weight: 600;
+  color: $text-primary;
+  text-decoration: underline;
+  cursor: pointer;
+  transition: opacity $transition-fast;
+
+  &:hover {
+    opacity: 0.7;
+  }
+
+  &:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+}
+
+.lf-apply-btn {
+  padding: 14px 24px;
+  background: $text-primary;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  transition: all $transition-fast;
+  min-width: 160px;
+
+  &:hover {
+    background: #000;
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+// ── Dark mode ────────────────────────────────────────────
+:host-context(html.ion-palette-dark) {
+  ion-content {
+    --background: #000000;
+  }
+
+  .lessons-toolbar {
+    --background: #000000;
+  }
+
+  .page-title {
+    color: #f5f5f7;
+  }
+
+  .lessons-page {
+    background: transparent;
+  }
+
+  .stats-row .stat-pill {
+    background: #2c2c2e;
+
+    &:hover {
+      background: #3a3a3c;
+    }
+
+    &.skeleton .stat-number {
+      background: linear-gradient(90deg, #3a3a3c 25%, #48484a 50%, #3a3a3c 75%);
+      background-size: 200% 100%;
+      animation: shimmerPulse 1.5s ease-in-out infinite;
+    }
+  }
+
+  .stat-number {
+    color: #f5f5f7;
+
+    &.cancelled {
+      color: #ff6b6b;
+    }
+  }
+
+  .stat-label {
+    color: #8e8e93;
+  }
+
+  .filters-trigger-btn {
+    background: #2c2c2e;
+    border-color: #4298d2;
+    color: #f5f5f7;
+
+    &:hover {
+      background: #3a3a3c;
+    }
+
+    .filter-count {
+      background: #4298d2;
+      color: #fff;
+    }
+  }
+
+  .filter-chip-preview {
+    background: #2c2c2e;
+    color: #e5e5e5;
+  }
+
+  .clear-all-inline {
+    color: #4298d2;
+  }
+
+  .loading-container p {
+    color: #8e8e93;
+  }
+
+  .loading-container ion-spinner {
+    --color: #8e8e93;
+  }
+
+  .empty-container .empty-icon-circle {
+    background: #2c2c2e;
+
+    ion-icon {
+      color: #8e8e93;
+    }
+  }
+
+  .empty-container h3 {
+    color: #f5f5f7;
+  }
+
+  .empty-container p {
+    color: #8e8e93;
+  }
+
+  .airbnb-primary-btn {
+    background: #4298d2;
+
+    &:hover {
+      background: #3583b8;
+    }
+  }
+
+  .lessons-card {
+    background: #1c1c1e;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.25);
+  }
+
+  .lesson-row {
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+
+    &.is-expanded {
+      background: #2c2c2e;
+    }
+  }
+
+  .lesson-row-main:hover {
+    background: #2c2c2e;
+  }
+
+  .lesson-date-block {
+    background: #2c2c2e;
+  }
+
+  .date-month {
+    color: #8e8e93;
+  }
+
+  .date-day {
+    color: #f5f5f7;
+  }
+
+  .lesson-subject {
+    color: #f5f5f7;
+  }
+
+  .lesson-time {
+    color: #8e8e93;
+  }
+
+  .lesson-meta {
+    color: #8e8e93;
+  }
+
+  .meta-sep {
+    color: #636366;
+  }
+
+  .class-students-meta,
+  .no-attendees,
+  .stacked-avatars .stacked-overflow {
+    color: #8e8e93;
+  }
+
+  .stacked-avatars .stacked-avatar {
+    border-color: #1c1c1e;
+    background: #3a3a3c;
+
+    .avatar-initials {
+      background: #2c2c2e;
+      color: #f5f5f7;
+    }
+  }
+
+  .tip-sent-badge {
+    color: #34c759;
+  }
+
+  .participant-name {
+    color: #f5f5f7;
+  }
+
+  .lesson-status-badge {
+    &.status-scheduled {
+      color: #4298d2;
+    }
+    &.status-in_progress {
+      color: #60a5fa;
+    }
+    &.status-completed {
+      color: #8e8e93;
+    }
+    &.status-cancelled {
+      color: #ff6b6b;
+    }
+    &.status-pending_reschedule {
+      color: #ff9500;
+    }
+  }
+
+  .participant-avatar {
+    background: #2c2c2e;
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .avatar-initials {
+    color: #8e8e93;
+  }
+
+  .action-btn.primary {
+    background: #4298d2;
+
+    &:hover {
+      background: #3583b8;
+    }
+  }
+
+  .action-btn.subtle {
+    color: #8e8e93;
+    border-color: #3a3a3c;
+
+    &:hover {
+      background: #2c2c2e;
+      border-color: #48484a;
+    }
+  }
+
+  .action-btn.join {
+    background: #34c759;
+
+    &:hover {
+      background: #2db84d;
+    }
+  }
+
+  .feedback-pending-badge {
+    background: rgba(249, 115, 22, 0.2);
+    color: #fbbf24;
+  }
+
+  .pending-dot {
+    background: #f97316;
+  }
+
+  .student-feedback-awaiting {
+    background: rgba(66, 152, 210, 0.15);
+    color: #4298d2;
+
+    ion-icon {
+      color: #4298d2;
+    }
+  }
+
+  .action-generating {
+    color: #4298d2;
+  }
+
+  .action-analysis-unavailable {
+    background: #2c2c2e;
+    color: #8e8e93;
+  }
+
+  .action-issue-reported {
+    background: rgba(251, 191, 36, 0.15);
+    color: #fbbf24;
+  }
+
+  .action-issue-resolved {
+    background: rgba(52, 199, 89, 0.15);
+    color: #34c759;
+  }
+
+  .lessons-footer {
+    border-top-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .footer-count {
+    color: #8e8e93;
+  }
+
+  .end-message p {
+    color: #8e8e93;
+  }
+
+  // Tutor note modal
+  .note-modal-container {
+    background: #1c1c1e;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  }
+
+  .note-modal-header {
+    border-bottom-color: rgba(255, 255, 255, 0.12);
+
+    h2 {
+      color: #f5f5f7;
+    }
+  }
+
+  .note-modal-close {
+    background: #2c2c2e;
+
+    ion-icon {
+      color: #f5f5f7;
+    }
+
+    &:hover {
+      background: #3a3a3c;
+    }
+  }
+
+  .note-label {
+    color: #8e8e93;
+  }
+
+  .note-text {
+    color: #f5f5f7;
+  }
+
+  .note-impression.impression-excellent {
+    background: rgba(52, 199, 89, 0.2);
+    color: #34c759;
+  }
+
+  .note-impression.impression-good {
+    background: rgba(66, 152, 210, 0.2);
+    color: #4298d2;
+  }
+
+  .note-impression.impression-needs-work {
+    background: rgba(251, 191, 36, 0.2);
+    color: #fbbf24;
+  }
+
+  .note-impression.impression-struggling {
+    background: rgba(255, 107, 107, 0.2);
+    color: #ff6b6b;
+  }
+
+  .note-modal-actions {
+    border-top-color: rgba(255, 255, 255, 0.08);
+    background: #000000;
+  }
+
+  .note-action-btn.edit {
+    background: #4298d2;
+
+    &:hover {
+      background: #3583b8;
+    }
+  }
+
+  .note-action-btn.close {
+    background: transparent;
+    color: #f5f5f7;
+    border-color: #3a3a3c;
+
+    &:hover {
+      background: #2c2c2e;
+      border-color: #48484a;
+    }
+  }
+
+}
+
+// Lessons filters modal dark mode is handled in global.scss
 

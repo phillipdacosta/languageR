@@ -28,115 +28,35 @@
   <div *ngIf="currentUser?.userType === 'student'">
   <!-- Main Content View -->
   <div class="main-content-view" *ngIf="!showFiltersView">
-    <div class="filters-container">
-      <!-- Top Row Filters - Always visible -->
-      <div class="top-filters">
-        <!-- Language Search - Always visible -->
-        <div class="filter-item language-filter" 
-             [class.dropdown-open]="showLanguageDropdown"
-             (click)="toggleLanguageDropdown(); $event.stopPropagation()">
-          <label>I want to learn</label>
-          <div class="filter-value-wrapper">
-            <span class="filter-value">{{ getCurrentLanguageLabel() }}</span>
-            <app-flag-icon *ngIf="filters.language && filters.language !== 'any'" [language]="filters.language" [size]="16" cssClass="filter-flag"></app-flag-icon>
-            <ion-icon name="close-outline" class="clear-icon" *ngIf="filters.language && filters.language !== 'any'" (click)="selectLanguage('any'); $event.stopPropagation()"></ion-icon>
-            <ion-icon name="chevron-down-outline" [class.rotated]="showLanguageDropdown" *ngIf="!filters.language || filters.language === 'any'"></ion-icon>
-          </div>
-          
-          <!-- Language Dropdown -->
-          <div class="language-dropdown" *ngIf="showLanguageDropdown" (click)="$event.stopPropagation()">
-            <div class="dropdown-option" 
-                 *ngFor="let lang of availableLanguages" 
-                 [class.selected]="filters.language === lang.value"
-                 (click)="selectLanguage(lang.value); $event.stopPropagation()">
-              <span>{{ lang.label }}</span>
-              <app-flag-icon *ngIf="lang.value !== 'any'" [language]="lang.value" [size]="14" cssClass="dropdown-flag"></app-flag-icon>
-            </div>
-          </div>
-        </div>
-
-        <!-- Desktop Filters - Hidden on mobile -->
-        <div class="desktop-only-filters">
-          <div class="filter-item price-filter">
-            <label>Price per lesson</label>
-            <div class="price-display">${{ filters.priceMin }} – ${{ filters.priceMax }}</div>
-            <div class="price-slider-container">
-              <ion-range 
-                [value]="priceRange" 
-                (ionChange)="onPriceRangeChange($event)" 
-                dual-knobs="true" 
-                min="0" 
-                max="200" 
-                pin="true"
-                class="price-range-slider">
-                <ion-label slot="start">$0</ion-label>
-                <ion-label slot="end">$200+</ion-label>
-              </ion-range>
-            </div>
-          </div>
-
-          <div class="filter-item" (click)="openCountryFilter($event)">
-            <label>Country of birth</label>
-            <div class="filter-value-wrapper">
-              <span class="filter-value">{{ getCountryDisplayName() }}</span>
-              <ion-icon name="chevron-down-outline"></ion-icon>
-            </div>
-          </div>
-
-          <div class="filter-item" (click)="openAvailabilityFilter()">
-            <label>I'm available</label>
-            <div class="filter-value-wrapper">
-              <span class="filter-value">Any time</span>
-              <ion-icon name="chevron-down-outline"></ion-icon>
-            </div>
-          </div>
-        </div>
-
-        <!-- Mobile Filter Button - Only visible on mobile -->
-        <ion-button class="mobile-filters-btn" fill="outline" (click)="openFiltersView()">
-          <ion-icon slot="start" name="options-outline"></ion-icon>
-          Filters
-          <ion-badge *ngIf="getActiveFilterCount() > 0" class="filter-badge" color="primary">{{ getActiveFilterCount() }}</ion-badge>
-        </ion-button>
-      </div>
-
-      <!-- Secondary Filters Row - Collapsible -->
-      <div class="secondary-filters-toggle">
-        <ion-button fill="clear" size="small" (click)="toggleSecondaryFilters()" class="more-filters-btn">
-          <ion-icon [name]="showSecondaryFilters ? 'chevron-up-outline' : 'chevron-down-outline'" slot="start"></ion-icon>
-          {{ showSecondaryFilters ? 'Less filters' : 'More filters' }}
-          <ion-badge *ngIf="getActiveFilterCount() > 0" class="filter-badge" color="primary">{{ getActiveFilterCount() }}</ion-badge>
-        </ion-button>
-        
-        <ion-button fill="clear" size="small" (click)="clearFilters()" class="clear-filters-btn" [disabled]="getActiveFilterCount() === 0">
-          <ion-icon name="close-circle-outline" slot="start"></ion-icon>
-          Clear Filters
-        </ion-button>
-      </div>
-
-      <!-- Secondary Filters Row -->
-      <div class="secondary-filters" *ngIf="showSecondaryFilters">
-        <ion-button class="filter-chip" fill="outline" size="small" (click)="openSpecialtiesFilter()">
-          Specialties
-        </ion-button>
-
-        <ion-button class="filter-chip" fill="outline" size="small" (click)="openGenderFilter()">
-          Gender
-        </ion-button>
-
-        <ion-button class="filter-chip" fill="outline" size="small" (click)="openNativeSpeakerFilter()">
+    <!-- Airbnb-style Filters Trigger -->
+    <div class="filters-trigger-container">
+      <button class="filters-trigger-btn" (click)="openFiltersModal()">
+        <ion-icon name="options-outline"></ion-icon>
+        <span>Filters</span>
+        <span class="filter-count" *ngIf="getActiveFilterCount() > 0">{{ getActiveFilterCount() }}</span>
+      </button>
+      
+      <!-- Active Filter Chips (preview) -->
+      <div class="active-filters-preview" *ngIf="getActiveFilterCount() > 0">
+        <span class="filter-chip-preview" *ngIf="filters.language && filters.language !== 'any'">
+          <app-flag-icon [language]="filters.language" [size]="14"></app-flag-icon>
+          {{ filters.language }}
+        </span>
+        <span class="filter-chip-preview" *ngIf="filters.priceMin !== 6 || filters.priceMax !== 200">
+          ${{ filters.priceMin }}-${{ filters.priceMax }}
+        </span>
+        <span class="filter-chip-preview" *ngIf="filters.country && filters.country.length > 0">
+          {{ filters.country.length === 1 ? filters.country[0] : filters.country.length + ' countries' }}
+        </span>
+        <span class="filter-chip-preview" *ngIf="filters.nativeSpeaker">
           Native
-        </ion-button>
-
-        <ion-button class="filter-chip" fill="outline" size="small" (click)="openSortFilter()">
-          Sort
-        </ion-button>
-
-        <div class="search-input-wrapper">
-          <ion-icon name="search-outline" class="search-icon"></ion-icon>
-          <input type="text" placeholder="Search by name" class="search-input">
-        </div>
+        </span>
       </div>
+      
+      <!-- Clear All Button -->
+      <button class="clear-all-inline" *ngIf="getActiveFilterCount() > 0" (click)="clearFilters()">
+        Clear all
+      </button>
     </div>
 
     <!-- Loading State -->
@@ -201,21 +121,9 @@
             <div class="header-row">
               <div class="name-section">
                 <h3 class="tutor-name-modern">{{ tutor.firstName | displayName:tutor.lastName:tutor.name }}</h3>
-                <div class="tutor-meta-inline">
-                  <div class="rating-badge" *ngIf="tutor.rating > 0">
-                    <ion-icon name="star"></ion-icon>
-                    <span>{{ tutor.rating.toFixed(1) }}</span>
-                    <span class="lessons-count">({{ tutor.totalLessons }})</span>
-                  </div>
-                  <div class="language-badge-inline">
-                    <app-flag-icon *ngIf="tutor.languages && tutor.languages[0]" [language]="tutor.languages[0]" [size]="14"></app-flag-icon>
-                    <span>{{ tutor.languages && tutor.languages[0] }}</span>
-                  </div>
-                  <div class="tutor-country-inline" *ngIf="tutor.country && tutor.country !== 'Unknown'">
-                    <app-flag-icon [country]="tutor.country" [size]="14"></app-flag-icon>
-                    <span>{{ tutor.country }}</span>
-                  </div>
-                </div>
+                <p class="tutor-tagline">
+                  {{ tutor.languages && tutor.languages[0] }} Tutor
+                </p>
               </div>
               
               <div class="price-badge-compact">
@@ -223,21 +131,52 @@
                 <div class="price-label">per hour</div>
               </div>
             </div>
+
+            <!-- Location & Rating Row -->
+            <div class="tutor-info-row">
+              <div class="info-item" *ngIf="tutor.country && tutor.country !== 'Unknown'">
+                <app-flag-icon [country]="tutor.country" [size]="16"></app-flag-icon>
+                <span>From {{ tutor.country }}</span>
+              </div>
+              <div class="info-item rating" *ngIf="tutor.rating > 0">
+                <ion-icon name="star"></ion-icon>
+                <span>{{ tutor.rating.toFixed(1) }}</span>
+                <span class="secondary">({{ tutor.totalLessons }} lessons)</span>
+              </div>
+              <div class="info-item new" *ngIf="isNewTutor(tutor)">
+                <ion-icon name="sparkles-outline"></ion-icon>
+                <span class="new-tutor">New tutor</span>
+              </div>
+            </div>
             
-            <!-- Office Hours Badge -->
+            <!-- Available Now Badge -->
             <div class="office-hours-badge-modern" *ngIf="tutor.isActivelyAvailable">
               <ion-icon name="flash"></ion-icon>
-              <span>Available Now - Book Instantly</span>
+              <span>Available now</span>
             </div>
             
-            <!-- Coaching Badge -->
-            <div class="coaching-badge-container" *ngIf="tutor.coachingBadge?.active">
-              <ion-badge class="coaching-badge" color="success">
-                <ion-icon name="school-outline"></ion-icon>
-              </ion-badge>
+            <!-- Availability Preview - Only show when we have actual data (prevents layout shifts) -->
+            <div class="availability-preview" 
+                 *ngIf="shouldShowAvailabilityPreview(tutor)"
+                 [@fadeIn]>
+              <ion-icon name="time-outline"></ion-icon>
+              <span class="available-label">Available</span>
+              <div class="availability-times">
+                <span class="time-chip" 
+                      *ngFor="let slot of getAvailabilityPreview(tutor); trackBy: trackBySlot">
+                  {{ slot.label }}
+                </span>
+              </div>
             </div>
             
-            <!-- Bio Section - Center Priority -->
+            <!-- Summary Section (Bold, above bio) -->
+            <div class="summary-section-inline" *ngIf="tutor.summary">
+              <p class="summary-text">
+                <strong>{{ tutor.summary }}</strong>
+              </p>
+            </div>
+            
+            <!-- Bio Section -->
             <div class="bio-section-inline" *ngIf="tutor.bio">
               <p class="bio-text" 
                  [class.truncated]="tutor.bio.length > 200 && !isBioExpanded(tutor.id)"
@@ -245,25 +184,33 @@
                 {{ tutor.bio }}
               </p>
               <button class="learn-more-btn" 
-                      (click)="toggleBioExpansion(tutor.id, $event)" 
-                      *ngIf="tutor.bio && tutor.bio.length > 200">
-                {{ isBioExpanded(tutor.id) ? 'Show less' : 'Learn more' }}
-                <ion-icon [name]="isBioExpanded(tutor.id) ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon>
+              (click)="openTutorProfile(tutor, $event)"
+               > Learn more
+<!-- =                <ion-icon [name]="isBioExpanded(tutor.id) ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon> -->
               </button>
             </div>
             
-            <!-- Quick Stats -->
+            <!-- Quick Stats Pills -->
             <div class="quick-stats-inline">
-              <div class="stat-chip">
-                <ion-icon name="time-outline"></ion-icon>
-                <span>{{ tutor.totalHours || 0 }}h taught</span>
-              </div>
-              <div class="stat-chip" *ngIf="tutor.nativeSpeaker">
+              <div class="stat-chip highlight" *ngIf="tutor.nativeSpeaker">
                 <ion-icon name="checkmark-circle"></ion-icon>
-                <span>Native</span>
+                <span>Native speaker</span>
+              </div>
+              <div class="stat-chip" *ngIf="tutor.totalHours > 0">
+                <ion-icon name="time-outline"></ion-icon>
+                <span>{{ tutor.totalHours }}h taught</span>
+              </div>
+              <div class="stat-chip materials" *ngIf="tutor.materialCount && tutor.materialCount > 0">
+                <ion-icon name="library-outline"></ion-icon>
+                <span>{{ tutor.materialCount }} material{{ tutor.materialCount === 1 ? '' : 's' }}</span>
               </div>
               <div class="stat-chip" *ngIf="tutor.specialties && tutor.specialties[0]">
+                <ion-icon name="school-outline"></ion-icon>
                 <span>{{ tutor.specialties[0] }}</span>
+              </div>
+              <div class="stat-chip" *ngIf="tutor.responseTime">
+                <ion-icon name="chatbubble-outline"></ion-icon>
+                <span>{{ tutor.responseTime }}</span>
               </div>
             </div>
           </div>
@@ -355,19 +302,24 @@
       <!-- Country Filter -->
       <div class="filter-section">
         <h3>Country of birth</h3>
-        <ion-select [(ngModel)]="filters.country" interface="action-sheet" placeholder="Select country">
-          <ion-select-option value="any">Any country</ion-select-option>
-          <ion-select-option value="spain">Spain</ion-select-option>
-          <ion-select-option value="mexico">Mexico</ion-select-option>
-          <ion-select-option value="argentina">Argentina</ion-select-option>
-          <ion-select-option value="colombia">Colombia</ion-select-option>
-        </ion-select>
+        <ion-button 
+          fill="outline" 
+          expand="block" 
+          (click)="toggleCountryDropdown()"
+          class="country-filter-button">
+          <span *ngIf="!hasCountryFilter()">
+            Select countries
+          </span>
+          <span *ngIf="hasCountryFilter()">
+            {{ getCountryDisplayName() }}
+          </span>
+        </ion-button>
       </div>
 
       <!-- Availability Filter -->
       <div class="filter-section">
         <h3>I'm available</h3>
-        <ion-select [(ngModel)]="filters.availability" interface="action-sheet" placeholder="Select availability">
+        <ion-select [(ngModel)]="filters.availability" (ionChange)="onFilterChange()" interface="action-sheet" placeholder="Select availability">
           <ion-select-option value="anytime">Any time</ion-select-option>
           <ion-select-option value="morning">Morning</ion-select-option>
           <ion-select-option value="afternoon">Afternoon</ion-select-option>
@@ -378,7 +330,7 @@
       <!-- Additional Filters -->
       <div class="filter-section">
         <h3>Specialties</h3>
-        <ion-select [(ngModel)]="filters.specialties" interface="action-sheet" placeholder="Select specialties" multiple="true">
+        <ion-select [(ngModel)]="filters.specialties" (ionChange)="onFilterChange()" interface="action-sheet" placeholder="Select specialties" multiple="true">
           <ion-select-option value="conversation">Conversation</ion-select-option>
           <ion-select-option value="business">Business</ion-select-option>
           <ion-select-option value="exam">Exam preparation</ion-select-option>
@@ -388,7 +340,7 @@
 
       <div class="filter-section">
         <h3>Gender</h3>
-        <ion-select [(ngModel)]="filters.gender" interface="action-sheet" placeholder="Select gender">
+        <ion-select [(ngModel)]="filters.gender" (ionChange)="onFilterChange()" interface="action-sheet" placeholder="Select gender">
           <ion-select-option value="any">Any</ion-select-option>
           <ion-select-option value="male">Male</ion-select-option>
           <ion-select-option value="female">Female</ion-select-option>
@@ -445,10 +397,22 @@
           [src]="currentVideoTutor.introductionVideo"
           [poster]="currentVideoTutor.videoThumbnail || ''"
           controls
-          autoplay
-          playsinline>
+          playsinline
+          (loadeddata)="onVideoReady($event)">
         </video>
       </div>
     </ion-content>
+  </ng-template>
+</ion-modal>
+
+<!-- Inline Filters Modal (Airbnb-style) -->
+<ion-modal 
+  [isOpen]="isFiltersModalOpen" 
+  (didDismiss)="onFiltersModalDismiss($event)"
+  cssClass="tutor-filters-modal">
+  <ng-template>
+    <app-tutor-filters-modal 
+      [initialFilters]="filters">
+    </app-tutor-filters-modal>
   </ng-template>
 </ion-modal>

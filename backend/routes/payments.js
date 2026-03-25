@@ -23,6 +23,9 @@ const Notification = require('../models/Notification');
 const Message = require('../models/Message');
 const { generateTrialLessonMessage } = require('../utils/systemMessages');
 const { formatNameWithInitial } = require('../utils/nameFormatter');
+const TutorFeedback = require('../models/TutorFeedback');
+const { toZonedTime } = require('date-fns-tz');
+const { pushLessonToGoogleCalendar } = require('../services/googleCalendarService');
 
 // Use shared name formatter
 const formatDisplayName = formatNameWithInitial;
@@ -80,11 +83,22 @@ router.post('/book-lesson-with-payment', verifyToken, async (req, res) => {
       paymentMethod, 
       stripePaymentIntentId, 
       stripePaymentMethodId, 
-      stripeCustomerId,
-      walletAmount = 0,
-      paymentMethodAmount = 0,
-      isHybridPayment = false
+      stripeCustomerId
     } = req.body;
+    
+    // Parse payment amounts as numbers and hybrid flag as boolean
+    const walletAmount = parseFloat(req.body.walletAmount) || 0;
+    const paymentMethodAmount = parseFloat(req.body.paymentMethodAmount) || 0;
+    const isHybridPayment = req.body.isHybridPayment === true || req.body.isHybridPayment === 'true';
+    
+    console.log('💳 [ROUTE DEBUG] Parsed payment params:', {
+      walletAmount,
+      paymentMethodAmount,
+      isHybridPayment,
+      rawWalletAmount: req.body.walletAmount,
+      rawPaymentMethodAmount: req.body.paymentMethodAmount,
+      rawIsHybridPayment: req.body.isHybridPayment
+    });
 
     if (!lessonData || !paymentMethod) {
       return res.status(400).json({ 
@@ -131,22 +145,299 @@ router.post('/book-lesson-with-payment', verifyToken, async (req, res) => {
       hasManual
     });
 
-    // Check if this is a trial lesson (first lesson between student and tutor)
-    const previousLessons = await Lesson.countDocuments({
+    // ==========================================
+    // VALIDATION CHECKS - Must all pass before creating lesson
+    // ==========================================
+
+    // 0. CHECK: Tutor has no REQUIRED pending feedback (block new bookings)
+    // GRACE PERIOD: Only count feedback older than 2 hours — gives tutors time to submit
+    // after a lesson ends without immediately blocking new bookings.
+    const FEEDBACK_GRACE_MS = 2 * 60 * 60 * 1000; // 2 hours
+    const pendingFeedbackCount = await TutorFeedback.countDocuments({
       tutorId: tutor._id,
-      studentId: user._id,
-      isOfficeHours: { $ne: true }, // Exclude office hours
-      status: { $in: ['scheduled', 'in_progress', 'completed'] }
+      status: 'pending',
+      required: { $ne: false },
+      createdAt: { $lt: new Date(Date.now() - FEEDBACK_GRACE_MS) }
+    });
+
+    if (pendingFeedbackCount > 0) {
+      console.log(`🚫 Blocking payment booking - tutor ${tutor.email} has ${pendingFeedbackCount} pending feedback (older than 2h)`);
+      return res.status(403).json({
+        success: false,
+        message: 'Tutor not accepting bookings at this time.',
+        code: 'PENDING_FEEDBACK',
+        pendingCount: pendingFeedbackCount
+      });
+    }
+    
+    const lessonStartTime = new Date(lessonData.startTime);
+    const lessonEndTime = new Date(lessonData.endTime);
+    const now = new Date();
+
+    // 1. CHECK: Lesson start time must be in the future
+    // Allow 2 minute buffer for processing time
+    const minStartTime = new Date(now.getTime() - 2 * 60 * 1000);
+    if (lessonStartTime < minStartTime) {
+      console.log('❌ Booking rejected: Lesson time is in the past', {
+        lessonStart: lessonStartTime,
+        now: now,
+        diff: (now - lessonStartTime) / 1000 / 60, // minutes
+      });
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot book a lesson in the past. Please select a future time slot.',
+        code: 'LESSON_TIME_PAST'
+      });
+    }
+
+    // 2. CHECK: Tutor is approved and active
+    if (!tutor.tutorApproved) {
+      console.log('❌ Booking rejected: Tutor not approved', { tutorId: tutor._id });
+      return res.status(403).json({
+        success: false,
+        message: 'This tutor is not currently accepting bookings.',
+        code: 'TUTOR_NOT_APPROVED'
+      });
+    }
+
+    // 3. CHECK: Timeslot is still in tutor's availability
+    // Availability blocks are stored in the TUTOR'S local timezone.
+    // Lesson times from the frontend arrive as UTC, so convert to tutor's tz.
+    const tutorTimezone = tutor.profile?.timezone || tutor.timezone || 'America/New_York';
+
+    // Convert UTC lesson times to tutor's wall-clock time using date-fns-tz
+    const lessonInTutorTz = toZonedTime(lessonStartTime, tutorTimezone);
+    const lessonEndInTutorTz = toZonedTime(lessonEndTime, tutorTimezone);
+
+    const dayOfWeekString = lessonInTutorTz.toLocaleDateString('en-US', { weekday: 'long' });
+    const dayOfWeekNumber = lessonInTutorTz.getDay();
+
+    const dayNameToNumber = {
+      'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3,
+      'Thursday': 4, 'Friday': 5, 'Saturday': 6
+    };
+
+    const localStartHours = lessonInTutorTz.getHours();
+    const localStartMinutes = lessonInTutorTz.getMinutes();
+    const localEndHours = lessonEndInTutorTz.getHours();
+    const localEndMinutes = lessonEndInTutorTz.getMinutes();
+    
+    const requestedStartMinutes = localStartHours * 60 + localStartMinutes;
+    const requestedEndMinutes = localEndHours * 60 + localEndMinutes;
+    
+    const availabilityBlocks = tutor.availability || [];
+    
+    // Helper to check if a block's day matches
+    const blockDayMatches = (blockDay) => {
+      // Handle both string and number formats
+      if (typeof blockDay === 'string') {
+        return blockDay === dayOfWeekString;
+      }
+      // If number, check both 0-6 format and 1-7 format
+      // 0-6 format: Sunday=0, Monday=1, etc.
+      // 1-7 format: Monday=1, Tuesday=2, ..., Sunday=7
+      return blockDay === dayOfWeekNumber || blockDay === (dayOfWeekNumber === 0 ? 7 : dayOfWeekNumber);
+    };
+    
+    console.log('🔍 Availability check:', {
+      tutorTimezone,
+      lessonStartUTC: lessonStartTime.toISOString(),
+      lessonStartLocal: `${localStartHours}:${localStartMinutes.toString().padStart(2, '0')}`,
+      dayOfWeekString,
+      dayOfWeekNumber,
+      requestedStartMinutes,
+      requestedEndMinutes,
+      availabilityBlocksCount: availabilityBlocks.length,
+      allAvailableDays: [...new Set(availabilityBlocks.filter(b => b.type === 'available').map(b => b.day))],
+      matchingDayBlocks: availabilityBlocks.filter(b => blockDayMatches(b.day)).map(b => ({
+        day: b.day,
+        type: b.type,
+        start: `${b.startHour}:${(b.startMinute || 0).toString().padStart(2, '0')}`,
+        end: `${b.endHour}:${(b.endMinute || 0).toString().padStart(2, '0')}`,
+        startMinutes: (b.startHour || 0) * 60 + (b.startMinute || 0),
+        endMinutes: (b.endHour || 24) * 60 + (b.endMinute || 0)
+      }))
     });
     
-    const isTrialLesson = previousLessons === 0;
+    const matchingBlocks = availabilityBlocks.filter(block => {
+      if (block.type !== 'available') return false;
+      if (!blockDayMatches(block.day)) return false;
+      
+      const blockStart = (block.startHour || 0) * 60 + (block.startMinute || 0);
+      const blockEnd = (block.endHour || 24) * 60 + (block.endMinute || 0);
+      
+      const matches = requestedStartMinutes >= blockStart && requestedEndMinutes <= blockEnd;
+      console.log(`  Block day=${block.day} ${blockStart}-${blockEnd}: requested ${requestedStartMinutes}-${requestedEndMinutes} = ${matches ? '✅ MATCH' : '❌ NO MATCH'}`);
+      
+      return matches;
+    });
+
+    if (matchingBlocks.length === 0) {
+      console.log('❌ Booking rejected: Timeslot no longer available', {
+        tutorId: tutor._id,
+        requestedTime: { start: lessonStartTime, end: lessonEndTime },
+        dayOfWeek,
+        requestedStartMinutes,
+        requestedEndMinutes
+      });
+      return res.status(409).json({
+        success: false,
+        message: 'This time slot is no longer available. The tutor may have updated their schedule. Please refresh and select a different time.',
+        code: 'SLOT_NOT_AVAILABLE'
+      });
+    }
+
+    // 4. CHECK: No conflicting lessons for the tutor at this time
+    const tutorConflict = await Lesson.findOne({
+      tutorId: tutor._id,
+      status: { $in: ['scheduled', 'in_progress'] },
+      $or: [
+        // New lesson starts during existing lesson
+        { startTime: { $lte: lessonStartTime }, endTime: { $gt: lessonStartTime } },
+        // New lesson ends during existing lesson
+        { startTime: { $lt: lessonEndTime }, endTime: { $gte: lessonEndTime } },
+        // New lesson completely overlaps existing lesson
+        { startTime: { $gte: lessonStartTime }, endTime: { $lte: lessonEndTime } }
+      ]
+    });
+
+    if (tutorConflict) {
+      console.log('❌ Booking rejected: Tutor has conflicting lesson', {
+        tutorId: tutor._id,
+        conflictingLessonId: tutorConflict._id,
+        requestedTime: { start: lessonStartTime, end: lessonEndTime },
+        conflictTime: { start: tutorConflict.startTime, end: tutorConflict.endTime }
+      });
+      return res.status(409).json({
+        success: false,
+        message: 'This time slot has just been booked by someone else. Please refresh and select a different time.',
+        code: 'TUTOR_TIME_CONFLICT'
+      });
+    }
+
+    // 5. CHECK: No conflicting lessons for the student at this time
+    const studentConflict = await Lesson.findOne({
+      studentId: user._id,
+      status: { $in: ['scheduled', 'in_progress'] },
+      $or: [
+        { startTime: { $lte: lessonStartTime }, endTime: { $gt: lessonStartTime } },
+        { startTime: { $lt: lessonEndTime }, endTime: { $gte: lessonEndTime } },
+        { startTime: { $gte: lessonStartTime }, endTime: { $lte: lessonEndTime } }
+      ]
+    });
+
+    if (studentConflict) {
+      console.log('❌ Booking rejected: Student has conflicting lesson', {
+        studentId: user._id,
+        conflictingLessonId: studentConflict._id,
+        requestedTime: { start: lessonStartTime, end: lessonEndTime },
+        conflictTime: { start: studentConflict.startTime, end: studentConflict.endTime }
+      });
+      return res.status(409).json({
+        success: false,
+        message: 'You already have a lesson scheduled at this time. Please select a different time.',
+        code: 'STUDENT_TIME_CONFLICT'
+      });
+    }
+
+    // 6. CHECK: Lesson duration is valid
+    const durationMinutes = (lessonEndTime - lessonStartTime) / (1000 * 60);
+    const allowedDurations = [25, 50];
+    if (!allowedDurations.includes(durationMinutes)) {
+      console.log('❌ Booking rejected: Invalid lesson duration', { durationMinutes });
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid lesson duration. Lessons must be 25 or 50 minutes.',
+        code: 'INVALID_DURATION'
+      });
+    }
+
+    // 7. CHECK: Price is valid (must be non-negative and meet minimum)
+    if (lessonData.price < 0) {
+      console.log('❌ Booking rejected: Invalid price', { price: lessonData.price });
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid lesson price.',
+        code: 'INVALID_PRICE'
+      });
+    }
+
+    // Enforce minimum hourly rate of $10 (backend safeguard)
+    const tutorRate = tutor.hourlyRate || tutor.onboardingData?.hourlyRate || 25;
+    if (tutorRate < 10) {
+      console.log('❌ Booking rejected: Tutor rate below minimum', { tutorRate });
+      return res.status(400).json({
+        success: false,
+        message: 'Tutor hourly rate is below the platform minimum of $10/hr.',
+        code: 'RATE_BELOW_MINIMUM'
+      });
+    }
+
+    console.log('✅ All booking validations passed');
+    // ==========================================
+    // END VALIDATION CHECKS
+    // ==========================================
+
+    // Check if student ever COMPLETED a trial with this tutor
+    // (A cancelled/no-show trial doesn't count — student never received the benefit)
+    const completedTrial = await Lesson.countDocuments({
+      tutorId: tutor._id,
+      studentId: user._id,
+      isTrialLesson: true,
+      isOfficeHours: { $ne: true },
+      status: { $in: ['completed', 'in_progress'] }
+    });
+
+    // Check if student already has a SCHEDULED trial with this tutor
+    const scheduledTrial = await Lesson.countDocuments({
+      tutorId: tutor._id,
+      studentId: user._id,
+      isTrialLesson: true,
+      isOfficeHours: { $ne: true },
+      status: 'scheduled'
+    });
+
+    const isTrialLesson = completedTrial === 0 && scheduledTrial === 0;
+    
+    // Calculate expected price with trial discount (30% off for first lesson)
+    const TRIAL_DISCOUNT_PERCENT = 30;
+    const tutorHourlyRate = tutor.hourlyRate || tutor.onboardingData?.hourlyRate || 20;
+    const STANDARD_LESSON_DURATION = 50;
+    const basePrice = Math.round((tutorHourlyRate * (lessonData.duration / STANDARD_LESSON_DURATION)) * 100) / 100;
+    
+    let expectedPrice = basePrice;
+    let discountAmount = 0;
+    
+    if (isTrialLesson) {
+      discountAmount = Math.round(basePrice * (TRIAL_DISCOUNT_PERCENT / 100) * 100) / 100;
+      expectedPrice = Math.round((basePrice - discountAmount) * 100) / 100;
+    }
     
     console.log('🎓 Trial lesson check during booking:', {
       tutorId: tutor._id,
       studentId: user._id,
-      previousScheduledLessons: previousLessons,
-      isTrialLesson
+      completedTrials: completedTrial,
+      scheduledTrials: scheduledTrial,
+      isTrialLesson,
+      tutorHourlyRate,
+      basePrice,
+      discountAmount,
+      expectedPrice,
+      clientPrice: lessonData.price,
+      note: 'Cancelled/no-show trials do not count against eligibility'
     });
+    
+    // Validate client price matches expected price (with small tolerance for rounding)
+    const priceDifference = Math.abs(lessonData.price - expectedPrice);
+    if (priceDifference > 0.02) {
+      console.log('⚠️ Price mismatch detected, using server-calculated price:', {
+        clientPrice: lessonData.price,
+        expectedPrice,
+        difference: priceDifference
+      });
+      // Override with server-calculated price for security
+      lessonData.price = expectedPrice;
+    }
 
     // Generate a unique channel name for Agora
     const channelName = `lesson_${Date.now()}_${Math.random().toString(36).substring(7)}`;
@@ -157,7 +448,10 @@ router.post('/book-lesson-with-payment', verifyToken, async (req, res) => {
       channelName,
       status: 'scheduled',
       billingStatus: 'pending',
-      isTrialLesson // Add trial lesson flag
+      isTrialLesson, // Add trial lesson flag
+      discountAmount: isTrialLesson ? discountAmount : 0,
+      discountPercent: isTrialLesson ? TRIAL_DISCOUNT_PERCENT : 0,
+      originalPrice: basePrice // Store original price before discount
     });
 
     await lesson.save();
@@ -181,6 +475,11 @@ router.post('/book-lesson-with-payment', verifyToken, async (req, res) => {
       const populatedLesson = await Lesson.findById(lesson._id)
         .populate('tutorId', 'name firstName lastName email picture interfaceLanguage onboardingData auth0Id')
         .populate('studentId', 'name firstName lastName email picture auth0Id');
+
+      // Push to tutor's Google Calendar (non-blocking)
+      pushLessonToGoogleCalendar(populatedLesson).catch(err => {
+        console.error('[GCal] Non-blocking push failed:', err.message);
+      });
 
       const student = populatedLesson.studentId;
       const tutor = populatedLesson.tutorId;
@@ -384,12 +683,14 @@ router.post('/book-lesson-with-payment', verifyToken, async (req, res) => {
         lesson: populatedLesson
       });
     } catch (paymentError) {
-      // If payment fails, cancel the lesson
-      console.error('❌ Payment failed, cancelling lesson:', paymentError);
-      lesson.status = 'cancelled';
-      lesson.cancelReason = 'payment_failed';
-      await lesson.save();
-      
+      console.error('❌ Payment failed, removing orphaned lesson:', paymentError);
+      try {
+        await Lesson.findByIdAndDelete(lesson._id);
+        console.log(`🗑️ Deleted orphaned lesson ${lesson._id}`);
+      } catch (deleteErr) {
+        console.error('❌ Could not delete orphaned lesson:', deleteErr);
+      }
+
       throw new Error(`Payment failed: ${paymentError.message}`);
     }
   } catch (error) {
@@ -582,6 +883,20 @@ router.post('/stripe-connect/onboard', verifyToken, async (req, res) => {
     if (user.userType !== 'tutor') {
       return res.status(403).json({ success: false, message: 'Only tutors can onboard to Stripe Connect' });
     }
+
+    const { isUSPersonForTax, hasUSBankAccount } = req.body;
+
+    // Save tax classification info if provided
+    if (isUSPersonForTax !== undefined) {
+      user.isUSPersonForTax = isUSPersonForTax;
+      user.taxInfoCompletedAt = new Date();
+      console.log(`📋 Tax info saved for ${user.email}: isUSPerson=${isUSPersonForTax}`);
+    }
+    if (hasUSBankAccount !== undefined) {
+      user.hasUSBankAccount = hasUSBankAccount;
+      console.log(`📋 Bank info saved for ${user.email}: hasUSBank=${hasUSBankAccount}`);
+    }
+    await user.save();
 
     // Create Stripe Connect account if doesn't exist
     if (!user.stripeConnectAccountId) {
@@ -851,10 +1166,11 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
 
     console.log(`💰 Fetching earnings for tutor ${user._id}...`);
     
-    // Pagination
+    // Pagination (use limit=0 to fetch all, for chart data)
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const skip = (page - 1) * limit;
+    const requestedLimit = parseInt(req.query.limit);
+    const limit = requestedLimit === 0 ? 0 : (requestedLimit || 20);
+    const skip = limit === 0 ? 0 : (page - 1) * limit;
     
     // Build query
     const query = { 
@@ -867,21 +1183,53 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
       // We'll filter by status after mapping, since it's computed
     }
 
-    // Get payments with pagination
-    let payments = await Payment.find(query)
-      .populate('lessonId', 'startTime endTime duration status cancelReason')
+    // Get payments (limit=0 returns all for chart data)
+    let paymentsQuery = Payment.find(query)
+      .populate('lessonId', 'startTime endTime duration status cancelReason price actualPrice tutorPayout platformFee')
+      .populate('classId', 'startTime endTime name status price')
+      .populate('materialId', 'title materialType')
       .populate('studentId', 'name firstName lastName picture')
-      .sort({ createdAt: -1 }) // Sort by booking date
-      .skip(skip)
-      .limit(limit);
+      .sort({ createdAt: -1 }); // Sort by booking date
 
-    console.log(`💰 Found ${payments.length} payments for tutor ${user._id} (page ${page})`);
+    if (limit > 0) {
+      paymentsQuery = paymentsQuery.skip(skip).limit(limit);
+    }
+
+    let payments = await paymentsQuery;
+
+    console.log(`💰 Found ${payments.length} payments for tutor ${user._id} (${limit === 0 ? 'all' : `page ${page}`})`);
+
+    // ─── Fetch any missing hybrid payment partners ────────────────────
+    // If a hybrid payment's partner landed on a different page, fetch it so we can merge
+    const hybridPaymentLessonIds = payments
+      .filter(p => p.metadata?.isHybridPayment && p.lessonId?._id)
+      .map(p => p.lessonId._id.toString());
+
+    if (hybridPaymentLessonIds.length > 0) {
+      const currentPaymentIds = new Set(payments.map(p => p._id.toString()));
+      const missingPartners = await Payment.find({
+        tutorId: user._id,
+        lessonId: { $in: hybridPaymentLessonIds },
+        _id: { $nin: [...currentPaymentIds] },
+        'metadata.isHybridPayment': true,
+        transferStatus: { $ne: 'acknowledged' }
+      })
+        .populate('lessonId', 'startTime endTime duration status cancelReason price actualPrice tutorPayout platformFee')
+        .populate('classId', 'startTime endTime name status price')
+        .populate('studentId', 'name firstName lastName picture');
+
+      if (missingPartners.length > 0) {
+        console.log(`🔀 Found ${missingPartners.length} missing hybrid partner payment(s), adding for merge`);
+        payments = [...payments, ...missingPartners];
+      }
+    }
+    // ──────────────────────────────────────────────────────────────────
 
     // Calculate totals (always calculate from ALL payments, not just current page)
     const allPayments = await Payment.find({
       tutorId: user._id,
       transferStatus: { $ne: 'acknowledged' }
-    }).populate('lessonId', 'status');
+    }).populate('lessonId', 'status').populate('classId', 'status');
     
     let totalEarnings = 0; // Earnings that have been successfully transferred
     let pendingEarnings = 0; // Earnings that are pending transfer
@@ -889,13 +1237,16 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
     allPayments.forEach(payment => {
       const tutorPayout = payment.tutorPayout || 0;
       const lessonStatus = payment.lessonId?.status;
+      const classStatus = payment.classId?.status;
+      const isClassPayment = payment.paymentType === 'class_booking' || !!payment.classId;
       
       // Include in calculations if:
-      // 1. Revenue is recognized (completed/ended lessons), OR
-      // 2. Lesson is scheduled (future lesson that student paid for)
+      // 1. Revenue is recognized (completed/ended lessons/classes), OR
+      // 2. Lesson/class is scheduled (future that student paid for)
       const shouldCount = payment.revenueRecognized || 
                           lessonStatus === 'scheduled' || 
-                          lessonStatus === 'in_progress';
+                          lessonStatus === 'in_progress' ||
+                          (isClassPayment && classStatus === 'scheduled');
       
       if (shouldCount) {
         if (payment.transferStatus === 'succeeded' || payment.transferStatus === 'withdrawn') {
@@ -909,6 +1260,9 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
         } else if (lessonStatus === 'scheduled' || lessonStatus === 'in_progress') {
           // Scheduled/in-progress lessons - counts as pending (not yet available)
           pendingEarnings += tutorPayout;
+        } else if (isClassPayment && classStatus === 'scheduled') {
+          // Scheduled classes - counts as pending (not yet available)
+          pendingEarnings += tutorPayout;
         } else if (payment.revenueRecognized) {
           // Completed but not yet available - counts as pending
           pendingEarnings += tutorPayout;
@@ -916,22 +1270,35 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
       }
     });
 
-    const recentPayments = payments.map(payment => {
+    const rawPayments = payments.map(payment => {
       const tutorPayout = payment.tutorPayout || 0;
       const lessonStatus = payment.lessonId?.status || 'unknown';
+      const classStatus = payment.classId?.status;
+      const isClassPayment = payment.paymentType === 'class_booking' || !!payment.classId;
       
       // Determine payment status
       let paymentStatus = 'pending';
       
-      // Check lesson cancellation FIRST (no-show, student/tutor cancelled)
-      if (lessonStatus === 'cancelled') {
+      // Check lesson/class cancellation FIRST (no-show, student/tutor cancelled)
+      if (lessonStatus === 'cancelled' || classStatus === 'cancelled') {
         // Then check if it's an admin refund vs automatic cancellation
         if (payment.status === 'refunded' && payment.refundReason && payment.refundReason.includes('investigation')) {
           paymentStatus = 'refunded';
         } else if (payment.status === 'partially_refunded' && payment.refundReason && payment.refundReason.includes('investigation')) {
           paymentStatus = 'partially_refunded';
+        } else if (payment.revenueRecognized && tutorPayout > 0) {
+          // Tutor was compensated despite cancellation (e.g. student no-show, tutor waited)
+          if (payment.transferStatus === 'succeeded' || payment.transferStatus === 'withdrawn') {
+            paymentStatus = 'paid';
+          } else if (payment.transferStatus === 'available') {
+            paymentStatus = 'succeeded';
+          } else if (payment.transferStatus === 'on_hold') {
+            paymentStatus = 'pending';
+          } else {
+            paymentStatus = 'paid';
+          }
         } else {
-          // Regular cancellation (no-show, etc.)
+          // Regular cancellation where tutor was NOT compensated
           paymentStatus = 'cancelled';
         }
       } else if (payment.status === 'refunded') {
@@ -943,12 +1310,15 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
       } else if (payment.transferStatus === 'available') {
         // NEW: Available for withdrawal (released from 24hr hold)
         paymentStatus = 'succeeded'; // Frontend will show as "Available"
+      } else if (isClassPayment && classStatus === 'scheduled') {
+        // Class is scheduled but hasn't happened yet
+        paymentStatus = 'class_scheduled';
       } else if (payment.transferStatus === 'on_hold') {
-        // NEW: On hold during 24hr period
+        // On hold during 24hr period (class/lesson has completed)
         paymentStatus = 'pending';
       } else if (payment.revenueRecognized && lessonStatus === 'completed') {
         paymentStatus = 'pending';
-      } else if (lessonStatus === 'in_progress') {
+      } else if (lessonStatus === 'in_progress' || classStatus === 'in_progress') {
         paymentStatus = 'in_progress';
       } else if (lessonStatus === 'ended_early' && payment.revenueRecognized) {
         paymentStatus = 'processing';
@@ -962,27 +1332,145 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
       
       const studentPicture = payment.studentId?.picture || null;
 
+      // Use class times as fallback when lessonId is not present
+      const startTime = payment.lessonId?.startTime || payment.classId?.startTime || null;
+      const endTime = payment.lessonId?.endTime || payment.classId?.endTime || null;
+      const isTip = payment.paymentType === 'tip';
+      const isMaterialPurchase = payment.paymentType === 'material_purchase';
+
       return {
         id: payment._id,
         studentName,
         studentPicture,
-        date: payment.lessonId?.startTime || payment.createdAt,
-        startTime: payment.lessonId?.startTime || null,
-        endTime: payment.lessonId?.endTime || null,
+        date: (isTip || isMaterialPurchase) ? payment.createdAt : (startTime || payment.createdAt),
+        startTime: (isTip || isMaterialPurchase) ? null : startTime,
+        endTime: (isTip || isMaterialPurchase) ? null : endTime,
         amount: payment.amount || 0,
         tutorPayout,
         platformFee: payment.platformFee || 0,
+        stripeFee: payment.stripeFee || 0,
         refundAmount: payment.refundAmount || 0,
         refundReason: payment.refundReason || null,
         status: paymentStatus,
         lessonStatus: lessonStatus,
+        classStatus: classStatus || null,
         cancelReason: payment.lessonId?.cancelReason || null,
-        lessonId: payment.lessonId?._id,
+        lessonId: payment.lessonId?._id || null,
+        classId: payment.classId?._id || null,
+        className: payment.classId?.name || null,
+        materialId: payment.materialId?._id || null,
+        materialTitle: payment.materialId?.title || payment.metadata?.materialTitle || null,
+        materialType: payment.materialId?.materialType || payment.metadata?.materialType || null,
+        isClassPayment,
+        isMaterialPurchase,
+        paymentType: payment.paymentType || 'lesson_booking',
+        transferStatus: payment.transferStatus || null,
         receiptUrl: payment.receiptUrl || null,
         stripeChargeId: payment.stripeChargeId || null,
-        paypalTransactionId: payment.paypalTransactionId || null
+        paypalTransactionId: payment.paypalTransactionId || null,
+        _isHybrid: payment.metadata?.isHybridPayment || false // internal flag for merging
       };
     });
+
+    // ─── Merge multiple payment rows per lesson ──────────────────────
+    // A single lesson may have multiple Payment records (hybrid wallet+card,
+    // retries, split payments, etc.). The tutor should see ONE row per lesson
+    // with the correct totals derived from the lesson itself.
+    const recentPayments = [];
+    const lessonMergeMap = new Map(); // lessonId string → merged row
+
+    for (const row of rawPayments) {
+      const lessonKey = row.lessonId ? row.lessonId.toString() : null;
+
+      if (row.paymentType === 'tip') {
+        recentPayments.push(row);
+      } else if (lessonKey && lessonMergeMap.has(lessonKey)) {
+        const existing = lessonMergeMap.get(lessonKey);
+
+        existing.amount += row.amount;
+        existing.refundAmount += row.refundAmount;
+
+        // Use the "best" transferStatus (prefer active states over null)
+        const statusPriority = ['available', 'on_hold', 'pending_withdrawal', 'withdrawn', 'succeeded'];
+        if (row.transferStatus && (!existing.transferStatus || statusPriority.indexOf(row.transferStatus) < statusPriority.indexOf(existing.transferStatus))) {
+          existing.transferStatus = row.transferStatus;
+          existing.status = row.status; // Sync the display status too
+        }
+
+        if (row.receiptUrl && !existing.receiptUrl) existing.receiptUrl = row.receiptUrl;
+        if (row.stripeChargeId && !existing.stripeChargeId) existing.stripeChargeId = row.stripeChargeId;
+        existing.stripeFee += row.stripeFee;
+      } else if (lessonKey) {
+        // First row for this lesson — store for potential merge
+        lessonMergeMap.set(lessonKey, { ...row });
+      } else {
+        // No lessonId (e.g. class payments) — pass through directly
+        recentPayments.push(row);
+      }
+    }
+
+    // Finalize merged rows: use lesson-level payout values when available
+    for (const [lessonKey, mergedRow] of lessonMergeMap.entries()) {
+      // Find the original payment document to access populated lesson data
+      const sourcePayment = payments.find(p => p.lessonId?._id?.toString() === lessonKey);
+      const lessonData = sourcePayment?.lessonId;
+
+      if (lessonData?.tutorPayout != null && lessonData.tutorPayout > 0) {
+        mergedRow.tutorPayout = lessonData.tutorPayout;
+        mergedRow.platformFee = lessonData.platformFee || 0;
+        mergedRow.amount = (lessonData.actualPrice || lessonData.price) || mergedRow.amount;
+      }
+
+      delete mergedRow._isHybrid;
+      delete mergedRow._hasAuthorativePayout;
+      recentPayments.push(mergedRow);
+    }
+
+    // ─── Include cancelled classes with no payments ──────────────────
+    const ClassModel = require('../models/Class');
+    const classIdsWithPayments = new Set(
+      recentPayments.filter(r => r.classId).map(r => r.classId.toString())
+    );
+    const cancelledClasses = await ClassModel.find({
+      tutorId: user._id,
+      status: 'cancelled'
+    }).select('name startTime endTime price status cancelReason cancelledAt').lean();
+
+    for (const cls of cancelledClasses) {
+      if (classIdsWithPayments.has(cls._id.toString())) continue;
+      recentPayments.push({
+        id: `class-${cls._id}`,
+        studentName: 'N/A',
+        studentPicture: null,
+        date: cls.startTime || cls.cancelledAt || cls.createdAt,
+        startTime: cls.startTime,
+        endTime: cls.endTime,
+        amount: 0,
+        tutorPayout: 0,
+        platformFee: 0,
+        stripeFee: 0,
+        refundAmount: 0,
+        refundReason: null,
+        status: 'cancelled',
+        lessonStatus: null,
+        classStatus: 'cancelled',
+        cancelReason: cls.cancelReason || 'class_cancelled',
+        lessonId: null,
+        classId: cls._id,
+        className: cls.name,
+        isClassPayment: true,
+        paymentType: 'class_booking',
+        transferStatus: null,
+        receiptUrl: null,
+        stripeChargeId: null,
+        paypalTransactionId: null
+      });
+    }
+    // ──────────────────────────────────────────────────────────────────
+
+    // Re-sort by date (merging may have disrupted order)
+    recentPayments.sort((a, b) => new Date(b.date) - new Date(a.date));
+    // ─────────────────────────────────────────────────────────────────
     
     // Apply filters
     let filteredPayments = recentPayments;
@@ -1019,7 +1507,7 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
       pendingEarnings,
       recentPayments: filteredPayments,
       page,
-      hasMore: payments.length === limit, // If we got full page, there might be more
+      hasMore: limit > 0 && payments.length === limit, // If we got full page, there might be more
       payoutProvider: user.payoutProvider || 'unknown',
       payoutDetails: user.payoutDetails
     });
@@ -1098,7 +1586,11 @@ router.get('/payout-options', verifyToken, async (req, res) => {
         }
       },
       currentProvider: user.payoutProvider || 'none',
-      currentPaypalEmail: user.payoutDetails?.paypalEmail || null
+      currentPaypalEmail: user.payoutDetails?.paypalEmail || null,
+      // Tax classification info
+      isUSPersonForTax: user.isUSPersonForTax,
+      hasUSBankAccount: user.hasUSBankAccount,
+      taxInfoCompletedAt: user.taxInfoCompletedAt
     });
   } catch (error) {
     console.error('❌ Error checking payout options:', error);
@@ -1490,10 +1982,21 @@ router.post('/setup-paypal', verifyToken, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Only tutors can setup payout methods' });
     }
 
-    const { paypalEmail } = req.body;
+    const { paypalEmail, isUSPersonForTax, hasUSBankAccount } = req.body;
     
     if (!paypalEmail || !paypalEmail.includes('@')) {
       return res.status(400).json({ success: false, message: 'Valid PayPal email required' });
+    }
+
+    // Save tax classification info if provided
+    if (isUSPersonForTax !== undefined) {
+      user.isUSPersonForTax = isUSPersonForTax;
+      user.taxInfoCompletedAt = new Date();
+      console.log(`📋 Tax info saved for ${user.email}: isUSPerson=${isUSPersonForTax}`);
+    }
+    if (hasUSBankAccount !== undefined) {
+      user.hasUSBankAccount = hasUSBankAccount;
+      console.log(`📋 Bank info saved for ${user.email}: hasUSBank=${hasUSBankAccount}`);
     }
 
     // Update payout provider
@@ -1545,6 +2048,19 @@ router.post('/setup-manual', verifyToken, async (req, res) => {
 
     if (user.userType !== 'tutor') {
       return res.status(403).json({ success: false, message: 'Only tutors can setup payout methods' });
+    }
+
+    const { isUSPersonForTax, hasUSBankAccount } = req.body;
+
+    // Save tax classification info if provided
+    if (isUSPersonForTax !== undefined) {
+      user.isUSPersonForTax = isUSPersonForTax;
+      user.taxInfoCompletedAt = new Date();
+      console.log(`📋 Tax info saved for ${user.email}: isUSPerson=${isUSPersonForTax}`);
+    }
+    if (hasUSBankAccount !== undefined) {
+      user.hasUSBankAccount = hasUSBankAccount;
+      console.log(`📋 Bank info saved for ${user.email}: hasUSBank=${hasUSBankAccount}`);
     }
 
     // Update payout provider
@@ -1634,4 +2150,6 @@ router.post('/deduplicate-cards', verifyToken, async (req, res) => {
 });
 
 module.exports = router;
+
+
 

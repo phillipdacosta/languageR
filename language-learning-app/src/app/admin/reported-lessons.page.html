@@ -71,6 +71,28 @@
             <p class="lesson-meta">
               {{ formatDate(lesson.startTime) }} • ${{ lesson.price }} • {{ lesson.duration }} min
             </p>
+            <div class="auto-flag-badge" *ngIf="lesson.autoFlaggedShortLesson">
+              <ion-icon name="warning"></ion-icon>
+              <span>Auto-flagged: {{ lesson.autoFlagReason }}</span>
+            </div>
+          </div>
+
+          <!-- Call Duration Info -->
+          <div class="call-duration-info">
+            <div class="duration-row">
+              <span class="duration-label">Actual duration:</span>
+              <span class="duration-value" [class.short]="lesson.actualDurationMinutes != null && lesson.actualDurationMinutes < 5">
+                {{ lesson.actualDurationMinutes != null ? lesson.actualDurationMinutes + ' min' : '—' }}
+              </span>
+            </div>
+            <div class="duration-row">
+              <span class="duration-label">Tutor in call:</span>
+              <span class="duration-value">{{ getParticipantDuration(lesson, 'tutor') }}</span>
+            </div>
+            <div class="duration-row">
+              <span class="duration-label">Student in call:</span>
+              <span class="duration-value">{{ getParticipantDuration(lesson, 'student') }}</span>
+            </div>
           </div>
 
           <div class="participants">
@@ -129,6 +151,15 @@
               (click)="resumePayout(lesson)">
               <ion-icon slot="start" name="play-circle-outline"></ion-icon>
               Resume Payout
+            </ion-button>
+            <ion-button 
+              *ngIf="lesson.payoutPaused"
+              fill="outline" 
+              size="small" 
+              color="danger"
+              (click)="cancelPayout(lesson)">
+              <ion-icon slot="start" name="close-circle-outline"></ion-icon>
+              Cancel Payout
             </ion-button>
           </div>
         </ion-card-content>

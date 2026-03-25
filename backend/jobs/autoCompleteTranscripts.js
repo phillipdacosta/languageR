@@ -18,6 +18,30 @@ const LessonAnalysis = require('../models/LessonAnalysis');
 const User = require('../models/User');
 const { analyzeLesson } = require('../routes/transcription');
 
+/**
+ * Calculate total speaking time from transcript segments (in seconds).
+ * Uses segment.duration if available (from Whisper seg.end - seg.start).
+ * Falls back to estimating from word count (~150 words/minute) for older segments.
+ */
+function calculateSpeakingTime(segments) {
+  if (!segments || segments.length === 0) return 0;
+  
+  const segmentsWithDuration = segments.filter(s => s.duration && s.duration > 0);
+  
+  if (segmentsWithDuration.length > 0) {
+    const totalFromDurations = segmentsWithDuration.reduce((sum, s) => sum + s.duration, 0);
+    if (segmentsWithDuration.length < segments.length) {
+      const avgDuration = totalFromDurations / segmentsWithDuration.length;
+      return totalFromDurations + (segments.length - segmentsWithDuration.length) * avgDuration;
+    }
+    return totalFromDurations;
+  }
+  
+  // Fallback: estimate from word count (~150 words/minute = 2.5 words/second)
+  const totalWords = segments.reduce((sum, s) => sum + (s.text ? s.text.split(/\s+/).length : 0), 0);
+  return totalWords / 2.5;
+}
+
 // Helper function to emit WebSocket events for lesson/payment status changes
 function emitStatusChange(lessonId, status, tutorId, studentId) {
   try {
@@ -118,10 +142,15 @@ async function autoCompleteTranscripts() {
         const totalDuration = (now - transcript.startTime) / 1000; // seconds
         const wordCount = studentSegments.reduce((sum, s) => sum + s.text.split(/\s+/).length, 0);
         
+        // Calculate actual speaking time from segment durations (in seconds)
+        const studentSpeakingSeconds = calculateSpeakingTime(studentSegments);
+        const tutorSpeakingSeconds = calculateSpeakingTime(tutorSegments);
+        console.log(`   ⏱️ Speaking time — Student: ${Math.round(studentSpeakingSeconds)}s, Tutor: ${Math.round(tutorSpeakingSeconds)}s`);
+        
         transcript.metadata = {
           totalDuration,
-          studentSpeakingTime: studentSegments.length * 10, // rough estimate
-          tutorSpeakingTime: tutorSegments.length * 10,
+          studentSpeakingTime: Math.round(studentSpeakingSeconds), // in seconds
+          tutorSpeakingTime: Math.round(tutorSpeakingSeconds), // in seconds
           wordCount
         };
         
@@ -197,11 +226,10 @@ async function finalizeLesson(lesson, endTime = new Date()) {
         // Calculate actual price for office hours (per-minute billing)
         if (lesson.isOfficeHours) {
           const tutor = await User.findById(lesson.tutorId);
-          const standardRate = tutor?.onboardingData?.hourlyRate || 25;
+          const standardRate = Math.max(10, tutor?.onboardingData?.hourlyRate || 25);
           const standardDuration = 50; // Standard lesson duration
           const perMinuteRate = standardRate / standardDuration;
           
-          // Calculate actual price based on actual time used
           const calculatedPrice = Math.round(perMinuteRate * actualMinutes * 100) / 100;
           lesson.actualPrice = calculatedPrice;
           lesson.billingStatus = 'charged';

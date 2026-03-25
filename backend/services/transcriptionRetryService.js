@@ -63,7 +63,8 @@ async function retryFailedTranscriptions(maxAttempts = 3) {
               speaker: chunk.speaker,
               text: seg.text,
               confidence: seg.confidence || 1,
-              language: transcript.language
+              language: transcript.language,
+              duration: (seg.end != null && seg.start != null) ? (seg.end - seg.start) : 0
             }));
           
           transcript.segments.push(...segments);
@@ -181,7 +182,8 @@ async function retryTranscript(transcriptId) {
             speaker: chunk.speaker,
             text: seg.text,
             confidence: seg.confidence || 1,
-            language: transcript.language
+            language: transcript.language,
+            duration: (seg.end != null && seg.start != null) ? (seg.end - seg.start) : 0
           }));
         
         transcript.segments.push(...segments);

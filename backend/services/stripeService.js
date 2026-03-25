@@ -19,6 +19,11 @@ if (!isStripeConfigured) {
 }
 
 class StripeService {
+  // Expose the raw stripe instance for advanced usage (e.g. paymentIntents with transfer_data)
+  get stripe() {
+    return stripe;
+  }
+
   /**
    * Create a PaymentIntent for direct payment or wallet top-up
    * @param {Object} params
@@ -119,6 +124,13 @@ class StripeService {
         capabilities: {
           card_payments: { requested: true },
           transfers: { requested: true }
+        },
+        business_type: 'individual', // Tutors are individuals, not companies
+        business_profile: {
+          mcc: '8299', // Educational Services - Schools and Educational Services
+          product_description: 'Online language tutoring services - teaching students languages through one-on-one video lessons.'
+          // Note: URL is not provided to avoid validation errors during development
+          // Stripe will use the product_description instead
         },
         metadata
       });
@@ -226,7 +238,7 @@ class StripeService {
    * @param {string} params.reason - Reason for refund
    * @returns {Promise<Object>} Refund object
    */
-  async createRefund({ paymentIntentId, amount = null, reason = 'requested_by_customer' }) {
+  async createRefund({ paymentIntentId, amount = null, reason = 'requested_by_customer', reverseTransfer = false }) {
     try {
       const refundParams = {
         payment_intent: paymentIntentId,
@@ -234,12 +246,17 @@ class StripeService {
       };
 
       if (amount) {
-        refundParams.amount = Math.round(amount * 100); // Convert to cents
+        refundParams.amount = Math.round(amount * 100);
+      }
+
+      if (reverseTransfer) {
+        refundParams.reverse_transfer = true;
+        refundParams.refund_application_fee = true;
       }
 
       const refund = await stripe.refunds.create(refundParams);
       
-      console.log(`💰 Created refund: ${refund.id} for PaymentIntent: ${paymentIntentId}`);
+      console.log(`💰 Created refund: ${refund.id} for PaymentIntent: ${paymentIntentId} (reverse_transfer: ${reverseTransfer})`);
       
       return refund;
     } catch (error) {

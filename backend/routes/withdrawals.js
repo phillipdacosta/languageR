@@ -4,6 +4,8 @@ const { verifyToken } = require('../middleware/videoUploadMiddleware');
 const withdrawalService = require('../services/withdrawalService');
 const User = require('../models/User');
 const Payment = require('../models/Payment');
+const Notification = require('../models/Notification');
+const Withdrawal = require('../models/Withdrawal');
 
 /**
  * GET /api/withdrawals/balance
@@ -71,13 +73,102 @@ router.get('/balance', verifyToken, async (req, res) => {
       await user.save();
     }
     
-    // Use database values (authoritative source)
-    // Note: calculated values don't work correctly with partial withdrawals
-    // because payments get marked as 'withdrawn' even when partial amount remains
+    // ── Balance Reconciliation ─────────────────────────────────────────
+    // Recalculate balances from actual payment records (source of truth)
+    // to detect and fix any drift caused by bugs, race conditions, or 
+    // the lifetimeEarnings tracking change (was release-time, now earn-time).
+    try {
+      const mongoose = require('mongoose');
+      const tutorObjectId = new mongoose.Types.ObjectId(user._id);
+
+      // ── Single, authoritative aggregation ──────────────────────────
+      // A payment is "earned" if it has a recognised transferStatus.
+      // This is the ONLY criterion — it's set atomically in
+      // completeLessonPayment (before tutor balance is touched) and in
+      // the tip route, so it can never be out of sync with reality.
+      const earnedStatuses = ['on_hold', 'available', 'pending_withdrawal', 'withdrawn', 'succeeded'];
+
+      const fullAgg = await Payment.aggregate([
+        {
+          $match: {
+            tutorId: tutorObjectId,
+            status: 'succeeded',
+            transferStatus: { $in: earnedStatuses }
+          }
+        },
+        {
+          $group: {
+            _id: '$transferStatus',
+            total: { $sum: '$tutorPayout' }
+          }
+        }
+      ]);
+
+      const totals = {};
+      for (const row of fullAgg) {
+        totals[row._id || 'null'] = row.total;
+      }
+
+      const calcPending = Math.round((totals['on_hold'] || 0) * 100) / 100;
+      const calcAvailable = Math.round((totals['available'] || 0) * 100) / 100;
+      const calcPendingWithdrawal = Math.round((totals['pending_withdrawal'] || 0) * 100) / 100;
+      const calcWithdrawn = Math.round((totals['withdrawn'] || 0) * 100) / 100;
+      const calcSucceeded = Math.round((totals['succeeded'] || 0) * 100) / 100; // legacy
+      // Lifetime = only funds the tutor has actually received (NOT pending/on_hold)
+      // on_hold payments can still be refunded/cancelled, so they don't count
+      const calcLifetime = Math.round((calcAvailable + calcPendingWithdrawal + calcWithdrawn + calcSucceeded) * 100) / 100;
+
+      const currentPending = Math.round((user.tutorEarnings.pendingBalance || 0) * 100) / 100;
+      const currentAvailable = Math.round((user.tutorEarnings.availableBalance || 0) * 100) / 100;
+      const currentLifetime = Math.round((user.tutorEarnings.lifetimeEarnings || 0) * 100) / 100;
+
+      let needsReconciliation = false;
+
+      if (Math.abs(currentPending - calcPending) > 0.01) {
+        console.warn(`⚠️ [RECONCILE] pendingBalance drift: DB=$${currentPending} vs Calculated=$${calcPending}`);
+        needsReconciliation = true;
+      }
+      if (Math.abs(currentLifetime - calcLifetime) > 0.01) {
+        console.warn(`⚠️ [RECONCILE] lifetimeEarnings drift: DB=$${currentLifetime} vs Calculated=$${calcLifetime}`);
+        needsReconciliation = true;
+      }
+      // For available balance, account for pending_withdrawal deductions
+      // available in DB should equal calcAvailable (payments marked 'available')
+      // but pending_withdrawal amounts have already been deducted from availableBalance
+      const effectiveAvailable = Math.round((calcAvailable) * 100) / 100;
+      if (Math.abs(currentAvailable - effectiveAvailable) > 0.01) {
+        console.warn(`⚠️ [RECONCILE] availableBalance drift: DB=$${currentAvailable} vs Calculated=$${effectiveAvailable}`);
+        needsReconciliation = true;
+      }
+
+      if (needsReconciliation) {
+        console.log(`🔧 [RECONCILE] Fixing balances for tutor ${user._id}...`);
+        await User.findOneAndUpdate(
+          { _id: user._id },
+          {
+            $set: {
+              'tutorEarnings.pendingBalance': calcPending,
+              'tutorEarnings.availableBalance': effectiveAvailable,
+              'tutorEarnings.lifetimeEarnings': calcLifetime
+            }
+          }
+        );
+        user.tutorEarnings.pendingBalance = calcPending;
+        user.tutorEarnings.availableBalance = effectiveAvailable;
+        user.tutorEarnings.lifetimeEarnings = calcLifetime;
+        console.log(`✅ [RECONCILE] Fixed: Pending=$${calcPending}, Available=$${effectiveAvailable}, Lifetime=$${calcLifetime}`);
+      }
+    } catch (reconcileError) {
+      console.error('⚠️ [RECONCILE] Reconciliation failed (non-critical):', reconcileError.message);
+      // Don't fail the balance request — just log the error
+    }
+    // ────────────────────────────────────────────────────────────────────
+
+    // Use reconciled values from the user model
     const availableBalance = user.tutorEarnings.availableBalance || 0;
     const pendingBalance = user.tutorEarnings.pendingBalance || 0;
     
-    console.log(`💰 Balance for tutor ${user._id}: Available=$${availableBalance.toFixed(2)}, Pending=$${pendingBalance.toFixed(2)}`);
+    console.log(`💰 Balance for tutor ${user._id}: Available=$${availableBalance.toFixed(2)}, Pending=$${pendingBalance.toFixed(2)}, Lifetime=$${(user.tutorEarnings.lifetimeEarnings || 0).toFixed(2)}`);
     
     res.json({
       success: true,
@@ -121,7 +212,7 @@ router.get('/balance', verifyToken, async (req, res) => {
  */
 router.post('/request', verifyToken, async (req, res) => {
   try {
-    const { amount, method } = req.body;
+    const { amount, method, idempotencyKey } = req.body;
     
     // Validation
     if (!amount || typeof amount !== 'number' || amount <= 0) {
@@ -136,6 +227,20 @@ router.post('/request', verifyToken, async (req, res) => {
         success: false, 
         message: 'Invalid withdrawal method. Must be "stripe_connect" or "paypal"' 
       });
+    }
+
+    // Idempotency: if client sent a key, check for an existing withdrawal with it
+    if (idempotencyKey) {
+      const existing = await Withdrawal.findOne({ idempotencyKey });
+      if (existing) {
+        console.log(`⚠️ Duplicate withdrawal request (idempotencyKey=${idempotencyKey}), returning existing ${existing._id}`);
+        return res.json({
+          success: true,
+          withdrawal: existing,
+          message: 'Withdrawal already submitted',
+          duplicate: true
+        });
+      }
     }
     
     const user = await User.findOne({ auth0Id: req.user.sub });
@@ -158,10 +263,38 @@ router.post('/request', verifyToken, async (req, res) => {
     const withdrawal = await withdrawalService.requestWithdrawal({
       tutorId: user._id,
       amount,
-      method
+      method,
+      idempotencyKey: idempotencyKey || null
     });
     
     console.log(`✅ Withdrawal request created: ${withdrawal._id}`);
+
+    // Create notification for the tutor
+    const payoutMethodLabel = method === 'stripe_connect' ? 'bank account' : 'PayPal';
+    const withdrawalNotification = new Notification({
+      userId: user._id,
+      type: 'withdrawal_initiated',
+      title: '💸 Withdrawal initiated',
+      message: `You withdrew $${amount.toFixed(2)} to your ${payoutMethodLabel}.`,
+      data: {
+        withdrawalId: withdrawal._id,
+        amount: amount,
+        method: method
+      },
+      read: false
+    });
+    await withdrawalNotification.save();
+
+    // Send real-time notification via WebSocket
+    if (req.io && req.connectedUsers) {
+      const socketId = req.connectedUsers.get(user.auth0Id);
+      if (socketId) {
+        req.io.to(socketId).emit('new_notification', {
+          notification: withdrawalNotification,
+          message: withdrawalNotification.message
+        });
+      }
+    }
     
     // Process immediately in background (don't block response)
     console.log(`🚀 Processing withdrawal ${withdrawal._id} immediately...`);
@@ -351,10 +484,11 @@ router.post('/:id/cancel', verifyToken, async (req, res) => {
     withdrawal.status = 'cancelled';
     await withdrawal.save();
     
-    // Return funds to available balance
-    const tutor = await User.findById(withdrawal.tutorId);
-    tutor.tutorEarnings.availableBalance += withdrawal.amount;
-    await tutor.save();
+    // Atomic return of funds to available balance
+    await User.findOneAndUpdate(
+      { _id: withdrawal.tutorId },
+      { $inc: { 'tutorEarnings.availableBalance': withdrawal.amount } }
+    );
     
     // Reset payment statuses
     await Payment.updateMany(

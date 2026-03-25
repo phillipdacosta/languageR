@@ -217,9 +217,8 @@ async function createCancellationNotifications(classItem, io, connectedUsers) {
       type: 'class_auto_cancelled',
       title: 'Class Auto-Cancelled',
       message: `Your class <strong>"${classItem.name}"</strong> scheduled for <strong>${formattedDate} at ${formattedTime}</strong> has been automatically <strong>cancelled</strong> because the minimum student requirement (${classItem.minStudents} students) was not met.`,
-      relatedItemId: classItem._id,
-      relatedItemType: 'Class',
-      metadata: {
+      data: {
+        classId: classItem._id.toString(),
         className: classItem.name,
         startTime: classItem.startTime,
         minStudents: classItem.minStudents,
@@ -262,9 +261,8 @@ async function createCancellationNotifications(classItem, io, connectedUsers) {
         type: 'class_auto_cancelled',
         title: 'Class Cancelled',
         message: `The class <strong>"${classItem.name}"</strong> with <strong>${tutorName}</strong> scheduled for <strong>${formattedDate} at ${formattedTime}</strong> has been <strong>cancelled</strong> due to insufficient enrollment. You have not been charged.`,
-        relatedItemId: classItem._id,
-        relatedItemType: 'Class',
-        metadata: {
+        data: {
+          classId: classItem._id.toString(),
           className: classItem.name,
           tutorName: tutorName,
           startTime: classItem.startTime,
@@ -312,9 +310,8 @@ async function createCancellationNotifications(classItem, io, connectedUsers) {
           type: 'class_invitation_cancelled',
           title: 'Class Invitation Cancelled',
           message: `The class <strong>"${classItem.name}"</strong> with ${tutorName} scheduled for <strong>${formattedDate} at ${formattedTime}</strong> has been <strong>cancelled</strong> due to insufficient enrollment.`,
-          relatedItemId: classItem._id,
-          relatedItemType: 'Class',
-          metadata: {
+          data: {
+            classId: classItem._id.toString(),
             className: classItem.name,
             tutorName: tutorName,
             startTime: classItem.startTime,

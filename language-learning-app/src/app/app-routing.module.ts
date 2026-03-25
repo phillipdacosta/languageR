@@ -65,6 +65,14 @@ const routes: Routes = [
                 loadComponent: () => import('./admin/tutor-review/tutor-review.page').then(m => m.TutorReviewPage)
               },
               {
+                path: 'material-reports',
+                loadComponent: () => import('./admin/material-reports.page').then(m => m.MaterialReportsPage)
+              },
+              {
+                path: 'material-review',
+                loadComponent: () => import('./admin/material-review.page').then(m => m.MaterialReviewPage)
+              },
+              {
                 path: 'payment-review',
                 loadChildren: () => import('./admin/payment-review/payment-review.module').then(m => m.PaymentReviewPageModule)
               }
@@ -137,6 +145,20 @@ const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: 'event/:id',
+    redirectTo: 'tabs/lessons/:id',
+    pathMatch: 'full'
+  },
+  {
+    path: 'material/:id',
+    loadComponent: () => import('./material-detail/material-detail.page').then(m => m.MaterialDetailPage)
+  },
+  {
+    path: 'flashcard-review/:language',
+    loadComponent: () => import('./flashcard-review/flashcard-review.page').then(m => m.FlashcardReviewPage),
+    canActivate: [AuthGuard]
+  },
+  {
     path: 'lesson-analysis/:id',
     loadComponent: () => import('./lesson-analysis/lesson-analysis.page').then( m => m.LessonAnalysisPage),
     canActivate: [AuthGuard]
@@ -151,11 +173,7 @@ const routes: Routes = [
     loadChildren: () => import('./post-lesson-tutor/post-lesson-tutor.page.module').then(m => m.PostLessonTutorPageModule),
     canActivate: [AuthGuard]
   },
-  {
-    path: 'tutor-feedback/:feedbackId',
-    loadComponent: () => import('./tutor-feedback/tutor-feedback.page').then( m => m.TutorFeedbackPage),
-    canActivate: [AuthGuard]
-  },
+  // tutor-feedback route removed — consolidated into /post-lesson-tutor/:id
   {
     path: 'wallet',
     loadChildren: () => import('./wallet/wallet.module').then( m => m.WalletPageModule)

@@ -1,283 +1,517 @@
-<ion-header [translucent]="true">
-  <ion-toolbar>
-    <ion-buttons slot="start">
-      <ion-button (click)="goBack()">
-        <ion-icon name="arrow-back" slot="icon-only"></ion-icon>
-      </ion-button>
-    </ion-buttons>
-    <ion-title>Lesson History</ion-title>
-    <ion-buttons slot="end">
-      <ion-button (click)="loadLessons()">
-        <ion-icon name="refresh-outline"></ion-icon>
-      </ion-button>
-    </ion-buttons>
-  </ion-toolbar>
-</ion-header>
-
-<ion-content [fullscreen]="true">
+<ion-content>
   <ion-refresher slot="fixed" (ionRefresh)="doRefresh($event)">
     <ion-refresher-content></ion-refresher-content>
   </ion-refresher>
 
-  <div class="page-background">
-    <div class="lessons-shell">
-      <!-- Top header area -->
-      <div class="page-header">
-        <div class="page-header-text">
-          <h1>Lesson History</h1>
-          <p>
-            Review your completed lessons, view analysis.
-          </p>
-        </div>
-        <div class="page-header-badge">
-          <span class="badge-label">Completed</span>
-          <span class="badge-value">{{ completedLessons.length || 0 }}</span>
-        </div>
+
+
+  <div class="lessons-page">
+    <h1 class="page-title">{{ 'LESSONS_PAGE.PAGE_TITLE' | translate }}</h1>
+
+    <!-- Stats Summary Row -->
+    <div class="stats-row">
+      <div class="stat-pill" [class.skeleton]="isLoading">
+        <span class="stat-number">{{ isLoading ? '–' : totalCount }}</span>
+        <span class="stat-label">{{ 'LESSONS_PAGE.STAT_TOTAL' | translate }}</span>
       </div>
-      
-      <!-- Filters -->
-      <div class="filters-section">
-        <!-- Time Filter -->
-        <div class="filter-group">
-          <label class="filter-label">Time Period</label>
-          <ion-select 
-            [(ngModel)]="selectedTimeFilter" 
-            (ionChange)="onTimeFilterChange($event)"
-            interface="popover"
-            class="filter-select">
-            <ion-select-option value="all">All Time</ion-select-option>
-            <ion-select-option value="7days">Last 7 Days</ion-select-option>
-            <ion-select-option value="30days">Last 30 Days</ion-select-option>
-            <ion-select-option value="3months">Last 3 Months</ion-select-option>
-          </ion-select>
-        </div>
-        
-        <!-- Tutor Filter (Students Only) -->
-        <div class="filter-group" *ngIf="isStudent() && uniqueTutors.length > 1">
-          <label class="filter-label">Tutor</label>
-          <ion-select 
-            [(ngModel)]="selectedTutorFilter" 
-            (ionChange)="onTutorFilterChange($event)"
-            interface="popover"
-            class="filter-select">
-            <ion-select-option value="all">All Tutors</ion-select-option>
-            <ion-select-option *ngFor="let tutor of uniqueTutors" [value]="tutor.id">
-              {{ tutor.name }}
-            </ion-select-option>
-          </ion-select>
-        </div>
-        
-        <!-- Student Filter (Tutors Only) -->
-        <div class="filter-group" *ngIf="isTutor() && uniqueStudents.length > 1">
-          <label class="filter-label">Student</label>
-          <ion-select 
-            [(ngModel)]="selectedStudentFilter" 
-            (ionChange)="onStudentFilterChange($event)"
-            interface="popover"
-            class="filter-select">
-            <ion-select-option value="all">All Students</ion-select-option>
-            <ion-select-option *ngFor="let student of uniqueStudents" [value]="student.id">
-              {{ student.name }}
-            </ion-select-option>
-          </ion-select>
-        </div>
+      <div class="stat-pill" [class.skeleton]="isLoading">
+        <span class="stat-number">{{ isLoading ? '–' : upcomingCount }}</span>
+        <span class="stat-label">{{ 'LESSONS_PAGE.STAT_UPCOMING' | translate }}</span>
+      </div>
+      <div class="stat-pill" [class.skeleton]="isLoading">
+        <span class="stat-number">{{ isLoading ? '–' : completedCount }}</span>
+        <span class="stat-label">{{ 'LESSONS_PAGE.STAT_COMPLETED' | translate }}</span>
+      </div>
+      <div class="stat-pill" [class.skeleton]="isLoading">
+        <span class="stat-number" [class.cancelled]="!isLoading && cancelledCount > 0">{{ isLoading ? '–' : cancelledCount }}</span>
+        <span class="stat-label">{{ 'LESSONS_PAGE.STAT_CANCELLED' | translate }}</span>
+      </div>
+    </div>
+
+
+
+    <!-- Airbnb-style Filters Trigger -->
+    <div class="filters-trigger-container">
+      <button class="filters-trigger-btn" (click)="openFiltersModal()">
+        <ion-icon name="options-outline"></ion-icon>
+        <span>{{ 'LESSONS_PAGE.FILTERS' | translate }}</span>
+        <span class="filter-count" *ngIf="activeFilterCount > 0">{{ activeFilterCount }}</span>
+      </button>
+
+      <!-- Active Filter Chips -->
+      <div class="active-filters-preview" *ngIf="activeFilterCount > 0">
+        <span class="filter-chip-preview" *ngIf="statusFilterLabel">
+          {{ statusFilterLabel }}
+        </span>
+        <span class="filter-chip-preview" *ngIf="timeFilterLabel">
+          {{ timeFilterLabel }}
+        </span>
+        <span class="filter-chip-preview" *ngIf="participantFilterLabel">
+          {{ participantFilterLabel }}
+        </span>
       </div>
 
-      <div class="lessons-container">
-        <!-- Loading state -->
-        <div *ngIf="isLoading" class="state-card loading-state">
-          <ion-icon name="hourglass-outline"></ion-icon>
-          <h2>Loading your lessons</h2>
-          <p>Please wait while we get everything ready for you.</p>
-          <ion-spinner name="crescent"></ion-spinner>
-        </div>
+      <button class="clear-all-inline" *ngIf="activeFilterCount > 0" (click)="clearSecondaryFilters()">
+        {{ 'LESSONS_PAGE.CLEAR_ALL' | translate }}
+      </button>
+    </div>
 
-        <!-- Empty state -->
-        <div *ngIf="!isLoading && completedLessons.length === 0" class="state-card empty-state">
-          <ion-icon name="checkmark-circle-outline"></ion-icon>
-          <h2>No lessons found</h2>
-          <p *ngIf="(selectedTimeFilter === 'all' && selectedTutorFilter === 'all' && selectedStudentFilter === 'all')">
-            <span *ngIf="isStudent()">You haven't completed any lessons yet.</span>
-            <span *ngIf="isTutor()">You haven't completed any lessons with students yet.</span>
-          </p>
-          <p *ngIf="(selectedTimeFilter !== 'all' || selectedTutorFilter !== 'all' || selectedStudentFilter !== 'all')">
-            No completed lessons match your selected filters. Try adjusting your filters.
-          </p>
-          <ion-button
-            *ngIf="isStudent() && selectedTimeFilter === 'all' && selectedTutorFilter === 'all'"
-            routerLink="/tabs/tutor-search"
-            fill="solid"
-            color="primary"
-            expand="block"
-            class="primary-cta"
-          >
-            Find Tutors
-          </ion-button>
-        </div>
+    <!-- Loading State -->
+    <div class="loading-container" *ngIf="isLoading">
+      <ion-spinner name="crescent" color="medium"></ion-spinner>
+      <p>{{ 'LESSONS_PAGE.LOADING' | translate }}</p>
+    </div>
 
-        <!-- Lessons list -->
-        <div *ngIf="!isLoading && completedLessons.length > 0" class="lessons-list">
-          <ion-card
-            *ngFor="let lesson of displayedLessons; trackBy: trackByLessonId"
-            [id]="'lesson-' + lesson._id"
-            class="lesson-card"
-          >
-            <ion-card-header>
-              <div class="lesson-header">
-                <div class="lesson-title-block">
-                  <div class="lesson-pill">
-                    <span class="pill-label">Lesson</span>
-                    <span class="pill-value">
-                      {{ getUserRole(lesson) === 'student' ? 'With Tutor' : 'With Student' }}
-                    </span>
+    <!-- Empty State -->
+    <div class="empty-container" *ngIf="!isLoading && processedDisplayed.length === 0">
+      <div class="empty-icon-circle">
+        <ion-icon name="calendar-outline"></ion-icon>
+      </div>
+      <h3>{{ 'LESSONS_PAGE.EMPTY_TITLE' | translate }}</h3>
+      <p *ngIf="selectedStatusFilter === 'all' && selectedTutorFilter === 'all' && selectedStudentFilter === 'all' && selectedTimeFilter === 'all'">
+        <span *ngIf="isStudentUser">{{ 'LESSONS_PAGE.EMPTY_STUDENT' | translate }}</span>
+        <span *ngIf="isTutorUser">{{ 'LESSONS_PAGE.EMPTY_TUTOR' | translate }}</span>
+      </p>
+      <p *ngIf="selectedStatusFilter !== 'all' || selectedTutorFilter !== 'all' || selectedStudentFilter !== 'all' || selectedTimeFilter !== 'all'">
+        {{ 'LESSONS_PAGE.EMPTY_FILTERED' | translate }}
+      </p>
+      <button *ngIf="isStudentUser && selectedStatusFilter === 'all'" class="airbnb-primary-btn" routerLink="/tabs/tutor-search">
+        {{ 'LESSONS_PAGE.FIND_TUTORS' | translate }}
+      </button>
+    </div>
+
+    <!-- Lessons List -->
+    <div class="lessons-card" *ngIf="!isLoading && processedDisplayed.length > 0">
+      <div class="lessons-list">
+        <div
+          *ngFor="let pl of processedDisplayed; let last = last; trackBy: trackByProcessedId"
+          [id]="'lesson-' + pl.id"
+          class="lesson-row"
+          [class.is-cancelled]="pl.status === 'cancelled'"
+          [class.is-expanded]="expandedLessonId === pl.id"
+          [class.last-item]="last">
+
+          <!-- Main Row (clickable) -->
+          <div class="lesson-row-main" (click)="onLessonClick(pl, $event)">
+            <!-- Date Block -->
+            <div class="lesson-date-block">
+              <span class="date-month">{{ pl.formattedMonth }}</span>
+              <span class="date-day">{{ pl.formattedDayNum }}</span>
+            </div>
+
+            <!-- Info Block -->
+            <div class="lesson-info-block">
+              <span class="lesson-subject">{{ pl.subject }}</span>
+              <span class="lesson-time">{{ pl.formattedTimeRange }}</span>
+              <div class="lesson-meta">
+                <span class="lesson-duration">{{ pl.duration }}{{ 'LESSONS_PAGE.DURATION_MIN' | translate }}</span>
+                <span class="meta-sep">·</span>
+                <span class="lesson-price">${{ pl.formattedPrice }}</span>
+                <span class="meta-sep" *ngIf="pl.isClass">·</span>
+                <span class="class-students-meta" *ngIf="pl.isClass">{{ pl.classStudentCount }}/{{ pl.classCapacity }} {{ 'LESSONS_PAGE.STUDENTS' | translate }}</span>
+                <span class="meta-sep" *ngIf="pl.isTrial">·</span>
+                <span class="trial-badge" *ngIf="pl.isTrial">{{ 'LESSONS_PAGE.TRIAL_BADGE' | translate }}</span>
+                <span class="meta-sep" *ngIf="pl.tipSent">·</span>
+                <span class="tip-sent-badge" *ngIf="pl.tipSent">{{ pl.role === 'tutor' ? ('LESSONS_PAGE.TIP_RECEIVED' | translate) : ('LESSONS_PAGE.TIP_SENT' | translate) }}</span>
+              </div>
+            </div>
+
+            <!-- Right: Participant + Status (1:1 lessons) -->
+            <div class="lesson-right-block" *ngIf="!pl.isClass">
+              <div class="lesson-participant-col">
+                <span class="participant-name">{{ pl.otherName }}</span>
+                <span class="lesson-status-badge" [ngClass]="'status-' + pl.status">{{ pl.statusLabel }}</span>
+              </div>
+              <div class="participant-avatar">
+                <img *ngIf="pl.otherPicture" [src]="pl.otherPicture" [alt]="pl.otherName">
+                <span *ngIf="!pl.otherPicture" class="avatar-initials">{{ pl.otherInitials }}</span>
+              </div>
+            </div>
+
+            <!-- Right: Avatars + Status (classes) -->
+            <div class="lesson-right-block" *ngIf="pl.isClass">
+              <div class="lesson-participant-col">
+                <span class="no-attendees" *ngIf="pl.classAttendees.length === 0">{{ 'LESSONS_PAGE.NA' | translate }}</span>
+                <div class="stacked-avatars" *ngIf="pl.classAttendees.length > 1">
+                  <div class="stacked-avatar" *ngFor="let att of pl.classAttendees; let i = index" [style.z-index]="3 - i">
+                    <img *ngIf="att.picture" [src]="att.picture" [alt]="att.name">
+                    <span *ngIf="!att.picture" class="avatar-initials">{{ att.initials }}</span>
                   </div>
-                  <ion-card-title>{{ lesson.subject }}</ion-card-title>
-                  <ion-card-subtitle>
-                    {{ formatLessonTime(lesson) }}
-                  </ion-card-subtitle>
+                  <span class="stacked-overflow" *ngIf="pl.classAttendeesOverflow > 0">+{{ pl.classAttendeesOverflow }}</span>
                 </div>
-
-                <!-- Badges container -->
-                <div class="badges-container">
-                  <!-- Completed badge -->
-                  <ion-chip color="success" class="status-chip">
-                    <ion-icon name="checkmark-circle"></ion-icon>
-                    <ion-label>Completed</ion-label>
-                  </ion-chip>
-                  
-                  <!-- Trial badge -->
-                  <ion-chip *ngIf="lesson.isTrialLesson" class="status-chip trial-chip">
-                    <ion-icon name="star"></ion-icon>
-                    <ion-label>Trial</ion-label>
-                  </ion-chip>
-                </div>
+                <span class="lesson-status-badge" [ngClass]="'status-' + pl.status">{{ pl.statusLabel }}</span>
               </div>
-            </ion-card-header>
-
-            <ion-card-content>
-              <!-- Meta row – inspired by the stats row in the design -->
-              <div class="lesson-meta-row">
-                <div class="meta-block">
-                  <span class="meta-label">Duration</span>
-                  <span class="meta-value">{{ lesson.duration }} min</span>
-                </div>
-                <div class="meta-block">
-                  <span class="meta-label">Price</span>
-                  <span class="meta-value">
-                    ${{ lesson.price }}
-                    <ion-badge color="success" class="payment-badge">
-                      <ion-icon name="checkmark-circle-outline"></ion-icon>
-                      Settled
-                    </ion-badge>
-                  </span>
-                </div>
-                <div class="meta-block">
-                  <span class="meta-label">
-                    {{ getUserRole(lesson) === 'student' ? 'Tutor' : 'Student' }}
-                  </span>
-                  <span class="meta-value">
-                    {{ getOtherParticipant(lesson).name }}
-                  </span>
-                </div>
+              <div class="participant-avatar" *ngIf="pl.classAttendees.length === 1">
+                <img *ngIf="pl.classAttendees[0].picture" [src]="pl.classAttendees[0].picture" [alt]="pl.classAttendees[0].name">
+                <span *ngIf="!pl.classAttendees[0].picture" class="avatar-initials">{{ pl.classAttendees[0].initials }}</span>
               </div>
+            </div>
+          </div>
 
-              <!-- Participant strip -->
-              <div class="participant-info">
-                <ion-avatar>
-                  <img
-                    [src]="getOtherParticipant(lesson).picture || '/assets/default-avatar.png'"
-                    [alt]="getOtherParticipant(lesson).name"
-                  />
-                </ion-avatar>
-                <div class="participant-details">
-                  <h3>
-                    {{ getUserRole(lesson) === 'student' ? 'Tutor' : 'Student' }}
-                    · {{ getOtherParticipant(lesson).name }}
-                  </h3>
-                  <p>
-                    {{ lesson.duration }} minutes • ${{ lesson.price }} per lesson
-                  </p>
+          <!-- Actions Row (always visible for lessons with actions) -->
+          <div class="lesson-actions-row" *ngIf="pl.showActions && (!pl.isClass || pl.canJoin)">
+
+            <!-- Join button (in-progress / about to start) -->
+            <button *ngIf="pl.canJoin" class="action-btn join" (click)="joinLesson(pl); $event.stopPropagation()">
+              <ion-icon name="videocam-outline"></ion-icon>
+              {{ pl.isClass ? ('LESSONS_PAGE.JOIN_CLASS' | translate) : ('LESSONS_PAGE.JOIN_LESSON' | translate) }}
+            </button>
+
+            <!-- Completed lesson actions -->
+            <ng-container *ngIf="pl.status === 'completed'">
+
+              <!-- Student actions -->
+              <ng-container *ngIf="pl.role === 'student'">
+                <button *ngIf="pl.analysisStatus === 'available'" class="action-btn primary" (click)="viewFeedback(pl); $event.stopPropagation()">
+                  <ion-icon [name]="pl.hasTutorFeedbackAvailable ? 'person-outline' : 'analytics-outline'"></ion-icon>
+                  {{ pl.hasTutorFeedbackAvailable ? ('LESSONS_PAGE.VIEW_FEEDBACK' | translate) : ('LESSONS_PAGE.VIEW_ANALYSIS' | translate) }}
+                </button>
+                <div *ngIf="pl.analysisStatus === 'generating'" class="action-generating">
+                  <ion-spinner name="dots" color="primary"></ion-spinner>
+                  <span>{{ 'LESSONS_PAGE.GENERATING_ANALYSIS' | translate }}</span>
                 </div>
-              </div>
-
-              <div class="divider"></div>
-
-              <!-- Actions section -->
-              <div class="lesson-actions">
-                <!-- Completed lesson info -->
-                <div class="status-info completed-info">
+                <span *ngIf="pl.feedbackPendingForStudent && pl.analysisStatus !== 'generating'" class="student-feedback-awaiting">
+                  <ion-icon name="time-outline"></ion-icon>
+                  {{ 'LESSONS_PAGE.AWAITING_TUTOR_FEEDBACK' | translate }}
+                </span>
+                <span *ngIf="pl.analysisStatus === 'unavailable' && !pl.feedbackPendingForStudent" class="action-analysis-unavailable">
+                  <ion-icon name="document-text-outline"></ion-icon>
+                  {{ 'LESSONS_PAGE.NO_ANALYSIS_AVAILABLE' | translate }}
+                </span>
+                <button *ngIf="pl.canTip" class="action-btn subtle" (click)="tipTutor(pl); $event.stopPropagation()">
+                  <ion-icon name="heart-outline"></ion-icon>
+                  {{ 'LESSONS_PAGE.TIP' | translate }}
+                </button>
+                <button *ngIf="pl.canReportIssue" class="action-btn subtle" (click)="reportIssue(pl); $event.stopPropagation()">
+                  <ion-icon name="flag-outline"></ion-icon>
+                  {{ 'LESSONS_PAGE.REPORT_ISSUE' | translate }}
+                </button>
+                <div *ngIf="pl.isIssueReported && !pl.isInvestigationResolved" class="action-issue-reported">
+                  <ion-icon name="flag" color="warning"></ion-icon>
+                  <span>{{ 'LESSONS_PAGE.ISSUE_REPORTED' | translate }}</span>
+                </div>
+                <div *ngIf="pl.isInvestigationResolved" class="action-issue-resolved">
                   <ion-icon name="checkmark-circle" color="success"></ion-icon>
-                  <span>Lesson completed</span>
-                  
-                  <!-- Analysis Status for Students -->
-                  <div *ngIf="getUserRole(lesson) === 'student'" class="analysis-status-container">
-                    <!-- Analysis Available -->
-                    <ion-button
-                      *ngIf="getAnalysisStatus(lesson) === 'available'"
-                      fill="outline"
-                      color="primary"
-                      size="small"
-                      (click)="viewFeedback(lesson)"
-                      class="view-analysis-btn"
-                    >
-                      <ion-icon [name]="hasTutorFeedback(lesson) ? 'person-outline' : 'analytics-outline'" slot="start"></ion-icon>
-                      {{ hasTutorFeedback(lesson) ? 'View Tutor Feedback' : 'View Analysis' }}
-                    </ion-button>
-                    
-                    <!-- Analysis Generating -->
-                    <div *ngIf="getAnalysisStatus(lesson) === 'generating'" class="analysis-generating">
-                      <ion-spinner name="dots" color="primary"></ion-spinner>
-                      <span>Generating analysis...</span>
-                    </div>
-                    
-                    <!-- Analysis Not Available -->
-                    <div *ngIf="getAnalysisStatus(lesson) === 'unavailable'" class="analysis-unavailable">
-                      <ion-icon name="information-circle-outline" color="medium"></ion-icon>
-                      <span>Analysis not available</span>
-                    </div>
-                  </div>
-                  
-                  <!-- Report Issue Button (for Students within 24h) -->
-                  <ion-button
-                    *ngIf="getUserRole(lesson) === 'student' && canReportIssue(lesson)"
-                    fill="clear"
-                    color="medium"
-                    size="small"
-                    (click)="reportIssue(lesson)"
-                    class="report-issue-btn"
-                  >
-                    <ion-icon name="flag-outline" slot="start"></ion-icon>
-                    Report Issue
-                  </ion-button>
-                  
-                  <!-- Issue Reported Indicator -->
-                  <div *ngIf="lesson.issueReported" class="issue-reported-indicator">
-                    <ion-icon name="flag" color="warning"></ion-icon>
-                    <span>Issue reported - under review</span>
-                  </div>
+                  <span>{{ 'LESSONS_PAGE.ISSUE_RESOLVED' | translate }}</span>
                 </div>
-              </div>
-            </ion-card-content>
-          </ion-card>
-        </div>
-        
-        <!-- Infinite Scroll for Lazy Loading -->
-        <ion-infinite-scroll 
-          *ngIf="!isLoading && completedLessons.length > 0 && hasMoreLessons()"
-          threshold="100px" 
-          (ionInfinite)="loadMoreLessons($event)">
-          <ion-infinite-scroll-content
-            loadingSpinner="crescent"
-            loadingText="Loading more lessons...">
-          </ion-infinite-scroll-content>
-        </ion-infinite-scroll>
-        
-        <!-- End of list message -->
-        <div *ngIf="!isLoading && completedLessons.length > 0 && !hasMoreLessons()" class="end-of-list">
-          <ion-icon name="checkmark-circle-outline"></ion-icon>
-          <p>You've reached the end of your lesson history</p>
+              </ng-container>
+
+              <!-- Tutor actions -->
+              <ng-container *ngIf="pl.role === 'tutor'">
+                <!-- Feedback already submitted → view only -->
+                <button *ngIf="pl.hasTutorFeedbackAvailable" class="action-btn subtle" (click)="viewFeedback(pl); $event.stopPropagation()">
+                  <ion-icon name="checkmark-circle-outline"></ion-icon>
+                  {{ 'LESSONS_PAGE.VIEW_FEEDBACK' | translate }}
+                </button>
+
+                <!-- Required feedback pending → badge + Leave Feedback CTA -->
+                <ng-container *ngIf="pl.needsTutorFeedback">
+                  <span class="feedback-pending-badge">
+                    <span class="pending-dot"></span>
+                    {{ 'LESSONS_PAGE.FEEDBACK_PENDING' | translate }}
+                  </span>
+                  <button class="action-btn primary" (click)="addTutorNote(pl); $event.stopPropagation()">
+                    <ion-icon name="create-outline"></ion-icon>
+                    {{ 'LESSONS_PAGE.LEAVE_FEEDBACK' | translate }}
+                  </button>
+                </ng-container>
+
+                <!-- AI-analyzed lesson → optional Add Note (no pending badge) -->
+                <button *ngIf="pl.canAddOptionalNote" class="action-btn add-note" (click)="addTutorNote(pl); $event.stopPropagation()">
+                  <ion-icon name="create-outline"></ion-icon>
+                  {{ 'LESSONS_PAGE.ADD_NOTE' | translate }}
+                </button>
+                <!-- Report Issue (tutor) -->
+                <button *ngIf="pl.canReportIssue" class="action-btn subtle" (click)="reportIssue(pl); $event.stopPropagation()">
+                  <ion-icon name="flag-outline"></ion-icon>
+                  {{ 'LESSONS_PAGE.REPORT_ISSUE' | translate }}
+                </button>
+                <ng-container *ngIf="pl.isIssueReported">
+                  <div *ngIf="!pl.isInvestigationResolved" class="action-issue-reported">
+                    <ion-icon name="flag" color="warning"></ion-icon>
+                    <span>{{ 'LESSONS_PAGE.ISSUE_REPORTED' | translate }}</span>
+                  </div>
+                  <div *ngIf="pl.isInvestigationResolved" class="action-issue-resolved">
+                    <!-- <ion-icon name="checkmark-circle" color="success"></ion-icon> -->
+                    <span>{{ 'LESSONS_PAGE.ISSUE_RESOLVED' | translate }}</span>
+                  </div>
+                </ng-container>
+              </ng-container>
+
+            </ng-container>
+          </div>
         </div>
       </div>
+
+      <!-- Show all count at bottom -->
+      <div class="lessons-footer">
+        <span class="footer-count">{{ 'LESSONS_PAGE.FOOTER_COUNT' | translate:{ displayed: processedDisplayed.length, total: processedLessons.length } }}</span>
+      </div>
+    </div>
+
+    <!-- Infinite Scroll -->
+    <ion-infinite-scroll
+      *ngIf="!isLoading && processedDisplayed.length > 0 && hasMoreLessonsAvailable"
+      threshold="100px"
+      (ionInfinite)="loadMoreLessons($event)">
+      <ion-infinite-scroll-content
+        loadingSpinner="crescent"
+        [loadingText]="'LESSONS_PAGE.LOADING_MORE' | translate">
+      </ion-infinite-scroll-content>
+    </ion-infinite-scroll>
+
+    <!-- End of list -->
+    <div class="end-message" *ngIf="!isLoading && processedDisplayed.length > 0 && !hasMoreLessonsAvailable">
+      <p>{{ 'LESSONS_PAGE.THATS_EVERYTHING' | translate }}</p>
     </div>
   </div>
 </ion-content>
+
+<!-- Lessons Filters Modal (Airbnb-style) -->
+<ion-modal 
+  [isOpen]="isFiltersModalOpen" 
+  (didDismiss)="closeFiltersModal()"
+  cssClass="lessons-filters-modal">
+  <ng-template>
+    <ion-header class="lf-header ion-no-border">
+      <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-button (click)="closeFiltersModal()" class="lf-close-btn">
+            <ion-icon name="close" slot="icon-only"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+        <ion-title>{{ 'LESSONS_PAGE.MODAL_FILTERS_TITLE' | translate }}</ion-title>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content class="lf-content">
+      <!-- Selected Filters Cap -->
+      <section class="lf-selected-section" [class.visible]="hasActiveSecondaryFilters">
+        <h3 class="lf-section-title">{{ 'LESSONS_PAGE.SELECTED' | translate }}</h3>
+        <div class="lf-selected-chips">
+          <button class="lf-filter-chip" *ngIf="selectedStatusFilter !== 'all'" (click)="selectedStatusFilter = 'all'; applyFilters()">
+            <span>{{ statusFilterLabel }}</span>
+            <ion-icon name="close"></ion-icon>
+          </button>
+          <button class="lf-filter-chip" *ngIf="selectedTimeFilter !== 'all'" (click)="selectedTimeFilter = 'all'; applyFilters()">
+            <span>{{ timeFilterLabel }}</span>
+            <ion-icon name="close"></ion-icon>
+          </button>
+          <button class="lf-filter-chip" *ngIf="isStudentUser && selectedTutorFilter !== 'all'" (click)="selectedTutorFilter = 'all'; applyFilters()">
+            <span>{{ participantFilterLabel }}</span>
+            <ion-icon name="close"></ion-icon>
+          </button>
+          <button class="lf-filter-chip" *ngIf="isTutorUser && selectedStudentFilter !== 'all'" (click)="selectedStudentFilter = 'all'; applyFilters()">
+            <span>{{ participantFilterLabel }}</span>
+            <ion-icon name="close"></ion-icon>
+          </button>
+        </div>
+      </section>
+
+      <div class="lf-divider lf-divider-selected" [class.visible]="hasActiveSecondaryFilters"></div>
+
+      <!-- Time Period Section -->
+      <section class="lf-section">
+        <h3 class="lf-section-title">{{ 'LESSONS_PAGE.TIME_PERIOD' | translate }}</h3>
+        <div class="lf-time-grid">
+          <button 
+            class="lf-time-btn"
+            [class.active]="selectedTimeFilter === 'all'"
+            (click)="selectedTimeFilter = 'all'; applyFilters()">
+            {{ 'LESSONS_PAGE.ALL_TIME' | translate }}
+          </button>
+          <button 
+            class="lf-time-btn"
+            [class.active]="selectedTimeFilter === '7days'"
+            (click)="selectedTimeFilter = '7days'; applyFilters()">
+            {{ 'LESSONS_PAGE.LAST_7_DAYS' | translate }}
+          </button>
+          <button 
+            class="lf-time-btn"
+            [class.active]="selectedTimeFilter === '30days'"
+            (click)="selectedTimeFilter = '30days'; applyFilters()">
+            {{ 'LESSONS_PAGE.LAST_30_DAYS' | translate }}
+          </button>
+          <button 
+            class="lf-time-btn"
+            [class.active]="selectedTimeFilter === '3months'"
+            (click)="selectedTimeFilter = '3months'; applyFilters()">
+            {{ 'LESSONS_PAGE.LAST_3_MONTHS' | translate }}
+          </button>
+        </div>
+      </section>
+
+      <div class="lf-divider"></div>
+
+      <!-- Tutor/Student Section -->
+      <section class="lf-section" *ngIf="isStudentUser && uniqueTutors.length >= 1">
+        <h3 class="lf-section-title">{{ 'LESSONS_PAGE.TUTOR' | translate }}</h3>
+        <div class="lf-participant-list">
+          <button 
+            class="lf-participant-btn"
+            [class.active]="selectedTutorFilter === 'all'"
+            (click)="selectedTutorFilter = 'all'; applyFilters()">
+            <span>{{ 'LESSONS_PAGE.ALL_TUTORS' | translate }}</span>
+            <div class="lf-check" *ngIf="selectedTutorFilter === 'all'">
+              <ion-icon name="checkmark"></ion-icon>
+            </div>
+          </button>
+          <button 
+            class="lf-participant-btn"
+            *ngFor="let tutor of uniqueTutors"
+            [class.active]="selectedTutorFilter === tutor.id"
+            (click)="selectedTutorFilter = tutor.id; applyFilters()">
+            <div class="lf-participant-info">
+              <div class="lf-avatar" *ngIf="tutor.picture && tutor.picture !== '/assets/default-avatar.png'">
+                <img [src]="tutor.picture" [alt]="tutor.name" referrerpolicy="no-referrer">
+              </div>
+              <div class="lf-avatar fallback" *ngIf="!tutor.picture || tutor.picture === '/assets/default-avatar.png'">
+                <ion-icon name="person"></ion-icon>
+              </div>
+              <span>{{ tutor.name }}</span>
+            </div>
+            <div class="lf-check" *ngIf="selectedTutorFilter === tutor.id">
+              <ion-icon name="checkmark"></ion-icon>
+            </div>
+          </button>
+        </div>
+      </section>
+
+      <section class="lf-section" *ngIf="isTutorUser && uniqueStudents.length >= 1">
+        <h3 class="lf-section-title">{{ 'LESSONS_PAGE.STUDENT' | translate }}</h3>
+        <div class="lf-participant-list">
+          <button 
+            class="lf-participant-btn"
+            [class.active]="selectedStudentFilter === 'all'"
+            (click)="selectedStudentFilter = 'all'; applyFilters()">
+            <span>{{ 'LESSONS_PAGE.ALL_STUDENTS' | translate }}</span>
+            <div class="lf-check" *ngIf="selectedStudentFilter === 'all'">
+              <ion-icon name="checkmark"></ion-icon>
+            </div>
+          </button>
+          <button 
+            class="lf-participant-btn"
+            *ngFor="let student of uniqueStudents"
+            [class.active]="selectedStudentFilter === student.id"
+            (click)="selectedStudentFilter = student.id; applyFilters()">
+            <div class="lf-participant-info">
+              <div class="lf-avatar" *ngIf="student.picture && student.picture !== '/assets/default-avatar.png'">
+                <img [src]="student.picture" [alt]="student.name" referrerpolicy="no-referrer">
+              </div>
+              <div class="lf-avatar fallback" *ngIf="!student.picture || student.picture === '/assets/default-avatar.png'">
+                <ion-icon name="person"></ion-icon>
+              </div>
+              <span>{{ student.name }}</span>
+            </div>
+            <div class="lf-check" *ngIf="selectedStudentFilter === student.id">
+              <ion-icon name="checkmark"></ion-icon>
+            </div>
+          </button>
+        </div>
+      </section>
+
+      <div class="lf-divider"></div>
+
+      <!-- Status Section -->
+      <section class="lf-section">
+        <h3 class="lf-section-title">{{ 'LESSONS_PAGE.STATUS' | translate }}</h3>
+        <div class="lf-status-list">
+          <button 
+            class="lf-status-btn"
+            [class.active]="selectedStatusFilter === 'all'"
+            (click)="setStatusFilter('all')">
+            <span class="lf-status-dot dot-all"></span>
+            <span>{{ 'LESSONS_PAGE.ALL_STATUSES' | translate }}</span>
+            <div class="lf-check" *ngIf="selectedStatusFilter === 'all'">
+              <ion-icon name="checkmark"></ion-icon>
+            </div>
+          </button>
+          <button 
+            class="lf-status-btn"
+            [class.active]="selectedStatusFilter === 'upcoming'"
+            (click)="setStatusFilter('upcoming')">
+            <span class="lf-status-dot dot-upcoming"></span>
+            <span>{{ 'LESSONS_PAGE.STATUS_UPCOMING' | translate }}</span>
+            <div class="lf-check" *ngIf="selectedStatusFilter === 'upcoming'">
+              <ion-icon name="checkmark"></ion-icon>
+            </div>
+          </button>
+          <button 
+            class="lf-status-btn"
+            [class.active]="selectedStatusFilter === 'completed'"
+            (click)="setStatusFilter('completed')">
+            <span class="lf-status-dot dot-completed"></span>
+            <span>{{ 'LESSONS_PAGE.STATUS_COMPLETED' | translate }}</span>
+            <div class="lf-check" *ngIf="selectedStatusFilter === 'completed'">
+              <ion-icon name="checkmark"></ion-icon>
+            </div>
+          </button>
+          <button 
+            class="lf-status-btn"
+            [class.active]="selectedStatusFilter === 'cancelled'"
+            (click)="setStatusFilter('cancelled')">
+            <span class="lf-status-dot dot-cancelled"></span>
+            <span>{{ 'LESSONS_PAGE.STATUS_CANCELLED' | translate }}</span>
+            <div class="lf-check" *ngIf="selectedStatusFilter === 'cancelled'">
+              <ion-icon name="checkmark"></ion-icon>
+            </div>
+          </button>
+        </div>
+      </section>
+    </ion-content>
+
+    <ion-footer class="lf-footer ion-no-border">
+      <div class="lf-footer-content">
+        <button class="lf-clear-btn" (click)="clearSecondaryFilters()" [disabled]="!hasActiveSecondaryFilters">
+          {{ 'LESSONS_PAGE.CLEAR_ALL' | translate }}
+        </button>
+        <button class="lf-apply-btn" (click)="closeFiltersModal()">
+          {{ (processedLessons.length !== 1 ? 'LESSONS_PAGE.SHOW_LESSONS' : 'LESSONS_PAGE.SHOW_LESSON') | translate:{ count: processedLessons.length } }}
+        </button>
+      </div>
+    </ion-footer>
+  </ng-template>
+</ion-modal>
+
+<!-- Tutor Note Modal -->
+<ion-modal [isOpen]="isNoteModalOpen" (didDismiss)="closeNoteModal()" class="tutor-note-modal">
+  <ng-template>
+    <div class="note-modal-container">
+      <div class="note-modal-header">
+        <h2>{{ 'LESSONS_PAGE.NOTE_MODAL_TITLE' | translate }}</h2>
+        <button class="note-modal-close" (click)="closeNoteModal()">
+          <ion-icon name="close"></ion-icon>
+        </button>
+      </div>
+
+      <div class="note-modal-body" *ngIf="selectedNoteLesson">
+        <div class="note-section" *ngIf="selectedNoteLesson.tutorNote?.quickImpression">
+          <span class="note-label">{{ 'LESSONS_PAGE.QUICK_IMPRESSION' | translate }}</span>
+          <span class="note-impression" [ngClass]="'impression-' + selectedNoteLesson.tutorNote?.quickImpression">
+            {{ selectedNoteLesson.tutorNote?.quickImpression }}
+          </span>
+        </div>
+
+        <div class="note-section">
+          <span class="note-label">{{ 'LESSONS_PAGE.YOUR_NOTE' | translate }}</span>
+          <p class="note-text">{{ selectedNoteLesson.tutorNote?.text }}</p>
+        </div>
+
+        <div class="note-section" *ngIf="selectedNoteLesson.tutorNote?.homework">
+          <span class="note-label">{{ 'LESSONS_PAGE.HOMEWORK' | translate }}</span>
+          <p class="note-text">{{ selectedNoteLesson.tutorNote?.homework }}</p>
+        </div>
+      </div>
+
+      <div class="note-modal-actions">
+        <button *ngIf="!selectedNoteLessonHasFeedback" class="note-action-btn edit" (click)="editNoteFromModal()">
+          <ion-icon name="create-outline"></ion-icon>
+          {{ 'LESSONS_PAGE.EDIT' | translate }}
+        </button>
+        <button class="note-action-btn close" (click)="closeNoteModal()">
+          {{ 'LESSONS_PAGE.CLOSE' | translate }}
+        </button>
+      </div>
+    </div>
+  </ng-template>
+</ion-modal>

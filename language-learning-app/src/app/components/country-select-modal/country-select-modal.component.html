@@ -12,19 +12,19 @@
     
     <!-- Heading -->
     <h1 class="modal-heading">
-      {{ modalType === 'origin' ? 'Select Your Country of Origin' : 'Where do you currently reside?' }}
+      {{ (modalType === 'origin' ? 'ONBOARDING.COUNTRY_MODAL.ORIGIN_TITLE' : 'ONBOARDING.COUNTRY_MODAL.RESIDENCE_TITLE') | translate }}
     </h1>
     
     <!-- Description -->
     <p class="modal-description">
-      {{ modalType === 'origin' ? 'Help us personalize your experience' : 'This determines your available payout methods' }}
+      {{ (modalType === 'origin' ? 'ONBOARDING.COUNTRY_MODAL.ORIGIN_DESC' : 'ONBOARDING.COUNTRY_MODAL.RESIDENCE_DESC') | translate }}
     </p>
 
     <!-- Search Bar -->
     <div class="search-wrapper">
       <ion-searchbar
         [(ngModel)]="searchTerm"
-        placeholder="Search countries..."
+        [placeholder]="'ONBOARDING.COUNTRY_MODAL.SEARCH_PLACEHOLDER' | translate"
         (ionInput)="filterCountries()"
         mode="ios"
         debounce="300"
@@ -58,7 +58,7 @@
     <!-- No Results -->
     <div *ngIf="filteredCountries?.length === 0 && searchTerm.trim()" class="no-results">
       <ion-icon name="search-outline"></ion-icon>
-      <p>No countries found matching <strong>"{{ searchTerm }}"</strong></p>
+      <p>{{ 'ONBOARDING.COUNTRY_MODAL.NO_RESULTS' | translate }} <strong>"{{ searchTerm }}"</strong></p>
     </div>
   </div>
 </ion-content>

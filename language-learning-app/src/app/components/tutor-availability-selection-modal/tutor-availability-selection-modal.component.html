@@ -54,39 +54,18 @@
       </ion-avatar>
       <div class="tutor-info-text">
         <h3>{{ formatTutorName(selectedTutor) }}</h3>
-        <p>Select lesson duration and time slot</p>
+        <p>Select a time slot</p>
       </div>
     </div>
 
-    <!-- Lesson Duration Selector -->
-    <div class="duration-selector-section">
-      <div class="duration-label">Lesson Duration</div>
-      <div class="duration-options">
-        <div 
-          class="duration-option" 
-          [class.selected]="lessonDuration === 25"
-          (click)="lessonDuration = 25">
-          <div class="duration-time">25 min</div>
-          <div class="duration-price">${{ getTutorHourlyRate(selectedTutor) * 25 / 50 | number:'1.2-2' }}</div>
-        </div>
-        <div 
-          class="duration-option" 
-          [class.selected]="lessonDuration === 50"
-          (click)="lessonDuration = 50">
-          <div class="duration-time">50 min</div>
-          <div class="duration-price">${{ getTutorHourlyRate(selectedTutor) | number:'1.2-2' }}</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Availability Calendar (Inline) -->
+    <!-- Availability Calendar (Inline) — uses confirmation step like tutor profile -->
     <div class="calendar-section">
       <app-tutor-availability-viewer
         [tutorId]="getTutorId(selectedTutor)"
         [tutorName]="formatTutorName(selectedTutor)"
         [inline]="true"
-        [selectionMode]="true"
-        (slotSelected)="onTimeSlotSelected($event)">
+        [showDurationSelector]="true"
+        (paymentRequested)="onPaymentRequested($event)">
       </app-tutor-availability-viewer>
     </div>
   </div>

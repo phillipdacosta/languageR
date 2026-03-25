@@ -15,6 +15,7 @@ const User = require('../models/User');
 const Notification = require('../models/Notification'); // NEW
 const walletService = require('./walletService');
 const stripeService = require('./stripeService');
+const { formatNameWithInitial } = require('../utils/nameFormatter');
 
 class PaymentService {
   // Platform fee: 20% of lesson price
@@ -60,6 +61,19 @@ class PaymentService {
     let payment;
     const payments = []; // For hybrid payments, we might create multiple payment records
 
+    // DEBUG: Log all payment parameters
+    console.log('💳 [PAYMENT DEBUG] Payment parameters received:', {
+      paymentMethod,
+      isHybridPayment,
+      walletAmount,
+      paymentMethodAmount,
+      amount,
+      walletAmountType: typeof walletAmount,
+      paymentMethodAmountType: typeof paymentMethodAmount,
+      isHybridPaymentType: typeof isHybridPayment,
+      hybridCheck: isHybridPayment && walletAmount > 0 && paymentMethodAmount > 0
+    });
+
     // HYBRID PAYMENT: Wallet + Payment Method
     if (isHybridPayment && walletAmount > 0 && paymentMethodAmount > 0) {
       console.log(`🔀 Hybrid payment detected: $${walletAmount} from wallet + $${paymentMethodAmount} from ${paymentMethod}`);
@@ -98,31 +112,41 @@ class PaymentService {
           throw new Error('Stripe Payment Method ID required for saved card payments');
         }
         
-        // If customer ID is missing, create one
+        const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
+        // Ensure customer exists and PM is attached
         let customerIdToUse = stripeCustomerId;
         if (!customerIdToUse) {
           console.log('💳 [HYBRID] No Stripe customer ID found, creating one...');
-          const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
           const student = await User.findById(userId);
           
           const customer = await stripe.customers.create({
             email: student.email,
             name: student.name || `${student.firstName} ${student.lastName}`,
-            metadata: {
-              userId: userId.toString()
-            }
+            metadata: { userId: userId.toString() }
           });
           
-          // Update user with new customer ID
           student.stripeCustomerId = customer.id;
           await student.save();
           customerIdToUse = customer.id;
           console.log('✅ [HYBRID] Created Stripe customer:', customerIdToUse);
         }
 
+        // Ensure PM is attached to the correct customer
+        const pm = await stripe.paymentMethods.retrieve(stripePaymentMethodId);
+        if (pm.customer === customerIdToUse) {
+          console.log('✅ [HYBRID] PM already attached to correct customer');
+        } else if (pm.customer) {
+          console.log(`⚠️ [HYBRID] PM attached to ${pm.customer}, expected ${customerIdToUse} — using PM's customer`);
+          customerIdToUse = pm.customer;
+          await User.findByIdAndUpdate(userId, { stripeCustomerId: customerIdToUse });
+        } else {
+          await stripe.paymentMethods.attach(stripePaymentMethodId, { customer: customerIdToUse });
+          console.log('✅ [HYBRID] PM attached to customer');
+        }
+
         const tutor = lesson.tutorId;
         
-        // Check tutor's payout method
         const hasStripeConnect = tutor.stripeConnectAccountId && tutor.stripeConnectOnboarded;
         
         console.log(`💳 [HYBRID] Processing card portion for tutor with payout: ${tutor.payoutProvider}`, {
@@ -130,7 +154,6 @@ class PaymentService {
           paymentMethodAmount
         });
 
-        const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
         const paymentIntentParams = {
           amount: Math.round(paymentMethodAmount * 100),
           currency: 'usd',
@@ -225,32 +248,41 @@ class PaymentService {
         throw new Error('Stripe Payment Method ID required for saved card payments');
       }
 
-      // If customer ID is missing, create one
+      const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
+      // Ensure customer exists
       let customerIdToUse = stripeCustomerId;
       if (!customerIdToUse) {
         console.log('💳 No Stripe customer ID found, creating one...');
-        const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
         const student = await User.findById(userId);
         
         const customer = await stripe.customers.create({
           email: student.email,
           name: student.name || `${student.firstName} ${student.lastName}`,
-          metadata: {
-            userId: userId.toString()
-          }
+          metadata: { userId: userId.toString() }
         });
         
-        // Update user with new customer ID
         student.stripeCustomerId = customer.id;
         await student.save();
         customerIdToUse = customer.id;
         console.log('✅ Created Stripe customer:', customerIdToUse);
       }
 
-      // Get tutor info
+      // Ensure PM is attached to the correct customer
+      const pm = await stripe.paymentMethods.retrieve(stripePaymentMethodId);
+      if (pm.customer === customerIdToUse) {
+        console.log('✅ PM already attached to correct customer');
+      } else if (pm.customer) {
+        console.log(`⚠️ PM attached to ${pm.customer}, expected ${customerIdToUse} — using PM's customer`);
+        customerIdToUse = pm.customer;
+        await User.findByIdAndUpdate(userId, { stripeCustomerId: customerIdToUse });
+      } else {
+        await stripe.paymentMethods.attach(stripePaymentMethodId, { customer: customerIdToUse });
+        console.log('✅ PM attached to customer');
+      }
+
       const tutor = lesson.tutorId;
       
-      // Check tutor's payout method
       const hasStripeConnect = tutor.stripeConnectAccountId && tutor.stripeConnectOnboarded;
       const hasPayPal = tutor.payoutProvider === 'paypal' && !!tutor.payoutDetails?.paypalEmail;
       const hasManual = tutor.payoutProvider === 'manual';
@@ -261,10 +293,6 @@ class PaymentService {
         hasManual
       });
 
-      // Create PaymentIntent with saved card
-      // Note: We call Stripe directly here instead of using stripeService.createPaymentIntent
-      // because we need to pass additional params (confirm, off_session, etc.)
-      const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
       const paymentIntentParams = {
         amount: Math.round(amount * 100), // Convert to cents
         currency: 'usd',
@@ -516,12 +544,39 @@ class PaymentService {
         
         console.log(`✅ [CAPTURE] Successfully captured and saved $${amount} for lesson ${lessonId}`);
       } catch (captureError) {
-        console.error(`❌ [CAPTURE] Failed to capture Stripe payment for lesson ${lessonId}:`, captureError.message);
-        console.error(`❌ [CAPTURE] PaymentIntent ID: ${payment.stripePaymentIntentId}`);
-        console.error(`❌ [CAPTURE] Full error:`, captureError);
-        
-        // ⚠️ DO NOT update database if Stripe capture failed
-        throw new Error(`Payment capture failed: ${captureError.message}`);
+        // Check if error is "already captured" - this means it actually succeeded
+        if (captureError.message?.includes('already been captured') || 
+            captureError.code === 'payment_intent_unexpected_state') {
+          console.log(`✅ [CAPTURE] Payment was already captured (likely race condition) - treating as success`);
+          
+          // Retrieve the actual payment status from Stripe to confirm
+          const existingIntent = await stripe.paymentIntents.retrieve(payment.stripePaymentIntentId);
+          if (existingIntent.status === 'succeeded') {
+            payment.status = 'succeeded';
+            payment.chargedAt = new Date();
+            
+            // Get charge details if available
+            if (existingIntent.latest_charge) {
+              const chargeId = typeof existingIntent.latest_charge === 'string' 
+                ? existingIntent.latest_charge 
+                : existingIntent.latest_charge.id;
+              payment.stripeChargeId = chargeId;
+            }
+            
+            await payment.save();
+            console.log(`✅ [CAPTURE] Confirmed payment succeeded via Stripe retrieve`);
+          } else {
+            console.error(`❌ [CAPTURE] Stripe shows status: ${existingIntent.status}`);
+            throw new Error(`Payment capture failed: ${captureError.message}`);
+          }
+        } else {
+          console.error(`❌ [CAPTURE] Failed to capture Stripe payment for lesson ${lessonId}:`, captureError.message);
+          console.error(`❌ [CAPTURE] PaymentIntent ID: ${payment.stripePaymentIntentId}`);
+          console.error(`❌ [CAPTURE] Full error:`, captureError);
+          
+          // ⚠️ DO NOT update database if Stripe capture failed
+          throw new Error(`Payment capture failed: ${captureError.message}`);
+        }
       }
     }
 
@@ -576,11 +631,48 @@ class PaymentService {
         
         console.log(`✅ [HYBRID] Hybrid card payment captured: $${hybridCardPayment.amount}`);
       } catch (hybridError) {
-        console.error(`❌ [HYBRID] Failed to capture hybrid card payment:`, hybridError.message);
-        // Don't throw - let main payment succeed even if hybrid portion fails
-        hybridCardPayment.status = 'failed';
-        hybridCardPayment.errorMessage = `Hybrid capture failed: ${hybridError.message}`;
-        await hybridCardPayment.save();
+        // Check if error is "already captured" - this means it actually succeeded
+        if (hybridError.message?.includes('already been captured') || 
+            hybridError.code === 'payment_intent_unexpected_state') {
+          console.log(`✅ [HYBRID] Payment was already captured (likely race condition) - treating as success`);
+          
+          // Retrieve the actual payment status from Stripe to confirm
+          try {
+            const existingIntent = await stripe.paymentIntents.retrieve(hybridCardPayment.stripePaymentIntentId);
+            if (existingIntent.status === 'succeeded') {
+              hybridCardPayment.status = 'succeeded';
+              hybridCardPayment.chargedAt = new Date();
+              
+              // Get charge details if available
+              if (existingIntent.latest_charge) {
+                const chargeId = typeof existingIntent.latest_charge === 'string' 
+                  ? existingIntent.latest_charge 
+                  : existingIntent.latest_charge.id;
+                hybridCardPayment.stripeChargeId = chargeId;
+              }
+              
+              await hybridCardPayment.save();
+              console.log(`✅ [HYBRID] Confirmed payment succeeded via Stripe retrieve`);
+            } else {
+              console.error(`❌ [HYBRID] Stripe shows status: ${existingIntent.status}`);
+              hybridCardPayment.status = 'failed';
+              hybridCardPayment.errorMessage = `Hybrid capture failed: ${hybridError.message}`;
+              await hybridCardPayment.save();
+            }
+          } catch (retrieveError) {
+            console.error(`❌ [HYBRID] Error retrieving payment status:`, retrieveError.message);
+            // If we can't verify, still mark as failed to be safe
+            hybridCardPayment.status = 'failed';
+            hybridCardPayment.errorMessage = `Hybrid capture failed: ${hybridError.message}`;
+            await hybridCardPayment.save();
+          }
+        } else {
+          console.error(`❌ [HYBRID] Failed to capture hybrid card payment:`, hybridError.message);
+          // Don't throw - let main payment succeed even if hybrid portion fails
+          hybridCardPayment.status = 'failed';
+          hybridCardPayment.errorMessage = `Hybrid capture failed: ${hybridError.message}`;
+          await hybridCardPayment.save();
+        }
       }
     }
 
@@ -685,53 +777,55 @@ class PaymentService {
     console.log(`   Platform Fee (${this.PLATFORM_FEE_PERCENTAGE}%): $${platformFee.toFixed(2)}`);
     console.log(`   Tutor Payout: $${tutorPayout.toFixed(2)}`);
     
-    // Calculate earnings release date (15 MINUTES for testing - normally 24 hours)
-    // TODO: Change back to 24 hours for production
+    // Calculate earnings release date (1 hour hold after lesson end)
     const releaseDate = new Date(lesson.endTime);
-    releaseDate.setMinutes(releaseDate.getMinutes() + 15);
+    releaseDate.setHours(releaseDate.getHours() + 1);
     
     console.log(`   Release Date: ${releaseDate.toISOString()}`);
     
-    // Update payment record with new system fields
+    // ─── Step 1: Save payment FIRST so reconciliation always sees it ───
+    // This prevents a race condition where the tutor balance is incremented
+    // but the payment hasn't been saved yet with revenueRecognized/transferStatus,
+    // causing the reconciliation to overwrite lifetimeEarnings downward.
+    const wasAlreadyRecognized = payment.revenueRecognized;
     payment.tutorPayout = tutorPayout;
     payment.platformFee = platformFee;
-    payment.transferStatus = 'on_hold';  // NEW STATUS: Funds on hold for 24hrs
+    payment.transferStatus = 'on_hold';
     payment.earningsReleaseDate = releaseDate;
+    payment.revenueRecognized = true;
+    payment.revenueRecognizedAt = new Date();
+    await payment.save();
+    console.log(`💾 Payment saved: transferStatus=on_hold, revenueRecognized=true`);
     
-    // Update tutor's pending balance (will become available after 24hrs)
-    const tutor = await User.findById(lesson.tutorId._id);
-    if (!tutor.tutorEarnings) {
-      // Initialize if not exists (migration support)
-      tutor.tutorEarnings = {
-        availableBalance: 0,
-        pendingBalance: 0,
-        lifetimeEarnings: 0,
-        lastWithdrawal: null,
-        totalWithdrawn: 0
-      };
-    }
-    
-    tutor.tutorEarnings.pendingBalance += tutorPayout;
-    await tutor.save();
+    // ─── Step 2: Atomically increment tutor pending balance ───
+    // lifetimeEarnings is NOT incremented here — only when funds are released
+    // from hold (in releaseEarnings job) to reflect confirmed earnings only.
+    const tutor = await User.findOneAndUpdate(
+      { _id: lesson.tutorId._id },
+      { $inc: { 'tutorEarnings.pendingBalance': tutorPayout } },
+      { new: true }
+    );
     
     console.log(`💼 Updated tutor balance:`);
     console.log(`   Pending: $${tutor.tutorEarnings.pendingBalance.toFixed(2)}`);
     console.log(`   Available: $${tutor.tutorEarnings.availableBalance.toFixed(2)}`);
+    console.log(`   Lifetime: $${tutor.tutorEarnings.lifetimeEarnings.toFixed(2)}`);
     console.log(`\n✅ [NEW SYSTEM] Earnings will be available for withdrawal after ${releaseDate.toLocaleString()}\n`);
 
     // 🔔 Send notification to tutor when they earn money (NEW SYSTEM - pending balance)
     // This prevents duplicate notifications if completeLessonPayment is called multiple times
-    if (payment.status === 'succeeded' && !payment.revenueRecognized) {
+    if (payment.status === 'succeeded' && !wasAlreadyRecognized) {
       try {
-        const studentName = lesson.studentId.firstName 
-          ? `${lesson.studentId.firstName} ${(lesson.studentId.lastName || '').charAt(0)}.`
-          : lesson.studentId.name || 'a student';
+        const studentName = formatNameWithInitial(lesson.studentId);
         
-        const lessonDate = new Date(lesson.startTime).toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric'
-        });
+        // Format date with ordinal (e.g., "Feb 14th" instead of "Feb 14, 2026")
+        const lessonStartDate = new Date(lesson.startTime);
+        const day = lessonStartDate.getDate();
+        const ordinal = day === 1 || day === 21 || day === 31 ? 'st' :
+                       day === 2 || day === 22 ? 'nd' :
+                       day === 3 || day === 23 ? 'rd' : 'th';
+        const monthName = lessonStartDate.toLocaleDateString('en-US', { month: 'short' });
+        const lessonDateOrdinal = `${monthName} ${day}${ordinal}`;
 
         // Check if notification already exists for this payment to prevent duplicates
         const existingNotification = await Notification.findOne({
@@ -741,9 +835,12 @@ class PaymentService {
         });
 
         if (!existingNotification) {
-          // NEW SYSTEM: Always show pending with 24hr hold
-          const hoursUntilRelease = Math.round((releaseDate - new Date()) / (1000 * 60 * 60));
-          const notificationMessage = `You earned <strong>$${tutorPayout.toFixed(2)}</strong> from your lesson on <strong>${lessonDate}</strong> with ${studentName}. Funds will be available for withdrawal in ${hoursUntilRelease} hours.`;
+          // Earnings are on 1-hour hold before becoming available for withdrawal
+          const minutesUntilRelease = Math.max(1, Math.round((releaseDate - new Date()) / (1000 * 60)));
+          const timeLabel = minutesUntilRelease >= 60 
+            ? `${Math.round(minutesUntilRelease / 60)} hour${Math.round(minutesUntilRelease / 60) !== 1 ? 's' : ''}`
+            : `${minutesUntilRelease} minute${minutesUntilRelease !== 1 ? 's' : ''}`;
+          const notificationMessage = `You earned <strong>$${tutorPayout.toFixed(2)}</strong> for your <strong>${lessonDateOrdinal}</strong> lesson with <strong>${studentName}</strong>. Funds will be available for withdrawal in ~${timeLabel}.`;
 
           // Create notification in database
           const notification = new Notification({
@@ -798,12 +895,7 @@ class PaymentService {
       console.log(`ℹ️  Skipping payment notification - payment status: ${payment.status}, revenueRecognized: ${payment.revenueRecognized}`);
     }
 
-    // Step 3: Update payment record
-    payment.tutorPayout = tutorPayout;
-    payment.platformFee = platformFee;
-    payment.revenueRecognized = true; // NEW: Mark revenue as recognized
-    payment.revenueRecognizedAt = new Date(); // NEW: Timestamp when revenue recognized
-    await payment.save();
+    // (Payment already saved in Step 1 above with revenueRecognized + transferStatus)
 
     // ===================================================================
     // 💸 AUTOMATIC PLATFORM PROFIT PAYOUT TO BANK
@@ -868,24 +960,23 @@ class PaymentService {
       console.log(`   Platform profit $${netPlatformProfit.toFixed(2)} remains in Stripe`);
     }
 
-    // 🔀 HYBRID PAYMENT: Also mark hybrid card payment revenue as recognized
-    const hybridCardPayment = await Payment.findOne({
+    // Mark ALL other payment records for this lesson as revenue-recognized.
+    // This handles hybrid payments, split payments, and retry scenarios.
+    const otherPayments = await Payment.find({
       lessonId,
-      paymentMethod: { $in: ['saved-card', 'card', 'apple_pay', 'google_pay'] },
-      'metadata.isHybridPayment': true
+      _id: { $ne: payment._id }
     });
 
-    if (hybridCardPayment && !hybridCardPayment.revenueRecognized) {
-      const hybridPlatformFee = hybridCardPayment.amount * (this.PLATFORM_FEE_PERCENTAGE / 100);
-      const hybridTutorPayout = hybridCardPayment.amount - hybridPlatformFee;
-      
-      hybridCardPayment.platformFee = hybridPlatformFee;
-      hybridCardPayment.tutorPayout = hybridTutorPayout;
-      hybridCardPayment.revenueRecognized = true;
-      hybridCardPayment.revenueRecognizedAt = new Date();
-      await hybridCardPayment.save();
-      
-      console.log(`✅ [HYBRID] Hybrid card payment revenue recognized: $${hybridPlatformFee} platform fee, Stripe fee: $${hybridCardPayment.stripeFee}`);
+    for (const otherPayment of otherPayments) {
+      if (!otherPayment.revenueRecognized) {
+        const otherFee = otherPayment.amount * (this.PLATFORM_FEE_PERCENTAGE / 100);
+        otherPayment.platformFee = otherFee;
+        otherPayment.tutorPayout = otherPayment.amount - otherFee;
+        otherPayment.revenueRecognized = true;
+        otherPayment.revenueRecognizedAt = new Date();
+        await otherPayment.save();
+        console.log(`✅ [MULTI-PAYMENT] Additional payment ${otherPayment._id} revenue recognized: amount $${otherPayment.amount}, payout $${otherPayment.tutorPayout}`);
+      }
     }
 
     // Step 4: Mark lesson billing complete and recognize revenue
@@ -1024,13 +1115,64 @@ class PaymentService {
    * @returns {Promise<Object>} Payment details
    */
   async getPaymentDetails(lessonId) {
-    const payment = await Payment.findOne({ lessonId }).populate('userId lessonId');
+    const payments = await Payment.find({ lessonId }).populate('userId lessonId');
     
-    if (!payment) {
+    if (!payments || payments.length === 0) {
       throw new Error('Payment not found for this lesson');
     }
 
-    return payment;
+    // Single payment — still check lesson-level values for accuracy
+    if (payments.length === 1) {
+      const lesson = await Lesson.findById(lessonId);
+      if (lesson?.tutorPayout != null && lesson.tutorPayout > 0) {
+        const single = payments[0].toObject();
+        single.amount = lesson.actualPrice || lesson.price || single.amount;
+        single.tutorPayout = lesson.tutorPayout;
+        single.platformFee = lesson.platformFee || 0;
+        return single;
+      }
+      return payments[0];
+    }
+
+    // Multiple payments (hybrid wallet+card) — merge into a single view.
+    // Pick the primary payment (the one with transferStatus or revenueRecognized)
+    // and aggregate the financial totals from all records.
+    const primary = payments.find(p => p.transferStatus && p.revenueRecognized)
+      || payments.find(p => p.revenueRecognized)
+      || payments.find(p => p.transferStatus)
+      || payments[0];
+
+    const totalAmount = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    const totalRefund = payments.reduce((sum, p) => sum + (p.refundAmount || 0), 0);
+
+    // Use the lesson-level values set by completeLessonPayment (authoritative source).
+    // Fall back to recalculating from price if not available.
+    const lesson = await Lesson.findById(lessonId);
+    let tutorPayout, platformFee;
+    if (lesson?.tutorPayout != null && lesson.tutorPayout > 0) {
+      tutorPayout = lesson.tutorPayout;
+      platformFee = lesson.platformFee || 0;
+    } else {
+      const lessonPrice = lesson?.actualPrice || lesson?.price || totalAmount;
+      platformFee = lessonPrice * (this.PLATFORM_FEE_PERCENTAGE / 100);
+      tutorPayout = lessonPrice - platformFee;
+    }
+
+    // Return a merged view — spread the primary record, override financials
+    const merged = primary.toObject();
+    merged.amount = lesson?.actualPrice || lesson?.price || totalAmount;
+    merged.tutorPayout = tutorPayout;
+    merged.platformFee = platformFee;
+    merged.refundAmount = totalRefund;
+
+    // Carry over receipt/charge info from whichever record has it
+    for (const p of payments) {
+      if (p.receiptUrl && !merged.receiptUrl) merged.receiptUrl = p.receiptUrl;
+      if (p.stripeChargeId && !merged.stripeChargeId) merged.stripeChargeId = p.stripeChargeId;
+      if (p.stripePaymentIntentId && !merged.stripePaymentIntentId) merged.stripePaymentIntentId = p.stripePaymentIntentId;
+    }
+
+    return merged;
   }
 
   /**
@@ -1046,7 +1188,15 @@ class PaymentService {
         select: 'subject startTime endTime cancelReason tutorId',
         populate: {
           path: 'tutorId',
-          select: 'name firstName lastName picture'
+          select: 'name firstName lastName picture profilePicture'
+        }
+      })
+      .populate({
+        path: 'classId',
+        select: 'name startTime endTime status tutorId',
+        populate: {
+          path: 'tutorId',
+          select: 'name firstName lastName picture profilePicture'
         }
       })
       .sort({ createdAt: -1 })

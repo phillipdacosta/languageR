@@ -1,1478 +1,2095 @@
-// ============================================
-// APPLE-INSPIRED SCHEDULE CLASS PAGE
-// Clean, Modern, Minimal Design System
-// ============================================
+// Airbnb-Inspired Schedule Class Page
+// Matches Tutor Onboarding Design Language
 
-// Typography
-$font-primary: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
-$font-mono: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-
-// Colors - Apple-inspired palette
-$color-background: #f5f5f7;
-$color-card: #ffffff;
-$color-text-primary: #1d1d1f;
-$color-text-secondary: #86868b;
-$color-text-tertiary: #d2d2d7;
-$color-accent: #0071e3;
-$color-accent-hover: #0077ed;
-$color-success: #30d158;
-$color-warning: #ff9f0a;
-$color-error: #ff3b30;
-$color-border: rgba(0, 0, 0, 0.08);
-$color-border-focus: rgba(0, 113, 227, 0.3);
-
-// Spacing
-$spacing-xs: 8px;
-$spacing-sm: 12px;
-$spacing-md: 16px;
-$spacing-lg: 24px;
-$spacing-xl: 32px;
-$spacing-xxl: 48px;
-
-// Shadows
-$shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
-$shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
-$shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.10);
-$shadow-focus: 0 0 0 4px rgba(0, 113, 227, 0.1);
-
-// Border Radius
-$radius-sm: 8px;
-$radius-md: 12px;
-$radius-lg: 16px;
-$radius-xl: 20px;
-$radius-full: 9999px;
-
-// Transitions
-$transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-$transition-base: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-$transition-slow: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+// Design tokens (matching onboarding)
+$ob-text-primary: #222222;
+$ob-text-secondary: #717171;
+$ob-text-tertiary: #b0b0b0;
+$ob-border: #dddddd;
+$ob-border-light: #ebebeb;
+$ob-bg-hover: #f7f7f7;
+$ob-bg-subtle: #f7f7f7;
+$ob-accent: #222222;
 
 // ============================================
-// LAYOUT & STRUCTURE
+// LAYOUT - ONBOARDING STYLE
 // ============================================
 
 .schedule-class-content {
-  --background: #{$color-background};
+  --background: transparent;
 }
 
-.schedule-class {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: $spacing-lg $spacing-md $spacing-xxl;
-  font-family: $font-primary;
-  
-  .desktop-back-button {
-    display: none;
-    margin-bottom: $spacing-lg;
-    --color: #{$color-accent};
-    --padding-start: 0;
-    --padding-end: 0;
-    font-weight: 500;
-    font-size: 15px;
-    transition: opacity $transition-base;
-    
-    &:hover {
-      opacity: 0.7;
+.schedule-class-content-inline {
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+
+  .onboarding-container {
+    min-height: 0;
+    height: 100%;
+    padding: 12px 12px 0;
+    align-items: stretch;
+  }
+
+  .go-back-link {
+    position: absolute;
+    top: 20px;
+    left: 24px;
+  }
+
+  .onboarding-content {
+    height: 100%;
+    max-height: none;
+    padding: 20px 24px;
+    gap: 20px;
+    border-radius: 14px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  }
+
+  .onboarding-header {
+    h1 {
+      font-size: 20px;
+      margin: 0 0 2px 0;
     }
-    
-    ion-icon {
-      margin-right: 4px;
+    p {
+      font-size: 13px;
     }
   }
-  
-  // ============================================
-  // PAGE HEADER
-  // ============================================
-  
-  .page-header {
-    text-align: center;
-    margin-bottom: $spacing-xl;
-    
-    .page-title {
-      font-size: 22px;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-      color: $color-text-primary;
-      margin: 0 0 $spacing-xs 0;
-      line-height: 1.1;
+
+  .left-column {
+    gap: 14px;
+    padding: 16px 14px 14px;
+  }
+
+  .progress-section .progress-text {
+    font-size: 12px;
+    margin: 4px 0 0 0;
+  }
+
+  .steps-list .step-item {
+    padding: 8px 10px;
+    gap: 10px;
+
+    .step-indicator {
+      width: 26px;
+      height: 26px;
+
+      .step-number {
+        font-size: 12px;
+      }
     }
-    
-    .page-subtitle {
-      font-size: 14px;
-      font-weight: 400;
-      color: $color-text-secondary;
-      margin: 0;
-      line-height: 1.4;
+
+    .step-info {
+      h3 {
+        font-size: 13px;
+        margin: 0 0 1px 0;
+      }
+      p {
+        font-size: 11px;
+        line-height: 1.3;
+      }
     }
   }
-  
-  // ============================================
-  // FORM STRUCTURE
-  // ============================================
-  
-  form {
-    display: flex;
-    flex-direction: column;
-    gap: $spacing-lg;
-  }
-  
-  // ============================================
-  // CARD SECTIONS
-  // ============================================
-  
+
   .card-section {
-    background: $color-card;
-    border-radius: $radius-xl;
-    padding: $spacing-lg;
-    box-shadow: $shadow-sm;
-    border: 1px solid $color-border;
-    transition: box-shadow $transition-base;
+    padding: 16px;
+    min-height: 0;
+    margin-bottom: 12px;
+  }
+
+  .step-content {
+    padding-bottom: 8px;
+  }
+
+  .form-field {
+    margin-bottom: 14px;
+
+    .field-label {
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    .modern-input {
+      min-height: 40px;
+      font-size: 14px;
+      --padding-top: 8px;
+      --padding-bottom: 8px;
+    }
+
+    .modern-select {
+      min-height: 40px;
+      font-size: 14px;
+    }
+  }
+
+  .description-editor-wrapper ::ng-deep .ql-editor {
+    min-height: 100px;
+  }
+
+  .nav-buttons {
+    padding-top: 12px;
+
+    ion-button {
+      height: 36px;
+      font-size: 13px;
+    }
+  }
+
+  .econ-group {
+    padding: 0 16px;
+
+    &:first-child { padding-top: 16px; }
+    &:last-child { padding-bottom: 16px; }
+  }
+
+  .econ-group-title {
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+
+  .econ-divider {
+    margin: 14px 0;
+  }
+
+  .econ-baseline-row,
+  .econ-suggested-row,
+  .econ-toggle-row {
+    padding: 10px 0;
+  }
+
+  .econ-baseline-amount,
+  .econ-suggested-amount {
+    font-size: 16px;
+  }
+
+  .econ-hint-row {
+    padding: 10px 12px;
+    margin: 8px 0;
+  }
+}
+
+.onboarding-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  background: linear-gradient(135deg, #fafafa 0%, #f5f5f7 50%, #f0f0f2 100%);
+  position: relative;
+}
+
+// Go Back Link (matching lessons page style)
+.go-back-link {
+  position: fixed;
+  top: 100px;
+  left: 45px;
+  background: none;
+  border: none;
+  color: #222222;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  white-space: nowrap;
+  padding: 8px 0;
+  z-index: 10000;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+  
+  &:hover {
+    opacity: 0.8;
+  }
+  
+  @media (max-width: 768px) {
+    top: 10px;
+    left: 16px;
+    font-size: 14px;
+  }
+}
+
+.onboarding-content {
+  max-width: 1200px;
+  width: 100%;
+  height: clamp(600px, 90vh, 800px);
+  display: grid;
+  grid-template-columns: 360px 1px 1fr;
+  grid-template-rows: 100%;
+  gap: 32px;
+  background: white;
+  border-radius: 20px;
+  padding: 32px;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.06),
+    0 8px 24px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  flex-shrink: 0;
+  
+  @media (max-width: 1024px) {
+    grid-template-columns: 320px 1px 1fr;
+    gap: 24px;
+    padding: 24px;
+  }
+  
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+    height: auto;
+    min-height: 90vh;
+    gap: 0;
+    padding: 24px;
+    border-radius: 16px;
+  }
+}
+
+// ============================================
+// LEFT COLUMN - PROGRESS & NAVIGATION
+// ============================================
+
+.left-column {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  overflow-y: auto;
+  height: 100%;
+  min-height: 0;
+  // background: linear-gradient(181deg, #b0d7ff99 0%, #e0e5ffb5 30%, #fdf2f89c 70%, #fce7f34f 100%);
+  border-radius: 16px;
+  padding: 24px 20px 20px 20px;
+  margin: -4px;
+  
+  @media (max-width: 768px) {
+    padding-right: 0;
+    gap: 16px;
+    max-height: none;
+    height: auto;
+    border-bottom: 1px solid $ob-border-light;
+    padding-bottom: 16px;
+    margin-bottom: 16px;
+    overflow: visible;
+    margin: 0;
+    background: transparent;
+    border-radius: 0;
+    padding: 0;
+  }
+  
+  // Custom scrollbar
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: $ob-border;
+    border-radius: 3px;
     
     &:hover {
-      box-shadow: $shadow-md;
+      background: $ob-text-tertiary;
+    }
+  }
+}
+
+.onboarding-header {
+  flex-shrink: 0;
+  
+  @media (max-width: 768px) {
+    margin-bottom: 8px;
+    
+    h1 {
+      font-size: 20px;
+      margin: 0 0 4px 0;
     }
     
-    .section-title {
-      display: flex;
-      align-items: center;
-      gap: $spacing-xs;
-      margin-bottom: $spacing-lg;
-      padding-bottom: $spacing-md;
-      border-bottom: 1px solid $color-border;
-      
-      ion-icon {
-        font-size: 20px;
-        color: $color-accent;
-      }
-      
-      span {
-        font-size: 17px;
-        font-weight: 600;
-        color: $color-text-primary;
-        letter-spacing: -0.3px;
-      }
+    p {
+      font-size: 13px;
     }
   }
   
-  // ============================================
-  // FORM FIELDS
-  // ============================================
-  
-  .form-field {
-    margin-bottom: $spacing-md;
+  h1 {
+    font-size: 24px;
+    font-weight: 700;
+    color: $ob-text-primary;
+    margin: 0 0 6px 0;
+    letter-spacing: -0.5px;
     
-    &:last-child {
-      margin-bottom: 0;
-    }
-    
-    .field-label {
-      display: block;
-      font-size: 13px;
-      font-weight: 600;
-      color: $color-text-secondary;
-      margin-bottom: $spacing-xs;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    
-    .modern-input {
-      --background: #f5f5f7;
-      --padding-start: #{$spacing-md};
-      --padding-end: #{$spacing-md};
-      --padding-top: 14px;
-      --padding-bottom: 14px;
-      --border-width: 0;
-      --highlight-height: 0;
-      border: 1px solid transparent;
-      border-radius: $radius-md;
-      font-size: 13px;
-      color: $color-text-primary;
-      min-height: 48px;
-      transition: all $transition-base;
-      overflow: hidden; // Ensure border radius is respected
-      
-      // Ensure the native input inside respects the border
-      input {
-        border: none !important;
-        outline: none !important;
-      }
-      
-      &::placeholder {
-        color: $color-text-secondary;
-        font-size: 13px;
-        opacity: 1;
-      }
-      
-      &::-webkit-input-placeholder {
-        color: $color-text-secondary;
-        font-size: 13px;
-        opacity: 1;
-      }
-      
-      &::-moz-placeholder {
-        color: $color-text-secondary;
-        font-size: 13px;
-        opacity: 1;
-      }
-      
-      &:-ms-input-placeholder {
-        color: $color-text-secondary;
-        font-size: 13px;
-        opacity: 1;
-      }
-      
-      &:focus-within,
-      &.has-focus {
-        --background: #ffffff;
-        border: 1px solid $color-accent;
-        border-radius: $radius-md;
-        box-shadow: $shadow-focus;
-      }
-      
-      &.error {
-        --background: rgba(255, 59, 48, 0.02);
-        border: 1px solid rgba(255, 59, 48, 0.3) !important;
-        
-        &:focus-within,
-        &.has-focus {
-          --background: #ffffff;
-          border: 1px solid rgba(255, 59, 48, 0.5) !important;
-          box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.1);
-        }
-      }
-      
-      &.price-input {
-        font-weight: 600;
-        font-size: 20px;
-        
-        .currency-symbol {
-          color: $color-text-secondary;
-          margin-right: 4px;
-        }
-      }
-    }
-    
-    .modern-select {
-      --background: #f5f5f7;
-      --padding-start: #{$spacing-md};
-      --padding-end: #{$spacing-md};
-      --padding-top: 14px;
-      --padding-bottom: 14px;
-      --border-width: 0;
-      --highlight-height: 0;
-      border: 1px solid transparent;
-      border-radius: $radius-md;
-      font-size: 13px;
-      min-height: 48px;
-      transition: all $transition-base;
-      overflow: hidden; // Ensure border radius is respected
-      
-      &::part(placeholder) {
-        color: $color-text-secondary;
-        font-size: 13px;
-      }
-      
-      &::part(text) {
-        font-size: 13px;
-      }
-      
-      &:focus,
-      &.has-focus {
-        --background: #ffffff;
-        border: 1px solid $color-accent;
-        border-radius: $radius-md;
-        box-shadow: $shadow-focus;
-      }
-      
-      &.error {
-        --background: rgba(255, 59, 48, 0.02);
-        border: 1px solid rgba(255, 59, 48, 0.3) !important;
-        
-        &:focus,
-        &.has-focus {
-          --background: #ffffff;
-          border: 1px solid rgba(255, 59, 48, 0.5) !important;
-          box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.1);
-        }
-      }
-    }
-    
-    .error-note {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      color: $color-error;
-      font-size: 13px;
-      font-weight: 500;
-      margin-top: 6px;
-    }
-    
-    .helper-note {
-      display: block;
-      color: $color-text-secondary;
-      font-size: 13px;
-      font-weight: 400;
-      margin-top: 6px;
-      line-height: 1.4;
-    }
-    
-    .success-note {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      color: $color-success;
-      font-size: 13px;
-      font-weight: 500;
-      margin-top: 6px;
-      
-      ion-icon {
-        font-size: 16px;
-      }
+    @media (max-width: 768px) {
+      font-size: 20px;
+      margin: 0 0 4px 0;
     }
   }
   
-  .form-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: $spacing-md;
+  p {
+    font-size: 15px;
+    color: $ob-text-secondary;
+    margin: 0;
     
-    &.datetime-row {
-      margin-top: $spacing-md;
-      
-      // Hide calendar and time picker icons
-      .date-input,
-      .time-input {
-        // Hide the native date/time picker icons
-        input::-webkit-calendar-picker-indicator {
-          display: none;
-          -webkit-appearance: none;
-        }
-        
-        input::-webkit-inner-spin-button,
-        input::-webkit-outer-spin-button {
-          display: none;
-          -webkit-appearance: none;
-        }
-        
-        // Style disabled state to look like readonly (not greyed out)
-        &.ion-disabled {
-          --background: #f5f5f7;
-          opacity: 1;
-          pointer-events: none;
-          cursor: not-allowed;
-          
-          input {
-            cursor: not-allowed;
-          }
-        }
-      }
+    @media (max-width: 768px) {
+      font-size: 13px;
     }
   }
+}
+
+// Progress Bar
+.progress-section {
+  flex-shrink: 0;
   
-  // ============================================
-  // DESCRIPTION EDITOR
-  // ============================================
+  @media (max-width: 768px) {
+    margin-bottom: 8px;
+  }
   
-  .description-editor-wrapper {
-    border-radius: $radius-md;
-    border: 1px solid $color-border;
+  .progress-bar-bg {
+    width: 100%;
+    height: 4px;
+    background: $ob-border-light;
+    border-radius: 2px;
     overflow: hidden;
-    background: #f5f5f7;
-    transition: all $transition-base;
     
-    &:focus-within {
-      border-color: $color-accent;
-      box-shadow: $shadow-focus;
-      background: #ffffff;
+    @media (max-width: 768px) {
+      height: 3px;
     }
     
-    ::ng-deep {
-      .ql-toolbar {
-        background: #ffffff;
-        border: none;
-        border-bottom: 1px solid $color-border;
-      }
-      
-      .ql-container {
-        font-family: $font-primary;
-        font-size: 15px;
-        border: none;
-      }
-      
-      .ql-editor {
-        min-height: 140px;
-        color: $color-text-primary;
-        font-size: 15px;
-        
-        &.ql-blank::before {
-          color: $color-text-secondary;
-          font-size: 13px;
-          font-style: normal;
-        }
-      }
+    .progress-bar-fill {
+      height: 100%;
+      background: $ob-accent;
+      border-radius: 2px;
+      transition: width 0.4s cubic-bezier(0.32, 0.72, 0, 1);
     }
   }
   
-  // ============================================
-  // ECONOMICS SECTION
-  // ============================================
-  
-  .economics-section {
-    background: linear-gradient(135deg, #f5f5f7 0%, #ffffff 100%);
-    
-    .baseline-display {
-      display: flex;
-      align-items: center;
-      gap: $spacing-md;
-      padding: $spacing-md;
-      background: #ffffff;
-      border-radius: $radius-lg;
-      border: 1px solid $color-border;
-      margin-bottom: $spacing-lg;
-      
-      .baseline-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: $radius-md;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        
-        ion-icon {
-          font-size: 24px;
-          color: #ffffff;
-        }
-      }
-      
-      .baseline-info {
-        flex: 1;
-        
-        .baseline-label {
-          font-size: 11px;
-          font-weight: 600;
-          color: $color-text-secondary;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          margin-bottom: 4px;
-        }
-        
-        .baseline-amount {
-          font-size: 24px;
-          font-weight: 700;
-          color: $color-text-primary;
-          letter-spacing: -0.5px;
-          line-height: 1;
-          margin-bottom: 4px;
-        }
-        
-        .baseline-net {
-          font-size: 13px;
-          font-weight: 500;
-          color: $color-text-secondary;
-        }
-      }
-    }
-    
-    .price-section {
-      margin-bottom: $spacing-lg;
-      
-      .suggested-price {
-        background: linear-gradient(135deg, #fff7ed 0%, #fffbf0 100%);
-        border: 1px solid rgba(255, 159, 10, 0.2);
-        border-radius: $radius-md;
-        padding: $spacing-md;
-        margin-bottom: $spacing-md;
-        margin-top: 8px;
-        .suggested-badge {
-          display: flex;
-          align-items: center;
-          gap: $spacing-xs;
-          margin-bottom: 6px;
-          
-          ion-icon {
-            font-size: 18px;
-            color: $color-warning;
-          }
-          
-          span {
-            font-size: 15px;
-            color: $color-text-primary;
-            font-weight: 500;
-            
-            strong {
-              font-weight: 700;
-              font-size: 17px;
-            }
-          }
-        }
-        
-        .suggested-note {
-          font-size: 13px;
-          color: $color-text-secondary;
-        }
-      }
-      
-      .price-toggle {
-        margin-bottom: $spacing-md;
-        
-        ion-item {
-          --background: transparent;
-          --padding-start: 0;
-          --padding-end: 0;
-          --min-height: auto;
-          
-          ion-label {
-            font-size: 15px;
-            font-weight: 500;
-            color: $color-text-primary;
-          }
-        }
-      }
-      
-      .custom-price-field {
-        margin-top: $spacing-md;
-      }
-    }
-    
-    .class-size-section {
-      padding-top: $spacing-lg;
-      border-top: 1px solid $color-border;
-      margin-top: $spacing-lg;
-    }
-    
-    .recommendation-card {
-      display: flex;
-      align-items: flex-start;
-      gap: $spacing-md;
-      padding: $spacing-md;
-      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-      border: 1px solid rgba(14, 165, 233, 0.3);
-      border-radius: $radius-lg;
-      margin: $spacing-md 0;
-      
-      .recommendation-icon {
-        width: 40px;
-        height: 40px;
-        border-radius: $radius-md;
-        background: #0ea5e9;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        
-        ion-icon {
-          font-size: 22px;
-          color: #ffffff;
-        }
-      }
-      
-      .recommendation-content {
-        flex: 1;
-        
-        .recommendation-title {
-          font-size: 11px;
-          font-weight: 600;
-          color: #075985;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          margin-bottom: 4px;
-        }
-        
-        .recommendation-value {
-          font-size: 20px;
-          font-weight: 700;
-          color: #0c4a6e;
-          letter-spacing: -0.3px;
-          margin-bottom: 4px;
-        }
-        
-        .recommendation-note {
-          font-size: 13px;
-          color: #075985;
-          font-weight: 400;
-          line-height: 1.4;
-        }
-      }
-    }
-    
-    .breakdown-toggle {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: $spacing-sm $spacing-md;
-      background: #f5f5f7;
-      border-radius: $radius-md;
-      cursor: pointer;
-      margin: $spacing-md 0;
-      transition: all $transition-base;
-      user-select: none;
-      
-      &:hover {
-        background: #ececef;
-      }
-      
-      &:active {
-        transform: scale(0.98);
-      }
-      
-      span {
-        font-size: 15px;
-        font-weight: 600;
-        color: $color-accent;
-      }
-      
-      ion-icon {
-        font-size: 20px;
-        color: $color-accent;
-        transition: transform $transition-base;
-      }
-    }
-    
-    .earnings-table-wrapper {
-      animation: slideDown $transition-slow ease-out;
-      margin: $spacing-md 0;
-    }
-    
-    @keyframes slideDown {
-      from {
-        opacity: 0;
-        max-height: 0;
-      }
-      to {
-        opacity: 1;
-        max-height: 600px;
-      }
-    }
-    
-    .earnings-table {
-      background: #ffffff;
-      border-radius: $radius-lg;
-      border: 1px solid $color-border;
-      overflow: hidden;
-      
-      .table-header {
-        display: flex;
-        justify-content: space-between;
-        padding: $spacing-md;
-        background: #f5f5f7;
-        border-bottom: 1px solid $color-border;
-        
-        span {
-          font-size: 11px;
-          font-weight: 700;
-          color: $color-text-secondary;
-          text-transform: uppercase;
-          letter-spacing: 0.8px;
-        }
-      }
-      
-      .table-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: $spacing-md;
-        border-bottom: 1px solid $color-border;
-        transition: background $transition-fast;
-        
-        &:last-of-type {
-          border-bottom: none;
-        }
-        
-        &.baseline {
-          background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);
-          
-          .row-label {
-            font-weight: 600;
-            color: #7c3aed;
-          }
-          
-          .amount {
-            font-weight: 700;
-            color: #7c3aed;
-          }
-        }
-        
-        &.profitable {
-          background: rgba(48, 209, 88, 0.03);
-          
-          &:hover {
-            background: rgba(48, 209, 88, 0.06);
-          }
-        }
-        
-        &.below-target {
-          opacity: 0.5;
-        }
-        
-        .row-label {
-          display: flex;
-          align-items: center;
-          gap: $spacing-xs;
-          
-          ion-icon {
-            font-size: 18px;
-            color: $color-text-secondary;
-          }
-          
-          span {
-            font-size: 15px;
-            font-weight: 500;
-            color: $color-text-primary;
-          }
-        }
-        
-        .row-value {
-          display: flex;
-          align-items: center;
-          gap: $spacing-xs;
-          
-          .amount {
-            font-size: 17px;
-            font-weight: 700;
-            color: $color-text-primary;
-            font-feature-settings: 'tnum';
-            font-variant-numeric: tabular-nums;
-          }
-          
-          .badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 4px $spacing-xs;
-            border-radius: $radius-sm;
-            font-size: 11px;
-            font-weight: 700;
-            letter-spacing: 0.3px;
-            
-            &.neutral {
-              background: #f5f5f7;
-              color: $color-text-secondary;
-            }
-            
-            &.positive {
-              background: rgba(48, 209, 88, 0.1);
-              color: $color-success;
-            }
-            
-            &.negative {
-              background: rgba(255, 59, 48, 0.1);
-              color: $color-error;
-            }
-            
-            ion-icon {
-              font-size: 14px;
-            }
-          }
-        }
-      }
-      
-      .table-footer {
-        display: flex;
-        align-items: center;
-        gap: $spacing-xs;
-        padding: $spacing-sm $spacing-md;
-        background: #f5f5f7;
-        
-        ion-icon {
-          font-size: 14px;
-          color: $color-text-secondary;
-        }
-        
-        span {
-          font-size: 12px;
-          color: $color-text-secondary;
-          font-style: italic;
-        }
-      }
-    }
-    
-    .warning-card {
-      display: flex;
-      align-items: flex-start;
-      gap: $spacing-md;
-      padding: $spacing-md;
-      background: rgba(255, 59, 48, 0.05);
-      border: 1px solid rgba(255, 59, 48, 0.2);
-      border-radius: $radius-lg;
-      margin: $spacing-md 0;
-      
-      .warning-icon {
-        width: 40px;
-        height: 40px;
-        border-radius: $radius-md;
-        background: $color-error;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        
-        ion-icon {
-          font-size: 22px;
-          color: #ffffff;
-        }
-      }
-      
-      .warning-content {
-        flex: 1;
-        
-        .warning-title {
-          font-size: 13px;
-          font-weight: 700;
-          color: #991b1b;
-          margin-bottom: 4px;
-          text-transform: uppercase;
-          letter-spacing: 0.3px;
-        }
-        
-        .warning-text {
-          font-size: 14px;
-          color: #7f1d1d;
-          line-height: 1.5;
-          
-          strong {
-            font-weight: 600;
-          }
-        }
-      }
-    }
-    
-    .flexible-toggle-card {
-      padding: $spacing-md;
-      background: #f5f5f7;
-      border-radius: $radius-lg;
-      border: 1px solid $color-border;
-      margin-top: $spacing-md;
-      
-      ion-item {
-        --background: transparent;
-        --padding-start: 0;
-        --padding-end: 0;
-        --min-height: auto;
-        
-        ion-label {
-          h3 {
-            font-size: 15px;
-            font-weight: 600;
-            color: $color-text-primary;
-            margin: 0 0 4px 0;
-          }
-          
-          p {
-            font-size: 13px;
-            color: $color-text-secondary;
-            margin: 0;
-          }
-        }
-      }
-    }
-  }
-  
-  // ============================================
-  // STUDENT SELECTION
-  // ============================================
-  
-  .invite-students-section {
-    padding-top: $spacing-lg;
-    border-top: 1px solid $color-border;
-    margin-top: $spacing-lg;
-    position: relative;
-    
-    .student-selector {
-      display: flex;
-      align-items: center;
-      gap: $spacing-md;
-      padding: $spacing-md;
-      background: #f5f5f7;
-      border-radius: $radius-lg;
-      border: 1px solid $color-border;
-      cursor: pointer;
-      transition: all $transition-base;
-      margin: $spacing-sm 0;
-      
-      &:hover:not(.disabled) {
-        background: #ececef;
-        border-color: $color-accent;
-      }
-      
-      &.disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
-      
-      .selector-content {
-        display: flex;
-        align-items: center;
-        gap: $spacing-md;
-        flex: 1;
-        
-        .selected-avatars {
-          display: flex;
-          align-items: center;
-          
-          .avatar-sm {
-            width: 32px;
-            height: 32px;
-            margin-left: -8px;
-            border: 2px solid #ffffff;
-            
-            &:first-child {
-              margin-left: 0;
-            }
-            
-            img {
-              border-radius: $radius-full;
-            }
-            
-            .avatar-placeholder {
-              width: 100%;
-              height: 100%;
-              border-radius: $radius-full;
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              color: #ffffff;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              font-size: 14px;
-              font-weight: 600;
-            }
-          }
-          
-          .more-badge {
-            width: 32px;
-            height: 32px;
-            margin-left: -8px;
-            border: 2px solid #ffffff;
-            border-radius: $radius-full;
-            background: #f5f5f7;
-            color: $color-text-primary;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            font-weight: 700;
-          }
-        }
-        
-        .selector-text {
-          font-size: 15px;
-          font-weight: 500;
-          color: $color-text-primary;
-          flex: 1;
-        }
-        
-        .clear-btn {
-          font-size: 22px;
-          color: $color-text-secondary;
-          transition: color $transition-fast;
-          
-          &:hover {
-            color: $color-error;
-          }
-        }
-      }
-      
-      .placeholder-text {
-        font-size: 15px;
-        color: $color-text-secondary;
-        flex: 1;
-      }
-      
-      .chevron-icon {
-        font-size: 20px;
-        color: $color-text-secondary;
-        transition: transform $transition-base;
-      }
-    }
-    
-    .student-dropdown {
-      position: absolute;
-      top: calc(100% + 8px);
-      left: 0;
-      right: 0;
-      background: #ffffff;
-      border-radius: $radius-xl;
-      box-shadow: $shadow-lg;
-      z-index: 1000;
-      max-height: 400px;
-      overflow: hidden;
-      animation: dropdownSlide $transition-slow ease-out;
-      
-      @keyframes dropdownSlide {
-        from {
-          opacity: 0;
-          transform: translateY(-8px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-      
-      .dropdown-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: $spacing-md $spacing-lg;
-        border-bottom: 1px solid $color-border;
-        background: #f5f5f7;
-        
-        h4 {
-          font-size: 15px;
-          font-weight: 700;
-          color: $color-text-primary;
-          margin: 0;
-        }
-        
-        .count-badge {
-          padding: 4px $spacing-xs;
-          background: $color-accent;
-          color: #ffffff;
-          border-radius: $radius-full;
-          font-size: 12px;
-          font-weight: 700;
-        }
-      }
-      
-      .dropdown-list {
-        max-height: 320px;
-        overflow-y: auto;
-        padding: $spacing-xs;
-        
-        &::-webkit-scrollbar {
-          width: 6px;
-        }
-        
-        &::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        
-        &::-webkit-scrollbar-thumb {
-          background: #d1d1d6;
-          border-radius: $radius-full;
-          
-          &:hover {
-            background: #a1a1aa;
-          }
-        }
-      }
-      
-      .student-item {
-        display: flex;
-        align-items: center;
-        gap: $spacing-md;
-        padding: $spacing-sm $spacing-md;
-        border-radius: $radius-md;
-        cursor: pointer;
-        transition: background $transition-fast;
-        
-        &:hover:not(.disabled) {
-          background: #f5f5f7;
-        }
-        
-        &.selected {
-          background: rgba(0, 113, 227, 0.08);
-        }
-        
-        &.disabled {
-          opacity: 0.4;
-          cursor: not-allowed;
-        }
-        
-        .avatar-md {
-          width: 40px;
-          height: 40px;
-          
-          img {
-            border-radius: $radius-full;
-          }
-          
-          .avatar-placeholder {
-            width: 100%;
-            height: 100%;
-            border-radius: $radius-full;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: #ffffff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 16px;
-            font-weight: 600;
-          }
-        }
-        
-        .student-info {
-          flex: 1;
-          
-          .student-name {
-            font-size: 15px;
-            font-weight: 600;
-            color: $color-text-primary;
-            margin-bottom: 2px;
-          }
-          
-          .student-type {
-            font-size: 13px;
-            color: $color-text-secondary;
-            text-transform: capitalize;
-          }
-        }
-        
-        .checkbox {
-          width: 22px;
-          height: 22px;
-          border: 2px solid #d1d1d6;
-          border-radius: 6px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: all $transition-base;
-          
-          &.checked {
-            background: $color-accent;
-            border-color: $color-accent;
-            
-            ion-icon {
-              font-size: 14px;
-              color: #ffffff;
-              font-weight: 700;
-            }
-          }
-        }
-      }
-    }
-    
-    .dropdown-backdrop {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.3);
-      z-index: 999;
-      animation: fadeIn $transition-base;
-      
-      @keyframes fadeIn {
-        from {
-          opacity: 0;
-        }
-        to {
-          opacity: 1;
-        }
-      }
-    }
-  }
-  
-  // ============================================
-  // SCHEDULE SECTION
-  // ============================================
-  
-  .availability-btn {
-    --border-width: 2px;
-    --border-color: #{$color-accent};
-    --border-radius: #{$radius-lg};
-    --padding-top: #{$spacing-md};
-    --padding-bottom: #{$spacing-md};
-    --padding-start: 24px;
-    --padding-end: 24px;
-    --color: #{$color-accent};
+  .progress-text {
+    text-align: center;
     font-size: 13px;
-    font-weight: 600;
-    transition: all $transition-base;
-    width: auto;
-    min-width: 280px;
-    max-width: 400px;
+    color: $ob-text-secondary;
+    margin: 6px 0 0 0;
+    font-weight: 500;
     
-    &:hover:not([disabled]) {
-      --background: rgba(0, 113, 227, 0.05);
+    @media (max-width: 768px) {
+      font-size: 11px;
+      margin: 4px 0 0 0;
+    }
+  }
+}
+
+// Mobile Steps Toggle Button
+.steps-toggle-mobile {
+  display: none;
+  
+  @media (max-width: 768px) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 10px 12px;
+    background: $ob-bg-subtle;
+    border: 1px solid $ob-border-light;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    color: $ob-text-primary;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-bottom: 8px;
+    
+    &:hover {
+      background: $ob-bg-hover;
+    }
+    
+    &:active {
+      transform: scale(0.98);
     }
     
     ion-icon {
-      margin-right: $spacing-xs;
+      font-size: 18px;
+      color: $ob-text-secondary;
     }
   }
+}
+
+// Steps List
+.steps-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  padding-right: 4px;
+  padding-bottom: 16px;
+  min-height: 0;
   
-  .availability-btn + ion-note,
-  .availability-btn + .button-container + ion-note {
-    margin-top: $spacing-md;
-  }
-  
-  // ============================================
-  // VISIBILITY & THUMBNAIL
-  // ============================================
-  
-  .visibility-toggle {
-    ion-item {
-      --background: transparent;
-      --padding-start: 0;
-      --padding-end: 0;
-      --min-height: auto;
-      
-      ion-label {
-        h3 {
-          font-size: 15px;
-          font-weight: 600;
-          color: $color-text-primary;
-          margin: 0 0 4px 0;
-        }
-        
-        p {
-          font-size: 13px;
-          color: $color-text-secondary;
-          margin: 0;
-        }
-      }
-    }
-  }
-  
-  .thumbnail-section {
-    padding-top: $spacing-lg;
-    border-top: 1px solid $color-border;
-    margin-top: $spacing-lg;
+  @media (max-width: 768px) {
+    gap: 4px;
+    padding-right: 0;
+    padding-bottom: 0;
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.3s ease-out, padding-bottom 0.3s ease-out;
     
-    .thumbnail-info-card {
-      display: flex;
-      align-items: center;
-      gap: $spacing-md;
-      padding: $spacing-md;
-      background: #f5f5f7;
-      border-radius: $radius-lg;
-      margin: $spacing-sm 0 $spacing-md 0;
-      
-      ion-icon {
-        font-size: 32px;
-        color: $color-accent;
-      }
-      
-      .info-title {
-        font-size: 15px;
-        font-weight: 600;
-        color: $color-text-primary;
-        margin-bottom: 4px;
-      }
-      
-      .info-subtitle {
-        font-size: 13px;
-        color: $color-text-secondary;
-      }
+    &.expanded {
+      max-height: 1000px;
+      padding-bottom: 12px;
+      margin-top: 8px;
+    }
+  }
+  
+  .step-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.25s ease, border-color 0.25s ease;
+    border: 1px solid transparent;
+    
+    @media (max-width: 768px) {
+      padding: 12px;
+      gap: 10px;
     }
     
-    .thumbnail-preview {
-      position: relative;
-      border-radius: $radius-lg;
-      overflow: hidden;
-      margin-bottom: $spacing-md;
-      box-shadow: $shadow-md;
-      max-width: 500px;
+    &:hover:not(.disabled) {
+      background: $ob-bg-hover;
+    }
+    
+    &.current {
+      background: rgba($ob-accent, 0.06);
+      border-color: transparent;
+    }
+    
+    &.completed {
+      opacity: 0.7;
       
-      img {
-        width: 100%;
-        height: auto;
-        max-height: 280px;
-        object-fit: cover;
-        display: block;
-      }
-      
-      .remove-btn {
-        position: absolute;
-        top: $spacing-sm;
-        right: $spacing-sm;
-        --background: rgba(255, 255, 255, 0.95);
-        --border-radius: #{$radius-full};
-        --box-shadow: #{$shadow-md};
-        backdrop-filter: blur(10px);
+      .step-indicator {
+        background: linear-gradient(135deg, #00A699, #00C9B7) !important;
+        opacity: 1 !important;
         
         ion-icon {
-          font-size: 24px;
-          color: $color-error;
+          color: white;
+          font-size: 16px;
         }
       }
     }
     
-    .upload-btn {
-      --border-width: 2px;
-      --border-color: #{$color-border};
-      --border-radius: #{$radius-lg};
-      --padding-top: #{$spacing-md};
-      --padding-bottom: #{$spacing-md};
-      --padding-start: 24px;
-      --padding-end: 24px;
-      font-size: 13px;
-      font-weight: 600;
-      width: auto;
-      min-width: 200px;
-      max-width: 300px;
-      
-      ion-icon {
-        margin-right: $spacing-xs;
-      }
+    &.disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
     }
     
-    .button-container {
-      margin-bottom: $spacing-md;
-    }
-    
-    .error-card {
+    .step-indicator {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: $ob-border-light;
       display: flex;
       align-items: center;
-      gap: $spacing-xs;
-      padding: $spacing-md;
-      background: rgba(255, 59, 48, 0.05);
-      border: 1px solid rgba(255, 59, 48, 0.2);
-      border-radius: $radius-md;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.25s ease, transform 0.15s ease;
       
-      ion-icon {
-        font-size: 18px;
-        color: $color-error;
+      @media (max-width: 768px) {
+        width: 28px;
+        height: 28px;
       }
       
-      span {
+      .step-number {
         font-size: 13px;
         font-weight: 600;
-        color: #991b1b;
+        color: $ob-text-secondary;
+        
+        @media (max-width: 768px) {
+          font-size: 12px;
+        }
+      }
+    }
+    
+    &.current .step-indicator {
+      background: $ob-accent;
+      
+      .step-number {
+        color: white;
+      }
+    }
+    
+    .step-info {
+      flex: 1;
+      
+      h3 {
+        margin: 0 0 3px 0;
+        font-size: 15px;
+        font-weight: 600;
+        color: $ob-text-primary;
+        letter-spacing: -0.2px;
+        
+        @media (max-width: 768px) {
+          font-size: 14px;
+          margin: 0 0 2px 0;
+        }
+      }
+      
+      p {
+        margin: 0;
+        font-size: 13px;
+        color: $ob-text-secondary;
+        line-height: 1.4;
+        
+        @media (max-width: 768px) {
+          font-size: 12px;
+          line-height: 1.3;
+        }
       }
     }
   }
+}
+
+// Navigation Buttons
+.nav-buttons {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid $ob-border-light;
+  flex-shrink: 0;
+  position: relative;
+  background: #ffffff;
+  z-index: 100;
   
-  // ============================================
-  // BUTTON CONTAINER
-  // ============================================
-  
-  .button-container {
-    display: flex;
-    justify-content: center;
-    width: 100%;
+  @media (max-width: 768px) {
+    padding: 16px 0 0 0;
+    margin-top: 16px;
+    gap: 8px;
+    flex-direction: column;
   }
   
-  // ============================================
-  // SUBMIT BUTTON
-  // ============================================
-  
-  .submit-btn {
-    --background: linear-gradient(135deg, #{$color-accent} 0%, #0066d1 100%);
+  ion-button {
+    flex: 1;
+    --border-radius: 10px;
     --color: #ffffff;
-    --border-radius: #{$radius-lg};
-    --box-shadow: #{$shadow-md};
-    --padding-start: 36px;
-    --padding-end: 36px;
-    height: 56px;
-    font-size: 15px;
-    font-weight: 700;
-    transition: all $transition-base;
-    width: auto;
-    min-width: 420px;
-    max-width: 580px;
+    --background: #222222;
+    --background-activated: #000000;
+    --background-hover: #000000;
+    height: 40px;
+    font-size: 14px;
+    font-weight: 500;
+    text-transform: none;
     
-    &:hover:not([disabled]) {
-      --box-shadow: #{$shadow-lg};
-      transform: translateY(-2px);
+    @media (max-width: 768px) {
+      height: 44px;
+      font-size: 15px;
+      width: 100%;
     }
     
-    &:active:not([disabled]) {
-      transform: translateY(0);
+    &[fill="outline"] {
+      --background: transparent;
+      --color: #{$ob-text-primary};
+      --border-color: #{$ob-border};
+      --border-width: 1px;
     }
     
     &[disabled] {
-      --background: #d1d1d6;
-      --box-shadow: none;
-      opacity: 0.6;
-    }
-    
-    ion-icon,
-    ion-spinner {
-      margin-right: $spacing-xs;
-    }
-  }
-  
-  .submit-btn + .button-container,
-  form > .button-container {
-    margin-top: $spacing-lg;
-    padding-bottom: 124px;
-  }
-}
-
-// ============================================
-// RESPONSIVE: MOBILE
-// ============================================
-
-@media (max-width: 767px) {
-  .schedule-class {
-    padding: $spacing-md;
-    
-    .page-header {
-      margin-bottom: $spacing-lg;
-      
-      .page-title {
-        font-size: 28px;
-      }
-      
-      .page-subtitle {
-        font-size: 14px;
-      }
-    }
-    
-    .card-section {
-      padding: $spacing-md;
-      border-radius: $radius-lg;
-    }
-    
-    .form-row {
-      grid-template-columns: 1fr;
-      gap: $spacing-md;
+      opacity: 0.4;
     }
   }
 }
 
-// ============================================
-// RESPONSIVE: DESKTOP
-// ============================================
-
-@media (min-width: 768px) {
-  .schedule-class-content {
-    padding: $spacing-xxl $spacing-lg;
-  }
+// Vertical Separator
+.separator {
+  width: 1px;
+  background: linear-gradient(to bottom, 
+    transparent 0%, 
+    $ob-border-light 10%, 
+    $ob-border-light 90%, 
+    transparent 100%
+  );
   
-  .schedule-class {
-    max-width: 1200px;
-    padding: 0;
-    
-    .desktop-back-button {
-      display: inline-flex;
-      margin-bottom: $spacing-xl;
-    }
-    
-    .page-header {
-      text-align: left;
-      margin-bottom: $spacing-xxl;
-      
-      .page-title {
-        font-size: 22px;
-      }
-      
-      .page-subtitle {
-        font-size: 14px;
-      }
-    }
-    
-    .card-section {
-      padding: $spacing-xl;
-    }
-    
-    form {
-      gap: $spacing-xl;
-    }
-  }
-  
-  ion-header {
+  @media (max-width: 768px) {
     display: none;
   }
 }
 
 // ============================================
-// DARK MODE (OPTIONAL)
+// RIGHT COLUMN - STEP CONTENT
 // ============================================
 
-@media (prefers-color-scheme: dark) {
-  // Add dark mode styles if needed
+.right-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+  
+  @media (max-width: 768px) {
+    gap: 0;
+  }
 }
 
+.step-content-scrollable {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 8px;
+  padding-bottom: 0;
+  min-height: 0;
+  max-height: 100%;
+  position: relative;
+  
+  // Custom scrollbar
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: $ob-border;
+    border-radius: 3px;
+    
+    &:hover {
+      background: $ob-text-tertiary;
+    }
+  }
+}
+
+.step-content {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  padding-bottom: 20px;
+}
+
+// ============================================
+// FORM STYLES
+// ============================================
+
+.card-section {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  border: 1px solid $ob-border-light;
+  margin-bottom: 20px;
+  position: relative;
+  overflow: hidden;
+  height: auto;
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  
+  @media (max-width: 768px) {
+    padding: 20px;
+    margin-bottom: 16px;
+    min-height: auto;
+  }
+  
+  &:last-child {
+    margin-bottom: 0;
+  }
+  
+  // Scrollable content area
+  .card-content-scrollable {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 4px;
+    min-height: 0;
+    
+    // Custom scrollbar
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+      background: $ob-border;
+      border-radius: 3px;
+      
+      &:hover {
+        background: $ob-text-tertiary;
+      }
+    }
+  }
+}
+
+.form-field {
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  
+  &:last-child {
+    margin-bottom: 0;
+  }
+  
+  .field-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: $ob-text-primary;
+    margin-bottom: 8px;
+  }
+  
+  .modern-input {
+    --background: white;
+    --padding-start: 16px;
+    --padding-end: 16px;
+    --padding-top: 12px;
+    --padding-bottom: 12px;
+    --border-color: #{$ob-border};
+    --border-radius: 12px;
+    --border-width: 1px;
+    --highlight-color-focused: #{$ob-accent};
+    --highlight-color-valid: #{$ob-accent};
+    --highlight-color-invalid: #ff3b30;
+    font-size: 16px;
+    color: $ob-text-primary;
+    min-height: 48px;
+    
+    &.error {
+      --border-color: #ff3b30;
+      --background: rgba(255, 59, 48, 0.02);
+    }
+    
+    &.price-input {
+      font-weight: 600;
+      font-size: 20px;
+    }
+  }
+  
+  .modern-select {
+    --background: white;
+    --padding-start: 16px;
+    --padding-end: 16px;
+    --padding-top: 12px;
+    --padding-bottom: 12px;
+    --border-color: #{$ob-border};
+    --border-radius: 12px;
+    --border-width: 1px;
+    --highlight-color-focused: #{$ob-accent};
+    font-size: 16px;
+    min-height: 48px;
+    
+    &::part(placeholder) {
+      color: $ob-text-tertiary;
+      font-size: 16px;
+    }
+    
+    &::part(text) {
+      font-size: 16px;
+      color: $ob-text-primary;
+    }
+  }
+  
+  .error-note {
+    display: block;
+    color: #ff3b30;
+    font-size: 13px;
+    font-weight: 500;
+    margin-top: 6px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    
+    &.visible {
+      opacity: 1;
+    }
+  }
+  
+  .helper-note {
+    display: block;
+    color: $ob-text-secondary;
+    font-size: 13px;
+    font-weight: 400;
+    margin-top: 6px;
+    line-height: 1.4;
+  }
+  
+  .success-note {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #34c759;
+    font-size: 13px;
+    font-weight: 500;
+    margin-top: 6px;
+    
+    ion-icon {
+      font-size: 16px;
+    }
+  }
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  
+  @media (max-width: 576px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+// Description Editor
+.description-editor-wrapper {
+  border-radius: 12px;
+  border: 1px solid $ob-border;
+  overflow: hidden;
+  background: white;
+  transition: all 0.25s ease;
+  
+  &:focus-within {
+    border-color: $ob-accent;
+    box-shadow: 0 0 0 3px rgba(34, 34, 34, 0.08);
+  }
+  
+  ::ng-deep {
+    .ql-toolbar {
+      background: white;
+      border: none;
+      border-bottom: 1px solid $ob-border-light;
+    }
+    
+    .ql-container {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+      font-size: 16px;
+      border: none;
+    }
+    
+    .ql-editor {
+      min-height: 140px;
+      color: $ob-text-primary;
+      font-size: 16px;
+      
+      &.ql-blank::before {
+        color: $ob-text-tertiary;
+        font-size: 14px;
+        font-style: normal;
+      }
+    }
+  }
+}
+
+// ============================================
+// ECONOMICS SECTION — Airbnb-style
+// ============================================
+
+.economics-section {
+  background: #ffffff;
+  border: none;
+  padding: 0 !important;
+  box-shadow: none;
+}
+
+.econ-group {
+  padding: 0 24px;
+
+  &:first-child {
+    padding-top: 24px;
+  }
+
+  &:last-child {
+    padding-bottom: 24px;
+  }
+
+  @media (max-width: 768px) {
+    padding: 0 20px;
+
+    &:first-child { padding-top: 20px; }
+    &:last-child { padding-bottom: 20px; }
+  }
+}
+
+.econ-group-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: $ob-text-primary;
+  margin: 0 0 16px 0;
+  letter-spacing: -0.2px;
+
+  .econ-optional {
+    font-size: 13px;
+    font-weight: 400;
+    color: $ob-text-secondary;
+    margin-left: 6px;
+  }
+}
+
+.econ-divider {
+  height: 1px;
+  background: $ob-border-light;
+  margin: 20px 0;
+}
+
+.econ-baseline-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  border-bottom: 1px solid $ob-border-light;
+}
+
+.econ-baseline-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.econ-baseline-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: $ob-text-primary;
+}
+
+.econ-baseline-sub {
+  font-size: 13px;
+  color: $ob-text-secondary;
+}
+
+.econ-baseline-amount {
+  font-size: 18px;
+  font-weight: 600;
+  color: $ob-text-primary;
+  letter-spacing: -0.3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.econ-suggested-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0 4px;
+}
+
+.econ-suggested-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: $ob-text-primary;
+}
+
+.econ-suggested-amount {
+  font-size: 18px;
+  font-weight: 600;
+  color: $ob-text-primary;
+  letter-spacing: -0.3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.econ-suggested-note {
+  display: block;
+  font-size: 13px;
+  color: $ob-text-secondary;
+  margin-bottom: 12px;
+}
+
+.econ-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  border-top: 1px solid $ob-border-light;
+  gap: 16px;
+
+  > div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  ion-toggle {
+    flex-shrink: 0;
+  }
+}
+
+.econ-toggle-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: $ob-text-primary;
+}
+
+.econ-toggle-sub {
+  font-size: 13px;
+  color: $ob-text-secondary;
+  display: block;
+}
+
+.econ-hint-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 14px;
+  background: $ob-bg-subtle;
+  border-radius: 10px;
+  margin: 12px 0;
+
+  ion-icon {
+    font-size: 16px;
+    color: $ob-text-secondary;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  span {
+    font-size: 13px;
+    color: $ob-text-secondary;
+    line-height: 1.45;
+
+    strong {
+      font-weight: 600;
+      color: $ob-text-primary;
+    }
+  }
+
+  &.warning {
+    background: #fff5f5;
+
+    ion-icon {
+      color: #e53e3e;
+    }
+
+    span {
+      color: #742a2a;
+
+      strong {
+        color: #742a2a;
+      }
+    }
+  }
+}
+
+.econ-helper-text {
+  display: block;
+  font-size: 13px;
+  color: $ob-text-secondary;
+  margin-top: 6px;
+}
+
+// Earnings breakdown
+.econ-breakdown-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+
+  span {
+    font-size: 14px;
+    font-weight: 600;
+    color: $ob-text-primary;
+    text-decoration: underline;
+  }
+
+  ion-icon {
+    font-size: 18px;
+    color: $ob-text-secondary;
+  }
+
+  &:hover span {
+    color: #000;
+  }
+}
+
+.econ-breakdown-table {
+  margin-top: 14px;
+  border: 1px solid $ob-border-light;
+  border-radius: 12px;
+  overflow: hidden;
+
+  .econ-table-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    font-size: 14px;
+    color: $ob-text-primary;
+    border-bottom: 1px solid $ob-border-light;
+
+    &:last-of-type {
+      border-bottom: none;
+    }
+
+    &.header {
+      background: $ob-bg-subtle;
+      font-size: 11px;
+      font-weight: 600;
+      color: $ob-text-secondary;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    &.baseline {
+      font-weight: 600;
+      background: $ob-bg-subtle;
+    }
+
+    &.below-target {
+      opacity: 0.45;
+    }
+
+    &.profitable {
+      span:first-child {
+        font-weight: 500;
+      }
+    }
+  }
+
+  .econ-table-value {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .econ-pct {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+
+    &.up {
+      color: #16a34a;
+      background: rgba(22, 163, 74, 0.08);
+    }
+
+    &.down {
+      color: #dc2626;
+      background: rgba(220, 38, 38, 0.08);
+    }
+  }
+
+  .econ-table-footer {
+    padding: 8px 14px;
+    font-size: 12px;
+    color: $ob-text-secondary;
+    background: $ob-bg-subtle;
+    border-top: 1px solid $ob-border-light;
+  }
+}
+
+// Student selector (kept, just spacing cleaned up)
+.student-selector {
+  position: relative;
+  z-index: 10;
+  overflow: visible;
+}
+
+.student-selector {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: $ob-bg-subtle;
+  border-radius: 16px;
+  border: 1px solid $ob-border-light;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin: 12px 0;
+  
+  &:hover:not(.disabled) {
+    background: $ob-bg-hover;
+    border-color: $ob-accent;
+  }
+  
+  &.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  .selector-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 1;
+    
+    .selected-avatars {
+      display: flex;
+      align-items: center;
+      
+      .avatar-sm {
+        width: 32px;
+        height: 32px;
+        margin-left: -8px;
+        border: 2px solid white;
+        
+        &:first-child {
+          margin-left: 0;
+        }
+      }
+      
+      .more-badge {
+        width: 32px;
+        height: 32px;
+        margin-left: -8px;
+        border: 2px solid white;
+        border-radius: 50%;
+        background: $ob-bg-subtle;
+        color: $ob-text-primary;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 700;
+      }
+    }
+    
+    .selector-text {
+      font-size: 15px;
+      font-weight: 500;
+      color: $ob-text-primary;
+      flex: 1;
+    }
+    
+    .clear-btn {
+      font-size: 22px;
+      color: $ob-text-secondary;
+      transition: color 0.15s ease;
+      
+      &:hover {
+        color: #ff3b30;
+      }
+    }
+  }
+  
+  .placeholder-text {
+    font-size: 15px;
+    color: $ob-text-secondary;
+    flex: 1;
+  }
+  
+  .chevron-icon {
+    font-size: 20px;
+    color: $ob-text-secondary;
+    transition: transform 0.2s ease;
+  }
+}
+
+// ============================================
+// SCHEDULE SECTION
+// ============================================
+
+.availability-btn {
+  --border-width: 1px;
+  --border-color: #{$ob-accent};
+  --border-radius: 12px;
+  --padding-top: 12px;
+  --padding-bottom: 12px;
+  --padding-start: 24px;
+  --padding-end: 24px;
+  --color: #{$ob-accent};
+  --background: transparent;
+  font-size: 15px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  width: 100%;
+  
+  &:hover:not([disabled]) {
+    --background: rgba(34, 34, 34, 0.05);
+  }
+  
+  ion-icon {
+    margin-right: 8px;
+  }
+}
+
+.button-container {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin: 16px 0;
+}
+
+.datetime-row {
+  margin-top: 16px;
+  
+  .date-input,
+  .time-input {
+    input::-webkit-calendar-picker-indicator {
+      display: none;
+      -webkit-appearance: none;
+    }
+    
+    &.ion-disabled {
+      --background: $ob-bg-subtle;
+      opacity: 1;
+      pointer-events: none;
+      cursor: not-allowed;
+    }
+  }
+}
+
+// ============================================
+// VISIBILITY & THUMBNAIL
+// ============================================
+
+.visibility-toggle {
+  ion-item {
+    --background: transparent;
+    --padding-start: 0;
+    --padding-end: 0;
+    --min-height: auto;
+    
+    ion-label {
+      h3 {
+        font-size: 15px;
+        font-weight: 600;
+        color: $ob-text-primary;
+        margin: 0 0 4px 0;
+      }
+      
+      p {
+        font-size: 13px;
+        color: $ob-text-secondary;
+        margin: 0;
+      }
+    }
+  }
+}
+
+.thumbnail-section {
+  padding-top: 24px;
+  border-top: 1px solid $ob-border-light;
+  margin-top: 24px;
+  
+  .thumbnail-info-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+    background: $ob-bg-subtle;
+    border-radius: 16px;
+    margin: 12px 0 16px 0;
+    
+    ion-icon {
+      font-size: 32px;
+      color: $ob-accent;
+    }
+    
+    .info-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: $ob-text-primary;
+      margin-bottom: 4px;
+    }
+    
+    .info-subtitle {
+      font-size: 13px;
+      color: $ob-text-secondary;
+    }
+  }
+  
+  .thumbnail-preview {
+    position: relative;
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    max-width: 500px;
+    
+    img {
+      width: 100%;
+      height: auto;
+      max-height: 280px;
+      object-fit: cover;
+      display: block;
+    }
+    
+    .remove-btn {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      --background: rgba(255, 255, 255, 0.95);
+      --border-radius: 50%;
+      backdrop-filter: blur(10px);
+      
+      ion-icon {
+        font-size: 24px;
+        color: #ff3b30;
+      }
+    }
+  }
+  
+  .upload-btn {
+    --border-width: 1px;
+    --border-color: #{$ob-border};
+    --border-radius: 12px;
+    --padding-top: 12px;
+    --padding-bottom: 12px;
+    --padding-start: 24px;
+    --padding-end: 24px;
+    font-size: 15px;
+    font-weight: 600;
+    width: 100%;
+    
+    ion-icon {
+      margin-right: 8px;
+    }
+  }
+  
+  .error-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 16px;
+    background: rgba(255, 59, 48, 0.05);
+    border: 1px solid rgba(255, 59, 48, 0.2);
+    border-radius: 12px;
+    
+    ion-icon {
+      font-size: 18px;
+      color: #ff3b30;
+    }
+    
+    span {
+      font-size: 13px;
+      font-weight: 600;
+      color: #991b1b;
+    }
+  }
+}
+
+// ============================================
+// RESPONSIVE
+// ============================================
+
+@media (max-width: 768px) {
+  .onboarding-container {
+    padding: 20px 12px;
+  }
+  
+  .onboarding-content {
+    padding: 24px 16px;
+  }
+  
+  .close-button {
+    top: 12px;
+    right: 12px;
+    width: 36px;
+    height: 36px;
+  }
+  
+  .onboarding-header {
+    h1 {
+      font-size: 20px;
+    }
+    
+    p {
+      font-size: 13px;
+    }
+  }
+  
+  .step-content {
+    max-width: 100%;
+  }
+  
+  .card-section {
+    padding: 20px;
+    min-height: auto;
+  }
+  
+  .right-column {
+    height: auto;
+    min-height: 0;
+  }
+  
+  .step-content-scrollable {
+    overflow-y: visible;
+  }
+}
+
+// ============================================
+// AVAILABILITY PICKER MODAL STYLES
+// ============================================
+
+.availability-modal-content {
+  --background: #ffffff;
+  
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px 20px;
+    background: #ffffff;
+    border-bottom: 1px solid $ob-border-light;
+    position: relative;
+    min-height: 60px;
+    
+    .back-btn {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: $ob-bg-subtle;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      
+      ion-icon {
+        font-size: 22px;
+        color: $ob-text-primary;
+      }
+      
+      &:hover {
+        background: $ob-bg-hover;
+      }
+    }
+    
+    .modal-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: $ob-text-primary;
+      margin: 0;
+    }
+    
+    .close-btn {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: $ob-bg-subtle;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      
+      ion-icon {
+        font-size: 20px;
+        color: $ob-text-secondary;
+      }
+      
+      &:hover {
+        background: $ob-bg-hover;
+        
+        ion-icon {
+          color: $ob-text-primary;
+        }
+      }
+    }
+  }
+  
+  .modal-body {
+    padding: 0;
+    
+    &.setup-view {
+      position: absolute;
+      top: 60px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      
+      app-availability-setup {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        width: 100%;
+        min-height: 0;
+        overflow: hidden;
+      }
+    }
+  }
+  
+  // Add Availability Section
+  .add-availability-section {
+    padding: 20px 24px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    
+    .add-availability-divider {
+      display: flex;
+      align-items: center;
+      margin-bottom: 16px;
+      width: 100%;
+      
+      &::before,
+      &::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: $ob-border-light;
+      }
+      
+      span {
+        padding: 0 16px;
+        color: $ob-text-secondary;
+        font-size: 13px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+    }
+    
+    .add-availability-btn {
+      --border-radius: 12px;
+      --border-width: 1px;
+      --border-color: #{$ob-accent};
+      --color: #{$ob-accent};
+      --background: transparent;
+      --background-hover: rgba(34, 34, 34, 0.05);
+      height: 44px;
+      font-weight: 600;
+      font-size: 15px;
+      width: auto;
+      min-width: 200px;
+      padding: 0 24px;
+      
+      ion-icon {
+        font-size: 20px;
+        margin-right: 8px;
+      }
+    }
+  }
+}
+
+// ============================================
+// DARK MODE
+// ============================================
+
+$dk-bg: #000000;
+$dk-surface: #1c1c1e;
+$dk-card: #2c2c2e;
+$dk-card-hover: #3a3a3c;
+$dk-border: rgba(255, 255, 255, 0.1);
+$dk-border-strong: rgba(255, 255, 255, 0.18);
+$dk-text: #f5f5f7;
+$dk-text-secondary: #8e8e93;
+$dk-text-tertiary: #636366;
+$dk-accent: #f5f5f7;
+$dk-green: #30d158;
+$dk-red: #ff453a;
+
+:host-context(html.ion-palette-dark) {
+
+  .schedule-class-content {
+    --background: $dk-bg !important;
+  }
+
+  .schedule-class-content-inline {
+    background: $dk-bg;
+
+    .onboarding-content {
+      background: $dk-surface;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+    }
+  }
+
+  .onboarding-container {
+    background: linear-gradient(135deg, #0a0a0a 0%, #111 50%, #0d0d0d 100%);
+  }
+
+  .onboarding-content {
+    background: $dk-surface;
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.2),
+      0 4px 12px rgba(0, 0, 0, 0.3),
+      0 8px 24px rgba(0, 0, 0, 0.2);
+  }
+
+  .go-back-link {
+    color: $dk-text;
+  }
+
+  // ── Left column ──
+  .left-column {
+    @media (max-width: 768px) {
+      border-bottom-color: $dk-border;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: $dk-card-hover;
+      &:hover { background: $dk-text-tertiary; }
+    }
+  }
+
+  .onboarding-header {
+    h1 { color: $dk-text; }
+    p { color: $dk-text-secondary; }
+  }
+
+  .progress-section {
+    .progress-bar-bg {
+      background: $dk-card;
+      .progress-bar-fill { background: $dk-accent; }
+    }
+    .progress-text { color: $dk-text-secondary; }
+  }
+
+  .steps-toggle-mobile {
+    @media (max-width: 768px) {
+      background: $dk-card;
+      border-color: $dk-border;
+      color: $dk-text;
+      &:hover { background: $dk-card-hover; }
+      ion-icon { color: $dk-text-secondary; }
+    }
+  }
+
+  .steps-list .step-item {
+    &:hover:not(.disabled) { background: $dk-card; }
+
+    &.current {
+      background: rgba(255, 255, 255, 0.06);
+      .step-indicator {
+        background: $dk-accent;
+        .step-number { color: #000; }
+      }
+    }
+
+    &.completed {
+      .step-indicator {
+        background: linear-gradient(135deg, #00A699, #00C9B7) !important;
+      }
+    }
+
+    .step-indicator {
+      background: $dk-card;
+      .step-number { color: $dk-text-secondary; }
+    }
+
+    .step-info {
+      h3 { color: $dk-text; }
+      p { color: $dk-text-secondary; }
+    }
+  }
+
+  .separator {
+    background: linear-gradient(to bottom,
+      transparent 0%, $dk-border 10%, $dk-border 90%, transparent 100%);
+  }
+
+  // ── Right column ──
+  .step-content-scrollable {
+    &::-webkit-scrollbar-thumb {
+      background: $dk-card-hover;
+      &:hover { background: $dk-text-tertiary; }
+    }
+  }
+
+  .nav-buttons {
+    border-top-color: $dk-border;
+    background: $dk-surface;
+
+    ion-button {
+      --background: #{$dk-text};
+      --color: #000;
+      --background-hover: #fff;
+      --background-activated: #ddd;
+
+      &[fill="outline"] {
+        --background: transparent;
+        --color: #{$dk-text};
+        --border-color: #{$dk-border-strong};
+      }
+    }
+  }
+
+  // ── Cards & forms ──
+  .card-section {
+    background: $dk-card;
+    border-color: $dk-border;
+
+    .card-content-scrollable {
+      &::-webkit-scrollbar-thumb {
+        background: $dk-card-hover;
+        &:hover { background: $dk-text-tertiary; }
+      }
+    }
+  }
+
+  .form-field {
+    .field-label { color: $dk-text; }
+
+    .modern-input {
+      --background: #{$dk-surface};
+      --border-color: #{$dk-border-strong};
+      --highlight-color-focused: #{$dk-accent};
+      --highlight-color-valid: #{$dk-accent};
+      color: $dk-text;
+
+      &.error {
+        --border-color: #{$dk-red};
+        --background: rgba(255, 69, 58, 0.06);
+      }
+    }
+
+    .modern-select {
+      --background: #{$dk-surface};
+      --border-color: #{$dk-border-strong};
+      --highlight-color-focused: #{$dk-accent};
+      color: $dk-text;
+
+      &::part(placeholder) { color: $dk-text-tertiary; }
+      &::part(text) { color: $dk-text; }
+      &::part(icon) { color: $dk-text-secondary; }
+    }
+
+    .error-note { color: $dk-red; }
+    .helper-note { color: $dk-text-secondary; }
+    .success-note { color: $dk-green; }
+  }
+
+  .description-editor-wrapper {
+    border-color: $dk-border-strong;
+    background: $dk-surface;
+
+    &:focus-within {
+      border-color: $dk-accent;
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.06);
+    }
+
+    ::ng-deep {
+      .ql-toolbar {
+        background: $dk-surface;
+        border-bottom-color: $dk-border;
+
+        .ql-stroke { stroke: $dk-text-secondary; }
+        .ql-fill { fill: $dk-text-secondary; }
+        .ql-picker-label { color: $dk-text-secondary; }
+
+        button:hover .ql-stroke,
+        .ql-picker-label:hover { stroke: $dk-text; color: $dk-text; }
+      }
+
+      .ql-container { background: $dk-surface; }
+
+      .ql-editor {
+        color: $dk-text;
+        &.ql-blank::before { color: $dk-text-tertiary; }
+      }
+    }
+  }
+
+  // ── Economics section ──
+  .economics-section { background: transparent; }
+
+  .econ-group-title {
+    color: $dk-text;
+    .econ-optional { color: $dk-text-secondary; }
+  }
+
+  .econ-divider { background: $dk-border; }
+
+  .econ-baseline-row { border-bottom-color: $dk-border; }
+  .econ-baseline-label { color: $dk-text; }
+  .econ-baseline-sub { color: $dk-text-secondary; }
+  .econ-baseline-amount { color: $dk-text; }
+
+  .econ-suggested-label { color: $dk-text; }
+  .econ-suggested-amount { color: $dk-text; }
+  .econ-suggested-note { color: $dk-text-secondary; }
+
+  .econ-toggle-row {
+    border-top-color: $dk-border;
+    ion-toggle {
+      --track-background: #{$dk-card-hover};
+      --track-background-checked: #{$dk-green};
+      --handle-background: #fff;
+      --handle-background-checked: #fff;
+    }
+  }
+  .econ-toggle-label { color: $dk-text; }
+  .econ-toggle-sub { color: $dk-text-secondary; }
+
+  .econ-hint-row {
+    background: $dk-card;
+    ion-icon { color: $dk-text-secondary; }
+    span { color: $dk-text-secondary; strong { color: $dk-text; } }
+
+    &.warning {
+      background: rgba(255, 69, 58, 0.1);
+      ion-icon { color: $dk-red; }
+      span { color: rgba(255, 200, 200, 0.9); strong { color: #fff; } }
+    }
+  }
+
+  .econ-helper-text { color: $dk-text-secondary; }
+
+  .econ-breakdown-toggle {
+    span { color: $dk-text; }
+    ion-icon { color: $dk-text-secondary; }
+    &:hover span { color: #fff; }
+  }
+
+  .econ-breakdown-table {
+    border-color: $dk-border;
+
+    .econ-table-row {
+      color: $dk-text;
+      border-bottom-color: $dk-border;
+
+      &.header {
+        background: $dk-card;
+        color: $dk-text-secondary;
+      }
+      &.baseline {
+        background: $dk-card;
+      }
+    }
+
+    .econ-pct {
+      &.up { color: $dk-green; background: rgba(48, 209, 88, 0.1); }
+      &.down { color: $dk-red; background: rgba(255, 69, 58, 0.1); }
+    }
+
+    .econ-table-footer {
+      color: $dk-text-secondary;
+      background: $dk-card;
+      border-top-color: $dk-border;
+    }
+  }
+
+  // ── Student selector ──
+  .student-selector {
+    background: $dk-card;
+    border-color: $dk-border;
+
+    &:hover:not(.disabled) {
+      background: $dk-card-hover;
+      border-color: $dk-accent;
+    }
+
+    .selector-content {
+      .selected-avatars {
+        .avatar-sm { border-color: $dk-surface; }
+        .more-badge {
+          background: $dk-card-hover;
+          color: $dk-text;
+          border-color: $dk-surface;
+        }
+      }
+      .selector-text { color: $dk-text; }
+      .clear-btn { color: $dk-text-secondary; &:hover { color: $dk-red; } }
+    }
+
+    .placeholder-text { color: $dk-text-secondary; }
+    .chevron-icon { color: $dk-text-secondary; }
+  }
+
+  .avatar-placeholder {
+    background: $dk-card-hover !important;
+    color: $dk-text !important;
+  }
+
+  // ── Schedule section ──
+  .availability-btn {
+    --border-color: #{$dk-text};
+    --color: #{$dk-text};
+    &:hover:not([disabled]) { --background: rgba(255, 255, 255, 0.06); }
+  }
+
+  .datetime-row {
+    .date-input.ion-disabled,
+    .time-input.ion-disabled {
+      --background: #{$dk-card};
+    }
+  }
+
+  // ── Visibility & thumbnail ──
+  .visibility-toggle ion-item {
+    --background: transparent;
+    ion-label {
+      h3 { color: $dk-text !important; }
+      p { color: $dk-text-secondary !important; }
+    }
+    ion-toggle {
+      --track-background: #{$dk-card-hover};
+      --track-background-checked: #{$dk-green};
+      --handle-background: #fff;
+      --handle-background-checked: #fff;
+    }
+  }
+
+  .thumbnail-section {
+    border-top-color: $dk-border;
+
+    .thumbnail-info-card {
+      background: $dk-card;
+      ion-icon { color: $dk-text; }
+      .info-title { color: $dk-text; }
+      .info-subtitle { color: $dk-text-secondary; }
+    }
+
+    .thumbnail-preview {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      .remove-btn {
+        --background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(10px);
+      }
+    }
+
+    .upload-btn {
+      --border-color: #{$dk-border-strong};
+      --color: #{$dk-text};
+    }
+
+    .error-card {
+      background: rgba(255, 69, 58, 0.1);
+      border-color: rgba(255, 69, 58, 0.25);
+      ion-icon { color: $dk-red; }
+      span { color: rgba(255, 200, 200, 0.9); }
+    }
+  }
+
+  // ── Currency symbol ──
+  .currency-symbol { color: $dk-text-secondary; }
+
+  // ── Availability picker modal ──
+  .availability-modal-content {
+    --background: #{$dk-surface} !important;
+
+    .modal-header {
+      background: $dk-surface;
+      border-bottom-color: $dk-border;
+
+      .back-btn {
+        background: $dk-card;
+        ion-icon { color: $dk-text; }
+        &:hover { background: $dk-card-hover; }
+      }
+
+      .modal-title { color: $dk-text; }
+
+      .close-btn {
+        background: $dk-card;
+        ion-icon { color: $dk-text-secondary; }
+        &:hover {
+          background: $dk-card-hover;
+          ion-icon { color: $dk-text; }
+        }
+      }
+    }
+
+    .add-availability-section {
+      .add-availability-divider {
+        &::before, &::after { background: $dk-border; }
+        span { color: $dk-text-secondary; }
+      }
+
+      .add-availability-btn {
+        --border-color: #{$dk-text};
+        --color: #{$dk-text};
+        --background-hover: rgba(255, 255, 255, 0.06);
+      }
+    }
+  }
+}

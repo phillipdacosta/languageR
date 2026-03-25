@@ -1,1749 +1,658 @@
-/* =============================================
-   APPLE-INSPIRED LESSON ANALYSIS PAGE
-   Clean, minimal, and elegant
-   ============================================= */
+$font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
+$text: #222222;
+$text-secondary: #717171;
+$text-tertiary: #b0b0b0;
+$bg: #ffffff;
+$surface: #f7f7f7;
+$border: rgba(0, 0, 0, 0.08);
+$accent: #222222;
+$green: #008A05;
+$red: #C13515;
+$blue: #0071e3;
+$purple: #9c27b0;
 
-// SF Pro Display-inspired font stack
-$font-stack: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
-
-// Apple color palette
-$apple-text: #1d1d1f;
-$apple-text-secondary: #6e6e73;
-$apple-text-tertiary: #86868b;
-$apple-bg: #fbfbfd;
-$apple-white: #ffffff;
-$apple-border: rgba(0, 0, 0, 0.06);
-$apple-shadow: rgba(0, 0, 0, 0.04);
-$apple-blue: #0071e3;
-$apple-green: #4caf50;
-$apple-red: #ef5350;
-$apple-gray: #f5f5f7;
-
-/* =============================================
-   GLOBAL / LAYOUT
-   ============================================= */
-
-.lesson-content {
-  --background: #{$apple-bg};
-  padding: 0;
-  font-family: $font-stack;
-}
-
-/* =============================================
-   SPLIT LAYOUT
-   ============================================= */
-
-.split-layout {
-  display: flex;
-  height: 100%;
-  min-height: calc(100vh - 56px);
-}
-
-/* Top Banners Container */
-.top-banners-container {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 24px;
-  flex-wrap: wrap;
-}
-
-/* Warning Banner for Failed Status */
-.warning-banner {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  
-  background: rgba(255, 149, 0, 0.12);
-  border: 1px solid rgba(255, 149, 0, 0.3);
-  border-radius: 20px;
-  padding: 10px 16px;
-  
-  font-size: 13px;
-  color: #8b5a00;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-  
-  backdrop-filter: blur(10px);
-  box-shadow: 0 2px 8px rgba(255, 149, 0, 0.1);
-  
-  ion-icon {
-    font-size: 18px;
-    color: #ff9500;
-    flex-shrink: 0;
-  }
-  
-  span {
-    line-height: 1.4;
-  }
-  
-  // Match pill banner height
-  min-height: 40px;
-}
-
-/* LEFT PANEL: Fixed Tutor Info */
-.left-panel {
-  width: 320px;
-  flex-shrink: 0;
-  background: $apple-white;
-  border-right: 1px solid $apple-border;
-  padding: 32px 24px;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-}
-
-.tutor-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-}
-
-.tutor-avatar {
-  width: 120px;
-  height: 120px;
-  border-radius: 60px;
-  overflow: hidden;
-  border: 4px solid $apple-gray;
-  
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-}
-
-.tutor-name {
-  text-align: center;
-  
-  h2 {
-    margin: 0;
-    font-size: 24px;
-    font-weight: 600;
-    color: $apple-text;
-    letter-spacing: -0.022em;
-  }
-}
-
-.lesson-info-section {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 16px 0;
-  
-  .info-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 14px;
-    color: $apple-text-secondary;
-    
-    ion-icon {
-      font-size: 18px;
-      color: $apple-blue;
-    }
-    
-    ion-badge {
-      margin-left: 8px;
-    }
-  }
-}
-
-.tutor-actions {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 12px;
-  
-  ion-button {
-    --border-radius: 12px;
-    --padding-top: 14px;
-    --padding-bottom: 14px;
-    font-size: 15px;
-    font-weight: 500;
-    letter-spacing: -0.016em;
-    height: 48px;
-    
-    ion-icon {
-      font-size: 20px;
-    }
-  }
-  
-  ion-button[fill="solid"] {
-    --background: #{$apple-blue};
-    --background-hover: #005bb5;
-  }
-  
-  ion-button[fill="outline"] {
-    --border-color: #{$apple-blue};
-    --color: #{$apple-blue};
-    --background-hover: rgba(0, 113, 227, 0.04);
-  }
-}
-
-/* RIGHT PANEL: Scrollable Analysis */
-.right-panel {
-  flex: 1;
-  overflow-y: auto;
-  background: $apple-bg;
-  
-  &.full-width {
-    margin: 0 auto;
-    max-width: 1200px;
-  }
-}
-
-.analysis-content {
-  max-width: 780px;
-  margin: 0 auto;
-  padding: 32px 24px;
-}
-
-.lesson-header-toolbar {
-  --background: #{$apple-white};
-  --color: #{$apple-text};
+// ── Header ───────────────────────────────────────────
+.la-header ion-toolbar {
+  --background: #fff;
+  --color: #{$text};
   --border-width: 0;
-  padding-inline: 16px;
-  box-shadow: inset 0 -1px 0 $apple-border;
-}
+  box-shadow: inset 0 -1px 0 $border;
 
-.lesson-header-toolbar ion-title {
-  font-size: 20px;
-  font-weight: 600;
-  letter-spacing: -0.022em;
-  text-align: center;
-}
-
-/* Basic card surface */
-.card-surface {
-  background: $apple-white;
-  border-radius: 12px;
-  border: 1px solid $apple-border;
-  box-shadow: 0 1px 3px $apple-shadow;
-  padding: 20px;
-}
-
-/* =============================================
-   HERO SECTION
-   ============================================= */
-
-/* Banner pills */
-.pill-banner {
-  padding: 10px 16px;
-  border-radius: 20px;
-  background: rgba(0, 113, 227, 0.08);
-  color: $apple-blue;
-  font-size: 15px;
-  font-weight: 500;
-  letter-spacing: -0.016em;
-  margin-bottom: 20px;
-  text-align: center;
-}
-
-.pill-banner--warning {
-  background: rgba(255, 149, 0, 0.08);
-  color: #f57c00;
-}
-
-/* Hero row */
-.level-hero-row {
-  display: flex;
-  align-items: stretch;
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.level-section {
-  flex: 1;
-  text-align: left;
-}
-
-.level-badge-large {
-  background: $apple-gray;
-  border-radius: 16px;
-  padding: 24px 20px;
-  border: 1px solid $apple-border;
-}
-
-.level-text {
-  font-size: 40px;
-  font-weight: 700;
-  letter-spacing: -0.04em;
-  text-transform: uppercase;
-  color: #d724d7;
-}
-
-.confidence-text {
-  font-size: 13px;
-  color: $apple-text-secondary;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 6px;
-  letter-spacing: -0.008em;
-  cursor: pointer;
-}
-
-.confidence-text .info-icon {
-  font-size: 16px;
-  opacity: 0.5;
-}
-
-/* Progress pill */
-.progress-note {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 16px;
-  font-size: 13px;
-  font-weight: 500;
-  margin-top: 12px;
-  letter-spacing: -0.008em;
-}
-
-.progress-increase {
-  background: rgba(76, 175, 80, 0.1);
-  color: $apple-green;
-}
-
-.progress-decrease {
-  background: rgba(239, 83, 80, 0.1);
-  color: $apple-red;
-}
-
-.progress-neutral {
-  background: $apple-gray;
-  color: $apple-text-secondary;
-}
-
-/* Side chip */
-.level-side-chip {
-  width: 140px;
-  border-radius: 16px;
-  background: $apple-gray;
-  padding: 16px 12px;
-  align-self: center;
-  border: 1px solid $apple-border;
-}
-
-.side-chip-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: $apple-text-tertiary;
-  margin-bottom: 4px;
-  font-weight: 500;
-}
-
-.side-chip-value {
-  font-size: 15px;
-  font-weight: 600;
-  color: $apple-text;
-  letter-spacing: -0.016em;
-}
-
-.side-chip-change {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 13px;
-  color: $apple-green;
-  font-weight: 600;
-  margin-top: 4px;
-  
-  ion-icon {
-    font-size: 16px;
-  }
-}
-
-/* =============================================
-   SUMMARY & TOPICS
-   ============================================= */
-
-.summary-message-card {
-  @extend .card-surface;
-  background: $apple-gray;
-  border: none;
-  box-shadow: none;
-  margin-bottom: 24px;
-}
-
-.summary-message-card h3 {
-  margin: 0 0 16px;
-  font-size: 20px;
-  font-weight: 600;
-  color: $apple-text;
-  letter-spacing: -0.022em;
-}
-
-.key-improvements {
-  margin: 16px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.improvement-bullet {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: $apple-green;
-  font-size: 15px;
-  font-weight: 500;
-  
-  ion-icon {
-    font-size: 20px;
-    flex-shrink: 0;
-  }
-  
-  span {
-    color: $apple-text;
-  }
-}
-
-.topics-section {
-  margin-top: 16px;
-}
-
-.topics-section h4 {
-  margin: 0 0 12px;
-  font-size: 15px;
-  font-weight: 600;
-  color: $apple-text;
-  letter-spacing: -0.016em;
-}
-
-.vocab-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.vocab-chips ion-chip {
-  --background: rgba(0, 113, 227, 0.08);
-  --color: #{$apple-blue};
-  font-size: 13px;
-  font-weight: 500;
-  border-radius: 16px;
-  height: 32px;
-  letter-spacing: -0.008em;
-}
-
-/* =============================================
-   LEVEL JUMP BANNER
-   ============================================= */
-
-.level-jump-banner {
-  background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
-  color: white;
-  padding: 16px 20px;
-  border-radius: 16px;
-  margin-bottom: 24px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 15px;
-  font-weight: 500;
-  box-shadow: 0 4px 12px rgba(255, 152, 0, 0.2);
-  
-  ion-icon {
-    font-size: 28px;
-    flex-shrink: 0;
-  }
-  
-  strong {
-    font-weight: 700;
-  }
-}
-
-/* =============================================
-   PROGRESS OVER TIME
-   ============================================= */
-
-.progress-over-time-card {
-  @extend .card-surface;
-  margin-bottom: 24px;
-}
-
-.progress-over-time-card h4 {
-  margin: 0 0 16px;
-  font-size: 17px;
-  font-weight: 600;
-  color: $apple-text;
-  letter-spacing: -0.022em;
-}
-
-.progress-comparison {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  align-items: center;
-}
-
-.progress-item {
-  padding: 16px 12px;
-  border-radius: 12px;
-  background: $apple-gray;
-  text-align: center;
-  border: 1px solid $apple-border;
-}
-
-.progress-item.current {
-  background: rgba(0, 113, 227, 0.06);
-  border-color: rgba(0, 113, 227, 0.2);
-}
-
-.progress-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: $apple-text-secondary;
-  margin-bottom: 6px;
-  font-weight: 500;
-}
-
-.progress-value {
-  font-size: 26px;
-  font-weight: 700;
-  color: $apple-text;
-  letter-spacing: -0.04em;
-}
-
-.progress-arrow {
-  text-align: center;
-}
-
-.progress-arrow ion-icon {
-  font-size: 24px;
-}
-
-.progress-change {
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: -0.008em;
-  margin-top: 4px;
-}
-
-/* =============================================
-   ADVANCED & SUGGESTED WORDS
-   ============================================= */
-
-.advanced-words-section {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 20px;
-  background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
-  border-radius: 16px;
-  margin-bottom: 20px;
-  
-  .section-icon {
-    font-size: 28px;
-    line-height: 1;
-  }
-  
-  .section-content {
-    flex: 1;
-    
-    h4 {
-      margin: 0 0 8px 0;
-      font-size: 15px;
-      font-weight: 600;
-      color: $apple-text;
-      letter-spacing: -0.016em;
-    }
-    
-    .advanced-words-list {
-      margin: 0;
-      font-size: 17px;
-      font-weight: 500;
-      color: #5e35b1;
-      letter-spacing: -0.016em;
-    }
-  }
-}
-
-.suggested-words-section {
-  background: $apple-white;
-  border-radius: 16px;
-  padding: 20px;
-  margin-bottom: 20px;
-  box-shadow: 0 2px 8px $apple-shadow;
-  
-  h4 {
-    margin: 0 0 16px 0;
+  ion-title {
     font-size: 17px;
     font-weight: 600;
-    color: $apple-text;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    letter-spacing: -0.018em;
-    
-    ion-icon {
-      font-size: 22px;
-      color: $apple-blue;
-    }
+    letter-spacing: -0.02em;
+  }
+
+  ion-back-button {
+    --color: #{$text};
   }
 }
 
-/* =============================================
-   MAIN FOCUS
-   ============================================= */
-
-.main-focus-card {
-  @extend .card-surface;
-  margin-bottom: 24px;
-  background: rgba(0, 113, 227, 0.04);
-  border-color: rgba(0, 113, 227, 0.12);
-}
-
-.main-focus-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-  color: $apple-blue;
-}
-
-.main-focus-header h4 {
-  margin: 0;
-  font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-weight: 600;
-}
-
-.main-focus-header ion-icon {
-  font-size: 18px;
-}
-
-.main-focus-text {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 600;
-  color: $apple-text;
-  line-height: 1.4;
-  letter-spacing: -0.022em;
-}
-
-/* =============================================
-   PRIORITY ERRORS
-   ============================================= */
-
-.priority-errors-card {
-  margin-bottom: 24px;
-}
-
-.priority-errors-card ion-card-header {
-  padding: 20px 20px 0;
-}
-
-.priority-errors-card ion-card-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 17px;
-  font-weight: 600;
-  color: $apple-text;
-  letter-spacing: -0.022em;
-  margin: 0 0 16px;
-}
-
-.priority-errors-card ion-card-title ion-icon {
-  color: $apple-red;
-  font-size: 22px;
-}
-
-.priority-errors-card ion-card-content {
-  padding: 0 20px 20px;
-}
-
-.priority-item {
-  margin-top: 12px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: rgba(239, 83, 80, 0.06);
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  
-  &:first-child {
-    margin-top: 0;
-  }
-}
-
-.priority-number {
-  width: 28px;
-  height: 28px;
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: $apple-red;
-  color: $apple-white;
-  font-size: 13px;
-  font-weight: 600;
-  flex-shrink: 0;
-}
-
-.priority-details {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-}
-
-.priority-details strong {
-  font-size: 15px;
-  font-weight: 500;
-  color: $apple-text;
-  letter-spacing: -0.016em;
-}
-
-.occurrence-badge {
-  padding: 4px 10px;
-  border-radius: 12px;
-  background: rgba(239, 83, 80, 0.12);
-  color: $apple-red;
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: -0.008em;
-}
-
-/* =============================================
-   ERROR PATTERNS (APPLE STYLE)
-   ============================================= */
-
-.patterns-card {
-  margin-bottom: 24px;
-}
-
-.patterns-card ion-card-header {
-  padding: 20px 20px 0;
-}
-
-.patterns-card ion-card-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 17px;
-  font-weight: 600;
-  color: $apple-text;
-  letter-spacing: -0.022em;
-  margin: 0 0 20px;
-}
-
-.patterns-card ion-card-title ion-icon {
-  color: $apple-blue;
-  font-size: 22px;
-}
-
-.patterns-card ion-card-content {
-  padding: 0 20px 20px;
-}
-
-.pattern-item {
-  margin-top: 24px;
-  padding: 0;
-  border-radius: 0;
-  background: transparent;
-  
-  &:first-child {
-    margin-top: 0;
-  }
-}
-
-.pattern-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid $apple-border;
-}
-
-.pattern-header h4 {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-  color: $apple-text;
-  letter-spacing: -0.016em;
-}
-
-.frequency-badge {
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 500;
-  background: $apple-gray;
-  color: $apple-text-tertiary;
-  letter-spacing: -0.008em;
-}
-
-.frequency-badge.high {
-  background: rgba(239, 83, 80, 0.1);
-  color: $apple-red;
-}
-
-.pattern-examples {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.example-item {
-  background: transparent;
-  padding: 0;
-  border-radius: 0;
-}
-
-.example-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.example-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.original-text,
-.corrected-text {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 14px;
-  border-radius: 12px;
-  font-size: 15px;
-  line-height: 1.47;
-  letter-spacing: -0.016em;
-}
-
-.original-text {
-  background: rgba(239, 83, 80, 0.06);
-  color: $apple-text;
-  
-  ion-icon {
-    font-size: 20px;
-    color: $apple-red;
-    flex-shrink: 0;
-    margin-top: 1px;
-  }
-}
-
-.corrected-text {
-  background: rgba(76, 175, 80, 0.06);
-  color: $apple-text;
-  
-  ion-icon {
-    font-size: 20px;
-    color: $apple-green;
-    flex-shrink: 0;
-    margin-top: 1px;
-  }
-}
-
-.explanation-text {
-  padding: 12px 14px;
-  background: $apple-gray;
-  border-radius: 12px;
-  font-size: 13px;
-  line-height: 1.5;
-  color: $apple-text-secondary;
-  letter-spacing: -0.008em;
-}
-
-/* Save button - Apple style */
-.save-btn {
-  --padding-start: 14px;
-  --padding-end: 14px;
-  height: 36px;
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: -0.008em;
-  border-radius: 18px;
-  --color: #{$apple-blue};
-  --background: transparent;
-  --background-hover: rgba(0, 113, 227, 0.06);
-  flex-shrink: 0;
-  margin-top: 0;
-  
-  ion-icon {
-    font-size: 16px;
-  }
-}
-
-.save-btn.saved {
-  --color: #{$apple-blue};
-  --background: rgba(0, 113, 227, 0.1);
-}
-
-/* =============================================
-   EXCERPTS (WHAT YOU SAID)
-   ============================================= */
-
-.excerpts-card {
-  margin-bottom: 24px;
-}
-
-.excerpts-card ion-card-header {
-  padding: 20px 20px 0;
-}
-
-.excerpts-card ion-card-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 17px;
-  font-weight: 600;
-  color: $apple-text;
-  letter-spacing: -0.022em;
-  margin: 0 0 20px;
-}
-
-.excerpts-card ion-card-title ion-icon {
-  color: $apple-blue;
-  font-size: 22px;
-}
-
-.excerpts-card ion-card-content {
-  padding: 0 20px 20px;
-}
-
-.excerpt-item {
-  margin-top: 24px;
-  padding: 0;
-  border-radius: 0;
-  background: transparent;
-  
-  &:first-child {
-    margin-top: 0;
-  }
-}
-
-.excerpt-context {
-  font-size: 13px;
-  font-weight: 500;
-  color: $apple-blue;
-  margin-bottom: 12px;
-  letter-spacing: -0.008em;
-}
-
-.excerpt-comparison {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.excerpt-comparison .label {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: $apple-text-secondary;
-  margin-bottom: 6px;
-  display: block;
-}
-
-.excerpt-comparison .you-said,
-.excerpt-comparison .corrected {
-  display: flex;
-  flex-direction: column;
-}
-
-.excerpt-comparison .you-said p,
-.excerpt-comparison .corrected p {
-  margin: 0;
-  padding: 14px;
-  border-radius: 12px;
-  font-size: 15px;
-  line-height: 1.47;
-  letter-spacing: -0.016em;
-}
-
-.you-said p {
-  background: rgba(239, 83, 80, 0.06);
-  color: $apple-text;
-}
-
-.corrected p {
-  background: rgba(76, 175, 80, 0.06);
-  color: $apple-text;
-}
-
-.excerpt-comparison .arrow {
-  text-align: center;
-  font-size: 20px;
-  margin: 4px 0;
-  color: $apple-text-tertiary;
-}
-
-.excerpt-actions {
-  display: flex;
-  justify-content: flex-start;
-  padding-top: 8px;
-}
-
-/* =============================================
-   STATS GRID
-   ============================================= */
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.metric-card {
-  background: $apple-gray;
-  border-radius: 12px;
-  padding: 16px 12px;
-  text-align: center;
-  border: 1px solid $apple-border;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: center;
-}
-
-.metric-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  
-  ion-icon {
-    font-size: 20px;
-  }
-}
-
-.time-card .metric-icon {
-  background: rgba(0, 113, 227, 0.1);
-  color: $apple-blue;
-}
-
-.error-rate-card .metric-icon {
-  background: rgba(239, 83, 80, 0.1);
-  color: $apple-red;
-}
-
-.fluency-card .metric-icon {
-  background: rgba(76, 175, 80, 0.1);
-  color: $apple-green;
+// ── Content ──────────────────────────────────────────
+.la-content {
+  --background: #{$bg};
+  font-family: $font;
 }
-
-.complexity-card .metric-icon {
-  background: rgba(156, 39, 176, 0.1);
-  color: #9c27b0;
-}
-
-.metric-content {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.metric-value {
-  font-size: 20px;
-  font-weight: 700;
-  color: $apple-text;
-  letter-spacing: -0.022em;
-}
-
-.metric-label {
-  font-size: 11px;
-  color: $apple-text-secondary;
-  letter-spacing: -0.008em;
-  line-height: 1.3;
-}
-
-.metric-change {
-  font-size: 12px;
-  font-weight: 600;
-  color: $apple-text-tertiary;
-  margin-top: 2px;
-  
-  &.positive {
-    color: $apple-green;
-  }
-}
-
-/* =============================================
-   PERSISTENT CHALLENGES
-   ============================================= */
-
-.persistent-challenges-section {
-  background: #fff3e0;
-  border-left: 4px solid #ff9800;
-  border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 20px;
-  
-  .section-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 16px;
-    
-    ion-icon {
-      font-size: 24px;
-      color: #ff9800;
-    }
-    
-    h4 {
-      margin: 0;
-      font-size: 17px;
-      font-weight: 600;
-      color: $apple-text;
-      letter-spacing: -0.018em;
-    }
-  }
-  
-  .challenge-items {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  
-  .challenge-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 15px;
-    color: $apple-text;
-    
-    ion-icon {
-      font-size: 18px;
-      color: #ff9800;
-      flex-shrink: 0;
-    }
-  }
-}
-
-/* =============================================
-   STRENGTHS & IMPROVEMENTS
-   ============================================= */
-
-.strengths-card,
-.improvement-card,
-.focus-card,
-.homework-card {
-  margin-bottom: 16px;
-}
-
-.strengths-card ion-card-header,
-.improvement-card ion-card-header,
-.focus-card ion-card-header,
-.homework-card ion-card-header {
-  padding: 20px 20px 0;
-}
-
-.strengths-card ion-card-title,
-.improvement-card ion-card-title,
-.focus-card ion-card-title,
-.homework-card ion-card-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 17px;
-  font-weight: 600;
-  color: $apple-text;
-  letter-spacing: -0.022em;
-  margin: 0 0 16px;
-}
-
-.strengths-card ion-card-content,
-.improvement-card ion-card-content,
-.focus-card ion-card-content,
-.homework-card ion-card-content {
-  padding: 0 20px 20px;
-}
-
-.strengths-card ion-card-title ion-icon {
-  color: $apple-green;
-  font-size: 22px;
-}
-
-.improvement-card ion-card-title ion-icon {
-  color: #ff9500;
-  font-size: 22px;
-}
-
-.focus-card ion-card-title ion-icon {
-  color: $apple-blue;
-  font-size: 22px;
-}
-
-.homework-card ion-card-title ion-icon {
-  color: $apple-blue;
-  font-size: 22px;
-}
-
-.strengths-list,
-.improvement-list,
-.focus-items {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.strength-item,
-.improvement-item,
-.focus-item {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  font-size: 15px;
-  color: $apple-text;
-  line-height: 1.47;
-  letter-spacing: -0.016em;
-  
-  ion-icon {
-    font-size: 20px;
-    flex-shrink: 0;
-    margin-top: 2px;
-  }
-}
-
-.homework-list,
-.exercise-list {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.homework-item,
-.exercise-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 14px 16px;
-  background: $apple-gray;
-  border-radius: 12px;
-  font-size: 15px;
-  line-height: 1.5;
-  color: $apple-text;
-  
-  ion-icon {
-    font-size: 20px;
-    color: $apple-blue;
-    flex-shrink: 0;
-    margin-top: 2px;
-  }
-}
-
-/* =============================================
-   LOADING & ERROR STATES
-   ============================================= */
 
-.loading-state {
+// ── Empty / Loading States ───────────────────────────
+.la-state-empty {
   min-height: 60vh;
   display: flex;
   flex-direction: column;
+  align-items: center;
   justify-content: center;
-  align-items: center;
-  gap: 16px;
+  gap: 12px;
   text-align: center;
-}
-
-.loading-state h3 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-  color: $apple-text;
-  letter-spacing: -0.022em;
-}
-
-.loading-state p {
-  margin: 0;
-  font-size: 15px;
-  color: $apple-text-secondary;
-  max-width: 280px;
-  letter-spacing: -0.016em;
-}
-
-.loading-state ion-spinner {
-  --color: #{$apple-blue};
-}
-
-.polling-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: $apple-text-tertiary;
-  font-size: 13px;
-  margin-top: 8px;
-}
-
-.error-container {
   padding: 32px 24px;
+
+  ion-spinner { --color: #{$text}; }
+  h2, h3 { margin: 0; font-size: 18px; font-weight: 600; color: $text; }
+  p { margin: 0; font-size: 15px; color: $text-secondary; max-width: 320px; }
 }
 
-.error-icon {
-  font-size: 64px;
-  color: $apple-red;
-  margin-bottom: 16px;
+.la-error-icon { font-size: 56px; color: $red; }
+.la-poll-info {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; color: $text-tertiary; margin-top: 8px;
 }
 
-/* =============================================
-   RESPONSIVE
-   ============================================= */
+// ── Buttons ──────────────────────────────────────────
+.la-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border: none; border-radius: 8px; cursor: pointer;
+  font-family: $font; font-size: 15px; font-weight: 600;
+  padding: 12px 24px; width: 100%;
+  transition: background 0.15s ease, opacity 0.15s ease;
 
-@media (max-width: 1024px) {
-  .split-layout {
-    flex-direction: column;
+  ion-icon { font-size: 18px; }
+
+  &--primary {
+    background: $accent; color: #fff;
+    &:hover { opacity: 0.85; }
   }
-  
-  // Mobile banners stack vertically
-  .top-banners-container {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-  }
-  
-  .warning-banner {
-    font-size: 12px;
-    padding: 8px 14px;
-    
-    ion-icon {
-      font-size: 16px;
-    }
-  }
-  
-  .left-panel {
-    width: 100%;
-    border-right: none;
-    border-bottom: 1px solid $apple-border;
-    padding: 16px 16px 20px 16px; // Reduced padding
-  }
-  
-  // Two-column layout on mobile
-  .tutor-card {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    grid-template-rows: auto auto;
-    gap: 16px;
-    align-items: start;
-  }
-  
-  // Left column: Avatar + Name + Info
-  .tutor-avatar {
-    width: 64px;  // Smaller avatar
-    height: 64px;
-    grid-column: 1;
-    grid-row: 1;
-    margin: 0;
-  }
-  
-  .tutor-name {
-    grid-column: 1;
-    grid-row: 1;
-    margin-left: 76px; // Avatar width + gap
-    margin-top: 8px;
-    
-    h2 {
-      font-size: 18px; // Smaller name
-      margin: 0;
-    }
-  }
-  
-  .lesson-info-section {
-    grid-column: 1 / -1; // Full width
-    grid-row: 2;
-    margin-top: 0;
-    
-    .info-item {
-      font-size: 13px; // Smaller text
-      
-      ion-icon {
-        font-size: 16px;
-      }
-    }
-  }
-  
-  // Right column: Buttons
-  .tutor-actions {
-    grid-column: 2;
-    grid-row: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin: 0;
-    
-    ion-button {
-      font-size: 12px;
-      height: 32px;
-      min-width: 100px;
-      --padding-start: 12px;
-      --padding-end: 12px;
-      
-      ion-icon {
-        font-size: 14px;
-        margin-right: 4px;
-      }
-    }
-  }
-  
-  .analysis-content {
-    padding: 24px 20px;
+  &--outline {
+    background: transparent; color: $text;
+    border: 1px solid $border;
+    &:hover { background: $surface; }
   }
 }
 
-// Pronunciation Card Styles
-.pronunciation-card {
-  margin: 20px 0;
-  border-radius: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-
-  ion-card-header {
-    padding: 20px;
-    border-bottom: 1px solid #f0f0f0;
-
-    ion-card-title {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-size: 20px;
-      font-weight: 600;
-      color: #1f2937;
-
-      ion-icon {
-        font-size: 24px;
-        color: #8b5cf6;
-      }
-    }
-  }
-
-  ion-card-content {
-    padding: 24px;
-  }
+// ── Layout ───────────────────────────────────────────
+.la-layout {
+  display: flex;
+  min-height: calc(100vh - 56px);
 }
 
-.pronunciation-score-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-  gap: 20px;
-  margin-bottom: 24px;
-}
-
-.score-item {
+// ── Sidebar ──────────────────────────────────────────
+.la-sidebar {
+  width: 300px;
+  flex-shrink: 0;
+  border-right: 1px solid $border;
+  padding: 32px 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  max-height: calc(100vh - 56px);
+  overflow-y: auto;
+}
 
-  .score-label {
-    font-size: 14px;
-    font-weight: 500;
-    color: #6b7280;
-    text-transform: capitalize;
+.la-avatar {
+  width: 96px; height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid $surface;
+}
+
+.la-tutor-name {
+  margin: 0; font-size: 20px; font-weight: 600;
+  color: $text; letter-spacing: -0.02em; text-align: center;
+}
+
+.la-lesson-meta {
+  width: 100%;
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 12px 0;
+  border-top: 1px solid $border;
+  border-bottom: 1px solid $border;
+}
+
+.la-meta-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 14px; color: $text-secondary;
+  ion-icon { font-size: 16px; color: $text-tertiary; }
+}
+
+.la-sidebar-actions {
+  width: 100%;
+  display: flex; flex-direction: column; gap: 10px;
+  margin-top: 8px;
+}
+
+// ── Tags ─────────────────────────────────────────────
+.la-tag {
+  display: inline-flex; align-items: center;
+  padding: 3px 10px; border-radius: 20px;
+  font-size: 12px; font-weight: 500;
+  background: $surface; color: $text-secondary;
+
+  &--warn { background: #FFF3CD; color: #856404; }
+  &--error { background: rgba(193, 53, 21, 0.08); color: $red; }
+}
+
+// ── Main Content ─────────────────────────────────────
+.la-main {
+  flex: 1;
+  overflow-y: auto;
+
+  &--full { max-width: 900px; margin: 0 auto; }
+}
+
+.la-scroll {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 24px 64px;
+}
+
+// ── Sections ─────────────────────────────────────────
+.la-section {
+  padding: 24px 0;
+  border-bottom: 1px solid $border;
+
+  &:last-child { border-bottom: none; }
+
+  h3 {
+    margin: 0 0 16px; font-size: 20px; font-weight: 600;
+    color: $text; letter-spacing: -0.02em;
   }
 
-  .score-circle {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    background: conic-gradient(
-      #8b5cf6 0%,
-      #8b5cf6 calc(var(--score) * 1%),
-      #e5e7eb calc(var(--score) * 1%),
-      #e5e7eb 100%
-    );
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
+  h4 {
+    margin: 0 0 14px; font-size: 16px; font-weight: 600;
+    color: $text; letter-spacing: -0.01em;
+    display: flex; align-items: center; gap: 8px;
 
-    &::before {
-      content: '';
-      position: absolute;
-      width: 64px;
-      height: 64px;
-      border-radius: 50%;
-      background: white;
-    }
-
-    .score-value {
-      position: relative;
-      z-index: 1;
-      font-size: 16px;
-      font-weight: 700;
-      color: #1f2937;
-    }
+    ion-icon { font-size: 20px; color: $text-secondary; }
   }
 }
 
-.words-to-improve {
-  margin-top: 24px;
-  padding-top: 24px;
-  border-top: 1px solid #f0f0f0;
+// ── Banners ──────────────────────────────────────────
+.la-banners {
+  display: flex; flex-direction: column; gap: 8px;
+  padding-bottom: 16px;
+}
 
-  .improve-title {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 16px;
-    font-weight: 600;
-    color: #1f2937;
-    margin-bottom: 16px;
+.la-banner {
+  padding: 10px 16px; border-radius: 10px;
+  font-size: 14px; font-weight: 500; line-height: 1.4;
+  display: flex; align-items: center; gap: 8px;
 
-    ion-icon {
-      font-size: 20px;
-      color: #f59e0b;
-    }
-  }
+  ion-icon { font-size: 18px; flex-shrink: 0; }
 
-  .word-item {
-    background: #f9fafb;
-    border-radius: 12px;
-    padding: 16px;
-    margin-bottom: 12px;
-
-    .word-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-
-      .word-left {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-
-        .play-button {
-          --padding-start: 4px;
-          --padding-end: 4px;
-          margin: 0;
-          height: 32px;
-          width: 32px;
-
-          ion-icon {
-            font-size: 28px;
-          }
-        }
-      }
-
-      .word-text {
-        font-size: 18px;
-        font-weight: 600;
-        color: #1f2937;
-      }
-
-      .word-score {
-        font-size: 14px;
-        font-weight: 600;
-        padding: 4px 12px;
-        border-radius: 12px;
-
-        &.good {
-          background: #d1fae5;
-          color: #059669;
-        }
-
-        &.ok {
-          background: #fef3c7;
-          color: #d97706;
-        }
-
-        &.needs-work {
-          background: #fee2e2;
-          color: #dc2626;
-        }
-      }
-    }
-
-    .word-feedback {
-      font-size: 14px;
-      color: #6b7280;
-      margin: 0;
-      line-height: 1.5;
-    }
+  &--accent { background: rgba(0, 113, 227, 0.06); color: $blue; }
+  &--warn {
+    background: rgba(255, 149, 0, 0.08); color: #8b5a00;
+    ion-icon { color: #ff9500; }
   }
 }
 
-.pronunciation-feedback {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  background: #eff6ff;
+// ── Level Jump ───────────────────────────────────────
+.la-level-jump {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 18px; border-radius: 12px;
+  background: linear-gradient(135deg, #fff3e0 0%, #fffde7 100%);
+  font-size: 15px; font-weight: 500; color: $text;
+  margin-bottom: 8px;
+
+  ion-icon { font-size: 24px; color: #f59e0b; flex-shrink: 0; }
+  strong { font-weight: 700; }
+}
+
+// ── Hero ─────────────────────────────────────────────
+.la-hero {
+  display: flex; align-items: stretch; gap: 16px;
+  padding: 24px 0;
+  border-bottom: 1px solid $border;
+}
+
+.la-hero-level { flex: 1; }
+
+.la-level-badge {
+  background: $surface; border-radius: 14px;
+  padding: 20px 18px;
+}
+
+.la-level-text {
+  font-size: 36px; font-weight: 700;
+  letter-spacing: -0.04em; text-transform: uppercase;
+  color: $text;
+}
+
+.la-confidence {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 13px; color: $text-secondary; margin-top: 6px; cursor: pointer;
+  ion-icon { font-size: 15px; opacity: 0.5; }
+}
+
+.la-source {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 10px; border-radius: 20px;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
+  margin-top: 10px;
+  background: $surface; color: $text-secondary;
+  ion-icon { font-size: 13px; }
+}
+
+.la-progress-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px; border-radius: 16px;
+  font-size: 13px; font-weight: 500; margin-top: 10px;
+}
+.progress-increase { background: rgba(0, 138, 5, 0.08); color: $green; }
+.progress-decrease { background: rgba(193, 53, 21, 0.08); color: $red; }
+.progress-neutral  { background: $surface; color: $text-secondary; }
+
+.la-hero-vocab {
+  width: 130px; border-radius: 14px;
+  background: $surface; padding: 16px 14px;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.la-vocab-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: $text-tertiary; font-weight: 500; }
+.la-vocab-value { font-size: 15px; font-weight: 600; color: $text; margin-top: 4px; }
+.la-vocab-change {
+  display: flex; align-items: center; gap: 3px;
+  font-size: 13px; font-weight: 600; color: $green; margin-top: 4px;
+  ion-icon { font-size: 15px; }
+}
+
+// ── Summary ──────────────────────────────────────────
+.la-improvements {
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+.la-check-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  font-size: 15px; color: $text; line-height: 1.5;
+  ion-icon { font-size: 20px; flex-shrink: 0; margin-top: 1px; color: $green; }
+
+  &--warn ion-icon { color: #ff9500; }
+}
+
+.la-topics { margin-top: 20px; }
+
+.la-chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.la-chip {
+  display: inline-block;
+  padding: 6px 14px; border-radius: 20px;
+  font-size: 13px; font-weight: 500;
+  background: $surface; color: $text;
+
+  &--secondary { background: rgba(0, 113, 227, 0.06); color: $blue; }
+  &--accent { background: rgba(0, 113, 227, 0.06); color: $blue; font-weight: 600; }
+}
+
+// ── Grammar Progress ─────────────────────────────────
+.la-progress-grid {
+  display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center;
+}
+
+.la-progress-box {
+  padding: 16px; border-radius: 12px; text-align: center;
+  background: $surface;
+
+  &--curr { background: rgba(0, 113, 227, 0.04); }
+}
+.la-progress-label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: $text-secondary; font-weight: 500; margin-bottom: 6px; }
+.la-progress-num { font-size: 24px; font-weight: 700; color: $text; }
+
+.la-progress-arrow {
+  text-align: center;
+  ion-icon { font-size: 22px; }
+  span { display: block; font-size: 13px; font-weight: 600; margin-top: 2px; }
+  .positive { color: $green; }
+  .negative { color: $red; }
+}
+
+// ── Advanced Words ───────────────────────────────────
+.la-advanced-words {
+  h4 { color: $text; }
+}
+.la-words-list {
+  margin: 0; font-size: 16px; font-weight: 500; color: $blue; line-height: 1.5;
+}
+
+// ── Focus Card ───────────────────────────────────────
+.la-focus-card {
+  background: rgba(0, 113, 227, 0.03);
   border-radius: 12px;
-  padding: 16px;
+  padding: 20px !important;
+  margin: 24px 0;
+  border: none !important;
+}
+
+.la-focus-header {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em;
+  font-weight: 600; color: $blue; margin-bottom: 8px;
+  ion-icon { font-size: 18px; }
+}
+
+.la-focus-text {
+  margin: 0; font-size: 17px; font-weight: 600; color: $text; line-height: 1.4;
+}
+
+// ── Priority Errors ──────────────────────────────────
+.la-priority-list { display: flex; flex-direction: column; gap: 8px; }
+
+.la-priority-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; border-radius: 10px;
+  background: rgba(193, 53, 21, 0.04);
+}
+.la-priority-num {
+  width: 26px; height: 26px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: $red; color: #fff; font-size: 12px; font-weight: 600; flex-shrink: 0;
+}
+.la-priority-text { flex: 1; font-size: 15px; color: $text; }
+
+// ── Error Patterns ───────────────────────────────────
+.la-pattern {
   margin-top: 20px;
-
-  ion-icon {
-    font-size: 24px;
-    color: #3b82f6;
-    flex-shrink: 0;
-    margin-top: 2px;
-  }
-
-  p {
-    margin: 0;
-    font-size: 14px;
-    line-height: 1.6;
-    color: #1f2937;
-  }
+  &:first-child { margin-top: 0; }
 }
 
-@media (max-width: 768px) {
-  .stats-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  
-  .tutor-actions {
-    flex-direction: column;
-  }
+.la-pattern-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding-bottom: 10px; margin-bottom: 14px;
+  border-bottom: 1px solid $border;
+  font-size: 15px; font-weight: 600; color: $text;
 }
 
-@media (max-width: 420px) {
-  .level-hero-row {
-    flex-direction: column;
-  }
+.la-example { margin-top: 14px; }
 
-  .level-side-chip {
-    width: 100%;
-  }
-  
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .analysis-content {
-    padding: 20px 16px;
-  }
-  
-  .progress-comparison {
-    grid-template-columns: 1fr;
-  }
+.la-example-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 12px 14px; border-radius: 10px;
+  font-size: 15px; line-height: 1.5; color: $text;
+  ion-icon { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
+
+  &--wrong { background: rgba(193, 53, 21, 0.04); margin-bottom: 6px; }
+  &--right { background: rgba(0, 138, 5, 0.04); }
 }
 
-/* =============================================
-   TUTOR NOTE CARD (at bottom of analysis)
-   ============================================= */
+.la-example-explain {
+  margin: 8px 0 0; padding: 10px 14px;
+  background: $surface; border-radius: 10px;
+  font-size: 13px; color: $text-secondary; line-height: 1.5;
+}
 
-.tutor-note-card {
-  margin-top: 24px;
-  border: 1px solid $apple-border;
-  box-shadow: 0 2px 8px $apple-shadow;
-  
-  ion-card-header {
-    padding: 16px;
-    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-    border-bottom: 1px solid $apple-border;
-  }
-  
-  .tutor-note-header {
-    display: flex;
-    align-items: center;
+.la-save-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 8px; padding: 6px 14px;
+  border: none; border-radius: 20px; cursor: pointer;
+  background: transparent; color: $text-secondary;
+  font-family: $font; font-size: 13px; font-weight: 500;
+  transition: background 0.15s;
+
+  ion-icon { font-size: 16px; }
+  &:hover { background: $surface; }
+  &.saved { color: $blue; background: rgba(0, 113, 227, 0.06); }
+}
+
+// ── Corrected Excerpts ───────────────────────────────
+.la-excerpt { margin-top: 20px; &:first-child { margin-top: 0; } }
+.la-excerpt-context { font-size: 13px; font-weight: 500; color: $blue; display: block; margin-bottom: 10px; }
+
+.la-excerpt-pair { display: flex; flex-direction: column; gap: 8px; }
+
+.la-excerpt-box {
+  border-radius: 10px; padding: 14px;
+  p { margin: 0; font-size: 15px; line-height: 1.5; color: $text; }
+
+  &--you { background: rgba(193, 53, 21, 0.04); }
+  &--better { background: rgba(0, 138, 5, 0.04); }
+}
+.la-excerpt-label {
+  display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+  font-weight: 600; color: $text-secondary; margin-bottom: 6px;
+}
+
+// ── Stats Grid ───────────────────────────────────────
+.la-stats {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+}
+
+.la-stat {
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center; padding: 16px 8px;
+  background: $surface; border-radius: 12px;
+}
+
+.la-stat-icon {
+  font-size: 22px; margin-bottom: 8px;
+  &--blue { color: $blue; }
+  &--red { color: $red; }
+  &--green { color: $green; }
+  &--purple { color: $purple; }
+}
+
+.la-stat-value { font-size: 20px; font-weight: 700; color: $text; }
+.la-stat-label { font-size: 11px; color: $text-secondary; margin-top: 4px; line-height: 1.3; }
+.la-stat-change {
+  font-size: 12px; font-weight: 600; color: $text-tertiary; margin-top: 2px;
+  &.positive { color: $green; }
+}
+
+// ── Challenges ───────────────────────────────────────
+.la-challenges {
+  background: #fffbf0; border-radius: 12px;
+  padding: 20px !important; margin: 24px 0;
+  border: none !important; border-left: 4px solid #ff9500 !important;
+}
+
+// ── Homework ─────────────────────────────────────────
+.la-homework-list { display: flex; flex-direction: column; gap: 10px; }
+
+.la-homework-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 14px 16px; background: $surface; border-radius: 10px;
+  font-size: 15px; color: $text; line-height: 1.5;
+  ion-icon { font-size: 20px; color: $blue; flex-shrink: 0; margin-top: 1px; }
+}
+
+// ── Tutor Note ───────────────────────────────────────
+.la-tutor-note { border-bottom: none !important; }
+
+.la-note-header {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
+}
+.la-note-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+.la-note-info {
+  flex: 1;
+  h4 { margin: 0 0 2px; font-size: 15px; font-weight: 600; color: $text; }
+  .la-note-time { font-size: 12px; color: $text-tertiary; }
+}
+
+.la-note-body {
+  font-size: 15px; line-height: 1.6; color: $text-secondary;
+  p { margin: 0 0 10px; }
+  strong { color: $text; }
+}
+
+.la-note-homework {
+  display: flex; align-items: flex-start; gap: 10px;
+  margin-top: 14px; padding: 14px 16px;
+  background: #fffbf0; border-radius: 10px; border-left: 3px solid #f59e0b;
+  ion-icon { font-size: 20px; color: #f59e0b; flex-shrink: 0; margin-top: 1px; }
+  strong { font-size: 14px; color: $text; display: block; margin-bottom: 4px; }
+  p { margin: 0; font-size: 14px; color: $text-secondary; line-height: 1.5; }
+}
+
+// ── Responsive ───────────────────────────────────────
+@media (max-width: 960px) {
+  .la-layout { flex-direction: column; }
+
+  .la-sidebar {
+    width: 100%; flex-direction: row; flex-wrap: wrap;
+    position: static; max-height: none;
+    padding: 16px 20px; border-right: none; border-bottom: 1px solid $border;
     gap: 12px;
-    
-    .tutor-note-avatar {
-      width: 40px;
-      height: 40px;
-      flex-shrink: 0;
-    }
-    
-    .tutor-note-info {
-      flex: 1;
-      
-      h3 {
-        margin: 0;
-        font-size: 16px;
-        font-weight: 600;
-        color: $apple-text;
-      }
-      
-      .timestamp {
-        font-size: 12px;
-        color: $apple-text-tertiary;
-      }
-    }
-    
-    .impression-chip {
-      height: 28px;
-      font-size: 12px;
-      font-weight: 500;
-    }
   }
-  
-  ion-card-content {
-    padding: 20px;
-    
-    .note-content {
-      font-size: 15px !important;
-      line-height: 1.6;
-      color: $apple-text-secondary;
-      margin-bottom: 16px;
-      
-      // Quill editor styles
-      p {
-        margin: 0 0 12px 0;
-        font-size: 15px !important;
-      }
-      
-      strong {
-        font-weight: 600;
-        color: $apple-text;
-      }
-      
-      em {
-        font-style: italic;
-      }
-      
-      ul {
-        margin: 8px 0;
-        padding-left: 24px;
-        
-        li {
-          margin-bottom: 4px;
-        }
-      }
-    }
-    
-    .homework-box {
-      background: linear-gradient(135deg, #fff9e6 0%, #fffbf0 100%);
-      border-left: 4px solid #fbbf24;
-      border-radius: 8px;
-      padding: 16px;
-      margin-top: 16px;
-      
-      .homework-header {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 8px;
-        
-        ion-icon {
-          font-size: 20px;
-          color: #f59e0b;
-        }
-        
-        strong {
-          font-size: 14px;
-          font-weight: 600;
-          color: $apple-text;
-        }
-      }
-      
-      p {
-        margin: 0;
-        font-size: 14px;
-        line-height: 1.6;
-        color: $apple-text-secondary;
-      }
-    }
+
+  .la-avatar { width: 56px; height: 56px; }
+  .la-tutor-name { font-size: 17px; text-align: left; flex: 1; align-self: center; }
+
+  .la-lesson-meta {
+    width: 100%; flex-direction: row; flex-wrap: wrap; gap: 8px 16px;
+    padding: 10px 0; border-top: 1px solid $border;
+    .la-meta-row { font-size: 13px; }
   }
+
+  .la-sidebar-actions {
+    width: 100%; flex-direction: row; gap: 8px;
+    .la-btn { font-size: 13px; padding: 10px 16px; }
+  }
+
+  .la-scroll { padding: 24px 20px 48px; }
+}
+
+@media (max-width: 600px) {
+  .la-stats { grid-template-columns: repeat(2, 1fr); }
+  .la-hero { flex-direction: column; }
+  .la-hero-vocab { width: 100%; }
+  .la-progress-grid { grid-template-columns: 1fr; gap: 8px; }
+  .la-progress-arrow { display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .la-scroll { padding: 20px 16px 48px; }
+}
+
+// ── Dark Mode ────────────────────────────────────────
+:host-context(html.ion-palette-dark) {
+  .la-header ion-toolbar {
+    --background: #1c1c1e;
+    --color: #f5f5f7;
+    box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.1);
+    ion-back-button { --color: #f5f5f7; }
+  }
+
+  .la-content { --background: #000000; }
+
+  .la-state-empty {
+    h2, h3 { color: #f5f5f7; }
+    p { color: #8e8e93; }
+    ion-spinner { --color: #f5f5f7; }
+  }
+
+  .la-btn {
+    &--primary { background: #f5f5f7; color: #000; }
+    &--outline { color: #f5f5f7; border-color: rgba(255, 255, 255, 0.15); &:hover { background: #1c1c1e; } }
+  }
+
+  .la-sidebar { border-right-color: rgba(255, 255, 255, 0.1); border-bottom-color: rgba(255, 255, 255, 0.1); }
+  .la-avatar { border-color: #2c2c2e; }
+  .la-tutor-name { color: #f5f5f7; }
+  .la-lesson-meta { border-color: rgba(255, 255, 255, 0.1); }
+  .la-meta-row { color: #8e8e93; ion-icon { color: #636366; } }
+
+  .la-section {
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+    h3, h4 { color: #f5f5f7; }
+    h4 ion-icon { color: #636366; }
+  }
+
+  .la-banner {
+    &--accent { background: rgba(0, 113, 227, 0.12); }
+    &--warn { background: rgba(255, 149, 0, 0.12); color: #ffb84d; ion-icon { color: #ffb84d; } }
+  }
+
+  .la-level-jump { background: rgba(245, 158, 11, 0.1); }
+  .la-level-badge { background: #1c1c1e; }
+  .la-level-text { color: #f5f5f7; }
+  .la-confidence { color: #8e8e93; }
+  .la-source { background: #1c1c1e; color: #8e8e93; }
+  .la-hero { border-bottom-color: rgba(255, 255, 255, 0.08); }
+  .la-hero-vocab { background: #1c1c1e; }
+  .la-vocab-label { color: #636366; }
+  .la-vocab-value { color: #f5f5f7; }
+
+  .la-check-row { color: #f5f5f7; }
+  .la-chip { background: #1c1c1e; color: #f5f5f7; &--secondary { background: rgba(0, 113, 227, 0.15); color: #4da3ff; } &--accent { background: rgba(0, 113, 227, 0.15); color: #4da3ff; } }
+  .la-tag { background: #2c2c2e; color: #8e8e93; &--error { background: rgba(193, 53, 21, 0.15); color: #ff6b6b; } &--warn { background: rgba(255, 193, 7, 0.15); color: #ffd54f; } }
+
+  .la-progress-box { background: #1c1c1e; &--curr { background: rgba(0, 113, 227, 0.1); } }
+  .la-progress-label { color: #8e8e93; }
+  .la-progress-num { color: #f5f5f7; }
+
+  .la-words-list { color: #4da3ff; }
+
+  .la-focus-card { background: rgba(0, 113, 227, 0.06); }
+  .la-focus-text { color: #f5f5f7; }
+
+  .la-priority-item { background: rgba(193, 53, 21, 0.1); }
+  .la-priority-text { color: #f5f5f7; }
+
+  .la-pattern-header { color: #f5f5f7; border-bottom-color: rgba(255, 255, 255, 0.08); }
+  .la-example-row { color: #f5f5f7;
+    &--wrong { background: rgba(193, 53, 21, 0.08); }
+    &--right { background: rgba(0, 138, 5, 0.08); }
+  }
+  .la-example-explain { background: #1c1c1e; color: #8e8e93; }
+  .la-save-btn { color: #8e8e93; &:hover { background: #1c1c1e; } &.saved { color: #4da3ff; background: rgba(0, 113, 227, 0.12); } }
+
+  .la-excerpt-box { p { color: #f5f5f7; }
+    &--you { background: rgba(193, 53, 21, 0.08); }
+    &--better { background: rgba(0, 138, 5, 0.08); }
+  }
+  .la-excerpt-label { color: #8e8e93; }
+  .la-excerpt-context { color: #4da3ff; }
+
+  .la-stat { background: #1c1c1e; }
+  .la-stat-value { color: #f5f5f7; }
+  .la-stat-label { color: #8e8e93; }
+
+  .la-challenges { background: rgba(255, 149, 0, 0.08); border-left-color: #ff9500 !important; }
+
+  .la-homework-item { background: #1c1c1e; color: #f5f5f7; }
+
+  .la-note-info h4 { color: #f5f5f7; }
+  .la-note-info .la-note-time { color: #636366; }
+  .la-note-body { color: #8e8e93; strong { color: #f5f5f7; } }
+  .la-note-homework { background: rgba(245, 158, 11, 0.08); border-left-color: #f59e0b; strong { color: #f5f5f7; } p { color: #8e8e93; } }
+
+  .la-translate-btn {
+    border-color: rgba(255, 255, 255, 0.15);
+    color: #8e8e93;
+    &:hover:not(:disabled) { background: rgba(255, 255, 255, 0.06); color: #f5f5f7; }
+    &.showing-translation { background: rgba(0, 113, 227, 0.15); border-color: rgba(77, 163, 255, 0.3); color: #4da3ff; }
+    &:disabled { opacity: 0.4; }
+  }
+}
+
+.la-translate-row {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 0 8px;
+}
+
+.la-translate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  ion-icon { font-size: 16px; }
+  &:hover:not(:disabled) { background: rgba(0, 0, 0, 0.04); color: #1d1d1f; }
+  &.showing-translation { background: rgba(0, 113, 227, 0.08); border-color: rgba(0, 113, 227, 0.2); color: #0071e3; }
+  &:disabled { opacity: 0.5; cursor: default; }
 }

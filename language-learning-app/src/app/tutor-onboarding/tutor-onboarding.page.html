@@ -1,4 +1,203 @@
-<div class="onboarding-container">
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- PRE-STEP: Language Selection                       -->
+<!-- ═══════════════════════════════════════════════════ -->
+<ion-header *ngIf="preStepPhase === 'language'">
+  <ion-toolbar class="onboarding-toolbar pre-step-toolbar">
+    <ion-buttons slot="start">
+      <div class="app-icon-container">
+        <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="app-icon">
+        <span class="app-name">Barnabi</span>
+      </div>
+    </ion-buttons>
+    <ion-buttons slot="end">
+      <ion-button fill="clear" class="logout-btn" (click)="handleLogout()">
+        <ion-icon name="log-out-outline" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+<div class="pre-step-container" *ngIf="preStepPhase === 'language'">
+  <div class="pre-step-inner">
+    <div class="pre-step-logo">
+      <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="pre-step-app-icon">
+    </div>
+
+    <div class="pre-step-rotating-heading">
+      <span
+        *ngFor="let text of headingTexts; let i = index"
+        class="rotating-text"
+        [class.visible]="i === activeHeadingIndex">{{ text }}</span>
+    </div>
+
+    <p class="pre-step-subtitle">{{ 'ONBOARDING.LANG_SELECT.CHOOSE_SUBTITLE' | translate }}</p>
+
+    <div class="pre-step-language-scroll">
+      <div class="pre-step-language-grid">
+        <button
+          *ngFor="let lang of availableInterfaceLanguages"
+          class="pre-step-lang-card"
+          [class.selected]="selectedInterfaceLanguage === lang.code"
+          (click)="selectInterfaceLanguage(lang.code)">
+          <span class="lang-flag">{{ lang.flag }}</span>
+          <div class="lang-labels">
+            <span class="lang-native-name">{{ lang.nativeName }}</span>
+            <span class="lang-english-name">{{ lang.name }}</span>
+          </div>
+          <div class="lang-check" *ngIf="selectedInterfaceLanguage === lang.code">
+            <ion-icon name="checkmark-circle"></ion-icon>
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <div class="pre-step-cta-wrapper">
+      <button class="pre-step-cta" (click)="confirmLanguageSelection()">
+        {{ 'ONBOARDING.LANG_SELECT.CONFIRM' | translate }}
+        <ion-icon name="arrow-forward"></ion-icon>
+      </button>
+    </div>
+
+    <p class="pre-step-legal">
+      {{ 'ONBOARDING.LEGAL.AGREE_PREFIX' | translate }}
+      <a href="/terms" target="_blank">{{ 'ONBOARDING.LEGAL.TERMS' | translate }}</a> {{ 'ONBOARDING.LEGAL.AND' | translate }}
+      <a href="/privacy" target="_blank">{{ 'ONBOARDING.LEGAL.PRIVACY' | translate }}</a>
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- PRE-STEP: Welcome Screen                           -->
+<!-- ═══════════════════════════════════════════════════ -->
+<ion-header *ngIf="preStepPhase === 'welcome'">
+  <ion-toolbar class="onboarding-toolbar pre-step-toolbar">
+    <ion-buttons slot="start">
+      <div class="app-icon-container">
+        <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="app-icon">
+        <span class="app-name">Barnabi</span>
+      </div>
+    </ion-buttons>
+    <ion-buttons slot="end">
+      <button class="lang-switch-btn" (click)="goBackToLanguageSelect()">
+        <span class="lang-switch-flag">{{ selectedLanguageFlag }}</span>
+        <span class="lang-switch-code">{{ selectedInterfaceLanguage | uppercase }}</span>
+      </button>
+      <ion-button fill="clear" class="logout-btn" (click)="handleLogout()">
+        <ion-icon name="log-out-outline" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+<div class="pre-step-container welcome-phase" [class.welcome-revealed]="welcomeRevealed" *ngIf="preStepPhase === 'welcome'">
+  <div class="pre-step-inner welcome-inner">
+    <!-- <div class="pre-step-logo">
+      <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="pre-step-app-icon welcome-icon">
+    </div> -->
+
+    <div class="welcome-hero">
+      <dotlottie-player src="/assets/Celebration.lottie" autoplay speed="1" class="welcome-celebration-lottie"></dotlottie-player>
+      <h1 class="welcome-title">{{ 'ONBOARDING.WELCOME_SCREEN.TUTOR_GREETING' | translate }}</h1>
+    </div>
+
+    <div class="welcome-body">
+      <p class="welcome-subtitle">{{ 'ONBOARDING.WELCOME_SCREEN.TUTOR_SUBTITLE' | translate }}</p>
+
+      <div class="welcome-features">
+        <div class="welcome-feature-card">
+          <div class="feature-icon">
+            <ion-icon name="calendar"></ion-icon>
+          </div>
+          <div class="feature-text">
+            <span class="feature-title">{{ 'ONBOARDING.WELCOME_SCREEN.TUTOR_FEAT1_TITLE' | translate }}</span>
+            <span class="feature-desc">{{ 'ONBOARDING.WELCOME_SCREEN.TUTOR_FEAT1_DESC' | translate }}</span>
+          </div>
+        </div>
+        <div class="welcome-feature-card">
+          <div class="feature-icon">
+            <ion-icon name="videocam"></ion-icon>
+          </div>
+          <div class="feature-text">
+            <span class="feature-title">{{ 'ONBOARDING.WELCOME_SCREEN.TUTOR_FEAT2_TITLE' | translate }}</span>
+            <span class="feature-desc">{{ 'ONBOARDING.WELCOME_SCREEN.TUTOR_FEAT2_DESC' | translate }}</span>
+          </div>
+        </div>
+        <div class="welcome-feature-card">
+          <div class="feature-icon">
+            <ion-icon name="wallet"></ion-icon>
+          </div>
+          <div class="feature-text">
+            <span class="feature-title">{{ 'ONBOARDING.WELCOME_SCREEN.TUTOR_FEAT3_TITLE' | translate }}</span>
+            <span class="feature-desc">{{ 'ONBOARDING.WELCOME_SCREEN.TUTOR_FEAT3_DESC' | translate }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="welcome-how-it-works">
+        <p class="how-label">{{ 'ONBOARDING.WELCOME_SCREEN.HOW_LABEL' | translate }}</p>
+        <div class="how-steps">
+          <div class="how-step">
+            <span class="how-num">1</span>
+            <span class="how-text">{{ 'ONBOARDING.WELCOME_SCREEN.TUTOR_HOW_STEP1' | translate }}</span>
+          </div>
+          <div class="how-connector"></div>
+          <div class="how-step">
+            <span class="how-num">2</span>
+            <span class="how-text">{{ 'ONBOARDING.WELCOME_SCREEN.TUTOR_HOW_STEP2' | translate }}</span>
+          </div>
+          <div class="how-connector"></div>
+          <div class="how-step">
+            <span class="how-num">3</span>
+            <span class="how-text">{{ 'ONBOARDING.WELCOME_SCREEN.TUTOR_HOW_STEP3' | translate }}</span>
+          </div>
+        </div>
+      </div>
+
+      <button class="pre-step-cta" (click)="startOnboarding()">
+        {{ 'ONBOARDING.WELCOME_SCREEN.CTA' | translate }}
+        <ion-icon name="arrow-forward"></ion-icon>
+      </button>
+
+      <div class="welcome-trust">
+        <div class="trust-item">
+          <ion-icon name="shield-checkmark-outline"></ion-icon>
+          <span>{{ 'ONBOARDING.WELCOME_SCREEN.TRUST_SECURE' | translate }}</span>
+        </div>
+        <div class="trust-item">
+          <ion-icon name="time-outline"></ion-icon>
+          <span>{{ 'ONBOARDING.WELCOME_SCREEN.TRUST_TIME' | translate }}</span>
+        </div>
+        <div class="trust-item">
+          <ion-icon name="card-outline"></ion-icon>
+          <span>{{ 'ONBOARDING.WELCOME_SCREEN.TRUST_FREE' | translate }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- MAIN ONBOARDING (shown after pre-step)             -->
+<!-- ═══════════════════════════════════════════════════ -->
+<ion-header *ngIf="!showWelcome && preStepPhase === 'done'">
+  <ion-toolbar class="onboarding-toolbar">
+    <ion-buttons slot="start">
+      <div class="app-icon-container">
+        <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="app-icon">
+        <span class="app-name">Barnabi</span>
+      </div>
+    </ion-buttons>
+    <ion-buttons slot="end">
+      <button class="lang-switch-btn" (click)="goToLanguageSelect()">
+        <span class="lang-switch-flag">{{ selectedLanguageFlag }}</span>
+        <span class="lang-switch-code">{{ selectedInterfaceLanguage | uppercase }}</span>
+      </button>
+      <ion-button fill="clear" class="logout-btn" (click)="handleLogout()">
+        <ion-icon name="log-out-outline" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<div class="onboarding-container" *ngIf="!showPreview && !showWelcome && preStepPhase === 'done'">
   <!-- Two Column Layout -->
   <div class="onboarding-content">
     
@@ -6,8 +205,8 @@
     <div class="left-column">
       <!-- Header -->
       <div class="onboarding-header">
-        <h1>Welcome, Tutor!</h1>
-        <p>Let's set up your teaching profile</p>
+        <h1>{{ 'ONBOARDING.TUTOR_OB.WELCOME_TITLE' | translate }}</h1>
+        <p>{{ 'ONBOARDING.TUTOR_OB.WELCOME_SUBTITLE' | translate }}</p>
       </div>
 
       <!-- Progress Bar -->
@@ -15,7 +214,7 @@
         <div class="progress-bar-bg">
           <div class="progress-bar-fill" [style.width.%]="getProgressPercentage()"></div>
         </div>
-        <p class="progress-text">Step {{ currentStep }} of {{ totalSteps }}</p>
+        <p class="progress-text">{{ 'ONBOARDING.STEP_INDICATOR' | translate:{ current: currentStep, total: totalSteps } }}</p>
       </div>
 
       <!-- Steps List -->
@@ -30,8 +229,8 @@
             <span *ngIf="currentStep <= 1" class="step-number">1</span>
           </div>
           <div class="step-info">
-            <h3>About You</h3>
-            <p>Name and location</p>
+            <h3>{{ 'ONBOARDING.TUTOR_OB.SIDEBAR_ABOUT' | translate }}</h3>
+            <p>{{ 'ONBOARDING.TUTOR_OB.SIDEBAR_ABOUT_DESC' | translate }}</p>
           </div>
         </div>
 
@@ -45,8 +244,8 @@
             <span *ngIf="currentStep <= 2" class="step-number">2</span>
           </div>
           <div class="step-info">
-            <h3>Native Language</h3>
-            <p>Your primary language</p>
+            <h3>{{ 'ONBOARDING.TUTOR_OB.SIDEBAR_RESIDENCE' | translate }}</h3>
+            <p>{{ 'ONBOARDING.TUTOR_OB.SIDEBAR_RESIDENCE_DESC' | translate }}</p>
           </div>
         </div>
 
@@ -60,8 +259,8 @@
             <span *ngIf="currentStep <= 3" class="step-number">3</span>
           </div>
           <div class="step-info">
-            <h3>Language</h3>
-            <p>What you teach</p>
+            <h3>{{ 'ONBOARDING.TUTOR_OB.SIDEBAR_NATIVE' | translate }}</h3>
+            <p>{{ 'ONBOARDING.TUTOR_OB.SIDEBAR_NATIVE_DESC' | translate }}</p>
           </div>
         </div>
 
@@ -75,8 +274,8 @@
             <span *ngIf="currentStep <= 4" class="step-number">4</span>
           </div>
           <div class="step-info">
-            <h3>Experience</h3>
-            <p>Your background</p>
+            <h3>{{ 'ONBOARDING.TUTOR_OB.SIDEBAR_LANGUAGE' | translate }}</h3>
+            <p>{{ 'ONBOARDING.TUTOR_OB.SIDEBAR_LANGUAGE_DESC' | translate }}</p>
           </div>
         </div>
 
@@ -90,8 +289,8 @@
             <span *ngIf="currentStep <= 5" class="step-number">5</span>
           </div>
           <div class="step-info">
-            <h3>Availability</h3>
-            <p>Your schedule</p>
+            <h3>{{ 'ONBOARDING.TUTOR_OB.SIDEBAR_EXPERIENCE' | translate }}</h3>
+            <p>{{ 'ONBOARDING.TUTOR_OB.SIDEBAR_EXPERIENCE_DESC' | translate }}</p>
           </div>
         </div>
 
@@ -105,8 +304,68 @@
             <span *ngIf="currentStep <= 6" class="step-number">6</span>
           </div>
           <div class="step-info">
-            <h3>Profile Details</h3>
-            <p>Bio, rate & video</p>
+            <h3>{{ 'ONBOARDING.TUTOR_OB.SIDEBAR_AVAILABILITY' | translate }}</h3>
+            <p>{{ 'ONBOARDING.TUTOR_OB.SIDEBAR_AVAILABILITY_DESC' | translate }}</p>
+          </div>
+        </div>
+
+        <div 
+          class="step-item"
+          [class.completed]="currentStep > 7"
+          [class.current]="currentStep === 7"
+          (click)="currentStep > 6 ? currentStep = 7 : null">
+          <div class="step-indicator">
+            <ion-icon *ngIf="currentStep > 7" name="checkmark-circle"></ion-icon>
+            <span *ngIf="currentStep <= 7" class="step-number">7</span>
+          </div>
+          <div class="step-info">
+            <h3>{{ 'ONBOARDING.TUTOR_OB.SIDEBAR_BIO' | translate }}</h3>
+            <p>{{ 'ONBOARDING.TUTOR_OB.SIDEBAR_BIO_DESC' | translate }}</p>
+          </div>
+        </div>
+
+        <div 
+          class="step-item"
+          [class.completed]="currentStep > 8"
+          [class.current]="currentStep === 8"
+          (click)="currentStep > 7 ? currentStep = 8 : null">
+          <div class="step-indicator">
+            <ion-icon *ngIf="currentStep > 8" name="checkmark-circle"></ion-icon>
+            <span *ngIf="currentStep <= 8" class="step-number">8</span>
+          </div>
+          <div class="step-info">
+            <h3>{{ 'ONBOARDING.TUTOR_OB.SIDEBAR_RATE' | translate }}</h3>
+            <p>{{ 'ONBOARDING.TUTOR_OB.SIDEBAR_RATE_DESC' | translate }}</p>
+          </div>
+        </div>
+
+        <div 
+          class="step-item"
+          [class.completed]="currentStep > 9"
+          [class.current]="currentStep === 9"
+          (click)="currentStep > 8 ? currentStep = 9 : null">
+          <div class="step-indicator">
+            <ion-icon *ngIf="currentStep > 9" name="checkmark-circle"></ion-icon>
+            <span *ngIf="currentStep <= 9" class="step-number">9</span>
+          </div>
+          <div class="step-info">
+            <h3>{{ 'ONBOARDING.TUTOR_OB.SIDEBAR_VIDEO' | translate }}</h3>
+            <p>{{ 'ONBOARDING.TUTOR_OB.SIDEBAR_VIDEO_DESC' | translate }}</p>
+          </div>
+        </div>
+
+        <!-- Review Step - only visible after user has reached preview -->
+        <div 
+          class="step-item review-step"
+          *ngIf="hasReachedPreview"
+          [class.current]="false"
+          (click)="showPreviewPage()">
+          <div class="step-indicator review-indicator">
+            <ion-icon name="document-text"></ion-icon>
+          </div>
+          <div class="step-info">
+            <h3>{{ 'ONBOARDING.TUTOR_OB.SIDEBAR_REVIEW' | translate }}</h3>
+            <p>{{ 'ONBOARDING.TUTOR_OB.SIDEBAR_REVIEW_DESC' | translate }}</p>
           </div>
         </div>
       </div>
@@ -115,18 +374,18 @@
       <div class="nav-buttons">
         <ion-button 
           fill="clear" 
-          [disabled]="currentStep === 1"
           (click)="prevStep()">
           <ion-icon name="chevron-back" slot="start"></ion-icon>
-          Previous
+          {{ 'ONBOARDING.NAV.PREVIOUS' | translate }}
         </ion-button>
 
-        <ion-button 
-          fill="clear" 
+        <ion-button
+          fill="clear"
+          class="next-step-btn"
           *ngIf="currentStep < totalSteps"
           [disabled]="!canProceed()"
           (click)="nextStep()">
-          Next
+          {{ 'ONBOARDING.NAV.NEXT' | translate }}
           <ion-icon name="chevron-forward" slot="end"></ion-icon>
         </ion-button>
       </div>
@@ -137,38 +396,42 @@
 
     <!-- Right Column: Current Step Content -->
     <div class="right-column">
-      <div class="step-content-scrollable">
+      <div class="right-col-progress">
+        <div class="right-col-progress-fill" [style.width.%]="(currentStep / totalSteps) * 100"></div>
+      </div>
+      <img src="assets/barnabi-notes.png" class="right-column-mascot" alt="" aria-hidden="true" />
+      <div class="step-content-scrollable" [class.no-scroll]="currentStep === 5 || currentStep === 6 || currentStep === 8">
         <div class="step-content-card">
         
         <!-- Step 1: Name & Country -->
         <div *ngIf="currentStep === 1">
-          <div class="step-icon-circle">
-            <ion-icon name="person"></ion-icon>
-          </div>
-          <h2 class="step-title">Tell us about yourself</h2>
-          <p class="step-description">Let's start with some basic information</p>
+          <h2 class="step-title">{{ 'ONBOARDING.TUTOR_OB.STEP1_TITLE' | translate }}</h2>
+          <p class="step-description">{{ 'ONBOARDING.TUTOR_OB.STEP1_SUBTITLE' | translate }}</p>
 
           <div class="form-fields">
             <div class="form-field">
-              <label>First Name *</label>
+              <label>{{ 'ONBOARDING.TUTOR_OB.STEP1_FIRST_NAME' | translate }}</label>
               <input 
+                #firstNameInput
                 type="text"
                 [(ngModel)]="firstName"
-                placeholder="Enter your first name"
+                (blur)="formatFirstNameOnBlur()"
+                [placeholder]="'ONBOARDING.TUTOR_OB.STEP1_FIRST_PLACEHOLDER' | translate"
                 class="modern-input">
             </div>
 
             <div class="form-field">
-              <label>Last Name *</label>
+              <label>{{ 'ONBOARDING.TUTOR_OB.STEP1_LAST_NAME' | translate }}</label>
               <input 
                 type="text"
                 [(ngModel)]="lastName"
-                placeholder="Enter your last name"
+                (blur)="formatLastNameOnBlur()"
+                [placeholder]="'ONBOARDING.TUTOR_OB.STEP1_LAST_PLACEHOLDER' | translate"
                 class="modern-input">
             </div>
 
             <div class="form-field">
-              <label>Where are you from? *</label>
+              <label>{{ 'ONBOARDING.TUTOR_OB.STEP1_COUNTRY' | translate }}</label>
               <button 
                 class="country-select-button"
                 (click)="openCountryModal()">
@@ -177,15 +440,23 @@
                   <span>{{ country }}</span>
                 </span>
                 <ng-template #noCountry>
-                  Select your country of origin
+                  {{ 'ONBOARDING.TUTOR_OB.STEP1_COUNTRY_PLACEHOLDER' | translate }}
                 </ng-template>
                 <ion-icon name="chevron-down"></ion-icon>
               </button>
             </div>
+          </div>
+        </div>
 
+        <!-- Step 2: Residence Country -->
+        <div *ngIf="currentStep === 2">
+          <h2 class="step-title">{{ 'ONBOARDING.TUTOR_OB.STEP2_TITLE' | translate }}</h2>
+          <p class="step-description">{{ 'ONBOARDING.TUTOR_OB.STEP2_SUBTITLE' | translate }}</p>
+
+          <div class="form-fields">
             <div class="form-field">
-              <label>Where do you currently reside? *</label>
-              <p class="field-hint">This determines your available payout methods</p>
+              <label>{{ 'ONBOARDING.TUTOR_OB.STEP2_COUNTRY_LABEL' | translate }}</label>
+              <p class="field-hint">{{ 'ONBOARDING.TUTOR_OB.STEP2_COUNTRY_HINT' | translate }}</p>
               <button 
                 class="country-select-button"
                 (click)="openResidenceCountryModal()">
@@ -194,7 +465,7 @@
                   <span>{{ residenceCountry }}</span>
                 </span>
                 <ng-template #noResidence>
-                  Select your country of residence
+                  {{ 'ONBOARDING.TUTOR_OB.STEP2_COUNTRY_PLACEHOLDER' | translate }}
                 </ng-template>
                 <ion-icon name="chevron-down"></ion-icon>
               </button>
@@ -202,13 +473,10 @@
           </div>
         </div>
 
-        <!-- Step 2: Native Language -->
-        <div *ngIf="currentStep === 2">
-          <div class="step-icon-circle">
-            <ion-icon name="language"></ion-icon>
-          </div>
-          <h2 class="step-title">What's your native language?</h2>
-          <p class="step-description">We'll provide feedback in your language</p>
+        <!-- Step 3: Native Language -->
+        <div *ngIf="currentStep === 3">
+          <h2 class="step-title">{{ 'ONBOARDING.TUTOR_OB.STEP3_TITLE' | translate }}</h2>
+          <p class="step-description">{{ 'ONBOARDING.TUTOR_OB.STEP3_SUBTITLE' | translate }}</p>
 
           <div class="language-grid">
             <button 
@@ -222,13 +490,10 @@
           </div>
         </div>
 
-        <!-- Step 3: Languages -->
-        <div *ngIf="currentStep === 3">
-          <div class="step-icon-circle">
-            <ion-icon name="globe"></ion-icon>
-          </div>
-          <h2 class="step-title">What language do you teach?</h2>
-          <p class="step-description">Select the language you're most comfortable teaching</p>
+        <!-- Step 4: Languages -->
+        <div *ngIf="currentStep === 4">
+          <h2 class="step-title">{{ 'ONBOARDING.TUTOR_OB.STEP4_TITLE' | translate }}</h2>
+          <p class="step-description">{{ 'ONBOARDING.TUTOR_OB.STEP4_SUBTITLE' | translate }}</p>
 
           <div class="options-grid">
             <button 
@@ -241,81 +506,124 @@
           </div>
         </div>
 
-        <!-- Step 4: Experience -->
-        <div *ngIf="currentStep === 4">
-          <div class="step-icon-circle">
-            <ion-icon name="school"></ion-icon>
-          </div>
-          <h2 class="step-title">What's your teaching experience?</h2>
-          <p class="step-description">Help students understand your background</p>
+        <!-- Step 5: Experience -->
+        <div *ngIf="currentStep === 5" class="experience-step">
+          <h2 class="step-title">{{ 'ONBOARDING.TUTOR_OB.STEP5_TITLE' | translate }}</h2>
+          <p class="step-description">{{ 'ONBOARDING.TUTOR_OB.STEP5_SUBTITLE' | translate }}</p>
 
-          <div class="options-list">
+          <div class="options-list experience-options">
             <button 
               *ngFor="let experience of experienceLevels"
               class="option-button-block"
-              [class.selected]="selectedExperience === experience"
-              (click)="setExperience(experience)">
-              {{ experience }}
+              [class.selected]="selectedExperience === experience.value"
+              (click)="setExperience(experience.value)">
+              {{ experience.key | translate }}
             </button>
           </div>
         </div>
 
-        <!-- Step 5: Availability -->
-        <div *ngIf="currentStep === 5">
-          <div class="step-icon-circle">
-            <ion-icon name="calendar"></ion-icon>
-          </div>
-          <h2 class="step-title">When are you available?</h2>
-          <p class="step-description">Let students know your teaching schedule</p>
+        <!-- Step 6: Availability -->
+        <div *ngIf="currentStep === 6" class="availability-step">
+          <h2 class="step-title">{{ 'ONBOARDING.TUTOR_OB.STEP6_TITLE' | translate }}</h2>
+          <p class="step-description">{{ 'ONBOARDING.TUTOR_OB.STEP6_SUBTITLE' | translate }}</p>
 
-          <div class="options-list">
+          <div class="options-list availability-options">
             <button 
               *ngFor="let schedule of scheduleOptions"
               class="option-button-block"
-              [class.selected]="selectedSchedule === schedule"
-              (click)="setSchedule(schedule)">
-              {{ schedule }}
+              [class.selected]="selectedSchedule === schedule.value"
+              (click)="setSchedule(schedule.value)">
+              {{ schedule.key | translate }}
             </button>
           </div>
         </div>
 
-        <!-- Step 6: Profile Setup -->
-        <div *ngIf="currentStep === 6">
-          <div class="step-icon-circle">
-            <ion-icon name="create"></ion-icon>
-          </div>
-          <h2 class="step-title">Complete your profile</h2>
-          <p class="step-description">Add some final details</p>
+        <!-- Step 7: Bio -->
+        <div *ngIf="currentStep === 7">
+          <h2 class="step-title">{{ 'ONBOARDING.TUTOR_OB.STEP7_TITLE' | translate }}</h2>
+          <p class="step-description">{{ 'ONBOARDING.TUTOR_OB.STEP7_SUBTITLE' | translate }}</p>
 
           <div class="form-fields">
             <div class="form-field">
-              <label>Bio</label>
-              <p class="field-note">This will be displayed on your profile page. Max 200 characters.</p>
+              <label>{{ 'ONBOARDING.TUTOR_OB.STEP7_SUMMARY_LABEL' | translate }} <span class="optional-label">({{ 'ONBOARDING.TUTOR_OB.STEP7_SUMMARY_OPTIONAL' | translate }})</span></label>
+              <p class="field-note">{{ 'ONBOARDING.TUTOR_OB.STEP7_SUMMARY_NOTE' | translate }}</p>
               <textarea 
-                [(ngModel)]="profileBio"
-                placeholder="Tell students about yourself..."
-                rows="4"
-                class="modern-textarea"></textarea>
+                #summaryInput
+                [(ngModel)]="profileSummary"
+                (blur)="formatSummaryOnBlur()"
+                [placeholder]="'ONBOARDING.TUTOR_OB.STEP7_SUMMARY_PLACEHOLDER' | translate"
+                rows="2"
+                maxlength="150"
+                class="modern-textarea summary-textarea"></textarea>
+              <div class="char-count">{{ profileSummary.length }}/150</div>
             </div>
-
+            
             <div class="form-field">
-              <label>Hourly Rate (USD) *</label>
-              <input 
-                type="number"
-                [(ngModel)]="hourlyRate"
-                placeholder="25"
-                class="modern-input">
-              <p class="field-note">For 50-minute lessons. 25-min lessons are 50% of this rate.</p>
+              <label>{{ 'ONBOARDING.TUTOR_OB.STEP7_BIO_LABEL' | translate }}</label>
+              <p class="field-note">{{ 'ONBOARDING.TUTOR_OB.STEP7_BIO_NOTE' | translate }}</p>
+              <textarea 
+                #bioInput
+                [(ngModel)]="profileBio"
+                (blur)="formatBioOnBlur()"
+                [placeholder]="'ONBOARDING.TUTOR_OB.STEP7_BIO_PLACEHOLDER' | translate"
+                rows="4"
+                maxlength="200"
+                class="modern-textarea"></textarea>
+              <div class="char-count">{{ profileBio.length }}/200</div>
             </div>
+            
+            <p class="update-note">
+              <ion-icon name="information-circle-outline"></ion-icon>
+              {{ 'ONBOARDING.TUTOR_OB.STEP7_UPDATE_NOTE' | translate }}
+            </p>
+          </div>
+        </div>
 
-            <div class="video-section">
-              <h4>Introduction Video (optional for now)</h4>
-              <p class="video-description">Record a short video introducing yourself. Your profile will be hidden until your video is approved.</p>
+        <!-- Step 8: Hourly Rate -->
+        <div *ngIf="currentStep === 8" class="rate-step">
+          <h2 class="step-title">{{ 'ONBOARDING.TUTOR_OB.STEP8_TITLE' | translate }}</h2>
+          <p class="step-description">{{ 'ONBOARDING.TUTOR_OB.STEP8_SUBTITLE' | translate }}</p>
+
+          <div class="form-fields">
+            <div class="form-field rate-field">
+              <label>{{ 'ONBOARDING.TUTOR_OB.STEP8_RATE_LABEL' | translate }}</label>
+              <div class="rate-slider-container">
+                <ion-range
+                  [(ngModel)]="hourlyRate"
+                  [min]="10"
+                  [max]="200"
+                  [step]="5"
+                  [snaps]="true"
+                  [pin]="true"
+                  class="rate-slider">
+                </ion-range>
+                <div class="rate-display">
+                  <span class="rate-value">${{ hourlyRate }}</span>
+                  <span class="rate-note">{{ 'ONBOARDING.TUTOR_OB.STEP8_PER_HOUR' | translate }}</span>
+                </div>
+              </div>
+              <p class="field-note">{{ 'ONBOARDING.TUTOR_OB.STEP8_RATE_NOTE' | translate }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 9: Introduction Video -->
+        <div *ngIf="currentStep === 9">
+          <h2 class="step-title">{{ 'ONBOARDING.TUTOR_OB.STEP9_TITLE' | translate }}</h2>
+          <p class="step-description">{{ 'ONBOARDING.TUTOR_OB.STEP9_SUBTITLE' | translate }}</p>
+
+          <div class="form-fields">
+            <div class="form-field">
+              <p class="video-description">{{ 'ONBOARDING.TUTOR_OB.STEP9_VIDEO_NOTE' | translate }}</p>
               <app-video-upload
                 [videoUrl]="introductionVideo"
                 [thumbnailUrl]="thumbnailUrl"
+                [videoType]="videoType"
+                [enableModalPlayer]="true"
+                (thumbnailClick)="openVideoPlayerModal()"
                 (videoUploaded)="onVideoUploaded($event)"
-                (videoRemoved)="onVideoRemoved()">
+                (videoRemoved)="onVideoRemoved()"
+                (pendingStateChanged)="onVideoPendingStateChanged($event)">
               </app-video-upload>
             </div>
           </div>
@@ -324,29 +632,279 @@
       </div>
 
       <!-- Action Button - Outside scrollable container -->
-      <ion-button 
-        *ngIf="currentStep < totalSteps"
-        expand="block"
-        size="large"
-        class="primary-action"
-        [disabled]="!canProceed()"
-        (click)="nextStep()">
-        Continue
-        <ion-icon name="arrow-forward" slot="end"></ion-icon>
-      </ion-button>
+      <div class="action-button-wrapper">
+        <ion-button 
+          *ngIf="currentStep < totalSteps"
+          size="large"
+          class="primary-action"
+          [disabled]="!canProceed()"
+          (click)="nextStep()">
+          {{ 'ONBOARDING.NAV.CONTINUE' | translate }}
+          <ion-icon name="arrow-forward" slot="end"></ion-icon>
+        </ion-button>
+      </div>
 
-      <ion-button 
-        *ngIf="currentStep === totalSteps"
-        expand="block"
-        size="large"
-        color="success"
-        class="submit-action"
-        [disabled]="!canProceed()"
-        (click)="completeOnboarding()">
-        Complete Setup
-        <ion-icon name="checkmark" slot="end"></ion-icon>
-      </ion-button>
+      <div class="action-button-wrapper">
+        <ion-button 
+          *ngIf="currentStep === totalSteps"
+          size="large"
+          class="submit-action"
+          [disabled]="!canProceed()"
+          (click)="showPreviewPage()">
+          {{ 'ONBOARDING.NAV.DONE' | translate }}
+          <ion-icon name="checkmark" slot="end"></ion-icon>
+        </ion-button>
+      </div>
     </div>
 
   </div>
 </div>
+
+<!-- Preview Page -->
+<div class="preview-container" *ngIf="showPreview && !showWelcome">
+  <div class="preview-layout">
+    <!-- Left: Hero column -->
+    <div class="preview-hero-col">
+      <div class="preview-hero-inner">
+        <div class="preview-hero-badge">
+          <ion-icon name="checkmark-circle"></ion-icon>
+        </div>
+        <h1 class="preview-hero-title">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_TITLE' | translate }}</h1>
+        <p class="preview-hero-subtitle">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_SUBTITLE' | translate }}</p>
+
+        <div class="preview-hero-summary">
+          <div class="preview-summary-item">
+            <span class="summary-emoji">👋</span>
+            <span class="summary-text">{{ firstName }} {{ lastName }}</span>
+          </div>
+          <div class="preview-summary-item">
+            <span class="summary-emoji">🌍</span>
+            <span class="summary-text">{{ previewSelectedLanguages }}</span>
+          </div>
+          <div class="preview-summary-item">
+            <span class="summary-emoji">💰</span>
+            <span class="summary-text">${{ hourlyRate }}/hr</span>
+          </div>
+        </div>
+
+        <div class="preview-hero-actions">
+          <ion-button
+            expand="block"
+            class="submit-action"
+            [disabled]="isSubmitting"
+            (click)="completeOnboarding()">
+            <ion-spinner *ngIf="isSubmitting" name="crescent" class="btn-spinner"></ion-spinner>
+            <span *ngIf="!isSubmitting">{{ 'ONBOARDING.NAV.COMPLETE_SETUP' | translate }}</span>
+            <ion-icon *ngIf="!isSubmitting" name="checkmark-circle" slot="end"></ion-icon>
+          </ion-button>
+          <button class="preview-back-btn" (click)="goBackToEdit()">
+            <ion-icon name="chevron-back"></ion-icon>
+            {{ 'ONBOARDING.NAV.GO_BACK' | translate }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Details column -->
+    <div class="preview-details-col">
+      <div class="preview-detail-card">
+        <div class="preview-detail-header">
+          <div class="preview-detail-icon">
+            <ion-icon name="person"></ion-icon>
+          </div>
+          <h3>{{ 'ONBOARDING.TUTOR_OB.PREVIEW_PERSONAL' | translate }}</h3>
+          <button class="edit-link" (click)="goBackToEdit(1)">{{ 'ONBOARDING.NAV.EDIT' | translate }}</button>
+        </div>
+        <div class="preview-detail-rows">
+          <div class="preview-detail-row">
+            <span class="detail-label">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_NAME' | translate }}</span>
+            <span class="detail-value">{{ firstName }} {{ lastName }}</span>
+          </div>
+          <div class="preview-detail-row">
+            <span class="detail-label">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_FROM' | translate }}</span>
+            <span class="detail-value">{{ country }}</span>
+          </div>
+          <div class="preview-detail-row">
+            <span class="detail-label">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_RESIDES' | translate }}</span>
+            <span class="detail-value">{{ residenceCountry }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="preview-detail-card">
+        <div class="preview-detail-header">
+          <div class="preview-detail-icon">
+            <ion-icon name="school"></ion-icon>
+          </div>
+          <h3>{{ 'ONBOARDING.TUTOR_OB.PREVIEW_TEACHING' | translate }}</h3>
+          <button class="edit-link" (click)="goBackToEdit(3)">{{ 'ONBOARDING.NAV.EDIT' | translate }}</button>
+        </div>
+        <div class="preview-detail-rows">
+          <div class="preview-detail-row">
+            <span class="detail-label">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_NATIVE_LANG' | translate }}</span>
+            <span class="detail-value">{{ previewNativeLanguageName }}</span>
+          </div>
+          <div class="preview-detail-row">
+            <span class="detail-label">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_TEACHES' | translate }}</span>
+            <span class="detail-value">{{ previewSelectedLanguages }}</span>
+          </div>
+          <div class="preview-detail-row">
+            <span class="detail-label">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_EXPERIENCE' | translate }}</span>
+            <span class="detail-value">{{ translatedExperience }}</span>
+          </div>
+          <div class="preview-detail-row">
+            <span class="detail-label">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_AVAILABILITY' | translate }}</span>
+            <span class="detail-value">{{ translatedSchedule }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="preview-detail-card">
+        <div class="preview-detail-header">
+          <div class="preview-detail-icon">
+            <ion-icon name="create"></ion-icon>
+          </div>
+          <h3>{{ 'ONBOARDING.TUTOR_OB.PREVIEW_PROFILE' | translate }}</h3>
+          <button class="edit-link" (click)="goBackToEdit(7)">{{ 'ONBOARDING.NAV.EDIT' | translate }}</button>
+        </div>
+        <div class="preview-detail-rows">
+          <div class="preview-detail-row" *ngIf="profileSummary">
+            <span class="detail-label">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_SUMMARY' | translate }}</span>
+            <span class="detail-value">{{ profileSummary }}</span>
+          </div>
+          <div class="preview-detail-row">
+            <span class="detail-label">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_BIO' | translate }}</span>
+            <span class="detail-value">{{ profileBio }}</span>
+          </div>
+          <div class="preview-detail-row">
+            <span class="detail-label">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_RATE' | translate }}</span>
+            <span class="detail-value">${{ hourlyRate }}/hr</span>
+          </div>
+          <div class="preview-detail-row" *ngIf="introductionVideo">
+            <span class="detail-label">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_VIDEO' | translate }}</span>
+            <span class="detail-value video-badge">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_UPLOADED' | translate }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Welcome / Congrats Page -->
+<div class="success-page" *ngIf="showWelcome">
+  <!-- Confetti Dots (decorative) -->
+  <div class="confetti-container" aria-hidden="true">
+    <span class="dot dot-1"></span>
+    <span class="dot dot-2"></span>
+    <span class="dot dot-3"></span>
+    <span class="dot dot-4"></span>
+    <span class="dot dot-5"></span>
+    <span class="dot dot-6"></span>
+    <span class="dot dot-7"></span>
+    <span class="dot dot-8"></span>
+  </div>
+
+  <div class="success-inner">
+    <!-- Hero Section -->
+    <div class="hero-section">
+      <div class="hero-check">
+        <ion-icon name="checkmark-sharp"></ion-icon>
+      </div>
+      <h1 class="hero-title">{{ 'ONBOARDING.TUTOR_OB.SUCCESS_TITLE' | translate:{ name: firstName } }}</h1>
+      <p class="hero-subtitle">{{ 'ONBOARDING.TUTOR_OB.SUCCESS_SUBTITLE' | translate }}</p>
+    </div>
+
+    <!-- Highlights Card -->
+    <div class="highlights-card">
+      <div class="detail-rows">
+        <div class="detail-row">
+          <div class="detail-icon-wrap success-icon">
+            <ion-icon name="checkmark-circle"></ion-icon>
+          </div>
+          <div class="detail-text">
+            <span class="detail-value">{{ 'ONBOARDING.TUTOR_OB.SUCCESS_PROFILE_CREATED' | translate }}</span>
+          </div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-icon-wrap success-icon">
+            <ion-icon name="checkmark-circle"></ion-icon>
+          </div>
+          <div class="detail-text">
+            <span class="detail-value">{{ 'ONBOARDING.TUTOR_OB.SUCCESS_READY_BOOKINGS' | translate }}</span>
+          </div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-icon-wrap success-icon">
+            <ion-icon name="checkmark-circle"></ion-icon>
+          </div>
+          <div class="detail-text">
+            <span class="detail-value">{{ 'ONBOARDING.TUTOR_OB.SUCCESS_COMMUNITY' | translate }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Info Note -->
+    <div class="info-note">
+      <ion-icon name="sparkles-outline"></ion-icon>
+      <span>{{ 'ONBOARDING.TUTOR_OB.SUCCESS_NOTE' | translate }}</span>
+    </div>
+
+    <!-- CTA -->
+    <button class="done-btn" (click)="navigateToHome()">
+      {{ 'ONBOARDING.NAV.GO_TO_DASHBOARD' | translate }}
+    </button>
+  </div>
+</div>
+
+<!-- Video Player Modal -->
+<ion-modal 
+  [isOpen]="isVideoPlayerModalOpen" 
+  (didDismiss)="onVideoPlayerModalDismiss()"
+  cssClass="video-player-modal">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>{{ 'ONBOARDING.TUTOR_OB.VIDEO_MODAL_TITLE' | translate }}</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="isVideoPlayerModalOpen = false">
+            <ion-icon name="close" slot="icon-only"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content class="video-player-content">
+      <div class="video-player-container" *ngIf="videoPlayerData">
+        <!-- YouTube Video -->
+        <iframe 
+          *ngIf="videoPlayerData.videoType === 'youtube'"
+          [src]="videoPlayerData.safeVideoUrl"
+          frameborder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen
+          class="video-iframe">
+        </iframe>
+        
+        <!-- Vimeo Video -->
+        <iframe 
+          *ngIf="videoPlayerData.videoType === 'vimeo'"
+          [src]="videoPlayerData.safeVideoUrl"
+          frameborder="0"
+          allow="autoplay; fullscreen; picture-in-picture"
+          allowfullscreen
+          class="video-iframe">
+        </iframe>
+        
+        <!-- Uploaded Video -->
+        <video
+          *ngIf="videoPlayerData.videoType === 'upload'"
+          [src]="videoPlayerData.videoUrl"
+          controls
+          playsinline
+          (loadeddata)="onVideoReady($event)"
+          class="video-player">
+        </video>
+      </div>
+    </ion-content>
+  </ng-template>
+</ion-modal>

@@ -19,18 +19,34 @@ const autoReleaseLessonPayments = require('./jobs/autoReleaseLessonPayments');
 const { processPayPalPayouts } = require('./jobs/processPayPalPayouts');
 const { processWithdrawals } = require('./jobs/processWithdrawals');
 const { reconcilePayments } = require('./jobs/reconcilePayments');
-const { releaseEarnings } = require('./jobs/releaseEarnings'); // NEW: Release tutor earnings
+const { releaseEarnings } = require('./jobs/releaseEarnings');
+const { checkMaterialAvailability } = require('./jobs/checkMaterialAvailability');
 const { initializeAudioCronJobs } = require('./cron/audioBackupCron');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:8100',
-    methods: ['GET', 'POST'],
-    credentials: true
-  }
-});
+
+const allowedOrigins = [
+  process.env.CORS_ORIGIN || 'http://localhost:8100',
+  'http://localhost:8100',
+  'capacitor://localhost',
+  'http://localhost'
+].filter(Boolean);
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log('CORS blocked origin:', origin);
+      callback(null, true);
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  credentials: true
+};
+
+const io = new Server(server, { cors: corsOptions });
 const PORT = process.env.PORT || 3000;
 
 // Health check route for Render - MUST be first, before any middleware
@@ -46,11 +62,8 @@ app.get('/health', (req, res) => {
 // Middleware
 app.use(helmet());
 app.use(morgan('combined'));
-app.use(cookieParser()); // Add cookie parser middleware
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:8100',
-  credentials: true
-}));
+app.use(cookieParser());
+app.use(cors(corsOptions));
 
 // IMPORTANT: Skip JSON/URL parsing for file upload routes
 // Multer handles multipart/form-data, express.json() should not touch it
@@ -120,9 +133,16 @@ app.use('/api/withdrawals', withdrawalRoutes); // NEW: Withdrawal system
 app.use('/api/disputes', require('./routes/disputes')); // Dispute system
 app.use('/api/admin', require('./routes/admin')); // Admin routes
 app.use('/api/transcription', require('./routes/transcription'));
+app.use('/api/materials', require('./routes/materials'));
+app.use('/api/auth', require('./routes/youtubeAuth'));
+app.use('/api/auth', require('./routes/vimeoAuth'));
+app.use('/api/auth', require('./routes/googleCalendarAuth'));
+app.use('/api', require('./routes/googleCalendarAuth')); // Mounts /api/webhooks/google-calendar
 app.use('/api/analysis', require('./routes/analysis'));
 app.use('/api/tutor-feedback', require('./routes/tutorFeedback'));
 app.use('/api/review-deck', require('./routes/review-deck'));
+app.use('/api/vocabulary', require('./routes/vocabulary'));
+app.use('/api/learning-plan', require('./routes/learningPlan'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -286,16 +306,28 @@ io.on('connection', async (socket) => {
         messagePayload.replyTo = savedMessage.replyTo;
       }
 
-      // Emit to sender (confirmation)
+      // Emit to sender (confirmation) - send to all sender's tabs
       socket.emit('message_sent', messagePayload);
+      // Also emit to sender's room so other tabs get the message
+      socket.to(`user:${userId}`).emit('new_message', messagePayload);
 
-      // Emit to receiver if online
-      const receiverSocketId = connectedUsers.get(receiverId);
-      if (receiverSocketId) {
-        console.log('📤 Sending message to receiver:', receiverId);
-        io.to(receiverSocketId).emit('new_message', messagePayload);
+      // Emit to receiver using room (reaches ALL of receiver's tabs/sockets)
+      const receiverRoom = `user:${receiverId}`;
+      const receiverSockets = io.sockets.adapter.rooms.get(receiverRoom);
+      const receiverSocketCount = receiverSockets ? receiverSockets.size : 0;
+      
+      console.log('📤 Sending message to receiver room:', {
+        receiverId,
+        receiverRoom,
+        receiverSocketCount,
+        connectedUsersCount: connectedUsers.size
+      });
+      
+      if (receiverSocketCount > 0) {
+        console.log(`✅ Sending message to ${receiverSocketCount} socket(s) in room: ${receiverRoom}`);
+        io.to(receiverRoom).emit('new_message', messagePayload);
       } else {
-        console.log('⚠️ Receiver not online:', receiverId);
+        console.log('⚠️ Receiver not online - message saved but not delivered in real-time:', receiverId);
       }
     } catch (error) {
       console.error('❌ Error sending message via socket:', error);
@@ -304,16 +336,14 @@ io.on('connection', async (socket) => {
     }
   });
 
-  // Handle typing indicator
+  // Handle typing indicator - emit to room (all of receiver's tabs)
   socket.on('typing', (data) => {
     const { receiverId, isTyping } = data;
-    const receiverSocketId = connectedUsers.get(receiverId);
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit('user_typing', {
-        userId,
-        isTyping
-      });
-    }
+    const receiverRoom = `user:${receiverId}`;
+    io.to(receiverRoom).emit('user_typing', {
+      userId,
+      isTyping
+    });
   });
 
   // Handle disconnect
@@ -369,9 +399,9 @@ server.listen(PORT, '0.0.0.0', () => {
   });
   console.log('⏰ Cron job started: Auto-cancel classes (every 10 minutes)');
   
-  // Start background job to release authorized payments for class no-shows
-  // Runs every hour at minute 5
-  cron.schedule('5 * * * *', () => {
+  // Start background job to finalize classes (refund no-shows, release payments)
+  // Runs every 10 minutes to quickly catch classes that didn't happen
+  cron.schedule('*/10 * * * *', () => {
     autoReleaseClassPayments().catch(err => {
       console.error('❌ [Cron] Error in autoReleaseClassPayments:', err);
     });
@@ -405,15 +435,15 @@ server.listen(PORT, '0.0.0.0', () => {
   });
   console.log('⏰ Cron job started: Process withdrawals (every 5 minutes)');
   
-  // NEW: Release Tutor Earnings (20 minutes past the hour)
-  // Moves earnings from pending to available after 24hr hold period
-  // TODO: Change back to '20 * * * *' for production (every hour at :20)
+  // Release Tutor Earnings
+  // Moves earnings from pending to available after 1-hour hold period
+  // Runs every 5 minutes to catch newly eligible payments promptly
   cron.schedule('*/5 * * * *', () => {
     releaseEarnings(io).catch(err => {
       console.error('❌ [Cron] Error in releaseEarnings:', err);
     });
   });
-  console.log('⏰ Cron job started: Release tutor earnings (every 5 MINUTES - testing)');
+  console.log('⏰ Cron job started: Release tutor earnings (every 5 minutes)');
   
   // Start background job to reconcile payments (check DB vs Stripe sync)
   // Runs nightly at 2:00 AM
@@ -424,6 +454,43 @@ server.listen(PORT, '0.0.0.0', () => {
   });
   console.log('⏰ Cron job started: Reconcile payments (daily at 2 AM)');
   
+  // Check material video availability every 6 hours
+  cron.schedule('0 */6 * * *', () => {
+    checkMaterialAvailability().catch(err => {
+      console.error('❌ [Cron] Error in checkMaterialAvailability:', err);
+    });
+  });
+  console.log('⏰ Cron job started: Check material availability (every 6 hours)');
+
+  // Renew expiring Google Calendar watch channels every 12 hours
+  const gcalRoutes = require('./routes/googleCalendarAuth');
+  cron.schedule('0 */12 * * *', async () => {
+    if (!process.env.BACKEND_PUBLIC_URL) return;
+    console.log('[GCal Cron] Checking for expiring watch channels...');
+    try {
+      const User = require('./models/User');
+      const cutoff = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      const users = await User.find({
+        'googleCalendar.connected': true,
+        'googleCalendar.watchExpiration': { $lt: cutoff, $ne: null }
+      }).select('_id googleCalendar.watchChannelId');
+
+      console.log(`[GCal Cron] Found ${users.length} channels to renew`);
+      for (const user of users) {
+        try {
+          await gcalRoutes.stopWatch(user._id);
+          await gcalRoutes.registerWatch(user._id);
+          console.log(`[GCal Cron] Renewed watch for user ${user._id}`);
+        } catch (err) {
+          console.error(`[GCal Cron] Failed to renew for user ${user._id}:`, err.message);
+        }
+      }
+    } catch (err) {
+      console.error('[GCal Cron] Error in watch renewal job:', err.message);
+    }
+  });
+  console.log('⏰ Cron job started: Google Calendar watch renewal (every 12 hours)');
+
   // Initialize audio backup and retry cron jobs
   initializeAudioCronJobs();
   console.log('✅ Audio backup system initialized');

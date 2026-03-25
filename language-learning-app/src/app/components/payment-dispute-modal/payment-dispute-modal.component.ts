@@ -1,6 +1,8 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { ModalController } from '@ionic/angular';
 import { HttpClient } from '@angular/common/http';
+import { UserService } from '../../services/user.service';
+import { formatTimeInTz, formatDateInTz } from '../../shared/timezone.utils';
 import { environment } from '../../../environments/environment';
 
 @Component({
@@ -21,8 +23,13 @@ export class PaymentDisputeModalComponent implements OnInit {
   
   constructor(
     private modalController: ModalController,
-    private http: HttpClient
+    private http: HttpClient,
+    private userService: UserService
   ) {}
+
+  private get userTz(): string | undefined {
+    return this.userService.getCurrentUserValue()?.profile?.timezone || undefined;
+  }
   
   ngOnInit() {
     console.log('💼 Dispute modal opened with notification:', this.notification);
@@ -178,13 +185,13 @@ export class PaymentDisputeModalComponent implements OnInit {
   formatDate(date: string | Date): string {
     if (!date) return '';
     const d = new Date(date);
-    return d.toLocaleDateString(undefined, {
+    const dateStr = formatDateInTz(d, this.userTz, {
       month: 'short',
       day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit'
+      year: 'numeric'
     });
+    const timeStr = formatTimeInTz(d, this.userTz);
+    return `${dateStr}, ${timeStr}`;
   }
   
   formatLessonDateTime(): string {
@@ -199,26 +206,18 @@ export class PaymentDisputeModalComponent implements OnInit {
     const end = endTime ? new Date(endTime) : null;
     
     // Format date
-    const dateStr = start.toLocaleDateString(undefined, {
+    const dateStr = formatDateInTz(start, this.userTz, {
       month: 'short',
       day: 'numeric',
       year: 'numeric'
     });
     
     // Format start time
-    const startTimeStr = start.toLocaleTimeString(undefined, {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
+    const startTimeStr = formatTimeInTz(start, this.userTz);
     
     // Format end time if available
     if (end) {
-      const endTimeStr = end.toLocaleTimeString(undefined, {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-      });
+      const endTimeStr = formatTimeInTz(end, this.userTz);
       return `${dateStr}, ${startTimeStr} - ${endTimeStr}`;
     }
     

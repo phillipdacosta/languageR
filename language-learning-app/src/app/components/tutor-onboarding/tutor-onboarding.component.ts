@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { IonicModule, LoadingController, AlertController, ToastController, ModalController } from '@ionic/angular';
 import { Router } from '@angular/router';
 import { UserService } from '../../services/user.service';
@@ -9,6 +10,8 @@ import { firstValueFrom } from 'rxjs';
 import { SharedModule } from '../../shared/shared.module';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { PayoutSelectionModalComponent } from '../payout-selection-modal/payout-selection-modal.component';
+import { FileUploadService } from '../../services/file-upload.service';
+import { ImageCropperComponent } from '../image-cropper/image-cropper.component';
 
 interface OnboardingStep {
   id: string;
@@ -24,7 +27,7 @@ interface OnboardingStep {
   templateUrl: './tutor-onboarding.component.html',
   styleUrls: ['./tutor-onboarding.component.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, SharedModule]
+  imports: [CommonModule, FormsModule, IonicModule, SharedModule]
 })
 export class TutorOnboardingComponent implements OnInit {
   currentUser: any = null;
@@ -53,19 +56,56 @@ export class TutorOnboardingComponent implements OnInit {
       action: 'upload-video'
     },
     {
+      id: 'credentials',
+      title: 'Upload Credentials',
+      description: 'Verify your identity and teaching qualifications',
+      completed: false,
+      icon: 'shield-checkmark',
+      action: 'upload-credentials'
+    },
+    {
       id: 'stripe',
       title: 'Connect Bank Account',
       description: 'Set up payments to receive earnings',
       completed: false,
       icon: 'card',
       action: 'stripe-onboard'
+    },
+    {
+      id: 'tos',
+      title: 'Terms & Agreement',
+      description: 'Review and accept the terms of service',
+      completed: false,
+      icon: 'document-text',
+      action: 'accept-tos'
     }
   ];
+
+  // Credential upload state
+  uploadedCertifications: any[] = [];
+  uploadedAdditionalDocs: any[] = [];
+  governmentIdStatus: string = 'not_uploaded';
+  governmentIdStatusLabel: string = 'Not Uploaded';
+  certificationNameInput: string = '';
+  isUploadingCredential: boolean = false;
 
   // Video player modal
   isVideoPlayerModalOpen = false;
   isVideoPlaying = false;
   videoPlayerData: { videoUrl: string; safeVideoUrl: any; videoType: string } | null = null;
+
+  // Payment setup flow state
+  paymentSetupStep: 'tax-status' | 'bank-account' | 'setup-method' = 'tax-status';
+  isUSPersonForTax: boolean | null = null;
+  hasUSBankAccount: boolean | null = null;
+  determinedPayoutMethod: 'stripe' | 'paypal' | null = null;
+  paypalEmail = '';
+  paypalEmailError = '';
+
+  // TOS state
+  tosChecked = false;
+  tosAcceptedAt: Date | null = null;
+  isAcceptingTos = false;
 
   constructor(
     private userService: UserService,
@@ -75,7 +115,8 @@ export class TutorOnboardingComponent implements OnInit {
     private alertController: AlertController,
     private toastController: ToastController,
     private sanitizer: DomSanitizer,
-    private modalController: ModalController
+    private modalController: ModalController,
+    private fileUploadService: FileUploadService
   ) {}
 
   async ngOnInit() {
@@ -84,6 +125,17 @@ export class TutorOnboardingComponent implements OnInit {
       if (status) {
         this.approvalStatus = status;
         this.updateStepsFromStatus(status);
+      }
+    });
+
+    // Subscribe to user data changes (e.g. from WebSocket-triggered refreshes)
+    // This keeps credential lists in sync when admin approves/rejects
+    this.userService.currentUser$.subscribe(user => {
+      if (user && this.currentUser) {
+        this.currentUser = user;
+        const creds = user.tutorCredentials;
+        this.uploadedCertifications = creds?.teachingCertifications || [];
+        this.uploadedAdditionalDocs = creds?.additionalDocuments || [];
       }
     });
     
@@ -99,16 +151,29 @@ export class TutorOnboardingComponent implements OnInit {
   private updateStepsFromStatus(status: any) {
     this.steps[0].completed = status.photoComplete;
     this.steps[1].completed = status.videoApproved;
-    this.steps[2].completed = status.stripeComplete;
+    this.steps[2].completed = status.credentialsApproved;
+    this.steps[3].completed = status.stripeComplete;
+    this.steps[4].completed = status.tosComplete;
+    
+    // Update credential display state
+    this.governmentIdStatus = status.governmentIdApproved ? 'approved' 
+      : status.governmentIdRejected ? 'rejected'
+      : status.governmentIdUploaded ? 'pending' 
+      : 'not_uploaded';
+    this.governmentIdStatusLabel = this.governmentIdStatus === 'approved' ? 'Approved'
+      : this.governmentIdStatus === 'rejected' ? 'Rejected'
+      : this.governmentIdStatus === 'pending' ? 'Pending Review'
+      : 'Not Uploaded';
     
     console.log('📊 [TUTOR-APPROVAL] Updated steps from status:', {
       photo: status.photoComplete,
       video: status.videoApproved,
+      credentials: status.credentialsApproved,
       stripe: status.stripeComplete
     });
   }
 
-  async loadOnboardingStatus() {
+  async loadOnboardingStatus(autoAdvanceStep = true) {
     this.loading = true;
     try {
       // Force refresh from server, not cache
@@ -132,19 +197,62 @@ export class TutorOnboardingComponent implements OnInit {
       console.log('📹 [TUTOR-APPROVAL] Video approved:', user.tutorOnboarding?.videoApproved);
       console.log('📹 [TUTOR-APPROVAL] Video rejected:', user.tutorOnboarding?.videoRejected);
 
-      // Update step 3 title/description based on payout provider
+      // Load existing tax info if available
+      if (user.isUSPersonForTax !== null && user.isUSPersonForTax !== undefined) {
+        this.isUSPersonForTax = user.isUSPersonForTax;
+        console.log('📋 [TUTOR-APPROVAL] Loaded isUSPersonForTax:', this.isUSPersonForTax);
+      }
+      if (user.hasUSBankAccount !== null && user.hasUSBankAccount !== undefined) {
+        this.hasUSBankAccount = user.hasUSBankAccount;
+        console.log('📋 [TUTOR-APPROVAL] Loaded hasUSBankAccount:', this.hasUSBankAccount);
+      }
+      
+      // If tax info is already complete, skip to the appropriate step
+      if (this.isUSPersonForTax !== null) {
+        if (this.isUSPersonForTax === false) {
+          // Non-US person - skip to setup
+          this.determinedPayoutMethod = 'paypal';
+          this.paymentSetupStep = 'setup-method';
+        } else if (this.hasUSBankAccount !== null) {
+          // US person with bank status known
+          this.determinedPayoutMethod = this.hasUSBankAccount ? 'stripe' : 'paypal';
+          this.paymentSetupStep = 'setup-method';
+        } else {
+          // US person but bank status unknown
+          this.paymentSetupStep = 'bank-account';
+        }
+      }
+
+      // Load credential data
+      const creds = user.tutorCredentials;
+      this.uploadedCertifications = creds?.teachingCertifications || [];
+      this.uploadedAdditionalDocs = creds?.additionalDocuments || [];
+      
+      console.log('📄 [TUTOR-APPROVAL] Credentials loaded:', {
+        governmentId: creds?.governmentId?.status,
+        certifications: this.uploadedCertifications.length,
+        additionalDocs: this.uploadedAdditionalDocs.length
+      });
+
+      // Load TOS acceptance state
+      if (user.tosAcceptedAt) {
+        this.tosAcceptedAt = new Date(user.tosAcceptedAt);
+        this.tosChecked = true;
+      }
+
+      // Update step 4 title/description based on payout provider
       if (user.payoutProvider === 'paypal') {
-        this.steps[2].title = 'PayPal Connected';
-        this.steps[2].description = 'Receive earnings via PayPal';
+        this.steps[3].title = 'PayPal Connected';
+        this.steps[3].description = 'Receive earnings via PayPal';
       } else if (user.payoutProvider === 'manual') {
-        this.steps[2].title = 'Manual Payout Setup';
-        this.steps[2].description = 'Earnings will be processed manually';
+        this.steps[3].title = 'Manual Payout Setup';
+        this.steps[3].description = 'Earnings will be processed manually';
       } else if (user.stripeConnectOnboarded) {
-        this.steps[2].title = 'Stripe Connected';
-        this.steps[2].description = 'Receive earnings via Stripe';
+        this.steps[3].title = 'Stripe Connected';
+        this.steps[3].description = 'Receive earnings via Stripe';
       } else {
-        this.steps[2].title = 'Connect Bank Account';
-        this.steps[2].description = 'Set up payments to receive earnings';
+        this.steps[3].title = 'Connect Bank Account';
+        this.steps[3].description = 'Set up payments to receive earnings';
       }
 
       // Auto-fetch Vimeo thumbnail if missing
@@ -158,10 +266,13 @@ export class TutorOnboardingComponent implements OnInit {
       // The UserService will automatically update tutorApprovalStatus$
       // which we're subscribed to in ngOnInit, so no need to manually set steps here
 
-      // Set current step to first incomplete step
-      this.currentStepIndex = this.steps.findIndex(step => !step.completed);
-      if (this.currentStepIndex === -1) {
-        this.currentStepIndex = this.steps.length - 1; // All complete
+      // Only auto-advance to first incomplete step on initial load
+      // Don't change step when refreshing after an upload (user should stay on current step)
+      if (autoAdvanceStep) {
+        this.currentStepIndex = this.steps.findIndex(step => !step.completed);
+        if (this.currentStepIndex === -1) {
+          this.currentStepIndex = this.steps.length - 1; // All complete
+        }
       }
 
       console.log('📋 [TUTOR-APPROVAL] Current step index:', this.currentStepIndex);
@@ -234,12 +345,93 @@ export class TutorOnboardingComponent implements OnInit {
     }
   }
 
+  // Payment setup flow methods
+  setUSPersonStatus(isUSPerson: boolean) {
+    this.isUSPersonForTax = isUSPerson;
+  }
+
+  setUSBankStatus(hasUSBank: boolean) {
+    this.hasUSBankAccount = hasUSBank;
+  }
+
+  nextPaymentStep() {
+    if (this.paymentSetupStep === 'tax-status') {
+      if (this.isUSPersonForTax === false) {
+        // Non-US Person → PayPal
+        this.determinedPayoutMethod = 'paypal';
+        this.paymentSetupStep = 'setup-method';
+      } else {
+        // US Person → Ask about bank account
+        this.paymentSetupStep = 'bank-account';
+      }
+    } else if (this.paymentSetupStep === 'bank-account') {
+      // Determine payout method based on answers
+      if (this.hasUSBankAccount) {
+        // US Person + US Bank → Stripe
+        this.determinedPayoutMethod = 'stripe';
+      } else {
+        // US Person + No US Bank → PayPal
+        this.determinedPayoutMethod = 'paypal';
+      }
+      this.paymentSetupStep = 'setup-method';
+    }
+  }
+
+  previousPaymentStep() {
+    if (this.paymentSetupStep === 'bank-account') {
+      this.paymentSetupStep = 'tax-status';
+    } else if (this.paymentSetupStep === 'setup-method') {
+      if (this.isUSPersonForTax) {
+        this.paymentSetupStep = 'bank-account';
+      } else {
+        this.paymentSetupStep = 'tax-status';
+      }
+    }
+  }
+
+  editTaxInfo() {
+    this.paymentSetupStep = 'tax-status';
+    this.determinedPayoutMethod = null;
+  }
+
+  validatePayPalEmail() {
+    this.paypalEmailError = '';
+    
+    if (!this.paypalEmail.trim()) {
+      return;
+    }
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(this.paypalEmail.trim())) {
+      this.paypalEmailError = 'Please enter a valid email address';
+    }
+  }
+
+  canSetupPayment(): boolean {
+    if (this.determinedPayoutMethod === 'paypal') {
+      return this.paypalEmail.trim().length > 0 && !this.paypalEmailError;
+    }
+    return this.determinedPayoutMethod !== null;
+  }
+
+  async setupPaymentMethod() {
+    if (!this.canSetupPayment()) {
+      return;
+    }
+
+    if (this.determinedPayoutMethod === 'stripe') {
+      await this.setupStripeConnect(this.isUSPersonForTax, this.hasUSBankAccount);
+    } else if (this.determinedPayoutMethod === 'paypal') {
+      await this.setupPayPal(this.paypalEmail, this.isUSPersonForTax, this.hasUSBankAccount);
+    }
+  }
+
   async handleStepAction() {
     const step = this.currentStep;
 
     switch (step.action) {
       case 'upload-photo':
-        this.router.navigate(['/tabs/profile'], { queryParams: { action: 'upload-photo' } });
+        this.triggerPictureUpload();
         break;
       case 'upload-video':
         this.router.navigate(['/tabs/profile'], { queryParams: { action: 'upload-video' } });
@@ -247,6 +439,250 @@ export class TutorOnboardingComponent implements OnInit {
       case 'stripe-onboard':
         await this.startStripeOnboarding();
         break;
+      case 'accept-tos':
+        await this.acceptTos();
+        break;
+    }
+  }
+
+  async acceptTos() {
+    if (!this.tosChecked || this.isAcceptingTos) return;
+
+    this.isAcceptingTos = true;
+    const loading = await this.loadingController.create({
+      message: 'Saving...',
+      spinner: 'crescent'
+    });
+    await loading.present();
+
+    try {
+      const result = await firstValueFrom(this.userService.acceptTos('1.0'));
+      if (result?.success) {
+        this.tosAcceptedAt = new Date(result.tosAcceptedAt);
+        this.showToast('Terms accepted successfully!', 'success');
+        await this.loadOnboardingStatus(false);
+      } else {
+        this.showToast('Failed to accept terms', 'danger');
+      }
+    } catch (error: any) {
+      console.error('Error accepting TOS:', error);
+      this.showToast(error.error?.message || 'Failed to accept terms', 'danger');
+    } finally {
+      this.isAcceptingTos = false;
+      await loading.dismiss();
+    }
+  }
+
+  /**
+   * Trigger file picker for profile picture upload
+   */
+  triggerPictureUpload() {
+    const fileInput = document.getElementById('tutor-onboarding-photo-input') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.click();
+    } else {
+      console.error('❌ File input element not found in DOM');
+    }
+  }
+
+  /**
+   * Handle profile picture file selection
+   */
+  async onPictureSelected(event: any) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validate image
+    const validation = this.fileUploadService.validateImage(file);
+    if (!validation.valid) {
+      const alert = await this.alertController.create({
+        header: 'Invalid Image',
+        message: validation.error,
+        buttons: ['OK']
+      });
+      await alert.present();
+      // Reset file input
+      event.target.value = '';
+      return;
+    }
+
+    // Open cropper modal
+    const modal = await this.modalController.create({
+      component: ImageCropperComponent,
+      componentProps: {
+        imageChangedEvent: event
+      },
+      cssClass: 'image-cropper-modal'
+    });
+
+    await modal.present();
+
+    const { data, role } = await modal.onWillDismiss();
+
+    if (role === 'crop' && data) {
+      // Convert blob to file
+      const croppedFile = new File([data], file.name, { type: 'image/png' });
+      await this.uploadProfilePicture(croppedFile, event);
+    } else {
+      // Reset file input if cancelled
+      event.target.value = '';
+    }
+  }
+
+  /**
+   * Upload profile picture to server
+   */
+  async uploadProfilePicture(file: File, event: any) {
+    const loading = await this.loadingController.create({
+      message: 'Uploading image...',
+      spinner: 'crescent'
+    });
+    await loading.present();
+
+    try {
+      // Upload image using FileUploadService (handles headers correctly)
+      const uploadResult = await firstValueFrom(this.fileUploadService.uploadImage(file));
+      
+      if (uploadResult?.success && uploadResult?.imageUrl) {
+        // Update user picture in database
+        const updateResult = await firstValueFrom(this.userService.updatePicture(uploadResult.imageUrl));
+        
+        if (updateResult?.success) {
+          // Refresh onboarding status to update the photo step
+          await this.loadOnboardingStatus();
+          this.showToast('Profile photo uploaded successfully!', 'success');
+        } else {
+          this.showToast('Failed to update profile picture', 'danger');
+        }
+      } else {
+        this.showToast('Failed to upload image', 'danger');
+      }
+    } catch (error: any) {
+      console.error('Error uploading profile picture:', error);
+      this.showToast(error.error?.message || 'Failed to upload photo', 'danger');
+    } finally {
+      await loading.dismiss();
+      // Reset file input
+      event.target.value = '';
+    }
+  }
+
+  // ============================================================
+  // CREDENTIAL UPLOAD METHODS
+  // ============================================================
+
+  triggerCredentialUpload(type: 'governmentId' | 'certification' | 'additionalDocument') {
+    const inputId = type === 'governmentId' ? 'gov-id-input' 
+      : type === 'certification' ? 'cert-input'
+      : 'additional-doc-input';
+    const fileInput = document.getElementById(inputId) as HTMLInputElement;
+    if (fileInput) {
+      fileInput.click();
+    }
+  }
+
+  async onCredentialSelected(event: any, credentialType: 'governmentId' | 'teachingCertification' | 'additionalDocument') {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validate file
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      this.showToast('File is too large. Maximum size is 10MB.', 'danger');
+      event.target.value = '';
+      return;
+    }
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'application/pdf'];
+    if (!allowedTypes.includes(file.type)) {
+      this.showToast('Invalid file type. Please upload a JPG, PNG, or PDF.', 'danger');
+      event.target.value = '';
+      return;
+    }
+
+    this.isUploadingCredential = true;
+    const loading = await this.loadingController.create({
+      message: 'Uploading document...',
+      spinner: 'crescent'
+    });
+    await loading.present();
+
+    try {
+      const metadata: any = {};
+      if (credentialType === 'teachingCertification') {
+        metadata.certificationName = this.certificationNameInput || '';
+      }
+
+      const result = await firstValueFrom(
+        this.userService.uploadCredential(file, credentialType, metadata)
+      );
+
+      if (result?.success) {
+        this.showToast('Document uploaded successfully!', 'success');
+        this.certificationNameInput = ''; // Reset
+        // Refresh data but stay on credentials step (don't auto-advance)
+        await this.loadOnboardingStatus(false);
+      } else {
+        this.showToast('Failed to upload document', 'danger');
+      }
+    } catch (error: any) {
+      console.error('❌ Error uploading credential:', error);
+      this.showToast(error.error?.message || 'Failed to upload document', 'danger');
+    } finally {
+      this.isUploadingCredential = false;
+      await loading.dismiss();
+      event.target.value = '';
+    }
+  }
+
+  async onCertificationSelected(event: any) {
+    await this.onCredentialSelected(event, 'teachingCertification');
+  }
+
+  async onAdditionalDocSelected(event: any) {
+    await this.onCredentialSelected(event, 'additionalDocument');
+  }
+
+  async removeCredential(credentialType: 'governmentId' | 'teachingCertification' | 'additionalDocument', credentialId?: string) {
+    const alert = await this.alertController.create({
+      header: 'Remove Document',
+      message: 'Are you sure you want to remove this document?',
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Remove',
+          role: 'destructive',
+          handler: async () => {
+            try {
+              const result = await firstValueFrom(
+                this.userService.deleteCredential(credentialType, credentialId)
+              );
+              if (result?.success) {
+                this.showToast('Document removed', 'medium');
+                await this.loadOnboardingStatus();
+              }
+            } catch (error: any) {
+              console.error('❌ Error removing credential:', error);
+              this.showToast(error.error?.message || 'Failed to remove document', 'danger');
+            }
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  async removeCertification(index: number) {
+    const cert = this.uploadedCertifications[index];
+    if (cert?._id) {
+      await this.removeCredential('teachingCertification', cert._id);
+    }
+  }
+
+  async removeAdditionalDoc(index: number) {
+    const doc = this.uploadedAdditionalDocs[index];
+    if (doc?._id) {
+      await this.removeCredential('additionalDocument', doc._id);
     }
   }
 
@@ -267,23 +703,26 @@ export class TutorOnboardingComponent implements OnInit {
       return;
     }
 
-    console.log('🏦 [PAYMENT-SETUP] User selected:', data.provider);
+    console.log('🏦 [PAYMENT-SETUP] User selected:', data.provider, 'Tax info:', {
+      isUSPersonForTax: data.isUSPersonForTax,
+      hasUSBankAccount: data.hasUSBankAccount
+    });
 
-    // Handle based on selected provider
+    // Handle based on selected provider - pass tax info along
     switch (data.provider) {
       case 'stripe':
-        await this.setupStripeConnect();
+        await this.setupStripeConnect(data.isUSPersonForTax, data.hasUSBankAccount);
         break;
       case 'paypal':
-        await this.setupPayPal(data.paypalEmail);
+        await this.setupPayPal(data.paypalEmail, data.isUSPersonForTax, data.hasUSBankAccount);
         break;
       case 'manual':
-        await this.setupManualPayout();
+        await this.setupManualPayout(data.isUSPersonForTax, data.hasUSBankAccount);
         break;
     }
   }
 
-  private async setupStripeConnect() {
+  private async setupStripeConnect(isUSPersonForTax?: boolean | null, hasUSBankAccount?: boolean | null) {
     const loading = await this.loadingController.create({
       message: 'Setting up Stripe...'
     });
@@ -295,7 +734,7 @@ export class TutorOnboardingComponent implements OnInit {
       const response = await firstValueFrom(
         this.http.post<any>(
           `${environment.apiUrl}/payments/stripe-connect/onboard`,
-          {},
+          { isUSPersonForTax, hasUSBankAccount },
           { headers: this.userService.getAuthHeadersSync() }
         )
       );
@@ -397,10 +836,6 @@ export class TutorOnboardingComponent implements OnInit {
       position: 'top'
     });
     await toast.present();
-  }
-
-  goToProfileUploadPhoto() {
-    this.router.navigate(['/tabs/profile'], { queryParams: { action: 'upload-photo' } });
   }
 
   closeOnboarding() {
@@ -529,10 +964,17 @@ export class TutorOnboardingComponent implements OnInit {
     this.isVideoPlayerModalOpen = false;
     this.isVideoPlaying = false;
     this.videoPlayerData = null;
-    console.log('🎬 Closing video player modal');
   }
 
-  private async setupPayPal(paypalEmail: string) {
+  onVideoReady(event: Event) {
+    const video = event.target as HTMLVideoElement;
+    if (video) {
+      video.muted = false;
+      video.play().catch(() => {});
+    }
+  }
+
+  private async setupPayPal(paypalEmail: string, isUSPersonForTax?: boolean | null, hasUSBankAccount?: boolean | null) {
     const loading = await this.loadingController.create({
       message: 'Setting up PayPal...'
     });
@@ -542,7 +984,7 @@ export class TutorOnboardingComponent implements OnInit {
       const response = await firstValueFrom(
         this.http.post<any>(
           `${environment.apiUrl}/payments/setup-paypal`,
-          { paypalEmail },
+          { paypalEmail, isUSPersonForTax, hasUSBankAccount },
           { headers: this.userService.getAuthHeadersSync() }
         )
       );
@@ -562,7 +1004,7 @@ export class TutorOnboardingComponent implements OnInit {
     }
   }
 
-  private async setupManualPayout() {
+  private async setupManualPayout(isUSPersonForTax?: boolean | null, hasUSBankAccount?: boolean | null) {
     const alert = await this.alertController.create({
       header: 'Manual Bank Transfer',
       message: 'Your payout method has been set to manual bank transfer. You\'ll be able to request withdrawals from your earnings page, and our team will process them manually.',
@@ -583,7 +1025,7 @@ export class TutorOnboardingComponent implements OnInit {
               const response = await firstValueFrom(
                 this.http.post<any>(
                   `${environment.apiUrl}/payments/setup-manual`,
-                  {},
+                  { isUSPersonForTax, hasUSBankAccount },
                   { headers: this.userService.getAuthHeadersSync() }
                 )
               );

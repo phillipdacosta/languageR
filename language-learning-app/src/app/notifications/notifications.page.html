@@ -1,12 +1,3 @@
-<ion-header class="desktop-only-header">
-  <ion-toolbar>
-    <ion-buttons slot="start">
-      <ion-back-button defaultHref="/tabs/home"></ion-back-button>
-    </ion-buttons>
-    <ion-title>Notifications</ion-title>
-  </ion-toolbar>
-</ion-header>
-
 <ion-content class="notifications-content">
   <!-- Full-width sticky container -->
   <div class="sticky-full-width-container">
@@ -14,20 +5,28 @@
       <div class="notification-header">
         <div class="notification-header-left">
           <h2 class="notification-page-title">
-            Notifications
+            {{ 'NOTIFICATIONS.TITLE' | translate }}
             <span class="unread-count-badge" *ngIf="getUnreadNotifications().length > 0">
               {{ getUnreadNotifications().length }}
             </span>
           </h2>
         </div>
         <div class="notification-header-right">
+          <button
+            type="button"
+            class="filters-trigger-btn"
+            (click)="openFiltersModal()">
+            <ion-icon name="options-outline"></ion-icon>
+            <span>{{ 'NOTIFICATIONS.FILTERS' | translate }}</span>
+            <span class="filter-count" *ngIf="hasActiveNotificationFilters">{{ activeFilterLabel }}</span>
+          </button>
           <ion-button 
             [class.hidden]="getUnreadNotifications().length === 0"
             class="mark-all-read-btn" 
             fill="clear"
             (click)="markAllAsRead()">
             <ion-icon name="checkmark-done-outline" slot="start"></ion-icon>
-            Mark All as Read
+            {{ 'NOTIFICATIONS.MARK_ALL_READ' | translate }}
           </ion-button>
         </div>
       </div>
@@ -36,25 +35,10 @@
       <div class="notification-search-container">
         <ion-searchbar
           [(ngModel)]="searchTerm"
-          placeholder="Search notifications..."
+          [placeholder]="'NOTIFICATIONS.SEARCH_PLACEHOLDER' | translate"
           (ionInput)="onSearchInput($event)"
           class="notification-searchbar">
         </ion-searchbar>
-      </div>
-
-      <!-- Filter Checkboxes -->
-      <div class="notification-filters">
-        <div 
-          *ngFor="let filter of filters"
-          class="filter-checkbox-item"
-          (click)="toggleFilter(filter.value)">
-          <ion-checkbox 
-            [checked]="isFilterActive(filter.value)"
-            mode="ios"
-            class="filter-checkbox">
-          </ion-checkbox>
-          <span class="filter-label">{{ filter.label }}</span>
-        </div>
       </div>
     </div>
   </div>
@@ -65,7 +49,7 @@
     <div class="notification-section" *ngIf="isLoading">
       <div class="notification-loading">
         <ion-spinner name="crescent"></ion-spinner>
-        <p>Loading notifications...</p>
+        <p>{{ 'NOTIFICATIONS.LOADING' | translate }}</p>
       </div>
     </div>
 
@@ -73,7 +57,8 @@
     <ng-container *ngIf="!isLoading">
       <!-- Today Section -->
       <div class="notification-section" *ngIf="getTodayNotifications().length > 0">
-        <h2 class="notification-section-title">Today</h2>
+        <div class="section-divider"></div>
+        <h2 class="notification-section-title">{{ 'NOTIFICATIONS.TODAY' | translate }}</h2>
         <div class="notification-list">
           <div
             class="notification-item"
@@ -89,7 +74,7 @@
                 class="notification-avatar" />
               <!-- System notifications (video approved, etc) -->
               <div *ngIf="!notification.relatedUserPicture && isSystemNotification(notification.type)" class="notification-icon-wrapper system-notification">
-                <img src="assets/app-icon.png" alt="App icon" class="app-logo-img" />
+                <img src="assets/icons-app-bird-2.png" alt="App icon" class="app-logo-img" />
               </div>
               <!-- Money notifications (earnings) -->
               <div *ngIf="!notification.relatedUserPicture && isMoneyNotification(notification.type)" class="notification-icon-wrapper payment-icon">
@@ -105,27 +90,35 @@
             </div>
             <div class="notification-item-content">
               <p class="notification-text" [innerHTML]="notification.sanitizedMessage"></p>
+              <!-- Add Availability Button for tutor_video_approved notifications -->
+              <button 
+                *ngIf="notification.type === 'tutor_video_approved' && notification.data?.hasActionButton"
+                class="add-availability-btn"
+                (click)="navigateToTutorCalendar(); $event.stopPropagation()">
+                <ion-icon name="calendar-outline"></ion-icon>
+                {{ 'NOTIFICATIONS.ADD_AVAILABILITY' | translate }}
+              </button>
+              <!-- View Progress Button for progress_milestone notifications -->
+              <button 
+                *ngIf="notification.type === 'progress_milestone' && notification.data?.hasActionButton"
+                class="add-availability-btn milestone-btn"
+                (click)="navigateToProgress(); $event.stopPropagation()">
+                <ion-icon name="trophy-outline"></ion-icon>
+                {{ 'NOTIFICATIONS.VIEW_PROGRESS' | translate }}
+              </button>
             </div>
             <div class="notification-item-right">
               <span class="notification-time-inline">{{ notification.formattedTime }}</span>
               <!-- Dispute Button for payment_cancelled notifications -->
               <ion-button 
-                *ngIf="notification.type === 'payment_cancelled' || notification.type === 'payment_reduced'"
+                *ngIf="(notification.type === 'payment_cancelled' || notification.type === 'payment_reduced') && notification.data?.canDispute && !notification.data?.disputed"
                 class="dispute-button"
                 fill="clear"
                 size="small"
                 (click)="openDisputeModal(notification, $event)">
                 <ion-icon name="alert-circle-outline" slot="start"></ion-icon>
-                Dispute
+                {{ 'NOTIFICATIONS.DISPUTE' | translate }}
               </ion-button>
-              <!-- Contextual icon on the right -->
-              <ion-icon 
-                *ngIf="getContextualIcon(notification.type)" 
-                [name]="getContextualIcon(notification.type)" 
-                [class]="getContextualIconClass(notification.type)">
-              </ion-icon>
-              <!-- Celebrate emoji for system notifications -->
-              <span *ngIf="isSystemNotification(notification.type)" class="celebrate-emoji-right">🎉</span>
             </div>
           </div>
         </div>
@@ -133,7 +126,8 @@
 
       <!-- Yesterday Section -->
       <div class="notification-section" *ngIf="getYesterdayNotifications().length > 0">
-        <h2 class="notification-section-title">Yesterday</h2>
+        <div class="section-divider"></div>
+        <h2 class="notification-section-title">{{ 'NOTIFICATIONS.YESTERDAY' | translate }}</h2>
         <div class="notification-list">
           <div
             class="notification-item"
@@ -149,7 +143,7 @@
                 class="notification-avatar" />
               <!-- System notifications (video approved, etc) -->
               <div *ngIf="!notification.relatedUserPicture && isSystemNotification(notification.type)" class="notification-icon-wrapper system-notification">
-                <img src="assets/app-icon.png" alt="App icon" class="app-logo-img" />
+                <img src="assets/icons-app-bird-2.png" alt="App icon" class="app-logo-img" />
               </div>
               <!-- Money notifications (earnings) -->
               <div *ngIf="!notification.relatedUserPicture && isMoneyNotification(notification.type)" class="notification-icon-wrapper payment-icon">
@@ -165,27 +159,35 @@
             </div>
             <div class="notification-item-content">
               <p class="notification-text" [innerHTML]="notification.sanitizedMessage"></p>
+              <!-- Add Availability Button for tutor_video_approved notifications -->
+              <button 
+                *ngIf="notification.type === 'tutor_video_approved' && notification.data?.hasActionButton"
+                class="add-availability-btn"
+                (click)="navigateToTutorCalendar(); $event.stopPropagation()">
+                <ion-icon name="calendar-outline"></ion-icon>
+                {{ 'NOTIFICATIONS.ADD_AVAILABILITY' | translate }}
+              </button>
+              <!-- View Progress Button for progress_milestone notifications -->
+              <button 
+                *ngIf="notification.type === 'progress_milestone' && notification.data?.hasActionButton"
+                class="add-availability-btn milestone-btn"
+                (click)="navigateToProgress(); $event.stopPropagation()">
+                <ion-icon name="trophy-outline"></ion-icon>
+                {{ 'NOTIFICATIONS.VIEW_PROGRESS' | translate }}
+              </button>
             </div>
             <div class="notification-item-right">
               <span class="notification-time-inline">{{ notification.formattedTime }}</span>
               <!-- Dispute Button for payment_cancelled notifications -->
               <ion-button 
-                *ngIf="notification.type === 'payment_cancelled' || notification.type === 'payment_reduced'"
+                *ngIf="(notification.type === 'payment_cancelled' || notification.type === 'payment_reduced') && notification.data?.canDispute && !notification.data?.disputed"
                 class="dispute-button"
                 fill="clear"
                 size="small"
                 (click)="openDisputeModal(notification, $event)">
                 <ion-icon name="alert-circle-outline" slot="start"></ion-icon>
-                Dispute
+                {{ 'NOTIFICATIONS.DISPUTE' | translate }}
               </ion-button>
-              <!-- Contextual icon on the right -->
-              <ion-icon 
-                *ngIf="getContextualIcon(notification.type)" 
-                [name]="getContextualIcon(notification.type)" 
-                [class]="getContextualIconClass(notification.type)">
-              </ion-icon>
-              <!-- Celebrate emoji for system notifications -->
-              <span *ngIf="isSystemNotification(notification.type)" class="celebrate-emoji-right">🎉</span>
             </div>
           </div>
         </div>
@@ -193,7 +195,8 @@
 
       <!-- Later Section -->
       <div class="notification-section" *ngIf="getLaterNotifications().length > 0">
-        <h2 class="notification-section-title">Earlier</h2>
+        <div class="section-divider"></div>
+        <h2 class="notification-section-title">{{ 'NOTIFICATIONS.EARLIER' | translate }}</h2>
         <div class="notification-list">
           <div
             class="notification-item"
@@ -209,7 +212,7 @@
                 class="notification-avatar" />
               <!-- System notifications (video approved, etc) -->
               <div *ngIf="!notification.relatedUserPicture && isSystemNotification(notification.type)" class="notification-icon-wrapper system-notification">
-                <img src="assets/app-icon.png" alt="App icon" class="app-logo-img" />
+                <img src="assets/icons-app-bird-2.png" alt="App icon" class="app-logo-img" />
               </div>
               <!-- Money notifications (earnings) -->
               <div *ngIf="!notification.relatedUserPicture && isMoneyNotification(notification.type)" class="notification-icon-wrapper payment-icon">
@@ -225,27 +228,35 @@
             </div>
             <div class="notification-item-content">
               <p class="notification-text" [innerHTML]="notification.sanitizedMessage"></p>
+              <!-- Add Availability Button for tutor_video_approved notifications -->
+              <button 
+                *ngIf="notification.type === 'tutor_video_approved' && notification.data?.hasActionButton"
+                class="add-availability-btn"
+                (click)="navigateToTutorCalendar(); $event.stopPropagation()">
+                <ion-icon name="calendar-outline"></ion-icon>
+                {{ 'NOTIFICATIONS.ADD_AVAILABILITY' | translate }}
+              </button>
+              <!-- View Progress Button for progress_milestone notifications -->
+              <button 
+                *ngIf="notification.type === 'progress_milestone' && notification.data?.hasActionButton"
+                class="add-availability-btn milestone-btn"
+                (click)="navigateToProgress(); $event.stopPropagation()">
+                <ion-icon name="trophy-outline"></ion-icon>
+                {{ 'NOTIFICATIONS.VIEW_PROGRESS' | translate }}
+              </button>
             </div>
             <div class="notification-item-right">
               <span class="notification-time-inline">{{ notification.formattedTime }}</span>
               <!-- Dispute Button for payment_cancelled notifications -->
               <ion-button 
-                *ngIf="notification.type === 'payment_cancelled' || notification.type === 'payment_reduced'"
+                *ngIf="(notification.type === 'payment_cancelled' || notification.type === 'payment_reduced') && notification.data?.canDispute && !notification.data?.disputed"
                 class="dispute-button"
                 fill="clear"
                 size="small"
                 (click)="openDisputeModal(notification, $event)">
                 <ion-icon name="alert-circle-outline" slot="start"></ion-icon>
-                Dispute
+                {{ 'NOTIFICATIONS.DISPUTE' | translate }}
               </ion-button>
-              <!-- Contextual icon on the right -->
-              <ion-icon 
-                *ngIf="getContextualIcon(notification.type)" 
-                [name]="getContextualIcon(notification.type)" 
-                [class]="getContextualIconClass(notification.type)">
-              </ion-icon>
-              <!-- Celebrate emoji for system notifications -->
-              <span *ngIf="isSystemNotification(notification.type)" class="celebrate-emoji-right">🎉</span>
             </div>
           </div>
         </div>
@@ -253,9 +264,9 @@
 
       <div class="notification-empty" *ngIf="getTodayNotifications().length === 0 && getYesterdayNotifications().length === 0 && getLaterNotifications().length === 0">
         <ion-icon name="notifications-off-outline"></ion-icon>
-        <p>No notifications found</p>
-        <small *ngIf="searchTerm">Try adjusting your search terms</small>
-        <small *ngIf="!searchTerm">Stay tuned! We'll let you know when there's something new.</small>
+        <p>{{ 'NOTIFICATIONS.EMPTY_TITLE' | translate }}</p>
+        <small *ngIf="searchTerm">{{ 'NOTIFICATIONS.EMPTY_SEARCH' | translate }}</small>
+        <small *ngIf="!searchTerm">{{ 'NOTIFICATIONS.EMPTY_DEFAULT' | translate }}</small>
       </div>
     </ng-container>
   </div>
@@ -267,12 +278,72 @@
     [disabled]="!hasMoreNotifications">
     <ion-infinite-scroll-content
       loadingSpinner="crescent"
-      loadingText="Loading older notifications...">
+      [loadingText]="'NOTIFICATIONS.LOADING_MORE' | translate">
     </ion-infinite-scroll-content>
   </ion-infinite-scroll>
 </ion-content>
 
+<!-- Notifications Filters Modal (same design as lessons/earnings filters) -->
+<ion-modal
+  [isOpen]="isFiltersModalOpen"
+  (didDismiss)="closeFiltersModal()"
+  cssClass="notifications-filters-modal">
+  <ng-template>
+    <ion-header class="nf-header ion-no-border">
+      <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-button (click)="closeFiltersModal()" class="nf-close-btn">
+            <ion-icon name="close" slot="icon-only"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+        <ion-title>{{ 'NOTIFICATIONS.FILTERS' | translate }}</ion-title>
+      </ion-toolbar>
+    </ion-header>
 
+    <ion-content class="nf-content">
+      <!-- Type Section -->
+      <section class="nf-section">
+        <h3 class="nf-section-title">{{ 'NOTIFICATIONS.FILTER_TYPE' | translate }}</h3>
+        <div class="nf-time-grid">
+          <button
+            class="nf-time-btn"
+            [class.active]="selectedTypeFilter === 'all'"
+            (click)="setTypeFilter('all')">
+            {{ 'NOTIFICATIONS.FILTER_ALL' | translate }}
+          </button>
+          <button
+            class="nf-time-btn"
+            [class.active]="selectedTypeFilter === 'lessons'"
+            (click)="setTypeFilter('lessons')">
+            {{ 'NOTIFICATIONS.FILTER_LESSONS' | translate }}
+          </button>
+          <button
+            class="nf-time-btn"
+            [class.active]="selectedTypeFilter === 'payment'"
+            (click)="setTypeFilter('payment')">
+            {{ 'NOTIFICATIONS.FILTER_PAYMENT' | translate }}
+          </button>
+          <button
+            class="nf-time-btn"
+            [class.active]="selectedTypeFilter === 'progress'"
+            (click)="setTypeFilter('progress')">
+            {{ 'NOTIFICATIONS.FILTER_PROGRESS' | translate }}
+          </button>
+        </div>
+      </section>
+    </ion-content>
 
+    <ion-footer class="nf-footer ion-no-border">
+      <div class="nf-footer-content">
+        <button class="nf-clear-btn" (click)="clearNotificationFilters()" [disabled]="!hasActiveNotificationFilters">
+          {{ 'NOTIFICATIONS.CLEAR_ALL' | translate }}
+        </button>
+        <button class="nf-apply-btn" (click)="applyFiltersAndCloseModal()">
+          {{ 'NOTIFICATIONS.SHOW_COUNT' | translate: { count: getFilteredNotificationCount() } }}
+        </button>
+      </div>
+    </ion-footer>
+  </ng-template>
+</ion-modal>
 
 

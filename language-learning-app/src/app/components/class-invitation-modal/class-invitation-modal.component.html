@@ -4,118 +4,292 @@
     <ion-icon name="close" slot="icon-only"></ion-icon>
   </ion-button>
 
+  <!-- Back button for card entry step -->
+  <ion-button 
+    *ngIf="currentStep === 'card-entry'" 
+    class="floating-back-button" 
+    fill="clear" 
+    (click)="goBack()">
+    <ion-icon name="arrow-back" slot="icon-only"></ion-icon>
+  </ion-button>
+
   <!-- Loading State -->
   <div class="loading-container" *ngIf="loading">
     <ion-spinner name="crescent"></ion-spinner>
     <p>Loading class details...</p>
   </div>
 
-  <!-- Class Details -->
-  <div class="invitation-container" *ngIf="!loading && classData">
-    <!-- Tutor Info Banner -->
-    <div class="tutor-section">
-      <ion-avatar class="tutor-avatar">
-        <img *ngIf="classData.tutorId?.picture" [src]="classData.tutorId.picture" [alt]="classData.tutorId.name" referrerpolicy="no-referrer" />
-        <ion-icon *ngIf="!classData.tutorId?.picture" name="person" class="avatar-placeholder"></ion-icon>
-      </ion-avatar>
-      <div class="tutor-info">
-        <p class="tutor-label">Instructor</p>
-        <h3 class="tutor-name">{{ classData.tutorId?.name || 'Unknown' }}</h3>
+  <!-- Step 1: Class Details -->
+  <ng-container *ngIf="!loading && classData && currentStep === 'details'">
+    <div class="invitation-container">
+      <!-- Tutor Info Banner -->
+      <div class="tutor-section">
+        <ion-avatar class="tutor-avatar">
+          <img *ngIf="classData.tutorId?.picture" [src]="classData.tutorId.picture" [alt]="classData.tutorId.name" referrerpolicy="no-referrer" />
+          <ion-icon *ngIf="!classData.tutorId?.picture" name="person" class="avatar-placeholder"></ion-icon>
+        </ion-avatar>
+        <div class="tutor-info">
+          <p class="tutor-label">Instructor</p>
+          <h3 class="tutor-name">{{ formatTutorName(classData.tutorId) }}</h3>
+        </div>
+      </div>
+
+      <!-- Class Title -->
+      <h1 class="class-title">{{ classData.name }}</h1>
+
+      <!-- Class Details -->
+      <div class="class-details">
+        <!-- Date -->
+        <div class="detail-item">
+          <div class="detail-icon">
+            <ion-icon name="calendar-outline"></ion-icon>
+          </div>
+          <div class="detail-content">
+            <p class="detail-label">Date</p>
+            <p class="detail-value">{{ formattedDate }}</p>
+          </div>
+        </div>
+
+        <!-- Time -->
+        <div class="detail-item">
+          <div class="detail-icon">
+            <ion-icon name="time-outline"></ion-icon>
+          </div>
+          <div class="detail-content">
+            <p class="detail-label">Time</p>
+            <p class="detail-value">{{ formattedTime }} ({{ duration }} minutes)</p>
+          </div>
+        </div>
+
+        <!-- Capacity -->
+        <div class="detail-item">
+          <div class="detail-icon">
+            <ion-icon name="people-outline"></ion-icon>
+          </div>
+          <div class="detail-content">
+            <p class="detail-label">Class Size</p>
+            <p class="detail-value">
+              {{ classData.confirmedStudents?.length || 0 }} of {{ classData.capacity }} students
+              <span class="spots-badge" [class.full]="spotsLeft === 0">{{ spotsText }}</span>
+            </p>
+          </div>
+        </div>
+
+        <!-- Price -->
+        <div class="detail-item">
+          <div class="detail-icon">
+            <ion-icon [name]="classData.price === 0 ? 'gift-outline' : 'cash-outline'"></ion-icon>
+          </div>
+          <div class="detail-content">
+            <p class="detail-label">Price</p>
+            <p class="detail-value" *ngIf="classData.price > 0">${{ classData.price }}</p>
+            <p class="detail-value free-text" *ngIf="classData.price === 0">Free Class</p>
+          </div>
+        </div>
+
+        <!-- Description -->
+        <div class="detail-item description-item" *ngIf="classData.description">
+          <div class="detail-icon">
+            <ion-icon name="document-text-outline"></ion-icon>
+          </div>
+          <div class="detail-content">
+            <p class="detail-label">About this class</p>
+            <div class="description-content" [innerHTML]="sanitizedDescription"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payment Method Selection (only for paid classes) -->
+      <div class="payment-section" *ngIf="classData.price > 0">
+        <p class="section-label">Payment Method</p>
+        
+        <!-- Loading state -->
+        <div *ngIf="loadingPaymentMethods" class="loading-cards">
+          <ion-spinner name="dots"></ion-spinner>
+          <span>Loading payment methods...</span>
+        </div>
+        
+        <!-- Payment options -->
+        <div *ngIf="!loadingPaymentMethods" class="payment-methods-list">
+          
+          <!-- Wallet Option -->
+          <div 
+            class="payment-method-item"
+            [class.selected]="selectedPaymentMethod === 'wallet'"
+            [class.disabled]="!canUseWallet"
+            (click)="canUseWallet && selectPaymentMethod('wallet')">
+            <div class="radio-indicator">
+              <div class="radio-outer">
+                <div class="radio-inner" *ngIf="selectedPaymentMethod === 'wallet'"></div>
+              </div>
+            </div>
+            <div class="option-icon wallet-icon">
+              <ion-icon name="wallet"></ion-icon>
+            </div>
+            <div class="option-content">
+              <span class="option-title">Wallet</span>
+              <span class="option-subtitle" [class.insufficient]="!canUseWallet">
+                {{ canUseWallet ? '$' + formattedWalletBalance + ' available' : 'Insufficient funds ($' + formattedWalletBalance + ')' }}
+              </span>
+            </div>
+          </div>
+          
+          <!-- Saved Cards -->
+          <div 
+            *ngFor="let card of savedCards"
+            class="payment-method-item"
+            [class.selected]="selectedPaymentMethod === 'saved-card' && selectedCard?.stripePaymentMethodId === card.stripePaymentMethodId"
+            (click)="selectCard(card)">
+            <div class="radio-indicator">
+              <div class="radio-outer">
+                <div class="radio-inner" *ngIf="selectedPaymentMethod === 'saved-card' && selectedCard?.stripePaymentMethodId === card.stripePaymentMethodId"></div>
+              </div>
+            </div>
+            <ion-icon name="card" class="card-icon"></ion-icon>
+            <div class="option-content">
+              <span class="option-title">{{ formatCardBrand(card.brand) }} •••• {{ card.last4 }}</span>
+              <span class="option-subtitle">Expires {{ card.expiryMonth }}/{{ card.expiryYear }}</span>
+            </div>
+            <ion-badge *ngIf="card.isDefault" color="primary" class="default-badge-small">Default</ion-badge>
+          </div>
+          
+          <!-- Add New Card Option -->
+          <div 
+            class="payment-method-item new-card-item"
+            [class.selected]="selectedPaymentMethod === 'new-card'"
+            (click)="selectPaymentMethod('new-card')">
+            <div class="radio-indicator">
+              <div class="radio-outer">
+                <div class="radio-inner" *ngIf="selectedPaymentMethod === 'new-card'"></div>
+              </div>
+            </div>
+            <ion-icon name="add-circle" class="add-icon"></ion-icon>
+            <div class="option-content">
+              <span class="option-title">Add new card</span>
+              <span class="option-subtitle">Enter card details on next step</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
+  </ng-container>
 
-    <!-- Class Title -->
-    <h1 class="class-title">{{ classData.name }}</h1>
+  <!-- Step 2: Card Entry -->
+  <ng-container *ngIf="!loading && classData && currentStep === 'card-entry'">
+    <div class="card-entry-container">
+      <h2 class="step-title">Enter Card Details</h2>
+      <p class="step-description">
+        Add your card information to complete the booking for <strong>{{ classData.name }}</strong>
+      </p>
 
-    <!-- Class Details -->
-    <div class="class-details">
-      <!-- Date -->
-      <div class="detail-item">
-        <div class="detail-icon">
-          <ion-icon name="calendar-outline"></ion-icon>
+      <div class="card-entry-form">
+        <p class="card-label">Card Information</p>
+        <div id="card-element-class" class="card-element-container"></div>
+        
+        <div class="save-card-option">
+          <ion-checkbox [(ngModel)]="saveCardForFuture" labelPlacement="end">
+            Save this card for future payments
+          </ion-checkbox>
         </div>
-        <div class="detail-content">
-          <p class="detail-label">Date</p>
-          <p class="detail-value">{{ formattedDate }}</p>
-        </div>
+        
+        <p class="card-helper-text">
+          <ion-icon name="lock-closed"></ion-icon>
+          Your payment information is secure and encrypted
+        </p>
       </div>
 
-      <!-- Time -->
-      <div class="detail-item">
-        <div class="detail-icon">
-          <ion-icon name="time-outline"></ion-icon>
+      <!-- Summary -->
+      <div class="payment-summary">
+        <div class="summary-row">
+          <span>Class Price</span>
+          <span>${{ classData.price.toFixed(2) }}</span>
         </div>
-        <div class="detail-content">
-          <p class="detail-label">Time</p>
-          <p class="detail-value">{{ formattedTime }} ({{ duration }} minutes)</p>
-        </div>
-      </div>
-
-      <!-- Capacity -->
-      <div class="detail-item">
-        <div class="detail-icon">
-          <ion-icon name="people-outline"></ion-icon>
-        </div>
-        <div class="detail-content">
-          <p class="detail-label">Class Size</p>
-          <p class="detail-value">
-            {{ classData.confirmedStudents?.length || 0 }} of {{ classData.capacity }} students
-            <span class="spots-badge" [class.full]="spotsLeft === 0">{{ spotsText }}</span>
-          </p>
-        </div>
-      </div>
-
-      <!-- Price -->
-      <div class="detail-item">
-        <div class="detail-icon">
-          <ion-icon [name]="classData.price === 0 ? 'gift-outline' : 'cash-outline'"></ion-icon>
-        </div>
-        <div class="detail-content">
-          <p class="detail-label">Price</p>
-          <p class="detail-value" *ngIf="classData.price > 0">${{ classData.price }}</p>
-          <p class="detail-value free-text" *ngIf="classData.price === 0">Free Class</p>
-        </div>
-      </div>
-
-      <!-- Description -->
-      <div class="detail-item description-item" *ngIf="classData.description">
-        <div class="detail-icon">
-          <ion-icon name="document-text-outline"></ion-icon>
-        </div>
-        <div class="detail-content">
-          <p class="detail-label">About this class</p>
-          <div class="description-content" [innerHTML]="sanitizedDescription"></div>
+        <div class="summary-row total">
+          <span>Total</span>
+          <span>${{ classData.price.toFixed(2) }}</span>
         </div>
       </div>
     </div>
+  </ng-container>
+
+  <!-- Error State -->
+  <div class="error-container" *ngIf="!loading && !classData">
+    <ion-icon name="time-outline" class="error-icon"></ion-icon>
+    <h3>Invitation Expired</h3>
+    <p>This invitation is no longer available. The tutor may have removed you from the class or cancelled it.</p>
   </div>
 
-<!-- Error State -->
-<div class="error-container" *ngIf="!loading && !classData">
-  <ion-icon name="time-outline" class="error-icon"></ion-icon>
-  <h3>Invitation Expired</h3>
-  <p>This invitation is no longer available. The tutor may have removed you from the class or cancelled it.</p>
-</div>
+  <!-- Class Expired Warning (inside content, before footer) -->
+  <div class="expired-warning" *ngIf="!loading && classData && isClassExpired">
+    <ion-icon name="warning-outline"></ion-icon>
+    <span>This class has already started. You can no longer join.</span>
+  </div>
+
+  <!-- Class Cancelled Warning -->
+  <div class="expired-warning cancelled" *ngIf="!loading && classData && isClassCancelled">
+    <ion-icon name="close-circle-outline"></ion-icon>
+    <span>This class has been cancelled by the tutor.</span>
+  </div>
 </ion-content>
 
-<!-- Footer with Action Buttons (sticky at bottom) -->
-<ion-footer *ngIf="!loading && classData">
+<!-- Footer with Action Buttons -->
+<ion-footer *ngIf="!loading && classData && !isClassExpired && !isClassCancelled">
   <ion-toolbar>
     <div class="button-group">
-      <ion-button 
-        expand="block" 
-        fill="outline"
-        [disabled]="processing"
-        (click)="declineInvitation()">
-        Decline
-      </ion-button>
+      <!-- Details step buttons -->
+      <ng-container *ngIf="currentStep === 'details'">
+        <ion-button 
+          expand="block" 
+          fill="outline"
+          [disabled]="processing"
+          (click)="declineInvitation()">
+          Decline
+        </ion-button>
+        <ion-button 
+          expand="block"
+          color="primary"
+          [disabled]="!canAcceptInvitation || processing"
+          (click)="acceptInvitation()">
+          <ion-spinner *ngIf="processing" name="crescent" slot="start"></ion-spinner>
+          <span *ngIf="!processing">
+            {{ spotsLeft === 0 ? 'Class is Full' : (selectedPaymentMethod === 'new-card' ? 'Continue' : 'Accept & Join') }}
+          </span>
+        </ion-button>
+      </ng-container>
+      
+      <!-- Card entry step buttons -->
+      <ng-container *ngIf="currentStep === 'card-entry'">
+        <ion-button 
+          expand="block" 
+          fill="outline"
+          [disabled]="validatingCard || processing"
+          (click)="goBack()">
+          Back
+        </ion-button>
+        <ion-button 
+          expand="block"
+          color="primary"
+          [disabled]="validatingCard || processing || isClassExpired"
+          (click)="acceptInvitation()">
+          <ion-spinner *ngIf="validatingCard || processing" name="crescent" slot="start"></ion-spinner>
+          <span *ngIf="!validatingCard && !processing">Pay ${{ classData.price.toFixed(2) }}</span>
+          <span *ngIf="validatingCard">Validating...</span>
+          <span *ngIf="processing && !validatingCard">Processing...</span>
+        </ion-button>
+      </ng-container>
+    </div>
+  </ion-toolbar>
+</ion-footer>
+
+<!-- Footer for expired/cancelled classes - just close button -->
+<ion-footer *ngIf="!loading && classData && (isClassExpired || isClassCancelled)">
+  <ion-toolbar>
+    <div class="button-group single">
       <ion-button 
         expand="block"
-        color="primary"
-        [disabled]="processing || spotsLeft === 0"
-        (click)="acceptInvitation()">
-        <ion-spinner *ngIf="processing" name="crescent" slot="start"></ion-spinner>
-        <span *ngIf="!processing">{{ spotsLeft === 0 ? 'Class is Full' : 'Accept & Join' }}</span>
+        fill="outline"
+        (click)="close()">
+        Close
       </ion-button>
     </div>
   </ion-toolbar>

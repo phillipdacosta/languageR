@@ -1,0 +1,108 @@
+<div class="mr-header">
+  <h1>Content Review</h1>
+  <p>Review materials that could not be auto-verified for content ownership</p>
+</div>
+
+<div class="mr-filters">
+  <button class="mr-filter" [class.active]="statusFilter === 'pending_review'" (click)="changeFilter('pending_review')">
+    Pending
+  </button>
+  <button class="mr-filter" [class.active]="statusFilter === 'approved'" (click)="changeFilter('approved')">
+    Approved
+  </button>
+  <button class="mr-filter" [class.active]="statusFilter === 'rejected'" (click)="changeFilter('rejected')">
+    Rejected
+  </button>
+  <button class="mr-filter" [class.active]="statusFilter === 'all'" (click)="changeFilter('all')">
+    All
+  </button>
+</div>
+
+<div class="mr-loading" *ngIf="loading">
+  <ion-spinner name="crescent"></ion-spinner>
+</div>
+
+<div class="mr-error" *ngIf="error && !loading">
+  <p>{{ error }}</p>
+  <button (click)="loadMaterials()">Retry</button>
+</div>
+
+<div class="mr-empty" *ngIf="!loading && !error && materials.length === 0">
+  <ion-icon name="checkmark-circle-outline"></ion-icon>
+  <p>No materials to review</p>
+</div>
+
+<div class="mr-list" *ngIf="!loading && materials.length > 0">
+  <div class="mr-card" *ngFor="let m of materials">
+    <div class="mr-card-top">
+      <div class="mr-thumb" *ngIf="m.thumbnailUrl">
+        <img [src]="m.thumbnailUrl" [alt]="m.title" />
+      </div>
+      <div class="mr-card-info">
+        <div class="mr-card-badges">
+          <span class="mr-type-badge">{{ getMaterialTypeLabel(m.materialType) }}</span>
+          <ion-badge [color]="getStatusColor(m.reviewStatus)">{{ m.reviewStatus.replace('_', ' ') }}</ion-badge>
+          <span class="mr-price-badge" *ngIf="m.pricingType === 'paid'">${{ m.price }}</span>
+          <span class="mr-price-badge free" *ngIf="m.pricingType === 'free'">Free</span>
+        </div>
+        <h3>{{ m.title }}</h3>
+        <div class="mr-tutor-row">
+          <img *ngIf="m.tutorId?.picture" [src]="m.tutorId.picture" class="mr-avatar" referrerpolicy="no-referrer" />
+          <span>{{ m.tutorId?.name || 'Unknown' }}</span>
+          <span class="mr-email">{{ m.tutorId?.email }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="mr-card-details">
+      <div class="mr-detail-row">
+        <span class="mr-detail-label">Content URL</span>
+        <a *ngIf="m.videoUrl" [href]="m.videoUrl" target="_blank" class="mr-link">{{ m.videoUrl }}</a>
+        <a *ngIf="m.audioUrl && !m.videoUrl" [href]="m.audioUrl" target="_blank" class="mr-link">{{ m.audioUrl }}</a>
+        <span *ngIf="!m.videoUrl && !m.audioUrl" class="mr-muted">N/A (reading)</span>
+      </div>
+
+      <div class="mr-detail-row">
+        <span class="mr-detail-label">Linked Channel</span>
+        <span [class.mr-verified]="m.channelVerified" [class.mr-unverified]="!m.channelVerified">
+          <ion-icon [name]="m.channelVerified ? 'checkmark-circle' : 'alert-circle-outline'"></ion-icon>
+          {{ m.channelVerified ? 'Matched' : 'Not matched' }}
+          — {{ getRelevantChannel(m) }}
+        </span>
+      </div>
+
+      <div class="mr-detail-row">
+        <span class="mr-detail-label">Attested</span>
+        <span *ngIf="m.contentAttested" class="mr-verified">
+          <ion-icon name="checkmark-circle"></ion-icon>
+          Yes — {{ m.contentAttestedAt ? formatDate(m.contentAttestedAt) : '' }}
+        </span>
+        <span *ngIf="!m.contentAttested" class="mr-unverified">
+          <ion-icon name="close-circle-outline"></ion-icon> No
+        </span>
+      </div>
+
+      <div class="mr-detail-row" *ngIf="m.reviewNote">
+        <span class="mr-detail-label">Note</span>
+        <span>{{ m.reviewNote }}</span>
+      </div>
+
+      <div class="mr-detail-row" *ngIf="m.reviewedBy">
+        <span class="mr-detail-label">Reviewed by</span>
+        <span>{{ m.reviewedBy.name }} on {{ m.reviewedAt ? formatDate(m.reviewedAt) : '' }}</span>
+      </div>
+
+      <div class="mr-detail-row">
+        <span class="mr-detail-label">Created</span>
+        <span>{{ formatDate(m.createdAt) }}</span>
+      </div>
+    </div>
+
+    <div class="mr-card-actions" *ngIf="m.reviewStatus === 'pending_review'">
+      <button class="mr-btn mr-btn-approve" (click)="reviewMaterial(m)">
+        <ion-icon name="shield-checkmark-outline"></ion-icon>
+        Review
+      </button>
+    </div>
+  </div>
+</div>

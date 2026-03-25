@@ -1,607 +1,509 @@
-// Apple-Inspired Booking Success Design
-// Clean, minimal, premium feel
+// ─── Booking Success — Airbnb Celebratory Design ───
 
-.success-container {
+.success-page {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  inset: 0;
+  background: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 60px 20px 20px;
   z-index: 10000;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
-.close-button {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
-  border: none;
+// ─── Confetti Dots ───
+.confetti-container {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+
+  .dot {
+    position: absolute;
+    border-radius: 50%;
+    animation: confettiFall 4s ease-in-out forwards;
+    opacity: 0;
+  }
+
+  .dot-1 { width: 10px; height: 10px; background: #FF385C; top: -10px; left: 12%; animation-delay: 0.2s; }
+  .dot-2 { width: 8px;  height: 8px;  background: #00A699; top: -10px; left: 28%; animation-delay: 0.5s; }
+  .dot-3 { width: 12px; height: 12px; background: #FFB400; top: -10px; left: 44%; animation-delay: 0.3s; }
+  .dot-4 { width: 7px;  height: 7px;  background: #914CFF; top: -10px; left: 60%; animation-delay: 0.7s; }
+  .dot-5 { width: 9px;  height: 9px;  background: #FF385C; top: -10px; left: 75%; animation-delay: 0.1s; }
+  .dot-6 { width: 11px; height: 11px; background: #00A699; top: -10px; left: 88%; animation-delay: 0.6s; }
+  .dot-7 { width: 8px;  height: 8px;  background: #FFB400; top: -10px; left: 6%;  animation-delay: 0.8s; }
+  .dot-8 { width: 10px; height: 10px; background: #914CFF; top: -10px; left: 52%; animation-delay: 0.4s; }
+}
+
+@keyframes confettiFall {
+  0%   { opacity: 0; transform: translateY(0) rotate(0deg) scale(0.6); }
+  15%  { opacity: 1; transform: translateY(15vh) rotate(60deg) scale(1); }
+  85%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(85vh) rotate(240deg) scale(0.5); }
+}
+
+// ─── Inner Container ───
+.success-inner {
+  max-width: 480px;
+  width: 100%;
+  padding: 48px 24px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+}
+
+// ─── Lottie Animation (plays big first, shrinks when revealed) ───
+.lottie-wrapper {
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  z-index: 10;
+  position: relative;
+  padding: 48px 0;
+  transition: padding 0.6s cubic-bezier(0.32, 0.72, 0, 1);
+
+  .revealed & {
+    padding: 8px 0;
+  }
+}
+
+.lottie-glow {
+  position: absolute;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 166, 153, 0.25) 0%, rgba(0, 166, 153, 0.06) 50%, transparent 70%);
+  animation: successGlowPulse 2.5s ease-in-out infinite;
+  transition: width 0.6s cubic-bezier(0.32, 0.72, 0, 1),
+              height 0.6s cubic-bezier(0.32, 0.72, 0, 1),
+              opacity 0.6s ease;
+
+  .revealed & {
+    width: 100px;
+    height: 100px;
+    opacity: 0.5;
+  }
+}
+
+@keyframes successGlowPulse {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.12); opacity: 1; }
+}
+
+.success-lottie {
+  width: 200px;
+  height: 200px;
+  position: relative;
+  z-index: 1;
+  transition: width 0.6s cubic-bezier(0.32, 0.72, 0, 1),
+              height 0.6s cubic-bezier(0.32, 0.72, 0, 1);
+
+  .revealed & {
+    width: 88px;
+    height: 88px;
+  }
+}
+
+// ─── Reveal Body (fades up after lottie shrinks) ───
+.reveal-body {
+  opacity: 0;
+  transform: translateY(20px);
+  max-height: 0;
+  overflow: hidden;
+  transition: opacity 0.5s ease 0.15s,
+              transform 0.5s ease 0.15s,
+              max-height 0.6s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  width: 100%;
+
+  .revealed & {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 1200px;
+  }
+}
+
+// ─── Hero Section ───
+.hero-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+}
+
+// Hero check — commented out, kept for reference
+// .hero-check { ... }
+
+.hero-title {
+  font-size: 32px;
+  font-weight: 800;
+  color: #222222;
+  margin: 0;
+  letter-spacing: -0.8px;
+  line-height: 1.15;
+}
+
+.hero-subtitle {
+  font-size: 16px;
+  font-weight: 400;
+  color: #717171;
+  margin: 0;
+  line-height: 1.4;
+}
+
+// ─── Booking Card ───
+.booking-card {
+  width: 100%;
+  background: #fff;
+  border: 1px solid #EBEBEB;
+  border-radius: 16px;
+  padding: 17px;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
+}
+
+// ─── Tutor Row ───
+.tutor-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.tutor-photo {
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  border: 2px solid #f0f0f0;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  ion-icon {
+    font-size: 28px;
+    color: #b0b0b0;
+  }
+}
+
+.tutor-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.tutor-name-text {
+  font-size: 17px;
+  font-weight: 700;
+  color: #222222;
+  letter-spacing: -0.2px;
+  line-height: 1.25;
+}
+
+.tutor-role {
+  font-size: 13px;
+  font-weight: 400;
+  color: #717171;
+  line-height: 1.3;
+}
+
+.subject-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #F7F7F7;
+  border: 1px solid #EBEBEB;
+  border-radius: 24px;
+  padding: 6px 14px 6px 10px;
+  flex-shrink: 0;
+
+  .subject-flag {
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  .subject-text {
+    font-size: 13px;
+    font-weight: 600;
+    color: #222222;
+    white-space: nowrap;
+  }
+}
+
+// ─── Divider ───
+.card-divider {
+  height: 1px;
+  background: #EBEBEB;
+  margin: 20px 0;
+}
+
+// ─── Detail Rows ───
+.detail-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  opacity: 0;
+  transform: translateY(8px);
+
+  .revealed & {
+    animation: detailRowIn 0.4s ease-out forwards;
+  }
+
+  &.stagger-1 { .revealed & { animation-delay: 0.25s; } }
+  &.stagger-2 { .revealed & { animation-delay: 0.35s; } }
+  &.stagger-3 { .revealed & { animation-delay: 0.45s; } }
+  &.stagger-4 { .revealed & { animation-delay: 0.55s; } }
+}
+
+@keyframes detailRowIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.detail-icon-wrap {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #F7F7F7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  ion-icon {
+    font-size: 18px;
+    color: #222222;
+  }
+
+  &.price-icon {
+    background: linear-gradient(135deg, #00A699, #00C9B7);
+
+    ion-icon {
+      color: #fff;
+    }
+  }
+}
+
+.detail-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.detail-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #717171;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.detail-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #222222;
+  letter-spacing: -0.2px;
+  line-height: 1.35;
+
+  &.detail-price {
+    font-size: 18px;
+    font-weight: 700;
+    color: #00A699;
+  }
+}
+
+// ─── Info Note ───
+.info-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  background: #F7F7F7;
+  border-radius: 12px;
+  width: 100%;
 
   ion-icon {
     font-size: 20px;
-    color: white;
+    color: #717171;
+    flex-shrink: 0;
   }
 
+  span {
+    font-size: 14px;
+    font-weight: 400;
+    color: #717171;
+    line-height: 1.45;
+  }
+}
+
+// ─── Done Button ───
+.done-btn {
+  width: 100%;
+  padding: 16px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  background: #222222;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  letter-spacing: -0.1px;
+  -webkit-tap-highlight-color: transparent;
+
   &:hover {
-    background: rgba(255, 255, 255, 0.3);
+    background: #000000;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
   }
 
   &:active {
-    transform: scale(0.9);
+    transform: scale(0.98);
+    box-shadow: none;
   }
 }
 
-.success-content {
-  max-width: 800px;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 26px;
-  padding: 10px 0 20px;
-  position: relative;
-  bottom: 100px;
-}
-
-// Success Icon - Modern Animated Style
-.success-icon {
-  margin-bottom: 4px;
-  
-  .checkmark-circle {
-    width: 88px;
-    height: 88px;
-    background: white;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
-    position: relative;
-    animation: scaleInBounce 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.4);
-
-    // Outer glow ring
-    &::before {
-      content: '';
-      position: absolute;
-      top: -8px;
-      left: -8px;
-      right: -8px;
-      bottom: -8px;
-      background: radial-gradient(circle, rgba(52, 199, 89, 0.2) 0%, transparent 70%);
-      border-radius: 50%;
-      animation: pulse 2s infinite;
-    }
-
-    @keyframes scaleInBounce {
-      0% {
-        transform: scale(0);
-        opacity: 0;
-      }
-      50% {
-        transform: scale(1.1);
-      }
-      100% {
-        transform: scale(1);
-        opacity: 1;
-      }
-    }
-
-    @keyframes pulse {
-      0%, 100% {
-        opacity: 0.6;
-        transform: scale(1);
-      }
-      50% {
-        opacity: 1;
-        transform: scale(1.1);
-      }
-    }
-
-    .checkmark {
-      font-size: 48px;
-      color: #34c759;
-      font-weight: bold;
-      z-index: 1;
-      animation: checkmarkDraw 0.4s ease-out 0.3s backwards;
-    }
-
-    @keyframes checkmarkDraw {
-      from {
-        transform: scale(0) rotate(-45deg);
-        opacity: 0;
-      }
-      to {
-        transform: scale(1) rotate(0deg);
-        opacity: 1;
-      }
-    }
+// ─── Mobile Responsive ───
+@media (max-width: 480px) {
+  .success-inner {
+    padding: 36px 20px 32px;
+    gap: 24px;
   }
-}
 
-// Headings - Apple Typography
-.success-title {
-  font-size: 28px;
-  font-weight: 700;
-  color: white;
-  margin: 0;
-  text-align: center;
-  letter-spacing: -0.6px;
-}
-
-.success-subtitle {
-  font-size: 15px;
-  color: rgba(255, 255, 255, 0.95);
-  margin: -8px 0 0 0;
-  text-align: center;
-  font-weight: 400;
-}
-
-// Two Column Layout Container
-.content-columns {
-  width: 100%;
-  max-width: 800px;
-  display: grid;
-  grid-template-columns: 1fr 1fr; // Equal width columns
-  gap: 20px;
-  align-items: stretch; // Make both columns equal height
-  animation: fadeInUp 0.5s ease-out;
-
-  @keyframes fadeInUp {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+  .lottie-wrapper {
+    padding: 36px 0;
   }
-}
 
-// Tutor Card - Simple Centered Design (Left Column)
-.tutor-card {
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 20px;
-  padding: 40px 28px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center; // Center content vertically
-  gap: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  backdrop-filter: blur(10px);
-  height: 100%; // Take full height of parent
+  .success-lottie {
+    width: 160px;
+    height: 160px;
 
-  .tutor-avatar {
-    width: 140px;
-    height: 140px;
-    flex-shrink: 0;
-    border: 4px solid rgba(255, 255, 255, 0.8);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-
-    img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      object-position: center;
-    }
-
-    ion-icon {
-      font-size: 70px;
-      color: #9ca3af;
+    .revealed & {
+      width: 72px;
+      height: 72px;
     }
   }
 
-  .tutor-name {
-    font-size: 24px;
-    font-weight: 700;
-    color: #1c1c1e;
-    margin: 8px 0 0 0;
-    letter-spacing: -0.5px;
-    text-align: center;
+  .lottie-glow {
+    width: 160px;
+    height: 160px;
+
+    .revealed & {
+      width: 80px;
+      height: 80px;
+    }
   }
 
-  .tutor-label {
+  .reveal-body {
+    gap: 24px;
+  }
+
+  .hero-title {
+    font-size: 28px;
+  }
+
+  .hero-subtitle {
     font-size: 15px;
-    color: rgba(28, 28, 30, 0.6);
-    margin: 0;
-    font-weight: 500;
-    text-align: center;
   }
-}
 
-// Details Card - Clean Compact Design (Right Column)
-.details-card {
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 20px;
-  padding: 32px 28px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  backdrop-filter: blur(10px);
-  height: 100%; // Take full height of parent
-  display: flex;
-  flex-direction: column;
+  .booking-card {
+    padding: 20px;
+    border-radius: 14px;
+  }
 
-  // Subject Header (Compact)
-  .subject-header {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    margin-bottom: 24px;
+  .tutor-photo {
+    width: 46px;
+    height: 46px;
+  }
 
-    .subject-icon {
-      width: 56px;
-      height: 56px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      border-radius: 14px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.25);
+  .tutor-name-text {
+    font-size: 16px;
+  }
 
-      .subject-emoji {
-        font-size: 28px;
-      }
+  .subject-chip {
+    padding: 5px 12px 5px 8px;
+
+    .subject-flag {
+      font-size: 16px;
     }
 
-    .subject-info {
-      flex: 1;
-
-      .subject-label {
-        font-size: 11px;
-        color: rgba(28, 28, 30, 0.5);
-        margin: 0 0 4px 0;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.8px;
-      }
-
-      .subject-name {
-        font-size: 20px;
-        color: #1c1c1e;
-        margin: 0;
-        font-weight: 700;
-        letter-spacing: -0.4px;
-      }
+    .subject-text {
+      font-size: 12px;
     }
   }
 
-  // Details Grid (2x2)
-  .details-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 14px;
-    flex: 1; // Take remaining space
-
-    .detail-item {
-      background: rgba(248, 249, 250, 0.6);
-      border-radius: 14px;
-      padding: 18px 16px;
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-      transition: all 0.2s ease;
-
-      &:hover {
-        background: rgba(248, 249, 250, 0.9);
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-      }
-
-      .item-icon {
-        width: 38px;
-        height: 38px;
-        background: white;
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
-
-        ion-icon {
-          font-size: 19px;
-          color: #667eea;
-        }
-      }
-
-      .item-content {
-        flex: 1;
-        min-width: 0;
-
-        .item-label {
-          font-size: 10px;
-          color: rgba(28, 28, 30, 0.5);
-          margin: 0 0 6px 0;
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 0.8px;
-        }
-
-        .item-value {
-          font-size: 15px;
-          color: #1c1c1e;
-          margin: 0;
-          font-weight: 700;
-          letter-spacing: -0.3px;
-          line-height: 1.3;
-          white-space: nowrap; // Prevent wrapping
-
-          &.price {
-            font-size: 20px;
-            color: #667eea;
-            font-weight: 800;
-            letter-spacing: -0.4px;
-          }
-        }
-      }
-    }
-  }
-}
-
-// Next Steps - Frosted Glass Style
-.next-steps {
-  width: 100%;
-  background: rgba(255, 255, 255, 0.18);
-  backdrop-filter: blur(20px);
-  border-radius: 14px;
-  padding: 14px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  animation: fadeInUp 0.7s ease-out;
-
-  .next-steps-text {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    font-size: 13px;
-    color: white;
-    margin: 0;
-    line-height: 1.5;
-    font-weight: 500;
+  .detail-icon-wrap {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
 
     ion-icon {
-      font-size: 20px;
-      flex-shrink: 0;
-      opacity: 0.9;
+      font-size: 16px;
     }
   }
-}
 
-// Mobile Responsive - Match Apple's mobile guidelines
-@media (max-width: 768px) {
-  .success-container {
-    padding: 60px 16px 16px;
+  .detail-value {
+    font-size: 15px;
+
+    &.detail-price {
+      font-size: 17px;
+    }
   }
 
-  .success-content {
-    gap: 16px;
+  .done-btn {
+    padding: 15px;
+    font-size: 15px;
+    border-radius: 10px;
   }
 
-  .close-button {
-    top: 12px;
-    right: 12px;
-    width: 32px;
-    height: 32px;
+  .info-note {
+    padding: 12px 14px;
+    border-radius: 10px;
 
     ion-icon {
       font-size: 18px;
     }
-  }
 
-  .success-icon .checkmark-circle {
-    width: 76px;
-    height: 76px;
-
-    .checkmark {
-      font-size: 42px;
-    }
-  }
-
-  .success-title {
-    font-size: 24px;
-    letter-spacing: -0.5px;
-  }
-
-  .success-subtitle {
-    font-size: 14px;
-  }
-
-  // Stack columns on mobile
-  .content-columns {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-
-  .tutor-card {
-    padding: 24px 20px;
-
-    .tutor-avatar {
-      width: 90px;
-      height: 90px;
-      border: 3px solid rgba(255, 255, 255, 0.8);
-
-      ion-icon {
-        font-size: 46px;
-      }
-    }
-
-    .tutor-name {
-      font-size: 20px;
-    }
-
-    .tutor-label {
+    span {
       font-size: 13px;
     }
   }
+}
 
-  .details-card {
-    padding: 22px 18px;
-
-    .subject-header {
-      margin-bottom: 20px;
-      gap: 12px;
-
-      .subject-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: 12px;
-
-        .subject-emoji {
-          font-size: 24px;
-        }
-      }
-
-      .subject-info {
-        .subject-label {
-          font-size: 10px;
-        }
-
-        .subject-name {
-          font-size: 18px;
-        }
-      }
-    }
-
-    .details-grid {
-      gap: 12px;
-
-      .detail-item {
-        padding: 14px;
-        border-radius: 12px;
-        gap: 10px;
-
-        .item-icon {
-          width: 34px;
-          height: 34px;
-          border-radius: 9px;
-
-          ion-icon {
-            font-size: 17px;
-          }
-        }
-
-        .item-content {
-          .item-label {
-            font-size: 10px;
-            margin-bottom: 5px;
-          }
-
-          .item-value {
-            font-size: 14px;
-
-            &.price {
-              font-size: 18px;
-            }
-          }
-        }
-      }
-    }
+@media (max-width: 360px) {
+  .hero-title {
+    font-size: 24px;
   }
 
-  .next-steps {
-    padding: 12px 14px;
-    border-radius: 12px;
+  .hero-subtitle {
+    font-size: 14px;
+  }
 
-    .next-steps-text {
-      font-size: 12px;
+  .tutor-row {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
 
-      ion-icon {
-        font-size: 18px;
-      }
-    }
+  .subject-chip {
+    margin-left: auto;
   }
 }
 
-// Very small screens
-@media (max-width: 375px) {
-  .success-title {
-    font-size: 22px;
-  }
 
-  .tutor-card {
-    padding: 20px 16px;
 
-    .tutor-avatar {
-      width: 80px;
-      height: 80px;
-
-      ion-icon {
-        font-size: 40px;
-      }
-    }
-
-    .tutor-name {
-      font-size: 18px;
-    }
-  }
-
-  .details-card {
-    padding: 18px 14px;
-
-    .subject-header {
-      gap: 10px;
-
-      .subject-icon {
-        width: 44px;
-        height: 44px;
-
-        .subject-emoji {
-          font-size: 22px;
-        }
-      }
-
-      .subject-info {
-        .subject-name {
-          font-size: 17px;
-        }
-      }
-    }
-
-    .details-grid {
-      gap: 10px;
-
-      .detail-item {
-        padding: 12px;
-
-        .item-icon {
-          width: 32px;
-          height: 32px;
-
-          ion-icon {
-            font-size: 16px;
-          }
-        }
-
-        .item-content {
-          .item-value {
-            font-size: 13px;
-
-            &.price {
-              font-size: 17px;
-            }
-          }
-        }
-      }
-    }
-  }
-}
 

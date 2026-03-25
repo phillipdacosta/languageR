@@ -1,7 +1,11 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewChecked, ChangeDetectorRef } from '@angular/core';
+import '@dotlottie/player-component';
 import { Router } from '@angular/router';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { AuthService, User } from '../services/auth.service';
 import { UserService, TutorOnboardingData } from '../services/user.service';
+import { LanguageService, LanguageOption, SupportedLanguage } from '../services/language.service';
+import { TranslateService } from '@ngx-translate/core';
 import { OnboardingGuard } from '../guards/onboarding.guard';
 import { Observable } from 'rxjs';
 import { take } from 'rxjs/operators';
@@ -14,30 +18,212 @@ import { CountrySelectModalComponent } from '../components/country-select-modal/
   styleUrls: ['./tutor-onboarding.page.scss'],
   standalone: false,
 })
-export class TutorOnboardingPage implements OnInit {
+export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   user$: Observable<User | null>;
   currentStep = 1;
-  totalSteps = 6; // Name + Native Language + Languages + Experience + Schedule + Profile
+  totalSteps = 9; // Name + Residence + Native Language + Languages + Experience + Schedule + Bio + Rate + Video
+
+  // Language selection pre-step
+  preStepPhase: 'language' | 'welcome' | 'done' = 'language';
+  welcomeRevealed: boolean = false;
+  availableInterfaceLanguages: LanguageOption[] = [];
+  selectedInterfaceLanguage: SupportedLanguage = 'en';
+  selectedLanguageFlag = '🇬🇧';
+
+  // Rotating heading animation
+  headingTexts = [
+    'Choose your language',
+    'Elige tu idioma',
+    'Choisissez votre langue',
+    'Escolha seu idioma',
+    'Wählen Sie Ihre Sprache',
+    'Scegli la tua lingua',
+    'Выберите ваш язык',
+    '选择你的语言',
+    '言語を選択してください',
+    '언어를 선택하세요',
+    'اختر لغتك',
+    'अपनी भाषा चुनें',
+    'Kies je taal',
+    'Wybierz swój język',
+    'Dilinizi seçin',
+    'Välj ditt språk',
+    'Velg ditt språk',
+    'Vælg dit sprog',
+    'Valitse kielesi',
+    'Επιλέξτε τη γλώσσα σας',
+    'Vyberte svůj jazyk',
+    'Alegeți limba dvs.',
+    'Виберіть вашу мову',
+    'Chọn ngôn ngữ của bạn',
+    'เลือกภาษาของคุณ',
+    'Pilih bahasa Anda',
+    'Pilih bahasa anda',
+    'בחר את השפה שלך',
+    'زبان خود را انتخاب کنید'
+  ];
+  activeHeadingIndex = 0;
+  private headingInterval: any;
+
+  // Preview & Welcome state
+  showPreview = false;
+  showWelcome = false;
+  isSubmitting = false;
+  hasReachedPreview = false;
 
   // Tutor onboarding data
   firstName = '';
   lastName = '';
   country = ''; // Nationality / Where are you from?
+
+  /**
+   * Capitalizes a name properly (title case)
+   * "JASON DERULA" -> "Jason Derula"
+   * "jason derula" -> "Jason Derula"
+   * "jAsOn DeRuLa" -> "Jason Derula"
+   */
+  private formatName(name: string): string {
+    if (!name) return '';
+    return name
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
+      .trim();
+  }
+
+  /**
+   * Formats text to ensure proper capitalization on a per-word basis:
+   * - Normalizes each word that has abnormal capitalization
+   * - Preserves legitimate acronyms (CERF, TEFL, CELTA, TESOL, etc.)
+   * - Preserves normal words (all lowercase or proper title case)
+   * - Ensures first letter of the entire text is uppercase
+   * 
+   * Examples:
+   * "THE BEST language tutor in the WOrLD!" -> "The best language tutor in the world!"
+   * "i have a cerf certificate" -> "I have a CERF certificate"
+   * "MY BIO IS IN CAPS" -> "My bio is in caps"
+   * "MMfsjkg kfjdgn" -> "Mmfsjkg kfjdgn"
+   */
+  private formatText(text: string): string {
+    if (!text) return '';
+    
+    const trimmed = text.trim();
+    if (!trimmed) return '';
+
+    // Map of legitimate acronyms: lookup key (uppercase) -> display form
+    const acronymMap: Record<string, string> = {
+      'CERF': 'CERF', 'TEFL': 'TEFL', 'CELTA': 'CELTA', 'TESOL': 'TESOL',
+      'TOEFL': 'TOEFL', 'IELTS': 'IELTS', 'ESL': 'ESL', 'EFL': 'EFL',
+      'BA': 'BA', 'BS': 'BS', 'MA': 'MA', 'MS': 'MS', 'PHD': 'PhD',
+      'MBA': 'MBA', 'USA': 'USA', 'UK': 'UK', 'EU': 'EU', 'UN': 'UN',
+      'NATO': 'NATO', 'NASA': 'NASA', 'DELF': 'DELF', 'DALF': 'DALF',
+      'HSK': 'HSK', 'JLPT': 'JLPT', 'DELE': 'DELE', 'CILS': 'CILS',
+      'TEF': 'TEF', 'TCF': 'TCF', 'CPE': 'CPE', 'CAE': 'CAE', 'FCE': 'FCE'
+    };
+
+    // Process each alphabetical word, preserving all non-alpha characters in place
+    const result = trimmed.replace(/[a-zA-Z]+/g, (word) => {
+      // Check if word is a known acronym (case-insensitive)
+      const upperWord = word.toUpperCase();
+      if (acronymMap[upperWord]) {
+        return acronymMap[upperWord];
+      }
+
+      // Single letter: keep as-is (handles "I", "a", etc.)
+      if (word.length === 1) {
+        return word;
+      }
+
+      // Check if word already has "normal" capitalization
+      const isAllLower = word === word.toLowerCase();
+      const isTitleCase = word[0] === word[0].toUpperCase() && word.slice(1) === word.slice(1).toLowerCase();
+
+      if (isAllLower || isTitleCase) {
+        return word; // Normal casing — leave it alone
+      }
+
+      // Abnormal casing detected (ALL CAPS, rAnDoM caps, MMfsjkg, WOrLD, etc.)
+      // Normalize to lowercase — first-letter capitalization handled below
+      return word.toLowerCase();
+    });
+
+    // Ensure first letter of the entire text is uppercase
+    return result.charAt(0).toUpperCase() + result.slice(1);
+  }
+
+  /**
+   * Format first name on blur (title case)
+   */
+  formatFirstNameOnBlur() {
+    if (this.firstName) {
+      this.firstName = this.formatName(this.firstName);
+    }
+  }
+
+  /**
+   * Format last name on blur (title case)
+   */
+  formatLastNameOnBlur() {
+    if (this.lastName) {
+      this.lastName = this.formatName(this.lastName);
+    }
+  }
+
+  /**
+   * Format summary text on blur
+   */
+  formatSummaryOnBlur() {
+    if (this.profileSummary) {
+      this.profileSummary = this.formatText(this.profileSummary);
+    }
+  }
+
+  /**
+   * Format bio text on blur
+   */
+  formatBioOnBlur() {
+    if (this.profileBio) {
+      this.profileBio = this.formatText(this.profileBio);
+    }
+  }
   residenceCountry = ''; // Where do you currently reside? (for payout purposes)
   nativeLanguage = 'en'; // Default to English
   selectedLanguages: string[] = [];
   selectedExperience = '';
   selectedSchedule = '';
+  translatedExperience = '';
+  translatedSchedule = '';
+  profileSummary = '';
   profileBio = '';
   hourlyRate = 25;
   introductionVideo = ''; // Introduction video URL
   thumbnailUrl = ''; // Custom thumbnail URL for the video
   videoType: 'upload' | 'youtube' | 'vimeo' = 'upload'; // Video type
+  hasVideoLinkPending = false; // True when user has entered a link but not clicked "Add Video"
+
+  // Video player modal state
+  isVideoPlayerModalOpen = false;
+  videoPlayerData: {
+    videoUrl: string;
+    safeVideoUrl?: SafeResourceUrl;
+    videoType: 'upload' | 'youtube' | 'vimeo';
+  } | null = null;
+
+  // ViewChild references for autofocus
+  @ViewChild('firstNameInput') firstNameInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('summaryInput') summaryInput?: ElementRef<HTMLTextAreaElement>;
+  @ViewChild('bioInput') bioInput?: ElementRef<HTMLTextAreaElement>;
+  
+  private previousStep = 0;
 
   // Available options
   availableLanguages = [
-    'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 
-    'Chinese', 'Japanese', 'Korean', 'Arabic', 'Russian', 'Dutch', 'Swedish'
+    'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese',
+    'Russian', 'Chinese', 'Japanese', 'Korean', 'Arabic', 'Hindi',
+    'Dutch', 'Polish', 'Turkish', 'Swedish', 'Norwegian', 'Danish',
+    'Finnish', 'Greek', 'Czech', 'Romanian', 'Ukrainian', 'Vietnamese',
+    'Thai', 'Indonesian', 'Malay', 'Hebrew', 'Persian'
   ];
 
   // Native language options with ISO codes (same as student onboarding)
@@ -187,35 +373,62 @@ export class TutorOnboardingPage implements OnInit {
   ];
 
   experienceLevels = [
-    'New to teaching (0-1 years)',
-    'Some experience (1-3 years)',
-    'Experienced (3-5 years)',
-    'Very experienced (5+ years)',
-    'Native speaker with teaching experience'
+    { key: 'ONBOARDING.TUTOR_OB.EXP_NEW', value: 'New to teaching (0-1 years)' },
+    { key: 'ONBOARDING.TUTOR_OB.EXP_SOME', value: 'Some experience (1-3 years)' },
+    { key: 'ONBOARDING.TUTOR_OB.EXP_EXPERIENCED', value: 'Experienced (3-5 years)' },
+    { key: 'ONBOARDING.TUTOR_OB.EXP_VERY', value: 'Very experienced (5+ years)' },
+    { key: 'ONBOARDING.TUTOR_OB.EXP_NATIVE', value: 'Native speaker with teaching experience' }
   ];
 
   scheduleOptions = [
-    'Weekdays only',
-    'Weekends only',
-    'Evenings only',
-    'Flexible schedule',
-    'Full-time availability'
+    { key: 'ONBOARDING.TUTOR_OB.SCHED_WEEKDAYS', value: 'Weekdays only' },
+    { key: 'ONBOARDING.TUTOR_OB.SCHED_WEEKENDS', value: 'Weekends only' },
+    { key: 'ONBOARDING.TUTOR_OB.SCHED_EVENINGS', value: 'Evenings only' },
+    { key: 'ONBOARDING.TUTOR_OB.SCHED_FLEXIBLE', value: 'Flexible schedule' },
+    { key: 'ONBOARDING.TUTOR_OB.SCHED_FULLTIME', value: 'Full-time availability' }
   ];
 
   constructor(
     private authService: AuthService,
     private userService: UserService,
+    private languageService: LanguageService,
     private router: Router,
+    private sanitizer: DomSanitizer,
     private loadingController: LoadingController,
     private alertController: AlertController,
     private modalController: ModalController,
     private toastController: ToastController,
-    private onboardingGuard: OnboardingGuard
+    private onboardingGuard: OnboardingGuard,
+    private cdr: ChangeDetectorRef,
+    private translateService: TranslateService
   ) {
     this.user$ = this.authService.user$;
+    this.availableInterfaceLanguages = this.languageService.supportedLanguages;
+    this.selectedInterfaceLanguage = this.languageService.getCurrentLanguage();
+  }
+
+  ngOnDestroy() {
+    this.stopHeadingRotation();
+  }
+
+  private startHeadingRotation() {
+    this.stopHeadingRotation();
+    this.headingInterval = setInterval(() => {
+      this.activeHeadingIndex = (this.activeHeadingIndex + 1) % this.headingTexts.length;
+      this.cdr.detectChanges();
+    }, 2400);
+  }
+
+  private stopHeadingRotation() {
+    if (this.headingInterval) {
+      clearInterval(this.headingInterval);
+      this.headingInterval = null;
+    }
   }
 
   ngOnInit() {
+    this.startHeadingRotation();
+
     // Check if user is authenticated
     this.authService.isAuthenticated$.pipe(take(1)).subscribe(isAuthenticated => {
       if (!isAuthenticated) {
@@ -251,6 +464,152 @@ export class TutorOnboardingPage implements OnInit {
     });
   }
 
+  ngAfterViewChecked() {
+    // Focus first input and scroll sidebar when step changes
+    if (this.currentStep !== this.previousStep) {
+      this.previousStep = this.currentStep;
+      setTimeout(() => {
+        this.focusFirstInput();
+        this.scrollCurrentStepIntoView();
+      }, 100);
+    }
+  }
+
+  private scrollCurrentStepIntoView() {
+    const currentStepEl = document.querySelector('.step-item.current');
+    if (currentStepEl) {
+      currentStepEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+
+  private focusFirstInput() {
+    if (this.currentStep === 1 && this.firstNameInput?.nativeElement) {
+      this.firstNameInput.nativeElement.focus();
+    } else if (this.currentStep === 7 && this.summaryInput?.nativeElement) {
+      this.summaryInput.nativeElement.focus();
+    } else if (this.currentStep === 7 && this.bioInput?.nativeElement && !this.summaryInput?.nativeElement) {
+      this.bioInput.nativeElement.focus();
+    }
+  }
+
+  selectInterfaceLanguage(lang: SupportedLanguage) {
+    this.selectedInterfaceLanguage = lang;
+    this.selectedLanguageFlag = this.languageService.getLanguageOption(lang)?.flag || '🇬🇧';
+    this.languageService.setLanguage(lang);
+  }
+
+  confirmLanguageSelection() {
+    this.stopHeadingRotation();
+    this.preStepPhase = 'welcome';
+    this.welcomeRevealed = false;
+    setTimeout(() => { this.welcomeRevealed = true; this.cdr.detectChanges(); }, 3800);
+  }
+
+  goBackToLanguageSelect() {
+    this.preStepPhase = 'language';
+    this.welcomeRevealed = false;
+    this.startHeadingRotation();
+  }
+
+  startOnboarding() {
+    const srcTitle = document.querySelector('.welcome-title') as HTMLElement;
+    const srcRect = srcTitle?.getBoundingClientRect();
+
+    if (!srcTitle || !srcRect) {
+      this.preStepPhase = 'done';
+      return;
+    }
+
+    const srcText = srcTitle.textContent?.trim() || '';
+    const srcStyles = window.getComputedStyle(srcTitle);
+
+    const clone = document.createElement('div');
+    clone.textContent = srcText;
+    Object.assign(clone.style, {
+      position: 'fixed',
+      left: `${srcRect.left}px`,
+      top: `${srcRect.top}px`,
+      width: `${srcRect.width}px`,
+      height: `${srcRect.height}px`,
+      zIndex: '10000',
+      pointerEvents: 'none',
+      fontFamily: srcStyles.fontFamily,
+      fontSize: srcStyles.fontSize,
+      fontWeight: '700',
+      color: '#222222',
+      letterSpacing: '-0.5px',
+      lineHeight: '1.2',
+      whiteSpace: 'nowrap',
+      transition: 'left 0.5s cubic-bezier(0.32, 0.72, 0, 1), top 0.5s cubic-bezier(0.32, 0.72, 0, 1), width 0.5s cubic-bezier(0.32, 0.72, 0, 1), height 0.5s cubic-bezier(0.32, 0.72, 0, 1), font-size 0.5s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.3s ease',
+    });
+    document.body.appendChild(clone);
+
+    this.preStepPhase = 'done';
+    this.cdr.detectChanges();
+
+    let landed = false;
+    const flyToDestination = (dest: HTMLElement) => {
+      if (landed) return;
+      landed = true;
+      dest.style.transition = 'none';
+      dest.style.opacity = '0';
+      const destRect = dest.getBoundingClientRect();
+      const destStyles = window.getComputedStyle(dest);
+      const destText = dest.textContent?.trim() || '';
+
+      requestAnimationFrame(() => {
+        clone.textContent = destText;
+        clone.style.left = `${destRect.left}px`;
+        clone.style.top = `${destRect.top}px`;
+        clone.style.width = 'auto';
+        clone.style.height = `${destRect.height}px`;
+        clone.style.fontSize = destStyles.fontSize;
+      });
+
+      setTimeout(() => {
+        const finalRect = dest.getBoundingClientRect();
+        clone.style.transition = 'none';
+        clone.style.left = `${finalRect.left}px`;
+        clone.style.top = `${finalRect.top}px`;
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            dest.style.opacity = '1';
+            if (clone.parentNode) clone.remove();
+            setTimeout(() => { dest.style.transition = ''; dest.style.opacity = ''; }, 50);
+          });
+        });
+      }, 550);
+    };
+
+    const destSelector = '.onboarding-header h1';
+    const checkDest = () => {
+      const dest = document.querySelector(destSelector) as HTMLElement;
+      if (dest) flyToDestination(dest);
+    };
+
+    requestAnimationFrame(() => requestAnimationFrame(checkDest));
+
+    const container = document.querySelector('.onboarding-container');
+    if (container) {
+      const observer = new MutationObserver(() => {
+        const dest = document.querySelector(destSelector) as HTMLElement;
+        if (dest) {
+          observer.disconnect();
+          flyToDestination(dest);
+        }
+      });
+      observer.observe(container, { childList: true, subtree: true });
+      setTimeout(() => {
+        observer.disconnect();
+        if (!landed) {
+          clone.style.opacity = '0';
+          clone.style.transition = 'opacity 0.3s ease';
+          setTimeout(() => { if (clone.parentNode) clone.remove(); }, 350);
+        }
+      }, 5000);
+    }
+  }
+
   nextStep() {
     if (this.canProceed() && this.currentStep < this.totalSteps) {
       this.currentStep++;
@@ -258,9 +617,16 @@ export class TutorOnboardingPage implements OnInit {
   }
 
   prevStep() {
-    if (this.currentStep > 1) {
+    if (this.currentStep === 1) {
+      this.preStepPhase = 'welcome';
+    } else {
       this.currentStep--;
     }
+  }
+
+  goToLanguageSelect() {
+    this.preStepPhase = 'language';
+    this.startHeadingRotation();
   }
 
   setNativeLanguage(code: string) {
@@ -278,12 +644,16 @@ export class TutorOnboardingPage implements OnInit {
     }
   }
 
-  setExperience(experience: string) {
-    this.selectedExperience = experience;
+  setExperience(value: string) {
+    this.selectedExperience = value;
+    const exp = this.experienceLevels.find(e => e.value === value);
+    this.translatedExperience = exp ? this.translateService.instant(exp.key) : value;
   }
 
-  setSchedule(schedule: string) {
-    this.selectedSchedule = schedule;
+  setSchedule(value: string) {
+    this.selectedSchedule = value;
+    const sched = this.scheduleOptions.find(s => s.value === value);
+    this.translatedSchedule = sched ? this.translateService.instant(sched.key) : value;
   }
 
   // Open country selection modal (for nationality)
@@ -309,10 +679,6 @@ export class TutorOnboardingPage implements OnInit {
     const { data } = await modal.onWillDismiss();
     if (data && data.selectedCountry) {
       this.country = data.selectedCountry;
-      // Default residence to same as nationality if not yet set
-      if (!this.residenceCountry) {
-        this.residenceCountry = data.selectedCountry;
-      }
     }
   }
 
@@ -359,17 +725,80 @@ export class TutorOnboardingPage implements OnInit {
     this.videoType = 'upload';
   }
 
+  onVideoPendingStateChanged(isPending: boolean) {
+    this.hasVideoLinkPending = isPending;
+  }
+
+  openVideoPlayerModal() {
+    if (!this.introductionVideo) return;
+    
+    let videoUrl = this.introductionVideo;
+    
+    // Add autoplay parameter for external videos
+    if (this.videoType === 'youtube' || this.videoType === 'vimeo') {
+      const separator = videoUrl.includes('?') ? '&' : '?';
+      if (!videoUrl.includes('autoplay=')) {
+        videoUrl = videoUrl + separator + 'autoplay=1';
+      }
+    }
+    
+    this.videoPlayerData = {
+      videoUrl: videoUrl,
+      safeVideoUrl: this.sanitizer.bypassSecurityTrustResourceUrl(videoUrl),
+      videoType: this.videoType
+    };
+    this.isVideoPlayerModalOpen = true;
+  }
+
+  onVideoPlayerModalDismiss() {
+    this.isVideoPlayerModalOpen = false;
+    this.videoPlayerData = null;
+  }
+
+  onVideoReady(event: Event) {
+    const video = event.target as HTMLVideoElement;
+    if (video) {
+      video.muted = false;
+      video.play().catch(() => {});
+    }
+  }
+
+  previewNativeLanguageName: string = '';
+  previewSelectedLanguages: string = '';
+
+  showPreviewPage() {
+    const nativeLang = this.nativeLanguageOptions.find(l => l.code === this.nativeLanguage);
+    this.previewNativeLanguageName = nativeLang ? nativeLang.name : this.nativeLanguage;
+    this.previewSelectedLanguages = this.selectedLanguages.join(', ');
+    this.showPreview = true;
+    this.hasReachedPreview = true;
+    // Scroll to top when preview page is shown
+    setTimeout(() => {
+      const previewContainer = document.querySelector('.preview-container');
+      if (previewContainer) {
+        previewContainer.scrollTop = 0;
+      }
+      window.scrollTo(0, 0);
+    }, 0);
+  }
+
+  goBackToEdit(step?: number) {
+    this.showPreview = false;
+    if (step) {
+      this.currentStep = step;
+    }
+  }
+
+  getNativeLanguageName(): string {
+    const lang = this.nativeLanguageOptions.find(l => l.code === this.nativeLanguage);
+    return lang ? lang.name : this.nativeLanguage;
+  }
+
   async completeOnboarding() {
-    const loading = await this.loadingController.create({
-      message: 'Completing setup...',
-      spinner: 'crescent'
-    });
-    await loading.present();
+    this.isSubmitting = true;
 
     try {
-      // First, ensure user exists in database
       console.log('🔍 Creating/updating tutor in database...');
-      console.log('🔍 localStorage selectedUserType:', localStorage.getItem('selectedUserType'));
       const auth0User = await this.authService.getUserProfile().pipe(take(1)).toPromise();
       
       if (!auth0User) {
@@ -385,20 +814,22 @@ export class TutorOnboardingPage implements OnInit {
       console.log('🔍 Tutor userType:', user?.userType);
 
       // Prepare tutor onboarding data
-      const onboardingData: TutorOnboardingData & { nativeLanguage?: string; residenceCountry?: string } = {
-        firstName: this.firstName,
-        lastName: this.lastName,
+      const onboardingData: TutorOnboardingData & { nativeLanguage?: string; residenceCountry?: string; interfaceLanguage?: string } = {
+        firstName: this.formatName(this.firstName),
+        lastName: this.formatName(this.lastName),
         country: this.country,
-        residenceCountry: this.residenceCountry, // NEW: For payout method selection
-        nativeLanguage: this.nativeLanguage, // NEW: Native language for analysis feedback
+        residenceCountry: this.residenceCountry,
+        nativeLanguage: this.nativeLanguage,
+        interfaceLanguage: this.selectedInterfaceLanguage,
         languages: this.selectedLanguages,
         experience: this.selectedExperience,
         schedule: this.selectedSchedule,
-        bio: this.profileBio,
+        summary: this.formatText(this.profileSummary),
+        bio: this.formatText(this.profileBio),
         hourlyRate: this.hourlyRate,
-        introductionVideo: this.introductionVideo, // Include introduction video
-        videoThumbnail: this.thumbnailUrl, // Include custom thumbnail
-        videoType: this.videoType // Include video type
+        introductionVideo: this.introductionVideo,
+        videoThumbnail: this.thumbnailUrl,
+        videoType: this.videoType
       };
 
       console.log('Saving tutor onboarding data to database:', onboardingData);
@@ -434,28 +865,31 @@ export class TutorOnboardingPage implements OnInit {
       console.log('🔄 Force refreshing user in UserService');
       await this.userService.getCurrentUser(true).pipe(take(1)).toPromise();
 
-      await loading.dismiss();
+      this.isSubmitting = false;
 
-      // Check for return URL (for users who clicked a shared link before signing up)
-      const returnUrl = localStorage.getItem('returnUrl');
-      if (returnUrl) {
-        console.log('🔄 Tutor onboarding complete, returning to saved URL:', returnUrl);
-        localStorage.removeItem('returnUrl');
-        this.router.navigateByUrl(returnUrl, { replaceUrl: true });
-      } else {
-        // Default: Navigate to main app
-        this.router.navigate(['/tabs/home'], { replaceUrl: true });
-      }
+      // Show the welcome/congrats page
+      this.showWelcome = true;
     } catch (error) {
       console.error('Error completing tutor onboarding:', error);
-      await loading.dismiss();
+      this.isSubmitting = false;
       
       const alert = await this.alertController.create({
-        header: 'Error',
-        message: 'Failed to complete setup. Please try again.',
-        buttons: ['OK']
+        header: this.translateService.instant('ONBOARDING.ALERTS.ERROR'),
+        message: this.translateService.instant('ONBOARDING.ALERTS.SETUP_FAILED'),
+        buttons: [this.translateService.instant('ONBOARDING.ALERTS.OK')]
       });
       await alert.present();
+    }
+  }
+
+  navigateToHome() {
+    const returnUrl = localStorage.getItem('returnUrl');
+    if (returnUrl) {
+      console.log('🔄 Tutor onboarding complete, returning to saved URL:', returnUrl);
+      localStorage.removeItem('returnUrl');
+      this.router.navigateByUrl(returnUrl, { replaceUrl: true });
+    } else {
+      this.router.navigate(['/tabs/home'], { replaceUrl: true });
     }
   }
 
@@ -466,17 +900,23 @@ export class TutorOnboardingPage implements OnInit {
   canProceed(): boolean {
     switch (this.currentStep) {
       case 1:
-        return this.firstName.trim() !== '' && this.lastName.trim() !== '' && this.country !== '' && this.residenceCountry !== '';
+        return this.firstName.trim() !== '' && this.lastName.trim() !== '' && this.country !== '';
       case 2:
-        return this.nativeLanguage !== ''; // Native language step
+        return this.residenceCountry !== ''; // Residence country step
       case 3:
-        return this.selectedLanguages.length > 0;
+        return this.nativeLanguage !== ''; // Native language step
       case 4:
-        return this.selectedExperience !== '';
+        return this.selectedLanguages.length > 0;
       case 5:
-        return this.selectedSchedule !== '';
+        return this.selectedExperience !== '';
       case 6:
-        return this.profileBio.length > 0 && this.hourlyRate > 0; // Bio and rate are not optional
+        return this.selectedSchedule !== '';
+      case 7:
+        return this.profileBio.length > 0; // Bio step
+      case 8:
+        return this.hourlyRate >= 10; // Minimum $10/hr for platform profitability
+      case 9:
+        return !this.hasVideoLinkPending; // Video is optional, but block if user has an unsubmitted link
       default:
         return false;
     }
@@ -490,5 +930,25 @@ export class TutorOnboardingPage implements OnInit {
       color
     });
     await toast.present();
+  }
+
+  async handleLogout() {
+    const alert = await this.alertController.create({
+      header: this.translateService.instant('ONBOARDING.ALERTS.LOGOUT'),
+      message: this.translateService.instant('ONBOARDING.ALERTS.LOGOUT_CONFIRM'),
+      buttons: [
+        {
+          text: this.translateService.instant('ONBOARDING.ALERTS.CANCEL'),
+          role: 'cancel'
+        },
+        {
+          text: this.translateService.instant('ONBOARDING.ALERTS.LOGOUT'),
+          handler: async () => {
+            await this.authService.logout();
+          }
+        }
+      ]
+    });
+    await alert.present();
   }
 }

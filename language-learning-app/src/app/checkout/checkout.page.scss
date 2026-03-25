@@ -1,6 +1,38 @@
 // Apple-Inspired Checkout Design - Matching Tutor Onboarding
 // Clean, minimal, premium feel with gradient background
 
+// Animation keyframes
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 ion-header {
   ion-toolbar {
     --background: transparent;
@@ -24,15 +56,15 @@ ion-content {
 }
 
 .checkout-layout {
-  max-width: 1100px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 16px; // Reduced from 20px
+  padding: 12px 32px;
   display: grid;
-  grid-template-columns: 1fr 420px;
-  gap: 16px; // Reduced from 20px
-  min-height: calc(100vh - 60px); // Fit within viewport
-  max-height: calc(100vh - 60px);
-  align-items: stretch; // Changed from 'start' to 'stretch' for equal heights
+  grid-template-columns: 1fr 650px;
+  gap: 24px;
+  height: calc(100vh - 84px); // Fit within viewport with some padding
+  align-items: stretch; // Both cards same height
+  animation: fadeIn 0.4s ease-out;
   
   // Embedded mode: two column layout for compactness
   &.embedded-layout {
@@ -77,18 +109,32 @@ ion-content {
 .summary, .payment {
   background: #ffffff;
   border: none;
-  border-radius: 20px;
-  padding: 20px; // Reduced from 24px
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   display: flex;
   flex-direction: column;
-  overflow-y: auto; // Allow internal scrolling if needed
+  animation: fadeInUp 0.4s ease-out;
+  min-height: 0;
   
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 24px 72px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 6px 32px rgba(0, 0, 0, 0.12);
   }
+}
+
+// Summary card - uses full height, content spaced naturally
+.summary {
+  padding: 14px;
+  justify-content: flex-start;
+  overflow: hidden;
+}
+
+// Payment section - push confirm button to bottom when cards match height
+.payment {
+  justify-content: space-between;
+  overflow-y: auto;
+  overflow-x: hidden;
   
   // Embedded mode: no shadow, no hover effect, very compact padding
   .embedded-layout & {
@@ -96,7 +142,7 @@ ion-content {
     border-radius: 0;
     padding: 10px 12px;
     margin-bottom: 6px;
-    overflow: visible; // Don't allow internal scrolling
+    overflow: visible;
     
     &:hover {
       transform: none;
@@ -106,8 +152,8 @@ ion-content {
 }
 
 h2 { 
-  margin: 0 0 12px 0; // Reduced from 16px
-  font-size: 18px; // Reduced from 20px
+  margin: 0 0 12px 0;
+  font-size: 17px;
   font-weight: 700;
   letter-spacing: -0.5px;
   color: #1c1c1e;
@@ -116,27 +162,25 @@ h2 {
 // Tutor Card - Clean & Compact
 .tutor-card { 
   display: flex; 
-  gap: 14px; // Reduced from 16px
+  gap: 12px;
   align-items: center; 
-  margin-bottom: 16px; // Reduced from 20px
-  padding: 12px; // Reduced from 16px
-  padding-bottom: 12px; // Reduced
-  border-bottom: 1px solid #f2f2f7;
+  margin-bottom: 10px;
+  padding: 12px;
   background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
-  border-radius: 14px; // Reduced from 16px
-  border-bottom: none; // Remove border since we have background now
+  border-radius: 14px;
+  animation: fadeInUp 0.4s ease-out 0.1s both;
 }
 
 .avatar { 
-  width: 60px; // Reduced from 72px
-  height: 60px; // Reduced from 72px
+  width: 50px;
+  height: 50px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 14px; // Reduced from 16px
+  border-radius: 12px;
   overflow: hidden;
   flex-shrink: 0;
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
   position: relative;
-  bottom: 30px;
+  bottom: 0; // Removed the offset
 }
 
 .avatar img { 
@@ -153,43 +197,43 @@ h2 {
 
 .meta .name { 
   font-weight: 700;
-  font-size: 16px; // Reduced from 18px
+  font-size: 15px;
   color: #1c1c1e;
-  margin-bottom: 6px; // Reduced from 8px
+  margin-bottom: 4px;
   letter-spacing: -0.3px;
 }
 
 .slot-line { 
   display: flex; 
   align-items: center; 
-  gap: 10px; // Reduced from 12px
-  margin-top: 6px; // Reduced from 10px
+  gap: 8px;
+  margin-top: 4px;
 }
 
 .date-badge { 
-  width: 54px; // Reduced from 60px
+  width: 46px;
   border: 2px solid #f2f2f7;
-  border-radius: 10px; // Reduced from 12px
-  padding: 6px; // Reduced from 8px
+  border-radius: 8px;
+  padding: 4px;
   text-align: center; 
   background: #fafafa;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .date-badge .mon { 
-  font-size: 10px; // Reduced from 11px
+  font-size: 9px;
   color: #667eea;
-  letter-spacing: 0.8px;
+  letter-spacing: 0.6px;
   font-weight: 700;
   text-transform: uppercase;
 }
 
 .date-badge .day { 
-  font-size: 20px; // Reduced from 24px
+  font-size: 16px;
   font-weight: 800; 
   color: #1c1c1e;
   line-height: 1.1;
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 .slot-text { 
@@ -200,24 +244,24 @@ h2 {
 .slot-text .when { 
   font-weight: 600;
   color: #1c1c1e;
-  font-size: 14px; // Reduced from 15px
-  margin-bottom: 3px; // Reduced from 4px
+  font-size: 13px;
+  margin-bottom: 2px;
 }
 
 .slot-text .tz-note { 
   color: #8e8e93;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .meta .tutor-rate { 
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 2px;
   
   .rate-amount {
-    color: #667eea;
-    font-size: 24px;
+    color: #1c1c1e;
+    font-size: 17px;
     font-weight: 700;
     line-height: 1;
   }
@@ -232,29 +276,29 @@ h2 {
 // Lesson Info Card - New feature highlights section
 .lesson-info-card {
   background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
-  border-radius: 12px; // Reduced from 14px
-  padding: 12px; // Reduced from 16px
-  margin-bottom: 16px; // Reduced from 20px
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 14px;
   display: flex;
   flex-direction: column;
-  gap: 10px; // Reduced from 12px
+  gap: 8px;
 }
 
 .info-item {
   display: flex;
   align-items: center;
-  gap: 10px; // Reduced from 12px
+  gap: 8px;
   color: #1c1c1e;
-  font-size: 13px; // Reduced from 14px
+  font-size: 12px;
   font-weight: 500;
   
   ion-icon {
-    font-size: 18px; // Reduced from 20px
+    font-size: 16px;
     color: #667eea;
     flex-shrink: 0;
     
     &.trial-icon {
-      color: #764ba2;
+      color: #ff9500;
     }
   }
   
@@ -262,30 +306,133 @@ h2 {
     line-height: 1.4;
     
     &.trial-label strong {
-      color: #667eea;
+      color: #e8850a;
       font-weight: 600;
     }
   }
 }
 
+// Booking Details — Prominent date/time/duration section
+.booking-details {
+  background: #f8f9fa;
+  border-radius: 14px;
+  padding: 12px 16px;
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  &.compact {
+    padding: 12px 14px;
+    gap: 10px;
+    margin-bottom: 10px;
+
+    .bd-row ion-icon { font-size: 18px; }
+    .bd-value { font-size: 14px; }
+    .bd-label { font-size: 10px; }
+  }
+}
+
+.bd-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+
+  ion-icon {
+    font-size: 22px;
+    color: #1c1c1e;
+    flex-shrink: 0;
+  }
+}
+
+.bd-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.bd-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #8e8e93;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.bd-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1c1c1e;
+  letter-spacing: -0.3px;
+}
+
+.bd-tz {
+  font-size: 11px;
+  color: #8e8e93;
+  margin: -2px 0 0 0;
+}
+
+// Lesson Features — Horizontal chip row
+.lesson-features {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+
+  &.compact {
+    margin-bottom: 10px;
+
+    .feature-chip {
+      font-size: 11px;
+      padding: 4px 10px;
+    }
+  }
+}
+
+.feature-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #1c1c1e;
+  background: #f2f2f7;
+  padding: 5px 10px;
+  border-radius: 20px;
+
+  ion-icon {
+    font-size: 14px;
+    color: #8e8e93;
+  }
+
+  &.trial {
+    background: rgba(255, 149, 0, 0.12);
+    color: #e8850a;
+    font-weight: 600;
+
+    ion-icon { color: #ff9500; }
+  }
+}
+
 // Details Section
-.details { 
-  margin-top: auto; // Push to bottom
-  padding-top: 12px; // Reduced from 16px
+.details {
+  margin-top: auto;
+  padding-top: 4px;
 }
 
 // Price Breakdown Section
 .price-breakdown-section {
   background: #f8f9fa;
   border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 16px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  animation: fadeInUp 0.4s ease-out 0.15s both;
   
   .breakdown-title {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     color: #1c1c1e;
-    margin-bottom: 12px;
+    margin-bottom: 6px;
     letter-spacing: -0.2px;
   }
   
@@ -293,8 +440,8 @@ h2 {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 6px 0;
-    font-size: 14px;
+    padding: 3px 0;
+    font-size: 13px;
     
     .breakdown-label {
       color: #3c3c43;
@@ -309,19 +456,19 @@ h2 {
     &.calculation {
       .breakdown-label {
         color: #8e8e93;
-        font-size: 13px;
+        font-size: 12px;
       }
       .breakdown-value {
         color: #8e8e93;
-        font-size: 13px;
+        font-size: 12px;
         font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
       }
     }
     
     &.subtotal {
       border-top: 1px solid #e5e5ea;
-      margin-top: 8px;
-      padding-top: 12px;
+      margin-top: 4px;
+      padding-top: 6px;
       
       .breakdown-label {
         font-weight: 600;
@@ -330,7 +477,76 @@ h2 {
       
       .breakdown-value {
         color: #667eea;
-        font-size: 18px;
+        font-size: 15px;
+        
+        &.strikethrough {
+          text-decoration: line-through;
+          color: #8e8e93;
+          font-size: 13px;
+        }
+      }
+    }
+    
+    &.discount {
+      .breakdown-label {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        color: #34c759;
+        font-weight: 600;
+        font-size: 13px;
+        
+        ion-icon {
+          font-size: 14px;
+        }
+      }
+      
+      .discount-value {
+        color: #34c759;
+        font-weight: 700;
+        font-size: 14px;
+      }
+    }
+    
+    &.total {
+      border-top: 1px solid #e5e5ea;
+      margin-top: 6px;
+      padding-top: 8px;
+      
+      .breakdown-label {
+        font-weight: 700;
+        color: #1c1c1e;
+      }
+      
+      .breakdown-value {
+        color: #1c1c1e;
+        font-weight: 700;
+        font-size: 16px;
+      }
+    }
+  }
+  
+  .breakdown-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    
+    .trial-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: linear-gradient(135deg, #34c759 0%, #30d158 100%);
+      color: white;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      
+      ion-icon {
+        font-size: 12px;
       }
     }
   }
@@ -340,7 +556,7 @@ h2 {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 0; // Reduced from 16px
+  padding: 7px 0;
   border-bottom: 1px solid #f2f2f7;
 }
 
@@ -351,20 +567,20 @@ h2 {
 .detail-row .label {
   display: flex;
   align-items: center;
-  gap: 6px; // Reduced from 8px
+  gap: 4px;
   color: #1c1c1e;
-  font-size: 14px; // Reduced from 15px
+  font-size: 13px;
   font-weight: 500;
   
   ion-icon {
-    font-size: 18px; // Reduced from 20px
+    font-size: 16px;
     color: #667eea;
   }
 }
 
 .detail-row .value,
 .total-row .value {
-  font-size: 14px; // Reduced from 15px
+  font-size: 13px;
   color: #1c1c1e;
   font-weight: 600;
 }
@@ -372,12 +588,12 @@ h2 {
 .total-row { 
   border-top: 2px solid #f2f2f7;
   border-bottom: none;
-  margin-top: 10px; // Reduced from 16px
-  padding-top: 14px; // Reduced from 20px
+  margin-top: 4px;
+  padding-top: 8px;
 }
 
 .total { 
-  font-size: 20px; // Reduced from 24px
+  font-size: 20px;
   font-weight: 800;
   color: #667eea;
 }
@@ -785,9 +1001,10 @@ h2 {
 
 // Buttons
 .confirm-btn {
-  --background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --background: #222;
+  --color: #fff;
   --border-radius: 12px;
-  --box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+  --box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
   --padding-top: 14px;
   --padding-bottom: 14px;
   margin-top: 16px;
@@ -795,16 +1012,18 @@ h2 {
   font-weight: 700;
   letter-spacing: 0.3px;
   text-transform: none;
+  animation: fadeInUp 0.4s ease-out 0.4s both;
   height: 50px;
   transition: all 0.2s ease;
   
   &:hover:not([disabled]) {
-    --box-shadow: 0 12px 32px rgba(102, 126, 234, 0.5);
-    transform: translateY(-2px);
+    --background: #000;
+    --box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+    transform: translateY(-1px);
   }
   
   &[disabled] {
-    opacity: 0.6;
+    opacity: 0.5;
   }
 }
 
@@ -823,11 +1042,700 @@ h2 {
   line-height: 1.5;
 }
 
-// Responsive
-@media (max-width: 900px) {
+// ================== NEW PAYMENT TAB STYLES ==================
+
+// Payment Method Tabs
+.payment-method-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+  animation: fadeInUp 0.4s ease-out 0.25s both;
+  
+  @media (max-width: 500px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.payment-tab {
+  padding: 10px 8px;
+  border: 2px solid #e5e5ea;
+  border-radius: 8px;
+  background: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1c1c1e;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  
+  .card-brands-logo {
+    height: 18px;
+    width: auto;
+    object-fit: contain;
+    opacity: 0.85;
+  }
+  
+  &.active .card-brands-logo {
+    opacity: 1;
+  }
+  
+  .wallet-icon {
+    font-size: 20px;
+    color: #1c1c1e;
+    opacity: 0.85;
+  }
+  
+  &.active .wallet-icon {
+    opacity: 1;
+    color: #667eea;
+  }
+  
+  &.disabled .wallet-icon {
+    opacity: 0.4;
+  }
+  
+  &:hover:not(.disabled) {
+    border-color: #667eea;
+  }
+  
+  &.active {
+    border-color: #667eea;
+    background: #ffffff;
+    color: #1c1c1e;
+  }
+  
+  &.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  ion-icon {
+    font-size: 16px;
+  }
+  
+  .google-logo {
+    font-family: 'Google Sans', -apple-system, sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    color: #4285f4;
+  }
+}
+
+// Payment Content Area
+.payment-content {
+  flex: 1; // Take up available space so button stays at bottom
+  display: flex;
+  flex-direction: column;
+  min-height: 0; // Allow flex to shrink if needed
+}
+
+// Card Form Section
+.card-form-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; // Allow flex to shrink
+  overflow-y: auto; // Make section scrollable
+  overflow-x: hidden;
+  
+  // Custom scrollbar styling
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+  
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+    
+    &:hover {
+      background: rgba(0, 0, 0, 0.3);
+    }
+  }
+  
+  .section-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    position: sticky; // Keep title row visible when scrolling
+    top: 0;
+    background: #ffffff;
+    z-index: 1;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+  }
+  
+  .section-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1c1c1e;
+    margin: 0;
+    flex: 1;
+  }
+}
+
+// Card Brand Icons
+.card-brands {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  align-items: center;
+  
+  img {
+    height: 24px;
+    width: auto;
+    object-fit: contain;
+    border-radius: 4px;
+  }
+}
+
+// Form Rows
+.form-row {
+  margin-bottom: 12px;
+  
+  &.two-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  
+  &.card-number-row {
+    display: grid;
+    grid-template-columns: 1fr 140px 110px;
+    gap: 12px;
+    
+    @media (max-width: 600px) {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  &.save-card-row {
+    margin-top: 12px;
+  }
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  
+  &.full-width {
+    width: 100%;
+  }
+  
+  label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #3c3c43;
+  }
+}
+
+.form-input,
+.form-select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #e5e5ea;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #1c1c1e;
+  background: #ffffff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  min-height: 40px;
+  box-sizing: border-box;
+  
+  &::placeholder {
+    color: #8e8e93;
+  }
+  
+  &:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  }
+}
+
+.form-select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238e8e93' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 40px;
+}
+
+// Stripe Elements
+.stripe-element {
+  padding: 10px 12px;
+  border: 1px solid #e5e5ea;
+  border-radius: 8px;
+  background: #ffffff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  min-height: 40px;
+  position: relative;
+  
+  // Ensure Stripe iframe is properly sized and interactive
+  iframe {
+    width: 100% !important;
+    height: 20px !important;
+    display: block;
+  }
+  
+  // Stripe's inner element
+  .StripeElement {
+    width: 100%;
+  }
+  
+  &:focus-within {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  }
+  
+  // When Stripe element is empty/loading
+  &:empty::before {
+    content: 'Loading...';
+    color: #8e8e93;
+    font-size: 13px;
+  }
+}
+
+// Checkbox Label
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #1c1c1e;
+  
+  input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #667eea;
+  }
+}
+
+// Back to cards link
+.back-to-cards-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: #667eea;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  white-space: nowrap;
+  
+  ion-icon {
+    font-size: 16px;
+  }
+  
+  &:hover {
+    color: #5a3ec8;
+    background: rgba(102, 126, 234, 0.08);
+  }
+  
+  &:active {
+    background: rgba(102, 126, 234, 0.12);
+  }
+}
+
+// Saved Cards Section
+.saved-cards-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; // Allow flex to shrink
+  overflow: hidden; // Prevent overflow at section level
+  
+  .section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1c1c1e;
+    margin: 0 0 14px 0;
+    animation: fadeInUp 0.4s ease-out 0.2s both;
+    flex-shrink: 0; // Keep title visible
+  }
+}
+
+.saved-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex: 1;
+  min-height: 0; // Allow flex to shrink
+  overflow-y: auto; // Make list scrollable
+  overflow-x: hidden;
+  // Custom scrollbar styling for better UX
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+  
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+    
+    &:hover {
+      background: rgba(0, 0, 0, 0.3);
+    }
+  }
+}
+
+.saved-card-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 20px;
+  border: 1px solid #e5e5ea;
+  border-radius: 16px;
+  background: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  opacity: 0;
+  animation: fadeInUp 0.4s ease-out forwards;
+  
+  // Staggered animation for each card
+  @for $i from 1 through 10 {
+    &:nth-child(#{$i}) {
+      animation-delay: #{$i * 0.1}s;
+    }
+  }
+  
+  &:hover {
+    border-color: #d1d1d6;
+    background: #fafafa;
+  }
+  
+  &.selected {
+    border-color: #667eea;
+    background: #fafafa;
+  }
+  
+  &.expired {
+    opacity: 0.7;
+    
+    .card-name, .card-expiry {
+      color: #8e8e93;
+    }
+  }
+}
+
+// Card Brand Logo
+.card-brand-logo {
+  width: 56px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e5e5ea;
+  flex-shrink: 0;
+  
+  img {
+    max-width: 40px;
+    max-height: 28px;
+    object-fit: contain;
+  }
+  
+  .generic-card {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    ion-icon {
+      font-size: 24px;
+      color: #8e8e93;
+    }
+  }
+}
+
+.saved-card-item .card-details {
+  flex: 1;
+  min-width: 0;
+  
+  .card-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1c1c1e;
+    letter-spacing: -0.2px;
+  }
+  
+  .card-expiry {
+    font-size: 13px;
+    color: #8e8e93;
+    margin-top: 3px;
+  }
+}
+
+// Card Actions Container
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.saved-card-item .default-badge {
+  background: #2c3e50;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+.set-default-btn {
+  background: transparent;
+  border: none;
+  color: #667eea;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 0;
+  white-space: nowrap;
+  transition: color 0.2s ease;
+  
+  &:hover {
+    color: #5a6fd6;
+    text-decoration: underline;
+  }
+}
+
+.expired-badge {
+  background: transparent;
+  border: 1.5px solid #ff3b30;
+  color: #ff3b30;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+.delete-card-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: none;
+  background: #f2f2f7;
+  color: #8e8e93;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  
+  ion-icon {
+    font-size: 18px;
+  }
+  
+  &:hover {
+    background: #ffe5e5;
+    color: #ff3b30;
+  }
+}
+
+// Add new card button
+.add-new-card-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  border: 1.5px dashed #c7c7cc;
+  border-radius: 12px;
+  background: transparent;
+  color: #667eea;
+  animation: fadeInUp 0.4s ease-out 0.3s both;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0; // Keep button visible, don't shrink
+  margin-top: auto; // Push to bottom of section
+  
+  ion-icon {
+    font-size: 20px;
+  }
+  
+  &:hover {
+    border-color: #667eea;
+    background: rgba(102, 126, 234, 0.05);
+  }
+}
+
+// Wallet Info Card
+.wallet-info-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+  border-radius: 16px;
+  border: 2px solid #667eea;
+  
+  .wallet-icon {
+    font-size: 36px;
+    color: #667eea;
+  }
+  
+  .wallet-details {
+    flex: 1;
+    
+    .wallet-label {
+      font-size: 13px;
+      color: #8e8e93;
+      font-weight: 500;
+    }
+    
+    .wallet-amount {
+      font-size: 24px;
+      font-weight: 700;
+      color: #1c1c1e;
+    }
+  }
+  
+  .check-icon {
+    font-size: 28px;
+    color: #34c759;
+  }
+}
+
+.wallet-note {
+  font-size: 13px;
+  color: #8e8e93;
+  margin-top: 12px;
+  text-align: center;
+  
+  &.insufficient {
+    color: #ff3b30;
+  }
+  
+  &.hybrid {
+    color: #34c759;
+  }
+}
+
+// Hybrid Payment Info (Wallet + Card)
+.hybrid-payment-info {
+  margin-top: 16px;
+  
+  .hybrid-breakdown {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  
+  .hybrid-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+    color: #1c1c1e;
+    
+    &:not(:last-child) {
+      margin-bottom: 8px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #e5e5ea;
+    }
+    
+    &.remaining {
+      font-weight: 600;
+    }
+  }
+  
+  .hybrid-value {
+    font-weight: 600;
+    
+    .hybrid-row:first-child & {
+      color: #34c759;
+    }
+  }
+}
+
+// Digital Wallet Card (Apple/Google Pay)
+.digital-wallet-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  background: #f9f9f9;
+  border-radius: 16px;
+  text-align: center;
+  
+  .wallet-logo {
+    font-size: 48px;
+    margin-bottom: 16px;
+    
+    &.apple {
+      color: #1c1c1e;
+    }
+  }
+  
+  .google-pay-logo {
+    font-size: 24px;
+    font-weight: 500;
+    margin-bottom: 16px;
+    
+    .g {
+      color: #4285f4;
+      font-weight: 700;
+    }
+  }
+  
+  .wallet-text {
+    p {
+      font-size: 14px;
+      color: #1c1c1e;
+      margin: 0;
+      
+      &.unavailable {
+        color: #8e8e93;
+      }
+    }
+  }
+}
+
+// Responsive - Tablet
+@media (max-width: 1300px) {
   .checkout-layout {
     grid-template-columns: 1fr;
     padding: 20px 16px;
+    max-width: 700px;
+    margin: 0 auto;
   }
   
   .payment-methods-grid {
@@ -836,6 +1744,244 @@ h2 {
   
   .wallet-compact {
     grid-column: span 1;
+  }
+}
+
+// Responsive - Mobile
+@media (max-width: 768px) {
+  .checkout-layout {
+    padding: 16px;
+    gap: 16px;
+    height: auto;
+    min-height: calc(100vh - 60px);
+  }
+  
+  .summary, .payment {
+    padding: 16px;
+    border-radius: 16px;
+  }
+  
+  .tutor-card {
+    gap: 12px;
+    
+    .avatar {
+      width: 56px;
+      height: 56px;
+    }
+    
+    .meta .name {
+      font-size: 16px;
+    }
+  }
+  
+  // Saved cards - mobile optimized
+  .saved-cards-list {
+    gap: 10px;
+  }
+  
+  .saved-card-item {
+    padding: 14px;
+    gap: 12px;
+    flex-wrap: wrap;
+    
+    .card-brand-logo {
+      width: 48px;
+      height: 32px;
+      
+      img {
+        max-width: 34px;
+        max-height: 24px;
+      }
+    }
+    
+    .card-details {
+      flex: 1;
+      min-width: 120px;
+      
+      .card-name {
+        font-size: 14px;
+      }
+      
+      .card-expiry {
+        font-size: 12px;
+      }
+    }
+    
+    .card-actions {
+      width: 100%;
+      margin-top: 8px;
+      padding-top: 10px;
+      border-top: 1px solid #f2f2f7;
+      justify-content: flex-start;
+      gap: 8px;
+      
+      .default-badge {
+        font-size: 10px;
+        padding: 4px 10px;
+      }
+      
+      .set-default-btn {
+        font-size: 12px;
+      }
+      
+      .delete-card-btn {
+        margin-left: auto;
+        width: 32px;
+        height: 32px;
+        
+        ion-icon {
+          font-size: 16px;
+        }
+      }
+    }
+  }
+  
+  // Payment tabs - mobile
+  .payment-method-tabs {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  
+  .payment-tab {
+    padding: 10px 6px;
+    font-size: 11px;
+    
+    ion-icon {
+      font-size: 16px;
+    }
+    
+    .card-brands-logo {
+      height: 14px;
+    }
+    
+    .wallet-icon {
+      font-size: 18px;
+    }
+  }
+  
+  // Price breakdown - mobile
+  .price-breakdown-section {
+    padding: 12px;
+    
+    .breakdown-title {
+      font-size: 13px;
+    }
+    
+    .breakdown-item {
+      font-size: 13px;
+      
+      &.total {
+        .breakdown-value {
+          font-size: 18px;
+        }
+      }
+    }
+    
+    .trial-badge {
+      font-size: 10px;
+      padding: 3px 8px;
+    }
+  }
+  
+  // Confirm button - mobile
+  .confirm-btn {
+    height: 48px;
+    font-size: 15px;
+    margin-top: 16px;
+  }
+  
+  .note {
+    font-size: 11px;
+    margin-top: 10px;
+  }
+}
+
+// Responsive - Small phones
+@media (max-width: 480px) {
+  .checkout-layout {
+    padding: 12px;
+  }
+  
+  .summary, .payment {
+    padding: 14px;
+    border-radius: 14px;
+  }
+  
+  // Stack card item content vertically on very small screens
+  .saved-card-item {
+    padding: 12px;
+    
+    .card-brand-logo {
+      width: 44px;
+      height: 28px;
+      
+      img {
+        max-width: 30px;
+        max-height: 20px;
+      }
+    }
+    
+    .card-details {
+      .card-name {
+        font-size: 13px;
+      }
+      
+      .card-expiry {
+        font-size: 11px;
+      }
+    }
+  }
+  
+  .payment-method-tabs {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .payment-tab {
+    padding: 8px 4px;
+    font-size: 10px;
+    gap: 4px;
+    
+    ion-icon {
+      font-size: 14px;
+    }
+    
+    .card-brands-logo {
+      height: 12px;
+    }
+    
+    .wallet-icon {
+      font-size: 16px;
+    }
+    
+    // Hide text on very small screens, show only icons
+    &.show-icon-only-mobile span:not(.g) {
+      display: none;
+    }
+  }
+  
+  .add-new-card-btn {
+    padding: 12px;
+    font-size: 13px;
+    
+    ion-icon {
+      font-size: 18px;
+    }
+  }
+  
+  // Form fields - mobile
+  .form-row {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .form-input, .form-select, .stripe-element {
+    padding: 12px;
+    font-size: 14px;
+    min-height: 44px;
+  }
+  
+  .form-group label {
+    font-size: 11px;
   }
 }
 
@@ -861,7 +2007,7 @@ h2 {
           gap: 8px !important;
           
           h2 {
-            font-size: 13px;
+            font-size: 14px;
             margin: 0 0 8px 0;
             font-weight: 600;
           }
@@ -884,59 +2030,19 @@ h2 {
             }
             
             .meta .name {
-              font-size: 13px !important;
+              font-size: 17px !important;
               margin-bottom: 4px !important;
-            }
-            
-            .date-badge {
-              width: 40px !important;
-              padding: 4px !important;
-              border-radius: 6px !important;
-              
-              .mon {
-                font-size: 8px !important;
-              }
-              
-              .day {
-                font-size: 14px !important;
-              }
-            }
-            
-            .slot-text .when {
-              font-size: 11px !important;
-              margin-bottom: 2px !important;
-            }
-            
-            .slot-text .tz-note {
-              font-size: 9px !important;
             }
             
             .tutor-rate {
               margin-top: 4px !important;
               
               .rate-amount {
-                font-size: 16px !important;
+                font-size: 19px !important;
               }
               
               .rate-label {
-                font-size: 9px !important;
-              }
-            }
-          }
-          
-          .lesson-info-card.compact {
-            padding: 8px !important;
-            margin-bottom: 8px !important;
-            gap: 6px !important;
-            border-radius: 8px !important;
-            
-            .info-item {
-              font-size: 10px !important;
-              gap: 6px !important;
-              margin: 0 !important;
-              
-              ion-icon {
-                font-size: 14px !important;
+                font-size: 12px !important;
               }
             }
           }
@@ -947,7 +2053,7 @@ h2 {
             border-radius: 8px !important;
             
             .breakdown-title {
-              font-size: 11px !important;
+              font-size: 14px !important;
               margin-bottom: 6px !important;
               font-weight: 600;
             }
@@ -955,7 +2061,29 @@ h2 {
             .breakdown-item {
               margin: 3px 0 !important;
               padding: 2px 0 !important;
-              font-size: 10px !important;
+              font-size: 14px !important;
+              
+              &.calculation {
+                .breakdown-label {
+                  font-size: 13px !important;
+                  font-weight: 500;
+                  
+                  strong {
+                    font-weight: 600;
+                    color: #1c1c1e;
+                  }
+                }
+                .breakdown-value {
+                  font-size: 13px !important;
+                }
+              }
+              
+              &.subtotal {
+                .breakdown-label,
+                .breakdown-value {
+                  font-size: 15px !important;
+                }
+              }
               
               &.total {
                 margin-top: 6px !important;
@@ -964,10 +2092,11 @@ h2 {
                 
                 .breakdown-label {
                   font-weight: 600;
+                  font-size: 15px !important;
                 }
                 
                 .breakdown-value {
-                  font-size: 14px !important;
+                  font-size: 19px !important;
                   font-weight: 700;
                 }
               }
@@ -975,22 +2104,22 @@ h2 {
             
             .breakdown-label,
             .breakdown-value {
-              font-size: 10px !important;
+              font-size: 14px !important;
             }
             
             .payment-breakdown {
               margin-top: 6px !important;
               padding-top: 6px !important;
               border-top: 1px solid #e8e8ed !important;
-              font-size: 9px !important;
+              font-size: 11px !important;
               
               .breakdown-header {
-                font-size: 10px !important;
+                font-size: 12px !important;
                 margin-bottom: 4px !important;
               }
               
               .breakdown-row {
-                font-size: 9px !important;
+                font-size: 11px !important;
                 margin: 3px 0 !important;
               }
             }
@@ -999,6 +2128,47 @@ h2 {
         
         // Right Column Styles
         .embedded-right-column {
+          // Ensure payment-content is properly flexed
+          .payment-content {
+            min-height: 0 !important;
+            overflow: hidden !important;
+          }
+          
+          // Make card-form-section scrollable in embedded mode
+          .card-form-section {
+            min-height: 0 !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            flex: 1 !important;
+            
+            .section-title-row {
+              position: sticky !important;
+              top: 0 !important;
+              background: #ffffff !important;
+              z-index: 1 !important;
+            }
+          }
+          
+          // Make saved-cards-section scrollable in embedded mode
+          .saved-cards-section {
+            min-height: 0 !important;
+            overflow: hidden !important;
+            flex: 1 !important;
+            
+            .saved-cards-list {
+              overflow-y: auto !important;
+              overflow-x: hidden !important;
+              min-height: 0 !important;
+              flex: 1 !important;
+              margin-bottom: 12px !important;
+            }
+            
+            .add-new-card-btn {
+              flex-shrink: 0 !important;
+              margin-top: 0 !important;
+            }
+          }
+          
           .wallet-balance-display.compact {
             margin-bottom: 8px !important;
             padding: 6px 8px !important;
@@ -1083,3 +2253,5 @@ h2 {
       }
   }
 }
+
+// Booking Confirmation Alert Styles are in global.scss

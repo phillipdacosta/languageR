@@ -19,6 +19,8 @@
 const Lesson = require('../models/Lesson');
 const LessonTranscript = require('../models/LessonTranscript');
 const User = require('../models/User');
+const Notification = require('../models/Notification');
+const TutorFeedback = require('../models/TutorFeedback');
 const alertService = require('../services/alertService');
 
 // Configuration
@@ -267,11 +269,10 @@ async function finalizeLesson(lesson, endTime = new Date()) {
         // Calculate actual price for office hours (per-minute billing)
         if (lesson.isOfficeHours) {
           const tutor = await User.findById(lesson.tutorId);
-          const standardRate = tutor?.onboardingData?.hourlyRate || 25;
+          const standardRate = Math.max(10, tutor?.onboardingData?.hourlyRate || 25);
           const standardDuration = 50; // Standard lesson duration
           const perMinuteRate = standardRate / standardDuration;
           
-          // Calculate actual price based on actual time used
           const calculatedPrice = Math.round(perMinuteRate * actualMinutes * 100) / 100;
           lesson.actualPrice = calculatedPrice;
           lesson.billingStatus = 'charged';
@@ -355,6 +356,163 @@ async function finalizeLesson(lesson, endTime = new Date()) {
     // Emit WebSocket event for lesson status change
     emitStatusChange(lesson._id, lesson.status, lesson.tutorId, lesson.studentId);
     
+    // 📬 SEND NOTIFICATIONS IF LESSON COMPLETED SUCCESSFULLY
+    if (lesson.status === 'completed' && lesson.actualCallStartTime) {
+      try {
+        // Get populated lesson data for notification messages
+        const populatedLesson = await Lesson.findById(lesson._id)
+          .populate('tutorId', 'name firstName lastName picture auth0Id')
+          .populate('studentId', 'name firstName lastName picture auth0Id profile');
+        
+        if (populatedLesson) {
+          const tutor = populatedLesson.tutorId;
+          const student = populatedLesson.studentId;
+          
+          // Format names
+          const tutorName = tutor.firstName || tutor.name?.split(' ')[0] || 'Your tutor';
+          const studentName = student.firstName || student.name?.split(' ')[0] || 'Your student';
+          
+          // Notification for STUDENT - Analysis is available
+          await Notification.create({
+            userId: student._id,
+            type: 'lesson_completed',
+            title: '📊 Lesson Completed',
+            message: `Your lesson with ${tutorName} has ended. View your lesson analysis and leave a tip!`,
+            relatedUserPicture: tutor.picture || null,
+            data: {
+              lessonId: lesson._id.toString(),
+              action: 'view_analysis',
+              tutorName: tutorName
+            }
+          });
+          console.log(`📬 [AutoFinalize] Sent completion notification to student ${student._id}`);
+          
+          // Notification for TUTOR - Leave feedback
+          await Notification.create({
+            userId: tutor._id,
+            type: 'feedback_reminder',
+            title: '📝 Leave Feedback',
+            message: `Your lesson with ${studentName} has ended. Leave feedback for your student!`,
+            relatedUserPicture: student.picture || null,
+            data: {
+              lessonId: lesson._id.toString(),
+              action: 'add_note',
+              studentName: studentName
+            }
+          });
+          console.log(`📬 [AutoFinalize] Sent feedback reminder to tutor ${tutor._id}`);
+          
+          // Emit WebSocket notifications
+          try {
+            const io = require('../server').getIO();
+            if (io) {
+              // Notify student
+              const studentSocketId = global.userSockets?.[student._id.toString()];
+              if (studentSocketId) {
+                io.to(studentSocketId).emit('lesson_completed_notification', {
+                  lessonId: lesson._id.toString(),
+                  tutorName: tutorName,
+                  action: 'view_analysis'
+                });
+              }
+              
+              // Notify tutor
+              const tutorSocketId = global.userSockets?.[tutor._id.toString()];
+              if (tutorSocketId) {
+                io.to(tutorSocketId).emit('feedback_reminder', {
+                  lessonId: lesson._id.toString(),
+                  studentName: studentName,
+                  action: 'add_note'
+                });
+              }
+            }
+          } catch (wsError) {
+            console.warn('⚠️ [AutoFinalize] WebSocket notification failed:', wsError.message);
+          }
+          
+          // 📝 CREATE PENDING TUTOR FEEDBACK FOR ALL COMPLETED LESSONS
+          // Skip for trial lessons
+          if (!populatedLesson.isTrialLesson) {
+            // Snapshot the student's AI setting at lesson completion time (immutable once set)
+            if (populatedLesson.aiAnalysisEnabledAtTime === null || populatedLesson.aiAnalysisEnabledAtTime === undefined) {
+              const snapshotValue = student?.profile?.aiAnalysisEnabled !== false;
+              populatedLesson.aiAnalysisEnabledAtTime = snapshotValue;
+              await populatedLesson.save();
+              console.log(`📸 [AutoFinalize] Snapshotted aiAnalysisEnabledAtTime=${snapshotValue} for lesson ${lesson._id}`);
+            }
+            
+            // Create TutorFeedback record only when AI analysis is disabled (feedback is required)
+            const aiEnabledForLesson = populatedLesson.aiAnalysisEnabledAtTime !== false;
+            try {
+              const feedbackExists = await TutorFeedback.findOne({ lessonId: lesson._id });
+              
+              if (!feedbackExists && !aiEnabledForLesson) {
+                await TutorFeedback.create({
+                  lessonId: lesson._id,
+                  tutorId: tutor._id,
+                  studentId: student._id,
+                  status: 'pending',
+                  required: true
+                });
+                
+                populatedLesson.requiresTutorFeedback = true;
+                await populatedLesson.save();
+                
+                const feedbackMessages = [
+                  { title: '📝 Lesson Feedback Needed', message: `Your lesson with ${studentName} just ended — leave your feedback while it's fresh!` },
+                  { title: '✍️ Share Your Insights', message: `${studentName} is waiting for your feedback from today's lesson!` },
+                  { title: '💭 Time to Reflect', message: `Quick! Share what went well in your lesson with ${studentName}.` },
+                  { title: '📊 Feedback Time', message: `Help ${studentName} improve — leave feedback for today's lesson!` }
+                ];
+                const randomMsg = feedbackMessages[Math.floor(Math.random() * feedbackMessages.length)];
+                
+                try {
+                  await Notification.create({
+                    userId: tutor._id,
+                    type: 'feedback_required',
+                    title: randomMsg.title,
+                    message: randomMsg.message,
+                    relatedUserId: student._id,
+                    relatedUserPicture: student.picture || null,
+                    data: {
+                      lessonId: lesson._id.toString(),
+                      studentName: studentName,
+                      studentAuth0Id: student.auth0Id
+                    }
+                  });
+                } catch (notifErr) {
+                  console.warn('⚠️ [AutoFinalize] Notification creation failed:', notifErr.message);
+                }
+                
+                try {
+                  const io = require('../server').getIO();
+                  if (io && tutor.auth0Id) {
+                    io.to(`user:${tutor.auth0Id}`).emit('feedback_required', {
+                      lessonId: lesson._id.toString(),
+                      studentName: studentName,
+                      title: randomMsg.title,
+                      message: randomMsg.message
+                    });
+                  }
+                } catch (wsErr) {
+                  console.warn('⚠️ [AutoFinalize] feedback_required WebSocket failed:', wsErr.message);
+                }
+                
+                console.log(`✅ [AutoFinalize] Created TutorFeedback for lesson ${lesson._id}`);
+              } else {
+                console.log(`ℹ️ [AutoFinalize] TutorFeedback already exists for lesson ${lesson._id}`);
+              }
+            } catch (fbError) {
+              console.error('⚠️ [AutoFinalize] Failed to create TutorFeedback:', fbError.message);
+            }
+          }
+        }
+      } catch (notifError) {
+        console.error('⚠️ [AutoFinalize] Failed to send notifications:', notifError.message);
+        // Don't throw - notifications failing shouldn't break the finalization
+      }
+    }
+    
     // 💰 HANDLE PAYMENT BASED ON LESSON OUTCOME
     if (lesson.paymentId) {
       try {
@@ -369,23 +527,80 @@ async function finalizeLesson(lesson, endTime = new Date()) {
         
         // CASE 1: Lesson completed successfully (both showed up)
         if (lesson.actualCallStartTime && lesson.status === 'completed') {
-          // Capture full payment
-          if (payment.status === 'authorized') {
-            console.log(`💳 [AutoFinalize] Capturing full payment for completed lesson ${lesson._id}`);
-            const paymentService = require('../services/paymentService');
-            try {
-              await paymentService.deductLessonFunds(lesson._id);
-              console.log(`✅ [AutoFinalize] Payment captured for lesson ${lesson._id}`);
-            } catch (captureError) {
-              console.error(`❌ [AutoFinalize] Payment capture failed for lesson ${lesson._id}:`, captureError.message);
-              throw captureError;
+          // Check for anomalously short lessons (< 5 min for lessons >= 15 min scheduled)
+          const scheduledDuration = lesson.duration || 25;
+          const actualDuration = lesson.actualDurationMinutes || 0;
+          const shortLessonThreshold = Math.min(5, scheduledDuration * 0.2); // 5 min or 20% of scheduled, whichever is smaller
+          const isAnomalouslyShort = scheduledDuration >= 15 && actualDuration > 0 && actualDuration < shortLessonThreshold;
+
+          if (isAnomalouslyShort) {
+            // AUTO-FLAG: Lesson was too short — hold payment for admin review
+            console.log(`🚩 [AutoFinalize] FLAGGED: Lesson ${lesson._id} was only ${actualDuration} min (scheduled: ${scheduledDuration} min) — auto-holding for review`);
+            
+            // Capture the payment first
+            if (payment.status === 'authorized') {
+              const paymentService = require('../services/paymentService');
+              try {
+                await paymentService.deductLessonFunds(lesson._id);
+                console.log(`✅ [AutoFinalize] Payment captured for flagged lesson ${lesson._id}`);
+              } catch (captureError) {
+                console.error(`❌ [AutoFinalize] Payment capture failed for lesson ${lesson._id}:`, captureError.message);
+                throw captureError;
+              }
             }
+            
+            // Complete payment (puts it on_hold for tutor) but also flag for admin
+            const paymentService = require('../services/paymentService');
+            await paymentService.completeLessonPayment(lesson._id);
+            
+            // Auto-flag the lesson and pause payout
+            lesson.autoFlaggedShortLesson = true;
+            lesson.autoFlagReason = `Actual duration ${actualDuration} min vs ${scheduledDuration} min scheduled`;
+            lesson.payoutPaused = true;
+            lesson.payoutPausedAt = new Date();
+            lesson.underInvestigation = true;
+            lesson.issueReported = true;
+            lesson.issueType = 'ended_early';
+            lesson.issueDetails = `Auto-flagged: Lesson lasted only ${actualDuration} minute(s) out of ${scheduledDuration} minutes scheduled. Payment held for admin review.`;
+            lesson.issueReportedAt = new Date();
+            await lesson.save();
+            
+            // Create admin alert
+            await alertService.createAlert({
+              type: 'SHORT_LESSON_FLAGGED',
+              severity: 'HIGH',
+              title: `Auto-flagged short lesson — ${actualDuration} min of ${scheduledDuration} min`,
+              description: `Lesson ${lesson._id} between tutor and student lasted only ${actualDuration} minute(s) out of ${scheduledDuration} minutes scheduled. Payment has been auto-held for admin review.`,
+              lessonId: lesson._id,
+              data: {
+                actualDuration,
+                scheduledDuration,
+                tutorId: lesson.tutorId?._id || lesson.tutorId,
+                studentId: lesson.studentId?._id || lesson.studentId,
+                lessonPrice: lesson.price
+              }
+            });
+            
+            console.log(`✅ [AutoFinalize] Short lesson flagged and payout paused for lesson ${lesson._id}`);
+          } else {
+            // Normal completion — capture and complete payment
+            if (payment.status === 'authorized') {
+              console.log(`💳 [AutoFinalize] Capturing full payment for completed lesson ${lesson._id}`);
+              const paymentService = require('../services/paymentService');
+              try {
+                await paymentService.deductLessonFunds(lesson._id);
+                console.log(`✅ [AutoFinalize] Payment captured for lesson ${lesson._id}`);
+              } catch (captureError) {
+                console.error(`❌ [AutoFinalize] Payment capture failed for lesson ${lesson._id}:`, captureError.message);
+                throw captureError;
+              }
+            }
+            
+            // Complete payment (revenue recognition + tutor payout)
+            const paymentService = require('../services/paymentService');
+            await paymentService.completeLessonPayment(lesson._id);
+            console.log(`✅ [AutoFinalize] Payment completed (payout sent) for lesson ${lesson._id}`);
           }
-          
-          // Complete payment (revenue recognition + tutor payout)
-          const paymentService = require('../services/paymentService');
-          await paymentService.completeLessonPayment(lesson._id);
-          console.log(`✅ [AutoFinalize] Payment completed (payout sent) for lesson ${lesson._id}`);
         }
         
         // CASE 2: Both no-show - full refund

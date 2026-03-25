@@ -44,12 +44,24 @@ const routes: Routes = [
         loadChildren: () => import('../notifications/notifications.module').then(m => m.NotificationsPageModule)
       },
       {
+        path: 'lessons',
+        loadComponent: () => import('../lessons/lessons.page').then(m => m.LessonsPage)
+      },
+      {
+        path: 'lessons/:id',
+        loadComponent: () => import('../tutor-calendar/event-details/event-details.page').then(m => m.EventDetailsPage)
+      },
+      {
         path: 'home/wallet',
         loadChildren: () => import('../wallet/wallet.module').then(m => m.WalletPageModule)
       },
       {
         path: 'home/earnings',
         loadComponent: () => import('../earnings/earnings.page').then(m => m.EarningsPage)
+      },
+      {
+        path: 'home/explore',
+        loadComponent: () => import('../explore/explore.page').then(m => m.ExplorePage)
       },
       {
         path: '',

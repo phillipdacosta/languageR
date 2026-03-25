@@ -112,15 +112,15 @@ async function uploadVideoWithCompression(req, res) {
     let finalBuffer = req.file.buffer;
     let compressionInfo = null;
 
-    // Compress if file is larger than 50MB
-    if (req.file.size > 50 * 1024 * 1024) {
+    // Compress if file is larger than 100MB
+    if (req.file.size > 100 * 1024 * 1024) {
       console.log('🎬 Starting video compression...');
       
       const compressionOptions = {
-        maxSizeMB: 50,
-        maxWidth: 1280,
-        maxHeight: 720,
-        quality: originalSizeMB > 200 ? 32 : 28, // More aggressive for very large files
+        maxSizeMB: 100,
+        maxWidth: 1920,
+        maxHeight: 1080,
+        quality: originalSizeMB > 300 ? 26 : 23,
         format: 'mp4'
       };
 
@@ -144,8 +144,10 @@ async function uploadVideoWithCompression(req, res) {
 
     // Generate unique filename
     const timestamp = Date.now();
-    const fileExtension = req.file.originalname.split('.').pop() || 'mp4';
-    const fileName = `tutor-videos/${user._id}/${timestamp}-compressed.${fileExtension}`;
+    const wasCompressed = compressionInfo !== null;
+    const fileExtension = wasCompressed ? 'mp4' : (req.file.originalname.split('.').pop() || 'mp4');
+    const fileName = `tutor-videos/${user._id}/${timestamp}.${fileExtension}`;
+    const contentType = wasCompressed ? 'video/mp4' : (req.file.mimetype || 'video/mp4');
     
     console.log('📤 Starting upload to Google Cloud Storage...');
     
@@ -153,11 +155,11 @@ async function uploadVideoWithCompression(req, res) {
     const file = bucket.file(fileName);
     const stream = file.createWriteStream({
       metadata: {
-        contentType: 'video/mp4',
-        cacheControl: 'public, max-age=31536000', // Cache for 1 year
+        contentType: contentType,
+        cacheControl: 'public, max-age=31536000',
       },
-      resumable: true, // Enable resumable uploads for large files
-      validation: 'crc32c', // Enable checksum validation
+      resumable: true,
+      validation: 'crc32c',
     });
 
     // Track upload progress
@@ -233,33 +235,20 @@ async function uploadVideoWithCompression(req, res) {
   }
 }
 
-// Helper function to get user from request
+// Helper function to get user from request (auth0Id first, email fallback, syncs auth0Id)
 async function getUserFromRequest(req) {
   const User = require('../models/User');
   
-  console.log('🔍 getUserFromRequest - Looking for user with:', {
-    auth0Id: req.user?.sub,
-    email: req.user?.email,
-    fullUserObject: req.user
-  });
-  
   let user = await User.findOne({ auth0Id: req.user.sub });
-  console.log('🔍 Search by auth0Id result:', user ? 'FOUND' : 'NOT FOUND');
   
-  if (!user) {
+  if (!user && req.user.email) {
     user = await User.findOne({ email: req.user.email });
-    console.log('🔍 Search by email result:', user ? 'FOUND' : 'NOT FOUND');
-  }
-  
-  if (user) {
-    console.log('✅ User found:', {
-      _id: user._id,
-      auth0Id: user.auth0Id,
-      email: user.email,
-      userType: user.userType
-    });
-  } else {
-    console.log('❌ User NOT found in database');
+    
+    // Sync auth0Id so future lookups work directly
+    if (user && user.auth0Id !== req.user.sub) {
+      user.auth0Id = req.user.sub;
+      await user.save();
+    }
   }
   
   return user;
@@ -466,9 +455,36 @@ async function uploadImageToGCS(req, res) {
   }
 }
 
+// Configure multer for document uploads (credentials, certifications)
+const uploadDocument = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit for documents
+  },
+  fileFilter: (req, file, cb) => {
+    console.log('📄 Document file details:', {
+      fieldname: file.fieldname,
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      encoding: file.encoding,
+      size: file.size
+    });
+    
+    // Accept images and PDFs
+    if (file.mimetype.startsWith('image/') || 
+        file.mimetype === 'application/pdf' ||
+        file.originalname.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp|pdf)$/)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files (JPG, PNG) and PDF documents are allowed'), false);
+    }
+  },
+});
+
 module.exports = {
   upload,
   uploadImage,
+  uploadDocument,
   uploadVideoWithCompression,
   uploadImageToGCS,
   verifyToken,

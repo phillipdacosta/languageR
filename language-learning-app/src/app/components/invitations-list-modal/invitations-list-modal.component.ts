@@ -2,7 +2,9 @@ import { Component, Input, OnInit, OnChanges, SimpleChanges } from '@angular/cor
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController } from '@ionic/angular';
 import { ClassService } from '../../services/class.service';
+import { UserService } from '../../services/user.service';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { formatTimeInTz, formatDateInTz } from '../../shared/timezone.utils';
 
 @Component({
   selector: 'app-invitations-list-modal',
@@ -51,8 +53,13 @@ export class InvitationsListModalComponent implements OnInit, OnChanges {
   constructor(
     private modalController: ModalController,
     private classService: ClassService,
-    private sanitizer: DomSanitizer
+    private sanitizer: DomSanitizer,
+    private userService: UserService
   ) {}
+
+  private get userTz(): string | undefined {
+    return this.userService.getCurrentUserValue()?.profile?.timezone || undefined;
+  }
 
   ngOnInit() {
     console.log('InvitationsListModalComponent - all invitations:', this.invitations);
@@ -140,30 +147,27 @@ export class InvitationsListModalComponent implements OnInit, OnChanges {
   formatClassDate(dateString: string): string {
     if (!dateString) return '';
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'short', 
-      month: 'short', 
-      day: 'numeric' 
+    return formatDateInTz(date, this.userTz, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: undefined
     });
   }
 
   formatClassTime(dateString: string): string {
     if (!dateString) return '';
     const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit',
-      hour12: true 
-    });
+    return formatTimeInTz(date, this.userTz);
   }
 
   formatDetailedDate(dateString: string): string {
     if (!dateString) return '';
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
+    return formatDateInTz(date, this.userTz, {
       weekday: 'long',
       year: 'numeric',
-      month: 'long', 
+      month: 'long',
       day: 'numeric'
     });
   }
@@ -171,11 +175,47 @@ export class InvitationsListModalComponent implements OnInit, OnChanges {
   formatDetailedTime(dateString: string): string {
     if (!dateString) return '';
     const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit',
-      hour12: true 
-    });
+    return formatTimeInTz(date, this.userTz);
+  }
+
+  formatTutorName(tutor: any): string {
+    if (!tutor) return 'Unknown';
+    
+    // Try firstName and lastName first
+    if (tutor.firstName && tutor.lastName) {
+      return `${tutor.firstName} ${tutor.lastName.charAt(0).toUpperCase()}.`;
+    }
+    
+    // Fall back to name field
+    const name = tutor.name || tutor.email || '';
+    if (!name) return 'Unknown';
+    
+    // If it's an email, extract name from email
+    if (name.includes('@')) {
+      const base = name.split('@')[0];
+      const parts = base.split(/[.\s_]+/).filter(Boolean);
+      const first = parts[0];
+      const lastInitial = parts.length > 1 ? parts[parts.length - 1][0] : '';
+      return lastInitial
+        ? `${this.capitalize(first)} ${lastInitial.toUpperCase()}.`
+        : this.capitalize(first);
+    }
+    
+    // Parse regular name
+    const parts = name.split(' ').filter(Boolean);
+    if (parts.length === 1) {
+      return this.capitalize(parts[0]);
+    }
+    
+    const first = this.capitalize(parts[0]);
+    const last = parts[parts.length - 1];
+    const lastInitial = last ? last[0].toUpperCase() : '';
+    return lastInitial ? `${first} ${lastInitial}.` : first;
+  }
+
+  private capitalize(value: string): string {
+    if (!value) return '';
+    return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
   }
 }
 

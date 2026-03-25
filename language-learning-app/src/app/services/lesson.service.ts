@@ -70,10 +70,12 @@ export interface Lesson {
   
   // Issue Reporting & Investigation
   issueReported?: boolean;
-  issueType?: 'tutor_no_show' | 'ended_early' | 'poor_quality' | 'inappropriate' | 'technical' | 'other';
+  issueType?: 'tutor_no_show' | 'student_no_show' | 'ended_early' | 'poor_quality' | 'inappropriate' | 'technical' | 'other';
   issueDetails?: string;
   issueReportedAt?: string;
   underInvestigation?: boolean;
+  investigationResolvedAt?: string;
+  investigationResolution?: string;
   payoutPaused?: boolean;
   
   // Per-minute billing tracking (for office hours)
@@ -115,6 +117,7 @@ export interface LessonJoinResponse {
     tutor: any;
     student: any;
     subject: string;
+    aiAnalysisEnabledAtTime?: boolean | null;
   };
   class?: {
     id?: string;
@@ -193,13 +196,20 @@ export class LessonService {
   }
 
   // Record when the call ends and calculate actual billing
-  recordCallEnd(lessonId: string): Observable<{
+  recordCallEnd(
+    lessonId: string,
+    speakingTime?: { studentSeconds: number; tutorSeconds: number }
+  ): Observable<{
     success: boolean;
     actualCallEndTime: string;
     actualDurationMinutes: number;
     actualPrice: number;
   }> {
     const headers = this.userService.getAuthHeadersSync();
+    const body: any = {};
+    if (speakingTime) {
+      body.clientSpeakingSeconds = speakingTime;
+    }
     return this.http.post<{
       success: boolean;
       actualCallEndTime: string;
@@ -207,19 +217,21 @@ export class LessonService {
       actualPrice: number;
     }>(
       `${this.baseUrl}/${lessonId}/call-end`,
-      {},
+      body,
       { headers }
     );
   }
 
-  // Alias for recordCallEnd
-  endCall(lessonId: string): Observable<{
+  endCall(
+    lessonId: string,
+    speakingTime?: { studentSeconds: number; tutorSeconds: number }
+  ): Observable<{
     success: boolean;
     actualCallEndTime: string;
     actualDurationMinutes: number;
     actualPrice: number;
   }> {
-    return this.recordCallEnd(lessonId);
+    return this.recordCallEnd(lessonId, speakingTime);
   }
 
   // Save tutor's supplementary note
@@ -419,11 +431,27 @@ export class LessonService {
     return this.http.post<{ success: boolean; lesson: any; message: string }>(`${this.baseUrl}/${lessonId}/respond-reschedule`, body, { headers });
   }
 
-  // Cancel a lesson
-  cancelLesson(lessonId: string): Observable<{ success: boolean; message: string; lesson: Lesson }> {
+  // Cancel a lesson with optional reason
+  cancelLesson(lessonId: string, reasonId?: string, reasonText?: string): Observable<{ success: boolean; message: string; lesson: Lesson }> {
     const headers = this.userService.getAuthHeadersSync();
+    
+    // Build query params for cancellation reason
+    let url = `${this.baseUrl}/${lessonId}/cancel`;
+    const params: string[] = [];
+    if (reasonId) {
+      params.push(`reasonId=${encodeURIComponent(reasonId)}`);
+    }
+    if (reasonText) {
+      params.push(`reasonText=${encodeURIComponent(reasonText)}`);
+    }
+    if (params.length > 0) {
+      url += `?${params.join('&')}`;
+    }
+    
+    console.log('🔴 [LESSON-SERVICE] Cancelling lesson - URL:', url, 'reasonId:', reasonId, 'reasonText:', reasonText);
+    
     return this.http.delete<{ success: boolean; message: string; lesson: Lesson }>(
-      `${this.baseUrl}/${lessonId}/cancel`,
+      url,
       { headers }
     );
   }
@@ -458,4 +486,105 @@ export class LessonService {
       { headers }
     );
   }
+
+  getPopularSlots(timezone: string): Observable<PopularSlotsResponse> {
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.get<PopularSlotsResponse>(
+      `${this.baseUrl}/popular-slots`,
+      { headers, params: { timezone, days: '90' } }
+    );
+  }
+
+  getPreviousNotes(lessonId: string): Observable<PreviousNotesResponse> {
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.get<PreviousNotesResponse>(
+      `${this.baseUrl}/previous-notes/${lessonId}`,
+      { headers }
+    );
+  }
+
+  translateAnalysis(analysisId: string, targetLanguage: string): Observable<{ success: boolean; translation: any; cached: boolean }> {
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.post<{ success: boolean; translation: any; cached: boolean }>(
+      `${environment.backendUrl}/api/transcription/analysis/${analysisId}/translate`,
+      { targetLanguage },
+      { headers }
+    );
+  }
+}
+
+export interface PreviousNotesAnalysis {
+  source?: string;
+  tutorNote: { text: string; quickImpression: string; homework: string; addedAt: string } | null;
+  overallAssessment: { summary: string; proficiencyLevel: string; progressFromLastLesson: string; confidence: number } | null;
+  progressionMetrics: {
+    persistentChallenges: string[];
+    keyImprovements: string[];
+    errorRate: number | null;
+    errorRateChange: number | null;
+    vocabularyGrowth: number | null;
+    fluencyImprovement: number | null;
+    grammarAccuracyChange: number | null;
+    confidenceLevel: number | null;
+    speakingTimeMinutes: number | null;
+  } | null;
+  strengths: string[];
+  areasForImprovement: string[];
+  topErrors: { rank: number; issue: string; impact: string; occurrences: number; teachingPriority: string }[];
+  errorPatterns: {
+    pattern: string;
+    frequency: number;
+    severity: string;
+    examples: { original: string; corrected: string; explanation: string }[];
+    practiceNeeded: string;
+  }[];
+  correctedExcerpts: { context: string; original: string; corrected: string; keyCorrections: string[] }[];
+  grammarAnalysis: {
+    accuracyScore: number;
+    suggestions: string[];
+    mistakeTypes: { type: string; frequency: number; severity: string; examples: string[] }[];
+  } | null;
+  fluencyAnalysis: {
+    overallFluencyScore: number;
+    speakingSpeed: string | null;
+    pauseFrequency: string | null;
+    fillerWords: { count: number; examples: string[] } | null;
+  } | null;
+  vocabularyAnalysis: {
+    vocabularyRange: string;
+    uniqueWordCount: number | null;
+    suggestedWords: string[];
+    advancedWordsUsed: string[];
+  } | null;
+  topicsDiscussed: string[];
+  recommendedFocus: string[];
+  suggestedExercises: string[];
+  homeworkSuggestions: string[];
+  studentSummary: string | null;
+}
+
+export interface PreviousNotesResponse {
+  success: boolean;
+  hasPreviousNotes: boolean;
+  previousLessonId?: string;
+  previousLessonDate?: string;
+  previousLessonSubject?: string;
+  analysisId?: string;
+  analysis?: PreviousNotesAnalysis;
+  translations?: Record<string, any>;
+}
+
+export interface PopularSlot {
+  dayOfWeek: number; // 0=Sun … 6=Sat
+  slotIndex: number; // 0–47 (30-min slots in a day)
+  count: number;
+  intensity: number; // 0–1 normalized
+}
+
+export interface PopularSlotsResponse {
+  success: boolean;
+  slots: PopularSlot[];
+  threshold: number;
+  maxCount: number;
+  insufficientData: boolean;
 }

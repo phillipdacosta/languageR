@@ -1,0 +1,107 @@
+<ion-content class="ion-padding cancel-modal-content">
+  <!-- Floating close button (matches reschedule modal) -->
+  <button class="floating-close-button" (click)="dismiss()">
+    <ion-icon name="close"></ion-icon>
+  </button>
+
+  <div class="cancel-reason-content">
+    <!-- Header Section -->
+    <div class="modal-header-section">
+      <h1 class="modal-title">Why are you cancelling?</h1>
+    </div>
+
+    <!-- Lesson Info Card -->
+    <div class="lesson-info-card">
+      <div class="lesson-avatar">
+        <ion-avatar *ngIf="participantAvatar">
+          <img [src]="participantAvatar" [alt]="participantName || 'Participant'" referrerpolicy="no-referrer">
+        </ion-avatar>
+        <div class="avatar-placeholder" *ngIf="!participantAvatar">
+          <ion-icon name="person"></ion-icon>
+        </div>
+      </div>
+      <div class="lesson-details">
+        <h3 class="lesson-title" *ngIf="participantName">Lesson with {{ participantName }}</h3>
+        <h3 class="lesson-title" *ngIf="!participantName && lessonSubject">{{ lessonSubject }}</h3>
+        <div class="lesson-meta">
+          <span class="lesson-datetime" *ngIf="formattedDateTime">
+            <ion-icon name="calendar-outline"></ion-icon>
+            {{ formattedDateTime }}
+          </span>
+          <span class="lesson-duration" *ngIf="formattedDuration">
+            <ion-icon name="time-outline"></ion-icon>
+            {{ formattedDuration }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Warning for late cancellation (within 12 hours) -->
+    <div class="late-cancellation-warning" *ngIf="isWithin12Hours">
+      <ion-icon name="warning-outline"></ion-icon>
+      <div class="warning-text">
+        <strong>Late cancellation</strong>
+        <p>Cancelling within 12 hours of your lesson may result in charges. Consider rescheduling instead.</p>
+      </div>
+    </div>
+
+    <!-- Reason Selection -->
+    <div class="reasons-list">
+      <p class="select-reason-label">Please select a reason</p>
+      
+      <button 
+        *ngFor="let reason of reasons"
+        class="reason-option"
+        [class.selected]="isSelected(reason)"
+        (click)="selectReason(reason)">
+        <div class="reason-icon">
+          <ion-icon [name]="reason.icon"></ion-icon>
+        </div>
+        <span class="reason-label">{{ reason.label }}</span>
+        <ion-icon 
+          name="checkmark-circle" 
+          class="check-icon"
+          *ngIf="isSelected(reason)">
+        </ion-icon>
+      </button>
+    </div>
+
+    <!-- Other Reason Text Input -->
+    <div class="other-reason-input" *ngIf="selectedReason?.id === 'other'">
+      <ion-textarea
+        [(ngModel)]="otherReasonText"
+        placeholder="Please tell us why you're cancelling..."
+        [rows]="3"
+        [maxlength]="300"
+        class="reason-textarea">
+      </ion-textarea>
+      <span class="char-count">{{ otherReasonText.length }}/300</span>
+    </div>
+
+    <!-- Info text -->
+    <div class="info-text">
+      <ion-icon name="information-circle-outline"></ion-icon>
+      <span>Your reason will help us improve our service. {{ participantName }} will be notified of the cancellation.</span>
+    </div>
+  </div>
+</ion-content>
+
+<ion-footer>
+  <ion-toolbar>
+    <div class="button-group">
+      <ion-button 
+        expand="block" 
+        fill="outline" 
+        (click)="dismiss()">
+        Keep Lesson
+      </ion-button>
+      <ion-button 
+        expand="block"
+        class="btn-continue"
+        [disabled]="!canConfirm()"
+        (click)="confirm()">
+        Continue
+      </ion-button>
+    </div>
+  </ion-toolbar>
+</ion-footer>

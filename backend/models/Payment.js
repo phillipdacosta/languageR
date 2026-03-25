@@ -34,6 +34,11 @@ const paymentSchema = new mongoose.Schema({
     ref: 'Lesson',
     index: true
   },
+  classId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Class',
+    index: true
+  },
   amount: {
     type: Number,
     required: true,
@@ -181,9 +186,14 @@ const paymentSchema = new mongoose.Schema({
   },
   
   // Payment type indicator
+  materialId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'TutorMaterial',
+    index: true
+  },
   paymentType: {
     type: String,
-    enum: ['lesson_booking', 'office_hours', 'wallet_top_up'],
+    enum: ['lesson_booking', 'class_booking', 'office_hours', 'wallet_top_up', 'tip', 'material_purchase'],
     required: true,
     index: true
   },

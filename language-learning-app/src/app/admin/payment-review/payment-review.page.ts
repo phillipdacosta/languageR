@@ -18,11 +18,7 @@ import { WebSocketService } from '../../services/websocket.service';
 })
 export class PaymentReviewPage implements OnInit {
   // Tab state
-  selectedTab: 'tutors' | 'payments' = 'payments'; // Default to payments
-
-  // Tutor review data
-  pendingTutors: any[] = [];
-  loadingTutors = false;
+  selectedTab: 'payments' = 'payments'; // Only payments tab now
 
   // Payment health data
   paymentHealth: any = null;
@@ -71,115 +67,20 @@ export class PaymentReviewPage implements OnInit {
       console.log('🚨 [ADMIN] Real-time alert received:', data);
       this.showToast(`New ${data.severity} alert: ${data.title}`, 'warning', 5000);
       
-      // Reload payment health if on payments tab
-      if (this.selectedTab === 'payments') {
-        this.loadPaymentHealth();
-      }
+      // Reload payment health
+      this.loadPaymentHealth();
     });
   }
 
-  // Switch tabs
-  switchTab(tab: 'tutors' | 'payments') {
+  // Switch tabs (kept for compatibility, but only payments tab exists now)
+  switchTab(tab: 'payments') {
     this.selectedTab = tab;
     this.loadTabData();
   }
 
   // Load data for the current tab
   async loadTabData() {
-    if (this.selectedTab === 'tutors') {
-      await this.loadPendingTutors();
-    } else {
-      await this.loadPaymentHealth();
-    }
-  }
-
-  // TUTOR REVIEW FUNCTIONS
-  async loadPendingTutors() {
-    this.loadingTutors = true;
-    try {
-      const headers = this.userService.getAuthHeadersSync();
-      const response = await firstValueFrom(
-        this.http.get<any>(`${environment.apiUrl}/admin/pending-tutors`, { headers })
-      );
-      
-      if (response.success) {
-        this.pendingTutors = response.tutors;
-      }
-    } catch (error: any) {
-      this.showToast('Failed to load pending tutors', 'danger');
-    } finally {
-      this.loadingTutors = false;
-    }
-  }
-
-  async approveVideo(tutor: any) {
-    const alert = await this.alertController.create({
-      header: 'Approve Video',
-      message: `Approve introduction video for ${tutor.name}?`,
-      buttons: [
-        { text: 'Cancel', role: 'cancel' },
-        {
-          text: 'Approve',
-          handler: async () => {
-            await this.submitVideoApproval(tutor._id, true, null);
-          }
-        }
-      ]
-    });
-    await alert.present();
-  }
-
-  async rejectVideo(tutor: any) {
-    const alert = await this.alertController.create({
-      header: 'Reject Video',
-      message: 'Please provide a reason for rejection:',
-      inputs: [
-        {
-          name: 'reason',
-          type: 'textarea',
-          placeholder: 'Rejection reason...'
-        }
-      ],
-      buttons: [
-        { text: 'Cancel', role: 'cancel' },
-        {
-          text: 'Reject',
-          handler: async (data) => {
-            if (data.reason) {
-              await this.submitVideoApproval(tutor._id, false, data.reason);
-            }
-          }
-        }
-      ]
-    });
-    await alert.present();
-  }
-
-  async submitVideoApproval(tutorId: string, approved: boolean, rejectionReason: string | null) {
-    const loading = await this.loadingController.create({
-      message: approved ? 'Approving...' : 'Rejecting...'
-    });
-    await loading.present();
-
-    try {
-      const response = await firstValueFrom(
-        this.http.post<any>(
-          `${environment.apiUrl}/admin/approve-video/${tutorId}`,
-          { approved, rejectionReason },
-          { headers: this.userService.getAuthHeadersSync() }
-        )
-      );
-
-      await loading.dismiss();
-
-      if (response.success) {
-        this.showToast(approved ? 'Video approved!' : 'Video rejected', 'success');
-        await this.loadPendingTutors();
-      }
-    } catch (error) {
-      await loading.dismiss();
-      this.showToast('Operation failed', 'danger');
-    }
+    await this.loadPaymentHealth();
   }
 
   // PAYMENT HEALTH FUNCTIONS

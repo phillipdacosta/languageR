@@ -1,148 +1,299 @@
 <ion-content>
-  <!-- Floating close button -->
-  <ion-button class="floating-close-button" fill="clear" (click)="dismiss()">
-    <ion-icon name="close" slot="icon-only"></ion-icon>
-  </ion-button>
+  <!-- Close button (Airbnb style) -->
+  <button class="close-button" (click)="dismiss()">
+    <ion-icon name="close"></ion-icon>
+  </button>
 
   <!-- Loading State -->
   <div *ngIf="loading" class="loading-container">
-    <ion-spinner></ion-spinner>
+    <div class="loading-spinner">
+      <ion-spinner name="crescent"></ion-spinner>
+    </div>
     <p>Loading payment options...</p>
   </div>
 
-  <!-- Payment Options -->
-  <div *ngIf="!loading && options" class="modal-content">
-    <!-- Left Column: Header & Info -->
-    <div class="left-column">
-      <div class="icon-wrapper">
-        <ion-icon name="wallet"></ion-icon>
-      </div>
+  <!-- Main Wizard -->
+  <div *ngIf="!loading" class="wizard-container">
 
-      <h2 class="modal-heading">Select Payment Method</h2>
-      <p class="modal-description">Choose how you'd like to receive your earnings</p>
-
-      <div class="info-banner">
-        <ion-icon name="location-outline"></ion-icon>
-        <div>
-          <p class="banner-title">Location: <strong>{{ residenceCountry }}</strong></p>
-          <p class="banner-text">
-            Based on your country of residence, here are your available payout methods.
-          </p>
-        </div>
+    <!-- Progress bar -->
+    <div class="progress-bar-container">
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" [style.width.%]="progressPercent"></div>
       </div>
     </div>
 
-    <!-- Right Column: Payment Options -->
-    <div class="right-column">
-      <div class="options-container">
+    <!-- Step Content with animation -->
+    <div class="step-wrapper" [@stepSlide]="stepIndex">
 
-    <!-- Stripe Option - Only show if available -->
-    <div 
-      *ngIf="options.stripe.available"
-      class="option-card"
-      [class.recommended]="options.stripe.recommended"
-      [class.selected]="selectedProvider === 'stripe'"
-      (click)="selectProvider('stripe')">
-      
-      <div class="option-header">
-        <div class="icon-circle stripe-icon">
-          <ion-icon name="card-outline"></ion-icon>
-        </div>
-        <div class="option-content">
-          <div class="option-title-row">
-            <h3>{{ options.stripe.label }}</h3>
-            <span *ngIf="options.stripe.recommended" class="badge-recommended">RECOMMENDED</span>
+      <!-- STEP 1: US Person Tax Question -->
+      <div *ngIf="currentStep === 'tax-status'" class="step-content">
+        <div class="step-layout">
+          <!-- Left Column -->
+          <div class="left-col">
+            <div class="step-icon-circle tax">
+              <ion-icon name="document-text"></ion-icon>
+            </div>
+            <h2 class="step-heading">Tax Information</h2>
+            <p class="step-subtext">We need this information to comply with tax regulations and set up your payouts correctly.</p>
+
+            <div class="info-card warning">
+              <ion-icon name="information-circle"></ion-icon>
+              <p>This information is required for tax compliance. Please answer accurately as it affects how your earnings are reported.</p>
+            </div>
           </div>
-          <p class="option-description">{{ options.stripe.description }}</p>
-        </div>
-        <div class="radio-wrapper">
-          <div class="custom-radio" [class.selected]="selectedProvider === 'stripe'"></div>
-        </div>
-      </div>
-    </div>
 
-    <!-- PayPal Option -->
-    <div 
-      class="option-card"
-      [class.recommended]="options.paypal.recommended"
-      [class.selected]="selectedProvider === 'paypal'"
-      (click)="selectProvider('paypal')">
-      
-      <div class="option-header">
-        <div class="icon-circle paypal-icon">
-          <img src="assets/icon/paypal-icon.png" alt="PayPal" class="paypal-logo" />
-        </div>
-        <div class="option-content">
-          <div class="option-title-row">
-            <h3>{{ options.paypal.label }}</h3>
-            <span *ngIf="options.paypal.recommended" class="badge-recommended">RECOMMENDED</span>
+          <!-- Right Column -->
+          <div class="right-col">
+            <h3 class="question-heading">Are you a US Person for tax purposes?</h3>
+            <p class="question-subtext">A "US Person" includes US citizens, permanent residents (green card holders), and residents who meet the substantial presence test.</p>
+
+            <div class="selection-cards">
+              <div
+                class="selection-card"
+                [class.selected]="isUSPersonForTax === true"
+                (click)="setUSPersonStatus(true)">
+                <div class="card-icon green">
+                  <ion-icon name="checkmark-circle"></ion-icon>
+                </div>
+                <div class="card-text">
+                  <span class="card-label">Yes, I am a US Person</span>
+                  <span class="card-note">I will receive a 1099 tax form</span>
+                </div>
+                <div class="radio-circle" [class.selected]="isUSPersonForTax === true"></div>
+              </div>
+
+              <div
+                class="selection-card"
+                [class.selected]="isUSPersonForTax === false"
+                (click)="setUSPersonStatus(false)">
+                <div class="card-icon blue">
+                  <ion-icon name="globe"></ion-icon>
+                </div>
+                <div class="card-text">
+                  <span class="card-label">No, I am not a US Person</span>
+                  <span class="card-note">I will provide a W-8BEN form</span>
+                </div>
+                <div class="radio-circle" [class.selected]="isUSPersonForTax === false"></div>
+              </div>
+            </div>
+
+            <div class="action-bar">
+              <button
+                class="primary-btn"
+                [disabled]="isUSPersonForTax === null"
+                (click)="nextStep()">
+                Continue
+                <ion-icon name="arrow-forward"></ion-icon>
+              </button>
+            </div>
           </div>
-          <p class="option-description">{{ options.paypal.description }}</p>
-        </div>
-        <div class="radio-wrapper">
-          <div class="custom-radio" [class.selected]="selectedProvider === 'paypal'" *ngIf="options.paypal.available"></div>
         </div>
       </div>
-      
-      <div *ngIf="selectedProvider === 'paypal'" class="paypal-email-input">
-        <ion-item lines="none">
-          <ion-input
-            label="PayPal Email"
-            labelPlacement="stacked"
-            type="email"
-            [(ngModel)]="paypalEmail"
-            placeholder="your.email@example.com"
-            (ionInput)="validatePayPalEmail()"
-            required></ion-input>
-        </ion-item>
-        <div *ngIf="paypalEmailError" class="error-message">
-          <ion-icon name="alert-circle"></ion-icon>
-          <span>{{ paypalEmailError }}</span>
-        </div>
-        <div class="info-note">
-          <ion-icon name="information-circle"></ion-icon>
-          <span>Make sure this email is linked to your PayPal account</span>
-        </div>
-      </div>
-    </div>
 
-    <!-- Manual Option -->
-    <div 
-      class="option-card"
-      [class.selected]="selectedProvider === 'manual'"
-      (click)="selectProvider('manual')">
-      
-      <div class="option-header">
-        <div class="icon-circle manual-icon">
-          <ion-icon name="business-outline"></ion-icon>
-        </div>
-        <div class="option-content">
-          <div class="option-title-row">
-            <h3>{{ options.manual.label }}</h3>
+      <!-- STEP 2: US Bank Account Question -->
+      <div *ngIf="currentStep === 'bank-account'" class="step-content">
+        <div class="step-layout">
+          <!-- Left Column -->
+          <div class="left-col">
+            <div class="step-icon-circle bank">
+              <ion-icon name="business"></ion-icon>
+            </div>
+            <h2 class="step-heading">Bank Account</h2>
+            <p class="step-subtext">This helps us determine the best payout method for you.</p>
           </div>
-          <p class="option-description">{{ options.manual.description }}</p>
+
+          <!-- Right Column -->
+          <div class="right-col">
+            <h3 class="question-heading">Do you have a US bank account?</h3>
+            <p class="question-subtext">A US bank account allows for faster, lower-fee payouts via Stripe.</p>
+
+            <div class="selection-cards">
+              <div
+                class="selection-card"
+                [class.selected]="hasUSBankAccount === true"
+                (click)="setUSBankStatus(true)">
+                <div class="card-icon green">
+                  <ion-icon name="checkmark-circle"></ion-icon>
+                </div>
+                <div class="card-text">
+                  <span class="card-label">Yes, I have a US bank account</span>
+                  <span class="card-note">Fastest payouts via Stripe</span>
+                </div>
+                <div class="radio-circle" [class.selected]="hasUSBankAccount === true"></div>
+              </div>
+
+              <div
+                class="selection-card"
+                [class.selected]="hasUSBankAccount === false"
+                (click)="setUSBankStatus(false)">
+                <div class="card-icon blue">
+                  <ion-icon name="globe"></ion-icon>
+                </div>
+                <div class="card-text">
+                  <span class="card-label">No, I don't have a US bank account</span>
+                  <span class="card-note">Payouts via PayPal</span>
+                </div>
+                <div class="radio-circle" [class.selected]="hasUSBankAccount === false"></div>
+              </div>
+            </div>
+
+            <div class="action-bar two-buttons">
+              <button class="secondary-btn" (click)="previousStep()">
+                <ion-icon name="arrow-back"></ion-icon>
+                Back
+              </button>
+              <button
+                class="primary-btn"
+                [disabled]="hasUSBankAccount === null"
+                (click)="nextStep()">
+                Continue
+                <ion-icon name="arrow-forward"></ion-icon>
+              </button>
+            </div>
+          </div>
         </div>
-        <div class="radio-wrapper">
-          <div class="custom-radio" [class.selected]="selectedProvider === 'manual'"></div>
-        </div>
-      </div>
-      
-      <div class="manual-note">
-        <ion-icon name="time-outline"></ion-icon>
-        <span>Payouts may take 5-7 business days</span>
-      </div>
-    </div>
       </div>
 
-      <!-- Continue Button -->
-      <div class="button-container">
-        <ion-button
-          expand="block"
-          [disabled]="!canContinue()"
-          (click)="continue()">
-          Continue with {{ getProviderLabel() }}
-        </ion-button>
+      <!-- STEP 3: Payment Method Selection -->
+      <div *ngIf="currentStep === 'payment-method' && options" class="step-content">
+        <div class="payment-centered-layout">
+
+          <!-- Hero Section -->
+          <div class="payment-hero">
+            <div class="step-icon-circle wallet">
+              <ion-icon name="wallet"></ion-icon>
+            </div>
+            <h2 class="payment-title">{{ paymentStepTitle }}</h2>
+            <p class="payment-subtitle">{{ paymentStepDescription }}</p>
+          </div>
+
+          <!-- Method Card(s) -->
+          <div class="payment-method-area">
+
+            <!-- Stripe Option -->
+            <div
+              *ngIf="options.stripe.available && (determinedPayoutMethod === 'stripe' || !determinedPayoutMethod)"
+              class="payment-method-card"
+              [class.recommended]="determinedPayoutMethod === 'stripe'"
+              [class.selected]="selectedProvider === 'stripe'"
+              (click)="selectProvider('stripe')">
+              <div class="pmc-header">
+                <div class="pmc-icon stripe">
+                  <ion-icon name="card-outline"></ion-icon>
+                </div>
+                <div class="pmc-info">
+                  <div class="pmc-title-row">
+                    <h4>{{ options.stripe.label }}</h4>
+                    <span *ngIf="determinedPayoutMethod === 'stripe'" class="recommended-badge">Recommended</span>
+                  </div>
+                  <p class="pmc-desc">{{ options.stripe.description }}</p>
+                </div>
+                <div class="radio-circle" [class.selected]="selectedProvider === 'stripe'"></div>
+              </div>
+              <div class="pmc-features" *ngIf="selectedProvider === 'stripe'">
+                <div class="pmc-feature">
+                  <ion-icon name="flash-outline"></ion-icon>
+                  <span>Payouts in 2–3 business days</span>
+                </div>
+                <div class="pmc-feature">
+                  <ion-icon name="shield-checkmark-outline"></ion-icon>
+                  <span>Bank-level encryption</span>
+                </div>
+                <div class="pmc-feature">
+                  <ion-icon name="trending-down-outline"></ion-icon>
+                  <span>Low transaction fees</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- PayPal Option -->
+            <div
+              *ngIf="options.paypal.available && (determinedPayoutMethod === 'paypal' || !determinedPayoutMethod)"
+              class="payment-method-card"
+              [class.recommended]="determinedPayoutMethod === 'paypal'"
+              [class.selected]="selectedProvider === 'paypal'"
+              (click)="selectProvider('paypal')">
+              <div class="pmc-header">
+                <div class="pmc-icon paypal">
+                  <img src="assets/icon/paypal-icon.png" alt="PayPal" class="paypal-logo" />
+                </div>
+                <div class="pmc-info">
+                  <div class="pmc-title-row">
+                    <h4>{{ options.paypal.label }}</h4>
+                    <span *ngIf="determinedPayoutMethod === 'paypal'" class="recommended-badge">Recommended</span>
+                  </div>
+                  <p class="pmc-desc">{{ options.paypal.description }}</p>
+                </div>
+                <div class="radio-circle" [class.selected]="selectedProvider === 'paypal'" *ngIf="options.paypal.available"></div>
+              </div>
+              <div class="pmc-features" *ngIf="selectedProvider === 'paypal'">
+                <div class="pmc-feature">
+                  <ion-icon name="globe-outline"></ion-icon>
+                  <span>Works in 200+ countries</span>
+                </div>
+                <div class="pmc-feature">
+                  <ion-icon name="flash-outline"></ion-icon>
+                  <span>Instant transfers to PayPal</span>
+                </div>
+                <div class="pmc-feature">
+                  <ion-icon name="wallet-outline"></ion-icon>
+                  <span>Flexible fund management</span>
+                </div>
+              </div>
+
+              <div *ngIf="selectedProvider === 'paypal'" class="paypal-input-section">
+                <label class="input-label">PayPal Email</label>
+                <input
+                  type="email"
+                  class="airbnb-input"
+                  [(ngModel)]="paypalEmail"
+                  placeholder="your.email@example.com"
+                  (input)="validatePayPalEmail()" />
+                <div *ngIf="paypalEmailError" class="field-error">
+                  <ion-icon name="alert-circle"></ion-icon>
+                  <span>{{ paypalEmailError }}</span>
+                </div>
+                <div class="field-hint">
+                  <ion-icon name="information-circle"></ion-icon>
+                  <span>Make sure this email is linked to your PayPal account</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Tax Summary Pill -->
+          <div class="payment-tax-pill" *ngIf="isUSPersonForTax !== null">
+            <div class="tax-pill-items">
+              <div class="tax-pill-item">
+                <ion-icon [name]="isUSPersonForTax ? 'flag' : 'globe'"></ion-icon>
+                <span>{{ isUSPersonForTax ? 'US Person' : 'Non-US Person' }}</span>
+              </div>
+              <span class="tax-pill-divider" *ngIf="isUSPersonForTax && hasUSBankAccount !== null">·</span>
+              <div class="tax-pill-item" *ngIf="isUSPersonForTax && hasUSBankAccount !== null">
+                <ion-icon [name]="hasUSBankAccount ? 'business' : 'card'"></ion-icon>
+                <span>{{ hasUSBankAccount ? 'US Bank Account' : 'No US Bank' }}</span>
+              </div>
+            </div>
+            <button class="tax-pill-edit" (click)="editTaxInfo()">Edit</button>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="payment-actions">
+            <button class="secondary-btn" (click)="previousStep()">
+              <ion-icon name="arrow-back"></ion-icon>
+              Back
+            </button>
+            <button
+              class="primary-btn"
+              [disabled]="!canContinuePayment"
+              (click)="continue()">
+              Continue with {{ providerLabel }}
+            </button>
+          </div>
+        </div>
       </div>
+
     </div>
   </div>
 </ion-content>

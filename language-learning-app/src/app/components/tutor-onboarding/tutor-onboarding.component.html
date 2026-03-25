@@ -1,4 +1,12 @@
 <div class="onboarding-container">
+  <!-- Hidden file input for picture upload -->
+  <input 
+    type="file" 
+    id="tutor-onboarding-photo-input" 
+    accept="image/*" 
+    style="display: none;"
+    (change)="onPictureSelected($event)">
+  
   <!-- Loading State -->
   <div *ngIf="loading" class="loading-state">
     <ion-spinner name="crescent"></ion-spinner>
@@ -15,6 +23,7 @@
     
     <!-- Left Column: Progress & Navigation -->
     <div class="left-column">
+      <img src="assets/barnabi-notes.png" class="left-column-mascot" alt="" aria-hidden="true" />
       <!-- Header -->
       <div class="onboarding-header">
         <h1>Tutor Approval</h1>
@@ -70,7 +79,6 @@
       <!-- Skip Option -->
       <ion-button 
         [fill]="allStepsComplete ? 'solid' : 'clear'"
-        [color]="allStepsComplete ? 'success' : 'medium'"
         size="small"
         class="skip-button"
         [class.done-button]="allStepsComplete"
@@ -97,10 +105,24 @@
         <div class="step-content">
           <!-- Photo Step -->
           <div *ngIf="currentStep.id === 'photo'" class="photo-step">
-            <div class="current-photo-large" *ngIf="currentUser?.picture">
+            <!-- Custom uploaded photo (completed) -->
+            <div class="current-photo-large" *ngIf="steps[0].completed && currentUser?.picture">
               <img [src]="currentUser.picture" alt="Profile photo">
               <ion-icon name="checkmark-circle" class="check-badge" color="success"></ion-icon>
             </div>
+            
+            <!-- Google profile photo only (needs custom upload) -->
+            <div class="google-photo-warning" *ngIf="!steps[0].completed && currentUser?.picture">
+              <div class="photo-preview">
+                <img [src]="currentUser.picture" alt="Current photo" class="google-photo">
+              </div>
+              <div class="warning-message">
+                <ion-icon name="information-circle" color="warning"></ion-icon>
+                <p>This is your Google account photo. Please upload a professional profile photo for approval.</p>
+              </div>
+            </div>
+            
+            <!-- No photo at all -->
             <div class="no-photo-large" *ngIf="!currentUser?.picture">
               <ion-icon name="person-circle-outline"></ion-icon>
               <p>No photo uploaded</p>
@@ -130,14 +152,6 @@
                 </div>
               </div>
             </div>
-            
-            <ion-button 
-              expand="block" 
-              class="primary-action"
-              (click)="goToProfileUploadPhoto()">
-              <ion-icon name="camera-outline" slot="start"></ion-icon>
-              {{ currentUser?.picture ? 'Change Photo' : 'Upload Photo' }}
-            </ion-button>
           </div>
 
           <!-- Video Step -->
@@ -171,61 +185,526 @@
 
           </div>
 
-          <!-- Stripe Step -->
-          <div *ngIf="currentStep.id === 'stripe'" class="stripe-step">
-            <div *ngIf="approvalStatus?.stripeComplete" class="status-card-large success">
-              <ion-icon name="checkmark-circle"></ion-icon>
-              <p>Bank account connected!</p>
-            </div>
-            <div *ngIf="!approvalStatus?.stripeComplete" class="status-card-large empty">
-              <ion-icon name="card-outline"></ion-icon>
-              <p>Not connected yet</p>
-            </div>
+          <!-- Credentials Step -->
+          <div *ngIf="currentStep.id === 'credentials'" class="credentials-step">
             
-            <!-- Info cards about payout setup -->
+            <!-- Hidden file inputs -->
+            <input type="file" id="gov-id-input" accept="image/*,.pdf" style="display: none;"
+              (change)="onCredentialSelected($event, 'governmentId')">
+            <input type="file" id="cert-input" accept="image/*,.pdf" style="display: none;"
+              (change)="onCertificationSelected($event)">
+            <input type="file" id="additional-doc-input" accept="image/*,.pdf" style="display: none;"
+              (change)="onAdditionalDocSelected($event)">
+
+            <!-- Government ID Section -->
+            <div class="credential-section">
+              <div class="section-header">
+                <ion-icon name="id-card-outline" class="section-icon"></ion-icon>
+                <div class="section-text">
+                  <h3>Government-Issued ID</h3>
+                  <p>Passport, driver's license, or national ID card</p>
+                </div>
+                <div class="status-pill" [ngClass]="governmentIdStatus">
+                  {{ governmentIdStatusLabel }}
+                </div>
+              </div>
+              
+              <!-- Upload zone (no document yet or rejected) -->
+              <div class="upload-zone" 
+                *ngIf="!currentUser?.tutorCredentials?.governmentId?.url || currentUser?.tutorCredentials?.governmentId?.status === 'rejected'">
+                <div class="drop-area" (click)="triggerCredentialUpload('governmentId')">
+                  <ion-icon name="cloud-upload-outline"></ion-icon>
+                  <p>Tap to upload your ID</p>
+                  <span class="file-types">JPG, PNG, or PDF · Max 10MB</span>
+                </div>
+              </div>
+              
+              <!-- Uploaded document preview -->
+              <div class="uploaded-doc" *ngIf="currentUser?.tutorCredentials?.governmentId?.url && currentUser?.tutorCredentials?.governmentId?.status !== 'rejected'">
+                <div class="doc-preview">
+                  <ion-icon name="document-text" color="primary"></ion-icon>
+                  <div class="doc-info">
+                    <span class="doc-name">{{ currentUser.tutorCredentials.governmentId.fileName }}</span>
+                    <span class="doc-status" [ngClass]="currentUser.tutorCredentials.governmentId.status">
+                      {{ currentUser.tutorCredentials.governmentId.status === 'approved' ? '✓ Approved' : currentUser.tutorCredentials.governmentId.status === 'pending' ? '⏳ Pending Review' : '' }}
+                    </span>
+                  </div>
+                </div>
+                <ion-button fill="clear" size="small" color="danger" 
+                  *ngIf="currentUser.tutorCredentials.governmentId.status === 'pending'"
+                  (click)="removeCredential('governmentId')">
+                  <ion-icon name="trash-outline" slot="icon-only"></ion-icon>
+                </ion-button>
+              </div>
+              
+              <!-- Rejection reason -->
+              <div class="rejection-notice" *ngIf="currentUser?.tutorCredentials?.governmentId?.status === 'rejected'">
+                <ion-icon name="alert-circle" color="danger"></ion-icon>
+                <span>{{ currentUser.tutorCredentials.governmentId.rejectionReason || 'Please re-upload your ID' }}</span>
+              </div>
+            </div>
+
+            <!-- Teaching Certifications Section -->
+            <div class="credential-section">
+              <div class="section-header">
+                <ion-icon name="ribbon-outline" class="section-icon"></ion-icon>
+                <div class="section-text">
+                  <h3>Teaching Certifications</h3>
+                  <p>TEFL, CELTA, TESOL, or equivalent</p>
+                </div>
+              </div>
+              
+              <!-- Certification name input -->
+              <div class="cert-name-input" *ngIf="uploadedCertifications.length > 0 || true">
+                <ion-item lines="none" class="cert-name-item">
+                  <ion-input
+                    label="Certification name (optional)"
+                    labelPlacement="stacked"
+                    placeholder="e.g., TEFL, CELTA, Bachelor's in Education"
+                    [(ngModel)]="certificationNameInput">
+                  </ion-input>
+                </ion-item>
+              </div>
+              
+              <!-- List of uploaded certs -->
+              <div class="cert-list" *ngIf="uploadedCertifications.length > 0">
+                <div class="cert-item" *ngFor="let cert of uploadedCertifications; let i = index">
+                  <div class="cert-info">
+                    <ion-icon name="document-text" color="primary"></ion-icon>
+                    <div class="cert-details">
+                      <span class="cert-name">{{ cert.certificationName || cert.fileName }}</span>
+                      <span class="cert-file" *ngIf="cert.certificationName">{{ cert.fileName }}</span>
+                    </div>
+                  </div>
+                  <div class="cert-status-row">
+                    <div class="status-pill small" [ngClass]="cert.status">
+                      {{ cert.status === 'approved' ? 'Approved' : cert.status === 'rejected' ? 'Rejected' : 'Pending' }}
+                    </div>
+                    <ion-button fill="clear" size="small" color="danger" 
+                      *ngIf="cert.status === 'pending'"
+                      (click)="removeCertification(i)">
+                      <ion-icon name="trash-outline" slot="icon-only"></ion-icon>
+                    </ion-button>
+                  </div>
+                  <!-- Rejection reason for this cert -->
+                  <div class="rejection-notice small" *ngIf="cert.status === 'rejected'">
+                    <ion-icon name="alert-circle" color="danger"></ion-icon>
+                    <span>{{ cert.rejectionReason || 'Please re-upload' }}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Add cert button -->
+              <ion-button fill="outline" expand="block" class="add-cert-btn"
+                (click)="triggerCredentialUpload('certification')"
+                [disabled]="isUploadingCredential">
+                <ion-icon name="add-circle-outline" slot="start"></ion-icon>
+                {{ uploadedCertifications.length > 0 ? 'Add Another Certification' : 'Upload Certification' }}
+              </ion-button>
+            </div>
+
+            <!-- Additional Documents (Optional) -->
+            <div class="credential-section optional-section">
+              <div class="section-header">
+                <ion-icon name="folder-open-outline" class="section-icon"></ion-icon>
+                <div class="section-text">
+                  <h3>Additional Documents <span class="optional-tag">Optional</span></h3>
+                  <p>Degree, resume, reference letters, etc.</p>
+                </div>
+              </div>
+              
+              <!-- List of uploaded docs -->
+              <div class="cert-list" *ngIf="uploadedAdditionalDocs.length > 0">
+                <div class="cert-item" *ngFor="let doc of uploadedAdditionalDocs; let i = index">
+                  <div class="cert-info">
+                    <ion-icon name="document-attach" color="medium"></ion-icon>
+                    <div class="cert-details">
+                      <span class="cert-name">{{ doc.label || doc.fileName }}</span>
+                      <span class="cert-file" *ngIf="doc.label">{{ doc.fileName }}</span>
+                    </div>
+                  </div>
+                  <div class="cert-status-row">
+                    <div class="status-pill small" [ngClass]="doc.status">
+                      {{ doc.status === 'approved' ? 'Approved' : doc.status === 'rejected' ? 'Rejected' : 'Pending' }}
+                    </div>
+                    <ion-button fill="clear" size="small" color="danger" 
+                      *ngIf="doc.status === 'pending'"
+                      (click)="removeAdditionalDoc(i)">
+                      <ion-icon name="trash-outline" slot="icon-only"></ion-icon>
+                    </ion-button>
+                  </div>
+                </div>
+              </div>
+              
+              <ion-button fill="outline" expand="block" class="add-cert-btn" color="medium"
+                (click)="triggerCredentialUpload('additionalDocument')"
+                [disabled]="isUploadingCredential">
+                <ion-icon name="add-circle-outline" slot="start"></ion-icon>
+                Add Document
+              </ion-button>
+            </div>
+
+            <!-- Info cards -->
             <div class="info-cards">
-              <div class="info-card">
-                <ion-icon name="shield-checkmark-outline" color="primary"></ion-icon>
-                <div class="info-text">
-                  <h4>Secure payments</h4>
-                  <p>Powered by Stripe Connect</p>
-                </div>
-              </div>
-              <div class="info-card">
-                <ion-icon name="calendar-outline" color="primary"></ion-icon>
-                <div class="info-text">
-                  <h4>Weekly payouts</h4>
-                  <p>Get paid every week automatically</p>
-                </div>
-              </div>
-              <div class="info-card">
-                <ion-icon name="globe-outline" color="primary"></ion-icon>
-                <div class="info-text">
-                  <h4>Multiple currencies</h4>
-                  <p>Support for 135+ countries</p>
-                </div>
-              </div>
               <div class="info-card">
                 <ion-icon name="lock-closed-outline" color="primary"></ion-icon>
                 <div class="info-text">
-                  <h4>Bank-level security</h4>
-                  <p>Your information is encrypted</p>
+                  <h4>Secure & Private</h4>
+                  <p>Documents are encrypted and only visible to our review team</p>
+                </div>
+              </div>
+              <div class="info-card">
+                <ion-icon name="time-outline" color="primary"></ion-icon>
+                <div class="info-text">
+                  <h4>Quick Review</h4>
+                  <p>Typically reviewed within 24-48 hours</p>
+                </div>
+              </div>
+              <div class="info-card">
+                <ion-icon name="checkmark-circle-outline" color="success"></ion-icon>
+                <div class="info-text">
+                  <h4>Required for Verification</h4>
+                  <p>Government ID and at least one teaching certification are required</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Payment Setup Step -->
+          <div *ngIf="currentStep.id === 'stripe'" class="stripe-step">
+            
+            <!-- Already completed state -->
+            <div *ngIf="approvalStatus?.stripeComplete" class="status-card-large success">
+              <ion-icon name="checkmark-circle"></ion-icon>
+              <p>Payment method connected!</p>
+              <span class="provider-badge" *ngIf="currentUser?.payoutProvider === 'stripe'">via Stripe</span>
+              <span class="provider-badge" *ngIf="currentUser?.payoutProvider === 'paypal'">via PayPal</span>
+            </div>
+            
+            <!-- Not completed - show tax questions first -->
+            <div *ngIf="!approvalStatus?.stripeComplete" class="payment-setup-flow">
+              
+              <!-- STEP 1: Tax Status Question -->
+              <div *ngIf="paymentSetupStep === 'tax-status'" class="tax-question-card">
+                <div class="question-header">
+                  <ion-icon name="document-text" class="question-icon"></ion-icon>
+                  <h3>Tax Information</h3>
+                </div>
+                <p class="question-subtitle">We need this to comply with tax regulations and set up your payouts correctly.</p>
+                
+                <div class="question-box">
+                  <h4>Are you a US Person for tax purposes?</h4>
+                  <p class="help-text">A "US Person" includes US citizens, permanent residents (green card holders), and residents who meet the substantial presence test.</p>
+                  
+                  <div class="answer-options">
+                    <div 
+                      class="answer-option"
+                      [class.selected]="isUSPersonForTax === true"
+                      (click)="setUSPersonStatus(true)">
+                      <ion-icon name="flag" class="option-icon us"></ion-icon>
+                      <div class="option-content">
+                        <span class="option-label">Yes, I am a US Person</span>
+                        <span class="option-note">I will receive a 1099 tax form</span>
+                      </div>
+                      <div class="radio-indicator" [class.selected]="isUSPersonForTax === true"></div>
+                    </div>
+                    
+                    <div 
+                      class="answer-option"
+                      [class.selected]="isUSPersonForTax === false"
+                      (click)="setUSPersonStatus(false)">
+                      <ion-icon name="globe" class="option-icon international"></ion-icon>
+                      <div class="option-content">
+                        <span class="option-label">No, I am not a US Person</span>
+                        <span class="option-note">I will provide a W-8BEN form</span>
+                      </div>
+                      <div class="radio-indicator" [class.selected]="isUSPersonForTax === false"></div>
+                    </div>
+                  </div>
+                </div>
+                
+                <ion-button 
+                  expand="block" 
+                  [disabled]="isUSPersonForTax === null"
+                  (click)="nextPaymentStep()"
+                  class="continue-btn">
+                  Continue
+                  <ion-icon name="arrow-forward" slot="end"></ion-icon>
+                </ion-button>
+              </div>
+              
+              <!-- STEP 2: US Bank Account Question (only for US Persons) -->
+              <div *ngIf="paymentSetupStep === 'bank-account'" class="tax-question-card">
+                <div class="question-header">
+                  <ion-icon name="business" class="question-icon"></ion-icon>
+                  <h3>Bank Account</h3>
+                </div>
+                <p class="question-subtitle">This helps us determine the best payout method for you.</p>
+                
+                <div class="question-box">
+                  <h4>Do you have a US bank account?</h4>
+                  <p class="help-text">A US bank account allows for faster, lower-fee payouts via Stripe.</p>
+                  
+                  <div class="answer-options">
+                    <div 
+                      class="answer-option"
+                      [class.selected]="hasUSBankAccount === true"
+                      (click)="setUSBankStatus(true)">
+                      <ion-icon name="checkmark-circle" class="option-icon yes"></ion-icon>
+                      <div class="option-content">
+                        <span class="option-label">Yes, I have a US bank account</span>
+                        <span class="option-note">Fastest payouts via Stripe</span>
+                      </div>
+                      <div class="radio-indicator" [class.selected]="hasUSBankAccount === true"></div>
+                    </div>
+                    
+                    <div 
+                      class="answer-option"
+                      [class.selected]="hasUSBankAccount === false"
+                      (click)="setUSBankStatus(false)">
+                      <ion-icon name="globe" class="option-icon no"></ion-icon>
+                      <div class="option-content">
+                        <span class="option-label">No, I don't have a US bank account</span>
+                        <span class="option-note">Payouts via PayPal</span>
+                      </div>
+                      <div class="radio-indicator" [class.selected]="hasUSBankAccount === false"></div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="button-row">
+                  <ion-button fill="outline" (click)="previousPaymentStep()">
+                    <ion-icon name="arrow-back" slot="start"></ion-icon>
+                    Back
+                  </ion-button>
+                  <ion-button 
+                    [disabled]="hasUSBankAccount === null"
+                    (click)="nextPaymentStep()"
+                    class="continue-btn">
+                    Continue
+                    <ion-icon name="arrow-forward" slot="end"></ion-icon>
+                  </ion-button>
+                </div>
+              </div>
+              
+              <!-- STEP 3: Payment Method Setup -->
+              <div *ngIf="paymentSetupStep === 'setup-method'" class="payment-method-card">
+                <div class="determined-method">
+                  <div class="method-badge" [class.stripe]="determinedPayoutMethod === 'stripe'" [class.paypal]="determinedPayoutMethod === 'paypal'">
+                    <ion-icon [name]="determinedPayoutMethod === 'stripe' ? 'card' : 'logo-paypal'"></ion-icon>
+                    <span>{{ determinedPayoutMethod === 'stripe' ? 'Stripe Connect' : 'PayPal' }}</span>
+                  </div>
+                  <p class="method-reason">
+                    <span *ngIf="determinedPayoutMethod === 'stripe'">As a US Person with a US bank account, Stripe Connect provides the fastest payouts.</span>
+                    <span *ngIf="determinedPayoutMethod === 'paypal' && isUSPersonForTax">As a US Person without a US bank account, PayPal is your best option for receiving payments.</span>
+                    <span *ngIf="determinedPayoutMethod === 'paypal' && !isUSPersonForTax">As an international tutor, PayPal provides reliable worldwide payouts.</span>
+                  </p>
+                </div>
+                
+                <!-- Tax Summary -->
+                <div class="tax-summary">
+                  <div class="summary-item">
+                    <ion-icon [name]="isUSPersonForTax ? 'flag' : 'globe'"></ion-icon>
+                    <span>{{ isUSPersonForTax ? 'US Person' : 'Non-US Person' }}</span>
+                  </div>
+                  <div class="summary-item" *ngIf="isUSPersonForTax">
+                    <ion-icon [name]="hasUSBankAccount ? 'business' : 'card'"></ion-icon>
+                    <span>{{ hasUSBankAccount ? 'US Bank Account' : 'No US Bank' }}</span>
+                  </div>
+                  <ion-button fill="clear" size="small" (click)="editTaxInfo()">
+                    <ion-icon name="create-outline" slot="start"></ion-icon>
+                    Edit
+                  </ion-button>
+                </div>
+                
+                <!-- PayPal Email Input (if PayPal is determined method) -->
+                <div *ngIf="determinedPayoutMethod === 'paypal'" class="paypal-setup">
+                  <ion-item lines="none" class="paypal-email-item">
+                    <ion-input
+                      label="PayPal Email"
+                      labelPlacement="stacked"
+                      type="email"
+                      [(ngModel)]="paypalEmail"
+                      placeholder="your.email@example.com"
+                      (ionInput)="validatePayPalEmail()">
+                    </ion-input>
+                  </ion-item>
+                  <div *ngIf="paypalEmailError" class="error-message">
+                    <ion-icon name="alert-circle"></ion-icon>
+                    <span>{{ paypalEmailError }}</span>
+                  </div>
+                  <p class="paypal-note">
+                    <ion-icon name="information-circle"></ion-icon>
+                    Make sure this email is linked to your PayPal account
+                  </p>
+                </div>
+                
+                <!-- Info cards -->
+                <div class="info-cards">
+                  <div class="info-card" *ngIf="determinedPayoutMethod === 'stripe'">
+                    <ion-icon name="flash-outline" color="primary"></ion-icon>
+                    <div class="info-text">
+                      <h4>Fast payouts</h4>
+                      <p>Direct to your US bank account</p>
+                    </div>
+                  </div>
+                  <div class="info-card" *ngIf="determinedPayoutMethod === 'paypal'">
+                    <ion-icon name="globe-outline" color="primary"></ion-icon>
+                    <div class="info-text">
+                      <h4>Worldwide support</h4>
+                      <p>Available in 200+ countries</p>
+                    </div>
+                  </div>
+                  <div class="info-card">
+                    <ion-icon name="shield-checkmark-outline" color="primary"></ion-icon>
+                    <div class="info-text">
+                      <h4>Secure payments</h4>
+                      <p>Bank-level encryption</p>
+                    </div>
+                  </div>
+                  <div class="info-card">
+                    <ion-icon name="calendar-outline" color="primary"></ion-icon>
+                    <div class="info-text">
+                      <h4>Weekly payouts</h4>
+                      <p>Get paid every week</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="button-row">
+                  <ion-button fill="outline" (click)="previousPaymentStep()">
+                    <ion-icon name="arrow-back" slot="start"></ion-icon>
+                    Back
+                  </ion-button>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Primary Action Button -->
+          <!-- TOS Step -->
+          <div *ngIf="currentStep.id === 'tos'" class="tos-step">
+            <!-- Already Accepted -->
+            <div *ngIf="steps[4].completed" class="status-card-large success">
+              <ion-icon name="checkmark-circle"></ion-icon>
+              <p>{{ 'TUTOR_APPROVAL.TOS_ACCEPTED' | translate }}</p>
+              <span class="accepted-date" *ngIf="tosAcceptedAt">
+                {{ 'TUTOR_APPROVAL.TOS_ACCEPTED_ON' | translate }} {{ tosAcceptedAt | date:'mediumDate' }}
+              </span>
+            </div>
+
+            <!-- Not Yet Accepted -->
+            <div *ngIf="!steps[4].completed" class="tos-content">
+              <div class="tos-scroll-area">
+                <h3 class="tos-section-title">{{ 'TUTOR_APPROVAL.TOS_IC_TITLE' | translate }}</h3>
+                <p class="tos-paragraph">{{ 'TUTOR_APPROVAL.TOS_IC_INTRO' | translate }}</p>
+
+                <div class="tos-clause">
+                  <div class="clause-number">1</div>
+                  <div class="clause-body">
+                    <h4>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_1_TITLE' | translate }}</h4>
+                    <p>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_1_BODY' | translate }}</p>
+                  </div>
+                </div>
+
+                <div class="tos-clause">
+                  <div class="clause-number">2</div>
+                  <div class="clause-body">
+                    <h4>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_2_TITLE' | translate }}</h4>
+                    <p>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_2_BODY' | translate }}</p>
+                  </div>
+                </div>
+
+                <div class="tos-clause">
+                  <div class="clause-number">3</div>
+                  <div class="clause-body">
+                    <h4>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_3_TITLE' | translate }}</h4>
+                    <p>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_3_BODY' | translate }}</p>
+                  </div>
+                </div>
+
+                <div class="tos-clause">
+                  <div class="clause-number">4</div>
+                  <div class="clause-body">
+                    <h4>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_4_TITLE' | translate }}</h4>
+                    <p>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_4_BODY' | translate }}</p>
+                  </div>
+                </div>
+
+                <div class="tos-clause">
+                  <div class="clause-number">5</div>
+                  <div class="clause-body">
+                    <h4>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_5_TITLE' | translate }}</h4>
+                    <p>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_5_BODY' | translate }}</p>
+                  </div>
+                </div>
+
+                <div class="tos-clause">
+                  <div class="clause-number">6</div>
+                  <div class="clause-body">
+                    <h4>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_6_TITLE' | translate }}</h4>
+                    <p>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_6_BODY' | translate }}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="tos-accept-row">
+                <label class="tos-checkbox-label">
+                  <input type="checkbox" [(ngModel)]="tosChecked" class="tos-checkbox-input">
+                  <span class="tos-checkmark"></span>
+                  <span class="tos-label-text">{{ 'TUTOR_APPROVAL.TOS_CHECKBOX_LABEL' | translate }}</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+        <!-- Primary Action Button (Photo & Video steps only) -->
         <ion-button 
+          *ngIf="currentStep.id === 'photo' || currentStep.id === 'video'"
           expand="block" 
-          color="primary" 
           size="large"
           class="primary-action"
           [disabled]="currentStep.completed"
           (click)="handleStepAction()">
-          <ion-icon [name]="currentStep.icon" slot="start"></ion-icon>
-          {{ currentStep.completed ? 'Completed' : currentStep.title }}
+          <ion-icon 
+            [name]="currentStep.id === 'photo' ? 'camera-outline' : currentStep.icon" 
+            slot="start">
+          </ion-icon>
+          <span *ngIf="currentStep.id === 'photo'">
+            {{ steps[0].completed ? 'Change Photo' : 'Upload Profile Photo' }}
+          </span>
+          
+          <span *ngIf="currentStep.id === 'video'">
+            {{ currentStep.completed ? 'Completed' : currentStep.title }}
+          </span>
+        </ion-button>
+        <p *ngIf="currentStep.id === 'photo'">You can change your photo later in the settings but it must always be a professional photo.</p>
+
+        <!-- Primary Action Button (Payment step - only shown on setup-method sub-step) -->
+        <ion-button 
+          *ngIf="currentStep.id === 'stripe' && paymentSetupStep === 'setup-method' && !approvalStatus?.stripeComplete"
+          expand="block" 
+          size="large"
+          class="primary-action"
+          [disabled]="!canSetupPayment()"
+          (click)="setupPaymentMethod()">
+          <ion-icon 
+            [name]="determinedPayoutMethod === 'stripe' ? 'card' : 'logo-paypal'" 
+            slot="start">
+          </ion-icon>
+          {{ determinedPayoutMethod === 'stripe' ? 'Connect Stripe' : 'Connect PayPal' }}
+        </ion-button>
+
+        <!-- Primary Action Button (TOS step) -->
+        <ion-button 
+          *ngIf="currentStep.id === 'tos' && !steps[4].completed"
+          expand="block" 
+          size="large"
+          class="primary-action"
+          [disabled]="!tosChecked || isAcceptingTos"
+          (click)="acceptTos()">
+          <ion-icon name="shield-checkmark" slot="start"></ion-icon>
+          {{ 'TUTOR_APPROVAL.TOS_ACCEPT_BUTTON' | translate }}
         </ion-button>
       </div>
     </div>
@@ -286,7 +765,8 @@
             [src]="videoPlayerData.videoUrl"
             [poster]="getCurrentThumbnailUrl()"
             controls
-            autoplay
+            playsinline
+            (loadeddata)="onVideoReady($event)"
             class="video-player">
           </video>
         </div>

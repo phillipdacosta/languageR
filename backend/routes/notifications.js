@@ -38,13 +38,41 @@ router.get('/', verifyToken, async (req, res) => {
     
     const notifications = await Notification.find(query)
       .sort({ createdAt: -1 })
-      .limit(parseInt(limit));
+      .limit(parseInt(limit))
+      .lean(); // Use lean() for better performance and to allow modification
 
     console.log('📬 Found', notifications.length, 'notifications for user:', user._id);
 
+    // Update notifications with current user pictures
+    const notificationsWithCurrentPictures = await Promise.all(
+      notifications.map(async (notification) => {
+        // Try to get the related user's current picture
+        let relatedUserId = notification.relatedUserId;
+        
+        // Fallback: try to extract user ID from data field for older notifications
+        if (!relatedUserId && notification.data) {
+          relatedUserId = notification.data.studentId || notification.data.tutorId || notification.data.relatedUserId;
+        }
+        
+        if (relatedUserId) {
+          try {
+            const relatedUser = await User.findById(relatedUserId).select('picture').lean();
+            if (relatedUser?.picture) {
+              notification.relatedUserPicture = relatedUser.picture;
+            }
+          } catch (err) {
+            // Keep the stored picture if lookup fails
+            console.warn('⚠️ Failed to lookup related user picture:', err.message);
+          }
+        }
+        
+        return notification;
+      })
+    );
+
     res.json({
       success: true,
-      notifications
+      notifications: notificationsWithCurrentPictures
     });
   } catch (error) {
     console.error('❌ Error fetching notifications:', error);

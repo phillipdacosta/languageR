@@ -8,13 +8,46 @@ const LessonTranscript = require('../models/LessonTranscript');
 const LessonAnalysis = require('../models/LessonAnalysis');
 const Lesson = require('../models/Lesson');
 const User = require('../models/User');
-const { transcribeAudio, analyzeLessonTranscript, generateProgressReport } = require('../services/aiService');
+const { transcribeAudio, analyzeLessonTranscript, generateProgressReport, translateAnalysisFields } = require('../services/aiService');
 const { uploadAudio, getSignedUrl } = require('../services/cloudStorageService');
 const { assessPronunciationScore, intelligentSampleSegments } = require('../services/gpt4PronunciationService');
 const { assessSegmentPronunciation } = require('../services/pronunciationService');
 const { getWordAudio } = require('../services/audioSlicingService');
 const { verifyToken } = require('../middleware/videoUploadMiddleware');
 const audioBackupService = require('../services/audioBackupService');
+
+/**
+ * Calculate total speaking time from transcript segments (in seconds).
+ * Uses segment.duration if available (from Whisper seg.end - seg.start).
+ * Falls back to estimating from word count (~150 words/minute) for older segments.
+ * @param {Array} segments - Array of transcript segments
+ * @returns {number} Speaking time in seconds
+ */
+function calculateSpeakingTime(segments) {
+  if (!segments || segments.length === 0) return 0;
+  
+  // Check if segments have duration data
+  const segmentsWithDuration = segments.filter(s => s.duration && s.duration > 0);
+  
+  if (segmentsWithDuration.length > 0) {
+    // Use actual duration data from Whisper timestamps
+    const totalFromDurations = segmentsWithDuration.reduce((sum, s) => sum + s.duration, 0);
+    
+    // If only some segments have duration, estimate the rest proportionally
+    if (segmentsWithDuration.length < segments.length) {
+      const avgDuration = totalFromDurations / segmentsWithDuration.length;
+      const estimatedRest = (segments.length - segmentsWithDuration.length) * avgDuration;
+      return totalFromDurations + estimatedRest;
+    }
+    
+    return totalFromDurations;
+  }
+  
+  // Fallback for older segments without duration: estimate from word count
+  // Average speaking rate is ~150 words per minute (2.5 words/second)
+  const totalWords = segments.reduce((sum, s) => sum + (s.text ? s.text.split(/\s+/).length : 0), 0);
+  return totalWords / 2.5; // words / (words per second) = seconds
+}
 
 // Configure multer for audio upload
 const storage = multer.memoryStorage();
@@ -70,6 +103,75 @@ async function convertWebmToMp3(webmBuffer) {
         resolve(mp3Buffer);
       })
       .pipe(outputStream);
+  });
+}
+
+/**
+ * Analyze audio buffer for speech energy using FFmpeg.
+ * Returns metrics indicating whether meaningful speech is present.
+ * Used as a pre-Whisper gate to prevent hallucinations from silence/noise.
+ */
+async function analyzeAudioEnergy(audioBuffer, mimeType = 'audio/mpeg') {
+  return new Promise((resolve) => {
+    const inputStream = Readable.from(audioBuffer);
+    let stderrOutput = '';
+
+    const defaultResult = { rmsLevelDb: 0, peakLevelDb: 0, silenceRatio: 0, durationSeconds: 0, hasSpeech: true };
+
+    ffmpeg(inputStream)
+      .audioChannels(1)
+      .audioFrequency(16000)
+      .audioFilters([
+        'silencedetect=noise=-35dB:d=0.5',
+        'astats=metadata=1:reset=0'
+      ])
+      .format('null')
+      .on('stderr', (line) => {
+        stderrOutput += line + '\n';
+      })
+      .on('error', (err) => {
+        console.warn('⚠️ Audio energy analysis failed (non-critical):', err.message);
+        resolve(defaultResult);
+      })
+      .on('end', () => {
+        try {
+          const rmsMatch = stderrOutput.match(/RMS level dB:\s*([-\d.]+)/);
+          const peakMatch = stderrOutput.match(/Peak level dB:\s*([-\d.]+)/);
+          const durationMatch = stderrOutput.match(/Duration:\s*(\d+):(\d+):([\d.]+)/);
+
+          const rmsLevelDb = rmsMatch ? parseFloat(rmsMatch[1]) : -91;
+          const peakLevelDb = peakMatch ? parseFloat(peakMatch[1]) : -91;
+
+          let durationSeconds = 0;
+          if (durationMatch) {
+            durationSeconds = parseInt(durationMatch[1]) * 3600 + parseInt(durationMatch[2]) * 60 + parseFloat(durationMatch[3]);
+          }
+
+          const silenceStarts = [...stderrOutput.matchAll(/silence_start:\s*([\d.]+)/g)].map(m => parseFloat(m[1]));
+          const silenceEnds = [...stderrOutput.matchAll(/silence_end:\s*([\d.]+)/g)].map(m => parseFloat(m[1]));
+
+          let totalSilence = 0;
+          for (let i = 0; i < silenceEnds.length; i++) {
+            const start = i < silenceStarts.length ? silenceStarts[i] : 0;
+            totalSilence += silenceEnds[i] - start;
+          }
+          if (silenceStarts.length > silenceEnds.length && durationSeconds > 0) {
+            totalSilence += durationSeconds - silenceStarts[silenceStarts.length - 1];
+          }
+
+          const silenceRatio = durationSeconds > 0 ? totalSilence / durationSeconds : 1;
+
+          const hasSpeech = rmsLevelDb > -40 && silenceRatio < 0.90;
+
+          const result = { rmsLevelDb, peakLevelDb, silenceRatio: Math.round(silenceRatio * 1000) / 1000, durationSeconds, hasSpeech };
+          console.log(`🔊 Audio energy analysis: RMS=${rmsLevelDb}dB, Peak=${peakLevelDb}dB, silence=${(silenceRatio * 100).toFixed(1)}%, hasSpeech=${hasSpeech}`);
+          resolve(result);
+        } catch (parseErr) {
+          console.warn('⚠️ Failed to parse audio energy output:', parseErr.message);
+          resolve(defaultResult);
+        }
+      })
+      .save('/dev/null');
   });
 }
 
@@ -457,7 +559,28 @@ router.post('/:transcriptId/audio', verifyToken, upload.single('audio'), async (
     let audioBuffer = req.file.buffer;
     const isWebm = req.file.mimetype === 'audio/webm' || req.file.originalname.endsWith('.webm');
     
-    console.log(`📤 Attempting transcription with ${isWebm ? 'WebM' : 'original'} format (${audioBuffer.length} bytes)`);
+    console.log(`📤 Received audio: ${isWebm ? 'WebM' : 'other'} format (${audioBuffer.length} bytes)`);
+    console.log(`📤 First 20 bytes: ${[...audioBuffer.slice(0, 20)].map(b => b.toString(16).padStart(2, '0')).join(' ')}`);
+    
+    // ALWAYS convert WebM to MP3 for better Whisper compatibility
+    if (isWebm) {
+      console.log('🔄 Converting WebM to MP3 for Whisper compatibility...');
+      try {
+        audioBuffer = await convertWebmToMp3(originalAudioBuffer);
+        console.log(`✅ Converted to MP3: ${audioBuffer.length} bytes`);
+      } catch (conversionError) {
+        console.error('❌ WebM to MP3 conversion failed:', conversionError.message);
+        return res.status(500).json({
+          message: `Audio conversion failed: ${conversionError.message}`,
+          error: 'audio_conversion_failed',
+          details: 'Could not convert WebM to MP3. This audio chunk will be skipped.',
+          inputSize: originalAudioBuffer.length,
+          firstBytes: [...originalAudioBuffer.slice(0, 20)].map(b => b.toString(16).padStart(2, '0')).join(' ')
+        });
+      }
+    }
+    
+    console.log(`📤 Attempting transcription with MP3 format (${audioBuffer.length} bytes)`);
     
     // BACKUP: Save audio to GCS BEFORE transcription attempt
     // This allows retry if Whisper/GPT is down
@@ -479,6 +602,41 @@ router.post('/:transcriptId/audio', verifyToken, upload.single('audio'), async (
     } catch (backupError) {
       console.error('⚠️  Audio backup failed (non-critical):', backupError.message);
       // Continue - backup failure shouldn't stop transcription
+    }
+    
+    // LAYER 1: Pre-Whisper audio energy check (VAD)
+    // Prevents Whisper from hallucinating on silence/noise
+    let audioEnergyResult = null;
+    try {
+      audioEnergyResult = await analyzeAudioEnergy(audioBuffer);
+      
+      // Store metrics on the transcript for the quality gate later
+      const chunkIdx = transcript.audioEnergyMetrics ? transcript.audioEnergyMetrics.length : 0;
+      transcript.audioEnergyMetrics = transcript.audioEnergyMetrics || [];
+      transcript.audioEnergyMetrics.push({
+        chunkIndex: chunkIdx,
+        rmsLevelDb: audioEnergyResult.rmsLevelDb,
+        peakLevelDb: audioEnergyResult.peakLevelDb,
+        silenceRatio: audioEnergyResult.silenceRatio,
+        durationSeconds: audioEnergyResult.durationSeconds,
+        hasSpeech: audioEnergyResult.hasSpeech
+      });
+      
+      if (!audioEnergyResult.hasSpeech) {
+        console.log(`🔇 Audio energy below speech threshold — skipping Whisper to prevent hallucination`);
+        console.log(`   RMS: ${audioEnergyResult.rmsLevelDb}dB, Silence: ${(audioEnergyResult.silenceRatio * 100).toFixed(1)}%`);
+        
+        await transcript.save();
+        
+        return res.json({
+          message: 'Audio chunk skipped — no speech detected (silence/noise only)',
+          segmentsAdded: 0,
+          text: '',
+          skippedReason: 'no_speech_energy'
+        });
+      }
+    } catch (vadError) {
+      console.warn('⚠️ VAD analysis failed (non-critical, proceeding with Whisper):', vadError.message);
     }
     
     // Transcribe audio using OpenAI Whisper (with retry logic)
@@ -636,18 +794,17 @@ router.post('/:transcriptId/audio', verifyToken, upload.single('audio'), async (
     });
     
     const segments = result.segments
-      .filter(seg => seg.text && seg.text.trim().length > 0)  // Filter out empty segments
+      .filter(seg => seg.text && seg.text.trim().length > 0)
       .map(seg => {
       const segmentData = {
         timestamp: new Date(transcript.startTime.getTime() + (seg.start * 1000)),
         speaker: speaker || 'student',
         text: seg.text,
         confidence: seg.confidence || 1,
-        language: transcript.language
+        language: transcript.language,
+        duration: (seg.end != null && seg.start != null) ? (seg.end - seg.start) : 0,
+        noSpeechProb: seg.no_speech_prob != null ? seg.no_speech_prob : null
       };
-      
-      // Note: Audio will be uploaded to GCS in a separate batch after all segments are processed
-      // This avoids uploading duplicate audio for every segment (segments share the same audio chunk)
       
       return segmentData;
     });
@@ -739,10 +896,17 @@ router.post('/:transcriptId/complete', verifyToken, async (req, res) => {
     const studentSegments = transcript.segments.filter(s => s.speaker === 'student');
     const tutorSegments = transcript.segments.filter(s => s.speaker === 'tutor');
     
+    // Calculate actual speaking time from segment durations (in seconds)
+    // Falls back to timestamp-based estimation for older segments without duration field
+    const studentSpeakingSeconds = calculateSpeakingTime(studentSegments);
+    const tutorSpeakingSeconds = calculateSpeakingTime(tutorSegments);
+    
+    console.log(`⏱️ Speaking time calculated — Student: ${Math.round(studentSpeakingSeconds)}s, Tutor: ${Math.round(tutorSpeakingSeconds)}s`);
+    
     transcript.metadata = {
       totalDuration: (transcript.endTime - transcript.startTime) / 1000, // seconds
-      studentSpeakingTime: studentSegments.length,
-      tutorSpeakingTime: tutorSegments.length,
+      studentSpeakingTime: Math.round(studentSpeakingSeconds), // in seconds
+      tutorSpeakingTime: Math.round(tutorSpeakingSeconds), // in seconds
       wordCount: transcript.segments.reduce((sum, seg) => sum + seg.text.split(' ').length, 0)
     };
     
@@ -754,36 +918,52 @@ router.post('/:transcriptId/complete', verifyToken, async (req, res) => {
     
     console.log(`✅ Transcription completed for lesson ${transcript.lessonId}`);
     
-    // Check if student has AI analysis enabled
+    // Check if student had AI analysis enabled at lesson time (use snapshot, fall back to live profile)
     const User = require('../models/User');
-    const student = await User.findOne({ auth0Id: transcript.studentId });
+    const Lesson = require('../models/Lesson');
+    const lesson = await Lesson.findById(transcript.lessonId);
     
-    if (student?.profile?.aiAnalysisEnabled === false) {
-      console.log('⏭️  AI analysis disabled by student - creating manual feedback requirement');
+    // Determine AI setting: prefer snapshot, fall back to live profile
+    let aiDisabledForThisLesson = false;
+    if (lesson) {
+      if (lesson.aiAnalysisEnabledAtTime !== null && lesson.aiAnalysisEnabledAtTime !== undefined) {
+        aiDisabledForThisLesson = lesson.aiAnalysisEnabledAtTime === false;
+      } else {
+        // Legacy lesson without snapshot — check live profile and stamp it
+        const student = await User.findOne({ auth0Id: transcript.studentId });
+        const liveValue = student?.profile?.aiAnalysisEnabled !== false;
+        lesson.aiAnalysisEnabledAtTime = liveValue;
+        await lesson.save();
+        console.log(`📸 [Transcription] Snapshotted aiAnalysisEnabledAtTime=${liveValue} for lesson ${lesson._id}`);
+        aiDisabledForThisLesson = !liveValue;
+      }
+    }
+    
+    if (aiDisabledForThisLesson) {
+      console.log('⏭️  AI analysis disabled (snapshot) - creating manual feedback requirement');
       
       // Mark lesson as requiring tutor feedback
-      const Lesson = require('../models/Lesson');
       const TutorFeedback = require('../models/TutorFeedback');
       const Notification = require('../models/Notification');
       const { getRandomFeedbackMessage } = require('../utils/feedbackMessages');
       
-      const lesson = await Lesson.findById(transcript.lessonId);
       if (lesson) {
         lesson.requiresTutorFeedback = true;
         lesson.status = 'completed';
         await lesson.save();
         
-        // Create pending feedback record
-        await TutorFeedback.create({
-          lessonId: transcript.lessonId,
-          tutorId: transcript.tutorId,
-          studentId: transcript.studentId,
-          status: 'pending'
-        });
-        
-        // Get tutor for notification
+        // Get tutor and student for feedback record and notification
         const tutor = await User.findOne({ auth0Id: transcript.tutorId });
         const studentData = await User.findOne({ auth0Id: transcript.studentId });
+        
+        // Create pending feedback record using MongoDB _id for consistency
+        await TutorFeedback.create({
+          lessonId: transcript.lessonId,
+          tutorId: tutor ? tutor._id : transcript.tutorId,
+          studentId: studentData ? studentData._id : transcript.studentId,
+          status: 'pending',
+          required: true
+        });
         
         // Get dynamic message
         const feedbackMsg = getRandomFeedbackMessage(transcript.lessonId.toString());
@@ -1155,10 +1335,21 @@ router.get('/lesson/:lessonId/analysis', verifyToken, async (req, res) => {
       .lean();
     
     if (!analysis) {
-      return res.status(404).json({ 
+      // Check transcript to determine if analysis can ever be generated
+      const transcript = await LessonTranscript.findOne({ lessonId }).select('status segments').lean();
+      const transcriptStatus = transcript?.status || 'not_found';
+      const segmentCount = transcript?.segments?.length || 0;
+      
+      const willNeverGenerate = !transcript
+        || transcriptStatus === 'failed'
+        || (transcriptStatus === 'completed' && segmentCount === 0);
+      
+      return res.status(404).json({
         success: false,
         message: 'Analysis not found',
-        status: 'not_started'
+        status: willNeverGenerate ? 'unavailable' : 'not_started',
+        transcriptStatus,
+        segmentCount
       });
     }
     
@@ -1180,10 +1371,15 @@ router.get('/lesson/:lessonId/analysis', verifyToken, async (req, res) => {
     // Add populated tutor/student to analysis
     analysis.tutorId = tutor;
     analysis.studentId = student;
+
+    // Ensure translations Map is a plain object for JSON serialization
+    if (analysis.translations instanceof Map) {
+      analysis.translations = Object.fromEntries(analysis.translations);
+    }
     
     res.json({
       success: true,
-      analysis: analysis,  // Return the full LessonAnalysis document with populated users
+      analysis: analysis,
       lesson: {
         _id: analysis.lessonId?._id,
         subject: analysis.lessonId?.subject || analysis.language + ' Lesson',
@@ -1254,8 +1450,13 @@ router.get('/student/:studentId/latest', verifyToken, async (req, res) => {
     if (!previousAnalysis) {
       return res.status(404).json({ message: 'No previous analysis found' });
     }
+
+    const result = previousAnalysis.toObject();
+    if (result.translations instanceof Map) {
+      result.translations = Object.fromEntries(result.translations);
+    }
     
-    res.json(previousAnalysis);
+    res.json(result);
     
   } catch (error) {
     console.error('❌ Error getting latest analysis:', error);
@@ -1385,9 +1586,156 @@ async function analyzeLesson(transcriptId) {
     console.log(`   Student words: ${totalStudentWords}`);
     console.log(`   Tutor words: ${totalTutorWords}`);
     
-    if (totalStudentWords < 50) {
-      console.warn(`⚠️ WARNING: Very short student transcript (${totalStudentWords} words). This may not be enough for accurate analysis.`);
+    // ========================================================================
+    // TRANSCRIPT QUALITY GATE — Prevent GPT-4 from analyzing garbage/hallucinated data
+    // ========================================================================
+    const qualityIssues = [];
+    
+    // CHECK 1: Minimum word threshold (hard skip)
+    // For a 25+ minute lesson, fewer than 30 words means no meaningful speech occurred
+    if (totalStudentWords < 30) {
+      qualityIssues.push(`Insufficient speech: only ${totalStudentWords} student words detected (minimum 30 required for a ${lesson.duration}-min lesson)`);
     }
+    
+    // CHECK 2: Script mismatch detection (Whisper hallucination pattern)
+    // If the lesson is for a Latin-script language but transcript contains CJK/Arabic/etc. characters,
+    // Whisper was hallucinating from background noise or silence
+    const LATIN_BASED_LANGS = ['en', 'es', 'fr', 'de', 'pt', 'it', 'nl', 'pl', 'ro', 'sv', 'da', 'no', 'fi', 'cs', 'hr', 'hu', 'tr', 'vi', 'id', 'ms', 'tl'];
+    const CJK_LANGS = ['ja', 'zh', 'ko'];
+    const ARABIC_LANGS = ['ar', 'fa', 'ur'];
+    const targetLang = transcript.language;
+    const allStudentText = studentSegments.map(s => s.text).join(' ');
+    
+    // Detect non-Latin characters (CJK, Arabic, Devanagari, Cyrillic, etc.)
+    const nonLatinMatches = allStudentText.match(/[\u3000-\u9FFF\u30A0-\u30FF\u3040-\u309F\uAC00-\uD7AF\u0600-\u06FF\u0900-\u097F]/g);
+    const nonLatinCount = nonLatinMatches ? nonLatinMatches.length : 0;
+    
+    if (LATIN_BASED_LANGS.includes(targetLang) && nonLatinCount > 5) {
+      qualityIssues.push(`Script mismatch: ${nonLatinCount} non-Latin characters found in ${targetLang} lesson transcript (likely Whisper hallucination)`);
+    }
+    
+    // Reverse check: CJK lesson but mostly Latin text
+    if (CJK_LANGS.includes(targetLang)) {
+      const cjkMatches = allStudentText.match(/[\u3000-\u9FFF\u30A0-\u30FF\u3040-\u309F\uAC00-\uD7AF]/g);
+      const cjkCount = cjkMatches ? cjkMatches.length : 0;
+      const totalChars = allStudentText.replace(/\s/g, '').length;
+      if (totalChars > 20 && cjkCount < totalChars * 0.1) {
+        qualityIssues.push(`Script mismatch: ${targetLang} lesson but only ${cjkCount}/${totalChars} CJK characters (likely Whisper hallucination)`);
+      }
+    }
+    
+    // CHECK 3: Repetitive content detection (Whisper hallucination pattern)
+    // Whisper often repeats the same phrase/sentence when hallucinating from noise
+    if (studentSegments.length > 5) {
+      const segTexts = studentSegments.map(s => s.text.trim().toLowerCase());
+      const uniqueTexts = new Set(segTexts);
+      const repetitionRatio = uniqueTexts.size / segTexts.length;
+      
+      if (repetitionRatio < 0.3) {
+        qualityIssues.push(`Repetitive content: only ${uniqueTexts.size}/${segTexts.length} unique segments (${Math.round(repetitionRatio * 100)}% unique, likely Whisper hallucination)`);
+      }
+    }
+    
+    // CHECK 4: Known Whisper hallucination phrases
+    const HALLUCINATION_PHRASES = [
+      'thank you for watching', 'thanks for watching', 'subscribe', 'like and subscribe',
+      'please subscribe', 'don\'t forget to subscribe', 'click the bell',
+      'see you next time', 'see you in the next', 'bye bye', 'thank you so much',
+      'music', '♪', '♫', '[music]', '[Music]',
+      'Amara.org', 'subtitles by', 'captions by'
+    ];
+    const textLower = allStudentText.toLowerCase();
+    const hallucinationHits = HALLUCINATION_PHRASES.filter(phrase => textLower.includes(phrase));
+    
+    if (hallucinationHits.length >= 2) {
+      qualityIssues.push(`Known hallucination phrases detected: "${hallucinationHits.join('", "')}"`);
+    }
+    
+    // CHECK 5: Aggregate no_speech_prob across all student segments
+    // Whisper returns no_speech_prob per segment; high values mean Whisper itself
+    // was uncertain whether speech was present
+    const segsWithNoSpeechProb = studentSegments.filter(s => s.noSpeechProb != null);
+    if (segsWithNoSpeechProb.length > 0) {
+      const avgNoSpeechProb = segsWithNoSpeechProb.reduce((sum, s) => sum + s.noSpeechProb, 0) / segsWithNoSpeechProb.length;
+      const highNoSpeechCount = segsWithNoSpeechProb.filter(s => s.noSpeechProb > 0.5).length;
+      const highNoSpeechRatio = highNoSpeechCount / segsWithNoSpeechProb.length;
+      
+      console.log(`🔇 No-speech prob check: avg=${avgNoSpeechProb.toFixed(3)}, high(>0.5)=${highNoSpeechCount}/${segsWithNoSpeechProb.length} (${(highNoSpeechRatio * 100).toFixed(1)}%)`);
+      
+      if (avgNoSpeechProb > 0.5) {
+        qualityIssues.push(`High no_speech_prob: average ${avgNoSpeechProb.toFixed(3)} across ${segsWithNoSpeechProb.length} segments (Whisper uncertain if speech was present)`);
+      }
+      if (highNoSpeechRatio > 0.6) {
+        qualityIssues.push(`${highNoSpeechCount}/${segsWithNoSpeechProb.length} segments (${(highNoSpeechRatio * 100).toFixed(0)}%) have high no_speech_prob (>0.5), indicating mostly noise/silence`);
+      }
+    }
+    
+    // CHECK 6: Audio energy metadata from FFmpeg VAD
+    // If the pre-Whisper audio energy analysis found the audio was borderline,
+    // use it as an additional signal
+    if (transcript.audioEnergyMetrics && transcript.audioEnergyMetrics.length > 0) {
+      const metrics = transcript.audioEnergyMetrics;
+      const allNoSpeech = metrics.every(m => !m.hasSpeech);
+      const avgSilenceRatio = metrics.reduce((sum, m) => sum + (m.silenceRatio || 0), 0) / metrics.length;
+      const avgRms = metrics.reduce((sum, m) => sum + (m.rmsLevelDb || -91), 0) / metrics.length;
+      
+      console.log(`🔊 Audio energy check: avgRMS=${avgRms.toFixed(1)}dB, avgSilence=${(avgSilenceRatio * 100).toFixed(1)}%, allNoSpeech=${allNoSpeech}`);
+      
+      if (allNoSpeech) {
+        qualityIssues.push(`Audio energy analysis: all ${metrics.length} audio chunks detected as silence/noise (no speech energy above threshold)`);
+      } else if (avgSilenceRatio > 0.85) {
+        qualityIssues.push(`Audio is ${(avgSilenceRatio * 100).toFixed(0)}% silence on average across ${metrics.length} chunks — insufficient speech content`);
+      }
+    }
+    
+    // CHECK 7: Words-per-second coherence check
+    // Whisper hallucinations often produce many words from very short audio.
+    // Real speech is typically 2-4 words/second; >5 wps sustained is suspicious.
+    const segsWithDuration = studentSegments.filter(s => s.duration && s.duration > 0);
+    if (segsWithDuration.length > 3) {
+      const suspiciousSegs = segsWithDuration.filter(s => {
+        const words = s.text.split(/\s+/).length;
+        const wps = words / s.duration;
+        return wps > 5 && words > 3;
+      });
+      const suspiciousRatio = suspiciousSegs.length / segsWithDuration.length;
+      
+      if (suspiciousRatio > 0.5) {
+        qualityIssues.push(`Unrealistic speech rate: ${suspiciousSegs.length}/${segsWithDuration.length} segments (${(suspiciousRatio * 100).toFixed(0)}%) exceed 5 words/second — likely hallucinated text`);
+      }
+    }
+    
+    // If ANY quality issues found, skip analysis and save as insufficient_data
+    if (qualityIssues.length > 0) {
+      console.warn(`\n🚫 ========================================`);
+      console.warn(`🚫 TRANSCRIPT QUALITY GATE FAILED — Skipping analysis`);
+      console.warn(`🚫 ========================================`);
+      qualityIssues.forEach((issue, i) => {
+        console.warn(`   ${i + 1}. ${issue}`);
+      });
+      console.warn(`🚫 Lesson ${transcript.lessonId} will be marked as insufficient_data`);
+      console.warn(`🚫 ========================================\n`);
+      
+      // Save as insufficient_data so the student doesn't see hallucinated content
+      await LessonAnalysis.findOneAndUpdate(
+        { lessonId: transcript.lessonId },
+        {
+          lessonId: transcript.lessonId,
+          transcriptId: transcript._id,
+          studentId: transcript.studentId,
+          tutorId: transcript.tutorId,
+          language: transcript.language,
+          lessonDate: transcript.startTime,
+          status: 'insufficient_data',
+          error: `Transcript quality check failed: ${qualityIssues.join('; ')}`
+        },
+        { upsert: true, new: true }
+      );
+      
+      return null;
+    }
+    
+    console.log(`✅ Transcript quality gate passed — proceeding with analysis`);
     
     // Analyze with GPT-4
     console.log(`🤖 Calling GPT-4 for analysis...`);
@@ -1710,7 +2058,14 @@ async function analyzeLesson(transcriptId) {
     console.log(`   Summary: ${analysis.studentSummary?.substring(0, 100)}...`);
     
     console.log(`✅ Analysis completed for lesson ${transcript.lessonId}`);
-    
+
+    // Auto-create SRS vocabulary cards from analysis
+    try {
+      await createVocabularyCardsFromAnalysis(analysis, transcript);
+    } catch (vocabError) {
+      console.error('⚠️ Error creating vocabulary cards:', vocabError);
+    }
+
     // After analysis, update the next upcoming lesson with notes
     try {
       await updateNextLessonWithNotes(transcript.studentId, transcript.tutorId, analysis);
@@ -1718,7 +2073,61 @@ async function analyzeLesson(transcriptId) {
       console.error('⚠️ Error updating next lesson notes:', notesError);
       // Don't fail the analysis if notes update fails
     }
-    
+
+    // After analysis is saved, update or create learning plan
+    try {
+      const LearningPlanModel = require('../models/LearningPlan');
+      const learningPlanService = require('../services/learningPlanService');
+      const Lesson = require('../models/Lesson');
+
+      const existingPlan = await LearningPlanModel.findOne({
+        studentId: transcript.studentId,
+        language: transcript.language,
+        status: 'active'
+      });
+
+      if (existingPlan) {
+        await learningPlanService.updatePlanAfterLesson(existingPlan._id, analysis);
+      } else if (analysis.lessonId) {
+        const lessonForPlan = await Lesson.findById(analysis.lessonId);
+        if (lessonForPlan?.isTrialLesson) {
+          const studentUser = await User.findById(transcript.studentId);
+          if (studentUser?.onboardingData?.learningGoal?.type) {
+            const newPlan = await learningPlanService.generateInitialPlan(transcript.studentId, transcript.language);
+
+            if (newPlan) {
+              const Notification = require('../models/Notification');
+              const goalLabel = learningPlanService.GOAL_TYPE_LABELS[studentUser.onboardingData.learningGoal.type] || 'reach your goal';
+              await Notification.create({
+                userId: transcript.studentId,
+                type: 'learning_plan_ready',
+                title: 'Your Learning Plan is Ready! 🎯',
+                message: `Based on your first lesson, we've created a personalized path to help you ${goalLabel.toLowerCase()} in <strong>${transcript.language}</strong>.`,
+                data: {
+                  language: transcript.language,
+                  planId: newPlan._id.toString(),
+                  hasActionButton: true,
+                  actionButtonText: 'View Plan',
+                  actionRoute: '/tabs/progress'
+                },
+                read: false
+              });
+
+              const io = req.app.get('io');
+              if (io && studentUser.auth0Id) {
+                io.to(`user:${studentUser.auth0Id}`).emit('learning_plan_ready', {
+                  language: transcript.language,
+                  planId: newPlan._id.toString()
+                });
+              }
+            }
+          }
+        }
+      }
+    } catch (planError) {
+      console.error('⚠️ Learning plan update failed (non-blocking):', planError);
+    }
+
     // Check if student hit a milestone (5, 10, 15, etc. lessons in this language)
     // ONLY count regular lessons (exclude trial & quick office hours)
     try {
@@ -1758,14 +2167,14 @@ async function analyzeLesson(transcriptId) {
         const Notification = require('../models/Notification');
         const existingNotification = await Notification.findOne({
           userId: transcript.studentId,
-          type: 'struggle_milestone',
+          type: 'progress_milestone',
           'data.language': transcript.language,
           'data.milestone': totalLessons
         });
         
         if (!existingNotification) {
-          // Get last 5 REGULAR lessons to identify top struggle
-          const recentAnalyses = await LessonAnalysis.find({
+          // Get the most recent 5-lesson block (sorted oldest-first for the block)
+          const milestoneAnalyses = await LessonAnalysis.find({
             studentId: transcript.studentId,
             language: transcript.language,
             status: 'completed'
@@ -1774,57 +2183,65 @@ async function analyzeLesson(transcriptId) {
               path: 'lessonId',
               select: 'isTrialLesson isOfficeHours officeHoursType'
             })
-            .sort({ lessonDate: -1 })
-            .select('topErrors lessonId')
+            .sort({ lessonDate: 1 })
             .lean();
           
-          // Filter out trial/office hours and take last 5
-          const recentLessons = recentAnalyses
-            .filter(analysis => {
-              const lesson = analysis.lessonId;
-              if (!lesson) return true;
-              if (lesson.isTrialLesson === true) return false;
-              if (lesson.isOfficeHours === true && lesson.officeHoursType === 'quick') return false;
+          const milestoneBlock = milestoneAnalyses
+            .filter(a => {
+              const l = a.lessonId;
+              if (!l) return true;
+              if (l.isTrialLesson === true) return false;
+              if (l.isOfficeHours === true && l.officeHoursType === 'quick') return false;
               return true;
             })
-            .slice(0, 5);
-
+            .slice(-5);
           
-          // Count struggles
-          const struggleMap = new Map();
-          recentLessons.forEach(lesson => {
-            lesson.topErrors?.forEach(error => {
-              const key = error.issue.toLowerCase().trim();
-              if (!struggleMap.has(key)) {
-                struggleMap.set(key, { issue: error.issue, count: 0 });
-              }
-              struggleMap.get(key).count += 1;
-            });
-          });
+          // Calculate averages for the milestone block
+          const levelMap = { 'A1': 1, 'A2': 2, 'B1': 3, 'B2': 4, 'C1': 5, 'C2': 6 };
+          const levelNames = { 1: 'A1', 2: 'A2', 3: 'B1', 4: 'B2', 5: 'C1', 6: 'C2' };
           
-          const topStruggle = Array.from(struggleMap.values())
-            .filter(s => s.count >= 2)
-            .sort((a, b) => b.count - a.count)[0];
+          const cefrLevels = milestoneBlock.map(a => levelMap[a.overallAssessment?.proficiencyLevel] || 3);
+          const avgCefrNum = Math.round(cefrLevels.reduce((s, l) => s + l, 0) / cefrLevels.length);
+          const avgCefrLevel = levelNames[Math.max(1, Math.min(6, avgCefrNum))];
           
-          // Create notification
-          const message = topStruggle 
-            ? `You've completed <strong>${totalLessons} ${transcript.language}</strong> lessons! We've noticed you're working on <strong>${topStruggle.issue}</strong>. Check your progress page for insights.`
-            : `Great progress! You've completed <strong>${totalLessons} ${transcript.language}</strong> lessons. Check your progress page to see how you're doing!`;
+          const grammarScores = milestoneBlock.map(a => a.grammarAnalysis?.accuracyScore || 0).filter(s => s > 0);
+          const fluencyScores = milestoneBlock.map(a => a.fluencyAnalysis?.overallFluencyScore || 0).filter(s => s > 0);
+          const vocabToScore = (range) => ({ 'limited': 30, 'moderate': 55, 'good': 75, 'excellent': 92 }[range] || 50);
+          const vocabScores = milestoneBlock.map(a => vocabToScore(a.vocabularyAnalysis?.vocabularyRange)).filter(s => s > 0);
+          
+          const avgGrammar = grammarScores.length > 0 ? Math.round(grammarScores.reduce((s, v) => s + v, 0) / grammarScores.length) : 0;
+          const avgFluency = fluencyScores.length > 0 ? Math.round(fluencyScores.reduce((s, v) => s + v, 0) / fluencyScores.length) : 0;
+          const avgVocab = vocabScores.length > 0 ? Math.round(vocabScores.reduce((s, v) => s + v, 0) / vocabScores.length) : 0;
+          const totalStudyTime = milestoneBlock.reduce((s, a) => s + (a.progressionMetrics?.speakingTimeMinutes || 0), 0);
+          
+          const milestoneNumber = totalLessons / 5;
+          
+          const message = milestoneNumber === 1
+            ? `🎉 You've unlocked your Progress Profile after 5 <strong>${transcript.language}</strong> lessons! Tap to see your full breakdown.`
+            : `📊 Milestone ${milestoneNumber} complete! You've finished ${totalLessons} <strong>${transcript.language}</strong> lessons. Tap to see how you've improved.`;
           
           await Notification.create({
             userId: transcript.studentId,
-            type: 'struggle_milestone',
-            title: `${transcript.language} Progress Milestone! 🎯`,
+            type: 'progress_milestone',
+            title: milestoneNumber === 1 ? `Progress Profile Unlocked! 🏆` : `${transcript.language} Milestone ${milestoneNumber}! 🎯`,
             message: message,
             data: {
               language: transcript.language,
               milestone: totalLessons,
-              topStruggle: topStruggle?.issue
+              milestoneNumber: milestoneNumber,
+              avgCefrLevel: avgCefrLevel,
+              avgGrammar: avgGrammar,
+              avgFluency: avgFluency,
+              avgVocab: avgVocab,
+              totalStudyTime: totalStudyTime,
+              hasActionButton: true,
+              actionButtonText: 'View Progress',
+              actionRoute: '/tabs/progress'
             },
             read: false
           });
           
-          console.log(`✅ Created struggle milestone notification - ${transcript.language} (${totalLessons} lessons)`);
+          console.log(`✅ Created progress milestone notification - ${transcript.language} (milestone ${milestoneNumber}, ${totalLessons} lessons, avg CEFR: ${avgCefrLevel})`);
         }
       }
     } catch (milestoneError) {
@@ -1863,6 +2280,56 @@ async function analyzeLesson(transcriptId) {
     
     throw error;
   }
+}
+
+/**
+ * Auto-create SRS VocabularyCards from a completed LessonAnalysis.
+ * Harvests suggestedWords and advancedWordsUsed — data already paid for.
+ */
+async function createVocabularyCardsFromAnalysis(analysis, transcript) {
+  const VocabularyCard = require('../models/VocabularyCard');
+
+  const vocab = analysis.vocabularyAnalysis;
+  if (!vocab) return;
+
+  const words = new Set();
+  (vocab.suggestedWords || []).forEach(w => words.add(w.trim().toLowerCase()));
+  (vocab.advancedWordsUsed || []).forEach(w => words.add(w.trim().toLowerCase()));
+
+  if (words.size === 0) return;
+
+  let created = 0;
+  for (const term of words) {
+    if (!term || term.length < 2) continue;
+    try {
+      await VocabularyCard.findOneAndUpdate(
+        {
+          studentId: transcript.studentId,
+          language: transcript.language,
+          term
+        },
+        {
+          $setOnInsert: {
+            studentId: transcript.studentId,
+            language: transcript.language,
+            term,
+            source: { type: 'lesson', lessonAnalysisId: analysis._id },
+            easeFactor: 2.5,
+            interval: 0,
+            repetitions: 0,
+            nextReviewDate: new Date(),
+            status: 'new'
+          }
+        },
+        { upsert: true, new: true }
+      );
+      created++;
+    } catch (err) {
+      if (err.code !== 11000) console.error('⚠️ Error creating vocab card:', err.message);
+    }
+  }
+
+  console.log(`📚 Created ${created} vocabulary cards from analysis for ${transcript.language}`);
 }
 
 /**
@@ -2158,6 +2625,45 @@ router.post('/analysis/:analysisId/retry', verifyToken, async (req, res) => {
       success: false, 
       message: error.message || 'Analysis retry failed'
     });
+  }
+});
+
+/**
+ * @route   POST /api/transcription/analysis/:analysisId/translate
+ * @desc    Translate analysis prose fields to a target language (cached in DB)
+ * @access  Private
+ */
+router.post('/analysis/:analysisId/translate', verifyToken, async (req, res) => {
+  try {
+    const { analysisId } = req.params;
+    const { targetLanguage } = req.body;
+
+    if (!targetLanguage || typeof targetLanguage !== 'string' || targetLanguage.length < 2) {
+      return res.status(400).json({ success: false, message: 'targetLanguage is required' });
+    }
+
+    const analysis = await LessonAnalysis.findById(analysisId);
+    if (!analysis) {
+      return res.status(404).json({ success: false, message: 'Analysis not found' });
+    }
+
+    const cached = analysis.translations?.get(targetLanguage);
+    if (cached) {
+      return res.json({ success: true, translation: cached, cached: true });
+    }
+
+    const translated = await translateAnalysisFields(analysis.toObject(), targetLanguage);
+
+    if (!analysis.translations) {
+      analysis.translations = new Map();
+    }
+    analysis.translations.set(targetLanguage, translated);
+    await analysis.save();
+
+    res.json({ success: true, translation: translated, cached: false });
+  } catch (error) {
+    console.error('❌ Error translating analysis:', error);
+    res.status(500).json({ success: false, message: error.message || 'Translation failed' });
   }
 });
 

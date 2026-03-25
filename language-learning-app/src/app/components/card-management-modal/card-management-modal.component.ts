@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController, ToastController, AlertController } from '@ionic/angular';
@@ -7,7 +7,6 @@ import { UserService } from '../../services/user.service';
 import { environment } from '../../../environments/environment';
 import { firstValueFrom } from 'rxjs';
 
-// Declare Stripe
 declare var Stripe: any;
 
 @Component({
@@ -17,18 +16,25 @@ declare var Stripe: any;
   standalone: true,
   imports: [CommonModule, FormsModule, IonicModule]
 })
-export class CardManagementModalComponent implements OnInit {
-  @ViewChild('cardElement', { read: ElementRef }) cardElementRef!: ElementRef;
-  
+export class CardManagementModalComponent implements OnInit, OnDestroy {
+  @Input() purchaseMode = false;
+  @Input() purchaseAmount: number = 0;
+  @Input() purchaseTitle: string = '';
+
   savedCards: any[] = [];
   isAddingNewCard = false;
   isSaving = false;
-  setAsDefault = false;
-  
+  isLoading = true;
+  selectedCardId: string | null = null;
+  cardholderName = '';
+  cardsChanged = false;
+
   // Stripe
-  stripe: any;
-  cardElement: any;
-  stripeElements: any;
+  private stripe: any;
+  private stripeElements: any;
+  private cardNumberElement: any;
+  private cardExpiryElement: any;
+  private cardCvcElement: any;
 
   constructor(
     private modalController: ModalController,
@@ -41,192 +47,303 @@ export class CardManagementModalComponent implements OnInit {
   async ngOnInit() {
     await this.initializeStripe();
     await this.loadSavedCards();
+    this.isLoading = false;
   }
 
-  async initializeStripe() {
+  ngOnDestroy() {
+    this.unmountStripeElements();
+  }
+
+  // ── Stripe Setup ──
+
+  private async initializeStripe(): Promise<void> {
     try {
       const publishableKey = environment.stripePublishableKey;
-      
       if (!publishableKey) {
         console.error('❌ Stripe publishable key not configured');
         return;
       }
-
       this.stripe = Stripe(publishableKey);
-      console.log('✅ Stripe initialized in modal');
+      this.stripeElements = this.stripe.elements();
+      console.log('✅ Stripe initialized in card-management modal');
     } catch (error) {
       console.error('❌ Error initializing Stripe:', error);
     }
   }
 
-  async loadSavedCards() {
-    try {
-      const response = await firstValueFrom(
-        this.http.get<any>(
-          `${environment.apiUrl}/payments/payment-methods`,
-          { headers: this.userService.getAuthHeadersSync() }
-        )
-      );
-      
-      if (response.success) {
-        this.savedCards = response.paymentMethods || [];
-        console.log(`💳 Loaded ${this.savedCards.length} saved cards in modal`);
-      }
-    } catch (error) {
-      console.error('❌ Error loading saved cards:', error);
-    }
-  }
-
-  showAddCardForm() {
-    this.isAddingNewCard = true;
-    
-    // Mount card element after view updates
-    setTimeout(() => {
-      this.mountCardElement();
-    }, 100);
-  }
-
-  cancelAddCard() {
-    this.isAddingNewCard = false;
-    
-    // Unmount and clean up card element
-    if (this.cardElement) {
-      try {
-        this.cardElement.unmount();
-        this.cardElement.destroy();
-      } catch (e) {
-        console.log('Card element already cleaned up');
-      }
-      this.cardElement = null;
-    }
-  }
-
-  private mountCardElement() {
-    if (!this.stripe) {
+  private mountStripeElements(retryCount = 0): void {
+    if (!this.stripe || !this.stripeElements) {
       console.error('❌ Stripe not initialized');
       return;
     }
 
-    setTimeout(() => {
-      const cardElementContainer = document.getElementById('modal-card-element');
-      if (cardElementContainer) {
-        // Clear the container first
-        cardElementContainer.innerHTML = '';
-        
-        // Unmount existing card element if it exists
-        if (this.cardElement) {
-          try {
-            this.cardElement.unmount();
-            this.cardElement.destroy();
-          } catch (e) {
-            console.log('Card element already unmounted');
-          }
-          this.cardElement = null;
-        }
-        
-        // Create fresh elements instance if needed
-        if (!this.stripeElements) {
-          this.stripeElements = this.stripe.elements();
-        }
-        
-        // Create and mount new card element
-        this.cardElement = this.stripeElements.create('card', {
-          style: {
-            base: {
-              fontSize: '16px',
-              color: '#424770',
-              '::placeholder': {
-                color: '#aab7c4',
-              },
-            },
-          },
-        });
-        this.cardElement.mount('#modal-card-element');
-        console.log('✅ Stripe card element mounted in modal');
-      }
-    }, 100);
-  }
+    const numberEl = document.getElementById('modal-card-number-element');
+    const expiryEl = document.getElementById('modal-card-expiry-element');
+    const cvcEl = document.getElementById('modal-card-cvc-element');
 
-  async saveNewCard() {
-    if (!this.stripe || !this.cardElement) {
-      const toast = await this.toastController.create({
-        message: 'Payment system not initialized. Please try again.',
-        duration: 3000,
-        color: 'danger',
-        position: 'top'
-      });
-      await toast.present();
+    if (!numberEl || !expiryEl || !cvcEl) {
+      if (retryCount < 5) {
+        setTimeout(() => this.mountStripeElements(retryCount + 1), 200 * (retryCount + 1));
+        return;
+      }
+      console.error('❌ Stripe containers not found after retries');
       return;
     }
 
-    this.isSaving = true;
+    this.unmountStripeElements();
+
+    const style = {
+      base: {
+        fontSize: '15px',
+        color: '#1c1c1e',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif',
+        '::placeholder': { color: '#8e8e93' },
+      },
+      invalid: { color: '#ff3b30' },
+    };
 
     try {
-      // Create payment method
-      const { paymentMethod, error } = await this.stripe.createPaymentMethod({
-        type: 'card',
-        card: this.cardElement,
-      });
+      this.cardNumberElement = this.stripeElements.create('cardNumber', { style, placeholder: '0000 0000 0000 0000' });
+      this.cardExpiryElement = this.stripeElements.create('cardExpiry', { style, placeholder: 'MM/YY' });
+      this.cardCvcElement = this.stripeElements.create('cardCvc', { style, placeholder: 'CVC' });
 
-      if (error) {
-        throw new Error(error.message || 'Failed to create payment method');
-      }
+      this.cardNumberElement.mount('#modal-card-number-element');
+      this.cardExpiryElement.mount('#modal-card-expiry-element');
+      this.cardCvcElement.mount('#modal-card-cvc-element');
 
-      // Save to backend
+      console.log('✅ Stripe elements mounted in modal');
+    } catch (error) {
+      console.error('❌ Error mounting Stripe elements:', error);
+    }
+  }
+
+  private unmountStripeElements(): void {
+    try {
+      if (this.cardNumberElement) { this.cardNumberElement.unmount(); this.cardNumberElement.destroy(); this.cardNumberElement = null; }
+      if (this.cardExpiryElement) { this.cardExpiryElement.unmount(); this.cardExpiryElement.destroy(); this.cardExpiryElement = null; }
+      if (this.cardCvcElement) { this.cardCvcElement.unmount(); this.cardCvcElement.destroy(); this.cardCvcElement = null; }
+    } catch (_) {
+      // Already unmounted
+    }
+  }
+
+  // ── Data Loading ──
+
+  private async loadSavedCards(): Promise<void> {
+    try {
       const response = await firstValueFrom(
-        this.http.post<any>(
-          `${environment.apiUrl}/payments/save-payment-method`,
-          { 
-            paymentMethodId: paymentMethod.id,
-            setAsDefault: this.setAsDefault || this.savedCards.length === 0
-          },
+        this.http.get<any>(`${environment.apiUrl}/payments/payment-methods`, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+
+      if (response.success && response.paymentMethods) {
+        this.savedCards = response.paymentMethods.filter((pm: any) => pm.type === 'card');
+
+        const defaultCard = this.savedCards.find((c: any) => c.isDefault);
+        if (defaultCard) {
+          this.selectedCardId = defaultCard.stripePaymentMethodId;
+        }
+
+        if (this.savedCards.length === 0) {
+          this.isAddingNewCard = true;
+          setTimeout(() => this.mountStripeElements(), 300);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading saved cards:', error);
+      this.isAddingNewCard = true;
+      setTimeout(() => this.mountStripeElements(), 300);
+    }
+  }
+
+  // ── Card Actions ──
+
+  selectCard(card: any): void {
+    this.selectedCardId = card.stripePaymentMethodId;
+  }
+
+  showAddCardForm(): void {
+    this.isAddingNewCard = true;
+    setTimeout(() => this.mountStripeElements(), 300);
+  }
+
+  cancelAddCard(): void {
+    this.isAddingNewCard = false;
+    this.unmountStripeElements();
+    this.cardholderName = '';
+  }
+
+  isCardExpired(card: any): boolean {
+    if (!card.expiryMonth || !card.expiryYear) return false;
+    const now = new Date();
+    const year = parseInt(card.expiryYear, 10);
+    const month = parseInt(card.expiryMonth, 10);
+    if (year < now.getFullYear()) return true;
+    if (year === now.getFullYear() && month < now.getMonth() + 1) return true;
+    return false;
+  }
+
+  async setCardAsDefault(card: any, event: Event): Promise<void> {
+    event.stopPropagation();
+    try {
+      const response = await firstValueFrom(
+        this.http.put<any>(
+          `${environment.apiUrl}/payments/payment-method/${card.stripePaymentMethodId}/default`,
+          {},
           { headers: this.userService.getAuthHeadersSync() }
         )
       );
 
       if (response.success) {
-        // Refresh user data to get updated stripeCustomerId
-        if (response.stripeCustomerId) {
-          console.log('✅ Customer ID received from backend:', response.stripeCustomerId);
-          // Force refresh user data
-          await firstValueFrom(this.userService.getCurrentUser(true));
-        }
-        
+        this.savedCards.forEach(c => c.isDefault = false);
+        card.isDefault = true;
+        this.selectedCardId = card.stripePaymentMethodId;
+
         const toast = await this.toastController.create({
-          message: 'Card saved successfully!',
+          message: 'Card set as default',
           duration: 2000,
           color: 'success',
           position: 'top'
         });
         await toast.present();
+      }
+    } catch (error) {
+      console.error('Error setting default card:', error);
+      const toast = await this.toastController.create({
+        message: 'Failed to set default card',
+        duration: 2000,
+        color: 'danger',
+        position: 'top'
+      });
+      await toast.present();
+    }
+  }
 
-        // Reload cards to get the newly added card
-        await this.loadSavedCards();
-        this.cancelAddCard();
-        this.setAsDefault = false;
-        
-        // If this was set as default (or is the first card), automatically select it
-        if (this.setAsDefault || this.savedCards.length === 1) {
-          // Find the newly added card (should be marked as default)
-          const newDefaultCard = this.savedCards.find(card => card.isDefault);
-          if (newDefaultCard) {
-            // Dismiss modal with the selected card
-            await this.modalController.dismiss({
-              selectedCard: newDefaultCard
-            }, 'card-selected');
-            return; // Exit early
+  async deleteCard(card: any, event: Event): Promise<void> {
+    event.stopPropagation();
+
+    const alert = await this.alertController.create({
+      header: 'Delete Card',
+      message: `Are you sure you want to delete the card ending in ${card.last4}?`,
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Delete',
+          role: 'destructive',
+          handler: async () => {
+            try {
+              const response = await firstValueFrom(
+                this.http.delete<any>(
+                  `${environment.apiUrl}/payments/payment-method/${card.stripePaymentMethodId}`,
+                  { headers: this.userService.getAuthHeadersSync() }
+                )
+              );
+
+              if (response.success) {
+                this.cardsChanged = true;
+                this.savedCards = this.savedCards.filter(c => c.stripePaymentMethodId !== card.stripePaymentMethodId);
+
+                if (this.selectedCardId === card.stripePaymentMethodId) {
+                  if (this.savedCards.length > 0) {
+                    const fallback = this.savedCards.find(c => c.isDefault) || this.savedCards[0];
+                    this.selectedCardId = fallback.stripePaymentMethodId;
+                  } else {
+                    this.selectedCardId = null;
+                    this.isAddingNewCard = true;
+                    setTimeout(() => this.mountStripeElements(), 300);
+                  }
+                }
+
+                const toast = await this.toastController.create({
+                  message: 'Card deleted',
+                  duration: 2000,
+                  color: 'success',
+                  position: 'top'
+                });
+                await toast.present();
+              }
+            } catch (error) {
+              console.error('Error deleting card:', error);
+              const toast = await this.toastController.create({
+                message: 'Failed to delete card',
+                duration: 2000,
+                color: 'danger',
+                position: 'top'
+              });
+              await toast.present();
+            }
           }
         }
-        
-        // Otherwise, just dismiss with cardsUpdated flag
-        await this.modalController.dismiss({
-          cardsUpdated: true
+      ]
+    });
+
+    await alert.present();
+  }
+
+  // ── Save New Card ──
+
+  async saveNewCard(): Promise<void> {
+    if (!this.stripe || !this.cardNumberElement || this.isSaving) return;
+
+    this.isSaving = true;
+
+    try {
+      const { paymentMethod, error } = await this.stripe.createPaymentMethod({
+        type: 'card',
+        card: this.cardNumberElement,
+        billing_details: {
+          name: this.cardholderName || undefined,
+        },
+      });
+
+      if (error) {
+        const toast = await this.toastController.create({
+          message: error.message || 'Invalid card information',
+          duration: 3000,
+          color: 'danger',
+          position: 'top'
         });
+        await toast.present();
+        this.isSaving = false;
+        return;
+      }
+
+      // Save to backend
+      const saveResponse = await firstValueFrom(
+        this.http.post<any>(
+          `${environment.apiUrl}/payments/save-payment-method`,
+          {
+            paymentMethodId: paymentMethod.id,
+            setAsDefault: this.savedCards.length === 0
+          },
+          { headers: this.userService.getAuthHeadersSync() }
+        )
+      );
+
+      if (saveResponse.success) {
+        this.cardsChanged = true;
+
+        // Reload cards
+        await this.loadSavedCards();
+
+        this.isAddingNewCard = false;
+        this.cardholderName = '';
+        this.unmountStripeElements();
+
+        const toast = await this.toastController.create({
+          message: 'Card saved successfully',
+          duration: 2000,
+          color: 'success',
+          position: 'top'
+        });
+        await toast.present();
       }
     } catch (error: any) {
       console.error('Error saving card:', error);
+      const message = error.error?.message || error.error?.error || 'Failed to save card';
       const toast = await this.toastController.create({
-        message: error.message || 'Failed to save card. Please try again.',
+        message,
         duration: 3000,
         color: 'danger',
         position: 'top'
@@ -237,98 +354,43 @@ export class CardManagementModalComponent implements OnInit {
     }
   }
 
-  async setDefaultCard(paymentMethodId: string) {
-    try {
-      const response = await firstValueFrom(
-        this.http.put<any>(
-          `${environment.apiUrl}/payments/payment-method/${paymentMethodId}/default`,
-          {},
-          { headers: this.userService.getAuthHeadersSync() }
-        )
-      );
-      
-      if (response.success) {
-        await this.loadSavedCards();
-        
-        const toast = await this.toastController.create({
-          message: 'Default card updated',
-          duration: 2000,
-          color: 'success',
-          position: 'top'
-        });
-        await toast.present();
-      }
-    } catch (error) {
-      console.error('Error setting default card:', error);
-      const toast = await this.toastController.create({
-        message: 'Failed to set default card. Please try again.',
-        duration: 3000,
-        color: 'danger',
-        position: 'top'
-      });
-      await toast.present();
-    }
-  }
+  // ── Purchase / Dismiss ──
 
-  async removeCard(paymentMethodId: string) {
+  async confirmPurchase(): Promise<void> {
+    const card = this.savedCards.find(c => c.stripePaymentMethodId === this.selectedCardId) || this.savedCards[0];
+    if (!card) return;
+
     const alert = await this.alertController.create({
-      header: 'Remove Card',
-      message: 'Are you sure you want to remove this card?',
+      header: 'Confirm Payment',
+      message: `You will be charged <strong>$${this.purchaseAmount.toFixed(2)}</strong> on your ${card.brand || 'card'} ending in ${card.last4}.`,
       buttons: [
+        { text: 'Cancel', role: 'cancel' },
         {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
-          text: 'Remove',
-          role: 'destructive',
-          handler: async () => {
-            try {
-              const response = await firstValueFrom(
-                this.http.delete<any>(
-                  `${environment.apiUrl}/payments/payment-method/${paymentMethodId}`,
-                  { headers: this.userService.getAuthHeadersSync() }
-                )
-              );
-              
-              if (response.success) {
-                await this.loadSavedCards();
-                
-                const toast = await this.toastController.create({
-                  message: 'Card removed successfully',
-                  duration: 2000,
-                  color: 'success',
-                  position: 'top'
-                });
-                await toast.present();
-              }
-            } catch (error) {
-              console.error('Error removing card:', error);
-              const toast = await this.toastController.create({
-                message: 'Failed to remove card. Please try again.',
-                duration: 3000,
-                color: 'danger',
-                position: 'top'
-              });
-              await toast.present();
-            }
+          text: 'Confirm',
+          handler: () => {
+            this.modalController.dismiss({
+              confirmed: true,
+              cardsUpdated: this.cardsChanged,
+              selectedCard: card
+            });
           }
         }
       ]
     });
-    
     await alert.present();
   }
 
-  async selectCard(card: any) {
-    // Close modal and return selected card
-    await this.modalController.dismiss({
-      selectedCard: card
-    }, 'card-selected'); // Add role parameter
-  }
-
-  dismiss() {
-    this.modalController.dismiss();
+  dismiss(): void {
+    const hasCards = this.savedCards.length > 0;
+    this.modalController.dismiss({
+      confirmed: false,
+      cardsUpdated: this.cardsChanged,
+      selectedCard: hasCards ? this.savedCards.find(c => c.stripePaymentMethodId === this.selectedCardId) || this.savedCards[0] : null
+    });
   }
 }
+
+
+
+
 

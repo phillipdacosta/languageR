@@ -2,7 +2,8 @@ import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } fr
 import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController, Platform, AlertController, AnimationController } from '@ionic/angular';
-import { ActivatedRoute, Router, NavigationEnd } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule, NavigationEnd } from '@angular/router';
+import { trigger, transition, style, animate, query, stagger } from '@angular/animations';
 import { UserService } from '../services/user.service';
 import { LanguageService } from '../services/language.service';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
@@ -15,15 +16,48 @@ import { VideoPlayerModalComponent } from '../tutor-search-content/video-player-
 import { ImageViewerModal } from '../messages/image-viewer-modal.component';
 import { SharedModule } from '../shared/shared.module';
 import { DisplayNamePipe } from '../pipes/display-name.pipe';
+import { LessonService } from '../services/lesson.service';
+import { MaterialService, TutorMaterial } from '../services/material.service';
 import { filter, takeUntil } from 'rxjs/operators';
 import { Subject, firstValueFrom } from 'rxjs';
+import { formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
 
 @Component({
   selector: 'app-tutor-page',
   templateUrl: './tutor.page.html',
   styleUrls: ['./tutor.page.scss'],
   standalone: true,
-  imports: [CommonModule, FormsModule, IonicModule, TutorAvailabilityViewerComponent, SharedModule, TutorSearchContentPageModule, DisplayNamePipe]
+  imports: [CommonModule, FormsModule, IonicModule, RouterModule, TutorAvailabilityViewerComponent, SharedModule, TutorSearchContentPageModule, DisplayNamePipe],
+  animations: [
+    trigger('fadeInUp', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'translateY(20px)' }),
+        animate('400ms cubic-bezier(0.25, 0.46, 0.45, 0.94)', style({ opacity: 1, transform: 'translateY(0)' }))
+      ])
+    ]),
+    trigger('fadeIn', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'scale(0.98)' }),
+        animate('400ms 100ms cubic-bezier(0.25, 0.46, 0.45, 0.94)', style({ opacity: 1, transform: 'scale(1)' }))
+      ])
+    ]),
+    trigger('slideInRight', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'translateX(30px)' }),
+        animate('500ms 400ms cubic-bezier(0.25, 0.46, 0.45, 0.94)', style({ opacity: 1, transform: 'translateX(0)' }))
+      ])
+    ]),
+    trigger('staggerIn', [
+      transition(':enter', [
+        query('.highlight-item, .content-section', [
+          style({ opacity: 0, transform: 'translateY(15px)' }),
+          stagger(80, [
+            animate('350ms cubic-bezier(0.25, 0.46, 0.45, 0.94)', style({ opacity: 1, transform: 'translateY(0)' }))
+          ])
+        ], { optional: true })
+      ])
+    ])
+  ]
 })
 export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   tutorId = '';
@@ -36,7 +70,8 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('messageInput', { static: false }) messageInput?: ElementRef;
   cameFromModal = false;
   justLoggedIn = false;
-  returnTo: string | null = null; // Track where to return when back button is clicked
+  returnTo: string | null = null;
+  hasNavigationHistory = false;
   availabilityRefreshTrigger = 0;
   private backButtonSubscription: any;
   private routerSubscription: any;
@@ -71,6 +106,17 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   private longPressTimeout: any;
   private readonly LONG_PRESS_DURATION = 500; // ms
   highlightedMessageId: string | null = null; // Track which message is highlighted
+  
+  // Trial lesson eligibility
+  studentHadPreviousLesson = false;
+
+  // Materials
+  tutorMaterials: (TutorMaterial & { _addedDate?: string })[] = [];
+  hasLinkedChannels = false;
+
+  private get userTz(): string | undefined {
+    return this.userService.getCurrentUserValue()?.profile?.timezone || undefined;
+  }
 
   constructor(
     private route: ActivatedRoute,
@@ -84,7 +130,9 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     private websocketService: WebSocketService,
     private authService: AuthService,
     private alertController: AlertController,
-    private animationCtrl: AnimationController
+    private animationCtrl: AnimationController,
+    private lessonService: LessonService,
+    private materialService: MaterialService
   ) {}
 
   ngOnInit() {
@@ -126,6 +174,10 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     
     // Check where to return to when back button is clicked
     this.returnTo = this.route.snapshot.queryParamMap.get('returnTo');
+
+    // Detect if page was opened in a new tab (no in-app navigation history)
+    const navId = (this.router.getCurrentNavigation()?.id ?? window.history.state?.navigationId) || 1;
+    this.hasNavigationHistory = navId > 1;
     console.log('🔙 ReturnTo parameter:', this.returnTo);
     
     const startTime = performance.now();
@@ -136,7 +188,14 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
         const duration = performance.now() - startTime;
         this.tutor = res.tutor;
         console.log('🔄 tutor:', this.tutor);
+        console.log('🌍 tutor country:', this.tutor?.country, 'residenceCountry:', this.tutor?.residenceCountry);
         this.isLoading = false;
+
+        const ch = this.tutor?.linkedChannels;
+        this.hasLinkedChannels = !!(ch?.youtubeChannelName || ch?.vimeoChannelName || ch?.soundcloudProfileName);
+        
+        this.checkPreviousLessonsWithTutor();
+        this.loadTutorMaterials();
       },
       error: (err) => {
         const duration = performance.now() - startTime;
@@ -177,6 +236,17 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     
     // Connect to WebSocket for real-time messaging
     this.websocketService.connect();
+    
+    // Listen for WebSocket reconnection to reload messages
+    this.websocketService.connection$.pipe(takeUntil(this.destroy$)).subscribe(isConnected => {
+      console.log('🔌 [TUTOR-PAGE] WebSocket connection status changed:', isConnected);
+      if (isConnected && this.showMessagingSidebar && this.tutor) {
+        console.log('🔌 [TUTOR-PAGE] WebSocket reconnected - refreshing messages');
+        setTimeout(() => {
+          this.loadMessages();
+        }, 500);
+      }
+    });
     
     // Listen for new messages
     this.websocketService.newMessage$.pipe(takeUntil(this.destroy$)).subscribe(message => {
@@ -499,12 +569,162 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
       .slice(0, 2);
   }
 
+  getTutorLocation(): string | null {
+    if (!this.tutor) return null;
+    const location = this.tutor.country || this.tutor.residenceCountry || this.tutor.location;
+    // Return null if location is empty string or falsy
+    return location && location.trim() ? location.trim() : null;
+  }
+
   toggleBio() {
     this.bioExpanded = !this.bioExpanded;
   }
 
   shouldShowReadMore(bio: string | undefined): boolean {
     return !!(bio && typeof bio === 'string' && bio.length > 200);
+  }
+
+  /**
+   * Check if the current student has had any previous lessons with this tutor.
+   * If so, they are not eligible for a trial lesson.
+   */
+  private async checkPreviousLessonsWithTutor() {
+    try {
+      const isAuth = await firstValueFrom(this.authService.isAuthenticated$).catch(() => false);
+      if (!isAuth) return;
+
+      const currentUser = await firstValueFrom(this.userService.getCurrentUser());
+      
+      // Only check for students
+      if (!currentUser || currentUser.userType !== 'student') {
+        return;
+      }
+      
+      // Get the student's lessons and check if any COMPLETED or SCHEDULED trials were with this tutor
+      // A cancelled/no-show trial doesn't count — student never received the benefit
+      this.lessonService.getMyLessons().subscribe({
+        next: (response: any) => {
+          const lessons = response.lessons || response || [];
+          const tutorAuth0Id = this.tutor?.auth0Id;
+          const tutorUserId = this.tutor?._id || this.tutorId;
+
+          // Helper to check if a lesson is with this tutor
+          const isSameTutor = (lesson: any) => {
+            const lessonTutorId = lesson.tutorId?._id || lesson.tutorId?.auth0Id || lesson.tutorId;
+            return lessonTutorId === tutorUserId || 
+                   lessonTutorId === tutorAuth0Id ||
+                   lesson.tutorId?.auth0Id === tutorAuth0Id;
+          };
+
+          // Check if student has a COMPLETED trial with this tutor
+          const hasCompletedTrial = lessons.some((lesson: any) => 
+            isSameTutor(lesson) && 
+            lesson.isTrialLesson && 
+            ['completed', 'in_progress'].includes(lesson.status)
+          );
+
+          // Check if student has a SCHEDULED trial with this tutor
+          const hasScheduledTrial = lessons.some((lesson: any) => 
+            isSameTutor(lesson) && 
+            lesson.isTrialLesson && 
+            lesson.status === 'scheduled'
+          );
+
+          // Student had a "previous lesson" (not eligible for trial) only if 
+          // they completed a trial or currently have one scheduled
+          this.studentHadPreviousLesson = hasCompletedTrial || hasScheduledTrial;
+          
+          console.log('📚 Trial eligibility check:', {
+            hasCompletedTrial,
+            hasScheduledTrial,
+            studentHadPreviousLesson: this.studentHadPreviousLesson,
+            note: 'Cancelled/no-show trials do not count against eligibility'
+          });
+        },
+        error: (err) => {
+          console.error('Error checking previous lessons:', err);
+          // Default to false if there's an error
+          this.studentHadPreviousLesson = false;
+        }
+      });
+    } catch (error) {
+      console.error('Error in checkPreviousLessonsWithTutor:', error);
+      this.studentHadPreviousLesson = false;
+    }
+  }
+
+  private loadTutorMaterials() {
+    this.materialService.getTutorMaterials(this.tutorId).subscribe({
+      next: (res) => {
+        this.tutorMaterials = (res.materials || [])
+          .filter(m => m.status === 'published')
+          .map(m => ({
+            ...m,
+            _addedDate: this.formatMaterialDate(m.createdAt)
+          }));
+      },
+      error: () => {
+        this.tutorMaterials = [];
+      }
+    });
+  }
+
+  getMaterialTypeIcon(type: string): string {
+    switch (type) {
+      case 'video_quiz': return 'videocam';
+      case 'reading': return 'book';
+      case 'listening': return 'headset';
+      default: return 'document';
+    }
+  }
+
+  getMaterialTypeLabel(type: string): string {
+    switch (type) {
+      case 'video_quiz': return 'Video Quiz';
+      case 'reading': return 'Reading';
+      case 'listening': return 'Listening';
+      default: return 'Material';
+    }
+  }
+
+  formatMaterialDate(iso: string): string {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return 'Added ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  async openMaterial(material: TutorMaterial) {
+    const isAuth = await firstValueFrom(this.authService.isAuthenticated$);
+
+    if (!isAuth) {
+      const materialUrl = `/material/${material._id}`;
+      localStorage.setItem('returnUrl', materialUrl);
+
+      const alert = await this.alertController.create({
+        header: 'Log in to continue',
+        message: 'Create a free account or log in to access this material.',
+        buttons: [
+          { text: 'Cancel', role: 'cancel' },
+          {
+            text: 'Log In',
+            handler: () => {
+              this.router.navigate(['/login']);
+            }
+          }
+        ]
+      });
+      await alert.present();
+      return;
+    }
+
+    this.router.navigate(['/material', material._id]);
+  }
+
+  scrollToAvailability() {
+    const availabilitySection = document.querySelector('.availability-mobile');
+    if (availabilitySection) {
+      availabilitySection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   }
 
   async messageTutor() {
@@ -637,9 +857,9 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     } else if (days === 1) {
       return 'Yesterday';
     } else if (days < 7) {
-      return date.toLocaleDateString('en-US', { weekday: 'short' });
+      return formatDateInTz(date, this.userTz, { weekday: 'short', year: undefined });
     } else {
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return formatDateInTz(date, this.userTz, { month: 'short', day: 'numeric', year: undefined });
     }
   }
   
@@ -1224,7 +1444,11 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     } else if (date.toDateString() === yesterday.toDateString()) {
       return 'Yesterday';
     } else {
-      return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined });
+      return formatDateInTz(date, this.userTz, {
+        month: 'long',
+        day: 'numeric',
+        year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
+      });
     }
   }
 
@@ -1264,13 +1488,13 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
     if (days === 0) {
-      return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+      return formatTimeInTz(date, this.userTz);
     } else if (days === 1) {
       return 'Yesterday';
     } else if (days < 7) {
-      return date.toLocaleDateString('en-US', { weekday: 'short' });
+      return formatDateInTz(date, this.userTz, { weekday: 'short', year: undefined });
     } else {
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return formatDateInTz(date, this.userTz, { month: 'short', day: 'numeric', year: undefined });
     }
   }
 
@@ -1489,5 +1713,32 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   private capitalize(value: string): string {
     if (!value) return '';
     return value.charAt(0).toUpperCase() + value.slice(1);
+  }
+
+  async shareTutor() {
+    if (!this.tutor) return;
+    
+    const shareData = {
+      title: `Learn with ${this.tutor.name}`,
+      text: `Check out ${this.tutor.name}, a ${this.tutor.languages?.join(', ')} tutor on our platform!`,
+      url: window.location.href
+    };
+    
+    try {
+      if (navigator.share && this.platform.is('mobile')) {
+        await navigator.share(shareData);
+      } else {
+        // Fallback: Copy to clipboard
+        await navigator.clipboard.writeText(window.location.href);
+        const alert = await this.alertController.create({
+          header: 'Link Copied',
+          message: 'Profile link has been copied to your clipboard.',
+          buttons: ['OK']
+        });
+        await alert.present();
+      }
+    } catch (error) {
+      console.log('Share failed or cancelled:', error);
+    }
   }
 }

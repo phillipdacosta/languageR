@@ -39,14 +39,28 @@ const LessonSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  cancelReasonText: {
+    type: String,
+    default: null,
+    comment: 'Human-readable cancellation reason text provided by user'
+  },
   cancelledAt: {
     type: Date,
     default: null
+  },
+  isLateCancellation: {
+    type: Boolean,
+    default: false,
+    comment: 'Whether the lesson was cancelled within 12 hours of start time'
   },
   cancellationFeeCharged: {
     type: Number,
     default: 0,
     comment: 'Amount charged as cancellation fee (if applicable)'
+  },
+  googleCalendarEventId: {
+    type: String,
+    default: null
   },
   subject: {
     type: String,
@@ -157,12 +171,24 @@ const LessonSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
     index: true,
-    comment: 'Whether student reported an issue with this lesson'
+    comment: 'Whether a participant reported an issue with this lesson'
   },
   issueType: {
     type: String,
-    enum: ['tutor_no_show', 'ended_early', 'poor_quality', 'inappropriate', 'technical', 'other', null],
+    enum: ['tutor_no_show', 'student_no_show', 'ended_early', 'poor_quality', 'inappropriate', 'technical', 'other', null],
     default: null
+  },
+  // Auto-flag for anomalously short lessons
+  autoFlaggedShortLesson: {
+    type: Boolean,
+    default: false,
+    index: true,
+    comment: 'Automatically flagged because actual duration was much shorter than scheduled'
+  },
+  autoFlagReason: {
+    type: String,
+    default: null,
+    comment: 'Why the lesson was auto-flagged (e.g. "Actual duration 2 min vs 25 min scheduled")'
   },
   issueDetails: {
     type: String,
@@ -240,28 +266,14 @@ const LessonSchema = new mongoose.Schema({
     type: String,
     default: null
   },
-  // Tip tracking
+  // Tip tracking — no defaults so subdocument stays undefined until a tip is sent
   tip: {
-    amount: {
-      type: Number,
-      default: null
-    },
-    stripeFee: {
-      type: Number,
-      default: null
-    },
-    tutorReceived: {
-      type: Number,
-      default: null
-    },
-    paymentIntentId: {
-      type: String,
-      default: null
-    },
-    paidAt: {
-      type: Date,
-      default: null
-    }
+    amount: Number,
+    stripeFee: Number,
+    tutorReceived: Number,
+    paymentIntentId: String,
+    paymentMethod: String,
+    paidAt: Date
   },
   // Track participant join/leave history for rejoin logic
   participants: {
@@ -294,10 +306,24 @@ const LessonSchema = new mongoose.Schema({
       default: 'pending'
     }
   },
+  // Snapshot of the student's AI setting at the time the lesson ended.
+  // null = not yet recorded (legacy lessons). true/false = captured at completion.
+  aiAnalysisEnabledAtTime: {
+    type: Boolean,
+    default: null,
+    comment: 'Student AI analysis setting captured when the lesson completed — immutable after being set'
+  },
   // Manual feedback tracking (when AI analysis is disabled)
   requiresTutorFeedback: {
     type: Boolean,
     default: false
+  },
+  // Client-reported speaking time from Agora volume indicators.
+  // Stored so tutor-feedback LessonAnalysis can use real data
+  // instead of falling back to the booked lesson duration.
+  clientSpeakingSeconds: {
+    studentSeconds: { type: Number, default: null },
+    tutorSeconds: { type: Number, default: null }
   },
   // Agora Interactive Whiteboard room info
   whiteboardRoomUUID: {

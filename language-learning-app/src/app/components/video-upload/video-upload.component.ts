@@ -27,6 +27,7 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
   @Output() videoUploaded = new EventEmitter<VideoUploadData>();
   @Output() videoRemoved = new EventEmitter<void>();
   @Output() thumbnailClick = new EventEmitter<void>(); // New output for thumbnail clicks
+  @Output() pendingStateChanged = new EventEmitter<boolean>(); // Emits true when user has an unsubmitted link
   @ViewChild('videoElement') videoElement?: ElementRef<HTMLVideoElement>;
   @ViewChild('iframeElement') iframeElement?: ElementRef<HTMLIFrameElement>;
   @ViewChild('videoPreview') videoPreviewElement?: ElementRef<HTMLVideoElement>;
@@ -242,29 +243,51 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
     this.customThumbnail = null;
     this.thumbnailPreview = '';
     this.videoLinkInput = '';
+    this.pendingStateChanged.emit(false);
+  }
+
+  // Called when user types in the link input
+  onLinkInputChange() {
+    this.pendingStateChanged.emit(!!this.videoLinkInput.trim());
   }
 
   // Handle thumbnail file selection
-  onThumbnailSelected(event: Event) {
+  async onThumbnailSelected(event: Event) {
     const input = event.target as HTMLInputElement;
     if (input.files && input.files.length > 0) {
       const file = input.files[0];
-      
-      // Validate thumbnail
+
       const validation = this.validateThumbnail(file);
       if (!validation.valid) {
         this.errorMessage = validation.error || 'Invalid thumbnail';
         return;
       }
-      
+
       this.customThumbnail = file;
-      
-      // Generate preview
+
       const reader = new FileReader();
       reader.onload = (e) => {
         this.thumbnailPreview = e.target?.result as string;
       };
       reader.readAsDataURL(file);
+
+      if (this.videoUrl) {
+        try {
+          this.errorMessage = 'Uploading thumbnail...';
+          const result = await this.uploadThumbnail(file);
+          this.thumbnailUrl = result.url;
+          this.showThumbnailOverlay = true;
+          this.errorMessage = '';
+          this.videoUploaded.emit({
+            url: this.videoUrl,
+            thumbnail: result.url,
+            type: this.videoType
+          });
+        } catch (error) {
+          this.errorMessage = 'Failed to upload thumbnail. Please try again.';
+          console.error('❌ Thumbnail upload error:', error);
+        }
+      }
     }
   }
 
@@ -360,6 +383,7 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
     this.videoLinkInput = '';
     this.isUploading = false;
     this.errorMessage = '';
+    this.pendingStateChanged.emit(false);
   }
 
   // Validate and convert YouTube/Vimeo URLs
@@ -704,8 +728,7 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
     });
   }
 
-  // Clear all previews on upload failure
-  private clearPreviews() {
+  clearPreviews() {
     this.videoUrl = '';
     this.thumbnailUrl = '';
     this.thumbnailPreview = '';
@@ -715,7 +738,6 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   removeVideo() {
-    this.clearPreviews();
     this.videoRemoved.emit();
   }
 

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ElementRef, ViewChild, AfterViewInit, Input, OnChanges, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ElementRef, ViewChild, AfterViewInit, Input, Output, EventEmitter, OnChanges, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ToastController, LoadingController, AlertController, NavController } from '@ionic/angular';
@@ -9,6 +9,7 @@ import { ClassService } from '../../services/class.service';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { getTimezoneLabel } from '../../shared/timezone.utils';
+import { fromZonedTime } from 'date-fns-tz';
 import { trigger, state, style, transition, animate } from '@angular/animations';
 
 interface TimeSlot {
@@ -50,8 +51,11 @@ interface SelectedSlot {
 })
 export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewInit, OnDestroy {
   @ViewChild('timeSlotsContainer', { static: false }) timeSlotsContainer?: ElementRef;
+  @ViewChild('mobileHeaderRef', { static: false }) mobileHeaderRef?: ElementRef;
 
   @Input() targetDate: string | null = null; // Date parameter from route (YYYY-MM-DD format)
+  @Input() embeddedMode: boolean = false; // When true, hides navigation elements and emits events instead
+  @Output() availabilitySaved = new EventEmitter<void>(); // Emitted when availability is saved in embedded mode
   
   private destroy$ = new Subject<void>();
   
@@ -60,10 +64,23 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   
   // Tutor's timezone
   tutorTimezone: string = '';
+  tutorTimezoneLabel: string = '';
 
   // UI State
   activeTab = 'availability';
   showPopularSlots = false;
+
+  // Calendar settings
+  calendarTimeFormat: '12h' | '24h' = '12h';
+  calendarDefaultView: 'week' | 'day' = 'week';
+
+  // Google Calendar state
+  gcalConnected = false;
+  gcalEmail: string | null = null;
+  gcalSyncEnabled = true;
+  gcalPushToGoogle = false;
+  gcalLastSyncAt: Date | null = null;
+  private gcalBusySlots = new Set<string>();
   selectedSlotsCount = 0;
   currentWeek: Date = new Date(); // First day currently shown in grid
   hasUnsavedChanges = false;
@@ -71,6 +88,10 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   initialSelectedSlots = new Set<string>(); // Track which slots were initially selected
   isLoading = true; // Loading state for data fetch
   loadError = false; // Error state for data fetch
+  private bookedSlotsLoaded = false; // Track if booked slots have been loaded
+  private availabilityLoaded = false; // Track if availability data has been loaded
+  showStickyBackButton = false;
+  private headerObserver?: IntersectionObserver;
 
   // Getter for new slots count (only newly selected, not already saved)
   get newSlotsCount(): number {
@@ -210,6 +231,7 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   // Selection state
   isSelecting = false;
   selectionStart: SelectedSlot | null = null;
+  hoveredSlotIndex: number | null = null;
   selectedSlots = new Set<string>();
   bookedSlots = new Set<string>(); // New: Track booked lessons/classes
 
@@ -224,10 +246,11 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
 
   timeSlots: TimeSlot[] = [];
 
-  // Popular time slots (9:00 AM - 9:00 PM) in 30-min indices
-  // 9:00 -> index 18, 9:30 -> 19, ..., 20:30 -> 41. We'll highlight indices in [18, 41].
-  popularStartIndex = 18;
-  popularEndIndex = 41;
+  // Data-driven popular slots loaded from API
+  private popularSlotsSet = new Set<string>(); // "dayOfWeek-slotIndex"
+  private popularSlotsIntensity = new Map<string, number>(); // 0–1 intensity
+  popularSlotsLoaded = false;
+  popularSlotsIsEstimate = false; // true when using static fallback
   // Night time starts at 6:00 PM local (index 36)
   nightStartIndex = 36;
 
@@ -366,10 +389,23 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   }
 
   ngOnInit() {
-    // Load tutor's timezone
-    this.userService.getUserTimezone().pipe(takeUntil(this.destroy$)).subscribe(timezone => {
-      this.tutorTimezone = timezone;
-      console.log('🌍 Tutor timezone loaded:', this.tutorTimezone);
+    // Reactively track tutor's timezone and calendar preferences
+    this.userService.currentUser$.pipe(takeUntil(this.destroy$)).subscribe(user => {
+      const tz = user?.profile?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+      if (tz !== this.tutorTimezone) {
+        this.tutorTimezone = tz;
+        this.tutorTimezoneLabel = getTimezoneLabel(tz);
+        this.updateCurrentTimePosition();
+        setTimeout(() => this.scrollToCurrentTime(), 100);
+        this.loadPopularSlots(tz);
+      }
+
+      const fmt = (user?.profile as any)?.calendarTimeFormat || '12h';
+      if (fmt !== this.calendarTimeFormat) {
+        this.calendarTimeFormat = fmt;
+        this.initializeTimeSlots();
+        this.cdr.detectChanges();
+      }
     });
     
     // Check if we're in single day mode
@@ -398,6 +434,8 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
       this.isSingleDayMode = false;
     }
     this.forceRefreshAvailability();
+    this.loadCalendarPreferences();
+    this.loadGoogleCalendarStatus();
   }
 
   // Force refresh availability data (with cache busting)
@@ -405,6 +443,8 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     console.log('🔄 Force refreshing availability data...');
     this.isLoading = true;
     this.loadError = false;
+    this.bookedSlotsLoaded = false;
+    this.availabilityLoaded = false;
     this.selectedSlots.clear();
     this.bookedSlots.clear();
     this.initialSelectedSlots.clear();
@@ -436,6 +476,7 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     
     this.loadExistingAvailability();
     this.loadBookedSlots();
+    this.loadGoogleCalendarEvents();
     
     // Clear timeout when loading completes (handled in loadExistingAvailability callback)
     // Store timeout ID for potential cleanup
@@ -491,77 +532,114 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   }
 
   ngAfterViewInit() {
-    // Start time updater like tutor-calendar
     this.startTimeUpdater();
-    
-    // Recompute on resize
     window.addEventListener('resize', this.boundResizeHandler);
-    
-    // Don't scroll here - scroll will be triggered after data loads
+    this.setupHeaderObserver();
+  }
+
+  private setupHeaderObserver() {
+    if (this.embeddedMode) return;
+    setTimeout(() => {
+      const headerEl = this.mobileHeaderRef?.nativeElement as HTMLElement;
+      if (!headerEl || window.innerWidth > 768) return;
+
+      const ionContent = headerEl.closest('ion-content') as any;
+      if (!ionContent) return;
+
+      ionContent.getScrollElement().then((scrollEl: HTMLElement) => {
+        this.headerObserver = new IntersectionObserver(
+          (entries) => {
+            this.showStickyBackButton = !entries[0].isIntersecting;
+            this.cdr.detectChanges();
+          },
+          { root: scrollEl, threshold: 0 }
+        );
+        this.headerObserver.observe(headerEl);
+      });
+    }, 500);
   }
   
   /**
    * Scroll to the current time indicator with retry logic
    * Called after data loads to ensure the grid is rendered
    */
-  private scrollToCurrentTime(retryCount = 0) {
-    const maxRetries = 10;
-    
-    // Check if we're still loading - if so, wait and retry
+  private async scrollToCurrentTime(retryCount = 0) {
+    const maxRetries = 15;
+
     if (this.isLoading) {
       if (retryCount < maxRetries) {
-        setTimeout(() => this.scrollToCurrentTime(retryCount + 1), 200);
+        setTimeout(() => this.scrollToCurrentTime(retryCount + 1), 300);
       }
       return;
     }
-    
+
     const timeSlotsElement = this.timeSlotsContainer?.nativeElement as HTMLElement | undefined;
     if (!timeSlotsElement) {
-      // Element not ready yet, retry
       if (retryCount < maxRetries) {
-        console.log(`📜 Time slots container not ready, retrying (${retryCount + 1}/${maxRetries})...`);
-        setTimeout(() => this.scrollToCurrentTime(retryCount + 1), 200);
-      } else {
-        console.warn('📜 Failed to find time slots container after retries');
+        setTimeout(() => this.scrollToCurrentTime(retryCount + 1), 300);
       }
       return;
     }
-    
-    // Find the scrollable container
+
+    const isMobile = window.innerWidth <= 768;
+
+    if (isMobile) {
+      const ionContent = timeSlotsElement.closest('ion-content') as any;
+      const scrollEl = ionContent ? await ionContent.getScrollElement() : null;
+
+      if (!scrollEl) {
+        if (retryCount < maxRetries) {
+          setTimeout(() => this.scrollToCurrentTime(retryCount + 1), 300);
+        }
+        return;
+      }
+
+      const timeIndicator = timeSlotsElement.querySelector('.time-indicator') as HTMLElement;
+      if (timeIndicator) {
+        const indicatorRect = timeIndicator.getBoundingClientRect();
+        const scrollElRect = scrollEl.getBoundingClientRect();
+        const scrollTarget = scrollEl.scrollTop + (indicatorRect.top - scrollElRect.top) - (window.innerHeight / 3);
+        scrollEl.scrollTo({ top: Math.max(0, scrollTarget), behavior: 'smooth' });
+        return;
+      }
+
+      if (this.currentTimePosition > 0) {
+        const gridContainer = timeSlotsElement.closest('.time-grid-container') as HTMLElement;
+        if (gridContainer) {
+          const gridRect = gridContainer.getBoundingClientRect();
+          const scrollElRect = scrollEl.getBoundingClientRect();
+          const scrollTarget = scrollEl.scrollTop + (gridRect.top - scrollElRect.top) + this.currentTimePosition - (window.innerHeight / 3);
+          scrollEl.scrollTo({ top: Math.max(0, scrollTarget), behavior: 'smooth' });
+          return;
+        }
+      }
+
+      if (retryCount < maxRetries) {
+        setTimeout(() => this.scrollToCurrentTime(retryCount + 1), 300);
+      }
+      return;
+    }
+
     const scrollContainer = timeSlotsElement.closest('.time-grid-container') as HTMLElement;
     if (!scrollContainer) {
       if (retryCount < maxRetries) {
-        console.log(`📜 Scroll container not ready, retrying (${retryCount + 1}/${maxRetries})...`);
-        setTimeout(() => this.scrollToCurrentTime(retryCount + 1), 200);
-      } else {
-        console.warn('📜 Failed to find scroll container after retries');
+        setTimeout(() => this.scrollToCurrentTime(retryCount + 1), 300);
       }
       return;
     }
-    
-    // Check if the container has valid scroll dimensions
+
     if (scrollContainer.scrollHeight <= scrollContainer.clientHeight) {
       if (retryCount < maxRetries) {
-        console.log(`📜 Scroll container not fully rendered, retrying (${retryCount + 1}/${maxRetries})...`);
-        setTimeout(() => this.scrollToCurrentTime(retryCount + 1), 200);
+        setTimeout(() => this.scrollToCurrentTime(retryCount + 1), 300);
       }
       return;
     }
-    
-    // Calculate scroll position (position minus some offset to center it)
+
     const targetScroll = Math.max(0, this.currentTimePosition - 200);
-    
+
     scrollContainer.scrollTo({
       top: targetScroll,
       behavior: 'smooth'
-    });
-    
-    console.log('📜 ✅ Scrolled to current time:', {
-      currentTimePosition: this.currentTimePosition,
-      targetScroll,
-      scrollHeight: scrollContainer.scrollHeight,
-      clientHeight: scrollContainer.clientHeight,
-      retryCount
     });
   }
 
@@ -624,8 +702,18 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   }
 
   navigateWeek(direction: 'prev' | 'next') {
-    // Don't allow navigation in single day mode
-    if (this.isSingleDayMode) return;
+    if (this.isSingleDayMode) {
+      // In single day mode, navigate to previous/next day
+      if (this.displayedWeekDays.length === 0) return;
+      const currentDate = new Date(this.displayedWeekDays[0].date);
+      const days = direction === 'prev' ? -1 : 1;
+      currentDate.setDate(currentDate.getDate() + days);
+      this.updateWeekDaysForSingleDay(currentDate);
+      this.updateCurrentTimePosition();
+      // Reload availability for the new day
+      this.forceRefreshAvailability();
+      return;
+    }
     
     const step = this.isMobileView ? this.mobileDaysToShow : 7;
     const days = direction === 'prev' ? -step : step;
@@ -653,6 +741,16 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   }
 
   goToToday() {
+    if (this.isSingleDayMode) {
+      // In single day mode, go to today
+      const today = new Date();
+      this.updateWeekDaysForSingleDay(today);
+      this.updateCurrentTimePosition();
+      // Reload availability for today
+      this.forceRefreshAvailability();
+      return;
+    }
+    
     this.initializeCurrentWeek();
     this.mobileStartIndex = 0;
     this.updateWeekDays(new Date());
@@ -684,6 +782,7 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     this.destroy$.next();
     this.destroy$.complete();
     if (this.nowIntervalId) clearInterval(this.nowIntervalId);
+    if (this.headerObserver) this.headerObserver.disconnect();
     window.removeEventListener('resize', this.boundResizeHandler);
   }
 
@@ -707,13 +806,16 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   }
 
   private formatTime12Hour(hour: number, minute: number): string {
-    // Handle midnight (24:00 = 12:00 AM)
-    if (hour === 24) {
-      return '12:00 AM';
+    const displayMinute = minute === 0 ? '00' : '30';
+
+    if (this.calendarTimeFormat === '24h') {
+      const h = hour === 24 ? 0 : hour;
+      return `${String(h).padStart(2, '0')}:${displayMinute}`;
     }
+
+    if (hour === 24) return '12:00 AM';
     const period = hour >= 12 ? 'PM' : 'AM';
     const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-    const displayMinute = minute === 0 ? '00' : '30';
     return `${displayHour}:${displayMinute} ${period}`;
   }
 
@@ -836,20 +938,9 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
         }
         // Loaded selections reflect saved state; reset dirty flag
         this.hasUnsavedChanges = false;
-        this.isLoading = false;
+        this.availabilityLoaded = true;
         this.loadError = false;
-        // Clear loading timeout
-        if ((this as any)._loadingTimeout) {
-          clearTimeout((this as any)._loadingTimeout);
-        }
-        // Trigger change detection to ensure view updates
-        this.cdr.detectChanges();
-        
-        // Scroll to current time after grid is rendered
-        // Use setTimeout to allow DOM to update after change detection
-        setTimeout(() => {
-          this.scrollToCurrentTime();
-        }, 100);
+        this.checkAllDataLoaded();
       },
       error: (error) => {
         console.error('❌ Error loading existing availability:', error);
@@ -876,10 +967,24 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     const currentUser = this.userService.getCurrentUserValue();
     if (!currentUser?.id) {
       console.error('No current user found');
+      this.bookedSlotsLoaded = true;
       return;
     }
     
     console.log('📅 Loading booked lessons and classes...');
+    
+    // Track how many async calls are pending
+    const isTutor = currentUser.userType === 'tutor';
+    let pendingCalls = isTutor ? 2 : 1; // lessons + classes (if tutor)
+    
+    const onCallComplete = () => {
+      pendingCalls--;
+      if (pendingCalls <= 0) {
+        this.bookedSlotsLoaded = true;
+        console.log('✅ All booked slots loaded:', this.bookedSlots.size, 'slots');
+        this.checkAllDataLoaded();
+      }
+    };
     
     // Load lessons
     this.lessonService.getMyLessons(currentUser.id).subscribe({
@@ -888,20 +993,22 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
         
         if (response && response.success && response.lessons) {
           response.lessons.forEach((lesson: any) => {
-            // Only count non-cancelled lessons
+            // Only count non-cancelled, future lessons
             if (lesson.status !== 'cancelled') {
               this.addBookedSlot(lesson.startTime, lesson.endTime);
             }
           });
         }
+        onCallComplete();
       },
       error: (error) => {
         console.error('❌ Error loading lessons:', error);
+        onCallComplete();
       }
     });
     
     // Load classes (if user is a tutor)
-    if (currentUser.userType === 'tutor') {
+    if (isTutor) {
       this.classService.getClassesForTutor(currentUser.id).subscribe({
         next: (response: any) => {
           console.log('✅ Classes loaded:', response?.classes?.length || 0);
@@ -915,9 +1022,11 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
               }
             });
           }
+          onCallComplete();
         },
         error: (error) => {
           console.error('❌ Error loading classes:', error);
+          onCallComplete();
         }
       });
     }
@@ -931,16 +1040,15 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     // Get the date key
     const dateStr = this.formatDateKey(start);
     
-    // Calculate slot indices
-    const startHour = start.getHours();
-    const startMinute = start.getMinutes();
-    const endHour = end.getHours();
-    const endMinute = end.getMinutes();
+    // Calculate slot indices using floor for start (which 30-min slot does it land in?)
+    // and ceil for end (any partial use of a slot means it's occupied)
+    const startMinutes = start.getHours() * 60 + start.getMinutes();
+    const endMinutes = end.getHours() * 60 + end.getMinutes();
     
-    const startIndex = startHour * 2 + (startMinute >= 30 ? 1 : 0);
-    const endIndex = endHour * 2 + (endMinute >= 30 ? 1 : 0);
+    const startIndex = Math.floor(startMinutes / 30);
+    const endIndex = Math.ceil(endMinutes / 30);
     
-    console.log(`📅 Marking booked: ${dateStr} from ${startHour}:${startMinute} to ${endHour}:${endMinute} (indices ${startIndex}-${endIndex})`);
+    console.log(`📅 Marking booked: ${dateStr} from ${start.getHours()}:${String(start.getMinutes()).padStart(2, '0')} to ${end.getHours()}:${String(end.getMinutes()).padStart(2, '0')} (indices ${startIndex}-${endIndex})`);
     
     // Mark all slots in this time range as booked
     for (let idx = startIndex; idx < endIndex; idx++) {
@@ -958,6 +1066,38 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     
     const dateStr = this.formatDateKey(day.date);
     return this.bookedSlots.has(`${dateStr}-${slotIndex}`);
+  }
+  
+  // Show feedback when user tries to remove a slot that has a scheduled lesson/class
+  private async showBookedSlotToast() {
+    const toast = await this.toastController.create({
+      message: 'This time slot has a scheduled lesson and cannot be removed.',
+      duration: 2500,
+      position: 'bottom',
+      color: 'dark',
+      icon: 'lock-closed'
+    });
+    await toast.present();
+  }
+  
+  // Called when either availability or booked slots finish loading
+  // Only hides the loading spinner when BOTH have completed
+  private checkAllDataLoaded() {
+    if (this.availabilityLoaded && this.bookedSlotsLoaded) {
+      this.isLoading = false;
+      // Clear loading timeout
+      if ((this as any)._loadingTimeout) {
+        clearTimeout((this as any)._loadingTimeout);
+      }
+      // Trigger change detection to ensure view updates
+      this.cdr.detectChanges();
+      
+      // Scroll to current time after grid is rendered (longer delay on mobile for *ngIf to resolve)
+      const delay = window.innerWidth <= 768 ? 400 : 100;
+      setTimeout(() => {
+        this.scrollToCurrentTime();
+      }, delay);
+    }
   }
   
   private dayNameToIndex(dayName: string): number {
@@ -1134,11 +1274,14 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   // Selection logic
   startSelection(dayIndex: number, slotIndex: number, event: MouseEvent) {
     event.preventDefault();
-    if (this.isPastSlot(dayIndex, slotIndex) || this.isSlotBooked(dayIndex, slotIndex)) return;
+    if (this.isPastSlot(dayIndex, slotIndex)) return;
+    if (this.isSlotBooked(dayIndex, slotIndex)) {
+      this.showBookedSlotToast();
+      return;
+    }
     this.isSelecting = true;
     this.selectionStart = { day: dayIndex, index: slotIndex };
     this.toggleSlot(dayIndex, slotIndex);
-    this.hasUnsavedChanges = true;
   }
 
   continueSelection(dayIndex: number, slotIndex: number) {
@@ -1168,7 +1311,6 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     }
 
     this.updateSelectedCount();
-    this.hasUnsavedChanges = true;
   }
 
   endSelection() {
@@ -1194,7 +1336,6 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
       this.selectedSlots.add(slotKey);
     }
     this.updateSelectedCount();
-    this.hasUnsavedChanges = true;
   }
   
   // Helper to format date as YYYY-MM-DD for slot keys
@@ -1237,10 +1378,61 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   }
 
   isPopularSlot(dayIndex: number, slotIndex: number): boolean {
-    if (!this.showPopularSlots) return false;
-    // Do not mark popular during night hours
-    if (slotIndex >= this.nightStartIndex) return false;
-    return slotIndex >= this.popularStartIndex && slotIndex <= this.popularEndIndex;
+    if (!this.showPopularSlots || !this.popularSlotsLoaded) return false;
+    return this.popularSlotsSet.has(`${dayIndex}-${slotIndex}`);
+  }
+
+  getPopularIntensity(dayIndex: number, slotIndex: number): number {
+    return this.popularSlotsIntensity.get(`${dayIndex}-${slotIndex}`) || 0;
+  }
+
+  private loadPopularSlots(timezone: string) {
+    this.lessonService.getPopularSlots(timezone).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (response) => {
+        this.popularSlotsSet.clear();
+        this.popularSlotsIntensity.clear();
+
+        if (response.success && response.slots.length > 0 && !response.insufficientData) {
+          this.popularSlotsIsEstimate = false;
+          for (const slot of response.slots) {
+            if (slot.count >= response.threshold) {
+              const key = `${slot.dayOfWeek}-${slot.slotIndex}`;
+              this.popularSlotsSet.add(key);
+              this.popularSlotsIntensity.set(key, slot.intensity);
+            }
+          }
+        } else {
+          this.buildStaticFallbackSlots();
+        }
+
+        this.popularSlotsLoaded = true;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.buildStaticFallbackSlots();
+        this.popularSlotsLoaded = true;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  private buildStaticFallbackSlots() {
+    this.popularSlotsIsEstimate = true;
+    this.popularSlotsSet.clear();
+    this.popularSlotsIntensity.clear();
+
+    // Static recommendation: 9 AM – 9 PM (slot indices 18–41), all 7 days
+    // Peak hours 10 AM – 1 PM (slots 20–25) and 5 PM – 8 PM (slots 34–39) get higher intensity
+    for (let day = 0; day <= 6; day++) {
+      for (let slot = 18; slot <= 41; slot++) {
+        const key = `${day}-${slot}`;
+        this.popularSlotsSet.add(key);
+
+        const isPeakMorning = slot >= 20 && slot <= 25;
+        const isPeakEvening = slot >= 34 && slot <= 39;
+        this.popularSlotsIntensity.set(key, isPeakMorning || isPeakEvening ? 0.7 : 0.3);
+      }
+    }
   }
 
   isNightSlot(slotIndex: number): boolean {
@@ -1306,25 +1498,23 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   }
   
   private updateCurrentTimePosition() {
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-    const startOffset = 0; // Availability starts at midnight (0:00)
-    const slotHeight = 26; // Each row is 24px + 2px margin-bottom = 26px per 30min slot
-    
-    // Each time slot is 30 minutes, so we have 2 slots per hour
+    const tz = this.tutorTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: false
+    });
+    const parts = formatter.formatToParts(new Date());
+    const currentHour = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
+    const currentMinute = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
+    const startOffset = 0;
+    const slotHeight = window.innerWidth <= 768 ? 37 : 26;
+
     const totalSlotsFromStart = ((currentHour - startOffset) * 2) + Math.floor(currentMinute / 30);
     const minutesIntoCurrentSlot = currentMinute % 30;
-    
-    // Position includes partial slot progress
+
     this.currentTimePosition = (totalSlotsFromStart * slotHeight) + (minutesIntoCurrentSlot / 30 * slotHeight);
-    
-    console.log('🕐 Time indicator position:', {
-      time: `${currentHour}:${currentMinute.toString().padStart(2, '0')}`,
-      totalSlotsFromStart,
-      minutesIntoSlot: minutesIntoCurrentSlot,
-      position: this.currentTimePosition
-    });
   }
 
   private async getScrollContainer(retryCount = 0): Promise<HTMLElement | Window | null> {
@@ -1361,6 +1551,15 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
 
   private updateSelectedCount() {
     this.selectedSlotsCount = this.selectedSlots.size;
+    this.hasUnsavedChanges = this.hasDirtySlots();
+  }
+
+  private hasDirtySlots(): boolean {
+    if (this.selectedSlots.size !== this.initialSelectedSlots.size) return true;
+    for (const slot of this.selectedSlots) {
+      if (!this.initialSelectedSlots.has(slot)) return true;
+    }
+    return false;
   }
 
   // Quick actions
@@ -1452,14 +1651,211 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   }
 
   togglePopularSlots() {
-    // Toggle popular slots visibility
-    console.log('Popular slots toggled:', this.showPopularSlots);
+    if (this.showPopularSlots && !this.popularSlotsLoaded && this.tutorTimezone) {
+      this.loadPopularSlots(this.tutorTimezone);
+    }
   }
 
-  // Integration
+  async showPopularSlotsInfo() {
+    const message = this.popularSlotsIsEstimate
+      ? 'Highlighted slots show generally popular times for online tutoring based on industry data. As more lessons are booked on the platform, this will update to reflect real student demand.'
+      : 'Highlighted slots show the most popular booking times across the platform over the last 90 days. Darker slots have higher demand. Offering availability during these times can help you get more bookings.';
+    const alert = await this.alertController.create({
+      header: 'Popular with Students',
+      message,
+      buttons: ['Got it']
+    });
+    await alert.present();
+  }
+
+  // ── Google Calendar ──────────────────────────────
+
   connectGoogleCalendar() {
-    console.log('Connecting Google Calendar...');
-    // TODO: Implement Google Calendar integration
+    this.userService.getGoogleCalendarAuthUrl().subscribe({
+      next: (res) => {
+        const popup = window.open(res.url, 'google-calendar-auth', 'width=500,height=700,left=200,top=100');
+        let handled = false;
+
+        const onLinked = (success: boolean) => {
+          if (handled) return;
+          handled = true;
+          window.removeEventListener('message', messageHandler);
+          if (pollTimer) clearInterval(pollTimer);
+
+          if (success) {
+            this.loadGoogleCalendarStatus();
+            this.showToast('Google Calendar connected!', 'success');
+          } else {
+            this.showToast('Failed to connect Google Calendar.', 'danger');
+          }
+        };
+
+        const messageHandler = (event: MessageEvent) => {
+          if (event.data?.type === 'google_calendar_linked') {
+            onLinked(event.data.success);
+          }
+        };
+        window.addEventListener('message', messageHandler);
+
+        // Poll for popup close -- if user completes flow but postMessage doesn't fire
+        const pollTimer = setInterval(() => {
+          if (!popup || popup.closed) {
+            clearInterval(pollTimer);
+            if (!handled) {
+              // Popup closed -- check if connection succeeded
+              this.userService.getGoogleCalendarStatus().subscribe({
+                next: (status) => {
+                  if (status.connected && !handled) {
+                    onLinked(true);
+                  } else if (!handled) {
+                    handled = true;
+                    window.removeEventListener('message', messageHandler);
+                  }
+                  this.cdr.detectChanges();
+                }
+              });
+            }
+          }
+        }, 500);
+      },
+      error: () => this.showToast('Failed to start Google Calendar connection.', 'danger')
+    });
+  }
+
+  async disconnectGoogleCalendar() {
+    const alert = await this.alertController.create({
+      header: 'Disconnect Google Calendar?',
+      message: 'Your calendar events will no longer be synced.',
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Disconnect',
+          role: 'destructive',
+          handler: () => {
+            this.userService.disconnectGoogleCalendar().subscribe({
+              next: () => {
+                this.gcalConnected = false;
+                this.gcalEmail = null;
+                this.gcalSyncEnabled = false;
+                this.gcalPushToGoogle = false;
+                this.gcalLastSyncAt = null;
+                this.gcalBusySlots.clear();
+                this.cdr.detectChanges();
+                this.showToast('Google Calendar disconnected.', 'medium');
+              },
+              error: () => this.showToast('Failed to disconnect.', 'danger')
+            });
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  onGcalSettingChange(setting: 'syncEnabled' | 'pushToGoogle') {
+    const updates: any = {};
+    if (setting === 'syncEnabled') updates.syncEnabled = this.gcalSyncEnabled;
+    if (setting === 'pushToGoogle') updates.pushToGoogle = this.gcalPushToGoogle;
+
+    this.userService.updateGoogleCalendarSettings(updates).subscribe({
+      next: () => {
+        if (setting === 'syncEnabled' && this.gcalSyncEnabled) {
+          this.loadGoogleCalendarEvents();
+        } else if (setting === 'syncEnabled' && !this.gcalSyncEnabled) {
+          this.gcalBusySlots.clear();
+        }
+      }
+    });
+  }
+
+  private loadGoogleCalendarStatus() {
+    this.userService.getGoogleCalendarStatus().subscribe({
+      next: (status) => {
+        this.gcalConnected = status.connected;
+        this.gcalEmail = status.email;
+        this.gcalSyncEnabled = status.syncEnabled;
+        this.gcalPushToGoogle = status.pushToGoogle;
+        this.gcalLastSyncAt = status.lastSyncAt ? new Date(status.lastSyncAt) : null;
+        this.cdr.detectChanges();
+
+        if (this.gcalConnected && this.gcalSyncEnabled) {
+          this.loadGoogleCalendarEvents();
+        }
+      }
+    });
+  }
+
+  private loadGoogleCalendarEvents() {
+    if (!this.gcalConnected || !this.gcalSyncEnabled) return;
+
+    const dayArray = this.isSingleDayMode ? this.displayedWeekDays : this.weekDays;
+    if (!dayArray || dayArray.length === 0) return;
+
+    const firstDay = dayArray[0].date;
+    const lastDay = dayArray[dayArray.length - 1].date;
+
+    const timeMin = new Date(firstDay);
+    timeMin.setHours(0, 0, 0, 0);
+    const timeMax = new Date(lastDay);
+    timeMax.setHours(23, 59, 59, 999);
+
+    this.userService.getGoogleCalendarEvents(timeMin.toISOString(), timeMax.toISOString()).subscribe({
+      next: (res) => {
+        this.gcalBusySlots.clear();
+        for (const evt of res.events) {
+          if (evt.allDay) continue;
+          const start = new Date(evt.start);
+          const end = new Date(evt.end);
+          this.markGcalBusy(start, end);
+        }
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  private markGcalBusy(start: Date, end: Date) {
+    const dateStr = this.formatDateKey(start);
+    const startMinutes = start.getHours() * 60 + start.getMinutes();
+    const endMinutes = end.getHours() * 60 + end.getMinutes();
+    const startIdx = Math.floor(startMinutes / 30);
+    const endIdx = Math.ceil(endMinutes / 30);
+
+    for (let i = startIdx; i < endIdx; i++) {
+      this.gcalBusySlots.add(`${dateStr}-${i}`);
+    }
+  }
+
+  isGcalBusySlot(day: any, slotIndex: number): boolean {
+    if (!this.gcalSyncEnabled || this.gcalBusySlots.size === 0) return false;
+    const dateStr = this.formatDateKey(day.date);
+    return this.gcalBusySlots.has(`${dateStr}-${slotIndex}`);
+  }
+
+  // ── Calendar Settings ──────────────────────────────
+
+  updateCalendarSetting(setting: string, value: string) {
+    if (setting === 'timeFormat') {
+      this.calendarTimeFormat = value as '12h' | '24h';
+      this.userService.updateProfile({ calendarTimeFormat: value } as any).subscribe();
+      this.initializeTimeSlots();
+    } else if (setting === 'defaultView') {
+      this.calendarDefaultView = value as 'week' | 'day';
+      this.userService.updateProfile({ calendarDefaultView: value } as any).subscribe();
+    }
+  }
+
+  private loadCalendarPreferences() {
+    const user = this.userService.getCurrentUserValue();
+    if (user?.profile) {
+      this.calendarTimeFormat = (user.profile as any).calendarTimeFormat || '12h';
+      this.calendarDefaultView = (user.profile as any).calendarDefaultView || 'week';
+      this.initializeTimeSlots();
+    }
+  }
+
+  private async showToast(message: string, color: string) {
+    const toast = await this.toastController.create({ message, duration: 2500, position: 'bottom', color });
+    await toast.present();
   }
 
   // Actions
@@ -1481,6 +1877,15 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     await loading.present();
 
     try {
+      // Safety net: re-add any booked slots that may have been removed
+      // This ensures availability is never deleted for time slots with scheduled lessons/classes
+      this.bookedSlots.forEach(bookedSlotKey => {
+        if (!this.selectedSlots.has(bookedSlotKey)) {
+          console.log(`🔒 Re-adding booked slot to preserve availability: ${bookedSlotKey}`);
+          this.selectedSlots.add(bookedSlotKey);
+        }
+      });
+      
       // Convert selected slots to availability blocks
       const availabilityBlocks = this.convertSlotsToBlocks();
       
@@ -1511,6 +1916,11 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
           
           // Note: The UserService emits availabilityUpdated$ event in tap()
           // which will be received by tab1 to update hasAvailability immediately
+          
+          // Emit event in embedded mode
+          if (this.embeddedMode) {
+            this.availabilitySaved.emit();
+          }
         },
         error: async (error) => {
           await loading.dismiss();
@@ -1578,12 +1988,12 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
       const dayOfWeek = dayDate.getDay(); // Get day of week for backward compatibility
       console.log(`🔧 Date ${dateStr} maps to ${dayDate.toDateString()}, day of week: ${dayOfWeek}`);
 
-      // Create absolute start/end dates for this specific date
+      // Create absolute start/end dates for this specific date, in the tutor's profile timezone
+      const tz = this.tutorTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
       const getAbsoluteDateTime = (date: Date, timeStr: string) => {
         const [hours, minutes] = timeStr.split(':').map(Number);
-        const absoluteDate = new Date(date);
-        absoluteDate.setHours(hours, minutes, 0, 0);
-        return absoluteDate.toISOString();
+        const wallClock = new Date(date.getFullYear(), date.getMonth(), date.getDate(), hours, minutes, 0, 0);
+        return fromZonedTime(wallClock, tz).toISOString();
       };
 
       for (let i = 1; i < indices.length; i++) {

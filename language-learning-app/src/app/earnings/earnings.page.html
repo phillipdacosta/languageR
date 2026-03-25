@@ -1,150 +1,236 @@
-<ion-header>
-  <ion-toolbar>
-    <ion-buttons slot="start">
-      <ion-button (click)="goBack()">
-        <ion-icon name="arrow-back"></ion-icon>
-      </ion-button>
-    </ion-buttons>
-    <ion-title>My Earnings</ion-title>
-  </ion-toolbar>
-</ion-header>
+<!-- Routed page mode: show with ion-header + ion-content wrappers -->
+<ng-container *ngIf="!inline">
+  <ion-header class="ion-no-border">
+    <ion-toolbar>
+      <ion-title>{{ 'EARNINGS.TITLE' | translate }}</ion-title>
+    </ion-toolbar>
+  </ion-header>
 
-<ion-content class="ion-padding">
-  <!-- Loading State -->
-  <div *ngIf="loading" class="loading-container">
-    <ion-spinner name="crescent"></ion-spinner>
-    <p>Loading earnings...</p>
+  <ion-content>
+    <ng-container *ngTemplateOutlet="earningsBody"></ng-container>
+  </ion-content>
+</ng-container>
+
+<!-- Inline mode: render content directly without ion-header/ion-content -->
+<div class="earnings-inline-wrapper" *ngIf="inline">
+  <!-- Always-visible chrome: header + go back (not behind loading state) -->
+  <div class="earnings-content inline-earnings-chrome">
+    <div class="inline-earnings-header">
+      <h2 class="inline-earnings-title">{{ 'EARNINGS.TITLE' | translate }}</h2>
+      <button class="go-back-link" (click)="goBack()">{{ 'EARNINGS.GO_BACK' | translate }}</button>
+    </div>
+  </div>
+  <!-- Rest of content via template -->
+  <ng-container *ngTemplateOutlet="earningsBody"></ng-container>
+</div>
+
+<!-- Shared earnings content template -->
+<ng-template #earningsBody>
+  <!-- Loading State — Skeleton that mirrors the real layout -->
+  <div *ngIf="loading" class="earnings-skeleton">
+    <div class="skeleton-balance-strip">
+      <div class="skeleton-stat" *ngFor="let s of [1,2,3]">
+        <div class="skeleton-line skeleton-label"></div>
+        <div class="skeleton-line skeleton-value"></div>
+        <div class="skeleton-line skeleton-sub"></div>
+      </div>
+    </div>
+    <div class="skeleton-withdraw-row">
+      <div class="skeleton-btn"></div>
+    </div>
+    <div class="skeleton-chart-card">
+      <div class="skeleton-line skeleton-chart-title"></div>
+      <div class="skeleton-line skeleton-chart-amount"></div>
+      <div class="skeleton-chart-area"></div>
+    </div>
   </div>
 
   <!-- Error State -->
   <div *ngIf="error && !loading" class="error-container">
-    <ion-icon name="alert-circle" color="danger"></ion-icon>
+    <ion-icon name="alert-circle-outline"></ion-icon>
     <p>{{ error }}</p>
-    <ion-button (click)="loadEarnings()" fill="outline">
-      <ion-icon name="refresh" slot="start"></ion-icon>
-      Retry
-    </ion-button>
+    <button class="retry-btn" (click)="loadEarnings()">{{ 'EARNINGS.TRY_AGAIN' | translate }}</button>
   </div>
 
-  <!-- Earnings Summary -->
-  <div *ngIf="!loading && !error" class="earnings-content">
-    
-    <!-- NEW: Withdrawal System Balance Cards -->
-    <div class="balance-section">
-      <div class="section-header">
-        <h2>Your Balance</h2>
-        <ion-button 
-          (click)="requestWithdrawal()" 
-          [disabled]="withdrawing || balance.available <= 0"
-          size="small"
-          class="withdraw-button">
-          <ion-icon name="cash-outline" slot="start"></ion-icon>
-          Withdraw Funds
-        </ion-button>
+  <!-- Earnings Content -->
+  <div *ngIf="!loading && !error" class="earnings-content earnings-fade-in" [class.inline-no-slide]="inline">
+
+    <!-- Balance Strip Row -->
+    <div class="balance-strip-row">
+      <div class="balance-strip">
+        <div class="balance-stat pending-stat"
+             [class.wallet-hidden]="!showWalletBalance && !walletTemporarilyVisible"
+             (click)="toggleWalletVisibility($event, 'pending')">
+          <span class="stat-label">{{ 'EARNINGS.PENDING' | translate }}</span>
+          <span class="stat-value" *ngIf="showWalletBalance || walletTemporarilyVisible">${{ balance.pending.toFixed(2) }}</span>
+          <span class="stat-value masked" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$••••</span>
+          <span class="stat-value-hover" *ngIf="!showWalletBalance && !walletTemporarilyVisible">${{ balance.pending.toFixed(2) }}</span>
+          <span class="stat-sub">{{ 'EARNINGS.PENDING_HOLD' | translate }}</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="balance-stat available-stat"
+             [class.wallet-hidden]="!showWalletBalance && !walletTemporarilyVisible"
+             (click)="toggleWalletVisibility($event, 'available')">
+          <span class="stat-label">{{ 'EARNINGS.AVAILABLE' | translate }}</span>
+          <span class="stat-value" *ngIf="showWalletBalance || walletTemporarilyVisible">${{ balance.available.toFixed(2) }}</span>
+          <span class="stat-value masked" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$••••</span>
+          <span class="stat-value-hover" *ngIf="!showWalletBalance && !walletTemporarilyVisible">${{ balance.available.toFixed(2) }}</span>
+          <span class="stat-sub">{{ 'EARNINGS.READY_TO_WITHDRAW' | translate }}</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="balance-stat lifetime-stat"
+             [class.wallet-hidden]="!showWalletBalance && !walletTemporarilyVisible"
+             (click)="toggleWalletVisibility($event, 'lifetime')">
+          <span class="stat-label">{{ 'EARNINGS.LIFETIME' | translate }}</span>
+          <span class="stat-value" *ngIf="showWalletBalance || walletTemporarilyVisible">${{ balance.lifetime.toFixed(2) }}</span>
+          <span class="stat-value masked" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$••••</span>
+          <span class="stat-value-hover" *ngIf="!showWalletBalance && !walletTemporarilyVisible">${{ balance.lifetime.toFixed(2) }}</span>
+          <span class="stat-sub">{{ 'EARNINGS.TOTAL_EARNED' | translate }}</span>
+        </div>
+      </div>
+      <button class="go-back-link" *ngIf="!inline" (click)="goBack()">{{ 'EARNINGS.GO_BACK' | translate }}</button>
+    </div>
+
+    <!-- Withdraw Button -->
+    <div class="withdraw-row">
+      <button 
+        class="withdraw-btn"
+        (click)="requestWithdrawal()" 
+        [disabled]="withdrawing || balance.available <= 0">
+        {{ 'EARNINGS.WITHDRAW_FUNDS' | translate }}
+      </button>
+    </div>
+
+    <!-- Earnings Over Time Chart -->
+    <div class="earnings-chart-card" *ngIf="recentPayments.length > 0">
+      <div class="chart-card-header">
+        <div class="chart-card-title-group">
+          <h2 class="chart-card-title">{{ 'EARNINGS.CHART_TITLE' | translate }}</h2>
+          <p class="chart-card-subtitle">{{ chartPeriodLabel }}</p>
+        </div>
+        <div class="chart-period-toggle">
+          <button 
+            class="period-btn" 
+            [class.active]="chartPeriod === '1m'"
+            (click)="setChartPeriod('1m')">
+            {{ 'EARNINGS.CHART_1M' | translate }}
+          </button>
+          <button 
+            class="period-btn" 
+            [class.active]="chartPeriod === '6m'"
+            (click)="setChartPeriod('6m')">
+            {{ 'EARNINGS.CHART_6M' | translate }}
+          </button>
+          <button 
+            class="period-btn" 
+            [class.active]="chartPeriod === 'all'"
+            (click)="setChartPeriod('all')">
+            {{ 'EARNINGS.CHART_ALL' | translate }}
+          </button>
+        </div>
       </div>
 
-      <div class="balance-cards">
-        <div class="balance-card pending">
-          <div class="card-icon">
-            <ion-icon name="hourglass-outline"></ion-icon>
-          </div>
-          <div class="card-content">
-            <div class="card-label">Pending</div>
-            <div class="card-value wallet-value" 
-                 [class.wallet-hidden]="!showWalletBalance && !walletTemporarilyVisible"
-                 (click)="toggleWalletVisibility($event, 'pending')">
-              <span class="wallet-amount" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$<span class="wallet-dots">••••</span></span>
-              <span class="wallet-amount" *ngIf="showWalletBalance || walletTemporarilyVisible">${{ balance.pending.toFixed(2) }}</span>
-              <span class="wallet-amount-hover" *ngIf="!showWalletBalance && !walletTemporarilyVisible">${{ balance.pending.toFixed(2) }}</span>
-            </div>
-            <div class="card-sublabel">24hr hold period</div>
-          </div>
-        </div>
+      <div class="chart-total-row" *ngIf="chartHasData">
+        <span class="chart-total-amount" *ngIf="showWalletBalance || walletTemporarilyVisible">{{ chartTotal }}</span>
+        <span class="chart-total-amount masked" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$••••</span>
+        <span class="chart-change-badge" 
+          *ngIf="chartChangeDirection !== 'flat' && chartPeriod !== 'all'"
+          [class.up]="chartChangeDirection === 'up'"
+          [class.down]="chartChangeDirection === 'down'">
+          <ion-icon [name]="chartChangeDirection === 'up' ? 'caret-up' : 'caret-down'"></ion-icon>
+          {{ chartDollarChange }}<span *ngIf="chartShowPercent"> ({{ chartPercentChange > 0 ? '+' : '' }}{{ chartPercentChange }}%)</span>
+        </span>
+        <span class="chart-total-label">{{ chartPeriodAmountLabel }}</span>
+      </div>
 
-        <div class="balance-card available">
-          <div class="card-icon">
-            <ion-icon name="wallet-outline"></ion-icon>
-          </div>
-          <div class="card-content">
-            <div class="card-label">Available</div>
-            <div class="card-value wallet-value" 
-                 [class.wallet-hidden]="!showWalletBalance && !walletTemporarilyVisible"
-                 (click)="toggleWalletVisibility($event, 'available')">
-              <span class="wallet-amount" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$<span class="wallet-dots">••••</span></span>
-              <span class="wallet-amount" *ngIf="showWalletBalance || walletTemporarilyVisible">${{ balance.available.toFixed(2) }}</span>
-              <span class="wallet-amount-hover" *ngIf="!showWalletBalance && !walletTemporarilyVisible">${{ balance.available.toFixed(2) }}</span>
-            </div>
-            <div class="card-sublabel">Ready to withdraw</div>
-          </div>
-        </div>
+      <div class="chart-canvas-container">
+        <canvas #earningsChartCanvas></canvas>
+      </div>
 
-        <div class="balance-card lifetime">
-          <div class="card-icon">
-            <ion-icon name="trophy-outline"></ion-icon>
-          </div>
-          <div class="card-content">
-            <div class="card-label">Lifetime Earnings</div>
-            <div class="card-value wallet-value" 
-                 [class.wallet-hidden]="!showWalletBalance && !walletTemporarilyVisible"
-                 (click)="toggleWalletVisibility($event, 'lifetime')">
-              <span class="wallet-amount" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$<span class="wallet-dots">••••</span></span>
-              <span class="wallet-amount" *ngIf="showWalletBalance || walletTemporarilyVisible">${{ balance.lifetime.toFixed(2) }}</span>
-              <span class="wallet-amount-hover" *ngIf="!showWalletBalance && !walletTemporarilyVisible">${{ balance.lifetime.toFixed(2) }}</span>
-            </div>
-            <div class="card-sublabel">Total earned</div>
-          </div>
-        </div>
+      <div class="chart-empty-state" *ngIf="!chartHasData">
+        <ion-icon name="bar-chart-outline"></ion-icon>
+        <p>{{ 'EARNINGS.CHART_NO_DATA' | translate }}</p>
       </div>
     </div>
 
-    <!-- Withdrawal History -->
-    <div class="payment-breakdown">
-      <h3>Recent Lessons</h3>
-      
-      <div *ngIf="recentPayments.length === 0" class="no-payments">
-        <ion-icon name="document-text-outline"></ion-icon>
-        <p>No lessons yet</p>
-        <p class="sublabel">Earnings from lessons will appear here</p>
+    <!-- Transactions Section -->
+    <div class="transactions-section">
+      <div class="transactions-header">
+        <h2>{{ 'EARNINGS.TXN_TITLE' | translate }}</h2>
       </div>
 
-      <!-- Table View -->
-      <div *ngIf="recentPayments.length > 0" class="payments-table-container">
-        <table class="payments-table">
+      <!-- Airbnb-style Filters Trigger -->
+      <div class="filters-trigger-container">
+        <button class="filters-trigger-btn" (click)="openFiltersModal()">
+          <ion-icon name="options-outline"></ion-icon>
+          <span>{{ 'EARNINGS.TXN_FILTERS' | translate }}</span>
+          <span class="filter-count" *ngIf="activeFilterCount > 0">{{ activeFilterCount }}</span>
+        </button>
+        
+        <!-- Active Filter Chips -->
+        <div class="active-filters-preview" *ngIf="activeFilterCount > 0">
+          <span class="filter-chip-preview" *ngIf="selectedDateRange !== 'all'">
+            {{ dateRangeLabel }}
+          </span>
+          <span class="filter-chip-preview" *ngIf="selectedStudent !== 'all'">
+            {{ selectedStudent }}
+          </span>
+          <span class="filter-chip-preview" *ngIf="selectedStatus !== 'all'">
+            {{ getStatusText(selectedStatus) }}
+          </span>
+        </div>
+        
+        <button class="clear-all-inline" *ngIf="activeFilterCount > 0" (click)="clearFilters()">
+          {{ 'EARNINGS.TXN_CLEAR_ALL' | translate }}
+        </button>
+      </div>
+      
+      <!-- Empty States -->
+      <div *ngIf="recentPayments.length === 0" class="empty-state">
+        <ion-icon name="receipt-outline"></ion-icon>
+        <p class="empty-title">{{ 'EARNINGS.TXN_EMPTY_TITLE' | translate }}</p>
+        <p class="empty-sub">{{ 'EARNINGS.TXN_EMPTY_SUB' | translate }}</p>
+      </div>
+
+      <div *ngIf="recentPayments.length > 0 && filteredPayments.length === 0" class="empty-state">
+        <ion-icon name="filter-outline"></ion-icon>
+        <p class="empty-title">{{ 'EARNINGS.TXN_NO_RESULTS_TITLE' | translate }}</p>
+        <p class="empty-sub">{{ 'EARNINGS.TXN_NO_RESULTS_SUB' | translate }}</p>
+        <button class="clear-link inline" (click)="clearFilters()">{{ 'EARNINGS.TXN_CLEAR_FILTERS' | translate }}</button>
+      </div>
+
+      <!-- Transaction Table -->
+      <div *ngIf="filteredPayments.length > 0" class="table-wrap scrollable-table">
+        <table class="txn-table">
           <thead>
             <tr>
-              <th>Date & Time</th>
-              <th>Student</th>
-              <th>Status</th>
-              <th>Gross</th>
-              <th>Platform Fee</th>
-              <th>Your Earnings</th>
+              <th>{{ 'EARNINGS.TXN_COL_DATE' | translate }}</th>
+              <th>{{ 'EARNINGS.TXN_COL_STUDENT' | translate }}</th>
+              <th>{{ 'EARNINGS.TXN_COL_STATUS' | translate }}</th>
+              <th class="right">{{ 'EARNINGS.TXN_COL_GROSS' | translate }}</th>
+              <th class="right">{{ 'EARNINGS.TXN_COL_FEE' | translate }}</th>
+              <th class="right">{{ 'EARNINGS.TXN_COL_EARNINGS' | translate }}</th>
             </tr>
           </thead>
           <tbody>
             <tr 
-              *ngFor="let payment of recentPayments" 
-              class="payment-row"
-              [class.clickable]="payment.status !== 'cancelled' && payment.status !== 'refunded'"
-              [class.refunded-row]="payment.status === 'refunded' || payment.status === 'partially_refunded'"
-              (click)="(payment.status !== 'cancelled' && payment.status !== 'refunded') && viewLesson(payment.lessonId)">
+              *ngFor="let payment of displayedPayments" 
+              class="txn-row"
+              [class.clickable]="payment.lessonId || payment.classId"
+              [class.refunded]="payment.status === 'refunded' || payment.status === 'partially_refunded'"
+              (click)="(payment.lessonId || payment.classId) && viewEvent(payment.lessonId, payment.classId)">
               
-              <!-- Date & Time -->
-              <td class="datetime-col">
-                <div class="datetime-info">
-                  <div class="date">{{ payment.date | date:'MMM d, y' }}</div>
-                  <div class="time" *ngIf="payment.startTime && payment.endTime">
-                    {{ payment.startTime | date:'h:mm a' }} - {{ payment.endTime | date:'h:mm a' }}
-                  </div>
-                  <div class="time" *ngIf="!payment.startTime || !payment.endTime">
-                    Time not set
-                  </div>
-                </div>
+              <!-- Date -->
+              <td class="date-col">
+                <span class="date-primary">{{ payment.formattedDate }}</span>
+                <span class="date-secondary" *ngIf="payment.formattedTime">{{ payment.formattedTime }}</span>
+                <span class="date-secondary" *ngIf="!payment.formattedTime">—</span>
               </td>
               
               <!-- Student -->
               <td class="student-col">
-                <div class="student-info">
-                  <div class="student-avatar" *ngIf="payment.studentPicture">
+                <div class="student-row">
+                  <div class="avatar" *ngIf="payment.studentPicture">
                     <img 
                       [src]="payment.studentPicture" 
                       [alt]="payment.studentName"
@@ -152,62 +238,62 @@
                       loading="lazy"
                       (error)="onImageError($event)">
                   </div>
-                  <div class="student-avatar fallback" *ngIf="!payment.studentPicture">
+                  <div class="avatar fallback" *ngIf="!payment.studentPicture">
                     <ion-icon name="person"></ion-icon>
                   </div>
-                  <span>{{ payment.studentName }}</span>
+                  <div class="student-meta">
+                    <span class="name">{{ payment.studentName }}</span>
+                    <span class="type-label tip" *ngIf="payment.paymentType === 'tip'">{{ 'EARNINGS.TXN_TIP' | translate }}</span>
+                    <span class="type-label class-label" *ngIf="payment.isClassPayment && payment.className">{{ payment.className }}</span>
+                    <span class="type-label material-label" *ngIf="payment.isMaterialPurchase">{{ payment.materialTitle || 'Material' }}</span>
+                  </div>
                 </div>
               </td>
               
               <!-- Status -->
               <td class="status-col">
-                <div class="status-wrapper">
-                  <ion-badge [color]="getStatusColor(payment.status)">
-                    {{ getStatusText(payment.status) }}
-                  </ion-badge>
-                  <div class="status-reason" *ngIf="getStatusNote(payment)">
-                    {{ getStatusNote(payment) }}
-                  </div>
+                <div class="status-indicator">
+                  <span class="status-dot" [ngClass]="'dot-' + payment.status"></span>
+                  <span class="status-text">{{ getStatusText(payment.status) }}</span>
                 </div>
+                <span class="status-note" *ngIf="getStatusNote(payment)">{{ getStatusNote(payment) }}</span>
               </td>
               
               <!-- Gross -->
-              <td class="amount-col">
+              <td class="amount-col right">
                 <ng-container *ngIf="payment.status === 'cancelled' || payment.status === 'refunded'">
-                  <span class="cancelled-amount strikethrough">${{ (payment.amount || payment.tutorPayout + payment.platformFee).toFixed(2) }}</span>
+                  <span class="struck">${{ (payment.amount || payment.tutorPayout + payment.platformFee).toFixed(2) }}</span>
                 </ng-container>
                 <ng-container *ngIf="payment.status === 'partially_refunded'">
-                  <div class="amount-with-original">
-                    <span class="original-strikethrough">${{ (payment.amount || 0).toFixed(2) }}</span>
-                    <span>${{ (payment.tutorPayout + payment.platformFee).toFixed(2) }}</span>
-                  </div>
+                  <span class="struck small">${{ (payment.amount || 0).toFixed(2) }}</span>
+                  <span>${{ (payment.tutorPayout + payment.platformFee).toFixed(2) }}</span>
                 </ng-container>
                 <ng-container *ngIf="payment.status !== 'cancelled' && payment.status !== 'refunded' && payment.status !== 'partially_refunded'">
-                  ${{ (payment.tutorPayout + payment.platformFee).toFixed(2) }}
+                  <ng-container *ngIf="payment.paymentType === 'tip'">${{ (payment.amount || payment.tutorPayout).toFixed(2) }}</ng-container>
+                  <ng-container *ngIf="payment.paymentType !== 'tip'">${{ (payment.tutorPayout + payment.platformFee).toFixed(2) }}</ng-container>
                 </ng-container>
               </td>
               
-              <!-- Platform Fee -->
-              <td class="amount-col fee-col">
+              <!-- Fee -->
+              <td class="amount-col fee right">
                 <ng-container *ngIf="payment.status === 'cancelled' || payment.status === 'refunded'">$0.00</ng-container>
                 <ng-container *ngIf="payment.status !== 'cancelled' && payment.status !== 'refunded'">
-                  ${{ payment.platformFee.toFixed(2) }}
+                  <ng-container *ngIf="payment.paymentType === 'tip' && payment.stripeFee > 0">
+                    <span class="fee-stripe">${{ payment.stripeFee.toFixed(2) }}</span>
+                  </ng-container>
+                  <ng-container *ngIf="payment.paymentType !== 'tip' || !payment.stripeFee || payment.stripeFee === 0">
+                    ${{ payment.platformFee.toFixed(2) }}
+                  </ng-container>
                 </ng-container>
               </td>
               
-              <!-- Your Earnings -->
-              <td class="amount-col earnings-col">
+              <!-- Earnings -->
+              <td class="amount-col earnings right">
                 <ng-container *ngIf="payment.status === 'cancelled' || payment.status === 'refunded'">
-                  <span class="cancelled-earnings">$0.00</span>
+                  <span class="zero">$0.00</span>
                 </ng-container>
                 <ng-container *ngIf="payment.status === 'partially_refunded'">
-                  <div class="amount-with-badge">
-                    <span class="reduced-amount">${{ payment.tutorPayout.toFixed(2) }}</span>
-                    <ion-badge color="warning" class="refund-badge-small">
-                      <ion-icon name="alert-circle"></ion-icon>
-                      Reduced
-                    </ion-badge>
-                  </div>
+                  <span class="reduced">${{ payment.tutorPayout.toFixed(2) }}</span>
                 </ng-container>
                 <ng-container *ngIf="payment.status !== 'cancelled' && payment.status !== 'refunded' && payment.status !== 'partially_refunded'">
                   <span [class.tentative]="payment.status === 'processing' || payment.status === 'scheduled'">
@@ -218,24 +304,214 @@
             </tr>
           </tbody>
         </table>
-      </div>
-    </div>
 
-    <!-- Help Text -->
-    <!-- <div class="help-text">
-      <ion-icon name="information-circle-outline"></ion-icon>
-      <div>
-        <p><strong>New Withdrawal System:</strong> Earnings are held for 24 hours after lesson completion for dispute protection, then become available for withdrawal.</p>
-        <p>You can withdraw your available balance at any time. Withdrawals are processed within 1-2 business days.</p>
+        <!-- Showing count & load-more sentinel -->
+        <div class="table-footer" *ngIf="filteredPayments.length > displayedPayments.length">
+          <span class="showing-count">
+            {{ 'EARNINGS.TXN_SHOWING' | translate:{ shown: displayedPayments.length, total: filteredPayments.length } }}
+          </span>
+        </div>
       </div>
-    </div> -->
+
+      <!-- Infinite scroll (works inside both ion-content and inline wrappers) -->
+      <ion-infinite-scroll
+        *ngIf="!allTransactionsLoaded && filteredPayments.length > 0"
+        threshold="200px"
+        (ionInfinite)="loadMoreTransactions($any($event))">
+        <ion-infinite-scroll-content
+          loadingSpinner="crescent">
+        </ion-infinite-scroll-content>
+      </ion-infinite-scroll>
+    </div>
   </div>
-</ion-content>
+</ng-template>
+
+<!-- Earnings Filters Modal (Airbnb-style) -->
+<ion-modal 
+  [isOpen]="isFiltersModalOpen" 
+  (didDismiss)="closeFiltersModal()"
+  cssClass="earnings-filters-modal">
+  <ng-template>
+    <ion-header class="ef-header ion-no-border">
+      <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-button (click)="closeFiltersModal()" class="ef-close-btn">
+            <ion-icon name="close" slot="icon-only"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+        <ion-title>{{ 'EARNINGS.TXN_FILTERS' | translate }}</ion-title>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content class="ef-content">
+      <!-- Selected Filters Chips — smooth reveal/collapse -->
+      <section class="ef-selected-section" [class.visible]="activeFilterCount > 0">
+        <h3 class="ef-section-title">{{ 'EARNINGS.FILTER_SELECTED' | translate }}</h3>
+        <div class="ef-selected-chips">
+          <button class="ef-filter-chip" *ngIf="selectedDateRange !== 'all'" (click)="selectedDateRange = 'all'; onFilterChange()">
+            <span>{{ dateRangeLabel }}</span>
+            <ion-icon name="close"></ion-icon>
+          </button>
+          <button class="ef-filter-chip" *ngIf="selectedStudent !== 'all'" (click)="selectedStudent = 'all'; onFilterChange()">
+            <span>{{ studentFilterLabel }}</span>
+            <ion-icon name="close"></ion-icon>
+          </button>
+          <button class="ef-filter-chip" *ngIf="selectedStatus !== 'all'" (click)="selectedStatus = 'all'; onFilterChange()">
+            <span>{{ statusFilterLabel }}</span>
+            <ion-icon name="close"></ion-icon>
+          </button>
+        </div>
+      </section>
+
+      <div class="ef-divider ef-divider-selected" [class.visible]="activeFilterCount > 0"></div>
+
+      <!-- Time Period Section -->
+      <section class="ef-section">
+        <h3 class="ef-section-title">{{ 'EARNINGS.FILTER_TIME_PERIOD' | translate }}</h3>
+        <div class="ef-time-grid">
+          <button 
+            class="ef-time-btn"
+            [class.active]="selectedDateRange === 'all'"
+            (click)="selectedDateRange = 'all'; onFilterChange()">
+            {{ 'EARNINGS.FILTER_ALL_TIME' | translate }}
+          </button>
+          <button 
+            class="ef-time-btn"
+            [class.active]="selectedDateRange === 'today'"
+            (click)="selectedDateRange = 'today'; onFilterChange()">
+            {{ 'EARNINGS.FILTER_TODAY' | translate }}
+          </button>
+          <button 
+            class="ef-time-btn"
+            [class.active]="selectedDateRange === 'week'"
+            (click)="selectedDateRange = 'week'; onFilterChange()">
+            {{ 'EARNINGS.FILTER_LAST_7_DAYS' | translate }}
+          </button>
+          <button 
+            class="ef-time-btn"
+            [class.active]="selectedDateRange === 'month'"
+            (click)="selectedDateRange = 'month'; onFilterChange()">
+            {{ 'EARNINGS.FILTER_THIS_MONTH' | translate }}
+          </button>
+          <button 
+            class="ef-time-btn"
+            [class.active]="selectedDateRange === 'year'"
+            (click)="selectedDateRange = 'year'; onFilterChange()">
+            {{ 'EARNINGS.FILTER_THIS_YEAR' | translate }}
+          </button>
+          <button 
+            class="ef-time-btn"
+            [class.active]="selectedDateRange === 'custom'"
+            (click)="selectedDateRange = 'custom'; onFilterChange()">
+            {{ 'EARNINGS.FILTER_CUSTOM' | translate }}
+          </button>
+        </div>
+
+        <!-- Custom Date Range -->
+        <div class="ef-custom-dates ef-slide-down" *ngIf="selectedDateRange === 'custom'">
+          <div class="ef-date-field">
+            <label>{{ 'EARNINGS.FILTER_START_DATE' | translate }}</label>
+            <input 
+              type="date" 
+              [(ngModel)]="customStartDate" 
+              (change)="onFilterChange()"
+              [max]="customEndDate || undefined">
+          </div>
+          <div class="ef-date-field">
+            <label>{{ 'EARNINGS.FILTER_END_DATE' | translate }}</label>
+            <input 
+              type="date" 
+              [(ngModel)]="customEndDate" 
+              (change)="onFilterChange()"
+              [min]="customStartDate || undefined">
+          </div>
+        </div>
+      </section>
+
+      <div class="ef-divider"></div>
+
+      <!-- Student Section -->
+      <section class="ef-section">
+        <h3 class="ef-section-title">{{ 'EARNINGS.FILTER_STUDENT' | translate }}</h3>
+        <div class="ef-student-list">
+          <button 
+            class="ef-student-btn"
+            [class.active]="selectedStudent === 'all'"
+            (click)="selectedStudent = 'all'; onFilterChange()">
+            <span>{{ 'EARNINGS.FILTER_ALL_STUDENTS' | translate }}</span>
+            <div class="ef-check" *ngIf="selectedStudent === 'all'">
+              <ion-icon name="checkmark"></ion-icon>
+            </div>
+          </button>
+          <button 
+            class="ef-student-btn"
+            *ngFor="let student of uniqueStudents"
+            [class.active]="selectedStudent === student.id"
+            (click)="selectedStudent = student.id; onFilterChange()">
+            <div class="ef-student-info">
+              <div class="ef-avatar" *ngIf="student.picture">
+                <img [src]="student.picture" [alt]="student.name" referrerpolicy="no-referrer" (error)="onImageError($event)">
+              </div>
+              <div class="ef-avatar fallback" *ngIf="!student.picture">
+                <ion-icon name="person"></ion-icon>
+              </div>
+              <span>{{ student.name }}</span>
+            </div>
+            <div class="ef-check" *ngIf="selectedStudent === student.id">
+              <ion-icon name="checkmark"></ion-icon>
+            </div>
+          </button>
+        </div>
+      </section>
+
+      <div class="ef-divider"></div>
+
+      <!-- Status Section -->
+      <section class="ef-section">
+        <h3 class="ef-section-title">{{ 'EARNINGS.FILTER_STATUS' | translate }}</h3>
+        <div class="ef-status-list">
+          <button 
+            class="ef-status-btn"
+            [class.active]="selectedStatus === 'all'"
+            (click)="selectedStatus = 'all'; onFilterChange()">
+            <span class="ef-status-dot dot-all"></span>
+            <span>{{ 'EARNINGS.FILTER_ALL_STATUSES' | translate }}</span>
+            <div class="ef-check" *ngIf="selectedStatus === 'all'">
+              <ion-icon name="checkmark"></ion-icon>
+            </div>
+          </button>
+          <button 
+            class="ef-status-btn"
+            *ngFor="let status of uniqueStatuses"
+            [class.active]="selectedStatus === status"
+            (click)="selectedStatus = status; onFilterChange()">
+            <span class="ef-status-dot" [ngClass]="'dot-' + status"></span>
+            <span>{{ getStatusText(status) }}</span>
+            <div class="ef-check" *ngIf="selectedStatus === status">
+              <ion-icon name="checkmark"></ion-icon>
+            </div>
+          </button>
+        </div>
+      </section>
+    </ion-content>
+
+    <ion-footer class="ef-footer ion-no-border">
+      <div class="ef-footer-content">
+        <button class="ef-clear-btn" (click)="clearFilters()" [disabled]="!hasActiveFilters()">
+          {{ 'EARNINGS.TXN_CLEAR_ALL' | translate }}
+        </button>
+        <button class="ef-apply-btn" (click)="closeFiltersModal()">
+          {{ (filteredPayments.length === 1 ? 'EARNINGS.FILTER_SHOW_RESULTS_ONE' : 'EARNINGS.FILTER_SHOW_RESULTS_MANY') | translate:{ count: filteredPayments.length } }}
+        </button>
+      </div>
+    </ion-footer>
+  </ng-template>
+</ion-modal>
 
 <!-- Inline Withdrawal Modal -->
 <ion-modal 
   [isOpen]="isWithdrawalModalOpen" 
-  (didDismiss)="closeWithdrawalModal()"
+  (didDismiss)="onWithdrawalModalDismissed()"
   class="withdrawal-modal">
   
   <ng-template>
@@ -245,136 +521,163 @@
         <ion-icon name="close" slot="icon-only"></ion-icon>
       </ion-button>
 
-      <div class="modal-content">
+      <!-- Withdrawal Success View -->
+      <div class="withdrawal-success-view" *ngIf="withdrawalSuccess">
+        <div class="withdrawal-success-card" [class.revealed]="withdrawalSuccessRevealed">
+          <div class="withdrawal-success-lottie-wrapper">
+            <div class="withdrawal-success-glow"></div>
+            <dotlottie-player
+              src="/assets/Payment-success.lottie"
+              autoplay
+              speed="1"
+              class="withdrawal-success-lottie">
+            </dotlottie-player>
+          </div>
+          <div class="withdrawal-success-body">
+            <h2 class="withdrawal-success-title">{{ 'EARNINGS.WITHDRAW_SUCCESS_TITLE' | translate }}</h2>
+            <p class="withdrawal-success-detail">
+              {{ 'EARNINGS.WITHDRAW_SUCCESS_DETAIL' | translate:{ amount: withdrawalSuccessAmount, method: withdrawalSuccessMethod } }}
+            </p>
+            <p class="withdrawal-success-note">{{ 'EARNINGS.WITHDRAW_SUCCESS_NOTE' | translate }}</p>
+            <button class="withdrawal-success-done-btn" (click)="closeWithdrawalModal()">
+              {{ 'EARNINGS.WITHDRAW_SUCCESS_DONE' | translate }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Standard Withdrawal Form -->
+      <div class="modal-content" *ngIf="!withdrawalSuccess">
         <!-- Header -->
         <div class="modal-header">
           <div class="icon-wrapper">
             <ion-icon name="wallet"></ion-icon>
           </div>
-          <h2 class="modal-heading">Request Withdrawal</h2>
-          <p class="modal-description">Withdraw your available earnings</p>
+          <h2 class="modal-heading">{{ 'EARNINGS.WITHDRAW_TITLE' | translate }}</h2>
+          <p class="modal-description">{{ 'EARNINGS.WITHDRAW_DESC' | translate }}</p>
         </div>
 
-        <!-- Available Balance Card -->
-        <!-- Two-Column Container -->
+        <!-- 2×2 grid: row2 fees cell and payout method share height -->
         <div class="withdrawal-container">
-          
-          <!-- LEFT COLUMN: Balance & Fee Breakdown -->
-          <div class="left-column">
-            
-            <!-- Available Balance -->
-            <div class="balance-card">
-              <div class="balance-label">Available Balance</div>
-              <div class="balance-amount">${{ balance.available.toFixed(2) }}</div>
-              <div class="balance-note" *ngIf="selectedWithdrawalMethod === 'paypal'">Minimum withdrawal: $10.00</div>
-            </div>
+          <div class="balance-card withdrawal-grid-balance">
+            <div class="balance-label">{{ 'EARNINGS.WITHDRAW_BALANCE_LABEL' | translate }}</div>
+            <div class="balance-amount">${{ formatCurrency(balance.available) }}</div>
+            <div class="balance-note" *ngIf="selectedWithdrawalMethod === 'paypal'">{{ 'EARNINGS.WITHDRAW_MIN_PAYPAL' | translate }}</div>
+          </div>
 
-            <!-- Fee Breakdown Card (PayPal) -->
-            <div class="fee-breakdown-card" *ngIf="selectedWithdrawalMethod === 'paypal'">
-              <!-- Show breakdown when amount is valid -->
-              <div *ngIf="withdrawalAmount >= 10; else paypalPlaceholder">
-                <div class="breakdown-row">
-                  <span class="breakdown-label">Withdrawal amount:</span>
-                  <span class="breakdown-value">${{ withdrawalAmount.toFixed(2) }}</span>
+          <div class="amount-section withdrawal-grid-amount">
+            <label class="section-label">{{ 'EARNINGS.WITHDRAW_AMOUNT_SECTION' | translate }}</label>
+            <div class="amount-input-wrapper">
+              <div class="currency-symbol">$</div>
+              <input
+                type="text"
+                inputmode="decimal"
+                class="amount-input"
+                [(ngModel)]="formattedWithdrawalAmount"
+                (keydown)="onWithdrawalKeydown($event)"
+                (blur)="onWithdrawalAmountBlur()"
+                placeholder="0.00">
+              <button class="max-button" (click)="setMaxWithdrawalAmount()">MAX</button>
+            </div>
+            <div class="amount-error-slot" aria-live="polite">
+              <p
+                class="amount-error"
+                *ngIf="withdrawalAmount > balance.available">
+                {{ 'EARNINGS.WITHDRAW_EXCEEDS_BALANCE' | translate }}
+              </p>
+              <p
+                class="amount-error"
+                *ngIf="withdrawalAmount <= balance.available && selectedWithdrawalMethod === 'paypal' && withdrawalAmount > 0 && withdrawalAmount < 10">
+                {{ 'EARNINGS.WITHDRAW_MIN_10' | translate }}
+              </p>
+              <p
+                class="amount-error"
+                *ngIf="withdrawalAmount <= balance.available && selectedWithdrawalMethod === 'stripe_connect' && withdrawalAmount > 0 && withdrawalAmount < 0.01">
+                {{ 'EARNINGS.WITHDRAW_INVALID_AMOUNT' | translate }}
+              </p>
+            </div>
+          </div>
+
+          <div class="withdrawal-grid-fees">
+            <!-- Fee Breakdown Card (PayPal): fixed-height swap — no layout jump -->
+            <div class="fee-breakdown-card fee-breakdown-card--paypal" *ngIf="selectedWithdrawalMethod === 'paypal'">
+              <div class="fee-breakdown-swap">
+                <div class="fee-breakdown-panel" [class.is-visible]="withdrawalAmount >= 10">
+                  <div class="breakdown-row">
+                    <span class="breakdown-label">{{ 'EARNINGS.WITHDRAW_AMOUNT_LABEL' | translate }}</span>
+                    <span class="breakdown-value">${{ formatCurrency(withdrawalAmount) }}</span>
+                  </div>
+                  <div class="breakdown-row fee-row">
+                    <span class="breakdown-label">
+                      {{ 'EARNINGS.WITHDRAW_PAYPAL_FEE' | translate }}
+                      <ion-icon
+                        name="information-circle-outline"
+                        class="fee-info-icon"
+                        (click)="showPayPalFeeInfo()">
+                      </ion-icon>
+                    </span>
+                    <span class="breakdown-value fee-value">-${{ formatCurrency(calculatePayPalFee(withdrawalAmount)) }}</span>
+                  </div>
+                  <div class="fee-note">
+                    <ion-icon name="alert-circle-outline"></ion-icon>
+                    <span>{{ 'EARNINGS.WITHDRAW_FEE_NOTE' | translate }}</span>
+                  </div>
+                  <div class="breakdown-divider"></div>
+                  <div class="breakdown-row total-row">
+                    <span class="breakdown-label">{{ 'EARNINGS.WITHDRAW_YOU_RECEIVE' | translate }}</span>
+                    <span class="breakdown-value total">${{ formatCurrency(getNetAmount()) }}</span>
+                  </div>
                 </div>
-                <div class="breakdown-row fee-row">
-                  <span class="breakdown-label">
-                    PayPal fee (2%, min $0.25):
-                    <ion-icon 
-                      name="information-circle-outline" 
-                      class="fee-info-icon"
-                      (click)="showPayPalFeeInfo()">
-                    </ion-icon>
-                  </span>
-                  <span class="breakdown-value fee-value">-${{ calculatePayPalFee(withdrawalAmount).toFixed(2) }}</span>
-                </div>
-                <div class="fee-note">
-                  <ion-icon name="alert-circle-outline"></ion-icon>
-                  <span>PayPal charges this fee, not us</span>
-                </div>
-                <div class="breakdown-divider"></div>
-                <div class="breakdown-row total-row">
-                  <span class="breakdown-label">You will receive:</span>
-                  <span class="breakdown-value total">${{ getNetAmount().toFixed(2) }}</span>
+                <div class="fee-breakdown-panel" [class.is-visible]="withdrawalAmount < 10">
+                  <div class="breakdown-placeholder">
+                    <ion-icon name="calculator-outline"></ion-icon>
+                    <p>{{ 'EARNINGS.WITHDRAW_FEE_PLACEHOLDER' | translate }}</p>
+                  </div>
                 </div>
               </div>
-              <!-- Placeholder when amount is invalid -->
-              <ng-template #paypalPlaceholder>
-                <div class="breakdown-placeholder">
-                  <ion-icon name="calculator-outline"></ion-icon>
-                  <p>Enter withdrawal amount above to see fee breakdown</p>
-                </div>
-              </ng-template>
             </div>
 
-            <!-- Fee Breakdown Card (Stripe) - No fees, always show badge -->
+            <!-- Fee Breakdown Card (Stripe): "You will receive" always present — value fades in -->
             <div class="fee-breakdown-card stripe-card" *ngIf="selectedWithdrawalMethod === 'stripe_connect'">
               <div class="no-fee-badge">
                 <ion-icon name="checkmark-circle"></ion-icon>
-                <span>No withdrawal fees</span>
+                <span>{{ 'EARNINGS.WITHDRAW_NO_FEES' | translate }}</span>
               </div>
               <div class="stripe-benefit-note">
                 <ion-icon name="flash-outline"></ion-icon>
-                <span>Instant transfer to your Stripe account</span>
+                <span>{{ 'EARNINGS.WITHDRAW_STRIPE_INSTANT' | translate }}</span>
               </div>
-              <!-- Only show amount details when valid (Stripe has no minimum) -->
-              <div *ngIf="withdrawalAmount >= 0.01">
+              <div class="stripe-receive-section">
                 <div class="breakdown-divider"></div>
                 <div class="breakdown-row total-row">
-                  <span class="breakdown-label">You will receive:</span>
-                  <span class="breakdown-value total">${{ withdrawalAmount.toFixed(2) }}</span>
+                  <span class="breakdown-label">{{ 'EARNINGS.WITHDRAW_YOU_RECEIVE' | translate }}</span>
+                  <span
+                    class="breakdown-value total stripe-receive-value"
+                    [class.stripe-receive-value--muted]="withdrawalAmount < 0.01">
+                    <ng-container *ngIf="withdrawalAmount >= 0.01">${{ formatCurrency(withdrawalAmount) }}</ng-container>
+                    <ng-container *ngIf="withdrawalAmount < 0.01">—</ng-container>
+                  </span>
                 </div>
               </div>
             </div>
 
           </div>
 
-          <!-- RIGHT COLUMN: Amount Input & Method Selection -->
-          <div class="right-column">
-            
-            <!-- Amount Input -->
-            <div class="amount-section">
-              <label class="section-label">Withdrawal Amount</label>
-              <div class="amount-input-wrapper">
-                <div class="currency-symbol">$</div>
-                <input 
-                  type="number" 
-                  class="amount-input"
-                  [(ngModel)]="withdrawalAmount"
-                  [min]="selectedWithdrawalMethod === 'stripe_connect' ? 0.01 : 10"
-                  [max]="balance.available"
-                  step="0.01"
-                  placeholder="0.00">
-                <button class="max-button" (click)="setMaxWithdrawalAmount()">MAX</button>
-              </div>
-              <div class="amount-error" *ngIf="selectedWithdrawalMethod === 'paypal' && withdrawalAmount < 10 && withdrawalAmount > 0">
-                Minimum amount is $10.00
-              </div>
-              <div class="amount-error" *ngIf="selectedWithdrawalMethod === 'stripe_connect' && withdrawalAmount < 0.01 && withdrawalAmount > 0">
-                Please enter a valid amount
-              </div>
-              <div class="amount-error" *ngIf="withdrawalAmount > balance.available">
-                Amount exceeds available balance
-              </div>
-            </div>
-
-            <!-- Payout Method Selection -->
-            <div class="method-section">
-              <label class="section-label">Payout Method</label>
-              
+          <div class="method-section withdrawal-grid-method">
               <!-- Stripe Option -->
               <div 
                 *ngIf="payoutProvider === 'stripe'"
                 class="method-card"
                 [class.selected]="selectedWithdrawalMethod === 'stripe_connect'"
                 (click)="selectWithdrawalMethod('stripe_connect')">
+                <span class="method-card-inline-label">{{ 'EARNINGS.WITHDRAW_PAYOUT_METHOD' | translate }}</span>
                 <div class="method-content">
                   <div class="method-icon paypal">
                     <img src="assets/icon/stripe-icon.png" alt="Stripe" name="logo-paypal">
                   </div>
                   <div class="method-info">
-                    <div class="method-name">Stripe Connect</div>
-                    <div class="method-detail">Direct to bank account</div>
+                    <div class="method-name">{{ 'EARNINGS.WITHDRAW_STRIPE_CONNECT' | translate }}</div>
+                    <div class="method-detail">{{ 'EARNINGS.WITHDRAW_DIRECT_BANK' | translate }}</div>
                     <!-- <div class="method-timing">2-7 business days</div> -->
                   </div>
                   <div class="method-radio">
@@ -391,6 +694,7 @@
                 class="method-card"
                 [class.selected]="selectedWithdrawalMethod === 'paypal'"
                 (click)="selectWithdrawalMethod('paypal')">
+                <span class="method-card-inline-label">{{ 'EARNINGS.WITHDRAW_PAYOUT_METHOD' | translate }}</span>
                 <div class="method-content">
                   <div class="method-icon paypal">
                     <img src="assets/icon/paypal-icon.png" alt="PayPal" name="logo-paypal">
@@ -398,7 +702,7 @@
                   <div class="method-info">
                     <div class="method-name">PayPal</div>
                     <div class="method-detail">{{ paypalEmail }}</div>
-                    <div class="method-timing">Instant to PayPal account</div>
+                    <div class="method-timing">{{ 'EARNINGS.WITHDRAW_PAYPAL_INSTANT' | translate }}</div>
                   </div>
                   <div class="method-radio">
                     <div class="custom-radio" [class.checked]="selectedWithdrawalMethod === 'paypal'">
@@ -409,34 +713,37 @@
               </div>
 
               <div *ngIf="payoutProvider === 'none'" class="no-method-message">
-                <ion-icon name="alert-circle-outline"></ion-icon>
-                <p>Please set up your payout method in Profile settings first.</p>
+                <span class="method-card-inline-label">{{ 'EARNINGS.WITHDRAW_PAYOUT_METHOD' | translate }}</span>
+                <div class="no-method-message-row">
+                  <ion-icon name="alert-circle-outline"></ion-icon>
+                  <p>{{ 'EARNINGS.WITHDRAW_NO_METHOD' | translate }}</p>
+                </div>
               </div>
-            </div>
-
           </div>
 
         </div>
 
-        <!-- Action Buttons (Full Width Below Columns) -->
-        <div class="button-container">
-          <ion-button 
-            expand="block" 
-            fill="outline"
-            (click)="closeWithdrawalModal()">
-            Cancel
-          </ion-button>
-          <ion-button 
-            expand="block"
-            [disabled]="!canWithdraw()"
-            (click)="confirmWithdrawal()">
-            Request Withdrawal
-          </ion-button>
-        </div>
-
-
       </div>
     </ion-content>
+
+    <ion-footer *ngIf="!withdrawalSuccess" class="withdrawal-modal-footer ion-no-border">
+      <div class="withdrawal-modal-actions">
+        <ion-button
+          expand="block"
+          fill="outline"
+          class="withdrawal-action-btn withdrawal-action-btn--cancel"
+          (click)="closeWithdrawalModal()">
+          {{ 'EARNINGS.WITHDRAW_CANCEL' | translate }}
+        </ion-button>
+        <ion-button
+          expand="block"
+          class="withdrawal-action-btn withdrawal-action-btn--primary"
+          [disabled]="!canWithdraw()"
+          (click)="confirmWithdrawal()">
+          {{ 'EARNINGS.WITHDRAW_REQUEST' | translate }}
+        </ion-button>
+      </div>
+    </ion-footer>
   </ng-template>
 </ion-modal>
 

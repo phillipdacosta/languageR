@@ -1,120 +1,313 @@
-import { Component, OnInit, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, Input, Output, EventEmitter, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ToastController, ModalController } from '@ionic/angular';
 import { Router, RouterModule } from '@angular/router';
 import { ClassService } from '../services/class.service';
+import { MaterialService, TutorMaterial } from '../services/material.service';
 import { UserService } from '../services/user.service';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { DomSanitizer } from '@angular/platform-browser';
 import { SharedModule } from '../shared/shared.module';
+import { formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
 import { ClassInvitationModalComponent } from '../components/class-invitation-modal/class-invitation-modal.component';
+import { ExploreFiltersModalComponent, ExploreFilters } from '../components/explore-filters-modal/explore-filters-modal.component';
+import { ScheduleClassPage } from '../tutor-calendar/schedule-class/schedule-class.page';
+import { TranslateService } from '@ngx-translate/core';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-explore',
   templateUrl: './explore.page.html',
   styleUrls: ['./explore.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, RouterModule, FormsModule, SharedModule]
+  imports: [CommonModule, IonicModule, RouterModule, FormsModule, SharedModule, ScheduleClassPage]
 })
-export class ExplorePage implements OnInit {
+export class ExplorePage implements OnInit, OnDestroy {
+  @Input() inline = false;
+  @Output() goBackEvent = new EventEmitter<void>();
+
   publicClasses: any[] = [];
   filteredClasses: any[] = [];
   isLoading = false;
   currentUser: any = null;
-  showFiltersView = false;
-  showLanguageDropdown = false;
-  showSecondaryFilters = false;
-  
-  filters = {
+  isTutorUser = false;
+  showScheduleForm = false;
+  activeFilterCount = 0;
+
+  recommendedMaterials: any[] = [];
+  recommendedStruggles: string[] = [];
+  isLoadingRecommended = false;
+  studentLanguage = '';
+
+  filters: ExploreFilters = {
     language: 'any',
     priceMin: 0,
     priceMax: 200,
     dateFrom: '',
     dateTo: '',
-    sortBy: 'date_asc', // 'date_asc', 'date_desc', 'price_asc', 'price_desc', 'name_asc'
+    sortBy: 'date_asc',
     searchQuery: ''
   };
-  
-  priceRange = {
-    lower: 0,
-    upper: 200
-  };
-  
-  availableLanguages = [
-    { value: 'any', label: 'Any language' },
-    { value: 'Spanish', label: 'Spanish' },
-    { value: 'French', label: 'French' },
-    { value: 'German', label: 'German' },
-    { value: 'Italian', label: 'Italian' },
-    { value: 'Portuguese', label: 'Portuguese' },
-    { value: 'Russian', label: 'Russian' },
-    { value: 'Chinese', label: 'Chinese' },
-    { value: 'Japanese', label: 'Japanese' },
-    { value: 'Korean', label: 'Korean' },
-    { value: 'Arabic', label: 'Arabic' },
-    { value: 'Hindi', label: 'Hindi' },
-    { value: 'Dutch', label: 'Dutch' },
-    { value: 'Swedish', label: 'Swedish' },
-    { value: 'Norwegian', label: 'Norwegian' },
-    { value: 'Danish', label: 'Danish' },
-    { value: 'Finnish', label: 'Finnish' },
-    { value: 'Polish', label: 'Polish' },
-    { value: 'Czech', label: 'Czech' },
-    { value: 'Hungarian', label: 'Hungarian' },
-    { value: 'Turkish', label: 'Turkish' },
-    { value: 'Greek', label: 'Greek' },
-    { value: 'Hebrew', label: 'Hebrew' },
-    { value: 'Thai', label: 'Thai' },
-    { value: 'Vietnamese', label: 'Vietnamese' },
-    { value: 'Indonesian', label: 'Indonesian' },
-    { value: 'Malay', label: 'Malay' },
-    { value: 'Tagalog', label: 'Tagalog' },
-    { value: 'Swahili', label: 'Swahili' },
-    { value: 'English', label: 'English' }
-  ];
+
+  private levelLabels: { [key: string]: string } = {};
+  private tutorFallback = '';
+  private durationSuffix = '';
+  private animScheduleLabel = '';
+  private animGoBackLabel = '';
+
+  private langSub?: Subscription;
+  private userSub?: Subscription;
+
+  private get userTz(): string | undefined {
+    return this.currentUser?.profile?.timezone || undefined;
+  }
+
+  private get isDarkMode(): boolean {
+    return document.documentElement.classList.contains('ion-palette-dark');
+  }
+
+  returningFromSchedule = false;
 
   constructor(
     private classService: ClassService,
+    private materialService: MaterialService,
     private userService: UserService,
     private router: Router,
     private toast: ToastController,
     private sanitizer: DomSanitizer,
-    private modalCtrl: ModalController
+    private modalCtrl: ModalController,
+    private cdr: ChangeDetectorRef,
+    private translate: TranslateService
   ) {}
 
   ngOnInit() {
-    this.userService.currentUser$.subscribe(user => {
+    this.buildTranslatedLabels();
+
+    this.langSub = this.translate.onLangChange.subscribe(() => {
+      this.buildTranslatedLabels();
+      if (this.publicClasses.length > 0) {
+        this.publicClasses = this.publicClasses.map(cls => this.enrichClassItem(cls));
+        this.applyFilters();
+      }
+    });
+
+    this.userSub = this.userService.currentUser$.subscribe(user => {
       this.currentUser = user;
+      this.isTutorUser = user?.userType === 'tutor';
+      if (!this.isTutorUser && user?.onboardingData?.languages?.length) {
+        this.studentLanguage = user.onboardingData.languages[0];
+        this.loadRecommendedMaterials();
+      }
     });
     this.loadPublicClasses();
+  }
+
+  ngOnDestroy() {
+    this.langSub?.unsubscribe();
+    this.userSub?.unsubscribe();
+  }
+
+  private buildTranslatedLabels() {
+    this.levelLabels = {
+      'any': this.translate.instant('EXPLORE_CLASSES.LEVEL_ANY'),
+      'beginner': this.translate.instant('EXPLORE_CLASSES.LEVEL_BEGINNER'),
+      'intermediate': this.translate.instant('EXPLORE_CLASSES.LEVEL_INTERMEDIATE'),
+      'advanced': this.translate.instant('EXPLORE_CLASSES.LEVEL_ADVANCED')
+    };
+    this.tutorFallback = this.translate.instant('EXPLORE_CLASSES.TUTOR_FALLBACK');
+    this.durationSuffix = this.translate.instant('EXPLORE_CLASSES.DURATION_MIN');
+    this.animScheduleLabel = this.translate.instant('EXPLORE_CLASSES.ANIM_SCHEDULE_CLASS');
+    this.animGoBackLabel = this.translate.instant('EXPLORE_CLASSES.ANIM_GO_BACK');
+  }
+
+  scheduleClass() {
+    const srcBtn = document.querySelector('.schedule-class-btn') as HTMLElement;
+    const srcRect = srcBtn?.getBoundingClientRect();
+
+    const scheduleBtnLabel = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32" stroke-linecap="round"><line x1="256" y1="112" x2="256" y2="400"/><line x1="112" y1="256" x2="400" y2="256"/></svg><span>${this.animScheduleLabel}</span>`;
+
+    const dark = this.isDarkMode;
+    const btnBg = dark ? '#4298d2' : '#222222';
+    const btnFg = '#ffffff';
+    const linkColor = dark ? '#4298d2' : '#222222';
+
+    let clone: HTMLElement | null = null;
+    if (srcRect && srcBtn) {
+      clone = document.createElement('div');
+      clone.innerHTML = scheduleBtnLabel;
+      Object.assign(clone.style, {
+        position: 'fixed',
+        left: `${srcRect.left}px`,
+        top: `${srcRect.top}px`,
+        width: `${srcRect.width}px`,
+        height: `${srcRect.height}px`,
+        zIndex: '10000',
+        pointerEvents: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '8px',
+        boxSizing: 'border-box',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
+        fontSize: '14px',
+        fontWeight: '600',
+        whiteSpace: 'nowrap',
+        color: btnFg,
+        backgroundColor: btnBg,
+        border: 'none',
+        borderRadius: '12px',
+        transition: 'left 0.46s cubic-bezier(0.32, 0.72, 0, 1), top 0.46s cubic-bezier(0.32, 0.72, 0, 1), width 0.46s cubic-bezier(0.32, 0.72, 0, 1), height 0.46s cubic-bezier(0.32, 0.72, 0, 1), border-radius 0.46s cubic-bezier(0.32, 0.72, 0, 1), font-size 0.36s ease 0.1s, background-color 0.36s ease 0.1s, color 0.36s ease 0.1s',
+      });
+      document.body.appendChild(clone);
+    }
+
+    this.showScheduleForm = true;
+    this.cdr.detectChanges();
+
+    if (clone && srcRect) {
+      requestAnimationFrame(() => {
+        if (!clone) return;
+        clone.style.top = `${srcRect.top - 10}px`;
+      });
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const dest = document.querySelector('.schedule-class-inline .go-back-link') as HTMLElement;
+
+          if (dest && clone) {
+            dest.style.transition = 'none';
+            dest.style.opacity = '0';
+            const destRect = dest.getBoundingClientRect();
+
+            clone.style.transition = 'left 0.36s cubic-bezier(0.32, 0.72, 0, 1), top 0.36s cubic-bezier(0.32, 0.72, 0, 1), width 0.36s cubic-bezier(0.32, 0.72, 0, 1), height 0.36s cubic-bezier(0.32, 0.72, 0, 1), border-radius 0.36s cubic-bezier(0.32, 0.72, 0, 1), font-size 0.36s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.36s ease, color 0.36s ease';
+            clone.textContent = this.animGoBackLabel;
+            clone.style.left = `${destRect.left}px`;
+            clone.style.top = `${destRect.top}px`;
+            clone.style.width = `${destRect.width}px`;
+            clone.style.height = `${destRect.height}px`;
+            clone.style.backgroundColor = 'transparent';
+            clone.style.color = linkColor;
+            clone.style.borderRadius = '0';
+            clone.style.textDecoration = 'underline';
+
+            setTimeout(() => {
+              dest.style.opacity = '1';
+              requestAnimationFrame(() => {
+                if (clone?.parentNode) clone.remove();
+              });
+              setTimeout(() => { dest.style.transition = ''; dest.style.opacity = ''; }, 50);
+            }, 420);
+          } else if (clone) {
+            clone.style.opacity = '0';
+            setTimeout(() => { if (clone?.parentNode) clone.remove(); }, 350);
+          }
+        });
+      });
+    }
+  }
+
+  onScheduleGoBack() {
+    const srcLink = document.querySelector('.schedule-class-inline .go-back-link') as HTMLElement;
+    const srcRect = srcLink?.getBoundingClientRect();
+
+    const dark = this.isDarkMode;
+    const btnBg = dark ? '#4298d2' : '#222222';
+    const btnFg = '#ffffff';
+    const linkColor = dark ? '#4298d2' : '#222222';
+
+    let clone: HTMLElement | null = null;
+    if (srcRect) {
+      clone = document.createElement('div');
+      clone.textContent = this.animGoBackLabel;
+      Object.assign(clone.style, {
+        position: 'fixed',
+        left: `${srcRect.left}px`,
+        top: `${srcRect.top}px`,
+        width: `${srcRect.width}px`,
+        height: `${srcRect.height}px`,
+        zIndex: '10000',
+        pointerEvents: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxSizing: 'border-box',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
+        fontSize: '14px',
+        fontWeight: '600',
+        whiteSpace: 'nowrap',
+        color: linkColor,
+        backgroundColor: 'transparent',
+        textDecoration: 'underline',
+        border: 'none',
+        transition: 'left 0.46s cubic-bezier(0.32, 0.72, 0, 1), top 0.46s cubic-bezier(0.32, 0.72, 0, 1), width 0.46s cubic-bezier(0.32, 0.72, 0, 1), height 0.46s cubic-bezier(0.32, 0.72, 0, 1), border-radius 0.46s cubic-bezier(0.32, 0.72, 0, 1), font-size 0.36s ease 0.1s, background-color 0.36s ease 0.1s, color 0.36s ease 0.1s',
+      });
+      document.body.appendChild(clone);
+    }
+
+    this.returningFromSchedule = true;
+    this.showScheduleForm = false;
+    this.cdr.detectChanges();
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const destBtn = document.querySelector('.schedule-class-btn') as HTMLElement;
+
+        if (clone && destBtn) {
+          const destRect = destBtn.getBoundingClientRect();
+          destBtn.style.transition = 'none';
+          destBtn.style.opacity = '0';
+
+          clone.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32" stroke-linecap="round"><line x1="256" y1="112" x2="256" y2="400"/><line x1="112" y1="256" x2="400" y2="256"/></svg><span>${this.animScheduleLabel}</span>`;
+          clone.style.textDecoration = 'none';
+          clone.style.gap = '8px';
+          clone.style.left = `${destRect.left}px`;
+          clone.style.top = `${destRect.top}px`;
+          clone.style.width = `${destRect.width}px`;
+          clone.style.height = `${destRect.height}px`;
+          clone.style.backgroundColor = btnBg;
+          clone.style.color = btnFg;
+          clone.style.borderRadius = '12px';
+
+          setTimeout(() => {
+            destBtn.style.opacity = '1';
+            requestAnimationFrame(() => {
+              if (clone?.parentNode) clone.remove();
+            });
+            setTimeout(() => {
+              destBtn.style.transition = '';
+              destBtn.style.opacity = '';
+              this.returningFromSchedule = false;
+              this.cdr.detectChanges();
+            }, 50);
+          }, 480);
+        } else {
+          if (clone) clone.remove();
+          this.returningFromSchedule = false;
+          this.cdr.detectChanges();
+        }
+      });
+    });
+  }
+
+  onClassCreated() {
+    this.showScheduleForm = false;
+    this.loadPublicClasses();
+  }
+
+  goBack() {
+    if (this.inline) {
+      this.goBackEvent.emit();
+    } else {
+      this.router.navigate(['/tabs/home']);
+    }
   }
 
   loadPublicClasses() {
     this.isLoading = true;
     this.classService.getPublicClasses().subscribe({
       next: (response) => {
-        console.log('📚 Public classes loaded:', response);
-        console.log('📚 Number of classes:', response.classes?.length || 0);
-        if (response.classes && response.classes.length > 0) {
-          console.log('📚 First class details:', {
-            name: response.classes[0].name,
-            startTime: response.classes[0].startTime,
-            endTime: response.classes[0].endTime,
-            isPublic: response.classes[0].isPublic,
-            duration: response.classes[0].duration,
-            level: response.classes[0].level
-          });
-        }
         if (response.success) {
-          // Show ALL classes including cancelled ones with status
-          this.publicClasses = response.classes.map((cls: any) => ({
-            ...cls,
-            sanitizedDescription: cls.description ? this.sanitizer.bypassSecurityTrustHtml(cls.description) : '',
-            plainTextDescription: this.getPlainTextDescription(cls.description),
-            tutorName: this.formatDisplayName(cls.name)
-          }));
-          this.filteredClasses = [...this.publicClasses]; // Initialize with all classes
-          console.log('📚 After filtering, showing', this.filteredClasses.length, 'classes (including cancelled)');
+          this.publicClasses = response.classes.map((cls: any) => this.enrichClassItem(cls));
           this.applyFilters();
         } else {
           this.publicClasses = [];
@@ -126,7 +319,7 @@ export class ExplorePage implements OnInit {
         console.error('Error loading public classes:', error);
         this.isLoading = false;
         this.toast.create({
-          message: 'Failed to load classes',
+          message: this.translate.instant('EXPLORE_CLASSES.TOAST_LOAD_FAILED'),
           duration: 2000,
           color: 'danger'
         }).then(t => t.present());
@@ -134,12 +327,29 @@ export class ExplorePage implements OnInit {
     });
   }
 
-  
-  
+  private enrichClassItem(cls: any): any {
+    const tz = this.userTz;
+    const start = new Date(cls.startTime);
+    const end = new Date(cls.endTime);
+    const startStr = formatTimeInTz(start, tz);
+    const endStr = formatTimeInTz(end, tz);
+
+    return {
+      ...cls,
+      plainTextDescription: this.getPlainTextDescription(cls.description),
+      displayDate: formatDateInTz(start, tz, { weekday: 'short', month: 'short', day: 'numeric', year: undefined }),
+      displayTimeRange: `${startStr} – ${endStr}`,
+      displayDuration: `${cls.duration || Math.round((end.getTime() - start.getTime()) / 60000)}${this.durationSuffix}`,
+      displayTutorName: this.formatTutorName(cls.tutorId),
+      displayLevel: this.getLevelLabel(cls.level),
+      displayPrice: (cls.price || 0).toFixed(2),
+      displayStudentCount: `${cls.confirmedStudents?.length || 0}/${cls.capacity}`,
+    };
+  }
+
   applyFilters() {
     let filtered = [...this.publicClasses];
-    
-    // Language filter (extract from class name or description)
+
     if (this.filters.language && this.filters.language !== 'any') {
       filtered = filtered.filter(cls => {
         const name = (cls.name || '').toLowerCase();
@@ -148,32 +358,23 @@ export class ExplorePage implements OnInit {
         return name.includes(lang) || desc.includes(lang);
       });
     }
-    
-    // Price filter
+
     filtered = filtered.filter(cls => {
       const price = cls.price || 0;
       return price >= this.filters.priceMin && price <= this.filters.priceMax;
     });
-    
-    // Date range filter
+
     if (this.filters.dateFrom) {
       const fromDate = new Date(this.filters.dateFrom);
-      filtered = filtered.filter(cls => {
-        const classDate = new Date(cls.startTime);
-        return classDate >= fromDate;
-      });
+      filtered = filtered.filter(cls => new Date(cls.startTime) >= fromDate);
     }
-    
+
     if (this.filters.dateTo) {
       const toDate = new Date(this.filters.dateTo);
-      toDate.setHours(23, 59, 59); // Include entire day
-      filtered = filtered.filter(cls => {
-        const classDate = new Date(cls.startTime);
-        return classDate <= toDate;
-      });
+      toDate.setHours(23, 59, 59);
+      filtered = filtered.filter(cls => new Date(cls.startTime) <= toDate);
     }
-    
-    // Search query filter
+
     if (this.filters.searchQuery) {
       const query = this.filters.searchQuery.toLowerCase();
       filtered = filtered.filter(cls => {
@@ -183,66 +384,22 @@ export class ExplorePage implements OnInit {
         return name.includes(query) || desc.includes(query) || tutorName.includes(query);
       });
     }
-    
-    // Sort
+
     filtered.sort((a, b) => {
       switch (this.filters.sortBy) {
-        case 'date_asc':
-          return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
-        case 'date_desc':
-          return new Date(b.startTime).getTime() - new Date(a.startTime).getTime();
-        case 'price_asc':
-          return (a.price || 0) - (b.price || 0);
-        case 'price_desc':
-          return (b.price || 0) - (a.price || 0);
-        case 'name_asc':
-          return (a.name || '').localeCompare(b.name || '');
-        default:
-          return 0;
+        case 'date_asc': return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
+        case 'date_desc': return new Date(b.startTime).getTime() - new Date(a.startTime).getTime();
+        case 'price_asc': return (a.price || 0) - (b.price || 0);
+        case 'price_desc': return (b.price || 0) - (a.price || 0);
+        case 'name_asc': return (a.name || '').localeCompare(b.name || '');
+        default: return 0;
       }
     });
-    
+
     this.filteredClasses = filtered;
+    this.computeActiveFilterCount();
   }
-  
-  toggleLanguageDropdown() {
-    this.showLanguageDropdown = !this.showLanguageDropdown;
-  }
-  
-  selectLanguage(language: string) {
-    this.filters.language = language;
-    this.showLanguageDropdown = false;
-    this.applyFilters();
-  }
-  
-  getCurrentLanguageLabel(): string {
-    const currentLang = this.availableLanguages.find(lang => lang.value === this.filters.language);
-    return currentLang ? currentLang.label : 'Any language';
-  }
-  
-  onPriceRangeChange(event: any) {
-    const value = event.detail.value;
-    this.priceRange = {
-      lower: value.lower,
-      upper: value.upper
-    };
-    this.filters.priceMin = value.lower;
-    this.filters.priceMax = value.upper;
-    this.applyFilters();
-  }
-  
-  toggleSecondaryFilters() {
-    this.showSecondaryFilters = !this.showSecondaryFilters;
-  }
-  
-  openFiltersView() {
-    this.showFiltersView = true;
-  }
-  
-  closeFilters() {
-    this.showFiltersView = false;
-  }
-  
+
   clearFilters() {
     this.filters = {
       language: 'any',
@@ -253,14 +410,10 @@ export class ExplorePage implements OnInit {
       sortBy: 'date_asc',
       searchQuery: ''
     };
-    this.priceRange = {
-      lower: 0,
-      upper: 200
-    };
     this.applyFilters();
   }
-  
-  getActiveFilterCount(): number {
+
+  private computeActiveFilterCount() {
     let count = 0;
     if (this.filters.language && this.filters.language !== 'any') count++;
     if (this.filters.priceMin !== 0 || this.filters.priceMax !== 200) count++;
@@ -268,190 +421,129 @@ export class ExplorePage implements OnInit {
     if (this.filters.dateTo) count++;
     if (this.filters.searchQuery) count++;
     if (this.filters.sortBy !== 'date_asc') count++;
-    return count;
+    this.activeFilterCount = count;
   }
-  
-  @HostListener('document:click', ['$event'])
-  onDocumentClick(event: Event) {
-    if (this.showLanguageDropdown) {
-      this.showLanguageDropdown = false;
+
+  async openFiltersModal() {
+    const modal = await this.modalCtrl.create({
+      component: ExploreFiltersModalComponent,
+      componentProps: {
+        initialFilters: { ...this.filters },
+        totalClassCount: this.publicClasses.length
+      },
+      cssClass: 'explore-filters-modal-sheet'
+    });
+
+    await modal.present();
+
+    const { data, role } = await modal.onWillDismiss();
+    if (role === 'apply' && data) {
+      this.filters = data;
+      this.applyFilters();
     }
   }
 
   formatDate(dateString: string): string {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'short', 
-      month: 'short', 
-      day: 'numeric' 
+    return formatDateInTz(date, this.userTz, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: undefined
     });
-  }
-
-// Format user name as "FirstName L." (e.g., "Phillip D.")
-     formatDisplayName(user: any) {
-    if (!user) return 'User';
-    
-    const firstName = user.firstName;
-    const lastName = user.lastName;
-    const fullName = user.name;
-    
-    if (firstName && lastName) {
-      const lastInitial = lastName.charAt(0).toUpperCase();
-      return `${firstName} ${lastInitial}.`;
-    }
-    
-    if (fullName) {
-      const parts = fullName.trim().split(' ').filter((p: string) => p.length > 0);
-      if (parts.length >= 2) {
-        const first = parts[0];
-        const lastInitial = parts[parts.length - 1].charAt(0).toUpperCase();
-        return `${first} ${lastInitial}.`;
-      }
-      return fullName;
-    }
-    
-    return 'User';
   }
 
   formatTime(dateString: string): string {
     const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit', 
-      hour12: true 
-    });
+    return formatTimeInTz(date, this.userTz);
   }
 
   getLevelLabel(level: string): string {
-    const levelMap: { [key: string]: string } = {
-      'any': 'Any Level',
-      'beginner': 'Beginner',
-      'intermediate': 'Intermediate',
-      'advanced': 'Advanced'
-    };
-    return levelMap[level] || 'Any Level';
+    return this.levelLabels[level] || this.levelLabels['any'] || level;
   }
 
   formatTutorName(tutorData: any): string {
-    if (!tutorData) return 'Tutor';
-    
-    // Check if we have firstName and lastName fields
+    if (!tutorData) return this.tutorFallback;
     if (tutorData.firstName && tutorData.lastName) {
-      const lastInitial = tutorData.lastName.charAt(0).toUpperCase();
-      return `${tutorData.firstName} ${lastInitial}.`;
+      return `${tutorData.firstName} ${tutorData.lastName.charAt(0).toUpperCase()}.`;
     }
-    
-    // Fallback to name field if firstName/lastName not available
     const fullName = tutorData.name || tutorData;
-    if (typeof fullName !== 'string') return 'Tutor';
-    
+    if (typeof fullName !== 'string') return this.tutorFallback;
     const names = fullName.trim().split(' ');
-    if (names.length === 0) return 'Tutor';
-    if (names.length === 1) return names[0];
-    
-    const firstName = names[0];
-    const lastName = names[names.length - 1];
-    const lastInitial = lastName.charAt(0).toUpperCase();
-    
-    return `${firstName} ${lastInitial}.`;
+    if (names.length <= 1) return names[0] || this.tutorFallback;
+    return `${names[0]} ${names[names.length - 1].charAt(0).toUpperCase()}.`;
   }
 
   getPlainTextDescription(htmlDescription: string | undefined): string {
     if (!htmlDescription) return '';
-    
-    // Create a temporary div to parse HTML
     const temp = document.createElement('div');
     temp.innerHTML = htmlDescription;
-    
-    // Get text content (strips all HTML tags)
     return temp.textContent || temp.innerText || '';
   }
 
-  async enrollInClass(classItem: any) {
-    // If already enrolled
-    if (classItem.isEnrolled) {
-      this.toast.create({
-        message: 'You are already enrolled in this class',
-        duration: 2000,
-        color: 'primary'
-      }).then(t => t.present());
-      return;
-    }
+  loadRecommendedMaterials() {
+    if (!this.studentLanguage) return;
+    this.isLoadingRecommended = true;
+    this.materialService.getRecommendedMaterials(this.studentLanguage).subscribe({
+      next: (res) => {
+        this.isLoadingRecommended = false;
+        if (res.success) {
+          this.recommendedMaterials = res.materials || [];
+          this.recommendedStruggles = res.struggles || [];
+        }
+      },
+      error: () => {
+        this.isLoadingRecommended = false;
+      }
+    });
+  }
 
-    // If they have a pending invitation, direct them to invitations
-    if (classItem.hasInvitation && classItem.invitationStatus === 'pending') {
-      this.toast.create({
-        message: 'You have been invited to this class. Check your class invitations on the home page.',
-        duration: 3000,
-        color: 'warning'
-      }).then(t => t.present());
-      return;
-    }
+  viewMaterial(materialId: string) {
+    this.router.navigate(['/material', materialId]);
+  }
 
-    // If they already declined the invitation
-    if (classItem.hasInvitation && classItem.invitationStatus === 'declined') {
-      this.toast.create({
-        message: 'You previously declined this class invitation',
-        duration: 2000,
-        color: 'medium'
-      }).then(t => t.present());
-      return;
+  formatMaterialTutorName(mat: any): string {
+    const tutor = mat.tutorId;
+    if (!tutor) return 'Tutor';
+    if (tutor.firstName && tutor.lastName) {
+      return `${tutor.firstName} ${tutor.lastName.charAt(0)}.`;
     }
-
-    // If class is full
-    if (classItem.isFull) {
-      this.toast.create({
-        message: 'This class is full',
-        duration: 2000,
-        color: 'warning'
-      }).then(t => t.present());
-      return;
-    }
-
-    // For now, show message that enrollment needs to be implemented
-    // Later you can add logic to create a "join request" or auto-enroll if space available
-    this.toast.create({
-      message: 'Direct enrollment for public classes will be implemented soon. For now, ask the tutor for an invitation.',
-      duration: 3000,
-      color: 'primary'
-    }).then(t => t.present());
+    return tutor.name || 'Tutor';
   }
 
   viewClassDetails(classItem: any) {
     if (classItem._id) {
-      this.router.navigate(['/tabs/home/explore', classItem._id]);
+      this.router.navigate(['/tabs/lessons', classItem._id]);
     }
   }
 
-  async openClassInvitation(classId: string) {
-    const modal = await this.modalCtrl.create({
-      component: ClassInvitationModalComponent,
-      componentProps: {
-        classId
-      },
-      cssClass: 'class-invitation-modal'
-    });
-
-    await modal.present();
-
-    const { data } = await modal.onWillDismiss();
-    if (data?.accepted || data?.declined) {
-      // Reload classes to reflect the change
-      this.loadPublicClasses();
-    }
-  }
-
-  handleClassAction(classItem: any, event: Event) {
+  async handleClassAction(classItem: any, event: Event) {
     event.stopPropagation();
-    
-    // If they have a pending invitation, open the invitation modal
     if (classItem.hasInvitation && classItem.invitationStatus === 'pending') {
-      this.openClassInvitation(classItem._id);
+      const modal = await this.modalCtrl.create({
+        component: ClassInvitationModalComponent,
+        componentProps: { classId: classItem._id },
+        cssClass: 'class-invitation-modal'
+      });
+      await modal.present();
+      const { data } = await modal.onWillDismiss();
+      if (data?.accepted || data?.declined) {
+        this.loadPublicClasses();
+      }
     } else {
-      // Otherwise, proceed with normal enrollment
       this.enrollInClass(classItem);
     }
   }
 
+  async enrollInClass(classItem: any) {
+    if (classItem.isEnrolled) {
+      (await this.toast.create({ message: this.translate.instant('EXPLORE_CLASSES.TOAST_ALREADY_ENROLLED'), duration: 2000, color: 'primary' })).present();
+      return;
+    }
+    if (classItem.isFull) {
+      (await this.toast.create({ message: this.translate.instant('EXPLORE_CLASSES.TOAST_CLASS_FULL'), duration: 2000, color: 'warning' })).present();
+      return;
+    }
+    (await this.toast.create({ message: this.translate.instant('EXPLORE_CLASSES.TOAST_ENROLL_SOON'), duration: 3000, color: 'primary' })).present();
+  }
 }
-

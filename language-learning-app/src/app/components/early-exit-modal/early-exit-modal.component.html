@@ -1,40 +1,18 @@
 <div class="early-exit-modal">
   <div class="modal-header">
-    <ion-icon name="alert-circle-outline" class="header-icon"></ion-icon>
-    <h2>You're Leaving Early</h2>
+    <ion-icon name="time-outline" class="header-icon"></ion-icon>
+    <h2>Leaving Early?</h2>
     <p>There are <strong>{{ minutesRemaining }} minutes</strong> remaining in your scheduled lesson.</p>
   </div>
 
   <div class="modal-content">
-    <p class="question-text">What would you like to do?</p>
+    <p class="info-text">
+      The lesson will continue until the scheduled end time. You can rejoin at any time before then.
+    </p>
 
     <div class="action-buttons">
-      <!-- Report Technical Error -->
-      <button class="action-btn error-btn" (click)="reportTechnicalError()">
-        <div class="btn-icon-wrapper">
-          <ion-icon name="bug-outline"></ion-icon>
-        </div>
-        <div class="btn-content">
-          <h3>Report a Technical Error</h3>
-          <p>Something went wrong during the call</p>
-        </div>
-        <ion-icon name="chevron-forward-outline" class="chevron"></ion-icon>
-      </button>
-
-      <!-- End Lesson -->
-      <button class="action-btn end-btn" (click)="endLesson()">
-        <div class="btn-icon-wrapper">
-          <ion-icon name="stop-circle-outline"></ion-icon>
-        </div>
-        <div class="btn-content">
-          <h3>End Lesson</h3>
-          <p>Permanently end the lesson now</p>
-        </div>
-        <ion-icon name="chevron-forward-outline" class="chevron"></ion-icon>
-      </button>
-
-      <!-- Rejoin Call -->
-      <button class="action-btn rejoin-btn" (click)="rejoinCall()">
+      <!-- Rejoin Call - Primary Action -->
+      <button class="action-btn rejoin-btn primary" (click)="rejoinCall()">
         <div class="btn-icon-wrapper">
           <ion-icon name="videocam-outline"></ion-icon>
         </div>
@@ -45,12 +23,17 @@
         <ion-icon name="chevron-forward-outline" class="chevron"></ion-icon>
       </button>
     </div>
+
+    <p class="note-text">
+      <ion-icon name="information-circle-outline"></ion-icon>
+      Your lesson analysis will be available after the scheduled end time.
+    </p>
   </div>
 
   <div class="modal-footer">
     <ion-button fill="clear" (click)="dismiss()">
       <ion-icon name="close-outline" slot="start"></ion-icon>
-      Close
+      I'm done for now
     </ion-button>
   </div>
 </div>

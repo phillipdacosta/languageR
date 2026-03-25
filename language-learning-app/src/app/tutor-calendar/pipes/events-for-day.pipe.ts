@@ -25,9 +25,9 @@ export class EventsForDayPipe implements PipeTransform {
       const isAvailability = extendedProps.type === 'availability' || extendedProps.type === 'available';
       const isLesson = extendedProps.lessonId || extendedProps.lesson;
       const isClass = extendedProps.classId || extendedProps.isClass;
+      const isGoogleCalendar = extendedProps.isGoogleCalendar;
       
-      // Include availability blocks as well as lessons/classes
-      return isInRange && (isLesson || isClass || isAvailability);
+      return isInRange && (isLesson || isClass || isAvailability || isGoogleCalendar);
     });
     
     // Second pass: filter out cancelled events that overlap with active OR newer cancelled events
@@ -98,17 +98,17 @@ export class EventsForDayPipe implements PipeTransform {
     return filteredEvents.map(event => {
       const extendedProps = (event.extendedProps || {}) as any;
       
-      // Check if it's availability, class, or lesson
       const isAvailability = extendedProps.type === 'availability' || extendedProps.type === 'available';
       const isClass = extendedProps.isClass || extendedProps.classId;
+      const isGoogleCalendar = extendedProps.isGoogleCalendar;
       
-      // For availability: show "Available"
-      // For classes: use class name and thumbnail
-      // For lessons: use student name and avatar
       let displayName = '';
       let avatar = '';
       
-      if (isAvailability) {
+      if (isGoogleCalendar) {
+        displayName = event.title || extendedProps.summary || 'Busy';
+        avatar = '';
+      } else if (isAvailability) {
         displayName = '';
         avatar = '';
       } else if (isClass) {
@@ -116,17 +116,21 @@ export class EventsForDayPipe implements PipeTransform {
         avatar = extendedProps.classThumbnail || '';
       } else {
         const studentName = extendedProps.studentName || extendedProps.student?.name || '';
-        displayName = this.formatNameWithInitial(studentName);
+        const formattedName = this.formatNameWithInitial(studentName);
+        const subject = extendedProps.subject || '';
+        // Include lesson type (e.g., "John D. - Spanish lesson")
+        displayName = subject ? `${formattedName} - ${subject}` : formattedName;
         avatar = extendedProps.studentAvatar || extendedProps.student?.profilePicture || '';
       }
       
       return {
         ...event,
-        title: isAvailability ? 'Available' : (event.title || 'Untitled Event'),
+        title: isGoogleCalendar ? displayName : (isAvailability ? 'Available' : (event.title || 'Untitled Event')),
         studentName: displayName,
         studentAvatar: avatar,
         isAvailability: isAvailability,
         isClass: isClass,
+        isGoogleCalendar: isGoogleCalendar || false,
         start: new Date(event.start as any),
         end: new Date(event.end as any)
       };

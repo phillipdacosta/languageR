@@ -1,132 +1,112 @@
-import { Injectable } from '@angular/core';
+import { Injectable, OnDestroy } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
 })
-export class ThemeService {
+export class ThemeService implements OnDestroy {
   private darkModeSubject = new BehaviorSubject<boolean>(false);
   public darkMode$: Observable<boolean> = this.darkModeSubject.asObservable();
 
   private readonly DARK_MODE_KEY = 'darkMode';
+  private mediaQuery: MediaQueryList | null = null;
+  private mediaListener: ((e: MediaQueryListEvent) => void) | null = null;
 
   constructor() {
-    // Load dark mode preference from localStorage immediately
-    this.loadDarkModePreferenceSync();
-    
-    // Apply to DOM when ready
+    this.resolveInitialTheme();
+
     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       if (document.readyState === 'complete' || document.readyState === 'interactive') {
-        // DOM already ready, apply immediately
         setTimeout(() => this.applyDarkMode(this.darkModeSubject.value), 0);
       } else {
-        // Wait for DOM to be ready, then apply theme
         document.addEventListener('DOMContentLoaded', () => {
           this.applyDarkMode(this.darkModeSubject.value);
         });
       }
+
+      this.listenForOsThemeChanges();
     }
   }
 
-  /**
-   * Initialize theme service manually (for debugging)
-   */
+  ngOnDestroy(): void {
+    if (this.mediaQuery && this.mediaListener) {
+      this.mediaQuery.removeEventListener('change', this.mediaListener);
+    }
+  }
+
   public initializeTheme(): void {
-    this.loadDarkModePreference();
+    this.resolveInitialTheme();
+    this.applyDarkMode(this.darkModeSubject.value);
   }
 
-  /**
-   * Force apply current theme state to DOM
-   */
   public forceApplyTheme(): void {
-    const currentState = this.darkModeSubject.value;
-    this.applyDarkMode(currentState);
-  }
-
-  /**
-   * Load dark mode preference from localStorage synchronously (no DOM application)
-   */
-  private loadDarkModePreferenceSync(): void {
-    if (typeof localStorage === 'undefined') {
-      // localStorage not available (SSR or very early in initialization)
-      return;
-    }
-    
-    const saved = localStorage.getItem(this.DARK_MODE_KEY);
-    const isDarkMode = saved === 'true';
-    
-    // Update the BehaviorSubject only
-    this.darkModeSubject.next(isDarkMode);
-  }
-
-  /**
-   * Load dark mode preference from localStorage and apply to DOM
-   */
-  private loadDarkModePreference(): void {
-    this.loadDarkModePreferenceSync();
     this.applyDarkMode(this.darkModeSubject.value);
   }
 
   /**
-   * Toggle dark mode
+   * Determine initial theme: saved preference wins, otherwise follow OS.
    */
-  toggleDarkMode(): void {
-    const current = this.darkModeSubject.value;
-    this.setDarkMode(!current);
+  private resolveInitialTheme(): void {
+    if (typeof localStorage === 'undefined') return;
+
+    const saved = localStorage.getItem(this.DARK_MODE_KEY);
+
+    if (saved !== null) {
+      this.darkModeSubject.next(saved === 'true');
+    } else if (typeof window !== 'undefined' && window.matchMedia) {
+      const osDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      this.darkModeSubject.next(osDark);
+    }
   }
 
   /**
-   * Set dark mode state
+   * React to OS dark mode changes in real time.
+   * Always syncs — OS toggle acts as a master switch and updates the in-app setting.
    */
+  private listenForOsThemeChanges(): void {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+
+    this.mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    this.mediaListener = (e: MediaQueryListEvent) => {
+      this.setDarkMode(e.matches);
+    };
+    this.mediaQuery.addEventListener('change', this.mediaListener);
+  }
+
+  toggleDarkMode(): void {
+    this.setDarkMode(!this.darkModeSubject.value);
+  }
+
   setDarkMode(isDark: boolean): void {
     this.darkModeSubject.next(isDark);
-    
-    // Save to localStorage for persistence
+
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem(this.DARK_MODE_KEY, isDark.toString());
     }
-    
-    // Apply or remove dark class from document body
+
     this.applyDarkMode(isDark);
   }
 
-  /**
-   * Get current dark mode state
-   */
   isDarkMode(): boolean {
     return this.darkModeSubject.value;
   }
 
-  /**
-   * Apply dark mode by adding/removing '.ion-palette-dark' class to html element
-   * According to Ionic docs: https://ionicframework.com/docs/theming/dark-mode
-   * The '.ion-palette-dark' class MUST be added to the html element
-   */
   private applyDarkMode(isDark: boolean): void {
-    if (typeof document === 'undefined' || typeof window === 'undefined') {
-      // document/window not available (SSR)
-      return;
-    }
-    
-    // Ensure we're in the browser environment
+    if (typeof document === 'undefined' || typeof window === 'undefined') return;
+
     const html = document.documentElement;
-    
     if (!html) {
-      console.warn('🌓 Dark mode: HTML element not found, will retry...');
-      // Retry after a short delay if DOM not ready
       setTimeout(() => this.applyDarkMode(isDark), 10);
       return;
     }
-    
-    // Apply .ion-palette-dark to html element (required by Ionic dark.class.css)
+
     if (isDark) {
       html.classList.add('ion-palette-dark');
     } else {
       html.classList.remove('ion-palette-dark');
     }
-    
-    // Force a style recalculation to ensure changes take effect
-    if (typeof window !== 'undefined' && window.getComputedStyle) {
+
+    if (window.getComputedStyle) {
       window.getComputedStyle(html).getPropertyValue('color');
     }
   }

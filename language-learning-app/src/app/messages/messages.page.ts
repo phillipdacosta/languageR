@@ -9,8 +9,11 @@ import { UserService } from '../services/user.service';
 import { ImageViewerModal } from './image-viewer-modal.component';
 import { MessageContextMenuComponent } from './message-context-menu.component';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
+import { TutorAvailabilitySelectionModalComponent } from '../components/tutor-availability-selection-modal/tutor-availability-selection-modal.component';
+import { TranslateService } from '@ngx-translate/core';
+import { formatTimeInTz, formatDateInTz, getGlobalHour12 } from '../shared/timezone.utils';
 import { Subject, BehaviorSubject, Subscription } from 'rxjs';
-import { takeUntil, debounceTime, take, switchMap } from 'rxjs/operators';
+import { takeUntil, debounceTime, take, switchMap, filter } from 'rxjs/operators';
 import { trigger, style, transition, animate } from '@angular/animations';
 
 @Component({
@@ -52,6 +55,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
 
   private destroy$ = new Subject<void>();
   
+  get shortDateTimeFormat(): string { return getGlobalHour12() ? 'M/d/yy, h:mm a' : 'M/d/yy, HH:mm'; }
   conversations: Conversation[] = [];
   selectedConversation: Conversation | null = null;
   messages: Message[] = [];
@@ -100,10 +104,13 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   hoveredConversationId: string | null = null; // Track which conversation is being hovered in the list
   showAvailabilityViewer = false; // Toggle for availability viewer in details panel
   showCheckout = false; // Toggle for checkout in details panel
-  checkoutData: { tutorId: string; date: string; time: string; duration: number } | null = null;
-  private hoverCardTimeout: any = null; // Timeout for hover card delay
+  checkoutData: { tutorId: string; date: string; time: string; duration: number; timezone?: string } | null = null;
+  otherUserLocalTime = '';
+  private localTimeInterval: any = null;
+  private hoverCardTimeout: any = null;
   currentUserId$ = new BehaviorSubject<string>('');
   currentUserType: 'student' | 'tutor' | null = null;
+  currentUser: any = null;
   // Conversations search
   searchTerm = '';
   private searchInput$ = new Subject<string>();
@@ -127,12 +134,17 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   // Track when a message was just deleted to trust server unread counts
   private recentlyDeletedConversations = new Set<string>();
   
+  // Track visibility change handler
+  private visibilityChangeHandler: (() => void) | null = null;
+  private lastVisibilityTime = 0; // Debounce visibility change refreshes
+  
   // Track when avatar/name animation is happening
   private isAnimatingConversationTransition = false;
   private animationCleanupTimeout: any = null;
   private currentAnimationElements: {
     avatarClone?: HTMLElement;
     nameClone?: HTMLElement;
+    overlay?: HTMLElement;
     sourceAvatar?: HTMLElement;
     sourceName?: HTMLElement;
   } = {};
@@ -216,7 +228,8 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     private modalController: ModalController,
     private alertController: AlertController,
     private toastController: ToastController,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private translateService: TranslateService
   ) {}
 
   ngOnInit() {
@@ -419,8 +432,13 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
           );
           
           if (!existingMessage) {
-            this.messages.push(message);
+            console.log('[MessagesPage] ✅ Adding new message to UI:', message.content?.slice(0, 30));
+            // Create new array reference for better change detection
+            this.messages = [...this.messages, message];
+            this.cdr.detectChanges(); // Force Angular to detect changes
             this.scrollToBottom(true); // Skip animation check for new incoming messages
+          } else {
+            console.log('[MessagesPage] ⏭️ Skipping duplicate message');
           }
 
           const isActiveConversation = isForSelectedConversation && this.isPageVisible;
@@ -478,6 +496,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
 
       // Get current user type from UserService
       this.userService.currentUser$.pipe(takeUntil(this.destroy$)).subscribe(user => {
+        this.currentUser = user ?? null;
         this.currentUserType = user?.userType || null;
       });
 
@@ -510,6 +529,44 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       this.searchInput$.pipe(debounceTime(150), takeUntil(this.destroy$)).subscribe(term => {
         this.searchTerm = (term || '').trim();
       });
+      
+      // Listen for WebSocket reconnection to reload messages
+      this.websocketService.connection$.pipe(
+        takeUntil(this.destroy$)
+      ).subscribe(isConnected => {
+        console.log('[MessagesPage] WebSocket connection status changed:', isConnected);
+        if (isConnected && this.selectedConversation && this.isPageVisible) {
+          // Reload messages when WebSocket reconnects while viewing a conversation
+          console.log('[MessagesPage] WebSocket reconnected - reloading messages for current conversation');
+          // Preserve current scroll position for reconnection (don't jump to unread)
+          const container = this.chatContainer?.nativeElement;
+          const currentScrollTop = container?.scrollTop || 0;
+          const wasAtBottom = container ? (container.scrollHeight - container.scrollTop - container.clientHeight < 50) : true;
+          
+          setTimeout(() => {
+            this.loadMessagesPreserveScroll(currentScrollTop, wasAtBottom);
+          }, 500); // Small delay to ensure socket is fully ready
+        }
+      });
+      
+      // Set up visibility change handler to reload messages when tab becomes active
+      this.visibilityChangeHandler = () => {
+        const now = Date.now();
+        if (document.visibilityState === 'visible' && this.selectedConversation) {
+          // Debounce - only reload if more than 2 seconds since last visibility change
+          if (now - this.lastVisibilityTime > 2000) {
+            console.log('[MessagesPage] Tab became visible - reloading messages');
+            this.lastVisibilityTime = now;
+            // Preserve scroll position when reloading due to visibility change
+            const container = this.chatContainer?.nativeElement;
+            const currentScrollTop = container?.scrollTop || 0;
+            const wasAtBottom = container ? (container.scrollHeight - container.scrollTop - container.clientHeight < 50) : true;
+            this.loadMessagesPreserveScroll(currentScrollTop, wasAtBottom);
+            this.reloadConversationsDebounced();
+          }
+        }
+      };
+      document.addEventListener('visibilitychange', this.visibilityChangeHandler);
     }
 
     // Note: loadConversations() is now called in the authService.user$ subscription above
@@ -804,10 +861,10 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     if (diffDays === 1) return 'Yesterday';
     // Within the last week, show weekday name
     if (diffDays > 1 && diffDays < 7) {
-      return date.toLocaleDateString(undefined, { weekday: 'short' });
+      return formatDateInTz(date, this.userTz, { weekday: 'short', month: undefined, day: undefined, year: undefined });
     }
     // Otherwise show locale short date
-    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return formatDateInTz(date, this.userTz, { month: 'short', day: 'numeric', year: undefined });
   }
 
   // Ionic lifecycle hook - called every time the view enters
@@ -817,6 +874,10 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     const isOnMessagesPage = this.router.url.includes('/messages');
     
     this.isPageVisible = isOnMessagesPage;
+    
+    // Ensure WebSocket is connected for real-time messaging
+    console.log('[MessagesPage] Ensuring WebSocket connection...');
+    this.websocketService.ensureConnected();
     
     // Clear selected conversation on mobile to always show conversation list first
     // This ensures users can choose which conversation to view
@@ -851,13 +912,11 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   // Ionic lifecycle hook - called every time the view leaves
   ionViewWillLeave() {
     this.isPageVisible = false;
-    
-    // Clear selected conversation when leaving the page
-    // This ensures users see the empty state when returning and can choose which conversation to view
-    // This prevents showing messages they're not ready to read
+
     this.selectedConversation = null;
-    this.messages = []; // Also clear messages to prevent showing stale data
-    // Notify service that no conversation is selected
+    this.hasConversationSelected = false;
+    this.messages = [];
+    this.stopLocalTimeClock();
     this.messagingService.setHasSelectedConversation(false);
   }
 
@@ -902,6 +961,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
                   name: tutor.name,
                   picture: tutor.picture,
                   userType: 'tutor',
+                  timezone: tutor.profile?.timezone || 'UTC',
                   languages: tutor.languages || [],
                   hourlyRate: tutor.hourlyRate,
                   rating: tutor.stats?.rating || tutor.rating,
@@ -1063,6 +1123,12 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       clearTimeout(this.conversationReloadTimeout);
       this.conversationReloadTimeout = null;
     }
+    // Clean up visibility change handler
+    if (this.visibilityChangeHandler) {
+      document.removeEventListener('visibilitychange', this.visibilityChangeHandler);
+      this.visibilityChangeHandler = null;
+    }
+    this.stopLocalTimeClock();
     this.clearPendingVoiceNote(false);
   }
 
@@ -1087,12 +1153,9 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       
       // Ensure user is authenticated before making API call
       this.authService.user$.pipe(
+        filter(u => !!u && !!u.email),
         take(1),
         switchMap(user => {
-          if (!user || !user.email) {
-            console.warn('[MessagesPage] loadConversations: no authenticated user yet');
-            throw new Error('No authenticated user');
-          }
           console.log('[MessagesPage] loadConversations: user authenticated, fetching conversations');
           return this.messagingService.getConversations();
         })
@@ -1314,11 +1377,12 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     // Clean up any in-flight animation elements immediately
     if (this.currentAnimationElements.avatarClone) {
       this.currentAnimationElements.avatarClone.remove();
-      console.log('🧹 Removed avatar clone');
     }
     if (this.currentAnimationElements.nameClone) {
       this.currentAnimationElements.nameClone.remove();
-      console.log('🧹 Removed name clone');
+    }
+    if (this.currentAnimationElements.overlay) {
+      this.currentAnimationElements.overlay.remove();
     }
     if (this.currentAnimationElements.sourceAvatar) {
       this.currentAnimationElements.sourceAvatar.style.opacity = '1';
@@ -1360,7 +1424,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       this.selectedConversation = null;
       this.hasConversationSelected = false;
       this.messages = [];
-      // Notify service that no conversation is selected
+      this.stopLocalTimeClock();
       this.messagingService.setHasSelectedConversation(false);
       this.cdr.detectChanges();
     };
@@ -1406,6 +1470,9 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       }
       if (this.currentAnimationElements.nameClone) {
         this.currentAnimationElements.nameClone.remove();
+      }
+      if (this.currentAnimationElements.overlay) {
+        this.currentAnimationElements.overlay.remove();
       }
       if (this.currentAnimationElements.sourceAvatar) {
         this.currentAnimationElements.sourceAvatar.style.opacity = '1';
@@ -1482,11 +1549,14 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     const avatarRect = sourceAvatar.getBoundingClientRect();
     const nameRect = sourceName.getBoundingClientRect();
     
+    const flipCurve = 'cubic-bezier(0.32, 0.72, 0, 1)';
+    const isDark = document.documentElement.classList.contains('ion-palette-dark');
+
     // Create clones
     const avatarClone = sourceAvatar.cloneNode(true) as HTMLElement;
     const nameClone = sourceName.cloneNode(true) as HTMLElement;
-    
-    // Style clones to match source position
+
+    // Style clones at source position — no transition yet (set after reflow)
     Object.assign(avatarClone.style, {
       position: 'fixed',
       top: `${avatarRect.top}px`,
@@ -1496,10 +1566,12 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       margin: '0',
       zIndex: '10001',
       pointerEvents: 'none',
-      transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-      borderRadius: window.getComputedStyle(sourceAvatar).borderRadius
+      borderRadius: window.getComputedStyle(sourceAvatar).borderRadius,
+      boxShadow: 'none',
+      transform: 'scale(1)',
+      willChange: 'top, left, width, height, transform, box-shadow'
     });
-    
+
     Object.assign(nameClone.style, {
       position: 'fixed',
       top: `${nameRect.top}px`,
@@ -1508,138 +1580,176 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       margin: '0',
       zIndex: '10001',
       pointerEvents: 'none',
-      transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
       whiteSpace: 'nowrap',
       overflow: 'hidden',
       fontSize: window.getComputedStyle(sourceName).fontSize,
       fontWeight: window.getComputedStyle(sourceName).fontWeight,
-      color: window.getComputedStyle(sourceName).color
+      color: window.getComputedStyle(sourceName).color,
+      opacity: '1',
+      willChange: 'top, left, font-size, opacity'
     });
-    
-    // Store references to elements for cleanup
+
+    // Semi-transparent overlay behind flying clones
+    const overlay = document.createElement('div');
+    Object.assign(overlay.style, {
+      position: 'fixed',
+      inset: '0',
+      zIndex: '10000',
+      background: isDark ? 'rgba(0,0,0,0)' : 'rgba(0,0,0,0)',
+      transition: `background 0.35s ease`,
+      pointerEvents: 'none'
+    });
+
+    // Store references for cleanup
     this.currentAnimationElements = {
       avatarClone,
       nameClone,
+      overlay,
       sourceAvatar,
       sourceName
     };
-    
-    // Add clones to body
+
+    document.body.appendChild(overlay);
     document.body.appendChild(avatarClone);
     document.body.appendChild(nameClone);
-    
-    // Hide originals during animation
+
+    // Hide originals
     sourceAvatar.style.opacity = '0';
     sourceName.style.opacity = '0';
-    
-    // Pre-hide destination elements to prevent flash
-    // Do this BEFORE updating the view
+
+    // Phase 1: Lift — avatar scales up slightly + shadow, name fades slightly
+    requestAnimationFrame(() => {
+      avatarClone.style.transition = `transform 0.18s ease-out, box-shadow 0.18s ease-out`;
+      nameClone.style.transition = `opacity 0.15s ease`;
+      avatarClone.style.transform = 'scale(1.12)';
+      avatarClone.style.boxShadow = isDark
+        ? '0 8px 24px rgba(0,0,0,0.5)'
+        : '0 8px 24px rgba(0,0,0,0.18)';
+      nameClone.style.opacity = '0.5';
+      overlay.style.background = isDark ? 'rgba(0,0,0,0.25)' : 'rgba(0,0,0,0.06)';
+    });
+
+    // Pre-hide destination
     const preHideDestination = () => {
-      const headerAvatar = document.querySelector('.chat-view-mobile .chat-header .chat-avatar') as HTMLElement;
-      const headerName = document.querySelector('.chat-view-mobile .chat-header h3') as HTMLElement;
-      if (headerAvatar) headerAvatar.style.opacity = '0';
-      if (headerName) headerName.style.opacity = '0';
+      const ha = document.querySelector('.chat-view-mobile .chat-header .chat-avatar') as HTMLElement;
+      const hn = document.querySelector('.chat-view-mobile .chat-header h3') as HTMLElement;
+      if (ha) ha.style.opacity = '0';
+      if (hn) hn.style.opacity = '0';
     };
-    
-    // Update the view and start loading messages immediately (like before)
+
     this.selectedConversation = conversation;
     this.hasConversationSelected = true;
     this.messagingService.setHasSelectedConversation(true);
-    
-    // Force immediate change detection to prevent any flicker
+    this.startLocalTimeClock();
     this.cdr.detectChanges();
-    
-    // Pre-hide destination immediately after render
     preHideDestination();
-    
-    // Start loading messages immediately (don't wait for animation)
+
     Promise.resolve().then(() => {
       this.messages = [];
       this.isLoadingMessages = true;
-      this.cdr.detectChanges(); // Force update here too
+      this.cdr.detectChanges();
     });
-    
-    // Mark as read immediately
+
     if (conversation.otherUser && this.isPageVisible) {
       this.messagingService.markAsRead(conversation.otherUser.auth0Id).subscribe({
-        next: () => {
-          console.log(`✅ Conversation marked as read`);
-        }
+        next: () => console.log(`✅ Conversation marked as read`)
       });
     }
-    
-    // Load messages immediately
+
     setTimeout(() => {
       this.loadMessages(unreadCount, requestId);
     }, 0);
-    
+
     this.cdr.detectChanges();
-    
-    // Wait for header to render, then animate to destination (animation happens in parallel)
+
+    // Phase 2: Fly to destination (after lift settles)
     setTimeout(() => {
       const headerAvatar = document.querySelector('.chat-view-mobile .chat-header .chat-avatar') as HTMLElement;
       const headerName = document.querySelector('.chat-view-mobile .chat-header h3') as HTMLElement;
-      
+
       if (headerAvatar && headerName) {
-        // Set animation flag ONLY after confirming elements exist
         this.isAnimatingConversationTransition = true;
-        console.log('🎬 Animation flag SET (starting shared element transition)');
         const destAvatarRect = headerAvatar.getBoundingClientRect();
         const destNameRect = headerName.getBoundingClientRect();
-        
-        // Hide destination elements during animation
+
         headerAvatar.style.opacity = '0';
         headerName.style.opacity = '0';
-        
-        // Trigger reflow
-        avatarClone.offsetHeight;
-        nameClone.offsetHeight;
-        
-        // Animate clones to destination
+
+        // Switch to flight transitions
+        avatarClone.style.transition = [
+          `top 0.42s ${flipCurve}`,
+          `left 0.42s ${flipCurve}`,
+          `width 0.42s ${flipCurve}`,
+          `height 0.42s ${flipCurve}`,
+          `border-radius 0.42s ${flipCurve}`,
+          `transform 0.42s ${flipCurve}`,
+          `box-shadow 0.36s ease 0.06s`
+        ].join(', ');
+        nameClone.style.transition = [
+          `top 0.42s ${flipCurve}`,
+          `left 0.42s ${flipCurve}`,
+          `font-size 0.34s ease 0.06s`,
+          `font-weight 0.34s ease 0.06s`,
+          `opacity 0.2s ease 0.04s`
+        ].join(', ');
+
+        // Force reflow before applying destination values
+        void avatarClone.offsetHeight;
+
+        // Fly avatar to destination, settle back to scale(1), drop shadow
         Object.assign(avatarClone.style, {
           top: `${destAvatarRect.top}px`,
           left: `${destAvatarRect.left}px`,
           width: `${destAvatarRect.width}px`,
-          height: `${destAvatarRect.height}px`
+          height: `${destAvatarRect.height}px`,
+          transform: 'scale(1)',
+          boxShadow: 'none'
         });
-        
+
         Object.assign(nameClone.style, {
           top: `${destNameRect.top}px`,
           left: `${destNameRect.left}px`,
           fontSize: window.getComputedStyle(headerName).fontSize,
-          fontWeight: window.getComputedStyle(headerName).fontWeight
+          fontWeight: window.getComputedStyle(headerName).fontWeight,
+          opacity: '1'
         });
-        
-        // Clean up after animation completes
+
+        // Fade overlay out
+        overlay.style.background = 'rgba(0,0,0,0)';
+
+        // Snap-reveal after flight
         this.animationCleanupTimeout = setTimeout(() => {
-          avatarClone.remove();
-          nameClone.remove();
-          
-          // Show destination elements
+          headerAvatar.style.transition = 'none';
+          headerName.style.transition = 'none';
           headerAvatar.style.opacity = '1';
           headerName.style.opacity = '1';
-          
-          // Restore source elements
-          sourceAvatar.style.opacity = '1';
-          sourceName.style.opacity = '1';
-          
-          // Clear animation flag, timeout reference, and element references
-          this.isAnimatingConversationTransition = false;
-          this.animationCleanupTimeout = null;
-          this.currentAnimationElements = {};
-          console.log('🎬 Animation flag CLEARED (animation complete)');
-        }, 500); // Match transition duration
+
+          requestAnimationFrame(() => {
+            avatarClone.remove();
+            nameClone.remove();
+            overlay.remove();
+
+            sourceAvatar.style.opacity = '1';
+            sourceName.style.opacity = '1';
+            setTimeout(() => {
+              headerAvatar.style.transition = '';
+              headerName.style.transition = '';
+            }, 50);
+
+            this.isAnimatingConversationTransition = false;
+            this.animationCleanupTimeout = null;
+            this.currentAnimationElements = {};
+          });
+        }, 440);
       } else {
-        // Fallback if header not found - just clean up elements
-        // (flag was never set since we're in this fallback)
         avatarClone.remove();
         nameClone.remove();
+        overlay.remove();
         sourceAvatar.style.opacity = '1';
         sourceName.style.opacity = '1';
         this.currentAnimationElements = {};
-        console.log('⚠️ Header not found during animation - using fallback (no animation delay)');
       }
-    }, 50); // Small delay to ensure header is rendered
+    }, 200); // 200ms for the lift phase to settle
   }
   
   private resetChatContainer() {
@@ -1670,9 +1780,9 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   }
   
   private updateConversationView(conversation: Conversation, unreadCount: number, requestId: number) {
-    // Update header FIRST in its own change detection cycle
     this.selectedConversation = conversation;
     this.hasConversationSelected = true;
+    this.startLocalTimeClock();
     console.log(`✅ [${Date.now()}] selectedConversation SET, hasConversationSelected: ${this.hasConversationSelected}`);
     
     // Force immediate change detection
@@ -1743,6 +1853,11 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     
     // Store unread count for scrolling (use provided value or get from conversation)
     const storedUnreadCount = unreadCount !== undefined ? unreadCount : (this.selectedConversation.unreadCount || 0);
+    console.log('📍 SCROLL DEBUG - storedUnreadCount:', storedUnreadCount, 'from:', {
+      providedUnreadCount: unreadCount,
+      conversationUnreadCount: this.selectedConversation.unreadCount,
+      conversationId: this.selectedConversation.conversationId
+    });
     
     
     this.messagesSubscription = this.messagingService.getMessages(receiverId, this.MESSAGE_PAGE_SIZE).subscribe({
@@ -1776,30 +1891,43 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
         // Attach scroll listener for lazy loading
         this.attachScrollListener();
         
-        // Immediately scroll to bottom to prevent flash (will be refined later)
-        requestAnimationFrame(() => {
-          const container = this.chatContainer?.nativeElement;
-          if (container) {
-            container.scrollTop = 999999;
-          }
-        });
+        // Hide loading spinner immediately - messages are ready to display
+        this.isLoadingMessages = false;
         
-        setTimeout(async () => {
+        // Use requestAnimationFrame to scroll after the DOM renders
+        requestAnimationFrame(() => {
           if (activeRequestId !== this.messageLoadRequestId) {
-            return; // Another request has started; do not update state
+            return; // Another request has started
           }
-          // Scroll to first unread message based on stored unread count
-          // Note: Backend marks messages as read when fetching, so we use the stored count
-          await this.scrollToFirstUnreadMessage(storedUnreadCount);
-
-          this.isLoadingMessages = false;
-          console.log(`✅ [${Date.now()}] isLoadingMessages = false (no cdr call)`);
           
-          // Now that messages are loaded and UI is stable, refresh conversations
-          // This updates the unread count in the sidebar without causing header flicker
-          console.log(`🔄 [${Date.now()}] Calling loadConversations()`);
-          this.loadConversations();
-        }, 150); // Increased from 40ms to 150ms for more reliable scrolling
+          // Give DOM one more frame to fully render
+          requestAnimationFrame(async () => {
+            if (activeRequestId !== this.messageLoadRequestId) {
+              return;
+            }
+            
+            // Scroll to appropriate position
+            if (storedUnreadCount > 0) {
+              console.log(`📍 Scrolling to first unread message, count: ${storedUnreadCount}`);
+              await this.scrollToFirstUnreadMessage(storedUnreadCount);
+            } else {
+              // No unread messages - scroll to bottom with retry for late-rendering content
+              await this.waitForMediaToLoad();
+              this.scrollToBottomWithRetry();
+
+              // Make messages visible on mobile (scrollToFirstUnreadMessage does this internally)
+              if (this.platformService.isSmallScreen()) {
+                const ctr = this.getActiveChatContainer();
+                if (ctr) ctr.classList.add('messages-ready');
+              }
+            }
+            
+            console.log(`✅ [${Date.now()}] Messages loaded and positioned`);
+            
+            // Refresh conversations in background (doesn't affect UI)
+            this.loadConversations();
+          });
+        });
       },
       error: (error) => {
         if (activeRequestId !== this.messageLoadRequestId) {
@@ -1807,16 +1935,55 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
         }
         console.error('Error loading messages:', error);
         this.isLoadingMessages = false;
-        this.cdr.detectChanges();
-        // If error is 404 (no messages yet), that's fine for new conversations
         if (error.status === 404) {
           this.messages = [];
         }
+        // Ensure messages are visible on mobile even on error
+        if (this.platformService.isSmallScreen()) {
+          const ctr = this.getActiveChatContainer();
+          if (ctr) ctr.classList.add('messages-ready');
+        }
+        this.cdr.detectChanges();
       },
       complete: () => {
         if (activeRequestId === this.messageLoadRequestId) {
           this.messagesSubscription = undefined;
         }
+      }
+    });
+  }
+
+  // Load messages while preserving scroll position (used for reconnection)
+  private loadMessagesPreserveScroll(previousScrollTop: number, wasAtBottom: boolean) {
+    console.log(`📥 [${Date.now()}] loadMessagesPreserveScroll - previousScrollTop: ${previousScrollTop}, wasAtBottom: ${wasAtBottom}`);
+    if (!this.selectedConversation?.otherUser) return;
+    
+    const receiverId = this.selectedConversation.otherUser.auth0Id;
+    if (!receiverId || !this.selectedConversation.conversationId) return;
+    
+    this.messagingService.getMessages(receiverId, this.MESSAGE_PAGE_SIZE).subscribe({
+      next: (response) => {
+        this.messages = response.messages || [];
+        this.cdr.detectChanges();
+        
+        // Restore scroll position after messages are loaded
+        setTimeout(() => {
+          const container = this.chatContainer?.nativeElement;
+          if (container) {
+            if (wasAtBottom) {
+              // If was at bottom, scroll to bottom
+              container.scrollTop = container.scrollHeight;
+              console.log('📍 Restored scroll to bottom after reconnect');
+            } else {
+              // Restore previous scroll position
+              container.scrollTop = previousScrollTop;
+              console.log(`📍 Restored scroll position to ${previousScrollTop} after reconnect`);
+            }
+          }
+        }, 100);
+      },
+      error: (error) => {
+        console.error('Error reloading messages after reconnect:', error);
       }
     });
   }
@@ -2103,16 +2270,16 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
 
   scrollToBottom(skipAnimationCheck = false) {
     // If animation is happening and we haven't explicitly skipped the check, wait for it
-    // Use 850ms: avatar animation (500ms) + chat-view-mobile slide-in (300ms) + buffer (50ms)
-    const animationDelay = (!skipAnimationCheck && this.isAnimatingConversationTransition) ? 850 : 0;
+    const animationDelay = (!skipAnimationCheck && this.isAnimatingConversationTransition) ? 550 : 0;
     
     if (animationDelay > 0) {
-      console.log('⏳ scrollToBottom: Waiting for animations (850ms delay)');
+      console.log('⏳ scrollToBottom: Waiting for animations (550ms delay)');
+      setTimeout(() => {
+        this.scrollToBottomWithRetry();
+      }, animationDelay);
+    } else {
+      this.scrollToBottomWithRetry();
     }
-    
-    setTimeout(() => {
-      this.performScrollToBottom(0); // Start with attempt 0
-    }, animationDelay);
   }
   
   private performScrollToBottom(attempt: number, previousHeight?: number) {
@@ -2221,7 +2388,8 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       totalMessages: this.messages.length,
       otherUserMessagesCount: otherUserMessages.length,
       unreadCount,
-      currentUserId
+      currentUserId,
+      senderIds: this.messages.map(m => ({ id: m.senderId, content: m.content?.substring(0, 30) }))
     });
     
     // If we have unread messages, scroll to the first unread message
@@ -2236,13 +2404,18 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       console.log('📍 Found first unread message:', {
         firstUnreadIndex,
         messageId: firstUnreadMessage?.id,
-        messageContent: firstUnreadMessage?.content?.substring(0, 50)
+        messageContent: firstUnreadMessage?.content?.substring(0, 50),
+        messageSenderId: firstUnreadMessage?.senderId
       });
       
       return firstUnreadMessage?.id || null;
     }
     
-    console.log('📍 Not enough other user messages to find unread message');
+    console.log('📍 Not enough other user messages to find unread message', {
+      otherUserMessagesLength: otherUserMessages.length,
+      unreadCount,
+      condition: `${otherUserMessages.length} >= ${unreadCount} = ${otherUserMessages.length >= unreadCount}`
+    });
     return null;
   }
 
@@ -2251,61 +2424,209 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
    * @param unreadCount - The number of unread messages (from conversation before loading)
    */
   async scrollToFirstUnreadMessage(unreadCount?: number) {
-    await this.waitForMessagesRender();
+    console.log('📍 scrollToFirstUnreadMessage, unreadCount:', unreadCount, 'messages:', this.messages.length);
+    
+    const container = this.getActiveChatContainer();
+    if (!container) {
+      console.warn('⚠️ No chat container found');
+      return;
+    }
+    
+    // Make messages visible on mobile
+    if (this.platformService.isSmallScreen()) {
+      container.classList.add('messages-ready');
+    }
     
     // Check if this conversation only contains system messages
     const onlySystemMessages = this.messages.length > 0 && 
       this.messages.every(m => m.type === 'system' || m.isSystemMessage);
     
-    // For system-only conversations, scroll to top to show the full message
     if (onlySystemMessages) {
       console.log('📍 System messages only - scrolling to top');
-      const container = this.chatContainer?.nativeElement;
-      if (container) {
-        setTimeout(() => {
-          container.scrollTop = 0;
-        }, 100);
-      }
+      container.scrollTop = 0;
       return;
     }
     
-    // Scroll to bottom immediately after messages render (prevent flash)
-    const container = this.chatContainer?.nativeElement;
-    if (container) {
-      container.scrollTop = 999999;
-    }
-    
-    // Wait for images/media to load which can affect scroll height
-    await this.waitForMediaToLoad();
-
-    // Use provided unread count, or try to find unread messages by checking read status
+    // Use provided unread count to find unread messages
     const count = unreadCount !== undefined ? unreadCount : 0;
-    
     let firstUnreadId: string | null = null;
     
     if (count > 0) {
-      // Use unread count to find the message position
       firstUnreadId = this.findFirstUnreadMessageByCount(count);
     } else {
-      // Fallback: try to find unread messages by checking read status
-      // (in case some messages weren't marked as read yet)
       firstUnreadId = this.findFirstUnreadMessageByReadStatus();
     }
     
+    console.log('📍 First unread ID:', firstUnreadId, 'count:', count);
+    
     if (firstUnreadId) {
-      console.log('📍 Scrolling to first unread message:', firstUnreadId, 'unreadCount:', count);
-      // Scroll to the first unread message
-      this.scrollToMessageById(firstUnreadId);
+      this.scrollToMessageWithRetry(firstUnreadId);
     } else {
-      console.log('📍 No unread messages found, scrolling to bottom');
-      // All messages are read, scroll to bottom by scrolling to the input element
-      this.scrollToBottomElement();
+      // No unread messages - scroll to bottom
+      container.scrollTop = container.scrollHeight;
     }
+  }
+  
+  /**
+   * Wait for messages to appear in DOM and be properly laid out
+   */
+  private waitForMessagesInDOM(): Promise<void> {
+    return new Promise(resolve => {
+      if (this.messages.length === 0) {
+        resolve();
+        return;
+      }
+      
+      let attempts = 0;
+      const maxAttempts = 50;
+      
+      const check = () => {
+        const container = this.getActiveChatContainer();
+        const firstMessageEl = container?.querySelector('[data-message-id]');
+        const hasScrollContent = container && container.scrollHeight > container.clientHeight;
+        
+        if ((firstMessageEl && hasScrollContent) || attempts >= maxAttempts) {
+          console.log(`📍 Messages in DOM after ${attempts} checks`, {
+            hasMessageElement: !!firstMessageEl,
+            hasScrollContent,
+            scrollHeight: container?.scrollHeight,
+            clientHeight: container?.clientHeight
+          });
+          // Give extra time for CSS to fully apply and layout to stabilize
+          setTimeout(resolve, 100);
+          return;
+        }
+        attempts++;
+        requestAnimationFrame(check);
+      };
+      
+      requestAnimationFrame(check);
+    });
+  }
+  
+  /**
+   * Get the active chat container (handles multiple containers for responsive design)
+   */
+  private getActiveChatContainer(): HTMLElement | null {
+    if (this.chatContainer?.nativeElement) {
+      return this.chatContainer.nativeElement;
+    }
+    
+    // Fallback: Query for all chat containers and find the visible one
+    const containers = document.querySelectorAll('.chat-messages');
+    for (let i = 0; i < containers.length; i++) {
+      const container = containers[i] as HTMLElement;
+      // Check if container is visible (has dimensions)
+      if (container.offsetWidth > 0 && container.offsetHeight > 0) {
+        console.log(`📍 Found visible chat container at index ${i}`);
+        return container;
+      }
+    }
+    
+    console.warn('⚠️ No visible chat container found');
+    return null;
+  }
+
+  /**
+   * Scroll to a specific message with retry logic
+   */
+  private scrollToMessageWithRetry(messageId: string, attempt = 0) {
+    const maxAttempts = 5; // Reduced - we don't need many retries with this approach
+    const container = this.getActiveChatContainer();
+    
+    if (!container || attempt >= maxAttempts) {
+      console.log('📍 Falling back to bottom scroll (no container or max attempts reached)');
+      this.scrollToBottomWithRetry();
+      return;
+    }
+    
+    // Find the message element - look inside the visible container
+    const messageElement = container.querySelector(`[data-message-id="${messageId}"]`) as HTMLElement;
+    
+    if (!messageElement) {
+      console.log(`📍 Message ${messageId} not found in container, attempt ${attempt + 1}/${maxAttempts}`);
+      setTimeout(() => this.scrollToMessageWithRetry(messageId, attempt + 1), 150);
+      return;
+    }
+    
+    // Check if container has been laid out (has scroll height)
+    if (container.scrollHeight <= container.clientHeight) {
+      console.log(`📍 Container not fully laid out yet, attempt ${attempt + 1}/${maxAttempts}`, {
+        scrollHeight: container.scrollHeight,
+        clientHeight: container.clientHeight
+      });
+      setTimeout(() => this.scrollToMessageWithRetry(messageId, attempt + 1), 150);
+      return;
+    }
+    
+    // Calculate the target scroll position manually (more reliable than scrollIntoView)
+    const messageRect = messageElement.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    
+    // Calculate where the message is relative to the container's scroll
+    const messageOffsetInContainer = messageRect.top - containerRect.top + container.scrollTop;
+    
+    // We want the message to be about 80px from the top of the visible area
+    const targetScrollTop = Math.max(0, messageOffsetInContainer - 80);
+    
+    console.log(`📍 Scrolling to message`, {
+      messageId,
+      messageOffsetInContainer,
+      targetScrollTop,
+      currentScrollTop: container.scrollTop
+    });
+    
+    // Set scroll position directly (instant, no animation for initial position)
+    container.scrollTop = targetScrollTop;
+    
+    // Highlight the message
+    this.highlightedMessageId = messageId;
+    setTimeout(() => { this.highlightedMessageId = null; }, 2000);
+    
+    console.log(`✅ Scroll to unread message complete, scrollTop: ${container.scrollTop}`);
+  }
+  
+  /**
+   * Scroll to bottom with retry logic
+   */
+  private scrollToBottomWithRetry(attempt = 0) {
+    const maxAttempts = 15;
+    const container = this.getActiveChatContainer();
+    
+    if (!container) {
+      console.warn('⚠️ No container for scroll');
+      return;
+    }
+    
+    // Force layout recalculation
+    void container.offsetHeight;
+    
+    const scrollHeight = container.scrollHeight;
+    const clientHeight = container.clientHeight;
+    const maxScroll = scrollHeight - clientHeight;
+    
+    // Scroll to bottom
+    container.scrollTop = maxScroll + 500;
+    
+    // Verify
+    setTimeout(() => {
+      const newScrollHeight = container.scrollHeight;
+      const newMaxScroll = newScrollHeight - container.clientHeight;
+      const distanceFromBottom = newMaxScroll - container.scrollTop;
+      
+      if (distanceFromBottom > 20 && attempt < maxAttempts) {
+        // Content might still be loading or scroll failed
+        console.log(`📍 Bottom scroll attempt ${attempt + 1}, distance: ${distanceFromBottom}`);
+        this.scrollToBottomWithRetry(attempt + 1);
+      } else {
+        console.log(`✅ Scroll to bottom complete, scrollTop: ${container.scrollTop}`);
+      }
+    }, attempt === 0 ? 150 : 75);
   }
   
   private scrollToBottomElement() {
     // Immediately scroll to bottom to prevent any flash
-    const container = this.chatContainer?.nativeElement;
+    const container = this.getActiveChatContainer();
     if (container) {
       container.scrollTop = 999999;
       
@@ -2318,7 +2639,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     // Mobile needs more time due to animations
     const isMobile = this.platformService.isSmallScreen();
     const baseDelay = isMobile ? 300 : 100; // Extra time for mobile
-    const animationDelay = this.isAnimatingConversationTransition ? 850 : 0;
+    const animationDelay = this.isAnimatingConversationTransition ? 550 : 0;
     const totalDelay = baseDelay + animationDelay;
     
     console.log('📍 scrollToBottomElement (instant + delayed check)', { totalDelay });
@@ -2331,7 +2652,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   
   private attemptScrollToBottom(attemptNumber: number) {
     const maxAttempts = 10; // More attempts for reliability
-    const container = this.chatContainer?.nativeElement;
+    const container = this.getActiveChatContainer();
     
     if (!container) {
       console.warn('⚠️ Chat container not found');
@@ -2524,19 +2845,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
 
   formatTime(timestamp: string): string {
     const date = new Date(timestamp);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-    if (days === 0) {
-      return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-    } else if (days === 1) {
-      return 'Yesterday';
-    } else if (days < 7) {
-      return date.toLocaleDateString('en-US', { weekday: 'short' });
-    } else {
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    }
+    return formatTimeInTz(date, this.userTz);
   }
 
   formatDate(timestamp: string): string {
@@ -2544,13 +2853,19 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
+    const locale = this.userLocale;
 
     if (date.toDateString() === today.toDateString()) {
-      return 'Today';
+      return this.translateService.instant('MESSAGES.TODAY');
     } else if (date.toDateString() === yesterday.toDateString()) {
-      return 'Yesterday';
+      return this.translateService.instant('MESSAGES.YESTERDAY');
     } else {
-      return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined });
+      return formatDateInTz(date, this.userTz, {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
+      }, locale);
     }
   }
 
@@ -2565,6 +2880,14 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
 
   getCurrentUserId(): string {
     return this.currentUserId$.value;
+  }
+
+  private get userTz(): string | undefined {
+    return this.currentUser?.profile?.timezone || undefined;
+  }
+
+  private get userLocale(): string {
+    return this.translateService.currentLang || this.translateService.defaultLang || 'en';
   }
 
   // Handle clicks on links within system messages
@@ -2601,13 +2924,19 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   isEmojiOnly(content: string): boolean {
     if (!content || content.trim().length === 0) return false;
     
-    // Remove all emojis and see if anything is left
-    // This regex matches most emoji characters
-    const emojiRegex = /[\p{Emoji}\p{Emoji_Presentation}\p{Emoji_Modifier}\p{Emoji_Component}]/gu;
+    // First check if content contains regular alphanumeric characters
+    // If it has letters or numbers, it's not emoji-only
+    if (/[a-zA-Z0-9]/.test(content)) {
+      return false;
+    }
+    
+    // More specific emoji regex that excludes numeric characters
+    // This matches actual emoji faces, objects, symbols but not numbers
+    const emojiRegex = /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu;
     const withoutEmojis = content.replace(emojiRegex, '').trim();
     
     // Also remove variation selectors and zero-width joiners
-    const cleanedText = withoutEmojis.replace(/[\u200D\uFE0F]/g, '').trim();
+    const cleanedText = withoutEmojis.replace(/[\u200D\uFE0F\s]/g, '').trim();
     
     // If nothing left after removing emojis, it's emoji-only
     // Also check that we have at least one emoji
@@ -2627,34 +2956,49 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   openBookLesson() {
-    // Desktop: Open details panel and show availability viewer
-    // Mobile: Open modal with availability viewer
-    if (this.isDesktop) {
-      this.showDetailsPanel = true;
-      this.showAvailabilityViewer = true;
-      this.showUserHoverCard = false; // Hide hover card
-      
-      // Clear hover card timeout if any
-      if (this.hoverCardTimeout) {
-        clearTimeout(this.hoverCardTimeout);
-        this.hoverCardTimeout = null;
-      }
-    } else {
-      // Mobile: Open in modal
-      this.openAvailabilityModal();
+    // Always open availability modal (both desktop and mobile)
+    this.openAvailabilityModal();
+    
+    // Hide hover card if visible
+    this.showUserHoverCard = false;
+    
+    // Clear hover card timeout if any
+    if (this.hoverCardTimeout) {
+      clearTimeout(this.hoverCardTimeout);
+      this.hoverCardTimeout = null;
     }
   }
 
   async openAvailabilityModal() {
     if (!this.selectedConversation?.otherUser) return;
 
+    // Use the centralized TutorAvailabilitySelectionModalComponent
+    // This matches the dimensions and behavior of the "Tutor added availability" modal
+    const tutor = this.selectedConversation.otherUser;
+    
+    // Parse name into firstName and lastName
+    const nameParts = tutor.name?.split(' ') || [];
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+    
+    // Format tutor data to match the component interface
+    const tutorData = [{
+      id: tutor.id,
+      _id: tutor.id,
+      firstName: firstName,
+      lastName: lastName,
+      name: tutor.name,
+      picture: tutor.picture,
+      hourlyRate: tutor.hourlyRate
+    }];
+
     const modal = await this.modalController.create({
-      component: TutorAvailabilityViewerComponent,
+      component: TutorAvailabilitySelectionModalComponent,
       componentProps: {
-        tutorId: this.selectedConversation.otherUser.id,
-        selectionMode: true // Emit event instead of navigating
+        tutors: tutorData,
+        title: 'Book a Lesson'
       },
-      cssClass: 'availability-modal'
+      cssClass: 'tutor-availability-selection-modal' // Match dimensions of "Tutor added availability" modal
     });
 
     await modal.present();
@@ -2662,17 +3006,11 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     // Listen for when modal is dismissed with data
     const { data } = await modal.onDidDismiss();
     
-    // If a slot was selected, navigate to checkout
-    if (data && data.selectedDate && data.selectedTime) {
-      this.router.navigate(['/checkout'], {
-        queryParams: {
-          tutorId: this.selectedConversation.otherUser.id,
-          date: data.selectedDate,
-          time: data.selectedTime,
-          duration: data.lessonMinutes || 25,
-          returnTo: 'messages'  // Return to messages after booking
-        }
-      });
+    // If booking was successful, the modal already handled the embedded checkout flow
+    // The modal shows embedded checkout when timeslot is selected, matching the "Tutor added availability" behavior
+    if (data && data.success && data.booked) {
+      // Optionally refresh conversations or show success message
+      // The modal already handled the embedded checkout, so no navigation needed
     }
   }
 
@@ -2680,14 +3018,14 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     this.showAvailabilityViewer = false;
   }
 
-  onSlotSelected(event: { selectedDate: string; selectedTime: string }) {
-    // Store the selected slot data and show checkout
+  onSlotSelected(event: { selectedDate: string; selectedTime: string; timezone?: string }) {
     if (this.selectedConversation?.otherUser) {
       this.checkoutData = {
         tutorId: this.selectedConversation.otherUser.id,
         date: event.selectedDate,
         time: event.selectedTime,
-        duration: 25 // Default, will be updated from availability viewer if needed
+        duration: 25,
+        timezone: event.timezone || ''
       };
       this.showAvailabilityViewer = false;
       this.showCheckout = true;
@@ -2747,23 +3085,45 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   getUserLocalTime(user: any): string {
-    // If user has timezone data, calculate their local time
     if (user?.timezone) {
       try {
-        const now = new Date();
         const formatter = new Intl.DateTimeFormat('en-US', {
           timeZone: user.timezone,
           hour: 'numeric',
           minute: '2-digit',
-          hour12: true
+          hour12: getGlobalHour12()
         });
-        return formatter.format(now);
+        return formatter.format(new Date());
       } catch (error) {
         console.warn('Invalid timezone:', user.timezone);
-        return 'Time unavailable';
+        return '';
       }
     }
-    return 'Time unavailable';
+    return '';
+  }
+
+  updateOtherUserLocalTime() {
+    const user = this.selectedConversation?.otherUser;
+    if (user?.timezone) {
+      const time = this.getUserLocalTime(user);
+      this.otherUserLocalTime = time ? ` ${time} local time` : '';
+    } else {
+      this.otherUserLocalTime = '';
+    }
+  }
+
+  private startLocalTimeClock() {
+    this.stopLocalTimeClock();
+    this.updateOtherUserLocalTime();
+    this.localTimeInterval = setInterval(() => this.updateOtherUserLocalTime(), 30000);
+  }
+
+  private stopLocalTimeClock() {
+    if (this.localTimeInterval) {
+      clearInterval(this.localTimeInterval);
+      this.localTimeInterval = null;
+    }
+    this.otherUserLocalTime = '';
   }
 
   openOtherUserProfile(event?: MouseEvent) {
@@ -2975,11 +3335,9 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onMessagePressStart(message: Message, event: any) {
-    // Store the event target for later use
-    const pressedElement = event.target.closest('.message-bubble');
-    
+    const pressedElement = event.target.closest('.message-wrapper') || event.target.closest('.message-bubble');
+
     this.longPressTimer = setTimeout(async () => {
-      // Create a new event-like object with the stored element
       const eventData = {
         target: pressedElement,
         type: 'longpress'
@@ -3384,89 +3742,17 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
 
   // Scroll to a specific message by ID and highlight it
   scrollToMessageById(messageId: string, event?: Event) {
-    
     if (event) {
       event.stopPropagation();
     }
     
     if (!messageId) {
       console.warn('⚠️ Message ID is undefined');
-      this.scrollToBottom(true); // Skip animation check for fallback
+      this.scrollToBottomWithRetry();
       return;
     }
     
-    // Make messages visible immediately for unread message scroll
-    const container = this.chatContainer?.nativeElement;
-    if (container && this.platformService.isSmallScreen()) {
-      container.classList.add('messages-ready');
-      console.log('📱 Mobile: Added messages-ready class for unread scroll');
-      // Force change detection to ensure messages render
-      this.cdr.detectChanges();
-    }
-    
-    console.log('⏱️ Setting setTimeout for 300ms to find message');
-    
-    // Longer delay to ensure messages are in DOM (especially after reset)
-    setTimeout(() => {
-      console.log('⏰ scrollToMessageById setTimeout fired (300ms elapsed)');
-      try {
-        console.log('🔍 Attempting to find message element:', messageId);
-        const messageElement = document.querySelector(`[data-message-id="${messageId}"]`) as HTMLElement;
-        
-        
-        if (!messageElement) {
-          const allMessages = document.querySelectorAll('[data-message-id]');
-          console.warn(`❌ Message ${messageId} not found. Total messages: ${allMessages.length}`);
-          
-          // Log first few message IDs to debug
-          const messageIds = Array.from(allMessages).slice(0, 5).map(el => el.getAttribute('data-message-id'));
-          console.log('First few message IDs in DOM:', messageIds);
-          
-          // Fallback to scrolling to bottom if message not found
-          this.scrollToBottom(true); // Skip animation check for fallback
-          return;
-        }
-      
-      // Get the scrollable container
-      const container = this.chatContainer?.nativeElement || 
-                       document.querySelector('.chat-messages') ||
-                       document.querySelector('.messages-list');
-      
-      if (container) {
-        // Calculate position
-        const containerRect = container.getBoundingClientRect();
-        const elementRect = messageElement.getBoundingClientRect();
-        const scrollTop = container.scrollTop;
-        const elementTop = elementRect.top - containerRect.top + scrollTop;
-        const centerOffset = container.clientHeight / 2 - elementRect.height / 2;
-        const targetScroll = Math.max(0, elementTop - centerOffset);
-        
-        // Scroll smoothly
-        container.scrollTo({
-          top: targetScroll,
-          behavior: 'smooth'
-        });
-        
-      } else {
-        // Fallback
-        messageElement.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'center' 
-        });
-      }
-      
-      // Highlight the message
-      this.highlightedMessageId = messageId;
-      
-      // Remove highlight after 2 seconds
-      setTimeout(() => {
-        this.highlightedMessageId = null;
-      }, 2000);
-      
-      } catch (error) {
-        console.error('❌ Error in scrollToMessageById:', error);
-      }
-    }, 300); // Increased from 100ms to allow container reset and rendering
+    this.scrollToMessageWithRetry(messageId);
   }
 
   // Scroll to and highlight the message being replied to (for the input preview button)

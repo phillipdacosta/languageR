@@ -1,4 +1,7 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, NgZone } from '@angular/core';
+import { App as CapacitorApp, URLOpenListenerEvent } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
+import { Capacitor } from '@capacitor/core';
 import { LoadingService } from './services/loading.service';
 import { ThemeService } from './services/theme.service';
 import { WebSocketService } from './services/websocket.service';
@@ -15,6 +18,7 @@ import { Router, NavigationEnd } from '@angular/router';
 import { Subject, takeUntil, filter, forkJoin } from 'rxjs';
 import { AlertController, ToastController } from '@ionic/angular';
 import { environment } from '../environments/environment';
+import { getTimezoneLabel } from './shared/timezone.utils';
 
 @Component({
   selector: 'app-root',
@@ -32,6 +36,7 @@ export class AppComponent implements OnInit, OnDestroy {
   earlyExitLessonId: string = '';
   earlyExitMinutesRemaining: number = 0;
   earlyExitUserRole: 'tutor' | 'student' = 'student';
+  earlyExitIsClass: boolean = false;
 
   constructor(
     private loadingService: LoadingService,
@@ -43,17 +48,45 @@ export class AppComponent implements OnInit, OnDestroy {
     private languageService: LanguageService,
     private earlyExitService: EarlyExitService,
     private router: Router,
+    private zone: NgZone,
     private reminderService: ReminderService,
     private lessonService: LessonService,
     private classService: ClassService,
     private tutorFeedbackService: TutorFeedbackService,
     private alertController: AlertController,
     private toastController: ToastController
-  ) {}
+  ) {
+    this.initializeDeepLinks();
+  }
+
+  private initializeDeepLinks() {
+    if (!Capacitor.isNativePlatform()) return;
+
+    CapacitorApp.addListener('appUrlOpen', async (event: URLOpenListenerEvent) => {
+      await Browser.close();
+
+      this.zone.run(async () => {
+        const isCallback = event.url.includes('callback') &&
+          (event.url.includes('code=') || event.url.includes('error='));
+
+        if (isCallback) {
+          try {
+            await this.authService.handleAuthCallback(event.url).toPromise();
+            this.router.navigate(['/tabs'], { replaceUrl: true });
+          } catch (error) {
+            console.error('Auth callback error:', error);
+            this.router.navigate(['/login'], { replaceUrl: true });
+          }
+        } else {
+          const slug = event.url.replace(/^[^:]+:\/\//, '');
+          const path = slug.startsWith('/') ? slug : '/' + slug;
+          this.router.navigateByUrl(path);
+        }
+      });
+    });
+  }
 
   ngOnInit() {
-    // Initialize language service with default language
-    // Will be updated when user profile loads
     this.languageService.initializeLanguage();
     
     // Ensure theme is applied immediately when app initializes
@@ -74,13 +107,19 @@ export class AppComponent implements OnInit, OnDestroy {
     // Show loading immediately when app starts to prevent any flash
     this.loadingService.show();
     
-    // Hide loading for public routes immediately
+    // Track previous URL for back-navigation (avoids YouTube iframe history issues)
+    let lastUrl = '';
     this.router.events.pipe(
       filter(event => event instanceof NavigationEnd),
       takeUntil(this.destroy$)
     ).subscribe((event: any) => {
       const url = event.urlAfterRedirects || event.url;
-      
+
+      if (lastUrl && !/^\/material\//.test(lastUrl)) {
+        sessionStorage.setItem('materialReferrer', lastUrl);
+      }
+      lastUrl = url;
+
       // List of public routes that don't need auth/onboarding checks
       const publicRoutes = ['/login', '/tutor/', '/signup'];
       const isPublicRoute = publicRoutes.some(route => url.includes(route));
@@ -125,6 +164,7 @@ export class AppComponent implements OnInit, OnDestroy {
       this.earlyExitLessonId = data.lessonId;
       this.earlyExitMinutesRemaining = data.minutesRemaining;
       this.earlyExitUserRole = userRole;
+      this.earlyExitIsClass = data.isClass || false;
       this.isEarlyExitModalOpen = true;
     });
   }
@@ -145,9 +185,19 @@ export class AppComponent implements OnInit, OnDestroy {
         
         // Detect and save timezone automatically
         this.userService.detectAndSaveTimezone().subscribe({
-          next: (updated) => {
+          next: async (updated) => {
             if (updated) {
-              console.log('🌍 Timezone auto-detected and saved');
+              const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+              const label = getTimezoneLabel(tz);
+              console.log('🌍 Timezone auto-detected and saved:', label);
+              const toast = await this.toastController.create({
+                message: `Timezone updated to ${label}`,
+                duration: 3000,
+                position: 'bottom',
+                icon: 'globe-outline',
+                color: 'primary'
+              });
+              await toast.present();
             }
           },
           error: (error) => {
@@ -221,6 +271,22 @@ export class AppComponent implements OnInit, OnDestroy {
         // Now that we have user, connect to WebSocket
         this.websocketService.connect();
         
+        // Listen for WebSocket reconnection to refresh data
+        this.websocketService.connection$.pipe(
+          takeUntil(this.destroy$)
+        ).subscribe(isConnected => {
+          console.log('🔌 [APP] WebSocket connection status changed:', isConnected);
+          if (isConnected && this.currentUserId) {
+            console.log('🔌 [APP] WebSocket reconnected - refreshing conversations');
+            // Reload conversations after reconnection to sync unread counts
+            setTimeout(() => {
+              this.messagingService.getConversations().subscribe({
+                error: (error) => console.error('Error reloading conversations after reconnect:', error)
+              });
+            }, 500);
+          }
+        });
+        
         // Set up message listener (only once)
         if (!this.isMessageListenerSetup) {
           this.isMessageListenerSetup = true;
@@ -244,20 +310,13 @@ export class AppComponent implements OnInit, OnDestroy {
             }
           });
           
-          /* 
-          TEMPORARILY DISABLED: Global Feedback Required Listener
-          TODO: Re-enable if we want to support AI-disabled mode
-          
           // Listen for feedback_required events globally (for tutors)
-          // Set a flag instead of showing alert immediately to avoid conflicts
+          // No popup — the home page Quick Actions and profile page handle the UI
           this.websocketService.on('feedback_required').pipe(
             takeUntil(this.destroy$)
-          ).subscribe(async (data: any) => {
+          ).subscribe((data: any) => {
             console.log('📝 [APP] Feedback required event received:', data);
-            // Don't show alert here - let the home page handle it
-            // This avoids conflicts with other alerts (e.g., "student left early")
           });
-          */
 
           // Listen for tutor video approval notifications
           this.websocketService.tutorVideoApproved$.pipe(
@@ -298,6 +357,38 @@ export class AppComponent implements OnInit, OnDestroy {
             // Refresh user data to update approval status across the app
             this.userService.getCurrentUser(true).subscribe();
           });
+
+          // Listen for credential approval notifications (global - works on all pages)
+          this.websocketService.credentialApproved$.pipe(
+            takeUntil(this.destroy$)
+          ).subscribe(async (data: any) => {
+            console.log('✅ [APP] Credential approved notification:', data);
+            
+            const toast = await this.toastController.create({
+              message: data.message || 'Your credential has been verified and approved.',
+              duration: 5000,
+              color: 'success',
+              position: 'top',
+              icon: 'shield-checkmark'
+            });
+            await toast.present();
+          });
+
+          // Listen for credential rejection notifications (global - works on all pages)
+          this.websocketService.credentialRejected$.pipe(
+            takeUntil(this.destroy$)
+          ).subscribe(async (data: any) => {
+            console.log('❌ [APP] Credential rejected notification:', data);
+            
+            const toast = await this.toastController.create({
+              message: data.message || 'A credential was not accepted. Please re-upload.',
+              duration: 7000,
+              color: 'danger',
+              position: 'top',
+              icon: 'shield'
+            });
+            await toast.present();
+          });
         }
       }
     });
@@ -329,6 +420,10 @@ export class AppComponent implements OnInit, OnDestroy {
           console.log('🔔 [APP] Processing', lessons.lessons.length, 'lessons for tutor');
           
           lessons.lessons.forEach((lesson: any) => {
+            if (lesson.status === 'cancelled') {
+              return;
+            }
+
             const startTime = new Date(lesson.startTime);
             const endTime = new Date(lesson.endTime);
             const minutesUntil = Math.floor((startTime.getTime() - now.getTime()) / 60000);
@@ -345,7 +440,6 @@ export class AppComponent implements OnInit, OnDestroy {
             });
             
             // Track lessons that are upcoming OR currently happening OR ended recently (within 1 hour)
-            // This ensures reminders show for lessons that started and persist until dismissed
             const shouldTrack = startTime > now || minutesSinceEnd < 60;
             
             if (shouldTrack) {
@@ -438,6 +532,10 @@ export class AppComponent implements OnInit, OnDestroy {
           console.log('🔔 [APP] Processing', response.lessons.length, 'lessons for student');
           
           response.lessons.forEach((lesson: any) => {
+            if (lesson.status === 'cancelled') {
+              return;
+            }
+
             const startTime = new Date(lesson.startTime);
             const endTime = new Date(lesson.endTime);
             const minutesUntil = Math.floor((startTime.getTime() - now.getTime()) / 60000);
@@ -506,15 +604,14 @@ export class AppComponent implements OnInit, OnDestroy {
   
   /**
    * Check for pending tutor feedback globally (when app loads)
-   * Just logs the count - the home page will show the actual UI
+   * Triggers the backfill endpoint — no popup, just logging.
+   * The home page Quick Actions and profile page handle the UI.
    */
   private checkPendingFeedbackGlobally() {
     this.tutorFeedbackService.getPendingFeedback().subscribe({
-      next: async (response) => {
+      next: (response) => {
         const count = response.count || 0;
         console.log(`📝 [APP] Global feedback check: ${count} pending feedback requests`);
-        // Don't show alert here - let the home page handle the UI
-        // This avoids interrupting the user during initial app load
       },
       error: (error) => {
         console.error('❌ [APP] Error checking pending feedback:', error);
@@ -566,4 +663,5 @@ export class AppComponent implements OnInit, OnDestroy {
       console.error('❌ [APP] Error in syncStripeStatus:', error);
     }
   }
+
 }

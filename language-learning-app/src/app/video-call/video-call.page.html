@@ -1,4 +1,4 @@
-<ion-header [translucent]="true">
+<!-- <ion-header [translucent]="true">
   <ion-toolbar>
     <div class="header-content">
       <ion-title>Video Class</ion-title>
@@ -8,14 +8,22 @@
       </div>
     </div>
     <ion-buttons slot="end">
-      <ion-button (click)="endCall()" color="danger">
+      <ion-button (click)="confirmEndCall()" color="danger">
         <ion-icon name="call-outline"></ion-icon>
       </ion-button>
     </ion-buttons>
   </ion-toolbar>
-</ion-header>
+</ion-header> -->
 
 <ion-content [fullscreen]="true">
+  <!-- Leaving Overlay — shown instantly when End Call is clicked -->
+  <div class="leaving-overlay" *ngIf="isEndingCall">
+    <div class="leaving-content">
+      <ion-spinner name="crescent" color="light"></ion-spinner>
+      <span>Leaving...</span>
+    </div>
+  </div>
+
   <!-- Office Hours Timer (Top Center) - Always visible during office hours -->
   <div class="office-hours-timer" *ngIf="isOfficeHours">
     <div class="timer-display" [class.overage]="isInOverage()">
@@ -237,7 +245,7 @@
         <!-- Remote video will be displayed here -->
         
         <!-- Camera Off placeholder for main view -->
-        <div class="video-placeholder" *ngIf="getRemoteUserVideoOffState()">
+        <div class="video-placeholder" *ngIf="isRemoteUserVideoOff">
           <ion-avatar class="avatar-placeholder">
             <img *ngIf="remoteParticipantProfilePicture" [src]="remoteParticipantProfilePicture" alt="Remote participant" referrerpolicy="no-referrer">
             <ion-icon *ngIf="!remoteParticipantProfilePicture" name="person" class="avatar-icon"></ion-icon>
@@ -248,9 +256,9 @@
         <!-- Remote user mute indicator (overlay on main video) -->
         <div class="remote-user-info" *ngIf="remoteUserCount > 0">
           <div class="remote-user-label">
-            <ion-icon [name]="getRemoteUserMuteState() ? 'mic-off-outline' : 'mic-outline'" 
-                      [class.muted]="getRemoteUserMuteState()"></ion-icon>
-            <span>{{getRemoteParticipantLabel()}}</span>
+            <ion-icon [name]="isRemoteUserMuted ? 'mic-off-outline' : 'mic-outline'" 
+                      [class.muted]="isRemoteUserMuted"></ion-icon>
+            <span>{{ remoteParticipantLabel }}</span>
           </div>
         </div>
       </div>
@@ -439,10 +447,10 @@
       <ng-container *ngIf="!isClass">
         <!-- Remote participant tile (only show when whiteboard is open) -->
         <div class="participant-tile remote-participant" *ngIf="remoteUserCount > 0 && showWhiteboard">
-          <div #remoteVideoTile class="participant-video" *ngIf="!getRemoteUserVideoOffState()">
+          <div #remoteVideoTile class="participant-video" *ngIf="!isRemoteUserVideoOff">
             <!-- Remote video will be cloned here when whiteboard is open -->
           </div>
-          <div class="video-placeholder small" *ngIf="getRemoteUserVideoOffState()">
+          <div class="video-placeholder small" *ngIf="isRemoteUserVideoOff">
             <ion-avatar class="avatar-placeholder small">
               <img *ngIf="remoteParticipantProfilePicture" [src]="remoteParticipantProfilePicture" alt="Remote participant" referrerpolicy="no-referrer">
               <ion-icon *ngIf="!remoteParticipantProfilePicture" name="person" class="avatar-icon"></ion-icon>
@@ -450,9 +458,9 @@
             <p>Camera Off</p>
           </div>
           <div class="participant-label">
-            <ion-icon [name]="getRemoteUserMuteState() ? 'mic-off-outline' : 'mic-outline'" 
-                      [class.muted]="getRemoteUserMuteState()"></ion-icon>
-            <span>{{getRemoteParticipantLabel()}}</span>
+            <ion-icon [name]="isRemoteUserMuted ? 'mic-off-outline' : 'mic-outline'" 
+                      [class.muted]="isRemoteUserMuted"></ion-icon>
+            <span>{{ remoteParticipantLabel }}</span>
           </div>
         </div>
         
@@ -482,10 +490,44 @@
     <!-- Chat Panel -->
     <div class="chat-panel" *ngIf="showChat">
       <div class="chat-header">
-        <h3>Chat with {{getRemoteParticipantLabel()}}</h3>
+        <h3>Chat with {{ remoteParticipantLabel }}</h3>
         <ion-button (click)="toggleChat()" size="small" fill="clear">
           <ion-icon name="close-outline"></ion-icon>
         </ion-button>
+      </div>
+      
+      <!-- Resources & Documents Section (Collapsible) -->
+      <div class="resources-section" *ngIf="resourceMessages.length > 0">
+        <button class="resources-toggle" (click)="toggleResourcesSection()">
+          <div class="resources-toggle-left">
+            <ion-icon name="folder-outline"></ion-icon>
+            <span>Resources & Documents</span>
+            <span class="resources-count">{{ resourceMessages.length }}</span>
+          </div>
+          <ion-icon [name]="showResourcesSection ? 'chevron-up-outline' : 'chevron-down-outline'" class="resources-chevron"></ion-icon>
+        </button>
+        <div class="resources-list" *ngIf="showResourcesSection">
+          <div *ngFor="let res of resourceMessages" class="resource-item">
+            <!-- File/Image resource -->
+            <div *ngIf="res.type === 'file' || res.type === 'image'" class="resource-file" (click)="downloadFile(res, $event)">
+              <ion-icon [name]="res.type === 'image' ? 'image-outline' : getFileIcon(res.fileType!)" class="resource-icon"></ion-icon>
+              <div class="resource-info">
+                <span class="resource-name">{{ res.fileName }}</span>
+                <span class="resource-meta">{{ formatFileSize(res.fileSize!) }} · {{ formatMessageTime(res.createdAt) }}</span>
+              </div>
+              <ion-icon name="download-outline" class="resource-download"></ion-icon>
+            </div>
+            <!-- Link resource -->
+            <a *ngIf="isLinkMessage(res)" [href]="extractLink(res)" target="_blank" rel="noopener" class="resource-link">
+              <ion-icon name="link-outline" class="resource-icon"></ion-icon>
+              <div class="resource-info">
+                <span class="resource-name">{{ extractLinkDomain(res) }}</span>
+                <span class="resource-meta">{{ formatMessageTime(res.createdAt) }}</span>
+              </div>
+              <ion-icon name="open-outline" class="resource-external"></ion-icon>
+            </a>
+          </div>
+        </div>
       </div>
       
       <div class="chat-messages" #chatMessagesContainer>
@@ -505,6 +547,7 @@
         <div *ngFor="let message of chatMessages" class="chat-message" 
              [class.own-message]="isMyMessage(message)"
              [class.system-message]="message.type === 'system' || message.isSystemMessage"
+             [class.correction-message]="isCorrection(message)"
              [attr.data-message-id]="message.id">
           <div class="message-content"
                (mousedown)="message.type !== 'system' && !message.isSystemMessage && onMessagePressStart(message, $event)"
@@ -525,8 +568,27 @@
               </div>
             </div>
             
-            <!-- Text message content -->
-            <p class="message-text" *ngIf="message.content">{{message.content}}</p>
+            <!-- Correction card (special message type) -->
+            <div *ngIf="isCorrection(message)" class="correction-card">
+              <div class="correction-header">
+                <ion-icon name="school-outline"></ion-icon>
+                <span>Correction</span>
+              </div>
+              <div class="correction-body">
+                <div class="correction-row incorrect">
+                  <span class="correction-label">✗</span>
+                  <span class="correction-text">{{ getCorrectionOriginal(message) }}</span>
+                </div>
+                <div class="correction-row correct">
+                  <span class="correction-label">✓</span>
+                  <span class="correction-text">{{ getCorrectionFixed(message) }}</span>
+                </div>
+              </div>
+              <span class="message-time">{{ formatMessageTime(message.createdAt) }}</span>
+            </div>
+            
+            <!-- Text message content (hide if it's a correction) -->
+            <p class="message-text" *ngIf="message.content && !isCorrection(message)">{{message.content}}</p>
             
             <!-- Image message -->
             <div *ngIf="message.type === 'image'" class="message-image">
@@ -554,7 +616,7 @@
               <span class="voice-duration" *ngIf="message.duration">{{ message.duration }}s</span>
             </div>
             
-            <span class="message-time">{{formatMessageTime(message.createdAt)}}</span>
+            <span class="message-time" *ngIf="!isCorrection(message)">{{formatMessageTime(message.createdAt)}}</span>
           </div>
         </div>
       </div>
@@ -588,7 +650,7 @@
       <div *ngIf="replyingToMessage" class="replying-to-container">
         <div class="replying-to-header">
           <ion-icon name="arrow-undo-outline" class="reply-icon"></ion-icon>
-          <span class="replying-to-label">Replying to {{ isMyMessage(replyingToMessage) ? 'yourself' : getRemoteParticipantLabel() }}</span>
+          <span class="replying-to-label">Replying to {{ isMyMessage(replyingToMessage) ? 'yourself' : remoteParticipantLabel }}</span>
           <ion-icon name="close-outline" class="close-reply-icon" (click)="clearReply()"></ion-icon>
         </div>
         <div class="replying-to-preview">
@@ -618,6 +680,28 @@
         </div>
       </div>
       
+      <!-- Correction Input (Tutor Only) -->
+      <div *ngIf="showCorrectionInput && userRole === 'tutor'" class="correction-input-container">
+        <div class="correction-input-header">
+          <ion-icon name="school-outline"></ion-icon>
+          <span>Add Correction</span>
+          <ion-icon name="close-outline" class="close-correction" (click)="toggleCorrectionInput()"></ion-icon>
+        </div>
+        <div class="correction-input-fields">
+          <div class="correction-field">
+            <span class="correction-field-label incorrect-label">✗ What they said</span>
+            <ion-input [(ngModel)]="correctionOriginal" placeholder="e.g. I go yesterday..." class="correction-field-input"></ion-input>
+          </div>
+          <div class="correction-field">
+            <span class="correction-field-label correct-label">✓ Correct version</span>
+            <ion-input [(ngModel)]="correctionFixed" placeholder="e.g. I went yesterday..." class="correction-field-input" (keyup.enter)="sendCorrection()"></ion-input>
+          </div>
+        </div>
+        <button class="correction-send-btn" (click)="sendCorrection()" [disabled]="!correctionOriginal.trim() || !correctionFixed.trim()">
+          Send Correction
+        </button>
+      </div>
+      
       <div class="chat-input">
         <!-- File attachment buttons -->
         <ion-button fill="clear" size="small" (click)="triggerFileInput()" [disabled]="isUploading || isRecording">
@@ -627,6 +711,11 @@
         <!-- Voice recording button -->
         <ion-button fill="clear" size="small" (click)="toggleVoiceRecording()" [disabled]="isUploading">
           <ion-icon [name]="isRecording ? 'stop-circle' : 'mic-outline'" [color]="isRecording ? 'danger' : ''"></ion-icon>
+        </ion-button>
+        
+        <!-- Correction button (Tutor Only) -->
+        <ion-button *ngIf="userRole === 'tutor'" fill="clear" size="small" (click)="toggleCorrectionInput()" [class.active-correction-btn]="showCorrectionInput">
+          <ion-icon name="school-outline"></ion-icon>
         </ion-button>
         
         <ion-input 
@@ -657,41 +746,347 @@
     </div>
     </div> <!-- End of main-content-area -->
     
+    <!-- Floating Notes Panel (Tutor Only) - Bottom Left -->
+    <div class="floating-notes-panel" *ngIf="showNotes && userRole === 'tutor'">
+      <div class="floating-notes-header">
+        <h3>Lesson Notes</h3>
+        <div class="floating-notes-header-actions">
+          <span class="notes-save-status" *ngIf="notesLastSaved">
+            {{ formatNotesSaveTime(notesLastSaved) }}
+          </span>
+          <ion-button (click)="toggleNotes()" size="small" fill="clear">
+            <ion-icon name="close-outline"></ion-icon>
+          </ion-button>
+        </div>
+      </div>
+      
+      <div class="notes-privacy-notice">
+        <ion-icon name="eye-off-outline"></ion-icon>
+        <span>Not visible to student at this time</span>
+      </div>
+      
+      <div class="floating-notes-content">
+        <!-- Quick Impressions -->
+        <div class="notes-section">
+          <label class="notes-label">Quick Impression</label>
+          <div class="impressions">
+            <button
+              *ngFor="let option of impressionOptions"
+              class="chip"
+              [class.selected]="lessonQuickImpression === option.value"
+              [attr.data-color]="option.color"
+              (click)="lessonQuickImpression = option.value; autoSaveNotes()">
+              {{ option.label }}
+            </button>
+          </div>
+        </div>
+        
+        <!-- Strengths -->
+        <div class="notes-section">
+          <label class="notes-label">Strengths</label>
+          <div class="chip-wrap">
+            <button
+              *ngFor="let s of strengthOptions"
+              class="tag tag-green"
+              [class.selected]="lessonSelectedStrengths.includes(s)"
+              (click)="toggleLessonStrength(s)">
+              {{ s }}
+            </button>
+          </div>
+        </div>
+        
+        <!-- Areas to Improve -->
+        <div class="notes-section">
+          <label class="notes-label">Areas to Improve</label>
+          <div class="chip-wrap">
+            <button
+              *ngFor="let a of improvementOptions"
+              class="tag tag-amber"
+              [class.selected]="lessonSelectedAreasToImprove.includes(a)"
+              (click)="toggleLessonAreaToImprove(a)">
+              {{ a }}
+            </button>
+          </div>
+        </div>
+        
+        <!-- Error Areas -->
+        <div class="notes-section">
+          <label class="notes-label">Key Error Areas</label>
+          <div class="chip-wrap">
+            <button
+              *ngFor="let area of errorAreaOptions"
+              class="tag"
+              [class.selected]="lessonSelectedErrorAreas.includes(area)"
+              (click)="toggleLessonErrorArea(area)">
+              {{ area }}
+            </button>
+          </div>
+        </div>
+        
+        <!-- Note Text -->
+        <div class="notes-section">
+          <label class="notes-label">Your Note</label>
+          <ion-textarea
+            [(ngModel)]="lessonNoteText"
+            placeholder="Write your notes during the lesson..."
+            rows="4"
+            maxlength="1000"
+            (ionInput)="autoSaveNotes()">
+          </ion-textarea>
+        </div>
+        
+        <!-- Homework -->
+        <div class="notes-section">
+          <label class="notes-label">Homework (Optional)</label>
+          <ion-textarea
+            [(ngModel)]="lessonHomework"
+            placeholder="Suggest practice..."
+            rows="2"
+            maxlength="500"
+            (ionInput)="autoSaveNotes()">
+          </ion-textarea>
+        </div>
+        
+        <!-- Save Status -->
+        <div class="notes-footer" *ngIf="savingNotes">
+          <ion-spinner name="crescent" size="small"></ion-spinner>
+          <span>Saving...</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Floating Vocabulary Panel (Both Roles) - Bottom Right -->
+    <div class="floating-vocab-panel" *ngIf="showVocabulary">
+      <div class="floating-vocab-header">
+        <h3>Vocabulary</h3>
+        <div class="floating-vocab-header-actions">
+          <span class="vocab-save-status" *ngIf="vocabLastSaved">
+            Saved
+          </span>
+          <ion-button (click)="toggleVocabulary()" size="small" fill="clear">
+            <ion-icon name="close-outline"></ion-icon>
+          </ion-button>
+        </div>
+      </div>
+      
+      <div class="floating-vocab-content">
+        <!-- Empty state -->
+        <div *ngIf="vocabularyItems.length === 0 && !isAddingVocab" class="vocab-empty-state">
+          <ion-icon name="book-outline"></ion-icon>
+          <p>No words yet</p>
+          <span>Add new vocabulary during the lesson</span>
+        </div>
+        
+        <!-- Vocabulary list -->
+        <div class="vocab-list">
+          <div *ngFor="let item of vocabularyItems" class="vocab-item">
+            <div class="vocab-item-main">
+              <span class="vocab-word">{{ item.word }}</span>
+              <span class="vocab-arrow">→</span>
+              <span class="vocab-translation">{{ item.translation }}</span>
+            </div>
+            <p *ngIf="item.example" class="vocab-example">"{{ item.example }}"</p>
+            <button class="vocab-remove" (click)="removeVocabularyItem(item.id)">
+              <ion-icon name="close-outline"></ion-icon>
+            </button>
+          </div>
+        </div>
+        
+        <!-- Add vocabulary form -->
+        <div *ngIf="isAddingVocab" class="vocab-add-form">
+          <div class="vocab-add-row">
+            <ion-input [(ngModel)]="newVocabWord" placeholder="Word or phrase" class="vocab-input"></ion-input>
+            <span class="vocab-add-arrow">→</span>
+            <ion-input [(ngModel)]="newVocabTranslation" placeholder="Translation" class="vocab-input"></ion-input>
+          </div>
+          <ion-input [(ngModel)]="newVocabExample" placeholder="Example sentence (optional)" class="vocab-input vocab-example-input" (keyup.enter)="addVocabularyItem()"></ion-input>
+          <div class="vocab-add-actions">
+            <button class="vocab-cancel-btn" (click)="cancelAddVocab()">Cancel</button>
+            <button class="vocab-save-btn" (click)="addVocabularyItem()" [disabled]="!newVocabWord.trim() || !newVocabTranslation.trim()">Add</button>
+          </div>
+        </div>
+        
+        <!-- Add button -->
+        <button *ngIf="!isAddingVocab" class="vocab-add-btn" (click)="isAddingVocab = true">
+          <ion-icon name="add-outline"></ion-icon>
+          <span>Add word</span>
+        </button>
+      </div>
+    </div>
+    
+    <!-- Floating Goals/Agenda Panel (Both Roles) -->
+    <div class="floating-goals-panel" *ngIf="showGoals">
+      <div class="floating-goals-header">
+        <h3>Lesson Goals</h3>
+        <div class="floating-goals-header-actions">
+          <span class="goals-optional-label">Optional</span>
+          <ion-button (click)="toggleGoals()" size="small" fill="clear">
+            <ion-icon name="close-outline"></ion-icon>
+          </ion-button>
+        </div>
+      </div>
+      
+      <div class="floating-goals-content">
+        <!-- Empty state -->
+        <div *ngIf="goalItems.length === 0 && !isAddingGoal" class="goals-empty-state">
+          <ion-icon name="flag-outline"></ion-icon>
+          <p>No goals set</p>
+          <span>Set goals to stay focused during the lesson</span>
+        </div>
+        
+        <!-- Goals list -->
+        <div class="goals-list">
+          <div *ngFor="let item of goalItems" class="goal-item" [class.completed]="item.completed">
+            <button class="goal-check" (click)="toggleGoalCompleted(item.id)">
+              <ion-icon [name]="item.completed ? 'checkmark-circle' : 'ellipse-outline'"></ion-icon>
+            </button>
+            <span class="goal-text">{{ item.text }}</span>
+            <button class="goal-remove" (click)="removeGoalItem(item.id)">
+              <ion-icon name="close-outline"></ion-icon>
+            </button>
+          </div>
+        </div>
+        
+        <!-- Add goal form -->
+        <div *ngIf="isAddingGoal" class="goal-add-form">
+          <ion-input [(ngModel)]="newGoalText" placeholder="What do you want to work on?" class="goal-input" (keyup.enter)="addGoalItem()"></ion-input>
+          <div class="goal-add-actions">
+            <button class="goal-cancel-btn" (click)="cancelAddGoal()">Cancel</button>
+            <button class="goal-save-btn" (click)="addGoalItem()" [disabled]="!newGoalText.trim()">Add</button>
+          </div>
+        </div>
+        
+        <!-- Add button -->
+        <button *ngIf="!isAddingGoal" class="goal-add-btn" (click)="isAddingGoal = true">
+          <ion-icon name="add-outline"></ion-icon>
+          <span>Add goal</span>
+        </button>
+      </div>
+    </div>
+    
     <!-- Bottom Controls (Separate from main content) -->
     <div class="video-controls">
-      <ion-button (click)="toggleMute()" [color]="isMuted ? 'danger' : 'medium'" fill="clear" title="Microphone">
-        <ion-icon [name]="isMuted ? 'mic-off-outline' : 'mic-outline'"></ion-icon>
-      </ion-button>
+      <div class="control-item" (click)="toggleMute()">
+        <div class="control-btn" [class.active-danger]="isMuted">
+          <ion-icon [name]="isMuted ? 'mic-off' : 'mic-outline'"></ion-icon>
+        </div>
+        <span class="control-label" [class.danger]="isMuted">{{ isMuted ? 'Unmute' : 'Mute' }}</span>
+      </div>
       
-      <ion-button (click)="toggleVideo()" [color]="isVideoOff ? 'danger' : 'medium'" fill="clear" title="Camera">
-        <ion-icon [name]="isVideoOff ? 'videocam-off-outline' : 'videocam-outline'"></ion-icon>
-      </ion-button>
+      <div class="control-item" (click)="toggleVideo()">
+        <div class="control-btn" [class.active-danger]="isVideoOff">
+          <ion-icon [name]="isVideoOff ? 'videocam-off' : 'videocam-outline'"></ion-icon>
+        </div>
+        <span class="control-label" [class.danger]="isVideoOff">{{ isVideoOff ? 'Start Video' : 'Camera' }}</span>
+      </div>
       
-      <ion-button 
-        *ngIf="!isRemoteScreenSharing || isScreenSharing" 
-        (click)="shareScreen()" 
-        [color]="isScreenSharing ? 'primary' : 'medium'" 
-        fill="clear" 
-        [title]="isScreenSharing ? 'Stop Screen Share' : 'Share Screen'">
-        <ion-icon [name]="isScreenSharing ? 'stop-circle-outline' : 'desktop-outline'"></ion-icon>
-      </ion-button>
+      <div class="control-item" 
+           *ngIf="!isRemoteScreenSharing || isScreenSharing" 
+           (click)="shareScreen()">
+        <div class="control-btn" [class.active-primary]="isScreenSharing">
+          <ion-icon [name]="isScreenSharing ? 'stop-circle-outline' : 'desktop-outline'"></ion-icon>
+        </div>
+        <span class="control-label" [class.primary]="isScreenSharing">{{ isScreenSharing ? 'Stop Share' : 'Share' }}</span>
+      </div>
       
-      <ion-button (click)="toggleVirtualBackgroundControls()" [color]="showVirtualBackgroundControls ? 'primary' : 'medium'" fill="clear" title="Virtual Background">
-        <ion-icon name="color-filter-outline"></ion-icon>
-      </ion-button>
+      <div class="control-item" (click)="toggleChat()">
+        <div class="control-btn" [class.active-primary]="showChat">
+          <ion-icon name="chatbubble-outline"></ion-icon>
+        </div>
+        <span class="control-label">Chat</span>
+      </div>
+
+      <!-- More Menu Toggle -->
+      <div class="control-item" (click)="toggleMoreMenu()">
+        <div class="control-btn" [class.active-primary]="showMoreMenu">
+          <ion-icon name="grid-outline"></ion-icon>
+        </div>
+        <span class="control-label" [class.primary]="showMoreMenu">More</span>
+      </div>
       
-      <ion-button (click)="toggleWhiteboard()" [color]="showWhiteboard ? 'primary' : 'medium'" fill="clear" title="Whiteboard">
-        <ion-icon name="create-outline"></ion-icon>
-      </ion-button>
-      
-      <ion-button (click)="toggleChat()" [color]="showChat ? 'primary' : 'medium'" fill="clear" title="Chat">
-        <ion-icon name="chatbubbles-outline"></ion-icon>
-      </ion-button>
-      
-      <ion-button (click)="endCall()" color="danger" fill="solid" title="End Call">
-        <ion-icon name="call-outline"></ion-icon>
-      </ion-button>
+      <div class="control-item end-call" (click)="!isEndingCall && confirmEndCall()" [class.disabled]="isEndingCall">
+        <div class="control-btn danger">
+          <ion-icon name="call" style="transform: rotate(135deg);"></ion-icon>
+        </div>
+        <span class="control-label danger">{{ isEndingCall ? 'Leaving...' : 'Leave' }}</span>
+      </div>
+    </div>
+
+    <!-- More Menu Popover -->
+    <div class="more-menu-backdrop" *ngIf="showMoreMenu" (click)="toggleMoreMenu()"></div>
+    <div class="more-menu" *ngIf="showMoreMenu">
+      <div class="more-menu-item" (click)="toggleVirtualBackgroundControls(); toggleMoreMenu()">
+        <div class="more-menu-icon" [class.active]="showVirtualBackgroundControls">
+          <ion-icon name="color-filter-outline"></ion-icon>
+        </div>
+        <span class="more-menu-label">Effects</span>
+      </div>
+      <div class="more-menu-item" (click)="toggleWhiteboard(); toggleMoreMenu()">
+        <div class="more-menu-icon" [class.active]="showWhiteboard">
+          <ion-icon name="easel-outline"></ion-icon>
+        </div>
+        <span class="more-menu-label">Whiteboard</span>
+      </div>
+      <div class="more-menu-item" (click)="toggleVocabulary(); toggleMoreMenu()">
+        <div class="more-menu-icon" [class.active]="showVocabulary">
+          <ion-icon name="book-outline"></ion-icon>
+        </div>
+        <span class="more-menu-label">Vocabulary</span>
+      </div>
+      <div class="more-menu-item" (click)="toggleGoals(); toggleMoreMenu()">
+        <div class="more-menu-icon" [class.active]="showGoals">
+          <ion-icon name="flag-outline"></ion-icon>
+        </div>
+        <span class="more-menu-label">Goals</span>
+      </div>
+      <div class="more-menu-item" 
+           *ngIf="userRole === 'tutor'"
+           (click)="toggleNotes(); toggleMoreMenu()">
+        <div class="more-menu-icon" [class.active]="showNotes">
+          <ion-icon name="document-text-outline"></ion-icon>
+        </div>
+        <span class="more-menu-label">Notes</span>
+      </div>
     </div>
 
   </div>
+
+
 </ion-content>
+
+<!-- Talk Time Popup (Bottom Right) — OUTSIDE ion-content so position:fixed works in Ionic -->
+<div class="talk-time-popup" *ngIf="showTalkTimePopup" [class.dismissing]="talkTimePopupDismissed">
+  <button class="talk-time-close" (click)="dismissTalkTimePopup()">
+    <ion-icon name="close"></ion-icon>
+  </button>
+  <div class="talk-time-header">
+    <ion-icon name="mic-outline" class="talk-time-icon"></ion-icon>
+    <span class="talk-time-title">Speaking Time</span>
+  </div>
+
+  <!-- Pre-lesson waiting state -->
+  <div class="talk-time-waiting" *ngIf="isWaitingForLessonStart">
+    <ion-icon name="time-outline" class="waiting-icon"></ion-icon>
+    <span class="waiting-text">Tracking starts when lesson begins</span>
+  </div>
+
+  <!-- Active talk time tracking (only after lesson starts) -->
+  <div class="talk-time-body" *ngIf="!isWaitingForLessonStart">
+    <!-- Local user -->
+    <div class="talk-time-row">
+      <span class="talk-time-name">{{ localSpeakerName }}</span>
+      <div class="talk-time-bar-container">
+        <div class="talk-time-bar local-bar" [style.width.%]="localSpeakingPercent"></div>
+      </div>
+      <span class="talk-time-value">{{ localSpeakingPercentFormatted }}</span>
+    </div>
+    <!-- Remote user -->
+    <div class="talk-time-row">
+      <span class="talk-time-name">{{ remoteSpeakerName }}</span>
+      <div class="talk-time-bar-container">
+        <div class="talk-time-bar remote-bar" [style.width.%]="remoteSpeakingPercent"></div>
+      </div>
+      <span class="talk-time-value">{{ remoteSpeakingPercentFormatted }}</span>
+    </div>
+  </div>
+</div>

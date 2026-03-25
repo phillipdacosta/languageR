@@ -42,6 +42,19 @@ const tutorFeedbackSchema = new mongoose.Schema({
     default: ''
   },
   
+  // CEFR level estimate (required — used for progress tracking when AI is off)
+  estimatedCefrLevel: {
+    type: String,
+    enum: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'],
+    default: null
+  },
+  
+  // Whether this feedback is required (AI analysis disabled) or optional (AI handles it)
+  required: {
+    type: Boolean,
+    default: true
+  },
+  
   // Metadata
   status: {
     type: String,
@@ -66,6 +79,15 @@ const tutorFeedbackSchema = new mongoose.Schema({
   lastReminderAt: {
     type: Date,
     default: null
+  },
+  
+  // Grace period tracking
+  // Marked true once this feedback exceeds the 2-hour grace window while still pending.
+  // Used to increment the tutor's violation counter exactly once per feedback item.
+  gracePeriodExpired: {
+    type: Boolean,
+    default: false,
+    index: true
   }
 });
 

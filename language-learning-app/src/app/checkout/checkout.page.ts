@@ -1,5 +1,6 @@
-import { Component, Input, OnInit, Output, EventEmitter } from '@angular/core';
+import { Component, Input, OnInit, Output, EventEmitter, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { IonicModule, LoadingController, ToastController, AlertController, ModalController } from '@ionic/angular';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { UserService } from '../services/user.service';
@@ -10,19 +11,25 @@ import { firstValueFrom } from 'rxjs';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { CardManagementModalComponent } from '../components/card-management-modal/card-management-modal.component';
 import { environment } from '../../environments/environment';
+import { wallClockToUtc, formatTimeInTz, getGlobalHour12 } from '../shared/timezone.utils';
+import { detectUserTimezone } from '../shared/timezone.constants';
+
+// Declare Stripe
+declare var Stripe: any;
 
 @Component({
   selector: 'app-checkout',
   templateUrl: './checkout.page.html',
   styleUrls: ['./checkout.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, RouterLink]
+  imports: [CommonModule, FormsModule, IonicModule, RouterLink]
 })
-export class CheckoutPage implements OnInit {
+export class CheckoutPage implements OnInit, OnDestroy {
   @Input() tutorId = '';
   @Input() dateIso = '';
   @Input() time = '';
   @Input() lessonMinutes = 25;
+  @Input() slotTimezone = ''; // IANA timezone the selected date/time is expressed in
   @Input() embedded = false; // When true, render without back button and emit events instead of navigating
   @Output() bookingComplete = new EventEmitter<void>();
   @Output() cancelled = new EventEmitter<void>();
@@ -31,7 +38,7 @@ export class CheckoutPage implements OnInit {
   currentUser: any = null;
   isBooking = false;
   returnTo: string | null = null; // Track where to return after booking
-  previousLessonsWithTutor: number = 0; // Track lesson count with this tutor
+  previousLessonsWithTutor: number = -1; // -1 = unknown (not yet checked), 0 = trial, 1+ = not trial
   
   // Payment-related properties
   selectedPaymentMethod: string = 'saved-card';
@@ -40,9 +47,37 @@ export class CheckoutPage implements OnInit {
   isApplePayAvailable: boolean = false;
   isGooglePayAvailable: boolean = false;
   
+  // New tabbed payment UI properties
+  selectedPaymentTab: 'card' | 'wallet' | 'apple' | 'google' = 'card';
+  savedCards: any[] = [];
+  selectedCardId: string = '';
+  isAddingNewCard: boolean = false;
+  
+  // New card form fields
+  cardholderName: string = '';
+  billingAddress = {
+    line1: '',
+    line2: '',
+    city: '',
+    state: '',
+    country: ''
+  };
+  saveCardForFuture: boolean = true;
+  
+  // Stripe elements
+  stripe: any = null;
+  stripeElements: any = null;
+  cardNumberElement: any = null;
+  cardExpiryElement: any = null;
+  cardCvcElement: any = null;
+  
   // Cached computed values (to avoid calling functions in templates)
   private _cachedTimeRange: string = '';
   private _cachedTimeRangeKey: string = '';
+
+  private get userTz(): string | undefined {
+    return this.currentUser?.profile?.timezone || undefined;
+  }
 
   constructor(
     private route: ActivatedRoute, 
@@ -74,6 +109,7 @@ export class CheckoutPage implements OnInit {
       this.dateIso = qp.get('date') || '';
       this.time = qp.get('time') || '';
       this.lessonMinutes = parseInt(qp.get('duration') || '25', 10);
+      this.slotTimezone = qp.get('timezone') || '';
       
       console.log('🔍 [CHECKOUT] Loaded from query params:', {
         tutorId: this.tutorId,
@@ -96,8 +132,40 @@ export class CheckoutPage implements OnInit {
     const qp = this.route.snapshot.queryParamMap;
     this.returnTo = qp.get('returnTo');
     
-    // Load tutor and current user data
-    this.loadData();
+    // Initialize Stripe first, then load data
+    this.initializeStripe().then(() => {
+      // Load tutor and current user data after Stripe is ready
+      this.loadData();
+    });
+  }
+
+  ngOnDestroy() {
+    // Clean up Stripe elements
+    this.unmountStripeElements();
+  }
+
+  ionViewDidEnter() {
+    // Mount Stripe elements if card form is showing and Stripe is initialized
+    if (this.stripe && this.stripeElements && this.selectedPaymentTab === 'card' && (this.isAddingNewCard || this.savedCards.length === 0)) {
+      setTimeout(() => this.mountStripeElements(), 200);
+    }
+  }
+
+  private async initializeStripe() {
+    try {
+      const publishableKey = environment.stripePublishableKey;
+      
+      if (!publishableKey) {
+        console.error('❌ Stripe publishable key not configured');
+        return;
+      }
+
+      this.stripe = Stripe(publishableKey);
+      this.stripeElements = this.stripe.elements();
+      console.log('✅ Stripe initialized in checkout');
+    } catch (error) {
+      console.error('❌ Error initializing Stripe:', error);
+    }
   }
 
   private async loadData() {
@@ -170,7 +238,7 @@ export class CheckoutPage implements OnInit {
     
     // Otherwise, check via API (fallback for direct navigation)
     if (!this.tutorId || !this.currentUser) {
-      this.previousLessonsWithTutor = 0;
+      this.previousLessonsWithTutor = 1; // Default to non-trial when we can't check
       return;
     }
 
@@ -191,7 +259,7 @@ export class CheckoutPage implements OnInit {
       }
     } catch (error) {
       console.error('Error checking trial lesson status:', error);
-      this.previousLessonsWithTutor = 0;
+      this.previousLessonsWithTutor = 1; // Default to non-trial on error
     }
   }
 
@@ -237,11 +305,7 @@ export class CheckoutPage implements OnInit {
             status: lesson.status
           });
           
-          const timeStr = lessonStart.toLocaleTimeString('en-US', { 
-            hour: 'numeric', 
-            minute: '2-digit', 
-            hour12: true 
-          });
+          const timeStr = formatTimeInTz(lessonStart, this.userTz);
           
           return {
             message: `You already have a ${lesson.subject} lesson scheduled at ${timeStr}. Please choose a different time slot.`
@@ -276,11 +340,7 @@ export class CheckoutPage implements OnInit {
                 end: classEnd.toISOString()
               });
               
-              const timeStr = classStart.toLocaleTimeString('en-US', { 
-                hour: 'numeric', 
-                minute: '2-digit', 
-                hour12: true 
-              });
+              const timeStr = formatTimeInTz(classStart, this.userTz);
               
               return {
                 message: `You already have a class "${cls.name}" scheduled at ${timeStr}. Please choose a different time slot.`
@@ -318,6 +378,12 @@ export class CheckoutPage implements OnInit {
       return;
     }
 
+    // Show confirmation dialog before proceeding
+    const confirmed = await this.showBookingConfirmation();
+    if (!confirmed) {
+      return; // User cancelled
+    }
+
     this.isBooking = true;
     let loading: HTMLIonLoadingElement | null = null;
     let bookingLoading: HTMLIonLoadingElement | null = null;
@@ -336,6 +402,52 @@ export class CheckoutPage implements OnInit {
       }
       
       const endTime = new Date(startTime.getTime() + this.lessonMinutes * 60000);
+
+      // ==========================================
+      // FRONTEND VALIDATION CHECKS
+      // ==========================================
+      
+      // 1. CHECK: Lesson start time must be in the future
+      const now = new Date();
+      if (startTime <= now) {
+        if (loading) await loading.dismiss();
+        this.isBooking = false;
+        const alert = await this.alertController.create({
+          header: 'Invalid Time',
+          message: 'This time slot has already passed. Please select a future time.',
+          buttons: ['OK']
+        });
+        await alert.present();
+        return;
+      }
+
+      // 2. CHECK: Lesson duration is valid
+      if (![25, 50].includes(this.lessonMinutes)) {
+        if (loading) await loading.dismiss();
+        this.isBooking = false;
+        const alert = await this.alertController.create({
+          header: 'Invalid Duration',
+          message: 'Invalid lesson duration. Please select 25 or 50 minutes.',
+          buttons: ['OK']
+        });
+        await alert.present();
+        return;
+      }
+
+      // 3. CHECK: Tutor is still available (basic check)
+      if (!this.tutor.tutorApproved) {
+        if (loading) await loading.dismiss();
+        this.isBooking = false;
+        const alert = await this.alertController.create({
+          header: 'Tutor Unavailable',
+          message: 'This tutor is not currently accepting bookings. Please select another tutor.',
+          buttons: ['OK']
+        });
+        await alert.present();
+        return;
+      }
+
+      console.log('✅ Frontend validations passed');
 
       // CHECK FOR SCHEDULING CONFLICTS
       console.log('🔍 Checking for scheduling conflicts...');
@@ -405,13 +517,53 @@ export class CheckoutPage implements OnInit {
         studentIdType: typeof lessonData.studentId
       });
 
+      // Determine the payment method ID to use
+      let stripePaymentMethodId = this.defaultCard?.stripePaymentMethodId || this.selectedCardId;
+      
+      // If using new card form, create payment method first
+      if (this.selectedPaymentMethod === 'new-card' || (this.selectedPaymentTab === 'card' && this.isAddingNewCard)) {
+        const newPaymentMethodId = await this.createPaymentMethodFromForm();
+        if (!newPaymentMethodId) {
+          if (bookingLoading) await bookingLoading.dismiss();
+          this.isBooking = false;
+          return; // Error already shown by createPaymentMethodFromForm
+        }
+        stripePaymentMethodId = newPaymentMethodId;
+      }
+
+      // Determine if this is a hybrid payment (wallet + card)
+      const isHybridWalletPayment = this.selectedPaymentMethod === 'wallet' && !this.canPayFullyWithWallet && this.walletBalance > 0;
+      const walletAmountForPayment = this.selectedPaymentMethod === 'wallet' ? Math.min(this.walletBalance, this.total) : 0;
+      const remainingAfterWallet = this.selectedPaymentMethod === 'wallet' ? Math.max(this.total - this.walletBalance, 0) : 0;
+
       // Book the lesson with payment (use the correct endpoint!)
-      const bookingPayload = {
+      const bookingPayload: any = {
         lessonData: lessonData,
-        paymentMethod: this.selectedPaymentMethod,
-        stripePaymentMethodId: this.defaultCard?.stripePaymentMethodId,
+        paymentMethod: this.selectedPaymentMethod === 'new-card' ? 'saved-card' : this.selectedPaymentMethod,
+        stripePaymentMethodId: stripePaymentMethodId,
         stripeCustomerId: this.currentUser.stripeCustomerId
       };
+      
+      // Add hybrid payment info if using wallet
+      if (this.selectedPaymentMethod === 'wallet') {
+        bookingPayload.walletAmount = walletAmountForPayment;
+        bookingPayload.useWallet = true;
+        
+        if (isHybridWalletPayment) {
+          // Hybrid: wallet + card
+          bookingPayload.isHybridPayment = true;
+          bookingPayload.paymentMethodAmount = remainingAfterWallet;
+          bookingPayload.stripePaymentMethodId = this.defaultCard?.stripePaymentMethodId || this.selectedCardId;
+          // Change paymentMethod to indicate card will be used for the remainder
+          bookingPayload.paymentMethod = 'saved-card';
+          console.log('💳 Hybrid payment setup:', {
+            walletAmount: walletAmountForPayment,
+            cardAmount: remainingAfterWallet,
+            total: this.total,
+            paymentMethodId: bookingPayload.stripePaymentMethodId
+          });
+        }
+      }
 
       console.log('💳 Booking with payment:', {
         paymentMethod: bookingPayload.paymentMethod,
@@ -427,10 +579,10 @@ export class CheckoutPage implements OnInit {
         defaultCardData: this.defaultCard
       });
 
-      // Validate required fields for saved-card payment
-      if (this.selectedPaymentMethod === 'saved-card') {
+      // Validate required fields for card payment
+      if (this.selectedPaymentMethod === 'saved-card' || this.selectedPaymentMethod === 'new-card') {
         if (!bookingPayload.stripePaymentMethodId) {
-          throw new Error('No payment method selected. Please select a card.');
+          throw new Error('No payment method selected. Please select a card or enter card details.');
         }
         // Note: stripeCustomerId will be created by backend if it doesn't exist
         // We don't throw an error here anymore - let the backend handle it
@@ -520,50 +672,136 @@ export class CheckoutPage implements OnInit {
         // Loading might already be dismissed
       }
       
-      // Check if this is a time slot conflict (409 Conflict)
-      const isConflict = error instanceof HttpErrorResponse && error.status === 409;
       const errorCode = error.error?.code;
+      const errorMessage = error.error?.message || error.message || 'Failed to book lesson. Please try again.';
+      const isConflict = error instanceof HttpErrorResponse && error.status === 409;
+      const isBadRequest = error instanceof HttpErrorResponse && error.status === 400;
+      const isForbidden = error instanceof HttpErrorResponse && error.status === 403;
       
-      // If the slot is no longer available, show a more prominent alert
-      if (isConflict && errorCode === 'SLOT_NO_LONGER_AVAILABLE') {
+      // Handle specific error codes with appropriate UI
+      if (errorCode === 'LESSON_TIME_PAST') {
+        // Lesson time has passed
         this.isBooking = false;
-        
         const alert = await this.alertController.create({
-          header: 'Time Slot No Longer Available',
-          message: error.error?.message || 'The tutor has updated their availability. This time slot is no longer available.',
+          header: 'Time Has Passed',
+          message: 'This time slot has already passed. Please select a future time.',
+          buttons: ['OK']
+        });
+        await alert.present();
+        return;
+      }
+      
+      if (errorCode === 'SLOT_NOT_AVAILABLE' || errorCode === 'SLOT_NO_LONGER_AVAILABLE') {
+        // Timeslot no longer available
+        this.isBooking = false;
+        const alert = await this.alertController.create({
+          header: 'Time Slot Unavailable',
+          message: errorMessage,
           buttons: [
             {
               text: 'View Updated Schedule',
-              handler: () => {
-                // Return true to dismiss the alert, then navigate
-                return true;
-              }
+              handler: () => true
             }
           ]
         });
-        
         await alert.present();
-        const { role } = await alert.onDidDismiss();
+        await alert.onDidDismiss();
         
-        // Navigate back to tutor page with refresh trigger after alert dismisses
-        if (this.tutor?.id) {
-          this.router.navigate(['/tutor', this.tutor.id], {
+        // Navigate back to tutor page with refresh trigger
+        if (this.tutor?.id || this.tutorId) {
+          this.router.navigate(['/tutor', this.tutor?.id || this.tutorId], {
             queryParams: { refreshAvailability: 'true' }
           });
-        } else {
-          // Navigate based on returnTo parameter
-          const destination = this.returnTo === 'messages' 
-            ? '/tabs/messages' 
-            : '/tabs/home';
-          this.router.navigate([destination]);
         }
         return;
       }
       
-      const errorMessage = isConflict 
-        ? (error.error?.message || 'This time slot is no longer available. It may have been booked by another student.')
-        : (error.error?.message || error.message || 'Failed to book lesson. Please try again.');
+      if (errorCode === 'TUTOR_TIME_CONFLICT') {
+        // Someone else booked this slot
+        this.isBooking = false;
+        const alert = await this.alertController.create({
+          header: 'Slot Just Booked',
+          message: 'This time slot was just booked by another student. Please select a different time.',
+          buttons: [
+            {
+              text: 'Select New Time',
+              handler: () => true
+            }
+          ]
+        });
+        await alert.present();
+        await alert.onDidDismiss();
+        
+        if (this.tutor?.id || this.tutorId) {
+          this.router.navigate(['/tutor', this.tutor?.id || this.tutorId], {
+            queryParams: { refreshAvailability: 'true' }
+          });
+        }
+        return;
+      }
       
+      if (errorCode === 'STUDENT_TIME_CONFLICT') {
+        // Student has a conflicting lesson
+        this.isBooking = false;
+        const alert = await this.alertController.create({
+          header: 'Schedule Conflict',
+          message: errorMessage,
+          buttons: ['OK']
+        });
+        await alert.present();
+        return;
+      }
+      
+      if (errorCode === 'PENDING_FEEDBACK') {
+        // Tutor has pending feedback items
+        this.isBooking = false;
+        const alert = await this.alertController.create({
+          header: 'Tutor Unavailable',
+          message: 'Tutor not accepting bookings at this time. Please check back later or choose another tutor.',
+          buttons: [
+            {
+              text: 'OK',
+              handler: () => true
+            }
+          ]
+        });
+        await alert.present();
+        await alert.onDidDismiss();
+        
+        // Navigate back to tutor page
+        if (this.tutor?.id || this.tutorId) {
+          this.router.navigate(['/tutor', this.tutor?.id || this.tutorId], {
+            queryParams: { refreshAvailability: 'true' }
+          });
+        }
+        return;
+      }
+
+      if (errorCode === 'TUTOR_NOT_APPROVED') {
+        // Tutor not accepting bookings
+        this.isBooking = false;
+        const alert = await this.alertController.create({
+          header: 'Tutor Unavailable',
+          message: 'This tutor is not currently accepting bookings. Please select another tutor.',
+          buttons: ['OK']
+        });
+        await alert.present();
+        return;
+      }
+      
+      if (errorCode === 'TUTOR_NOT_ONBOARDED') {
+        // Tutor hasn't completed payment setup
+        this.isBooking = false;
+        const alert = await this.alertController.create({
+          header: 'Payment Setup Incomplete',
+          message: errorMessage,
+          buttons: ['OK']
+        });
+        await alert.present();
+        return;
+      }
+      
+      // Generic error handling for other cases
       const toast = await this.toastController.create({
         message: errorMessage,
         duration: 5000,
@@ -572,11 +810,10 @@ export class CheckoutPage implements OnInit {
       });
       await toast.present();
 
-      // If it's a conflict, navigate back to tutor page to refresh availability
-      if (isConflict && this.tutorId) {
-        // Wait a moment for toast to appear, then navigate
+      // If it's any conflict, navigate back to tutor page to refresh availability
+      if (isConflict && (this.tutorId || this.tutor?.id)) {
         setTimeout(() => {
-          this.router.navigate(['/tutor', this.tutorId], {
+          this.router.navigate(['/tutor', this.tutorId || this.tutor?.id], {
             queryParams: { 
               conflict: 'true',
               refreshAvailability: 'true'
@@ -600,58 +837,69 @@ export class CheckoutPage implements OnInit {
     }
   }
 
+  private async showBookingConfirmation(): Promise<boolean> {
+    const tutorName = this.tutorDisplayName || 'this tutor';
+    const dateStr = this.formattedDate || this.dateIso;
+    const timeStr = this.timeRange || this.time;
+    const price = `$${this.total.toFixed(2)}`;
+    
+    const message = `Book a ${this.lessonMinutes}-minute lesson with ${tutorName} on ${dateStr} at ${timeStr} for ${price}?`;
+
+    return new Promise(async (resolve) => {
+      const alert = await this.alertController.create({
+        header: 'Confirm Booking',
+        message: message,
+        cssClass: 'booking-confirmation-alert',
+        buttons: [
+          {
+            text: 'Cancel',
+            role: 'cancel',
+            handler: () => resolve(false)
+          },
+          {
+            text: 'Book',
+            handler: () => resolve(true)
+          }
+        ]
+      });
+
+      await alert.present();
+    });
+  }
+
+  private get slotStartUtc(): Date | null {
+    return this.parseStartDate();
+  }
+
+  private get slotTz(): string {
+    return this.slotTimezone || detectUserTimezone();
+  }
+
   get formattedDate(): string {
-    if (!this.dateIso) return '';
-    const d = new Date(this.dateIso);
-    return d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+    const d = this.slotStartUtc;
+    if (!d) return '';
+    return d.toLocaleDateString('en-US', {
+      weekday: 'long', month: 'short', day: 'numeric',
+      timeZone: this.slotTz
+    });
   }
 
   get dateMonthShort(): string {
-    if (!this.dateIso) return '';
-    try {
-      // Parse date explicitly to avoid timezone issues
-      const parts = this.dateIso.split('-');
-      if (parts.length !== 3) return '';
-      const [year, month, day] = parts.map(Number);
-      if (isNaN(year) || isNaN(month) || isNaN(day)) return '';
-      const date = new Date(year, month - 1, day);
-      return date.toLocaleDateString(undefined, { month: 'short' }).toUpperCase();
-    } catch (e) {
-      console.error('Error parsing dateMonthShort:', e, this.dateIso);
-      return '';
-    }
+    const d = this.slotStartUtc;
+    if (!d) return '';
+    return d.toLocaleDateString('en-US', { month: 'short', timeZone: this.slotTz }).toUpperCase();
   }
 
   get dateDayNumber(): string {
-    if (!this.dateIso) return '';
-    try {
-      // Parse date explicitly to avoid timezone issues
-      const parts = this.dateIso.split('-');
-      if (parts.length !== 3) return '';
-      const [year, month, day] = parts.map(Number);
-      if (isNaN(year) || isNaN(month) || isNaN(day)) return '';
-      const date = new Date(year, month - 1, day);
-      return String(date.getDate());
-    } catch (e) {
-      console.error('Error parsing dateDayNumber:', e, this.dateIso);
-      return '';
-    }
+    const d = this.slotStartUtc;
+    if (!d) return '';
+    return d.toLocaleDateString('en-US', { day: 'numeric', timeZone: this.slotTz });
   }
 
   get dateWeekday(): string {
-    if (!this.dateIso) return '';
-    try {
-      // Parse date explicitly to avoid timezone issues
-      const parts = this.dateIso.split('-');
-      if (parts.length !== 3) return '';
-      const [year, month, day] = parts.map(Number);
-      if (isNaN(year) || isNaN(month) || isNaN(day)) return '';
-      const date = new Date(year, month - 1, day);
-      return date.toLocaleDateString(undefined, { weekday: 'long' });
-    } catch (e) {
-      console.error('Error parsing dateWeekday:', e, this.dateIso);
-      return '';
-    }
+    const d = this.slotStartUtc;
+    if (!d) return '';
+    return d.toLocaleDateString('en-US', { weekday: 'long', timeZone: this.slotTz });
   }
 
   get pricePerLesson(): number {
@@ -659,13 +907,23 @@ export class CheckoutPage implements OnInit {
     // Rate is for standard 50-minute lesson, not hourly (60 min)
     const STANDARD_LESSON_DURATION = 50;
     const basePrice = Math.round((rate * (this.lessonMinutes / STANDARD_LESSON_DURATION)) * 100) / 100;
-    
-    // Trial lessons have no discount, just shorter duration (25 min by default)
     return basePrice;
   }
 
   get processingFee(): number { return 0; }
-  get discount(): number { return 0; }
+  
+  // 30% discount for trial lessons (first lesson with this tutor)
+  get discount(): number {
+    if (this.isTrialLesson) {
+      return Math.round(this.pricePerLesson * 0.30 * 100) / 100;
+    }
+    return 0;
+  }
+  
+  get discountPercentage(): number {
+    return this.isTrialLesson ? 30 : 0;
+  }
+  
   get total(): number { 
     return Math.max(this.pricePerLesson + this.processingFee - this.discount, 0); 
   }
@@ -678,37 +936,31 @@ export class CheckoutPage implements OnInit {
       });
       return null;
     }
-    
+
     try {
-      // Parse date components from ISO string (YYYY-MM-DD)
       const dateParts = this.dateIso.split('-');
-      if (dateParts.length !== 3) {
-        console.error('🕐 [CHECKOUT] Invalid dateIso format:', this.dateIso);
-        return null;
-      }
+      if (dateParts.length !== 3) return null;
       const [year, month, day] = dateParts.map(Number);
-      
-      // Parse time components (HH:MM in 24-hour format)
+
       const timeParts = this.time.split(':');
-      if (timeParts.length < 2) {
-        console.error('🕐 [CHECKOUT] Invalid time format:', this.time);
-        return null;
-      }
+      if (timeParts.length < 2) return null;
       const [hours, minutes] = timeParts.map(Number);
-      
-      // Validate parsed values
-      if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(hours) || isNaN(minutes)) {
-        console.error('🕐 [CHECKOUT] Invalid date/time values:', {
-          year, month, day, hours, minutes
-        });
-        return null;
-      }
-      
-      // Create date in LOCAL timezone (not UTC)
-      // This ensures the lesson is scheduled for the correct local time
-      const localDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
-      
-      return localDate;
+
+      if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(hours) || isNaN(minutes)) return null;
+
+      // If a timezone was provided (from the availability viewer), convert wall-clock
+      // time in that timezone to a proper UTC Date. Otherwise fall back to browser local.
+      const tz = this.slotTimezone || detectUserTimezone();
+      const utcDate = wallClockToUtc(this.dateIso, this.time, tz);
+
+      console.log('🕐 [CHECKOUT] parseStartDate:', {
+        dateIso: this.dateIso,
+        time: this.time,
+        timezone: tz,
+        utcResult: utcDate.toISOString()
+      });
+
+      return utcDate;
     } catch (e) {
       console.error('🕐 [CHECKOUT] Error parsing start date:', e);
       return null;
@@ -716,7 +968,8 @@ export class CheckoutPage implements OnInit {
   }
 
   private format12h(d: Date): string {
-    return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    const tz = this.slotTimezone || detectUserTimezone();
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: getGlobalHour12(), timeZone: tz });
   }
 
   get timeRange(): string {
@@ -756,7 +1009,7 @@ export class CheckoutPage implements OnInit {
   }
 
   get isTrialLesson(): boolean {
-    // First lesson with this tutor = trial lesson
+    // Only true when we've confirmed this is the first lesson (0), not when unknown (-1)
     return this.previousLessonsWithTutor === 0;
   }
 
@@ -774,6 +1027,11 @@ export class CheckoutPage implements OnInit {
   }
 
   get canUseWallet(): boolean {
+    // Allow wallet tab if user has ANY balance (hybrid payment will handle the rest)
+    return this.walletBalance > 0;
+  }
+  
+  get canPayFullyWithWallet(): boolean {
     return this.walletBalance >= this.total;
   }
 
@@ -783,16 +1041,25 @@ export class CheckoutPage implements OnInit {
 
   get hasValidPaymentMethod(): boolean {
     if (this.selectedPaymentMethod === 'wallet') {
-      return this.canUseWallet;
+      // Full wallet payment OR hybrid (wallet + saved card)
+      return this.canPayFullyWithWallet || (this.walletBalance > 0 && (!!this.defaultCard || !!this.selectedCardId));
     }
     if (this.selectedPaymentMethod === 'saved-card') {
-      return !!this.defaultCard;
+      return !!this.defaultCard || !!this.selectedCardId;
+    }
+    if (this.selectedPaymentMethod === 'new-card') {
+      // New card form is valid if Stripe elements are mounted
+      return !!this.cardNumberElement;
     }
     if (this.selectedPaymentMethod === 'apple') {
       return this.isApplePayAvailable;
     }
     if (this.selectedPaymentMethod === 'google') {
       return this.isGooglePayAvailable;
+    }
+    // For card tab with add new card form
+    if (this.selectedPaymentTab === 'card' && this.isAddingNewCard) {
+      return !!this.cardNumberElement;
     }
     return false;
   }
@@ -832,19 +1099,387 @@ export class CheckoutPage implements OnInit {
       );
       
       if (response.success && response.paymentMethods) {
+        // Get all cards
+        this.savedCards = response.paymentMethods.filter((pm: any) => pm.type === 'card');
+        
         // Find the default card (or use the first one)
-        const cards = response.paymentMethods.filter((pm: any) => pm.type === 'card');
-        this.defaultCard = cards.find((card: any) => card.isDefault) || cards[0] || null;
+        this.defaultCard = this.savedCards.find((card: any) => card.isDefault) || this.savedCards[0] || null;
         
         if (this.defaultCard) {
           console.log('✅ Loaded default card:', this.defaultCard);
           // Automatically select the default card as the payment method
           this.selectedPaymentMethod = 'saved-card';
+          this.selectedCardId = this.defaultCard.stripePaymentMethodId;
           console.log('✅ Auto-selected saved-card as payment method');
+        } else if (this.savedCards.length === 0) {
+          this.isAddingNewCard = true;
+          this.selectedPaymentMethod = 'new-card';
+          setTimeout(() => this.mountStripeElements(), 300);
         }
       }
     } catch (error) {
       console.error('Error loading saved cards:', error);
+      this.isAddingNewCard = true;
+      this.selectedPaymentMethod = 'new-card';
+      setTimeout(() => this.mountStripeElements(), 300);
+    }
+  }
+
+  // ================== NEW PAYMENT UI METHODS ==================
+
+  selectPaymentTab(tab: 'card' | 'wallet' | 'apple' | 'google'): void {
+    this.selectedPaymentTab = tab;
+    
+    // Update the underlying selectedPaymentMethod
+    if (tab === 'card') {
+      if (this.savedCards.length > 0 && this.selectedCardId) {
+        this.selectedPaymentMethod = 'saved-card';
+      } else {
+        // Will use new card form
+        this.selectedPaymentMethod = 'new-card';
+        if (this.savedCards.length === 0) {
+          this.isAddingNewCard = true;
+          setTimeout(() => this.mountStripeElements(), 300);
+        }
+      }
+    } else if (tab === 'wallet') {
+      this.selectedPaymentMethod = 'wallet';
+    } else if (tab === 'apple') {
+      this.selectedPaymentMethod = 'apple';
+    } else if (tab === 'google') {
+      this.selectedPaymentMethod = 'google';
+    }
+    
+    console.log('Selected payment tab:', tab, 'method:', this.selectedPaymentMethod);
+  }
+
+  selectSavedCard(card: any): void {
+    this.selectedCardId = card.stripePaymentMethodId;
+    this.defaultCard = card;
+    this.selectedPaymentMethod = 'saved-card';
+    console.log('Selected saved card:', card.last4);
+  }
+
+  showAddCardForm(): void {
+    this.isAddingNewCard = true;
+    this.selectedPaymentMethod = 'new-card';
+    
+    // Mount Stripe elements after view updates (increased timeout for reliability)
+    setTimeout(() => this.mountStripeElements(), 300);
+  }
+
+  cancelAddCard(): void {
+    this.isAddingNewCard = false;
+    this.unmountStripeElements();
+    
+    // Go back to saved card selection
+    if (this.savedCards.length > 0) {
+      if (!this.selectedCardId && this.defaultCard) {
+        this.selectedCardId = this.defaultCard.stripePaymentMethodId;
+      }
+      this.selectedPaymentMethod = 'saved-card';
+    }
+  }
+
+  // Check if a card is expired
+  isCardExpired(card: any): boolean {
+    if (!card.expiryMonth || !card.expiryYear) return false;
+    
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1; // getMonth() is 0-indexed
+    
+    // Card expires at the end of the expiry month
+    const expiryYear = parseInt(card.expiryYear, 10);
+    const expiryMonth = parseInt(card.expiryMonth, 10);
+    
+    if (expiryYear < currentYear) return true;
+    if (expiryYear === currentYear && expiryMonth < currentMonth) return true;
+    
+    return false;
+  }
+
+  // Set a card as default
+  async setCardAsDefault(card: any, event: Event): Promise<void> {
+    event.stopPropagation(); // Prevent card selection
+    
+    try {
+      const response = await this.http.put<any>(
+        `${environment.apiUrl}/payments/payment-method/${card.stripePaymentMethodId}/default`,
+        {},
+        { headers: this.userService.getAuthHeadersSync() }
+      ).toPromise();
+      
+      if (response.success) {
+        // Update local state
+        this.savedCards.forEach(c => c.isDefault = false);
+        card.isDefault = true;
+        this.defaultCard = card;
+        
+        // Show success toast
+        const toast = await this.toastController.create({
+          message: 'Card set as default',
+          duration: 2000,
+          color: 'success',
+          position: 'top'
+        });
+        await toast.present();
+      }
+    } catch (error) {
+      console.error('Error setting default card:', error);
+      const toast = await this.toastController.create({
+        message: 'Failed to set default card',
+        duration: 2000,
+        color: 'danger',
+        position: 'top'
+      });
+      await toast.present();
+    }
+  }
+
+  // Delete a saved card
+  async deleteCard(card: any, event: Event): Promise<void> {
+    event.stopPropagation(); // Prevent card selection
+    
+    // Confirm deletion
+    const alert = await this.alertController.create({
+      header: 'Delete Card',
+      message: `Are you sure you want to delete the card ending in ${card.last4}?`,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Delete',
+          role: 'destructive',
+          handler: async () => {
+            try {
+              const response = await this.http.delete<any>(
+                `${environment.apiUrl}/payments/payment-method/${card.stripePaymentMethodId}`,
+                { headers: this.userService.getAuthHeadersSync() }
+              ).toPromise();
+              
+              if (response.success) {
+                // Remove card from local state
+                this.savedCards = this.savedCards.filter(c => c.stripePaymentMethodId !== card.stripePaymentMethodId);
+                
+                // If deleted card was selected, select another or show add form
+                if (this.selectedCardId === card.stripePaymentMethodId) {
+                  if (this.savedCards.length > 0) {
+                    const newDefault = this.savedCards.find(c => c.isDefault) || this.savedCards[0];
+                    this.selectSavedCard(newDefault);
+                  } else {
+                    this.isAddingNewCard = true;
+                    this.selectedPaymentMethod = 'new-card';
+                    setTimeout(() => this.mountStripeElements(), 300);
+                  }
+                }
+                
+                // Update default card reference
+                this.defaultCard = this.savedCards.find(c => c.isDefault) || this.savedCards[0] || null;
+                
+                // Show success toast
+                const toast = await this.toastController.create({
+                  message: 'Card deleted successfully',
+                  duration: 2000,
+                  color: 'success',
+                  position: 'top'
+                });
+                await toast.present();
+              }
+            } catch (error) {
+              console.error('Error deleting card:', error);
+              const toast = await this.toastController.create({
+                message: 'Failed to delete card',
+                duration: 2000,
+                color: 'danger',
+                position: 'top'
+              });
+              await toast.present();
+            }
+          }
+        }
+      ]
+    });
+    
+    await alert.present();
+  }
+
+  private mountStripeElements(retryCount = 0): void {
+    if (!this.stripe || !this.stripeElements) {
+      console.error('❌ Stripe not initialized');
+      return;
+    }
+
+    // Determine element IDs based on embedded mode
+    // embedded = true uses no suffix, embedded = false (standalone page) uses -standalone suffix
+    const suffix = this.embedded ? '' : '-standalone';
+    const cardNumberId = `card-number-element${suffix}`;
+    const cardExpiryId = `card-expiry-element${suffix}`;
+    const cardCvcId = `card-cvc-element${suffix}`;
+
+    console.log('🔍 Looking for Stripe element IDs (attempt ' + (retryCount + 1) + '):', { cardNumberId, cardExpiryId, cardCvcId, embedded: this.embedded });
+
+    const cardNumberContainer = document.getElementById(cardNumberId);
+    const cardExpiryContainer = document.getElementById(cardExpiryId);
+    const cardCvcContainer = document.getElementById(cardCvcId);
+
+    if (!cardNumberContainer || !cardExpiryContainer || !cardCvcContainer) {
+      // Retry up to 5 times with increasing delays
+      if (retryCount < 5) {
+        console.log('⏳ Stripe containers not ready, retrying in ' + (200 * (retryCount + 1)) + 'ms...');
+        setTimeout(() => this.mountStripeElements(retryCount + 1), 200 * (retryCount + 1));
+        return;
+      }
+      console.error('❌ Stripe element containers not found after retries', {
+        cardNumberId,
+        cardNumber: !!cardNumberContainer,
+        cardExpiryId,
+        cardExpiry: !!cardExpiryContainer,
+        cardCvcId,
+        cardCvc: !!cardCvcContainer
+      });
+      return;
+    }
+
+    // Unmount existing elements first
+    this.unmountStripeElements();
+
+    const elementStyle = {
+      base: {
+        fontSize: '16px',
+        color: '#1c1c1e',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif',
+        '::placeholder': {
+          color: '#8e8e93',
+        },
+      },
+      invalid: {
+        color: '#ff3b30',
+      },
+    };
+
+    try {
+      // Create and mount individual elements
+      this.cardNumberElement = this.stripeElements.create('cardNumber', { 
+        style: elementStyle, 
+        placeholder: '0000 0000 0000 0000'
+      });
+      this.cardExpiryElement = this.stripeElements.create('cardExpiry', { 
+        style: elementStyle, 
+        placeholder: 'MM/YY' 
+      });
+      this.cardCvcElement = this.stripeElements.create('cardCvc', { 
+        style: elementStyle, 
+        placeholder: 'CVC' 
+      });
+
+      // Add event listeners for debugging
+      this.cardNumberElement.on('ready', () => {
+        console.log('✅ Card number element ready');
+      });
+      this.cardNumberElement.on('focus', () => {
+        console.log('🎯 Card number focused');
+      });
+      this.cardNumberElement.on('change', (event: any) => {
+        console.log('📝 Card number changed:', event);
+      });
+
+      this.cardNumberElement.mount(`#${cardNumberId}`);
+      this.cardExpiryElement.mount(`#${cardExpiryId}`);
+      this.cardCvcElement.mount(`#${cardCvcId}`);
+
+      console.log('✅ Stripe elements mounted successfully to:', { cardNumberId, cardExpiryId, cardCvcId });
+    } catch (error) {
+      console.error('❌ Error mounting Stripe elements:', error);
+    }
+  }
+
+  private unmountStripeElements(): void {
+    try {
+      if (this.cardNumberElement) {
+        this.cardNumberElement.unmount();
+        this.cardNumberElement.destroy();
+        this.cardNumberElement = null;
+      }
+      if (this.cardExpiryElement) {
+        this.cardExpiryElement.unmount();
+        this.cardExpiryElement.destroy();
+        this.cardExpiryElement = null;
+      }
+      if (this.cardCvcElement) {
+        this.cardCvcElement.unmount();
+        this.cardCvcElement.destroy();
+        this.cardCvcElement = null;
+      }
+    } catch (e) {
+      console.log('Stripe elements already unmounted');
+    }
+  }
+
+  private async createPaymentMethodFromForm(): Promise<string | null> {
+    if (!this.stripe || !this.cardNumberElement) {
+      console.error('❌ Stripe not initialized or card element missing');
+      return null;
+    }
+
+    try {
+      const { paymentMethod, error } = await this.stripe.createPaymentMethod({
+        type: 'card',
+        card: this.cardNumberElement,
+        billing_details: {
+          name: this.cardholderName || undefined,
+          address: {
+            line1: this.billingAddress.line1 || undefined,
+            line2: this.billingAddress.line2 || undefined,
+            city: this.billingAddress.city || undefined,
+            state: this.billingAddress.state || undefined,
+            country: this.billingAddress.country || undefined,
+          },
+        },
+      });
+
+      if (error) {
+        console.error('❌ Stripe error:', error.message);
+        const toast = await this.toastController.create({
+          message: error.message || 'Invalid card information',
+          duration: 3000,
+          color: 'danger',
+          position: 'top'
+        });
+        await toast.present();
+        return null;
+      }
+
+      console.log('✅ Payment method created:', paymentMethod.id);
+
+      // Save card if checkbox is checked
+      if (this.saveCardForFuture) {
+        try {
+          const saveRes = await firstValueFrom(
+            this.http.post<any>(
+              `${environment.apiUrl}/payments/save-payment-method`,
+              { 
+                paymentMethodId: paymentMethod.id,
+                setAsDefault: this.savedCards.length === 0
+              },
+              { headers: this.userService.getAuthHeadersSync() }
+            )
+          );
+          console.log('✅ Card saved for future use');
+          if (saveRes?.stripeCustomerId && this.currentUser) {
+            this.currentUser.stripeCustomerId = saveRes.stripeCustomerId;
+          }
+        } catch (saveError) {
+          console.warn('Could not save card for future use:', saveError);
+        }
+      }
+
+      return paymentMethod.id;
+    } catch (error: any) {
+      console.error('❌ Error creating payment method:', error);
+      return null;
     }
   }
 }

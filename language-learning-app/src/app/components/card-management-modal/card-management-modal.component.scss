@@ -1,249 +1,570 @@
-ion-header {
-  ion-toolbar {
-    --background: #ffffff;
-    --border-width: 0;
-    --padding-top: 8px;
-    --padding-bottom: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-    
-    ion-title {
-      font-size: 18px;
-      font-weight: 700;
-      color: #1c1c1e;
-      letter-spacing: -0.3px;
-    }
-    
-    ion-button {
-      --color: #667eea;
-    }
+// ── Modal Backdrop & Card ──
+.modal-backdrop {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #ffffff;
+}
+
+.modal-card {
+  background: #ffffff;
+  width: 100%;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex: 1;
+}
+
+// ── Header ──
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid #f2f2f7;
+
+  h2 {
+    font-size: 17px;
+    font-weight: 700;
+    color: #1c1c1e;
+    margin: 0;
+    letter-spacing: -0.3px;
   }
 }
 
-.modal-content {
-  padding: 24px;
-  max-width: 600px;
-  margin: 0 auto;
-}
+.close-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid #e5e5ea;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: #8e8e93;
 
-h3 {
-  font-size: 18px;
-  font-weight: 700;
-  color: #1c1c1e;
-  margin: 0 0 16px 0;
-  letter-spacing: -0.3px;
-}
+  ion-icon { font-size: 17px; }
 
-// Add Card Section
-.add-card-section {
-  margin-bottom: 24px;
-}
-
-.add-card-btn {
-  --border-width: 2px;
-  --border-color: #667eea;
-  --color: #667eea;
-  --border-radius: 12px;
-  height: 48px;
-  font-weight: 600;
-  text-transform: none;
-  letter-spacing: 0;
-  
   &:hover {
-    --background: rgba(102, 126, 234, 0.05);
-  }
-}
-
-// New Card Form
-.new-card-form {
-  background: #f9f9f9;
-  border-radius: 16px;
-  padding: 20px;
-  margin-bottom: 24px;
-}
-
-.card-element-container {
-  margin: 16px 0;
-  
-  #modal-card-element {
-    border: 2px solid #e5e5ea;
-    border-radius: 12px;
-    padding: 16px;
-    background: #ffffff;
-    transition: border-color 0.2s ease;
-    
-    &:focus-within {
-      border-color: #667eea;
-      box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
-    }
-  }
-}
-
-.set-default-checkbox {
-  --background: transparent;
-  --padding-start: 0;
-  margin: 12px 0;
-  
-  ion-label {
-    font-size: 14px;
+    border-color: #1c1c1e;
     color: #1c1c1e;
   }
 }
 
-.form-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
-  margin-top: 16px;
-  
-  ion-button {
-    --border-radius: 10px;
-    text-transform: none;
-    font-weight: 600;
-    
-    &[fill="clear"] {
-      --color: #8e8e93;
-    }
-    
-    &:not([fill="clear"]) {
-      --background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      --box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-    }
-  }
+// ── Body ──
+.modal-body {
+  padding: 16px 20px;
+  overflow-y: auto;
+  flex: 1 1 auto;
 }
 
-// Saved Cards Section
-.saved-cards-section {
-  margin-top: 24px;
-}
-
-.cards-list {
+// ── Loading ──
+.loading-state {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  align-items: center;
+  gap: 10px;
+  padding: 32px 20px;
+
+  p {
+    font-size: 13px;
+    color: #8e8e93;
+    margin: 0;
+  }
 }
 
-.card-item {
+// ── Section Title ──
+.section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1c1c1e;
+  margin: 0 0 10px 0;
+  letter-spacing: -0.1px;
+}
+
+.section-title-row {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 16px;
-  background: #ffffff;
-  border: 2px solid #f2f2f7;
+  justify-content: space-between;
+  margin-bottom: 10px;
+
+  .section-title {
+    margin-bottom: 0;
+  }
+}
+
+.back-to-cards-link {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: none;
+  border: none;
+  color: #667eea;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s ease;
+
+  ion-icon { font-size: 14px; }
+
+  &:hover {
+    color: #5a6fd6;
+  }
+}
+
+// ── Saved Cards ──
+.saved-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.saved-card-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid #e5e5ea;
   border-radius: 12px;
+  background: #ffffff;
   cursor: pointer;
   transition: all 0.2s ease;
-  
+
   &:hover {
+    border-color: #d1d1d6;
+    background: #fafafa;
+  }
+
+  &.selected {
     border-color: #667eea;
     background: #fafafa;
-    transform: translateX(4px);
   }
-  
-  &.default-card {
-    border-color: #667eea;
-    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+
+  &.expired {
+    opacity: 0.7;
+
+    .card-name, .card-expiry {
+      color: #8e8e93;
+    }
   }
-  
-  .card-icon {
-    width: 48px;
-    height: 48px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 12px;
+}
+
+// ── Card Brand Logo ──
+.card-brand-logo {
+  width: 44px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e5e5ea;
+  flex-shrink: 0;
+
+  img {
+    max-width: 32px;
+    max-height: 22px;
+    object-fit: contain;
+  }
+
+  .generic-card {
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: 0;
-    
+
     ion-icon {
-      font-size: 24px;
-      color: #ffffff;
+      font-size: 20px;
+      color: #8e8e93;
     }
   }
-  
-  .card-info {
-    flex: 1;
-    min-width: 0;
-  }
-  
-  .card-title {
-    font-size: 16px;
-    font-weight: 700;
-    color: #1c1c1e;
-    margin-bottom: 4px;
-    letter-spacing: -0.2px;
-  }
-  
-  .card-subtitle {
+}
+
+// ── Card Details ──
+.saved-card-item .card-details {
+  flex: 1;
+  min-width: 0;
+
+  .card-name {
     font-size: 13px;
-    color: #8e8e93;
+    font-weight: 600;
+    color: #1c1c1e;
+    letter-spacing: -0.1px;
   }
-  
-  .default-badge {
+
+  .card-expiry {
     font-size: 11px;
-    font-weight: 700;
-    padding: 4px 10px;
-    border-radius: 8px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    color: #8e8e93;
+    margin-top: 2px;
   }
-  
-  .card-actions {
-    display: flex;
-    gap: 4px;
-    align-items: center;
-    
-    ion-button {
-      --padding-start: 12px;
-      --padding-end: 12px;
-      height: 32px;
-      
-      &.set-default-btn {
-        font-size: 12px;
-        text-transform: none;
-        font-weight: 600;
-      }
-      
-      &.remove-btn {
-        ion-icon {
-          font-size: 20px;
-        }
+}
+
+// ── Card Actions ──
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.saved-card-item .default-badge {
+  background: #2c3e50;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 16px;
+  white-space: nowrap;
+}
+
+.set-default-btn {
+  background: transparent;
+  border: none;
+  color: #667eea;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 0;
+  white-space: nowrap;
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: #5a6fd6;
+    text-decoration: underline;
+  }
+}
+
+.expired-badge {
+  background: transparent;
+  border: 1.5px solid #ff3b30;
+  color: #ff3b30;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 16px;
+  white-space: nowrap;
+}
+
+.delete-card-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: none;
+  background: #f2f2f7;
+  color: #8e8e93;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+
+  ion-icon { font-size: 15px; }
+
+  &:hover {
+    background: #ffe5e5;
+    color: #ff3b30;
+  }
+}
+
+// ── Add New Card Button ──
+.add-new-card-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px;
+  border: 1.5px dashed #c7c7cc;
+  border-radius: 10px;
+  background: transparent;
+  color: #667eea;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  ion-icon { font-size: 17px; }
+
+  &:hover {
+    border-color: #667eea;
+    background: rgba(102, 126, 234, 0.04);
+  }
+}
+
+// ── Card Form ──
+.card-brands {
+  margin-bottom: 12px;
+
+  img {
+    height: 24px;
+    object-fit: contain;
+  }
+}
+
+.form-row {
+  margin-bottom: 12px;
+
+  &.card-number-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+
+    .card-number-group {
+      grid-column: 1 / -1;
+    }
+
+    .expiry-group,
+    .cvc-group {
+      grid-column: span 1;
+    }
+
+    @media (min-width: 480px) {
+      grid-template-columns: 2fr 1fr 1fr;
+
+      .card-number-group {
+        grid-column: 1;
       }
     }
   }
 }
 
-// Empty State
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #1c1c1e;
+    letter-spacing: -0.1px;
+  }
+}
+
+.stripe-element {
+  padding: 10px 12px;
+  border: 1.5px solid #e5e5ea;
+  border-radius: 8px;
+  background: #ffffff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+
+  &:focus-within {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.12);
+  }
+}
+
+.form-input {
+  padding: 10px 12px;
+  border: 1.5px solid #e5e5ea;
+  border-radius: 8px;
+  background: #ffffff;
+  font-size: 14px;
+  color: #1c1c1e;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  width: 100%;
+  font-family: inherit;
+
+  &::placeholder {
+    color: #8e8e93;
+  }
+
+  &:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.12);
+  }
+}
+
+// ── Save Card Button ──
+.save-card-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  background: #222;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 4px;
+  letter-spacing: -0.2px;
+
+  &:hover:not(:disabled) {
+    background: #333;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  ion-spinner {
+    width: 18px;
+    height: 18px;
+    color: #ffffff;
+  }
+}
+
+// ── Empty State ──
 .empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 60px 20px;
-  text-align: center;
-  
+  gap: 6px;
+  padding: 24px 16px;
+  color: #8e8e93;
+
   ion-icon {
-    font-size: 80px;
-    color: #d1d1d6;
-    margin-bottom: 20px;
+    font-size: 40px;
+    color: #c7c7cc;
   }
-  
+
   p {
-    font-size: 18px;
-    font-weight: 600;
-    color: #1c1c1e;
-    margin: 0 0 8px 0;
-  }
-  
-  .subtitle {
+    margin: 0;
     font-size: 14px;
-    font-weight: 400;
+    font-weight: 500;
+    color: #1c1c1e;
+  }
+
+  .subtitle {
+    font-size: 12px;
     color: #8e8e93;
+    font-weight: 400;
   }
 }
 
+// ── Mobile Responsive ──
+@media (max-width: 480px) {
+  .modal-header {
+    padding: 12px 16px;
+  }
 
+  .modal-body {
+    padding: 14px 16px;
+  }
 
+  .saved-card-item {
+    padding: 10px 12px;
+    gap: 10px;
 
+    .card-actions {
+      .default-badge {
+        font-size: 9px;
+        padding: 3px 8px;
+      }
 
+      .set-default-btn { font-size: 11px; }
 
+      .delete-card-btn {
+        width: 28px;
+        height: 28px;
+        ion-icon { font-size: 14px; }
+      }
+    }
+  }
 
+  .form-row.card-number-row {
+    grid-template-columns: 1fr 1fr !important;
+
+    .card-number-group {
+      grid-column: 1 / -1 !important;
+    }
+  }
+
+  .purchase-summary {
+    padding: 12px 16px;
+  }
+
+  .purchase-footer {
+    padding: 12px 16px;
+  }
+}
+
+// ── Purchase Summary ──
+
+.purchase-summary {
+  padding: 12px 20px;
+  border-bottom: 1px solid #f2f2f7;
+  background: #fafafa;
+  flex-shrink: 0;
+}
+
+.purchase-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.purchase-item-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1d1d1f;
+}
+
+.purchase-item-price {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1d1d1f;
+}
+
+// ── Purchase Footer ──
+
+.purchase-footer {
+  padding: 12px 20px 14px;
+  border-top: 1px solid #f2f2f7;
+  flex-shrink: 0;
+}
+
+.pay-btn {
+  width: 100%;
+  padding: 13px;
+  border: none;
+  border-radius: 12px;
+  background: #007aff;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+
+  &:hover:not(:disabled) {
+    background: #0066d6;
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  &:disabled {
+    background: #c7c7cc;
+    cursor: not-allowed;
+  }
+}
+
+.pay-secure-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: #86868b;
+
+  ion-icon {
+    font-size: 11px;
+  }
+}

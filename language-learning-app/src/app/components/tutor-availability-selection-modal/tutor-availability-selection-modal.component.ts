@@ -56,7 +56,7 @@ export class TutorAvailabilitySelectionModalComponent implements OnInit {
   selectedTime: string | null = null;
   selectedDateFormatted: string = '';
   selectedTimeFormatted: string = '';
-  lessonDuration: number = 25; // Default lesson duration in minutes
+  lessonDuration: number = 25;
   animationDirection: 'forward' | 'backward' = 'forward';
 
   constructor(
@@ -138,50 +138,16 @@ export class TutorAvailabilitySelectionModalComponent implements OnInit {
   }
 
   /**
-   * Handle time slot selection from availability viewer
+   * Handle payment request from availability viewer's confirmation step
    */
-  onTimeSlotSelected(event: any) {
-    if (!event.selectedDate || !event.selectedTime) {
-      return;
-    }
+  onPaymentRequested(event: { tutorId: string; date: string; time: string; duration: number; isTrialLesson: boolean; timezone: string }) {
+    this.selectedDate = event.date;
+    this.selectedTime = event.time;
+    this.lessonDuration = event.duration;
 
-    console.log('🎯 Time slot selected:', event);
-    console.log('🎯 Selected tutor:', this.selectedTutor);
-
-    // Parse and format the selected date/time
-    const [hours, minutes] = event.selectedTime.split(':').map(Number);
-    const [year, month, day] = event.selectedDate.split('-').map(Number);
-    const selectedDateTime = new Date(year, month - 1, day, hours, minutes, 0, 0);
-    
-    // Store selected date and time
-    this.selectedDate = event.selectedDate;
-    this.selectedTime = event.selectedTime;
-    
-    console.log('🎯 Stored date:', this.selectedDate);
-    console.log('🎯 Stored time:', this.selectedTime);
-    console.log('🎯 Tutor ID:', this.getTutorId(this.selectedTutor!));
-    
-    // Format for display
-    this.selectedDateFormatted = selectedDateTime.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-    
-    this.selectedTimeFormatted = selectedDateTime.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
-    
-    // Navigate to embedded checkout
     this.animationDirection = 'forward';
     this.showTutorList = false;
     this.showCheckout = true;
-    
-    console.log('🎯 Show checkout:', this.showCheckout);
-    console.log('🎯 Show tutor list:', this.showTutorList);
   }
   
   /**

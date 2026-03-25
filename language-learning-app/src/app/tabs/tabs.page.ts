@@ -8,6 +8,8 @@ import { UserService } from '../services/user.service';
 import { MessagingService, Conversation } from '../services/messaging.service';
 import { NotificationService, Notification } from '../services/notification.service';
 import { WebSocketService } from '../services/websocket.service';
+import { NotificationTranslationService } from '../services/notification-translation.service';
+import { TranslateService } from '@ngx-translate/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { PaymentDisputeModalComponent } from '../components/payment-dispute-modal/payment-dispute-modal.component';
 
@@ -25,6 +27,10 @@ interface FormattedNotification extends Notification {
 })
 export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   ionViewWillEnter() {
+    console.log('📱 [TabsPage] ionViewWillEnter - ensuring WebSocket connection');
+    // Ensure WebSocket is connected for real-time updates
+    this.websocketService.ensureConnected();
+    
     // Reload notification count when tabs page becomes active (important for page refresh)
     if (this.currentUser) {
       this.loadUnreadNotificationCount();
@@ -60,9 +66,23 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   // Track if a conversation is selected (for hiding tabs on mobile)
   hasSelectedConversation = false;
   
-  // Check if tabs should be hidden (on messages route AND conversation selected)
+  // Check if tabs should be hidden (on messages route AND conversation selected, or on schedule-class page on mobile)
   get shouldHideTabs(): boolean {
-    return this.isCurrentRoute('/tabs/messages') && this.hasSelectedConversation;
+    // Hide tabs on messages when conversation is selected
+    if (this.isCurrentRoute('/tabs/messages') && this.hasSelectedConversation) {
+      return true;
+    }
+    
+    // Hide tabs on schedule-class page on mobile
+    if (this.isMobile() || this.isMobileViewport()) {
+      const currentUrl = this.router.url;
+      const normalizedUrl = currentUrl.split('?')[0].replace(/\/$/, '');
+      if (normalizedUrl.includes('/schedule-class')) {
+        return true;
+      }
+    }
+    
+    return false;
   }
   
   // Computed property for calendar tab selection
@@ -81,6 +101,17 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   messagesDropdownRight = 20;
   @ViewChild('notificationBtn', { read: ElementRef }) notificationBtn!: ElementRef;
   @ViewChild('messagesBtn', { read: ElementRef }) messagesBtn!: ElementRef;
+  @ViewChild('navButtonsContainer', { read: ElementRef }) navButtonsContainer!: ElementRef;
+  @ViewChild('homeBtn', { read: ElementRef }) homeBtn!: ElementRef;
+  @ViewChild('tutorSearchBtn', { read: ElementRef }) tutorSearchBtn!: ElementRef;
+  @ViewChild('calendarBtn', { read: ElementRef }) calendarBtn!: ElementRef;
+  @ViewChild('lessonsBtn', { read: ElementRef }) lessonsBtn!: ElementRef;
+  
+  // Sliding pill indicator (desktop nav): position/size animate like the former underline
+  underlineLeft = 0;
+  underlineTop = 0;
+  underlineWidth = 0;
+  underlineHeight = 0;
   // Note: notifications array removed - now using notifications$ observable from service
   isLoadingNotifications = false;
   // Messages dropdown state
@@ -103,7 +134,9 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     private websocketService: WebSocketService,
     private cdr: ChangeDetectorRef,
     private sanitizer: DomSanitizer,
-    private modalController: ModalController
+    private modalController: ModalController,
+    private notificationTranslation: NotificationTranslationService,
+    private translateService: TranslateService
   ) {
     // FIXED: Only assign observables in constructor, NO subscriptions
     this.user$ = this.authService.user$;
@@ -116,7 +149,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       map(notifications => notifications.map(n => ({
         ...n,
         formattedTime: this.formatNotificationTime(n.createdAt),
-        sanitizedMessage: this.sanitizer.bypassSecurityTrustHtml(n.message)
+        sanitizedMessage: this.sanitizer.bypassSecurityTrustHtml(this.notificationTranslation.getTranslatedMessage(n))
       })))
     );
     
@@ -136,6 +169,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     // Add window resize listener for reactive viewport detection
     this.resizeListener = () => {
       this.showTabs = this.shouldShowTabs();
+      setTimeout(() => this.updateUnderline(), 50);
     };
     window.addEventListener('resize', this.resizeListener);
     
@@ -156,6 +190,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
         
         // Preload conversations in background for faster dropdown
         this.refreshConversationsInBackground();
+
+        setTimeout(() => this.updateUnderline(), 100);
       });
     
     // Connect to WebSocket
@@ -194,6 +230,9 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
         this.cdr.markForCheck();
         setTimeout(() => this.cdr.detectChanges(), 0);
       }, 100);
+      
+      // Update sliding underline position
+      setTimeout(() => this.updateUnderline(), 50);
     });
     
     // Initialize current route
@@ -266,6 +305,22 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
         this.loadNotifications();
         // Also update unread count immediately
         this.loadUnreadNotificationCount();
+      }
+    });
+    
+    // Listen for WebSocket reconnection to re-establish message listeners
+    this.websocketService.connection$.pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(isConnected => {
+      console.log('📬 [TabsPage] WebSocket connection status changed:', isConnected);
+      if (isConnected && this.currentUser) {
+        // Re-subscribe to message updates when WebSocket reconnects
+        console.log('📬 [TabsPage] WebSocket reconnected - re-subscribing to message updates');
+        this.subscribeToMessageUpdates();
+        // Also reload conversations to get accurate unread counts
+        setTimeout(() => {
+          this.loadConversations();
+        }, 500);
       }
     });
     
@@ -381,6 +436,45 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     return normalizedUrl === normalizedRoute || normalizedUrl.startsWith(normalizedRoute + '/');
   }
 
+  // Update sliding underline position based on active route
+  updateUnderline() {
+    // Pill nav styling only applies from 992px up; keep indicator out of DOM when hidden
+    if (this.showTabs || !this.navButtonsContainer || window.innerWidth < 992) {
+      this.underlineWidth = 0;
+      this.underlineHeight = 0;
+      return;
+    }
+
+    let activeButton: ElementRef | null = null;
+
+    // Find which button is active based on current route
+    if (this.isCurrentRoute('/tabs/home') && this.homeBtn) {
+      activeButton = this.homeBtn;
+    } else if (this.isCurrentRoute('/tabs/tutor-search') && this.tutorSearchBtn) {
+      activeButton = this.tutorSearchBtn;
+    } else if (this.isCurrentRoute('/tabs/tutor-calendar') && this.calendarBtn) {
+      activeButton = this.calendarBtn;
+    } else if (this.isCurrentRoute('/tabs/messages') && this.messagesBtn) {
+      activeButton = this.messagesBtn;
+    } else if (this.isCurrentRoute('/tabs/lessons') && this.lessonsBtn) {
+      activeButton = this.lessonsBtn;
+    } else if (this.isCurrentRoute('/tabs/notifications') && this.notificationBtn) {
+      activeButton = this.notificationBtn;
+    }
+
+    if (activeButton && activeButton.nativeElement) {
+      const containerRect = this.navButtonsContainer.nativeElement.getBoundingClientRect();
+      const buttonRect = activeButton.nativeElement.getBoundingClientRect();
+
+      this.underlineLeft = buttonRect.left - containerRect.left;
+      this.underlineTop = buttonRect.top - containerRect.top;
+      this.underlineWidth = buttonRect.width;
+      this.underlineHeight = buttonRect.height;
+    } else {
+      this.underlineWidth = 0;
+      this.underlineHeight = 0;
+    }
+  }
 
   // Helper methods for template
   isWeb() {
@@ -480,6 +574,10 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
 
   ngAfterViewInit() {
     // ViewChild is available after view init
+    // Update underline position after view is initialized
+    setTimeout(() => {
+      this.updateUnderline();
+    }, 100);
   }
 
   loadNotifications() {
@@ -531,14 +629,15 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       clearTimeout(this.notificationHoverTimer);
       this.notificationHoverTimer = null;
     }
-    
-    // Close dropdown if it's open
+
+    // Toggle dropdown on click (navigation temporarily disabled)
     if (this.isNotificationDropdownOpen) {
       this.closeNotificationDropdown();
+    } else {
+      this.isNotificationDropdownOpen = true;
+      this.loadNotifications();
+      this.calculateDropdownPosition();
     }
-    
-    // Navigate to notifications page
-    this.router.navigate(['/tabs/notifications']);
   }
   
   onNotificationButtonMouseEnter() {
@@ -610,6 +709,16 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     this.router.navigate(['/tabs/notifications']);
   }
 
+  navigateToTutorCalendar() {
+    this.closeNotificationDropdown();
+    this.router.navigate(['/tabs/availability-setup']);
+  }
+
+  navigateToProgress() {
+    this.closeNotificationDropdown();
+    this.router.navigate(['/tabs/progress']);
+  }
+
   private calculateDropdownPosition() {
     if (!this.notificationBtn) {
       return;
@@ -629,12 +738,17 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
+    const t = (key: string, params?: any) => this.translateService.instant(key, params);
 
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
-    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-    return date.toLocaleDateString();
+    if (diffMins < 1) return t('NOTIFICATIONS.TIME.JUST_NOW');
+    if (diffMins === 1) return t('NOTIFICATIONS.TIME.MINUTE_AGO', { count: 1 });
+    if (diffMins < 60) return t('NOTIFICATIONS.TIME.MINUTES_AGO', { count: diffMins });
+    if (diffHours === 1) return t('NOTIFICATIONS.TIME.HOUR_AGO', { count: 1 });
+    if (diffHours < 24) return t('NOTIFICATIONS.TIME.HOURS_AGO', { count: diffHours });
+    if (diffDays === 1) return t('NOTIFICATIONS.TIME.DAY_AGO', { count: 1 });
+    if (diffDays < 7) return t('NOTIFICATIONS.TIME.DAYS_AGO', { count: diffDays });
+    const lang = this.translateService.currentLang || this.translateService.defaultLang || 'en';
+    return date.toLocaleDateString(lang);
   }
 
   sanitizeNotificationMessage(message: string): SafeHtml {
@@ -661,17 +775,21 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       'lesson_analysis_ready': 'analytics',
       'class_invitation': 'people',
       'class_accepted': 'people',
-      'class_cancelled': 'close-circle',
-      'class_auto_cancelled': 'close-circle',
-      'class_removed': 'close-circle',
+      'class_cancelled': 'videocam',
+      'class_auto_cancelled': 'videocam',
+      'class_removed': 'videocam',
+      'class_invitation_cancelled': 'videocam',
+      'invitation_cancelled': 'videocam',
       'message': 'chatbubbles',
-      'progress_milestone': 'trophy'
+      'progress_milestone': 'trophy',
+      'credential_approved': 'shield-checkmark',
+      'credential_rejected': 'shield'
     };
     return iconMap[type] || 'notifications';
   }
 
   getNotificationIconClass(type: string): string {
-    if (['lesson_created', 'lesson_reminder', 'lesson_rescheduled', 'office_hours_booking', 'office_hours_starting'].includes(type)) {
+    if (['lesson_created', 'lesson_reminder', 'lesson_rescheduled', 'office_hours_booking', 'office_hours_starting', 'class_cancelled', 'class_auto_cancelled', 'class_removed', 'class_invitation_cancelled', 'invitation_cancelled'].includes(type)) {
       return 'lesson-icon';
     }
     if (type === 'lesson_analysis_ready') {
@@ -694,7 +812,9 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     const systemTypes = [
       'tutor_video_approved',
       'tutor_video_rejected',
-      'lesson_analysis_ready'
+      'lesson_analysis_ready',
+      'credential_approved',
+      'credential_rejected'
     ];
     return systemTypes.includes(type);
   }
@@ -715,6 +835,11 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       'lesson_cancelled': 'close-circle',
       'lesson_rescheduled': 'calendar',
       'class_invitation': 'people',
+      'class_cancelled': 'videocam',
+      'class_auto_cancelled': 'videocam',
+      'class_removed': 'videocam',
+      'class_invitation_cancelled': 'videocam',
+      'invitation_cancelled': 'videocam',
       'office_hours_booking': 'briefcase',
       'office_hours_starting': 'play',
       'payment_received': 'cash',
@@ -727,7 +852,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   getContextualIconClass(type: string): string {
     if (type === 'payment_received') {
       return 'contextual-icon money-icon';
-    } else if (type === 'lesson_created' || type === 'lesson_reminder' || type === 'class_invitation') {
+    } else if (type === 'lesson_created' || type === 'lesson_reminder' || type === 'class_invitation' || type === 'class_cancelled' || type === 'class_auto_cancelled' || type === 'class_removed' || type === 'class_invitation_cancelled' || type === 'invitation_cancelled') {
       return 'contextual-icon lesson-icon';
     } else if (type === 'message') {
       return 'contextual-icon message-icon';
@@ -758,7 +883,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private updateBrowserTabTitle(unreadCount: number) {
-    const baseTitle = 'Speak Freely'; // Base title for your app
+    const baseTitle = 'Barnabi'; // Base title for your app
     if (unreadCount > 0) {
       document.title = `${baseTitle} (${unreadCount})`;
     } else {
@@ -791,7 +916,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     // Navigate based on notification type
     if (notification.type === 'lesson_created' && notification.data?.lessonId) {
       // Navigate to lessons page with lesson ID to scroll to
-      this.router.navigate(['/tabs/home/lessons'], { 
+      this.router.navigate(['/tabs/lessons'], { 
         queryParams: { 
           scrollToLesson: notification.data.lessonId 
         } 
@@ -977,12 +1102,22 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     // Unsubscribe from any existing subscription
     this.unsubscribeFromMessageUpdates();
     
+    console.log('📬 [TabsPage] Subscribing to message updates via WebSocket');
+    
     // Subscribe to new messages via WebSocket - always active for real-time updates
     this.messagesSubscription = this.websocketService.newMessage$.pipe(
       takeUntil(this.destroy$)
     ).subscribe(message => {
+      console.log('📬 [TabsPage] Received message via WebSocket:', {
+        id: message.id,
+        senderId: message.senderId,
+        receiverId: message.receiverId,
+        content: message.content?.slice(0, 30)
+      });
+      
       const currentUserId = this.currentUser?.['auth0Id'] || this.currentUser?.['id'];
       if (!currentUserId) {
+        console.log('📬 [TabsPage] No currentUserId, ignoring message');
         return;
       }
       
@@ -1000,10 +1135,19 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       const participatesInMessage = normalizedSenderId === normalizedCurrentUserId || 
                                      normalizedReceiverId === normalizedCurrentUserId;
       
+      console.log('📬 [TabsPage] Message participation check:', {
+        participatesInMessage,
+        normalizedCurrentUserId,
+        normalizedSenderId,
+        normalizedReceiverId
+      });
+      
       if (!participatesInMessage) {
+        console.log('📬 [TabsPage] Message not for current user, ignoring');
         return; // Message not for current user
       }
       
+      console.log('📬 [TabsPage] Updating conversation from message...');
       // Update conversations list in background (works whether dropdown is open or not)
       this.updateConversationFromMessage(message, normalizedCurrentUserId, normalizedSenderId);
     });
@@ -1028,6 +1172,12 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     const conversationId = message.conversationId;
     const conversation = this.conversations.find(c => c.conversationId === conversationId);
     
+    console.log('📬 [TabsPage] updateConversationFromMessage:', {
+      conversationId,
+      foundConversation: !!conversation,
+      conversationsCount: this.conversations.length
+    });
+    
     if (conversation) {
       // Clear reaction preview since we have a new message
       this.reactionPreviews.delete(conversationId);
@@ -1044,6 +1194,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       
       // Update unread count if message is for current user
       const isMyMessage = senderId === currentUserId;
+      console.log('📬 [TabsPage] Is my message?', isMyMessage);
+      
       if (!isMyMessage && message.receiverId) {
         const normalizeUserId = (id: string) => id?.replace('dev-user-', '') || '';
         const normalizedReceiverId = normalizeUserId(message.receiverId);
@@ -1054,7 +1206,9 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
           
           // Update global unread count
           const currentUnread = this.unreadCount$.value;
-          this.unreadCount$.next(currentUnread + 1);
+          const newUnread = currentUnread + 1;
+          console.log('📬 [TabsPage] 🔴 Updating unread count:', currentUnread, '->', newUnread);
+          this.unreadCount$.next(newUnread);
         }
       }
       
@@ -1062,10 +1216,29 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       this.conversations = this.conversations.filter(c => c.conversationId !== conversationId);
       this.conversations.unshift(conversation);
       
+      console.log('📬 [TabsPage] Conversation updated, triggering change detection');
       setTimeout(() => this.cdr.detectChanges(), 0);
     } else {
       // New conversation - reload the list
       console.log('📬 New conversation detected, reloading conversations...');
+      
+      // IMMEDIATELY increment unread count for new conversation messages
+      // (if the message is for the current user, not sent by them)
+      const isMyMessage = senderId === currentUserId;
+      if (!isMyMessage && message.receiverId) {
+        const normalizeUserId = (id: string) => id?.replace('dev-user-', '') || '';
+        const normalizedReceiverId = normalizeUserId(message.receiverId);
+        const normalizedCurrentUserId = normalizeUserId(currentUserId);
+        
+        if (normalizedReceiverId === normalizedCurrentUserId) {
+          const currentUnread = this.unreadCount$.value;
+          const newUnread = currentUnread + 1;
+          console.log('📬 [TabsPage] 🔴 New conversation - Updating unread count:', currentUnread, '->', newUnread);
+          this.unreadCount$.next(newUnread);
+          this.cdr.detectChanges();
+        }
+      }
+      
       // Force reload even if currently loading by resetting the flag after a short delay
       if (this.isLoadingConversations) {
         setTimeout(() => {

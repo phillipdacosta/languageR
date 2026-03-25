@@ -1,0 +1,515 @@
+// Airbnb-style design tokens
+$text-primary: #222222;
+$text-secondary: #717171;
+$text-tertiary: #b0b0b0;
+$border-color: #ebebeb;
+$border-dark: #dddddd;
+$bg-hover: #f7f7f7;
+$bg-subtle: #f7f7f7;
+
+// Dark mode tokens
+$dk-surface: #1c1c1e;
+$dk-card: #2c2c2e;
+$dk-card-hover: #3a3a3c;
+$dk-border: rgba(255, 255, 255, 0.1);
+$dk-border-strong: rgba(255, 255, 255, 0.18);
+$dk-text: #f5f5f7;
+$dk-text-secondary: #8e8e93;
+$dk-text-tertiary: #636366;
+
+// ── Overlay ──
+.event-context-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.08);
+  z-index: 10000;
+}
+
+// ── Menu container ──
+.event-context-menu-container {
+  position: absolute;
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.12),
+    0 1px 4px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  width: 380px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  animation: menuSlideIn 0.18s cubic-bezier(0.32, 0.72, 0, 1);
+  transform-origin: top center;
+  border: 1px solid $border-color;
+
+  &.show-below {
+    transform-origin: bottom center;
+  }
+}
+
+// ── Arrow ──
+.menu-arrow {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 8px solid #ffffff;
+  top: -8px;
+  z-index: 1;
+
+  &.arrow-above {
+    top: auto;
+    bottom: -8px;
+    border-bottom: none;
+    border-top: 8px solid #ffffff;
+  }
+}
+
+@keyframes menuSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+// ── Content ──
+.event-details-content {
+  padding: 20px;
+  position: relative;
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: calc(90vh - 20px);
+  flex: 1;
+
+  &::-webkit-scrollbar { width: 4px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.12);
+    border-radius: 2px;
+  }
+}
+
+// ── Close button ──
+.close-button {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid $border-dark;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: $bg-hover;
+    border-color: $text-tertiary;
+  }
+
+  &:active { transform: scale(0.92); }
+
+  ion-icon {
+    font-size: 16px;
+    color: $text-secondary;
+  }
+}
+
+// ── Event header ──
+.event-header {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  padding-right: 36px;
+  border-bottom: 1px solid $border-color;
+}
+
+.event-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+
+  ion-icon { font-size: 24px; color: white; }
+  img { width: 100%; height: 100%; object-fit: cover; }
+}
+
+.event-title-section { flex: 1; min-width: 0; }
+
+.event-title {
+  margin: 0 0 2px 0;
+  font-size: 17px;
+  font-weight: 600;
+  color: $text-primary;
+  line-height: 1.3;
+  letter-spacing: -0.2px;
+}
+
+.event-subtitle {
+  margin: 0 0 6px 0;
+  font-size: 13px;
+  color: $text-secondary;
+  line-height: 1.4;
+}
+
+.event-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+
+  ion-icon { font-size: 11px; }
+
+  &.trial { background: rgba(255, 193, 7, 0.12); color: #f57c00; }
+  &.office-hours { background: rgba(156, 39, 176, 0.12); color: #7b1fa2; }
+  &.class { background: rgba(33, 150, 243, 0.12); color: #1976d2; }
+  &.cancelled { background: rgba(244, 67, 54, 0.12); color: #c62828; }
+}
+
+// ── Detail rows ──
+.event-details-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.detail-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.detail-icon {
+  font-size: 18px;
+  color: $text-tertiary;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.detail-content { flex: 1; min-width: 0; }
+
+.detail-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: $text-secondary;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 2px;
+}
+
+.detail-value {
+  font-size: 14px;
+  color: $text-primary;
+  line-height: 1.45;
+
+  .time-range { font-weight: 600; margin: 2px 0; }
+  .duration { font-size: 12px; color: $text-secondary; margin-top: 1px; }
+}
+
+// ── Class attendees ──
+.class-status-section {
+  margin-top: 4px;
+  margin-bottom: 12px;
+  padding-left: 28px;
+
+  .no-attendees .going-text {
+    font-size: 11px;
+    font-weight: 600;
+    color: $text-secondary;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+}
+
+.going-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+
+  .going-text {
+    font-size: 11px;
+    font-weight: 600;
+    color: $text-secondary;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+
+  .attendee-avatars-row {
+    display: flex;
+    align-items: center;
+
+    .attendee-avatar {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: 2px solid #ffffff;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+      overflow: hidden;
+      background: $bg-subtle;
+
+      img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      ion-icon { font-size: 14px; color: $text-secondary; }
+    }
+
+    .more-attendees {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: 2px solid #ffffff;
+      background: $bg-subtle;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 600;
+      color: $text-secondary;
+      margin-left: -8px;
+    }
+
+    .count-text {
+      font-size: 12px;
+      color: $text-secondary;
+      margin-left: 6px;
+      font-weight: 500;
+    }
+  }
+}
+
+// ── Action buttons ──
+.event-actions {
+  padding-top: 12px;
+  border-top: 1px solid $border-color;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  .action-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    border: none;
+    background: transparent;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    color: $text-primary;
+    cursor: pointer;
+    transition: background 0.15s ease;
+
+    &:hover:not(.disabled) { background: $bg-hover; }
+    &.disabled { opacity: 0.4; cursor: not-allowed; }
+
+    &.join-button {
+      background: $text-primary;
+      color: white;
+      font-weight: 600;
+      font-size: 13px;
+      width: fit-content;
+      padding: 8px 18px;
+      justify-content: center;
+      border-radius: 8px;
+      margin-bottom: 4px;
+      transition: background 0.15s ease, transform 0.1s ease;
+
+      &:hover:not(.disabled) { background: #444; }
+      &:active:not(.disabled) { transform: scale(0.97); }
+      ion-icon { color: white; font-size: 16px; }
+    }
+
+    &.cancel-button {
+      color: #ef4444;
+      &:hover { background: rgba(239, 68, 68, 0.06); }
+      ion-icon { color: #ef4444; }
+    }
+
+    ion-icon { font-size: 18px; color: $text-secondary; }
+  }
+}
+
+// ── Responsive ──
+@media (max-width: 500px) {
+  .event-context-menu-container { width: calc(100vw - 24px); }
+  .event-header { flex-direction: column; align-items: center; text-align: center; }
+  .event-icon { width: 56px; height: 56px; }
+}
+
+// ============================================
+// DARK MODE
+// ============================================
+
+:host-context(html.ion-palette-dark) {
+
+  .event-context-menu-overlay {
+    background: rgba(0, 0, 0, 0.25);
+  }
+
+  .event-context-menu-container {
+    background: $dk-surface;
+    border-color: $dk-border-strong;
+    box-shadow:
+      0 4px 32px rgba(0, 0, 0, 0.5),
+      0 1px 4px rgba(0, 0, 0, 0.3);
+  }
+
+  .menu-arrow {
+    border-bottom-color: $dk-surface;
+    &.arrow-above {
+      border-top-color: $dk-surface;
+    }
+  }
+
+  .event-details-content {
+    &::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); }
+  }
+
+  .close-button {
+    background: $dk-card;
+    border-color: $dk-border-strong;
+    &:hover { background: $dk-card-hover; border-color: rgba(255, 255, 255, 0.25); }
+    ion-icon { color: $dk-text-secondary; }
+  }
+
+  .event-header { border-bottom-color: $dk-border; }
+  .event-title { color: $dk-text; }
+  .event-subtitle { color: $dk-text-secondary; }
+
+  .badge {
+    &.trial { background: rgba(255, 193, 7, 0.15); color: #ffb300; }
+    &.office-hours { background: rgba(156, 39, 176, 0.18); color: #ce93d8; }
+    &.class { background: rgba(33, 150, 243, 0.18); color: #64b5f6; }
+    &.cancelled { background: rgba(255, 69, 58, 0.15); color: #ff6b6b; }
+  }
+
+  .detail-icon { color: $dk-text-tertiary; }
+  .detail-label { color: $dk-text-secondary; }
+  .detail-value {
+    color: $dk-text;
+    .duration { color: $dk-text-secondary; }
+  }
+
+  .class-status-section .no-attendees .going-text { color: $dk-text-secondary; }
+  .going-badge {
+    .going-text { color: $dk-text-secondary; }
+    .attendee-avatars-row {
+      .attendee-avatar {
+        border-color: $dk-surface;
+        background: $dk-card;
+        ion-icon { color: $dk-text-secondary; }
+      }
+      .more-attendees {
+        border-color: $dk-surface;
+        background: $dk-card;
+        color: $dk-text-secondary;
+      }
+      .count-text { color: $dk-text-secondary; }
+    }
+  }
+
+  .event-actions {
+    border-top-color: $dk-border;
+
+    .action-item {
+      color: $dk-text;
+      &:hover:not(.disabled) { background: $dk-card; }
+
+      &.join-button {
+        background: $dk-text;
+        color: #000;
+        &:hover:not(.disabled) { background: #fff; }
+      }
+
+      &.cancel-button {
+        color: #ff453a;
+        &:hover { background: rgba(255, 69, 58, 0.1); }
+        ion-icon { color: #ff453a; }
+      }
+
+      ion-icon { color: $dk-text-secondary; }
+    }
+  }
+
+  .gcal-icon-bg { background: #f3f4f6 !important; }
+  .gcal-badge { background: rgba(255, 255, 255, 0.12) !important; color: $dk-text-secondary !important; }
+  .gcal-info-note { color: $dk-text-secondary; background: rgba(255, 255, 255, 0.04); }
+}
+
+// Google Calendar detail card styles
+.gcal-icon-bg {
+  background: #f9fafb !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gcal-modal-icon {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+.gcal-badge {
+  background: #f3f4f6 !important;
+  color: #6b7280 !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.badge-gcal-icon {
+  width: 12px;
+  height: 12px;
+  object-fit: contain;
+}
+
+.gcal-info-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  margin: 4px 0 0;
+  background: #f9fafb;
+  border-radius: 10px;
+  font-size: 12.5px;
+  color: #6b7280;
+  line-height: 1.4;
+
+  ion-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+    color: #9ca3af;
+  }
+}

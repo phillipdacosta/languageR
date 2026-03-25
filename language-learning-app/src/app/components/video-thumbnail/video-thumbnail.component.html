@@ -7,10 +7,11 @@
   
   <!-- Uploaded video without custom thumbnail - show first frame -->
   <video *ngIf="!thumbnailUrl && videoUrl && videoType === 'upload'" 
-         [src]="videoUrl" 
+         [src]="videoUrl + '#t=0.5'" 
          class="video-thumbnail-image"
          preload="metadata"
-         crossorigin="anonymous"></video>
+         muted
+         playsinline></video>
   
   <!-- YouTube/Vimeo thumbnail -->
   <img *ngIf="!thumbnailUrl && videoUrl && (videoType === 'youtube' || videoType === 'vimeo') && externalVideoThumbnail" 
@@ -18,8 +19,14 @@
        alt="Video preview" 
        class="video-thumbnail-image">
   
-  <!-- Fallback placeholder for external videos without thumbnail -->
-  <div *ngIf="!thumbnailUrl && videoUrl && (videoType === 'youtube' || videoType === 'vimeo') && !externalVideoThumbnail" 
+  <!-- Loading skeleton while fetching external thumbnail -->
+  <div *ngIf="!thumbnailUrl && videoUrl && (videoType === 'youtube' || videoType === 'vimeo') && isLoadingThumbnail && !externalVideoThumbnail" 
+       class="thumbnail-loading-skeleton">
+    <div class="skeleton-shimmer"></div>
+  </div>
+  
+  <!-- Fallback placeholder for external videos (only show after load attempt fails) -->
+  <div *ngIf="!thumbnailUrl && videoUrl && (videoType === 'youtube' || videoType === 'vimeo') && !externalVideoThumbnail && !isLoadingThumbnail && thumbnailLoadFailed" 
        class="external-video-placeholder">
     <ion-icon [name]="videoType === 'youtube' ? 'logo-youtube' : 'logo-vimeo'"></ion-icon>
     <p>{{ videoType === 'youtube' ? 'YouTube' : 'Vimeo' }} Video</p>

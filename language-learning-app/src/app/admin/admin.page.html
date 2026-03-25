@@ -82,17 +82,45 @@
       </div>
     </div>
 
+    <!-- True Profit Card (Hero) -->
+    <div class="profit-hero" *ngIf="revenueData.payoutCosts">
+      <div class="profit-hero-main">
+        <div class="profit-hero-icon">
+          <ion-icon name="diamond"></ion-icon>
+        </div>
+        <div class="profit-hero-content">
+          <div class="profit-hero-label">True Platform Profit</div>
+          <div class="profit-hero-value">{{ formatCurrency(revenueData.payoutCosts.truePlatformProfit) }}</div>
+          <div class="profit-hero-sublabel">After all processing &amp; payout costs</div>
+        </div>
+      </div>
+      <div class="profit-hero-breakdown">
+        <div class="profit-breakdown-item">
+          <span class="profit-breakdown-label">Net lesson revenue</span>
+          <span class="profit-breakdown-value">{{ formatCurrency(revenueData.summary.totalNetPlatformRevenue) }}</span>
+        </div>
+        <div class="profit-breakdown-item deduction" *ngIf="revenueData.payoutCosts.totalPayPalSenderFees > 0">
+          <span class="profit-breakdown-label">PayPal sender fees</span>
+          <span class="profit-breakdown-value">-{{ formatCurrency(revenueData.payoutCosts.totalPayPalSenderFees) }}</span>
+        </div>
+        <div class="profit-breakdown-item neutral" *ngIf="revenueData.payoutCosts.totalPayPalSenderFees === 0">
+          <span class="profit-breakdown-label">PayPal sender fees</span>
+          <span class="profit-breakdown-value muted">$0.00</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Summary Cards -->
     <div class="summary-grid">
-      <!-- Net Platform Revenue (Most Important) -->
+      <!-- Net Platform Revenue -->
       <div class="summary-card primary">
         <div class="card-icon">
           <ion-icon name="cash"></ion-icon>
         </div>
         <div class="card-content">
-          <div class="card-label">Net Platform Revenue</div>
+          <div class="card-label">Net Lesson Revenue</div>
           <div class="card-value">{{ formatCurrency(revenueData.summary.totalNetPlatformRevenue) }}</div>
-          <div class="card-sublabel">Your actual profit</div>
+          <div class="card-sublabel">Platform fee minus Stripe fees</div>
         </div>
       </div>
 
@@ -128,7 +156,7 @@
         <div class="card-content">
           <div class="card-label">Platform Fee (20%)</div>
           <div class="card-value">{{ formatCurrency(revenueData.summary.totalPlatformFee) }}</div>
-          <div class="card-sublabel">Before Stripe fees</div>
+          <div class="card-sublabel">Before processing fees</div>
         </div>
       </div>
 
@@ -140,7 +168,7 @@
         <div class="card-content">
           <div class="card-label">Stripe Fees</div>
           <div class="card-value">{{ formatCurrency(revenueData.summary.totalStripeFees) }}</div>
-          <div class="card-sublabel">Processing costs</div>
+          <div class="card-sublabel">Card processing costs</div>
         </div>
       </div>
 
@@ -157,15 +185,51 @@
       </div>
     </div>
 
-    <!-- Tutor Payout Status (Simplified) -->
+    <!-- Platform Balance & Liquidity -->
     <div class="withdrawal-section" *ngIf="revenueData.withdrawalInfo">
+      <h3>
+        <ion-icon name="wallet-outline"></ion-icon>
+        Platform Balance &amp; Liquidity
+      </h3>
+
+      <!-- Safe to Withdraw + Stripe Balance -->
+      <div class="balance-overview">
+        <div class="balance-card safe-withdraw">
+          <div class="balance-card-label">Safe to Withdraw</div>
+          <div class="balance-card-value success">{{ formatCurrency(revenueData.withdrawalInfo.safeToWithdraw) }}</div>
+          <div class="balance-card-detail">Amount you can take from Stripe to your bank</div>
+        </div>
+        <div class="balance-card stripe-balance">
+          <div class="balance-card-label">Stripe Balance</div>
+          <div class="balance-card-value">{{ formatCurrency(revenueData.withdrawalInfo.currentStripeBalance) }}</div>
+          <div class="balance-card-detail">
+            Available now
+            <span *ngIf="revenueData.withdrawalInfo.stripePendingBalance > 0">
+              &bull; {{ formatCurrency(revenueData.withdrawalInfo.stripePendingBalance) }} pending
+            </span>
+          </div>
+        </div>
+        <div class="balance-card owed-tutors">
+          <div class="balance-card-label">Owed to Tutors</div>
+          <div class="balance-card-value warn">{{ formatCurrency(revenueData.withdrawalInfo.totalOwedToTutors) }}</div>
+          <div class="balance-card-detail">
+            {{ revenueData.withdrawalInfo.breakdown.tutorsCount }} tutor(s) with balances
+          </div>
+        </div>
+      </div>
+
+      <!-- Discrepancy Warning -->
+      <div class="discrepancy-warning" *ngIf="revenueData.withdrawalInfo.warning">
+        <ion-icon name="warning-outline"></ion-icon>
+        <span>{{ revenueData.withdrawalInfo.warning }}</span>
+      </div>
+
       <h3>
         <ion-icon name="people-outline"></ion-icon>
         Tutor Payout Status
       </h3>
       
       <div class="withdrawal-card">
-        <!-- Simple breakdown by payout method -->
         <div class="payout-summary">
           
           <!-- Stripe Tutors -->
@@ -175,7 +239,7 @@
               <span>Stripe Connect Tutors</span>
             </div>
             <div class="method-amount">{{ formatCurrency(revenueData.withdrawalInfo.byPayoutMethod?.stripe?.owed || 0) }}</div>
-            <div class="method-detail">{{ revenueData.withdrawalInfo.byPayoutMethod?.stripe?.tutorsCount || 0 }} tutor(s) • Auto-paid from Stripe</div>
+            <div class="method-detail">{{ revenueData.withdrawalInfo.byPayoutMethod?.stripe?.tutorsCount || 0 }} tutor(s) &bull; Auto-paid from Stripe</div>
           </div>
           
           <!-- PayPal Tutors -->
@@ -184,8 +248,13 @@
               <ion-icon name="logo-paypal"></ion-icon>
               <span>PayPal Tutors</span>
             </div>
-            <div class="method-amount">{{ formatCurrency(revenueData.withdrawalInfo.byPayoutMethod?.paypal?.owed || 0) }}</div>
-            <div class="method-detail">{{ revenueData.withdrawalInfo.byPayoutMethod?.paypal?.tutorsCount || 0 }} tutor(s) • Requires PayPal funding</div>
+            <div class="method-amount">{{ formatCurrency(revenueData.withdrawalInfo.byPayoutMethod?.paypal?.totalNeeded || 0) }}</div>
+            <div class="method-detail">
+              {{ revenueData.withdrawalInfo.byPayoutMethod?.paypal?.tutorsCount || 0 }} tutor(s)
+              <span *ngIf="(revenueData.withdrawalInfo.byPayoutMethod?.paypal?.inFlightCount || 0) > 0">
+                &bull; {{ revenueData.withdrawalInfo.byPayoutMethod?.paypal?.inFlightCount }} withdrawal(s) in flight
+              </span>
+            </div>
           </div>
           
           <!-- No tutors with balance -->
@@ -196,19 +265,66 @@
           
         </div>
         
-        <!-- PayPal Funding Alert (only if PayPal tutors exist) -->
-        <div class="paypal-funding-alert" *ngIf="(revenueData.withdrawalInfo.byPayoutMethod?.paypal?.owed || 0) > 0">
+        <!-- PayPal Funding Alert -->
+        <div class="paypal-funding-alert" *ngIf="(revenueData.withdrawalInfo.byPayoutMethod?.paypal?.totalNeeded || 0) > 0">
           <ion-icon name="alert-circle"></ion-icon>
           <div class="alert-content">
             <strong>PayPal Funding Required</strong>
-            <p>Keep at least <strong>{{ formatCurrency(revenueData.withdrawalInfo.byPayoutMethod?.paypal?.owed || 0) }}</strong> in your PayPal Business account to process tutor withdrawals.</p>
+            <p>
+              Keep at least <strong>{{ formatCurrency(revenueData.withdrawalInfo.byPayoutMethod?.paypal?.totalNeeded || 0) }}</strong> in your PayPal Business account.
+            </p>
+            <div class="paypal-funding-breakdown">
+              <span>Owed to tutors: {{ formatCurrency(revenueData.withdrawalInfo.byPayoutMethod?.paypal?.owed || 0) }}</span>
+              <span *ngIf="(revenueData.withdrawalInfo.byPayoutMethod?.paypal?.inFlight || 0) > 0">
+                In-flight withdrawals: {{ formatCurrency(revenueData.withdrawalInfo.byPayoutMethod?.paypal?.inFlight || 0) }}
+              </span>
+              <span *ngIf="(revenueData.withdrawalInfo.byPayoutMethod?.paypal?.historicalCount || 0) > 0" class="paypal-historical">
+                Historical: {{ formatCurrency(revenueData.withdrawalInfo.byPayoutMethod?.paypal?.historicalSent || 0) }} sent ({{ revenueData.withdrawalInfo.byPayoutMethod?.paypal?.historicalCount }} payouts)
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Payout Costs Summary -->
+        <div class="payout-costs-summary" *ngIf="revenueData.payoutCosts && revenueData.payoutCosts.totalWithdrawals > 0">
+          <div class="payout-costs-header">
+            <ion-icon name="receipt-outline"></ion-icon>
+            <span>Payout Cost Summary (All Time)</span>
+          </div>
+          <div class="payout-costs-grid">
+            <div class="payout-cost-item">
+              <span class="payout-cost-label">Total withdrawals processed</span>
+              <span class="payout-cost-value">{{ revenueData.payoutCosts.totalWithdrawals }}</span>
+            </div>
+            <div class="payout-cost-item">
+              <span class="payout-cost-label">Total amount withdrawn</span>
+              <span class="payout-cost-value">{{ formatCurrency(revenueData.payoutCosts.totalAmountWithdrawn) }}</span>
+            </div>
+            <div class="payout-cost-item" *ngIf="revenueData.payoutCosts.paypalWithdrawals > 0">
+              <span class="payout-cost-label">PayPal sender fees (your cost)</span>
+              <span class="payout-cost-value cost">{{ formatCurrency(revenueData.payoutCosts.totalPayPalSenderFees) }}</span>
+            </div>
+            <div class="payout-cost-item" *ngIf="revenueData.payoutCosts.paypalWithdrawals > 0">
+              <span class="payout-cost-label">PayPal fees collected from tutors</span>
+              <span class="payout-cost-value">{{ formatCurrency(revenueData.payoutCosts.totalPayPalTutorFees) }}</span>
+            </div>
+            <div class="payout-cost-item" *ngIf="revenueData.payoutCosts.paypalWithdrawals > 0">
+              <span class="payout-cost-label">Net PayPal fee position</span>
+              <span class="payout-cost-value" [class.positive]="revenueData.payoutCosts.paypalFeeProfit >= 0" [class.cost]="revenueData.payoutCosts.paypalFeeProfit < 0">
+                {{ revenueData.payoutCosts.paypalFeeProfit >= 0 ? '+' : '' }}{{ formatCurrency(revenueData.payoutCosts.paypalFeeProfit) }}
+              </span>
+            </div>
           </div>
         </div>
         
         <!-- Help Text -->
         <div class="withdrawal-help">
           <ion-icon name="help-circle-outline"></ion-icon>
-          <span>Your earnings are shown above in "Net Platform Revenue". Stripe tutors are paid automatically. PayPal tutors require you to fund your PayPal account.</span>
+          <span>
+            "Safe to Withdraw" = Stripe balance minus tutor obligations.
+            Stripe tutors are paid automatically from your Stripe balance.
+            PayPal tutors require you to fund your PayPal Business account separately.
+          </span>
         </div>
       </div>
     </div>
@@ -296,7 +412,7 @@
           </thead>
           <tbody>
             <tr *ngFor="let payment of allPayments">
-              <td>{{ payment.date | date:'MMM d, h:mm a' }}</td>
+              <td>{{ payment.date | date:timePipeFormat }}</td>
               <td>{{ payment.studentName }}</td>
               <td>{{ payment.tutorName }}</td>
               <td class="lesson-id-cell">
@@ -322,7 +438,7 @@
               <td class="release-date-cell">
                 <div *ngIf="payment.earningsReleaseDate && payment.paymentStatus !== 'refunded' && payment.paymentStatus !== 'cancelled'">
                   <div [class.past-release]="isPastReleaseDate(payment.earningsReleaseDate)">
-                    {{ payment.earningsReleaseDate | date:'MMM d, h:mm a' }}
+                    {{ payment.earningsReleaseDate | date:timePipeFormat }}
                   </div>
                   <div class="processing-time" *ngIf="!isPastReleaseDate(payment.earningsReleaseDate)">
                     Processes: {{ getProcessingTime(payment.earningsReleaseDate) }}

@@ -141,30 +141,39 @@ class WalletService {
    * @returns {Promise<Object>} Updated wallet
    */
   async confirmTopUp({ userId, paymentIntentId, amount, stripeFee = 0 }) {
-    const wallet = await this.getWallet(userId);
+    await this.getWallet(userId);
 
-    // Add to balance
-    const previousBalance = wallet.balance;
-    wallet.balance += amount;
+    const updated = await Wallet.findOneAndUpdate(
+      { userId },
+      {
+        $inc: { balance: amount },
+        $push: {
+          transactions: {
+            type: 'top_up',
+            amount,
+            balanceAfter: 0,
+            stripePaymentIntentId: paymentIntentId,
+            description: `Wallet top-up: $${this.formatAmount(amount)}`,
+            createdAt: new Date(),
+            metadata: { stripeFee }
+          }
+        }
+      },
+      { new: true }
+    );
 
-    // Record transaction
-    wallet.transactions.push({
-      type: 'top_up',
-      amount,
-      balanceAfter: wallet.balance,
-      stripePaymentIntentId: paymentIntentId,
-      description: `Wallet top-up: $${this.formatAmount(amount)}`,
-      createdAt: new Date(),
-      metadata: { stripeFee }
-    });
-
-    await wallet.save();
+    // Fix balanceAfter on last transaction
+    const lastTx = updated.transactions[updated.transactions.length - 1];
+    if (lastTx) {
+      lastTx.balanceAfter = updated.balance;
+      await updated.save();
+    }
 
     // Create Payment record for accounting
     await Payment.create({
       userId,
       amount,
-      paymentMethod: 'card', // Top-ups are always via card/Apple Pay
+      paymentMethod: 'card',
       paymentType: 'wallet_top_up',
       status: 'succeeded',
       stripePaymentIntentId: paymentIntentId,
@@ -172,14 +181,14 @@ class WalletService {
       stripeNetAmount: amount - stripeFee,
       metadata: {
         type: 'wallet_top_up',
-        balanceBefore: previousBalance,
-        balanceAfter: wallet.balance
+        balanceBefore: updated.balance - amount,
+        balanceAfter: updated.balance
       }
     });
 
-    console.log(`✅ Wallet top-up confirmed: $${amount} added to user ${userId} (new balance: $${wallet.balance})`);
+    console.log(`✅ Wallet top-up confirmed: $${amount} added to user ${userId} (new balance: $${updated.balance})`);
 
-    return wallet;
+    return updated;
   }
 
   /**
@@ -191,30 +200,48 @@ class WalletService {
    * @returns {Promise<Object>} Updated wallet
    */
   async reserveFunds({ userId, lessonId, amount }) {
-    const wallet = await this.getWallet(userId);
+    // Ensure wallet exists first
+    await this.getWallet(userId);
 
-    if (wallet.availableBalance < amount) {
+    // Atomic: only reserve if balance - reservedBalance >= amount
+    // Since availableBalance is a virtual (balance - reservedBalance),
+    // we use $inc on reservedBalance with a $expr guard.
+    const updated = await Wallet.findOneAndUpdate(
+      {
+        userId,
+        $expr: { $gte: [{ $subtract: ['$balance', '$reservedBalance'] }, amount] }
+      },
+      {
+        $inc: { reservedBalance: amount },
+        $push: {
+          transactions: {
+            type: 'reservation',
+            amount: -amount,
+            balanceAfter: 0, // Will be corrected below
+            lessonId,
+            description: `Reserved $${this.formatAmount(amount)} for lesson`,
+            createdAt: new Date()
+          }
+        }
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      const wallet = await this.getWallet(userId);
       throw new Error(`Insufficient wallet balance. Available: $${this.formatAmount(wallet.availableBalance)}, Required: $${this.formatAmount(amount)}`);
     }
 
-    // Reserve the funds
-    wallet.reservedBalance += amount;
-
-    // Record reservation transaction
-    wallet.transactions.push({
-      type: 'reservation',
-      amount: -amount, // Negative to show it's locked
-      balanceAfter: wallet.balance, // Balance doesn't change, just reserved
-      lessonId,
-      description: `Reserved $${this.formatAmount(amount)} for lesson`,
-      createdAt: new Date()
-    });
-
-    await wallet.save();
+    // Fix the balanceAfter on the last transaction
+    const lastTx = updated.transactions[updated.transactions.length - 1];
+    if (lastTx) {
+      lastTx.balanceAfter = updated.balance;
+      await updated.save();
+    }
 
     console.log(`🔒 Reserved $${amount} from wallet for lesson ${lessonId} (user: ${userId})`);
 
-    return wallet;
+    return updated;
   }
 
   /**
@@ -227,32 +254,40 @@ class WalletService {
    * @returns {Promise<Object>} Updated wallet
    */
   async releaseReservedFunds({ userId, lessonId, amount, reason = 'lesson_cancelled' }) {
+    // Clamp to what's actually reserved
     const wallet = await this.getWallet(userId);
-
     if (wallet.reservedBalance < amount) {
       console.warn(`⚠️ Warning: Attempting to release $${this.formatAmount(amount)} but only $${this.formatAmount(wallet.reservedBalance)} is reserved`);
-      // Still proceed to release what we can
       amount = Math.min(amount, wallet.reservedBalance);
     }
+    if (amount <= 0) return wallet;
 
-    // Release the reserved funds back to available balance
-    wallet.reservedBalance -= amount;
+    const updated = await Wallet.findOneAndUpdate(
+      { userId, reservedBalance: { $gte: amount } },
+      {
+        $inc: { reservedBalance: -amount },
+        $push: {
+          transactions: {
+            type: 'release',
+            amount: amount,
+            balanceAfter: 0,
+            lessonId,
+            description: `Released $${this.formatAmount(amount)} - ${reason}`,
+            createdAt: new Date()
+          }
+        }
+      },
+      { new: true }
+    );
 
-    // Record release transaction
-    wallet.transactions.push({
-      type: 'release',
-      amount: amount, // Positive to show funds are released
-      balanceAfter: wallet.balance, // Balance doesn't change, just unreserved
-      lessonId,
-      description: `Released $${this.formatAmount(amount)} - ${reason}`,
-      createdAt: new Date()
-    });
-
-    await wallet.save();
+    if (updated) {
+      const lastTx = updated.transactions[updated.transactions.length - 1];
+      if (lastTx) { lastTx.balanceAfter = updated.balance; await updated.save(); }
+    }
 
     console.log(`🔓 Released $${this.formatAmount(amount)} from reserved funds for lesson ${lessonId} (user: ${userId}). Reason: ${reason}`);
 
-    return wallet;
+    return updated || wallet;
   }
 
   /**
@@ -265,28 +300,36 @@ class WalletService {
    * @returns {Promise<Object>} Updated wallet
    */
   async deductFunds({ userId, lessonId, amount, paymentId = null }) {
-    const wallet = await this.getWallet(userId);
+    const updated = await Wallet.findOneAndUpdate(
+      { userId, balance: { $gte: amount }, reservedBalance: { $gte: amount } },
+      {
+        $inc: { reservedBalance: -amount, balance: -amount },
+        $push: {
+          transactions: {
+            type: 'deduction',
+            amount: -amount,
+            balanceAfter: 0,
+            lessonId,
+            paymentId,
+            description: `Payment for lesson`,
+            createdAt: new Date()
+          }
+        }
+      },
+      { new: true }
+    );
 
-    // Release reservation and deduct from balance
-    wallet.reservedBalance -= amount;
-    wallet.balance -= amount;
+    if (!updated) {
+      const wallet = await this.getWallet(userId);
+      throw new Error(`Cannot deduct $${this.formatAmount(amount)} — balance: $${this.formatAmount(wallet.balance)}, reserved: $${this.formatAmount(wallet.reservedBalance)}`);
+    }
 
-    // Record deduction transaction
-    wallet.transactions.push({
-      type: 'deduction',
-      amount: -amount,
-      balanceAfter: wallet.balance,
-      lessonId,
-      paymentId,
-      description: `Payment for lesson`,
-      createdAt: new Date()
-    });
+    const lastTx = updated.transactions[updated.transactions.length - 1];
+    if (lastTx) { lastTx.balanceAfter = updated.balance; await updated.save(); }
 
-    await wallet.save();
+    console.log(`💸 Deducted $${amount} from wallet for lesson ${lessonId} (user: ${userId}, new balance: $${updated.balance})`);
 
-    console.log(`💸 Deducted $${amount} from wallet for lesson ${lessonId} (user: ${userId}, new balance: $${wallet.balance})`);
-
-    return wallet;
+    return updated;
   }
 
   /**
@@ -300,27 +343,33 @@ class WalletService {
    * @returns {Promise<Object>} Updated wallet
    */
   async refund({ userId, lessonId, amount, reason, paymentId = null }) {
-    const wallet = await this.getWallet(userId);
+    await this.getWallet(userId);
 
-    // Add refund to balance
-    wallet.balance += amount;
+    const updated = await Wallet.findOneAndUpdate(
+      { userId },
+      {
+        $inc: { balance: amount },
+        $push: {
+          transactions: {
+            type: 'refund',
+            amount,
+            balanceAfter: 0,
+            lessonId,
+            paymentId,
+            description: reason || 'Lesson refund',
+            createdAt: new Date()
+          }
+        }
+      },
+      { new: true }
+    );
 
-    // Record refund transaction
-    wallet.transactions.push({
-      type: 'refund',
-      amount,
-      balanceAfter: wallet.balance,
-      lessonId,
-      paymentId,
-      description: reason || 'Lesson refund',
-      createdAt: new Date()
-    });
-
-    await wallet.save();
+    const lastTx = updated.transactions[updated.transactions.length - 1];
+    if (lastTx) { lastTx.balanceAfter = updated.balance; await updated.save(); }
 
     console.log(`💰 Refunded $${amount} to wallet for user ${userId} (reason: ${reason})`);
 
-    return wallet;
+    return updated;
   }
 
   /**
@@ -332,26 +381,35 @@ class WalletService {
    * @returns {Promise<Object>} Updated wallet
    */
   async releaseReservation({ userId, lessonId, amount }) {
-    const wallet = await this.getWallet(userId);
+    const updated = await Wallet.findOneAndUpdate(
+      { userId, reservedBalance: { $gte: amount } },
+      {
+        $inc: { reservedBalance: -amount },
+        $push: {
+          transactions: {
+            type: 'release',
+            amount,
+            balanceAfter: 0,
+            lessonId,
+            description: `Cancelled lesson - funds released`,
+            createdAt: new Date()
+          }
+        }
+      },
+      { new: true }
+    );
 
-    // Release the reservation
-    wallet.reservedBalance -= amount;
-
-    // Record release transaction
-    wallet.transactions.push({
-      type: 'release',
-      amount, // Positive since it's being released back
-      balanceAfter: wallet.balance,
-      lessonId,
-      description: `Cancelled lesson - funds released`,
-      createdAt: new Date()
-    });
-
-    await wallet.save();
+    if (updated) {
+      const lastTx = updated.transactions[updated.transactions.length - 1];
+      if (lastTx) { lastTx.balanceAfter = updated.balance; await updated.save(); }
+    } else {
+      console.warn(`⚠️ Could not release $${amount} reservation for lesson ${lessonId} — insufficient reserved balance`);
+      return await this.getWallet(userId);
+    }
 
     console.log(`🔓 Released $${amount} reservation for lesson ${lessonId} (user: ${userId})`);
 
-    return wallet;
+    return updated;
   }
 
   /**

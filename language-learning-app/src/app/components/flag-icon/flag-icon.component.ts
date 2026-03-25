@@ -10,7 +10,7 @@ import { FlagService } from '../../services/flag.service';
       [alt]="altText"
       [class]="cssClass"
       [style.width.px]="size"
-      [style.height.px]="size"
+      [style.height.px]="flagHeight"
       (error)="onImageError()"
       class="flag-icon"
       [class.flag-icon-error]="hasError">
@@ -19,16 +19,17 @@ import { FlagService } from '../../services/flag.service';
       class="flag-placeholder"
       [class]="cssClass"
       [style.width.px]="size"
-      [style.height.px]="size">
+      [style.height.px]="flagHeight">
       <span class="flag-placeholder-text">{{ placeholderText }}</span>
     </div>
   `,
   styles: [`
     .flag-icon {
       display: inline-block;
-      object-fit: cover;
+      object-fit: contain;
       border-radius: 2px;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+      vertical-align: middle;
     }
 
     .flag-icon-error {
@@ -64,6 +65,11 @@ export class FlagIconComponent implements OnInit, OnChanges {
   flagPath: string | null = null;
   hasError: boolean = false;
   placeholderText: string = '';
+
+  // Calculate height based on 3:2 aspect ratio (standard flag ratio)
+  get flagHeight(): number {
+    return Math.round(this.size * 0.67);
+  }
 
   constructor(private flagService: FlagService) {}
 

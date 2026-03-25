@@ -2,8 +2,87 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const Lesson = require('../models/Lesson');
-const { upload, uploadImage, uploadVideoWithCompression, uploadImageToGCS, verifyToken } = require('../middleware/videoUploadMiddleware');
+const TutorFeedback = require('../models/TutorFeedback');
+const { upload, uploadImage, uploadDocument, uploadVideoWithCompression, uploadImageToGCS, verifyToken } = require('../middleware/videoUploadMiddleware');
+const TutorMaterial = require('../models/TutorMaterial');
+const { initializeGCS } = require('../config/gcs');
 const rateLimit = require('express-rate-limit');
+
+/**
+ * Capitalizes a name properly (title case)
+ * "JASON DERULA" -> "Jason Derula"
+ * "jason derula" -> "Jason Derula"
+ * "jAsOn DeRuLa" -> "Jason Derula"
+ */
+function formatName(name) {
+  if (!name || typeof name !== 'string') return '';
+  return name
+    .toLowerCase()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+    .trim();
+}
+
+/**
+ * Formats text to ensure proper capitalization on a per-word basis:
+ * - Normalizes each word that has abnormal capitalization
+ * - Preserves legitimate acronyms (CERF, TEFL, CELTA, TESOL, etc.)
+ * - Preserves normal words (all lowercase or proper title case)
+ * - Ensures first letter of the entire text is uppercase
+ * 
+ * Examples:
+ * "THE BEST language tutor in the WOrLD!" -> "The best language tutor in the world!"
+ * "i have a cerf certificate" -> "I have a CERF certificate"
+ * "MY BIO IS IN CAPS" -> "My bio is in caps"
+ * "MMfsjkg kfjdgn" -> "Mmfsjkg kfjdgn"
+ */
+function formatText(text) {
+  if (!text || typeof text !== 'string') return '';
+  
+  const trimmed = text.trim();
+  if (!trimmed) return '';
+
+  // Map of legitimate acronyms: lookup key (uppercase) -> display form
+  const acronymMap = {
+    'CERF': 'CERF', 'TEFL': 'TEFL', 'CELTA': 'CELTA', 'TESOL': 'TESOL',
+    'TOEFL': 'TOEFL', 'IELTS': 'IELTS', 'ESL': 'ESL', 'EFL': 'EFL',
+    'BA': 'BA', 'BS': 'BS', 'MA': 'MA', 'MS': 'MS', 'PHD': 'PhD',
+    'MBA': 'MBA', 'USA': 'USA', 'UK': 'UK', 'EU': 'EU', 'UN': 'UN',
+    'NATO': 'NATO', 'NASA': 'NASA', 'DELF': 'DELF', 'DALF': 'DALF',
+    'HSK': 'HSK', 'JLPT': 'JLPT', 'DELE': 'DELE', 'CILS': 'CILS',
+    'TEF': 'TEF', 'TCF': 'TCF', 'CPE': 'CPE', 'CAE': 'CAE', 'FCE': 'FCE'
+  };
+
+  // Process each alphabetical word, preserving all non-alpha characters in place
+  const result = trimmed.replace(/[a-zA-Z]+/g, (word) => {
+    // Check if word is a known acronym (case-insensitive)
+    const upperWord = word.toUpperCase();
+    if (acronymMap[upperWord]) {
+      return acronymMap[upperWord];
+    }
+
+    // Single letter: keep as-is (handles "I", "a", etc.)
+    if (word.length === 1) {
+      return word;
+    }
+
+    // Check if word already has "normal" capitalization
+    const isAllLower = word === word.toLowerCase();
+    const isTitleCase = word[0] === word[0].toUpperCase() && word.slice(1) === word.slice(1).toLowerCase();
+
+    if (isAllLower || isTitleCase) {
+      return word; // Normal casing — leave it alone
+    }
+
+    // Abnormal casing detected (ALL CAPS, rAnDoM caps, MMfsjkg, WOrLD, etc.)
+    // Normalize to lowercase — first-letter capitalization handled below
+    return word.toLowerCase();
+  });
+
+  // Ensure first letter of the entire text is uppercase
+  return result.charAt(0).toUpperCase() + result.slice(1);
+}
 
 // Rate limiters for public endpoints
 const publicProfileLimiter = rateLimit({
@@ -171,12 +250,14 @@ router.get('/me', verifyToken, async (req, res) => {
         country: user.country,
         residenceCountry: user.residenceCountry, // ADD THIS
         picture: user.picture,
+        auth0Picture: user.auth0Picture, // Original Auth0/Google picture (to check if custom photo uploaded)
         emailVerified: user.emailVerified,
         userType: user.userType,
         isAdmin: user.isAdmin, // ADD THIS - Required for admin access
         onboardingCompleted: user.onboardingCompleted,
         onboardingData: user.onboardingData,
         tutorOnboarding: user.tutorOnboarding,
+        tutorCredentials: user.tutorCredentials,
         tutorApproved: user.tutorApproved,
         stripeConnectOnboarded: user.stripeConnectOnboarded,
         stripeCustomerId: user.stripeCustomerId, // ADD THIS - Critical for saved card payments!
@@ -215,13 +296,15 @@ router.get('/coaching-metrics', verifyToken, async (req, res) => {
       success: true,
       data: {
         feedbackRate: metrics.feedbackRate || 0,
-        avgQuality: metrics.averageFeedbackQuality || 0,
-        currentStreak: metrics.coachingBadge?.qualifyingStreak || 0,
-        totalLessons: metrics.totalLessonsCompleted || 0,
-        totalFeedback: metrics.totalFeedbackProvided || 0,
-        badgeActive: metrics.coachingBadge?.active || false,
-        badgeEarnedAt: metrics.coachingBadge?.earnedAt || null,
-        lastEvaluated: metrics.coachingBadge?.lastEvaluated || null
+        averageFeedbackQuality: metrics.averageFeedbackQuality || 0,
+        totalLessonsCompleted: metrics.totalLessonsCompleted || 0,
+        totalFeedbackProvided: metrics.totalFeedbackProvided || 0,
+        coachingBadge: {
+          active: metrics.coachingBadge?.active || false,
+          qualifyingStreak: metrics.coachingBadge?.qualifyingStreak || 0,
+          earnedAt: metrics.coachingBadge?.earnedAt || null,
+          lastEvaluated: metrics.coachingBadge?.lastEvaluated || null
+        }
       }
     });
   } catch (error) {
@@ -337,6 +420,12 @@ router.post('/', verifyToken, async (req, res) => {
         userType: user.userType,
         onboardingCompleted: user.onboardingCompleted,
         onboardingData: user.onboardingData,
+        tutorOnboarding: user.tutorOnboarding,
+        tutorCredentials: user.tutorCredentials,
+        tutorApproved: user.tutorApproved,
+        stripeConnectOnboarded: user.stripeConnectOnboarded,
+        payoutProvider: user.payoutProvider,
+        payoutDetails: user.payoutDetails,
         profile: user.profile,
         nativeLanguage: user.nativeLanguage,
         interfaceLanguage: user.interfaceLanguage,
@@ -387,8 +476,9 @@ router.put('/onboarding', verifyToken, async (req, res) => {
       const userType = req.body.userType || 'student';
       
       // Get firstName, lastName, and country from request body or Auth0
-      const firstName = req.body.firstName || req.user.given_name || '';
-      const lastName = req.body.lastName || req.user.family_name || '';
+      // Always format names properly (title case)
+      const firstName = formatName(req.body.firstName || req.user.given_name || '');
+      const lastName = formatName(req.body.lastName || req.user.family_name || '');
       const country = req.body.country || '';
       
       // Ensure we have email and name (required fields)
@@ -439,11 +529,12 @@ router.put('/onboarding', verifyToken, async (req, res) => {
       }
       
       // Update firstName, lastName, country, and nativeLanguage if provided
+      // Always format names properly (title case)
       if (req.body.firstName !== undefined) {
-        user.firstName = req.body.firstName;
+        user.firstName = formatName(req.body.firstName);
       }
       if (req.body.lastName !== undefined) {
-        user.lastName = req.body.lastName;
+        user.lastName = formatName(req.body.lastName);
       }
       if (req.body.country !== undefined) {
         user.country = req.body.country;
@@ -453,22 +544,29 @@ router.put('/onboarding', verifyToken, async (req, res) => {
       }
     }
     
+    // Save interface language if provided during onboarding
+    if (req.body.interfaceLanguage && ['en', 'es', 'fr', 'pt', 'de'].includes(req.body.interfaceLanguage)) {
+      user.interfaceLanguage = req.body.interfaceLanguage;
+      console.log('🌐 Interface language set during onboarding:', req.body.interfaceLanguage);
+    }
+
     // Update onboarding data based on user type
     user.onboardingCompleted = true;
     
     if (user.userType === 'tutor') {
       // Handle tutor onboarding data
-      const { languages, experience, schedule, bio, hourlyRate, introductionVideo, videoThumbnail, videoType, nativeLanguage, firstName, lastName, country, residenceCountry } = req.body;
+      const { languages, experience, schedule, summary, bio, hourlyRate, introductionVideo, videoThumbnail, videoType, nativeLanguage, firstName, lastName, country, residenceCountry } = req.body;
       user.onboardingData = {
-        firstName: firstName || user.firstName || '',
-        lastName: lastName || user.lastName || '',
+        firstName: formatName(firstName || user.firstName || ''),
+        lastName: formatName(lastName || user.lastName || ''),
         country: country || user.country || '',
         nativeLanguage: nativeLanguage || user.nativeLanguage || 'en',
         languages: languages || [],
         experience: experience || '',
         schedule: schedule || '',
-        bio: bio || '',
-        hourlyRate: hourlyRate || 25,
+        summary: formatText(summary || ''),
+        bio: formatText(bio || ''),
+        hourlyRate: Math.max(10, hourlyRate || 25),
         introductionVideo: introductionVideo || '',
         videoThumbnail: videoThumbnail || '',
         videoType: videoType || 'upload',
@@ -487,7 +585,7 @@ router.put('/onboarding', verifyToken, async (req, res) => {
       }
     } else {
       // Handle student onboarding data
-      const { languages, goals, experienceLevel, preferredSchedule } = req.body;
+      const { languages, goals, experienceLevel, preferredSchedule, learningGoal } = req.body;
       user.onboardingData = {
         languages: languages || [],
         goals: goals || [],
@@ -495,6 +593,16 @@ router.put('/onboarding', verifyToken, async (req, res) => {
         preferredSchedule: preferredSchedule || '',
         completedAt: new Date()
       };
+      if (learningGoal && learningGoal.type) {
+        user.onboardingData.learningGoal = {
+          type: learningGoal.type,
+          description: learningGoal.description || '',
+          targetLevel: learningGoal.targetLevel || '',
+          selfAssessedLevel: learningGoal.selfAssessedLevel || null,
+          timeline: learningGoal.timeline || 'no_rush',
+          targetDate: learningGoal.targetDate || null
+        };
+      }
     }
     
     try {
@@ -533,6 +641,8 @@ router.put('/onboarding', verifyToken, async (req, res) => {
         onboardingCompleted: user.onboardingCompleted,
         onboardingData: user.onboardingData,
         profile: user.profile,
+        nativeLanguage: user.nativeLanguage,
+        interfaceLanguage: user.interfaceLanguage,
         stats: user.stats,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt
@@ -548,7 +658,7 @@ router.put('/onboarding', verifyToken, async (req, res) => {
 // PUT /api/users/profile - Update user profile
 router.put('/profile', verifyToken, async (req, res) => {
   try {
-    const { bio, timezone, preferredLanguage, userType, picture, officeHoursEnabled, interfaceLanguage, showWalletBalance, remindersEnabled, aiAnalysisEnabled } = req.body;
+    const { bio, timezone, preferredLanguage, userType, picture, officeHoursEnabled, interfaceLanguage, showWalletBalance, remindersEnabled, aiAnalysisEnabled, calendarTimeFormat, calendarDefaultView } = req.body;
     console.log('📝 Updating profile for user:', req.user.sub, 'officeHoursEnabled:', officeHoursEnabled, 'aiAnalysisEnabled:', aiAnalysisEnabled);
     
     const user = await User.findOne({ auth0Id: req.user.sub });
@@ -559,6 +669,44 @@ router.put('/profile', verifyToken, async (req, res) => {
     
     console.log('📝 Before update - officeHoursEnabled:', user.profile?.officeHoursEnabled, 'showWalletBalance:', user.profile?.showWalletBalance, 'remindersEnabled:', user.profile?.remindersEnabled, 'aiAnalysisEnabled:', user.profile?.aiAnalysisEnabled);
     
+    // If timezone is changing and tutor has availability, convert blocks to maintain real-world times
+    const oldTimezone = user.profile?.timezone || 'UTC';
+    const newTimezone = timezone !== undefined ? timezone : oldTimezone;
+    if (timezone !== undefined && oldTimezone !== newTimezone && user.userType === 'tutor' && user.availability?.length > 0) {
+      console.log(`🌍 Timezone changing from ${oldTimezone} to ${newTimezone} — converting ${user.availability.length} availability blocks`);
+      const { fromZonedTime, toZonedTime } = require('date-fns-tz');
+
+      for (const block of user.availability) {
+        if (!block.startTime || !block.endTime) continue;
+
+        const refDate = block.absoluteStart ? new Date(block.absoluteStart) : new Date();
+        const year = refDate.getFullYear();
+        const month = refDate.getMonth();
+        const day = refDate.getDate();
+
+        const [sh, sm] = block.startTime.split(':').map(Number);
+        const [eh, em] = block.endTime.split(':').map(Number);
+
+        const oldStart = new Date(year, month, day, sh, sm, 0, 0);
+        const oldEnd = new Date(year, month, day, eh, em, 0, 0);
+
+        const startUtc = fromZonedTime(oldStart, oldTimezone);
+        const endUtc = fromZonedTime(oldEnd, oldTimezone);
+
+        const newStart = toZonedTime(startUtc, newTimezone);
+        const newEnd = toZonedTime(endUtc, newTimezone);
+
+        block.startTime = `${String(newStart.getHours()).padStart(2, '0')}:${String(newStart.getMinutes()).padStart(2, '0')}`;
+        block.endTime = `${String(newEnd.getHours()).padStart(2, '0')}:${String(newEnd.getMinutes()).padStart(2, '0')}`;
+
+        if (block.day !== undefined) {
+          block.day = newStart.getDay();
+        }
+      }
+
+      console.log(`✅ Converted availability blocks to ${newTimezone}`);
+    }
+
     // Update profile data - preserve existing values if not provided, use defaults if field doesn't exist
     user.profile = {
       bio: bio !== undefined ? bio : (user.profile?.bio ?? ''),
@@ -568,7 +716,9 @@ router.put('/profile', verifyToken, async (req, res) => {
       officeHoursLastActive: user.profile?.officeHoursLastActive ?? null,
       showWalletBalance: showWalletBalance !== undefined ? showWalletBalance : (user.profile?.showWalletBalance ?? false),
       remindersEnabled: remindersEnabled !== undefined ? remindersEnabled : (user.profile?.remindersEnabled ?? true),
-      aiAnalysisEnabled: aiAnalysisEnabled !== undefined ? aiAnalysisEnabled : (user.profile?.aiAnalysisEnabled ?? true)
+      aiAnalysisEnabled: aiAnalysisEnabled !== undefined ? aiAnalysisEnabled : (user.profile?.aiAnalysisEnabled ?? true),
+      calendarTimeFormat: calendarTimeFormat !== undefined ? calendarTimeFormat : (user.profile?.calendarTimeFormat ?? '12h'),
+      calendarDefaultView: calendarDefaultView !== undefined ? calendarDefaultView : (user.profile?.calendarDefaultView ?? 'week')
     };
     
     console.log('📝 After update - showWalletBalance:', user.profile.showWalletBalance, 'remindersEnabled:', user.profile.remindersEnabled);
@@ -607,6 +757,7 @@ router.put('/profile', verifyToken, async (req, res) => {
         lastName: user.lastName,
         country: user.country,
         picture: user.picture,
+        auth0Picture: user.auth0Picture, // Original Auth0/Google picture
         emailVerified: user.emailVerified,
         userType: user.userType,
         onboardingCompleted: user.onboardingCompleted,
@@ -616,7 +767,11 @@ router.put('/profile', verifyToken, async (req, res) => {
         interfaceLanguage: user.interfaceLanguage,
         stats: user.stats,
         createdAt: user.createdAt,
-        updatedAt: user.updatedAt
+        updatedAt: user.updatedAt,
+        // Include tutor-specific fields to prevent banner flashing
+        tutorApproved: user.tutorApproved,
+        tutorOnboarding: user.tutorOnboarding,
+        stripeConnectOnboarded: user.stripeConnectOnboarded
       }
     });
   } catch (error) {
@@ -781,7 +936,8 @@ router.get('/tutors', verifyToken, async (req, res) => {
     const filterQuery = {
       userType: 'tutor',
       onboardingCompleted: true,
-      tutorApproved: true, // Only show approved tutors
+      tutorApproved: true,
+      'onboardingData.introductionVideo': { $exists: true, $ne: '' },
       $or: [
         { stripeConnectOnboarded: true },
         { payoutProvider: 'paypal' },
@@ -803,16 +959,28 @@ router.get('/tutors', verifyToken, async (req, res) => {
       };
     }
 
-    // Country filter - match either country or residenceCountry (case-insensitive)
+    // Country filter - match only country (country of birth/origin), not residenceCountry
+    // Handle both single country (string) and multiple countries (array)
     if (country && country !== 'any') {
-      const countryRegex = new RegExp(country, 'i');
+      const countriesArray = Array.isArray(country) ? country : [country];
+      
+      console.log('🌍 [COUNTRY-FILTER] Filtering by countries:', countriesArray);
+      
+      // Use exact case-insensitive matching instead of regex to avoid partial matches
+      // This ensures "United States" doesn't match "United States of America" or vice versa incorrectly
+      const countryConditions = countriesArray.map(c => ({
+        country: { $regex: new RegExp(`^${c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+      }));
+      
+      console.log('🌍 [COUNTRY-FILTER] Country conditions:', JSON.stringify(countryConditions, null, 2));
+      
+      // Match only the country field (country of birth/origin), not residenceCountry
       filterQuery.$and = filterQuery.$and || [];
       filterQuery.$and.push({
-        $or: [
-          { country: countryRegex },
-          { residenceCountry: countryRegex }
-        ]
+        $or: countryConditions
       });
+      
+      console.log('🌍 [COUNTRY-FILTER] Filter query country condition:', JSON.stringify(filterQuery.$and[filterQuery.$and.length - 1], null, 2));
     }
 
     // Availability filter
@@ -938,13 +1106,155 @@ router.get('/tutors', verifyToken, async (req, res) => {
         .select('name firstName lastName email picture auth0Id onboardingData profile stats createdAt country residenceCountry');
     }
 
-    // Get total count for pagination
-    const totalCount = await User.countDocuments(filterQuery);
+    // Get all matching tutor IDs (for accurate totalCount after filtering hidden tutors)
+    // We need to filter out tutors with pending feedback before counting
+    const allMatchingTutorIds = await User.find(filterQuery).select('_id auth0Id').lean();
+    
+    // Get tutors with pending feedback (hidden from search)
+    // TutorFeedback.tutorId can be either MongoDB _id or auth0Id, so check both
+    // GRACE PERIOD: Only count feedback older than 2 hours — gives tutors time to submit
+    // after a lesson ends without immediately hiding their profile from search.
+    const FEEDBACK_GRACE_MS = 2 * 60 * 60 * 1000; // 2 hours
+    const graceDeadline = new Date(Date.now() - FEEDBACK_GRACE_MS);
+    const allTutorMongoIds = allMatchingTutorIds.map(t => t._id);
+    const allTutorAuth0Ids = allMatchingTutorIds.map(t => t.auth0Id).filter(Boolean);
+    const feedbackBlocked = await TutorFeedback.distinct('tutorId', {
+      $or: [
+        { tutorId: { $in: allTutorMongoIds } },
+        { tutorId: { $in: allTutorAuth0Ids } }
+      ],
+      status: 'pending',
+      createdAt: { $lt: graceDeadline }
+    });
+    const blockedIdSet = new Set(feedbackBlocked.map(id => id.toString()));
+
+    // ── Record grace-period violations (lazy, at-query-time) ──
+    // Find expired feedback items that haven't been flagged yet and mark them.
+    // This avoids needing a cron job — violations are detected whenever search runs.
+    if (blockedIdSet.size > 0) {
+      try {
+        const newlyExpired = await TutorFeedback.find({
+          $or: [
+            { tutorId: { $in: allTutorMongoIds } },
+            { tutorId: { $in: allTutorAuth0Ids } }
+          ],
+          status: 'pending',
+          createdAt: { $lt: graceDeadline },
+          gracePeriodExpired: { $ne: true }  // Not yet flagged
+        }).select('_id tutorId').lean();
+
+        if (newlyExpired.length > 0) {
+          // Flag these feedback items so we don't double-count
+          const expiredIds = newlyExpired.map(f => f._id);
+          await TutorFeedback.updateMany(
+            { _id: { $in: expiredIds } },
+            { $set: { gracePeriodExpired: true } }
+          );
+
+          // Group violations by tutorId and increment each tutor's counter
+          const violationsByTutor = {};
+          for (const fb of newlyExpired) {
+            const tid = fb.tutorId.toString();
+            violationsByTutor[tid] = (violationsByTutor[tid] || 0) + 1;
+          }
+
+          // Build a map from tutorId (auth0Id or _id string) → User _id
+          const tutorIdToMongoId = {};
+          for (const t of allMatchingTutorIds) {
+            tutorIdToMongoId[t._id.toString()] = t._id;
+            if (t.auth0Id) tutorIdToMongoId[t.auth0Id] = t._id;
+          }
+
+          const bulkOps = [];
+          for (const [tid, count] of Object.entries(violationsByTutor)) {
+            const mongoId = tutorIdToMongoId[tid];
+            if (mongoId) {
+              bulkOps.push({
+                updateOne: {
+                  filter: { _id: mongoId },
+                  update: { $inc: { 'stats.feedbackMetrics.feedbackGraceViolations': count } }
+                }
+              });
+            }
+          }
+          if (bulkOps.length > 0) {
+            await User.bulkWrite(bulkOps);
+            console.log(`⚠️ Recorded ${newlyExpired.length} new grace-period violation(s) for ${bulkOps.length} tutor(s)`);
+          }
+        }
+      } catch (violationErr) {
+        // Non-critical — log and continue serving search results
+        console.error('⚠️ Error recording grace-period violations:', violationErr);
+      }
+    }
+    
+    // Calculate accurate totalCount by excluding blocked tutors
+    const totalCount = allMatchingTutorIds.filter(t => 
+      !blockedIdSet.has(t._id.toString()) && !blockedIdSet.has(t.auth0Id)
+    ).length;
 
     // Format response
     const now = new Date();
     const activeThreshold = 60 * 1000; // 60 seconds for heartbeat validity
     
+    // Log country information for returned tutors when country filter is active
+    if (country && country !== 'any') {
+      console.log('🌍 [COUNTRY-FILTER] Returned tutors with their country values:');
+      tutors.forEach(tutor => {
+        console.log(`  - ${tutor.name || tutor.email}: country="${tutor.country}", residenceCountry="${tutor.residenceCountry}"`);
+      });
+    }
+    
+    // Filter out tutors with pending feedback from the paginated results
+    // Use the same blockedIdSet we calculated above
+    if (blockedIdSet.size > 0) {
+      const beforeCount = tutors.length;
+      tutors = tutors.filter(t => 
+        !blockedIdSet.has(t._id.toString()) && !blockedIdSet.has(t.auth0Id)
+      );
+      console.log(`🚫 Hiding ${beforeCount - tutors.length} tutor(s) with pending feedback from search results`);
+    }
+
+    // ── Deprioritize tutors with grace-period violations ──
+    // Tutors who repeatedly let feedback expire get pushed to the end of results.
+    // This is a stable sort: tutors with 0 violations keep their original order,
+    // while violators sink proportionally to their violation count.
+    tutors.sort((a, b) => {
+      const aViolations = a.stats?.feedbackMetrics?.feedbackGraceViolations || 0;
+      const bViolations = b.stats?.feedbackMetrics?.feedbackGraceViolations || 0;
+      return aViolations - bViolations; // Lower violations = higher priority
+    });
+    
+    // Batch fetch material counts and real lesson stats for all tutors
+    const tutorIds = tutors.map(t => t._id);
+    const [materialCounts, lessonCounts, studentCounts] = await Promise.all([
+      TutorMaterial.aggregate([
+        { $match: { tutorId: { $in: tutorIds }, status: 'published' } },
+        { $group: { _id: '$tutorId', count: { $sum: 1 } } }
+      ]),
+      Lesson.aggregate([
+        { $match: { tutorId: { $in: tutorIds }, status: { $in: ['completed', 'ended_early'] } } },
+        { $group: { _id: '$tutorId', count: { $sum: 1 } } }
+      ]),
+      Lesson.aggregate([
+        { $match: { tutorId: { $in: tutorIds }, status: { $in: ['completed', 'ended_early'] } } },
+        { $group: { _id: '$tutorId', students: { $addToSet: '$studentId' } } },
+        { $project: { _id: 1, count: { $size: '$students' } } }
+      ])
+    ]);
+    const materialCountMap = {};
+    for (const mc of materialCounts) {
+      materialCountMap[mc._id.toString()] = mc.count;
+    }
+    const lessonCountMap = {};
+    for (const lc of lessonCounts) {
+      lessonCountMap[lc._id.toString()] = lc.count;
+    }
+    const studentCountMap = {};
+    for (const sc of studentCounts) {
+      studentCountMap[sc._id.toString()] = sc.count;
+    }
+
     const formattedTutors = tutors.map(tutor => {
       const lastActive = tutor.profile?.officeHoursLastActive;
       const officeHoursEnabled = tutor.profile?.officeHoursEnabled;
@@ -973,6 +1283,7 @@ router.get('/tutors', verifyToken, async (req, res) => {
         hourlyRate: tutor.onboardingData?.hourlyRate || 25,
         experience: tutor.onboardingData?.experience || 'Beginner',
         schedule: tutor.onboardingData?.schedule || 'Flexible',
+        summary: tutor.onboardingData?.summary || '',
         bio: tutor.onboardingData?.bio || '',
         introductionVideo: tutor.onboardingData?.introductionVideo || '',
         videoThumbnail: tutor.onboardingData?.videoThumbnail || '',
@@ -981,7 +1292,8 @@ router.get('/tutors', verifyToken, async (req, res) => {
         gender: tutor.profile?.gender || 'Not specified',
         nativeSpeaker: tutor.profile?.nativeSpeaker || false,
         rating: tutor.stats?.rating || 0,
-        totalLessons: tutor.stats?.totalLessons || 0,
+        totalLessons: lessonCountMap[tutor._id.toString()] || 0,
+        students: studentCountMap[tutor._id.toString()] || 0,
         totalHours: tutor.stats?.totalHours || 0,
         joinedDate: tutor.createdAt,
         profile: tutor.profile, // Include full profile object for officeHoursEnabled and other features
@@ -991,7 +1303,8 @@ router.get('/tutors', verifyToken, async (req, res) => {
           active: tutor.stats?.feedbackMetrics?.coachingBadge?.active || false,
           feedbackRate: tutor.stats?.feedbackMetrics?.feedbackRate || 0,
           avgQuality: tutor.stats?.feedbackMetrics?.averageFeedbackQuality || 0
-        }
+        },
+        materialCount: materialCountMap[tutor._id.toString()] || 0
       };
     });
 
@@ -1069,22 +1382,36 @@ router.put('/tutor-video', verifyToken, async (req, res) => {
     // Reset approval status when video is changed (requires re-review)
     console.log('🔍 Current tutorOnboarding before reset:', user.tutorOnboarding);
     
+    const isVideoRemoval = !introductionVideo || introductionVideo === '';
+
     if (user.tutorOnboarding) {
       user.tutorOnboarding.videoApproved = false; // Mark for re-review
       user.tutorOnboarding.videoRejected = false; // Clear rejection
       user.tutorOnboarding.videoRejectionReason = null;
-      user.tutorOnboarding.videoUploaded = true; // Mark as uploaded for admin queue
-      user.tutorOnboarding.videoUploadedAt = new Date(); // ✅ Set upload timestamp
+      user.tutorOnboarding.videoUploaded = !isVideoRemoval; // Only mark as uploaded if there's actually a video
+      user.tutorOnboarding.videoUploadedAt = isVideoRemoval ? null : new Date();
       
       console.log('📹 Video marked for admin review');
       
-      // CRITICAL: If tutor was previously approved, keep profile visible during re-review
-      if (wasApproved) {
+      if (isVideoRemoval) {
+        // Video was removed entirely — hide profile immediately
+        user.tutorApproved = false;
+        // Clear the active video as well so students can't see it
+        if (user.onboardingData) {
+          user.onboardingData.introductionVideo = '';
+          user.onboardingData.videoThumbnail = '';
+          user.onboardingData.videoType = 'upload';
+          user.onboardingData.pendingVideo = '';
+          user.onboardingData.pendingVideoThumbnail = '';
+          user.onboardingData.pendingVideoType = 'upload';
+        }
+        console.log('🚫 Video REMOVED: Profile hidden until new video is uploaded and approved');
+      } else if (wasApproved) {
         console.log('✅ EXISTING tutor: Profile remains visible (tutorApproved stays true)');
-        // tutorApproved remains true - don't change it
+        // tutorApproved remains true — tutor is replacing their video, keep them visible during review
       } else {
         console.log('🆕 NEW tutor: Profile will be hidden until first approval');
-        user.tutorApproved = false; // Hide profile for brand new tutors
+        user.tutorApproved = false;
       }
       
       console.log('🔍 tutorOnboarding after reset:', user.tutorOnboarding);
@@ -1305,6 +1632,27 @@ router.delete('/profile-picture', verifyToken, async (req, res) => {
   }
 });
 
+// GET /api/users/profile-picture-proxy - Proxy the user's profile picture to bypass CORS
+router.get('/profile-picture-proxy', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user || !user.picture) {
+      return res.status(404).json({ error: 'No profile picture found' });
+    }
+
+    const axios = require('axios');
+    const response = await axios.get(user.picture, { responseType: 'arraybuffer' });
+    const contentType = response.headers['content-type'] || 'image/png';
+
+    res.set('Content-Type', contentType);
+    res.set('Cache-Control', 'no-cache');
+    res.send(Buffer.from(response.data));
+  } catch (error) {
+    console.error('Error proxying profile picture:', error.message);
+    res.status(500).json({ error: 'Failed to load profile picture' });
+  }
+});
+
 // PUT /api/users/availability - Update tutor availability
 router.put('/availability', verifyToken, async (req, res) => {
   try {
@@ -1383,9 +1731,24 @@ router.put('/availability', verifyToken, async (req, res) => {
     console.log('New blocks to add:', availabilityBlocks.length);
     
     // Merge: kept blocks + new blocks
-    user.availability = [...blocksToKeep, ...availabilityBlocks];
-    user.lastAvailabilityUpdate = new Date(); // Track when availability was last updated
-    await user.save();
+    const mergedAvailability = [...blocksToKeep, ...availabilityBlocks];
+    
+    // Use findOneAndUpdate with $set to only update availability fields
+    // This avoids triggering validation on unrelated fields (e.g. bio length)
+    await User.findOneAndUpdate(
+      { _id: user._id },
+      { 
+        $set: { 
+          availability: mergedAvailability,
+          lastAvailabilityUpdate: new Date()
+        }
+      },
+      { runValidators: false }
+    );
+    
+    // Update the local user object for the response
+    user.availability = mergedAvailability;
+    user.lastAvailabilityUpdate = new Date();
 
     console.log('Final availability count:', user.availability.length);
     
@@ -1480,10 +1843,22 @@ router.get('/tutors-with-new-availability', verifyToken, async (req, res) => {
       'availability.0': { $exists: true }
     }).select('_id firstName lastName picture lastAvailabilityUpdate availability');
     
+    // Filter out tutors with pending feedback (not accepting bookings)
+    const TutorFeedback = require('../models/TutorFeedback');
+    const blockedTutorIds = [];
+    for (const tutor of tutorsWithNewAvailability) {
+      const pendingCount = await TutorFeedback.countDocuments({ tutorId: tutor._id, status: 'pending', required: { $ne: false } });
+      if (pendingCount > 0) {
+        blockedTutorIds.push(tutor._id.toString());
+        console.log(`⚠️ Tutor ${tutor.firstName} has ${pendingCount} pending feedback - excluding from availability`);
+      }
+    }
+    const availableTutors = tutorsWithNewAvailability.filter(t => !blockedTutorIds.includes(t._id.toString()));
+
     // Filter to only include tutors with FUTURE availability that has UNBOOKED slots
     const tutorData = [];
     
-    for (const tutor of tutorsWithNewAvailability) {
+    for (const tutor of availableTutors) {
       if (!tutor.availability || tutor.availability.length === 0) continue;
       
       // Check if any availability block is in the future
@@ -1668,13 +2043,55 @@ router.get('/:userId/availability', publicProfileLimiter, async (req, res) => {
     console.log('📅 Availability blocks (filtered, excluding classes and old blocks):', actualAvailability.length);
     console.log('📅 Filtered from', withoutClasses.length, 'to', actualAvailability.length, 'blocks');
 
+    // Check if tutor has pending feedback (blocks new bookings)
+    // GRACE PERIOD: Only count feedback older than 2 hours — gives tutors time to submit
+    // after a lesson ends without immediately blocking their availability calendar.
+    const FEEDBACK_GRACE_MS = 2 * 60 * 60 * 1000; // 2 hours
+    const graceDeadline = new Date(Date.now() - FEEDBACK_GRACE_MS);
+    const TutorFeedback = require('../models/TutorFeedback');
+    const pendingFeedbackCount = await TutorFeedback.countDocuments({
+      tutorId: tutor._id,
+      status: 'pending',
+      required: { $ne: false },
+      createdAt: { $lt: graceDeadline }
+    });
+    const acceptingBookings = pendingFeedbackCount === 0;
+
+    if (!acceptingBookings) {
+      console.log(`⚠️ Tutor ${tutor._id} has ${pendingFeedbackCount} pending feedback (older than 2h) - not accepting bookings`);
+
+      // ── Record grace-period violations (lazy detection) ──
+      try {
+        const newlyExpired = await TutorFeedback.updateMany(
+          {
+            tutorId: tutor._id,
+            status: 'pending',
+            required: { $ne: false },
+            createdAt: { $lt: graceDeadline },
+            gracePeriodExpired: { $ne: true }
+          },
+          { $set: { gracePeriodExpired: true } }
+        );
+        if (newlyExpired.modifiedCount > 0) {
+          await User.updateOne(
+            { _id: tutor._id },
+            { $inc: { 'stats.feedbackMetrics.feedbackGraceViolations': newlyExpired.modifiedCount } }
+          );
+          console.log(`⚠️ Recorded ${newlyExpired.modifiedCount} new grace-period violation(s) for tutor ${tutor._id}`);
+        }
+      } catch (violationErr) {
+        console.error('⚠️ Error recording grace-period violations:', violationErr);
+      }
+    }
+
     const totalDuration = Date.now() - startTime;
     console.log(`⏱️ [Availability] Total request time: ${totalDuration}ms`);
 
     res.json({ 
       success: true, 
       availability: actualAvailability,
-      timezone: tutor.profile?.timezone || 'America/New_York'
+      timezone: tutor.profile?.timezone || 'America/New_York',
+      acceptingBookings
     });
 
   } catch (error) {
@@ -1716,6 +2133,19 @@ router.get('/:userId/public', publicProfileLimiter, async (req, res) => {
       const hasPayPal = user.payoutProvider === 'paypal' && !!user.payoutDetails?.paypalEmail;
       const hasManual = user.payoutProvider === 'manual';
       const hasPayoutSetup = hasStripe || hasPayPal || hasManual;
+
+      // Compute real lesson/student counts from the Lesson collection
+      const completedFilter = { tutorId: user._id, status: { $in: ['completed', 'ended_early'] } };
+      const [lessonCount, uniqueStudents] = await Promise.all([
+        Lesson.countDocuments(completedFilter),
+        Lesson.distinct('studentId', completedFilter).then(ids => ids.length)
+      ]);
+
+      const tutorStats = {
+        ...(user.stats?.toObject ? user.stats.toObject() : (user.stats || {})),
+        totalLessons: lessonCount,
+        students: uniqueStudents
+      };
       
       res.json({
         success: true,
@@ -1735,12 +2165,13 @@ router.get('/:userId/public', publicProfileLimiter, async (req, res) => {
           introductionVideo: user.onboardingData?.introductionVideo || '',
           videoThumbnail: user.onboardingData?.videoThumbnail || '',
           videoType: user.onboardingData?.videoType || 'upload',
-          stats: user.stats || {},
+          country: user.country || user.residenceCountry || '',
+          stats: tutorStats,
           profile: user.profile || {},
-          // Payout and approval info for booking validation
           tutorApproved: user.tutorApproved,
-          stripeConnectOnboarded: hasPayoutSetup, // True if ANY payout method is set up
-          payoutProvider: user.payoutProvider // Include actual provider for transparency
+          stripeConnectOnboarded: hasPayoutSetup,
+          payoutProvider: user.payoutProvider,
+          linkedChannels: user.linkedChannels || {}
         }
       });
     } else {
@@ -1903,6 +2334,357 @@ router.post('/tutor/submit-for-review', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('❌ Error submitting tutor for review:', error);
     res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ============================================================
+// TUTOR CREDENTIAL UPLOAD / DELETE ROUTES
+// ============================================================
+
+/**
+ * POST /api/users/tutor/upload-credential
+ * Upload a credential document (government ID, teaching cert, additional doc)
+ * Body (multipart): document file + credentialType + optional metadata
+ */
+router.post('/tutor/upload-credential', verifyToken, uploadDocument.single('document'), async (req, res) => {
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user || user.userType !== 'tutor') {
+      return res.status(403).json({ success: false, message: 'Only tutors can upload credentials' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No document file provided' });
+    }
+
+    const { credentialType, certificationName, documentType, label } = req.body;
+
+    if (!credentialType || !['governmentId', 'teachingCertification', 'additionalDocument'].includes(credentialType)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid credentialType. Must be: governmentId, teachingCertification, or additionalDocument' 
+      });
+    }
+
+    // Initialize GCS
+    const { bucket } = initializeGCS();
+    if (!bucket) {
+      return res.status(500).json({ success: false, message: 'File storage not configured' });
+    }
+
+    // Generate unique filename - credentials are PRIVATE (not public)
+    const timestamp = Date.now();
+    const sanitizedFilename = req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const subFolder = credentialType === 'governmentId' ? 'government-id' 
+      : credentialType === 'teachingCertification' ? 'certifications' 
+      : 'additional';
+    const gcsFilename = `credentials/${req.user.sub}/${subFolder}/${timestamp}_${sanitizedFilename}`;
+
+    console.log('📄 Uploading credential to GCS:', gcsFilename);
+
+    // Upload to GCS (private - not public)
+    const file = bucket.file(gcsFilename);
+    await file.save(req.file.buffer, {
+      metadata: {
+        contentType: req.file.mimetype,
+        metadata: {
+          uploadedBy: req.user.sub,
+          credentialType,
+          uploadedAt: new Date().toISOString()
+        }
+      },
+      public: false // Credentials are private — use signed URLs to view
+    });
+
+    // Generate a signed URL for immediate preview (valid 1 hour)
+    const [signedUrl] = await file.getSignedUrl({
+      action: 'read',
+      expires: Date.now() + 60 * 60 * 1000
+    });
+
+    // Store the GCS path (gs://) for permanent reference, signed URL for temp access
+    const gcsPath = `gs://${bucket.name}/${gcsFilename}`;
+    const publicUrl = `https://storage.googleapis.com/${bucket.name}/${gcsFilename}`;
+
+    console.log('✅ Credential uploaded:', gcsPath);
+
+    // Initialize tutorCredentials if not exists
+    if (!user.tutorCredentials) {
+      user.tutorCredentials = {
+        governmentId: { status: 'not_uploaded' },
+        teachingCertifications: [],
+        additionalDocuments: []
+      };
+    }
+
+    let savedCredential;
+
+    if (credentialType === 'governmentId') {
+      user.tutorCredentials.governmentId = {
+        url: publicUrl,
+        fileName: req.file.originalname,
+        fileType: req.file.mimetype,
+        uploadedAt: new Date(),
+        status: 'pending',
+        reviewedBy: null,
+        reviewedAt: null,
+        rejectionReason: null
+      };
+      savedCredential = user.tutorCredentials.governmentId;
+    } else if (credentialType === 'teachingCertification') {
+      const newCert = {
+        url: publicUrl,
+        fileName: req.file.originalname,
+        fileType: req.file.mimetype,
+        certificationName: certificationName || '',
+        uploadedAt: new Date(),
+        status: 'pending',
+        reviewedBy: null,
+        reviewedAt: null,
+        rejectionReason: null
+      };
+      user.tutorCredentials.teachingCertifications.push(newCert);
+      savedCredential = user.tutorCredentials.teachingCertifications[
+        user.tutorCredentials.teachingCertifications.length - 1
+      ];
+    } else if (credentialType === 'additionalDocument') {
+      const newDoc = {
+        url: publicUrl,
+        fileName: req.file.originalname,
+        fileType: req.file.mimetype,
+        documentType: documentType || 'other',
+        label: label || '',
+        uploadedAt: new Date(),
+        status: 'pending',
+        reviewedBy: null,
+        reviewedAt: null,
+        rejectionReason: null
+      };
+      user.tutorCredentials.additionalDocuments.push(newDoc);
+      savedCredential = user.tutorCredentials.additionalDocuments[
+        user.tutorCredentials.additionalDocuments.length - 1
+      ];
+    }
+
+    await user.save();
+
+    console.log(`✅ Credential saved for tutor ${user.email}:`, {
+      type: credentialType,
+      fileName: req.file.originalname,
+      status: 'pending'
+    });
+
+    res.json({
+      success: true,
+      message: 'Credential uploaded successfully',
+      credential: savedCredential,
+      signedUrl
+    });
+
+    // Notify admins via WebSocket that a new credential is pending review
+    try {
+      if (req.io) {
+        req.io.emit('tutor_credential_uploaded', {
+          tutorId: user._id,
+          tutorName: user.name || user.email,
+          tutorEmail: user.email,
+          credentialType,
+          fileName: req.file.originalname,
+          timestamp: new Date()
+        });
+        console.log('📬 Notified admins of new credential upload from:', user.email);
+      }
+    } catch (socketError) {
+      console.warn('⚠️ Could not send WebSocket notification to admins:', socketError.message);
+    }
+
+  } catch (error) {
+    console.error('❌ Error uploading credential:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to upload credential' });
+  }
+});
+
+/**
+ * DELETE /api/users/tutor/credential/:credentialType/:credentialId
+ * DELETE /api/users/tutor/credential/:credentialType
+ * Remove a credential. For governmentId, credentialId is not needed.
+ * For teachingCertification/additionalDocument, credentialId is the array element _id.
+ */
+const handleDeleteCredential = async (req, res) => {
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user || user.userType !== 'tutor') {
+      return res.status(403).json({ success: false, message: 'Only tutors can manage credentials' });
+    }
+
+    const { credentialType, credentialId } = req.params;
+
+    if (!user.tutorCredentials) {
+      return res.status(404).json({ success: false, message: 'No credentials found' });
+    }
+
+    let removedUrl = null;
+
+    if (credentialType === 'governmentId') {
+      // Only allow deletion if pending (not approved)
+      if (user.tutorCredentials.governmentId?.status === 'approved') {
+        return res.status(400).json({ success: false, message: 'Cannot delete an approved credential' });
+      }
+      removedUrl = user.tutorCredentials.governmentId?.url;
+      user.tutorCredentials.governmentId = {
+        url: null,
+        fileName: null,
+        fileType: null,
+        uploadedAt: null,
+        status: 'not_uploaded',
+        reviewedBy: null,
+        reviewedAt: null,
+        rejectionReason: null
+      };
+    } else if (credentialType === 'teachingCertification') {
+      if (!credentialId) {
+        return res.status(400).json({ success: false, message: 'credentialId required for certifications' });
+      }
+      const certIndex = user.tutorCredentials.teachingCertifications.findIndex(
+        c => c._id.toString() === credentialId
+      );
+      if (certIndex === -1) {
+        return res.status(404).json({ success: false, message: 'Certification not found' });
+      }
+      const cert = user.tutorCredentials.teachingCertifications[certIndex];
+      if (cert.status === 'approved') {
+        return res.status(400).json({ success: false, message: 'Cannot delete an approved certification' });
+      }
+      removedUrl = cert.url;
+      user.tutorCredentials.teachingCertifications.splice(certIndex, 1);
+    } else if (credentialType === 'additionalDocument') {
+      if (!credentialId) {
+        return res.status(400).json({ success: false, message: 'credentialId required for additional documents' });
+      }
+      const docIndex = user.tutorCredentials.additionalDocuments.findIndex(
+        d => d._id.toString() === credentialId
+      );
+      if (docIndex === -1) {
+        return res.status(404).json({ success: false, message: 'Document not found' });
+      }
+      const doc = user.tutorCredentials.additionalDocuments[docIndex];
+      if (doc.status === 'approved') {
+        return res.status(400).json({ success: false, message: 'Cannot delete an approved document' });
+      }
+      removedUrl = doc.url;
+      user.tutorCredentials.additionalDocuments.splice(docIndex, 1);
+    } else {
+      return res.status(400).json({ success: false, message: 'Invalid credential type' });
+    }
+
+    // Try to delete from GCS (best-effort)
+    if (removedUrl && removedUrl.includes('storage.googleapis.com')) {
+      try {
+        const { bucket } = initializeGCS();
+        if (bucket) {
+          const gcsPath = removedUrl.replace(`https://storage.googleapis.com/${bucket.name}/`, '');
+          await bucket.file(gcsPath).delete();
+          console.log('🗑️ Deleted credential file from GCS:', gcsPath);
+        }
+      } catch (gcsError) {
+        console.warn('⚠️ Failed to delete credential from GCS:', gcsError.message);
+      }
+    }
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Credential removed',
+      tutorCredentials: user.tutorCredentials
+    });
+
+  } catch (error) {
+    console.error('❌ Error deleting credential:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to delete credential' });
+  }
+};
+router.delete('/tutor/credential/:credentialType/:credentialId', verifyToken, handleDeleteCredential);
+router.delete('/tutor/credential/:credentialType', verifyToken, handleDeleteCredential);
+
+/**
+ * GET /api/users/tutor/credential-url/:credentialType/:credentialId
+ * GET /api/users/tutor/credential-url/:credentialType
+ * Get a signed URL for viewing a private credential document
+ */
+const handleGetCredentialUrl = async (req, res) => {
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user || user.userType !== 'tutor') {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const { credentialType, credentialId } = req.params;
+    let credentialUrl = null;
+
+    if (credentialType === 'governmentId') {
+      credentialUrl = user.tutorCredentials?.governmentId?.url;
+    } else if (credentialType === 'teachingCertification' && credentialId) {
+      const cert = user.tutorCredentials?.teachingCertifications?.find(
+        c => c._id.toString() === credentialId
+      );
+      credentialUrl = cert?.url;
+    } else if (credentialType === 'additionalDocument' && credentialId) {
+      const doc = user.tutorCredentials?.additionalDocuments?.find(
+        d => d._id.toString() === credentialId
+      );
+      credentialUrl = doc?.url;
+    }
+
+    if (!credentialUrl) {
+      return res.status(404).json({ success: false, message: 'Credential not found' });
+    }
+
+    // Generate signed URL
+    const { bucket } = initializeGCS();
+    if (!bucket) {
+      return res.status(500).json({ success: false, message: 'Storage not configured' });
+    }
+
+    const gcsPath = credentialUrl.replace(`https://storage.googleapis.com/${bucket.name}/`, '');
+    const [signedUrl] = await bucket.file(gcsPath).getSignedUrl({
+      action: 'read',
+      expires: Date.now() + 60 * 60 * 1000 // 1 hour
+    });
+
+    res.json({ success: true, signedUrl });
+
+  } catch (error) {
+    console.error('❌ Error getting credential URL:', error);
+    res.status(500).json({ success: false, message: 'Failed to get credential URL' });
+  }
+};
+router.get('/tutor/credential-url/:credentialType/:credentialId', verifyToken, handleGetCredentialUrl);
+router.get('/tutor/credential-url/:credentialType', verifyToken, handleGetCredentialUrl);
+
+// POST /api/users/tutor/accept-tos - Accept Terms of Service & Independent Contractor Agreement
+router.post('/tutor/accept-tos', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user || user.userType !== 'tutor') {
+      return res.status(403).json({ success: false, message: 'Only tutors can accept TOS' });
+    }
+
+    const { tosVersion } = req.body;
+    user.tosAcceptedAt = new Date();
+    user.tosVersion = tosVersion || '1.0';
+    await user.save();
+
+    console.log(`✅ [TOS] Tutor ${user.email} accepted TOS v${user.tosVersion}`);
+
+    res.json({
+      success: true,
+      tosAcceptedAt: user.tosAcceptedAt,
+      tosVersion: user.tosVersion
+    });
+  } catch (error) {
+    console.error('❌ Error accepting TOS:', error);
+    res.status(500).json({ success: false, message: 'Failed to accept TOS' });
   }
 });
 

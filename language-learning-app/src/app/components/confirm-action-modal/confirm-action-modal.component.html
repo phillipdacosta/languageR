@@ -11,22 +11,35 @@
 
 <ion-content class="ion-padding">
   <div class="confirm-content">
-    <!-- Avatar Section (if provided) -->
-    <div class="participant-avatar" *ngIf="participantAvatar || participantName">
-      <ion-avatar class="modal-avatar">
-        <img *ngIf="participantAvatar" [src]="participantAvatar" [alt]="participantName || 'Participant'" referrerpolicy="no-referrer" loading="eager" decoding="async">
-        <ion-icon *ngIf="!participantAvatar" name="person" class="avatar-placeholder"></ion-icon>
-      </ion-avatar>
-      <h3 class="participant-name" *ngIf="participantName">{{ participantName }}</h3>
+    <!-- Participant Info Card -->
+    <div class="participant-card" *ngIf="participantAvatar || participantName">
+      <div class="participant-avatar">
+        <ion-avatar *ngIf="participantAvatar">
+          <img [src]="participantAvatar" [alt]="participantName || 'Participant'" referrerpolicy="no-referrer">
+        </ion-avatar>
+        <div class="avatar-placeholder" *ngIf="!participantAvatar">
+          <ion-icon name="person"></ion-icon>
+        </div>
+      </div>
+      <div class="participant-details">
+        <h3 class="participant-name">{{ participantName }}</h3>
+      </div>
     </div>
-    
-    <div class="icon-wrapper" [class]="iconColor" [class.has-avatar]="participantAvatar || participantName">
-      <ion-icon [name]="icon"></ion-icon>
+
+    <!-- Action Info Section -->
+    <div class="action-info-section">
+      <div class="action-icon" [class]="iconColor">
+        <ion-icon [name]="icon"></ion-icon>
+      </div>
+      <div class="action-message">
+        <p class="main-message">{{ message }}</p>
+      </div>
     </div>
-    
-    <div class="message-wrapper">
-      <p class="main-message">{{ message }}</p>
-      <p class="notification-message" *ngIf="notificationMessage">{{ notificationMessage }}</p>
+
+    <!-- Notification Message -->
+    <div class="notification-section" *ngIf="notificationMessage">
+      <ion-icon name="notifications-outline"></ion-icon>
+      <span>{{ notificationMessage }}</span>
     </div>
   </div>
 </ion-content>

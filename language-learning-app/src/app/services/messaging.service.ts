@@ -140,8 +140,8 @@ export class MessagingService {
         // Update the shared conversations subject (single source of truth)
         this.conversationsSubject.next(response.conversations);
         
-        // Update the unread count whenever conversations are fetched
-        const totalUnread = response.conversations.reduce((sum, conv) => sum + conv.unreadCount, 0);
+        // Update the unread count: total unread messages across all conversations
+        const totalUnread = response.conversations.reduce((sum, conv) => sum + (conv.unreadCount || 0), 0);
         this.updateUnreadCount(totalUnread);
       })
     );

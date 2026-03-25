@@ -25,15 +25,16 @@ ion-content::part(scroll) {
   top: 20px;
   right: 20px;
   z-index: 1000;
-  --background: #f5f5f7;
-  --background-hover: #e8e8ed;
+  --background: #f7f7f7;
+  --background-hover: #ebebeb;
   --border-radius: 50%;
-  --color: #1d1d1f;
+  --color: #222222;
   --padding-start: 0;
   --padding-end: 0;
   width: 36px;
   height: 36px;
   margin: 0;
+  border: 1px solid #ebebeb;
 
   ion-icon {
     font-size: 24px;
@@ -65,18 +66,18 @@ ion-content::part(scroll) {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(102, 126, 234, 0.1);
+  background: #f7f7f7;
   
   ion-icon {
     font-size: 48px;
-    color: #667eea;
+    color: #222222;
   }
 }
 
 .modal-heading {
   font-size: 26px;
   font-weight: 700;
-  color: #1d1d1f;
+  color: #222222;
   margin: 0 0 12px 0;
   letter-spacing: -0.5px;
   line-height: 1.2;
@@ -85,7 +86,7 @@ ion-content::part(scroll) {
 .modal-description {
   font-size: 16px;
   line-height: 1.5;
-  color: #6b7280;
+  color: #717171;
   margin: 0 0 32px 0;
   font-weight: 400;
 }
@@ -96,12 +97,12 @@ ion-content::part(scroll) {
   flex-shrink: 0;
   
   .modern-search {
-    --background: #f5f5f7;
+    --background: #f7f7f7;
     --border-radius: 12px;
     --box-shadow: none;
-    --placeholder-color: #86868b;
+    --placeholder-color: #717171;
     --placeholder-opacity: 1;
-    --icon-color: #86868b;
+    --icon-color: #717171;
     padding: 0;
     
     &::part(native) {
@@ -116,7 +117,7 @@ ion-content::part(scroll) {
   max-height: 550px;
   overflow-y: auto;
   border-radius: 16px;
-  background: #f5f5f7;
+  background: #f7f7f7;
   padding: 8px;
   display: block !important;
   visibility: visible !important;
@@ -131,11 +132,11 @@ ion-content::part(scroll) {
   }
   
   &::-webkit-scrollbar-thumb {
-    background: #c7c7cc;
+    background: #dddddd;
     border-radius: 3px;
     
     &:hover {
-      background: #b0b0b5;
+      background: #b0b0b0;
     }
   }
 }
@@ -165,16 +166,17 @@ ion-content::part(scroll) {
   }
   
   &.selected {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    box-shadow: 0 4px 16px rgba(102, 126, 234, 0.25);
+    background: #f7f7f7;
+    border: 2px solid #222222;
+    padding: 12px 14px; // Compensate for thicker border
     
     .country-name {
-      color: white;
+      color: #222222;
       font-weight: 600;
     }
     
     .check-icon {
-      color: white;
+      color: #222222;
     }
   }
   
@@ -185,27 +187,27 @@ ion-content::part(scroll) {
     justify-content: center;
     width: 36px;
     height: 36px;
-    background: #f5f5f7;
+    background: #f7f7f7;
     border-radius: 8px;
     overflow: hidden;
   }
   
   &.selected .country-flag {
-    background: rgba(255, 255, 255, 0.2);
+    background: #ffffff;
   }
   
   .country-name {
     flex: 1;
     font-size: 16px;
     font-weight: 500;
-    color: #1d1d1f;
+    color: #222222;
     letter-spacing: -0.2px;
   }
   
   .check-icon {
     flex-shrink: 0;
     font-size: 24px;
-    color: #667eea;
+    color: #222222;
   }
 }
 
@@ -213,7 +215,7 @@ ion-content::part(scroll) {
 .no-results {
   text-align: center;
   padding: 60px 20px;
-  color: #86868b;
+  color: #717171;
   
   ion-icon {
     font-size: 64px;
@@ -227,7 +229,7 @@ ion-content::part(scroll) {
     line-height: 1.5;
     
     strong {
-      color: #1d1d1f;
+      color: #222222;
       font-weight: 600;
     }
   }

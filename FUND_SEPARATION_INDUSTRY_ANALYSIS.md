@@ -397,3 +397,9 @@ Your Stripe Balance - What You Owe = What You Can Take
 
 **You're doing it right!** 🎉
 
+
+
+
+
+
+

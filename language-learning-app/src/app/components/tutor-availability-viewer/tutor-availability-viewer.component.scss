@@ -6,6 +6,7 @@
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
   /* Unified slot height to keep time labels and day cells perfectly aligned */
   --slot-height: 44px;
+  min-height: 500px; // Prevent layout shift during loading
 }
 
 .header-controls {
@@ -26,30 +27,40 @@
 .week-navigation {
   display: flex;
   align-items: center;
-  gap: 4px;
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(10px);
-  border-radius: 10px;
-  padding: 3px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  gap: 8px;
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  border: 1px solid #DDDDDD;
   
   ion-button {
-    --padding-start: 10px;
-    --padding-end: 10px;
-    --min-height: 36px;
-    --background: transparent;
-    --background-hover: rgba(0, 0, 0, 0.04);
-    --background-activated: rgba(0, 0, 0, 0.08);
-    --color: #1d1d1f;
+    --padding-start: 12px;
+    --padding-end: 12px;
+    --min-height: 40px;
+    --background: #ffffff;
+    --background-hover: #ffffff;
+    --background-activated: #f7f7f7;
+    --color: #222222;
     --border-radius: 8px;
+    --border-width: 1px;
+    --border-color: #DDDDDD;
+    --border-style: solid;
     font-weight: 500;
     font-size: 14px;
     letter-spacing: -0.2px;
-    transition: all 0.2s ease;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
     
     &:hover {
-      transform: scale(1.02);
+      border-color: #222222;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      transform: translateY(-1px);
+    }
+    
+    &:active {
+      transform: translateY(0);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
     }
   }
 }
@@ -71,35 +82,77 @@
   }
 }
 
-.timezone-display {
-  ion-select {
-    --padding-start: 12px;
-    --padding-end: 12px;
-    --min-height: 36px;
-    font-size: 14px;
-    border: 1px solid rgba(0, 0, 0, 0.06);
-    border-radius: 10px;
-    background: white;
-    
-    @media (max-width: 768px) {
-      width: 100%;
-    }
-  }
-}
-
-.timezone-info {
+// Timezone selector
+.timezone-selector {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 5px;
-  font-size: 12px;
-  color: #86868b;
-  font-weight: 400;
-  letter-spacing: -0.1px;
-  
-  ion-icon {
-    font-size: 14px;
-    opacity: 0.7;
+  gap: 8px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  flex-wrap: wrap;
+
+  > ion-icon {
+    font-size: 16px;
+    color: #007aff;
+    flex-shrink: 0;
+  }
+
+  select {
+    flex: 1;
+    min-width: 180px;
+    appearance: none;
+    -webkit-appearance: none;
+    background: #f2f2f7 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2386868b'/%3E%3C/svg%3E") no-repeat right 10px center;
+    background-size: 10px 6px;
+    border: 1px solid #DDDDDD;
+    border-radius: 8px;
+    padding: 8px 28px 8px 12px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: inherit;
+    color: #1d1d1f;
+    letter-spacing: -0.2px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+    &:hover {
+      border-color: #007aff;
+    }
+
+    &:focus {
+      outline: none;
+      border-color: #007aff;
+      box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.12);
+    }
+  }
+
+  .tz-hint {
+    font-size: 11px;
+    color: #86868b;
+    letter-spacing: -0.1px;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 768px) {
+    padding: 8px 12px;
+    gap: 6px;
+
+    select {
+      min-width: 0;
+      font-size: 12px;
+      padding: 6px 24px 6px 10px;
+    }
+
+    .tz-hint {
+      width: 100%;
+      text-align: center;
+      font-size: 10px;
+    }
   }
 }
 
@@ -114,6 +167,7 @@
   overflow-y: visible; // Allow content to flow naturally
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 0 1px rgba(0, 0, 0, 0.04);
   position: relative;
+  min-height: 300px; // Prevent layout shift when slots load
   
   @media (max-width: 1024px) {
     grid-template-columns: repeat(7, minmax(90px, 1fr));
@@ -133,14 +187,14 @@
 
 .day-header {
   background: #fbfbfb;
-  padding: 12px 8px;
+  padding: 20px 8px 12px 8px;
   text-align: center;
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   position: relative;
   border-right: 1px solid rgba(0, 0, 0, 0.04);
   
   @media (max-width: 768px) {
-    padding: 10px 5px;
+    padding: 18px 5px 10px 5px;
   }
   
   .day-name {
@@ -173,36 +227,36 @@
 
 /* Duration selector styles - Segmented control design */
 .duration-selector.segmented {
-  padding: 14px;
-  margin-bottom: 14px;
+  padding: 8px;
+  margin-bottom: 10px;
   background: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 12px;
+  border-radius: 10px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
 
   .selector-header {
     display: flex;
     align-items: center;
-    gap: 6px;
-    margin-bottom: 10px;
-    font-size: 13px;
+    gap: 5px;
+    margin-bottom: 6px;
+    font-size: 11px;
     font-weight: 600;
     color: #1d1d1f;
     letter-spacing: -0.2px;
     
     ion-icon {
-      font-size: 16px;
+      font-size: 12px;
       color: #007aff;
     }
     
     .trial-badge {
       margin-left: auto;
-      padding: 4px 10px;
+      padding: 2px 6px;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
-      border-radius: 12px;
-      font-size: 11px;
+      border-radius: 8px;
+      font-size: 9px;
       font-weight: 600;
       letter-spacing: 0.2px;
     }
@@ -213,37 +267,49 @@
     grid-template-columns: 1fr 1fr;
     gap: 0;
     background: #f2f2f7;
-    border-radius: 10px;
-    padding: 3px;
+    border-radius: 6px;
+    padding: 1px;
     border: none;
+    min-height: auto !important;
+    height: auto !important;
 
     .segment {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 3px;
-      padding: 10px;
+      gap: 2px;
+      padding: 4px 6px;
+      min-height: auto !important;
+      height: auto !important;
+      max-height: none !important;
+      line-height: 1.2;
       background: transparent;
       border: none;
-      border-radius: 8px;
+      border-radius: 6px;
       cursor: pointer;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       font-family: inherit;
       position: relative;
 
       ion-icon {
-        font-size: 18px;
+        font-size: 14px;
         color: #86868b;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        margin: 0;
+        padding: 0;
+        line-height: 1;
       }
 
       .label {
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 600;
         color: #86868b;
         letter-spacing: -0.2px;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        line-height: 1.2;
+        margin: 0;
+        padding: 0;
       }
 
       .time {
@@ -252,12 +318,16 @@
         color: #86868b;
         letter-spacing: -0.1px;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        line-height: 1.2;
+        margin: 0;
+        padding: 0;
       }
       
       .badge {
-        font-size: 10px;
+        font-size: 9px;
         color: #86868b;
         margin-top: 2px;
+        line-height: 1.2;
       }
       
       &.disabled {
@@ -276,28 +346,31 @@
 
       &.active {
         background: white;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+        border: 2px solid #007aff;
+        box-shadow: 0 2px 8px rgba(0, 122, 255, 0.2), 0 0 0 1px rgba(0, 122, 255, 0.1);
 
         ion-icon {
           color: #007aff;
-          transform: scale(1.05);
+          transform: scale(1.1);
         }
 
         .label {
-          color: #1d1d1f;
+          color: #007aff;
+          font-weight: 700;
         }
 
         .time {
           color: #007aff;
+          font-weight: 600;
         }
       }
 
       &:hover:not(.active) {
-        background: rgba(255, 255, 255, 0.6);
+        background: rgba(255, 255, 255, 0.5);
         transform: scale(1.01);
 
         ion-icon {
-          color: #007aff;
+          color: #86868b;
         }
       }
 
@@ -321,18 +394,18 @@
     }
 
     .segmented-control {
-      padding: 3px;
+      padding: 2px;
 
       .segment {
-        padding: 9px 7px;
+        padding: 3px 5px;
         gap: 2px;
 
         ion-icon {
-          font-size: 16px;
+          font-size: 12px;
         }
 
         .label {
-          font-size: 12px;
+          font-size: 11px;
         }
 
         .time {
@@ -425,38 +498,41 @@
 .slot {
   font-weight: 500;
   font-size: 11px;
-  padding: 8px 9px;
+  padding: 10px 10px;
   border-radius: 8px;
-  margin-bottom: 7px;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-bottom: 8px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   text-align: center;
-  line-height: 1.2;
+  line-height: 1.3;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   letter-spacing: -0.2px;
-  border: none;
+  border: 1px solid #DDDDDD;
+  background: #ffffff;
+  color: #222222;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   
   &.available {
-    background: linear-gradient(135deg, #e8f5e9 0%, #f1f8f4 100%);
-    color: #34c759;
-    box-shadow: 0 1px 3px rgba(52, 199, 89, 0.08), inset 0 0 0 1px rgba(52, 199, 89, 0.2);
+    background: #ffffff;
+    color: #222222;
+    border-color: #DDDDDD;
     
     &:hover {
-      transform: translateY(-2px) scale(1.02);
-      box-shadow: 0 4px 12px rgba(52, 199, 89, 0.2), inset 0 0 0 1px rgba(52, 199, 89, 0.3);
-      background: linear-gradient(135deg, #d4f1d8 0%, #e8f5e9 100%);
-      color: #30b350;
+      border-color: #222222;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      transform: translateY(-1px);
     }
     
     &:active {
-      transform: translateY(0) scale(0.98);
+      transform: translateY(0);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
     }
     
     @media (max-width: 768px) {
       font-size: 10px;
-      padding: 7px 6px;
+      padding: 8px 10px;
     }
   }
   
@@ -553,6 +629,7 @@
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
+  min-height: 400px; // Match approximate calendar height to prevent layout shift
   
   ion-spinner {
     margin-bottom: 16px;
@@ -617,7 +694,7 @@
   }
   
   .day-header {
-    padding: 14px 6px;
+    padding: 20px 6px 14px 6px;
   }
   
   .time-slot-row { display: none; }
@@ -653,5 +730,546 @@
       right: 0;
       background: linear-gradient(to left, rgba(255, 255, 255, 0.95), transparent);
     }
+  }
+}
+
+// =============================================
+// TUTOR BLOCKED BANNER
+// =============================================
+.tutor-blocked-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  background: #FFF7ED;
+  border: 1px solid #FED7AA;
+  border-radius: 14px;
+
+  > ion-icon {
+    font-size: 28px;
+    color: #EA580C;
+    flex-shrink: 0;
+  }
+
+  .blocked-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .blocked-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #9A3412;
+    letter-spacing: -0.2px;
+  }
+
+  .blocked-subtitle {
+    font-size: 13px;
+    color: #C2410C;
+    letter-spacing: -0.1px;
+  }
+}
+
+// Blocked slot state
+.slot.blocked {
+  background: #F5F5F5 !important;
+  color: #B0B0B0 !important;
+  border-color: #E5E5E5 !important;
+  cursor: not-allowed !important;
+  opacity: 0.55;
+  box-shadow: none !important;
+
+  &:hover {
+    transform: none !important;
+    box-shadow: none !important;
+    border-color: #E5E5E5 !important;
+  }
+
+  .crossed-out {
+    text-decoration: line-through;
+    text-decoration-thickness: 1px;
+    text-decoration-color: rgba(0, 0, 0, 0.2);
+  }
+}
+
+// Dim entire grid when blocked
+.calendar-grid.blocked {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+// ── Two-step swap (morph clone provides visual continuity) ──
+
+.step-wrapper {
+  position: relative;
+}
+
+.confirm-step {
+  .confirm-back-btn,
+  .confirm-title-row,
+  .confirm-duration-section,
+  .confirm-cta {
+    opacity: 0;
+    transform: translateY(10px);
+    animation: confirmFadeIn 0.38s ease forwards;
+  }
+  .confirm-back-btn    { animation-delay: 0.30s; }
+  .confirm-title-row   { animation-delay: 0.34s; }
+  .confirm-duration-section { animation-delay: 0.40s; }
+  .confirm-cta       { animation-delay: 0.44s; }
+}
+
+@keyframes confirmFadeIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// ── Confirmation step styling ──
+
+.confirm-content {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 12px 0 0;
+}
+
+.confirm-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: none;
+  border: none;
+  padding: 0;
+  margin-bottom: 12px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: #222222;
+  cursor: pointer;
+  letter-spacing: -0.2px;
+  transition: color 0.2s ease;
+
+  ion-icon {
+    font-size: 16px;
+  }
+
+  &:hover {
+    color: #000000;
+  }
+}
+
+.confirm-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.confirm-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #222222;
+  letter-spacing: -0.5px;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+  flex: 1;
+  min-width: 0;
+}
+
+.confirm-title-app-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.confirm-receipt {
+  background: #ffffff;
+  border: 1px solid #DDDDDD;
+  border-radius: 14px;
+  padding: 0;
+  margin-bottom: 20px;
+
+  .receipt-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+  }
+
+  .receipt-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: #F7F7F7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    ion-icon {
+      font-size: 17px;
+      color: #222222;
+    }
+  }
+
+  .receipt-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .receipt-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: #717171;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .receipt-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: #222222;
+    letter-spacing: -0.2px;
+  }
+
+  .receipt-divider {
+    height: 1px;
+    background: #EBEBEB;
+    margin: 0 16px;
+  }
+}
+
+.confirm-duration-section {
+  margin-bottom: 20px;
+
+  .confirm-duration-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #222222;
+    margin-bottom: 8px;
+    letter-spacing: -0.2px;
+  }
+
+  .confirm-duration-options {
+    display: flex;
+    gap: 10px;
+  }
+
+  .duration-option {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 14px 12px;
+    border: 2px solid #DDDDDD;
+    border-radius: 12px;
+    background: #ffffff;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease, transform 0.15s ease;
+    font-family: inherit;
+    position: relative;
+
+    &:hover:not([disabled]) {
+      border-color: #222222;
+    }
+
+    &.active {
+      border-color: #222222;
+      background: #F7F7F7;
+    }
+
+    &[disabled] {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .duration-minutes {
+      font-size: 22px;
+      font-weight: 700;
+      color: #222222;
+      letter-spacing: -0.5px;
+      line-height: 1;
+    }
+
+    .duration-unit {
+      font-size: 13px;
+      font-weight: 500;
+      color: #717171;
+    }
+
+    .trial-note {
+      font-size: 10px;
+      font-weight: 600;
+      color: #717171;
+      margin-left: 4px;
+    }
+  }
+}
+
+.confirm-cta {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 24px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  color: #ffffff;
+  background: #222222;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.1s ease, opacity 0.2s ease;
+
+  ion-icon {
+    font-size: 17px;
+  }
+
+  &:hover:not([disabled]) {
+    background: #000000;
+  }
+
+  &:active:not([disabled]) {
+    transform: scale(0.98);
+  }
+
+  &.disabled, &[disabled] {
+    background: #D1D1D6;
+    cursor: not-allowed;
+  }
+}
+
+@media (max-width: 600px) {
+  .confirm-content {
+    padding: 8px 4px 0;
+  }
+
+  .confirm-title-row {
+    margin-bottom: 12px;
+  }
+  .confirm-title {
+    font-size: 20px;
+  }
+  .confirm-title-app-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .confirm-receipt .receipt-row {
+    padding: 10px 14px;
+  }
+}
+
+// =============================================
+// DARK MODE
+// =============================================
+$dk-bg: #1c1c1e;
+$dk-surface: #242426;
+$dk-card: #2c2c2e;
+$dk-card-hover: #3a3a3c;
+$dk-border: rgba(255, 255, 255, 0.1);
+$dk-border-strong: rgba(255, 255, 255, 0.18);
+$dk-text: #f5f5f7;
+$dk-text-secondary: #8e8e93;
+$dk-text-tertiary: #636366;
+$dk-accent: #4298d2;
+
+:host-context(html.ion-palette-dark) {
+  .availability-container {
+    background: linear-gradient(to bottom, #141416 0%, $dk-bg 100%);
+  }
+
+  .week-navigation {
+    background: $dk-card;
+    border-color: $dk-border-strong;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+
+    ion-button {
+      --background: #{$dk-card};
+      --background-hover: #{$dk-card-hover};
+      --color: #{$dk-text};
+      --border-color: #{$dk-border-strong};
+      &:hover { --border-color: #{$dk-text}; }
+    }
+  }
+
+  .week-display h2 { color: $dk-text; }
+
+  .timezone-selector {
+    background: $dk-card;
+    border-color: $dk-border-strong;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+
+    > ion-icon { color: $dk-accent; }
+    select {
+      background-color: $dk-bg;
+      border-color: $dk-border-strong;
+      color: $dk-text;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238e8e93'/%3E%3C/svg%3E");
+      &:hover, &:focus { border-color: $dk-accent; }
+    }
+    .tz-hint { color: $dk-text-secondary; }
+  }
+
+  .calendar-grid {
+    background: $dk-card;
+    border-color: $dk-border-strong;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+  }
+
+  .day-header {
+    background: $dk-bg;
+    border-bottom-color: $dk-border;
+    border-right-color: $dk-border;
+
+    .day-name { color: $dk-text-secondary; }
+    .day-number { color: $dk-text; }
+  }
+
+  .day-slots {
+    background: $dk-card;
+    border-right-color: $dk-border;
+  }
+
+  .slot {
+    border-color: $dk-border-strong;
+    background: $dk-bg;
+    color: $dk-text;
+
+    &.available {
+      background: $dk-bg;
+      color: $dk-text;
+      border-color: $dk-border-strong;
+      &:hover {
+        border-color: $dk-text;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      }
+    }
+
+    &.booked {
+      background: rgba(255, 69, 58, 0.15);
+      color: #ff6b6b;
+      box-shadow: 0 1px 3px rgba(255, 69, 58, 0.2);
+    }
+
+    &.disabled {
+      background: $dk-surface;
+      color: $dk-text-tertiary;
+      box-shadow: none;
+      &:hover { background: $dk-surface; }
+    }
+
+    &.past {
+      background: $dk-surface;
+      color: $dk-text-tertiary;
+      opacity: 0.5;
+      &:hover { background: $dk-surface; }
+    }
+
+    &.blocked {
+      background: $dk-surface !important;
+      color: $dk-text-tertiary !important;
+      border-color: $dk-border !important;
+    }
+  }
+
+  .legend { color: $dk-text-secondary; }
+  .legend-swatch.unavailable {
+    background: $dk-surface;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+  }
+
+  .duration-selector.segmented {
+    background: $dk-card;
+    border-color: $dk-border-strong;
+
+    .selector-header {
+      color: $dk-text;
+      ion-icon { color: $dk-accent; }
+    }
+    .segmented-control {
+      background: $dk-bg;
+      .segment {
+        .label, .time, .badge, ion-icon { color: $dk-text-secondary; }
+        &.active {
+          background: $dk-card-hover;
+          border-color: $dk-accent;
+          box-shadow: 0 0 0 1px rgba(66, 152, 210, 0.3);
+          .label, .time, ion-icon { color: $dk-accent; }
+        }
+        &:hover:not(.active) { background: rgba(255, 255, 255, 0.04); }
+      }
+    }
+  }
+
+  .empty { color: $dk-text-tertiary; }
+
+  .loading-container {
+    ion-spinner { --color: #{$dk-accent}; }
+    p { color: $dk-text-secondary; }
+  }
+
+  .no-availability {
+    ion-icon { color: $dk-text-tertiary; }
+    h3 { color: $dk-text; }
+    p { color: $dk-text-secondary; }
+  }
+
+  .tutor-blocked-banner {
+    background: rgba(234, 88, 12, 0.12);
+    border-color: rgba(234, 88, 12, 0.3);
+    > ion-icon { color: #ff9f43; }
+    .blocked-title { color: #ffb366; }
+    .blocked-subtitle { color: #ff9f43; }
+  }
+
+  @media (max-width: 1024px) {
+    .availability-container::after { color: $dk-text-secondary; }
+    .calendar-grid {
+      &::before { background: linear-gradient(to right, rgba(28, 28, 30, 0.98), transparent); }
+      &::after { background: linear-gradient(to left, rgba(28, 28, 30, 0.98), transparent); }
+    }
+  }
+
+  // Confirmation step
+  .confirm-back-btn { color: $dk-text; &:hover { color: #fff; } }
+  .confirm-title { color: $dk-text; }
+  .confirm-receipt {
+    background: $dk-card;
+    border-color: $dk-border-strong;
+    .receipt-icon { background: $dk-bg; ion-icon { color: $dk-text; } }
+    .receipt-label { color: $dk-text-secondary; }
+    .receipt-value { color: $dk-text; }
+    .receipt-divider { background: $dk-border; }
+  }
+  .confirm-duration-section .confirm-duration-label { color: $dk-text; }
+  .duration-option {
+    background: $dk-card;
+    border-color: $dk-border-strong;
+    &:hover:not([disabled]) { border-color: $dk-text; }
+    &.active {
+      border-color: $dk-accent;
+      background: rgba(66, 152, 210, 0.12);
+    }
+    .duration-minutes { color: $dk-text; }
+    .duration-unit, .trial-note { color: $dk-text-secondary; }
+  }
+  .confirm-cta {
+    background: $dk-text;
+    color: #000;
+    &:hover:not([disabled]) { background: #fff; }
+    &.disabled, &[disabled] { background: $dk-text-tertiary; color: $dk-card; }
   }
 }

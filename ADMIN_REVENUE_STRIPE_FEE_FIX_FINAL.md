@@ -174,3 +174,9 @@ node scripts/backfill-stripe-fees.js
 **The issue was purely a data retrieval problem** - all money was processed correctly by Stripe, tutors were paid correctly, and the platform received the correct fees. Only the database record was missing the Stripe fee amount, which has now been corrected.
 
 
+
+
+
+
+
+

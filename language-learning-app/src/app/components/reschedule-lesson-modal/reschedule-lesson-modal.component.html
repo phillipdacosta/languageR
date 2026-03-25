@@ -1,16 +1,20 @@
 <ion-content class="ion-padding reschedule-modal-content">
-  <!-- Back button (top-left, if opened from proposal modal) -->
-  <ion-button *ngIf="showBackButton && !showConfirmation" class="floating-back-button" fill="clear" (click)="goBackToProposal()">
+  <!-- Back button: from availability-setup to calendar -->
+  <ion-button *ngIf="!showConfirmation && rescheduleView === 'availability-setup'" class="floating-back-button" fill="clear" (click)="goBackToCalendar()">
+    <ion-icon name="arrow-back" slot="icon-only"></ion-icon>
+  </ion-button>
+  <!-- Back button: to proposal modal (when opened from proposal) -->
+  <ion-button *ngIf="!showConfirmation && rescheduleView === 'calendar' && showBackButton" class="floating-back-button" fill="clear" (click)="goBackToProposal()">
     <ion-icon name="arrow-back" slot="icon-only"></ion-icon>
   </ion-button>
 
   <!-- Floating close button (always visible) -->
-  <ion-button class="floating-close-button" fill="clear" (click)="dismiss()">
-    <ion-icon name="close" slot="icon-only"></ion-icon>
-  </ion-button>
+  <button class="floating-close-button" (click)="dismiss()">
+    <ion-icon name="close"></ion-icon>
+  </button>
 
-  <!-- Calendar View -->
-  <div class="view-container" *ngIf="!showConfirmation" [@slideInOut]="animationDirection">
+  <!-- Calendar View (pick a time slot) -->
+  <div class="view-container" *ngIf="!showConfirmation && rescheduleView === 'calendar'" [@slideInOut]="animationDirection">
     <!-- Original Lesson Time Info - Sticky Banner -->
     <div class="original-time-banner sticky-banner" *ngIf="originalLessonTime">
       <div class="banner-content">
@@ -56,12 +60,29 @@
       </app-tutor-availability-viewer>
     </div>
 
+    <!-- Add Availability (tutor only) -->
+    <div class="add-availability-section" *ngIf="isTutor && !isLoadingMutualAvailability">
+      <div class="add-availability-divider">
+        <span>or</span>
+      </div>
+      <ion-button fill="outline" class="add-availability-btn" (click)="showAddAvailability()">
+        <ion-icon name="add-circle-outline" slot="start"></ion-icon>
+        Add New Availability
+      </ion-button>
+    </div>
+
     <!-- Loading State -->
     <div class="loading-state" *ngIf="isLoadingMutualAvailability">
       <ion-spinner name="crescent"></ion-spinner>
     </div>
+  </div>
 
-    <!-- Info Message - REMOVED (now in participant section) -->
+  <!-- Availability Setup View (tutor adding new slots) -->
+  <div class="view-container availability-setup-view" *ngIf="!showConfirmation && rescheduleView === 'availability-setup'">
+    <app-availability-setup
+      [embeddedMode]="true"
+      (availabilitySaved)="onAvailabilitySaved()">
+    </app-availability-setup>
   </div>
 
   <!-- Confirmation View -->
@@ -116,8 +137,8 @@
       </ion-button>
       <ion-button 
         expand="block"
-        color="primary"
-        (click)="confirmReschedule()">
+        class="btn-reschedule"
+        (click)="onRescheduleClick()">
         Reschedule
       </ion-button>
     </div>

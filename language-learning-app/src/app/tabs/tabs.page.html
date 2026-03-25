@@ -5,12 +5,12 @@
     <ion-toolbar>
       <ion-buttons slot="start">
         <div class="app-icon-container" (click)="navigateTo('/tabs/home')">
-          <img src="assets/app-icon.png" alt="Speak Freely" class="app-icon">
+          <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="app-icon">
+          <span class="app-name">Barnabi</span>
         </div>
       </ion-buttons>
       <ion-buttons slot="end">
-        <ion-button fill="clear" class="notification-btn" 
-                    (click)="navigateTo('/tabs/notifications')"
+        <ion-button fill="clear" class="notification-btn"
                     (mouseenter)="onNotificationButtonMouseEnter()"
                     (mouseleave)="onNotificationButtonMouseLeave()">
           <ion-icon name="notifications-outline"></ion-icon>
@@ -29,23 +29,43 @@
     <ion-toolbar class="desktop-nav-toolbar">
       <!-- App Icon -->
       <div class="app-icon-container" slot="start" (click)="navigateTo('/tabs/home')">
-        <img src="assets/app-icon.png" alt="Speak Freely" class="app-icon">
+        <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="app-icon">
+        <span class="app-name">Barnabi</span>
       </div>
-      
-      <div class="desktop-nav-buttons" slot="end">
-        <button class="nav-button" [class.active]="isCurrentRoute('/tabs/home')" (click)="navigateTo('/tabs/home')">
-          <ion-icon name="home"></ion-icon>
-          <ion-label>{{ 'TABS.HOME' | translate }}</ion-label>
+
+      <div class="desktop-nav-buttons" slot="end" #navButtonsContainer>
+        <!-- Sliding underline indicator -->
+        <div class="nav-underline-indicator"
+             [style.left.px]="underlineLeft"
+             [style.top.px]="underlineTop"
+             [style.width.px]="underlineWidth"
+             [style.height.px]="underlineHeight"
+             *ngIf="underlineWidth > 0"></div>
+        
+        <button class="nav-button" 
+                [class.active]="isCurrentRoute('/tabs/home')" 
+                (click)="navigateTo('/tabs/home')"
+                #homeBtn>
+          <!-- <ion-icon name="home"></ion-icon> -->
+          <ion-label [attr.data-text]="'TABS.HOME' | translate">{{ 'TABS.HOME' | translate }}</ion-label>
           </button>
         
-        <button *ngIf="currentUser?.userType === 'student'" class="nav-button" [class.active]="isCurrentRoute('/tabs/tutor-search')" (click)="navigateTo('/tabs/tutor-search')">
-          <ion-icon name="search"></ion-icon>
-          <ion-label>{{ 'TABS.FIND_TUTORS' | translate }}</ion-label>
+        <button *ngIf="currentUser?.userType === 'student'" 
+                class="nav-button" 
+                [class.active]="isCurrentRoute('/tabs/tutor-search')" 
+                (click)="navigateTo('/tabs/tutor-search')"
+                #tutorSearchBtn>
+          <!-- <ion-icon name="search"></ion-icon> -->
+          <ion-label [attr.data-text]="'TABS.FIND_TUTORS' | translate">{{ 'TABS.FIND_TUTORS' | translate }}</ion-label>
         </button>
         
-        <button *ngIf="currentUser?.userType === 'tutor'" class="nav-button" [class.active]="isCurrentRoute('/tabs/tutor-calendar')" (click)="navigateTo('/tabs/tutor-calendar')">
-          <ion-icon name="calendar"></ion-icon>
-          <ion-label>{{ 'TABS.CALENDAR' | translate }}</ion-label>
+        <button *ngIf="currentUser?.userType === 'tutor'" 
+                class="nav-button" 
+                [class.active]="isCurrentRoute('/tabs/tutor-calendar')" 
+                (click)="navigateTo('/tabs/tutor-calendar')"
+                #calendarBtn>
+          <!-- <ion-icon name="calendar"></ion-icon> -->
+          <ion-label [attr.data-text]="'TABS.CALENDAR' | translate">{{ 'TABS.CALENDAR' | translate }}</ion-label>
         </button>
         
         <button class="nav-button messages-button" 
@@ -54,24 +74,23 @@
                 (mouseenter)="onMessagesButtonMouseEnter()"
                 (mouseleave)="onMessagesButtonMouseLeave()"
                 #messagesBtn>
-          <ion-icon name="chatbubbles"></ion-icon>
-          <ion-label>{{ 'TABS.MESSAGES' | translate }}</ion-label>
-          <span class="notification-dot message-notification-dot" *ngIf="(unreadCount$ | async)! > 0"></span>
+          <!-- <ion-icon name="chatbubbles"></ion-icon> -->
+          <ion-label [attr.data-text]="'TABS.MESSAGES' | translate">{{ 'TABS.MESSAGES' | translate }}</ion-label>
+          <span class="new-badge" *ngIf="(unreadCount$ | async)! > 0">new</span>
         </button>
         
-        <button class="nav-button" [class.active]="isCurrentRoute('/tabs/progress')" (click)="navigateTo('/tabs/progress')">
-          <ion-icon [name]="currentUser?.userType === 'tutor' ? 'bar-chart' : 'trending-up'"></ion-icon>
-          <ion-label>{{ currentUser?.userType === 'tutor' ? ('TABS.ANALYTICS' | translate) : ('TABS.PROGRESS' | translate) }}</ion-label>
-        </button>
-        
-        <button class="nav-button" [class.active]="isCurrentRoute('/tabs/profile')" (click)="navigateTo('/tabs/profile')">
-          <ion-icon name="person"></ion-icon>
-          <ion-label>{{ 'TABS.PROFILE' | translate }}</ion-label>
+        <button class="nav-button" 
+                [class.active]="isCurrentRoute('/tabs/lessons')" 
+                (click)="navigateTo('/tabs/lessons')"
+                #lessonsBtn>
+          <!-- <ion-icon name="book-outline"></ion-icon> -->
+          <ion-label [attr.data-text]="'TABS.LESSONS' | translate">{{ 'TABS.LESSONS' | translate }}</ion-label>
         </button>
         
         <!-- Notification Bell Icon -->
         <div class="notification-container">
           <button type="button" #notificationBtn class="nav-button notification-btn" 
+                  [class.active]="isCurrentRoute('/tabs/notifications')"
                   (click)="onNotificationButtonClick()"
                   (mouseenter)="onNotificationButtonMouseEnter()"
                   (mouseleave)="onNotificationButtonMouseLeave()">
@@ -80,18 +99,14 @@
           </button>
         </div>
         
-        <!-- User Profile Section (moved beside Profile button) -->
-        <div class="user-profile" *ngIf="currentUser">
+        <!-- User Avatar → Profile -->
+        <div class="user-profile" *ngIf="currentUser" (click)="navigateTo('/tabs/profile')" [class.active]="isCurrentRoute('/tabs/profile')">
           <ion-avatar class="user-avatar">
             <img *ngIf="currentUser.picture" [src]="currentUser.picture" [alt]="currentUser.name" referrerpolicy="no-referrer" (error)="onImageError($event)">
             <div class="user-initials" *ngIf="!currentUser.picture">{{ getUserInitials(currentUser) }}</div>
           </ion-avatar>
         </div>
         
-        <button class="nav-button logout-button" (click)="logout()">
-          <ion-icon name="log-out"></ion-icon>
-          <span>{{'TABS.LOGOUT' | translate}}</span>
-        </button>
       </div>
     </ion-toolbar>
   </ion-header>
@@ -107,7 +122,7 @@
        (click)="$event.stopPropagation()">
     <div class="notification-dropdown-header">
       <div class="notification-header-left">
-        <h3 class="notification-title">Notifications</h3>
+        <h3 class="notification-title">{{ 'NOTIFICATIONS.TITLE' | translate }}</h3>
         <ion-icon name="settings-outline" class="notification-settings-icon"></ion-icon>
       </div>
       <button class="notification-close-btn" (click)="closeNotificationDropdown()">
@@ -119,13 +134,13 @@
       <!-- Loading State -->
       <div *ngIf="isLoadingNotifications" class="notification-loading">
         <ion-spinner name="crescent"></ion-spinner>
-        <p>Loading notifications...</p>
+        <p>{{ 'NOTIFICATIONS.LOADING' | translate }}</p>
       </div>
 
       <ng-container *ngIf="formattedNotifications$ | async as notifications">
         <!-- Important Section (Unread Notifications) -->
         <div class="notification-section" *ngIf="!isLoadingNotifications && (notifications | notificationFilter:'unread').length > 0">
-          <h4 class="notification-section-title">Important</h4>
+          <h4 class="notification-section-title">{{ 'NOTIFICATIONS.DROPDOWN.IMPORTANT' | translate }}</h4>
           <div class="notification-item" 
                *ngFor="let notification of (notifications | notificationFilter:'unread'); trackBy: trackByNotificationId"
                [class.unread]="!notification.read"
@@ -141,7 +156,7 @@
                 (error)="onNotificationImageError($event, notification)" />
               <!-- System notifications (video approved, etc) -->
               <div *ngIf="!notification.relatedUserPicture && isSystemNotification(notification.type)" class="notification-icon-wrapper system-notification">
-                <img src="assets/app-icon.png" alt="App icon" class="app-logo-img" />
+                <img src="assets/icons-app-bird-2.png" alt="App icon" class="app-logo-img" />
               </div>
               <!-- Money notifications (earnings) -->
               <div *ngIf="!notification.relatedUserPicture && isMoneyNotification(notification.type)" class="notification-icon-wrapper payment-icon">
@@ -156,12 +171,28 @@
             </div>
             <div class="notification-item-content">
               <p class="notification-text" [innerHTML]="notification.sanitizedMessage"></p>
+              <!-- Add Availability Button inline for tutor_video_approved notifications -->
+              <button 
+                *ngIf="notification.type === 'tutor_video_approved' && notification.data?.hasActionButton"
+                class="add-availability-btn"
+                (click)="navigateToTutorCalendar(); $event.stopPropagation()">
+                <ion-icon name="calendar-outline"></ion-icon>
+                {{ 'NOTIFICATIONS.ADD_AVAILABILITY' | translate }}
+              </button>
+              <!-- View Progress Button for progress_milestone notifications -->
+              <button 
+                *ngIf="notification.type === 'progress_milestone' && notification.data?.hasActionButton"
+                class="add-availability-btn milestone-btn"
+                (click)="navigateToProgress(); $event.stopPropagation()">
+                <ion-icon name="trophy-outline"></ion-icon>
+                {{ 'NOTIFICATIONS.VIEW_PROGRESS' | translate }}
+              </button>
               <p class="notification-time">{{ notification.formattedTime }}</p>
             </div>
             <div class="notification-item-right">
               <!-- Dispute Button for payment_cancelled notifications -->
               <ion-button 
-                *ngIf="notification.type === 'payment_cancelled' || notification.type === 'payment_reduced'"
+                *ngIf="(notification.type === 'payment_cancelled' || notification.type === 'payment_reduced') && notification.data?.canDispute && !notification.data?.disputed"
                 class="dispute-button"
                 fill="clear"
                 size="small"
@@ -169,26 +200,15 @@
                 [attr.style]="'text-transform: none !important; color: #ff3b30 !important;'"
                 (click)="openDisputeModal(notification, $event)">
                 <ion-icon name="alert-circle-outline" slot="start" [style.color]="'#ff3b30'"></ion-icon>
-                Dispute
+                {{ 'NOTIFICATIONS.DISPUTE' | translate }}
               </ion-button>
-              <!-- Contextual icon on the right -->
-              <ion-icon 
-                *ngIf="getContextualIcon(notification.type)" 
-                [name]="getContextualIcon(notification.type)" 
-                [class]="getContextualIconClass(notification.type)">
-              </ion-icon>
-              <!-- Celebrate emoji for system notifications -->
-              <span *ngIf="isSystemNotification(notification.type)" class="celebrate-emoji-right">🎉</span>
-              <button class="notification-options-btn" (click)="$event.stopPropagation()">
-                <ion-icon name="ellipsis-vertical"></ion-icon>
-              </button>
             </div>
           </div>
         </div>
         
         <!-- More Notifications Section (Read Notifications) -->
         <div class="notification-section" *ngIf="!isLoadingNotifications">
-          <h4 class="notification-section-title">More notifications</h4>
+          <h4 class="notification-section-title">{{ 'NOTIFICATIONS.DROPDOWN.MORE' | translate }}</h4>
           <div *ngIf="(notifications | notificationFilter:'read').length > 0">
             <div class="notification-item" 
                  *ngFor="let notification of (notifications | notificationFilter:'read'); trackBy: trackByNotificationId"
@@ -211,12 +231,25 @@
               </div>
               <div class="notification-item-content">
                 <p class="notification-text" [innerHTML]="notification.sanitizedMessage"></p>
+                <button 
+                  *ngIf="notification.type === 'tutor_video_approved' && notification.data?.hasActionButton"
+                  class="add-availability-btn"
+                  (click)="navigateToTutorCalendar(); $event.stopPropagation()">
+                  <ion-icon name="calendar-outline"></ion-icon>
+                  {{ 'NOTIFICATIONS.ADD_AVAILABILITY' | translate }}
+                </button>
+                <button 
+                  *ngIf="notification.type === 'progress_milestone' && notification.data?.hasActionButton"
+                  class="add-availability-btn milestone-btn"
+                  (click)="navigateToProgress(); $event.stopPropagation()">
+                  <ion-icon name="trophy-outline"></ion-icon>
+                  {{ 'NOTIFICATIONS.VIEW_PROGRESS' | translate }}
+                </button>
                 <p class="notification-time">{{ notification.formattedTime }}</p>
               </div>
               <div class="notification-item-right">
-                <!-- Dispute Button for payment_cancelled notifications -->
                 <ion-button 
-                  *ngIf="notification.type === 'payment_cancelled' || notification.type === 'payment_reduced'"
+                  *ngIf="(notification.type === 'payment_cancelled' || notification.type === 'payment_reduced') && notification.data?.canDispute && !notification.data?.disputed"
                   class="dispute-button"
                   fill="clear"
                   size="small"
@@ -224,24 +257,13 @@
                   [attr.style]="'text-transform: none !important; color: #ff3b30 !important;'"
                   (click)="openDisputeModal(notification, $event)">
                   <ion-icon name="alert-circle-outline" slot="start" [style.color]="'#ff3b30'"></ion-icon>
-                  Dispute
+                  {{ 'NOTIFICATIONS.DISPUTE' | translate }}
                 </ion-button>
-                <!-- Contextual icon on the right -->
-                <ion-icon 
-                  *ngIf="getContextualIcon(notification.type)" 
-                  [name]="getContextualIcon(notification.type)" 
-                  [class]="getContextualIconClass(notification.type)">
-                </ion-icon>
-                <!-- Celebrate emoji for system notifications -->
-                <span *ngIf="isSystemNotification(notification.type)" class="celebrate-emoji-right">🎉</span>
-                <button class="notification-options-btn" (click)="$event.stopPropagation()">
-                  <ion-icon name="ellipsis-vertical"></ion-icon>
-                </button>
               </div>
             </div>
           </div>
           <div class="notification-empty" *ngIf="(notifications | notificationFilter:'read').length === 0 && (notifications | notificationFilter:'unread').length === 0">
-            <p>No notifications</p>
+            <p>{{ 'NOTIFICATIONS.DROPDOWN.EMPTY' | translate }}</p>
           </div>
         </div>
       </ng-container>
@@ -249,7 +271,7 @@
       <!-- View All Footer -->
       <div class="notification-dropdown-footer" *ngIf="!isLoadingNotifications">
         <button class="view-all-btn" (click)="navigateToNotifications()">
-          <span>View All Notifications</span>
+          <span>{{ 'NOTIFICATIONS.DROPDOWN.VIEW_ALL' | translate }}</span>
           <ion-icon name="arrow-forward"></ion-icon>
         </button>
       </div>
@@ -324,12 +346,12 @@
   <ion-tab-bar slot="bottom" *ngIf="showTabs && !shouldHideTabs">
     <ion-tab-button tab="home" [routerLink]="['/tabs/home']" routerDirection="root">
       <ion-icon aria-hidden="true" name="home"></ion-icon>
-      <ion-label>Home</ion-label>
+      <ion-label>{{ 'TABS.HOME' | translate }}</ion-label>
     </ion-tab-button>
 
     <ion-tab-button *ngIf="currentUser?.userType === 'student'" tab="tutor-search" [routerLink]="['/tabs/tutor-search']" routerDirection="root">
       <ion-icon aria-hidden="true" name="search"></ion-icon>
-      <ion-label>Search</ion-label>
+      <ion-label>{{ 'TABS.SEARCH' | translate }}</ion-label>
     </ion-tab-button>
 
     <ion-tab-button *ngIf="currentUser?.userType === 'tutor'"
@@ -338,7 +360,7 @@
                     [attr.aria-selected]="isCalendarTabSelected"
                     [attr.aria-label]="'Calendar'">
       <ion-icon aria-hidden="true" name="calendar"></ion-icon>
-      <ion-label>Calendar</ion-label>
+      <ion-label>{{ 'TABS.CALENDAR' | translate }}</ion-label>
     </ion-tab-button>
 
     <ion-tab-button tab="messages" 
@@ -349,27 +371,30 @@
                     [attr.aria-label]="'Messages'"
                     style="position: relative;">
       <ion-icon aria-hidden="true" name="chatbubbles"></ion-icon>
-      <ion-label>Messages</ion-label>
+      <ion-label>{{ 'TABS.MESSAGES' | translate }}</ion-label>
       <span *ngIf="(unreadCount$ | async)! > 0" 
             class="notification-dot message-tab-notification-dot"
             style="position: absolute; top: 2px; right: 2px; width: 10px; height: 10px; background-color: #ff3b30; border-radius: 50%; border: 2px solid white; z-index: 9999; display: block;"></span>
     </ion-tab-button>
 
-    <ion-tab-button tab="progress" [routerLink]="['/tabs/progress']" routerDirection="root">
-      <ion-icon aria-hidden="true" [name]="currentUser?.userType === 'tutor' ? 'bar-chart' : 'trending-up'"></ion-icon>
-      <ion-label>{{ currentUser?.userType === 'tutor' ? ('TABS.ANALYTICS' | translate) : ('TABS.PROGRESS' | translate) }}</ion-label>
+    <ion-tab-button tab="lessons" [routerLink]="['/tabs/lessons']" routerDirection="root">
+      <ion-icon aria-hidden="true" name="book-outline"></ion-icon>
+      <ion-label>{{ 'TABS.LESSONS' | translate }}</ion-label>
     </ion-tab-button>
 
-    <ion-tab-button tab="profile" [routerLink]="['/tabs/profile']" routerDirection="root">
-      <ion-icon aria-hidden="true" name="person"></ion-icon>
-      <ion-label>Profile</ion-label>
+    <ion-tab-button tab="profile" [routerLink]="['/tabs/profile']" routerDirection="root" class="profile-avatar-tab">
+      <div class="tab-avatar" *ngIf="currentUser?.picture">
+        <img [src]="currentUser!.picture" alt="" referrerpolicy="no-referrer">
+      </div>
+      <ion-icon aria-hidden="true" name="person-circle-outline" *ngIf="!currentUser?.picture"></ion-icon>
+      <ion-label>{{ 'TABS.PROFILE' | translate }}</ion-label>
     </ion-tab-button>
   </ion-tab-bar>
 
   <!-- Tab Content is loaded automatically by ion-tabs -->
 
   <!-- Platform Debug Info (only in development) -->
-  <div class="platform-debug" style="position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.8); color: white; padding: 8px; border-radius: 4px; font-size: 12px; z-index: 9999;">
+  <!-- <div class="platform-debug" style="position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.8); color: white; padding: 8px; border-radius: 4px; font-size: 12px; z-index: 9999;">
     Platform: {{ currentPlatform }}<br>
     Screen: {{ platformService.getScreenSize() }}<br>
     Touch: {{ platformService.isTouchDevice() ? 'Yes' : 'No' }}<br>
@@ -377,6 +402,6 @@
     Mobile Viewport: {{ isMobileViewport() ? 'Yes' : 'No' }}<br>
     isWeb(): {{ isWeb() ? 'Yes' : 'No' }}<br>
     Window Width: {{ platformService.getScreenSize() }}
-  </div>
+  </div> -->
 
 </ion-tabs>

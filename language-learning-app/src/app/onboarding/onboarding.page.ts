@@ -1,7 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewChecked, ChangeDetectorRef } from '@angular/core';
+import '@dotlottie/player-component';
 import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { UserService, OnboardingData, TutorOnboardingData, User } from '../services/user.service';
+import { LanguageService, LanguageOption, SupportedLanguage } from '../services/language.service';
+import { TranslateService } from '@ngx-translate/core';
 import { OnboardingGuard } from '../guards/onboarding.guard';
 import { Observable } from 'rxjs';
 import { take, timeout, retry, catchError } from 'rxjs/operators';
@@ -14,20 +17,138 @@ import { CountrySelectModalComponent } from '../components/country-select-modal/
   styleUrls: ['./onboarding.page.scss'],
   standalone: false,
 })
-export class OnboardingPage implements OnInit {
+export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   user$: Observable<any>;
   currentStep = 1;
-  totalSteps = 5; // Students: Name + Native Language + Languages + Goals + Experience/Schedule
+  totalSteps = 6; // Students: Name + Native Language + Languages + Goal + Level + Timeline
   currentUser: User | null = null;
+
+  // Language selection pre-step
+  preStepPhase: 'language' | 'welcome' | 'done' = 'language';
+  welcomeRevealed: boolean = false;
+  availableInterfaceLanguages: LanguageOption[] = [];
+  selectedInterfaceLanguage: SupportedLanguage = 'en';
+  selectedLanguageFlag = '🇬🇧';
+
+  // Rotating heading animation
+  headingTexts = [
+    'Choose your language',
+    'Elige tu idioma',
+    'Choisissez votre langue',
+    'Escolha seu idioma',
+    'Wählen Sie Ihre Sprache',
+    'Scegli la tua lingua',
+    'Выберите ваш язык',
+    '选择你的语言',
+    '言語を選択してください',
+    '언어를 선택하세요',
+    'اختر لغتك',
+    'अपनी भाषा चुनें',
+    'Kies je taal',
+    'Wybierz swój język',
+    'Dilinizi seçin',
+    'Välj ditt språk',
+    'Velg ditt språk',
+    'Vælg dit sprog',
+    'Valitse kielesi',
+    'Επιλέξτε τη γλώσσα σας',
+    'Vyberte svůj jazyk',
+    'Alegeți limba dvs.',
+    'Виберіть вашу мову',
+    'Chọn ngôn ngữ của bạn',
+    'เลือกภาษาของคุณ',
+    'Pilih bahasa Anda',
+    'Pilih bahasa anda',
+    'בחר את השפה שלך',
+    'زبان خود را انتخاب کنید'
+  ];
+  activeHeadingIndex = 0;
+  private headingInterval: any;
+
+  // Preview & Welcome state
+  showPreview = false;
+  showWelcome = false;
+  isSubmitting = false;
+  hasReachedPreview = false;
+
+  // ViewChild references for autofocus
+  @ViewChild('firstNameInput') firstNameInput?: ElementRef<HTMLInputElement>;
+  
+  private lastFocusedStep = 0;
 
   // Onboarding data
   firstName = '';
   lastName = '';
+
+  /**
+   * Capitalizes a name properly (title case)
+   * "JASON DERULA" -> "Jason Derula"
+   * "jason derula" -> "Jason Derula"
+   * "jAsOn DeRuLa" -> "Jason Derula"
+   */
+  private formatName(name: string): string {
+    if (!name) return '';
+    return name
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
+      .trim();
+  }
+
+  /**
+   * Format first name on blur (title case)
+   */
+  formatFirstNameOnBlur() {
+    if (this.firstName) {
+      this.firstName = this.formatName(this.firstName);
+    }
+  }
+
+  /**
+   * Format last name on blur (title case)
+   */
+  formatLastNameOnBlur() {
+    if (this.lastName) {
+      this.lastName = this.formatName(this.lastName);
+    }
+  }
+
   nativeLanguage = 'en'; // Default to English
   selectedLanguages: string[] = [];
   learningGoals: string[] = [];
   experienceLevel = '';
   preferredSchedule = '';
+
+  // Structured learning goal (new flow)
+  learningGoalType: string = '';
+  learningGoalDescription: string = '';
+  selfAssessedLevel: string = '';
+  goalTimeline: string = 'no_rush';
+  goalTargetDate: string = '';
+
+  goalTypeOptions = [
+    { value: 'conversational', label: 'Become conversational', icon: 'chatbubbles-outline', description: 'Hold natural conversations with native speakers' },
+    { value: 'exam_prep', label: 'Prepare for an exam', icon: 'school-outline', description: 'DELF, DELE, JLPT, or other certification' },
+    { value: 'professional', label: 'Use it for work', icon: 'briefcase-outline', description: 'Meetings, emails, and business communication' },
+    { value: 'travel', label: 'Travel and get by', icon: 'airplane-outline', description: 'Navigate confidently while traveling abroad' },
+    { value: 'relocation', label: 'Moving to a new country', icon: 'home-outline', description: 'Settle in and handle daily life in a new place' },
+    { value: 'other', label: 'Something else', icon: 'sparkles-outline', description: "I'll describe my goal" }
+  ];
+
+  levelOptions = [
+    { value: 'complete_beginner', label: 'Complete beginner', description: "I haven't studied this language before" },
+    { value: 'some_basics', label: 'I know some basics', description: 'I can say a few words and simple phrases' },
+    { value: 'simple_conversations', label: 'I can hold simple conversations', description: 'I get by with everyday topics' },
+    { value: 'intermediate', label: "I'm intermediate", description: 'I can express myself but want to improve' },
+    { value: 'advanced', label: "I'm advanced", description: "I'm refining my skills and nuance" }
+  ];
+
+  timelineOptions = [
+    { value: 'specific_date', label: 'By a specific date', icon: 'calendar-outline' },
+    { value: 'few_months', label: 'Within a few months', icon: 'time-outline' },
+    { value: 'no_rush', label: 'No rush, just steady progress', icon: 'leaf-outline' }
+  ];
 
   // Tutor-specific data
   tutorCountry = '';
@@ -38,8 +159,11 @@ export class OnboardingPage implements OnInit {
 
   // Available options
   availableLanguages = [
-    'Spanish', 'French', 'German', 'Italian', 'Portuguese', 
-    'Chinese', 'Japanese', 'Korean', 'Arabic', 'Russian'
+    'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese',
+    'Russian', 'Chinese', 'Japanese', 'Korean', 'Arabic', 'Hindi',
+    'Dutch', 'Polish', 'Turkish', 'Swedish', 'Norwegian', 'Danish',
+    'Finnish', 'Greek', 'Czech', 'Romanian', 'Ukrainian', 'Vietnamese',
+    'Thai', 'Indonesian', 'Malay', 'Hebrew', 'Persian'
   ];
 
   // Native language options with ISO codes
@@ -76,23 +200,31 @@ export class OnboardingPage implements OnInit {
   ];
 
   availableGoals = [
-    'Travel and tourism',
-    'Business communication',
-    'Academic studies',
-    'Cultural understanding',
-    'Personal interest',
-    'Career advancement',
-    'Make new friends'
+    { key: 'ONBOARDING.STUDENT.GOAL_TRAVEL', value: 'Travel and tourism' },
+    { key: 'ONBOARDING.STUDENT.GOAL_BUSINESS', value: 'Business communication' },
+    { key: 'ONBOARDING.STUDENT.GOAL_ACADEMIC', value: 'Academic studies' },
+    { key: 'ONBOARDING.STUDENT.GOAL_CULTURE', value: 'Cultural understanding' },
+    { key: 'ONBOARDING.STUDENT.GOAL_PERSONAL', value: 'Personal interest' },
+    { key: 'ONBOARDING.STUDENT.GOAL_CAREER', value: 'Career advancement' },
+    { key: 'ONBOARDING.STUDENT.GOAL_FRIENDS', value: 'Make new friends' }
   ];
 
-  experienceLevels = ['Beginner', 'Intermediate', 'Advanced'];
+  experienceLevels = [
+    { key: 'ONBOARDING.STUDENT.LEVEL_BEGINNER', value: 'Beginner' },
+    { key: 'ONBOARDING.STUDENT.LEVEL_INTERMEDIATE', value: 'Intermediate' },
+    { key: 'ONBOARDING.STUDENT.LEVEL_ADVANCED', value: 'Advanced' }
+  ];
 
   scheduleOptions = [
-    'Daily (30+ minutes)',
-    '3-4 times per week',
-    'Weekends only',
-    'Flexible schedule'
+    { key: 'ONBOARDING.STUDENT.SCHEDULE_DAILY', value: 'Daily (30+ minutes)' },
+    { key: 'ONBOARDING.STUDENT.SCHEDULE_3_4', value: '3-4 times per week' },
+    { key: 'ONBOARDING.STUDENT.SCHEDULE_WEEKENDS', value: 'Weekends only' },
+    { key: 'ONBOARDING.STUDENT.SCHEDULE_FLEXIBLE', value: 'Flexible schedule' }
   ];
+
+  translatedGoalsList = '';
+  translatedExperienceLevel = '';
+  translatedSchedule = '';
 
   // Tutor-specific options - comprehensive list with flags
   tutorCountryOptions = [
@@ -224,16 +356,42 @@ export class OnboardingPage implements OnInit {
   constructor(
     private authService: AuthService,
     private userService: UserService,
+    private languageService: LanguageService,
     private router: Router,
     private loadingController: LoadingController,
     private alertController: AlertController,
     private modalController: ModalController,
-    private onboardingGuard: OnboardingGuard
+    private onboardingGuard: OnboardingGuard,
+    private cdr: ChangeDetectorRef,
+    private translateService: TranslateService
   ) {
     this.user$ = this.authService.user$;
+    this.availableInterfaceLanguages = this.languageService.supportedLanguages;
+    this.selectedInterfaceLanguage = this.languageService.getCurrentLanguage();
+  }
+
+  ngOnDestroy() {
+    this.stopHeadingRotation();
+  }
+
+  private startHeadingRotation() {
+    this.stopHeadingRotation();
+    this.headingInterval = setInterval(() => {
+      this.activeHeadingIndex = (this.activeHeadingIndex + 1) % this.headingTexts.length;
+      this.cdr.detectChanges();
+    }, 2400);
+  }
+
+  private stopHeadingRotation() {
+    if (this.headingInterval) {
+      clearInterval(this.headingInterval);
+      this.headingInterval = null;
+    }
   }
 
   ngOnInit() {
+    this.startHeadingRotation();
+
     // Check if user is authenticated
     this.authService.isAuthenticated$.pipe(take(1)).subscribe(isAuthenticated => {
       if (!isAuthenticated) {
@@ -285,6 +443,148 @@ export class OnboardingPage implements OnInit {
     }
   }
 
+  ngAfterViewChecked() {
+    // Focus first input and scroll sidebar when step changes
+    if (this.currentStep !== this.lastFocusedStep) {
+      this.lastFocusedStep = this.currentStep;
+      setTimeout(() => {
+        this.focusFirstInput();
+        this.scrollCurrentStepIntoView();
+      }, 100);
+    }
+  }
+
+  private scrollCurrentStepIntoView() {
+    const currentStepEl = document.querySelector('.step-item.current');
+    if (currentStepEl) {
+      currentStepEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+
+  private focusFirstInput() {
+    if (this.currentStep === 1 && this.firstNameInput?.nativeElement) {
+      this.firstNameInput.nativeElement.focus();
+    }
+  }
+
+  selectInterfaceLanguage(lang: SupportedLanguage) {
+    this.selectedInterfaceLanguage = lang;
+    this.selectedLanguageFlag = this.languageService.getLanguageOption(lang)?.flag || '🇬🇧';
+    this.languageService.setLanguage(lang);
+  }
+
+  confirmLanguageSelection() {
+    this.stopHeadingRotation();
+    this.preStepPhase = 'welcome';
+    this.welcomeRevealed = false;
+    setTimeout(() => { this.welcomeRevealed = true; this.cdr.detectChanges(); }, 3800);
+  }
+
+  goBackToLanguageSelect() {
+    this.preStepPhase = 'language';
+    this.welcomeRevealed = false;
+    this.startHeadingRotation();
+  }
+
+  startOnboarding() {
+    const srcTitle = document.querySelector('.welcome-title') as HTMLElement;
+    const srcRect = srcTitle?.getBoundingClientRect();
+
+    if (!srcTitle || !srcRect) {
+      this.preStepPhase = 'done';
+      return;
+    }
+
+    const srcText = srcTitle.textContent?.trim() || '';
+    const srcStyles = window.getComputedStyle(srcTitle);
+
+    const clone = document.createElement('div');
+    clone.textContent = srcText;
+    Object.assign(clone.style, {
+      position: 'fixed',
+      left: `${srcRect.left}px`,
+      top: `${srcRect.top}px`,
+      width: `${srcRect.width}px`,
+      height: `${srcRect.height}px`,
+      zIndex: '10000',
+      pointerEvents: 'none',
+      fontFamily: srcStyles.fontFamily,
+      fontSize: srcStyles.fontSize,
+      fontWeight: '700',
+      color: '#222222',
+      letterSpacing: '-0.5px',
+      lineHeight: '1.2',
+      whiteSpace: 'nowrap',
+      transition: 'left 0.5s cubic-bezier(0.32, 0.72, 0, 1), top 0.5s cubic-bezier(0.32, 0.72, 0, 1), width 0.5s cubic-bezier(0.32, 0.72, 0, 1), height 0.5s cubic-bezier(0.32, 0.72, 0, 1), font-size 0.5s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.3s ease',
+    });
+    document.body.appendChild(clone);
+
+    this.preStepPhase = 'done';
+    this.cdr.detectChanges();
+
+    let landed = false;
+    const flyToDestination = (dest: HTMLElement) => {
+      if (landed) return;
+      landed = true;
+      dest.style.transition = 'none';
+      dest.style.opacity = '0';
+      const destRect = dest.getBoundingClientRect();
+      const destStyles = window.getComputedStyle(dest);
+      const destText = dest.textContent?.trim() || '';
+
+      requestAnimationFrame(() => {
+        clone.textContent = destText;
+        clone.style.left = `${destRect.left}px`;
+        clone.style.top = `${destRect.top}px`;
+        clone.style.width = 'auto';
+        clone.style.height = `${destRect.height}px`;
+        clone.style.fontSize = destStyles.fontSize;
+      });
+
+      setTimeout(() => {
+        const finalRect = dest.getBoundingClientRect();
+        clone.style.transition = 'none';
+        clone.style.left = `${finalRect.left}px`;
+        clone.style.top = `${finalRect.top}px`;
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            dest.style.opacity = '1';
+            if (clone.parentNode) clone.remove();
+            setTimeout(() => { dest.style.transition = ''; dest.style.opacity = ''; }, 50);
+          });
+        });
+      }, 550);
+    };
+
+    const destSelector = '.onboarding-header h1';
+    const checkDest = () => {
+      const dest = document.querySelector(destSelector) as HTMLElement;
+      if (dest) flyToDestination(dest);
+    };
+
+    requestAnimationFrame(() => requestAnimationFrame(checkDest));
+
+    const container = document.querySelector('.onboarding-container');
+    if (container) {
+      const observer = new MutationObserver(() => {
+        const dest = document.querySelector(destSelector) as HTMLElement;
+        if (dest) {
+          observer.disconnect();
+          flyToDestination(dest);
+        }
+      });
+      observer.observe(container, { childList: true, subtree: true });
+      setTimeout(() => {
+        observer.disconnect();
+        if (!landed) {
+          clone.style.opacity = '0';
+          clone.style.transition = 'opacity 0.3s ease';
+          setTimeout(() => { if (clone.parentNode) clone.remove(); }, 350);
+        }
+      }, 5000);
+    }
+  }
+
   nextStep() {
     // Validate current step before proceeding
     if (this.currentStep === 1) {
@@ -296,15 +596,20 @@ export class OnboardingPage implements OnInit {
     
     if (this.currentStep < this.totalSteps) {
       this.currentStep++;
-    } else {
-      this.completeOnboarding();
     }
   }
 
   previousStep() {
-    if (this.currentStep > 1) {
+    if (this.currentStep === 1) {
+      this.preStepPhase = 'welcome';
+    } else {
       this.currentStep--;
     }
+  }
+
+  goToLanguageSelect() {
+    this.preStepPhase = 'language';
+    this.startHeadingRotation();
   }
 
   toggleLanguage(language: string) {
@@ -320,21 +625,78 @@ export class OnboardingPage implements OnInit {
     this.nativeLanguage = code;
   }
 
-  toggleGoal(goal: string) {
-    const index = this.learningGoals.indexOf(goal);
+  toggleGoal(value: string) {
+    const index = this.learningGoals.indexOf(value);
     if (index > -1) {
       this.learningGoals.splice(index, 1);
     } else {
-      this.learningGoals.push(goal);
+      this.learningGoals.push(value);
+    }
+    this.translatedGoalsList = this.learningGoals
+      .map(v => {
+        const goal = this.availableGoals.find(g => g.value === v);
+        return goal ? this.translateService.instant(goal.key) : v;
+      })
+      .join(', ');
+  }
+
+  setExperienceLevel(value: string) {
+    this.experienceLevel = value;
+    const level = this.experienceLevels.find(l => l.value === value);
+    this.translatedExperienceLevel = level ? this.translateService.instant(level.key) : value;
+  }
+
+  setPreferredSchedule(value: string) {
+    this.preferredSchedule = value;
+    const sched = this.scheduleOptions.find(s => s.value === value);
+    this.translatedSchedule = sched ? this.translateService.instant(sched.key) : value;
+  }
+
+  setLearningGoalType(value: string) {
+    this.learningGoalType = value;
+    if (value !== 'other') {
+      this.learningGoalDescription = '';
     }
   }
 
-  setExperienceLevel(level: string) {
-    this.experienceLevel = level;
+  setSelfAssessedLevel(value: string) {
+    this.selfAssessedLevel = value;
   }
 
-  setPreferredSchedule(schedule: string) {
-    this.preferredSchedule = schedule;
+  setGoalTimeline(value: string) {
+    this.goalTimeline = value;
+    if (value !== 'specific_date') {
+      this.goalTargetDate = '';
+    }
+  }
+
+  // Precomputed labels for the preview page (no functions in templates)
+  previewGoalLabel: string = '';
+  previewLevelLabel: string = '';
+  previewTimelineLabel: string = '';
+  previewNativeLanguageName: string = '';
+  previewSelectedLanguages: string = '';
+
+  private computePreviewLabels() {
+    const nativeLang = this.nativeLanguageOptions.find(l => l.code === this.nativeLanguage);
+    this.previewNativeLanguageName = nativeLang ? nativeLang.name : this.nativeLanguage;
+    this.previewSelectedLanguages = this.selectedLanguages.join(', ');
+    if (this.learningGoalType === 'other') {
+      this.previewGoalLabel = this.learningGoalDescription || 'Custom goal';
+    } else {
+      const goalOpt = this.goalTypeOptions.find(o => o.value === this.learningGoalType);
+      this.previewGoalLabel = goalOpt?.label || this.learningGoalType;
+    }
+
+    const levelOpt = this.levelOptions.find(o => o.value === this.selfAssessedLevel);
+    this.previewLevelLabel = levelOpt?.label || this.selfAssessedLevel;
+
+    if (this.goalTimeline === 'specific_date' && this.goalTargetDate) {
+      this.previewTimelineLabel = `By ${this.goalTargetDate}`;
+    } else {
+      const tlOpt = this.timelineOptions.find(o => o.value === this.goalTimeline);
+      this.previewTimelineLabel = tlOpt?.label || 'No rush';
+    }
   }
 
   // Tutor-specific methods
@@ -376,7 +738,7 @@ export class OnboardingPage implements OnInit {
   }
 
   setTutorHourlyRate(rate: number) {
-    this.tutorHourlyRate = rate;
+    this.tutorHourlyRate = Math.max(10, rate);
   }
 
   // Helper method to check if user is a tutor (from localStorage)
@@ -384,12 +746,34 @@ export class OnboardingPage implements OnInit {
     return localStorage.getItem('selectedUserType') === 'tutor';
   }
 
+  showPreviewPage() {
+    this.computePreviewLabels();
+    this.showPreview = true;
+    this.hasReachedPreview = true;
+    // Scroll to top when preview page is shown
+    setTimeout(() => {
+      const previewContainer = document.querySelector('.preview-container');
+      if (previewContainer) {
+        previewContainer.scrollTop = 0;
+      }
+      window.scrollTo(0, 0);
+    }, 0);
+  }
+
+  goBackToEdit(step?: number) {
+    this.showPreview = false;
+    if (step) {
+      this.currentStep = step;
+    }
+  }
+
+  getNativeLanguageName(): string {
+    const lang = this.nativeLanguageOptions.find(l => l.code === this.nativeLanguage);
+    return lang ? lang.name : this.nativeLanguage;
+  }
+
   async completeOnboarding() {
-    const loading = await this.loadingController.create({
-      message: 'Completing setup...',
-      spinner: 'crescent'
-    });
-    await loading.present();
+    this.isSubmitting = true;
 
     try {
       // Get userType from localStorage (set during user type selection)
@@ -421,8 +805,8 @@ export class OnboardingPage implements OnInit {
         // Tutor onboarding
         const tutorData: TutorOnboardingData & { userType: string } = {
           userType: 'tutor',
-          firstName: this.firstName,
-          lastName: this.lastName,
+          firstName: this.formatName(this.firstName),
+          lastName: this.formatName(this.lastName),
           country: this.tutorCountry,
           languages: this.selectedLanguages,
           experience: this.tutorExperience,
@@ -441,17 +825,33 @@ export class OnboardingPage implements OnInit {
           })
         ).toPromise();
       } else {
+        // Map self-assessed level to legacy experienceLevel for backward compat
+        const legacyLevel = this.selfAssessedLevel === 'complete_beginner' || this.selfAssessedLevel === 'some_basics'
+          ? 'Beginner'
+          : this.selfAssessedLevel === 'intermediate' || this.selfAssessedLevel === 'simple_conversations'
+            ? 'Intermediate'
+            : this.selfAssessedLevel === 'advanced' ? 'Advanced' : 'Beginner';
+
         // Student onboarding
-        const onboardingData: OnboardingData & { userType: string; picture?: string; nativeLanguage?: string } = {
+        const onboardingData: OnboardingData & { userType: string; picture?: string; nativeLanguage?: string; interfaceLanguage?: string; learningGoal?: any } = {
           userType: 'student',
-          firstName: this.firstName,
-          lastName: this.lastName,
-          nativeLanguage: this.nativeLanguage, // NEW: Native language for analysis feedback
+          firstName: this.formatName(this.firstName),
+          lastName: this.formatName(this.lastName),
+          nativeLanguage: this.nativeLanguage,
+          interfaceLanguage: this.selectedInterfaceLanguage,
           languages: this.selectedLanguages,
-          goals: this.learningGoals,
-          experienceLevel: this.experienceLevel,
-          preferredSchedule: this.preferredSchedule,
-          picture: auth0User.picture // Include picture from Auth0 user profile
+          goals: this.learningGoals.length > 0 ? this.learningGoals : [this.learningGoalType],
+          experienceLevel: legacyLevel,
+          preferredSchedule: this.preferredSchedule || 'Flexible schedule',
+          picture: auth0User.picture,
+          learningGoal: {
+            type: this.learningGoalType,
+            description: this.learningGoalDescription,
+            targetLevel: '',
+            selfAssessedLevel: this.selfAssessedLevel,
+            timeline: this.goalTimeline,
+            targetDate: this.goalTimeline === 'specific_date' && this.goalTargetDate ? this.goalTargetDate : null
+          }
         };
 
         console.log('💾 Saving student onboarding data (user will be created if needed)');
@@ -499,26 +899,12 @@ export class OnboardingPage implements OnInit {
       
       localStorage.setItem('onboarding_data', JSON.stringify(backupData));
 
-      await loading.dismiss();
+      this.isSubmitting = false;
 
-      // Check for return URL (for users who clicked a shared link before signing up)
-      const returnUrl = localStorage.getItem('returnUrl');
-      if (returnUrl) {
-        console.log('🔄 Onboarding complete, returning to saved URL:', returnUrl);
-        localStorage.removeItem('returnUrl');
-        
-        // Set flag so the destination page knows to override back button
-        localStorage.setItem('justCompletedLogin', returnUrl);
-        console.log('🔄 Onboarding: Set justCompletedLogin flag to:', returnUrl);
-        
-        this.router.navigateByUrl(returnUrl, { replaceUrl: true });
-      } else {
-        // Default: Navigate to main app
-        this.router.navigate(['/tabs/home'], { replaceUrl: true });
-      }
+      this.showWelcome = true;
     } catch (error: any) {
       console.error('❌ Error completing onboarding:', error);
-      await loading.dismiss();
+      this.isSubmitting = false;
       
       // Determine error message
       let errorMessage = 'Failed to complete setup. Please try again.';
@@ -534,20 +920,20 @@ export class OnboardingPage implements OnInit {
       
       const buttons: any[] = showReloginButton ? [
         {
-          text: 'Re-login',
+          text: this.translateService.instant('ONBOARDING.ALERTS.RELOGIN'),
           handler: () => {
             this.authService.logout();
             this.router.navigate(['/login']);
           }
         },
         {
-          text: 'Retry',
+          text: this.translateService.instant('ONBOARDING.ALERTS.RETRY'),
           role: 'cancel'
         }
-      ] : ['OK'];
+      ] : [this.translateService.instant('ONBOARDING.ALERTS.OK')];
       
       const alert = await this.alertController.create({
-        header: 'Setup Error',
+        header: this.translateService.instant('ONBOARDING.ALERTS.SETUP_ERROR'),
         message: errorMessage,
         buttons: buttons
       });
@@ -557,17 +943,17 @@ export class OnboardingPage implements OnInit {
 
   private async showError(message: string, redirectToLogin: boolean = false) {
     const alert = await this.alertController.create({
-      header: 'Error',
+      header: this.translateService.instant('ONBOARDING.ALERTS.ERROR'),
       message: message,
       buttons: redirectToLogin ? [
         {
-          text: 'Go to Login',
+          text: this.translateService.instant('ONBOARDING.ALERTS.GO_TO_LOGIN'),
           handler: () => {
             this.authService.logout();
             this.router.navigate(['/login']);
           }
         }
-      ] : ['OK']
+      ] : [this.translateService.instant('ONBOARDING.ALERTS.OK')]
     });
     await alert.present();
   }
@@ -602,17 +988,53 @@ export class OnboardingPage implements OnInit {
   canProceed(): boolean {
     switch (this.currentStep) {
       case 1:
-        return this.firstName.trim() !== '' && this.lastName.trim() !== ''; // Name step
+        return this.firstName.trim() !== '' && this.lastName.trim() !== '';
       case 2:
-        return this.nativeLanguage !== ''; // Native language step
+        return this.nativeLanguage !== '';
       case 3:
-        return this.selectedLanguages.length > 0; // Learning languages step
+        return this.selectedLanguages.length > 0;
       case 4:
-        return this.learningGoals.length > 0; // Goals step
+        if (!this.learningGoalType) return false;
+        if (this.learningGoalType === 'other' && !this.learningGoalDescription.trim()) return false;
+        return true;
       case 5:
-        return this.experienceLevel !== '' && this.preferredSchedule !== ''; // Experience/Schedule step
+        return this.selfAssessedLevel !== '';
+      case 6:
+        return this.goalTimeline !== '';
       default:
         return false;
     }
+  }
+
+  navigateToHome() {
+    const returnUrl = localStorage.getItem('returnUrl');
+    if (returnUrl) {
+      console.log('🔄 Onboarding complete, returning to saved URL:', returnUrl);
+      localStorage.removeItem('returnUrl');
+      localStorage.setItem('justCompletedLogin', returnUrl);
+      this.router.navigateByUrl(returnUrl, { replaceUrl: true });
+    } else {
+      this.router.navigate(['/tabs/home'], { replaceUrl: true });
+    }
+  }
+
+  async handleLogout() {
+    const alert = await this.alertController.create({
+      header: this.translateService.instant('ONBOARDING.ALERTS.LOGOUT'),
+      message: this.translateService.instant('ONBOARDING.ALERTS.LOGOUT_CONFIRM'),
+      buttons: [
+        {
+          text: this.translateService.instant('ONBOARDING.ALERTS.CANCEL'),
+          role: 'cancel'
+        },
+        {
+          text: this.translateService.instant('ONBOARDING.ALERTS.LOGOUT'),
+          handler: async () => {
+            await this.authService.logout();
+          }
+        }
+      ]
+    });
+    await alert.present();
   }
 }

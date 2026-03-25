@@ -11,6 +11,7 @@ import { Subject, firstValueFrom } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { WalletTopupModalComponent } from '../components/wallet-topup-modal/wallet-topup-modal.component';
 import { HttpClient } from '@angular/common/http';
+import { getGlobalHour12 } from '../shared/timezone.utils';
 
 // Import Stripe
 declare var Stripe: any;
@@ -23,6 +24,7 @@ declare var Stripe: any;
   imports: [CommonModule, FormsModule, IonicModule, RouterModule]
 })
 export class WalletPage implements OnInit, OnDestroy {
+  get timePipeFormat(): string { return getGlobalHour12() ? 'h:mm a' : 'HH:mm'; }
   balance: WalletBalance | null = null;
   transactions: WalletTransaction[] = [];
   paymentHistory: PaymentHistory[] = []; // NEW: All payment methods
@@ -381,7 +383,8 @@ export class WalletPage implements OnInit, OnDestroy {
       day: 'numeric',
       year: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      hour12: getGlobalHour12()
     });
   }
 
@@ -436,6 +439,14 @@ export class WalletPage implements OnInit, OnDestroy {
   getPaymentDescription(payment: PaymentHistory): string {
     if (payment.paymentType === 'wallet_top_up') {
       return 'Wallet Top-Up';
+    }
+    if (payment.paymentType === 'class_booking') {
+      const className = (payment as any).classId?.name;
+      const tutorName = this.getTutorName(payment);
+      if (className) {
+        return `${className}`;
+      }
+      return `Class with ${tutorName}`;
     }
     if (payment.paymentType === 'lesson_booking' || payment.paymentType === 'office_hours') {
       const lessonType = payment.paymentType === 'office_hours' ? 'Office Hours' : 'Lesson';
@@ -508,13 +519,37 @@ export class WalletPage implements OnInit, OnDestroy {
   }
 
   getTutorName(payment: PaymentHistory): string {
-    const tutor = payment.lessonId?.tutorId;
+    // Check lesson first, then class
+    const tutor = payment.lessonId?.tutorId || (payment as any).classId?.tutorId;
     if (!tutor) return 'Tutor';
     
     if (tutor.firstName && tutor.lastName) {
       return `${tutor.firstName} ${tutor.lastName.charAt(0)}.`;
     }
-    return tutor.name || 'Tutor';
+    if (tutor.name) {
+      // Try to format name if it's a full name
+      const parts = tutor.name.trim().split(' ');
+      if (parts.length >= 2) {
+        return `${parts[0]} ${parts[parts.length - 1].charAt(0)}.`;
+      }
+      return tutor.name;
+    }
+    return 'Tutor';
+  }
+
+  // Get tutor picture from lesson or class
+  getTutorPicture(payment: PaymentHistory): string | null {
+    // Check lesson tutor first
+    const lessonTutor = payment.lessonId?.tutorId;
+    if (lessonTutor?.picture) return lessonTutor.picture;
+    if (lessonTutor?.profilePicture) return lessonTutor.profilePicture;
+    
+    // Check class tutor
+    const classTutor = (payment as any).classId?.tutorId;
+    if (classTutor?.picture) return classTutor.picture;
+    if (classTutor?.profilePicture) return classTutor.profilePicture;
+    
+    return null;
   }
 
   async showToast(message: string, color: string = 'primary') {
@@ -533,5 +568,9 @@ export class WalletPage implements OnInit, OnDestroy {
 
   goBack() {
     this.location.back();
+  }
+
+  goToHome() {
+    this.router.navigate(['/tabs/home']);
   }
 }

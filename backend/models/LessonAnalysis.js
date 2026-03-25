@@ -208,15 +208,23 @@ const lessonAnalysisSchema = new mongoose.Schema({
   // Tutor Notes
   tutorNotes: String,
   
+  // Analysis source tracking
+  source: {
+    type: String,
+    enum: ['ai', 'tutor'],
+    default: 'ai',
+    index: true
+  },
+  
   // AI Processing
   aiModel: {
     type: String,
-    default: 'gpt-4'
+    default: 'gpt-4o-mini'
   },
   processingTime: Number, // milliseconds
   status: {
     type: String,
-    enum: ['pending', 'processing', 'completed', 'failed'],
+    enum: ['pending', 'processing', 'completed', 'failed', 'insufficient_data'],
     default: 'pending'
   },
   error: String,
@@ -242,6 +250,36 @@ const lessonAnalysisSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'
     }
+  },
+
+  // Cached translations of prose fields, keyed by language code
+  translations: {
+    type: Map,
+    of: {
+      translatedAt: Date,
+      summary: String,
+      progressFromLastLesson: String,
+      studentSummary: String,
+      tutorNoteText: String,
+      tutorNoteQuickImpression: String,
+      tutorNoteHomework: String,
+      strengths: [String],
+      areasForImprovement: [String],
+      recommendedFocus: [String],
+      suggestedExercises: [String],
+      homeworkSuggestions: [String],
+      topErrors: [{
+        issue: String,
+        teachingPriority: String
+      }],
+      correctedExcerpts: [{
+        context: String,
+        keyCorrections: [String]
+      }],
+      persistentChallenges: [String],
+      keyImprovements: [String]
+    },
+    default: {}
   }
   
 }, {

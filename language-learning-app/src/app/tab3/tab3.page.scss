@@ -20,6 +20,240 @@ $purple: #8b5cf6;
   font-family: $font-stack;
 }
 
+// =============================================
+// LEARNING PLAN ROADMAP
+// =============================================
+.plan-roadmap-container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 20px 20px 0;
+
+  .plan-roadmap-header {
+    margin-bottom: 20px;
+
+    .plan-roadmap-title-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .plan-roadmap-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: #1c1c1e;
+      letter-spacing: -0.3px;
+      margin: 0;
+    }
+
+    .plan-roadmap-goal {
+      font-size: 13px;
+      font-weight: 500;
+      color: #8e8e93;
+      background: #f2f2f7;
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+
+    .plan-roadmap-summary {
+      font-size: 14px;
+      color: #636366;
+      line-height: 1.5;
+      margin: 0;
+    }
+  }
+
+  .plan-roadmap-phases {
+    position: relative;
+    padding-left: 20px;
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: 11px;
+      top: 16px;
+      bottom: 16px;
+      width: 2px;
+      background: #e5e5ea;
+    }
+  }
+
+  .plan-phase {
+    position: relative;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    border-radius: 12px;
+    background: white;
+    cursor: pointer;
+    transition: background 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+      background: #fafafa;
+    }
+
+    &.completed {
+      .plan-phase-dot {
+        background: #34c759;
+        color: white;
+        ion-icon { font-size: 12px; }
+      }
+      .plan-phase-name { color: #8e8e93; }
+    }
+
+    &.active {
+      background: white;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.06);
+
+      .plan-phase-dot {
+        background: white;
+        border: 2px solid #1c1c1e;
+
+        .phase-active-ring {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: #1c1c1e;
+        }
+      }
+      .plan-phase-name { font-weight: 600; color: #1c1c1e; }
+    }
+
+    &.locked {
+      opacity: 0.55;
+      .plan-phase-dot {
+        background: #e5e5ea;
+        ion-icon { font-size: 10px; color: #8e8e93; }
+      }
+    }
+  }
+
+  .plan-phase-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .plan-phase-dot {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    position: relative;
+    left: -28px;
+    margin-right: -16px;
+    z-index: 1;
+  }
+
+  .plan-phase-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+
+    .plan-phase-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #8e8e93;
+    }
+
+    .plan-phase-name {
+      font-size: 15px;
+      font-weight: 500;
+      color: #48484a;
+    }
+  }
+
+  .plan-phase-progress {
+    font-size: 12px;
+    font-weight: 500;
+    color: #8e8e93;
+    white-space: nowrap;
+  }
+
+  .plan-phase-chevron {
+    font-size: 16px;
+    color: #c7c7cc;
+  }
+
+  .plan-phase-details {
+    padding: 12px 0 4px 0;
+    margin-left: 8px;
+
+    .plan-phase-description {
+      font-size: 14px;
+      color: #636366;
+      line-height: 1.5;
+      margin: 0 0 10px 0;
+    }
+
+    .plan-phase-focus-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+
+      .plan-focus-tag {
+        font-size: 12px;
+        font-weight: 500;
+        color: #48484a;
+        background: #f2f2f7;
+        padding: 4px 10px;
+        border-radius: 6px;
+      }
+    }
+
+    .plan-phase-exit {
+      font-size: 13px;
+      color: #8e8e93;
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      margin: 0;
+
+      ion-icon { font-size: 14px; margin-top: 2px; }
+    }
+  }
+
+  .plan-next-focus {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 16px;
+    padding: 14px 16px;
+    background: #f2f2f7;
+    border-radius: 12px;
+
+    ion-icon {
+      font-size: 20px;
+      color: #8e8e93;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .plan-next-focus-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #8e8e93;
+      margin-bottom: 2px;
+    }
+
+    .plan-next-focus-text {
+      display: block;
+      font-size: 14px;
+      color: #1c1c1e;
+      line-height: 1.4;
+    }
+  }
+}
+
 .progress-container {
   max-width: 1100px;
   margin: 0 auto;
@@ -1629,6 +1863,684 @@ $purple: #8b5cf6;
   }
 }
 
+/* ─── Celebration Overlay ─── */
+.celebration-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 0;
+  animation: celebrationFadeIn 0.6s ease-out;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ─── Lightweight CSS Confetti ─── */
+.confetti-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.confetti-piece {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  opacity: 0;
+
+  &:nth-child(odd) { border-radius: 50%; }
+  &:nth-child(even) { border-radius: 2px; width: 6px; height: 14px; }
+  &:nth-child(3n) { width: 10px; height: 10px; }
+  &:nth-child(5n) { width: 5px; height: 5px; }
+
+  &:nth-child(7n+1) { background: #3b82f6; }
+  &:nth-child(7n+2) { background: #8b5cf6; }
+  &:nth-child(7n+3) { background: #f59e0b; }
+  &:nth-child(7n+4) { background: #10b981; }
+  &:nth-child(7n+5) { background: #ef4444; }
+  &:nth-child(7n+6) { background: #ec4899; }
+  &:nth-child(7n+7) { background: #f97316; }
+
+  // Wave 1: burst immediately (pieces 1-25)
+  &[data-i="1"]  { left: 2%;  animation: confettiFall 5s ease-in 0.0s forwards; }
+  &[data-i="2"]  { left: 8%;  animation: confettiFall 4.5s ease-in 0.1s forwards; }
+  &[data-i="3"]  { left: 14%; animation: confettiFall 5.2s ease-in 0.2s forwards; }
+  &[data-i="4"]  { left: 20%; animation: confettiFall 4.8s ease-in 0.05s forwards; }
+  &[data-i="5"]  { left: 26%; animation: confettiFall 5s ease-in 0.3s forwards; }
+  &[data-i="6"]  { left: 32%; animation: confettiFall 4.6s ease-in 0.15s forwards; }
+  &[data-i="7"]  { left: 38%; animation: confettiFall 5.4s ease-in 0.25s forwards; }
+  &[data-i="8"]  { left: 44%; animation: confettiFall 4.7s ease-in 0.08s forwards; }
+  &[data-i="9"]  { left: 50%; animation: confettiFall 5.1s ease-in 0.18s forwards; }
+  &[data-i="10"] { left: 56%; animation: confettiFall 4.9s ease-in 0.35s forwards; }
+  &[data-i="11"] { left: 62%; animation: confettiFall 5.3s ease-in 0.12s forwards; }
+  &[data-i="12"] { left: 68%; animation: confettiFall 4.5s ease-in 0.28s forwards; }
+  &[data-i="13"] { left: 74%; animation: confettiFall 5s ease-in 0.4s forwards; }
+  &[data-i="14"] { left: 80%; animation: confettiFall 4.8s ease-in 0.22s forwards; }
+  &[data-i="15"] { left: 86%; animation: confettiFall 5.2s ease-in 0.32s forwards; }
+  &[data-i="16"] { left: 92%; animation: confettiFall 4.6s ease-in 0.02s forwards; }
+  &[data-i="17"] { left: 5%;  animation: confettiFall 5.1s ease-in 0.38s forwards; }
+  &[data-i="18"] { left: 17%; animation: confettiFall 4.7s ease-in 0.45s forwards; }
+  &[data-i="19"] { left: 29%; animation: confettiFall 5.3s ease-in 0.5s forwards; }
+  &[data-i="20"] { left: 41%; animation: confettiFall 4.9s ease-in 0.42s forwards; }
+  &[data-i="21"] { left: 53%; animation: confettiFall 5s ease-in 0.48s forwards; }
+  &[data-i="22"] { left: 65%; animation: confettiFall 4.5s ease-in 0.55s forwards; }
+  &[data-i="23"] { left: 77%; animation: confettiFall 5.4s ease-in 0.52s forwards; }
+  &[data-i="24"] { left: 89%; animation: confettiFall 4.8s ease-in 0.6s forwards; }
+  &[data-i="25"] { left: 96%; animation: confettiFall 5.2s ease-in 0.58s forwards; }
+
+  // Wave 2: second burst (pieces 26-50), delayed 1.5-3s for a sustained shower
+  &[data-i="26"] { left: 4%;  animation: confettiFall 5s ease-in 1.5s forwards; }
+  &[data-i="27"] { left: 11%; animation: confettiFall 4.6s ease-in 1.7s forwards; }
+  &[data-i="28"] { left: 18%; animation: confettiFall 5.3s ease-in 1.9s forwards; }
+  &[data-i="29"] { left: 25%; animation: confettiFall 4.8s ease-in 1.6s forwards; }
+  &[data-i="30"] { left: 32%; animation: confettiFall 5.1s ease-in 2.0s forwards; }
+  &[data-i="31"] { left: 39%; animation: confettiFall 4.5s ease-in 1.8s forwards; }
+  &[data-i="32"] { left: 46%; animation: confettiFall 5.4s ease-in 2.1s forwards; }
+  &[data-i="33"] { left: 53%; animation: confettiFall 4.7s ease-in 1.65s forwards; }
+  &[data-i="34"] { left: 60%; animation: confettiFall 5s ease-in 2.2s forwards; }
+  &[data-i="35"] { left: 67%; animation: confettiFall 4.9s ease-in 1.85s forwards; }
+  &[data-i="36"] { left: 74%; animation: confettiFall 5.2s ease-in 2.3s forwards; }
+  &[data-i="37"] { left: 81%; animation: confettiFall 4.6s ease-in 1.75s forwards; }
+  &[data-i="38"] { left: 88%; animation: confettiFall 5.3s ease-in 2.4s forwards; }
+  &[data-i="39"] { left: 95%; animation: confettiFall 4.8s ease-in 1.95s forwards; }
+  &[data-i="40"] { left: 7%;  animation: confettiFall 5.1s ease-in 2.5s forwards; }
+  &[data-i="41"] { left: 15%; animation: confettiFall 4.5s ease-in 2.15s forwards; }
+  &[data-i="42"] { left: 23%; animation: confettiFall 5.4s ease-in 2.6s forwards; }
+  &[data-i="43"] { left: 35%; animation: confettiFall 4.7s ease-in 2.35s forwards; }
+  &[data-i="44"] { left: 47%; animation: confettiFall 5s ease-in 2.7s forwards; }
+  &[data-i="45"] { left: 55%; animation: confettiFall 4.9s ease-in 2.45s forwards; }
+  &[data-i="46"] { left: 63%; animation: confettiFall 5.2s ease-in 2.8s forwards; }
+  &[data-i="47"] { left: 71%; animation: confettiFall 4.6s ease-in 2.55s forwards; }
+  &[data-i="48"] { left: 79%; animation: confettiFall 5.3s ease-in 2.9s forwards; }
+  &[data-i="49"] { left: 87%; animation: confettiFall 4.8s ease-in 2.65s forwards; }
+  &[data-i="50"] { left: 94%; animation: confettiFall 5.1s ease-in 3.0s forwards; }
+}
+
+@keyframes confettiFall {
+  0% {
+    opacity: 1;
+    transform: translateY(-20px) rotate(0deg) scale(1);
+  }
+  40% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(700px) rotate(1080deg) scale(0.3);
+  }
+}
+
+@keyframes celebrationFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.celebration-card {
+  background: white;
+  border-radius: 28px;
+  padding: 32px 32px 28px;
+  max-width: 520px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.08);
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #4f46e5, #8b5cf6, #f59e0b, #ef4444);
+    border-radius: 28px 28px 0 0;
+  }
+}
+
+.celebration-trophy-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: padding 0.6s cubic-bezier(0.32, 0.72, 0, 1);
+  padding: 40px 0;
+
+  .revealed & {
+    padding: 0;
+  }
+}
+
+.trophy-glow {
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(245, 180, 50, 0.3) 0%, rgba(245, 180, 50, 0.08) 50%, transparent 70%);
+  animation: trophyGlowPulse 2.5s ease-in-out infinite;
+  transition: width 0.6s cubic-bezier(0.32, 0.72, 0, 1), height 0.6s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.6s ease;
+
+  .revealed & {
+    width: 140px;
+    height: 140px;
+    opacity: 0.6;
+  }
+}
+
+@keyframes trophyGlowPulse {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.12); opacity: 1; }
+}
+
+.celebration-trophy-lottie {
+  width: 200px;
+  height: 200px;
+  position: relative;
+  z-index: 1;
+  transition: width 0.6s cubic-bezier(0.32, 0.72, 0, 1), height 0.6s cubic-bezier(0.32, 0.72, 0, 1);
+
+  .revealed & {
+    width: 120px;
+    height: 120px;
+  }
+}
+
+.celebration-body {
+  opacity: 0;
+  transform: translateY(16px);
+  max-height: 0;
+  overflow: hidden;
+  transition: opacity 0.5s ease 0.15s, transform 0.5s ease 0.15s, max-height 0.6s ease;
+
+  .revealed & {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 600px;
+  }
+}
+
+.celebration-cta-row {
+  display: inline-flex;
+  position: relative;
+}
+
+.celebration-bird {
+  position: absolute;
+  right: 100%;
+  top: 13%;
+  transform: translateY(-50%);
+  width: 80px;
+  height: 80px;
+  margin-right: -12px;
+  pointer-events: none;
+  animation: birdPop 0.4s ease-out both;
+}
+
+@keyframes birdPop {
+  0% { opacity: 0; transform: translateY(-50%) scale(0.5); }
+  100% { opacity: 1; transform: translateY(-50%) scale(1); }
+}
+
+.celebration-header {
+  margin-bottom: 20px;
+}
+
+@keyframes celebrationBounce {
+  0% { transform: scale(0); }
+  50% { transform: scale(1.2); }
+  70% { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+
+@keyframes metricReveal {
+  0% { opacity: 0; transform: translateY(12px) scale(0.9); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.celebration-title {
+  font-size: 24px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #1a1a2e 0%, #4f46e5 50%, #7c3aed 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.03em;
+}
+
+.celebration-subtitle {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.celebration-level {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+
+.celebration-level-badge {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: 800;
+  color: white;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  animation: levelBadgePop 0.5s ease-out both;
+}
+
+@keyframes levelBadgePop {
+  0% { transform: scale(0.6); opacity: 0; }
+  60% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes celebrationBadge {
+  from { 
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.celebration-level-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.celebration-metrics {
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+  margin-bottom: 20px;
+}
+
+@keyframes celebrationMetrics {
+  from { 
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.celebration-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  transform: translateY(12px) scale(0.9);
+
+  .revealed & {
+    animation: metricReveal 0.4s ease-out forwards;
+  }
+
+  &.stagger-1 { .revealed & { animation-delay: 0.2s; } }
+  &.stagger-2 { .revealed & { animation-delay: 0.35s; } }
+  &.stagger-3 { .revealed & { animation-delay: 0.5s; } }
+
+  
+  .metric-ring {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--ring-color) 10%, transparent);
+    border: 3px solid var(--ring-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .metric-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1a1a2e;
+    line-height: 1;
+  }
+  
+  .metric-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  
+  .metric-change {
+    font-size: 11px;
+    font-weight: 600;
+    color: #10b981;
+  }
+}
+
+.celebration-study-time {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 20px;
+  padding: 10px 18px;
+  background: #f9fafb;
+  border-radius: 12px;
+  font-size: 13px;
+  color: #6b7280;
+  font-weight: 500;
+  
+  ion-icon {
+    font-size: 16px;
+    color: #9ca3af;
+  }
+}
+
+.celebration-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 28px;
+  background: #1a1a2e;
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  animation: celebrationCta 0.6s ease-out 0.9s both;
+  
+  ion-icon {
+    font-size: 16px;
+  }
+  
+  &:hover {
+    background: #2d2d4e;
+    transform: translateY(-1px);
+  }
+  
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+@keyframes celebrationCta {
+  from { 
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ─── Milestone Pills (new clean design) ─── */
+.milestone-pills {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.milestone-pill {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid #e5e7eb;
+  background: #f9fafb;
+  font-size: 15px;
+  font-weight: 700;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    border-color: #d1d5db;
+    background: #f3f4f6;
+  }
+  
+  &.active {
+    background: #1a1a2e;
+    border-color: #1a1a2e;
+    color: white;
+  }
+}
+
+/* ─── Snapshot Content (new bar design) ─── */
+.snapshot-top-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.snapshot-content .snapshot-level-badge {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 800;
+  color: white;
+  flex-shrink: 0;
+  text-align: center;
+  padding: 0;
+  margin: 0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.snapshot-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.snapshot-meta-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1a1a2e;
+  letter-spacing: -0.01em;
+}
+
+.snapshot-meta-time {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: #9ca3af;
+  font-weight: 500;
+  
+  ion-icon {
+    font-size: 14px;
+  }
+}
+
+.snapshot-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.snapshot-bar-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.snapshot-bar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.snapshot-bar-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.snapshot-bar-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+
+.snapshot-bar-track {
+  height: 8px;
+  background: #f3f4f6;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.snapshot-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.6s ease-out;
+  
+  &.grammar {
+    background: linear-gradient(90deg, #3b82f6, #60a5fa);
+  }
+  
+  &.fluency {
+    background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+  }
+  
+  &.vocab {
+    background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  }
+}
+
+.snapshot-bar-change {
+  font-size: 12px;
+  font-weight: 600;
+  
+  &.positive {
+    color: #10b981;
+  }
+  
+  &.negative {
+    color: #ef4444;
+  }
+}
+
+/* Celebration mobile */
+@media (max-width: 768px) {
+  .celebration-card {
+    padding: 24px 20px 20px;
+    border-radius: 20px;
+  }
+  
+  .celebration-header {
+    margin-bottom: 16px;
+  }
+
+  .celebration-bird {
+    width: 64px;
+    height: 64px;
+  }
+  
+  .celebration-title {
+    font-size: 20px;
+  }
+  
+  .celebration-trophy-lottie {
+    width: 160px;
+    height: 160px;
+
+    .revealed & {
+      width: 96px;
+      height: 96px;
+    }
+  }
+
+  .trophy-glow {
+    width: 180px;
+    height: 180px;
+
+    .revealed & {
+      width: 110px;
+      height: 110px;
+    }
+  }
+  
+  .celebration-level {
+    margin-bottom: 16px;
+  }
+  
+  .celebration-metrics {
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  
+  .celebration-metric .metric-ring {
+    width: 50px;
+    height: 50px;
+  }
+  
+  .celebration-metric .metric-value {
+    font-size: 14px;
+  }
+  
+  .celebration-level-badge {
+    width: 56px;
+    height: 56px;
+    font-size: 22px;
+  }
+  
+  .celebration-study-time {
+    margin-bottom: 16px;
+    padding: 8px 16px;
+    font-size: 12px;
+  }
+  
+  .celebration-cta {
+    padding: 11px 24px;
+    font-size: 14px;
+  }
+}
+
 .progress-chart-card {
   background: $card-bg;
   border-radius: 20px;
@@ -1950,6 +2862,19 @@ $purple: #8b5cf6;
     font-weight: 700;
     color: $text-primary;
     letter-spacing: -0.02em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    
+    .source-chip {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: #F5F5F5;
+      color: #717171;
+      letter-spacing: 0.3px;
+    }
   }
   
   .node-percent {

@@ -40,7 +40,7 @@
           
           <div class="card-info">
             <h3 class="class-name">{{ invitation.name || 'Group Class' }}</h3>
-            <p class="tutor-name-small">{{ invitation.tutorId?.name || 'Unknown' }}</p>
+            <p class="tutor-name-small">{{ formatTutorName(invitation.tutorId) }}</p>
           </div>
           
           <ion-icon name="chevron-forward" class="chevron-icon"></ion-icon>
@@ -88,7 +88,7 @@
         </ion-avatar>
         <div class="tutor-info">
           <p class="tutor-label">Instructor</p>
-          <h3 class="tutor-name">{{ selectedInvitation.tutorId?.name || 'Unknown' }}</h3>
+          <h3 class="tutor-name">{{ formatTutorName(selectedInvitation.tutorId) }}</h3>
         </div>
       </div>
 

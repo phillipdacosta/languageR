@@ -27,7 +27,7 @@
   border-bottom: 1px solid rgba(15, 23, 42, 0.03) !important;
 }
 ion-content {
-  --background: #ffffff;
+  --background: #f5f5f7;
   --padding-start: 0;
   --padding-end: 0;
   --padding-top: 0;
@@ -38,8 +38,10 @@ ion-content {
   position: relative;
   width: 100%;
   height: 100vh;
-  background: #f9fafb;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+  background: #ffffff;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
   
   // Desktop: maintain viewport height but allow calendar to scroll internally
@@ -56,11 +58,11 @@ ion-content {
     top: 0;
     width: 260px;
     height: 100%;
-    background: #fafafa;
+    background: #ffffff;
     padding: 0;
     display: flex;
     flex-direction: column;
-    border-right: 1px solid rgba(0, 0, 0, 0.08);
+    border-right: 1px solid #EBEBEB;
     overflow-y: auto;
     z-index: 1;
 }
@@ -70,23 +72,23 @@ ion-content {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 31px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 20px 24px;
+  background: #ffffff;
+  border-bottom: 1px solid #EBEBEB;
   cursor: pointer;
   user-select: none;
   
   h3 {
     margin: 0;
     font-size: 18px;
-    font-weight: 700;
-    color: #ffffff;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    font-weight: 600;
+    color: #222222;
+    letter-spacing: -0.2px;
   }
   
   .sidebar-expand-icon {
     font-size: 20px;
-    color: rgba(255, 255, 255, 0.9);
+    color: #717171;
     transition: all 0.3s ease;
     
     &.expanded {
@@ -94,8 +96,7 @@ ion-content {
     }
     
     &:hover {
-      color: #ffffff;
-      transform: scale(1.1);
+      color: #222222;
     }
   }
   
@@ -107,7 +108,7 @@ ion-content {
 
 // Sidebar content
 .sidebar-content {
-  padding: 24px;
+  padding: 4px 18px 7px 18px;
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -129,58 +130,107 @@ ion-content {
 
 .action-buttons {
   display: flex;
+  position: relative;
   flex-direction: column;
-  gap: 8px;
+  top: 10px;
 }
 
 .schedule-lesson-btn {
-  --background: #007AFF;
-  --background-hover: #0051D5;
-  --background-activated: #004DB8;
+  --background: #222222;
+  --background-hover: #333333;
+  --background-activated: #000000;
   --color: white;
-  --border-radius: 8px;
-  height: 40px;
-  font-weight: 500;
-  font-size: 14px;
-  margin-bottom: 12px;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --border-radius: 12px;
+  height: 48px;
+  font-weight: 600;
+  font-size: 15px;
+  margin-bottom: 4px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
   text-transform: none;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   box-shadow: none;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+  position: relative;
+  overflow: hidden;
   
-  &:hover {
-    --background: #0051D5;
+  // Subtle shimmer overlay
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.08),
+      transparent
+    );
+    animation: shimmer 3s ease-in-out infinite;
+    pointer-events: none;
   }
   
-  &:active {
-    transform: scale(0.98);
+  &:hover:not([disabled]) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  }
+  
+  &:active:not([disabled]) {
+    transform: translateY(0);
+  }
+  
+  &[disabled] {
+    opacity: 0.4;
+    cursor: not-allowed;
+    
+    &::after {
+      display: none;
+    }
   }
 }
 
+@keyframes shimmer {
+  0% { left: -100%; }
+  100% { left: 200%; }
+}
+
+// Set up Availability button — black in regular mode, white in dark mode
 .action-btn {
-  --background: #ffffff;
-  --border-color: rgba(0, 0, 0, 0.1);
-  --color: #000000;
-  --border-radius: 8px;
-  height: 36px;
-  font-weight: 400;
-  font-size: 13px;
-  border-width: 1px;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
-  letter-spacing: -0.01em;
-  
+  --background: #000000;
+  --border-color: #000000;
+  --color: #ffffff;
+  --border-radius: 12px;
+  --border-width: 1px;
+  height: 44px;
+  font-weight: 600;
+  font-size: 14px;
+  text-transform: none;
+  letter-spacing: 0;
+  transition: all 0.2s ease;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+
   &:hover {
-    --background: rgba(0, 0, 0, 0.04);
+    --background: #222222;
+    --border-color: #222222;
+    --color: #ffffff;
   }
-  
+
+  &:hover ion-icon {
+    color: #ffffff;
+  }
+
   &:active {
     transform: scale(0.98);
   }
+
+  ion-icon {
+    font-size: 18px;
+    color: #ffffff;
+  }
 }
 
-// Slightly smaller action buttons on desktop
+// Slightly larger action buttons on desktop
 @media (min-width: 769px) {
   .action-buttons {
     gap: 10px;
@@ -190,27 +240,29 @@ ion-content {
     font-size: 15px;
   }
   .action-btn {
-    height: 42px;
-    font-size: 13px;
+    height: 44px;
+    font-size: 14px;
   }
 }
 
 .tags-section, .lesson-status-section {
-  background: #ffffff;
-  border-radius: 8px;
-  padding: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  border: none;
+  border-top: 1px solid #EBEBEB;
+  padding: 20px 6px 0px 6px;
+  transition: all 0.2s ease;
 }
 
 .tags-section h4, .lesson-status-section h4 {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  color: rgba(0, 0, 0, 0.5);
-  margin: 0 0 8px 0;
+  color: #717171;
+  margin: 0 0 12px 0;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  letter-spacing: 0.05em;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
 }
 
 // Expandable section headers
@@ -227,7 +279,7 @@ ion-content {
   
   .expand-icon {
     font-size: 18px;
-    color: #6c757d;
+    color: #717171;
     transition: transform 0.3s ease;
     
     &.expanded {
@@ -254,62 +306,411 @@ ion-content {
 .tag-item {
   display: flex;
   align-items: center;
-  padding: 10px 0;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  padding: 8px 0;
+  cursor: default;
+  transition: all 0.15s ease;
   border-radius: 8px;
 }
 
 .tag-item:hover {
-  background: rgba(102, 126, 234, 0.05);
-  padding: 10px 12px;
+  background: #F7F7F7;
+  padding: 8px 12px;
   margin: 0 -12px;
 }
 
 .tag-color {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  margin-right: 12px;
+  margin-right: 10px;
+  flex-shrink: 0;
 }
 
 .tag-item span {
-  font-size: 14px;
-  color: #6b7280;
-  font-weight: 500;
+  font-size: 13px;
+  color: #222222;
+  font-weight: 400;
+  letter-spacing: -0.01em;
 }
 
 .status-item {
   display: flex;
   align-items: center;
-  padding: 10px 0;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  padding: 8px 0;
+  cursor: default;
+  transition: all 0.15s ease;
   border-radius: 8px;
 }
 
 .status-item:hover {
-  background: rgba(102, 126, 234, 0.05);
-  padding: 10px 12px;
+  background: #F7F7F7;
+  padding: 8px 12px;
   margin: 0 -12px;
 }
 
 .status-icon {
-  margin-right: 12px;
-  color: #6b7280;
-  font-size: 18px;
+  margin-right: 10px;
+  color: #717171;
+  font-size: 16px;
 }
 
 .status-item span {
-  font-size: 14px;
-  color: #6b7280;
+  font-size: 13px;
+  color: #222222;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+// Calendar Settings & Google Calendar sidebar sections
+.calendar-settings-section,
+.gcal-settings-section {
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  border: none;
+  // border-top: 1px solid #EBEBEB;
+  padding-top: 20px;
+  transition: all 0.2s ease;
+
+  .section-header {
+    h4 {
+      font-size: 12px;
+      font-weight: 600;
+      color: #717171;
+      margin: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .expand-icon {
+      display: block;
+    }
+  }
+
+  .settings-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease, opacity 0.3s ease;
+    opacity: 0;
+
+    &.expanded {
+      max-height: 600px;
+      opacity: 1;
+      margin-top: 16px;
+    }
+  }
+}
+
+.sidebar-gcal-logo {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+}
+
+.sidebar-setting-group {
+  margin-bottom: 16px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.sidebar-setting-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #717171;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.sidebar-segmented-control {
+  display: flex;
+  background: #f2f2f7;
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+
+  button {
+    flex: 1;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #717171;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &.active {
+      background: #ffffff;
+      color: #222222;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    }
+  }
+}
+
+.sidebar-setting-hint {
+  display: block;
+  font-size: 11px;
+  color: #8e8e93;
+  margin-top: 4px;
+}
+
+.sidebar-timezone {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #222222;
+  padding: 8px 12px;
+  background: #f7f7f7;
+  border-radius: 8px;
+
+  ion-icon {
+    font-size: 14px;
+    color: #717171;
+  }
+}
+
+.sidebar-gcal-desc {
+  font-size: 12px;
+  color: #717171;
+  margin: 0 0 12px 0;
+  line-height: 1.5;
+}
+
+.gcal-connect-btn {
+  --border-radius: 10px;
+  font-size: 13px;
   font-weight: 500;
+  height: 40px;
+}
+
+.sidebar-gcal-btn-icon {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  margin-right: 6px;
+}
+
+.sidebar-gcal-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #8e8e93;
+    flex-shrink: 0;
+
+    &.connected {
+      background: #34c759;
+    }
+  }
+
+  .status-text {
+    display: flex;
+    flex-direction: column;
+
+    .status-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #222222;
+    }
+
+    .status-email {
+      font-size: 11px;
+      color: #8e8e93;
+    }
+  }
+}
+
+.sidebar-last-sync {
+  font-size: 11px;
+  color: #8e8e93;
+  margin: 0 0 12px 0;
+}
+
+.sidebar-gcal-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.sidebar-gcal-toggle-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+
+  .toggle-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+
+    .toggle-title {
+      font-size: 12px;
+      font-weight: 500;
+      color: #222222;
+    }
+
+    .toggle-desc {
+      font-size: 11px;
+      color: #8e8e93;
+      line-height: 1.4;
+    }
+  }
+
+  ion-toggle {
+    --track-background: #e9e9eb;
+    --track-background-checked: #34c759;
+    width: 42px;
+    height: 26px;
+    flex-shrink: 0;
+  }
+}
+
+.sidebar-disconnect-btn {
+  --color: var(--ion-color-danger);
+  font-size: 12px;
+  font-weight: 500;
+  margin: 0;
+  padding: 0;
+}
+
+// Mobile settings inline sections
+.settings-inline-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease, opacity 0.3s ease;
+  opacity: 0;
+
+  &.expanded {
+    max-height: 500px;
+    opacity: 1;
+    margin-top: 12px;
+  }
+}
+
+.inline-setting-group {
+  margin-bottom: 14px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.inline-setting-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #717171;
+  margin-bottom: 6px;
+}
+
+.inline-segmented-control {
+  display: flex;
+  background: #f2f2f7;
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+
+  button {
+    flex: 1;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #717171;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &.active {
+      background: #ffffff;
+      color: #222222;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    }
+  }
+}
+
+.inline-timezone {
+  font-size: 12px;
+  color: #222222;
+}
+
+.inline-gcal-desc {
+  font-size: 12px;
+  color: #717171;
+  margin: 0 0 10px 0;
+  line-height: 1.4;
+}
+
+.inline-gcal-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+
+  .status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #8e8e93;
+
+    &.connected {
+      background: #34c759;
+    }
+  }
+
+  span {
+    font-size: 13px;
+    font-weight: 500;
+    color: #222222;
+  }
+
+  .gcal-email {
+    font-size: 11px;
+    color: #8e8e93;
+    font-weight: 400;
+  }
+}
+
+.inline-gcal-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+
+  span {
+    font-size: 13px;
+    color: #222222;
+  }
+
+  ion-toggle {
+    --track-background: #e9e9eb;
+    --track-background-checked: #34c759;
+    width: 42px;
+    height: 26px;
+  }
 }
 
 .main-calendar {
-    position: absolute;
-    left: 261px;
-    top: 0;
+  position: absolute;
+  left: 261px;
+  top: 0;
   right: 0;
   bottom: 0;
   background: #ffffff;
@@ -347,15 +748,15 @@ ion-content {
   gap: 16px;
   
   ion-spinner {
-    --color: #007AFF;
+    --color: #222222;
     transform: scale(1.2);
   }
   
   p {
     font-size: 14px;
     font-weight: 500;
-    color: rgba(0, 0, 0, 0.5);
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    color: #717171;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
     margin: 0;
   }
 }
@@ -927,96 +1328,173 @@ ion-content {
   align-items: center;
   justify-content: space-between;
   padding: 20px 32px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  border-bottom: 1px solid #EBEBEB;
   background: #ffffff;
+  position: relative;
+  z-index: 1001; // Higher than loading overlay (1000) to ensure it's always clickable
+  pointer-events: auto; // Ensure clicks work
+  
+  // When onboarding incomplete, center the banner
+  &.onboarding-incomplete {
+    justify-content: center;
+  }
   
   .toolbar-left, .toolbar-right {
     display: flex;
     align-items: center;
     gap: 12px;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1002; // Even higher to ensure buttons are clickable
+    pointer-events: auto;
   }
   
   .nav-btn {
-    width: 32px;
-    height: 32px;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    border-radius: 6px;
+    width: 36px;
+    height: 36px;
+    border: 1px solid #DDDDDD;
+    border-radius: 50%;
     background: #ffffff;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+    pointer-events: auto;
     
     ion-icon {
-      font-size: 18px;
-      color: #000000;
+      font-size: 16px;
+      color: #222222;
     }
     
-    &:hover {
-      background: rgba(0, 0, 0, 0.04);
+    &:hover:not(:disabled) {
+      background: #F7F7F7;
+      border-color: #BDBDBD;
     }
     
-    &:active {
+    &:active:not(:disabled) {
       transform: scale(0.95);
+    }
+    
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      pointer-events: none;
     }
   }
   
   .today-btn {
-    padding: 6px 14px;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    border-radius: 6px;
+    padding: 8px 16px;
+    border: 1px solid #DDDDDD;
+    border-radius: 20px;
     background: #ffffff;
     font-size: 14px;
-    font-weight: 400;
-    color: #000000;
+    font-weight: 500;
+    color: #222222;
     cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    transition: all 0.2s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+    letter-spacing: -0.01em;
+    pointer-events: auto;
     
-    &:hover {
-      background: rgba(0, 0, 0, 0.04);
+    &:hover:not(:disabled) {
+      background: #F7F7F7;
+      border-color: #BDBDBD;
     }
+    
+    &:active:not(:disabled) {
+      transform: scale(0.97);
+    }
+    
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+  }
+
+  .gcal-sync-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border: 1px solid #e5e7eb;
+    border-radius: 20px;
+    background: #ffffff;
+    font-size: 13px;
+    font-weight: 500;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+
+    .gcal-sync-icon {
+      width: 14px;
+      height: 14px;
+      object-fit: contain;
+      transition: transform 0.3s ease;
+
+      &.spinning {
+        animation: gcalSpin 1s linear infinite;
+      }
+    }
+
+    &:hover:not(:disabled) {
+      background: #f9fafb;
+      border-color: #d1d5db;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+
+  @keyframes gcalSpin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
   }
   
   .calendar-title {
     font-size: 22px;
     font-weight: 600;
-    color: #000000;
+    color: #222222;
     margin: 0;
-    letter-spacing: -0.02em;
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+    letter-spacing: -0.3px;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', system-ui, sans-serif;
   }
   
   .view-switcher {
     display: flex;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    border-radius: 6px;
+    border: 1px solid #DDDDDD;
+    border-radius: 20px;
     overflow: hidden;
     
     button {
-      padding: 6px 16px;
+      padding: 8px 18px;
       background: #ffffff;
       border: none;
       font-size: 13px;
-      font-weight: 400;
-      color: rgba(0, 0, 0, 0.6);
+      font-weight: 500;
+      color: #717171;
       cursor: pointer;
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+      transition: all 0.2s ease;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+      letter-spacing: -0.01em;
       
       &:not(:last-child) {
-        border-right: 1px solid rgba(0, 0, 0, 0.1);
+        border-right: 1px solid #DDDDDD;
       }
       
       &.active {
-        background: #000000;
+        background: #222222;
         color: #ffffff;
-        font-weight: 500;
+        font-weight: 600;
       }
       
       &:not(.active):hover {
-        background: rgba(0, 0, 0, 0.04);
+        background: #F7F7F7;
+        color: #222222;
       }
     }
   }
@@ -1035,7 +1513,7 @@ ion-content {
 .week-header {
   display: grid;
   grid-template-columns: 60px repeat(7, 1fr);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  border-bottom: 1px solid #EBEBEB;
   background: #ffffff;
   position: sticky;
   top: 0;
@@ -1043,7 +1521,7 @@ ion-content {
   flex-shrink: 0; // Prevent header from shrinking
   
   .time-gutter {
-    border-right: 1px solid rgba(0, 0, 0, 0.06);
+    border-right: 1px solid #F0F0F0;
   }
   
   .day-header {
@@ -1052,22 +1530,22 @@ ion-content {
     flex-direction: column;
     align-items: center;
     gap: 4px;
-    border-right: 1px solid rgba(0, 0, 0, 0.06);
+    border-right: 1px solid #F0F0F0;
     
     &:last-child {
       border-right: none;
     }
     
     &.today {
-      background: rgba(0, 122, 255, 0.05);
+      background: transparent;
       
       .day-name {
-        color: #007AFF;
+        color: #222222;
         font-weight: 600;
       }
       
       .day-number {
-        background: #007AFF;
+        background: #4298d3;
         color: #ffffff;
       }
     }
@@ -1075,17 +1553,17 @@ ion-content {
     .day-name {
       font-size: 11px;
       font-weight: 500;
-      color: rgba(0, 0, 0, 0.5);
+      color: #717171;
       text-transform: uppercase;
-      letter-spacing: 0.06em;
-      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+      letter-spacing: 0.05em;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
     }
     
     .day-number {
       font-size: 16px;
       font-weight: 400;
-      color: #000000;
-      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+      color: #222222;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', system-ui, sans-serif;
       // Always maintain consistent dimensions
       width: 28px;
       height: 28px;
@@ -1108,8 +1586,8 @@ ion-content {
   // padding-bottom: 100px; // Add extra space at bottom
   
   .time-column {
-    border-right: 1px solid rgba(0, 0, 0, 0.06);
-    background: #fafafa;
+    border-right: 1px solid #F0F0F0;
+    background: #ffffff;
     position: sticky;
     left: 0;
     z-index: 1;
@@ -1121,7 +1599,7 @@ ion-content {
       justify-content: flex-end;
       padding-right: 12px;
       padding-top: 4px;
-      border-top: 1px solid rgba(0, 0, 0, 0.04);
+      border-top: 1px solid #F0F0F0;
       position: relative; // For 30-min line positioning
       
       &:first-child {
@@ -1140,14 +1618,14 @@ ion-content {
         left: 0;
         right: 12px; // Align with time labels
         height: 1px;
-        border-top: 1px dashed rgba(0, 0, 0, 0.08);
+        border-top: 1px dashed #EBEBEB;
       }
       
       .time-label {
         font-size: 11px;
         font-weight: 400;
-        color: rgba(0, 0, 0, 0.35);
-        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+        color: #717171;
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
       }
     }
   }
@@ -1159,7 +1637,7 @@ ion-content {
     padding-bottom: 100px; // Extra space at bottom
     
     .day-column {
-      border-right: 1px solid rgba(0, 0, 0, 0.06);
+      border-right: 1px solid #F0F0F0;
       position: relative;
       
       &:last-child {
@@ -1172,7 +1650,7 @@ ion-content {
       
       .hour-line {
         height: 110px; // Increased to 110px for maximum readability (Outlook uses ~110-120px)
-        border-top: 1px solid rgba(0, 0, 0, 0.04);
+        border-top: 1px solid #F0F0F0;
         position: relative; // For 30-min line positioning
         
         &:first-child {
@@ -1187,7 +1665,7 @@ ion-content {
           left: 0;
           right: 0;
           height: 1px;
-          border-top: 1px dashed rgba(0, 0, 0, 0.08);
+          border-top: 1px dashed #EBEBEB;
         }
       }
       
@@ -1238,10 +1716,9 @@ ion-content {
 
 .day-view-header {
   padding: 24px 32px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid #EBEBEB;
   background: #ffffff;
   flex-shrink: 0; // Prevent header from shrinking
-  text-align: cdnter; // Center the header content
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1249,25 +1726,24 @@ ion-content {
   .day-view-date {
     display: flex;
     flex-direction: column;
-    // align-items: center; // Center horizontally
     text-align: left;
     gap: 2px;
     
     h3 {
       font-size: 26px;
       font-weight: 600;
-      color: #000000;
+      color: #222222;
       margin: 0;
-      letter-spacing: -0.02em;
-      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+      letter-spacing: -0.3px;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', system-ui, sans-serif;
     }
     
     p {
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 400;
-      color: rgba(0, 0, 0, 0.5);
+      color: #717171;
       margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
     }
   }
   
@@ -1363,8 +1839,8 @@ ion-content {
   // padding-bottom: 100px; // Add extra space at bottom
   
   .time-column {
-    border-right: 1px solid rgba(0, 0, 0, 0.06);
-    background: #fafafa;
+    border-right: 1px solid #F0F0F0;
+    background: #ffffff;
     position: sticky;
     left: 0;
     z-index: 1;
@@ -1376,7 +1852,7 @@ ion-content {
       justify-content: flex-end;
       padding-right: 12px;
       padding-top: 4px;
-      border-top: 1px solid rgba(0, 0, 0, 0.04);
+      border-top: 1px solid #F0F0F0;
       position: relative; // For 30-min line positioning
       
       &:first-child {
@@ -1395,26 +1871,26 @@ ion-content {
         left: 0;
         right: 12px; // Align with time labels
         height: 1px;
-        border-top: 1px dashed rgba(0, 0, 0, 0.08);
+        border-top: 1px dashed #EBEBEB;
       }
       
       .time-label {
         font-size: 11px;
         font-weight: 400;
-        color: rgba(0, 0, 0, 0.35);
-        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+        color: #717171;
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
       }
     }
   }
   
   .day-content {
     position: relative;
-    border-left: 1px solid rgba(0, 0, 0, 0.06);
+    border-left: 1px solid #F0F0F0;
     padding-bottom: 100px; // Extra space at bottom
     
     .hour-line {
       height: 110px; // Increased to 110px for maximum readability (Outlook uses ~110-120px)
-      border-top: 1px solid rgba(0, 0, 0, 0.04);
+      border-top: 1px solid #F0F0F0;
       position: relative; // For 30-min line positioning
       
       &:first-child {
@@ -1433,7 +1909,7 @@ ion-content {
         left: 0;
         right: 0;
         height: 1px;
-        border-top: 1px dashed rgba(0, 0, 0, 0.08);
+        border-top: 1px dashed #EBEBEB;
       }
     }
     
@@ -1457,27 +1933,27 @@ ion-content {
       
       ion-icon {
         font-size: 56px;
-        color: rgba(0, 0, 0, 0.12);
+        color: #b0b0b0;
         margin-bottom: 12px;
       }
       
       h4 {
         font-size: 17px;
         font-weight: 600;
-        color: rgba(0, 0, 0, 0.7);
+        color: #222222;
         margin: 0 0 6px 0;
-        letter-spacing: -0.01em;
-        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+        letter-spacing: -0.2px;
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', system-ui, sans-serif;
       }
       
       p {
         font-size: 13px;
         font-weight: 400;
-        color: rgba(0, 0, 0, 0.4);
+        color: #717171;
         margin: 0;
         max-width: 280px;
-        line-height: 1.4;
-        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+        line-height: 1.5;
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
       }
     }
     
@@ -1505,18 +1981,18 @@ ion-content {
   }
 }
 
-// Event Cards (Apple Style)
+// Event Cards (Airbnb Style)
 .calendar-event {
   position: absolute;
   left: 2px;
   right: 2px;
   background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-left: 3px solid #007AFF;
-  border-radius: 0 4px 4px 0; // Only round right side
-  padding: 6px 8px; // Increased from 4px 6px
+  border: 1px solid #EBEBEB;
+  border-left: 3px solid #222222;
+  border-radius: 0 8px 8px 0;
+  padding: 6px 8px;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s ease;
   
   // Trial badge - tiny orange star in bottom right corner (week view)
   .calendar-trial-badge {
@@ -1634,7 +2110,7 @@ ion-content {
   gap: 3px; // Increased from 2px
   
   &:hover {
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     transform: translateY(-0.5px);
     z-index: 10;
   }
@@ -1671,12 +2147,12 @@ ion-content {
     }
     
     .event-title {
-      color: #000000;
+      color: #222222;
       font-weight: 500;
     }
     
     .event-time {
-      color: #00000066; // grey tint for time
+      color: #717171;
     }
   }
   
@@ -1690,6 +2166,27 @@ ion-content {
     .event-time {
       text-decoration: line-through;
       color: #6b7280;
+    }
+  }
+
+  &.gcal-event {
+    border-left-color: #6b7280;
+    background: #f9fafb;
+
+    .event-title {
+      color: #374151;
+      font-weight: 500;
+    }
+
+    .event-time {
+      color: #6b7280;
+    }
+
+    .gcal-avatar {
+      width: 16px;
+      height: 16px;
+      border-radius: 0;
+      object-fit: contain;
     }
   }
   
@@ -1739,9 +2236,9 @@ ion-content {
   .event-time {
     font-size: 10.5px; // Increased from 9.5px
     font-weight: 500;
-    color: rgba(0, 0, 0, 0.4);
+    color: #717171;
     letter-spacing: -0.01em;
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
     line-height: 1.2;
     flex-shrink: 0;
   }
@@ -1749,13 +2246,13 @@ ion-content {
   .event-title {
     font-size: 12px; // Increased from 11px
     font-weight: 500;
-    color: #000000;
+    color: #222222;
     line-height: 1.3;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     letter-spacing: -0.01em;
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
     flex: 1;
     min-width: 0;
   }
@@ -1890,7 +2387,7 @@ ion-content {
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    background: #ffffff !important;
     z-index: 1;
   }
   
@@ -2862,55 +3359,73 @@ ion-content {
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 0;
+    flex: 1;
+    min-width: 0; // Allow shrinking
+    text-align: center;
+    
+    // When onboarding incomplete, ensure banner is centered
+    .custom-toolbar.onboarding-incomplete & {
+      flex: 0 0 auto;
+      width: auto;
+    }
+  }
+  
+}
+
+// Tutor Onboarding Banner - uses global styles from global.scss
+// Only page-specific overrides here if needed
+.custom-toolbar .onboarding-banner-container {
+  margin: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.profile-hidden-banner {
+  background: #fff7ea !important;
+  border: 1px solid #FFB74D !important;
+  box-shadow: 0 2px 8px rgba(255, 152, 0, 0.12) !important;
+
+  .banner-icon {
+    background: linear-gradient(135deg, #FF9500 0%, #FF6B35 100%) !important;
+    box-shadow: 0 2px 8px rgba(255, 149, 0, 0.3) !important;
+  }
+
+  .banner-text {
+    p, .banner-items {
+      color: #5D4037 !important;
+    }
+  }
+
+  ion-button {
+    --background: #222222 !important;
+    --background-hover: #000000 !important;
+    --background-activated: #000000 !important;
+  }
+}
+
+// Feedback banner in toolbar context
+.toolbar-center .feedback-banner-airbnb {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  flex-shrink: 0;
+  align-self: stretch;
+  min-width: 0; // Allow shrinking
+  
+  .feedback-banner-left {
+    min-width: 0;
     flex: 1;
   }
   
-  .stripe-warning-banner-inline {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 10px 24px;
-    background: #fbbf24 !important;
-    border-radius: 20px !important;
-    font-size: 14px;
-    color: #000000 !important ;
-    font-weight: 400;
-    margin-top: 10px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    
-    ion-icon {
-      font-size: 20px;
-      color: #000000;
-      flex-shrink: 0;
-    }
-    
-    span {
-      line-height: 1.4;
-      
-      a {
-        color: #1d4ed8;
-        font-weight: 400;
-        cursor: pointer;
-        text-decoration: underline;
-        
-        &:hover {
-          color: #1e40af;
-        }
-      }
-    }
-    
-    @media (max-width: 768px) {
-      font-size: 13px;
-      padding: 8px 16px;
-      gap: 6px;
-      border-radius: 16px;
-      
-      ion-icon {
-        font-size: 18px;
-      }
-    }
+  .feedback-banner-copy {
+    min-width: 0;
+    flex: 1;
+  }
+  
+  .feedback-banner-cta {
+    flex-shrink: 0;
   }
 }
 
@@ -3163,15 +3678,73 @@ ion-content {
     z-index: 101;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 16px 0;
+    padding: 10px 16px;
     gap: 12px;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    box-shadow: none;
+    border-bottom: 1px solid #EBEBEB;
+  }
+
+  .mobile-header-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    border: 1px solid #EBEBEB;
+    border-radius: 20px;
+    overflow: hidden;
     background: #ffffff;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+
+    button {
+      border: none;
+      background: transparent;
+      color: #717171;
+      font-weight: 500;
+      font-size: 13px;
+      padding: 7px 16px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      letter-spacing: -0.01em;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+
+      &:not(:last-child) {
+        border-right: 1px solid #EBEBEB;
+      }
+
+      &.active {
+        background: #222222;
+        color: #ffffff;
+        font-weight: 600;
+      }
+
+      &:not(.active):active {
+        background: #F7F7F7;
+      }
+    }
+  }
+
+  .mobile-availability-btn {
+    --color: #222222;
+    --padding-start: 10px;
+    --padding-end: 10px;
+    --border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+    height: 32px;
+    margin: 0;
+    margin-left: auto;
+
+    ion-icon {
+      font-size: 14px;
+      margin-right: 4px;
+    }
   }
 
   .mobile-header .mobile-back-button {
     flex: 1;
-    --color: #495057;
+    --color: #222222;
     --padding-start: 0;
     --padding-end: 0;
     justify-content: flex-start;
@@ -3183,7 +3756,7 @@ ion-content {
 
   .mobile-header .mobile-schedule-button {
     flex: 0 0 auto;
-    --color: #667eea;
+    --color: #222222;
     --padding-start: 6px;
     --padding-end: 6px;
   }
@@ -3194,7 +3767,7 @@ ion-content {
 
   .mobile-header .mobile-settings-button {
     flex: 0 0 auto;
-    --color: #495057;
+    --color: #222222;
     --padding-start: 6px;
     --padding-end: 6px;
   }
@@ -3206,35 +3779,53 @@ ion-content {
   .mobile-settings-panel {
     flex-direction: column;
     padding: 0 16px 16px;
-    gap: 12px;
+    gap: 8px;
   }
 
   .mobile-settings-panel .panel-section {
     background: #ffffff;
-    border-radius: 12px;
+    border-radius: 14px;
     padding: 16px;
-    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+    border: 1px solid #EBEBEB;
   }
 
   .mobile-settings-panel .panel-section h3 {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
-    color: #6c757d;
-    letter-spacing: 1px;
+    color: #B0B0B0;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
   }
 
   .mobile-settings-panel .panel-section ion-item {
     --padding-start: 0;
     --inner-padding-end: 0;
-    --min-height: 40px;
-    font-size: 14px;
+    --min-height: 44px;
+    font-size: 15px;
+    --color: #222222;
   }
 
   .mobile-settings-panel .panel-section ion-item ion-icon {
     margin-right: 12px;
-    color: #6c757d;
+    color: #717171;
+  }
+
+  .mobile-settings-panel .panel-section ion-item .google-logo-nav {
+    width: 20px;
+    height: 20px;
+    margin-right: 12px;
+    object-fit: contain;
+  }
+
+  .mobile-settings-panel .panel-section .google-btn .google-logo-btn {
+    width: 20px;
+    height: 20px;
+    margin-right: 8px;
+    object-fit: contain;
+    vertical-align: middle;
   }
 
   .mobile-settings-panel .panel-section .option-item {
@@ -3244,9 +3835,9 @@ ion-content {
   }
 
   .mobile-settings-panel .panel-section .option-item label {
-    font-size: 14px;
-    color: #495057;
-    font-weight: 500;
+    font-size: 15px;
+    color: #222222;
+    font-weight: 400;
   }
 
   .mobile-settings-panel .panel-section ion-button {
@@ -3257,62 +3848,65 @@ ion-content {
     margin-bottom: 0;
   }
 
+  .mobile-settings-panel .panel-section .section-header {
+    margin-bottom: 0;
+
+    h3 {
+      margin-bottom: 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+
+      .google-logo-nav {
+        width: 14px;
+        height: 14px;
+        object-fit: contain;
+        margin-right: 0;
+      }
+    }
+
+    .expand-icon {
+      display: block;
+      font-size: 16px;
+      color: #8e8e93;
+      transition: transform 0.3s ease;
+
+      &.expanded {
+        transform: rotate(180deg);
+      }
+    }
+  }
+
   .mobile-calendar-wrapper {
     flex-direction: column;
-    gap: 16px;
-    padding: 0 16px 120px;
-    overflow: visible; // Allow badge to show outside bounds
+    gap: 0;
+    padding: 0 0 120px;
+    overflow: visible;
   }
 
   .mobile-view-toggle {
-    position: fixed;
-    top: 60px;
-    left: 0;
-    right: 0;
-    z-index: 100;
-    background: #ffffff;
-    border-radius: 0;
-    padding: 16px;
-    padding-bottom: 20px;
-    gap: 6px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  }
-
-  .mobile-view-toggle button {
-    flex: 1;
-    border: none;
-    background: transparent;
-    color: #475569;
-    font-weight: 600;
-    padding: 8px 12px;
-    border-radius: 12px;
-    transition: all 0.2s ease;
-  }
-
-  .mobile-view-toggle button.active {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    color: #ffffff;
-    box-shadow: 0 10px 20px rgba(240, 147, 251, 0.35);
+    display: none !important;
   }
 
   .mobile-day-strip {
     position: fixed;
-    top: 190px;
+    top: 90px;
     left: 0;
     right: 0;
     z-index: 98;
     display: flex;
     align-items: center;
-    gap: 1px;
-    padding: 12px 16px;
-    padding-top: 16px;
-    padding-bottom: 16px;
+    gap: 4px;
+    padding: 12px 12px;
     min-height: 64px;
     overflow-x: auto;
     scroll-snap-type: x mandatory;
-    background: #ffffff;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
     margin: 0;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border-bottom: 1px solid #EBEBEB;
+    box-shadow: none;
   }
 
   .mobile-day-strip::-webkit-scrollbar {
@@ -3322,31 +3916,35 @@ ion-content {
   .mobile-day-strip.agenda-strip {
     gap: 12px;
     position: fixed;
-    top: 215px;
+    top: 50px;
     left: 0;
     right: 0;
     z-index: 98;
-    background: #ffffff;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
     margin: 0;
-    padding: 12px 16px;
-    padding-top: 16px;
-    padding-bottom: 16px;
+    padding: 12px 12px;
     min-height: 64px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border-bottom: 1px solid #EBEBEB;
+    box-shadow: none;
   }
 
   .mobile-day-strip .day-nav-btn {
-    --padding-start: 6px;
-    --padding-end: 6px;
-    color: #495057;
+    --padding-start: 4px;
+    --padding-end: 4px;
+    --color: #222222;
+    min-width: 32px;
+    min-height: 32px;
   }
 
   .mobile-day-strip .day-chip-list {
     flex: 1;
     display: flex;
     overflow-x: auto;
-    gap: 8px;
-    padding: 4px 0;
+    gap: 6px;
+    padding: 2px 0;
+    justify-content: center;
   }
 
   .mobile-day-strip .day-chip-list::-webkit-scrollbar {
@@ -3354,72 +3952,87 @@ ion-content {
   }
 
   .mobile-day-strip .day-chip {
-    min-width: 58px;
-    border: none;
+    min-width: 52px;
+    border: 1px solid #EBEBEB;
     border-radius: 12px;
-    background: rgba(255, 255, 255, 0.9);
-    color: #495057;
-    padding: 8px 10px;
+    background: #ffffff;
+    color: #717171;
+    padding: 8px 8px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    font-weight: 600;
-    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    font-weight: 500;
+    box-shadow: none;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+
+    &:active {
+      transform: scale(0.95);
+    }
   }
 
   .mobile-day-strip .day-chip.active {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    background: #222222;
     color: #ffffff;
-    box-shadow: 0 8px 20px rgba(240, 147, 251, 0.35);
+    border-color: #222222;
+    box-shadow: none;
   }
 
   .mobile-day-strip .chip-short {
-    font-size: 12px;
+    font-size: 11px;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
+    font-weight: 500;
   }
 
   .mobile-day-strip .chip-number {
-    font-size: 16px;
-    font-weight: 700;
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
   }
 
   .mobile-day-strip .today-link {
-    --padding-start: 8px;
-    --padding-end: 8px;
-    color: #667eea;
+    --padding-start: 10px;
+    --padding-end: 10px;
+    --color: #222222;
     font-weight: 600;
+    font-size: 13px;
+    letter-spacing: -0.01em;
   }
 
   .mobile-date-header {
     position: fixed;
-    top: 273px;
+    top: 216px;
     left: 0;
     right: 0;
     z-index: 97;
     display: flex;
-    flex-direction: column;
-    gap: 4px;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 8px;
     padding: 16px 20px;
-    padding-top: 20px;
-    padding-bottom: 20px;
-    background: #ffffff;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
     margin: 0;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border-bottom: 1px solid #EBEBEB;
+    box-shadow: none;
   }
 
   .mobile-date-header .date-day {
-    font-size: 28px;
-    font-weight: 800;
-    color: black;
+    font-size: 22px;
+    font-weight: 700;
+    color: #222222;
+    letter-spacing: -0.4px;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', system-ui, sans-serif;
   }
 
   .mobile-date-header .date-month {
-    font-size: 16px;
-    font-weight: 500;
-    color: #6c757d;
+    font-size: 15px;
+    font-weight: 400;
+    color: #717171;
+    letter-spacing: -0.01em;
   }
 
   .mobile-timeline {
@@ -3440,102 +4053,102 @@ ion-content {
   }
 
   .timeline-marker {
-    width: 10px;
-    border-radius: 5px;
+    width: 4px;
+    border-radius: 2px;
     margin-top: 8px;
     margin-bottom: 8px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+    box-shadow: none;
   }
 
   .timeline-entry.free .timeline-marker {
-    background: rgba(99, 102, 241, 0.4);
+    background: #DDDDDD;
   }
   
   .timeline-entry {
     display: flex;
-    gap: 16px;
+    gap: 12px;
     align-items: stretch;
     
     &.past .timeline-marker {
       opacity: 0.3;
-      background: #cbd5e1 !important;
+      background: #DDDDDD !important;
       box-shadow: none;
     }
     
     &.past .card-avatar {
       opacity: 0.6;
-      filter: grayscale(50%);
+      filter: grayscale(30%);
     }
   }
 
   .timeline-card {
     flex: 1;
     background: #ffffff;
-    border-radius: 16px;
+    border-radius: 14px;
     padding: 16px;
-    min-width: 220px; // Increased width to hold more data
-    min-height: 110px; // Increased height for more content
-    box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.06);
-    border: 1px solid rgba(148, 163, 184, 0.12);
+    min-width: 220px;
+    min-height: 100px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+    border: 1px solid #EBEBEB;
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    transition: all 0.25s ease;
+    gap: 10px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     z-index: 1;
-    overflow: visible; // Allow badge to show outside card bounds
+    overflow: visible;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
     
     &.clickable {
       cursor: pointer;
       
       &:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12), 0 2px 8px rgba(15, 23, 42, 0.08);
-        border-color: rgba(148, 163, 184, 0.2);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        border-color: #DDDDDD;
       }
     }
     
     &:active {
       transform: scale(0.98);
-      box-shadow: 0 1px 8px rgba(15, 23, 42, 0.06), 0 0.5px 2px rgba(15, 23, 42, 0.04);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
     }
     
     &.trial-lesson {
-      // Add a subtle border and glow for trial lessons
-      border: 1.5px solid rgba(255, 165, 0, 0.3);
-      box-shadow: 0 2px 12px rgba(255, 165, 0, 0.15), 0 4px 8px rgba(0, 0, 0, 0.08);
+      border-left: 3px solid #FF9500;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
     }
     
     &.past {
       opacity: 0.5;
-      background: #f8fafc;
-      border-color: rgba(148, 163, 184, 0.08);
+      background: #FAFAFA;
+      border-color: #F0F0F0;
       
       .time-range {
-        background: rgba(148, 163, 184, 0.1);
-        border-color: rgba(148, 163, 184, 0.15);
-        color: #94a3b8;
+        background: #F7F7F7;
+        border-color: #F0F0F0;
+        color: #B0B0B0;
       }
       
       .card-text .title {
-        color: #94a3b8;
+        color: #B0B0B0;
       }
       
       .card-text .subtitle {
-        color: #cbd5e1;
+        color: #DDDDDD;
       }
       
       .meta {
-        color: #cbd5e1;
+        color: #DDDDDD;
         
         &::before {
-          background: #e2e8f0;
+          background: #EBEBEB;
         }
       }
       
       .location {
-        background: rgba(241, 245, 249, 0.5);
-        color: #94a3b8;
+        background: #F7F7F7;
+        color: #B0B0B0;
       }
     }
   }
@@ -3551,78 +4164,55 @@ ion-content {
 
   .trial-corner-badge {
     position: absolute;
-    top: -6px;
-    right: -6px;
-    width: 28px;
-    height: 28px;
-    background: linear-gradient(135deg, #FFA500 0%, #FF6B35 100%);
+    top: -5px;
+    right: -5px;
+    width: 24px;
+    height: 24px;
+    background: #FF9500;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 8px rgba(255, 165, 0, 0.4), 0 0 0 3px white;
+    box-shadow: 0 1px 4px rgba(255, 149, 0, 0.3), 0 0 0 2px white;
     z-index: 10;
-    animation: pulse-trial 2s ease-in-out infinite;
     
     ion-icon {
       color: white;
-      font-size: 16px;
+      font-size: 13px;
     }
   }
 
   .office-hours-corner-badge {
     position: absolute;
-    top: -6px;
-    right: -6px;
-    width: 28px;
-    height: 28px;
-    background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+    top: -5px;
+    right: -5px;
+    width: 24px;
+    height: 24px;
+    background: #FF9500;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4), 0 0 0 3px white;
+    box-shadow: 0 1px 4px rgba(255, 149, 0, 0.3), 0 0 0 2px white;
     z-index: 10;
-    animation: pulse-office-hours 1.5s ease-in-out infinite;
     
     ion-icon {
       color: white;
-      font-size: 14px;
-    }
-  }
-
-  @keyframes pulse-office-hours {
-    0%, 100% {
-      box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4), 0 0 0 3px white;
-    }
-    50% {
-      box-shadow: 0 2px 12px rgba(245, 158, 11, 0.6), 0 0 0 3px white, 0 0 20px rgba(245, 158, 11, 0.3);
-    }
-  }
-
-  @keyframes pulse-trial {
-    0%, 100% {
-      transform: scale(1);
-      box-shadow: 0 2px 8px rgba(255, 165, 0, 0.4), 0 0 0 3px white;
-    }
-    50% {
-      transform: scale(1.05);
-      box-shadow: 0 2px 12px rgba(255, 165, 0, 0.6), 0 0 0 3px white, 0 0 0 6px rgba(255, 165, 0, 0.2);
+      font-size: 12px;
     }
   }
 
   .timeline-card .time-range {
     font-size: 12px;
-    font-weight: 700;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-    padding: 6px 10px;
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(139, 92, 246, 0.08) 100%);
+    font-weight: 600;
+    color: #717171;
+    letter-spacing: 0.02em;
+    padding: 5px 10px;
+    background: #F7F7F7;
     border-radius: 8px;
     display: inline-block;
     width: fit-content;
-    border: 1px solid rgba(99, 102, 241, 0.12);
+    border: 1px solid #EBEBEB;
   }
 
   .timeline-card .card-header {
@@ -3632,114 +4222,116 @@ ion-content {
   }
 
   .timeline-card .card-avatar {
-    width: 48px;
-    height: 48px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     object-fit: cover;
     flex-shrink: 0;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
     border: 2px solid #ffffff;
   }
 
+  .timeline-card .card-avatar.gcal-card-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 0;
+    object-fit: contain;
+    border: none;
+    box-shadow: none;
+  }
+
   .timeline-card .card-avatar.class-thumbnail {
-    width: 48px;
-    height: 48px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     object-fit: cover;
     flex-shrink: 0;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
     border: 2px solid #ffffff;
   }
 
   .timeline-card .card-avatar.placeholder {
-    width: 48px;
-    height: 48px;
-    color: #94a3b8;
-    font-size: 48px;
+    width: 44px;
+    height: 44px;
+    color: #B0B0B0;
+    font-size: 44px;
   }
 
   .timeline-card .card-text {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
     flex: 1;
     
     .title {
       font-size: 16px;
-      font-weight: 700;
-      color: #1e293b;
+      font-weight: 600;
+      color: #222222;
       line-height: 1.3;
-      letter-spacing: -0.2px;
+      letter-spacing: -0.3px;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', system-ui, sans-serif;
     }
     
     .subtitle {
       font-size: 14px;
-      font-weight: 500;
-      color: #64748b;
+      font-weight: 400;
+      color: #717171;
       line-height: 1.4;
+      letter-spacing: -0.01em;
     }
   }
   
   .timeline-card .meta {
     font-size: 13px;
-    font-weight: 600;
-    color: #94a3b8;
+    font-weight: 500;
+    color: #717171;
     display: flex;
     align-items: center;
     gap: 6px;
+    letter-spacing: -0.01em;
     
     &::before {
       content: '';
-      width: 4px;
-      height: 4px;
+      width: 3px;
+      height: 3px;
       border-radius: 50%;
-      background: #cbd5e1;
+      background: #DDDDDD;
       display: inline-block;
     }
   }
   
   .timeline-card .location {
     font-size: 13px;
-    font-weight: 500;
-    color: #64748b;
+    font-weight: 400;
+    color: #717171;
     display: flex;
     align-items: center;
     gap: 6px;
     padding: 8px 12px;
-    background: rgba(241, 245, 249, 0.8);
-    border-radius: 8px;
-    margin-top: 4px;
+    background: #F7F7F7;
+    border-radius: 10px;
+    margin-top: 2px;
+    letter-spacing: -0.01em;
     
     &::before {
       content: '📍';
-      font-size: 14px;
+      font-size: 13px;
     }
   }
 
-  // Office Hours specific styling
   .timeline-card.office-hours,
   .agenda-card.office-hours {
-    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-    border-left: 4px solid #f59e0b;
-    min-height: 60px; // Smaller than regular lessons
-    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.15);
+    background: #FFFBF0;
+    border-left: 3px solid #FF9500;
+    min-height: 60px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
     
     .timeline-marker {
-      background: #f59e0b !important;
+      background: #FF9500 !important;
     }
     
     .card-header {
       position: relative;
-      
-      // Lightning bolt badge
-      &::before {
-        content: '⚡';
-        position: absolute;
-        top: -8px;
-        right: -8px;
-        font-size: 20px;
-        animation: pulse 2s infinite;
-      }
     }
     
     .title {
@@ -3752,22 +4344,11 @@ ion-content {
         font-size: 9px;
         font-weight: 700;
         color: #92400e;
-        background: #ffffff;
+        background: rgba(255, 149, 0, 0.1);
         padding: 2px 6px;
         border-radius: 4px;
         letter-spacing: 0.5px;
       }
-    }
-  }
-
-  @keyframes pulse {
-    0%, 100% {
-      transform: scale(1);
-      opacity: 1;
-    }
-    50% {
-      transform: scale(1.1);
-      opacity: 0.8;
     }
   }
 
@@ -3778,29 +4359,30 @@ ion-content {
 
   .mobile-agenda {
     flex-direction: column;
-    gap: 20px;
-    padding-top: 270px;
-    padding-bottom: 24px;
-    overflow: visible; // Allow badge to show outside bounds
+    gap: 0;
+    padding: 145px 16px 120px;
+    overflow: visible;
   }
 
   .agenda-section {
     background: #ffffff;
-    border-radius: 20px;
-    padding: 10px;
-    box-shadow: 0 2px 16px rgba(15, 23, 42, 0.06), 0 1px 4px rgba(15, 23, 42, 0.04);
-    border: 1px solid rgba(148, 163, 184, 0.08);
+    border-radius: 0;
+    padding: 0;
+    box-shadow: none;
+    border: none;
+    border-bottom: 1px solid #EBEBEB;
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    overflow: visible; // Allow badge to show outside bounds
+    gap: 0;
+    overflow: visible;
   }
 
   .agenda-items {
     display: flex;
     flex-direction: column;
-    gap: 18px;
-    overflow: visible; // Allow badge to show outside bounds
+    gap: 12px;
+    padding: 0 0 16px;
+    overflow: visible;
   }
 
   .agenda-item .timeline-entry {
@@ -3811,32 +4393,31 @@ ion-content {
   .mobile-timeline {
     display: flex;
     flex-direction: column;
-    gap: 18px;
-    padding-top: 420px;
-    padding-bottom: 24px;
+    gap: 12px;
+    padding-top: 363px;
+    padding-bottom: 120px;
     position: relative;
     z-index: 1;
   }
 
-  // Simple timeline design matching screenshot (mobile day view only)
+  // Simple timeline design (mobile day view)
   .mobile-timeline-simple {
     display: flex;
     flex-direction: column;
     padding: 0 20px;
-    padding-top: 420px; // Account for fixed header and day strip
-    padding-bottom: 24px;
+    padding-top: 363px;
+    padding-bottom: 120px;
     gap: 0;
     background: #ffffff;
     position: relative;
     z-index: 1;
-    overflow: visible; // Allow badge to show outside bounds
+    overflow: visible;
     
-    // Current time indicator
     .current-time-indicator {
       padding: 12px 0 !important;
       border-bottom: none !important;
       border-left: none !important;
-      background: rgba(255, 59, 48, 0.03) !important;
+      background: rgba(255, 59, 48, 0.02) !important;
       margin: 0 -20px;
       padding-left: 20px !important;
       padding-right: 20px !important;
@@ -3844,7 +4425,7 @@ ion-content {
       .time-column .time-display.now {
         color: #FF3B30;
         font-weight: 600;
-        font-size: 15px;
+        font-size: 14px;
       }
       
       .current-time-line {
@@ -3854,11 +4435,11 @@ ion-content {
         padding-top: 4px;
         
         .time-dot {
-          width: 10px;
-          height: 10px;
+          width: 8px;
+          height: 8px;
           background: #FF3B30;
           border-radius: 50%;
-          box-shadow: 0 0 0 4px rgba(255, 59, 48, 0.2);
+          box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.15);
           flex-shrink: 0;
         }
         
@@ -3866,7 +4447,7 @@ ion-content {
           flex: 1;
           height: 2px;
           background: #FF3B30;
-          opacity: 0.8;
+          opacity: 0.6;
         }
       }
     }
@@ -3875,77 +4456,79 @@ ion-content {
       display: flex;
       align-items: flex-start;
       gap: 2px;
-      padding: 18px 0;
-      // padding-left: 4px;
-      border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-      border-left: 3px solid transparent;
-      transition: all 0.2s ease;
+      padding: 16px 0;
+      border-bottom: 1px solid #F0F0F0;
+      border-left: none;
+      transition: background-color 0.15s ease;
       position: relative;
       will-change: transform, opacity;
-      overflow: visible; // Allow badge to show outside bounds
+      overflow: visible;
       backface-visibility: hidden;
       transform: translateZ(0);
       -webkit-backface-visibility: hidden;
       -webkit-transform: translateZ(0);
-      position: relative;
-      bottom: 30px;
+      bottom: 0;
       
       &:last-child {
         border-bottom: none;
       }
       
       &:active {
-        background-color: rgba(0, 0, 0, 0.02);
-        border-left-color: rgba(99, 102, 241, 0.3);
+        background-color: #FAFAFA;
+      }
+      
+      &.happening-now {
+        background: rgba(255, 59, 48, 0.02);
       }
       
       &.past {
-        opacity: 0.6;
+        opacity: 0.5;
         
         .time-column .time-display {
-          color: #9e9e9e;
+          color: #B0B0B0;
         }
         
         .event-column .timeline-marker {
           opacity: 0.3;
-          background: #cbd5e1 !important;
+          background: #DDDDDD !important;
         }
       }
     }
     
     .time-column {
       flex-shrink: 0;
-      width: 125px;
-      padding-top: 1px;
+      width: 110px;
+      padding-top: 2px;
       
       .time-display {
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 500;
-        color: #424242;
+        color: #717171;
         line-height: 1.5;
         white-space: nowrap;
-        letter-spacing: -0.1px;
-        font-variant-numeric: tabular-nums; // Better number alignment
+        letter-spacing: -0.01em;
+        font-variant-numeric: tabular-nums;
         position: relative;
-        right: 20px;
+        right: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
         
         &.now {
           display: flex;
           flex-direction: column;
-          align-items: flex-end;
-          gap: 2px;
+          align-items: flex-start;
+          gap: 1px;
           
           .now-badge {
-            font-size: 11px;
-            font-weight: 600;
+            font-size: 10px;
+            font-weight: 700;
             color: #FF3B30;
             text-transform: uppercase;
             letter-spacing: 0.5px;
           }
           
           span {
-            font-size: 14px;
-            color: #424242;
+            font-size: 13px;
+            color: #717171;
             font-weight: 500;
           }
         }
@@ -3954,42 +4537,43 @@ ion-content {
     
     .event-column {
       flex: 1;
-      min-width: 240px; // Set minimum width for cards
+      min-width: 0;
       padding-top: 0;
-      overflow: visible; // Allow badge to show outside bounds
+      overflow: visible;
       
       .timeline-entry {
         display: flex;
-        gap: 12px;
+        gap: 10px;
         align-items: flex-start;
-        overflow: visible; // Allow badge to show outside bounds
+        overflow: visible;
       }
       
       .timeline-marker {
-        width: 4px;
+        width: 3px;
         height: auto;
-        min-height: 60px;
+        min-height: 50px;
         border-radius: 2px;
         flex-shrink: 0;
         margin-top: 0;
         margin-bottom: 0;
+        box-shadow: none;
       }
       
       .timeline-card {
         flex: 1;
-        min-width: 200px; // Maintain width on mobile
-        min-height: 90px; // Add height on mobile
-        padding: 10px 14px;
+        min-width: 0;
+        min-height: 80px;
+        padding: 12px 14px;
         gap: 8px;
         border-radius: 12px;
-        overflow: visible; // Allow badge to show outside card bounds
+        overflow: visible;
         
         .card-header {
           gap: 10px;
           
           .card-avatar {
-            width: 36px;
-            height: 36px;
+            width: 38px;
+            height: 38px;
           }
           
           .card-text {
@@ -3997,12 +4581,16 @@ ion-content {
             
             .title {
               font-size: 15px;
-              line-height: 1.4;
+              font-weight: 600;
+              line-height: 1.3;
+              letter-spacing: -0.2px;
             }
             
             .subtitle {
               font-size: 13px;
+              font-weight: 400;
               line-height: 1.4;
+              color: #717171;
             }
           }
         }
@@ -4015,54 +4603,54 @@ ion-content {
       }
     }
     
-    // Empty state styling
     + .timeline-empty {
-      padding-top: 420px;
-      padding-bottom: 100px;
+      padding-top: 363px;
+      padding-bottom: 120px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       text-align: center;
-      min-height: 400px;
+      min-height: 300px;
       
       ion-icon {
-        font-size: 64px;
-        color: #bdbdbd;
-        margin-bottom: 16px;
+        font-size: 48px;
+        color: #DDDDDD;
+        margin-bottom: 12px;
       }
       
       p {
-        font-size: 16px;
-        color: #757575;
+        font-size: 15px;
+        color: #717171;
         font-weight: 400;
         margin: 0;
+        letter-spacing: -0.01em;
       }
     }
   }
   
-  // Empty state when shown
   .timeline-empty {
-    padding-top: 420px;
-    padding-bottom: 100px;
+    padding-top: 363px;
+    padding-bottom: 120px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     text-align: center;
-    min-height: 400px;
+    min-height: 300px;
     
     ion-icon {
-      font-size: 64px;
-      color: #bdbdbd;
-      margin-bottom: 16px;
+      font-size: 48px;
+      color: #DDDDDD;
+      margin-bottom: 12px;
     }
     
     p {
-      font-size: 16px;
-      color: #757575;
+      font-size: 15px;
+      color: #717171;
       font-weight: 400;
       margin: 0;
+      letter-spacing: -0.01em;
     }
   }
 
@@ -4072,19 +4660,20 @@ ion-content {
     gap: 8px;
     padding: 8px 0;
     cursor: pointer;
-    transition: opacity 0.2s ease;
+    transition: opacity 0.15s ease;
   }
 
   .free-slot-content:hover,
   .free-slot-content:active {
-    opacity: 0.9;
+    opacity: 0.7;
   }
 
   .free-duration {
     font-size: 14px;
     font-weight: 400;
-    color: rgba(99, 102, 241, 0.6);
-    letter-spacing: 0.2px;
+    color: #B0B0B0;
+    letter-spacing: -0.01em;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
   }
 
   .free-add-icon {
@@ -4096,7 +4685,7 @@ ion-content {
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    color: rgba(99, 102, 241, 0.6);
+    color: #B0B0B0;
     font-size: 18px;
     width: 20px;
     height: 20px;
@@ -4105,155 +4694,162 @@ ion-content {
 
   .free-add-icon ion-icon {
     font-size: 18px;
-    color: rgba(99, 102, 241, 0.6);
+    color: #B0B0B0;
   }
 
   .free-slot-content:hover .free-duration,
   .free-slot-content:hover .free-add-icon,
   .free-slot-content:active .free-duration,
   .free-slot-content:active .free-add-icon {
-    color: rgba(99, 102, 241, 0.85);
+    color: #222222;
   }
 
   .free-slot-content:hover .free-add-icon ion-icon,
   .free-slot-content:active .free-add-icon ion-icon {
-    color: rgba(99, 102, 241, 0.85);
+    color: #222222;
   }
 
   .schedule-legend {
     position: fixed;
-    top: 117px;
+    top: 60px;
     left: 0;
     right: 0;
     z-index: 99;
     margin: 0;
-    padding: 16px;
-    padding-top: 20px;
-    padding-bottom: 20px;
-    background: #ffffff;
+    padding: 10px 16px;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
     border-radius: 0;
     border: none;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.28);
+    border-bottom: 1px solid #EBEBEB;
     display: flex;
-    flex-direction: column;
-    gap: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    box-shadow: none;
   }
 
   .schedule-legend h4 {
     margin: 0;
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
     text-transform: uppercase;
-    color: #475569;
+    color: #B0B0B0;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+    display: none;
   }
 
   .legend-items {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px 17px;
+    gap: 8px 16px;
   }
 
   .legend-item {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    color: #475569;
+    gap: 6px;
+    font-size: 12px;
+    color: #717171;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
   }
 
   .legend-dot {
-    width: 12px;
-    height: 12px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
     display: inline-block;
   }
 
   .legend-dot.available {
-    background: #3b82f6;
+    background: #222222;
   }
 
   .legend-dot.open {
-    border: 2px solid rgba(99, 102, 241, 0.6);
-    background: rgba(99, 102, 241, 0.12);
+    border: 1.5px solid #B0B0B0;
+    background: transparent;
   }
 
   .legend-dot.booked {
-    background: #10b981;
+    background: #34C759;
   }
 
   .legend-dot.cancelled {
-    background: #ef4444;
+    background: #FF3B30;
   }
 
   .timeline-card .card-header,
   .agenda-card .card-header {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 12px;
   }
 
   .timeline-card .card-avatar,
   .agenda-card .card-avatar {
-    width: 48px;
-    height: 48px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     object-fit: cover;
     flex-shrink: 0;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
     border: 2px solid #ffffff;
   }
 
   .timeline-card .card-avatar.class-thumbnail,
   .agenda-card .card-avatar.class-thumbnail {
-    width: 48px;
-    height: 48px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     object-fit: cover;
     flex-shrink: 0;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
     border: 2px solid #ffffff;
   }
 
   .timeline-card .card-avatar.placeholder,
   .agenda-card .card-avatar.placeholder {
-    width: 48px;
-    height: 48px;
-    color: #94a3b8;
-    font-size: 48px;
+    width: 44px;
+    height: 44px;
+    color: #B0B0B0;
+    font-size: 44px;
   }
 
   .timeline-card .card-text,
   .agenda-card .card-text {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
     flex: 1;
     
     .title {
       font-size: 16px;
-      font-weight: 700;
-      color: #1e293b;
+      font-weight: 600;
+      color: #222222;
       line-height: 1.3;
-      letter-spacing: -0.2px;
+      letter-spacing: -0.3px;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', system-ui, sans-serif;
     }
     
     .subtitle {
       font-size: 14px;
-      font-weight: 500;
-      color: #64748b;
+      font-weight: 400;
+      color: #717171;
       line-height: 1.4;
+      letter-spacing: -0.01em;
     }
   }
   
-  // Cancelled styling for mobile timeline and agenda
   .timeline-row.is-cancelled,
   .agenda-item.is-cancelled {
-    opacity: 0.6;
+    opacity: 0.5;
     
     .timeline-card {
-      background: #f3f4f6;
+      background: #FAFAFA;
       
       .card-text .title,
       .title,
@@ -4261,75 +4857,75 @@ ion-content {
       .subtitle,
       .time-range {
         text-decoration: line-through;
-        color: #6b7280;
+        color: #B0B0B0;
       }
     }
     
     .timeline-marker {
-      background: #9ca3af !important;
+      background: #DDDDDD !important;
     }
   }
   
-  // Extra specificity for cancelled timeline cards
   .timeline-card.is-cancelled {
-    background: #f3f4f6;
+    background: #FAFAFA;
     
     .card-text .title,
     .title,
     .card-text .subtitle,
     .subtitle {
       text-decoration: line-through;
-      color: #6b7280;
+      color: #B0B0B0;
     }
   }
   
   .agenda-card .time-range {
     font-size: 12px;
-    font-weight: 700;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-    padding: 6px 10px;
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(139, 92, 246, 0.08) 100%);
+    font-weight: 600;
+    color: #717171;
+    letter-spacing: 0.02em;
+    padding: 5px 10px;
+    background: #F7F7F7;
     border-radius: 8px;
     display: inline-block;
     width: fit-content;
-    border: 1px solid rgba(99, 102, 241, 0.12);
+    border: 1px solid #EBEBEB;
   }
   
   .agenda-card .meta {
     font-size: 13px;
-    font-weight: 600;
-    color: #94a3b8;
+    font-weight: 500;
+    color: #717171;
     display: flex;
     align-items: center;
     gap: 6px;
+    letter-spacing: -0.01em;
     
     &::before {
       content: '';
-      width: 4px;
-      height: 4px;
+      width: 3px;
+      height: 3px;
       border-radius: 50%;
-      background: #cbd5e1;
+      background: #DDDDDD;
       display: inline-block;
     }
   }
   
   .agenda-card .location {
     font-size: 13px;
-    font-weight: 500;
-    color: #64748b;
+    font-weight: 400;
+    color: #717171;
     display: flex;
     align-items: center;
     gap: 6px;
     padding: 8px 12px;
-    background: rgba(241, 245, 249, 0.8);
-    border-radius: 8px;
-    margin-top: 4px;
+    background: #F7F7F7;
+    border-radius: 10px;
+    margin-top: 2px;
+    letter-spacing: -0.01em;
     
     &::before {
       content: '📍';
-      font-size: 14px;
+      font-size: 13px;
     }
   }
 
@@ -4341,57 +4937,58 @@ ion-content {
   .agenda-card {
     flex: 1;
     background: #ffffff;
-    border-radius: 16px;
-    padding: 16px;
+    border-radius: 14px;
+    padding: 14px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    border: 1px solid rgba(148, 163, 184, 0.12);
-    box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.06);
-    transition: all 0.25s ease;
+    gap: 10px;
+    border: 1px solid #EBEBEB;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
     
     &:active {
       transform: scale(0.98);
-      box-shadow: 0 1px 8px rgba(15, 23, 42, 0.06), 0 0.5px 2px rgba(15, 23, 42, 0.04);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
     }
     
     &.past {
       opacity: 0.5;
-      background: #f8fafc;
-      border-color: rgba(148, 163, 184, 0.08);
+      background: #FAFAFA;
+      border-color: #F0F0F0;
       
       .time-range {
-        background: rgba(148, 163, 184, 0.1);
-        border-color: rgba(148, 163, 184, 0.15);
-        color: #94a3b8;
+        background: #F7F7F7;
+        border-color: #F0F0F0;
+        color: #B0B0B0;
       }
       
       .card-text .title {
-        color: #94a3b8;
+        color: #B0B0B0;
       }
       
       .card-text .subtitle {
-        color: #cbd5e1;
+        color: #DDDDDD;
       }
       
       .meta {
-        color: #cbd5e1;
+        color: #DDDDDD;
         
         &::before {
-          background: #e2e8f0;
+          background: #EBEBEB;
         }
       }
       
       .location {
-        background: rgba(241, 245, 249, 0.5);
-        color: #94a3b8;
+        background: #F7F7F7;
+        color: #B0B0B0;
       }
     }
   }
 
   .agenda-card.free {
-    background: rgba(99, 102, 241, 0.04);
-    border: 1px dashed rgba(99, 102, 241, 0.4);
+    background: #FAFAFA;
+    border: 1px dashed #DDDDDD;
     padding: 10px;
     gap: 8px;
   }
@@ -4425,76 +5022,76 @@ ion-content {
   }
 
   .agenda-item .timeline-marker {
-    width: 10px;
-    border-radius: 5px;
+    width: 4px;
+    border-radius: 2px;
     margin-top: 8px;
     margin-bottom: 8px;
-    background: linear-gradient(180deg, #60a5fa 0%, #2563eb 100%);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+    box-shadow: none;
   }
 
   .agenda-item .timeline-entry.free .timeline-marker {
-    background: rgba(99, 102, 241, 0.4);
+    background: #DDDDDD;
   }
   
   .agenda-item .timeline-entry.past .timeline-marker {
     opacity: 0.3;
-    background: #cbd5e1 !important;
+    background: #DDDDDD !important;
     box-shadow: none;
   }
   
   .agenda-item .timeline-entry.past .card-avatar {
     opacity: 0.6;
-    filter: grayscale(50%);
+    filter: grayscale(30%);
   }
   
   .agenda-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding-bottom: 12px;
-    margin-bottom: 8px;
-    border-bottom: 2px solid rgba(148, 163, 184, 0.08);
-    padding-top: 16px;
+    padding: 16px 0 12px;
+    margin-bottom: 0;
+    border-bottom: none;
   }
 
   .agenda-label {
-    font-size: 20px;
-    font-weight: 800;
-    color: #1e293b;
+    font-size: 17px;
+    font-weight: 600;
+    color: #222222;
     letter-spacing: -0.3px;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', system-ui, sans-serif;
     
     &.is-today {
-      font-size: 28px;
-      font-weight: 800;
-      color: black
+      font-size: 20px;
+      font-weight: 700;
+      color: #222222;
     }
   }
 
   .agenda-label-group {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 8px;
   }
 
   .agenda-date {
-    font-size: 14px;
-    font-weight: 600;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    font-size: 13px;
+    font-weight: 400;
+    color: #717171;
+    text-transform: none;
+    letter-spacing: -0.01em;
   }
   
   .agenda-relative {
-    font-size: 13px;
-    font-weight: 700;
-    color: #667eea;
-    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
-    padding: 6px 12px;
-    border-radius: 12px;
-    border: 1px solid rgba(102, 126, 234, 0.2);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #222222;
+    background: #F7F7F7;
+    padding: 4px 10px;
+    border-radius: 10px;
+    border: 1px solid #EBEBEB;
+    text-transform: none;
+    letter-spacing: -0.01em;
   }
 }
 
@@ -4507,7 +5104,7 @@ ion-content {
 
 .mobile-settings-wrapper {
     position: fixed;
-    top: 56px;
+    top: 50px;
     left: 0;
     right: 0;
     bottom: 0;
@@ -4516,13 +5113,13 @@ ion-content {
     max-height: 0;
     opacity: 0;
     transform: translateY(-8px);
-    transition: max-height 250ms ease, opacity 250ms ease, transform 250ms ease;
-    background: #f8fafc;
+    transition: max-height 300ms cubic-bezier(0.4, 0, 0.2, 1), opacity 250ms ease, transform 250ms cubic-bezier(0.4, 0, 0.2, 1);
+    background: #F7F7F7;
     pointer-events: none;
   }
 
   .mobile-settings-wrapper.open {
-    max-height: calc(100vh - 56px);
+    max-height: calc(100vh - 50px);
     opacity: 1;
     transform: translateY(0);
     pointer-events: auto;
@@ -4624,6 +5221,1554 @@ ion-content {
 
   ion-button {
     margin-bottom: 0;
+  }
+}
+
+// =============================================
+// OUTSTANDING FEEDBACK BANNER (Airbnb style)
+// =============================================
+.feedback-banner-airbnb {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #FFEEDD;
+  border: 1px solid #FFC085;
+  border-radius: 16px;
+  padding: 16px 20px;
+  margin: 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  animation: feedbackBannerIn 0.4s ease-out;
+  width: 100%;
+  max-width: 100%;
+  box-shadow: 0 2px 12px rgba(255, 138, 0, 0.12);
+  box-sizing: border-box;
+  gap: 16px;
+
+  &:hover {
+    background: #FFE4C7;
+    border-color: #FFB366;
+    box-shadow: 0 4px 16px rgba(255, 138, 0, 0.18);
+  }
+
+  &:active {
+    transform: scale(0.995);
+  }
+
+  .feedback-banner-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .feedback-banner-count {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: #222;
+    color: #fff;
+    font-size: 18px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    letter-spacing: -0.5px;
+  }
+
+  .feedback-banner-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    max-width: 100%;
+  }
+
+  .feedback-banner-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #222;
+    letter-spacing: -0.2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .feedback-banner-subtitle {
+    font-size: 13px;
+    font-weight: 400;
+    color: #717171;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .feedback-banner-cta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #222;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+    flex-grow: 0;
+    transition: background 0.15s ease;
+    white-space: nowrap;
+    margin-left: auto;
+
+    ion-icon {
+      font-size: 16px;
+    }
+
+    &:hover {
+      background: #000;
+    }
+  }
+
+  @media (max-width: 768px) {
+    padding: 14px 16px;
+
+    .feedback-banner-left {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .feedback-banner-title,
+    .feedback-banner-subtitle {
+      white-space: normal;
+      overflow: visible;
+      text-overflow: clip;
+    }
+
+    .feedback-banner-cta {
+      flex-shrink: 0;
+      margin-left: 8px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    padding: 12px 14px;
+
+    .feedback-banner-count {
+      width: 36px;
+      height: 36px;
+      font-size: 16px;
+      border-radius: 10px;
+    }
+
+    .feedback-banner-title {
+      font-size: 14px;
+    }
+
+    .feedback-banner-subtitle {
+      font-size: 12px;
+    }
+
+    .feedback-banner-cta {
+      padding: 7px 12px;
+      font-size: 13px;
+    }
+  }
+}
+
+// Grace-expired state: banner shifts to red/urgent
+.feedback-banner-airbnb.grace-expired {
+  background: #FEF2F2;
+  border-color: #FCA5A5;
+  box-shadow: 0 2px 12px rgba(239, 68, 68, 0.12);
+
+  &:hover {
+    background: #FEE2E2;
+    border-color: #F87171;
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.18);
+  }
+
+  .feedback-banner-subtitle {
+    color: #B91C1C;
+    font-weight: 500;
+  }
+
+  .feedback-banner-count {
+    background: #DC2626;
+  }
+}
+
+@keyframes feedbackBannerIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// =============================================
+// OUTSTANDING FEEDBACK MODAL (Airbnb style)
+// =============================================
+
+.airbnb-modal-ion-header {
+  --background: #ffffff;
+  ion-toolbar { --background: #ffffff; }
+  &::after { display: none; }
+}
+
+.airbnb-modal-ion-content {
+  --background: #ffffff;
+}
+
+.airbnb-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 32px 24px 20px;
+  border-bottom: 1px solid #EBEBEB;
+  position: relative;
+  min-height: 72px;
+
+  h2 {
+    font-size: 22px;
+    font-weight: 600;
+    color: #222222;
+    margin: 0;
+    letter-spacing: -0.3px;
+    flex: 1;
+    text-align: left;
+  }
+}
+
+.airbnb-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: none;
+  border: 1px solid #DDDDDD;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+
+  &:hover { background: #F7F7F7; border-color: #BDBDBD; }
+  ion-icon { font-size: 16px; color: #222222; }
+}
+
+.airbnb-month-selector {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px 16px;
+  border-bottom: 1px solid #EBEBEB;
+  background: #ffffff;
+}
+
+.airbnb-month-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.airbnb-month-label {
+  font-size: 16px;
+  font-weight: 600;
+  color: #222222;
+}
+
+.airbnb-modal-body {
+  padding: 8px 24px 24px;
+}
+
+.airbnb-lesson-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 16px 0;
+  border-bottom: 1px solid #F0F0F0;
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  &:last-child { border-bottom: none; }
+  &:hover {
+    background: #F7F7F7;
+    margin: 0 -8px;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+}
+
+.airbnb-lesson-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.airbnb-lesson-date {
+  font-size: 16px;
+  font-weight: 600;
+  color: #222222;
+  letter-spacing: -0.2px;
+}
+
+.airbnb-lesson-time {
+  font-size: 14px;
+  font-weight: 400;
+  color: #717171;
+}
+
+.airbnb-lesson-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.airbnb-lesson-participant-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.airbnb-lesson-name {
+  font-size: 16px;
+  font-weight: 500;
+  color: #222222;
+  letter-spacing: -0.2px;
+}
+
+.airbnb-feedback-pending {
+  font-size: 14px;
+  color: #ff9500;
+  font-weight: 500;
+}
+
+.airbnb-lesson-avatar-small {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #F7F7F7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  img { width: 100%; height: 100%; object-fit: cover; }
+  ion-icon { font-size: 22px; color: #BDBDBD; }
+}
+
+.airbnb-no-lessons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+
+  ion-icon { font-size: 48px; color: #DDDDDD; margin-bottom: 16px; }
+  p { font-size: 16px; color: #717171; margin: 0; }
+}
+
+.feedback-modal-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: none;
+  border: 1px solid #DDDDDD;
+  border-radius: 8px;
+
+  ion-icon { font-size: 20px; color: #222222; }
+}
+
+// ── Dark mode ────────────────────────────────────────────
+:host-context(html.ion-palette-dark) {
+  ion-content {
+    --background: #000000;
+  }
+
+  .calendar-layout {
+    background: #000000;
+  }
+
+  .calendar-sidebar {
+    background: #000000;
+    border-right-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .sidebar-header {
+    background: #000000;
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+
+    h3 {
+      color: #f5f5f7;
+    }
+
+    .sidebar-expand-icon {
+      color: #8e8e93;
+
+      &:hover {
+        color: #f5f5f7;
+      }
+    }
+  }
+
+  .schedule-lesson-btn {
+    --background: #4298d2;
+    --background-hover: #3583b8;
+    --background-activated: #3583b8;
+    --color: #fff;
+  }
+
+  .action-btn {
+    --background: #ffffff;
+    --border-color: #ffffff;
+    --color: #1a1a1a;
+
+    &:hover {
+      --background: #e5e5e7;
+      --border-color: #e5e5e7;
+      --color: #1a1a1a;
+    }
+
+    &:hover ion-icon {
+      color: #1a1a1a;
+    }
+
+    ion-icon {
+      color: #1a1a1a;
+    }
+  }
+
+  .tags-section,
+  .lesson-status-section {
+    border-top-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .tags-section h4,
+  .lesson-status-section h4 {
+    color: #8e8e93;
+  }
+
+  .section-header .expand-icon {
+    color: #8e8e93;
+  }
+
+  .tag-item span,
+  .status-item span {
+    color: #e5e5e5;
+  }
+
+  .tag-item:hover,
+  .status-item:hover {
+    background: #2c2c2e;
+  }
+
+  .status-icon {
+    color: #8e8e93;
+  }
+
+  .calendar-settings-section,
+  .gcal-settings-section {
+    border-top-color: rgba(255, 255, 255, 0.08);
+
+    .section-header h4 {
+      color: #8e8e93;
+    }
+  }
+
+  .sidebar-setting-label {
+    color: #8e8e93;
+  }
+
+  .sidebar-segmented-control {
+    background: #2c2c2e;
+
+    button {
+      color: #8e8e93;
+
+      &.active {
+        background: #3a3a3c;
+        color: #ffffff;
+      }
+    }
+  }
+
+  .sidebar-setting-hint {
+    color: #636366;
+  }
+
+  .sidebar-timezone {
+    background: #1c1c1e;
+    color: #e5e5e5;
+
+    ion-icon {
+      color: #8e8e93;
+    }
+  }
+
+  .sidebar-gcal-desc,
+  .inline-gcal-desc {
+    color: #8e8e93;
+  }
+
+  .sidebar-gcal-status .status-text {
+    .status-label {
+      color: #e5e5e5;
+    }
+
+    .status-email {
+      color: #636366;
+    }
+  }
+
+  .sidebar-last-sync {
+    color: #636366;
+  }
+
+  .sidebar-gcal-toggle-item {
+    .toggle-title {
+      color: #e5e5e5;
+    }
+
+    .toggle-desc {
+      color: #636366;
+    }
+  }
+
+  .inline-setting-label {
+    color: #8e8e93;
+  }
+
+  .inline-segmented-control {
+    background: #2c2c2e;
+
+    button {
+      color: #8e8e93;
+
+      &.active {
+        background: #3a3a3c;
+        color: #ffffff;
+      }
+    }
+  }
+
+  .inline-timezone {
+    color: #e5e5e5;
+  }
+
+  .inline-gcal-status {
+    span {
+      color: #e5e5e5;
+    }
+
+    .gcal-email {
+      color: #636366;
+    }
+  }
+
+  .inline-gcal-toggle span {
+    color: #e5e5e5;
+  }
+
+  .main-calendar {
+    background: #000000;
+  }
+
+  // ── Custom calendar wrapper & toolbar ──
+  .custom-calendar-wrapper {
+    background: #000000;
+  }
+
+  .custom-toolbar {
+    background: #000000;
+    border-bottom-color: rgba(255, 255, 255, 0.15);
+
+    .nav-btn {
+      background: #2c2c2e;
+      border-color: #3a3a3c;
+
+      ion-icon {
+        color: #f5f5f7;
+      }
+
+      &:hover:not(:disabled) {
+        background: #3a3a3c;
+        border-color: #48484a;
+      }
+    }
+
+    .today-btn {
+      background: #2c2c2e;
+      border-color: #3a3a3c;
+      color: #f5f5f7;
+
+      &:hover:not(:disabled) {
+        background: #3a3a3c;
+        border-color: #48484a;
+      }
+    }
+
+    .gcal-sync-btn {
+      background: #2c2c2e;
+      border-color: #3a3a3c;
+      color: #f5f5f7;
+
+      &:hover:not(:disabled) {
+        background: #3a3a3c;
+        border-color: #48484a;
+      }
+    }
+
+    .calendar-title {
+      color: #f5f5f7;
+    }
+
+    .view-switcher {
+      border-color: #3a3a3c;
+
+      button {
+        background: #2c2c2e;
+        color: #8e8e93;
+
+        &:not(:last-child) {
+          border-right-color: #3a3a3c;
+        }
+
+        &.active {
+          background: #4298d2;
+          color: #fff;
+        }
+
+        &:not(.active):hover {
+          background: #3a3a3c;
+          color: #f5f5f7;
+        }
+      }
+    }
+  }
+
+  // ── Week header (day columns) ──
+  .week-header {
+    background: #000000;
+    border-bottom-color: rgba(255, 255, 255, 0.15);
+
+    .time-gutter {
+      border-right-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .day-header {
+      border-right-color: rgba(255, 255, 255, 0.12);
+
+      .day-name {
+        color: #8e8e93;
+      }
+
+      .day-number {
+        color: #f5f5f7;
+      }
+
+      &.today .day-name {
+        color: #f5f5f7;
+      }
+    }
+  }
+
+  // ── Week body (time grid) ──
+  .week-body {
+    .time-column {
+      background: #000000;
+      border-right-color: rgba(255, 255, 255, 0.12);
+
+      .time-slot {
+        border-top-color: rgba(255, 255, 255, 0.1);
+
+        &::after {
+          border-top-color: rgba(255, 255, 255, 0.06);
+        }
+
+        .time-label {
+          color: #8e8e93;
+        }
+      }
+    }
+
+    .day-columns .day-column {
+      border-right-color: rgba(255, 255, 255, 0.12);
+
+      .hour-line {
+        border-top-color: rgba(255, 255, 255, 0.1);
+
+        &::after {
+          border-top-color: rgba(255, 255, 255, 0.06);
+        }
+      }
+
+      .time-indicator::before {
+        border-color: #000000;
+      }
+    }
+  }
+
+  // ── Day view ──
+  .custom-day-view {
+    background: #000000;
+  }
+
+  .day-view-header {
+    background: #000000;
+    border-bottom-color: rgba(255, 255, 255, 0.15);
+
+    .day-view-date {
+      h3 {
+        color: #f5f5f7;
+      }
+
+      p {
+        color: #8e8e93;
+      }
+    }
+
+    .day-view-free-hours {
+      background: rgba(66, 152, 210, 0.15);
+
+      ion-icon {
+        color: #4298d2;
+      }
+
+      span {
+        color: #4298d2;
+      }
+
+      .hours-tooltip {
+        background: #1c1c1e;
+        border-color: rgba(255, 255, 255, 0.1);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+
+        .tooltip-label {
+          color: #8e8e93;
+        }
+
+        .tooltip-value {
+          color: #f5f5f7;
+        }
+
+        .tooltip-row.total .tooltip-label,
+        .tooltip-row.total .tooltip-value {
+          color: #4298d2;
+        }
+
+        .tooltip-divider {
+          background: rgba(255, 255, 255, 0.1);
+        }
+      }
+    }
+  }
+
+  .day-view-body {
+    .time-column {
+      background: #000000;
+      border-right-color: rgba(255, 255, 255, 0.12);
+
+      .time-slot {
+        border-top-color: rgba(255, 255, 255, 0.1);
+
+        &::after {
+          border-top-color: rgba(255, 255, 255, 0.06);
+        }
+
+        .time-label {
+          color: #8e8e93;
+        }
+      }
+    }
+
+    .day-content {
+      border-left-color: rgba(255, 255, 255, 0.12);
+
+      .hour-line {
+        border-top-color: rgba(255, 255, 255, 0.1);
+
+        &::after {
+          border-top-color: rgba(255, 255, 255, 0.06);
+        }
+      }
+
+      .time-indicator::before {
+        border-color: #000000;
+      }
+
+      .no-events-placeholder {
+        ion-icon {
+          color: #3a3a3c;
+        }
+
+        h4 {
+          color: #f5f5f7;
+        }
+
+        p {
+          color: #8e8e93;
+        }
+      }
+    }
+  }
+
+  // ── Calendar event cards ──
+  .calendar-event {
+    background: linear-gradient(180deg, #2a2a2a 0%, #252525 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-left: 3px solid #4298d2;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+
+    &:hover {
+      background: linear-gradient(180deg, #323234 0%, #2a2a2c 100%) !important;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+    }
+
+    &.past {
+      background: linear-gradient(180deg, #252525 0%, #1f1f21 100%) !important;
+      opacity: 0.85;
+    }
+
+    &.class-event {
+      background: linear-gradient(180deg, #2a2a2a 0%, #252525 100%) !important;
+      border-left-color: #a78bfa;
+
+      .event-title {
+        color: #ffffff !important;
+      }
+
+      .event-time {
+        color: rgba(255, 255, 255, 0.85) !important;
+      }
+    }
+
+    &.availability-event {
+      background: linear-gradient(180deg, rgba(52, 199, 89, 0.22) 0%, rgba(52, 199, 89, 0.12) 100%) !important;
+      border-left-color: rgba(52, 199, 89, 0.6);
+    }
+
+    &.gcal-event {
+      background: linear-gradient(180deg, #2a2a2a 0%, #252525 100%) !important;
+      border-left-color: #8e8e93;
+
+      .event-title {
+        color: #ffffff !important;
+      }
+
+      .event-time {
+        color: rgba(255, 255, 255, 0.85) !important;
+      }
+    }
+
+    &.is-cancelled {
+      background: linear-gradient(180deg, #252525 0%, #1f1f21 100%) !important;
+      border-left-color: #636366;
+
+      .event-title,
+      .event-time {
+        color: #9a9a9c !important;
+      }
+    }
+
+    .event-title {
+      color: #ffffff !important;
+    }
+
+    .event-time {
+      color: rgba(255, 255, 255, 0.85) !important;
+    }
+
+    .event-subject {
+      color: rgba(255, 255, 255, 0.65) !important;
+    }
+
+    .gcal-avatar,
+    .event-avatar {
+      opacity: 1;
+    }
+  }
+
+  // ── Loading overlay ──
+  .calendar-loading-overlay {
+    background: #000000;
+
+    ion-spinner {
+      --color: #8e8e93;
+    }
+
+    p {
+      color: #8e8e93;
+    }
+  }
+
+  .help-button {
+    --background: #4298d2;
+    --color: #fff;
+  }
+
+  .help-button:hover {
+    --background: #3583b8;
+  }
+
+  // Reschedule banner: keep gradient, ensure contrast
+  @media (max-width: 768px) {
+    .reschedule-banner {
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+    }
+  }
+
+  .profile-hidden-banner {
+    background: rgba(255, 152, 0, 0.15) !important;
+    border-color: rgba(255, 183, 77, 0.4) !important;
+    box-shadow: 0 2px 8px rgba(255, 152, 0, 0.2) !important;
+
+    .banner-text p,
+    .banner-text .banner-items {
+      color: #f5f5f7 !important;
+    }
+
+    ion-button {
+      --background: #4298d2 !important;
+      --background-hover: #3583b8 !important;
+      --background-activated: #3583b8 !important;
+    }
+  }
+
+  .mobile-settings-wrapper {
+    background: #000000;
+  }
+
+  @media (max-width: 768px) {
+    .mobile-header {
+      background: rgba(0, 0, 0, 0.92);
+      backdrop-filter: saturate(180%) blur(20px);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      border-bottom-color: rgba(255, 255, 255, 0.12);
+      box-shadow: none;
+    }
+
+    .mobile-header .mobile-back-button,
+    .mobile-header .mobile-schedule-button,
+    .mobile-header .mobile-settings-button {
+      --color: #f5f5f7;
+    }
+
+    .mobile-availability-btn {
+      --color: #f5f5f7;
+    }
+
+    .mobile-header-toggle {
+      border-color: #3a3a3c;
+      background: #2c2c2e;
+
+      button {
+        color: #8e8e93;
+        background: transparent;
+
+        &:not(:last-child) {
+          border-right-color: #3a3a3c;
+        }
+
+        &.active {
+          background: #f5f5f7;
+          color: #000000;
+        }
+
+        &:not(.active):active {
+          background: #3a3a3c;
+        }
+      }
+    }
+
+    .mobile-settings-panel .panel-section {
+      background: #1c1c1e;
+      border-color: #3a3a3c;
+      box-shadow: none;
+    }
+
+    .mobile-settings-panel .panel-section h3 {
+      color: #8e8e93;
+    }
+
+    .mobile-settings-panel .panel-section ion-item {
+      --color: #f5f5f7;
+    }
+
+    .mobile-settings-panel .panel-section ion-item ion-icon {
+      color: #8e8e93;
+    }
+
+    .mobile-settings-panel .panel-section .option-item label {
+      color: #e5e5e5;
+    }
+
+    .mobile-settings-wrapper {
+      background: #1c1c1e;
+    }
+
+    .mobile-view-toggle {
+      display: none;
+    }
+
+    .schedule-legend {
+      background: rgba(0, 0, 0, 0.92);
+      backdrop-filter: saturate(180%) blur(20px);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      border-bottom-color: rgba(255, 255, 255, 0.12);
+
+      .legend-item {
+        color: #8e8e93;
+      }
+
+      .legend-dot.available {
+        background: #34C759;
+      }
+
+      .legend-dot.open {
+        border-color: #636366;
+      }
+    }
+
+    .mobile-day-strip,
+    .mobile-day-strip.agenda-strip {
+      background: rgba(0, 0, 0, 0.92);
+      backdrop-filter: saturate(180%) blur(20px);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      border-bottom-color: rgba(255, 255, 255, 0.12);
+      box-shadow: none;
+    }
+
+    .mobile-day-strip .day-nav-btn {
+      --color: #f5f5f7;
+    }
+
+    .mobile-day-strip .day-chip {
+      background: #2c2c2e;
+      border-color: #3a3a3c;
+      color: #8e8e93;
+      box-shadow: none;
+    }
+
+    .mobile-day-strip .day-chip.active {
+      background: #f5f5f7;
+      color: #000000;
+      border-color: #f5f5f7;
+      box-shadow: none;
+    }
+
+    .mobile-day-strip .today-link {
+      --color: #4298d2;
+    }
+
+    .agenda-range-label {
+      color: #f5f5f7;
+    }
+
+    .mobile-date-header {
+      background: rgba(0, 0, 0, 0.92);
+      backdrop-filter: saturate(180%) blur(20px);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      border-bottom-color: rgba(255, 255, 255, 0.12);
+      box-shadow: none;
+    }
+
+    .mobile-date-header .date-day {
+      color: #f5f5f7;
+    }
+
+    .mobile-date-header .date-month {
+      color: #8e8e93;
+    }
+
+    .mobile-timeline-simple {
+      background: #000000;
+
+      .timeline-row {
+        border-bottom-color: rgba(255, 255, 255, 0.08);
+
+        &:active {
+          background-color: rgba(255, 255, 255, 0.03);
+        }
+
+        &.happening-now {
+          background: rgba(255, 59, 48, 0.05);
+        }
+      }
+
+      .time-column .time-display {
+        color: #8e8e93;
+      }
+    }
+
+    .timeline-card {
+      background: #1c1c1e;
+      border-color: #3a3a3c;
+      box-shadow: none;
+
+      &.clickable:hover {
+        border-color: #48484a;
+      }
+
+      &.trial-lesson {
+        border-left-color: #FF9500;
+      }
+
+      &.past {
+        background: #1c1c1e;
+        border-color: rgba(255, 255, 255, 0.06);
+
+        .time-range {
+          background: #2c2c2e;
+          border-color: #3a3a3c;
+          color: #636366;
+        }
+
+        .card-text .title {
+          color: #636366;
+        }
+
+        .card-text .subtitle {
+          color: #48484a;
+        }
+
+        .meta {
+          color: #48484a;
+
+          &::before {
+            background: #3a3a3c;
+          }
+        }
+
+        .location {
+          background: #2c2c2e;
+          color: #636366;
+        }
+      }
+
+      &.office-hours {
+        background: rgba(255, 149, 0, 0.1);
+        border-left-color: #FF9500;
+      }
+
+      &.is-cancelled {
+        .card-text .title,
+        .card-text .subtitle {
+          color: #636366;
+        }
+      }
+    }
+
+    .timeline-card .card-text .title {
+      color: #f5f5f7;
+    }
+
+    .timeline-card .card-text .subtitle {
+      color: #8e8e93;
+    }
+
+    .timeline-card .time-range {
+      background: #2c2c2e;
+      border-color: #3a3a3c;
+      color: #8e8e93;
+    }
+
+    .timeline-card .meta {
+      color: #636366;
+
+      &::before {
+        background: #3a3a3c;
+      }
+    }
+
+    .timeline-card .location {
+      background: #2c2c2e;
+      color: #8e8e93;
+    }
+
+    .timeline-card .card-avatar {
+      border-color: #1c1c1e;
+    }
+
+    .timeline-marker {
+      box-shadow: none;
+    }
+
+    .timeline-entry.free .timeline-marker {
+      background: #48484a;
+    }
+
+    .timeline-entry.past .timeline-marker {
+      background: #3a3a3c !important;
+    }
+
+    .trial-corner-badge {
+      box-shadow: 0 1px 4px rgba(255, 149, 0, 0.3), 0 0 0 2px #1c1c1e;
+    }
+
+    .office-hours-corner-badge {
+      box-shadow: 0 1px 4px rgba(255, 149, 0, 0.3), 0 0 0 2px #1c1c1e;
+    }
+
+    .timeline-empty {
+      ion-icon {
+        color: #3a3a3c;
+      }
+
+      p {
+        color: #636366;
+      }
+    }
+
+    // Agenda view dark mode
+    .mobile-agenda {
+      background: #000000;
+    }
+
+    .agenda-section {
+      background: #000000;
+      border-bottom-color: rgba(255, 255, 255, 0.08);
+    }
+
+    .agenda-header {
+      .agenda-label {
+        color: #f5f5f7;
+      }
+
+      .agenda-date {
+        color: #8e8e93;
+      }
+    }
+
+    .agenda-relative {
+      background: #2c2c2e;
+      border-color: #3a3a3c;
+      color: #f5f5f7;
+    }
+
+    .agenda-card {
+      background: #1c1c1e;
+      border-color: #3a3a3c;
+      box-shadow: none;
+
+      &.past {
+        background: #1c1c1e;
+        border-color: rgba(255, 255, 255, 0.06);
+      }
+
+      &.free {
+        background: rgba(255, 255, 255, 0.03);
+        border-color: #3a3a3c;
+      }
+
+      .card-text .title {
+        color: #f5f5f7;
+      }
+
+      .card-text .subtitle {
+        color: #8e8e93;
+      }
+
+      .time-range {
+        background: #2c2c2e;
+        border-color: #3a3a3c;
+        color: #8e8e93;
+      }
+
+      .meta {
+        color: #636366;
+
+        &::before {
+          background: #3a3a3c;
+        }
+      }
+
+      .location {
+        background: #2c2c2e;
+        color: #8e8e93;
+      }
+
+      .card-avatar {
+        border-color: #1c1c1e;
+      }
+    }
+
+    .agenda-empty {
+      color: #636366;
+    }
+
+    .free-duration {
+      color: #636366;
+    }
+
+    .free-add-icon,
+    .free-add-icon ion-icon {
+      color: #636366;
+    }
+
+    .mobile-calendar-wrapper {
+      background: #000000;
+    }
+  }
+
+  .feedback-banner-airbnb {
+    background: rgba(255, 138, 0, 0.2);
+    border-color: rgba(255, 192, 133, 0.5);
+    box-shadow: 0 2px 12px rgba(255, 138, 0, 0.2);
+
+    &:hover {
+      background: rgba(255, 138, 0, 0.25);
+      border-color: rgba(255, 179, 102, 0.5);
+    }
+
+    .feedback-banner-title {
+      color: #f5f5f7;
+    }
+
+    .feedback-banner-subtitle {
+      color: #8e8e93;
+    }
+
+    .feedback-banner-cta {
+      background: #4298d2;
+      color: #fff;
+
+      &:hover {
+        background: #3583b8;
+      }
+    }
+  }
+
+  .airbnb-no-lessons {
+    ion-icon {
+      color: #3a3a3c;
+    }
+
+    p {
+      color: #8e8e93;
+    }
+  }
+
+  .feedback-modal-icon {
+    border-color: #3a3a3c;
+
+    ion-icon {
+      color: #f5f5f7;
+    }
+  }
+
+  .calendar-loading-overlay {
+    background: rgba(0, 0, 0, 0.6);
+  }
+}
+
+// ── Mobile platform toolbar ──────────────────────────────────────
+// When the desktop calendar is rendered on a mobile device,
+// place the view-switcher inline with nav buttons
+.custom-toolbar.mobile-toolbar {
+  padding: 10px 14px;
+  justify-content: center;
+  position: relative;
+
+  .toolbar-left {
+    gap: 6px;
+    flex-shrink: 0;
+    z-index: 2;
+  }
+
+  .nav-btn {
+    width: 30px;
+    height: 30px;
+
+    ion-icon {
+      font-size: 14px;
+    }
+  }
+
+  .today-btn {
+    padding: 5px 12px;
+    font-size: 12px;
+    border-radius: 16px;
+  }
+
+  .view-switcher-mobile {
+    margin-left: 4px;
+    border-radius: 16px;
+
+    button {
+      padding: 5px 10px;
+      font-size: 11px;
+    }
+  }
+
+  .toolbar-center {
+    position: absolute;
+    left: 0;
+    right: 0;
+    text-align: center;
+    pointer-events: none;
+    z-index: 1;
+
+    .calendar-title {
+      font-size: 16px;
+      font-weight: 600;
+      pointer-events: auto;
+    }
+  }
+}
+
+// Hide sidebar on mobile platform
+.mobile-toolbar ~ .calendar-sidebar,
+:host-context(.mobile-toolbar) .calendar-sidebar {
+  display: none;
+}
+
+// When the calendar-layout has the mobile-toolbar descendant,
+// adjust the grids via a top-level selector
+.calendar-layout:has(.mobile-toolbar) {
+  .calendar-sidebar {
+    display: none !important;
+  }
+
+  .main-calendar {
+    position: relative !important;
+    left: 0 !important;
+    width: 100% !important;
+  }
+
+  .week-header {
+    grid-template-columns: 44px repeat(7, 1fr);
+
+    .day-header {
+      padding: 8px 2px;
+
+      .day-name {
+        font-size: 10px;
+      }
+
+      .day-number {
+        font-size: 12px;
+        width: 26px;
+        height: 26px;
+        line-height: 26px;
+      }
+    }
+  }
+
+  .week-body {
+    grid-template-columns: 44px 1fr;
+
+    .time-column .time-slot {
+      padding-right: 4px;
+
+      .time-label {
+        font-size: 9px;
+      }
+    }
+
+    .day-columns .day-column .event-container .calendar-event {
+      padding: 2px 3px;
+
+      .event-time {
+        font-size: 9px;
+      }
+
+      .event-avatar {
+        width: 16px;
+        height: 16px;
+      }
+
+      .event-title {
+        font-size: 10px;
+      }
+    }
+  }
+
+  .custom-day-view {
+    .day-view-header {
+      padding: 10px 14px;
+
+      h3 {
+        font-size: 16px;
+      }
+
+      p {
+        font-size: 12px;
+      }
+    }
+
+    .day-view-body {
+      grid-template-columns: 44px 1fr;
+
+      .time-column .time-slot {
+        padding-right: 4px;
+
+        .time-label {
+          font-size: 9px;
+        }
+      }
+    }
+  }
+}
+
+// Dark mode for mobile toolbar (desktop calendar on mobile device)
+:host-context(html.ion-palette-dark) {
+  .custom-toolbar.mobile-toolbar {
+    background: #000000;
+    border-bottom-color: rgba(255, 255, 255, 0.15);
+
+    .nav-btn {
+      background: #2c2c2e;
+      border-color: #3a3a3c;
+
+      ion-icon {
+        color: #f5f5f7;
+      }
+    }
+
+    .today-btn {
+      background: #2c2c2e;
+      border-color: #3a3a3c;
+      color: #f5f5f7;
+    }
+
+    .calendar-title {
+      color: #f5f5f7;
+    }
+
+    .view-switcher-mobile {
+      border-color: #3a3a3c;
+
+      button {
+        background: #2c2c2e;
+        color: #8e8e93;
+
+        &:not(:last-child) {
+          border-right-color: #3a3a3c;
+        }
+
+        &.active {
+          background: #4298d2;
+          color: #fff;
+        }
+      }
+    }
   }
 }
 

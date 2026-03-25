@@ -108,6 +108,58 @@ const userSchema = new mongoose.Schema({
       default: null
     }
   },
+  // Tutor credential verification documents
+  tutorCredentials: {
+    governmentId: {
+      url: { type: String, default: null },
+      fileName: { type: String, default: null },
+      fileType: { type: String, default: null },
+      uploadedAt: { type: Date, default: null },
+      status: {
+        type: String,
+        enum: ['not_uploaded', 'pending', 'approved', 'rejected'],
+        default: 'not_uploaded'
+      },
+      reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+      reviewedAt: { type: Date, default: null },
+      rejectionReason: { type: String, default: null }
+    },
+    teachingCertifications: [{
+      url: { type: String, required: true },
+      fileName: { type: String, required: true },
+      fileType: { type: String, default: null },
+      certificationName: { type: String, default: '' },
+      uploadedAt: { type: Date, default: Date.now },
+      status: {
+        type: String,
+        enum: ['pending', 'approved', 'rejected'],
+        default: 'pending'
+      },
+      reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+      reviewedAt: { type: Date, default: null },
+      rejectionReason: { type: String, default: null }
+    }],
+    additionalDocuments: [{
+      url: { type: String, required: true },
+      fileName: { type: String, required: true },
+      fileType: { type: String, default: null },
+      documentType: {
+        type: String,
+        enum: ['degree', 'resume', 'reference_letter', 'other'],
+        default: 'other'
+      },
+      label: { type: String, default: '' },
+      uploadedAt: { type: Date, default: Date.now },
+      status: {
+        type: String,
+        enum: ['pending', 'approved', 'rejected'],
+        default: 'pending'
+      },
+      reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+      reviewedAt: { type: Date, default: null },
+      rejectionReason: { type: String, default: null }
+    }]
+  },
   // Whether tutor is approved and can show up in searches
   tutorApproved: {
     type: Boolean,
@@ -132,6 +184,27 @@ const userSchema = new mongoose.Schema({
       type: String,
       trim: true
     },
+    // Structured learning goal (student-only, powers the Learning Plan)
+    learningGoal: {
+      type: {
+        type: String,
+        enum: ['conversational', 'exam_prep', 'professional', 'travel', 'relocation', 'other'],
+        default: null
+      },
+      description: { type: String, default: '' },
+      targetLevel: { type: String, default: '' },
+      selfAssessedLevel: {
+        type: String,
+        enum: ['complete_beginner', 'some_basics', 'simple_conversations', 'intermediate', 'advanced', null],
+        default: null
+      },
+      timeline: {
+        type: String,
+        enum: ['specific_date', 'few_months', 'no_rush', null],
+        default: null
+      },
+      targetDate: { type: Date, default: null }
+    },
     // Tutor-specific fields
     experience: {
       type: String,
@@ -141,6 +214,12 @@ const userSchema = new mongoose.Schema({
       type: String,
       trim: true
     },
+    summary: {
+      type: String,
+      maxlength: 150,
+      trim: true,
+      default: ''
+    },
     bio: {
       type: String,
       maxlength: 1000,
@@ -148,7 +227,8 @@ const userSchema = new mongoose.Schema({
     },
     hourlyRate: {
       type: Number,
-      default: 25
+      default: 25,
+      min: [10, 'Minimum hourly rate is $10']
     },
     introductionVideo: {
       type: String,
@@ -222,7 +302,35 @@ const userSchema = new mongoose.Schema({
       type: Boolean,
       default: true,
       comment: 'Enable/disable AI analysis of lessons. When disabled, tutor must provide manual feedback.'
+    },
+    calendarTimeFormat: {
+      type: String,
+      enum: ['12h', '24h'],
+      default: '12h',
+      comment: 'Time display format on calendar (12-hour or 24-hour)'
+    },
+    calendarDefaultView: {
+      type: String,
+      enum: ['week', 'day'],
+      default: 'week',
+      comment: 'Default calendar view when opening availability setup'
     }
+  },
+  // Google Calendar integration
+  googleCalendar: {
+    connected: { type: Boolean, default: false },
+    accessToken: { type: String, default: null, select: false },
+    refreshToken: { type: String, default: null, select: false },
+    tokenExpiry: { type: Date, default: null },
+    calendarId: { type: String, default: 'primary', comment: 'Which Google Calendar to sync' },
+    email: { type: String, default: null, comment: 'Google account email used for calendar' },
+    syncEnabled: { type: Boolean, default: true, comment: 'Block availability when Google Calendar has events' },
+    pushToGoogle: { type: Boolean, default: true, comment: 'Push booked lessons to Google Calendar' },
+    lastSyncAt: { type: Date, default: null },
+    watchChannelId: { type: String, default: null },
+    watchResourceId: { type: String, default: null },
+    watchExpiration: { type: Date, default: null },
+    watchToken: { type: String, default: null }
   },
   // Native language for providing feedback in the user's language
   nativeLanguage: {
@@ -234,7 +342,7 @@ const userSchema = new mongoose.Schema({
   // Interface language preference for the app UI
   interfaceLanguage: {
     type: String,
-    enum: ['en', 'es', 'fr', 'pt', 'de'],
+    enum: ['en', 'es', 'fr', 'pt', 'de', 'it', 'ru', 'zh', 'ja', 'ko', 'ar', 'hi', 'nl', 'pl', 'tr', 'sv', 'no', 'da', 'fi', 'el', 'cs', 'ro', 'uk', 'vi', 'th', 'id', 'ms', 'he', 'fa'],
     default: 'en',
     trim: true,
     comment: 'Preferred language for app interface (UI text)'
@@ -267,12 +375,28 @@ const userSchema = new mongoose.Schema({
     default: false,
     comment: 'Whether tutors Connect account has payouts enabled'
   },
+  // Tax classification for payout routing
+  isUSPersonForTax: {
+    type: Boolean,
+    default: null,
+    comment: 'Is the tutor a US Person for tax purposes? (US citizen, resident, green card holder). null = not yet answered'
+  },
+  hasUSBankAccount: {
+    type: Boolean,
+    default: null,
+    comment: 'Does the tutor have a US bank account? Only relevant if isUSPersonForTax=true. null = not yet answered'
+  },
+  taxInfoCompletedAt: {
+    type: Date,
+    default: null,
+    comment: 'When the tutor completed the tax classification questions'
+  },
   // Payout method configuration
   payoutProvider: {
     type: String,
     enum: ['stripe', 'paypal', 'manual', 'none'],
     default: 'none',
-    comment: 'Selected payout method: stripe (Connect), paypal (PayPal Payouts), manual (bank transfer), none (not set up)'
+    comment: 'Selected payout method: stripe (US Person + US bank), paypal (US Person w/o US bank OR non-US), manual (fallback), none (not set up)'
   },
   payoutDetails: {
     paypalEmail: {
@@ -285,6 +409,16 @@ const userSchema = new mongoose.Schema({
       default: null,
       comment: 'Bank account details for manual transfers (encrypted/secure storage recommended)'
     }
+  },
+  tosAcceptedAt: {
+    type: Date,
+    default: null,
+    comment: 'When the tutor accepted the Terms of Service & Independent Contractor Agreement'
+  },
+  tosVersion: {
+    type: String,
+    default: null,
+    comment: 'Version of the TOS the tutor accepted (e.g. "1.0")'
   },
   defaultPaymentMethod: {
     type: String,
@@ -341,7 +475,11 @@ const userSchema = new mongoose.Schema({
         earnedAt: { type: Date, default: null },
         lastEvaluated: { type: Date, default: null },
         qualifyingStreak: { type: Number, default: 0 }
-      }
+      },
+      // How many times this tutor's profile was hidden because feedback
+      // exceeded the 2-hour grace window. Used as a negative ranking
+      // signal in tutor search (higher = deprioritized).
+      feedbackGraceViolations: { type: Number, default: 0 }
     }
   },
   // Tutor earnings tracking (internal balance system)
@@ -454,7 +592,32 @@ const userSchema = new mongoose.Schema({
   updatedAt: {
     type: Date,
     default: Date.now
-  }
+  },
+
+  // Content channel linking (for material ownership verification)
+  linkedChannels: {
+    youtubeChannelId: { type: String, default: null },
+    youtubeChannelUrl: { type: String, default: null, trim: true },
+    youtubeChannelName: { type: String, default: null },
+    youtubeChannelAvatar: { type: String, default: null },
+    youtubeSubscriberCount: { type: String, default: null },
+    youtubeVerified: { type: Boolean, default: false },
+    youtubeAccessToken: { type: String, default: null, select: false },
+    youtubeRefreshToken: { type: String, default: null, select: false },
+    vimeoChannelId: { type: String, default: null },
+    vimeoChannelUrl: { type: String, default: null, trim: true },
+    vimeoChannelName: { type: String, default: null },
+    vimeoChannelAvatar: { type: String, default: null },
+    vimeoVerified: { type: Boolean, default: false },
+    vimeoAccessToken: { type: String, default: null, select: false },
+    soundcloudProfileUrl: { type: String, default: null, trim: true },
+    soundcloudProfileName: { type: String, default: null },
+    soundcloudProfileAvatar: { type: String, default: null }
+  },
+
+  // Branding & referral tracking
+  materialReferralViews: { type: Number, default: 0 },
+  isAmbassador: { type: Boolean, default: false }
 });
 
 // Update the updatedAt field before saving

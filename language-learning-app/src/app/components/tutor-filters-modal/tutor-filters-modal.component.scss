@@ -1,0 +1,676 @@
+// Airbnb-inspired Tutor Filters Modal
+// Clean, modern design with excellent UX
+
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+// Header
+.modal-header {
+  ion-toolbar {
+    --background: #fff;
+    --border-width: 0;
+    padding: 8px 0;
+    
+    ion-title {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -0.2px;
+    }
+  }
+  
+  .close-btn {
+    --color: #222;
+    font-size: 22px;
+  }
+  
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: #ebebeb;
+  }
+}
+
+// Content
+.modal-content {
+  --background: #fff;
+  --padding-start: 24px;
+  --padding-end: 24px;
+  --padding-top: 16px;
+  --padding-bottom: 120px;
+}
+
+// Section Titles
+.section-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #222;
+  margin: 0 0 16px 0;
+  letter-spacing: -0.3px;
+}
+
+// Divider
+.divider {
+  height: 1px;
+  background: #ebebeb;
+  margin: 24px 0;
+}
+
+// Selected Chips Section — smooth reveal/collapse
+.selected-section {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.35s cubic-bezier(0.32, 0.72, 0, 1),
+              opacity 0.3s ease,
+              margin 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+  margin-bottom: 0;
+
+  &.visible {
+    max-height: 300px;
+    opacity: 1;
+    margin-bottom: 0;
+  }
+
+  .selected-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px;
+    background: #fff;
+    border: 1px solid #222;
+    border-radius: 30px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #222;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.15s ease;
+    animation: tfChipEnter 0.3s cubic-bezier(0.32, 0.72, 0, 1) both;
+    
+    &:hover {
+      background: #f7f7f7;
+    }
+    
+    &:active {
+      transform: scale(0.96);
+    }
+    
+    ion-icon {
+      font-size: 14px;
+      color: #717171;
+    }
+  }
+}
+
+// Divider that accompanies selected section
+.divider-selected {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  margin: 0;
+  transition: max-height 0.35s cubic-bezier(0.32, 0.72, 0, 1),
+              opacity 0.3s ease,
+              margin 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+
+  &.visible {
+    max-height: 1px;
+    opacity: 1;
+    margin: 24px 0;
+  }
+}
+
+@keyframes tfChipEnter {
+  0% {
+    opacity: 0;
+    transform: scale(0.85) translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+// Quick Picks Section
+.quick-picks-section {
+  .quick-picks-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    
+    @media (max-width: 500px) {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  
+  .quick-pick-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 8px;
+    background: #fff;
+    border: 1px solid #dddddd;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.25s ease, border-color 0.25s ease, transform 0.15s ease, box-shadow 0.25s ease;
+    
+    &:hover {
+      border-color: #222;
+    }
+    
+    &.active {
+      border-color: #222;
+      border-width: 2px;
+      background: #f7f7f7;
+    }
+    
+    .pick-icon {
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f7f7f7;
+      border-radius: 50%;
+      margin-bottom: 8px;
+      
+      ion-icon {
+        font-size: 24px;
+        color: #222;
+      }
+    }
+    
+    .pick-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #222;
+      text-align: center;
+    }
+  }
+}
+
+// Filter Sections
+.filter-section {
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    
+    .section-label {
+      font-size: 18px;
+      font-weight: 600;
+      color: #222;
+      letter-spacing: -0.2px;
+    }
+    
+    .section-value {
+      font-size: 14px;
+      font-weight: 400;
+      color: #717171;
+      margin-right: 8px;
+    }
+    
+    ion-icon {
+      font-size: 20px;
+      color: #222;
+    }
+  }
+  
+  .section-content {
+    padding-top: 20px;
+    animation: slideDown 0.2s ease;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// Search Input
+.search-input-wrapper {
+  position: relative;
+  margin-bottom: 16px;
+  
+  .search-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 18px;
+    color: #717171;
+  }
+  
+  .search-input {
+    width: 100%;
+    padding: 14px 40px 14px 44px;
+    border: 1px solid #dddddd;
+    border-radius: 12px;
+    font-size: 16px;
+    background: #fff;
+    transition: border-color 0.2s ease;
+    
+    &:focus {
+      outline: none;
+      border-color: #222;
+    }
+    
+    &::placeholder {
+      color: #717171;
+    }
+  }
+  
+  .clear-icon {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 20px;
+    color: #717171;
+    cursor: pointer;
+    
+    &:hover {
+      color: #222;
+    }
+  }
+}
+
+// Checkbox Grid (Languages & Countries)
+.checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+  max-height: 280px;
+  overflow-y: auto;
+  
+  @media (max-width: 400px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  
+  &:hover {
+    background: #f7f7f7;
+  }
+  
+  &.selected {
+    background: #f0f0f0;
+  }
+  
+  .checkbox {
+    width: 24px;
+    height: 24px;
+    border: 2px solid #dddddd;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+    
+    &.checked {
+      background: #222;
+      border-color: #222;
+      transform: scale(1.05);
+      
+      ion-icon {
+        color: #fff;
+        font-size: 14px;
+      }
+    }
+  }
+  
+  span {
+    font-size: 16px;
+    color: #222;
+    font-weight: 400;
+  }
+}
+
+// Price Slider
+.price-display {
+  font-size: 18px;
+  font-weight: 600;
+  color: #222;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.price-slider {
+  --bar-background: #dddddd;
+  --bar-background-active: #222;
+  --knob-background: #fff;
+  --knob-size: 32px;
+  --knob-box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  --pin-background: #222;
+  --pin-color: #fff;
+  
+  padding: 16px 0;
+}
+
+// Specialty Grid
+.specialty-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  
+  @media (max-width: 400px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.specialty-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid #dddddd;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  
+  &:hover {
+    border-color: #b0b0b0;
+  }
+  
+  &.selected {
+    border-color: #222;
+    border-width: 2px;
+    background: #f7f7f7;
+  }
+  
+  ion-icon {
+    font-size: 24px;
+    color: #222;
+  }
+  
+  span {
+    font-size: 14px;
+    font-weight: 500;
+    color: #222;
+  }
+  
+  .check-indicator {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 20px;
+    height: 20px;
+    background: #222;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: tfCheckPop 0.25s cubic-bezier(0.32, 0.72, 0, 1) both;
+    
+    ion-icon {
+      font-size: 12px;
+      color: #fff;
+    }
+  }
+}
+
+// Segmented Control (Availability)
+.segmented-control {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.segment-btn {
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid #dddddd;
+  border-radius: 10px;
+  font-size: 15px;
+  color: #222;
+  cursor: pointer;
+  transition: background 0.25s ease, border-color 0.25s ease, color 0.25s ease, font-weight 0.25s ease, transform 0.15s ease;
+  text-align: left;
+  
+  &:hover {
+    border-color: #b0b0b0;
+  }
+  
+  &.active {
+    border-color: #222;
+    border-width: 2px;
+    background: #f7f7f7;
+    font-weight: 500;
+  }
+}
+
+// Toggle Row (Native Speaker)
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  
+  .toggle-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    
+    ion-icon {
+      font-size: 28px;
+      color: #222;
+    }
+    
+    .toggle-text {
+      display: flex;
+      flex-direction: column;
+      
+      .toggle-label {
+        font-size: 16px;
+        font-weight: 500;
+        color: #222;
+      }
+      
+      .toggle-description {
+        font-size: 14px;
+        color: #717171;
+        margin-top: 2px;
+      }
+    }
+  }
+  
+  ion-toggle {
+    --background: #dddddd;
+    --background-checked: #222;
+    --handle-background: #fff;
+    --handle-background-checked: #fff;
+  }
+}
+
+// Gender Section
+.gender-section {
+  margin-top: 20px;
+  
+  .mini-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    color: #717171;
+    margin-bottom: 12px;
+  }
+  
+  .gender-buttons {
+    display: flex;
+    gap: 8px;
+    
+    .gender-btn {
+      flex: 1;
+      padding: 14px;
+      background: #fff;
+      border: 1px solid #dddddd;
+      border-radius: 10px;
+      font-size: 15px;
+      color: #222;
+      cursor: pointer;
+      transition: background 0.25s ease, border-color 0.25s ease, color 0.25s ease, transform 0.15s ease;
+      
+      &:hover {
+        border-color: #b0b0b0;
+      }
+      
+      &.active {
+        border-color: #222;
+        border-width: 2px;
+        background: #f7f7f7;
+        font-weight: 500;
+      }
+    }
+  }
+}
+
+// Footer
+.modal-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border-top: 1px solid #ebebeb;
+  padding: 16px 24px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 100;
+  
+  .footer-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 100%;
+  }
+  
+  .clear-all-btn {
+    padding: 12px 16px;
+    background: none;
+    border: none;
+    font-size: 16px;
+    font-weight: 600;
+    color: #222;
+    text-decoration: underline;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+    
+    &:hover {
+      opacity: 0.7;
+    }
+    
+    &:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+  }
+  
+  .show-results-btn {
+    padding: 14px 24px;
+    background: #222;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    min-width: 160px;
+    
+    &:hover {
+      background: #000;
+    }
+    
+    &:active {
+      transform: scale(0.98);
+    }
+    
+    .loading-dots {
+      letter-spacing: 2px;
+    }
+  }
+}
+
+// Custom scrollbar for checkbox grids
+.checkbox-grid::-webkit-scrollbar {
+  width: 6px;
+}
+
+.checkbox-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.checkbox-grid::-webkit-scrollbar-thumb {
+  background: #dddddd;
+  border-radius: 3px;
+  
+  &:hover {
+    background: #b0b0b0;
+  }
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+  .modal-content {
+    --padding-start: 20px;
+    --padding-end: 20px;
+  }
+  
+  .modal-footer {
+    padding: 14px 20px;
+    padding-bottom: calc(14px + env(safe-area-inset-bottom));
+  }
+  
+  .section-title {
+    font-size: 18px;
+  }
+  
+  .filter-section .section-header .section-label {
+    font-size: 16px;
+  }
+}
+
+@keyframes tfCheckPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  70% {
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

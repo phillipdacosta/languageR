@@ -15,29 +15,15 @@
 }
 
 // Mobile Global Header (visible on all pages for mobile only)
+// App brand: global .app-icon-container / .app-name (matches onboarding)
 .mobile-global-header {
   ion-toolbar {
     --background: #ffffff;
-    --color: #2c3e50;
-    --border-color: #e0e0e0;
-    --min-height: 60px;
-    border-bottom: 1px solid #e5e7eb;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  }
-
-  .app-icon-container {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 8px;
-    cursor: pointer;
-    margin-left: 4px;
-    
-    .app-icon {
-      width: 42px;
-      height: 42px;
-      border-radius: 10px;
-    }
+    --color: #222222;
+    --border-color: transparent;
+    --min-height: 56px;
+    border-bottom: 0.5px solid rgba(0, 0, 0, 0.08);
+    box-shadow: none;
   }
 
   .notification-btn {
@@ -46,27 +32,31 @@
     --padding-end: 12px;
     
     ion-icon {
-      font-size: 28px;
-      color: #1f2937; // Dark gray for visibility
+      font-size: 24px;
+      color: #222222;
     }
     
     .notification-dot {
       position: absolute;
-      top: -1px;
-      right: 1px;
-      width: 10px;
-      height: 10px;
-      background-color: #ef4444;
+      top: 0;
+      right: 4px;
+      width: 8px;
+      height: 8px;
+      background-color: #FF385C;
       border-radius: 50%;
-      border: 2px solid #ffffff;
+      border: 1.5px solid #ffffff;
     }
   }
 
   .header-avatar {
-    width: 42px;
-    height: 42px;
+    width: 36px;
+    height: 36px;
     margin-right: 12px;
     cursor: pointer;
+
+    @media (max-width: 968px) {
+      display: none;
+    }
     
     img {
       width: 100%;
@@ -80,10 +70,10 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: #222222;
       color: #ffffff;
       font-weight: 600;
-      font-size: 18px;
+      font-size: 15px;
     }
   }
 }
@@ -93,8 +83,8 @@
   --background: #ffffff;
   --color: #2c3e50;
   --border-color: #e0e0e0;
-  border-bottom: 1px solid #e5e7eb;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: none;
   position: fixed;
   top: 0;
   left: 0;
@@ -103,57 +93,53 @@
   backdrop-filter: blur(10px);
   background: rgba(255, 255, 255, 0.95);
   
+  // // Adjust toolbar for Airbnb-style active indicator line on desktop
+  // @media (min-width: 992px) {
+  //   --min-height: 80px;
+  // }
+  
   ion-title {
     font-weight: 600;
     font-size: 18px;
   }
   
   .app-icon-container {
-    display: flex;
-    align-items: center;
     margin-left: 16px;
-    cursor: pointer;
-    padding: 8px;
-    border-radius: 8px;
-    transition: background-color 0.2s ease, transform 0.2s ease;
-    
-    &:hover {
-      background-color: rgba(0, 0, 0, 0.05);
-      transform: scale(1.05);
-    }
-    
-    &:active {
-      transform: scale(0.95);
-    }
-    
-    .app-icon {
-      width: 40px;
-      height: 40px;
-      object-fit: contain;
-    }
   }
-  
+
   .user-profile {
     display: flex;
     align-items: center;
     margin-left: 8px;
-    padding: 4px;
-    border-radius: 8px;
-    transition: background-color 0.2s ease;
+    padding: 3px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 2px solid transparent;
     
     &:hover {
       background-color: rgba(0, 0, 0, 0.05);
     }
+
+    &.active {
+      border-color: #000000;
+    }
     
     .user-avatar {
-      width: 36px;
-      height: 36px;
+      width: 34px;
+      height: 34px;
+      overflow: hidden;
+      
+      &,
+      &.user-avatar {
+        border-radius: 50% !important;
+      }
       
       img {
         width: 100%;
         height: 100%;
         object-fit: cover;
-        border-radius: 9px !important;
+        border-radius: 50% !important;
       }
       
       .user-initials {
@@ -166,7 +152,7 @@
         color: white;
         font-weight: 600;
         font-size: 12px;
-        border-radius: 16px;
+        border-radius: 50% !important;
       }
     }
   }
@@ -174,105 +160,293 @@
   .desktop-nav-buttons {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 14px;
     margin-right: 16px;
-    
-    .nav-button {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 8px 12px;
-      background: transparent;
-      border: 1px solid transparent;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-      color: #6c757d;
-      text-decoration: none;
-      min-width: 65px;
-      position: relative;
-      gap: 3px;
-      
-      ion-icon {
-        font-size: 20px;
-        transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative; // For sliding pill / underline positioning
+
+    // Only apply Airbnb-style tabs on desktop (min-width: 992px)
+    @media (min-width: 992px) {
+      // Slides between tabs like the legacy underline; draws the active pill border
+      .nav-underline-indicator {
+        display: block;
+        position: absolute;
+        z-index: 0;
+        box-sizing: border-box;
+        border-radius: 100px;
+        border: 1px solid #e8e8e8;
+        background: transparent;
+        pointer-events: none;
+        transition:
+          left 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+          width 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+          top 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+          height 0.38s cubic-bezier(0.4, 0, 0.2, 1);
       }
-      
-      ion-label {
-        font-size: 11px;
-        font-weight: 500;
-        letter-spacing: 0.1px;
-        transition: color 0.25s ease;
-      }
-      
-      &:hover {
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-        color: #007bff;
-        border-color: #dee2e6;
-        transform: translateY(-1px);
-        box-shadow: 0 2px 8px rgba(0, 123, 255, 0.15);
+
+      .nav-button {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        padding: 6px 12px;
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 100px;
+        cursor: pointer;
+        transition:
+          color 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+          border-color 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+          background 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+        color: #717171;
+        text-decoration: none;
+        position: relative;
+        z-index: 1;
+        gap: 8px;
+        height: auto;
+        min-width: auto;
+        outline: none;
+        box-shadow: none;
+        -webkit-tap-highlight-color: transparent;
+
+        &:focus,
+        &:focus-visible {
+          outline: none;
+          box-shadow: none;
+        }
         
-        ion-icon {
-          transform: scale(1.1);
+        // Icons commented out
+        // ion-icon {
+        //   font-size: 18px;
+        //   color: inherit;
+        //   transition: color 0.2s ease;
+        // }
+        
+        ion-label {
+          display: inline-flex;
+          flex-direction: column;
+          align-items: center;
+          font-size: 14px;
+          font-weight: 400;
+          letter-spacing: -0.01em;
+          color: inherit;
+          transition: color 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+
+          &::after {
+            content: attr(data-text);
+            font-weight: 600;
+            height: 0;
+            overflow: hidden;
+            visibility: hidden;
+            pointer-events: none;
+            user-select: none;
+          }
+        }
+
+        &:hover {
+          background: transparent;
+          color: #222222;
+          transform: none;
+          box-shadow: none;
+        }
+
+        &.active {
+          background: transparent;
+          color: #222222;
+          border-color: transparent;
+          box-shadow: none;
+          transform: none;
+
+          ion-label {
+            color: #0060a3;
+            font-weight: 600;
+          }
+        }
+
+        &.notification-btn {
+          position: relative;
+
+          ion-icon {
+            font-size: 18px;
+            color: inherit;
+            display: block;
+            transition: color 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+          }
+
+          .notification-dot {
+            position: absolute;
+            width: 11px;
+            height: 11px;
+            background-color: #ff3b30;
+            border-radius: 50%;
+            top: 1px;
+            right: 9px;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(255, 59, 48, 0.5);
+            z-index: 999;
+          }
+        }
+        
+        // Messages button notification dot - positioned closer to icon
+        .message-notification-dot {
+          position: absolute !important;
+          width: 10px !important;
+          height: 10px !important;
+          background-color: #ff3b30 !important;
+          border-radius: 50% !important;
+          top: -2px !important;
+          right: 74px !important;
+          border: 2px solid white !important;
+          box-shadow: 0 2px 4px rgba(255, 59, 48, 0.5) !important;
+          z-index: 9999 !important;
+          display: block !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+          pointer-events: none !important;
+        }
+
+        // Messages button
+        &.messages-button {
+          position: relative;
+          margin-right: 0;
+          transition: margin-right 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+
+          // Add extra space after button when badge is visible
+          &:has(.new-badge) {
+            margin-right: 28px;
+          }
+        }
+
+        // "new" badge — floats in the gap space after "Messages" text
+        &.messages-button .new-badge {
+          position: absolute;
+          left: 100%;
+          top: 50%;
+          transform: translateY(-50%);
+          margin-left: 6px;
+          font-size: 9px;
+          font-weight: 600;
+          letter-spacing: 0.02em;
+          text-transform: uppercase;
+          color: #ff3b30;
+          background: rgba(255, 59, 48, 0.1);
+          padding: 2px 6px;
+          border-radius: 4px;
+          line-height: 1;
+          pointer-events: none;
+          white-space: nowrap;
+          animation: newBadgeSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
       }
-      
-      &.active {
-        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-        color: white;
-        border-color: #007bff;
-        box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
-        transform: translateY(-1px);
+
+      .notification-container {
+        z-index: 1;
+      }
+
+      .user-profile {
+        position: relative;
+        z-index: 1;
+      }
+    }
+
+    // Fallback for smaller screens (keep original style)
+    @media (max-width: 991px) {
+      .nav-button {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 8px 12px;
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        color: #6c757d;
+        text-decoration: none;
+        min-width: 65px;
+        position: relative;
+        gap: 3px;
         
         ion-icon {
-          color: white;
-          transform: scale(1.05);
+          font-size: 20px;
+          transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
         
         ion-label {
+          font-size: 11px;
+          font-weight: 500;
+          letter-spacing: 0.1px;
+          transition: color 0.25s ease;
+        }
+        
+        &:hover {
+          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+          color: #007bff;
+          border-color: #dee2e6;
+          transform: translateY(-1px);
+          box-shadow: 0 2px 8px rgba(0, 123, 255, 0.15);
+          
+          ion-icon {
+            transform: scale(1.1);
+          }
+        }
+        
+        &.active {
+          background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
           color: white;
-          font-weight: 600;
+          border-color: #007bff;
+          box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+          transform: translateY(-1px);
+          
+          ion-icon {
+            color: white;
+            transform: scale(1.05);
+          }
+          
+          ion-label {
+            color: white;
+            font-weight: 600;
+          }
         }
-      }
-      
-      &.notification-btn {
-        position: relative;
         
-        ion-icon {
-          color: #1f2937; // Dark gray for visibility
+        &.notification-btn {
+          position: relative;
+          
+          ion-icon {
+            color: #1f2937; // Dark gray for visibility
+          }
+          
+          .notification-dot {
+            position: absolute;
+            width: 11px;
+            height: 11px;
+            background-color: #ff3b30;
+            border-radius: 50%;
+            top: 0px;
+            right: 15px;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(255, 59, 48, 0.5);
+            z-index: 999;
+          }
         }
         
-        .notification-dot {
-          position: absolute;
-          width: 11px;
-          height: 11px;
-          background-color: #ff3b30;
-          border-radius: 50%;
-          top: 0px;
-          right: 15px;
-          border: 2px solid white;
-          box-shadow: 0 2px 4px rgba(255, 59, 48, 0.5);
-          z-index: 999;
+        // Messages button notification dot - positioned closer to icon
+        .message-notification-dot {
+          position: absolute !important;
+          width: 10px !important;
+          height: 10px !important;
+          background-color: #ff3b30 !important;
+          border-radius: 50% !important;
+          top: 4px !important;
+          right: 28px !important;
+          border: 2px solid white !important;
+          box-shadow: 0 2px 4px rgba(255, 59, 48, 0.5) !important;
+          z-index: 9999 !important;
+          display: block !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+          pointer-events: none !important;
         }
-      }
-      
-      // Messages button notification dot - positioned closer to icon
-      .message-notification-dot {
-        position: absolute !important;
-        width: 10px !important;
-        height: 10px !important;
-        background-color: #ff3b30 !important;
-        border-radius: 50% !important;
-        top: 4px !important;
-        right: 28px !important;
-        border: 2px solid white !important;
-        box-shadow: 0 2px 4px rgba(255, 59, 48, 0.5) !important;
-        z-index: 9999 !important;
-        display: block !important;
-        opacity: 1 !important;
-        visibility: visible !important;
-        pointer-events: none !important;
       }
     }
     
@@ -540,20 +714,20 @@
           
           .notification-text {
             margin: 0;
-            font-size: 15px;
-            color: #1d1d1f;
+            font-size: 13px;
+            color: var(--notif-text-color, #1d1d1f);
             font-weight: 400;
             line-height: 1.4;
             letter-spacing: -0.01em;
             
             strong {
-              font-weight: 500 !important;
-              color: #1d1d1f !important;
+              font-weight: 600;
+              color: var(--notif-strong-color, #1d1d1f);
             }
             
             ::ng-deep strong {
-              font-weight: 500 !important;
-              color: #1d1d1f !important;
+              font-weight: 600;
+              color: var(--notif-strong-color, #1d1d1f);
             }
             
             .notification-emoji {
@@ -580,6 +754,53 @@
             font-weight: 400;
             letter-spacing: -0.008em;
             line-height: 1.33333;
+          }
+          
+          // Add availability button (plain HTML button for easy styling)
+          .add-availability-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            width: fit-content;
+            height: 28px;
+            padding: 0 12px;
+            margin: 8px 0 4px 0;
+            font-size: 13px;
+            font-weight: 600;
+            color: white;
+            background: #222222;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+            
+            ion-icon {
+              font-size: 14px;
+              flex-shrink: 0;
+            }
+            
+            &:hover {
+              background: #333333;
+              transform: translateY(-1px);
+              box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            }
+            
+            &:active {
+              background: #000000;
+              transform: translateY(0);
+            }
+            
+            &.milestone-btn {
+              background: linear-gradient(135deg, #f59e0b, #d97706);
+              
+              &:hover {
+                background: linear-gradient(135deg, #d97706, #b45309);
+                box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+              }
+            }
           }
           
           // Dispute Button
@@ -721,7 +942,7 @@
             }
           }
         }
-        
+
         .notification-item-right {
           margin-left: 12px;
           flex-shrink: 0;
@@ -1074,74 +1295,86 @@
   }
 }
 
-// Mobile-specific styling
+// Mobile-specific styling — Airbnb-clean tab bar
 .platform-ios,
 .platform-android {
   ion-tab-bar {
-    --ion-tab-bar-height: 58px;
+    --ion-tab-bar-height: 52px;
     --ion-tab-bar-background: #ffffff;
-    --ion-tab-bar-border-color: #e5e7eb;
-    border-top: 1px solid #e5e7eb;
-    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
-    padding-top: 2px;
+    --ion-tab-bar-border-color: transparent;
+    border-top: 0.5px solid rgba(0, 0, 0, 0.08);
+    box-shadow: none;
+    padding-top: 4px;
     padding-bottom: 2px;
     max-width: 100vw;
     overflow: hidden;
     
     ion-tab-button {
-      --color: #8e8e93;
-      --color-selected: #007aff;
+      --color: #717171;
+      --color-selected: #222222;
       position: relative !important;
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: color 0.15s ease;
       flex: 1;
       min-width: 0;
       
       &::part(native) {
         position: relative !important;
         padding: 4px 6px;
-        border-radius: 10px;
-        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        border-radius: 0;
+        transition: color 0.15s ease;
         max-width: 100%;
+        background: transparent;
       }
       
-      // Custom selected state for calendar tab on availability-setup routes
-      // This needs to override Ionic's internal .tab-selected class
+      // Custom selected state — Airbnb just darkens the icon + label, no background
       &.tab-selected,
       &.tab-selected.ion-activatable {
-        --color: var(--ion-color-primary, #007aff) !important;
-        --color-selected: var(--ion-color-primary, #007aff) !important;
+        --color: #222222 !important;
+        --color-selected: #222222 !important;
         --background: transparent !important;
         --background-focused: transparent !important;
         --background-focused-opacity: 0 !important;
         --ripple-color: transparent !important;
         
         &::part(native) {
-          color: var(--ion-color-primary, #007aff) !important;
-          background: linear-gradient(135deg, rgba(0, 122, 255, 0.1) 0%, rgba(0, 86, 179, 0.1) 100%) !important;
+          color: #222222 !important;
+          background: transparent !important;
         }
         
         ion-icon {
-          color: var(--ion-color-primary, #007aff) !important;
+          color: #222222 !important;
           opacity: 1 !important;
-          transform: scale(1.08);
         }
         
         ion-label {
-          color: var(--ion-color-primary, #007aff) !important;
+          color: #222222 !important;
           opacity: 1 !important;
           font-weight: 600 !important;
         }
       }
       
+      // Profile avatar tab — selected ring
+      &.profile-avatar-tab {
+        .tab-avatar {
+          transition: box-shadow 0.15s ease, border-color 0.15s ease;
+        }
+        
+        &.tab-selected .tab-avatar,
+        &[aria-selected="true"] .tab-avatar {
+          border-color: #222222;
+          box-shadow: 0 0 0 1.5px #222222;
+        }
+      }
+      
       ion-icon {
         font-size: 22px;
-        transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: color 0.15s ease;
       }
       
       ion-label {
         font-size: 10px;
         font-weight: 500;
-        letter-spacing: 0.1px;
+        letter-spacing: 0;
         margin-top: 2px;
         white-space: nowrap;
         overflow: hidden;
@@ -1197,6 +1430,23 @@
         pointer-events: none !important;
       }
     }
+  }
+}
+
+// Tab avatar (Profile tab with user photo) — Airbnb style
+.tab-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1.5px solid transparent;
+  flex-shrink: 0;
+  
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
   }
 }
 
@@ -1345,8 +1595,8 @@ ion-tab-button {
 }
 
 
-// Dark mode support
-@media (prefers-color-scheme: dark) {
+// Dark mode support (class-based toggle via ThemeService)
+:host-context(html.ion-palette-dark) {
   .platform-web {
     --ion-tab-bar-background: #1a1a1a;
     --ion-tab-bar-border-color: #333333;
@@ -1359,32 +1609,76 @@ ion-tab-button {
   
   .platform-ios,
   .platform-android {
-    --ion-tab-bar-background: #1c1c1e;
-    --ion-tab-bar-border-color: #38383a;
+    ion-tab-bar {
+      --ion-tab-bar-background: #1c1c1e;
+      --ion-tab-bar-border-color: transparent;
+      border-top-color: rgba(255, 255, 255, 0.08);
+    }
     
     ion-tab-button {
       --color: #8e8e93;
-      --color-selected: #0a84ff;
+      --color-selected: #ffffff;
+      
+      &.tab-selected,
+      &.tab-selected.ion-activatable {
+        --color: #ffffff !important;
+        --color-selected: #ffffff !important;
+        
+        &::part(native) {
+          color: #ffffff !important;
+        }
+        
+        ion-icon {
+          color: #ffffff !important;
+        }
+        
+        ion-label {
+          color: #ffffff !important;
+        }
+      }
+      
+      &.profile-avatar-tab {
+        &.tab-selected .tab-avatar,
+        &[aria-selected="true"] .tab-avatar {
+          border-color: #ffffff;
+          box-shadow: 0 0 0 1.5px #ffffff;
+        }
+      }
     }
   }
   
+  .app-name {
+    color: #ffffff !important;
+  }
+
   .desktop-nav-toolbar {
-    --background: #1a1a1a;
+    --background: #1c1c1e;
     --color: #ffffff;
-    --border-color: #333333;
-    border-bottom-color: #333333;
+    --border-color: rgba(255, 255, 255, 0.08);
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+    background: rgba(28, 28, 30, 0.95) !important;
     
     .app-icon-container {
       &:hover {
-        background-color: rgba(255, 255, 255, 0.1);
+        background-color: rgba(255, 255, 255, 0.08);
       }
     }
     
     .user-profile {
+      background: transparent;
+      
       &:hover {
-        background-color: rgba(255, 255, 255, 0.1);
+        background-color: rgba(255, 255, 255, 0.08);
+      }
+
+      &.active {
+        border-color: #ffffff;
       }
       
+      .user-avatar img {
+        border-radius: 50% !important;
+      }
+
       .user-info {
         .user-name {
           color: #ffffff;
@@ -1398,31 +1692,559 @@ ion-tab-button {
     
     .desktop-nav-buttons {
       .nav-button {
-        color: #8e8e93;
-        
+        color: rgba(255, 255, 255, 0.6);
+        background: transparent !important;
+        border: none !important;
+
         &:hover {
-          background: #2a2a2a;
+          background: transparent !important;
           color: #ffffff;
-          border-color: #444444;
         }
-        
+
         &.active {
-          background: #0a84ff;
-          color: white;
-          border-color: #0a84ff;
+          background: transparent !important;
+          color: #ffffff !important;
+          box-shadow: none !important;
+
+          ion-label {
+            color: #ffffff !important;
+            font-weight: 600;
+          }
         }
-        
+
+        ion-label {
+          color: inherit;
+        }
+
         &.logout-button {
           &:hover {
-            background: #dc3545;
-            color: white;
-            border-color: #dc3545;
+            background: transparent !important;
+            color: #ff453a !important;
           }
+        }
+
+        &.notification-btn {
+          color: rgba(255, 255, 255, 0.6);
+
+          &:hover {
+            color: #ffffff;
+          }
+
+          .notification-dot {
+            border-color: #1c1c1e !important;
+          }
+        }
+      }
+
+      @media (min-width: 992px) {
+        .nav-underline-indicator {
+          display: block;
+          position: absolute;
+          z-index: 0;
+          box-sizing: border-box;
+          border-radius: 100px;
+          border: 1px solid rgba(255, 255, 255, 0.22);
+          background: transparent;
+          pointer-events: none;
+          transition:
+            left 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+            width 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+            top 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+            height 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .nav-button {
+          border: 1px solid transparent !important;
+          border-radius: 100px;
+          padding: 6px 12px;
+          transition:
+            color 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+            border-color 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+          z-index: 1;
+
+          ion-label {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 14px;
+            font-weight: 400;
+            transition: color 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+
+            &::after {
+              content: attr(data-text);
+              font-weight: 600;
+              height: 0;
+              overflow: hidden;
+              visibility: hidden;
+              pointer-events: none;
+              user-select: none;
+            }
+          }
+
+          &.active {
+            border-color: transparent !important;
+
+            ion-label {
+              font-weight: 600;
+            }
+          }
+
+          &.notification-btn ion-icon {
+            display: block;
+            transition: color 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+          }
+        }
+
+        .notification-container {
+          z-index: 1;
+        }
+
+        .user-profile {
+          position: relative;
+          z-index: 1;
+        }
+      }
+    }
+  }
+
+  .mobile-global-header {
+    ion-toolbar {
+      --background: #1c1c1e !important;
+      --color: #ffffff !important;
+      border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+    }
+
+    .notification-btn ion-icon {
+      color: #f5f5f7 !important;
+    }
+
+    .notification-dot {
+      border-color: #1c1c1e !important;
+    }
+
+    .header-avatar .avatar-initial {
+      background: #f5f5f7 !important;
+      color: #000 !important;
+    }
+  }
+
+  // Notification Dropdown — dark mode
+  .notification-dropdown {
+    --notif-text-color: #f5f5f7;
+    --notif-strong-color: #ffffff;
+    background: #242426 !important;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08);
+
+    .notification-dropdown-header {
+      border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+
+      .notification-title { color: #f5f5f7 !important; }
+      .notification-settings-icon {
+        color: #8e8e93 !important;
+        &:hover { color: #f5f5f7 !important; }
+      }
+      .notification-close-btn {
+        color: #8e8e93 !important;
+        &:hover { color: #f5f5f7 !important; }
+      }
+    }
+
+    .notification-dropdown-content {
+      .notification-loading {
+        ion-spinner { --color: #4298d2 !important; }
+        p { color: #8e8e93 !important; }
+      }
+
+      .notification-section-title { color: #8e8e93 !important; }
+
+      .notification-item {
+        background: transparent !important;
+        box-shadow: none !important;
+
+        &.unread { background: rgba(66, 152, 210, 0.1) !important; }
+        &:hover { background: rgba(255, 255, 255, 0.06) !important; }
+        &.unread:hover { background: rgba(66, 152, 210, 0.15) !important; }
+
+        .notification-text {
+          color: #f5f5f7 !important;
+        }
+        .notification-time { color: #636366 !important; }
+        .notification-avatar { border-color: rgba(255, 255, 255, 0.12) !important; }
+
+        .notification-icon-wrapper {
+          &:not(.lesson-icon):not(.analysis-icon):not(.class-invitation-icon):not(.payment-icon):not(.payment-cancelled-icon):not(.system-notification) {
+            .notification-item-icon { color: #8e8e93 !important; }
+          }
+        }
+
+        .add-availability-btn {
+          background: #f5f5f7 !important;
+          color: #000 !important;
+          &:hover { background: #ffffff !important; }
+
+          &.milestone-btn {
+            background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+            color: #fff !important;
+          }
+        }
+
+        .notification-options-btn {
+          color: #636366 !important;
+          &:hover { background: rgba(255, 255, 255, 0.08) !important; color: #f5f5f7 !important; }
+        }
+      }
+
+      .notification-empty p { color: #8e8e93 !important; }
+    }
+
+    .notification-dropdown-footer {
+      border-top-color: rgba(255, 255, 255, 0.1) !important;
+      background: #1c1c1e !important;
+
+      .view-all-btn {
+        color: #4298d2 !important;
+        &:hover { background: rgba(66, 152, 210, 0.12) !important; }
+      }
+    }
+  }
+
+  // Messages Dropdown — dark mode
+  .messages-dropdown {
+    background: #242426 !important;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08);
+
+    .messages-dropdown-header {
+      border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+
+      .messages-title { color: #f5f5f7 !important; }
+      .messages-close-btn {
+        color: #8e8e93 !important;
+        &:hover { color: #f5f5f7 !important; }
+      }
+    }
+
+    .messages-dropdown-content {
+      .messages-loading {
+        ion-spinner { --color: #4298d2 !important; }
+        p { color: #8e8e93 !important; }
+      }
+
+      .conversation-item {
+        border-bottom-color: rgba(255, 255, 255, 0.06) !important;
+
+        &.unread {
+          background-color: rgba(66, 152, 210, 0.1) !important;
+          border-left-color: #4298d2 !important;
+        }
+        &:hover { background-color: rgba(255, 255, 255, 0.06) !important; }
+        &.unread:hover { background-color: rgba(66, 152, 210, 0.15) !important; }
+
+        .conversation-name { color: #f5f5f7 !important; }
+        .conversation-time { color: #636366 !important; }
+        .conversation-preview { color: #8e8e93 !important; }
+
+        .conversation-avatar .avatar-fallback {
+          background: #3a3a3c !important;
+          color: #f5f5f7 !important;
+        }
+      }
+
+      .messages-empty {
+        p { color: #8e8e93 !important; }
+        .messages-empty-subtitle { color: #636366 !important; }
+      }
+    }
+  }
+}
+
+// Dark mode support
+:host-context(html.ion-palette-dark) {
+  .platform-web {
+    --ion-tab-bar-background: #1a1a1a;
+    --ion-tab-bar-border-color: #333333;
+    
+    ion-tab-button {
+      --color: #8e8e93;
+      --color-selected: #0a84ff;
+    }
+  }
+  
+  .platform-ios,
+  .platform-android {
+    ion-tab-bar {
+      --ion-tab-bar-background: #1c1c1e;
+      --ion-tab-bar-border-color: transparent;
+      border-top-color: rgba(255, 255, 255, 0.08);
+    }
+    
+    ion-tab-button {
+      --color: #8e8e93;
+      --color-selected: #ffffff;
+      
+      &.tab-selected,
+      &.tab-selected.ion-activatable {
+        --color: #ffffff !important;
+        --color-selected: #ffffff !important;
+        
+        &::part(native) {
+          color: #ffffff !important;
+        }
+        
+        ion-icon {
+          color: #ffffff !important;
+        }
+        
+        ion-label {
+          color: #ffffff !important;
+        }
+      }
+      
+      &.profile-avatar-tab {
+        &.tab-selected .tab-avatar,
+        &[aria-selected="true"] .tab-avatar {
+          border-color: #ffffff;
+          box-shadow: 0 0 0 1.5px #ffffff;
         }
       }
     }
   }
   
+  .app-name {
+    color: #ffffff !important;
+  }
+
+  .desktop-nav-toolbar {
+    --background: #1c1c1e;
+    --color: #ffffff;
+    --border-color: rgba(255, 255, 255, 0.08);
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+    background: rgba(28, 28, 30, 0.95) !important;
+    
+    .app-icon-container {
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.08);
+      }
+    }
+    
+    .user-profile {
+      background: transparent;
+      
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.08);
+      }
+
+      &.active {
+        border-color: #ffffff;
+      }
+      
+      .user-avatar img {
+        border-radius: 50% !important;
+      }
+
+      .user-info {
+        .user-name {
+          color: #ffffff;
+        }
+        
+        .user-email {
+          color: #8e8e93;
+        }
+      }
+    }
+    
+    .desktop-nav-buttons {
+      .nav-button {
+        color: rgba(255, 255, 255, 0.6);
+        background: transparent !important;
+        border: none !important;
+
+        &:hover {
+          background: transparent !important;
+          color: #ffffff;
+        }
+
+        &.active {
+          background: transparent !important;
+          color: #ffffff !important;
+          box-shadow: none !important;
+
+          ion-label {
+            color: #ffffff !important;
+            font-weight: 600;
+          }
+        }
+
+        ion-label {
+          color: inherit;
+        }
+
+        &.logout-button {
+          &:hover {
+            background: transparent !important;
+            color: #ff453a !important;
+          }
+        }
+
+        &.notification-btn {
+          color: rgba(255, 255, 255, 0.6);
+
+          &:hover {
+            color: #ffffff;
+          }
+
+          .notification-dot {
+            border-color: #1c1c1e !important;
+          }
+        }
+      }
+
+      @media (min-width: 992px) {
+        .nav-underline-indicator {
+          display: block;
+          position: absolute;
+          z-index: 0;
+          box-sizing: border-box;
+          border-radius: 100px;
+          border: 1px solid rgba(255, 255, 255, 0.22);
+          background: transparent;
+          pointer-events: none;
+          transition:
+            left 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+            width 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+            top 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+            height 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .nav-button {
+          border: 1px solid transparent !important;
+          border-radius: 100px;
+          padding: 6px 12px;
+          transition:
+            color 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+            border-color 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+          z-index: 1;
+
+          ion-label {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 14px;
+            font-weight: 400;
+            transition: color 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+
+            &::after {
+              content: attr(data-text);
+              font-weight: 600;
+              height: 0;
+              overflow: hidden;
+              visibility: hidden;
+              pointer-events: none;
+              user-select: none;
+            }
+          }
+
+          &.active {
+            border-color: transparent !important;
+
+            ion-label {
+              font-weight: 600;
+            }
+          }
+
+          &.notification-btn ion-icon {
+            display: block;
+            transition: color 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+          }
+        }
+
+        .notification-container {
+          z-index: 1;
+        }
+
+        .user-profile {
+          position: relative;
+          z-index: 1;
+        }
+      }
+    }
+  }
+
+  .mobile-global-header {
+    ion-toolbar {
+      --background: #1c1c1e !important;
+      --color: #ffffff !important;
+      border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+    }
+  }
+
+  .notification-dropdown {
+    background: #242426 !important;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08);
+
+    .notification-dropdown-header {
+      border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+      .notification-title { color: #f5f5f7 !important; }
+      .notification-settings-icon { color: #8e8e93 !important; &:hover { color: #f5f5f7 !important; } }
+      .notification-close-btn { color: #8e8e93 !important; &:hover { color: #f5f5f7 !important; } }
+    }
+    .notification-dropdown-content {
+      .notification-section-title { color: #8e8e93 !important; }
+      .notification-item {
+        background: transparent !important; box-shadow: none !important;
+        &.unread { background: rgba(66, 152, 210, 0.1) !important; }
+        &:hover { background: rgba(255, 255, 255, 0.06) !important; }
+        .notification-text { color: #f5f5f7 !important; strong { color: #f5f5f7 !important; } }
+        .notification-time { color: #636366 !important; }
+        .notification-avatar { border-color: rgba(255, 255, 255, 0.12) !important; }
+      }
+      .notification-empty p { color: #8e8e93 !important; }
+    }
+    .notification-dropdown-footer {
+      border-top-color: rgba(255, 255, 255, 0.1) !important;
+      background: #1c1c1e !important;
+      .view-all-btn { color: #4298d2 !important; &:hover { background: rgba(66, 152, 210, 0.12) !important; } }
+    }
+  }
+
+  .messages-dropdown {
+    background: #242426 !important;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08);
+
+    .messages-dropdown-header {
+      border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+      .messages-title { color: #f5f5f7 !important; }
+      .messages-close-btn { color: #8e8e93 !important; &:hover { color: #f5f5f7 !important; } }
+    }
+    .messages-dropdown-content {
+      .conversation-item {
+        border-bottom-color: rgba(255, 255, 255, 0.06) !important;
+        &.unread { background-color: rgba(66, 152, 210, 0.1) !important; border-left-color: #4298d2 !important; }
+        &:hover { background-color: rgba(255, 255, 255, 0.06) !important; }
+        .conversation-name { color: #f5f5f7 !important; }
+        .conversation-time { color: #636366 !important; }
+        .conversation-preview { color: #8e8e93 !important; }
+        .conversation-avatar .avatar-fallback { background: #3a3a3c !important; color: #f5f5f7 !important; }
+      }
+      .messages-empty { p { color: #8e8e93 !important; } .messages-empty-subtitle { color: #636366 !important; } }
+    }
+  }
+  
+}
+
+// Airbnb-style slide-in animation for "new" badge
+@keyframes newBadgeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(8px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0) scale(1);
+  }
 }
 
 // Celebrate animation for system notifications

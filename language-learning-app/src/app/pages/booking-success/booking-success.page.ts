@@ -1,9 +1,11 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, AfterViewInit, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { Router } from '@angular/router';
-import { ActivatedRoute } from '@angular/router';
-import { trigger, state, style, transition, animate } from '@angular/animations';
+import '@dotlottie/player-component';
+import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { formatTimeInTz, formatDateInTz } from '../../shared/timezone.utils';
+import { UserService } from '../../services/user.service';
 
 @Component({
   selector: 'app-booking-success',
@@ -11,59 +13,28 @@ import { trigger, state, style, transition, animate } from '@angular/animations'
   styleUrls: ['./booking-success.page.scss'],
   standalone: true,
   imports: [CommonModule, IonicModule],
-  animations: [
-    trigger('fadeInUp', [
-      state('void', style({
-        opacity: 0,
-        transform: 'translateY(30px)'
-      })),
-      transition(':enter', [
-        animate('600ms cubic-bezier(0.4, 0, 0.2, 1)', style({
-          opacity: 1,
-          transform: 'translateY(0)'
-        }))
-      ])
-    ]),
-    trigger('scaleIn', [
-      state('void', style({
-        opacity: 0,
-        transform: 'scale(0.8)'
-      })),
-      transition(':enter', [
-        animate('500ms 200ms cubic-bezier(0.4, 0, 0.2, 1)', style({
-          opacity: 1,
-          transform: 'scale(1)'
-        }))
-      ])
-    ]),
-    trigger('checkmark', [
-      state('void', style({
-        opacity: 0,
-        transform: 'scale(0) rotate(-45deg)'
-      })),
-      transition(':enter', [
-        animate('400ms 600ms cubic-bezier(0.68, -0.55, 0.265, 1.55)', style({
-          opacity: 1,
-          transform: 'scale(1) rotate(0deg)'
-        }))
-      ])
-    ])
-  ]
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
-export class BookingSuccessPage implements OnInit {
+export class BookingSuccessPage implements OnInit, AfterViewInit {
   lessonDetails: any = null;
   tutorName: string = '';
   tutorAvatar: string = '';
   formattedDate: string = '';
   formattedTime: string = '';
+  revealed = false;
+
+  @ViewChild('lottiePlayer', { read: ElementRef }) lottiePlayerRef?: ElementRef;
 
   constructor(
     private router: Router,
-    private route: ActivatedRoute
+    private userService: UserService
   ) {}
 
+  private get userTz(): string | undefined {
+    return this.userService.getCurrentUserValue()?.profile?.timezone || undefined;
+  }
+
   ngOnInit() {
-    // Get lesson details from navigation state
     const navigation = this.router.getCurrentNavigation();
     const state = navigation?.extras?.state || history.state;
     
@@ -71,9 +42,30 @@ export class BookingSuccessPage implements OnInit {
       this.lessonDetails = state.lessonDetails;
       this.setupLessonInfo();
     } else {
-      // Fallback if no data - redirect to home
-      console.warn('No lesson details found, redirecting to home');
-      setTimeout(() => this.close(), 1000);
+      // Dev preview: show mock data so the page is viewable at /booking-success
+      this.lessonDetails = {
+        subject: 'Spanish',
+        duration: 25,
+        price: 15.00,
+        startTime: new Date(Date.now() + 86400000).toISOString(),
+        tutor: { firstName: 'Maria', lastName: 'Garcia' }
+      };
+      this.setupLessonInfo();
+    }
+
+  }
+
+  ngAfterViewInit() {
+    const el = this.lottiePlayerRef?.nativeElement;
+    if (el) {
+      // Wait for the lottie player to actually start playing before timing the reveal
+      el.addEventListener('ready', () => {
+        setTimeout(() => { this.revealed = true; }, 2800);
+      });
+      // Fallback if ready already fired or never fires
+      setTimeout(() => { if (!this.revealed) this.revealed = true; }, 4500);
+    } else {
+      setTimeout(() => { this.revealed = true; }, 2800);
     }
   }
 
@@ -93,16 +85,13 @@ export class BookingSuccessPage implements OnInit {
     // Format date and time
     if (this.lessonDetails.startTime) {
       const startDate = new Date(this.lessonDetails.startTime);
-      this.formattedDate = startDate.toLocaleDateString('en-US', {
+      this.formattedDate = formatDateInTz(startDate, this.userTz, {
         weekday: 'long',
         month: 'long',
-        day: 'numeric'
+        day: 'numeric',
+        year: undefined
       });
-      this.formattedTime = startDate.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-      });
+      this.formattedTime = formatTimeInTz(startDate, this.userTz);
     }
   }
 
@@ -116,6 +105,7 @@ export class BookingSuccessPage implements OnInit {
   }
 
   getSubjectEmoji(subject: string): string {
+    if (!subject) return '🌍';
     const emojiMap: { [key: string]: string } = {
       'Spanish': '🇪🇸',
       'French': '🇫🇷',
@@ -129,7 +119,9 @@ export class BookingSuccessPage implements OnInit {
       'Russian': '🇷🇺',
       'Arabic': '🇸🇦'
     };
-    return emojiMap[subject] || '🌍';
+    // Handle "Spanish Lesson" → "Spanish"
+    const lang = subject.replace(/\s*Lesson$/i, '').trim();
+    return emojiMap[lang] || '🌍';
   }
 
   formatPrice(price: number): string {

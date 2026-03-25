@@ -7,6 +7,7 @@ import { LessonAnalysis } from '../../services/transcription.service';
 import { UserService } from '../../services/user.service';
 import { LessonService } from '../../services/lesson.service';
 import { firstValueFrom } from 'rxjs';
+import { getGlobalHour12 } from '../../shared/timezone.utils';
 
 interface LessonInfo {
   _id: string;
@@ -201,7 +202,7 @@ export class PostLessonTutorPage implements OnInit {
     return new Date(date).toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
-      hour12: true
+      hour12: getGlobalHour12()
     });
   }
 

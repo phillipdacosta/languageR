@@ -1,12 +1,17 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Location } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
-import { LoadingController, AlertController, ToastController } from '@ionic/angular';
+import { LoadingController, AlertController, ToastController, ModalController } from '@ionic/angular';
 import { LessonAnalysis } from '../services/transcription.service';
 import { UserService } from '../services/user.service';
 import { LessonService } from '../services/lesson.service';
 import { firstValueFrom } from 'rxjs';
+import { formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
+import { CardManagementModalComponent } from '../components/card-management-modal/card-management-modal.component';
+import { VocabularyService, VocabEntry, GoalEntry } from '../services/vocabulary.service';
+import { ReviewDeckService } from '../services/review-deck.service';
 
 interface LessonInfo {
   _id: string;
@@ -41,11 +46,15 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
   tutor: any = null;
   analysis: LessonAnalysis | null = null;
   analysisReady = false;
+  analysisUnavailable = false;
   
   // Trial lesson properties
   isTrialLesson = false;
   tutorFirstName = '';
   tutorDisplayName = 'Tutor';
+  
+  // AI analysis
+  aiAnalysisEnabled = true;
   
   // Tip functionality
   showTipSection = false;
@@ -54,7 +63,56 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
   customTipAmount: number | null = null;
   tipSubmitted = false;
   submittingTip = false;
+  tipAmount: number = 0;
+
+  // Payment method selection for tips
+  savedCards: any[] = [];
+  selectedPaymentMethodId: string | null = null;
+  loadingCards = false;
+  hasLoadedCards = false;
+  showCardPicker = false;
+
+  // Wallet payment option for tips
+  walletBalance: number = 0;
+  selectedTipPaymentMethod: 'wallet' | 'card' = 'card'; // default to card
+
+  // Card fee calculation — matches wallet-topup-modal logic
+  // International cards: 4.4% + $0.30 | Domestic (US) cards: 2.9% + $0.30
+  get isInternationalCard(): boolean {
+    const card = this.savedCards.find(c => c.stripePaymentMethodId === this.selectedPaymentMethodId);
+    return card?.country ? card.country !== 'US' : false;
+  }
+
+  get cardFeeRate(): number {
+    return this.isInternationalCard ? 0.044 : 0.029;
+  }
+
+  get cardFeeLabel(): string {
+    return this.isInternationalCard ? '4.4% + $0.30 (international card)' : '2.9% + $0.30';
+  }
+
+  get cardProcessingFee(): number {
+    if (!this.tipAmount || this.tipAmount <= 0) return 0;
+    const amountCents = Math.round(this.tipAmount * 100);
+    const feeCents = Math.round(amountCents * this.cardFeeRate + 30);
+    return feeCents / 100;
+  }
+
+  get tutorReceivesAfterFee(): number {
+    return Math.max(0, this.tipAmount - this.cardProcessingFee);
+  }
+
+  private get userTz(): string | undefined {
+    return this.userService.getCurrentUserValue()?.profile?.timezone || undefined;
+  }
   
+  // Vocabulary & Goals from lesson
+  vocabItems: VocabEntry[] = [];
+  goalItems: GoalEntry[] = [];
+  savedVocabIds: Set<number> = new Set();
+  savingVocabIndex: number | null = null;
+  savingAllVocab = false;
+
   // Polling
   private pollingInterval: any = null;
   pollCount = 0;
@@ -68,7 +126,11 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     private lessonService: LessonService,
     private loadingCtrl: LoadingController,
     private alertCtrl: AlertController,
-    private toastCtrl: ToastController
+    private toastCtrl: ToastController,
+    private modalCtrl: ModalController,
+    private vocabularyService: VocabularyService,
+    private reviewDeckService: ReviewDeckService,
+    private location: Location
   ) {}
 
   async ngOnInit() {
@@ -79,8 +141,15 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     await this.ensureUserLoaded();
     
     if (this.lessonId) {
-      this.loadLessonInfo();
-      this.startAnalysisPolling();
+      await this.loadLessonInfo();
+      this.loadVocabulary();
+      
+      // Only poll for analysis if AI is enabled
+      if (this.aiAnalysisEnabled && !this.isTrialLesson) {
+        this.startAnalysisPolling();
+      } else {
+        console.log('⏭️ POST-LESSON-STUDENT: Skipping analysis polling (AI disabled or trial lesson)');
+      }
     } else {
       console.error('❌ POST-LESSON-STUDENT: No lesson ID provided!');
     }
@@ -121,6 +190,27 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
         // Set trial lesson flag and tutor name properties
         this.isTrialLesson = response.lesson.isTrial || response.lesson.isTrialLesson || false;
         this.updateTutorProperties();
+        
+        // Check if tip was already sent for this lesson
+        if (response.lesson.tip && response.lesson.tip.amount) {
+          this.tipSubmitted = true;
+          console.log('💰 POST-LESSON-STUDENT: Tip already sent for this lesson:', response.lesson.tip.amount);
+        }
+        
+        // Use the lesson snapshot of AI setting; fall back to live profile for legacy lessons
+        const lesson = response.lesson;
+        if (lesson.aiAnalysisEnabledAtTime !== null && lesson.aiAnalysisEnabledAtTime !== undefined) {
+          this.aiAnalysisEnabled = lesson.aiAnalysisEnabledAtTime !== false;
+          console.log('🤖 POST-LESSON-STUDENT: AI analysis (snapshot):', this.aiAnalysisEnabled);
+        } else {
+          const student = lesson.studentId;
+          if (student && typeof student === 'object' && student.profile && student.profile.aiAnalysisEnabled === false) {
+            this.aiAnalysisEnabled = false;
+          } else {
+            this.aiAnalysisEnabled = true;
+          }
+          console.log('🤖 POST-LESSON-STUDENT: AI analysis (live fallback):', this.aiAnalysisEnabled);
+        }
       } else {
         console.warn('⚠️ POST-LESSON-STUDENT: Response missing lesson data');
       }
@@ -157,7 +247,8 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
       this.pollCount++;
       if (this.pollCount >= this.maxPollAttempts) {
         clearInterval(this.pollingInterval);
-        console.log('⏰ Max poll attempts reached');
+        this.analysisUnavailable = true;
+        console.log('⏰ Max poll attempts reached — marking analysis unavailable');
         return;
       }
       this.checkAnalysis();
@@ -173,20 +264,30 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
         this.http.get(`${environment.apiUrl}/transcription/lesson/${this.lessonId}/analysis`, { headers })
       );
       
-      if (response?.analysis?.status === 'completed') {
+      const status = response?.analysis?.status;
+      
+      if (status === 'completed') {
         this.analysis = response.analysis;
         this.analysisReady = true;
-        
-        // Stop polling
         if (this.pollingInterval) {
           clearInterval(this.pollingInterval);
         }
-        
         console.log('✅ Analysis ready:', this.analysis);
+      } else if (status === 'insufficient_data' || status === 'failed') {
+        this.analysisUnavailable = true;
+        if (this.pollingInterval) {
+          clearInterval(this.pollingInterval);
+        }
+        console.log(`⚠️ Analysis ${status}:`, response?.analysis?.error || 'No details');
       }
     } catch (error: any) {
-      // Analysis not ready yet - continue polling
-      if (error.status !== 404) {
+      if (error.status === 404 && error.error?.status === 'unavailable') {
+        this.analysisUnavailable = true;
+        if (this.pollingInterval) {
+          clearInterval(this.pollingInterval);
+        }
+        console.log('⚠️ Analysis will never be generated:', error.error?.transcriptStatus);
+      } else if (error.status !== 404) {
         console.error('Error checking analysis:', error);
       }
     }
@@ -194,23 +295,79 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
 
   toggleTipSection() {
     this.showTipSection = !this.showTipSection;
+    if (this.showTipSection && !this.hasLoadedCards) {
+      this.loadSavedCards();
+    }
+  }
+
+  async loadSavedCards() {
+    this.loadingCards = true;
+    try {
+      const headers = this.userService.getAuthHeadersSync();
+
+      // Load cards and wallet balance in parallel
+      const [cardsResponse, walletResponse]: any[] = await Promise.all([
+        firstValueFrom(this.http.get(`${environment.apiUrl}/payments/payment-methods`, { headers })),
+        firstValueFrom(this.http.get(`${environment.apiUrl}/wallet/balance`, { headers })).catch(() => null)
+      ]);
+
+      if (cardsResponse.success && cardsResponse.paymentMethods) {
+        this.savedCards = cardsResponse.paymentMethods.filter((pm: any) => pm.type === 'card');
+        // Auto-select default card
+        const defaultCard = this.savedCards.find((c: any) => c.isDefault);
+        if (defaultCard) {
+          this.selectedPaymentMethodId = defaultCard.stripePaymentMethodId;
+        } else if (this.savedCards.length > 0) {
+          this.selectedPaymentMethodId = this.savedCards[0].stripePaymentMethodId;
+        }
+      }
+
+      // Load wallet balance
+      if (walletResponse?.success) {
+        this.walletBalance = walletResponse.availableBalance || 0;
+      }
+
+      // Auto-select wallet if it has a balance, otherwise default to card
+      if (this.walletBalance > 0) {
+        this.selectedTipPaymentMethod = 'wallet';
+      } else {
+        this.selectedTipPaymentMethod = 'card';
+      }
+
+      this.hasLoadedCards = true;
+    } catch (error) {
+      console.error('Error loading saved cards:', error);
+    } finally {
+      this.loadingCards = false;
+    }
+  }
+
+  selectPaymentMethod(card: any) {
+    this.selectedPaymentMethodId = card.stripePaymentMethodId;
   }
 
   selectTipAmount(amount: number) {
     this.selectedTipAmount = amount;
     this.selectedTipPercentage = null;
     this.customTipAmount = null;
+    this.updateTipAmount();
   }
 
   selectTipPercentage(percentage: number) {
     this.selectedTipPercentage = percentage;
     this.selectedTipAmount = null;
     this.customTipAmount = null;
+    this.updateTipAmount();
   }
 
   onCustomTipInput() {
     this.selectedTipAmount = null;
     this.selectedTipPercentage = null;
+    this.updateTipAmount();
+  }
+
+  private updateTipAmount() {
+    this.tipAmount = this.getTipAmount();
   }
 
   calculatePercentageTip(percentage: number): number {
@@ -236,13 +393,32 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     const tipAmount = this.getTipAmount();
     if (tipAmount <= 0 || this.submittingTip) return;
 
+    // Confirmation popup
+    const confirm = await this.alertCtrl.create({
+      header: 'Confirm tip',
+      message: `Send a $${tipAmount.toFixed(2)} tip to ${this.tutorFirstName}?`,
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        { text: 'Send tip', role: 'confirm' }
+      ]
+    });
+    await confirm.present();
+    const { role } = await confirm.onDidDismiss();
+    if (role !== 'confirm') return;
+
     this.submittingTip = true;
 
     try {
+      const headers = this.userService.getAuthHeadersSync();
+      const body: any = { amount: tipAmount };
+
+      if (this.selectedTipPaymentMethod === 'wallet') {
+        body.useWallet = true;
+      } else if (this.selectedPaymentMethodId) {
+        body.paymentMethodId = this.selectedPaymentMethodId;
+      }
       const response: any = await firstValueFrom(
-        this.http.post(`${environment.apiUrl}/lessons/${this.lessonId}/tip`, {
-          amount: tipAmount
-        })
+        this.http.post(`${environment.apiUrl}/lessons/${this.lessonId}/tip`, body, { headers })
       );
 
       if (response.success) {
@@ -250,7 +426,7 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
         this.showTipSection = false;
         
         const toast = await this.toastCtrl.create({
-          message: `✅ $${tipAmount} tip sent to ${this.tutor?.name.split(' ')[0]}!`,
+          message: `$${tipAmount.toFixed(2)} tip sent to ${this.tutorFirstName}!`,
           duration: 3000,
           color: 'success',
           position: 'top'
@@ -260,12 +436,32 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     } catch (error: any) {
       console.error('Error submitting tip:', error);
       
-      const alert = await this.alertCtrl.create({
-        header: 'Tip Failed',
-        message: error.error?.error || 'Failed to send tip. Please try again.',
-        buttons: ['OK']
-      });
-      await alert.present();
+      const errorMessage = error.error?.error || 'Failed to send tip. Please try again.';
+      const isNoPaymentMethod = errorMessage.toLowerCase().includes('payment method') 
+        || errorMessage.toLowerCase().includes('no card');
+      
+      if (isNoPaymentMethod) {
+        // Offer to add a card right here
+        const alert = await this.alertCtrl.create({
+          header: 'No payment method',
+          message: 'You need a card on file to send a tip. Would you like to add one now?',
+          buttons: [
+            { text: 'Not now', role: 'cancel' },
+            { 
+              text: 'Add card', 
+              handler: () => { this.openCardManagement(); }
+            }
+          ]
+        });
+        await alert.present();
+      } else {
+        const alert = await this.alertCtrl.create({
+          header: 'Tip failed',
+          message: errorMessage,
+          buttons: ['OK']
+        });
+        await alert.present();
+      }
     } finally {
       this.submittingTip = false;
     }
@@ -287,12 +483,12 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     }
   }
 
-  async goHome() {
-    await this.router.navigate(['/tabs/home']);
+  goBack() {
+    this.location.back();
   }
 
   formatDate(date: Date): string {
-    return new Date(date).toLocaleDateString('en-US', {
+    return formatDateInTz(new Date(date), this.userTz, {
       weekday: 'long',
       month: 'long',
       day: 'numeric',
@@ -301,15 +497,145 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
   }
 
   formatTime(date: Date): string {
-    return new Date(date).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
+    return formatTimeInTz(new Date(date), this.userTz);
+  }
+
+  async openCardManagement() {
+    const modal = await this.modalCtrl.create({
+      component: CardManagementModalComponent,
+      cssClass: 'card-management-modal'
     });
+    
+    await modal.present();
+    
+    const { data } = await modal.onDidDismiss();
+    // Always reload cards to stay in sync
+    await this.loadSavedCards();
+
+    // Only show toast if cards were actually added or deleted
+    if (data?.cardsUpdated) {
+      const toast = await this.toastCtrl.create({
+        message: 'Card saved! You can now send your tip.',
+        duration: 3000,
+        color: 'success',
+        position: 'top'
+      });
+      await toast.present();
+    }
   }
 
   viewFullAnalysis() {
     this.router.navigate(['/lesson-analysis', this.lessonId]);
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // VOCABULARY & GOALS
+  // ═══════════════════════════════════════════════════════
+  
+  private loadVocabulary() {
+    if (!this.lessonId) return;
+    
+    this.vocabularyService.getVocabulary(this.lessonId).subscribe({
+      next: (response) => {
+        if (response?.data) {
+          this.vocabItems = response.data.vocabulary || [];
+          this.goalItems = response.data.goals || [];
+        }
+      },
+      error: (err) => {
+        console.warn('Could not load vocabulary for post-lesson:', err);
+      }
+    });
+  }
+  
+  async saveVocabToReviewDeck(item: VocabEntry, index: number) {
+    if (this.savedVocabIds.has(index)) return;
+    
+    this.savingVocabIndex = index;
+    
+    try {
+      await firstValueFrom(this.reviewDeckService.saveItem({
+        original: item.word,
+        corrected: item.translation,
+        explanation: item.example || '',
+        context: `Vocabulary from lesson`,
+        language: this.lesson?.subject || 'Spanish',
+        errorType: 'vocabulary',
+        lessonId: this.lessonId
+      }));
+      
+      this.savedVocabIds.add(index);
+      
+      const toast = await this.toastCtrl.create({
+        message: `"${item.word}" saved to Review Deck`,
+        duration: 2000,
+        color: 'success',
+        position: 'top'
+      });
+      await toast.present();
+    } catch (error) {
+      console.error('Error saving vocab to review deck:', error);
+      const toast = await this.toastCtrl.create({
+        message: 'Could not save to Review Deck',
+        duration: 2000,
+        color: 'danger',
+        position: 'top'
+      });
+      await toast.present();
+    } finally {
+      this.savingVocabIndex = null;
+    }
+  }
+  
+  async saveAllVocabToReviewDeck() {
+    if (this.savingAllVocab) return;
+    
+    this.savingAllVocab = true;
+    
+    const unsavedItems = this.vocabItems
+      .map((item, index) => ({ item, index }))
+      .filter(({ index }) => !this.savedVocabIds.has(index));
+    
+    if (unsavedItems.length === 0) {
+      this.savingAllVocab = false;
+      return;
+    }
+    
+    try {
+      const batchItems = unsavedItems.map(({ item }) => ({
+        original: item.word,
+        corrected: item.translation,
+        explanation: item.example || '',
+        context: `Vocabulary from lesson`,
+        language: this.lesson?.subject || 'Spanish',
+        errorType: 'vocabulary' as const,
+        lessonId: this.lessonId
+      }));
+      
+      await firstValueFrom(this.reviewDeckService.saveMultiple(batchItems));
+      
+      // Mark all as saved
+      unsavedItems.forEach(({ index }) => this.savedVocabIds.add(index));
+      
+      const toast = await this.toastCtrl.create({
+        message: `${unsavedItems.length} words saved to Review Deck`,
+        duration: 2500,
+        color: 'success',
+        position: 'top'
+      });
+      await toast.present();
+    } catch (error) {
+      console.error('Error batch saving vocab:', error);
+      const toast = await this.toastCtrl.create({
+        message: 'Could not save all words. Try saving them individually.',
+        duration: 3000,
+        color: 'warning',
+        position: 'top'
+      });
+      await toast.present();
+    } finally {
+      this.savingAllVocab = false;
+    }
   }
 }
 

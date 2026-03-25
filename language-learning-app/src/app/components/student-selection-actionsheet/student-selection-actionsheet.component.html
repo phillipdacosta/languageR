@@ -1,0 +1,31 @@
+<ion-content class="actionsheet-content">
+  <div class="actionsheet-header">
+    <h2>Select Students</h2>
+    <p class="count-text">{{ selectedIds.length }}/{{ maxStudents }} selected</p>
+  </div>
+
+  <div class="students-list">
+    <div 
+      *ngFor="let student of students" 
+      class="student-item"
+      [class.selected]="isStudentSelected(student._id)"
+      [class.disabled]="isStudentDisabled(student._id)"
+      (click)="toggleStudentSelection(student._id)">
+      <ion-avatar class="student-avatar">
+        <img *ngIf="student.picture" [src]="student.picture" [alt]="student.name">
+        <div *ngIf="!student.picture" class="avatar-placeholder">
+          {{ student.name.charAt(0).toUpperCase() }}
+        </div>
+      </ion-avatar>
+      <div class="student-name">{{ formatStudentName(student) }}</div>
+      <div class="checkbox" [class.checked]="isStudentSelected(student._id)">
+        <ion-icon *ngIf="isStudentSelected(student._id)" name="checkmark"></ion-icon>
+      </div>
+    </div>
+  </div>
+
+  <div class="actionsheet-footer">
+    <button class="done-btn" (click)="onDone()">Done</button>
+    <button class="cancel-btn" (click)="onCancel()">Cancel</button>
+  </div>
+</ion-content>

@@ -1,6 +1,7 @@
 import { Component, OnInit, AfterViewInit, OnDestroy, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ViewWillEnter, ViewDidEnter, ActionSheetController, ModalController, ToastController, AlertController } from '@ionic/angular';
+import { EventDetailsModalComponent } from '../components/event-details-modal/event-details-modal.component';
 import { Router, NavigationEnd, ActivatedRoute } from '@angular/router';
 import { UserService, User } from '../services/user.service';
 import { LessonService, Lesson } from '../services/lesson.service';
@@ -10,6 +11,7 @@ import { Calendar, EventInput } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { filter, takeUntil } from 'rxjs/operators';
 import { Subject, firstValueFrom } from 'rxjs';
 import { FormsModule } from '@angular/forms';
@@ -19,6 +21,8 @@ import { ClassAttendeesComponent } from '../components/class-attendees/class-att
 import { BlockTimeComponent } from '../modals/block-time/block-time.component';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
+import { TutorFeedbackService } from '../services/tutor-feedback.service';
+import { getHoursInTz, getMinutesInTz, formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
 // Performance pipes
 import { EventsForDayPipe } from './pipes/events-for-day.pipe';
 import { EventsForSelectedDayPipe } from './pipes/events-for-selected-day.pipe';
@@ -63,6 +67,7 @@ interface TimelineEntry {
   capacity?: number;
   id?: string; // Lesson ID or Class ID
   isLesson?: boolean; // True if this is a 1:1 lesson
+  isGoogleCalendar?: boolean;
   thumbnail?: string; // Thumbnail image for classes
 }
 
@@ -96,7 +101,8 @@ interface AgendaSection {
     IsEventPastPipe,
     FreeHoursPipe,
     TotalAvailabilityPipe,
-    BookedHoursPipe
+    BookedHoursPipe,
+    TranslateModule
   ],
   animations: [
     trigger('slideInUp', [
@@ -134,6 +140,34 @@ interface AgendaSection {
 })
 export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter, ViewDidEnter {
   currentUser: User | null = null;
+  userTz: string | undefined = undefined;
+  hasCustomProfilePhoto = false; // True only if user has uploaded a custom photo (not Google photo)
+  isMobilePlatform = false;
+  isCompactToolbar = false;
+  
+  get isOnboardingIncomplete(): boolean {
+    return !this.hasCustomProfilePhoto ||
+           !this.currentUser?.tutorOnboarding?.videoApproved ||
+           (!this.currentUser?.tutorOnboarding?.stripeConnected && !this.currentUser?.stripeConnectOnboarded);
+  }
+
+  get isProfileHiddenNoVideo(): boolean {
+    return !this.currentUser?.tutorApproved &&
+           !!this.currentUser?.onboardingCompleted &&
+           !this.currentUser?.onboardingData?.introductionVideo &&
+           !this.currentUser?.onboardingData?.pendingVideo &&
+           !this.currentUser?.tutorOnboarding?.videoApproved;
+  }
+
+  // Outstanding feedback
+  pendingFeedbackCount = 0;
+  pendingFeedbackItems: any[] = [];
+  isFeedbackModalOpen = false;
+  feedbackBannerSubtitle: string = '';
+  feedbackGraceExpired: boolean = false;
+  private feedbackGraceInterval: any = null;
+  private static readonly FEEDBACK_GRACE_MS = 2 * 60 * 60 * 1000; // 2 hours
+  
   private calendar?: Calendar;
   events: EventInput[] = [];
   isInitialized = false;
@@ -228,6 +262,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   stripeConnectOnboarded = false; // Legacy name, but now checks for ANY payout method (Stripe/PayPal/Manual)
   approvalStatus: any; // Tutor approval status from UserService
   private approvalStatusSubscription?: any;
+  private userSubscription?: any;
 
   private viewportResizeHandler = () => this.evaluateViewport();
 
@@ -235,9 +270,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     const start = this.mobileWeekStart ? this.getStartOfDay(this.mobileWeekStart) : this.getStartOfDay(new Date());
     const end = this.addDays(start, this.agendaDaysToShow - 1);
     return "".concat(
-      start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      formatDateInTz(start, this.userTz, { month: 'short', day: 'numeric', year: undefined }),
       ' – ',
-      end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      formatDateInTz(end, this.userTz, { month: 'short', day: 'numeric', year: undefined })
     );
   }
 
@@ -318,8 +353,12 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.showMobileSettings = false;
   }
 
+  get is24h(): boolean {
+    return false;
+  }
+
   formatTime(date: Date): string {
-    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    return formatTimeInTz(date, this.userTz, undefined, !this.is24h);
   }
 
   formatDuration(minutes: number): string {
@@ -327,13 +366,13 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     const mins = minutes % 60;
     const parts: string[] = [];
     if (hours) {
-      parts.push(`${hours} ${hours === 1 ? 'hour' : 'hours'}`);
+      parts.push(`${hours} ${hours === 1 ? this.translate.instant('TUTOR_CALENDAR.HOUR') : this.translate.instant('TUTOR_CALENDAR.HOURS')}`);
     }
     if (mins) {
-      parts.push(`${mins} ${mins === 1 ? 'minute' : 'minutes'}`);
+      parts.push(`${mins} ${mins === 1 ? this.translate.instant('TUTOR_CALENDAR.MINUTE') : this.translate.instant('TUTOR_CALENDAR.MINUTES')}`);
     }
     if (!parts.length) {
-      return 'less than a minute';
+      return this.translate.instant('TUTOR_CALENDAR.LESS_THAN_A_MINUTE');
     }
     return parts.join(' ');
   }
@@ -370,16 +409,21 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     private alertController: AlertController,
     private websocketService: WebSocketService,
     private cdr: ChangeDetectorRef,
-    private http: HttpClient
+    private http: HttpClient,
+    private tutorFeedbackService: TutorFeedbackService,
+    private translate: TranslateService
   ) { }
 
   private evaluateViewport() {
     if (typeof window === 'undefined') {
       this.isMobileView = false;
+      this.isCompactToolbar = false;
       return;
     }
     const wasMobile = this.isMobileView;
-    this.isMobileView = window.innerWidth <= 768;
+    const width = window.innerWidth;
+    this.isMobileView = width <= 768;
+    this.isCompactToolbar = width <= 1200;
     if (this.isMobileView) {
       const today = new Date();
       if (this.mobileViewMode === 'day') {
@@ -411,10 +455,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       const current = this.addDays(start, i);
       days.push({
         date: current,
-        dayName: current.toLocaleDateString('en-US', { weekday: 'long' }),
-        shortDay: current.toLocaleDateString('en-US', { weekday: 'short' }),
+        dayName: formatDateInTz(current, this.userTz, { weekday: 'long', month: undefined, day: undefined, year: undefined }),
+        shortDay: formatDateInTz(current, this.userTz, { weekday: 'short', month: undefined, day: undefined, year: undefined }),
         dayNumber: current.getDate().toString(),
-        monthLabel: current.toLocaleDateString('en-US', { month: 'long' }),
+        monthLabel: formatDateInTz(current, this.userTz, { month: 'long', day: undefined, year: undefined }),
         isToday: this.isSameDay(current, new Date())
       });
     }
@@ -461,8 +505,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         start: new Date(start.getTime()),
         end: new Date(end.getTime()),
         durationMinutes: minutes,
-        title: 'Open time slot',
-        meta: `+ Add Availability (${this.formatDurationShort(minutes)})`
+        title: this.translate.instant('TUTOR_CALENDAR.OPEN_TIME_SLOT'),
+        meta: `${this.translate.instant('TUTOR_CALENDAR.ADD_AVAILABILITY_BUTTON')} (${this.formatDurationShort(minutes)})`
       });
     };
 
@@ -496,7 +540,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       // Check if this is a lesson (has avatar or subtitle which indicates student info)
       // OR a class (has a title that's not "Available")
       const isLesson = entry.avatarUrl || entry.subtitle;
-      const isClass = entry.title && entry.title !== 'Available' && entry.title.includes('Class');
+      const isClass = entry.title && entry.title !== this.translate.instant('TUTOR_CALENDAR.AVAILABLE_FALLBACK') && entry.title.includes(this.translate.instant('TUTOR_CALENDAR.CLASS_FALLBACK'));
       
       if (isLesson || isClass) {
         lessons.push(entry);
@@ -583,8 +627,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       if (item.type !== 'event') return false;
       // Exclude generic availability blocks (they have "Available" as title and no lesson indicators)
       // But keep classes (which have custom titles like "Class", "Spanish Class", etc.)
-      const isGenericAvailability = item.title === 'Available' && !item.subtitle && !item.avatarUrl;
-      const isFreeSlot = item.title === 'Open time slot';
+      const isGenericAvailability = item.title === this.translate.instant('TUTOR_CALENDAR.AVAILABLE_FALLBACK') && !item.subtitle && !item.avatarUrl;
+      const isFreeSlot = item.title === this.translate.instant('TUTOR_CALENDAR.OPEN_TIME_SLOT');
       // Show ALL events including cancelled ones
       return !isGenericAvailability && !isFreeSlot;
     });
@@ -688,7 +732,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     const extended = (event.extendedProps as any) || {};
     const durationMinutes = Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000));
     const isLesson = Boolean(extended.lessonId);
-    const isClass = extended.isClass || (event.title && event.title !== 'Available' && event.title.includes('Class'));
+    const isClass = extended.isClass || (event.title && event.title !== this.translate.instant('TUTOR_CALENDAR.AVAILABLE_FALLBACK') && event.title.includes(this.translate.instant('TUTOR_CALENDAR.CLASS_FALLBACK')));
     const isOfficeHours = Boolean(extended.isOfficeHours);
     
     // For classes, check the classesMap for the latest status
@@ -701,7 +745,12 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       }
     }
     
-    const title = isLesson ? (extended.studentDisplayName || extended.studentName || 'Lesson') : (event.title || extended.subject || 'Available');
+    // For lessons, show student name and lesson type (e.g., "John - Spanish lesson")
+    const studentName = isLesson ? (extended.studentDisplayName || extended.studentName || this.translate.instant('TUTOR_CALENDAR.STUDENT')) : '';
+    const lessonType = isLesson ? (extended.subject || this.translate.instant('TUTOR_CALENDAR.LESSON_FALLBACK')) : '';
+    const title = isLesson 
+      ? `${studentName} - ${lessonType}` 
+      : (event.title || extended.subject || this.translate.instant('TUTOR_CALENDAR.AVAILABLE_FALLBACK'));
     const subtitle = isLesson ? (extended.subject || extended.status) : (extended.studentName || extended.subject);
     const meta = isLesson ? this.formatDuration(durationMinutes) : (extended.timeStr || extended.status);
     
@@ -710,13 +759,17 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     // Classes: Purple (#8b5cf6)  
     // Regular lessons: Green (#10b981)
     // Availability: Blue (#007bff)
-    let color = '#007bff'; // Default to availability blue
-    if (isOfficeHours) {
-      color = '#f59e0b'; // Gold for office hours
+    const isGoogleCalendar = Boolean(extended.isGoogleCalendar);
+    
+    let color = '#007bff';
+    if (isGoogleCalendar) {
+      color = '#6b7280';
+    } else if (isOfficeHours) {
+      color = '#f59e0b';
     } else if (isClass) {
-      color = '#8b5cf6'; // Purple for classes
+      color = '#8b5cf6';
     } else if (isLesson) {
-      color = '#10b981'; // Green for regular lessons
+      color = '#10b981';
     }
     
     const location = extended.location || extended.platform;
@@ -763,8 +816,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       attendees,
       capacity,
       thumbnail,
-      id: extended.lessonId || extended.classId, // Store the ID for navigation
-      isLesson: isLesson
+      id: extended.lessonId || extended.classId,
+      isLesson: isLesson,
+      isGoogleCalendar
     };
   }
 
@@ -796,11 +850,11 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
 
   private getAgendaLabels(date: Date, offset: number): { dayLabel: string; dateLabel: string; relative?: string } {
-    const dateLabel = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
-    const dayLabel = date.toLocaleDateString('en-US', { weekday: 'long' });
+    const dateLabel = formatDateInTz(date, this.userTz, { month: 'long', day: 'numeric', year: undefined });
+    const dayLabel = formatDateInTz(date, this.userTz, { weekday: 'long', month: undefined, day: undefined, year: undefined });
     let relative: string | undefined;
     if (offset === 1) {
-      relative = 'Tomorrow';
+      relative = this.translate.instant('TUTOR_CALENDAR.TOMORROW');
     }
     return {
       dayLabel,
@@ -808,7 +862,26 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       relative
     };
   }
+  // Handler for lesson cancelled event
+  private lessonCancelledHandler = (event: any) => {
+    console.log('🔴 [TUTOR-CALENDAR] Received lesson-cancelled event:', event.detail);
+    this.refreshCalendar();
+  };
+
+  private gcalWsSub: any = null;
+
   ngOnInit() {
+    // Listen for lesson cancelled events (from event-details-modal)
+    window.addEventListener('lesson-cancelled', this.lessonCancelledHandler);
+
+    // Listen for real-time Google Calendar push updates via WebSocket
+    this.gcalWsSub = this.websocketService.on('gcal-events-updated')
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((data: any) => {
+        if (!data?.events || !this.gcalConnected) return;
+        this.mergeGcalWebSocketEvents(data.events);
+      });
+    
     // Subscribe to approval status from UserService
     this.approvalStatusSubscription = this.userService.tutorApprovalStatus$.subscribe(status => {
       if (status) {
@@ -817,6 +890,48 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         console.log(`💰 [TUTOR-CALENDAR] Approval status from service:`, status);
       }
     });
+    
+    // Subscribe to user changes to keep hasCustomProfilePhoto in sync
+    this.userSubscription = this.userService.currentUser$.subscribe(user => {
+      if (user) {
+        const prevTimezone = this.currentUser?.profile?.timezone;
+        this.currentUser = user;
+        this.userTz = user.profile?.timezone || undefined;
+        // Check if user has a custom uploaded photo (not just Google/Auth0 photo)
+        this.hasCustomProfilePhoto = !!(user.picture && (
+          user.picture.includes('storage.googleapis.com') || // GCS uploaded photo
+          (user.auth0Picture && user.picture !== user.auth0Picture) // Different from original Auth0 photo
+        ));
+
+        // Immediately update time indicator and scroll to it when timezone changes
+        if (prevTimezone && user.profile?.timezone && prevTimezone !== user.profile.timezone) {
+          this.updateCurrentTimePosition();
+          this.hasScrolledToNow = false;
+          setTimeout(() => this.scrollToNowIndicator(), 100);
+        }
+
+        // Load outstanding feedback for tutors
+        if (user.userType === 'tutor') {
+          this.loadPendingFeedback();
+        }
+      }
+    });
+
+    // Subscribe to feedback updates
+    this.tutorFeedbackService.pendingFeedback$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(response => {
+        this.pendingFeedbackCount = response.count || 0;
+        this.pendingFeedbackItems = response.pendingFeedback || [];
+
+        // Update grace period countdown for feedback banner
+        this.updateFeedbackGraceCountdown();
+
+        // Auto-reopen the feedback modal after submitting one item
+        if (this.tutorFeedbackService.consumeReopenFlag() && this.pendingFeedbackCount > 0) {
+          setTimeout(() => { this.isFeedbackModalOpen = true; }, 400);
+        }
+      });
     
     // Initialize custom calendar
     this.initializeCustomCalendar();
@@ -843,6 +958,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       }
     });
     
+    this.isMobilePlatform = this.platformService.isMobile();
     this.evaluateViewport();
     if (typeof window !== 'undefined') {
       window.addEventListener('resize', this.viewportResizeHandler);
@@ -901,18 +1017,18 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           
           // Show toast notification
           const toast = await this.toastController.create({
-            message: notification.message || 'New office hours session booked!',
+            message: notification.message || this.translate.instant('TUTOR_CALENDAR.TOAST_OFFICE_HOURS_BOOKED'),
             duration: 5000,
             color: 'warning',
             icon: 'flash',
             position: 'top',
             buttons: [
               {
-                text: 'View',
+                text: this.translate.instant('TUTOR_CALENDAR.VIEW'),
                 handler: () => {
                   if (notification.lessonId || notification.data?.lessonId) {
                     const lessonId = notification.lessonId || notification.data?.lessonId;
-                    this.router.navigate(['/tabs/tutor-calendar/event', lessonId]);
+                    this.router.navigate(['/tabs/lessons', lessonId]);
                   }
                 }
               }
@@ -933,13 +1049,13 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           
           // Show toast notification
           const toast = await this.toastController.create({
-            message: notification.message || 'A class has been cancelled',
+            message: notification.message || this.translate.instant('TUTOR_CALENDAR.TOAST_CLASS_CANCELLED'),
             duration: 5000,
             position: 'top',
             color: 'warning',
             buttons: [
               {
-                text: 'OK',
+                text: this.translate.instant('TUTOR_CALENDAR.OK'),
                 role: 'cancel'
               }
             ]
@@ -953,21 +1069,6 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           
           // Refresh calendar to show the cancelled lesson
           this.refreshCalendar();
-          
-          // Show toast notification
-          const toast = await this.toastController.create({
-            message: notification.message || 'A lesson has been cancelled',
-            duration: 5000,
-            position: 'top',
-            color: 'warning',
-            buttons: [
-              {
-                text: 'OK',
-                role: 'cancel'
-              }
-            ]
-          });
-          await toast.present();
         }
       });
     
@@ -998,14 +1099,77 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     */
   }
 
+  // ── Feedback Grace Period Countdown ──────────────────────
+  private updateFeedbackGraceCountdown() {
+    // Clear existing interval
+    if (this.feedbackGraceInterval) {
+      clearInterval(this.feedbackGraceInterval);
+      this.feedbackGraceInterval = null;
+    }
+
+    if (this.pendingFeedbackItems.length === 0) {
+      this.feedbackBannerSubtitle = '';
+      this.feedbackGraceExpired = false;
+      return;
+    }
+
+    // Find the oldest pending feedback's createdAt
+    const oldestCreatedAt = Math.min(
+      ...this.pendingFeedbackItems.map((f: any) => new Date(f.createdAt).getTime())
+    );
+    const deadline = oldestCreatedAt + TutorCalendarPage.FEEDBACK_GRACE_MS;
+
+    // Helper to compute display
+    const tick = () => {
+      const now = Date.now();
+      const remainingMs = deadline - now;
+
+      if (remainingMs <= 0) {
+        this.feedbackGraceExpired = true;
+        this.feedbackBannerSubtitle = this.translate.instant('TUTOR_CALENDAR.PROFILE_HIDDEN_UNTIL_COMPLETE');
+        if (this.feedbackGraceInterval) {
+          clearInterval(this.feedbackGraceInterval);
+          this.feedbackGraceInterval = null;
+        }
+        return;
+      }
+
+      this.feedbackGraceExpired = false;
+      const totalSec = Math.floor(remainingMs / 1000);
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+
+      if (h > 0) {
+        this.feedbackBannerSubtitle = this.translate.instant('TUTOR_CALENDAR.COMPLETE_WITHIN_HM', { h, m: m.toString().padStart(2, '0') });
+      } else {
+        this.feedbackBannerSubtitle = this.translate.instant('TUTOR_CALENDAR.COMPLETE_WITHIN_M', { m });
+      }
+    };
+
+    // Run immediately, then every 30 seconds
+    tick();
+    this.feedbackGraceInterval = setInterval(tick, 30000);
+  }
+
   ngOnDestroy() {
     // Clean up subscriptions
     this.destroy$.next();
     this.destroy$.complete();
     
+    if (this.feedbackGraceInterval) {
+      clearInterval(this.feedbackGraceInterval);
+    }
+    
     if (this.approvalStatusSubscription) {
       this.approvalStatusSubscription.unsubscribe();
     }
+    
+    if (this.userSubscription) {
+      this.userSubscription.unsubscribe();
+    }
+    
+    // Clean up lesson cancelled event listener
+    window.removeEventListener('lesson-cancelled', this.lessonCancelledHandler);
     
     if (typeof window !== 'undefined') {
       window.removeEventListener('resize', this.viewportResizeHandler);
@@ -1019,8 +1183,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     if (this.customNowInterval) clearInterval(this.customNowInterval);
     if (this.timeUpdateInterval) clearInterval(this.timeUpdateInterval);
     window.removeEventListener('resize', this.updateCustomNowIndicatorBound);
-    
-    // Clean up session storage
+    this.stopGcalPolling();
   }
 
   ionViewWillEnter() {
@@ -1091,6 +1254,13 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.userService.getCurrentUser().subscribe({
       next: (user) => {
         this.currentUser = user;
+        this.userTz = user?.profile?.timezone || undefined;
+
+        // Check if user has a custom uploaded photo (not just Google/Auth0 photo)
+        this.hasCustomProfilePhoto = !!(user.picture && (
+          user.picture.includes('storage.googleapis.com') || // GCS uploaded photo
+          (user.auth0Picture && user.picture !== user.auth0Picture) // Different from original Auth0 photo
+        ));
         
         // Initialize calendar first, then load data
         if (!this.isInitialized) {
@@ -1104,6 +1274,32 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         if (user && user.id) {
           this.loadLessonsAndClasses(user.id);
         }
+        
+        // Calendar settings
+        this.calendarTimeFormat = user?.profile?.calendarTimeFormat || '12h';
+        this.calendarDefaultView = user?.profile?.calendarDefaultView || 'week';
+        this.tutorTimezoneLabel = user?.profile?.timezone
+          ? user.profile.timezone.replace(/_/g, ' ')
+          : Intl.DateTimeFormat().resolvedOptions().timeZone.replace(/_/g, ' ');
+        this.generateTimeSlots();
+        if (this.customView !== this.calendarDefaultView) {
+          this.customView = this.calendarDefaultView;
+        }
+
+        // Check Google Calendar connection status (events loaded later after availability)
+        this.userService.getGoogleCalendarStatus().subscribe({
+          next: (status) => {
+            this.gcalConnected = status.connected;
+            this.gcalEmail = status.email || null;
+            this.gcalSyncEnabled = status.syncEnabled ?? true;
+            this.gcalPushToGoogle = status.pushToGoogle ?? true;
+            this.gcalLastSyncAt = status.lastSyncAt ? new Date(status.lastSyncAt) : null;
+            if (this.gcalConnected) {
+              this.startGcalPolling();
+            }
+            this.cdr.detectChanges();
+          }
+        });
       },
       error: (error) => {
         console.error('📅 Error loading current user:', error);
@@ -1207,7 +1403,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
             const isCancelled = cls.status === 'cancelled';
             return {
               id: String(cls._id),
-              title: cls.name || 'Class',
+              title: cls.name || this.translate.instant('TUTOR_CALENDAR.CLASS_FALLBACK'),
               start: new Date(cls.startTime).toISOString(),
               end: new Date(cls.endTime).toISOString(),
               backgroundColor: isCancelled ? '#9ca3af' : '#8b5cf6',
@@ -1221,7 +1417,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
               extendedProps: {
                 classId: String(cls._id),
                 isClass: true,
-                className: cls.name || 'Class',
+                className: cls.name || this.translate.instant('TUTOR_CALENDAR.CLASS_FALLBACK'),
                 classThumbnail: cls.thumbnail,
                 type: 'class',
                 classData: cls,
@@ -1306,18 +1502,23 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
 
   private convertLessonsToEvents(lessons: Lesson[]): void {
-    
-    // Convert all lessons to events (including cancelled) to show them crossed out
-    const allLessons = lessons;
+
+    // Filter out orphaned lessons from failed payments
+    const allLessons = lessons.filter(l => !(l.status === 'cancelled' && (l as any).cancelReason === 'payment_failed'));
     
     const lessonEvents = allLessons.map(lesson => {
       const student = lesson.studentId as any;
       const studentFirst = typeof student?.firstName === 'string' ? student.firstName.trim() : '';
       const studentLast = typeof student?.lastName === 'string' ? student.lastName.trim() : '';
       const studentFullName = [studentFirst, studentLast].filter(Boolean).join(' ');
-      const studentName = studentFullName || student?.name || student?.displayName || student?.email || 'Student';
-      const subject = lesson.subject || 'Language Lesson';
+      const studentName = studentFullName || student?.name || student?.displayName || student?.email || this.translate.instant('TUTOR_CALENDAR.STUDENT');
+      const subject = lesson.subject || 'Language';
       const isCancelled = lesson.status === 'cancelled';
+      
+      // Format subject with "lesson" suffix (e.g., "Spanish lesson")
+      const subjectWithType = subject.toLowerCase().includes('lesson') 
+        ? subject 
+        : `${subject} lesson`;
       
       // Debug logging for 12:00 PM lesson
       const debugStartTime = new Date(lesson.startTime);
@@ -1360,15 +1561,15 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         }
       }
       
-      // Format time for display (12-hour format like availability-setup)
       const startTime = new Date(lesson.startTime);
       const endTime = new Date(lesson.endTime);
-      const timeStr = `${this.formatTime12Hour(startTime.getHours(), startTime.getMinutes())} - ${this.formatTime12Hour(endTime.getHours(), endTime.getMinutes())}`;
+      const tz = this.userTz;
+      const timeStr = `${this.formatTime12Hour(getHoursInTz(startTime, tz), getMinutesInTz(startTime, tz))} - ${this.formatTime12Hour(getHoursInTz(endTime, tz), getMinutesInTz(endTime, tz))}`;
       
       const isPast = endTime.getTime() < Date.now();
       const eventData = {
         id: lesson._id,
-        title: `${studentName} - ${subject}`,
+        title: `${studentName} - ${subjectWithType}`,
         start: lesson.startTime,
         end: lesson.endTime,
         backgroundColor: backgroundColor,
@@ -1384,7 +1585,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           studentName: studentName,
           studentDisplayName: studentName,
           studentAvatar: student?.picture || student?.avatar || student?.photoUrl,
-          subject: subject,
+          subject: subjectWithType,
           status: lesson.status,
           timeStr: timeStr,
           price: lesson.price,
@@ -1496,8 +1697,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         eventTimeFormat: {
           hour: 'numeric',
           minute: '2-digit',
-          meridiem: 'short',
-          hour12: true
+          meridiem: this.is24h ? false : 'short' as any,
+          hour12: !this.is24h
         },
         // Compact custom time label so it fits in small mobile cells
         eventContent: (arg) => {
@@ -1528,7 +1729,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         slotLabelFormat: {
           hour: 'numeric',
           minute: '2-digit',
-          hour12: true
+          hour12: !this.is24h
         }
       });
 
@@ -1667,9 +1868,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           
  
           if (!res.availability || res.availability.length === 0) {
-            this.events = [];
+            const gcalEvents = this.events.filter(e => (e.extendedProps as any)?.isGoogleCalendar);
+            this.events = [...gcalEvents];
             this.updateCalendarEvents();
-            // Mark availability as loaded
             this.availabilityLoaded = true;
             this.checkIfBothLoaded();
             return;
@@ -1690,12 +1891,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           
 
           
-          // Merge with existing events (keep lessons/classes, replace availability)
+          // Merge with existing events (keep lessons/classes/gcal, replace availability)
           const nonAvailabilityEvents = this.events.filter(event => {
             const extendedProps = event.extendedProps as any;
-            // Keep lessons (have lessonId) AND keep classes (have isClass or classId)
-            // Don't keep availability blocks - they'll be re-added from res.availability
-            return extendedProps?.lessonId || extendedProps?.isClass || extendedProps?.classId;
+            return extendedProps?.lessonId || extendedProps?.isClass || extendedProps?.classId || extendedProps?.isGoogleCalendar;
           });
           
           console.log('📅 [CLASS-DEBUG] Keeping', nonAvailabilityEvents.length, 'lesson events');
@@ -1712,11 +1911,14 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
             end: e.end
           })));
           
-          // Update calendar with events smoothly
           this.updateCalendarEvents();
-          // Mark availability as loaded
           this.availabilityLoaded = true;
           this.checkIfBothLoaded();
+
+          // Load Google Calendar events only on first load (not on subsequent availability refreshes)
+          if (this.gcalConnected && !this.gcalEventsLoaded) {
+            this.loadGoogleCalendarEvents();
+          }
         },
         error: (error) => {
           
@@ -1864,9 +2066,17 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     const colsRect = cols.getBoundingClientRect();
     const axisWidth = axis ? axis.getBoundingClientRect().width : 42;
 
-    // Position from minutes since midnight (calendar configured with slotMinTime 00:00)
-    const now = new Date();
-    const minutes = now.getHours() * 60 + now.getMinutes();
+    const tz = this.currentUser?.profile?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const nowFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: false
+    });
+    const nowParts = nowFormatter.formatToParts(new Date());
+    const nowHour = parseInt(nowParts.find(p => p.type === 'hour')?.value || '0', 10);
+    const nowMin = parseInt(nowParts.find(p => p.type === 'minute')?.value || '0', 10);
+    const minutes = nowHour * 60 + nowMin;
     const totalMinutes = 24 * 60;
     const height = body.clientHeight || bodyRect.height;
     this.customNowTop = Math.max(0, Math.min(height - 1, Math.round((minutes / totalMinutes) * height)));
@@ -1939,7 +2149,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
 
   // FullCalendar handlers
   handleSelect(selectInfo: any) {
-    const title = prompt('Enter availability title:') || 'Available';
+    const title = prompt('Enter availability title:') || this.translate.instant('TUTOR_CALENDAR.AVAILABLE_FALLBACK');
     if (title) {
       const event: EventInput = {
         id: Date.now().toString(),
@@ -1969,26 +2179,118 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.persistEvent(updatedEvent);
   }
 
-  handleEventClick(clickInfoOrEvent: any) {
+  async handleEventClick(clickInfoOrEvent: any, domEvent?: any) {
     // Handle both FullCalendar format (clickInfo.event) and custom calendar format (direct event)
     const event = clickInfoOrEvent.event || clickInfoOrEvent;
-    const extendedProps = event.extendedProps;
+    const extendedProps = event.extendedProps || {};
     
+    // Google Calendar event — lightweight detail card
+    if (extendedProps?.isGoogleCalendar) {
+      const start = event.start ? new Date(event.start) : new Date();
+      const end = event.end ? new Date(event.end) : new Date();
+      const durationMinutes = Math.round((end.getTime() - start.getTime()) / 60000);
+
+      const eventDetails = {
+        title: extendedProps.summary || event.title || 'Google Calendar Event',
+        start,
+        end,
+        durationMinutes,
+        isGoogleCalendar: true,
+        color: '#6b7280'
+      };
+
+      const clickEvt = domEvent || (clickInfoOrEvent.jsEvent) || { target: null };
+      await this.openEventDetailsModal(eventDetails, clickEvt);
+      return;
+    }
+
     // Check if this is a lesson event (has lessonId) or an availability block
-    if (extendedProps?.lessonId) {
-      // Save current view before navigating (only if FullCalendar is active)
-      if (this.calendar) {
-        const currentView = this.calendar.view.type;
-        localStorage.setItem('tutor-calendar-view', currentView);
+    if (extendedProps?.lessonId || extendedProps?.classId) {
+      // Convert to TimelineEntry format for the modal
+      const start = event.start ? new Date(event.start) : new Date();
+      const end = event.end ? new Date(event.end) : new Date();
+      const durationMinutes = Math.round((end.getTime() - start.getTime()) / 60000);
+      
+      // Look up class data from classesMap if this is a class
+      let attendees: any[] | undefined = extendedProps.attendees;
+      let capacity: number | undefined = extendedProps.capacity;
+      let thumbnail: string | undefined = extendedProps.thumbnail;
+      let isCancelled = extendedProps.isCancelled || false;
+      
+      if (extendedProps.isClass && extendedProps.classId) {
+        const classId = String(extendedProps.classId);
+        const classData = this.classesMap.get(classId);
+        if (classData) {
+          attendees = classData.attendees || classData.confirmedStudents || [];
+          capacity = classData.capacity || 1;
+          thumbnail = classData.thumbnail;
+          isCancelled = classData.status === 'cancelled';
+        }
       }
-      // This is a lesson - navigate to event details page
-      this.router.navigate(['/tabs/tutor-calendar/event', extendedProps.lessonId]);
+      
+      const eventDetails = {
+        id: extendedProps.lessonId || extendedProps.classId,
+        lessonId: extendedProps.lessonId,
+        classId: extendedProps.classId,
+        title: event.title || extendedProps.subject || 'Event',
+        subtitle: extendedProps.studentName || extendedProps.subject,
+        start,
+        end,
+        durationMinutes,
+        location: extendedProps.location || extendedProps.platform,
+        avatarUrl: extendedProps.studentAvatar,
+        isTrialLesson: extendedProps.isTrialLesson || false,
+        isClass: extendedProps.isClass || false,
+        isOfficeHours: extendedProps.isOfficeHours || false,
+        isCancelled: isCancelled,
+        isLesson: Boolean(extendedProps.lessonId),
+        studentName: extendedProps.studentName,
+        studentDisplayName: extendedProps.studentDisplayName || extendedProps.studentName,
+        subject: extendedProps.subject,
+        color: this.getEventColor(event),
+        attendees: attendees,
+        capacity: capacity,
+        thumbnail: thumbnail
+      };
+      
+      // Get the DOM event for positioning
+      const clickEvent = domEvent || (clickInfoOrEvent.jsEvent) || { target: null };
+      await this.openEventDetailsModal(eventDetails, clickEvent);
     } else {
       // This is an availability block - keep existing delete behavior
       if (confirm('Delete this availability block?')) {
         event.remove();
         this.deleteEvent(event.id);
       }
+    }
+  }
+  
+  private getEventColor(event: any): string {
+    const extended = event.extendedProps || {};
+    if (extended.isOfficeHours) return '#f59e0b';
+    if (extended.isClass) return '#8b5cf6';
+    if (extended.lessonId) return '#10b981';
+    return '#007bff';
+  }
+  
+  async openEventDetailsModal(eventDetails: any, clickEvent?: any) {
+    const modal = await this.modalController.create({
+      component: EventDetailsModalComponent,
+      componentProps: {
+        event: eventDetails,
+        clickEvent: clickEvent
+      },
+      cssClass: 'event-details-modal',
+      showBackdrop: false // We handle our own overlay
+    });
+    
+    await modal.present();
+    
+    // Handle modal dismiss - refresh calendar if lesson was cancelled
+    const { data } = await modal.onDidDismiss();
+    if (data?.cancelled && data?.lessonId) {
+      console.log('🔴 Lesson cancelled from event details modal, refreshing calendar...');
+      this.refreshCalendar();
     }
   }
 
@@ -2070,7 +2372,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     const isPast = new Date(end).getTime() < Date.now();
     const event: EventInput = {
       id: b.id || `${Date.now()}-${Math.random()}`,
-      title: isClass ? (b.title || 'Class') : '',
+      title: isClass ? (b.title || this.translate.instant('TUTOR_CALENDAR.CLASS_FALLBACK')) : '',
       start: start.toISOString(),
       end: end.toISOString(),
       backgroundColor: baseColor,
@@ -2085,7 +2387,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         ...(isClass ? {
           classId: b.id, // b.id contains the class _id
           isClass: true,
-          className: b.title || b.className || 'Class',
+          className: b.title || b.className || this.translate.instant('TUTOR_CALENDAR.CLASS_FALLBACK'),
           classThumbnail: b.thumbnail,
           // Store original class data for access
           classData: b
@@ -2181,44 +2483,41 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     
     // Show action sheet for managing this open time slot
     const actionSheet = await this.actionSheetController.create({
-      header: 'Manage This Time Slot',
+      header: this.translate.instant('TUTOR_CALENDAR.MANAGE_TIME_SLOT'),
       cssClass: 'availability-action-sheet',
       buttons: [
         {
-          text: 'Set Regular Availability',
+          text: this.translate.instant('TUTOR_CALENDAR.SET_REGULAR_AVAILABILITY'),
           icon: 'time-outline',
           handler: async () => {
-            // Delay to let action sheet dismiss first
             setTimeout(() => {
               this.onSetUpAvailability(date, timeSlot);
             }, 100);
-            return true; // Allow action sheet to dismiss
+            return true;
           }
         },
         {
-          text: officeHoursEnabled ? 'Disable Office Hours' : 'Enable Office Hours',
+          text: officeHoursEnabled ? this.translate.instant('TUTOR_CALENDAR.DISABLE_OFFICE_HOURS') : this.translate.instant('TUTOR_CALENDAR.ENABLE_OFFICE_HOURS'),
           icon: 'flash-outline',
           handler: async () => {
-            // Delay to let action sheet dismiss first
             setTimeout(() => {
               this.onEnableOfficeHours();
             }, 100);
-            return true; // Allow action sheet to dismiss
+            return true;
           }
         },
         {
-          text: 'Block This Time',
+          text: this.translate.instant('TUTOR_CALENDAR.BLOCK_THIS_TIME'),
           icon: 'ban-outline',
           handler: async () => {
-            // Delay to let action sheet dismiss first
             setTimeout(() => {
               this.onAddTimeOff(date, timeSlot);
             }, 100);
-            return true; // Allow action sheet to dismiss
+            return true;
           }
         },
         {
-          text: 'Cancel',
+          text: this.translate.instant('TUTOR_CALENDAR.CANCEL'),
           role: 'cancel',
           icon: 'close-outline'
         }
@@ -2239,9 +2538,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       if (conflict.hasConflict) {
         // Show error alert
         const alert = await this.alertController.create({
-          header: '⚠️ Schedule Conflict',
+          header: this.translate.instant('TUTOR_CALENDAR.SCHEDULE_CONFLICT'),
           message: conflict.message,
-          buttons: ['OK']
+          buttons: [this.translate.instant('TUTOR_CALENDAR.OK')]
         });
         await alert.present();
         return; // Stop here
@@ -2251,18 +2550,18 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     if (currentStatus) {
       // If currently enabled, just show simple confirmation to disable
       const alert = await this.alertController.create({
-        header: 'Disable Office Hours?',
-        message: 'Students will no longer be able to instantly book sessions with you.',
+        header: this.translate.instant('TUTOR_CALENDAR.DISABLE_OFFICE_HOURS_CONFIRM'),
+        message: this.translate.instant('TUTOR_CALENDAR.DISABLE_OFFICE_HOURS_MSG'),
         buttons: [
           {
-            text: 'Cancel',
+            text: this.translate.instant('TUTOR_CALENDAR.CANCEL'),
             role: 'cancel',
             handler: () => {
               console.log('❌ Office hours disable cancelled');
             }
           },
           {
-            text: 'Disable',
+            text: this.translate.instant('TUTOR_CALENDAR.DISABLE'),
             handler: async () => {
               console.log('✅ Disabling office hours');
               try {
@@ -2270,7 +2569,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
                 console.log('✅ Office hours disabled');
                 
                 const toast = await this.toastController.create({
-                  message: 'Office Hours disabled',
+                  message: this.translate.instant('TUTOR_CALENDAR.TOAST_OFFICE_HOURS_DISABLED'),
                   duration: 3000,
                   color: 'success',
                   icon: 'checkmark-circle'
@@ -2279,7 +2578,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
               } catch (error) {
                 console.error('❌ Error disabling office hours:', error);
                 const toast = await this.toastController.create({
-                  message: 'Failed to update office hours settings',
+                  message: this.translate.instant('TUTOR_CALENDAR.TOAST_OFFICE_HOURS_UPDATE_FAILED'),
                   duration: 3000,
                   color: 'danger'
                 });
@@ -2293,36 +2592,27 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     } else {
       // Show warning modal before enabling
       const alert = await this.alertController.create({
-        header: '⚡ Enable Office Hours',
-        message: `⚠️ Only enable this when you're ready to accept calls immediately!
-
-When enabled:
-• Students can join instantly
-• You must respond within a minute
-• You'll be taken to the Pre-Call Waiting Room
-• You must stay on that page to remain available
-
-💡 You'll get a full-screen prompt when a student tries to join`,
+        header: this.translate.instant('TUTOR_CALENDAR.ENABLE_OFFICE_HOURS_HEADER'),
+        message: this.translate.instant('TUTOR_CALENDAR.OFFICE_HOURS_WARNING'),
         cssClass: 'office-hours-warning-alert',
         buttons: [
           {
-            text: 'Cancel',
+            text: this.translate.instant('TUTOR_CALENDAR.CANCEL'),
             role: 'cancel',
             handler: () => {
               console.log('❌ Office hours enable cancelled');
             }
           },
           {
-            text: 'Enable & Go to Waiting Room',
+            text: this.translate.instant('TUTOR_CALENDAR.ENABLE_GO_WAITING_ROOM'),
             handler: async () => {
               console.log('✅ Enabling office hours and navigating to pre-call');
               try {
                 await this.userService.toggleOfficeHours(true).toPromise();
                 console.log('✅ Office hours enabled');
                 
-                // Show success toast
                 const toast = await this.toastController.create({
-                  message: '⚡ Office Hours enabled! Taking you to waiting room...',
+                  message: this.translate.instant('TUTOR_CALENDAR.TOAST_OFFICE_HOURS_ENABLED'),
                   duration: 2000,
                   color: 'success',
                   icon: 'flash'
@@ -2333,9 +2623,9 @@ When enabled:
                 // For office hours, we navigate without a specific lessonId
                 // The pre-call page will handle office hours mode differently
                 setTimeout(() => {
+                  // SECURITY: role is determined from lesson data + auth, not passed in URL
                   this.router.navigate(['/pre-call'], {
                     queryParams: {
-                      role: 'tutor',
                       officeHours: 'true'
                     }
                   });
@@ -2343,7 +2633,7 @@ When enabled:
               } catch (error) {
                 console.error('❌ Error enabling office hours:', error);
                 const toast = await this.toastController.create({
-                  message: 'Failed to enable office hours',
+                  message: this.translate.instant('TUTOR_CALENDAR.TOAST_ENABLE_OFFICE_HOURS_FAILED'),
                   duration: 3000,
                   color: 'danger'
                 });
@@ -2384,7 +2674,7 @@ When enabled:
         const eventType = event.isClass ? 'class' : 'lesson';
         return {
           hasConflict: true,
-          message: `You're currently in a ${eventType}. Please finish it before enabling office hours.`,
+          message: this.translate.instant('TUTOR_CALENDAR.CONFLICT_IN_EVENT', { type: eventType }),
           nextEvent: event
         };
       }
@@ -2396,7 +2686,7 @@ When enabled:
         const eventType = event.isClass ? 'class' : 'lesson';
         return {
           hasConflict: true,
-          message: `You have a ${eventType} starting in ${minutesUntil} minute${minutesUntil !== 1 ? 's' : ''}. Please wait until after it ends.`,
+          message: this.translate.instant('TUTOR_CALENDAR.CONFLICT_STARTING_SOON', { type: eventType, minutes: minutesUntil }),
           nextEvent: event
         };
       }
@@ -2406,8 +2696,20 @@ When enabled:
     return { hasConflict: false };
   }
 
-  onSetUpAvailability(date?: Date, timeSlot?: TimelineEntry) {
-    
+  async onSetUpAvailability(date?: Date, timeSlot?: TimelineEntry) {
+    if (this.isProfileHiddenNoVideo) {
+      const alert = await this.alertController.create({
+        header: this.translate.instant('TUTOR_CALENDAR.PROFILE_HIDDEN_HEADER'),
+        message: this.translate.instant('TUTOR_CALENDAR.PROFILE_HIDDEN_MSG'),
+        buttons: [
+          { text: this.translate.instant('TUTOR_CALENDAR.CANCEL'), role: 'cancel' },
+          { text: this.translate.instant('TUTOR_CALENDAR.UPLOAD_VIDEO'), handler: () => this.router.navigate(['/tabs/profile']) }
+        ]
+      });
+      await alert.present();
+      return;
+    }
+
     if (!this.stripeConnectOnboarded) {
       this.showStripeOnboardingAlert();
       return;
@@ -2427,13 +2729,13 @@ When enabled:
         // Add time slot information as query params
         if (timeSlot.start) {
           const startTime = timeSlot.start;
-          queryParams.startHour = startTime.getHours();
-          queryParams.startMinute = startTime.getMinutes();
+          queryParams.startHour = getHoursInTz(startTime, this.userTz);
+          queryParams.startMinute = getMinutesInTz(startTime, this.userTz);
         }
         if (timeSlot.end) {
           const endTime = timeSlot.end;
-          queryParams.endHour = endTime.getHours();
-          queryParams.endMinute = endTime.getMinutes();
+          queryParams.endHour = getHoursInTz(endTime, this.userTz);
+          queryParams.endMinute = getMinutesInTz(endTime, this.userTz);
         }
         if (timeSlot.durationMinutes) {
           queryParams.duration = timeSlot.durationMinutes;
@@ -2447,8 +2749,241 @@ When enabled:
     }
   }
 
+  // Calendar settings
+  calendarTimeFormat: '12h' | '24h' = '12h';
+  calendarDefaultView: 'week' | 'day' = 'week';
+  get shortDateTimeFormat(): string { return this.calendarTimeFormat === '24h' ? 'M/d/yy, HH:mm' : 'M/d/yy, h:mm a'; }
+  tutorTimezoneLabel = '';
+  calendarSettingsExpanded = false;
+  gcalSettingsExpanded = false;
+
+  // Google Calendar
+  gcalConnected = false;
+  gcalSyncing = false;
+  gcalEmail: string | null = null;
+  gcalSyncEnabled = true;
+  gcalPushToGoogle = true;
+  gcalLastSyncAt: Date | null = null;
+  private gcalEventsLoaded = false;
+  private gcalLoadingInProgress = false;
+  private gcalPollInterval: any = null;
+  private static readonly GCAL_POLL_MS = 30 * 60 * 1000; // 30 min safety net (primary sync via webhooks)
+
   connectGoogleCalendar() {
-    // TODO: Implement Google Calendar integration
+    this.userService.getGoogleCalendarAuthUrl().subscribe({
+      next: (res) => {
+        const popup = window.open(res.url, 'google-calendar-auth', 'width=500,height=700,left=200,top=100');
+        let handled = false;
+
+        const onLinked = (success: boolean) => {
+          if (handled) return;
+          handled = true;
+          window.removeEventListener('message', messageHandler);
+          if (pollTimer) clearInterval(pollTimer);
+          if (success) {
+            this.userService.getGoogleCalendarStatus().subscribe({
+              next: (status) => {
+                this.gcalConnected = status.connected;
+                this.gcalEmail = status.email || null;
+                this.gcalSyncEnabled = status.syncEnabled ?? true;
+                this.gcalPushToGoogle = status.pushToGoogle ?? true;
+                this.gcalLastSyncAt = status.lastSyncAt ? new Date(status.lastSyncAt) : null;
+                this.loadGoogleCalendarEvents();
+                this.startGcalPolling();
+                this.cdr.detectChanges();
+              }
+            });
+          }
+        };
+
+        const messageHandler = (event: MessageEvent) => {
+          if (event.data?.type === 'google_calendar_linked') {
+            onLinked(event.data.success);
+          }
+        };
+        window.addEventListener('message', messageHandler);
+
+        const pollTimer = setInterval(() => {
+          if (!popup || popup.closed) {
+            clearInterval(pollTimer);
+            if (!handled) {
+              this.userService.getGoogleCalendarStatus().subscribe({
+                next: (status) => {
+                  if (status.connected && !handled) {
+                    onLinked(true);
+                  } else if (!handled) {
+                    handled = true;
+                    window.removeEventListener('message', messageHandler);
+                  }
+                }
+              });
+            }
+          }
+        }, 500);
+      }
+    });
+  }
+
+  disconnectGoogleCalendar() {
+    this.userService.disconnectGoogleCalendar().subscribe({
+      next: () => {
+        this.gcalConnected = false;
+        this.gcalEmail = null;
+        this.gcalSyncEnabled = true;
+        this.gcalPushToGoogle = true;
+        this.gcalLastSyncAt = null;
+        if (this.gcalPollInterval) {
+          clearInterval(this.gcalPollInterval);
+          this.gcalPollInterval = null;
+        }
+        this.events = this.events.filter(e => !(e.extendedProps as any)?.isGoogleCalendar);
+        this.updateCalendarEvents();
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  onGcalSettingChange(key: 'syncEnabled' | 'pushToGoogle') {
+    const payload: any = {};
+    if (key === 'syncEnabled') payload.syncEnabled = this.gcalSyncEnabled;
+    if (key === 'pushToGoogle') payload.pushToGoogle = this.gcalPushToGoogle;
+    this.userService.updateGoogleCalendarSettings(payload).subscribe();
+  }
+
+  updateCalendarSetting(type: 'timeFormat' | 'defaultView', value: string) {
+    if (type === 'timeFormat') {
+      this.calendarTimeFormat = value as '12h' | '24h';
+      this.generateTimeSlots();
+    } else if (type === 'defaultView') {
+      this.calendarDefaultView = value as 'week' | 'day';
+      this.switchView(value as 'week' | 'day');
+    }
+    this.cdr.detectChanges();
+
+    const profileUpdate: any = {};
+    if (type === 'timeFormat') profileUpdate.calendarTimeFormat = value;
+    if (type === 'defaultView') profileUpdate.calendarDefaultView = value;
+    this.userService.updateProfile(profileUpdate).subscribe();
+  }
+
+  toggleCalendarSettings(event?: Event) {
+    this.calendarSettingsExpanded = !this.calendarSettingsExpanded;
+    if (this.calendarSettingsExpanded && event) {
+      this.scrollSectionIntoView(event);
+    }
+  }
+
+  toggleGcalSettings(event?: Event) {
+    this.gcalSettingsExpanded = !this.gcalSettingsExpanded;
+    if (this.gcalSettingsExpanded && event) {
+      this.scrollSectionIntoView(event);
+    }
+  }
+
+  private scrollSectionIntoView(event: Event) {
+    const target = (event.currentTarget as HTMLElement)?.closest('.calendar-settings-section, .gcal-settings-section, .panel-section');
+    if (target) {
+      setTimeout(() => {
+        target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 350);
+    }
+  }
+
+  syncGoogleCalendar() {
+    if (!this.gcalConnected || this.gcalSyncing) return;
+    this.gcalSyncing = true;
+    this.cdr.detectChanges();
+    this.loadGoogleCalendarEvents();
+  }
+
+  private mergeGcalWebSocketEvents(rawEvents: any[]) {
+    const nonGcalEvents = this.events.filter(e => !(e.extendedProps as any)?.isGoogleCalendar);
+
+    const gcalEvents: EventInput[] = rawEvents
+      .filter((evt: any) => !evt.allDay)
+      .map((evt: any) => ({
+        id: `gcal-${evt.id}`,
+        title: evt.summary || 'Busy',
+        start: new Date(evt.start).toISOString(),
+        end: new Date(evt.end).toISOString(),
+        backgroundColor: '#6b7280',
+        borderColor: '#4b5563',
+        textColor: '#ffffff',
+        classNames: ['calendar-gcal-event'],
+        extendedProps: {
+          isGoogleCalendar: true,
+          summary: evt.summary || 'Busy',
+          type: 'google-calendar'
+        }
+      }));
+
+    this.events = [...nonGcalEvents, ...gcalEvents];
+    this.updateCalendarEvents();
+    this.cdr.detectChanges();
+  }
+
+  private startGcalPolling() {
+    this.stopGcalPolling();
+    this.gcalPollInterval = setInterval(() => {
+      if (this.gcalConnected) {
+        this.loadGoogleCalendarEvents();
+      }
+    }, TutorCalendarPage.GCAL_POLL_MS);
+  }
+
+  private stopGcalPolling() {
+    if (this.gcalPollInterval) {
+      clearInterval(this.gcalPollInterval);
+      this.gcalPollInterval = null;
+    }
+  }
+
+  private loadGoogleCalendarEvents() {
+    if (!this.gcalConnected || this.gcalLoadingInProgress) return;
+    this.gcalLoadingInProgress = true;
+
+    const weekStart = new Date(this.currentWeekStart);
+    weekStart.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+
+    this.userService.getGoogleCalendarEvents(weekStart.toISOString(), weekEnd.toISOString()).subscribe({
+      next: (res) => {
+        const nonGcalEvents = this.events.filter(e => !(e.extendedProps as any)?.isGoogleCalendar);
+
+        const gcalEvents: EventInput[] = (res.events || [])
+          .filter((evt: any) => !evt.allDay)
+          .map((evt: any) => ({
+            id: `gcal-${evt.id}`,
+            title: evt.summary || 'Busy',
+            start: new Date(evt.start).toISOString(),
+            end: new Date(evt.end).toISOString(),
+            backgroundColor: '#6b7280',
+            borderColor: '#4b5563',
+            textColor: '#ffffff',
+            classNames: ['calendar-gcal-event'],
+            extendedProps: {
+              isGoogleCalendar: true,
+              summary: evt.summary || 'Busy',
+              type: 'google-calendar'
+            }
+          }));
+
+        this.events = [...nonGcalEvents, ...gcalEvents];
+        this.gcalEventsLoaded = true;
+        this.gcalSyncing = false;
+        this.gcalLoadingInProgress = false;
+        this.updateCalendarEvents();
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.gcalEventsLoaded = true;
+        this.gcalSyncing = false;
+        this.gcalLoadingInProgress = false;
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   // Method to refresh calendar when returning from availability setup
@@ -2551,8 +3086,8 @@ When enabled:
   }
 
   private timeString(d: Date): string {
-    const h = d.getHours().toString().padStart(2, '0');
-    const m = d.getMinutes().toString().padStart(2, '0');
+    const h = getHoursInTz(d, this.userTz).toString().padStart(2, '0');
+    const m = getMinutesInTz(d, this.userTz).toString().padStart(2, '0');
     return `${h}:${m}`;
   }
 
@@ -2631,29 +3166,39 @@ When enabled:
   }
 
   private formatTime12Hour(hour: number, minute: number): string {
+    const displayMinute = minute.toString().padStart(2, '0');
+    if (this.is24h) {
+      return `${hour.toString().padStart(2, '0')}:${displayMinute}`;
+    }
     const period = hour >= 12 ? 'PM' : 'AM';
     const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-    const displayMinute = minute === 0 ? '00' : minute.toString().padStart(2, '0');
     return `${displayHour}:${displayMinute} ${period}`;
   }
 
-  // 12-hour compact range for event chip, e.g. "12:00–12:30 AM"
+  // Compact range for event chip, e.g. "12:00–12:30 AM" or "14:00–14:30"
   private formatCompactRange(start: Date, end: Date): string {
     const s = this.formatTimeParts(start);
     const e = this.formatTimeParts(end);
+    if (this.is24h) {
+      return `${s.time}–${e.time}`;
+    }
     if (s.period === e.period) {
       return `${s.time}–${e.time} ${s.period}`;
     }
     return `${s.time} ${s.period}–${e.time} ${e.period}`;
   }
 
-  // Ultra-compact for tiny chips, e.g. "12–12:30a" or "12a" when 15–20px tall
+  // Ultra-compact for tiny chips, e.g. "12–12:30a" or "14:00–14:30"
   private formatTinyRange(start: Date, end: Date): string {
     const s = this.formatTimeParts(start);
     const e = this.formatTimeParts(end);
+    if (this.is24h) {
+      const sTime = s.time.endsWith(':00') ? s.time.replace(':00', '') : s.time;
+      const eTime = e.time.endsWith(':00') ? e.time.replace(':00', '') : e.time;
+      return `${sTime}–${eTime}`;
+    }
     const sp = s.period === 'AM' ? 'a' : 'p';
     const ep = e.period === 'AM' ? 'a' : 'p';
-    // Drop minutes when :00 on start to save space
     const sTime = s.time.endsWith(':00') ? s.time.replace(':00', '') : s.time;
     const eTime = e.time.endsWith(':00') ? e.time.replace(':00', '') : e.time;
     if (s.period === e.period) {
@@ -2663,11 +3208,14 @@ When enabled:
   }
 
   private formatTimeParts(d: Date): { time: string; period: string } {
-    const hour = d.getHours();
-    const minute = d.getMinutes();
+    const hour = getHoursInTz(d, this.userTz);
+    const minute = getMinutesInTz(d, this.userTz);
+    const displayMinute = minute.toString().padStart(2, '0');
+    if (this.is24h) {
+      return { time: `${hour.toString().padStart(2, '0')}:${displayMinute}`, period: '' };
+    }
     const period = hour >= 12 ? 'PM' : 'AM';
     const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-    const displayMinute = minute.toString().padStart(2, '0');
     return { time: `${displayHour}:${displayMinute}`, period };
   }
 
@@ -2707,13 +3255,69 @@ When enabled:
   }
 
   // Navigate to event details page
-  onEventClick(item: TimelineEntry) {
-    if (!item.id || item.type === 'free') {
-      return; // Don't navigate for free slots or items without ID
+  async onEventClick(item: TimelineEntry, event?: any) {
+    if (item.type === 'free') return;
+
+    if (item.isGoogleCalendar) {
+      const eventDetails = {
+        title: item.title || 'Google Calendar Event',
+        start: item.start,
+        end: item.end,
+        durationMinutes: item.durationMinutes,
+        isGoogleCalendar: true,
+        color: '#6b7280'
+      };
+      await this.openEventDetailsModal(eventDetails, event);
+      return;
+    }
+
+    if (!item.id) return;
+    
+    // Look up class data from classesMap if this is a class (to ensure we have latest attendees)
+    let attendees: any[] | undefined = item.attendees;
+    let capacity: number | undefined = item.capacity;
+    let thumbnail: string | undefined = item.thumbnail;
+    let isCancelled = item.isCancelled || false;
+    
+    if (item.isClass && item.id) {
+      const classId = String(item.id);
+      const classData = this.classesMap.get(classId);
+      if (classData) {
+        attendees = classData.attendees || classData.confirmedStudents || [];
+        capacity = classData.capacity || 1;
+        thumbnail = classData.thumbnail;
+        isCancelled = classData.status === 'cancelled';
+      }
     }
     
-    // Navigate to the event details page
-    this.router.navigate(['/tabs/tutor-calendar/event', item.id]);
+    // Convert TimelineEntry to event details format
+    const eventDetails = {
+      id: item.id,
+      lessonId: item.isLesson ? item.id : undefined,
+      classId: item.isClass ? item.id : undefined,
+      title: item.title,
+      subtitle: item.subtitle,
+      start: item.start,
+      end: item.end,
+      durationMinutes: item.durationMinutes,
+      location: item.location,
+      avatarUrl: item.avatarUrl,
+      isTrialLesson: item.isTrialLesson,
+      isClass: item.isClass,
+      isOfficeHours: item.isOfficeHours,
+      isCancelled: isCancelled,
+      isLesson: item.isLesson,
+      studentName: item.subtitle,
+      studentDisplayName: item.subtitle,
+      subject: item.subtitle,
+      color: item.color,
+      attendees: attendees,
+      capacity: capacity,
+      thumbnail: thumbnail,
+      meta: item.meta
+    };
+    
+    await this.openEventDetailsModal(eventDetails, event);
   }
 
   // ============ CUSTOM CALENDAR METHODS ============
@@ -2759,20 +3363,20 @@ When enabled:
       
       this.weekDays.push({
         date: date,
-        shortDay: date.toLocaleDateString('en-US', { weekday: 'short' }),
+        shortDay: formatDateInTz(date, this.userTz, { weekday: 'short', month: undefined, day: undefined, year: undefined }),
         dayNumber: date.getDate().toString(),
-        dayName: date.toLocaleDateString('en-US', { weekday: 'long' })
+        dayName: formatDateInTz(date, this.userTz, { weekday: 'long', month: undefined, day: undefined, year: undefined })
       });
     }
   }
-  
+
   private updateSelectedDayForDayView(date: Date) {
     this.selectedDayForDayView = {
       date: new Date(date),
-      shortDay: date.toLocaleDateString('en-US', { weekday: 'short' }),
+      shortDay: formatDateInTz(date, this.userTz, { weekday: 'short', month: undefined, day: undefined, year: undefined }),
       dayNumber: date.getDate().toString(),
-      dayName: date.toLocaleDateString('en-US', { weekday: 'long' }),
-      monthLabel: date.toLocaleDateString('en-US', { month: 'long' }),
+      dayName: formatDateInTz(date, this.userTz, { weekday: 'long', month: undefined, day: undefined, year: undefined }),
+      monthLabel: formatDateInTz(date, this.userTz, { month: 'long', day: undefined, year: undefined }),
       year: date.getFullYear()
     };
   }
@@ -2847,21 +3451,23 @@ When enabled:
   
   private generateTimeSlots() {
     this.timeSlots = [];
-    // Generate from 6 AM to 11 PM (hour 6 to hour 23)
     for (let hour = 6; hour <= 23; hour++) {
-      const period = hour >= 12 ? 'PM' : 'AM';
-      const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
-      this.timeSlots.push(`${displayHour} ${period}`);
+      if (this.is24h) {
+        this.timeSlots.push(`${hour.toString().padStart(2, '0')}:00`);
+      } else {
+        const period = hour >= 12 ? 'PM' : 'AM';
+        const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+        this.timeSlots.push(`${displayHour} ${period}`);
+      }
     }
-    console.log('Time slots generated:', this.timeSlots.length, this.timeSlots);
   }
   
   private updateWeekTitle() {
-    const startMonth = this.currentWeekStart.toLocaleDateString('en-US', { month: 'long' });
+    const startMonth = formatDateInTz(this.currentWeekStart, this.userTz, { month: 'long', day: undefined, year: undefined });
     const endDate = new Date(this.currentWeekStart);
     endDate.setDate(this.currentWeekStart.getDate() + 6);
-    const endMonth = endDate.toLocaleDateString('en-US', { month: 'long' });
-    
+    const endMonth = formatDateInTz(endDate, this.userTz, { month: 'long', day: undefined, year: undefined });
+
     if (startMonth === endMonth) {
       this.currentWeekTitle = `${startMonth} ${this.currentWeekStart.getFullYear()}`;
     } else {
@@ -2976,11 +3582,18 @@ When enabled:
       const studentName = extendedProps.studentName || extendedProps.student?.name || '';
       const formattedName = this.formatNameWithInitial(studentName);
       const isAvailability = extendedProps.type === 'availability' || extendedProps.type === 'available';
+      const isLesson = Boolean(extendedProps.lessonId);
+      
+      // For lessons, include the lesson type (e.g., "John - Spanish lesson")
+      const subject = extendedProps.subject || '';
+      const displayName = isLesson && subject 
+        ? `${formattedName} - ${subject}`
+        : formattedName;
       
       return {
         ...event,
-        title: isAvailability ? 'Available' : (event.title || 'Untitled Event'),
-        studentName: isAvailability ? '' : formattedName,
+        title: isAvailability ? this.translate.instant('TUTOR_CALENDAR.AVAILABLE_FALLBACK') : (event.title || 'Untitled Event'),
+        studentName: isAvailability ? '' : displayName,
         studentAvatar: isAvailability ? '' : (extendedProps.studentAvatar || extendedProps.student?.profilePicture || ''),
         isAvailability: isAvailability,
         isClass: extendedProps.isClass || extendedProps.classId,
@@ -3010,11 +3623,11 @@ When enabled:
   }
   
   calculateEventTop(event: any): number {
-    const startHour = event.start.getHours();
-    const startMinute = event.start.getMinutes();
-    const startOffset = 6; // Calendar starts at 6 AM
-    const slotHeight = 70; // 70px per hour (increased from 60px)
-    
+    const startHour = getHoursInTz(event.start, this.userTz);
+    const startMinute = getMinutesInTz(event.start, this.userTz);
+    const startOffset = 6;
+    const slotHeight = 70;
+
     return ((startHour - startOffset) * slotHeight) + (startMinute / 60 * slotHeight);
   }
   
@@ -3045,22 +3658,20 @@ When enabled:
   }
   
   private updateCurrentTimePosition() {
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-    const startOffset = 6; // Calendar starts at 6 AM
-    const slotHeight = 110; // 110px per hour (must match CSS .hour-line height)
-    
-    this.currentTimePosition = ((currentHour - startOffset) * slotHeight) + (currentMinute / 60 * slotHeight);
-    
-    console.log('🕐 [TIME-DEBUG] Time indicator:', {
-      now: now.toLocaleTimeString(),
-      currentHour,
-      currentMinute,
-      startOffset,
-      calculatedPosition: this.currentTimePosition,
-      expectedHourFromTop: (currentHour - startOffset)
+    const tz = this.currentUser?.profile?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: false
     });
+    const parts = formatter.formatToParts(new Date());
+    const currentHour = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
+    const currentMinute = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
+    const startOffset = 6;
+    const slotHeight = 110;
+
+    this.currentTimePosition = ((currentHour - startOffset) * slotHeight) + (currentMinute / 60 * slotHeight);
   }
   
   // Scroll to "now" indicator on page load
@@ -3140,7 +3751,7 @@ When enabled:
     }
     
     const classId = upcomingClass.extendedProps?.['classId'] || upcomingClass.id;
-    const className = upcomingClass.title || 'Class';
+    const className = upcomingClass.title || this.translate.instant('TUTOR_CALENDAR.CLASS_FALLBACK');
     
     if (!classId) {
       const toast = await this.toastController.create({
@@ -3251,15 +3862,15 @@ When enabled:
   // Show alert when trying to use features without Stripe onboarding
   private async showStripeOnboardingAlert() {
     const alert = await this.alertController.create({
-      header: 'Payment Setup Required',
-      message: 'You must complete payment setup before creating classes or setting availability. Please set up your payout method in the Profile tab.',
+      header: this.translate.instant('TUTOR_CALENDAR.PAYMENT_SETUP_REQUIRED'),
+      message: this.translate.instant('TUTOR_CALENDAR.PAYMENT_SETUP_MSG'),
       buttons: [
         {
-          text: 'Cancel',
+          text: this.translate.instant('TUTOR_CALENDAR.CANCEL'),
           role: 'cancel'
         },
         {
-          text: 'Go to Profile',
+          text: this.translate.instant('TUTOR_CALENDAR.GO_TO_PROFILE'),
           handler: () => {
             this.router.navigate(['/tabs/profile']);
           }
@@ -3267,6 +3878,44 @@ When enabled:
       ]
     });
     await alert.present();
+  }
+
+  // ── Outstanding Feedback ──
+
+  loadPendingFeedback(): void {
+    if (this.tutorFeedbackService.isCacheLoaded) {
+      const cached = this.tutorFeedbackService.getCachedPendingFeedback();
+      this.pendingFeedbackCount = cached.count || 0;
+      this.pendingFeedbackItems = cached.pendingFeedback || [];
+      this.updateFeedbackGraceCountdown();
+    }
+    this.tutorFeedbackService.refreshPendingFeedback();
+  }
+
+  openFeedbackModal(): void {
+    if (this.pendingFeedbackItems.length === 0) return;
+    this.isFeedbackModalOpen = true;
+  }
+
+  closeFeedbackModal(): void {
+    this.isFeedbackModalOpen = false;
+  }
+
+  navigateToFeedback(lessonId: string, feedbackId: string): void {
+    this.closeFeedbackModal();
+    this.router.navigate(['/post-lesson-tutor', lessonId], {
+      queryParams: { feedbackId }
+    });
+  }
+
+  formatFeedbackDate(dateStr: any): string {
+    if (!dateStr) return '';
+    return formatDateInTz(dateStr, this.userTz, { weekday: 'short', month: 'short', day: 'numeric', year: undefined });
+  }
+
+  formatFeedbackTime(dateStr: any): string {
+    if (!dateStr) return '';
+    return formatTimeInTz(dateStr, this.userTz, undefined, !this.is24h);
   }
 }
 

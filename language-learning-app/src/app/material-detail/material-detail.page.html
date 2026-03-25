@@ -1,0 +1,333 @@
+<ion-header class="md-header">
+  <ion-toolbar class="md-toolbar">
+    <div class="md-toolbar-start" slot="start">
+      <div class="app-icon-container md-toolbar-brand" (click)="goHome()">
+        <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="app-icon">
+        <span class="app-name">Barnabi</span>
+      </div>
+    </div>
+    <div class="md-toolbar-end" slot="end">
+      <div class="md-toolbar-avatar" *ngIf="currentUser?.picture">
+        <img [src]="currentUser.picture" [alt]="currentUser.name" referrerpolicy="no-referrer">
+      </div>
+    </div>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <div class="md-page">
+
+    <!-- Breadcrumb -->
+    <div class="md-breadcrumb">
+      <button class="md-back-btn" (click)="goBack()">
+        <ion-icon name="chevron-back-outline"></ion-icon>
+        <span>Back</span>
+      </button>
+    </div>
+
+    <!-- Loading -->
+    <div class="md-loading" *ngIf="isLoading">
+      <ion-spinner name="crescent"></ion-spinner>
+    </div>
+
+    <!-- Error -->
+    <div class="md-error" *ngIf="error && !isLoading">
+      <ion-icon name="alert-circle-outline"></ion-icon>
+      <p>{{ error }}</p>
+      <button class="md-btn-secondary" (click)="goBack()">Go Back</button>
+    </div>
+
+    <!-- Material content -->
+    <div class="md-content" *ngIf="material && !isLoading">
+
+      <div class="md-refund-banner" *ngIf="material.purchaseStatus === 'refunded' && !isTutorOwner">
+        <ion-icon name="checkmark-circle-outline"></ion-icon>
+        <div>
+          <strong>Refund issued</strong>
+          <p>{{ material.refundReason || 'A refund has been processed for this purchase. The amount will appear back on your payment method.' }}</p>
+        </div>
+      </div>
+      <div class="md-unavailable-banner" *ngIf="material.mediaUnavailable && material.pricingType === 'paid' && material.purchaseStatus !== 'refunded'">
+        <ion-icon name="warning-outline"></ion-icon>
+        <div>
+          <strong>Media unavailable</strong>
+          <p>The video for this material appears to have been removed. If you purchased this quiz, a refund is being processed.</p>
+        </div>
+      </div>
+
+      <!-- Two-column layout -->
+      <div class="md-layout" [class.md-has-sidebar]="material.quiz && material.quiz.length > 0" [class.md-collapsed]="leftPanelHidden">
+
+        <!-- LEFT: Main content -->
+        <div class="md-main" [@collapseLeft]="leftPanelHidden ? 'hidden' : 'visible'">
+
+          <!-- Media -->
+          <div class="md-media-wrap">
+            <div class="md-hero-thumb" *ngIf="material.thumbnailUrl && material.materialType !== 'reading' && (material.materialType !== 'video_quiz' || !videoEmbedUrl)">
+              <img [src]="material.thumbnailUrl" [alt]="material.title" />
+            </div>
+            <div class="md-media-branded" *ngIf="material.materialType === 'video_quiz' && videoEmbedUrl">
+              <div class="md-brand-bar">
+                <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="md-brand-logo" />
+                <span class="md-brand-name">Barnabi</span>
+              </div>
+              <div class="md-video-wrap">
+                <div class="md-video">
+                  <iframe [src]="videoCoverVisible ? videoEmbedUrl : (videoAutoplayUrl || videoEmbedUrl)" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="origin"></iframe>
+                </div>
+                <div class="md-video-cover-overlay" *ngIf="material.thumbnailUrl && videoCoverVisible" (click)="playVideo()">
+                  <img [src]="material.thumbnailUrl" [alt]="material.title" />
+                  <div class="md-cover-play-btn">
+                    <ion-icon name="play"></ion-icon>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="md-media-branded" *ngIf="material.materialType === 'listening' && audioEmbedUrl && material.audioProvider !== 'direct'">
+              <div class="md-brand-bar">
+                <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="md-brand-logo" />
+                <span class="md-brand-name">Barnabi</span>
+              </div>
+              <div class="md-audio">
+                <iframe [src]="audioEmbedUrl" frameborder="0" allow="autoplay; encrypted-media"></iframe>
+              </div>
+            </div>
+            <div class="md-audio-player" *ngIf="material.materialType === 'listening' && material.audioProvider === 'direct' && material.audioUrl">
+              <audio controls [src]="material.audioUrl">Your browser does not support audio playback.</audio>
+            </div>
+            <div class="md-passage-section" *ngIf="material.materialType === 'reading' && material.passage">
+              <div class="md-passage-text">
+                <h2 class="md-passage-label">Reading Passage</h2>
+                <div [innerHTML]="material.passage"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Info below media -->
+          <div class="md-info-section">
+            <h1 class="md-title">{{ material.title }}</h1>
+
+            <div class="md-meta-row">
+              <span class="md-type-badge">{{ typeLabel }}</span>
+              <span class="md-badge">{{ material.language }}</span>
+              <span class="md-badge">{{ levelLabel }}</span>
+              <span class="md-badge" *ngIf="material.pricingType === 'free'">Free</span>
+              <span class="md-badge paid" *ngIf="material.pricingType === 'paid'">${{ material.price }}</span>
+              <button type="button" class="md-hide-btn" *ngIf="hasQuizSidebar" (click)="toggleLeftPanel()">
+                <ion-icon name="eye-off-outline"></ion-icon>
+                Hide
+              </button>
+            </div>
+
+            <div class="md-divider"></div>
+
+            <!-- Tutor row -->
+            <div class="md-tutor-section" *ngIf="tutorName && !hasQuizSidebar">
+              <div class="md-tutor-row" (click)="tutorId && goToTutorProfile()" [class.md-tutor-row-clickable]="tutorId">
+                <ion-avatar class="md-tutor-avatar">
+                  <img *ngIf="tutorPicture" [src]="tutorPicture" [alt]="tutorName" referrerpolicy="no-referrer" />
+                  <ion-icon *ngIf="!tutorPicture" name="person"></ion-icon>
+                </ion-avatar>
+                <div class="md-tutor-info">
+                  <span class="md-tutor-name">{{ tutorName }}</span>
+                  <span class="md-tutor-date" *ngIf="addedDate">{{ addedDate }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Channel chip -->
+            <a class="md-channel-chip" *ngIf="channelInfo" [href]="channelInfo.url" target="_blank" rel="noopener">
+              <span class="md-channel-avatar-wrap">
+                <img *ngIf="channelInfo.avatar" [src]="channelInfo.avatar" class="md-channel-avatar" referrerpolicy="no-referrer" alt="" />
+                <span *ngIf="!channelInfo.avatar" class="md-channel-avatar md-channel-avatar-initials">{{ channelInitials }}</span>
+              </span>
+              <div class="md-channel-text">
+                <span class="md-channel-name">{{ channelInfo.name }}</span>
+                <span class="md-channel-subs" *ngIf="channelInfo.subs">{{ channelInfo.subs }}</span>
+              </div>
+              <ion-icon name="logo-youtube" class="md-channel-platform yt" *ngIf="material.videoProvider === 'youtube'"></ion-icon>
+              <ion-icon name="logo-vimeo" class="md-channel-platform vimeo" *ngIf="material.videoProvider === 'vimeo'"></ion-icon>
+            </a>
+
+            <!-- Why take this -->
+            <div class="md-why-take" *ngIf="material.whyTakeThis && !hasQuizSidebar">
+              <p>{{ material.whyTakeThis }}</p>
+            </div>
+
+            <!-- Owner stats -->
+            <!-- <div class="md-stats" *ngIf="isTutorOwner">
+              <div class="md-stat">
+                <span class="md-stat-value">{{ material.stats.views }}</span>
+                <span class="md-stat-label">Views</span>
+              </div>
+              <div class="md-stat">
+                <span class="md-stat-value">{{ material.stats.quizAttempts }}</span>
+                <span class="md-stat-label">Attempts</span>
+              </div>
+              <div class="md-stat">
+                <span class="md-stat-value">{{ material.stats.averageScore }}%</span>
+                <span class="md-stat-label">Avg Score</span>
+              </div>
+            </div> -->
+
+            <button class="md-report-link" *ngIf="!isTutorOwner" (click)="reportProblem()">
+              <ion-icon name="flag-outline"></ion-icon>
+              Report a problem
+            </button>
+          </div>
+        </div>
+
+        <!-- RIGHT: Quiz sidebar -->
+        <aside class="md-sidebar" *ngIf="material.quiz && material.quiz.length > 0">
+          <button type="button" class="md-show-btn" *ngIf="leftPanelHidden" (click)="toggleLeftPanel()">
+            <ion-icon name="chevron-forward-outline"></ion-icon>
+            Show content
+          </button>
+          <div class="md-quiz-card">
+            <!-- Idle: quiz details -->
+            <div class="md-quiz-idle" *ngIf="quizMode === 'idle'">
+              <div class="md-quiz-stats" *ngIf="material.stats">
+                <div class="md-quiz-stat">
+                  <span class="md-quiz-stat-val">{{ material.stats.views }}</span>
+                  <span class="md-quiz-stat-lbl">Views</span>
+                </div>
+                <div class="md-quiz-stat">
+                  <span class="md-quiz-stat-val">{{ material.stats.quizAttempts }}</span>
+                  <span class="md-quiz-stat-lbl">Attempts</span>
+                </div>
+                <div class="md-quiz-stat">
+                  <span class="md-quiz-stat-val">{{ material.stats.averageScore }}%</span>
+                  <span class="md-quiz-stat-lbl">Avg Score</span>
+                </div>
+              </div>
+
+              <div class="md-quiz-header">
+                <h3 class="md-quiz-type">{{ typeLabel }}</h3>
+                <p class="md-quiz-count">{{ material.quiz.length }} question{{ material.quiz.length !== 1 ? 's' : '' }}</p>
+              </div>
+
+              <div class="md-quiz-tutor" *ngIf="tutorName">
+                <ion-avatar class="md-quiz-tutor-avatar">
+                  <img *ngIf="tutorPicture" [src]="tutorPicture" [alt]="tutorName" referrerpolicy="no-referrer" />
+                  <ion-icon *ngIf="!tutorPicture" name="person"></ion-icon>
+                </ion-avatar>
+                <div class="md-quiz-tutor-info">
+                  <span class="md-quiz-tutor-name">By {{ tutorName }}</span>
+                  <span class="md-quiz-tutor-date" *ngIf="addedDate">{{ addedDate }}</span>
+                </div>
+              </div>
+
+              <p class="md-quiz-why" *ngIf="material.whyTakeThis">{{ material.whyTakeThis }}</p>
+              <p class="md-quiz-owner-note" *ngIf="isTutorOwner">Preview — you're the owner. Students see Start Quiz here.</p>
+            </div>
+
+            <!-- Taking: current question -->
+            <div class="md-quiz-taking" *ngIf="quizMode === 'taking' && currentQuestion">
+              <div class="md-quiz-progress">{{ currentQuestionIndex + 1 }} / {{ material.quiz.length }}</div>
+              <h3 class="md-quiz-q">{{ currentQuestion.question }}</h3>
+
+              <!-- Multiple Choice -->
+              <div class="md-quiz-options" *ngIf="currentQuestionType === 'multiple_choice'">
+                <button class="md-quiz-option"
+                        *ngFor="let opt of currentQuestion.options; let oi = index"
+                        [class.selected]="selectedAnswers[currentQuestionIndex] === opt._id"
+                        (click)="selectAnswer(opt._id)">
+                  <span class="md-opt-letter">{{ 'ABCDEF'[oi] }}</span>
+                  <span class="md-opt-text">{{ opt.text }}</span>
+                </button>
+              </div>
+
+              <!-- Fill in the Blank -->
+              <div class="md-quiz-fill-blank" *ngIf="currentQuestionType === 'fill_blank'">
+                <input type="text" class="md-fill-input" placeholder="Type your answer..."
+                       [value]="fillBlankInput"
+                       (input)="onFillBlankChange($any($event.target).value)" />
+              </div>
+
+              <!-- True / False -->
+              <div class="md-quiz-tf" *ngIf="currentQuestionType === 'true_false'">
+                <button class="md-tf-option" [class.selected]="selectedAnswers[currentQuestionIndex] === true" (click)="selectTrueFalse(true)">
+                  <ion-icon name="checkmark-circle-outline"></ion-icon>
+                  <span>True</span>
+                </button>
+                <button class="md-tf-option" [class.selected]="selectedAnswers[currentQuestionIndex] === false" (click)="selectTrueFalse(false)">
+                  <ion-icon name="close-circle-outline"></ion-icon>
+                  <span>False</span>
+                </button>
+              </div>
+
+              <!-- Ordering -->
+              <div class="md-quiz-ordering" *ngIf="currentQuestionType === 'ordering'">
+                <span class="md-ordering-label">Drag to reorder:</span>
+                <ion-reorder-group [disabled]="false" (ionItemReorder)="onOrderingReorder($event)">
+                  <ion-item *ngFor="let item of orderingItems[currentQuestionIndex]; let ii = index" class="md-reorder-item" lines="none">
+                    <span class="md-ordering-chip-num">{{ ii + 1 }}</span>
+                    <ion-label>{{ item }}</ion-label>
+                    <ion-reorder slot="end"></ion-reorder>
+                  </ion-item>
+                </ion-reorder-group>
+              </div>
+            </div>
+
+            <!-- Results -->
+            <div class="md-quiz-results" *ngIf="quizMode === 'results' && quizResult">
+              <div class="md-results-header">
+                <div class="md-score-circle" [class.good]="quizResult.score >= 70" [class.great]="quizResult.score >= 90">
+                  <span class="md-score-value">{{ quizResult.score }}%</span>
+                </div>
+                <h2>{{ quizResult.score >= 90 ? 'Excellent!' : quizResult.score >= 70 ? 'Good job!' : 'Keep practicing!' }}</h2>
+                <p>{{ quizResult.correctCount }} of {{ quizResult.totalQuestions }} correct</p>
+              </div>
+              <div class="md-results-list">
+                <div class="md-result-item" *ngFor="let r of quizResult.results; let i = index" [class.correct]="r.isCorrect" [class.wrong]="!r.isCorrect">
+                  <p class="md-result-question">{{ r.question }}</p>
+
+                  <!-- Multiple Choice / Fill Blank / True-False result -->
+                  <div class="md-result-answer" *ngIf="!r.isCorrect && (r.type || 'multiple_choice') !== 'ordering'">
+                    <span class="md-result-correct-label">Correct:</span> {{ r.correctAnswerText }}
+                  </div>
+
+                  <!-- Ordering result -->
+                  <div class="md-result-ordering" *ngIf="!r.isCorrect && r.type === 'ordering'">
+                    <span class="md-result-correct-label">Correct order:</span>
+                    <div class="md-result-order-items">
+                      <span class="md-result-order-chip" *ngFor="let item of r.correctAnswer; let idx = index">
+                        <span class="md-result-order-num">{{ idx + 1 }}</span>{{ item }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Action button -->
+          <div class="md-quiz-actions">
+            <button class="md-btn-secondary md-prev-btn" *ngIf="quizMode === 'taking' && currentQuestionIndex > 0" (click)="prevQuestion()">
+              Previous
+            </button>
+            <button class="md-btn-primary md-action-btn" *ngIf="quizMode === 'idle' && (!material.quizLocked || isTutorOwner)" (click)="startQuiz()" [disabled]="isCheckingMedia">
+              <ion-spinner *ngIf="isCheckingMedia" name="crescent" class="md-spinner"></ion-spinner>
+              <ng-container *ngIf="!isCheckingMedia">Start Quiz</ng-container>
+            </button>
+            <button class="md-btn-primary md-btn-purchase md-action-btn" *ngIf="quizMode === 'idle' && material.quizLocked && !isTutorOwner" (click)="purchaseQuiz()" [disabled]="isPurchasing">
+              <ion-spinner *ngIf="isPurchasing" name="crescent" class="md-spinner"></ion-spinner>
+              <ng-container *ngIf="!isPurchasing">Unlock Quiz · ${{ material.price }}</ng-container>
+            </button>
+            <button class="md-btn-primary md-action-btn" *ngIf="quizMode === 'taking' && !isLastQuizQuestion" (click)="nextQuestion()">
+              Next question
+            </button>
+            <button class="md-btn-primary md-action-btn" *ngIf="quizMode === 'taking' && isLastQuizQuestion" (click)="submitQuiz()" [disabled]="!canSubmitQuiz || isSubmittingQuiz">
+              <ion-spinner *ngIf="isSubmittingQuiz" name="crescent" class="md-spinner"></ion-spinner>
+              <span *ngIf="!isSubmittingQuiz">Submit quiz</span>
+            </button>
+            <div class="md-results-actions" *ngIf="quizMode === 'results'">
+              <button class="md-btn-secondary" (click)="retakeQuiz()">Retake Quiz</button>
+              <button class="md-btn-primary" (click)="goBack()">Done</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+</ion-content>

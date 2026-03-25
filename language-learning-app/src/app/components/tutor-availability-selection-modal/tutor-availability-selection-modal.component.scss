@@ -185,18 +185,33 @@ ion-footer {
     }
     
     .view-button {
-      --background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      --background-hover: linear-gradient(135deg, #5568d3 0%, #6a3f8f 100%);
-      --border-radius: 12px;
+      --background: #222222;
+      --background-hover: #000000;
+      --background-activated: #000000;
+      --color: #ffffff;
+      --border-radius: 8px;
+      --border-width: 0;
       --padding-start: 16px;
       --padding-end: 16px;
-      --padding-top: 10px;
-      --padding-bottom: 10px;
+      --padding-top: 12px;
+      --padding-bottom: 12px;
       font-size: 14px;
       font-weight: 600;
       text-transform: none;
       margin: 0;
       flex-shrink: 0;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      
+      &:hover {
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+        transform: translateY(-1px);
+      }
+      
+      &:active {
+        transform: translateY(0);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+      }
       
       ion-icon {
         font-size: 16px;
@@ -274,24 +289,32 @@ ion-footer {
     }
     
     .duration-option {
-      padding: 14px 16px;
-      background: #f5f5f7;
-      border: 2px solid #f5f5f7;
-      border-radius: 12px;
+      padding: 16px 20px;
+      background: #ffffff;
+      border: 1px solid #DDDDDD;
+      border-radius: 8px;
       cursor: pointer;
-      transition: all 0.2s ease;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       text-align: center;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
       
       &:hover {
-        background: #ececf1;
-        border-color: #e8e8ed;
+        border-color: #222222;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transform: translateY(-1px);
       }
       
       &.selected {
-        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+        background: #ffffff;
         border-color: #667eea;
+        border-width: 2px;
+        box-shadow: 0 2px 4px rgba(102, 126, 234, 0.15);
         
         .duration-time {
+          color: #667eea;
+        }
+        
+        .duration-price {
           color: #667eea;
         }
       }
@@ -299,16 +322,16 @@ ion-footer {
       .duration-time {
         font-size: 15px;
         font-weight: 600;
-        color: #1d1d1f;
-        margin-bottom: 4px;
-        letter-spacing: -0.3px;
+        color: #222222;
+        margin-bottom: 6px;
+        letter-spacing: -0.2px;
       }
       
       .duration-price {
         font-size: 18px;
-        font-weight: 700;
-        color: #667eea;
-        letter-spacing: -0.5px;
+        font-weight: 600;
+        color: #222222;
+        letter-spacing: -0.3px;
       }
     }
   }

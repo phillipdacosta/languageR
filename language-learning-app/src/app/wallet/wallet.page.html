@@ -6,10 +6,22 @@
       </ion-button>
     </ion-buttons>
     <ion-title>Wallet</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="goToHome()" fill="clear">
+        <ion-icon name="close"></ion-icon>
+      </ion-button>
+    </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true" class="wallet-content">
+  <!-- Close Button (Top Right) -->
+  <div class="close-button-container">
+    <ion-button (click)="goToHome()" fill="clear" class="close-button-top">
+      <ion-icon name="close"></ion-icon>
+    </ion-button>
+  </div>
+
   <!-- Loading State -->
   <div *ngIf="loading" class="loading-container">
     <ion-spinner name="crescent" color="medium"></ion-spinner>
@@ -111,12 +123,13 @@
                  (click)="openPaymentReceipt(payment)"
                  [class.clickable]="payment.receiptUrl">
               
-              <!-- Tutor Avatar (if lesson has tutor info) -->
-              <ion-avatar class="tutor-avatar" *ngIf="payment.lessonId?.tutorId?.picture">
-                <img [src]="payment.lessonId!.tutorId!.picture" [alt]="getTutorName(payment)" referrerpolicy="no-referrer">
+              <!-- Tutor Avatar (if lesson or class has tutor info) -->
+              <ion-avatar class="tutor-avatar" *ngIf="getTutorPicture(payment)">
+                <img [src]="getTutorPicture(payment)" [alt]="getTutorName(payment)" referrerpolicy="no-referrer">
               </ion-avatar>
-              <div class="payment-icon-circle" *ngIf="!payment.lessonId?.tutorId?.picture">
-                <ion-icon [name]="getPaymentMethodIcon(payment.paymentMethod)"></ion-icon>
+              <div class="payment-icon-circle" *ngIf="!getTutorPicture(payment)">
+                <img *ngIf="getPaymentMethodIcon(payment.paymentMethod) === 'logo-google'" src="assets/google.png" alt="Google Pay" class="payment-method-google" />
+                <ion-icon *ngIf="getPaymentMethodIcon(payment.paymentMethod) !== 'logo-google'" [name]="getPaymentMethodIcon(payment.paymentMethod)"></ion-icon>
               </div>
               
               <div class="payment-info">
@@ -131,7 +144,17 @@
                   </span>
                   <span *ngIf="payment.lessonId.subject" class="lesson-subject">{{ payment.lessonId.subject }}</span>
                   <span *ngIf="payment.lessonId.startTime && payment.lessonId.endTime" class="lesson-time">
-                    {{ payment.lessonId.startTime | date:'shortTime' }} - {{ payment.lessonId.endTime | date:'shortTime' }}
+                    {{ payment.lessonId.startTime | date:timePipeFormat }} - {{ payment.lessonId.endTime | date:timePipeFormat }}
+                  </span>
+                </div>
+                <!-- Class Details (if available) -->
+                <div class="lesson-details" *ngIf="payment.classId && !payment.lessonId">
+                  <span *ngIf="payment.classId.startTime" class="lesson-date">
+                    {{ payment.classId.startTime | date:'MMM d, y' }}
+                  </span>
+                  <span class="lesson-subject">{{ payment.classId.name || 'Class' }}</span>
+                  <span *ngIf="payment.classId.startTime && payment.classId.endTime" class="lesson-time">
+                    {{ payment.classId.startTime | date:timePipeFormat }} - {{ payment.classId.endTime | date:timePipeFormat }}
                   </span>
                 </div>
               </div>

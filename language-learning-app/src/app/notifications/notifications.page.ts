@@ -3,8 +3,12 @@ import { Router } from '@angular/router';
 import { ModalController } from '@ionic/angular';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Subject, takeUntil, firstValueFrom } from 'rxjs';
+import { TranslateService } from '@ngx-translate/core';
 import { NotificationService, Notification } from '../services/notification.service';
+import { UserService } from '../services/user.service';
 import { WebSocketService } from '../services/websocket.service';
+import { NotificationTranslationService } from '../services/notification-translation.service';
+import { formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
 import { PlatformService } from '../services/platform.service';
 import { ClassInvitationModalComponent } from '../components/class-invitation-modal/class-invitation-modal.component';
 import { PaymentDisputeModalComponent } from '../components/payment-dispute-modal/payment-dispute-modal.component';
@@ -32,14 +36,12 @@ export class NotificationsPage implements OnDestroy {
   isLoading = false;
   searchTerm: string = '';
   activeFilters: string[] = ['all'];
-  filters = [
-    { value: 'all', label: 'All' },
-    { value: 'lessons', label: 'Lessons' },
-    { value: 'payment', label: 'Payment' },
-    { value: 'progress', label: 'Progress' }
-  ];
+  filters: { value: string; label: string }[] = [];
+  isFiltersModalOpen = false;
+  selectedTypeFilter: 'all' | 'lessons' | 'payment' | 'progress' = 'all';
   private destroy$ = new Subject<void>();
-  
+  currentUser: any = null;
+
   // Lazy loading properties
   isLoadingMore = false;
   hasMoreNotifications = true;
@@ -48,17 +50,31 @@ export class NotificationsPage implements OnDestroy {
 
   constructor(
     private notificationService: NotificationService,
+    private userService: UserService,
     private websocketService: WebSocketService,
     private router: Router,
     private platformService: PlatformService,
     private modalController: ModalController,
-    private sanitizer: DomSanitizer
+    private sanitizer: DomSanitizer,
+    private translateService: TranslateService,
+    private notificationTranslation: NotificationTranslationService
   ) {
+    this.filters = [
+      { value: 'all', label: this.translateService.instant('NOTIFICATIONS.FILTER_ALL') },
+      { value: 'lessons', label: this.translateService.instant('NOTIFICATIONS.FILTER_LESSONS') },
+      { value: 'payment', label: this.translateService.instant('NOTIFICATIONS.FILTER_PAYMENT') },
+      { value: 'progress', label: this.translateService.instant('NOTIFICATIONS.FILTER_PROGRESS') }
+    ];
     this.websocketService.newNotification$
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
         this.loadNotifications();
       });
+
+    this.userService.currentUser$.pipe(takeUntil(this.destroy$)).subscribe(user => {
+      this.currentUser = user ?? null;
+    });
+    this.userService.getCurrentUser().pipe(takeUntil(this.destroy$)).subscribe();
   }
 
   ionViewWillEnter() {
@@ -147,6 +163,10 @@ export class NotificationsPage implements OnDestroy {
     return this.notifications.filter(n => n.read);
   }
 
+  private get userTz(): string | undefined {
+    return this.currentUser?.profile?.timezone || undefined;
+  }
+
   formatNotificationTime(createdAt: Date | string): string {
     const date = new Date(createdAt);
     const now = new Date();
@@ -169,19 +189,11 @@ export class NotificationsPage implements OnDestroy {
 
     // For yesterday, show time
     if (this.isYesterday(createdAt)) {
-      return date.toLocaleTimeString(undefined, {
-        hour: 'numeric',
-        minute: '2-digit'
-      });
+      return formatTimeInTz(date, this.userTz);
     }
 
     // For older notifications, show date and time
-    return date.toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit'
-    });
+    return formatDateInTz(date, this.userTz, { month: 'short', day: 'numeric', year: undefined }) + ' ' + formatTimeInTz(date, this.userTz);
   }
 
   onNotificationClick(notification: Notification) {
@@ -208,7 +220,7 @@ export class NotificationsPage implements OnDestroy {
 
     if (notification.type === 'lesson_created' && notification.data?.lessonId) {
       // Navigate to lessons page with lesson ID to scroll to
-      this.router.navigate(['/tabs/home/lessons'], { 
+      this.router.navigate(['/tabs/lessons'], { 
         queryParams: { 
           scrollToLesson: notification.data.lessonId 
         } 
@@ -228,7 +240,29 @@ export class NotificationsPage implements OnDestroy {
           scrollToLesson: notification.data.lessonId 
         } 
       });
+    } else if (notification.type === 'tutor_video_approved' && notification.data?.actionRoute) {
+      // Navigate to the action route (e.g., tutor calendar for availability)
+      this.router.navigate([notification.data.actionRoute]);
+    } else if (notification.type === 'lesson_completed' && notification.data?.lessonId) {
+      // Student notification - Navigate to post-lesson page or lesson analysis
+      if (notification.data?.action === 'view_analysis') {
+        this.router.navigate(['/post-lesson-student', notification.data.lessonId]);
+      } else {
+        this.router.navigate(['/lesson-analysis', notification.data.lessonId]);
+      }
+    } else if (notification.type === 'feedback_reminder' && notification.data?.lessonId) {
+      this.router.navigate(['/post-lesson-tutor', notification.data.lessonId]);
+    } else if ((notification.type === 'material_rejected' || notification.type === 'material_approved') && notification.data?.materialId) {
+      this.router.navigate(['/material', notification.data.materialId]);
     }
+  }
+
+  navigateToTutorCalendar() {
+    this.router.navigate(['/tabs/availability-setup']);
+  }
+
+  navigateToProgress() {
+    this.router.navigate(['/tabs/progress']);
   }
 
   async openClassInvitation(classId: string, notification?: Notification) {
@@ -256,24 +290,35 @@ export class NotificationsPage implements OnDestroy {
 
   getNotificationIcon(type: string): string {
     const iconMap: { [key: string]: string } = {
-      'lesson_created': 'calendar',
+      'lesson_created': 'videocam',
       'lesson_analysis_ready': 'analytics',
+      'lesson_completed': 'checkmark-circle',
+      'feedback_reminder': 'create',
       'class_invitation': 'people',
+      'class_cancelled': 'videocam',
+      'class_auto_cancelled': 'videocam',
+      'class_invitation_cancelled': 'videocam',
+      'invitation_cancelled': 'videocam',
+      'class_removed': 'videocam',
       'message': 'chatbubbles',
-      'lesson_reminder': 'alarm',
+      'lesson_reminder': 'videocam',
       'lesson_cancelled': 'close-circle',
-      'lesson_rescheduled': 'swap-horizontal',
-      'office_hours_booking': 'time',
-      'office_hours_starting': 'play-circle',
+      'lesson_rescheduled': 'videocam',
+      'office_hours_booking': 'videocam',
+      'office_hours_starting': 'videocam',
       'payment_received': 'cash',
       'tutor_video_approved': 'checkmark-circle',
-      'tutor_video_rejected': 'close-circle'
+      'tutor_video_rejected': 'close-circle',
+      'credential_approved': 'shield-checkmark',
+      'credential_rejected': 'shield',
+      'material_approved': 'checkmark-circle',
+      'material_rejected': 'close-circle'
     };
     return iconMap[type] || 'notifications';
   }
 
   getNotificationIconClass(type: string): string {
-    if (type === 'lesson_created' || type === 'lesson_reminder') {
+    if (type === 'lesson_created' || type === 'lesson_reminder' || type === 'lesson_rescheduled' || type === 'office_hours_booking' || type === 'office_hours_starting' || type === 'class_cancelled' || type === 'class_auto_cancelled' || type === 'class_invitation_cancelled' || type === 'invitation_cancelled' || type === 'class_removed') {
       return 'lesson-icon';
     } else if (type === 'class_invitation') {
       return 'class-invitation-icon';
@@ -290,7 +335,11 @@ export class NotificationsPage implements OnDestroy {
     const systemTypes = [
       'tutor_video_approved',
       'tutor_video_rejected',
-      'lesson_analysis_ready'
+      'lesson_analysis_ready',
+      'credential_approved',
+      'credential_rejected',
+      'material_approved',
+      'material_rejected'
     ];
     return systemTypes.includes(type);
   }
@@ -305,18 +354,26 @@ export class NotificationsPage implements OnDestroy {
 
   // NEW: Get contextual icon for right side
   getContextualIcon(type: string): string {
+    if (!type) return '';
+    
     const contextualIcons: { [key: string]: string } = {
       'lesson_created': 'videocam',
       'lesson_reminder': 'alarm',
       'lesson_cancelled': 'close-circle',
       'lesson_rescheduled': 'calendar',
       'class_invitation': 'people',
+      'class_cancelled': 'videocam',
+      'class_auto_cancelled': 'videocam',
+      'class_invitation_cancelled': 'videocam',
+      'invitation_cancelled': 'videocam',
+      'class_removed': 'videocam',
       'office_hours_booking': 'briefcase',
       'office_hours_starting': 'play',
       'payment_received': 'cash',
       'lesson_analysis_ready': 'bar-chart',
       'message': 'chatbubble-ellipses'
     };
+    
     return contextualIcons[type] || '';
   }
 
@@ -324,7 +381,7 @@ export class NotificationsPage implements OnDestroy {
   getContextualIconClass(type: string): string {
     if (type === 'payment_received') {
       return 'contextual-icon money-icon';
-    } else if (type === 'lesson_created' || type === 'lesson_reminder' || type === 'class_invitation') {
+    } else if (type === 'lesson_created' || type === 'lesson_reminder' || type === 'class_invitation' || type === 'class_cancelled' || type === 'class_auto_cancelled' || type === 'class_invitation_cancelled' || type === 'invitation_cancelled' || type === 'class_removed') {
       return 'contextual-icon lesson-icon';
     } else if (type === 'lesson_analysis_ready') {
       return 'contextual-icon analysis-icon';
@@ -402,6 +459,45 @@ export class NotificationsPage implements OnDestroy {
     return this.activeFilters.includes(filter);
   }
 
+  get hasActiveNotificationFilters(): boolean {
+    return this.selectedTypeFilter !== 'all';
+  }
+
+  get activeFilterLabel(): string {
+    if (this.selectedTypeFilter === 'all') return '';
+    const f = this.filters.find(x => x.value === this.selectedTypeFilter);
+    return f ? f.label : '';
+  }
+
+  openFiltersModal(): void {
+    this.selectedTypeFilter = this.activeFilters.includes('all') || this.activeFilters.length === 0
+      ? 'all'
+      : (this.activeFilters[0] as 'lessons' | 'payment' | 'progress');
+    this.isFiltersModalOpen = true;
+  }
+
+  closeFiltersModal(): void {
+    this.isFiltersModalOpen = false;
+  }
+
+  setTypeFilter(value: 'all' | 'lessons' | 'payment' | 'progress'): void {
+    this.selectedTypeFilter = value;
+  }
+
+  clearNotificationFilters(): void {
+    this.selectedTypeFilter = 'all';
+  }
+
+  applyFiltersAndCloseModal(): void {
+    this.activeFilters = this.selectedTypeFilter === 'all' ? ['all'] : [this.selectedTypeFilter];
+    this.groupAndFormatNotifications();
+    this.closeFiltersModal();
+  }
+
+  getFilteredNotificationCount(): number {
+    return this.getTodayNotifications().length + this.getYesterdayNotifications().length + this.getLaterNotifications().length;
+  }
+
   isToday(date: Date | string): boolean {
     const notificationDate = new Date(date);
     const today = new Date();
@@ -415,13 +511,15 @@ export class NotificationsPage implements OnDestroy {
     return notificationDate.toDateString() === yesterday.toDateString();
   }
 
-  // 🚀 NEW: Pre-compute and cache grouped notifications
+  private getTranslatedMessage(n: Notification): string {
+    return this.notificationTranslation.getTranslatedMessage(n);
+  }
+
   private groupAndFormatNotifications() {
-    // Format all notifications once
     const formatted = this.notifications.map(n => ({
       ...n,
       formattedTime: this.formatNotificationTime(n.createdAt),
-      sanitizedMessage: this.sanitizer.bypassSecurityTrustHtml(n.message)
+      sanitizedMessage: this.sanitizer.bypassSecurityTrustHtml(this.getTranslatedMessage(n))
     }));
     
     // Apply filters once
@@ -492,24 +590,7 @@ export class NotificationsPage implements OnDestroy {
   }
 
   getNotificationTitle(notification: Notification): string {
-    if (notification.title) {
-      return notification.title;
-    }
-    
-    // Generate title from type
-    const titleMap: { [key: string]: string } = {
-      'lesson_created': 'New Lesson Scheduled',
-      'lesson_analysis_ready': 'Lesson Analysis Ready',
-      'class_invitation': 'Class Invitation',
-      'message': 'New Message',
-      'lesson_reminder': 'Lesson Reminder',
-      'lesson_cancelled': 'Lesson Cancelled',
-      'lesson_rescheduled': 'Lesson Rescheduled',
-      'office_hours_booking': 'Office Hours Booking',
-      'office_hours_starting': 'Office Hours Starting'
-    };
-    
-    return titleMap[notification.type] || 'Notification';
+    return this.notificationTranslation.getTranslatedTitle(notification);
   }
 
   onSearchInput(event: any) {

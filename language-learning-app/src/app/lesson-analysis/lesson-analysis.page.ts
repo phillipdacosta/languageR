@@ -1,14 +1,19 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Location } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
-import { LoadingController, AlertController, ToastController, IonicModule } from '@ionic/angular';
+import { LoadingController, AlertController, ToastController, ModalController, IonicModule, ViewWillEnter } from '@ionic/angular';
+import { TutorAvailabilitySelectionModalComponent } from '../components/tutor-availability-selection-modal/tutor-availability-selection-modal.component';
 import { CommonModule } from '@angular/common';
 import { LessonAnalysis } from '../services/transcription.service';
 import { ReviewDeckService, ReviewDeckItem } from '../services/review-deck.service';
 import { UserService } from '../services/user.service';
 import { LessonService } from '../services/lesson.service';
+import { AnalysisTranslationService } from '../services/analysis-translation.service';
+import { formatTimeInTz, formatDateInTz, getGlobalHour12 } from '../shared/timezone.utils';
+import { TranslateModule } from '@ngx-translate/core';
+import { Subscription } from 'rxjs';
 
 interface LessonInfo {
   _id: string;
@@ -34,18 +39,22 @@ interface LessonInfo {
   templateUrl: './lesson-analysis.page.html',
   styleUrls: ['./lesson-analysis.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule]
+  imports: [CommonModule, IonicModule, TranslateModule]
 })
-export class LessonAnalysisPage implements OnInit, OnDestroy {
+export class LessonAnalysisPage implements OnInit, OnDestroy, ViewWillEnter {
   lessonId: string = '';
   analysis: LessonAnalysis | null = null;
   lesson: LessonInfo | null = null;
   loading = true;
   error: string | null = null;
+  get shortDateTimeFormat(): string { return getGlobalHour12() ? 'M/d/yy, h:mm a' : 'M/d/yy, HH:mm'; }
   canGenerate = false;
   private pollingInterval: any = null;
   pollCount = 0;
   maxPollAttempts = 60;
+  
+  // Analysis source (ai or tutor)
+  analysisSource: string = '';
   
   // Review deck
   savedCorrections: Set<string> = new Set();
@@ -55,8 +64,19 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
   currentAudio: HTMLAudioElement | null = null;
   playingWordId: string | null = null;
   
+  // Translation
+  analysisId: string | null = null;
+  originalAnalysis: LessonAnalysis | null = null;
+  translating = false;
+  showingTranslation = false;
+  private translationSub?: Subscription;
+
   // Expose Math for template
   Math = Math;
+
+  private get userTz(): string | undefined {
+    return this.userService.getCurrentUserValue()?.profile?.timezone || undefined;
+  }
 
   constructor(
     private route: ActivatedRoute,
@@ -68,13 +88,15 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
     private alertCtrl: AlertController,
     private toastCtrl: ToastController,
     private reviewDeckService: ReviewDeckService,
-    private lessonService: LessonService
+    private lessonService: LessonService,
+    private modalCtrl: ModalController,
+    private analysisTranslation: AnalysisTranslationService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
     this.lessonId = this.route.snapshot.paramMap.get('id') || '';
     if (this.lessonId) {
-      // Wait for user to be loaded before making API calls
       this.userService.getCurrentUser().subscribe(user => {
         if (user) {
           console.log('✅ User loaded, fetching analysis...');
@@ -86,13 +108,24 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
       this.error = 'No lesson ID provided';
       this.loading = false;
     }
+
+    this.translationSub = this.analysisTranslation.onTranslationChanged().subscribe(changedId => {
+      if (changedId === this.analysisId) {
+        this.syncTranslationState();
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  ionViewWillEnter() {
+    this.syncTranslationState();
   }
 
   ngOnDestroy() {
-    // Clean up polling interval on component destroy
     if (this.pollingInterval) {
       clearInterval(this.pollingInterval);
     }
+    this.translationSub?.unsubscribe();
   }
 
   async loadAnalysis() {
@@ -113,9 +146,11 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
         // New format
         this.analysis = response.analysis;
         this.lesson = response.lesson;
+        this.analysisSource = response.analysis?.source || 'ai';
       } else if (response.status) {
         // Direct LessonAnalysis document format - use it as-is with proper type
         this.analysis = response as LessonAnalysis;
+        this.analysisSource = (response as any).source || 'ai';
         
         // Try to populate lesson info from lessonId if populated
         if (response.lessonId) {
@@ -143,20 +178,27 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
       console.log('✅ Analysis loaded:', !!this.analysis);
       console.log('✅ Lesson loaded:', !!this.lesson);
       
+      // If analysis was marked as insufficient data, show a user-friendly message
+      if (this.analysis?.status === 'insufficient_data') {
+        this.analysis = null;
+        this.error = 'Not enough speech was detected during this lesson to generate an analysis. This can happen when there is minimal conversation or background noise.';
+        this.stopPolling();
+      }
       // If analysis is still processing, start polling
-      if (this.analysis?.status === 'processing' || this.analysis?.status === 'pending') {
+      else if (this.analysis?.status === 'processing' || this.analysis?.status === 'pending') {
         this.startPolling();
       } else {
-        // Stop polling if analysis is complete or failed
         this.stopPolling();
+        this.initTranslationState();
       }
     } catch (err: any) {
       console.error('Error loading analysis:', err);
-      if (err.status === 404) {
+      if (err.status === 404 && err.error?.status === 'unavailable') {
+        this.error = 'No analysis available for this lesson. There wasn\'t enough speech captured to generate an analysis.';
+        this.stopPolling();
+      } else if (err.status === 404) {
         this.error = 'Analysis not available yet. It may still be generating...';
         this.canGenerate = err.error?.canGenerate || false;
-        
-        // If analysis doesn't exist yet, start polling (it might be generating)
         this.startPolling();
       } else {
         this.error = 'Failed to load lesson analysis';
@@ -200,10 +242,16 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
           this.lesson = response.lesson;
           this.error = null;
           
-          // Stop polling if analysis is complete or failed
-          if (response.analysis.status === 'completed' || response.analysis.status === 'failed') {
+          // Stop polling if analysis is complete, failed, or insufficient
+          if (response.analysis.status === 'completed' || response.analysis.status === 'failed' || response.analysis.status === 'insufficient_data') {
             console.log('✅ Analysis ready!');
             this.stopPolling();
+            
+            // Handle insufficient data in polling too
+            if (response.analysis.status === 'insufficient_data') {
+              this.analysis = null;
+              this.error = 'Not enough speech was detected during this lesson to generate an analysis. This can happen when there is minimal conversation or background noise.';
+            }
           }
         }
       } catch (err: any) {
@@ -257,7 +305,7 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
   }
 
   formatDate(date: Date): string {
-    return new Date(date).toLocaleDateString('en-US', {
+    return formatDateInTz(date, this.userTz, {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
@@ -266,10 +314,7 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
   }
 
   formatTime(date: Date): string {
-    return new Date(date).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit'
-    });
+    return formatTimeInTz(date, this.userTz);
   }
 
   goBack() {
@@ -289,10 +334,28 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
   }
 
   async rebook() {
-    // Navigate to tutor profile to book again
-    if (this.lesson?.tutor._id) {
-      this.router.navigate(['/tutor', this.lesson.tutor._id]);
-    }
+    if (!this.lesson?.tutor) return;
+
+    const tutor = this.lesson.tutor;
+    const nameParts = (tutor.name || '').split(' ');
+
+    const modal = await this.modalCtrl.create({
+      component: TutorAvailabilitySelectionModalComponent,
+      componentProps: {
+        tutors: [{
+          id: tutor._id,
+          _id: tutor._id,
+          firstName: nameParts[0] || '',
+          lastName: nameParts.slice(1).join(' ') || '',
+          name: tutor.name,
+          picture: tutor.picture
+        }],
+        title: 'Book Again'
+      },
+      cssClass: 'tutor-availability-selection-modal'
+    });
+
+    await modal.present();
   }
 
   /**
@@ -876,5 +939,71 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
       });
       await toast.present();
     }
+  }
+
+  private initTranslationState() {
+    if (!this.analysis) return;
+    this.analysisId = (this.analysis as any)._id || null;
+    this.originalAnalysis = { ...this.analysis };
+
+    if (this.analysisId) {
+      const user = this.userService.getCurrentUserValue();
+      const targetLang = user?.nativeLanguage || 'en';
+      const cached = (this.analysis as any).translations?.[targetLang];
+      if (cached) {
+        this.analysisTranslation.seedFromResponse(this.analysisId, cached);
+      }
+      this.syncTranslationState();
+    }
+  }
+
+  private syncTranslationState() {
+    if (!this.analysisId || !this.originalAnalysis) return;
+
+    const showing = this.analysisTranslation.isShowingTranslated(this.analysisId);
+    const t = this.analysisTranslation.getTranslation(this.analysisId);
+
+    if (showing && t && !this.showingTranslation) {
+      this.analysis = this.analysisTranslation.applyTranslation(this.originalAnalysis, t) as LessonAnalysis;
+      this.showingTranslation = true;
+    } else if (!showing && this.showingTranslation) {
+      this.analysis = { ...this.originalAnalysis } as LessonAnalysis;
+      this.showingTranslation = false;
+    }
+  }
+
+  toggleTranslation() {
+    if (!this.analysisId) return;
+
+    if (this.showingTranslation) {
+      this.analysisTranslation.showOriginal(this.analysisId);
+      this.analysis = this.originalAnalysis ? { ...this.originalAnalysis } : this.analysis;
+      this.showingTranslation = false;
+      return;
+    }
+
+    if (this.analysisTranslation.hasTranslation(this.analysisId)) {
+      this.analysisTranslation.showTranslated(this.analysisId);
+      const t = this.analysisTranslation.getTranslation(this.analysisId);
+      if (t && this.originalAnalysis) {
+        this.analysis = this.analysisTranslation.applyTranslation(this.originalAnalysis, t) as LessonAnalysis;
+      }
+      this.showingTranslation = true;
+      return;
+    }
+
+    this.translating = true;
+    this.analysisTranslation.translate(this.analysisId).subscribe({
+      next: (t) => {
+        if (this.originalAnalysis) {
+          this.analysis = this.analysisTranslation.applyTranslation(this.originalAnalysis, t) as LessonAnalysis;
+        }
+        this.translating = false;
+        this.showingTranslation = true;
+      },
+      error: () => {
+        this.translating = false;
+      }
+    });
   }
 }

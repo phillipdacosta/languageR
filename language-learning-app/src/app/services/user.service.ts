@@ -4,6 +4,8 @@ import { Observable, BehaviorSubject, Subject, from, of } from 'rxjs';
 import { map, tap, take, switchMap, catchError } from 'rxjs/operators';
 import { AuthService } from './auth.service';
 import { environment } from '../../environments/environment';
+import { SupportedLanguage } from './language.service';
+import { setGlobalTimeFormat } from '../shared/timezone.utils';
 
 export interface User {
   id: string;
@@ -15,12 +17,13 @@ export interface User {
   country?: string;
   residenceCountry?: string;
   picture?: string;
+  auth0Picture?: string; // Original Auth0/Google profile picture
   emailVerified: boolean;
   userType: 'student' | 'tutor';
   isAdmin?: boolean; // Admin flag for backend access
   onboardingCompleted: boolean;
   nativeLanguage?: string;
-  interfaceLanguage?: 'en' | 'es' | 'fr' | 'pt' | 'de';
+  interfaceLanguage?: SupportedLanguage;
   // Tutor-specific onboarding tracking
   tutorOnboarding?: {
     photoUploaded: boolean;
@@ -33,6 +36,38 @@ export interface User {
     approvedBy?: string;
     approvedAt?: string;
   };
+  // Tutor credential verification
+  tutorCredentials?: {
+    governmentId?: {
+      url?: string;
+      fileName?: string;
+      fileType?: string;
+      uploadedAt?: string;
+      status: 'not_uploaded' | 'pending' | 'approved' | 'rejected';
+      rejectionReason?: string;
+    };
+    teachingCertifications?: Array<{
+      _id?: string;
+      url: string;
+      fileName: string;
+      fileType?: string;
+      certificationName?: string;
+      uploadedAt?: string;
+      status: 'pending' | 'approved' | 'rejected';
+      rejectionReason?: string;
+    }>;
+    additionalDocuments?: Array<{
+      _id?: string;
+      url: string;
+      fileName: string;
+      fileType?: string;
+      documentType?: string;
+      label?: string;
+      uploadedAt?: string;
+      status: 'pending' | 'approved' | 'rejected';
+      rejectionReason?: string;
+    }>;
+  };
   tutorApproved?: boolean;
   stripeConnectOnboarded?: boolean;
   stripeConnectAccountId?: string;
@@ -42,6 +77,12 @@ export interface User {
     paypalEmail?: string;
     bankInfo?: any;
   };
+  // Tax classification for payout routing
+  isUSPersonForTax?: boolean | null;
+  hasUSBankAccount?: boolean | null;
+  taxInfoCompletedAt?: string;
+  tosAcceptedAt?: string;
+  tosVersion?: string;
   onboardingData?: {
     languages: string[];
     goals: string[];
@@ -66,9 +107,11 @@ export interface User {
     timezone: string;
     preferredLanguage: string;
     officeHoursEnabled?: boolean;
-    showWalletBalance?: boolean;  // Privacy setting for wallet display
-    remindersEnabled?: boolean;   // Lesson reminder notifications
-    aiAnalysisEnabled?: boolean;  // Enable/disable AI analysis of lessons
+    showWalletBalance?: boolean;
+    remindersEnabled?: boolean;
+    aiAnalysisEnabled?: boolean;
+    calendarTimeFormat?: '12h' | '24h';
+    calendarDefaultView?: 'week' | 'day';
   };
   stats?: {
     totalLessons: number;
@@ -87,6 +130,14 @@ export interface OnboardingData {
   goals: string[];
   experienceLevel: string;
   preferredSchedule: string;
+  learningGoal?: {
+    type: string;
+    description?: string;
+    targetLevel?: string;
+    selfAssessedLevel?: string;
+    timeline?: string;
+    targetDate?: string | null;
+  };
 }
 
 export interface TutorOnboardingData {
@@ -96,6 +147,7 @@ export interface TutorOnboardingData {
   languages: string[];
   experience: string;
   schedule: string;
+  summary?: string;
   bio: string;
   hourlyRate: number;
   introductionVideo?: string;
@@ -115,6 +167,7 @@ export interface Tutor {
   hourlyRate: number;
   experience: string;
   schedule: string;
+  summary?: string;
   bio: string;
   introductionVideo?: string;
   videoThumbnail?: string;
@@ -124,6 +177,7 @@ export interface Tutor {
   nativeSpeaker: boolean;
   rating: number;
   totalLessons: number;
+  students?: number;
   totalHours: number;
   joinedDate: string;
   profile?: {
@@ -135,6 +189,7 @@ export interface Tutor {
     feedbackRate: number;
     avgQuality: number;
   };
+  materialCount?: number;
   // UI state properties
   isOnline?: boolean;
   expanded?: boolean;
@@ -146,7 +201,7 @@ export interface TutorSearchFilters {
   language?: string;
   priceMin?: number;
   priceMax?: number;
-  country?: string;
+  country?: string | string[];
   availability?: string;
   specialties?: string[];
   gender?: string;
@@ -182,8 +237,17 @@ export class UserService {
     videoComplete: boolean;
     videoApproved: boolean;
     videoRejected: boolean;
-    hasApprovedVideo: boolean;  // NEW: indicates if they have at least one approved video
+    hasApprovedVideo: boolean;
     stripeComplete: boolean;
+    // Credential status
+    governmentIdUploaded: boolean;
+    governmentIdApproved: boolean;
+    governmentIdRejected: boolean;
+    certificationsUploaded: boolean;
+    certificationsApproved: boolean;
+    credentialsComplete: boolean; // All required credentials uploaded
+    credentialsApproved: boolean; // All required credentials approved
+    tosComplete: boolean;
     fullyApproved: boolean;
     needsApproval: boolean;
   } | null>(null);
@@ -276,14 +340,21 @@ export class UserService {
 
   // Public method to get auth headers for current user (synchronous)
   public getAuthHeadersSync(): HttpHeaders {
-    // First try to get the current user from the BehaviorSubject (synchronous)
     let currentUser = this.currentUserSubject.value;
     let userEmail = currentUser?.email;
     
-    // If not available, check if we can get it from localStorage or another source
+    // Fallback: try localStorage cached email if BehaviorSubject hasn't loaded yet
+    if (!userEmail) {
+      try {
+        const cached = localStorage.getItem('currentUserEmail');
+        if (cached) {
+          userEmail = cached;
+        }
+      } catch {}
+    }
+
     if (!userEmail) {
       console.warn('⚠️ getAuthHeadersSync: No user email available yet');
-      // Return empty headers instead of 'unknown' to prevent malformed token
       return new HttpHeaders({
         'Content-Type': 'application/json'
       });
@@ -333,7 +404,14 @@ export class UserService {
       tap(user => {
         this.currentUserSubject.next(user);
         this.initialLoadComplete = true;
+
+        // Cache email for resilient auth header generation on page refresh
+        if (user?.email) {
+          try { localStorage.setItem('currentUserEmail', user.email); } catch {}
+        }
         
+        setGlobalTimeFormat(user?.profile?.calendarTimeFormat || '12h');
+
         // Update tutor approval status if user is a tutor
         if (user.userType === 'tutor') {
           this.updateTutorApprovalStatus(user);
@@ -346,7 +424,13 @@ export class UserService {
    * Calculate and update tutor approval status based on user data
    */
   private updateTutorApprovalStatus(user: User): void {
-    const photoComplete = !!user.picture;
+    // Photo is complete only if they have a CUSTOM uploaded photo (not just Google/Auth0 default)
+    // Check if picture is from GCS (custom upload) or different from their auth0Picture
+    const hasCustomPhoto = user.picture && (
+      user.picture.includes('storage.googleapis.com') || // GCS uploaded photo
+      (user.auth0Picture && user.picture !== user.auth0Picture) // Different from original Auth0 photo
+    );
+    const photoComplete = !!hasCustomPhoto;
     // Video is complete if there's either a pendingVideo (awaiting review), an approved introductionVideo, OR it was rejected
     const videoComplete = !!user.onboardingData?.pendingVideo || 
                           !!user.onboardingData?.introductionVideo || 
@@ -371,6 +455,28 @@ export class UserService {
       stripeComplete
     });
     
+    // Credential checks
+    const creds = user.tutorCredentials;
+    const governmentIdUploaded = !!(creds?.governmentId?.url && creds.governmentId.status !== 'not_uploaded');
+    const governmentIdApproved = creds?.governmentId?.status === 'approved';
+    const governmentIdRejected = creds?.governmentId?.status === 'rejected';
+    const certificationsUploaded = !!(creds?.teachingCertifications && creds.teachingCertifications.length > 0);
+    const certificationsApproved = !!(creds?.teachingCertifications?.some(c => c.status === 'approved'));
+    const credentialsComplete = governmentIdUploaded && certificationsUploaded;
+    const credentialsApproved = governmentIdApproved && certificationsApproved;
+
+    console.log('📄 [UserService] Credential check details:', {
+      governmentIdUploaded,
+      governmentIdApproved,
+      governmentIdRejected,
+      certificationsUploaded,
+      certificationsApproved,
+      credentialsComplete,
+      credentialsApproved
+    });
+
+    const tosComplete = !!user.tosAcceptedAt;
+
     const fullyApproved = user.tutorApproved === true;
     
     // Needs approval if onboarding is complete but not fully approved
@@ -381,8 +487,16 @@ export class UserService {
       videoComplete,
       videoApproved,
       videoRejected,
-      hasApprovedVideo,  // NEW: indicates if they have at least one approved video
+      hasApprovedVideo,
       stripeComplete,
+      governmentIdUploaded,
+      governmentIdApproved,
+      governmentIdRejected,
+      certificationsUploaded,
+      certificationsApproved,
+      credentialsComplete,
+      credentialsApproved,
+      tosComplete,
       fullyApproved,
       needsApproval
     };
@@ -531,7 +645,7 @@ export class UserService {
   /**
    * Update user profile
    */
-  updateProfile(profileData: Partial<User['profile']> & { interfaceLanguage?: string }): Observable<User> {
+  updateProfile(profileData: Partial<User['profile']> & { interfaceLanguage?: string; calendarTimeFormat?: string; calendarDefaultView?: string }): Observable<User> {
     return this.authService.user$.pipe(
       take(1),
       switchMap(user => {
@@ -541,14 +655,17 @@ export class UserService {
         });
       }),
       map(response => response.user),
-      tap(user => this.currentUserSubject.next(user))
+      tap(user => {
+        this.currentUserSubject.next(user);
+        setGlobalTimeFormat(user?.profile?.calendarTimeFormat || '12h');
+      })
     );
   }
 
   /**
    * Update user interface language
    */
-  updateInterfaceLanguage(language: 'en' | 'es' | 'fr' | 'pt' | 'de'): Observable<User> {
+  updateInterfaceLanguage(language: SupportedLanguage): Observable<User> {
     return this.updateProfile({ interfaceLanguage: language });
   }
 
@@ -602,6 +719,29 @@ export class UserService {
   getRemindersEnabled(): boolean {
     const currentUser = this.currentUserSubject.value;
     return currentUser?.profile?.remindersEnabled !== false; // Default true
+  }
+
+  /**
+   * Get the user's preferred time format (12h or 24h). Defaults to 12h.
+   */
+  getTimeFormat(): '12h' | '24h' {
+    const currentUser = this.currentUserSubject.value;
+    return currentUser?.profile?.calendarTimeFormat || '12h';
+  }
+
+  /**
+   * Whether the user prefers 24-hour time format.
+   */
+  get is24h(): boolean {
+    return this.getTimeFormat() === '24h';
+  }
+
+  /**
+   * Update the user's time format preference.
+   */
+  updateTimeFormat(format: '12h' | '24h'): Observable<User> {
+    setGlobalTimeFormat(format);
+    return this.updateProfile({ calendarTimeFormat: format });
   }
 
   /**
@@ -720,13 +860,19 @@ export class UserService {
           const value = filters[key as keyof TutorSearchFilters];
           if (value !== undefined && value !== null) {
             if (Array.isArray(value)) {
-              value.forEach(item => params.append(key, item.toString()));
+              // Only append if array has items
+              if (value.length > 0) {
+                value.forEach(item => params.append(key, item.toString()));
+              }
             } else {
               params.append(key, value.toString());
             }
           }
         });
 
+        console.log('🌍 [TUTOR-SEARCH] Filters being sent:', filters);
+        console.log('🌍 [TUTOR-SEARCH] Query params:', params.toString());
+        console.log('🌍 [TUTOR-SEARCH] Country filter:', filters.country);
 
         return this.http.get<TutorSearchResponse>(`${this.apiUrl}/users/tutors?${params.toString()}`, {
           headers: this.getAuthHeaders(userEmail)
@@ -771,6 +917,87 @@ export class UserService {
         console.error('📹 Error updating tutor video:', error);
         throw error;
       })
+    );
+  }
+
+  /**
+   * Upload a tutor credential document (government ID, teaching certification, additional doc)
+   */
+  uploadCredential(
+    file: File,
+    credentialType: 'governmentId' | 'teachingCertification' | 'additionalDocument',
+    metadata?: { certificationName?: string; documentType?: string; label?: string }
+  ): Observable<any> {
+    return this.authService.user$.pipe(
+      take(1),
+      switchMap(user => {
+        const userEmail = user?.email || 'unknown';
+        
+        const formData = new FormData();
+        formData.append('document', file);
+        formData.append('credentialType', credentialType);
+        if (metadata?.certificationName) formData.append('certificationName', metadata.certificationName);
+        if (metadata?.documentType) formData.append('documentType', metadata.documentType);
+        if (metadata?.label) formData.append('label', metadata.label);
+        
+        // Use only Authorization header — do NOT set Content-Type
+        // Browser must set multipart/form-data with boundary automatically for FormData
+        const authHeaders = this.getAuthHeaders(userEmail);
+        const uploadHeaders = new HttpHeaders({
+          'Authorization': authHeaders.get('Authorization') || ''
+        });
+        
+        return this.http.post<any>(
+          `${this.apiUrl}/users/tutor/upload-credential`,
+          formData,
+          { headers: uploadHeaders }
+        );
+      }),
+      tap(response => {
+        console.log('📄 Credential uploaded:', response);
+      }),
+      catchError(error => {
+        console.error('📄 Error uploading credential:', error);
+        throw error;
+      })
+    );
+  }
+
+  /**
+   * Delete a tutor credential document
+   */
+  deleteCredential(
+    credentialType: 'governmentId' | 'teachingCertification' | 'additionalDocument',
+    credentialId?: string
+  ): Observable<any> {
+    return this.authService.user$.pipe(
+      take(1),
+      switchMap(user => {
+        const userEmail = user?.email || 'unknown';
+        
+        let url = `${this.apiUrl}/users/tutor/credential/${credentialType}`;
+        if (credentialId) url += `/${credentialId}`;
+        
+        return this.http.delete<any>(url, { 
+          headers: this.getAuthHeaders(userEmail) 
+        });
+      }),
+      tap(response => {
+        console.log('🗑️ Credential deleted:', response);
+      }),
+      catchError(error => {
+        console.error('🗑️ Error deleting credential:', error);
+        throw error;
+      })
+    );
+  }
+
+  acceptTos(tosVersion: string = '1.0'): Observable<any> {
+    const headers = this.getAuthHeadersSync();
+    return this.http.post<any>(
+      `${this.apiUrl}/users/tutor/accept-tos`,
+      { tosVersion },
+      { headers }
     );
   }
 
@@ -880,8 +1107,8 @@ export class UserService {
   /**
    * Get tutor availability by tutor ID (public)
    */
-  getTutorAvailability(tutorId: string): Observable<{ success: boolean; availability: any[]; timezone?: string }> {
-    return this.http.get<{ success: boolean; availability: any[]; timezone?: string }>(
+  getTutorAvailability(tutorId: string): Observable<{ success: boolean; availability: any[]; timezone?: string; acceptingBookings?: boolean }> {
+    return this.http.get<{ success: boolean; availability: any[]; timezone?: string; acceptingBookings?: boolean }>(
       `${this.apiUrl}/users/${tutorId}/availability`
     ).pipe(
       tap(response => {
@@ -1023,6 +1250,98 @@ export class UserService {
             // Also refresh from server
             this.getCurrentUser().pipe(take(1)).subscribe();
           })
+        );
+      })
+    );
+  }
+
+  /**
+   * Fetch profile picture as a Blob via backend proxy (bypasses CORS)
+   */
+  getProfilePictureBlob(): Observable<Blob> {
+    return this.authService.user$.pipe(
+      take(1),
+      switchMap(user => {
+        const userEmail = user?.email || 'unknown';
+        return this.http.get(`${this.apiUrl}/users/profile-picture-proxy`, {
+          headers: this.getAuthHeaders(userEmail),
+          responseType: 'blob'
+        });
+      })
+    );
+  }
+
+  // ── Google Calendar ────────────────────────────────
+
+  getGoogleCalendarAuthUrl(): Observable<{ url: string }> {
+    return this.authService.user$.pipe(
+      take(1),
+      switchMap(user => {
+        const email = user?.email || 'unknown';
+        return this.http.get<{ url: string }>(
+          `${this.apiUrl}/auth/google-calendar/url`,
+          { headers: this.getAuthHeaders(email) }
+        );
+      })
+    );
+  }
+
+  disconnectGoogleCalendar(): Observable<{ success: boolean }> {
+    return this.authService.user$.pipe(
+      take(1),
+      switchMap(user => {
+        const email = user?.email || 'unknown';
+        return this.http.post<{ success: boolean }>(
+          `${this.apiUrl}/auth/google-calendar/disconnect`,
+          {},
+          { headers: this.getAuthHeaders(email) }
+        );
+      })
+    );
+  }
+
+  getGoogleCalendarStatus(): Observable<{
+    success: boolean;
+    connected: boolean;
+    email: string | null;
+    syncEnabled: boolean;
+    pushToGoogle: boolean;
+    lastSyncAt: string | null;
+  }> {
+    return this.authService.user$.pipe(
+      take(1),
+      switchMap(user => {
+        const email = user?.email || 'unknown';
+        return this.http.get<any>(
+          `${this.apiUrl}/auth/google-calendar/status`,
+          { headers: this.getAuthHeaders(email) }
+        );
+      })
+    );
+  }
+
+  updateGoogleCalendarSettings(settings: { syncEnabled?: boolean; pushToGoogle?: boolean }): Observable<{ success: boolean }> {
+    return this.authService.user$.pipe(
+      take(1),
+      switchMap(user => {
+        const email = user?.email || 'unknown';
+        return this.http.put<{ success: boolean }>(
+          `${this.apiUrl}/auth/google-calendar/settings`,
+          settings,
+          { headers: this.getAuthHeaders(email) }
+        );
+      })
+    );
+  }
+
+  getGoogleCalendarEvents(timeMin: string, timeMax: string): Observable<{ success: boolean; events: any[] }> {
+    return this.authService.user$.pipe(
+      take(1),
+      switchMap(user => {
+        const email = user?.email || 'unknown';
+        return this.http.get<{ success: boolean; events: any[] }>(
+          `${this.apiUrl}/auth/google-calendar/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}`,
+          { headers: this.getAuthHeaders(email) }
         );
       })
     );

@@ -1,10 +1,13 @@
 import { Component, OnInit, ViewChild, ElementRef, AfterViewInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
+import '@dotlottie/player-component';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { UserService } from '../services/user.service';
 import { ProgressService, Struggle, StruggleResponse } from '../services/progress.service';
+import { LearningPlanService, LearningPlan, LearningPlanPhase } from '../services/learning-plan.service';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
+import { getGlobalHour12 } from '../shared/timezone.utils';
 
 // 🚀 PERFORMANCE FIX: Extend Struggle with cached expansion state
 interface ExpandableStruggle extends Struggle {
@@ -34,6 +37,8 @@ interface AnalysisSummary {
   isTrialLesson?: boolean;
   isOfficeHours?: boolean;
   officeHoursType?: string | null;
+  // Analysis source (ai or tutor)
+  source?: string;
   // Cached computed values (added for performance)
   formattedDate?: string;
   levelClass?: string;
@@ -129,11 +134,28 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
   milestoneSnapshots: any[] = [];
   selectedMilestone: number = 0;
   
+  // Celebration state
+  showCelebration: boolean = false;
+  celebrationRevealed: boolean = false;
+  celebrationSnapshot: any = null;
+  milestonesCalculated: boolean = false;
+  
   // Expose Math for template
   Math = Math;
   
   // Coaching metrics (tutors only)
   coachingMetrics: any = null;
+
+  // Learning Plan roadmap (students only)
+  learningPlan: LearningPlan | null = null;
+  learningPlanPhases: LearningPlanPhase[] = [];
+  learningPlanCurrentPhase = 0;
+  learningPlanTotalPhases = 0;
+  learningPlanStudentSummary = '';
+  learningPlanNextFocus = '';
+  learningPlanGoalLabel = '';
+  learningPlanHasPlan = false;
+  expandedPhaseIndex: number | null = null;
   
   private radarChart: Chart | null = null;
   private lineChart: Chart | null = null;
@@ -143,16 +165,12 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
     private http: HttpClient,
     private userService: UserService,
     private progressService: ProgressService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private learningPlanService: LearningPlanService
   ) {}
 
   ngOnInit() {
     this.loadCurrentUser();
-    
-    // Load coaching metrics for tutors
-    if (this.isTutor()) {
-      this.loadCoachingMetrics();
-    }
   }
   
   ngAfterViewInit() {
@@ -185,8 +203,13 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
     // Only reload data on subsequent visits (after initial load)
     // This prevents duplicate loading on first page load
     if (this.currentUser && this.hasInitiallyLoaded) {
-      console.log('🔄 [Progress] Reloading data on page re-enter...');
-      this.loadAnalyses();
+      if (this.isTutor()) {
+        console.log('🔄 [Progress] Reloading coaching metrics on page re-enter...');
+        this.loadCoachingMetrics();
+      } else {
+        console.log('🔄 [Progress] Reloading analyses on page re-enter...');
+        this.loadAnalyses();
+      }
     }
   }
 
@@ -198,12 +221,48 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
       if (user?.userType === 'student') {
         console.log('📊 [Tab3] Loading analyses for student');
         this.loadAnalyses();
+        if (user.onboardingData?.languages?.length) {
+          this.loadLearningPlanForProgress(user.onboardingData.languages[0]);
+        }
       } else if (user?.userType === 'tutor') {
-        console.log('🎓 [Tab3] User is tutor - stopping loading and loading coaching metrics');
-        // For tutors, just stop loading and show coaching metrics
+        console.log('🎓 [Tab3] User is tutor - loading coaching metrics');
         this.loading = false;
+        this.loadCoachingMetrics();
       }
     });
+  }
+
+  loadLearningPlanForProgress(language: string) {
+    this.learningPlanService.getPlan(language).subscribe({
+      next: (res) => {
+        if (res.success && res.plan) {
+          this.learningPlan = res.plan;
+          this.learningPlanPhases = res.plan.phases;
+          this.learningPlanCurrentPhase = res.plan.currentPhaseIndex;
+          this.learningPlanTotalPhases = res.plan.phases.length;
+          this.learningPlanStudentSummary = res.plan.studentSummary;
+          this.learningPlanNextFocus = res.plan.nextLessonFocus;
+          this.learningPlanHasPlan = true;
+
+          const GOAL_LABELS: Record<string, string> = {
+            conversational: 'Become conversational',
+            exam_prep: 'Prepare for an exam',
+            professional: 'Use it for work',
+            travel: 'Travel and get by',
+            relocation: 'Moving to a new country',
+            other: 'Custom goal'
+          };
+          this.learningPlanGoalLabel = res.plan.goal?.description
+            || GOAL_LABELS[res.plan.goal?.type] || '';
+          this.cdr.detectChanges();
+        }
+      },
+      error: () => { this.learningPlanHasPlan = false; }
+    });
+  }
+
+  togglePhaseExpand(index: number) {
+    this.expandedPhaseIndex = this.expandedPhaseIndex === index ? null : index;
   }
 
   async loadAnalyses() {
@@ -211,6 +270,7 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
       console.log('🔍 [Progress] Starting to load analyses...');
       this.loading = true;
       this.error = '';
+      this.milestonesCalculated = false;
 
       const headers = this.userService.getAuthHeadersSync();
       const url = `${environment.backendUrl}/api/transcription/my-analyses`;
@@ -304,6 +364,9 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
                 // Step 6: Load struggles (can happen in parallel)
                 console.log('📊 [Progress] Step 6: Loading struggles...');
                 this.loadStruggles();
+                
+                // Step 7: Trigger milestone check (sends notification if needed)
+                this.triggerMilestoneCheck();
               }, 0);
             }, 0);
           }, 0);
@@ -886,9 +949,61 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
     // Auto-select the most recent milestone
     if (this.milestoneSnapshots.length > 0) {
       this.selectedMilestone = this.milestoneSnapshots.length - 1;
+      
+      // Check if we should show a celebration (first time profile is unlocked or new milestone)
+      const latestSnapshot = this.milestoneSnapshots[this.milestoneSnapshots.length - 1];
+      const celebrationKey = `milestone_celebrated_${latestSnapshot.milestoneNumber}`;
+      const alreadyCelebrated = localStorage.getItem(celebrationKey);
+      
+      if (!alreadyCelebrated) {
+        this.showCelebration = true;
+        this.celebrationRevealed = false;
+        this.celebrationSnapshot = latestSnapshot;
+        setTimeout(() => { this.celebrationRevealed = true; this.cdr.detectChanges(); }, 3000);
+      }
     }
     
+    this.milestonesCalculated = true;
     console.log('📊 Calculated milestone snapshots:', this.milestoneSnapshots);
+  }
+  
+  triggerMilestoneCheck() {
+    // Determine the primary language from analyses
+    if (this.analyses.length === 0) return;
+    
+    const languageCounts: { [key: string]: number } = {};
+    this.analyses.forEach(a => {
+      const lang = a.language || 'Unknown';
+      languageCounts[lang] = (languageCounts[lang] || 0) + 1;
+    });
+    const primaryLanguage = Object.keys(languageCounts).reduce((a, b) => 
+      languageCounts[a] > languageCounts[b] ? a : b
+    );
+    
+    if (primaryLanguage && this.analyses.length % 5 === 0) {
+      this.progressService.checkMilestone(primaryLanguage).subscribe({
+        next: (res) => console.log('🎯 Milestone check result:', res),
+        error: (err) => console.error('⚠️ Milestone check error:', err)
+      });
+    }
+  }
+  
+  dismissCelebration() {
+    if (this.celebrationSnapshot) {
+      const celebrationKey = `milestone_celebrated_${this.celebrationSnapshot.milestoneNumber}`;
+      localStorage.setItem(celebrationKey, 'true');
+    }
+    this.showCelebration = false;
+    this.celebrationRevealed = false;
+    this.celebrationSnapshot = null;
+    
+    // Trigger milestone check notification in the background
+    if (this.currentLanguage) {
+      this.progressService.checkMilestone(this.currentLanguage).subscribe({
+        next: (res) => console.log('📊 Milestone check:', res),
+        error: (err) => console.error('⚠️ Milestone check error:', err)
+      });
+    }
   }
   
   selectMilestone(index: number) {
@@ -934,7 +1049,7 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
   
   formatTimeShort(date: Date | string): string {
     const d = new Date(date);
-    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: getGlobalHour12() });
   }
   
   formatFullDate(date: Date | string): string {
@@ -1334,7 +1449,9 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
       
       if (response.success) {
         this.coachingMetrics = response.data;
+        this.hasInitiallyLoaded = true;
         console.log('🎓 Loaded coaching metrics:', this.coachingMetrics);
+        this.cdr.detectChanges();
       }
     } catch (error: any) {
       console.error('❌ Error loading coaching metrics:', error);

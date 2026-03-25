@@ -1,39 +1,40 @@
-
-<ion-header>
-  <ion-toolbar>
-    <ion-buttons slot="start">
-      <ion-button (click)="goBack()" aria-label="Go back">
-        <ion-icon name="arrow-back-outline"></ion-icon>
-      </ion-button>
-    </ion-buttons>
-  </ion-toolbar>
-</ion-header>
-
 <ion-content class="pre-call-content">
   <div class="pre-call-container">
-
     
     <!-- Left Panel: Video Preview and Controls -->
     <div class="preview-panel">
+      <!-- Go Back Button -->
+      <button class="go-back-button" (click)="goBack()" aria-label="Go back">
+        Go Back
+      </button>
+      
       <div class="preview-header">
         <h3 class="preview-title">Join with mic {{ isMuted ? 'OFF' : 'ON' }} and camera {{ isVideoOff ? 'OFF' : 'ON' }}</h3>
       </div>
 
       <!-- Video Preview -->
       <div class="video-preview-container" [class.video-off]="isVideoOff">
+        <!-- Native video element for MediaStream preview (before virtual background) -->
         <video 
           #videoPreview 
           autoplay 
           playsinline 
           muted
           class="video-preview"
-          [class.hidden]="isVideoOff || isLoading || !!errorMessage">
+          [class.hidden]="isVideoOff || isLoading || !!errorMessage || useAgoraForPreview">
         </video>
         
-        <div class="video-placeholder" *ngIf="isVideoOff || isLoading || !!errorMessage">
+        <!-- Agora container for virtual background preview (Agora's play() creates a <video> child inside) -->
+        <div 
+          #agoraPreview 
+          class="video-preview agora-preview"
+          [class.hidden]="isVideoOff || isLoading || !!errorMessage || !useAgoraForPreview">
+        </div>
+        
+        <div class="video-placeholder" *ngIf="(isVideoOff || isLoading) && !errorMessage">
           <ion-icon name="person" class="placeholder-icon"></ion-icon>
           <p *ngIf="isVideoOff">Camera is off</p>
-          <p *ngIf="isLoading && !isVideoOff && !errorMessage">Loading camera...</p>
+          <p *ngIf="isLoading && !isVideoOff">Loading camera...</p>
         </div>
         <div class="error-message" *ngIf="errorMessage">
           <ion-icon name="alert-circle-outline"></ion-icon>
@@ -52,35 +53,31 @@
 
       <!-- Controls -->
       <div class="preview-controls">
-        <a class="test-devices-link" (click)="testDevices()">Test devices</a>
         <div class="control-buttons">
-          <button 
-            class="control-btn" 
-            [class.active]="!isMuted"
-            (click)="toggleMicrophone()"
-            aria-label="Toggle microphone">
-            <ion-icon [name]="isMuted ? 'mic-off-outline' : 'mic-outline'" [class.muted]="isMuted"></ion-icon>
-          </button>
-          <button 
-            class="control-btn" 
-            [class.active]="!isVideoOff"
-            (click)="toggleCamera()"
-            aria-label="Toggle camera">
-            <ion-icon [name]="isVideoOff ? 'videocam-off-outline' : 'videocam-outline'" [class.off]="isVideoOff"></ion-icon>
-          </button>
-          <button 
-            class="control-btn" 
-            [class.active]="showVirtualBackgroundControls"
-            (click)="toggleVirtualBackgroundControls()"
-            aria-label="Virtual Background">
-            <ion-icon name="color-filter-outline"></ion-icon>
-          </button>
-          <button 
-            class="control-btn" 
-            (click)="testDevices()"
-            aria-label="Settings">
-            <ion-icon name="settings-outline"></ion-icon>
-          </button>
+          <div class="control-item" (click)="toggleMicrophone()">
+            <div class="control-btn" [class.active-danger]="isMuted">
+              <ion-icon [name]="isMuted ? 'mic-off' : 'mic-outline'"></ion-icon>
+            </div>
+            <span class="control-label" [class.danger]="isMuted">{{ isMuted ? 'Unmute' : 'Mute' }}</span>
+          </div>
+          <div class="control-item" (click)="toggleCamera()">
+            <div class="control-btn" [class.active-danger]="isVideoOff">
+              <ion-icon [name]="isVideoOff ? 'videocam-off' : 'videocam-outline'"></ion-icon>
+            </div>
+            <span class="control-label" [class.danger]="isVideoOff">{{ isVideoOff ? 'Start Video' : 'Camera' }}</span>
+          </div>
+          <div class="control-item" (click)="toggleVirtualBackgroundControls()">
+            <div class="control-btn" [class.active-primary]="showVirtualBackgroundControls">
+              <ion-icon name="color-filter-outline"></ion-icon>
+            </div>
+            <span class="control-label" [class.primary]="showVirtualBackgroundControls">Effects</span>
+          </div>
+          <div class="control-item" (click)="testDevices()">
+            <div class="control-btn">
+              <ion-icon name="settings-outline"></ion-icon>
+            </div>
+            <span class="control-label">Devices</span>
+          </div>
         </div>
         
         <!-- Audio Level Indicator -->
@@ -175,41 +172,82 @@
         </div>
       </div>
       
-      <!-- Previous Lesson Notes (for tutors, not trial lessons) -->
-      <div class="previous-notes-card" *ngIf="isTutor && !isTrialLesson && (previousLessonNotes || loadingPreviousNotes)">
+      <!-- Learning Plan Context (for tutors) -->
+      <div class="learning-plan-context-card" *ngIf="isTutor && hasPlanData">
         <div class="notes-header">
-          <ion-icon name="document-text-outline"></ion-icon>
+          <h3>Learning Plan</h3>
+        </div>
+        <div class="lpc-row" *ngIf="planGoalLabel">
+          <span class="lpc-label">Goal</span>
+          <span class="lpc-value">{{ planGoalLabel }}</span>
+        </div>
+        <div class="lpc-row" *ngIf="planPhaseLabel">
+          <span class="lpc-label">Current Phase</span>
+          <span class="lpc-value">{{ planPhaseLabel }}</span>
+        </div>
+        <div class="lpc-row" *ngIf="planNextFocus">
+          <span class="lpc-label">Suggested Focus</span>
+          <span class="lpc-value">{{ planNextFocus }}</span>
+        </div>
+        <p class="lpc-summary" *ngIf="planStudentSummary">{{ planStudentSummary }}</p>
+      </div>
+
+      <!-- Trial Lesson Plan Context (shows goal + level only) -->
+      <div class="learning-plan-context-card" *ngIf="isTutor && isTrialLesson && !hasPlanData && planSelfAssessedLevel">
+        <div class="notes-header">
+          <h3>Student Context</h3>
+        </div>
+        <div class="lpc-row" *ngIf="planGoalLabel">
+          <span class="lpc-label">Goal</span>
+          <span class="lpc-value">{{ planGoalLabel }}</span>
+        </div>
+        <div class="lpc-row" *ngIf="planSelfAssessedLevel">
+          <span class="lpc-label">Self-Assessed Level</span>
+          <span class="lpc-value">{{ planSelfAssessedLevel }}</span>
+        </div>
+        <p class="lpc-summary">First lesson -- assess current level, identify gaps, discuss preferences.</p>
+      </div>
+
+      <!-- Previous Lesson Notes (for tutors and students, not trial lessons) -->
+      <div class="previous-notes-card" *ngIf="!isTrialLesson && (previousLessonNotes || loadingPreviousNotes)">
+        <div class="notes-header">
           <h3>Last Lesson Notes</h3>
+          <div class="notes-header-right" *ngIf="previousLessonNotes && !loadingPreviousNotes">
+            <button class="pc-translate-btn" *ngIf="prevNotesAnalysisId && previousLessonNotes?.source !== 'tutor'" (click)="togglePrevNotesTranslation()" [disabled]="prevNotesTranslating" [class.showing-translation]="prevNotesShowingTranslation">
+              <ion-icon name="language-outline" aria-hidden="true"></ion-icon>
+              <span *ngIf="prevNotesTranslating">{{ 'COMMON.TRANSLATING' | translate }}</span>
+              <span *ngIf="!prevNotesTranslating && !prevNotesShowingTranslation">{{ 'COMMON.TRANSLATE' | translate }}</span>
+              <span *ngIf="!prevNotesTranslating && prevNotesShowingTranslation">{{ 'COMMON.SHOW_ORIGINAL' | translate }}</span>
+            </button>
+            <div class="notes-date">
+              {{ previousLessonNotes.lessonDate | date:'MMM d, y' }}
+            </div>
+          </div>
         </div>
         
         <div *ngIf="loadingPreviousNotes" class="loading-notes">
-          <ion-spinner name="crescent" color="primary"></ion-spinner>
+          <ion-spinner name="crescent" color="medium"></ion-spinner>
           <span>Loading previous lesson...</span>
         </div>
         
         <div *ngIf="previousLessonNotes && !loadingPreviousNotes" class="notes-content">
-          <div class="notes-date">
-            <ion-icon name="calendar-outline"></ion-icon>
-            {{ previousLessonNotes.lessonDate | date:'MMM d, y' }}
-          </div>
-          
           <!-- Topics Discussed / Summary -->
           <div class="notes-section" *ngIf="previousLessonNotes.overallAssessment?.summary">
-            <h4>💬 What You Worked On</h4>
-            <p>{{ previousLessonNotes.overallAssessment.summary }}</p>
+            <div class="section-label">What You Worked On</div>
+            <div class="section-text">{{ previousLessonNotes.overallAssessment.summary }}</div>
           </div>
           
           <!-- Progress Note -->
           <div class="notes-section" *ngIf="previousLessonNotes.overallAssessment?.progressFromLastLesson">
-            <h4>📈 Progress</h4>
-            <p>{{ previousLessonNotes.overallAssessment.progressFromLastLesson }}</p>
+            <div class="section-label">Progress</div>
+            <div class="section-text">{{ previousLessonNotes.overallAssessment.progressFromLastLesson }}</div>
           </div>
           
           <!-- Strengths -->
           <div class="notes-section" *ngIf="previousLessonNotes.strengths?.length">
-            <h4>✅ What They Did Well</h4>
-            <ul>
-              <li *ngFor="let strength of previousLessonNotes.strengths.slice(0, 2)">
+            <div class="section-label">What They Did Well</div>
+            <ul class="section-list">
+              <li *ngFor="let strength of previousLessonNotes.strengths">
                 {{ strength }}
               </li>
             </ul>
@@ -217,9 +255,9 @@
           
           <!-- Struggles -->
           <div class="notes-section" *ngIf="previousLessonNotes.areasForImprovement?.length">
-            <h4>⚠️ What They Struggled With</h4>
-            <ul>
-              <li *ngFor="let area of previousLessonNotes.areasForImprovement.slice(0, 2)">
+            <div class="section-label">What They Struggled With</div>
+            <ul class="section-list">
+              <li *ngFor="let area of previousLessonNotes.areasForImprovement">
                 {{ area }}
               </li>
             </ul>
@@ -227,20 +265,22 @@
           
           <!-- Error Patterns with Examples -->
           <div class="notes-section" *ngIf="previousLessonNotes.errorPatterns && previousLessonNotes.errorPatterns.length">
-            <h4>🔍 Common Mistakes</h4>
-            <div *ngFor="let error of previousLessonNotes.errorPatterns.slice(0, 2)" class="error-pattern">
-              <strong>{{ error.pattern }}</strong> ({{ error.frequency }}x)
+            <div class="section-label">Common Mistakes</div>
+            <div *ngFor="let error of previousLessonNotes.errorPatterns" class="error-pattern">
+              <div class="error-pattern-name">{{ error.pattern }} <span class="error-frequency">({{ error.frequency }}x)</span></div>
               <div *ngIf="error.examples && error.examples.length && error.examples[0].original" class="error-example">
-                "{{ error.examples[0].original }}" → "{{ error.examples[0].corrected }}"
+                <span class="error-original">"{{ error.examples[0].original }}"</span>
+                <span class="error-arrow">→</span>
+                <span class="error-corrected">"{{ error.examples[0].corrected }}"</span>
               </div>
             </div>
           </div>
           
           <!-- Recommended Focus -->
           <div class="notes-section" *ngIf="previousLessonNotes.recommendedFocus?.length">
-            <h4>💡 Ideas for Today</h4>
-            <ul>
-              <li *ngFor="let focus of previousLessonNotes.recommendedFocus.slice(0, 3)">
+            <div class="section-label">Goals for Today</div>
+            <ul class="section-list">
+              <li *ngFor="let focus of previousLessonNotes.recommendedFocus">
                 {{ focus }}
               </li>
             </ul>
@@ -248,8 +288,8 @@
           
           <!-- Homework Check -->
           <div class="notes-section" *ngIf="previousLessonNotes.homeworkSuggestions?.length">
-            <h4>✏️ Check Their Homework</h4>
-            <p>{{ previousLessonNotes.homeworkSuggestions[0] }}</p>
+            <div class="section-label">Check Their Homework</div>
+            <div class="section-text">{{ previousLessonNotes.homeworkSuggestions[0] }}</div>
           </div>
         </div>
       </div>
@@ -271,7 +311,7 @@
         class="enter-button" 
         expand="block" 
         (click)="enterClassroom()"
-        [disabled]="isLoading || !!errorMessage || isOfficeHoursWaitingRoom || waitingForTutorAcceptance">
+        [disabled]="!isLessonReady || isOfficeHoursWaitingRoom || waitingForTutorAcceptance">
         <span *ngIf="!isOfficeHoursWaitingRoom && !waitingForTutorAcceptance">Enter classroom</span>
         <span *ngIf="isOfficeHoursWaitingRoom">Waiting for student...</span>
         <span *ngIf="waitingForTutorAcceptance">

@@ -61,6 +61,22 @@
           <h3>{{ tutor.name || tutor.email }}</h3>
           <p>{{ tutor.email }}</p>
           
+          <!-- Tax Status Badges -->
+          <div class="status-badges tax-status">
+            <ion-badge *ngIf="tutor.isUSPersonForTax === true" color="primary">
+              <ion-icon name="flag"></ion-icon> US Person
+            </ion-badge>
+            <ion-badge *ngIf="tutor.isUSPersonForTax === false" color="tertiary">
+              <ion-icon name="globe"></ion-icon> Non-US Person
+            </ion-badge>
+            <ion-badge *ngIf="tutor.hasUSBankAccount === true && tutor.isUSPersonForTax === true" color="secondary">
+              <ion-icon name="business"></ion-icon> US Bank
+            </ion-badge>
+            <ion-badge *ngIf="tutor.hasUSBankAccount === false && tutor.isUSPersonForTax === true" color="medium">
+              <ion-icon name="card"></ion-icon> No US Bank
+            </ion-badge>
+          </div>
+          
           <!-- Payout Status Badges -->
           <div class="status-badges">
             <ion-badge *ngIf="tutor.stripeConnectOnboarded" color="success">
@@ -72,7 +88,7 @@
             <ion-badge *ngIf="tutor.payoutProvider === 'manual'" color="warning">
               <ion-icon name="alert-circle"></ion-icon> Manual Payout
             </ion-badge>
-            <ion-badge *ngIf="!tutor.stripeConnectOnboarded && !tutor.payoutProvider" color="danger">
+            <ion-badge *ngIf="!tutor.stripeConnectOnboarded && tutor.payoutProvider === 'none'" color="danger">
               <ion-icon name="close-circle"></ion-icon> No Payout Setup
             </ion-badge>
           </div>
@@ -147,36 +163,148 @@
               class="video-player">
             </iframe>
             <!-- Direct video file -->
-            <video 
+            <video
               *ngIf="!selectedTutor._isExternalVideo"
               [src]="selectedTutor._videoUrl"
               [poster]="selectedTutor._thumbnailUrl || ''"
               controls
-              autoplay
+              playsinline
+              (loadeddata)="onVideoReady($event)"
               class="video-player">
             </video>
           </ion-content>
         </ng-template>
       </ion-modal>
 
-      <div class="actions">
+      <!-- Credentials Section -->
+      <div class="credentials-review-section" *ngIf="hasAnyCredentials(tutor)">
+        <h4 class="credentials-section-title">
+          <ion-icon name="shield-checkmark-outline"></ion-icon>
+          Credentials & Documents
+          <ion-badge *ngIf="hasPendingCredentials(tutor)" color="warning" class="pending-badge">Needs Review</ion-badge>
+        </h4>
+        
+        <!-- Government ID -->
+        <div class="credential-review-item" *ngIf="tutor.tutorCredentials?.governmentId?.url">
+          <div class="cred-info-row">
+            <ion-icon name="id-card" color="primary"></ion-icon>
+            <div class="cred-details">
+              <strong>Government ID</strong>
+              <span class="cred-filename">{{ tutor.tutorCredentials.governmentId.fileName }}</span>
+            </div>
+            <ion-badge [color]="getCredentialBadgeColor(tutor.tutorCredentials.governmentId.status)">
+              {{ tutor.tutorCredentials.governmentId.status === 'approved' ? 'Approved' : tutor.tutorCredentials.governmentId.status === 'rejected' ? 'Rejected' : 'Pending' }}
+            </ion-badge>
+          </div>
+          <div class="cred-actions-row">
+            <ion-button fill="clear" size="small" (click)="viewCredential(tutor._id, 'governmentId')">
+              <ion-icon name="eye-outline" slot="start"></ion-icon>
+              View
+            </ion-button>
+            <div *ngIf="tutor.tutorCredentials.governmentId.status === 'pending'" class="cred-review-btns">
+              <ion-button size="small" color="success" fill="outline"
+                (click)="reviewCredential(tutor, 'governmentId', null, true)">
+                <ion-icon name="checkmark" slot="start"></ion-icon>
+                Approve
+              </ion-button>
+              <ion-button size="small" color="danger" fill="outline"
+                (click)="reviewCredential(tutor, 'governmentId', null, false)">
+                <ion-icon name="close" slot="start"></ion-icon>
+                Reject
+              </ion-button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Teaching Certifications -->
+        <div class="credential-review-item" *ngFor="let cert of tutor.tutorCredentials?.teachingCertifications">
+          <div class="cred-info-row">
+            <ion-icon name="ribbon" color="tertiary"></ion-icon>
+            <div class="cred-details">
+              <strong>{{ cert.certificationName || 'Teaching Certification' }}</strong>
+              <span class="cred-filename">{{ cert.fileName }}</span>
+            </div>
+            <ion-badge [color]="getCredentialBadgeColor(cert.status)">
+              {{ cert.status === 'approved' ? 'Approved' : cert.status === 'rejected' ? 'Rejected' : 'Pending' }}
+            </ion-badge>
+          </div>
+          <div class="cred-actions-row">
+            <ion-button fill="clear" size="small" (click)="viewCredential(tutor._id, 'teachingCertification', cert._id)">
+              <ion-icon name="eye-outline" slot="start"></ion-icon>
+              View
+            </ion-button>
+            <div *ngIf="cert.status === 'pending'" class="cred-review-btns">
+              <ion-button size="small" color="success" fill="outline"
+                (click)="reviewCredential(tutor, 'teachingCertification', cert._id, true)">
+                <ion-icon name="checkmark" slot="start"></ion-icon>
+                Approve
+              </ion-button>
+              <ion-button size="small" color="danger" fill="outline"
+                (click)="reviewCredential(tutor, 'teachingCertification', cert._id, false)">
+                <ion-icon name="close" slot="start"></ion-icon>
+                Reject
+              </ion-button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Additional Documents -->
+        <div class="credential-review-item" *ngFor="let doc of tutor.tutorCredentials?.additionalDocuments">
+          <div class="cred-info-row">
+            <ion-icon name="document-attach" color="medium"></ion-icon>
+            <div class="cred-details">
+              <strong>{{ doc.label || doc.documentType || 'Additional Document' }}</strong>
+              <span class="cred-filename">{{ doc.fileName }}</span>
+            </div>
+            <ion-badge [color]="getCredentialBadgeColor(doc.status)">
+              {{ doc.status === 'approved' ? 'Approved' : doc.status === 'rejected' ? 'Rejected' : 'Pending' }}
+            </ion-badge>
+          </div>
+          <div class="cred-actions-row">
+            <ion-button fill="clear" size="small" (click)="viewCredential(tutor._id, 'additionalDocument', doc._id)">
+              <ion-icon name="eye-outline" slot="start"></ion-icon>
+              View
+            </ion-button>
+            <div *ngIf="doc.status === 'pending'" class="cred-review-btns">
+              <ion-button size="small" color="success" fill="outline"
+                (click)="reviewCredential(tutor, 'additionalDocument', doc._id, true)">
+                <ion-icon name="checkmark" slot="start"></ion-icon>
+                Approve
+              </ion-button>
+              <ion-button size="small" color="danger" fill="outline"
+                (click)="reviewCredential(tutor, 'additionalDocument', doc._id, false)">
+                <ion-icon name="close" slot="start"></ion-icon>
+                Reject
+              </ion-button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons - Always show on pending tab -->
+      <div class="actions" *ngIf="selectedTab === 'pending'" style="display: flex !important; visibility: visible !important; opacity: 1 !important;">
         <ion-button 
-          *ngIf="selectedTab !== 'approved'" 
           color="success" 
-          (click)="approveTutor(tutor)"
-          [disabled]="hasUpdates(tutor._id)">
-          <ion-icon name="checkmark" slot="start"></ion-icon>
-          Approve
+          expand="block"
+          (click)="approveVideo(tutor)"
+          [disabled]="hasUpdates(tutor._id)"
+          style="display: block !important; visibility: visible !important;">
+          <ion-icon name="checkmark-circle" slot="start"></ion-icon>
+          Approve Video
         </ion-button>
         <ion-button 
-          *ngIf="selectedTab === 'pending'" 
           color="danger" 
-          (click)="rejectTutor(tutor)"
-          [disabled]="hasUpdates(tutor._id)">
-          <ion-icon name="close" slot="start"></ion-icon>
-          Reject
+          expand="block"
+          (click)="rejectVideo(tutor)"
+          [disabled]="hasUpdates(tutor._id)"
+          style="display: block !important; visibility: visible !important;">
+          <ion-icon name="close-circle" slot="start"></ion-icon>
+          Reject Video
         </ion-button>
-        <ion-badge *ngIf="selectedTab === 'rejected'" color="danger">
+      </div>
+      
+      <div class="actions" *ngIf="selectedTab === 'rejected'">
+        <ion-badge color="danger">
           Rejected: {{ tutor.tutorOnboarding?.rejectionReason || 'No reason provided' }}
         </ion-badge>
       </div>

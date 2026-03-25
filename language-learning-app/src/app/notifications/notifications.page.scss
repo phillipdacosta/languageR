@@ -1,75 +1,27 @@
-// Header styling - hide on mobile, show on desktop
-.desktop-only-header {
-  display: none;
-  
-  @media (min-width: 768px) {
-    display: block;
-    
-    ion-toolbar {
-      --background: rgba(255, 255, 255, 0.8);
-      --border-color: transparent;
-      --border-width: 0;
-      --min-height: 44px;
-      backdrop-filter: blur(20px) saturate(180%);
-      -webkit-backdrop-filter: blur(20px) saturate(180%);
-    }
-    
-    ion-title {
-      font-size: 17px;
-      font-weight: 500;
-    }
-  }
-}
-
-ion-header {
-  @media (min-width: 768px) {
-    ion-toolbar {
-      --background: rgba(255, 255, 255, 0.8);
-      --border-color: transparent;
-      --border-width: 0;
-      --min-height: 44px;
-      backdrop-filter: blur(20px) saturate(180%);
-      -webkit-backdrop-filter: blur(20px) saturate(180%);
-    }
-    
-    ion-title {
-      font-size: 17px;
-      font-weight: 500;
-      letter-spacing: -0.01em;
-      color: #1d1d1f;
-    }
-    
-    ion-back-button {
-      --color: #007aff;
-    }
-  }
-}
-
 .notifications-content {
-  --background: #f2f2f7;
+  --background: #f5f5f7;
   
   @media (min-width: 768px) {
-    --background: #f2f2f7;
-    background: #f2f2f7;
+    --background: #f5f5f7;
+    background: #f5f5f7;
     min-height: 100vh;
   }
 }
 
 .notification-page-container {
   padding: 20px 16px;
-  padding-bottom: 40px; // Extra padding at bottom for scrolling
+  padding-bottom: 40px;
   display: flex;
   flex-direction: column;
   gap: 0;
-  max-width: 1200px;
+  max-width: 1100px;
   margin: 0 auto;
-  
-  // Desktop styling
+
   @media (min-width: 769px) {
-    padding-top: 20px; // Add some spacing after sticky header
+    padding-top: 20px;
     padding-left: 16px;
     padding-right: 16px;
-    padding-bottom: 60px; // More padding on desktop
+    padding-bottom: 60px;
     gap: 32px;
   }
 }
@@ -79,24 +31,25 @@ ion-header {
   position: sticky;
   top: 0;
   width: 100%;
-  background: #f2f2f7;
+  background: #f5f5f7;
   z-index: 10;
-  box-shadow: 0 0px 3px 0px rgba(0, 0, 0, 0.08);  
-  @media (min-width: 768px) {
-    top: 0;
-    box-shadow: 0 0px 3px 0px rgba(0, 0, 0, 0.08);  }
+  box-shadow: 0 0px 3px 0px rgba(0, 0, 0, 0.08);
+
+  @media (min-width: 769px) {
+    margin-top: 70px;
+    top: 56px;
+  }
 }
 
-// Header Section
 // Sticky header wrapper - contains title, button, and search (constrained width)
 .sticky-header-wrapper {
-  max-width: 1200px;
+  max-width: 1100px;
   margin: 0 auto;
-  padding: 39px 16px 13px 16px;
+  padding: 16px 16px 13px;
   background: transparent;
-  
-  @media (min-width: 768px) {
-    padding: 39px 16px 13px 16px; // Add padding to push content below toolbar (44px toolbar + 20px spacing)
+
+  @media (min-width: 769px) {
+    padding: 20px 16px 13px;
   }
 }
 
@@ -120,21 +73,15 @@ ion-header {
 }
 
 .notification-page-title {
-  font-size: 22px;
-  font-weight: 800;
-  color: var(--ion-text-color, #1f2937);
+  font-size: 24px;
+  font-weight: 600;
+  color: #222222;
+  letter-spacing: -0.3px;
   margin: 0;
   line-height: 1.2;
   display: flex;
   align-items: center;
   gap: 8px;
-  
-  @media (min-width: 768px) {
-    font-size: 22px;
-    font-weight: 800;
-    margin: 0;
-    gap: 10px;
-  }
 }
 
 .unread-count-badge {
@@ -192,6 +139,43 @@ ion-header {
   
   @media (min-width: 768px) {
     margin-top: 0;
+  }
+}
+
+.filters-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #fff;
+  border: 1px solid #dddddd;
+  border-radius: 30px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1d1d1f;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #f7f7f7;
+  }
+
+  ion-icon {
+    font-size: 18px;
+  }
+
+  .filter-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    background: #007aff;
+    color: #fff;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 600;
   }
 }
 
@@ -338,6 +322,22 @@ ion-header {
   
   &:last-child {
     margin-bottom: 0;
+  }
+}
+
+// Section divider
+.section-divider {
+  height: 1px;
+  background: linear-gradient(to right, 
+    transparent 0%, 
+    rgba(0, 0, 0, 0.06) 20%, 
+    rgba(0, 0, 0, 0.06) 80%, 
+    transparent 100%
+  );
+  margin: 24px 0 16px 0;
+  
+  @media (min-width: 768px) {
+    margin: 32px 0 20px 0;
   }
 }
 
@@ -546,6 +546,44 @@ ion-header {
   align-items: flex-start;
   gap: 10px;
   min-width: 0;
+  
+  // Add availability button (plain HTML button for easy styling)
+  .add-availability-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    width: fit-content;
+    height: 24px;
+    padding: 0 10px;
+    margin: 6px 0 2px 0;
+    font-size: 11px;
+    font-weight: 500;
+    color: white;
+    background: #000000;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    white-space: nowrap;
+    
+    ion-icon {
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+    
+    &:hover {
+      background: #4338ca;
+    }
+    
+    &.milestone-btn {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      
+      &:hover {
+        background: linear-gradient(135deg, #d97706, #b45309);
+      }
+    }
+  }
 }
 
 // Dispute Button
@@ -593,26 +631,22 @@ ion-header {
 .notification-text {
   margin: 0;
   font-size: 15px;
-  color: #1d1d1f;
+  color: var(--notif-text-color, #1d1d1f);
   font-weight: 400;
   line-height: 1.4;
   letter-spacing: -0.01em;
   padding-top: 10px;
-        padding-bottom: 10px;
-  
+  padding-bottom: 10px;
+
   @media (min-width: 768px) {
     font-size: 15px;
     line-height: 1.4;
   }
-  
-  strong {
-    font-weight: 500 !important;
-    color: #1d1d1f !important;
-  }
-  
+
+  strong,
   ::ng-deep strong {
-    font-weight: 500 !important;
-    color: #1d1d1f !important;
+    font-weight: 600;
+    color: var(--notif-strong-color, #1d1d1f);
   }
 }
 
@@ -778,6 +812,113 @@ ion-header {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+// ── Dark Mode ──────────────────────────────────────────────────
+:host-context(html.ion-palette-dark) {
+  ion-header ion-toolbar {
+    --background: rgba(28, 28, 30, 0.8) !important;
+    backdrop-filter: blur(20px) saturate(180%);
+  }
+  ion-header ion-title { color: #f5f5f7 !important; }
+  ion-header ion-back-button { --color: #4298d2 !important; }
+
+  .notifications-content {
+    --background: #000 !important;
+    --notif-text-color: #f5f5f7;
+    --notif-strong-color: #ffffff;
+  }
+
+  .sticky-full-width-container {
+    background: #000 !important;
+    box-shadow: 0 0px 3px 0px rgba(255, 255, 255, 0.04) !important;
+  }
+
+  .notification-page-title { color: #f5f5f7 !important; }
+  .notification-page-subtitle { color: #8e8e93 !important; }
+
+  .unread-count-badge {
+    background: #4298d2 !important;
+    box-shadow: 0 2px 6px rgba(66, 152, 210, 0.4) !important;
+  }
+
+  .mark-all-read-btn { --color: #4298d2 !important; }
+
+  .filters-trigger-btn {
+    background: #2c2c2e !important;
+    border: 1px solid #3a3a3c !important;
+    color: #f5f5f7 !important;
+
+    &:hover { background: #3a3a3c !important; }
+    .filter-count {
+      background: #4298d2 !important;
+      color: #fff !important;
+    }
+  }
+
+  .notification-search-container {
+    border-radius: 24px;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
+    background: #2c2c2e;
+    padding: 4px;
+  }
+
+  .notification-searchbar {
+    --background: #2c2c2e !important;
+    --color: #f5f5f7 !important;
+    --placeholder-color: #8e8e93 !important;
+    --icon-color: #8e8e93 !important;
+    --box-shadow: none !important;
+  }
+
+  .notification-section-title { color: #8e8e93 !important; }
+  .section-divider {
+    background: linear-gradient(to right,
+      transparent 0%,
+      rgba(255, 255, 255, 0.06) 20%,
+      rgba(255, 255, 255, 0.06) 80%,
+      transparent 100%
+    ) !important;
+  }
+
+  .notification-item {
+    background: #1c1c1e !important;
+    box-shadow: none !important;
+
+    &.unread { background: rgba(66, 152, 210, 0.1) !important; }
+    &:hover { background: #2c2c2e !important; }
+    &.unread:hover { background: rgba(66, 152, 210, 0.15) !important; }
+  }
+
+  .notification-avatar { border-color: rgba(255, 255, 255, 0.12) !important; }
+
+  .notification-icon-wrapper {
+    &:not(.lesson-icon):not(.analysis-icon):not(.class-invitation-icon):not(.payment-icon):not(.system-notification) {
+      background: #3a3a3c !important;
+    }
+  }
+
+  .notification-text {
+    color: var(--notif-text-color, #f5f5f7) !important;
+  }
+
+  .notification-time-inline { color: #636366 !important; }
+  .notification-status { color: #4298d2 !important; &.read { color: #636366 !important; } }
+
+  .add-availability-btn {
+    background: #f5f5f7 !important;
+    color: #000 !important;
+    &:hover { background: #fff !important; }
+    &.milestone-btn { background: linear-gradient(135deg, #f59e0b, #d97706) !important; color: #fff !important; }
+  }
+
+  .notification-loading p { color: #8e8e93 !important; }
+  .notification-empty {
+    color: #f5f5f7 !important;
+    p { color: #f5f5f7 !important; }
+    small { color: #8e8e93 !important; }
+    ion-icon { color: #636366 !important; }
   }
 }
 

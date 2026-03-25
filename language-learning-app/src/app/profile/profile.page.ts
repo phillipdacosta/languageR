@@ -8,16 +8,18 @@ import { LanguageService, LanguageOption, SupportedLanguage } from '../services/
 import { WebSocketService } from '../services/websocket.service';
 import { FileUploadService } from '../services/file-upload.service';
 import { Observable, firstValueFrom, Subject } from 'rxjs';
-import { take, takeUntil } from 'rxjs/operators';
+import { filter, take, takeUntil } from 'rxjs/operators';
 import { LoadingController, AlertController, ModalController, ToastController, Platform } from '@ionic/angular';
 import { VideoUploadComponent } from '../components/video-upload/video-upload.component';
 import { TimezoneSelectorComponent } from '../components/timezone-selector/timezone-selector.component';
 import { PayoutSelectionModalComponent } from '../components/payout-selection-modal/payout-selection-modal.component';
 import { ImageCropperComponent } from '../components/image-cropper/image-cropper.component';
 import { detectUserTimezone } from '../shared/timezone.constants';
-import { getTimezoneLabel } from '../shared/timezone.utils';
+import { getTimezoneLabel, formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { environment } from '../../environments/environment';
+import { TutorFeedbackService } from '../services/tutor-feedback.service';
+import { LearningPlanService, GOAL_TYPE_LABELS, LEVEL_LABELS } from '../services/learning-plan.service';
 
 @Component({
   selector: 'app-profile',
@@ -39,9 +41,10 @@ export class ProfilePage implements OnInit {
   isVideoApproved = false; // Track if tutor's video is approved
   hasPendingVideo = false; // Track if tutor has a pending video under review
   isDarkMode$: Observable<boolean>;
-  remindersEnabled: boolean = true; // Default to enabled
-  showWalletBalance: boolean = false; // Default to hidden
-  aiAnalysisEnabled: boolean = true; // Default to enabled
+  remindersEnabled: boolean = true;
+  showWalletBalance: boolean = false;
+  aiAnalysisEnabled: boolean = true;
+  timeFormat: '12h' | '24h' = '12h';
   
   // Video player modal state
   isVideoPlayerModalOpen = false;
@@ -66,11 +69,27 @@ export class ProfilePage implements OnInit {
   hasPayoutSetup: boolean | undefined = undefined; // undefined = loading, false = not setup, true = setup
   payoutProvider: string = 'none'; // Current payout provider: 'stripe', 'paypal', 'manual', 'none'
 
+  // Visibility status (for tutors)
+  isTutorVisible: boolean = true;
+  visibilityLoaded: boolean = false;
+  feedbackCountLoaded: boolean = false;
+  visibilityMissingItems: string[] = [];
+  pendingFeedbackCount: number = 0;
+  pendingFeedbackItems: any[] = [];
+
   // Earnings (for tutors)
   totalEarnings = 0;
   pendingEarnings = 0;
   recentPayments: any[] = [];
   loadingEarnings = false;
+
+  // Learning Goal display (students only, precomputed for template)
+  learningGoalDisplay: string = '';
+  learningGoalIcon: string = 'rocket-outline';
+  learningGoalLevelDisplay: string = '';
+  learningGoalTimelineDisplay: string = '';
+  goalCooldownActive: boolean = false;
+  goalCooldownDateDisplay: string = '';
 
   constructor(
     private authService: AuthService,
@@ -87,7 +106,9 @@ export class ProfilePage implements OnInit {
     private sanitizer: DomSanitizer,
     private http: HttpClient,
     private platform: Platform,
-    private websocketService: WebSocketService
+    private websocketService: WebSocketService,
+    private tutorFeedbackService: TutorFeedbackService,
+    private learningPlanService: LearningPlanService
   ) {
     this.user$ = this.authService.user$;
     this.isAuthenticated$ = this.authService.isAuthenticated$;
@@ -96,6 +117,19 @@ export class ProfilePage implements OnInit {
   }
 
   ngOnInit() {
+    this.route.queryParams.subscribe(params => {
+      if (params['scrollTo']) {
+        setTimeout(() => {
+          const el = document.getElementById(params['scrollTo']);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('highlight-pulse');
+            setTimeout(() => el.classList.remove('highlight-pulse'), 2000);
+          }
+        }, 600);
+      }
+    });
+
     // For tutors, immediately get cached payout status (prevents flashing)
     if (this.isTutor()) {
       const cachedStatus = this.userService.getPayoutStatus();
@@ -134,8 +168,14 @@ export class ProfilePage implements OnInit {
         }
         
         console.log('💰 [PROFILE] Payout status updated from service:', payoutStatus);
+        
+        // Update visibility status when payout status changes
+        this.updateVisibilityStatus();
       }
     });
+    
+    // Note: loadPendingFeedbackCount is called from loadCurrentUserProfile()
+    // after currentUser is set, since isTutor() needs currentUser to work.
     
     // Subscribe to video approval WebSocket notifications
     this.websocketService.tutorVideoApproved$.pipe(
@@ -201,12 +241,17 @@ export class ProfilePage implements OnInit {
       if (this.isTutor()) {
         this.checkPayoutStatus();
         this.loadEarnings();
+        this.loadPendingFeedbackCount();
+      } else {
+        // Not a tutor — mark feedback as loaded so visibility badge doesn't wait
+        this.feedbackCountLoaded = true;
+        this.computeLearningGoalDisplay(user);
       }
       
-      // Load settings from user profile (database)
-      this.remindersEnabled = user?.profile?.remindersEnabled !== false; // Default true
-      this.showWalletBalance = user?.profile?.showWalletBalance || false; // Default false
-      this.aiAnalysisEnabled = user?.profile?.aiAnalysisEnabled !== false; // Default true
+      this.remindersEnabled = user?.profile?.remindersEnabled !== false;
+      this.showWalletBalance = user?.profile?.showWalletBalance || false;
+      this.aiAnalysisEnabled = user?.profile?.aiAnalysisEnabled !== false;
+      this.timeFormat = user?.profile?.calendarTimeFormat || '12h';
       
       // If user doesn't have a picture but Auth0 user does, reload after a short delay
       // This ensures the picture sync from Auth0 has completed
@@ -272,6 +317,9 @@ export class ProfilePage implements OnInit {
         } else {
           console.log('📹 No introduction video in onboardingData');
         }
+        
+        // Update visibility status after loading user data
+        this.updateVisibilityStatus();
       }
     });
     
@@ -332,6 +380,209 @@ export class ProfilePage implements OnInit {
     return user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
   }
 
+  // Update tutor visibility status
+  updateVisibilityStatus(): void {
+    if (!this.isTutor()) {
+      return;
+    }
+    
+    const user = this.getDisplayUser();
+    if (!user) {
+      this.isTutorVisible = false;
+      this.visibilityMissingItems = ['Profile not loaded'];
+      return;
+    }
+    
+    const missingItems: string[] = [];
+    
+    // Check 1: Onboarding completed
+    const onboardingCompleted = user.onboardingCompleted === true;
+    if (!onboardingCompleted) {
+      missingItems.push('Complete onboarding');
+    }
+    
+    // Check 2: Tutor fully approved (video + credentials all approved by admin)
+    const tutorApproved = user.tutorApproved === true;
+    if (!tutorApproved) {
+      // Give more specific missing item details
+      const creds = user.tutorCredentials;
+      const govIdOk = creds?.governmentId?.status === 'approved';
+      const certsOk = !!(creds?.teachingCertifications?.some((c: any) => c.status === 'approved'));
+      const videoOk = user.tutorOnboarding?.videoApproved === true;
+      
+      if (!videoOk) {
+        const hasAnyVideo = !!(user.onboardingData?.introductionVideo || user.onboardingData?.pendingVideo);
+        missingItems.push(hasAnyVideo ? 'Video pending approval' : 'Upload introduction video');
+      }
+      if (!govIdOk) missingItems.push('Government ID verification');
+      if (!certsOk) missingItems.push('Teaching certification verification');
+    }
+    
+    // Check 3: Has payout setup (Stripe, PayPal, or Manual)
+    const hasPayoutMethod = this.hasPayoutSetup === true;
+    if (!hasPayoutMethod) {
+      missingItems.push('Payout setup');
+    }
+    
+    // Check 4: No outstanding feedback
+    const hasPendingFeedback = this.pendingFeedbackCount > 0;
+    if (hasPendingFeedback) {
+      missingItems.push(`Complete ${this.pendingFeedbackCount} outstanding feedback`);
+    }
+    
+    // All conditions must be met
+    this.isTutorVisible = onboardingCompleted && tutorApproved && hasPayoutMethod && !hasPendingFeedback;
+    this.visibilityMissingItems = missingItems;
+    
+    // Only show the badge once the feedback count has loaded (prevents flash)
+    if (this.feedbackCountLoaded) {
+      this.visibilityLoaded = true;
+    }
+    
+    console.log('👁️ [PROFILE] Visibility status updated:', {
+      isTutorVisible: this.isTutorVisible,
+      onboardingCompleted,
+      tutorApproved,
+      hasPayoutMethod,
+      hasPendingFeedback,
+      feedbackCountLoaded: this.feedbackCountLoaded,
+      missingItems
+    });
+  }
+
+  // Load pending feedback count for visibility check.
+  // Uses the service cache for instant rendering, then refreshes in the background.
+  private loadPendingFeedbackCount(): void {
+    // 1. If the service already has cached data (e.g. from tab1), apply it immediately
+    if (this.tutorFeedbackService.isCacheLoaded) {
+      const cached = this.tutorFeedbackService.getCachedPendingFeedback();
+      this.pendingFeedbackCount = cached.count || 0;
+      this.pendingFeedbackItems = cached.pendingFeedback || [];
+      this.feedbackCountLoaded = true;
+      console.log(`📝 [PROFILE] Using cached feedback count: ${this.pendingFeedbackCount}`);
+      this.updateVisibilityStatus();
+    }
+
+    // 2. Subscribe to future updates (including the background refresh below).
+    //    Skip emissions until the service has actually loaded from the API at
+    //    least once — otherwise the BehaviorSubject's initial { count: 0 }
+    //    causes a flash of "Visible to Students" before the real data arrives.
+    this.tutorFeedbackService.pendingFeedback$
+      .pipe(
+        filter(() => this.tutorFeedbackService.isCacheLoaded),
+        takeUntil(this.destroy$)
+      )
+      .subscribe(response => {
+        this.pendingFeedbackCount = response.count || 0;
+        this.pendingFeedbackItems = response.pendingFeedback || [];
+        this.feedbackCountLoaded = true;
+        console.log(`📝 [PROFILE] Feedback count updated: ${this.pendingFeedbackCount}`);
+        this.updateVisibilityStatus();
+
+        // Auto-reopen the feedback modal after submitting one item
+        if (this.tutorFeedbackService.consumeReopenFlag() && this.pendingFeedbackCount > 0) {
+          setTimeout(() => { this.isFeedbackModalOpen = true; }, 400);
+        }
+      });
+
+    // 3. Always trigger a background refresh to pick up any new changes
+    this.tutorFeedbackService.refreshPendingFeedback();
+  }
+
+  // Feedback modal state
+  isFeedbackModalOpen = false;
+
+  openFeedbackModal(): void {
+    if (this.pendingFeedbackItems.length === 0) return;
+    this.isFeedbackModalOpen = true;
+  }
+
+  closeFeedbackModal(): void {
+    this.isFeedbackModalOpen = false;
+  }
+
+  navigateToFeedback(lessonId: string, feedbackId: string): void {
+    this.closeFeedbackModal();
+    this.router.navigate(['/post-lesson-tutor', lessonId], {
+      queryParams: { feedbackId }
+    });
+  }
+
+  formatFeedbackDate(dateStr: any): string {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return formatDateInTz(d, this.userTz, { weekday: 'short', month: 'short', day: 'numeric', year: undefined });
+  }
+
+  formatFeedbackTime(dateStr: any): string {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return formatTimeInTz(d, this.userTz);
+  }
+
+  // Get full name for display
+  getFullName(): string {
+    const user = this.getDisplayUser();
+    if (!user) return 'Unknown';
+    
+    // If user has firstName and lastName, combine them
+    if (user.firstName && user.lastName) {
+      return `${user.firstName} ${user.lastName}`;
+    }
+    
+    // If user has a name field, use it
+    if (user.name) {
+      return user.name;
+    }
+    
+    // Fallback to email
+    return user.email || 'Unknown';
+  }
+
+  // Format discoverable name as "Firstname L." (first name + last initial)
+  getDiscoverableName(): string {
+    const user = this.getDisplayUser();
+    if (!user) return 'Unknown';
+    
+    // If user has firstName and lastName
+    if (user.firstName && user.lastName) {
+      const firstName = this.capitalize(user.firstName);
+      const lastInitial = user.lastName.charAt(0).toUpperCase();
+      return `${firstName} ${lastInitial}.`;
+    }
+    
+    // If user has a name field, parse it
+    if (user.name) {
+      const nameParts = user.name.trim().split(' ').filter(Boolean);
+      if (nameParts.length > 1) {
+        const firstName = this.capitalize(nameParts[0]);
+        const lastInitial = nameParts[nameParts.length - 1].charAt(0).toUpperCase();
+        return `${firstName} ${lastInitial}.`;
+      } else if (nameParts.length === 1) {
+        return this.capitalize(nameParts[0]);
+      }
+    }
+    
+    // Fallback to email if available
+    if (user.email) {
+      const emailParts = user.email.split('@')[0].split(/[.\s_]+/).filter(Boolean);
+      if (emailParts.length > 1) {
+        const firstName = this.capitalize(emailParts[0]);
+        const lastInitial = emailParts[emailParts.length - 1].charAt(0).toUpperCase();
+        return `${firstName} ${lastInitial}.`;
+      } else if (emailParts.length === 1) {
+        return this.capitalize(emailParts[0]);
+      }
+    }
+    
+    return 'Unknown';
+  }
+
+  private capitalize(value: string): string {
+    if (!value) return '';
+    return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+  }
+
   // User type methods
   isTutor(): boolean {
     const user = this.isViewingOtherUser ? this.viewingUser : this.currentUser;
@@ -343,8 +594,87 @@ export class ProfilePage implements OnInit {
     return user?.userType === 'student';
   }
 
+  private computeLearningGoalDisplay(user: any) {
+    const goal = user?.onboardingData?.learningGoal;
+    if (!goal?.type) {
+      this.learningGoalDisplay = '';
+      return;
+    }
+
+    const GOAL_ICONS: Record<string, string> = {
+      conversational: 'chatbubbles-outline',
+      exam_prep: 'school-outline',
+      professional: 'briefcase-outline',
+      travel: 'airplane-outline',
+      relocation: 'home-outline',
+      other: 'sparkles-outline'
+    };
+
+    this.learningGoalDisplay = GOAL_TYPE_LABELS[goal.type] || goal.type;
+    if (goal.type === 'other' && goal.description) {
+      this.learningGoalDisplay = goal.description;
+    }
+    this.learningGoalIcon = GOAL_ICONS[goal.type] || 'rocket-outline';
+    this.learningGoalLevelDisplay = goal.selfAssessedLevel
+      ? (LEVEL_LABELS[goal.selfAssessedLevel] || goal.selfAssessedLevel) : '';
+
+    if (goal.timeline === 'specific_date' && goal.targetDate) {
+      this.learningGoalTimelineDisplay = `By ${new Date(goal.targetDate).toLocaleDateString()}`;
+    } else if (goal.timeline === 'few_months') {
+      this.learningGoalTimelineDisplay = 'Within a few months';
+    } else {
+      this.learningGoalTimelineDisplay = 'No rush, steady progress';
+    }
+
+    // Check cooldown from any existing plan
+    if (user?.onboardingData?.languages?.length) {
+      this.learningPlanService.getPlan(user.onboardingData.languages[0])
+        .pipe(take(1)).subscribe({
+          next: (res: any) => {
+            if (res.plan?.lastGoalChangedAt) {
+              const lastChanged = new Date(res.plan.lastGoalChangedAt);
+              const daysSince = (Date.now() - lastChanged.getTime()) / (1000 * 60 * 60 * 24);
+              if (daysSince < 7) {
+                this.goalCooldownActive = true;
+                const nextDate = new Date(lastChanged.getTime() + 7 * 24 * 60 * 60 * 1000);
+                this.goalCooldownDateDisplay = nextDate.toLocaleDateString('en-US', {
+                  month: 'short', day: 'numeric', year: 'numeric'
+                });
+              }
+            }
+          },
+          error: () => {}
+        });
+    }
+  }
+
+  async openGoalEditor() {
+    const alert = await this.alertController.create({
+      header: 'Change Learning Goal',
+      message: 'Changing your goal will regenerate your learning plan. You can only change it once every 7 days.',
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Change Goal',
+          handler: () => {
+            this.router.navigate(['/onboarding']);
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
   getDisplayUser(): any {
     return this.isViewingOtherUser ? this.viewingUser : this.currentUser;
+  }
+
+  goBack(): void {
+    this.router.navigate(['/tabs']);
+  }
+
+  private get userTz(): string | undefined {
+    return this.currentUser?.profile?.timezone || undefined;
   }
 
   onVideoUploaded(data: { url: string; thumbnail: string; type: 'upload' | 'youtube' | 'vimeo' }) {
@@ -363,11 +693,29 @@ export class ProfilePage implements OnInit {
     this.hasPendingVideo = true;
   }
 
-  onVideoRemoved() {
-    this.tutorIntroductionVideo = '';
-    this.tutorVideoThumbnail = '';
-    this.tutorVideoType = 'upload';
-    this.updateTutorVideo('', '', 'upload');
+  async onVideoRemoved() {
+    const alert = await this.alertController.create({
+      header: 'Remove Introduction Video?',
+      message: 'Your profile will be <strong>hidden from students</strong> until you upload a new video and it is approved by our team. You will not be able to add availability or receive bookings during this time.',
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Remove Video',
+          role: 'destructive',
+          handler: () => {
+            this.videoUploadComponent?.clearPreviews();
+            this.tutorIntroductionVideo = '';
+            this.tutorVideoThumbnail = '';
+            this.tutorVideoType = 'upload';
+            this.updateTutorVideo('', '', 'upload');
+          }
+        }
+      ]
+    });
+    await alert.present();
   }
 
   openVideoPlayerModal() {
@@ -396,6 +744,14 @@ export class ProfilePage implements OnInit {
     this.videoPlayerData = null;
   }
 
+  onModalVideoReady(event: Event) {
+    const video = event.target as HTMLVideoElement;
+    if (video) {
+      video.muted = false;
+      video.play().catch(() => {});
+    }
+  }
+
   private async updateTutorVideo(
     videoUrl: string, 
     thumbnailUrl?: string, 
@@ -416,20 +772,37 @@ export class ProfilePage implements OnInit {
       
       await loading.dismiss();
       
-      // If video was previously approved, inform that new video is under review
-      const message = this.isVideoApproved 
-        ? 'Video updated! The new video has been sent for admin review. Your profile will remain active during the review process.'
-        : 'Introduction video updated successfully!';
+      const isRemoval = !videoUrl;
+      let message: string;
+      let header: string;
+
+      if (isRemoval) {
+        header = 'Video Removed';
+        message = 'Your introduction video has been removed. Your profile is now hidden from students. Upload a new video to become visible again.';
+      } else if (this.isVideoApproved) {
+        header = 'Success';
+        message = 'Video updated! The new video has been sent for admin review. Your profile will remain active during the review process.';
+      } else {
+        header = 'Success';
+        message = 'Introduction video updated successfully!';
+      }
       
       const alert = await this.alertController.create({
-        header: 'Success',
-        message: message,
+        header,
+        message,
         buttons: ['OK']
       });
       await alert.present();
       
       // Update local approval status
       this.isVideoApproved = false;
+      
+      if (!videoUrl) {
+        this.hasPendingVideo = false;
+        this.tutorIntroductionVideo = '';
+        this.tutorVideoThumbnail = '';
+        this.tutorVideoType = 'upload';
+      }
       
       // Refresh user data to get updated tutorOnboarding status
       this.userService.getCurrentUser(true).subscribe();
@@ -522,6 +895,15 @@ export class ProfilePage implements OnInit {
         // Revert on error
         this.aiAnalysisEnabled = !this.aiAnalysisEnabled;
       }
+    });
+  }
+
+  setTimeFormat(format: '12h' | '24h'): void {
+    if (format === this.timeFormat) return;
+    const prev = this.timeFormat;
+    this.timeFormat = format;
+    this.userService.updateTimeFormat(format).subscribe({
+      error: () => { this.timeFormat = prev; }
     });
   }
 
@@ -656,8 +1038,9 @@ export class ProfilePage implements OnInit {
       await alert.present();
     } finally {
       await loading.dismiss();
-      // Reset file input
-      event.target.value = '';
+      if (event?.target) {
+        event.target.value = '';
+      }
     }
   }
 
@@ -671,6 +1054,54 @@ export class ProfilePage implements OnInit {
     // Check if it's a custom picture (uploaded to GCS)
     // Custom pictures will be in storage.googleapis.com with our bucket
     return picture.includes('storage.googleapis.com') && picture.includes('profile-pictures');
+  }
+
+  /**
+   * Open image cropper with current profile picture for zoom/rotate/crop
+   */
+  async editPicture() {
+    const pictureUrl = this.getDisplayUser()?.picture;
+    if (!pictureUrl) return;
+
+    const loading = await this.loadingController.create({
+      message: 'Loading photo...',
+      spinner: 'crescent'
+    });
+    await loading.present();
+
+    try {
+      const blob = await this.userService.getProfilePictureBlob().pipe(take(1)).toPromise();
+      if (!blob) throw new Error('No image data');
+
+      const file = new File([blob], 'profile.png', { type: 'image/png' });
+
+      const modal = await this.modalController.create({
+        component: ImageCropperComponent,
+        componentProps: {
+          imageFile: file
+        },
+        cssClass: 'image-cropper-modal'
+      });
+
+      await loading.dismiss();
+      await modal.present();
+
+      const { data, role } = await modal.onWillDismiss();
+
+      if (role === 'crop' && data) {
+        const croppedFile = new File([data], 'profile.png', { type: 'image/png' });
+        await this.uploadProfilePicture(croppedFile, null);
+      }
+    } catch (err) {
+      await loading.dismiss();
+      console.error('Error opening edit picture:', err);
+      const alert = await this.alertController.create({
+        header: 'Error',
+        message: 'Could not load your photo. Try changing the photo instead.',
+        buttons: ['OK']
+      });
+      await alert.present();
+    }
   }
 
   /**
@@ -832,14 +1263,39 @@ export class ProfilePage implements OnInit {
   // Handle return from Stripe Connect onboarding
   async handleStripeConnectReturn(success: boolean) {
     if (success) {
-      // Show success message
-      const toast = await this.toastController.create({
-        message: '✅ Payout setup complete! Your earnings will be transferred to your bank.',
-        duration: 5000,
-        color: 'success',
-        position: 'top'
-      });
-      await toast.present();
+      // Verify with backend that Stripe Connect is actually complete
+      // (user may have pressed back without finishing)
+      try {
+        const statusResponse = await firstValueFrom(
+          this.http.get<any>(`${environment.apiUrl}/payments/stripe-connect/status`, {
+            headers: this.userService.getAuthHeadersSync()
+          })
+        );
+        
+        if (statusResponse?.success && statusResponse.onboarded) {
+          // Stripe is actually onboarded — show success toast
+          const toast = await this.toastController.create({
+            message: '✅ Payout setup complete! Your earnings will be transferred to your bank.',
+            duration: 5000,
+            color: 'success',
+            position: 'top'
+          });
+          await toast.present();
+        } else {
+          // User returned but didn't finish Stripe setup
+          console.log('⚠️ Returned from Stripe but onboarding not complete:', statusResponse);
+          const toast = await this.toastController.create({
+            message: 'Stripe setup not completed. Please try again to finish connecting your bank account.',
+            duration: 5000,
+            color: 'warning',
+            position: 'top'
+          });
+          await toast.present();
+        }
+      } catch (error) {
+        console.error('❌ Error verifying Stripe status:', error);
+        // Don't show any toast if we can't verify
+      }
     }
     
     // Refresh payout status in UserService (will update profile via subscription)

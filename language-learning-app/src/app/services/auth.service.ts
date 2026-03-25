@@ -4,6 +4,8 @@ import { Observable, BehaviorSubject, combineLatest, from, of } from 'rxjs';
 import { map, tap, take, catchError, switchMap } from 'rxjs/operators';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
+import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
 import { environment } from '../../environments/environment';
 import { LoadingService } from './loading.service';
 
@@ -114,7 +116,15 @@ export class AuthService {
    * Login with redirect
    */
   loginWithRedirect(): void {
-    this.auth0.loginWithRedirect();
+    if (Capacitor.isNativePlatform()) {
+      this.auth0.loginWithRedirect({
+        async openUrl(url: string) {
+          await Browser.open({ url, windowName: '_self' });
+        }
+      });
+    } else {
+      this.auth0.loginWithRedirect();
+    }
   }
 
   /**
@@ -161,14 +171,20 @@ export class AuthService {
       }
       keysToRemove.forEach(key => localStorage.removeItem(key));
       
-      // Use manual Auth0 logout URL (like you suggested)
       console.log('🚀 AuthService: Performing Auth0 logout...');
-      const logoutUrl = `https://${this.auth0Domain}/v2/logout?client_id=${this.clientId}&returnTo=${encodeURIComponent(window.location.origin + '/login')}`;
       
-      console.log('Logout URL:', logoutUrl);
-      
-      // Redirect to Auth0 logout URL
-      window.location.href = logoutUrl;
+      if (Capacitor.isNativePlatform()) {
+        const returnTo = 'com.languageapp.learning://login';
+        const logoutUrl = `https://${this.auth0Domain}/v2/logout?client_id=${this.clientId}&returnTo=${encodeURIComponent(returnTo)}`;
+        await Browser.open({ url: logoutUrl });
+        setTimeout(async () => {
+          await Browser.close();
+          this.router.navigate(['/login'], { replaceUrl: true });
+        }, 1000);
+      } else {
+        const logoutUrl = `https://${this.auth0Domain}/v2/logout?client_id=${this.clientId}&returnTo=${encodeURIComponent(window.location.origin + '/login')}`;
+        window.location.href = logoutUrl;
+      }
       
     } catch (error) {
       console.error('Error during logout:', error);
@@ -181,8 +197,8 @@ export class AuthService {
   /**
    * Handle authentication callback
    */
-  handleAuthCallback(): Observable<any> {
-    return this.auth0.handleRedirectCallback();
+  handleAuthCallback(url?: string): Observable<any> {
+    return this.auth0.handleRedirectCallback(url);
   }
 
   /**
@@ -275,14 +291,16 @@ export class AuthService {
     }
     keysToRemove.forEach(key => localStorage.removeItem(key));
     
-    // Force clear Auth0 service state
     try {
-      // This should clear the Auth0 service's internal state
-      this.auth0.logout({
-        logoutParams: {
-          returnTo: window.location.origin
-        }
-      });
+      if (Capacitor.isNativePlatform()) {
+        this.router.navigate(['/login'], { replaceUrl: true });
+      } else {
+        this.auth0.logout({
+          logoutParams: {
+            returnTo: window.location.origin
+          }
+        });
+      }
     } catch (error) {
       console.log('Auth0 service logout failed, continuing with local clear');
     }
@@ -356,7 +374,10 @@ export class AuthService {
       document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
     });
     
-    // Force reload to completely reset the app
-    window.location.href = '/login';
+    if (Capacitor.isNativePlatform()) {
+      this.router.navigate(['/login'], { replaceUrl: true });
+    } else {
+      window.location.href = '/login';
+    }
   }
 }

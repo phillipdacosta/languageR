@@ -1,14 +1,14 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone, ViewChild, AfterViewInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone, ViewChild, AfterViewInit, HostBinding } from '@angular/core';
 import { trigger, transition, style, animate } from '@angular/animations';
-import { ModalController, LoadingController, ToastController, ActionSheetController, PopoverController, AlertController, ViewDidLeave } from '@ionic/angular';
-import { Router, NavigationStart } from '@angular/router';
+import { ModalController, LoadingController, ToastController, ActionSheetController, PopoverController, AlertController, ViewDidLeave, NavController, IonContent } from '@ionic/angular';
+import { Router, NavigationStart, ActivatedRoute } from '@angular/router';
 import { TutorSearchPage } from '../tutor-search/tutor-search.page';
 import { PlatformService } from '../services/platform.service';
 import { AuthService } from '../services/auth.service';
 import { UserService, User } from '../services/user.service';
 import { WalletService } from '../services/wallet.service';
 import { Observable, takeUntil, take, filter, firstValueFrom, observeOn, asyncScheduler } from 'rxjs';
-import { Subject } from 'rxjs';
+import { Subject, Subscription } from 'rxjs';
 import { LessonService, Lesson } from '../services/lesson.service';
 import { ClassService, ClassInvitation } from '../services/class.service';
 import { ClassInvitationModalComponent } from '../components/class-invitation-modal/class-invitation-modal.component';
@@ -19,10 +19,12 @@ import { NotificationService } from '../services/notification.service';
 import { MessagingService } from '../services/messaging.service';
 import { ReminderService } from '../services/reminder.service';
 import { ConfirmActionModalComponent } from '../components/confirm-action-modal/confirm-action-modal.component';
+import { CancelReasonModalComponent } from '../components/cancel-reason-modal/cancel-reason-modal.component';
 import { InviteStudentModalComponent } from '../components/invite-student-modal/invite-student-modal.component';
 import { RescheduleLessonModalComponent } from '../components/reschedule-lesson-modal/reschedule-lesson-modal.component';
 import { RescheduleProposalModalComponent } from '../components/reschedule-proposal-modal/reschedule-proposal-modal.component';
 import { LessonSummaryComponent } from '../modals/lesson-summary/lesson-summary.component';
+import { formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
 import { NotesModalComponent } from '../components/notes-modal/notes-modal.component';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
 import { TutorNoteModalComponent } from '../components/tutor-note-modal/tutor-note-modal.component';
@@ -32,6 +34,9 @@ import { TutorFeedbackService, PendingFeedbackItem } from '../services/tutor-fee
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { SmartIslandService, DynamicCard } from '../services/smart-island.service';
+import { TranslateService } from '@ngx-translate/core';
+import { LearningPlanService, LearningPlan } from '../services/learning-plan.service';
+import { AnalysisTranslationService } from '../services/analysis-translation.service';
 
 @Component({
   selector: 'app-tab1',
@@ -53,12 +58,34 @@ import { SmartIslandService, DynamicCard } from '../services/smart-island.servic
         style({ opacity: 0 }),
         animate('300ms ease-in-out', style({ opacity: 1 }))
       ])
+    ]),
+    trigger('earningsSlide', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'translateX(60px)' }),
+        animate('380ms cubic-bezier(0.32, 0.72, 0, 1)', style({ opacity: 1, transform: 'translateX(0)' }))
+      ]),
+      transition(':leave', [
+        animate('280ms cubic-bezier(0.32, 0.72, 0, 1)', style({ opacity: 0, transform: 'translateX(60px)' }))
+      ])
+    ]),
+    trigger('lessonRowEnter', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'translateY(8px) scale(0.98)' }),
+        animate('300ms cubic-bezier(0.32, 0.72, 0, 1)', style({ opacity: 1, transform: 'translateY(0) scale(1)' }))
+      ])
+    ]),
+    trigger('dateSectionEnter', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'translateY(-4px)' }),
+        animate('250ms cubic-bezier(0.32, 0.72, 0, 1)', style({ opacity: 1, transform: 'translateY(0)' }))
+      ])
     ])
   ]
 })
 export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave {
-  // Smart Island reference
+  @ViewChild(IonContent) ionContent!: IonContent;
   @ViewChild('smartIsland') smartIsland!: SmartIslandComponent;
+  @ViewChild('earningsComponent') earningsComponent: any;
   
   // Platform detection properties
   private destroy$ = new Subject<void>();
@@ -67,13 +94,16 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   platformConfig: any = {};
   isWeb = false;
   isMobile = false;
+  isDarkModeActive = false;
   currentUser: User | null = null;
+  private get userTz(): string | undefined { return this.currentUser?.profile?.timezone || undefined; }
   lessons: Lesson[] = [];
   cancelledLessons: Lesson[] = [];
   pastLessons: Lesson[] = [];
   pastTutors: Array<{ id: string; name: string; picture?: string }> = [];
   pendingClassInvitations: ClassInvitation[] = [];
-  isLoadingLessons = false;
+  isLoadingLessons = true; // Start true to show skeleton until data loads
+  private _isLoadingInProgress = false; // Prevent double-loading
   isLoadingInvitations = false;
   hasAvailability = false;
   
@@ -92,6 +122,24 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   // Tutor earnings
   tutorTotalEarnings = 0;
   tutorPendingEarnings = 0;
+  earningsBalanceLoading = true; // true until first loadTutorEarnings() completes
+  private _earningsVisibilityHandler: (() => void) | null = null;
+  private _lastEarningsVisibilityRefresh = 0;
+
+  // Inline earnings view toggle
+  showEarningsView = false;
+  returningFromEarnings = false;
+  @HostBinding('class.returning-from-inline') returningFromInline = false;
+
+  // Inline explore view toggle
+  showExploreView = false;
+  returningFromExplore = false;
+  private _savedScrollBeforeExplore = 0;
+
+  // Inline create-material view toggle
+  showCreateMaterialView = false;
+  private _savedScrollBeforeMaterial = 0;
+  private _scrollElRef: HTMLElement | null = null;
 
   // Getter for active (non-cancelled) invitations
   get activeInvitationsCount(): number {
@@ -140,6 +188,16 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   upcomingLesson: Lesson | null = null;
   private countdownInterval: any;
   countdownTick = Date.now();
+  nextLessonTimeLabel = ''; // Cached next lesson time label for template (avoids function calls in template)
+  hadLessonsToday = false; // Cached flag: did the user already have lessons earlier today?
+  hadOnlyCancelledLessonsToday = false; // Cached flag: were today's lessons only cancelled (no completed)?
+  
+  // Message rotation system - cached on init, changes on page refresh
+  private greetingIndex = Math.floor(Math.random() * 6);
+  private welcomeMessageIndex = Math.floor(Math.random() * 6);
+  private emptyStateTitleIndex = Math.floor(Math.random() * 6);
+  private emptyStateMessageIndex = Math.floor(Math.random() * 6);
+  
   private statusInterval: any;
   private lastLabelUpdateTime = 0; // Track last time labels were updated
   
@@ -165,7 +223,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   // Tutor pending feedback
   pendingFeedback: PendingFeedbackItem[] = [];
   pendingFeedbackCount = 0;
-  hasShownFeedbackAlertThisSession = false; // Track if we've shown the alert in this session (public for debugging)
+  feedbackBannerSubtitle: string = '';
+  feedbackGraceExpired: boolean = false;
+  private feedbackGraceInterval: any = null;
+  private static readonly FEEDBACK_GRACE_MS = 2 * 60 * 60 * 1000; // 2 hours
   
   // All tutors modal state
   isAllTutorsModalOpen = false;
@@ -176,9 +237,20 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   
   // Tutor onboarding state
   showOnboardingBanner = false;
+  profileHiddenNoVideo = false;
   tutorOnboardingStatus: any = null;
+  hasCustomProfilePhoto = false; // True only if user has uploaded a custom photo (not Google photo)
   isTutorUser = false; // Use property instead of function call in template
   isStudentUser = false; // Use property instead of function call in template
+
+  // Learning Plan precomputed properties (no functions in template)
+  learningPlanData: any = null;
+  learningPlanCurrentPhase = 0;
+  learningPlanTotalPhases = 0;
+  learningPlanPhaseTitle = '';
+  learningPlanSummary = '';
+  learningPlanNextFocus = '';
+  learningPlanPhaseDots: boolean[] = [];
   
   // Cache of current students array for efficient label updates
   private currentStudents: any[] = [];
@@ -297,6 +369,25 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     joinedAt: string;
   }> = new Map();
 
+  // Pre-computed presence state for the Up Next card (avoids function calls in template)
+  nextLessonOtherJoined = false;
+  nextLessonOtherName = '';
+
+  // Previous lesson notes for the Up Next tutor-student pair
+  previousNotesData: any = null;
+  previousNotesLoading = false;
+  isPreviousNotesModalOpen = false;
+  previousNotesDate = '';
+  previousNotesScores: { label: string; value: number }[] = [];
+
+  // Previous notes translation
+  prevNotesAnalysisId: string | null = null;
+  prevNotesOriginalAnalysis: any = null;
+  private translationSub?: Subscription;
+  prevNotesDisplayAnalysis: any = null;
+  prevNotesTranslating = false;
+  prevNotesShowingTranslation = false;
+
   private resizeListener: any;
 
   constructor(
@@ -323,7 +414,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     public flagService: FlagService,
     private tutorFeedbackService: TutorFeedbackService,
     private http: HttpClient,
-    private smartIslandService: SmartIslandService
+    private smartIslandService: SmartIslandService,
+    private navCtrl: NavController,
+    private translateService: TranslateService,
+    private activatedRoute: ActivatedRoute,
+    private learningPlanService: LearningPlanService,
+    private analysisTranslation: AnalysisTranslationService
   ) {
     // Subscribe to currentUser$ observable to get updates automatically
     // Use asyncScheduler to prevent synchronous emission from blocking
@@ -338,6 +434,13 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         this.isTutorUser = this.isTutor(); // Set property once
         this.isStudentUser = this.isStudent(); // Set property once
         
+        // Update showWalletBalance immediately when user profile changes
+        // This ensures instant update when toggled in profile page
+        if (user?.profile) {
+          this.showWalletBalance = user.profile.showWalletBalance || false;
+          this.updateWalletDisplay();
+        }
+        
         // Load notification count when user is available
         if (user) {
           setTimeout(() => {
@@ -345,8 +448,21 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           }, 500);
         }
         
-        // Check tutor onboarding status when user loads
+        // Load pending feedback for tutors as soon as currentUser is available.
+        // This catches the case where ionViewWillEnter fired before currentUser was set
+        // (due to asyncScheduler), so loadPendingFeedback() was skipped.
         if (this.isTutorUser) {
+          this.loadPendingFeedback();
+        }
+
+        if (this.isStudentUser && user?.onboardingData?.languages?.length) {
+          this.loadLearningPlan(user.onboardingData.languages[0]);
+        }
+        
+        // Check tutor onboarding status when user loads
+        // Only check if we have complete tutor data (tutorApproved is defined)
+        // This prevents banner flash when partial user data is emitted (e.g., from profile update)
+        if (this.isTutorUser && user?.tutorApproved !== undefined) {
           this.checkTutorOnboardingStatus();
         }
         
@@ -362,6 +478,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           this.loadAvailability();
           this.loadTutorEarnings(); // Load earnings for tutors
         } else {
+          this.earningsBalanceLoading = false; // No earnings balance for students
           // Load student-specific data
           this.loadStudentInsights();
           // Load wallet balance for students
@@ -427,10 +544,44 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         }
       });
     });
+
+    // Subscribe to pending feedback cache so tab1 updates reactively
+    // when the cache is populated by any page (e.g. profile).
+    this.tutorFeedbackService.pendingFeedback$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(response => {
+        if (this.isTutorUser) {
+          this.pendingFeedback = response.pendingFeedback || [];
+          this.pendingFeedbackCount = response.count || 0;
+
+          // Update grace period countdown for feedback banner
+          this.updateFeedbackGraceCountdown();
+
+          // Auto-reopen the feedback modal after submitting one item
+          // so the tutor can continue working through remaining feedback.
+          if (this.tutorFeedbackService.consumeReopenFlag() && this.pendingFeedbackCount > 0) {
+            setTimeout(() => { this.isFeedbackModalOpen = true; }, 400);
+          }
+        }
+      });
   }
 
+  private _darkModeObserver?: MutationObserver;
+
   ngOnInit() {
-    // Load user data and stats
+    this.isDarkModeActive = document.documentElement.classList.contains('ion-palette-dark');
+    this._darkModeObserver = new MutationObserver(() => {
+      this.isDarkModeActive = document.documentElement.classList.contains('ion-palette-dark');
+    });
+    this._darkModeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
+    this.translationSub = this.analysisTranslation.onTranslationChanged().subscribe(changedId => {
+      if (changedId === this.prevNotesAnalysisId) {
+        this.refreshPrevNotesTranslationState();
+        this.cdr.detectChanges();
+      }
+    });
+
     this.loadUserStats();
     
     // Subscribe to wallet balance updates for students
@@ -620,21 +771,6 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           
           // Manually trigger change detection to update the UI
           this.cdr.detectChanges();
-          
-          // Show toast notification
-          const toast = await this.toastController.create({
-            message: notification.message || 'A lesson has been cancelled',
-            duration: 5000,
-            position: 'top',
-            color: 'warning',
-            buttons: [
-              {
-                text: 'OK',
-                role: 'cancel'
-              }
-            ]
-          });
-          await toast.present();
         }
         
         // Handle class invitations specially
@@ -789,6 +925,11 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         
         // Update join labels for all displayed students
         this.updateStudentJoinLabels();
+        // Update cached next lesson time label for template use
+        this.nextLessonTimeLabel = this.getNextLessonTimeLabel();
+        // Update cached "had lessons today" flag
+        this.hadLessonsToday = this.hadLessonsEarlierToday();
+        this.hadOnlyCancelledLessonsToday = this.checkHadOnlyCancelledLessonsToday();
         // Update countdownTick after labels are updated to trigger single change detection
         // This also triggers the isNextClassInProgress() check for the badge
         this.countdownTick = now;
@@ -817,6 +958,24 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     // Connect to WebSocket and listen for lesson presence
     this.websocketService.connect();
     
+    // Listen for WebSocket reconnection to refresh data
+    this.websocketService.connection$.pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(isConnected => {
+      console.log('🔌 [TAB1] WebSocket connection status changed:', isConnected);
+      if (isConnected && this.currentUser) {
+        console.log('🔌 [TAB1] WebSocket reconnected - refreshing data');
+        // Reload important data after reconnection
+        setTimeout(() => {
+          this.loadUnreadNotificationCount();
+          this.loadLessons();
+          if (this.isStudent()) {
+            this.loadPendingInvitations();
+          }
+        }, 500);
+      }
+    });
+    
     this.websocketService.lessonPresence$
       .pipe(takeUntil(this.destroy$))
       .subscribe(presence => {
@@ -827,7 +986,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           participantRole: presence.participantRole,
           joinedAt: presence.joinedAt
         });
-        // Force change detection
+        this.updateNextLessonPresence();
         this.countdownTick = Date.now();
       });
     
@@ -837,7 +996,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       .subscribe(presence => {
         const normalizedLessonId = String(presence.lessonId);
         this.lessonPresence.delete(normalizedLessonId);
-        // Force change detection
+        this.updateNextLessonPresence();
         this.countdownTick = Date.now();
       });
 
@@ -1128,6 +1287,19 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       }
     });
     
+    // Refresh tutor earnings when the tab/window becomes visible (laptop wake, tab switch)
+    this._earningsVisibilityHandler = () => {
+      if (document.visibilityState === 'visible' && this.isTutorUser) {
+        const now = Date.now();
+        if (now - this._lastEarningsVisibilityRefresh > 60000) {
+          console.log('💰 [TAB1] Page became visible, refreshing tutor earnings');
+          this._lastEarningsVisibilityRefresh = now;
+          this.loadTutorEarnings();
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', this._earningsVisibilityHandler);
+
     console.log('🌟 [TAB1] ngOnInit completed');
   }
   
@@ -1138,9 +1310,11 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     } else {
       console.error('❌ [TAB1] Smart Island component NOT available after view init!');
     }
+    this.ionContent?.getScrollElement().then(el => { this._scrollElRef = el || null; });
   }
 
   ionViewWillEnter() {
+    this.refreshPrevNotesTranslationState();
     console.log('🔄 [TAB1] ========== ionViewWillEnter START ==========');
     console.log('🔄 [TAB1] ionViewWillEnter - hasInitiallyLoaded:', this._hasInitiallyLoaded, 'lastFetch:', new Date(this._lastDataFetch).toLocaleTimeString());
     console.log('🔄 [TAB1] currentUser:', {
@@ -1199,24 +1373,20 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         }, 10000);
       }
       
-      /* 
-      TEMPORARILY DISABLED: Tutor Feedback Loading
-      TODO: Re-enable if we want to support AI-disabled mode
-      
-      // Load pending feedback for tutors
+      // Load pending feedback for tutors (drives Quick Actions feedback item)
       if (this.currentUser.userType === 'tutor') {
         console.log('📝 [TAB1] ionViewWillEnter - User IS a tutor, calling loadPendingFeedback()');
         this.loadPendingFeedback();
       } else {
         console.log('📝 [TAB1] ionViewWillEnter - User is NOT a tutor (userType:', this.currentUser.userType, ')');
       }
-      */
     } else {
       console.warn('⚠️ [TAB1] ionViewWillEnter - No currentUser available!');
     }
     
     // Reload user settings to ensure wallet display is up to date
-    this.loadUserStats();
+    // Don't force refresh - use cached value first to prevent flashing
+    this.loadUserStats(false);
     
     // Smart refresh: only reload if cache is stale or this is the initial load
     const now = Date.now();
@@ -1454,32 +1624,14 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
 
   formatClassDate(dateString: string | null | undefined): string {
     if (!dateString) return 'Date TBD';
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return 'Date TBD';
-      return date.toLocaleDateString('en-US', { 
-        weekday: 'short', 
-        month: 'short', 
-        day: 'numeric' 
-      });
-    } catch {
-      return 'Date TBD';
-    }
+    const result = formatDateInTz(dateString, this.userTz, { weekday: 'short', month: 'short', day: 'numeric', year: undefined });
+    return result || 'Date TBD';
   }
 
   formatClassTime(dateString: string | null | undefined): string {
     if (!dateString) return 'Time TBD';
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return 'Time TBD';
-      return date.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit', 
-        hour12: true 
-      });
-    } catch {
-      return 'Time TBD';
-    }
+    const result = formatTimeInTz(dateString, this.userTz);
+    return result || 'Time TBD';
   }
 
   ionViewDidLeave() {
@@ -1487,12 +1639,69 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.stopDynamicCardRefreshInterval();
   }
 
+  // ── Feedback Grace Period Countdown ──────────────────────
+  private updateFeedbackGraceCountdown() {
+    // Clear existing interval
+    if (this.feedbackGraceInterval) {
+      clearInterval(this.feedbackGraceInterval);
+      this.feedbackGraceInterval = null;
+    }
+
+    if (this.pendingFeedback.length === 0) {
+      this.feedbackBannerSubtitle = '';
+      this.feedbackGraceExpired = false;
+      return;
+    }
+
+    // Find the oldest pending feedback's createdAt
+    const oldestCreatedAt = Math.min(
+      ...this.pendingFeedback.map(f => new Date(f.createdAt).getTime())
+    );
+    const deadline = oldestCreatedAt + Tab1Page.FEEDBACK_GRACE_MS;
+
+    // Helper to compute display
+    const tick = () => {
+      const now = Date.now();
+      const remainingMs = deadline - now;
+
+      if (remainingMs <= 0) {
+        this.feedbackGraceExpired = true;
+        this.feedbackBannerSubtitle = this.translateService.instant('HOME.FEEDBACK_HIDDEN_UNTIL_COMPLETE');
+        if (this.feedbackGraceInterval) {
+          clearInterval(this.feedbackGraceInterval);
+          this.feedbackGraceInterval = null;
+        }
+        return;
+      }
+
+      this.feedbackGraceExpired = false;
+      const totalSec = Math.floor(remainingMs / 1000);
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+
+      if (h > 0) {
+        this.feedbackBannerSubtitle = this.translateService.instant('HOME.FEEDBACK_COMPLETE_WITHIN_HM', { h, m: m.toString().padStart(2, '0') });
+      } else {
+        this.feedbackBannerSubtitle = this.translateService.instant('HOME.FEEDBACK_COMPLETE_WITHIN_M', { m });
+      }
+    };
+
+    // Run immediately, then every 30 seconds (no need for per-second here)
+    tick();
+    this.feedbackGraceInterval = setInterval(tick, 30000);
+  }
+
   ngOnDestroy() {
+    this._darkModeObserver?.disconnect();
+    this.translationSub?.unsubscribe();
     if (this.resizeListener) {
       window.removeEventListener('resize', this.resizeListener);
     }
     if (this.countdownInterval) {
       clearInterval(this.countdownInterval);
+    }
+    if (this.feedbackGraceInterval) {
+      clearInterval(this.feedbackGraceInterval);
     }
     if (this.statusInterval) {
       clearInterval(this.statusInterval);
@@ -1500,6 +1709,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     
     // Stop dynamic card refresh interval
     this.stopDynamicCardRefreshInterval();
+    
+    // Remove earnings visibility handler
+    if (this._earningsVisibilityHandler) {
+      document.removeEventListener('visibilitychange', this._earningsVisibilityHandler);
+      this._earningsVisibilityHandler = null;
+    }
     
     // Reset dynamic card ready flag so it animates in next time
     this.dynamicCardReady = false;
@@ -1945,13 +2160,49 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   
   // Navigate to completed lessons page
   navigateToCompletedLessons() {
-    this.router.navigate(['/tabs/home/lessons']);
+    this.router.navigate(['/tabs/lessons']);
   }
   
-  // Navigate to explore public classes page
-  navigateToExplore() {
-    this.router.navigate(['/tabs/home/explore']);
+  loadLearningPlan(language: string) {
+    this.learningPlanService.getPlan(language).pipe(take(1)).subscribe({
+      next: (res) => {
+        if (res.success && res.plan) {
+          const plan = res.plan;
+          this.learningPlanData = plan;
+          this.learningPlanCurrentPhase = plan.currentPhaseIndex + 1;
+          this.learningPlanTotalPhases = plan.phases.length;
+          const activePhase = plan.phases[plan.currentPhaseIndex];
+          this.learningPlanPhaseTitle = activePhase?.title || '';
+          this.learningPlanSummary = plan.studentSummary || '';
+          this.learningPlanNextFocus = plan.nextLessonFocus || '';
+          this.learningPlanPhaseDots = plan.phases.map(
+            (p: any) => p.status === 'completed' || p.status === 'active'
+          );
+          this.cdr.detectChanges();
+        }
+      },
+      error: () => {}
+    });
   }
+
+  navigateToProgressPlan() {
+    this.router.navigate(['/tabs/progress']);
+  }
+
+  navigateToExplore() {
+    this._savedScrollBeforeExplore = this._scrollElRef?.scrollTop || 0;
+    this.showExploreView = true;
+    this.cdr.detectChanges();
+    this.ionContent?.scrollToTop(0);
+  }
+
+  navigateToCreateMaterial() {
+    this._savedScrollBeforeMaterial = this._scrollElRef?.scrollTop || 0;
+    this.showCreateMaterialView = true;
+    this.cdr.detectChanges();
+    this.ionContent?.scrollToTop(0);
+  }
+
   
   // Open modal showing all tutors
   openAllTutorsModal() {
@@ -2417,11 +2668,20 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     }
   }
 
-  loadUserStats() {
-    console.log('💰 [TAB1] loadUserStats() called');
+  loadUserStats(forceRefresh = false) {
+    console.log('💰 [TAB1] loadUserStats() called, forceRefresh:', forceRefresh);
     
-    // Force refresh from server to get latest settings
-    this.userService.getCurrentUser(true).subscribe(user => {
+    // First, use cached user if available (prevents flashing when returning from profile)
+    const cachedUser = this.userService.getCurrentUserValue();
+    if (cachedUser) {
+      // Apply cached settings immediately to prevent flash
+      this.showWalletBalance = cachedUser?.profile?.showWalletBalance || false;
+      this.updateWalletDisplay();
+      console.log('💰 [TAB1] Applied cached wallet balance setting:', this.showWalletBalance);
+    }
+    
+    // Then fetch from server (only if forced or no cached user)
+    this.userService.getCurrentUser(forceRefresh).subscribe(user => {
       console.log('💰 [TAB1] getCurrentUser callback, user type:', user?.userType);
       
       if (user) {
@@ -2972,11 +3232,34 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       return;
     }
     
-    this.tutorOnboardingStatus = user.tutorOnboarding || {};
+    // Compute credential status for banner
+    const creds = user.tutorCredentials;
+    const governmentIdUploaded = !!(creds?.governmentId?.url && creds.governmentId.status !== 'not_uploaded');
+    const governmentIdApproved = creds?.governmentId?.status === 'approved';
+    const certificationsUploaded = !!(creds?.teachingCertifications && creds.teachingCertifications.length > 0);
+    const certificationsApproved = !!(creds?.teachingCertifications?.some((c: any) => c.status === 'approved'));
+    const credentialsComplete = governmentIdUploaded && certificationsUploaded;
+    const credentialsApproved = governmentIdApproved && certificationsApproved;
+
+    this.tutorOnboardingStatus = {
+      ...(user.tutorOnboarding || {}),
+      credentialsComplete,
+      credentialsApproved,
+      stripeComplete: user.stripeConnectOnboarded || user.payoutProvider === 'paypal' || user.payoutProvider === 'manual'
+    };
+    
+    // Check if user has a custom uploaded photo (not just Google/Auth0 photo)
+    this.hasCustomProfilePhoto = !!(user.picture && (
+      user.picture.includes('storage.googleapis.com') || // GCS uploaded photo
+      (user.auth0Picture && user.picture !== user.auth0Picture) // Different from original Auth0 photo
+    ));
     
     // Show banner only if user is NOT fully approved
-    // tutorApproved is set to true on the backend only when ALL steps are complete
     this.showOnboardingBanner = !user.tutorApproved;
+
+    // Detect profile hidden due to video removal: onboarding was completed but no video exists
+    const hasNoVideo = !user.onboardingData?.introductionVideo && !user.onboardingData?.pendingVideo;
+    this.profileHiddenNoVideo = !user.tutorApproved && user.onboardingCompleted && hasNoVideo && !user.tutorOnboarding?.videoApproved;
     
     console.log('🎯 [TAB1] Tutor approval banner decision:', {
       tutorApproved: user.tutorApproved,
@@ -3030,14 +3313,24 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     );
     this.totalStudents = uniqueStudents.size;
 
-    // Count lessons this week
+    // Count completed lessons and classes this week
     const now = new Date();
-    const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
-    const endOfWeek = new Date(now.setDate(now.getDate() - now.getDay() + 7));
+    const currentDay = now.getDay(); // 0 = Sunday, 6 = Saturday
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - currentDay);
+    startOfWeek.setHours(0, 0, 0, 0);
+    
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 7);
+    endOfWeek.setHours(23, 59, 59, 999);
     
     this.lessonsThisWeek = this.lessons.filter(l => {
-      const lessonDate = new Date(l.startTime);
-      return lessonDate >= startOfWeek && lessonDate <= endOfWeek;
+      // Exclude cancelled lessons/classes
+      if (l.status === 'cancelled') return false;
+      
+      // Check if lesson/class ended this week (completed this week)
+      const lessonEndTime = new Date(l.endTime);
+      return lessonEndTime >= startOfWeek && lessonEndTime < endOfWeek && lessonEndTime < now;
     }).length;
     
     // Count completed lessons (lessons in the past with 'completed' status or just past lessons)
@@ -3072,14 +3365,23 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     );
     this.totalTutors = uniqueTutors.size;
 
-    // Count lessons this week (same as tutor)
+    // Count lessons this week (for students, count both regular lessons and classes they're attending)
     const now = new Date();
-    const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
-    const endOfWeek = new Date(now.setDate(now.getDate() - now.getDay() + 7));
+    const currentDay = now.getDay(); // 0 = Sunday, 6 = Saturday
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - currentDay);
+    startOfWeek.setHours(0, 0, 0, 0);
+    
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 7);
+    endOfWeek.setHours(23, 59, 59, 999);
     
     this.lessonsThisWeek = this.lessons.filter(l => {
+      // Exclude cancelled lessons/classes
+      if (l.status === 'cancelled') return false;
+      
       const lessonDate = new Date(l.startTime);
-      return lessonDate >= startOfWeek && lessonDate <= endOfWeek;
+      return lessonDate >= startOfWeek && lessonDate < endOfWeek;
     }).length;
 
     // Count completed lessons (lessons in the past with 'completed' status or just past lessons)
@@ -3311,44 +3613,37 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     const lessonDay = this.startOfDay(start);
     const daysDiff = Math.floor((lessonDay.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     
-    // Format time
-    const time = start.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit', 
-      hour12: true 
-    });
-    
-    // Determine day text
+    const tz = this.userTz;
+    const time = formatTimeInTz(start, tz);
+
     let dayText = '';
     if (daysDiff === 0) {
       dayText = 'today';
     } else if (daysDiff === 1) {
       dayText = 'tomorrow';
     } else if (daysDiff < 7) {
-      // Show weekday with date: "Monday, November 25"
-      const weekday = start.toLocaleDateString('en-US', { weekday: 'long' });
-      const date = start.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+      const weekday = formatDateInTz(start, tz, { weekday: 'long', month: undefined, day: undefined, year: undefined });
+      const date = formatDateInTz(start, tz, { month: 'long', day: 'numeric', year: undefined });
       dayText = `${weekday}, ${date}`;
     } else {
-      // Show month and day: "December 2"
-      dayText = start.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+      dayText = formatDateInTz(start, tz, { month: 'long', day: 'numeric', year: undefined });
     }
-    
+
     return {
-      date: start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      date: formatDateInTz(start, tz, { month: 'short', day: 'numeric', year: undefined }),
       time,
       dayText
     };
   }
 
-  // Format lesson time for display with clear when information
   formatLessonTime(lesson: Lesson): string {
     const start = new Date(lesson.startTime);
     const end = new Date(lesson.endTime);
     const now = new Date();
-    
-    const startTime = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-    const endTime = end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    const tz = this.userTz;
+
+    const startTime = formatTimeInTz(start, tz);
+    const endTime = formatTimeInTz(end, tz);
     
     // Calculate relative date
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -3380,10 +3675,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       whenText = 'Tomorrow';
     } else if (daysDiff > 1 && daysDiff < 7) {
       // Within the next week, show weekday name
-      whenText = start.toLocaleDateString('en-US', { weekday: 'long' });
+      whenText = formatDateInTz(start, this.userTz, { weekday: 'long', month: undefined, day: undefined, year: undefined });
     } else {
-      // Further out, show full date
-      whenText = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      whenText = formatDateInTz(start, this.userTz, { month: 'short', day: 'numeric', year: undefined });
     }
     
     return `${whenText} • ${startTime} - ${endTime}`;
@@ -3398,15 +3692,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     return subject.replace(/ Lesson$/i, '').trim();
   }
   
-  // Get just the time range portion (e.g., "2:00 PM - 3:00 PM")
   getTimeRangeOnly(lesson: Lesson): string {
-    const start = new Date(lesson.startTime);
-    const end = new Date(lesson.endTime);
-    
-    const startTime = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-    const endTime = end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-    
-    return `${startTime} — ${endTime}`;
+    const tz = this.userTz;
+    return `${formatTimeInTz(lesson.startTime, tz, undefined, true)} — ${formatTimeInTz(lesson.endTime, tz, undefined, true)}`;
   }
 
   /**
@@ -3741,7 +4029,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       return false;
     }
     
-    // Check both current lessons and past lessons for today
+    // Check current lessons, past lessons, AND cancelled lessons for today
     // (since this.lessons now only includes in-progress/upcoming, we need to check pastLessons too)
     const allLessonsToday = [
       ...this.lessons.filter(lesson => {
@@ -3753,16 +4041,28 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         const lessonDate = new Date(lesson.startTime);
         const lessonDay = this.startOfDay(lessonDate);
         return lessonDay.getTime() === selectedDay.getTime();
+      }),
+      // Include cancelled lessons that were scheduled for today
+      ...this.cancelledLessons.filter(lesson => {
+        const lessonDate = new Date(lesson.startTime);
+        const lessonDay = this.startOfDay(lessonDate);
+        return lessonDay.getTime() === selectedDay.getTime();
       })
     ];
     
-    // Check if any lessons happened earlier today
+    // Check if any lessons happened earlier today or were scheduled for today
     // A lesson counts as "earlier today" if:
     // 1. Status is 'completed', OR
-    // 2. Its end time was in the past
+    // 2. Status is 'cancelled', OR
+    // 3. Its end time was in the past
     const completedLessonsToday = allLessonsToday.filter(l => {
       // Check if status is explicitly 'completed'
       if (l.status === 'completed') {
+        return true;
+      }
+      
+      // Check if status is 'cancelled' (counts as having had a lesson scheduled)
+      if (l.status === 'cancelled') {
         return true;
       }
       
@@ -3779,6 +4079,132 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     });
     
     return completedLessonsToday.length > 0;
+  }
+
+  // Check if today's lessons were only cancelled (no completed lessons)
+  checkHadOnlyCancelledLessonsToday(): boolean {
+    if (!this.selectedDate) {
+      return false;
+    }
+    
+    const now = new Date();
+    const today = this.startOfDay(new Date());
+    const selectedDay = this.startOfDay(this.selectedDate);
+    const isToday = selectedDay.getTime() === today.getTime();
+    
+    // Only check for today
+    if (!isToday) {
+      return false;
+    }
+    
+    // Get all lessons for today (same logic as hadLessonsEarlierToday)
+    const allLessonsToday = [
+      ...this.lessons.filter(lesson => {
+        const lessonDate = new Date(lesson.startTime);
+        const lessonDay = this.startOfDay(lessonDate);
+        return lessonDay.getTime() === selectedDay.getTime();
+      }),
+      ...this.pastLessons.filter(lesson => {
+        const lessonDate = new Date(lesson.startTime);
+        const lessonDay = this.startOfDay(lessonDate);
+        return lessonDay.getTime() === selectedDay.getTime();
+      }),
+      ...this.cancelledLessons.filter(lesson => {
+        const lessonDate = new Date(lesson.startTime);
+        const lessonDay = this.startOfDay(lessonDate);
+        return lessonDay.getTime() === selectedDay.getTime();
+      })
+    ];
+    
+    // Check if there are any completed lessons (not cancelled)
+    const completedLessons = allLessonsToday.filter(l => {
+      if (l.status === 'completed') {
+        return true;
+      }
+      // Check if lesson time has passed (completed but status not updated)
+      const startTime = new Date(l.startTime);
+      const endTime = l.endTime ? new Date(l.endTime) : new Date(startTime.getTime() + 60 * 60 * 1000);
+      const graceMinutes = 10;
+      const gracePeriodAgo = new Date(now.getTime() - graceMinutes * 60 * 1000);
+      return endTime < gracePeriodAgo && l.status !== 'cancelled';
+    });
+    
+    // Check if there are any cancelled lessons
+    const cancelledLessons = allLessonsToday.filter(l => l.status === 'cancelled');
+    
+    // Return true if there are cancelled lessons but no completed lessons
+    return cancelledLessons.length > 0 && completedLessons.length === 0;
+  }
+
+  getGreeting(): string {
+    const now = new Date();
+    const hour = now.getHours();
+    const name = this.currentUser?.firstName || '';
+
+    let key: string;
+    if (hour >= 5 && hour < 12) {
+      key = 'HOME.GREETING_MORNING';
+    } else if (hour >= 12 && hour < 17) {
+      key = 'HOME.GREETING_AFTERNOON';
+    } else if (hour >= 17 && hour < 22) {
+      key = 'HOME.GREETING_EVENING';
+    } else {
+      key = 'HOME.GREETING_NIGHT';
+    }
+
+    return this.translateService.instant(key, { name });
+  }
+
+  getWelcomeMessage(): string {
+    if (!this.nextLesson && this.hasAvailability && !this.hadLessonsToday) {
+      return this.translateService.instant('HOME.WELCOME_OPEN_SCHEDULE');
+    }
+    if (!this.nextLesson && this.hasAvailability && this.hadLessonsToday && !this.hadOnlyCancelledLessonsToday) {
+      return this.translateService.instant('HOME.WELCOME_GREAT_WORK');
+    }
+    if (!this.nextLesson && this.hasAvailability && this.hadLessonsToday && this.hadOnlyCancelledLessonsToday) {
+      return this.translateService.instant('HOME.WELCOME_PLANS_CHANGED');
+    }
+    if (!this.nextLesson && !this.hasAvailability && this.pendingFeedbackCount === 0) {
+      return this.translateService.instant('HOME.WELCOME_SET_AVAILABILITY');
+    }
+    if (this.pendingFeedbackCount > 0) {
+      return this.translateService.instant('HOME.WELCOME_FEEDBACK_NEEDED');
+    }
+    return '';
+  }
+
+  getEmptyStateTitle(): string {
+    if (!this.hadLessonsToday) {
+      return this.translateService.instant('HOME.EMPTY_TITLE_CLEAR');
+    }
+    return this.translateService.instant('HOME.EMPTY_TITLE_DONE');
+  }
+
+  getEmptyStateMessage(): string {
+    if (!this.hasAvailability) {
+      return this.translateService.instant('HOME.EMPTY_MSG_NO_AVAILABILITY');
+    }
+    if (!this.hadLessonsToday) {
+      return this.translateService.instant('HOME.EMPTY_MSG_OPEN');
+    }
+    if (this.hadOnlyCancelledLessonsToday) {
+      return this.translateService.instant('HOME.EMPTY_MSG_CANCELLED');
+    }
+    return this.translateService.instant('HOME.EMPTY_MSG_COMPLETED');
+  }
+
+  getComingUpEmptyMessage(): string {
+    if (this.nextLesson) {
+      return this.translateService.instant('HOME.COMING_UP_NO_ADDITIONAL');
+    }
+    if (this.hadLessonsToday && !this.hadOnlyCancelledLessonsToday) {
+      return this.translateService.instant('HOME.COMING_UP_NO_MORE');
+    }
+    if (this.hadLessonsToday && this.hadOnlyCancelledLessonsToday) {
+      return this.translateService.instant('HOME.COMING_UP_CANCELLED');
+    }
+    return this.translateService.instant('HOME.COMING_UP_NONE');
   }
 
   // Get the absolute NEXT lesson (regardless of date) - used for "Up Next" card
@@ -4035,12 +4461,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     } else if (lessonDate.getTime() === tomorrow.getTime()) {
       return 'TOMORROW';
     } else {
-      // Format as "Mon. Nov 17"
-      return date.toLocaleDateString('en-US', { 
-        weekday: 'short', 
-        month: 'short', 
-        day: 'numeric' 
-      }).replace(',', '.');
+      return formatDateInTz(date, this.userTz, { weekday: 'short', month: 'short', day: 'numeric', year: undefined }).replace(',', '.');
     }
   }
 
@@ -4159,9 +4580,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   
   // Internal method to compute timeline events (called by cached getter)
   private computeTimelineEvents(): any[] {
-    // Show upcoming lessons (includes cancelled lessons with badges in timeline)
-    // Combine upcoming lessons and cancelled lessons, then sort by start time
-    const allLessonsForTimeline = [...this.lessons, ...this.cancelledLessons];
+    // Show only active upcoming lessons (cancelled lessons excluded — they're not "coming up")
+    const allLessonsForTimeline = [...this.lessons];
     const now = new Date();
     
     // Get the next class being shown in the "Up Next" card (for both tutors and students)
@@ -4171,21 +4591,18 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
                               nextClassLesson?.lesson?._id || 
                               (nextClassLesson?.lesson && String(nextClassLesson.lesson._id));
     
+    // Get all scheduled (non-cancelled) lesson times to check for replacements
+    const scheduledLessonTimes = new Set(
+      allLessonsForTimeline
+        .filter(l => l.status !== 'cancelled')
+        .map(l => new Date(l.startTime).getTime())
+    );
+    
     // Filter and sort all lessons for timeline
     return allLessonsForTimeline
       .filter(lesson => {
         const startTime = new Date(lesson.startTime);
         const endTime = new Date(lesson.endTime);
-        
-        // For cancelled lessons: only show if START time hasn't passed yet
-        // Once start time passes, cancelled lessons should disappear completely
-        if (lesson.status === 'cancelled') {
-          // Exclude if the lesson's START time has passed
-          if (startTime <= now) return false;
-          // Exclude if it's the next class being shown in the "Up Next" card
-          if (nextClassLessonId && String(lesson._id) === String(nextClassLessonId)) return false;
-          return true;
-        }
         
         // For non-cancelled lessons:
         // Exclude if it's in the past (start time passed)
@@ -4206,13 +4623,32 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         const isClass = (lesson as any).isClass;
         const isCancelled = lesson.status === 'cancelled';
         
+        // For classes, ensure tutor is properly extracted (could be populated object or ID)
+        let tutorObj = tutor;
+        if (isClass && tutor && typeof tutor === 'object') {
+          tutorObj = tutor; // Already populated
+        } else if (isClass && lesson.tutorId && typeof lesson.tutorId === 'object') {
+          tutorObj = lesson.tutorId; // Use the populated tutorId
+        }
+        
         // Precompute reschedule flags
         const isRescheduleProposer = this.isRescheduleProposer(lesson);
         const rescheduleAccepted = lesson.rescheduleProposal?.status === 'accepted';
         
         // Determine which participant to show based on user role
         const isStudentView = this.isStudent();
-        const participantToShow = isStudentView ? tutor : student;
+        const participantToShow = isStudentView ? tutorObj : student;
+        
+        // Precompute status label and class for table display
+        const statusLabel = isCancelled ? 'CANCELLED'
+          : lesson.status === 'in_progress' ? 'IN PROGRESS'
+          : lesson.status === 'pending_reschedule' ? 'PENDING'
+          : lesson.status === 'scheduled' ? 'CONFIRMED'
+          : 'SCHEDULED';
+        const statusClass = isCancelled ? 'cancelled'
+          : lesson.status === 'in_progress' ? 'in-progress'
+          : lesson.status === 'pending_reschedule' ? 'pending'
+          : 'confirmed';
         
         return {
           time: this.formatTimeOnly(startTime),
@@ -4228,13 +4664,35 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
             ? ((lesson as any).classData?.thumbnail || null) // Show class thumbnail if available
             : (participantToShow?.picture || participantToShow?.profilePicture || null),
           lesson: lesson,
+          tutor: tutorObj, // Include tutor object for easy access (use properly extracted tutor)
           isTrialLesson: lesson.isTrialLesson || false,
           isCancelled: isCancelled,
           cancelReason: isCancelled ? lesson.cancelReason : null,
           isRescheduleProposer: isRescheduleProposer,
-          rescheduleAccepted: rescheduleAccepted
+          rescheduleAccepted: rescheduleAccepted,
+          duration: (lesson as any).duration || 25,
+          statusLabel: statusLabel,
+          statusClass: statusClass
         };
       });
+  }
+
+  // Get count of scheduled (non-cancelled) timeline events
+  get scheduledTimelineCount(): number {
+    return this.timelineEvents.filter(e => !e.isCancelled).length;
+  }
+
+  // Count of additional lessons on the same day as the first timeline event
+  get sameDayExtraCount(): number {
+    const events = this.timelineEvents;
+    if (events.length < 2) return 0;
+    const firstDate = events[0].date;
+    return events.filter((e: any, i: number) => i > 0 && e.date === firstDate).length;
+  }
+  
+  // Get count of cancelled timeline events
+  get cancelledTimelineCount(): number {
+    return this.timelineEvents.filter(e => e.isCancelled).length;
   }
 
   hasMoreTimelineEvents(): boolean {
@@ -4255,6 +4713,161 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     });
     
     return timelineLessons.length > 3;
+  }
+
+  // Track if all lessons modal is open
+  isAllLessonsModalOpen = false;
+  allLessonsForModal: any[] = [];
+  
+  // Track if feedback modal is open
+  isFeedbackModalOpen = false;
+
+  /**
+   * Open modal to show all upcoming lessons (Airbnb style)
+   */
+  async openAllLessonsModal() {
+    // Reset filter state
+    this.selectedFilterMonth = null;
+    this.selectedFilterYear = null;
+    this.selectedDateForPicker = new Date().toISOString();
+    
+    // Get all future lessons (exclude cancelled — they're not "upcoming")
+    const allLessons = [...this.lessons];
+    const now = new Date();
+    
+    this.allLessonsForModal = allLessons
+      .filter(lesson => new Date(lesson.startTime) > now)
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+      .map(lesson => {
+        const startTime = new Date(lesson.startTime);
+        const endTime = lesson.endTime ? new Date(lesson.endTime) : null;
+        const student = lesson.studentId as any;
+        const tutor = lesson.tutorId as any;
+        const isStudentView = this.isStudent();
+        const participantToShow = isStudentView ? tutor : student;
+        
+        return {
+          date: this.formatRelativeDate(startTime),
+          fullDate: this.formatFullDate(startTime),
+          time: this.formatTimeOnly(startTime),
+          endTime: endTime ? this.formatTimeOnly(endTime) : null,
+          name: participantToShow ? (isStudentView ? this.formatTutorDisplayName(participantToShow) : this.formatStudentDisplayName(participantToShow)) : 'Unknown',
+          avatar: participantToShow?.picture || participantToShow?.profilePicture || null,
+          subject: this.formatSubject(lesson.subject),
+          duration: lesson.duration || 25,
+          isCancelled: lesson.status === 'cancelled',
+          lesson: lesson
+        };
+      });
+    
+    // Store unfiltered list
+    this.allLessonsUnfiltered = [...this.allLessonsForModal];
+    
+    this.isAllLessonsModalOpen = true;
+  }
+
+  closeAllLessonsModal() {
+    this.isAllLessonsModalOpen = false;
+    this.isDatePickerView = false; // Reset to lessons view
+  }
+
+  // Date picker view state (same modal, different view)
+  isDatePickerView = false;
+  selectedDateForPicker: string = new Date().toISOString();
+  minDateForPicker: string = new Date().toISOString();
+  highlightedLessonDates: any[] = [];
+  
+  // Filtering state
+  selectedFilterMonth: number | null = null;
+  selectedFilterYear: number | null = null;
+  allLessonsUnfiltered: any[] = [];
+  
+  // Get current month label for display
+  /** Current UI locale for date/time formatting (e.g. 'en', 'fr') */
+  get currentLocale(): string {
+    return this.translateService.currentLang || this.translateService.defaultLang || 'en';
+  }
+
+  get currentMonthLabel(): string {
+    const d = this.selectedFilterMonth !== null && this.selectedFilterYear !== null
+      ? new Date(this.selectedFilterYear, this.selectedFilterMonth, 1)
+      : new Date();
+    const loc = this.currentLocale;
+    const formatter = new Intl.DateTimeFormat(loc, {
+      month: 'long',
+      year: 'numeric',
+      ...(this.userTz ? { timeZone: this.userTz } : {})
+    });
+    return formatter.format(d);
+  }
+
+  // Pre-computed flag for smooth animations
+  get hasMonthFilter(): boolean {
+    return this.selectedFilterMonth !== null;
+  }
+
+  openDatePickerView() {
+    // Store unfiltered lessons if not already stored
+    if (this.allLessonsUnfiltered.length === 0) {
+      this.allLessonsUnfiltered = [...this.allLessonsForModal];
+    }
+    
+    // Get dates that have lessons for highlighting (from unfiltered list)
+    const lessonDates = this.allLessonsUnfiltered.map(event => {
+      const date = new Date(event.lesson.startTime);
+      return {
+        date: date.toISOString().split('T')[0],
+        textColor: '#E31C5F',
+        backgroundColor: '#FCE4EC'
+      };
+    });
+    
+    // Remove duplicates
+    this.highlightedLessonDates = lessonDates.filter((item, index, self) =>
+      index === self.findIndex(t => t.date === item.date)
+    );
+    
+    this.isDatePickerView = true;
+  }
+
+  closeDatePickerView() {
+    this.isDatePickerView = false;
+    
+    // Apply month filter if a date was selected
+    if (this.selectedFilterMonth !== null && this.selectedFilterYear !== null) {
+      this.filterLessonsByMonth();
+    }
+  }
+  
+  onDateSelected(event: any) {
+    const selectedDate = new Date(event.detail.value);
+    this.selectedFilterMonth = selectedDate.getMonth();
+    this.selectedFilterYear = selectedDate.getFullYear();
+    this.selectedDateForPicker = event.detail.value;
+  }
+  
+  filterLessonsByMonth() {
+    if (this.selectedFilterMonth === null || this.selectedFilterYear === null) {
+      return;
+    }
+    
+    // Filter lessons to only show those in the selected month
+    this.allLessonsForModal = this.allLessonsUnfiltered.filter(event => {
+      const lessonDate = new Date(event.lesson.startTime);
+      return lessonDate.getMonth() === this.selectedFilterMonth && 
+             lessonDate.getFullYear() === this.selectedFilterYear;
+    });
+  }
+  
+  clearMonthFilter() {
+    this.selectedFilterMonth = null;
+    this.selectedFilterYear = null;
+    this.allLessonsForModal = [...this.allLessonsUnfiltered];
+  }
+
+  // Format full date like "Friday, February 6"
+  formatFullDate(date: Date): string {
+    return formatDateInTz(date, this.userTz, { weekday: 'long', month: 'long', day: 'numeric', year: undefined }, this.currentLocale);
   }
 
   /**
@@ -4289,103 +4902,63 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   }
   
 navigateToLessons() {
-    this.router.navigate(['/tabs/home/lessons']);
+    this.router.navigate(['/tabs/lessons']);
   }
 
   // Format time only (e.g., "2:00 PM")
   formatTimeOnly(date: Date): string {
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
+    return formatTimeInTz(date, this.userTz, this.currentLocale);
   }
 
-  // Format relative date (e.g., "Today", "Tomorrow", "Wed, Nov 15")
   formatRelativeDate(date: Date): string {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const targetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    
+
     const diffDays = Math.floor((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Tomorrow';
-    if (diffDays === -1) return 'Yesterday';
-    
-    // For other dates, show day and date (e.g., "Wed, Nov 15")
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric'
-    });
+
+    if (diffDays === 0) return this.translateService.instant('NOTIFICATIONS.TODAY');
+    if (diffDays === 1) return this.translateService.instant('NOTIFICATIONS.TOMORROW');
+    if (diffDays === -1) return this.translateService.instant('NOTIFICATIONS.YESTERDAY');
+
+    return formatDateInTz(date, this.userTz, { weekday: 'short', month: 'short', day: 'numeric', year: undefined }, this.currentLocale);
   }
 
   // Navigate to lesson details or join
   navigateToLesson(lesson: Lesson) {
-    // Navigate to pre-call page - let pre-call handle the join logic
-    const now = new Date();
-    const startTime = new Date(lesson.startTime);
-    const canJoin = this.canJoinLessonByTime(startTime);
-    
-    if (canJoin) {
-      this.joinLessonById(lesson);
+    // Navigate to event details page (same route for lessons and classes)
+    if (lesson?._id) {
+      this.router.navigate(['/tabs/lessons', lesson._id]);
     }
+  }
+
+  /**
+   * Navigate to lesson from modal - closes modal first, then navigates
+   */
+  navigateToLessonFromModal(lesson: Lesson) {
+    // Close modal first
+    this.closeAllLessonsModal();
+    
+    // Small delay to ensure modal closes before navigation
+    setTimeout(() => {
+      this.navigateToLesson(lesson);
+    }, 100);
   }
 
   // Helper to navigate to pre-call for lesson or class
   async joinLessonById(lesson: Lesson) {
     const isClass = (lesson as any).isClass;
     
-    // CRITICAL FIX: Determine role from the LESSON, not from cached currentUser
-    // This prevents stale cache issues where userType might be wrong
-    const currentUserId = (this.currentUser as any)?._id || (this.currentUser as any)?.id;
-    const tutorId = typeof lesson.tutorId === 'object' ? (lesson.tutorId as any)._id : lesson.tutorId;
-    const studentId = typeof lesson.studentId === 'object' ? (lesson.studentId as any)._id : lesson.studentId;
-    
-    console.log('🔍 DEBUG: Role determination:', {
-      currentUserId,
-      currentUserType: typeof lesson.tutorId,
-      tutorId,
-      studentId,
-      tutorIdRaw: lesson.tutorId,
-      studentIdRaw: lesson.studentId,
-      idsMatch: {
-        matchesTutor: currentUserId === tutorId,
-        matchesStudent: currentUserId === studentId
-      }
-    });
-    
-    // Determine role by comparing IDs
-    let role: 'tutor' | 'student';
-    if (currentUserId === tutorId) {
-      role = 'tutor';
-      console.log('✅ Determined role: TUTOR (ID match)');
-    } else if (currentUserId === studentId) {
-      role = 'student';
-      console.log('✅ Determined role: STUDENT (ID match)');
-    } else {
-      // Fallback to currentUser if IDs don't match (shouldn't happen)
-      console.warn('⚠️ Could not determine role from lesson IDs, using currentUser.userType');
-      role = this.isTutor() ? 'tutor' : 'student';
-      console.log('⚠️ Fallback role from currentUser.userType:', role);
-    }
-    
     console.log('🎯 TAB1: Navigating to pre-call:', {
       sessionId: lesson._id,
-      isClass: isClass,
-      role: role,
-      currentUserId,
-      tutorId,
-      studentId,
-      determinedBy: (currentUserId === tutorId || currentUserId === studentId) ? 'lesson IDs' : 'currentUser.userType'
+      isClass: isClass
     });
     
     // Navigate directly to pre-call - don't call backend join yet
+    // SECURITY: role is determined from lesson data + auth, not passed in URL
     this.router.navigate(['/pre-call'], {
       queryParams: {
         lessonId: lesson._id,
-        role: role,
         lessonMode: 'true',
         isClass: isClass ? 'true' : 'false'
       }
@@ -4403,6 +4976,133 @@ navigateToLessons() {
   }
 
   // New method: Get other participant's avatar (with caching)
+  updateNextLessonPresence() {
+    const nl = this.nextLesson;
+    if (nl?.lesson?._id) {
+      const presence = this.lessonPresence.get(String(nl.lesson._id));
+      this.nextLessonOtherJoined = !!presence;
+      this.nextLessonOtherName = presence?.participantName || '';
+    } else {
+      this.nextLessonOtherJoined = false;
+      this.nextLessonOtherName = '';
+    }
+  }
+
+  private loadPreviousNotes() {
+    const nl = this.nextLesson;
+    if (!nl?.lesson?._id || nl.lesson.isClass) {
+      this.previousNotesData = null;
+      return;
+    }
+    this.previousNotesLoading = true;
+    this.lessonService.getPreviousNotes(nl.lesson._id).subscribe({
+      next: (res) => {
+        this.previousNotesData = res.hasPreviousNotes ? res : null;
+        this.previousNotesLoading = false;
+        this.initPrevNotesTranslation();
+      },
+      error: () => {
+        this.previousNotesData = null;
+        this.previousNotesLoading = false;
+      }
+    });
+  }
+
+  private initPrevNotesTranslation() {
+    if (!this.previousNotesData?.analysis) return;
+    this.prevNotesAnalysisId = this.previousNotesData.analysisId || null;
+    this.prevNotesOriginalAnalysis = this.previousNotesData.analysis;
+    this.prevNotesDisplayAnalysis = this.previousNotesData.analysis;
+    this.prevNotesShowingTranslation = false;
+
+    if (this.prevNotesAnalysisId) {
+      const targetLang = this.currentUser?.nativeLanguage || 'en';
+      const cached = this.previousNotesData.translations?.[targetLang];
+      if (cached) {
+        this.analysisTranslation.seedFromResponse(this.prevNotesAnalysisId, cached);
+      }
+      if (this.analysisTranslation.isShowingTranslated(this.prevNotesAnalysisId)) {
+        const t = this.analysisTranslation.getTranslation(this.prevNotesAnalysisId);
+        if (t) {
+          this.prevNotesDisplayAnalysis = this.analysisTranslation.applyTranslation(this.prevNotesOriginalAnalysis, t);
+          this.prevNotesShowingTranslation = true;
+        }
+      }
+    }
+  }
+
+  showPreviousNotesModal() {
+    if (!this.previousNotesData?.analysis) return;
+    const a = this.prevNotesDisplayAnalysis || this.previousNotesData.analysis;
+    this.previousNotesDate = new Date(this.previousNotesData.previousLessonDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+    const scores: { label: string; value: number }[] = [];
+    if (a.grammarAnalysis?.accuracyScore != null) scores.push({ label: 'Grammar', value: a.grammarAnalysis.accuracyScore });
+    if (a.fluencyAnalysis?.overallFluencyScore != null) scores.push({ label: 'Fluency', value: a.fluencyAnalysis.overallFluencyScore });
+    if (a.pronunciationAnalysis?.overallScore != null) scores.push({ label: 'Pronunciation', value: a.pronunciationAnalysis.overallScore });
+    this.previousNotesScores = scores;
+    this.isPreviousNotesModalOpen = true;
+  }
+
+  private refreshPrevNotesTranslationState() {
+    if (!this.prevNotesAnalysisId || !this.prevNotesOriginalAnalysis) return;
+    const showing = this.analysisTranslation.isShowingTranslated(this.prevNotesAnalysisId);
+    const t = this.analysisTranslation.getTranslation(this.prevNotesAnalysisId);
+    if (showing && t) {
+      this.prevNotesDisplayAnalysis = this.analysisTranslation.applyTranslation(this.prevNotesOriginalAnalysis, t);
+      this.prevNotesShowingTranslation = true;
+    } else if (!showing && this.prevNotesShowingTranslation) {
+      this.prevNotesDisplayAnalysis = this.prevNotesOriginalAnalysis;
+      this.prevNotesShowingTranslation = false;
+    }
+  }
+
+  togglePrevNotesTranslation() {
+    if (!this.prevNotesAnalysisId) return;
+
+    if (this.prevNotesShowingTranslation) {
+      this.analysisTranslation.showOriginal(this.prevNotesAnalysisId);
+      this.prevNotesDisplayAnalysis = this.prevNotesOriginalAnalysis;
+      this.prevNotesShowingTranslation = false;
+      return;
+    }
+
+    if (this.analysisTranslation.hasTranslation(this.prevNotesAnalysisId)) {
+      this.analysisTranslation.showTranslated(this.prevNotesAnalysisId);
+      const t = this.analysisTranslation.getTranslation(this.prevNotesAnalysisId);
+      if (t) {
+        this.prevNotesDisplayAnalysis = this.analysisTranslation.applyTranslation(this.prevNotesOriginalAnalysis, t);
+      }
+      this.prevNotesShowingTranslation = true;
+      return;
+    }
+
+    this.prevNotesTranslating = true;
+    this.analysisTranslation.translate(this.prevNotesAnalysisId).subscribe({
+      next: (t) => {
+        this.prevNotesDisplayAnalysis = this.analysisTranslation.applyTranslation(this.prevNotesOriginalAnalysis, t);
+        this.prevNotesTranslating = false;
+        this.prevNotesShowingTranslation = true;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.prevNotesTranslating = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  closePreviousNotesModal() {
+    this.isPreviousNotesModalOpen = false;
+  }
+
+  viewFullAnalysis() {
+    this.isPreviousNotesModalOpen = false;
+    if (this.previousNotesData?.previousLessonId) {
+      this.router.navigate(['/lesson-analysis', this.previousNotesData.previousLessonId]);
+    }
+  }
+
   // Check if lesson has participant joined (presence)
   hasParticipantJoined(lesson: Lesson | null): boolean {
     if (!lesson) return false;
@@ -4545,8 +5245,96 @@ navigateToLessons() {
     }
   }
 
+  // Get the instructor name for a class (First L. format)
+  getClassInstructorName(lesson: any): string {
+    if (!lesson?.tutorId) return 'Instructor';
+    
+    const tutor = lesson.tutorId;
+    if (typeof tutor === 'object' && tutor) {
+      // Try multiple ways to get the name
+      let firstName = tutor.firstName || '';
+      let lastName = tutor.lastName || '';
+      
+      // Fallback to splitting 'name' field
+      if (!firstName && tutor.name) {
+        const nameParts = tutor.name.trim().split(/\s+/);
+        firstName = nameParts[0] || '';
+        lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+      }
+      
+      // Fallback to email if no name
+      if (!firstName && tutor.email) {
+        const emailParts = tutor.email.split('@')[0];
+        // Try to extract name from email (e.g., john.doe@email.com)
+        const emailNameParts = emailParts.split(/[._-]/);
+        firstName = emailNameParts[0] || '';
+        firstName = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
+      }
+      
+      if (firstName && lastName) {
+        return `${firstName} ${lastName.charAt(0).toUpperCase()}.`;
+      } else if (firstName) {
+        return firstName;
+      }
+    }
+    
+    return 'Instructor';
+  }
+
+  // Get tutor from lesson (handles both populated and non-populated tutorId)
+  getTutorFromLesson(lesson: any): any {
+    if (!lesson) return null;
+    
+    // Try lesson.tutorId first (most common - should be populated for classes)
+    if (lesson.tutorId) {
+      // If it's an object (populated), return it
+      if (typeof lesson.tutorId === 'object' && lesson.tutorId !== null && !Array.isArray(lesson.tutorId)) {
+        // It's a populated object - return it
+        return lesson.tutorId;
+      }
+      // If it's a string ID, we can't use it (not populated)
+      // Return null so template can fallback to event.tutor
+    }
+    
+    return null;
+  }
+
+  // Get tutor picture from multiple possible fields
+  getTutorPicture(tutor: any): string | null {
+    if (!tutor) return null;
+    
+    // Handle if tutor is just an ID string (shouldn't happen but be safe)
+    if (typeof tutor === 'string') return null;
+    
+    // Handle if tutor is an object
+    if (typeof tutor === 'object') {
+      // Try picture first (most common)
+      if (tutor.picture && typeof tutor.picture === 'string' && tutor.picture.trim() !== '') {
+        return tutor.picture;
+      }
+      // Try profilePicture
+      if (tutor.profilePicture && typeof tutor.profilePicture === 'string' && tutor.profilePicture.trim() !== '') {
+        return tutor.profilePicture;
+      }
+      // Try auth0Picture as last resort
+      if (tutor.auth0Picture && typeof tutor.auth0Picture === 'string' && tutor.auth0Picture.trim() !== '') {
+        return tutor.auth0Picture;
+      }
+    }
+    
+    return null;
+  }
+
   async loadLessons(showSkeleton = true) {
-    console.log('📊 [TAB1] loadLessons called - showSkeleton:', showSkeleton, 'isLoadingLessons:', this.isLoadingLessons);
+    console.log('📊 [TAB1] loadLessons called - showSkeleton:', showSkeleton, 'isLoadingLessons:', this.isLoadingLessons, 'inProgress:', this._isLoadingInProgress);
+    
+    // Prevent double-loading which causes flash
+    if (this._isLoadingInProgress) {
+      console.log('⏭️ [TAB1] Skipping loadLessons - already in progress');
+      return;
+    }
+    
+    this._isLoadingInProgress = true;
     
     // Only show skeleton loader if explicitly requested (e.g., initial load)
     if (showSkeleton) {
@@ -4593,6 +5381,7 @@ navigateToLessons() {
                   updatedAt: cls.updatedAt || new Date(),
                   isClass: true, // Mark as class to differentiate
                   className: cls.name,
+                  isPublic: cls.isPublic || false, // Include isPublic flag
                   classData: cls, // Store full class data including attendees
                   attendees: cls.attendees || [], // Confirmed students who are going
                   capacity: cls.capacity,
@@ -4609,10 +5398,14 @@ navigateToLessons() {
           }
         }
 
-        // For students, also load their accepted/confirmed classes
+        
         if (!this.isTutor()) {
+          console.log('🎓 [TAB1] Loading accepted classes for student...');
           try {
             const classesResp = await this.classService.getAcceptedClasses().toPromise();
+            console.log('🎓 [TAB1] getAcceptedClasses response:', classesResp);
+            console.log('🎓 [TAB1] Number of accepted classes:', classesResp?.classes?.length || 0);
+            
             if (classesResp?.success && classesResp.classes) {
               // Convert accepted classes to lesson-like objects
               const classLessons = classesResp.classes.map((cls: any) => ({
@@ -4630,19 +5423,27 @@ navigateToLessons() {
                 updatedAt: cls.updatedAt || new Date(),
                 isClass: true, // Mark as class to differentiate
                 className: cls.name,
+                isPublic: cls.isPublic || false, // Include isPublic flag
                 classData: cls, // Store full class data
-                attendees: cls.confirmedStudents || [], // Other confirmed students
+                attendees: cls.confirmedStudents || [], // Other confirmed students (with populated picture/profilePicture)
                 capacity: cls.capacity,
                 cancelReason: cls.cancelReason // Include cancel reason
               } as any));
               
+              console.log('🎓 [TAB1] Converted classes to lesson-like objects:', classLessons);
+              
               // Merge classes with lessons
               allLessons = [...allLessons, ...classLessons];
+              console.log('🎓 [TAB1] Total allLessons after merge:', allLessons.length);
             }
           } catch (error) {
-            console.error('Error loading student classes:', error);
+            console.error('🎓 [TAB1] Error loading student classes:', error);
           }
+        } else {
+          console.log('🎓 [TAB1] Skipping class load - user is a tutor');
         }
+
+
 
         // Filter for upcoming lessons + lessons from today (even if completed)
         const today = this.startOfDay(new Date());
@@ -4653,12 +5454,12 @@ navigateToLessons() {
         console.log('  - today start:', today.toISOString());
         console.log('  - sevenDaysAgo:', sevenDaysAgo.toISOString());
         
-        // Separate cancelled lessons (show recent and future cancellations)
+        // Separate cancelled lessons (show recent and future cancellations, exclude payment failures)
         this.cancelledLessons = allLessons
           .filter(l => {
             if (l.status !== 'cancelled') return false;
+            if ((l as any).cancelReason === 'payment_failed') return false;
             const lessonTime = new Date(l.startTime).getTime();
-            // Show cancelled lessons from last 7 days or future
             return lessonTime >= sevenDaysAgo.getTime();
           })
           .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
@@ -4861,8 +5662,13 @@ navigateToLessons() {
       console.error('Tab1Page: Failed to load lessons', err);
       this.lessons = [];
     } finally {
+      this._isLoadingInProgress = false; // Reset flag
       if (showSkeleton) {
         this.isLoadingLessons = false;
+        this.nextLessonTimeLabel = this.getNextLessonTimeLabel();
+        this.hadLessonsToday = this.hadLessonsEarlierToday();
+        this.hadOnlyCancelledLessonsToday = this.checkHadOnlyCancelledLessonsToday();
+        this.loadPreviousNotes();
         console.log('✅ [TAB1] Skeleton hidden');
       }
     }
@@ -4873,7 +5679,6 @@ navigateToLessons() {
    * This moves the class from lessons to cancelledLessons array seamlessly
    */
   private async handleClassCancellation(classId: string, cancelReason?: string) {
-    console.log('🔄 [TAB1] Handling class cancellation via websocket:', classId);
     
     // Find the class in the lessons array
     const classIndex = this.lessons.findIndex(l => l._id === classId);
@@ -4910,7 +5715,6 @@ navigateToLessons() {
         this.loadStudentInsights();
       }
       
-      console.log('✅ [TAB1] Class moved to cancelled without reload');
     } else {
       // If not found in current lessons, do a background refresh to sync
       console.log('⚠️ [TAB1] Class not found in current lessons, doing background refresh');
@@ -4923,7 +5727,6 @@ navigateToLessons() {
    * This moves the lesson from lessons to cancelledLessons array seamlessly
    */
   private async handleLessonCancellation(lessonId: string) {
-    console.log('🔄 [TAB1] Handling lesson cancellation via websocket:', lessonId);
     
     // Find the lesson in the lessons array
     const lessonIndex = this.lessons.findIndex(l => l._id === lessonId);
@@ -4973,7 +5776,6 @@ navigateToLessons() {
     // First, check if there's a cached state from a recent save (instant update)
     const cachedHasAvailability = this.userService.getCachedHasAvailability();
     if (cachedHasAvailability !== null) {
-      console.log('📅 [TAB1] Using cached hasAvailability:', cachedHasAvailability);
       this.hasAvailability = cachedHasAvailability;
       this.availabilityBlocks = this.userService.getCachedAvailabilityBlocks();
       this.updateAvailabilitySummary();
@@ -5030,7 +5832,7 @@ navigateToLessons() {
     const isFuture = selectedDay.getTime() > today.getTime();
     
     // Format date for messages
-    const dateLabel = isToday ? 'today' : this.selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const dateLabel = isToday ? 'today' : formatDateInTz(this.selectedDate, this.userTz);
 
     if (!Array.isArray(this.availabilityBlocks) || this.availabilityBlocks.length === 0) {
       if (this.isSelectedDatePast) {
@@ -5271,10 +6073,10 @@ navigateToLessons() {
         }
       } catch (error) {
         console.error('📚 Tab1: Error checking presence for lesson', lesson._id, error);
-        // Continue with other lessons even if one fails
       }
     }
-    
+
+    this.updateNextLessonPresence();
   }
 
   getOtherParticipantName(lesson: Lesson): string {
@@ -5376,54 +6178,16 @@ navigateToLessons() {
     
     const isClass = (this.upcomingLesson as any).isClass || false;
     
-    // CRITICAL FIX: Determine role from the LESSON, not from cached currentUser
-    const currentUserId = (this.currentUser as any)?._id || (this.currentUser as any)?.id;
-    const tutorId = typeof this.upcomingLesson.tutorId === 'object' ? (this.upcomingLesson.tutorId as any)._id : this.upcomingLesson.tutorId;
-    const studentId = typeof this.upcomingLesson.studentId === 'object' ? (this.upcomingLesson.studentId as any)._id : this.upcomingLesson.studentId;
-    
-    console.log('🔍 DEBUG: Role determination (upcoming lesson):', {
-      currentUserId,
-      tutorIdType: typeof this.upcomingLesson.tutorId,
-      studentIdType: typeof this.upcomingLesson.studentId,
-      tutorId,
-      studentId,
-      tutorIdRaw: this.upcomingLesson.tutorId,
-      studentIdRaw: this.upcomingLesson.studentId,
-      idsMatch: {
-        matchesTutor: currentUserId === tutorId,
-        matchesStudent: currentUserId === studentId
-      }
-    });
-    
-    // Determine role by comparing IDs
-    let role: 'tutor' | 'student';
-    if (currentUserId === tutorId) {
-      role = 'tutor';
-      console.log('✅ Determined role: TUTOR (ID match)');
-    } else if (currentUserId === studentId) {
-      role = 'student';
-      console.log('✅ Determined role: STUDENT (ID match)');
-    } else {
-      // Fallback to getUserRole method
-      console.warn('⚠️ Could not determine role from lesson IDs, using getUserRole fallback');
-      role = this.getUserRole(this.upcomingLesson) as 'tutor' | 'student';
-      console.log('⚠️ Fallback role:', role);
-    }
-    
     console.log('🎯 TAB1: Joining upcoming session:', {
       sessionId: this.upcomingLesson._id,
-      isClass: isClass,
-      role: role,
-      currentUserId,
-      tutorId,
-      studentId
+      isClass: isClass
     });
     
     // Navigate to pre-call page first
+    // SECURITY: role is determined from lesson data + auth, not passed in URL
     this.router.navigate(['/pre-call'], {
       queryParams: {
         lessonId: this.upcomingLesson._id,
-        role,
         lessonMode: 'true',
         isClass: isClass ? 'true' : 'false'
       }
@@ -5442,7 +6206,7 @@ navigateToLessons() {
       const d = this.startOfDay(new Date(startDate));
       d.setDate(d.getDate() + i);
       result.push({
-        label: d.toLocaleDateString('en-US', { weekday: 'short' }),
+        label: formatDateInTz(d, this.userTz, { weekday: 'short', month: undefined, day: undefined, year: undefined }),
         dayNum: d.getDate(),
         date: d,
         isToday: this.isSameDay(d, today)
@@ -5569,19 +6333,20 @@ navigateToLessons() {
     const sameMonth = startOfWeek.getMonth() === endOfWeek.getMonth();
     const sameYear = startOfWeek.getFullYear() === endOfWeek.getFullYear();
 
+    const tz = this.userTz;
     if (sameMonth && sameYear) {
-      const startLabel = startOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const startLabel = formatDateInTz(startOfWeek, tz, { month: 'short', day: 'numeric', year: undefined });
       return `${startLabel} - ${endOfWeek.getDate()}, ${startOfWeek.getFullYear()}`;
     }
 
     if (sameYear) {
-      const startLabel = startOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      const endLabel = endOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const startLabel = formatDateInTz(startOfWeek, tz, { month: 'short', day: 'numeric', year: undefined });
+      const endLabel = formatDateInTz(endOfWeek, tz, { month: 'short', day: 'numeric', year: undefined });
       return `${startLabel} - ${endLabel}, ${startOfWeek.getFullYear()}`;
     }
 
-    const startLabel = startOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    const endLabel = endOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const startLabel = formatDateInTz(startOfWeek, tz);
+    const endLabel = formatDateInTz(endOfWeek, tz);
     return `${startLabel} - ${endLabel}`;
   }
 
@@ -5687,8 +6452,488 @@ navigateToLessons() {
     this.router.navigate(['/tabs/home/wallet']);
   }
 
+  async openWithdrawModal() {
+    // Earnings component is always in DOM (hidden) for modal access
+    // No need to navigate - component already exists
+    this.cdr.detectChanges();
+
+    // Wait for earnings component to be ready AND data to be loaded
+    const waitForEarningsReady = (): Promise<void> => {
+      return new Promise((resolve) => {
+        let attempts = 0;
+        const maxAttempts = 50; // 5 seconds max wait (50 * 100ms)
+        
+        const checkComponent = () => {
+          attempts++;
+          
+          if (this.earningsComponent) {
+            // Wait for component to finish loading data (ngOnInit completes)
+            // Check if loading is false, which means loadBalance() and loadEarnings() have completed
+            if (this.earningsComponent.loading === false) {
+              // Give it one more frame to ensure all properties are set
+              requestAnimationFrame(() => {
+                if (typeof this.earningsComponent.requestWithdrawal === 'function') {
+                  this.earningsComponent.requestWithdrawal();
+                  resolve();
+                } else {
+                  if (attempts < maxAttempts) {
+                    setTimeout(checkComponent, 100);
+                  } else {
+                    console.error('❌ Earnings component requestWithdrawal method not available');
+                    resolve();
+                  }
+                }
+              });
+            } else {
+              // Still loading, wait a bit more
+              if (attempts < maxAttempts) {
+                setTimeout(checkComponent, 100);
+              } else {
+                console.error('❌ Earnings component took too long to load');
+                resolve();
+              }
+            }
+          } else {
+            // Component not created yet, wait
+            if (attempts < maxAttempts) {
+              setTimeout(checkComponent, 50);
+            } else {
+              console.error('❌ Earnings component not found');
+              resolve();
+            }
+          }
+        };
+        // Start checking immediately since component should already be in DOM
+        checkComponent();
+      });
+    };
+
+    await waitForEarningsReady();
+  }
+
   navigateToEarnings() {
-    this.router.navigate(['/tabs/home/earnings']);
+    // === FLIP Animation: Home → Earnings ===
+
+    // Step 1: Capture source button rects from the home earnings card
+    const earningsSrc = this.isMobile ? '.earnings-mobile-card' : '.grid-cell-earnings';
+    const srcWithdraw = this.isMobile ? null : document.querySelector('.grid-cell-earnings .withdraw-btn') as HTMLElement;
+    const srcViewDetails = document.querySelector(`${earningsSrc} .view-details-link`) as HTMLElement;
+    const srcWithdrawRect = srcWithdraw?.getBoundingClientRect();
+    const srcViewDetailsRect = srcViewDetails?.getBoundingClientRect();
+
+    // Step 2: Create styled clones at source positions
+    const withdrawClone: HTMLElement | null = srcWithdrawRect ? document.createElement('div') : null;
+    const viewDetailsClone: HTMLElement | null = srcViewDetailsRect ? document.createElement('div') : null;
+
+    const isDark = document.documentElement.classList.contains('ion-palette-dark');
+    const cloneFg = isDark ? '#f5f5f7' : '#222222';
+    const cloneSolidBg = isDark ? '#f5f5f7' : '#000000';
+    const cloneSolidFg = isDark ? '#000000' : 'white';
+
+    if (withdrawClone && srcWithdrawRect) {
+      withdrawClone.textContent = this.translateService.instant('HOME.WITHDRAW_FUNDS');
+      Object.assign(withdrawClone.style, {
+        position: 'fixed',
+        left: `${srcWithdrawRect.left}px`,
+        top: `${srcWithdrawRect.top}px`,
+        width: `${srcWithdrawRect.width}px`,
+        height: `${srcWithdrawRect.height}px`,
+        zIndex: '10000',
+        pointerEvents: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxSizing: 'border-box',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
+        fontSize: '15px',
+        fontWeight: '600',
+        color: cloneFg,
+        backgroundColor: 'transparent',
+        border: `1px solid ${cloneFg}`,
+        borderRadius: '12px',
+        transition: 'left 0.46s cubic-bezier(0.32, 0.72, 0, 1), top 0.46s cubic-bezier(0.32, 0.72, 0, 1), width 0.46s cubic-bezier(0.32, 0.72, 0, 1), height 0.46s cubic-bezier(0.32, 0.72, 0, 1), border-radius 0.46s cubic-bezier(0.32, 0.72, 0, 1), font-size 0.36s ease 0.1s, background-color 0.36s ease 0.1s, color 0.36s ease 0.1s, border-color 0.36s ease 0.1s, opacity 0.2s ease',
+      });
+      document.body.appendChild(withdrawClone);
+    }
+
+    if (viewDetailsClone && srcViewDetailsRect) {
+      const viewDetailsText = this.translateService.instant('HOME.VIEW_DETAILS');
+      if (this.isMobile) {
+        viewDetailsClone.textContent = `${viewDetailsText} →`;
+      } else {
+        viewDetailsClone.innerHTML = `<span style="text-decoration:underline">${viewDetailsText}</span><span style="width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:16px;line-height:1">→</span>`;
+      }
+      Object.assign(viewDetailsClone.style, {
+        position: 'fixed',
+        left: `${srcViewDetailsRect.left}px`,
+        top: `${srcViewDetailsRect.top}px`,
+        width: `${srcViewDetailsRect.width}px`,
+        height: `${srcViewDetailsRect.height}px`,
+        zIndex: '10000',
+        pointerEvents: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: this.isMobile ? '3px' : '6px',
+        boxSizing: 'border-box',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
+        fontSize: this.isMobile ? '11px' : '14px',
+        fontWeight: '600',
+        color: this.isMobile ? (isDark ? '#60a5fa' : '#6b7280') : cloneFg,
+        backgroundColor: 'transparent',
+        border: 'none',
+        whiteSpace: 'nowrap',
+        transition: 'all 0.42s cubic-bezier(0.32, 0.72, 0, 1)',
+      });
+      document.body.appendChild(viewDetailsClone);
+    }
+
+    // Step 3: Switch to earnings view & scroll to top so layout is stable
+    this.showEarningsView = true;
+    this.cdr.detectChanges();
+    this.ionContent?.scrollToTop(0);
+
+    // Step 4a: View Details → Go back (destination always available in inline chrome)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const destGoBack = document.querySelector('.earnings-inline-panel .go-back-link') as HTMLElement;
+
+        if (viewDetailsClone && destGoBack) {
+          destGoBack.style.transition = 'none';
+          destGoBack.style.opacity = '0';
+          const destRect = destGoBack.getBoundingClientRect();
+          const goBackLabel = this.translateService.instant('EARNINGS.GO_BACK');
+          viewDetailsClone.innerHTML = `<span style="text-decoration:underline">${goBackLabel}</span>`;
+          viewDetailsClone.style.whiteSpace = 'nowrap';
+          viewDetailsClone.style.left = `${destRect.left}px`;
+          viewDetailsClone.style.top = `${destRect.top}px`;
+          viewDetailsClone.style.width = `${destRect.width}px`;
+          viewDetailsClone.style.height = `${destRect.height}px`;
+          viewDetailsClone.style.fontSize = '14px';
+          viewDetailsClone.style.color = isDark ? '#8e8e93' : '#222222';
+
+          // On landing: snap dest visible (still no transition), then remove clone next frame
+          setTimeout(() => {
+            destGoBack.style.opacity = '1';
+            requestAnimationFrame(() => {
+              if (viewDetailsClone.parentNode) viewDetailsClone.remove();
+              // Restore default transition and clear inline opacity
+              setTimeout(() => { destGoBack.style.transition = ''; destGoBack.style.opacity = ''; }, 50);
+            });
+          }, 450);
+        } else if (viewDetailsClone) {
+          viewDetailsClone.style.opacity = '0';
+          viewDetailsClone.style.transform = 'translateY(-20px)';
+          setTimeout(() => { if (viewDetailsClone.parentNode) viewDetailsClone.remove(); }, 420);
+        }
+      });
+    });
+
+    // Step 4b: Withdraw Funds — MutationObserver for instant detection (before paint)
+    if (withdrawClone && srcWithdrawRect) {
+      let landed = false;
+      let pulseAnim: Animation | null = null;
+
+      requestAnimationFrame(() => {
+        if (landed || !withdrawClone.parentNode) return;
+        withdrawClone.style.top = `${srcWithdrawRect.top - 15}px`;
+        withdrawClone.style.backgroundColor = cloneSolidBg;
+        withdrawClone.style.color = cloneSolidFg;
+        withdrawClone.style.borderColor = cloneSolidBg;
+        withdrawClone.style.borderRadius = '8px';
+      });
+
+      // Fly clone to the real button once it's found
+      const flyToDestination = (dest: HTMLElement) => {
+        if (landed) return;
+        landed = true;
+        // Stop any pulse animation before flying
+        if (pulseAnim) { pulseAnim.cancel(); pulseAnim = null; }
+        // Disable CSS transition before hiding to prevent fade-flash
+        dest.style.transition = 'none';
+        dest.style.opacity = '0';
+        const destRect = dest.getBoundingClientRect();
+        // Shorten transition for remaining flight to destination
+        withdrawClone.style.transition = 'left 0.36s cubic-bezier(0.32, 0.72, 0, 1), top 0.36s cubic-bezier(0.32, 0.72, 0, 1), width 0.36s cubic-bezier(0.32, 0.72, 0, 1), height 0.36s cubic-bezier(0.32, 0.72, 0, 1), border-radius 0.36s cubic-bezier(0.32, 0.72, 0, 1), font-size 0.36s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s ease';
+        requestAnimationFrame(() => {
+          withdrawClone.style.left = `${destRect.left}px`;
+          withdrawClone.style.top = `${destRect.top}px`;
+          withdrawClone.style.width = `${destRect.width}px`;
+          withdrawClone.style.height = `${destRect.height}px`;
+          withdrawClone.style.fontSize = '14px';
+        });
+        // Wait for layout to fully settle (longer than earningsFadeIn 400ms), then swap
+        setTimeout(() => {
+          const finalRect = dest.getBoundingClientRect();
+          withdrawClone.style.transition = 'none';
+          withdrawClone.style.left = `${finalRect.left}px`;
+          withdrawClone.style.top = `${finalRect.top}px`;
+          withdrawClone.style.width = `${finalRect.width}px`;
+          withdrawClone.style.height = `${finalRect.height}px`;
+          // Double-rAF to ensure paint has flushed the snap before revealing
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              dest.style.opacity = '1';
+              if (withdrawClone.parentNode) withdrawClone.remove();
+              setTimeout(() => { dest.style.transition = ''; dest.style.opacity = ''; }, 50);
+            });
+          });
+        }, 520);
+      };
+
+      // Check if button is already in DOM (unlikely but possible with cached data)
+      const existingDest = document.querySelector('.earnings-inline-panel .withdraw-btn') as HTMLElement;
+      if (existingDest) {
+        flyToDestination(existingDest);
+      } else {
+        // Watch for the button to appear (fires before browser paints — no flash)
+        const panelEl = document.querySelector('.earnings-inline-panel');
+        if (panelEl) {
+          const observer = new MutationObserver(() => {
+            const dest = document.querySelector('.earnings-inline-panel .withdraw-btn') as HTMLElement;
+            if (dest) {
+              observer.disconnect();
+              flyToDestination(dest);
+            }
+          });
+          observer.observe(panelEl, { childList: true, subtree: true });
+
+          // On slow connections: add a gentle breathing pulse after 1s so the clone feels "alive"
+          setTimeout(() => {
+            if (!landed && withdrawClone.parentNode) {
+              pulseAnim = withdrawClone.animate([
+                { transform: 'scale(1)', opacity: 1 },
+                { transform: 'scale(1.04)', opacity: 0.8 },
+                { transform: 'scale(1)', opacity: 1 }
+              ], { duration: 1600, iterations: Infinity, easing: 'ease-in-out' });
+            }
+          }, 1000);
+
+          // Safety fallback: generous timeout for very slow connections (15s)
+          setTimeout(() => {
+            if (!landed) {
+              observer.disconnect();
+              if (pulseAnim) { pulseAnim.cancel(); pulseAnim = null; }
+              withdrawClone.style.opacity = '0';
+              withdrawClone.style.transition = 'opacity 0.3s ease';
+              setTimeout(() => { if (withdrawClone.parentNode) withdrawClone.remove(); }, 350);
+            }
+          }, 15000);
+        } else {
+          // Panel not found — fade out
+          withdrawClone.style.opacity = '0';
+          setTimeout(() => { if (withdrawClone.parentNode) withdrawClone.remove(); }, 250);
+        }
+      }
+    }
+  }
+
+  onEarningsGoBack() {
+    // === FLIP Animation: Earnings → Home ===
+
+    // Step 1: Capture source button rects from earnings view
+    const srcWithdraw = document.querySelector('.earnings-inline-panel .withdraw-btn') as HTMLElement;
+    const srcGoBack = document.querySelector('.earnings-inline-panel .go-back-link') as HTMLElement;
+    const srcWithdrawRect = srcWithdraw?.getBoundingClientRect();
+    const srcGoBackRect = srcGoBack?.getBoundingClientRect();
+
+    // Step 2: Create styled clones at earnings positions
+    let withdrawClone: HTMLElement | null = null;
+    let goBackClone: HTMLElement | null = null;
+
+    const isDark = document.documentElement.classList.contains('ion-palette-dark');
+    const cloneFg = isDark ? '#f5f5f7' : '#222222';
+    const cloneSolidBg = isDark ? '#f5f5f7' : '#000000';
+    const cloneSolidFg = isDark ? '#000000' : 'white';
+
+    if (srcWithdrawRect) {
+      withdrawClone = document.createElement('div');
+      withdrawClone.textContent = this.translateService.instant('EARNINGS.WITHDRAW_FUNDS');
+      Object.assign(withdrawClone.style, {
+        position: 'fixed',
+        left: `${srcWithdrawRect.left}px`,
+        top: `${srcWithdrawRect.top}px`,
+        width: `${srcWithdrawRect.width}px`,
+        height: `${srcWithdrawRect.height}px`,
+        zIndex: '10000',
+        pointerEvents: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxSizing: 'border-box',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
+        fontSize: '14px',
+        fontWeight: '600',
+        color: cloneSolidFg,
+        backgroundColor: cloneSolidBg,
+        border: `1px solid ${cloneSolidBg}`,
+        borderRadius: '8px',
+        transition: 'left 0.46s cubic-bezier(0.32, 0.72, 0, 1), top 0.46s cubic-bezier(0.32, 0.72, 0, 1), width 0.46s cubic-bezier(0.32, 0.72, 0, 1), height 0.46s cubic-bezier(0.32, 0.72, 0, 1), border-radius 0.46s cubic-bezier(0.32, 0.72, 0, 1), font-size 0.36s ease 0.1s, background-color 0.36s ease 0.1s, color 0.36s ease 0.1s, border-color 0.36s ease 0.1s',
+      });
+      document.body.appendChild(withdrawClone);
+    }
+
+    if (srcGoBackRect) {
+      goBackClone = document.createElement('div');
+      const goBackText = this.translateService.instant('EARNINGS.GO_BACK');
+      goBackClone.innerHTML = `<span style="text-decoration:underline">${goBackText}</span>`;
+      Object.assign(goBackClone.style, {
+        position: 'fixed',
+        left: `${srcGoBackRect.left}px`,
+        top: `${srcGoBackRect.top}px`,
+        width: `${srcGoBackRect.width}px`,
+        height: `${srcGoBackRect.height}px`,
+        zIndex: '10000',
+        pointerEvents: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '6px',
+        boxSizing: 'border-box',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
+        fontSize: '14px',
+        fontWeight: '600',
+        color: isDark ? '#8e8e93' : '#222222',
+        backgroundColor: 'transparent',
+        border: 'none',
+        whiteSpace: 'nowrap',
+        transition: 'all 0.42s cubic-bezier(0.32, 0.72, 0, 1)',
+      });
+      document.body.appendChild(goBackClone);
+    }
+
+    // Step 3: Suppress all entry animations on the home view so nothing flashes/drifts.
+    this.returningFromEarnings = true;
+    if (this.isMobile) {
+      this.returningFromInline = true;
+    }
+
+    // Step 4: Switch back to home view
+    this.showEarningsView = false;
+    this.cdr.detectChanges();
+
+    // Step 5: Force-hide the earnings card via inline style BEFORE the browser paints.
+    // This is synchronous after detectChanges(), so the card never appears at opacity 1.
+    // CSS animations have timing gaps; inline JS does not.
+    const earningsDest = this.isMobile ? '.earnings-mobile-card' : '.grid-cell-earnings .earnings-card-widget';
+    const cardWidget = document.querySelector(earningsDest) as HTMLElement;
+    if (cardWidget) {
+      cardWidget.style.opacity = '0';
+    }
+
+    // Step 6: After render, find home destinations and animate clones
+    // Buttons start invisible via CSS (.skip-entry-animation .withdraw-btn/.view-details-link { opacity: 0 })
+    const earningsDestContainer = this.isMobile ? '.earnings-mobile-card' : '.grid-cell-earnings';
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const destWithdraw = document.querySelector(`${earningsDestContainer} .withdraw-btn`) as HTMLElement;
+        const destViewDetails = document.querySelector(`${earningsDestContainer} .view-details-link`) as HTMLElement;
+
+        // Fade the card in smoothly via JS transition (no CSS animation involved)
+        if (cardWidget) {
+          cardWidget.style.transition = 'opacity 0.32s ease-out';
+          cardWidget.style.opacity = '1';
+        }
+
+        // Animate Withdraw Funds clone back to home card
+        if (withdrawClone && destWithdraw) {
+          const destRect = destWithdraw.getBoundingClientRect();
+          withdrawClone.style.left = `${destRect.left}px`;
+          withdrawClone.style.top = `${destRect.top}px`;
+          withdrawClone.style.width = `${destRect.width}px`;
+          withdrawClone.style.height = `${destRect.height}px`;
+          withdrawClone.style.backgroundColor = 'transparent';
+          withdrawClone.style.color = cloneFg;
+          withdrawClone.style.borderColor = cloneFg;
+          withdrawClone.style.borderRadius = '12px';
+          withdrawClone.style.fontSize = '15px';
+
+          // On landing: snap dest visible (inline overrides CSS opacity:0), then remove clone
+          setTimeout(() => {
+            destWithdraw.style.opacity = '1';
+            requestAnimationFrame(() => {
+              if (withdrawClone?.parentNode) withdrawClone.remove();
+            });
+          }, 480);
+        } else if (withdrawClone) {
+          withdrawClone.style.opacity = '0';
+          setTimeout(() => { if (withdrawClone?.parentNode) withdrawClone.remove(); }, 350);
+        }
+
+        // Animate Go back → View Details clone back to home card
+        if (goBackClone && destViewDetails) {
+          const destRect = destViewDetails.getBoundingClientRect();
+          const viewDetailsLabel = this.translateService.instant('HOME.VIEW_DETAILS');
+          if (this.isMobile) {
+            goBackClone.textContent = `${viewDetailsLabel} →`;
+          } else {
+            goBackClone.innerHTML = `<span style="text-decoration:underline">${viewDetailsLabel}</span><span style="width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:16px;line-height:1">→</span>`;
+          }
+          goBackClone.style.whiteSpace = 'nowrap';
+          goBackClone.style.left = `${destRect.left}px`;
+          goBackClone.style.top = `${destRect.top}px`;
+          goBackClone.style.width = `${destRect.width}px`;
+          goBackClone.style.height = `${destRect.height}px`;
+          goBackClone.style.fontSize = this.isMobile ? '11px' : '14px';
+          goBackClone.style.color = this.isMobile ? (isDark ? '#60a5fa' : '#6b7280') : (isDark ? '#8e8e93' : '#222222');
+
+          // On landing: snap dest visible (inline overrides CSS opacity:0), then remove clone
+          setTimeout(() => {
+            destViewDetails.style.opacity = '1';
+            requestAnimationFrame(() => {
+              if (goBackClone?.parentNode) goBackClone.remove();
+            });
+          }, 450);
+        } else if (goBackClone) {
+          goBackClone.style.opacity = '0';
+          setTimeout(() => { if (goBackClone?.parentNode) goBackClone.remove(); }, 420);
+        }
+
+        // Reset flag and clean inline styles.
+        // CRITICAL: Before removing .skip-entry-animation, lock animation:none as an
+        // inline style. Otherwise removing the class re-enables the CSS fadeInUp animation
+        // which starts from opacity:0 → causing the flash.
+        setTimeout(() => {
+          // Lock inline animation:none BEFORE the class is removed
+          if (cardWidget) {
+            cardWidget.style.animation = 'none';
+          }
+          this.returningFromEarnings = false;
+          this.returningFromInline = false;
+          this.cdr.detectChanges();
+          // Clean inline overrides (keep animation:none for now)
+          requestAnimationFrame(() => {
+            if (destWithdraw) destWithdraw.style.opacity = '';
+            if (destViewDetails) destViewDetails.style.opacity = '';
+            if (cardWidget) {
+              cardWidget.style.transition = '';
+              cardWidget.style.opacity = '';
+            }
+          });
+        }, 550);
+      });
+    });
+
+    // Refresh earnings summary data when returning to home view
+    this.loadTutorEarnings();
+  }
+
+  onExploreGoBack() {
+    this.showExploreView = false;
+    this.cdr.detectChanges();
+
+    if (this._scrollElRef) {
+      this._scrollElRef.scrollTop = this._savedScrollBeforeExplore;
+    }
+  }
+
+  onCreateMaterialGoBack() {
+    this.showCreateMaterialView = false;
+    this.cdr.detectChanges();
+
+    if (this._scrollElRef) {
+      this._scrollElRef.scrollTop = this._savedScrollBeforeMaterial;
+    }
   }
 
   // Check Stripe Connect status for tutors
@@ -5749,6 +6994,14 @@ navigateToLessons() {
     }
   }
 
+  onEarningsBalanceChanged(event: { available: number; pending: number }) {
+    this.tutorTotalEarnings = event.available || 0;
+    this.tutorPendingEarnings = event.pending || 0;
+    this.walletBalance = this.tutorTotalEarnings;
+    this.updateWalletDisplay();
+    this.cdr.detectChanges();
+  }
+
   // Load tutor earnings summary
   async loadTutorEarnings() {
     if (!this.isTutorUser) {
@@ -5769,10 +7022,12 @@ navigateToLessons() {
         this.tutorPendingEarnings = response.balance.pending || 0;
         this.walletBalance = this.tutorTotalEarnings; // Show only available amount
         this.updateWalletDisplay(); // Update the hidden/revealed display
-        this.cdr.detectChanges();
       }
     } catch (error) {
       console.error('❌ [TAB1] Error loading tutor earnings:', error);
+    } finally {
+      this.earningsBalanceLoading = false;
+      this.cdr.detectChanges();
     }
   }
 
@@ -5855,36 +7110,16 @@ navigateToLessons() {
     const lesson = student.lesson as Lesson;
     const isClass = (lesson as any).isClass || false;
     
-    // CRITICAL FIX: Determine role from the LESSON, not hardcoded
-    const currentUserId = (this.currentUser as any)?._id || (this.currentUser as any)?.id;
-    const tutorId = typeof lesson.tutorId === 'object' ? (lesson.tutorId as any)._id : lesson.tutorId;
-    const studentId = typeof lesson.studentId === 'object' ? (lesson.studentId as any)._id : lesson.studentId;
-    
-    // Determine role by comparing IDs
-    let role: 'tutor' | 'student';
-    if (currentUserId === tutorId) {
-      role = 'tutor';
-    } else if (currentUserId === studentId) {
-      role = 'student';
-    } else {
-      // Fallback - this method is typically called from tutor view, but check to be sure
-      role = this.isTutor() ? 'tutor' : 'student';
-    }
-    
     console.log('🎯 TAB1: joinStudentLesson navigating to pre-call:', {
       lessonId: lesson._id,
-      role,
-      currentUserId,
-      tutorId,
-      studentId,
       isClass
     });
     
     // Navigate to pre-call page first
+    // SECURITY: role is determined from lesson data + auth, not passed in URL
     this.router.navigate(['/pre-call'], {
       queryParams: {
         lessonId: lesson._id,
-        role: role,
         lessonMode: 'true',
         isClass: isClass ? 'true' : 'false'
       }
@@ -6155,31 +7390,11 @@ navigateToLessons() {
       const isTutor = lesson.tutorId?._id === this.currentUser?.id;
       const otherParticipant = isTutor ? lesson.studentId : lesson.tutorId;
       
-      // Format participant name using the participant object directly (not the .name string)
-      // This ensures we use firstName/lastName for proper formatting
-      const participantName = this.formatStudentDisplayName(otherParticipant);
-      
       // Get participant avatar
       const participantAvatar = this.getOtherParticipantAvatar(lesson);
       
-      // Set confirm modal data and open inline modal (no programmatic creation = no freeze)
-      this.confirmRescheduleModalData = {
-        title: 'Reschedule Lesson',
-        message: 'Do you want to reschedule your lesson?',
-        notificationMessage: `${participantName} will be notified of this change.`,
-        confirmText: 'Reschedule',
-        cancelText: 'Cancel',
-        confirmColor: 'primary',
-        icon: 'calendar',
-        iconColor: 'primary',
-        participantName: participantName,
-        participantAvatar: participantAvatar || undefined,
-        lessonId: lessonId,
-        lesson: lesson,
-        otherParticipant: otherParticipant
-      };
-      
-      this.isConfirmRescheduleModalOpen = true;
+      // Directly open the full reschedule modal with calendar
+      await this.openRescheduleModal(lessonId, lesson, otherParticipant, participantAvatar, false);
     } catch (error) {
       console.error('❌ Error opening reschedule lesson modal:', error);
     }
@@ -6228,26 +7443,10 @@ navigateToLessons() {
         proposal: proposal,
         participantName: participantName,
         participantAvatar: participantAvatar || undefined,
-        proposedDate: proposedDate.toLocaleDateString('en-US', { 
-          weekday: 'long', 
-          year: 'numeric', 
-          month: 'long', 
-          day: 'numeric' 
-        }),
-        proposedTime: proposedDate.toLocaleTimeString('en-US', { 
-          hour: 'numeric', 
-          minute: '2-digit' 
-        }),
-        originalDate: originalDate.toLocaleDateString('en-US', { 
-          weekday: 'long', 
-          year: 'numeric', 
-          month: 'long', 
-          day: 'numeric' 
-        }),
-        originalTime: originalDate.toLocaleTimeString('en-US', { 
-          hour: 'numeric', 
-          minute: '2-digit' 
-        }),
+        proposedDate: formatDateInTz(proposedDate, this.userTz, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+        proposedTime: formatTimeInTz(proposedDate, this.userTz),
+        originalDate: formatDateInTz(originalDate, this.userTz, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+        originalTime: formatTimeInTz(originalDate, this.userTz),
         otherParticipant: otherParticipant
       };
       
@@ -6390,6 +7589,9 @@ navigateToLessons() {
     }
   }
 
+  // Store selected cancellation reason
+  private selectedCancelReason: { id: string; label: string } | null = null;
+
   async cancelLesson(lessonId: string, lesson: Lesson) {
     console.log('🔴 cancelLesson called for:', lessonId);
     
@@ -6399,84 +7601,121 @@ navigateToLessons() {
       const otherParticipant = isTutor ? lesson.studentId : lesson.tutorId;
       
       // Format participant name using the participant object directly (not the .name string)
-      // This ensures we use firstName/lastName for proper formatting
       const participantName = this.formatStudentDisplayName(otherParticipant);
       
       // Get participant avatar
       const participantAvatar = this.getOtherParticipantAvatar(lesson);
       
-      // Set confirm modal data and open inline modal (no programmatic creation = no freeze)
-      this.confirmCancelModalData = {
-        title: 'Cancel Lesson',
-        message: 'Are you sure you want to cancel your lesson?',
-        notificationMessage: `${participantName} will be notified and this action cannot be undone.`,
-        confirmText: 'Cancel Lesson',
-        cancelText: 'Keep Lesson',
-        confirmColor: 'danger',
-        icon: 'close-circle',
-        iconColor: 'danger',
-        participantName: participantName,
-        participantAvatar: participantAvatar || undefined,
-        lessonId: lessonId,
-        lesson: lesson
-      };
+      // STEP 1: Show the cancellation reason modal first
+      const reasonModal = await this.modalCtrl.create({
+        component: CancelReasonModalComponent,
+        componentProps: {
+          participantName: participantName,
+          participantAvatar: participantAvatar || undefined,
+          userRole: isTutor ? 'tutor' : 'student',
+          lessonStartTime: lesson.startTime,
+          lessonSubject: lesson.subject || 'Language Lesson',
+          lessonDuration: lesson.duration
+        },
+        cssClass: 'cancel-reason-modal'
+      });
       
-      this.isConfirmCancelModalOpen = true;
+      await reasonModal.present();
+      const reasonResult = await reasonModal.onDidDismiss();
+      
+      // If user cancelled or didn't select a reason, stop here
+      if (reasonResult.data?.cancelled || !reasonResult.data?.reason) {
+        console.log('🔴 User cancelled or did not select a reason');
+        return;
+      }
+      
+      // Store the selected reason for use in confirmation
+      this.selectedCancelReason = reasonResult.data.reason;
+      const selectedReasonLabel = this.selectedCancelReason?.label || 'Not specified';
+      console.log('🔴 Selected cancellation reason:', this.selectedCancelReason);
+      
+      // STEP 2: Show confirmation alert popup (matches reschedule confirmation style)
+      const alert = await this.alertController.create({
+        header: 'Cancel Lesson',
+        message: `Are you sure you want to cancel this lesson? ${participantName} will be notified and this action cannot be undone.`,
+        buttons: [
+          {
+            text: 'Go Back',
+            role: 'cancel',
+            cssClass: 'alert-cancel-button'
+          },
+          {
+            text: 'Cancel Lesson',
+            role: 'confirm',
+            cssClass: 'alert-confirm-button',
+            handler: () => {
+              this.executeCancelLesson(lessonId);
+            }
+          }
+        ]
+      });
+      await alert.present();
     } catch (error) {
       console.error('❌ Error opening cancel lesson modal:', error);
     }
   }
   
-  // Handle confirm cancel modal dismissal
+  // Execute the actual cancel lesson API call (called from alert confirmation)
+  private async executeCancelLesson(lessonId: string) {
+    const loading = await this.loadingController.create({
+      message: 'Cancelling lesson...',
+      spinner: 'crescent'
+    });
+    await loading.present();
+
+    try {
+      // Call the backend to cancel the lesson with the reason
+      const response = await this.lessonService.cancelLesson(
+        lessonId, 
+        this.selectedCancelReason?.id,
+        this.selectedCancelReason?.label
+      ).toPromise();
+      
+      await loading.dismiss();
+      
+      // Clear the selected reason
+      this.selectedCancelReason = null;
+
+      if (response?.success) {
+        // Show success toast
+        const toast = await this.toastController.create({
+          message: 'Lesson cancelled successfully',
+          duration: 3000,
+          position: 'bottom',
+          color: 'success'
+        });
+        await toast.present();
+
+        // Reload lessons to reflect the change (no skeleton)
+        await this.loadLessons(false);
+      } else {
+        throw new Error(response?.message || 'Failed to cancel lesson');
+      }
+    } catch (error: any) {
+      await loading.dismiss();
+      this.selectedCancelReason = null;
+      console.error('❌ Error cancelling lesson:', error);
+      
+      const toast = await this.toastController.create({
+        message: error?.error?.message || 'Failed to cancel lesson. Please try again.',
+        duration: 3000,
+        position: 'bottom',
+        color: 'danger'
+      });
+      await toast.present();
+    }
+  }
+
+  // Handle confirm cancel modal dismissal (kept for backward compatibility)
   async onConfirmCancelModalDismiss(event: any) {
     console.log('🔴 Confirm cancel modal dismissed:', event);
     this.isConfirmCancelModalOpen = false;
-    
-    const data = event.detail?.data;
-    if (data && data.confirmed && this.confirmCancelModalData) {
-      const lessonId = this.confirmCancelModalData.lessonId;
-      
-      // Show loading
-      const loading = await this.loadingController.create({
-        message: 'Cancelling lesson...',
-        spinner: 'crescent'
-      });
-      await loading.present();
-
-      try {
-        // Call the backend to cancel the lesson
-        const response = await this.lessonService.cancelLesson(lessonId).toPromise();
-        
-        await loading.dismiss();
-
-        if (response?.success) {
-          // Show success toast
-          const toast = await this.toastController.create({
-            message: 'Lesson cancelled successfully',
-            duration: 3000,
-            position: 'bottom',
-            color: 'success'
-          });
-          await toast.present();
-
-          // Reload lessons to reflect the change (no skeleton)
-          await this.loadLessons(false);
-        } else {
-          throw new Error(response?.message || 'Failed to cancel lesson');
-        }
-      } catch (error: any) {
-        await loading.dismiss();
-        console.error('❌ Error cancelling lesson:', error);
-        
-        const toast = await this.toastController.create({
-          message: error?.error?.message || 'Failed to cancel lesson. Please try again.',
-          duration: 3000,
-          position: 'bottom',
-          color: 'danger'
-        });
-        await toast.present();
-      }
-    }
+    this.selectedCancelReason = null;
   }
 
   // Open reschedule modal with embedded availability calendar
@@ -6628,103 +7867,97 @@ navigateToLessons() {
 
   /**
    * Load pending feedback requests for tutors
+   * No popup — the Quick Actions card handles the UI inline.
    */
   async loadPendingFeedback() {
     if (!this.isTutor()) return;
     
     console.log('📝 [TAB1] loadPendingFeedback called');
     
+    // 1. If the service already has cached data (e.g. from profile), apply it immediately
+    if (this.tutorFeedbackService.isCacheLoaded) {
+      const cached = this.tutorFeedbackService.getCachedPendingFeedback();
+      this.pendingFeedback = cached.pendingFeedback || [];
+      this.pendingFeedbackCount = cached.count || 0;
+      this.updateFeedbackGraceCountdown();
+      console.log(`📝 [TAB1] Using cached feedback count: ${this.pendingFeedbackCount}`);
+    }
+    
+    // 2. Always fetch fresh data from the API (updates the cache for other pages too)
     try {
       const response = await firstValueFrom(this.tutorFeedbackService.getPendingFeedback());
-      const previousCount = this.pendingFeedbackCount;
       this.pendingFeedback = response.pendingFeedback || [];
       this.pendingFeedbackCount = response.count || 0;
-      console.log(`📝 [TAB1] Loaded ${this.pendingFeedbackCount} pending feedback requests (previous: ${previousCount})`);
-      console.log(`📝 [TAB1] hasShownFeedbackAlertThisSession: ${this.hasShownFeedbackAlertThisSession}`);
-      
-      // Show feedback alert if:
-      // 1. There's pending feedback (count > 0)
-      // 2. AND either:
-      //    - We haven't shown the alert this session yet
-      //    - OR the count increased (new feedback added)
-      const shouldShowAlert = this.pendingFeedbackCount > 0 && 
-                             (!this.hasShownFeedbackAlertThisSession || this.pendingFeedbackCount > previousCount);
-      
-      console.log(`📝 [TAB1] Should show alert: ${shouldShowAlert} (count: ${this.pendingFeedbackCount}, shown: ${this.hasShownFeedbackAlertThisSession}, prev: ${previousCount})`);
-      
-      if (shouldShowAlert) {
-        // Longer delay to ensure the "lesson ended" alert is fully dismissed
-        setTimeout(() => {
-          console.log('📝 [TAB1] Showing feedback alert after 1.5s delay');
-          this.showFeedbackAlert();
-        }, 1500); // Increased from 500ms to 1500ms to avoid conflicts
-      }
+      this.updateFeedbackGraceCountdown();
+      console.log(`📝 [TAB1] Loaded ${this.pendingFeedbackCount} pending feedback requests`);
     } catch (error) {
       console.error('❌ [TAB1] Error loading pending feedback:', error);
     }
   }
-  
+
   /**
-   * Show feedback alert to tutor
+   * Navigate to feedback form (post-lesson-tutor page)
    */
-  async showFeedbackAlert() {
-    console.log('📝 [TAB1] showFeedbackAlert called');
-    this.hasShownFeedbackAlertThisSession = true;
-    
-    const feedbackMessages = [
-      { title: '📝 Lesson Feedback Needed', message: 'Do it while it\'s fresh in your mind!' },
-      { title: '✍️ Share Your Insights', message: `You have ${this.pendingFeedbackCount} lesson${this.pendingFeedbackCount > 1 ? 's' : ''} waiting for your feedback!` },
-      { title: '💭 Time to Reflect', message: 'Quick! Share what went well in the lesson.' },
-      { title: '📊 Feedback Time', message: `${this.pendingFeedbackCount} student${this.pendingFeedbackCount > 1 ? 's are' : ' is'} waiting for your feedback!` }
-    ];
-    const randomMsg = feedbackMessages[Math.floor(Math.random() * feedbackMessages.length)];
-    
-    console.log('📝 [TAB1] Creating alert with message:', randomMsg);
-    
-    const alert = await this.alertController.create({
-      header: randomMsg.title,
-      message: randomMsg.message,
-      buttons: [
-        {
-          text: 'Later',
-          role: 'cancel',
-          handler: () => {
-            console.log('📝 [TAB1] User chose to provide feedback later');
-            // Reset flag so alert can show again if user returns to home
-            this.hasShownFeedbackAlertThisSession = false;
-          }
-        },
-        {
-          text: 'Provide Feedback',
-          handler: () => {
-            console.log('📝 [TAB1] User chose to provide feedback now');
-            // Open the first pending feedback item
-            if (this.pendingFeedback.length > 0) {
-              this.openFeedbackForm(this.pendingFeedback[0]._id);
-            }
-          }
-        }
-      ],
-      backdropDismiss: false
+  async openFeedbackForm(lessonId: string, feedbackId: string) {
+    this.router.navigate(['/post-lesson-tutor', lessonId], {
+      queryParams: { feedbackId }
     });
-    
-    console.log('📝 [TAB1] Presenting alert');
-    await alert.present();
   }
 
   /**
-   * Navigate to feedback form
+   * Open pending feedback modal (Airbnb style, matches Upcoming Lessons modal)
    */
-  async openFeedbackForm(feedbackId: string) {
-    this.router.navigate(['/tutor-feedback', feedbackId]);
+  async openPendingFeedback(): Promise<void> {
+    if (this.pendingFeedback.length === 0) return;
+    this.isFeedbackModalOpen = true;
+  }
+
+  closeFeedbackModal(): void {
+    this.isFeedbackModalOpen = false;
+  }
+
+  formatFeedbackDate(dateStr: any): string {
+    if (!dateStr) return '';
+    return formatDateInTz(dateStr, this.userTz, { weekday: 'short', month: 'short', day: 'numeric', year: undefined });
+  }
+
+  formatFeedbackTime(dateStr: any): string {
+    if (!dateStr) return '';
+    return formatTimeInTz(dateStr, this.userTz);
+  }
+
+  // ---- LEGACY ACTION SHEET (kept for reference, replaced by modal) ----
+  async _openPendingFeedbackActionSheet(): Promise<void> {
+    if (this.pendingFeedback.length === 0) return;
+    
+    const buttons = this.pendingFeedback.map((fb: any) => {
+      const date = fb.lesson?.startTime
+        ? `${formatDateInTz(fb.lesson.startTime, this.userTz, { month: 'short', day: 'numeric', year: undefined })} ${formatTimeInTz(fb.lesson.startTime, this.userTz)}`
+        : '';
+      return {
+        text: `${fb.studentName || 'Student'} — ${date}`,
+        icon: 'clipboard-outline',
+        handler: () => {
+          this.openFeedbackForm(fb.lessonId, fb._id);
+        }
+      };
+    });
+    
+    buttons.push({ text: 'Cancel', icon: 'close-outline', handler: () => {} });
+    
+    const actionSheet = await this.actionSheetController.create({
+      header: `${this.pendingFeedbackCount} lessons need feedback`,
+      buttons: buttons as any
+    });
+    await actionSheet.present();
   }
   
   /**
    * TEST: Open feedback form with a mock ID for testing UI
    */
   async openTestFeedbackForm() {
-    // Use 'test' as the feedback ID to trigger test mode in the feedback form
-    this.router.navigate(['/tutor-feedback', 'test']);
+    // Use 'test' as the lesson ID to trigger test mode in the feedback form
+    this.router.navigate(['/post-lesson-tutor', 'test']);
   }
 
   /**

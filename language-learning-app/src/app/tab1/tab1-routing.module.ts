@@ -12,16 +12,6 @@ const routes: Routes = [
     path: 'lessons',
     loadComponent: () => import('../lessons/lessons.page').then(m => m.LessonsPage),
     canActivate: [AuthGuard]
-  },
-  {
-    path: 'explore',
-    loadComponent: () => import('../explore/explore.page').then(m => m.ExplorePage),
-    canActivate: [AuthGuard]
-  },
-  {
-    path: 'explore/:id',
-    loadComponent: () => import('../explore-details/explore-details.page').then(m => m.ExploreDetailsPage),
-    canActivate: [AuthGuard]
   }
 ];
 

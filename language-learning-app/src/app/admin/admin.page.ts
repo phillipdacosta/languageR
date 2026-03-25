@@ -6,6 +6,7 @@ import { HttpClient } from '@angular/common/http';
 import { UserService } from '../services/user.service';
 import { environment } from '../../environments/environment';
 import { firstValueFrom } from 'rxjs';
+import { getGlobalHour12 } from '../shared/timezone.utils';
 
 interface PlatformRevenue {
   period: {
@@ -74,12 +75,28 @@ interface PlatformRevenue {
         owed: number;
         tutorsCount: number;
         note: string;
+        inFlight: number;
+        inFlightCount: number;
+        totalNeeded: number;
+        historicalSent: number;
+        historicalCount: number;
       };
     };
     safeToWithdraw: number;
     recognizedRevenue: number;
     discrepancy: number;
     warning: string | null;
+  };
+  payoutCosts?: {
+    totalPayPalSenderFees: number;
+    totalPayPalTutorFees: number;
+    paypalFeeProfit: number;
+    truePlatformProfit: number;
+    totalWithdrawals: number;
+    paypalWithdrawals: number;
+    stripeWithdrawals: number;
+    totalAmountWithdrawn: number;
+    totalNetAmountSent: number;
   };
 }
 
@@ -91,6 +108,7 @@ interface PlatformRevenue {
   imports: [CommonModule, FormsModule, IonicModule]
 })
 export class AdminPage implements OnInit {
+  get timePipeFormat(): string { return getGlobalHour12() ? 'MMM d, h:mm a' : 'MMM d, HH:mm'; }
   loading = true;
   loadingMore = false;  // NEW: Loading state for pagination
   error: string | null = null;
@@ -263,7 +281,7 @@ export class AdminPage implements OnInit {
       day: 'numeric',
       hour: 'numeric',
       minute: '2-digit',
-      hour12: true
+      hour12: getGlobalHour12()
     });
     
     // Add relative time if it's within the next 24 hours

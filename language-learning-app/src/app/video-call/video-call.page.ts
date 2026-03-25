@@ -9,6 +9,7 @@ import { MessagingService, Message } from '../services/messaging.service';
 import { WebSocketService } from '../services/websocket.service';
 import { AuthService } from '../services/auth.service';
 import { EarlyExitService } from '../services/early-exit.service';
+import { ReminderService } from '../services/reminder.service';
 import { firstValueFrom, Subject, Subscription } from 'rxjs';
 import { takeUntil, take } from 'rxjs/operators';
 import { WhiteboardService } from '../services/whiteboard.service';
@@ -16,7 +17,9 @@ import { TranscriptionService } from '../services/transcription.service';
 import { DeepgramAudioService } from '../services/deepgram-audio.service';
 import { LessonSummaryComponent } from '../modals/lesson-summary/lesson-summary.component';
 import { createFastboard, FastboardApp, mount } from '@netless/fastboard';
+import { VocabularyService, VocabEntry, GoalEntry } from '../services/vocabulary.service';
 import { environment } from '../../environments/environment';
+import { formatTimeInTz } from '../shared/timezone.utils';
 
 @Component({
   selector: 'app-video-call',
@@ -27,6 +30,7 @@ import { environment } from '../../environments/environment';
 export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
   private initializationComplete = false;
+  private hasEndedCall = false; // Tracks whether endCall() already ran to prevent double cleanup in ngOnDestroy
 
   @ViewChild('whiteboardContainer', { static: false }) whiteboardContainerRef!: ElementRef<HTMLDivElement>;
   @ViewChild('localVideo', { static: false }) localVideoRef!: ElementRef<HTMLDivElement>;
@@ -52,6 +56,85 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   isVideoOff = false;
   showWhiteboard = false;
   showChat = false;
+  showNotes = false;
+  
+  // Notes form properties (for tutors during lesson)
+  lessonNoteText: string = '';
+  lessonQuickImpression: string = '';
+  lessonHomework: string = '';
+  lessonSelectedStrengths: string[] = [];
+  lessonSelectedAreasToImprove: string[] = [];
+  lessonSelectedErrorAreas: string[] = [];
+  savingNotes = false;
+  notesLastSaved: Date | null = null;
+  private notesAutoSaveInterval: any = null;
+  
+  // Vocabulary panel properties (shared between tutor and student)
+  showVocabulary = false;
+  vocabularyItems: Array<{ word: string; translation: string; example: string; addedBy: string; id: string }> = [];
+  newVocabWord = '';
+  newVocabTranslation = '';
+  newVocabExample = '';
+  isAddingVocab = false;
+  vocabLastSaved: Date | null = null;
+  private vocabAutoSaveInterval: any = null;
+  private vocabSaving = false;
+  
+  // Lesson goals/agenda (optional, shared between tutor and student)
+  showGoals = false;
+  goalItems: Array<{ text: string; completed: boolean; addedBy: string; id: string }> = [];
+  newGoalText = '';
+  isAddingGoal = false;
+  
+  // Correction input mode (for tutors in chat)
+  showCorrectionInput = false;
+  correctionOriginal = '';
+  correctionFixed = '';
+  
+  // Resources/Documents section in chat
+  showResourcesSection = false;
+  
+  // Options for notes form
+  impressionOptions = [
+    { value: 'excellent', label: '🌟 Excellent Progress!', color: 'success' },
+    { value: 'great', label: '✅ Great Job!', color: 'primary' },
+    { value: 'good', label: '👍 Good Effort', color: 'secondary' },
+    { value: 'needs-work', label: '💪 Needs More Practice', color: 'warning' }
+  ];
+  
+  strengthOptions = [
+    'Conversational fluency',
+    'Vocabulary usage',
+    'Grammar accuracy',
+    'Pronunciation',
+    'Listening comprehension',
+    'Confidence',
+    'Complex sentences',
+    'Natural expressions'
+  ];
+  
+  improvementOptions = [
+    'Grammar accuracy',
+    'Verb conjugation',
+    'Vocabulary range',
+    'Pronunciation',
+    'Fluency/speed',
+    'Listening skills',
+    'Sentence complexity',
+    'Idiomatic expressions'
+  ];
+  
+  errorAreaOptions = [
+    'Verb conjugation',
+    'Gender agreement',
+    'Prepositions',
+    'Tense usage',
+    'Vocabulary',
+    'Pronunciation',
+    'Sentence structure',
+    'Articles'
+  ];
+  
   isDrawing = false;
   isConnected = false;
   isScreenSharing = false;
@@ -84,6 +167,11 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   userRole: 'tutor' | 'student' = 'student'; // Track user role for proper labeling
   remoteUserStates: Map<any, { isMuted?: boolean; isVideoOff?: boolean }> = new Map(); // Track remote user states
   remoteUserIdentities: Map<any, { userId: string; isTutor: boolean; name: string; profilePicture?: string }> = new Map(); // Track who each remote user actually is
+  
+  // Pre-computed properties for template binding (avoid function calls in templates)
+  isRemoteUserMuted = false;
+  isRemoteUserVideoOff = false;
+  remoteParticipantLabel = '';
   
   // Class support (multi-participant)
   isClass = false; // Track if this is a class vs 1:1 lesson
@@ -125,6 +213,10 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   // currentUserId is already defined in chat properties below
   isTrialLesson: boolean = false;
   
+  // Snapshot of student's AI analysis setting, locked at lesson start.
+  // Mid-lesson changes do NOT affect the current lesson — only the next one.
+  aiAnalysisEnabledAtTime: boolean | null = null;
+  
   // Next event warning (for tutors)
   showNextEventWarning: boolean = false;
   nextEventMinutesAway: number = 0;
@@ -142,6 +234,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   // Virtual background properties
   showVirtualBackgroundControls = false;
   isVirtualBackgroundEnabled = false;
+  showMoreMenu = false;
 
   // AI Transcription & Analysis properties
   private isTranscriptionEnabled = false;
@@ -149,10 +242,27 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   private TRANSCRIPTION_SESSION_KEY = 'activeTranscriptionSession';
   private currentTranscriptId: string = '';
   
-  // OpenAI Audio recording for transcription (COMMENTED OUT - keeping as fallback)
+  // Pre-emptive analysis: stop transcription 1 min before lesson end so analysis is ready
+  private preEmptiveAnalysisTimer: any = null;
+  private transcriptionCompletedEarly = false; // True if transcription was completed pre-emptively
+  private isCompletingTranscription = false;    // Mutex: prevents concurrent transcription completion
+  
+  // End-call responsiveness
+  isEndingCall = false; // Drives the "Leaving..." overlay in the template
+  
+  // OpenAI Audio recording for transcription
   private transcriptionRecorder: MediaRecorder | null = null;
   private transcriptionAudioChunks: Blob[] = [];
   private transcriptionUploadInterval: any = null;
+  
+  // Window-based audio sampling (record 3x5min windows instead of continuous)
+  private samplingWindows: { startMin: number; endMin: number }[] = [];
+  private samplingCheckInterval: any = null;
+  private lessonStartTimestamp: number = 0;
+  private isCurrentlyRecording = false;
+  private batchAudioBlobs: Blob[] = []; // All recorded audio stored for batch upload
+  private transcriptionStream: MediaStream | null = null;
+  private transcriptionMimeType: string = 'audio/webm';
   
   // Deepgram real-time transcription
   private deepgramService: DeepgramAudioService | null = null;
@@ -165,6 +275,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   isSending = false;
   isLoadingMessages = false;
   currentUserId: string = '';
+  currentUser: any = null;
   otherUserAuth0Id: string = '';
   messageSendTimeout: any;
   private destroy$ = new Subject<void>();
@@ -250,6 +361,26 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   showOverageWarning: boolean = false;
   private timerInterval: any = null;
 
+  // Real-time talk time tracking
+  private speakingTimeAccumulator: Map<any, number> = new Map(); // uid → total seconds
+  private speakingStartTime: Map<any, number> = new Map(); // uid → timestamp when current speaking started
+  showTalkTimePopup: boolean = false;
+  private talkTimePopupShown: boolean = false; // prevent showing twice
+  private talkTimeCheckInterval: any = null;
+  talkTimePopupDismissed: boolean = false; // user dismissed the popup
+  private talkTimeAutoHideTimer: any = null; // auto-hide after 10 seconds
+  private scheduledLessonStartTime: number = 0; // Scheduled start time timestamp — talk time only tracked after this
+  isWaitingForLessonStart: boolean = false; // True if user joined early, before scheduled start
+  // Pre-calculated display properties (no functions in template)
+  localSpeakingPercent: number = 0;
+  remoteSpeakingPercent: number = 0;
+  localSpeakingPercentFormatted: string = '0%';
+  remoteSpeakingPercentFormatted: string = '0%';
+  localSpeakerName: string = 'You';
+  remoteSpeakerName: string = 'Participant';
+  // Synced remote speaking time — received from the other participant's self-measurement
+  private syncedRemoteSpeakingSeconds: number = 0;
+
   constructor(
     private router: Router,
     private route: ActivatedRoute,
@@ -269,7 +400,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     private transcriptionService: TranscriptionService,
     private deepgramAudioService: DeepgramAudioService,
     private earlyExitService: EarlyExitService,
-    private ngZone: NgZone
+    private ngZone: NgZone,
+    private reminderService: ReminderService,
+    private vocabularyService: VocabularyService
   ) { }
 
   async ngOnInit() {
@@ -296,6 +429,11 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       this.handleVolumeIndicator(volumes);
     };
     
+    // Receive remote participant's self-reported speaking time for synchronized display
+    this.agoraService.onRemoteTalkTimeUpdate = (speakingSeconds: number) => {
+      this.syncedRemoteSpeakingSeconds = speakingSeconds;
+    };
+
     this.agoraService.onParticipantIdentity = (uid, identity) => {
       console.log('👤 ===== RECEIVED PARTICIPANT IDENTITY =====');
       console.log('👤 UID:', uid);
@@ -310,7 +448,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         name: identity.name,
         isTutor: identity.isTutor,
         agoraUid: uid,
-        profilePicture: (identity as any).profilePicture || ''
+        profilePicture: identity.profilePicture || ''
       });
       
       console.log('👤 Current remoteUserIdentities after:', Array.from(this.remoteUserIdentities.entries()));
@@ -344,6 +482,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       this.lessonId = qp.lessonId;
       console.log('📚 VideoCall: Stored lessonId:', this.lessonId);
       
+      // Suppress the lesson reminder for this lesson while we're in the call
+      this.reminderService.suppressForLesson(this.lessonId!);
+      
       // Check for existing transcription session and auto-resume if valid
       await this.checkAndResumeTranscription();
     }
@@ -357,10 +498,8 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     // Set up WebSocket for messaging
     this.setupMessaging();
     
-    // Start checking for next event warnings (tutors only)
-    if (qp?.role === 'tutor') {
-      this.startNextEventCheck();
-    }
+    // Note: next event check for tutors is started after role is determined
+    // in initializeVideoCallViaLessonParams (from lesson data, not URL params)
   }
 
   private queryParams: any;
@@ -402,60 +541,65 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         throw new Error('Camera and microphone permissions are required for video calls');
       }
 
-      // Initialize client if needed
-      if (!this.agoraService.getClient()) {
-        loading.message = 'Connecting to video call...';
-        await this.agoraService.initializeClient();
-      }
+      // CRITICAL: Always start with a completely fresh Agora client.
+      // Pre-call creates a client + tracks for virtual background preview, but reusing that
+      // client can cause subtle issues where remote users aren't detected on rejoin.
+      // Resetting guarantees the same clean state as a page refresh (which always works).
+      loading.message = 'Connecting to video call...';
+      await this.agoraService.resetForVideoCall();
+      await this.agoraService.initializeClient();
 
-      // Load current user id (for backend join)
+      // SECURITY: Get identity from authenticated user (never trust URL params for identity/role)
       const me = await firstValueFrom(this.userService.getCurrentUser());
-      const role = (qp.role === 'tutor' || qp.role === 'student') ? qp.role : 'student';
-      this.userRole = role; // Store user role for participant labeling
+      this.currentUser = me ?? null;
       this.currentUserId = me?.id || ''; // Store current user's MongoDB ID
+      this.myAgoraUid = me?.id || ''; // Use MongoDB ID as Agora UID
+      this.myName = (me as any)?.firstName || me?.name?.split(' ')[0] || 'User';
+      const myUserId = me?.id || '';
       
-      // SIMPLE SOLUTION: Use query params for immediate identification
-      this.myAgoraUid = qp.agoraUid || '';
-      this.myName = qp.userName || (role === 'tutor' ? 'Tutor' : 'Student');
-      const myUserId = qp.userId || me?.id || '';
-      const iAmTutor = role === 'tutor';
+      // Role will be determined from lesson data below (not from URL)
+      // Default to 'student' — will be corrected after lesson data loads
+      let role: 'tutor' | 'student' = 'student';
       
-      console.log('🆔 ===== MY IDENTITY FROM QUERY PARAMS =====');
-      console.log('🆔 Role:', role);
-      console.log('🆔 Name:', this.myName);
-      console.log('🆔 Database ID:', myUserId);
-      console.log('🆔 Agora UID:', this.myAgoraUid);
-      console.log('🆔 =========================================');
-      
-      // Store my own identity in registry (will broadcast to others when connected)
-      this.participantRegistry.set(this.myAgoraUid, {
-        userId: myUserId,
-        name: this.myName,
-        isTutor: iAmTutor,
-        agoraUid: this.myAgoraUid,
-        profilePicture: this.myProfilePicture
-      });
+      console.log('🔐 ===== MY IDENTITY FROM AUTH =====');
+      console.log('🔐 Name:', this.myName);
+      console.log('🔐 Database ID:', myUserId);
+      console.log('🔐 Agora UID:', this.myAgoraUid);
+      console.log('🔐 Initial role (will be confirmed from lesson data):', role);
+      console.log('🔐 ===================================');
 
-      // Load lesson data to get participant names and IDs
+      // Load lesson/class data to get participant names and IDs
       if (qp.lessonId) {
         try {
-          console.log('🎓 VIDEO-CALL: Loading lesson details', { 
-            lessonId: qp.lessonId, 
-            role: this.userRole 
+          console.log('🎓 VIDEO-CALL: Loading session details', { 
+            sessionId: qp.lessonId, 
+            role: this.userRole,
+            isClass: this.isClass
           });
           
-          const lessonResponse = await firstValueFrom(this.lessonService.getLesson(qp.lessonId));
-          console.log('🎓 VIDEO-CALL: API Response:', lessonResponse);
+          // Use class service for classes, lesson service for lessons
+          let sessionResponse: any;
+          let session: any;
+          
+          if (this.isClass) {
+            sessionResponse = await firstValueFrom(this.classService.getClass(qp.lessonId));
+            session = sessionResponse?.class;
+            console.log('🎓 VIDEO-CALL: Class API Response:', sessionResponse);
+          } else {
+            sessionResponse = await firstValueFrom(this.lessonService.getLesson(qp.lessonId));
+            session = sessionResponse?.lesson;
+            console.log('🎓 VIDEO-CALL: Lesson API Response:', sessionResponse);
+          }
+          
           console.log('🎓 VIDEO-CALL: Response check:', {
-            hasResponse: !!lessonResponse,
-            hasSuccess: !!lessonResponse?.success,
-            hasLesson: !!lessonResponse?.lesson,
-            successValue: lessonResponse?.success,
-            lessonValue: lessonResponse?.lesson
+            hasResponse: !!sessionResponse,
+            hasSuccess: !!sessionResponse?.success,
+            hasSession: !!session,
+            isClass: this.isClass
           });
           
-          if (lessonResponse?.success && lessonResponse.lesson) {
-            const lesson = lessonResponse.lesson;
+          if (sessionResponse?.success && session) {
+            const lesson = session; // Keep variable name for compatibility with existing code
             
             console.log('🔍 ===== LESSON DATA INSPECTION =====');
             console.log('🔍 Full lesson object:', lesson);
@@ -489,43 +633,82 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
               });
             }
             
+            // Set bookedDuration for standard lessons (needed for audio sampling windows)
+            if (!this.isOfficeHours && lesson.duration) {
+              this.bookedDuration = lesson.duration;
+              console.log(`📊 Standard lesson duration set: ${this.bookedDuration} minutes`);
+            }
+            
+            // Store scheduled lesson start time for talk time gating
+            // Talk time is only tracked after the lesson officially starts
+            if (lesson.startTime) {
+              this.scheduledLessonStartTime = new Date(lesson.startTime).getTime();
+              console.log(`⏰ Scheduled lesson start time: ${new Date(this.scheduledLessonStartTime).toLocaleTimeString()}`);
+            }
+            
             // Store tutor and student user IDs for proper role identification
             this.tutorUserId = lesson.tutorId?._id || '';
             this.studentUserId = lesson.studentId?._id || '';
             
-            // CRITICAL FIX: Verify role matches lesson data (override query param if wrong)
-            // This fixes stale cache issues where userType might be incorrect
-            const tutorAuth0Id = (lesson.tutorId as any)?.auth0Id;
-            const studentAuth0Id = (lesson.studentId as any)?.auth0Id;
-            const meResponse = await firstValueFrom(this.userService.getCurrentUser());
-            const myAuth0Id = (meResponse as any)?.auth0Id;
+            // SECURITY: Determine role from authenticated user + lesson data (never trust URL)
+            // Primary: Compare MongoDB _id (always available from populated lesson data)
+            const tutorMongoId = lesson.tutorId?._id?.toString() || '';
+            const studentMongoId = lesson.studentId?._id?.toString() || '';
+            const myMongoId = (me?.id || '').toString();
             
-            const correctRole = (myAuth0Id === tutorAuth0Id) ? 'tutor' : 
-                               (myAuth0Id === studentAuth0Id) ? 'student' : 
-                               this.userRole; // fallback to query param
-            
-            if (correctRole !== this.userRole) {
-              console.warn('⚠️ ROLE MISMATCH DETECTED! Correcting...', {
-                queryParamRole: this.userRole,
-                correctRole: correctRole,
-                myAuth0Id,
-                tutorAuth0Id,
-                studentAuth0Id
-              });
-              this.userRole = correctRole; // OVERRIDE with correct role
+            if (myMongoId && myMongoId === tutorMongoId) {
+              role = 'tutor';
+            } else if (myMongoId && myMongoId === studentMongoId) {
+              role = 'student';
             } else {
-              console.log('✅ Role verification passed:', this.userRole);
+              // Fallback: Compare auth0Id if available
+              const tutorAuth0Id = (lesson.tutorId as any)?.auth0Id;
+              const studentAuth0Id = (lesson.studentId as any)?.auth0Id;
+              const myAuth0Id = (me as any)?.auth0Id;
+              
+              if (myAuth0Id && myAuth0Id === tutorAuth0Id) {
+                role = 'tutor';
+              } else if (myAuth0Id && myAuth0Id === studentAuth0Id) {
+                role = 'student';
+              }
+              // else keep default 'student'
             }
+            
+            this.userRole = role;
+            console.log('🔐 Role determined from lesson data:', {
+              role: this.userRole,
+              myMongoId,
+              tutorMongoId,
+              studentMongoId
+            });
             
             // Store profile pictures
             this.tutorProfilePicture = (lesson.tutorId as any)?.profilePicture || lesson.tutorId?.picture || '';
-            this.studentProfilePicture = (lesson.studentId as any)?.profilePicture || lesson.studentId?.picture || '';
+            
+            // For classes, studentId doesn't exist - use confirmedStudents or current user's picture
+            if (this.isClass) {
+              // For classes, get the current user's picture from authenticated user
+              // This ensures the student has their own picture for broadcasting
+              const myPicture = (me as any)?.picture || '';
+              this.studentProfilePicture = myPicture;
+              
+              console.log('🖼️ CLASS: Using current user picture for student:', myPicture);
+            } else {
+              // For 1:1 lessons, use the studentId from the lesson
+              this.studentProfilePicture = (lesson.studentId as any)?.profilePicture || lesson.studentId?.picture || '';
+            }
             
             // Store my own profile picture based on role
-            this.myProfilePicture = this.userRole === 'tutor' ? this.tutorProfilePicture : this.studentProfilePicture;
+            if (this.userRole === 'tutor') {
+              this.myProfilePicture = this.tutorProfilePicture;
+            } else {
+              // For students: use current user's picture directly (works for both lessons and classes)
+              this.myProfilePicture = (me as any)?.picture || this.studentProfilePicture || '';
+            }
             
-            console.log('🎓 VIDEO-CALL: Lesson loaded', {
-              lessonId: lesson._id,
+            console.log('🎓 VIDEO-CALL: Session loaded', {
+              sessionId: lesson._id,
+              isClass: this.isClass,
               isTrialLesson: lesson.isTrialLesson,
               isTrialLessonComponent: this.isTrialLesson,
               role: this.userRole,
@@ -541,10 +724,12 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             console.log('🖼️ PROFILE PICTURE DEBUG:', {
               tutorIdObject: lesson.tutorId,
               studentIdObject: lesson.studentId,
+              confirmedStudents: this.isClass ? lesson.confirmedStudents : 'N/A (lesson)',
               tutorHasPicture: !!lesson.tutorId?.picture,
-              studentHasPicture: !!lesson.studentId?.picture,
+              studentHasPicture: !this.isClass && !!lesson.studentId?.picture,
               tutorHasProfilePicture: !!(lesson.tutorId as any)?.profilePicture,
-              studentHasProfilePicture: !!(lesson.studentId as any)?.profilePicture
+              studentHasProfilePicture: !this.isClass && !!(lesson.studentId as any)?.profilePicture,
+              myPictureFromUser: (me as any)?.picture
             });
             
             // Get the other participant's email to look up their auth0Id
@@ -566,18 +751,33 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
               }
             }
           } else {
-            console.error('❌ VIDEO-CALL: Invalid lesson response format:', {
-              lessonResponse,
-              hasSuccess: !!lessonResponse?.success,
-              hasLesson: !!lessonResponse?.lesson
+            console.error(`❌ VIDEO-CALL: Invalid ${this.isClass ? 'class' : 'lesson'} response format:`, {
+              sessionResponse,
+              hasSuccess: !!sessionResponse?.success,
+              hasSession: !!session
             });
           }
         } catch (error) {
-          console.error('❌ VIDEO-CALL: Error loading lesson data:', error);
+          console.error(`❌ VIDEO-CALL: Error loading ${this.isClass ? 'class' : 'lesson'} data:`, error);
           // Fallback to default labels
           this.tutorName = 'Tutor';
           this.studentName = 'Student';
         }
+      }
+
+      // Now that role is determined from lesson data, set up identity
+      const iAmTutor = this.userRole === 'tutor';
+      this.participantRegistry.set(this.myAgoraUid, {
+        userId: myUserId,
+        name: this.myName,
+        isTutor: iAmTutor,
+        agoraUid: this.myAgoraUid,
+        profilePicture: this.myProfilePicture
+      });
+      
+      // Start checking for next event warnings (tutors only)
+      if (this.userRole === 'tutor') {
+        this.startNextEventCheck();
       }
 
       // Secure join using backend-provided token/appId/uid (with connection state checking)
@@ -617,12 +817,19 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       } else {
         const joinResponse = await this.agoraService.joinLesson(qp.lessonId, role, me?.id, {
           micEnabled,
-          videoEnabled
+          videoEnabled,
+          isClass: this.isClass
         });
         
         // Update channel name from the join response
         if (joinResponse.agora.channelName) {
           this.channelName = joinResponse.agora.channelName;
+        }
+        
+        // Store the AI analysis snapshot (locked at lesson start, immutable for this lesson)
+        if (joinResponse.lesson?.aiAnalysisEnabledAtTime !== undefined) {
+          this.aiAnalysisEnabledAtTime = joinResponse.lesson.aiAnalysisEnabledAtTime ?? null;
+          console.log('📸 AI analysis snapshot from join response:', this.aiAnalysisEnabledAtTime);
         }
         
         console.log('✅ Successfully joined lesson via backend, channel:', this.channelName);
@@ -727,6 +934,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
           });
         }, 150); // Minimal delay - tracks are already published with correct muted state
         
+        // Start periodic state re-broadcasting to ensure remote users stay in sync
+        this.agoraService.startStateRebroadcast();
+        
         // Update participants list
         this.updateParticipantsList();
         
@@ -771,6 +981,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       console.log('🔵 About to call startLessonTranscription() [VIA LESSON PARAMS]...');
       await this.startLessonTranscription();
       console.log('🔵 Finished calling startLessonTranscription() [VIA LESSON PARAMS]');
+      
+      // Start real-time talk time tracking & popup (both tutor and student see this)
+      this.startTalkTimeTracking();
       
       console.log('✅ Successfully connected to lesson video call');
       console.log('📊 Participant box state:', {
@@ -872,6 +1085,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       console.log('🔵 About to call startLessonTranscription()...');
       await this.startLessonTranscription();
       console.log('🔵 Finished calling startLessonTranscription()');
+
+      // Start real-time talk time tracking & popup timer
+      this.startTalkTimeTracking();
 
       console.log('Successfully connected to video call');
 
@@ -1119,6 +1335,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       const remoteUsers = this.agoraService.getRemoteUsers();
       const previousCount = this.remoteUserCount;
       this.remoteUserCount = remoteUsers.size;
+      
+      // Keep template-bound remote user properties in sync
+      this.updateRemoteUserProperties();
 
       // Check for remote screen sharing
       this.checkRemoteScreenSharing();
@@ -1894,7 +2113,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       console.log('Video toggled from', previousState, 'to', this.isVideoOff);
       console.log('Video:', this.isVideoOff ? 'Off' : 'On');
       
-      // Force change detection to update DOM (show/hide video element)
+      // Force change detection to update DOM (show/hide overlay, toggle .hidden class)
       this.cdr.detectChanges();
       
       // Update participants list for classes to reflect new video state
@@ -1902,36 +2121,33 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         this.updateParticipantsList();
       }
       
-      // Refresh video display after toggling and DOM updates
-      setTimeout(() => {
-        if (!this.isVideoOff) {
-          // Video was turned ON - setup display based on current view mode
-          console.log('📹 Video turned ON, setting up display...');
-          
-          // Check if we should be in tutor gallery mode
-          if (this.isClass && this.userRole === 'tutor' && !this.showWhiteboard) {
-            console.log('🎓 Tutor in gallery mode - refreshing gallery view');
-            this.playVideosInTutorGallery();
-          } else {
-            // Regular mode or student mode
-            this.setupLocalVideoDisplay();
-          }
-        } else {
-          // Video was turned OFF - clear the video element(s)
-          console.log('🚫 Turning video OFF - clearing display');
-          
-          // Clear gallery view if applicable
-          const galleryElement = document.querySelector('[data-gallery-uid="local"] .video-display') as HTMLElement;
-          if (galleryElement) {
-            galleryElement.innerHTML = '';
-          }
-          
-          // Clear regular tile view if applicable
-          if (this.localVideoRef) {
-            this.localVideoRef.nativeElement.innerHTML = '';
-          }
+      // NOTE: We intentionally do NOT clear innerHTML or re-call setupLocalVideoDisplay() here.
+      // setMuted(true/false) in agoraService.toggleVideo() pauses/resumes the Agora
+      // video track while keeping the <video> element alive. The CSS .hidden class
+      // (opacity:0) hides the container and the avatar overlay covers it visually.
+      // This avoids the flash caused by destroying and re-creating the video element,
+      // which is especially visible with virtual background (processor pipeline restart).
+      
+      if (!this.isVideoOff) {
+        console.log('📹 Video turned ON — track resumed via setMuted(false), no re-play needed');
+        
+        // Edge case: if the video element was never set up (e.g. joined with camera off),
+        // we need to play the track for the first time
+        const localVideoTrack = this.agoraService.getLocalVideoTrack();
+        const localVideoElement = this.isClass
+          ? document.querySelector('[data-participant-uid="local"] .participant-video') as HTMLElement
+          : this.localVideoRef?.nativeElement;
+        
+        if (localVideoTrack && localVideoElement && !localVideoElement.querySelector('video, div[id]')) {
+          console.log('📹 No video child found — first-time play needed');
+          setTimeout(() => {
+            localVideoTrack.play(localVideoElement!, { mirror: false });
+            console.log('✅ First-time local video play complete');
+          }, 100);
         }
-      }, 300); // Increased timeout to allow DOM update
+      } else {
+        console.log('🚫 Video turned OFF — track muted via setMuted(true), element kept alive');
+      }
     } catch (error) {
       console.error('Error toggling video:', error);
     }
@@ -1954,16 +2170,16 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     });
     
     // Show enhanced sharing messages
-    if (this.showWhiteboard) {
-      const toast = await this.toastController.create({
-        message: '🎨 Whiteboard opened - both users can collaborate in real-time! You can see each other\'s cursors.',
-        duration: 4000,
-        color: 'success',
-        position: 'top',
-        cssClass: 'whiteboard-toast'
-      });
-      await toast.present();
-    }
+    // if (this.showWhiteboard) {
+    //   const toast = await this.toastController.create({
+    //     message: '🎨 Whiteboard opened - both users can collaborate in real-time! You can see each other\'s cursors.',
+    //     duration: 4000,
+    //     color: 'success',
+    //     position: 'top',
+    //     cssClass: 'whiteboard-toast'
+    //   });
+    //   await toast.present();
+    // }
     
     // Force change detection to update the DOM
     this.cdr.detectChanges();
@@ -2109,6 +2325,475 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         this.cdr.detectChanges();
         this.scrollChatToBottomInstant();
       }
+    }
+  }
+
+  // Notes panel for tutors to write notes during lesson
+  toggleNotes() {
+    this.showNotes = !this.showNotes;
+    
+    if (this.showNotes && this.userRole === 'tutor') {
+      // Start auto-save when notes panel opens
+      this.startNotesAutoSave();
+      // Load any existing notes
+      this.loadLessonNotes();
+    } else {
+      // Stop auto-save when panel closes
+      this.stopNotesAutoSave();
+    }
+  }
+  
+  toggleLessonStrength(strength: string) {
+    const index = this.lessonSelectedStrengths.indexOf(strength);
+    if (index > -1) {
+      this.lessonSelectedStrengths.splice(index, 1);
+    } else {
+      this.lessonSelectedStrengths.push(strength);
+    }
+    this.autoSaveNotes();
+  }
+  
+  toggleLessonAreaToImprove(area: string) {
+    const index = this.lessonSelectedAreasToImprove.indexOf(area);
+    if (index > -1) {
+      this.lessonSelectedAreasToImprove.splice(index, 1);
+    } else {
+      this.lessonSelectedAreasToImprove.push(area);
+    }
+    this.autoSaveNotes();
+  }
+  
+  toggleLessonErrorArea(area: string) {
+    const index = this.lessonSelectedErrorAreas.indexOf(area);
+    if (index > -1) {
+      this.lessonSelectedErrorAreas.splice(index, 1);
+    } else {
+      this.lessonSelectedErrorAreas.push(area);
+    }
+    this.autoSaveNotes();
+  }
+  
+  formatNotesSaveTime(date: Date): string {
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    
+    if (seconds < 10) return 'just now';
+    if (seconds < 60) return `${seconds}s ago`;
+    if (minutes < 60) return `${minutes}m ago`;
+    return formatTimeInTz(date, this.userTz);
+  }
+
+  private get userTz(): string | undefined {
+    return this.currentUser?.profile?.timezone || undefined;
+  }
+  
+  startNotesAutoSave() {
+    // Auto-save every 30 seconds
+    this.notesAutoSaveInterval = setInterval(() => {
+      this.autoSaveNotes();
+    }, 30000);
+  }
+  
+  stopNotesAutoSave() {
+    if (this.notesAutoSaveInterval) {
+      clearInterval(this.notesAutoSaveInterval);
+      this.notesAutoSaveInterval = null;
+    }
+  }
+  
+  async autoSaveNotes() {
+    if (!this.lessonId || this.userRole !== 'tutor') return;
+    if (this.savingNotes) return; // Prevent concurrent saves
+    
+    this.savingNotes = true;
+    
+    try {
+      // Save notes to localStorage as backup
+      const notesData = {
+        lessonId: this.lessonId,
+        noteText: this.lessonNoteText,
+        quickImpression: this.lessonQuickImpression,
+        homework: this.lessonHomework,
+        strengths: this.lessonSelectedStrengths,
+        areasToImprove: this.lessonSelectedAreasToImprove,
+        errorAreas: this.lessonSelectedErrorAreas,
+        savedAt: new Date().toISOString()
+      };
+      
+      localStorage.setItem(`lesson_notes_${this.lessonId}`, JSON.stringify(notesData));
+      
+      // TODO: Also save to backend API endpoint for persistence across devices
+      // For now, localStorage is sufficient for same-session persistence
+      
+      this.notesLastSaved = new Date();
+      this.cdr.detectChanges();
+    } catch (error) {
+      console.error('Error auto-saving notes:', error);
+    } finally {
+      this.savingNotes = false;
+    }
+  }
+  
+  loadLessonNotes() {
+    if (!this.lessonId) return;
+    
+    try {
+      const saved = localStorage.getItem(`lesson_notes_${this.lessonId}`);
+      if (saved) {
+        const notesData = JSON.parse(saved);
+        this.lessonNoteText = notesData.noteText || '';
+        this.lessonQuickImpression = notesData.quickImpression || '';
+        this.lessonHomework = notesData.homework || '';
+        this.lessonSelectedStrengths = notesData.strengths || [];
+        this.lessonSelectedAreasToImprove = notesData.areasToImprove || [];
+        this.lessonSelectedErrorAreas = notesData.errorAreas || [];
+        if (notesData.savedAt) {
+          this.notesLastSaved = new Date(notesData.savedAt);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading notes:', error);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // VOCABULARY PANEL METHODS
+  // ═══════════════════════════════════════════════════════
+  
+  toggleVocabulary() {
+    this.showVocabulary = !this.showVocabulary;
+    
+    if (this.showVocabulary) {
+      this.loadVocabulary();
+      this.startVocabAutoSave();
+    } else {
+      this.stopVocabAutoSave();
+    }
+  }
+  
+  addVocabularyItem() {
+    if (!this.newVocabWord.trim() || !this.newVocabTranslation.trim()) return;
+    
+    const item = {
+      word: this.newVocabWord.trim(),
+      translation: this.newVocabTranslation.trim(),
+      example: this.newVocabExample.trim(),
+      addedBy: this.userRole,
+      id: `vocab_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
+    };
+    
+    this.vocabularyItems.push(item);
+    this.newVocabWord = '';
+    this.newVocabTranslation = '';
+    this.newVocabExample = '';
+    this.isAddingVocab = false;
+    this.autoSaveVocabulary();
+    this.cdr.detectChanges();
+  }
+  
+  removeVocabularyItem(id: string) {
+    this.vocabularyItems = this.vocabularyItems.filter(v => v.id !== id);
+    this.autoSaveVocabulary();
+    this.cdr.detectChanges();
+  }
+  
+  cancelAddVocab() {
+    this.newVocabWord = '';
+    this.newVocabTranslation = '';
+    this.newVocabExample = '';
+    this.isAddingVocab = false;
+  }
+  
+  private startVocabAutoSave() {
+    this.vocabAutoSaveInterval = setInterval(() => {
+      this.autoSaveVocabulary();
+    }, 15000); // Auto-save every 15 seconds
+  }
+  
+  private stopVocabAutoSave() {
+    if (this.vocabAutoSaveInterval) {
+      clearInterval(this.vocabAutoSaveInterval);
+      this.vocabAutoSaveInterval = null;
+    }
+  }
+  
+  private autoSaveVocabulary() {
+    if (!this.lessonId || this.vocabSaving) return;
+    
+    // Always save to localStorage as backup
+    try {
+      const vocabData = {
+        lessonId: this.lessonId,
+        items: this.vocabularyItems,
+        goals: this.goalItems,
+        savedAt: new Date().toISOString()
+      };
+      localStorage.setItem(`lesson_vocab_${this.lessonId}`, JSON.stringify(vocabData));
+    } catch (error) {
+      console.error('Error saving vocabulary to localStorage:', error);
+    }
+    
+    // Save to backend
+    this.vocabSaving = true;
+    const vocabEntries: VocabEntry[] = this.vocabularyItems.map(v => ({
+      word: v.word,
+      translation: v.translation,
+      example: v.example,
+      addedBy: (v.addedBy as 'tutor' | 'student') || 'tutor'
+    }));
+    const goalEntries: GoalEntry[] = this.goalItems.map(g => ({
+      text: g.text,
+      completed: g.completed,
+      addedBy: (g.addedBy as 'tutor' | 'student') || 'student'
+    }));
+    
+    this.vocabularyService.saveVocabulary(this.lessonId, vocabEntries, goalEntries).subscribe({
+      next: () => {
+        this.vocabLastSaved = new Date();
+        this.vocabSaving = false;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error saving vocabulary to backend:', err);
+        this.vocabSaving = false;
+        // localStorage backup already saved above
+        this.vocabLastSaved = new Date();
+        this.cdr.detectChanges();
+      }
+    });
+  }
+  
+  private loadVocabulary() {
+    if (!this.lessonId) return;
+    
+    // Try backend first
+    this.vocabularyService.getVocabulary(this.lessonId).subscribe({
+      next: (response) => {
+        if (response?.data) {
+          const data = response.data;
+          if (data.vocabulary && data.vocabulary.length > 0) {
+            this.vocabularyItems = data.vocabulary.map((v: any) => ({
+              word: v.word,
+              translation: v.translation,
+              example: v.example || '',
+              addedBy: v.addedBy || 'tutor',
+              id: v._id || `vocab_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
+            }));
+          }
+          if (data.goals && data.goals.length > 0) {
+            this.goalItems = data.goals.map((g: any) => ({
+              text: g.text,
+              completed: g.completed || false,
+              addedBy: g.addedBy || 'student',
+              id: g._id || `goal_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
+            }));
+          }
+          if (data.updatedAt) {
+            this.vocabLastSaved = new Date(data.updatedAt);
+          }
+          this.cdr.detectChanges();
+        }
+      },
+      error: (err) => {
+        console.warn('Could not load vocabulary from backend, falling back to localStorage:', err);
+        this.loadVocabularyFromLocalStorage();
+      }
+    });
+  }
+  
+  private loadVocabularyFromLocalStorage() {
+    if (!this.lessonId) return;
+    try {
+      const saved = localStorage.getItem(`lesson_vocab_${this.lessonId}`);
+      if (saved) {
+        const vocabData = JSON.parse(saved);
+        this.vocabularyItems = vocabData.items || [];
+        this.goalItems = vocabData.goals || [];
+        if (vocabData.savedAt) {
+          this.vocabLastSaved = new Date(vocabData.savedAt);
+        }
+        this.cdr.detectChanges();
+      }
+    } catch (error) {
+      console.error('Error loading vocabulary from localStorage:', error);
+    }
+  }
+  
+  // ═══════════════════════════════════════════════════════
+  // LESSON GOALS/AGENDA METHODS
+  // ═══════════════════════════════════════════════════════
+  
+  toggleGoals() {
+    this.showGoals = !this.showGoals;
+    if (this.showGoals && this.goalItems.length === 0 && this.vocabularyItems.length === 0) {
+      // Goals panel shares the same backend doc as vocab, load if not already loaded
+      this.loadVocabulary();
+    }
+  }
+  
+  addGoalItem() {
+    if (!this.newGoalText.trim()) return;
+    
+    const item = {
+      text: this.newGoalText.trim(),
+      completed: false,
+      addedBy: this.userRole,
+      id: `goal_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
+    };
+    
+    this.goalItems.push(item);
+    this.newGoalText = '';
+    this.isAddingGoal = false;
+    this.autoSaveVocabulary(); // Goals save alongside vocab
+    this.cdr.detectChanges();
+  }
+  
+  toggleGoalCompleted(id: string) {
+    const goal = this.goalItems.find(g => g.id === id);
+    if (goal) {
+      goal.completed = !goal.completed;
+      this.autoSaveVocabulary();
+      this.cdr.detectChanges();
+    }
+  }
+  
+  removeGoalItem(id: string) {
+    this.goalItems = this.goalItems.filter(g => g.id !== id);
+    this.autoSaveVocabulary();
+    this.cdr.detectChanges();
+  }
+  
+  cancelAddGoal() {
+    this.newGoalText = '';
+    this.isAddingGoal = false;
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // CORRECTION MESSAGE METHODS (sent as special chat messages)
+  // ═══════════════════════════════════════════════════════
+  
+  toggleCorrectionInput() {
+    this.showCorrectionInput = !this.showCorrectionInput;
+    if (!this.showCorrectionInput) {
+      this.correctionOriginal = '';
+      this.correctionFixed = '';
+    }
+  }
+  
+  sendCorrection() {
+    if (!this.correctionOriginal.trim() || !this.correctionFixed.trim()) return;
+    if (!this.otherUserAuth0Id || this.isSending) return;
+    
+    // Format as a special correction message with markers
+    const correctionContent = `[CORRECTION]\n❌ ${this.correctionOriginal.trim()}\n✅ ${this.correctionFixed.trim()}`;
+    
+    this.isSending = true;
+    
+    if (this.websocketService.getConnectionStatus()) {
+      this.websocketService.sendMessage(
+        this.otherUserAuth0Id,
+        correctionContent,
+        'text'
+      );
+      
+      this.messageSendTimeout = setTimeout(() => {
+        if (this.isSending) {
+          this.sendCorrectionViaHTTP(correctionContent);
+        }
+      }, 2000);
+    } else {
+      this.sendCorrectionViaHTTP(correctionContent);
+    }
+    
+    // Clear inputs
+    this.correctionOriginal = '';
+    this.correctionFixed = '';
+    this.showCorrectionInput = false;
+    this.cdr.detectChanges();
+  }
+  
+  private sendCorrectionViaHTTP(content: string) {
+    if (!this.isSending) return;
+    if (!this.otherUserAuth0Id) return;
+    
+    this.messagingService.sendMessage(
+      this.otherUserAuth0Id,
+      content,
+      'text'
+    ).subscribe({
+      next: (response) => {
+        const message = response.message;
+        const exists = this.chatMessages.find(m => m.id === message.id);
+        if (!exists) {
+          this.chatMessages.push(message);
+          this.messages = this.chatMessages;
+          this.scrollChatToBottom();
+        }
+        this.isSending = false;
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error('❌ Error sending correction via HTTP:', error);
+        this.isSending = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+  
+  isCorrection(message: Message): boolean {
+    return message.content?.startsWith('[CORRECTION]') || false;
+  }
+  
+  getCorrectionOriginal(message: Message): string {
+    if (!this.isCorrection(message)) return '';
+    const lines = message.content.split('\n');
+    const originalLine = lines.find(l => l.startsWith('❌'));
+    return originalLine ? originalLine.replace('❌ ', '') : '';
+  }
+  
+  getCorrectionFixed(message: Message): string {
+    if (!this.isCorrection(message)) return '';
+    const lines = message.content.split('\n');
+    const fixedLine = lines.find(l => l.startsWith('✅'));
+    return fixedLine ? fixedLine.replace('✅ ', '') : '';
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // RESOURCES/DOCUMENTS SECTION METHODS
+  // ═══════════════════════════════════════════════════════
+  
+  toggleResourcesSection() {
+    this.showResourcesSection = !this.showResourcesSection;
+  }
+  
+  get resourceMessages(): Message[] {
+    return this.chatMessages.filter(m => 
+      m.type === 'file' || m.type === 'image' || this.isLinkMessage(m)
+    );
+  }
+  
+  isLinkMessage(message: Message): boolean {
+    if (message.type !== 'text') return false;
+    if (this.isCorrection(message)) return false;
+    const urlRegex = /https?:\/\/[^\s]+/;
+    return urlRegex.test(message.content || '');
+  }
+  
+  extractLink(message: Message): string {
+    const urlRegex = /https?:\/\/[^\s]+/;
+    const match = message.content?.match(urlRegex);
+    return match ? match[0] : '';
+  }
+  
+  extractLinkDomain(message: Message): string {
+    try {
+      const url = this.extractLink(message);
+      if (!url) return '';
+      return new URL(url).hostname.replace('www.', '');
+    } catch {
+      return '';
     }
   }
 
@@ -2982,6 +3667,18 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       this.websocketService.connect();
     }
 
+    // Listen for WebSocket reconnection during video call
+    this.websocketService.connection$.pipe(takeUntil(this.destroy$)).subscribe(isConnected => {
+      console.log('🔌 [VIDEO-CALL] WebSocket connection status changed:', isConnected);
+      if (isConnected && this.lessonId) {
+        console.log('🔌 [VIDEO-CALL] WebSocket reconnected during call - refreshing chat');
+        // Reload chat messages after reconnection
+        setTimeout(() => {
+          this.loadChatMessages();
+        }, 500);
+      }
+    });
+
     // Listen for new messages
     this.websocketService.newMessage$.pipe(takeUntil(this.destroy$)).subscribe(message => {
       if (message) {
@@ -3573,7 +4270,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   // Format time for messages
   formatMessageTime(timestamp: string): string {
     const date = new Date(timestamp);
-    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    return formatTimeInTz(date, this.userTz);
   }
 
   async shareScreen() {
@@ -3588,13 +4285,19 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     } catch (error: any) {
       console.error('❌ Screen sharing error:', error);
       
-      let errorMessage = 'Failed to share screen';
-      if (error.message?.includes('Permission denied')) {
-        errorMessage = 'Screen sharing permission was denied. Please allow screen sharing and try again.';
-      } else if (error.message?.includes('NotAllowedError')) {
-        errorMessage = 'Screen sharing is not allowed. Please check your browser permissions.';
-      } else if (error.message?.includes('NotSupportedError')) {
+      // User cancelled the browser picker — not an error, just a no-op
+      const errorName = error?.name || '';
+      const errorMsg = error?.message || '';
+      if (errorName === 'NotAllowedError' || errorMsg.includes('Permission denied') || errorMsg.includes('PERMISSION_DENIED')) {
+        console.log('ℹ️ User cancelled screen sharing picker');
+        return; // Silent return — no alert needed
+      }
+      
+      let errorMessage = 'Failed to share screen. Please try again.';
+      if (errorName === 'NotSupportedError' || errorMsg.includes('NotSupportedError')) {
         errorMessage = 'Screen sharing is not supported in this browser.';
+      } else if (errorName === 'NotReadableError' || errorMsg.includes('NotReadableError')) {
+        errorMessage = 'Could not access the screen. Another app may be blocking it.';
       }
       
       const alert = await this.alertController.create({
@@ -3625,10 +4328,35 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       this.isScreenSharing = true;
       console.log('✅ Screen sharing started successfully');
       
-      // Display the screen share video
+      // Register callback for when browser's "Stop sharing" button is clicked.
+      // This fires from outside Angular zone, so we wrap in ngZone.run + detectChanges.
+      this.agoraService.onScreenShareStopped(() => {
+        this.ngZone.run(() => {
+          console.log('🖥️ Screen share stopped externally — syncing page state');
+          this.isScreenSharing = false;
+          
+          // Clean up the screen share display
+          if (this.screenShareVideoRef?.nativeElement) {
+            this.screenShareVideoRef.nativeElement.innerHTML = '';
+          }
+          if (this.localVideoPipRef?.nativeElement) {
+            this.localVideoPipRef.nativeElement.innerHTML = '';
+          }
+          
+          // Restore normal video layout
+          setTimeout(() => {
+            this.playRemoteVideoInCorrectContainer();
+          }, 300);
+          
+          this.cdr.detectChanges();
+        });
+      });
+      
+      // Display the screen share video after change detection runs
+      this.cdr.detectChanges();
       setTimeout(() => {
         this.displayScreenShare();
-      }, 500);
+      }, 200);
 
       
       // Show success message with cursor tip
@@ -3651,6 +4379,12 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   async stopScreenShare() {
     console.log('🖥️ Stopping screen share...');
     
+    // Guard: if already stopped (e.g. browser "Stop sharing" already ran), just sync UI
+    if (!this.isScreenSharing) {
+      console.log('ℹ️ Screen sharing already stopped, skipping');
+      return;
+    }
+    
     try {
       await this.agoraService.stopScreenShare();
       this.isScreenSharing = false;
@@ -3670,7 +4404,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       // Restore normal video layout
       setTimeout(() => {
         this.playRemoteVideoInCorrectContainer();
-      }, 500);
+      }, 300);
+      
+      this.cdr.detectChanges();
       
       // Show success message
       const toast = await this.toastController.create({
@@ -3683,6 +4419,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       
     } catch (error) {
       console.error('❌ Failed to stop screen sharing:', error);
+      // Ensure UI state is always reset even on error
+      this.isScreenSharing = false;
+      this.cdr.detectChanges();
       throw error;
     }
   }
@@ -3813,10 +4552,27 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       await this.agoraService.startScreenShare(canvasStream);
       this.isScreenSharing = true;
       
+      // Register callback for external stop (browser "Stop sharing" button)
+      this.agoraService.onScreenShareStopped(() => {
+        this.ngZone.run(() => {
+          console.log('🖥️ Canvas share stopped externally — syncing page state');
+          this.isScreenSharing = false;
+          if (this.screenShareVideoRef?.nativeElement) {
+            this.screenShareVideoRef.nativeElement.innerHTML = '';
+          }
+          if (this.localVideoPipRef?.nativeElement) {
+            this.localVideoPipRef.nativeElement.innerHTML = '';
+          }
+          setTimeout(() => this.playRemoteVideoInCorrectContainer(), 300);
+          this.cdr.detectChanges();
+        });
+      });
+      
       // Display the shared canvas in screen share mode
+      this.cdr.detectChanges();
       setTimeout(() => {
         this.displayScreenShare();
-      }, 500);
+      }, 200);
 
       console.log('✅ Canvas sharing started successfully');
       
@@ -3871,6 +4627,10 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   // Virtual Background Methods (following official Agora example)
   toggleVirtualBackgroundControls(): void {
     this.showVirtualBackgroundControls = !this.showVirtualBackgroundControls;
+  }
+
+  toggleMoreMenu(): void {
+    this.showMoreMenu = !this.showMoreMenu;
   }
 
   async setBackgroundBlur(): Promise<void> {
@@ -4444,8 +5204,37 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       }
     }
     
+    // Recompute template-bound properties for 1:1 view
+    this.updateRemoteUserProperties();
+    
     // Force change detection to update UI immediately
     this.cdr.detectChanges();
+  }
+
+  /**
+   * Recompute pre-calculated remote user properties for 1:1 template bindings.
+   * Called whenever remote user states or participants change.
+   */
+  private updateRemoteUserProperties(): void {
+    const remoteUsers = this.agoraService.getRemoteUsers();
+    if (remoteUsers.size > 0) {
+      const firstRemoteUid = Array.from(remoteUsers.keys())[0];
+      const firstRemoteUser = Array.from(remoteUsers.values())[0];
+      const state = this.remoteUserStates.get(firstRemoteUid);
+      
+      this.isRemoteUserMuted = state?.isMuted || false;
+      this.isRemoteUserVideoOff = state?.isVideoOff || !firstRemoteUser.videoTrack || false;
+    } else {
+      this.isRemoteUserMuted = false;
+      this.isRemoteUserVideoOff = false;
+    }
+    
+    // Update remote participant label
+    if (this.userRole === 'tutor') {
+      this.remoteParticipantLabel = this.studentName || 'Student';
+    } else {
+      this.remoteParticipantLabel = this.tutorName || 'Tutor';
+    }
   }
 
   handleVolumeIndicator(volumes: { uid: any; level: number }[]) {
@@ -4462,26 +5251,85 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       clearTimeout(this.speakingTimeout);
     }
 
-    // Reset speaking states
-    this.isLocalUserSpeaking = false;
-    this.isRemoteUserSpeaking = false;
+    const now = Date.now();
+
+    const lessonStarted = this.hasLessonStarted();
 
     // Process volume levels
     volumes.forEach(({ uid, level }) => {
       // Level is from 0-100, consider speaking if > 30
       const isSpeaking = level > 30;
+      const trackingUid = (uid === 0 || uid === this.agoraService.getClient()?.uid) ? 'local' : uid;
       
-      if (uid === 0 || uid === this.agoraService.getClient()?.uid) {
-        // Local user (uid is 0 in volume indicator for local user)
+      if (trackingUid === 'local') {
+        const wasSpeaking = this.isLocalUserSpeaking;
         this.isLocalUserSpeaking = isSpeaking;
+        
+        // Only accumulate speaking time after lesson officially starts
+        if (lessonStarted) {
+          if (isSpeaking && !wasSpeaking) {
+            this.speakingStartTime.set('local', now);
+          } else if (!isSpeaking && wasSpeaking) {
+            const startTime = this.speakingStartTime.get('local');
+            if (startTime) {
+              const dur = (now - startTime) / 1000;
+              const existing = this.speakingTimeAccumulator.get('local') || 0;
+              this.speakingTimeAccumulator.set('local', existing + dur);
+              this.speakingStartTime.delete('local');
+            }
+          } else if (isSpeaking && wasSpeaking && !this.speakingStartTime.has('local')) {
+            // Lesson just started while user was already speaking — begin tracking now
+            this.speakingStartTime.set('local', now);
+          }
+        }
       } else {
-        // Remote user
+        const wasSpeaking = this.isRemoteUserSpeaking;
         this.isRemoteUserSpeaking = isSpeaking;
+        
+        // Only accumulate speaking time after lesson officially starts
+        if (lessonStarted) {
+          if (isSpeaking && !wasSpeaking) {
+            this.speakingStartTime.set('remote', now);
+          } else if (!isSpeaking && wasSpeaking) {
+            const startTime = this.speakingStartTime.get('remote');
+            if (startTime) {
+              const dur = (now - startTime) / 1000;
+              const existing = this.speakingTimeAccumulator.get('remote') || 0;
+              this.speakingTimeAccumulator.set('remote', existing + dur);
+              this.speakingStartTime.delete('remote');
+            }
+          } else if (isSpeaking && wasSpeaking && !this.speakingStartTime.has('remote')) {
+            // Lesson just started while user was already speaking — begin tracking now
+            this.speakingStartTime.set('remote', now);
+          }
+        }
       }
     });
 
     // Set timeout to reset speaking state after 500ms of silence
     this.speakingTimeout = setTimeout(() => {
+      // Flush any in-progress speaking time (only if lesson has started)
+      if (this.hasLessonStarted()) {
+        const flushTime = Date.now();
+        if (this.isLocalUserSpeaking) {
+          const startTime = this.speakingStartTime.get('local');
+          if (startTime) {
+            const dur = (flushTime - startTime) / 1000;
+            const existing = this.speakingTimeAccumulator.get('local') || 0;
+            this.speakingTimeAccumulator.set('local', existing + dur);
+            this.speakingStartTime.delete('local');
+          }
+        }
+        if (this.isRemoteUserSpeaking) {
+          const startTime = this.speakingStartTime.get('remote');
+          if (startTime) {
+            const dur = (flushTime - startTime) / 1000;
+            const existing = this.speakingTimeAccumulator.get('remote') || 0;
+            this.speakingTimeAccumulator.set('remote', existing + dur);
+            this.speakingStartTime.delete('remote');
+          }
+        }
+      }
       this.isLocalUserSpeaking = false;
       this.isRemoteUserSpeaking = false;
       this.cdr.detectChanges();
@@ -4582,7 +5430,12 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
           if (!wasAlreadySpeaking) {
             this.participantSpeakingStates.set(uid, true);
             
-            // Update participant in the list
+            // Only track speaking time for accumulation AFTER the lesson has officially started
+            if (this.hasLessonStarted()) {
+              this.speakingStartTime.set(uid, currentTime);
+            }
+            
+            // Update participant in the list (visual indicator always works, even pre-lesson)
             // For 'local' uid, find the local participant in the list
             const participant = uid === 'local' 
               ? this.allParticipants.find(p => p.isLocal)
@@ -4609,6 +5462,10 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             
             // Trigger change detection only on state change
             this.cdr.detectChanges();
+          } else if (this.hasLessonStarted() && !this.speakingStartTime.has(uid)) {
+            // Edge case: participant was speaking before lesson started and is still speaking.
+            // Now that the lesson has started, begin tracking from this moment.
+            this.speakingStartTime.set(uid, currentTime);
           }
         } else {
           // Not currently speaking, but check if we should keep the indicator on
@@ -4619,6 +5476,15 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
           if (wasAlreadySpeaking && !shouldStillShowSpeaking) {
             // Mark as not speaking after grace period
             this.participantSpeakingStates.set(uid, false);
+            
+            // Accumulate speaking time only if lesson has started
+            const startTime = this.speakingStartTime.get(uid);
+            if (startTime && this.hasLessonStarted()) {
+              const durationSeconds = (currentTime - startTime) / 1000;
+              const existing = this.speakingTimeAccumulator.get(uid) || 0;
+              this.speakingTimeAccumulator.set(uid, existing + durationSeconds);
+            }
+            this.speakingStartTime.delete(uid);
             
             // Update participant in the list
             // For 'local' uid, find the local participant in the list
@@ -4719,158 +5585,147 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     console.log('🧪 Test mute state sent:', testMuteState);
   }
 
+  async confirmEndCall() {
+    const alert = await this.alertController.create({
+      header: 'Leave Lesson',
+      message: 'Are you sure you want to leave this lesson?',
+      cssClass: 'leave-confirmation-alert',
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Leave',
+          role: 'destructive',
+          handler: () => {
+            this.endCall();
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
   async endCall(otherParticipantEnded: boolean = false) {
     try {
+      this.hasEndedCall = true; // Prevent ngOnDestroy from doing redundant cleanup
+      this.isEndingCall = true; // Show "Leaving..." overlay instantly
+      this.cdr.detectChanges();  // Force immediate UI update so user sees feedback NOW
       console.log('🚪 VideoCall: Ending video call...', { otherParticipantEnded });
+
+      // ── 1. INSTANT: Cancel timers, stop audio monitoring, persist local state ──
       
-      // Determine if this is a permanent end (at/after scheduled end time) or temporary leave
-      let isPermanentEnd = false;
-      
-      if (this.lessonId && this.isTranscriptionEnabled) {
-        try {
-          const lessonResponse = await firstValueFrom(this.lessonService.getLesson(this.lessonId));
-          const lesson = lessonResponse?.lesson;
-          
-          if (lesson?.endTime) {
-            const scheduledEndTime = new Date(lesson.endTime);
-            const now = new Date();
-            isPermanentEnd = now >= scheduledEndTime;
-            
-            console.log('🕐 End call timing check:', {
-              scheduledEndTime: scheduledEndTime.toISOString(),
-              currentTime: now.toISOString(),
-              isPermanentEnd,
-              minutesRemaining: Math.round((scheduledEndTime.getTime() - now.getTime()) / 60000)
-            });
-          }
-        } catch (error) {
-          console.warn('⚠️ Could not check lesson end time:', error);
-          // Default to temporary leave if we can't determine
-        }
+      // Cancel pre-emptive analysis timer
+      if (this.preEmptiveAnalysisTimer) {
+        clearTimeout(this.preEmptiveAnalysisTimer);
+        this.preEmptiveAnalysisTimer = null;
       }
       
-      // ALWAYS stop audio recording when leaving the page
-      // This prevents audio from continuing to record/upload after navigation
-      if (this.isTranscriptionEnabled) {
-        console.log('🛑 Stopping audio recording on page exit...');
-        await this.stopAudioCapture_FIXED();
-        
-        // Wait for final upload to complete
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        console.log('✅ Audio recording stopped');
-      }
-      
-      // Clear transcription session based on whether this is permanent or temporary
-      if (isPermanentEnd) {
-        console.log('✅ Permanent end (at/after scheduled time) - clearing transcription session completely');
-        this.clearTranscriptionSession();
-        this.isTranscriptionEnabled = false;
-      } else {
-        console.log('⏸️ Temporary leave (before scheduled time) - keeping session metadata for potential resume');
-        // DON'T clear localStorage - session metadata stays for resume
-        // But the audio recorder is already stopped above to prevent background recording
-      }
-      
-      // Call leave endpoint if we have a lessonId
-      if (this.lessonId) {
-        console.log('🚪 VideoCall: Calling leave endpoint for lesson:', this.lessonId);
-        console.log('🚪 VideoCall: Current user info:', await firstValueFrom(this.userService.getCurrentUser()));
-        try {
-          const leaveResponse = await firstValueFrom(this.lessonService.leaveLesson(this.lessonId));
-          console.log('🚪 VideoCall: ✅ Leave endpoint SUCCESS:', leaveResponse);
-          
-        } catch (leaveError: any) {
-          console.error('🚪 VideoCall: ❌ Error calling leave endpoint:', leaveError);
-          console.error('🚪 VideoCall: Error details:', leaveError?.error || leaveError?.message || 'Unknown error');
-          // Continue with call ending even if leave fails
-        }
-      } else {
-        console.log('🚪 VideoCall: ⚠️ No lessonId available, skipping leave endpoint');
-        console.log('🚪 VideoCall: Query params were:', this.queryParams);
-      }
-      
-      // Stop audio monitoring BEFORE leaving channel
-      console.log('🚪 VideoCall: Stopping audio monitoring...');
+      // Stop audio monitoring (purely local — instant)
       this.stopAllAudioMonitoring();
       
-      console.log('🚪 VideoCall: Leaving Agora channel and cleaning up tracks...');
+      // Persist talk time locally (synchronous)
+      const flushNow = Date.now();
+      let flushLocalSeconds = this.speakingTimeAccumulator.get('local') || 0;
+      const flushLocalStart = this.speakingStartTime.get('local');
+      if (flushLocalStart) flushLocalSeconds += (flushNow - flushLocalStart) / 1000;
+      this.persistTalkTimeToStorage(flushLocalSeconds, this.syncedRemoteSpeakingSeconds);
+
+      // ── 2. Determine end-type using CACHED data (no API call) ──
+      let isPermanentEnd = false;
+      let scheduledEndTime: Date | null = null;
+      if (this.scheduledLessonStartTime && this.bookedDuration) {
+        const scheduledEndMs = this.scheduledLessonStartTime + (this.bookedDuration * 60 * 1000);
+        scheduledEndTime = new Date(scheduledEndMs);
+        isPermanentEnd = Date.now() >= scheduledEndMs;
+        console.log('🕐 End call timing (from cache):', {
+          scheduledEndTime: scheduledEndTime.toISOString(),
+          isPermanentEnd,
+          minutesRemaining: Math.round((scheduledEndMs - Date.now()) / 60000)
+        });
+      }
+
+      // Clear persisted talk time when the lesson is permanently ending
+      if (isPermanentEnd || otherParticipantEnded) {
+        this.clearTalkTimeStorage();
+        this.clearLessonLocalStorage();
+      }
+
+      // ── 3. FAST: Leave Agora channel + cleanup media (essential before navigation) ──
+      console.log('🚪 VideoCall: Leaving Agora channel...');
       await this.agoraService.leaveChannel();
       this.isConnected = false;
-
-      // Explicitly cleanup all video/audio elements and their MediaStreams
-      console.log('🚪 VideoCall: Cleaning up all video/audio elements...');
       this.cleanupAllMediaElements();
 
-      // Longer delay to ensure camera/mic hardware is fully released before navigation
-      console.log('🚪 VideoCall: Waiting for camera/mic release...');
-      await new Promise(resolve => setTimeout(resolve, 500));
-      console.log('🚪 VideoCall: Camera/mic released');
-
-      // Navigate to tabs first
-      console.log('🚪 VideoCall: Navigating to tabs');
-      await this.router.navigate(['/tabs']);
+      // ── 4. NAVIGATE IMMEDIATELY — don't wait for backend calls ──
+      // Capture values we need for background work before navigating
+      const lessonId = this.lessonId;
+      const userRole = this.userRole;
+      const isTrialLesson = this.isTrialLesson;
+      const isClass = this.isClass;
+      const transcriptionEnabled = this.isTranscriptionEnabled;
+      const transcriptId = this.currentTranscriptId;
+      const transcriptionAlreadyDone = this.transcriptionCompletedEarly || this.isCompletingTranscription;
+      const vocabItems = [...this.vocabularyItems];
+      const goalItems = [...this.goalItems];
       
-      // If this is NOT a permanent end (early exit) AND other participant didn't end it, trigger early exit modal
-      // For permanent end (on-time), finalize lesson directly
-      // For other participant ended, just dismiss without finalizing (already finalized by them)
       if (!isPermanentEnd && !otherParticipantEnded) {
-        // Early exit - show modal with options
-        const lesson = await firstValueFrom(this.lessonService.getLesson(this.lessonId!));
-        if (lesson?.lesson) {
-          const scheduledEndTime = new Date(lesson.lesson.endTime);
+        // Early exit — navigate to tabs, then show modal
+        console.log('🚪 Navigating to tabs (early exit)...');
+        await this.router.navigate(['/tabs']);
+        
+        if (lessonId && scheduledEndTime) {
           const now = new Date();
           const minutesRemaining = Math.round((scheduledEndTime.getTime() - now.getTime()) / 60000);
-          
           setTimeout(() => {
-            console.log('🚪 VideoCall: Triggering early exit modal...');
             this.earlyExitService.triggerEarlyExit({
-              lessonId: this.lessonId!,
+              lessonId,
               scheduledEndTime,
               currentTime: now,
-              minutesRemaining: Math.max(0, minutesRemaining)
+              minutesRemaining: Math.max(0, minutesRemaining),
+              isClass
             });
-          }, 300);
+          }, 200);
         }
       } else if (isPermanentEnd) {
-        // On-time or late exit - finalize and trigger analysis automatically
-        setTimeout(async () => {
-          console.log('🚪 VideoCall: On-time exit - finalizing lesson and generating analysis...');
-          try {
-            // Call call-end endpoint to finalize
-            await firstValueFrom(this.lessonService.endCall(this.lessonId!));
-            console.log('✅ Lesson finalized');
-            
-            // Navigate based on role to NEW post-lesson pages
-            if (this.userRole === 'student') {
-              console.log('📊 Navigating student to post-lesson page');
-              await this.router.navigate(['/post-lesson-student', this.lessonId]);
-            } else {
-              console.log('🎉 Navigating tutor to post-lesson page');
-              await this.router.navigate(['/post-lesson-tutor', this.lessonId]);
-            }
-          } catch (err) {
-            console.error('❌ Error finalizing lesson:', err);
-          }
-        }, 300);
+        // On-time exit — go straight to post-lesson page (call-end fires in background)
+        console.log('🚪 On-time exit — navigating to post-lesson page...');
+        if (userRole === 'student') {
+          await this.router.navigate(['/post-lesson-student', lessonId]);
+        } else if (isTrialLesson) {
+          await this.router.navigate(['/tabs/lessons']);
+        } else {
+          await this.router.navigate(['/post-lesson-tutor', lessonId], {
+            queryParams: { fromPostCall: 'true' }
+          });
+        }
       } else if (otherParticipantEnded) {
-        // Other participant ended - navigate based on role (lesson already finalized by them)
-        console.log('🚪 VideoCall: Other participant ended lesson');
-        setTimeout(async () => {
-          try {
-            if (this.userRole === 'student') {
-              // Students see the post-lesson page
-              console.log('📊 Navigating student to post-lesson page');
-              await this.router.navigate(['/post-lesson-student', this.lessonId]);
-            } else {
-              // Tutors see post-lesson page
-              console.log('🎉 Navigating tutor to post-lesson page');
-              await this.router.navigate(['/post-lesson-tutor', this.lessonId]);
-            }
-          } catch (err) {
-            console.error('❌ Error navigating after other participant ended:', err);
-          }
-        }, 300);
+        // Other participant ended — navigate to post-lesson page
+        console.log('🚪 Other participant ended — navigating to post-lesson page...');
+        if (userRole === 'student') {
+          await this.router.navigate(['/post-lesson-student', lessonId]);
+        } else if (isTrialLesson) {
+          await this.router.navigate(['/tabs/lessons']);
+        } else {
+          await this.router.navigate(['/post-lesson-tutor', lessonId], {
+            queryParams: { fromPostCall: 'true' }
+          });
+        }
       }
+
+      // ── 5. BACKGROUND: Fire-and-forget cleanup (runs AFTER navigation) ──
+      // These are all non-blocking. If any fail, cron jobs provide a safety net.
+      const localSpeakingSeconds = flushLocalSeconds;
+      const remoteSpeakingSeconds = this.syncedRemoteSpeakingSeconds;
+      const clientSpeakingSeconds = userRole === 'student'
+        ? { studentSeconds: Math.round(localSpeakingSeconds), tutorSeconds: Math.round(remoteSpeakingSeconds) }
+        : { studentSeconds: Math.round(remoteSpeakingSeconds), tutorSeconds: Math.round(localSpeakingSeconds) };
+      this.runBackgroundCleanup({
+        lessonId, userRole, isPermanentEnd, otherParticipantEnded,
+        transcriptionEnabled, transcriptId, transcriptionAlreadyDone,
+        vocabItems, goalItems, clientSpeakingSeconds
+      });
       
       // After navigation, prompt tutor to add note (always for tutors, regardless of who ended)
       if (this.userRole === 'tutor') {
@@ -4889,6 +5744,81 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       await this.router.navigate(['/tabs']);
       
       // Don't try to show anything on error - user can access from lesson history if needed
+    }
+  }
+
+  /**
+   * Fire-and-forget background cleanup after navigation.
+   * All calls here are non-critical — cron jobs catch anything that fails.
+   */
+  private async runBackgroundCleanup(ctx: {
+    lessonId: string | undefined;
+    userRole: string;
+    isPermanentEnd: boolean;
+    otherParticipantEnded: boolean;
+    transcriptionEnabled: boolean;
+    transcriptId: string;
+    transcriptionAlreadyDone: boolean;
+    vocabItems: any[];
+    goalItems: any[];
+    clientSpeakingSeconds: { studentSeconds: number; tutorSeconds: number };
+  }): Promise<void> {
+    try {
+      // 1. Stop audio capture (if still running)
+      if (ctx.transcriptionEnabled && !ctx.transcriptionAlreadyDone) {
+        try {
+          await this.stopAudioCapture_FIXED();
+          // Brief wait for final upload
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        } catch (e) { console.warn('⚠️ Background: stopAudioCapture failed:', e); }
+      }
+
+      // 2. Complete transcription (if not already done by pre-emptive trigger)
+      if (ctx.transcriptionEnabled && ctx.transcriptId && !ctx.transcriptionAlreadyDone) {
+        try {
+          console.log('📝 Background: completing transcription...');
+          await firstValueFrom(this.transcriptionService.completeTranscription());
+          console.log('✅ Background: transcription completed');
+        } catch (e) { console.warn('⚠️ Background: completeTranscription failed (cron will retry):', e); }
+        this.clearTranscriptionSession();
+        this.isTranscriptionEnabled = false;
+      }
+
+      // 3. Call leave endpoint
+      if (ctx.lessonId) {
+        try {
+          await firstValueFrom(this.lessonService.leaveLesson(ctx.lessonId));
+          console.log('✅ Background: leave endpoint called');
+        } catch (e) { console.warn('⚠️ Background: leave endpoint failed:', e); }
+      }
+
+      // 4. Finalize lesson (for permanent/on-time exits)
+      if (ctx.isPermanentEnd && ctx.lessonId) {
+        try {
+          await firstValueFrom(this.lessonService.endCall(ctx.lessonId, ctx.clientSpeakingSeconds));
+          console.log('✅ Background: lesson finalized via call-end');
+        } catch (e) { console.warn('⚠️ Background: call-end failed (cron will finalize):', e); }
+      }
+
+      // 5. Save vocabulary/goals
+      if (ctx.lessonId && (ctx.vocabItems.length > 0 || ctx.goalItems.length > 0)) {
+        try {
+          const vocabEntries: VocabEntry[] = ctx.vocabItems.map((v: any) => ({
+            word: v.word, translation: v.translation, example: v.example,
+            addedBy: (v.addedBy as 'tutor' | 'student') || 'tutor'
+          }));
+          const goalEntries: GoalEntry[] = ctx.goalItems.map((g: any) => ({
+            text: g.text, completed: g.completed,
+            addedBy: (g.addedBy as 'tutor' | 'student') || 'student'
+          }));
+          await firstValueFrom(this.vocabularyService.saveVocabulary(ctx.lessonId, vocabEntries, goalEntries));
+          console.log('✅ Background: vocabulary/goals saved');
+        } catch (e) { console.warn('⚠️ Background: vocab save failed:', e); }
+      }
+
+      console.log('✅ Background cleanup complete');
+    } catch (error) {
+      console.error('❌ Background cleanup error (non-fatal):', error);
     }
   }
 
@@ -5121,9 +6051,14 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   async ngOnDestroy() {
     console.log('🚪 VideoCall: ngOnDestroy called');
     
+    // Unsuppress the lesson reminder now that we're leaving the call
+    if (this.lessonId) {
+      this.reminderService.unsuppressForLesson(this.lessonId);
+    }
+    
     // CRITICAL: Always stop audio recording when page is destroyed
     // This prevents orphaned MediaRecorder from continuing to record/upload
-    if (this.transcriptionRecorder || this.transcriptionUploadInterval) {
+    if (this.transcriptionRecorder || this.transcriptionUploadInterval || this.samplingCheckInterval) {
       console.log('🛑🛑🛑 SAFETY: Stopping audio recording in ngOnDestroy');
       try {
         await this.stopAudioCapture_FIXED();
@@ -5133,10 +6068,26 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       }
     }
     
+    // Clear pre-emptive analysis timer
+    if (this.preEmptiveAnalysisTimer) {
+      clearTimeout(this.preEmptiveAnalysisTimer);
+      this.preEmptiveAnalysisTimer = null;
+    }
+    
     // Stop office hours timer
     if (this.timerInterval) {
       clearInterval(this.timerInterval);
       this.timerInterval = null;
+    }
+    
+    // Stop talk time tracking
+    if (this.talkTimeCheckInterval) {
+      clearInterval(this.talkTimeCheckInterval);
+      this.talkTimeCheckInterval = null;
+    }
+    if (this.talkTimeAutoHideTimer) {
+      clearTimeout(this.talkTimeAutoHideTimer);
+      this.talkTimeAutoHideTimer = null;
     }
     
     // Stop remote user monitoring
@@ -5193,7 +6144,12 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     // Clear pending voice note
     this.clearPendingVoiceNote();
     
-    if (this.isConnected) {
+    if (this.hasEndedCall) {
+      // endCall() already handled all cleanup (leaveLesson, leaveChannel, track cleanup).
+      // Only clean up remaining DOM elements as a safety net.
+      console.log('🚪 VideoCall: endCall already ran, skipping redundant cleanup in ngOnDestroy');
+      this.cleanupAllMediaElements();
+    } else if (this.isConnected) {
       console.log('🚪 VideoCall: Still connected, calling endCall from ngOnDestroy');
       try {
         await this.endCall();
@@ -5208,7 +6164,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         }
       }
     } else if (this.lessonId) {
-      // Even if not connected to Agora, still call leave endpoint
+      // Not connected and endCall didn't run — user navigated away without ending call
       console.log('🚪 VideoCall: Not connected but have lessonId, calling leave endpoint');
       try {
         const leaveResponse = await firstValueFrom(this.lessonService.leaveLesson(this.lessonId));
@@ -5236,6 +6192,12 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       this.cleanupAllMediaElements();
     }
 
+    // Cleanup notes auto-save
+    this.stopNotesAutoSave();
+    
+    // Cleanup vocabulary auto-save
+    this.stopVocabAutoSave();
+    
     // Cleanup whiteboard
     await this.destroyWhiteboard();
 
@@ -5331,6 +6293,14 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
   private handleBeforeUnload(event: BeforeUnloadEvent) {
     console.log('🚪 VideoCall: Browser beforeunload event');
+
+    // Final persist of talk time (synchronous — survives browser close)
+    const now = Date.now();
+    let localSeconds = this.speakingTimeAccumulator.get('local') || 0;
+    const localStart = this.speakingStartTime.get('local');
+    if (localStart) localSeconds += (now - localStart) / 1000;
+    this.persistTalkTimeToStorage(localSeconds, this.syncedRemoteSpeakingSeconds);
+
     // Call leave endpoint synchronously (best effort)
     if (this.lessonId) {
       // Get auth headers for the request
@@ -5407,9 +6377,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
           handler: () => {
             if (this.userRole === 'tutor') {
               // Tutor: Return to pre-call waiting room with office hours enabled
+              // SECURITY: role is determined from lesson data + auth, not passed in URL
               this.router.navigate(['/pre-call'], {
                 queryParams: {
-                  role: 'tutor',
                   officeHours: 'true'
                 }
               });
@@ -5581,6 +6551,260 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   // ========================================
+  // REAL-TIME TALK TIME TRACKING & POPUP
+  // ========================================
+
+  /**
+   * Returns true if the scheduled lesson start time has arrived (or if no start time is known).
+   * Talk time is only accumulated after the lesson officially starts.
+   */
+  private hasLessonStarted(): boolean {
+    // If no scheduled start time is known, default to "started" (e.g. ad-hoc calls)
+    if (!this.scheduledLessonStartTime) return true;
+    return Date.now() >= this.scheduledLessonStartTime;
+  }
+
+  /**
+   * Start tracking talk time. The popup appears at 60% of the booked lesson 
+   * duration (measured from the scheduled start time) and auto-dismisses 
+   * after 10 seconds. Both tutor and student see this.
+   */
+  private startTalkTimeTracking(): void {
+    console.log('🗣️ startTalkTimeTracking called', {
+      isOfficeHours: this.isOfficeHours,
+      isClass: this.isClass,
+      userRole: this.userRole,
+      tutorName: this.tutorName,
+      studentName: this.studentName,
+      bookedDuration: this.bookedDuration,
+      scheduledLessonStartTime: this.scheduledLessonStartTime 
+        ? new Date(this.scheduledLessonStartTime).toLocaleTimeString() 
+        : 'N/A',
+      hasLessonStarted: this.hasLessonStarted()
+    });
+
+    // Set speaker names
+    this.localSpeakerName = 'You';
+    this.remoteSpeakerName = this.userRole === 'tutor' 
+      ? (this.studentName || 'Student') 
+      : (this.tutorName || 'Tutor');
+
+    // Skip for classes, trial lessons, and office hours (quick lessons)
+    if (this.isClass || this.isTrialLesson || this.isOfficeHours) {
+      console.log('⏭️ Talk time tracking skipped', {
+        isClass: this.isClass,
+        isTrialLesson: this.isTrialLesson,
+        isOfficeHours: this.isOfficeHours
+      });
+      return;
+    }
+
+    // Restore persisted talk time data if user refreshed / rejoined mid-lesson
+    this.restoreTalkTimeFromStorage();
+
+    // Check if we joined early (before scheduled start)
+    this.isWaitingForLessonStart = !this.hasLessonStarted();
+    if (this.isWaitingForLessonStart) {
+      console.log('⏳ User joined before lesson start time — talk time tracking paused until lesson begins');
+    }
+
+    // Don't show popup yet — it will appear at 60% of booked time
+    this.computeTalkTimeDisplay();
+    this.cdr.detectChanges();
+    console.log('🗣️ Talk time tracking started (popup will appear at 60% of lesson time)');
+
+    // Update display live every 2 seconds and check if it's time to show the popup
+    this.talkTimeCheckInterval = setInterval(() => {
+      // Re-sync remote speaker name in case it loaded late
+      const updatedRemoteName = this.userRole === 'tutor' 
+        ? (this.studentName || 'Student') 
+        : (this.tutorName || 'Tutor');
+      if (updatedRemoteName !== this.remoteSpeakerName) {
+        this.remoteSpeakerName = updatedRemoteName;
+      }
+      
+      // Update waiting state — once lesson starts, flip this flag
+      if (this.isWaitingForLessonStart && this.hasLessonStarted()) {
+        this.isWaitingForLessonStart = false;
+        console.log('🎬 Lesson has officially started — talk time tracking activated');
+      }
+      
+      this.computeTalkTimeDisplay();
+
+      // Show popup at 60% of booked lesson time (only once, and only if not dismissed)
+      if (!this.talkTimePopupShown && !this.talkTimePopupDismissed && this.shouldShowTalkTimePopup()) {
+        this.showTalkTimePopup = true;
+        this.talkTimePopupShown = true;
+        console.log('🗣️ Talk time popup shown at 60% of lesson time');
+
+        // Auto-dismiss after 10 seconds
+        this.talkTimeAutoHideTimer = setTimeout(() => {
+          if (this.showTalkTimePopup && !this.talkTimePopupDismissed) {
+            this.dismissTalkTimePopup();
+            console.log('🗣️ Talk time popup auto-dismissed after 10 seconds');
+          }
+        }, 10000);
+      }
+
+      this.cdr.detectChanges();
+    }, 2000);
+  }
+
+  /**
+   * Checks whether 60% of the booked lesson duration has elapsed since the
+   * scheduled start time.
+   */
+  private shouldShowTalkTimePopup(): boolean {
+    if (!this.scheduledLessonStartTime || !this.bookedDuration) return false;
+    if (!this.hasLessonStarted()) return false;
+
+    const elapsedMs = Date.now() - this.scheduledLessonStartTime;
+    const bookedMs = this.bookedDuration * 60 * 1000;
+    const threshold = bookedMs * 0.6; // 60%
+
+    return elapsedMs >= threshold;
+  }
+
+  // ── Talk Time Persistence (survives page refresh) ────────────────
+
+  private getTalkTimeStorageKey(): string | null {
+    return this.lessonId ? `talkTime_${this.lessonId}` : null;
+  }
+
+  private persistTalkTimeToStorage(localSeconds: number, remoteSeconds: number): void {
+    const key = this.getTalkTimeStorageKey();
+    if (!key) return;
+    try {
+      localStorage.setItem(key, JSON.stringify({
+        localSeconds,
+        remoteSeconds,
+        timestamp: Date.now()
+      }));
+    } catch (_) { /* quota exceeded — non-critical */ }
+  }
+
+  private restoreTalkTimeFromStorage(): void {
+    const key = this.getTalkTimeStorageKey();
+    if (!key) return;
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+
+      // If the lesson's scheduled end time has passed, discard stale data
+      if (this.scheduledLessonStartTime && this.bookedDuration) {
+        const scheduledEndMs = this.scheduledLessonStartTime + (this.bookedDuration * 60 * 1000);
+        // Add 30-min grace period (users can stay a bit past end time)
+        if (Date.now() > scheduledEndMs + 30 * 60 * 1000) {
+          console.log('🗑️ Lesson has ended — discarding stale talk time data');
+          localStorage.removeItem(key);
+          return;
+        }
+      }
+
+      // Fallback: discard if data is more than 4 hours old
+      if (Date.now() - data.timestamp > 4 * 60 * 60 * 1000) {
+        localStorage.removeItem(key);
+        return;
+      }
+
+      // Seed the accumulators with the persisted values
+      const existingLocal = this.speakingTimeAccumulator.get('local') || 0;
+      const existingRemote = this.syncedRemoteSpeakingSeconds;
+      if (data.localSeconds > existingLocal) {
+        this.speakingTimeAccumulator.set('local', data.localSeconds);
+        console.log(`🔄 Restored local talk time from storage: ${Math.round(data.localSeconds)}s`);
+      }
+      if (data.remoteSeconds > existingRemote) {
+        this.syncedRemoteSpeakingSeconds = data.remoteSeconds;
+        console.log(`🔄 Restored remote talk time from storage: ${Math.round(data.remoteSeconds)}s`);
+      }
+    } catch (_) { /* corrupt data — ignore */ }
+  }
+
+  private clearTalkTimeStorage(): void {
+    const key = this.getTalkTimeStorageKey();
+    if (key) {
+      localStorage.removeItem(key);
+      console.log('🗑️ Cleared persisted talk time data');
+    }
+  }
+
+  /**
+   * Clear lesson-specific localStorage items (vocab, notes) after a permanent end.
+   * Backend already has the persisted data, so these local copies can go.
+   */
+  private clearLessonLocalStorage(): void {
+    if (!this.lessonId) return;
+    try {
+      localStorage.removeItem(`lesson_vocab_${this.lessonId}`);
+      localStorage.removeItem(`lesson_notes_${this.lessonId}`);
+      console.log('🗑️ Cleared lesson localStorage (vocab, notes) for lesson', this.lessonId);
+    } catch (e) {
+      // Non-critical — ignore
+    }
+  }
+
+  /**
+   * Compute the display values for talk time (runs once when popup triggers)
+   */
+  private computeTalkTimeDisplay(): void {
+    // Get current accumulated LOCAL speaking time (self-measured, most accurate)
+    const now = Date.now();
+    let localSeconds = this.speakingTimeAccumulator.get('local') || 0;
+    const localStart = this.speakingStartTime.get('local');
+    if (localStart) {
+      localSeconds += (now - localStart) / 1000;
+    }
+
+    // REMOTE speaking time — use the SYNCED value from the other participant
+    // They measure their own mic, which is far more accurate than our decoded audio
+    const remoteSeconds = this.syncedRemoteSpeakingSeconds;
+
+    // Broadcast our local speaking time to the other participant
+    this.agoraService.sendTalkTimeUpdate(localSeconds);
+
+    // Persist to localStorage so data survives page refreshes
+    this.persistTalkTimeToStorage(localSeconds, remoteSeconds);
+
+    // Calculate percentages
+    const total = localSeconds + remoteSeconds;
+    if (total > 0) {
+      this.localSpeakingPercent = Math.round((localSeconds / total) * 100);
+      this.remoteSpeakingPercent = Math.round((remoteSeconds / total) * 100);
+    } else {
+      this.localSpeakingPercent = 0;
+      this.remoteSpeakingPercent = 0;
+    }
+
+    // Format as percentages for display
+    this.localSpeakingPercentFormatted = `${this.localSpeakingPercent}%`;
+    this.remoteSpeakingPercentFormatted = `${this.remoteSpeakingPercent}%`;
+
+    console.log('🗣️ Talk time computed (synced):', {
+      localSeconds: Math.round(localSeconds),
+      remoteSeconds: Math.round(remoteSeconds),
+      localPercent: this.localSpeakingPercent,
+      remotePercent: this.remoteSpeakingPercent
+    });
+  }
+
+  // formatSpeakingTime removed — now displaying percentages only
+
+  /**
+   * Dismiss the talk time popup
+   */
+  dismissTalkTimePopup(): void {
+    this.showTalkTimePopup = false;
+    this.talkTimePopupDismissed = true;
+    if (this.talkTimeAutoHideTimer) {
+      clearTimeout(this.talkTimeAutoHideTimer);
+      this.talkTimeAutoHideTimer = null;
+    }
+    this.cdr.detectChanges();
+  }
+
+  // ========================================
   // AI TRANSCRIPTION & ANALYSIS
   // ========================================
 
@@ -5632,24 +6856,17 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         return;
       }
 
-      // FEATURE TEMPORARILY DISABLED: AI analysis toggle
-      // Always enable transcription for now
-      // 
-      // // Check if student has AI analysis enabled
-      // // Default to TRUE if we can't determine (backwards compatibility)
-      // console.log('🤖 Checking AI analysis setting for student...');
-      // const student = lesson.studentId as any; // Should be populated by backend
-      // 
-      // // Only skip if explicitly disabled
-      // if (student && typeof student === 'object' && student.profile && student.profile.aiAnalysisEnabled === false) {
-      //   console.log('⏭️ SKIPPING TRANSCRIPTION - AI analysis disabled by student');
-      //   console.log('🎤 === DEEPGRAM TRANSCRIPTION CHECK END (AI DISABLED) ===');
-      //   return;
-      // }
-      // 
-      // console.log('✅ AI analysis enabled (or unknown) - proceeding with transcription');
+      // Check the AI setting snapshot that was locked at lesson start (join time).
+      // Mid-lesson changes do NOT affect the current lesson — only the next one.
+      console.log('🤖 Checking AI analysis snapshot (locked at lesson start):', this.aiAnalysisEnabledAtTime);
       
-      console.log('✅ Proceeding with transcription (AI analysis always enabled)');
+      if (this.aiAnalysisEnabledAtTime === false) {
+        console.log('⏭️ SKIPPING TRANSCRIPTION - AI analysis was disabled at lesson start');
+        console.log('🎤 === TRANSCRIPTION CHECK END (AI DISABLED AT START) ===');
+        return;
+      }
+      
+      console.log('✅ AI analysis enabled at lesson start - proceeding with transcription');
 
       // Determine language being learned and convert to ISO code
       const languageMap: { [key: string]: string } = {
@@ -5666,7 +6883,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         'Arabic': 'ar'
       };
       
-      const subjectLanguage = lesson.subject || 'English';
+      // Normalize "Spanish Lesson" → "Spanish", etc.
+      const rawSubject = lesson.subject || 'English';
+      const subjectLanguage = rawSubject.replace(/\s*Lesson$/i, '').trim();
       this.lessonLanguage = languageMap[subjectLanguage] || 'en';
       
       console.log(`🎙️ Deepgram language conversion:`, {
@@ -5707,6 +6926,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             
             // Start capturing audio from local microphone
             this.startAudioCapture_FIXED();
+            
+            // Schedule pre-emptive analysis trigger (1 min before lesson ends)
+            this.schedulePreEmptiveAnalysis();
           },
           error: (error) => {
             console.error('❌ ❌ ❌ FAILED TO START WHISPER TRANSCRIPTION ❌ ❌ ❌');
@@ -5722,6 +6944,89 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     }
     
     console.log('🎤 === DEEPGRAM TRANSCRIPTION CHECK END ===');
+  }
+
+  /**
+   * Schedule a pre-emptive analysis trigger 1 minute before the lesson's scheduled end.
+   * This stops transcription and sends it for analysis early, so the student
+   * sees the completed analysis immediately on the post-lesson page.
+   */
+  private schedulePreEmptiveAnalysis(): void {
+    // Need both the scheduled start time and booked duration to calculate the end
+    if (!this.scheduledLessonStartTime || !this.bookedDuration) {
+      console.warn('⏰ Cannot schedule pre-emptive analysis: missing scheduledLessonStartTime or bookedDuration');
+      return;
+    }
+
+    const scheduledEndMs = this.scheduledLessonStartTime + (this.bookedDuration * 60 * 1000);
+    const triggerMs = scheduledEndMs - (60 * 1000); // 1 minute before scheduled end
+    const delayMs = triggerMs - Date.now();
+
+    if (delayMs <= 0) {
+      console.warn('⏰ Pre-emptive analysis: trigger time is already in the past — skipping timer');
+      return;
+    }
+
+    // Clear any existing timer
+    if (this.preEmptiveAnalysisTimer) {
+      clearTimeout(this.preEmptiveAnalysisTimer);
+    }
+
+    console.log(`⏰ Pre-emptive analysis scheduled in ${Math.round(delayMs / 1000)}s (1 min before lesson end at ${new Date(scheduledEndMs).toLocaleTimeString()})`);
+
+    this.preEmptiveAnalysisTimer = setTimeout(async () => {
+      await this.triggerPreEmptiveAnalysis();
+    }, delayMs);
+  }
+
+  /**
+   * Stop transcription and trigger analysis 1 minute before the lesson ends.
+   * The audio capture is stopped, final chunks uploaded, and completeTranscription() called.
+   * When the student later clicks "End Call", the analysis should already be done.
+   */
+  private async triggerPreEmptiveAnalysis(): Promise<void> {
+    // Guard: only run once, only if transcription is active, and not already in progress
+    if (this.transcriptionCompletedEarly || this.isCompletingTranscription ||
+        !this.isTranscriptionEnabled || !this.currentTranscriptId) {
+      console.log('⏰ Pre-emptive analysis: skipping (already completed, in progress, or transcription not active)');
+      return;
+    }
+
+    // If the user is already ending the call, don't interfere
+    if (this.isEndingCall) {
+      console.log('⏰ Pre-emptive analysis: skipping — endCall() is already running');
+      return;
+    }
+
+    this.isCompletingTranscription = true; // Acquire mutex
+    console.log('⏰🤖 === PRE-EMPTIVE ANALYSIS TRIGGER (1 min before end) ===');
+
+    try {
+      // 1. Stop audio capture
+      console.log('⏰ Stopping audio capture for pre-emptive analysis...');
+      await this.stopAudioCapture_FIXED();
+      console.log('⏰ ✅ Audio capture stopped');
+
+      // 2. Wait for final upload to be processed by the backend
+      console.log('⏰ Waiting 3s for final upload processing...');
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      // 3. Complete the transcription — this triggers Whisper processing + GPT-4 analysis
+      console.log('⏰ Completing transcription and triggering analysis...');
+      await firstValueFrom(this.transcriptionService.completeTranscription());
+      console.log('⏰ ✅ Transcription completed — analysis is now running on the backend');
+
+      // 4. Mark as completed so endCall() doesn't try to do it again
+      this.transcriptionCompletedEarly = true;
+      this.clearTranscriptionSession();
+
+      console.log('⏰🤖 === PRE-EMPTIVE ANALYSIS COMPLETE ===');
+    } catch (error) {
+      console.error('⏰ ❌ Pre-emptive analysis failed (non-fatal — endCall will retry):', error);
+      // Don't set transcriptionCompletedEarly — let endCall() handle it as a fallback
+    } finally {
+      this.isCompletingTranscription = false; // Release mutex
+    }
   }
 
   /**
@@ -6062,33 +7367,96 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * FIXED: Start capturing audio with better format handling
+   * Calculate sampling windows based on lesson duration.
+   * Only 25-min and 50-min standard lessons are supported.
+   * All other durations (trial, office hours, quick, etc.) return empty = no recording.
+   */
+  private calculateSamplingWindows(durationMinutes: number): { startMin: number; endMin: number }[] {
+    if (durationMinutes === 25) {
+      // 25-min lesson: 3 windows = 15 min recorded (60%)
+      // ┌──────────────────────────────────────────────────────────┐
+      // │  [🔴 min 1-6]  ...  [🔴 min 10-15]  ...  [🔴 min 19-24] │
+      // │  ▲ Opening        ▲ Mid-lesson core     ▲ Closing        │
+      // └──────────────────────────────────────────────────────────┘
+      return [
+        { startMin: 1, endMin: 6 },     // Opening/warm-up
+        { startMin: 10, endMin: 15 },   // Mid-lesson core practice
+        { startMin: 19, endMin: 24 },   // Closing/wrap-up
+      ];
+    }
+    
+    if (durationMinutes === 50) {
+      // 50-min lesson: 3 windows = 15 min recorded (30%)
+      // ┌──────────────────────────────────────────────────────────────────┐
+      // │  [🔴 min 2-7]  ...silence...  [🔴 min 22-27]  ...  [🔴 min 42-47]  │
+      // │  ▲ Opening        ▲ Mid-lesson core         ▲ Closing           │
+      // └──────────────────────────────────────────────────────────────────┘
+      return [
+        { startMin: 2, endMin: 7 },      // Opening/warm-up
+        { startMin: 22, endMin: 27 },    // Mid-lesson core practice
+        { startMin: 42, endMin: 47 },    // Closing/natural speech
+      ];
+    }
+    
+    // Any other duration: no recording
+    console.log(`⏭️ No sampling windows for ${durationMinutes}min lesson — only 25 and 50 min lessons are recorded`);
+    return [];
+  }
+
+  /**
+   * Start capturing audio using window-based sampling.
+   * Only records for 25-min and 50-min standard lessons.
+   * Trial lessons, office hours, quick lessons, and classes are never recorded.
    */
   private async startAudioCapture_FIXED() {
     try {
-      console.log('🎙️ ========== STARTING FIXED AUDIO CAPTURE ==========');
+      console.log('🎙️ ========== STARTING SAMPLED AUDIO CAPTURE ==========');
       
-      // Get microphone access directly (don't rely on Agora)
+      // Guard: no recording for trial lessons
+      if (this.isTrialLesson) {
+        console.log('⏭️ SKIPPING audio capture — trial lesson');
+        return;
+      }
+      
+      // Guard: no recording for classes (group sessions)
+      if (this.isClass) {
+        console.log('⏭️ SKIPPING audio capture — class (group session)');
+        return;
+      }
+      
+      // Guard: no recording for office hours
+      if (this.isOfficeHours) {
+        console.log('⏭️ SKIPPING audio capture — office hours');
+        return;
+      }
+      
+      // Guard: only 25-min and 50-min lessons get recorded
+      const lessonDuration = this.bookedDuration;
+      if (lessonDuration !== 25 && lessonDuration !== 50) {
+        console.log(`⏭️ SKIPPING audio capture — unsupported duration: ${lessonDuration}min (only 25 and 50 min supported)`);
+        return;
+      }
+      
+      // Get microphone access
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          sampleRate: 16000,    // Whisper prefers 16kHz
-          channelCount: 1,      // Mono
+          sampleRate: 16000,
+          channelCount: 1,
           echoCancellation: true,
           noiseSuppression: true
         }
       });
       
+      this.transcriptionStream = stream;
       console.log('✅ Got direct microphone access');
       
-      // Use audio/webm which is most reliable across browsers
-      // MP3 would be ideal but not supported by MediaRecorder
-      let selectedType = 'audio/webm'; // Default to webm (will be converted to MP3 on backend)
-      
+      // Determine audio format
+      let selectedType = 'audio/webm';
       const preferredTypes = [
-        'audio/webm;codecs=opus', // Best quality webm
-        'audio/webm',              // Fallback webm
-        'audio/mp4',               // iOS/Safari
-        'audio/wav'                // Last resort
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+        'audio/wav'
       ];
       
       for (const type of preferredTypes) {
@@ -6098,20 +7466,75 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
           break;
         }
       }
+      this.transcriptionMimeType = selectedType;
       
-      // Create MediaRecorder with optimal settings
-      this.transcriptionRecorder = new MediaRecorder(stream, {
-        mimeType: selectedType,
-        audioBitsPerSecond: 64000  // Lower bitrate for smaller files
+      // Calculate sampling windows (guaranteed to be non-empty for 25/50 min)
+      this.samplingWindows = this.calculateSamplingWindows(lessonDuration);
+      this.lessonStartTimestamp = Date.now();
+      this.batchAudioBlobs = [];
+      this.transcriptionAudioChunks = [];
+      this.isCurrentlyRecording = false;
+      
+      console.log(`📊 Sampling strategy for ${lessonDuration}min lesson:`, this.samplingWindows);
+      console.log(`📊 Total recording time: ${this.samplingWindows.reduce((sum, w) => sum + (w.endMin - w.startMin), 0)} minutes`);
+      
+      // Check every 10 seconds whether we should be recording
+      this.samplingCheckInterval = setInterval(() => {
+        this.checkSamplingWindow();
+      }, 10000);
+      
+      // Do an immediate check
+      this.checkSamplingWindow();
+      
+      console.log('🎙️ ========== SAMPLED AUDIO CAPTURE READY ==========');
+      
+    } catch (error) {
+      console.error('❌ Error in sampled audio capture:', error);
+    }
+  }
+
+  /**
+   * Check if we should be recording based on current time in the lesson.
+   * Starts/stops the MediaRecorder based on sampling windows.
+   */
+  private checkSamplingWindow(): void {
+    const elapsedMs = Date.now() - this.lessonStartTimestamp;
+    const elapsedMin = elapsedMs / 60000;
+    
+    // Check if we're inside any sampling window
+    const shouldRecord = this.samplingWindows.some(
+      w => elapsedMin >= w.startMin && elapsedMin < w.endMin
+    );
+    
+    if (shouldRecord && !this.isCurrentlyRecording) {
+      // START recording for this window
+      this.startWindowRecording();
+    } else if (!shouldRecord && this.isCurrentlyRecording) {
+      // STOP recording for this window and save the audio
+      this.stopWindowRecording();
+    }
+  }
+
+  /**
+   * Start recording for a sampling window.
+   */
+  private startWindowRecording(): void {
+    if (!this.transcriptionStream || this.isCurrentlyRecording) return;
+    
+    try {
+      const elapsedMin = ((Date.now() - this.lessonStartTimestamp) / 60000).toFixed(1);
+      console.log(`🟢 Starting sampling window recording at minute ${elapsedMin}`);
+      
+      this.transcriptionRecorder = new MediaRecorder(this.transcriptionStream, {
+        mimeType: this.transcriptionMimeType,
+        audioBitsPerSecond: 64000
       });
       
       this.transcriptionAudioChunks = [];
       
-      // Collect audio data
       this.transcriptionRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           this.transcriptionAudioChunks.push(event.data);
-          console.log(`🎙️ ✅ Audio chunk: ${event.data.size} bytes (Total: ${this.transcriptionAudioChunks.length})`);
         }
       };
       
@@ -6119,148 +7542,191 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         console.error('❌ MediaRecorder error:', event);
       };
       
-      // Start recording with longer intervals (30 seconds)
+      // Collect data every 30 seconds within the window
       this.transcriptionRecorder.start(30000);
-      console.log(`✅ Recording started with format: ${selectedType}`);
-      
-      // Upload chunks every 30 seconds
-      this.transcriptionUploadInterval = setInterval(() => {
-        this.uploadAudioChunk_FIXED();
-      }, 30000);
-      
-      // Add visibility change listener to upload immediately on page hide/refresh
-      document.addEventListener('visibilitychange', () => {
-        if (document.hidden && this.transcriptionAudioChunks.length > 0) {
-          console.log('🚨 Page hidden - uploading buffer immediately to prevent data loss');
-          this.uploadAudioChunk_FIXED();
-        }
-      });
-      
-      console.log('🎙️ ========== FIXED AUDIO CAPTURE READY ==========');
+      this.isCurrentlyRecording = true;
       
     } catch (error) {
-      console.error('❌ Error in fixed audio capture:', error);
+      console.error('❌ Error starting window recording:', error);
     }
   }
 
   /**
-   * FIXED: Upload audio chunk with better error handling
+   * Stop recording for a sampling window and save the audio blob.
    */
-  private uploadAudioChunk_FIXED(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      console.log('🎙️ ========== FIXED UPLOAD CALLED ==========');
-      
-      if (!this.transcriptionRecorder || this.transcriptionAudioChunks.length === 0) {
-        console.log('⏭️ No audio to upload yet');
-        resolve();
-        return;
-      }
-      
-      try {
-        // Stop recorder to finalize the current chunk
-        if (this.transcriptionRecorder.state === 'recording') {
-          this.transcriptionRecorder.stop();
+  private stopWindowRecording(): void {
+    if (!this.transcriptionRecorder || !this.isCurrentlyRecording) return;
+    
+    const elapsedMin = ((Date.now() - this.lessonStartTimestamp) / 60000).toFixed(1);
+    console.log(`🔴 Stopping sampling window recording at minute ${elapsedMin}`);
+    
+    const recorder = this.transcriptionRecorder;
+    
+    recorder.onstop = () => {
+      // Save this window's audio as a blob for batch upload later
+      if (this.transcriptionAudioChunks.length > 0) {
+        const windowBlob = new Blob(this.transcriptionAudioChunks, { type: this.transcriptionMimeType });
+        if (windowBlob.size > 1000) {
+          this.batchAudioBlobs.push(windowBlob);
+          console.log(`📦 Window audio saved: ${windowBlob.size} bytes (${this.batchAudioBlobs.length} windows stored)`);
         }
-        
-        // Wait for the final chunk, then upload
-        this.transcriptionRecorder.onstop = () => {
-          const audioBlob = new Blob(this.transcriptionAudioChunks, { 
-            type: this.transcriptionRecorder?.mimeType || 'audio/wav'
-          });
-          
-          console.log(`📦 Created audio blob: ${audioBlob.size} bytes, type: ${audioBlob.type}`);
-          
-          if (audioBlob.size > 1000) { // Only upload substantial audio
-            const transcriptId = this.transcriptionService.currentTranscriptId;
-            
-            if (transcriptId) {
-              console.log('📤 Uploading to Whisper...');
-              this.transcriptionService.uploadAudio(transcriptId, audioBlob, 'student')
-                .subscribe({
-                  next: (response) => {
-                    console.log('✅ ✅ ✅ WHISPER UPLOAD SUCCESS:', response);
-                    
-                    // Restart recording for next chunk
-                    this.transcriptionAudioChunks = [];
-                    if (this.transcriptionRecorder) {
-                      this.transcriptionRecorder.start(30000);
-                    }
-                    resolve();
-                  },
-                  error: (error) => {
-                    console.error('❌ ❌ ❌ WHISPER UPLOAD ERROR:', error);
-                    reject(error);
-                  }
-                });
-            } else {
-              console.error('❌ No transcript ID');
-              resolve();
-            }
-          } else {
-            console.log('⏭️ Blob too small, skipping');
-            resolve();
-          }
-        };
-        
-      } catch (error) {
-        console.error('❌ Error in fixed upload:', error);
-        reject(error);
       }
-    });
+      this.transcriptionAudioChunks = [];
+    };
+    
+    if (recorder.state === 'recording') {
+      recorder.stop();
+    }
+    
+    this.transcriptionRecorder = null;
+    this.isCurrentlyRecording = false;
   }
 
   /**
-   * FIXED: Stop audio capture
+   * BATCH UPLOAD: Upload all sampled audio windows as a single concatenated blob at lesson end.
+   * This replaces the old per-30-second upload approach.
+   */
+  private async uploadBatchAudio(): Promise<void> {
+    console.log('🎙️ ========== BATCH UPLOAD CALLED ==========');
+    
+    // If currently recording, stop and save the current window first
+    if (this.isCurrentlyRecording && this.transcriptionRecorder) {
+      await new Promise<void>((resolve) => {
+        const recorder = this.transcriptionRecorder!;
+        recorder.onstop = () => {
+          if (this.transcriptionAudioChunks.length > 0) {
+            const windowBlob = new Blob(this.transcriptionAudioChunks, { type: this.transcriptionMimeType });
+            if (windowBlob.size > 1000) {
+              this.batchAudioBlobs.push(windowBlob);
+            }
+          }
+          this.transcriptionAudioChunks = [];
+          resolve();
+        };
+        if (recorder.state === 'recording') {
+          recorder.stop();
+        } else {
+          resolve();
+        }
+      });
+      this.transcriptionRecorder = null;
+      this.isCurrentlyRecording = false;
+    }
+    
+    if (this.batchAudioBlobs.length === 0) {
+      console.log('⏭️ No audio windows to upload');
+      return;
+    }
+    
+    // Concatenate all window blobs into one
+    const combinedBlob = new Blob(this.batchAudioBlobs, { type: this.transcriptionMimeType });
+    console.log(`📦 Combined batch audio: ${combinedBlob.size} bytes from ${this.batchAudioBlobs.length} windows`);
+    
+    if (combinedBlob.size < 1000) {
+      console.log('⏭️ Combined blob too small, skipping');
+      return;
+    }
+    
+    const transcriptId = this.transcriptionService.currentTranscriptId;
+    if (!transcriptId) {
+      console.error('❌ No transcript ID for batch upload');
+      return;
+    }
+    
+    console.log('📤 Uploading batch audio to Whisper...');
+    try {
+      await new Promise<void>((resolve, reject) => {
+        this.transcriptionService.uploadAudio(transcriptId, combinedBlob, 'student')
+          .subscribe({
+            next: (response) => {
+              console.log('✅ ✅ ✅ BATCH WHISPER UPLOAD SUCCESS:', response);
+              resolve();
+            },
+            error: (error) => {
+              console.error('❌ ❌ ❌ BATCH WHISPER UPLOAD ERROR:', error);
+              reject(error);
+            }
+          });
+      });
+    } catch (error) {
+      console.error('❌ Batch upload failed:', error);
+    }
+    
+    // Clear stored blobs
+    this.batchAudioBlobs = [];
+  }
+
+  /**
+   * Legacy compatibility wrapper - redirects to batch upload.
+   */
+  private uploadAudioChunk_FIXED(): Promise<void> {
+    return this.uploadBatchAudio();
+  }
+
+  /**
+   * Legacy compatibility wrapper - no longer needed with sampling approach.
+   */
+  private restartRecorder(_mimeType: string): void {
+    // No-op: sampling approach handles recorder lifecycle via window start/stop
+  }
+
+  /**
+   * Stop audio capture and perform batch upload of all sampled windows.
    */
   private async stopAudioCapture_FIXED(): Promise<void> {
-    console.log('🛑 Stopping fixed audio capture...');
+    console.log('🛑 Stopping sampled audio capture...');
     
     try {
-      // Stop upload interval FIRST
+      // Stop the sampling check interval
+      if (this.samplingCheckInterval) {
+        clearInterval(this.samplingCheckInterval);
+        this.samplingCheckInterval = null;
+        console.log('✅ Sampling check interval cleared');
+      }
+      
+      // Stop legacy upload interval if still running
       if (this.transcriptionUploadInterval) {
         clearInterval(this.transcriptionUploadInterval);
         this.transcriptionUploadInterval = null;
-        console.log('✅ Upload interval cleared');
       }
       
-      // Stop recorder and its tracks
+      // Perform batch upload of all sampled audio
+      console.log('📤 Performing batch upload of all sampled windows...');
+      try {
+        await Promise.race([
+          this.uploadBatchAudio(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Batch upload timeout after 30 seconds')), 30000)
+          )
+        ]);
+        console.log('✅ Batch upload completed');
+      } catch (error) {
+        console.error('❌ Error in batch upload:', error);
+      }
+      
+      // Stop recorder if still active
       if (this.transcriptionRecorder) {
         if (this.transcriptionRecorder.state === 'recording') {
           this.transcriptionRecorder.stop();
         }
-        
-        // Stop all audio tracks to release microphone
-        if (this.transcriptionRecorder.stream) {
-          this.transcriptionRecorder.stream.getTracks().forEach(track => {
-            track.stop();
-            console.log('🛑 Stopped audio track:', track.kind);
-          });
-        }
-        
         this.transcriptionRecorder = null;
-        console.log('✅ Recorder stopped and tracks released');
       }
       
-      // Upload final chunk if there is one (but ONLY if we haven't cleared the interval above)
-      if (this.transcriptionAudioChunks.length > 0 && this.transcriptionUploadInterval === null) {
-        console.log('📤 Uploading final chunk...');
-        try {
-          await Promise.race([
-            this.uploadAudioChunk_FIXED(),
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Upload timeout after 10 seconds')), 10000)
-            )
-          ]);
-          console.log('✅ Final chunk uploaded');
-        } catch (error) {
-          console.error('❌ Error uploading final chunk:', error);
-        }
+      // Release microphone
+      if (this.transcriptionStream) {
+        this.transcriptionStream.getTracks().forEach(track => {
+          track.stop();
+          console.log('🛑 Stopped audio track:', track.kind);
+        });
+        this.transcriptionStream = null;
       }
       
-      // Clear any remaining chunks
+      // Clear all audio data
       this.transcriptionAudioChunks = [];
+      this.batchAudioBlobs = [];
+      this.isCurrentlyRecording = false;
       
-      console.log('✅ Fixed audio capture stopped');
+      console.log('✅ Sampled audio capture stopped');
     } catch (error) {
       console.error('❌ Error in stopAudioCapture_FIXED:', error);
     }
@@ -6271,6 +7737,18 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
    */
   private async stopTranscriptionImmediately(): Promise<void> {
     console.log('🛑🛑🛑 STOPPING TRANSCRIPTION IMMEDIATELY (Early Exit)');
+    
+    // Cancel pre-emptive analysis timer — we're ending now
+    if (this.preEmptiveAnalysisTimer) {
+      clearTimeout(this.preEmptiveAnalysisTimer);
+      this.preEmptiveAnalysisTimer = null;
+    }
+    
+    // If pre-emptive analysis already completed, nothing more to do
+    if (this.transcriptionCompletedEarly) {
+      console.log('⏰ Transcription already completed pre-emptively — skipping immediate stop');
+      return;
+    }
     
     try {
       // Stop audio capture

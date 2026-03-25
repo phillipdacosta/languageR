@@ -258,9 +258,9 @@ const ANALYSIS_CONFIG = {
   SAMPLE_MIDDLE_PERCENT: 0.25,     // Middle 25% 
   SAMPLE_END_PERCENT: 0.40,        // Last 40% (most recent)
   
-  // Cost tracking (GPT-4o pricing per 1M tokens)
-  COST_PER_INPUT_TOKEN: 0.0000025,   // $2.50 per 1M
-  COST_PER_OUTPUT_TOKEN: 0.000010,   // $10.00 per 1M
+  // Cost tracking (GPT-4o-mini pricing per 1M tokens)
+  COST_PER_INPUT_TOKEN: 0.00000015,   // $0.15 per 1M
+  COST_PER_OUTPUT_TOKEN: 0.0000006,   // $0.60 per 1M
   
   // Quality thresholds
   MIN_WORDS_FOR_ANALYSIS: 50,
@@ -696,7 +696,7 @@ IMPORTANT GUIDELINES:
 `;
 
     const response = await getOpenAIClient().chat.completions.create({
-      model: "gpt-4o-2024-08-06",
+      model: "gpt-4o-mini",
       temperature: 0,
       messages: [
         { role: "system", content: CORRECTION_SYSTEM_MESSAGE },
@@ -807,6 +807,7 @@ async function transcribeAudio(audioBuffer, targetLanguage = 'en', speaker = 'st
     });
     
     console.log(`✅ Raw transcription completed: ${transcription.segments?.length || 0} segments`);
+    console.log(`📝 RAW WHISPER TEXT: "${transcription.text || '(empty)'}"`);
     
     // CRITICAL: Check the TOP-LEVEL detected language
     // Whisper's verbose_json returns a single 'language' field for the entire audio
@@ -817,45 +818,78 @@ async function transcribeAudio(audioBuffer, targetLanguage = 'en', speaker = 'st
     console.log(`Detected language: ${detectedLanguage || 'unknown'} (${getLanguageName(detectedLanguage || 'unknown')})`);
     console.log(`Speaker: ${speaker}`);
     console.log(`Segments: ${transcription.segments?.length || 0}`);
+    console.log(`Full text: "${transcription.text?.substring(0, 200) || '(none)'}..."`);
     
-    // If the detected language doesn't match the target language, reject the entire chunk
+    // LANGUAGE LEARNING FIX: Accept ALL transcriptions regardless of detected language
+    // In language learning, students naturally mix their native language with the target language
+    // e.g., a student learning Spanish might say "How do you say 'hello' in Spanish? Ah, hola!"
+    
     if (detectedLanguage !== targetLanguage) {
-      console.log(`🚫 REJECTED - Wrong language detected!`);
-      console.log(`   Expected: ${targetLanguage} (${getLanguageName(targetLanguage)})`);
+      console.log(`ℹ️  Language mismatch (this is normal in language learning):`);
+      console.log(`   Target: ${targetLanguage} (${getLanguageName(targetLanguage)})`);
       console.log(`   Detected: ${detectedLanguage} (${getLanguageName(detectedLanguage)})`);
-      console.log(`   Transcribed text: "${transcription.text?.substring(0, 100)}${transcription.text?.length > 100 ? '...' : ''}"`);
-      console.log(`   This audio chunk will NOT be analyzed.`);
-      console.log(`=======================================\n`);
-      
-      // Return empty result - this chunk is completely ignored
-      return {
-        text: '',
-        segments: [],
-        language: targetLanguage,
-        duration: transcription.duration,
-        originalSegmentCount: transcription.segments?.length || 0,
-        filteredSegmentCount: 0,
-        rejectedSegmentCount: transcription.segments?.length || 0,
-        detectedLanguage: detectedLanguage,
-        wasRejected: true
-      };
+      console.log(`   ✅ ACCEPTING ANYWAY - mixed language is expected in lessons`);
+    } else {
+      console.log(`✅ Language matches target: ${targetLanguage}`);
     }
     
-    // Language matches! Accept all segments
-    console.log(`✅ Language matches target! All segments accepted.`);
-    console.log(`📝 Transcribed text preview: "${transcription.text?.substring(0, 100)}${transcription.text?.length > 100 ? '...' : ''}"`);
+    console.log(`📝 Transcribed text: "${transcription.text?.substring(0, 200) || '(none)'}${transcription.text?.length > 200 ? '...' : ''}"`);
     console.log(`=======================================\n`);
     
+    // LAYER 2: Filter segments by no_speech_prob to prevent hallucinations
+    const rawSegments = transcription.segments || [];
+    const NO_SPEECH_THRESHOLD = 0.6;
+    
+    let filteredSegments = rawSegments;
+    let noSpeechStats = { avgNoSpeechProb: 0, highNoSpeechCount: 0, noSpeechRatio: 0 };
+    
+    if (rawSegments.length > 0) {
+      const segProbs = rawSegments.map(seg => seg.no_speech_prob || 0);
+      const avgProb = segProbs.reduce((sum, p) => sum + p, 0) / segProbs.length;
+      const highCount = segProbs.filter(p => p > NO_SPEECH_THRESHOLD).length;
+      const ratio = highCount / rawSegments.length;
+      
+      noSpeechStats = {
+        avgNoSpeechProb: Math.round(avgProb * 1000) / 1000,
+        highNoSpeechCount: highCount,
+        noSpeechRatio: Math.round(ratio * 1000) / 1000
+      };
+      
+      console.log(`\n🔇 ===== NO-SPEECH PROBABILITY FILTER =====`);
+      console.log(`   Segments: ${rawSegments.length}`);
+      console.log(`   Avg no_speech_prob: ${noSpeechStats.avgNoSpeechProb}`);
+      console.log(`   High no_speech segments (>${NO_SPEECH_THRESHOLD}): ${highCount}/${rawSegments.length} (${(ratio * 100).toFixed(1)}%)`);
+      
+      // Filter out segments where Whisper is unsure if speech exists
+      filteredSegments = rawSegments.filter(seg => (seg.no_speech_prob || 0) < NO_SPEECH_THRESHOLD);
+      
+      if (filteredSegments.length < rawSegments.length) {
+        console.log(`   Removed ${rawSegments.length - filteredSegments.length} high no_speech_prob segments`);
+      }
+      
+      // If >70% of segments have high no_speech_prob, the whole chunk is likely noise
+      if (ratio > 0.7) {
+        console.log(`   ⚠️ >70% of segments flagged as no-speech — likely noise/silence hallucination`);
+        filteredSegments = [];
+      }
+      
+      console.log(`   Kept: ${filteredSegments.length}/${rawSegments.length} segments`);
+      console.log(`==========================================\n`);
+    }
+    
+    const filteredText = filteredSegments.map(s => s.text).join(' ').trim();
+    
     return {
-      text: transcription.text || '',
-      segments: transcription.segments || [],
+      text: filteredText,
+      segments: filteredSegments,
       language: targetLanguage,
       duration: transcription.duration,
-      originalSegmentCount: transcription.segments?.length || 0,
-      filteredSegmentCount: transcription.segments?.length || 0,
-      rejectedSegmentCount: 0,
+      originalSegmentCount: rawSegments.length,
+      filteredSegmentCount: filteredSegments.length,
+      rejectedSegmentCount: rawSegments.length - filteredSegments.length,
       detectedLanguage: detectedLanguage,
-      wasRejected: false
+      wasRejected: false,
+      noSpeechStats
     };
     
   } catch (error) {
@@ -903,10 +937,28 @@ async function analyzeLessonTranscript({
       throw new Error('CRITICAL ERROR: No student segments provided to GPT-4. Cannot analyze empty transcript.');
     }
     
-    // Calculate lesson duration estimate (segments typically ~5-10 seconds each)
-    const estimatedMinutes = Math.ceil(studentSegments.length * 0.15); // rough estimate
-    const speakingTimeMinutes = estimatedMinutes; // Use for prompt variable
-    console.log(`📊 Estimated lesson duration: ~${estimatedMinutes} minutes`);
+    // Calculate lesson duration from actual segment durations if available
+    // Falls back to word-count estimation for older transcripts without duration data
+    const segmentsWithDuration = studentSegments.filter(s => s.duration && s.duration > 0);
+    let speakingTimeMinutes;
+    
+    if (segmentsWithDuration.length > 0) {
+      // Use actual Whisper duration data
+      let totalSeconds = segmentsWithDuration.reduce((sum, s) => sum + s.duration, 0);
+      // If only some segments have duration, estimate the rest proportionally
+      if (segmentsWithDuration.length < studentSegments.length) {
+        const avgDuration = totalSeconds / segmentsWithDuration.length;
+        totalSeconds += (studentSegments.length - segmentsWithDuration.length) * avgDuration;
+      }
+      speakingTimeMinutes = Math.ceil(totalSeconds / 60);
+      console.log(`📊 Speaking time (from Whisper durations): ${speakingTimeMinutes} min (${Math.round(totalSeconds)}s)`);
+    } else {
+      // Fallback: estimate from word count (~150 words/minute)
+      const totalStudentWordsForEstimate = studentSegments.reduce((sum, s) => sum + s.text.split(/\s+/).length, 0);
+      speakingTimeMinutes = Math.ceil(totalStudentWordsForEstimate / 150) || 1;
+      console.log(`📊 Speaking time (estimated from ${totalStudentWordsForEstimate} words): ~${speakingTimeMinutes} min`);
+    }
+    
     console.log(`📊 Student segments: ${studentSegments.length}`);
     console.log(`📊 Tutor segments: ${tutorSegments.length}`);
     
@@ -1748,7 +1800,7 @@ Respond ONLY with valid JSON:
 }`;
 
     const completion = await getOpenAIClient().chat.completions.create({
-      model: 'gpt-4o',  // Changed from gpt-4-turbo-preview - better at structured output
+      model: 'gpt-4o-mini',  // Cost optimized from gpt-4o
       messages: [
         {
           role: 'system',
@@ -1999,7 +2051,7 @@ Respond ONLY with valid JSON in this format:
 }`;
 
     const completion = await getOpenAIClient().chat.completions.create({
-      model: 'gpt-4-turbo-preview',
+      model: 'gpt-4o-mini',
       messages: [
         {
           role: 'system',
@@ -2027,10 +2079,66 @@ Respond ONLY with valid JSON in this format:
   }
 }
 
+/**
+ * Translate prose fields of a lesson analysis to a target language.
+ * Uses GPT-4o-mini for contextual translation that preserves quoted
+ * target-language speech and only translates the surrounding explanation text.
+ */
+async function translateAnalysisFields(analysis, targetLanguageCode) {
+  const targetLang = getLanguageName(targetLanguageCode);
+
+  const fieldsToTranslate = {
+    summary: analysis.overallAssessment?.summary || '',
+    progressFromLastLesson: analysis.overallAssessment?.progressFromLastLesson || '',
+    studentSummary: analysis.studentSummary || '',
+    tutorNoteText: analysis.tutorNote?.text || '',
+    tutorNoteQuickImpression: analysis.tutorNote?.quickImpression || '',
+    tutorNoteHomework: analysis.tutorNote?.homework || '',
+    strengths: analysis.strengths || [],
+    areasForImprovement: analysis.areasForImprovement || [],
+    recommendedFocus: analysis.recommendedFocus || [],
+    suggestedExercises: analysis.suggestedExercises || [],
+    homeworkSuggestions: analysis.homeworkSuggestions || [],
+    topErrors: (analysis.topErrors || []).map(e => ({ issue: e.issue || '', teachingPriority: e.teachingPriority || '' })),
+    correctedExcerpts: (analysis.correctedExcerpts || []).map(e => ({ context: e.context || '', keyCorrections: e.keyCorrections || [] })),
+    persistentChallenges: analysis.progressionMetrics?.persistentChallenges || [],
+    keyImprovements: analysis.progressionMetrics?.keyImprovements || [],
+    topicsDiscussed: analysis.topicsDiscussed || []
+  };
+
+  const completion = await getOpenAIClient().chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [
+      {
+        role: 'system',
+        content: `You are a professional translator. Translate ALL text values in the provided JSON to ${targetLang}.
+
+RULES:
+- Translate ONLY the text values, preserve all JSON keys exactly as they are.
+- When you encounter quoted speech in a foreign language (e.g. "Ich habe meine Freundin getroffen"), keep those quotes in the original language — only translate the surrounding explanation text and parenthetical translations.
+- Preserve any HTML tags as-is.
+- Preserve emoji characters as-is.
+- Return valid JSON only, matching the exact same structure as the input.`
+      },
+      {
+        role: 'user',
+        content: JSON.stringify(fieldsToTranslate)
+      }
+    ],
+    temperature: 0.3,
+    response_format: { type: 'json_object' }
+  });
+
+  const translated = JSON.parse(completion.choices[0].message.content);
+  translated.translatedAt = new Date();
+  return translated;
+}
+
 module.exports = {
   transcribeAudio,
   analyzeLessonTranscript,
   generateProgressReport,
-  filterAndPrioritizeErrors
+  filterAndPrioritizeErrors,
+  translateAnalysisFields
 };
 

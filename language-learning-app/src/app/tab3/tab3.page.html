@@ -109,10 +109,67 @@
     </div>
   </div>
 
+  <!-- Learning Plan Roadmap (Students — shown above main progress) -->
+  <div class="plan-roadmap-container" *ngIf="!loading && learningPlanHasPlan">
+    <div class="plan-roadmap-header">
+      <div class="plan-roadmap-title-row">
+        <h2 class="plan-roadmap-title">Learning Plan</h2>
+        <span class="plan-roadmap-goal" *ngIf="learningPlanGoalLabel">{{ learningPlanGoalLabel }}</span>
+      </div>
+      <p class="plan-roadmap-summary" *ngIf="learningPlanStudentSummary">{{ learningPlanStudentSummary }}</p>
+    </div>
+
+    <div class="plan-roadmap-phases">
+      <div 
+        *ngFor="let phase of learningPlanPhases; let i = index"
+        class="plan-phase"
+        [class.completed]="phase.status === 'completed'"
+        [class.active]="phase.status === 'active'"
+        [class.locked]="phase.status === 'locked'"
+        [class.expanded]="expandedPhaseIndex === i"
+        (click)="togglePhaseExpand(i)">
+        <div class="plan-phase-header">
+          <div class="plan-phase-dot">
+            <ion-icon name="checkmark" *ngIf="phase.status === 'completed'"></ion-icon>
+            <span *ngIf="phase.status === 'active'" class="phase-active-ring"></span>
+            <ion-icon name="lock-closed" *ngIf="phase.status === 'locked'"></ion-icon>
+          </div>
+          <div class="plan-phase-info">
+            <span class="plan-phase-label">Phase {{ i + 1 }}</span>
+            <span class="plan-phase-name">{{ phase.title }}</span>
+          </div>
+          <div class="plan-phase-progress" *ngIf="phase.status === 'active'">
+            <span>{{ phase.lessonsCompleted }} of ~{{ phase.estimatedLessons }}</span>
+          </div>
+          <ion-icon [name]="expandedPhaseIndex === i ? 'chevron-up' : 'chevron-down'" class="plan-phase-chevron"></ion-icon>
+        </div>
+
+        <div class="plan-phase-details" *ngIf="expandedPhaseIndex === i">
+          <p class="plan-phase-description">{{ phase.description }}</p>
+          <div class="plan-phase-focus-tags" *ngIf="phase.focusAreas?.length">
+            <span *ngFor="let area of phase.focusAreas" class="plan-focus-tag">{{ area }}</span>
+          </div>
+          <p class="plan-phase-exit" *ngIf="phase.exitCriteria">
+            <ion-icon name="flag-outline"></ion-icon>
+            {{ phase.exitCriteria }}
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="plan-next-focus" *ngIf="learningPlanNextFocus">
+      <ion-icon name="bulb-outline"></ion-icon>
+      <div>
+        <span class="plan-next-focus-label">Next lesson focus</span>
+        <span class="plan-next-focus-text">{{ learningPlanNextFocus }}</span>
+      </div>
+    </div>
+  </div>
+
   <!-- Main Progress View (Students) -->
   <div class="progress-container" *ngIf="!loading && !error && analyses.length > 0">
     
-    <h1 class="page-title" padding-bottom="0px !important" >
+    <h1 class="page-title" padding-bottom="0px !important" *ngIf="!showCelebration">
       {{ isProfileUnlocked ? 'Your Progress' : 'Unlock Your Progress Profile' }}
 
       <p class="chart-subtitle-note"> Note: Trial and quick office hours lessons are not included in Progress data.</p>
@@ -213,8 +270,93 @@
       </div>
     </div>
 
-    <!-- Full Stats (5+ lessons) -->
-    <div *ngIf="isProfileUnlocked">
+    <!-- Milestone Celebration Overlay -->
+    <div *ngIf="showCelebration && celebrationSnapshot" class="celebration-overlay">
+      <!-- Confetti -->
+      <div class="confetti-container">
+        <div class="confetti-piece" *ngFor="let i of [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50]" [attr.data-i]="i"></div>
+      </div>
+      <div class="celebration-card" [class.revealed]="celebrationRevealed">
+        <div class="celebration-trophy-wrapper">
+          <div class="trophy-glow"></div>
+          <dotlottie-player src="/assets/Trophy.lottie" autoplay speed="1" class="celebration-trophy-lottie"></dotlottie-player>
+        </div>
+
+        <div class="celebration-body">
+          <div class="celebration-header">
+            <h2 class="celebration-title">
+              {{ celebrationSnapshot.milestoneNumber === 1 ? 'Progress Profile Unlocked!' : 'Milestone ' + celebrationSnapshot.milestoneNumber + ' Complete!' }}
+            </h2>
+            <p class="celebration-subtitle">
+              {{ celebrationSnapshot.milestoneNumber === 1
+                ? 'You\'ve completed 5 analyzed lessons. Here\'s your first snapshot.'
+                : 'Lessons ' + celebrationSnapshot.startLesson + '–' + celebrationSnapshot.endLesson + ' summary' }}
+            </p>
+          </div>
+
+          <div class="celebration-level">
+            <div class="celebration-level-badge" [ngClass]="'level-badge-large--' + getLevelClass(celebrationSnapshot.cefrLevel)">
+              {{ celebrationSnapshot.cefrLevel }}
+            </div>
+            <span class="celebration-level-label">Average Level</span>
+          </div>
+
+          <div class="celebration-metrics">
+            <div class="celebration-metric stagger-1">
+              <div class="metric-ring" style="--ring-color: #3b82f6">
+                <span class="metric-value">{{ celebrationSnapshot.grammarScore }}%</span>
+              </div>
+              <span class="metric-label">Grammar</span>
+              <span class="metric-change" *ngIf="celebrationSnapshot.grammarChange > 0">
+                +{{ celebrationSnapshot.grammarChange }}%
+              </span>
+            </div>
+            <div class="celebration-metric stagger-2">
+              <div class="metric-ring" style="--ring-color: #8b5cf6">
+                <span class="metric-value">{{ celebrationSnapshot.fluencyScore }}%</span>
+              </div>
+              <span class="metric-label">Fluency</span>
+              <span class="metric-change" *ngIf="celebrationSnapshot.fluencyChange > 0">
+                +{{ celebrationSnapshot.fluencyChange }}%
+              </span>
+            </div>
+            <div class="celebration-metric stagger-3">
+              <div class="metric-ring" style="--ring-color: #f59e0b">
+                <span class="metric-value">{{ celebrationSnapshot.vocabScore }}%</span>
+              </div>
+              <span class="metric-label">Vocabulary</span>
+              <span class="metric-change" *ngIf="celebrationSnapshot.vocabChange > 0">
+                +{{ celebrationSnapshot.vocabChange }}%
+              </span>
+            </div>
+          </div>
+
+          <div class="celebration-study-time" *ngIf="celebrationSnapshot.studyTime > 0">
+            <ion-icon name="time-outline"></ion-icon>
+            <span>{{ formatStudyTime(celebrationSnapshot.studyTime) }} of speaking practice</span>
+          </div>
+
+          <div class="celebration-cta-row">
+            <!-- <dotlottie-player
+              *ngIf="celebrationRevealed && celebrationSnapshot.milestoneNumber > 1"
+              src="/assets/bird-celebrate.lottie"
+              autoplay
+              loop
+              speed="1"
+              class="celebration-bird">
+            </dotlottie-player> -->
+            <button class="celebration-cta" (click)="dismissCelebration()">
+              {{ celebrationSnapshot.milestoneNumber === 1 ? 'View My Progress' : 'Continue' }}
+              <ion-icon name="arrow-forward"></ion-icon>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Full Stats (5+ lessons) — only show after milestone check to prevent flash -->
+    <div *ngIf="isProfileUnlocked && !showCelebration && milestonesCalculated">
       
       <!-- Hero Section: Current Level + Streak + Study Time + Radar Chart -->
       <div class="top-section">
@@ -301,114 +443,78 @@
       </div>
 
       <!-- Milestone Snapshots -->
-      <!-- <div class="milestone-snapshots-card" *ngIf="milestoneSnapshots.length > 0">
+      <div class="milestone-snapshots-card" *ngIf="milestoneSnapshots.length > 0">
         <div class="snapshots-header">
           <h2>
-            <ion-icon name="analytics"></ion-icon>
-            Milestone Performance
+            <ion-icon name="flag-outline"></ion-icon>
+            Milestone History
           </h2>
-          <p class="snapshots-subtitle">Detailed performance at each 5-lesson milestone</p>
+          <p class="snapshots-subtitle">Performance averaged every 5 lessons</p>
         </div>
         
-       Milestone Selector Tabs -->
-        <!-- <div class="milestone-tabs">
+        <!-- Milestone Selector Pills -->
+        <div class="milestone-pills">
           <button 
             *ngFor="let snapshot of milestoneSnapshots; let i = index; trackBy: trackByMilestoneNumber"
-            class="milestone-tab"
+            class="milestone-pill"
             [class.active]="selectedMilestone === i"
             (click)="selectMilestone(i)">
-            <div class="tab-label">Milestone {{ snapshot.milestoneNumber }}</div>
-            <div class="tab-sublabel">Lessons {{ snapshot.startLesson }}-{{ snapshot.endLesson }}</div>
+            {{ snapshot.milestoneNumber }}
           </button>
         </div>
         
-     Selected Snapshot Details -->
-        <!-- <div class="snapshot-content" *ngIf="getSelectedSnapshot() as snapshot">
-        <div class="snapshot-level-badge">
-            <div class="level-badge-large" [ngClass]="'level-badge-large--' + getLevelClass(snapshot.cefrLevel)">
+        <!-- Selected Snapshot Details -->
+        <div class="snapshot-content" *ngIf="getSelectedSnapshot() as snapshot">
+          <div class="snapshot-top-row">
+            <div class="snapshot-level-badge" [ngClass]="'level-badge-large--' + getLevelClass(snapshot.cefrLevel)">
               {{ snapshot.cefrLevel }}
             </div>
-            <div class="level-badge-label">
-              Average Level
-              <span class="level-badge-range">(Lessons {{ snapshot.startLesson }}-{{ snapshot.endLesson }})</span>
+            <div class="snapshot-meta">
+              <span class="snapshot-meta-title">Lessons {{ snapshot.startLesson }}–{{ snapshot.endLesson }}</span>
+              <span class="snapshot-meta-time" *ngIf="snapshot.studyTime > 0">
+                <ion-icon name="time-outline"></ion-icon>
+                {{ formatStudyTime(snapshot.studyTime) }}
+              </span>
             </div>
-          </div> -->
-          
-          <!-- Performance Metrics Grid -->
-          <!-- <div class="snapshot-metrics-grid">
-            <div class="metric-card">
-              <div class="metric-icon" style="background: rgba(59, 130, 246, 0.1)">
-                <ion-icon name="create" style="color: #3b82f6"></ion-icon>
+          </div>
+
+          <div class="snapshot-bars">
+            <div class="snapshot-bar-item">
+              <div class="snapshot-bar-header">
+                <span class="snapshot-bar-label">Grammar</span>
+                <span class="snapshot-bar-value">{{ snapshot.grammarScore }}%</span>
               </div>
-              <div class="metric-content">
-                <div class="metric-label">Grammar</div>
-                <div class="metric-value">{{ snapshot.grammarScore }}%</div>
-                <div class="metric-change" *ngIf="snapshot.grammarChange !== 0">
-                  <ion-icon 
-                    [name]="snapshot.grammarChange > 0 ? 'arrow-up' : 'arrow-down'"
-                    [style.color]="snapshot.grammarChange > 0 ? '#10b981' : '#ef4444'">
-                  </ion-icon>
-                  <span [style.color]="snapshot.grammarChange > 0 ? '#10b981' : '#ef4444'">
-                    {{ Math.abs(snapshot.grammarChange) }}% from previous
-                  </span>
-                </div>
+              <div class="snapshot-bar-track">
+                <div class="snapshot-bar-fill grammar" [style.width.%]="snapshot.grammarScore"></div>
               </div>
-            </div> -->
-            
-            <!-- Fluency -->
-            <!-- <div class="metric-card">
-              <div class="metric-icon" style="background: rgba(139, 92, 246, 0.1)">
-                <ion-icon name="speedometer" style="color: #8b5cf6"></ion-icon>
+              <span class="snapshot-bar-change positive" *ngIf="snapshot.grammarChange > 0">+{{ snapshot.grammarChange }}%</span>
+              <span class="snapshot-bar-change negative" *ngIf="snapshot.grammarChange < 0">{{ snapshot.grammarChange }}%</span>
+            </div>
+            <div class="snapshot-bar-item">
+              <div class="snapshot-bar-header">
+                <span class="snapshot-bar-label">Fluency</span>
+                <span class="snapshot-bar-value">{{ snapshot.fluencyScore }}%</span>
               </div>
-              <div class="metric-content">
-                <div class="metric-label">Fluency</div>
-                <div class="metric-value">{{ snapshot.fluencyScore }}%</div>
-                <div class="metric-change" *ngIf="snapshot.fluencyChange !== 0">
-                  <ion-icon 
-                    [name]="snapshot.fluencyChange > 0 ? 'arrow-up' : 'arrow-down'"
-                    [style.color]="snapshot.fluencyChange > 0 ? '#10b981' : '#ef4444'">
-                  </ion-icon>
-                  <span [style.color]="snapshot.fluencyChange > 0 ? '#10b981' : '#ef4444'">
-                    {{ Math.abs(snapshot.fluencyChange) }}% from previous
-                  </span>
-                </div>
+              <div class="snapshot-bar-track">
+                <div class="snapshot-bar-fill fluency" [style.width.%]="snapshot.fluencyScore"></div>
               </div>
-            </div> -->
-            
-            <!-- Vocabulary -->
-            <!-- <div class="metric-card">
-              <div class="metric-icon" style="background: rgba(245, 158, 11, 0.1)">
-                <ion-icon name="book" style="color: #f59e0b"></ion-icon>
+              <span class="snapshot-bar-change positive" *ngIf="snapshot.fluencyChange > 0">+{{ snapshot.fluencyChange }}%</span>
+              <span class="snapshot-bar-change negative" *ngIf="snapshot.fluencyChange < 0">{{ snapshot.fluencyChange }}%</span>
+            </div>
+            <div class="snapshot-bar-item">
+              <div class="snapshot-bar-header">
+                <span class="snapshot-bar-label">Vocabulary</span>
+                <span class="snapshot-bar-value">{{ snapshot.vocabScore }}%</span>
               </div>
-              <div class="metric-content">
-                <div class="metric-label">Vocabulary</div>
-                <div class="metric-value">{{ snapshot.vocabScore }}%</div>
-                <div class="metric-change" *ngIf="snapshot.vocabChange !== 0">
-                  <ion-icon 
-                    [name]="snapshot.vocabChange > 0 ? 'arrow-up' : 'arrow-down'"
-                    [style.color]="snapshot.vocabChange > 0 ? '#10b981' : '#ef4444'">
-                  </ion-icon>
-                  <span [style.color]="snapshot.vocabChange > 0 ? '#10b981' : '#ef4444'">
-                    {{ Math.abs(snapshot.vocabChange) }}% from previous
-                  </span>
-                </div>
+              <div class="snapshot-bar-track">
+                <div class="snapshot-bar-fill vocab" [style.width.%]="snapshot.vocabScore"></div>
               </div>
-            </div> -->
-            
-            <!-- Study Time -->
-            <!-- <div class="metric-card">
-              <div class="metric-icon" style="background: rgba(16, 185, 129, 0.1)">
-                <ion-icon name="time" style="color: #10b981"></ion-icon>
-              </div>
-              <div class="metric-content">
-                <div class="metric-label">Study Time</div>
-                <div class="metric-value">{{ formatStudyTime(snapshot.studyTime) }}</div>
-                <div class="metric-sublabel">{{ snapshot.lessonsInBlock }} lessons</div>
-              </div>
+              <span class="snapshot-bar-change positive" *ngIf="snapshot.vocabChange > 0">+{{ snapshot.vocabChange }}%</span>
+              <span class="snapshot-bar-change negative" *ngIf="snapshot.vocabChange < 0">{{ snapshot.vocabChange }}%</span>
             </div>
           </div>
         </div>
-      </div>   -->
+      </div>
 
       <!-- Your Recent Challenges Card -->
       <div class="challenges-card" *ngIf="isProfileUnlocked && !strugglesLoading">
@@ -579,7 +685,12 @@
               
               <!-- Node Info -->
               <div class="node-info">
-                <div class="node-level-label">{{ analysis.proficiencyLevel }}</div>
+                <div class="node-level-label">
+                  {{ analysis.proficiencyLevel }}
+                  <span class="source-chip" *ngIf="analysis.source">
+                    {{ analysis.source === 'ai' ? 'AI' : 'Tutor' }}
+                  </span>
+                </div>
                 <div class="node-date">{{ analysis.formattedDate }}</div>
                 <div class="node-tutor">
                   <img *ngIf="analysis.tutorPicture" 

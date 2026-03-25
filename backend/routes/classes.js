@@ -4,7 +4,7 @@ const ClassModel = require('../models/Class');
 const User = require('../models/User');
 const Lesson = require('../models/Lesson');
 const Notification = require('../models/Notification');
-const { verifyToken, uploadImage, uploadImageToGCS } = require('../middleware/videoUploadMiddleware');
+const { verifyToken, uploadImage, uploadImageToGCS, getUserFromRequest } = require('../middleware/videoUploadMiddleware');
 const { RtcRole, RtcTokenBuilder } = require('agora-token');
 const { formatNameWithInitial } = require('../utils/nameFormatter');
 
@@ -50,12 +50,22 @@ router.post('/', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Thumbnail is required for public classes' });
     }
 
-    const tutor = await User.findOne({ auth0Id: req.user.sub });
+    const tutor = await getUserFromRequest(req);
     if (!tutor) return res.status(404).json({ success: false, message: 'Tutor not found' });
     if (tutor.userType !== 'tutor') return res.status(403).json({ success: false, message: 'Only tutors can create classes' });
 
-    // Check if tutor has completed Stripe Connect onboarding
-    if (!tutor.stripeConnectOnboarded) {
+    // Check if tutor has completed payment setup (Stripe Connect, PayPal, or Manual)
+    const hasStripeSetup = tutor.stripeConnectOnboarded === true;
+    const hasPayPalSetup = tutor.payoutProvider === 'paypal' && !!tutor.payoutDetails?.paypalEmail;
+    const hasManualSetup = tutor.payoutProvider === 'manual';
+    const hasPayoutSetup = hasStripeSetup || hasPayPalSetup || hasManualSetup;
+    
+    if (!hasPayoutSetup) {
+      console.log(`❌ Tutor ${tutor._id} has no payout setup for class creation:`, {
+        stripeConnectOnboarded: tutor.stripeConnectOnboarded,
+        payoutProvider: tutor.payoutProvider,
+        paypalEmail: tutor.payoutDetails?.paypalEmail
+      });
       return res.status(403).json({ 
         success: false, 
         message: 'You must complete payment setup before creating classes.',
@@ -78,6 +88,12 @@ router.post('/', verifyToken, async (req, res) => {
       }
     }
 
+    // Enforce minimum price of $10 per student
+    const finalPrice = price || 0;
+    if (finalPrice > 0 && finalPrice < 10) {
+      return res.status(400).json({ success: false, message: 'Minimum lesson price is $10.00' });
+    }
+
     const created = [];
     for (let i = 0; i < count; i++) {
       const s = i === 0 || recType === 'none' ? new Date(startTime) : nextOccurrence(startTime, i, recType);
@@ -93,7 +109,7 @@ router.post('/', verifyToken, async (req, res) => {
         duration: duration || 60,
         isPublic: !!isPublic,
         thumbnail: thumbnail || null,
-        price: price || 0,
+        price: finalPrice,
         useSuggestedPricing: useSuggestedPricing !== undefined ? useSuggestedPricing : true,
         suggestedPrice: suggestedPrice || 0,
         startTime: s,
@@ -131,7 +147,7 @@ router.post('/', verifyToken, async (req, res) => {
 
     // Send notifications to invited students
     if (invitedStudents.length > 0) {
-      const tutorName = tutor.name || 'Your tutor';
+      const tutorName = formatDisplayName(tutor) || 'Your tutor';
       
       for (const invitedStudent of invitedStudents) {
         try {
@@ -253,11 +269,30 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
   try {
     const { classId } = req.params;
     
-    const student = await User.findOne({ auth0Id: req.user.sub });
+    const student = await getUserFromRequest(req);
     if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
 
     const cls = await ClassModel.findById(classId).populate('tutorId', 'name email picture');
     if (!cls) return res.status(404).json({ success: false, message: 'Class not found' });
+
+    // Check if class is cancelled
+    if (cls.status === 'cancelled') {
+      return res.status(410).json({ 
+        success: false, 
+        message: 'This class has been cancelled.',
+        code: 'CLASS_CANCELLED'
+      });
+    }
+
+    // Check if class has already started
+    const now = new Date();
+    if (new Date(cls.startTime) <= now) {
+      return res.status(410).json({ 
+        success: false, 
+        message: 'This class has already started. You can no longer join.',
+        code: 'CLASS_STARTED'
+      });
+    }
 
     // Find the student's invitation
     const invitation = cls.invitedStudents.find(inv => inv.studentId.toString() === student._id.toString());
@@ -349,23 +384,7 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
       });
       
       // Format tutor name as "FirstName LastInitial."
-      let tutorName = 'a tutor';
-      if (conflictLesson.tutorId) {
-        if (conflictLesson.tutorId.firstName && conflictLesson.tutorId.lastName) {
-          const lastInitial = conflictLesson.tutorId.lastName.charAt(0).toUpperCase();
-          tutorName = `${conflictLesson.tutorId.firstName} ${lastInitial}.`;
-        } else if (conflictLesson.tutorId.name) {
-          // Fallback to parsing name field
-          const names = conflictLesson.tutorId.name.trim().split(' ');
-          if (names.length >= 2) {
-            const lastName = names[names.length - 1];
-            const lastInitial = lastName.charAt(0).toUpperCase();
-            tutorName = `${names[0]} ${lastInitial}.`;
-          } else {
-            tutorName = conflictLesson.tutorId.name;
-          }
-        }
-      }
+      const tutorName = conflictLesson.tutorId ? formatDisplayName(conflictLesson.tutorId) : 'a tutor';
       
       return res.status(409).json({ 
         success: false, 
@@ -396,21 +415,147 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
         const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
         const tutor = await User.findById(cls.tutorId);
         
-        if (!tutor || !tutor.stripeConnectAccountId) {
-          throw new Error('Tutor has not connected their Stripe account');
+        if (!tutor) {
+          throw new Error('Tutor not found');
         }
         
-        if (!student.stripeCustomerId) {
-          throw new Error('Student has not set up payment method');
+        // Check if tutor has ANY valid payout method (Stripe Connect, PayPal, or Manual)
+        // With the new withdrawal system, payments go to platform first, so we don't need stripeConnectAccountId
+        const hasStripeSetup = tutor.stripeConnectOnboarded === true;
+        const hasPayPalSetup = tutor.payoutProvider === 'paypal' && !!tutor.payoutDetails?.paypalEmail;
+        const hasManualSetup = tutor.payoutProvider === 'manual';
+        
+        if (!hasStripeSetup && !hasPayPalSetup && !hasManualSetup) {
+          throw new Error('Tutor has not completed payment setup. Please contact the tutor.');
         }
         
-        // Get student's default payment method
-        const customer = await stripe.customers.retrieve(student.stripeCustomerId);
-        const defaultPaymentMethod = customer.invoice_settings?.default_payment_method || 
-                                     customer.default_source;
+        // Check if user wants to pay with wallet
+        const { paymentMethodId, useWallet } = req.body;
         
-        if (!defaultPaymentMethod) {
-          throw new Error('No default payment method found. Please add a payment method first.');
+        // Handle wallet payment
+        if (useWallet) {
+          console.log('💰 Student requested wallet payment for class');
+          
+          // Atomic wallet deduction — prevents double-spend on concurrent bookings
+          const PLATFORM_FEE_PERCENTAGE = 20;
+          const platformFee = cls.price * (PLATFORM_FEE_PERCENTAGE / 100);
+          const tutorPayout = cls.price - platformFee;
+          
+          const updatedStudent = await User.findOneAndUpdate(
+            {
+              _id: student._id,
+              'walletBalance.available': { $gte: cls.price }
+            },
+            {
+              $inc: {
+                'walletBalance.available': -cls.price,
+                'walletBalance.totalSpent': cls.price
+              }
+            },
+            { new: true }
+          );
+          
+          if (!updatedStudent) {
+            const freshStudent = await User.findById(student._id);
+            const currentBalance = freshStudent?.walletBalance?.available || 0;
+            throw new Error(`Insufficient wallet balance. You have $${currentBalance.toFixed(2)} but need $${cls.price.toFixed(2)}`);
+          }
+          
+          // Create payment record for wallet transaction
+          const Payment = require('../models/Payment');
+          const payment = new Payment({
+            userId: student._id,
+            studentId: student._id,
+            tutorId: tutor._id,
+            classId: cls._id,
+            amount: cls.price,
+            currency: 'USD',
+            paymentMethod: 'wallet',
+            status: 'succeeded',
+            platformFee,
+            platformFeePercentage: PLATFORM_FEE_PERCENTAGE,
+            tutorPayout,
+            transferStatus: 'on_hold',
+            earningsReleaseDate: new Date(cls.endTime.getTime() + 24 * 60 * 60 * 1000),
+            paymentType: 'class_booking',
+            metadata: {
+              classId: cls._id.toString(),
+              className: cls.name,
+              paidWithWallet: true
+            }
+          });
+          await payment.save();
+          
+          // Atomic tutor pending earnings increment
+          await User.findOneAndUpdate(
+            { _id: tutor._id },
+            { $inc: { 'tutorEarnings.pendingBalance': tutorPayout } }
+          );
+          
+          // Add payment tracking to studentPayments array
+          cls.studentPayments.push({
+            studentId: student._id,
+            paymentId: payment._id,
+            amount: cls.price,
+            paymentStatus: 'succeeded',
+            authorizedAt: new Date(),
+            attendanceStatus: 'not_joined'
+          });
+          
+          paymentAuthorized = true;
+          
+          console.log('💰 Wallet payment successful:', {
+            amount: cls.price,
+            newBalance: updatedStudent.walletBalance.available,
+            tutorPayout,
+            platformFee
+          });
+          
+        } else {
+          // Card payment flow
+          if (!student.stripeCustomerId) {
+            throw new Error('Student has not set up payment method');
+          }
+        
+          // Get payment method - prefer user-selected from request body
+          let paymentMethodToUse = paymentMethodId || null;
+        
+        // If user provided a payment method, use it
+        if (paymentMethodToUse) {
+          console.log('💳 Using user-selected payment method:', paymentMethodToUse);
+        } else {
+          // Fallback: Auto-detect payment method
+          // 1. First, check student's saved payment methods in our database
+          if (student.savedPaymentMethods && student.savedPaymentMethods.length > 0) {
+            const defaultMethod = student.savedPaymentMethods.find(pm => pm.isDefault);
+            paymentMethodToUse = defaultMethod?.stripePaymentMethodId || 
+                                student.savedPaymentMethods[0].stripePaymentMethodId;
+            console.log('💳 Using saved payment method from database:', paymentMethodToUse);
+          }
+          
+          // 2. If not found, try Stripe customer's default
+          if (!paymentMethodToUse) {
+            const customer = await stripe.customers.retrieve(student.stripeCustomerId);
+            paymentMethodToUse = customer.invoice_settings?.default_payment_method || 
+                                 customer.default_source;
+            console.log('💳 Using Stripe customer default:', paymentMethodToUse);
+          }
+          
+          // 3. If still not found, list payment methods from Stripe
+          if (!paymentMethodToUse) {
+            const paymentMethods = await stripe.paymentMethods.list({
+              customer: student.stripeCustomerId,
+              type: 'card'
+            });
+            if (paymentMethods.data.length > 0) {
+              paymentMethodToUse = paymentMethods.data[0].id;
+              console.log('💳 Using first available Stripe payment method:', paymentMethodToUse);
+            }
+          }
+        }
+        
+        if (!paymentMethodToUse) {
+          throw new Error('No payment method found. Please add a payment method in your profile first.');
         }
         
         // Calculate platform fee (20%)
@@ -423,7 +568,7 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
           amount: Math.round(cls.price * 100), // Convert to cents
           currency: 'usd',
           customer: student.stripeCustomerId,
-          payment_method: defaultPaymentMethod,
+          payment_method: paymentMethodToUse,
           capture_method: 'manual', // HOLD funds, don't capture yet
           confirm: true,
           off_session: true,
@@ -450,7 +595,9 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
           userId: student._id,
           studentId: student._id,
           tutorId: tutor._id,
+          classId: cls._id,
           amount: cls.price,
+          currency: 'USD',
           paymentMethod: 'saved-card',
           paymentType: 'class_booking',
           status: 'authorized',
@@ -458,6 +605,8 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
           platformFee: platformFee,
           platformFeePercentage: PLATFORM_FEE_PERCENTAGE,
           tutorPayout: cls.price - platformFee,
+          transferStatus: 'on_hold',
+          earningsReleaseDate: new Date(cls.endTime.getTime() + 24 * 60 * 60 * 1000),
           metadata: {
             classId: cls._id.toString(),
             className: cls.name,
@@ -466,19 +615,20 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
           }
         });
         
-        // Add payment tracking to studentPayments array
-        cls.studentPayments.push({
-          studentId: student._id,
-          paymentId: payment._id,
-          amount: cls.price,
-          paymentStatus: 'authorized',
-          stripePaymentIntentId: paymentIntent.id,
-          authorizedAt: new Date(),
-          attendanceStatus: 'not_joined'
-        });
+          // Add payment tracking to studentPayments array
+          cls.studentPayments.push({
+            studentId: student._id,
+            paymentId: payment._id,
+            amount: cls.price,
+            paymentStatus: 'authorized',
+            stripePaymentIntentId: paymentIntent.id,
+            authorizedAt: new Date(),
+            attendanceStatus: 'not_joined'
+          });
         
-        paymentAuthorized = true;
-        console.log(`💳 Payment authorized for student ${student.email} - Class: ${cls.name} ($${cls.price})`);
+          paymentAuthorized = true;
+          console.log(`💳 Payment authorized for student ${student.email} - Class: ${cls.name} ($${cls.price})`);
+        } // End of card payment else block
         
       } catch (error) {
         console.error('❌ Payment authorization failed:', error);
@@ -563,7 +713,7 @@ router.post('/:classId/decline', verifyToken, async (req, res) => {
   try {
     const { classId } = req.params;
     
-    const student = await User.findOne({ auth0Id: req.user.sub });
+    const student = await getUserFromRequest(req);
     if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
 
     const cls = await ClassModel.findById(classId).populate('tutorId', 'name email picture');
@@ -596,7 +746,7 @@ router.post('/:classId/decline', verifyToken, async (req, res) => {
 // GET /api/classes/invitations/pending - Get pending class invitations for current user
 router.get('/invitations/pending', verifyToken, async (req, res) => {
   try {
-    const student = await User.findOne({ auth0Id: req.user.sub });
+    const student = await getUserFromRequest(req);
     if (!student) return res.status(404).json({ success: false, message: 'User not found' });
 
     // Find all classes where this student has a pending invitation
@@ -620,10 +770,33 @@ router.get('/invitations/pending', verifyToken, async (req, res) => {
   }
 });
 
+// GET /api/classes/my-classes - Get all classes for current user (tutor or confirmed student)
+router.get('/my-classes', verifyToken, async (req, res) => {
+  try {
+    const user = await getUserFromRequest(req);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const classes = await ClassModel.find({
+      $or: [
+        { tutorId: user._id },
+        { confirmedStudents: user._id }
+      ]
+    })
+    .populate('tutorId', 'name email picture profilePicture firstName lastName')
+    .populate('confirmedStudents', 'name email picture profilePicture firstName lastName')
+    .sort({ startTime: -1 });
+
+    res.json({ success: true, classes });
+  } catch (error) {
+    console.error('Error fetching my classes:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
 // GET /api/classes/student/accepted - Get accepted classes for current student
 router.get('/student/accepted', verifyToken, async (req, res) => {
   try {
-    const student = await User.findOne({ auth0Id: req.user.sub });
+    const student = await getUserFromRequest(req);
     if (!student) return res.status(404).json({ success: false, message: 'User not found' });
 
     // Find all classes where this student is in confirmedStudents (meaning they accepted the invitation)
@@ -631,8 +804,8 @@ router.get('/student/accepted', verifyToken, async (req, res) => {
       confirmedStudents: student._id,
       endTime: { $gte: new Date() } // Show classes that haven't ended yet
     })
-    .populate('tutorId', 'name email picture firstName lastName')
-    .populate('confirmedStudents', 'name email picture firstName lastName') // Populate all confirmed students
+    .populate('tutorId', 'name email picture profilePicture firstName lastName')
+    .populate('confirmedStudents', 'name email picture profilePicture firstName lastName') // Populate all confirmed students with avatars
     .sort({ startTime: 1 });
 
     res.json({ success: true, classes });
@@ -652,11 +825,21 @@ router.post('/:classId/invite', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Student IDs array is required' });
     }
     
-    const tutor = await User.findOne({ auth0Id: req.user.sub });
+    const tutor = await getUserFromRequest(req);
     if (!tutor) return res.status(404).json({ success: false, message: 'Tutor not found' });
     
-    // Check if tutor has completed Stripe Connect onboarding
-    if (!tutor.stripeConnectOnboarded) {
+    // Check if tutor has completed payment setup (Stripe Connect, PayPal, or Manual)
+    const hasStripeSetup = tutor.stripeConnectOnboarded === true;
+    const hasPayPalSetup = tutor.payoutProvider === 'paypal' && !!tutor.payoutDetails?.paypalEmail;
+    const hasManualSetup = tutor.payoutProvider === 'manual';
+    const hasPayoutSetup = hasStripeSetup || hasPayPalSetup || hasManualSetup;
+    
+    if (!hasPayoutSetup) {
+      console.log(`❌ Tutor ${tutor._id} has no payout setup for inviting students:`, {
+        stripeConnectOnboarded: tutor.stripeConnectOnboarded,
+        payoutProvider: tutor.payoutProvider,
+        paypalEmail: tutor.payoutDetails?.paypalEmail
+      });
       return res.status(403).json({ 
         success: false, 
         message: 'You must complete payment setup before inviting students.',
@@ -673,7 +856,7 @@ router.post('/:classId/invite', verifyToken, async (req, res) => {
     }
     
     let newInvitationsCount = 0;
-    const tutorName = tutor.name || 'Your tutor';
+    const tutorName = formatDisplayName(tutor) || 'Your tutor';
     
     // Add new invitations
     for (const studentId of studentIds) {
@@ -723,12 +906,10 @@ router.post('/:classId/invite', verifyToken, async (req, res) => {
               title: `Class Invitation: ${cls.name}`,
               message: `<strong>${tutorName}</strong> invited you to join <strong>"${cls.name}"</strong> on <strong>${formattedDate}</strong> from <strong>${formattedStartTime} to ${formattedEndTime}</strong>.`,
               relatedUserPicture: tutor.picture || null,
-              relatedId: cls._id,
-              relatedModel: 'Class',
-              metadata: {
-                classId: cls._id,
+              data: {
+                classId: cls._id.toString(),
                 className: cls.name,
-                tutorId: tutor._id,
+                tutorId: tutor._id.toString(),
                 tutorName: tutorName,
                 startTime: cls.startTime,
                 endTime: cls.endTime
@@ -763,7 +944,7 @@ router.get('/:classId', verifyToken, async (req, res) => {
   try {
     const { classId } = req.params;
     
-    const user = await User.findOne({ auth0Id: req.user.sub });
+    const user = await getUserFromRequest(req);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
     
     const cls = await ClassModel.findById(classId)
@@ -804,7 +985,43 @@ router.get('/:classId', verifyToken, async (req, res) => {
     
     classObj.hasInvitation = !!invitation;
     classObj.invitationStatus = invitation?.status || null;
-    
+
+    // Fetch payment records for this class (visible to tutor or the specific student)
+    const Payment = require('../models/Payment');
+    const paymentQuery = { classId: cls._id };
+    if (!isTutor) {
+      paymentQuery.studentId = user._id;
+    }
+    const payments = await Payment.find(paymentQuery).select(
+      'studentId amount status tutorPayout platformFee transferStatus earningsReleaseDate capturedAt refundedAt refundReason createdAt'
+    ).lean();
+
+    classObj.payments = payments;
+
+    // Summarize payment status for the tutor
+    if (isTutor && payments.length > 0) {
+      const captured = payments.filter(p => p.status === 'succeeded');
+      const totalCaptured = captured.reduce((sum, p) => sum + (p.amount || 0), 0);
+      const totalTutorPayout = captured.reduce((sum, p) => sum + (p.tutorPayout || 0), 0);
+      const totalFees = captured.reduce((sum, p) => sum + (p.platformFee || 0), 0);
+      const allAvailable = captured.length > 0 && captured.every(p => p.transferStatus === 'available' || p.transferStatus === 'withdrawn' || p.transferStatus === 'pending_withdrawal');
+      const allWithdrawn = captured.length > 0 && captured.every(p => p.transferStatus === 'withdrawn');
+      const anyOnHold = captured.some(p => p.transferStatus === 'on_hold');
+      const anyPending = captured.some(p => p.transferStatus === 'pending' || !p.transferStatus);
+
+      classObj.paymentSummary = {
+        totalCaptured,
+        totalTutorPayout,
+        totalFees,
+        paymentCount: captured.length,
+        allAvailable,
+        allWithdrawn,
+        anyOnHold,
+        anyPending,
+        earningsStatus: allWithdrawn ? 'withdrawn' : allAvailable ? 'available' : anyOnHold ? 'on_hold' : anyPending ? 'pending' : 'none'
+      };
+    }
+
     res.json({ success: true, class: classObj });
   } catch (error) {
     console.error('Error fetching class:', error);
@@ -847,9 +1064,9 @@ router.get('/tutor/:tutorId', verifyToken, async (req, res) => {
     }
     
     const classes = await ClassModel.find(query)
-    .populate('tutorId', 'name email picture')
-    .populate('confirmedStudents', 'name email picture firstName lastName') // Populate confirmed students with details
-    .populate('invitedStudents.studentId', 'name email picture firstName lastName') // Populate invited students
+    .populate('tutorId', 'name email picture profilePicture firstName lastName')
+    .populate('confirmedStudents', 'name email picture profilePicture firstName lastName') // Populate confirmed students with avatars
+    .populate('invitedStudents.studentId', 'name email picture profilePicture firstName lastName') // Populate invited students with avatars
     .sort({ startTime: 1 });
 
     console.log(`📊 [GET /api/classes/tutor/:tutorId] Found ${classes.length} classes:`);
@@ -893,7 +1110,7 @@ router.post('/:classId/join', verifyToken, async (req, res) => {
   
   try {
     // Get user ID from auth token
-    const user = await User.findOne({ auth0Id: req.user.sub }).select('name email picture');
+    const user = await getUserFromRequest(req);
     if (!user) {
       console.log('❌ User not found for auth0Id:', req.user.sub);
       return res.status(404).json({ 
@@ -1212,7 +1429,7 @@ router.post('/:classId/leave', verifyToken, async (req, res) => {
   console.log('🚪 Request user:', req.user);
   
   try {
-    const user = await User.findOne({ auth0Id: req.user.sub }).select('name email picture auth0Id');
+    const user = await getUserFromRequest(req);
     if (!user) {
       console.log('❌ User not found for auth0Id:', req.user.sub);
       return res.status(404).json({ success: false, message: 'User not found' });
@@ -1298,7 +1515,7 @@ router.delete('/:classId/student/:studentId', verifyToken, async (req, res) => {
   try {
     const { classId, studentId } = req.params;
     
-    const tutor = await User.findOne({ auth0Id: req.user.sub });
+    const tutor = await getUserFromRequest(req);
     if (!tutor) return res.status(404).json({ success: false, message: 'Tutor not found' });
     
     const cls = await ClassModel.findById(classId);
@@ -1365,12 +1582,10 @@ router.delete('/:classId/student/:studentId', verifyToken, async (req, res) => {
         title: wasAccepted ? 'Removed from Class' : 'Class Invitation Cancelled',
         message: notificationMessage,
         relatedUserPicture: tutor.picture || null,
-        relatedId: cls._id,
-        relatedModel: 'Class',
-        metadata: {
-          classId: cls._id,
+        data: {
+          classId: cls._id.toString(),
           className: cls.name,
-          tutorId: tutor._id,
+          tutorId: tutor._id.toString(),
           tutorName: tutorDisplayName,
           startTime: cls.startTime,
           wasAccepted
@@ -1398,7 +1613,7 @@ router.delete('/:classId/student/:studentId', verifyToken, async (req, res) => {
 // GET /api/classes/public/all - Get all public classes for explore page
 router.get('/public/all', verifyToken, async (req, res) => {
   try {
-    const user = await User.findOne({ auth0Id: req.user.sub });
+    const user = await getUserFromRequest(req);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
     // Find all public classes that haven't ended yet
@@ -1444,7 +1659,7 @@ router.get('/public/all', verifyToken, async (req, res) => {
 // Update class data (e.g., whiteboard room UUID)
 router.patch('/:id', verifyToken, async (req, res) => {
   try {
-    const user = await User.findOne({ auth0Id: req.user.sub });
+    const user = await getUserFromRequest(req);
     
     if (!user) {
       return res.status(404).json({ 
@@ -1509,7 +1724,7 @@ router.delete('/:classId', verifyToken, async (req, res) => {
   try {
     const { classId } = req.params;
     
-    const tutor = await User.findOne({ auth0Id: req.user.sub });
+    const tutor = await getUserFromRequest(req);
     if (!tutor) return res.status(404).json({ success: false, message: 'Tutor not found' });
     
     const cls = await ClassModel.findById(classId)
@@ -1608,9 +1823,7 @@ router.delete('/:classId', verifyToken, async (req, res) => {
       minute: '2-digit' 
     });
     
-    const tutorName = tutor.firstName && tutor.lastName 
-      ? `${tutor.firstName} ${tutor.lastName.charAt(0)}.`
-      : tutor.name;
+    const tutorName = formatDisplayName(tutor);
     
     // Notify all confirmed students
     for (const student of cls.confirmedStudents) {
@@ -1621,9 +1834,8 @@ router.delete('/:classId', verifyToken, async (req, res) => {
           title: 'Class Cancelled',
           message: `<strong>${tutorName}</strong> cancelled the class <strong>"${cls.name}"</strong> scheduled for <strong>${formattedDate} at ${formattedTime}</strong>. You have not been charged.`,
           relatedUserPicture: tutor.picture || null,
-          relatedItemId: cls._id,
-          relatedItemType: 'Class',
-          metadata: {
+          data: {
+            classId: cls._id.toString(),
             className: cls.name,
             tutorName: tutorName,
             startTime: cls.startTime,
@@ -1670,9 +1882,8 @@ router.delete('/:classId', verifyToken, async (req, res) => {
             title: 'Class Invitation Cancelled',
             message: `<strong>${tutorName}</strong> cancelled the class <strong>"${cls.name}"</strong> scheduled for <strong>${formattedDate} at ${formattedTime}</strong>.`,
             relatedUserPicture: tutor.picture || null,
-            relatedItemId: cls._id,
-            relatedItemType: 'Class',
-            metadata: {
+            data: {
+              classId: cls._id.toString(),
               className: cls.name,
               tutorName: tutorName,
               startTime: cls.startTime,
@@ -1721,7 +1932,7 @@ router.post('/:classId/test-auto-cancel', verifyToken, async (req, res) => {
   try {
     const { classId } = req.params;
     
-    const tutor = await User.findOne({ auth0Id: req.user.sub });
+    const tutor = await getUserFromRequest(req);
     if (!tutor) return res.status(404).json({ success: false, message: 'Tutor not found' });
     
     const cls = await ClassModel.findById(classId)
@@ -1778,9 +1989,7 @@ router.post('/:classId/test-auto-cancel', verifyToken, async (req, res) => {
       minute: '2-digit' 
     });
     
-    const tutorName = tutor.firstName && tutor.lastName 
-      ? `${tutor.firstName} ${tutor.lastName.charAt(0)}.`
-      : tutor.name;
+    const tutorName = formatDisplayName(tutor);
     
     // Notify tutor
     const notification = await Notification.create({
@@ -1788,9 +1997,8 @@ router.post('/:classId/test-auto-cancel', verifyToken, async (req, res) => {
       type: 'class_auto_cancelled',
       title: 'Class Auto-Cancelled (TEST)',
       message: `Your class <strong>"${cls.name}"</strong> scheduled for <strong>${formattedDate} at ${formattedTime}</strong> has been automatically cancelled (TEST MODE).`,
-      relatedItemId: cls._id,
-      relatedItemType: 'Class',
-      metadata: {
+      data: {
+        classId: cls._id.toString(),
         className: cls.name,
         startTime: cls.startTime,
         minStudents: cls.minStudents,
@@ -1833,9 +2041,8 @@ router.post('/:classId/test-auto-cancel', verifyToken, async (req, res) => {
           type: 'class_auto_cancelled',
           title: 'Class Cancelled (TEST)',
           message: `The class <strong>"${cls.name}"</strong> with <strong>${tutorName}</strong> scheduled for <strong>${formattedDate} at ${formattedTime}</strong> has been cancelled (TEST MODE).`,
-          relatedItemId: cls._id,
-          relatedItemType: 'Class',
-          metadata: {
+          data: {
+            classId: cls._id.toString(),
             className: cls.name,
             tutorName: tutorName,
             startTime: cls.startTime,

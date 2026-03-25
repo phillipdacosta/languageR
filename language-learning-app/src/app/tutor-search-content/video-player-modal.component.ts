@@ -43,7 +43,6 @@ import { ModalController } from '@ionic/angular';
           [src]="videoUrl"
           [poster]="thumbnailUrl"
           controls
-          autoplay
           playsinline
           (loadeddata)="onVideoLoad()">
         </video>
@@ -125,24 +124,28 @@ export class VideoPlayerModalComponent implements AfterViewInit, OnDestroy {
   constructor(private modalController: ModalController) {}
   
   ngAfterViewInit() {
-    // Hide thumbnail after a short delay to allow video to start loading
     setTimeout(() => {
       this.showThumbnail = false;
       
-      // Autoplay HTML5 video after view initializes
       if (!this.isExternalVideo()) {
         setTimeout(() => {
-          this.videoElement?.nativeElement?.play().catch(err => {
-            console.error('Error autoplaying video:', err);
-          });
+          const el = this.videoElement?.nativeElement;
+          if (el) {
+            el.muted = false;
+            el.play().catch(() => {});
+          }
         }, 100);
       }
     }, 800);
   }
   
   onVideoLoad() {
-    // Hide thumbnail once video is loaded
     this.showThumbnail = false;
+    const el = this.videoElement?.nativeElement;
+    if (el) {
+      el.muted = false;
+      el.play().catch(() => {});
+    }
   }
   
   ngOnDestroy() {

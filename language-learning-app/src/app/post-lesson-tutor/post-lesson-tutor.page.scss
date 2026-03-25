@@ -1,354 +1,763 @@
+// ==========================================================
+// POST-LESSON TUTOR — Apple / Airbnb Clean Design
+// ==========================================================
+
 .post-lesson-tutor-content {
-  --background: transparent;
+  --background: #F7F7F7;
   
-  ion-content {
-    --background: transparent;
-  }
+  // Remove Ionic's default green focus underline
+  --highlight-color: transparent;
+  --highlight-color-focused: transparent;
 }
 
 .content-wrapper {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   min-height: 100vh;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px 20px;
+  padding: 24px;
+  position: relative;
 }
 
-.congratulations-container {
-  max-width: 700px;
-  width: 100%;
+// ==========================================================
+// BACK BUTTON
+// ==========================================================
+.back-btn {
+  position: absolute;
+  top: 20px;
+  left: 24px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
   background: white;
+  border: 1px solid #DDDDDD;
   border-radius: 24px;
-  padding: 48px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  padding: 8px 16px;
+  color: #222222;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  z-index: 10;
 
-  @media (max-width: 768px) {
-    padding: 32px 24px;
-    margin: 0;
+  ion-icon {
+    font-size: 16px;
+  }
+
+  &:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border-color: #B0B0B0;
   }
 }
 
-// HEADER
-.congrats-header {
-  text-align: center;
-  margin-bottom: 40px;
+// ==========================================================
+// MAIN CARD
+// ==========================================================
+.lesson-card {
+  max-width: 640px;
+  width: 100%;
+  background: white;
+  border-radius: 16px;
+  padding: 36px 32px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06),
+              0 4px 16px rgba(0, 0, 0, 0.04);
 
-  .congrats-icon {
-    font-size: 80px;
-    margin-bottom: 16px;
-    animation: bounce 1s ease-in-out;
+  @media (max-width: 680px) {
+    padding: 28px 20px;
+    border-radius: 14px;
+  }
+}
+
+// ==========================================================
+// CARD HEADER
+// ==========================================================
+.card-header {
+  text-align: center;
+  margin-bottom: 28px;
+
+  .header-emoji {
+    font-size: 44px;
+    display: block;
+    margin-bottom: 8px;
+    animation: pop 0.4s ease;
   }
 
   h1 {
-    font-size: 32px;
+    font-size: 26px;
     font-weight: 700;
-    color: #1c1c1e;
-    margin: 0 0 12px 0;
-  }
-
-  p {
-    font-size: 18px;
-    color: #8e8e93;
+    color: #1A1A1A;
     margin: 0;
+    letter-spacing: -0.4px;
+  }
+
+  .header-subtitle {
+    font-size: 15px;
+    color: #717171;
+    margin: 6px 0 0 0;
   }
 }
 
-@keyframes bounce {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-20px);
-  }
+@keyframes pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  70% { transform: scale(1.05); }
+  100% { transform: scale(1); opacity: 1; }
 }
 
-// SUMMARY CARD
-.summary-card {
-  background: #f8f9fa;
-  border-radius: 16px;
-  padding: 24px;
-  margin-bottom: 32px;
-  box-shadow: none;
-  border: 1px solid #e5e5ea;
-}
-
-.student-info {
+// ==========================================================
+// STUDENT ROW
+// ==========================================================
+.student-row {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid #e5e5ea;
+  gap: 14px;
+  padding: 16px 18px;
+  background: #F7F7F7;
+  border-radius: 14px;
   margin-bottom: 20px;
 
-  .student-avatar {
-    width: 64px;
-    height: 64px;
+  .avatar {
+    width: 52px;
+    height: 52px;
     border-radius: 50%;
-    overflow: hidden;
+    object-fit: cover;
     flex-shrink: 0;
-
-    img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
   }
 
-  .student-details {
-    flex: 1;
+  .info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 
-    h3 {
-      font-size: 20px;
+    .name {
+      font-size: 16px;
       font-weight: 600;
-      color: #1c1c1e;
-      margin: 0 0 4px 0;
+      color: #222222;
     }
 
-    p {
-      font-size: 14px;
-      color: #8e8e93;
-      margin: 2px 0;
+    .datetime {
+      font-size: 13px;
+      font-weight: 500;
+      color: #484848;
+    }
+
+    .duration {
+      font-size: 12px;
+      color: #717171;
     }
   }
 }
 
-.earnings-section {
-  text-align: center;
-
-  .earnings-label {
-    font-size: 14px;
-    color: #8e8e93;
-    margin-bottom: 8px;
-  }
-
-  .earnings-amount {
-    font-size: 36px;
-    font-weight: 700;
-    color: #10b981;
-    margin-bottom: 4px;
-  }
-
-  .earnings-note {
-    font-size: 13px;
-    color: #8e8e93;
-  }
-}
-
-// ANALYSIS PREVIEW
-.analysis-preview {
-  background: white;
-  border-radius: 16px;
-  padding: 24px;
-  margin-bottom: 32px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-
-  h3 {
-    font-size: 18px;
-    font-weight: 600;
-    color: #1c1c1e;
-    margin: 0 0 16px 0;
-  }
-}
-
-.analysis-metrics {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-
-  @media (max-width: 600px) {
-    grid-template-columns: 1fr;
-  }
+// ==========================================================
+// PERFORMANCE METRICS
+// ==========================================================
+.metrics {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
 }
 
 .metric {
-  background: #f8f9fa;
-  padding: 16px;
-  border-radius: 12px;
+  flex: 1;
   text-align: center;
+  background: #F7F7F7;
+  border-radius: 12px;
+  padding: 14px 8px;
 
-  .metric-label {
+  .metric-val {
     display: block;
-    font-size: 13px;
-    color: #8e8e93;
-    margin-bottom: 8px;
+    font-size: 17px;
+    font-weight: 600;
+    color: #222222;
   }
 
-  .metric-value {
+  .metric-lbl {
     display: block;
-    font-size: 24px;
-    font-weight: 600;
-    color: #667eea;
+    font-size: 10px;
+    color: #717171;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 3px;
   }
 }
 
-// NOTE FORM
-.note-form-card {
-  background: #f8f9fa;
-  border-radius: 16px;
-  padding: 32px;
-  margin-bottom: 32px;
-  box-shadow: none;
-  border: 1px solid #e5e5ea;
+// ==========================================================
+// DIVIDER
+// ==========================================================
+.divider {
+  height: 1px;
+  background: #EBEBEB;
+  margin: 4px 0 24px 0;
+}
 
-  @media (max-width: 768px) {
-    padding: 24px;
-  }
+// ==========================================================
+// COUNTDOWN TIMER BANNER
+// ==========================================================
+.countdown-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 20px;
+  background: #FFFBEB;
+  border: 1px solid #FCD34D;
+  border-radius: 14px;
+  margin-bottom: 16px;
+  transition: all 0.3s ease;
 
-  h2 {
-    font-size: 24px;
-    font-weight: 600;
-    color: #1c1c1e;
-    margin: 0 0 8px 0;
-  }
-
-  .note-subtitle {
-    font-size: 15px;
-    color: #8e8e93;
-    margin: 0 0 24px 0;
+  &.expired {
+    background: #FEF2F2;
+    border-color: #FECACA;
   }
 }
 
-.impression-selector {
+.countdown-icon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #F59E0B;
+  transition: background 0.3s ease;
+
+  ion-icon {
+    font-size: 20px;
+    color: white;
+  }
+
+  .expired & {
+    background: #EF4444;
+  }
+}
+
+.countdown-body {
+  flex-grow: 1;
+}
+
+.countdown-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #222222;
+  margin: 0 0 4px 0;
+  line-height: 1.4;
+
+  strong {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+  }
+}
+
+.countdown-sub {
+  font-size: 13px;
+  color: #717171;
+  margin: 0;
+  line-height: 1.45;
+
+  .expired & {
+    color: #991B1B;
+  }
+}
+
+// ==========================================================
+// FEEDBACK ENCOURAGEMENT TIP
+// ==========================================================
+.feedback-tip {
+  display: flex;
+  gap: 14px;
+  padding: 18px 20px;
+  background: #FAFAFA;
+  border: 1px solid #EBEBEB;
+  border-radius: 14px;
   margin-bottom: 24px;
+}
 
-  label {
-    display: block;
-    font-size: 14px;
-    font-weight: 600;
-    color: #3c3c43;
-    margin-bottom: 12px;
+.feedback-tip-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.feedback-tip-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.feedback-tip-lead {
+  font-size: 14px;
+  font-weight: 600;
+  color: #222222;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.feedback-tip-detail {
+  font-size: 13px;
+  color: #717171;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.feedback-tip-badge {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid #EBEBEB;
+
+  ion-icon {
+    font-size: 16px;
+    color: #7C3AED;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  span {
+    font-size: 12px;
+    color: #555555;
+    line-height: 1.45;
+
+    strong {
+      color: #7C3AED;
+      font-weight: 600;
+    }
   }
 }
 
-.impression-buttons {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-
-  @media (max-width: 600px) {
-    grid-template-columns: 1fr;
-  }
+// ==========================================================
+// SECTION TITLE
+// ==========================================================
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #222222;
+  margin: 0 0 6px 0;
 }
 
-.impression-btn {
-  padding: 14px 16px;
+// ==========================================================
+// ASSESSMENT BADGE
+// ==========================================================
+.assessment-badge {
+  display: inline-block;
+  background: #FFF7ED;
+  color: #9A3412;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+// ==========================================================
+// IMPRESSION CHIPS
+// ==========================================================
+.impressions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0 20px 0;
+}
+
+.chip {
+  padding: 8px 16px;
   background: white;
-  border: 2px solid #e5e5ea;
-  border-radius: 10px;
-  font-size: 15px;
+  border: 1.5px solid #DDDDDD;
+  border-radius: 24px;
+  font-size: 13px;
   font-weight: 500;
-  color: #3c3c43;
+  color: #222222;
   cursor: pointer;
-  transition: all 0.2s ease;
-  text-align: left;
+  transition: all 0.15s ease;
 
   &:hover {
-    border-color: #667eea;
-    background: #f0f2ff;
+    border-color: #222222;
   }
 
   &.selected {
-    border-color: #667eea;
-    background: #667eea;
+    border-color: #222222;
+    background: #222222;
     color: white;
   }
 
   &[data-color="success"].selected {
-    border-color: #10b981;
-    background: #10b981;
+    border-color: #059669;
+    background: #059669;
   }
 
   &[data-color="warning"].selected {
-    border-color: #f59e0b;
-    background: #f59e0b;
+    border-color: #D97706;
+    background: #D97706;
   }
 }
 
-.form-field {
-  margin-bottom: 24px;
+// ==========================================================
+// ENHANCED ASSESSMENT FORM (when AI is off)
+// ==========================================================
+.assessment-form {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #EBEBEB;
+}
+
+.form-group {
+  margin-bottom: 16px;
 
   label {
     display: block;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
-    color: #3c3c43;
+    color: #222222;
     margin-bottom: 8px;
 
-    .required {
-      color: #ef4444;
+    .req {
+      color: #E11D48;
     }
+
+    .opt {
+      font-weight: 400;
+      color: #717171;
+      font-size: 12px;
+    }
+  }
+}
+
+// CEFR Level Chips
+.cefr-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cefr-chip {
+  padding: 8px 18px;
+  background: white;
+  border: 1.5px solid #DDDDDD;
+  border-radius: 24px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #222222;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    border-color: #222222;
+  }
+
+  &.selected {
+    border-color: #222222;
+    background: #222222;
+    color: white;
+  }
+}
+
+// Ratings Grid
+.ratings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+
+  @media (max-width: 520px) {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+.dots-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid #DDDDDD;
+  background: white;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.15s ease;
+
+  &:hover {
+    border-color: #222222;
+  }
+
+  &.active {
+    background: #222222;
+    border-color: #222222;
+  }
+}
+
+.dot-val {
+  margin-left: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #222222;
+}
+
+// Tag Chips (Error Areas, Strengths, Areas to Improve)
+.chip-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag {
+  padding: 6px 14px;
+  background: white;
+  border: 1.5px solid #DDDDDD;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #555555;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    border-color: #222222;
+    color: #222222;
+  }
+
+  &.selected {
+    border-color: #222222;
+    background: #F5F5F5;
+    color: #222222;
+    font-weight: 600;
+  }
+
+  &.tag-green.selected {
+    border-color: #059669;
+    background: #ECFDF5;
+    color: #065F46;
+  }
+
+  &.tag-amber.selected {
+    border-color: #D97706;
+    background: #FFFBEB;
+    color: #92400E;
+  }
+}
+
+// ==========================================================
+// TEXTAREA GRID
+// ==========================================================
+.textarea-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+
+  @media (max-width: 520px) {
+    grid-template-columns: 1fr;
+    gap: 12px;
   }
 
   ion-textarea {
-    --background: #f8f9fa;
-    --border-radius: 10px;
-    --padding-start: 16px;
-    --padding-end: 16px;
+    --background: #F7F7F7;
+    --border-radius: 12px;
+    --padding-start: 14px;
+    --padding-end: 14px;
     --padding-top: 12px;
     --padding-bottom: 12px;
-    border: 2px solid #e5e5ea;
-    border-radius: 10px;
-    font-size: 15px;
+    --highlight-color: transparent;
+    --highlight-color-focused: transparent;
+    border: 1.5px solid #DDDDDD;
+    border-radius: 12px;
+    font-size: 14px;
+    transition: border-color 0.15s ease;
 
     &:focus-within {
-      border-color: #667eea;
+      border-color: #222222;
+    }
+
+    // Remove Ionic's default focus underline (green line)
+    &::part(native) {
+      &::after {
+        display: none !important;
+      }
+    }
+
+    .textarea-wrapper {
+      &::after {
+        display: none !important;
+        background: transparent !important;
+      }
+    }
+
+    textarea {
+      &:focus {
+        outline: none;
+        border: none;
+      }
+
+      &::after {
+        display: none !important;
+      }
+    }
+  }
+}
+
+// ==========================================================
+// ACTIONS
+// ==========================================================
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #222222;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 14px 28px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 48px;
+
+  &:hover:not(:disabled) {
+    background: #000000;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    background: #E0E0E0;
+    color: #A0A0A0;
+    cursor: not-allowed;
+  }
+
+  ion-spinner {
+    --color: white;
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.btn-text {
+  background: none;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: #717171;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.15s ease;
+
+  &:hover {
+    color: #222222;
+  }
+}
+
+// ==========================================================
+// SUCCESS CARD
+// ==========================================================
+.success-card {
+  max-width: 420px;
+  width: 100%;
+  background: white;
+  border-radius: 16px;
+  padding: 48px 32px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06),
+              0 4px 16px rgba(0, 0, 0, 0.04);
+  text-align: center;
+
+  .success-icon-wrap {
+    margin-bottom: 16px;
+
+    ion-icon {
+      font-size: 56px;
+      color: #059669;
     }
   }
 
-  .char-count {
-    text-align: right;
-    font-size: 12px;
-    color: #c7c7cc;
-    margin-top: 4px;
-  }
-}
-
-.form-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 32px;
-
-  ion-button {
-    margin: 0;
-  }
-}
-
-// SUCCESS MESSAGE
-.success-message {
-  text-align: center;
-  padding: 48px 24px;
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-
-  ion-icon {
-    font-size: 80px;
-    margin-bottom: 16px;
-  }
-
   h2 {
-    font-size: 28px;
+    font-size: 22px;
     font-weight: 600;
-    color: #1c1c1e;
-    margin: 0 0 12px 0;
+    color: #222222;
+    margin: 0 0 8px 0;
   }
 
   p {
-    font-size: 16px;
+    font-size: 15px;
+    color: #717171;
+    margin: 0 0 28px 0;
+  }
+
+  .btn-primary {
+    width: 100%;
+  }
+}
+
+/* ── Learning Plan Override Section ──────────────────── */
+.plan-override-section {
+  margin-top: 20px;
+  border: 1px solid #e5e5ea;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.plan-override-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  background: #fafafa;
+  cursor: pointer;
+
+  .plan-override-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1c1c1e;
+  }
+
+  ion-icon {
+    font-size: 18px;
     color: #8e8e93;
-    margin: 0 0 24px 0;
   }
 }
 
-// BOTTOM ACTIONS
-.bottom-actions {
-  text-align: center;
-  margin-top: 24px;
+.plan-override-body {
+  padding: 12px 16px 16px;
 
-  ion-button {
-    --color: #8e8e93;
+  .form-group {
+    margin-bottom: 12px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
   }
 }
 
+.plan-override-select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #e5e5ea;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 14px;
+  color: #1c1c1e;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238e8e93' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
