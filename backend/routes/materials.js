@@ -1351,32 +1351,26 @@ router.get('/embed/youtube/:videoId', (req, res) => {
   if (!/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
     return res.status(400).send('Invalid video ID');
   }
+  const backendOrigin = `${req.protocol}://${req.get('host')}`;
   res.removeHeader('X-Frame-Options');
   res.setHeader('Content-Type', 'text/html');
   res.setHeader('Content-Security-Policy', "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; frame-src https://www.youtube.com https://www.youtube-nocookie.com;");
   res.setHeader('Permissions-Policy', 'autoplay=*, encrypted-media=*, picture-in-picture=*');
+  res.setHeader('Referrer-Policy', 'no-referrer-when-downgrade');
   res.send(`<!DOCTYPE html>
 <html><head>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="referrer" content="no-referrer-when-downgrade">
 <style>
 html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000}
-#player{position:absolute;top:0;left:0;width:100%;height:100%}
+iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:none}
 </style>
 </head><body>
-<div id="player"></div>
-<script>
-var tag=document.createElement('script');
-tag.src='https://www.youtube.com/iframe_api';
-document.head.appendChild(tag);
-function onYouTubeIframeAPIReady(){
-  new YT.Player('player',{
-    width:'100%',height:'100%',
-    videoId:'${videoId}',
-    playerVars:{playsinline:1,autoplay:1,modestbranding:1,rel:0,showinfo:0},
-    events:{onReady:function(e){e.target.playVideo()}}
-  });
-}
-</script>
+<iframe
+  src="https://www.youtube-nocookie.com/embed/${videoId}?playsinline=1&modestbranding=1&rel=0&showinfo=0&autoplay=1&origin=${encodeURIComponent(backendOrigin)}"
+  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+  referrerpolicy="no-referrer-when-downgrade"
+  allowfullscreen></iframe>
 </body></html>`);
 });
 
