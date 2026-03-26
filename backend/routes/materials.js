@@ -26,7 +26,7 @@ function extractVideoInfo(url) {
       return {
         provider: 'youtube',
         videoId: m[1],
-        embedUrl: `https://www.youtube.com/embed/${m[1]}?modestbranding=1&rel=0&showinfo=0&enablejsapi=1`,
+        embedUrl: `https://www.youtube-nocookie.com/embed/${m[1]}?modestbranding=1&rel=0&showinfo=0`,
         thumbnailUrl: `https://img.youtube.com/vi/${m[1]}/hqdefault.jpg`
       };
     }
@@ -1265,7 +1265,9 @@ router.post('/:id/quiz/submit', verifyToken, async (req, res) => {
       score,
       totalQuestions: material.quiz.length,
       correctCount: correct,
-      results
+      results,
+      averageScore: Math.round(newAvg),
+      totalAttempts: currentAttempts + 1
     });
   } catch (error) {
     console.error('Error submitting quiz:', error);
@@ -1337,6 +1339,29 @@ router.post('/:id/report', verifyToken, async (req, res) => {
     console.error('Error creating material report:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
+});
+
+// ── GET /api/materials/embed/youtube/:videoId — Proxy page for YouTube embeds ──
+// Serves a lightweight HTML page that embeds the YouTube player.
+// When loaded inside a Capacitor WKWebView iframe, the Referer sent to YouTube
+// is this backend's HTTPS origin instead of capacitor://localhost, avoiding Error 153.
+
+router.get('/embed/youtube/:videoId', (req, res) => {
+  const videoId = req.params.videoId;
+  if (!/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+    return res.status(400).send('Invalid video ID');
+  }
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!DOCTYPE html>
+<html><head>
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<style>*{margin:0;padding:0;overflow:hidden;background:#000}
+iframe{width:100%;height:100vh;border:none}</style>
+</head><body>
+<iframe src="https://www.youtube-nocookie.com/embed/${videoId}?playsinline=1&modestbranding=1&rel=0&showinfo=0"
+  allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture;web-share"
+  allowfullscreen></iframe>
+</body></html>`);
 });
 
 module.exports = router;

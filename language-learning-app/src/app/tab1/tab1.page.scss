@@ -406,13 +406,13 @@ ion-content {
   padding: 20px 16px;
   max-width: 1200px;
   margin: 0 auto;
-
   @media (max-width: 600px) {
     padding: 16px 30px;
     display: flex;
     flex-direction: column;
     min-height: calc(100vh - 200px);
-    gap: 20px
+    gap: 20px;
+    bottom: 20px;
   }
 }
 
@@ -428,11 +428,14 @@ ion-content {
   padding: 20px 16px;
   max-width: 1200px;
   margin: 0 auto;
-  // Delayed fade-in: stay invisible while FLIP clones fly, then fade in
   animation: earningsPanelReveal 0.5s ease-out forwards;
+  position: relative;
+  z-index: 1;
+  min-height: 100%;
+  background: var(--ion-background-color, #f5f5f5);
 
   @media (min-width: 769px) {
-    padding-top: 87px; // compensate for fixed desktop toolbar height
+    padding-top: 87px;
   }
 }
 
@@ -463,7 +466,13 @@ ion-content {
   max-width: 1400px;
   margin: 0 auto;
   height: 100%;
-  animation: explorePanelReveal 0.5s ease-out forwards;
+  animation: cmInlineMaterialsReveal 0.48s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
 
   @media (min-width: 769px) {
     padding-top: 67px;
@@ -472,6 +481,18 @@ ion-content {
   app-create-material {
     display: block;
     height: 100%;
+  }
+}
+
+@keyframes cmInlineMaterialsReveal {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -1723,14 +1744,14 @@ ion-content {
   border-radius: 20px;
   border: 1px solid rgba(0, 0, 0, 0.04);
   box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.03),
-    0 4px 16px rgba(0, 0, 0, 0.05);
+    0 2px 6px rgba(0, 0, 0, 0.05),
+    0 10px 28px rgba(0, 0, 0, 0.09);
   transition: box-shadow 0.3s ease;
 
   &:hover {
     box-shadow:
-      0 2px 4px rgba(0, 0, 0, 0.04),
-      0 8px 24px rgba(0, 0, 0, 0.07);
+      0 3px 10px rgba(0, 0, 0, 0.07),
+      0 16px 40px rgba(0, 0, 0, 0.11);
   }
 
   @media (max-width: 600px) {
@@ -2643,7 +2664,9 @@ ion-content {
   white-space: nowrap;
   flex-shrink: 0;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  box-shadow:
+    0 2px 5px rgba(0, 0, 0, 0.06),
+    0 6px 16px rgba(0, 0, 0, 0.07);
   
   ion-icon {
     font-size: 18px;
@@ -2655,7 +2678,9 @@ ion-content {
     background: #ffffff;
     border-color: $text-primary;
     transform: translateY(-2px);
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+    box-shadow:
+      0 6px 18px rgba(0, 0, 0, 0.12),
+      0 2px 6px rgba(0, 0, 0, 0.06);
     
     ion-icon {
       transform: scale(1.15);
@@ -2664,7 +2689,9 @@ ion-content {
   
   &:active {
     transform: translateY(0) scale(0.97);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    box-shadow:
+      0 1px 4px rgba(0, 0, 0, 0.07),
+      0 4px 12px rgba(0, 0, 0, 0.08);
   }
   
   @media (max-width: 600px) {
@@ -2681,7 +2708,9 @@ ion-content {
     color: $text-primary;
     background: #f5f5f7;
     border: 1px solid rgba(0, 0, 0, 0.04);
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+    box-shadow:
+      0 2px 6px rgba(0, 0, 0, 0.07),
+      0 8px 22px rgba(0, 0, 0, 0.1);
 
     ion-icon {
       font-size: 18px;
@@ -2691,13 +2720,17 @@ ion-content {
 
     &:hover {
       transform: translateY(-3px);
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+      box-shadow:
+        0 8px 26px rgba(0, 0, 0, 0.14),
+        0 3px 10px rgba(0, 0, 0, 0.08);
       border-color: rgba(0, 0, 0, 0.06);
     }
 
     &:active {
       transform: scale(0.97);
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+      box-shadow:
+        0 2px 5px rgba(0, 0, 0, 0.08),
+        0 6px 16px rgba(0, 0, 0, 0.09);
     }
   }
 }
@@ -5964,7 +5997,9 @@ ion-content {
   background: #ffffff;
   border-radius: 14px;
   padding: 20px 16px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.05);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.07),
+    0 8px 22px rgba(0, 0, 0, 0.09);
   border: 1px solid rgba(0, 0, 0, 0.04);
   display: flex;
   flex-direction: column;
@@ -5982,7 +6017,9 @@ ion-content {
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    box-shadow:
+      0 6px 20px rgba(0, 0, 0, 0.13),
+      0 2px 8px rgba(0, 0, 0, 0.07);
     border-color: rgba(0, 0, 0, 0.08);
 
     .qa-icon ion-icon {
@@ -6043,7 +6080,9 @@ ion-content {
 
     &:hover {
       transform: none;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.05);
+      box-shadow:
+        0 2px 6px rgba(0, 0, 0, 0.07),
+        0 8px 22px rgba(0, 0, 0, 0.09);
     }
   }
 
@@ -10581,10 +10620,14 @@ ion-content {
   .quick-action-card {
     background: #2a2a2a !important;
     border-color: rgba(255, 255, 255, 0.08) !important;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+    box-shadow:
+      0 2px 8px rgba(0, 0, 0, 0.45),
+      0 10px 28px rgba(0, 0, 0, 0.55) !important;
 
     &:hover {
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
+      box-shadow:
+        0 6px 22px rgba(0, 0, 0, 0.6),
+        0 2px 10px rgba(0, 0, 0, 0.45) !important;
       border-color: rgba(255, 255, 255, 0.12) !important;
     }
 
@@ -10699,7 +10742,9 @@ ion-content {
   .empty-state-clean-inner {
     background: linear-gradient(180deg, #2a2a2a 0%, #252525 100%) !important;
     border-color: rgba(255, 255, 255, 0.06) !important;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+    box-shadow:
+      0 2px 8px rgba(0, 0, 0, 0.45),
+      0 12px 32px rgba(0, 0, 0, 0.55) !important;
   }
   .empty-state-clean-icon {
     background: linear-gradient(135deg, #3a7ba8 0%, #4298d3 50%, #2d6b94 100%) !important;
@@ -10787,10 +10832,16 @@ ion-content {
     background: #2a2a2a !important;
     border-color: rgba(255, 255, 255, 0.08) !important;
     color: var(--ion-text-color, #fff) !important;
+    box-shadow:
+      0 2px 8px rgba(0, 0, 0, 0.4),
+      0 8px 22px rgba(0, 0, 0, 0.45) !important;
     ion-icon { color: var(--ion-text-color-step-400, #aaa) !important; }
     &:hover {
       background: #333333 !important;
       border-color: rgba(255, 255, 255, 0.12) !important;
+      box-shadow:
+        0 6px 20px rgba(0, 0, 0, 0.55),
+        0 2px 8px rgba(0, 0, 0, 0.4) !important;
     }
   }
   // Per-pill icon tints (same on mobile & desktop in dark mode)

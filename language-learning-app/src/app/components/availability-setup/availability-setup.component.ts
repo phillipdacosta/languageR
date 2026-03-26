@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ElementRef, ViewChild, AfterViewInit, Input, Output, EventEmitter, OnChanges, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ElementRef, ViewChild, AfterViewInit, Input, Output, EventEmitter, OnChanges, ChangeDetectorRef, HostListener } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ToastController, LoadingController, AlertController, NavController } from '@ionic/angular';
@@ -232,6 +232,7 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   isSelecting = false;
   selectionStart: SelectedSlot | null = null;
   hoveredSlotIndex: number | null = null;
+  private readonly deviceSupportsHover = typeof window !== 'undefined' && window.matchMedia('(hover: hover)').matches;
   selectedSlots = new Set<string>();
   bookedSlots = new Set<string>(); // New: Track booked lessons/classes
 
@@ -1284,6 +1285,13 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     this.toggleSlot(dayIndex, slotIndex);
   }
 
+  onSlotMouseEnter(dayIndex: number, slotIndex: number) {
+    if (this.deviceSupportsHover) {
+      this.hoveredSlotIndex = slotIndex;
+    }
+    this.continueSelection(dayIndex, slotIndex);
+  }
+
   continueSelection(dayIndex: number, slotIndex: number) {
     if (!this.isSelecting || !this.selectionStart) return;
 
@@ -1313,9 +1321,12 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     this.updateSelectedCount();
   }
 
+  @HostListener('document:mouseup')
+  @HostListener('document:touchend')
   endSelection() {
     this.isSelecting = false;
     this.selectionStart = null;
+    this.hoveredSlotIndex = null;
   }
 
   private toggleSlot(dayIndex: number, slotIndex: number) {

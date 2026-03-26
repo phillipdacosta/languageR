@@ -14,7 +14,6 @@ import { QuillEditorComponent } from 'ngx-quill';
 import { TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { HomeInlineToolbarService } from '../services/home-inline-toolbar.service';
-
 type Step = 'type' | 'pricing' | 'details' | 'quiz' | 'preview';
 
 @Component({

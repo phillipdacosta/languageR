@@ -589,6 +589,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
         if (this.isTutorUser && !this.showEarningsView) {
+          this.closeAllInlinePanelsExceptEarnings();
           this.showEarningsView = true;
           this.cdr.detectChanges();
           this.ionContent?.scrollToTop(0);
@@ -1351,6 +1352,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     if (this.homeInlineToolbar.consumePendingOpenEarnings()) {
       if (this.isTutorUser && !this.showEarningsView) {
         this._earningsOpenedFromOtherTab = true;
+        this.closeAllInlinePanelsExceptEarnings();
         this.showEarningsView = true;
         this.cdr.detectChanges();
         this.ionContent?.scrollToTop(0);
@@ -1659,14 +1661,14 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   }
 
   ionViewDidLeave() {
-    // Stop the dynamic card refresh interval when leaving the page
     this.stopDynamicCardRefreshInterval();
-    if (this.showCreateMaterialView) {
+    const toMaterial = this.router.url.startsWith('/material/');
+    if (this.showCreateMaterialView && !toMaterial) {
       this.showCreateMaterialView = false;
       this.homeInlineToolbar.setMaterialsViewOpen(false);
       this.cdr.detectChanges();
     }
-    if (this.showExploreView) {
+    if (this.showExploreView && !toMaterial) {
       this.showExploreView = false;
       this.homeInlineToolbar.setExploreViewOpen(false);
       this.cdr.detectChanges();
@@ -6962,6 +6964,17 @@ navigateToLessons() {
 
     // Refresh earnings summary data when returning to home view
     this.loadTutorEarnings();
+  }
+
+  private closeAllInlinePanelsExceptEarnings(): void {
+    if (this.showCreateMaterialView) {
+      this.showCreateMaterialView = false;
+      this.homeInlineToolbar.setMaterialsViewOpen(false);
+    }
+    if (this.showExploreView) {
+      this.showExploreView = false;
+      this.homeInlineToolbar.setExploreViewOpen(false);
+    }
   }
 
   onExploreGoBack() {

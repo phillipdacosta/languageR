@@ -24,10 +24,6 @@ export class FlipTransitionService {
     return data;
   }
 
-  hasPending(): boolean {
-    return this.pending !== null;
-  }
-
   cleanup(): void {
     if (this.pending?.clones) {
       for (const entry of this.pending.clones) {

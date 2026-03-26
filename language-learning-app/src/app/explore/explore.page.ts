@@ -15,7 +15,6 @@ import { ScheduleClassPage } from '../tutor-calendar/schedule-class/schedule-cla
 import { TranslateService } from '@ngx-translate/core';
 import { Subscription } from 'rxjs';
 import { HomeInlineToolbarService } from '../services/home-inline-toolbar.service';
-
 @Component({
   selector: 'app-explore',
   templateUrl: './explore.page.html',
