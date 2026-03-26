@@ -115,6 +115,11 @@ html, body {
   line-height: var(--ion-line-height-normal);
 }
 
+/* Unified page background — Apple-style light gray across all pages, both mobile & desktop */
+ion-content {
+  --background: #f5f5f7;
+}
+
 /* Apply to all Ionic components */
 ion-content, ion-card, ion-item, ion-label, ion-button, ion-title, ion-header, ion-toolbar,
 ion-input, ion-textarea, ion-select, ion-datetime, ion-modal, ion-popover, ion-alert,
@@ -2040,6 +2045,11 @@ ion-modal.video-player-modal {
 // =============================================================
 
 html.ion-palette-dark {
+  // Global dark page background (matches per-page overrides)
+  ion-content {
+    --background: #000000;
+  }
+
   // Dark mode modal surface: lighter than page (#000) so the modal reads as a distinct layer
   $modal-bg-dark: #242426;
   $modal-border-dark: rgba(255, 255, 255, 0.12);
@@ -3553,19 +3563,36 @@ ion-modal.previous-notes-modal {
   right: -20%;
   bottom: 0;
   background:
-    radial-gradient(ellipse 90% 70% at 82% 12%, rgba(217, 175, 75, 0.045) 0%, transparent 55%),
-    radial-gradient(ellipse 80% 50% at 50% 35%, rgba(59, 130, 246, 0.04) 0%, transparent 55%),
-    radial-gradient(ellipse 100% 60% at 20% 85%, rgba(99, 102, 241, 0.06) 0%, transparent 55%);
+    radial-gradient(ellipse 90% 70% at 82% 12%, rgba(217, 175, 75, 0.07) 0%, transparent 55%),
+    radial-gradient(ellipse 80% 50% at 50% 35%, rgba(59, 130, 246, 0.06) 0%, transparent 55%),
+    radial-gradient(ellipse 100% 60% at 20% 85%, rgba(99, 102, 241, 0.08) 0%, transparent 55%);
   pointer-events: none;
   z-index: 99999;
   filter: blur(50px);
+
+  @media (max-width: 768px) {
+    left: -30%;
+    right: -30%;
+    background:
+      radial-gradient(ellipse 120% 55% at 85% 8%, rgba(217, 175, 75, 0.10) 0%, transparent 60%),
+      radial-gradient(ellipse 110% 45% at 40% 40%, rgba(59, 130, 246, 0.08) 0%, transparent 55%),
+      radial-gradient(ellipse 130% 50% at 15% 90%, rgba(99, 102, 241, 0.12) 0%, transparent 55%);
+    filter: blur(40px);
+  }
 }
 
 html.ion-palette-dark #ambient-gradient {
   background:
-    radial-gradient(ellipse 90% 70% at 82% 12%, rgba(217, 175, 75, 0.06) 0%, transparent 55%),
-    radial-gradient(ellipse 80% 50% at 50% 35%, rgba(59, 130, 246, 0.05) 0%, transparent 55%),
-    radial-gradient(ellipse 100% 60% at 20% 85%, rgba(99, 102, 241, 0.08) 0%, transparent 55%);
+    radial-gradient(ellipse 90% 70% at 82% 12%, rgba(217, 175, 75, 0.08) 0%, transparent 55%),
+    radial-gradient(ellipse 80% 50% at 50% 35%, rgba(59, 130, 246, 0.07) 0%, transparent 55%),
+    radial-gradient(ellipse 100% 60% at 20% 85%, rgba(99, 102, 241, 0.10) 0%, transparent 55%);
+
+  @media (max-width: 768px) {
+    background:
+      radial-gradient(ellipse 120% 55% at 85% 8%, rgba(217, 175, 75, 0.12) 0%, transparent 60%),
+      radial-gradient(ellipse 110% 45% at 40% 40%, rgba(59, 130, 246, 0.10) 0%, transparent 55%),
+      radial-gradient(ellipse 130% 50% at 15% 90%, rgba(99, 102, 241, 0.14) 0%, transparent 55%);
+  }
 }
 
 // =============================================================

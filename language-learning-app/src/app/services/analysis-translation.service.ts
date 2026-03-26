@@ -13,6 +13,7 @@ interface CachedTranslation {
 
 @Injectable({ providedIn: 'root' })
 export class AnalysisTranslationService {
+  private static readonly MAX_CACHE_SIZE = 10;
   private cache = new Map<string, CachedTranslation>();
   private translationChanged$ = new Subject<string>();
 
@@ -50,8 +51,15 @@ export class AnalysisTranslationService {
   seedFromResponse(analysisId: string, translation: any) {
     if (!analysisId || !translation) return;
     if (!this.cache.has(analysisId)) {
+      this.evictIfNeeded();
       this.cache.set(analysisId, { translation, showTranslated: true });
     }
+  }
+
+  private evictIfNeeded() {
+    if (this.cache.size < AnalysisTranslationService.MAX_CACHE_SIZE) return;
+    const oldest = this.cache.keys().next().value;
+    if (oldest) this.cache.delete(oldest);
   }
 
   /**
@@ -73,6 +81,7 @@ export class AnalysisTranslationService {
     ).pipe(
       map(res => {
         if (res.success && res.translation) {
+          this.evictIfNeeded();
           this.cache.set(analysisId, { translation: res.translation, showTranslated: true });
           this.translationChanged$.next(analysisId);
           return res.translation;

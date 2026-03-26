@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, HostListener, ViewChild, ElementRef, AfterViewInit, ChangeDetectorRef } from '@angular/core';
 import { Router, NavigationEnd } from '@angular/router';
+import { Location } from '@angular/common';
 import { ModalController } from '@ionic/angular';
 import { PlatformService } from '../services/platform.service';
 import { AuthService, User } from '../services/auth.service';
@@ -12,6 +13,7 @@ import { NotificationTranslationService } from '../services/notification-transla
 import { TranslateService } from '@ngx-translate/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { PaymentDisputeModalComponent } from '../components/payment-dispute-modal/payment-dispute-modal.component';
+import { HomeInlineToolbarService } from '../services/home-inline-toolbar.service';
 
 // 🚀 PERFORMANCE FIX: Type for formatted notifications with cached values
 interface FormattedNotification extends Notification {
@@ -37,6 +39,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       // Also reload message count
       this.loadUnreadCount();
     }
+
+    this.refreshMobileHomeGreeting();
   }
 
   // Platform detection properties
@@ -62,7 +66,26 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   private isHoveringNotificationDropdown = false;
   // Current route for tab highlighting
   currentRoute = '';
-  
+
+  get isHomePage(): boolean {
+    return this.isCurrentRoute('/tabs/home');
+  }
+
+  /** True when home tab is showing inline My Materials (create-material) */
+  homeMaterialsViewOpen = false;
+
+  /** Dynamic back label for inline My Materials / create flow (from HomeInlineToolbarService) */
+  homeMaterialsToolbarBackLabel = '';
+
+  /** True when home tab is showing inline Explore Classes */
+  homeExploreViewOpen = false;
+
+  /** Dynamic back label for inline Explore (from HomeInlineToolbarService) */
+  homeExploreToolbarBackLabel = '';
+
+  /** Mobile home toolbar: time-of-day greeting + first name (no Barnabi brand) */
+  mobileHomeGreeting = '';
+
   // Track if a conversation is selected (for hiding tabs on mobile)
   hasSelectedConversation = false;
   
@@ -94,6 +117,15 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   get isMessagesTabSelected(): boolean {
     return this.isCurrentRoute('/tabs/messages');
   }
+
+  get isTutorSearchTabSelected(): boolean {
+    return this.isCurrentRoute('/tabs/tutor-search');
+  }
+
+  get isLessonsTabSelected(): boolean {
+    return this.isCurrentRoute('/tabs/lessons');
+  }
+
   // Dropdown positioning
   dropdownTop = 60;
   dropdownRight = 20;
@@ -136,7 +168,9 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     private sanitizer: DomSanitizer,
     private modalController: ModalController,
     private notificationTranslation: NotificationTranslationService,
-    private translateService: TranslateService
+    private translateService: TranslateService,
+    private homeInlineToolbar: HomeInlineToolbarService,
+    private location: Location
   ) {
     // FIXED: Only assign observables in constructor, NO subscriptions
     this.user$ = this.authService.user$;
@@ -165,7 +199,39 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     
     // Determine if we should show tabs based on platform AND viewport
     this.showTabs = this.shouldShowTabs();
-    
+
+    this.homeInlineToolbar.materialsViewOpen$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(open => {
+        this.homeMaterialsViewOpen = open;
+        this.cdr.markForCheck();
+      });
+
+    this.homeInlineToolbar.materialsToolbarBackLabel$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(label => {
+        this.homeMaterialsToolbarBackLabel = label;
+        this.cdr.markForCheck();
+      });
+
+    this.homeInlineToolbar.exploreViewOpen$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(open => {
+        this.homeExploreViewOpen = open;
+        this.cdr.markForCheck();
+      });
+
+    this.homeInlineToolbar.exploreToolbarBackLabel$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(label => {
+        this.homeExploreToolbarBackLabel = label;
+        this.cdr.markForCheck();
+      });
+
+    this.translateService.onLangChange.pipe(takeUntil(this.destroy$)).subscribe(() => {
+      this.refreshMobileHomeGreeting();
+    });
+
     // Add window resize listener for reactive viewport detection
     this.resizeListener = () => {
       this.showTabs = this.shouldShowTabs();
@@ -183,7 +249,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       )
       .subscribe((user: any) => {
         this.currentUser = user;
-        
+
         // Load counts when user is available
         this.loadUnreadCount();
         this.loadUnreadNotificationCount();
@@ -191,6 +257,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
         // Preload conversations in background for faster dropdown
         this.refreshConversationsInBackground();
 
+        this.refreshMobileHomeGreeting();
         setTimeout(() => this.updateUnderline(), 100);
       });
     
@@ -209,7 +276,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     ).subscribe((event: NavigationEnd) => {
       // Update current route for tab highlighting
       this.currentRoute = event.url;
-      
+
       // Reload notification count when navigating away from notifications page
       // This ensures the red dot updates after marking notifications as read
       if (this.currentUser && !event.url.includes('/tabs/notifications')) {
@@ -233,11 +300,13 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       
       // Update sliding underline position
       setTimeout(() => this.updateUnderline(), 50);
+
+      this.refreshMobileHomeGreeting();
     });
     
     // Initialize current route
     this.currentRoute = this.router.url;
-    
+
     // Subscribe to the SHARED conversations from MessagingService (single source of truth)
     this.messagingService.conversations$.pipe(
       takeUntil(this.destroy$)
@@ -415,6 +484,68 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
     this.router.navigate([route]);
+  }
+
+  /** Mobile toolbar: Barnabi only on home when no inline panel (Materials / Explore) */
+  get showMobileBrandInToolbar(): boolean {
+    return this.isHomePage && !this.homeMaterialsViewOpen && !this.homeExploreViewOpen;
+  }
+
+  /** Mobile home + signed in: show greeting instead of Barnabi */
+  get showMobileHomeGreeting(): boolean {
+    return this.showMobileBrandInToolbar && !!this.currentUser;
+  }
+
+  /** Same time-of-day keys as Tab1 `getGreeting()` */
+  private refreshMobileHomeGreeting(): void {
+    if (!this.currentUser) {
+      this.mobileHomeGreeting = '';
+      this.cdr.markForCheck();
+      return;
+    }
+    const hour = new Date().getHours();
+    const name = (this.currentUser as any).firstName || '';
+    let key: string;
+    if (hour >= 5 && hour < 12) {
+      key = 'HOME.GREETING_MORNING';
+    } else if (hour >= 12 && hour < 17) {
+      key = 'HOME.GREETING_AFTERNOON';
+    } else if (hour >= 17 && hour < 22) {
+      key = 'HOME.GREETING_EVENING';
+    } else {
+      key = 'HOME.GREETING_NIGHT';
+    }
+    this.mobileHomeGreeting = this.translateService.instant(key, { name });
+    this.cdr.markForCheck();
+  }
+
+  /** Tutor on mobile: show "$" pill in toolbar on every tab */
+  get isTutorMobile(): boolean {
+    return !!this.currentUser && (this.currentUser as any).userType === 'tutor';
+  }
+
+  onToolbarEarningsTap(): void {
+    if (!this.isHomePage) {
+      this.homeInlineToolbar.pendingOpenEarnings = true;
+      this.router.navigate(['/tabs/home']);
+    } else {
+      this.homeInlineToolbar.requestOpenEarnings();
+    }
+  }
+
+  /** Mobile toolbar: back when not home, or home + inline Materials / Explore */
+  get showMobileBackInToolbar(): boolean {
+    return !this.isHomePage || this.homeMaterialsViewOpen || this.homeExploreViewOpen;
+  }
+
+  onMobileToolbarBack(): void {
+    if (this.homeExploreViewOpen) {
+      this.homeInlineToolbar.requestCloseExploreView();
+    } else if (this.homeMaterialsViewOpen) {
+      this.homeInlineToolbar.requestCloseMaterialsView();
+    } else {
+      this.location.back();
+    }
   }
 
   isCurrentRoute(route: string): boolean {

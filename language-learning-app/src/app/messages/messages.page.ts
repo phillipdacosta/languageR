@@ -1129,6 +1129,14 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       this.visibilityChangeHandler = null;
     }
     this.stopLocalTimeClock();
+    if (this.recordingTimer) {
+      clearInterval(this.recordingTimer);
+      this.recordingTimer = null;
+    }
+    if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+      this.mediaRecorder.stop();
+    }
+    this.audioChunks = [];
     this.clearPendingVoiceNote(false);
   }
 

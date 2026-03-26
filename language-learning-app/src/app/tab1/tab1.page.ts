@@ -37,6 +37,7 @@ import { SmartIslandService, DynamicCard } from '../services/smart-island.servic
 import { TranslateService } from '@ngx-translate/core';
 import { LearningPlanService, LearningPlan } from '../services/learning-plan.service';
 import { AnalysisTranslationService } from '../services/analysis-translation.service';
+import { HomeInlineToolbarService } from '../services/home-inline-toolbar.service';
 
 @Component({
   selector: 'app-tab1',
@@ -129,6 +130,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   // Inline earnings view toggle
   showEarningsView = false;
   returningFromEarnings = false;
+  private _earningsOpenedFromOtherTab = false;
   @HostBinding('class.returning-from-inline') returningFromInline = false;
 
   // Inline explore view toggle
@@ -419,7 +421,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     private translateService: TranslateService,
     private activatedRoute: ActivatedRoute,
     private learningPlanService: LearningPlanService,
-    private analysisTranslation: AnalysisTranslationService
+    private analysisTranslation: AnalysisTranslationService,
+    private homeInlineToolbar: HomeInlineToolbarService
   ) {
     // Subscribe to currentUser$ observable to get updates automatically
     // Use asyncScheduler to prevent synchronous emission from blocking
@@ -581,6 +584,16 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         this.cdr.detectChanges();
       }
     });
+
+    this.homeInlineToolbar.onOpenEarningsRequest$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        if (this.isTutorUser && !this.showEarningsView) {
+          this.showEarningsView = true;
+          this.cdr.detectChanges();
+          this.ionContent?.scrollToTop(0);
+        }
+      });
 
     this.loadUserStats();
     
@@ -1333,6 +1346,16 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         this.loadTutorEarnings();
       }
     }
+
+    // If the toolbar "$" pill was tapped from another tab, open earnings now
+    if (this.homeInlineToolbar.consumePendingOpenEarnings()) {
+      if (this.isTutorUser && !this.showEarningsView) {
+        this._earningsOpenedFromOtherTab = true;
+        this.showEarningsView = true;
+        this.cdr.detectChanges();
+        this.ionContent?.scrollToTop(0);
+      }
+    }
     
     // Check if we need to force reload (e.g., after booking a lesson)
     const navigation = this.router.getCurrentNavigation();
@@ -1348,6 +1371,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         history.replaceState({ ...history.state, forceReload: false }, '');
       }
     }
+
     
     // Refresh presence data when returning to the home page
     // This ensures we see updated presence if someone joined while we were away
@@ -1637,6 +1661,16 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   ionViewDidLeave() {
     // Stop the dynamic card refresh interval when leaving the page
     this.stopDynamicCardRefreshInterval();
+    if (this.showCreateMaterialView) {
+      this.showCreateMaterialView = false;
+      this.homeInlineToolbar.setMaterialsViewOpen(false);
+      this.cdr.detectChanges();
+    }
+    if (this.showExploreView) {
+      this.showExploreView = false;
+      this.homeInlineToolbar.setExploreViewOpen(false);
+      this.cdr.detectChanges();
+    }
   }
 
   // ── Feedback Grace Period Countdown ──────────────────────
@@ -2192,6 +2226,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   navigateToExplore() {
     this._savedScrollBeforeExplore = this._scrollElRef?.scrollTop || 0;
     this.showExploreView = true;
+    this.homeInlineToolbar.setExploreViewOpen(true);
     this.cdr.detectChanges();
     this.ionContent?.scrollToTop(0);
   }
@@ -2199,6 +2234,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   navigateToCreateMaterial() {
     this._savedScrollBeforeMaterial = this._scrollElRef?.scrollTop || 0;
     this.showCreateMaterialView = true;
+    this.homeInlineToolbar.setMaterialsViewOpen(true);
     this.cdr.detectChanges();
     this.ionContent?.scrollToTop(0);
   }
@@ -6729,6 +6765,16 @@ navigateToLessons() {
   }
 
   onEarningsGoBack() {
+    // If earnings was opened from another tab via the toolbar "$" pill,
+    // navigate back to that tab instead of showing home content.
+    if (this._earningsOpenedFromOtherTab && this.isMobile) {
+      this._earningsOpenedFromOtherTab = false;
+      this.showEarningsView = false;
+      this.navCtrl.back();
+      return;
+    }
+    this._earningsOpenedFromOtherTab = false;
+
     // === FLIP Animation: Earnings → Home ===
 
     // Step 1: Capture source button rects from earnings view
@@ -6920,6 +6966,7 @@ navigateToLessons() {
 
   onExploreGoBack() {
     this.showExploreView = false;
+    this.homeInlineToolbar.setExploreViewOpen(false);
     this.cdr.detectChanges();
 
     if (this._scrollElRef) {
@@ -6929,6 +6976,7 @@ navigateToLessons() {
 
   onCreateMaterialGoBack() {
     this.showCreateMaterialView = false;
+    this.homeInlineToolbar.setMaterialsViewOpen(false);
     this.cdr.detectChanges();
 
     if (this._scrollElRef) {

@@ -1,25 +1,46 @@
 <ion-tabs [class]="getPlatformClass()" [class.show-tabs]="showTabs">
 
   <!-- Mobile Top Toolbar (Global) -->
-  <ion-header class="mobile-global-header" *ngIf="showTabs">
+  <ion-header class="mobile-global-header" *ngIf="showTabs" [class.home-active]="isHomePage" [class.mobile-home-greeting-active]="showMobileHomeGreeting">
     <ion-toolbar>
       <ion-buttons slot="start">
-        <div class="app-icon-container" (click)="navigateTo('/tabs/home')">
+        <!-- Home (signed in): time-based greeting; no bird / no "Barnabi" -->
+        <div class="mobile-home-greeting" *ngIf="showMobileHomeGreeting" (click)="navigateTo('/tabs/home')">
+          {{ mobileHomeGreeting }}
+        </div>
+        <div class="app-icon-container brand-default" *ngIf="showMobileBrandInToolbar && !showMobileHomeGreeting" (click)="navigateTo('/tabs/home')">
           <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="app-icon">
           <span class="app-name">Barnabi</span>
         </div>
+        <!-- Mobile: back when not home, or home + inline My Materials / Explore Classes -->
+        <ion-button class="mobile-back-btn" *ngIf="showMobileBackInToolbar" fill="clear" (click)="onMobileToolbarBack()">
+          <ion-icon name="chevron-back" slot="start"></ion-icon>
+          <span
+            class="mobile-toolbar-back-label"
+            *ngIf="(homeMaterialsViewOpen && homeMaterialsToolbarBackLabel) || (homeExploreViewOpen && homeExploreToolbarBackLabel)">
+            {{ homeMaterialsViewOpen ? homeMaterialsToolbarBackLabel : homeExploreToolbarBackLabel }}
+          </span>
+        </ion-button>
       </ion-buttons>
       <ion-buttons slot="end">
+        <!-- Tutor earnings "$" pill — home only, mobile only -->
+        <button class="toolbar-earnings-pill" *ngIf="isTutorMobile" (click)="onToolbarEarningsTap()">$</button>
         <ion-button fill="clear" class="notification-btn"
                     (mouseenter)="onNotificationButtonMouseEnter()"
                     (mouseleave)="onNotificationButtonMouseLeave()">
           <ion-icon name="notifications-outline"></ion-icon>
           <span class="notification-dot" *ngIf="(unreadNotificationCount$ | async)! > 0"></span>
         </ion-button>
-        <ion-avatar class="header-avatar" *ngIf="currentUser" (click)="navigateTo('/tabs/profile')">
-          <img *ngIf="currentUser.picture" [src]="currentUser.picture" alt="User Avatar" referrerpolicy="no-referrer">
-          <div *ngIf="!currentUser.picture" class="avatar-initial">{{ getUserInitial() }}</div>
-        </ion-avatar>
+        <div
+          class="mobile-header-profile"
+          *ngIf="currentUser"
+          (click)="navigateTo('/tabs/profile')"
+          [class.active]="isCurrentRoute('/tabs/profile')">
+          <ion-avatar class="header-avatar">
+            <img *ngIf="currentUser.picture" [src]="currentUser.picture" alt="User Avatar" referrerpolicy="no-referrer" (error)="onImageError($event)">
+            <div *ngIf="!currentUser.picture" class="avatar-initial">{{ getUserInitial() }}</div>
+          </ion-avatar>
+        </div>
       </ion-buttons>
     </ion-toolbar>
   </ion-header>
@@ -344,13 +365,13 @@
 
   <!-- Mobile/Tablet Tabs (Bottom Navigation) -->
   <ion-tab-bar slot="bottom" *ngIf="showTabs && !shouldHideTabs">
-    <ion-tab-button tab="home" [routerLink]="['/tabs/home']" routerDirection="root">
-      <ion-icon aria-hidden="true" name="home"></ion-icon>
+    <ion-tab-button tab="home" [routerLink]="['/tabs/home']" routerDirection="root" [class.tab-selected]="isHomePage" [attr.aria-label]="'TABS.HOME' | translate">
+      <ion-icon aria-hidden="true" [name]="isHomePage ? 'home' : 'home-outline'"></ion-icon>
       <ion-label>{{ 'TABS.HOME' | translate }}</ion-label>
     </ion-tab-button>
 
-    <ion-tab-button *ngIf="currentUser?.userType === 'student'" tab="tutor-search" [routerLink]="['/tabs/tutor-search']" routerDirection="root">
-      <ion-icon aria-hidden="true" name="search"></ion-icon>
+    <ion-tab-button *ngIf="currentUser?.userType === 'student'" tab="tutor-search" [routerLink]="['/tabs/tutor-search']" routerDirection="root" [class.tab-selected]="isTutorSearchTabSelected" [attr.aria-label]="'TABS.SEARCH' | translate">
+      <ion-icon aria-hidden="true" [name]="isTutorSearchTabSelected ? 'search' : 'search-outline'"></ion-icon>
       <ion-label>{{ 'TABS.SEARCH' | translate }}</ion-label>
     </ion-tab-button>
 
@@ -358,8 +379,8 @@
                     (click)="navigateTo('/tabs/tutor-calendar')"
                     [class.tab-selected]="isCalendarTabSelected"
                     [attr.aria-selected]="isCalendarTabSelected"
-                    [attr.aria-label]="'Calendar'">
-      <ion-icon aria-hidden="true" name="calendar"></ion-icon>
+                    [attr.aria-label]="'TABS.CALENDAR' | translate">
+      <ion-icon aria-hidden="true" [name]="isCalendarTabSelected ? 'calendar' : 'calendar-outline'"></ion-icon>
       <ion-label>{{ 'TABS.CALENDAR' | translate }}</ion-label>
     </ion-tab-button>
 
@@ -368,26 +389,17 @@
                     routerDirection="root" 
                     [class.tab-selected]="isMessagesTabSelected"
                     [attr.aria-selected]="isMessagesTabSelected"
-                    [attr.aria-label]="'Messages'"
+                    [attr.aria-label]="'TABS.MESSAGES' | translate"
                     style="position: relative;">
-      <ion-icon aria-hidden="true" name="chatbubbles"></ion-icon>
+      <ion-icon aria-hidden="true" [name]="isMessagesTabSelected ? 'chatbubbles' : 'chatbubbles-outline'"></ion-icon>
       <ion-label>{{ 'TABS.MESSAGES' | translate }}</ion-label>
       <span *ngIf="(unreadCount$ | async)! > 0" 
-            class="notification-dot message-tab-notification-dot"
-            style="position: absolute; top: 2px; right: 2px; width: 10px; height: 10px; background-color: #ff3b30; border-radius: 50%; border: 2px solid white; z-index: 9999; display: block;"></span>
+            class="notification-dot message-tab-notification-dot"></span>
     </ion-tab-button>
 
-    <ion-tab-button tab="lessons" [routerLink]="['/tabs/lessons']" routerDirection="root">
-      <ion-icon aria-hidden="true" name="book-outline"></ion-icon>
+    <ion-tab-button tab="lessons" [routerLink]="['/tabs/lessons']" routerDirection="root" [class.tab-selected]="isLessonsTabSelected" [attr.aria-label]="'TABS.LESSONS' | translate">
+      <ion-icon aria-hidden="true" [name]="isLessonsTabSelected ? 'book' : 'book-outline'"></ion-icon>
       <ion-label>{{ 'TABS.LESSONS' | translate }}</ion-label>
-    </ion-tab-button>
-
-    <ion-tab-button tab="profile" [routerLink]="['/tabs/profile']" routerDirection="root" class="profile-avatar-tab">
-      <div class="tab-avatar" *ngIf="currentUser?.picture">
-        <img [src]="currentUser!.picture" alt="" referrerpolicy="no-referrer">
-      </div>
-      <ion-icon aria-hidden="true" name="person-circle-outline" *ngIf="!currentUser?.picture"></ion-icon>
-      <ion-label>{{ 'TABS.PROFILE' | translate }}</ion-label>
     </ion-tab-button>
   </ion-tab-bar>
 

@@ -4,6 +4,15 @@
   padding-top: 20px;
 }
 
+// Inline on home: global tabs toolbar already provides top chrome — sit flush under it
+:host.cm-host-inline {
+  padding-top: 0;
+
+  .cm-library-header {
+    padding-bottom: 12px;
+  }
+}
+
 // ── Library view ─────────────────────────────────────────
 
 .cm-library {
@@ -14,9 +23,11 @@
 
 .cm-library-header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
   margin-bottom: 20px;
+  padding-top: 12px;
   padding-bottom: 60px;
 
   h1 {
@@ -26,14 +37,6 @@
     margin: 0;
     letter-spacing: -0.3px;
   }
-}
-
-.cm-btn-create {
-  padding: 10px 18px;
-  font-size: 14px;
-  gap: 4px;
-
-  ion-icon { font-size: 18px; }
 }
 
 .cm-library-loading {
@@ -623,6 +626,23 @@
   margin: 0 auto;
   width: 100%;
   box-sizing: border-box;
+
+  // Inline on home: toolbar provides back; keep title / step centered
+  &--embedded {
+    justify-content: center;
+    position: relative;
+
+    .cm-nav-title {
+      text-align: center;
+    }
+
+    .cm-nav-right {
+      position: absolute;
+      right: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+  }
 }
 
 .cm-nav-back {
@@ -2239,28 +2259,56 @@
 .cm-library-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  align-self: flex-end;
   gap: 10px;
-}
 
-.cm-btn-link-channels {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  background: none;
-  border: 1px solid #d1d1d6;
-  border-radius: 10px;
-  padding: 7px 14px;
-  font-size: 13px;
-  font-weight: 500;
-  color: #555;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  // Match both controls to the compact “Channels linked” size (desktop + mobile)
+  .cm-btn-link-channels,
+  .cm-btn-primary.cm-btn-create {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 7px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 10px;
+    gap: 5px;
+    box-sizing: border-box;
+    line-height: 1.25;
+    cursor: pointer;
+    transition: all 0.2s ease;
 
-  ion-icon { font-size: 16px; }
+    ion-icon {
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+  }
 
-  &:hover {
-    background: #f5f5f5;
-    border-color: #bbb;
+  .cm-btn-link-channels {
+    background: none;
+    border: 1px solid #d1d1d6;
+    color: #555;
+
+    &:hover {
+      background: #f5f5f5;
+      border-color: #bbb;
+    }
+  }
+
+  .cm-btn-primary.cm-btn-create {
+    background: #222;
+    color: #fff;
+    border: none;
+
+    &:hover:not(:disabled) {
+      background: #000;
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
   }
 }
 
@@ -2530,8 +2578,13 @@
 
   .cm-library-actions {
     flex-direction: column;
-    align-items: stretch;
+    align-items: flex-end;
     gap: 6px;
+
+    .cm-btn-link-channels,
+    .cm-btn-primary.cm-btn-create {
+      flex: 0 0 auto;
+    }
   }
 }
 
@@ -2710,6 +2763,13 @@
     border-color: #444;
     color: #ccc;
     &:hover { background: #1c1c1e; border-color: #666; }
+  }
+
+  .cm-library-actions .cm-btn-primary.cm-btn-create {
+    background: #4298d2;
+    &:hover:not(:disabled) {
+      background: #3583b8;
+    }
   }
   .cm-channel-panel { background: #1c1c1e; border-color: #333; }
   .cm-channel-header h3 { color: #f5f5f5; }
