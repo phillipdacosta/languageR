@@ -111,6 +111,8 @@ export interface QuizResult {
   score: number;
   totalQuestions: number;
   correctCount: number;
+  averageScore?: number;
+  totalAttempts?: number;
   results: Array<{
     questionId: string;
     question: string;

@@ -43,7 +43,7 @@
     <div class="welcome-section" *ngIf="currentUser && isStudentUser">
       <div class="welcome-header">
         <div class="welcome-content">
-          <h1 class="welcome-title">{{ getGreeting() }} 👋</h1>
+          <h1 class="welcome-title" *ngIf="!isMobile">{{ getGreeting() }}</h1>
           <!-- Show skeleton while loading -->
           <p class="welcome-subtitle skeleton-text" *ngIf="isLoadingLessons">
             <ion-skeleton-text animated style="width: 180px; height: 16px; display: inline-block;"></ion-skeleton-text>
@@ -74,8 +74,8 @@
     <!-- Welcome Message (Tutors) -->
     <div class="welcome-section" *ngIf="currentUser && isTutorUser">
       <div class="welcome-header">
-        <div class="welcome-content">
-          <h1 class="welcome-title">{{ getGreeting() }} 👋</h1>
+        <div class="welcome-content" *ngIf="!isMobile || isLoadingLessons">
+          <h1 class="welcome-title" *ngIf="!isMobile">{{ getGreeting() }}</h1>
           <p class="welcome-subtitle" *ngIf="isLoadingLessons">
             <ion-skeleton-text animated style="width: 160px; height: 16px; display: inline-block;"></ion-skeleton-text>
           </p>
@@ -90,8 +90,8 @@
         </div>
         </div>
 
-        <!-- Compact Earnings (mobile only) -->
-        <div class="earnings-mobile-card" *ngIf="!insightsLoading" [class.skip-entry-animation]="returningFromEarnings">
+        <!-- Compact Earnings (desktop only — mobile earnings moved to toolbar "$" pill) -->
+        <div class="earnings-mobile-card" *ngIf="!insightsLoading && !isMobile" [class.skip-entry-animation]="returningFromEarnings">
           <div class="emc-balance" (click)="toggleWalletVisibility($event)">
             <span *ngIf="earningsBalanceLoading" class="emc-balance-skeleton"><ion-skeleton-text animated style="width: 72px; height: 22px; display: block; border-radius: 6px;"></ion-skeleton-text></span>
             <span *ngIf="!earningsBalanceLoading && !showWalletBalance && !walletTemporarilyVisible">$<span class="emc-dots">••••</span></span>
@@ -807,7 +807,7 @@
     <!-- Empty State: No Upcoming Lessons (Tutors) — Clean goal-oriented -->
     <div class="empty-state-clean" *ngIf="isTutorUser && !isLoadingLessons && !nextLesson">
       <div class="empty-state-clean-inner">
-        <div class="empty-state-clean-icon">
+        <div class="empty-state-clean-icon anim-persist">
           <ion-icon name="calendar-outline"></ion-icon>
         </div>
         <div class="empty-state-clean-text">

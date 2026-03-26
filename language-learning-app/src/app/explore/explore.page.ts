@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, Input, Output, EventEmitter, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, Input, Output, EventEmitter, ChangeDetectorRef, HostBinding } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ToastController, ModalController } from '@ionic/angular';
@@ -14,7 +14,7 @@ import { ExploreFiltersModalComponent, ExploreFilters } from '../components/expl
 import { ScheduleClassPage } from '../tutor-calendar/schedule-class/schedule-class.page';
 import { TranslateService } from '@ngx-translate/core';
 import { Subscription } from 'rxjs';
-
+import { HomeInlineToolbarService } from '../services/home-inline-toolbar.service';
 @Component({
   selector: 'app-explore',
   templateUrl: './explore.page.html',
@@ -25,6 +25,11 @@ import { Subscription } from 'rxjs';
 export class ExplorePage implements OnInit, OnDestroy {
   @Input() inline = false;
   @Output() goBackEvent = new EventEmitter<void>();
+
+  @HostBinding('class.explore-host-inline')
+  get exploreHostInlineClass(): boolean {
+    return this.inline;
+  }
 
   publicClasses: any[] = [];
   filteredClasses: any[] = [];
@@ -57,6 +62,7 @@ export class ExplorePage implements OnInit, OnDestroy {
 
   private langSub?: Subscription;
   private userSub?: Subscription;
+  private toolbarExploreSub?: Subscription;
 
   private get userTz(): string | undefined {
     return this.currentUser?.profile?.timezone || undefined;
@@ -77,7 +83,8 @@ export class ExplorePage implements OnInit, OnDestroy {
     private sanitizer: DomSanitizer,
     private modalCtrl: ModalController,
     private cdr: ChangeDetectorRef,
-    private translate: TranslateService
+    private translate: TranslateService,
+    private homeInlineToolbar: HomeInlineToolbarService
   ) {}
 
   ngOnInit() {
@@ -85,6 +92,7 @@ export class ExplorePage implements OnInit, OnDestroy {
 
     this.langSub = this.translate.onLangChange.subscribe(() => {
       this.buildTranslatedLabels();
+      this.syncExploreToolbarBackLabel();
       if (this.publicClasses.length > 0) {
         this.publicClasses = this.publicClasses.map(cls => this.enrichClassItem(cls));
         this.applyFilters();
@@ -100,11 +108,40 @@ export class ExplorePage implements OnInit, OnDestroy {
       }
     });
     this.loadPublicClasses();
+
+    if (this.inline) {
+      this.toolbarExploreSub = this.homeInlineToolbar.onCloseExploreRequest$.subscribe(() => {
+        this.handleExploreToolbarBack();
+      });
+      this.syncExploreToolbarBackLabel();
+    }
   }
 
   ngOnDestroy() {
     this.langSub?.unsubscribe();
     this.userSub?.unsubscribe();
+    this.toolbarExploreSub?.unsubscribe();
+    if (this.inline) {
+      this.homeInlineToolbar.setExploreToolbarBackLabel('');
+    }
+  }
+
+  /** Mobile global toolbar back: schedule form → classes list; list → close inline explore */
+  private handleExploreToolbarBack(): void {
+    if (this.showScheduleForm) {
+      this.onScheduleGoBack();
+    } else {
+      this.goBack();
+    }
+  }
+
+  private syncExploreToolbarBackLabel(): void {
+    if (!this.inline) return;
+    if (this.showScheduleForm) {
+      this.homeInlineToolbar.setExploreToolbarBackLabel(this.translate.instant('EXPLORE_CLASSES.PAGE_TITLE'));
+    } else {
+      this.homeInlineToolbar.setExploreToolbarBackLabel(this.translate.instant('EXPLORE_CLASSES.ANIM_GO_BACK'));
+    }
   }
 
   private buildTranslatedLabels() {
@@ -163,6 +200,7 @@ export class ExplorePage implements OnInit, OnDestroy {
 
     this.showScheduleForm = true;
     this.cdr.detectChanges();
+    this.syncExploreToolbarBackLabel();
 
     if (clone && srcRect) {
       requestAnimationFrame(() => {
@@ -247,6 +285,7 @@ export class ExplorePage implements OnInit, OnDestroy {
     this.returningFromSchedule = true;
     this.showScheduleForm = false;
     this.cdr.detectChanges();
+    this.syncExploreToolbarBackLabel();
 
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -291,6 +330,7 @@ export class ExplorePage implements OnInit, OnDestroy {
 
   onClassCreated() {
     this.showScheduleForm = false;
+    this.syncExploreToolbarBackLabel();
     this.loadPublicClasses();
   }
 

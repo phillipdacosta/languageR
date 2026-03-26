@@ -8,8 +8,8 @@
 </div>
 
 <div class="explore-page" *ngIf="!showScheduleForm">
-    <!-- Nav Bar: Go back only -->
-    <div class="explore-nav-bar">
+    <!-- Nav Bar: Go back only (hidden inline — tabs toolbar provides back) -->
+    <div class="explore-nav-bar" *ngIf="!inline">
       <button class="explore-nav-back" (click)="goBack()">
         <ion-icon name="chevron-back-outline"></ion-icon>
         <span>{{ 'EXPLORE_CLASSES.ANIM_GO_BACK' | translate }}</span>

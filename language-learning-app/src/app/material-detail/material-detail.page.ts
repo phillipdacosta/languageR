@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, ToastController, ModalController, AlertController } from '@ionic/angular';
+import { IonicModule, ToastController, ModalController, AlertController, NavController } from '@ionic/angular';
 import { RouterModule, ActivatedRoute, Router } from '@angular/router';
 import { Location } from '@angular/common';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
@@ -12,6 +12,9 @@ import { AuthService } from '../services/auth.service';
 import { SharedModule } from '../shared/shared.module';
 import { CardManagementModalComponent } from '../components/card-management-modal/card-management-modal.component';
 import { take } from 'rxjs';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { Capacitor } from '@capacitor/core';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-material-detail',
@@ -35,6 +38,7 @@ import { take } from 'rxjs';
 export class MaterialDetailPage implements OnInit, OnDestroy {
   material: TutorMaterial | null = null;
   isLoading = true;
+  pageReady = false;
   error: string | null = null;
 
   videoEmbedUrl: SafeResourceUrl | null = null;
@@ -78,7 +82,8 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
     private toastCtrl: ToastController,
     private modalCtrl: ModalController,
     private alertCtrl: AlertController,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private navCtrl: NavController
   ) {
     this.referrerUrl = sessionStorage.getItem('materialReferrer') || '/tabs/home';
   }
@@ -100,6 +105,12 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
     }
   }
 
+  ionViewWillEnter() {
+    this.referrerUrl = sessionStorage.getItem('materialReferrer') || '/tabs/home';
+    this.videoCoverVisible = true;
+    this.pageReady = false;
+  }
+
   loadMaterial(id: string, ref?: string) {
     this.isLoading = true;
     this.materialService.getMaterial(id, ref).subscribe({
@@ -109,9 +120,16 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
           this.material = res.material;
           this.hasQuizSidebar = !!(this.material.quiz && this.material.quiz.length > 0);
           if (this.material.videoEmbedUrl) {
-            const sep = this.material.videoEmbedUrl.includes('?') ? '&' : '?';
-            const embedWithOrigin = this.material.videoEmbedUrl + sep + 'origin=' + encodeURIComponent(window.location.origin);
-            this.videoEmbedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(embedWithOrigin);
+            let url = this.material.videoEmbedUrl;
+            const ytMatch = url.match(/(?:youtube\.com|youtube-nocookie\.com)\/embed\/([a-zA-Z0-9_-]{11})/);
+            if (Capacitor.isNativePlatform() && ytMatch) {
+              url = `${environment.backendUrl}/api/materials/embed/youtube/${ytMatch[1]}`;
+            } else {
+              url = url.replace('https://www.youtube.com/embed/', 'https://www.youtube-nocookie.com/embed/');
+              const sep = url.includes('?') ? '&' : '?';
+              url += sep + 'playsinline=1';
+            }
+            this.videoEmbedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(url);
           }
           if (this.material.audioEmbedUrl) {
             this.audioEmbedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.material.audioEmbedUrl);
@@ -123,6 +141,12 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
             ? (this.channelInfo.name || '').slice(0, 2).toUpperCase()
             : '';
           this.selectedAnswers = new Array(this.material.quiz?.length || 0).fill(null);
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              this.pageReady = true;
+              this.cdr.detectChanges();
+            });
+          });
         }
       },
       error: (err) => {
@@ -154,8 +178,8 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
   }
 
   goBack() {
-    this.destroyEmbeds();
-    this.router.navigateByUrl(this.referrerUrl);
+    const isTabRoute = this.referrerUrl.startsWith('/tabs/');
+    this.navCtrl.navigateBack(this.referrerUrl, { animated: !isTabRoute });
   }
 
   ngOnDestroy() {
@@ -251,13 +275,6 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
   rightHidden = false;
 
   playVideo() {
-    if (this.material?.videoEmbedUrl) {
-      const sep = this.material.videoEmbedUrl.includes('?') ? '&' : '?';
-      const origin = encodeURIComponent(window.location.origin);
-      this.videoAutoplayUrl = this.sanitizer.bypassSecurityTrustResourceUrl(
-        this.material.videoEmbedUrl + sep + 'autoplay=1&origin=' + origin
-      );
-    }
     this.videoCoverVisible = false;
   }
 
@@ -283,6 +300,19 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
       this.showToast('Purchase access to take this quiz');
       return;
     }
+
+    const confirm = await this.alertCtrl.create({
+      header: 'Ready to start?',
+      message: `This quiz has ${this.material?.quiz?.length || 0} question${(this.material?.quiz?.length || 0) !== 1 ? 's' : ''}. You can review the content while answering. Good luck!`,
+      cssClass: 'md-quiz-confirm-alert',
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        { text: 'Start Quiz', cssClass: 'alert-button-confirm', handler: () => true }
+      ]
+    });
+    await confirm.present();
+    const { role } = await confirm.onDidDismiss();
+    if (role === 'cancel' || role === 'backdrop') return;
 
     if (this.material?.materialType === 'video_quiz' && this.material?.pricingType === 'paid') {
       this.isCheckingMedia = true;
@@ -326,6 +356,33 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
     this.syncFillBlankInput();
   }
 
+  async exitQuiz() {
+    if (this.quizMode === 'taking') {
+      const alert = await this.alertCtrl.create({
+        header: 'Exit quiz?',
+        message: 'Your progress will be lost.',
+        buttons: [
+          { text: 'Continue Quiz', role: 'cancel' },
+          {
+            text: 'Exit',
+            role: 'destructive',
+            handler: () => {
+              this.quizMode = 'idle';
+              this.quizResult = null;
+              this.selectedAnswers = [];
+              this.currentQuestionIndex = 0;
+              this.fillBlankInput = '';
+              this.cdr.detectChanges();
+            }
+          }
+        ]
+      });
+      await alert.present();
+    } else {
+      this.retakeQuiz();
+    }
+  }
+
   private initOrderingState() {
     if (!this.material?.quiz) return;
     this.orderingItems = [];
@@ -354,23 +411,21 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
     }
   }
 
-  // Multiple choice
   selectAnswer(optionId: string) {
     this.selectedAnswers[this.currentQuestionIndex] = optionId;
+    Haptics.impact({ style: ImpactStyle.Light }).catch(() => {});
   }
 
-  // True/False
   selectTrueFalse(val: boolean) {
     this.selectedAnswers[this.currentQuestionIndex] = val;
+    Haptics.impact({ style: ImpactStyle.Light }).catch(() => {});
   }
 
-  // Fill in the blank
   onFillBlankChange(text: string) {
     this.fillBlankInput = text;
     this.selectedAnswers[this.currentQuestionIndex] = text.trim() || null;
   }
 
-  // Ordering: ion-reorder handler
   onOrderingReorder(event: any) {
     const qi = this.currentQuestionIndex;
     const items = this.orderingItems[qi];
@@ -379,6 +434,7 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
     this.orderingItems[qi] = [...items];
     this.selectedAnswers[qi] = [...items];
     event.detail.complete(false);
+    Haptics.impact({ style: ImpactStyle.Light }).catch(() => {});
   }
 
   get currentQuestionType(): QuestionType {
@@ -416,9 +472,43 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
     return this.selectedAnswers.filter(a => a !== null && a !== '').length;
   }
 
+  async confirmSubmit() {
+    if (!this.material) return;
+    const total = this.material.quiz?.length || 0;
+    const answered = this.answeredCount;
+    const unanswered = total - answered;
+
+    let header = 'Submit Quiz?';
+    let message = 'You\'ve answered all questions. Ready to see your results?';
+
+    if (unanswered > 0) {
+      header = 'Incomplete Quiz';
+      message = `You have ${unanswered} of ${total} question${unanswered !== 1 ? 's' : ''} unanswered. Submit anyway?`;
+    }
+
+    const alert = await this.alertCtrl.create({
+      header,
+      message,
+      cssClass: 'md-quiz-confirm-alert',
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        { text: 'Submit', cssClass: 'alert-button-confirm', handler: () => true }
+      ]
+    });
+    await alert.present();
+    const { role } = await alert.onDidDismiss();
+    if (role === 'cancel' || role === 'backdrop') return;
+
+    this.submitQuiz();
+  }
+
+  displayScore = 0;
+  rankPercentile = 0;
+
   submitQuiz() {
     if (!this.material || this.isSubmittingQuiz) return;
     this.isSubmittingQuiz = true;
+    Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => {});
 
     const answers = this.selectedAnswers.map((a, i) => {
       const qType = this.material!.quiz[i]?.type || 'multiple_choice';
@@ -435,6 +525,8 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
         if (res.success) {
           this.quizResult = res;
           this.quizMode = 'results';
+          this.animateScore(res.score);
+          this.computeRank(res.score, res.averageScore);
         }
       },
       error: async (err) => {
@@ -442,6 +534,30 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
         await this.showToast(err?.error?.message || 'Failed to submit quiz');
       }
     });
+  }
+
+  private animateScore(target: number) {
+    this.displayScore = 0;
+    const duration = 1200;
+    const start = performance.now();
+    const step = (now: number) => {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      this.displayScore = Math.round(eased * target);
+      this.cdr.detectChanges();
+      if (progress < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  private computeRank(score: number, avgScore?: number) {
+    if (avgScore == null || avgScore === 0) {
+      this.rankPercentile = score >= 50 ? 75 : 40;
+      return;
+    }
+    const raw = 50 + (score - avgScore);
+    this.rankPercentile = Math.max(1, Math.min(99, Math.round(raw)));
   }
 
   async purchaseQuiz() {

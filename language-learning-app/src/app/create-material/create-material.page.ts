@@ -1,4 +1,5 @@
-import { Component, OnInit, Input, Output, EventEmitter, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, Input, Output, EventEmitter, ChangeDetectorRef, HostBinding } from '@angular/core';
+import { Subscription } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
@@ -12,7 +13,7 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { QuillEditorComponent } from 'ngx-quill';
 import { TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
-
+import { HomeInlineToolbarService } from '../services/home-inline-toolbar.service';
 type Step = 'type' | 'pricing' | 'details' | 'quiz' | 'preview';
 
 @Component({
@@ -22,9 +23,14 @@ type Step = 'type' | 'pricing' | 'details' | 'quiz' | 'preview';
   standalone: true,
   imports: [CommonModule, IonicModule, RouterModule, FormsModule, ReactiveFormsModule, SharedModule, QuillEditorComponent]
 })
-export class CreateMaterialPage implements OnInit {
+export class CreateMaterialPage implements OnInit, OnDestroy {
   @Input() inline = false;
   @Output() goBackEvent = new EventEmitter<void>();
+
+  @HostBinding('class.cm-host-inline')
+  get cmHostInlineClass(): boolean {
+    return this.inline;
+  }
 
   viewMode: 'library' | 'create' = 'library';
   myMaterials: TutorMaterial[] = [];
@@ -40,6 +46,8 @@ export class CreateMaterialPage implements OnInit {
 
   navBackLabel = '';
   stepTitle = '';
+
+  private toolbarBackSub?: Subscription;
 
   private stepTitleKeys: Record<Step, string> = {
     type: 'CREATE_MATERIAL.STEP_NEW_MATERIAL',
@@ -111,7 +119,8 @@ export class CreateMaterialPage implements OnInit {
     private router: Router,
     private route: ActivatedRoute,
     private modalCtrl: ModalController,
-    private translate: TranslateService
+    private translate: TranslateService,
+    private homeInlineToolbar: HomeInlineToolbarService
   ) {}
 
   ngOnInit() {
@@ -127,6 +136,19 @@ export class CreateMaterialPage implements OnInit {
       this.rebuildTranslatedLabels();
       this.updateNavState();
     });
+
+    if (this.inline) {
+      this.toolbarBackSub = this.homeInlineToolbar.onCloseMaterialsRequest$.subscribe(() => {
+        this.handleNavBack();
+      });
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.toolbarBackSub?.unsubscribe();
+    if (this.inline) {
+      this.homeInlineToolbar.setMaterialsToolbarBackLabel('');
+    }
   }
 
   private rebuildTranslatedLabels() {
@@ -220,6 +242,9 @@ export class CreateMaterialPage implements OnInit {
     if (this.viewMode === 'library') {
       this.navBackLabel = this.translate.instant('CREATE_MATERIAL.NAV_BACK_SHORT');
       this.stepTitle = '';
+      if (this.inline) {
+        this.homeInlineToolbar.setMaterialsToolbarBackLabel(this.navBackLabel);
+      }
       return;
     }
     this.stepTitle = this.translate.instant(this.stepTitleKeys[this.currentStep]) || '';
@@ -229,6 +254,10 @@ export class CreateMaterialPage implements OnInit {
     } else {
       const prevStep = this.stepOrder[idx - 1];
       this.navBackLabel = this.translate.instant(this.stepTitleKeys[prevStep]) || this.translate.instant('CREATE_MATERIAL.NAV_BACK_SHORT');
+    }
+
+    if (this.inline) {
+      this.homeInlineToolbar.setMaterialsToolbarBackLabel(this.navBackLabel);
     }
   }
 

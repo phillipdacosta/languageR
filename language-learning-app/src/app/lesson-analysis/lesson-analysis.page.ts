@@ -126,6 +126,15 @@ export class LessonAnalysisPage implements OnInit, OnDestroy, ViewWillEnter {
       clearInterval(this.pollingInterval);
     }
     this.translationSub?.unsubscribe();
+    if (this.currentAudio) {
+      this.currentAudio.pause();
+      const src = this.currentAudio.src;
+      this.currentAudio = null;
+      this.playingWordId = null;
+      if (src.startsWith('blob:')) {
+        URL.revokeObjectURL(src);
+      }
+    }
   }
 
   async loadAnalysis() {

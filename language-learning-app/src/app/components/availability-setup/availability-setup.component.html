@@ -180,7 +180,7 @@
                      [class.booked]="isSlotBooked(day.index, i)"
                      [class.gcal-busy]="isGcalBusySlot(day, i)"
                      (mousedown)="startSelection(day.index, i, $event)"
-                     (mouseenter)="hoveredSlotIndex = i; continueSelection(day.index, i)"
+                     (mouseenter)="onSlotMouseEnter(day.index, i)"
                      (mouseup)="endSelection()">
                   <div class="slot-indicator" *ngIf="isSlotSelected(day.index, i)"></div>
                   <ion-icon *ngIf="isSlotBooked(day.index, i)" name="lock-closed" class="booked-icon"></ion-icon>

@@ -744,8 +744,10 @@
       border-right: none;
     }
 
-    &:hover {
-      background: #F7F7F7;
+    @media (hover: hover) {
+      &:hover {
+        background: #F7F7F7;
+      }
     }
 
     &:active {
@@ -814,8 +816,10 @@
         display: none;
       }
 
-      &:hover {
-        background: #F7F7F7;
+      @media (hover: hover) {
+        &:hover {
+          background: #F7F7F7;
+        }
       }
       
       &:active {
@@ -925,20 +929,24 @@
     margin-bottom: 0;
   }
   
-  &:hover {
-    background: #EBEBEB;
-    border-color: #DDDDDD;
-    transform: scale(1.01);
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  @media (hover: hover) {
+    &:hover {
+      background: #EBEBEB;
+      border-color: #DDDDDD;
+      transform: scale(1.01);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+    }
   }
 
   &.selected {
     background: #08a0e8;
     border-color: #222222;
     
-    &:hover {
-      background: #22b9ff;
-      border-color: #333333;
+    @media (hover: hover) {
+      &:hover {
+        background: #22b9ff;
+        border-color: #333333;
+      }
     }
   }
 
@@ -950,8 +958,10 @@
     background: linear-gradient(135deg, #fefce8 0%, #fef3c7 100%);
     border-color: #fde68a;
 
-    &:hover {
-      background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    @media (hover: hover) {
+      &:hover {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+      }
     }
   }
 
@@ -959,8 +969,10 @@
     background: linear-gradient(135deg, #fde68a 0%, #fbbf24 100%);
     border-color: #f59e0b;
 
-    &:hover {
-      background: linear-gradient(135deg, #fcd34d 0%, #f59e0b 100%);
+    @media (hover: hover) {
+      &:hover {
+        background: linear-gradient(135deg, #fcd34d 0%, #f59e0b 100%);
+      }
     }
   }
 
@@ -1046,11 +1058,13 @@
         max-width: 400px;
       }
 
-      &:hover {
-        background: #EBEBEB;
-        border-color: #DDDDDD;
-        transform: scale(1.01);
-        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+      @media (hover: hover) {
+        &:hover {
+          background: #EBEBEB;
+          border-color: #DDDDDD;
+          transform: scale(1.01);
+          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+        }
       }
 
       &.selected {
@@ -1071,9 +1085,11 @@
           box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
         }
         
-        &:hover {
-          background: #333333;
-          border-color: #333333;
+        @media (hover: hover) {
+          &:hover {
+            background: #333333;
+            border-color: #333333;
+          }
         }
       }
 
@@ -1094,9 +1110,11 @@
           box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
         }
         
-        &:hover {
-          background: #008F84;
-          border-color: #008F84;
+        @media (hover: hover) {
+          &:hover {
+            background: #008F84;
+            border-color: #008F84;
+          }
         }
       }
 
@@ -1104,8 +1122,10 @@
         background: #FFF0B3;
         border-color: #FFD60A;
 
-        &:hover {
-          background: #FFE680;
+        @media (hover: hover) {
+          &:hover {
+            background: #FFE680;
+          }
         }
 
         &.selected {
@@ -1118,8 +1138,10 @@
         background: #FFD60A;
         border-color: #F59E0B;
 
-        &:hover {
-          background: #FFC300;
+        @media (hover: hover) {
+          &:hover {
+            background: #FFC300;
+          }
         }
 
         &.selected {
@@ -1132,8 +1154,10 @@
         background: #FFF9E6;
         border-color: #F0F0F0;
 
-        &:hover {
-          background: #FFF4D1;
+        @media (hover: hover) {
+          &:hover {
+            background: #FFF4D1;
+          }
         }
 
         &.selected {
@@ -2091,8 +2115,10 @@ html {
       background: #000000;
       border-right-color: rgba(255, 255, 255, 0.12);
 
-      &:hover {
-        background: #1c1c1e;
+      @media (hover: hover) {
+        &:hover {
+          background: #1c1c1e;
+        }
       }
 
       &:active {
@@ -2117,8 +2143,10 @@ html {
           color: #fff;
         }
 
-        &:hover {
-          background: #1c1c1e;
+        @media (hover: hover) {
+          &:hover {
+            background: #1c1c1e;
+          }
         }
       }
     }
@@ -2137,18 +2165,22 @@ html {
     background: #1c1c1e;
     border-color: rgba(255, 255, 255, 0.1);
 
-    &:hover {
-      background: #2c2c2e;
-      border-color: rgba(255, 255, 255, 0.15);
+    @media (hover: hover) {
+      &:hover {
+        background: #2c2c2e;
+        border-color: rgba(255, 255, 255, 0.15);
+      }
     }
 
     &.selected {
       background: #4298d2;
       border-color: #4298d2;
 
-      &:hover {
-        background: #3583b8;
-        border-color: #3583b8;
+      @media (hover: hover) {
+        &:hover {
+          background: #3583b8;
+          border-color: #3583b8;
+        }
       }
 
       .slot-indicator {
@@ -2160,8 +2192,10 @@ html {
       background: rgba(251, 191, 36, 0.12);
       border-color: rgba(251, 191, 36, 0.3);
 
-      &:hover {
-        background: rgba(251, 191, 36, 0.18);
+      @media (hover: hover) {
+        &:hover {
+          background: rgba(251, 191, 36, 0.18);
+        }
       }
     }
 
@@ -2169,8 +2203,10 @@ html {
       background: rgba(251, 191, 36, 0.25);
       border-color: rgba(251, 191, 36, 0.5);
 
-      &:hover {
-        background: rgba(251, 191, 36, 0.32);
+      @media (hover: hover) {
+        &:hover {
+          background: rgba(251, 191, 36, 0.32);
+        }
       }
     }
 
@@ -2768,14 +2804,16 @@ html {
   );
   border-color: #a8c7fa;
 
-  &:hover {
-    background: repeating-linear-gradient(
-      -45deg,
-      #d2e3fc,
-      #d2e3fc 8px,
-      #bdd4f8 8px,
-      #bdd4f8 16px
-    );
+  @media (hover: hover) {
+    &:hover {
+      background: repeating-linear-gradient(
+        -45deg,
+        #d2e3fc,
+        #d2e3fc 8px,
+        #bdd4f8 8px,
+        #bdd4f8 16px
+      );
+    }
   }
 
   .gcal-icon.google-logo-icon {

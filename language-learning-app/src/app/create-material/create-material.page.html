@@ -1,5 +1,5 @@
-<div class="cm-nav-bar">
-  <button class="cm-nav-back" (click)="handleNavBack()">
+<div class="cm-nav-bar" [class.cm-nav-bar--embedded]="inline" *ngIf="!inline || viewMode === 'create'">
+  <button class="cm-nav-back" *ngIf="!inline" type="button" (click)="handleNavBack()">
     <ion-icon name="chevron-back-outline"></ion-icon>
     <span>{{ navBackLabel }}</span>
   </button>
@@ -206,11 +206,11 @@
             <span class="cm-mc-questions">{{ m.quiz.length !== 1 ? ('CREATE_MATERIAL.CARD_QUESTIONS_PLURAL' | translate:{count: m.quiz.length}) : ('CREATE_MATERIAL.CARD_QUESTIONS' | translate:{count: m.quiz.length}) }}</span>
           </div>
 
-          <div class="cm-mc-meta">
-            <span>{{ m.language }}</span>
+          <div class="cm-mc-details-line">
+            <span class="cm-mc-details-text">{{ m.language }}</span>
+            <span class="cm-mc-details-sep" aria-hidden="true">·</span>
+            <span class="cm-mc-details-text">{{ formatDate(m.createdAt) }}</span>
           </div>
-
-          <div class="cm-mc-date">{{ formatDate(m.createdAt) }}</div>
 
           <div class="cm-mc-stats">
             <div class="cm-mc-stat"><ion-icon name="eye-outline"></ion-icon> {{ m.stats.views }}</div>

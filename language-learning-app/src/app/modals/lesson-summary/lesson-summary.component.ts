@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, ViewChild } from '@angular/core';
+import { Component, Input, OnInit, OnDestroy, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController, AlertController, ToastController, IonContent } from '@ionic/angular';
 import { Router } from '@angular/router';
@@ -16,7 +16,7 @@ import { TranslateModule } from '@ngx-translate/core';
   standalone: true,
   imports: [CommonModule, IonicModule, TranslateModule]
 })
-export class LessonSummaryComponent implements OnInit {
+export class LessonSummaryComponent implements OnInit, OnDestroy {
   @Input() lessonId!: string;
   @Input() transcriptId?: string;
   @Input() mockAnalysis?: LessonAnalysis; // For dev preview
@@ -54,6 +54,8 @@ export class LessonSummaryComponent implements OnInit {
   hasPersistentChallenges = false;
   uniqueCorrectedExcerpts: any[] = [];
 
+  private pollingInterval: any = null;
+
   // Expose Math for template
   Math = Math;
 
@@ -68,6 +70,13 @@ export class LessonSummaryComponent implements OnInit {
     private lessonService: LessonService,
     private analysisTranslation: AnalysisTranslationService
   ) {}
+
+  ngOnDestroy() {
+    if (this.pollingInterval) {
+      clearInterval(this.pollingInterval);
+      this.pollingInterval = null;
+    }
+  }
 
   ngOnInit() {
     console.log('🎯 LessonSummaryComponent initialized');
@@ -106,10 +115,14 @@ export class LessonSummaryComponent implements OnInit {
   }
 
   private pollForAnalysis() {
-    const maxAttempts = 60; // 60 attempts = 2 minutes max
+    const maxAttempts = 60;
     let attempts = 0;
 
-    const interval = setInterval(() => {
+    if (this.pollingInterval) {
+      clearInterval(this.pollingInterval);
+    }
+
+    this.pollingInterval = setInterval(() => {
       attempts++;
 
       this.transcriptionService.getLessonAnalysis(this.lessonId).subscribe({
@@ -117,30 +130,32 @@ export class LessonSummaryComponent implements OnInit {
           if (analysis.status === 'completed') {
             this.analysis = analysis;
             this.loading = false;
-            clearInterval(interval);
+            clearInterval(this.pollingInterval);
+            this.pollingInterval = null;
             this.computeDerivedProperties();
             this.initTranslationState();
-            console.log('✅ Analysis loaded successfully');
           } else if (analysis.status === 'failed' || analysis.status === 'insufficient_data') {
             this.analysisUnavailable = true;
             this.loading = false;
-            clearInterval(interval);
-            console.log(`⚠️ Analysis ${analysis.status}`);
+            clearInterval(this.pollingInterval);
+            this.pollingInterval = null;
           }
         },
         error: (error: any) => {
           if (error.status === 404 && error.error?.status === 'unavailable') {
             this.analysisUnavailable = true;
             this.loading = false;
-            clearInterval(interval);
+            clearInterval(this.pollingInterval);
+            this.pollingInterval = null;
           } else if (attempts >= maxAttempts) {
             this.analysisUnavailable = true;
             this.loading = false;
-            clearInterval(interval);
+            clearInterval(this.pollingInterval);
+            this.pollingInterval = null;
           }
         }
       });
-    }, 2000); // Check every 2 seconds
+    }, 2000);
   }
 
   private computeDerivedProperties() {

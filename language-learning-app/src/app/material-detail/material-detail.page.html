@@ -1,12 +1,15 @@
 <ion-header class="md-header">
   <ion-toolbar class="md-toolbar">
     <div class="md-toolbar-start" slot="start">
-      <div class="app-icon-container md-toolbar-brand" (click)="goHome()">
+      <button type="button" class="md-toolbar-back-mobile" (click)="goBack()" aria-label="Back">
+        <ion-icon name="chevron-back-outline" aria-hidden="true"></ion-icon>
+      </button>
+      <div class="app-icon-container md-toolbar-brand md-toolbar-brand-desktop" (click)="goHome()">
         <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="app-icon">
         <span class="app-name">Barnabi</span>
       </div>
     </div>
-    <div class="md-toolbar-end" slot="end">
+    <div class="md-toolbar-end md-toolbar-end-desktop" slot="end">
       <div class="md-toolbar-avatar" *ngIf="currentUser?.picture">
         <img [src]="currentUser.picture" [alt]="currentUser.name" referrerpolicy="no-referrer">
       </div>
@@ -15,10 +18,10 @@
 </ion-header>
 
 <ion-content>
-  <div class="md-page">
+  <div class="md-page" [class.md-page-ready]="pageReady">
 
-    <!-- Breadcrumb -->
-    <div class="md-breadcrumb">
+    <!-- Breadcrumb (desktop: in-page back; mobile uses toolbar back) -->
+    <div class="md-breadcrumb md-breadcrumb-desktop">
       <button class="md-back-btn" (click)="goBack()">
         <ion-icon name="chevron-back-outline"></ion-icon>
         <span>Back</span>
@@ -56,7 +59,7 @@
       </div>
 
       <!-- Two-column layout -->
-      <div class="md-layout" [class.md-has-sidebar]="material.quiz && material.quiz.length > 0" [class.md-collapsed]="leftPanelHidden">
+      <div class="md-layout" [class.md-has-sidebar]="material.quiz && material.quiz.length > 0" [class.md-collapsed]="leftPanelHidden" [class.md-quiz-active]="quizMode !== 'idle'" [class.md-quiz-results-mode]="quizMode === 'results'">
 
         <!-- LEFT: Main content -->
         <div class="md-main" [@collapseLeft]="leftPanelHidden ? 'hidden' : 'visible'">
@@ -73,7 +76,7 @@
               </div>
               <div class="md-video-wrap">
                 <div class="md-video">
-                  <iframe [src]="videoCoverVisible ? videoEmbedUrl : (videoAutoplayUrl || videoEmbedUrl)" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="origin"></iframe>
+                  <iframe [src]="videoEmbedUrl" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
                 </div>
                 <div class="md-video-cover-overlay" *ngIf="material.thumbnailUrl && videoCoverVisible" (click)="playVideo()">
                   <img [src]="material.thumbnailUrl" [alt]="material.title" />
@@ -186,24 +189,27 @@
           <div class="md-quiz-card">
             <!-- Idle: quiz details -->
             <div class="md-quiz-idle" *ngIf="quizMode === 'idle'">
-              <div class="md-quiz-stats" *ngIf="material.stats">
-                <div class="md-quiz-stat">
-                  <span class="md-quiz-stat-val">{{ material.stats.views }}</span>
-                  <span class="md-quiz-stat-lbl">Views</span>
-                </div>
-                <div class="md-quiz-stat">
-                  <span class="md-quiz-stat-val">{{ material.stats.quizAttempts }}</span>
-                  <span class="md-quiz-stat-lbl">Attempts</span>
-                </div>
-                <div class="md-quiz-stat">
-                  <span class="md-quiz-stat-val">{{ material.stats.averageScore }}%</span>
-                  <span class="md-quiz-stat-lbl">Avg Score</span>
-                </div>
+              <div class="md-quiz-idle-icon">
+                <ion-icon name="school-outline"></ion-icon>
               </div>
-
               <div class="md-quiz-header">
                 <h3 class="md-quiz-type">{{ typeLabel }}</h3>
                 <p class="md-quiz-count">{{ material.quiz.length }} question{{ material.quiz.length !== 1 ? 's' : '' }}</p>
+              </div>
+
+              <div class="md-quiz-stats-row" *ngIf="material.stats">
+                <div class="md-quiz-stat-pill">
+                  <ion-icon name="eye-outline"></ion-icon>
+                  <span>{{ material.stats.views }} views</span>
+                </div>
+                <div class="md-quiz-stat-pill">
+                  <ion-icon name="school-outline"></ion-icon>
+                  <span>{{ material.stats.quizAttempts }} attempts</span>
+                </div>
+                <div class="md-quiz-stat-pill" *ngIf="material.stats.averageScore > 0">
+                  <ion-icon name="trending-up-outline"></ion-icon>
+                  <span>{{ material.stats.averageScore }}% avg</span>
+                </div>
               </div>
 
               <div class="md-quiz-tutor" *ngIf="tutorName">
@@ -223,7 +229,15 @@
 
             <!-- Taking: current question -->
             <div class="md-quiz-taking" *ngIf="quizMode === 'taking' && currentQuestion">
-              <div class="md-quiz-progress">{{ currentQuestionIndex + 1 }} / {{ material.quiz.length }}</div>
+              <div class="md-quiz-taking-header">
+                <button type="button" class="md-quiz-exit-btn" (click)="exitQuiz()" aria-label="Exit quiz">
+                  <ion-icon name="close-outline"></ion-icon>
+                </button>
+                <span class="md-quiz-progress">{{ currentQuestionIndex + 1 }} / {{ material.quiz.length }}</span>
+                <div class="md-quiz-progress-bar">
+                  <div class="md-quiz-progress-fill" [style.width.%]="((currentQuestionIndex + 1) / material.quiz.length) * 100"></div>
+                </div>
+              </div>
               <h3 class="md-quiz-q">{{ currentQuestion.question }}</h3>
 
               <!-- Multiple Choice -->
@@ -270,30 +284,53 @@
             </div>
 
             <!-- Results -->
-            <div class="md-quiz-results" *ngIf="quizMode === 'results' && quizResult">
-              <div class="md-results-header">
-                <div class="md-score-circle" [class.good]="quizResult.score >= 70" [class.great]="quizResult.score >= 90">
-                  <span class="md-score-value">{{ quizResult.score }}%</span>
+            <div class="md-quiz-results" *ngIf="quizMode === 'results' && quizResult" [class.md-score-great]="quizResult.score >= 90" [class.md-score-good]="quizResult.score >= 70 && quizResult.score < 90" [class.md-score-ok]="quizResult.score >= 50 && quizResult.score < 70" [class.md-score-low]="quizResult.score < 50">
+
+              <div class="md-congrats-hero">
+                <div class="md-congrats-emoji" *ngIf="quizResult.score >= 70" aria-hidden="true">🎉</div>
+
+                <div class="md-score-ring-wrap">
+                  <svg class="md-score-ring" viewBox="0 0 120 120">
+                    <circle class="md-ring-bg" cx="60" cy="60" r="52" />
+                    <circle class="md-ring-fill" cx="60" cy="60" r="52"
+                            [style.stroke-dashoffset]="326.73 - (326.73 * displayScore / 100)" />
+                  </svg>
+                  <span class="md-score-number">{{ displayScore }}%</span>
                 </div>
-                <h2>{{ quizResult.score >= 90 ? 'Excellent!' : quizResult.score >= 70 ? 'Good job!' : 'Keep practicing!' }}</h2>
-                <p>{{ quizResult.correctCount }} of {{ quizResult.totalQuestions }} correct</p>
+
+                <h2 class="md-congrats-title">
+                  {{ quizResult.score >= 90 ? 'Outstanding!' : quizResult.score >= 70 ? 'Great Work!' : quizResult.score >= 50 ? 'Not Bad!' : 'Keep Trying!' }}
+                </h2>
+                <p class="md-congrats-subtitle">{{ quizResult.correctCount }} of {{ quizResult.totalQuestions }} correct</p>
+
+                <div class="md-rank-section" *ngIf="quizResult.totalAttempts && quizResult.totalAttempts > 1">
+                  <div class="md-rank-bar">
+                    <div class="md-rank-fill" [style.width.%]="rankPercentile"></div>
+                    <div class="md-rank-marker" [style.left.%]="rankPercentile"></div>
+                  </div>
+                  <p class="md-rank-label">Better than ~{{ rankPercentile }}% of quiz takers</p>
+                </div>
               </div>
+
               <div class="md-results-list">
                 <div class="md-result-item" *ngFor="let r of quizResult.results; let i = index" [class.correct]="r.isCorrect" [class.wrong]="!r.isCorrect">
-                  <p class="md-result-question">{{ r.question }}</p>
-
-                  <!-- Multiple Choice / Fill Blank / True-False result -->
-                  <div class="md-result-answer" *ngIf="!r.isCorrect && (r.type || 'multiple_choice') !== 'ordering'">
-                    <span class="md-result-correct-label">Correct:</span> {{ r.correctAnswerText }}
+                  <div class="md-result-status-icon">
+                    <ion-icon [name]="r.isCorrect ? 'checkmark-circle' : 'close-circle'"></ion-icon>
                   </div>
+                  <div class="md-result-content">
+                    <p class="md-result-question">{{ r.question }}</p>
 
-                  <!-- Ordering result -->
-                  <div class="md-result-ordering" *ngIf="!r.isCorrect && r.type === 'ordering'">
-                    <span class="md-result-correct-label">Correct order:</span>
-                    <div class="md-result-order-items">
-                      <span class="md-result-order-chip" *ngFor="let item of r.correctAnswer; let idx = index">
-                        <span class="md-result-order-num">{{ idx + 1 }}</span>{{ item }}
-                      </span>
+                    <div class="md-result-answer" *ngIf="!r.isCorrect && (r.type || 'multiple_choice') !== 'ordering'">
+                      <span class="md-result-correct-label">Correct:</span> {{ r.correctAnswerText }}
+                    </div>
+
+                    <div class="md-result-ordering" *ngIf="!r.isCorrect && r.type === 'ordering'">
+                      <span class="md-result-correct-label">Correct order:</span>
+                      <div class="md-result-order-items">
+                        <span class="md-result-order-chip" *ngFor="let item of r.correctAnswer; let idx = index">
+                          <span class="md-result-order-num">{{ idx + 1 }}</span>{{ item }}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -317,7 +354,7 @@
             <button class="md-btn-primary md-action-btn" *ngIf="quizMode === 'taking' && !isLastQuizQuestion" (click)="nextQuestion()">
               Next question
             </button>
-            <button class="md-btn-primary md-action-btn" *ngIf="quizMode === 'taking' && isLastQuizQuestion" (click)="submitQuiz()" [disabled]="!canSubmitQuiz || isSubmittingQuiz">
+            <button class="md-btn-primary md-action-btn" *ngIf="quizMode === 'taking' && isLastQuizQuestion" (click)="confirmSubmit()" [disabled]="isSubmittingQuiz">
               <ion-spinner *ngIf="isSubmittingQuiz" name="crescent" class="md-spinner"></ion-spinner>
               <span *ngIf="!isSubmittingQuiz">Submit quiz</span>
             </button>
