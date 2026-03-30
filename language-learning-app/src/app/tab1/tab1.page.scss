@@ -6284,9 +6284,24 @@ img.m-card-empty-link-arrow-img {
   min-width: 0;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 
   @media (max-width: 600px) {
     flex: none;
+  }
+
+  // Desktop 2-col row: stretch Up Next card to same height as earnings column
+  @media (min-width: 969px) {
+    > .empty-state-clean {
+      flex: 1 1 auto;
+      width: 100%;
+      min-height: 0;
+    }
+
+    > .empty-state-clean > .empty-state-clean-inner {
+      flex: 1 1 auto;
+      min-height: 0;
+    }
   }
 
   .next-class-card {
