@@ -753,7 +753,7 @@ ion-toolbar {
   ion-toolbar {
     --background: #fff;
     --border-width: 0;
-    padding: 8px 0;
+    padding: calc(8px + env(safe-area-inset-top, 0px)) 0 8px;
 
     ion-title {
       font-size: 16px;
@@ -1542,6 +1542,10 @@ ion-toolbar {
 .withdrawal-modal {
   ion-content {
     --background: #{$bg-subtle};
+
+    @media (max-width: 768px) {
+      --padding-top: env(safe-area-inset-top, 0px);
+    }
   }
 
   ion-footer.withdrawal-modal-footer {

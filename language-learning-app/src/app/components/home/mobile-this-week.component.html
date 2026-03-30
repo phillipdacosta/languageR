@@ -1,0 +1,14 @@
+<div class="mobile-section mobile-section-this-week m-stagger m-stagger-2" [class.m-stagger-go]="staggerReady" [class.m-stagger-done]="staggerDone">
+  <h3 class="mobile-section-title">{{ 'HOME.THIS_WEEK' | translate }}</h3>
+  <p class="mobile-section-empty" *ngIf="showNothingYet">{{ emptyLabel | translate }}</p>
+  <div *ngIf="!showNothingYet" class="tw-avatar-row" (click)="thisWeekTap.emit()">
+    <div class="tw-avatar-stack">
+      <div class="tw-avatar" *ngFor="let s of avatars; let i = index" [style.z-index]="avatars.length - i">
+        <img *ngIf="s.avatar" [src]="s.avatar" [alt]="s.name" referrerpolicy="no-referrer" />
+        <ion-icon *ngIf="!s.avatar" name="person"></ion-icon>
+      </div>
+    </div>
+    <span class="tw-count">{{ lessonCount }} {{ lessonCount === 1 ? ('HOME.LESSON_SINGULAR' | translate) : ('HOME.LESSON_PLURAL' | translate) }}</span>
+    <ion-icon name="chevron-forward-outline" class="tw-chevron"></ion-icon>
+  </div>
+</div>

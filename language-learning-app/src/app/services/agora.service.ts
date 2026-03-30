@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import AgoraRTC, {
+import type {
   IAgoraRTCClient,
   ICameraVideoTrack,
   ILocalVideoTrack,
@@ -7,9 +7,9 @@ import AgoraRTC, {
   IRemoteVideoTrack,
   IRemoteAudioTrack,
   ILocalTrack,
-  UID
+  UID,
+  IAgoraRTC
 } from 'agora-rtc-sdk-ng';
-import VirtualBackgroundExtension from 'agora-extension-virtual-background';
 import { environment } from '../../environments/environment';
 import { TokenGeneratorService } from './token-generator.service';
 import { LessonService, LessonJoinResponse } from './lesson.service';
@@ -101,16 +101,31 @@ export class AgoraService {
 
   private currentQuality: 'high' | 'medium' | 'low' = 'high';
 
+  private _agoraRTC: IAgoraRTC | null = null;
+  private _agoraRTCLoading: Promise<IAgoraRTC> | null = null;
+
+  private async getAgoraRTC(): Promise<IAgoraRTC> {
+    if (this._agoraRTC) return this._agoraRTC;
+    if (this._agoraRTCLoading) return this._agoraRTCLoading;
+    this._agoraRTCLoading = import('agora-rtc-sdk-ng').then(m => {
+      this._agoraRTC = m.default;
+      this._agoraRTC.setLogLevel(1);
+      return this._agoraRTC;
+    });
+    return this._agoraRTCLoading;
+  }
+
+  private async getVBExtension(): Promise<any> {
+    const mod = await import('agora-extension-virtual-background');
+    return mod.default;
+  }
+
   constructor(
     private tokenGenerator: TokenGeneratorService,
     private lessonService: LessonService,
     private classService: ClassService,
     private userService: UserService
-  ) {
-    // Set Agora SDK log level to ERROR only (suppress INFO/DEBUG logs)
-    // Log levels: 0=NONE, 1=ERROR, 2=WARN, 3=INFO, 4=DEBUG
-    AgoraRTC.setLogLevel(1);
-  }
+  ) {}
 
   getClient(): IAgoraRTCClient | null {
     return this.client;
@@ -259,11 +274,11 @@ export class AgoraService {
       return this.client;
     }
 
-    // IMPORTANT: Agora requires registerExtensions() BEFORE createClient().
-    // Initialize virtual background extension first.
-    await this.initializeVirtualBackgroundExtension();
+    const AgoraRTC = await this.getAgoraRTC();
 
-    // Create Agora client
+    // IMPORTANT: Agora requires registerExtensions() BEFORE createClient().
+    await this.initializeVirtualBackgroundExtension(AgoraRTC);
+
     this.client = AgoraRTC.createClient({
       mode: "rtc",
       codec: "h264"
@@ -275,13 +290,12 @@ export class AgoraService {
     return this.client;
   }
 
-  // Initialize virtual background extension (following official example)
-  private async initializeVirtualBackgroundExtension(): Promise<void> {
+  private async initializeVirtualBackgroundExtension(AgoraRTC: IAgoraRTC): Promise<void> {
     try {
       if (!this.extension) {
         console.log('🔧 Creating VirtualBackgroundExtension instance...');
         
-        // Create a VirtualBackgroundExtension instance
+        const VirtualBackgroundExtension = await this.getVBExtension();
         this.extension = new VirtualBackgroundExtension();
         console.log('🔧 Extension created:', !!this.extension);
         
@@ -289,7 +303,6 @@ export class AgoraService {
           throw new Error('Failed to create VirtualBackgroundExtension instance');
         }
         
-        // Register the extension
         console.log('🔧 Registering extension with Agora...');
         AgoraRTC.registerExtensions([this.extension]);
         
@@ -743,9 +756,8 @@ export class AgoraService {
       // First, request permissions and create local tracks with high-quality encoder config
       console.log("Requesting camera and microphone permissions...");
       
-      // Store virtual background state before creating new tracks
       const savedVBState = { ...this.virtualBackgroundState };
-      
+      const AgoraRTC = await this.getAgoraRTC();
       [this.localAudioTrack, this.localVideoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
         {},
         { encoderConfig: this.encoderConfig }
@@ -967,7 +979,7 @@ export class AgoraService {
         this.localVideoTrack = null;
       }
 
-      // Always create both tracks so we can toggle them later
+      const AgoraRTC = await this.getAgoraRTC();
       [this.localAudioTrack, this.localVideoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
         {},
         { encoderConfig: this.encoderConfig }
@@ -1512,10 +1524,9 @@ export class AgoraService {
     console.log('✅ Local tracks cleanup complete');
   }
 
-  // Create Agora tracks for pre-call (similar to joinLesson but without joining)
   async createMicrophoneAndCameraTracks(): Promise<[IMicrophoneAudioTrack, ICameraVideoTrack]> {
     try {
-      // Create tracks with high-quality encoder config
+      const AgoraRTC = await this.getAgoraRTC();
       const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
         {},
         { encoderConfig: this.encoderConfig }
@@ -1535,6 +1546,7 @@ export class AgoraService {
 
   async getDevices() {
     try {
+      const AgoraRTC = await this.getAgoraRTC();
       const devices = await AgoraRTC.getDevices();
       return {
         cameras: devices.filter(device => device.kind === 'videoinput'),
@@ -1912,6 +1924,7 @@ export class AgoraService {
   async createScreenVideoTrack(): Promise<ILocalVideoTrack> {
     try {
       console.log('🖥️ Creating screen video track...');
+      const AgoraRTC = await this.getAgoraRTC();
       const screenTrack = await AgoraRTC.createScreenVideoTrack({
         // Optimize for ultra-smooth cursor movement and detail visibility
         encoderConfig: {
@@ -1965,10 +1978,9 @@ export class AgoraService {
         await this.client.unpublish(this.localVideoTrack);
       }
 
-      // Create screen track (either from custom stream or display capture)
+      const AgoraRTC = await this.getAgoraRTC();
       if (customStream) {
         console.log('🎨 Using custom stream for screen sharing (e.g., canvas)');
-        // Create track from custom stream with optimized settings for canvas
         this.screenTrack = await AgoraRTC.createCustomVideoTrack({
           mediaStreamTrack: customStream.getVideoTracks()[0],
           // Optimize for canvas content - use correct Agora SDK properties

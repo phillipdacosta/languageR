@@ -6,7 +6,7 @@ import { OnboardingGuard } from './guards/onboarding.guard';
 const routes: Routes = [
   {
     path: '',
-    redirectTo: '/login',
+    redirectTo: '/tabs',
     pathMatch: 'full'
   },
   {

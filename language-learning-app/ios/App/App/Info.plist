@@ -47,6 +47,10 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Barnabi needs access to your camera for video lessons.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Barnabi needs access to your microphone for audio during lessons.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

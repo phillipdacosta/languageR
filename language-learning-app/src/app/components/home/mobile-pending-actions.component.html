@@ -1,0 +1,18 @@
+<div class="mobile-section mobile-section-pending m-stagger m-stagger-4" [class.m-stagger-go]="staggerReady" [class.m-stagger-done]="staggerDone">
+  <h3 class="mobile-section-title">{{ 'HOME.PENDING_ACTIONS' | translate }}</h3>
+  <div class="mobile-pending-list">
+    <div class="mobile-pending-item" *ngFor="let item of pendingActionItems" (click)="onItemClick(item)">
+      <div class="mpi-avatar">
+        <img *ngIf="item.avatar" [src]="item.avatar" referrerpolicy="no-referrer" />
+        <ion-icon *ngIf="!item.avatar" name="person"></ion-icon>
+      </div>
+      <div class="mpi-text">
+        <span class="mpi-label">{{ item.label }}</span>
+        <span class="mpi-sublabel">{{ item.sublabel }}</span>
+      </div>
+      <span class="mpi-badge" [class.mpi-badge--feedback]="item.type === 'feedback'" [class.mpi-badge--reschedule]="item.type === 'reschedule'">
+        {{ item.type === 'feedback' ? ('HOME.FEEDBACK_NEEDED' | translate) : ('HOME.RESCHEDULE_REQUEST' | translate) }}
+      </span>
+    </div>
+  </div>
+</div>

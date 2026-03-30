@@ -66,16 +66,16 @@
 
           <!-- Media -->
           <div class="md-media-wrap">
-            <div class="md-hero-thumb" *ngIf="material.thumbnailUrl && material.materialType !== 'reading' && (material.materialType !== 'video_quiz' || !videoEmbedUrl)">
+            <div class="md-hero-thumb" *ngIf="material.thumbnailUrl && material.materialType !== 'reading' && material.materialType !== 'video_quiz'">
               <img [src]="material.thumbnailUrl" [alt]="material.title" />
             </div>
-            <div class="md-media-branded" *ngIf="material.materialType === 'video_quiz' && videoEmbedUrl">
+            <div class="md-media-branded" *ngIf="material.materialType === 'video_quiz' && material.videoEmbedUrl">
               <div class="md-brand-bar">
                 <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="md-brand-logo" />
                 <span class="md-brand-name">Barnabi</span>
               </div>
               <div class="md-video-wrap">
-                <div class="md-video">
+                <div class="md-video" *ngIf="videoEmbedUrl">
                   <iframe [src]="videoEmbedUrl" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
                 </div>
                 <div class="md-video-cover-overlay" *ngIf="material.thumbnailUrl && videoCoverVisible" (click)="playVideo()">
@@ -284,7 +284,7 @@
             </div>
 
             <!-- Results -->
-            <div class="md-quiz-results" *ngIf="quizMode === 'results' && quizResult" [class.md-score-great]="quizResult.score >= 90" [class.md-score-good]="quizResult.score >= 70 && quizResult.score < 90" [class.md-score-ok]="quizResult.score >= 50 && quizResult.score < 70" [class.md-score-low]="quizResult.score < 50">
+            <div class="md-quiz-results" *ngIf="quizMode === 'results' && quizResult" [class.md-score-great]="quizResult.score >= 90" [class.md-score-good]="quizResult.score >= 70 && quizResult.score < 90" [class.md-score-ok]="quizResult.score >= 50 && quizResult.score < 70" [class.md-score-low]="quizResult.score < 50" [class.md-fade-out]="quizResetting">
 
               <div class="md-congrats-hero">
                 <div class="md-congrats-emoji" *ngIf="quizResult.score >= 70" aria-hidden="true">🎉</div>
@@ -293,7 +293,7 @@
                   <svg class="md-score-ring" viewBox="0 0 120 120">
                     <circle class="md-ring-bg" cx="60" cy="60" r="52" />
                     <circle class="md-ring-fill" cx="60" cy="60" r="52"
-                            [style.stroke-dashoffset]="326.73 - (326.73 * displayScore / 100)" />
+                            [style.stroke-dashoffset]="ringOffset" />
                   </svg>
                   <span class="md-score-number">{{ displayScore }}%</span>
                 </div>

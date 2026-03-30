@@ -43,6 +43,7 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
 
   videoEmbedUrl: SafeResourceUrl | null = null;
   videoAutoplayUrl: SafeResourceUrl | null = null;
+  private pendingVideoUrl: string | null = null;
   audioEmbedUrl: SafeResourceUrl | null = null;
   currentUser: any = null;
   isTutorOwner = false;
@@ -52,11 +53,13 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
 
   // Quiz state
   quizMode: 'idle' | 'taking' | 'results' = 'idle';
+  quizResetting = false;
   selectedAnswers: any[] = [];
   currentQuestionIndex = 0;
   quizResult: QuizResult | null = null;
   isSubmittingQuiz = false;
   isPurchasing = false;
+  private _scoreAnimationId: number | null = null;
 
   // Ordering question state: shuffled items for each ordering question
   orderingItems: string[][] = [];
@@ -122,14 +125,12 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
           if (this.material.videoEmbedUrl) {
             let url = this.material.videoEmbedUrl;
             const ytMatch = url.match(/(?:youtube\.com|youtube-nocookie\.com)\/embed\/([a-zA-Z0-9_-]{11})/);
-            if (Capacitor.isNativePlatform() && ytMatch) {
-              url = `${environment.backendUrl}/api/materials/embed/youtube/${ytMatch[1]}`;
+            if (ytMatch) {
+              this.pendingVideoUrl = `${environment.backendUrl}/api/materials/embed/youtube/${ytMatch[1]}`;
             } else {
-              url = url.replace('https://www.youtube.com/embed/', 'https://www.youtube-nocookie.com/embed/');
-              const sep = url.includes('?') ? '&' : '?';
-              url += sep + 'playsinline=1';
+              this.pendingVideoUrl = null;
+              this.videoEmbedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(url);
             }
-            this.videoEmbedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(url);
           }
           if (this.material.audioEmbedUrl) {
             this.audioEmbedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.material.audioEmbedUrl);
@@ -178,11 +179,16 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
   }
 
   goBack() {
+    this.cancelScoreAnimation();
+    this.destroyEmbeds();
+    this.quizMode = 'idle';
+
     const isTabRoute = this.referrerUrl.startsWith('/tabs/');
     this.navCtrl.navigateBack(this.referrerUrl, { animated: !isTabRoute });
   }
 
   ngOnDestroy() {
+    this.cancelScoreAnimation();
     this.destroyEmbeds();
   }
 
@@ -190,6 +196,8 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
     this.videoEmbedUrl = null;
     this.videoAutoplayUrl = null;
     this.audioEmbedUrl = null;
+    this.savedVideoUrl = null;
+    this.pendingVideoUrl = null;
   }
 
   toggleLeftPanel() {
@@ -197,7 +205,9 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
   }
 
   goHome() {
-    this.router.navigate(['/tabs/home']);
+    this.cancelScoreAnimation();
+    this.destroyEmbeds();
+    this.navCtrl.navigateBack('/tabs/home', { animated: false });
   }
 
   private async promptLogin() {
@@ -274,8 +284,25 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
   leftHidden = false;
   rightHidden = false;
 
+  private savedVideoUrl: SafeResourceUrl | null = null;
+
   playVideo() {
+    if (this.pendingVideoUrl) {
+      this.videoEmbedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.pendingVideoUrl);
+      this.pendingVideoUrl = null;
+    } else if (this.savedVideoUrl) {
+      this.videoEmbedUrl = this.savedVideoUrl;
+      this.savedVideoUrl = null;
+    }
     this.videoCoverVisible = false;
+  }
+
+  private stopVideo() {
+    if (this.videoEmbedUrl) {
+      this.savedVideoUrl = this.videoEmbedUrl;
+      this.videoEmbedUrl = null;
+      this.videoCoverVisible = true;
+    }
   }
 
   togglePanel(panel: 'left' | 'right') {
@@ -503,6 +530,7 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
   }
 
   displayScore = 0;
+  ringOffset = 326.73;
   rankPercentile = 0;
 
   submitQuiz() {
@@ -523,6 +551,7 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
       next: (res) => {
         this.isSubmittingQuiz = false;
         if (res.success) {
+          this.stopVideo();
           this.quizResult = res;
           this.quizMode = 'results';
           this.animateScore(res.score);
@@ -537,18 +566,52 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
   }
 
   private animateScore(target: number) {
+    this.cancelScoreAnimation();
     this.displayScore = 0;
-    const duration = 1200;
-    const start = performance.now();
-    const step = (now: number) => {
-      const elapsed = now - start;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      this.displayScore = Math.round(eased * target);
+    this.ringOffset = 326.73;
+    this.cdr.detectChanges();
+
+    requestAnimationFrame(() => {
+      this.ringOffset = 326.73 - (326.73 * target / 100);
       this.cdr.detectChanges();
-      if (progress < 1) requestAnimationFrame(step);
+    });
+
+    const duration = 1600;
+    const delay = 500;
+    let lastValue = -1;
+    const startCountUp = () => {
+      const start = performance.now();
+      const step = (now: number) => {
+        const elapsed = now - start;
+        const t = Math.min(elapsed / duration, 1);
+        const eased = t < 0.5
+          ? 4 * t * t * t
+          : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        const value = Math.round(eased * target);
+        if (value !== lastValue) {
+          lastValue = value;
+          this.displayScore = value;
+          this.cdr.detectChanges();
+        }
+        if (t < 1) {
+          this._scoreAnimationId = requestAnimationFrame(step);
+        } else {
+          this._scoreAnimationId = null;
+          this.displayScore = target;
+          this.cdr.detectChanges();
+        }
+      };
+      this._scoreAnimationId = requestAnimationFrame(step);
     };
-    requestAnimationFrame(step);
+
+    setTimeout(startCountUp, delay);
+  }
+
+  private cancelScoreAnimation() {
+    if (this._scoreAnimationId !== null) {
+      cancelAnimationFrame(this._scoreAnimationId);
+      this._scoreAnimationId = null;
+    }
   }
 
   private computeRank(score: number, avgScore?: number) {
@@ -597,13 +660,44 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
     });
   }
 
-  retakeQuiz() {
+  async retakeQuiz() {
+    const alert = await this.alertCtrl.create({
+      header: 'Retake Quiz?',
+      message: 'Your current results will be cleared and the quiz will restart from the beginning.',
+      cssClass: 'md-quiz-confirm-alert',
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        { text: 'Retake', cssClass: 'alert-button-confirm', handler: () => true }
+      ]
+    });
+    await alert.present();
+    const { role } = await alert.onDidDismiss();
+    if (role === 'cancel' || role === 'backdrop') return;
+
+    this.cancelScoreAnimation();
+    this.quizResetting = true;
+    this.cdr.detectChanges();
+
+    setTimeout(() => {
+      this.quizResult = null;
+      this.displayScore = 0;
+      this.ringOffset = 326.73;
+      this.selectedAnswers = new Array(this.material?.quiz?.length || 0).fill(null);
+      this.currentQuestionIndex = 0;
+      this.fillBlankInput = '';
+      this.initOrderingState();
+      this.quizMode = 'idle';
+      this.quizResetting = false;
+      this.cdr.detectChanges();
+    }, 300);
+  }
+
+  closeResults() {
+    this.cancelScoreAnimation();
     this.quizMode = 'idle';
     this.quizResult = null;
-    this.selectedAnswers = new Array(this.material?.quiz?.length || 0).fill(null);
-    this.currentQuestionIndex = 0;
-    this.fillBlankInput = '';
-    this.initOrderingState();
+    this.displayScore = 0;
+    this.ringOffset = 326.73;
   }
 
   async reportProblem() {

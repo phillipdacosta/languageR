@@ -1,8 +1,7 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone, ViewChild, AfterViewInit, HostBinding } from '@angular/core';
 import { trigger, transition, style, animate } from '@angular/animations';
 import { ModalController, LoadingController, ToastController, ActionSheetController, PopoverController, AlertController, ViewDidLeave, NavController, IonContent } from '@ionic/angular';
-import { Router, NavigationStart, ActivatedRoute } from '@angular/router';
-import { TutorSearchPage } from '../tutor-search/tutor-search.page';
+import { Router, NavigationStart, NavigationEnd, ActivatedRoute } from '@angular/router';
 import { PlatformService } from '../services/platform.service';
 import { AuthService } from '../services/auth.service';
 import { UserService, User } from '../services/user.service';
@@ -95,6 +94,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   platformConfig: any = {};
   isWeb = false;
   isMobile = false;
+  /** Web at ≤600px: use same tutor empty / Up Next UI as native mobile */
+  isNarrowTutorHomeViewport = false;
   isDarkModeActive = false;
   currentUser: User | null = null;
   private get userTz(): string | undefined { return this.currentUser?.profile?.timezone || undefined; }
@@ -103,7 +104,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   pastLessons: Lesson[] = [];
   pastTutors: Array<{ id: string; name: string; picture?: string }> = [];
   pendingClassInvitations: ClassInvitation[] = [];
-  isLoadingLessons = true; // Start true to show skeleton until data loads
+  isLoadingLessons = true;
   private _isLoadingInProgress = false; // Prevent double-loading
   isLoadingInvitations = false;
   hasAvailability = false;
@@ -130,8 +131,16 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   // Inline earnings view toggle
   showEarningsView = false;
   returningFromEarnings = false;
+  quickActionsAnimated = false;
+  quickActionsReady = false;
+  /** Mobile Up Next card: animate after quick actions (scale settle-in). */
+  upNextCardReady = false;
+  upNextCardAnimated = false;
+  mobileStaggerReady = false;
+  mobileStaggerDone = false;
   private _earningsOpenedFromOtherTab = false;
   @HostBinding('class.returning-from-inline') returningFromInline = false;
+  @HostBinding('class.skip-tab-entry-animations') skipTabEntryAnimations = false;
 
   // Inline explore view toggle
   showExploreView = false;
@@ -149,9 +158,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   }
   
   // Smart caching to prevent unnecessary skeleton loaders
-  private _hasInitiallyLoaded = false; // Track if we've loaded data at least once
-  private _lastDataFetch = 0; // Timestamp of last data fetch
-  private _cacheValidityMs = 30000; // Cache valid for 30 seconds
+  private _hasInitiallyLoaded = false;
+  private _lastDataFetch = 0;
+  private _cacheValidityMs = 30000; // 30 seconds
   private _lastDynamicCardRefresh = 0; // Track last dynamic card refresh
   private readonly DYNAMIC_CARD_REFRESH_INTERVAL = 2 * 60 * 1000; // 2 minutes
   private _dynamicCardRefreshInterval: any = null; // Interval for periodic card refresh while on page
@@ -191,8 +200,26 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   private countdownInterval: any;
   countdownTick = Date.now();
   nextLessonTimeLabel = ''; // Cached next lesson time label for template (avoids function calls in template)
-  hadLessonsToday = false; // Cached flag: did the user already have lessons earlier today?
-  hadOnlyCancelledLessonsToday = false; // Cached flag: were today's lessons only cancelled (no completed)?
+  /** Mobile This Week: empty-state text (context-aware). */
+  thisWeekMobileShowNothingYet = false;
+  thisWeekEmptyLabel = '';
+  /** Mobile This Week: deduplicated student avatars + total lesson count for current week. */
+  thisWeekAvatars: { name: string; avatar: string | null; lessonCount: number }[] = [];
+  thisWeekLessonCount = 0;
+  thisWeekSingleLesson: any = null;
+
+  /** Mobile tutor: greeting line (same as desktop welcome title). */
+  tutorMobileWelcomeTitle = '';
+  /** Mobile tutor: welcome subtitle when no next-lesson line (getWelcomeMessage). */
+  tutorMobileWelcomeSubtitle = '';
+  /** Mobile home hero (≤600px): large headline only; greeting lives in tabs toolbar. */
+  mobileHeroHeadline = '';
+  emptyStateTitle = '';
+  emptyStateMessage = '';
+  /** Mobile tutor Up Next: hero image URL (class thumbnail or student photo); empty → gradient fallback */
+  tutorMobileUpNextCoverUrl: string | null = null;
+  hadLessonsToday = false;
+  hadOnlyCancelledLessonsToday = false;
   
   // Message rotation system - cached on init, changes on page refresh
   private greetingIndex = Math.floor(Math.random() * 6);
@@ -221,6 +248,11 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   
   // Coaching badge metrics (for tutors)
   coachingMetrics: any = null;
+
+  // Mobile: recent students (derived from lessons)
+  recentStudents: { id: string; name: string; avatar: string | null; subject: string }[] = [];
+  // Mobile: pending action items (feedback + reschedule requests)
+  pendingActionItems: { type: 'feedback' | 'reschedule'; label: string; sublabel: string; avatar: string | null; lessonId: string; feedbackId?: string; lesson?: any }[] = [];
   
   // Tutor pending feedback
   pendingFeedback: PendingFeedbackItem[] = [];
@@ -475,19 +507,20 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           this.loadLessons(true); // Show skeleton only on first load
         }
         
-        // Load tutor-specific data
+        // Defer non-critical data so loadLessons() gets network priority
         if (this.isTutor()) {
-          this.loadTutorInsights();
-          this.loadAvailability();
-          this.loadTutorEarnings(); // Load earnings for tutors
+          setTimeout(() => {
+            this.loadTutorInsights();
+            this.loadAvailability();
+            this.loadTutorEarnings();
+          }, 1500);
         } else {
-          this.earningsBalanceLoading = false; // No earnings balance for students
-          // Load student-specific data
-          this.loadStudentInsights();
-          // Load wallet balance for students
-          this.loadWalletBalance();
-          // Load pending class invitations for students
-          this.loadPendingInvitations();
+          this.earningsBalanceLoading = false;
+          setTimeout(() => {
+            this.loadStudentInsights();
+            this.loadWalletBalance();
+            this.loadPendingInvitations();
+          }, 1500);
           
           // Set up real-time tutor availability socket listeners (students only)
           // These must be set up HERE after currentUser is loaded, not in ngOnInit
@@ -645,6 +678,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           this.cdr.detectChanges();
           
           console.log('📅 [TAB1] hasAvailability updated to:', this.hasAvailability);
+          this.syncTutorMobileWelcomeAboveUpNext();
         }
         
         // Also reload to ensure we have the latest data (in case of any edge cases)
@@ -660,6 +694,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.platformConfig = this.platformService.getPlatformConfig();
     this.isWeb = this.platformService.isWeb();
     this.isMobile = this.platformService.isMobile();
+    this.refreshNarrowTutorHomeViewport();
     const initialStart = this.getStripStartForDate(today);
     this.updateDateStrip(initialStart, false);
     
@@ -668,9 +703,27 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       takeUntil(this.destroy$)
     ).subscribe(event => {
       if (event instanceof NavigationStart) {
-        // Close modal when navigating away (e.g., to checkout)
         if (this.isTutorBookingModalOpen) {
           this.closeTutorBookingModal();
+        }
+      }
+      if (event instanceof NavigationEnd) {
+        const url = (event as NavigationEnd).urlAfterRedirects || (event as NavigationEnd).url;
+        if (url === '/tabs/home' || url === '/tabs/home/') {
+          // Force re-render inline panels that may be visually stale after
+          // returning from a root-level route (e.g. /material/:id on native iOS)
+          if (this.showCreateMaterialView || this.showExploreView) {
+            const wasCM = this.showCreateMaterialView;
+            const wasExplore = this.showExploreView;
+            this.showCreateMaterialView = false;
+            this.showExploreView = false;
+            this.cdr.detectChanges();
+            requestAnimationFrame(() => {
+              this.showCreateMaterialView = wasCM;
+              this.showExploreView = wasExplore;
+              this.cdr.detectChanges();
+            });
+          }
         }
       }
     });
@@ -685,6 +738,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         const newStart = this.getStripStartForDate(referenceDate);
         this.updateDateStrip(newStart, false);
       }
+      this.refreshNarrowTutorHomeViewport();
+      this.syncTutorMobileWelcomeAboveUpNext();
     };
     window.addEventListener('resize', this.resizeListener);
 
@@ -944,6 +999,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         // Update cached "had lessons today" flag
         this.hadLessonsToday = this.hadLessonsEarlierToday();
         this.hadOnlyCancelledLessonsToday = this.checkHadOnlyCancelledLessonsToday();
+        this.syncTutorMobileWelcomeAboveUpNext();
         // Update countdownTick after labels are updated to trigger single change detection
         // This also triggers the isNextClassInProgress() check for the badge
         this.countdownTick = now;
@@ -979,10 +1035,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       console.log('🔌 [TAB1] WebSocket connection status changed:', isConnected);
       if (isConnected && this.currentUser) {
         console.log('🔌 [TAB1] WebSocket reconnected - refreshing data');
-        // Reload important data after reconnection
+        // Reload important data after reconnection (no skeleton — silent refresh)
         setTimeout(() => {
           this.loadUnreadNotificationCount();
-          this.loadLessons();
+          this.loadLessons(false);
           if (this.isStudent()) {
             this.loadPendingInvitations();
           }
@@ -1328,6 +1384,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   }
 
   ionViewWillEnter() {
+    if (this._hasInitiallyLoaded) {
+      this.skipTabEntryAnimations = true;
+    }
     this.refreshPrevNotesTranslationState();
     console.log('🔄 [TAB1] ========== ionViewWillEnter START ==========');
     console.log('🔄 [TAB1] ionViewWillEnter - hasInitiallyLoaded:', this._hasInitiallyLoaded, 'lastFetch:', new Date(this._lastDataFetch).toLocaleTimeString());
@@ -1451,18 +1510,17 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       this.loadLessons(!this._hasInitiallyLoaded);
     } else {
       console.log('✅ [TAB1] Using cached data, forcing recomputation of computed properties');
-      // Even when using cached data, we need to invalidate computed property caches
-      // to ensure the UI updates properly when returning to this tab
+      // Invalidate hashes so getters recompute on next access,
+      // but keep the existing data arrays so the UI doesn't flash empty.
       this._cachedFirstLessonHash = '';
-      this._cachedFirstLesson = undefined;
       this._cachedTimelineEventsHash = '';
-      this._cachedTimelineEvents = [];
       this._rescheduleProposerCache.clear();
       
       // Trigger change detection to recompute getters
       this.cdr.detectChanges();
       this.countdownTick = Date.now();
     }
+    this.syncTutorMobileWelcomeAboveUpNext();
   }
 
   loadUnreadNotificationCount() {
@@ -3306,6 +3364,17 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     
     this.cdr.detectChanges();
   }
+
+  private refreshNarrowTutorHomeViewport(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const next = window.innerWidth <= 600;
+    if (next !== this.isNarrowTutorHomeViewport) {
+      this.isNarrowTutorHomeViewport = next;
+      this.cdr.markForCheck();
+    }
+  }
   
   // Open tutor onboarding modal/page
   openTutorOnboarding() {
@@ -3391,6 +3460,76 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     
     // Check for upcoming lessons and show Smart Island moments
     this.checkUpcomingLessonsForIsland();
+
+    // Mobile sections
+    this.syncRecentStudents();
+    this.syncPendingActionItems();
+    this.syncThisWeekMobileNothingYet();
+  }
+
+  private syncRecentStudents(): void {
+    if (!this.isTutorUser) return;
+    const now = new Date();
+    const seen = new Set<string>();
+    this.recentStudents = this.lessons
+      .filter(l => l.studentId && typeof l.studentId === 'object' && new Date(l.endTime) < now && l.status !== 'cancelled')
+      .sort((a, b) => new Date(b.endTime).getTime() - new Date(a.endTime).getTime())
+      .reduce<{ id: string; name: string; avatar: string | null; subject: string }[]>((acc, l) => {
+        const s = l.studentId as any;
+        const id = s?._id || s?.id;
+        if (!id || seen.has(id)) return acc;
+        seen.add(id);
+        acc.push({
+          id,
+          name: s?.name || s?.email || 'Student',
+          avatar: s?.picture || s?.profilePicture || null,
+          subject: l.subject || ''
+        });
+        return acc;
+      }, [])
+      .slice(0, 6);
+  }
+
+  private syncPendingActionItems(): void {
+    if (!this.isTutorUser) return;
+    const items: typeof this.pendingActionItems = [];
+
+    for (const fb of this.pendingFeedback) {
+      const dateLabel = fb.lesson?.startTime
+        ? this.formatFeedbackDate(fb.lesson.startTime)
+        : '';
+      items.push({
+        type: 'feedback',
+        label: fb.studentName || 'Student',
+        sublabel: dateLabel ? `Lesson on ${dateLabel}` : 'Feedback needed',
+        avatar: fb.studentPicture || null,
+        lessonId: fb.lessonId,
+        feedbackId: fb._id,
+      });
+    }
+
+    for (const l of this.lessons) {
+      if (l.status === 'pending_reschedule' && (l as any).rescheduleProposal?.status === 'pending') {
+        const isTutor = (l.tutorId as any)?._id === this.currentUser?.id;
+        const other = isTutor ? l.studentId : l.tutorId;
+        const otherName = typeof other === 'object' ? ((other as any)?.name || 'Someone') : 'Someone';
+        const otherAvatar = typeof other === 'object' ? ((other as any)?.picture || (other as any)?.profilePicture || null) : null;
+        const isProposer = (l as any).rescheduleProposal?.proposedBy?._id === this.currentUser?.id ||
+                           (l as any).rescheduleProposal?.proposedBy === this.currentUser?.id;
+        if (!isProposer) {
+          items.push({
+            type: 'reschedule',
+            label: otherName,
+            sublabel: 'Wants to reschedule',
+            avatar: otherAvatar,
+            lessonId: l._id,
+            lesson: l,
+          });
+        }
+      }
+    }
+
+    this.pendingActionItems = items;
   }
 
   // New method: Load student insights
@@ -4212,6 +4351,177 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     return '';
   }
 
+  /** Syncs mobile tutor welcome hero, empty-state copy, and Up Next cover when lessons load. */
+  private syncTutorMobileWelcomeAboveUpNext(): void {
+    this.syncTutorMobileWelcomeSection();
+    this.syncMobileHeroBanner();
+    this.emptyStateTitle = this.getEmptyStateTitle();
+    this.emptyStateMessage = this.getEmptyStateMessage();
+    this.syncTutorMobileUpNextCoverUrl();
+    this.syncThisWeekMobileNothingYet();
+  }
+
+  private syncThisWeekMobileNothingYet(): void {
+    if (!this.isTutorUser || this.isLoadingLessons) {
+      this.thisWeekMobileShowNothingYet = false;
+      this.thisWeekAvatars = [];
+      this.thisWeekLessonCount = 0;
+      return;
+    }
+
+    const now = new Date();
+    const weekStart = this.getStartOfWeek(this.startOfDay(now));
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+
+    const upNextLessonId = this.nextLesson?.lesson?._id ? String(this.nextLesson.lesson._id) : null;
+
+    const weekLessons = this.lessons.filter(l => {
+      if (l.status === 'cancelled' || l.status === 'completed') return false;
+      if (upNextLessonId && String(l._id) === upNextLessonId) return false;
+      const start = new Date(l.startTime);
+      return start >= now && start < weekEnd;
+    });
+
+    this.thisWeekLessonCount = weekLessons.length;
+
+    const studentMap = new Map<string, { name: string; avatar: string | null; lessonCount: number }>();
+    for (const lesson of weekLessons) {
+      const isClass = (lesson as any).isClass;
+      let key: string;
+      let name: string;
+      let avatar: string | null;
+
+      if (isClass) {
+        key = 'class_' + ((lesson as any).className || lesson.subject || 'group');
+        name = (lesson as any).className || lesson.subject || 'Group Class';
+        avatar = (lesson as any).classData?.thumbnail || null;
+      } else {
+        const student = lesson.studentId as any;
+        const studentId = typeof student === 'string' ? student : student?._id || student?.id || 'unknown';
+        key = studentId;
+        name = student ? this.formatStudentDisplayName(student) : 'Unknown';
+        avatar = student?.picture || student?.profilePicture || null;
+      }
+
+      const existing = studentMap.get(key);
+      if (existing) {
+        existing.lessonCount++;
+      } else {
+        studentMap.set(key, { name, avatar, lessonCount: 1 });
+      }
+    }
+
+    this.thisWeekAvatars = Array.from(studentMap.values());
+    this.thisWeekSingleLesson = weekLessons.length === 1 ? weekLessons[0] : null;
+    this.thisWeekMobileShowNothingYet = this.thisWeekLessonCount === 0;
+
+    if (this.thisWeekMobileShowNothingYet) {
+      const hadLessonsThisWeek =
+        this.nextLesson != null ||
+        this.pastLessons.some(l => {
+          const s = new Date(l.startTime);
+          return s >= weekStart && s < weekEnd;
+        }) ||
+        this.lessons.some(l => {
+          const s = new Date(l.startTime);
+          return l.status === 'completed' && s >= weekStart && s < weekEnd;
+        });
+      this.thisWeekEmptyLabel = hadLessonsThisWeek ? 'HOME.THIS_WEEK_NOTHING_ELSE' : 'HOME.THIS_WEEK_NOTHING_YET';
+    }
+  }
+
+  /** Mobile tutor home: headline + subtitle match desktop welcome (not MOBILE_TUTOR_DASHBOARD). */
+  private syncTutorMobileWelcomeSection(): void {
+    if (!this.isTutorUser || !this.isMobile) {
+      this.tutorMobileWelcomeTitle = '';
+      this.tutorMobileWelcomeSubtitle = '';
+      return;
+    }
+    this.tutorMobileWelcomeTitle = this.getGreeting();
+    if (this.isLoadingLessons) {
+      this.tutorMobileWelcomeSubtitle = '';
+      return;
+    }
+    if (this.nextLesson && this.nextLessonTimeLabel) {
+      this.tutorMobileWelcomeSubtitle = '';
+      return;
+    }
+    this.tutorMobileWelcomeSubtitle = this.getWelcomeMessage();
+  }
+
+  private syncTutorMobileUpNextCoverUrl(): void {
+    if (!this.isMobile || !this.isTutorUser) {
+      this.tutorMobileUpNextCoverUrl = null;
+      return;
+    }
+    const row = this.nextLesson;
+    if (!row?.lesson) {
+      this.tutorMobileUpNextCoverUrl = null;
+      return;
+    }
+    const lesson = row.lesson as Lesson & { isClass?: boolean; classData?: { thumbnail?: string } };
+    if (lesson.isClass && lesson.classData?.thumbnail) {
+      this.tutorMobileUpNextCoverUrl = lesson.classData.thumbnail;
+      return;
+    }
+    const avatar = this.getOtherParticipantAvatar(lesson);
+    if (avatar && avatar !== 'assets/avatar.png') {
+      this.tutorMobileUpNextCoverUrl = avatar;
+      return;
+    }
+    this.tutorMobileUpNextCoverUrl = null;
+  }
+
+  private static readonly STUDY_LANG_DISPLAY: Record<string, string> = {
+    en: 'English',
+    es: 'Spanish',
+    fr: 'French',
+    de: 'German',
+    it: 'Italian',
+    pt: 'Portuguese',
+    ja: 'Japanese',
+    ko: 'Korean',
+    zh: 'Chinese',
+    ru: 'Russian',
+    ar: 'Arabic',
+    hi: 'Hindi',
+    nl: 'Dutch',
+    pl: 'Polish',
+    tr: 'Turkish',
+    vi: 'Vietnamese',
+  };
+
+  private languageCodeToDisplayName(code: string): string {
+    const c = (code || '').toLowerCase().split(/[-_]/)[0];
+    return Tab1Page.STUDY_LANG_DISPLAY[c] || (code ? code.charAt(0).toUpperCase() + code.slice(1).toLowerCase() : '');
+  }
+
+  /** Large white headline block on mobile home (student + tutor). */
+  private syncMobileHeroBanner(): void {
+    if (!this.isMobile || !this.currentUser) {
+      this.mobileHeroHeadline = '';
+      return;
+    }
+    if (this.isLoadingLessons) {
+      this.mobileHeroHeadline = '';
+      return;
+    }
+    if (this.isStudentUser) {
+      const code = this.currentUser.onboardingData?.languages?.[0];
+      this.mobileHeroHeadline = code
+        ? this.translateService.instant('HOME.MOBILE_HEADLINE_CONTINUE', {
+            language: this.languageCodeToDisplayName(code),
+          })
+        : this.translateService.instant('HOME.MOBILE_HEADLINE_FALLBACK');
+    } else if (this.isTutorUser) {
+      // Tutor mobile: welcome block uses tutorMobileWelcomeTitle / subtitle instead
+      this.mobileHeroHeadline = '';
+    } else {
+      this.mobileHeroHeadline = '';
+    }
+  }
+
   getEmptyStateTitle(): string {
     if (!this.hadLessonsToday) {
       return this.translateService.instant('HOME.EMPTY_TITLE_CLEAR');
@@ -4964,9 +5274,16 @@ navigateToLessons() {
 
   // Navigate to lesson details or join
   navigateToLesson(lesson: Lesson) {
-    // Navigate to event details page (same route for lessons and classes)
     if (lesson?._id) {
       this.router.navigate(['/tabs/lessons', lesson._id]);
+    }
+  }
+
+  onThisWeekTap() {
+    if (this.thisWeekSingleLesson?._id) {
+      this.router.navigate(['/tabs/lessons', this.thisWeekSingleLesson._id]);
+    } else {
+      this.router.navigate(['/tabs/tutor-calendar']);
     }
   }
 
@@ -5707,8 +6024,51 @@ navigateToLessons() {
         this.hadLessonsToday = this.hadLessonsEarlierToday();
         this.hadOnlyCancelledLessonsToday = this.checkHadOnlyCancelledLessonsToday();
         this.loadPreviousNotes();
+        if (!this.mobileStaggerDone && this.isMobile) {
+          this.cdr.detectChanges();
+
+          setTimeout(() => {
+            this.mobileStaggerReady = true;
+            this.quickActionsReady = true;
+            this.upNextCardReady = true;
+            this.cdr.detectChanges();
+
+            setTimeout(() => {
+              this.quickActionsAnimated = true;
+              this.upNextCardAnimated = true;
+              this.mobileStaggerDone = true;
+              this.cdr.detectChanges();
+            }, 800);
+          }, 50);
+        } else if (!this.quickActionsAnimated && !this.isMobile) {
+          setTimeout(() => {
+            this.quickActionsReady = true;
+            this.cdr.detectChanges();
+            setTimeout(() => {
+              this.quickActionsAnimated = true;
+              setTimeout(() => {
+                this.upNextCardReady = true;
+                this.cdr.detectChanges();
+                setTimeout(() => {
+                  this.upNextCardAnimated = true;
+                }, 300);
+              }, 80);
+            }, 450);
+          }, 150);
+        } else {
+          this.upNextCardReady = true;
+          this.upNextCardAnimated = true;
+          this.mobileStaggerReady = true;
+          this.mobileStaggerDone = true;
+        }
         console.log('✅ [TAB1] Skeleton hidden');
+      } else {
+        this.upNextCardReady = true;
+        this.upNextCardAnimated = true;
+        this.mobileStaggerReady = true;
+        this.mobileStaggerDone = true;
       }
+      this.syncTutorMobileWelcomeAboveUpNext();
     }
   }
 
@@ -5817,6 +6177,7 @@ navigateToLessons() {
       this.hasAvailability = cachedHasAvailability;
       this.availabilityBlocks = this.userService.getCachedAvailabilityBlocks();
       this.updateAvailabilitySummary();
+      this.syncTutorMobileWelcomeAboveUpNext();
       this.cdr.detectChanges();
     }
     
@@ -5845,11 +6206,13 @@ navigateToLessons() {
           this.hasAvailability = hasFutureAvailability || false;
           this.availabilityBlocks = response?.availability || [];
           this.updateAvailabilitySummary();
+          this.syncTutorMobileWelcomeAboveUpNext();
         },
         error: (error) => {
           console.error('Tab1Page: Failed to load availability', error);
           this.availabilityBlocks = [];
           this.updateAvailabilitySummary();
+          this.syncTutorMobileWelcomeAboveUpNext();
         }
       });
   }
@@ -7170,14 +7533,51 @@ navigateToLessons() {
     if (!student.lesson || !this.currentUser) return;
     const lesson = student.lesson as Lesson;
     const isClass = (lesson as any).isClass || false;
-    
+
+    if (lesson.status === 'cancelled') {
+      const alert = await this.alertController.create({
+        header: this.translateService.instant('HOME.JOIN_CANCELLED_TITLE'),
+        message: this.translateService.instant('HOME.JOIN_CANCELLED_MSG'),
+        buttons: [{ text: this.translateService.instant('COMMON.OK'), role: 'cancel' }]
+      });
+      await alert.present();
+      return;
+    }
+
+    const canJoin = this.isLessonInProgress(lesson) || this.lessonService.canJoinLesson(lesson);
+    if (!canJoin) {
+      const now = new Date();
+      const endTime = new Date(lesson.endTime);
+      const latestJoin = new Date(endTime.getTime() + 5 * 60000);
+      if (now > latestJoin) {
+        const alert = await this.alertController.create({
+          header: this.translateService.instant('HOME.JOIN_LESSON_ENDED_TITLE'),
+          message: this.translateService.instant('HOME.JOIN_LESSON_ENDED_MSG'),
+          buttons: [{ text: this.translateService.instant('COMMON.OK'), role: 'cancel' }]
+        });
+        await alert.present();
+        return;
+      }
+
+      const timeStr = this.getTimeUntilLesson(lesson);
+      const sessionKey = isClass ? 'HOME.JOIN_SESSION_CLASS' : 'HOME.JOIN_SESSION_LESSON';
+      const alert = await this.alertController.create({
+        header: this.translateService.instant('HOME.JOIN_NOT_READY_TITLE'),
+        message: this.translateService.instant('HOME.JOIN_NOT_READY_MSG', {
+          session: this.translateService.instant(sessionKey),
+          time: timeStr
+        }),
+        buttons: [{ text: this.translateService.instant('COMMON.OK'), role: 'cancel' }]
+      });
+      await alert.present();
+      return;
+    }
+
     console.log('🎯 TAB1: joinStudentLesson navigating to pre-call:', {
       lessonId: lesson._id,
       isClass
     });
-    
-    // Navigate to pre-call page first
-    // SECURITY: role is determined from lesson data + auth, not passed in URL
+
     this.router.navigate(['/pre-call'], {
       queryParams: {
         lessonId: lesson._id,
@@ -7930,12 +8330,14 @@ navigateToLessons() {
    * Load pending feedback requests for tutors
    * No popup — the Quick Actions card handles the UI inline.
    */
+  private _feedbackLoadInProgress = false;
   async loadPendingFeedback() {
     if (!this.isTutor()) return;
+    if (this._feedbackLoadInProgress) return;
+    this._feedbackLoadInProgress = true;
     
     console.log('📝 [TAB1] loadPendingFeedback called');
     
-    // 1. If the service already has cached data (e.g. from profile), apply it immediately
     if (this.tutorFeedbackService.isCacheLoaded) {
       const cached = this.tutorFeedbackService.getCachedPendingFeedback();
       this.pendingFeedback = cached.pendingFeedback || [];
@@ -7953,7 +8355,10 @@ navigateToLessons() {
       console.log(`📝 [TAB1] Loaded ${this.pendingFeedbackCount} pending feedback requests`);
     } catch (error) {
       console.error('❌ [TAB1] Error loading pending feedback:', error);
+    } finally {
+      this._feedbackLoadInProgress = false;
     }
+    this.syncTutorMobileWelcomeAboveUpNext();
   }
 
   /**

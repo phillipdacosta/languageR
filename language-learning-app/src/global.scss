@@ -220,41 +220,39 @@ ion-modal.image-cropper-modal {
   }
 }
 
-/* Withdrawal Modal */
-.withdrawal-modal {
-  --width: 96% !important;
-  --max-width: 900px !important;
-  --height: 94% !important;
-  --max-height: 900px !important;
-  --border-radius: 24px !important;
+/* Withdrawal Modal — full-screen on mobile via global ion-modal rule (max-width: 768px);
+   desktop: card sheet matching earnings / tutor filter modals */
+ion-modal.withdrawal-modal {
   --backdrop-opacity: 0.4;
-  
-  @media (min-width: 768px) {
-    --width: 900px !important;
-    --max-width: 1000px !important;
-    --height: 90% !important;
-    --max-height: 960px !important;
+
+  @media (min-width: 769px) {
+    --width: 95%;
+    --max-width: 900px;
+    --height: 90vh;
+    --max-height: 960px;
+    --border-radius: 24px;
+    --box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
   }
 
-  @media (min-width: 576px) and (max-width: 767px) {
-    --width: 92% !important;
-    --max-width: 700px !important;
-    --height: 90% !important;
-  }
-
-  @media (max-width: 575px) {
-    --width: 95% !important;
-    --max-width: 95% !important;
-    --height: 90vh !important;
-    --border-radius: 20px !important;
-  }
-  
-  &::part(content) {
-    border-radius: 24px;
-    
-    @media (max-width: 575px) {
-      border-radius: 20px;
+  @media (min-width: 769px) {
+    &::part(content) {
+      border-radius: 24px;
     }
+  }
+
+  .ion-page {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  ion-content {
+    flex: 1;
+    min-height: 0;
+  }
+
+  ion-footer.withdrawal-modal-footer {
+    flex-shrink: 0;
   }
 
   ion-backdrop {
@@ -355,8 +353,27 @@ ion-alert .alert-radio-label {
   --border-radius: 0;
   
   ion-content {
-    --padding-top: 0;
+    --padding-top: env(safe-area-inset-top, 0px);
     --padding-bottom: 0;
+  }
+}
+
+// Mobile: all modals become full-screen
+@media (max-width: 768px) {
+  ion-modal {
+    --width: 100% !important;
+    --max-width: 100% !important;
+    --height: 100% !important;
+    --max-height: 100% !important;
+    --border-radius: 0 !important;
+    --box-shadow: none !important;
+  }
+
+  ion-modal .floating-close-button {
+    top: calc(16px + env(safe-area-inset-top, 0px)) !important;
+  }
+  ion-modal .floating-back-button {
+    top: calc(16px + env(safe-area-inset-top, 0px)) !important;
   }
 }
 
@@ -1265,7 +1282,7 @@ ion-modal.notifications-filters-modal {
     ion-toolbar {
       --background: #fff;
       --border-width: 0;
-      padding: 8px 0;
+      padding: calc(8px + env(safe-area-inset-top, 0px)) 0 8px;
 
       ion-title {
         font-size: 16px;
@@ -2119,7 +2136,8 @@ html.ion-palette-dark {
   ion-modal.explore-filters-modal-sheet,
   ion-modal.all-lessons-modal,
   ion-modal.modern-modal,
-  ion-modal.availability-picker-modal {
+  ion-modal.availability-picker-modal,
+  ion-modal.withdrawal-modal {
     --background: #{$modal-bg-dark} !important;
 
     ion-content {
@@ -3548,50 +3566,6 @@ ion-modal.previous-notes-modal {
     &:active {
       transform: scale(0.98);
     }
-  }
-}
-
-// =============================================================
-// GLOBAL AMBIENT GRADIENT
-// =============================================================
-// Lives inside <ion-app> in app.component.html so it shares
-// Ionic's stacking context and renders above all page content.
-#ambient-gradient {
-  position: fixed;
-  top: 0;
-  left: -20%;
-  right: -20%;
-  bottom: 0;
-  background:
-    radial-gradient(ellipse 90% 70% at 82% 12%, rgba(217, 175, 75, 0.07) 0%, transparent 55%),
-    radial-gradient(ellipse 80% 50% at 50% 35%, rgba(59, 130, 246, 0.06) 0%, transparent 55%),
-    radial-gradient(ellipse 100% 60% at 20% 85%, rgba(99, 102, 241, 0.08) 0%, transparent 55%);
-  pointer-events: none;
-  z-index: 99999;
-  filter: blur(50px);
-
-  @media (max-width: 768px) {
-    left: -30%;
-    right: -30%;
-    background:
-      radial-gradient(ellipse 120% 55% at 85% 8%, rgba(217, 175, 75, 0.10) 0%, transparent 60%),
-      radial-gradient(ellipse 110% 45% at 40% 40%, rgba(59, 130, 246, 0.08) 0%, transparent 55%),
-      radial-gradient(ellipse 130% 50% at 15% 90%, rgba(99, 102, 241, 0.12) 0%, transparent 55%);
-    filter: blur(40px);
-  }
-}
-
-html.ion-palette-dark #ambient-gradient {
-  background:
-    radial-gradient(ellipse 90% 70% at 82% 12%, rgba(217, 175, 75, 0.08) 0%, transparent 55%),
-    radial-gradient(ellipse 80% 50% at 50% 35%, rgba(59, 130, 246, 0.07) 0%, transparent 55%),
-    radial-gradient(ellipse 100% 60% at 20% 85%, rgba(99, 102, 241, 0.10) 0%, transparent 55%);
-
-  @media (max-width: 768px) {
-    background:
-      radial-gradient(ellipse 120% 55% at 85% 8%, rgba(217, 175, 75, 0.12) 0%, transparent 60%),
-      radial-gradient(ellipse 110% 45% at 40% 40%, rgba(59, 130, 246, 0.10) 0%, transparent 55%),
-      radial-gradient(ellipse 130% 50% at 15% 90%, rgba(99, 102, 241, 0.14) 0%, transparent 55%);
   }
 }
 

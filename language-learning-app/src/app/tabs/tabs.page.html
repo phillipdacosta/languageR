@@ -1,14 +1,11 @@
-<ion-tabs [class]="getPlatformClass()" [class.show-tabs]="showTabs">
+<ion-tabs [class]="getPlatformClass()" [class.show-tabs]="showTabs" [class.tabs-home-active]="isHomePage">
 
   <!-- Mobile Top Toolbar (Global) -->
   <ion-header class="mobile-global-header" *ngIf="showTabs" [class.home-active]="isHomePage" [class.mobile-home-greeting-active]="showMobileHomeGreeting">
     <ion-toolbar>
       <ion-buttons slot="start">
-        <!-- Home (signed in): time-based greeting; no bird / no "Barnabi" -->
-        <div class="mobile-home-greeting" *ngIf="showMobileHomeGreeting" (click)="navigateTo('/tabs/home')">
-          {{ mobileHomeGreeting }}
-        </div>
-        <div class="app-icon-container brand-default" *ngIf="showMobileBrandInToolbar && !showMobileHomeGreeting" (click)="navigateTo('/tabs/home')">
+        <!-- Home (no back): Barnabi bird + name — same as desktop toolbar -->
+        <div class="app-icon-container brand-default mobile-toolbar-brand-home" *ngIf="showMobileBarnabiInToolbar" (click)="navigateTo('/tabs/home')">
           <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="app-icon">
           <span class="app-name">Barnabi</span>
         </div>
@@ -364,7 +361,11 @@
   </div>
 
   <!-- Mobile/Tablet Tabs (Bottom Navigation) -->
-  <ion-tab-bar slot="bottom" *ngIf="showTabs && !shouldHideTabs">
+  <ion-tab-bar
+    slot="bottom"
+    *ngIf="showTabs && !shouldRemoveTabBarEntirely"
+    [class.mobile-tab-bar--profile-hidden]="hideMobileTabBarForProfile"
+    [class.mobile-tab-bar--bounce-in]="tabBarBounceAfterProfile">
     <ion-tab-button tab="home" [routerLink]="['/tabs/home']" routerDirection="root" [class.tab-selected]="isHomePage" [attr.aria-label]="'TABS.HOME' | translate">
       <ion-icon aria-hidden="true" [name]="isHomePage ? 'home' : 'home-outline'"></ion-icon>
       <ion-label>{{ 'TABS.HOME' | translate }}</ion-label>

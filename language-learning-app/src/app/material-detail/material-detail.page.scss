@@ -732,6 +732,12 @@
 .md-quiz-idle {
   padding: 24px;
   text-align: center;
+  animation: mdIdleFadeIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes mdIdleFadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .md-quiz-idle-icon {
@@ -1130,60 +1136,81 @@
 
 // ── Quiz results (congrats) ───────────────────────────────
 @keyframes mdCongratsScaleIn {
-  0%   { opacity: 0; transform: scale(0.6); }
-  60%  { opacity: 1; transform: scale(1.05); }
+  0%   { opacity: 0; transform: scale(0.5); }
+  70%  { opacity: 1; transform: scale(1.04); }
   100% { opacity: 1; transform: scale(1); }
 }
 
 @keyframes mdCongratsFadeUp {
-  from { opacity: 0; transform: translateY(16px); }
+  from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes mdRankSlideIn {
-  from { opacity: 0; transform: scaleX(0); }
-  to   { opacity: 1; transform: scaleX(1); }
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
 }
 
-@keyframes mdRingDraw {
-  from { stroke-dashoffset: 326.73; }
+@keyframes mdRankMarkerPop {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0); }
+  70%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+  100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
 
 @keyframes mdEmojiBounce {
-  0%   { opacity: 0; transform: scale(0) rotate(-20deg); }
-  50%  { opacity: 1; transform: scale(1.3) rotate(8deg); }
-  70%  { transform: scale(0.9) rotate(-4deg); }
+  0%   { opacity: 0; transform: scale(0) rotate(-15deg); }
+  50%  { opacity: 1; transform: scale(1.2) rotate(6deg); }
+  75%  { transform: scale(0.95) rotate(-2deg); }
   100% { opacity: 1; transform: scale(1) rotate(0deg); }
 }
 
+@keyframes mdResultSlideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 .md-quiz-results {
-  padding: 24px;
+  padding: 28px 24px;
   position: relative;
+
+  &.md-fade-out {
+    animation: mdResultsFadeOut 0.3s ease forwards;
+    pointer-events: none;
+  }
+}
+
+@keyframes mdResultsFadeOut {
+  to {
+    opacity: 0;
+    transform: scale(0.97) translateY(6px);
+  }
 }
 
 // Celebration emoji
 .md-congrats-emoji {
-  font-size: 56px;
+  font-size: 48px;
   text-align: center;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
   line-height: 1;
-  animation: mdEmojiBounce 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.05s forwards;
+  opacity: 0;
+  animation: mdEmojiBounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s forwards;
 }
 
 // Congrats hero
 .md-congrats-hero {
   text-align: center;
-  padding: 16px 0 24px;
+  padding: 8px 0 24px;
   position: relative;
   z-index: 2;
 }
 
 .md-score-ring-wrap {
   position: relative;
-  width: 110px;
-  height: 110px;
-  margin: 0 auto 16px;
-  animation: mdCongratsScaleIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s forwards;
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 20px;
+  opacity: 0;
+  animation: mdCongratsScaleIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.15s forwards;
 }
 
 .md-score-ring {
@@ -1195,16 +1222,16 @@
 .md-ring-bg {
   fill: none;
   stroke: #f0f0f0;
-  stroke-width: 8;
+  stroke-width: 7;
 }
 
 .md-ring-fill {
   fill: none;
-  stroke-width: 8;
+  stroke-width: 7;
   stroke-linecap: round;
   stroke-dasharray: 326.73;
-  transition: stroke-dashoffset 1.2s cubic-bezier(0.32, 0.72, 0, 1);
-  animation: mdRingDraw 0.1s linear forwards;
+  stroke-dashoffset: 326.73;
+  transition: stroke-dashoffset 1.6s cubic-bezier(0.22, 1, 0.36, 1) 0.4s;
 
   .md-score-great & { stroke: #34c759; }
   .md-score-good &  { stroke: #ffc107; }
@@ -1217,10 +1244,11 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 800;
   color: #222;
   letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
 }
 
 .md-congrats-title {
@@ -1229,37 +1257,41 @@
   color: #222;
   margin: 0 0 4px;
   letter-spacing: -0.4px;
-  animation: mdCongratsFadeUp 0.4s cubic-bezier(0.32, 0.72, 0, 1) 0.3s forwards;
+  opacity: 0;
+  animation: mdCongratsFadeUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.5s forwards;
 }
 
 .md-congrats-subtitle {
   font-size: 14px;
   color: #717171;
-  margin: 0 0 20px;
+  margin: 0 0 24px;
   font-weight: 500;
-  animation: mdCongratsFadeUp 0.4s cubic-bezier(0.32, 0.72, 0, 1) 0.4s forwards;
+  opacity: 0;
+  animation: mdCongratsFadeUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.65s forwards;
 }
 
 // Ranking bar
 .md-rank-section {
-  max-width: 260px;
+  max-width: 240px;
   margin: 0 auto;
-  animation: mdCongratsFadeUp 0.4s cubic-bezier(0.32, 0.72, 0, 1) 0.55s forwards;
+  opacity: 0;
+  animation: mdCongratsFadeUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.8s forwards;
 }
 
 .md-rank-bar {
-  height: 6px;
-  border-radius: 3px;
-  background: #f0f0f0;
+  height: 5px;
+  border-radius: 2.5px;
+  background: #e8e8e8;
   position: relative;
   overflow: visible;
 }
 
 .md-rank-fill {
   height: 100%;
-  border-radius: 3px;
+  border-radius: 2.5px;
   transform-origin: left;
-  animation: mdRankSlideIn 0.8s cubic-bezier(0.32, 0.72, 0, 1) 0.7s forwards;
+  transform: scaleX(0);
+  animation: mdRankSlideIn 1s cubic-bezier(0.22, 1, 0.36, 1) 1.1s forwards;
 
   .md-score-great & { background: linear-gradient(90deg, #a8e6cf, #34c759); }
   .md-score-good &  { background: linear-gradient(90deg, #fff3b0, #ffc107); }
@@ -1270,54 +1302,59 @@
 .md-rank-marker {
   position: absolute;
   top: 50%;
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   background: #fff;
-  border: 3px solid #222;
-  transform: translate(-50%, -50%);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  border: 2.5px solid #222;
+  transform: translate(-50%, -50%) scale(0);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
   opacity: 0;
-  animation: mdCongratsFadeUp 0.3s ease 1.2s forwards;
+  animation: mdRankMarkerPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 1.8s forwards;
 }
 
 .md-rank-label {
   font-size: 12px;
   color: #717171;
   font-weight: 600;
-  margin: 8px 0 0;
+  margin: 10px 0 0;
+  opacity: 0;
+  animation: mdCongratsFadeUp 0.4s cubic-bezier(0.22, 1, 0.36, 1) 2s forwards;
 }
 
 // Results list
 .md-results-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   position: relative;
   z-index: 2;
+  margin-top: 8px;
 }
 
 .md-result-item {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  border: 1.5px solid #e5e5e5;
-  animation: mdCongratsFadeUp 0.35s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid #e8e8e8;
+  background: #fff;
+  opacity: 0;
+  animation: mdResultSlideIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 
   @for $i from 1 through 20 {
     &:nth-child(#{$i}) {
-      animation-delay: #{0.6 + ($i * 0.06)}s;
+      animation-delay: #{0.9 + ($i * 0.08)}s;
     }
   }
 
   &.correct {
-    border-color: rgba(52, 199, 89, 0.3);
+    border-color: rgba(52, 199, 89, 0.25);
     background: rgba(52, 199, 89, 0.04);
   }
   &.wrong {
-    border-color: rgba(224, 72, 72, 0.3);
+    border-color: rgba(224, 72, 72, 0.25);
     background: rgba(224, 72, 72, 0.04);
   }
 }
@@ -1327,7 +1364,7 @@
   margin-top: 1px;
 
   ion-icon {
-    font-size: 20px;
+    font-size: 22px;
   }
 
   .correct & ion-icon { color: #34c759; }
@@ -1340,8 +1377,8 @@
 }
 
 .md-result-question {
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 600;
   color: #222;
   margin: 0 0 4px;
 }
@@ -1366,10 +1403,16 @@
   .md-rank-section,
   .md-rank-fill,
   .md-rank-marker,
-  .md-result-item {
+  .md-rank-label,
+  .md-result-item,
+  .md-quiz-idle,
+  .md-quiz-results.md-fade-out {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
+  }
+  .md-ring-fill {
+    transition: none !important;
   }
 }
 
@@ -1524,7 +1567,7 @@
       font-size: 17px;
       margin-bottom: 6px;
       line-height: 1.25;
-      padding-top: 16px;
+      padding-top: 30px;
     }
 
     .md-meta-row {
@@ -1631,7 +1674,7 @@
     gap: 8px;
 
     .md-quiz-tutor-avatar { width: 32px; height: 32px; }
-    .md-quiz-tutor-name { font-size: 12px; }
+    .md-quiz-tutor-name { font-size: 12px; text-align: left; }
     .md-quiz-tutor-date { font-size: 11px; }
   }
 
