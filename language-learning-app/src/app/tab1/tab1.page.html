@@ -30,7 +30,7 @@
       </div>
       <div class="welcome-header">
         <div class="welcome-content">
-          <h1 class="welcome-title" *ngIf="!isMobile">{{ getGreeting() }}</h1>
+          <h1 class="welcome-title" *ngIf="!isMobile">{{ greetingText }}</h1>
           <!-- Show skeleton while loading -->
           <p class="welcome-subtitle skeleton-text" *ngIf="isLoadingLessons">
             <ion-skeleton-text animated style="width: 180px; height: 16px; display: inline-block;"></ion-skeleton-text>
@@ -75,7 +75,7 @@
       </div>
       <div class="welcome-header">
         <div class="welcome-content" *ngIf="!isMobile">
-          <h1 class="welcome-title">{{ getGreeting() }}</h1>
+          <h1 class="welcome-title">{{ greetingText }}</h1>
           <p class="welcome-subtitle" *ngIf="isLoadingLessons">
             <ion-skeleton-text animated style="width: 160px; height: 16px; display: inline-block;"></ion-skeleton-text>
           </p>
@@ -85,7 +85,7 @@
             {{ 'HOME.WELCOME_NEXT_LESSON' | translate:{ time: nextLessonTimeLabel } }}
           </p>
           <p class="welcome-subtitle" *ngIf="!isLoadingLessons && !nextLesson">
-            {{ getWelcomeMessage() }}
+            {{ welcomeMessageText }}
           </p>
         </div>
         </div>
@@ -274,11 +274,11 @@
                 <div class="lesson-main-content" *ngIf="!nextLesson.lesson?.isClass">
                   <ion-avatar class="lesson-avatar">
                     <img 
-                      *ngIf="nextLesson && getOtherParticipantAvatar(nextLesson.lesson)" 
-                      [src]="getOtherParticipantAvatar(nextLesson.lesson)" 
+                      *ngIf="nextLesson && nextLesson.avatar" 
+                      [src]="nextLesson.avatar" 
                       [alt]="nextLesson | displayName"
                       referrerpolicy="no-referrer">
-                    <div class="avatar-placeholder" *ngIf="!nextLesson || !getOtherParticipantAvatar(nextLesson.lesson)">
+                    <div class="avatar-placeholder" *ngIf="!nextLesson || !nextLesson.avatar">
                       {{ (nextLesson | displayName)?.charAt(0) || 'T' }}
                     </div>
                   </ion-avatar>
@@ -311,7 +311,7 @@
                       
                       <div class="detail-group">
                         <ion-icon name="time-outline"></ion-icon>
-                        <span class="detail-label">{{ getTimeRangeOnly(nextLesson?.lesson) }}</span>
+                        <span class="detail-label">{{ nextLesson?.timeRange }}</span>
                       </div>
                     </div>
                   </div>
@@ -340,13 +340,13 @@
                         <img 
                           *ngIf="nextLesson.lesson?.tutorId?.picture" 
                           [src]="nextLesson.lesson.tutorId.picture" 
-                          [alt]="getClassInstructorName(nextLesson.lesson)"
+                          [alt]="nextLesson.instructorName"
                           referrerpolicy="no-referrer">
                         <div class="instructor-avatar-placeholder" *ngIf="!nextLesson.lesson?.tutorId?.picture">
-                          {{ getClassInstructorName(nextLesson.lesson)?.charAt(0) || 'T' }}
+                          {{ nextLesson.instructorName?.charAt(0) || 'T' }}
                         </div>
                       </ion-avatar>
-                      <span class="instructor-name">{{ getClassInstructorName(nextLesson.lesson) }}</span>
+                      <span class="instructor-name">{{ nextLesson.instructorName }}</span>
                     </div>
                     
                     <div class="lesson-details-row">
@@ -357,7 +357,7 @@
                       
                       <div class="detail-group">
                         <ion-icon name="time-outline"></ion-icon>
-                        <span class="detail-label">{{ getTimeRangeOnly(nextLesson?.lesson) }}</span>
+                        <span class="detail-label">{{ nextLesson?.timeRange }}</span>
                       </div>
                     </div>
                     
@@ -386,15 +386,15 @@
 
                 <!-- Starts In Card (matches tutor design) -->
                 <div class="starts-in-card" *ngIf="nextLesson.lesson?.status !== 'cancelled'">
-                  <span class="starts-label-modern">{{ isLessonInProgress(nextLesson?.lesson) ? ('HOME.STARTED' | translate) : ('HOME.STARTS_IN' | translate) }}</span>
-                  <span class="countdown-modern">{{ getTimeUntilLesson(nextLesson?.lesson) }}</span>
+                  <span class="starts-label-modern">{{ nextLesson.isInProgress ? ('HOME.STARTED' | translate) : ('HOME.STARTS_IN' | translate) }}</span>
+                  <span class="countdown-modern">{{ nextLesson.countdown }}</span>
                   <ion-button 
                     class="join-button-modern"
-                    [class.active]="isLessonInProgress(nextLesson?.lesson)"
+                    [class.active]="nextLesson.isInProgress"
                     [class.dark-join]="isDarkModeActive"
                     (click)="joinStudentLesson(nextLesson); $event.stopPropagation()">
-                    <ion-icon slot="start" [name]="isLessonInProgress(nextLesson?.lesson) ? 'videocam' : 'videocam-outline'"></ion-icon>
-                    {{ isLessonInProgress(nextLesson?.lesson) ? ('HOME.JOIN_NOW' | translate) : ('HOME.JOIN' | translate) }}
+                    <ion-icon slot="start" [name]="nextLesson.isInProgress ? 'videocam' : 'videocam-outline'"></ion-icon>
+                    {{ nextLesson.isInProgress ? ('HOME.JOIN_NOW' | translate) : ('HOME.JOIN' | translate) }}
                   </ion-button>
                 </div>
                 
@@ -419,11 +419,11 @@
                     <ion-content class="ion-padding">
                       <ion-list>
                         <!-- Reschedule -->
-                        <ion-item *ngIf="!hasLessonStarted(nextLesson?.lesson)" [button]="true" (click)="rescheduleLesson(nextLesson?.lesson?._id, nextLesson?.lesson)" [detail]="false">
+                        <ion-item *ngIf="!nextLesson.hasStarted" [button]="true" (click)="rescheduleLesson(nextLesson?.lesson?._id, nextLesson?.lesson)" [detail]="false">
                           <ion-icon name="calendar-outline" slot="start"></ion-icon>
                           <ion-label>{{ 'HOME.RESCHEDULE' | translate }}</ion-label>
                         </ion-item>
-                        <ion-item *ngIf="hasLessonStarted(nextLesson?.lesson)" [button]="false" [detail]="false" class="reschedule-disabled">
+                        <ion-item *ngIf="nextLesson.hasStarted" [button]="false" [detail]="false" class="reschedule-disabled">
                           <ion-icon name="calendar-outline" slot="start"></ion-icon>
                           <ion-label>{{ 'HOME.RESCHEDULE' | translate }}</ion-label>
                         </ion-item>
@@ -472,7 +472,7 @@
               <div class="card-top-content" *ngIf="card">
                 <!-- Stacked Avatars (for tutors online) -->
                 <div class="stacked-avatars" *ngIf="card.avatars && card.avatars.length > 0">
-                  <ion-avatar *ngFor="let avatar of card.avatars; let i = index" 
+                  <ion-avatar *ngFor="let avatar of card.avatars; let i = index; trackBy: trackByIndex" 
                               class="stacked-avatar"
                               [style.zIndex]="card.avatars.length - i"
                               [style.marginLeft]="i === 0 ? '0' : '-12px'">
@@ -504,7 +504,7 @@
                 
                 <!-- Star Rating (for pending ratings) -->
                 <div class="star-rating" *ngIf="card.type === 'pending_rating'">
-                  <ion-icon name="star" *ngFor="let star of [1,2,3,4,5]"></ion-icon>
+                  <ion-icon name="star" *ngFor="let star of [1,2,3,4,5]; trackBy: trackByIndex"></ion-icon>
                 </div>
               </div>
               
@@ -591,13 +591,13 @@
 
         <p class="m-card-empty-subtitle">
           <span [class.meta-today]="nextClass.isToday">{{ nextClass.isToday ? ('HOME.TODAY' | translate) : nextClass.dateTag }}</span>
-          {{ getTimeRangeOnly(nextClass.lesson) }}
+            {{ nextClass.timeRange }}
           <span *ngIf="!nextClass.lesson?.isClass && nextClass.subject"> · {{ nextClass.subject }}</span>
         </p>
 
         <p class="m-card-empty-subtitle m-filled-countdown" *ngIf="nextClass.lesson?.status !== 'cancelled'">
-          {{ 'HOME.STARTS_IN_TIME' | translate:{ time: getTimeUntilLesson(nextClass.lesson) } }}
-        </p>
+            {{ 'HOME.STARTS_IN_TIME' | translate:{ time: nextClass.countdown } }}
+          </p>
 
         <div class="m-filled-in-call" *ngIf="nextLessonOtherJoined && nextClass.lesson?.status !== 'cancelled'">
           <span class="in-call-dot"></span>
@@ -672,9 +672,9 @@
         </div>
         <ion-avatar class="upnext-filled-avatar">
           <img *ngIf="nextClass.lesson?.isClass && nextClass.lesson?.classData?.thumbnail" [src]="nextClass.lesson.classData.thumbnail" [alt]="nextClass.lesson.className || 'Class'" referrerpolicy="no-referrer" />
-          <img *ngIf="!nextClass.lesson?.isClass && getOtherParticipantAvatar(nextClass.lesson) && getOtherParticipantAvatar(nextClass.lesson) !== 'assets/avatar.png'" [src]="getOtherParticipantAvatar(nextClass.lesson)" [alt]="nextClass | displayName" referrerpolicy="no-referrer" />
+          <img *ngIf="!nextClass.lesson?.isClass && nextClass.avatar && nextClass.avatar !== 'assets/avatar.png'" [src]="nextClass.avatar" [alt]="nextClass | displayName" referrerpolicy="no-referrer" />
           <ion-icon *ngIf="nextClass.lesson?.isClass && !nextClass.lesson?.classData?.thumbnail" name="people" class="avatar-placeholder"></ion-icon>
-          <ion-icon *ngIf="!nextClass.lesson?.isClass && (!getOtherParticipantAvatar(nextClass.lesson) || getOtherParticipantAvatar(nextClass.lesson) === 'assets/avatar.png')" name="person" class="avatar-placeholder"></ion-icon>
+          <ion-icon *ngIf="!nextClass.lesson?.isClass && (!nextClass.avatar || nextClass.avatar === 'assets/avatar.png')" name="person" class="avatar-placeholder"></ion-icon>
         </ion-avatar>
         <div class="upnext-filled-text">
           <h3>
@@ -689,10 +689,10 @@
             <span class="meta-dot" *ngIf="!nextClass.lesson?.isClass">·</span>
             <span [class.meta-today]="nextClass.isToday">{{ nextClass.isToday ? ('HOME.TODAY' | translate) : nextClass.dateTag }}</span>
             <span class="meta-dot">·</span>
-            <span>{{ getTimeRangeOnly(nextClass.lesson) }}</span>
+            <span>{{ nextClass.timeRange }}</span>
           </p>
           <p class="upnext-filled-countdown" *ngIf="nextClass.lesson?.status !== 'cancelled'">
-            {{ 'HOME.STARTS_IN_TIME' | translate:{ time: getTimeUntilLesson(nextClass.lesson) } }}
+            {{ 'HOME.STARTS_IN_TIME' | translate:{ time: nextClass.countdown } }}
           </p>
         </div>
         <app-class-attendees *ngIf="nextClass.lesson?.isClass && nextClass.lesson?.attendees" [attendees]="nextClass.lesson.attendees" [capacity]="nextClass.lesson.capacity" [maxDisplay]="3"></app-class-attendees>
@@ -707,8 +707,8 @@
           <ion-icon name="document-text-outline"></ion-icon><span>Notes from last lesson</span><ion-icon name="chevron-forward-outline" class="chevron"></ion-icon>
         </button>
         <div class="upnext-filled-actions" *ngIf="nextClass.lesson?.status !== 'cancelled'">
-          <ion-button fill="outline" expand="block" class="empty-state-clean-btn" [class.active]="isLessonInProgress(nextClass.lesson)" (click)="joinStudentLesson(nextClass)">
-            {{ isLessonInProgress(nextClass.lesson) ? ('HOME.JOIN_NOW' | translate) : ('HOME.JOIN_LESSON' | translate) }}
+          <ion-button fill="outline" expand="block" class="empty-state-clean-btn" [class.active]="nextClass.isInProgress" (click)="joinStudentLesson(nextClass)">
+            {{ nextClass.isInProgress ? ('HOME.JOIN_NOW' | translate) : ('HOME.JOIN_LESSON' | translate) }}
           </ion-button>
         </div>
         <ion-button *ngIf="!nextClass.isInProgress && nextClass.lesson?.status !== 'cancelled'" [id]="'exp-next-class-menu-' + nextClass.lesson._id" fill="clear" class="upnext-filled-menu">
@@ -719,8 +719,8 @@
             <ion-content class="ion-padding">
               <ion-list>
                 <ion-item *ngIf="isTutorUser && nextClass.lesson?.isClass" [button]="true" (click)="inviteStudentToClass(nextClass.lesson._id)" [detail]="false"><ion-icon name="person-add-outline" slot="start"></ion-icon><ion-label>{{ 'HOME.INVITE_STUDENT' | translate }}</ion-label></ion-item>
-                <ion-item *ngIf="!hasLessonStarted(nextClass.lesson)" [button]="true" (click)="nextClass.lesson?.isClass ? rescheduleClass(nextClass.lesson._id, nextClass.lesson) : rescheduleLesson(nextClass.lesson._id, nextClass.lesson)" [detail]="false"><ion-icon name="calendar-outline" slot="start"></ion-icon><ion-label>{{ 'HOME.RESCHEDULE' | translate }}</ion-label></ion-item>
-                <ion-item *ngIf="hasLessonStarted(nextClass.lesson)" [button]="false" [detail]="false" class="reschedule-disabled"><ion-icon name="calendar-outline" slot="start"></ion-icon><ion-label>{{ 'HOME.RESCHEDULE' | translate }}</ion-label></ion-item>
+                <ion-item *ngIf="!nextClass.hasStarted" [button]="true" (click)="nextClass.lesson?.isClass ? rescheduleClass(nextClass.lesson._id, nextClass.lesson) : rescheduleLesson(nextClass.lesson._id, nextClass.lesson)" [detail]="false"><ion-icon name="calendar-outline" slot="start"></ion-icon><ion-label>{{ 'HOME.RESCHEDULE' | translate }}</ion-label></ion-item>
+                <ion-item *ngIf="nextClass.hasStarted" [button]="false" [detail]="false" class="reschedule-disabled"><ion-icon name="calendar-outline" slot="start"></ion-icon><ion-label>{{ 'HOME.RESCHEDULE' | translate }}</ion-label></ion-item>
                 <ion-item [button]="true" (click)="nextClass.lesson?.isClass ? cancelClass(nextClass.lesson._id, nextClass.lesson) : cancelLesson(nextClass.lesson._id, nextClass.lesson)" class="ion-text-danger" [detail]="false"><ion-icon name="close-circle-outline" slot="start"></ion-icon><ion-label>{{ 'HOME.CANCEL_LESSON' | translate }}</ion-label></ion-item>
               </ion-list>
             </ion-content>
@@ -924,7 +924,7 @@
       <div class="lp-phase-indicator">
         <span class="lp-phase-label">Phase {{ learningPlanCurrentPhase }} of {{ learningPlanTotalPhases }}</span>
         <div class="lp-phase-dots">
-          <span *ngFor="let dot of learningPlanPhaseDots" class="lp-dot" [class.filled]="dot"></span>
+          <span *ngFor="let dot of learningPlanPhaseDots; trackBy: trackByIndex" class="lp-dot" [class.filled]="dot"></span>
         </div>
       </div>
       <h3 class="lp-phase-title">{{ learningPlanPhaseTitle }}</h3>
@@ -1122,7 +1122,7 @@
     <ion-content class="airbnb-modal-ion-content">
       <!-- LESSONS VIEW -->
       <div class="airbnb-modal-body" *ngIf="!isDatePickerView">
-        <ng-container *ngFor="let event of allLessonsForModal; let i = index">
+        <ng-container *ngFor="let event of allLessonsForModal; let i = index; trackBy: trackByIndex">
           <!-- Date header when date changes -->
           <div class="airbnb-date-section" *ngIf="i === 0 || allLessonsForModal[i-1]?.fullDate !== event.fullDate" [@dateSectionEnter]>
             <h3 class="airbnb-date-title">{{ event.fullDate }}</h3>
@@ -1206,11 +1206,11 @@
 
     <ion-content class="airbnb-modal-ion-content">
       <div class="airbnb-modal-body">
-        <ng-container *ngFor="let fb of pendingFeedback; let i = index">
+        <ng-container *ngFor="let fb of pendingFeedback; let i = index; trackBy: trackById">
           <div class="airbnb-lesson-row" (click)="openFeedbackForm(fb.lessonId, fb._id); closeFeedbackModal()">
             <div class="airbnb-lesson-left">
-              <div class="airbnb-lesson-date">{{ formatFeedbackDate(fb.lesson?.startTime) }}</div>
-              <div class="airbnb-lesson-time">{{ formatFeedbackTime(fb.lesson?.startTime) }} · {{ fb.lesson?.duration }} min</div>
+              <div class="airbnb-lesson-date">{{ fb.formattedDate }}</div>
+              <div class="airbnb-lesson-time">{{ fb.formattedTime }} · {{ fb.lesson?.duration }} min</div>
             </div>
             <div class="airbnb-lesson-right">
               <div class="airbnb-lesson-participant-info">
@@ -1274,7 +1274,7 @@
 
         <!-- Scores -->
         <div class="pn-scores" *ngIf="previousNotesScores.length">
-          <div class="pn-score-pill" *ngFor="let s of previousNotesScores">
+          <div class="pn-score-pill" *ngFor="let s of previousNotesScores; trackBy: trackByIndex">
             <span class="pn-score-value">{{ s.value }}</span>
             <span class="pn-score-label">{{ s.label }}</span>
           </div>
@@ -1284,14 +1284,14 @@
         <div class="pn-section" *ngIf="prevNotesDisplayAnalysis?.progressionMetrics?.persistentChallenges?.length">
           <h3 class="pn-section-label pn-label-warn">Recurring challenges</h3>
           <ul class="pn-tag-list">
-            <li class="pn-tag pn-tag-warn" *ngFor="let c of prevNotesDisplayAnalysis.progressionMetrics.persistentChallenges">{{ c }}</li>
+            <li class="pn-tag pn-tag-warn" *ngFor="let c of prevNotesDisplayAnalysis.progressionMetrics.persistentChallenges; trackBy: trackByIndex">{{ c }}</li>
           </ul>
         </div>
 
         <!-- Top Errors -->
         <div class="pn-section" *ngIf="prevNotesDisplayAnalysis?.topErrors?.length">
           <h3 class="pn-section-label">Key mistakes</h3>
-          <div class="pn-error-card" *ngFor="let e of prevNotesDisplayAnalysis.topErrors">
+          <div class="pn-error-card" *ngFor="let e of prevNotesDisplayAnalysis.topErrors; trackBy: trackByIndex">
             <div class="pn-error-header">
               <span class="pn-error-issue">{{ e.issue }}</span>
               <span class="pn-severity-badge" [attr.data-severity]="e.impact">{{ e.impact }}</span>
@@ -1304,7 +1304,7 @@
         <!-- Corrected Excerpts (before/after) -->
         <div class="pn-section" *ngIf="prevNotesDisplayAnalysis?.correctedExcerpts?.length">
           <h3 class="pn-section-label">Before &amp; after</h3>
-          <div class="pn-excerpt-card" *ngFor="let ex of prevNotesDisplayAnalysis.correctedExcerpts">
+          <div class="pn-excerpt-card" *ngFor="let ex of prevNotesDisplayAnalysis.correctedExcerpts; trackBy: trackByIndex">
             <p class="pn-excerpt-context" *ngIf="ex.context">{{ ex.context }}</p>
             <div class="pn-excerpt-diff">
               <div class="pn-excerpt-line pn-excerpt-original">
@@ -1322,13 +1322,13 @@
         <!-- Error Patterns -->
         <div class="pn-section" *ngIf="prevNotesDisplayAnalysis?.errorPatterns?.length">
           <h3 class="pn-section-label">Error patterns</h3>
-          <div class="pn-pattern-card" *ngFor="let ep of prevNotesDisplayAnalysis.errorPatterns">
+          <div class="pn-pattern-card" *ngFor="let ep of prevNotesDisplayAnalysis.errorPatterns; trackBy: trackByIndex">
             <div class="pn-pattern-header">
               <span class="pn-pattern-name">{{ ep.pattern }}</span>
               <span class="pn-severity-badge" [attr.data-severity]="ep.severity">{{ ep.severity }}</span>
             </div>
             <div class="pn-pattern-examples" *ngIf="ep.examples?.length">
-              <div class="pn-pattern-example" *ngFor="let ex of ep.examples">
+              <div class="pn-pattern-example" *ngFor="let ex of ep.examples; trackBy: trackByIndex">
                 <span class="pn-ex-original" *ngIf="ex.original">"{{ ex.original }}"</span>
                 <span class="pn-ex-arrow" *ngIf="ex.original && ex.corrected">→</span>
                 <span class="pn-ex-corrected" *ngIf="ex.corrected">"{{ ex.corrected }}"</span>
@@ -1342,7 +1342,7 @@
         <div class="pn-section" *ngIf="prevNotesDisplayAnalysis?.strengths?.length">
           <h3 class="pn-section-label pn-label-good">Strengths</h3>
           <ul class="pn-tag-list">
-            <li class="pn-tag pn-tag-good" *ngFor="let s of prevNotesDisplayAnalysis.strengths">{{ s }}</li>
+            <li class="pn-tag pn-tag-good" *ngFor="let s of prevNotesDisplayAnalysis.strengths; trackBy: trackByIndex">{{ s }}</li>
           </ul>
         </div>
 
@@ -1350,7 +1350,7 @@
         <div class="pn-section" *ngIf="prevNotesDisplayAnalysis?.areasForImprovement?.length">
           <h3 class="pn-section-label">Areas to work on</h3>
           <ul class="pn-bullet-list">
-            <li *ngFor="let a of prevNotesDisplayAnalysis.areasForImprovement">{{ a }}</li>
+            <li *ngFor="let a of prevNotesDisplayAnalysis.areasForImprovement; trackBy: trackByIndex">{{ a }}</li>
           </ul>
         </div>
 
@@ -1371,13 +1371,13 @@
           <div class="pn-vocab-row" *ngIf="prevNotesDisplayAnalysis.vocabularyAnalysis.advancedWordsUsed?.length">
             <span class="pn-vocab-sublabel">Used well</span>
             <div class="pn-tag-list pn-tag-inline">
-              <span class="pn-tag pn-tag-good" *ngFor="let w of prevNotesDisplayAnalysis.vocabularyAnalysis.advancedWordsUsed">{{ w }}</span>
+              <span class="pn-tag pn-tag-good" *ngFor="let w of prevNotesDisplayAnalysis.vocabularyAnalysis.advancedWordsUsed; trackBy: trackByIndex">{{ w }}</span>
             </div>
           </div>
           <div class="pn-vocab-row" *ngIf="prevNotesDisplayAnalysis.vocabularyAnalysis.suggestedWords?.length">
             <span class="pn-vocab-sublabel">Suggested to learn</span>
             <div class="pn-tag-list pn-tag-inline">
-              <span class="pn-tag pn-tag-neutral" *ngFor="let w of prevNotesDisplayAnalysis.vocabularyAnalysis.suggestedWords">{{ w }}</span>
+              <span class="pn-tag pn-tag-neutral" *ngFor="let w of prevNotesDisplayAnalysis.vocabularyAnalysis.suggestedWords; trackBy: trackByIndex">{{ w }}</span>
             </div>
           </div>
         </div>
@@ -1392,7 +1392,7 @@
         <div class="pn-section" *ngIf="prevNotesDisplayAnalysis?.suggestedExercises?.length">
           <h3 class="pn-section-label">Suggested exercises</h3>
           <ul class="pn-bullet-list">
-            <li *ngFor="let ex of prevNotesDisplayAnalysis.suggestedExercises">{{ ex }}</li>
+            <li *ngFor="let ex of prevNotesDisplayAnalysis.suggestedExercises; trackBy: trackByIndex">{{ ex }}</li>
           </ul>
         </div>
 
@@ -1400,7 +1400,7 @@
         <div class="pn-section" *ngIf="prevNotesDisplayAnalysis?.recommendedFocus?.length">
           <h3 class="pn-section-label">Recommended focus</h3>
           <ul class="pn-bullet-list">
-            <li *ngFor="let f of prevNotesDisplayAnalysis.recommendedFocus">{{ f }}</li>
+            <li *ngFor="let f of prevNotesDisplayAnalysis.recommendedFocus; trackBy: trackByIndex">{{ f }}</li>
           </ul>
         </div>
 
@@ -1408,7 +1408,7 @@
         <div class="pn-section" *ngIf="prevNotesDisplayAnalysis?.progressionMetrics?.keyImprovements?.length">
           <h3 class="pn-section-label pn-label-good">Improvements since last time</h3>
           <ul class="pn-tag-list">
-            <li class="pn-tag pn-tag-good" *ngFor="let imp of prevNotesDisplayAnalysis.progressionMetrics.keyImprovements">{{ imp }}</li>
+            <li class="pn-tag pn-tag-good" *ngFor="let imp of prevNotesDisplayAnalysis.progressionMetrics.keyImprovements; trackBy: trackByIndex">{{ imp }}</li>
           </ul>
         </div>
       </div>

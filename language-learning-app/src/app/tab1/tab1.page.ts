@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone, ViewChild, AfterViewInit, HostBinding } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy, NgZone, ViewChild, AfterViewInit, HostBinding } from '@angular/core';
 import { trigger, transition, style, animate } from '@angular/animations';
 import { ModalController, LoadingController, ToastController, ActionSheetController, PopoverController, AlertController, ViewDidLeave, NavController, IonContent } from '@ionic/angular';
 import { Router, NavigationStart, NavigationEnd, ActivatedRoute } from '@angular/router';
@@ -43,6 +43,7 @@ import { HomeInlineToolbarService } from '../services/home-inline-toolbar.servic
   templateUrl: 'tab1.page.html',
   styleUrls: ['tab1.page.scss'],
   standalone: false,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   animations: [
     trigger('fadeIn', [
       transition(':enter', [
@@ -109,10 +110,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   isLoadingInvitations = false;
   hasAvailability = false;
   
-  // Getter for button text animation trigger (changes when hasAvailability changes)
-  get buttonTextState(): string {
-    return this.hasAvailability ? 'view' : 'add';
-  }
+  // Cached button text animation trigger — updated when hasAvailability changes
+  buttonTextState = 'add';
   
   // Wallet balance
   currentWalletBalance = 0;
@@ -152,10 +151,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   private _savedScrollBeforeMaterial = 0;
   private _scrollElRef: HTMLElement | null = null;
 
-  // Getter for active (non-cancelled) invitations
-  get activeInvitationsCount(): number {
-    return this.pendingClassInvitations.filter(inv => inv.status !== 'cancelled').length;
-  }
+  // Cached count of active (non-cancelled) invitations — updated when pendingClassInvitations changes
+  activeInvitationsCount = 0;
   
   // Smart caching to prevent unnecessary skeleton loaders
   private _hasInitiallyLoaded = false;
@@ -185,11 +182,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   dynamicCardReady = false; // Track if card system is initialized
   dynamicCardsLoaded = false; // Track if cards have been loaded to prevent re-initialization
   
-  // Up Next card properties
-  get nextLessonTutor(): any {
-    if (!this.nextLesson) return null;
-    return this.nextLesson.tutorId || this.nextLesson.studentId;
-  }
+  // Up Next card properties (cached — updated when nextLesson changes)
+  nextLessonTutor: any = null;
   
   // Tutor date strip and upcoming lesson
   dateStrip: { label: string; dayNum: number; date: Date; isToday: boolean }[] = [];
@@ -254,8 +248,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   // Mobile: pending action items (feedback + reschedule requests)
   pendingActionItems: { type: 'feedback' | 'reschedule'; label: string; sublabel: string; avatar: string | null; lessonId: string; feedbackId?: string; lesson?: any }[] = [];
   
-  // Tutor pending feedback
-  pendingFeedback: PendingFeedbackItem[] = [];
+  // Tutor pending feedback (extended with pre-formatted date/time for template)
+  pendingFeedback: (PendingFeedbackItem & { formattedDate?: string; formattedTime?: string })[] = [];
   pendingFeedbackCount = 0;
   feedbackBannerSubtitle: string = '';
   feedbackGraceExpired: boolean = false;
@@ -407,6 +401,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   nextLessonOtherJoined = false;
   nextLessonOtherName = '';
 
+  // Pre-computed template values (avoid function calls in template)
+  greetingText = '';
+  welcomeMessageText = '';
+
   // Previous lesson notes for the Up Next tutor-student pair
   previousNotesData: any = null;
   previousNotesLoading = false;
@@ -507,6 +505,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           this.loadLessons(true); // Show skeleton only on first load
         }
         
+        this.refreshPreComputedTemplateValues();
+        this.cdr.markForCheck();
+        
         // Defer non-critical data so loadLessons() gets network priority
         if (this.isTutor()) {
           setTimeout(() => {
@@ -543,6 +544,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       takeUntil(this.destroy$)
     ).subscribe(count => {
       this.unreadMessages = count;
+      this.cdr.markForCheck();
     });
     
     // Subscribe to Smart Island dynamic card updates
@@ -587,7 +589,11 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       .pipe(takeUntil(this.destroy$))
       .subscribe(response => {
         if (this.isTutorUser) {
-          this.pendingFeedback = response.pendingFeedback || [];
+          this.pendingFeedback = (response.pendingFeedback || []).map((fb: any) => ({
+            ...fb,
+            formattedDate: fb.lesson?.startTime ? this.formatFeedbackDate(fb.lesson.startTime) : '',
+            formattedTime: fb.lesson?.startTime ? this.formatFeedbackTime(fb.lesson.startTime) : ''
+          }));
           this.pendingFeedbackCount = response.count || 0;
 
           // Update grace period countdown for feedback banner
@@ -596,8 +602,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           // Auto-reopen the feedback modal after submitting one item
           // so the tutor can continue working through remaining feedback.
           if (this.tutorFeedbackService.consumeReopenFlag() && this.pendingFeedbackCount > 0) {
-            setTimeout(() => { this.isFeedbackModalOpen = true; }, 400);
+            setTimeout(() => { this.isFeedbackModalOpen = true; this.cdr.markForCheck(); }, 400);
           }
+          this.cdr.markForCheck();
         }
       });
   }
@@ -671,6 +678,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           });
           
           this.hasAvailability = hasFutureAvailability || false;
+          this.buttonTextState = this.hasAvailability ? 'view' : 'add';
           this.availabilityBlocks = updatedAvailability;
           this.updateAvailabilitySummary();
           
@@ -705,6 +713,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       if (event instanceof NavigationStart) {
         if (this.isTutorBookingModalOpen) {
           this.closeTutorBookingModal();
+          this.cdr.markForCheck();
         }
       }
       if (event instanceof NavigationEnd) {
@@ -752,6 +761,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           if (status?.success) {
             (this.upcomingLesson as any).status = status.lesson?.status || (this.upcomingLesson as any).status;
             (this.upcomingLesson as any).participant = status.participant;
+            this.cdr.markForCheck();
           }
         });
       }
@@ -978,56 +988,51 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     });
 
 
-    // Live countdown tick (updates change detection)
-    // Only update when minutes change to prevent flashing
-    this.countdownInterval = setInterval(() => {
-      const now = Date.now();
-      const currentMinute = Math.floor(now / 60000); // Get current minute
-      const lastMinute = Math.floor(this.lastLabelUpdateTime / 60000);
+    // Live countdown tick — runs outside Angular zone to avoid triggering global CD on every tick.
+    // Only runs detectChanges on this component when labels actually change.
+    this.ngZone.runOutsideAngular(() => {
+      this.countdownInterval = setInterval(() => {
+        const now = Date.now();
+        const currentMinute = Math.floor(now / 60000);
+        const lastMinute = Math.floor(this.lastLabelUpdateTime / 60000);
+        
+        if (currentMinute !== lastMinute || this.lastLabelUpdateTime === 0) {
+          this.lastLabelUpdateTime = now;
+          
+          this.recalculateUpcomingLesson();
+          this.updateStudentJoinLabels();
+          this.nextLessonTimeLabel = this.getNextLessonTimeLabel();
+          this.hadLessonsToday = this.hadLessonsEarlierToday();
+          this.hadOnlyCancelledLessonsToday = this.checkHadOnlyCancelledLessonsToday();
+          this.syncTutorMobileWelcomeAboveUpNext();
+          this.refreshNextLessonTimeSensitiveFields();
+          this.greetingText = this.getGreeting();
+          this.countdownTick = now;
+          this.cdr.detectChanges();
+        }
+      }, 5000);
       
-      // Only update if minute has changed or it's the first update
-      if (currentMinute !== lastMinute || this.lastLabelUpdateTime === 0) {
-        this.lastLabelUpdateTime = now;
-        
-        // Recalculate upcoming lesson in case current one ended
-        this.recalculateUpcomingLesson();
-        
-        // Update join labels for all displayed students
-        this.updateStudentJoinLabels();
-        // Update cached next lesson time label for template use
-        this.nextLessonTimeLabel = this.getNextLessonTimeLabel();
-        // Update cached "had lessons today" flag
-        this.hadLessonsToday = this.hadLessonsEarlierToday();
-        this.hadOnlyCancelledLessonsToday = this.checkHadOnlyCancelledLessonsToday();
-        this.syncTutorMobileWelcomeAboveUpNext();
-        // Update countdownTick after labels are updated to trigger single change detection
-        // This also triggers the isNextClassInProgress() check for the badge
-        this.countdownTick = now;
-      }
-    }, 5000); // Check every 5s, but only update when minute changes
-    
-    // Poll lesson status periodically to reflect In Progress/Rejoin
-    this.statusInterval = setInterval(() => {
-      // Skip if upcoming lesson is a class (not a real lesson)
-      if (this.upcomingLesson && !(this.upcomingLesson as any).isClass) {
-        this.lessonService.getLessonStatus(this.upcomingLesson._id).subscribe(status => {
-          if (status?.success && this.upcomingLesson) {
-            (this.upcomingLesson as any).serverTime = status.serverTime;
-            (this.upcomingLesson as any).status = status.lesson?.status || this.upcomingLesson.status;
-            (this.upcomingLesson as any).participant = status.participant;
-          }
-        });
-      }
-    }, 30000);
+      this.statusInterval = setInterval(() => {
+        if (this.upcomingLesson && !(this.upcomingLesson as any).isClass) {
+          this.ngZone.run(() => {
+            this.lessonService.getLessonStatus(this.upcomingLesson!._id).subscribe(status => {
+              if (status?.success && this.upcomingLesson) {
+                (this.upcomingLesson as any).serverTime = status.serverTime;
+                (this.upcomingLesson as any).status = status.lesson?.status || this.upcomingLesson.status;
+                (this.upcomingLesson as any).participant = status.participant;
+                this.cdr.markForCheck();
+              }
+            });
+          });
+        }
+      }, 30000);
+    });
 
     // Load featured tutors for students
     if (this.isStudent()) {
       this.loadFeaturedTutors();
     }
 
-    // Connect to WebSocket and listen for lesson presence
-    this.websocketService.connect();
-    
     // Listen for WebSocket reconnection to refresh data
     this.websocketService.connection$.pipe(
       takeUntil(this.destroy$)
@@ -1058,6 +1063,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         });
         this.updateNextLessonPresence();
         this.countdownTick = Date.now();
+        this.cdr.markForCheck();
       });
     
     // Listen for participant left events
@@ -1068,6 +1074,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         this.lessonPresence.delete(normalizedLessonId);
         this.updateNextLessonPresence();
         this.countdownTick = Date.now();
+        this.cdr.markForCheck();
       });
 
     // Listen for reschedule proposal events
@@ -1516,11 +1523,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       this._cachedTimelineEventsHash = '';
       this._rescheduleProposerCache.clear();
       
-      // Trigger change detection to recompute getters
       this.cdr.detectChanges();
       this.countdownTick = Date.now();
     }
+    this.refreshPreComputedTemplateValues();
     this.syncTutorMobileWelcomeAboveUpNext();
+    this.cdr.markForCheck();
   }
 
   loadUnreadNotificationCount() {
@@ -1537,6 +1545,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         if (response.success) {
           this.unreadNotificationCount = response.count;
           this.hasNotifications = this.unreadNotificationCount > 0;
+          this.cdr.markForCheck();
         }
       },
       error: (error) => {
@@ -1566,6 +1575,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           const previousTotal = this.pendingClassInvitations.length;
           
           this.pendingClassInvitations = response.classes;
+          this.activeInvitationsCount = this.pendingClassInvitations.filter(inv => inv.status !== 'cancelled').length;
           
           const newCount = this.activeInvitationsCount;
           const newTotal = this.pendingClassInvitations.length;
@@ -1654,10 +1664,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           console.log('❌ [TAB1] getPendingInvitations returned success: false');
         }
         this.isLoadingInvitations = false;
+        this.cdr.markForCheck();
       },
       error: (error) => {
         console.error('❌ [TAB1] Error loading pending invitations:', error);
         this.isLoadingInvitations = false;
+        this.cdr.markForCheck();
       }
     });
   }
@@ -2800,6 +2812,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           console.log('👨‍🎓 [TAB1] Loading gamification cards for student');
           this.loadGamificationCards();
         }
+        this.cdr.markForCheck();
       }
     });
   }
@@ -4351,6 +4364,27 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     return '';
   }
 
+  /** Refreshes time-sensitive pre-computed fields on the cached nextLesson object. */
+  private refreshNextLessonTimeSensitiveFields(): void {
+    const cached = this._cachedFirstLesson;
+    if (cached?.lesson) {
+      cached.isInProgress = this.isLessonInProgress(cached.lesson);
+      cached.hasStarted = this.hasLessonStarted(cached.lesson);
+      cached.countdown = this.getTimeUntilLesson(cached.lesson);
+      cached.joinLabel = this.calculateJoinLabel(cached.lesson);
+    }
+  }
+
+  /** Refreshes all pre-computed template values that depend on user/lesson state. */
+  private refreshPreComputedTemplateValues(): void {
+    this.greetingText = this.getGreeting();
+    this.welcomeMessageText = this.getWelcomeMessage();
+    this.buttonTextState = this.hasAvailability ? 'view' : 'add';
+    const nl = this.nextLesson;
+    this.nextLessonTutor = nl ? (nl.tutorId || nl.studentId) : null;
+    this.refreshNextLessonTimeSensitiveFields();
+  }
+
   /** Syncs mobile tutor welcome hero, empty-state copy, and Up Next cover when lessons load. */
   private syncTutorMobileWelcomeAboveUpNext(): void {
     this.syncTutorMobileWelcomeSection();
@@ -4678,13 +4712,18 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       subject: this.formatSubject(nextLesson.subject),
       dateTag: dateTag,
       isToday: isToday,
-      isNextClass: true, // This is always the next class
+      isNextClass: true,
       isInProgress: isInProgress,
       startTime: nextLesson.startTime,
       joinLabel: this.calculateJoinLabel(nextLesson),
       isRescheduleProposer: isRescheduleProposer,
       rescheduleAccepted: rescheduleAccepted,
-      isTrialLesson: isTrialLesson
+      isTrialLesson: isTrialLesson,
+      timeRange: this.getTimeRangeOnly(nextLesson),
+      avatar: this.getOtherParticipantAvatar(nextLesson),
+      instructorName: this.getClassInstructorName(nextLesson),
+      countdown: this.getTimeUntilLesson(nextLesson),
+      hasStarted: this.hasLessonStarted(nextLesson)
     };
   }
   
@@ -4793,7 +4832,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       startTime: firstLesson.startTime,
       joinLabel: this.calculateJoinLabel(firstLesson),
       isRescheduleProposer: isRescheduleProposer,
-      rescheduleAccepted: rescheduleAccepted
+      rescheduleAccepted: rescheduleAccepted,
+      timeRange: this.getTimeRangeOnly(firstLesson),
+      avatar: this.getOtherParticipantAvatar(firstLesson),
+      instructorName: this.getClassInstructorName(firstLesson),
+      countdown: this.getTimeUntilLesson(firstLesson),
+      hasStarted: this.hasLessonStarted(firstLesson)
     };
   }
 
@@ -5355,10 +5399,12 @@ navigateToLessons() {
         this.previousNotesData = res.hasPreviousNotes ? res : null;
         this.previousNotesLoading = false;
         this.initPrevNotesTranslation();
+        this.cdr.markForCheck();
       },
       error: () => {
         this.previousNotesData = null;
         this.previousNotesLoading = false;
+        this.cdr.markForCheck();
       }
     });
   }
@@ -6023,6 +6069,7 @@ navigateToLessons() {
         this.nextLessonTimeLabel = this.getNextLessonTimeLabel();
         this.hadLessonsToday = this.hadLessonsEarlierToday();
         this.hadOnlyCancelledLessonsToday = this.checkHadOnlyCancelledLessonsToday();
+        this.refreshPreComputedTemplateValues();
         this.loadPreviousNotes();
         if (!this.mobileStaggerDone && this.isMobile) {
           this.cdr.detectChanges();
@@ -6175,6 +6222,7 @@ navigateToLessons() {
     const cachedHasAvailability = this.userService.getCachedHasAvailability();
     if (cachedHasAvailability !== null) {
       this.hasAvailability = cachedHasAvailability;
+      this.buttonTextState = this.hasAvailability ? 'view' : 'add';
       this.availabilityBlocks = this.userService.getCachedAvailabilityBlocks();
       this.updateAvailabilitySummary();
       this.syncTutorMobileWelcomeAboveUpNext();
@@ -6204,9 +6252,11 @@ navigateToLessons() {
           });
           
           this.hasAvailability = hasFutureAvailability || false;
+          this.buttonTextState = this.hasAvailability ? 'view' : 'add';
           this.availabilityBlocks = response?.availability || [];
           this.updateAvailabilitySummary();
           this.syncTutorMobileWelcomeAboveUpNext();
+          this.cdr.markForCheck();
         },
         error: (error) => {
           console.error('Tab1Page: Failed to load availability', error);
@@ -6844,6 +6894,7 @@ navigateToLessons() {
         error: (error) => {
           console.error('Error loading wallet balance:', error);
           this.currentWalletBalance = 0;
+          this.cdr.markForCheck();
         }
       });
   }
@@ -7462,9 +7513,10 @@ navigateToLessons() {
   // Method to refresh user data from database
   refreshUserData() {
     this.userService.getCurrentUser().pipe(
-      observeOn(asyncScheduler) // Make emissions async to prevent freezing
+      observeOn(asyncScheduler)
     ).subscribe(user => {
       this.currentUser = user;
+      this.cdr.markForCheck();
     });
   }
 
@@ -8340,7 +8392,11 @@ navigateToLessons() {
     
     if (this.tutorFeedbackService.isCacheLoaded) {
       const cached = this.tutorFeedbackService.getCachedPendingFeedback();
-      this.pendingFeedback = cached.pendingFeedback || [];
+      this.pendingFeedback = (cached.pendingFeedback || []).map((fb: any) => ({
+        ...fb,
+        formattedDate: fb.lesson?.startTime ? this.formatFeedbackDate(fb.lesson.startTime) : '',
+        formattedTime: fb.lesson?.startTime ? this.formatFeedbackTime(fb.lesson.startTime) : ''
+      }));
       this.pendingFeedbackCount = cached.count || 0;
       this.updateFeedbackGraceCountdown();
       console.log(`📝 [TAB1] Using cached feedback count: ${this.pendingFeedbackCount}`);
@@ -8349,7 +8405,11 @@ navigateToLessons() {
     // 2. Always fetch fresh data from the API (updates the cache for other pages too)
     try {
       const response = await firstValueFrom(this.tutorFeedbackService.getPendingFeedback());
-      this.pendingFeedback = response.pendingFeedback || [];
+      this.pendingFeedback = (response.pendingFeedback || []).map((fb: any) => ({
+        ...fb,
+        formattedDate: fb.lesson?.startTime ? this.formatFeedbackDate(fb.lesson.startTime) : '',
+        formattedTime: fb.lesson?.startTime ? this.formatFeedbackTime(fb.lesson.startTime) : ''
+      }));
       this.pendingFeedbackCount = response.count || 0;
       this.updateFeedbackGraceCountdown();
       console.log(`📝 [TAB1] Loaded ${this.pendingFeedbackCount} pending feedback requests`);
@@ -8489,5 +8549,8 @@ navigateToLessons() {
     }
   }
 
+  // trackBy functions for *ngFor performance
+  trackById = (_: number, item: any) => item?._id || item?.id;
+  trackByIndex = (i: number) => i;
 }
 
