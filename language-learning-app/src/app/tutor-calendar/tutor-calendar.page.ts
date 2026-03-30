@@ -1,6 +1,6 @@
 import { Component, OnInit, AfterViewInit, OnDestroy, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { IonicModule, ViewWillEnter, ViewDidEnter, ActionSheetController, ModalController, ToastController, AlertController } from '@ionic/angular';
+import { IonicModule, ViewWillEnter, ViewDidEnter, ActionSheetController, ModalController, ToastController, AlertController, NavController } from '@ionic/angular';
 import { EventDetailsModalComponent } from '../components/event-details-modal/event-details-modal.component';
 import { Router, NavigationEnd, ActivatedRoute } from '@angular/router';
 import { UserService, User } from '../services/user.service';
@@ -20,6 +20,8 @@ import { trigger, state, style, transition, animate, query, stagger } from '@ang
 import { ClassAttendeesComponent } from '../components/class-attendees/class-attendees.component';
 import { BlockTimeComponent } from '../modals/block-time/block-time.component';
 import { HttpClient } from '@angular/common/http';
+import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
 import { environment } from '../../environments/environment';
 import { TutorFeedbackService } from '../services/tutor-feedback.service';
 import { getHoursInTz, getMinutesInTz, formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
@@ -211,19 +213,29 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   // Mobile timeline state
   isMobileView = false;
   showMobileSettings = false;
+  fabMenuOpen = false;
+  isOfficeHoursEnabled = false;
   panelAnimating = false;
   activeSettingsTab = 'availability';
   showPopularSlots = false;
   mobileViewMode: 'day' | 'agenda' = 'day';
-  readonly mobileDaysToShow = 4;
+  readonly mobileDaysToShow = 7;
   readonly agendaDaysToShow = 7;
   private mobileWeekStart: Date = new Date();
   mobileDays: MobileDayContext[] = [];
   mobileAgendaSections: AgendaSection[] = [];
   selectedMobileDayIndex = 0;
   mobileTimeline: TimelineEntry[] = [];
-  mobileTimelineEvents: TimelineEntry[] = []; // Pre-filtered events only
-  isLoadingMobileData = true; // Track loading state to prevent empty state flash
+  mobileTimelineEvents: TimelineEntry[] = [];
+  isLoadingMobileData = true;
+
+  // Today summary (computed once per timeline build)
+  todaySummaryLessonCount = 0;
+  todaySummaryHoursAvailable = 0;
+  todaySummaryNextUp: TimelineEntry | null = null;
+
+  // Mobile availability blocks for day view
+  mobileAvailabilityBlocks: TimelineEntry[] = [];
   private availabilityLoaded = false;
   private lessonsLoaded = false;
   
@@ -411,7 +423,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     private cdr: ChangeDetectorRef,
     private http: HttpClient,
     private tutorFeedbackService: TutorFeedbackService,
-    private translate: TranslateService
+    private translate: TranslateService,
+    private navCtrl: NavController
   ) { }
 
   private evaluateViewport() {
@@ -446,8 +459,15 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.buildMobileAgenda();
   }
 
+  private getMonday(date: Date): Date {
+    const d = this.getStartOfDay(date);
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    return this.addDays(d, diff);
+  }
+
   private setupMobileDays(anchor: Date, focus: Date = anchor) {
-    const start = this.getStartOfDay(anchor);
+    const start = this.mobileViewMode === 'day' ? this.getMonday(anchor) : this.getStartOfDay(anchor);
     this.mobileWeekStart = start;
     const days: MobileDayContext[] = [];
     const count = this.mobileViewMode === 'agenda' ? this.agendaDaysToShow : this.mobileDaysToShow;
@@ -605,46 +625,53 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     if (!this.isMobileView) {
       this.mobileTimeline = [];
       this.mobileTimelineEvents = [];
+      this.mobileAvailabilityBlocks = [];
       return;
     }
     const activeDay = this.selectedMobileDay;
     if (!activeDay) {
       this.mobileTimeline = [];
       this.mobileTimelineEvents = [];
+      this.mobileAvailabilityBlocks = [];
       return;
     }
     const dayStart = this.getStartOfDay(activeDay.date);
     const dayEnd = this.addDays(dayStart, 1);
-    
-    console.log('📱 [DAY-VIEW] Building timeline for:', dayStart.toISOString());
-    
-    // Build timeline in temporary variable to avoid flashing
+
     const timeline = this.buildDayEntries(dayStart, dayEnd);
-    
-    // Filter to show lessons and classes (exclude free time slots and generic availability blocks)
-    // Lessons have subtitles/avatarUrls, Classes have specific titles
+
+    const availabilityBlocks: TimelineEntry[] = [];
     const timelineEvents = timeline.filter(item => {
       if (item.type !== 'event') return false;
-      // Exclude generic availability blocks (they have "Available" as title and no lesson indicators)
-      // But keep classes (which have custom titles like "Class", "Spanish Class", etc.)
       const isGenericAvailability = item.title === this.translate.instant('TUTOR_CALENDAR.AVAILABLE_FALLBACK') && !item.subtitle && !item.avatarUrl;
       const isFreeSlot = item.title === this.translate.instant('TUTOR_CALENDAR.OPEN_TIME_SLOT');
-      // Show ALL events including cancelled ones
-      return !isGenericAvailability && !isFreeSlot;
+      if (isGenericAvailability) {
+        availabilityBlocks.push(item);
+        return false;
+      }
+      return !isFreeSlot;
     });
-    
-    console.log('📱 [DAY-VIEW] Timeline events:', {
-      total: timelineEvents.length,
-      events: timelineEvents.map(e => ({
-        title: e.title,
-        isClass: e.isClass,
-        isCancelled: e.isCancelled
-      }))
-    });
-    
-    // Assign all at once to prevent intermediate empty states
+
     this.mobileTimeline = timeline;
     this.mobileTimelineEvents = timelineEvents;
+    this.mobileAvailabilityBlocks = availabilityBlocks;
+
+    this.computeTodaySummary(activeDay, timelineEvents, availabilityBlocks);
+  }
+
+  private computeTodaySummary(day: MobileDayContext, events: TimelineEntry[], availability: TimelineEntry[]) {
+    const now = new Date();
+    const lessons = events.filter(e => !e.isCancelled && (e.isLesson || e.isClass));
+    this.todaySummaryLessonCount = lessons.length;
+
+    let availMinutes = 0;
+    for (const block of availability) {
+      availMinutes += block.durationMinutes;
+    }
+    this.todaySummaryHoursAvailable = Math.round((availMinutes / 60) * 10) / 10;
+
+    const upcoming = lessons.filter(e => e.start.getTime() > now.getTime());
+    this.todaySummaryNextUp = upcoming.length > 0 ? upcoming[0] : null;
   }
 
   private collectEventsForDay(dayStart: Date, dayEnd: Date): TimelineEntry[] {
@@ -1189,6 +1216,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   ionViewWillEnter() {
     // Reset initialization attempts when entering the page
     this.initializationAttempts = 0;
+    this.isOfficeHoursEnabled = this.userService.getOfficeHoursStatus();
     
     // Always set loading state when entering view to prevent flash
     this.availabilityLoaded = false;
@@ -2566,6 +2594,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
               console.log('✅ Disabling office hours');
               try {
                 await this.userService.toggleOfficeHours(false).toPromise();
+                this.isOfficeHoursEnabled = false;
                 console.log('✅ Office hours disabled');
                 
                 const toast = await this.toastController.create({
@@ -2609,6 +2638,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
               console.log('✅ Enabling office hours and navigating to pre-call');
               try {
                 await this.userService.toggleOfficeHours(true).toPromise();
+                this.isOfficeHoursEnabled = true;
                 console.log('✅ Office hours enabled');
                 
                 const toast = await this.toastController.create({
@@ -2742,10 +2772,16 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         }
       }
       
-      this.router.navigate(['/tabs/availability-setup', dateStr], { queryParams });
+      this.navCtrl.navigateForward(['/tabs/availability-setup', dateStr], {
+        queryParams,
+        animated: true,
+        animationDirection: 'forward'
+      });
     } else {
-      // Fallback to general availability setup if no date provided
-      this.router.navigate(['/tabs/availability-setup']);
+      this.navCtrl.navigateForward('/tabs/availability-setup', {
+        animated: true,
+        animationDirection: 'forward'
+      });
     }
   }
 
@@ -2771,8 +2807,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
 
   connectGoogleCalendar() {
     this.userService.getGoogleCalendarAuthUrl().subscribe({
-      next: (res) => {
-        const popup = window.open(res.url, 'google-calendar-auth', 'width=500,height=700,left=200,top=100');
+      next: async (res) => {
         let handled = false;
 
         const onLinked = (success: boolean) => {
@@ -2803,9 +2838,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         };
         window.addEventListener('message', messageHandler);
 
-        const pollTimer = setInterval(() => {
-          if (!popup || popup.closed) {
-            clearInterval(pollTimer);
+        if (Capacitor.isNativePlatform()) {
+          // Native: use in-app browser; poll for completion when it closes
+          Browser.addListener('browserFinished', () => {
             if (!handled) {
               this.userService.getGoogleCalendarStatus().subscribe({
                 next: (status) => {
@@ -2818,8 +2853,49 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
                 }
               });
             }
-          }
-        }, 500);
+          });
+          await Browser.open({ url: res.url, windowName: '_self' });
+        } else {
+          // Web: open popup window
+          const popup = window.open(res.url, 'google-calendar-auth', 'width=500,height=700,left=200,top=100');
+          const pollTimer = setInterval(() => {
+            if (!popup || popup.closed) {
+              clearInterval(pollTimer);
+              if (!handled) {
+                this.userService.getGoogleCalendarStatus().subscribe({
+                  next: (status) => {
+                    if (status.connected && !handled) {
+                      onLinked(true);
+                    } else if (!handled) {
+                      handled = true;
+                      window.removeEventListener('message', messageHandler);
+                    }
+                  }
+                });
+              }
+            }
+          }, 500);
+        }
+
+        // Fallback: poll every 2s for up to 2 minutes on native
+        let pollTimer: any = null;
+        if (Capacitor.isNativePlatform()) {
+          let pollCount = 0;
+          pollTimer = setInterval(() => {
+            pollCount++;
+            if (pollCount > 60 || handled) {
+              clearInterval(pollTimer);
+              return;
+            }
+            this.userService.getGoogleCalendarStatus().subscribe({
+              next: (status) => {
+                if (status.connected && !handled) {
+                  onLinked(true);
+                }
+              }
+            });
+          }, 2000);
+        }
       }
     });
   }
@@ -2841,6 +2917,44 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         this.cdr.detectChanges();
       }
     });
+  }
+
+  async showGcalActions() {
+    const sheet = await this.actionSheetController.create({
+      header: `Google Calendar${this.gcalEmail ? ' · ' + this.gcalEmail : ''}`,
+      buttons: [
+        {
+          text: this.gcalSyncEnabled ? 'Disable sync' : 'Enable sync',
+          icon: this.gcalSyncEnabled ? 'pause-circle-outline' : 'play-circle-outline',
+          handler: () => {
+            this.gcalSyncEnabled = !this.gcalSyncEnabled;
+            this.onGcalSettingChange('syncEnabled');
+          }
+        },
+        {
+          text: this.gcalPushToGoogle ? 'Stop pushing lessons' : 'Push lessons to Google',
+          icon: this.gcalPushToGoogle ? 'arrow-undo-outline' : 'arrow-redo-outline',
+          handler: () => {
+            this.gcalPushToGoogle = !this.gcalPushToGoogle;
+            this.onGcalSettingChange('pushToGoogle');
+          }
+        },
+        {
+          text: 'Disconnect',
+          icon: 'trash-outline',
+          role: 'destructive',
+          handler: () => {
+            this.disconnectGoogleCalendar();
+          }
+        },
+        {
+          text: 'Cancel',
+          icon: 'close-outline',
+          role: 'cancel'
+        }
+      ]
+    });
+    await sheet.present();
   }
 
   onGcalSettingChange(key: 'syncEnabled' | 'pushToGoogle') {

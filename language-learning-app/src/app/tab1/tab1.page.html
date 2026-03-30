@@ -748,7 +748,7 @@
 
       <!-- Mobile: This Week — avatar stack + lesson count -->
       <app-mobile-this-week
-        *ngIf="isTutorUser && !isLoadingLessons"
+        *ngIf="isMobile && isTutorUser && !isLoadingLessons"
         [showNothingYet]="thisWeekMobileShowNothingYet"
         [emptyLabel]="thisWeekEmptyLabel"
         [avatars]="thisWeekAvatars"
@@ -819,7 +819,7 @@
 
       <!-- Mobile: Quick Actions (horizontal scroll) -->
       <app-mobile-quick-actions
-        *ngIf="isTutorUser && !isLoadingLessons"
+        *ngIf="isMobile && isTutorUser && !isLoadingLessons"
         [quickActionsReady]="quickActionsReady"
         [quickActionsAnimated]="quickActionsAnimated"
         [staggerReady]="mobileStaggerReady"
@@ -830,7 +830,7 @@
 
       <!-- Mobile: Pending Actions (only when there are items) -->
       <app-mobile-pending-actions
-        *ngIf="isTutorUser && !isLoadingLessons && pendingActionItems.length > 0"
+        *ngIf="isMobile && isTutorUser && !isLoadingLessons && pendingActionItems.length > 0"
         [pendingActionItems]="pendingActionItems"
         [staggerReady]="mobileStaggerReady"
         [staggerDone]="mobileStaggerDone"
@@ -840,7 +840,7 @@
 
       <!-- Mobile: Recent Students -->
       <app-mobile-recent-students
-        *ngIf="isTutorUser && !isLoadingLessons"
+        *ngIf="isMobile && isTutorUser && !isLoadingLessons"
         [recentStudents]="recentStudents"
         [staggerReady]="mobileStaggerReady"
         [staggerDone]="mobileStaggerDone">
@@ -849,16 +849,22 @@
       <!-- Quick Actions (Row 2, Right / full-width when no Coming Up) — Desktop only -->
       <div class="grid-cell-actions" *ngIf="!isMobile && !isLoadingLessons" [class.full-width]="timelineEvents.length === 0">
         <div class="actions-grid">
-          <div class="quick-action-card qa-classes" (click)="navigateToExplore()">
-            <div class="qa-icon"><ion-icon name="people-outline"></ion-icon></div>
+          <div class="quick-action-card qa-classes qa-with-asset" (click)="navigateToExplore()">
+            <div class="qa-icon">
+              <img class="qa-icon-img" src="assets/quick-actions-classes.png" alt="" />
+            </div>
             <span class="qa-label">{{ 'HOME.CLASSES' | translate }}</span>
           </div>
-          <div class="quick-action-card qa-create-material" (click)="navigateToCreateMaterial()">
-            <div class="qa-icon"><ion-icon name="create-outline"></ion-icon></div>
+          <div class="quick-action-card qa-create-material qa-with-asset" (click)="navigateToCreateMaterial()">
+            <div class="qa-icon">
+              <img class="qa-icon-img" src="assets/quick-actions-create-material.png" alt="" />
+            </div>
             <span class="qa-label">{{ 'HOME.CREATE_MATERIAL' | translate }}</span>
           </div>
-          <div class="quick-action-card qa-forum">
-            <div class="qa-icon"><ion-icon name="chatbubbles-outline"></ion-icon></div>
+          <div class="quick-action-card qa-forum qa-with-asset">
+            <div class="qa-icon">
+              <img class="qa-icon-img" src="assets/quick-actions-forum.png" alt="" />
+            </div>
             <span class="qa-label">{{ 'HOME.FORUM' | translate }}</span>
           </div>
           <div class="quick-action-card qa-rating">
