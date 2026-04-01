@@ -868,29 +868,54 @@
   }
 }
 
+// ── Bundle Grid ─────────────────────────────────────────
+
+.cm-bundle-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+
+  @media (min-width: 600px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (min-width: 1200px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 // ── Bundle Cards ────────────────────────────────────────
 
 .cm-bundle-card {
   display: flex;
   flex-direction: column;
   background: #fff;
-  border: 1px solid #EBEBEB;
+  border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
-  transition: box-shadow 0.25s ease;
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
 
-  &:hover { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08); }
+  &:hover {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
+
+    .cm-bc-cover img { transform: scale(1.03); }
+  }
 }
 
 .cm-bc-cover {
   width: 100%;
-  height: 160px;
+  aspect-ratio: 16 / 10;
   position: relative;
   overflow: hidden;
   background: #F2F2F7;
 
-  img { width: 100%; height: 100%; object-fit: cover; }
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.4s ease;
+  }
 }
 
 .cm-bc-cover-placeholder {
@@ -899,20 +924,21 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #E8F0FE 0%, #dce8fc 100%);
+  background: linear-gradient(145deg, #E0ECFF 0%, #dce8fc 50%, #EDE7F6 100%);
 
-  ion-icon { font-size: 40px; color: #4298d3; opacity: 0.35; }
+  ion-icon { font-size: 48px; color: #4298d3; opacity: 0.3; }
 }
 
 .cm-bc-status-badge {
   position: absolute;
-  top: 10px;
-  left: 10px;
+  top: 12px;
+  left: 12px;
   background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
   color: #fff;
   font-size: 11px;
   font-weight: 600;
-  padding: 3px 10px;
+  padding: 4px 10px;
   border-radius: 8px;
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -920,27 +946,28 @@
 
 .cm-bc-price-badge {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  bottom: 12px;
+  left: 12px;
   background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
   color: #fff;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
-  padding: 4px 10px;
-  border-radius: 8px;
+  padding: 6px 14px;
+  border-radius: 10px;
 
   &.free { background: #34C759; }
 }
 
 .cm-bc-body {
-  padding: 14px 16px 16px;
+  padding: 16px 18px 18px;
   display: flex;
   flex-direction: column;
   flex: 1;
 }
 
 .cm-bc-title {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 600;
   color: #1a1a1a;
   margin: 0 0 4px;
@@ -955,8 +982,8 @@
 .cm-bc-description {
   font-size: 13px;
   color: #8E8E93;
-  margin: 0 0 8px;
-  line-height: 1.4;
+  margin: 0 0 10px;
+  line-height: 1.45;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -966,26 +993,26 @@
 .cm-bc-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 8px;
+  gap: 12px;
+  margin-bottom: 10px;
 }
 
 .cm-bc-meta-item {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   font-size: 13px;
   color: #636366;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
 
-  ion-icon { font-size: 14px; color: #8E8E93; }
+  ion-icon { font-size: 15px; color: #8E8E93; }
 }
 
 .cm-bc-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-bottom: 10px;
+  gap: 5px;
+  margin-bottom: 12px;
 }
 
 .cm-bc-tag {
@@ -993,8 +1020,8 @@
   font-weight: 500;
   color: #636366;
   background: #F2F2F7;
-  padding: 3px 8px;
-  border-radius: 6px;
+  padding: 3px 10px;
+  border-radius: 8px;
 }
 
 .cm-bc-footer {
@@ -1002,34 +1029,34 @@
   align-items: center;
   justify-content: space-between;
   margin-top: auto;
-  padding-top: 10px;
+  padding-top: 12px;
   border-top: 1px solid #F0F0F0;
 }
 
 .cm-bc-stats {
   display: flex;
-  gap: 12px;
+  gap: 14px;
 }
 
 .cm-bc-stat {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: 13px;
   color: #8E8E93;
 
-  ion-icon { font-size: 14px; }
+  ion-icon { font-size: 15px; }
 }
 
 .cm-bc-actions {
   display: flex;
-  gap: 4px;
+  gap: 6px;
 }
 
 .cm-bc-action {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
   border: none;
   background: #F2F2F7;
   display: flex;
