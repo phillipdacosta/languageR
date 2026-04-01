@@ -1462,7 +1462,7 @@
     overflow: hidden;
     
     ion-tab-button {
-      --color: #717171;
+      --color: #3d3d3d;
       --color-selected: #000000;
       position: relative !important;
       transition: color 0.15s ease;
@@ -1507,6 +1507,7 @@
         font-size: 30px;
         width: 30px;
         height: 30px;
+        color: var(--color);
         transition: color 0.15s ease;
       }
       
@@ -1656,7 +1657,7 @@
 
     ion-tab-bar[slot='bottom'] {
       ion-tab-button {
-        --color: #717171;
+        --color: #3d3d3d;
         --color-selected: #000000;
 
         &::part(native) {
@@ -1667,6 +1668,7 @@
           font-size: 30px;
           width: 30px;
           height: 30px;
+          color: var(--color);
         }
 
         ion-label {

@@ -586,12 +586,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     const availabilityBlocks: TimelineEntry[] = [];
 
     for (const entry of entries) {
-      // Check if this is a lesson (has avatar or subtitle which indicates student info)
-      // OR a class (has a title that's not "Available")
       const isLesson = entry.avatarUrl || entry.subtitle;
       const isClass = entry.title && entry.title !== this.translate.instant('TUTOR_CALENDAR.AVAILABLE_FALLBACK') && entry.title.includes(this.translate.instant('TUTOR_CALENDAR.CLASS_FALLBACK'));
       
-      if (isLesson || isClass) {
+      if (isLesson || isClass || entry.isGoogleCalendar) {
         lessons.push(entry);
       } else {
         availabilityBlocks.push(entry);

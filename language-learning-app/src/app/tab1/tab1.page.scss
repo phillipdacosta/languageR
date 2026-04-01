@@ -611,7 +611,7 @@ ion-content {
       .welcome-subtitle {
         color: #6b7280;
         padding-bottom: 4px;
-        padding-top: 1px;
+        padding-top: 3px;
       }
     }
   }
@@ -2089,6 +2089,8 @@ ion-content {
   letter-spacing: -0.02em;
   margin: 0;
   line-height: 1.3;
+  position: relative;
+  bottom: 20px;
 }
 
 .m-card-empty-subtitle {
@@ -2098,6 +2100,8 @@ ion-content {
   line-height: 1.5;
   margin: 0;
   max-width: 260px;
+  position: relative;
+    bottom: 20px;
 }
 
 // Mobile tutor Up Next: date · time · flag + subject (matches desktop upnext-filled-meta)
@@ -2146,6 +2150,8 @@ ion-content {
   border-radius: 12px;
   background: #000000;
   transition: background 0.15s ease, transform 0.15s ease;
+  position: relative;
+    bottom: 20px;
 
   &:active {
     background: #3a7bc8;
