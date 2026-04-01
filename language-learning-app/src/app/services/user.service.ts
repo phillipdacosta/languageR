@@ -282,27 +282,21 @@ export class UserService {
     try {
       // Get ID token claims which include user profile (email, name, picture)
       const idTokenClaims = await this.authService.getIdTokenClaims();
-      console.log('🔑 Got ID token claims:', idTokenClaims ? 'present' : 'null');
-      console.log('🔑 ID token claims content:', JSON.stringify(idTokenClaims, null, 2));
-      
+
       // The ID token itself is in __raw
       const idToken = idTokenClaims?.__raw;
       
       if (!idToken) {
         throw new Error('No ID token available');
       }
-      
-      console.log('🔑 Using ID token:', idToken.substring(0, 20) + '...');
-      console.log('🖼️ Picture in ID token claims:', idTokenClaims?.picture || 'NOT FOUND');
-      
+
       return new HttpHeaders({
         'Authorization': `Bearer ${idToken}`,
         'Content-Type': 'application/json'
       });
     } catch (error) {
       console.error('❌ Error getting ID token:', error);
-      console.log('⚠️ Falling back to dev token');
-      
+
       // Fallback to dev token if Auth0 token fails
       const user = await this.authService.user$.pipe(take(1)).toPromise();
       const userEmail = user?.email || 'unknown';
@@ -377,7 +371,6 @@ export class UserService {
     // If we already have a user and not forcing refresh, return cached
     const cachedUser = this.currentUserSubject.value;
     if (cachedUser && !forceRefresh) {
-      console.log('📦 UserService: Returning cached user');
       return of(cachedUser);
     }
 
@@ -444,17 +437,7 @@ export class UserService {
     const hasPayPal = user.payoutProvider === 'paypal' && !!user.payoutDetails?.paypalEmail;
     const hasManual = user.payoutProvider === 'manual';
     const stripeComplete = hasStripe || hasPayPal || hasManual;
-    
-    console.log('💰 [UserService] Payout check details:', {
-      stripeConnectOnboarded: user.stripeConnectOnboarded,
-      payoutProvider: user.payoutProvider,
-      paypalEmail: user.payoutDetails?.paypalEmail,
-      hasStripe,
-      hasPayPal,
-      hasManual,
-      stripeComplete
-    });
-    
+
     // Credential checks
     const creds = user.tutorCredentials;
     const governmentIdUploaded = !!(creds?.governmentId?.url && creds.governmentId.status !== 'not_uploaded');
@@ -464,16 +447,6 @@ export class UserService {
     const certificationsApproved = !!(creds?.teachingCertifications?.some(c => c.status === 'approved'));
     const credentialsComplete = governmentIdUploaded && certificationsUploaded;
     const credentialsApproved = governmentIdApproved && certificationsApproved;
-
-    console.log('📄 [UserService] Credential check details:', {
-      governmentIdUploaded,
-      governmentIdApproved,
-      governmentIdRejected,
-      certificationsUploaded,
-      certificationsApproved,
-      credentialsComplete,
-      credentialsApproved
-    });
 
     const tosComplete = !!user.tosAcceptedAt;
 
@@ -500,8 +473,7 @@ export class UserService {
       fullyApproved,
       needsApproval
     };
-    
-    console.log('📊 [UserService] Tutor approval status:', status);
+
     this.tutorApprovalStatusSubject.next(status);
   }
 
@@ -542,14 +514,7 @@ export class UserService {
         } else if (payoutProvider === 'manual') {
           hasPayoutSetup = true;
         }
-        
-        console.log('💰 [UserService] Payout status loaded:', {
-          provider: payoutProvider,
-          hasPayoutSetup,
-          stripeConnectOnboarded: user?.stripeConnectOnboarded,
-          paypalEmail: user?.payoutDetails?.paypalEmail
-        });
-        
+
         // Update the subject
         this.payoutStatusSubject.next({
           provider: payoutProvider as any,
@@ -634,8 +599,7 @@ export class UserService {
           { headers }
         );
       }),
-      tap(response => {
-        console.log('✅ Submit for review response:', response);
+      tap(() => {
         // Refresh current user to get updated tutorOnboarding status
         this.getCurrentUser(true).subscribe();
       })
@@ -786,7 +750,6 @@ export class UserService {
    * Clear current user (should be called on logout)
    */
   clearCurrentUser(): void {
-    console.log('🧹 UserService: Clearing cached user');
     this.currentUserSubject.next(null);
     this.initialLoadComplete = false;
   }
@@ -824,10 +787,7 @@ export class UserService {
   initializeUser(auth0User: any): Observable<User> {
     // Get user type from localStorage (set during login)
     const userType = localStorage.getItem('selectedUserType') || 'student';
-    
-    console.log('🔍 UserService initializeUser: auth0User data:', auth0User);
-    console.log('🖼️ UserService initializeUser: auth0User.picture:', auth0User.picture);
-    
+
     if (!auth0User?.email) {
       console.error('🔍 UserService initializeUser: No email in Auth0 user data!');
     }
@@ -839,8 +799,6 @@ export class UserService {
       emailVerified: auth0User.email_verified,
       userType: userType as 'student' | 'tutor'
     };
-
-    console.log('🖼️ UserService initializeUser: userData being sent:', userData);
 
     return this.createOrUpdateUser(userData);
   }
@@ -870,15 +828,9 @@ export class UserService {
           }
         });
 
-        console.log('🌍 [TUTOR-SEARCH] Filters being sent:', filters);
-        console.log('🌍 [TUTOR-SEARCH] Query params:', params.toString());
-        console.log('🌍 [TUTOR-SEARCH] Country filter:', filters.country);
-
         return this.http.get<TutorSearchResponse>(`${this.apiUrl}/users/tutors?${params.toString()}`, {
           headers: this.getAuthHeaders(userEmail)
         });
-      }),
-      tap(response => {
       }),
       catchError(error => {
         console.error('🔍 Error searching tutors:', error);
@@ -909,9 +861,6 @@ export class UserService {
           },
           { headers: this.getAuthHeaders(userEmail) }
         );
-      }),
-      tap(response => {
-        console.log('📹 Tutor video updated:', response);
       }),
       catchError(error => {
         console.error('📹 Error updating tutor video:', error);
@@ -953,9 +902,6 @@ export class UserService {
           { headers: uploadHeaders }
         );
       }),
-      tap(response => {
-        console.log('📄 Credential uploaded:', response);
-      }),
       catchError(error => {
         console.error('📄 Error uploading credential:', error);
         throw error;
@@ -981,9 +927,6 @@ export class UserService {
         return this.http.delete<any>(url, { 
           headers: this.getAuthHeaders(userEmail) 
         });
-      }),
-      tap(response => {
-        console.log('🗑️ Credential deleted:', response);
       }),
       catchError(error => {
         console.error('🗑️ Error deleting credential:', error);
@@ -1017,7 +960,6 @@ export class UserService {
         );
       }),
       tap(response => {
-        console.log('✅ Profile picture updated in database');
         // Update the current user subject with the new picture
         const currentUser = this.currentUserSubject.value;
         if (currentUser && response.picture) {
@@ -1054,10 +996,7 @@ export class UserService {
       tap(response => {
         // Emit event to notify subscribers that availability was updated
         // Include the updated availability array so subscribers can update immediately
-        console.log('📅 [UserService] updateAvailability response:', response);
         if (response.success && response.availability) {
-          console.log('📅 [UserService] Emitting availability update event with', response.availability.length, 'blocks');
-          
           // Cache the availability state
           this._availabilityBlocks = response.availability;
           const timeNow = new Date();
@@ -1066,8 +1005,7 @@ export class UserService {
             if (slot.absoluteStart) return new Date(slot.absoluteStart) > timeNow;
             return true;
           });
-          console.log('📅 [UserService] Cached hasAvailability:', this._hasAvailability);
-          
+
           this.availabilityUpdatedSubject.next(response.availability);
         }
       }),
@@ -1095,8 +1033,6 @@ export class UserService {
           { headers: this.getAuthHeaders(userEmail) }
         );
       }),
-      tap(response => {
-      }),
       catchError(error => {
         console.error('📅 Error fetching availability:', error);
         throw error;
@@ -1111,8 +1047,6 @@ export class UserService {
     return this.http.get<{ success: boolean; availability: any[]; timezone?: string; acceptingBookings?: boolean }>(
       `${this.apiUrl}/users/${tutorId}/availability`
     ).pipe(
-      tap(response => {
-      }),
       catchError(error => {
         console.error('📅 Error fetching tutor availability:', error);
         throw error;
@@ -1128,8 +1062,6 @@ export class UserService {
       `${this.apiUrl}/users/${tutorId}/public`
     ).pipe(
       map(res => res as any),
-      tap(response => {
-      }),
       catchError(error => {
         console.error('👤 Error fetching tutor public profile:', error);
         throw error;
@@ -1158,8 +1090,7 @@ export class UserService {
   detectAndSaveTimezone(): Observable<boolean> {
     try {
       const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      console.log('🌍 Detected timezone:', detectedTimezone);
-      
+
       // Get current user to check existing timezone
       return this.getCurrentUser().pipe(
         take(1),
@@ -1168,7 +1099,6 @@ export class UserService {
           
           // Only update if timezone changed or doesn't exist
           if (!currentTimezone || currentTimezone !== detectedTimezone) {
-            console.log('🌍 Updating timezone from', currentTimezone, 'to', detectedTimezone);
             return this.updateProfile({ timezone: detectedTimezone }).pipe(
               map(() => true),
               catchError(error => {
@@ -1177,7 +1107,6 @@ export class UserService {
               })
             );
           } else {
-            console.log('🌍 Timezone already up to date:', currentTimezone);
             return of(false); // No update needed
           }
         }),
@@ -1237,10 +1166,6 @@ export class UserService {
           { headers: this.getAuthHeaders(user.email) }
         ).pipe(
           tap((response) => {
-            console.log('✅ Profile picture removed');
-            if (response.picture) {
-              console.log('✅ Restored to Auth0 picture:', response.picture);
-            }
             // Update current user with restored picture
             const currentUser = this.currentUserSubject.value;
             if (currentUser) {
