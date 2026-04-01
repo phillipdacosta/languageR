@@ -341,17 +341,46 @@
     <h1>{{ editingBundleId ? 'Edit Bundle' : 'Create Bundle' }}</h1>
   </div>
 
+  <!-- Intro Tip -->
+  <div class="cm-bundle-tip cm-bundle-tip--intro">
+    <ion-icon name="bulb-outline"></ion-icon>
+    <div>
+      <strong>What's a bundle?</strong>
+      <p>A bundle groups your materials (videos, readings, listening exercises) into a structured learning pack. Students can purchase or access the entire bundle at once — great for themed content like "Travel Spanish" or "Business English Basics".</p>
+    </div>
+  </div>
+
   <div class="cm-bundle-form">
     <!-- Title -->
     <div class="cm-field">
       <label>Bundle Title <span class="required">*</span></label>
       <input type="text" [(ngModel)]="bundleTitle" placeholder="e.g. Spanish for Travel - Complete Pack" maxlength="100" />
+      <span class="cm-field-tip">Choose something descriptive — students browse by title first.</span>
     </div>
 
     <!-- Description -->
     <div class="cm-field">
       <label>Description</label>
       <textarea [(ngModel)]="bundleDescription" placeholder="What will students learn from this bundle?" rows="3" maxlength="500"></textarea>
+    </div>
+
+    <!-- Cover Image -->
+    <div class="cm-field">
+      <label>Cover Image</label>
+      <div class="cm-bundle-cover-upload">
+        <div class="cm-bcu-preview" *ngIf="bundleCoverPreview">
+          <img [src]="bundleCoverPreview" alt="Cover preview" />
+          <button class="cm-bcu-remove" (click)="removeBundleCover()">
+            <ion-icon name="close-outline"></ion-icon>
+          </button>
+        </div>
+        <label class="cm-bcu-dropzone" *ngIf="!bundleCoverPreview">
+          <ion-icon name="image-outline"></ion-icon>
+          <span>Upload cover image</span>
+          <span class="cm-bcu-hint">Recommended: 1200 x 630px</span>
+          <input type="file" accept="image/*" (change)="onBundleCoverSelected($event)" hidden />
+        </label>
+      </div>
     </div>
 
     <!-- Language & Level -->
@@ -398,6 +427,8 @@
         <span class="cm-price-prefix">$</span>
         <input type="number" [(ngModel)]="bundlePrice" min="1" max="500" step="0.01" placeholder="15.00" />
       </div>
+      <span class="cm-field-tip" *ngIf="bundlePricingType === 'paid'">Tip: Price below the total of individual materials to make the bundle an obvious deal.</span>
+      <span class="cm-field-tip" *ngIf="bundlePricingType === 'free'">Free bundles are great for attracting new students — they can discover your teaching style.</span>
     </div>
 
     <!-- Select Materials -->
@@ -431,6 +462,17 @@
           <span class="cm-bmi-price free" *ngIf="m.pricingType !== 'paid'">Free</span>
         </button>
       </div>
+
+      <!-- Paid materials in free bundle warning -->
+      <div class="cm-bundle-tip cm-bundle-tip--warning" *ngIf="hasPaidMaterialsInFreeBundle">
+        <ion-icon name="alert-circle-outline"></ion-icon>
+        <div>
+          <strong>Heads up — you're including paid materials in a free bundle</strong>
+          <p>{{ selectedPaidMaterials.length }} paid material{{ selectedPaidMaterials.length > 1 ? 's' : '' }} worth ${{ bundlePaidMaterialsValue | number:'1.2-2' }} total will become free for anyone who gets this bundle. This is fine if you want to use this bundle as a way to attract students — just make sure it's intentional.</p>
+        </div>
+      </div>
+
+      <span class="cm-field-tip">Students who get the bundle unlock all materials inside it, regardless of individual pricing.</span>
     </div>
 
     <!-- Actions -->

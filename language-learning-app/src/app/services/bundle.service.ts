@@ -32,6 +32,7 @@ export interface ContentBundle {
 export interface CreateBundlePayload {
   title: string;
   description?: string;
+  coverImageUrl?: string;
   language: string;
   level?: string;
   structuredTags?: string[];

@@ -52,6 +52,10 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
   bundlePrice: number = 0;
   bundleStructuredTags: string[] = [];
   bundleSelectedMaterialIds: string[] = [];
+  bundleCoverFile: File | null = null;
+  bundleCoverPreview: string | null = null;
+  bundleCoverUrl: string | null = null;
+  isUploadingBundleCover = false;
   isSavingBundle = false;
   justPublishedId: string | null = null;
   copiedLinkId: string | null = null;
@@ -1637,6 +1641,9 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     this.bundlePrice = 0;
     this.bundleStructuredTags = [];
     this.bundleSelectedMaterialIds = [];
+    this.bundleCoverFile = null;
+    this.bundleCoverPreview = null;
+    this.bundleCoverUrl = null;
     this.viewMode = 'bundle-create';
   }
 
@@ -1650,6 +1657,9 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     this.bundlePrice = bundle.price;
     this.bundleStructuredTags = [...bundle.structuredTags];
     this.bundleSelectedMaterialIds = bundle.items.map(i => typeof i.materialId === 'string' ? i.materialId : (i.materialId as any)?._id);
+    this.bundleCoverFile = null;
+    this.bundleCoverPreview = bundle.coverImageUrl || null;
+    this.bundleCoverUrl = bundle.coverImageUrl || null;
     this.viewMode = 'bundle-create';
   }
 
@@ -1670,15 +1680,65 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     return this.myMaterials.filter(m => m.status === 'published' || m.status === 'draft');
   }
 
+  get selectedPaidMaterials(): TutorMaterial[] {
+    return this.myMaterials.filter(m =>
+      this.bundleSelectedMaterialIds.includes(m._id) && m.pricingType === 'paid'
+    );
+  }
+
+  get bundlePaidMaterialsValue(): number {
+    return this.selectedPaidMaterials.reduce((sum, m) => sum + (m.price || 0), 0);
+  }
+
+  get hasPaidMaterialsInFreeBundle(): boolean {
+    return this.bundlePricingType === 'free' && this.selectedPaidMaterials.length > 0;
+  }
+
+  onBundleCoverSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (!input.files?.length) return;
+    const file = input.files[0];
+    if (!file.type.startsWith('image/')) return;
+
+    this.bundleCoverFile = file;
+    const reader = new FileReader();
+    reader.onload = () => {
+      this.bundleCoverPreview = reader.result as string;
+      this.cdr.markForCheck();
+    };
+    reader.readAsDataURL(file);
+  }
+
+  removeBundleCover() {
+    this.bundleCoverFile = null;
+    this.bundleCoverPreview = null;
+    this.bundleCoverUrl = null;
+  }
+
+  private async uploadBundleCover(): Promise<string | null> {
+    if (!this.bundleCoverFile) return this.bundleCoverUrl;
+    this.isUploadingBundleCover = true;
+    try {
+      const res = await this.bundleService.uploadCover(this.bundleCoverFile).toPromise();
+      this.isUploadingBundleCover = false;
+      return (res as any)?.url || (res as any)?.coverImageUrl || null;
+    } catch {
+      this.isUploadingBundleCover = false;
+      return this.bundleCoverUrl;
+    }
+  }
+
   async saveBundle() {
     if (!this.bundleTitle.trim() || !this.bundleLanguage) return;
     if (this.bundlePricingType === 'paid' && this.bundlePrice <= 0) return;
 
     this.isSavingBundle = true;
+    const coverUrl = await this.uploadBundleCover();
 
     const payload: CreateBundlePayload = {
       title: this.bundleTitle.trim(),
       description: this.bundleDescription.trim(),
+      coverImageUrl: coverUrl || undefined,
       language: this.bundleLanguage,
       level: this.bundleLevel,
       structuredTags: this.bundleStructuredTags,
@@ -1720,14 +1780,16 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     });
   }
 
-  saveBundleAsDraft() {
+  async saveBundleAsDraft() {
     if (!this.bundleTitle.trim() || !this.bundleLanguage) return;
 
     this.isSavingBundle = true;
+    const coverUrl = await this.uploadBundleCover();
 
     const payload: CreateBundlePayload = {
       title: this.bundleTitle.trim(),
       description: this.bundleDescription.trim(),
+      coverImageUrl: coverUrl || undefined,
       language: this.bundleLanguage,
       level: this.bundleLevel,
       structuredTags: this.bundleStructuredTags,

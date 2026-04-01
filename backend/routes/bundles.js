@@ -15,7 +15,7 @@ router.post('/', verifyToken, async (req, res) => {
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
     if (user.userType !== 'tutor') return res.status(403).json({ success: false, message: 'Tutors only' });
 
-    const { title, description, language, level, structuredTags, items, pricingType, price, status } = req.body;
+    const { title, description, coverImageUrl, language, level, structuredTags, items, pricingType, price, status } = req.body;
 
     if (!title || !language) {
       return res.status(400).json({ success: false, message: 'Title and language are required' });
@@ -41,6 +41,7 @@ router.post('/', verifyToken, async (req, res) => {
       tutorId: user._id,
       title,
       description,
+      coverImageUrl: coverImageUrl || undefined,
       language,
       level: level || 'any',
       structuredTags: structuredTags || [],
