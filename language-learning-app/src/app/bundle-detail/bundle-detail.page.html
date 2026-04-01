@@ -1,0 +1,113 @@
+<!-- Loading -->
+<div class="bd-loading" *ngIf="isLoading">
+  <ion-spinner name="crescent"></ion-spinner>
+</div>
+
+<!-- Bundle Detail -->
+<div class="bd-page" *ngIf="!isLoading && bundle">
+
+  <!-- Nav -->
+  <div class="bd-nav">
+    <button class="bd-nav-back" (click)="goBack()">
+      <ion-icon name="chevron-back-outline"></ion-icon>
+      <span>Back</span>
+    </button>
+  </div>
+
+  <!-- Cover -->
+  <div class="bd-cover">
+    <img *ngIf="bundle.coverImageUrl" [src]="bundle.coverImageUrl" [alt]="bundle.title" />
+    <div class="bd-cover-placeholder" *ngIf="!bundle.coverImageUrl">
+      <ion-icon name="folder-outline"></ion-icon>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <div class="bd-header">
+    <div class="bd-tutor-row">
+      <div class="bd-tutor-avatar">
+        <img *ngIf="tutorPicture" [src]="tutorPicture" alt="" referrerpolicy="no-referrer" />
+        <ion-icon *ngIf="!tutorPicture" name="person"></ion-icon>
+      </div>
+      <span class="bd-tutor-name">{{ tutorName }}</span>
+    </div>
+
+    <h1 class="bd-title">{{ bundle.title }}</h1>
+
+    <div class="bd-meta">
+      <span class="bd-meta-item">
+        <ion-icon name="layers-outline"></ion-icon>
+        {{ itemCount }} item{{ itemCount !== 1 ? 's' : '' }}
+      </span>
+      <span class="bd-meta-sep">·</span>
+      <span class="bd-meta-item">{{ bundle.language }}</span>
+      <span class="bd-meta-sep">·</span>
+      <span class="bd-meta-item">{{ levelLabel }}</span>
+    </div>
+
+    <p class="bd-description" *ngIf="bundle.description">{{ bundle.description }}</p>
+
+    <!-- Tags -->
+    <div class="bd-tags" *ngIf="bundle.structuredTags && bundle.structuredTags.length > 0">
+      <span class="bd-tag" *ngFor="let tag of bundle.structuredTags">{{ tag }}</span>
+    </div>
+  </div>
+
+  <!-- Purchase / Access bar -->
+  <div class="bd-action-bar" *ngIf="!isOwner">
+    <div class="bd-price-display">
+      <span class="bd-price" *ngIf="!isFree">${{ bundle.price }}</span>
+      <span class="bd-price bd-price--free" *ngIf="isFree">Free</span>
+    </div>
+
+    <button
+      class="bd-purchase-btn"
+      *ngIf="!canAccess"
+      (click)="purchaseBundle()"
+      [disabled]="isPurchasing">
+      <ion-spinner *ngIf="isPurchasing" name="crescent" style="width:16px;height:16px;color:#fff;margin-right:6px"></ion-spinner>
+      {{ isPurchasing ? 'Processing...' : 'Get this bundle' }}
+    </button>
+
+    <div class="bd-purchased-badge" *ngIf="hasPurchased">
+      <ion-icon name="checkmark-circle"></ion-icon>
+      Purchased
+    </div>
+  </div>
+
+  <!-- Materials List -->
+  <div class="bd-materials">
+    <h2 class="bd-materials-title">What's Included</h2>
+
+    <div class="bd-material-list">
+      <div
+        class="bd-material-item"
+        *ngFor="let item of bundle.items; let i = index"
+        [class.locked]="!canAccess"
+        (click)="canAccess ? viewMaterial($any(item.materialId)?._id || item.materialId) : null">
+
+        <span class="bd-mi-number">{{ i + 1 }}</span>
+
+        <div class="bd-mi-thumb">
+          <img *ngIf="$any(item.materialId)?.thumbnailUrl" [src]="$any(item.materialId).thumbnailUrl" alt="" />
+          <ion-icon *ngIf="!$any(item.materialId)?.thumbnailUrl" [name]="getMaterialTypeIcon($any(item.materialId)?.materialType || '')"></ion-icon>
+        </div>
+
+        <div class="bd-mi-info">
+          <span class="bd-mi-title">{{ $any(item.materialId)?.title || 'Material' }}</span>
+          <span class="bd-mi-type">{{ getMaterialTypeLabel($any(item.materialId)?.materialType || '') }}</span>
+        </div>
+
+        <ion-icon class="bd-mi-lock" name="lock-closed" *ngIf="!canAccess"></ion-icon>
+        <ion-icon class="bd-mi-arrow" name="chevron-forward-outline" *ngIf="canAccess"></ion-icon>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Not found -->
+<div class="bd-empty" *ngIf="!isLoading && !bundle">
+  <ion-icon name="alert-circle-outline"></ion-icon>
+  <h2>Bundle not found</h2>
+  <button class="bd-back-link" (click)="goBack()">Go back</button>
+</div>
