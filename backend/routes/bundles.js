@@ -13,7 +13,7 @@ router.post('/', verifyToken, async (req, res) => {
   try {
     const user = await getUserFromRequest(req);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-    if (user.role !== 'tutor') return res.status(403).json({ success: false, message: 'Tutors only' });
+    if (user.userType !== 'tutor') return res.status(403).json({ success: false, message: 'Tutors only' });
 
     const { title, description, language, level, structuredTags, items, pricingType, price, status } = req.body;
 

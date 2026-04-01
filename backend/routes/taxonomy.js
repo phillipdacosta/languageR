@@ -77,7 +77,7 @@ router.get('/:category', async (req, res) => {
 router.post('/seed', verifyToken, async (req, res) => {
   try {
     const user = req.user;
-    if (!user || user.role !== 'admin') {
+    if (!user || !user.isAdmin) {
       return res.status(403).json({ success: false, message: 'Admin only' });
     }
 
@@ -103,7 +103,7 @@ router.post('/seed', verifyToken, async (req, res) => {
 router.post('/', verifyToken, async (req, res) => {
   try {
     const user = req.user;
-    if (!user || user.role !== 'admin') {
+    if (!user || !user.isAdmin) {
       return res.status(403).json({ success: false, message: 'Admin only' });
     }
 
@@ -126,7 +126,7 @@ router.post('/', verifyToken, async (req, res) => {
 router.put('/:tagId', verifyToken, async (req, res) => {
   try {
     const user = req.user;
-    if (!user || user.role !== 'admin') {
+    if (!user || !user.isAdmin) {
       return res.status(403).json({ success: false, message: 'Admin only' });
     }
 
