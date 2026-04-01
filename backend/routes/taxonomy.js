@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const ContentTag = require('../models/ContentTag');
-const { verifyToken } = require('./auth');
+const { verifyToken } = require('../middleware/videoUploadMiddleware');
 
 // ── GET /api/taxonomy — Full tag tree (public, cached) ──────────────────
 router.get('/', async (req, res) => {
