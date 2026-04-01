@@ -37,6 +37,7 @@ import { TranslateService } from '@ngx-translate/core';
 import { LearningPlanService, LearningPlan } from '../services/learning-plan.service';
 import { AnalysisTranslationService } from '../services/analysis-translation.service';
 import { HomeInlineToolbarService } from '../services/home-inline-toolbar.service';
+import { MaterialService, TutorMaterial } from '../services/material.service';
 
 @Component({
   selector: 'app-tab1',
@@ -279,6 +280,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   learningPlanSummary = '';
   learningPlanNextFocus = '';
   learningPlanPhaseDots: boolean[] = [];
+
+  homePracticeMaterials: any[] = [];
   
   // Cache of current students array for efficient label updates
   private currentStudents: any[] = [];
@@ -452,7 +455,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     private activatedRoute: ActivatedRoute,
     private learningPlanService: LearningPlanService,
     private analysisTranslation: AnalysisTranslationService,
-    private homeInlineToolbar: HomeInlineToolbarService
+    private homeInlineToolbar: HomeInlineToolbarService,
+    private materialService: MaterialService
   ) {
     // Subscribe to currentUser$ observable to get updates automatically
     // Use asyncScheduler to prevent synchronous emission from blocking
@@ -490,6 +494,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
 
         if (this.isStudentUser && user?.onboardingData?.languages?.length) {
           this.loadLearningPlan(user.onboardingData.languages[0]);
+          this.loadHomePracticeMaterials(user.onboardingData.languages[0]);
         }
         
         // Check tutor onboarding status when user loads
@@ -2257,6 +2262,30 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       },
       error: () => {}
     });
+  }
+
+  loadHomePracticeMaterials(language: string) {
+    this.materialService.getRecommendedMaterials(language).pipe(take(1)).subscribe({
+      next: (res: any) => {
+        if (res.success) {
+          this.homePracticeMaterials = (res.materials || []).slice(0, 6);
+          this.cdr.detectChanges();
+        }
+      },
+      error: () => {}
+    });
+  }
+
+  navigateToMaterial(materialId: string) {
+    this.router.navigate(['/material', materialId]);
+  }
+
+  navigateToMyLibrary() {
+    this.router.navigate(['/my-library']);
+  }
+
+  trackByMaterialId(index: number, mat: any): string {
+    return mat._id;
   }
 
   navigateToProgressPlan() {

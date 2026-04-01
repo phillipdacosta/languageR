@@ -1,0 +1,86 @@
+<div class="ml-page">
+
+  <!-- Nav -->
+  <div class="ml-nav">
+    <button class="ml-nav-back" (click)="goBack()">
+      <ion-icon name="chevron-back-outline"></ion-icon>
+      <span>Back</span>
+    </button>
+  </div>
+
+  <!-- Header -->
+  <div class="ml-header">
+    <h1>My Library</h1>
+  </div>
+
+  <!-- Tabs -->
+  <div class="ml-tabs">
+    <button class="ml-tab" [class.active]="activeTab === 'bundles'" (click)="switchTab('bundles')">
+      <ion-icon name="folder-outline"></ion-icon>
+      Bundles
+      <span class="ml-tab-count" *ngIf="purchasedBundles.length > 0">{{ purchasedBundles.length }}</span>
+    </button>
+    <button class="ml-tab" [class.active]="activeTab === 'materials'" (click)="switchTab('materials')">
+      <ion-icon name="layers-outline"></ion-icon>
+      Materials
+      <span class="ml-tab-count" *ngIf="purchasedMaterials.length > 0">{{ purchasedMaterials.length }}</span>
+    </button>
+  </div>
+
+  <!-- Loading -->
+  <div class="ml-loading" *ngIf="isLoading">
+    <ion-spinner name="crescent"></ion-spinner>
+  </div>
+
+  <!-- Empty -->
+  <div class="ml-empty" *ngIf="!isLoading && isEmpty">
+    <ion-icon name="library-outline"></ion-icon>
+    <h2>Your library is empty</h2>
+    <p>Materials and bundles you purchase will appear here.</p>
+  </div>
+
+  <!-- Bundles Tab -->
+  <div class="ml-content" *ngIf="!isLoading && activeTab === 'bundles'">
+    <div class="ml-empty-tab" *ngIf="purchasedBundles.length === 0">
+      <p>No purchased bundles yet.</p>
+    </div>
+
+    <div class="ml-list" *ngIf="purchasedBundles.length > 0">
+      <div class="ml-bundle-card" *ngFor="let b of purchasedBundles" (click)="viewBundle(b._id)">
+        <div class="ml-bc-cover">
+          <img *ngIf="b.coverImageUrl" [src]="b.coverImageUrl" [alt]="b.title" />
+          <div class="ml-bc-cover-empty" *ngIf="!b.coverImageUrl">
+            <ion-icon name="folder-outline"></ion-icon>
+          </div>
+        </div>
+        <div class="ml-bc-body">
+          <h3 class="ml-bc-title">{{ b.title }}</h3>
+          <span class="ml-bc-meta">{{ getBundleItemCount(b) }} items · {{ b.language }}</span>
+        </div>
+        <ion-icon name="chevron-forward-outline" class="ml-bc-arrow"></ion-icon>
+      </div>
+    </div>
+  </div>
+
+  <!-- Materials Tab -->
+  <div class="ml-content" *ngIf="!isLoading && activeTab === 'materials'">
+    <div class="ml-empty-tab" *ngIf="purchasedMaterials.length === 0">
+      <p>No purchased materials yet.</p>
+    </div>
+
+    <div class="ml-list" *ngIf="purchasedMaterials.length > 0">
+      <div class="ml-material-card" *ngFor="let m of purchasedMaterials" (click)="viewMaterial(m._id)">
+        <div class="ml-mc-thumb">
+          <img *ngIf="m.thumbnailUrl" [src]="m.thumbnailUrl" [alt]="m.title" />
+          <ion-icon *ngIf="!m.thumbnailUrl" [name]="getMaterialTypeIcon(m.materialType)"></ion-icon>
+        </div>
+        <div class="ml-mc-body">
+          <span class="ml-mc-type">{{ getMaterialTypeLabel(m.materialType) }}</span>
+          <h3 class="ml-mc-title">{{ m.title }}</h3>
+          <span class="ml-mc-meta">{{ m.language }} · {{ m.quiz?.length || 0 }} questions</span>
+        </div>
+        <ion-icon name="chevron-forward-outline" class="ml-mc-arrow"></ion-icon>
+      </div>
+    </div>
+  </div>
+</div>

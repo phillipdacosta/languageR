@@ -174,10 +174,36 @@ router.get('/recommended/:language', verifyToken, async (req, res) => {
       status: 'completed'
     }).sort({ createdAt: -1 }).limit(5).lean();
 
+    const ContentTag = require('../models/ContentTag');
+    const allTags = await ContentTag.find({ active: true }).lean();
+    const tagLabelMap = {};
+    allTags.forEach(tag => {
+      const labels = [];
+      if (tag.labels) {
+        const labelsObj = tag.labels instanceof Map ? Object.fromEntries(tag.labels) : tag.labels;
+        for (const label of Object.values(labelsObj)) {
+          labels.push(label.toLowerCase());
+        }
+      }
+      tagLabelMap[tag.tagId] = labels;
+    });
+
     const studentTags = new Set();
+    const struggleKeywords = new Set();
     for (const a of recentAnalyses) {
       if (a.structuredTags) a.structuredTags.forEach(t => studentTags.add(t));
       if (a.topics) a.topics.forEach(t => studentTags.add(t.toLowerCase()));
+      (a.topErrors || []).forEach(e => { if (e.issue) struggleKeywords.add(e.issue.toLowerCase().trim()); });
+      (a.errorPatterns || []).forEach(p => { if (p.pattern) struggleKeywords.add(p.pattern.toLowerCase().trim()); });
+    }
+
+    for (const keyword of struggleKeywords) {
+      const words = keyword.split(/\s+/);
+      for (const [tagId, labels] of Object.entries(tagLabelMap)) {
+        if (labels.some(label => words.some(w => label.includes(w) || w.includes(label)))) {
+          studentTags.add(tagId);
+        }
+      }
     }
 
     if (studentTags.size === 0) {

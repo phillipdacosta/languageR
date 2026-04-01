@@ -770,20 +770,38 @@ router.get('/recommended/:language', verifyToken, async (req, res) => {
       .lean();
 
     const struggled = Array.from(struggleKeywords);
+
+    const ContentTag = require('../models/ContentTag');
+    const allTags = await ContentTag.find({ active: true }).lean();
+    const tagLabelMap = {};
+    allTags.forEach(tag => {
+      const labels = [];
+      if (tag.labels) {
+        for (const [, label] of Object.entries(tag.labels instanceof Map ? Object.fromEntries(tag.labels) : tag.labels)) {
+          labels.push(label.toLowerCase());
+        }
+      }
+      tagLabelMap[tag.tagId] = labels;
+    });
+
     const scored = materials.map(m => {
       const topics = (m.topics || []).map(t => t.toLowerCase());
+      const sTags = (m.structuredTags || []).map(t => t.toLowerCase());
+      const tagLabels = sTags.flatMap(tagId => tagLabelMap[tagId] || [tagId]);
+      const allSearchableTerms = [...topics, ...tagLabels];
+
       let topicScore = 0;
       const matchedStruggles = [];
 
       struggled.forEach(s => {
         const sWords = s.split(/\s+/);
-        topics.forEach(t => {
+        allSearchableTerms.forEach(t => {
           const tWords = t.split(/\s+/);
           const overlap = sWords.some(sw => tWords.some(tw =>
             tw.includes(sw) || sw.includes(tw)
           ));
           if (overlap) {
-            topicScore += 10;
+            topicScore += sTags.length > 0 ? 15 : 10;
             matchedStruggles.push(s);
           }
         });

@@ -158,6 +158,11 @@ const routes: Routes = [
     loadComponent: () => import('./bundle-detail/bundle-detail.page').then(m => m.BundleDetailPage)
   },
   {
+    path: 'my-library',
+    loadComponent: () => import('./my-library/my-library.page').then(m => m.MyLibraryPage),
+    canActivate: [AuthGuard]
+  },
+  {
     path: 'flashcard-review/:language',
     loadComponent: () => import('./flashcard-review/flashcard-review.page').then(m => m.FlashcardReviewPage),
     canActivate: [AuthGuard]

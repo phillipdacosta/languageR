@@ -959,6 +959,28 @@
 
     <!-- Tutor explore pills removed — Quick Actions chips cover the same links -->
 
+    <!-- Practice Materials (Students Only) -->
+    <div class="home-practice-section" *ngIf="isStudentUser && !isLoadingLessons && homePracticeMaterials.length > 0">
+      <div class="hps-header">
+        <h2 class="hps-title">Practice Materials</h2>
+        <button class="hps-see-all" (click)="navigateToMyLibrary()">My Library</button>
+      </div>
+      <div class="hps-scroll">
+        <div class="hps-card" *ngFor="let mat of homePracticeMaterials; trackBy: trackByMaterialId" (click)="navigateToMaterial(mat._id)">
+          <div class="hps-thumb" [style.background-image]="mat.thumbnailUrl ? 'url(' + mat.thumbnailUrl + ')' : 'none'">
+            <div class="hps-thumb-placeholder" *ngIf="!mat.thumbnailUrl">
+              <ion-icon [name]="mat.materialType === 'video_quiz' ? 'play-circle-outline' : mat.materialType === 'reading' ? 'book-outline' : 'headset-outline'"></ion-icon>
+            </div>
+            <span class="hps-type-badge">{{ mat.materialType === 'video_quiz' ? 'Video' : mat.materialType === 'reading' ? 'Reading' : 'Listening' }}</span>
+          </div>
+          <div class="hps-info">
+            <h3 class="hps-mat-title">{{ mat.title }}</h3>
+            <span class="hps-mat-meta">{{ mat.language }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- Inline Confirm Reschedule Modal (declarative, no programmatic creation) -->
