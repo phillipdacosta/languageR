@@ -188,12 +188,29 @@ function validateQuiz(quiz) {
 }
 
 async function hasPurchased(studentId, materialId) {
-  const purchase = await MaterialPurchase.findOne({
+  const directPurchase = await MaterialPurchase.findOne({
     studentId,
     materialId,
     status: 'completed'
   }).lean();
-  return !!purchase;
+  if (directPurchase) return true;
+
+  const BundlePurchase = require('../models/BundlePurchase');
+  const ContentBundle = require('../models/ContentBundle');
+  const bundlesWithMaterial = await ContentBundle.find({
+    'items.materialId': materialId,
+    status: 'published'
+  }).select('_id').lean();
+
+  if (bundlesWithMaterial.length === 0) return false;
+
+  const bundleIds = bundlesWithMaterial.map(b => b._id);
+  const bundlePurchase = await BundlePurchase.findOne({
+    studentId,
+    bundleId: { $in: bundleIds },
+    status: 'completed'
+  }).lean();
+  return !!bundlePurchase;
 }
 
 // ── POST /api/materials — Create a new material ──────────────────
@@ -207,7 +224,7 @@ router.post('/', verifyToken, async (req, res) => {
     }
 
     const {
-      title, description, whyTakeThis, language, level, topics, materialType,
+      title, description, whyTakeThis, language, level, topics, structuredTags, materialType,
       videoUrl, passage, audioUrl, thumbnailUrl: customThumbnail,
       pricingType, price, quiz, status, contentAttested
     } = req.body;
@@ -238,6 +255,7 @@ router.post('/', verifyToken, async (req, res) => {
       language,
       level: level || 'any',
       topics: Array.isArray(topics) ? topics.map(t => t.trim().toLowerCase()).filter(Boolean) : [],
+      structuredTags: Array.isArray(structuredTags) ? structuredTags.map(t => t.trim().toLowerCase()).filter(Boolean) : [],
       materialType: type,
       pricingType: pricingType || 'free',
       price: pricingType === 'paid' ? price : 0,
@@ -636,6 +654,56 @@ router.get('/my-progress', verifyToken, async (req, res) => {
   }
 });
 
+// ── GET /api/materials/browse — Browse/search materials ────────────────────
+
+router.get('/browse', async (req, res) => {
+  try {
+    const { language, level, tags, type, search, sort, page, limit: lim } = req.query;
+    const filter = { status: 'published' };
+
+    if (language) filter.language = language;
+    if (level && level !== 'any') filter.level = level;
+    if (type) filter.materialType = type;
+    if (tags) {
+      const tagArray = Array.isArray(tags) ? tags : tags.split(',');
+      filter.structuredTags = { $in: tagArray };
+    }
+    if (search) {
+      filter.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    let sortObj = { createdAt: -1 };
+    if (sort === 'popular') sortObj = { 'stats.views': -1 };
+    else if (sort === 'price-low') sortObj = { price: 1 };
+    else if (sort === 'price-high') sortObj = { price: -1 };
+
+    const pageNum = parseInt(page) || 1;
+    const perPage = Math.min(parseInt(lim) || 20, 50);
+    const skip = (pageNum - 1) * perPage;
+
+    const [materials, total] = await Promise.all([
+      TutorMaterial.find(filter)
+        .populate('tutorId', 'name picture')
+        .sort(sortObj)
+        .skip(skip)
+        .limit(perPage)
+        .lean(),
+      TutorMaterial.countDocuments(filter)
+    ]);
+
+    res.json({
+      success: true,
+      materials,
+      pagination: { page: pageNum, perPage, total, totalPages: Math.ceil(total / perPage) }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to browse materials' });
+  }
+});
+
 // ── GET /api/materials/recommended/:language — Struggle-matched recommendations ────
 
 function cefrToMaterialLevel(cefr) {
@@ -847,7 +915,7 @@ router.put('/:id', verifyToken, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    const { title, description, whyTakeThis, language, level, topics, videoUrl, passage, audioUrl, thumbnailUrl: customThumbnail, pricingType, price, quiz, status, contentAttested } = req.body;
+    const { title, description, whyTakeThis, language, level, topics, structuredTags, videoUrl, passage, audioUrl, thumbnailUrl: customThumbnail, pricingType, price, quiz, status, contentAttested } = req.body;
 
     // Video quiz URL update
     if (material.materialType === 'video_quiz' && videoUrl && videoUrl !== material.videoUrl) {
@@ -890,6 +958,9 @@ router.put('/:id', verifyToken, async (req, res) => {
 
     if (topics !== undefined) {
       material.topics = Array.isArray(topics) ? topics.map(t => t.trim().toLowerCase()).filter(Boolean) : [];
+    }
+    if (structuredTags !== undefined) {
+      material.structuredTags = Array.isArray(structuredTags) ? structuredTags.map(t => t.trim().toLowerCase()).filter(Boolean) : [];
     }
 
     // Content attestation on update

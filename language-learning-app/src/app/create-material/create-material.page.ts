@@ -14,6 +14,7 @@ import { QuillEditorComponent } from 'ngx-quill';
 import { TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { HomeInlineToolbarService } from '../services/home-inline-toolbar.service';
+import { TagPickerComponent } from '../components/tag-picker/tag-picker.component';
 type Step = 'type' | 'pricing' | 'details' | 'quiz' | 'preview';
 
 @Component({
@@ -21,7 +22,7 @@ type Step = 'type' | 'pricing' | 'details' | 'quiz' | 'preview';
   templateUrl: './create-material.page.html',
   styleUrls: ['./create-material.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, RouterModule, FormsModule, ReactiveFormsModule, SharedModule, QuillEditorComponent]
+  imports: [CommonModule, IonicModule, RouterModule, FormsModule, ReactiveFormsModule, SharedModule, QuillEditorComponent, TagPickerComponent]
 })
 export class CreateMaterialPage implements OnInit, OnDestroy {
   @Input() inline = false;
@@ -76,7 +77,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
   isUploadingThumbnail = false;
   existingThumbnailUrl: string | null = null;
 
-  // Topics
+  // Topics (legacy free-text)
   topicInput = '';
   selectedTopics: string[] = [];
   topicSuggestions = [
@@ -85,6 +86,9 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     'conditional', 'passive voice', 'word order', 'listening',
     'reading comprehension', 'conversation', 'idioms', 'formal speech'
   ];
+
+  // Structured taxonomy tags
+  selectedStructuredTags: string[] = [];
 
   quillConfig = {
     toolbar: [
@@ -280,6 +284,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
 
     // Pre-populate topics
     this.selectedTopics = m.topics ? [...m.topics] : [];
+    this.selectedStructuredTags = m.structuredTags ? [...m.structuredTags] : [];
 
     this.materialForm.patchValue({
       title: m.title,
@@ -1386,6 +1391,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
       language: this.materialForm.value.language,
       level: this.materialForm.value.level,
       topics: this.selectedTopics.length > 0 ? this.selectedTopics : undefined,
+      structuredTags: this.selectedStructuredTags.length > 0 ? this.selectedStructuredTags : undefined,
       materialType: this.selectedType!,
       pricingType: this.selectedPricing!,
       price: this.selectedPricing === 'paid' ? this.materialForm.value.price : 0,
@@ -1467,6 +1473,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     this.isUploadingThumbnail = false;
     this.contentAttested = false;
     this.selectedTopics = [];
+    this.selectedStructuredTags = [];
     this.topicInput = '';
   }
 

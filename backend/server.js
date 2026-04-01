@@ -143,6 +143,8 @@ app.use('/api/tutor-feedback', require('./routes/tutorFeedback'));
 app.use('/api/review-deck', require('./routes/review-deck'));
 app.use('/api/vocabulary', require('./routes/vocabulary'));
 app.use('/api/learning-plan', require('./routes/learningPlan'));
+app.use('/api/taxonomy', require('./routes/taxonomy'));
+app.use('/api/bundles', require('./routes/bundles'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {

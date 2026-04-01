@@ -400,12 +400,22 @@
         </div>
       </div>
 
-      <!-- Topics Tags -->
+      <!-- Structured Tags (taxonomy) -->
       <div class="cm-field cm-topics-field">
-        <label>Topics <span class="cm-label-hint">Help students find this material based on what they're working on</span></label>
+        <label>Tags <span class="cm-label-hint">Help students discover this material</span></label>
+        <app-tag-picker
+          [selectedTagIds]="selectedStructuredTags"
+          (selectedTagIdsChange)="selectedStructuredTags = $event"
+          [maxTags]="8">
+        </app-tag-picker>
+      </div>
+
+      <!-- Additional Topics (free-text, optional) -->
+      <div class="cm-field cm-topics-field">
+        <label>Custom Topics <span class="cm-label-hint">Add extra keywords not covered above</span></label>
         <div class="cm-topics-input-row">
           <input type="text"
-                 placeholder="e.g. subjunctive, past tense, articles..."
+                 placeholder="e.g. Dominican slang, DELE B2..."
                  [(ngModel)]="topicInput"
                  [ngModelOptions]="{ standalone: true }"
                  (keydown.enter)="addTopic($event)"
@@ -417,9 +427,6 @@
             {{ topic }}
             <button type="button" class="cm-topic-remove" (click)="removeTopic(i)">&times;</button>
           </span>
-        </div>
-        <div class="cm-topics-suggestions" *ngIf="availableSuggestions.length > 0">
-          <span class="cm-topic-suggestion" *ngFor="let s of availableSuggestions" (click)="addSuggestedTopic(s)">+ {{ s }}</span>
         </div>
       </div>
 
