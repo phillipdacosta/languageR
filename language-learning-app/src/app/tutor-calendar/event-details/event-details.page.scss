@@ -64,6 +64,18 @@
   &:hover { opacity: 0.8; }
 }
 
+ion-header ion-toolbar {
+  --background: transparent;
+  --border-width: 0;
+  --min-height: 44px;
+}
+
+@media (max-width: 768px) {
+  ion-header {
+    display: none;
+  }
+}
+
 .ed-toolbar-inner {
   display: flex;
   align-items: center;
@@ -105,6 +117,7 @@
   min-height: 400px;
   position: relative;
   top: 85px;
+  padding-top: 20px;
 }
 
 @media (min-width: 960px) {
@@ -2467,9 +2480,167 @@ ion-header {
   }
 }
 
+@media (max-width: 768px) {
+  :host {
+    ion-content {
+      --background: #f2f2f7;
+    }
+  }
+
+  .ed {
+    top: 0;
+    padding-bottom: 32px;
+  }
+
+  .ed-back-btn {
+    display: none !important;
+  }
+
+  .ed-header {
+    background: #fff;
+    border-radius: 14px;
+    padding: 18px 18px 16px;
+    margin-bottom: 10px;
+  }
+
+  .ed-header-top {
+    justify-content: flex-start;
+    margin-bottom: 6px;
+  }
+
+  .ed-status {
+    font-size: 11px;
+  }
+
+  .ed-title {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+
+  .ed-divider {
+    display: none;
+  }
+
+  .ed-row {
+    background: #fff;
+    border-radius: 14px;
+    padding: 18px 18px;
+    margin-bottom: 10px;
+  }
+
+  .ed-participant-inline {
+    padding: 18px 18px;
+    margin-bottom: 10px;
+    background: #fff;
+    border-radius: 14px;
+  }
+
+  .ed-profile-top {
+    gap: 14px;
+  }
+
+  .ed-profile-avatar-lg {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+  }
+
+  .ed-profile-name {
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  .ed-tutor-details {
+    margin-top: 2px;
+  }
+
+  .ed-detail-item {
+    font-size: 13px;
+  }
+
+  .ed-tutor-label {
+    font-size: 12px;
+    opacity: 0.5;
+  }
+
+  .ed-inline-channels {
+    margin-top: 10px;
+  }
+
+  .ed-stats-pills {
+    margin-top: 8px;
+  }
+
+  .ed-pill {
+    font-size: 12px;
+    padding: 4px 10px;
+  }
+
+  .ed-quick-actions {
+    margin-top: 12px;
+    gap: 8px;
+  }
+
+  .ed-action-pill--sm {
+    font-size: 13px;
+    padding: 8px 14px;
+    border-radius: 10px;
+  }
+
+  .ed-section-label {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+
+  .ed-detail {
+    padding: 8px 0;
+
+    ion-icon {
+      font-size: 20px;
+      color: var(--ed-text-secondary);
+    }
+  }
+
+  .ed-detail-primary {
+    font-size: 15px;
+    font-weight: 500;
+  }
+
+  .ed-detail-secondary {
+    font-size: 12px;
+  }
+
+  .ed-cancel-section {
+    .ed-kv {
+      padding: 6px 0;
+    }
+  }
+
+  .ed-feedback-status {
+    border-radius: 12px;
+  }
+
+  .ed-scores {
+    gap: 8px;
+  }
+
+  .ed-score {
+    padding: 14px 10px;
+    border-radius: 12px;
+  }
+
+  .ed-action-bar {
+    padding: 12px 18px calc(12px + env(safe-area-inset-bottom, 0px));
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -1px 12px rgba(0, 0, 0, 0.06);
+  }
+}
+
 @media (max-width: 600px) {
   :host {
-    --ed-pad-x: 20px;
+    --ed-pad-x: 16px;
   }
 
   .ed-title {
@@ -2481,7 +2652,7 @@ ion-header {
   }
 
   .ed-action-bar {
-    padding: 12px 16px;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
   }
 
   .ed-btn-primary {
@@ -2489,16 +2660,26 @@ ion-header {
   }
 
   .ed-sidebar-card {
-    padding: 20px;
+    padding: 18px;
   }
 
   .ed-profile-avatar-lg {
-    width: 80px;
-    height: 80px;
+    width: 56px;
+    height: 56px;
   }
 
   .ed-profile-name {
-    font-size: 20px;
+    font-size: 17px;
+  }
+
+  .ed-row {
+    padding: 16px 16px;
+    border-radius: 12px;
+  }
+
+  .ed-participant-inline {
+    padding: 16px 16px;
+    border-radius: 12px;
   }
 
   .ed-feedback-status {
@@ -2995,6 +3176,29 @@ ion-header {
       background: rgba(66, 152, 210, 0.15);
       border-color: rgba(66, 152, 210, 0.4);
       color: #4298d2;
+    }
+  }
+
+  @media (max-width: 768px) {
+    ion-content {
+      --background: #000000;
+    }
+
+    .ed-header {
+      background: #1c1c1e;
+    }
+
+    .ed-row {
+      background: #1c1c1e;
+    }
+
+    .ed-participant-inline {
+      background: #1c1c1e;
+    }
+
+    .ed-action-bar {
+      background: #1c1c1e;
+      box-shadow: 0 -1px 12px rgba(0, 0, 0, 0.3);
     }
   }
 }

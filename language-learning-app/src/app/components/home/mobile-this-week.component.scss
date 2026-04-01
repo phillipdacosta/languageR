@@ -1,3 +1,17 @@
+// Match tab1 `.mobile-section-title` (Up Next) — tab1 styles do not pierce child templates
+.mobile-section-this-week .mobile-section-title {
+  margin: 0 0 31px 0;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: #1a1a1a;
+}
+
+html.ion-palette-dark .mobile-section-this-week .mobile-section-title,
+[data-theme='dark'] .mobile-section-this-week .mobile-section-title {
+  color: #ffffff !important;
+}
+
 .tw-avatar-row {
   display: flex;
   align-items: center;

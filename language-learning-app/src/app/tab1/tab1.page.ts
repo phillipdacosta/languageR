@@ -508,11 +508,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         this.refreshPreComputedTemplateValues();
         this.cdr.markForCheck();
         
-        // Defer non-critical data so loadLessons() gets network priority
+        // Load availability immediately — it controls the primary CTA
         if (this.isTutor()) {
+          this.loadAvailability();
+          // Defer non-critical data so loadLessons() gets network priority
           setTimeout(() => {
             this.loadTutorInsights();
-            this.loadAvailability();
             this.loadTutorEarnings();
           }, 1500);
         } else {

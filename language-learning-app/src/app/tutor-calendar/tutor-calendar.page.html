@@ -140,7 +140,10 @@
                 <ion-icon name="calendar-outline"></ion-icon>
                 {{ todaySummaryLessonCount }} {{ todaySummaryLessonCount === 1 ? ('HOME.LESSON_SINGULAR' | translate) : ('HOME.LESSON_PLURAL' | translate) }}
               </span>
-              <span class="mcal-summary-pill" *ngIf="todaySummaryHoursAvailable > 0">
+              <span class="mcal-summary-pill mcal-summary-pill--avail"
+                    [class.mcal-pill-pop]="availabilityJustSaved"
+                    *ngIf="todaySummaryHoursAvailable > 0"
+                    (click)="openAvailabilityModal()">
                 <ion-icon name="time-outline"></ion-icon>
                 {{ todaySummaryHoursAvailable }}{{ 'TUTOR_CALENDAR.H_AVAILABLE' | translate }}
               </span>
@@ -162,28 +165,13 @@
           <ng-container *ngIf="!isLoadingMobileData">
             <div class="mcal-timeline" *ngIf="mobileTimelineEvents.length > 0 || mobileAvailabilityBlocks.length > 0; else emptyTimeline">
 
-              <!-- Availability blocks -->
-              <div class="mcal-avail-section" *ngIf="mobileAvailabilityBlocks.length > 0">
-                <div class="mcal-avail-header">
-                  <ion-icon name="checkmark-circle" class="mcal-avail-header-icon"></ion-icon>
-                  <span>Available</span>
+              <!-- Availability chips (compact) -->
+              <div class="mcal-avail-chips" *ngIf="mobileAvailabilityBlocks.length > 0" (click)="openAvailabilityModal()">
+                <ion-icon name="checkmark-circle" class="mcal-avail-chips-icon"></ion-icon>
+                <div class="mcal-avail-chip" *ngFor="let block of mobileAvailabilityBlocks">
+                  {{ formatTime(block.start) }} – {{ formatTime(block.end) }}
                 </div>
-                <div
-                  *ngFor="let block of mobileAvailabilityBlocks; let i = index"
-                  class="mcal-avail-row"
-                  [style.animation-delay.ms]="i * 60">
-                  <div class="mcal-time-gutter">
-                    <span class="mcal-time-text mcal-time-avail">{{ formatTime(block.start) }}</span>
-                    <span class="mcal-time-dur">{{ formatDurationShort(block.durationMinutes) }}</span>
-                  </div>
-                  <div class="mcal-avail-card">
-                    <div class="mcal-avail-card-strip"></div>
-                    <div class="mcal-avail-card-body">
-                      <span class="mcal-avail-card-time">{{ formatTime(block.start) }} – {{ formatTime(block.end) }}</span>
-                      <span class="mcal-avail-card-label">Open for booking</span>
-                    </div>
-                  </div>
-                </div>
+                <ion-icon name="chevron-forward-outline" class="mcal-avail-chips-chevron"></ion-icon>
               </div>
 
               <!-- Lessons / events -->
@@ -192,21 +180,19 @@
                   <ion-icon name="book" class="mcal-lessons-header-icon"></ion-icon>
                   <span>Lessons</span>
                 </div>
-                <div
-                  *ngFor="let item of mobileTimelineEvents; let i = index"
-                  class="mcal-event-row"
+                <button
+                  type="button"
+                  *ngFor="let item of mobileTimelineEvents"
+                  class="mcal-event-row mcal-row-clickable"
                   [class.mcal-past]="item.isPast"
                   [class.mcal-now]="item.isHappeningNow"
                   [class.mcal-cancelled]="item.isCancelled"
-                  [style.animation-delay.ms]="i * 60"
-                  [@slideInUp]="item.isPast ? 'void' : 'in'">
+                  (click)="item.id && onEventClick(item, $event)">
                   <div class="mcal-time-gutter">
                     <span class="mcal-time-text" [class.mcal-time-now]="item.isHappeningNow">{{ formatTime(item.start) }}</span>
                     <span class="mcal-time-dur">{{ formatDurationShort(item.durationMinutes) }}</span>
                   </div>
-                  <div class="mcal-card" 
-                       [class.mcal-card-clickable]="item.id"
-                       (click)="item.id && onEventClick(item, $event)">
+                  <div class="mcal-card">
                     <div class="mcal-card-strip" [style.background]="item.color || '#667eea'"></div>
                     <div class="mcal-card-body">
                       <div class="mcal-badge mcal-badge-trial" *ngIf="item.isTrialLesson"><ion-icon name="star"></ion-icon></div>
@@ -232,7 +218,7 @@
                       <div class="mcal-card-loc" *ngIf="item.location">{{ item.location }}</div>
                     </div>
                   </div>
-                </div>
+                </button>
               </div>
 
               <!-- No lessons but has availability -->
@@ -502,6 +488,14 @@
                 <span *ngIf="!gcalSyncing">Sync</span>
                 <span *ngIf="gcalSyncing">Syncing...</span>
               </button>
+              <button class="desktop-avail-pill"
+                      type="button"
+                      [class.mcal-pill-pop]="availabilityJustSaved"
+                      *ngIf="weekAvailabilityHours > 0 && customView === 'week' && !isOnboardingIncomplete && pendingFeedbackCount === 0"
+                      (click)="openAvailabilityModal()">
+                <ion-icon name="time-outline"></ion-icon>
+                {{ weekAvailabilityHours }}h available
+              </button>
               <div class="view-switcher view-switcher-mobile" *ngIf="isCompactToolbar">
                 <button [class.active]="customView === 'week'" (click)="switchView('week')">{{ 'TUTOR_CALENDAR.WEEK' | translate }}</button>
                 <button [class.active]="customView === 'day'" (click)="switchView('day')">{{ 'TUTOR_CALENDAR.DAY' | translate }}</button>
@@ -674,26 +668,13 @@
                 <h3>{{ selectedDayForDayView.dayName }}</h3>
                 <p>{{ selectedDayForDayView.monthLabel }} {{ selectedDayForDayView.dayNumber }}, {{ selectedDayForDayView.year }}</p>
               </div>
-              <div class="day-view-free-hours" 
-                   *ngIf="(events | freeHours:selectedDayForDayView) > 0">
+              <button type="button"
+                      class="day-view-free-hours"
+                      *ngIf="(events | freeHours:selectedDayForDayView) > 0"
+                      (click)="openDayViewAvailabilityModal()">
                 <ion-icon name="time-outline"></ion-icon>
                 <span>{{ events | freeHours:selectedDayForDayView }}{{ 'TUTOR_CALENDAR.H_AVAILABLE' | translate }}</span>
-                <div class="hours-tooltip">
-                  <div class="tooltip-row">
-                    <span class="tooltip-label">{{ 'TUTOR_CALENDAR.TOTAL_AVAILABILITY' | translate }}</span>
-                    <span class="tooltip-value">{{ events | totalAvailability:selectedDayForDayView }}h</span>
-                  </div>
-                  <div class="tooltip-row">
-                    <span class="tooltip-label">{{ 'TUTOR_CALENDAR.BOOKED_LESSONS' | translate }}</span>
-                    <span class="tooltip-value">{{ events | bookedHours:selectedDayForDayView }}h</span>
-                  </div>
-                  <div class="tooltip-divider"></div>
-                  <div class="tooltip-row total">
-                    <span class="tooltip-label">{{ 'TUTOR_CALENDAR.AVAILABLE_LABEL' | translate }}</span>
-                    <span class="tooltip-value">{{ events | freeHours:selectedDayForDayView }}h</span>
-                  </div>
-                </div>
-              </div>
+              </button>
             </div>
 
             <!-- Time Grid -->
@@ -860,5 +841,56 @@
         </div>
       </div>
     </ion-content>
+  </ng-template>
+</ion-modal>
+
+<!-- Availability Detail Modal -->
+<ion-modal [isOpen]="isAvailabilityModalOpen" (didDismiss)="isAvailabilityModalOpen = false" class="avail-detail-modal">
+  <ng-template>
+    <ion-content>
+      <ion-button class="avail-modal-close-btn" fill="clear" (click)="isAvailabilityModalOpen = false">
+        <ion-icon name="close" slot="icon-only"></ion-icon>
+      </ion-button>
+
+      <div class="avail-modal-content">
+        <div class="avail-modal-header">
+          <div class="avail-modal-icon-wrapper">
+            <ion-icon name="calendar"></ion-icon>
+          </div>
+          <h2 class="avail-modal-heading">Your Availability</h2>
+          <p class="avail-modal-description">{{ availabilityModalDescription }}</p>
+        </div>
+
+        <div class="avail-modal-body">
+          <div class="avail-modal-day" *ngFor="let day of availabilityModalRows">
+            <div class="avail-modal-day-header">
+              <span class="avail-modal-day-name">{{ day.label }}</span>
+              <span class="avail-modal-day-hours">{{ day.totalHours }}h</span>
+            </div>
+            <div class="avail-modal-blocks" *ngIf="day.blocks.length > 0">
+              <div class="avail-modal-block" *ngFor="let block of day.blocks">
+                <div class="avail-modal-block-strip"></div>
+                <div class="avail-modal-block-info">
+                  <span class="avail-modal-block-time">{{ block.startTime }} – {{ block.endTime }}</span>
+                  <span class="avail-modal-block-dur">{{ block.duration }}</span>
+                </div>
+              </div>
+            </div>
+            <span class="avail-modal-day-off" *ngIf="day.blocks.length === 0">Day off</span>
+          </div>
+        </div>
+      </div>
+    </ion-content>
+
+    <ion-footer class="avail-modal-footer ion-no-border">
+      <div class="avail-modal-actions">
+        <ion-button expand="block" fill="outline" class="avail-action-btn avail-action-btn--cancel" (click)="isAvailabilityModalOpen = false">
+          Cancel
+        </ion-button>
+        <ion-button expand="block" class="avail-action-btn avail-action-btn--edit" (click)="isAvailabilityModalOpen = false; onSetUpAvailability()">
+          Edit Availability
+        </ion-button>
+      </div>
+    </ion-footer>
   </ng-template>
 </ion-modal>

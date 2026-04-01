@@ -589,10 +589,16 @@
           <ion-icon name="star"></ion-icon> {{ 'HOME.STATUS_TRIAL' | translate }}
         </span>
 
-        <p class="m-card-empty-subtitle">
+        <p class="m-card-empty-subtitle m-upnext-meta">
           <span [class.meta-today]="nextClass.isToday">{{ nextClass.isToday ? ('HOME.TODAY' | translate) : nextClass.dateTag }}</span>
-            {{ nextClass.timeRange }}
-          <span *ngIf="!nextClass.lesson?.isClass && nextClass.subject"> · {{ nextClass.subject }}</span>
+          <span>{{ nextClass.timeRange }}</span>
+          <ng-container *ngIf="!nextClass.lesson?.isClass && nextClass.subject">
+            <span> · </span>
+            <span *ngIf="flagService.getFlagPath(nextClass.subject)" class="m-upnext-flag-wrap">
+              <img [src]="flagService.getFlagPath(nextClass.subject)" class="flag-icon-inline" [alt]="nextClass.subject + ' flag'" />
+            </span>
+            <span>{{ nextClass.subject }}</span>
+          </ng-container>
         </p>
 
         <p class="m-card-empty-subtitle m-filled-countdown" *ngIf="nextClass.lesson?.status !== 'cancelled'">

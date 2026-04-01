@@ -89,35 +89,50 @@ ion-toolbar {
   padding: 24px 20px 40px;
 }
 
-.skeleton-balance-strip {
-  display: flex;
+.skeleton-hero-main {
   background: #fff;
   border: 1px solid $border;
   border-radius: $radius;
-  padding: 20px 0;
-  margin-bottom: 24px;
-  overflow: hidden;
-
-  @media (max-width: 600px) {
-    padding: 14px 0;
-  }
-}
-
-.skeleton-stat {
-  flex: 1;
-  min-width: 0;
+  padding: 28px 28px 24px;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  padding: 0 24px;
+  align-items: center;
+  margin-bottom: 12px;
+}
 
-  & + & {
-    border-left: 1px solid $border;
-  }
+.skeleton-hero-label {
+  width: 80px;
+  height: 12px;
+  margin-bottom: 8px;
+}
 
-  @media (max-width: 600px) {
-    padding: 0 12px;
-  }
+.skeleton-hero-amount {
+  width: 160px;
+  height: 36px;
+  margin-bottom: 16px;
+}
+
+.skeleton-hero-btn {
+  width: 140px;
+  height: 44px;
+  border-radius: 8px;
+}
+
+.skeleton-hero-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.skeleton-hero-stat {
+  background: #fff;
+  border: 1px solid $border;
+  border-radius: $radius;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .skeleton-line {
@@ -130,50 +145,16 @@ ion-toolbar {
 .skeleton-label {
   width: 64px;
   height: 12px;
-  margin-bottom: 10px;
-
-  @media (max-width: 600px) {
-    width: 52px;
-    height: 11px;
-    margin-bottom: 8px;
-  }
 }
 
 .skeleton-value {
   width: 96px;
-  height: 28px;
-  margin-bottom: 8px;
-
-  @media (max-width: 600px) {
-    width: 72px;
-    height: 20px;
-    margin-bottom: 6px;
-  }
+  height: 22px;
 }
 
 .skeleton-sub {
   width: 80px;
   height: 10px;
-
-  @media (max-width: 600px) {
-    width: 64px;
-    height: 9px;
-  }
-}
-
-.skeleton-withdraw-row {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 32px;
-}
-
-.skeleton-btn {
-  width: 160px;
-  height: 48px;
-  border-radius: 24px;
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-  background-size: 200% 100%;
-  animation: skeletonShimmer 1.4s ease-in-out infinite;
 }
 
 .skeleton-chart-card {
@@ -270,18 +251,171 @@ ion-toolbar {
 }
 
 // =============================================================
-// BALANCE STRIP ROW (strip + go back link)
+// BALANCE HERO (Available balance + withdraw CTA)
 // =============================================================
-.balance-strip-row {
-  display: flex;
-  align-items: center;
-  gap: 16px;
+.balance-hero {
+  margin-bottom: 32px;
 }
+
+.balance-hero-main {
+  background: white;
+  border: 1px solid $border;
+  border-radius: $radius;
+  padding: 28px 28px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  cursor: pointer;
+  margin-bottom: 12px;
+
+  @media (max-width: 600px) {
+    padding: 24px 20px 20px;
+  }
+
+  .balance-hero-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: $accent-green;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+
+  .balance-hero-amount {
+    font-size: 40px;
+    font-weight: 700;
+    color: $text-primary;
+    letter-spacing: -1px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+
+    &.masked {
+      color: $text-tertiary;
+      letter-spacing: 2px;
+    }
+
+    @media (max-width: 600px) {
+      font-size: 34px;
+    }
+  }
+
+  .balance-hero-amount-hover {
+    display: none;
+  }
+
+  // Hover reveal on desktop
+  &.wallet-hidden {
+    @media (hover: hover) {
+      &:hover .balance-hero-amount.masked { opacity: 0; }
+      &:hover .balance-hero-amount-hover {
+        display: block;
+        font-size: 40px;
+        font-weight: 700;
+        color: $text-primary;
+        letter-spacing: -1px;
+        font-variant-numeric: tabular-nums;
+        line-height: 1.1;
+      }
+      &:hover .balance-hero-amount.masked + .balance-hero-amount-hover { display: block; }
+    }
+  }
+}
+
+.balance-hero-withdraw-btn {
+  margin-top: 16px;
+  background: $text-primary;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 32px;
+  font-size: 15px;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover:not(:disabled) { background: #333; }
+  &:active:not(:disabled) { transform: scale(0.98); }
+  &:disabled {
+    background: $bg-subtle;
+    color: $text-tertiary;
+    cursor: not-allowed;
+  }
+}
+
+.balance-hero-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.balance-hero-stat {
+  background: white;
+  border: 1px solid $border;
+  border-radius: $radius;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  cursor: pointer;
+  position: relative;
+
+  @media (max-width: 600px) {
+    padding: 14px 16px;
+  }
+
+  .stat-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: $text-secondary;
+  }
+
+  .stat-value {
+    font-size: 20px;
+    font-weight: 600;
+    color: $text-primary;
+    letter-spacing: -0.5px;
+    font-variant-numeric: tabular-nums;
+    &.masked { color: $text-tertiary; letter-spacing: 1px; }
+
+    @media (max-width: 600px) { font-size: 18px; }
+  }
+
+  .stat-value-hover {
+    position: absolute;
+    left: 20px;
+    top: 34px;
+    opacity: 0;
+    pointer-events: none;
+    font-size: 20px;
+    font-weight: 600;
+    color: $text-primary;
+    letter-spacing: -0.5px;
+    transition: opacity 0.2s;
+
+    @media (max-width: 600px) { left: 16px; top: 32px; font-size: 18px; }
+  }
+
+  .stat-sub {
+    font-size: 11px;
+    color: $text-tertiary;
+    margin-top: 1px;
+  }
+
+  &.wallet-hidden {
+    @media (hover: hover) {
+      &:hover .stat-value.masked { opacity: 0; }
+      &:hover .stat-value-hover { opacity: 1; }
+    }
+  }
+}
+
+.pending-stat .stat-label { color: $accent-orange; }
 
 .go-back-link {
   background: none;
   border: none;
-  color: #222222;
+  color: $text-primary;
   font-size: 14px;
   font-weight: 600;
   text-decoration: underline;
@@ -290,149 +424,114 @@ ion-toolbar {
   padding: 8px 0;
   flex-shrink: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+  &:hover { opacity: 0.7; }
+}
 
-  &:hover {
-    opacity: 0.7;
+// =============================================================
+// SHARED SECTION HEADER
+// =============================================================
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 16px;
+
+  h2 {
+    font-size: 22px;
+    font-weight: 600;
+    color: $text-primary;
+    margin: 0;
+    letter-spacing: -0.3px;
   }
 }
 
 // =============================================================
-// BALANCE STRIP
+// TRANSFER RECORDS
 // =============================================================
-.balance-strip {
-  flex: 1;
-  min-width: 0;
+.transfers-section {
+  margin-bottom: 40px;
+
+  .section-header { margin-top: 0; }
+}
+
+.transfers-list {
   display: flex;
-  align-items: stretch;
+  flex-direction: column;
+  gap: 0;
+  background: white;
   border: 1px solid $border;
   border-radius: $radius;
-  background: white;
   overflow: hidden;
 }
 
-.balance-stat {
+.transfer-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  transition: background 0.12s;
+
+  &:not(:last-child) { border-bottom: 1px solid #f5f5f5; }
+  &:hover { background: $bg-hover; }
+
+  @media (max-width: 600px) {
+    padding: 14px 16px;
+    gap: 12px;
+  }
+}
+
+.transfer-icon-wrap {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: $bg-subtle;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  ion-icon { font-size: 20px; color: $text-secondary; }
+}
+
+.transfer-details {
   flex: 1;
-  padding: 20px 24px;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  position: relative;
-  cursor: pointer;
-  min-width: 0;
-  
-  @media (max-width: 600px) {
-    padding: 14px 12px;
+
+  .transfer-method {
+    font-size: 15px;
+    font-weight: 500;
+    color: $text-primary;
   }
-  
-  .stat-label {
+
+  .transfer-date {
     font-size: 13px;
-    font-weight: 400;
     color: $text-secondary;
-    line-height: 1.3;
-
-    @media (max-width: 600px) {
-      font-size: 12px;
-    }
-  }
-  
-  .stat-value {
-    font-size: 22px;
-    font-weight: 600;
-    color: $text-primary;
-    letter-spacing: -0.5px;
-    font-variant-numeric: tabular-nums;
-    
-    &.masked {
-      color: $text-tertiary;
-      letter-spacing: 1px;
-    }
-    
-    @media (max-width: 600px) {
-      font-size: 16px;
-    }
-  }
-  
-  .stat-value-hover {
-    position: absolute;
-    left: 24px;
-    top: 38px;
-    opacity: 0;
-    pointer-events: none;
-    font-size: 22px;
-    font-weight: 600;
-    color: $text-primary;
-    letter-spacing: -0.5px;
-    transition: opacity 0.2s;
-    
-    @media (max-width: 600px) {
-      left: 12px;
-      top: 30px;
-      font-size: 16px;
-    }
-  }
-  
-  .stat-sub {
-    font-size: 12px;
-    color: $text-tertiary;
-    margin-top: 2px;
-
-    @media (max-width: 600px) {
-      font-size: 11px;
-    }
-  }
-  
-  // Hover reveal on desktop
-  &.wallet-hidden {
-    @media (hover: hover) {
-      &:hover .stat-value.masked {
-        opacity: 0;
-      }
-      &:hover .stat-value-hover {
-        opacity: 1;
-      }
-    }
   }
 }
 
-.stat-divider {
-  width: 1px;
-  background: $border;
-  align-self: stretch;
-  flex-shrink: 0;
-}
-
-// Color accents for labels
-.pending-stat .stat-label { color: $accent-orange; }
-.available-stat .stat-label { color: $accent-green; }
-
-// ----- Withdraw Button -----
-.withdraw-row {
+.transfer-right {
   display: flex;
-  justify-content: flex-end;
-  margin: 16px 0 32px;
-}
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
 
-.withdraw-btn {
-  background: #000000;
-  border: 1px solid #222222;
-  border-radius: 8px;
-  padding: 10px 24px;
-  font-size: 14px;
-  font-weight: 600;
-  color: white;
-  cursor: pointer;
-  transition: all 0.15s;
-
-  
-  &:hover:not(:disabled) {
-    background: $text-primary;
-    color: white;
+  .transfer-amount {
+    font-size: 15px;
+    font-weight: 600;
+    color: $text-primary;
+    font-variant-numeric: tabular-nums;
   }
-  
-  &:disabled {
-    border-color: $border;
-    color: $text-tertiary;
-    cursor: not-allowed;
+
+  .transfer-status {
+    font-size: 12px;
+    font-weight: 500;
+
+    &.status-completed { color: $accent-green; }
+    &.status-pending { color: $accent-orange; }
+    &.status-failed { color: $accent-red; }
   }
 }
 
@@ -444,7 +543,6 @@ ion-toolbar {
   border: 1px solid $border;
   border-radius: $radius;
   padding: 28px 24px 20px;
-  margin-top: 115px;
   margin-bottom: 32px;
   
   @media (max-width: 600px) {
@@ -613,20 +711,8 @@ ion-toolbar {
 // TRANSACTIONS SECTION
 // =============================================================
 .transactions-section {
-  .transactions-header {
-    display: flex;
-    margin-top: 115px;
-    justify-content: space-between;
-    align-items: baseline;
-    margin-bottom: 16px;
-    
-    h2 {
-      font-size: 22px;
-      font-weight: 600;
-      color: $text-primary;
-      margin: 0;
-      letter-spacing: -0.3px;
-    }
+  .section-header {
+    margin-top: 0;
   }
 }
 
@@ -1537,6 +1623,155 @@ ion-toolbar {
 }
 
 // =============================================================
+// MOBILE TRANSACTION CARDS
+// =============================================================
+.txn-mobile-cards {
+  display: none;
+
+  @media (max-width: 768px) {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    background: white;
+    border: 1px solid $border;
+    border-radius: $radius;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+}
+
+.table-wrap {
+  @media (max-width: 768px) { display: none; }
+}
+
+.txn-mobile-card {
+  padding: 14px 16px;
+  transition: background 0.12s;
+
+  &:not(:last-child) { border-bottom: 1px solid #f5f5f5; }
+
+  &.clickable { cursor: pointer; &:hover { background: $bg-hover; } }
+  &.refunded { background: rgba($accent-red, 0.02); }
+}
+
+.txn-mobile-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.txn-mobile-student {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+
+  .avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+
+    img { width: 100%; height: 100%; object-fit: cover; }
+
+    &.fallback {
+      background: $bg-subtle;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      ion-icon { font-size: 16px; color: $text-tertiary; }
+    }
+  }
+}
+
+.txn-mobile-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+
+  .txn-mobile-name {
+    font-size: 15px;
+    font-weight: 500;
+    color: $text-primary;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .txn-mobile-date {
+    font-size: 12px;
+    color: $text-secondary;
+  }
+}
+
+.txn-mobile-amount-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+
+  .txn-mobile-amount {
+    font-size: 15px;
+    font-weight: 600;
+    color: $text-primary;
+    font-variant-numeric: tabular-nums;
+
+    &.zero { color: $text-tertiary; }
+    &.tentative { color: $text-secondary; font-weight: 400; }
+  }
+
+  .txn-mobile-status {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    color: $text-secondary;
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+
+      &.dot-paid,
+      &.dot-succeeded { background: $accent-green; }
+      &.dot-in_progress { background: #007AFF; }
+      &.dot-processing { background: $accent-orange; }
+      &.dot-pending,
+      &.dot-scheduled,
+      &.dot-class_scheduled { background: $text-tertiary; }
+      &.dot-cancelled,
+      &.dot-refunded { background: $accent-red; }
+      &.dot-partially_refunded { background: $accent-orange; }
+    }
+  }
+}
+
+.txn-mobile-labels {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  padding-left: 46px;
+
+  .type-label {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 500;
+
+    &.tip { background: rgba($accent-orange, 0.1); color: darken($accent-orange, 10%); }
+    &.class-label { background: rgba($accent-green, 0.1); color: darken($accent-green, 10%); }
+    &.material-label { background: rgba(66, 152, 210, 0.1); color: #4298d2; }
+  }
+}
+
+// =============================================================
 // WITHDRAWAL MODAL
 // =============================================================
 .withdrawal-modal {
@@ -1567,11 +1802,13 @@ ion-toolbar {
     box-sizing: border-box;
 
     @media (max-width: 768px) {
-      grid-template-columns: 1fr;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      padding: 10px 16px;
+      padding-bottom: calc(10px + env(safe-area-inset-bottom));
     }
   }
 
-  // Match home earnings card "Withdraw Funds" (.withdraw-btn on tab1)
   .withdrawal-action-btn {
     margin: 0;
     --border-radius: 12px;
@@ -1581,6 +1818,12 @@ ion-toolbar {
     letter-spacing: 0;
     min-height: 48px;
     transition: all 0.2s ease;
+
+    @media (max-width: 768px) {
+      min-height: 44px;
+      font-size: 14px;
+      --border-radius: 10px;
+    }
   }
 
   .withdrawal-action-btn--cancel {
@@ -1613,12 +1856,9 @@ ion-toolbar {
     display: flex;
     flex-direction: column;
     overflow-y: auto;
-  }
 
-  @media (max-width: 768px) {
-    .withdrawal-modal-actions {
-      padding-left: 16px;
-      padding-right: 16px;
+    @media (max-width: 768px) {
+      padding: 20px 16px 12px;
     }
   }
 }
@@ -1636,6 +1876,12 @@ ion-toolbar {
   
   &:hover {
     --color: #{$text-primary};
+  }
+
+  @media (max-width: 768px) {
+    top: 6px;
+    right: 6px;
+    ion-icon { font-size: 22px; }
   }
 }
 
@@ -1657,6 +1903,13 @@ ion-toolbar {
       font-size: 24px;
       color: white;
     }
+
+    @media (max-width: 768px) {
+      width: 36px;
+      height: 36px;
+      margin-bottom: 8px;
+      ion-icon { font-size: 18px; }
+    }
   }
   
   .modal-heading {
@@ -1665,13 +1918,19 @@ ion-toolbar {
     color: $text-primary;
     margin: 0 0 4px;
     letter-spacing: -0.3px;
+
+    @media (max-width: 768px) { font-size: 18px; }
   }
   
   .modal-description {
     font-size: 14px;
     color: $text-secondary;
     margin: 0;
+
+    @media (max-width: 768px) { font-size: 13px; }
   }
+
+  @media (max-width: 768px) { margin-bottom: 14px; }
 }
 
 .withdrawal-container {
@@ -1730,6 +1989,8 @@ ion-toolbar {
       color: $text-primary;
       margin: 0 0 12px;
       letter-spacing: -0.01em;
+
+      @media (max-width: 768px) { font-size: 13px; margin-bottom: 8px; }
     }
 
     .method-card {
@@ -1774,7 +2035,8 @@ ion-toolbar {
   @media (max-width: 768px) {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
+    margin-bottom: 8px;
 
     .withdrawal-grid-method .method-card {
       flex: 0 1 auto;
@@ -1787,6 +2049,7 @@ ion-toolbar {
 
     .withdrawal-grid-fees > .fee-breakdown-card--paypal .fee-breakdown-swap {
       flex: 0 1 auto;
+      min-height: auto;
     }
   }
 }
@@ -1819,6 +2082,12 @@ ion-toolbar {
     color: rgba(255, 255, 255, 0.7);
     margin-top: 4px;
   }
+
+  @media (max-width: 768px) {
+    padding: 14px 16px;
+    .balance-amount { font-size: 26px; }
+    .balance-label { font-size: 11px; }
+  }
 }
 
 // Fee Breakdown
@@ -1827,6 +2096,8 @@ ion-toolbar {
   border-radius: $radius;
   padding: 16px;
   border: 1px solid $border;
+
+  @media (max-width: 768px) { padding: 12px; }
   
   .breakdown-row {
     display: flex;
@@ -1878,6 +2149,17 @@ ion-toolbar {
         color: $accent-green;
       }
     }
+
+    @media (max-width: 768px) {
+      padding: 5px 0;
+      .breakdown-label { font-size: 12px; }
+      .breakdown-value { font-size: 13px; }
+      &.total-row {
+        padding-top: 8px;
+        .breakdown-label { font-size: 13px; }
+        .breakdown-value.total { font-size: 16px; }
+      }
+    }
   }
   
   .fee-note {
@@ -1900,6 +2182,14 @@ ion-toolbar {
       font-size: 12px;
       color: #8B5E00;
       line-height: 1.4;
+    }
+
+    @media (max-width: 768px) {
+      padding: 8px;
+      margin: 4px 0;
+      gap: 6px;
+      ion-icon { font-size: 14px; }
+      span { font-size: 11px; }
     }
   }
   
@@ -1954,6 +2244,13 @@ ion-toolbar {
         text-transform: uppercase;
         letter-spacing: 0.3px;
       }
+
+      @media (max-width: 768px) {
+        padding: 4px 10px;
+        margin-bottom: 4px;
+        ion-icon { font-size: 14px; }
+        span { font-size: 11px; }
+      }
     }
     
     .stripe-benefit-note {
@@ -1974,6 +2271,13 @@ ion-toolbar {
       span {
         font-size: 12px;
         color: $text-primary;
+      }
+
+      @media (max-width: 768px) {
+        padding: 6px 10px;
+        margin-top: 4px;
+        ion-icon { font-size: 14px; }
+        span { font-size: 11px; }
       }
     }
 
@@ -2000,6 +2304,8 @@ ion-toolbar {
   .fee-breakdown-swap {
     position: relative;
     min-height: 292px;
+
+    @media (max-width: 768px) { min-height: 220px; }
   }
 
   .fee-breakdown-panel {
@@ -2025,12 +2331,20 @@ ion-toolbar {
     padding: 32px 16px 24px;
     min-height: 200px;
     justify-content: center;
+
+    @media (max-width: 768px) {
+      padding: 16px 12px;
+      min-height: 140px;
+      ion-icon { font-size: 22px; margin-bottom: 4px; }
+    }
   }
 }
 
 // Amount Section (modal)
 .amount-section {
   margin-bottom: 16px;
+
+  @media (max-width: 768px) { margin-bottom: 0; }
   
   .section-label {
     display: block;
@@ -2038,6 +2352,8 @@ ion-toolbar {
     font-weight: 600;
     color: $text-primary;
     margin-bottom: 8px;
+
+    @media (max-width: 768px) { font-size: 13px; margin-bottom: 6px; }
   }
   
   .amount-input-wrapper {
@@ -2059,6 +2375,8 @@ ion-toolbar {
       font-size: 18px;
       font-weight: 600;
       color: $text-primary;
+
+      @media (max-width: 768px) { padding-left: 12px; font-size: 16px; }
     }
     
     .amount-input {
@@ -2079,6 +2397,8 @@ ion-toolbar {
         margin: 0;
       }
       -moz-appearance: textfield;
+
+      @media (max-width: 768px) { padding: 10px 8px; font-size: 16px; }
     }
     
     .max-button {
@@ -2101,6 +2421,11 @@ ion-toolbar {
   .amount-error-slot {
     min-height: 40px;
     margin-top: 8px;
+
+    @media (max-width: 768px) {
+      min-height: 0;
+      margin-top: 4px;
+    }
   }
 
   .amount-error {
@@ -2127,6 +2452,8 @@ ion-toolbar {
 // Method Section (modal)
 .method-section {
   margin-bottom: 16px;
+
+  @media (max-width: 768px) { margin-bottom: 0; }
   
   .section-label {
     display: block;
@@ -2152,7 +2479,13 @@ ion-toolbar {
     &.selected {
       border-color: $text-primary;
       border-width: 2px;
-      padding: 11px; // compensate for wider border
+      padding: 11px;
+    }
+
+    @media (max-width: 768px) {
+      padding: 10px;
+      margin-bottom: 0;
+      &.selected { padding: 9px; }
     }
     
     .method-content {
@@ -2175,6 +2508,8 @@ ion-toolbar {
           height: 100%;
           object-fit: contain;
         }
+
+        @media (max-width: 768px) { width: 36px; height: 36px; }
       }
       
       .method-info {
@@ -2185,11 +2520,15 @@ ion-toolbar {
           font-weight: 600;
           color: $text-primary;
           margin-bottom: 2px;
+
+          @media (max-width: 768px) { font-size: 14px; margin-bottom: 1px; }
         }
         
         .method-detail {
           font-size: 13px;
           color: $text-secondary;
+
+          @media (max-width: 768px) { font-size: 12px; }
         }
         
         .method-timing {
@@ -2197,6 +2536,8 @@ ion-toolbar {
           color: $accent-green;
           font-weight: 500;
           margin-top: 2px;
+
+          @media (max-width: 768px) { font-size: 11px; }
         }
       }
       
@@ -2349,13 +2690,12 @@ ion-toolbar {
   }
 
   .earnings-skeleton {
-    .skeleton-balance-strip {
+    .skeleton-hero-main,
+    .skeleton-hero-stat {
       background: #1c1c1e !important;
       border-color: #2c2c2e !important;
     }
-    .skeleton-stat + .skeleton-stat { border-left-color: #2c2c2e !important; }
     .skeleton-line,
-    .skeleton-btn,
     .skeleton-chart-area {
       background: linear-gradient(90deg, #2c2c2e 25%, #3a3a3c 50%, #2c2c2e 75%) !important;
       background-size: 200% 100% !important;
@@ -2366,27 +2706,41 @@ ion-toolbar {
     }
   }
 
-  .balance-strip {
+  .balance-hero-main {
     background: #1c1c1e !important;
     border-color: #2c2c2e !important;
+    .balance-hero-label { color: $accent-green !important; }
+    .balance-hero-amount { color: #f5f5f7 !important; &.masked { color: #555 !important; } }
+    .balance-hero-amount-hover { color: #f5f5f7 !important; }
   }
-  .balance-stat {
+  .balance-hero-withdraw-btn {
+    background: #f5f5f7 !important;
+    color: #000000 !important;
+    &:hover:not(:disabled) { background: #fff !important; }
+    &:disabled { background: #2c2c2e !important; color: #555 !important; }
+  }
+  .balance-hero-stat {
+    background: #1c1c1e !important;
+    border-color: #2c2c2e !important;
     .stat-label { color: #8e8e93 !important; }
     .stat-value { color: #f5f5f7 !important; &.masked { color: #555 !important; } }
     .stat-value-hover { color: #f5f5f7 !important; }
     .stat-sub { color: #636366 !important; }
   }
   .pending-stat .stat-label { color: $accent-orange !important; }
-  .available-stat .stat-label { color: $accent-green !important; }
-  .stat-divider { background: #2c2c2e !important; }
 
-  .withdraw-btn {
-    background: #f5f5f7 !important;
-    border-color: #f5f5f7 !important;
-    color: #000000 !important;
-    &:hover:not(:disabled) { background: #fff !important; }
-    &:disabled { background: #2c2c2e !important; border-color: #3a3a3c !important; color: #555 !important; }
+  .transfers-section .section-header h2 { color: #f5f5f7 !important; }
+  .transfers-list { background: #1c1c1e !important; border-color: #2c2c2e !important; }
+  .transfer-card {
+    &:not(:last-child) { border-bottom-color: rgba(255,255,255,0.06) !important; }
+    &:hover { background: rgba(255,255,255,0.04) !important; }
   }
+  .transfer-icon-wrap { background: #2c2c2e !important; ion-icon { color: #8e8e93 !important; } }
+  .transfer-details {
+    .transfer-method { color: #f5f5f7 !important; }
+    .transfer-date { color: #8e8e93 !important; }
+  }
+  .transfer-right .transfer-amount { color: #f5f5f7 !important; }
 
   .earnings-chart-card {
     background: #1c1c1e !important;
@@ -2412,7 +2766,7 @@ ion-toolbar {
   }
   .chart-empty-state { ion-icon { color: #555 !important; } p { color: #8e8e93 !important; } }
 
-  .transactions-section .transactions-header h2 { color: #f5f5f7 !important; }
+  .transactions-section .section-header h2 { color: #f5f5f7 !important; }
   .clear-link { color: #f5f5f7 !important; }
 
   .filters-trigger-btn {
@@ -2458,6 +2812,30 @@ ion-toolbar {
       &.earnings { color: #f5f5f7 !important; .zero { color: #555 !important; } .reduced { color: $accent-orange !important; } .tentative { color: #8e8e93 !important; } }
       .struck { color: #636366 !important; }
     }
+  }
+
+  .txn-mobile-cards {
+    background: #1c1c1e !important;
+    border-color: #2c2c2e !important;
+  }
+  .txn-mobile-card {
+    &:not(:last-child) { border-bottom-color: rgba(255,255,255,0.06) !important; }
+    &.clickable:hover { background: rgba(255,255,255,0.04) !important; }
+    &.refunded { background: rgba($accent-red,0.06) !important; }
+  }
+  .txn-mobile-student .avatar.fallback { background: #2c2c2e !important; ion-icon { color: #636366 !important; } }
+  .txn-mobile-meta {
+    .txn-mobile-name { color: #f5f5f7 !important; }
+    .txn-mobile-date { color: #8e8e93 !important; }
+  }
+  .txn-mobile-amount-col {
+    .txn-mobile-amount { color: #f5f5f7 !important; &.zero { color: #555 !important; } &.tentative { color: #8e8e93 !important; } }
+    .txn-mobile-status { color: #8e8e93 !important; }
+  }
+  .txn-mobile-labels .type-label {
+    &.tip { background: rgba($accent-orange, 0.15) !important; }
+    &.class-label { background: rgba($accent-green, 0.15) !important; }
+    &.material-label { background: rgba(66, 152, 210, 0.15) !important; }
   }
 
   .empty-state {

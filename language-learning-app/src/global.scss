@@ -1477,6 +1477,300 @@ ion-modal.all-lessons-modal {
   }
 }
 
+// Desktop availability pill — same look as .day-view-header .day-view-free-hours
+.desktop-avail-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 8px 12px !important;
+  border: none !important;
+  border-radius: 8px !important;
+  background: rgba(13, 148, 136, 0.08) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: #0d9488 !important;
+  cursor: pointer;
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif !important;
+  white-space: nowrap;
+  line-height: 1;
+  margin: 0;
+  position: relative;
+
+  ion-icon {
+    font-size: 18px !important;
+    color: #0d9488 !important;
+  }
+
+  &:hover {
+    background: rgba(13, 148, 136, 0.12) !important;
+  }
+}
+
+// Pop-float animation for availability pill after save (matches teal chip, no border)
+@keyframes mcalPillPop {
+  0% { transform: scale(1); box-shadow: 0 0 0 rgba(13, 148, 136, 0); }
+  25% { transform: scale(1.08); box-shadow: 0 4px 16px rgba(13, 148, 136, 0.25); background: rgba(13, 148, 136, 0.16) !important; }
+  50% { transform: scale(0.98); }
+  75% { transform: scale(1.04); box-shadow: 0 2px 10px rgba(13, 148, 136, 0.15); }
+  100% { transform: scale(1); box-shadow: 0 0 0 rgba(13, 148, 136, 0); }
+}
+
+.mcal-pill-pop {
+  animation: mcalPillPop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both !important;
+  background: rgba(13, 148, 136, 0.12) !important;
+}
+
+@keyframes mcalPillPopDark {
+  0% { transform: scale(1); box-shadow: 0 0 0 rgba(66, 152, 210, 0); }
+  25% { transform: scale(1.08); box-shadow: 0 4px 16px rgba(66, 152, 210, 0.35); background: rgba(66, 152, 210, 0.28) !important; }
+  50% { transform: scale(0.98); }
+  75% { transform: scale(1.04); box-shadow: 0 2px 10px rgba(66, 152, 210, 0.2); }
+  100% { transform: scale(1); box-shadow: 0 0 0 rgba(66, 152, 210, 0); }
+}
+
+// Availability Detail Modal (matches withdrawal modal pattern)
+ion-modal.avail-detail-modal {
+  --backdrop-opacity: 0.4;
+
+  @media (min-width: 769px) {
+    --width: 95%;
+    --max-width: 520px;
+    --height: 90vh;
+    --max-height: 700px;
+    --border-radius: 24px;
+    --box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+
+    &::part(content) {
+      border-radius: 24px;
+    }
+  }
+
+  ion-backdrop {
+    backdrop-filter: blur(8px);
+  }
+
+  // Floating close button
+  .avail-modal-close-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 10;
+    --color: #8e8e93;
+    --padding-start: 8px;
+    --padding-end: 8px;
+    
+    ion-icon { font-size: 24px; }
+    &:hover { --color: #222; }
+
+    @media (max-width: 768px) {
+      top: 8px;
+      right: 8px;
+      ion-icon { font-size: 22px; }
+    }
+  }
+
+  // Content wrapper
+  .avail-modal-content {
+    max-width: 520px;
+    margin: 0 auto;
+    padding: 40px 20px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+
+    @media (max-width: 768px) {
+      padding: 32px 16px 20px;
+    }
+  }
+
+  // Header (icon + title + subtitle)
+  .avail-modal-header {
+    text-align: center;
+    margin-bottom: 4px;
+  }
+
+  .avail-modal-icon-wrapper {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #34C759;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 12px;
+    
+    ion-icon { font-size: 24px; color: white; }
+
+    @media (max-width: 768px) {
+      width: 40px;
+      height: 40px;
+      ion-icon { font-size: 20px; }
+    }
+  }
+
+  .avail-modal-heading {
+    font-size: 22px;
+    font-weight: 600;
+    color: #222;
+    margin: 0 0 4px;
+    letter-spacing: -0.3px;
+
+    @media (max-width: 768px) { font-size: 18px; }
+  }
+
+  .avail-modal-description {
+    font-size: 14px;
+    color: #8e8e93;
+    margin: 0;
+
+    @media (max-width: 768px) { font-size: 13px; }
+  }
+
+  // Day list
+  .avail-modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .avail-modal-day {
+    margin-bottom: 18px;
+  }
+
+  .avail-modal-day-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #f0f0f0;
+    margin-bottom: 8px;
+  }
+
+  .avail-modal-day-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1a1a1a;
+    letter-spacing: -0.01em;
+  }
+
+  .avail-modal-day-hours {
+    font-size: 13px;
+    font-weight: 500;
+    color: #34C759;
+  }
+
+  .avail-modal-blocks {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .avail-modal-block {
+    display: flex;
+    align-items: stretch;
+    border-radius: 10px;
+    background: #F0FFF4;
+    border: 1px solid rgba(52, 199, 89, 0.1);
+    overflow: hidden;
+  }
+
+  .avail-modal-block-strip {
+    width: 4px;
+    background: #34C759;
+    flex-shrink: 0;
+  }
+
+  .avail-modal-block-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex: 1;
+    padding: 10px 14px;
+  }
+
+  .avail-modal-block-time {
+    font-size: 14px;
+    font-weight: 600;
+    color: #222;
+    letter-spacing: -0.01em;
+  }
+
+  .avail-modal-block-dur {
+    font-size: 12px;
+    color: #8e8e93;
+    font-weight: 500;
+  }
+
+  .avail-modal-day-off {
+    font-size: 13px;
+    color: #c7c7cc;
+    font-style: italic;
+  }
+
+  // Footer with action buttons
+  ion-footer.avail-modal-footer {
+    flex-shrink: 0;
+    --background: #fafafa;
+    background: #fafafa;
+    border-top: 1px solid #ebebeb;
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.06);
+  }
+
+  .avail-modal-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding: 16px 20px;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    max-width: 520px;
+    margin: 0 auto;
+    width: 100%;
+    box-sizing: border-box;
+
+    @media (max-width: 768px) {
+      gap: 10px;
+      padding: 12px 16px;
+      padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    }
+  }
+
+  .avail-action-btn {
+    margin: 0;
+    --border-radius: 12px;
+    font-weight: 600;
+    font-size: 15px;
+    text-transform: none;
+    letter-spacing: 0;
+    min-height: 48px;
+    transition: all 0.2s ease;
+
+    @media (max-width: 768px) {
+      min-height: 44px;
+      font-size: 14px;
+      --border-radius: 10px;
+    }
+  }
+
+  .avail-action-btn--cancel {
+    --border-width: 1px;
+    --border-color: #cfcfcf;
+    --color: #222;
+    --background: #fff;
+
+    &:hover {
+      --background: #f5f5f5;
+    }
+  }
+
+  .avail-action-btn--edit {
+    --background: #222;
+    --color: #fff;
+    --background-hover: #333;
+    --box-shadow: none;
+  }
+}
+
 // Tutor Note Modal (Airbnb-style)
 ion-modal.tutor-note-modal {
   --width: 95%;
@@ -2137,7 +2431,8 @@ html.ion-palette-dark {
   ion-modal.all-lessons-modal,
   ion-modal.modern-modal,
   ion-modal.availability-picker-modal,
-  ion-modal.withdrawal-modal {
+  ion-modal.withdrawal-modal,
+  ion-modal.avail-detail-modal {
     --background: #{$modal-bg-dark} !important;
 
     ion-content {
@@ -2593,6 +2888,65 @@ html.ion-palette-dark {
       background: #333336 !important;
       ion-icon { color: #636366 !important; }
       span { color: #8e8e93 !important; }
+    }
+  }
+
+  // Desktop availability pill dark mode (matches .day-view-free-hours dark)
+  .desktop-avail-pill {
+    background: rgba(66, 152, 210, 0.15) !important;
+    color: #4298d2 !important;
+    ion-icon { color: #4298d2 !important; }
+    &:hover {
+      background: rgba(66, 152, 210, 0.22) !important;
+    }
+
+    &.mcal-pill-pop {
+      animation: mcalPillPopDark 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both !important;
+      background: rgba(66, 152, 210, 0.22) !important;
+    }
+  }
+
+  // Availability Detail Modal dark mode
+  ion-modal.avail-detail-modal {
+    .avail-modal-close-btn {
+      --color: #8e8e93;
+      &:hover { --color: #f5f5f7; }
+    }
+
+    .avail-modal-icon-wrapper { background: #34C759; }
+    .avail-modal-heading { color: #f5f5f7; }
+    .avail-modal-description { color: #8e8e93; }
+
+    .avail-modal-day-header { border-bottom-color: #3a3a3c; }
+    .avail-modal-day-name { color: #f5f5f7; }
+    .avail-modal-block {
+      background: rgba(52, 199, 89, 0.08);
+      border-color: rgba(52, 199, 89, 0.15);
+    }
+    .avail-modal-block-time { color: #f5f5f7; }
+    .avail-modal-block-dur { color: #636366; }
+    .avail-modal-day-off { color: #555; }
+
+    ion-footer.avail-modal-footer {
+      --background: #{$modal-bg-dark} !important;
+      background: #{$modal-bg-dark} !important;
+      border-top-color: rgba(255, 255, 255, 0.08) !important;
+      box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.35) !important;
+    }
+
+    .avail-action-btn--cancel {
+      --border-color: rgba(255, 255, 255, 0.22) !important;
+      --color: #f5f5f7 !important;
+      --background: transparent !important;
+      &:hover {
+        --background: rgba(255, 255, 255, 0.06) !important;
+      }
+    }
+
+    .avail-action-btn--edit {
+      --background: #007AFF !important;
+      --color: #fff !important;
+      --background-hover: #0071e3 !important;
     }
   }
 

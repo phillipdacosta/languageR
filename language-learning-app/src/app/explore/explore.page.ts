@@ -354,10 +354,12 @@ export class ExplorePage implements OnInit, OnDestroy {
           this.filteredClasses = [];
         }
         this.isLoading = false;
+        this.cdr.markForCheck();
       },
       error: (error) => {
         console.error('Error loading public classes:', error);
         this.isLoading = false;
+        this.cdr.markForCheck();
         this.toast.create({
           message: this.translate.instant('EXPLORE_CLASSES.TOAST_LOAD_FAILED'),
           duration: 2000,
@@ -531,9 +533,11 @@ export class ExplorePage implements OnInit, OnDestroy {
           this.recommendedMaterials = res.materials || [];
           this.recommendedStruggles = res.struggles || [];
         }
+        this.cdr.markForCheck();
       },
       error: () => {
         this.isLoadingRecommended = false;
+        this.cdr.markForCheck();
       }
     });
   }

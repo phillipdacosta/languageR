@@ -741,13 +741,12 @@
   width: 100%;
   box-sizing: border-box;
 
-  // Inline on home: toolbar provides back; keep title / step centered
   &--embedded {
-    justify-content: center;
     position: relative;
 
     .cm-nav-title {
       text-align: center;
+      flex: 1;
     }
 
     .cm-nav-right {
@@ -755,6 +754,13 @@
       right: 20px;
       top: 50%;
       transform: translateY(-50%);
+    }
+
+    // Mobile: tabs toolbar already provides back — hide to avoid duplication
+    @media (max-width: 575px) {
+      justify-content: center;
+
+      .cm-nav-back { display: none; }
     }
   }
 }
