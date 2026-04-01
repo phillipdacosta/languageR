@@ -39,18 +39,12 @@ function emitStatusChange(lessonId, status, tutorId, studentId) {
       updatedAt: new Date()
     };
 
-    // Emit to both tutor and student
+    // Emit to both tutor and student (room-based, reaches all devices)
     if (tutorId) {
-      const tutorSocketId = global.userSockets?.[tutorId.toString()];
-      if (tutorSocketId) {
-        io.to(tutorSocketId).emit('lesson_status_changed', payload);
-      }
+      io.to(`mongo:${tutorId.toString()}`).emit('lesson_status_changed', payload);
     }
     if (studentId) {
-      const studentSocketId = global.userSockets?.[studentId.toString()];
-      if (studentSocketId) {
-        io.to(studentSocketId).emit('lesson_status_changed', payload);
-      }
+      io.to(`mongo:${studentId.toString()}`).emit('lesson_status_changed', payload);
     }
 
     console.log(`📡 Emitted lesson_status_changed for lesson ${lessonId}: ${status}`);
@@ -406,25 +400,19 @@ async function finalizeLesson(lesson, endTime = new Date()) {
           try {
             const io = require('../server').getIO();
             if (io) {
-              // Notify student
-              const studentSocketId = global.userSockets?.[student._id.toString()];
-              if (studentSocketId) {
-                io.to(studentSocketId).emit('lesson_completed_notification', {
-                  lessonId: lesson._id.toString(),
-                  tutorName: tutorName,
-                  action: 'view_analysis'
-                });
-              }
+              // Notify student (room-based, reaches all devices)
+              io.to(`mongo:${student._id.toString()}`).emit('lesson_completed_notification', {
+                lessonId: lesson._id.toString(),
+                tutorName: tutorName,
+                action: 'view_analysis'
+              });
               
               // Notify tutor
-              const tutorSocketId = global.userSockets?.[tutor._id.toString()];
-              if (tutorSocketId) {
-                io.to(tutorSocketId).emit('feedback_reminder', {
-                  lessonId: lesson._id.toString(),
-                  studentName: studentName,
-                  action: 'add_note'
-                });
-              }
+              io.to(`mongo:${tutor._id.toString()}`).emit('feedback_reminder', {
+                lessonId: lesson._id.toString(),
+                studentName: studentName,
+                action: 'add_note'
+              });
             }
           } catch (wsError) {
             console.warn('⚠️ [AutoFinalize] WebSocket notification failed:', wsError.message);

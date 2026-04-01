@@ -1016,6 +1016,19 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         if (!data?.events || !this.gcalConnected) return;
         this.mergeGcalWebSocketEvents(data.events);
       });
+
+    // Re-fetch Google Calendar events whenever WebSocket reconnects,
+    // but skip if we fetched recently (debounce avoids redundant API calls)
+    this.websocketService.connection$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((connected: boolean) => {
+        if (connected && this.gcalConnected) {
+          const elapsed = Date.now() - this.gcalLastFetchTime;
+          if (elapsed > TutorCalendarPage.GCAL_DEBOUNCE_MS) {
+            this.loadGoogleCalendarEvents();
+          }
+        }
+      });
     
     // Subscribe to approval status from UserService
     this.approvalStatusSubscription = this.userService.tutorApprovalStatus$.subscribe(status => {
@@ -2944,7 +2957,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   private gcalEventsLoaded = false;
   private gcalLoadingInProgress = false;
   private gcalPollInterval: any = null;
-  private static readonly GCAL_POLL_MS = 2 * 60 * 1000; // 2 min fallback; primary sync via webhooks + app-resume
+  private gcalLastFetchTime = 0;
+  private static readonly GCAL_POLL_MS = 2 * 60 * 1000;
+  private static readonly GCAL_DEBOUNCE_MS = 10 * 1000;
 
   connectGoogleCalendar() {
     this.userService.getGoogleCalendarAuthUrl().subscribe({
@@ -3235,14 +3250,20 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
 
   private onAppResume() {
+    this.websocketService.ensureConnected();
     if (this.gcalConnected) {
-      this.loadGoogleCalendarEvents();
+      const elapsed = Date.now() - this.gcalLastFetchTime;
+      if (elapsed > TutorCalendarPage.GCAL_DEBOUNCE_MS) {
+        this.gcalLoadingInProgress = false;
+        this.loadGoogleCalendarEvents();
+      }
     }
   }
 
   private loadGoogleCalendarEvents() {
     if (!this.gcalConnected || this.gcalLoadingInProgress) return;
     this.gcalLoadingInProgress = true;
+    this.gcalLastFetchTime = Date.now();
 
     const weekStart = new Date(this.currentWeekStart);
     weekStart.setHours(0, 0, 0, 0);
@@ -3250,8 +3271,16 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     weekEnd.setDate(weekEnd.getDate() + 6);
     weekEnd.setHours(23, 59, 59, 999);
 
+    // Safety: reset loading flag after 15s if the request hangs (prevents stuck state)
+    const safetyTimer = setTimeout(() => {
+      if (this.gcalLoadingInProgress) {
+        this.gcalLoadingInProgress = false;
+      }
+    }, 15000);
+
     this.userService.getGoogleCalendarEvents(weekStart.toISOString(), weekEnd.toISOString()).subscribe({
       next: (res) => {
+        clearTimeout(safetyTimer);
         const nonGcalEvents = this.events.filter(e => !(e.extendedProps as any)?.isGoogleCalendar);
 
         const gcalEvents: EventInput[] = (res.events || [])
@@ -3280,6 +3309,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         this.cdr.detectChanges();
       },
       error: () => {
+        clearTimeout(safetyTimer);
         this.gcalEventsLoaded = true;
         this.gcalSyncing = false;
         this.gcalLoadingInProgress = false;
