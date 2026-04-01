@@ -1,4 +1,4 @@
-import { Component, OnInit, AfterViewInit, OnDestroy, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, AfterViewInit, OnDestroy, ViewChild, ElementRef, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ViewWillEnter, ViewDidEnter, ActionSheetController, ModalController, ToastController, AlertController, NavController } from '@ionic/angular';
 import { EventDetailsModalComponent } from '../components/event-details-modal/event-details-modal.component';
@@ -88,6 +88,7 @@ interface AgendaSection {
   selector: 'app-tutor-calendar-page',
   templateUrl: './tutor-calendar.page.html',
   styleUrls: ['./tutor-calendar.page.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: true,
   imports: [
     CommonModule, 
@@ -4204,5 +4205,12 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     if (!dateStr) return '';
     return formatTimeInTz(dateStr, this.userTz, undefined, !this.is24h);
   }
+
+  trackByIndex(index: number): number { return index; }
+  trackByDayDate(index: number, day: any): string { return day?.date?.toISOString?.() || index.toString(); }
+  trackByEventId(index: number, item: any): string { return item?.id || index.toString(); }
+  trackByBlockStart(index: number, block: any): string { return block?.start?.getTime?.()?.toString() || index.toString(); }
+  trackByFbId(index: number, fb: any): string { return fb?.lessonId || fb?.id || index.toString(); }
+  trackByDayLabel(index: number, day: any): string { return day?.dayName || index.toString(); }
 }
 

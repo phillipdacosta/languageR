@@ -114,7 +114,7 @@
             <div class="mcal-week-row">
               <button
                 type="button"
-                *ngFor="let day of mobileDays; let i = index"
+                *ngFor="let day of mobileDays; let i = index; trackBy: trackByDayDate"
                 class="mcal-day-cell"
                 [class.mcal-day-active]="i === selectedMobileDayIndex"
                 [class.mcal-day-today]="day.isToday && i !== selectedMobileDayIndex"
@@ -152,7 +152,7 @@
 
           <!-- Skeleton loading -->
           <div class="mcal-skeleton" *ngIf="isLoadingMobileData">
-            <div class="mcal-skel-row" *ngFor="let s of [1,2,3]">
+            <div class="mcal-skel-row" *ngFor="let s of [1,2,3]; trackBy: trackByIndex">
               <div class="mcal-skel-time"><ion-skeleton-text animated style="width: 60px; height: 14px;"></ion-skeleton-text></div>
               <div class="mcal-skel-card">
                 <ion-skeleton-text animated style="width: 40%; height: 16px; margin-bottom: 8px;"></ion-skeleton-text>
@@ -168,7 +168,7 @@
               <!-- Availability chips (compact) -->
               <div class="mcal-avail-chips" *ngIf="mobileAvailabilityBlocks.length > 0" (click)="openAvailabilityModal()">
                 <ion-icon name="checkmark-circle" class="mcal-avail-chips-icon"></ion-icon>
-                <div class="mcal-avail-chip" *ngFor="let block of mobileAvailabilityBlocks">
+                <div class="mcal-avail-chip" *ngFor="let block of mobileAvailabilityBlocks; trackBy: trackByBlockStart">
                   {{ formatTime(block.start) }} – {{ formatTime(block.end) }}
                 </div>
                 <ion-icon name="chevron-forward-outline" class="mcal-avail-chips-chevron"></ion-icon>
@@ -182,7 +182,7 @@
                 </div>
                 <button
                   type="button"
-                  *ngFor="let item of mobileTimelineEvents"
+                  *ngFor="let item of mobileTimelineEvents; trackBy: trackByEventId"
                   class="mcal-event-row mcal-row-clickable"
                   [class.mcal-past]="item.isPast"
                   [class.mcal-now]="item.isHappeningNow"
@@ -586,7 +586,7 @@
             <!-- Day Headers -->
             <div class="week-header">
               <div class="time-gutter"></div>
-              <div class="day-header" *ngFor="let day of weekDays" [class.today]="day.date | isToday">
+              <div class="day-header" *ngFor="let day of weekDays; trackBy: trackByDayLabel" [class.today]="day.date | isToday">
                 <div class="day-name">{{ day.shortDay }}</div>
                 <div class="day-number">{{ day.dayNumber }}</div>
               </div>
@@ -595,20 +595,20 @@
             <!-- Time Grid -->
             <div class="week-body" #weekBodyContainer>
               <div class="time-column">
-                <div class="time-slot" *ngFor="let hour of timeSlots">
+                <div class="time-slot" *ngFor="let hour of timeSlots; trackBy: trackByIndex">
                   <span class="time-label">{{ hour }}</span>
                 </div>
               </div>
 
               <!-- Day Columns -->
               <div class="day-columns">
-                <div class="day-column" *ngFor="let day of weekDays">
+                <div class="day-column" *ngFor="let day of weekDays; trackBy: trackByDayLabel">
                   <!-- Hour lines -->
-                  <div class="hour-line" *ngFor="let hour of timeSlots"></div>
+                  <div class="hour-line" *ngFor="let hour of timeSlots; trackBy: trackByIndex"></div>
                   
                   <!-- Events for this day -->
                   <div class="event-container">
-                    <div *ngFor="let event of events | eventsForDay:day" 
+                    <div *ngFor="let event of events | eventsForDay:day; trackBy: trackByEventId" 
                          class="calendar-event"
                          style="border-radius: 5px;"
                          [class.availability-event]="event.isAvailability"
@@ -680,18 +680,18 @@
             <!-- Time Grid -->
             <div class="day-view-body" #dayViewBodyContainer>
               <div class="time-column">
-                <div class="time-slot" *ngFor="let hour of timeSlots">
+                <div class="time-slot" *ngFor="let hour of timeSlots; trackBy: trackByIndex">
                   <span class="time-label">{{ hour }}</span>
                 </div>
               </div>
 
               <div class="day-content">
                 <!-- Hour lines -->
-                <div class="hour-line" *ngFor="let hour of timeSlots"></div>
+                <div class="hour-line" *ngFor="let hour of timeSlots; trackBy: trackByIndex"></div>
                 
                 <!-- Events for selected day -->
                 <div class="event-container" *ngIf="(events | eventsForSelectedDay:selectedDayForDayView).length > 0; else noEventsTemplate">
-                  <div *ngFor="let event of events | eventsForSelectedDay:selectedDayForDayView" 
+                  <div *ngFor="let event of events | eventsForSelectedDay:selectedDayForDayView; trackBy: trackByEventId" 
                        class="calendar-event"
                        style="border-radius: 5px;"
                        [class.availability-event]="event.isAvailability"
@@ -816,7 +816,7 @@
 
     <ion-content class="airbnb-modal-ion-content">
       <div class="airbnb-modal-body">
-        <ng-container *ngFor="let fb of pendingFeedbackItems">
+        <ng-container *ngFor="let fb of pendingFeedbackItems; trackBy: trackByFbId">
           <div class="airbnb-lesson-row" (click)="navigateToFeedback(fb.lessonId, fb._id)">
             <div class="airbnb-lesson-left">
               <div class="airbnb-lesson-date">{{ formatFeedbackDate(fb.lesson?.startTime) }}</div>
@@ -862,13 +862,13 @@
         </div>
 
         <div class="avail-modal-body">
-          <div class="avail-modal-day" *ngFor="let day of availabilityModalRows">
+          <div class="avail-modal-day" *ngFor="let day of availabilityModalRows; trackBy: trackByDayLabel">
             <div class="avail-modal-day-header">
               <span class="avail-modal-day-name">{{ day.label }}</span>
               <span class="avail-modal-day-hours">{{ day.totalHours }}h</span>
             </div>
             <div class="avail-modal-blocks" *ngIf="day.blocks.length > 0">
-              <div class="avail-modal-block" *ngFor="let block of day.blocks">
+              <div class="avail-modal-block" *ngFor="let block of day.blocks; trackBy: trackByIndex">
                 <div class="avail-modal-block-strip"></div>
                 <div class="avail-modal-block-info">
                   <span class="avail-modal-block-time">{{ block.startTime }} – {{ block.endTime }}</span>
