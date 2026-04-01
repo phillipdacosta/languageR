@@ -68,11 +68,29 @@
           <ion-icon [name]="hasLinkedChannel() ? 'link' : 'link-outline'"></ion-icon>
           {{ hasLinkedChannel() ? ('CREATE_MATERIAL.LIBRARY_CHANNELS_LINKED' | translate) : ('CREATE_MATERIAL.LIBRARY_LINK_CHANNELS' | translate) }}
         </button>
-        <button class="cm-btn-primary cm-btn-create" (click)="startCreate()">
+        <button class="cm-btn-primary cm-btn-create" *ngIf="libraryTab === 'materials'" (click)="startCreate()">
           <ion-icon name="add-outline"></ion-icon>
           {{ 'CREATE_MATERIAL.LIBRARY_NEW' | translate }}
         </button>
+        <button class="cm-btn-primary cm-btn-create" *ngIf="libraryTab === 'bundles'" (click)="startCreateBundle()">
+          <ion-icon name="add-outline"></ion-icon>
+          New Bundle
+        </button>
       </div>
+    </div>
+
+    <!-- Library Tabs -->
+    <div class="cm-library-tabs">
+      <button class="cm-library-tab" [class.active]="libraryTab === 'materials'" (click)="switchLibraryTab('materials')">
+        <ion-icon name="layers-outline"></ion-icon>
+        Materials
+        <span class="cm-library-tab-count" *ngIf="myMaterials.length > 0">{{ myMaterials.length }}</span>
+      </button>
+      <button class="cm-library-tab" [class.active]="libraryTab === 'bundles'" (click)="switchLibraryTab('bundles')">
+        <ion-icon name="folder-outline"></ion-icon>
+        Bundles
+        <span class="cm-library-tab-count" *ngIf="myBundles.length > 0">{{ myBundles.length }}</span>
+      </button>
     </div>
 
     <!-- Channel Linking Panel (animated open/close) -->
@@ -163,7 +181,8 @@
       </div>
     </div>
 
-    <div class="cm-library-list">
+    <!-- ── Materials List ── -->
+    <div class="cm-library-list" *ngIf="libraryTab === 'materials'">
       <div class="cm-material-card" *ngFor="let m of myMaterials" [class.archived]="m.status === 'archived'">
 
         <!-- Thumbnail area with overlaid badges -->
@@ -241,8 +260,181 @@
         </div>
       </div>
     </div>
+
+    <!-- ── Bundles List ── -->
+    <div class="cm-bundles-section" *ngIf="libraryTab === 'bundles'">
+      <div class="cm-library-loading" *ngIf="isLoadingBundles">
+        <ion-spinner name="crescent"></ion-spinner>
+      </div>
+
+      <div class="cm-library-empty" *ngIf="!isLoadingBundles && myBundles.length === 0">
+        <div class="cm-empty-icon">
+          <ion-icon name="folder-open-outline"></ion-icon>
+        </div>
+        <h3>No bundles yet</h3>
+        <p>Group your materials into bundles to offer structured learning packs to students.</p>
+        <button class="cm-btn-primary cm-btn-empty-create" (click)="startCreateBundle()">
+          Create your first bundle
+          <ion-icon name="arrow-forward-outline"></ion-icon>
+        </button>
+      </div>
+
+      <div class="cm-library-list" *ngIf="!isLoadingBundles && myBundles.length > 0">
+        <div class="cm-bundle-card" *ngFor="let b of myBundles">
+          <div class="cm-bc-thumb">
+            <img *ngIf="b.coverImageUrl" [src]="b.coverImageUrl" [alt]="b.title" />
+            <div class="cm-bc-thumb-empty" *ngIf="!b.coverImageUrl">
+              <ion-icon name="folder-outline"></ion-icon>
+            </div>
+            <span class="cm-mc-status-badge draft" *ngIf="b.status === 'draft'">draft</span>
+          </div>
+          <div class="cm-bc-body">
+            <h3 class="cm-bc-title">{{ b.title }}</h3>
+            <div class="cm-bc-meta">
+              <span class="cm-bc-items">{{ getBundleItemTypes(b) }}</span>
+              <span class="cm-mc-details-sep" aria-hidden="true">·</span>
+              <span class="cm-bc-price" [class.free]="b.pricingType !== 'paid'">{{ b.pricingType === 'paid' ? '$' + b.price : 'Free' }}</span>
+            </div>
+            <div class="cm-bc-tags" *ngIf="b.structuredTags && b.structuredTags.length > 0">
+              <span class="cm-bc-tag" *ngFor="let tag of b.structuredTags | slice:0:3">{{ tag }}</span>
+            </div>
+            <div class="cm-mc-stats">
+              <div class="cm-mc-stat"><ion-icon name="eye-outline"></ion-icon> {{ b.stats?.views || 0 }}</div>
+              <div class="cm-mc-stat" *ngIf="b.pricingType === 'paid'"><ion-icon name="card-outline"></ion-icon> {{ b.stats?.purchases || 0 }}</div>
+            </div>
+            <div class="cm-mc-actions">
+              <button class="cm-mc-action" (click)="editBundle(b)" title="Edit">
+                <ion-icon name="create-outline"></ion-icon>
+              </button>
+              <button class="cm-mc-action cm-mc-action--danger" (click)="confirmDeleteBundle(b)" title="Delete">
+                <ion-icon name="trash-outline"></ion-icon>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </ng-container>
 
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- BUNDLE CREATE / EDIT VIEW                              -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="cm-bundle-editor" *ngIf="viewMode === 'bundle-create'">
+  <div class="cm-bundle-editor-header">
+    <button class="cm-back-btn" (click)="cancelBundleCreate()">
+      <ion-icon name="arrow-back-outline"></ion-icon>
+      Back
+    </button>
+    <h1>{{ editingBundleId ? 'Edit Bundle' : 'Create Bundle' }}</h1>
+  </div>
+
+  <div class="cm-bundle-form">
+    <!-- Title -->
+    <div class="cm-field">
+      <label>Bundle Title <span class="required">*</span></label>
+      <input type="text" [(ngModel)]="bundleTitle" placeholder="e.g. Spanish for Travel - Complete Pack" maxlength="100" />
+    </div>
+
+    <!-- Description -->
+    <div class="cm-field">
+      <label>Description</label>
+      <textarea [(ngModel)]="bundleDescription" placeholder="What will students learn from this bundle?" rows="3" maxlength="500"></textarea>
+    </div>
+
+    <!-- Language & Level -->
+    <div class="cm-field-row">
+      <div class="cm-field">
+        <label>Language <span class="required">*</span></label>
+        <select [(ngModel)]="bundleLanguage">
+          <option *ngFor="let lang of languages" [value]="lang">{{ lang }}</option>
+        </select>
+      </div>
+      <div class="cm-field">
+        <label>Level</label>
+        <select [(ngModel)]="bundleLevel">
+          <option value="any">Any Level</option>
+          <option value="beginner">Beginner</option>
+          <option value="intermediate">Intermediate</option>
+          <option value="advanced">Advanced</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Tags -->
+    <div class="cm-field">
+      <label>Tags <span class="cm-label-hint">Help students discover this bundle</span></label>
+      <app-tag-picker
+        [selectedTagIds]="bundleStructuredTags"
+        (selectedTagIdsChange)="bundleStructuredTags = $event"
+        [maxTags]="8">
+      </app-tag-picker>
+    </div>
+
+    <!-- Pricing -->
+    <div class="cm-field">
+      <label>Pricing</label>
+      <div class="cm-bundle-pricing-toggle">
+        <button class="cm-pricing-opt" [class.active]="bundlePricingType === 'free'" (click)="bundlePricingType = 'free'">
+          <ion-icon name="gift-outline"></ion-icon> Free
+        </button>
+        <button class="cm-pricing-opt" [class.active]="bundlePricingType === 'paid'" (click)="bundlePricingType = 'paid'">
+          <ion-icon name="card-outline"></ion-icon> Paid
+        </button>
+      </div>
+      <div class="cm-bundle-price-input" *ngIf="bundlePricingType === 'paid'">
+        <span class="cm-price-prefix">$</span>
+        <input type="number" [(ngModel)]="bundlePrice" min="1" max="500" step="0.01" placeholder="15.00" />
+      </div>
+    </div>
+
+    <!-- Select Materials -->
+    <div class="cm-field cm-bundle-materials-field">
+      <label>Materials in Bundle <span class="cm-label-hint">{{ bundleSelectedMaterialIds.length }} selected</span></label>
+
+      <div class="cm-bundle-material-empty" *ngIf="publishedMaterials.length === 0">
+        <ion-icon name="layers-outline"></ion-icon>
+        <p>No materials available. Create some materials first.</p>
+      </div>
+
+      <div class="cm-bundle-material-list" *ngIf="publishedMaterials.length > 0">
+        <button
+          type="button"
+          class="cm-bundle-material-item"
+          *ngFor="let m of publishedMaterials"
+          [class.selected]="isMaterialInBundle(m._id)"
+          (click)="toggleMaterialInBundle(m._id)">
+          <div class="cm-bmi-check">
+            <ion-icon [name]="isMaterialInBundle(m._id) ? 'checkbox' : 'square-outline'"></ion-icon>
+          </div>
+          <div class="cm-bmi-thumb">
+            <img *ngIf="m.thumbnailUrl" [src]="m.thumbnailUrl" [alt]="m.title" />
+            <ion-icon *ngIf="!m.thumbnailUrl" [name]="m.materialType === 'video_quiz' ? 'videocam' : m.materialType === 'reading' ? 'book' : 'headset'"></ion-icon>
+          </div>
+          <div class="cm-bmi-info">
+            <span class="cm-bmi-title">{{ m.title }}</span>
+            <span class="cm-bmi-meta">{{ getMaterialTypeLabel(m.materialType) }} · {{ m.quiz.length }} questions</span>
+          </div>
+          <span class="cm-bmi-price" *ngIf="m.pricingType === 'paid'">${{ m.price }}</span>
+          <span class="cm-bmi-price free" *ngIf="m.pricingType !== 'paid'">Free</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="cm-bundle-actions">
+      <button class="cm-btn-secondary" (click)="saveBundleAsDraft()" [disabled]="isSavingBundle || !bundleTitle.trim()">
+        <ion-spinner *ngIf="isSavingBundle" name="crescent" style="width:14px;height:14px;margin-right:4px"></ion-spinner>
+        Save as Draft
+      </button>
+      <button class="cm-btn-primary" (click)="saveBundle()" [disabled]="isSavingBundle || !bundleTitle.trim() || !bundleLanguage || (bundlePricingType === 'paid' && bundlePrice <= 0)">
+        <ion-spinner *ngIf="isSavingBundle" name="crescent" style="width:14px;height:14px;color:#fff;margin-right:4px"></ion-spinner>
+        {{ editingBundleId ? 'Update Bundle' : 'Publish Bundle' }}
+      </button>
+    </div>
+  </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════ -->
