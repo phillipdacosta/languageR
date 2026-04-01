@@ -281,34 +281,44 @@
 
       <div class="cm-library-list" *ngIf="!isLoadingBundles && myBundles.length > 0">
         <div class="cm-bundle-card" *ngFor="let b of myBundles">
-          <div class="cm-bc-thumb">
+
+          <!-- Cover -->
+          <div class="cm-bc-cover">
             <img *ngIf="b.coverImageUrl" [src]="b.coverImageUrl" [alt]="b.title" />
-            <div class="cm-bc-thumb-empty" *ngIf="!b.coverImageUrl">
+            <div class="cm-bc-cover-placeholder" *ngIf="!b.coverImageUrl">
               <ion-icon name="folder-outline"></ion-icon>
             </div>
-            <span class="cm-mc-status-badge draft" *ngIf="b.status === 'draft'">draft</span>
+            <span class="cm-bc-status-badge" *ngIf="b.status === 'draft'">Draft</span>
+            <span class="cm-bc-price-badge" [class.free]="b.pricingType !== 'paid'">{{ b.pricingType === 'paid' ? '$' + b.price : 'Free' }}</span>
           </div>
+
+          <!-- Body -->
           <div class="cm-bc-body">
             <h3 class="cm-bc-title">{{ b.title }}</h3>
+            <p class="cm-bc-description" *ngIf="b.description">{{ b.description }}</p>
+
             <div class="cm-bc-meta">
-              <span class="cm-bc-items">{{ getBundleItemTypes(b) }}</span>
-              <span class="cm-mc-details-sep" aria-hidden="true">·</span>
-              <span class="cm-bc-price" [class.free]="b.pricingType !== 'paid'">{{ b.pricingType === 'paid' ? '$' + b.price : 'Free' }}</span>
+              <span class="cm-bc-meta-item"><ion-icon name="layers-outline"></ion-icon> {{ getBundleItemTypes(b) }}</span>
+              <span class="cm-bc-meta-item"><ion-icon name="globe-outline"></ion-icon> {{ b.language }}</span>
             </div>
+
             <div class="cm-bc-tags" *ngIf="b.structuredTags && b.structuredTags.length > 0">
               <span class="cm-bc-tag" *ngFor="let tag of b.structuredTags | slice:0:3">{{ tag }}</span>
             </div>
-            <div class="cm-mc-stats">
-              <div class="cm-mc-stat"><ion-icon name="eye-outline"></ion-icon> {{ b.stats?.views || 0 }}</div>
-              <div class="cm-mc-stat" *ngIf="b.pricingType === 'paid'"><ion-icon name="card-outline"></ion-icon> {{ b.stats?.purchases || 0 }}</div>
-            </div>
-            <div class="cm-mc-actions">
-              <button class="cm-mc-action" (click)="editBundle(b)" title="Edit">
-                <ion-icon name="create-outline"></ion-icon>
-              </button>
-              <button class="cm-mc-action cm-mc-action--danger" (click)="confirmDeleteBundle(b)" title="Delete">
-                <ion-icon name="trash-outline"></ion-icon>
-              </button>
+
+            <div class="cm-bc-footer">
+              <div class="cm-bc-stats">
+                <span class="cm-bc-stat"><ion-icon name="eye-outline"></ion-icon> {{ b.stats?.views || 0 }}</span>
+                <span class="cm-bc-stat" *ngIf="b.pricingType === 'paid'"><ion-icon name="card-outline"></ion-icon> {{ b.stats?.purchases || 0 }}</span>
+              </div>
+              <div class="cm-bc-actions">
+                <button class="cm-bc-action" (click)="editBundle(b)" title="Edit">
+                  <ion-icon name="create-outline"></ion-icon>
+                </button>
+                <button class="cm-bc-action cm-bc-action--danger" (click)="confirmDeleteBundle(b)" title="Delete">
+                  <ion-icon name="trash-outline"></ion-icon>
+                </button>
+              </div>
             </div>
           </div>
         </div>
