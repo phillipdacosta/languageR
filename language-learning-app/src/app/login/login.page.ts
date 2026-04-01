@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { Router, NavigationStart } from '@angular/router';
 import { Location } from '@angular/common';
 import { LoadingController, AlertController } from '@ionic/angular';
+import { Capacitor } from '@capacitor/core';
 import { AuthService } from '../services/auth.service';
 import { LoadingService } from '../services/loading.service';
 import { take } from 'rxjs/operators';
@@ -36,11 +37,14 @@ export class LoginPage implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    // Hide loading when login page loads (user has been logged out)
     console.log('🚀 LoginPage: ngOnInit() called');
     console.log('🚀 LoginPage: localStorage contents:', Object.keys(localStorage));
     console.log('🚀 LoginPage: returnUrl in localStorage:', localStorage.getItem('returnUrl'));
-    this.loadingService.hide();
+    // On native, the splash screen handles the loading transition —
+    // don't remove the loading overlay (it prevents a purple flash).
+    if (!Capacitor.isNativePlatform()) {
+      this.loadingService.hide();
+    }
     
     // Check if user is already authenticated (use take(1) to prevent multiple redirects)
     this.authService.isAuthenticated$.pipe(take(1)).subscribe(async isAuthenticated => {

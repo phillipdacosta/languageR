@@ -7,6 +7,7 @@ const { verifyToken } = require('../middleware/videoUploadMiddleware');
 const crypto = require('crypto');
 
 const pendingStates = new Map();
+const webhookDebounceTimers = new Map();
 
 const SCOPES = [
   'https://www.googleapis.com/auth/calendar.readonly',
@@ -24,14 +25,18 @@ function buildCallbackHtml(success, error, origin) {
 
   return `<!DOCTYPE html>
 <html><head><title>Google Calendar – Barnabi</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; display: flex;
-    align-items: center; justify-content: center; height: 100vh; margin: 0;
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; min-height: 100dvh; margin: 0; padding: 24px;
     background: #f5f5f7; color: #1d1d1f; text-align: center; }
-  .card { background: #fff; border-radius: 16px; padding: 40px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); max-width: 360px; }
-  .icon { font-size: 48px; margin-bottom: 12px; }
-  h2 { font-size: 18px; font-weight: 600; margin: 0 0 8px; }
-  p { font-size: 14px; color: #86868b; margin: 0; }
+  .card { background: #fff; border-radius: 20px; padding: 48px 32px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08); width: 100%; max-width: 400px; }
+  .icon { font-size: 64px; margin-bottom: 16px; line-height: 1; }
+  h2 { font-size: 22px; font-weight: 700; margin: 0 0 8px; letter-spacing: -0.3px; }
+  p { font-size: 16px; color: #86868b; margin: 0; line-height: 1.4; }
 </style></head>
 <body><div class="card">
   <div class="icon">${success ? '✅' : '❌'}</div>
@@ -242,9 +247,15 @@ async function registerWatch(userId) {
     return null;
   }
 
+  const webhookAddress = `${backendUrl}/api/webhooks/google-calendar`;
+  console.log(`[GCal Watch] Attempting to register webhook at: ${webhookAddress} for user ${userId}`);
+
   try {
     const oauth2Client = await getAuthenticatedClient(userId);
-    if (!oauth2Client) return null;
+    if (!oauth2Client) {
+      console.error('[GCal Watch] Could not get authenticated client for user', userId);
+      return null;
+    }
 
     const user = await User.findById(userId);
     const calendarId = user?.googleCalendar?.calendarId || 'primary';
@@ -258,7 +269,7 @@ async function registerWatch(userId) {
       requestBody: {
         id: channelId,
         type: 'web_hook',
-        address: `${backendUrl}/api/webhooks/google-calendar`,
+        address: webhookAddress,
         token: watchToken
       }
     });
@@ -274,10 +285,11 @@ async function registerWatch(userId) {
       'googleCalendar.watchToken': watchToken
     });
 
-    console.log(`[GCal Watch] Registered channel ${channelId} for user ${userId}, expires ${expiration.toISOString()}`);
+    console.log(`[GCal Watch] ✅ Registered channel ${channelId} for user ${userId}, expires ${expiration.toISOString()}`);
     return { channelId, resourceId: response.data.resourceId, expiration };
   } catch (err) {
-    console.error('[GCal Watch] Failed to register watch:', err.message);
+    console.error(`[GCal Watch] ❌ Failed to register watch for user ${userId}:`, err.message);
+    if (err.errors) console.error('[GCal Watch] Google API errors:', JSON.stringify(err.errors));
     return null;
   }
 }
@@ -413,7 +425,8 @@ router.get('/google-calendar/status', verifyToken, async (req, res) => {
       syncEnabled: dbUser.googleCalendar?.syncEnabled || false,
       pushToGoogle: dbUser.googleCalendar?.pushToGoogle || false,
       lastSyncAt: dbUser.googleCalendar?.lastSyncAt || null,
-      calendarId: dbUser.googleCalendar?.calendarId || 'primary'
+      calendarId: dbUser.googleCalendar?.calendarId || 'primary',
+      watchActive: !!(dbUser.googleCalendar?.watchChannelId && dbUser.googleCalendar?.watchExpiration && new Date(dbUser.googleCalendar.watchExpiration) > new Date())
     });
   } catch (err) {
     console.error('Google Calendar status error:', err);
@@ -443,9 +456,55 @@ router.put('/google-calendar/settings', verifyToken, async (req, res) => {
   }
 });
 
+// POST /api/auth/google-calendar/register-watch — Manually (re-)register push notifications
+router.post('/google-calendar/register-watch', verifyToken, async (req, res) => {
+  try {
+    const dbUser = await User.findOne({ email: req.user.email });
+    if (!dbUser) return res.status(404).json({ error: 'User not found' });
+    if (!dbUser.googleCalendar?.connected) return res.status(400).json({ error: 'Google Calendar not connected' });
+
+    await stopWatch(dbUser._id).catch(() => {});
+    const result = await registerWatch(dbUser._id);
+    if (result) {
+      res.json({ success: true, channelId: result.channelId, expiration: result.expiration });
+    } else {
+      res.status(500).json({ error: 'Failed to register watch. Check BACKEND_PUBLIC_URL and Google domain verification.' });
+    }
+  } catch (err) {
+    console.error('[GCal] Manual watch registration error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Debounced per-user webhook processing: batches rapid Google notifications
+// into a single fetch + push (Google often sends multiple webhooks within seconds)
+const WEBHOOK_DEBOUNCE_MS = 2000;
+
+async function processWebhookForUser(userId, io) {
+  try {
+    const now = new Date();
+    const weekStart = new Date(now);
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+
+    const events = await fetchEventsForUser(userId, weekStart.toISOString(), weekEnd.toISOString());
+    if (!events) return;
+
+    const room = `mongo:${userId.toString()}`;
+    if (io) {
+      io.to(room).emit('gcal-events-updated', { events });
+      console.log(`[GCal Webhook] Pushed ${events.length} events to room ${room}`);
+    }
+  } catch (err) {
+    console.error(`[GCal Webhook] Error processing for user ${userId}:`, err.message);
+  }
+}
+
 // POST /api/webhooks/google-calendar — Google push notification receiver
 router.post('/webhooks/google-calendar', async (req, res) => {
-  // Always respond 200 immediately (Google retries on non-2xx)
   res.status(200).end();
 
   const channelId = req.headers['x-goog-channel-id'];
@@ -454,7 +513,6 @@ router.post('/webhooks/google-calendar', async (req, res) => {
 
   if (!channelId) return;
 
-  // Initial sync handshake -- nothing to do
   if (resourceState === 'sync') {
     console.log(`[GCal Webhook] Sync handshake for channel ${channelId}`);
     return;
@@ -469,33 +527,24 @@ router.post('/webhooks/google-calendar', async (req, res) => {
       return;
     }
 
-    // Verify token
     if (user.googleCalendar.watchToken !== incomingToken) {
       console.warn(`[GCal Webhook] Token mismatch for channel ${channelId}`);
       return;
     }
 
-    // Fetch this week's events
-    const now = new Date();
-    const weekStart = new Date(now);
-    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-    weekStart.setHours(0, 0, 0, 0);
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekEnd.getDate() + 6);
-    weekEnd.setHours(23, 59, 59, 999);
-
-    const events = await fetchEventsForUser(user._id, weekStart.toISOString(), weekEnd.toISOString());
-    if (!events) return;
-
-    // Push to frontend via WebSocket
     const mongoId = user._id.toString();
-    const socketId = global.userSockets?.[mongoId];
-    if (socketId && req.io) {
-      req.io.to(socketId).emit('gcal-events-updated', { events });
-      console.log(`[GCal Webhook] Pushed ${events.length} events to user ${mongoId}`);
-    } else {
-      console.log(`[GCal Webhook] User ${mongoId} not connected via WebSocket, events cached via lastSyncAt`);
+
+    // Debounce: if another webhook arrives for the same user within the window,
+    // cancel the pending fetch and restart the timer (only one API call fires)
+    if (webhookDebounceTimers.has(mongoId)) {
+      clearTimeout(webhookDebounceTimers.get(mongoId));
     }
+
+    webhookDebounceTimers.set(mongoId, setTimeout(() => {
+      webhookDebounceTimers.delete(mongoId);
+      processWebhookForUser(user._id, req.io);
+    }, WEBHOOK_DEBOUNCE_MS));
+
   } catch (err) {
     console.error('[GCal Webhook] Error processing notification:', err.message);
   }

@@ -350,18 +350,14 @@ router.post('/approve-video/:userId', verifyToken, requireAdmin, async (req, res
         });
         console.log(`📬 Real-time video approval notification sent to tutor room: user:${tutor.auth0Id}`);
         
-        // Method 2: Also check MongoDB ID in global userSockets
-        if (global.userSockets && global.userSockets[tutor._id.toString()]) {
-          const socketId = global.userSockets[tutor._id.toString()];
-          req.io.to(socketId).emit('tutor_video_approved', {
-            message: notificationMessage,
-            approved: true,
-            tutorApproved: tutor.tutorApproved,
-            timestamp: new Date(),
-            isFirstTimeApproval
-          });
-          console.log(`📬 Also sent to socket ${socketId} via MongoDB ID`);
-        }
+        // Also emit to MongoDB-based room (reaches all devices)
+        req.io.to(`mongo:${tutor._id.toString()}`).emit('tutor_video_approved', {
+          message: notificationMessage,
+          approved: true,
+          tutorApproved: tutor.tutorApproved,
+          timestamp: new Date(),
+          isFirstTimeApproval
+        });
         
         // Also emit new_notification for the notification bell
         req.io.to(`user:${tutor.auth0Id}`).emit('new_notification', {
@@ -408,16 +404,13 @@ router.post('/approve-video/:userId', verifyToken, requireAdmin, async (req, res
           });
           console.log(`📬 Video rejection notification sent to tutor room: user:${tutor.auth0Id}`);
           
-          // Also try via MongoDB ID
-          if (global.userSockets && global.userSockets[tutor._id.toString()]) {
-            const socketId = global.userSockets[tutor._id.toString()];
-            req.io.to(socketId).emit('tutor_video_rejected', {
-              message: rejectionReason || 'Your video was rejected',
-              approved: false,
-              reason: rejectionReason,
-              timestamp: new Date()
-            });
-          }
+          // Also emit to MongoDB-based room (reaches all devices)
+          req.io.to(`mongo:${tutor._id.toString()}`).emit('tutor_video_rejected', {
+            message: rejectionReason || 'Your video was rejected',
+            approved: false,
+            reason: rejectionReason,
+            timestamp: new Date()
+          });
         }
       } catch (socketError) {
         console.warn('⚠️ Could not send WebSocket notification:', socketError.message);
@@ -514,16 +507,13 @@ router.post('/approve-tutor/:userId', verifyToken, requireAdmin, async (req, res
         });
         console.log(`📬 Tutor approval notification sent to room: user:${tutor.auth0Id}`);
         
-        // Also try via MongoDB ID
-        if (global.userSockets && global.userSockets[tutor._id.toString()]) {
-          const socketId = global.userSockets[tutor._id.toString()];
-          req.io.to(socketId).emit('tutor_video_approved', {
-            message: 'Your introduction video has been approved. You can now start tutoring! Your profile will now be discoverable to students. Be sure to add your availability!',
-            approved: true,
-            tutorApproved: tutor.tutorApproved,
-            timestamp: new Date()
-          });
-        }
+        // Also emit to MongoDB-based room (reaches all devices)
+        req.io.to(`mongo:${tutor._id.toString()}`).emit('tutor_video_approved', {
+          message: 'Your introduction video has been approved. You can now start tutoring! Your profile will now be discoverable to students. Be sure to add your availability!',
+          approved: true,
+          tutorApproved: tutor.tutorApproved,
+          timestamp: new Date()
+        });
         
         // Also emit new_notification for the notification bell
         req.io.to(`user:${tutor.auth0Id}`).emit('new_notification', {
@@ -610,16 +600,13 @@ router.post('/reject-tutor/:userId', verifyToken, requireAdmin, async (req, res)
         });
         console.log(`📬 Video rejection notification sent to tutor room: user:${tutor.auth0Id}`);
         
-        // Also try via MongoDB ID
-        if (global.userSockets && global.userSockets[tutor._id.toString()]) {
-          const socketId = global.userSockets[tutor._id.toString()];
-          req.io.to(socketId).emit('tutor_video_rejected', {
-            message: reason || 'Your video was rejected',
-            approved: false,
-            reason: reason,
-            timestamp: new Date()
-          });
-        }
+        // Also emit to MongoDB-based room (reaches all devices)
+        req.io.to(`mongo:${tutor._id.toString()}`).emit('tutor_video_rejected', {
+          message: reason || 'Your video was rejected',
+          approved: false,
+          reason: reason,
+          timestamp: new Date()
+        });
         
         // Also emit new_notification for the notification bell
         req.io.to(`user:${tutor.auth0Id}`).emit('new_notification', {
@@ -2051,12 +2038,8 @@ router.post('/review-credential/:userId', verifyToken, requireAdmin, async (req,
         });
         console.log(`📬 Real-time credential review notification sent to tutor room: user:${tutor.auth0Id}`);
 
-        // Method 2: Also check MongoDB ID in global userSockets
-        if (global.userSockets && global.userSockets[tutor._id.toString()]) {
-          const socketId = global.userSockets[tutor._id.toString()];
-          req.io.to(socketId).emit(eventName, socketPayload);
-          console.log(`📬 Also sent credential review to socket ${socketId} via MongoDB ID`);
-        }
+        // Also emit to MongoDB-based room (reaches all devices)
+        req.io.to(`mongo:${tutor._id.toString()}`).emit(eventName, socketPayload);
       }
     } catch (socketError) {
       console.warn('⚠️ Could not send WebSocket notification:', socketError.message);

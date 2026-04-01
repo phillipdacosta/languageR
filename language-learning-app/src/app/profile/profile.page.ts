@@ -74,6 +74,7 @@ export class ProfilePage implements OnInit {
   visibilityLoaded: boolean = false;
   feedbackCountLoaded: boolean = false;
   visibilityMissingItems: string[] = [];
+  visibilityMissingText: string = '';
   pendingFeedbackCount: number = 0;
   pendingFeedbackItems: any[] = [];
 
@@ -90,6 +91,20 @@ export class ProfilePage implements OnInit {
   learningGoalTimelineDisplay: string = '';
   goalCooldownActive: boolean = false;
   goalCooldownDateDisplay: string = '';
+
+  // Cached display properties (avoids function calls in template)
+  displayUser: any = null;
+  isTutorUser = false;
+  isStudentUser = false;
+  fullName = '';
+  discoverableName = '';
+  displayUserInitials = '';
+  hasCustomProfilePicture = false;
+  timezoneLabel = 'Auto-detected';
+  payoutSetupTitle = 'Connect Bank Account';
+  payoutSetupText = 'Set up payouts to receive earnings from your lessons.';
+  payoutProviderName = '';
+  formattedFeedbackItems: { item: any; date: string; time: string }[] = [];
 
   constructor(
     private authService: AuthService,
@@ -117,19 +132,6 @@ export class ProfilePage implements OnInit {
   }
 
   ngOnInit() {
-    this.route.queryParams.subscribe(params => {
-      if (params['scrollTo']) {
-        setTimeout(() => {
-          const el = document.getElementById(params['scrollTo']);
-          if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            el.classList.add('highlight-pulse');
-            setTimeout(() => el.classList.remove('highlight-pulse'), 2000);
-          }
-        }, 600);
-      }
-    });
-
     // For tutors, immediately get cached payout status (prevents flashing)
     if (this.isTutor()) {
       const cachedStatus = this.userService.getPayoutStatus();
@@ -169,7 +171,7 @@ export class ProfilePage implements OnInit {
         
         console.log('💰 [PROFILE] Payout status updated from service:', payoutStatus);
         
-        // Update visibility status when payout status changes
+        this.syncDisplayUserProperties();
         this.updateVisibilityStatus();
       }
     });
@@ -199,23 +201,32 @@ export class ProfilePage implements OnInit {
       await toast.present();
     });
     
-    // Check if viewing another user's profile
-    this.route.queryParams.subscribe(params => {
-      const userId = params['userId'];
-      
+    // Single queryParams subscription handles routing, scrollTo, and Stripe return
+    this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
+      // ScrollTo support
+      if (params['scrollTo']) {
+        setTimeout(() => {
+          const el = document.getElementById(params['scrollTo']);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('highlight-pulse');
+            setTimeout(() => el.classList.remove('highlight-pulse'), 2000);
+          }
+        }, 600);
+      }
+
       // Check if returning from Stripe Connect
       if (params['stripe_success'] === 'true') {
         this.handleStripeConnectReturn(true);
       } else if (params['stripe_refresh'] === 'true') {
         this.handleStripeConnectReturn(false);
       }
-      
+
+      const userId = params['userId'];
       if (userId) {
-        // Viewing another user's profile
         this.isViewingOtherUser = true;
         this.loadOtherUserProfile(userId);
       } else {
-        // Viewing own profile
         this.isViewingOtherUser = false;
         this.loadCurrentUserProfile();
       }
@@ -233,14 +244,17 @@ export class ProfilePage implements OnInit {
         hasPicture: !!user?.picture
       });
       this.currentUser = user;
+      this.syncDisplayUserProperties();
       
       // Set current interface language
       this.selectedInterfaceLanguage = user?.interfaceLanguage || this.languageService.getCurrentLanguage();
       
-      // Load Stripe Connect status for tutors
-      if (this.isTutor()) {
-        this.checkPayoutStatus();
-        this.loadEarnings();
+      // Load tutor-specific data in parallel
+      if (this.isTutorUser) {
+        Promise.all([
+          this.checkPayoutStatus(),
+          this.loadEarnings()
+        ]);
         this.loadPendingFeedbackCount();
       } else {
         // Not a tutor — mark feedback as loaded so visibility badge doesn't wait
@@ -264,11 +278,12 @@ export class ProfilePage implements OnInit {
               hasPicture: !!updatedUser?.picture
             });
             this.currentUser = updatedUser;
+            this.syncDisplayUserProperties();
           });
         }, 1000);
       }
       
-      if (user?.userType === 'tutor') {
+      if (this.isTutorUser) {
         console.log('📹 Full onboardingData from DB:', user.onboardingData);
         
         // Check if video is approved
@@ -331,6 +346,7 @@ export class ProfilePage implements OnInit {
           hasPicture: !!updatedUser?.picture
         });
         this.currentUser = updatedUser;
+        this.syncDisplayUserProperties();
       }
     });
 
@@ -362,6 +378,7 @@ export class ProfilePage implements OnInit {
             userType: 'student'
           };
         }
+        this.syncDisplayUserProperties();
       },
       error: (error) => {
         console.error('Error loading user profile:', error);
@@ -382,11 +399,11 @@ export class ProfilePage implements OnInit {
 
   // Update tutor visibility status
   updateVisibilityStatus(): void {
-    if (!this.isTutor()) {
+    if (!this.isTutorUser) {
       return;
     }
     
-    const user = this.getDisplayUser();
+    const user = this.displayUser;
     if (!user) {
       this.isTutorVisible = false;
       this.visibilityMissingItems = ['Profile not loaded'];
@@ -433,6 +450,7 @@ export class ProfilePage implements OnInit {
     // All conditions must be met
     this.isTutorVisible = onboardingCompleted && tutorApproved && hasPayoutMethod && !hasPendingFeedback;
     this.visibilityMissingItems = missingItems;
+    this.visibilityMissingText = missingItems.join(' · ');
     
     // Only show the badge once the feedback count has loaded (prevents flash)
     if (this.feedbackCountLoaded) {
@@ -477,6 +495,7 @@ export class ProfilePage implements OnInit {
         this.pendingFeedbackItems = response.pendingFeedback || [];
         this.feedbackCountLoaded = true;
         console.log(`📝 [PROFILE] Feedback count updated: ${this.pendingFeedbackCount}`);
+        this.syncDisplayUserProperties();
         this.updateVisibilityStatus();
 
         // Auto-reopen the feedback modal after submitting one item
@@ -667,6 +686,92 @@ export class ProfilePage implements OnInit {
 
   getDisplayUser(): any {
     return this.isViewingOtherUser ? this.viewingUser : this.currentUser;
+  }
+
+  /** Recalculate all cached template properties from current state. */
+  private syncDisplayUserProperties(): void {
+    const user = this.isViewingOtherUser ? this.viewingUser : this.currentUser;
+    this.displayUser = user;
+    this.isTutorUser = user?.userType === 'tutor';
+    this.isStudentUser = user?.userType === 'student';
+
+    // Full name
+    if (user?.firstName && user?.lastName) {
+      this.fullName = `${user.firstName} ${user.lastName}`;
+    } else if (user?.name) {
+      this.fullName = user.name;
+    } else {
+      this.fullName = user?.email || 'Unknown';
+    }
+
+    // Discoverable name
+    this.discoverableName = this._computeDiscoverableName(user);
+
+    // Initials
+    if (user?.name) {
+      this.displayUserInitials = user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
+    } else {
+      this.displayUserInitials = '?';
+    }
+
+    // Custom picture
+    const pic = user?.picture;
+    this.hasCustomProfilePicture = !!pic && pic.includes('storage.googleapis.com') && pic.includes('profile-pictures');
+
+    // Timezone
+    const tz = this.currentUser?.profile?.timezone;
+    this.timezoneLabel = tz ? getTimezoneLabel(tz) : 'Auto-detected';
+
+    // Payout display
+    this.payoutProviderName = this._computePayoutProviderName();
+    this.payoutSetupTitle = this._computePayoutSetupTitle();
+    this.payoutSetupText = this._computePayoutSetupText();
+
+    // Formatted feedback items
+    this.formattedFeedbackItems = this.pendingFeedbackItems.map(fb => ({
+      item: fb,
+      date: this.formatFeedbackDate(fb.lesson?.startTime),
+      time: this.formatFeedbackTime(fb.lesson?.startTime)
+    }));
+  }
+
+  private _computeDiscoverableName(user: any): string {
+    if (!user) return 'Unknown';
+    if (user.firstName && user.lastName) {
+      return `${this.capitalize(user.firstName)} ${user.lastName.charAt(0).toUpperCase()}.`;
+    }
+    if (user.name) {
+      const parts = user.name.trim().split(' ').filter(Boolean);
+      if (parts.length > 1) return `${this.capitalize(parts[0])} ${parts[parts.length - 1].charAt(0).toUpperCase()}.`;
+      if (parts.length === 1) return this.capitalize(parts[0]);
+    }
+    if (user.email) {
+      const parts = user.email.split('@')[0].split(/[.\s_]+/).filter(Boolean);
+      if (parts.length > 1) return `${this.capitalize(parts[0])} ${parts[parts.length - 1].charAt(0).toUpperCase()}.`;
+      if (parts.length === 1) return this.capitalize(parts[0]);
+    }
+    return 'Unknown';
+  }
+
+  private _computePayoutProviderName(): string {
+    switch (this.payoutProvider) {
+      case 'stripe': return 'Stripe';
+      case 'paypal': return 'PayPal';
+      case 'manual': return 'Manual Transfer';
+      default: return '';
+    }
+  }
+
+  private _computePayoutSetupTitle(): string {
+    if (!this.payoutOptions) return 'Connect Bank Account';
+    if (this.payoutOptions.stripe?.available && this.payoutOptions.stripe?.recommended) return 'Connect Bank Account';
+    if (this.payoutOptions.paypal?.available && this.payoutOptions.paypal?.recommended) return 'Connect Account';
+    return 'Set Up Payouts';
+  }
+
+  private _computePayoutSetupText(): string {
+    if (!this.payoutOptions) return 'Set up payouts to receive earnings from your lessons.';
+    return 'Set up payouts to receive earnings from your lessons.';
   }
 
   goBack(): void {

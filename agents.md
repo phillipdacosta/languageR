@@ -30,8 +30,8 @@ ngOnInit() {
 
 ## Design Standards
 
-### Apple-Inspired Design Principles
-- **MUST** make design look and feel like Apple design
+### Airbnb-Inspired Design Principles
+- **MUST** make design look and feel like Airbnb design
 - **Clean** - Minimal clutter, purposeful whitespace
 - **Modern** - Contemporary styling, smooth animations
 - **Consistent** - Unified design language across all components

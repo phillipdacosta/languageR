@@ -1,0 +1,13 @@
+<div class="mobile-section mobile-section-recent m-stagger m-stagger-5" [class.m-stagger-go]="staggerReady" [class.m-stagger-done]="staggerDone">
+  <h3 class="mobile-section-title">{{ 'HOME.RECENT_STUDENTS' | translate }}</h3>
+  <div *ngIf="recentStudents.length > 0" class="mobile-recent-scroll">
+    <div class="mobile-recent-item" *ngFor="let student of recentStudents">
+      <div class="mrs-avatar">
+        <img *ngIf="student.avatar" [src]="student.avatar" referrerpolicy="no-referrer" />
+        <ion-icon *ngIf="!student.avatar" name="person"></ion-icon>
+      </div>
+      <span class="mrs-name">{{ student.name.split(' ')[0] }}</span>
+    </div>
+  </div>
+  <p *ngIf="recentStudents.length === 0" class="mobile-section-empty">{{ 'HOME.NO_RECENT_STUDENTS' | translate }}</p>
+</div>

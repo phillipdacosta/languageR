@@ -40,7 +40,6 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       this.loadUnreadCount();
     }
 
-    this.refreshMobileHomeGreeting();
   }
 
   // Platform detection properties
@@ -83,20 +82,22 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   /** Dynamic back label for inline Explore (from HomeInlineToolbarService) */
   homeExploreToolbarBackLabel = '';
 
-  /** Mobile home toolbar: time-of-day greeting + first name (no Barnabi brand) */
-  mobileHomeGreeting = '';
+  /** Mobile toolbar left chrome — synced in updateMobileToolbarChrome() (not getters; avoids template “function” calls). */
+  showMobileBarnabiInToolbar = false;
+  showMobileBackInToolbar = true;
+  showMobileHomeGreeting = false;
 
   // Track if a conversation is selected (for hiding tabs on mobile)
   hasSelectedConversation = false;
   
-  // Check if tabs should be hidden (on messages route AND conversation selected, or on schedule-class page on mobile)
-  get shouldHideTabs(): boolean {
-    // Hide tabs on messages when conversation is selected
+  /**
+   * Remove tab bar from DOM (no animation). Profile uses CSS hide + bounce instead.
+   */
+  get shouldRemoveTabBarEntirely(): boolean {
     if (this.isCurrentRoute('/tabs/messages') && this.hasSelectedConversation) {
       return true;
     }
-    
-    // Hide tabs on schedule-class page on mobile
+
     if (this.isMobile() || this.isMobileViewport()) {
       const currentUrl = this.router.url;
       const normalizedUrl = currentUrl.split('?')[0].replace(/\/$/, '');
@@ -104,8 +105,23 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
         return true;
       }
     }
-    
+
     return false;
+  }
+
+  /** Mobile: slide tab bar off-screen on Profile (animated via CSS). */
+  get hideMobileTabBarForProfile(): boolean {
+    if (!this.showTabs || this.shouldRemoveTabBarEntirely) return false;
+    return (this.isMobile() || this.isMobileViewport()) && this.isCurrentRoute('/tabs/profile');
+  }
+
+  /** One-shot bounce when leaving Profile on mobile (cleared after animation). */
+  tabBarBounceAfterProfile = false;
+
+  private previousNavUrl = '';
+
+  private normalizeNavPath(url: string): string {
+    return url.split('?')[0].replace(/\/$/, '');
   }
   
   // Computed property for calendar tab selection
@@ -204,7 +220,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       .pipe(takeUntil(this.destroy$))
       .subscribe(open => {
         this.homeMaterialsViewOpen = open;
-        this.cdr.markForCheck();
+        this.updateMobileToolbarChrome();
       });
 
     this.homeInlineToolbar.materialsToolbarBackLabel$
@@ -218,7 +234,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       .pipe(takeUntil(this.destroy$))
       .subscribe(open => {
         this.homeExploreViewOpen = open;
-        this.cdr.markForCheck();
+        this.updateMobileToolbarChrome();
       });
 
     this.homeInlineToolbar.exploreToolbarBackLabel$
@@ -229,12 +245,13 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       });
 
     this.translateService.onLangChange.pipe(takeUntil(this.destroy$)).subscribe(() => {
-      this.refreshMobileHomeGreeting();
+      this.cdr.markForCheck();
     });
 
     // Add window resize listener for reactive viewport detection
     this.resizeListener = () => {
       this.showTabs = this.shouldShowTabs();
+      this.updateMobileToolbarChrome();
       setTimeout(() => this.updateUnderline(), 50);
     };
     window.addEventListener('resize', this.resizeListener);
@@ -249,6 +266,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       )
       .subscribe((user: any) => {
         this.currentUser = user;
+        this.updateMobileToolbarChrome();
 
         // Load counts when user is available
         this.loadUnreadCount();
@@ -257,7 +275,6 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
         // Preload conversations in background for faster dropdown
         this.refreshConversationsInBackground();
 
-        this.refreshMobileHomeGreeting();
         setTimeout(() => this.updateUnderline(), 100);
       });
     
@@ -269,13 +286,31 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       .pipe(take(1))
       .subscribe();
     
+    this.previousNavUrl = this.normalizeNavPath(this.router.url);
+
     // Subscribe to router events to update tab highlighting on route changes
     this.router.events.pipe(
       filter(event => event instanceof NavigationEnd),
       takeUntil(this.destroy$)
     ).subscribe((event: NavigationEnd) => {
+      const to = this.normalizeNavPath(event.urlAfterRedirects || event.url);
+      const from = this.previousNavUrl;
+      const mobile = this.isMobile() || this.isMobileViewport();
+      const wasProfile = from.includes('/tabs/profile');
+      const nowProfile = to.includes('/tabs/profile');
+      if (wasProfile && !nowProfile && mobile && this.showTabs && !this.shouldRemoveTabBarEntirely) {
+        this.tabBarBounceAfterProfile = true;
+        this.cdr.markForCheck();
+        setTimeout(() => {
+          this.tabBarBounceAfterProfile = false;
+          this.cdr.markForCheck();
+        }, 400);
+      }
+      this.previousNavUrl = to;
+
       // Update current route for tab highlighting
       this.currentRoute = event.url;
+      this.updateMobileToolbarChrome();
 
       // Reload notification count when navigating away from notifications page
       // This ensures the red dot updates after marking notifications as read
@@ -301,11 +336,11 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       // Update sliding underline position
       setTimeout(() => this.updateUnderline(), 50);
 
-      this.refreshMobileHomeGreeting();
     });
     
     // Initialize current route
     this.currentRoute = this.router.url;
+    this.updateMobileToolbarChrome();
 
     // Subscribe to the SHARED conversations from MessagingService (single source of truth)
     this.messagingService.conversations$.pipe(
@@ -406,6 +441,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       const totalUnread = notificationCount + messageCount;
       this.updateBrowserTabTitle(totalUnread);
     });
+
+    this.updateMobileToolbarChrome();
   }
 
   private loadUnreadCount() {
@@ -486,42 +523,37 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     this.router.navigate([route]);
   }
 
-  /** Mobile toolbar: Barnabi only on home when no inline panel (Materials / Explore) */
+  /** Mobile home only: drives gradient header (not used on Lessons / Messages / Calendar). */
   get showMobileBrandInToolbar(): boolean {
     return this.isHomePage && !this.homeMaterialsViewOpen && !this.homeExploreViewOpen;
-  }
-
-  /** Mobile home + signed in: show greeting instead of Barnabi */
-  get showMobileHomeGreeting(): boolean {
-    return this.showMobileBrandInToolbar && !!this.currentUser;
-  }
-
-  /** Same time-of-day keys as Tab1 `getGreeting()` */
-  private refreshMobileHomeGreeting(): void {
-    if (!this.currentUser) {
-      this.mobileHomeGreeting = '';
-      this.cdr.markForCheck();
-      return;
-    }
-    const hour = new Date().getHours();
-    const name = (this.currentUser as any).firstName || '';
-    let key: string;
-    if (hour >= 5 && hour < 12) {
-      key = 'HOME.GREETING_MORNING';
-    } else if (hour >= 12 && hour < 17) {
-      key = 'HOME.GREETING_AFTERNOON';
-    } else if (hour >= 17 && hour < 22) {
-      key = 'HOME.GREETING_EVENING';
-    } else {
-      key = 'HOME.GREETING_NIGHT';
-    }
-    this.mobileHomeGreeting = this.translateService.instant(key, { name });
-    this.cdr.markForCheck();
   }
 
   /** Tutor on mobile: show "$" pill in toolbar on every tab */
   get isTutorMobile(): boolean {
     return !!this.currentUser && (this.currentUser as any).userType === 'tutor';
+  }
+
+  /** Sync Barnabi vs back + home gradient flags from route and inline panel state. */
+  private updateMobileToolbarChrome(): void {
+    const materialsOrExplore = this.homeMaterialsViewOpen || this.homeExploreViewOpen;
+    let barnabi = false;
+    if (!materialsOrExplore && this.isHomePage) {
+      barnabi = true;
+    } else if (!materialsOrExplore) {
+      const path = this.router.url.split('?')[0].replace(/\/$/, '');
+      if (path === '/tabs/lessons') {
+        barnabi = true;
+      } else if (this.isCurrentRoute('/tabs/messages')) {
+        barnabi = true;
+      } else if (this.isCalendarTabSelected) {
+        barnabi = true;
+      }
+    }
+    this.showMobileBarnabiInToolbar = barnabi;
+    this.showMobileBackInToolbar = !barnabi;
+    this.showMobileHomeGreeting =
+      this.isHomePage && !materialsOrExplore && !!this.currentUser;
+    this.cdr.markForCheck();
   }
 
   onToolbarEarningsTap(): void {
@@ -531,11 +563,6 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     } else {
       this.homeInlineToolbar.requestOpenEarnings();
     }
-  }
-
-  /** Mobile toolbar: back when not home, or home + inline Materials / Explore */
-  get showMobileBackInToolbar(): boolean {
-    return !this.isHomePage || this.homeMaterialsViewOpen || this.homeExploreViewOpen;
   }
 
   onMobileToolbarBack(): void {

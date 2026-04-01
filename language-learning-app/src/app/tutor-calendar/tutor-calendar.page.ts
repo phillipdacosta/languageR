@@ -1,6 +1,6 @@
 import { Component, OnInit, AfterViewInit, OnDestroy, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { IonicModule, ViewWillEnter, ViewDidEnter, ActionSheetController, ModalController, ToastController, AlertController } from '@ionic/angular';
+import { IonicModule, ViewWillEnter, ViewDidEnter, ActionSheetController, ModalController, ToastController, AlertController, NavController } from '@ionic/angular';
 import { EventDetailsModalComponent } from '../components/event-details-modal/event-details-modal.component';
 import { Router, NavigationEnd, ActivatedRoute } from '@angular/router';
 import { UserService, User } from '../services/user.service';
@@ -20,6 +20,10 @@ import { trigger, state, style, transition, animate, query, stagger } from '@ang
 import { ClassAttendeesComponent } from '../components/class-attendees/class-attendees.component';
 import { BlockTimeComponent } from '../modals/block-time/block-time.component';
 import { HttpClient } from '@angular/common/http';
+import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
+import { Haptics, NotificationType } from '@capacitor/haptics';
+import { Browser } from '@capacitor/browser';
 import { environment } from '../../environments/environment';
 import { TutorFeedbackService } from '../services/tutor-feedback.service';
 import { getHoursInTz, getMinutesInTz, formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
@@ -211,21 +215,55 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   // Mobile timeline state
   isMobileView = false;
   showMobileSettings = false;
+  fabMenuOpen = false;
+  isOfficeHoursEnabled = false;
   panelAnimating = false;
   activeSettingsTab = 'availability';
   showPopularSlots = false;
   mobileViewMode: 'day' | 'agenda' = 'day';
-  readonly mobileDaysToShow = 4;
+  readonly mobileDaysToShow = 7;
   readonly agendaDaysToShow = 7;
   private mobileWeekStart: Date = new Date();
   mobileDays: MobileDayContext[] = [];
   mobileAgendaSections: AgendaSection[] = [];
   selectedMobileDayIndex = 0;
   mobileTimeline: TimelineEntry[] = [];
-  mobileTimelineEvents: TimelineEntry[] = []; // Pre-filtered events only
-  isLoadingMobileData = true; // Track loading state to prevent empty state flash
+  mobileTimelineEvents: TimelineEntry[] = [];
+  isLoadingMobileData = true;
+
+  // Today summary (computed once per timeline build)
+  todaySummaryLessonCount = 0;
+  todaySummaryHoursAvailable = 0;
+  todaySummaryNextUp: TimelineEntry | null = null;
+
+  // Mobile availability blocks for day view
+  mobileAvailabilityBlocks: TimelineEntry[] = [];
   private availabilityLoaded = false;
   private lessonsLoaded = false;
+
+  // Availability modal + summary
+  isAvailabilityModalOpen = false;
+  availabilityJustSaved = false;
+  private _pendingAvailPop = false;
+  weekAvailabilityHours = 0;
+  weekAvailabilityByDay: {
+    label: string;
+    totalHours: number;
+    blocks: { startTime: string; endTime: string; duration: string }[];
+    totalMinutes?: number;
+  }[] = [];
+  /** Rows shown in the availability detail modal (full week or single day from day view) */
+  availabilityModalRows: {
+    label: string;
+    totalHours: number;
+    blocks: { startTime: string; endTime: string; duration: string }[];
+    totalMinutes?: number;
+  }[] = [];
+  availabilityModalDescription = '';
+
+  // Smart caching — prevents visible reload on re-entry
+  private _lastDataFetch = 0;
+  private _cacheValidityMs = 30000;
   
   // Lazy loading state
   private earliestLoadedDate: Date | null = null;
@@ -265,6 +303,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   private userSubscription?: any;
 
   private viewportResizeHandler = () => this.evaluateViewport();
+  private appResumeHandler = () => {
+    if (document.visibilityState === 'visible') this.onAppResume();
+  };
 
   get agendaRangeLabel(): string {
     const start = this.mobileWeekStart ? this.getStartOfDay(this.mobileWeekStart) : this.getStartOfDay(new Date());
@@ -411,7 +452,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     private cdr: ChangeDetectorRef,
     private http: HttpClient,
     private tutorFeedbackService: TutorFeedbackService,
-    private translate: TranslateService
+    private translate: TranslateService,
+    private navCtrl: NavController
   ) { }
 
   private evaluateViewport() {
@@ -446,8 +488,15 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.buildMobileAgenda();
   }
 
+  private getMonday(date: Date): Date {
+    const d = this.getStartOfDay(date);
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    return this.addDays(d, diff);
+  }
+
   private setupMobileDays(anchor: Date, focus: Date = anchor) {
-    const start = this.getStartOfDay(anchor);
+    const start = this.mobileViewMode === 'day' ? this.getMonday(anchor) : this.getStartOfDay(anchor);
     this.mobileWeekStart = start;
     const days: MobileDayContext[] = [];
     const count = this.mobileViewMode === 'agenda' ? this.agendaDaysToShow : this.mobileDaysToShow;
@@ -573,11 +622,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         continue;
       }
 
-      // Check if they're adjacent or overlapping (within 30 minutes)
+      // Merge only truly adjacent/overlapping blocks (gap < 1 min handles rounding)
       const gap = entry.start.getTime() - current.end.getTime();
-      const thirtyMinutes = 30 * 60 * 1000;
 
-      if (gap <= thirtyMinutes) {
+      if (gap < 60_000) {
         // Merge: extend the current block's end time
         current.end = new Date(Math.max(current.end.getTime(), entry.end.getTime()));
         current.durationMinutes = Math.round((current.end.getTime() - current.start.getTime()) / 60000);
@@ -605,46 +653,133 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     if (!this.isMobileView) {
       this.mobileTimeline = [];
       this.mobileTimelineEvents = [];
+      this.mobileAvailabilityBlocks = [];
       return;
     }
     const activeDay = this.selectedMobileDay;
     if (!activeDay) {
       this.mobileTimeline = [];
       this.mobileTimelineEvents = [];
+      this.mobileAvailabilityBlocks = [];
       return;
     }
     const dayStart = this.getStartOfDay(activeDay.date);
     const dayEnd = this.addDays(dayStart, 1);
-    
-    console.log('📱 [DAY-VIEW] Building timeline for:', dayStart.toISOString());
-    
-    // Build timeline in temporary variable to avoid flashing
+
     const timeline = this.buildDayEntries(dayStart, dayEnd);
-    
-    // Filter to show lessons and classes (exclude free time slots and generic availability blocks)
-    // Lessons have subtitles/avatarUrls, Classes have specific titles
+
+    const availabilityBlocks: TimelineEntry[] = [];
     const timelineEvents = timeline.filter(item => {
       if (item.type !== 'event') return false;
-      // Exclude generic availability blocks (they have "Available" as title and no lesson indicators)
-      // But keep classes (which have custom titles like "Class", "Spanish Class", etc.)
       const isGenericAvailability = item.title === this.translate.instant('TUTOR_CALENDAR.AVAILABLE_FALLBACK') && !item.subtitle && !item.avatarUrl;
       const isFreeSlot = item.title === this.translate.instant('TUTOR_CALENDAR.OPEN_TIME_SLOT');
-      // Show ALL events including cancelled ones
-      return !isGenericAvailability && !isFreeSlot;
+      if (isGenericAvailability) {
+        availabilityBlocks.push(item);
+        return false;
+      }
+      return !isFreeSlot;
     });
-    
-    console.log('📱 [DAY-VIEW] Timeline events:', {
-      total: timelineEvents.length,
-      events: timelineEvents.map(e => ({
-        title: e.title,
-        isClass: e.isClass,
-        isCancelled: e.isCancelled
-      }))
-    });
-    
-    // Assign all at once to prevent intermediate empty states
+
     this.mobileTimeline = timeline;
     this.mobileTimelineEvents = timelineEvents;
+    this.mobileAvailabilityBlocks = availabilityBlocks;
+
+    this.computeTodaySummary(activeDay, timelineEvents, availabilityBlocks);
+  }
+
+  private computeTodaySummary(day: MobileDayContext, events: TimelineEntry[], availability: TimelineEntry[]) {
+    const now = new Date();
+    const lessons = events.filter(e => !e.isCancelled && (e.isLesson || e.isClass));
+    this.todaySummaryLessonCount = lessons.length;
+
+    let availMinutes = 0;
+    for (const block of availability) {
+      availMinutes += block.durationMinutes;
+    }
+    this.todaySummaryHoursAvailable = Math.round((availMinutes / 60) * 10) / 10;
+
+    const upcoming = lessons.filter(e => e.start.getTime() > now.getTime());
+    this.todaySummaryNextUp = upcoming.length > 0 ? upcoming[0] : null;
+  }
+
+  openAvailabilityModal() {
+    this.computeWeekAvailability();
+    this.availabilityModalRows = this.weekAvailabilityByDay.slice();
+    this.availabilityModalDescription = this.translate.instant('TUTOR_CALENDAR.AVAIL_MODAL_SUBTITLE_WEEK', {
+      hours: this.weekAvailabilityHours
+    });
+    this.isAvailabilityModalOpen = true;
+    this.cdr.detectChanges();
+  }
+
+  openDayViewAvailabilityModal() {
+    const row = this.buildAvailabilityRowForCalendarDay(this.selectedDayForDayView.date);
+    this.availabilityModalRows = [row];
+    this.availabilityModalDescription = this.translate.instant('TUTOR_CALENDAR.AVAIL_MODAL_SUBTITLE_DAY', {
+      hours: row.totalHours
+    });
+    this.isAvailabilityModalOpen = true;
+    this.cdr.detectChanges();
+  }
+
+  private buildAvailabilityRowForCalendarDay(dayAnchor: Date): {
+    label: string;
+    totalHours: number;
+    totalMinutes: number;
+    blocks: { startTime: string; endTime: string; duration: string }[];
+  } {
+    const dayStart = new Date(dayAnchor);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setDate(dayStart.getDate() + 1);
+
+    const dayEvents = this.collectEventsForDay(dayStart, dayEnd);
+    const merged = this.mergeAvailabilityBlocks(dayEvents);
+    const availOnly = merged.filter(e => {
+      const title = e.title || '';
+      return title === '' || title === this.translate.instant('TUTOR_CALENDAR.AVAILABLE_FALLBACK');
+    }).filter(e => !e.avatarUrl && !e.subtitle);
+
+    let dayMinutes = 0;
+    const blocks = availOnly.map(b => {
+      dayMinutes += b.durationMinutes;
+      return {
+        startTime: this.formatTime(b.start),
+        endTime: this.formatTime(b.end),
+        duration: this.formatDurationShort(b.durationMinutes)
+      };
+    });
+
+    const dateLabel = dayStart.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+    return {
+      label: dateLabel,
+      totalHours: Math.round((dayMinutes / 60) * 10) / 10,
+      totalMinutes: dayMinutes,
+      blocks
+    };
+  }
+
+  private computeWeekAvailability() {
+    const weekStart = new Date(this.currentWeekStart);
+    const result: typeof this.weekAvailabilityByDay = [];
+    let totalMinutes = 0;
+
+    for (let d = 0; d < 7; d++) {
+      const dayStart = new Date(weekStart);
+      dayStart.setDate(weekStart.getDate() + d);
+      dayStart.setHours(0, 0, 0, 0);
+      const row = this.buildAvailabilityRowForCalendarDay(dayStart);
+      totalMinutes += row.totalMinutes;
+      result.push({
+        label: row.label,
+        totalHours: row.totalHours,
+        totalMinutes: row.totalMinutes,
+        blocks: row.blocks
+      });
+    }
+
+    this.weekAvailabilityByDay = result;
+    this.weekAvailabilityHours = Math.round((totalMinutes / 60) * 10) / 10;
   }
 
   private collectEventsForDay(dayStart: Date, dayEnd: Date): TimelineEntry[] {
@@ -881,6 +1016,19 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         if (!data?.events || !this.gcalConnected) return;
         this.mergeGcalWebSocketEvents(data.events);
       });
+
+    // Re-fetch Google Calendar events whenever WebSocket reconnects,
+    // but skip if we fetched recently (debounce avoids redundant API calls)
+    this.websocketService.connection$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((connected: boolean) => {
+        if (connected && this.gcalConnected) {
+          const elapsed = Date.now() - this.gcalLastFetchTime;
+          if (elapsed > TutorCalendarPage.GCAL_DEBOUNCE_MS) {
+            this.loadGoogleCalendarEvents();
+          }
+        }
+      });
     
     // Subscribe to approval status from UserService
     this.approvalStatusSubscription = this.userService.tutorApprovalStatus$.subscribe(status => {
@@ -891,6 +1039,13 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       }
     });
     
+    // Subscribe to availability updates so we can trigger pop animation on re-entry
+    this.userService.availabilityUpdated$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        this._pendingAvailPop = true;
+      });
+
     // Subscribe to user changes to keep hasCustomProfilePhoto in sync
     this.userSubscription = this.userService.currentUser$.subscribe(user => {
       if (user) {
@@ -1183,23 +1338,39 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     if (this.customNowInterval) clearInterval(this.customNowInterval);
     if (this.timeUpdateInterval) clearInterval(this.timeUpdateInterval);
     window.removeEventListener('resize', this.updateCustomNowIndicatorBound);
+    document.removeEventListener('visibilitychange', this.appResumeHandler);
     this.stopGcalPolling();
   }
 
   ionViewWillEnter() {
-    // Reset initialization attempts when entering the page
     this.initializationAttempts = 0;
-    
-    // Always set loading state when entering view to prevent flash
-    this.availabilityLoaded = false;
-    this.lessonsLoaded = false;
-    // Classes load separately and don't block initial render
-    
-    // Note: Payout status is already tracked via UserService subscription in ngOnInit
-    // No need to check again here as it would override PayPal/Manual setups
-    
-    if (this.isMobileView) {
-      this.isLoadingMobileData = true;
+    this.isOfficeHoursEnabled = this.userService.getOfficeHoursStatus();
+
+    // Don't show skeleton when returning from availability save — data is already present
+    if (!this._pendingAvailPop) {
+      const cacheAge = Date.now() - this._lastDataFetch;
+      const isCacheFresh = this._lastDataFetch > 0 && cacheAge <= this._cacheValidityMs;
+
+      if (!isCacheFresh) {
+        this.availabilityLoaded = false;
+        this.lessonsLoaded = false;
+        if (this.isMobileView) {
+          this.isLoadingMobileData = true;
+        }
+      }
+    }
+
+    // Always refresh Google Calendar events on re-entry to catch deletions/changes
+    if (this.gcalConnected && this.gcalEventsLoaded) {
+      this.loadGoogleCalendarEvents();
+    }
+
+    // Refresh gcal events when the user switches back from another app (e.g. Google Calendar)
+    document.addEventListener('visibilitychange', this.appResumeHandler);
+    if (Capacitor.isNativePlatform()) {
+      CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+        if (isActive) this.onAppResume();
+      });
     }
   }
 
@@ -1207,19 +1378,20 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     // Check if we're coming from availability setup
     const currentUrl = this.router.url;
     
-    // Check for refresh parameter from availability setup
+    // Check for refresh parameter from availability setup (URL fallback)
     const urlParams = new URLSearchParams(window.location.search);
     const shouldRefreshAvailability = urlParams.get('refreshAvailability') === 'true';
     
     if (shouldRefreshAvailability) {
-      // Clear the query parameter to avoid repeated refreshes
       this.router.navigate(['/tabs/tutor-calendar'], { replaceUrl: true });
-      
-      // Force refresh regardless of user state
+      this._pendingAvailPop = true;
+    }
+
+    // Trigger refresh + pop animation if availability was saved (via service event or URL param)
+    if (this._pendingAvailPop) {
       if (this.currentUser) {
         this.forceRefreshAvailability();
       } else {
-        // Load user first, then refresh
         this.loadCurrentUser();
       }
       return;
@@ -1240,13 +1412,15 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
 
   ionViewWillLeave() {
-    // Reset counter when leaving
     this.initializationAttempts = 0;
-    // Clean up when leaving the page
     if (this.calendar) {
       this.calendar.destroy();
       this.calendar = undefined;
       this.isInitialized = false;
+    }
+    document.removeEventListener('visibilitychange', this.appResumeHandler);
+    if (Capacitor.isNativePlatform()) {
+      CapacitorApp.removeAllListeners();
     }
   }
 
@@ -1286,7 +1460,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           this.customView = this.calendarDefaultView;
         }
 
-        // Check Google Calendar connection status (events loaded later after availability)
+        // Check Google Calendar connection status and load events if connected
         this.userService.getGoogleCalendarStatus().subscribe({
           next: (status) => {
             this.gcalConnected = status.connected;
@@ -1296,6 +1470,16 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
             this.gcalLastSyncAt = status.lastSyncAt ? new Date(status.lastSyncAt) : null;
             if (this.gcalConnected) {
               this.startGcalPolling();
+              if (!this.gcalEventsLoaded) {
+                this.loadGoogleCalendarEvents();
+              }
+              // Auto-register webhook if not active (e.g. BACKEND_PUBLIC_URL was set after initial connect)
+              if (!(status as any).watchActive) {
+                this.userService.registerGoogleCalendarWatch().subscribe({
+                  next: () => console.log('[GCal] Watch channel registered successfully'),
+                  error: (err: any) => console.warn('[GCal] Watch registration failed:', err?.error?.error || err.message)
+                });
+              }
             }
             this.cdr.detectChanges();
           }
@@ -1947,14 +2131,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     
     if (this.availabilityLoaded && this.lessonsLoaded) {
       console.log('✅ [LOAD-DEBUG] Both availability and lessons loaded! Triggering change detection. Events:', this.events.length);
-      // Both API calls completed - trigger ONE final change detection
-      // Classes will load asynchronously and update without a full re-render
+      this._lastDataFetch = Date.now();
+      this.computeWeekAvailability();
       this.cdr.detectChanges();
-      
-      // Update reminders with upcoming events
-      // NOTE: Disabled because reminders are now tracked globally in app.component.ts
-      // This prevents conflicts with global reminder tracking
-      // this.updateReminders();
       
       // Mark mobile data as loaded
       if (this.isMobileView) {
@@ -2274,14 +2453,17 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
   
   async openEventDetailsModal(eventDetails: any, clickEvent?: any) {
+    const isMobile = this.isMobileView;
     const modal = await this.modalController.create({
       component: EventDetailsModalComponent,
       componentProps: {
         event: eventDetails,
-        clickEvent: clickEvent
+        clickEvent: isMobile ? undefined : clickEvent,
+        bottomSheet: isMobile
       },
       cssClass: 'event-details-modal',
-      showBackdrop: false // We handle our own overlay
+      showBackdrop: false,
+      animated: !isMobile
     });
     
     await modal.present();
@@ -2566,6 +2748,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
               console.log('✅ Disabling office hours');
               try {
                 await this.userService.toggleOfficeHours(false).toPromise();
+                this.isOfficeHoursEnabled = false;
                 console.log('✅ Office hours disabled');
                 
                 const toast = await this.toastController.create({
@@ -2609,6 +2792,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
               console.log('✅ Enabling office hours and navigating to pre-call');
               try {
                 await this.userService.toggleOfficeHours(true).toPromise();
+                this.isOfficeHoursEnabled = true;
                 console.log('✅ Office hours enabled');
                 
                 const toast = await this.toastController.create({
@@ -2742,10 +2926,16 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         }
       }
       
-      this.router.navigate(['/tabs/availability-setup', dateStr], { queryParams });
+      this.navCtrl.navigateForward(['/tabs/availability-setup', dateStr], {
+        queryParams,
+        animated: true,
+        animationDirection: 'forward'
+      });
     } else {
-      // Fallback to general availability setup if no date provided
-      this.router.navigate(['/tabs/availability-setup']);
+      this.navCtrl.navigateForward('/tabs/availability-setup', {
+        animated: true,
+        animationDirection: 'forward'
+      });
     }
   }
 
@@ -2767,20 +2957,58 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   private gcalEventsLoaded = false;
   private gcalLoadingInProgress = false;
   private gcalPollInterval: any = null;
-  private static readonly GCAL_POLL_MS = 30 * 60 * 1000; // 30 min safety net (primary sync via webhooks)
+  private gcalLastFetchTime = 0;
+  private static readonly GCAL_POLL_MS = 2 * 60 * 1000;
+  private static readonly GCAL_DEBOUNCE_MS = 10 * 1000;
 
   connectGoogleCalendar() {
     this.userService.getGoogleCalendarAuthUrl().subscribe({
-      next: (res) => {
-        const popup = window.open(res.url, 'google-calendar-auth', 'width=500,height=700,left=200,top=100');
-        let handled = false;
+      error: async (err) => {
+        console.error('❌ Failed to get Google Calendar auth URL:', err);
+        const toast = await this.toastController.create({
+          message: 'Could not connect to Google Calendar. Please try again.',
+          duration: 3000,
+          color: 'danger'
+        });
+        await toast.present();
+      },
+      next: async (res) => {
+        if (!res?.url) {
+          console.error('❌ No auth URL returned from server');
+          const toast = await this.toastController.create({
+            message: 'Could not get Google sign-in URL. Please try again.',
+            duration: 3000,
+            color: 'danger'
+          });
+          await toast.present();
+          return;
+        }
 
-        const onLinked = (success: boolean) => {
+        let handled = false;
+        let nativePollTimer: any = null;
+        let pollTimer: any = null;
+
+        const onLinked = async (success: boolean) => {
           if (handled) return;
           handled = true;
           window.removeEventListener('message', messageHandler);
           if (pollTimer) clearInterval(pollTimer);
+          if (nativePollTimer) clearInterval(nativePollTimer);
+
+          if (Capacitor.isNativePlatform()) {
+            Browser.close().catch(() => {});
+            Browser.removeAllListeners().catch(() => {});
+          }
+
           if (success) {
+            Haptics.notification({ type: NotificationType.Success }).catch(() => {});
+            const toast = await this.toastController.create({
+              message: 'Google Calendar connected!',
+              duration: 2500,
+              position: 'bottom',
+              color: 'success'
+            });
+            await toast.present();
             this.userService.getGoogleCalendarStatus().subscribe({
               next: (status) => {
                 this.gcalConnected = status.connected;
@@ -2803,9 +3031,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         };
         window.addEventListener('message', messageHandler);
 
-        const pollTimer = setInterval(() => {
-          if (!popup || popup.closed) {
-            clearInterval(pollTimer);
+        if (Capacitor.isNativePlatform()) {
+          Browser.addListener('browserFinished', () => {
             if (!handled) {
               this.userService.getGoogleCalendarStatus().subscribe({
                 next: (status) => {
@@ -2818,29 +3045,113 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
                 }
               });
             }
+          });
+          try {
+            await Browser.open({ url: res.url });
+          } catch (browserErr) {
+            console.error('❌ Browser.open failed:', browserErr);
+            window.open(res.url, '_system');
           }
-        }, 500);
+
+          // Poll connection status while browser is open so we can auto-close it
+          nativePollTimer = setInterval(() => {
+            if (handled) { clearInterval(nativePollTimer); return; }
+            this.userService.getGoogleCalendarStatus().subscribe({
+              next: (status) => {
+                if (status.connected && !handled) {
+                  onLinked(true);
+                }
+              }
+            });
+          }, 1500);
+        } else {
+          // Web: open popup window
+          const popup = window.open(res.url, 'google-calendar-auth', 'width=500,height=700,left=200,top=100');
+          pollTimer = setInterval(() => {
+            if (!popup || popup.closed) {
+              clearInterval(pollTimer);
+              if (!handled) {
+                this.userService.getGoogleCalendarStatus().subscribe({
+                  next: (status) => {
+                    if (status.connected && !handled) {
+                      onLinked(true);
+                    } else if (!handled) {
+                      handled = true;
+                      window.removeEventListener('message', messageHandler);
+                    }
+                  }
+                });
+              }
+            }
+          }, 500);
+        }
+
       }
     });
   }
 
   disconnectGoogleCalendar() {
     this.userService.disconnectGoogleCalendar().subscribe({
-      next: () => {
+      next: async () => {
         this.gcalConnected = false;
         this.gcalEmail = null;
         this.gcalSyncEnabled = true;
         this.gcalPushToGoogle = true;
         this.gcalLastSyncAt = null;
-        if (this.gcalPollInterval) {
-          clearInterval(this.gcalPollInterval);
-          this.gcalPollInterval = null;
-        }
+        this.stopGcalPolling();
+        this.gcalEventsLoaded = false;
         this.events = this.events.filter(e => !(e.extendedProps as any)?.isGoogleCalendar);
         this.updateCalendarEvents();
         this.cdr.detectChanges();
+
+        Haptics.notification({ type: NotificationType.Warning }).catch(() => {});
+        const toast = await this.toastController.create({
+          message: 'Google Calendar disconnected.',
+          duration: 2500,
+          position: 'bottom',
+          color: 'medium'
+        });
+        await toast.present();
       }
     });
+  }
+
+  async showGcalActions() {
+    const sheet = await this.actionSheetController.create({
+      header: `Google Calendar${this.gcalEmail ? ' · ' + this.gcalEmail : ''}`,
+      buttons: [
+        {
+          text: this.gcalSyncEnabled ? 'Disable sync' : 'Enable sync',
+          icon: this.gcalSyncEnabled ? 'pause-circle-outline' : 'play-circle-outline',
+          handler: () => {
+            this.gcalSyncEnabled = !this.gcalSyncEnabled;
+            this.onGcalSettingChange('syncEnabled');
+          }
+        },
+        {
+          text: this.gcalPushToGoogle ? 'Stop pushing lessons' : 'Push lessons to Google',
+          icon: this.gcalPushToGoogle ? 'arrow-undo-outline' : 'arrow-redo-outline',
+          handler: () => {
+            this.gcalPushToGoogle = !this.gcalPushToGoogle;
+            this.onGcalSettingChange('pushToGoogle');
+          }
+        },
+        {
+          text: 'Disconnect',
+          icon: 'trash-outline',
+          role: 'destructive',
+          handler: () => {
+            this.disconnectGoogleCalendar();
+          }
+        },
+        {
+          text: 'Cancel',
+          icon: 'close-outline',
+          role: 'cancel'
+        }
+      ]
+    });
+    await sheet.present();
   }
 
   onGcalSettingChange(key: 'syncEnabled' | 'pushToGoogle') {
@@ -2938,9 +3249,21 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     }
   }
 
+  private onAppResume() {
+    this.websocketService.ensureConnected();
+    if (this.gcalConnected) {
+      const elapsed = Date.now() - this.gcalLastFetchTime;
+      if (elapsed > TutorCalendarPage.GCAL_DEBOUNCE_MS) {
+        this.gcalLoadingInProgress = false;
+        this.loadGoogleCalendarEvents();
+      }
+    }
+  }
+
   private loadGoogleCalendarEvents() {
     if (!this.gcalConnected || this.gcalLoadingInProgress) return;
     this.gcalLoadingInProgress = true;
+    this.gcalLastFetchTime = Date.now();
 
     const weekStart = new Date(this.currentWeekStart);
     weekStart.setHours(0, 0, 0, 0);
@@ -2948,8 +3271,16 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     weekEnd.setDate(weekEnd.getDate() + 6);
     weekEnd.setHours(23, 59, 59, 999);
 
+    // Safety: reset loading flag after 15s if the request hangs (prevents stuck state)
+    const safetyTimer = setTimeout(() => {
+      if (this.gcalLoadingInProgress) {
+        this.gcalLoadingInProgress = false;
+      }
+    }, 15000);
+
     this.userService.getGoogleCalendarEvents(weekStart.toISOString(), weekEnd.toISOString()).subscribe({
       next: (res) => {
+        clearTimeout(safetyTimer);
         const nonGcalEvents = this.events.filter(e => !(e.extendedProps as any)?.isGoogleCalendar);
 
         const gcalEvents: EventInput[] = (res.events || [])
@@ -2978,6 +3309,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         this.cdr.detectChanges();
       },
       error: () => {
+        clearTimeout(safetyTimer);
         this.gcalEventsLoaded = true;
         this.gcalSyncing = false;
         this.gcalLoadingInProgress = false;
@@ -3017,10 +3349,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       next: (res) => {
         console.log('📅 [FORCE-REFRESH-AVAIL] Got availability data');
         
-        // Remove old availability events, keep lessons and classes
+        // Remove old availability events, keep lessons, classes, and gcal
         const nonAvailabilityEvents = this.events.filter(event => {
           const extendedProps = event.extendedProps as any;
-          return extendedProps?.type !== 'availability' && extendedProps?.isLesson !== undefined || extendedProps?.isClass;
+          return extendedProps?.lessonId || extendedProps?.isClass || extendedProps?.classId || extendedProps?.isGoogleCalendar;
         });
         
         if (res.availability && res.availability.length > 0) {
@@ -3030,26 +3362,34 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           this.events = nonAvailabilityEvents;
         }
         
-        // Update calendar display
+        this.computeWeekAvailability();
+
         if (this.isMobileView) {
-          // Mobile view: update mobile timeline and agenda
           this.buildMobileTimeline();
           this.buildMobileAgenda();
         } else if (this.calendar && this.isInitialized) {
-          // Desktop view: update FullCalendar
           this.updateCalendarEvents();
         } else {
           this.forceReinitializeCalendar();
         }
+
+        // Fire pop animation after data is rendered
+        if (this._pendingAvailPop) {
+          this._pendingAvailPop = false;
+          this.cdr.detectChanges();
+          setTimeout(() => {
+            this.availabilityJustSaved = true;
+            this.cdr.detectChanges();
+            setTimeout(() => { this.availabilityJustSaved = false; this.cdr.detectChanges(); }, 1500);
+          }, 100);
+        }
         
-        // Also reload lessons to ensure complete data
         if (this.currentUser?.id) {
           this.loadLessonsAndClasses(this.currentUser.id);
         }
       },
       error: (error) => {
         console.error('❌ Error force refreshing availability:', error);
-        // Try to reinitialize calendar as fallback
         this.forceReinitializeCalendar();
       }
     });

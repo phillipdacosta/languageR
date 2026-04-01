@@ -1,26 +1,31 @@
-<!-- Event Details Context Menu Overlay -->
-<div class="event-context-menu-overlay" 
-     *ngIf="true"
+<!-- Event Details: desktop = anchored popover; mobile = bottom sheet -->
+<div class="event-context-menu-overlay"
+     [class.bottom-sheet-backdrop]="bottomSheet"
+     [class.closing]="isClosing"
      (click)="close()">
-  <div class="event-context-menu-container" 
-       [style.top.px]="position?.showBelow ? position?.top : null"
-       [style.bottom.px]="!position?.showBelow ? position?.bottom : null"
-       [style.left.px]="position?.left"
-       [style.max-height.px]="position?.maxHeight"
-       [class.show-below]="position?.showBelow"
+  <div class="event-context-menu-container"
+       [class.bottom-sheet-panel]="bottomSheet"
+       [class.closing]="isClosing"
+       [style.top.px]="!bottomSheet && position?.showBelow ? position?.top : null"
+       [style.bottom.px]="!bottomSheet && !position?.showBelow ? position?.bottom : null"
+       [style.left.px]="!bottomSheet ? position?.left : null"
+       [style.max-height.px]="!bottomSheet ? position?.maxHeight : null"
+       [class.show-below]="!bottomSheet && position?.showBelow"
        (click)="$event.stopPropagation()">
-    
-    <!-- Pointer Arrow -->
-    <div class="menu-arrow" 
+
+    <div class="sheet-drag-handle" *ngIf="bottomSheet" aria-hidden="true"></div>
+
+    <!-- Pointer Arrow (desktop only) -->
+    <div class="menu-arrow"
+         *ngIf="!bottomSheet"
          [style.left.px]="position?.arrowOffset"
          [class.arrow-above]="!position?.showBelow"></div>
     
     <div class="event-details-content">
-      <!-- Close Button -->
-      <button class="close-button" (click)="close()">
+      <button type="button" class="close-button" (click)="close()" aria-label="Close">
         <ion-icon name="close"></ion-icon>
       </button>
-      
+
       <div class="event-details-container">
         <!-- Google Calendar Event -->
         <ng-container *ngIf="event.isGoogleCalendar">
@@ -113,8 +118,8 @@
         </div>
       </div>
 
-      <!-- Student/Attendees -->
-      <div class="detail-row" *ngIf="event.isLesson && event.studentName">
+      <!-- Student/Attendees (desktop only — mobile header already shows student name) -->
+      <div class="detail-row" *ngIf="event.isLesson && event.studentName && !bottomSheet">
         <ion-icon name="person-outline" class="detail-icon"></ion-icon>
         <div class="detail-content">
           <div class="detail-label">Student</div>
@@ -167,20 +172,21 @@
         </div>
       </div>
 
-      <!-- Meta/Additional Info -->
+      <!-- Meta / Lesson Length -->
       <div class="detail-row" *ngIf="event.meta">
-        <ion-icon name="information-circle-outline" class="detail-icon"></ion-icon>
+        <ion-icon name="time-outline" class="detail-icon"></ion-icon>
         <div class="detail-content">
-          <div class="detail-label">Additional Info</div>
+          <div class="detail-label">Lesson Length</div>
           <div class="detail-value">{{ event.meta }}</div>
         </div>
       </div>
     </div>
 
-      <!-- Action Buttons -->
-      <div class="event-actions">
-        <button 
-          class="action-item join-button" 
+      <!-- Action Buttons (desktop: full actions; bottom sheet: secondary only) -->
+      <div class="event-actions" *ngIf="!bottomSheet">
+        <button
+          type="button"
+          class="action-item join-button"
           *ngIf="(event.lessonId || event.classId) && !event.isCancelled"
           [class.disabled]="!canJoin"
           [disabled]="!canJoin"
@@ -188,14 +194,28 @@
           <ion-icon [name]="isLessonInProgress ? 'videocam' : 'videocam-outline'"></ion-icon>
           <span>{{ joinLabel }}</span>
         </button>
-        
-        <button class="action-item" (click)="openFullDetails()">
+        <button type="button" class="action-item" (click)="openFullDetails()">
           <ion-icon name="open-outline"></ion-icon>
           <span>View Full Details</span>
         </button>
-        
-        <button 
-          class="action-item cancel-button" 
+        <button
+          type="button"
+          class="action-item cancel-button"
+          *ngIf="canCancel && event.lessonId"
+          (click)="cancelLesson()">
+          <ion-icon name="close-circle-outline"></ion-icon>
+          <span>Cancel Lesson</span>
+        </button>
+      </div>
+
+      <div class="event-actions sheet-actions" *ngIf="bottomSheet">
+        <button type="button" class="action-item" (click)="openFullDetails()">
+          <ion-icon name="open-outline"></ion-icon>
+          <span>View Full Details</span>
+        </button>
+        <button
+          type="button"
+          class="action-item cancel-button"
           *ngIf="canCancel && event.lessonId"
           (click)="cancelLesson()">
           <ion-icon name="close-circle-outline"></ion-icon>
@@ -203,6 +223,26 @@
         </button>
       </div>
     </ng-container>
+    </div>
+    </div>
+
+    <!-- Footer CTA: bottom sheet only -->
+    <div class="event-details-footer" *ngIf="bottomSheet">
+      <button
+        type="button"
+        class="footer-primary-btn footer-join-btn"
+        *ngIf="footerShowsJoin"
+        (click)="joinLesson()">
+        <ion-icon [name]="isLessonInProgress ? 'videocam' : 'videocam-outline'"></ion-icon>
+        <span>{{ joinLabel }}</span>
+      </button>
+      <button
+        type="button"
+        class="footer-primary-btn footer-close-btn"
+        *ngIf="!footerShowsJoin"
+        (click)="close()">
+        Close
+      </button>
     </div>
   </div>
 </div>

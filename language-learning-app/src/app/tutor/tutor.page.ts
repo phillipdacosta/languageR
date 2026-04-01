@@ -12,6 +12,7 @@ import { MessagingService, Message } from '../services/messaging.service';
 import { WebSocketService } from '../services/websocket.service';
 import { AuthService } from '../services/auth.service';
 import { TutorSearchContentPageModule } from '../tutor-search-content/tutor-search-content.module';
+import { TutorSearchPageModule } from '../tutor-search/tutor-search.module';
 import { VideoPlayerModalComponent } from '../tutor-search-content/video-player-modal.component';
 import { ImageViewerModal } from '../messages/image-viewer-modal.component';
 import { SharedModule } from '../shared/shared.module';
@@ -27,7 +28,7 @@ import { formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
   templateUrl: './tutor.page.html',
   styleUrls: ['./tutor.page.scss'],
   standalone: true,
-  imports: [CommonModule, FormsModule, IonicModule, RouterModule, TutorAvailabilityViewerComponent, SharedModule, TutorSearchContentPageModule, DisplayNamePipe],
+  imports: [CommonModule, FormsModule, IonicModule, RouterModule, TutorAvailabilityViewerComponent, SharedModule, TutorSearchContentPageModule, TutorSearchPageModule, DisplayNamePipe],
   animations: [
     trigger('fadeInUp', [
       transition(':enter', [

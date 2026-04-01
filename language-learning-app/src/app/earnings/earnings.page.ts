@@ -100,7 +100,24 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   chartPeriodAmountLabel: string = '';
   private userJoinDate: Date = new Date();
 
-  loading: boolean = true;
+  loading: boolean = !EarningsPage._dataCache;
+  private _hasInitiallyLoaded = false;
+  private _lastDataFetch = 0;
+  private _cacheValidityMs = 30000; // 30 seconds
+
+  // Static cache — survives component destroy/recreate (inline toggle on tab1)
+  private static _dataCache: {
+    balance: TutorBalance;
+    totalEarnings: number;
+    pendingEarnings: number;
+    recentPayments: PaymentBreakdown[];
+    withdrawalHistory: WithdrawalHistory[];
+    payoutProvider: string;
+    paypalEmail: string;
+    stripeConnectAccountId: string;
+    payoutMethodConfigured: boolean;
+    lastFetch: number;
+  } | null = null;
   
   // NEW: Withdrawal system balance
   balance: TutorBalance = {
@@ -196,10 +213,51 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   }
 
   async ngOnInit() {
-    // Load wallet visibility setting from user profile
-    await this.loadWalletVisibilitySetting();
+    // Check static cache FIRST — before any awaits — to avoid skeleton flash
+    const cache = EarningsPage._dataCache;
+    const cacheAge = cache ? Date.now() - cache.lastFetch : Infinity;
 
-    // Load user join date for earnings chart
+    if (cache && cacheAge < this._cacheValidityMs) {
+      this.restoreFromCache(cache);
+      this.loading = false;
+      this._hasInitiallyLoaded = true;
+      this._lastDataFetch = cache.lastFetch;
+      this.cdr.detectChanges();
+      this.scheduleChartCreation();
+      this.setupWebSocketListeners();
+
+      // Load settings and silently refresh in background
+      this.loadWalletVisibilitySetting();
+      this.loadUserJoinDate();
+      if (cacheAge > 10000) {
+        this.silentRefresh();
+      }
+      return;
+    }
+
+    // First load (no cache) — show skeleton while we fetch everything
+    await this.loadWalletVisibilitySetting();
+    await this.loadUserJoinDate();
+
+    this.loading = true;
+    try {
+      await Promise.all([
+        this.loadBalance(),
+        this.loadEarnings(),
+        this.loadWithdrawalHistory()
+      ]);
+    } finally {
+      this.loading = false;
+      this._hasInitiallyLoaded = true;
+      this._lastDataFetch = Date.now();
+      this.saveToCache();
+    }
+    this.cdr.detectChanges();
+    this.scheduleChartCreation();
+    this.setupWebSocketListeners();
+  }
+
+  private async loadUserJoinDate() {
     try {
       const user = await firstValueFrom(this.userService.getCurrentUser(true));
       if (user?.createdAt) {
@@ -211,26 +269,12 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     } catch (e) {
       // fallback: userJoinDate stays as now
     }
-    
-    // Load ALL data before revealing the UI (prevents $0.00 flash)
-    this.loading = true;
-    try {
-      await Promise.all([
-        this.loadBalance(),
-        this.loadEarnings(),
-        this.loadWithdrawalHistory()
-      ]);
-    } finally {
-      this.loading = false;
-    }
-    // Create chart after all data (balance + payments) is loaded
-    setTimeout(() => this.createEarningsChart(), 50);
-    this.setupWebSocketListeners();
   }
 
   ngAfterViewInit() {
-    // Chart will be created after data loads (if not already)
-    setTimeout(() => this.createEarningsChart(), 150);
+    if (!this.loading) {
+      this.scheduleChartCreation();
+    }
   }
 
   /**
@@ -238,22 +282,73 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
    * This ensures data is refreshed when navigating back to the page
    */
   async ionViewWillEnter() {
-    console.log('💰 [EARNINGS] Page entering - refreshing data...');
-    // Load ALL data before revealing the UI (prevents $0.00 flash)
-    this.loading = true;
+    if (!this._hasInitiallyLoaded) return;
+
+    // Always recreate chart — canvas can lose its render after navigation
+    this.scheduleChartCreation();
+
+    const cacheAge = Date.now() - this._lastDataFetch;
+    if (cacheAge <= this._cacheValidityMs) return;
+
+    await this.silentRefresh();
+  }
+
+  private async silentRefresh() {
     try {
       await Promise.all([
         this.loadBalance(),
         this.loadEarnings(),
         this.loadWithdrawalHistory()
       ]);
-    } finally {
-      this.loading = false;
+      this._lastDataFetch = Date.now();
+      this.saveToCache();
+      this.cdr.detectChanges();
+      this.scheduleChartCreation();
+    } catch (e) {
+      console.error('💰 [EARNINGS] Silent refresh failed:', e);
     }
-    // Create chart with fresh data (balance + payments)
-    setTimeout(() => this.createEarningsChart(), 50);
   }
-  
+
+  private _chartTimer: any = null;
+  private scheduleChartCreation() {
+    if (this._chartTimer) clearTimeout(this._chartTimer);
+    this._chartTimer = setTimeout(() => {
+      this._chartTimer = null;
+      this.createEarningsChart();
+    }, 80);
+  }
+
+  private saveToCache() {
+    EarningsPage._dataCache = {
+      balance: { ...this.balance },
+      totalEarnings: this.totalEarnings,
+      pendingEarnings: this.pendingEarnings,
+      recentPayments: this.recentPayments,
+      withdrawalHistory: this.withdrawalHistory,
+      payoutProvider: this.payoutProvider,
+      paypalEmail: this.paypalEmail,
+      stripeConnectAccountId: this.stripeConnectAccountId,
+      payoutMethodConfigured: this.payoutMethodConfigured,
+      lastFetch: this._lastDataFetch || Date.now()
+    };
+  }
+
+  private restoreFromCache(cache: NonNullable<typeof EarningsPage._dataCache>) {
+    this.balance = { ...cache.balance };
+    this.totalEarnings = cache.totalEarnings;
+    this.pendingEarnings = cache.pendingEarnings;
+    this.recentPayments = cache.recentPayments;
+    this.withdrawalHistory = cache.withdrawalHistory;
+    this.payoutProvider = cache.payoutProvider;
+    this.paypalEmail = cache.paypalEmail;
+    this.stripeConnectAccountId = cache.stripeConnectAccountId;
+    this.payoutMethodConfigured = cache.payoutMethodConfigured;
+    this.computePaymentDisplayDates();
+    this.extractFilterOptions();
+    this.applyFilters();
+    this.updateFilterState();
+  }
+
   // Load wallet visibility setting from user profile
   async loadWalletVisibilitySetting() {
     try {
@@ -309,18 +404,12 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   }
 
   setupWebSocketListeners() {
-    // Listen for lesson status changes
-    const lessonStatusSub = this.websocketService.lessonStatusChanged$.subscribe((data: any) => {
-      console.log('📡 Lesson status changed:', data);
-      // Reload earnings when a lesson status changes
-      this.loadEarnings();
+    const lessonStatusSub = this.websocketService.lessonStatusChanged$.subscribe(() => {
+      this.silentRefresh();
     });
 
-    // Listen for payment updates
-    const paymentUpdateSub = this.websocketService.paymentStatusChanged$.subscribe((data: any) => {
-      console.log('📡 Payment status changed:', data);
-      // Reload earnings when payment status changes
-      this.loadEarnings();
+    const paymentUpdateSub = this.websocketService.paymentStatusChanged$.subscribe(() => {
+      this.silentRefresh();
     });
 
     this.subscriptions.push(lessonStatusSub, paymentUpdateSub);
@@ -906,15 +995,6 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   }
 
   async requestWithdrawal() {
-    console.log('🔵 requestWithdrawal called');
-    console.log('Balance available (cached):', this.balance.available);
-    console.log('Payout method configured:', this.payoutMethodConfigured);
-    
-    // Always refresh balance before checking — handles stale data from
-    // long-lived tabs or laptop sleep/wake where pending funds became available.
-    await this.loadBalance();
-    console.log('Balance available (refreshed):', this.balance.available);
-    
     if (!this.payoutMethodConfigured) {
       const alert = await this.alertController.create({
         header: this.translateService.instant('EARNINGS.WITHDRAW_METHOD_REQUIRED_TITLE'),
@@ -935,19 +1015,16 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       return;
     }
 
-    // Start at $0.00 so the tutor enters an amount (MAX still fills available balance)
     this.withdrawalAmount = 0;
-    
-    // Auto-select the configured payout method
+
     if (this.payoutProvider === 'stripe') {
       this.selectedWithdrawalMethod = 'stripe_connect';
     } else if (this.payoutProvider === 'paypal') {
       this.selectedWithdrawalMethod = 'paypal';
     }
-    
-    console.log('🟢 Opening modal, isWithdrawalModalOpen =', true);
+
     this.isWithdrawalModalOpen = true;
-    console.log('Modal state after set:', this.isWithdrawalModalOpen);
+    this.cdr.detectChanges();
   }
 
   closeWithdrawalModal() {
@@ -1160,6 +1237,8 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
           this.loadBalance(),
           this.loadWithdrawalHistory()
         ]);
+        this._lastDataFetch = Date.now();
+        this.saveToCache();
 
         this.balanceChanged.emit({
           available: this.balance.available,

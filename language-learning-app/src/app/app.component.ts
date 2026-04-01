@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy, NgZone } from '@angular/core';
 import { App as CapacitorApp, URLOpenListenerEvent } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
+import { SplashScreen } from '@capacitor/splash-screen';
 import { LoadingService } from './services/loading.service';
 import { ThemeService } from './services/theme.service';
 import { WebSocketService } from './services/websocket.service';
@@ -15,7 +16,7 @@ import { LessonService } from './services/lesson.service';
 import { ClassService } from './services/class.service';
 import { TutorFeedbackService } from './services/tutor-feedback.service';
 import { Router, NavigationEnd } from '@angular/router';
-import { Subject, takeUntil, filter, forkJoin } from 'rxjs';
+import { Subject, takeUntil, filter, forkJoin, take } from 'rxjs';
 import { AlertController, ToastController } from '@ionic/angular';
 import { environment } from '../environments/environment';
 import { getTimezoneLabel } from './shared/timezone.utils';
@@ -30,6 +31,8 @@ export class AppComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   private currentUserId: string = '';
   private isMessageListenerSetup = false;
+  private splashHidden = false;
+  private authResolved = false;
   
   // Early exit modal state
   isEarlyExitModalOpen = false;
@@ -106,9 +109,28 @@ export class AppComponent implements OnInit, OnDestroy {
     
     // Show loading immediately when app starts to prevent any flash
     this.loadingService.show();
-    
+
+    // Track when auth SDK finishes resolving
+    this.authService.isLoading$.pipe(
+      filter(loading => !loading),
+      take(1),
+      takeUntil(this.destroy$)
+    ).subscribe(() => {
+      this.authResolved = true;
+    });
+
+    // Safety net: hide everything after 10s no matter what
+    setTimeout(() => {
+      if (this.loadingService.isLoading()) {
+        console.log('⏱️ Safety timeout reached, hiding loading');
+        this.loadingService.hide();
+      }
+      this.hideSplashScreen();
+    }, 10000);
+
     // Track previous URL for back-navigation (avoids YouTube iframe history issues)
     let lastUrl = '';
+    let loginHoldTimer: any = null;
     this.router.events.pipe(
       filter(event => event instanceof NavigationEnd),
       takeUntil(this.destroy$)
@@ -120,23 +142,25 @@ export class AppComponent implements OnInit, OnDestroy {
       }
       lastUrl = url;
 
-      // List of public routes that don't need auth/onboarding checks
       const publicRoutes = ['/login', '/tutor/', '/signup'];
       const isPublicRoute = publicRoutes.some(route => url.includes(route));
-      
-      if (isPublicRoute) {
-        console.log('🔓 Public route detected, hiding loading:', url);
+
+      if (url.includes('/tabs') || url.includes('/onboarding')) {
+        // Landed on an authenticated page — safe to reveal everything
+        if (loginHoldTimer) { clearTimeout(loginHoldTimer); loginHoldTimer = null; }
         this.loadingService.hide();
+        this.hideSplashScreen();
+      } else if (isPublicRoute) {
+        // Landed on login/signup — might be a pass-through.
+        // Hold splash for 3s; if we don't navigate away, user is genuinely here.
+        if (!loginHoldTimer) {
+          loginHoldTimer = setTimeout(() => {
+            this.loadingService.hide();
+            this.hideSplashScreen();
+          }, 3000);
+        }
       }
     });
-    
-    // Add a timeout to hide loading after 10 seconds as a safety net
-    setTimeout(() => {
-      if (this.loadingService.isLoading()) {
-        console.log('⏱️ Safety timeout reached, hiding loading');
-        this.loadingService.hide();
-      }
-    }, 10000);
     
     // Set up global WebSocket listener for real-time badge updates
     this.setupGlobalMessageListener();
@@ -394,6 +418,14 @@ export class AppComponent implements OnInit, OnDestroy {
     });
   }
   
+  private hideSplashScreen() {
+    if (this.splashHidden) return;
+    this.splashHidden = true;
+    if (Capacitor.isNativePlatform()) {
+      SplashScreen.hide({ fadeOutDuration: 300 });
+    }
+  }
+
   ngOnDestroy() {
     this.destroy$.next();
     this.destroy$.complete();

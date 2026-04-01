@@ -54,18 +54,12 @@ function emitStatusChange(lessonId, status, tutorId, studentId) {
       updatedAt: new Date()
     };
 
-    // Emit to both tutor and student
+    // Emit to both tutor and student (room-based, reaches all devices)
     if (tutorId) {
-      const tutorSocketId = global.userSockets?.[tutorId.toString()];
-      if (tutorSocketId) {
-        io.to(tutorSocketId).emit('lesson_status_changed', payload);
-      }
+      io.to(`mongo:${tutorId.toString()}`).emit('lesson_status_changed', payload);
     }
     if (studentId) {
-      const studentSocketId = global.userSockets?.[studentId.toString()];
-      if (studentSocketId) {
-        io.to(studentSocketId).emit('lesson_status_changed', payload);
-      }
+      io.to(`mongo:${studentId.toString()}`).emit('lesson_status_changed', payload);
     }
 
     console.log(`📡 Emitted lesson_status_changed for lesson ${lessonId}: ${status}`);

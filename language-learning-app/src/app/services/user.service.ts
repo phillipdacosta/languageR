@@ -1307,6 +1307,7 @@ export class UserService {
     syncEnabled: boolean;
     pushToGoogle: boolean;
     lastSyncAt: string | null;
+    watchActive?: boolean;
   }> {
     return this.authService.user$.pipe(
       take(1),
@@ -1341,6 +1342,20 @@ export class UserService {
         const email = user?.email || 'unknown';
         return this.http.get<{ success: boolean; events: any[] }>(
           `${this.apiUrl}/auth/google-calendar/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}`,
+          { headers: this.getAuthHeaders(email) }
+        );
+      })
+    );
+  }
+
+  registerGoogleCalendarWatch(): Observable<any> {
+    return this.authService.user$.pipe(
+      take(1),
+      switchMap(user => {
+        const email = user?.email || 'unknown';
+        return this.http.post<any>(
+          `${this.apiUrl}/auth/google-calendar/register-watch`,
+          {},
           { headers: this.getAuthHeaders(email) }
         );
       })

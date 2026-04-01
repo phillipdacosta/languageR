@@ -124,6 +124,10 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
   // Expanded lesson row (for actions)
   expandedLessonId: string | null = null;
 
+  // Smart caching — prevents visible reload on re-entry
+  private _lastDataFetch = 0;
+  private _cacheValidityMs = 30000; // 30 seconds
+
   constructor(
     private lessonService: LessonService,
     private classService: ClassService,
@@ -184,9 +188,11 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   ionViewWillEnter() {
-    // On re-entry, reload lessons if we've already loaded once
-    if (this.hasInitiallyLoaded && this.currentUser) {
-      this.loadLessons();
+    if (!this.hasInitiallyLoaded || !this.currentUser) return;
+
+    const cacheAge = Date.now() - this._lastDataFetch;
+    if (cacheAge > this._cacheValidityMs) {
+      this.loadLessons(true);
     }
   }
 
@@ -195,9 +201,11 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     this.destroy$.complete();
   }
 
-  async loadLessons() {
-    this.isLoading = true;
-    this.cdr.detectChanges();
+  async loadLessons(silent = false) {
+    if (!silent) {
+      this.isLoading = true;
+      this.cdr.detectChanges();
+    }
     try {
       const [lessonResponse, classResponse] = await Promise.all([
         firstValueFrom(this.lessonService.getMyLessons()),
@@ -218,14 +226,17 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
       this.extractUniqueParticipants();
       this.applyFilters();
       this.hasInitiallyLoaded = true;
+      this._lastDataFetch = Date.now();
     } catch (error) {
       console.error('Error loading lessons:', error);
-      const toast = await this.toastController.create({
-        message: this.translate.instant('LESSONS_PAGE.TOAST_LOAD_FAILED'),
-        duration: 3000,
-        color: 'danger'
-      });
-      await toast.present();
+      if (!silent) {
+        const toast = await this.toastController.create({
+          message: this.translate.instant('LESSONS_PAGE.TOAST_LOAD_FAILED'),
+          duration: 3000,
+          color: 'danger'
+        });
+        await toast.present();
+      }
     } finally {
       this.isLoading = false;
       this.cdr.detectChanges();

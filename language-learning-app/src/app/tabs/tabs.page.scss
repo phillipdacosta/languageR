@@ -177,25 +177,55 @@
     }
   }
 
-  .mobile-home-greeting {
-    margin-left: 12px;
-    padding: 6px 8px 6px 0;
-    min-width: 0;
-    flex: 1 1 auto;
-    font-size: 17px;
-    font-weight: 800;
-    letter-spacing: -0.35px;
-    line-height: 1.25;
-    color: #000000;
-    cursor: pointer;
-    border-radius: 8px;
-    -webkit-tap-highlight-color: transparent;
-    display: -webkit-box;
-    white-space: nowrap;
+  .mobile-toolbar-brand-home {
+    margin-left: 8px;
+    flex-shrink: 0;
+  }
+}
 
+// Mobile home: clean white surface
+@media (max-width: 600px) {
+  ion-tabs.tabs-home-active {
+    background: #ffffff;
+  }
 
-    &:active {
-      opacity: 0.85;
+  ion-tabs.tabs-home-active .mobile-global-header.home-active.mobile-home-greeting-active {
+    ion-toolbar {
+      --background: transparent;
+      --color: #1a1a1a;
+      --border-width: 0;
+      --border-color: transparent;
+      border: 0;
+      border-bottom: none;
+      box-shadow: none;
+    }
+
+    .mobile-toolbar-brand-home .app-name {
+      color: #1a1a1a !important;
+    }
+
+    .toolbar-earnings-pill {
+      background: #f0f0f0;
+      color: #1a1a1a;
+    }
+
+    .notification-btn ion-icon {
+      color: #1a1a1a;
+    }
+  }
+}
+
+// Dark mode: mobile home
+@media (max-width: 600px) {
+  :host-context(html.ion-palette-dark) {
+    ion-tabs.tabs-home-active {
+      background: #000000;
+    }
+
+    ion-tabs.tabs-home-active .mobile-global-header.home-active.mobile-home-greeting-active {
+      .toolbar-earnings-pill {
+        background: rgba(255, 255, 255, 0.12);
+      }
     }
   }
 }
@@ -1504,8 +1534,8 @@
         height: 10px !important;
         background-color: #ff3b30 !important;
         border-radius: 50% !important;
-        top: 8px !important;
-        left: 50% !important;
+        top: 1px !important;
+        left: 46% !important;
         margin-left: 10px !important;
         right: auto !important;
         border: 2px solid white !important;
@@ -1514,7 +1544,7 @@
         display: block !important;
         opacity: 1 !important;
         visibility: visible !important;
-        animation: dotPulse 2s ease-in-out infinite;
+        animation: _ngcontent-ng-c4207803863_dotPulse 2s ease-in-out infinite;
         pointer-events: none !important;
       }
       
@@ -1538,11 +1568,92 @@
       }
     }
   }
+
+  // Profile: quick slide-down hide; leaving Profile triggers bounce-in class on ion-tab-bar
+  ion-tab-bar[slot='bottom'].mobile-tab-bar--profile-hidden {
+    transform: translate3d(0, calc(100% + 12px), 0);
+    opacity: 0;
+    pointer-events: none;
+    height: 0 !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    overflow: hidden;
+    transition:
+      transform 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+      opacity 0.18s ease-out,
+      height 0s linear 0.22s,
+      padding 0s linear 0.22s;
+  }
+
+  ion-tab-bar[slot='bottom'].mobile-tab-bar--bounce-in {
+    animation: mobileTabBarEaseIn 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+/* Single smooth slide-up — no overshoot or scale (avoids “jumpy” tab bar) */
+@keyframes mobileTabBarEaseIn {
+  from {
+    transform: translate3d(0, 10px, 0);
+    opacity: 0.94;
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .platform-ios ion-tab-bar[slot='bottom'].mobile-tab-bar--profile-hidden,
+  .platform-android ion-tab-bar[slot='bottom'].mobile-tab-bar--profile-hidden {
+    transition: none;
+    transform: none;
+    opacity: 0;
+  }
+
+  .platform-ios ion-tab-bar[slot='bottom'].mobile-tab-bar--bounce-in,
+  .platform-android ion-tab-bar[slot='bottom'].mobile-tab-bar--bounce-in {
+    animation: none;
+  }
+
+  :host-context(.platform-web) {
+    @media (max-width: 991px) {
+      ion-tab-bar[slot='bottom'].mobile-tab-bar--profile-hidden {
+        transition: none;
+        transform: none;
+        opacity: 0;
+      }
+
+      ion-tab-bar[slot='bottom'].mobile-tab-bar--bounce-in {
+        animation: none;
+      }
+    }
+  }
 }
 
 // Mobile web: icon-only bottom tab bar (matches native mobile)
 :host-context(.platform-web) {
   @media (max-width: 991px) {
+    ion-tab-bar[slot='bottom'].mobile-tab-bar--profile-hidden {
+      transform: translate3d(0, calc(100% + 12px), 0);
+      opacity: 0;
+      pointer-events: none;
+      height: 0 !important;
+      min-height: 0 !important;
+      padding: 0 !important;
+      border: none !important;
+      overflow: hidden;
+      transition:
+        transform 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.18s ease-out,
+        height 0s linear 0.22s,
+        padding 0s linear 0.22s;
+    }
+
+    ion-tab-bar[slot='bottom'].mobile-tab-bar--bounce-in {
+      animation: mobileTabBarEaseIn 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
     ion-tab-bar[slot='bottom'] {
       ion-tab-button {
         --color: #717171;
@@ -1962,7 +2073,7 @@ ion-tab-button {
       }
     }
 
-    .mobile-home-greeting {
+    .mobile-toolbar-brand-home .app-name {
       color: #f5f5f7 !important;
     }
 
@@ -1972,6 +2083,40 @@ ion-tab-button {
 
       &:active {
         background: #3a3a3c !important;
+      }
+    }
+  }
+
+  @media (max-width: 600px) {
+    ion-tabs.tabs-home-active {
+      background:
+        radial-gradient(ellipse 120% 70% at 0% 15%, rgba(56, 189, 248, 0.18) 0%, transparent 55%),
+        radial-gradient(ellipse 90% 55% at 75% 8%, rgba(96, 165, 250, 0.12) 0%, transparent 50%),
+        radial-gradient(ellipse 100% 50% at 50% 95%, rgba(125, 211, 252, 0.08) 0%, transparent 50%),
+        var(--ion-background-color, #1c1c1e) !important;
+    }
+
+    ion-tabs.tabs-home-active .mobile-global-header.home-active.mobile-home-greeting-active {
+      ion-toolbar {
+        --background: transparent !important;
+        --border-width: 0 !important;
+        --border-color: transparent !important;
+        border: 0 !important;
+        border-bottom: none !important;
+        box-shadow: none !important;
+      }
+
+      .mobile-toolbar-brand-home .app-name {
+        color: #f5f5f7 !important;
+      }
+
+      .toolbar-earnings-pill {
+        background: rgba(255, 255, 255, 0.12) !important;
+        color: #f5f5f7 !important;
+      }
+
+      .notification-dot {
+        border-color: rgba(28, 28, 30, 0.95) !important;
       }
     }
   }

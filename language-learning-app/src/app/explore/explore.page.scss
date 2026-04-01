@@ -40,6 +40,12 @@ $bg-white: #ffffff;
   display: flex;
   align-items: center;
   padding: 14px 0 8px;
+
+  &--inline {
+    @media (max-width: 575px) {
+      .explore-nav-back { display: none; }
+    }
+  }
 }
 
 .explore-nav-back {

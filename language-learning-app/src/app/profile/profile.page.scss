@@ -57,6 +57,79 @@
   --padding-bottom: 0;
   --padding-start: 0;
   --padding-end: 0;
+
+  @media (max-width: 768px) {
+    --background: #ffffff;
+  }
+}
+
+// Mobile staggered entrance
+@keyframes profileSlideIn {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 16px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@media (max-width: 768px) {
+  .profile-container > * {
+    opacity: 0;
+    animation: profileSlideIn 0.32s cubic-bezier(0.25, 1, 0.5, 1) both;
+    will-change: opacity, transform;
+  }
+
+  .profile-container {
+    > :nth-child(1) { animation-delay: 0.01s; }
+    > :nth-child(2) { animation-delay: 0.05s; }
+    > :nth-child(3) { animation-delay: 0.09s; }
+    > :nth-child(4) { animation-delay: 0.13s; }
+    > :nth-child(5) { animation-delay: 0.17s; }
+    > :nth-child(6) { animation-delay: 0.21s; }
+    > :nth-child(7) { animation-delay: 0.25s; }
+    > :nth-child(8) { animation-delay: 0.29s; }
+    > :nth-child(9) { animation-delay: 0.33s; }
+    > :nth-child(10) { animation-delay: 0.37s; }
+    > :nth-child(11) { animation-delay: 0.41s; }
+    > :nth-child(12) { animation-delay: 0.45s; }
+  }
+}
+
+@media (max-width: 768px) and (prefers-reduced-motion: reduce) {
+  .profile-container > * {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+}
+
+.profile-skeleton-container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 20px 16px 50px;
+
+  @media (min-width: 769px) {
+    padding-top: 90px;
+  }
+
+  @media (max-width: 768px) {
+    max-width: 100%;
+    padding: 16px 16px 50px;
+
+    ion-card {
+      box-shadow: none;
+      border-radius: 0;
+      margin: 0;
+      background: white;
+      border-bottom: 1px solid #ebebeb;
+
+      &:last-child {
+        border-bottom: none;
+      }
+    }
+  }
 }
 
 .profile-container {
@@ -64,7 +137,6 @@
   margin: 0 auto;
   position: relative;
   padding: 20px 16px 50px;
-  animation: fadeIn 0.3s ease-out;
 
   @media (min-width: 769px) {
     padding-top: 90px;
@@ -173,7 +245,6 @@
         height: 100%;
         border-radius: 50%;
         background: rgba(0, 0, 0, 0.6);
-        backdrop-filter: blur(4px);
         display: flex;
         flex-direction: column;
         align-items: center;

@@ -231,9 +231,11 @@ io.on('connection', async (socket) => {
     const User = require('./models/User');
     const user = await User.findOne({ auth0Id: userId });
     if (user) {
-      global.userSockets[user._id.toString()] = socket.id;
-      socket.mongoUserId = user._id.toString(); // Store for later cleanup
-      console.log(`📝 Mapped MongoDB user ID ${user._id} to socket ${socket.id}`);
+      const mongoId = user._id.toString();
+      global.userSockets[mongoId] = socket.id;
+      socket.mongoUserId = mongoId;
+      socket.join(`mongo:${mongoId}`);
+      console.log(`📝 Mapped MongoDB user ID ${mongoId} to socket ${socket.id} and joined room mongo:${mongoId}`);
     } else {
       console.warn(`⚠️ No MongoDB user found for Auth0 ID: ${userId}`);
     }

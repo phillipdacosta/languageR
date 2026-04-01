@@ -1,0 +1,17 @@
+<div class="mobile-section mobile-section-actions m-stagger m-stagger-3" [class.m-stagger-go]="staggerReady" [class.m-stagger-done]="staggerDone">
+  <h3 class="mobile-section-title">{{ 'HOME.QUICK_ACTIONS' | translate }}</h3>
+  <div class="mobile-actions-scroll" [class.qa-go]="quickActionsReady" [class.qa-entered]="quickActionsAnimated">
+    <button class="mobile-action-chip mobile-action-chip--quick-art qa-pop qa-pop-1" (click)="navigateToExplore.emit()">
+      <img class="mobile-action-chip-icon-img" src="assets/quick-actions-classes.png" alt="" />
+      <span>{{ 'HOME.CLASSES' | translate }}</span>
+    </button>
+    <button class="mobile-action-chip mobile-action-chip--quick-art qa-pop qa-pop-2" (click)="navigateToCreateMaterial.emit()">
+      <img class="mobile-action-chip-icon-img" src="assets/quick-actions-create-material.png" alt="" />
+      <span>{{ 'HOME.CREATE_MATERIAL' | translate }}</span>
+    </button>
+    <button class="mobile-action-chip mobile-action-chip--quick-art qa-pop qa-pop-3">
+      <img class="mobile-action-chip-icon-img" src="assets/quick-actions-forum.png" alt="" />
+      <span>{{ 'HOME.FORUM' | translate }}</span>
+    </button>
+  </div>
+</div>

@@ -202,10 +202,12 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
       next: (res) => {
         this.isLoadingMaterials = false;
         this.myMaterials = res.success ? res.materials : [];
+        this.cdr.markForCheck();
       },
       error: () => {
         this.isLoadingMaterials = false;
         this.myMaterials = [];
+        this.cdr.markForCheck();
       }
     });
   }

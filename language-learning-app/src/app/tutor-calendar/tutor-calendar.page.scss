@@ -32,6 +32,10 @@ ion-content {
   --padding-end: 0;
   --padding-top: 0;
   --padding-bottom: 0;
+
+  @media (max-width: 768px) {
+    --background: #ffffff;
+  }
 }
 
 .calendar-layout {
@@ -1752,78 +1756,35 @@ ion-content {
     align-items: center;
     gap: 6px;
     padding: 8px 12px;
-    background: rgba(13, 148, 136, 0.08); // Teal tint
+    margin: 0;
+    border: none;
+    background: rgba(13, 148, 136, 0.08);
     border-radius: 8px;
-    position: relative;
-    cursor: help;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+    transition: background 0.15s ease;
+
+    &:hover,
+    &:focus-visible {
+      background: rgba(13, 148, 136, 0.12);
+    }
+
+    &:focus-visible {
+      outline: 2px solid #0d9488;
+      outline-offset: 2px;
+    }
     
     ion-icon {
       font-size: 18px;
-      color: #0d9488; // Teal color
+      color: #0d9488;
     }
     
     span {
       font-size: 14px;
       font-weight: 500;
-      color: #0d9488; // Teal color
+      color: #0d9488;
       font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
-    }
-    
-    // Tooltip
-    .hours-tooltip {
-      position: absolute;
-      top: calc(100% + 8px);
-      right: 0;
-      background: #ffffff;
-      border: 1px solid rgba(0, 0, 0, 0.1);
-      border-radius: 8px;
-      padding: 12px;
-      min-width: 220px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      opacity: 0;
-      pointer-events: none;
-      transform: translateY(-4px);
-      transition: opacity 0.2s ease, transform 0.2s ease;
-      z-index: 1000;
-      
-      .tooltip-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 6px 0;
-        font-size: 13px;
-        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
-        
-        .tooltip-label {
-          color: rgba(0, 0, 0, 0.6);
-          font-weight: 400;
-        }
-        
-        .tooltip-value {
-          color: #000000;
-          font-weight: 500;
-        }
-        
-        &.total {
-          .tooltip-label,
-          .tooltip-value {
-            font-weight: 600;
-            color: #0d9488;
-          }
-        }
-      }
-      
-      .tooltip-divider {
-        height: 1px;
-        background: rgba(0, 0, 0, 0.1);
-        margin: 6px 0;
-      }
-    }
-    
-    &:hover .hours-tooltip {
-      opacity: 1;
-      transform: translateY(0);
-      pointer-events: auto;
     }
   }
 }
@@ -3362,16 +3323,30 @@ ion-content {
     justify-content: center;
     gap: 0;
     flex: 1;
-    min-width: 0; // Allow shrinking
+    min-width: 0;
     text-align: center;
     
-    // When onboarding incomplete, ensure banner is centered
     .custom-toolbar.onboarding-incomplete & {
       flex: 0 0 auto;
       width: auto;
     }
   }
-  
+
+}
+
+// Pop-float animation for availability pill after save
+@keyframes mcalPillPop {
+  0% { transform: scale(1); box-shadow: 0 0 0 rgba(52, 199, 89, 0); }
+  25% { transform: scale(1.15); box-shadow: 0 4px 16px rgba(52, 199, 89, 0.3); border-color: #34C759; }
+  50% { transform: scale(0.95); }
+  75% { transform: scale(1.05); box-shadow: 0 2px 8px rgba(52, 199, 89, 0.15); }
+  100% { transform: scale(1); box-shadow: 0 0 0 rgba(52, 199, 89, 0); }
+}
+
+.mcal-pill-pop {
+  animation: mcalPillPop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  border-color: #34C759 !important;
+  background: #eef7ee !important;
 }
 
 // Tutor Onboarding Banner - uses global styles from global.scss
@@ -3655,7 +3630,14 @@ ion-content {
 .mobile-day-strip,
 .mobile-timeline,
 .mobile-agenda,
-.mobile-view-toggle {
+.mobile-view-toggle,
+.mcal-week-strip,
+.mcal-date-bar,
+.mcal-skeleton,
+.mcal-timeline,
+.mcal-empty,
+.mcal-fab-container,
+.mcal-fab-backdrop {
   display: none;
 }
 
@@ -3666,7 +3648,17 @@ ion-content {
   .mobile-day-strip,
   .mobile-timeline,
   .mobile-agenda,
-  .mobile-view-toggle {
+  .mobile-view-toggle,
+  .mcal-week-strip,
+  .mcal-date-bar,
+  .mcal-timeline,
+  .mcal-fab-container,
+  .mcal-fab-backdrop {
+    display: flex;
+  }
+
+  .mcal-skeleton,
+  .mcal-empty {
     display: flex;
   }
 
@@ -5093,6 +5085,816 @@ ion-content {
     text-transform: none;
     letter-spacing: -0.01em;
   }
+
+  // ═══════════════════════════════════════════════════
+  // NEW MOBILE CALENDAR (mcal-*) — Image-2 inspired
+  // ═══════════════════════════════════════════════════
+
+  .mcal-week-strip {
+    position: fixed;
+    top: 50px;
+    left: 0;
+    right: 0;
+    z-index: 98;
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 10px 8px;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-bottom: 1px solid #EBEBEB;
+  }
+
+  .mcal-nav-btn {
+    background: none;
+    border: none;
+    padding: 4px;
+    color: #222222;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    cursor: pointer;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    transition: background 0.15s ease;
+
+    &:active { background: #F0F0F0; }
+    &:disabled { opacity: 0.3; pointer-events: none; }
+  }
+
+  .mcal-week-row {
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
+    gap: 2px;
+    padding: 0 2px;
+  }
+
+  .mcal-day-cell {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 0 8px;
+    border: none;
+    background: transparent;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+    &:active { transform: scale(0.92); }
+    &:disabled { opacity: 0.3; pointer-events: none; }
+  }
+
+  .mcal-day-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: #8e8e93;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  }
+
+  .mcal-day-number {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 600;
+    color: #222222;
+    border-radius: 50%;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mcal-day-today .mcal-day-number {
+    color: #007AFF;
+    font-weight: 700;
+  }
+
+  .mcal-day-active {
+    .mcal-day-number {
+      background: #4298d3;
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(66, 152, 211, 0.3);
+    }
+    .mcal-day-label {
+      color: #4298d3;
+      font-weight: 600;
+    }
+  }
+
+  // ── Date bar + summary ──
+  .mcal-date-bar {
+    position: fixed;
+    top: 132px;
+    left: 0;
+    right: 0;
+    z-index: 97;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-bottom: 1px solid #EBEBEB;
+  }
+
+  .mcal-date-text {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .mcal-date-day {
+    font-size: 20px;
+    font-weight: 700;
+    color: #222222;
+    letter-spacing: -0.4px;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+  }
+
+  .mcal-date-month {
+    font-size: 14px;
+    font-weight: 400;
+    color: #8e8e93;
+  }
+
+  .mcal-summary {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .mcal-summary-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #717171;
+    background: #F7F7F7;
+    border: 1px solid #EBEBEB;
+    border-radius: 20px;
+    padding: 4px 10px;
+    white-space: nowrap;
+    ion-icon { font-size: 13px; color: #8e8e93; }
+
+    &--avail {
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
+      &:active { background: #eef7ee; border-color: rgba(52, 199, 89, 0.3); }
+    }
+  }
+
+  // ── Skeleton ──
+  .mcal-skeleton {
+    padding: 186px 20px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+
+    @keyframes mcalShimmer {
+      0% { opacity: 0.4; }
+      50% { opacity: 1; }
+      100% { opacity: 0.4; }
+    }
+  }
+
+  .mcal-skel-row {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    animation: mcalShimmer 1.4s ease-in-out infinite;
+
+    &:nth-child(2) { animation-delay: 0.2s; }
+    &:nth-child(3) { animation-delay: 0.4s; }
+  }
+
+  .mcal-skel-time {
+    width: 70px;
+    flex-shrink: 0;
+    padding-top: 4px;
+  }
+
+  .mcal-skel-card {
+    flex: 1;
+    background: #F7F7F7;
+    border-radius: 14px;
+    padding: 18px 16px;
+    border: 1px solid #EBEBEB;
+  }
+
+  // ── Availability strip ──
+  .mcal-availability-strip {
+    padding: 168px 20px 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+
+  .mcal-avail-block {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #34C759;
+    background: rgba(52, 199, 89, 0.08);
+    border: 1px solid rgba(52, 199, 89, 0.2);
+    border-radius: 8px;
+    padding: 5px 10px;
+
+    ion-icon { font-size: 13px; }
+  }
+
+  // ── Now indicator ──
+  .mcal-now-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 20px;
+    margin: 8px 0;
+  }
+
+  .mcal-now-dot {
+    width: 10px;
+    height: 10px;
+    background: #FF3B30;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.15);
+    animation: mcalPulse 2s ease-in-out infinite;
+  }
+
+  @keyframes mcalPulse {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.15); }
+    50% { box-shadow: 0 0 0 6px rgba(255, 59, 48, 0.08); }
+  }
+
+  .mcal-now-line {
+    flex: 1;
+    height: 2px;
+    background: #FF3B30;
+    opacity: 0.5;
+    border-radius: 1px;
+  }
+
+  .mcal-now-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #FF3B30;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+  }
+
+  // ── Timeline ──
+  .mcal-timeline {
+    padding: 186px 20px 140px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .mcal-event-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px 0;
+    border-bottom: 1px solid #F0F0F0;
+    width: 100%;
+    background: none;
+    border-left: none;
+    border-right: none;
+    border-top: none;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+
+    &.mcal-row-clickable {
+      cursor: pointer;
+      -webkit-tap-highlight-color: rgba(0, 0, 0, 0.04);
+      touch-action: manipulation;
+
+      &:active .mcal-card {
+        transform: scale(0.98);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+      }
+    }
+
+    &:last-child { border-bottom: none; }
+
+    &.mcal-past .mcal-card { opacity: 0.45; }
+    &.mcal-past .mcal-time-gutter { opacity: 0.45; }
+
+    &.mcal-now .mcal-card {
+      border-color: rgba(255, 59, 48, 0.2);
+      box-shadow: 0 2px 12px rgba(255, 59, 48, 0.08);
+    }
+
+    &.mcal-cancelled .mcal-card { opacity: 0.4; }
+    &.mcal-cancelled .mcal-card-title,
+    &.mcal-cancelled .mcal-card-sub {
+      text-decoration: line-through;
+      color: #B0B0B0;
+    }
+  }
+
+  @keyframes mcalFadeUp {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  // ── Availability chips (compact inline) ──
+  .mcal-avail-chips {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    border-radius: 14px;
+    background: #F0FFF4;
+    border: 1px solid rgba(52, 199, 89, 0.12);
+    flex-wrap: wrap;
+    transition: background 0.15s ease;
+    &:active { background: #e6f9ed; }
+  }
+
+  .mcal-avail-chips-icon {
+    font-size: 16px;
+    color: #34C759;
+    flex-shrink: 0;
+  }
+
+  .mcal-avail-chip {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1a1a1a;
+    background: rgba(52, 199, 89, 0.1);
+    border-radius: 8px;
+    padding: 4px 10px;
+    white-space: nowrap;
+    letter-spacing: -0.01em;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  }
+
+  .mcal-avail-chips-chevron {
+    font-size: 14px;
+    color: #c7c7cc;
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+
+  .mcal-lessons-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #8E8E93;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  }
+
+  .mcal-lessons-header-icon {
+    font-size: 14px;
+    color: #4298d3;
+  }
+
+  .mcal-lessons-section {
+    margin-top: 4px;
+  }
+
+  .mcal-avail-no-lessons {
+    text-align: center;
+    padding: 32px 20px 16px;
+
+    p {
+      font-size: 14px;
+      color: #8E8E93;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+      margin: 0;
+    }
+  }
+
+  // ── Time gutter ──
+  .mcal-time-gutter {
+    width: 64px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding-top: 2px;
+  }
+
+  .mcal-time-text {
+    font-size: 14px;
+    font-weight: 600;
+    color: #222222;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+
+    &.mcal-time-now { color: #FF3B30; }
+  }
+
+  .mcal-time-dur {
+    font-size: 12px;
+    font-weight: 400;
+    color: #8e8e93;
+    letter-spacing: -0.01em;
+  }
+
+  // ── Event card ──
+  .mcal-card {
+    flex: 1;
+    display: flex;
+    background: #ffffff;
+    border-radius: 14px;
+    overflow: visible;
+    border: 1px solid #EBEBEB;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.03);
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
+    min-height: 72px;
+
+    &.mcal-card-clickable {
+      cursor: pointer;
+      &:active {
+        transform: scale(0.98);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+      }
+    }
+  }
+
+  .mcal-card-strip {
+    width: 4px;
+    flex-shrink: 0;
+    border-radius: 14px 0 0 14px;
+    align-self: stretch;
+    min-height: 100%;
+  }
+
+  .mcal-card-body {
+    flex: 1;
+    min-width: 0;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    position: relative;
+    overflow: hidden;
+    border-radius: 0 14px 14px 0;
+    background: #ffffff;
+  }
+
+  .mcal-card-body:has(.mcal-badge) .mcal-card-top {
+    padding-right: 28px;
+  }
+
+  .mcal-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 0 0 2px #ffffff;
+    z-index: 2;
+
+    ion-icon { color: #ffffff; font-size: 12px; }
+  }
+
+  .mcal-badge-trial { background: #FF9500; }
+  .mcal-badge-oh { background: #FF9500; }
+
+  .mcal-card-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .mcal-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+    border: 2px solid #ffffff;
+  }
+
+  .mcal-avatar-gcal {
+    width: 22px;
+    height: 22px;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+    object-fit: contain;
+  }
+
+  .mcal-avatar-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #F0F0F0;
+
+    ion-icon { font-size: 20px; color: #8e8e93; }
+  }
+
+  .mcal-card-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .mcal-card-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #222222;
+    line-height: 1.3;
+    letter-spacing: -0.2px;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mcal-card-sub {
+    font-size: 13px;
+    font-weight: 400;
+    color: #8e8e93;
+    line-height: 1.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mcal-card-loc {
+    font-size: 12px;
+    font-weight: 400;
+    color: #8e8e93;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    background: #F7F7F7;
+    border-radius: 8px;
+
+    &::before { content: '📍'; font-size: 12px; }
+  }
+
+  // ── Empty state ──
+  .mcal-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 220px 40px 80px;
+    gap: 8px;
+  }
+
+  .mcal-empty-icon {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: #F7F7F7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 8px;
+
+    ion-icon { font-size: 32px; color: #DDDDDD; }
+  }
+
+  .mcal-empty-icon-ready {
+    background: rgba(52, 199, 89, 0.1);
+    ion-icon { color: #34C759 !important; }
+  }
+
+  .mcal-empty h3 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #222222;
+    margin: 0;
+    letter-spacing: -0.3px;
+  }
+
+  .mcal-empty p {
+    font-size: 14px;
+    color: #8e8e93;
+    margin: 0 0 16px;
+    line-height: 1.5;
+  }
+
+  .mcal-empty-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 24px;
+    border-radius: 12px;
+    border: none;
+    background: #222222;
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+
+    ion-icon { font-size: 18px; }
+    img { width: 18px; height: 18px; }
+
+    &:active { transform: scale(0.97); }
+  }
+
+  .mcal-empty-cta-secondary {
+    background: #ffffff;
+    color: #222222;
+    border: 1px solid #EBEBEB;
+    margin-top: 8px;
+  }
+
+  .mcal-gcal-logo {
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+  }
+
+  // ── FAB ──
+  .mcal-fab-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 99;
+    animation: mcalBackdropIn 0.2s ease forwards;
+  }
+
+  @keyframes mcalBackdropIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .mcal-fab-container {
+    position: fixed;
+    bottom: 100px;
+    right: 20px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0;
+  }
+
+  .mcal-fab-options {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 12px;
+    margin-bottom: 16px;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(20px);
+    transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .mcal-fab-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+
+    .mcal-fab-label {
+      background: #ffffff;
+      color: #222222;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+      padding: 8px 14px;
+      border-radius: 10px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.06);
+      white-space: nowrap;
+      letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+
+      .mcal-fab-connected-icon {
+        font-size: 14px;
+        color: #34C759;
+      }
+    }
+
+    ion-icon,
+    .mcal-fab-google-logo {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: #f5f5f7;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.06);
+      flex-shrink: 0;
+    }
+
+    ion-icon {
+      font-size: 20px;
+      color: #222222;
+      padding: 12px;
+    }
+
+    .mcal-fab-google-logo {
+      padding: 10px;
+      object-fit: contain;
+    }
+
+    &:active {
+      .mcal-fab-label { background: #f0f0f0; }
+      ion-icon, .mcal-fab-google-logo { background: #e8e8ed; }
+    }
+  }
+
+  .mcal-fab-trigger {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #4298d3;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 16px rgba(66, 152, 211, 0.35), 0 1px 4px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s ease, box-shadow 0.2s ease;
+
+    ion-icon { font-size: 26px; transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+    &:active {
+      transform: scale(0.9);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+  }
+
+  .mcal-fab-open {
+    .mcal-fab-options {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+
+    .mcal-fab-trigger {
+      background: #4298d3;
+      ion-icon { transform: rotate(45deg); }
+    }
+
+    .mcal-fab-option {
+      @for $i from 1 through 4 {
+        &:nth-child(#{$i}) {
+          animation: mcalFabItemIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) #{($i - 1) * 0.05}s both;
+        }
+      }
+    }
+  }
+
+  @keyframes mcalFabItemIn {
+    from {
+      opacity: 0;
+      transform: translateY(12px) scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
 }
 
 .mobile-header-actions {
@@ -5947,35 +6749,21 @@ ion-content {
     .day-view-free-hours {
       background: rgba(66, 152, 210, 0.15);
 
+      &:hover,
+      &:focus-visible {
+        background: rgba(66, 152, 210, 0.22);
+      }
+
+      &:focus-visible {
+        outline-color: #4298d2;
+      }
+
       ion-icon {
         color: #4298d2;
       }
 
       span {
         color: #4298d2;
-      }
-
-      .hours-tooltip {
-        background: #1c1c1e;
-        border-color: rgba(255, 255, 255, 0.1);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-
-        .tooltip-label {
-          color: #8e8e93;
-        }
-
-        .tooltip-value {
-          color: #f5f5f7;
-        }
-
-        .tooltip-row.total .tooltip-label,
-        .tooltip-row.total .tooltip-value {
-          color: #4298d2;
-        }
-
-        .tooltip-divider {
-          background: rgba(255, 255, 255, 0.1);
-        }
       }
     }
   }
@@ -6525,6 +7313,148 @@ ion-content {
     .mobile-calendar-wrapper {
       background: #000000;
     }
+
+    // ── New mcal dark mode ──
+    .mcal-week-strip {
+      background: rgba(0, 0, 0, 0.92);
+      backdrop-filter: saturate(180%) blur(20px);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      border-bottom-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .mcal-nav-btn {
+      color: #f5f5f7;
+      &:active { background: rgba(255, 255, 255, 0.08); }
+    }
+
+    .mcal-day-label { color: #636366; }
+    .mcal-day-number { color: #f5f5f7; }
+    .mcal-day-today .mcal-day-number { color: #4298d2; }
+
+    .mcal-day-active {
+      .mcal-day-number {
+        background: #4298d3;
+        color: #ffffff;
+        box-shadow: 0 2px 8px rgba(66, 152, 211, 0.3);
+      }
+      .mcal-day-label { color: #4298d3; }
+    }
+
+    .mcal-date-bar {
+      background: rgba(0, 0, 0, 0.92);
+      border-bottom-color: rgba(255, 255, 255, 0.1);
+    }
+    .mcal-date-day { color: #f5f5f7; }
+    .mcal-date-month { color: #636366; }
+
+    .mcal-summary-pill {
+      background: #2c2c2e;
+      border-color: #3a3a3c;
+      color: #8e8e93;
+      ion-icon { color: #636366; }
+    }
+
+    .mcal-skel-card {
+      background: #1c1c1e;
+      border-color: #3a3a3c;
+    }
+
+    .mcal-avail-block {
+      color: #34C759;
+      background: rgba(52, 199, 89, 0.1);
+      border-color: rgba(52, 199, 89, 0.2);
+    }
+
+    .mcal-timeline { background: #000000; }
+
+    .mcal-lessons-header { color: #636366; }
+
+    .mcal-avail-chips {
+      background: rgba(52, 199, 89, 0.08);
+      border-color: rgba(52, 199, 89, 0.15);
+      &:active { background: rgba(52, 199, 89, 0.12); }
+    }
+    .mcal-avail-chip {
+      color: #f5f5f7;
+      background: rgba(52, 199, 89, 0.15);
+    }
+    .mcal-avail-chips-chevron { color: #555; }
+
+    .mcal-avail-no-lessons p { color: #636366; }
+
+    .mcal-event-row {
+      border-bottom-color: rgba(255, 255, 255, 0.06);
+    }
+
+    .mcal-time-text { color: #f5f5f7; }
+    .mcal-time-dur { color: #636366; }
+
+    .mcal-card {
+      background: #1c1c1e;
+      border-color: #3a3a3c;
+      box-shadow: none;
+    }
+
+    .mcal-card-body {
+      background: #1c1c1e;
+    }
+
+    .mcal-card-title { color: #f5f5f7; }
+    .mcal-card-sub { color: #8e8e93; }
+
+    .mcal-card-loc {
+      background: #2c2c2e;
+      color: #8e8e93;
+    }
+
+    .mcal-avatar { border-color: #1c1c1e; }
+    .mcal-avatar-icon { background: #2c2c2e; }
+
+    .mcal-badge { box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3), 0 0 0 2px #1c1c1e; }
+
+    .mcal-empty-icon {
+      background: #2c2c2e;
+      ion-icon { color: #48484a; }
+    }
+    .mcal-empty h3 { color: #f5f5f7; }
+    .mcal-empty p { color: #636366; }
+
+    .mcal-empty-cta {
+      background: #f5f5f7;
+      color: #000000;
+    }
+    .mcal-empty-cta-secondary {
+      background: #1c1c1e;
+      color: #f5f5f7;
+      border-color: #3a3a3c;
+    }
+
+    .mcal-fab-backdrop {
+      background: rgba(0, 0, 0, 0.5);
+    }
+
+    .mcal-fab-trigger {
+      background: #4298d3;
+      color: #ffffff;
+      box-shadow: 0 4px 16px rgba(66, 152, 211, 0.4);
+    }
+
+    .mcal-fab-option {
+      .mcal-fab-label {
+        background: #2c2c2e;
+        color: #f5f5f7;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+      }
+      ion-icon, .mcal-fab-google-logo {
+        background: #3a3a3c;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+      }
+      ion-icon { color: #f5f5f7; }
+      &:active {
+        .mcal-fab-label { background: #3a3a3c; }
+        ion-icon, .mcal-fab-google-logo { background: #48484a; }
+      }
+    }
   }
 
   .feedback-banner-airbnb {
@@ -6769,6 +7699,27 @@ ion-content {
         }
       }
     }
+
+    // .desktop-avail-pill dark mode in global.scss
   }
+}
+
+// ── Availability Detail Modal ──
+// .avail-detail-modal styles are in global.scss (Ionic renders modals at app root)
+
+// Dark mode for availability modal + chips
+:host-context(html.ion-palette-dark) {
+  .mcal-avail-chips {
+    background: rgba(52, 199, 89, 0.08);
+    border-color: rgba(52, 199, 89, 0.15);
+    &:active { background: rgba(52, 199, 89, 0.12); }
+  }
+  .mcal-avail-chip {
+    color: #f5f5f7;
+    background: rgba(52, 199, 89, 0.15);
+  }
+  .mcal-avail-chips-chevron { color: #555; }
+
+  // avail-detail-modal dark styles in global.scss
 }
 

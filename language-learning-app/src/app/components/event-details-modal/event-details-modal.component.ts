@@ -57,6 +57,8 @@ interface MenuPosition {
 export class EventDetailsModalComponent implements OnInit, OnDestroy {
   @Input() event!: EventDetails;
   @Input() clickEvent?: any; // The click event to position the menu
+  /** Mobile: half-height panel from bottom instead of anchored popover */
+  @Input() bottomSheet = false;
   @Output() lessonCancelled = new EventEmitter<string>(); // Emit when lesson is cancelled
   
   position: MenuPosition | null = null;
@@ -64,6 +66,8 @@ export class EventDetailsModalComponent implements OnInit, OnDestroy {
   joinLabel = 'Join';
   isLessonInProgress = false;
   canCancel = false;
+  footerShowsJoin = false;
+  isClosing = false;
 
   constructor(
     private modalController: ModalController,
@@ -79,10 +83,24 @@ export class EventDetailsModalComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    console.log('Event details modal opened with event:', this.event);
-    this.calculatePosition();
+    if (!this.bottomSheet) {
+      this.calculatePosition();
+    }
     this.updateJoinButton();
     this.updateCancelButton();
+    this.updateFooterPrimary();
+
+    if (this.bottomSheet && (this.event.lessonId || this.event.classId)) {
+      import('../../tutor-calendar/event-details/event-details.page').catch(() => {});
+    }
+  }
+
+  private updateFooterPrimary(): void {
+    this.footerShowsJoin = !!(
+      this.canJoin &&
+      (this.event.lessonId || this.event.classId) &&
+      !this.event.isCancelled
+    );
   }
   
   private updateCancelButton() {
@@ -171,7 +189,9 @@ export class EventDetailsModalComponent implements OnInit, OnDestroy {
 
   @HostListener('window:resize')
   onResize() {
-    this.calculatePosition();
+    if (!this.bottomSheet) {
+      this.calculatePosition();
+    }
   }
 
   private calculatePosition() {
@@ -262,7 +282,13 @@ export class EventDetailsModalComponent implements OnInit, OnDestroy {
   }
 
   close() {
-    this.modalController.dismiss();
+    if (this.isClosing) return;
+    if (!this.bottomSheet) {
+      this.modalController.dismiss();
+      return;
+    }
+    this.isClosing = true;
+    setTimeout(() => this.modalController.dismiss(), 300);
   }
 
   formatTime(date: Date): string {
@@ -308,13 +334,15 @@ export class EventDetailsModalComponent implements OnInit, OnDestroy {
     return `${hours} hour${hours > 1 ? 's' : ''} ${mins} minute${mins > 1 ? 's' : ''}`;
   }
 
-  async openFullDetails() {
-    this.close();
-    
-    if (this.event.lessonId) {
-      this.router.navigate(['/tabs/lessons', this.event.lessonId]);
-    } else if (this.event.classId) {
-      this.router.navigate(['/tabs/tutor-calendar/class', this.event.classId]);
+  openFullDetails() {
+    const lessonId = this.event.lessonId;
+    const classId = this.event.classId;
+    this.modalController.dismiss();
+
+    if (lessonId) {
+      this.router.navigate(['/tabs/lessons', lessonId]);
+    } else if (classId) {
+      this.router.navigate(['/tabs/tutor-calendar/class', classId]);
     }
   }
 
