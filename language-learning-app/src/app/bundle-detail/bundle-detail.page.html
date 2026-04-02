@@ -1,0 +1,320 @@
+<ion-content [fullscreen]="true" [scrollEvents]="true">
+
+<!-- ═══ Loading ═══ -->
+<div class="bd-loading" *ngIf="isLoading">
+  <div class="bd-skel-hero"></div>
+  <div class="bd-skel-card">
+    <div class="bd-skel-line bd-skel--lg"></div>
+    <div class="bd-skel-line bd-skel--sm"></div>
+    <div class="bd-skel-line bd-skel--md"></div>
+    <div class="bd-skel-divider"></div>
+    <div class="bd-skel-row" *ngFor="let n of [1,2,3]">
+      <div class="bd-skel-thumb"></div>
+      <div class="bd-skel-row-lines">
+        <div class="bd-skel-line bd-skel--md"></div>
+        <div class="bd-skel-line bd-skel--sm"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Bundle Page ═══ -->
+<ng-container *ngIf="!isLoading && bundle">
+
+  <!-- Hero Image (sits behind the card) -->
+  <div class="bd-hero">
+    <div class="bd-hero-actions">
+      <button class="bd-hero-btn" (click)="goBack()">
+        <ion-icon name="chevron-back"></ion-icon>
+      </button>
+      <div class="bd-hero-actions-right">
+        <button class="bd-hero-btn bd-hero-btn--sm" *ngIf="isOwner" (click)="editBundle()">
+          <ion-icon name="create-outline"></ion-icon>
+        </button>
+      </div>
+    </div>
+
+    <img class="bd-hero-img" *ngIf="bundle.coverImageUrl" [src]="bundle.coverImageUrl" [alt]="bundle.title" />
+    <div class="bd-hero-placeholder" *ngIf="!bundle.coverImageUrl">
+      <ion-icon name="folder-open-outline"></ion-icon>
+    </div>
+  </div>
+
+  <!-- Content Card (overlaps the hero) -->
+  <div class="bd-card">
+
+    <!-- Desktop breadcrumb (above layout, pulled left) -->
+    <div class="bd-breadcrumb">
+      <button class="bd-breadcrumb-back" (click)="goBack()">
+        <ion-icon name="chevron-back-outline"></ion-icon>
+        <span>Back</span>
+      </button>
+    </div>
+
+    <!-- Desktop: two-column layout -->
+    <div class="bd-layout">
+
+      <!-- Left column: info -->
+      <div class="bd-info-col">
+
+        <!-- Desktop edit button (owners only) -->
+        <div class="bd-desktop-topbar" *ngIf="isOwner">
+          <button class="bd-desktop-edit" (click)="editBundle()">
+            <ion-icon name="create-outline"></ion-icon>
+            Edit
+          </button>
+        </div>
+
+        <!-- Cover image (desktop only, inside left col like Airbnb) -->
+        <div class="bd-info-cover">
+          <img *ngIf="bundle.coverImageUrl" [src]="bundle.coverImageUrl" [alt]="bundle.title" />
+          <div class="bd-info-cover-placeholder" *ngIf="!bundle.coverImageUrl">
+            <ion-icon name="folder-open-outline"></ion-icon>
+          </div>
+        </div>
+
+        <!-- Tutor avatar peek (overlaps card top edge on mobile) -->
+        <div class="bd-tutor-peek">
+          <div class="bd-tutor-peek-avatar">
+            <img *ngIf="tutorPicture" [src]="tutorPicture" alt="" referrerpolicy="no-referrer" />
+            <ion-icon *ngIf="!tutorPicture" name="person"></ion-icon>
+          </div>
+        </div>
+
+        <h1 class="bd-title">{{ bundle.title }}</h1>
+
+        <p class="bd-description" *ngIf="bundle.description">{{ bundle.description }}</p>
+
+        <!-- Meta row -->
+        <div class="bd-meta">
+          <span class="bd-meta-item" *ngIf="bundle.language">
+            <ion-icon name="globe-outline"></ion-icon>
+            {{ bundle.language }}
+          </span>
+          <span class="bd-meta-dot">·</span>
+          <span class="bd-meta-item">{{ levelLabel }}</span>
+          <span class="bd-meta-dot">·</span>
+          <span class="bd-meta-item">{{ itemCount }} item{{ itemCount !== 1 ? 's' : '' }}</span>
+        </div>
+
+        <!-- By tutor -->
+        <div class="bd-by-tutor">
+          Curated by {{ tutorName }}
+        </div>
+
+        <!-- Owner preview banner -->
+        <div class="bd-owner-pill" *ngIf="isOwner">
+          <ion-icon name="eye-outline"></ion-icon>
+          Student preview
+        </div>
+
+      </div>
+
+      <!-- Right column: items list -->
+      <div class="bd-items-col">
+
+        <!-- Divider (mobile only, between info and items) -->
+        <div class="bd-divider bd-divider--mobile"></div>
+
+        <!-- Item cards -->
+        <div
+          class="bd-item"
+          *ngFor="let item of displayItems; let i = index"
+          [class.bd-item--locked]="!canAccess"
+          (click)="canAccess ? viewMaterial($any(item.materialId)?._id || item.materialId) : null">
+
+          <div class="bd-item-thumb">
+            <img *ngIf="$any(item.materialId)?.thumbnailUrl" [src]="$any(item.materialId).thumbnailUrl" alt="" />
+            <div class="bd-item-thumb-fallback" *ngIf="!$any(item.materialId)?.thumbnailUrl">
+              <ion-icon [name]="getMaterialTypeIcon($any(item.materialId)?.materialType || '')"></ion-icon>
+            </div>
+            <div class="bd-item-lock" *ngIf="!canAccess">
+              <ion-icon name="lock-closed"></ion-icon>
+            </div>
+          </div>
+
+          <div class="bd-item-body">
+            <span class="bd-item-title">{{ $any(item.materialId)?.title || 'Material' }}</span>
+            <span class="bd-item-desc" *ngIf="$any(item.materialId)?.description">{{ $any(item.materialId).description }}</span>
+            <div class="bd-item-meta">
+              <span class="bd-item-type">
+                <ion-icon [name]="getMaterialTypeIcon($any(item.materialId)?.materialType || '')"></ion-icon>
+                {{ getMaterialTypeLabel($any(item.materialId)?.materialType || '') }}
+              </span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Show all / Show less -->
+        <button class="bd-show-all" *ngIf="hasMoreItems" (click)="toggleShowAll()">
+          {{ showAllItems ? 'Show less' : 'Show all ' + itemCount }}
+        </button>
+
+        <!-- Divider -->
+        <div class="bd-divider" *ngIf="!isOwner"></div>
+
+        <!-- About tutor -->
+        <div class="bd-about-tutor">
+          <h2 class="bd-about-tutor-heading">About the tutor</h2>
+
+          <div class="bd-about-card">
+            <div class="bd-about-card-profile bd-about-card-profile--link" (click)="viewTutorProfile()">
+              <div class="bd-about-card-avatar-ring">
+                <div class="bd-about-card-avatar">
+                  <img *ngIf="tutorPicture" [src]="tutorPicture" alt="" referrerpolicy="no-referrer" />
+                  <ion-icon *ngIf="!tutorPicture" name="person"></ion-icon>
+                </div>
+              </div>
+              <h3 class="bd-about-card-name">{{ tutorName }}</h3>
+              <span class="bd-about-card-role" *ngIf="tutorSummary">{{ tutorSummary }}</span>
+              <span class="bd-about-card-view-profile">View profile <ion-icon name="open-outline"></ion-icon></span>
+            </div>
+
+            <div class="bd-about-card-facts">
+              <div class="bd-about-fact" *ngIf="tutorOriginCountry">
+                <div class="bd-about-fact-icon">
+                  <ion-icon name="flag-outline"></ion-icon>
+                </div>
+                <div class="bd-about-fact-text">
+                  <span class="bd-about-fact-title">From {{ tutorOriginCountry }}</span>
+                  <span class="bd-about-fact-desc" *ngIf="tutorLivesIn">Currently lives in {{ tutorLivesIn }}</span>
+                </div>
+              </div>
+              <div class="bd-about-fact" *ngIf="!tutorOriginCountry && tutorLivesIn">
+                <div class="bd-about-fact-icon">
+                  <ion-icon name="location-outline"></ion-icon>
+                </div>
+                <div class="bd-about-fact-text">
+                  <span class="bd-about-fact-title">Lives in {{ tutorLivesIn }}</span>
+                </div>
+              </div>
+              <div class="bd-about-fact" *ngIf="tutorLanguages.length > 0">
+                <div class="bd-about-fact-icon">
+                  <ion-icon name="chatbubbles-outline"></ion-icon>
+                </div>
+                <div class="bd-about-fact-text">
+                  <span class="bd-about-fact-title">Teaches {{ tutorLanguages.join(', ') }}</span>
+                </div>
+              </div>
+              <div class="bd-about-fact" *ngIf="tutorExperience">
+                <div class="bd-about-fact-icon">
+                  <ion-icon name="ribbon-outline"></ion-icon>
+                </div>
+                <div class="bd-about-fact-text">
+                  <span class="bd-about-fact-title">{{ tutorExperience }}</span>
+                </div>
+              </div>
+              <div class="bd-about-fact" *ngIf="tutorTotalLessons > 0">
+                <div class="bd-about-fact-icon">
+                  <ion-icon name="school-outline"></ion-icon>
+                </div>
+                <div class="bd-about-fact-text">
+                  <span class="bd-about-fact-title">{{ tutorTotalLessons }} lesson{{ tutorTotalLessons !== 1 ? 's' : '' }}</span>
+                  <span class="bd-about-fact-desc">Completed on Barnabi</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <p class="bd-about-bio" *ngIf="tutorBio">{{ tutorBio }}</p>
+        </div>
+
+        <!-- More from this tutor -->
+        <ng-container *ngIf="hasMoreContent">
+          <div class="bd-divider"></div>
+
+          <div class="bd-more">
+            <h2 class="bd-more-title">More from {{ tutorName }} not included in this bundle</h2>
+
+            <!-- Other bundles -->
+            <div class="bd-more-list" *ngIf="moreBundles.length > 0">
+              <div
+                class="bd-more-card"
+                *ngFor="let mb of moreBundles"
+                (click)="viewBundle(mb._id)">
+                <div class="bd-more-thumb">
+                  <img *ngIf="mb.coverImageUrl" [src]="mb.coverImageUrl" alt="" />
+                  <div class="bd-more-thumb-fallback" *ngIf="!mb.coverImageUrl">
+                    <ion-icon name="folder-open-outline"></ion-icon>
+                  </div>
+                  <span class="bd-more-badge">Bundle</span>
+                </div>
+                <div class="bd-more-body">
+                  <span class="bd-more-card-title">{{ mb.title }}</span>
+                  <span class="bd-more-card-meta">
+                    {{ mb.items?.length || 0 }} item{{ (mb.items?.length || 0) !== 1 ? 's' : '' }}
+                    <span class="bd-meta-dot">·</span>
+                    {{ mb.pricingType === 'paid' ? '$' + mb.price : 'Free' }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Other materials -->
+            <div class="bd-more-list" *ngIf="moreMaterials.length > 0">
+              <div
+                class="bd-more-card"
+                *ngFor="let mm of moreMaterials"
+                (click)="viewMaterial(mm._id)">
+                <div class="bd-more-thumb">
+                  <img *ngIf="mm.thumbnailUrl" [src]="mm.thumbnailUrl" alt="" />
+                  <div class="bd-more-thumb-fallback" *ngIf="!mm.thumbnailUrl">
+                    <ion-icon [name]="getMaterialTypeIcon(mm.materialType)"></ion-icon>
+                  </div>
+                  <span class="bd-more-badge bd-more-badge--quiz">{{ getMaterialTypeLabel(mm.materialType) }}</span>
+                </div>
+                <div class="bd-more-body">
+                  <span class="bd-more-card-title">{{ mm.title }}</span>
+                  <span class="bd-more-card-meta">
+                    {{ mm.language }}
+                    <span class="bd-meta-dot">·</span>
+                    {{ mm.pricingType === 'paid' ? '$' + mm.price : 'Free' }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+
+        <!-- Bottom spacer -->
+        <div class="bd-bottom-spacer"></div>
+
+      </div>
+    </div>
+  </div>
+
+</ng-container>
+
+<!-- ═══ Not found ═══ -->
+<div class="bd-empty" *ngIf="!isLoading && !bundle">
+  <ion-icon name="alert-circle-outline"></ion-icon>
+  <h2>Bundle not found</h2>
+  <button class="bd-empty-back" (click)="goBack()">Go back</button>
+</div>
+
+</ion-content>
+
+<!-- ═══ Sticky CTA ═══ -->
+<div class="bd-cta" *ngIf="!isLoading && bundle && !isOwner && !canAccess">
+  <div class="bd-cta-inner">
+    <button class="bd-cta-btn" (click)="purchaseBundle()" [disabled]="isPurchasing">
+      <ion-spinner *ngIf="isPurchasing" name="crescent" style="width:16px;height:16px;color:#fff;margin-right:6px"></ion-spinner>
+      <ng-container *ngIf="!isPurchasing">
+        <span class="bd-cta-btn-label">Get Bundle</span>
+        <span class="bd-cta-btn-divider"></span>
+        <span class="bd-cta-btn-price" *ngIf="!isFree">${{ bundle.price }}</span>
+        <span class="bd-cta-btn-price" *ngIf="isFree">Free</span>
+      </ng-container>
+      <ng-container *ngIf="isPurchasing">Processing...</ng-container>
+    </button>
+  </div>
+</div>
+
+<!-- Purchased state -->
+<div class="bd-cta bd-cta--owned" *ngIf="!isLoading && bundle && !isOwner && hasPurchased && !isFree">
+  <div class="bd-cta-inner bd-cta-inner--center">
+    <ion-icon name="checkmark-circle" style="font-size:18px;color:#34C759;margin-right:6px"></ion-icon>
+    <span class="bd-cta-owned-text">You own this bundle</span>
+  </div>
+</div>

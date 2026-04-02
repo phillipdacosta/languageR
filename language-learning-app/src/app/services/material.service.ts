@@ -42,6 +42,7 @@ export interface TutorMaterial {
   audioProvider?: 'soundcloud' | 'spotify' | 'direct';
   audioEmbedUrl?: string;
   topics?: string[];
+  structuredTags?: string[];
   whyTakeThis?: string;
   pricingType: 'free' | 'paid';
   price: number;
@@ -77,6 +78,7 @@ export interface CreateMaterialPayload {
   language: string;
   level?: string;
   topics?: string[];
+  structuredTags?: string[];
   materialType: MaterialType;
   videoUrl?: string;
   passage?: string;

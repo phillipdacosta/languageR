@@ -5,6 +5,7 @@ import { IonicModule, ToastController, ModalController } from '@ionic/angular';
 import { Router, RouterModule } from '@angular/router';
 import { ClassService } from '../services/class.service';
 import { MaterialService, TutorMaterial } from '../services/material.service';
+import { BundleService, ContentBundle } from '../services/bundle.service';
 import { UserService } from '../services/user.service';
 import { DomSanitizer } from '@angular/platform-browser';
 import { SharedModule } from '../shared/shared.module';
@@ -40,6 +41,7 @@ export class ExplorePage implements OnInit, OnDestroy {
   activeFilterCount = 0;
 
   recommendedMaterials: any[] = [];
+  recommendedBundles: ContentBundle[] = [];
   recommendedStruggles: string[] = [];
   isLoadingRecommended = false;
   studentLanguage = '';
@@ -84,7 +86,8 @@ export class ExplorePage implements OnInit, OnDestroy {
     private modalCtrl: ModalController,
     private cdr: ChangeDetectorRef,
     private translate: TranslateService,
-    private homeInlineToolbar: HomeInlineToolbarService
+    private homeInlineToolbar: HomeInlineToolbarService,
+    private bundleService: BundleService
   ) {}
 
   ngOnInit() {
@@ -540,10 +543,28 @@ export class ExplorePage implements OnInit, OnDestroy {
         this.cdr.markForCheck();
       }
     });
+
+    this.bundleService.getRecommended(this.studentLanguage).subscribe({
+      next: (bundles) => {
+        this.recommendedBundles = bundles || [];
+        this.cdr.markForCheck();
+      },
+      error: () => {}
+    });
   }
 
   viewMaterial(materialId: string) {
     this.router.navigate(['/material', materialId]);
+  }
+
+  viewBundle(bundleId: string) {
+    sessionStorage.setItem('bundleReferrer', '/tabs/home/explore');
+    this.router.navigate(['/bundle', bundleId]);
+  }
+
+  getBundleItemSummary(bundle: ContentBundle): string {
+    if (!bundle.items?.length) return 'Empty';
+    return `${bundle.items.length} item${bundle.items.length !== 1 ? 's' : ''}`;
   }
 
   formatMaterialTutorName(mat: any): string {

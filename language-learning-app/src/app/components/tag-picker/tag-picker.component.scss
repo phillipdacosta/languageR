@@ -1,0 +1,236 @@
+:host {
+  display: block;
+}
+
+.tp-selected {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.tp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #F0F4FF;
+  border: 1px solid rgba(66, 152, 211, 0.2);
+  border-radius: 20px;
+  padding: 5px 8px 5px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1a1a1a;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+}
+
+.tp-chip-label {
+  line-height: 1.3;
+}
+
+.tp-chip-remove {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: #8E8E93;
+  font-size: 16px;
+
+  &:active { color: #FF3B30; }
+}
+
+.tp-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #F7F7F7;
+  border: 1px solid #EBEBEB;
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  transition: border-color 0.2s ease;
+
+  &:focus-within {
+    border-color: #4298d3;
+    background: #fff;
+  }
+}
+
+.tp-search-icon {
+  font-size: 18px;
+  color: #8E8E93;
+  flex-shrink: 0;
+}
+
+.tp-search-input {
+  flex: 1;
+  border: none;
+  background: none;
+  outline: none;
+  font-size: 15px;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  color: #1a1a1a;
+
+  &::placeholder { color: #C7C7CC; }
+}
+
+.tp-search-clear {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: #C7C7CC;
+  font-size: 18px;
+  display: flex;
+}
+
+.tp-search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 12px;
+  background: #fff;
+  border: 1px solid #EBEBEB;
+  border-radius: 12px;
+  padding: 4px;
+  max-height: 240px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tp-loading {
+  display: flex;
+  justify-content: center;
+  padding: 24px;
+
+  ion-spinner { color: #4298d3; }
+}
+
+.tp-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tp-category-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 14px;
+  background: #F7F7F7;
+  border: 1px solid #EBEBEB;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a1a;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  transition: background 0.15s ease;
+
+  &:active { background: #EFEFEF; }
+
+  &.tp-expanded {
+    border-radius: 12px 12px 0 0;
+    border-bottom-color: transparent;
+    background: #fff;
+  }
+}
+
+.tp-expand-icon {
+  font-size: 16px;
+  color: #8E8E93;
+}
+
+.tp-subcategories {
+  border: 1px solid #EBEBEB;
+  border-top: none;
+  border-radius: 0 0 12px 12px;
+  padding: 4px 8px 8px;
+  background: #fff;
+}
+
+.tp-subcategory-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 12px;
+  background: none;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #3a3a3a;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  transition: background 0.15s ease;
+
+  &:active { background: #F0F0F0; }
+
+  &.tp-expanded {
+    background: #F7F9FC;
+    color: #4298d3;
+  }
+}
+
+.tp-expand-icon-sm {
+  font-size: 14px;
+  color: #C7C7CC;
+}
+
+.tp-leaves {
+  padding: 2px 0 2px 12px;
+}
+
+.tp-leaf {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 12px;
+  background: none;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 400;
+  color: #3a3a3a;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  text-align: left;
+  transition: background 0.15s ease;
+
+  &:active { background: #F0F0F0; }
+
+  &.tp-leaf-selected {
+    background: #F0F4FF;
+    color: #4298d3;
+    font-weight: 500;
+  }
+}
+
+.tp-leaf-icon {
+  font-size: 18px;
+  color: #C7C7CC;
+  flex-shrink: 0;
+
+  .tp-leaf-selected & { color: #4298d3; }
+}
+
+.tp-limit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  margin-top: 8px;
+  background: #FFF8E1;
+  border: 1px solid rgba(255, 152, 0, 0.2);
+  border-radius: 10px;
+  font-size: 13px;
+  color: #E65100;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+
+  ion-icon { font-size: 16px; }
+}

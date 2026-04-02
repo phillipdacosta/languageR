@@ -28,6 +28,8 @@ html.ion-palette-dark .mobile-section-actions .mobile-section-title,
   justify-content: center;
   position: relative;
   &::-webkit-scrollbar { display: none; }
+  position: relative;
+    bottom: 17px;
 }
 
 .mobile-action-chip {

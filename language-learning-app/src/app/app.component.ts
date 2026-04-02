@@ -122,7 +122,6 @@ export class AppComponent implements OnInit, OnDestroy {
     // Safety net: hide everything after 10s no matter what
     setTimeout(() => {
       if (this.loadingService.isLoading()) {
-        console.log('⏱️ Safety timeout reached, hiding loading');
         this.loadingService.hide();
       }
       this.hideSplashScreen();
@@ -173,8 +172,6 @@ export class AppComponent implements OnInit, OnDestroy {
     this.earlyExitService.earlyExitTriggered$.pipe(
       takeUntil(this.destroy$)
     ).subscribe(async (data) => {
-      console.log('🚪 AppComponent: Early exit triggered, showing modal', data);
-      
       // Get current user to determine role
       let userRole: 'tutor' | 'student' = 'student';
       try {
@@ -194,7 +191,6 @@ export class AppComponent implements OnInit, OnDestroy {
   }
   
   onEarlyExitModalDismiss(event: { action: string }) {
-    console.log('🚪 AppComponent: Early exit modal dismissed with action:', event.action);
     this.isEarlyExitModalOpen = false;
   }
   
@@ -213,7 +209,6 @@ export class AppComponent implements OnInit, OnDestroy {
             if (updated) {
               const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
               const label = getTimezoneLabel(tz);
-              console.log('🌍 Timezone auto-detected and saved:', label);
               const toast = await this.toastController.create({
                 message: `Timezone updated to ${label}`,
                 duration: 3000,
@@ -232,57 +227,29 @@ export class AppComponent implements OnInit, OnDestroy {
         // Load user profile and set interface language (force refresh to bypass cache)
         this.userService.getCurrentUser(true).subscribe({
           next: (currentUser) => {
-              console.log('🌐 AppComponent: Loaded user profile:', currentUser);
-            console.log('🌐 AppComponent: Loaded user profile:', {
-              hasUser: !!currentUser,
-              email: currentUser?.email,
-              interfaceLanguage: currentUser?.interfaceLanguage,
-              nativeLanguage: currentUser?.nativeLanguage,
-              userType: currentUser?.userType,
-              id: currentUser?.id
-            });
-            
             // Load payout status for tutors (cached in UserService to avoid flashing in profile)
             if (currentUser?.userType === 'tutor') {
               this.userService.loadPayoutStatus();
             }
             
             if (currentUser?.interfaceLanguage) {
-              console.log('🌐 AppComponent: Setting language from user profile:', currentUser.interfaceLanguage);
               this.languageService.setLanguage(currentUser.interfaceLanguage);
-            } else {
-              console.log('⚠️ AppComponent: No interfaceLanguage in user profile, keeping current language');
             }
-            
-            // Load reminders globally if user is a tutor
-            console.log('🔔 [APP] Checking user type for reminders:', currentUser?.userType, currentUser?.id);
-            
+
             // Check if reminders are enabled from user profile (database)
             const remindersEnabled = currentUser?.profile?.remindersEnabled !== false; // Default true
-            
-            console.log('🔔 [APP] Reminders enabled:', remindersEnabled);
-            
+
             if (remindersEnabled) {
               if (currentUser?.userType === 'tutor' && currentUser.id) {
-                console.log('🔔 [APP] User is tutor, loading tutor reminders');
                 this.loadGlobalReminders(currentUser.id);
-                
-                // Also check for pending feedback globally
-                console.log('📝 [APP] Checking for pending tutor feedback');
                 this.checkPendingFeedbackGlobally();
               } else if (currentUser?.userType === 'student' && currentUser.id) {
-                console.log('🔔 [APP] User is student, loading student reminders');
                 this.loadStudentReminders(currentUser.id);
-              } else {
-                console.log('⚠️ [APP] User type not matched for reminders:', currentUser?.userType);
               }
             } else {
-              console.log('🔕 [APP] Reminders disabled by user');
-              
               // Still check for feedback even if reminders are disabled
               // (feedback is critical, not just a reminder)
               if (currentUser?.userType === 'tutor' && currentUser.id) {
-                console.log('📝 [APP] Checking for pending tutor feedback (reminders disabled)');
                 this.checkPendingFeedbackGlobally();
               }
             }
@@ -299,9 +266,7 @@ export class AppComponent implements OnInit, OnDestroy {
         this.websocketService.connection$.pipe(
           takeUntil(this.destroy$)
         ).subscribe(isConnected => {
-          console.log('🔌 [APP] WebSocket connection status changed:', isConnected);
           if (isConnected && this.currentUserId) {
-            console.log('🔌 [APP] WebSocket reconnected - refreshing conversations');
             // Reload conversations after reconnection to sync unread counts
             setTimeout(() => {
               this.messagingService.getConversations().subscribe({
@@ -333,21 +298,11 @@ export class AppComponent implements OnInit, OnDestroy {
               });
             }
           });
-          
-          // Listen for feedback_required events globally (for tutors)
-          // No popup — the home page Quick Actions and profile page handle the UI
-          this.websocketService.on('feedback_required').pipe(
-            takeUntil(this.destroy$)
-          ).subscribe((data: any) => {
-            console.log('📝 [APP] Feedback required event received:', data);
-          });
 
           // Listen for tutor video approval notifications
           this.websocketService.tutorVideoApproved$.pipe(
             takeUntil(this.destroy$)
           ).subscribe(async (data: any) => {
-            console.log('🎉 [APP] Video approved notification:', data);
-            
             // Show success toast
             const toast = await this.toastController.create({
               message: data.message,
@@ -366,8 +321,6 @@ export class AppComponent implements OnInit, OnDestroy {
           this.websocketService.tutorVideoRejected$.pipe(
             takeUntil(this.destroy$)
           ).subscribe(async (data: any) => {
-            console.log('❌ [APP] Video rejected notification:', data);
-            
             // Show rejection toast
             const toast = await this.toastController.create({
               message: data.message,
@@ -386,8 +339,6 @@ export class AppComponent implements OnInit, OnDestroy {
           this.websocketService.credentialApproved$.pipe(
             takeUntil(this.destroy$)
           ).subscribe(async (data: any) => {
-            console.log('✅ [APP] Credential approved notification:', data);
-            
             const toast = await this.toastController.create({
               message: data.message || 'Your credential has been verified and approved.',
               duration: 5000,
@@ -402,8 +353,6 @@ export class AppComponent implements OnInit, OnDestroy {
           this.websocketService.credentialRejected$.pipe(
             takeUntil(this.destroy$)
           ).subscribe(async (data: any) => {
-            console.log('❌ [APP] Credential rejected notification:', data);
-            
             const toast = await this.toastController.create({
               message: data.message || 'A credential was not accepted. Please re-upload.',
               duration: 7000,
@@ -433,24 +382,17 @@ export class AppComponent implements OnInit, OnDestroy {
   
   // Load reminders globally for tutors
   private loadGlobalReminders(tutorId: string) {
-    console.log('🔔 [APP] Loading global reminders for tutor:', tutorId);
-    
     // Load both lessons and classes
     forkJoin({
       lessons: this.lessonService.getLessonsByTutor(tutorId, true),
       classes: this.classService.getClassesForTutor(tutorId)
     }).subscribe({
       next: ({ lessons, classes }) => {
-        console.log('🔔 [APP] Tutor lessons response:', lessons);
-        console.log('🔔 [APP] Tutor classes response:', classes);
-        
         const reminderEvents: ReminderEvent[] = [];
         const now = new Date();
         
         // Process lessons
         if (lessons.success && lessons.lessons) {
-          console.log('🔔 [APP] Processing', lessons.lessons.length, 'lessons for tutor');
-          
           lessons.lessons.forEach((lesson: any) => {
             if (lesson.status === 'cancelled') {
               return;
@@ -458,22 +400,11 @@ export class AppComponent implements OnInit, OnDestroy {
 
             const startTime = new Date(lesson.startTime);
             const endTime = new Date(lesson.endTime);
-            const minutesUntil = Math.floor((startTime.getTime() - now.getTime()) / 60000);
             const minutesSinceEnd = Math.floor((now.getTime() - endTime.getTime()) / 60000);
-            
-            console.log('🔔 [APP] Lesson:', {
-              id: lesson._id,
-              startTime: startTime.toLocaleString(),
-              endTime: endTime.toLocaleString(),
-              minutesUntil,
-              isFuture: startTime > now,
-              hasEnded: endTime < now,
-              minutesSinceEnd
-            });
-            
+
             // Track lessons that are upcoming OR currently happening OR ended recently (within 1 hour)
             const shouldTrack = startTime > now || minutesSinceEnd < 60;
-            
+
             if (shouldTrack) {
               // Extract student info from the lesson object
               const student = lesson.studentId as any;
@@ -499,19 +430,17 @@ export class AppComponent implements OnInit, OnDestroy {
                 studentAvatar: student?.picture || student?.avatar || student?.photoUrl,
                 meetingLink: lesson.meetingLink
               };
-              
-              console.log('✅ [APP] Adding reminder event:', reminderEvent);
+
               reminderEvents.push(reminderEvent);
             }
           });
         }
-        
+
         // Process classes
         if (classes.success && classes.classes) {
           classes.classes.forEach((cls: any) => {
             // Skip cancelled classes
             if (cls.status === 'cancelled') {
-              console.log('⏭️ [APP] Skipping cancelled class:', cls.name);
               return;
             }
             
@@ -531,8 +460,7 @@ export class AppComponent implements OnInit, OnDestroy {
             }
           });
         }
-        
-        console.log('🔔 [APP] Loaded', reminderEvents.length, 'events for global reminders');
+
         this.reminderService.trackEvents(reminderEvents);
         
         // Refresh reminders every 5 minutes to catch new lessons/classes
@@ -550,19 +478,13 @@ export class AppComponent implements OnInit, OnDestroy {
   
   // Load reminders for students
   private loadStudentReminders(studentId: string) {
-    console.log('🔔 [APP] Loading reminders for student:', studentId);
-    
     // Load student's lessons (including all past lessons to catch recently ended ones)
     this.lessonService.getLessonsByStudent(studentId, true).subscribe({
       next: (response) => {
-        console.log('🔔 [APP] Student lessons response:', response);
-        
         const reminderEvents: ReminderEvent[] = [];
         const now = new Date();
         
         if (response.success && response.lessons) {
-          console.log('🔔 [APP] Processing', response.lessons.length, 'lessons for student');
-          
           response.lessons.forEach((lesson: any) => {
             if (lesson.status === 'cancelled') {
               return;
@@ -570,22 +492,11 @@ export class AppComponent implements OnInit, OnDestroy {
 
             const startTime = new Date(lesson.startTime);
             const endTime = new Date(lesson.endTime);
-            const minutesUntil = Math.floor((startTime.getTime() - now.getTime()) / 60000);
             const minutesSinceEnd = Math.floor((now.getTime() - endTime.getTime()) / 60000);
-            
-            console.log('🔔 [APP] Lesson:', {
-              id: lesson._id,
-              startTime: startTime.toLocaleString(),
-              endTime: endTime.toLocaleString(),
-              minutesUntil,
-              isFuture: startTime > now,
-              hasEnded: endTime < now,
-              minutesSinceEnd
-            });
-            
+
             // Track lessons that are upcoming OR currently happening OR ended recently (within 1 hour)
             const shouldTrack = startTime > now || minutesSinceEnd < 60;
-            
+
             if (shouldTrack) {
               // Extract tutor info
               const tutor = lesson.tutorId as any;
@@ -611,14 +522,12 @@ export class AppComponent implements OnInit, OnDestroy {
                 studentAvatar: tutor?.picture || tutor?.avatar || tutor?.photoUrl,
                 meetingLink: lesson.meetingLink
               };
-              
-              console.log('✅ [APP] Adding reminder event:', reminderEvent);
+
               reminderEvents.push(reminderEvent);
             }
           });
         }
-        
-        console.log('🔔 [APP] Loaded', reminderEvents.length, 'lessons for student reminders');
+
         this.reminderService.trackEvents(reminderEvents);
         
         // Refresh reminders every 5 minutes
@@ -635,16 +544,11 @@ export class AppComponent implements OnInit, OnDestroy {
   }
   
   /**
-   * Check for pending tutor feedback globally (when app loads)
-   * Triggers the backfill endpoint — no popup, just logging.
+   * Check for pending tutor feedback globally (when app loads).
    * The home page Quick Actions and profile page handle the UI.
    */
   private checkPendingFeedbackGlobally() {
     this.tutorFeedbackService.getPendingFeedback().subscribe({
-      next: (response) => {
-        const count = response.count || 0;
-        console.log(`📝 [APP] Global feedback check: ${count} pending feedback requests`);
-      },
       error: (error) => {
         console.error('❌ [APP] Error checking pending feedback:', error);
       }
@@ -661,9 +565,7 @@ export class AppComponent implements OnInit, OnDestroy {
       
       // Only check for tutors
       if (currentUser?.userType !== 'tutor') return;
-      
-      console.log('🏦 [APP] Syncing Stripe Connect status...');
-      
+
       // The backend /stripe-connect/status endpoint automatically updates the user document
       // when it detects onboarding is complete, so we just need to call it
       const headers = this.userService.getAuthHeadersSync();
@@ -677,15 +579,12 @@ export class AppComponent implements OnInit, OnDestroy {
       .then(response => response.json())
       .then(data => {
         if (data.success && data.onboarded) {
-          console.log('✅ [APP] Stripe Connect status synced: Onboarded');
           // Force refresh the user data and approval status
           this.userService.getCurrentUser(true).subscribe(() => {
             this.userService.refreshTutorApprovalStatus();
             // Reload payout status to reflect Stripe connection
             this.userService.loadPayoutStatus();
           });
-        } else {
-          console.log('ℹ️ [APP] Stripe Connect status: Not onboarded');
         }
       })
       .catch(error => {

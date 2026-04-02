@@ -1,0 +1,286 @@
+:host { display: block; }
+
+:host.ml-host-inline { padding-top: 0; }
+
+.ml-page {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 0 20px 40px;
+}
+
+.ml-nav {
+  padding: 12px 0;
+}
+
+.ml-nav-back {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  font-size: 15px;
+  font-weight: 500;
+  color: #4298d3;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  transition: background 0.15s ease;
+
+  &:active { background: #F0F4FF; }
+  ion-icon { font-size: 18px; }
+}
+
+.ml-header {
+  margin-bottom: 16px;
+
+  h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: #1a1a1a;
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+  }
+}
+
+// ── Tabs ──
+
+.ml-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  background: #F2F2F2;
+  border-radius: 12px;
+  padding: 3px;
+}
+
+.ml-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 500;
+  color: #8E8E93;
+  cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  transition: all 0.2s ease;
+
+  ion-icon { font-size: 16px; }
+
+  &.active {
+    background: #fff;
+    color: #1a1a1a;
+    font-weight: 600;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  }
+}
+
+.ml-tab-count {
+  background: #E8E8ED;
+  color: #636366;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 10px;
+  min-width: 20px;
+  text-align: center;
+
+  .ml-tab.active & {
+    background: #4298d3;
+    color: #fff;
+  }
+}
+
+// ── Loading / Empty ──
+
+.ml-loading {
+  display: flex;
+  justify-content: center;
+  padding: 60px 0;
+
+  ion-spinner { --color: #4298d3; width: 28px; height: 28px; }
+}
+
+.ml-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 60px 20px;
+
+  ion-icon { font-size: 48px; color: #C7C7CC; margin-bottom: 16px; }
+  h2 { font-size: 18px; font-weight: 600; color: #1a1a1a; margin: 0 0 8px; }
+  p { font-size: 14px; color: #8E8E93; margin: 0; }
+}
+
+.ml-empty-tab {
+  text-align: center;
+  padding: 40px 0;
+
+  p { font-size: 14px; color: #8E8E93; margin: 0; }
+}
+
+// ── Content List ──
+
+.ml-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+// ── Bundle Cards ──
+
+.ml-bundle-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid #EBEBEB;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+
+  &:active { background: #F7F7F7; }
+  &:hover { box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06); }
+}
+
+.ml-bc-cover {
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #F2F2F7;
+  flex-shrink: 0;
+
+  img { width: 100%; height: 100%; object-fit: cover; }
+}
+
+.ml-bc-cover-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #E8F0FE, #F0F4FF);
+
+  ion-icon { font-size: 24px; color: #4298d3; opacity: 0.4; }
+}
+
+.ml-bc-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.ml-bc-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+}
+
+.ml-bc-meta {
+  font-size: 13px;
+  color: #8E8E93;
+}
+
+.ml-bc-arrow {
+  font-size: 16px;
+  color: #C7C7CC;
+  flex-shrink: 0;
+}
+
+// ── Material Cards ──
+
+.ml-material-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid #EBEBEB;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+
+  &:active { background: #F7F7F7; }
+  &:hover { box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06); }
+}
+
+.ml-mc-thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #F2F2F7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  img { width: 100%; height: 100%; object-fit: cover; }
+  ion-icon { font-size: 22px; color: #8E8E93; }
+}
+
+.ml-mc-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.ml-mc-type {
+  font-size: 11px;
+  font-weight: 600;
+  color: #8E8E93;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.ml-mc-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: #1a1a1a;
+  margin: 2px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+}
+
+.ml-mc-meta {
+  font-size: 13px;
+  color: #8E8E93;
+}
+
+.ml-mc-arrow {
+  font-size: 16px;
+  color: #C7C7CC;
+  flex-shrink: 0;
+}
+
+// ── Dark Mode ──
+
+:host-context(html.ion-palette-dark) {
+  .ml-header h1 { color: #f5f5f7; }
+  .ml-tabs { background: #2c2c2e; }
+  .ml-tab.active { background: #3a3a3c; color: #f5f5f7; }
+  .ml-tab-count { background: #3a3a3c; color: #aeaeb2; }
+  .ml-tab.active .ml-tab-count { background: #4298d3; color: #fff; }
+  .ml-empty h2 { color: #f5f5f7; }
+  .ml-bundle-card,
+  .ml-material-card { background: #1c1c1e; border-color: #3a3a3c; }
+  .ml-bc-title,
+  .ml-mc-title { color: #f5f5f7; }
+  .ml-bc-cover { background: #2c2c2e; }
+  .ml-bc-cover-empty { background: linear-gradient(135deg, #2c2c2e, #1c1c1e); }
+  .ml-mc-thumb { background: #2c2c2e; }
+}

@@ -18,7 +18,7 @@
 
   <!-- Inline Create Material View -->
   <div class="create-material-inline-panel" *ngIf="showCreateMaterialView">
-    <app-create-material [inline]="true" (goBackEvent)="onCreateMaterialGoBack()"></app-create-material>
+    <app-create-material #createMaterialRef [inline]="true" (goBackEvent)="onCreateMaterialGoBack()"></app-create-material>
   </div>
 
   <div class="content-wrapper" *ngIf="!showEarningsView && !showExploreView && !showCreateMaterialView">
@@ -831,7 +831,7 @@
         [staggerReady]="mobileStaggerReady"
         [staggerDone]="mobileStaggerDone"
         (navigateToExplore)="navigateToExplore()"
-        (navigateToCreateMaterial)="navigateToCreateMaterial()">
+        (navigateToCreateMaterial)="navigateToCreateMaterial($event)">
       </app-mobile-quick-actions>
 
       <!-- Mobile: Pending Actions (only when there are items) -->
@@ -861,7 +861,7 @@
             </div>
             <span class="qa-label">{{ 'HOME.CLASSES' | translate }}</span>
           </div>
-          <div class="quick-action-card qa-create-material qa-with-asset" (click)="navigateToCreateMaterial()">
+          <div class="quick-action-card qa-create-material qa-with-asset" (click)="navigateToCreateMaterial($event)">
             <div class="qa-icon">
               <img class="qa-icon-img" src="assets/quick-actions-create-material.png" alt="" />
             </div>
@@ -958,6 +958,28 @@
     </div>
 
     <!-- Tutor explore pills removed — Quick Actions chips cover the same links -->
+
+    <!-- Practice Materials (Students Only) -->
+    <div class="home-practice-section" *ngIf="isStudentUser && !isLoadingLessons && homePracticeMaterials.length > 0">
+      <div class="hps-header">
+        <h2 class="hps-title">Practice Materials</h2>
+        <button class="hps-see-all" (click)="navigateToMyLibrary()">My Library</button>
+      </div>
+      <div class="hps-scroll">
+        <div class="hps-card" *ngFor="let mat of homePracticeMaterials; trackBy: trackByMaterialId" (click)="navigateToMaterial(mat._id)">
+          <div class="hps-thumb" [style.background-image]="mat.thumbnailUrl ? 'url(' + mat.thumbnailUrl + ')' : 'none'">
+            <div class="hps-thumb-placeholder" *ngIf="!mat.thumbnailUrl">
+              <ion-icon [name]="mat.materialType === 'video_quiz' ? 'play-circle-outline' : mat.materialType === 'reading' ? 'book-outline' : 'headset-outline'"></ion-icon>
+            </div>
+            <span class="hps-type-badge">{{ mat.materialType === 'video_quiz' ? 'Video' : mat.materialType === 'reading' ? 'Reading' : 'Listening' }}</span>
+          </div>
+          <div class="hps-info">
+            <h3 class="hps-mat-title">{{ mat.title }}</h3>
+            <span class="hps-mat-meta">{{ mat.language }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
 
   </div>
 

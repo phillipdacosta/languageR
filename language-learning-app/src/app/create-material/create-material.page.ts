@@ -6,6 +6,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { IonicModule, ToastController, AlertController, ModalController } from '@ionic/angular';
 import { Router, RouterModule, ActivatedRoute } from '@angular/router';
 import { MaterialService, CreateMaterialPayload, QuizQuestion, QuestionType, MaterialType, TutorMaterial, LinkedChannels } from '../services/material.service';
+import { BundleService, ContentBundle, CreateBundlePayload } from '../services/bundle.service';
 import { UserService } from '../services/user.service';
 import { SharedModule } from '../shared/shared.module';
 import { ImageCropperComponent } from '../components/image-cropper/image-cropper.component';
@@ -14,6 +15,7 @@ import { QuillEditorComponent } from 'ngx-quill';
 import { TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { HomeInlineToolbarService } from '../services/home-inline-toolbar.service';
+import { TagPickerComponent } from '../components/tag-picker/tag-picker.component';
 type Step = 'type' | 'pricing' | 'details' | 'quiz' | 'preview';
 
 @Component({
@@ -21,7 +23,7 @@ type Step = 'type' | 'pricing' | 'details' | 'quiz' | 'preview';
   templateUrl: './create-material.page.html',
   styleUrls: ['./create-material.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, RouterModule, FormsModule, ReactiveFormsModule, SharedModule, QuillEditorComponent]
+  imports: [CommonModule, IonicModule, RouterModule, FormsModule, ReactiveFormsModule, SharedModule, QuillEditorComponent, TagPickerComponent]
 })
 export class CreateMaterialPage implements OnInit, OnDestroy {
   @Input() inline = false;
@@ -32,10 +34,29 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     return this.inline;
   }
 
-  viewMode: 'library' | 'create' = 'library';
+  viewMode: 'library' | 'create' | 'bundle-create' = 'library';
+  libraryTab: 'materials' | 'bundles' = 'materials';
   myMaterials: TutorMaterial[] = [];
   isLoadingMaterials = true;
   editingMaterialId: string | null = null;
+
+  // Bundles
+  myBundles: ContentBundle[] = [];
+  isLoadingBundles = false;
+  editingBundleId: string | null = null;
+  bundleTitle = '';
+  bundleDescription = '';
+  bundleLanguage = '';
+  bundleLevel = 'any';
+  bundlePricingType: 'free' | 'paid' = 'free';
+  bundlePrice: number = 0;
+  bundleStructuredTags: string[] = [];
+  bundleSelectedMaterialIds: string[] = [];
+  bundleCoverFile: File | null = null;
+  bundleCoverPreview: string | null = null;
+  bundleCoverUrl: string | null = null;
+  isUploadingBundleCover = false;
+  isSavingBundle = false;
   justPublishedId: string | null = null;
   copiedLinkId: string | null = null;
   currentUserId: string | null = null;
@@ -76,7 +97,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
   isUploadingThumbnail = false;
   existingThumbnailUrl: string | null = null;
 
-  // Topics
+  // Topics (legacy free-text)
   topicInput = '';
   selectedTopics: string[] = [];
   topicSuggestions = [
@@ -85,6 +106,9 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     'conditional', 'passive voice', 'word order', 'listening',
     'reading comprehension', 'conversation', 'idioms', 'formal speech'
   ];
+
+  // Structured taxonomy tags
+  selectedStructuredTags: string[] = [];
 
   quillConfig = {
     toolbar: [
@@ -120,15 +144,31 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private modalCtrl: ModalController,
     private translate: TranslateService,
-    private homeInlineToolbar: HomeInlineToolbarService
+    private homeInlineToolbar: HomeInlineToolbarService,
+    private bundleService: BundleService
   ) {}
+
+  restoreSection() {
+    const section = sessionStorage.getItem('cmReturnSection');
+    if (section === 'bundles') {
+      this.libraryTab = 'bundles';
+      this.loadBundles();
+      this.cdr.markForCheck();
+    } else if (section === 'materials') {
+      this.libraryTab = 'materials';
+      this.cdr.markForCheck();
+    }
+    sessionStorage.removeItem('cmReturnSection');
+  }
 
   ngOnInit() {
     this.initForm();
     this.rebuildTranslatedLabels();
     this.loadMyMaterials();
+    this.loadBundles();
     this.loadLinkedChannels();
     this.updateNavState();
+
     this.userService.currentUser$.subscribe(u => {
       if (u) this.currentUserId = u.id;
     });
@@ -231,6 +271,10 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
       this.goBackEvent.emit();
       return;
     }
+    if (this.viewMode === 'bundle-create') {
+      this.cancelBundleCreate();
+      return;
+    }
     // In create/edit mode
     const idx = this.stepOrder.indexOf(this.currentStep);
     if (idx <= 0 || (this.editingMaterialId && this.currentStep === 'details')) {
@@ -244,6 +288,14 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     if (this.viewMode === 'library') {
       this.navBackLabel = this.translate.instant('CREATE_MATERIAL.NAV_BACK_SHORT');
       this.stepTitle = '';
+      if (this.inline) {
+        this.homeInlineToolbar.setMaterialsToolbarBackLabel(this.navBackLabel);
+      }
+      return;
+    }
+    if (this.viewMode === 'bundle-create') {
+      this.navBackLabel = 'My Materials';
+      this.stepTitle = this.editingBundleId ? 'Edit Bundle' : 'Create Bundle';
       if (this.inline) {
         this.homeInlineToolbar.setMaterialsToolbarBackLabel(this.navBackLabel);
       }
@@ -264,6 +316,8 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
   }
 
   previewMaterial(m: TutorMaterial) {
+    sessionStorage.setItem('materialReferrer', '/tabs/home');
+    sessionStorage.setItem('cmReturnSection', 'materials');
     this.router.navigate(['/material', m._id]);
   }
 
@@ -280,6 +334,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
 
     // Pre-populate topics
     this.selectedTopics = m.topics ? [...m.topics] : [];
+    this.selectedStructuredTags = m.structuredTags ? [...m.structuredTags] : [];
 
     this.materialForm.patchValue({
       title: m.title,
@@ -1386,6 +1441,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
       language: this.materialForm.value.language,
       level: this.materialForm.value.level,
       topics: this.selectedTopics.length > 0 ? this.selectedTopics : undefined,
+      structuredTags: this.selectedStructuredTags.length > 0 ? this.selectedStructuredTags : undefined,
       materialType: this.selectedType!,
       pricingType: this.selectedPricing!,
       price: this.selectedPricing === 'paid' ? this.materialForm.value.price : 0,
@@ -1467,6 +1523,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     this.isUploadingThumbnail = false;
     this.contentAttested = false;
     this.selectedTopics = [];
+    this.selectedStructuredTags = [];
     this.topicInput = '';
   }
 
@@ -1577,5 +1634,300 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
       case 'listening': return this.translate.instant('CREATE_MATERIAL.TYPE_LISTENING');
       default: return '';
     }
+  }
+
+  // ── Bundle Management ─────────────────────────────────────────
+
+  switchLibraryTab(tab: 'materials' | 'bundles') {
+    this.libraryTab = tab;
+
+    // Reset scroll to top so new tab content is visible
+    const libEl = document.querySelector('.cm-library');
+    if (libEl) libEl.scrollTop = 0;
+
+    if (tab === 'bundles' && this.myBundles.length === 0 && !this.isLoadingBundles) {
+      this.loadBundles();
+    }
+  }
+
+  loadBundles() {
+    this.isLoadingBundles = true;
+    this.cdr.detectChanges();
+    this.bundleService.getMyBundles().subscribe({
+      next: (bundles) => {
+        this.myBundles = bundles || [];
+        this.isLoadingBundles = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.myBundles = [];
+        this.isLoadingBundles = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  startCreateBundle() {
+    this.editingBundleId = null;
+    this.bundleTitle = '';
+    this.bundleDescription = '';
+    this.bundleLanguage = this.languages[0] || 'English';
+    this.bundleLevel = 'any';
+    this.bundlePricingType = 'free';
+    this.bundlePrice = 0;
+    this.bundleStructuredTags = [];
+    this.bundleSelectedMaterialIds = [];
+    this.bundleCoverFile = null;
+    this.bundleCoverPreview = null;
+    this.bundleCoverUrl = null;
+    this.viewMode = 'bundle-create';
+    this.updateNavState();
+  }
+
+  editBundle(bundle: ContentBundle) {
+    this.editingBundleId = bundle._id;
+    this.bundleTitle = bundle.title;
+    this.bundleDescription = bundle.description || '';
+    this.bundleLanguage = bundle.language;
+    this.bundleLevel = bundle.level;
+    this.bundlePricingType = bundle.pricingType;
+    this.bundlePrice = bundle.price;
+    this.bundleStructuredTags = [...bundle.structuredTags];
+    this.bundleSelectedMaterialIds = bundle.items.map(i => typeof i.materialId === 'string' ? i.materialId : (i.materialId as any)?._id);
+    this.bundleCoverFile = null;
+    this.bundleCoverPreview = bundle.coverImageUrl || null;
+    this.bundleCoverUrl = bundle.coverImageUrl || null;
+    this.viewMode = 'bundle-create';
+    this.updateNavState();
+  }
+
+  isMaterialInBundle(materialId: string): boolean {
+    return this.bundleSelectedMaterialIds.includes(materialId);
+  }
+
+  toggleMaterialInBundle(materialId: string) {
+    const idx = this.bundleSelectedMaterialIds.indexOf(materialId);
+    if (idx >= 0) {
+      this.bundleSelectedMaterialIds = this.bundleSelectedMaterialIds.filter(id => id !== materialId);
+    } else {
+      this.bundleSelectedMaterialIds = [...this.bundleSelectedMaterialIds, materialId];
+    }
+  }
+
+  get publishedMaterials(): TutorMaterial[] {
+    return this.myMaterials.filter(m => m.status === 'published' || m.status === 'draft');
+  }
+
+  get selectedPaidMaterials(): TutorMaterial[] {
+    return this.myMaterials.filter(m =>
+      this.bundleSelectedMaterialIds.includes(m._id) && m.pricingType === 'paid'
+    );
+  }
+
+  get bundlePaidMaterialsValue(): number {
+    return this.selectedPaidMaterials.reduce((sum, m) => sum + (m.price || 0), 0);
+  }
+
+  get hasPaidMaterialsInFreeBundle(): boolean {
+    return this.bundlePricingType === 'free' && this.selectedPaidMaterials.length > 0;
+  }
+
+  onBundleCoverSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (!input.files?.length) return;
+    const file = input.files[0];
+    if (!file.type.startsWith('image/')) return;
+
+    this.bundleCoverFile = file;
+    const reader = new FileReader();
+    reader.onload = () => {
+      this.bundleCoverPreview = reader.result as string;
+      this.cdr.markForCheck();
+    };
+    reader.readAsDataURL(file);
+  }
+
+  removeBundleCover() {
+    this.bundleCoverFile = null;
+    this.bundleCoverPreview = null;
+    this.bundleCoverUrl = null;
+  }
+
+  private async uploadBundleCover(): Promise<string | null> {
+    if (!this.bundleCoverFile) return this.bundleCoverUrl;
+    this.isUploadingBundleCover = true;
+    try {
+      const res = await this.bundleService.uploadCover(this.bundleCoverFile).toPromise();
+      this.isUploadingBundleCover = false;
+      const url = (res as any)?.url || (res as any)?.coverImageUrl || null;
+      if (!url) {
+        const toast = await this.toastCtrl.create({ message: 'Cover image upload returned no URL', duration: 3000, color: 'warning' });
+        await toast.present();
+      }
+      return url;
+    } catch (err: any) {
+      this.isUploadingBundleCover = false;
+      const toast = await this.toastCtrl.create({ message: 'Cover upload failed — bundle will save without image', duration: 3000, color: 'warning' });
+      await toast.present();
+      return this.bundleCoverUrl;
+    }
+  }
+
+  async saveBundle() {
+    if (!this.bundleTitle.trim() || !this.bundleLanguage) return;
+    if (this.bundlePricingType === 'paid' && this.bundlePrice <= 0) return;
+
+    this.isSavingBundle = true;
+    const coverUrl = await this.uploadBundleCover();
+
+    const payload: CreateBundlePayload = {
+      title: this.bundleTitle.trim(),
+      description: this.bundleDescription.trim(),
+      coverImageUrl: coverUrl || undefined,
+      language: this.bundleLanguage,
+      level: this.bundleLevel,
+      structuredTags: this.bundleStructuredTags,
+      items: this.bundleSelectedMaterialIds.map((id, i) => ({ materialId: id, sortOrder: i })),
+      pricingType: this.bundlePricingType,
+      price: this.bundlePricingType === 'paid' ? this.bundlePrice : 0,
+      status: 'published'
+    };
+
+    const request = this.editingBundleId
+      ? this.bundleService.updateBundle(this.editingBundleId, payload)
+      : this.bundleService.createBundle(payload);
+
+    request.subscribe({
+      next: async () => {
+        this.isSavingBundle = false;
+        this.viewMode = 'library';
+        this.libraryTab = 'bundles';
+        this.loadBundles();
+        const toast = await this.toastCtrl.create({
+          message: this.editingBundleId ? 'Bundle updated' : 'Bundle created',
+          duration: 2000,
+          position: 'bottom',
+          color: 'success'
+        });
+        await toast.present();
+      },
+      error: async () => {
+        this.isSavingBundle = false;
+        this.cdr.markForCheck();
+        const toast = await this.toastCtrl.create({
+          message: 'Failed to save bundle',
+          duration: 2000,
+          position: 'bottom',
+          color: 'danger'
+        });
+        await toast.present();
+      }
+    });
+  }
+
+  async saveBundleAsDraft() {
+    if (!this.bundleTitle.trim() || !this.bundleLanguage) return;
+
+    this.isSavingBundle = true;
+    const coverUrl = await this.uploadBundleCover();
+
+    const payload: CreateBundlePayload = {
+      title: this.bundleTitle.trim(),
+      description: this.bundleDescription.trim(),
+      coverImageUrl: coverUrl || undefined,
+      language: this.bundleLanguage,
+      level: this.bundleLevel,
+      structuredTags: this.bundleStructuredTags,
+      items: this.bundleSelectedMaterialIds.map((id, i) => ({ materialId: id, sortOrder: i })),
+      pricingType: this.bundlePricingType,
+      price: this.bundlePricingType === 'paid' ? this.bundlePrice : 0,
+      status: 'draft'
+    };
+
+    const request = this.editingBundleId
+      ? this.bundleService.updateBundle(this.editingBundleId, payload)
+      : this.bundleService.createBundle(payload);
+
+    request.subscribe({
+      next: async () => {
+        this.isSavingBundle = false;
+        this.viewMode = 'library';
+        this.libraryTab = 'bundles';
+        this.loadBundles();
+        const toast = await this.toastCtrl.create({
+          message: 'Bundle saved as draft',
+          duration: 2000,
+          position: 'bottom'
+        });
+        await toast.present();
+      },
+      error: async () => {
+        this.isSavingBundle = false;
+        this.cdr.markForCheck();
+        const toast = await this.toastCtrl.create({
+          message: 'Failed to save bundle',
+          duration: 2000,
+          position: 'bottom',
+          color: 'danger'
+        });
+        await toast.present();
+      }
+    });
+  }
+
+  cancelBundleCreate() {
+    this.viewMode = 'library';
+    this.updateNavState();
+  }
+
+  previewBundle(bundle: ContentBundle) {
+    sessionStorage.setItem('bundleReferrer', '/tabs/home');
+    sessionStorage.setItem('cmReturnSection', 'bundles');
+    this.router.navigate(['/bundle', bundle._id]);
+  }
+
+  async confirmDeleteBundle(bundle: ContentBundle) {
+    const alert = await this.alertCtrl.create({
+      header: 'Delete Bundle',
+      message: `Are you sure you want to delete "${bundle.title}"?`,
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Delete',
+          role: 'destructive',
+          handler: () => {
+            this.bundleService.deleteBundle(bundle._id).subscribe({
+              next: () => this.loadBundles(),
+              error: async () => {
+                const toast = await this.toastCtrl.create({
+                  message: 'Failed to delete bundle',
+                  duration: 2000,
+                  color: 'danger'
+                });
+                await toast.present();
+              }
+            });
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  getBundleItemCount(bundle: ContentBundle): number {
+    return bundle.items?.length || 0;
+  }
+
+  getBundleItemTypes(bundle: ContentBundle): string {
+    if (!bundle.items?.length) return 'No items';
+    const types: Record<string, number> = {};
+    for (const item of bundle.items) {
+      const mat = item.materialId as any;
+      if (mat?.materialType) {
+        const label = mat.materialType === 'video_quiz' ? 'video' : mat.materialType;
+        types[label] = (types[label] || 0) + 1;
+      }
+    }
+    return Object.entries(types).map(([t, c]) => `${c} ${t}${c > 1 ? 's' : ''}`).join(', ') || `${bundle.items.length} items`;
   }
 }

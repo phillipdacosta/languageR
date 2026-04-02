@@ -88,6 +88,30 @@
       </div>
     </div>
 
+    <!-- Recommended Bundles (Students Only) -->
+    <div class="recommended-section bundles-section" *ngIf="!isTutorUser && recommendedBundles.length > 0">
+      <div class="recommended-header">
+        <h2 class="recommended-title">Learning Packs</h2>
+        <p class="recommended-subtitle">Structured content bundles from tutors</p>
+      </div>
+      <div class="recommended-scroll">
+        <div class="bundle-rec-card" *ngFor="let bundle of recommendedBundles" (click)="viewBundle(bundle._id)">
+          <div class="brc-cover">
+            <img *ngIf="bundle.coverImageUrl" [src]="bundle.coverImageUrl" [alt]="bundle.title" />
+            <div class="brc-cover-placeholder" *ngIf="!bundle.coverImageUrl">
+              <ion-icon name="folder-outline"></ion-icon>
+            </div>
+            <span class="brc-price-badge" [class.free]="bundle.pricingType !== 'paid'">{{ bundle.pricingType === 'paid' ? '$' + bundle.price : 'Free' }}</span>
+          </div>
+          <div class="brc-info">
+            <span class="brc-tutor">{{ formatMaterialTutorName(bundle) }}</span>
+            <h3 class="brc-title">{{ bundle.title }}</h3>
+            <span class="brc-meta">{{ getBundleItemSummary(bundle) }} · {{ bundle.level !== 'any' ? bundle.level : 'All levels' }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Scrollable Content -->
     <div class="explore-scroll-area">
       <!-- Loading State -->

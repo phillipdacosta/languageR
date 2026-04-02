@@ -37,6 +37,7 @@ import { TranslateService } from '@ngx-translate/core';
 import { LearningPlanService, LearningPlan } from '../services/learning-plan.service';
 import { AnalysisTranslationService } from '../services/analysis-translation.service';
 import { HomeInlineToolbarService } from '../services/home-inline-toolbar.service';
+import { MaterialService, TutorMaterial } from '../services/material.service';
 
 @Component({
   selector: 'app-tab1',
@@ -87,6 +88,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   @ViewChild(IonContent) ionContent!: IonContent;
   @ViewChild('smartIsland') smartIsland!: SmartIslandComponent;
   @ViewChild('earningsComponent') earningsComponent: any;
+  @ViewChild('createMaterialRef') createMaterialRef: any;
   
   // Platform detection properties
   private destroy$ = new Subject<void>();
@@ -279,6 +281,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   learningPlanSummary = '';
   learningPlanNextFocus = '';
   learningPlanPhaseDots: boolean[] = [];
+
+  homePracticeMaterials: any[] = [];
   
   // Cache of current students array for efficient label updates
   private currentStudents: any[] = [];
@@ -452,7 +456,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     private activatedRoute: ActivatedRoute,
     private learningPlanService: LearningPlanService,
     private analysisTranslation: AnalysisTranslationService,
-    private homeInlineToolbar: HomeInlineToolbarService
+    private homeInlineToolbar: HomeInlineToolbarService,
+    private materialService: MaterialService
   ) {
     // Subscribe to currentUser$ observable to get updates automatically
     // Use asyncScheduler to prevent synchronous emission from blocking
@@ -490,6 +495,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
 
         if (this.isStudentUser && user?.onboardingData?.languages?.length) {
           this.loadLearningPlan(user.onboardingData.languages[0]);
+          this.loadHomePracticeMaterials(user.onboardingData.languages[0]);
         }
         
         // Check tutor onboarding status when user loads
@@ -531,7 +537,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           // Start dynamic card refresh interval for students
           // This is also started in ionViewWillEnter, but we start here too in case
           // currentUser loads AFTER ionViewWillEnter has already run
-          console.log('🎴 [TAB1] currentUser loaded as student, starting dynamic card interval');
+          
           this.startDynamicCardRefreshInterval();
           
           // Also do an initial load of dynamic cards
@@ -553,13 +559,13 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       takeUntil(this.destroy$),
       observeOn(asyncScheduler) // Smooth transition timing
     ).subscribe(card => {
-      console.log('🎴 [TAB1] Dynamic card updated:', card?.type || 'NULL', '| Card data:', card ? JSON.stringify({type: card.type, priority: card.priority}) : 'null');
+      
       
       // Run in Angular zone to ensure proper change detection and animations
       this.ngZone.run(() => {
         // Handle null card (card was removed)
         if (!card) {
-          console.log('🎴 [TAB1] Card removed - setting dynamicCard to null');
+          
           this.dynamicCard = null;
           this.cdr.detectChanges();
           return;
@@ -569,13 +575,13 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         if (!this.dynamicCardReady) {
           this.dynamicCardReady = true;
           setTimeout(() => {
-            console.log('🎴 [TAB1] Setting dynamicCard (initial):', card?.type);
+            
             this.dynamicCard = card;
             this.dynamicCardAnimationState++;
             this.cdr.detectChanges();
           }, 100); // 100ms delay for initial card
         } else {
-          console.log('🎴 [TAB1] Setting dynamicCard:', card?.type);
+          
           // Create a new object reference to ensure Angular detects the change
           this.dynamicCard = { ...card };
           this.dynamicCardAnimationState++; // Increment to trigger animation
@@ -646,19 +652,19 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
 
     // Subscribe to availability updates (always subscribe, check user type inside)
     // This ensures the subscription is set up even before user data loads
-    console.log('📅 [TAB1] Setting up availability update subscription');
+    
     this.userService.availabilityUpdated$
       .pipe(takeUntil(this.destroy$))
       .subscribe((updatedAvailability) => {
-        console.log('📅 [TAB1] Received availability update event!', { isTutor: this.isTutor(), dataLength: updatedAvailability?.length });
+        
         
         // Only process if user is a tutor
         if (!this.isTutor()) {
-          console.log('📅 [TAB1] Not a tutor, ignoring event');
+          
           return;
         }
         
-        console.log('📅 [TAB1] Processing availability update...', updatedAvailability);
+        
         
         // Immediately update hasAvailability based on the new data
         if (updatedAvailability && Array.isArray(updatedAvailability)) {
@@ -686,7 +692,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           // Trigger change detection to ensure UI updates immediately
           this.cdr.detectChanges();
           
-          console.log('📅 [TAB1] hasAvailability updated to:', this.hasAvailability);
+          
           this.syncTutorMobileWelcomeAboveUpNext();
         }
         
@@ -732,6 +738,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
               this.showCreateMaterialView = wasCM;
               this.showExploreView = wasExplore;
               this.cdr.detectChanges();
+              if (wasCM && this.createMaterialRef?.restoreSection) {
+                this.createMaterialRef.restoreSection();
+              }
             });
           }
         }
@@ -770,32 +779,32 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
 
     // Listen for WebSocket notifications
     this.websocketService.connect();
-    console.log('🔌 [TAB1] WebSocket initialized for user:', this.currentUser?.userType);
-    console.log('🔌 [TAB1] WebSocket observable exists?', !!this.websocketService.newNotification$);
+    
+    
     
     // Test if observable is working
-    console.log('🔌 [TAB1] Setting up notification listener...');
+    
     this.websocketService.newNotification$.pipe(
       takeUntil(this.destroy$)
     ).subscribe({
       next: async (notification) => {
-        console.log('✅ [TAB1] SUBSCRIPTION FIRED! Notification:', notification);
+        
         
         // Reload notification count when a new notification arrives (only if user is authenticated)
         if (this.currentUser) {
           this.loadUnreadNotificationCount();
           
           // LOG ALL NOTIFICATIONS TO DEBUG
-          console.log('🔔 [TAB1] ===== NOTIFICATION RECEIVED =====');
-          console.log('🔔 [TAB1] Notification type:', notification?.type);
-          console.log('🔔 [TAB1] Current user type:', this.currentUser.userType);
-          console.log('🔔 [TAB1] Full notification object:', notification);
-          console.log('🔔 [TAB1] =====================================');
+          
+          
+          
+          
+          
           
           // FALLBACK: For students, reload invitations on ANY notification
           // This ensures count updates even if event type is different than expected
           if (this.currentUser.userType === 'student') {
-            console.log('📋 [TAB1] Student received notification - reloading invitations as fallback');
+            
             setTimeout(() => {
               this.ngZone.run(() => {
                 this.loadPendingInvitations();
@@ -806,17 +815,17 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           // Check if it's a class invitation
           const isClassInvitation = notification?.type === 'class_invitation';
           const isStudent = this.currentUser.userType === 'student';
-          console.log('🔔 [TAB1] Is class_invitation?', isClassInvitation);
-          console.log('🔔 [TAB1] Is student?', isStudent);
-          console.log('🔔 [TAB1] Will handle class invitation?', isClassInvitation && isStudent);
+          
+          
+          
           
           // Handle class auto-cancelled notifications
           if ((notification?.type === 'class_auto_cancelled' || notification?.type === 'class_invitation_cancelled') && notification.data?.classId) {
-          console.log('🔔 [TAB1] Received class cancellation notification:', notification);
+          
           
           // If student received invitation cancellation, reload invitations to update count
           if (notification?.type === 'class_invitation_cancelled' && this.currentUser.userType === 'student') {
-            console.log('📉 [TAB1] Class invitation cancelled, reloading invitations...');
+            
             this.loadPendingInvitations();
           }
           
@@ -844,7 +853,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         
         // Handle lesson cancelled notifications
         if (notification?.type === 'lesson_cancelled' && notification.data?.lessonId) {
-          console.log('🔔 [TAB1] Received lesson cancellation notification:', notification);
+          
           
           // Smart update: Move the cancelled lesson without full reload
           await this.handleLessonCancellation(notification.data.lessonId);
@@ -855,16 +864,16 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         
         // Handle class invitations specially
         if (notification?.type === 'class_invitation' && this.currentUser.userType === 'student') {
-          console.log('📬 [TAB1] Received class invitation via WebSocket:', notification);
-          console.log('📊 [TAB1] Current invitations count BEFORE reload:', this.activeInvitationsCount);
+          
+          
           
           // Show Smart Island moment
-          console.log('🌟 [TAB1] Smart Island available?', !!this.smartIsland);
-          console.log('🌟 [TAB1] Notification data:', notification.data);
-          console.log('🌟 [TAB1] Notification full object:', JSON.stringify(notification, null, 2));
+          
+          
+          
           
           if (this.smartIsland && notification.data) {
-            console.log('🌟 [TAB1] Adding Smart Island moment for invitation...');
+            
             
             // Ensure we're in Angular zone
             this.ngZone.run(() => {
@@ -892,17 +901,17 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
                 glow: false,
                 duration: 6000
               });
-              console.log('✅ [TAB1] Smart Island moment added!');
+              
             });
           } else {
             console.warn('⚠️ [TAB1] Could not add Smart Island moment. smartIsland:', !!this.smartIsland, 'notification.data:', !!notification.data);
             
             // If Smart Island not ready, retry after a short delay
             if (!this.smartIsland) {
-              console.log('🔄 [TAB1] Smart Island not ready, retrying in 500ms...');
+              
               setTimeout(() => {
                 if (this.smartIsland && notification.data) {
-                  console.log('🔄 [TAB1] Retry: Adding Smart Island moment...');
+                  
                   this.ngZone.run(() => {
                     // Format tutor name properly
                     const tutorName = notification.data.tutorName || this.formatTutorName(
@@ -928,7 +937,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
                       glow: false,
                       duration: 6000
                     });
-                    console.log('✅ [TAB1] Smart Island moment added on retry!');
+                    
                   });
                 } else {
                   console.error('❌ [TAB1] Smart Island still not available on retry');
@@ -940,7 +949,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           // Wait a bit for backend to save the invitation before fetching
           // This prevents race condition where WebSocket arrives before DB write completes
           setTimeout(() => {
-            console.log('⏰ [TAB1] Waiting 1 second before fetching invitations (to avoid race condition)');
+            
             
             // Run inside Angular zone to ensure change detection works
             this.ngZone.run(() => {
@@ -948,8 +957,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
               
               // Force change detection after data loads
               setTimeout(() => {
-                console.log('🔄 [TAB1] Forcing change detection for invitation count');
-                console.log('📊 [TAB1] Current invitations count AFTER reload:', this.activeInvitationsCount);
+                
+                
                 this.cdr.detectChanges();
               }, 1000);
             });
@@ -984,7 +993,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         console.error('❌ [TAB1] WebSocket subscription error:', err);
       },
       complete: () => {
-        console.log('🔌 [TAB1] WebSocket subscription completed');
+        
       }
     });
 
@@ -1038,9 +1047,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.websocketService.connection$.pipe(
       takeUntil(this.destroy$)
     ).subscribe(isConnected => {
-      console.log('🔌 [TAB1] WebSocket connection status changed:', isConnected);
+      
       if (isConnected && this.currentUser) {
-        console.log('🔌 [TAB1] WebSocket reconnected - refreshing data');
+        
         // Reload important data after reconnection (no skeleton — silent refresh)
         setTimeout(() => {
           this.loadUnreadNotificationCount();
@@ -1082,19 +1091,19 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.websocketService.on('reschedule_proposed').pipe(
       takeUntil(this.destroy$)
     ).subscribe(async (data: any) => {
-      console.log('📅 [TAB1] Reschedule proposed:', data);
-      console.log('📅 [TAB1] Current lessons count:', this.lessons.length);
-      console.log('📅 [TAB1] Looking for lesson with ID:', data.lessonId);
+      
+      
+      
       
       // Update the lesson status in the UI
       const lesson = this.lessons.find(l => {
         const match = String(l._id) === String(data.lessonId);
-        console.log('📅 [TAB1] Comparing:', String(l._id), 'vs', String(data.lessonId), '=', match);
+        
         return match;
       });
       
       if (lesson) {
-        console.log('✅ [TAB1] Found lesson, updating...');
+        
         lesson.status = 'pending_reschedule';
         (lesson as any).rescheduleProposal = data.proposal;
         
@@ -1136,13 +1145,13 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.websocketService.on('lesson_updated').pipe(
       takeUntil(this.destroy$)
     ).subscribe(async (data: any) => {
-      console.log('📅 [TAB1] Lesson updated:', data);
+      
       
       // Update the lesson in the UI
       const lesson = this.lessons.find(l => String(l._id) === String(data.lessonId));
       
       if (lesson) {
-        console.log('✅ [TAB1] Found lesson, updating status to:', data.status);
+        
         lesson.status = data.status as any;
         
         if (data.rescheduleProposal) {
@@ -1170,29 +1179,17 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.websocketService.on('reschedule_accepted').pipe(
       takeUntil(this.destroy$)
     ).subscribe(async (data: any) => {
-      console.log('✅ [TAB1] Reschedule accepted:', data);
+      
       const lesson = this.lessons.find(l => l._id === data.lessonId);
       if (lesson) {
-        console.log('📅 [TAB1] Before update:', {
-          lessonId: lesson._id,
-          oldStartTime: lesson.startTime,
-          oldEndTime: lesson.endTime,
-          status: lesson.status
-        });
+        
         
         // Update the lesson times to the new accepted times
         lesson.startTime = data.newStartTime;
         lesson.endTime = data.newEndTime;
         lesson.status = 'scheduled';
         
-        console.log('📅 [TAB1] After update:', {
-          lessonId: lesson._id,
-          newStartTime: lesson.startTime,
-          newEndTime: lesson.endTime,
-          status: lesson.status,
-          newDate: new Date(lesson.startTime).toLocaleDateString(),
-          newTime: new Date(lesson.startTime).toLocaleTimeString()
-        });
+        
         
         // Mark the rescheduleProposal as accepted (keep the proposal object for badge display)
         if ((lesson as any).rescheduleProposal) {
@@ -1201,14 +1198,14 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         
         // ✅ NEW: Un-dismiss the reminder for this lesson so it can show again for the new time
         this.reminderService.undismissReminder(lesson._id);
-        console.log('🔔 [TAB1] Un-dismissed reminder for rescheduled lesson:', lesson._id);
+        
         
         // Re-sort lessons array by startTime to ensure correct ordering
         this.lessons.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
         
-        console.log('📅 [TAB1] Total lessons after sort:', this.lessons.length);
-        console.log('📅 [TAB1] Currently viewing date:', this.selectedDate?.toLocaleDateString());
-        console.log('📅 [TAB1] Lessons for currently selected date:', this.lessonsForSelectedDate().length);
+        
+        
+        
         
         // Invalidate ALL cached computed properties to force full recalculation
         // This will determine if the lesson is still the "next class" or should move to timeline
@@ -1240,7 +1237,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.websocketService.on('reschedule_rejected').pipe(
       takeUntil(this.destroy$)
     ).subscribe(async (data: any) => {
-      console.log('❌ [TAB1] Reschedule rejected:', data);
+      
       // Clear the proposal
       const lesson = this.lessons.find(l => l._id === data.lessonId);
       if (lesson) {
@@ -1274,8 +1271,6 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       this.websocketService.on('feedback_required').pipe(
         takeUntil(this.destroy$)
       ).subscribe(async (data: any) => {
-        console.log('📝 [TAB1] Feedback required:', data);
-        
         // Reload pending feedback which will trigger the alert via loadPendingFeedback()
         await this.loadPendingFeedback();
         this.cdr.detectChanges();
@@ -1292,7 +1287,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       this.websocketService.on('lesson_completed').pipe(
         takeUntil(this.destroy$)
       ).subscribe((data: any) => {
-        console.log('🎓 [TAB1] Lesson completed:', data);
+        
         if (data.lessonId && data.tutorName) {
           // Show quick rating after 2 seconds
           setTimeout(() => {
@@ -1305,7 +1300,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       this.websocketService.on('tutor_shared_content').pipe(
         takeUntil(this.destroy$)
       ).subscribe((data: any) => {
-        console.log('📎 [TAB1] Tutor shared content:', data);
+        
         if (data.tutor && data.contentType) {
           this.showTutorSharedContent(data.tutor, data.contentType, data.contentId);
         }
@@ -1315,7 +1310,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       this.websocketService.on('milestone_achieved').pipe(
         takeUntil(this.destroy$)
       ).subscribe((data: any) => {
-        console.log('🎉 [TAB1] Milestone achieved:', data);
+        
         if (data.type && data.value) {
           this.showMilestone(data.type, data.value);
         }
@@ -1325,7 +1320,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       this.websocketService.on('smart_recommendation').pipe(
         takeUntil(this.destroy$)
       ).subscribe((data: any) => {
-        console.log('💡 [TAB1] Smart recommendation:', data);
+        
         if (data.message) {
           this.showRecommendation(data.message, data.type || 'general');
         }
@@ -1370,7 +1365,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       if (document.visibilityState === 'visible' && this.isTutorUser) {
         const now = Date.now();
         if (now - this._lastEarningsVisibilityRefresh > 60000) {
-          console.log('💰 [TAB1] Page became visible, refreshing tutor earnings');
+          
           this._lastEarningsVisibilityRefresh = now;
           this.loadTutorEarnings();
         }
@@ -1378,13 +1373,13 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     };
     document.addEventListener('visibilitychange', this._earningsVisibilityHandler);
 
-    console.log('🌟 [TAB1] ngOnInit completed');
+    
   }
   
   ngAfterViewInit() {
-    console.log('🌟 [TAB1] ngAfterViewInit - Smart Island available:', !!this.smartIsland);
+    
     if (this.smartIsland) {
-      console.log('✅ [TAB1] Smart Island component initialized successfully!');
+      
     } else {
       console.error('❌ [TAB1] Smart Island component NOT available after view init!');
     }
@@ -1396,15 +1391,13 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       this.skipTabEntryAnimations = true;
     }
     this.refreshPrevNotesTranslationState();
-    console.log('🔄 [TAB1] ========== ionViewWillEnter START ==========');
-    console.log('🔄 [TAB1] ionViewWillEnter - hasInitiallyLoaded:', this._hasInitiallyLoaded, 'lastFetch:', new Date(this._lastDataFetch).toLocaleTimeString());
-    console.log('🔄 [TAB1] currentUser:', {
-      exists: !!this.currentUser,
-      email: this.currentUser?.email,
-      userType: this.currentUser?.userType,
-      isTutor: this.isTutorUser,
-      isStudent: this.isStudentUser
-    });
+
+    if (this.showCreateMaterialView && this.createMaterialRef?.restoreSection) {
+      this.createMaterialRef.restoreSection();
+    }
+    
+    
+    
     
     // Refresh wallet balance or earnings when returning to this page
     if (this.currentUser) {
@@ -1432,7 +1425,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     const forceReload = state?.forceReload === true;
     
     if (forceReload) {
-      console.log('🔄 [TAB1] Force reload requested, invalidating cache');
+      
       this._lastDataFetch = 0; // Invalidate cache
       this._lastDynamicCardRefresh = 0; // Force dynamic card refresh
       // Clear the state to prevent repeated reloads
@@ -1468,10 +1461,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       
       // Load pending feedback for tutors (drives Quick Actions feedback item)
       if (this.currentUser.userType === 'tutor') {
-        console.log('📝 [TAB1] ionViewWillEnter - User IS a tutor, calling loadPendingFeedback()');
+        
         this.loadPendingFeedback();
       } else {
-        console.log('📝 [TAB1] ionViewWillEnter - User is NOT a tutor (userType:', this.currentUser.userType, ')');
+        
       }
     } else {
       console.warn('⚠️ [TAB1] ionViewWillEnter - No currentUser available!');
@@ -1488,36 +1481,36 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     
     // Refresh dynamic cards when entering the page (students only)
     // Use a 30s debounce to prevent rapid API calls, but always refresh on page entry
-    console.log('🎴 [TAB1] ionViewWillEnter - checking user type. currentUser:', this.currentUser?.email, 'type:', this.currentUser?.userType);
+    
     if (this.currentUser?.userType === 'student') {
       const timeSinceLastRefresh = now - this._lastDynamicCardRefresh;
       const shortDebounce = 30 * 1000; // 30 seconds debounce for page entries
       const shouldRefresh = timeSinceLastRefresh > shortDebounce || !this._hasInitiallyLoaded;
       
       if (shouldRefresh) {
-        console.log('🎴 [TAB1] ✅ Refreshing dynamic cards (last refresh:', Math.round(timeSinceLastRefresh / 1000), 'seconds ago)');
+        
         this.loadAdditionalDynamicCards();
         this._lastDynamicCardRefresh = now;
       } else {
-        console.log('🎴 [TAB1] ⏭️  Skipping card refresh (debounce, last refresh:', Math.round(timeSinceLastRefresh / 1000), 'seconds ago)');
+        
       }
       
       // Start periodic refresh interval while on page (refresh every 2 minutes)
       this.startDynamicCardRefreshInterval();
     } else {
-      console.log('🎴 [TAB1] ⏭️  User is not a student, skipping dynamic cards');
+      
       // Clear any existing interval if user is not a student
       this.stopDynamicCardRefreshInterval();
     }
     
-    console.log('🔄 [TAB1] Cache age:', Math.round(cacheAge / 1000), 'seconds, stale:', isCacheStale);
+    
     
     if (!this._hasInitiallyLoaded || isCacheStale) {
-      console.log('🔄 [TAB1] Loading lessons - showSkeleton:', !this._hasInitiallyLoaded);
+      
       // Only show skeleton on initial load, not on subsequent visits
       this.loadLessons(!this._hasInitiallyLoaded);
     } else {
-      console.log('✅ [TAB1] Using cached data, forcing recomputation of computed properties');
+      
       // Invalidate hashes so getters recompute on next access,
       // but keep the existing data arrays so the UI doesn't flash empty.
       this._cachedFirstLessonHash = '';
@@ -1557,18 +1550,18 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
 
   loadPendingInvitations() {
     if (!this.currentUser || this.currentUser.userType !== 'student') {
-      console.log('⚠️ [TAB1] Skipping loadPendingInvitations - not a student or no user');
+      
       return;
     }
 
-    console.log('📋 [TAB1] Loading pending invitations...');
+    
     this.isLoadingInvitations = true;
     this.classService.getPendingInvitations().pipe(
       observeOn(asyncScheduler), // Make emissions async to prevent freezing
       takeUntil(this.destroy$)
     ).subscribe({
       next: (response) => {
-        console.log('📦 [TAB1] getPendingInvitations response:', response);
+        
         
         if (response.success) {
           // Keep all classes including cancelled ones (they'll show status in UI)
@@ -1581,23 +1574,19 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           const newCount = this.activeInvitationsCount;
           const newTotal = this.pendingClassInvitations.length;
           
-          console.log('✅ [TAB1] Loaded invitations:');
-          console.log('   - Total invitations:', newTotal, '(was:', previousTotal + ')');
-          console.log('   - Active invitations:', newCount, '(was:', previousCount + ')');
-          console.log('   - Pending array length:', this.pendingClassInvitations.length);
-          console.log('   - Pending array:', this.pendingClassInvitations);
+          
+          
+          
+          
+          
           
           // Add pending invitations to Smart Island
           const activeInvitations = this.pendingClassInvitations.filter(inv => inv.status !== 'cancelled');
           
-          console.log('🌟 [TAB1] Smart Island check:', {
-            smartIslandExists: !!this.smartIsland,
-            activeInvitationsCount: activeInvitations.length,
-            invitations: activeInvitations.map((i: any) => ({ id: i._id, tutor: i.tutorId?.firstName }))
-          });
+          
           
           if (this.smartIsland && activeInvitations.length > 0) {
-            console.log('🌟 [TAB1] Adding', activeInvitations.length, 'pending invitations to Smart Island...');
+            
             
             // Small delay to ensure Smart Island is fully initialized
             setTimeout(() => {
@@ -1612,13 +1601,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
                 const tutorName = this.formatTutorName(firstName, lastName);
                 const className = invitation.name || 'a class';
                 
-                console.log('🔍 [TAB1] Adding invitation to Smart Island:', { 
-                  invitationId: invitation._id,
-                  firstName, 
-                  lastName, 
-                  tutorName, 
-                  className 
-                });
+                
                 
                 this.smartIsland.addMoment({
                   type: 'invitation',
@@ -1637,14 +1620,14 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
                 });
               });
               
-              console.log('✅ [TAB1] All invitations added to Smart Island');
+              
             }, 100);
           } else if (!this.smartIsland) {
             console.warn('⚠️ [TAB1] Smart Island not available yet, will retry...');
             // Retry after view init
             setTimeout(() => {
               if (this.smartIsland && activeInvitations.length > 0) {
-                console.log('🔄 [TAB1] Retry: Adding invitations to Smart Island');
+                
                 this.loadPendingInvitations(); // Reload to trigger add
               }
             }, 500);
@@ -1655,14 +1638,14 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           
           // If count increased, log it
           if (newCount > previousCount) {
-            console.log('🔔 [TAB1] Invitations count INCREASED from', previousCount, 'to', newCount);
+            
           } else if (newCount < previousCount) {
-            console.log('📉 [TAB1] Invitations count DECREASED from', previousCount, 'to', newCount);
+            
           } else {
-            console.log('➖ [TAB1] Invitations count UNCHANGED at', newCount);
+            
           }
         } else {
-          console.log('❌ [TAB1] getPendingInvitations returned success: false');
+          
         }
         this.isLoadingInvitations = false;
         this.cdr.markForCheck();
@@ -1686,7 +1669,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   
   // Handle inline class invitation modal dismissal
   async onClassInvitationModalDismiss(event: any) {
-    console.log('📧 Class invitation modal dismissed:', event);
+    
     this.isClassInvitationModalOpen = false;
     
     const data = event.detail?.data;
@@ -1694,7 +1677,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     // Remove Smart Island moment for this invitation
     if (this.classInvitationModalData?.classId && this.smartIsland) {
       const momentId = `invitation:${this.classInvitationModalData.classId}`;
-      console.log('🌟 [TAB1] Removing Smart Island moment:', momentId);
+      
       this.smartIsland.removeMoment(momentId);
     }
     
@@ -1704,7 +1687,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       this.loadLessons(false);
     } else if (data?.expired) {
       // Invitation was removed/expired - show message and refresh
-      console.log('Invitation expired, refreshing invitations list');
+      
       
       const toast = await this.toastController.create({
         message: 'This invitation is no longer available',
@@ -1841,11 +1824,11 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     // Clear any existing interval first
     this.stopDynamicCardRefreshInterval();
     
-    console.log('🔄 [TAB1] Starting dynamic card refresh interval (every', this.DYNAMIC_CARD_REFRESH_INTERVAL / 1000, 'seconds)');
+    
     
     this._dynamicCardRefreshInterval = setInterval(() => {
-      console.log('🎴 [TAB1] ⏰ Periodic dynamic card refresh triggered at', new Date().toLocaleTimeString());
-      console.log('🎴 [TAB1] ⏰ Current card before refresh:', this.dynamicCard?.type);
+      
+      
       this.loadAdditionalDynamicCards();
       this._lastDynamicCardRefresh = Date.now();
     }, this.DYNAMIC_CARD_REFRESH_INTERVAL);
@@ -1857,7 +1840,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           const timeSinceLastRefresh = Date.now() - this._lastDynamicCardRefresh;
           // If more than 30 seconds since last refresh, refresh now
           if (timeSinceLastRefresh > 30000) {
-            console.log('🎴 [TAB1] 👁️ Page became visible, refreshing dynamic cards');
+            
             this.loadAdditionalDynamicCards();
             this._lastDynamicCardRefresh = Date.now();
           }
@@ -1872,7 +1855,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
    */
   private stopDynamicCardRefreshInterval() {
     if (this._dynamicCardRefreshInterval) {
-      console.log('🛑 [TAB1] Stopping dynamic card refresh interval');
+      
       clearInterval(this._dynamicCardRefreshInterval);
       this._dynamicCardRefreshInterval = null;
     }
@@ -1892,18 +1875,18 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   private setupTutorAvailabilitySocketListeners() {
     // Prevent duplicate listeners
     if (this._tutorAvailabilityListenersSetup) {
-      console.log('📅 [TAB1] Tutor availability socket listeners already set up');
+      
       return;
     }
     this._tutorAvailabilityListenersSetup = true;
     
-    console.log('📅 [TAB1] Setting up tutor availability socket listeners (student)');
+    
     
     // Listen for targeted tutor availability updates
     this.websocketService.on('tutor_availability_updated').pipe(
       takeUntil(this.destroy$)
     ).subscribe((data: any) => {
-      console.log('📅 [TAB1] ⚡ Tutor availability updated (socket):', data);
+      
       // Immediately refresh dynamic cards when a tutor adds availability
       this.loadAdditionalDynamicCards();
       this._lastDynamicCardRefresh = Date.now();
@@ -1913,7 +1896,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.websocketService.on('tutor_availability_changed').pipe(
       takeUntil(this.destroy$)
     ).subscribe((data: any) => {
-      console.log('📅 [TAB1] ⚡ Tutor availability changed (socket broadcast):', data);
+      
       // Refresh dynamic cards
       this.loadAdditionalDynamicCards();
       this._lastDynamicCardRefresh = Date.now();
@@ -2083,21 +2066,21 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
 
   // Helper: Open lesson rating
   private openLessonRating(lessonId: string) {
-    console.log('📝 Opening rating for lesson:', lessonId);
+    
     // TODO: Implement rating modal/navigation
     this.showTestToast('Rating feature coming soon!');
   }
 
   // Helper: View tutor content
   private viewTutorContent(tutorId: string, contentType: string, contentId?: string) {
-    console.log('📎 Viewing content from tutor:', tutorId, contentType, contentId);
+    
     // TODO: Implement content viewing
     this.showTestToast('Content viewing coming soon!');
   }
 
   // Helper: Handle recommendation
   private handleRecommendation(type: string) {
-    console.log('💡 Handling recommendation:', type);
+    
     switch (type) {
       case 'conversation':
         this.router.navigate(['/tabs/find-tutors'], { queryParams: { filter: 'conversation' } });
@@ -2233,7 +2216,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   
   // Open tutor availability viewer for a specific tutor
   openTutorAvailability(tutor: any) {
-    console.log('🎓 Opening tutor availability for:', tutor);
+    
     
     // Format tutor name properly
     let tutorName = '';
@@ -2252,15 +2235,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       name: tutorName
     };
     this.isTutorBookingModalOpen = true;
-    console.log('🎓 Modal state:', {
-      isOpen: this.isTutorBookingModalOpen,
-      tutor: this.selectedTutorForBooking
-    });
+    
   }
   
   // Close tutor booking modal
   closeTutorBookingModal() {
-    console.log('🎓 Closing tutor booking modal');
+    
     this.isTutorBookingModalOpen = false;
     this.selectedTutorForBooking = null;
   }
@@ -2292,6 +2272,30 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     });
   }
 
+  loadHomePracticeMaterials(language: string) {
+    this.materialService.getRecommendedMaterials(language).pipe(take(1)).subscribe({
+      next: (res: any) => {
+        if (res.success) {
+          this.homePracticeMaterials = (res.materials || []).slice(0, 6);
+          this.cdr.detectChanges();
+        }
+      },
+      error: () => {}
+    });
+  }
+
+  navigateToMaterial(materialId: string) {
+    this.router.navigate(['/material', materialId]);
+  }
+
+  navigateToMyLibrary() {
+    this.router.navigate(['/my-library']);
+  }
+
+  trackByMaterialId(index: number, mat: any): string {
+    return mat._id;
+  }
+
   navigateToProgressPlan() {
     this.router.navigate(['/tabs/progress']);
   }
@@ -2304,12 +2308,91 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.ionContent?.scrollToTop(0);
   }
 
-  navigateToCreateMaterial() {
+  navigateToCreateMaterial(event?: MouseEvent) {
+    const srcEl = event
+      ? (event.currentTarget as HTMLElement || event.target as HTMLElement)
+      : null;
+    const srcRect = srcEl?.getBoundingClientRect() ?? null;
+
     this._savedScrollBeforeMaterial = this._scrollElRef?.scrollTop || 0;
     this.showCreateMaterialView = true;
     this.homeInlineToolbar.setMaterialsViewOpen(true);
     this.cdr.detectChanges();
     this.ionContent?.scrollToTop(0);
+
+    if (!srcRect) return;
+
+    const dest = document.querySelector('.cm-library') as HTMLElement;
+    if (!dest) return;
+
+    dest.style.transition = 'none';
+    dest.style.opacity = '0';
+
+    const destRect = dest.getBoundingClientRect();
+    if (!destRect.width) { dest.style.transition = ''; dest.style.opacity = ''; return; }
+
+    const initH = srcRect.height;
+    const initTop = srcRect.top;
+
+    const dur = '0.32s';
+    const ease = 'cubic-bezier(0.32,0.72,0,1)';
+
+    // Backdrop dim for depth
+    const backdrop = document.createElement('div');
+    Object.assign(backdrop.style, {
+      position: 'fixed', inset: '0',
+      zIndex: '9999', pointerEvents: 'none',
+      backgroundColor: 'rgba(0,0,0,0)', 
+      transition: `background-color ${dur} ${ease}`,
+    });
+    document.body.appendChild(backdrop);
+
+    const clone = document.createElement('div');
+    Object.assign(clone.style, {
+      position: 'fixed',
+      left: `${srcRect.left}px`,
+      top: `${initTop}px`,
+      width: `${srcRect.width}px`,
+      height: `${initH}px`,
+      zIndex: '10000',
+      pointerEvents: 'none',
+      boxSizing: 'border-box',
+      backgroundColor: '#ffffff',
+      border: '1px solid rgba(0,0,0,0.08)',
+      borderRadius: '10px',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+      transition: `left ${dur} ${ease}, top ${dur} ${ease}, width ${dur} ${ease}, height ${dur} ${ease}, border-radius ${dur} ${ease}, box-shadow 0.4s ease, border-color 0.3s ease`,
+      overflow: 'hidden',
+    });
+    document.body.appendChild(clone);
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        backdrop.style.backgroundColor = 'rgba(0,0,0,0.04)';
+
+        clone.style.left = `${destRect.left}px`;
+        clone.style.top = `${destRect.top}px`;
+        clone.style.width = `${destRect.width}px`;
+        clone.style.height = `${destRect.height}px`;
+        clone.style.borderRadius = '18px';
+        clone.style.boxShadow = '0 2px 16px rgba(0,0,0,0.08)';
+        clone.style.borderColor = 'rgba(0,0,0,0.06)';
+
+        setTimeout(() => {
+          dest.style.transition = 'opacity 0.15s ease';
+          dest.style.opacity = '1';
+          backdrop.style.transition = 'opacity 0.15s ease';
+          backdrop.style.opacity = '0';
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              if (clone.parentNode) clone.remove();
+              if (backdrop.parentNode) backdrop.remove();
+              setTimeout(() => { dest.style.transition = ''; dest.style.opacity = ''; }, 180);
+            });
+          });
+        }, 300);
+      });
+    });
   }
 
   
@@ -2343,7 +2426,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       : 0;
     
     if (upcomingLessons.length === 0 && this.lessons.length > 0 && daysSinceLast >= 3) {
-      console.log('📅 [Smart Island] No upcoming lessons detected, showing nudge...');
+      
       setTimeout(() => {
         this.showNoUpcomingLessonsNudge();
       }, 10000); // Show after 10 seconds on page
@@ -2393,7 +2476,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       return;
     }
     
-    console.log('🌟 Testing Smart Island with all event types...');
+    
     
     // Clear all existing moments first
     this.smartIsland.clearAll();
@@ -2778,7 +2861,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   }
 
   loadUserStats(forceRefresh = false) {
-    console.log('💰 [TAB1] loadUserStats() called, forceRefresh:', forceRefresh);
+    
     
     // First, use cached user if available (prevents flashing when returning from profile)
     const cachedUser = this.userService.getCurrentUserValue();
@@ -2786,31 +2869,31 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       // Apply cached settings immediately to prevent flash
       this.showWalletBalance = cachedUser?.profile?.showWalletBalance || false;
       this.updateWalletDisplay();
-      console.log('💰 [TAB1] Applied cached wallet balance setting:', this.showWalletBalance);
+      
     }
     
     // Then fetch from server (only if forced or no cached user)
     this.userService.getCurrentUser(forceRefresh).subscribe(user => {
-      console.log('💰 [TAB1] getCurrentUser callback, user type:', user?.userType);
+      
       
       if (user) {
-        console.log('💰 User profile data:', user.profile);
+        
         // Load show wallet balance setting from database
         this.showWalletBalance = user?.profile?.showWalletBalance || false;
-        console.log('💰 Loaded wallet balance setting:', this.showWalletBalance);
+        
         
         // Update display property
         this.updateWalletDisplay();
         
         // Load coaching metrics for tutors
         if (user.userType === 'tutor') {
-          console.log('👨‍🏫 [TAB1] Loading coaching metrics for tutor');
+          
           this.loadCoachingMetrics();
         }
         
         // Load gamification cards for students
         if (user.userType === 'student') {
-          console.log('👨‍🎓 [TAB1] Loading gamification cards for student');
+          
           this.loadGamificationCards();
         }
         this.cdr.markForCheck();
@@ -2829,7 +2912,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       
       if (response.success) {
         this.coachingMetrics = response.data;
-        console.log('🎓 Loaded coaching metrics:', this.coachingMetrics);
+        
       }
     } catch (error: any) {
       console.error('❌ Error loading coaching metrics:', error);
@@ -2839,18 +2922,18 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   
   // Load gamification data and populate Smart Island cards (for students)
   async loadGamificationCards() {
-    console.log('🎮 [Smart Island] loadGamificationCards() called');
-    console.log('🎮 [Smart Island] isStudent():', this.isStudent());
-    console.log('🎮 [Smart Island] dynamicCardsLoaded:', this.dynamicCardsLoaded);
+    
+    
+    
     
     if (!this.isStudent()) {
-      console.log('🎮 [Smart Island] Not a student, skipping');
+      
       return;
     }
     
     // Skip if cards are already loaded (prevents resetting rotation on navigation)
     if (this.dynamicCardsLoaded) {
-      console.log('🎮 [Smart Island] Cards already loaded, skipping re-initialization');
+      
       return;
     }
     
@@ -2859,10 +2942,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     
     // Clear any existing cards first (only on first load)
     this.smartIslandService.clearAllCards();
-    console.log('🎮 [Smart Island] Cleared existing cards, will show skeleton until data loads');
+    
     
     try {
-      console.log('🎮 [Smart Island] Fetching analyses...');
+      
       
       // Fetch student progress data
       const response = await firstValueFrom(
@@ -2871,17 +2954,17 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         })
       );
       
-      console.log('🎮 [Smart Island] Response received:', response);
-      console.log('🎮 [Smart Island] Analyses array:', response?.analyses);
-      console.log('🎮 [Smart Island] Analyses count:', response?.analyses?.length || 0);
+      
+      
+      
       
       if (response.success && response.analyses) {
         const analyses = response.analyses || [];
         const lessonCount = analyses.length;
         
-        console.log('🎮 [Smart Island] ✅ SUCCESS - Loaded analyses:', lessonCount);
+        
         if (analyses.length > 0) {
-          console.log('🎮 [Smart Island] First analysis:', analyses[0]);
+          
         }
         
         // Add badge card with actual data
@@ -2901,7 +2984,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
               current: lessonCount,
               target: milestone.count
             });
-            console.log('🎯 [Smart Island] Added badge card:', milestone.name, `(${lessonCount}/${milestone.count})`);
+            
             break;
           }
         }
@@ -2913,7 +2996,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
             'Find Tutors',
             '/tabs/tutor-search'
           );
-          console.log('🎮 [Smart Island] Added welcome tip for new student');
+          
         }
         
         // Calculate streak (only if lessons exist)
@@ -2956,7 +3039,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         
         if (streak >= 3) {
           this.smartIslandService.addStreakCard(streak, isStreakAtRisk);
-          console.log('🔥 [Smart Island] Added streak card:', streak, 'days, at risk:', isStreakAtRisk);
+          
         }
         
         // Calculate highest level and next level (only if 5+ lessons)
@@ -3025,7 +3108,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           );
         }
         
-        console.log('🎮 Loaded gamification cards for Smart Island');
+        
         
         // Restart rotation to ensure it's running after all cards are loaded
         this.smartIslandService.restartRotation();
@@ -3047,45 +3130,45 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   
   // Load additional dynamic cards (tutors online, recommendations, tips, etc.)
   private async loadAdditionalDynamicCards() {
-    console.log('➕ [Smart Island] Loading additional dynamic cards...');
-    console.log('➕ [Smart Island] Current user:', this.currentUser?.email, 'Type:', this.currentUser?.userType);
+    
+    
     
     // Check for tutors with new availability
     try {
-      console.log('📅 [Smart Island] Fetching tutors-with-new-availability...');
+      
       const availabilityResponse = await firstValueFrom(
         this.http.get<any>(`${environment.apiUrl}/users/tutors-with-new-availability`, {
           headers: this.userService.getAuthHeadersSync()
         })
       );
       
-      console.log('📅 [Smart Island] API Response:', availabilityResponse);
-      console.log('📅 [Smart Island] Success:', availabilityResponse.success);
-      console.log('📅 [Smart Island] Tutors count:', availabilityResponse.tutors?.length);
+      
+      
+      
       
       if (availabilityResponse.success && availabilityResponse.tutors.length > 0) {
         let tutors = availabilityResponse.tutors;
         
-        console.log('📅 [Smart Island] Raw tutors with new availability:', tutors.length);
+        
         
         // Filter out tutors whose availability has already been dismissed by the student
         tutors = this.smartIslandService.filterDismissedTutors(tutors);
         
-        console.log('📅 [Smart Island] After filtering dismissed:', tutors.length, 'tutors');
+        
         
         if (tutors.length > 0) {
           this.smartIslandService.addTutorAvailabilityCard(
             tutors, // Pass full tutor objects
             '/tabs/tutor-search'
           );
-          console.log('📅 [Smart Island] ✅ Added tutor availability card:', tutors.length, 'tutors');
+          
         } else {
-          console.log('📅 [Smart Island] ❌ All tutors were previously dismissed by student');
+          
           // Remove any existing card since all tutors are dismissed
           this.smartIslandService.removeTutorAvailabilityCard();
         }
       } else {
-        console.log('📅 [Smart Island] ❌ No tutors with available slots found - removing card');
+        
         // IMPORTANT: Remove the card since no tutors have availability anymore
         this.smartIslandService.removeTutorAvailabilityCard();
         // Force change detection to update UI
@@ -3160,7 +3243,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     
     // Check each tutor's actual availability before showing the modal
     // This filters out tutors who no longer have any available time slots
-    console.log('🔍 [TAB1] Checking actual availability for', tutors.length, 'tutors...');
+    
     const tutorsWithAvailability: any[] = [];
     const tutorsToRemove: string[] = [];
     
@@ -3185,10 +3268,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         
         if (hasFutureSlots) {
           tutorsWithAvailability.push(tutor);
-          console.log(`✅ [TAB1] Tutor ${tutor.firstName || tutor.name} has available slots`);
+          
         } else {
           tutorsToRemove.push(tutorId);
-          console.log(`❌ [TAB1] Tutor ${tutor.firstName || tutor.name} has NO available slots - removing from card`);
+          
         }
       } catch (error) {
         console.error(`❌ [TAB1] Error checking availability for tutor ${tutorId}:`, error);
@@ -3235,17 +3318,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     
     const { data } = await modal.onWillDismiss();
     
-    console.log('🔍 [TAB1] Modal dismissed with data:', data);
+    
     
     if (data?.success && data?.booked && data?.tutorId) {
       // Booking was completed successfully within the modal
-      console.log('✅ [TAB1] Booking completed successfully, refreshing lessons...');
-      console.log('✅ [TAB1] Booked lesson details:', {
-        tutorId: data.tutorId,
-        tutorName: data.tutorName,
-        date: data.selectedDate,
-        time: data.selectedTime
-      });
+      
+      
       
       // Only dismiss the BOOKED tutor, not all tutors
       // This way the card will remain for other tutors who have availability
@@ -3253,24 +3331,24 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       const bookedTutorTimestamp = tutorTimestamps[bookedTutorId] ? 
         { [bookedTutorId]: tutorTimestamps[bookedTutorId] } : undefined;
       this.smartIslandService.dismissTutorAvailability([bookedTutorId], bookedTutorTimestamp);
-      console.log('🔕 [TAB1] Dismissed tutor availability for booked tutor:', bookedTutorId);
+      
       
       // Remove the booked tutor from the availability card
       // If no tutors remain, the card will be removed automatically
       this.smartIslandService.removeTutorFromAvailabilityCard(bookedTutorId);
-      console.log('🔄 [TAB1] Removed booked tutor from availability card');
+      
       
       // Add a longer delay to ensure database transaction is fully committed and replicated
-      console.log('⏳ [TAB1] Waiting 2000ms for DB to commit and replicate...');
+      
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       // Refresh lessons to show the new booking
       await this.loadLessons(false);
       
-      console.log('✅ [TAB1] Lessons refreshed after booking');
-      console.log('📊 [TAB1] Total lessons loaded:', this.lessons.length);
-      console.log('📊 [TAB1] Upcoming lesson:', this.upcomingLesson);
-      console.log('📊 [TAB1] Looking for lesson with tutor:', data.tutorId, 'on date:', data.selectedDate, 'at time:', data.selectedTime);
+      
+      
+      
+      
       
       // Check if the new lesson is in the list
       const newLesson = this.lessons.find(l => {
@@ -3281,23 +3359,18 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       });
       
       if (newLesson) {
-        console.log('✅ [TAB1] Found newly booked lesson:', newLesson._id);
+        
       } else {
         console.error('❌ [TAB1] NEWLY BOOKED LESSON NOT FOUND IN API RESPONSE!');
         console.error('❌ [TAB1] This indicates a backend issue - lesson created but not returned by getMyLessons()');
       }
       
-      console.log('📊 [TAB1] All lessons:', this.lessons.map(l => ({
-        id: l._id,
-        tutor: (l.tutorId as any)?.name || (l.tutorId as any)?.firstName,
-        startTime: l.startTime,
-        status: l.status
-      })));
+      
       
       // Force change detection
       this.cdr.detectChanges();
     } else {
-      console.log('ℹ️ [TAB1] Modal dismissed without booking');
+      
     }
   }
   
@@ -3322,23 +3395,16 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     if (!this.isTutorUser) return;
     if (!this.currentUser) return; // Only check if we have current user
     
-    console.log('🔄 [TAB1] Checking tutor onboarding status from current user...');
+    
     
     const user = this.currentUser;
     
-    console.log('📊 [TAB1] User data:', {
-      email: user.email,
-      tutorApproved: user.tutorApproved,
-      onboardingCompleted: user.onboardingCompleted,
-      picture: !!user.picture,
-      stripeConnectOnboarded: user.stripeConnectOnboarded,
-      tutorOnboarding: user.tutorOnboarding
-    });
+    
     
     // Only show approval banner if basic onboarding is complete
     if (!user.onboardingCompleted) {
       this.showOnboardingBanner = false;
-      console.log('ℹ️ [TAB1] Basic onboarding not complete, hiding banner');
+      
       return;
     }
     
@@ -3371,10 +3437,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     const hasNoVideo = !user.onboardingData?.introductionVideo && !user.onboardingData?.pendingVideo;
     this.profileHiddenNoVideo = !user.tutorApproved && user.onboardingCompleted && hasNoVideo && !user.tutorOnboarding?.videoApproved;
     
-    console.log('🎯 [TAB1] Tutor approval banner decision:', {
-      tutorApproved: user.tutorApproved,
-      showBanner: this.showOnboardingBanner
-    });
+    
     
     this.cdr.detectChanges();
   }
@@ -3629,14 +3692,14 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
 
   // Navigate to invitations (for students)
   navigateToInvitations() {
-    console.log('navigateToInvitations called');
-    console.log('pendingClassInvitations:', this.pendingClassInvitations);
-    console.log('pendingClassInvitations.length:', this.pendingClassInvitations.length);
+    
+    
+    
     
     // Filter out cancelled invitations
     const activeInvitations = this.pendingClassInvitations.filter(inv => inv.status !== 'cancelled');
-    console.log('activeInvitations:', activeInvitations);
-    console.log('activeInvitations.length:', activeInvitations.length);
+    
+    
     
     if (activeInvitations.length === 0) return;
     
@@ -3656,7 +3719,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     
     // If user accepted or declined, refresh data immediately
     if (event.detail.data?.accepted || event.detail.data?.declined) {
-      console.log('Invitation action completed, refreshing data...');
+      
       
       // Reload both invitations and lessons
       this.loadPendingInvitations();
@@ -3673,7 +3736,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       await toast.present();
     } else if (event.detail.data?.expired) {
       // Invitation was removed/expired - show message and refresh
-      console.log('Invitation expired, refreshing invitations list');
+      
       
       const toast = await this.toastController.create({
         message: 'This invitation is no longer available',
@@ -5349,10 +5412,7 @@ navigateToLessons() {
   async joinLessonById(lesson: Lesson) {
     const isClass = (lesson as any).isClass;
     
-    console.log('🎯 TAB1: Navigating to pre-call:', {
-      sessionId: lesson._id,
-      isClass: isClass
-    });
+    
     
     // Navigate directly to pre-call - don't call backend join yet
     // SECURITY: role is determined from lesson data + auth, not passed in URL
@@ -5728,11 +5788,11 @@ navigateToLessons() {
   }
 
   async loadLessons(showSkeleton = true) {
-    console.log('📊 [TAB1] loadLessons called - showSkeleton:', showSkeleton, 'isLoadingLessons:', this.isLoadingLessons, 'inProgress:', this._isLoadingInProgress);
+    
     
     // Prevent double-loading which causes flash
     if (this._isLoadingInProgress) {
-      console.log('⏭️ [TAB1] Skipping loadLessons - already in progress');
+      
       return;
     }
     
@@ -5741,21 +5801,14 @@ navigateToLessons() {
     // Only show skeleton loader if explicitly requested (e.g., initial load)
     if (showSkeleton) {
       this.isLoadingLessons = true;
-      console.log('⏳ [TAB1] Showing skeleton loader');
+      
     }
     
     try {
       const resp = await this.lessonService.getMyLessons().toPromise();
       if (resp?.success) {
-        console.log('📥 [TAB1] Raw lessons from API:', resp.lessons.length, 'lessons');
-        console.log('📥 [TAB1] First 3 lessons:', resp.lessons.slice(0, 3).map(l => ({
-          id: l._id,
-          tutor: (l.tutorId as any)?.name || (l.tutorId as any)?.firstName,
-          student: (l.studentId as any)?.name || (l.studentId as any)?.firstName,
-          startTime: l.startTime,
-          endTime: l.endTime,
-          status: l.status
-        })));
+        
+        
         
         const now = Date.now();
         let allLessons = [...resp.lessons];
@@ -5802,11 +5855,11 @@ navigateToLessons() {
 
         
         if (!this.isTutor()) {
-          console.log('🎓 [TAB1] Loading accepted classes for student...');
+          
           try {
             const classesResp = await this.classService.getAcceptedClasses().toPromise();
-            console.log('🎓 [TAB1] getAcceptedClasses response:', classesResp);
-            console.log('🎓 [TAB1] Number of accepted classes:', classesResp?.classes?.length || 0);
+            
+            
             
             if (classesResp?.success && classesResp.classes) {
               // Convert accepted classes to lesson-like objects
@@ -5832,29 +5885,28 @@ navigateToLessons() {
                 cancelReason: cls.cancelReason // Include cancel reason
               } as any));
               
-              console.log('🎓 [TAB1] Converted classes to lesson-like objects:', classLessons);
+              
               
               // Merge classes with lessons
               allLessons = [...allLessons, ...classLessons];
-              console.log('🎓 [TAB1] Total allLessons after merge:', allLessons.length);
+              
             }
           } catch (error) {
             console.error('🎓 [TAB1] Error loading student classes:', error);
           }
         } else {
-          console.log('🎓 [TAB1] Skipping class load - user is a tutor');
+          
         }
-
 
 
         // Filter for upcoming lessons + lessons from today (even if completed)
         const today = this.startOfDay(new Date());
         const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
         
-        console.log('📅 [TAB1] Filter reference times:');
-        console.log('  - now:', new Date(now).toISOString());
-        console.log('  - today start:', today.toISOString());
-        console.log('  - sevenDaysAgo:', sevenDaysAgo.toISOString());
+        
+        
+        
+        
         
         // Separate cancelled lessons (show recent and future cancellations, exclude payment failures)
         this.cancelledLessons = allLessons
@@ -5866,7 +5918,7 @@ navigateToLessons() {
           })
           .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
         
-        console.log('🔍 [TAB1] Filtering lessons...');
+        
         
         // Filter for active (non-cancelled) lessons
         this.lessons = allLessons
@@ -5878,7 +5930,7 @@ navigateToLessons() {
             
             // Exclude cancelled lessons (they go to cancelledLessons array)
             if (l.status === 'cancelled') {
-              console.log('  ❌ Filtered out (cancelled):', l._id, new Date(l.startTime).toISOString());
+              
               return false;
             }
             
@@ -5886,18 +5938,7 @@ navigateToLessons() {
             const isUpcoming = endTime >= now;
             const isToday = lessonDay.getTime() === today.getTime();
             
-            console.log(`  🔎 Lesson ${l._id}:`, {
-              startTime: new Date(l.startTime).toISOString(),
-              endTime: new Date(l.endTime).toISOString(),
-              status: l.status,
-              endTime_ms: endTime,
-              now_ms: now,
-              isUpcoming,
-              isToday,
-              lessonDay_ms: lessonDay.getTime(),
-              today_ms: today.getTime(),
-              KEEP: isUpcoming || isToday
-            });
+            
             
             return isUpcoming || isToday;
           })
@@ -5999,14 +6040,14 @@ navigateToLessons() {
           this._lessonCountCache.set(key, count);
         });
         
-        console.log('📊 [TAB1] Lesson count cache populated:');
-        console.log('   Cache entries:', Array.from(this._lessonCountCache.entries()).map(([key, count]) => ({ pair: key, completedCount: count })));
-        console.log('   Total lessons processed:', allLessonsFromAPI.length);
+        
+        
+        
         // Only log debug details if there are issues (more than 0 excluded lessons)
         const excludedCount = debugLog.filter(d => d.reason !== 'Completed - counted').length;
         if (excludedCount > 0) {
-          console.log('   Excluded lessons:', excludedCount, '(trials, non-completed, etc.)');
-          console.log('   Sample exclusions:', debugLog.filter(d => d.reason !== 'Completed - counted').slice(0, 5));
+          
+          
         }
         
         // Add lesson number as a property to each lesson (for template use - no function calls in HTML)
@@ -6056,7 +6097,7 @@ navigateToLessons() {
         // Mark that we've loaded data and update cache timestamp
         this._hasInitiallyLoaded = true;
         this._lastDataFetch = Date.now();
-        console.log('✅ [TAB1] Lessons loaded successfully, cache updated');
+        
       } else {
         this.lessons = [];
       }
@@ -6109,7 +6150,7 @@ navigateToLessons() {
           this.mobileStaggerReady = true;
           this.mobileStaggerDone = true;
         }
-        console.log('✅ [TAB1] Skeleton hidden');
+        
       } else {
         this.upNextCardReady = true;
         this.upNextCardAnimated = true;
@@ -6163,7 +6204,7 @@ navigateToLessons() {
       
     } else {
       // If not found in current lessons, do a background refresh to sync
-      console.log('⚠️ [TAB1] Class not found in current lessons, doing background refresh');
+      
       await this.loadLessons(false); // Don't show skeleton
     }
   }
@@ -6206,10 +6247,10 @@ navigateToLessons() {
         this.loadStudentInsights();
       }
       
-      console.log('✅ [TAB1] Lesson moved to cancelled without reload');
+      
     } else {
       // If not found in current lessons, do a background refresh to sync
-      console.log('⚠️ [TAB1] Lesson not found in current lessons, doing background refresh');
+      
       await this.loadLessons(false); // Don't show skeleton
     }
   }
@@ -6235,7 +6276,7 @@ navigateToLessons() {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response) => {
-          console.log("📅 [TAB1] Loaded availability from API:", response);
+          
           const timeNow = new Date();
           
           // Check if there is availability AND at least one slot is in the future
@@ -6630,10 +6671,7 @@ navigateToLessons() {
     
     const isClass = (this.upcomingLesson as any).isClass || false;
     
-    console.log('🎯 TAB1: Joining upcoming session:', {
-      sessionId: this.upcomingLesson._id,
-      isClass: isClass
-    });
+    
     
     // Navigate to pre-call page first
     // SECURITY: role is determined from lesson data + auth, not passed in URL
@@ -7106,14 +7144,18 @@ navigateToLessons() {
         dest.style.transition = 'none';
         dest.style.opacity = '0';
         const destRect = dest.getBoundingClientRect();
-        // Shorten transition for remaining flight to destination
-        withdrawClone.style.transition = 'left 0.36s cubic-bezier(0.32, 0.72, 0, 1), top 0.36s cubic-bezier(0.32, 0.72, 0, 1), width 0.36s cubic-bezier(0.32, 0.72, 0, 1), height 0.36s cubic-bezier(0.32, 0.72, 0, 1), border-radius 0.36s cubic-bezier(0.32, 0.72, 0, 1), font-size 0.36s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s ease';
+        // Shorten transition for remaining flight to destination (include color props for smooth fill)
+        withdrawClone.style.transition = 'left 0.36s cubic-bezier(0.32, 0.72, 0, 1), top 0.36s cubic-bezier(0.32, 0.72, 0, 1), width 0.36s cubic-bezier(0.32, 0.72, 0, 1), height 0.36s cubic-bezier(0.32, 0.72, 0, 1), border-radius 0.36s cubic-bezier(0.32, 0.72, 0, 1), font-size 0.36s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.32s ease, color 0.32s ease, border-color 0.32s ease, opacity 0.2s ease';
         requestAnimationFrame(() => {
           withdrawClone.style.left = `${destRect.left}px`;
           withdrawClone.style.top = `${destRect.top}px`;
           withdrawClone.style.width = `${destRect.width}px`;
           withdrawClone.style.height = `${destRect.height}px`;
           withdrawClone.style.fontSize = '14px';
+          withdrawClone.style.backgroundColor = cloneSolidBg;
+          withdrawClone.style.color = cloneSolidFg;
+          withdrawClone.style.borderColor = cloneSolidBg;
+          withdrawClone.style.borderRadius = '8px';
         });
         // Wait for layout to fully settle (longer than earningsFadeIn 400ms), then swap
         setTimeout(() => {
@@ -7425,7 +7467,7 @@ navigateToLessons() {
 
       if (response.success) {
         this.stripeConnectOnboarded = response.onboarded;
-        console.log(`💰 Stripe Connect status: ${this.stripeConnectOnboarded ? 'Onboarded' : 'Not onboarded'}`);
+        
       }
     } catch (error) {
       console.error('❌ Error checking Stripe Connect status:', error);
@@ -7626,10 +7668,7 @@ navigateToLessons() {
       return;
     }
 
-    console.log('🎯 TAB1: joinStudentLesson navigating to pre-call:', {
-      lessonId: lesson._id,
-      isClass
-    });
+    
 
     this.router.navigate(['/pre-call'], {
       queryParams: {
@@ -7803,7 +7842,7 @@ navigateToLessons() {
   }
 
   async inviteStudentToClass(classId: string) {
-    console.log('🟢 inviteStudentToClass called for:', classId);
+    
     
     try {
       // Find the lesson/class to get the name and full class data
@@ -7811,7 +7850,7 @@ navigateToLessons() {
       const className = lesson?.className || lesson?.classData?.name || '';
       const classData = lesson?.classData || lesson;
       
-      console.log('🟢 Opening inline modal...');
+      
       
       // Use inline modal instead of programmatic modal
       this.inviteStudentModalProps = {
@@ -7821,14 +7860,14 @@ navigateToLessons() {
       };
       this.isInviteStudentModalOpen = true;
       
-      console.log('✅ Inline modal opened');
+      
     } catch (error) {
       console.error('❌ Error opening invite modal:', error);
     }
   }
   
   onInviteStudentModalDismiss(event: any) {
-    console.log('📧 Invite student modal dismissed:', event);
+    
     this.isInviteStudentModalOpen = false;
     
     const data = event.detail?.data;
@@ -7858,11 +7897,11 @@ navigateToLessons() {
   }
 
   async rescheduleClass(classId: string, lesson: Lesson) {
-    console.log('🟡 rescheduleClass called for:', classId);
+    
     try {
       const className = lesson?.className || lesson?.classData?.name || '';
       
-      console.log('🟡 Creating modal...');
+      
       const modal = await this.modalCtrl.create({
         component: ConfirmActionModalComponent,
         componentProps: {
@@ -7877,9 +7916,9 @@ navigateToLessons() {
         cssClass: 'confirm-action-modal'
       });
 
-      console.log('🟡 Presenting modal...');
+      
       await modal.present();
-      console.log('✅ Reschedule class modal presented');
+      
       
       const { data } = await modal.onWillDismiss();
       if (data && data.confirmed) {
@@ -7897,7 +7936,7 @@ navigateToLessons() {
   }
 
   async rescheduleLesson(lessonId: string, lesson: Lesson) {
-    console.log('🟡 rescheduleLesson called for:', lesson);
+    
     
     try {
       // Get participant info
@@ -7916,7 +7955,7 @@ navigateToLessons() {
   
   // Handle confirm reschedule modal dismissal
   onConfirmRescheduleModalDismiss(event: any) {
-    console.log('🟡 Confirm reschedule modal dismissed:', event);
+    
     this.isConfirmRescheduleModalOpen = false;
     
     const data = event.detail?.data;
@@ -7932,7 +7971,7 @@ navigateToLessons() {
   }
 
   async showRescheduleProposal(lesson: any) {
-    console.log('📅 showRescheduleProposal called for:', lesson);
+    
     
     try {
       // Get participant info
@@ -7973,14 +8012,14 @@ navigateToLessons() {
   
   // Handle inline reschedule proposal modal dismissal
   onRescheduleProposalModalDismiss(event: any) {
-    console.log('📅 Reschedule proposal modal dismissed:', event);
+    
     this.isRescheduleProposalModalOpen = false;
     
     const data = event.detail?.data;
     if (data && data.action) {
       if (data.action === 'accepted' || data.action === 'rejected') {
         // Force reload lessons to get updated data (bypass cache)
-        console.log('📅 [TAB1] Reschedule proposal modal dismissed, action:', data.action);
+        
         this._lastDataFetch = 0; // Invalidate cache to force reload
         this.loadLessons(false);
       } else if (data.action === 'counter' && this.rescheduleProposalModalData) {
@@ -8030,12 +8069,12 @@ navigateToLessons() {
   }
 
   async cancelClass(classId: string, lesson: Lesson) {
-    console.log('🔴 cancelClass called for:', classId);
+    
     
     try {
       const className = lesson?.className || lesson?.classData?.name || '';
       
-      console.log('🔴 Creating modal...');
+      
       const modal = await this.modalCtrl.create({
         component: ConfirmActionModalComponent,
         componentProps: {
@@ -8050,9 +8089,9 @@ navigateToLessons() {
         cssClass: 'confirm-action-modal'
       });
 
-      console.log('🔴 Presenting modal...');
+      
       await modal.present();
-      console.log('✅ Cancel class modal presented');
+      
       
       const { data } = await modal.onWillDismiss();
       if (data && data.confirmed) {
@@ -8066,7 +8105,7 @@ navigateToLessons() {
           // Call the backend to cancel the class
           await firstValueFrom(this.classService.cancelClass(classId));
           
-          console.log(`✅ [CLASS-CANCEL] Class ${classId} cancelled successfully`);
+          
           
           // Remove the class from the UI
           this.lessons = this.lessons.filter(l => {
@@ -8107,7 +8146,7 @@ navigateToLessons() {
   private selectedCancelReason: { id: string; label: string } | null = null;
 
   async cancelLesson(lessonId: string, lesson: Lesson) {
-    console.log('🔴 cancelLesson called for:', lessonId);
+    
     
     try {
       // Get participant info
@@ -8139,14 +8178,14 @@ navigateToLessons() {
       
       // If user cancelled or didn't select a reason, stop here
       if (reasonResult.data?.cancelled || !reasonResult.data?.reason) {
-        console.log('🔴 User cancelled or did not select a reason');
+        
         return;
       }
       
       // Store the selected reason for use in confirmation
       this.selectedCancelReason = reasonResult.data.reason;
       const selectedReasonLabel = this.selectedCancelReason?.label || 'Not specified';
-      console.log('🔴 Selected cancellation reason:', this.selectedCancelReason);
+      
       
       // STEP 2: Show confirmation alert popup (matches reschedule confirmation style)
       const alert = await this.alertController.create({
@@ -8227,14 +8266,14 @@ navigateToLessons() {
 
   // Handle confirm cancel modal dismissal (kept for backward compatibility)
   async onConfirmCancelModalDismiss(event: any) {
-    console.log('🔴 Confirm cancel modal dismissed:', event);
+    
     this.isConfirmCancelModalOpen = false;
     this.selectedCancelReason = null;
   }
 
   // Open reschedule modal with embedded availability calendar
   async openRescheduleModal(lessonId: string, lesson: Lesson, participantObject: any, participantAvatar: string | null, showBackButton: boolean = false) {
-    console.log('📅 Opening reschedule modal for lesson:', lessonId);
+    
     
     // Get the other participant's ID
     const isTutor = lesson.tutorId?._id === this.currentUser?.id;
@@ -8285,7 +8324,7 @@ navigateToLessons() {
   
   // Handle inline modal dismissal
   onRescheduleModalDismiss(event: any) {
-    console.log('📅 Reschedule modal dismissed:', event);
+    
     this.isRescheduleModalOpen = false;
     
     const data = event.detail?.data;
@@ -8371,11 +8410,7 @@ navigateToLessons() {
     // Only update if it actually changed (to avoid unnecessary change detection)
     if (newUpcomingLesson?._id !== this.upcomingLesson?._id) {
       this.upcomingLesson = newUpcomingLesson;
-      console.log('📅 Upcoming lesson changed:', {
-        lessonId: this.upcomingLesson?._id,
-        startTime: this.upcomingLesson?.startTime,
-        endTime: this.upcomingLesson?.endTime
-      });
+      
     }
   }
 
@@ -8389,7 +8424,7 @@ navigateToLessons() {
     if (this._feedbackLoadInProgress) return;
     this._feedbackLoadInProgress = true;
     
-    console.log('📝 [TAB1] loadPendingFeedback called');
+    
     
     if (this.tutorFeedbackService.isCacheLoaded) {
       const cached = this.tutorFeedbackService.getCachedPendingFeedback();
@@ -8400,7 +8435,7 @@ navigateToLessons() {
       }));
       this.pendingFeedbackCount = cached.count || 0;
       this.updateFeedbackGraceCountdown();
-      console.log(`📝 [TAB1] Using cached feedback count: ${this.pendingFeedbackCount}`);
+      
     }
     
     // 2. Always fetch fresh data from the API (updates the cache for other pages too)
@@ -8413,7 +8448,7 @@ navigateToLessons() {
       }));
       this.pendingFeedbackCount = response.count || 0;
       this.updateFeedbackGraceCountdown();
-      console.log(`📝 [TAB1] Loaded ${this.pendingFeedbackCount} pending feedback requests`);
+      
     } catch (error) {
       console.error('❌ [TAB1] Error loading pending feedback:', error);
     } finally {

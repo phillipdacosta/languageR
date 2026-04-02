@@ -1,4 +1,4 @@
-import { Component, OnInit, AfterViewInit, OnDestroy, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, AfterViewInit, OnDestroy, ViewChild, ElementRef, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ViewWillEnter, ViewDidEnter, ActionSheetController, ModalController, ToastController, AlertController, NavController } from '@ionic/angular';
 import { EventDetailsModalComponent } from '../components/event-details-modal/event-details-modal.component';
@@ -88,6 +88,7 @@ interface AgendaSection {
   selector: 'app-tutor-calendar-page',
   templateUrl: './tutor-calendar.page.html',
   styleUrls: ['./tutor-calendar.page.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: true,
   imports: [
     CommonModule, 
@@ -586,12 +587,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     const availabilityBlocks: TimelineEntry[] = [];
 
     for (const entry of entries) {
-      // Check if this is a lesson (has avatar or subtitle which indicates student info)
-      // OR a class (has a title that's not "Available")
       const isLesson = entry.avatarUrl || entry.subtitle;
       const isClass = entry.title && entry.title !== this.translate.instant('TUTOR_CALENDAR.AVAILABLE_FALLBACK') && entry.title.includes(this.translate.instant('TUTOR_CALENDAR.CLASS_FALLBACK'));
       
-      if (isLesson || isClass) {
+      if (isLesson || isClass || entry.isGoogleCalendar) {
         lessons.push(entry);
       } else {
         availabilityBlocks.push(entry);
@@ -787,24 +786,14 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     
     // Log for debugging
     const dayStr = dayStart.toISOString().split('T')[0]; // Get YYYY-MM-DD
-    console.log('📅 [COLLECT] collectEventsForDay called for:', dayStr, {
-      dayStart: dayStart.toISOString(),
-      dayEnd: dayEnd.toISOString(),
-      totalEvents: this.events?.length || 0
-    });
+    
     
     // Log all class events in this.events
     const classEventsInArray = (this.events || []).filter(e => {
       const ext = e.extendedProps as any;
       return ext?.isClass || ext?.classId;
     });
-    console.log('📅 [COLLECT] Class events in this.events:', classEventsInArray.map(e => ({
-      id: e.id,
-      title: e.title,
-      start: e.start,
-      classId: (e.extendedProps as any)?.classId,
-      isCancelled: (e.extendedProps as any)?.isCancelled
-    })));
+    
     
     for (const event of this.events || []) {
       if (!event.start || !event.end) {
@@ -822,22 +811,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       // Log cancelled class specifically
       const ext = event.extendedProps as any;
       if ((ext?.isClass || ext?.classId) && ext?.isCancelled) {
-        console.log('🔴 [CANCELLED-CLASS] Checking cancelled class:', {
-          title: event.title,
-          classId: ext.classId,
-          rawStart: rawStart.toISOString(),
-          rawEnd: rawEnd.toISOString(),
-          dayStart: dayStart.toISOString(),
-          dayEnd: dayEnd.toISOString(),
-          isInRange,
-          startBeforeDayEnd: rawStart < dayEnd,
-          endAfterDayStart: rawEnd > dayStart,
-          comparison: {
-            'rawStart < dayEnd': rawStart < dayEnd,
-            'rawEnd > dayStart': rawEnd > dayStart,
-            'both': rawStart < dayEnd && rawEnd > dayStart
-          }
-        });
+        
       }
       
       if (!isInRange) {
@@ -850,15 +824,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       results.push(this.buildTimelineEvent(event, clampedStart, clampedEnd));
     }
     
-    console.log('📅 [COLLECT] Collected timeline entries:', {
-      total: results.length,
-      classLessonCount: results.filter(e => e.isClass || e.isLesson).length,
-      events: results.filter(e => e.isClass || e.isLesson).map(e => ({
-        title: e.title,
-        isClass: e.isClass,
-        isCancelled: e.isCancelled
-      }))
-    });
+    
     
     return results.sort((a, b) => a.start.getTime() - b.start.getTime());
   }
@@ -999,7 +965,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
   // Handler for lesson cancelled event
   private lessonCancelledHandler = (event: any) => {
-    console.log('🔴 [TUTOR-CALENDAR] Received lesson-cancelled event:', event.detail);
+    
     this.refreshCalendar();
   };
 
@@ -1035,7 +1001,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       if (status) {
         this.approvalStatus = status;
         this.stripeConnectOnboarded = status.stripeComplete;
-        console.log(`💰 [TUTOR-CALENDAR] Approval status from service:`, status);
+        
       }
     });
     
@@ -1101,10 +1067,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         this.rescheduleOriginalStartTime = params['originalStartTime'] || null;
         this.rescheduleOriginalEndTime = params['originalEndTime'] || null;
         
-        console.log('📅 Reschedule mode activated:', {
-          lessonId: this.rescheduleLessonId,
-          participantId: this.rescheduleParticipantId
-        });
+        
         
         // Load participant's availability
         if (this.rescheduleParticipantId) {
@@ -1161,12 +1124,12 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       .subscribe(async (notification) => {
         // Handle office hours bookings
         if (notification.type === 'office_hours_booking' && notification.urgent) {
-          console.log('⚡ Received urgent office hours booking notification');
+          
           
           // Don't show toast if tutor is currently on pre-call page (they already see the modal)
           const currentUrl = this.router.url;
           if (currentUrl.includes('/pre-call')) {
-            console.log('⚡ Skipping toast - tutor is on pre-call page');
+            
             return;
           }
           
@@ -1197,7 +1160,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         
         // Handle class auto-cancelled notifications
         if (notification.type === 'class_auto_cancelled' && notification.data?.classId) {
-          console.log('🔔 [TUTOR-CALENDAR] Received class cancellation notification:', notification);
+          
           
           // Refresh calendar to show the cancelled class
           this.refreshCalendar();
@@ -1220,7 +1183,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         
         // Handle lesson cancelled notifications
         if (notification.type === 'lesson_cancelled' && notification.data?.lessonId) {
-          console.log('🔔 [TUTOR-CALENDAR] Received lesson cancellation notification:', notification);
+          
           
           // Refresh calendar to show the cancelled lesson
           this.refreshCalendar();
@@ -1476,7 +1439,6 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
               // Auto-register webhook if not active (e.g. BACKEND_PUBLIC_URL was set after initial connect)
               if (!(status as any).watchActive) {
                 this.userService.registerGoogleCalendarWatch().subscribe({
-                  next: () => console.log('[GCal] Watch channel registered successfully'),
                   error: (err: any) => console.warn('[GCal] Watch registration failed:', err?.error?.error || err.message)
                 });
               }
@@ -1496,14 +1458,14 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
 
   private loadLessons(tutorId: string, startDate?: Date, endDate?: Date) {
-    console.log('📚 [LOAD-DEBUG] loadLessons START');
+    
     
     const startDateStr = startDate ? startDate.toISOString() : undefined;
     const endDateStr = endDate ? endDate.toISOString() : undefined;
     
-    console.log('   - tutorId:', tutorId);
-    console.log('   - startDate:', startDateStr || 'NONE (will load ALL)');
-    console.log('   - endDate:', endDateStr || 'NONE (will load ALL)');
+    
+    
+    
     
     // Fetch lessons with optional date range
     this.lessonService.getLessonsByTutor(tutorId, true, startDateStr, endDateStr).subscribe({
@@ -1521,7 +1483,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         }
         // Mark lessons as loaded - this will trigger checkIfBothLoaded()
         this.lessonsLoaded = true;
-        console.log('📚 [LOAD-DEBUG] Lessons loaded, calling checkIfBothLoaded');
+        
         this.checkIfBothLoaded();
       },
       error: (error) => {
@@ -1546,24 +1508,24 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
 
   private loadClasses(tutorId: string, startDate?: Date, endDate?: Date) {
-    console.log('📚 [LOAD-CLASSES] loadClasses() called with tutorId:', tutorId);
+    
     
     const startDateStr = startDate ? startDate.toISOString() : undefined;
     const endDateStr = endDate ? endDate.toISOString() : undefined;
     
-    console.log('   - tutorId:', tutorId);
-    console.log('   - startDate:', startDateStr || 'NONE (will load ALL)');
-    console.log('   - endDate:', endDateStr || 'NONE (will load ALL)');
+    
+    
+    
     
     this.classService.getClassesForTutor(tutorId, startDateStr, endDateStr).subscribe({
       next: (response) => {
-        console.log('📚 [LOAD-CLASSES] Backend response:', response);
+        
         
         if (response.success && response.classes) {
           // Log all classes including cancelled ones
-          console.log('📚 [LOAD-CLASSES] Total classes received:', response.classes.length);
+          
           response.classes.forEach((cls: any) => {
-            console.log(`  - ${cls.name}: status=${cls.status}, startTime=${cls.startTime}, cancelled=${cls.status === 'cancelled'}`);
+            
           });
           
           // Update loaded date range
@@ -1613,10 +1575,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
             } as EventInput;
           });
           
-          console.log('📚 [LOAD-CLASSES] Created class events:', classEvents.length);
+          
           classEvents.forEach(evt => {
             const extProps = evt.extendedProps as any;
-            console.log(`  - ${evt.title}: cancelled=${extProps?.isCancelled}, start=${evt.start}`);
+            
           });
           
           // Filter out ALL class events (from availability AND from previous loads)
@@ -1650,16 +1612,16 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   private checkAndLoadMoreData(viewStart: Date, viewEnd: Date) {
     if (!this.currentUser?.id) return;
     
-    console.log('   - View start:', viewStart.toISOString());
-    console.log('   - View end:', viewEnd.toISOString());
-    console.log('   - Earliest loaded:', this.earliestLoadedDate?.toISOString() || 'NONE');
-    console.log('   - Latest loaded:', this.latestLoadedDate?.toISOString() || 'NONE');
+    
+    
+    
+    
     
     const needsEarlierData = !this.earliestLoadedDate || viewStart < this.earliestLoadedDate;
     const needsLaterData = !this.latestLoadedDate || viewEnd > this.latestLoadedDate;
     
-    console.log('   - Needs earlier data?', needsEarlierData);
-    console.log('   - Needs later data?', needsLaterData);
+    
+    
     
     if (needsEarlierData) {
       // Load more past data
@@ -1807,7 +1769,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
 
   private initCalendar(): boolean {
     // CUSTOM CALENDAR: FullCalendar completely disabled
-    console.log('📅 FullCalendar disabled - using custom calendar');
+    
     return true; // Return true to prevent retry attempts
     
     /* FullCalendar initialization code (completely commented out)
@@ -1956,7 +1918,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     }
     
     // Desktop view: Using custom calendar, just reload data
-    console.log('📅 [FORCE-REINIT-DESKTOP] Reloading calendar data for custom calendar');
+    
     
     // DON'T clear events - let loaders merge data properly
     // this.events = [];  // REMOVED
@@ -1986,7 +1948,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
 
   private attemptCalendarInitialization(attempt: number) {
     // CUSTOM CALENDAR: FullCalendar initialization attempts disabled
-    console.log('📅 FullCalendar attemptCalendarInitialization disabled - using custom calendar');
+    
     return;
     
     /* FullCalendar initialization attempts commented out
@@ -2025,7 +1987,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
 
   private initializeCalendarWithData() {
     // CUSTOM CALENDAR: Skip FullCalendar initialization
-    console.log('📅 Using custom calendar - skipping FullCalendar initialization');
+    
     
     // Load data for the custom calendar
     this.loadAndUpdateCalendarData();
@@ -2081,19 +2043,14 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
             return extendedProps?.lessonId || extendedProps?.isClass || extendedProps?.classId || extendedProps?.isGoogleCalendar;
           });
           
-          console.log('📅 [CLASS-DEBUG] Keeping', nonAvailabilityEvents.length, 'lesson events');
+          
           
           this.events = [...availabilityEvents, ...nonAvailabilityEvents];
           const afterCount = this.events.length;
           
-          console.log('📅 [CLASS-DEBUG] Final events array:', this.events.length, 'events');
-          console.log('🟢 [AVAIL-DEBUG] Availability events count:', availabilityEvents.length);
-          console.log('🟢 [AVAIL-DEBUG] First few availability events:', availabilityEvents.slice(0, 3).map(e => ({
-            title: e.title,
-            type: (e.extendedProps as any)?.type,
-            start: e.start,
-            end: e.end
-          })));
+          
+          
+          
           
           this.updateCalendarEvents();
           this.availabilityLoaded = true;
@@ -2127,10 +2084,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
   
   private checkIfBothLoaded() {
-    console.log('🔍 [LOAD-DEBUG] checkIfBothLoaded called - availability:', this.availabilityLoaded, 'lessons:', this.lessonsLoaded);
+    
     
     if (this.availabilityLoaded && this.lessonsLoaded) {
-      console.log('✅ [LOAD-DEBUG] Both availability and lessons loaded! Triggering change detection. Events:', this.events.length);
+      
       this._lastDataFetch = Date.now();
       this.computeWeekAvailability();
       this.cdr.detectChanges();
@@ -2140,7 +2097,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         this.isLoadingMobileData = false;
       }
     } else {
-      console.log('⏳ [LOAD-DEBUG] Still waiting...');
+      
     }
   }
 
@@ -2155,7 +2112,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     
     // Desktop view: Update FullCalendar - DISABLED FOR CUSTOM CALENDAR
     // CUSTOM CALENDAR: All FullCalendar code disabled
-    console.log('📅 FullCalendar updateCalendarEvents disabled - using custom calendar');
+    
     return;
     
     /* FullCalendar code commented out
@@ -2267,7 +2224,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
 
   private reinitializeCalendar() {
     // CUSTOM CALENDAR: FullCalendar reinitialization disabled
-    console.log('📅 FullCalendar reinitializeCalendar disabled - using custom calendar');
+    
     return;
     
     /* FullCalendar reinitialize code commented out
@@ -2471,7 +2428,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     // Handle modal dismiss - refresh calendar if lesson was cancelled
     const { data } = await modal.onDidDismiss();
     if (data?.cancelled && data?.lessonId) {
-      console.log('🔴 Lesson cancelled from event details modal, refreshing calendar...');
+      
       this.refreshCalendar();
     }
   }
@@ -2645,7 +2602,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   
   // Handle block time modal dismissal
   onBlockTimeModalDismiss(event: any) {
-    console.log('Block time modal dismissed:', event);
+    
     this.isBlockTimeModalOpen = false;
     
     const data = event.detail?.data;
@@ -2711,7 +2668,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
 
   async onEnableOfficeHours() {
     const currentStatus = this.userService.getOfficeHoursStatus();
-    console.log('🎯 onEnableOfficeHours called, current status:', currentStatus);
+    
     
     // Check for schedule conflicts before enabling
     if (!currentStatus) {
@@ -2739,17 +2696,17 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
             text: this.translate.instant('TUTOR_CALENDAR.CANCEL'),
             role: 'cancel',
             handler: () => {
-              console.log('❌ Office hours disable cancelled');
+              
             }
           },
           {
             text: this.translate.instant('TUTOR_CALENDAR.DISABLE'),
             handler: async () => {
-              console.log('✅ Disabling office hours');
+              
               try {
                 await this.userService.toggleOfficeHours(false).toPromise();
                 this.isOfficeHoursEnabled = false;
-                console.log('✅ Office hours disabled');
+                
                 
                 const toast = await this.toastController.create({
                   message: this.translate.instant('TUTOR_CALENDAR.TOAST_OFFICE_HOURS_DISABLED'),
@@ -2783,17 +2740,17 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
             text: this.translate.instant('TUTOR_CALENDAR.CANCEL'),
             role: 'cancel',
             handler: () => {
-              console.log('❌ Office hours enable cancelled');
+              
             }
           },
           {
             text: this.translate.instant('TUTOR_CALENDAR.ENABLE_GO_WAITING_ROOM'),
             handler: async () => {
-              console.log('✅ Enabling office hours and navigating to pre-call');
+              
               try {
                 await this.userService.toggleOfficeHours(true).toPromise();
                 this.isOfficeHoursEnabled = true;
-                console.log('✅ Office hours enabled');
+                
                 
                 const toast = await this.toastController.create({
                   message: this.translate.instant('TUTOR_CALENDAR.TOAST_OFFICE_HOURS_ENABLED'),
@@ -2839,11 +2796,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     const BUFFER_MINUTES = 5; // Minimum time before next event
     const bufferTime = new Date(now.getTime() + BUFFER_MINUTES * 60 * 1000);
 
-    console.log('🔍 Checking office hours conflicts...', {
-      now: now.toISOString(),
-      bufferTime: bufferTime.toISOString(),
-      eventsCount: this.mobileTimelineEvents.length
-    });
+    
 
     // Check all timeline events for conflicts
     for (const event of this.mobileTimelineEvents) {
@@ -2854,7 +2807,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
 
       // Check if currently in an event
       if (now >= eventStart && now <= eventEnd) {
-        console.log('⚠️ Conflict: Currently in event', event);
+        
         const eventType = event.isClass ? 'class' : 'lesson';
         return {
           hasConflict: true,
@@ -2866,7 +2819,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       // Check if event starts within buffer period
       if (eventStart > now && eventStart <= bufferTime) {
         const minutesUntil = Math.round((eventStart.getTime() - now.getTime()) / (60 * 1000));
-        console.log('⚠️ Conflict: Event starting soon', { event, minutesUntil });
+        
         const eventType = event.isClass ? 'class' : 'lesson';
         return {
           hasConflict: true,
@@ -2876,7 +2829,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       }
     }
 
-    console.log('✅ No conflicts found');
+    
     return { hasConflict: false };
   }
 
@@ -3320,7 +3273,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
 
   // Method to refresh calendar when returning from availability setup
   refreshCalendar() {
-    console.log('🔄 [REFRESH] refreshCalendar() called');
+    
     if (this.calendar && this.isInitialized) {
       // Don't clear events - just reload data and merge
       if (this.currentUser && this.currentUser.id) {
@@ -3334,7 +3287,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
 
   // Force refresh availability data after saving from availability setup
   private forceRefreshAvailability() {
-    console.log('🔄 [FORCE-REFRESH-AVAIL] forceRefreshAvailability() called');
+    
     
     if (!this.currentUser) {
       console.warn('📅 No current user for availability refresh');
@@ -3347,7 +3300,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     // Force reload availability data
     this.userService.getAvailability().subscribe({
       next: (res) => {
-        console.log('📅 [FORCE-REFRESH-AVAIL] Got availability data');
+        
         
         // Remove old availability events, keep lessons, classes, and gcal
         const nonAvailabilityEvents = this.events.filter(event => {
@@ -3565,13 +3518,13 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   
   // Load participant's availability for reschedule mode
   private loadParticipantAvailability(participantId: string) {
-    console.log('📅 Loading availability for participant:', participantId);
+    
     
     this.userService.getTutorAvailability(participantId).subscribe({
       next: (response) => {
         if (response.success && response.availability) {
           this.participantAvailability = response.availability;
-          console.log('✅ Loaded participant availability:', this.participantAvailability);
+          
           
           // Refresh calendar to show mutual availability
           this.refreshCalendarForReschedule();
@@ -3591,7 +3544,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     // 2. Comparing with participant's availability
     // 3. Only showing time slots where both are available
     // 4. Highlighting these mutual slots in the calendar
-    console.log('📅 Refreshing calendar for reschedule mode');
+    
   }
 
   // Navigate to event details page
@@ -3685,7 +3638,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     // Reload availability data to map it to the correct week
     // This is needed because availability was loaded before currentWeekStart was initialized
     if (this.currentUser && this.currentUser.id) {
-      console.log('🔄 [INIT] Reloading availability for displayed week');
+      
       this.loadAndUpdateCalendarData();
     }
     
@@ -3739,8 +3692,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     let totalAvailableMinutes = 0;
     let totalBookedMinutes = 0;
     
-    console.log('🔍 Calculating free hours for:', this.selectedDayForDayView.date);
-    console.log('🔍 Total events:', this.events?.length || 0);
+    
+    
     
     // Loop through all events for this day
     for (const event of this.events || []) {
@@ -3768,22 +3721,22 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       if (isAvailability) {
         // Count availability blocks
         totalAvailableMinutes += durationMinutes;
-        console.log('✅ Found availability:', durationMinutes, 'min', eventStart, '-', eventEnd);
+        
       } else if (isLesson || isClass) {
         // Count booked lessons/classes
         totalBookedMinutes += durationMinutes;
-        console.log('📚 Found lesson/class:', durationMinutes, 'min', eventStart, '-', eventEnd);
+        
       }
     }
     
-    console.log('📊 Total available:', totalAvailableMinutes, 'min');
-    console.log('📊 Total booked:', totalBookedMinutes, 'min');
+    
+    
     
     // Available but not booked = total availability - booked lessons
     const freeMinutes = Math.max(0, totalAvailableMinutes - totalBookedMinutes);
     const freeHours = Math.round((freeMinutes / 60) * 10) / 10;
     
-    console.log('📊 Free hours result:', freeHours);
+    
     
     // Convert to hours (rounded to 1 decimal place)
     return freeHours;
@@ -3887,8 +3840,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     
     // Log all events for debugging
     if (day.dayNumber === 23 || day.dayNumber === 24) {
-      console.log(`🔍 [DAY-${day.dayNumber}] Checking ${this.events.length} total events`);
-      console.log(`🔍 [DAY-${day.dayNumber}] Date range:`, dayStart, 'to', dayEnd);
+      
+      
     }
     
     const filteredEvents = this.events.filter(event => {
@@ -3903,16 +3856,11 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       
       // Debug logging for first couple days
       if (day.dayNumber === 23 || day.dayNumber === 24) {
-        console.log(`  📌 Event: start=${eventStart.toISOString()}, type=${extendedProps.type}, isInRange=${isInRange}, isAvail=${isAvailability}, isLesson=${isLesson}`);
+        
       }
       
       if (isInRange && isAvailability) {
-        console.log('🟢 [AVAIL-FOUND] Day', day.dayNumber, '- Found availability event:', {
-          title: event.title,
-          type: extendedProps.type,
-          start: eventStart,
-          end: event.end
-        });
+        
       }
       
       // Show both lessons and availability
@@ -3943,7 +3891,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     });
     
     if (day.dayNumber === 23 || day.dayNumber === 24) {
-      console.log(`✅ [DAY-${day.dayNumber}] Returning ${filteredEvents.length} events`);
+      
     }
     
     return filteredEvents;
@@ -4173,9 +4121,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
 
   // Check Stripe Connect status
   private async checkStripeConnectStatus() {
-    console.log('🔍 Checking Stripe Connect status...');
-    console.log('Current user:', this.currentUser);
-    console.log('User type:', this.currentUser?.userType);
+    
+    
+    
     
     try {
       const response = await firstValueFrom(
@@ -4184,12 +4132,12 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         })
       );
       
-      console.log('📡 Stripe status response:', response);
+      
       
       if (response.success) {
         this.stripeConnectOnboarded = response.onboarded;
-        console.log(`💰 Stripe Connect onboarded: ${this.stripeConnectOnboarded}`);
-        console.log(`🎯 Banner should ${this.stripeConnectOnboarded ? 'NOT' : ''} show (using *ngIf="!stripeConnectOnboarded")`);
+        
+        
         this.cdr.detectChanges(); // Force change detection
       }
     } catch (error) {
@@ -4257,5 +4205,12 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     if (!dateStr) return '';
     return formatTimeInTz(dateStr, this.userTz, undefined, !this.is24h);
   }
+
+  trackByIndex(index: number): number { return index; }
+  trackByDayDate(index: number, day: any): string { return day?.date?.toISOString?.() || index.toString(); }
+  trackByEventId(index: number, item: any): string { return item?.id || index.toString(); }
+  trackByBlockStart(index: number, block: any): string { return block?.start?.getTime?.()?.toString() || index.toString(); }
+  trackByFbId(index: number, fb: any): string { return fb?.lessonId || fb?.id || index.toString(); }
+  trackByDayLabel(index: number, day: any): string { return day?.dayName || index.toString(); }
 }
 

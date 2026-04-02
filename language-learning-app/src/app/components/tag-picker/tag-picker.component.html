@@ -1,0 +1,103 @@
+<!-- Selected tags chips -->
+<div class="tp-selected" *ngIf="selectedTagIds.length > 0">
+  <div class="tp-chip" *ngFor="let tagId of selectedTagIds; trackBy: trackByCategory">
+    <span class="tp-chip-label">{{ getTagByIdFromAll(tagId) ? getLabel(getTagByIdFromAll(tagId)!) : tagId }}</span>
+    <button class="tp-chip-remove" type="button" (click)="removeTag(tagId)">
+      <ion-icon name="close-circle"></ion-icon>
+    </button>
+  </div>
+</div>
+
+<!-- Search bar -->
+<div class="tp-search">
+  <ion-icon name="search-outline" class="tp-search-icon"></ion-icon>
+  <input
+    type="text"
+    class="tp-search-input"
+    [(ngModel)]="searchQuery"
+    (input)="onSearch()"
+    placeholder="Search tags..."
+  />
+  <button class="tp-search-clear" type="button" *ngIf="searchQuery" (click)="clearSearch()">
+    <ion-icon name="close-circle"></ion-icon>
+  </button>
+</div>
+
+<!-- Search results -->
+<div class="tp-search-results" *ngIf="searchResults.length > 0">
+  <button
+    type="button"
+    class="tp-leaf"
+    *ngFor="let tag of searchResults; trackBy: trackByTagId"
+    [class.tp-leaf-selected]="isSelected(tag.tagId)"
+    (click)="toggleTag(tag.tagId)">
+    <ion-icon [name]="isSelected(tag.tagId) ? 'checkmark-circle' : 'add-circle-outline'" class="tp-leaf-icon"></ion-icon>
+    <span>{{ getLabel(tag) }}</span>
+  </button>
+</div>
+
+<!-- Loading -->
+<div class="tp-loading" *ngIf="isLoading">
+  <ion-spinner name="crescent"></ion-spinner>
+</div>
+
+<!-- Category tree (hidden during search) -->
+<div class="tp-tree" *ngIf="!isLoading && searchResults.length === 0 && !searchQuery">
+  <div class="tp-category" *ngFor="let category of categories; trackBy: trackByCategory">
+    <button
+      type="button"
+      class="tp-category-header"
+      *ngIf="tagsByCategory[category]?.[0] as catTag"
+      (click)="toggleCategory(catTag.tagId)"
+      [class.tp-expanded]="expandedCategory === catTag.tagId">
+      <span class="tp-category-label">{{ getLabel(catTag) }}</span>
+      <ion-icon [name]="expandedCategory === catTag.tagId ? 'chevron-up' : 'chevron-down'" class="tp-expand-icon"></ion-icon>
+    </button>
+
+    <!-- Subcategories -->
+    <div class="tp-subcategories" *ngIf="expandedCategory === tagsByCategory[category]?.[0]?.tagId">
+      <!-- Direct leaves under category (e.g. skills.speaking) -->
+      <ng-container *ngIf="getLeaves(tagsByCategory[category]?.[0]?.tagId || '') as directLeaves">
+        <button
+          type="button"
+          class="tp-leaf"
+          *ngFor="let leaf of directLeaves; trackBy: trackByTagId"
+          [class.tp-leaf-selected]="isSelected(leaf.tagId)"
+          (click)="toggleTag(leaf.tagId)">
+          <ion-icon [name]="isSelected(leaf.tagId) ? 'checkmark-circle' : 'add-circle-outline'" class="tp-leaf-icon"></ion-icon>
+          <span>{{ getLabel(leaf) }}</span>
+        </button>
+      </ng-container>
+
+      <!-- Subcategory groups -->
+      <div class="tp-subcategory" *ngFor="let sub of getSubcategories(tagsByCategory[category]?.[0]?.tagId || ''); trackBy: trackByTagId">
+        <button
+          type="button"
+          class="tp-subcategory-header"
+          (click)="toggleSubcategory(sub.tagId)"
+          [class.tp-expanded]="expandedSubcategory === sub.tagId">
+          <span>{{ getLabel(sub) }}</span>
+          <ion-icon [name]="expandedSubcategory === sub.tagId ? 'chevron-up' : 'chevron-down'" class="tp-expand-icon-sm"></ion-icon>
+        </button>
+
+        <!-- Leaf tags -->
+        <div class="tp-leaves" *ngIf="expandedSubcategory === sub.tagId">
+          <button
+            type="button"
+            class="tp-leaf"
+            *ngFor="let leaf of getLeaves(sub.tagId); trackBy: trackByTagId"
+            [class.tp-leaf-selected]="isSelected(leaf.tagId)"
+            (click)="toggleTag(leaf.tagId)">
+            <ion-icon [name]="isSelected(leaf.tagId) ? 'checkmark-circle' : 'add-circle-outline'" class="tp-leaf-icon"></ion-icon>
+            <span>{{ getLabel(leaf) }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="tp-limit" *ngIf="selectedTagIds.length >= maxTags">
+  <ion-icon name="information-circle-outline"></ion-icon>
+  <span>Maximum {{ maxTags }} tags selected</span>
+</div>

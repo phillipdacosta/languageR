@@ -58,6 +58,9 @@ const TutorMaterialSchema = new mongoose.Schema({
   // ── Topic tags for recommendation matching ───────────
   topics: [{ type: String, trim: true, lowercase: true }],
 
+  // ── Structured taxonomy tags (language-agnostic IDs from ContentTag) ──
+  structuredTags: [{ type: String, trim: true, lowercase: true }],
+
   // ── Tutor pitch (shown to students before purchase) ───
   whyTakeThis: { type: String, maxlength: 300 },
 
@@ -107,5 +110,6 @@ const TutorMaterialSchema = new mongoose.Schema({
 TutorMaterialSchema.index({ tutorId: 1, status: 1 });
 TutorMaterialSchema.index({ language: 1, level: 1, status: 1 });
 TutorMaterialSchema.index({ materialType: 1, status: 1 });
+TutorMaterialSchema.index({ structuredTags: 1, status: 1 });
 
 module.exports = mongoose.model('TutorMaterial', TutorMaterialSchema);

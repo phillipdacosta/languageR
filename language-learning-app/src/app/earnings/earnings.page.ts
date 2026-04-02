@@ -213,11 +213,11 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   }
 
   async ngOnInit() {
-    // Check static cache FIRST — before any awaits — to avoid skeleton flash
     const cache = EarningsPage._dataCache;
     const cacheAge = cache ? Date.now() - cache.lastFetch : Infinity;
 
-    if (cache && cacheAge < this._cacheValidityMs) {
+    if (cache) {
+      // Cache exists — restore it immediately to avoid $0.00 flash
       this.restoreFromCache(cache);
       this.loading = false;
       this._hasInitiallyLoaded = true;
@@ -226,20 +226,22 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       this.scheduleChartCreation();
       this.setupWebSocketListeners();
 
-      // Load settings and silently refresh in background
       this.loadWalletVisibilitySetting();
       this.loadUserJoinDate();
+
       if (cacheAge > 10000) {
         this.silentRefresh();
       }
       return;
     }
 
-    // First load (no cache) — show skeleton while we fetch everything
+    // Truly cold first load (no cache at all) — show skeleton
+    this.loading = true;
+    this.cdr.detectChanges();
+
     await this.loadWalletVisibilitySetting();
     await this.loadUserJoinDate();
 
-    this.loading = true;
     try {
       await Promise.all([
         this.loadBalance(),
@@ -295,6 +297,9 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
 
   private async silentRefresh() {
     try {
+      const prevPaymentsJson = JSON.stringify(this.recentPayments.map(p => p.id));
+      const prevBalance = { ...this.balance };
+
       await Promise.all([
         this.loadBalance(),
         this.loadEarnings(),
@@ -303,9 +308,18 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       this._lastDataFetch = Date.now();
       this.saveToCache();
       this.cdr.detectChanges();
-      this.scheduleChartCreation();
+
+      const newPaymentsJson = JSON.stringify(this.recentPayments.map(p => p.id));
+      const balanceChanged =
+        prevBalance.available !== this.balance.available ||
+        prevBalance.pending !== this.balance.pending ||
+        prevBalance.lifetime !== this.balance.lifetime;
+
+      if (newPaymentsJson !== prevPaymentsJson || balanceChanged) {
+        this.scheduleChartCreation();
+      }
     } catch (e) {
-      console.error('💰 [EARNINGS] Silent refresh failed:', e);
+      // Silent refresh failed — keep showing cached data
     }
   }
 

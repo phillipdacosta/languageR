@@ -5092,7 +5092,7 @@ ion-content {
 
   .mcal-week-strip {
     position: fixed;
-    top: 50px;
+    top: 32px;
     left: 0;
     right: 0;
     z-index: 98;
@@ -5104,6 +5104,18 @@ ion-content {
     backdrop-filter: saturate(180%) blur(20px);
     -webkit-backdrop-filter: saturate(180%) blur(20px);
     border-bottom: 1px solid #EBEBEB;
+
+    &.page-leaving {
+      visibility: hidden;
+    }
+  }
+
+  :host-context(.ion-page-hidden),
+  :host-context([aria-hidden="true"]) {
+    .mcal-week-strip,
+    .mcal-date-bar {
+      visibility: hidden !important;
+    }
   }
 
   .mcal-nav-btn {
@@ -5413,11 +5425,30 @@ ion-content {
     }
   }
 
-  @keyframes mcalFadeUp {
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+  @keyframes mcalFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  .mcal-timeline {
+    animation: mcalFadeIn 0.25s ease-out both;
+  }
+
+  .mcal-avail-chips,
+  .mcal-event-row {
+    opacity: 0;
+    animation: mcalFadeIn 0.3s ease-out forwards;
+  }
+
+  .mcal-avail-chips { animation-delay: 0.04s; }
+
+  .mcal-event-row {
+    &:nth-child(1) { animation-delay: 0.05s; }
+    &:nth-child(2) { animation-delay: 0.09s; }
+    &:nth-child(3) { animation-delay: 0.13s; }
+    &:nth-child(4) { animation-delay: 0.17s; }
+    &:nth-child(5) { animation-delay: 0.20s; }
+    &:nth-child(n+6) { animation-delay: 0.22s; }
   }
 
   // ── Availability chips (compact inline) ──
