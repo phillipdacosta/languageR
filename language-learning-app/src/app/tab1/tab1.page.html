@@ -18,7 +18,7 @@
 
   <!-- Inline Create Material View -->
   <div class="create-material-inline-panel" *ngIf="showCreateMaterialView">
-    <app-create-material [inline]="true" (goBackEvent)="onCreateMaterialGoBack()"></app-create-material>
+    <app-create-material #createMaterialRef [inline]="true" (goBackEvent)="onCreateMaterialGoBack()"></app-create-material>
   </div>
 
   <div class="content-wrapper" *ngIf="!showEarningsView && !showExploreView && !showCreateMaterialView">
@@ -831,7 +831,7 @@
         [staggerReady]="mobileStaggerReady"
         [staggerDone]="mobileStaggerDone"
         (navigateToExplore)="navigateToExplore()"
-        (navigateToCreateMaterial)="navigateToCreateMaterial()">
+        (navigateToCreateMaterial)="navigateToCreateMaterial($event)">
       </app-mobile-quick-actions>
 
       <!-- Mobile: Pending Actions (only when there are items) -->
@@ -861,7 +861,7 @@
             </div>
             <span class="qa-label">{{ 'HOME.CLASSES' | translate }}</span>
           </div>
-          <div class="quick-action-card qa-create-material qa-with-asset" (click)="navigateToCreateMaterial()">
+          <div class="quick-action-card qa-create-material qa-with-asset" (click)="navigateToCreateMaterial($event)">
             <div class="qa-icon">
               <img class="qa-icon-img" src="assets/quick-actions-create-material.png" alt="" />
             </div>

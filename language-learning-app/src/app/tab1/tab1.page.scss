@@ -1802,15 +1802,16 @@ ion-content {
   background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
   border-radius: 20px;
   border: 1px solid rgba(0, 0, 0, 0.04);
+  // Desktop: light elevation only (tutor empty / Up Next card)
   box-shadow:
-    0 2px 6px rgba(0, 0, 0, 0.05),
-    0 10px 28px rgba(0, 0, 0, 0.09);
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 6px 18px rgba(0, 0, 0, 0.06);
   transition: box-shadow 0.3s ease;
 
   &:hover {
     box-shadow:
-      0 3px 10px rgba(0, 0, 0, 0.07),
-      0 16px 40px rgba(0, 0, 0, 0.11);
+      0 2px 6px rgba(0, 0, 0, 0.05),
+      0 10px 26px rgba(0, 0, 0, 0.08);
   }
 
   @media (max-width: 600px) {
@@ -1818,7 +1819,9 @@ ion-content {
     border-radius: 16px;
     background: #ffffff;
     border: 1px solid rgba(0, 0, 0, 0.06);
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04);
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.05),
+      0 5px 14px rgba(0, 0, 0, 0.07);
   }
 }
 
@@ -2035,7 +2038,10 @@ ion-content {
   text-align: center;
   background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04);
+  // Tutor mobile Up Next — light lift (empty + filled lesson)
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.05),
+    0 6px 18px rgba(0, 0, 0, 0.07);
   border-radius: 22px;
   padding: 10px 24px 14px;
   gap: 10px;
@@ -10132,10 +10138,10 @@ img.m-card-empty-link-arrow-img {
 .up-next-card {
   border-radius: 24px;
   // Clean elevated shadow - Apple/Airbnb style
-  box-shadow: 
-    0 1px 2px rgba(0, 0, 0, 0.04),
-    0 4px 12px rgba(0, 0, 0, 0.06),
-    0 8px 24px rgba(0, 0, 0, 0.04);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.05),
+    0 6px 16px rgba(0, 0, 0, 0.08),
+    0 14px 40px rgba(0, 0, 0, 0.07);
   background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
   cursor: pointer;
   transition: all 0.3s ease;
@@ -10151,7 +10157,9 @@ img.m-card-empty-link-arrow-img {
     border-radius: 20px;
     height: auto;
     min-height: auto;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+    box-shadow:
+      0 2px 8px rgba(0, 0, 0, 0.06),
+      0 8px 28px rgba(0, 0, 0, 0.1);
   }
   
   &.has-lesson {
@@ -10161,7 +10169,9 @@ img.m-card-empty-link-arrow-img {
     
     &:hover {
       transform: none; // Disable hover effect when lesson is scheduled
-      box-shadow: 0 2px 8px rgba(50, 50, 50, 0.04), 0 1px 4px rgba(50, 50, 50, 0.03);
+      box-shadow:
+        0 2px 8px rgba(0, 0, 0, 0.06),
+        0 10px 32px rgba(0, 0, 0, 0.09);
     }
   }
   
@@ -10170,13 +10180,17 @@ img.m-card-empty-link-arrow-img {
     
     &:hover {
       transform: none;
-      box-shadow: 0 2px 8px rgba(50, 50, 50, 0.04), 0 1px 4px rgba(50, 50, 50, 0.03);
+      box-shadow:
+        0 2px 8px rgba(0, 0, 0, 0.06),
+        0 10px 32px rgba(0, 0, 0, 0.09);
     }
   }
   
   &:hover {
     transform: translateY(-4px);
-    box-shadow: 0 4px 12px rgba(50, 50, 50, 0.06), 0 2px 6px rgba(50, 50, 50, 0.04);
+    box-shadow:
+      0 4px 14px rgba(0, 0, 0, 0.08),
+      0 12px 36px rgba(0, 0, 0, 0.1);
     
     @media (max-width: 600px) {
       transform: none; // Disable hover on mobile
@@ -11557,8 +11571,8 @@ img.m-card-empty-link-arrow-img {
     background: linear-gradient(180deg, #2a2a2a 0%, #252525 100%) !important;
     border-color: rgba(255, 255, 255, 0.06) !important;
     box-shadow:
-      0 2px 8px rgba(0, 0, 0, 0.45),
-      0 12px 32px rgba(0, 0, 0, 0.55) !important;
+      0 2px 8px rgba(0, 0, 0, 0.35),
+      0 8px 22px rgba(0, 0, 0, 0.42) !important;
   }
   .empty-state-clean-icon {
     background: linear-gradient(135deg, #3a7ba8 0%, #4298d3 50%, #2d6b94 100%) !important;
@@ -11673,7 +11687,9 @@ img.m-card-empty-link-arrow-img {
   .m-card-empty-standalone {
     background: #1c1c1e !important;
     border-color: rgba(255, 255, 255, 0.08) !important;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+    box-shadow:
+      0 2px 8px rgba(0, 0, 0, 0.4),
+      0 8px 22px rgba(0, 0, 0, 0.42) !important;
   }
   .m-card-empty-title { color: #ffffff !important; }
   .m-card-empty-subtitle { color: #8e8e93 !important; }
@@ -11753,7 +11769,9 @@ img.m-card-empty-link-arrow-img {
     .empty-state-clean-inner {
       background: #1c1c1e !important;
       border-color: rgba(255, 255, 255, 0.08) !important;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+      box-shadow:
+        0 2px 8px rgba(0, 0, 0, 0.35),
+        0 8px 20px rgba(0, 0, 0, 0.4) !important;
     }
   }
 

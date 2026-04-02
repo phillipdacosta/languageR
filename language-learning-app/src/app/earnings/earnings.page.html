@@ -28,17 +28,15 @@
 <ng-template #earningsBody>
   <!-- Loading State — Skeleton that mirrors the real layout -->
   <div *ngIf="loading" class="earnings-skeleton">
-    <div class="skeleton-hero-main">
-      <div class="skeleton-line skeleton-hero-label"></div>
-      <div class="skeleton-line skeleton-hero-amount"></div>
-      <div class="skeleton-line skeleton-hero-btn"></div>
-    </div>
-    <div class="skeleton-hero-stats">
-      <div class="skeleton-hero-stat" *ngFor="let s of [1,2]">
+    <div class="skeleton-balance-strip">
+      <div class="skeleton-stat" *ngFor="let s of [1,2,3]">
         <div class="skeleton-line skeleton-label"></div>
         <div class="skeleton-line skeleton-value"></div>
         <div class="skeleton-line skeleton-sub"></div>
       </div>
+    </div>
+    <div class="skeleton-withdraw-row">
+      <div class="skeleton-btn"></div>
     </div>
     <div class="skeleton-chart-card">
       <div class="skeleton-line skeleton-chart-title"></div>
@@ -57,18 +55,63 @@
   <!-- Earnings Content -->
   <div *ngIf="!loading && !error" class="earnings-content earnings-fade-in" [class.inline-no-slide]="inline">
 
-    <!-- Available Balance Hero -->
-    <div class="balance-hero">
+    <!-- Desktop: Balance Strip Row (hidden on mobile) -->
+    <div class="balance-strip-row desktop-only">
+      <div class="balance-strip">
+        <div class="balance-stat pending-stat"
+             [class.wallet-hidden]="!showWalletBalance && !walletTemporarilyVisible"
+             (click)="toggleWalletVisibility($event, 'pending')">
+          <span class="stat-label">{{ 'EARNINGS.PENDING' | translate }}</span>
+          <span class="stat-value" *ngIf="showWalletBalance || walletTemporarilyVisible">${{ balance.pending.toFixed(2) }}</span>
+          <span class="stat-value masked" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$••••</span>
+          <span class="stat-value-hover" *ngIf="!showWalletBalance && !walletTemporarilyVisible">${{ balance.pending.toFixed(2) }}</span>
+          <span class="stat-sub">{{ 'EARNINGS.PENDING_HOLD' | translate }}</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="balance-stat available-stat"
+             [class.wallet-hidden]="!showWalletBalance && !walletTemporarilyVisible"
+             (click)="toggleWalletVisibility($event, 'available')">
+          <span class="stat-label">{{ 'EARNINGS.AVAILABLE' | translate }}</span>
+          <span class="stat-value" *ngIf="showWalletBalance || walletTemporarilyVisible">${{ balance.available.toFixed(2) }}</span>
+          <span class="stat-value masked" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$••••</span>
+          <span class="stat-value-hover" *ngIf="!showWalletBalance && !walletTemporarilyVisible">${{ balance.available.toFixed(2) }}</span>
+          <span class="stat-sub">{{ 'EARNINGS.READY_TO_WITHDRAW' | translate }}</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="balance-stat lifetime-stat"
+             [class.wallet-hidden]="!showWalletBalance && !walletTemporarilyVisible"
+             (click)="toggleWalletVisibility($event, 'lifetime')">
+          <span class="stat-label">{{ 'EARNINGS.LIFETIME' | translate }}</span>
+          <span class="stat-value" *ngIf="showWalletBalance || walletTemporarilyVisible">${{ balance.lifetime.toFixed(2) }}</span>
+          <span class="stat-value masked" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$••••</span>
+          <span class="stat-value-hover" *ngIf="!showWalletBalance && !walletTemporarilyVisible">${{ balance.lifetime.toFixed(2) }}</span>
+          <span class="stat-sub">{{ 'EARNINGS.TOTAL_EARNED' | translate }}</span>
+        </div>
+      </div>
+      <button class="go-back-link" *ngIf="!inline" (click)="goBack()">{{ 'EARNINGS.GO_BACK' | translate }}</button>
+    </div>
+
+    <!-- Desktop: Withdraw Button (hidden on mobile) -->
+    <div class="withdraw-row desktop-only">
+      <button
+        class="withdraw-btn"
+        (click)="requestWithdrawal()"
+        [disabled]="withdrawing || balance.available <= 0">
+        {{ 'EARNINGS.WITHDRAW_FUNDS' | translate }}
+      </button>
+    </div>
+
+    <!-- Mobile: Hero layout (hidden on desktop) -->
+    <div class="balance-hero mobile-only">
       <div class="balance-hero-main"
            [class.wallet-hidden]="!showWalletBalance && !walletTemporarilyVisible"
            (click)="toggleWalletVisibility($event, 'available')">
         <span class="balance-hero-label">{{ 'EARNINGS.AVAILABLE' | translate }}</span>
         <span class="balance-hero-amount" *ngIf="showWalletBalance || walletTemporarilyVisible">${{ balance.available.toFixed(2) }}</span>
         <span class="balance-hero-amount masked" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$••••</span>
-        <span class="balance-hero-amount-hover" *ngIf="!showWalletBalance && !walletTemporarilyVisible">${{ balance.available.toFixed(2) }}</span>
-        <button 
+        <button
           class="balance-hero-withdraw-btn"
-          (click)="$event.stopPropagation(); requestWithdrawal()" 
+          (click)="$event.stopPropagation(); requestWithdrawal()"
           [disabled]="withdrawing || balance.available <= 0">
           {{ 'EARNINGS.WITHDRAW_FUNDS' | translate }}
         </button>
@@ -80,7 +123,6 @@
           <span class="stat-label">{{ 'EARNINGS.PENDING' | translate }}</span>
           <span class="stat-value" *ngIf="showWalletBalance || walletTemporarilyVisible">${{ balance.pending.toFixed(2) }}</span>
           <span class="stat-value masked" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$••••</span>
-          <span class="stat-value-hover" *ngIf="!showWalletBalance && !walletTemporarilyVisible">${{ balance.pending.toFixed(2) }}</span>
           <span class="stat-sub">{{ 'EARNINGS.PENDING_HOLD' | translate }}</span>
         </div>
         <div class="balance-hero-stat lifetime-stat"
@@ -89,7 +131,6 @@
           <span class="stat-label">{{ 'EARNINGS.LIFETIME' | translate }}</span>
           <span class="stat-value" *ngIf="showWalletBalance || walletTemporarilyVisible">${{ balance.lifetime.toFixed(2) }}</span>
           <span class="stat-value masked" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$••••</span>
-          <span class="stat-value-hover" *ngIf="!showWalletBalance && !walletTemporarilyVisible">${{ balance.lifetime.toFixed(2) }}</span>
           <span class="stat-sub">{{ 'EARNINGS.TOTAL_EARNED' | translate }}</span>
         </div>
       </div>

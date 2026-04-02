@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable, take, switchMap, filter, map } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { UserService } from './user.service';
@@ -162,7 +162,10 @@ export class BundleService {
     return this.withAuth(headers => {
       const formData = new FormData();
       formData.append('cover', file);
-      return this.http.post<{ success: boolean; url: string }>(`${this.apiUrl}/upload-cover`, formData, { headers });
+      const uploadHeaders = new HttpHeaders({
+        'Authorization': headers.get('Authorization') || ''
+      });
+      return this.http.post<{ success: boolean; url: string }>(`${this.apiUrl}/upload-cover`, formData, { headers: uploadHeaders });
     });
   }
 }

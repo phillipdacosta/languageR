@@ -88,6 +88,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   @ViewChild(IonContent) ionContent!: IonContent;
   @ViewChild('smartIsland') smartIsland!: SmartIslandComponent;
   @ViewChild('earningsComponent') earningsComponent: any;
+  @ViewChild('createMaterialRef') createMaterialRef: any;
   
   // Platform detection properties
   private destroy$ = new Subject<void>();
@@ -737,6 +738,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
               this.showCreateMaterialView = wasCM;
               this.showExploreView = wasExplore;
               this.cdr.detectChanges();
+              if (wasCM && this.createMaterialRef?.restoreSection) {
+                this.createMaterialRef.restoreSection();
+              }
             });
           }
         }
@@ -1387,6 +1391,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       this.skipTabEntryAnimations = true;
     }
     this.refreshPrevNotesTranslationState();
+
+    if (this.showCreateMaterialView && this.createMaterialRef?.restoreSection) {
+      this.createMaterialRef.restoreSection();
+    }
     
     
     
@@ -2300,12 +2308,91 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.ionContent?.scrollToTop(0);
   }
 
-  navigateToCreateMaterial() {
+  navigateToCreateMaterial(event?: MouseEvent) {
+    const srcEl = event
+      ? (event.currentTarget as HTMLElement || event.target as HTMLElement)
+      : null;
+    const srcRect = srcEl?.getBoundingClientRect() ?? null;
+
     this._savedScrollBeforeMaterial = this._scrollElRef?.scrollTop || 0;
     this.showCreateMaterialView = true;
     this.homeInlineToolbar.setMaterialsViewOpen(true);
     this.cdr.detectChanges();
     this.ionContent?.scrollToTop(0);
+
+    if (!srcRect) return;
+
+    const dest = document.querySelector('.cm-library') as HTMLElement;
+    if (!dest) return;
+
+    dest.style.transition = 'none';
+    dest.style.opacity = '0';
+
+    const destRect = dest.getBoundingClientRect();
+    if (!destRect.width) { dest.style.transition = ''; dest.style.opacity = ''; return; }
+
+    const initH = srcRect.height;
+    const initTop = srcRect.top;
+
+    const dur = '0.32s';
+    const ease = 'cubic-bezier(0.32,0.72,0,1)';
+
+    // Backdrop dim for depth
+    const backdrop = document.createElement('div');
+    Object.assign(backdrop.style, {
+      position: 'fixed', inset: '0',
+      zIndex: '9999', pointerEvents: 'none',
+      backgroundColor: 'rgba(0,0,0,0)', 
+      transition: `background-color ${dur} ${ease}`,
+    });
+    document.body.appendChild(backdrop);
+
+    const clone = document.createElement('div');
+    Object.assign(clone.style, {
+      position: 'fixed',
+      left: `${srcRect.left}px`,
+      top: `${initTop}px`,
+      width: `${srcRect.width}px`,
+      height: `${initH}px`,
+      zIndex: '10000',
+      pointerEvents: 'none',
+      boxSizing: 'border-box',
+      backgroundColor: '#ffffff',
+      border: '1px solid rgba(0,0,0,0.08)',
+      borderRadius: '10px',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+      transition: `left ${dur} ${ease}, top ${dur} ${ease}, width ${dur} ${ease}, height ${dur} ${ease}, border-radius ${dur} ${ease}, box-shadow 0.4s ease, border-color 0.3s ease`,
+      overflow: 'hidden',
+    });
+    document.body.appendChild(clone);
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        backdrop.style.backgroundColor = 'rgba(0,0,0,0.04)';
+
+        clone.style.left = `${destRect.left}px`;
+        clone.style.top = `${destRect.top}px`;
+        clone.style.width = `${destRect.width}px`;
+        clone.style.height = `${destRect.height}px`;
+        clone.style.borderRadius = '18px';
+        clone.style.boxShadow = '0 2px 16px rgba(0,0,0,0.08)';
+        clone.style.borderColor = 'rgba(0,0,0,0.06)';
+
+        setTimeout(() => {
+          dest.style.transition = 'opacity 0.15s ease';
+          dest.style.opacity = '1';
+          backdrop.style.transition = 'opacity 0.15s ease';
+          backdrop.style.opacity = '0';
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              if (clone.parentNode) clone.remove();
+              if (backdrop.parentNode) backdrop.remove();
+              setTimeout(() => { dest.style.transition = ''; dest.style.opacity = ''; }, 180);
+            });
+          });
+        }, 300);
+      });
+    });
   }
 
   
@@ -7057,14 +7144,18 @@ navigateToLessons() {
         dest.style.transition = 'none';
         dest.style.opacity = '0';
         const destRect = dest.getBoundingClientRect();
-        // Shorten transition for remaining flight to destination
-        withdrawClone.style.transition = 'left 0.36s cubic-bezier(0.32, 0.72, 0, 1), top 0.36s cubic-bezier(0.32, 0.72, 0, 1), width 0.36s cubic-bezier(0.32, 0.72, 0, 1), height 0.36s cubic-bezier(0.32, 0.72, 0, 1), border-radius 0.36s cubic-bezier(0.32, 0.72, 0, 1), font-size 0.36s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s ease';
+        // Shorten transition for remaining flight to destination (include color props for smooth fill)
+        withdrawClone.style.transition = 'left 0.36s cubic-bezier(0.32, 0.72, 0, 1), top 0.36s cubic-bezier(0.32, 0.72, 0, 1), width 0.36s cubic-bezier(0.32, 0.72, 0, 1), height 0.36s cubic-bezier(0.32, 0.72, 0, 1), border-radius 0.36s cubic-bezier(0.32, 0.72, 0, 1), font-size 0.36s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.32s ease, color 0.32s ease, border-color 0.32s ease, opacity 0.2s ease';
         requestAnimationFrame(() => {
           withdrawClone.style.left = `${destRect.left}px`;
           withdrawClone.style.top = `${destRect.top}px`;
           withdrawClone.style.width = `${destRect.width}px`;
           withdrawClone.style.height = `${destRect.height}px`;
           withdrawClone.style.fontSize = '14px';
+          withdrawClone.style.backgroundColor = cloneSolidBg;
+          withdrawClone.style.color = cloneSolidFg;
+          withdrawClone.style.borderColor = cloneSolidBg;
+          withdrawClone.style.borderRadius = '8px';
         });
         // Wait for layout to fully settle (longer than earningsFadeIn 400ms), then swap
         setTimeout(() => {

@@ -89,50 +89,44 @@ ion-toolbar {
   padding: 24px 20px 40px;
 }
 
-.skeleton-hero-main {
+.skeleton-balance-strip {
+  display: flex;
   background: #fff;
   border: 1px solid $border;
   border-radius: $radius;
-  padding: 28px 28px 24px;
+  padding: 20px 0;
+  margin-bottom: 24px;
+  overflow: hidden;
+
+  @media (max-width: 600px) { padding: 14px 0; }
+}
+
+.skeleton-stat {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  margin-bottom: 12px;
+  align-items: flex-start;
+  padding: 0 24px;
+
+  & + & { border-left: 1px solid $border; }
+
+  @media (max-width: 600px) { padding: 0 12px; }
 }
 
-.skeleton-hero-label {
-  width: 80px;
-  height: 12px;
-  margin-bottom: 8px;
-}
-
-.skeleton-hero-amount {
-  width: 160px;
-  height: 36px;
-  margin-bottom: 16px;
-}
-
-.skeleton-hero-btn {
-  width: 140px;
-  height: 44px;
-  border-radius: 8px;
-}
-
-.skeleton-hero-stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+.skeleton-withdraw-row {
+  display: flex;
+  justify-content: flex-end;
   margin-bottom: 32px;
 }
 
-.skeleton-hero-stat {
-  background: #fff;
-  border: 1px solid $border;
-  border-radius: $radius;
-  padding: 16px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+.skeleton-btn {
+  width: 160px;
+  height: 48px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.4s ease-in-out infinite;
 }
 
 .skeleton-line {
@@ -145,16 +139,24 @@ ion-toolbar {
 .skeleton-label {
   width: 64px;
   height: 12px;
+  margin-bottom: 10px;
+
+  @media (max-width: 600px) { width: 52px; height: 11px; margin-bottom: 8px; }
 }
 
 .skeleton-value {
   width: 96px;
-  height: 22px;
+  height: 28px;
+  margin-bottom: 8px;
+
+  @media (max-width: 600px) { width: 72px; height: 20px; margin-bottom: 6px; }
 }
 
 .skeleton-sub {
   width: 80px;
   height: 10px;
+
+  @media (max-width: 600px) { width: 64px; height: 9px; }
 }
 
 .skeleton-chart-card {
@@ -251,7 +253,153 @@ ion-toolbar {
 }
 
 // =============================================================
-// BALANCE HERO (Available balance + withdraw CTA)
+// RESPONSIVE TOGGLE: desktop vs mobile layouts
+// =============================================================
+.desktop-only {
+  display: flex;
+  @media (max-width: 600px) { display: none !important; }
+}
+
+.mobile-only {
+  display: none;
+  @media (max-width: 600px) { display: block; }
+}
+
+// =============================================================
+// DESKTOP: Balance Strip + Withdraw Row
+// =============================================================
+.balance-strip-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.go-back-link {
+  background: none;
+  border: none;
+  color: #222222;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  white-space: nowrap;
+  padding: 8px 0;
+  flex-shrink: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+  &:hover { opacity: 0.7; }
+}
+
+.balance-strip {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+  border: 1px solid $border;
+  border-radius: $radius;
+  background: white;
+  overflow: hidden;
+}
+
+.balance-stat {
+  flex: 1;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  position: relative;
+  cursor: pointer;
+  min-width: 0;
+
+  @media (max-width: 600px) { padding: 14px 12px; }
+
+  .stat-label {
+    font-size: 13px;
+    font-weight: 400;
+    color: $text-secondary;
+    line-height: 1.3;
+    @media (max-width: 600px) { font-size: 12px; }
+  }
+
+  .stat-value {
+    font-size: 22px;
+    font-weight: 600;
+    color: $text-primary;
+    letter-spacing: -0.5px;
+    font-variant-numeric: tabular-nums;
+    &.masked { color: $text-tertiary; letter-spacing: 1px; }
+    @media (max-width: 600px) { font-size: 16px; }
+  }
+
+  .stat-value-hover {
+    position: absolute;
+    left: 24px;
+    top: 38px;
+    opacity: 0;
+    pointer-events: none;
+    font-size: 22px;
+    font-weight: 600;
+    color: $text-primary;
+    letter-spacing: -0.5px;
+    transition: opacity 0.2s;
+    @media (max-width: 600px) { left: 12px; top: 30px; font-size: 16px; }
+  }
+
+  .stat-sub {
+    font-size: 12px;
+    color: $text-tertiary;
+    margin-top: 2px;
+    @media (max-width: 600px) { font-size: 11px; }
+  }
+
+  &.wallet-hidden {
+    @media (hover: hover) {
+      &:hover .stat-value.masked { opacity: 0; }
+      &:hover .stat-value-hover { opacity: 1; }
+    }
+  }
+}
+
+.stat-divider {
+  width: 1px;
+  background: $border;
+  align-self: stretch;
+  flex-shrink: 0;
+}
+
+.pending-stat .stat-label { color: $accent-orange; }
+.available-stat .stat-label { color: $accent-green; }
+
+.withdraw-row {
+  display: flex;
+  justify-content: flex-end;
+  margin: 16px 0 32px;
+}
+
+.withdraw-btn {
+  background: #000000;
+  border: 1px solid #222222;
+  border-radius: 8px;
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover:not(:disabled) {
+    background: $text-primary;
+    color: white;
+  }
+
+  &:disabled {
+    border-color: $border;
+    color: $text-tertiary;
+    cursor: not-allowed;
+  }
+}
+
+// =============================================================
+// MOBILE: Balance Hero (Available + Withdraw CTA + Pending/Lifetime cards)
 // =============================================================
 .balance-hero {
   margin-bottom: 32px;
@@ -261,64 +409,35 @@ ion-toolbar {
   background: white;
   border: 1px solid $border;
   border-radius: $radius;
-  padding: 28px 28px 24px;
+  padding: 24px 20px 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
   cursor: pointer;
   margin-bottom: 12px;
+}
 
-  @media (max-width: 600px) {
-    padding: 24px 20px 20px;
-  }
+.balance-hero-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: $accent-green;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
 
-  .balance-hero-label {
-    font-size: 13px;
-    font-weight: 500;
-    color: $accent-green;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 4px;
-  }
+.balance-hero-amount {
+  font-size: 34px;
+  font-weight: 700;
+  color: $text-primary;
+  letter-spacing: -1px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
 
-  .balance-hero-amount {
-    font-size: 40px;
-    font-weight: 700;
-    color: $text-primary;
-    letter-spacing: -1px;
-    font-variant-numeric: tabular-nums;
-    line-height: 1.1;
-
-    &.masked {
-      color: $text-tertiary;
-      letter-spacing: 2px;
-    }
-
-    @media (max-width: 600px) {
-      font-size: 34px;
-    }
-  }
-
-  .balance-hero-amount-hover {
-    display: none;
-  }
-
-  // Hover reveal on desktop
-  &.wallet-hidden {
-    @media (hover: hover) {
-      &:hover .balance-hero-amount.masked { opacity: 0; }
-      &:hover .balance-hero-amount-hover {
-        display: block;
-        font-size: 40px;
-        font-weight: 700;
-        color: $text-primary;
-        letter-spacing: -1px;
-        font-variant-numeric: tabular-nums;
-        line-height: 1.1;
-      }
-      &:hover .balance-hero-amount.masked + .balance-hero-amount-hover { display: block; }
-    }
+  &.masked {
+    color: $text-tertiary;
+    letter-spacing: 2px;
   }
 }
 
@@ -353,16 +472,11 @@ ion-toolbar {
   background: white;
   border: 1px solid $border;
   border-radius: $radius;
-  padding: 16px 20px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
   gap: 2px;
   cursor: pointer;
-  position: relative;
-
-  @media (max-width: 600px) {
-    padding: 14px 16px;
-  }
 
   .stat-label {
     font-size: 12px;
@@ -371,29 +485,12 @@ ion-toolbar {
   }
 
   .stat-value {
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 600;
     color: $text-primary;
     letter-spacing: -0.5px;
     font-variant-numeric: tabular-nums;
     &.masked { color: $text-tertiary; letter-spacing: 1px; }
-
-    @media (max-width: 600px) { font-size: 18px; }
-  }
-
-  .stat-value-hover {
-    position: absolute;
-    left: 20px;
-    top: 34px;
-    opacity: 0;
-    pointer-events: none;
-    font-size: 20px;
-    font-weight: 600;
-    color: $text-primary;
-    letter-spacing: -0.5px;
-    transition: opacity 0.2s;
-
-    @media (max-width: 600px) { left: 16px; top: 32px; font-size: 18px; }
   }
 
   .stat-sub {
@@ -402,29 +499,7 @@ ion-toolbar {
     margin-top: 1px;
   }
 
-  &.wallet-hidden {
-    @media (hover: hover) {
-      &:hover .stat-value.masked { opacity: 0; }
-      &:hover .stat-value-hover { opacity: 1; }
-    }
-  }
-}
-
-.pending-stat .stat-label { color: $accent-orange; }
-
-.go-back-link {
-  background: none;
-  border: none;
-  color: $text-primary;
-  font-size: 14px;
-  font-weight: 600;
-  text-decoration: underline;
-  cursor: pointer;
-  white-space: nowrap;
-  padding: 8px 0;
-  flex-shrink: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
-  &:hover { opacity: 0.7; }
+  &.pending-stat .stat-label { color: $accent-orange; }
 }
 
 // =============================================================
@@ -2690,12 +2765,13 @@ ion-toolbar {
   }
 
   .earnings-skeleton {
-    .skeleton-hero-main,
-    .skeleton-hero-stat {
+    .skeleton-balance-strip {
       background: #1c1c1e !important;
       border-color: #2c2c2e !important;
     }
+    .skeleton-stat + .skeleton-stat { border-left-color: #2c2c2e !important; }
     .skeleton-line,
+    .skeleton-btn,
     .skeleton-chart-area {
       background: linear-gradient(90deg, #2c2c2e 25%, #3a3a3c 50%, #2c2c2e 75%) !important;
       background-size: 200% 100% !important;
@@ -2706,13 +2782,34 @@ ion-toolbar {
     }
   }
 
+  .balance-strip {
+    background: #1c1c1e !important;
+    border-color: #2c2c2e !important;
+  }
+  .balance-stat {
+    .stat-label { color: #8e8e93 !important; }
+    .stat-value { color: #f5f5f7 !important; &.masked { color: #555 !important; } }
+    .stat-value-hover { color: #f5f5f7 !important; }
+    .stat-sub { color: #636366 !important; }
+  }
+  .pending-stat .stat-label { color: $accent-orange !important; }
+  .available-stat .stat-label { color: $accent-green !important; }
+  .stat-divider { background: #2c2c2e !important; }
+
+  .withdraw-btn {
+    background: #f5f5f7 !important;
+    border-color: #f5f5f7 !important;
+    color: #000000 !important;
+    &:hover:not(:disabled) { background: #fff !important; }
+    &:disabled { background: #2c2c2e !important; border-color: #3a3a3c !important; color: #555 !important; }
+  }
+
   .balance-hero-main {
     background: #1c1c1e !important;
     border-color: #2c2c2e !important;
-    .balance-hero-label { color: $accent-green !important; }
-    .balance-hero-amount { color: #f5f5f7 !important; &.masked { color: #555 !important; } }
-    .balance-hero-amount-hover { color: #f5f5f7 !important; }
   }
+  .balance-hero-label { color: $accent-green !important; }
+  .balance-hero-amount { color: #f5f5f7 !important; &.masked { color: #555 !important; } }
   .balance-hero-withdraw-btn {
     background: #f5f5f7 !important;
     color: #000000 !important;
@@ -2724,10 +2821,9 @@ ion-toolbar {
     border-color: #2c2c2e !important;
     .stat-label { color: #8e8e93 !important; }
     .stat-value { color: #f5f5f7 !important; &.masked { color: #555 !important; } }
-    .stat-value-hover { color: #f5f5f7 !important; }
     .stat-sub { color: #636366 !important; }
+    &.pending-stat .stat-label { color: $accent-orange !important; }
   }
-  .pending-stat .stat-label { color: $accent-orange !important; }
 
   .transfers-section .section-header h2 { color: #f5f5f7 !important; }
   .transfers-list { background: #1c1c1e !important; border-color: #2c2c2e !important; }

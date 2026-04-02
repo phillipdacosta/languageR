@@ -623,7 +623,7 @@ router.get('/tutor/:tutorId', async (req, res) => {
   try {
     const materials = await TutorMaterial.find({
       tutorId: req.params.tutorId,
-      status: 'published'
+      status: { $in: ['published', 'draft'] }
     })
       .select('-quiz.options.isCorrect')
       .sort({ createdAt: -1 })

@@ -558,6 +558,7 @@ export class ExplorePage implements OnInit, OnDestroy {
   }
 
   viewBundle(bundleId: string) {
+    sessionStorage.setItem('bundleReferrer', '/tabs/home/explore');
     this.router.navigate(['/bundle', bundleId]);
   }
 

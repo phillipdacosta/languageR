@@ -80,10 +80,12 @@ export class MyLibraryPage implements OnInit {
   }
 
   viewBundle(bundleId: string) {
+    sessionStorage.setItem('bundleReferrer', '/my-library');
     this.router.navigate(['/bundle', bundleId]);
   }
 
   viewMaterial(materialId: string) {
+    sessionStorage.setItem('materialReferrer', '/my-library');
     this.router.navigate(['/material', materialId]);
   }
 

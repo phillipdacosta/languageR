@@ -148,12 +148,27 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     private bundleService: BundleService
   ) {}
 
+  restoreSection() {
+    const section = sessionStorage.getItem('cmReturnSection');
+    if (section === 'bundles') {
+      this.libraryTab = 'bundles';
+      this.loadBundles();
+      this.cdr.markForCheck();
+    } else if (section === 'materials') {
+      this.libraryTab = 'materials';
+      this.cdr.markForCheck();
+    }
+    sessionStorage.removeItem('cmReturnSection');
+  }
+
   ngOnInit() {
     this.initForm();
     this.rebuildTranslatedLabels();
     this.loadMyMaterials();
+    this.loadBundles();
     this.loadLinkedChannels();
     this.updateNavState();
+
     this.userService.currentUser$.subscribe(u => {
       if (u) this.currentUserId = u.id;
     });
@@ -256,6 +271,10 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
       this.goBackEvent.emit();
       return;
     }
+    if (this.viewMode === 'bundle-create') {
+      this.cancelBundleCreate();
+      return;
+    }
     // In create/edit mode
     const idx = this.stepOrder.indexOf(this.currentStep);
     if (idx <= 0 || (this.editingMaterialId && this.currentStep === 'details')) {
@@ -269,6 +288,14 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     if (this.viewMode === 'library') {
       this.navBackLabel = this.translate.instant('CREATE_MATERIAL.NAV_BACK_SHORT');
       this.stepTitle = '';
+      if (this.inline) {
+        this.homeInlineToolbar.setMaterialsToolbarBackLabel(this.navBackLabel);
+      }
+      return;
+    }
+    if (this.viewMode === 'bundle-create') {
+      this.navBackLabel = 'My Materials';
+      this.stepTitle = this.editingBundleId ? 'Edit Bundle' : 'Create Bundle';
       if (this.inline) {
         this.homeInlineToolbar.setMaterialsToolbarBackLabel(this.navBackLabel);
       }
@@ -289,6 +316,8 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
   }
 
   previewMaterial(m: TutorMaterial) {
+    sessionStorage.setItem('materialReferrer', '/tabs/home');
+    sessionStorage.setItem('cmReturnSection', 'materials');
     this.router.navigate(['/material', m._id]);
   }
 
@@ -1611,6 +1640,11 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
 
   switchLibraryTab(tab: 'materials' | 'bundles') {
     this.libraryTab = tab;
+
+    // Reset scroll to top so new tab content is visible
+    const libEl = document.querySelector('.cm-library');
+    if (libEl) libEl.scrollTop = 0;
+
     if (tab === 'bundles' && this.myBundles.length === 0 && !this.isLoadingBundles) {
       this.loadBundles();
     }
@@ -1618,15 +1652,17 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
 
   loadBundles() {
     this.isLoadingBundles = true;
+    this.cdr.detectChanges();
     this.bundleService.getMyBundles().subscribe({
       next: (bundles) => {
-        this.myBundles = bundles;
+        this.myBundles = bundles || [];
         this.isLoadingBundles = false;
-        this.cdr.markForCheck();
+        this.cdr.detectChanges();
       },
       error: () => {
+        this.myBundles = [];
         this.isLoadingBundles = false;
-        this.cdr.markForCheck();
+        this.cdr.detectChanges();
       }
     });
   }
@@ -1645,6 +1681,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     this.bundleCoverPreview = null;
     this.bundleCoverUrl = null;
     this.viewMode = 'bundle-create';
+    this.updateNavState();
   }
 
   editBundle(bundle: ContentBundle) {
@@ -1661,6 +1698,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     this.bundleCoverPreview = bundle.coverImageUrl || null;
     this.bundleCoverUrl = bundle.coverImageUrl || null;
     this.viewMode = 'bundle-create';
+    this.updateNavState();
   }
 
   isMaterialInBundle(materialId: string): boolean {
@@ -1721,9 +1759,16 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     try {
       const res = await this.bundleService.uploadCover(this.bundleCoverFile).toPromise();
       this.isUploadingBundleCover = false;
-      return (res as any)?.url || (res as any)?.coverImageUrl || null;
-    } catch {
+      const url = (res as any)?.url || (res as any)?.coverImageUrl || null;
+      if (!url) {
+        const toast = await this.toastCtrl.create({ message: 'Cover image upload returned no URL', duration: 3000, color: 'warning' });
+        await toast.present();
+      }
+      return url;
+    } catch (err: any) {
       this.isUploadingBundleCover = false;
+      const toast = await this.toastCtrl.create({ message: 'Cover upload failed — bundle will save without image', duration: 3000, color: 'warning' });
+      await toast.present();
       return this.bundleCoverUrl;
     }
   }
@@ -1832,6 +1877,13 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
 
   cancelBundleCreate() {
     this.viewMode = 'library';
+    this.updateNavState();
+  }
+
+  previewBundle(bundle: ContentBundle) {
+    sessionStorage.setItem('bundleReferrer', '/tabs/home');
+    sessionStorage.setItem('cmReturnSection', 'bundles');
+    this.router.navigate(['/bundle', bundle._id]);
   }
 
   async confirmDeleteBundle(bundle: ContentBundle) {

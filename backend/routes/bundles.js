@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const ContentBundle = require('../models/ContentBundle');
 const BundlePurchase = require('../models/BundlePurchase');
+const BundleView = require('../models/BundleView');
 const TutorMaterial = require('../models/TutorMaterial');
 const Payment = require('../models/Payment');
 const User = require('../models/User');
@@ -54,6 +55,47 @@ router.post('/', verifyToken, async (req, res) => {
     res.status(201).json({ success: true, bundle });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to create bundle' });
+  }
+});
+
+// ── POST /api/bundles/upload-cover — Upload cover image ─────────────
+router.post('/upload-cover', verifyToken, uploadImage.single('cover'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
+
+    const projectId = process.env.GOOGLE_CLOUD_PROJECT_ID;
+    const bucketName = process.env.GOOGLE_CLOUD_BUCKET_NAME;
+    if (!projectId || !bucketName) {
+      return res.status(503).json({ success: false, message: 'Storage not configured' });
+    }
+
+    const user = await getUserFromRequest(req);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const gcsStorage = new Storage({ projectId, keyFilename: process.env.GOOGLE_CLOUD_KEY_FILE });
+    const bucket = gcsStorage.bucket(bucketName);
+
+    const timestamp = Date.now();
+    const rand = Math.random().toString(36).substring(2, 10);
+    const ext = req.file.originalname.split('.').pop();
+    const fileName = `bundle-covers/${user._id}/${timestamp}-${rand}.${ext}`;
+
+    const file = bucket.file(fileName);
+    const stream = file.createWriteStream({
+      metadata: { contentType: req.file.mimetype, cacheControl: 'public, max-age=31536000' }
+    });
+
+    stream.on('error', () => res.status(500).json({ success: false, message: 'Upload failed' }));
+    stream.on('finish', async () => {
+      await file.makePublic();
+      const publicUrl = `https://storage.googleapis.com/${bucketName}/${fileName}`;
+      res.json({ success: true, url: publicUrl });
+    });
+
+    stream.end(req.file.buffer);
+  } catch (error) {
+    console.error('Cover upload error:', error);
+    res.status(500).json({ success: false, message: 'Upload failed' });
   }
 });
 
@@ -124,7 +166,7 @@ router.get('/browse', async (req, res) => {
 
     const [bundles, total] = await Promise.all([
       ContentBundle.find(filter)
-        .populate('tutorId', 'name picture')
+        .populate('tutorId', 'name firstName lastName picture bio')
         .populate('items.materialId', 'title materialType thumbnailUrl')
         .sort(sortObj)
         .skip(skip)
@@ -209,7 +251,7 @@ router.get('/recommended/:language', verifyToken, async (req, res) => {
 
     if (studentTags.size === 0) {
       const bundles = await ContentBundle.find({ language, status: 'published' })
-        .populate('tutorId', 'name picture')
+        .populate('tutorId', 'name firstName lastName picture bio')
         .populate('items.materialId', 'title materialType thumbnailUrl')
         .sort({ 'stats.purchases': -1 })
         .limit(10)
@@ -223,7 +265,7 @@ router.get('/recommended/:language', verifyToken, async (req, res) => {
       status: 'published',
       structuredTags: { $in: tagArray }
     })
-      .populate('tutorId', 'name picture')
+      .populate('tutorId', 'name firstName lastName picture bio')
       .populate('items.materialId', 'title materialType thumbnailUrl')
       .lean();
 
@@ -249,7 +291,7 @@ router.get('/recommended/:language', verifyToken, async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const bundle = await ContentBundle.findById(req.params.id)
-      .populate('tutorId', 'name picture')
+      .populate('tutorId', 'name firstName lastName picture bio country residenceCountry nativeLanguage onboardingData stats')
       .populate('items.materialId', 'title description materialType thumbnailUrl pricingType price language level stats')
       .lean();
 
@@ -257,35 +299,32 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Bundle not found' });
     }
 
-    let purchased = false;
+    let user = null;
     try {
       const token = req.headers.authorization?.split(' ')[1];
-      if (token) {
-        const user = await getUserFromRequest(req);
-        if (user) {
-          const purchase = await BundlePurchase.findOne({ studentId: user._id, bundleId: bundle._id, status: 'completed' });
-          purchased = !!purchase;
-        }
+      if (token) user = await getUserFromRequest(req);
+    } catch (e) {}
+
+    const isOwner = user && bundle.tutorId._id.toString() === user._id.toString();
+
+    if (bundle.status === 'draft' && !isOwner) {
+      return res.status(404).json({ success: false, message: 'Bundle not found' });
+    }
+
+    let purchased = false;
+    if (user && !isOwner) {
+      const purchase = await BundlePurchase.findOne({ studentId: user._id, bundleId: bundle._id, status: 'completed' });
+      purchased = !!purchase;
+
+      try {
+        await BundleView.create({ bundleId: bundle._id, userId: user._id });
+        await ContentBundle.findByIdAndUpdate(bundle._id, { $inc: { 'stats.views': 1 } });
+      } catch (err) {
+        if (err.code !== 11000) throw err;
       }
-    } catch (e) {
-      // Unauthenticated access is allowed
     }
 
     bundle.purchased = purchased;
-
-    if (bundle.status === 'draft') {
-      try {
-        const user = await getUserFromRequest(req);
-        if (!user || user._id.toString() !== bundle.tutorId._id.toString()) {
-          return res.status(404).json({ success: false, message: 'Bundle not found' });
-        }
-      } catch (e) {
-        return res.status(404).json({ success: false, message: 'Bundle not found' });
-      }
-    }
-
-    await ContentBundle.findByIdAndUpdate(bundle._id, { $inc: { 'stats.views': 1 } });
-
     res.json({ success: true, bundle });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to fetch bundle' });
@@ -473,40 +512,6 @@ router.post('/:id/purchase', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, message: error.message });
     }
     res.status(500).json({ success: false, message: 'Purchase failed' });
-  }
-});
-
-// ── POST /api/bundles/upload-cover — Upload cover image ─────────────
-const storage = new Storage({
-  projectId: process.env.GCP_PROJECT_ID,
-  credentials: JSON.parse(process.env.GCP_SERVICE_ACCOUNT_KEY || '{}')
-});
-const bucket = storage.bucket(process.env.GCP_BUCKET_NAME || 'barnabi-uploads');
-
-router.post('/upload-cover', verifyToken, uploadImage.single('cover'), async (req, res) => {
-  try {
-    if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
-
-    const user = await getUserFromRequest(req);
-    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-
-    const fileName = `bundle-covers/${user._id}-${Date.now()}-${req.file.originalname}`;
-    const blob = bucket.file(fileName);
-    const blobStream = blob.createWriteStream({
-      resumable: false,
-      metadata: { contentType: req.file.mimetype }
-    });
-
-    await new Promise((resolve, reject) => {
-      blobStream.on('error', reject);
-      blobStream.on('finish', resolve);
-      blobStream.end(req.file.buffer);
-    });
-
-    const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
-    res.json({ success: true, url: publicUrl });
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Upload failed' });
   }
 });
 

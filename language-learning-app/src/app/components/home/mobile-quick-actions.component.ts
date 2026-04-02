@@ -17,5 +17,5 @@ export class MobileQuickActionsComponent {
   @Input() staggerReady = false;
   @Input() staggerDone = false;
   @Output() navigateToExplore = new EventEmitter<void>();
-  @Output() navigateToCreateMaterial = new EventEmitter<void>();
+  @Output() navigateToCreateMaterial = new EventEmitter<MouseEvent>();
 }

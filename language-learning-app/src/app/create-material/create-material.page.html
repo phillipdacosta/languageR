@@ -7,6 +7,9 @@
     <span *ngIf="editingMaterialId">{{ 'CREATE_MATERIAL.EDITING_MATERIAL' | translate }}</span>
     <span *ngIf="!editingMaterialId">{{ stepTitle }}</span>
   </div>
+  <div class="cm-nav-title" *ngIf="viewMode === 'bundle-create'">
+    <span>{{ stepTitle }}</span>
+  </div>
   <div class="cm-nav-right">
     <span class="cm-nav-step" *ngIf="viewMode === 'create' && !editingMaterialId">{{ stepNumber }}/{{ totalSteps }}</span>
   </div>
@@ -61,18 +64,39 @@
       </button>
     </div>
 
-    <div class="cm-library-header">
-      <h1>{{ 'CREATE_MATERIAL.LIBRARY_TITLE' | translate }}</h1>
-      <div class="cm-library-actions">
-        <button class="cm-btn-link-channels" (click)="showChannelLinking = !showChannelLinking">
-          <ion-icon [name]="hasLinkedChannel() ? 'link' : 'link-outline'"></ion-icon>
-          {{ hasLinkedChannel() ? ('CREATE_MATERIAL.LIBRARY_CHANNELS_LINKED' | translate) : ('CREATE_MATERIAL.LIBRARY_LINK_CHANNELS' | translate) }}
+    <!-- Sticks while list scrolls (My Materials → New) -->
+    <div class="cm-library-sticky">
+      <div class="cm-library-header">
+        <h1>{{ 'CREATE_MATERIAL.LIBRARY_TITLE' | translate }}</h1>
+        <div class="cm-library-actions">
+          <button class="cm-btn-link-channels" (click)="showChannelLinking = !showChannelLinking">
+            <ion-icon [name]="hasLinkedChannel() ? 'link' : 'link-outline'"></ion-icon>
+            {{ hasLinkedChannel() ? ('CREATE_MATERIAL.LIBRARY_CHANNELS_LINKED' | translate) : ('CREATE_MATERIAL.LIBRARY_LINK_CHANNELS' | translate) }}
+          </button>
+        </div>
+      </div>
+
+      <div class="cm-library-tabs">
+        <button class="cm-library-tab" [class.active]="libraryTab === 'materials'" (click)="switchLibraryTab('materials')">
+          <ion-icon name="layers-outline"></ion-icon>
+          Materials
+          <span class="cm-library-tab-count" *ngIf="myMaterials.length > 0">{{ myMaterials.length }}</span>
         </button>
-        <button class="cm-btn-primary cm-btn-create" *ngIf="libraryTab === 'materials'" (click)="startCreate()">
+        <button class="cm-library-tab" [class.active]="libraryTab === 'bundles'" (click)="switchLibraryTab('bundles')">
+          <ion-icon name="folder-outline"></ion-icon>
+          Bundles
+          <span class="cm-library-tab-count" *ngIf="myBundles.length > 0">{{ myBundles.length }}</span>
+        </button>
+      </div>
+
+      <div class="cm-section-action" *ngIf="libraryTab === 'materials'">
+        <button class="cm-btn-primary cm-btn-section-create" (click)="startCreate()">
           <ion-icon name="add-outline"></ion-icon>
           {{ 'CREATE_MATERIAL.LIBRARY_NEW' | translate }}
         </button>
-        <button class="cm-btn-primary cm-btn-create" *ngIf="libraryTab === 'bundles'" (click)="startCreateBundle()">
+      </div>
+      <div class="cm-section-action" *ngIf="libraryTab === 'bundles'">
+        <button class="cm-btn-primary cm-btn-section-create" (click)="startCreateBundle()">
           <ion-icon name="add-outline"></ion-icon>
           New Bundle
         </button>
@@ -81,20 +105,6 @@
 
     <!-- Content Panel -->
     <div class="cm-library-panel">
-
-    <!-- Library Tabs -->
-    <div class="cm-library-tabs">
-      <button class="cm-library-tab" [class.active]="libraryTab === 'materials'" (click)="switchLibraryTab('materials')">
-        <ion-icon name="layers-outline"></ion-icon>
-        Materials
-        <span class="cm-library-tab-count" *ngIf="myMaterials.length > 0">{{ myMaterials.length }}</span>
-      </button>
-      <button class="cm-library-tab" [class.active]="libraryTab === 'bundles'" (click)="switchLibraryTab('bundles')">
-        <ion-icon name="folder-outline"></ion-icon>
-        Bundles
-        <span class="cm-library-tab-count" *ngIf="myBundles.length > 0">{{ myBundles.length }}</span>
-      </button>
-    </div>
 
     <!-- Channel Linking Panel (animated open/close) -->
     <div class="cm-channel-panel-wrapper" [class.is-open]="showChannelLinking">
@@ -264,7 +274,7 @@
       </div>
     </div>
 
-    <!-- ── Bundles List ── -->
+    <!-- ── Bundles Section ── -->
     <div class="cm-bundles-section" *ngIf="libraryTab === 'bundles'">
       <div class="cm-library-loading" *ngIf="isLoadingBundles">
         <ion-spinner name="crescent"></ion-spinner>
@@ -315,6 +325,9 @@
                 <span class="cm-bc-stat" *ngIf="b.pricingType === 'paid'"><ion-icon name="card-outline"></ion-icon> {{ b.stats?.purchases || 0 }}</span>
               </div>
               <div class="cm-bc-actions">
+                <button class="cm-bc-action" (click)="previewBundle(b)" title="Preview">
+                  <ion-icon name="eye-outline"></ion-icon>
+                </button>
                 <button class="cm-bc-action" (click)="editBundle(b)" title="Edit">
                   <ion-icon name="create-outline"></ion-icon>
                 </button>
@@ -338,13 +351,6 @@
 <!-- BUNDLE CREATE / EDIT VIEW                              -->
 <!-- ═══════════════════════════════════════════════════════ -->
 <div class="cm-bundle-editor" *ngIf="viewMode === 'bundle-create'">
-  <div class="cm-bundle-editor-header">
-    <button class="cm-back-btn" (click)="cancelBundleCreate()">
-      <ion-icon name="arrow-back-outline"></ion-icon>
-      Back
-    </button>
-    <h1>{{ editingBundleId ? 'Edit Bundle' : 'Create Bundle' }}</h1>
-  </div>
 
   <!-- Intro Tip -->
   <div class="cm-bundle-tip cm-bundle-tip--intro">
@@ -470,7 +476,7 @@
 
       <!-- Paid materials in free bundle warning -->
       <div class="cm-bundle-tip cm-bundle-tip--warning" *ngIf="hasPaidMaterialsInFreeBundle">
-        <ion-icon name="alert-circle-outline"></ion-icon>
+        <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="cm-tip-mascot" />
         <div>
           <strong>Heads up — you're including paid materials in a free bundle</strong>
           <p>{{ selectedPaidMaterials.length }} paid material{{ selectedPaidMaterials.length > 1 ? 's' : '' }} worth ${{ bundlePaidMaterialsValue | number:'1.2-2' }} total will become free for anyone who gets this bundle. This is fine if you want to use this bundle as a way to attract students — just make sure it's intentional.</p>

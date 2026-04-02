@@ -1,368 +1,1231 @@
-:host {
-  display: block;
+$font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+$font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+$radius-card: 28px;
+$hero-h: 320px;
+$hero-h-mobile: 280px;
+$overlap: 40px;
+
+:host { display: block; background: #f7f7f7; min-height: 100vh; }
+
+:host ::ng-deep ion-content {
+  --background: #f7f7f7;
+  --padding-start: 0;
+  --padding-end: 0;
+  --padding-top: 0;
+  --padding-bottom: 0;
+
+  @media (min-width: 900px) {
+    --background: #fff;
+    --padding-top: 24px;
+  }
 }
+
+/* ─── Skeleton ─── */
 
 .bd-loading {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 300px;
-
-  ion-spinner { --color: #4298d3; width: 28px; height: 28px; }
-}
-
-.bd-page {
-  max-width: 680px;
+  max-width: 1120px;
   margin: 0 auto;
-  padding-bottom: 40px;
+
+  @media (min-width: 900px) {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    padding-top: 48px;
+  }
 }
 
-// ── Nav ──
+.bd-skel-hero {
+  height: $hero-h-mobile;
+  background: linear-gradient(110deg, #ececec 30%, #e3e3e3 50%, #ececec 70%);
+  background-size: 200% 100%;
+  animation: bdShimmer 1.4s ease infinite;
 
-.bd-nav {
-  padding: 12px 20px;
+  @media (min-width: 900px) {
+    height: auto;
+    aspect-ratio: 4 / 3;
+    border-radius: 20px;
+    margin: 0 40px;
+  }
 }
 
-.bd-nav-back {
+.bd-skel-card {
+  margin-top: -$overlap;
+  background: #fff;
+  border-radius: $radius-card $radius-card 0 0;
+  padding: 36px 24px 40px;
+  position: relative;
+  z-index: 2;
   display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 100vh;
+
+  @media (min-width: 900px) {
+    margin-top: 0;
+    border-radius: 0;
+    padding: 0 40px 40px 32px;
+    border-left: 1px solid #f0f0f0;
+  }
+}
+
+.bd-skel-line {
+  height: 14px;
+  border-radius: 6px;
+  background: linear-gradient(110deg, #f0f0f0 30%, #e8e8e8 50%, #f0f0f0 70%);
+  background-size: 200% 100%;
+  animation: bdShimmer 1.4s ease infinite;
+  &.bd-skel--sm { width: 100px; }
+  &.bd-skel--md { width: 60%; }
+  &.bd-skel--lg { width: 85%; height: 22px; }
+}
+
+.bd-skel-divider {
+  height: 1px;
+  background: #f0f0f0;
+  margin: 8px 0;
+}
+
+.bd-skel-row {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.bd-skel-thumb {
+  width: 100px;
+  height: 72px;
+  border-radius: 12px;
+  flex-shrink: 0;
+  background: linear-gradient(110deg, #f0f0f0 30%, #e8e8e8 50%, #f0f0f0 70%);
+  background-size: 200% 100%;
+  animation: bdShimmer 1.4s ease infinite;
+}
+
+.bd-skel-row-lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+@keyframes bdShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ─── Hero (stays pinned, card scrolls over it — MOBILE ONLY) ─── */
+
+.bd-hero {
+  position: sticky;
+  top: 0;
+  z-index: 0;
+  width: 100%;
+  height: $hero-h;
+  overflow: hidden;
+  background: #1a1a1a;
+
+  @media (max-width: 680px) { height: $hero-h-mobile; }
+  @media (min-width: 900px) { display: none; }
+}
+
+.bd-hero-img,
+.bd-hero-placeholder {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  will-change: filter, opacity, transform;
+  transition: filter 0.05s linear, opacity 0.05s linear;
+}
+
+.bd-hero-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, #2a4a6e 0%, #1a2e44 100%);
+  ion-icon { font-size: 64px; color: rgba(255,255,255,0.12); }
+}
+
+.bd-hero-actions {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  z-index: 3;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 16px;
+  padding-top: max(16px, env(safe-area-inset-top));
+}
+
+.bd-hero-actions-right {
+  display: flex;
+  gap: 8px;
+}
+
+.bd-hero-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.92);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  transition: transform 0.12s ease;
+
+  ion-icon { font-size: 18px; color: #222; }
+  &:active { transform: scale(0.92); }
+
+  &--sm {
+    width: 34px;
+    height: 34px;
+    ion-icon { font-size: 16px; }
+  }
+}
+
+/* ─── Card (slides up over the pinned hero) ─── */
+
+.bd-card {
+  position: relative;
+  z-index: 2;
+  margin-top: -$overlap;
+  background: #fff;
+  border-radius: $radius-card $radius-card 0 0;
+  min-height: 100vh;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
+
+  @media (min-width: 900px) {
+    margin-top: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: #fff;
+    padding-top: 8px;
+  }
+}
+
+/* ─── Layout: single-col mobile, two-col desktop ─── */
+
+.bd-layout {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0;
+
+  @media (min-width: 900px) {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 0;
+    min-height: 600px;
+    padding-top: 0;
+  }
+}
+
+/* ─── Desktop Breadcrumb (outside layout, left-aligned like material-detail) ─── */
+
+.bd-breadcrumb {
+  display: none;
+
+  @media (min-width: 900px) {
+    display: block;
+    max-width: 1120px;
+    margin: 0 auto 28px;
+    padding: 0 40px;
+  }
+}
+
+.bd-breadcrumb-back {
+  display: inline-flex;
   align-items: center;
   gap: 4px;
   background: none;
   border: none;
-  font-size: 15px;
+  font-family: $font;
+  font-size: 14px;
   font-weight: 500;
-  color: #4298d3;
+  color: #222;
   cursor: pointer;
-  padding: 4px 8px;
+  padding: 8px 12px 8px 6px;
   border-radius: 8px;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
-  transition: background 0.15s ease;
+  transition: background 0.12s ease, color 0.12s ease;
 
-  &:active { background: #F0F4FF; }
   ion-icon { font-size: 18px; }
+  &:hover { background: #f2f2f7; color: #4298d3; }
 }
 
-// ── Cover ──
+/* ─── Desktop Topbar (edit button, inside left col above cover) ─── */
 
-.bd-cover {
-  width: 100%;
-  height: 200px;
-  background: #F2F2F7;
-  overflow: hidden;
+.bd-desktop-topbar {
+  display: none;
 
-  img { width: 100%; height: 100%; object-fit: cover; }
-
-  @media (min-width: 560px) { height: 260px; border-radius: 0 0 20px 20px; }
+  @media (min-width: 900px) {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+  }
 }
 
-.bd-cover-placeholder {
+.bd-desktop-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px;
+  background: #f2f2f7;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: $font;
+  font-size: 13px;
+  font-weight: 500;
+  color: #636366;
+  transition: background 0.12s ease;
+
+  ion-icon { font-size: 15px; }
+  &:hover { background: #e5e5ea; }
+}
+
+/* ─── Desktop Cover Image (inside left col) ─── */
+
+.bd-info-cover {
+  display: none;
+
+  @media (min-width: 900px) {
+    display: block;
+    width: 100%;
+    border-radius: 20px;
+    overflow: hidden;
+    margin-bottom: 24px;
+    background: #f2f2f7;
+    aspect-ratio: 4 / 3;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+    }
+  }
+}
+
+.bd-info-cover-placeholder {
   width: 100%;
   height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #E8F0FE 0%, #F0F4FF 100%);
-
-  ion-icon { font-size: 56px; color: #4298d3; opacity: 0.3; }
+  background: linear-gradient(145deg, #2a4a6e 0%, #1a2e44 100%);
+  ion-icon { font-size: 48px; color: rgba(255,255,255,0.12); }
 }
 
-// ── Header ──
+/* ─── Left Info Column ─── */
 
-.bd-header {
-  padding: 20px 20px 0;
+.bd-info-col {
+  padding: 32px 24px 24px;
+
+  @media (min-width: 900px) {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    padding: 0 40px 32px;
+    max-height: 100vh;
+    overflow-y: auto;
+  }
+
+  @media (max-width: 680px) {
+    padding: 28px 20px 16px;
+    text-align: center;
+  }
 }
 
-.bd-tutor-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
+/* Tutor avatar peek — overlaps card top on mobile, inline on tablet */
+.bd-tutor-peek {
+  margin-bottom: 16px;
+
+  @media (max-width: 680px) {
+    display: flex;
+    justify-content: center;
+    margin-top: -52px;
+    margin-bottom: 14px;
+  }
+
+  @media (min-width: 681px) and (max-width: 899px) {
+    margin-bottom: 20px;
+  }
+
+  @media (min-width: 900px) {
+    margin-bottom: 20px;
+  }
 }
 
-.bd-tutor-avatar {
-  width: 32px;
-  height: 32px;
+.bd-tutor-peek-avatar {
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   overflow: hidden;
-  background: #F2F2F7;
+  background: #f2f2f7;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 
   img { width: 100%; height: 100%; object-fit: cover; }
-  ion-icon { font-size: 16px; color: #8E8E93; }
-}
-
-.bd-tutor-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: #636366;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  ion-icon { font-size: 24px; color: #8e8e93; }
 }
 
 .bd-title {
-  font-size: 24px;
+  font-family: $font-display;
+  font-size: 26px;
   font-weight: 700;
-  color: #1a1a1a;
-  margin: 0 0 8px;
-  line-height: 1.25;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+  color: #222;
+  line-height: 1.2;
+  margin: 0 0 10px;
+
+  @media (max-width: 400px) { font-size: 22px; }
+}
+
+.bd-description {
+  font-family: $font;
+  font-size: 15px;
+  line-height: 1.55;
+  color: #6a6a6a;
+  margin: 0 0 14px;
 }
 
 .bd-meta {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 14px;
-  color: #8E8E93;
-  margin-bottom: 12px;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  font-size: 13px;
+  color: #8e8e93;
+  font-family: $font;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+
+  @media (max-width: 680px) { justify-content: center; }
 }
 
 .bd-meta-item {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
-
-  ion-icon { font-size: 16px; }
+  gap: 3px;
+  ion-icon { font-size: 14px; }
 }
 
-.bd-meta-sep { color: #C7C7CC; }
+.bd-meta-dot { color: #c7c7cc; }
 
-.bd-description {
-  font-size: 15px;
-  line-height: 1.5;
-  color: #48484A;
-  margin: 0 0 12px;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+.bd-by-tutor {
+  font-family: $font;
+  font-size: 13px;
+  color: #8e8e93;
+  margin-bottom: 12px;
 }
 
-.bd-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 4px;
-}
-
-.bd-tag {
+.bd-owner-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  background: #F0F4FF;
+  border: 1px solid #D6E4FF;
+  border-radius: 20px;
   font-size: 12px;
-  font-weight: 500;
-  color: #636366;
-  background: #F2F2F7;
-  padding: 4px 10px;
-  border-radius: 8px;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
-}
-
-// ── Action Bar ──
-
-.bd-action-bar {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 16px 20px;
-  margin: 16px 20px 0;
-  background: #FAFAFA;
-  border-radius: 16px;
-  border: 1px solid #EBEBEB;
-}
-
-.bd-price-display { flex-shrink: 0; }
-
-.bd-price {
-  font-size: 22px;
-  font-weight: 700;
-  color: #1a1a1a;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-
-  &--free { color: #34C759; }
-}
-
-.bd-purchase-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 14px 24px;
-  background: #4298d3;
-  color: #fff;
-  border: none;
-  border-radius: 12px;
-  font-size: 16px;
   font-weight: 600;
-  cursor: pointer;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
-  transition: background 0.2s ease;
+  color: #4B7FBF;
+  font-family: $font;
+  margin-top: 4px;
 
-  &:active { background: #3580b5; }
-  &:disabled { opacity: 0.6; cursor: not-allowed; }
+  ion-icon { font-size: 14px; }
 }
 
-.bd-purchased-badge {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 14px 24px;
-  background: #E8F5E9;
-  color: #2E7D32;
-  border-radius: 12px;
-  font-size: 15px;
-  font-weight: 600;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+/* ─── Right Items Column ─── */
 
-  ion-icon { font-size: 18px; }
-}
+.bd-items-col {
+  padding: 0 24px 0;
 
-// ── Materials List ──
+  @media (min-width: 900px) {
+    padding: 0 40px 0 32px;
+    border-left: 1px solid #f0f0f0;
+  }
 
-.bd-materials {
-  padding: 24px 20px 0;
-}
-
-.bd-materials-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: #1a1a1a;
-  margin: 0 0 14px;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-}
-
-.bd-material-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.bd-material-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  background: #fff;
-  border: 1px solid #EBEBEB;
-  border-radius: 14px;
-  cursor: pointer;
-  transition: background 0.15s ease, box-shadow 0.15s ease;
-
-  &:active { background: #F7F7F7; }
-  &:hover { box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06); }
-
-  &.locked {
-    cursor: default;
-    opacity: 0.7;
-    &:hover { box-shadow: none; }
+  @media (max-width: 680px) {
+    padding: 0 20px;
   }
 }
 
-.bd-mi-number {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: #F2F2F7;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: 600;
-  color: #636366;
-  flex-shrink: 0;
+/* ─── Divider ─── */
+
+.bd-divider {
+  height: 1px;
+  background: #EBEBEB;
+  margin: 20px 0;
+
+  &--mobile {
+    @media (min-width: 900px) { display: none; }
+  }
 }
 
-.bd-mi-thumb {
-  width: 48px;
-  height: 48px;
-  border-radius: 10px;
+/* ─── Item Cards (horizontal, Airbnb style) ─── */
+
+.bd-item {
+  display: flex;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid #f2f2f2;
+  cursor: pointer;
+  transition: background 0.12s ease, box-shadow 0.2s ease;
+  border-radius: 14px;
+
+  &:last-of-type { border-bottom: none; }
+
+  &:active { background: #fafafa; }
+
+  &--locked {
+    cursor: default;
+    &:active { background: transparent; }
+  }
+
+  @media (min-width: 900px) {
+    padding: 12px;
+    border-bottom: none;
+    border: 1px solid #EBEBEB;
+    border-radius: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+
+    &:hover { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15); }
+    &:last-of-type { margin-bottom: 0; }
+  }
+
+  opacity: 0;
+  animation: bdItemFadeIn 0.4s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  @for $i from 1 through 20 {
+    &:nth-child(#{$i}) {
+      animation-delay: #{0.08 + ($i - 1) * 0.05}s;
+    }
+  }
+}
+
+@keyframes bdItemFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.bd-item-thumb {
+  width: 140px;
+  aspect-ratio: 4 / 3;
+  border-radius: 12px;
   overflow: hidden;
-  background: #F2F2F7;
+  background: #f2f2f7;
+  flex-shrink: 0;
+  position: relative;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+  }
+
+  @media (max-width: 400px) {
+    width: 120px;
+  }
+
+  @media (min-width: 900px) {
+    width: 170px;
+    border-radius: 14px;
+  }
+}
+
+.bd-item-thumb-fallback {
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-
-  img { width: 100%; height: 100%; object-fit: cover; }
-  ion-icon { font-size: 22px; color: #8E8E93; }
+  background: linear-gradient(135deg, #E8F0FE 0%, #F4F6FB 100%);
+  ion-icon { font-size: 24px; color: #4298d3; opacity: 0.4; }
 }
 
-.bd-mi-info {
+.bd-item-lock {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.3);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  ion-icon { font-size: 18px; color: #fff; }
+}
+
+.bd-item-body {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  justify-content: center;
+  gap: 3px;
 }
 
-.bd-mi-title {
+.bd-item-title {
+  font-family: $font;
   font-size: 15px;
-  font-weight: 500;
-  color: #1a1a1a;
-  white-space: nowrap;
+  font-weight: 600;
+  color: #222;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
 }
 
-.bd-mi-type {
+.bd-item-desc {
+  font-family: $font;
   font-size: 13px;
-  color: #8E8E93;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  line-height: 1.4;
+  color: #8e8e93;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+
+  @media (min-width: 900px) {
+    -webkit-line-clamp: 3;
+    font-size: 14px;
+    line-height: 1.5;
+  }
 }
 
-.bd-mi-lock {
+.bd-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.bd-item-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  color: #aeaeb2;
+  font-family: $font;
+  ion-icon { font-size: 13px; }
+}
+
+/* ─── Show All ─── */
+
+.bd-show-all {
+  display: block;
+  width: 100%;
+  padding: 14px 0;
+  background: none;
+  border: 1px solid #222;
+  border-radius: 10px;
+  font-family: $font;
+  font-size: 14px;
+  font-weight: 600;
+  color: #222;
+  text-align: center;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: background 0.12s ease;
+
+  &:hover { background: #f7f7f7; }
+  &:active { background: #f0f0f0; }
+}
+
+/* ─── About Tutor ─── */
+
+.bd-about-tutor {
+  padding-bottom: 16px;
+}
+
+.bd-about-tutor-heading {
+  font-family: $font-display;
+  font-size: 20px;
+  font-weight: 700;
+  color: #222;
+  margin: 0 0 20px;
+}
+
+.bd-about-card {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  background: #fff;
+  border: 1px solid #EBEBEB;
+  border-radius: 20px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.07);
+  overflow: hidden;
+
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bd-about-card-profile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px 20px;
+  border-right: 1px solid #f0f0f0;
+
+  @media (max-width: 600px) {
+    padding: 28px 20px 20px;
+    border-right: none;
+    border-bottom: 1px solid #f0f0f0;
+  }
+}
+
+.bd-about-card-avatar-ring {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f0f0f0 0%, #e8e8e8 100%);
+  padding: 3px;
+  margin-bottom: 14px;
+
+  @media (max-width: 600px) {
+    width: 80px;
+    height: 80px;
+    margin-bottom: 12px;
+  }
+}
+
+.bd-about-card-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #f2f2f7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  img { width: 100%; height: 100%; object-fit: cover; }
+  ion-icon { font-size: 32px; color: #c7c7cc; }
+}
+
+.bd-about-card-name {
+  font-family: $font-display;
+  font-size: 17px;
+  font-weight: 700;
+  color: #222;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.bd-about-card-role {
+  font-family: $font;
+  font-size: 13px;
+  color: #8e8e93;
+  margin-top: 4px;
+  line-height: 1.3;
+  max-width: 160px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+
+  @media (max-width: 600px) {
+    max-width: 240px;
+  }
+}
+
+.bd-about-card-profile--link {
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+
+  &:hover { opacity: 0.85; }
+  &:active { opacity: 0.7; }
+}
+
+.bd-about-card-view-profile {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+  font-family: $font;
+  font-size: 13px;
+  font-weight: 600;
+  color: #4298d3;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+
+  ion-icon { font-size: 12px; }
+}
+
+.bd-about-card-facts {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 28px 28px;
+  gap: 20px;
+
+  @media (max-width: 600px) {
+    padding: 20px 24px;
+    gap: 16px;
+  }
+}
+
+.bd-about-fact {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.bd-about-fact-icon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  ion-icon {
+    font-size: 22px;
+    color: #222;
+  }
+}
+
+.bd-about-fact-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-top: 2px;
+}
+
+.bd-about-fact-title {
+  font-family: $font;
+  font-size: 14px;
+  font-weight: 600;
+  color: #222;
+  line-height: 1.3;
+}
+
+.bd-about-fact-desc {
+  font-family: $font;
+  font-size: 13px;
+  font-weight: 400;
+  color: #8e8e93;
+  line-height: 1.4;
+}
+
+.bd-about-bio {
+  font-family: $font;
+  font-size: 15px;
+  line-height: 1.65;
+  color: #6a6a6a;
+  margin: 20px 0 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ─── More from this Tutor ─── */
+
+.bd-more {
+  padding-bottom: 8px;
+}
+
+.bd-more-title {
+  font-family: $font-display;
+  font-size: 15px;
+  font-weight: 600;
+  color: #8e8e93;
+  margin: 0 0 10px;
+
+  @media (min-width: 900px) {
+    font-size: 14px;
+    margin: 0 0 8px;
+  }
+}
+
+.bd-more-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: 4px;
+
+  @media (min-width: 900px) {
+    flex-direction: row;
+    gap: 14px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    -webkit-overflow-scrolling: touch;
+
+    &::-webkit-scrollbar { display: none; }
+    scrollbar-width: none;
+  }
+}
+
+.bd-more-card {
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f2f2f2;
+  cursor: pointer;
+  transition: background 0.12s ease;
+  border-radius: 8px;
+
+  &:last-child { border-bottom: none; }
+  &:active { background: #fafafa; }
+
+  opacity: 0;
+  animation: bdItemFadeIn 0.4s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  @for $i from 1 through 8 {
+    &:nth-child(#{$i}) {
+      animation-delay: #{0.06 + ($i - 1) * 0.05}s;
+    }
+  }
+
+  @media (min-width: 900px) {
+    flex-direction: column;
+    gap: 6px;
+    padding: 0;
+    border-bottom: none;
+    width: 120px;
+    min-width: 120px;
+    flex-shrink: 0;
+    border-radius: 10px;
+
+    &:hover { background: #fafafa; }
+  }
+}
+
+.bd-more-thumb {
+  width: 70px;
+  height: 52px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f2f2f7;
+  flex-shrink: 0;
+  position: relative;
+
+  img { width: 100%; height: 100%; object-fit: cover; }
+
+  @media (min-width: 900px) {
+    width: 100%;
+    height: 0;
+    padding-bottom: 66%;
+    position: relative;
+    border-radius: 10px;
+
+    img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+  }
+}
+
+.bd-more-thumb-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #E8F0FE 0%, #F4F6FB 100%);
+  ion-icon { font-size: 22px; color: #4298d3; opacity: 0.35; }
+}
+
+.bd-more-badge {
+  position: absolute;
+  bottom: 3px;
+  left: 3px;
+  padding: 1px 5px;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 600;
+  color: #fff;
+  font-family: $font;
+  letter-spacing: 0.2px;
+
+  &--quiz {
+    background: rgba(66, 152, 211, 0.75);
+  }
+}
+
+.bd-more-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+
+  @media (min-width: 900px) {
+    padding: 0 4px;
+  }
+}
+
+.bd-more-card-title {
+  font-family: $font;
+  font-size: 13px;
+  font-weight: 600;
+  color: #222;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+
+  @media (min-width: 900px) {
+    font-size: 12px;
+  }
+}
+
+.bd-more-card-meta {
+  font-family: $font;
+  font-size: 11px;
+  color: #8e8e93;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ─── Bottom Spacer ─── */
+
+.bd-bottom-spacer {
+  height: 100px;
+}
+
+/* ─── Sticky CTA ─── */
+
+.bd-cta {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: #fff;
+  border-top: 1px solid #ebebeb;
+  box-shadow: 0 -2px 16px rgba(0,0,0,0.06);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  animation: bdCtaUp 0.35s cubic-bezier(0.32, 0.72, 0, 1) 0.4s both;
+}
+
+@keyframes bdCtaUp {
+  from { opacity: 0; transform: translateY(100%); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.bd-cta-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 20px;
+
+  &--center {
+    gap: 6px;
+  }
+}
+
+.bd-cta-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 480px;
+  padding: 16px 32px;
+  background: #222;
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  font-family: $font;
   font-size: 16px;
-  color: #C7C7CC;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+
+  &:hover { background: #000; }
+  &:active { transform: scale(0.97); }
+  &:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  @media (max-width: 400px) {
+    padding: 14px 24px;
+    font-size: 15px;
+  }
+}
+
+.bd-cta-btn-label {
+  letter-spacing: 0.01em;
+}
+
+.bd-cta-btn-divider {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.3);
+  margin: 0 14px;
   flex-shrink: 0;
 }
 
-.bd-mi-arrow {
+.bd-cta-btn-price {
+  font-family: $font-display;
+  font-weight: 700;
   font-size: 16px;
-  color: #C7C7CC;
-  flex-shrink: 0;
 }
 
-// ── Empty / Not Found ──
+.bd-cta-owned-text {
+  font-family: $font;
+  font-size: 15px;
+  font-weight: 600;
+  color: #222;
+}
+
+/* ─── Empty ─── */
 
 .bd-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 400px;
+  min-height: 420px;
   text-align: center;
   padding: 40px 20px;
 
-  ion-icon { font-size: 48px; color: #C7C7CC; margin-bottom: 16px; }
-  h2 { font-size: 18px; font-weight: 600; color: #1a1a1a; margin: 0 0 12px; }
+  ion-icon { font-size: 48px; color: #c7c7cc; margin-bottom: 16px; }
+  h2 { font-family: $font-display; font-size: 18px; font-weight: 600; color: #222; margin: 0 0 12px; }
 }
 
-.bd-back-link {
+.bd-empty-back {
   background: none;
   border: none;
   color: #4298d3;
+  font-family: $font;
   font-size: 15px;
   font-weight: 500;
   cursor: pointer;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
 }
 
-// ── Dark Mode ──
+/* ─── Section entrance animations ─── */
+
+.bd-hero {
+  animation: bdFadeIn 0.45s ease both;
+}
+
+.bd-card {
+  animation: bdCardSlideUp 0.5s cubic-bezier(0.32, 0.72, 0, 1) 0.05s both;
+}
+
+@keyframes bdFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes bdCardSlideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Dark Mode ─── */
 
 :host-context(html.ion-palette-dark) {
-  .bd-page { color: #f5f5f7; }
-  .bd-cover { background: #1c1c1e; }
-  .bd-cover-placeholder { background: linear-gradient(135deg, #2c2c2e, #1c1c1e); }
+  :host { background: #111; }
+
+  .bd-skel-hero { background: linear-gradient(110deg, #2c2c2e 30%, #3a3a3c 50%, #2c2c2e 70%); background-size: 200% 100%; }
+  .bd-skel-card { background: #1c1c1e; }
+  .bd-skel-line,
+  .bd-skel-thumb { background: linear-gradient(110deg, #2c2c2e 30%, #3a3a3c 50%, #2c2c2e 70%); background-size: 200% 100%; }
+
+  .bd-card { background: #1c1c1e; }
   .bd-title { color: #f5f5f7; }
-  .bd-tutor-name { color: #aeaeb2; }
   .bd-description { color: #aeaeb2; }
-  .bd-tag { background: #2c2c2e; color: #aeaeb2; }
-  .bd-action-bar { background: #1c1c1e; border-color: #3a3a3c; }
-  .bd-price { color: #f5f5f7; }
-  .bd-material-item { background: #1c1c1e; border-color: #3a3a3c; }
-  .bd-mi-title { color: #f5f5f7; }
-  .bd-mi-number { background: #2c2c2e; color: #aeaeb2; }
-  .bd-mi-thumb { background: #2c2c2e; }
-  .bd-materials-title { color: #f5f5f7; }
+  .bd-meta { color: #8e8e93; }
+  .bd-by-tutor { color: #636366; }
+
+  .bd-owner-pill { background: #1c2a3d; border-color: #2a3d55; color: #7AB3E0; }
+
+  .bd-breadcrumb-back { color: #f5f5f7; &:hover { background: #2c2c2e; color: #4298d3; } }
+  .bd-desktop-edit { background: #2c2c2e; color: #aeaeb2; ion-icon { color: #aeaeb2; } &:hover { background: #3a3a3c; } }
+  .bd-info-cover { background: #2c2c2e; }
+  .bd-info-cover-placeholder { background: linear-gradient(145deg, #1a2e44, #111); }
+
+  .bd-items-col {
+    @media (min-width: 900px) { border-left-color: #2c2c2e; }
+  }
+
+  .bd-divider { background: #2c2c2e; }
+
+  .bd-item {
+    border-bottom-color: #2c2c2e;
+    &:active { background: #2c2c2e; }
+    @media (min-width: 900px) {
+      border-color: #3a3a3c;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+      &:hover { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4); }
+    }
+  }
+  .bd-item-title { color: #f5f5f7; }
+  .bd-item-desc { color: #8e8e93; }
+  .bd-item-thumb { background: #2c2c2e; }
+  .bd-item-thumb-fallback { background: linear-gradient(135deg, #2c2c2e, #1c1c1e); }
+
+  .bd-show-all {
+    border-color: #f5f5f7;
+    color: #f5f5f7;
+    &:hover { background: #2c2c2e; }
+  }
+
+  .bd-about-tutor-heading { color: #f5f5f7; }
+  .bd-about-card {
+    background: #1c1c1e;
+    border-color: #3a3a3c;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  }
+  .bd-about-card-profile { border-color: #2c2c2e; }
+  .bd-about-card-avatar-ring { background: linear-gradient(135deg, #3a3a3c, #2c2c2e); }
+  .bd-about-card-avatar { background: #2c2c2e; ion-icon { color: #636366; } }
+  .bd-about-card-name { color: #f5f5f7; }
+  .bd-about-card-role { color: #8e8e93; }
+  .bd-about-fact-icon ion-icon { color: #f5f5f7; }
+  .bd-about-fact-title { color: #f5f5f7; }
+  .bd-about-fact-desc { color: #636366; }
+  .bd-about-bio { color: #8e8e93; }
+  .bd-tutor-peek-avatar { background: #2c2c2e; border-color: #1c1c1e; }
+
+  .bd-hero-btn { background: rgba(28,28,30,0.85); ion-icon { color: #f5f5f7; } }
+
+  .bd-cta {
+    background: #1c1c1e;
+    border-top-color: #2c2c2e;
+    box-shadow: 0 -2px 16px rgba(0,0,0,0.4);
+  }
+  .bd-cta-btn { background: #4298d3; &:hover { background: #3580b5; } }
+  .bd-cta-btn-divider { background: rgba(255, 255, 255, 0.25); }
+  .bd-cta-owned-text { color: #f5f5f7; }
+  .bd-more-title { color: #f5f5f7; }
+  .bd-more-card {
+    border-bottom-color: #2c2c2e;
+    &:active { background: #2c2c2e; }
+  }
+  .bd-more-card-title { color: #f5f5f7; }
+  .bd-more-thumb { background: #2c2c2e; }
+  .bd-more-thumb-fallback { background: linear-gradient(135deg, #2c2c2e, #1c1c1e); }
+
   .bd-empty h2 { color: #f5f5f7; }
+}
+
+/* ─── Reduced Motion ─── */
+
+@media (prefers-reduced-motion: reduce) {
+  .bd-hero,
+  .bd-card,
+  .bd-item,
+  .bd-cta {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }
