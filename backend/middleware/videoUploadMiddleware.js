@@ -339,8 +339,11 @@ const verifyToken = async (req, res, next) => {
                         decodedPayload['https://your-domain.com/picture'] ||
                         null;
         
+        const normalizedSub = email ? `dev-user-${email}` : decodedPayload.sub;
+        
         userInfo = {
-          sub: decodedPayload.sub,
+          sub: normalizedSub,
+          auth0Sub: decodedPayload.sub,
           email: email,
           name: name,
           email_verified: decodedPayload.email_verified,
@@ -351,6 +354,7 @@ const verifyToken = async (req, res, next) => {
         
         console.log('🔍 Backend: Extracted user info:', {
           sub: userInfo.sub,
+          auth0Sub: userInfo.auth0Sub,
           email: userInfo.email,
           name: userInfo.name,
           picture: userInfo.picture ? 'present' : 'null',
