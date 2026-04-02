@@ -202,9 +202,21 @@ io.use(async (socket, next) => {
         // Use dev-user- prefix to match the REST API format
         userInfo = { sub: `dev-user-${email}`, email };
       }
+    } else if (authToken.includes('.')) {
+      try {
+        const jwtParts = authToken.split('.');
+        if (jwtParts.length === 3) {
+          let payload = jwtParts[1];
+          while (payload.length % 4) payload += '=';
+          const decoded = JSON.parse(Buffer.from(payload, 'base64').toString());
+          const email = decoded.email || decoded['https://your-domain.com/email'];
+          const normalizedSub = email ? `dev-user-${email}` : decoded.sub;
+          userInfo = { sub: normalizedSub, email };
+        }
+      } catch (jwtErr) {
+        console.error('Socket JWT decode error:', jwtErr);
+      }
     } else {
-      // For production, verify JWT token here
-      // For now, we'll use the token as userId (simplified)
       userInfo = { sub: authToken };
     }
 
