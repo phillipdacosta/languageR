@@ -8,8 +8,7 @@ const MaterialReport = require('../models/MaterialReport');
 const LessonAnalysis = require('../models/LessonAnalysis');
 const User = require('../models/User');
 const Payment = require('../models/Payment');
-const { verifyToken, getUserFromRequest, uploadImage } = require('../middleware/videoUploadMiddleware');
-const { Storage } = require('@google-cloud/storage');
+const { verifyToken, getUserFromRequest, uploadImage, uploadImageToGCS } = require('../middleware/videoUploadMiddleware');
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -338,44 +337,7 @@ router.post('/', verifyToken, async (req, res) => {
 
 // ── POST /api/materials/upload-thumbnail — Upload material thumbnail ──
 
-router.post('/upload-thumbnail', verifyToken, uploadImage.single('thumbnail'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ success: false, message: 'No image file provided' });
-    }
-
-    const projectId = process.env.GOOGLE_CLOUD_PROJECT_ID;
-    const bucketName = process.env.GOOGLE_CLOUD_BUCKET_NAME;
-    if (!projectId || !bucketName) {
-      return res.status(503).json({ success: false, message: 'Storage not configured' });
-    }
-
-    const storage = new Storage({ projectId, keyFilename: process.env.GOOGLE_CLOUD_KEY_FILE });
-    const bucket = storage.bucket(bucketName);
-
-    const timestamp = Date.now();
-    const rand = Math.random().toString(36).substring(2, 10);
-    const ext = req.file.originalname.split('.').pop();
-    const fileName = `material-thumbnails/${req.user.sub}/${timestamp}-${rand}.${ext}`;
-
-    const file = bucket.file(fileName);
-    const stream = file.createWriteStream({
-      metadata: { contentType: req.file.mimetype, cacheControl: 'public, max-age=31536000' }
-    });
-
-    stream.on('error', () => res.status(500).json({ success: false, message: 'Upload failed' }));
-    stream.on('finish', async () => {
-      await file.makePublic();
-      const publicUrl = `https://storage.googleapis.com/${bucketName}/${fileName}`;
-      res.json({ success: true, imageUrl: publicUrl });
-    });
-
-    stream.end(req.file.buffer);
-  } catch (err) {
-    console.error('Material thumbnail upload error:', err);
-    res.status(500).json({ success: false, message: 'Internal server error' });
-  }
-});
+router.post('/upload-thumbnail', verifyToken, uploadImage.single('thumbnail'), uploadImageToGCS);
 
 // ── Channel resolution helpers ──────────────────────────────────
 

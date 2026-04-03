@@ -19,6 +19,7 @@ import { lessonService, buildTimelineEvents, TimelineEvent, Lesson } from '../se
 import { earningsService, EarningsBalance } from '../services/earnings';
 import { calendarService } from '../services/calendar';
 import EarningsScreen from './EarningsScreen';
+import MaterialsScreen from './MaterialsScreen';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const CTA_DARK_BLUE = '#3a7bc8';
@@ -39,6 +40,7 @@ export default function HomeScreen() {
   const [earningsLoading, setEarningsLoading] = useState(true);
   const [showBalance, setShowBalance] = useState(false);
   const [showEarnings, setShowEarnings] = useState(false);
+  const [showMaterials, setShowMaterials] = useState(false);
   const [hasAvailability, setHasAvailability] = useState(false);
 
   const displayName = user?.firstName || user?.name?.split(' ')[0] || 'there';
@@ -166,6 +168,10 @@ export default function HomeScreen() {
     return <EarningsScreen goBack={() => setShowEarnings(false)} />;
   }
 
+  if (showMaterials) {
+    return <MaterialsScreen goBack={() => setShowMaterials(false)} />;
+  }
+
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
       {/* ── Toolbar ── */}
@@ -246,11 +252,11 @@ export default function HomeScreen() {
         {/* ── Quick Actions ── */}
         {!loading && (
           <Section title={t('HOME.QUICK_ACTIONS')} colors={colors}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.actionsScroll}>
+            <View style={styles.actionsRow}>
               <ActionChip image={require('../../assets/shared/quick-actions-classes.png')} label={t('HOME.CLASSES')} colors={colors} />
-              <ActionChip image={require('../../assets/shared/quick-actions-create-material.png')} label={t('HOME.CREATE_MATERIAL')} colors={colors} />
+              <ActionChip image={require('../../assets/shared/quick-actions-create-material.png')} label={t('HOME.CREATE_MATERIAL')} colors={colors} onPress={() => setShowMaterials(true)} />
               <ActionChip image={require('../../assets/shared/quick-actions-forum.png')} label={t('HOME.FORUM')} colors={colors} />
-            </ScrollView>
+            </View>
           </Section>
         )}
 
@@ -472,20 +478,21 @@ function ComingUpRow({ event, colors, t }: { event: TimelineEvent; colors: any; 
 
 /* ─── Action Chip ─── */
 
-function ActionChip({ image, label, colors }: { image: any; label: string; colors: any }) {
+function ActionChip({ image, label, colors, onPress }: { image: any; label: string; colors: any; onPress?: () => void }) {
   const isDark = colors.isDark;
   return (
     <TouchableOpacity
       style={[styles.actionChip, {
         backgroundColor: isDark ? 'rgba(44,44,46,0.85)' : '#fff',
-        borderWidth: isDark ? 1 : 0,
-        borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'transparent',
+        borderWidth: 1,
+        borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
         shadowOpacity: isDark ? 0 : 0.04,
       }]}
       activeOpacity={0.7}
+      onPress={onPress}
     >
       <Image source={image} style={styles.actionChipImg} />
-      <Text style={[styles.actionChipLabel, { color: colors.text }]}>{label}</Text>
+      <Text style={[styles.actionChipLabel, { color: colors.text }]} numberOfLines={2}>{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -646,14 +653,16 @@ const styles = StyleSheet.create({
   chevron: { fontSize: 22, color: '#ccc', fontWeight: '300' },
 
   // Quick Actions
-  actionsScroll: { gap: 10 },
+  actionsRow: { flexDirection: 'row', gap: 10 },
   actionChip: {
-    flexDirection: 'row',
+    flex: 1,
+    flexDirection: 'column',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#fff',
-    borderRadius: 50,
-    paddingHorizontal: 18,
-    paddingVertical: 11,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
     gap: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -661,8 +670,8 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 1,
   },
-  actionChipImg: { width: 28, height: 28, resizeMode: 'contain' },
-  actionChipLabel: { fontSize: 13, fontWeight: '600', color: '#222' },
+  actionChipImg: { width: 48, height: 48, resizeMode: 'contain' },
+  actionChipLabel: { fontSize: 12, fontWeight: '600', color: '#222', textAlign: 'center' },
 
   // Coming Up
   comingUpRow: {

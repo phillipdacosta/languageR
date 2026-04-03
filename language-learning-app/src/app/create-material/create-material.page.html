@@ -76,6 +76,98 @@
         </div>
       </div>
 
+      <!-- Channel Linking Panel (animated open/close) -->
+      <div class="cm-channel-panel-wrapper" [class.is-open]="showChannelLinking">
+        <div class="cm-channel-panel">
+        <div class="cm-channel-header">
+          <h3>{{ 'CREATE_MATERIAL.CHANNEL_HEADER' | translate }}</h3>
+          <p>{{ 'CREATE_MATERIAL.CHANNEL_DESC' | translate }}</p>
+        </div>
+        <div class="cm-channel-fields">
+
+          <!-- YouTube (OAuth verified) -->
+          <div class="cm-channel-field">
+            <label>
+              <img src="assets/youtube.png" alt="" class="cm-channel-label-icon" />
+              {{ 'CREATE_MATERIAL.CHANNEL_YOUTUBE' | translate }}
+            </label>
+            <div class="cm-channel-resolved" *ngIf="linkedChannels.youtubeChannelName && linkedChannels.youtubeVerified">
+              <img [src]="linkedChannels.youtubeChannelAvatar" *ngIf="linkedChannels.youtubeChannelAvatar" class="cm-channel-avatar" referrerpolicy="no-referrer" />
+              <div class="cm-channel-info">
+                <span class="cm-channel-name">{{ linkedChannels.youtubeChannelName }}</span>
+                <span class="cm-channel-subs" *ngIf="linkedChannels.youtubeSubscriberCount">{{ linkedChannels.youtubeSubscriberCount }}</span>
+              </div>
+              <span class="cm-verified-badge"><ion-icon name="checkmark-circle"></ion-icon> {{ 'CREATE_MATERIAL.CHANNEL_VERIFIED' | translate }}</span>
+              <button class="cm-channel-remove" (click)="unlinkYouTube()">
+                <ion-icon name="close-outline"></ion-icon>
+              </button>
+            </div>
+            <button class="cm-youtube-signin" *ngIf="!linkedChannels.youtubeChannelName || !linkedChannels.youtubeVerified" (click)="linkYouTube()" [disabled]="isLinkingYouTube">
+              <img src="assets/youtube.png" alt="" class="cm-channel-btn-icon" />
+              <span *ngIf="!isLinkingYouTube">{{ 'CREATE_MATERIAL.CHANNEL_SIGN_IN_YOUTUBE' | translate }}</span>
+              <span *ngIf="isLinkingYouTube">{{ 'CREATE_MATERIAL.CHANNEL_CONNECTING' | translate }}</span>
+            </button>
+          </div>
+
+          <!-- Vimeo (OAuth verified) -->
+          <div class="cm-channel-field">
+            <label>
+              <img src="assets/vimeo.jpeg" alt="" class="cm-channel-label-icon" />
+              {{ 'CREATE_MATERIAL.CHANNEL_VIMEO' | translate }}
+            </label>
+            <div class="cm-channel-resolved" *ngIf="linkedChannels.vimeoChannelName && linkedChannels.vimeoVerified">
+              <img [src]="linkedChannels.vimeoChannelAvatar" *ngIf="linkedChannels.vimeoChannelAvatar" class="cm-channel-avatar" referrerpolicy="no-referrer" />
+              <div class="cm-channel-info">
+                <span class="cm-channel-name">{{ linkedChannels.vimeoChannelName }}</span>
+              </div>
+              <span class="cm-verified-badge"><ion-icon name="checkmark-circle"></ion-icon> {{ 'CREATE_MATERIAL.CHANNEL_VERIFIED' | translate }}</span>
+              <button class="cm-channel-remove" (click)="unlinkVimeo()">
+                <ion-icon name="close-outline"></ion-icon>
+              </button>
+            </div>
+            <button class="cm-vimeo-signin" *ngIf="!linkedChannels.vimeoChannelName || !linkedChannels.vimeoVerified" (click)="linkVimeo()" [disabled]="isLinkingVimeo">
+              <img src="assets/vimeo.jpeg" alt="" class="cm-channel-btn-icon" />
+              <span *ngIf="!isLinkingVimeo">{{ 'CREATE_MATERIAL.CHANNEL_SIGN_IN_VIMEO' | translate }}</span>
+              <span *ngIf="isLinkingVimeo">{{ 'CREATE_MATERIAL.CHANNEL_CONNECTING' | translate }}</span>
+            </button>
+          </div>
+
+          <!-- SoundCloud -->
+          <div class="cm-channel-field">
+            <label>
+              <ion-icon name="musical-notes-outline"></ion-icon>
+              {{ 'CREATE_MATERIAL.CHANNEL_SOUNDCLOUD' | translate }}
+            </label>
+            <div class="cm-channel-resolved" *ngIf="linkedChannels.soundcloudProfileName && !editingSoundCloud">
+              <img [src]="linkedChannels.soundcloudProfileAvatar" *ngIf="linkedChannels.soundcloudProfileAvatar" class="cm-channel-avatar" referrerpolicy="no-referrer" />
+              <div class="cm-channel-info">
+                <span class="cm-channel-name">{{ linkedChannels.soundcloudProfileName }}</span>
+              </div>
+              <button class="cm-channel-edit" (click)="editingSoundCloud = true">
+                <ion-icon name="create-outline"></ion-icon>
+              </button>
+              <button class="cm-channel-remove" (click)="linkedChannels.soundcloudProfileUrl = null; linkedChannels.soundcloudProfileName = null; linkedChannels.soundcloudProfileAvatar = null; saveLinkedChannels()">
+                <ion-icon name="close-outline"></ion-icon>
+              </button>
+            </div>
+            <input *ngIf="!linkedChannels.soundcloudProfileName || editingSoundCloud" type="url" [(ngModel)]="linkedChannels.soundcloudProfileUrl" [ngModelOptions]="{standalone: true}" placeholder="https://soundcloud.com/yourprofile" />
+          </div>
+
+        </div>
+        <div class="cm-channel-actions">
+          <button class="cm-btn-secondary cm-btn-sm" (click)="showChannelLinking = false; editingYouTube = false; editingVimeo = false; editingSoundCloud = false">{{ 'COMMON.CANCEL' | translate }}</button>
+          <button class="cm-btn-primary cm-btn-sm" (click)="saveLinkedChannels()" [disabled]="isSavingChannels">
+            <ion-spinner *ngIf="isSavingChannels" name="crescent" style="width:14px;height:14px;color:#fff;margin-right:4px"></ion-spinner>
+            {{ isSavingChannels ? ('CREATE_MATERIAL.CHANNEL_VERIFYING' | translate) : ('CREATE_MATERIAL.CHANNEL_SAVE' | translate) }}
+          </button>
+        </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Content below channel panel — blurred when panel open -->
+    <div class="cm-library-content-area" [class.is-blurred]="showChannelLinking">
       <div class="cm-library-tabs">
         <button class="cm-library-tab" [class.active]="libraryTab === 'materials'" (click)="switchLibraryTab('materials')">
           <ion-icon name="layers-outline"></ion-icon>
@@ -101,98 +193,9 @@
           New Bundle
         </button>
       </div>
-    </div>
 
     <!-- Content Panel -->
     <div class="cm-library-panel">
-
-    <!-- Channel Linking Panel (animated open/close) -->
-    <div class="cm-channel-panel-wrapper" [class.is-open]="showChannelLinking">
-      <div class="cm-channel-panel">
-      <div class="cm-channel-header">
-        <h3>{{ 'CREATE_MATERIAL.CHANNEL_HEADER' | translate }}</h3>
-        <p>{{ 'CREATE_MATERIAL.CHANNEL_DESC' | translate }}</p>
-      </div>
-      <div class="cm-channel-fields">
-
-        <!-- YouTube (OAuth verified) -->
-        <div class="cm-channel-field">
-          <label>
-            <img src="assets/youtube.png" alt="" class="cm-channel-label-icon" />
-            {{ 'CREATE_MATERIAL.CHANNEL_YOUTUBE' | translate }}
-          </label>
-          <div class="cm-channel-resolved" *ngIf="linkedChannels.youtubeChannelName && linkedChannels.youtubeVerified">
-            <img [src]="linkedChannels.youtubeChannelAvatar" *ngIf="linkedChannels.youtubeChannelAvatar" class="cm-channel-avatar" referrerpolicy="no-referrer" />
-            <div class="cm-channel-info">
-              <span class="cm-channel-name">{{ linkedChannels.youtubeChannelName }}</span>
-              <span class="cm-channel-subs" *ngIf="linkedChannels.youtubeSubscriberCount">{{ linkedChannels.youtubeSubscriberCount }}</span>
-            </div>
-            <span class="cm-verified-badge"><ion-icon name="checkmark-circle"></ion-icon> {{ 'CREATE_MATERIAL.CHANNEL_VERIFIED' | translate }}</span>
-            <button class="cm-channel-remove" (click)="unlinkYouTube()">
-              <ion-icon name="close-outline"></ion-icon>
-            </button>
-          </div>
-          <button class="cm-youtube-signin" *ngIf="!linkedChannels.youtubeChannelName || !linkedChannels.youtubeVerified" (click)="linkYouTube()" [disabled]="isLinkingYouTube">
-            <img src="assets/youtube.png" alt="" class="cm-channel-btn-icon" />
-            <span *ngIf="!isLinkingYouTube">{{ 'CREATE_MATERIAL.CHANNEL_SIGN_IN_YOUTUBE' | translate }}</span>
-            <span *ngIf="isLinkingYouTube">{{ 'CREATE_MATERIAL.CHANNEL_CONNECTING' | translate }}</span>
-          </button>
-        </div>
-
-        <!-- Vimeo (OAuth verified) -->
-        <div class="cm-channel-field">
-          <label>
-            <img src="assets/vimeo.jpeg" alt="" class="cm-channel-label-icon" />
-            {{ 'CREATE_MATERIAL.CHANNEL_VIMEO' | translate }}
-          </label>
-          <div class="cm-channel-resolved" *ngIf="linkedChannels.vimeoChannelName && linkedChannels.vimeoVerified">
-            <img [src]="linkedChannels.vimeoChannelAvatar" *ngIf="linkedChannels.vimeoChannelAvatar" class="cm-channel-avatar" referrerpolicy="no-referrer" />
-            <div class="cm-channel-info">
-              <span class="cm-channel-name">{{ linkedChannels.vimeoChannelName }}</span>
-            </div>
-            <span class="cm-verified-badge"><ion-icon name="checkmark-circle"></ion-icon> {{ 'CREATE_MATERIAL.CHANNEL_VERIFIED' | translate }}</span>
-            <button class="cm-channel-remove" (click)="unlinkVimeo()">
-              <ion-icon name="close-outline"></ion-icon>
-            </button>
-          </div>
-          <button class="cm-vimeo-signin" *ngIf="!linkedChannels.vimeoChannelName || !linkedChannels.vimeoVerified" (click)="linkVimeo()" [disabled]="isLinkingVimeo">
-            <img src="assets/vimeo.jpeg" alt="" class="cm-channel-btn-icon" />
-            <span *ngIf="!isLinkingVimeo">{{ 'CREATE_MATERIAL.CHANNEL_SIGN_IN_VIMEO' | translate }}</span>
-            <span *ngIf="isLinkingVimeo">{{ 'CREATE_MATERIAL.CHANNEL_CONNECTING' | translate }}</span>
-          </button>
-        </div>
-
-        <!-- SoundCloud -->
-        <div class="cm-channel-field">
-          <label>
-            <ion-icon name="musical-notes-outline"></ion-icon>
-            {{ 'CREATE_MATERIAL.CHANNEL_SOUNDCLOUD' | translate }}
-          </label>
-          <div class="cm-channel-resolved" *ngIf="linkedChannels.soundcloudProfileName && !editingSoundCloud">
-            <img [src]="linkedChannels.soundcloudProfileAvatar" *ngIf="linkedChannels.soundcloudProfileAvatar" class="cm-channel-avatar" referrerpolicy="no-referrer" />
-            <div class="cm-channel-info">
-              <span class="cm-channel-name">{{ linkedChannels.soundcloudProfileName }}</span>
-            </div>
-            <button class="cm-channel-edit" (click)="editingSoundCloud = true">
-              <ion-icon name="create-outline"></ion-icon>
-            </button>
-            <button class="cm-channel-remove" (click)="linkedChannels.soundcloudProfileUrl = null; linkedChannels.soundcloudProfileName = null; linkedChannels.soundcloudProfileAvatar = null; saveLinkedChannels()">
-              <ion-icon name="close-outline"></ion-icon>
-            </button>
-          </div>
-          <input *ngIf="!linkedChannels.soundcloudProfileName || editingSoundCloud" type="url" [(ngModel)]="linkedChannels.soundcloudProfileUrl" [ngModelOptions]="{standalone: true}" placeholder="https://soundcloud.com/yourprofile" />
-        </div>
-
-      </div>
-      <div class="cm-channel-actions">
-        <button class="cm-btn-secondary cm-btn-sm" (click)="showChannelLinking = false; editingYouTube = false; editingVimeo = false; editingSoundCloud = false">{{ 'COMMON.CANCEL' | translate }}</button>
-        <button class="cm-btn-primary cm-btn-sm" (click)="saveLinkedChannels()" [disabled]="isSavingChannels">
-          <ion-spinner *ngIf="isSavingChannels" name="crescent" style="width:14px;height:14px;color:#fff;margin-right:4px"></ion-spinner>
-          {{ isSavingChannels ? ('CREATE_MATERIAL.CHANNEL_VERIFYING' | translate) : ('CREATE_MATERIAL.CHANNEL_SAVE' | translate) }}
-        </button>
-      </div>
-      </div>
-    </div>
 
     <!-- ── Materials List ── -->
     <div class="cm-library-list" *ngIf="libraryTab === 'materials'">
@@ -342,6 +345,8 @@
     </div>
 
     </div><!-- .cm-library-panel -->
+
+    </div><!-- .cm-library-content-area -->
 
   </ng-container>
 

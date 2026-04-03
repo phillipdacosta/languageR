@@ -1,0 +1,1208 @@
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  RefreshControl,
+  Image,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+  Clipboard,
+  TextInput,
+  Animated,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
+import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
+import { useTheme } from '../contexts/ThemeContext';
+import { materialService, TutorMaterial, MaterialBundle, LinkedChannels } from '../services/materials';
+import { env } from '../config/env';
+import CreateMaterialScreen from './CreateMaterialScreen';
+
+type LibraryTab = 'materials' | 'bundles';
+
+interface Props {
+  goBack: () => void;
+}
+
+export default function MaterialsScreen({ goBack }: Props) {
+  const { colors } = useTheme();
+  const { t } = useTranslation();
+  const isDark = colors.isDark;
+
+  const [activeTab, setActiveTab] = useState<LibraryTab>('materials');
+  const [materials, setMaterials] = useState<TutorMaterial[]>([]);
+  const [bundles, setBundles] = useState<MaterialBundle[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingBundles, setLoadingBundles] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [bundlesFetched, setBundlesFetched] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const [showCreateMaterial, setShowCreateMaterial] = useState(false);
+
+  const [showChannelPanel, setShowChannelPanel] = useState(false);
+  const [channels, setChannels] = useState<LinkedChannels>({});
+  const [soundcloudUrl, setSoundcloudUrl] = useState('');
+  const [savingChannels, setSavingChannels] = useState(false);
+
+  const panelAnim = useRef(new Animated.Value(0)).current;
+  const panelHeight = useRef(0);
+  const blurAnim = useRef(new Animated.Value(0)).current;
+
+  const hasLinkedChannel = !!(
+    (channels.youtubeChannelName && channels.youtubeVerified) ||
+    (channels.vimeoChannelName && channels.vimeoVerified) ||
+    channels.soundcloudProfileName
+  );
+
+  const fetchMaterials = useCallback(async () => {
+    const data = await materialService.getMyMaterials();
+    setMaterials(data);
+  }, []);
+
+  const fetchBundles = useCallback(async () => {
+    setLoadingBundles(true);
+    const data = await materialService.getMyBundles();
+    setBundles(data);
+    setLoadingBundles(false);
+    setBundlesFetched(true);
+  }, []);
+
+  const fetchChannels = useCallback(async () => {
+    const data = await materialService.getLinkedChannels();
+    setChannels(data);
+    setSoundcloudUrl(data.soundcloudProfileUrl || '');
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      await Promise.all([fetchMaterials(), fetchBundles(), fetchChannels()]);
+      setLoading(false);
+    })();
+  }, [fetchMaterials, fetchBundles, fetchChannels]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    setBundlesFetched(false);
+    await Promise.all([fetchMaterials(), fetchBundles(), fetchChannels()]);
+    setRefreshing(false);
+  }, [fetchMaterials, fetchBundles, fetchChannels]);
+
+  const openPanel = useCallback(() => {
+    setShowChannelPanel(true);
+    Animated.parallel([
+      Animated.spring(panelAnim, { toValue: 1, useNativeDriver: false, friction: 10, tension: 50 }),
+      Animated.timing(blurAnim, { toValue: 1, duration: 300, useNativeDriver: false }),
+    ]).start();
+  }, [panelAnim, blurAnim]);
+
+  const closePanel = useCallback(() => {
+    Animated.parallel([
+      Animated.spring(panelAnim, { toValue: 0, useNativeDriver: false, friction: 10, tension: 50 }),
+      Animated.timing(blurAnim, { toValue: 0, duration: 250, useNativeDriver: false }),
+    ]).start(() => setShowChannelPanel(false));
+  }, [panelAnim, blurAnim]);
+
+  const toggleChannelPanel = useCallback(() => {
+    if (showChannelPanel) closePanel();
+    else openPanel();
+  }, [showChannelPanel, openPanel, closePanel]);
+
+  const handleSaveChannels = useCallback(async () => {
+    setSavingChannels(true);
+    try {
+      const updated = await materialService.updateLinkedChannels({
+        ...channels,
+        soundcloudProfileUrl: soundcloudUrl || null,
+      });
+      setChannels(updated);
+      setSoundcloudUrl(updated.soundcloudProfileUrl || '');
+      closePanel();
+    } catch {
+      Alert.alert('Error', 'Failed to save channels. Please try again.');
+    } finally {
+      setSavingChannels(false);
+    }
+  }, [channels, soundcloudUrl, closePanel]);
+
+  const handleUnlinkSoundcloud = useCallback(async () => {
+    setSavingChannels(true);
+    try {
+      const updated = await materialService.updateLinkedChannels({
+        ...channels,
+        soundcloudProfileUrl: null,
+        soundcloudProfileName: null,
+        soundcloudProfileAvatar: null,
+      });
+      setChannels(updated);
+      setSoundcloudUrl('');
+    } catch {
+      Alert.alert('Error', 'Failed to unlink SoundCloud.');
+    } finally {
+      setSavingChannels(false);
+    }
+  }, [channels]);
+
+  const handleUnlinkYoutube = useCallback(async () => {
+    const ok = await materialService.unlinkYouTube();
+    if (ok) {
+      setChannels(prev => ({
+        ...prev,
+        youtubeChannelId: null,
+        youtubeChannelUrl: null,
+        youtubeChannelName: null,
+        youtubeChannelAvatar: null,
+        youtubeSubscriberCount: null,
+        youtubeVerified: false,
+      }));
+    }
+  }, []);
+
+  const handleUnlinkVimeo = useCallback(async () => {
+    const ok = await materialService.unlinkVimeo();
+    if (ok) {
+      setChannels(prev => ({
+        ...prev,
+        vimeoChannelId: null,
+        vimeoChannelUrl: null,
+        vimeoChannelName: null,
+        vimeoChannelAvatar: null,
+        vimeoVerified: false,
+      }));
+    }
+  }, []);
+
+  const handleCopyLink = useCallback(async (id: string) => {
+    const baseUrl = env.apiUrl?.replace('/api', '') || 'https://barnabi.com';
+    const link = `${baseUrl}/material/${id}`;
+    Clipboard.setString(link);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  }, []);
+
+  const handleDelete = useCallback((material: TutorMaterial) => {
+    Alert.alert(
+      t('CREATE_MATERIAL.ALERT_DELETE_TITLE') || 'Delete Material',
+      t('CREATE_MATERIAL.ALERT_DELETE_DESC') || 'This action cannot be undone.',
+      [
+        { text: t('COMMON.CANCEL') || 'Cancel', style: 'cancel' },
+        {
+          text: t('COMMON.DELETE') || 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const ok = await materialService.deleteMaterial(material._id);
+            if (ok) setMaterials(prev => prev.filter(m => m._id !== material._id));
+          },
+        },
+      ],
+    );
+  }, [t]);
+
+  const handleToggleArchive = useCallback(async (material: TutorMaterial) => {
+    const updated = await materialService.toggleArchive(material._id, material.status);
+    if (updated) {
+      setMaterials(prev => prev.map(m => m._id === updated._id ? updated : m));
+    }
+  }, []);
+
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case 'video_quiz': return t('CREATE_MATERIAL.TYPE_VIDEO_QUIZ');
+      case 'reading': return t('CREATE_MATERIAL.TYPE_READING');
+      case 'listening': return t('CREATE_MATERIAL.TYPE_LISTENING');
+      default: return type;
+    }
+  };
+
+  const getTypeIcon = (type: string): keyof typeof Ionicons.glyphMap => {
+    switch (type) {
+      case 'video_quiz': return 'videocam';
+      case 'reading': return 'book';
+      case 'listening': return 'headset';
+      default: return 'layers';
+    }
+  };
+
+  if (showCreateMaterial) {
+    return (
+      <CreateMaterialScreen
+        goBack={() => setShowCreateMaterial(false)}
+        channels={channels}
+      />
+    );
+  }
+
+  return (
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
+      {/* Header */}
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+        <TouchableOpacity onPress={goBack} style={styles.backBtn} activeOpacity={0.7}>
+          <Ionicons name="chevron-back" size={22} color={colors.text} />
+          <Text style={[styles.backLabel, { color: colors.text }]}>
+            {t('CREATE_MATERIAL.NAV_BACK_SHORT')}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Main area — content scrolls, panel overlays */}
+      <View style={{ flex: 1 }}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textSecondary} />}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          scrollEnabled={!showChannelPanel}
+        >
+          {/* Title + Channels */}
+          <View style={styles.titleRow}>
+            <Text style={[styles.title, { color: colors.text }]}>
+              {t('CREATE_MATERIAL.LIBRARY_TITLE')}
+            </Text>
+            <TouchableOpacity
+              style={[styles.channelBtn, {
+                backgroundColor: isDark ? '#1c1c1e' : '#fff',
+                borderColor: hasLinkedChannel ? (isDark ? 'rgba(16,185,129,0.3)' : '#d1fae5') : colors.border,
+              }]}
+              onPress={toggleChannelPanel}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={hasLinkedChannel ? 'link' : 'link-outline'}
+                size={14}
+                color={hasLinkedChannel ? '#10b981' : colors.textSecondary}
+              />
+              <Text style={[styles.channelBtnText, { color: hasLinkedChannel ? '#10b981' : colors.textSecondary }]}>
+                {hasLinkedChannel ? t('CREATE_MATERIAL.LIBRARY_CHANNELS_LINKED') : t('CREATE_MATERIAL.LIBRARY_LINK_CHANNELS')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Tabs */}
+          <View style={styles.tabsRow}>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'materials' && styles.tabActive, activeTab === 'materials' && { borderBottomColor: colors.text }]}
+              onPress={() => setActiveTab('materials')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="layers-outline" size={16} color={activeTab === 'materials' ? colors.text : colors.textTertiary} />
+              <Text style={[styles.tabLabel, { color: activeTab === 'materials' ? colors.text : colors.textTertiary }]}>
+                {t('HOME.MATERIALS') || 'Materials'}
+              </Text>
+              {materials.length > 0 && (
+                <View style={[styles.tabBadge, activeTab === 'materials' ? { backgroundColor: colors.text } : { backgroundColor: isDark ? '#3a3a3c' : '#e8e8ed' }]}>
+                  <Text style={[styles.tabBadgeText, { color: activeTab === 'materials' ? (isDark ? '#000' : '#fff') : colors.textSecondary }]}>
+                    {materials.length}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'bundles' && styles.tabActive, activeTab === 'bundles' && { borderBottomColor: colors.text }]}
+              onPress={() => setActiveTab('bundles')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="folder-outline" size={16} color={activeTab === 'bundles' ? colors.text : colors.textTertiary} />
+              <Text style={[styles.tabLabel, { color: activeTab === 'bundles' ? colors.text : colors.textTertiary }]}>
+                Bundles
+              </Text>
+              {bundles.length > 0 && (
+                <View style={[styles.tabBadge, activeTab === 'bundles' ? { backgroundColor: colors.text } : { backgroundColor: isDark ? '#3a3a3c' : '#e8e8ed' }]}>
+                  <Text style={[styles.tabBadgeText, { color: activeTab === 'bundles' ? (isDark ? '#000' : '#fff') : colors.textSecondary }]}>
+                    {bundles.length}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* New button */}
+          <TouchableOpacity
+            style={[styles.newBtn, { backgroundColor: isDark ? '#fff' : '#111' }]}
+            activeOpacity={0.85}
+            onPress={() => setShowCreateMaterial(true)}
+          >
+            <Ionicons name="add" size={18} color={isDark ? '#000' : '#fff'} />
+            <Text style={[styles.newBtnText, { color: isDark ? '#000' : '#fff' }]}>
+              {activeTab === 'materials' ? t('CREATE_MATERIAL.LIBRARY_NEW') : 'New Bundle'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Loading */}
+          {loading && (
+            <View style={styles.loadingWrap}>
+              <ActivityIndicator size="large" color={colors.textSecondary} />
+            </View>
+          )}
+
+          {/* Materials Tab */}
+          {!loading && activeTab === 'materials' && (
+            <>
+              {materials.length === 0 ? (
+                <EmptyState
+                  icon="layers-outline"
+                  title={t('CREATE_MATERIAL.LIBRARY_EMPTY_TITLE')}
+                  description={t('CREATE_MATERIAL.LIBRARY_EMPTY_DESC')}
+                  ctaLabel={t('CREATE_MATERIAL.LIBRARY_GET_STARTED')}
+                  colors={colors}
+                />
+              ) : (
+                <View style={styles.cardList}>
+                  {materials.map(m => (
+                    <MaterialCard
+                      key={m._id}
+                      material={m}
+                      colors={colors}
+                      copiedId={copiedId}
+                      getTypeLabel={getTypeLabel}
+                      getTypeIcon={getTypeIcon}
+                      formatDate={formatDate}
+                      onCopyLink={handleCopyLink}
+                      onDelete={handleDelete}
+                      onToggleArchive={handleToggleArchive}
+                      t={t}
+                    />
+                  ))}
+                </View>
+              )}
+            </>
+          )}
+
+          {/* Bundles Tab */}
+          {!loading && activeTab === 'bundles' && (
+            <>
+              {loadingBundles ? (
+                <View style={styles.loadingWrap}>
+                  <ActivityIndicator size="large" color={colors.textSecondary} />
+                </View>
+              ) : bundles.length === 0 ? (
+                <EmptyState
+                  icon="folder-open-outline"
+                  title="No bundles yet"
+                  description="Group your materials into bundles to offer structured learning packs."
+                  ctaLabel="Create your first bundle"
+                  colors={colors}
+                />
+              ) : (
+                <View style={styles.cardList}>
+                  {bundles.map(b => (
+                    <BundleCard key={b._id} bundle={b} colors={colors} />
+                  ))}
+                </View>
+              )}
+            </>
+          )}
+
+          <View style={{ height: 40 }} />
+        </ScrollView>
+
+        {/* Overlay: blur + channel panel floating on top */}
+        {showChannelPanel && (
+          <Animated.View
+            style={[styles.panelOverlay, { opacity: blurAnim }]}
+            pointerEvents={showChannelPanel ? 'auto' : 'none'}
+          >
+            {/* Blur backdrop — tap to close */}
+            <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closePanel}>
+              <BlurView intensity={40} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? 'rgba(0,0,0,0.25)' : 'rgba(0,0,0,0.08)' }]} />
+            </TouchableOpacity>
+
+            {/* Panel sliding in from top */}
+            <Animated.View
+              style={{
+                transform: [{ translateY: panelAnim.interpolate({ inputRange: [0, 1], outputRange: [-40, 0] }) }],
+                opacity: panelAnim,
+                paddingHorizontal: 16,
+                paddingTop: 8,
+              }}
+            >
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                bounces={false}
+                style={{ maxHeight: 520 }}
+              >
+                <ChannelPanel
+                  channels={channels}
+                  soundcloudUrl={soundcloudUrl}
+                  setSoundcloudUrl={setSoundcloudUrl}
+                  saving={savingChannels}
+                  onSave={handleSaveChannels}
+                  onClose={closePanel}
+                  onUnlinkYoutube={handleUnlinkYoutube}
+                  onUnlinkVimeo={handleUnlinkVimeo}
+                  onUnlinkSoundcloud={handleUnlinkSoundcloud}
+                  colors={colors}
+                  t={t}
+                />
+              </ScrollView>
+            </Animated.View>
+          </Animated.View>
+        )}
+      </View>
+    </SafeAreaView>
+  );
+}
+
+/* ─── Empty State ─── */
+
+function EmptyState({ icon, title, description, ctaLabel, colors }: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  description: string;
+  ctaLabel: string;
+  colors: any;
+}) {
+  const isDark = colors.isDark;
+  return (
+    <View style={styles.emptyWrap}>
+      <View style={[styles.emptyIconWrap, { backgroundColor: isDark ? '#1c1c1e' : '#f5f5f7' }]}>
+        <Ionicons name={icon} size={48} color={colors.textTertiary} />
+      </View>
+      <Text style={[styles.emptyTitle, { color: colors.text }]}>{title}</Text>
+      <Text style={[styles.emptyDesc, { color: colors.textSecondary }]}>{description}</Text>
+      <TouchableOpacity style={[styles.emptyCta, { backgroundColor: isDark ? '#fff' : '#111' }]} activeOpacity={0.85}>
+        <Text style={[styles.emptyCtaText, { color: isDark ? '#000' : '#fff' }]}>{ctaLabel}</Text>
+        <Ionicons name="arrow-forward" size={16} color={isDark ? '#000' : '#fff'} />
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+/* ─── Channel Panel ─── */
+
+function ChannelPanel({ channels, soundcloudUrl, setSoundcloudUrl, saving, onSave, onClose, onUnlinkYoutube, onUnlinkVimeo, onUnlinkSoundcloud, colors, t }: {
+  channels: LinkedChannels;
+  soundcloudUrl: string;
+  setSoundcloudUrl: (v: string) => void;
+  saving: boolean;
+  onSave: () => void;
+  onClose: () => void;
+  onUnlinkYoutube: () => void;
+  onUnlinkVimeo: () => void;
+  onUnlinkSoundcloud: () => void;
+  colors: any;
+  t: any;
+}) {
+  const isDark = colors.isDark;
+  const ytLinked = !!(channels.youtubeChannelName && channels.youtubeVerified);
+  const vimeoLinked = !!(channels.vimeoChannelName && channels.vimeoVerified);
+  const scLinked = !!channels.soundcloudProfileName;
+
+  return (
+    <View style={[styles.channelPanel, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      {/* Header */}
+      <Text style={[styles.cpTitle, { color: colors.text }]}>
+        {t('CREATE_MATERIAL.CHANNEL_HEADER')}
+      </Text>
+      <Text style={[styles.cpDesc, { color: colors.textSecondary }]}>
+        {t('CREATE_MATERIAL.CHANNEL_DESC')}
+      </Text>
+
+      {/* YouTube */}
+      <View style={[styles.cpField, { borderBottomColor: colors.border }]}>
+        <View style={styles.cpLabelRow}>
+          <View style={[styles.cpProviderIcon, { backgroundColor: '#FF0000' }]}>
+            <Ionicons name="logo-youtube" size={14} color="#fff" />
+          </View>
+          <Text style={[styles.cpLabel, { color: colors.text }]}>
+            {t('CREATE_MATERIAL.CHANNEL_YOUTUBE')}
+          </Text>
+        </View>
+        {ytLinked ? (
+          <View style={styles.cpLinkedRow}>
+            {channels.youtubeChannelAvatar ? (
+              <Image source={{ uri: channels.youtubeChannelAvatar }} style={styles.cpAvatar} />
+            ) : (
+              <View style={[styles.cpAvatar, { backgroundColor: isDark ? '#3a3a3c' : '#e8e8e8' }]} />
+            )}
+            <View style={styles.cpLinkedInfo}>
+              <Text style={[styles.cpChannelName, { color: colors.text }]} numberOfLines={1}>
+                {channels.youtubeChannelName}
+              </Text>
+              {!!channels.youtubeSubscriberCount && (
+                <Text style={[styles.cpSubs, { color: colors.textTertiary }]}>
+                  {channels.youtubeSubscriberCount}
+                </Text>
+              )}
+            </View>
+            <View style={styles.cpVerifiedBadge}>
+              <Ionicons name="checkmark-circle" size={14} color="#10b981" />
+              <Text style={styles.cpVerifiedText}>{t('CREATE_MATERIAL.CARD_VERIFIED')}</Text>
+            </View>
+            <TouchableOpacity onPress={onUnlinkYoutube} activeOpacity={0.7} style={styles.cpRemoveBtn}>
+              <Ionicons name="close-outline" size={18} color={colors.textTertiary} />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={[styles.cpSignInBtn, { backgroundColor: '#FF0000' }]}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="logo-youtube" size={16} color="#fff" />
+            <Text style={styles.cpSignInText}>{t('CREATE_MATERIAL.CHANNEL_SIGN_IN_YOUTUBE')}</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Vimeo */}
+      <View style={[styles.cpField, { borderBottomColor: colors.border }]}>
+        <View style={styles.cpLabelRow}>
+          <View style={[styles.cpProviderIcon, { backgroundColor: '#1AB7EA' }]}>
+            <Ionicons name="logo-vimeo" size={14} color="#fff" />
+          </View>
+          <Text style={[styles.cpLabel, { color: colors.text }]}>
+            {t('CREATE_MATERIAL.CHANNEL_VIMEO')}
+          </Text>
+        </View>
+        {vimeoLinked ? (
+          <View style={styles.cpLinkedRow}>
+            {channels.vimeoChannelAvatar ? (
+              <Image source={{ uri: channels.vimeoChannelAvatar }} style={styles.cpAvatar} />
+            ) : (
+              <View style={[styles.cpAvatar, { backgroundColor: isDark ? '#3a3a3c' : '#e8e8e8' }]} />
+            )}
+            <View style={styles.cpLinkedInfo}>
+              <Text style={[styles.cpChannelName, { color: colors.text }]} numberOfLines={1}>
+                {channels.vimeoChannelName}
+              </Text>
+            </View>
+            <View style={styles.cpVerifiedBadge}>
+              <Ionicons name="checkmark-circle" size={14} color="#10b981" />
+              <Text style={styles.cpVerifiedText}>{t('CREATE_MATERIAL.CARD_VERIFIED')}</Text>
+            </View>
+            <TouchableOpacity onPress={onUnlinkVimeo} activeOpacity={0.7} style={styles.cpRemoveBtn}>
+              <Ionicons name="close-outline" size={18} color={colors.textTertiary} />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={[styles.cpSignInBtn, { backgroundColor: '#1AB7EA' }]}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="logo-vimeo" size={16} color="#fff" />
+            <Text style={styles.cpSignInText}>{t('CREATE_MATERIAL.CHANNEL_SIGN_IN_VIMEO')}</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* SoundCloud */}
+      <View style={styles.cpField}>
+        <View style={styles.cpLabelRow}>
+          <View style={[styles.cpProviderIcon, { backgroundColor: isDark ? '#444' : '#f0f0f2' }]}>
+            <Ionicons name="musical-notes-outline" size={14} color={isDark ? '#ccc' : '#666'} />
+          </View>
+          <Text style={[styles.cpLabel, { color: colors.text }]}>
+            {t('CREATE_MATERIAL.CHANNEL_SOUNDCLOUD')}
+          </Text>
+        </View>
+        {scLinked ? (
+          <View style={styles.cpLinkedRow}>
+            {channels.soundcloudProfileAvatar ? (
+              <Image source={{ uri: channels.soundcloudProfileAvatar }} style={styles.cpAvatar} />
+            ) : (
+              <View style={[styles.cpAvatar, { backgroundColor: isDark ? '#3a3a3c' : '#e8e8e8', alignItems: 'center', justifyContent: 'center' }]}>
+                <Ionicons name="musical-notes" size={14} color={colors.textTertiary} />
+              </View>
+            )}
+            <View style={styles.cpLinkedInfo}>
+              <Text style={[styles.cpChannelName, { color: colors.text }]} numberOfLines={1}>
+                {channels.soundcloudProfileName}
+              </Text>
+            </View>
+            <TouchableOpacity onPress={onUnlinkSoundcloud} activeOpacity={0.7} style={styles.cpRemoveBtn}>
+              <Ionicons name="close-outline" size={18} color={colors.textTertiary} />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TextInput
+            style={[styles.cpInput, {
+              backgroundColor: colors.inputBg,
+              color: colors.text,
+              borderColor: colors.border,
+            }]}
+            placeholder="https://soundcloud.com/yourprofile"
+            placeholderTextColor={colors.textTertiary}
+            value={soundcloudUrl}
+            onChangeText={setSoundcloudUrl}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+          />
+        )}
+      </View>
+
+      {/* Actions */}
+      <View style={styles.cpActions}>
+        <TouchableOpacity
+          style={[styles.cpCancelBtn, { borderColor: colors.border }]}
+          onPress={onClose}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.cpCancelText, { color: colors.text }]}>{t('COMMON.CANCEL') || 'Cancel'}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.cpSaveBtn, { backgroundColor: isDark ? '#fff' : '#111', opacity: saving ? 0.6 : 1 }]}
+          onPress={onSave}
+          disabled={saving}
+          activeOpacity={0.85}
+        >
+          {saving && <ActivityIndicator size="small" color={isDark ? '#000' : '#fff'} style={{ marginRight: 6 }} />}
+          <Text style={[styles.cpSaveText, { color: isDark ? '#000' : '#fff' }]}>
+            {saving ? t('CREATE_MATERIAL.CHANNEL_VERIFYING') : t('CREATE_MATERIAL.CHANNEL_SAVE')}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+/* ─── Material Card ─── */
+
+function MaterialCard({ material: m, colors, copiedId, getTypeLabel, getTypeIcon, formatDate, onCopyLink, onDelete, onToggleArchive, t }: {
+  material: TutorMaterial;
+  colors: any;
+  copiedId: string | null;
+  getTypeLabel: (t: string) => string;
+  getTypeIcon: (t: string) => keyof typeof Ionicons.glyphMap;
+  formatDate: (d: string) => string;
+  onCopyLink: (id: string) => void;
+  onDelete: (m: TutorMaterial) => void;
+  onToggleArchive: (m: TutorMaterial) => void;
+  t: any;
+}) {
+  const isDark = colors.isDark;
+  const isArchived = m.status === 'archived';
+
+  return (
+    <View style={[
+      styles.materialCard,
+      { backgroundColor: colors.card, borderColor: colors.border, shadowOpacity: isDark ? 0 : 0.06 },
+      isArchived && { opacity: 0.55 },
+    ]}>
+      {/* Thumbnail */}
+      <View style={styles.thumbWrap}>
+        {m.thumbnailUrl ? (
+          <Image source={{ uri: m.thumbnailUrl }} style={styles.thumbImg} />
+        ) : (
+          <View style={[styles.thumbPlaceholder, { backgroundColor: isDark ? '#2c2c2e' : '#f0f0f2' }]}>
+            <Ionicons name={getTypeIcon(m.materialType)} size={28} color={colors.textTertiary} />
+          </View>
+        )}
+        {(m.status === 'draft' || m.status === 'archived') && (
+          <View style={[
+            styles.statusBadge,
+            m.status === 'draft'
+              ? { backgroundColor: isDark ? 'rgba(255,149,0,0.2)' : '#FFF3E0' }
+              : { backgroundColor: isDark ? 'rgba(142,142,147,0.2)' : '#F5F5F5' },
+          ]}>
+            <Text style={[
+              styles.statusBadgeText,
+              { color: m.status === 'draft' ? (isDark ? '#fbbf24' : '#E65100') : colors.textSecondary },
+            ]}>
+              {m.status}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {/* Body */}
+      <View style={styles.cardBody}>
+        {/* Type + Review badges */}
+        <View style={styles.badgesRow}>
+          <Text style={[styles.typeLabel, { color: colors.textSecondary }]}>
+            {getTypeLabel(m.materialType).toUpperCase()}
+          </Text>
+          {m.channelVerified && (
+            <View style={styles.reviewBadge}>
+              <Ionicons name="checkmark-circle" size={12} color="#10b981" />
+              <Text style={[styles.reviewBadgeText, { color: '#10b981' }]}>{t('CREATE_MATERIAL.CARD_VERIFIED')}</Text>
+            </View>
+          )}
+          {m.reviewStatus === 'pending_review' && (
+            <View style={styles.reviewBadge}>
+              <Ionicons name="time-outline" size={12} color={colors.warning} />
+              <Text style={[styles.reviewBadgeText, { color: colors.warning }]}>{t('CREATE_MATERIAL.CARD_PENDING')}</Text>
+            </View>
+          )}
+          {m.reviewStatus === 'rejected' && (
+            <View style={styles.reviewBadge}>
+              <Ionicons name="close-circle-outline" size={12} color={colors.danger} />
+              <Text style={[styles.reviewBadgeText, { color: colors.danger }]}>{t('CREATE_MATERIAL.CARD_REJECTED')}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Title */}
+        <Text style={[styles.cardTitle, { color: colors.text }]} numberOfLines={2}>{m.title}</Text>
+
+        {/* Price + Questions */}
+        <View style={styles.priceRow}>
+          <Text style={[
+            styles.priceText,
+            m.pricingType === 'paid' ? { color: isDark ? '#60a5fa' : '#2563eb' } : { color: '#10b981' },
+          ]}>
+            {m.pricingType === 'paid' ? `$${m.price}` : t('CREATE_MATERIAL.CARD_FREE')}
+          </Text>
+          <Text style={[styles.questionCount, { color: colors.textSecondary }]}>
+            {m.quiz.length === 1
+              ? t('CREATE_MATERIAL.CARD_QUESTIONS', { count: m.quiz.length })
+              : t('CREATE_MATERIAL.CARD_QUESTIONS_PLURAL', { count: m.quiz.length })}
+          </Text>
+        </View>
+
+        {/* Language + Date */}
+        <Text style={[styles.detailsLine, { color: colors.textTertiary }]}>
+          {m.language}  ·  Added {formatDate(m.createdAt)}
+        </Text>
+
+        {/* Stats */}
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <Ionicons name="eye-outline" size={14} color={colors.textTertiary} />
+            <Text style={[styles.statText, { color: colors.textSecondary }]}>{m.stats.views}</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Ionicons name="school-outline" size={14} color={colors.textTertiary} />
+            <Text style={[styles.statText, { color: colors.textSecondary }]}>{m.stats.quizAttempts}</Text>
+          </View>
+          {m.stats.averageScore > 0 && (
+            <View style={styles.statItem}>
+              <Ionicons name="trending-up-outline" size={14} color={colors.textTertiary} />
+              <Text style={[styles.statText, { color: colors.textSecondary }]}>{m.stats.averageScore}%</Text>
+            </View>
+          )}
+          {m.pricingType === 'paid' && (
+            <View style={styles.statItem}>
+              <Ionicons name="card-outline" size={14} color={colors.textTertiary} />
+              <Text style={[styles.statText, { color: colors.textSecondary }]}>{m.stats.purchases}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Preview button */}
+        <TouchableOpacity
+          style={[styles.previewBtn, { borderColor: colors.border, backgroundColor: isDark ? '#1c1c1e' : '#fafafa' }]}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="eye-outline" size={16} color={colors.textSecondary} />
+          <Text style={[styles.previewBtnText, { color: colors.text }]}>{t('CREATE_MATERIAL.CARD_PREVIEW')}</Text>
+        </TouchableOpacity>
+
+        {/* Action icons */}
+        <View style={styles.actionsRow}>
+          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: isDark ? '#2c2c2e' : '#f5f5f7' }]} activeOpacity={0.7}>
+            <Ionicons name="create-outline" size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionBtn, { backgroundColor: isDark ? '#2c2c2e' : '#f5f5f7' }]}
+            onPress={() => onCopyLink(m._id)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name={copiedId === m._id ? 'checkmark-outline' : 'link-outline'} size={18} color={copiedId === m._id ? '#10b981' : colors.textSecondary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionBtn, { backgroundColor: isDark ? '#2c2c2e' : '#f5f5f7' }]}
+            onPress={() => onToggleArchive(m)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name={isArchived ? 'arrow-undo-outline' : 'archive-outline'} size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionBtn, { backgroundColor: isDark ? 'rgba(255,69,58,0.12)' : '#fef2f2' }]}
+            onPress={() => onDelete(m)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="trash-outline" size={18} color={colors.danger} />
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+/* ─── Bundle Card ─── */
+
+function BundleCard({ bundle: b, colors }: { bundle: MaterialBundle; colors: any }) {
+  const isDark = colors.isDark;
+  return (
+    <View style={[styles.materialCard, { backgroundColor: colors.card, borderColor: colors.border, shadowOpacity: isDark ? 0 : 0.06 }]}>
+      {/* Cover */}
+      <View style={styles.thumbWrap}>
+        {b.coverImageUrl ? (
+          <Image source={{ uri: b.coverImageUrl }} style={styles.thumbImg} />
+        ) : (
+          <View style={[styles.thumbPlaceholder, { backgroundColor: isDark ? '#2c2c2e' : '#f0f0f2' }]}>
+            <Ionicons name="folder-outline" size={28} color={colors.textTertiary} />
+          </View>
+        )}
+        {b.status === 'draft' && (
+          <View style={[styles.statusBadge, { backgroundColor: isDark ? 'rgba(255,149,0,0.2)' : '#FFF3E0' }]}>
+            <Text style={[styles.statusBadgeText, { color: isDark ? '#fbbf24' : '#E65100' }]}>Draft</Text>
+          </View>
+        )}
+        <View style={[
+          styles.priceBadge,
+          b.pricingType === 'paid' ? { backgroundColor: isDark ? 'rgba(96,165,250,0.18)' : '#EFF6FF' } : { backgroundColor: isDark ? 'rgba(16,185,129,0.18)' : '#ECFDF5' },
+        ]}>
+          <Text style={[styles.priceBadgeText, { color: b.pricingType === 'paid' ? (isDark ? '#60a5fa' : '#2563eb') : '#10b981' }]}>
+            {b.pricingType === 'paid' ? `$${b.price}` : 'Free'}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.cardBody}>
+        <Text style={[styles.cardTitle, { color: colors.text }]} numberOfLines={2}>{b.title}</Text>
+        {!!b.description && (
+          <Text style={[styles.detailsLine, { color: colors.textSecondary }]} numberOfLines={2}>{b.description}</Text>
+        )}
+
+        <View style={styles.bundleMeta}>
+          <View style={styles.statItem}>
+            <Ionicons name="layers-outline" size={14} color={colors.textTertiary} />
+            <Text style={[styles.statText, { color: colors.textSecondary }]}>{b.items?.length || 0} items</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Ionicons name="globe-outline" size={14} color={colors.textTertiary} />
+            <Text style={[styles.statText, { color: colors.textSecondary }]}>{b.language}</Text>
+          </View>
+        </View>
+
+        {b.structuredTags && b.structuredTags.length > 0 && (
+          <View style={styles.tagsRow}>
+            {b.structuredTags.slice(0, 3).map(tag => (
+              <View key={tag} style={[styles.tag, { backgroundColor: isDark ? '#2c2c2e' : '#f0f0f2' }]}>
+                <Text style={[styles.tagText, { color: colors.textSecondary }]}>{tag}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        <View style={[styles.bundleFooter, { borderTopColor: colors.border }]}>
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <Ionicons name="eye-outline" size={14} color={colors.textTertiary} />
+              <Text style={[styles.statText, { color: colors.textSecondary }]}>{b.stats?.views || 0}</Text>
+            </View>
+            {b.pricingType === 'paid' && (
+              <View style={styles.statItem}>
+                <Ionicons name="card-outline" size={14} color={colors.textTertiary} />
+                <Text style={[styles.statText, { color: colors.textSecondary }]}>{b.stats?.purchases || 0}</Text>
+              </View>
+            )}
+          </View>
+          <View style={styles.bundleActions}>
+            <TouchableOpacity style={[styles.actionBtn, { backgroundColor: isDark ? '#2c2c2e' : '#f5f5f7' }]} activeOpacity={0.7}>
+              <Ionicons name="eye-outline" size={16} color={colors.textSecondary} />
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.actionBtn, { backgroundColor: isDark ? '#2c2c2e' : '#f5f5f7' }]} activeOpacity={0.7}>
+              <Ionicons name="create-outline" size={16} color={colors.textSecondary} />
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.actionBtn, { backgroundColor: isDark ? 'rgba(255,69,58,0.12)' : '#fef2f2' }]} activeOpacity={0.7}>
+              <Ionicons name="trash-outline" size={16} color={colors.danger} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+/* ─── Styles ─── */
+
+const styles = StyleSheet.create({
+  safe: { flex: 1 },
+  scroll: { flex: 1 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 32 },
+
+  /* Header */
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  backLabel: { fontSize: 16, fontWeight: '500' },
+
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  title: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5 },
+
+  /* Panel overlay (blur + floating panel) */
+  panelOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10,
+  },
+
+  /* Channel button */
+  channelBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  channelBtnText: { fontSize: 12, fontWeight: '600' },
+
+  /* Tabs */
+  tabsRow: { flexDirection: 'row', gap: 4, marginBottom: 16 },
+  tab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabActive: {},
+  tabLabel: { fontSize: 14, fontWeight: '600' },
+  tabBadge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  tabBadgeText: { fontSize: 11, fontWeight: '700' },
+
+  /* New button */
+  newBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: 12,
+    paddingVertical: 12,
+  },
+  newBtnText: { fontSize: 15, fontWeight: '600' },
+
+  /* Loading */
+  loadingWrap: { paddingVertical: 60, alignItems: 'center' },
+
+  /* Empty */
+  emptyWrap: { alignItems: 'center', paddingTop: 48, paddingHorizontal: 32 },
+  emptyIconWrap: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  emptyTitle: { fontSize: 20, fontWeight: '700', marginBottom: 8, textAlign: 'center' },
+  emptyDesc: { fontSize: 15, lineHeight: 22, textAlign: 'center', marginBottom: 24 },
+  emptyCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 28,
+  },
+  emptyCtaText: { fontSize: 15, fontWeight: '600' },
+
+  /* Card list */
+  cardList: { gap: 16, paddingTop: 16 },
+
+  /* Material Card */
+  materialCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 12,
+    elevation: 3,
+  },
+
+  /* Thumbnail */
+  thumbWrap: { position: 'relative', aspectRatio: 16 / 9 },
+  thumbImg: { width: '100%', height: '100%', resizeMode: 'cover' },
+  thumbPlaceholder: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusBadge: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  statusBadgeText: { fontSize: 11, fontWeight: '700', textTransform: 'capitalize' },
+  priceBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  priceBadgeText: { fontSize: 12, fontWeight: '700' },
+
+  /* Card body */
+  cardBody: { padding: 16 },
+
+  /* Badges */
+  badgesRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  typeLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
+  reviewBadge: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  reviewBadgeText: { fontSize: 10, fontWeight: '600' },
+
+  /* Title */
+  cardTitle: { fontSize: 17, fontWeight: '700', letterSpacing: -0.2, marginBottom: 6 },
+
+  /* Price row */
+  priceRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
+  priceText: { fontSize: 14, fontWeight: '700' },
+  questionCount: { fontSize: 13 },
+
+  /* Details line */
+  detailsLine: { fontSize: 12, marginBottom: 10 },
+
+  /* Stats */
+  statsRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 },
+  statItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  statText: { fontSize: 12, fontWeight: '500' },
+
+  /* Preview */
+  previewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 11,
+    marginBottom: 12,
+  },
+  previewBtnText: { fontSize: 14, fontWeight: '600' },
+
+  /* Actions */
+  actionsRow: { flexDirection: 'row', justifyContent: 'center', gap: 10 },
+  actionBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  /* Bundle extras */
+  bundleMeta: { flexDirection: 'row', gap: 16, marginBottom: 8 },
+  tagsRow: { flexDirection: 'row', gap: 6, marginBottom: 10 },
+  tag: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  tagText: { fontSize: 11, fontWeight: '600' },
+  bundleFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  bundleActions: { flexDirection: 'row', gap: 8 },
+
+  /* Channel Panel */
+  channelPanel: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 20,
+    marginTop: 12,
+    marginBottom: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  cpTitle: { fontSize: 17, fontWeight: '700', marginBottom: 6 },
+  cpDesc: { fontSize: 13, lineHeight: 19, marginBottom: 20 },
+  cpField: {
+    paddingBottom: 16,
+    marginBottom: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  cpLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  cpProviderIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cpLabel: { fontSize: 14, fontWeight: '600' },
+  cpLinkedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  cpAvatar: { width: 36, height: 36, borderRadius: 18 },
+  cpLinkedInfo: { flex: 1 },
+  cpChannelName: { fontSize: 14, fontWeight: '600' },
+  cpSubs: { fontSize: 11, marginTop: 1 },
+  cpVerifiedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  cpVerifiedText: { fontSize: 11, fontWeight: '600', color: '#10b981' },
+  cpRemoveBtn: { padding: 4 },
+  cpSignInBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  cpSignInText: { fontSize: 13, fontWeight: '600', color: '#fff' },
+  cpInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    fontSize: 14,
+  },
+  cpActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  cpCancelBtn: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 11,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  cpCancelText: { fontSize: 14, fontWeight: '600' },
+  cpSaveBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 11,
+    borderRadius: 10,
+  },
+  cpSaveText: { fontSize: 14, fontWeight: '600' },
+});
