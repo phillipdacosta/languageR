@@ -71,11 +71,17 @@ function initializeGCS() {
   }
 
   try {
-    storage = new Storage({
+    const storageConfig = {
       projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
-      keyFilename: process.env.GOOGLE_CLOUD_KEY_FILE,
-    });
+    };
 
+    if (process.env.GOOGLE_CLOUD_KEY_FILE) {
+      storageConfig.keyFilename = process.env.GOOGLE_CLOUD_KEY_FILE;
+    } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
+      storageConfig.credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+    }
+
+    storage = new Storage(storageConfig);
     bucket = storage.bucket(process.env.GOOGLE_CLOUD_BUCKET_NAME);
     console.log('✅ Google Cloud Storage initialized');
     return { storage, bucket };

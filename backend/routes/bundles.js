@@ -7,7 +7,7 @@ const TutorMaterial = require('../models/TutorMaterial');
 const Payment = require('../models/Payment');
 const User = require('../models/User');
 const { verifyToken, getUserFromRequest, uploadImage } = require('../middleware/videoUploadMiddleware');
-const { Storage } = require('@google-cloud/storage');
+const { initializeGCS } = require('../config/gcs');
 
 // ── POST /api/bundles — Create bundle ───────────────────────────────
 router.post('/', verifyToken, async (req, res) => {
@@ -63,17 +63,13 @@ router.post('/upload-cover', verifyToken, uploadImage.single('cover'), async (re
   try {
     if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
 
-    const projectId = process.env.GOOGLE_CLOUD_PROJECT_ID;
-    const bucketName = process.env.GOOGLE_CLOUD_BUCKET_NAME;
-    if (!projectId || !bucketName) {
+    const { bucket } = initializeGCS();
+    if (!bucket) {
       return res.status(503).json({ success: false, message: 'Storage not configured' });
     }
 
     const user = await getUserFromRequest(req);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-
-    const gcsStorage = new Storage({ projectId, keyFilename: process.env.GOOGLE_CLOUD_KEY_FILE });
-    const bucket = gcsStorage.bucket(bucketName);
 
     const timestamp = Date.now();
     const rand = Math.random().toString(36).substring(2, 10);
@@ -85,10 +81,13 @@ router.post('/upload-cover', verifyToken, uploadImage.single('cover'), async (re
       metadata: { contentType: req.file.mimetype, cacheControl: 'public, max-age=31536000' }
     });
 
-    stream.on('error', () => res.status(500).json({ success: false, message: 'Upload failed' }));
+    stream.on('error', (err) => {
+      console.error('Cover upload error:', err?.message);
+      res.status(500).json({ success: false, message: 'Upload failed' });
+    });
     stream.on('finish', async () => {
       await file.makePublic();
-      const publicUrl = `https://storage.googleapis.com/${bucketName}/${fileName}`;
+      const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
       res.json({ success: true, url: publicUrl });
     });
 
