@@ -46,6 +46,18 @@
   }
 }
 
+.cm-library-content-area {
+  position: relative;
+  transition: filter 0.3s ease, opacity 0.3s ease;
+
+  &.is-blurred {
+    filter: blur(6px);
+    opacity: 0.5;
+    pointer-events: none;
+    user-select: none;
+  }
+}
+
 .cm-library-panel {
   padding: 0;
   margin-top: 4px;

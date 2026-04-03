@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { Alert } from 'react-native';
 import { useAuth0, Auth0Provider } from 'react-native-auth0';
+import i18n from 'i18next';
 import { User } from '../types/user';
 import { authService } from '../services/auth';
 import { api } from '../services/api';
@@ -51,18 +52,25 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     }
   }, [getCredentials]);
 
+  const syncLanguage = useCallback((u: User | null) => {
+    if (u?.interfaceLanguage && i18n.language !== u.interfaceLanguage) {
+      i18n.changeLanguage(u.interfaceLanguage);
+    }
+  }, []);
+
   useEffect(() => {
     (async () => {
       try {
         const backendUser = await fetchBackendUser();
         setUser(backendUser);
+        syncLanguage(backendUser);
       } catch {
         setUser(null);
       } finally {
         setLoading(false);
       }
     })();
-  }, [fetchBackendUser]);
+  }, [fetchBackendUser, syncLanguage]);
 
   const login = useCallback(async () => {
     try {
@@ -76,11 +84,12 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
         Alert.alert('Login Issue', `Authenticated but couldn't reach backend at ${env.apiUrl}. Is your backend running?`);
       }
       setUser(backendUser);
+      syncLanguage(backendUser);
     } catch (err: any) {
       if (err?.message?.includes('cancelled') || err?.message?.includes('CANCELED')) return;
       throw err;
     }
-  }, [authorize, fetchBackendUser]);
+  }, [authorize, fetchBackendUser, syncLanguage]);
 
   const logout = useCallback(async () => {
     try {
@@ -95,7 +104,8 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
   const refreshUser = useCallback(async () => {
     const backendUser = await fetchBackendUser();
     setUser(backendUser);
-  }, [fetchBackendUser]);
+    syncLanguage(backendUser);
+  }, [fetchBackendUser, syncLanguage]);
 
   return (
     <AuthContext.Provider value={{ user, loading, login, logout, refreshUser }}>

@@ -23,6 +23,8 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
+import { useTheme } from '../contexts/ThemeContext';
 import {
   earningsService,
   EarningsBalance,
@@ -35,17 +37,19 @@ import {
 const SCREEN_W = Dimensions.get('window').width;
 type ChartPeriod = '1m' | '6m' | 'all';
 type DateRange = 'all' | 'today' | 'week' | 'month' | 'year';
-const DATE_OPTIONS: { key: DateRange; label: string }[] = [
-  { key: 'all', label: 'All Time' },
-  { key: 'today', label: 'Today' },
-  { key: 'week', label: 'Last 7 Days' },
-  { key: 'month', label: 'This Month' },
-  { key: 'year', label: 'This Year' },
+const DATE_OPTION_KEYS: { key: DateRange; tKey: string }[] = [
+  { key: 'all', tKey: 'EARNINGS.FILTER_ALL_TIME' },
+  { key: 'today', tKey: 'EARNINGS.FILTER_TODAY' },
+  { key: 'week', tKey: 'EARNINGS.FILTER_LAST_7_DAYS' },
+  { key: 'month', tKey: 'EARNINGS.FILTER_THIS_MONTH' },
+  { key: 'year', tKey: 'EARNINGS.FILTER_THIS_YEAR' },
 ];
 
 interface Props { goBack: () => void }
 
 export default function EarningsScreen({ goBack }: Props) {
+  const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const cached = getEarningsCache();
 
   const [loading, setLoading] = useState(!cached.hasCachedData);
@@ -126,16 +130,16 @@ export default function EarningsScreen({ goBack }: Props) {
 
   const handleWithdraw = async () => {
     const amount = parseFloat(withdrawAmount);
-    if (!amount || amount <= 0) { Alert.alert('Invalid Amount', 'Please enter a valid amount.'); return; }
-    if (amount > balance.available) { Alert.alert('Insufficient Funds', 'Amount exceeds available balance.'); return; }
-    Alert.alert('Confirm Withdrawal', `Withdraw $${amount.toFixed(2)} to your account?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Confirm', onPress: async () => {
+    if (!amount || amount <= 0) { Alert.alert(t('EARNINGS.WITHDRAW_INVALID_AMOUNT'), t('EARNINGS.WITHDRAW_MIN_STRIPE_ERROR')); return; }
+    if (amount > balance.available) { Alert.alert(t('EARNINGS.WITHDRAW_INSUFFICIENT'), t('EARNINGS.WITHDRAW_EXCEEDS_BALANCE')); return; }
+    Alert.alert(t('EARNINGS.WITHDRAW_CONFIRM_TITLE'), t('EARNINGS.WITHDRAW_CONFIRM_MSG', { amount: amount.toFixed(2), method: 'Stripe' }), [
+      { text: t('COMMON.CANCEL'), style: 'cancel' },
+      { text: t('EARNINGS.WITHDRAW_CONFIRM_BTN'), onPress: async () => {
         setWithdrawing(true);
         const res = await earningsService.requestWithdrawal(amount, 'stripe_connect');
         setWithdrawing(false);
-        if (res.success) { setWithdrawModalOpen(false); setWithdrawAmount(''); Alert.alert('Success', 'Withdrawal submitted!'); await fetchAll(); }
-        else Alert.alert('Error', res.message || 'Withdrawal failed.');
+        if (res.success) { setWithdrawModalOpen(false); setWithdrawAmount(''); Alert.alert(t('EARNINGS.WITHDRAW_SUCCESS_TITLE'), t('EARNINGS.WITHDRAW_SUCCESS', { amount: amount.toFixed(2) })); await fetchAll(); }
+        else Alert.alert(t('EARNINGS.OK'), res.message || t('EARNINGS.WITHDRAW_ERROR'));
       }},
     ]);
   };
@@ -154,13 +158,20 @@ export default function EarningsScreen({ goBack }: Props) {
   const setFilterStatusSmooth = (v: string) => { smoothLayout(); setFilterStatus(v); };
   const clearFilters = () => { smoothLayout(); setFilterDate('all'); setFilterStudent('all'); setFilterStatus('all'); };
 
-  const getStatusLabel = (s: string) => {
+  const getStatusLabel = (st: string) => {
     const map: Record<string, string> = {
-      paid: 'Transferred', succeeded: 'Available', pending: 'Pending', in_progress: 'In Progress',
-      processing: 'Processing', scheduled: 'Scheduled', class_scheduled: 'Scheduled',
-      cancelled: 'Cancelled', refunded: 'Refunded', partially_refunded: 'Reduced',
+      paid: t('EARNINGS.STATUS_TRANSFERRED'),
+      succeeded: t('EARNINGS.STATUS_AVAILABLE'),
+      pending: t('EARNINGS.STATUS_PENDING'),
+      in_progress: t('EARNINGS.STATUS_IN_PROGRESS'),
+      processing: t('EARNINGS.STATUS_PROCESSING'),
+      scheduled: t('EARNINGS.STATUS_SCHEDULED'),
+      class_scheduled: t('EARNINGS.STATUS_SCHEDULED'),
+      cancelled: t('EARNINGS.STATUS_CANCELLED'),
+      refunded: t('EARNINGS.STATUS_REFUNDED'),
+      partially_refunded: t('EARNINGS.STATUS_REDUCED'),
     };
-    return map[s] || s.charAt(0).toUpperCase() + s.slice(1);
+    return map[st] || st.charAt(0).toUpperCase() + st.slice(1);
   };
 
   const getStatusDotColor = (s: string) => {
@@ -171,68 +182,68 @@ export default function EarningsScreen({ goBack }: Props) {
   };
 
   if (loading) return (
-    <SafeAreaView style={s.safe} edges={['top']}>
-      <Header goBack={goBack} />
-      <SkeletonLoader />
+    <SafeAreaView style={[s.safe, { backgroundColor: colors.surface }]} edges={['top']}>
+      <Header goBack={goBack} colors={colors} t={t} />
+      <SkeletonLoader colors={colors} />
     </SafeAreaView>
   );
 
   return (
-    <SafeAreaView style={s.safe} edges={['top']}>
-      <Header goBack={goBack} />
+    <SafeAreaView style={[s.safe, { backgroundColor: colors.surface }]} edges={['top']}>
+      <Header goBack={goBack} colors={colors} t={t} />
       <ScrollView style={s.scroll} contentContainerStyle={s.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#999" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textSecondary} />}
         showsVerticalScrollIndicator={false}
       >
         {/* ── Balance Hero ── */}
-        <View style={s.heroCard}>
+        <View style={[s.heroCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <TouchableOpacity onPress={() => setShowBalance(!showBalance)} activeOpacity={0.8} style={s.heroMain}>
-            <Text style={s.heroLabel}>AVAILABLE</Text>
-            <Text style={s.heroAmount}>{showBalance ? `$${balance.available.toFixed(2)}` : '$••••'}</Text>
+            <Text style={s.heroLabel}>{t('EARNINGS.AVAILABLE').toUpperCase()}</Text>
+            <Text style={[s.heroAmount, { color: colors.text }]}>{showBalance ? `$${balance.available.toFixed(2)}` : '$••••'}</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[s.withdrawBtn, balance.available <= 0 && s.withdrawBtnDisabled]}
+            style={[s.withdrawBtn, { backgroundColor: colors.accent }, balance.available <= 0 && [s.withdrawBtnDisabled, { backgroundColor: colors.inputBg, borderColor: colors.border }]]}
             onPress={() => { setWithdrawAmount(''); setWithdrawModalOpen(true); }}
             disabled={balance.available <= 0} activeOpacity={0.85}
           >
-            <Text style={[s.withdrawBtnText, balance.available <= 0 && s.withdrawBtnTextOff]}>Withdraw Funds</Text>
+            <Text style={[s.withdrawBtnText, { color: colors.background }, balance.available <= 0 && { color: colors.textTertiary }]}>{t('EARNINGS.WITHDRAW_FUNDS')}</Text>
           </TouchableOpacity>
         </View>
 
         {/* ── Pending / Lifetime ── */}
         <View style={s.statRow}>
-          <TouchableOpacity style={s.statCard} onPress={() => setShowBalance(!showBalance)} activeOpacity={0.8}>
-            <Text style={[s.statLabel, { color: '#E07912' }]}>Pending</Text>
-            <Text style={s.statValue}>{showBalance ? `$${balance.pending.toFixed(2)}` : '$••••'}</Text>
-            <Text style={s.statSub}>In hold period</Text>
+          <TouchableOpacity style={[s.statCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => setShowBalance(!showBalance)} activeOpacity={0.8}>
+            <Text style={[s.statLabel, { color: '#E07912' }]}>{t('EARNINGS.PENDING')}</Text>
+            <Text style={[s.statValue, { color: colors.text }]}>{showBalance ? `$${balance.pending.toFixed(2)}` : '$••••'}</Text>
+            <Text style={[s.statSub, { color: colors.textTertiary }]}>{t('EARNINGS.PENDING_HOLD')}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={s.statCard} onPress={() => setShowBalance(!showBalance)} activeOpacity={0.8}>
-            <Text style={s.statLabel}>Lifetime</Text>
-            <Text style={s.statValue}>{showBalance ? `$${balance.lifetime.toFixed(2)}` : '$••••'}</Text>
-            <Text style={s.statSub}>Total earned</Text>
+          <TouchableOpacity style={[s.statCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => setShowBalance(!showBalance)} activeOpacity={0.8}>
+            <Text style={[s.statLabel, { color: colors.textSecondary }]}>{t('EARNINGS.LIFETIME')}</Text>
+            <Text style={[s.statValue, { color: colors.text }]}>{showBalance ? `$${balance.lifetime.toFixed(2)}` : '$••••'}</Text>
+            <Text style={[s.statSub, { color: colors.textTertiary }]}>{t('EARNINGS.TOTAL_EARNED')}</Text>
           </TouchableOpacity>
         </View>
 
         {/* ── Chart ── */}
         {payments.length > 0 && (
-          <View style={s.chartCard}>
+          <View style={[s.chartCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={s.chartHeader}>
-              <Text style={s.chartTitle}>Earnings Over Time</Text>
-              <View style={s.periodRow}>
+              <Text style={[s.chartTitle, { color: colors.text }]}>{t('EARNINGS.CHART_TITLE')}</Text>
+              <View style={[s.periodRow, { backgroundColor: colors.inputBg }]}>
                 {(['1m', '6m', 'all'] as ChartPeriod[]).map(p => (
-                  <TouchableOpacity key={p} style={[s.periodBtn, chartPeriod === p && s.periodActive]} onPress={() => setChartPeriod(p)} activeOpacity={0.7}>
-                    <Text style={[s.periodText, chartPeriod === p && s.periodTextActive]}>{p === 'all' ? 'All' : p}</Text>
+                  <TouchableOpacity key={p} style={[s.periodBtn, chartPeriod === p && [s.periodActive, { backgroundColor: colors.card }]]} onPress={() => setChartPeriod(p)} activeOpacity={0.7}>
+                    <Text style={[s.periodText, { color: colors.textSecondary }, chartPeriod === p && s.periodTextActive]}>{p === 'all' ? t('EARNINGS.CHART_ALL') : p}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </View>
-            <Text style={s.chartTotal}>{showBalance ? `$${chartData.total.toFixed(2)}` : '$••••'}</Text>
+            <Text style={[s.chartTotal, { color: colors.text }]}>{showBalance ? `$${chartData.total.toFixed(2)}` : '$••••'}</Text>
             {hasChartData ? (
-              <MiniChart data={chartData.data} labels={chartData.labels} />
+              <MiniChart data={chartData.data} labels={chartData.labels} colors={colors} />
             ) : (
               <View style={s.chartEmpty}>
-                <Ionicons name="bar-chart-outline" size={36} color="#ccc" />
-                <Text style={s.chartEmptyText}>No earnings data yet</Text>
+                <Ionicons name="bar-chart-outline" size={36} color={colors.textTertiary} />
+                <Text style={[s.chartEmptyText, { color: colors.textSecondary }]}>{t('EARNINGS.CHART_NO_DATA')}</Text>
               </View>
             )}
           </View>
@@ -240,19 +251,19 @@ export default function EarningsScreen({ goBack }: Props) {
 
         {/* ── Transfers ── */}
         {withdrawals.length > 0 && (
-          <View style={s.section}>
-            <Text style={s.sectionTitle}>Transfers</Text>
+          <View style={[s.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[s.sectionTitle, { color: colors.text }]}>{t('EARNINGS.TRANSFERS_TITLE')}</Text>
             {withdrawals.map(w => (
-              <View key={w.id} style={s.transferRow}>
-                <View style={s.transferIconWrap}>
-                  <Ionicons name={w.method === 'paypal' ? 'logo-paypal' : 'card-outline'} size={20} color="#717171" />
+              <View key={w.id} style={[s.transferRow, { borderTopColor: colors.border }]}>
+                <View style={[s.transferIconWrap, { backgroundColor: colors.inputBg }]}>
+                  <Ionicons name={w.method === 'paypal' ? 'logo-paypal' : 'card-outline'} size={20} color={colors.textSecondary} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={s.transferMethod}>{w.method === 'paypal' ? 'PayPal' : 'Stripe'}</Text>
-                  <Text style={s.transferDate}>{new Date(w.requestedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</Text>
+                  <Text style={[s.transferMethod, { color: colors.text }]}>{w.method === 'paypal' ? 'PayPal' : 'Stripe'}</Text>
+                  <Text style={[s.transferDate, { color: colors.textTertiary }]}>{new Date(w.requestedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={s.transferAmt}>${(w.netAmount || w.amount).toFixed(2)}</Text>
+                  <Text style={[s.transferAmt, { color: colors.text }]}>${(w.netAmount || w.amount).toFixed(2)}</Text>
                   <Text style={[s.transferStat, { color: getStatusDotColor(w.status) }]}>{w.status.charAt(0).toUpperCase() + w.status.slice(1)}</Text>
                 </View>
               </View>
@@ -261,69 +272,69 @@ export default function EarningsScreen({ goBack }: Props) {
         )}
 
         {/* ── Transactions ── */}
-        <View style={s.section}>
+        <View style={[s.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={s.txnHeader}>
-            <Text style={s.sectionTitle}>Transactions</Text>
-            <TouchableOpacity style={s.filterBtn} onPress={() => setFiltersOpen(true)} activeOpacity={0.7}>
-              <Ionicons name="options-outline" size={16} color="#222" />
-              <Text style={s.filterBtnText}>Filters</Text>
-              {activeFilterCount > 0 && <View style={s.filterBadge}><Text style={s.filterBadgeText}>{activeFilterCount}</Text></View>}
+            <Text style={[s.sectionTitle, { color: colors.text }]}>{t('EARNINGS.TXN_TITLE')}</Text>
+            <TouchableOpacity style={[s.filterBtn, { backgroundColor: colors.inputBg }]} onPress={() => setFiltersOpen(true)} activeOpacity={0.7}>
+              <Ionicons name="options-outline" size={16} color={colors.text} />
+              <Text style={[s.filterBtnText, { color: colors.text }]}>{t('EARNINGS.TXN_FILTERS')}</Text>
+              {activeFilterCount > 0 && <View style={[s.filterBadge, { backgroundColor: colors.accent }]}><Text style={s.filterBadgeText}>{activeFilterCount}</Text></View>}
             </TouchableOpacity>
           </View>
 
           {activeFilterCount > 0 && (
             <View style={s.activeChips}>
               {filterDate !== 'all' && (
-                <TouchableOpacity style={s.chip} onPress={() => setFilterDateSmooth('all')}>
-                  <Text style={s.chipText}>{DATE_OPTIONS.find(d => d.key === filterDate)?.label}</Text>
-                  <Ionicons name="close" size={14} color="#717171" />
+                <TouchableOpacity style={[s.chip, { backgroundColor: colors.inputBg }]} onPress={() => setFilterDateSmooth('all')}>
+                  <Text style={[s.chipText, { color: colors.text }]}>{t(DATE_OPTION_KEYS.find(d => d.key === filterDate)?.tKey || '')}</Text>
+                  <Ionicons name="close" size={14} color={colors.textSecondary} />
                 </TouchableOpacity>
               )}
               {filterStudent !== 'all' && (
-                <TouchableOpacity style={s.chip} onPress={() => setFilterStudentSmooth('all')}>
-                  <Text style={s.chipText}>{filterStudent}</Text>
-                  <Ionicons name="close" size={14} color="#717171" />
+                <TouchableOpacity style={[s.chip, { backgroundColor: colors.inputBg }]} onPress={() => setFilterStudentSmooth('all')}>
+                  <Text style={[s.chipText, { color: colors.text }]}>{filterStudent}</Text>
+                  <Ionicons name="close" size={14} color={colors.textSecondary} />
                 </TouchableOpacity>
               )}
               {filterStatus !== 'all' && (
-                <TouchableOpacity style={s.chip} onPress={() => setFilterStatusSmooth('all')}>
-                  <Text style={s.chipText}>{getStatusLabel(filterStatus)}</Text>
-                  <Ionicons name="close" size={14} color="#717171" />
+                <TouchableOpacity style={[s.chip, { backgroundColor: colors.inputBg }]} onPress={() => setFilterStatusSmooth('all')}>
+                  <Text style={[s.chipText, { color: colors.text }]}>{getStatusLabel(filterStatus)}</Text>
+                  <Ionicons name="close" size={14} color={colors.textSecondary} />
                 </TouchableOpacity>
               )}
-              <TouchableOpacity onPress={clearFilters}><Text style={s.clearAll}>Clear all</Text></TouchableOpacity>
+              <TouchableOpacity onPress={clearFilters}><Text style={s.clearAll}>{t('EARNINGS.TXN_CLEAR_ALL')}</Text></TouchableOpacity>
             </View>
           )}
 
           {filteredPayments.length === 0 ? (
             <View style={s.txnEmpty}>
-              <Ionicons name={activeFilterCount > 0 ? 'filter-outline' : 'receipt-outline'} size={36} color="#ccc" />
-              <Text style={s.txnEmptyTitle}>{activeFilterCount > 0 ? 'No matching transactions' : 'No transactions yet'}</Text>
-              <Text style={s.txnEmptyBody}>{activeFilterCount > 0 ? 'Try adjusting your filters.' : 'Your payment history will appear here.'}</Text>
-              {activeFilterCount > 0 && <TouchableOpacity onPress={clearFilters}><Text style={s.clearLink}>Clear filters</Text></TouchableOpacity>}
+              <Ionicons name={activeFilterCount > 0 ? 'filter-outline' : 'receipt-outline'} size={36} color={colors.textTertiary} />
+              <Text style={[s.txnEmptyTitle, { color: colors.text }]}>{activeFilterCount > 0 ? t('EARNINGS.TXN_NO_RESULTS_TITLE') : t('EARNINGS.TXN_EMPTY_TITLE')}</Text>
+              <Text style={[s.txnEmptyBody, { color: colors.textSecondary }]}>{activeFilterCount > 0 ? t('EARNINGS.TXN_NO_RESULTS_SUB') : t('EARNINGS.TXN_EMPTY_SUB')}</Text>
+              {activeFilterCount > 0 && <TouchableOpacity onPress={clearFilters}><Text style={s.clearLink}>{t('EARNINGS.TXN_CLEAR_FILTERS')}</Text></TouchableOpacity>}
             </View>
           ) : (
             displayedPayments.map(p => (
-              <View key={p.id} style={s.txnRow}>
+              <View key={p.id} style={[s.txnRow, { borderTopColor: colors.border }]}>
                 <View style={s.txnAvatarWrap}>
                   {p.studentPicture ? <Image source={{ uri: p.studentPicture }} style={s.txnAvatar} /> : (
-                    <View style={[s.txnAvatar, s.txnAvatarPH]}><Ionicons name="person" size={16} color="#999" /></View>
+                    <View style={[s.txnAvatar, s.txnAvatarPH, { backgroundColor: colors.inputBg }]}><Ionicons name="person" size={16} color={colors.textTertiary} /></View>
                   )}
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={s.txnName} numberOfLines={1}>{p.studentName}</Text>
-                  <Text style={s.txnDate}>{p.formattedDate || new Date(p.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}{p.formattedTime ? ` · ${p.formattedTime}` : ''}</Text>
+                  <Text style={[s.txnName, { color: colors.text }]} numberOfLines={1}>{p.studentName}</Text>
+                  <Text style={[s.txnDate, { color: colors.textTertiary }]}>{p.formattedDate || new Date(p.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}{p.formattedTime ? ` · ${p.formattedTime}` : ''}</Text>
                   <View style={s.txnChips}>
-                    {p.isClassPayment && <View style={[s.txnChip, { backgroundColor: '#E8F5E9' }]}><Text style={[s.txnChipText, { color: '#2E7D32' }]}>Class</Text></View>}
-                    {p.isMaterialPurchase && <View style={[s.txnChip, { backgroundColor: '#E3F2FD' }]}><Text style={[s.txnChipText, { color: '#1565C0' }]}>Material</Text></View>}
-                    {(p.tipAmount || 0) > 0 && <View style={[s.txnChip, { backgroundColor: '#FFF3E0' }]}><Text style={[s.txnChipText, { color: '#E07912' }]}>Tip</Text></View>}
+                    {p.isClassPayment && <View style={[s.txnChip, { backgroundColor: '#E8F5E9' }]}><Text style={[s.txnChipText, { color: '#2E7D32' }]}>{t('HOME.CLASSES')}</Text></View>}
+                    {p.isMaterialPurchase && <View style={[s.txnChip, { backgroundColor: '#E3F2FD' }]}><Text style={[s.txnChipText, { color: '#1565C0' }]}>{t('HOME.MATERIALS')}</Text></View>}
+                    {(p.tipAmount || 0) > 0 && <View style={[s.txnChip, { backgroundColor: '#FFF3E0' }]}><Text style={[s.txnChipText, { color: '#E07912' }]}>{t('EARNINGS.TXN_TIP')}</Text></View>}
                   </View>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={s.txnAmt}>${p.tutorPayout.toFixed(2)}</Text>
+                  <Text style={[s.txnAmt, { color: colors.text }]}>${p.tutorPayout.toFixed(2)}</Text>
                   <View style={s.txnStatusRow}>
                     <View style={[s.dot, { backgroundColor: getStatusDotColor(p.status) }]} />
-                    <Text style={s.txnStatusText}>{getStatusLabel(p.status)}</Text>
+                    <Text style={[s.txnStatusText, { color: colors.textTertiary }]}>{getStatusLabel(p.status)}</Text>
                   </View>
                 </View>
               </View>
@@ -331,7 +342,7 @@ export default function EarningsScreen({ goBack }: Props) {
           )}
           {displayLimit < filteredPayments.length && (
             <TouchableOpacity style={s.loadMore} onPress={() => setDisplayLimit(n => n + 20)} activeOpacity={0.7}>
-              <Text style={s.loadMoreText}>Load More</Text>
+              <Text style={s.loadMoreText}>{t('COMMON.LOAD_MORE') || 'Load More'}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -342,90 +353,86 @@ export default function EarningsScreen({ goBack }: Props) {
       {/* ── Filters Modal ── */}
       <Modal visible={filtersOpen} animationType="slide" presentationStyle="fullScreen">
         <SafeAreaProvider>
-        <SafeAreaView style={s.modalSafe} edges={['top', 'bottom']}>
-          <View style={s.modalHead}>
-            <TouchableOpacity onPress={() => setFiltersOpen(false)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}><Ionicons name="close" size={24} color="#222" /></TouchableOpacity>
-            <Text style={s.modalHeadTitle}>Filters</Text>
+        <SafeAreaView style={[s.modalSafe, { backgroundColor: colors.surface }]} edges={['top', 'bottom']}>
+          <View style={[s.modalHead, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+            <TouchableOpacity onPress={() => setFiltersOpen(false)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}><Ionicons name="close" size={24} color={colors.text} /></TouchableOpacity>
+            <Text style={[s.modalHeadTitle, { color: colors.text }]}>{t('EARNINGS.TXN_FILTERS')}</Text>
             <View style={{ width: 24 }} />
           </View>
 
           <ScrollView contentContainerStyle={s.filterContent} showsVerticalScrollIndicator={false}>
-            {/* Active chips */}
             {activeFilterCount > 0 && (
               <View style={s.filterChipRow}>
                 {filterDate !== 'all' && (
-                  <TouchableOpacity style={s.filterChip} onPress={() => setFilterDateSmooth('all')}>
-                    <Text style={s.filterChipText}>{DATE_OPTIONS.find(d => d.key === filterDate)?.label}</Text>
-                    <Ionicons name="close-circle" size={16} color="#717171" />
+                  <TouchableOpacity style={[s.filterChip, { backgroundColor: colors.inputBg }]} onPress={() => setFilterDateSmooth('all')}>
+                    <Text style={[s.filterChipText, { color: colors.text }]}>{t(DATE_OPTION_KEYS.find(d => d.key === filterDate)?.tKey || '')}</Text>
+                    <Ionicons name="close-circle" size={16} color={colors.textSecondary} />
                   </TouchableOpacity>
                 )}
                 {filterStudent !== 'all' && (
-                  <TouchableOpacity style={s.filterChip} onPress={() => setFilterStudentSmooth('all')}>
-                    <Text style={s.filterChipText}>{filterStudent}</Text>
-                    <Ionicons name="close-circle" size={16} color="#717171" />
+                  <TouchableOpacity style={[s.filterChip, { backgroundColor: colors.inputBg }]} onPress={() => setFilterStudentSmooth('all')}>
+                    <Text style={[s.filterChipText, { color: colors.text }]}>{filterStudent}</Text>
+                    <Ionicons name="close-circle" size={16} color={colors.textSecondary} />
                   </TouchableOpacity>
                 )}
                 {filterStatus !== 'all' && (
-                  <TouchableOpacity style={s.filterChip} onPress={() => setFilterStatusSmooth('all')}>
-                    <Text style={s.filterChipText}>{getStatusLabel(filterStatus)}</Text>
-                    <Ionicons name="close-circle" size={16} color="#717171" />
+                  <TouchableOpacity style={[s.filterChip, { backgroundColor: colors.inputBg }]} onPress={() => setFilterStatusSmooth('all')}>
+                    <Text style={[s.filterChipText, { color: colors.text }]}>{getStatusLabel(filterStatus)}</Text>
+                    <Ionicons name="close-circle" size={16} color={colors.textSecondary} />
                   </TouchableOpacity>
                 )}
               </View>
             )}
 
-            {/* Time Period */}
-            <Text style={s.filterSectionTitle}>Time Period</Text>
+            <Text style={[s.filterSectionTitle, { color: colors.text }]}>{t('EARNINGS.FILTER_TIME_PERIOD')}</Text>
             <View style={s.filterGrid}>
-              {DATE_OPTIONS.map(d => (
-                <TouchableOpacity key={d.key} style={[s.filterGridBtn, filterDate === d.key && s.filterGridBtnActive]} onPress={() => setFilterDateSmooth(d.key)} activeOpacity={0.7}>
-                  <Text style={[s.filterGridBtnText, filterDate === d.key && s.filterGridBtnTextActive]}>{d.label}</Text>
+              {DATE_OPTION_KEYS.map(d => (
+                <TouchableOpacity key={d.key} style={[s.filterGridBtn, { backgroundColor: colors.card, borderColor: colors.border }, filterDate === d.key && s.filterGridBtnActive]} onPress={() => setFilterDateSmooth(d.key)} activeOpacity={0.7}>
+                  <Text style={[s.filterGridBtnText, { color: colors.text }, filterDate === d.key && s.filterGridBtnTextActive]}>{t(d.tKey)}</Text>
                   {filterDate === d.key && <Ionicons name="checkmark" size={16} color="#3478f7" style={{ marginLeft: 4 }} />}
                 </TouchableOpacity>
               ))}
             </View>
 
-            {/* Student */}
-            <Text style={s.filterSectionTitle}>Student</Text>
-            <TouchableOpacity style={[s.filterListItem, filterStudent === 'all' && s.filterListItemActive]} onPress={() => setFilterStudentSmooth('all')}>
-              <Text style={[s.filterListText, filterStudent === 'all' && s.filterListTextActive]}>All Students</Text>
+            <Text style={[s.filterSectionTitle, { color: colors.text }]}>{t('EARNINGS.FILTER_STUDENT')}</Text>
+            <TouchableOpacity style={[s.filterListItem, { borderBottomColor: colors.border }, filterStudent === 'all' && s.filterListItemActive]} onPress={() => setFilterStudentSmooth('all')}>
+              <Text style={[s.filterListText, { color: colors.text }, filterStudent === 'all' && s.filterListTextActive]}>{t('EARNINGS.FILTER_ALL_STUDENTS')}</Text>
               {filterStudent === 'all' && <Ionicons name="checkmark" size={18} color="#3478f7" />}
             </TouchableOpacity>
             {uniqueStudents.map(st => (
-              <TouchableOpacity key={st.id} style={[s.filterListItem, filterStudent === st.id && s.filterListItemActive]} onPress={() => setFilterStudentSmooth(st.id)}>
+              <TouchableOpacity key={st.id} style={[s.filterListItem, { borderBottomColor: colors.border }, filterStudent === st.id && s.filterListItemActive]} onPress={() => setFilterStudentSmooth(st.id)}>
                 <View style={s.filterStudentRow}>
                   {st.picture ? <Image source={{ uri: st.picture }} style={s.filterStudentAvatar} /> : (
-                    <View style={[s.filterStudentAvatar, s.txnAvatarPH]}><Ionicons name="person" size={14} color="#999" /></View>
+                    <View style={[s.filterStudentAvatar, s.txnAvatarPH, { backgroundColor: colors.inputBg }]}><Ionicons name="person" size={14} color={colors.textTertiary} /></View>
                   )}
-                  <Text style={[s.filterListText, filterStudent === st.id && s.filterListTextActive]}>{st.name}</Text>
+                  <Text style={[s.filterListText, { color: colors.text }, filterStudent === st.id && s.filterListTextActive]}>{st.name}</Text>
                 </View>
                 {filterStudent === st.id && <Ionicons name="checkmark" size={18} color="#3478f7" />}
               </TouchableOpacity>
             ))}
 
-            {/* Status */}
-            <Text style={s.filterSectionTitle}>Status</Text>
-            <TouchableOpacity style={[s.filterListItem, filterStatus === 'all' && s.filterListItemActive]} onPress={() => setFilterStatusSmooth('all')}>
-              <Text style={[s.filterListText, filterStatus === 'all' && s.filterListTextActive]}>All Statuses</Text>
+            <Text style={[s.filterSectionTitle, { color: colors.text }]}>{t('EARNINGS.FILTER_STATUS')}</Text>
+            <TouchableOpacity style={[s.filterListItem, { borderBottomColor: colors.border }, filterStatus === 'all' && s.filterListItemActive]} onPress={() => setFilterStatusSmooth('all')}>
+              <Text style={[s.filterListText, { color: colors.text }, filterStatus === 'all' && s.filterListTextActive]}>{t('EARNINGS.FILTER_ALL_STATUSES')}</Text>
               {filterStatus === 'all' && <Ionicons name="checkmark" size={18} color="#3478f7" />}
             </TouchableOpacity>
             {uniqueStatuses.map(st => (
-              <TouchableOpacity key={st} style={[s.filterListItem, filterStatus === st && s.filterListItemActive]} onPress={() => setFilterStatusSmooth(st)}>
+              <TouchableOpacity key={st} style={[s.filterListItem, { borderBottomColor: colors.border }, filterStatus === st && s.filterListItemActive]} onPress={() => setFilterStatusSmooth(st)}>
                 <View style={s.filterStatusRow}>
                   <View style={[s.dot, { backgroundColor: getStatusDotColor(st), marginRight: 8 }]} />
-                  <Text style={[s.filterListText, filterStatus === st && s.filterListTextActive]}>{getStatusLabel(st)}</Text>
+                  <Text style={[s.filterListText, { color: colors.text }, filterStatus === st && s.filterListTextActive]}>{getStatusLabel(st)}</Text>
                 </View>
                 {filterStatus === st && <Ionicons name="checkmark" size={18} color="#3478f7" />}
               </TouchableOpacity>
             ))}
           </ScrollView>
 
-          <View style={s.filterFooter}>
+          <View style={[s.filterFooter, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
             <TouchableOpacity style={s.filterClearBtn} onPress={() => { clearFilters(); }} disabled={activeFilterCount === 0}>
-              <Text style={[s.filterClearText, activeFilterCount === 0 && { color: '#ccc' }]}>Clear All</Text>
+              <Text style={[s.filterClearText, { color: colors.text }, activeFilterCount === 0 && { color: colors.textTertiary }]}>{t('EARNINGS.TXN_CLEAR_ALL')}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={s.filterShowBtn} onPress={() => setFiltersOpen(false)} activeOpacity={0.85}>
-              <Text style={s.filterShowText}>Show {filteredPayments.length} {filteredPayments.length === 1 ? 'Result' : 'Results'}</Text>
+            <TouchableOpacity style={[s.filterShowBtn, { backgroundColor: colors.accent }]} onPress={() => setFiltersOpen(false)} activeOpacity={0.85}>
+              <Text style={[s.filterShowText, { color: colors.background }]}>{filteredPayments.length === 1 ? t('EARNINGS.FILTER_SHOW_RESULTS_ONE', { count: filteredPayments.length }) : t('EARNINGS.FILTER_SHOW_RESULTS_MANY', { count: filteredPayments.length })}</Text>
             </TouchableOpacity>
           </View>
         </SafeAreaView>
@@ -435,40 +442,40 @@ export default function EarningsScreen({ goBack }: Props) {
       {/* ── Withdraw Modal ── */}
       <Modal visible={withdrawModalOpen} animationType="slide" presentationStyle="fullScreen">
         <SafeAreaProvider>
-        <SafeAreaView style={s.modalSafe} edges={['top', 'bottom']}>
-          <View style={s.modalHead}>
+        <SafeAreaView style={[s.modalSafe, { backgroundColor: colors.surface }]} edges={['top', 'bottom']}>
+          <View style={[s.modalHead, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
             <View style={{ width: 24 }} />
-            <Text style={s.modalHeadTitle}>Withdraw Funds</Text>
-            <TouchableOpacity onPress={() => setWithdrawModalOpen(false)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}><Ionicons name="close" size={24} color="#222" /></TouchableOpacity>
+            <Text style={[s.modalHeadTitle, { color: colors.text }]}>{t('EARNINGS.WITHDRAW_TITLE')}</Text>
+            <TouchableOpacity onPress={() => setWithdrawModalOpen(false)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}><Ionicons name="close" size={24} color={colors.text} /></TouchableOpacity>
           </View>
           <ScrollView contentContainerStyle={s.withdrawContent}>
             <View style={s.withdrawBalanceCard}>
-              <Text style={s.withdrawBalanceLabel}>Available Balance</Text>
+              <Text style={s.withdrawBalanceLabel}>{t('EARNINGS.WITHDRAW_BALANCE_LABEL')}</Text>
               <Text style={s.withdrawBalanceAmt}>${balance.available.toFixed(2)}</Text>
             </View>
-            <Text style={s.withdrawInputLabel}>Withdrawal Amount</Text>
-            <View style={s.withdrawInputRow}>
-              <Text style={s.withdrawPrefix}>$</Text>
-              <TextInput style={s.withdrawInput} value={withdrawAmount} onChangeText={setWithdrawAmount} placeholder="0.00" placeholderTextColor="#b0b0b0" keyboardType="decimal-pad" />
-              <TouchableOpacity style={s.withdrawMax} onPress={() => setWithdrawAmount(balance.available.toFixed(2))} activeOpacity={0.7}>
-                <Text style={s.withdrawMaxText}>MAX</Text>
+            <Text style={[s.withdrawInputLabel, { color: colors.text }]}>{t('EARNINGS.WITHDRAW_AMOUNT_SECTION')}</Text>
+            <View style={[s.withdrawInputRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[s.withdrawPrefix, { color: colors.text }]}>$</Text>
+              <TextInput style={[s.withdrawInput, { color: colors.text }]} value={withdrawAmount} onChangeText={setWithdrawAmount} placeholder="0.00" placeholderTextColor={colors.textTertiary} keyboardType="decimal-pad" />
+              <TouchableOpacity style={[s.withdrawMax, { backgroundColor: colors.inputBg }]} onPress={() => setWithdrawAmount(balance.available.toFixed(2))} activeOpacity={0.7}>
+                <Text style={[s.withdrawMaxText, { color: colors.textSecondary }]}>MAX</Text>
               </TouchableOpacity>
             </View>
-            <View style={s.withdrawMethodCard}>
+            <View style={[s.withdrawMethodCard, { backgroundColor: colors.card }]}>
               <Ionicons name="card-outline" size={24} color="#008A05" />
               <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={s.withdrawMethodTitle}>Stripe Connect</Text>
-                <Text style={s.withdrawMethodSub}>No withdrawal fees</Text>
+                <Text style={[s.withdrawMethodTitle, { color: colors.text }]}>{t('EARNINGS.WITHDRAW_STRIPE_CONNECT')}</Text>
+                <Text style={[s.withdrawMethodSub, { color: colors.textSecondary }]}>{t('EARNINGS.WITHDRAW_NO_FEES')}</Text>
               </View>
-              <View style={s.noFeesBadge}><Text style={s.noFeesText}>No fees</Text></View>
+              <View style={s.noFeesBadge}><Text style={s.noFeesText}>{t('EARNINGS.WITHDRAW_NO_FEES')}</Text></View>
             </View>
           </ScrollView>
-          <View style={s.withdrawFooter}>
-            <TouchableOpacity style={s.withdrawCancelBtn} onPress={() => setWithdrawModalOpen(false)} activeOpacity={0.7}>
-              <Text style={s.withdrawCancelText}>Cancel</Text>
+          <View style={[s.withdrawFooter, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+            <TouchableOpacity style={[s.withdrawCancelBtn, { borderColor: colors.border }]} onPress={() => setWithdrawModalOpen(false)} activeOpacity={0.7}>
+              <Text style={[s.withdrawCancelText, { color: colors.text }]}>{t('EARNINGS.WITHDRAW_CANCEL')}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[s.withdrawConfirmBtn, withdrawing && { opacity: 0.5 }]} onPress={handleWithdraw} disabled={withdrawing} activeOpacity={0.85}>
-              {withdrawing ? <ActivityIndicator color="#fff" /> : <Text style={s.withdrawConfirmText}>Request Withdrawal</Text>}
+            <TouchableOpacity style={[s.withdrawConfirmBtn, { backgroundColor: colors.accent }, withdrawing && { opacity: 0.5 }]} onPress={handleWithdraw} disabled={withdrawing} activeOpacity={0.85}>
+              {withdrawing ? <ActivityIndicator color={colors.background} /> : <Text style={[s.withdrawConfirmText, { color: colors.background }]}>{t('EARNINGS.WITHDRAW_REQUEST')}</Text>}
             </TouchableOpacity>
           </View>
         </SafeAreaView>
@@ -480,7 +487,7 @@ export default function EarningsScreen({ goBack }: Props) {
 
 /* ─── Mini Chart (pure RN, no SVG dependency) ─── */
 
-function MiniChart({ data, labels }: { data: number[]; labels: string[] }) {
+function MiniChart({ data, labels, colors }: { data: number[]; labels: string[]; colors: any }) {
   const maxVal = Math.max(...data, 1);
   const barCount = data.length;
   const step = Math.max(1, Math.floor(labels.length / 6));
@@ -498,7 +505,7 @@ function MiniChart({ data, labels }: { data: number[]; labels: string[] }) {
       </View>
       <View style={s.miniChartLabels}>
         {visibleIndices.map(i => (
-          <Text key={i} style={s.miniChartLabel}>{labels[i]}</Text>
+          <Text key={i} style={[s.miniChartLabel, { color: colors.textTertiary }]}>{labels[i]}</Text>
         ))}
       </View>
     </View>
@@ -507,12 +514,12 @@ function MiniChart({ data, labels }: { data: number[]; labels: string[] }) {
 
 /* ─── Header ─── */
 
-function Header({ goBack }: { goBack: () => void }) {
+function Header({ goBack, colors, t }: { goBack: () => void; colors: any; t: any }) {
   return (
-    <View style={s.header}>
+    <View style={[s.header, { backgroundColor: colors.surface }]}>
       <TouchableOpacity onPress={goBack} activeOpacity={0.7} style={s.headerBack}>
-        <Ionicons name="chevron-back" size={22} color="#222" />
-        <Text style={s.headerBackText}>Home</Text>
+        <Ionicons name="chevron-back" size={22} color={colors.text} />
+        <Text style={[s.headerBackText, { color: colors.text }]}>{t('TABS.HOME')}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -520,22 +527,22 @@ function Header({ goBack }: { goBack: () => void }) {
 
 /* ─── Skeleton ─── */
 
-function SkeletonLoader() {
+function SkeletonLoader({ colors }: { colors: any }) {
   return (
     <View style={[s.content, { paddingTop: 16 }]}>
-      <View style={[s.heroCard, { alignItems: 'flex-start' }]}>
-        <View style={{ width: 80, height: 12, borderRadius: 6, backgroundColor: '#eee', marginBottom: 12 }} />
-        <View style={{ width: 160, height: 32, borderRadius: 8, backgroundColor: '#eee', marginBottom: 16 }} />
-        <View style={{ width: '100%', height: 44, borderRadius: 8, backgroundColor: '#eee' }} />
+      <View style={[s.heroCard, { alignItems: 'flex-start', backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={{ width: 80, height: 12, borderRadius: 6, backgroundColor: colors.skeleton, marginBottom: 12 }} />
+        <View style={{ width: 160, height: 32, borderRadius: 8, backgroundColor: colors.skeleton, marginBottom: 16 }} />
+        <View style={{ width: '100%', height: 44, borderRadius: 8, backgroundColor: colors.skeleton }} />
       </View>
       <View style={s.statRow}>
-        <View style={[s.statCard, { height: 80 }]} />
-        <View style={[s.statCard, { height: 80 }]} />
+        <View style={[s.statCard, { height: 80, backgroundColor: colors.card, borderColor: colors.border }]} />
+        <View style={[s.statCard, { height: 80, backgroundColor: colors.card, borderColor: colors.border }]} />
       </View>
-      <View style={[s.section, { height: 240 }]}>
-        <View style={{ width: 140, height: 14, borderRadius: 7, backgroundColor: '#eee', marginBottom: 12 }} />
-        <View style={{ width: 100, height: 24, borderRadius: 8, backgroundColor: '#eee', marginBottom: 20 }} />
-        <View style={{ flex: 1, backgroundColor: '#f5f5f5', borderRadius: 8 }} />
+      <View style={[s.section, { height: 240, backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={{ width: 140, height: 14, borderRadius: 7, backgroundColor: colors.skeleton, marginBottom: 12 }} />
+        <View style={{ width: 100, height: 24, borderRadius: 8, backgroundColor: colors.skeleton, marginBottom: 20 }} />
+        <View style={{ flex: 1, backgroundColor: colors.skeleton, borderRadius: 8 }} />
       </View>
     </View>
   );

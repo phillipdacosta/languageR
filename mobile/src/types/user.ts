@@ -16,6 +16,12 @@ export interface User {
   isActive?: boolean;
   nativeLanguage?: string;
   interfaceLanguage?: string;
+  languages?: string[];
+  languagesLearning?: string[];
+  bio?: string;
+  experience?: string;
+  schedule?: string;
+  experienceLevel?: string;
   onboardingCompleted?: boolean;
   tutorApproved?: boolean;
   stripeConnectOnboarded?: boolean;
@@ -25,6 +31,14 @@ export interface User {
     paypalEmail?: string;
     stripeAccountId?: string;
   };
+  introductionVideo?: string;
+  videoThumbnail?: string;
+  videoType?: 'upload' | 'youtube' | 'vimeo';
+  tutorOnboarding?: {
+    videoApproved?: boolean;
+    [key: string]: any;
+  };
+  tutorCredentials?: any;
   onboardingData?: {
     languages?: any[];
     goals?: string[];
@@ -32,6 +46,13 @@ export interface User {
     hourlyRate?: number;
     trialRate?: number;
     videoUrl?: string;
+    introductionVideo?: string;
+    pendingVideo?: string;
+    pendingVideoThumbnail?: string;
+    pendingVideoType?: 'upload' | 'youtube' | 'vimeo';
+    videoThumbnail?: string;
+    videoType?: 'upload' | 'youtube' | 'vimeo';
+    learningGoal?: string;
     [key: string]: any;
   };
   profile?: {
@@ -41,12 +62,15 @@ export interface User {
     calendarTimeFormat?: string;
     calendarDefaultView?: string;
     showWalletBalance?: boolean;
+    remindersEnabled?: boolean;
+    aiAnalysisEnabled?: boolean;
     [key: string]: any;
   };
   stats?: {
     totalLessons?: number;
     totalHours?: number;
     streak?: number;
+    rating?: number;
     lastActive?: string;
   };
   createdAt?: string;

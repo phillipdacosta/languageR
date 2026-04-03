@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useLayoutEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,8 +13,11 @@ import {
   UIManager,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../contexts/ThemeContext';
 import { messagingService, Conversation } from '../services/messaging';
 import ChatScreen from './ChatScreen';
 
@@ -26,6 +29,8 @@ type Filter = 'all' | 'unread';
 
 export default function MessagesScreen() {
   const { user } = useAuth();
+  const { colors } = useTheme();
+  const { t } = useTranslation();
   const userId = user?.auth0Id || user?._id || user?.id || '';
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -34,6 +39,26 @@ export default function MessagesScreen() {
   const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Conversation | null>(null);
+  const navigation = useNavigation();
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      tabBarStyle: selected
+        ? { display: 'none' as const }
+        : {
+            backgroundColor: colors.tabBar,
+            borderTopWidth: StyleSheet.hairlineWidth,
+            borderTopColor: colors.tabBarBorder,
+            height: 88,
+            paddingTop: 8,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: -2 },
+            shadowOpacity: 0.05,
+            shadowRadius: 8,
+            elevation: 5,
+          },
+    });
+  }, [selected, navigation, colors]);
 
   const fetchConversations = useCallback(async () => {
     const data = await messagingService.getConversations();
@@ -88,32 +113,34 @@ export default function MessagesScreen() {
       <ChatScreen
         conversation={selected}
         currentUserId={userId}
+        currentUserName={user?.name || user?.firstName || 'You'}
+        currentUserPicture={user?.picture}
         goBack={handleBack}
       />
     );
   }
 
   return (
-    <SafeAreaView style={s.safe} edges={['top']}>
+    <SafeAreaView style={[s.safe, { backgroundColor: colors.background }]} edges={['top']}>
       {/* Header */}
       <View style={s.header}>
-        <Text style={s.headerTitle}>Messages</Text>
+        <Text style={[s.headerTitle, { color: colors.text }]}>{t('MESSAGES.TITLE')}</Text>
       </View>
 
       {/* Search */}
-      <View style={s.searchWrap}>
-        <Ionicons name="search-outline" size={16} color="#999" style={s.searchIcon} />
+      <View style={[s.searchWrap, { backgroundColor: colors.inputBg }]}>
+        <Ionicons name="search-outline" size={16} color={colors.textTertiary} style={s.searchIcon} />
         <TextInput
-          style={s.searchInput}
-          placeholder="Search by name"
-          placeholderTextColor="#b0b0b0"
+          style={[s.searchInput, { color: colors.text }]}
+          placeholder={t('MESSAGES.SEARCH_BY_NAME')}
+          placeholderTextColor={colors.textTertiary}
           value={search}
           onChangeText={setSearch}
           returnKeyType="search"
         />
         {search.length > 0 && (
           <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Ionicons name="close-circle" size={18} color="#ccc" />
+            <Ionicons name="close-circle" size={18} color={colors.textTertiary} />
           </TouchableOpacity>
         )}
       </View>
@@ -121,34 +148,34 @@ export default function MessagesScreen() {
       {/* Filter pills */}
       <View style={s.filterRow}>
         <TouchableOpacity
-          style={[s.filterPill, filter === 'all' && s.filterPillActive]}
+          style={[s.filterPill, { backgroundColor: colors.inputBg }, filter === 'all' && { backgroundColor: colors.accent }]}
           onPress={() => setFilterSmooth('all')}
           activeOpacity={0.7}
         >
-          <Text style={[s.filterPillText, filter === 'all' && s.filterPillTextActive]}>All</Text>
+          <Text style={[s.filterPillText, { color: colors.textSecondary }, filter === 'all' && { color: colors.background }]}>{t('MESSAGES.ALL')}</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[s.filterPill, filter === 'unread' && s.filterPillActive]}
+          style={[s.filterPill, { backgroundColor: colors.inputBg }, filter === 'unread' && { backgroundColor: colors.accent }]}
           onPress={() => setFilterSmooth('unread')}
           activeOpacity={0.7}
         >
-          <Text style={[s.filterPillText, filter === 'unread' && s.filterPillTextActive]}>
-            Unread{totalUnread > 0 ? ` (${totalUnread})` : ''}
+          <Text style={[s.filterPillText, { color: colors.textSecondary }, filter === 'unread' && { color: colors.background }]}>
+            {t('MESSAGES.UNREAD')}{totalUnread > 0 ? ` (${totalUnread})` : ''}
           </Text>
         </TouchableOpacity>
       </View>
 
       {/* List */}
       {loading ? (
-        <View style={s.center}><ActivityIndicator size="large" color="#999" /></View>
+        <View style={s.center}><ActivityIndicator size="large" color={colors.textSecondary} /></View>
       ) : filtered.length === 0 ? (
         <View style={s.center}>
-          <Ionicons name={search ? 'search-outline' : 'chatbubbles-outline'} size={48} color="#ddd" />
-          <Text style={s.emptyTitle}>
-            {search ? 'No results found' : 'No conversations yet'}
+          <Ionicons name={search ? 'search-outline' : 'chatbubbles-outline'} size={48} color={colors.border} />
+          <Text style={[s.emptyTitle, { color: colors.text }]}>
+            {search ? t('MESSAGES.SEARCH_EMPTY_TITLE') : t('MESSAGES.NO_CONVERSATIONS_YET')}
           </Text>
-          <Text style={s.emptySub}>
-            {search ? 'Try a different search.' : 'Start a conversation with a student or tutor.'}
+          <Text style={[s.emptySub, { color: colors.textSecondary }]}>
+            {search ? t('MESSAGES.SEARCH_EMPTY_HINT') : t('MESSAGES.EMPTY_STATE_STUDENT_MOBILE')}
           </Text>
         </View>
       ) : (
@@ -160,6 +187,7 @@ export default function MessagesScreen() {
               conversation={item}
               currentUserId={userId}
               onPress={() => handleSelect(item)}
+              colors={colors}
             />
           )}
           contentContainerStyle={s.listContent}
@@ -178,19 +206,21 @@ function ConversationRow({
   conversation: c,
   currentUserId,
   onPress,
+  colors,
 }: {
   conversation: Conversation;
   currentUserId: string;
   onPress: () => void;
+  colors: any;
 }) {
   const isSystem = c.lastMessage?.isSystemMessage || c.lastMessage?.type === 'system';
   const isMine = c.lastMessage?.senderId === currentUserId;
   const hasUnread = c.unreadCount > 0;
 
   let preview = c.lastMessage?.content || '';
-  if (c.lastMessage?.type === 'image') preview = '📷 Photo';
-  else if (c.lastMessage?.type === 'file') preview = '📄 File';
-  else if (c.lastMessage?.type === 'voice') preview = '🎤 Voice message';
+  if (c.lastMessage?.type === 'image') preview = '📷';
+  else if (c.lastMessage?.type === 'file') preview = '📄';
+  else if (c.lastMessage?.type === 'voice') preview = '🎤';
 
   return (
     <TouchableOpacity style={s.row} onPress={onPress} activeOpacity={0.6}>
@@ -208,15 +238,15 @@ function ConversationRow({
       {/* Info */}
       <View style={s.rowInfo}>
         <View style={s.rowTop}>
-          <Text style={[s.rowName, hasUnread && s.rowNameUnread]} numberOfLines={1}>
-            {c.otherUser?.name || 'Unknown User'}
+          <Text style={[s.rowName, { color: colors.text }, hasUnread && s.rowNameUnread]} numberOfLines={1}>
+            {c.otherUser?.name || '?'}
           </Text>
-          <Text style={[s.rowTime, hasUnread && s.rowTimeUnread]}>
+          <Text style={[s.rowTime, { color: colors.textTertiary }, hasUnread && s.rowTimeUnread]}>
             {formatRelativeTime(c.lastMessage?.createdAt)}
           </Text>
         </View>
         <View style={s.rowBottom}>
-          <Text style={[s.rowPreview, hasUnread && s.rowPreviewUnread]} numberOfLines={1}>
+          <Text style={[s.rowPreview, { color: colors.textSecondary }, hasUnread && { color: colors.text, fontWeight: '500' }]} numberOfLines={1}>
             {isMine && !isSystem ? 'You: ' : ''}{preview}
           </Text>
           {hasUnread && (

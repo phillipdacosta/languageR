@@ -1,20 +1,22 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 
 import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../contexts/ThemeContext';
 import LoginScreen from '../screens/LoginScreen';
 import TabNavigator from './TabNavigator';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
 
 const Stack = createNativeStackNavigator();
 
 export default function RootNavigator() {
   const { user, loading } = useAuth();
+  const { colors } = useTheme();
 
   if (loading) {
     return (
-      <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#222" />
+      <View style={[styles.loader, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.text} />
       </View>
     );
   }
@@ -35,10 +37,5 @@ export default function RootNavigator() {
 }
 
 const styles = StyleSheet.create({
-  loader: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-  },
+  loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 });

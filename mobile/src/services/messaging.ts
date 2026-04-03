@@ -85,7 +85,7 @@ export const messagingService = {
     }
   },
 
-  async sendMessage(receiverId: string, content: string, type = 'text', replyTo?: { messageId: string }): Promise<Message | null> {
+  async sendMessage(receiverId: string, content: string, type = 'text', replyTo?: { messageId: string; content?: string; senderId?: string; senderName?: string; type?: string }): Promise<Message | null> {
     try {
       const body: any = { content, type };
       if (replyTo) body.replyTo = replyTo;
@@ -102,6 +102,39 @@ export const messagingService = {
       await api.put(`/messaging/conversations/${otherUserId}/read`);
     } catch (err: any) {
       console.warn('[Messaging] markRead failed:', err?.message || err);
+    }
+  },
+
+  async addReaction(messageId: string, emoji: string): Promise<Message | null> {
+    try {
+      const data = await api.post<any>(`/messaging/messages/${messageId}/reactions`, { emoji });
+      return data.message || data;
+    } catch (err: any) {
+      console.warn('[Messaging] addReaction failed:', err?.message || err);
+      return null;
+    }
+  },
+
+  async deleteMessage(messageId: string): Promise<boolean> {
+    try {
+      await api.delete(`/messaging/messages/${messageId}`);
+      return true;
+    } catch (err: any) {
+      console.warn('[Messaging] deleteMessage failed:', err?.message || err);
+      return false;
+    }
+  },
+
+  async uploadFile(receiverId: string, uri: string, fileName: string, mimeType: string, messageType: 'image' | 'file' | 'voice'): Promise<Message | null> {
+    try {
+      const formData = new FormData();
+      formData.append('file', { uri, name: fileName, type: mimeType } as any);
+      formData.append('messageType', messageType);
+      const data = await api.upload<any>(`/messaging/conversations/${receiverId}/upload`, formData);
+      return data.message || data;
+    } catch (err: any) {
+      console.warn('[Messaging] uploadFile failed:', err?.message || err);
+      return null;
     }
   },
 };
