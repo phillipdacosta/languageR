@@ -366,6 +366,28 @@ export default function CalendarScreen() {
 
   useEffect(() => { if (isFocused && !loading) fetchData(); }, [isFocused]);
 
+  useEffect(() => {
+    if (!isFocused) return;
+    const parent = navigation.getParent?.();
+    if (parent) {
+      parent.setOptions({
+        tabBarStyle: {
+          display: 'flex',
+          backgroundColor: colors.tabBar,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: colors.tabBarBorder,
+          height: 88,
+          paddingTop: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 8,
+          elevation: 5,
+        },
+      });
+    }
+  }, [isFocused, colors]);
+
   useEffect(() => { if (gcalStatus.connected) loadGcalEvents(); }, [weekStart, gcalStatus.connected]);
 
   const onRefresh = useCallback(async () => { setRefreshing(true); await fetchData(); setRefreshing(false); }, [fetchData]);

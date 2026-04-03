@@ -39,16 +39,7 @@ export default function EventDetailScreen() {
     if (parent) {
       parent.setOptions({ tabBarStyle: { display: 'none' } });
       return () => {
-        parent.setOptions({
-          tabBarStyle: {
-            display: 'flex',
-            backgroundColor: colors.tabBar,
-            borderTopWidth: StyleSheet.hairlineWidth,
-            borderTopColor: colors.tabBarBorder,
-            height: 88, paddingTop: 8,
-            shadowColor: '#000', shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 5,
-          },
-        });
+        parent.setOptions({ tabBarStyle: undefined });
       };
     }
   }, [navigation, colors]);
