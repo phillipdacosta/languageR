@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useLayoutEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   UIManager,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 import { messagingService, Conversation } from '../services/messaging';
@@ -34,6 +35,26 @@ export default function MessagesScreen() {
   const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Conversation | null>(null);
+  const navigation = useNavigation();
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      tabBarStyle: selected
+        ? { display: 'none' as const }
+        : {
+            backgroundColor: '#fff',
+            borderTopWidth: StyleSheet.hairlineWidth,
+            borderTopColor: '#e5e5e5',
+            height: 88,
+            paddingTop: 8,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: -2 },
+            shadowOpacity: 0.05,
+            shadowRadius: 8,
+            elevation: 5,
+          },
+    });
+  }, [selected, navigation]);
 
   const fetchConversations = useCallback(async () => {
     const data = await messagingService.getConversations();
@@ -88,6 +109,8 @@ export default function MessagesScreen() {
       <ChatScreen
         conversation={selected}
         currentUserId={userId}
+        currentUserName={user?.name || user?.firstName || 'You'}
+        currentUserPicture={user?.picture}
         goBack={handleBack}
       />
     );

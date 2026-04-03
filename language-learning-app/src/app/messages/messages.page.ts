@@ -3311,7 +3311,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   async openFile(fileUrl: string, fileType?: string, fileName?: string) {
     // Check if it's an image
     const isImage = fileType?.startsWith('image/') || 
-                    fileUrl.match(/\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?|$)/i);
+                    fileUrl.match(/\.(jpg|jpeg|png|gif|webp|bmp|svg|heic|heif)(\?|$)/i);
     
     if (isImage) {
       // Open image in modal viewer

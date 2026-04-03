@@ -53,8 +53,14 @@
       <key>NSAllowsLocalNetworking</key>
       <true/>
     </dict>
+    <key>NSCameraUsageDescription</key>
+    <string>Barnabi needs access to your camera to take photos.</string>
     <key>NSFaceIDUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your Face ID biometric data.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Barnabi needs access to your microphone to record voice messages.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Barnabi needs access to your photos to share images.</string>
     <key>RCTNewArchEnabled</key>
     <true/>
     <key>UILaunchStoryboardName</key>
