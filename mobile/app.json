@@ -50,7 +50,9 @@
         {
           "microphonePermission": "Barnabi needs access to your microphone to record voice messages."
         }
-      ]
+      ],
+      "expo-web-browser",
+      "expo-video"
     ]
   }
 }

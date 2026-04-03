@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { StatusBar } from 'expo-status-bar';
 import { Asset } from 'expo-asset';
 
+import './src/i18n';
 import { AuthProvider } from './src/hooks/useAuth';
+import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import RootNavigator from './src/navigation/RootNavigator';
 
 const preloadAssets = [
@@ -32,13 +34,26 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <KeyboardProvider>
-        <AuthProvider>
-          <NavigationContainer>
-            <RootNavigator />
-            <StatusBar style="dark" />
-          </NavigationContainer>
-        </AuthProvider>
+        <ThemeProvider>
+          <AppInner />
+        </ThemeProvider>
       </KeyboardProvider>
     </SafeAreaProvider>
+  );
+}
+
+function AppInner() {
+  const { colors, isDark } = useTheme();
+  const navTheme = isDark
+    ? { ...DarkTheme, colors: { ...DarkTheme.colors, background: colors.background, card: colors.card, text: colors.text, border: colors.border, primary: colors.accent } }
+    : { ...DefaultTheme, colors: { ...DefaultTheme.colors, background: colors.background, card: colors.card, text: colors.text, border: colors.border, primary: colors.accent } };
+
+  return (
+    <AuthProvider>
+      <NavigationContainer theme={navTheme}>
+        <RootNavigator />
+        <StatusBar style={isDark ? 'light' : 'dark'} />
+      </NavigationContainer>
+    </AuthProvider>
   );
 }

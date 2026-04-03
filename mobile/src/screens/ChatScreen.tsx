@@ -14,17 +14,22 @@ import {
   Alert,
   Clipboard,
   Animated,
+  Easing,
   ScrollView,
   Linking,
   ActionSheetIOS,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import * as ImagePicker from 'expo-image-picker';
+import { useTranslation } from 'react-i18next';
+import { useTheme } from '../contexts/ThemeContext';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { messagingService, Conversation, Message } from '../services/messaging';
 
@@ -60,6 +65,7 @@ const isEmojiOnly = (text: string): boolean => {
 
 export default function ChatScreen({ conversation, currentUserId, currentUserName: propName, currentUserPicture, goBack }: Props) {
   const insets = useSafeAreaInsets();
+  const { colors: C, isDark } = useTheme();
   const otherUser = conversation.otherUser;
   const otherUserId = otherUser?.auth0Id || otherUser?.id || '';
 
@@ -83,8 +89,10 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
   const contextAnim = useRef(new Animated.Value(0)).current;
   const emojiItemAnims = useRef(Array.from({ length: QUICK_REACTIONS.length + 1 }, () => new Animated.Value(0))).current;
   const msgPreviewAnim = useRef(new Animated.Value(0)).current;
+  const msgSlideAnim = useRef(new Animated.Value(0)).current;
   const actionCardAnim = useRef(new Animated.Value(0)).current;
   const drawerAnim = useRef(new Animated.Value(0)).current;
+  const pressOriginY = useRef(0);
 
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [imageViewerUrl, setImageViewerUrl] = useState<string | null>(null);
@@ -178,14 +186,19 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
     setSending(false);
   }, [text, sending, conversation.conversationId, currentUserId, otherUserId, replyTo, otherUser?.name]);
 
-  const openContextMenu = useCallback((msg: Message) => {
+  const openContextMenu = useCallback((msg: Message, pageY: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const screenH = Dimensions.get('window').height;
+    const originOffset = pageY - screenH * 0.45;
+    pressOriginY.current = originOffset;
+
     setContextMsg(msg);
     setContextVisible(true);
 
     contextAnim.setValue(0);
     emojiItemAnims.forEach(a => a.setValue(0));
     msgPreviewAnim.setValue(0);
+    msgSlideAnim.setValue(originOffset);
     actionCardAnim.setValue(0);
 
     Animated.timing(contextAnim, { toValue: 1, duration: 250, useNativeDriver: true }).start();
@@ -194,30 +207,31 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
       emojiItemAnims.map(a => Animated.spring(a, { toValue: 1, useNativeDriver: true, tension: 180, friction: 10 })),
     ).start();
 
-    Animated.sequence([
-      Animated.delay(80),
-      Animated.spring(msgPreviewAnim, { toValue: 1, useNativeDriver: true, tension: 100, friction: 10 }),
+    Animated.parallel([
+      Animated.spring(msgPreviewAnim, { toValue: 1, useNativeDriver: true, tension: 120, friction: 12 }),
+      Animated.spring(msgSlideAnim, { toValue: 0, useNativeDriver: true, tension: 80, friction: 12 }),
     ]).start();
 
     Animated.sequence([
-      Animated.delay(140),
+      Animated.delay(120),
       Animated.spring(actionCardAnim, { toValue: 1, useNativeDriver: true, tension: 100, friction: 10 }),
     ]).start();
-  }, [contextAnim, emojiItemAnims, msgPreviewAnim, actionCardAnim]);
+  }, [contextAnim, emojiItemAnims, msgPreviewAnim, msgSlideAnim, actionCardAnim]);
 
   const closeContextMenu = useCallback(() => {
+    const closeDuration = 220;
     Animated.parallel([
-      Animated.timing(contextAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
-      Animated.timing(msgPreviewAnim, { toValue: 0, duration: 140, useNativeDriver: true }),
-      Animated.timing(actionCardAnim, { toValue: 0, duration: 140, useNativeDriver: true }),
-      ...emojiItemAnims.map(a => Animated.timing(a, { toValue: 0, duration: 100, useNativeDriver: true })),
+      Animated.timing(contextAnim, { toValue: 0, duration: closeDuration, useNativeDriver: true }),
+      Animated.timing(msgPreviewAnim, { toValue: 0, duration: closeDuration - 20, useNativeDriver: true }),
+      Animated.timing(msgSlideAnim, { toValue: pressOriginY.current, duration: closeDuration, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.timing(actionCardAnim, { toValue: 0, duration: closeDuration - 60, useNativeDriver: true }),
+      ...emojiItemAnims.map(a => Animated.timing(a, { toValue: 0, duration: 80, useNativeDriver: true })),
     ]).start(() => {
       setContextVisible(false);
-      setContextMsg(null);
       setEmojiDrawerOpen(false);
       drawerAnim.setValue(0);
     });
-  }, [contextAnim, emojiItemAnims, msgPreviewAnim, actionCardAnim, drawerAnim]);
+  }, [contextAnim, emojiItemAnims, msgPreviewAnim, msgSlideAnim, actionCardAnim, drawerAnim]);
 
   const toggleEmojiDrawer = useCallback(() => {
     if (emojiDrawerOpen) {
@@ -432,13 +446,13 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
       <View>
         {showDate && (
           <View style={s.dateSep}>
-            <Text style={s.dateSepText}>{formatDateSep(item.createdAt)}</Text>
+            <Text style={[s.dateSepText, { color: C.textSecondary }]}>{formatDateSep(item.createdAt)}</Text>
           </View>
         )}
 
         {isSystem ? (
           <View style={s.systemRow}>
-            <Text style={s.systemText}>{item.content}</Text>
+            <Text style={[s.systemText, { color: C.textSecondary }]}>{item.content}</Text>
           </View>
         ) : (
           <Animated.View style={[
@@ -451,24 +465,24 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
                 {pic ? (
                   <Image source={{ uri: pic }} style={s.senderAvatar} />
                 ) : (
-                  <View style={[s.senderAvatar, s.senderAvatarFB]}>
-                    <Text style={s.senderAvatarLetter}>{getSenderInitial(item)}</Text>
+                  <View style={[s.senderAvatar, s.senderAvatarFB, { backgroundColor: isDark ? '#3a3a3c' : '#e8e8e8' }]}>
+                    <Text style={[s.senderAvatarLetter, { color: isDark ? '#ccc' : '#717171' }]}>{getSenderInitial(item)}</Text>
                   </View>
                 )}
-                <Text style={s.senderName}>{getSenderName(item)}</Text>
-                <Text style={s.senderDot}> · </Text>
-                <Text style={s.senderTime}>{formatTime(item.createdAt)}</Text>
+                <Text style={[s.senderName, { color: C.text }]}>{getSenderName(item)}</Text>
+                <Text style={[s.senderDot, { color: C.textTertiary }]}> · </Text>
+                <Text style={[s.senderTime, { color: C.textSecondary }]}>{formatTime(item.createdAt)}</Text>
               </View>
             )}
 
             <Pressable
-              onLongPress={() => openContextMenu(item)}
+              onLongPress={(e) => openContextMenu(item, e.nativeEvent.pageY)}
               delayLongPress={350}
               style={({ pressed }) => [s.msgBody, isFirstInGroup ? s.msgBodyFirst : s.msgBodyCont, pressed && { opacity: 0.7 }]}
             >
               {item.replyTo && (
                 <TouchableOpacity
-                  style={s.replyPreview}
+                  style={[s.replyPreview, { backgroundColor: isDark ? '#1c1c1e' : '#f5f5f5' }]}
                   onPress={() => item.replyTo?.messageId && scrollToMessage(item.replyTo.messageId)}
                   activeOpacity={0.7}
                 >
@@ -477,7 +491,7 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
                     <Text style={s.replySender}>
                       {item.replyTo.senderId === currentUserId ? 'You' : (item.replyTo.senderName || otherUser?.name || 'User')}
                     </Text>
-                    <Text style={s.replyText} numberOfLines={1}>
+                    <Text style={[s.replyText, { color: C.textSecondary }]} numberOfLines={1}>
                       {item.replyTo.type === 'image' ? '📷 Photo' : item.replyTo.type === 'voice' ? '🎤 Voice' : item.replyTo.content}
                     </Text>
                   </View>
@@ -488,7 +502,7 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
                 emojiOnly ? (
                   <Text style={s.emojiOnlyText}>{item.content}</Text>
                 ) : (
-                  <Text style={s.msgText}>{item.content}</Text>
+                  <Text style={[s.msgText, { color: C.text }]}>{item.content}</Text>
                 )
               )}
 
@@ -499,36 +513,36 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
               )}
 
               {item.type === 'file' && (
-                <TouchableOpacity style={s.fileRow} onPress={() => item.fileUrl && Linking.openURL(item.fileUrl)} activeOpacity={0.7}>
+                <TouchableOpacity style={[s.fileRow, { backgroundColor: isDark ? '#1c1c1e' : '#f7f7f7' }]} onPress={() => item.fileUrl && Linking.openURL(item.fileUrl)} activeOpacity={0.7}>
                   <View style={s.fileIcon}>
                     <Ionicons name="document-text" size={16} color="#4298d3" />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={s.fileName} numberOfLines={1}>{item.fileName || 'File'}</Text>
-                    {item.fileSize != null && <Text style={s.fileSize}>{(item.fileSize / 1024).toFixed(0)} KB</Text>}
+                    <Text style={[s.fileName, { color: C.text }]} numberOfLines={1}>{item.fileName || 'File'}</Text>
+                    {item.fileSize != null && <Text style={[s.fileSize, { color: C.textSecondary }]}>{(item.fileSize / 1024).toFixed(0)} KB</Text>}
                   </View>
-                  <Ionicons name="arrow-down-circle-outline" size={20} color="#b0b0b0" />
+                  <Ionicons name="arrow-down-circle-outline" size={20} color={C.textTertiary} />
                 </TouchableOpacity>
               )}
 
               {item.type === 'voice' && (
-                <TouchableOpacity style={s.voiceRow} onPress={() => playAudio(item)} activeOpacity={0.7}>
+                <TouchableOpacity style={[s.voiceRow, { backgroundColor: isDark ? '#1c1c1e' : '#f7f7f7' }]} onPress={() => playAudio(item)} activeOpacity={0.7}>
                   <View style={s.playBtn}>
                     <Ionicons name={isPlaying ? 'pause' : 'play'} size={14} color="#4298d3" />
                   </View>
                   <View style={s.voiceWave}>
                     {[0.3, 0.6, 1, 0.5, 0.8, 0.4, 0.9, 0.3, 0.7, 0.5, 0.8, 0.4, 0.6, 0.3].map((h, i) => (
-                      <View key={i} style={[s.waveBar, { height: h * 16 }]} />
+                      <View key={i} style={[s.waveBar, { height: h * 16, backgroundColor: isDark ? 'rgba(66,152,211,0.5)' : 'rgba(66,152,211,0.3)' }]} />
                     ))}
                   </View>
-                  <Text style={s.voiceDur}>
+                  <Text style={[s.voiceDur, { color: C.textSecondary }]}>
                     {item.duration ? `${Math.floor(item.duration / 60)}:${String(item.duration % 60).padStart(2, '0')}` : '0:00'}
                   </Text>
                 </TouchableOpacity>
               )}
 
               {!isFirstInGroup && !emojiOnly && (
-                <Text style={s.inlineTime}>{formatTime(item.createdAt)}</Text>
+                <Text style={[s.inlineTime, { color: C.textTertiary }]}>{formatTime(item.createdAt)}</Text>
               )}
             </Pressable>
 
@@ -537,8 +551,8 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
                 {reactions.map((r, i) => (
                   <TouchableOpacity
                     key={`${r.emoji}-${r.userId}-${i}`}
-                    style={[s.reactionPill, r.userId === currentUserId && s.reactionPillMine]}
-                    onPress={() => openContextMenu(item)}
+                    style={[s.reactionPill, { backgroundColor: isDark ? '#2a2a2a' : '#e8e8e8' }, r.userId === currentUserId && { backgroundColor: isDark ? '#1a3050' : '#d4e8f5' }]}
+                    onPress={() => openContextMenu(item, Dimensions.get('window').height * 0.45)}
                     activeOpacity={0.7}
                   >
                     <Text style={s.reactionEmoji}>{r.emoji}</Text>
@@ -555,12 +569,13 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
   const isMineCtx = contextMsg ? contextMsg.senderId === currentUserId : false;
 
   return (
-    <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
-      <View style={s.header}>
+    <View style={{ flex: 1, backgroundColor: C.background }}>
+    <SafeAreaView style={[s.safe, { backgroundColor: C.background }]} edges={['top', 'bottom']}>
+      <View style={[s.header, { backgroundColor: C.background, borderBottomColor: C.border }]}>
         <TouchableOpacity onPress={goBack} style={s.backBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-          <Ionicons name="arrow-back" size={24} color="#111" />
+          <Ionicons name="chevron-back" size={24} color={C.text} />
         </TouchableOpacity>
-        <Text style={s.headerTitle} numberOfLines={1}>{otherUser?.name || 'Chat'}</Text>
+        <Text style={[s.headerTitle, { color: C.text }]} numberOfLines={1}>{otherUser?.name || 'Chat'}</Text>
         <View style={s.headerRight} />
       </View>
 
@@ -569,14 +584,14 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
         behavior="padding"
         keyboardVerticalOffset={insets.bottom}
       >
-        <View style={s.chatBody}>
+        <View style={[s.chatBody, { backgroundColor: C.background }]}>
           {loading ? (
-            <View style={s.loadingWrap}><ActivityIndicator size="large" color="#c0c0c0" /></View>
+            <View style={s.loadingWrap}><ActivityIndicator size="large" color={C.textTertiary} /></View>
           ) : messages.length === 0 ? (
             <View style={s.emptyWrap}>
-              <Ionicons name="chatbubble-ellipses-outline" size={40} color="#d0d0d0" />
-              <Text style={s.emptyTitle}>No messages yet</Text>
-              <Text style={s.emptySub}>Start a conversation with {otherUser?.name?.split(' ')[0] || 'them'}.</Text>
+              <Ionicons name="chatbubble-ellipses-outline" size={40} color={C.textTertiary} />
+              <Text style={[s.emptyTitle, { color: C.text }]}>No messages yet</Text>
+              <Text style={[s.emptySub, { color: C.textSecondary }]}>Start a conversation with {otherUser?.name?.split(' ')[0] || 'them'}.</Text>
             </View>
           ) : (
             <FlatList
@@ -593,218 +608,85 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
               onScrollBeginDrag={() => { shouldAutoScroll.current = false; }}
               maintainVisibleContentPosition={{ minIndexForVisible: 1 }}
               ListFooterComponent={loadingOlder ? (
-                <View style={s.olderLoader}><ActivityIndicator size="small" color="#c0c0c0" /></View>
+                <View style={s.olderLoader}><ActivityIndicator size="small" color={C.textTertiary} /></View>
               ) : hasMore && messages.length >= 50 ? (
                 <TouchableOpacity style={s.olderLoader} onPress={loadOlder}>
-                  <Text style={s.loadOlderBtn}>Load earlier messages</Text>
+                  <Text style={[s.loadOlderBtn, { color: '#4298d3' }]}>Load earlier messages</Text>
                 </TouchableOpacity>
               ) : null}
             />
           )}
         </View>
 
-        <View style={s.bottomArea}>
+        <View style={[s.bottomArea, { backgroundColor: C.background }]}>
           {uploading && (
-            <View style={s.uploadBar}>
+            <View style={[s.uploadBar, { backgroundColor: C.card }]}>
               <ActivityIndicator size="small" color="#4298d3" />
-              <Text style={s.uploadText}>Sending...</Text>
+              <Text style={[s.uploadText, { color: C.textSecondary }]}>Sending...</Text>
             </View>
           )}
 
           {replyTo && (
-            <View style={s.replyBar}>
+            <View style={[s.replyBar, { backgroundColor: C.card }]}>
               <View style={s.replyBarAccent} />
               <View style={s.replyBarContent}>
                 <Text style={s.replyBarLabel}>
                   Replying to {replyTo.senderId === currentUserId ? getSenderName(replyTo) : formatDisplayName(otherUser?.name || 'User')}
                 </Text>
-                <Text style={s.replyBarText} numberOfLines={1}>{getReplyPreview(replyTo)}</Text>
+                <Text style={[s.replyBarText, { color: C.textSecondary }]} numberOfLines={1}>{getReplyPreview(replyTo)}</Text>
               </View>
               <TouchableOpacity onPress={() => setReplyTo(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="close" size={18} color="#999" />
+                <Ionicons name="close" size={18} color={C.textSecondary} />
               </TouchableOpacity>
             </View>
           )}
 
           {otherUserTime !== '' && (
-            <View style={s.theirTimeRow}>
-              <Text style={s.theirTimeText}>It's {otherUserTime.toLowerCase()} for them</Text>
+            <View style={[s.theirTimeRow, { backgroundColor: C.background }]}>
+              <Text style={[s.theirTimeText, { color: C.textTertiary }]}>It's {otherUserTime.toLowerCase()} for them</Text>
             </View>
           )}
 
           {isRecording ? (
-            <View style={s.inputBar}>
+            <View style={[s.inputBar, { backgroundColor: C.background, borderTopColor: C.border }]}>
               <View style={s.recordingPulse} />
-              <Text style={s.recordingLabel}>{Math.floor(recordingTime / 60)}:{String(recordingTime % 60).padStart(2, '0')}</Text>
+              <Text style={[s.recordingLabel, { color: C.text }]}>{Math.floor(recordingTime / 60)}:{String(recordingTime % 60).padStart(2, '0')}</Text>
               <View style={{ flex: 1 }} />
               <TouchableOpacity onPress={() => { if (recordingTimerRef.current) clearInterval(recordingTimerRef.current); setIsRecording(false); recordingRef.current?.stopAndUnloadAsync(); recordingRef.current = null; }}>
-                <Text style={s.recordingCancelText}>Cancel</Text>
+                <Text style={[s.recordingCancelText, { color: C.textSecondary }]}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={s.sendBtnActive} onPress={stopRecording} activeOpacity={0.7}>
-                <Ionicons name="send" size={16} color="#fff" />
+              <TouchableOpacity style={[s.sendBtnActive, { backgroundColor: C.accent }]} onPress={stopRecording} activeOpacity={0.7}>
+                <Ionicons name="send" size={16} color={C.background} />
               </TouchableOpacity>
             </View>
           ) : (
-            <View style={s.inputBar}>
+            <View style={[s.inputBar, { backgroundColor: C.background, borderTopColor: C.border }]}>
               <TouchableOpacity onPress={pickAttachment} activeOpacity={0.6} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                <Ionicons name="attach" size={24} color="#717171" style={{ transform: [{ rotate: '-45deg' }] }} />
+                <Ionicons name="attach" size={24} color={C.textSecondary} style={{ transform: [{ rotate: '-45deg' }] }} />
               </TouchableOpacity>
               <TextInput
                 ref={inputRef}
-                style={s.textInput}
+                style={[s.textInput, { color: C.text, backgroundColor: isDark ? '#1c1c1e' : '#f2f2f7' }]}
                 placeholder="Your message"
-                placeholderTextColor="#b0b0b0"
+                placeholderTextColor={C.textTertiary}
                 value={text}
                 onChangeText={setText}
                 multiline
                 maxLength={2000}
               />
               {text.trim() ? (
-                <TouchableOpacity style={s.sendBtnActive} onPress={handleSend} disabled={sending} activeOpacity={0.7}>
-                  {sending ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="send" size={16} color="#fff" />}
+                <TouchableOpacity style={[s.sendBtnActive, { backgroundColor: C.accent }]} onPress={handleSend} disabled={sending} activeOpacity={0.7}>
+                  {sending ? <ActivityIndicator size="small" color={C.background} /> : <Ionicons name="send" size={16} color={C.background} />}
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity onPress={startRecording} activeOpacity={0.6} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                  <Ionicons name="mic-outline" size={24} color="#717171" />
+                  <Ionicons name="mic-outline" size={24} color={C.textSecondary} />
                 </TouchableOpacity>
               )}
             </View>
           )}
         </View>
       </KeyboardAvoidingView>
-
-      <Modal transparent visible={contextVisible} animationType="none" statusBarTranslucent>
-        <View style={{ flex: 1 }}>
-          <Animated.View style={[StyleSheet.absoluteFill, { opacity: contextAnim }]}>
-            <BlurView tint="dark" intensity={30} style={{ flex: 1 }} />
-          </Animated.View>
-          <Pressable style={StyleSheet.absoluteFill} onPress={closeContextMenu} />
-          <View style={s.ctxCenter} pointerEvents="box-none">
-            <View style={s.ctxSheet}>
-              <View style={s.ctxEmojiCard}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.ctxEmojiScroll}>
-                  {QUICK_REACTIONS.map((emoji, index) => {
-                    const hasIt = contextMsg && (contextMsg.reactions || []).some(
-                      r => r.userId === currentUserId && r.emoji === emoji,
-                    );
-                    return (
-                      <Animated.View
-                        key={emoji}
-                        style={{
-                          opacity: emojiItemAnims[index],
-                          transform: [
-                            { scale: emojiItemAnims[index].interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) },
-                            { translateY: emojiItemAnims[index].interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) },
-                          ],
-                        }}
-                      >
-                        <TouchableOpacity
-                          style={[s.ctxEmojiBtn, hasIt && s.ctxEmojiBtnActive]}
-                          onPress={() => handleReaction(emoji)}
-                          activeOpacity={0.6}
-                        >
-                          <Text style={s.ctxEmoji}>{emoji}</Text>
-                        </TouchableOpacity>
-                      </Animated.View>
-                    );
-                  })}
-                  <Animated.View style={{
-                    opacity: emojiItemAnims[QUICK_REACTIONS.length],
-                    transform: [
-                      { scale: emojiItemAnims[QUICK_REACTIONS.length].interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) },
-                    ],
-                  }}>
-                    <TouchableOpacity style={s.ctxEmojiPlusBtn} onPress={toggleEmojiDrawer} activeOpacity={0.6}>
-                      <Ionicons name={emojiDrawerOpen ? 'close' : 'add'} size={22} color="#888" />
-                    </TouchableOpacity>
-                  </Animated.View>
-                </ScrollView>
-
-                {emojiDrawerOpen && (
-                  <Animated.View style={{
-                    height: drawerAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 240] }),
-                    overflow: 'hidden' as const,
-                  }}>
-                    <View style={s.ctxDrawerDivider} />
-                    <ScrollView contentContainerStyle={s.ctxDrawerGrid} showsVerticalScrollIndicator={false}>
-                      {EXTENDED_EMOJIS.map((emoji, i) => (
-                        <TouchableOpacity
-                          key={`${emoji}-${i}`}
-                          style={s.ctxDrawerCell}
-                          onPress={() => handleReaction(emoji)}
-                          activeOpacity={0.6}
-                        >
-                          <Text style={s.ctxDrawerEmoji}>{emoji}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-                  </Animated.View>
-                )}
-              </View>
-
-              <Animated.View style={[s.ctxMsgPreview, {
-                opacity: msgPreviewAnim,
-                transform: [
-                  { translateY: msgPreviewAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) },
-                  { scale: msgPreviewAnim.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1] }) },
-                ],
-              }]}>
-                {contextMsg?.type === 'text' && (
-                  <Text style={s.ctxMsgText} numberOfLines={6}>{contextMsg.content}</Text>
-                )}
-                {contextMsg?.type === 'image' && contextMsg.fileUrl && (
-                  <Image source={{ uri: contextMsg.fileUrl }} style={s.ctxMsgImage} resizeMode="cover" />
-                )}
-                {contextMsg?.type === 'voice' && (
-                  <View style={s.ctxMsgMeta}>
-                    <Ionicons name="mic" size={18} color="#4298d3" />
-                    <Text style={s.ctxMsgMetaText}>Voice message</Text>
-                  </View>
-                )}
-                {contextMsg?.type === 'file' && (
-                  <View style={s.ctxMsgMeta}>
-                    <Ionicons name="document-text" size={18} color="#4298d3" />
-                    <Text style={s.ctxMsgMetaText} numberOfLines={1}>{contextMsg.fileName || 'File'}</Text>
-                  </View>
-                )}
-                {contextMsg && (
-                  <Text style={s.ctxMsgTime}>{formatTime(contextMsg.createdAt)}</Text>
-                )}
-              </Animated.View>
-
-              <Animated.View style={[s.ctxActionCard, {
-                opacity: actionCardAnim,
-                transform: [
-                  { translateY: actionCardAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) },
-                ],
-              }]}>
-                <TouchableOpacity style={s.ctxAction} onPress={handleReply} activeOpacity={0.6}>
-                  <Text style={s.ctxActionText}>Reply</Text>
-                  <Ionicons name="arrow-undo-outline" size={20} color="#888" />
-                </TouchableOpacity>
-                {contextMsg?.type === 'text' && (
-                  <>
-                    <View style={s.ctxActionDivider} />
-                    <TouchableOpacity style={s.ctxAction} onPress={handleCopy} activeOpacity={0.6}>
-                      <Text style={s.ctxActionText}>Copy</Text>
-                      <Ionicons name="copy-outline" size={20} color="#888" />
-                    </TouchableOpacity>
-                  </>
-                )}
-                {isMineCtx && (
-                  <>
-                    <View style={s.ctxActionDivider} />
-                    <TouchableOpacity style={s.ctxAction} onPress={handleDelete} activeOpacity={0.6}>
-                      <Text style={[s.ctxActionText, { color: '#ff3b30' }]}>Delete</Text>
-                      <Ionicons name="trash-outline" size={20} color="#ff3b30" />
-                    </TouchableOpacity>
-                  </>
-                )}
-              </Animated.View>
-            </View>
-          </View>
-        </View>
-      </Modal>
 
       <Modal visible={!!imageViewerUrl} transparent animationType="fade" onRequestClose={() => setImageViewerUrl(null)}>
         <View style={s.imgViewerBg}>
@@ -818,6 +700,148 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
         </View>
       </Modal>
     </SafeAreaView>
+
+    <View style={StyleSheet.absoluteFill} pointerEvents={contextVisible ? 'auto' : 'none'}>
+      <Animated.View style={[StyleSheet.absoluteFill, { opacity: contextAnim }]}>
+        <BlurView tint="dark" intensity={contextVisible ? 30 : 0} style={StyleSheet.absoluteFill} />
+      </Animated.View>
+      {contextVisible && <Pressable style={StyleSheet.absoluteFill} onPress={closeContextMenu} />}
+      <Animated.View style={[s.ctxCenter, { opacity: contextAnim }]} pointerEvents={contextVisible ? 'box-none' : 'none'}>
+        <View style={s.ctxSheet}>
+          <Animated.View style={[s.ctxEmojiCard, {
+            opacity: emojiItemAnims[0],
+            backgroundColor: isDark ? '#2c2c2e' : '#fff',
+          }]}>
+            <View style={s.ctxEmojiRow}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.ctxEmojiScroll} style={{ flex: 1 }}>
+                {QUICK_REACTIONS.map((emoji, index) => {
+                  const hasIt = contextMsg && (contextMsg.reactions || []).some(
+                    r => r.userId === currentUserId && r.emoji === emoji,
+                  );
+                  return (
+                    <Animated.View
+                      key={emoji}
+                      style={{
+                        opacity: emojiItemAnims[index],
+                        transform: [
+                          { scale: emojiItemAnims[index].interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) },
+                          { translateY: emojiItemAnims[index].interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) },
+                        ],
+                      }}
+                    >
+                      <TouchableOpacity
+                        style={[s.ctxEmojiBtn, hasIt && s.ctxEmojiBtnActive]}
+                        onPress={() => handleReaction(emoji)}
+                        activeOpacity={0.6}
+                      >
+                        <Text style={s.ctxEmoji}>{emoji}</Text>
+                      </TouchableOpacity>
+                    </Animated.View>
+                  );
+                })}
+              </ScrollView>
+              <View style={[s.ctxEmojiPlusDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]} />
+              <Animated.View style={{
+                opacity: emojiItemAnims[QUICK_REACTIONS.length],
+                transform: [
+                  { scale: emojiItemAnims[QUICK_REACTIONS.length].interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) },
+                ],
+              }}>
+                <TouchableOpacity style={[s.ctxEmojiPlusBtn, { backgroundColor: isDark ? '#3a3a3c' : '#f0f0f0' }]} onPress={toggleEmojiDrawer} activeOpacity={0.6}>
+                  <Ionicons name={emojiDrawerOpen ? 'close' : 'add'} size={20} color={isDark ? '#ccc' : '#888'} />
+                </TouchableOpacity>
+              </Animated.View>
+            </View>
+
+            {emojiDrawerOpen && (
+              <Animated.View style={{
+                height: drawerAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 240] }),
+                overflow: 'hidden' as const,
+              }}>
+                <View style={[s.ctxDrawerDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]} />
+                <ScrollView contentContainerStyle={s.ctxDrawerGrid} showsVerticalScrollIndicator={false}>
+                  {EXTENDED_EMOJIS.map((emoji, i) => (
+                    <TouchableOpacity
+                      key={`${emoji}-${i}`}
+                      style={s.ctxDrawerCell}
+                      onPress={() => handleReaction(emoji)}
+                      activeOpacity={0.6}
+                    >
+                      <Text style={s.ctxDrawerEmoji}>{emoji}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </Animated.View>
+            )}
+          </Animated.View>
+
+          <Animated.View style={[s.ctxMsgWrap, {
+            opacity: msgPreviewAnim,
+            transform: [
+              { translateY: msgSlideAnim },
+              { scale: msgPreviewAnim.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) },
+            ],
+          }]}>
+            <View style={[s.ctxMsgPreview, { backgroundColor: isDark ? '#2c2c2e' : '#fff' }]}>
+              {contextMsg?.type === 'text' && (
+                <Text style={[s.ctxMsgText, { color: C.text }]} numberOfLines={6}>{contextMsg.content}</Text>
+              )}
+              {contextMsg?.type === 'image' && contextMsg.fileUrl && (
+                <Image source={{ uri: contextMsg.fileUrl }} style={s.ctxMsgImage} resizeMode="cover" />
+              )}
+              {contextMsg?.type === 'voice' && (
+                <View style={s.ctxMsgMeta}>
+                  <Ionicons name="mic" size={18} color="#4298d3" />
+                  <Text style={[s.ctxMsgMetaText, { color: C.textSecondary }]}>Voice message</Text>
+                </View>
+              )}
+              {contextMsg?.type === 'file' && (
+                <View style={s.ctxMsgMeta}>
+                  <Ionicons name="document-text" size={18} color="#4298d3" />
+                  <Text style={[s.ctxMsgMetaText, { color: C.textSecondary }]} numberOfLines={1}>{contextMsg.fileName || 'File'}</Text>
+                </View>
+              )}
+              {contextMsg && (
+                <Text style={[s.ctxMsgTime, { color: C.textSecondary }]}>{formatTime(contextMsg.createdAt)}</Text>
+              )}
+            </View>
+            <View style={[s.ctxMsgTail, { backgroundColor: isDark ? '#2c2c2e' : '#fff' }]} />
+          </Animated.View>
+
+          <Animated.View style={[s.ctxActionCard, {
+            opacity: actionCardAnim,
+            backgroundColor: isDark ? '#2c2c2e' : '#fff',
+            transform: [
+              { translateY: actionCardAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) },
+            ],
+          }]}>
+            <TouchableOpacity style={s.ctxAction} onPress={handleReply} activeOpacity={0.6}>
+              <Text style={[s.ctxActionText, { color: C.text }]}>Reply</Text>
+              <Ionicons name="arrow-undo-outline" size={20} color={C.textSecondary} />
+            </TouchableOpacity>
+            {contextMsg?.type === 'text' && (
+              <>
+                <View style={[s.ctxActionDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]} />
+                <TouchableOpacity style={s.ctxAction} onPress={handleCopy} activeOpacity={0.6}>
+                  <Text style={[s.ctxActionText, { color: C.text }]}>Copy</Text>
+                  <Ionicons name="copy-outline" size={20} color={C.textSecondary} />
+                </TouchableOpacity>
+              </>
+            )}
+            {isMineCtx && (
+              <>
+                <View style={[s.ctxActionDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]} />
+                <TouchableOpacity style={s.ctxAction} onPress={handleDelete} activeOpacity={0.6}>
+                  <Text style={[s.ctxActionText, { color: '#ff3b30' }]}>Delete</Text>
+                  <Ionicons name="trash-outline" size={20} color="#ff3b30" />
+                </TouchableOpacity>
+              </>
+            )}
+          </Animated.View>
+        </View>
+      </Animated.View>
+    </View>
+    </View>
   );
 }
 
@@ -924,7 +948,8 @@ const s = StyleSheet.create({
   },
   textInput: {
     flex: 1, fontSize: 15, color: '#111', maxHeight: 100, minHeight: 36,
-    paddingTop: 0, paddingBottom: 0, letterSpacing: -0.1,
+    paddingTop: 8, paddingBottom: 8, paddingHorizontal: 14, letterSpacing: -0.1,
+    borderRadius: 20,
   },
   sendBtnActive: {
     width: 32, height: 32, borderRadius: 16, backgroundColor: '#222',
@@ -945,16 +970,17 @@ const s = StyleSheet.create({
     width: '100%',
     maxWidth: 320,
     gap: 6,
+    alignItems: 'flex-start',
   },
   ctxEmojiCard: {
     backgroundColor: '#fff',
-    borderRadius: 24,
+    borderRadius: 28,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 30,
-    elevation: 14,
+    alignSelf: 'stretch',
+  },
+  ctxEmojiRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   ctxEmojiScroll: {
     flexDirection: 'row',
@@ -971,14 +997,20 @@ const s = StyleSheet.create({
   },
   ctxEmojiBtnActive: { backgroundColor: 'rgba(66,152,211,0.15)' },
   ctxEmoji: { fontSize: 28 },
+  ctxEmojiPlusDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: 'rgba(0,0,0,0.08)',
+    marginVertical: 'auto' as any,
+  },
   ctxEmojiPlusBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#e8e8e8',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#f0f0f0',
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 2,
+    marginHorizontal: 6,
   },
   ctxDrawerDivider: {
     height: StyleSheet.hairlineWidth,
@@ -998,17 +1030,25 @@ const s = StyleSheet.create({
     justifyContent: 'center' as const,
   },
   ctxDrawerEmoji: { fontSize: 28 },
+  ctxMsgWrap: {
+    alignSelf: 'flex-start',
+    maxWidth: '85%' as any,
+  },
   ctxMsgPreview: {
     backgroundColor: '#fff',
-    borderRadius: 14,
+    borderRadius: 18,
+    borderBottomLeftRadius: 4,
     paddingHorizontal: 14,
     paddingTop: 12,
     paddingBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-    elevation: 10,
+  },
+  ctxMsgTail: {
+    width: 10,
+    height: 10,
+    backgroundColor: '#fff',
+    borderBottomRightRadius: 10,
+    marginTop: -4,
+    marginLeft: 0,
   },
   ctxMsgText: { fontSize: 15, lineHeight: 22, color: '#222' },
   ctxMsgTime: { fontSize: 12, color: '#999', textAlign: 'right', marginTop: 6 },
@@ -1017,13 +1057,9 @@ const s = StyleSheet.create({
   ctxMsgMetaText: { fontSize: 14, color: '#717171', flex: 1 },
   ctxActionCard: {
     backgroundColor: '#fff',
-    borderRadius: 14,
+    borderRadius: 18,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 30,
-    elevation: 14,
+    alignSelf: 'stretch',
   },
   ctxAction: {
     flexDirection: 'row',

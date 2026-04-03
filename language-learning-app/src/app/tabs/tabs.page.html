@@ -54,6 +54,7 @@
       <div class="desktop-nav-buttons" slot="end" #navButtonsContainer>
         <!-- Sliding underline indicator -->
         <div class="nav-underline-indicator"
+             [class.settling]="underlineSettling"
              [style.left.px]="underlineLeft"
              [style.top.px]="underlineTop"
              [style.width.px]="underlineWidth"

@@ -160,6 +160,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   underlineTop = 0;
   underlineWidth = 0;
   underlineHeight = 0;
+  underlineSettling = false;
+  private settleTimeout: any;
   // Note: notifications array removed - now using notifications$ observable from service
   isLoadingNotifications = false;
   // Messages dropdown state
@@ -624,10 +626,22 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       const containerRect = this.navButtonsContainer.nativeElement.getBoundingClientRect();
       const buttonRect = activeButton.nativeElement.getBoundingClientRect();
 
-      this.underlineLeft = buttonRect.left - containerRect.left;
+      const newLeft = buttonRect.left - containerRect.left;
+      const moved = newLeft !== this.underlineLeft || this.underlineWidth !== buttonRect.width;
+
+      this.underlineLeft = newLeft;
       this.underlineTop = buttonRect.top - containerRect.top;
       this.underlineWidth = buttonRect.width;
       this.underlineHeight = buttonRect.height;
+
+      if (moved) {
+        this.underlineSettling = false;
+        clearTimeout(this.settleTimeout);
+        this.settleTimeout = setTimeout(() => {
+          this.underlineSettling = true;
+          this.settleTimeout = setTimeout(() => { this.underlineSettling = false; }, 400);
+        }, 450);
+      }
     } else {
       this.underlineWidth = 0;
       this.underlineHeight = 0;
