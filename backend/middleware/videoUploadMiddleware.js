@@ -401,47 +401,54 @@ async function uploadImageToGCS(req, res) {
       return res.status(400).json({ error: 'No image file provided' });
     }
 
+    console.log('📸 uploadImageToGCS file:', {
+      fieldname: req.file.fieldname,
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      bufferLength: req.file.buffer?.length,
+      baseUrl: req.baseUrl,
+      path: req.path,
+    });
+
     const { storage, bucket } = initializeGCS();
     if (!storage || !bucket) {
       return res.status(500).json({ error: 'Google Cloud Storage not configured' });
     }
 
-    // Generate unique filename
     const timestamp = Date.now();
     const randomString = Math.random().toString(36).substring(2, 15);
     const fileExtension = req.file.originalname.split('.').pop();
     
-    // Determine path based on route
     const isMaterialThumbnail = req.baseUrl.includes('materials');
     const isClassThumbnail = req.path.includes('classes') || req.path.includes('thumbnail');
     const folder = isMaterialThumbnail ? 'material-thumbnails' : isClassThumbnail ? 'class-thumbnails' : 'profile-pictures';
     const fileName = `${folder}/${req.user.sub}/${timestamp}-${randomString}.${fileExtension}`;
 
-    // Create file in bucket
+    console.log('📸 GCS target:', fileName, 'bucket:', bucket.name);
+
     const file = bucket.file(fileName);
     const stream = file.createWriteStream({
       metadata: {
         contentType: req.file.mimetype,
-        cacheControl: 'public, max-age=31536000', // Cache for 1 year
+        cacheControl: 'public, max-age=31536000',
       },
     });
 
-    // Upload file
     stream.on('error', (error) => {
-      console.error('❌ Error uploading image:', error);
-      res.status(500).json({ error: 'Failed to upload image' });
+      console.error('❌ GCS stream error:', error?.message, error?.code, error?.errors);
+      res.status(500).json({
+        error: 'Failed to upload image',
+        detail: error?.message || String(error),
+        code: error?.code,
+      });
     });
 
     stream.on('finish', async () => {
       try {
-        // Make file publicly accessible
         await file.makePublic();
-        
-        // Get public URL
         const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
-        
         console.log('✅ Image uploaded successfully:', publicUrl);
-        
         res.json({
           success: true,
           imageUrl: publicUrl,
@@ -449,14 +456,14 @@ async function uploadImageToGCS(req, res) {
         });
       } catch (error) {
         console.error('❌ Error making file public:', error);
-        res.status(500).json({ error: 'Failed to make image public' });
+        res.status(500).json({ error: 'Failed to make image public', detail: error?.message });
       }
     });
 
     stream.end(req.file.buffer);
   } catch (error) {
     console.error('❌ Error in uploadImageToGCS:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', detail: error?.message });
   }
 }
 

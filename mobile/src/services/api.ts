@@ -76,17 +76,27 @@ class ApiClient {
     const headers: Record<string, string> = {};
     if (this.token) {
       headers['Authorization'] = `Bearer ${this.token}`;
+    } else {
+      console.warn('[API upload] No auth token!');
     }
 
-    const res = await fetch(`${env.apiUrl}${path}`, {
+    const url = `${env.apiUrl}${path}`;
+    console.log('[API upload] POST', url, 'hasToken:', !!this.token);
+
+    const res = await fetch(url, {
       method: 'POST',
       headers,
       body: formData,
     });
 
+    console.log('[API upload] Response status:', res.status);
+
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      throw new ApiError(res.status, body.message || body.error || `Upload failed (${res.status})`);
+      console.warn('[API upload] FAILED status:', res.status, 'body:', JSON.stringify(body));
+      const msg = body.message || body.error || `Upload failed (${res.status})`;
+      const detail = body.detail ? ` — ${body.detail}` : '';
+      throw new ApiError(res.status, msg + detail);
     }
 
     return res.json();

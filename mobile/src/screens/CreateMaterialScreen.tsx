@@ -99,6 +99,16 @@ interface Props {
   channels?: LinkedChannels;
 }
 
+/** YouTube default thumbnail for preview when no custom cover is set (matches web behavior). */
+function youtubeThumbnailFromVideoUrl(url: string): string | null {
+  const u = url.trim();
+  if (!u) return null;
+  const m = u.match(
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
+  );
+  return m ? `https://img.youtube.com/vi/${m[1]}/hqdefault.jpg` : null;
+}
+
 export default function CreateMaterialScreen({ goBack, channels }: Props) {
   const { colors } = useTheme();
   const { t } = useTranslation();
@@ -253,8 +263,12 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
       Alert.alert('', t('CREATE_MATERIAL.FIELD_AUDIO_URL_ERROR'));
       return;
     }
+    if (selectedType !== 'video_quiz' && !thumbnailUri?.trim()) {
+      Alert.alert('', t('CREATE_MATERIAL.TOAST_ADD_COVER'));
+      return;
+    }
     setCurrentStep('quiz');
-  }, [title, language, selectedType, videoUrl, passage, audioUrl, t]);
+  }, [title, language, selectedType, videoUrl, passage, audioUrl, thumbnailUri, t]);
 
   const addTopic = useCallback(() => {
     const trimmed = topicInput.trim();
@@ -270,14 +284,31 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
 
   /* ── Cover image ── */
   const pickCoverImage = useCallback(async () => {
+    console.log('[Cover] 1. Requesting permissions...');
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    console.log('[Cover] 2. Permission status:', perm.status);
+    if (perm.status !== 'granted') {
+      Alert.alert('Permission needed', 'Please allow photo access to add a cover image.');
+      return;
+    }
+    console.log('[Cover] 3. Opening picker...');
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [16, 10],
-      quality: 0.8,
+      quality: 0.85,
     });
-    if (!result.canceled && result.assets?.[0]) {
-      setThumbnailUri(result.assets[0].uri);
+    console.log('[Cover] 4. Picker result canceled?', result.canceled, 'assets count:', result.assets?.length);
+    if (result.canceled || !result.assets?.[0]?.uri?.trim()) return;
+    const rawUri = result.assets[0].uri.trim();
+    console.log('[Cover] 5. Raw URI:', rawUri.substring(0, 80), '...');
+    try {
+      const normalized = await manipulateAsync(rawUri, [], { compress: 0.85, format: SaveFormat.JPEG });
+      console.log('[Cover] 6. Normalized URI:', normalized.uri.substring(0, 80), '...');
+      setThumbnailUri(normalized.uri);
+    } catch (e) {
+      console.warn('[Cover] 6. Normalize FAILED, using raw URI:', e);
+      setThumbnailUri(rawUri);
     }
   }, []);
 
@@ -334,15 +365,18 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
 
   /* ── Submit / Publish ── */
   const handleSubmit = useCallback(async () => {
+    console.log('[Publish] 1. contentAttested:', contentAttested, 'thumbnailUri:', thumbnailUri?.substring(0, 60));
     if (!contentAttested) return;
     setIsSubmitting(true);
     try {
       let thumbnailUrl: string | undefined;
       if (thumbnailUri) {
+        console.log('[Publish] 2. Uploading thumbnail...');
         try {
           thumbnailUrl = await materialService.uploadThumbnail(thumbnailUri);
+          console.log('[Publish] 3. Thumbnail uploaded OK:', thumbnailUrl?.substring(0, 80));
         } catch (upErr: any) {
-          console.warn('[CreateMaterial] Thumbnail upload failed:', upErr?.message || upErr);
+          console.warn('[Publish] 3. Thumbnail upload FAILED:', upErr?.status, upErr?.message || upErr);
           const skipCover = await new Promise<boolean>(resolve =>
             Alert.alert('Cover Image Failed', 'Could not upload cover image. Publish without it?', [
               { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
@@ -351,6 +385,8 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
           );
           if (!skipCover) { setIsSubmitting(false); return; }
         }
+      } else {
+        console.log('[Publish] 2. No thumbnail to upload');
       }
 
       const quizPayload = quiz.map(q => {
@@ -393,12 +429,14 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
       if (structuredTags.length > 0) payload.structuredTags = structuredTags;
       if (thumbnailUrl) payload.thumbnailUrl = thumbnailUrl;
 
-      await materialService.createMaterial(payload);
+      console.log('[Publish] 4. Creating material, payload keys:', Object.keys(payload), 'hasThumbnailUrl:', !!payload.thumbnailUrl);
+      const result = await materialService.createMaterial(payload);
+      console.log('[Publish] 5. Created! ID:', result?._id);
       Alert.alert('Published!', 'Your material is now live.', [
         { text: 'OK', onPress: goBack },
       ]);
     } catch (err: any) {
-      console.warn('[CreateMaterial] Publish failed:', err?.message || err);
+      console.warn('[Publish] FAILED:', err?.status, err?.message || err);
       Alert.alert('Error', err?.message || 'Failed to publish material.');
     } finally {
       setIsSubmitting(false);
@@ -572,6 +610,7 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
                 language={language}
                 level={level}
                 passage={passage}
+                videoUrl={videoUrl}
                 price={price}
                 quiz={quiz}
                 thumbnailUri={thumbnailUri}
@@ -1526,7 +1565,7 @@ function StepQuiz({ quiz, addQuestion, removeQuestion, updateQuestion, scrollRef
 /* ═══════════ Step 5: Preview ═══════════ */
 
 function StepPreview({ selectedType, selectedPricing, title, description, whyTakeThis,
-  language, level, passage, price, quiz, thumbnailUri, getTypeLabel, colors, t }: {
+  language, level, passage, videoUrl, price, quiz, thumbnailUri, getTypeLabel, colors, t }: {
   selectedType: MaterialType;
   selectedPricing: 'free' | 'paid';
   title: string;
@@ -1535,6 +1574,7 @@ function StepPreview({ selectedType, selectedPricing, title, description, whyTak
   language: string;
   level: string;
   passage: string;
+  videoUrl: string;
   price: number;
   quiz: QuizQuestion[];
   thumbnailUri: string | null;
@@ -1543,6 +1583,9 @@ function StepPreview({ selectedType, selectedPricing, title, description, whyTak
 }) {
   const isDark = colors.isDark;
   const levelLabel = LEVELS.find(l => l.value === level)?.labelKey;
+  const videoFallbackCover =
+    selectedType === 'video_quiz' ? youtubeThumbnailFromVideoUrl(videoUrl) : null;
+  const previewCoverUri = thumbnailUri?.trim() || videoFallbackCover || null;
 
   return (
     <View>
@@ -1551,9 +1594,9 @@ function StepPreview({ selectedType, selectedPricing, title, description, whyTak
 
       {/* Preview Card */}
       <View style={[styles.previewCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        {/* Cover image */}
-        {thumbnailUri && (
-          <Image source={{ uri: thumbnailUri }} style={styles.previewCover} />
+        {/* Cover: custom upload, or YouTube still for video quiz */}
+        {previewCoverUri && (
+          <Image source={{ uri: previewCoverUri }} style={styles.previewCover} />
         )}
 
         <View style={styles.previewInfo}>

@@ -185,10 +185,14 @@ export const materialService = {
   },
 
   async uploadThumbnail(localUri: string): Promise<string> {
+    console.log('[uploadThumbnail] 1. Input URI:', localUri.substring(0, 80));
     const processed = await manipulateAsync(localUri, [], { compress: 0.8, format: SaveFormat.JPEG });
+    console.log('[uploadThumbnail] 2. Processed URI:', processed.uri.substring(0, 80));
     const formData = new FormData();
     formData.append('thumbnail', { uri: processed.uri, name: 'cover.jpg', type: 'image/jpeg' } as any);
+    console.log('[uploadThumbnail] 3. Calling api.upload /materials/upload-thumbnail ...');
     const data = await api.upload<{ success: boolean; imageUrl: string }>('/materials/upload-thumbnail', formData);
+    console.log('[uploadThumbnail] 4. Response:', JSON.stringify(data).substring(0, 200));
     return data.imageUrl;
   },
 
