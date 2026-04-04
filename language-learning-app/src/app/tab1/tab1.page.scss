@@ -2038,11 +2038,9 @@ ion-content {
   text-align: center;
   background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.06);
-  // Tutor mobile Up Next — light lift (empty + filled lesson)
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.05),
-    0 6px 18px rgba(0, 0, 0, 0.07);
-  border-radius: 22px;
+  // Tutor mobile Up Next — soft lift (matches RN / reference card)
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border-radius: 28px;
   padding: 10px 24px 14px;
   gap: 10px;
 }
@@ -10152,14 +10150,12 @@ img.m-card-empty-link-arrow-img {
   display: flex;
   flex-direction: column;
   
-  // Mobile: Clean design
+  // Mobile: large radius + single soft shadow (matches RN tutor Up Next)
   @media (max-width: 600px) {
-    border-radius: 20px;
+    border-radius: 28px;
     height: auto;
     min-height: auto;
-    box-shadow:
-      0 2px 8px rgba(0, 0, 0, 0.06),
-      0 8px 28px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   }
   
   &.has-lesson {
@@ -11687,9 +11683,7 @@ img.m-card-empty-link-arrow-img {
   .m-card-empty-standalone {
     background: #1c1c1e !important;
     border-color: rgba(255, 255, 255, 0.08) !important;
-    box-shadow:
-      0 2px 8px rgba(0, 0, 0, 0.4),
-      0 8px 22px rgba(0, 0, 0, 0.42) !important;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.38) !important;
   }
   .m-card-empty-title { color: #ffffff !important; }
   .m-card-empty-subtitle { color: #8e8e93 !important; }
@@ -11876,7 +11870,7 @@ img.m-card-empty-link-arrow-img {
   }
   .up-next-card {
     background: linear-gradient(135deg, #1c1c1e 0%, #2a2a2a 100%) !important;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4) !important;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4) !important;
     &.has-lesson {
       background: #1c1c1e !important;
       color: #f5f5f7 !important;

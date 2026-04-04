@@ -13,9 +13,9 @@ import RootNavigator from './src/navigation/RootNavigator';
 
 const preloadAssets = [
   require('./assets/shared/barnabi-bird.png'),
-  require('./assets/shared/calendar-availability.png'),
+  require('./assets/shared/calendar-mobile.png'),
   require('./assets/shared/setup-availability-arrow.png'),
-  require('./assets/shared/quick-actions-classes.png'),
+  require('./assets/shared/classroom.png'),
   require('./assets/shared/quick-actions-create-material.png'),
   require('./assets/shared/quick-actions-forum.png'),
 ];

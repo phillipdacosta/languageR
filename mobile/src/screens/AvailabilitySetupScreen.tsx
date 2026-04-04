@@ -314,7 +314,7 @@ export default function AvailabilitySetupScreen() {
       setIsDirty(false);
       setInitialSlots(new Set(selectedSlots));
       Alert.alert(t('TUTOR_CALENDAR.SAVED_TITLE'), t('TUTOR_CALENDAR.SAVED_DESC'));
-      navigation.goBack();
+      navigation.navigate('CalendarMain');
     } catch (e: any) {
       Alert.alert(t('COMMON.ERROR') || 'Error', e.message || t('TUTOR_CALENDAR.SAVE_FAILED'));
     } finally { setSaving(false); }
@@ -372,7 +372,7 @@ export default function AvailabilitySetupScreen() {
   if (loading) return (
     <SafeAreaView style={[st.safe, { backgroundColor: C.surface }]} edges={['top']}>
       <View style={st.headerRow}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={st.backBtn}>
+        <TouchableOpacity onPress={() => navigation.navigate('CalendarMain')} style={st.backBtn}>
           <Ionicons name="chevron-back" size={20} color={C.accent} />
           <Text style={[st.backText, { color: C.accent }]}>{t('TABS.CALENDAR')}</Text>
         </TouchableOpacity>
@@ -387,7 +387,7 @@ export default function AvailabilitySetupScreen() {
     <SafeAreaView style={[st.safe, { backgroundColor: C.surface }]} edges={['top']}>
       {/* Header */}
       <View style={[st.headerRow, { borderBottomColor: C.border }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={st.backBtn}>
+        <TouchableOpacity onPress={() => navigation.navigate('CalendarMain')} style={st.backBtn}>
           <Ionicons name="chevron-back" size={20} color={C.accent} />
           <Text style={[st.backText, { color: C.accent }]}>{t('TABS.CALENDAR')}</Text>
         </TouchableOpacity>

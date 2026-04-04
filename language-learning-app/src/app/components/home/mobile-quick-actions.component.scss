@@ -18,18 +18,17 @@ html.ion-palette-dark .mobile-section-actions .mobile-section-title,
   100% { opacity: 1; transform: scale(1) translate3d(0, 0, 0); }
 }
 
+// Row of three equal tiles — compact, subtler than Up Next card
 .mobile-actions-scroll {
   display: flex;
-  gap: 36px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: 4px;
+  flex-direction: row;
+  gap: 8px;
   align-items: stretch;
-  justify-content: center;
-  position: relative;
+  justify-content: stretch;
+  overflow: visible;
+  padding: 0 0 4px;
+  -webkit-overflow-scrolling: touch;
   &::-webkit-scrollbar { display: none; }
-  position: relative;
-    bottom: 17px;
 }
 
 .mobile-action-chip {
@@ -56,46 +55,45 @@ html.ion-palette-dark .mobile-section-actions .mobile-section-title,
   }
 }
 
+// Illustrated quick actions — smaller tiles, minimal shadow (secondary to Up Next)
 .mobile-action-chip--quick-art {
+  flex: 1 1 0;
+  min-width: 0;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 8px 16px 6px;
+  min-height: 92px;
+  padding: 8px 4px 8px;
   gap: 4px;
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  border-radius: 0;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.035);
   white-space: normal;
   text-align: center;
-  max-width: 104px;
-  white-space: nowrap;
 
   .mobile-action-chip-icon-img {
-    width: 68px;
-    height: 68px;
+    width: 56px;
+    height: 56px;
     object-fit: contain;
     display: block;
     pointer-events: none;
     user-select: none;
-    transform: scale(1.25);
-    transform-origin: center center;
   }
 
   span {
-    font-size: 13px;
-    font-weight: 700;
-    color: #6b7280;
-    letter-spacing: -0.01em;
+    font-size: 11px;
+    font-weight: 600;
+    color: #222222;
+    letter-spacing: -0.015em;
     line-height: 1.25;
     max-width: 100%;
-    position: relative;
-    bottom: 10px;
+    position: static;
   }
 
   &:active {
-    transform: scale(0.92);
-    box-shadow: none;
+    transform: scale(0.97);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   }
 }
 
@@ -118,7 +116,8 @@ html.ion-palette-dark .mobile-section-actions .mobile-section-title,
   will-change: auto;
 }
 
-// Dark mode
+// Dark mode (Ionic palette + data-theme)
+html.ion-palette-dark,
 [data-theme='dark'] {
   .mobile-action-chip {
     background: rgba(44, 44, 46, 0.85) !important;
@@ -128,10 +127,10 @@ html.ion-palette-dark .mobile-section-actions .mobile-section-title,
     ion-icon { color: #60a5fa !important; }
 
     &.mobile-action-chip--quick-art {
-      background: transparent !important;
-      border-color: transparent !important;
-      box-shadow: none !important;
-      span { color: #8e8e93 !important; }
+      background: #1c1c1e !important;
+      border-color: rgba(255, 255, 255, 0.08) !important;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28) !important;
+      span { color: #f5f5f7 !important; }
     }
   }
 }

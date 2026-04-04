@@ -11,6 +11,7 @@ import {
   LayoutAnimation,
   Platform,
   UIManager,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -19,6 +20,8 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../contexts/ThemeContext';
 import { messagingService, Conversation } from '../services/messaging';
+import { useScreenEntranceAnimations } from '../hooks/useScreenEntranceAnimations';
+import StaggerRow from '../components/StaggerRow';
 import ChatScreen from './ChatScreen';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -40,6 +43,7 @@ export default function MessagesScreen() {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Conversation | null>(null);
   const navigation = useNavigation();
+  const { shellMotion, listGateMotion } = useScreenEntranceAnimations(loading);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -122,6 +126,7 @@ export default function MessagesScreen() {
 
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: colors.background }]} edges={['top']}>
+      <Animated.View style={shellMotion}>
       {/* Header */}
       <View style={s.header}>
         <Text style={[s.headerTitle, { color: colors.text }]}>{t('MESSAGES.TITLE')}</Text>
@@ -164,8 +169,10 @@ export default function MessagesScreen() {
           </Text>
         </TouchableOpacity>
       </View>
+      </Animated.View>
 
       {/* List */}
+      <Animated.View style={[{ flex: 1 }, listGateMotion]}>
       {loading ? (
         <View style={s.center}><ActivityIndicator size="large" color={colors.textSecondary} /></View>
       ) : filtered.length === 0 ? (
@@ -182,13 +189,15 @@ export default function MessagesScreen() {
         <FlatList
           data={filtered}
           keyExtractor={c => c.conversationId}
-          renderItem={({ item }) => (
-            <ConversationRow
-              conversation={item}
-              currentUserId={userId}
-              onPress={() => handleSelect(item)}
-              colors={colors}
-            />
+          renderItem={({ item, index }) => (
+            <StaggerRow index={index}>
+              <ConversationRow
+                conversation={item}
+                currentUserId={userId}
+                onPress={() => handleSelect(item)}
+                colors={colors}
+              />
+            </StaggerRow>
           )}
           contentContainerStyle={s.listContent}
           showsVerticalScrollIndicator={false}
@@ -196,6 +205,7 @@ export default function MessagesScreen() {
           onRefresh={onRefresh}
         />
       )}
+      </Animated.View>
     </SafeAreaView>
   );
 }

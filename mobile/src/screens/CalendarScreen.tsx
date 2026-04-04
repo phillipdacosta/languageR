@@ -24,6 +24,8 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../contexts/ThemeContext';
+import { useScreenEntranceAnimations } from '../hooks/useScreenEntranceAnimations';
+import StaggerRow from '../components/StaggerRow';
 import { calendarService, GoogleCalendarStatus, GoogleCalendarEvent } from '../services/calendar';
 import {
   AvailabilityBlock,
@@ -429,6 +431,9 @@ export default function CalendarScreen() {
   };
 
   const C = colors;
+  const { shellMotion, listGateMotion } = useScreenEntranceAnimations(loading, {
+    deferShellUntilListReady: true,
+  });
 
   if (loading) return (
     <SafeAreaView style={[st.safe, { backgroundColor: C.surface }]} edges={['top']}>
@@ -438,6 +443,7 @@ export default function CalendarScreen() {
 
   return (
     <SafeAreaView style={[st.safe, { backgroundColor: C.surface }]} edges={['top']}>
+      <Animated.View style={shellMotion}>
       {/* Header */}
       <View style={[st.header, { backgroundColor: C.surface }]}>
         <Text style={[st.headerTitle, { color: C.text }]}>{t('TABS.CALENDAR')}</Text>
@@ -487,8 +493,10 @@ export default function CalendarScreen() {
           )}
         </View>
       </View>
+      </Animated.View>
 
       {/* Timeline */}
+      <Animated.View style={[{ flex: 1 }, listGateMotion]}>
       <ScrollView style={st.scroll} contentContainerStyle={st.scrollContent} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.textSecondary} />} showsVerticalScrollIndicator={false}>
         {feedbackCount > 0 && (
           <View style={[st.feedbackBanner, { backgroundColor: isDark ? '#2a2000' : '#FFF8E1' }]}>
@@ -498,12 +506,14 @@ export default function CalendarScreen() {
         )}
 
         {/* Availability Rows */}
-        {availEntries.length > 0 && availEntries.map(e => (
-          <TouchableOpacity key={e.id} style={[st.availRow, { backgroundColor: isDark ? '#1a2e1a' : '#f0faf0', borderColor: isDark ? '#2a4a2a' : '#e0f0e0' }]} onPress={() => setAvailModalVisible(true)} activeOpacity={0.7}>
+        {availEntries.length > 0 && availEntries.map((e, i) => (
+          <StaggerRow key={e.id} index={i}>
+          <TouchableOpacity style={[st.availRow, { backgroundColor: isDark ? '#1a2e1a' : '#f0faf0', borderColor: isDark ? '#2a4a2a' : '#e0f0e0' }]} onPress={() => setAvailModalVisible(true)} activeOpacity={0.7}>
             <View style={st.availCheck}><Ionicons name="checkmark-circle" size={22} color="#4CAF50" /></View>
             <Text style={[st.availTimeText, { color: C.text }]}>{formatTime(e.startTime)} – {formatTime(e.endTime)}</Text>
             <Ionicons name="chevron-forward" size={16} color={C.textTertiary} />
           </TouchableOpacity>
+          </StaggerRow>
         ))}
 
         {/* Empty state: no availability AND no events */}
@@ -516,8 +526,9 @@ export default function CalendarScreen() {
           </View>
         ) : eventEntries.length === 0 && availEntries.length > 0 ? (
           <Text style={[st.waitingText, { color: C.textTertiary }]}>{t('TUTOR_CALENDAR.WAITING_FOR_STUDENTS')}</Text>
-        ) : eventEntries.map(entry => (
-          <TouchableOpacity key={entry.id} style={[st.eventRow, { backgroundColor: C.card, borderColor: C.border }, entry.isNow && { borderLeftColor: C.accent, borderLeftWidth: 3 }, entry.isCancelled && { opacity: 0.5 }]} onPress={() => navigateToEventDetail(entry)} activeOpacity={0.7}>
+        ) : eventEntries.map((entry, ei) => (
+          <StaggerRow key={entry.id} index={availEntries.length + ei}>
+          <TouchableOpacity style={[st.eventRow, { backgroundColor: C.card, borderColor: C.border }, entry.isNow && { borderLeftColor: C.accent, borderLeftWidth: 3 }, entry.isCancelled && { opacity: 0.5 }]} onPress={() => navigateToEventDetail(entry)} activeOpacity={0.7}>
             <View style={st.eventTime}>
               <Text style={[st.eventTimeText, { color: entry.isNow ? C.accent : C.text }]}>{formatTime(entry.startTime)}</Text>
               <Text style={[st.eventDuration, { color: C.textTertiary }]}>{entry.duration}m</Text>
@@ -547,9 +558,11 @@ export default function CalendarScreen() {
             </View>
             <Ionicons name="chevron-forward" size={16} color={C.textTertiary} />
           </TouchableOpacity>
+          </StaggerRow>
         ))}
         <View style={{ height: 100 }} />
       </ScrollView>
+      </Animated.View>
 
       {/* FAB with Blur Overlay */}
       {isTutor && fabOpen && (

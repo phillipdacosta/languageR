@@ -1,26 +1,32 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   RefreshControl,
-  Image,
   TouchableOpacity,
   ActivityIndicator,
   Alert,
   Clipboard,
   TextInput,
   Animated,
+  Easing,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../contexts/ThemeContext';
-import { materialService, TutorMaterial, MaterialBundle, LinkedChannels } from '../services/materials';
+import { useScreenEntranceAnimations } from '../hooks/useScreenEntranceAnimations';
+import { materialService, getMaterialsCache, prefetchLibraryCoverImages, TutorMaterial, MaterialBundle, LinkedChannels } from '../services/materials';
 import { env } from '../config/env';
+import StaggerRow from '../components/StaggerRow';
 import CreateMaterialScreen from './CreateMaterialScreen';
+import MaterialDetailScreen from './MaterialDetailScreen';
+import BundleDetailScreen from './BundleDetailScreen';
+import CreateBundleScreen from './CreateBundleScreen';
 
 type LibraryTab = 'materials' | 'bundles';
 
@@ -28,30 +34,41 @@ interface Props {
   goBack: () => void;
 }
 
+/** Calendar / Set Availability primary blue (slot bars, FAB). */
+const SETUP_AVAILABILITY_BLUE = '#08a0e8';
+
 export default function MaterialsScreen({ goBack }: Props) {
   const { colors } = useTheme();
   const { t } = useTranslation();
   const isDark = colors.isDark;
 
+  const cached = getMaterialsCache();
+
   const [activeTab, setActiveTab] = useState<LibraryTab>('materials');
-  const [materials, setMaterials] = useState<TutorMaterial[]>([]);
-  const [bundles, setBundles] = useState<MaterialBundle[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [materials, setMaterials] = useState<TutorMaterial[]>(cached.materials || []);
+  const [bundles, setBundles] = useState<MaterialBundle[]>(cached.bundles || []);
+  const [loading, setLoading] = useState(!cached.hasCachedData);
   const [loadingBundles, setLoadingBundles] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [bundlesFetched, setBundlesFetched] = useState(false);
+  const [bundlesFetched, setBundlesFetched] = useState(cached.bundles !== null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const [showCreateMaterial, setShowCreateMaterial] = useState(false);
+  const [previewMaterial, setPreviewMaterial] = useState<TutorMaterial | null>(null);
+  const [showCreateBundle, setShowCreateBundle] = useState(false);
+  const [previewBundle, setPreviewBundle] = useState<MaterialBundle | null>(null);
+  const [editingBundle, setEditingBundle] = useState<MaterialBundle | null>(null);
 
   const [showChannelPanel, setShowChannelPanel] = useState(false);
-  const [channels, setChannels] = useState<LinkedChannels>({});
-  const [soundcloudUrl, setSoundcloudUrl] = useState('');
+  const [channels, setChannels] = useState<LinkedChannels>(cached.channels || {});
+  const [soundcloudUrl, setSoundcloudUrl] = useState(cached.channels?.soundcloudProfileUrl || '');
   const [savingChannels, setSavingChannels] = useState(false);
 
   const panelAnim = useRef(new Animated.Value(0)).current;
   const panelHeight = useRef(0);
   const blurAnim = useRef(new Animated.Value(0)).current;
+
+  const { shellMotion, listGateMotion } = useScreenEntranceAnimations(loading);
 
   const hasLinkedChannel = !!(
     (channels.youtubeChannelName && channels.youtubeVerified) ||
@@ -59,36 +76,44 @@ export default function MaterialsScreen({ goBack }: Props) {
     channels.soundcloudProfileName
   );
 
-  const fetchMaterials = useCallback(async () => {
-    const data = await materialService.getMyMaterials();
+  const fetchMaterials = useCallback(async (force = false) => {
+    const data = await materialService.getMyMaterials(force);
     setMaterials(data);
   }, []);
 
-  const fetchBundles = useCallback(async () => {
+  const fetchBundles = useCallback(async (force = false) => {
     setLoadingBundles(true);
-    const data = await materialService.getMyBundles();
+    const data = await materialService.getMyBundles(force);
     setBundles(data);
     setLoadingBundles(false);
     setBundlesFetched(true);
   }, []);
 
-  const fetchChannels = useCallback(async () => {
-    const data = await materialService.getLinkedChannels();
+  const fetchChannels = useCallback(async (force = false) => {
+    const data = await materialService.getLinkedChannels(force);
     setChannels(data);
     setSoundcloudUrl(data.soundcloudProfileUrl || '');
   }, []);
 
   useEffect(() => {
+    const snap = getMaterialsCache();
+    if (snap.materials?.length) {
+      void prefetchLibraryCoverImages(snap.materials, snap.bundles || [], snap.channels || undefined);
+    }
+    if (cached.hasCachedData && !cached.isStale) {
+      setLoading(false);
+      return;
+    }
     (async () => {
       await Promise.all([fetchMaterials(), fetchBundles(), fetchChannels()]);
       setLoading(false);
     })();
-  }, [fetchMaterials, fetchBundles, fetchChannels]);
+  }, []);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     setBundlesFetched(false);
-    await Promise.all([fetchMaterials(), fetchBundles(), fetchChannels()]);
+    await Promise.all([fetchMaterials(true), fetchBundles(true), fetchChannels(true)]);
     setRefreshing(false);
   }, [fetchMaterials, fetchBundles, fetchChannels]);
 
@@ -202,6 +227,28 @@ export default function MaterialsScreen({ goBack }: Props) {
     );
   }, [t]);
 
+  const handleDeleteBundle = useCallback((bundle: MaterialBundle) => {
+    Alert.alert(
+      'Delete Bundle',
+      t('BUNDLE.CONFIRM_DELETE'),
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const ok = await materialService.deleteBundle(bundle._id);
+            if (ok) {
+              setBundles(prev => prev.filter(b => b._id !== bundle._id));
+            } else {
+              Alert.alert('', t('BUNDLE.DELETE_FAILED'));
+            }
+          },
+        },
+      ],
+    );
+  }, [t]);
+
   const handleToggleArchive = useCallback(async (material: TutorMaterial) => {
     const updated = await materialService.toggleArchive(material._id, material.status);
     if (updated) {
@@ -232,10 +279,73 @@ export default function MaterialsScreen({ goBack }: Props) {
     }
   };
 
+  if (showCreateBundle) {
+    return (
+      <CreateBundleScreen
+        goBack={() => {
+          setShowCreateBundle(false);
+          setEditingBundle(null);
+          fetchBundles(true);
+        }}
+        editingBundle={editingBundle}
+        materials={materials}
+      />
+    );
+  }
+
+  if (previewBundle) {
+    return (
+      <View style={{ flex: 1 }}>
+        <BundleDetailScreen
+          bundle={previewBundle}
+          goBack={() => {
+            setPreviewBundle(null);
+            fetchBundles(true);
+          }}
+          onViewMaterial={(mat) => {
+            setPreviewMaterial(mat);
+          }}
+          onEditBundle={(bun) => {
+            setPreviewBundle(null);
+            setEditingBundle(bun);
+            setShowCreateBundle(true);
+          }}
+        />
+        {previewMaterial && (
+          <View style={[StyleSheet.absoluteFill, { zIndex: 100, elevation: 100 }]}>
+            <MaterialDetailScreen
+              material={previewMaterial}
+              linkedChannelsFallback={channels}
+              goBack={() => {
+                setPreviewMaterial(null);
+              }}
+            />
+          </View>
+        )}
+      </View>
+    );
+  }
+
+  if (previewMaterial) {
+    return (
+      <MaterialDetailScreen
+        material={previewMaterial}
+        linkedChannelsFallback={channels}
+        goBack={() => {
+          setPreviewMaterial(null);
+          fetchMaterials(true);
+        }}
+      />
+    );
+  }
+
   if (showCreateMaterial) {
     return (
       <CreateMaterialScreen
-        goBack={() => setShowCreateMaterial(false)}
+        goBack={() => {
+          setShowCreateMaterial(false);
+          fetchMaterials(true);
+        }}
         channels={channels}
       />
     );
@@ -244,14 +354,21 @@ export default function MaterialsScreen({ goBack }: Props) {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
       {/* Header */}
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={goBack} style={styles.backBtn} activeOpacity={0.7}>
+      <Animated.View style={[styles.header, { borderBottomColor: colors.border }, shellMotion]}>
+        <TouchableOpacity
+          onPress={() => {
+            if (showChannelPanel) closePanel();
+            goBack();
+          }}
+          style={styles.backBtn}
+          activeOpacity={0.7}
+        >
           <Ionicons name="chevron-back" size={22} color={colors.text} />
           <Text style={[styles.backLabel, { color: colors.text }]}>
             {t('CREATE_MATERIAL.NAV_BACK_SHORT')}
           </Text>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
 
       {/* Main area — content scrolls, panel overlays */}
       <View style={{ flex: 1 }}>
@@ -263,32 +380,33 @@ export default function MaterialsScreen({ goBack }: Props) {
           keyboardShouldPersistTaps="handled"
           scrollEnabled={!showChannelPanel}
         >
-          {/* Title + Channels */}
-          <View style={styles.titleRow}>
-            <Text style={[styles.title, { color: colors.text }]}>
-              {t('CREATE_MATERIAL.LIBRARY_TITLE')}
-            </Text>
-            <TouchableOpacity
-              style={[styles.channelBtn, {
-                backgroundColor: isDark ? '#1c1c1e' : '#fff',
-                borderColor: hasLinkedChannel ? (isDark ? 'rgba(16,185,129,0.3)' : '#d1fae5') : colors.border,
-              }]}
-              onPress={toggleChannelPanel}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={hasLinkedChannel ? 'link' : 'link-outline'}
-                size={14}
-                color={hasLinkedChannel ? '#10b981' : colors.textSecondary}
-              />
-              <Text style={[styles.channelBtnText, { color: hasLinkedChannel ? '#10b981' : colors.textSecondary }]}>
-                {hasLinkedChannel ? t('CREATE_MATERIAL.LIBRARY_CHANNELS_LINKED') : t('CREATE_MATERIAL.LIBRARY_LINK_CHANNELS')}
+          {/* Title + Channels + tabs + new — soft entrance with header */}
+          <Animated.View style={shellMotion}>
+            <View style={styles.titleRow}>
+              <Text style={[styles.title, { color: colors.text }]}>
+                {t('CREATE_MATERIAL.LIBRARY_TITLE')}
               </Text>
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity
+                style={[styles.channelBtn, {
+                  backgroundColor: isDark ? '#1c1c1e' : '#fff',
+                  borderColor: hasLinkedChannel ? (isDark ? 'rgba(16,185,129,0.3)' : '#d1fae5') : colors.border,
+                }]}
+                onPress={toggleChannelPanel}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={hasLinkedChannel ? 'link' : 'link-outline'}
+                  size={14}
+                  color={hasLinkedChannel ? '#10b981' : colors.textSecondary}
+                />
+                <Text style={[styles.channelBtnText, { color: hasLinkedChannel ? '#10b981' : colors.textSecondary }]}>
+                  {hasLinkedChannel ? t('CREATE_MATERIAL.LIBRARY_CHANNELS_LINKED') : t('CREATE_MATERIAL.LIBRARY_LINK_CHANNELS')}
+                </Text>
+              </TouchableOpacity>
+            </View>
 
-          {/* Tabs */}
-          <View style={styles.tabsRow}>
+            {/* Tabs */}
+            <View style={styles.tabsRow}>
             <TouchableOpacity
               style={[styles.tab, activeTab === 'materials' && styles.tabActive, activeTab === 'materials' && { borderBottomColor: colors.text }]}
               onPress={() => setActiveTab('materials')}
@@ -324,19 +442,27 @@ export default function MaterialsScreen({ goBack }: Props) {
                 </View>
               )}
             </TouchableOpacity>
-          </View>
+            </View>
 
-          {/* New button */}
-          <TouchableOpacity
-            style={[styles.newBtn, { backgroundColor: isDark ? '#fff' : '#111' }]}
-            activeOpacity={0.85}
-            onPress={() => setShowCreateMaterial(true)}
-          >
-            <Ionicons name="add" size={18} color={isDark ? '#000' : '#fff'} />
-            <Text style={[styles.newBtnText, { color: isDark ? '#000' : '#fff' }]}>
-              {activeTab === 'materials' ? t('CREATE_MATERIAL.LIBRARY_NEW') : 'New Bundle'}
-            </Text>
-          </TouchableOpacity>
+            {/* New button */}
+            <TouchableOpacity
+              style={[styles.newBtn, { backgroundColor: isDark ? SETUP_AVAILABILITY_BLUE : '#111' }]}
+              activeOpacity={0.85}
+              onPress={() => {
+                if (activeTab === 'bundles') {
+                  setEditingBundle(null);
+                  setShowCreateBundle(true);
+                } else {
+                  setShowCreateMaterial(true);
+                }
+              }}
+            >
+              <Ionicons name="add" size={18} color="#fff" />
+              <Text style={[styles.newBtnText, { color: '#fff' }]}>
+                {activeTab === 'materials' ? t('CREATE_MATERIAL.LIBRARY_NEW') : 'New Bundle'}
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
 
           {/* Loading */}
           {loading && (
@@ -347,7 +473,7 @@ export default function MaterialsScreen({ goBack }: Props) {
 
           {/* Materials Tab */}
           {!loading && activeTab === 'materials' && (
-            <>
+            <Animated.View style={listGateMotion}>
               {materials.length === 0 ? (
                 <EmptyState
                   icon="layers-outline"
@@ -355,32 +481,35 @@ export default function MaterialsScreen({ goBack }: Props) {
                   description={t('CREATE_MATERIAL.LIBRARY_EMPTY_DESC')}
                   ctaLabel={t('CREATE_MATERIAL.LIBRARY_GET_STARTED')}
                   colors={colors}
+                  onCtaPress={() => setShowCreateMaterial(true)}
                 />
               ) : (
                 <View style={styles.cardList}>
-                  {materials.map(m => (
-                    <MaterialCard
-                      key={m._id}
-                      material={m}
-                      colors={colors}
-                      copiedId={copiedId}
-                      getTypeLabel={getTypeLabel}
-                      getTypeIcon={getTypeIcon}
-                      formatDate={formatDate}
-                      onCopyLink={handleCopyLink}
-                      onDelete={handleDelete}
-                      onToggleArchive={handleToggleArchive}
-                      t={t}
-                    />
+                  {materials.map((m, index) => (
+                    <StaggerRow key={m._id} index={index}>
+                      <MaterialCard
+                        material={m}
+                        colors={colors}
+                        copiedId={copiedId}
+                        getTypeLabel={getTypeLabel}
+                        getTypeIcon={getTypeIcon}
+                        formatDate={formatDate}
+                        onCopyLink={handleCopyLink}
+                        onDelete={handleDelete}
+                        onToggleArchive={handleToggleArchive}
+                        onPreview={setPreviewMaterial}
+                        t={t}
+                      />
+                    </StaggerRow>
                   ))}
                 </View>
               )}
-            </>
+            </Animated.View>
           )}
 
           {/* Bundles Tab */}
           {!loading && activeTab === 'bundles' && (
-            <>
+            <Animated.View style={listGateMotion}>
               {loadingBundles ? (
                 <View style={styles.loadingWrap}>
                   <ActivityIndicator size="large" color={colors.textSecondary} />
@@ -392,15 +521,24 @@ export default function MaterialsScreen({ goBack }: Props) {
                   description="Group your materials into bundles to offer structured learning packs."
                   ctaLabel="Create your first bundle"
                   colors={colors}
+                  onCtaPress={() => { setEditingBundle(null); setShowCreateBundle(true); }}
                 />
               ) : (
                 <View style={styles.cardList}>
-                  {bundles.map(b => (
-                    <BundleCard key={b._id} bundle={b} colors={colors} />
+                  {bundles.map((b, index) => (
+                    <StaggerRow key={b._id} index={index}>
+                      <BundleCard
+                        bundle={b}
+                        colors={colors}
+                        onPreview={setPreviewBundle}
+                        onEdit={(bun) => { setEditingBundle(bun); setShowCreateBundle(true); }}
+                        onDelete={handleDeleteBundle}
+                      />
+                    </StaggerRow>
                   ))}
                 </View>
               )}
-            </>
+            </Animated.View>
           )}
 
           <View style={{ height: 40 }} />
@@ -455,14 +593,18 @@ export default function MaterialsScreen({ goBack }: Props) {
   );
 }
 
+/** Quick soft row entrance (Airbnb-style stagger). */
+/* StaggerRow is now imported from ../components/StaggerRow */
+
 /* ─── Empty State ─── */
 
-function EmptyState({ icon, title, description, ctaLabel, colors }: {
+function EmptyState({ icon, title, description, ctaLabel, colors, onCtaPress }: {
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
   description: string;
   ctaLabel: string;
   colors: any;
+  onCtaPress?: () => void;
 }) {
   const isDark = colors.isDark;
   return (
@@ -472,9 +614,9 @@ function EmptyState({ icon, title, description, ctaLabel, colors }: {
       </View>
       <Text style={[styles.emptyTitle, { color: colors.text }]}>{title}</Text>
       <Text style={[styles.emptyDesc, { color: colors.textSecondary }]}>{description}</Text>
-      <TouchableOpacity style={[styles.emptyCta, { backgroundColor: isDark ? '#fff' : '#111' }]} activeOpacity={0.85}>
-        <Text style={[styles.emptyCtaText, { color: isDark ? '#000' : '#fff' }]}>{ctaLabel}</Text>
-        <Ionicons name="arrow-forward" size={16} color={isDark ? '#000' : '#fff'} />
+      <TouchableOpacity style={[styles.emptyCta, { backgroundColor: isDark ? SETUP_AVAILABILITY_BLUE : '#111' }]} activeOpacity={0.85} onPress={onCtaPress}>
+        <Text style={[styles.emptyCtaText, { color: '#fff' }]}>{ctaLabel}</Text>
+        <Ionicons name="arrow-forward" size={16} color="#fff" />
       </TouchableOpacity>
     </View>
   );
@@ -670,7 +812,7 @@ function ChannelPanel({ channels, soundcloudUrl, setSoundcloudUrl, saving, onSav
 
 /* ─── Material Card ─── */
 
-function MaterialCard({ material: m, colors, copiedId, getTypeLabel, getTypeIcon, formatDate, onCopyLink, onDelete, onToggleArchive, t }: {
+function MaterialCard({ material: m, colors, copiedId, getTypeLabel, getTypeIcon, formatDate, onCopyLink, onDelete, onToggleArchive, onPreview, t }: {
   material: TutorMaterial;
   colors: any;
   copiedId: string | null;
@@ -680,6 +822,7 @@ function MaterialCard({ material: m, colors, copiedId, getTypeLabel, getTypeIcon
   onCopyLink: (id: string) => void;
   onDelete: (m: TutorMaterial) => void;
   onToggleArchive: (m: TutorMaterial) => void;
+  onPreview: (m: TutorMaterial) => void;
   t: any;
 }) {
   const isDark = colors.isDark;
@@ -688,16 +831,21 @@ function MaterialCard({ material: m, colors, copiedId, getTypeLabel, getTypeIcon
   return (
     <View style={[
       styles.materialCard,
-      { backgroundColor: colors.card, borderColor: colors.border, shadowOpacity: isDark ? 0 : 0.06 },
+      {
+        backgroundColor: colors.card,
+        borderColor: colors.border,
+        shadowOpacity: isDark ? 0.28 : 0.11,
+        shadowRadius: isDark ? 10 : 12,
+      },
       isArchived && { opacity: 0.55 },
     ]}>
       {/* Thumbnail */}
       <View style={styles.thumbWrap}>
         {m.thumbnailUrl ? (
-          <Image source={{ uri: m.thumbnailUrl }} style={styles.thumbImg} />
+          <Image source={{ uri: m.thumbnailUrl }} style={styles.thumbImg} contentFit="cover" />
         ) : (
           <View style={[styles.thumbPlaceholder, { backgroundColor: isDark ? '#2c2c2e' : '#f0f0f2' }]}>
-            <Ionicons name={getTypeIcon(m.materialType)} size={28} color={colors.textTertiary} />
+            <Ionicons name={getTypeIcon(m.materialType)} size={22} color={colors.textTertiary} />
           </View>
         )}
         {(m.status === 'draft' || m.status === 'archived') && (
@@ -726,19 +874,19 @@ function MaterialCard({ material: m, colors, copiedId, getTypeLabel, getTypeIcon
           </Text>
           {m.channelVerified && (
             <View style={styles.reviewBadge}>
-              <Ionicons name="checkmark-circle" size={12} color="#10b981" />
+              <Ionicons name="checkmark-circle" size={10} color="#10b981" />
               <Text style={[styles.reviewBadgeText, { color: '#10b981' }]}>{t('CREATE_MATERIAL.CARD_VERIFIED')}</Text>
             </View>
           )}
           {m.reviewStatus === 'pending_review' && (
             <View style={styles.reviewBadge}>
-              <Ionicons name="time-outline" size={12} color={colors.warning} />
+              <Ionicons name="time-outline" size={10} color={colors.warning} />
               <Text style={[styles.reviewBadgeText, { color: colors.warning }]}>{t('CREATE_MATERIAL.CARD_PENDING')}</Text>
             </View>
           )}
           {m.reviewStatus === 'rejected' && (
             <View style={styles.reviewBadge}>
-              <Ionicons name="close-circle-outline" size={12} color={colors.danger} />
+              <Ionicons name="close-circle-outline" size={10} color={colors.danger} />
               <Text style={[styles.reviewBadgeText, { color: colors.danger }]}>{t('CREATE_MATERIAL.CARD_REJECTED')}</Text>
             </View>
           )}
@@ -770,22 +918,22 @@ function MaterialCard({ material: m, colors, copiedId, getTypeLabel, getTypeIcon
         {/* Stats */}
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
-            <Ionicons name="eye-outline" size={14} color={colors.textTertiary} />
+            <Ionicons name="eye-outline" size={12} color={colors.textTertiary} />
             <Text style={[styles.statText, { color: colors.textSecondary }]}>{m.stats.views}</Text>
           </View>
           <View style={styles.statItem}>
-            <Ionicons name="school-outline" size={14} color={colors.textTertiary} />
+            <Ionicons name="school-outline" size={12} color={colors.textTertiary} />
             <Text style={[styles.statText, { color: colors.textSecondary }]}>{m.stats.quizAttempts}</Text>
           </View>
           {m.stats.averageScore > 0 && (
             <View style={styles.statItem}>
-              <Ionicons name="trending-up-outline" size={14} color={colors.textTertiary} />
+              <Ionicons name="trending-up-outline" size={12} color={colors.textTertiary} />
               <Text style={[styles.statText, { color: colors.textSecondary }]}>{m.stats.averageScore}%</Text>
             </View>
           )}
           {m.pricingType === 'paid' && (
             <View style={styles.statItem}>
-              <Ionicons name="card-outline" size={14} color={colors.textTertiary} />
+              <Ionicons name="card-outline" size={12} color={colors.textTertiary} />
               <Text style={[styles.statText, { color: colors.textSecondary }]}>{m.stats.purchases}</Text>
             </View>
           )}
@@ -795,6 +943,7 @@ function MaterialCard({ material: m, colors, copiedId, getTypeLabel, getTypeIcon
         <TouchableOpacity
           style={[styles.previewBtn, { borderColor: colors.border, backgroundColor: isDark ? '#1c1c1e' : '#fafafa' }]}
           activeOpacity={0.7}
+          onPress={() => onPreview(m)}
         >
           <Ionicons name="eye-outline" size={16} color={colors.textSecondary} />
           <Text style={[styles.previewBtnText, { color: colors.text }]}>{t('CREATE_MATERIAL.CARD_PREVIEW')}</Text>
@@ -803,28 +952,28 @@ function MaterialCard({ material: m, colors, copiedId, getTypeLabel, getTypeIcon
         {/* Action icons */}
         <View style={styles.actionsRow}>
           <TouchableOpacity style={[styles.actionBtn, { backgroundColor: isDark ? '#2c2c2e' : '#f5f5f7' }]} activeOpacity={0.7}>
-            <Ionicons name="create-outline" size={18} color={colors.textSecondary} />
+            <Ionicons name="create-outline" size={15} color={colors.textSecondary} />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionBtn, { backgroundColor: isDark ? '#2c2c2e' : '#f5f5f7' }]}
             onPress={() => onCopyLink(m._id)}
             activeOpacity={0.7}
           >
-            <Ionicons name={copiedId === m._id ? 'checkmark-outline' : 'link-outline'} size={18} color={copiedId === m._id ? '#10b981' : colors.textSecondary} />
+            <Ionicons name={copiedId === m._id ? 'checkmark-outline' : 'link-outline'} size={15} color={copiedId === m._id ? '#10b981' : colors.textSecondary} />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionBtn, { backgroundColor: isDark ? '#2c2c2e' : '#f5f5f7' }]}
             onPress={() => onToggleArchive(m)}
             activeOpacity={0.7}
           >
-            <Ionicons name={isArchived ? 'arrow-undo-outline' : 'archive-outline'} size={18} color={colors.textSecondary} />
+            <Ionicons name={isArchived ? 'arrow-undo-outline' : 'archive-outline'} size={15} color={colors.textSecondary} />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionBtn, { backgroundColor: isDark ? 'rgba(255,69,58,0.12)' : '#fef2f2' }]}
             onPress={() => onDelete(m)}
             activeOpacity={0.7}
           >
-            <Ionicons name="trash-outline" size={18} color={colors.danger} />
+            <Ionicons name="trash-outline" size={15} color={colors.danger} />
           </TouchableOpacity>
         </View>
       </View>
@@ -834,17 +983,31 @@ function MaterialCard({ material: m, colors, copiedId, getTypeLabel, getTypeIcon
 
 /* ─── Bundle Card ─── */
 
-function BundleCard({ bundle: b, colors }: { bundle: MaterialBundle; colors: any }) {
+function BundleCard({ bundle: b, colors, onPreview, onEdit, onDelete }: {
+  bundle: MaterialBundle;
+  colors: any;
+  onPreview?: (b: MaterialBundle) => void;
+  onEdit?: (b: MaterialBundle) => void;
+  onDelete?: (b: MaterialBundle) => void;
+}) {
   const isDark = colors.isDark;
   return (
-    <View style={[styles.materialCard, { backgroundColor: colors.card, borderColor: colors.border, shadowOpacity: isDark ? 0 : 0.06 }]}>
+    <View style={[
+      styles.materialCard,
+      {
+        backgroundColor: colors.card,
+        borderColor: colors.border,
+        shadowOpacity: isDark ? 0.28 : 0.11,
+        shadowRadius: isDark ? 10 : 12,
+      },
+    ]}>
       {/* Cover */}
       <View style={styles.thumbWrap}>
         {b.coverImageUrl ? (
-          <Image source={{ uri: b.coverImageUrl }} style={styles.thumbImg} />
+          <Image source={{ uri: b.coverImageUrl }} style={styles.thumbImg} contentFit="cover" />
         ) : (
           <View style={[styles.thumbPlaceholder, { backgroundColor: isDark ? '#2c2c2e' : '#f0f0f2' }]}>
-            <Ionicons name="folder-outline" size={28} color={colors.textTertiary} />
+            <Ionicons name="folder-outline" size={22} color={colors.textTertiary} />
           </View>
         )}
         {b.status === 'draft' && (
@@ -870,11 +1033,11 @@ function BundleCard({ bundle: b, colors }: { bundle: MaterialBundle; colors: any
 
         <View style={styles.bundleMeta}>
           <View style={styles.statItem}>
-            <Ionicons name="layers-outline" size={14} color={colors.textTertiary} />
+            <Ionicons name="layers-outline" size={12} color={colors.textTertiary} />
             <Text style={[styles.statText, { color: colors.textSecondary }]}>{b.items?.length || 0} items</Text>
           </View>
           <View style={styles.statItem}>
-            <Ionicons name="globe-outline" size={14} color={colors.textTertiary} />
+            <Ionicons name="globe-outline" size={12} color={colors.textTertiary} />
             <Text style={[styles.statText, { color: colors.textSecondary }]}>{b.language}</Text>
           </View>
         </View>
@@ -892,25 +1055,25 @@ function BundleCard({ bundle: b, colors }: { bundle: MaterialBundle; colors: any
         <View style={[styles.bundleFooter, { borderTopColor: colors.border }]}>
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Ionicons name="eye-outline" size={14} color={colors.textTertiary} />
+              <Ionicons name="eye-outline" size={12} color={colors.textTertiary} />
               <Text style={[styles.statText, { color: colors.textSecondary }]}>{b.stats?.views || 0}</Text>
             </View>
             {b.pricingType === 'paid' && (
               <View style={styles.statItem}>
-                <Ionicons name="card-outline" size={14} color={colors.textTertiary} />
+                <Ionicons name="card-outline" size={12} color={colors.textTertiary} />
                 <Text style={[styles.statText, { color: colors.textSecondary }]}>{b.stats?.purchases || 0}</Text>
               </View>
             )}
           </View>
           <View style={styles.bundleActions}>
-            <TouchableOpacity style={[styles.actionBtn, { backgroundColor: isDark ? '#2c2c2e' : '#f5f5f7' }]} activeOpacity={0.7}>
-              <Ionicons name="eye-outline" size={16} color={colors.textSecondary} />
+            <TouchableOpacity style={[styles.actionBtn, { backgroundColor: isDark ? '#2c2c2e' : '#f5f5f7' }]} activeOpacity={0.7} onPress={() => onPreview?.(b)}>
+              <Ionicons name="eye-outline" size={14} color={colors.textSecondary} />
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionBtn, { backgroundColor: isDark ? '#2c2c2e' : '#f5f5f7' }]} activeOpacity={0.7}>
-              <Ionicons name="create-outline" size={16} color={colors.textSecondary} />
+            <TouchableOpacity style={[styles.actionBtn, { backgroundColor: isDark ? '#2c2c2e' : '#f5f5f7' }]} activeOpacity={0.7} onPress={() => onEdit?.(b)}>
+              <Ionicons name="create-outline" size={14} color={colors.textSecondary} />
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionBtn, { backgroundColor: isDark ? 'rgba(255,69,58,0.12)' : '#fef2f2' }]} activeOpacity={0.7}>
-              <Ionicons name="trash-outline" size={16} color={colors.danger} />
+            <TouchableOpacity style={[styles.actionBtn, { backgroundColor: isDark ? 'rgba(255,69,58,0.12)' : '#fef2f2' }]} activeOpacity={0.7} onPress={() => onDelete?.(b)}>
+              <Ionicons name="trash-outline" size={14} color={colors.danger} />
             </TouchableOpacity>
           </View>
         </View>
@@ -941,7 +1104,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 44,
   },
   title: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5 },
 
@@ -964,7 +1127,7 @@ const styles = StyleSheet.create({
   channelBtnText: { fontSize: 12, fontWeight: '600' },
 
   /* Tabs */
-  tabsRow: { flexDirection: 'row', gap: 4, marginBottom: 16 },
+  tabsRow: { flexDirection: 'row', gap: 4, marginBottom: 30 },
   tab: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -994,6 +1157,7 @@ const styles = StyleSheet.create({
     gap: 6,
     borderRadius: 12,
     paddingVertical: 12,
+    marginBottom: 48,
   },
   newBtnText: { fontSize: 15, fontWeight: '600' },
 
@@ -1023,22 +1187,29 @@ const styles = StyleSheet.create({
   emptyCtaText: { fontSize: 15, fontWeight: '600' },
 
   /* Card list */
-  cardList: { gap: 16, paddingTop: 16 },
+  cardList: { gap: 48, paddingTop: 12 },
 
   /* Material Card */
   materialCard: {
-    borderRadius: 18,
+    borderRadius: 14,
     borderWidth: 1,
-    overflow: 'hidden',
+    overflow: 'visible',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.11,
     shadowRadius: 12,
-    elevation: 3,
+    elevation: 5,
   },
 
   /* Thumbnail */
-  thumbWrap: { position: 'relative', aspectRatio: 16 / 9 },
-  thumbImg: { width: '100%', height: '100%', resizeMode: 'cover' },
+  thumbWrap: {
+    position: 'relative',
+    aspectRatio: 16 / 8,
+    overflow: 'hidden',
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
+  },
+  thumbImg: { width: '100%', height: '100%' },
   thumbPlaceholder: {
     width: '100%',
     height: '100%',
@@ -1047,84 +1218,89 @@ const styles = StyleSheet.create({
   },
   statusBadge: {
     position: 'absolute',
-    top: 10,
-    left: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    top: 8,
+    left: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
-  statusBadgeText: { fontSize: 11, fontWeight: '700', textTransform: 'capitalize' },
+  statusBadgeText: { fontSize: 10, fontWeight: '700', textTransform: 'capitalize' },
   priceBadge: {
     position: 'absolute',
-    top: 10,
-    right: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    top: 8,
+    right: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
-  priceBadgeText: { fontSize: 12, fontWeight: '700' },
+  priceBadgeText: { fontSize: 11, fontWeight: '700' },
 
   /* Card body */
-  cardBody: { padding: 16 },
+  cardBody: {
+    padding: 10,
+    overflow: 'hidden',
+    borderBottomLeftRadius: 14,
+    borderBottomRightRadius: 14,
+  },
 
   /* Badges */
-  badgesRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-  typeLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
-  reviewBadge: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  reviewBadgeText: { fontSize: 10, fontWeight: '600' },
+  badgesRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
+  typeLabel: { fontSize: 9, fontWeight: '700', letterSpacing: 0.5 },
+  reviewBadge: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  reviewBadgeText: { fontSize: 9, fontWeight: '600' },
 
   /* Title */
-  cardTitle: { fontSize: 17, fontWeight: '700', letterSpacing: -0.2, marginBottom: 6 },
+  cardTitle: { fontSize: 14, fontWeight: '700', letterSpacing: -0.2, marginBottom: 4 },
 
   /* Price row */
-  priceRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
-  priceText: { fontSize: 14, fontWeight: '700' },
-  questionCount: { fontSize: 13 },
+  priceRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 3 },
+  priceText: { fontSize: 12, fontWeight: '700' },
+  questionCount: { fontSize: 11 },
 
   /* Details line */
-  detailsLine: { fontSize: 12, marginBottom: 10 },
+  detailsLine: { fontSize: 11, marginBottom: 6 },
 
   /* Stats */
-  statsRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 },
-  statItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  statText: { fontSize: 12, fontWeight: '500' },
+  statsRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
+  statItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  statText: { fontSize: 11, fontWeight: '500' },
 
   /* Preview */
   previewBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 5,
     borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: 11,
-    marginBottom: 12,
+    borderRadius: 10,
+    paddingVertical: 8,
+    marginBottom: 8,
   },
-  previewBtnText: { fontSize: 14, fontWeight: '600' },
+  previewBtnText: { fontSize: 13, fontWeight: '600' },
 
   /* Actions */
-  actionsRow: { flexDirection: 'row', justifyContent: 'center', gap: 10 },
+  actionsRow: { flexDirection: 'row', justifyContent: 'center', gap: 8 },
   actionBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 34,
+    height: 34,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   /* Bundle extras */
-  bundleMeta: { flexDirection: 'row', gap: 16, marginBottom: 8 },
-  tagsRow: { flexDirection: 'row', gap: 6, marginBottom: 10 },
-  tag: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  tagText: { fontSize: 11, fontWeight: '600' },
+  bundleMeta: { flexDirection: 'row', gap: 12, marginBottom: 6 },
+  tagsRow: { flexDirection: 'row', gap: 5, marginBottom: 6 },
+  tag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  tagText: { fontSize: 10, fontWeight: '600' },
   bundleFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 12,
+    paddingTop: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
-  bundleActions: { flexDirection: 'row', gap: 8 },
+  bundleActions: { flexDirection: 'row', gap: 6 },
 
   /* Channel Panel */
   channelPanel: {

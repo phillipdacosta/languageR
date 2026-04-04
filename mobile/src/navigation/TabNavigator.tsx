@@ -1,10 +1,10 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../contexts/ThemeContext';
+import { getTabBarStyle } from './tabBarStyles';
 
 import HomeScreen from '../screens/HomeScreen';
 import CalendarScreen from '../screens/CalendarScreen';
@@ -34,18 +34,7 @@ export default function TabNavigator() {
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarStyle: {
-          backgroundColor: colors.tabBar,
-          borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: colors.tabBarBorder,
-          height: 88,
-          paddingTop: 8,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.05,
-          shadowRadius: 8,
-          elevation: 5,
-        },
+        tabBarStyle: getTabBarStyle(colors),
         tabBarActiveTintColor: colors.text,
         tabBarInactiveTintColor: colors.textTertiary,
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginBottom: 6 },

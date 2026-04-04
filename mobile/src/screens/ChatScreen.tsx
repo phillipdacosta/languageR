@@ -32,6 +32,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '../contexts/ThemeContext';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { messagingService, Conversation, Message } from '../services/messaging';
+import { useScreenEntranceAnimations } from '../hooks/useScreenEntranceAnimations';
 
 interface Props {
   conversation: Conversation;
@@ -111,6 +112,7 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
   const [uploading, setUploading] = useState(false);
 
   const invertedMessages = useMemo(() => [...messages].reverse(), [messages]);
+  const { shellMotion, listGateMotion } = useScreenEntranceAnimations(loading);
 
   useEffect(() => {
     if (!otherUser?.timezone) return;
@@ -571,6 +573,7 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
   return (
     <View style={{ flex: 1, backgroundColor: C.background }}>
     <SafeAreaView style={[s.safe, { backgroundColor: C.background }]} edges={['top', 'bottom']}>
+      <Animated.View style={shellMotion}>
       <View style={[s.header, { backgroundColor: C.background, borderBottomColor: C.border }]}>
         <TouchableOpacity onPress={goBack} style={s.backBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="chevron-back" size={24} color={C.text} />
@@ -578,12 +581,14 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
         <Text style={[s.headerTitle, { color: C.text }]} numberOfLines={1}>{otherUser?.name || 'Chat'}</Text>
         <View style={s.headerRight} />
       </View>
+      </Animated.View>
 
       <KeyboardAvoidingView
         style={s.kavContainer}
         behavior="padding"
         keyboardVerticalOffset={insets.bottom}
       >
+        <Animated.View style={[{ flex: 1 }, listGateMotion]}>
         <View style={[s.chatBody, { backgroundColor: C.background }]}>
           {loading ? (
             <View style={s.loadingWrap}><ActivityIndicator size="large" color={C.textTertiary} /></View>
@@ -617,6 +622,7 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
             />
           )}
         </View>
+        </Animated.View>
 
         <View style={[s.bottomArea, { backgroundColor: C.background }]}>
           {uploading && (

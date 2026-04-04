@@ -8,11 +8,13 @@ import {
   Image,
   TouchableOpacity,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { getTabBarStyle } from '../navigation/tabBarStyles';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../contexts/ThemeContext';
 import { lessonService, buildTimelineEvents, TimelineEvent, Lesson } from '../services/lessons';
@@ -20,6 +22,7 @@ import { earningsService, EarningsBalance } from '../services/earnings';
 import { calendarService } from '../services/calendar';
 import EarningsScreen from './EarningsScreen';
 import MaterialsScreen from './MaterialsScreen';
+import { preloadMaterials } from '../services/materials';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const CTA_DARK_BLUE = '#3a7bc8';
@@ -121,7 +124,20 @@ export default function HomeScreen() {
       await Promise.all([fetchData(), fetchEarnings(), fetchAvailability()]);
       setLoading(false);
     })();
-  }, [fetchData, fetchEarnings, fetchAvailability]);
+    if (isTutor) preloadMaterials();
+  }, [fetchData, fetchEarnings, fetchAvailability, isTutor]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const hideTabs = showMaterials || showEarnings;
+      navigation.setOptions({
+        tabBarStyle: hideTabs ? { display: 'none' as const } : getTabBarStyle(colors),
+      });
+      return () => {
+        navigation.setOptions({ tabBarStyle: getTabBarStyle(colors) });
+      };
+    }, [navigation, colors, showMaterials, showEarnings]),
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -164,16 +180,11 @@ export default function HomeScreen() {
     return t('HOME.WELCOME_OPEN_SCHEDULE');
   }, [nextLesson, isTutor, hasAvailability, hadLessonsToday, t]);
 
-  if (showEarnings) {
-    return <EarningsScreen goBack={() => setShowEarnings(false)} />;
-  }
-
-  if (showMaterials) {
-    return <MaterialsScreen goBack={() => setShowMaterials(false)} />;
-  }
+  const overlayActive = showEarnings || showMaterials;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
+    <View style={{ flex: 1 }}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }, overlayActive && { position: 'absolute', opacity: 0, pointerEvents: 'none' }]} edges={['top']}>
       {/* ── Toolbar ── */}
       <Toolbar
         user={user}
@@ -222,6 +233,7 @@ export default function HomeScreen() {
 
         {/* ── This Week ── */}
         {!loading && (
+          <View style={styles.thisWeekSectionWrap}>
           <Section title={t('HOME.THIS_WEEK')} colors={colors}>
             {thisWeekLessons.length === 0 ? (
               <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{t('HOME.THIS_WEEK_NOTHING_YET')}</Text>
@@ -247,17 +259,20 @@ export default function HomeScreen() {
               </TouchableOpacity>
             )}
           </Section>
+          </View>
         )}
 
         {/* ── Quick Actions ── */}
         {!loading && (
+          <View style={styles.quickActionsSectionWrap}>
           <Section title={t('HOME.QUICK_ACTIONS')} colors={colors}>
             <View style={styles.actionsRow}>
-              <ActionChip image={require('../../assets/shared/quick-actions-classes.png')} label={t('HOME.CLASSES')} colors={colors} />
+              <ActionChip image={require('../../assets/shared/classroom.png')} label={t('HOME.CLASSES')} colors={colors} />
               <ActionChip image={require('../../assets/shared/quick-actions-create-material.png')} label={t('HOME.CREATE_MATERIAL')} colors={colors} onPress={() => setShowMaterials(true)} />
               <ActionChip image={require('../../assets/shared/quick-actions-forum.png')} label={t('HOME.FORUM')} colors={colors} />
             </View>
           </Section>
+          </View>
         )}
 
         {/* ── Coming Up ── */}
@@ -271,6 +286,7 @@ export default function HomeScreen() {
 
         {/* ── Recent Students ── */}
         {!loading && (
+          <View style={styles.recentStudentsSectionWrap}>
           <Section title={t('HOME.RECENT_STUDENTS')} colors={colors}>
             {recentStudents.length === 0 ? (
               <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{t('HOME.NO_RECENT_STUDENTS')}</Text>
@@ -291,11 +307,15 @@ export default function HomeScreen() {
               </ScrollView>
             )}
           </Section>
+          </View>
         )}
 
         <View style={{ height: 24 }} />
       </ScrollView>
     </SafeAreaView>
+    {showEarnings && <EarningsScreen goBack={() => setShowEarnings(false)} />}
+    {showMaterials && <MaterialsScreen goBack={() => setShowMaterials(false)} />}
+    </View>
   );
 }
 
@@ -353,9 +373,21 @@ function Section({ title, rightLabel, children, colors }: { title: string; right
 function UpNextFilled({ event, colors, t }: { event: TimelineEvent; colors: any; t: any }) {
   const isDark = colors.isDark;
   return (
-    <View style={styles.section}>
+    <View style={[styles.section, styles.upNextSectionSpacing]}>
       <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('HOME.UP_NEXT')}</Text>
-      <TouchableOpacity style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, shadowOpacity: isDark ? 0 : 0.07 }]} activeOpacity={0.85}>
+      <TouchableOpacity
+        style={[
+          styles.upNextCardSurface,
+          styles.upNextCard,
+          {
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+            shadowOpacity: isDark ? 0 : Platform.OS === 'ios' ? 0.16 : 0.12,
+            elevation: isDark ? 0 : Platform.OS === 'android' ? 14 : 0,
+          },
+        ]}
+        activeOpacity={0.85}
+      >
         <View style={styles.upNextAvatarWrap}>
           {event.avatar ? (
             <Image source={{ uri: event.avatar }} style={styles.upNextAvatar} />
@@ -403,11 +435,26 @@ function UpNextEmpty({ colors, title, message, ctaLabel, onCta }: {
   const isDark = colors.isDark;
   const { t } = useTranslation();
   return (
-    <View style={styles.section}>
+    <View style={[styles.section, styles.upNextSectionSpacing]}>
       <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('HOME.UP_NEXT')}</Text>
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, shadowOpacity: isDark ? 0 : 0.07 }]}>
-        <Image source={require('../../assets/shared/calendar-availability.png')} style={styles.emptyArtImg} />
-        <Text style={[styles.cardTitle, { color: colors.text }]}>{title}</Text>
+      <View
+        style={[
+          styles.upNextCardSurface,
+          styles.upNextCard,
+          {
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+            shadowOpacity: isDark ? 0 : Platform.OS === 'ios' ? 0.16 : 0.12,
+            elevation: isDark ? 0 : Platform.OS === 'android' ? 14 : 0,
+          },
+        ]}
+      >
+        <Image source={require('../../assets/shared/calendar-mobile.png')} style={styles.emptyArtImg} />
+        <Text
+          style={[styles.cardTitle, styles.upNextEmptyTitleShift, { color: colors.text }]}
+        >
+          {title}
+        </Text>
         <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>
           {message}
         </Text>
@@ -428,9 +475,20 @@ function UpNextEmpty({ colors, title, message, ctaLabel, onCta }: {
 
 function UpNextSkeleton({ colors }: { colors: any }) {
   return (
-    <View style={styles.section}>
+    <View style={[styles.section, styles.upNextSectionSpacing]}>
       <Skeleton width={80} height={15} style={{ marginBottom: 14 }} colors={colors} />
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, shadowOpacity: colors.isDark ? 0 : 0.07 }]}>
+      <View
+        style={[
+          styles.upNextCardSurface,
+          styles.upNextCard,
+          {
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+            shadowOpacity: colors.isDark ? 0 : Platform.OS === 'ios' ? 0.16 : 0.12,
+            elevation: colors.isDark ? 0 : Platform.OS === 'android' ? 14 : 0,
+          },
+        ]}
+      >
         <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: colors.skeleton, marginBottom: 12 }} />
         <Skeleton width={140} height={15} style={{ marginBottom: 8 }} colors={colors} />
         <Skeleton width={210} height={12} style={{ marginBottom: 8 }} colors={colors} />
@@ -480,19 +538,27 @@ function ComingUpRow({ event, colors, t }: { event: TimelineEvent; colors: any; 
 
 function ActionChip({ image, label, colors, onPress }: { image: any; label: string; colors: any; onPress?: () => void }) {
   const isDark = colors.isDark;
+  const lift = !isDark;
   return (
     <TouchableOpacity
-      style={[styles.actionChip, {
-        backgroundColor: isDark ? 'rgba(44,44,46,0.85)' : '#fff',
-        borderWidth: 1,
-        borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
-        shadowOpacity: isDark ? 0 : 0.04,
-      }]}
+      style={[
+        styles.actionChip,
+        {
+          backgroundColor: isDark ? '#1c1c1e' : '#fff',
+          borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+          shadowOpacity: lift ? (Platform.OS === 'ios' ? 0.045 : 0) : 0,
+          elevation: lift && Platform.OS === 'android' ? 2 : 0,
+        },
+      ]}
       activeOpacity={0.7}
       onPress={onPress}
     >
-      <Image source={image} style={styles.actionChipImg} />
-      <Text style={[styles.actionChipLabel, { color: colors.text }]} numberOfLines={2}>{label}</Text>
+      <View style={styles.actionChipIconWrap}>
+        <Image source={image} style={styles.actionChipImg} />
+      </View>
+      <Text style={[styles.actionChipLabel, { color: isDark ? colors.text : '#222' }]} numberOfLines={2}>
+        {label}
+      </Text>
     </TouchableOpacity>
   );
 }
@@ -559,29 +625,43 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     lineHeight: 28,
   },
-  greetingSub: { fontSize: 14, color: '#717171', marginTop: 4, lineHeight: 20 },
+  greetingSub: { fontSize: 14, color: '#717171', marginTop: 4, lineHeight: 20, paddingBottom: 20 },
 
   // Section
   section: { marginBottom: 22 },
+  /** Extra space below Up Next (card → This Week); overrides section marginBottom when combined. */
+  upNextSectionSpacing: { marginBottom: 32 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1a1a1a', marginBottom: 12 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1a1a1a', marginBottom: 12, },
   seeAllText: { fontSize: 13, fontWeight: '600', color: '#717171' },
   emptyText: { fontSize: 14, color: '#999' },
 
-  // Card (shared)
-  card: {
+  /**
+   * Up Next card shell — iOS uses shadow* props; Android uses elevation (shadowOpacity is ignored).
+   * Values are stronger than before so the lift reads on a real device.
+   */
+  upNextCardSurface: {
     backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.06)',
-    borderRadius: 22,
+    borderRadius: 28,
     padding: 24,
     paddingTop: 14,
     alignItems: 'center',
+    overflow: 'visible',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.07,
-    shadowRadius: 18,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 10 },
+    shadowRadius: 28,
+    // Defaults; iOS/Android light mode refined inline (opacity + elevation)
+    shadowOpacity: 0.14,
+    elevation: 14,
+  },
+  /** Taller Up Next card (portrait rectangle vs compact square). */
+  upNextCard: {
+    paddingTop: 24,
+    paddingBottom: 44,
+    minHeight: 268,
+    justifyContent: 'center',
   },
   cardTitle: {
     fontSize: 18,
@@ -603,6 +683,8 @@ const styles = StyleSheet.create({
   metaToday: { color: '#34C759', fontWeight: '600' },
   cardCountdown: { fontSize: 13, color: '#999', marginBottom: 8 },
   emptyArtImg: { width: 120, height: 120, resizeMode: 'contain', marginBottom: 4 },
+  /** Up Next empty: nudge title toward art without shrinking layout (transform, not negative margins). */
+  upNextEmptyTitleShift: { transform: [{ translateY: -14 }] },
 
   // CTA button (black pill with arrow — matching .m-card-empty-link)
   ctaBtn: {
@@ -633,7 +715,8 @@ const styles = StyleSheet.create({
   },
   trialBadgeText: { fontSize: 10, fontWeight: '700', color: '#F5A623', letterSpacing: 0.3, textTransform: 'uppercase' },
 
-  // This Week
+  // This Week (extra space below Up Next card)
+  thisWeekSectionWrap: { marginTop: 22 },
   thisWeekRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -653,25 +736,39 @@ const styles = StyleSheet.create({
   chevron: { fontSize: 22, color: '#ccc', fontWeight: '300' },
 
   // Quick Actions
-  actionsRow: { flexDirection: 'row', gap: 10 },
+  quickActionsSectionWrap: { marginTop: 16 },
+  /** Compact row — lighter than Up Next hero card */
+  actionsRow: { flexDirection: 'row', gap: 8, alignItems: 'stretch' },
   actionChip: {
     flex: 1,
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-    gap: 8,
+    minHeight: 92,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    gap: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+    shadowRadius: 5,
   },
-  actionChipImg: { width: 48, height: 48, resizeMode: 'contain' },
-  actionChipLabel: { fontSize: 12, fontWeight: '600', color: '#222', textAlign: 'center' },
+  actionChipIconWrap: {
+    width: 56,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionChipImg: { width: 56, height: 56, resizeMode: 'contain' },
+  actionChipLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 13,
+    letterSpacing: -0.15,
+    paddingHorizontal: 2,
+  },
 
   // Coming Up
   comingUpRow: {
@@ -699,7 +796,8 @@ const styles = StyleSheet.create({
   cuBadgeText: { fontSize: 11, fontWeight: '600', color: '#2E7D32' },
   cuBadgeTextTrial: { color: '#F5A623' },
 
-  // Recent Students
+  // Recent Students (paddingTop so space isn’t lost to margin collapse with section above)
+  recentStudentsSectionWrap: { paddingTop: 22 },
   recentScroll: { gap: 14 },
   recentItem: { alignItems: 'center', width: 60 },
   recentAvatar: { width: 48, height: 48, borderRadius: 24, marginBottom: 6 },
