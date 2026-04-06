@@ -857,6 +857,7 @@
     "FIELD_LEVEL": "Nivå",
     "FIELD_COVER_IMAGE": "Omslagsbild",
     "FIELD_COVER_RECOMMENDED": "Rekommenderad",
+    "FIELD_COVER_REQUIRED": "Obligatorisk",
     "FIELD_COVER_ADD": "Lägg till en omslagsbild",
     "FIELD_COVER_HINT": "Gör ditt material synligt. Du beskär till kortformat (16:10). JPG eller PNG, max 5 MB.",
     "PRO_TIP": "Tips:",

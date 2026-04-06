@@ -16,12 +16,103 @@
     <app-explore [inline]="true" (goBackEvent)="onExploreGoBack()"></app-explore>
   </div>
 
-  <!-- Inline Create Material View -->
-  <div class="create-material-inline-panel" *ngIf="showCreateMaterialView">
-    <app-create-material #createMaterialRef [inline]="true" (goBackEvent)="onCreateMaterialGoBack()"></app-create-material>
+  <!-- Inline Create Material View (mobile) -->
+  <div class="create-material-inline-panel" *ngIf="showCreateMaterialView && isMobile">
+    <app-create-material #createMaterialRef [inline]="true" (goBackEvent)="onCreateMaterialGoBack()" (modalExpandEvent)="onModalExpand($event)"></app-create-material>
   </div>
 
-  <div class="content-wrapper" *ngIf="!showEarningsView && !showExploreView && !showCreateMaterialView">
+  <!-- Desktop Create Material Modal -->
+  <div class="cm-modal-backdrop" *ngIf="showCreateMaterialView && !isMobile" [class.cm-modal-backdrop--visible]="createMaterialBackdropVisible" [class.cm-modal-backdrop--deep]="createMaterialModalExpanded" (click)="onCreateMaterialModalBackdropClick($event)">
+
+    <!-- Sidebar — animates width/opacity with expand/collapse (same timing as .cm-modal-container) -->
+    <div
+      class="cm-modal-sidebar"
+      [class.cm-modal-sidebar--open]="createMaterialModalExpanded"
+      [attr.aria-hidden]="!createMaterialModalExpanded"
+      (click)="$event.stopPropagation()"
+    >
+      <button type="button" class="cm-modal-sidebar-btn" [class.active]="modalSidebarTab === 'materials'" (click)="onModalSidebarSwitch('materials')" title="Materials">
+        <img src="assets/materials-gateway.png" alt="" class="cm-modal-sidebar-img" />
+      </button>
+      <button type="button" class="cm-modal-sidebar-btn" [class.active]="modalSidebarTab === 'bundles'" (click)="onModalSidebarSwitch('bundles')" title="Bundles">
+        <img src="assets/bundles-gateway.png" alt="" class="cm-modal-sidebar-img" />
+      </button>
+    </div>
+
+    <!-- White modal card -->
+    <div class="cm-modal-container" [class.cm-modal--expanded]="createMaterialModalExpanded" [class.cm-modal--ready]="createMaterialModalReady" (click)="$event.stopPropagation()">
+      <div class="cm-modal-header" [class.cm-modal-header--hidden]="createMaterialModalExpanded">
+        <button
+          type="button"
+          class="cm-modal-close"
+          [attr.aria-hidden]="createMaterialModalExpanded"
+          (click)="onCreateMaterialGoBack()"
+        >
+          <ion-icon name="close-outline"></ion-icon>
+        </button>
+        <h2 class="cm-modal-title">{{ 'CREATE_MATERIAL.MODAL_TITLE' | translate }}</h2>
+        <span class="cm-modal-header-spacer" aria-hidden="true"></span>
+      </div>
+      <div class="cm-modal-topbar" [class.cm-modal-topbar--collapsed]="!createMaterialModalExpanded">
+        <button type="button" class="cm-modal-back" *ngIf="modalShowFooter" (click)="onModalListBackToGateway()">
+          {{ 'CREATE_MATERIAL.MODAL_GO_BACK' | translate }}
+        </button>
+        <button type="button" class="cm-modal-back" *ngIf="modalShowBundleShareGoBack" (click)="onModalBundleShareGoBack()">
+          {{ 'CREATE_MATERIAL.MODAL_GO_BACK' | translate }}
+        </button>
+        <button type="button" class="cm-modal-back" *ngIf="modalShowGoBack" (click)="onModalChromeBack()">
+          <ion-icon name="chevron-back-outline"></ion-icon>
+          {{ 'CREATE_MATERIAL.NAV_BACK_SHORT' | translate }}
+        </button>
+        <button type="button" class="cm-modal-back" *ngIf="cmModalRouterOutletActive" (click)="onModalDetailOutletGoBack()">
+          {{ 'CREATE_MATERIAL.MODAL_GO_BACK' | translate }}
+        </button>
+        <div class="cm-modal-topbar-fill" aria-hidden="true"></div>
+        <button type="button" class="cm-modal-exit" *ngIf="modalShowSaveExit && !cmModalRouterOutletActive" (click)="onCreateMaterialGoBack()">Save and exit</button>
+      </div>
+      <div class="cm-modal-body">
+        <div class="cm-modal-router-host" *ngIf="cmModalRouterOutletActive">
+          <router-outlet></router-outlet>
+        </div>
+        <app-create-material
+          #createMaterialRef
+          class="cm-modal-create-material-host"
+          [class.cm-modal-create-material-host--hidden]="cmModalRouterOutletActive"
+          [inline]="true"
+          (goBackEvent)="onCreateMaterialGoBack()"
+          (modalExpandEvent)="onModalExpand($event)"
+          (modalTopbarChromeEvent)="onModalTopbarChrome($event)"
+          (detailsModalFooterChromeEvent)="onDetailsModalFooterChrome($event)"
+          (modalSidebarTabSync)="onModalSidebarTabFromChild($event)"
+        ></app-create-material>
+      </div>
+      <div
+        class="cm-modal-footer"
+        [class.cm-modal-footer--collapsed]="!createMaterialModalExpanded || (!modalShowFooter && !modalDetailsWizardFooter)"
+      >
+        <ng-container *ngIf="createMaterialModalExpanded && modalShowFooter">
+          <button type="button" class="cm-modal-footer-btn" (click)="onModalFooterCreate()">
+            <ion-icon name="add-outline"></ion-icon>
+            {{ modalSidebarTab === 'materials' ? 'New Material' : 'New Bundle' }}
+          </button>
+        </ng-container>
+        <ng-container *ngIf="createMaterialModalExpanded && modalDetailsWizardFooter && !modalShowFooter">
+          <button type="button" class="cm-modal-footer-back" *ngIf="modalDetailsWizardShowBack" (click)="onModalDetailsWizardBack()">
+            {{ 'COMMON.BACK' | translate }}
+          </button>
+          <div class="cm-modal-footer-spacer" aria-hidden="true"></div>
+          <button type="button" class="cm-modal-footer-btn" (click)="onModalDetailsWizardNext()" [disabled]="createMaterialRef?.isSavingBundle">
+            <ng-container *ngIf="!modalDetailsWizardIsLastStep">{{ 'CREATE_MATERIAL.DETAILS_WIZ_NEXT' | translate }}</ng-container>
+            <ng-container *ngIf="modalDetailsWizardIsLastStep && !modalDetailsWizardLastStepKey">{{ 'CREATE_MATERIAL.CONTINUE_TO_QUIZ' | translate }}</ng-container>
+            <ng-container *ngIf="modalDetailsWizardIsLastStep && modalDetailsWizardLastStepKey">{{ modalDetailsWizardLastStepKey | translate }}</ng-container>
+            <ion-icon name="arrow-forward-outline"></ion-icon>
+          </button>
+        </ng-container>
+      </div>
+    </div>
+  </div>
+
+  <div class="content-wrapper" *ngIf="!showEarningsView && !showExploreView && !(showCreateMaterialView && isMobile)">
     
     <!-- Welcome Message with Search Bar (Students) -->
     <div class="welcome-section welcome-section--mobile-hero" *ngIf="currentUser && isStudentUser">
@@ -222,8 +313,9 @@
                 <!-- Top content group -->
                 <div class="up-next-top-content">
                   <!-- Icon/Avatar -->
-                  <div class="up-next-icon">
-                    <ion-icon name="calendar-outline"></ion-icon>
+                  <div class="up-next-icon" [class.up-next-icon--desktop-art]="!isMobile">
+                    <img *ngIf="!isMobile" class="up-next-calendar-desktop-art" src="assets/calendar-mobile.png" alt="" />
+                    <ion-icon *ngIf="isMobile" name="calendar-outline"></ion-icon>
                   </div>
                   
                   <!-- Content -->
@@ -738,7 +830,9 @@
     <!-- Desktop Empty State (wide web only; narrow uses m-upnext-empty-block above) -->
     <div class="empty-state-clean" *ngIf="!isMobile && !isNarrowTutorHomeViewport && isTutorUser && !isLoadingLessons && !nextLesson">
       <div class="empty-state-clean-inner">
-        <div class="empty-state-clean-icon anim-persist"><ion-icon name="calendar-outline"></ion-icon></div>
+        <div class="empty-state-clean-icon empty-state-clean-icon--calendar anim-persist">
+          <img class="empty-state-clean-calendar-art" src="assets/calendar-mobile.png" alt="" />
+        </div>
         <div class="empty-state-clean-text">
           <h3>{{ emptyStateTitle }}</h3>
           <p>{{ emptyStateMessage }}</p>

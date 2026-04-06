@@ -4,7 +4,9 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../contexts/ThemeContext';
+import { HomeTabBarOverlayProvider, useHomeTabBarOverlay } from '../contexts/HomeTabBarOverlayContext';
 import { getTabBarStyle } from './tabBarStyles';
+import SlidingTabBar from './SlidingTabBar';
 
 import HomeScreen from '../screens/HomeScreen';
 import CalendarScreen from '../screens/CalendarScreen';
@@ -26,9 +28,10 @@ function CalendarStackNavigator() {
   );
 }
 
-export default function TabNavigator() {
+function TabNavigatorInner() {
   const { colors } = useTheme();
   const { t } = useTranslation();
+  const { homeOverlayCoversTabBar } = useHomeTabBarOverlay();
 
   return (
     <Tab.Navigator
@@ -39,6 +42,9 @@ export default function TabNavigator() {
         tabBarInactiveTintColor: colors.textTertiary,
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginBottom: 6 },
       }}
+      tabBar={(props) => (
+        <SlidingTabBar {...props} homeOverlayCoversTabBar={homeOverlayCoversTabBar} />
+      )}
     >
       <Tab.Screen
         name="Home"
@@ -81,5 +87,13 @@ export default function TabNavigator() {
         }}
       />
     </Tab.Navigator>
+  );
+}
+
+export default function TabNavigator() {
+  return (
+    <HomeTabBarOverlayProvider>
+      <TabNavigatorInner />
+    </HomeTabBarOverlayProvider>
   );
 }

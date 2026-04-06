@@ -997,6 +997,7 @@
     "FIELD_LEVEL": "Niveau",
     "FIELD_COVER_IMAGE": "Image de Couverture",
     "FIELD_COVER_RECOMMENDED": "Recommandé",
+    "FIELD_COVER_REQUIRED": "Obligatoire",
     "FIELD_COVER_ADD": "Ajouter une image de couverture",
     "FIELD_COVER_HINT": "Fait ressortir votre ressource. Vous recadrerez au format carte (16:10). JPG ou PNG, max 5 Mo.",
     "PRO_TIP": "Conseil pro :",

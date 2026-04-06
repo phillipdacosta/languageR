@@ -16,7 +16,32 @@ import { TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { HomeInlineToolbarService } from '../services/home-inline-toolbar.service';
 import { TagPickerComponent } from '../components/tag-picker/tag-picker.component';
+import { PlatformService } from '../services/platform.service';
+
 type Step = 'type' | 'pricing' | 'details' | 'quiz' | 'preview';
+
+type DetailsWizardStepId =
+  | 'title'
+  | 'description'
+  | 'whyTake'
+  | 'languageLevel'
+  | 'tags'
+  | 'customTopics'
+  | 'thumbnail'
+  | 'videoUrl'
+  | 'readingPassage'
+  | 'listeningAudio'
+  | 'price';
+
+type BundleWizardStepId =
+  | 'bundleShare'
+  | 'bundleTitle'
+  | 'bundleDescription'
+  | 'bundleMaterials'
+  | 'bundleCover'
+  | 'bundleLanguageLevel'
+  | 'bundleTags'
+  | 'bundlePrice';
 
 @Component({
   selector: 'app-create-material',
@@ -28,14 +53,36 @@ type Step = 'type' | 'pricing' | 'details' | 'quiz' | 'preview';
 export class CreateMaterialPage implements OnInit, OnDestroy {
   @Input() inline = false;
   @Output() goBackEvent = new EventEmitter<void>();
-
+  @Output() modalExpandEvent = new EventEmitter<boolean>();
+  /** Desktop modal top bar: Save and exit vs Go back (inline / home modal only). */
+  @Output() modalTopbarChromeEvent = new EventEmitter<{
+    showSaveExit: boolean;
+    showModalBack: boolean;
+    showBundleShareGoBack?: boolean;
+  }>();
+  /** Desktop modal footer: details wizard Back / Next (same slot as + New Material). */
+  @Output() detailsModalFooterChromeEvent = new EventEmitter<{
+    active: boolean;
+    showBack: boolean;
+    isLastStep: boolean;
+    lastStepLabelKey?: string | null;
+  }>();
+  /** Desktop modal sidebar + footer: tab1 must mirror the active library/create flow. */
+  @Output() modalSidebarTabSync = new EventEmitter<'materials' | 'bundles'>();
   @HostBinding('class.cm-host-inline')
   get cmHostInlineClass(): boolean {
     return this.inline;
   }
 
+  @HostBinding('class.cm-bundle-wizard-layout')
+  get cmBundleWizardLayoutClass(): boolean {
+    return this.inline && this.viewMode === 'bundle-create' && this.bundleWizardLayoutActive;
+  }
+
   viewMode: 'library' | 'create' | 'bundle-create' = 'library';
   libraryTab: 'materials' | 'bundles' = 'materials';
+  showMaterialsList = false;
+  showBundlesList = false;
   myMaterials: TutorMaterial[] = [];
   isLoadingMaterials = true;
   editingMaterialId: string | null = null;
@@ -110,6 +157,53 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
   // Structured taxonomy tags
   selectedStructuredTags: string[] = [];
 
+  /** Desktop-only: one field per screen inside the details step. */
+  detailsWizardLayoutActive = false;
+  detailsWizardStepIds: DetailsWizardStepId[] = [];
+  detailsWizardStepIndex = 0;
+  detailsWizardStepId: DetailsWizardStepId = 'title';
+  detailsWizardHeadlineKey = 'CREATE_MATERIAL.DETAILS_WIZ_TITLE_H';
+  detailsWizardSublineKey = 'CREATE_MATERIAL.DETAILS_WIZ_TITLE_D';
+  detailsWizardStepTotal = 0;
+  detailsWizardProgressPercent = 100;
+
+  /** Desktop modal: one bundle section per step (mirrors material details wizard). */
+  bundleWizardLayoutActive = false;
+  bundleWizardStepIds: BundleWizardStepId[] = [];
+  bundleWizardStepIndex = 0;
+  bundleWizardStepId: BundleWizardStepId = 'bundleTitle';
+  bundleWizardHeadlineKey = 'CREATE_MATERIAL.BUNDLE_WIZ_TITLE_H';
+  bundleWizardSublineKey = 'CREATE_MATERIAL.BUNDLE_WIZ_TITLE_D';
+  bundleWizardStepTotal = 0;
+  bundleWizardProgressPercent = 100;
+
+  /** After "Create a material" from bundle (no materials), back from type step returns to bundle wizard. */
+  private resumeBundleAfterMaterial = false;
+
+  private readonly bundleWizardCopyKeys: Record<BundleWizardStepId, { h: string; d: string }> = {
+    bundleShare: { h: 'CREATE_MATERIAL.PRICING_TITLE', d: 'CREATE_MATERIAL.BUNDLE_WIZ_SHARE_D' },
+    bundleTitle: { h: 'CREATE_MATERIAL.BUNDLE_WIZ_TITLE_H', d: 'CREATE_MATERIAL.BUNDLE_WIZ_TITLE_D' },
+    bundleDescription: { h: 'CREATE_MATERIAL.BUNDLE_WIZ_DESC_H', d: 'CREATE_MATERIAL.BUNDLE_WIZ_DESC_D' },
+    bundleMaterials: { h: 'CREATE_MATERIAL.BUNDLE_WIZ_MATERIALS_H', d: 'CREATE_MATERIAL.BUNDLE_WIZ_MATERIALS_D' },
+    bundleCover: { h: 'CREATE_MATERIAL.BUNDLE_WIZ_COVER_H', d: 'CREATE_MATERIAL.BUNDLE_WIZ_COVER_D' },
+    bundleLanguageLevel: { h: 'CREATE_MATERIAL.BUNDLE_WIZ_LANG_H', d: 'CREATE_MATERIAL.BUNDLE_WIZ_LANG_D' },
+    bundleTags: { h: 'CREATE_MATERIAL.BUNDLE_WIZ_TAGS_H', d: 'CREATE_MATERIAL.BUNDLE_WIZ_TAGS_D' },
+    bundlePrice: { h: 'CREATE_MATERIAL.BUNDLE_WIZ_PRICE_H', d: 'CREATE_MATERIAL.BUNDLE_WIZ_PRICE_D' }
+  };
+
+  private readonly detailsWizardCopyKeys: Partial<Record<DetailsWizardStepId, { h: string; d: string }>> = {
+    title: { h: 'CREATE_MATERIAL.DETAILS_WIZ_TITLE_H', d: 'CREATE_MATERIAL.DETAILS_WIZ_TITLE_D' },
+    description: { h: 'CREATE_MATERIAL.DETAILS_WIZ_DESCRIPTION_H', d: 'CREATE_MATERIAL.DETAILS_WIZ_DESCRIPTION_D' },
+    whyTake: { h: 'CREATE_MATERIAL.DETAILS_WIZ_WHY_H', d: 'CREATE_MATERIAL.DETAILS_WIZ_WHY_D' },
+    languageLevel: { h: 'CREATE_MATERIAL.DETAILS_WIZ_LANG_H', d: 'CREATE_MATERIAL.DETAILS_WIZ_LANG_D' },
+    tags: { h: 'CREATE_MATERIAL.DETAILS_WIZ_TAGS_H', d: 'CREATE_MATERIAL.DETAILS_WIZ_TAGS_D' },
+    customTopics: { h: 'CREATE_MATERIAL.DETAILS_WIZ_TOPICS_H', d: 'CREATE_MATERIAL.DETAILS_WIZ_TOPICS_D' },
+    videoUrl: { h: 'CREATE_MATERIAL.DETAILS_WIZ_VIDEO_H', d: 'CREATE_MATERIAL.DETAILS_WIZ_VIDEO_D' },
+    readingPassage: { h: 'CREATE_MATERIAL.DETAILS_WIZ_PASSAGE_H', d: 'CREATE_MATERIAL.DETAILS_WIZ_PASSAGE_D' },
+    listeningAudio: { h: 'CREATE_MATERIAL.DETAILS_WIZ_AUDIO_H', d: 'CREATE_MATERIAL.DETAILS_WIZ_AUDIO_D' },
+    price: { h: 'CREATE_MATERIAL.DETAILS_WIZ_PRICE_H', d: 'CREATE_MATERIAL.DETAILS_WIZ_PRICE_D' }
+  };
+
   quillConfig = {
     toolbar: [
       ['bold', 'italic', 'underline'],
@@ -145,20 +239,30 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     private modalCtrl: ModalController,
     private translate: TranslateService,
     private homeInlineToolbar: HomeInlineToolbarService,
-    private bundleService: BundleService
+    private bundleService: BundleService,
+    private platformService: PlatformService
   ) {}
 
   restoreSection() {
     const section = sessionStorage.getItem('cmReturnSection');
     if (section === 'bundles') {
       this.libraryTab = 'bundles';
+      this.showBundlesList = true;
       this.loadBundles();
+      this.emitModalSidebarTabSync('bundles');
       this.cdr.markForCheck();
     } else if (section === 'materials') {
       this.libraryTab = 'materials';
+      this.showMaterialsList = true;
+      this.emitModalSidebarTabSync('materials');
       this.cdr.markForCheck();
     }
     sessionStorage.removeItem('cmReturnSection');
+  }
+
+  private emitModalSidebarTabSync(tab: 'materials' | 'bundles'): void {
+    if (!this.inline) return;
+    this.modalSidebarTabSync.emit(tab);
   }
 
   ngOnInit() {
@@ -188,6 +292,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     this.toolbarBackSub?.unsubscribe();
     if (this.inline) {
       this.homeInlineToolbar.setMaterialsToolbarBackLabel('');
+      this.detailsModalFooterChromeEvent.emit({ active: false, showBack: false, isLastStep: false, lastStepLabelKey: null });
     }
   }
 
@@ -253,26 +358,52 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
   }
 
   startCreate() {
+    this.resumeBundleAfterMaterial = false;
     this.editingMaterialId = null;
     this.resetForm();
     this.viewMode = 'create';
     this.updateNavState();
+    this.modalExpandEvent.emit(true);
+    this.emitModalSidebarTabSync('materials');
   }
 
   backToLibrary() {
+    this.resumeBundleAfterMaterial = false;
     this.resetForm();
     this.viewMode = 'library';
+    this.showMaterialsList = false;
+    this.showBundlesList = false;
     this.updateNavState();
     this.loadMyMaterials();
+    if (this.inline) {
+      this.modalExpandEvent.emit(false);
+    }
+    this.emitModalSidebarTabSync(this.libraryTab);
   }
 
   handleNavBack() {
     if (this.viewMode === 'library') {
+      if (this.showMaterialsList || this.showBundlesList) {
+        this.showMaterialsList = false;
+        this.showBundlesList = false;
+        this.updateNavState();
+        if (this.inline) {
+          this.modalExpandEvent.emit(false);
+        }
+        return;
+      }
       this.goBackEvent.emit();
       return;
     }
     if (this.viewMode === 'bundle-create') {
       this.cancelBundleCreate();
+      return;
+    }
+    if (this.viewMode === 'create' && this.resumeBundleAfterMaterial && this.currentStep === 'type') {
+      this.resumeBundleAfterMaterial = false;
+      this.viewMode = 'bundle-create';
+      this.updateNavState();
+      this.emitModalSidebarTabSync('bundles');
       return;
     }
     // In create/edit mode
@@ -290,15 +421,27 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
       this.stepTitle = '';
       if (this.inline) {
         this.homeInlineToolbar.setMaterialsToolbarBackLabel(this.navBackLabel);
+        this.emitDetailsModalFooterChrome();
       }
+      this.syncModalTopbarChrome();
       return;
     }
     if (this.viewMode === 'bundle-create') {
       this.navBackLabel = 'My Materials';
       this.stepTitle = this.editingBundleId ? 'Edit Bundle' : 'Create Bundle';
+      this.bundleWizardLayoutActive = this.inline && !this.platformService.isMobile();
+      if (this.bundleWizardLayoutActive) {
+        if (this.bundleWizardStepIds.length === 0) {
+          this.initBundleWizard();
+        } else {
+          this.syncBundleWizardFromIndex();
+        }
+      }
       if (this.inline) {
         this.homeInlineToolbar.setMaterialsToolbarBackLabel(this.navBackLabel);
+        this.emitDetailsModalFooterChrome();
       }
+      this.syncModalTopbarChrome();
       return;
     }
     this.stepTitle = this.translate.instant(this.stepTitleKeys[this.currentStep]) || '';
@@ -313,11 +456,402 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     if (this.inline) {
       this.homeInlineToolbar.setMaterialsToolbarBackLabel(this.navBackLabel);
     }
+
+    const onDetails = this.currentStep === 'details';
+    this.detailsWizardLayoutActive = !this.platformService.isMobile() && onDetails;
+    if (!onDetails) {
+      this.detailsWizardStepIndex = 0;
+      this.detailsWizardStepIds = [];
+      this.detailsWizardStepTotal = 0;
+      this.detailsWizardProgressPercent = 100;
+    } else if (this.detailsWizardLayoutActive && this.detailsWizardStepIds.length > 0) {
+      this.syncDetailsWizardFromIndex();
+    } else if (this.inline) {
+      this.emitDetailsModalFooterChrome();
+    }
+
+    this.syncModalTopbarChrome();
+  }
+
+  initDetailsWizard(): void {
+    if (this.platformService.isMobile() || this.currentStep !== 'details') return;
+    this.detailsWizardStepIndex = 0;
+    this.rebuildDetailsWizardStepIds();
+    this.syncDetailsWizardFromIndex();
+  }
+
+  private rebuildDetailsWizardStepIds(): void {
+    const steps: DetailsWizardStepId[] = [
+      'title',
+      'description',
+      'whyTake',
+      'languageLevel',
+      'tags',
+      'customTopics',
+      'thumbnail'
+    ];
+    if (this.selectedType === 'video_quiz') {
+      steps.push('videoUrl');
+    } else if (this.selectedType === 'reading') {
+      steps.push('readingPassage');
+    } else if (this.selectedType === 'listening') {
+      steps.push('listeningAudio');
+    }
+    if (this.selectedPricing === 'paid') {
+      steps.push('price');
+    }
+    this.detailsWizardStepIds = steps;
+    this.detailsWizardStepTotal = steps.length;
+    this.syncDetailsWizardProgress();
+  }
+
+  private syncDetailsWizardProgress(): void {
+    const t = this.detailsWizardStepTotal;
+    if (t <= 0) {
+      this.detailsWizardProgressPercent = 100;
+      return;
+    }
+    this.detailsWizardProgressPercent = ((this.detailsWizardStepIndex + 1) / t) * 100;
+  }
+
+  private syncDetailsWizardFromIndex(): void {
+    const id = this.detailsWizardStepIds[this.detailsWizardStepIndex] ?? 'title';
+    this.detailsWizardStepId = id;
+    if (id === 'thumbnail') {
+      this.detailsWizardHeadlineKey = 'CREATE_MATERIAL.DETAILS_WIZ_THUMBNAIL_H';
+      if (this.selectedType === 'video_quiz') {
+        this.detailsWizardSublineKey = 'CREATE_MATERIAL.DETAILS_WIZ_THUMBNAIL_D_VIDEO';
+      } else if (this.selectedType === 'reading') {
+        this.detailsWizardSublineKey = 'CREATE_MATERIAL.DETAILS_WIZ_THUMBNAIL_D_READING';
+      } else {
+        this.detailsWizardSublineKey = 'CREATE_MATERIAL.DETAILS_WIZ_THUMBNAIL_D_LISTENING';
+      }
+    } else {
+      const copy = this.detailsWizardCopyKeys[id];
+      this.detailsWizardHeadlineKey = copy?.h ?? 'CREATE_MATERIAL.DETAILS_WIZ_TITLE_H';
+      this.detailsWizardSublineKey = copy?.d ?? 'CREATE_MATERIAL.DETAILS_WIZ_TITLE_D';
+    }
+    this.syncDetailsWizardProgress();
+    this.emitDetailsModalFooterChrome();
+  }
+
+  private emitDetailsModalFooterChrome(): void {
+    if (!this.inline) return;
+
+    if (this.viewMode === 'bundle-create') {
+      if (!this.bundleWizardLayoutActive || this.bundleWizardStepTotal <= 0) {
+        this.detailsModalFooterChromeEvent.emit({ active: false, showBack: false, isLastStep: false, lastStepLabelKey: null });
+        return;
+      }
+      const bundleLast = this.bundleWizardStepIndex >= this.bundleWizardStepTotal - 1;
+      this.detailsModalFooterChromeEvent.emit({
+        active: true,
+        showBack: this.bundleWizardStepId !== 'bundleShare',
+        isLastStep: bundleLast,
+        lastStepLabelKey: bundleLast
+          ? (this.editingBundleId ? 'CREATE_MATERIAL.BUNDLE_WIZ_UPDATE' : 'CREATE_MATERIAL.BUNDLE_WIZ_PUBLISH')
+          : null
+      });
+      return;
+    }
+
+    const desktopDetails =
+      this.viewMode === 'create' &&
+      this.currentStep === 'details' &&
+      !this.platformService.isMobile();
+    if (!desktopDetails || this.detailsWizardStepTotal <= 0) {
+      this.detailsModalFooterChromeEvent.emit({ active: false, showBack: false, isLastStep: false, lastStepLabelKey: null });
+      return;
+    }
+    const t = this.detailsWizardStepTotal;
+    const detailsLast = this.detailsWizardStepIndex >= t - 1;
+    this.detailsModalFooterChromeEvent.emit({
+      active: true,
+      showBack: true,
+      isLastStep: detailsLast,
+      lastStepLabelKey: null
+    });
+  }
+
+  private validateCurrentDetailsWizardStep(): boolean {
+    const id = this.detailsWizardStepId;
+    switch (id) {
+      case 'title': {
+        const c = this.materialForm.get('title');
+        c?.markAsTouched();
+        if (c?.invalid) {
+          this.showTranslatedToast('CREATE_MATERIAL.TOAST_FILL_REQUIRED');
+          return false;
+        }
+        return true;
+      }
+      case 'languageLevel': {
+        const c = this.materialForm.get('language');
+        c?.markAsTouched();
+        if (c?.invalid) {
+          this.showTranslatedToast('CREATE_MATERIAL.TOAST_FILL_REQUIRED');
+          return false;
+        }
+        return true;
+      }
+      case 'videoUrl':
+        if (this.selectedType === 'video_quiz' && !this.videoPreviewUrl) {
+          this.showTranslatedToast('CREATE_MATERIAL.TOAST_VALID_VIDEO');
+          return false;
+        }
+        return true;
+      case 'readingPassage': {
+        if (this.selectedType !== 'reading') return true;
+        const passageHtml = this.materialForm.value.passage || '';
+        const stripped = passageHtml.replace(/<[^>]*>/g, '').trim();
+        if (!stripped) {
+          this.showTranslatedToast('CREATE_MATERIAL.TOAST_ENTER_PASSAGE');
+          return false;
+        }
+        return true;
+      }
+      case 'listeningAudio':
+        if (this.selectedType === 'listening' && !this.audioPreviewUrl) {
+          this.showTranslatedToast('CREATE_MATERIAL.TOAST_VALID_AUDIO');
+          return false;
+        }
+        return true;
+      case 'thumbnail':
+        if (!this.thumbnailPreview) {
+          this.showTranslatedToast('CREATE_MATERIAL.TOAST_ADD_COVER');
+          return false;
+        }
+        return true;
+      default:
+        return true;
+    }
+  }
+
+  onDetailsWizardNext(): void {
+    if (!this.validateCurrentDetailsWizardStep()) return;
+    if (this.detailsWizardStepIndex >= this.detailsWizardStepIds.length - 1) {
+      this.goToQuizStep();
+      return;
+    }
+    this.detailsWizardStepIndex += 1;
+    this.syncDetailsWizardFromIndex();
+    this.scrollDetailsWizardIntoView();
+    this.cdr.detectChanges();
+  }
+
+  onDetailsWizardBack(): void {
+    if (this.detailsWizardStepIndex > 0) {
+      this.detailsWizardStepIndex -= 1;
+      this.syncDetailsWizardFromIndex();
+      this.scrollDetailsWizardIntoView();
+      this.cdr.detectChanges();
+      return;
+    }
+    this.goBack();
+  }
+
+  private scrollDetailsWizardIntoView(): void {
+    setTimeout(() => {
+      document.querySelector('.cm-details-wizard-scroll')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }, 0);
+  }
+
+  private initBundleWizard(): void {
+    if (this.platformService.isMobile() || this.viewMode !== 'bundle-create') return;
+    this.bundleWizardStepIndex = 0;
+    this.rebuildBundleWizardStepIds();
+    this.syncBundleWizardFromIndex();
+  }
+
+  private rebuildBundleWizardStepIds(): void {
+    const steps: BundleWizardStepId[] = [
+      'bundleShare',
+      'bundleTitle',
+      'bundleDescription',
+      'bundleMaterials',
+      'bundleCover',
+      'bundleLanguageLevel',
+      'bundleTags'
+    ];
+    if (this.bundlePricingType === 'paid') {
+      steps.push('bundlePrice');
+    }
+    this.bundleWizardStepIds = steps;
+    this.bundleWizardStepTotal = steps.length;
+    if (this.bundleWizardStepIndex >= this.bundleWizardStepTotal) {
+      this.bundleWizardStepIndex = Math.max(0, this.bundleWizardStepTotal - 1);
+    }
+    this.syncBundleWizardProgress();
+  }
+
+  selectBundleSharePricing(pricing: 'free' | 'paid'): void {
+    this.bundlePricingType = pricing;
+    if (pricing === 'free') {
+      this.bundlePrice = 0;
+    }
+    if (this.bundleWizardLayoutActive && this.bundleWizardStepId === 'bundleShare') {
+      this.rebuildBundleWizardStepIds();
+      this.syncBundleWizardFromIndex();
+    }
+  }
+
+  private syncBundleWizardProgress(): void {
+    const t = this.bundleWizardStepTotal;
+    if (t <= 0) {
+      this.bundleWizardProgressPercent = 100;
+      return;
+    }
+    this.bundleWizardProgressPercent = ((this.bundleWizardStepIndex + 1) / t) * 100;
+  }
+
+  private syncBundleWizardFromIndex(): void {
+    const id = this.bundleWizardStepIds[this.bundleWizardStepIndex] ?? 'bundleShare';
+    this.bundleWizardStepId = id;
+    const copy = this.bundleWizardCopyKeys[id];
+    this.bundleWizardHeadlineKey = copy.h;
+    this.bundleWizardSublineKey = copy.d;
+    this.syncBundleWizardProgress();
+    this.emitDetailsModalFooterChrome();
+    this.syncModalTopbarChrome();
+  }
+
+  private resetBundleWizardState(): void {
+    this.resumeBundleAfterMaterial = false;
+    this.bundleWizardStepIds = [];
+    this.bundleWizardStepIndex = 0;
+    this.bundleWizardStepTotal = 0;
+    this.bundleWizardProgressPercent = 100;
+    this.bundleWizardStepId = 'bundleShare';
+    this.bundleWizardHeadlineKey = 'CREATE_MATERIAL.PRICING_TITLE';
+    this.bundleWizardSublineKey = 'CREATE_MATERIAL.BUNDLE_WIZ_SHARE_D';
+  }
+
+  private validateCurrentBundleWizardStep(): boolean {
+    switch (this.bundleWizardStepId) {
+      case 'bundleShare':
+        return true;
+      case 'bundleTitle':
+        if (!this.bundleTitle.trim()) {
+          void this.showTranslatedToast('CREATE_MATERIAL.TOAST_FILL_REQUIRED');
+          return false;
+        }
+        return true;
+      case 'bundleDescription':
+        return true;
+      case 'bundleMaterials':
+        if (this.bundleSelectedMaterialIds.length < 2) {
+          void this.showTranslatedToast('CREATE_MATERIAL.BUNDLE_WIZ_TOAST_MATERIALS_MIN_TWO');
+          return false;
+        }
+        return true;
+      case 'bundleCover':
+      case 'bundleTags':
+        return true;
+      case 'bundleLanguageLevel':
+        if (!this.bundleLanguage?.trim()) {
+          void this.showTranslatedToast('CREATE_MATERIAL.TOAST_FILL_REQUIRED');
+          return false;
+        }
+        return true;
+      case 'bundlePrice':
+        if (this.bundlePrice <= 0) {
+          void this.showTranslatedToast('CREATE_MATERIAL.TOAST_FILL_REQUIRED');
+          return false;
+        }
+        return true;
+      default:
+        return true;
+    }
+  }
+
+  onBundleWizardNext(): void {
+    if (!this.validateCurrentBundleWizardStep()) return;
+    if (this.bundleWizardStepId === 'bundleShare') {
+      this.rebuildBundleWizardStepIds();
+    }
+    if (this.bundleWizardStepIndex >= this.bundleWizardStepIds.length - 1) return;
+    this.bundleWizardStepIndex += 1;
+    this.syncBundleWizardFromIndex();
+    this.scrollBundleWizardIntoView();
+    this.cdr.detectChanges();
+  }
+
+  onBundleWizardBack(): void {
+    if (this.bundleWizardStepIndex > 0) {
+      this.bundleWizardStepIndex -= 1;
+      this.syncBundleWizardFromIndex();
+      this.scrollBundleWizardIntoView();
+      this.cdr.detectChanges();
+      return;
+    }
+    this.cancelBundleCreate();
+  }
+
+  private scrollBundleWizardIntoView(): void {
+    setTimeout(() => {
+      document.querySelector('.cm-bundle-wizard .cm-details-wizard-scroll')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }, 0);
+  }
+
+  /** Desktop modal footer: material details wizard or bundle wizard. */
+  onWizardFooterNext(): void {
+    if (this.viewMode === 'bundle-create' && this.bundleWizardLayoutActive) {
+      if (this.bundleWizardStepIndex >= this.bundleWizardStepIds.length - 1) {
+        void this.saveBundle();
+      } else {
+        this.onBundleWizardNext();
+      }
+      return;
+    }
+    this.onDetailsWizardNext();
+  }
+
+  onWizardFooterBack(): void {
+    if (this.viewMode === 'bundle-create' && this.bundleWizardLayoutActive) {
+      this.onBundleWizardBack();
+      return;
+    }
+    this.onDetailsWizardBack();
+  }
+
+  /** Parent (tab1 desktop modal) can call after direct field updates. */
+  refreshModalTopbarChrome(): void {
+    this.syncModalTopbarChrome();
+  }
+
+  private syncModalTopbarChrome(): void {
+    if (!this.inline) return;
+    let showSaveExit = true;
+    let showModalBack = false;
+    let showBundleShareGoBack = false;
+    if (this.viewMode === 'library') {
+      showSaveExit = true;
+      showModalBack = false;
+    } else if (this.viewMode === 'create') {
+      const earlyStep = this.currentStep === 'type' || this.currentStep === 'pricing';
+      const desktopMidCreate =
+        !this.platformService.isMobile() &&
+        (this.currentStep === 'details' || this.currentStep === 'quiz' || this.currentStep === 'preview');
+      showSaveExit = !earlyStep;
+      showModalBack = earlyStep || desktopMidCreate;
+    } else if (this.viewMode === 'bundle-create') {
+      showSaveExit = true;
+      showModalBack = false;
+      showBundleShareGoBack =
+        !this.platformService.isMobile() &&
+        this.bundleWizardLayoutActive &&
+        this.bundleWizardStepId === 'bundleShare';
+    }
+    this.modalTopbarChromeEvent.emit({ showSaveExit, showModalBack, showBundleShareGoBack });
   }
 
   previewMaterial(m: TutorMaterial) {
     sessionStorage.setItem('materialReferrer', '/tabs/home');
     sessionStorage.setItem('cmReturnSection', 'materials');
+    if (this.inline && !this.platformService.isMobile()) {
+      this.router.navigate(['/tabs/home/material', m._id]);
+      return;
+    }
     this.router.navigate(['/material', m._id]);
   }
 
@@ -389,6 +923,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     if (m.audioUrl) this.parseAudioUrl(m.audioUrl);
 
     this.viewMode = 'create';
+    this.initDetailsWizard();
     this.updateNavState();
   }
 
@@ -631,6 +1166,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
   isLinkingVimeo = false;
 
   selectType(type: MaterialType) {
+    this.resumeBundleAfterMaterial = false;
     this.selectedType = type;
     this.currentStep = 'pricing';
     this.updateNavState();
@@ -765,6 +1301,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     }
 
     this.currentStep = 'details';
+    this.initDetailsWizard();
     this.updateNavState();
   }
 
@@ -796,7 +1333,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
       return;
     }
 
-    if (this.selectedType !== 'video_quiz' && !this.thumbnailPreview) {
+    if (!this.thumbnailPreview) {
       this.showTranslatedToast('CREATE_MATERIAL.TOAST_ADD_COVER');
       return;
     }
@@ -1434,6 +1971,12 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
       }
     }
 
+    if (!thumbnailUrl?.trim()) {
+      this.isSubmitting = false;
+      await this.showTranslatedToast('CREATE_MATERIAL.TOAST_ADD_COVER');
+      return;
+    }
+
     const payload: CreateMaterialPayload = {
       title: this.materialForm.value.title,
       description: this.materialForm.value.description,
@@ -1445,12 +1988,9 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
       materialType: this.selectedType!,
       pricingType: this.selectedPricing!,
       price: this.selectedPricing === 'paid' ? this.materialForm.value.price : 0,
-      quiz: quizData
+      quiz: quizData,
+      thumbnailUrl
     };
-
-    if (thumbnailUrl) {
-      payload.thumbnailUrl = thumbnailUrl;
-    }
 
     payload.contentAttested = this.contentAttested;
 
@@ -1640,13 +2180,63 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
 
   switchLibraryTab(tab: 'materials' | 'bundles') {
     this.libraryTab = tab;
+    this.showMaterialsList = false;
+    this.showBundlesList = false;
 
-    // Reset scroll to top so new tab content is visible
     const libEl = document.querySelector('.cm-library');
     if (libEl) libEl.scrollTop = 0;
 
     if (tab === 'bundles' && this.myBundles.length === 0 && !this.isLoadingBundles) {
       this.loadBundles();
+    }
+    this.emitModalSidebarTabSync(tab);
+  }
+
+  openMaterialsList() {
+    this.libraryTab = 'materials';
+    this.showMaterialsList = true;
+    this.showBundlesList = false;
+    this.modalExpandEvent.emit(true);
+    this.emitModalSidebarTabSync('materials');
+    this.syncModalTopbarChrome();
+    const libEl = document.querySelector('.cm-library');
+    if (libEl) libEl.scrollTop = 0;
+  }
+
+  openBundlesList() {
+    this.libraryTab = 'bundles';
+    this.showBundlesList = true;
+    this.showMaterialsList = false;
+    this.modalExpandEvent.emit(true);
+    this.emitModalSidebarTabSync('bundles');
+    this.syncModalTopbarChrome();
+    const libEl = document.querySelector('.cm-library');
+    if (libEl) libEl.scrollTop = 0;
+  }
+
+  /** List → split gateway: shrink desktop modal + refresh tab1 chrome via onModalExpand(false). */
+  closeMaterialsListToGateway(): void {
+    this.showMaterialsList = false;
+    this.updateNavState();
+    if (this.inline) {
+      this.modalExpandEvent.emit(false);
+    }
+  }
+
+  closeBundlesListToGateway(): void {
+    this.showBundlesList = false;
+    this.updateNavState();
+    if (this.inline) {
+      this.modalExpandEvent.emit(false);
+    }
+  }
+
+  /** Sticky-header Back (desktop modal): returns to split gateway with shrink animation. */
+  closeActiveListToGateway(): void {
+    if (this.showMaterialsList) {
+      this.closeMaterialsListToGateway();
+    } else if (this.showBundlesList) {
+      this.closeBundlesListToGateway();
     }
   }
 
@@ -1667,7 +2257,20 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     });
   }
 
+  /** From bundle (no published materials): open material create at the type step; toolbar back returns to the bundle wizard. */
+  goToCreateMaterialFromBundle(): void {
+    this.resumeBundleAfterMaterial = true;
+    this.editingMaterialId = null;
+    this.viewMode = 'create';
+    this.resetForm();
+    this.updateNavState();
+    this.modalExpandEvent.emit(true);
+    this.loadMyMaterials();
+    this.emitModalSidebarTabSync('materials');
+  }
+
   startCreateBundle() {
+    this.resetBundleWizardState();
     this.editingBundleId = null;
     this.bundleTitle = '';
     this.bundleDescription = '';
@@ -1680,11 +2283,15 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     this.bundleCoverFile = null;
     this.bundleCoverPreview = null;
     this.bundleCoverUrl = null;
+    this.libraryTab = 'bundles';
     this.viewMode = 'bundle-create';
     this.updateNavState();
+    this.modalExpandEvent.emit(true);
+    this.emitModalSidebarTabSync('bundles');
   }
 
   editBundle(bundle: ContentBundle) {
+    this.resetBundleWizardState();
     this.editingBundleId = bundle._id;
     this.bundleTitle = bundle.title;
     this.bundleDescription = bundle.description || '';
@@ -1697,8 +2304,11 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     this.bundleCoverFile = null;
     this.bundleCoverPreview = bundle.coverImageUrl || null;
     this.bundleCoverUrl = bundle.coverImageUrl || null;
+    this.libraryTab = 'bundles';
     this.viewMode = 'bundle-create';
+    this.modalExpandEvent.emit(true);
     this.updateNavState();
+    this.emitModalSidebarTabSync('bundles');
   }
 
   isMaterialInBundle(materialId: string): boolean {
@@ -1776,6 +2386,10 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
   async saveBundle() {
     if (!this.bundleTitle.trim() || !this.bundleLanguage) return;
     if (this.bundlePricingType === 'paid' && this.bundlePrice <= 0) return;
+    if (this.bundleSelectedMaterialIds.length < 2) {
+      await this.showTranslatedToast('CREATE_MATERIAL.BUNDLE_WIZ_TOAST_MATERIALS_MIN_TWO');
+      return;
+    }
 
     this.isSavingBundle = true;
     const coverUrl = await this.uploadBundleCover();
@@ -1802,6 +2416,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
         this.isSavingBundle = false;
         this.viewMode = 'library';
         this.libraryTab = 'bundles';
+        this.emitModalSidebarTabSync('bundles');
         this.loadBundles();
         const toast = await this.toastCtrl.create({
           message: this.editingBundleId ? 'Bundle updated' : 'Bundle created',
@@ -1853,6 +2468,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
         this.isSavingBundle = false;
         this.viewMode = 'library';
         this.libraryTab = 'bundles';
+        this.emitModalSidebarTabSync('bundles');
         this.loadBundles();
         const toast = await this.toastCtrl.create({
           message: 'Bundle saved as draft',
@@ -1876,13 +2492,24 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
   }
 
   cancelBundleCreate() {
+    this.resetBundleWizardState();
     this.viewMode = 'library';
+    this.showMaterialsList = false;
+    this.showBundlesList = false;
     this.updateNavState();
+    if (this.inline) {
+      this.modalExpandEvent.emit(false);
+    }
+    this.emitModalSidebarTabSync('bundles');
   }
 
   previewBundle(bundle: ContentBundle) {
     sessionStorage.setItem('bundleReferrer', '/tabs/home');
     sessionStorage.setItem('cmReturnSection', 'bundles');
+    if (this.inline && !this.platformService.isMobile()) {
+      this.router.navigate(['/tabs/home/bundle', bundle._id]);
+      return;
+    }
     this.router.navigate(['/bundle', bundle._id]);
   }
 

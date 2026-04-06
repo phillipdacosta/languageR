@@ -857,6 +857,7 @@
     "FIELD_LEVEL": "Niveau",
     "FIELD_COVER_IMAGE": "Forsidebillede",
     "FIELD_COVER_RECOMMENDED": "Anbefalet",
+    "FIELD_COVER_REQUIRED": "Påkrævet",
     "FIELD_COVER_ADD": "Tilføj et forsidebillede",
     "FIELD_COVER_HINT": "Gør dit materiale synligt. Du beskærer til kortform (16:10). JPG eller PNG, maks. 5 MB.",
     "PRO_TIP": "Tip:",

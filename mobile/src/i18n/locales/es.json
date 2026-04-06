@@ -997,6 +997,7 @@
     "FIELD_LEVEL": "Nivel",
     "FIELD_COVER_IMAGE": "Imagen de Portada",
     "FIELD_COVER_RECOMMENDED": "Recomendado",
+    "FIELD_COVER_REQUIRED": "Obligatorio",
     "FIELD_COVER_ADD": "Añadir imagen de portada",
     "FIELD_COVER_HINT": "Haz que tu material destaque. Recortarás a la forma de tarjeta (16:10). JPG o PNG, máx. 5 MB.",
     "PRO_TIP": "Consejo profesional:",

@@ -97,6 +97,22 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   platformConfig: any = {};
   isWeb = false;
   isMobile = false;
+  createMaterialModalExpanded = false;
+  createMaterialModalReady = false;
+  createMaterialBackdropVisible = false;
+  /** Desktop: material/bundle detail rendered via router-outlet inside the materials modal. */
+  cmModalRouterOutletActive = false;
+  modalSidebarTab: 'materials' | 'bundles' = 'materials';
+  modalShowFooter = true;
+  modalShowSaveExit = true;
+  modalShowGoBack = false;
+  /** Bundle wizard step "How would you like to share this?" — same top bar as list `< Go back`. */
+  modalShowBundleShareGoBack = false;
+  modalDetailsWizardFooter = false;
+  modalDetailsWizardShowBack = false;
+  modalDetailsWizardIsLastStep = false;
+  /** When set (e.g. bundle publish), overrides "Continue to Quiz" on last wizard step. */
+  modalDetailsWizardLastStepKey: string | null = null;
   /** Web at ≤600px: use same tutor empty / Up Next UI as native mobile */
   isNarrowTutorHomeViewport = false;
   isDarkModeActive = false;
@@ -725,7 +741,11 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       }
       if (event instanceof NavigationEnd) {
         const url = (event as NavigationEnd).urlAfterRedirects || (event as NavigationEnd).url;
-        if (url === '/tabs/home' || url === '/tabs/home/') {
+        this.syncMaterialsModalChildRoute(url);
+        if (
+          this.isMobile &&
+          (url === '/tabs/home' || url === '/tabs/home/')
+        ) {
           // Force re-render inline panels that may be visually stale after
           // returning from a root-level route (e.g. /material/:id on native iOS)
           if (this.showCreateMaterialView || this.showExploreView) {
@@ -746,6 +766,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         }
       }
     });
+
+    this.syncMaterialsModalChildRoute(this.router.url);
 
     // Add window resize listener for reactive viewport detection
     this.resizeListener = () => {
@@ -1716,7 +1738,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
 
   ionViewDidLeave() {
     this.stopDynamicCardRefreshInterval();
-    const toMaterial = this.router.url.startsWith('/material/');
+    const u = this.router.url;
+    const toMaterial =
+      u.startsWith('/material/') ||
+      u.includes('/tabs/home/material/') ||
+      u.startsWith('/bundle/') ||
+      u.includes('/tabs/home/bundle/');
     if (this.showCreateMaterialView && !toMaterial) {
       this.showCreateMaterialView = false;
       this.homeInlineToolbar.setMaterialsViewOpen(false);
@@ -1782,6 +1809,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   }
 
   ngOnDestroy() {
+    document.body.classList.remove('cm-desktop-modal-open');
     this._darkModeObserver?.disconnect();
     this.translationSub?.unsubscribe();
     if (this.resizeListener) {
@@ -2315,11 +2343,27 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     const srcRect = srcEl?.getBoundingClientRect() ?? null;
 
     this._savedScrollBeforeMaterial = this._scrollElRef?.scrollTop || 0;
+    this.createMaterialModalExpanded = false;
+    this.modalSidebarTab = 'materials';
     this.showCreateMaterialView = true;
+    this.createMaterialModalReady = false;
+    this.createMaterialBackdropVisible = false;
     this.homeInlineToolbar.setMaterialsViewOpen(true);
     this.cdr.detectChanges();
-    this.ionContent?.scrollToTop(0);
+    if (this.isMobile) this.ionContent?.scrollToTop(0);
 
+    if (!this.isMobile) {
+      document.body.classList.add('cm-desktop-modal-open');
+      requestAnimationFrame(() => {
+        this.createMaterialBackdropVisible = true;
+        this.cdr.detectChanges();
+      });
+      setTimeout(() => {
+        this.createMaterialModalReady = true;
+        this.cdr.detectChanges();
+      }, 350);
+      return;
+    }
     if (!srcRect) return;
 
     const dest = document.querySelector('.cm-library') as HTMLElement;
@@ -7445,13 +7489,243 @@ navigateToLessons() {
   }
 
   onCreateMaterialGoBack() {
+    if (!this.isMobile && this.activatedRoute.firstChild) {
+      this.router.navigate(['/tabs/home']);
+    }
+    this.createMaterialModalExpanded = false;
+    this.createMaterialModalReady = false;
+    this.createMaterialBackdropVisible = false;
+    this.cmModalRouterOutletActive = false;
     this.showCreateMaterialView = false;
     this.homeInlineToolbar.setMaterialsViewOpen(false);
+    document.body.classList.remove('cm-desktop-modal-open');
+    this.modalShowSaveExit = true;
+    this.modalShowGoBack = false;
+    this.modalShowBundleShareGoBack = false;
+    this.modalDetailsWizardFooter = false;
+    this.modalDetailsWizardShowBack = false;
+    this.modalDetailsWizardIsLastStep = false;
+    this.modalDetailsWizardLastStepKey = null;
     this.cdr.detectChanges();
 
     if (this._scrollElRef) {
       this._scrollElRef.scrollTop = this._savedScrollBeforeMaterial;
     }
+  }
+
+  onModalExpand(expanded: boolean) {
+    this.createMaterialModalExpanded = expanded;
+
+    if (!expanded) {
+      this.modalShowFooter = false;
+      this.modalShowSaveExit = true;
+      this.modalShowGoBack = false;
+      this.modalShowBundleShareGoBack = false;
+      this.modalDetailsWizardFooter = false;
+      this.modalDetailsWizardShowBack = false;
+      this.modalDetailsWizardIsLastStep = false;
+      this.modalDetailsWizardLastStepKey = null;
+    } else {
+      this.applyDesktopModalFooterVisibility();
+      setTimeout(() => {
+        const cm = this.createMaterialRef as { refreshModalTopbarChrome?: () => void } | undefined;
+        cm?.refreshModalTopbarChrome?.();
+        this.applyDesktopModalFooterVisibility();
+      }, 0);
+    }
+
+    this.cdr.detectChanges();
+  }
+
+  /** Footer "+ New" only on materials/bundles list — hide during gateway, create, and bundle flows. */
+  private syncMaterialsModalChildRoute(url: string): void {
+    if (this.isMobile) {
+      if (this.cmModalRouterOutletActive) {
+        this.cmModalRouterOutletActive = false;
+        this.cdr.markForCheck();
+      }
+      return;
+    }
+    const prev = this.cmModalRouterOutletActive;
+    const homeMaterial = url.match(/\/tabs\/home\/material\/([^/?#]+)/);
+    const homeBundle = url.match(/\/tabs\/home\/bundle\/([^/?#]+)/);
+    const next = !!(homeMaterial?.[1] || homeBundle?.[1]);
+    this.cmModalRouterOutletActive = next;
+    if (next) {
+      this.showCreateMaterialView = true;
+      this.createMaterialModalExpanded = true;
+      if (!prev) {
+        this.modalSidebarTab = homeMaterial ? 'materials' : 'bundles';
+      }
+      document.body.classList.add('cm-desktop-modal-open');
+      this.homeInlineToolbar.setMaterialsViewOpen(true);
+      if (!this.createMaterialBackdropVisible) {
+        requestAnimationFrame(() => {
+          this.createMaterialBackdropVisible = true;
+          this.cdr.markForCheck();
+        });
+      }
+      if (!this.createMaterialModalReady) {
+        setTimeout(() => {
+          this.createMaterialModalReady = true;
+          this.cdr.markForCheck();
+        }, 350);
+      }
+      this.modalShowFooter = false;
+      this.modalDetailsWizardFooter = false;
+      this.modalShowBundleShareGoBack = false;
+      this.modalShowSaveExit = false;
+      this.modalShowGoBack = false;
+    }
+    if (prev && !next && this.showCreateMaterialView) {
+      requestAnimationFrame(() => {
+        const ref = this.createMaterialRef as { restoreSection?: () => void; refreshModalTopbarChrome?: () => void } | undefined;
+        ref?.restoreSection?.();
+        ref?.refreshModalTopbarChrome?.();
+        this.applyDesktopModalFooterVisibility();
+        this.cdr.markForCheck();
+      });
+    }
+    if (prev !== next) {
+      this.cdr.markForCheck();
+    }
+  }
+
+  private applyDesktopModalFooterVisibility(): void {
+    if (this.isMobile || !this.createMaterialModalExpanded) {
+      this.modalShowFooter = false;
+      return;
+    }
+    if (this.cmModalRouterOutletActive) {
+      this.modalShowFooter = false;
+      this.modalDetailsWizardFooter = false;
+      return;
+    }
+    const cm = this.createMaterialRef as {
+      viewMode?: string;
+      showMaterialsList?: boolean;
+      showBundlesList?: boolean;
+    } | undefined;
+    const show =
+      !!cm &&
+      cm.viewMode === 'library' &&
+      (cm.showMaterialsList === true || cm.showBundlesList === true);
+    this.modalShowFooter = show;
+  }
+
+  onModalTopbarChrome(payload: {
+    showSaveExit: boolean;
+    showModalBack: boolean;
+    showBundleShareGoBack?: boolean;
+  }) {
+    if (this.isMobile) return;
+    if (this.cmModalRouterOutletActive) return;
+    this.modalShowSaveExit = payload.showSaveExit;
+    this.modalShowGoBack = payload.showModalBack;
+    this.modalShowBundleShareGoBack = !!payload.showBundleShareGoBack;
+    this.applyDesktopModalFooterVisibility();
+    this.cdr.detectChanges();
+  }
+
+  onModalChromeBack() {
+    const cmRef = this.createMaterialRef as { handleNavBack?: () => void } | undefined;
+    cmRef?.handleNavBack?.();
+  }
+
+  onModalListBackToGateway(): void {
+    const cm = this.createMaterialRef as { closeActiveListToGateway?: () => void } | undefined;
+    cm?.closeActiveListToGateway?.();
+  }
+
+  onModalDetailOutletGoBack(): void {
+    const url = this.router.url;
+    const isMaterial = url.includes('/tabs/home/material/');
+    const referrer = isMaterial
+      ? sessionStorage.getItem('materialReferrer')
+      : sessionStorage.getItem('bundleReferrer');
+    if (referrer && (referrer.startsWith('/tabs/home/bundle/') || referrer.startsWith('/tabs/home/material/'))) {
+      this.router.navigate([referrer]);
+    } else {
+      this.router.navigate(['/tabs/home']);
+    }
+  }
+
+  onModalBundleShareGoBack(): void {
+    const cm = this.createMaterialRef as { cancelBundleCreate?: () => void } | undefined;
+    cm?.cancelBundleCreate?.();
+  }
+
+  onDetailsModalFooterChrome(payload: {
+    active: boolean;
+    showBack: boolean;
+    isLastStep: boolean;
+    lastStepLabelKey?: string | null;
+  }) {
+    if (this.isMobile) return;
+    if (this.cmModalRouterOutletActive) return;
+    this.modalDetailsWizardFooter = payload.active;
+    this.modalDetailsWizardShowBack = payload.showBack;
+    this.modalDetailsWizardIsLastStep = payload.isLastStep;
+    this.modalDetailsWizardLastStepKey = payload.lastStepLabelKey ?? null;
+    this.cdr.detectChanges();
+  }
+
+  onModalDetailsWizardBack() {
+    const cm = this.createMaterialRef as { onWizardFooterBack?: () => void } | undefined;
+    cm?.onWizardFooterBack?.();
+  }
+
+  onModalDetailsWizardNext() {
+    const cm = this.createMaterialRef as { onWizardFooterNext?: () => void } | undefined;
+    cm?.onWizardFooterNext?.();
+  }
+
+  onModalFooterCreate() {
+    const cmRef = this.createMaterialRef as any;
+    if (this.modalSidebarTab === 'materials' && cmRef?.startCreate) {
+      cmRef.startCreate();
+    } else if (this.modalSidebarTab === 'bundles' && cmRef?.startCreateBundle) {
+      cmRef.startCreateBundle();
+    }
+    this.applyDesktopModalFooterVisibility();
+    this.cdr.detectChanges();
+  }
+
+  onModalSidebarTabFromChild(tab: 'materials' | 'bundles') {
+    if (this.isMobile) return;
+    this.modalSidebarTab = tab;
+    this.applyDesktopModalFooterVisibility();
+    this.cdr.detectChanges();
+  }
+
+  onCreateMaterialModalBackdropClick(event: MouseEvent) {
+    if (this.createMaterialModalExpanded) return;
+    this.onCreateMaterialGoBack();
+  }
+
+  onModalSidebarSwitch(tab: 'materials' | 'bundles') {
+    this.modalSidebarTab = tab;
+    const cmRef = this.createMaterialRef as any;
+    if (cmRef?.switchLibraryTab) {
+      cmRef.switchLibraryTab(tab);
+    }
+    if (cmRef) {
+      cmRef.viewMode = 'library';
+      cmRef.showMaterialsList = false;
+      cmRef.showBundlesList = false;
+      if (tab === 'materials') {
+        cmRef.showMaterialsList = true;
+      } else {
+        cmRef.showBundlesList = true;
+      }
+    }
+    this.cdr.detectChanges();
+    this.applyDesktopModalFooterVisibility();
+    setTimeout(() => {
+      const cm = this.createMaterialRef as { refreshModalTopbarChrome?: () => void } | undefined;
+      cm?.refreshModalTopbarChrome?.();
+      this.applyDesktopModalFooterVisibility();
+    }, 0);
   }
 
   // Check Stripe Connect status for tutors

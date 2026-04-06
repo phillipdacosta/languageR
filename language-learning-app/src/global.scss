@@ -3944,6 +3944,17 @@ ion-modal.previous-notes-modal {
 }
 
 // =============================================================
+// Desktop Create Material Modal — global overrides
+// =============================================================
+// When the desktop modal is open, hide the fixed header so the
+// full-viewport modal backdrop is unobstructed.
+body.cm-desktop-modal-open {
+  ion-header {
+    display: none !important;
+  }
+}
+
+// =============================================================
 // SHARED ELEMENT TRANSITIONS — Airbnb-style FLIP morphing
 // =============================================================
 // Individual elements (title, balance, links) morph between

@@ -859,6 +859,7 @@
     "FIELD_LEVEL": "Taso",
     "FIELD_COVER_IMAGE": "Kansikuva",
     "FIELD_COVER_RECOMMENDED": "Suositeltu",
+    "FIELD_COVER_REQUIRED": "Pakollinen",
     "FIELD_COVER_ADD": "Lisää kansikuva",
     "FIELD_COVER_HINT": "Erottaa materiaalisi joukosta. Rajaat kortin muotoon (16:10). JPG tai PNG, enintään 5 Mt.",
     "PRO_TIP": "Vinkki:",

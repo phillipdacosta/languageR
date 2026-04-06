@@ -7,6 +7,15 @@
 // Inline on home: global tabs toolbar already provides top chrome — sit flush under it
 :host.cm-host-inline {
   padding-top: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  box-sizing: border-box;
+
+  > .cm-library {
+    flex: 1;
+    min-height: 0;
+  }
 
   .cm-library-header {
     padding-bottom: 12px;
@@ -49,6 +58,7 @@
 .cm-library-content-area {
   position: relative;
   transition: filter 0.3s ease, opacity 0.3s ease;
+  padding-top: 45px;
 
   &.is-blurred {
     filter: blur(6px);
@@ -967,6 +977,218 @@
   }
 }
 
+// ── Responsive Visibility ───────────────────────────────
+
+.cm-mobile-only {
+  @media (min-width: 768px) { display: none !important; }
+}
+
+.cm-desktop-split {
+  display: none;
+  @media (min-width: 768px) { display: flex; align-items: center; }
+  gap: 0;
+  max-width: 860px;
+  margin: 0 auto;
+  min-height: 50vh;
+  animation: cmGatewayFadeIn 0.35s ease;
+}
+
+.cm-split-col {
+  flex: 1;
+  min-width: 0;
+  padding: 0 32px;
+
+  &:first-child {
+    border-right: 1px solid #ebebeb;
+  }
+}
+
+.cm-split-label {
+  display: none;
+}
+
+// ── Gateway Card ────────────────────────────────────────
+
+.cm-gateway-card {
+  overflow: hidden;
+  animation: cmGatewayFadeIn 0.35s ease;
+
+  // Mobile: card style
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  margin-bottom: 24px;
+
+  // Desktop: no card chrome
+  @media (min-width: 768px) {
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    margin-bottom: 0;
+  }
+}
+
+@keyframes cmGatewayFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.cm-gateway-hero {
+  display: flex;
+  justify-content: center;
+  padding: 20px 20px 16px;
+  background: #fafafa;
+  border-radius: 14px;
+
+  // Mobile: flush with card
+  .cm-gateway-card > & {
+    border-radius: 0;
+  }
+
+  img {
+    width: 140px;
+    height: 140px;
+    object-fit: contain;
+  }
+
+  @media (min-width: 768px) {
+    background: #fff;
+    border-radius: 0;
+    padding: 0 20px 20px;
+    margin-bottom: 4px;
+
+    img { width: 120px; height: 120px; }
+  }
+}
+
+.cm-gateway-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  transition: background 0.15s ease;
+  border-radius: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+
+  @media (min-width: 768px) {
+    border-top: none;
+    padding: 12px 14px;
+  }
+
+  &:hover {
+    background: #f5f5f7;
+  }
+
+  &:active {
+    background: #ededf0;
+  }
+}
+
+.cm-gateway-row-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  @media (min-width: 768px) { gap: 14px; }
+}
+
+.cm-gateway-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  ion-icon { font-size: 18px; }
+
+  @media (min-width: 768px) {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    ion-icon { font-size: 20px; }
+  }
+
+  &.cm-gateway-icon--view {
+    background: #f0f0f5;
+    color: #1d1d1f;
+  }
+
+  &.cm-gateway-icon--create {
+    background: #222;
+    color: #fff;
+  }
+}
+
+.cm-gateway-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+
+  @media (min-width: 768px) { gap: 2px; }
+}
+
+.cm-gateway-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1d1d1f;
+  text-align: left;
+
+  @media (min-width: 768px) { font-size: 15px; font-weight: 600; }
+}
+
+.cm-gateway-subtitle {
+  font-size: 12px;
+  color: #aeaeb2;
+  text-align: left;
+
+  @media (min-width: 768px) { font-size: 13px; }
+}
+
+.cm-gateway-chevron {
+  font-size: 16px;
+  color: #d1d1d6;
+  flex-shrink: 0;
+
+  @media (min-width: 768px) { display: none; }
+}
+
+// ── List Header (back + create button) ──────────────────
+
+.cm-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.cm-list-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px 6px 6px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 500;
+  color: #636366;
+  cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  transition: background 0.15s ease;
+
+  ion-icon { font-size: 18px; }
+
+  &:hover { background: #f2f2f7; }
+}
+
 // ── Section-level Create Button ─────────────────────────
 .cm-section-action {
   display: flex;
@@ -1300,6 +1522,61 @@
   padding: 0 20px 40px;
 }
 
+:host.cm-host-inline.cm-bundle-wizard-layout .cm-bundle-editor {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.cm-bundle-wizard.cm-details-wizard {
+  flex: 1;
+  min-height: 0;
+}
+
+.cm-bundle-wizard .cm-bundle-tip--intro {
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.cm-details-wizard-header--tight {
+  margin-bottom: 12px;
+}
+
+.cm-bundle-wizard-pricing-cards {
+  max-width: 520px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+}
+
+.cm-bundle-form-share-header {
+  text-align: center;
+  margin-bottom: 4px;
+
+  h1 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.35px;
+    color: #1d1d1f;
+    margin: 0;
+    line-height: 1.25;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+  }
+}
+
+.cm-bundle-form-pricing-cards {
+  margin-bottom: 8px;
+}
+
+.cm-bundle-actions--wizard-last {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #ebebeb;
+}
+
 .cm-bundle-editor-header {
   display: flex;
   align-items: center;
@@ -1491,14 +1768,33 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 32px 16px;
+  gap: 10px;
+  padding: 28px 20px;
   background: #F7F7F7;
   border-radius: 14px;
   text-align: center;
 
   ion-icon { font-size: 28px; color: #C7C7CC; }
-  p { font-size: 14px; color: #8E8E93; margin: 0; }
+
+  .cm-bundle-material-empty-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1d1d1f;
+    margin: 0;
+  }
+
+  .cm-bundle-material-empty-body {
+    font-size: 14px;
+    color: #6e6e73;
+    line-height: 1.45;
+    margin: 0;
+    max-width: 420px;
+  }
+
+  .cm-bundle-material-empty-cta {
+    margin-top: 8px;
+    min-width: 200px;
+  }
 }
 
 .cm-bundle-material-list {
@@ -1605,6 +1901,22 @@
 
   &.inline {
     padding-top: 0;
+  }
+
+  &.cm-details-wizard-layout {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  &.cm-details-wizard-layout .cm-step {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
 }
 
@@ -3106,6 +3418,120 @@
   ion-icon {
     font-size: 18px;
   }
+}
+
+// ── Desktop details sub-wizard (one field per step) ─────
+.cm-form--details-wizard {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.cm-details-wizard {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.cm-details-wizard-progress {
+  height: 3px;
+  background: #ebebeb;
+  border-radius: 2px;
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.cm-details-wizard-progress-fill {
+  height: 100%;
+  background: #1d1d1f;
+  border-radius: 2px;
+  transition: width 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.cm-details-wizard-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.cm-details-wizard-scroll-inner {
+  box-sizing: border-box;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 8px 0 16px;
+}
+
+.cm-details-wizard-header {
+  text-align: center;
+  max-width: 520px;
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 28px;
+
+  h1 {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+    color: #1d1d1f;
+    margin: 0 0 10px;
+    line-height: 1.25;
+  }
+
+  p {
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.45;
+    color: #6e6e73;
+  }
+}
+
+.cm-details-wizard-panel {
+  max-width: 520px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.cm-details-wizard-field-row {
+  flex-direction: column;
+  gap: 20px;
+
+  @media (min-width: 600px) {
+    flex-direction: row;
+    align-items: flex-start;
+
+    .cm-field {
+      flex: 1;
+      min-width: 0;
+    }
+  }
+}
+
+.cm-details-wizard-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #ebebeb;
+  flex-shrink: 0;
+}
+
+.cm-details-wizard-footer-spacer {
+  flex: 1;
+  min-width: 0;
+}
+
+.cm-details-wizard-back {
+  flex-shrink: 0;
+}
+
+.cm-details-wizard-next {
+  flex-shrink: 0;
 }
 
 .cm-btn-primary {

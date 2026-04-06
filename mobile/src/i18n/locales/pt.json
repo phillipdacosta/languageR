@@ -997,6 +997,7 @@
     "FIELD_LEVEL": "Nível",
     "FIELD_COVER_IMAGE": "Imagem de Capa",
     "FIELD_COVER_RECOMMENDED": "Recomendado",
+    "FIELD_COVER_REQUIRED": "Obrigatório",
     "FIELD_COVER_ADD": "Adicionar imagem de capa",
     "FIELD_COVER_HINT": "Destaque seu material. Você recortará no formato do cartão (16:10). JPG ou PNG, máx. 5 MB.",
     "PRO_TIP": "Dica profissional:",

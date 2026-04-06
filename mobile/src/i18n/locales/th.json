@@ -859,6 +859,7 @@
     "FIELD_LEVEL": "ระดับ",
     "FIELD_COVER_IMAGE": "ภาพปก",
     "FIELD_COVER_RECOMMENDED": "แนะนำ",
+    "FIELD_COVER_REQUIRED": "จำเป็น",
     "FIELD_COVER_ADD": "เพิ่มภาพปก",
     "FIELD_COVER_HINT": "ทำให้สื่อการสอนของคุณโดดเด่น คุณจะครอปเป็นรูปการ์ด (16:10) JPG หรือ PNG สูงสุด 5 MB",
     "PRO_TIP": "เคล็ดลับ:",

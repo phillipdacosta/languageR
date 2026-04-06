@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, HostBinding } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ToastController, ModalController, AlertController, NavController } from '@ionic/angular';
@@ -15,6 +15,7 @@ import { take } from 'rxjs';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { Capacitor } from '@capacitor/core';
 import { environment } from '../../environments/environment';
+import { PlatformService } from '../services/platform.service';
 
 @Component({
   selector: 'app-material-detail',
@@ -36,6 +37,14 @@ import { environment } from '../../environments/environment';
   ]
 })
 export class MaterialDetailPage implements OnInit, OnDestroy {
+  /** Rendered inside desktop home materials modal (child of /tabs/home). */
+  embedInHomeMaterialsModal = false;
+
+  @HostBinding('class.md-embed-in-modal')
+  get mdEmbedHostClass(): boolean {
+    return this.embedInHomeMaterialsModal;
+  }
+
   material: TutorMaterial | null = null;
   isLoading = true;
   pageReady = false;
@@ -86,12 +95,14 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
     private modalCtrl: ModalController,
     private alertCtrl: AlertController,
     private cdr: ChangeDetectorRef,
-    private navCtrl: NavController
+    private navCtrl: NavController,
+    private platformService: PlatformService
   ) {
     this.referrerUrl = sessionStorage.getItem('materialReferrer') || '/tabs/home';
   }
 
   ngOnInit() {
+    this.embedInHomeMaterialsModal = !!this.route.snapshot.data['embedInHomeMaterialsModal'];
     this.userService.currentUser$.subscribe(u => {
       this.currentUser = u;
       if (u) this.isAuthenticated = true;
@@ -137,6 +148,14 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
           }
           const tutorId = typeof this.material.tutorId === 'object' ? this.material.tutorId._id : this.material.tutorId;
           this.isTutorOwner = this.currentUser?.id === tutorId || this.currentUser?._id === tutorId;
+          if (
+            !this.embedInHomeMaterialsModal &&
+            this.isTutorOwner &&
+            !this.platformService.isMobile()
+          ) {
+            this.router.navigate(['/tabs/home/material', this.material._id], { replaceUrl: true });
+            return;
+          }
           this.channelInfo = this.resolveChannelInfo();
           this.channelInitials = this.channelInfo && !this.channelInfo.avatar
             ? (this.channelInfo.name || '').slice(0, 2).toUpperCase()
@@ -183,6 +202,15 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
     this.destroyEmbeds();
     this.quizMode = 'idle';
 
+    if (this.embedInHomeMaterialsModal) {
+      if (this.referrerUrl.startsWith('/tabs/home/bundle/') || this.referrerUrl.startsWith('/tabs/home/material/')) {
+        this.router.navigate([this.referrerUrl]);
+      } else {
+        this.router.navigate(['/tabs/home']);
+      }
+      return;
+    }
+
     const isTabRoute = this.referrerUrl.startsWith('/tabs/');
     this.navCtrl.navigateBack(this.referrerUrl, { animated: !isTabRoute });
   }
@@ -207,6 +235,10 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
   goHome() {
     this.cancelScoreAnimation();
     this.destroyEmbeds();
+    if (this.embedInHomeMaterialsModal) {
+      this.router.navigate(['/tabs/home']);
+      return;
+    }
     this.navCtrl.navigateBack('/tabs/home', { animated: false });
   }
 

@@ -856,6 +856,7 @@
     "FIELD_LEVEL": "רמה",
     "FIELD_COVER_IMAGE": "תמונת שער",
     "FIELD_COVER_RECOMMENDED": "מומלץ",
+    "FIELD_COVER_REQUIRED": "חובה",
     "FIELD_COVER_ADD": "הוסף תמונת שער",
     "FIELD_COVER_HINT": "גורם לחומר שלך לבלוט. תחתוך לצורת כרטיס (16:10). JPG או PNG, עד 5 מגה-בייט.",
     "PRO_TIP": "טיפ מקצועי:",

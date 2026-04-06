@@ -972,6 +972,7 @@
     "FIELD_LEVEL": "Niveau",
     "FIELD_COVER_IMAGE": "Titelbild",
     "FIELD_COVER_RECOMMENDED": "Empfohlen",
+    "FIELD_COVER_REQUIRED": "Erforderlich",
     "FIELD_COVER_ADD": "Titelbild hinzufügen",
     "FIELD_COVER_HINT": "Hebt dein Material hervor. Du wirst auf Kartenformat (16:10) zuschneiden. JPG oder PNG, max. 5 MB.",
     "PRO_TIP": "Profi-Tipp:",

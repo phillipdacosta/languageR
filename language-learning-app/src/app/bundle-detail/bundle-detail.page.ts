@@ -1,7 +1,7 @@
 import {
   Component, OnInit, OnDestroy, AfterViewInit,
   ChangeDetectorRef, ChangeDetectionStrategy,
-  ElementRef, NgZone
+  ElementRef, NgZone, HostBinding
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ToastController, AlertController, NavController } from '@ionic/angular';
@@ -12,6 +12,7 @@ import { UserService } from '../services/user.service';
 import { SharedModule } from '../shared/shared.module';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
+import { PlatformService } from '../services/platform.service';
 
 @Component({
   selector: 'app-bundle-detail',
@@ -22,6 +23,13 @@ import { Browser } from '@capacitor/browser';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class BundleDetailPage implements OnInit, AfterViewInit, OnDestroy {
+  embedInHomeMaterialsModal = false;
+
+  @HostBinding('class.bd-embed-in-modal')
+  get bdEmbedHostClass(): boolean {
+    return this.embedInHomeMaterialsModal;
+  }
+
   bundle: ContentBundle | null = null;
   isLoading = true;
   isPurchasing = false;
@@ -55,12 +63,14 @@ export class BundleDetailPage implements OnInit, AfterViewInit, OnDestroy {
     private alertCtrl: AlertController,
     private cdr: ChangeDetectorRef,
     private elRef: ElementRef,
-    private zone: NgZone
+    private zone: NgZone,
+    private platformService: PlatformService
   ) {
     this.referrerUrl = sessionStorage.getItem('bundleReferrer') || '/tabs/home';
   }
 
   ngOnInit() {
+    this.embedInHomeMaterialsModal = !!this.route.snapshot.data['embedInHomeMaterialsModal'];
     this.userService.currentUser$.subscribe((u: any) => {
       this.currentUserId = u?._id || '';
     });
@@ -132,6 +142,16 @@ export class BundleDetailPage implements OnInit, AfterViewInit, OnDestroy {
         this.hasPurchased = !!res.hasPurchased;
         this.isOwner = this.bundle?.tutorId?._id === this.currentUserId ||
                        (this.bundle?.tutorId as any) === this.currentUserId;
+        const bid = this.bundle?._id;
+        if (
+          bid &&
+          !this.embedInHomeMaterialsModal &&
+          this.isOwner &&
+          !this.platformService.isMobile()
+        ) {
+          this.router.navigate(['/tabs/home/bundle', bid], { replaceUrl: true });
+          return;
+        }
         this.isLoading = false;
         this.cdr.markForCheck();
         this.loadMoreFromTutor();
@@ -176,6 +196,14 @@ export class BundleDetailPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   goBack() {
+    if (this.embedInHomeMaterialsModal) {
+      if (this.referrerUrl.startsWith('/tabs/home/bundle/') || this.referrerUrl.startsWith('/tabs/home/material/')) {
+        this.router.navigate([this.referrerUrl]);
+      } else {
+        this.router.navigate(['/tabs/home']);
+      }
+      return;
+    }
     const isTabRoute = this.referrerUrl.startsWith('/tabs/');
     this.navCtrl.navigateBack(this.referrerUrl, { animated: !isTabRoute });
   }
@@ -313,15 +341,25 @@ export class BundleDetailPage implements OnInit, AfterViewInit, OnDestroy {
 
   viewMaterial(materialId: string) {
     if (materialId) {
-      sessionStorage.setItem('materialReferrer', `/bundle/${this.bundle?._id}`);
-      this.router.navigate(['/material', materialId]);
+      if (this.embedInHomeMaterialsModal) {
+        sessionStorage.setItem('materialReferrer', `/tabs/home/bundle/${this.bundle?._id}`);
+        this.router.navigate(['/tabs/home/material', materialId]);
+      } else {
+        sessionStorage.setItem('materialReferrer', `/bundle/${this.bundle?._id}`);
+        this.router.navigate(['/material', materialId]);
+      }
     }
   }
 
   viewBundle(bundleId: string) {
     if (bundleId) {
-      sessionStorage.setItem('bundleReferrer', `/bundle/${this.bundle?._id}`);
-      this.router.navigate(['/bundle', bundleId]);
+      if (this.embedInHomeMaterialsModal) {
+        sessionStorage.setItem('bundleReferrer', `/tabs/home/bundle/${this.bundle?._id}`);
+        this.router.navigate(['/tabs/home/bundle', bundleId]);
+      } else {
+        sessionStorage.setItem('bundleReferrer', `/bundle/${this.bundle?._id}`);
+        this.router.navigate(['/bundle', bundleId]);
+      }
     }
   }
 

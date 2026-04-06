@@ -857,6 +857,7 @@
     "FIELD_LEVEL": "المستوى",
     "FIELD_COVER_IMAGE": "صورة الغلاف",
     "FIELD_COVER_RECOMMENDED": "موصى به",
+    "FIELD_COVER_REQUIRED": "مطلوب",
     "FIELD_COVER_ADD": "أضف صورة غلاف",
     "FIELD_COVER_HINT": "تجعل مادتك مميزة. ستقوم بالقص بشكل البطاقة (16:10). JPG أو PNG، بحد أقصى 5 ميجابايت.",
     "PRO_TIP": "نصيحة احترافية:",

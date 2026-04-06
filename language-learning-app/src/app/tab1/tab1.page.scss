@@ -487,6 +487,7 @@ ion-content {
   }
 }
 
+// ── Mobile: Inline Panel (unchanged) ────────────────────
 .create-material-inline-panel {
   max-width: 1400px;
   margin: 0 auto;
@@ -504,7 +505,9 @@ ion-content {
   }
 
   app-create-material {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
     height: 100%;
   }
 }
@@ -514,11 +517,423 @@ ion-content {
     opacity: 0;
     transform: translateY(10px);
   }
-
   to {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+// ── Desktop: Modal Overlay ──────────────────────────────
+.cm-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0);
+  backdrop-filter: blur(0px);
+  -webkit-backdrop-filter: blur(0px);
+  transition:
+    background 0.4s ease,
+    backdrop-filter 0.4s ease,
+    -webkit-backdrop-filter 0.4s ease;
+
+  &.cm-modal-backdrop--visible {
+    background: rgba(0, 0, 0, 0.32);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+
+  &.cm-modal-backdrop--deep {
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+}
+
+.cm-modal-container {
+  position: relative;
+  background: #fff;
+  border-radius: 24px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+
+  width: 860px;
+  max-width: 90vw;
+  height: min(580px, 80vh);
+  min-height: 420px;
+  max-height: 80vh;
+
+  animation: cmModalEnter 0.3s ease-out both;
+
+  &.cm-modal--ready {
+    transition:
+      width 0.45s cubic-bezier(0.32, 0.72, 0, 1),
+      max-width 0.45s cubic-bezier(0.32, 0.72, 0, 1),
+      height 0.45s cubic-bezier(0.32, 0.72, 0, 1),
+      min-height 0.45s cubic-bezier(0.32, 0.72, 0, 1),
+      max-height 0.45s cubic-bezier(0.32, 0.72, 0, 1),
+      border-radius 0.45s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  ::ng-deep .cm-nav-bar { display: none !important; }
+
+  &:not(.cm-modal--expanded) {
+    ::ng-deep .cm-library-sticky { display: none !important; }
+    ::ng-deep .cm-library { padding-top: 0 !important; }
+  }
+
+  &.cm-modal--expanded {
+    width: calc(100vw - 120px);
+    max-width: calc(100vw - 120px);
+    height: calc(100vh - 48px);
+    min-height: calc(100vh - 48px);
+    max-height: calc(100vh - 48px);
+    border-radius: 20px;
+  }
+
+}
+
+// ── Sidebar: on the backdrop, left of the card ──────────
+.cm-modal-sidebar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 24px;
+  box-sizing: border-box;
+  max-width: 0;
+  opacity: 0;
+  padding: 24px 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition:
+    max-width 0.45s cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 0.3s ease,
+    padding 0.45s cubic-bezier(0.32, 0.72, 0, 1);
+
+  &--open {
+    max-width: 88px;
+    opacity: 1;
+    padding: 24px 12px;
+    overflow: visible;
+    pointer-events: auto;
+  }
+}
+
+.cm-modal-sidebar-btn {
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background: rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  overflow: hidden;
+
+  .cm-modal-sidebar-img {
+    width: 36px;
+    height: 36px;
+    object-fit: contain;
+    display: block;
+    opacity: 0.75;
+    transition: opacity 0.15s ease;
+  }
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+    .cm-modal-sidebar-img { opacity: 0.95; }
+  }
+
+  &.active {
+    border-color: rgba(255, 255, 255, 0.85);
+    background: rgba(255, 255, 255, 0.14);
+    .cm-modal-sidebar-img { opacity: 1; }
+  }
+}
+
+// ── Modal body (content area inside white card) ─────────
+.cm-modal-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+
+  .cm-modal-router-host {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .cm-modal-create-material-host--hidden {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+    visibility: hidden;
+  }
+
+  app-create-material {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  ::ng-deep .cm-library {
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    height: 100% !important;
+    max-height: none !important;
+    padding: 0 32px 40px !important;
+  }
+
+  ::ng-deep .cm-list-header {
+    display: none !important;
+  }
+
+  ::ng-deep .cm-library-sticky {
+    border-bottom: none !important;
+    box-shadow: none !important;
+  }
+}
+
+.cm-modal-topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px;
+  flex-shrink: 0;
+  border-bottom: 1px solid #f0f0f0;
+  max-height: 72px;
+  opacity: 1;
+  overflow: hidden;
+  transition:
+    max-height 0.45s cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 0.28s ease,
+    padding 0.45s cubic-bezier(0.32, 0.72, 0, 1),
+    border-bottom-width 0.45s cubic-bezier(0.32, 0.72, 0, 1);
+
+  &--collapsed {
+    max-height: 0;
+    min-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
+    border-bottom-width: 0;
+    border-bottom-color: transparent;
+    pointer-events: none;
+  }
+}
+
+.cm-modal-topbar-fill {
+  flex: 1;
+  min-width: 0;
+}
+
+.cm-modal-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: auto;
+  padding: 8px 12px 8px 4px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 500;
+  color: #1d1d1f;
+  cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  transition: background 0.15s ease;
+
+  ion-icon {
+    font-size: 22px;
+    color: #636366;
+  }
+
+  &:hover {
+    background: #f5f5f7;
+  }
+}
+
+.cm-modal-exit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 20px;
+  border-radius: 8px;
+  border: 1px solid #222;
+  background: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1d1d1f;
+  cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  transition: background 0.15s ease;
+
+  &:hover { background: #f5f5f7; }
+}
+
+// ── Compact header (close left, title centered) ─────────
+.cm-modal-header {
+  display: grid;
+  grid-template-columns: 40px 1fr 40px;
+  align-items: center;
+  padding: 20px 20px 0;
+  flex-shrink: 0;
+  max-height: 60px;
+  opacity: 1;
+  overflow: hidden;
+  transition:
+    max-height 0.35s cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 0.25s ease,
+    padding 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+
+  &--hidden {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+.cm-modal-title {
+  grid-column: 2;
+  font-size: 19px;
+  font-weight: 600;
+  color: #1d1d1f;
+  margin: 0;
+  text-align: center;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+  letter-spacing: -0.2px;
+  min-width: 0;
+}
+
+.cm-modal-header-spacer {
+  grid-column: 3;
+  width: 34px;
+  height: 34px;
+  justify-self: end;
+}
+
+.cm-modal-close {
+  grid-column: 1;
+  justify-self: start;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid #e5e5e5;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+
+  ion-icon { font-size: 20px; color: #1d1d1f; }
+
+  &:hover { background: #f5f5f7; }
+}
+
+// ── Modal footer (Airbnb-style "Next" bar) ──────────────
+.cm-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid #ebebeb;
+  flex-shrink: 0;
+  max-height: 120px;
+  opacity: 1;
+  overflow: hidden;
+  transition:
+    max-height 0.45s cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 0.28s ease,
+    padding 0.45s cubic-bezier(0.32, 0.72, 0, 1),
+    border-top-width 0.45s cubic-bezier(0.32, 0.72, 0, 1);
+
+  &--collapsed {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
+    border-top-width: 0;
+    border-top-color: transparent;
+    pointer-events: none;
+    gap: 0;
+  }
+}
+
+.cm-modal-footer-spacer {
+  flex: 1;
+  min-width: 0;
+}
+
+.cm-modal-footer-back {
+  display: inline-flex;
+  align-items: center;
+  padding: 12px 20px;
+  border-radius: 12px;
+  border: 1.5px solid #e0e0e0;
+  background: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1d1d1f;
+  cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  transition: border-color 0.15s ease, background 0.15s ease;
+
+  &:hover {
+    border-color: #1d1d1f;
+    background: #fafafa;
+  }
+}
+
+.cm-modal-footer-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 24px;
+  border-radius: 12px;
+  border: none;
+  background: #1d1d1f;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  transition: background 0.15s ease, transform 0.1s ease;
+
+  ion-icon { font-size: 18px; }
+
+  &:hover { background: #333; }
+  &:active { transform: scale(0.97); }
+}
+
+@keyframes cmModalEnter {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 @keyframes explorePanelReveal {
@@ -1841,15 +2256,37 @@ ion-content {
     font-size: 28px;
     color: rgba(255, 255, 255, 0.95);
   }
+
+  // Tutor desktop Up Next empty — calendar illustration (matches mobile / RN)
+  &.empty-state-clean-icon--calendar {
+    background: transparent;
+    box-shadow: none;
+    width: 120px;
+    height: 120px;
+    margin-bottom: 16px;
+    border-radius: 0;
+    animation: none;
+
+    .empty-state-clean-calendar-art {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      pointer-events: none;
+      user-select: none;
+    }
+  }
   
   @media (max-width: 600px) {
-    width: 56px;
-    height: 56px;
-    border-radius: 16px;
-    margin-bottom: 16px;
-    
-    ion-icon {
-      font-size: 24px;
+    &:not(.empty-state-clean-icon--calendar) {
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
+      margin-bottom: 16px;
+
+      ion-icon {
+        font-size: 24px;
+      }
     }
   }
   
@@ -6827,8 +7264,8 @@ img.m-card-empty-link-arrow-img {
   }
 
   &.qa-with-asset .qa-icon-img {
-    width: 44px;
-    height: 44px;
+    width: 24px;
+    height: 24px;
     object-fit: contain;
     display: block;
     pointer-events: none;
@@ -10322,6 +10759,27 @@ img.m-card-empty-link-arrow-img {
     font-size: 32px;
     color: var(--ion-color-primary);
   }
+
+  // Desktop: same illustrated calendar as mobile / RN Up Next
+  &.up-next-icon--desktop-art {
+    width: auto;
+    height: auto;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    background: transparent;
+    border-radius: 0;
+    bottom: 0;
+  }
+}
+
+.up-next-calendar-desktop-art {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  user-select: none;
 }
 
 .up-next-avatar {
@@ -11574,6 +12032,10 @@ img.m-card-empty-link-arrow-img {
     background: linear-gradient(135deg, #3a7ba8 0%, #4298d3 50%, #2d6b94 100%) !important;
     box-shadow: 0 4px 12px rgba(66, 152, 211, 0.35) !important;
     ion-icon { color: rgba(255, 255, 255, 0.95) !important; }
+    &.empty-state-clean-icon--calendar {
+      background: transparent !important;
+      box-shadow: none !important;
+    }
   }
   .empty-state-clean-text {
     h3 { color: var(--ion-text-color, #ffffff) !important; }
@@ -11882,6 +12344,9 @@ img.m-card-empty-link-arrow-img {
     .up-next-icon {
       background: rgba(66, 152, 210, 0.2) !important;
       ion-icon { color: var(--ion-color-primary, #4298d2) !important; }
+      &.up-next-icon--desktop-art {
+        background: transparent !important;
+      }
     }
     .up-next-title { color: #ffffff !important; }
     .up-next-subtitle { color: #8e8e93 !important; }

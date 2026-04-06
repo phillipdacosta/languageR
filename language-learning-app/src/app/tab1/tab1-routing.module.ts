@@ -7,6 +7,18 @@ const routes: Routes = [
   {
     path: '',
     component: Tab1Page,
+    children: [
+      {
+        path: 'material/:id',
+        loadComponent: () => import('../material-detail/material-detail.page').then(m => m.MaterialDetailPage),
+        data: { embedInHomeMaterialsModal: true }
+      },
+      {
+        path: 'bundle/:id',
+        loadComponent: () => import('../bundle-detail/bundle-detail.page').then(m => m.BundleDetailPage),
+        data: { embedInHomeMaterialsModal: true }
+      }
+    ]
   },
   {
     path: 'lessons',

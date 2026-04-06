@@ -857,6 +857,7 @@
     "FIELD_LEVEL": "レベル",
     "FIELD_COVER_IMAGE": "カバー画像",
     "FIELD_COVER_RECOMMENDED": "推奨",
+    "FIELD_COVER_REQUIRED": "必須",
     "FIELD_COVER_ADD": "カバー画像を追加",
     "FIELD_COVER_HINT": "教材を目立たせましょう。カード形状（16:10）にトリミングします。JPGまたはPNG、最大5 MB。",
     "PRO_TIP": "プロのヒント：",

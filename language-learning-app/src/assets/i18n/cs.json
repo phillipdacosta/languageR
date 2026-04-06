@@ -856,6 +856,7 @@
     "FIELD_LEVEL": "Úroveň",
     "FIELD_COVER_IMAGE": "Titulní obrázek",
     "FIELD_COVER_RECOMMENDED": "Doporučeno",
+    "FIELD_COVER_REQUIRED": "Povinné",
     "FIELD_COVER_ADD": "Přidat titulní obrázek",
     "FIELD_COVER_HINT": "Zvýrazní váš materiál. Oříznete do tvaru karty (16:10). JPG nebo PNG, max 5 MB.",
     "PRO_TIP": "Tip:",

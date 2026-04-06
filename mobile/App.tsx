@@ -18,6 +18,8 @@ const preloadAssets = [
   require('./assets/shared/classroom.png'),
   require('./assets/shared/quick-actions-create-material.png'),
   require('./assets/shared/quick-actions-forum.png'),
+  require('./assets/shared/materials-gateway.png'),
+  require('./assets/shared/bundles-gateway.png'),
 ];
 
 export default function App() {

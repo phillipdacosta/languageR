@@ -24,7 +24,11 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.barnabi.dev"
+      "package": "com.barnabi.dev",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -53,6 +57,11 @@
       ],
       "expo-web-browser",
       "expo-video"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "34ca8482-5742-4ec4-945a-ed93d9c7d5ce"
+      }
+    }
   }
 }

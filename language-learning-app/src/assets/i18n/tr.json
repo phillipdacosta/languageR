@@ -857,6 +857,7 @@
     "FIELD_LEVEL": "Seviye",
     "FIELD_COVER_IMAGE": "Kapak Görseli",
     "FIELD_COVER_RECOMMENDED": "Önerilen",
+    "FIELD_COVER_REQUIRED": "Zorunlu",
     "FIELD_COVER_ADD": "Kapak görseli ekle",
     "FIELD_COVER_HINT": "Materyalinizi öne çıkarır. Kart şekline (16:10) kırpacaksınız. JPG veya PNG, maks. 5 MB.",
     "PRO_TIP": "İpucu:",

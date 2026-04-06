@@ -860,6 +860,7 @@
     "FIELD_LEVEL": "레벨",
     "FIELD_COVER_IMAGE": "커버 이미지",
     "FIELD_COVER_RECOMMENDED": "권장",
+    "FIELD_COVER_REQUIRED": "필수",
     "FIELD_COVER_ADD": "커버 이미지 추가",
     "FIELD_COVER_HINT": "교재를 돋보이게 하세요. 카드 형태(16:10)로 잘립니다. JPG 또는 PNG, 최대 5 MB.",
     "PRO_TIP": "전문가 팁:",

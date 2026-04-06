@@ -857,6 +857,7 @@
     "FIELD_LEVEL": "Уровень",
     "FIELD_COVER_IMAGE": "Обложка",
     "FIELD_COVER_RECOMMENDED": "Рекомендуется",
+    "FIELD_COVER_REQUIRED": "Обязательно",
     "FIELD_COVER_ADD": "Добавить обложку",
     "FIELD_COVER_HINT": "Выделите ваш материал. Вы обрежете изображение под форму карточки (16:10). JPG или PNG, макс. 5 МБ.",
     "PRO_TIP": "Совет:",

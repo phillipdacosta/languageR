@@ -23,7 +23,7 @@
 
   <!-- Hero Image (sits behind the card) -->
   <div class="bd-hero">
-    <div class="bd-hero-actions">
+    <div class="bd-hero-actions" *ngIf="!embedInHomeMaterialsModal">
       <button class="bd-hero-btn" (click)="goBack()">
         <ion-icon name="chevron-back"></ion-icon>
       </button>
@@ -44,7 +44,7 @@
   <div class="bd-card">
 
     <!-- Desktop breadcrumb (above layout, pulled left) -->
-    <div class="bd-breadcrumb">
+    <div class="bd-breadcrumb" *ngIf="!embedInHomeMaterialsModal">
       <button class="bd-breadcrumb-back" (click)="goBack()">
         <ion-icon name="chevron-back-outline"></ion-icon>
         <span>Back</span>

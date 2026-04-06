@@ -857,6 +857,7 @@
     "FIELD_LEVEL": "Livello",
     "FIELD_COVER_IMAGE": "Immagine di Copertina",
     "FIELD_COVER_RECOMMENDED": "Consigliato",
+    "FIELD_COVER_REQUIRED": "Obbligatorio",
     "FIELD_COVER_ADD": "Aggiungi un'immagine di copertina",
     "FIELD_COVER_HINT": "Fa risaltare il tuo materiale. Ritaglierai al formato scheda (16:10). JPG o PNG, max 5 MB.",
     "PRO_TIP": "Suggerimento:",

@@ -860,6 +860,7 @@
     "FIELD_LEVEL": "Poziom",
     "FIELD_COVER_IMAGE": "Zdjęcie okładki",
     "FIELD_COVER_RECOMMENDED": "Zalecane",
+    "FIELD_COVER_REQUIRED": "Wymagane",
     "FIELD_COVER_ADD": "Dodaj zdjęcie okładki",
     "FIELD_COVER_HINT": "Wyróżnij swój materiał. Przytniesz do kształtu karty (16:10). JPG lub PNG, maks. 5 MB.",
     "PRO_TIP": "Wskazówka:",

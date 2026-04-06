@@ -859,6 +859,7 @@
     "FIELD_LEVEL": "Tingkat",
     "FIELD_COVER_IMAGE": "Gambar Sampul",
     "FIELD_COVER_RECOMMENDED": "Direkomendasikan",
+    "FIELD_COVER_REQUIRED": "Wajib",
     "FIELD_COVER_ADD": "Tambahkan gambar sampul",
     "FIELD_COVER_HINT": "Membuat materi Anda menonjol. Anda akan memotong ke bentuk kartu (16:10). JPG atau PNG, maks 5 MB.",
     "PRO_TIP": "Tips pro:",

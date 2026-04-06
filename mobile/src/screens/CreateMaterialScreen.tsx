@@ -13,14 +13,18 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Keyboard } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import Slider from '@react-native-community/slider';
 import Sortable from 'react-native-sortables';
 import Reanimated, { useAnimatedRef } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../hooks/useAuth';
 import { materialService } from '../services/materials';
 import type { MaterialType, LinkedChannels } from '../services/materials';
 
@@ -112,6 +116,7 @@ function youtubeThumbnailFromVideoUrl(url: string): string | null {
 export default function CreateMaterialScreen({ goBack, channels }: Props) {
   const { colors } = useTheme();
   const { t } = useTranslation();
+  const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const isDark = colors.isDark;
   const inputBorder = isDark ? '#3a3a3c' : '#e5e5ea';
@@ -121,10 +126,21 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
   const [selectedPricing, setSelectedPricing] = useState<'free' | 'paid' | null>(null);
 
   /* ── Form state ── */
+  const defaultLang = useMemo(() => {
+    const langs = user?.languages;
+    if (langs?.length) return typeof langs[0] === 'string' ? langs[0] : '';
+    const obLangs = user?.onboardingData?.languages;
+    if (obLangs?.length) {
+      const first = obLangs[0];
+      return typeof first === 'string' ? first : first?.name || first?.language || '';
+    }
+    return '';
+  }, [user]);
+
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [whyTakeThis, setWhyTakeThis] = useState('');
-  const [language, setLanguage] = useState('');
+  const [language, setLanguage] = useState(defaultLang);
   const [level, setLevel] = useState('any');
   const [videoUrl, setVideoUrl] = useState('');
   const [passage, setPassage] = useState('');
@@ -144,9 +160,21 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
   /* ── Quiz state ── */
   const [quiz, setQuiz] = useState<QuizQuestion[]>([]);
 
+  useEffect(() => {
+    console.log('[CreateMaterial] user.languages:', user?.languages, 'onboardingData.languages:', user?.onboardingData?.languages, 'defaultLang:', defaultLang);
+    if (defaultLang && !language) setLanguage(defaultLang);
+  }, [defaultLang]);
+
   /* ── Preview / submit state ── */
   const [contentAttested, setContentAttested] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardWillShow', () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener('keyboardWillHide', () => setKeyboardVisible(false));
+    return () => { showSub.remove(); hideSub.remove(); };
+  }, []);
 
   const scrollRef = useAnimatedRef<Reanimated.ScrollView>();
 
@@ -263,7 +291,7 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
       Alert.alert('', t('CREATE_MATERIAL.FIELD_AUDIO_URL_ERROR'));
       return;
     }
-    if (selectedType !== 'video_quiz' && !thumbnailUri?.trim()) {
+    if (!thumbnailUri?.trim()) {
       Alert.alert('', t('CREATE_MATERIAL.TOAST_ADD_COVER'));
       return;
     }
@@ -314,6 +342,7 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
 
   /* ── Quiz helpers ── */
   const addQuestion = useCallback((type: QuestionType) => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setQuiz(prev => [...prev, createQuestion(type)]);
     setTimeout(() => (scrollRef.current as any)?.scrollToEnd?.({ animated: true }), 150);
   }, []);
@@ -367,26 +396,22 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
   const handleSubmit = useCallback(async () => {
     console.log('[Publish] 1. contentAttested:', contentAttested, 'thumbnailUri:', thumbnailUri?.substring(0, 60));
     if (!contentAttested) return;
+    if (!thumbnailUri?.trim()) {
+      Alert.alert('', t('CREATE_MATERIAL.TOAST_ADD_COVER'));
+      return;
+    }
     setIsSubmitting(true);
     try {
       let thumbnailUrl: string | undefined;
-      if (thumbnailUri) {
-        console.log('[Publish] 2. Uploading thumbnail...');
-        try {
-          thumbnailUrl = await materialService.uploadThumbnail(thumbnailUri);
-          console.log('[Publish] 3. Thumbnail uploaded OK:', thumbnailUrl?.substring(0, 80));
-        } catch (upErr: any) {
-          console.warn('[Publish] 3. Thumbnail upload FAILED:', upErr?.status, upErr?.message || upErr);
-          const skipCover = await new Promise<boolean>(resolve =>
-            Alert.alert('Cover Image Failed', 'Could not upload cover image. Publish without it?', [
-              { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-              { text: 'Publish Without Cover', onPress: () => resolve(true) },
-            ]),
-          );
-          if (!skipCover) { setIsSubmitting(false); return; }
-        }
-      } else {
-        console.log('[Publish] 2. No thumbnail to upload');
+      console.log('[Publish] 2. Uploading thumbnail...');
+      try {
+        thumbnailUrl = await materialService.uploadThumbnail(thumbnailUri);
+        console.log('[Publish] 3. Thumbnail uploaded OK:', thumbnailUrl?.substring(0, 80));
+      } catch (upErr: any) {
+        console.warn('[Publish] 3. Thumbnail upload FAILED:', upErr?.status, upErr?.message || upErr);
+        Alert.alert('', t('CREATE_MATERIAL.TOAST_UPLOAD_FAILED'));
+        setIsSubmitting(false);
+        return;
       }
 
       const quizPayload = quiz.map(q => {
@@ -442,7 +467,7 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
       setIsSubmitting(false);
     }
   }, [contentAttested, thumbnailUri, selectedType, title, description, whyTakeThis, language, level,
-      videoUrl, passage, audioUrl, selectedPricing, price, quiz, topics, structuredTags, goBack]);
+      videoUrl, passage, audioUrl, selectedPricing, price, quiz, topics, structuredTags, goBack, t]);
 
   const getTypeIcon = (type: MaterialType): keyof typeof Ionicons.glyphMap => {
     switch (type) {
@@ -459,6 +484,16 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
       case 'listening': return t('CREATE_MATERIAL.TYPE_LISTENING');
     }
   };
+
+  const detailsFormValid = useMemo(() => {
+    if (!title.trim() || title.trim().length < 3) return false;
+    if (!language) return false;
+    if (selectedType === 'video_quiz' && !videoUrl.trim()) return false;
+    if (selectedType === 'reading' && !passage.trim()) return false;
+    if (selectedType === 'listening' && !audioUrl.trim()) return false;
+    if (!thumbnailUri?.trim()) return false;
+    return true;
+  }, [title, language, selectedType, videoUrl, passage, audioUrl, thumbnailUri]);
 
   /* ── Flying clone interpolations ── */
   const chipBg = isDark ? '#2c2c2e' : '#f5f5f7';
@@ -583,6 +618,7 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
                 showLevelPicker={showLevelPicker} setShowLevelPicker={setShowLevelPicker}
                 thumbnailUri={thumbnailUri} pickCoverImage={pickCoverImage} removeCover={() => setThumbnailUri(null)}
                 showVideoPolicy={showVideoPolicy} dismissVideoPolicy={() => setShowVideoPolicy(false)}
+                scrollRef={scrollRef}
                 colors={colors}
                 t={t}
               />
@@ -621,18 +657,44 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
             )}
           </Reanimated.ScrollView>
 
+          {/* Keyboard toolbar — sits above keyboard, replaces footer when typing */}
+          {keyboardVisible && (
+            <View style={[styles.kbToolbar, { backgroundColor: isDark ? '#2c2c2e' : '#f0f0f2', borderTopColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)' }]}>
+              <View style={styles.kbToolbarArrows}>
+                <TouchableOpacity style={styles.kbArrowBtn} activeOpacity={0.6} onPress={() => {}}>
+                  <Ionicons name="chevron-up" size={22} color={isDark ? '#aaa' : '#666'} />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.kbArrowBtn} activeOpacity={0.6} onPress={() => {}}>
+                  <Ionicons name="chevron-down" size={22} color={isDark ? '#aaa' : '#666'} />
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity
+                style={[styles.kbDoneBtn, { backgroundColor: isDark ? '#fff' : '#111' }]}
+                activeOpacity={0.8}
+                onPress={() => Keyboard.dismiss()}
+              >
+                <Text style={[styles.kbDoneText, { color: isDark ? '#000' : '#fff' }]}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* Footer buttons per step */}
-          {currentStep === 'details' && (
+          {!keyboardVisible && currentStep === 'details' && (
             <View style={[styles.footer, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
               <TouchableOpacity
-                style={[styles.continueBtn, { backgroundColor: isDark ? '#fff' : '#111' }]}
-                activeOpacity={0.85}
+                style={[styles.continueBtn, {
+                  backgroundColor: detailsFormValid ? (isDark ? '#fff' : '#111') : (isDark ? '#3a3a3c' : '#d1d1d6'),
+                }]}
+                activeOpacity={detailsFormValid ? 0.85 : 1}
                 onPress={handleGoToQuiz}
+                disabled={!detailsFormValid}
               >
-                <Text style={[styles.continueBtnText, { color: isDark ? '#000' : '#fff' }]}>
+                <Text style={[styles.continueBtnText, {
+                  color: detailsFormValid ? (isDark ? '#000' : '#fff') : '#8e8e93',
+                }]}>
                   {t('CREATE_MATERIAL.CONTINUE_TO_QUIZ')}
                 </Text>
-                <Ionicons name="arrow-forward" size={18} color={isDark ? '#000' : '#fff'} />
+                <Ionicons name="arrow-forward" size={18} color={detailsFormValid ? (isDark ? '#000' : '#fff') : '#8e8e93'} />
               </TouchableOpacity>
             </View>
           )}
@@ -885,7 +947,7 @@ function StepDetails({ selectedType, selectedPricing, title, setTitle, descripti
   showLanguagePicker, setShowLanguagePicker, showLevelPicker, setShowLevelPicker,
   thumbnailUri, pickCoverImage, removeCover,
   showVideoPolicy, dismissVideoPolicy,
-  colors, t }: {
+  scrollRef, colors, t }: {
   selectedType: MaterialType;
   selectedPricing: 'free' | 'paid';
   title: string; setTitle: (v: string) => void;
@@ -905,12 +967,25 @@ function StepDetails({ selectedType, selectedPricing, title, setTitle, descripti
   showLevelPicker: boolean; setShowLevelPicker: (v: boolean) => void;
   thumbnailUri: string | null; pickCoverImage: () => void; removeCover: () => void;
   showVideoPolicy: boolean; dismissVideoPolicy: () => void;
+  scrollRef: React.RefObject<any>;
   colors: any; t: any;
 }) {
   const isDark = colors.isDark;
   const titleInvalid = titleTouched && title.trim().length < 3;
   const langInvalid = languageTouched && !language;
-  const coverRequired = selectedType !== 'video_quiz';
+  const fieldPositions = useRef<Record<string, number>>({});
+
+  const captureFieldLayout = useCallback((key: string, event: any) => {
+    fieldPositions.current[key] = event.nativeEvent.layout.y;
+  }, []);
+
+  const scrollFieldIntoView = useCallback((key: string) => {
+    const y = fieldPositions.current[key];
+    if (y == null) return;
+    setTimeout(() => {
+      (scrollRef?.current as any)?.scrollTo?.({ y: Math.max(0, y - 80), animated: true });
+    }, 300);
+  }, [scrollRef]);
 
   const detailsTitle = selectedType === 'video_quiz'
     ? t('CREATE_MATERIAL.DETAILS_VIDEO_TITLE')
@@ -952,7 +1027,7 @@ function StepDetails({ selectedType, selectedPricing, title, setTitle, descripti
       <Text style={[styles.detailsSubheading, { color: colors.textSecondary }]}>{detailsDesc}</Text>
 
       {/* Title */}
-      <View style={styles.fieldWrap}>
+      <View style={styles.fieldWrap} onLayout={e => captureFieldLayout('title', e)}>
         <Text style={[styles.fieldLabel, { color: colors.text }]}>
           {t('CREATE_MATERIAL.FIELD_TITLE')} <Text style={styles.requiredStar}>*</Text>
         </Text>
@@ -965,6 +1040,7 @@ function StepDetails({ selectedType, selectedPricing, title, setTitle, descripti
           value={title}
           onChangeText={setTitle}
           onBlur={() => setTitleTouched(true)}
+          onFocus={() => scrollFieldIntoView('title')}
           placeholder={t('CREATE_MATERIAL.FIELD_TITLE_PLACEHOLDER')}
           placeholderTextColor={colors.textTertiary}
           maxLength={120}
@@ -975,7 +1051,7 @@ function StepDetails({ selectedType, selectedPricing, title, setTitle, descripti
       </View>
 
       {/* Description */}
-      <View style={styles.fieldWrap}>
+      <View style={styles.fieldWrap} onLayout={e => captureFieldLayout('desc', e)}>
         <Text style={[styles.fieldLabel, { color: colors.text }]}>
           {t('CREATE_MATERIAL.FIELD_DESCRIPTION')}
         </Text>
@@ -987,6 +1063,7 @@ function StepDetails({ selectedType, selectedPricing, title, setTitle, descripti
           }]}
           value={description}
           onChangeText={setDescription}
+          onFocus={() => scrollFieldIntoView('desc')}
           placeholder={t('CREATE_MATERIAL.FIELD_DESCRIPTION_PLACEHOLDER')}
           placeholderTextColor={colors.textTertiary}
           multiline
@@ -996,7 +1073,7 @@ function StepDetails({ selectedType, selectedPricing, title, setTitle, descripti
       </View>
 
       {/* Why Take This */}
-      <View style={styles.fieldWrap}>
+      <View style={styles.fieldWrap} onLayout={e => captureFieldLayout('why', e)}>
         <Text style={[styles.fieldLabel, { color: colors.text }]}>
           {t('CREATE_MATERIAL.FIELD_WHY_TAKE')}{' '}
           <Text style={[styles.fieldHint, { color: colors.textTertiary }]}>
@@ -1011,6 +1088,7 @@ function StepDetails({ selectedType, selectedPricing, title, setTitle, descripti
           }]}
           value={whyTakeThis}
           onChangeText={setWhyTakeThis}
+          onFocus={() => scrollFieldIntoView('why')}
           placeholder={t('CREATE_MATERIAL.FIELD_WHY_TAKE_PLACEHOLDER')}
           placeholderTextColor={colors.textTertiary}
           multiline
@@ -1094,7 +1172,7 @@ function StepDetails({ selectedType, selectedPricing, title, setTitle, descripti
       </View>
 
       {/* Tags / Custom Topics */}
-      <View style={styles.fieldWrap}>
+      <View style={styles.fieldWrap} onLayout={e => captureFieldLayout('tags', e)}>
         <Text style={[styles.fieldLabel, { color: colors.text }]}>
           Tags{' '}
           <Text style={[styles.fieldHint, { color: colors.textTertiary }]}>Help students discover this material</Text>
@@ -1104,6 +1182,7 @@ function StepDetails({ selectedType, selectedPricing, title, setTitle, descripti
             style={[styles.fieldInput, { flex: 1, backgroundColor: inputBg, borderColor: inputBorder, color: colors.text }]}
             value={topicInput}
             onChangeText={setTopicInput}
+            onFocus={() => scrollFieldIntoView('tags')}
             placeholder="Search tags..."
             placeholderTextColor={colors.textTertiary}
             onSubmitEditing={addTopic}
@@ -1128,10 +1207,7 @@ function StepDetails({ selectedType, selectedPricing, title, setTitle, descripti
       <View style={styles.fieldWrap}>
         <Text style={[styles.fieldLabel, { color: colors.text }]}>
           {t('CREATE_MATERIAL.FIELD_COVER_IMAGE')}{' '}
-          {coverRequired
-            ? <Text style={styles.requiredStar}>*</Text>
-            : <Text style={[styles.fieldHint, { color: colors.textTertiary }]}>{t('CREATE_MATERIAL.FIELD_COVER_RECOMMENDED')}</Text>
-          }
+          <Text style={[styles.fieldHint, { color: colors.textTertiary }]}>{t('CREATE_MATERIAL.FIELD_COVER_REQUIRED')}</Text>
         </Text>
         {thumbnailUri ? (
           <View style={[styles.coverPreview, { borderColor: inputBorder }]}>
@@ -1168,7 +1244,7 @@ function StepDetails({ selectedType, selectedPricing, title, setTitle, descripti
 
       {/* Type-specific: Video URL */}
       {selectedType === 'video_quiz' && (
-        <View style={styles.fieldWrap}>
+        <View style={styles.fieldWrap} onLayout={e => captureFieldLayout('video', e)}>
           <Text style={[styles.fieldLabel, { color: colors.text }]}>
             {t('CREATE_MATERIAL.FIELD_VIDEO_URL')} <Text style={styles.requiredStar}>*</Text>
           </Text>
@@ -1176,6 +1252,7 @@ function StepDetails({ selectedType, selectedPricing, title, setTitle, descripti
             style={[styles.fieldInput, { backgroundColor: inputBg, borderColor: inputBorder, color: colors.text }]}
             value={videoUrl}
             onChangeText={setVideoUrl}
+            onFocus={() => scrollFieldIntoView('video')}
             placeholder={t('CREATE_MATERIAL.FIELD_VIDEO_URL_PLACEHOLDER')}
             placeholderTextColor={colors.textTertiary}
             keyboardType="url"
@@ -1187,7 +1264,7 @@ function StepDetails({ selectedType, selectedPricing, title, setTitle, descripti
 
       {/* Type-specific: Reading Passage */}
       {selectedType === 'reading' && (
-        <View style={styles.fieldWrap}>
+        <View style={styles.fieldWrap} onLayout={e => captureFieldLayout('passage', e)}>
           <Text style={[styles.fieldLabel, { color: colors.text }]}>
             {t('CREATE_MATERIAL.FIELD_READING_PASSAGE')} <Text style={styles.requiredStar}>*</Text>
           </Text>
@@ -1195,6 +1272,7 @@ function StepDetails({ selectedType, selectedPricing, title, setTitle, descripti
             style={[styles.fieldInput, styles.fieldPassage, { backgroundColor: inputBg, borderColor: inputBorder, color: colors.text }]}
             value={passage}
             onChangeText={setPassage}
+            onFocus={() => scrollFieldIntoView('passage')}
             placeholder={t('CREATE_MATERIAL.FIELD_READING_PLACEHOLDER')}
             placeholderTextColor={colors.textTertiary}
             multiline
@@ -1206,7 +1284,7 @@ function StepDetails({ selectedType, selectedPricing, title, setTitle, descripti
 
       {/* Type-specific: Audio URL */}
       {selectedType === 'listening' && (
-        <View style={styles.fieldWrap}>
+        <View style={styles.fieldWrap} onLayout={e => captureFieldLayout('audio', e)}>
           <Text style={[styles.fieldLabel, { color: colors.text }]}>
             {t('CREATE_MATERIAL.FIELD_AUDIO_URL')} <Text style={styles.requiredStar}>*</Text>
           </Text>
@@ -1214,6 +1292,7 @@ function StepDetails({ selectedType, selectedPricing, title, setTitle, descripti
             style={[styles.fieldInput, { backgroundColor: inputBg, borderColor: inputBorder, color: colors.text }]}
             value={audioUrl}
             onChangeText={setAudioUrl}
+            onFocus={() => scrollFieldIntoView('audio')}
             placeholder={t('CREATE_MATERIAL.FIELD_AUDIO_URL_PLACEHOLDER')}
             placeholderTextColor={colors.textTertiary}
             keyboardType="url"
@@ -1225,26 +1304,30 @@ function StepDetails({ selectedType, selectedPricing, title, setTitle, descripti
 
       {/* Price (paid only) */}
       {selectedPricing === 'paid' && (
-        <View style={styles.fieldWrap}>
+        <View style={styles.fieldWrap} onLayout={e => captureFieldLayout('price', e)}>
           <Text style={[styles.fieldLabel, { color: colors.text }]}>
             {t('CREATE_MATERIAL.FIELD_PRICE_LABEL')}
           </Text>
-          <View style={styles.priceRow}>
-            <Text style={[styles.priceCurrency, { color: colors.text }]}>$</Text>
-            <TextInput
-              style={[styles.priceInput, { backgroundColor: inputBg, borderColor: inputBorder, color: colors.text }]}
-              value={String(price)}
-              onChangeText={(v) => {
-                const n = parseInt(v, 10);
-                if (!isNaN(n) && n >= 0 && n <= 50) setPrice(n);
-                else if (v === '') setPrice(0);
-              }}
-              keyboardType="number-pad"
-              maxLength={2}
-            />
-            <Text style={[styles.priceNote, { color: colors.textTertiary }]}>
+          <View style={styles.priceDisplay}>
+            <Text style={[styles.priceValue, { color: colors.text }]}>${price}</Text>
+            <Text style={[styles.pricePerQuiz, { color: colors.textTertiary }]}>
               {t('CREATE_MATERIAL.FIELD_PRICE_PER_QUIZ')}
             </Text>
+          </View>
+          <Slider
+            style={styles.priceSlider}
+            minimumValue={1}
+            maximumValue={50}
+            step={1}
+            value={price}
+            onValueChange={(v) => setPrice(Math.round(v))}
+            minimumTrackTintColor={isDark ? '#fff' : '#222'}
+            maximumTrackTintColor={isDark ? '#3a3a3c' : '#e5e5ea'}
+            thumbTintColor={isDark ? '#fff' : '#222'}
+          />
+          <View style={styles.priceRange}>
+            <Text style={[styles.priceRangeLabel, { color: colors.textTertiary }]}>$1</Text>
+            <Text style={[styles.priceRangeLabel, { color: colors.textTertiary }]}>$50</Text>
           </View>
           <Text style={[styles.priceHint, { color: colors.textTertiary }]}>
             {t('CREATE_MATERIAL.FIELD_PRICE_HINT')}
@@ -1317,7 +1400,10 @@ function OrderingSection({ qi, correctOrder, updateQuestion, scrollRef, isDark, 
       </Sortable.Flex>
       <TouchableOpacity
         style={styles.addOptionBtn}
-        onPress={() => updateQuestion(qi, { correctOrder: [...correctOrder, ''] })}
+        onPress={() => {
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          updateQuestion(qi, { correctOrder: [...correctOrder, ''] });
+        }}
       >
         <Ionicons name="add-outline" size={16} color={isDark ? '#8e8e93' : '#636366'} />
         <Text style={[styles.addOptionText, { color: isDark ? '#8e8e93' : '#636366' }]}>{t('CREATE_MATERIAL.QUIZ_ADD_ITEM')}</Text>
@@ -1455,6 +1541,7 @@ function StepQuiz({ quiz, addQuestion, removeQuestion, updateQuestion, scrollRef
                 <TouchableOpacity
                   style={styles.addOptionBtn}
                   onPress={() => {
+                    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     updateQuestion(qi, { options: [...q.options!, { text: '', isCorrect: false }] });
                   }}
                 >
@@ -1494,7 +1581,10 @@ function StepQuiz({ quiz, addQuestion, removeQuestion, updateQuestion, scrollRef
               ))}
               <TouchableOpacity
                 style={styles.addOptionBtn}
-                onPress={() => updateQuestion(qi, { acceptedAnswers: [...q.acceptedAnswers!, ''] })}
+                onPress={() => {
+                  void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  updateQuestion(qi, { acceptedAnswers: [...q.acceptedAnswers!, ''] });
+                }}
               >
                 <Ionicons name="add-outline" size={16} color={isDark ? '#8e8e93' : '#636366'} />
                 <Text style={[styles.addOptionText, { color: isDark ? '#8e8e93' : '#636366' }]}>{t('CREATE_MATERIAL.QUIZ_ADD_ALTERNATIVE')}</Text>
@@ -1912,19 +2002,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   topicChipText: { fontSize: 13, fontWeight: '500' },
-  priceRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  priceCurrency: { fontSize: 20, fontWeight: '700' },
-  priceInput: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 18,
-    fontWeight: '700',
-    width: 70,
-    textAlign: 'center',
-  },
-  priceNote: { fontSize: 13, flex: 1 },
+  priceDisplay: { flexDirection: 'row', alignItems: 'baseline', gap: 6, marginBottom: 4 },
+  priceValue: { fontSize: 28, fontWeight: '700', letterSpacing: -0.5 },
+  pricePerQuiz: { fontSize: 14 },
+  priceSlider: { width: '100%', height: 40 },
+  priceRange: { flexDirection: 'row', justifyContent: 'space-between', marginTop: -4 },
+  priceRangeLabel: { fontSize: 12 },
   priceHint: { fontSize: 12, marginTop: 6 },
   footer: {
     paddingHorizontal: 20,
@@ -2064,4 +2147,34 @@ const styles = StyleSheet.create({
   pqOrderItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   pqOrderNum: { fontSize: 12, fontWeight: '700', width: 16 },
   pqOrderText: { fontSize: 13 },
+
+  /* Keyboard Toolbar (Airbnb-style) */
+  kbToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  kbToolbarArrows: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  kbArrowBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  kbDoneBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 9,
+    borderRadius: 20,
+  },
+  kbDoneText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
 });

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,14 +7,17 @@ import {
   RefreshControl,
   Image,
   TouchableOpacity,
+  Animated,
+  Easing,
   Dimensions,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { getTabBarStyle } from '../navigation/tabBarStyles';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
+import { useHomeTabBarOverlay } from '../contexts/HomeTabBarOverlayContext';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../contexts/ThemeContext';
 import { lessonService, buildTimelineEvents, TimelineEvent, Lesson } from '../services/lessons';
@@ -32,6 +35,8 @@ export default function HomeScreen() {
   const { colors } = useTheme();
   const { t } = useTranslation();
   const navigation = useNavigation<any>();
+  const isFocused = useIsFocused();
+  const { setHomeOverlayCoversTabBar } = useHomeTabBarOverlay();
   const userId = user?._id || user?.id || '';
   const isTutor = user?.userType === 'tutor';
 
@@ -44,6 +49,8 @@ export default function HomeScreen() {
   const [showBalance, setShowBalance] = useState(false);
   const [showEarnings, setShowEarnings] = useState(false);
   const [showMaterials, setShowMaterials] = useState(false);
+  const [materialsVisible, setMaterialsVisible] = useState(false);
+  const materialsOverlayOpacity = useRef(new Animated.Value(0)).current;
   const [hasAvailability, setHasAvailability] = useState(false);
 
   const displayName = user?.firstName || user?.name?.split(' ')[0] || 'there';
@@ -127,17 +134,34 @@ export default function HomeScreen() {
     if (isTutor) preloadMaterials();
   }, [fetchData, fetchEarnings, fetchAvailability, isTutor]);
 
-  useFocusEffect(
-    useCallback(() => {
-      const hideTabs = showMaterials || showEarnings;
-      navigation.setOptions({
-        tabBarStyle: hideTabs ? { display: 'none' as const } : getTabBarStyle(colors),
-      });
-      return () => {
-        navigation.setOptions({ tabBarStyle: getTabBarStyle(colors) });
-      };
-    }, [navigation, colors, showMaterials, showEarnings]),
-  );
+  const openMaterials = useCallback(() => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setShowMaterials(true);
+    setMaterialsVisible(true);
+    materialsOverlayOpacity.setValue(0);
+    Animated.timing(materialsOverlayOpacity, {
+      toValue: 1,
+      duration: 240,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: true,
+    }).start();
+  }, [materialsOverlayOpacity]);
+
+  const closeMaterials = useCallback(() => {
+    Animated.timing(materialsOverlayOpacity, {
+      toValue: 0,
+      duration: 200,
+      easing: Easing.in(Easing.ease),
+      useNativeDriver: true,
+    }).start(() => {
+      setShowMaterials(false);
+      setMaterialsVisible(false);
+    });
+  }, [materialsOverlayOpacity]);
+
+  useEffect(() => {
+    setHomeOverlayCoversTabBar((showMaterials || showEarnings) && isFocused);
+  }, [showMaterials, showEarnings, isFocused, setHomeOverlayCoversTabBar]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -180,11 +204,9 @@ export default function HomeScreen() {
     return t('HOME.WELCOME_OPEN_SCHEDULE');
   }, [nextLesson, isTutor, hasAvailability, hadLessonsToday, t]);
 
-  const overlayActive = showEarnings || showMaterials;
-
   return (
     <View style={{ flex: 1 }}>
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }, overlayActive && { position: 'absolute', opacity: 0, pointerEvents: 'none' }]} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
       {/* ── Toolbar ── */}
       <Toolbar
         user={user}
@@ -268,7 +290,7 @@ export default function HomeScreen() {
           <Section title={t('HOME.QUICK_ACTIONS')} colors={colors}>
             <View style={styles.actionsRow}>
               <ActionChip image={require('../../assets/shared/classroom.png')} label={t('HOME.CLASSES')} colors={colors} />
-              <ActionChip image={require('../../assets/shared/quick-actions-create-material.png')} label={t('HOME.CREATE_MATERIAL')} colors={colors} onPress={() => setShowMaterials(true)} />
+              <ActionChip image={require('../../assets/shared/quick-actions-create-material.png')} label={t('HOME.CREATE_MATERIAL')} colors={colors} onPress={openMaterials} />
               <ActionChip image={require('../../assets/shared/quick-actions-forum.png')} label={t('HOME.FORUM')} colors={colors} />
             </View>
           </Section>
@@ -313,8 +335,16 @@ export default function HomeScreen() {
         <View style={{ height: 24 }} />
       </ScrollView>
     </SafeAreaView>
-    {showEarnings && <EarningsScreen goBack={() => setShowEarnings(false)} />}
-    {showMaterials && <MaterialsScreen goBack={() => setShowMaterials(false)} />}
+    {showEarnings && (
+      <View style={[StyleSheet.absoluteFill, { zIndex: 50, elevation: 50 }]}>
+        <EarningsScreen goBack={() => setShowEarnings(false)} />
+      </View>
+    )}
+    {materialsVisible && (
+      <Animated.View style={[StyleSheet.absoluteFill, { zIndex: 50, elevation: 50, opacity: materialsOverlayOpacity }]}>
+        <MaterialsScreen goBack={closeMaterials} />
+      </Animated.View>
+    )}
     </View>
   );
 }

@@ -2085,3 +2085,16 @@
     }
   }
 }
+
+// ── Embedded in desktop home materials modal ────────────
+:host.md-embed-in-modal {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+:host.md-embed-in-modal ::ng-deep ion-content {
+  flex: 1;
+  --offset-top: 0;
+}
