@@ -5,9 +5,11 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../contexts/ThemeContext';
 import LoginScreen from '../screens/LoginScreen';
+import PreCallScreen from '../screens/PreCallScreen';
 import TabNavigator from './TabNavigator';
+import type { RootStackParamList } from './types';
 
-const Stack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
   const { user, loading } = useAuth();
@@ -24,7 +26,18 @@ export default function RootNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {user ? (
-        <Stack.Screen name="Main" component={TabNavigator} />
+        <Stack.Group>
+          <Stack.Screen name="Main" component={TabNavigator} />
+          <Stack.Screen
+            name="PreCall"
+            component={PreCallScreen}
+            options={{
+              headerShown: false,
+              animation: 'slide_from_right',
+              gestureEnabled: true,
+            }}
+          />
+        </Stack.Group>
       ) : (
         <Stack.Screen
           name="Login"

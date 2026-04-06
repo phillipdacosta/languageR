@@ -458,7 +458,7 @@ export default function MaterialsScreen({ goBack }: Props) {
                 elevation: isDark ? 0 : Platform.OS === 'android' ? 14 : 0,
               }]}>
                 {/* Hero illustration */}
-                <View style={styles.gatewayHero}>
+                <View style={[styles.gatewayHero, { backgroundColor: isDark ? '#2c2c2e' : '#fafafa' }]}>
                   <Image source={require('../../assets/shared/materials-gateway.png')} style={styles.gatewayHeroImg} contentFit="contain" />
                 </View>
 
@@ -551,7 +551,7 @@ export default function MaterialsScreen({ goBack }: Props) {
                 elevation: isDark ? 0 : Platform.OS === 'android' ? 14 : 0,
               }]}>
                 {/* Hero illustration */}
-                <View style={styles.gatewayHero}>
+                <View style={[styles.gatewayHero, { backgroundColor: isDark ? '#2c2c2e' : '#fafafa' }]}>
                   <Image source={require('../../assets/shared/bundles-gateway.png')} style={styles.gatewayHeroImg} contentFit="contain" />
                 </View>
 
@@ -1358,6 +1358,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 20,
     paddingBottom: 8,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
   },
   gatewayHeroImg: {
     width: 88,

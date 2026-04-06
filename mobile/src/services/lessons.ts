@@ -3,7 +3,10 @@ import { api } from './api';
 export interface Lesson {
   _id: string;
   status: string;
-  scheduledTime: string;
+  /** API returns startTime (same as web); scheduledTime kept for compatibility */
+  startTime?: string;
+  endTime?: string;
+  scheduledTime?: string;
   duration: number;
   language?: string;
   subject?: string;
@@ -36,8 +39,27 @@ export interface Lesson {
   isTrialLesson?: boolean;
 }
 
-interface LessonsResponse {
-  lessons: Lesson[];
+interface MyLessonsResponse {
+  success?: boolean;
+  lessons?: Lesson[];
+}
+
+interface LessonDetailResponse {
+  success?: boolean;
+  lesson?: Lesson;
+}
+
+/** Start time from API (web uses startTime; legacy clients may use scheduledTime). */
+export function getLessonStart(lesson: Lesson): Date {
+  const raw = lesson.startTime || lesson.scheduledTime;
+  return raw ? new Date(raw) : new Date(NaN);
+}
+
+export function getLessonEnd(lesson: Lesson): Date {
+  if (lesson.endTime) return new Date(lesson.endTime);
+  const start = getLessonStart(lesson);
+  if (Number.isNaN(start.getTime())) return start;
+  return new Date(start.getTime() + (lesson.duration || 30) * 60000);
 }
 
 export interface TimelineEvent {
@@ -60,17 +82,38 @@ export interface TimelineEvent {
 export const lessonService = {
   async getMyLessons(): Promise<Lesson[]> {
     try {
-      const data = await api.get<LessonsResponse>('/lessons');
+      const data = await api.get<MyLessonsResponse>('/lessons/my-lessons');
       return data.lessons || [];
     } catch {
       return [];
     }
   },
 
+  async getLesson(lessonId: string): Promise<Lesson | null> {
+    try {
+      const data = await api.get<LessonDetailResponse>(`/lessons/${lessonId}`);
+      return data.lesson || null;
+    } catch {
+      return null;
+    }
+  },
+
   async getUpcomingLessons(): Promise<Lesson[]> {
     try {
-      const data = await api.get<LessonsResponse>('/lessons/upcoming');
-      return data.lessons || [];
+      const all = await this.getMyLessons();
+      const now = new Date();
+      return all
+        .filter(l => {
+          if (l.status !== 'scheduled' && l.status !== 'in_progress' && l.status !== 'pending_reschedule') {
+            return false;
+          }
+          const start = getLessonStart(l);
+          const end = getLessonEnd(l);
+          if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return false;
+          if (start <= now && now < end) return true;
+          return start > now;
+        })
+        .sort((a, b) => getLessonStart(a).getTime() - getLessonStart(b).getTime());
     } catch {
       return [];
     }
@@ -81,12 +124,21 @@ export function buildTimelineEvents(lessons: Lesson[], userId: string): Timeline
   const now = new Date();
 
   const upcoming = lessons
-    .filter(l => l.status === 'scheduled' && new Date(l.scheduledTime) > now)
-    .sort((a, b) => new Date(a.scheduledTime).getTime() - new Date(b.scheduledTime).getTime());
+    .filter(l => {
+      if (l.status !== 'scheduled' && l.status !== 'in_progress' && l.status !== 'pending_reschedule') {
+        return false;
+      }
+      const start = getLessonStart(l);
+      const end = getLessonEnd(l);
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return false;
+      if (start <= now && now < end) return true;
+      return start > now;
+    })
+    .sort((a, b) => getLessonStart(a).getTime() - getLessonStart(b).getTime());
 
   return upcoming.slice(0, 5).map(lesson => {
-    const start = new Date(lesson.scheduledTime);
-    const end = new Date(start.getTime() + (lesson.duration || 30) * 60000);
+    const start = getLessonStart(lesson);
+    const end = getLessonEnd(lesson);
     const isToday = start.toDateString() === now.toDateString();
 
     const otherPerson = lesson.tutorId?._id === userId ? lesson.studentId : lesson.tutorId;

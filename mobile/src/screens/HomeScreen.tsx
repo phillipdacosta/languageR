@@ -11,8 +11,10 @@ import {
   Easing,
   Dimensions,
   Platform,
+  AccessibilityInfo,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -20,7 +22,13 @@ import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useHomeTabBarOverlay } from '../contexts/HomeTabBarOverlayContext';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../contexts/ThemeContext';
-import { lessonService, buildTimelineEvents, TimelineEvent, Lesson } from '../services/lessons';
+import {
+  lessonService,
+  buildTimelineEvents,
+  TimelineEvent,
+  Lesson,
+  getLessonStart,
+} from '../services/lessons';
 import { earningsService, EarningsBalance } from '../services/earnings';
 import { calendarService } from '../services/calendar';
 import EarningsScreen from './EarningsScreen';
@@ -29,6 +37,111 @@ import { preloadMaterials } from '../services/materials';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const CTA_DARK_BLUE = '#3a7bc8';
+/** Match web `.upnext-filled-avatar` (80×80 @ 20px radius → 0.25 of side). */
+const UP_NEXT_AVATAR_SIZE = 56;
+const UP_NEXT_AVATAR_RADIUS = Math.round(UP_NEXT_AVATAR_SIZE * 0.25);
+/**
+ * Shared min height for Up Next filled + empty cards so the home stack (“This Week”, etc.)
+ * shifts by the same amount. Empty state content (120px art + copy + CTA) is taller than
+ * filled (avatar + meta + CTA); without this, filled stayed at 268px while empty grew past it.
+ */
+const UP_NEXT_CARD_MIN_HEIGHT = 328;
+
+/** Matches web `.pop-float` + `@keyframes popFloat` (tab1.page.scss): delay 0.6s, duration 0.7s. */
+const TRIAL_BADGE_POP_DELAY_MS = 600;
+const TRIAL_BADGE_POP_BEZIER = Easing.bezier(0.34, 1.56, 0.64, 1);
+
+/** Matches web `.badge-inline.badge-trial` (tab1): gradient pill, star + uppercase label. */
+function UpNextTrialBadge({ label }: { label: string }) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const scale = useRef(new Animated.Value(0.4)).current;
+  const translateY = useRef(new Animated.Value(12)).current;
+
+  useEffect(() => {
+    let cancelled = false;
+    let running: Animated.CompositeAnimation | null = null;
+    const native = { useNativeDriver: true as const };
+
+    const skipToEnd = () => {
+      opacity.setValue(1);
+      scale.setValue(1);
+      translateY.setValue(0);
+    };
+
+    AccessibilityInfo.isReduceMotionEnabled().then(reduce => {
+      if (cancelled) return;
+      if (reduce) {
+        skipToEnd();
+        return;
+      }
+
+      running = Animated.sequence([
+        Animated.delay(TRIAL_BADGE_POP_DELAY_MS),
+        Animated.parallel([
+          Animated.timing(opacity, {
+            toValue: 1,
+            duration: 280,
+            easing: Easing.out(Easing.cubic),
+            ...native,
+          }),
+          Animated.timing(scale, {
+            toValue: 1.12,
+            duration: 280,
+            easing: TRIAL_BADGE_POP_BEZIER,
+            ...native,
+          }),
+          Animated.timing(translateY, {
+            toValue: -6,
+            duration: 280,
+            easing: TRIAL_BADGE_POP_BEZIER,
+            ...native,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.timing(scale, { toValue: 0.96, duration: 175, easing: Easing.inOut(Easing.quad), ...native }),
+          Animated.timing(translateY, { toValue: 2, duration: 175, easing: Easing.inOut(Easing.quad), ...native }),
+        ]),
+        Animated.parallel([
+          Animated.timing(scale, { toValue: 1.03, duration: 119, easing: Easing.inOut(Easing.quad), ...native }),
+          Animated.timing(translateY, { toValue: -1, duration: 119, easing: Easing.inOut(Easing.quad), ...native }),
+        ]),
+        Animated.parallel([
+          Animated.timing(scale, { toValue: 1, duration: 126, easing: Easing.inOut(Easing.quad), ...native }),
+          Animated.timing(translateY, { toValue: 0, duration: 126, easing: Easing.inOut(Easing.quad), ...native }),
+        ]),
+      ]);
+      if (cancelled) return;
+      running.start();
+    });
+
+    return () => {
+      cancelled = true;
+      running?.stop();
+    };
+  }, []);
+
+  return (
+    <Animated.View
+      style={[
+        styles.trialBadgePopWrap,
+        {
+          opacity,
+          transform: [{ scale }, { translateY }],
+        },
+      ]}
+    >
+      <LinearGradient
+        colors={['#ff9500', '#ff6b35']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.trialBadgeInline}
+      >
+        <Ionicons name="star" size={10} color="#ffffff" />
+        <Text style={styles.trialBadgeInlineText}>{label}</Text>
+      </LinearGradient>
+    </Animated.View>
+  );
+}
 
 export default function HomeScreen() {
   const { user } = useAuth();
@@ -63,7 +176,7 @@ export default function HomeScreen() {
     weekEnd.setHours(23, 59, 59, 999);
     return lessons.filter(l => {
       if (l.status !== 'scheduled') return false;
-      const d = new Date(l.scheduledTime);
+      const d = getLessonStart(l);
       return d >= now && d <= weekEnd;
     });
   }, [lessons]);
@@ -73,7 +186,7 @@ export default function HomeScreen() {
     const result: { id: string; name: string; avatar: string | null }[] = [];
     const sorted = [...lessons]
       .filter(l => l.status === 'completed' || l.status === 'scheduled')
-      .sort((a, b) => new Date(b.scheduledTime).getTime() - new Date(a.scheduledTime).getTime());
+      .sort((a, b) => getLessonStart(b).getTime() - getLessonStart(a).getTime());
 
     for (const l of sorted) {
       const student = l.studentId;
@@ -175,7 +288,7 @@ export default function HomeScreen() {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
     return lessons.some(l => {
-      const d = new Date(l.scheduledTime);
+      const d = getLessonStart(l);
       return d >= today && d < tomorrow && (l.status === 'completed' || l.status === 'cancelled');
     });
   }, [lessons]);
@@ -236,7 +349,19 @@ export default function HomeScreen() {
         {loading ? (
           <UpNextSkeleton colors={colors} />
         ) : nextLesson ? (
-          <UpNextFilled event={nextLesson} colors={colors} t={t} />
+          <UpNextFilled
+            event={nextLesson}
+            colors={colors}
+            t={t}
+            onJoin={() => {
+              const tabNav = navigation.getParent();
+              const stackNav = tabNav?.getParent?.() ?? tabNav;
+              stackNav?.navigate('PreCall' as never, {
+                lessonId: nextLesson.lesson._id,
+                isClass: !!nextLesson.lesson.isClass,
+              } as never);
+            }}
+          />
         ) : (
           <UpNextEmpty
             colors={colors}
@@ -400,7 +525,17 @@ function Section({ title, rightLabel, children, colors }: { title: string; right
 
 /* ─── Up Next: Filled ─── */
 
-function UpNextFilled({ event, colors, t }: { event: TimelineEvent; colors: any; t: any }) {
+function UpNextFilled({
+  event,
+  colors,
+  t,
+  onJoin,
+}: {
+  event: TimelineEvent;
+  colors: any;
+  t: any;
+  onJoin: () => void;
+}) {
   const isDark = colors.isDark;
   return (
     <View style={[styles.section, styles.upNextSectionSpacing]}>
@@ -417,12 +552,18 @@ function UpNextFilled({ event, colors, t }: { event: TimelineEvent; colors: any;
           },
         ]}
         activeOpacity={0.85}
+        onPress={onJoin}
       >
         <View style={styles.upNextAvatarWrap}>
           {event.avatar ? (
-            <Image source={{ uri: event.avatar }} style={styles.upNextAvatar} />
+            <Image source={{ uri: event.avatar }} style={styles.upNextAvatarImage} />
           ) : (
-            <View style={[styles.upNextAvatar, { backgroundColor: isDark ? '#3a3a3c' : '#e8e8e8', alignItems: 'center', justifyContent: 'center' }]}>
+            <View
+              style={[
+                styles.upNextAvatarImage,
+                { backgroundColor: isDark ? '#3a3a3c' : '#e8e8e8', alignItems: 'center', justifyContent: 'center' },
+              ]}
+            >
               <Ionicons name="person" size={24} color={colors.textTertiary} />
             </View>
           )}
@@ -430,25 +571,25 @@ function UpNextFilled({ event, colors, t }: { event: TimelineEvent; colors: any;
 
         <Text style={[styles.cardTitle, { color: colors.text }]}>{event.name}</Text>
 
-        {event.isTrialLesson && (
-          <View style={[styles.trialBadge, { backgroundColor: isDark ? 'rgba(245,166,35,0.15)' : '#FFF8E1' }]}>
-            <Text style={[styles.trialBadgeText, { color: isDark ? '#fbbf24' : '#F5A623' }]}>{t('HOME.STATUS_TRIAL')}</Text>
-          </View>
-        )}
+        {event.isTrialLesson && <UpNextTrialBadge label={t('HOME.STATUS_TRIAL')} />}
 
-        <Text style={[styles.cardMeta, { color: colors.textSecondary }]}>
-          <Text style={event.isToday ? styles.metaToday : undefined}>
-            {event.isToday ? t('HOME.TODAY') : event.dateTag}
+        <View style={styles.upNextFilledMetaWrap}>
+          <Text style={[styles.cardMeta, styles.upNextFilledMeta, { color: colors.textSecondary }]}>
+            <Text style={event.isToday ? styles.metaToday : undefined}>
+              {event.isToday ? t('HOME.TODAY') : event.dateTag}
+            </Text>
+            {'  ·  '}{event.timeRange}
+            {event.subject ? `  ·  ${event.subject}` : ''}
           </Text>
-          {'  ·  '}{event.timeRange}
-          {event.subject ? `  ·  ${event.subject}` : ''}
-        </Text>
 
-        {!!event.countdown && (
-          <Text style={[styles.cardCountdown, { color: colors.textSecondary }]}>{t('HOME.STARTS_IN_TIME', { time: event.countdown })}</Text>
-        )}
+          {!!event.countdown && (
+            <Text style={[styles.cardCountdown, styles.upNextFilledCountdown, { color: colors.textSecondary }]}>
+              {t('HOME.STARTS_IN_TIME', { time: event.countdown })}
+            </Text>
+          )}
+        </View>
 
-        <View style={[styles.ctaBtn, { backgroundColor: isDark ? CTA_DARK_BLUE : '#000000' }]}>
+        <View style={[styles.ctaBtn, styles.upNextCardCtaWide, styles.upNextFilledCta, { backgroundColor: isDark ? CTA_DARK_BLUE : '#000000' }]}>
           <Text style={styles.ctaBtnText}>{t('HOME.JOIN_LESSON')}</Text>
           <Image source={require('../../assets/shared/setup-availability-arrow.png')} style={styles.ctaBtnArrowImg} />
         </View>
@@ -489,7 +630,7 @@ function UpNextEmpty({ colors, title, message, ctaLabel, onCta }: {
           {message}
         </Text>
         <TouchableOpacity
-          style={[styles.ctaBtn, { backgroundColor: isDark ? CTA_DARK_BLUE : '#000000' }]}
+          style={[styles.ctaBtn, styles.upNextCardCtaWide, { backgroundColor: isDark ? CTA_DARK_BLUE : '#000000' }]}
           activeOpacity={0.85}
           onPress={onCta}
         >
@@ -519,7 +660,15 @@ function UpNextSkeleton({ colors }: { colors: any }) {
           },
         ]}
       >
-        <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: colors.skeleton, marginBottom: 12 }} />
+        <View
+          style={{
+            width: UP_NEXT_AVATAR_SIZE,
+            height: UP_NEXT_AVATAR_SIZE,
+            borderRadius: UP_NEXT_AVATAR_RADIUS,
+            backgroundColor: colors.skeleton,
+            marginBottom: 12,
+          }}
+        />
         <Skeleton width={140} height={15} style={{ marginBottom: 8 }} colors={colors} />
         <Skeleton width={210} height={12} style={{ marginBottom: 8 }} colors={colors} />
         <Skeleton width={100} height={12} colors={colors} />
@@ -686,11 +835,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.14,
     elevation: 14,
   },
-  /** Taller Up Next card (portrait rectangle vs compact square). */
+  /** Same shell for filled + empty Up Next (see UP_NEXT_CARD_MIN_HEIGHT). */
   upNextCard: {
     paddingTop: 24,
     paddingBottom: 44,
-    minHeight: 268,
+    minHeight: UP_NEXT_CARD_MIN_HEIGHT,
     justifyContent: 'center',
   },
   cardTitle: {
@@ -712,6 +861,21 @@ const styles = StyleSheet.create({
   cardMeta: { fontSize: 14, color: '#6b7280', textAlign: 'center', lineHeight: 20, marginBottom: 4 },
   metaToday: { color: '#34C759', fontWeight: '600' },
   cardCountdown: { fontSize: 13, color: '#999', marginBottom: 8 },
+  /** Extra space above Join on Up Next filled card (date/time block → button). */
+  upNextFilledMetaWrap: {
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 8,
+  },
+  upNextFilledMeta: { marginBottom: 0 },
+  upNextFilledCountdown: { marginTop: 6, marginBottom: 0 },
+  /** Full width of card (parent uses horizontal padding); centers label + arrow. */
+  upNextCardCtaWide: {
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+  },
+  /** Space between meta block and Join on filled card (same card shell as empty; centered column). */
+  upNextFilledCta: { marginTop: 28 },
   emptyArtImg: { width: 120, height: 120, resizeMode: 'contain', marginBottom: 4 },
   /** Up Next empty: nudge title toward art without shrinking layout (transform, not negative margins). */
   upNextEmptyTitleShift: { transform: [{ translateY: -14 }] },
@@ -731,19 +895,40 @@ const styles = StyleSheet.create({
   ctaBtnArrow: { fontSize: 16, color: '#ffffff' },
   ctaBtnArrowImg: { width: 26, height: 26, resizeMode: 'contain', marginRight: -6 },
 
-  // Up Next avatar
-  upNextAvatarWrap: { marginBottom: 10 },
-  upNextAvatar: { width: 56, height: 56, borderRadius: 28 },
-
-  // Trial badge
-  trialBadge: {
-    backgroundColor: '#FFF8E1',
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 100,
-    marginBottom: 6,
+  // Up Next avatar — rounded square like web `ion-avatar.upnext-filled-avatar` (not a circle)
+  upNextAvatarWrap: {
+    width: UP_NEXT_AVATAR_SIZE,
+    height: UP_NEXT_AVATAR_SIZE,
+    borderRadius: UP_NEXT_AVATAR_RADIUS,
+    overflow: 'hidden',
+    marginBottom: 10,
+    backgroundColor: 'transparent',
   },
-  trialBadgeText: { fontSize: 10, fontWeight: '700', color: '#F5A623', letterSpacing: 0.3, textTransform: 'uppercase' },
+  upNextAvatarImage: { width: '100%', height: '100%' },
+
+  // Trial badge — web `.badge-inline.badge-trial` (Up Next)
+  trialBadgePopWrap: {
+    alignSelf: 'center',
+    marginTop: 2,
+    marginBottom: 6,
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  trialBadgeInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    gap: 4,
+  },
+  trialBadgeInlineText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#ffffff',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
 
   // This Week (extra space below Up Next card)
   thisWeekSectionWrap: { marginTop: 22 },

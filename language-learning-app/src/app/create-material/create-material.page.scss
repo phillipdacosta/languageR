@@ -4255,6 +4255,76 @@
   .cm-step-fill { background: #4298d2; }
 
   .cm-library-header h1 { color: #f5f5f7; }
+  .cm-library {
+    background: #1c1c1e;
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+  }
+  .cm-library-sticky {
+    background: #1c1c1e;
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.06),
+      0 10px 28px -8px rgba(0, 0, 0, 0.55),
+      0 4px 12px rgba(0, 0, 0, 0.35);
+  }
+  .cm-library-tabs {
+    border-bottom-color: #3a3a3c;
+  }
+  .cm-library-tab {
+    color: #8e8e93;
+    &:hover:not(.active) { color: #c7c7cc; }
+    &.active {
+      color: #f5f5f7;
+      border-bottom-color: #f5f5f7;
+    }
+  }
+  .cm-library-tab-count {
+    background: #3a3a3c;
+    color: #c7c7cc;
+    .cm-library-tab.active & {
+      background: #f5f5f7;
+      color: #1c1c1e;
+    }
+  }
+  .cm-split-col:first-child {
+    border-right-color: #3a3a3c;
+  }
+  .cm-gateway-card {
+    background: #1c1c1e;
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+    @media (min-width: 768px) {
+      border: none;
+      box-shadow: none;
+    }
+  }
+  .cm-gateway-hero {
+    background: #2c2c2e;
+    @media (min-width: 768px) {
+      background: transparent;
+    }
+  }
+  .cm-gateway-row {
+    border-top-color: rgba(255, 255, 255, 0.08);
+    &:hover { background: rgba(255, 255, 255, 0.06); }
+    &:active { background: rgba(255, 255, 255, 0.1); }
+  }
+  .cm-gateway-icon.cm-gateway-icon--view {
+    background: #3a3a3c;
+    color: #f5f5f7;
+  }
+  .cm-gateway-icon.cm-gateway-icon--create {
+    background: #f5f5f7;
+    color: #1c1c1e;
+  }
+  .cm-gateway-title { color: #f5f5f7; }
+  .cm-gateway-subtitle { color: #8e8e93; }
+  .cm-gateway-chevron { color: #636366; }
+  .cm-list-back {
+    color: #aeaeb2;
+    &:hover { background: rgba(255, 255, 255, 0.08); }
+  }
   .cm-library-loading ion-spinner { color: #8e8e93; }
   .cm-empty-icon { background: #2c2c2e; ion-icon { color: #8e8e93; } }
   .cm-library-empty h3 { color: #f5f5f7; }
