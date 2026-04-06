@@ -638,8 +638,9 @@
     <!-- Tutor Dashboard Grid: 2x2 layout -->
     <div class="tutor-dashboard-grid" *ngIf="isTutorUser">
       <div class="grid-cell-upnext">
+        <h2 class="desktop-tutor-section-title" *ngIf="!isMobile && isTutorUser">{{ 'HOME.UP_NEXT' | translate }}</h2>
 
-    <!-- Upcoming Schedule Section -->
+        <!-- Upcoming Schedule Section -->
 
 
     <!-- ═══ MOBILE: Meetup-style cards ═══ -->
@@ -766,7 +767,6 @@
     <div class="empty-state-clean" *ngIf="!isMobile && !isLoadingLessons && nextLesson && isTutorUser">
       <div class="empty-state-clean-inner upnext-filled" *ngIf="nextLesson as nextClass">
         <span style="display: none;">{{ countdownTick }}</span>
-        <span class="upnext-filled-label">{{ 'HOME.UP_NEXT' | translate }}</span>
         <div class="upnext-filled-badges">
           <span class="badge-inline badge-trial" *ngIf="nextClass.isTrialLesson && nextClass.lesson?.status !== 'cancelled'">
             <ion-icon name="star"></ion-icon> {{ 'HOME.STATUS_TRIAL' | translate }}
@@ -880,10 +880,8 @@
 
       <!-- Earnings (Row 1, Right) -->
       <div class="grid-cell-earnings" *ngIf="!insightsLoading">
+        <h2 class="desktop-tutor-section-title" *ngIf="!isMobile">{{ 'HOME.EARNINGS_TITLE' | translate }}</h2>
         <div class="earnings-card-widget" [class.skip-entry-animation]="returningFromEarnings">
-          <div class="earnings-card-header">
-            <h3>{{ 'HOME.EARNINGS_TITLE' | translate }}</h3>
-          </div>
           <div class="earnings-card-body">
             <div class="earnings-label">{{ 'HOME.TOTAL_BALANCE' | translate }}</div>
             <div class="earnings-balance" (click)="toggleWalletVisibility($event)">
@@ -909,7 +907,7 @@
       <div class="grid-cell-comingup" *ngIf="timelineEvents.length > 0">
         <div class="timeline-section" *ngIf="!isLoadingLessons">
           <div class="section-header-new">
-            <h2>{{ 'HOME.COMING_UP' | translate }}</h2>
+            <h2>{{ 'HOME.THIS_WEEK' | translate }}</h2>
             <ion-button *ngIf="isTutorUser" fill="clear" class="see-all-btn" routerLink="/tabs/tutor-calendar">{{ 'HOME.FULL_SCHEDULE' | translate }}</ion-button>
           </div>
           <div class="coming-up-single">
@@ -968,6 +966,7 @@
 
       <!-- Quick Actions (Row 2, Right / full-width when no Coming Up) — Desktop only -->
       <div class="grid-cell-actions" *ngIf="!isMobile && !isLoadingLessons" [class.full-width]="timelineEvents.length === 0">
+        <h2 class="desktop-tutor-section-title desktop-tutor-section-title--actions">{{ 'HOME.QUICK_ACTIONS' | translate }}</h2>
         <div class="actions-grid">
           <div class="quick-action-card qa-classes qa-with-asset" (click)="navigateToExplore()">
             <div class="qa-icon">

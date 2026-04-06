@@ -1318,15 +1318,6 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     return this.stepOrder.length;
   }
 
-  get typeIcon(): string {
-    switch (this.selectedType) {
-      case 'video_quiz': return 'videocam-outline';
-      case 'reading': return 'book-outline';
-      case 'listening': return 'headset-outline';
-      default: return 'document-outline';
-    }
-  }
-
   showVideoPolicy = false;
   videoPolicyDismissed = false;
 
@@ -1360,17 +1351,33 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
   onTypeCardClick(event: MouseEvent, type: MaterialType) {
     const card = (event.currentTarget as HTMLElement);
     const srcRect = card.getBoundingClientRect();
-    const iconName = type === 'video_quiz' ? 'videocam-outline' : type === 'reading' ? 'book-outline' : 'headset-outline';
     const label = this.getMaterialTypeLabel(type);
 
     const clone = document.createElement('div');
     const iconDiv = document.createElement('div');
+    const iconBg =
+      type === 'video_quiz'
+        ? 'linear-gradient(160deg, #e8ecf4 0%, #f4f5f7 55%, #eceef4 100%)'
+        : type === 'reading'
+          ? 'linear-gradient(160deg, #e3f0ff 0%, #f0f7ff 100%)'
+          : 'linear-gradient(160deg, #efe5ff 0%, #f8f4ff 100%)';
     Object.assign(iconDiv.style, {
-      width: '64px', height: '64px', borderRadius: '18px', background: '#f5f5f5',
+      width: '76px', height: '76px', borderRadius: '20px', background: iconBg,
       display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: '0',
-      transition: 'all 400ms cubic-bezier(0.32, 0.72, 0, 1)'
+      transition: 'all 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+      boxSizing: 'border-box',
+      padding: '10px',
     });
-    iconDiv.innerHTML = `<ion-icon name="${iconName}" style="font-size:30px;color:#222;transition:font-size 400ms cubic-bezier(0.32,0.72,0,1)"></ion-icon>`;
+    if (type === 'video_quiz') {
+      iconDiv.innerHTML =
+        `<img src="assets/create-material-type-video-quiz.png" alt="" style="width:100%;height:100%;object-fit:contain;display:block;transition:all 400ms cubic-bezier(0.32,0.72,0,1)"/>`;
+    } else if (type === 'reading') {
+      iconDiv.innerHTML =
+        `<img src="assets/create-material-type-reading.png" alt="" style="width:100%;height:100%;object-fit:contain;display:block;transition:all 400ms cubic-bezier(0.32,0.72,0,1)"/>`;
+    } else {
+      iconDiv.innerHTML =
+        `<img src="assets/create-material-type-listening.png" alt="" style="width:100%;height:100%;object-fit:contain;display:block;transition:all 400ms cubic-bezier(0.32,0.72,0,1)"/>`;
+    }
 
     const labelSpan = document.createElement('span');
     labelSpan.textContent = label;
@@ -1429,11 +1436,12 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
           left: `${destRect.left}px`,
           width: `${destRect.width}px`,
           height: `${destRect.height}px`,
-          borderRadius: '24px',
+          borderRadius: '28px',
           flexDirection: 'row',
           justifyContent: 'flex-start',
-          padding: '6px 14px 6px 10px',
-          gap: '6px',
+          alignItems: 'center',
+          padding: '10px 22px 10px 14px',
+          gap: '10px',
           border: '1px solid #e8e8e8',
           background: '#f5f5f5',
           boxShadow: 'none'
@@ -1442,13 +1450,24 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
         const iconInClone = clone.querySelector('div') as HTMLElement;
         if (iconInClone) {
           Object.assign(iconInClone.style, {
-            width: '16px', height: '16px', borderRadius: '0', background: 'transparent'
+            width: '38px', height: '38px', borderRadius: '0', background: 'transparent', padding: '0',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           });
           const ionIcon = iconInClone.querySelector('ion-icon') as HTMLElement;
-          if (ionIcon) ionIcon.style.fontSize = '16px';
+          if (ionIcon) ionIcon.style.fontSize = '38px';
+          const raster = iconInClone.querySelector('img') as HTMLImageElement | null;
+          if (raster) {
+            Object.assign(raster.style, {
+              width: '38px',
+              height: '38px',
+              objectFit: 'contain',
+            });
+          }
         }
 
-        labelSpan.style.fontSize = '13px';
+        labelSpan.style.fontSize = '15px';
 
         setTimeout(() => {
           dest.style.transition = 'opacity 150ms ease';

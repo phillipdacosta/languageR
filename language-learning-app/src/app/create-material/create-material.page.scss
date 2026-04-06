@@ -406,6 +406,13 @@
     font-size: 26px;
     color: #c7c7cc;
   }
+
+  .cm-mc-type-raster {
+    width: 88%;
+    height: 88%;
+    object-fit: contain;
+    display: block;
+  }
 }
 
 .cm-mc-price-row {
@@ -1847,6 +1854,12 @@
 
   img { width: 100%; height: 100%; object-fit: cover; }
   ion-icon { font-size: 20px; color: #8E8E93; }
+
+  .cm-bmi-type-raster {
+    width: 92%;
+    height: 92%;
+    object-fit: contain;
+  }
 }
 
 .cm-bmi-info {
@@ -2069,22 +2082,29 @@
 .cm-selected-type-chip-host {
   margin-bottom: 16px;
   text-align: center;
+  padding-top: 20px;
 }
 
 .cm-selected-type-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 14px 6px 10px;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 22px 10px 14px;
   background: #f5f5f5;
-  border-radius: 24px;
-  font-size: 13px;
+  border-radius: 28px;
+  font-size: 15px;
   font-weight: 600;
   color: #222;
+  line-height: 1.2;
 
-  ion-icon {
-    font-size: 16px;
-    color: #555;
+  .cm-selected-type-chip-img {
+    width: 38px;
+    height: 38px;
+    object-fit: contain;
+    flex-shrink: 0;
+    display: block;
+    align-self: center;
   }
 }
 
@@ -2102,6 +2122,7 @@
 .cm-type-cards {
   display: flex;
   flex-direction: row;
+  align-items: stretch;
   gap: 28px;
 }
 
@@ -2109,7 +2130,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   text-align: center;
   flex: 1;
   padding: 36px 22px 32px;
@@ -2153,27 +2174,60 @@
 }
 
 .cm-type-icon {
-  width: 72px;
-  height: 72px;
-  border-radius: 18px;
+  width: 80px;
+  height: 80px;
+  border-radius: 20px;
   background: #f5f5f5;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 16px;
+  box-sizing: border-box;
 
   ion-icon {
-    font-size: 34px;
+    font-size: 38px;
     color: #222;
+  }
+
+  img {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+    display: block;
+  }
+
+  &--video {
+    background: linear-gradient(160deg, #e8ecf4 0%, #f4f5f7 55%, #eceef4 100%);
+    padding: 10px;
+  }
+
+  &--reading {
+    background: linear-gradient(160deg, #e3f0ff 0%, #f0f7ff 100%);
+    padding: 10px;
+  }
+
+  &--listening {
+    background: linear-gradient(160deg, #efe5ff 0%, #f8f4ff 100%);
+    padding: 10px;
   }
 }
 
 .cm-type-text {
+  width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
   h3 {
     font-size: 17px;
     font-weight: 600;
     color: #222;
     margin: 0 0 6px;
+    line-height: 1.35;
+    /* Reserve two lines so single-line titles align with “Reading Comprehension” and descriptions start level */
+    min-height: calc(1.35em * 2);
+    max-width: 100%;
   }
 
   p {
@@ -2181,6 +2235,7 @@
     color: #717171;
     margin: 0;
     line-height: 1.45;
+    width: 100%;
   }
 }
 
@@ -2191,11 +2246,14 @@
 @media (max-width: 520px) {
   .cm-type-cards {
     flex-direction: column;
+    align-items: stretch;
     gap: 18px;
   }
 
   .cm-type-card {
     flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
     text-align: left;
     padding: 16px 14px;
     gap: 14px;
@@ -2204,17 +2262,42 @@
 
   .cm-type-icon {
     margin-bottom: 0;
-    width: 48px;
-    height: 48px;
-    border-radius: 14px;
+    width: 54px;
+    height: 54px;
+    border-radius: 15px;
 
     ion-icon {
-      font-size: 24px;
+      font-size: 26px;
+    }
+
+    img {
+      width: 42px;
+      height: 42px;
+    }
+
+    &--video {
+      padding: 6px;
+    }
+
+    &--reading {
+      padding: 6px;
+    }
+
+    &--listening {
+      padding: 6px;
     }
   }
 
-  .cm-type-text h3 {
-    font-size: 16px;
+  .cm-type-text {
+    align-items: flex-start;
+    flex: 1;
+    min-width: 0;
+
+    h3 {
+      font-size: 16px;
+      line-height: 1.35;
+      min-height: calc(1.35em * 2);
+    }
   }
 
   .cm-type-text p {
@@ -4250,7 +4333,6 @@
   .cm-selected-type-chip {
     background: #2c2c2e;
     color: #e5e5e5;
-    ion-icon { color: #8e8e93; }
   }
 
   .cm-type-card {
@@ -4262,7 +4344,22 @@
       &:hover { border-color: #3a3a3c; }
     }
   }
-  .cm-type-icon { background: #2c2c2e; ion-icon { color: #e5e5e5; } }
+  .cm-type-icon {
+    background: #2c2c2e;
+    ion-icon { color: #e5e5e5; }
+
+    &--video {
+      background: linear-gradient(160deg, #2c2c32 0%, #1c1c20 100%);
+    }
+
+    &--reading {
+      background: rgba(10, 132, 255, 0.14);
+    }
+
+    &--listening {
+      background: rgba(191, 90, 242, 0.14);
+    }
+  }
   .cm-type-text h3 { color: #f5f5f7; }
   .cm-type-text p { color: #8e8e93; }
   .cm-type-locked-note { color: #ff9f0a !important; }

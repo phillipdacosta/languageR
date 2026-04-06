@@ -2812,25 +2812,7 @@ img.m-card-empty-link-arrow-img {
 // =============================================
 .upnext-filled {
   position: relative;
-  
-  // "Up Next" label — top left corner, matches "Coming Up" h2 style
-  .upnext-filled-label {
-    position: absolute;
-    top: 24px;
-    left: 28px;
-    font-size: 22px;
-    font-weight: 800;
-    color: #222222;
-    letter-spacing: -0.5px;
-    margin: 0;
-    
-    @media (max-width: 600px) {
-      top: 20px;
-      left: 20px;
-      font-size: 20px;
-    }
-  }
-  
+
   // Badges row — positioned absolutely so it doesn't push content down
   .upnext-filled-badges {
     position: absolute;
@@ -6902,6 +6884,20 @@ img.m-card-empty-link-arrow-img {
   }
 }
 
+// Desktop tutor dashboard section headings (Up Next, Quick Actions — mirrors mobile-section-title)
+.desktop-tutor-section-title {
+  margin: 0 0 16px 0;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: #222222;
+  flex-shrink: 0;
+
+  &--actions {
+    margin-bottom: 18px;
+  }
+}
+
 .grid-cell-upnext {
   grid-area: upnext;
   min-width: 0;
@@ -7068,6 +7064,8 @@ img.m-card-empty-link-arrow-img {
   grid-area: earnings;
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  min-height: 0;
 
   @media (max-width: 968px) {
     display: none !important;
@@ -7095,7 +7093,15 @@ img.m-card-empty-link-arrow-img {
 .grid-cell-actions {
   grid-area: actions;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   animation: fadeInUp 0.4s ease both;
+
+  .actions-grid {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
 
   @media (max-width: 600px) {
     display: none !important;
@@ -7418,40 +7424,6 @@ img.m-card-empty-link-arrow-img {
     .view-details-link {
       opacity: 0;
       transition: none !important; // Override "transition: all" to prevent fade-flash
-    }
-  }
-  
-  .earnings-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    
-    h3 {
-      font-size: 22px;
-      font-weight: 800;
-      color: #222222;
-      margin: 0;
-      letter-spacing: -0.5px;
-    }
-    
-    .earnings-menu-btn {
-      background: none;
-      border: none;
-      cursor: pointer;
-      padding: 6px;
-      color: #9ca3af;
-      border-radius: 8px;
-      transition: all 0.15s ease;
-      
-      ion-icon {
-        font-size: 20px;
-      }
-      
-      &:hover {
-        color: #1f2937;
-        background: #f3f4f6;
-      }
     }
   }
   
@@ -11837,6 +11809,10 @@ img.m-card-empty-link-arrow-img {
   .section-header-new h2 {
     color: var(--ion-text-color, #ffffff) !important;
   }
+
+  .desktop-tutor-section-title {
+    color: var(--ion-text-color, #ffffff) !important;
+  }
   
   // Earnings card dark mode
   .earnings-card-widget {
@@ -11844,11 +11820,6 @@ img.m-card-empty-link-arrow-img {
     border-color: rgba(255, 255, 255, 0.08) !important;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4) !important;
     
-    .earnings-card-header h3 { color: var(--ion-text-color, #fff) !important; }
-    .earnings-card-header .earnings-menu-btn {
-      color: #666 !important;
-      &:hover { color: #fff !important; background: #333 !important; }
-    }
     .earnings-label { color: #999 !important; }
     .earnings-balance {
       color: var(--ion-text-color, #fff) !important;
@@ -12100,9 +12071,8 @@ img.m-card-empty-link-arrow-img {
     }
   }
 
-  // Tutor Up Next card (upnext-filled) — label, name, meta
+  // Tutor Up Next card (upnext-filled) — name, meta
   .upnext-filled {
-    .upnext-filled-label { color: #ffffff !important; }
     .upnext-filled-text {
       h3 { color: #ffffff !important; }
     }

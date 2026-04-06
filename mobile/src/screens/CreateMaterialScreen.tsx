@@ -47,6 +47,10 @@ interface QuizQuestion {
 
 const STEP_ORDER: Step[] = ['type', 'pricing', 'details', 'quiz', 'preview'];
 
+const CREATE_MATERIAL_VIDEO_TYPE_IMG = require('../../assets/shared/create-material-type-video-quiz.png');
+const CREATE_MATERIAL_READING_TYPE_IMG = require('../../assets/shared/create-material-type-reading.png');
+const CREATE_MATERIAL_LISTENING_TYPE_IMG = require('../../assets/shared/create-material-type-listening.png');
+
 /** Sub-steps inside “Details”, aligned with desktop create-material wizard. */
 type DetailsWizardStepId =
   | 'title'
@@ -798,14 +802,6 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
     t,
   ]);
 
-  const getTypeIcon = (type: MaterialType): keyof typeof Ionicons.glyphMap => {
-    switch (type) {
-      case 'video_quiz': return 'videocam-outline';
-      case 'reading': return 'book-outline';
-      case 'listening': return 'headset-outline';
-    }
-  };
-
   const getTypeLabel = (type: MaterialType) => {
     switch (type) {
       case 'video_quiz': return t('CREATE_MATERIAL.TYPE_VIDEO_QUIZ');
@@ -815,7 +811,8 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
   };
 
   /* ── Flying clone interpolations ── */
-  const chipBg = isDark ? '#2c2c2e' : '#f5f5f7';
+  /* Match web create-material chip: same gray on pricing as selected-type pill */
+  const chipBg = isDark ? '#2c2c2e' : '#f5f5f5';
 
   const cloneStyle = fly ? {
     top: fly.dst
@@ -831,7 +828,7 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
       ? flyProgress.interpolate({ inputRange: [0, 1], outputRange: [fly.src.h, fly.dst.h] })
       : fly.src.h,
     borderRadius: fly.dst
-      ? flyProgress.interpolate({ inputRange: [0, 1], outputRange: [16, 20] })
+      ? flyProgress.interpolate({ inputRange: [0, 1], outputRange: [16, 28] })
       : 16,
     backgroundColor: fly.dst
       ? flyProgress.interpolate({ inputRange: [0, 1], outputRange: [colors.card, chipBg] })
@@ -916,7 +913,6 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
                 <StepPricing
                   selectedType={selectedType}
                   selectedPricing={selectedPricing}
-                  getTypeIcon={getTypeIcon}
                   getTypeLabel={getTypeLabel}
                   onSelect={handleSelectPricing}
                   chipRef={chipRef}
@@ -1167,7 +1163,13 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
           pointerEvents="none"
           style={[styles.flyClone, cloneStyle]}
         >
-          <Ionicons name={getTypeIcon(fly.type)} size={16} color={colors.textSecondary} />
+          {fly.type === 'video_quiz' ? (
+            <Image source={CREATE_MATERIAL_VIDEO_TYPE_IMG} style={styles.flyCloneTypeIcon} resizeMode="contain" />
+          ) : fly.type === 'reading' ? (
+            <Image source={CREATE_MATERIAL_READING_TYPE_IMG} style={styles.flyCloneTypeIcon} resizeMode="contain" />
+          ) : (
+            <Image source={CREATE_MATERIAL_LISTENING_TYPE_IMG} style={styles.flyCloneTypeIcon} resizeMode="contain" />
+          )}
           <Text style={[styles.flyLabel, { color: colors.text }]} numberOfLines={1}>
             {getTypeLabel(fly.type)}
           </Text>
@@ -1188,10 +1190,9 @@ function StepType({ hasVideoChannel, onSelect, colors, t }: {
   const isDark = colors.isDark;
   const cardRefs = useRef<Record<string, any>>({});
 
-  const types: { type: MaterialType; icon: keyof typeof Ionicons.glyphMap; titleKey: string; descKey: string; locked?: boolean; lockedKey?: string }[] = [
+  const types: { type: MaterialType; titleKey: string; descKey: string; locked?: boolean; lockedKey?: string }[] = [
     {
       type: 'video_quiz',
-      icon: 'videocam-outline',
       titleKey: 'CREATE_MATERIAL.TYPE_VIDEO_QUIZ',
       descKey: 'CREATE_MATERIAL.TYPE_VIDEO_QUIZ_DESC',
       locked: !hasVideoChannel,
@@ -1199,13 +1200,11 @@ function StepType({ hasVideoChannel, onSelect, colors, t }: {
     },
     {
       type: 'reading',
-      icon: 'book-outline',
       titleKey: 'CREATE_MATERIAL.TYPE_READING',
       descKey: 'CREATE_MATERIAL.TYPE_READING_DESC',
     },
     {
       type: 'listening',
-      icon: 'headset-outline',
       titleKey: 'CREATE_MATERIAL.TYPE_LISTENING',
       descKey: 'CREATE_MATERIAL.TYPE_LISTENING_DESC',
     },
@@ -1220,6 +1219,12 @@ function StepType({ hasVideoChannel, onSelect, colors, t }: {
       <View style={styles.typeCards}>
         {types.map(item => {
           const disabled = !!item.locked;
+          const iconWrapBg =
+            item.type === 'video_quiz'
+              ? (isDark ? '#2a2a2e' : '#eceef4')
+              : item.type === 'reading'
+                ? (isDark ? 'rgba(10, 132, 255, 0.14)' : '#E8F4FF')
+                : (isDark ? 'rgba(191, 90, 242, 0.14)' : '#F3E8FF');
           return (
             <TouchableOpacity
               key={item.type}
@@ -1236,8 +1241,14 @@ function StepType({ hasVideoChannel, onSelect, colors, t }: {
               activeOpacity={disabled ? 1 : 0.7}
               onPress={() => !disabled && onSelect(item.type, cardRefs.current[item.type])}
             >
-              <View style={[styles.typeIconWrap, { backgroundColor: isDark ? '#2c2c2e' : '#f5f5f7' }]}>
-                <Ionicons name={item.icon} size={22} color={colors.textSecondary} />
+              <View style={[styles.typeIconWrap, { backgroundColor: iconWrapBg }]}>
+                {item.type === 'video_quiz' ? (
+                  <Image source={CREATE_MATERIAL_VIDEO_TYPE_IMG} style={styles.typeIconRaster} resizeMode="contain" />
+                ) : item.type === 'reading' ? (
+                  <Image source={CREATE_MATERIAL_READING_TYPE_IMG} style={styles.typeIconRaster} resizeMode="contain" />
+                ) : (
+                  <Image source={CREATE_MATERIAL_LISTENING_TYPE_IMG} style={styles.typeIconRaster} resizeMode="contain" />
+                )}
               </View>
               <View style={styles.typeTextWrap}>
                 <Text style={[styles.typeTitle, { color: colors.text }]}>{t(item.titleKey)}</Text>
@@ -1263,10 +1274,9 @@ function StepType({ hasVideoChannel, onSelect, colors, t }: {
 
 /* ═══════════ Step 2: Pricing ═══════════ */
 
-function StepPricing({ selectedType, selectedPricing, getTypeIcon, getTypeLabel, onSelect, chipRef, chipHidden, contentFade, onChipLayout, colors, t }: {
+function StepPricing({ selectedType, selectedPricing, getTypeLabel, onSelect, chipRef, chipHidden, contentFade, onChipLayout, colors, t }: {
   selectedType: MaterialType;
   selectedPricing: 'free' | 'paid' | null;
-  getTypeIcon: (t: MaterialType) => keyof typeof Ionicons.glyphMap;
   getTypeLabel: (t: MaterialType) => string;
   onSelect: (pricing: 'free' | 'paid') => void;
   chipRef: React.MutableRefObject<View | null>;
@@ -1291,13 +1301,19 @@ function StepPricing({ selectedType, selectedPricing, getTypeIcon, getTypeLabel,
         collapsable={false}
         onLayout={onChipLayout}
         style={[styles.selectedChip, {
-          backgroundColor: isDark ? '#2c2c2e' : '#f5f5f7',
+          backgroundColor: isDark ? '#2c2c2e' : '#f5f5f5',
           opacity: chipHidden ? 0 : 1,
           marginTop: PRICING_CHIP_MARGIN_TOP,
           marginBottom: PRICING_CHIP_TO_TITLE_GAP,
         }]}
       >
-        <Ionicons name={getTypeIcon(selectedType)} size={16} color={colors.textSecondary} />
+        {selectedType === 'video_quiz' ? (
+          <Image source={CREATE_MATERIAL_VIDEO_TYPE_IMG} style={styles.selectedChipTypeIcon} resizeMode="contain" />
+        ) : selectedType === 'reading' ? (
+          <Image source={CREATE_MATERIAL_READING_TYPE_IMG} style={styles.selectedChipTypeIcon} resizeMode="contain" />
+        ) : (
+          <Image source={CREATE_MATERIAL_LISTENING_TYPE_IMG} style={styles.selectedChipTypeIcon} resizeMode="contain" />
+        )}
         <Text style={[styles.selectedChipText, { color: colors.text }]}>{getTypeLabel(selectedType)}</Text>
       </View>
 
@@ -2397,14 +2413,24 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   typeIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 50,
+    height: 50,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  typeTextWrap: { flex: 1 },
-  typeTitle: { fontSize: 16, fontWeight: '700', marginBottom: 3 },
+  typeIconRaster: {
+    width: 38,
+    height: 38,
+  },
+  typeTextWrap: { flex: 1, justifyContent: 'flex-start' as const },
+  typeTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 3,
+    lineHeight: 21,
+    minHeight: 42,
+  },
   typeDesc: { fontSize: 13, lineHeight: 18 },
   lockedRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
 
@@ -2413,12 +2439,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
+    gap: 10,
+    paddingHorizontal: 22,
+    paddingVertical: 10,
+    borderRadius: 28,
   },
-  selectedChipText: { fontSize: 13, fontWeight: '600' },
+  selectedChipText: { fontSize: 15, fontWeight: '600', lineHeight: 20 },
+  selectedChipTypeIcon: {
+    width: 38,
+    height: 38,
+  },
 
   pricingShareSubline: {
     marginBottom: 20,
@@ -2472,11 +2502,15 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 14,
     elevation: 6,
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+    gap: 10,
+    paddingHorizontal: 22,
+    paddingVertical: 10,
   },
-  flyLabel: { fontSize: 13, fontWeight: '600' },
+  flyLabel: { fontSize: 15, fontWeight: '600', lineHeight: 20 },
+  flyCloneTypeIcon: {
+    width: 38,
+    height: 38,
+  },
 
   /* Step 3: Details Form */
   detailsHeading: {

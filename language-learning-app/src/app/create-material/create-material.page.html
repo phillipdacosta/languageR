@@ -327,7 +327,9 @@
             <div class="cm-mc-thumb">
               <img *ngIf="m.thumbnailUrl" [src]="m.thumbnailUrl" [alt]="m.title" />
               <div class="cm-mc-thumb-empty" *ngIf="!m.thumbnailUrl">
-                <ion-icon [name]="m.materialType === 'video_quiz' ? 'videocam' : m.materialType === 'reading' ? 'book' : 'headset'"></ion-icon>
+                <img *ngIf="m.materialType === 'reading'" class="cm-mc-type-raster" src="assets/create-material-type-reading.png" alt="" />
+                <img *ngIf="m.materialType === 'listening'" class="cm-mc-type-raster" src="assets/create-material-type-listening.png" alt="" />
+                <ion-icon *ngIf="m.materialType === 'video_quiz'" name="videocam"></ion-icon>
               </div>
               <span class="cm-mc-status-badge" 
                 [class.draft]="m.status === 'draft'" 
@@ -524,7 +526,9 @@
                 </div>
                 <div class="cm-bmi-thumb">
                   <img *ngIf="m.thumbnailUrl" [src]="m.thumbnailUrl" [alt]="m.title" />
-                  <ion-icon *ngIf="!m.thumbnailUrl" [name]="m.materialType === 'video_quiz' ? 'videocam' : m.materialType === 'reading' ? 'book' : 'headset'"></ion-icon>
+                  <img *ngIf="!m.thumbnailUrl && m.materialType === 'reading'" class="cm-bmi-type-raster" src="assets/create-material-type-reading.png" alt="" />
+                  <img *ngIf="!m.thumbnailUrl && m.materialType === 'listening'" class="cm-bmi-type-raster" src="assets/create-material-type-listening.png" alt="" />
+                  <ion-icon *ngIf="!m.thumbnailUrl && m.materialType === 'video_quiz'" name="videocam"></ion-icon>
                 </div>
                 <div class="cm-bmi-info">
                   <span class="cm-bmi-title">{{ m.title }}</span>
@@ -659,7 +663,9 @@
           </div>
           <div class="cm-bmi-thumb">
             <img *ngIf="m.thumbnailUrl" [src]="m.thumbnailUrl" [alt]="m.title" />
-            <ion-icon *ngIf="!m.thumbnailUrl" [name]="m.materialType === 'video_quiz' ? 'videocam' : m.materialType === 'reading' ? 'book' : 'headset'"></ion-icon>
+            <img *ngIf="!m.thumbnailUrl && m.materialType === 'reading'" class="cm-bmi-type-raster" src="assets/create-material-type-reading.png" alt="" />
+            <img *ngIf="!m.thumbnailUrl && m.materialType === 'listening'" class="cm-bmi-type-raster" src="assets/create-material-type-listening.png" alt="" />
+            <ion-icon *ngIf="!m.thumbnailUrl && m.materialType === 'video_quiz'" name="videocam"></ion-icon>
           </div>
           <div class="cm-bmi-info">
             <span class="cm-bmi-title">{{ m.title }}</span>
@@ -763,8 +769,8 @@
 
     <div class="cm-type-cards">
       <button class="cm-type-card" [class.cm-type-disabled]="!hasVideoChannel" data-type="video_quiz" (click)="hasVideoChannel ? onTypeCardClick($event, 'video_quiz') : null" [disabled]="!hasVideoChannel">
-        <div class="cm-type-icon">
-          <ion-icon name="videocam-outline"></ion-icon>
+        <div class="cm-type-icon cm-type-icon--video">
+          <img src="assets/create-material-type-video-quiz.png" alt="" />
         </div>
         <div class="cm-type-text">
           <h3>{{ 'CREATE_MATERIAL.TYPE_VIDEO_QUIZ' | translate }}</h3>
@@ -778,8 +784,8 @@
       </button>
 
       <button class="cm-type-card" data-type="reading" (click)="onTypeCardClick($event, 'reading')">
-        <div class="cm-type-icon">
-          <ion-icon name="book-outline"></ion-icon>
+        <div class="cm-type-icon cm-type-icon--reading">
+          <img src="assets/create-material-type-reading.png" alt="" />
         </div>
         <div class="cm-type-text">
           <h3>{{ 'CREATE_MATERIAL.TYPE_READING' | translate }}</h3>
@@ -789,8 +795,8 @@
       </button>
 
       <button class="cm-type-card" data-type="listening" (click)="onTypeCardClick($event, 'listening')">
-        <div class="cm-type-icon">
-          <ion-icon name="headset-outline"></ion-icon>
+        <div class="cm-type-icon cm-type-icon--listening">
+          <img src="assets/create-material-type-listening.png" alt="" />
         </div>
         <div class="cm-type-text">
           <h3>{{ 'CREATE_MATERIAL.TYPE_LISTENING' | translate }}</h3>
@@ -806,7 +812,9 @@
     <!-- FLIP destination: keep above wizard scroll so fly-to rect matches original layout -->
     <div class="cm-selected-type-chip-host">
       <div class="cm-selected-type-chip" id="cm-type-dest">
-        <ion-icon [name]="typeIcon"></ion-icon>
+        <img *ngIf="selectedType === 'video_quiz'" class="cm-selected-type-chip-img" src="assets/create-material-type-video-quiz.png" alt="" />
+        <img *ngIf="selectedType === 'reading'" class="cm-selected-type-chip-img" src="assets/create-material-type-reading.png" alt="" />
+        <img *ngIf="selectedType === 'listening'" class="cm-selected-type-chip-img" src="assets/create-material-type-listening.png" alt="" />
         <span>{{ typeLabel }}</span>
       </div>
     </div>
