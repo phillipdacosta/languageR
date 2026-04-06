@@ -705,6 +705,8 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
       videoUrl, passage, audioUrl, selectedPricing, price, quiz, topics, structuredTags, draftMaterialId,
       goBack, t]);
 
+  const canSaveDraft = !!selectedType && !!selectedPricing;
+
   const handleSaveDraft = useCallback(async () => {
     if (!selectedType || !selectedPricing) return;
     setIsSavingDraft(true);
@@ -791,6 +793,11 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
     t,
   ]);
 
+  const handleSaveAndExit = useCallback(async () => {
+    await handleSaveDraft();
+    goBack();
+  }, [handleSaveDraft, goBack]);
+
   const getTypeLabel = (type: MaterialType) => {
     switch (type) {
       case 'video_quiz': return t('CREATE_MATERIAL.TYPE_VIDEO_QUIZ');
@@ -855,6 +862,22 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
                 total: numberedMaterialStep.total,
               })}
             </Text>
+          )}
+          {canSaveDraft && (
+            <TouchableOpacity
+              style={styles.navSaveExit}
+              activeOpacity={0.7}
+              onPress={handleSaveAndExit}
+              disabled={isSavingDraft}
+            >
+              {isSavingDraft ? (
+                <ActivityIndicator size="small" color={colors.textSecondary} />
+              ) : (
+                <Text style={[styles.navSaveExitText, { color: colors.textSecondary }]}>
+                  {t('CREATE_MATERIAL.SAVE_EXIT')}
+                </Text>
+              )}
+            </TouchableOpacity>
           )}
         </View>
 
@@ -2374,6 +2397,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     fontVariant: ['tabular-nums'],
+  },
+  navSaveExit: {
+    marginLeft: 'auto',
+    zIndex: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  navSaveExitText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 
   progressSection: {
