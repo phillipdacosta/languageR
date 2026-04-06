@@ -365,20 +365,9 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
   );
 
   const navBackLabel = useMemo(() => {
-    if (currentStep === 'details') {
-      if (detailsWizardIndex > 0) {
-        const prevId = detailsWizardSteps[detailsWizardIndex - 1];
-        if (prevId && selectedType) {
-          return t(detailsWizardCopyKeys(prevId, selectedType).h);
-        }
-        return t('CREATE_MATERIAL.DETAILS_WIZ_BACK');
-      }
-      return t('CREATE_MATERIAL.STEP_PRICING');
-    }
     if (stepIndex <= 0) return t('CREATE_MATERIAL.NAV_MY_MATERIALS');
-    const prevStep = STEP_ORDER[stepIndex - 1];
-    return t(STEP_TITLE_KEYS[prevStep]) || t('CREATE_MATERIAL.NAV_BACK_SHORT');
-  }, [currentStep, detailsWizardIndex, detailsWizardSteps, selectedType, stepIndex, t]);
+    return t('CREATE_MATERIAL.NAV_BACK_SHORT');
+  }, [stepIndex, t]);
 
   const handleNavBack = useCallback(() => {
     if (currentStep === 'details') {
@@ -852,7 +841,6 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
               {navBackLabel}
             </Text>
           </TouchableOpacity>
-          <View style={styles.navBarSpacer} />
           {numberedMaterialStep != null && (
             <Text
               style={[styles.navStepCount, { color: colors.textSecondary }]}
@@ -2376,10 +2364,17 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  navBack: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1, minWidth: 0 },
-  navBackLabel: { fontSize: 15, fontWeight: '500', flexShrink: 1 },
-  navBarSpacer: { flex: 1, minWidth: 8 },
-  navStepCount: { fontSize: 13, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  navBack: { flexDirection: 'row', alignItems: 'center', gap: 4, zIndex: 1 },
+  navBackLabel: { fontSize: 15, fontWeight: '500' },
+  navStepCount: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+  },
 
   progressSection: {
     marginTop: 14,
