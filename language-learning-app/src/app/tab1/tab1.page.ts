@@ -105,14 +105,27 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   modalSidebarTab: 'materials' | 'bundles' = 'materials';
   modalShowFooter = true;
   modalShowSaveExit = true;
+  /** Desktop create-material modal topbar: "3/9" style count (centered with Save and exit). */
+  modalTopbarCenterStep: string | null = null;
+  /** From create-material `syncModalTopbarChrome` — material mid-steps + bundle share exit. */
+  modalTopbarNavBackLabel = '';
+  /** From create-material — previous bundle wizard step title. */
+  modalTopbarBundleWizardBackLabel = '';
   modalShowGoBack = false;
   /** Bundle wizard step "How would you like to share this?" — same top bar as list `< Go back`. */
   modalShowBundleShareGoBack = false;
+  /** Desktop bundle wizard (after share step): Go back in modal top bar */
+  modalShowBundleWizardGoBack = false;
   modalDetailsWizardFooter = false;
   modalDetailsWizardShowBack = false;
+  modalDetailsWizardShowSaveDraft = false;
+  /** ngx-translate key from create-material (e.g. SAVE_DRAFT or COMMON.SAVE). */
+  modalFooterSaveLabelKey: string | null = null;
   modalDetailsWizardIsLastStep = false;
   /** When set (e.g. bundle publish), overrides "Continue to Quiz" on last wizard step. */
   modalDetailsWizardLastStepKey: string | null = null;
+  /** Footer Back text (previous step title), from create-material. */
+  modalFooterBackLabel: string | null = null;
   /** Web at ≤600px: use same tutor empty / Up Next UI as native mobile */
   isNarrowTutorHomeViewport = false;
   isDarkModeActive = false;
@@ -7500,12 +7513,19 @@ navigateToLessons() {
     this.homeInlineToolbar.setMaterialsViewOpen(false);
     document.body.classList.remove('cm-desktop-modal-open');
     this.modalShowSaveExit = true;
+    this.modalTopbarCenterStep = null;
+    this.modalTopbarNavBackLabel = '';
+    this.modalTopbarBundleWizardBackLabel = '';
     this.modalShowGoBack = false;
     this.modalShowBundleShareGoBack = false;
+    this.modalShowBundleWizardGoBack = false;
     this.modalDetailsWizardFooter = false;
     this.modalDetailsWizardShowBack = false;
+    this.modalDetailsWizardShowSaveDraft = false;
+    this.modalFooterSaveLabelKey = null;
     this.modalDetailsWizardIsLastStep = false;
     this.modalDetailsWizardLastStepKey = null;
+    this.modalFooterBackLabel = null;
     this.cdr.detectChanges();
 
     if (this._scrollElRef) {
@@ -7519,12 +7539,19 @@ navigateToLessons() {
     if (!expanded) {
       this.modalShowFooter = false;
       this.modalShowSaveExit = true;
+      this.modalTopbarCenterStep = null;
+      this.modalTopbarNavBackLabel = '';
+      this.modalTopbarBundleWizardBackLabel = '';
       this.modalShowGoBack = false;
       this.modalShowBundleShareGoBack = false;
+      this.modalShowBundleWizardGoBack = false;
       this.modalDetailsWizardFooter = false;
       this.modalDetailsWizardShowBack = false;
+      this.modalDetailsWizardShowSaveDraft = false;
+      this.modalFooterSaveLabelKey = null;
       this.modalDetailsWizardIsLastStep = false;
       this.modalDetailsWizardLastStepKey = null;
+      this.modalFooterBackLabel = null;
     } else {
       this.applyDesktopModalFooterVisibility();
       setTimeout(() => {
@@ -7574,8 +7601,15 @@ navigateToLessons() {
       this.modalShowFooter = false;
       this.modalDetailsWizardFooter = false;
       this.modalShowBundleShareGoBack = false;
+      this.modalShowBundleWizardGoBack = false;
       this.modalShowSaveExit = false;
+      this.modalTopbarCenterStep = null;
+      this.modalTopbarNavBackLabel = '';
+      this.modalTopbarBundleWizardBackLabel = '';
       this.modalShowGoBack = false;
+      this.modalDetailsWizardShowSaveDraft = false;
+      this.modalFooterSaveLabelKey = null;
+      this.modalFooterBackLabel = null;
     }
     if (prev && !next && this.showCreateMaterialView) {
       requestAnimationFrame(() => {
@@ -7617,12 +7651,20 @@ navigateToLessons() {
     showSaveExit: boolean;
     showModalBack: boolean;
     showBundleShareGoBack?: boolean;
+    showBundleWizardGoBack?: boolean;
+    centerStepLabel?: string | null;
+    topbarNavBackLabel?: string;
+    topbarBundleWizardBackLabel?: string;
   }) {
     if (this.isMobile) return;
     if (this.cmModalRouterOutletActive) return;
     this.modalShowSaveExit = payload.showSaveExit;
     this.modalShowGoBack = payload.showModalBack;
     this.modalShowBundleShareGoBack = !!payload.showBundleShareGoBack;
+    this.modalShowBundleWizardGoBack = !!payload.showBundleWizardGoBack;
+    this.modalTopbarCenterStep = payload.centerStepLabel ?? null;
+    this.modalTopbarNavBackLabel = payload.topbarNavBackLabel ?? '';
+    this.modalTopbarBundleWizardBackLabel = payload.topbarBundleWizardBackLabel ?? '';
     this.applyDesktopModalFooterVisibility();
     this.cdr.detectChanges();
   }
@@ -7658,16 +7700,35 @@ navigateToLessons() {
   onDetailsModalFooterChrome(payload: {
     active: boolean;
     showBack: boolean;
+    showSaveDraft?: boolean;
+    footerSaveLabelKey?: string | null;
     isLastStep: boolean;
     lastStepLabelKey?: string | null;
+    footerBackLabel?: string | null;
   }) {
     if (this.isMobile) return;
     if (this.cmModalRouterOutletActive) return;
     this.modalDetailsWizardFooter = payload.active;
     this.modalDetailsWizardShowBack = payload.showBack;
+    this.modalDetailsWizardShowSaveDraft = !!payload.showSaveDraft;
+    this.modalFooterSaveLabelKey = payload.footerSaveLabelKey ?? null;
     this.modalDetailsWizardIsLastStep = payload.isLastStep;
     this.modalDetailsWizardLastStepKey = payload.lastStepLabelKey ?? null;
+    this.modalFooterBackLabel = payload.footerBackLabel ?? null;
     this.cdr.detectChanges();
+  }
+
+  onModalSaveMaterialDraft(): void {
+    const cm = this.createMaterialRef as {
+      viewMode?: string;
+      saveMaterialDraft?: () => Promise<void>;
+      saveBundleAsDraft?: () => Promise<void>;
+    } | undefined;
+    if (cm?.viewMode === 'bundle-create') {
+      void cm.saveBundleAsDraft?.();
+      return;
+    }
+    void cm?.saveMaterialDraft?.();
   }
 
   onModalDetailsWizardBack() {

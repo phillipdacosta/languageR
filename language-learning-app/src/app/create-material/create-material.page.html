@@ -457,7 +457,7 @@
 
   <!-- Desktop: focused step wizard (matches material details wizard) -->
   <div *ngIf="bundleWizardLayoutActive" class="cm-details-wizard cm-bundle-wizard">
-    <div class="cm-details-wizard-progress" *ngIf="bundleWizardStepTotal > 1" aria-hidden="true">
+    <div class="cm-details-wizard-progress" *ngIf="bundleWizardStepTotal > 1 && bundleWizardStepId !== 'bundleShare'" aria-hidden="true">
       <div class="cm-details-wizard-progress-fill" [style.width.%]="bundleWizardProgressPercent"></div>
     </div>
     <div class="cm-details-wizard-scroll">
@@ -470,14 +470,14 @@
         <div class="cm-details-wizard-panel" *ngIf="bundleWizardStepId === 'bundleShare'">
           <div class="cm-pricing-cards cm-pricing-cards--row cm-bundle-wizard-pricing-cards">
             <button type="button" class="cm-pricing-card cm-pricing-card--compact" [class.selected]="bundlePricingType === 'free'" (click)="selectBundleSharePricing('free')">
-              <div class="cm-pricing-icon cm-pricing-icon--sm">
+              <div class="cm-pricing-icon cm-pricing-icon--free">
                 <ion-icon name="gift-outline"></ion-icon>
               </div>
               <h3>{{ 'CREATE_MATERIAL.PRICING_FREE' | translate }}</h3>
               <p>{{ 'CREATE_MATERIAL.PRICING_FREE_DESC' | translate }}</p>
             </button>
             <button type="button" class="cm-pricing-card cm-pricing-card--compact" [class.selected]="bundlePricingType === 'paid'" (click)="selectBundleSharePricing('paid')">
-              <div class="cm-pricing-icon cm-pricing-icon--sm">
+              <div class="cm-pricing-icon cm-pricing-icon--paid">
                 <ion-icon name="card-outline"></ion-icon>
               </div>
               <h3>{{ 'CREATE_MATERIAL.PRICING_PAID' | translate }}</h3>
@@ -587,12 +587,6 @@
             <label>{{ 'CREATE_MATERIAL.BUNDLE_FIELD_TAGS' | translate }} <span class="cm-label-hint">{{ 'CREATE_MATERIAL.BUNDLE_FIELD_TAGS_HINT' | translate }}</span></label>
             <app-tag-picker [selectedTagIds]="bundleStructuredTags" (selectedTagIdsChange)="bundleStructuredTags = $event" [maxTags]="8"></app-tag-picker>
           </div>
-          <div class="cm-bundle-actions cm-bundle-actions--wizard-last" *ngIf="bundlePricingType === 'free'">
-            <button type="button" class="cm-btn-secondary" (click)="saveBundleAsDraft()" [disabled]="isSavingBundle || !bundleTitle.trim()">
-              <ion-spinner *ngIf="isSavingBundle" name="crescent" style="width:14px;height:14px;margin-right:4px"></ion-spinner>
-              {{ 'CREATE_MATERIAL.BUNDLE_SAVE_DRAFT' | translate }}
-            </button>
-          </div>
         </div>
 
         <div class="cm-details-wizard-panel" *ngIf="bundleWizardStepId === 'bundlePrice'">
@@ -604,12 +598,6 @@
             </div>
             <span class="cm-field-tip">{{ 'CREATE_MATERIAL.BUNDLE_WIZ_PRICE_TIP' | translate }}</span>
           </div>
-          <div class="cm-bundle-actions cm-bundle-actions--wizard-last">
-            <button type="button" class="cm-btn-secondary" (click)="saveBundleAsDraft()" [disabled]="isSavingBundle || !bundleTitle.trim()">
-              <ion-spinner *ngIf="isSavingBundle" name="crescent" style="width:14px;height:14px;margin-right:4px"></ion-spinner>
-              {{ 'CREATE_MATERIAL.BUNDLE_SAVE_DRAFT' | translate }}
-            </button>
-          </div>
         </div>
       </div>
     </div>
@@ -618,18 +606,18 @@
   <!-- Mobile / standalone: full stacked form (share → intro → title → …) -->
   <div *ngIf="!bundleWizardLayoutActive" class="cm-bundle-form">
     <div class="cm-bundle-form-share-header">
-      <h1>{{ 'CREATE_MATERIAL.PRICING_TITLE' | translate }}</h1>
+      <h1>{{ 'CREATE_MATERIAL.BUNDLE_WIZ_SHARE_H' | translate }}</h1>
     </div>
     <div class="cm-pricing-cards cm-pricing-cards--row cm-bundle-form-pricing-cards">
       <button type="button" class="cm-pricing-card cm-pricing-card--compact" [class.selected]="bundlePricingType === 'free'" (click)="selectBundleSharePricing('free')">
-        <div class="cm-pricing-icon cm-pricing-icon--sm">
+        <div class="cm-pricing-icon cm-pricing-icon--free">
           <ion-icon name="gift-outline"></ion-icon>
         </div>
         <h3>{{ 'CREATE_MATERIAL.PRICING_FREE' | translate }}</h3>
         <p>{{ 'CREATE_MATERIAL.PRICING_FREE_DESC' | translate }}</p>
       </button>
       <button type="button" class="cm-pricing-card cm-pricing-card--compact" [class.selected]="bundlePricingType === 'paid'" (click)="selectBundleSharePricing('paid')">
-        <div class="cm-pricing-icon cm-pricing-icon--sm">
+        <div class="cm-pricing-icon cm-pricing-icon--paid">
           <ion-icon name="card-outline"></ion-icon>
         </div>
         <h3>{{ 'CREATE_MATERIAL.PRICING_PAID' | translate }}</h3>
@@ -739,11 +727,11 @@
     </div>
 
     <div class="cm-bundle-actions">
-      <button type="button" class="cm-btn-secondary" (click)="saveBundleAsDraft()" [disabled]="isSavingBundle || !bundleTitle.trim()">
+      <button type="button" class="cm-btn-secondary" *ngIf="bundleTitle.trim()" (click)="saveBundleAsDraft()" [disabled]="isSavingBundle || !bundleTitle.trim() || bundlePricingType === null">
         <ion-spinner *ngIf="isSavingBundle" name="crescent" style="width:14px;height:14px;margin-right:4px"></ion-spinner>
         {{ 'CREATE_MATERIAL.BUNDLE_SAVE_DRAFT' | translate }}
       </button>
-      <button type="button" class="cm-btn-primary" (click)="saveBundle()" [disabled]="isSavingBundle || !bundleTitle.trim() || !bundleLanguage || (bundlePricingType === 'paid' && bundlePrice <= 0) || bundleSelectedMaterialIds.length < 2">
+      <button type="button" class="cm-btn-primary" (click)="saveBundle()" [disabled]="isSavingBundle || !bundleTitle.trim() || !bundleLanguage || bundlePricingType === null || (bundlePricingType === 'paid' && bundlePrice <= 0) || bundleSelectedMaterialIds.length < 2">
         <ion-spinner *ngIf="isSavingBundle" name="crescent" style="width:14px;height:14px;color:#fff;margin-right:4px"></ion-spinner>
         {{ editingBundleId ? ('CREATE_MATERIAL.BUNDLE_WIZ_UPDATE' | translate) : ('CREATE_MATERIAL.BUNDLE_WIZ_PUBLISH' | translate) }}
       </button>
@@ -757,11 +745,11 @@
 <div
   class="create-material-container"
   [class.inline]="inline"
-  [class.cm-details-wizard-layout]="inline && detailsWizardLayoutActive"
+  [class.cm-details-wizard-layout]="createMaterialContainerDetailsWizardLayout"
   *ngIf="viewMode === 'create'">
 
-  <!-- Step progress bar (hide during desktop details sub-wizard — that flow has its own bar) -->
-  <div class="cm-step-indicator" *ngIf="!editingMaterialId && !(detailsWizardLayoutActive && currentStep === 'details')">
+  <!-- Step progress bar (hide during desktop details sub-wizard; hide on desktop type + pricing steps) -->
+  <div class="cm-step-indicator" *ngIf="showMaterialCreateTopProgressBar">
     <div class="cm-step-bar">
       <div class="cm-step-fill" [style.width.%]="(stepNumber / totalSteps) * 100"></div>
     </div>
@@ -813,35 +801,67 @@
     </div>
   </div>
 
-  <!-- ═══════════ STEP 2: Pricing ═══════════ -->
-  <div class="cm-step cm-step--compact" *ngIf="currentStep === 'pricing' && !editingMaterialId">
-    <div class="cm-selected-type-chip" id="cm-type-dest">
-      <ion-icon [name]="typeIcon"></ion-icon>
-      <span>{{ typeLabel }}</span>
+  <!-- ═══════════ STEP 2: Pricing (markup aligned with bundle share: wizard vs form) ═══════════ -->
+  <div class="cm-step" *ngIf="currentStep === 'pricing' && !editingMaterialId">
+    <!-- FLIP destination: keep above wizard scroll so fly-to rect matches original layout -->
+    <div class="cm-selected-type-chip-host">
+      <div class="cm-selected-type-chip" id="cm-type-dest">
+        <ion-icon [name]="typeIcon"></ion-icon>
+        <span>{{ typeLabel }}</span>
+      </div>
     </div>
 
-    <div class="cm-step-header cm-step-header--tight">
-      <h1>{{ 'CREATE_MATERIAL.PRICING_TITLE' | translate }}</h1>
-    </div>
-
-    <div class="cm-pricing-cards cm-pricing-cards--row">
-      <button class="cm-pricing-card cm-pricing-card--compact" [class.selected]="selectedPricing === 'free'" (click)="selectPricing('free')">
-        <div class="cm-pricing-icon cm-pricing-icon--sm">
-          <ion-icon name="gift-outline"></ion-icon>
+    <!-- Desktop inline modal: same shell as bundle wizard `bundleShare` -->
+    <div *ngIf="materialPricingDesktopInlineWizard" class="cm-details-wizard cm-bundle-wizard">
+      <div class="cm-details-wizard-scroll">
+        <div class="cm-details-wizard-scroll-inner">
+          <div class="cm-step-header cm-details-wizard-header cm-details-wizard-header--tight">
+            <h1>{{ 'CREATE_MATERIAL.PRICING_TITLE' | translate }}</h1>
+          </div>
+          <div class="cm-details-wizard-panel">
+            <div class="cm-pricing-cards cm-pricing-cards--row cm-bundle-wizard-pricing-cards">
+              <button type="button" class="cm-pricing-card cm-pricing-card--compact" [class.selected]="selectedPricing === 'free'" (click)="selectPricing('free')">
+                <div class="cm-pricing-icon cm-pricing-icon--free">
+                  <ion-icon name="gift-outline"></ion-icon>
+                </div>
+                <h3>{{ 'CREATE_MATERIAL.PRICING_FREE' | translate }}</h3>
+                <p>{{ 'CREATE_MATERIAL.PRICING_FREE_DESC' | translate }}</p>
+              </button>
+              <button type="button" class="cm-pricing-card cm-pricing-card--compact" [class.selected]="selectedPricing === 'paid'" (click)="selectPricing('paid')">
+                <div class="cm-pricing-icon cm-pricing-icon--paid">
+                  <ion-icon name="card-outline"></ion-icon>
+                </div>
+                <h3>{{ 'CREATE_MATERIAL.PRICING_PAID' | translate }}</h3>
+                <p>{{ 'CREATE_MATERIAL.PRICING_PAID_DESC' | translate }}</p>
+              </button>
+            </div>
+          </div>
         </div>
-        <h3>{{ 'CREATE_MATERIAL.PRICING_FREE' | translate }}</h3>
-        <p>{{ 'CREATE_MATERIAL.PRICING_FREE_DESC' | translate }}</p>
-      </button>
-
-      <button class="cm-pricing-card cm-pricing-card--compact" [class.selected]="selectedPricing === 'paid'" (click)="selectPricing('paid')">
-        <div class="cm-pricing-icon cm-pricing-icon--sm">
-          <ion-icon name="card-outline"></ion-icon>
-        </div>
-        <h3>{{ 'CREATE_MATERIAL.PRICING_PAID' | translate }}</h3>
-        <p>{{ 'CREATE_MATERIAL.PRICING_PAID_DESC' | translate }}</p>
-      </button>
+      </div>
     </div>
 
+    <!-- Mobile & full-page create: same as bundle `cm-bundle-form` share block -->
+    <ng-container *ngIf="!materialPricingDesktopInlineWizard">
+      <div class="cm-bundle-form-share-header">
+        <h1>{{ 'CREATE_MATERIAL.PRICING_TITLE' | translate }}</h1>
+      </div>
+      <div class="cm-pricing-cards cm-pricing-cards--row cm-bundle-form-pricing-cards">
+        <button type="button" class="cm-pricing-card cm-pricing-card--compact" [class.selected]="selectedPricing === 'free'" (click)="selectPricing('free')">
+          <div class="cm-pricing-icon cm-pricing-icon--free">
+            <ion-icon name="gift-outline"></ion-icon>
+          </div>
+          <h3>{{ 'CREATE_MATERIAL.PRICING_FREE' | translate }}</h3>
+          <p>{{ 'CREATE_MATERIAL.PRICING_FREE_DESC' | translate }}</p>
+        </button>
+        <button type="button" class="cm-pricing-card cm-pricing-card--compact" [class.selected]="selectedPricing === 'paid'" (click)="selectPricing('paid')">
+          <div class="cm-pricing-icon cm-pricing-icon--paid">
+            <ion-icon name="card-outline"></ion-icon>
+          </div>
+          <h3>{{ 'CREATE_MATERIAL.PRICING_PAID' | translate }}</h3>
+          <p>{{ 'CREATE_MATERIAL.PRICING_PAID_DESC' | translate }}</p>
+        </button>
+      </div>
+    </ng-container>
   </div>
 
   <!-- ═══════════ STEP 3: Details ═══════════ -->
@@ -900,8 +920,8 @@
           <div class="cm-details-wizard-panel" *ngIf="detailsWizardStepId === 'whyTake'">
             <div class="cm-field">
               <label>{{ 'CREATE_MATERIAL.FIELD_WHY_TAKE' | translate }} <span class="cm-label-hint">{{ 'CREATE_MATERIAL.FIELD_WHY_TAKE_HINT' | translate }}</span></label>
-              <textarea formControlName="whyTakeThis" [placeholder]="'CREATE_MATERIAL.FIELD_WHY_TAKE_PLACEHOLDER' | translate" rows="4" maxlength="300"></textarea>
-              <span class="cm-char-count" *ngIf="materialForm.get('whyTakeThis')?.value">{{ materialForm.get('whyTakeThis')?.value?.length || 0 }}/300</span>
+              <textarea formControlName="whyTakeThis" [placeholder]="'CREATE_MATERIAL.FIELD_WHY_TAKE_PLACEHOLDER' | translate" rows="4" maxlength="100"></textarea>
+              <span class="cm-char-count" *ngIf="materialForm.get('whyTakeThis')?.value">{{ materialForm.get('whyTakeThis')?.value?.length || 0 }}/100</span>
             </div>
           </div>
 
@@ -1092,8 +1112,8 @@
 
         <div class="cm-field">
           <label>{{ 'CREATE_MATERIAL.FIELD_WHY_TAKE' | translate }} <span class="cm-label-hint">{{ 'CREATE_MATERIAL.FIELD_WHY_TAKE_HINT' | translate }}</span></label>
-          <textarea formControlName="whyTakeThis" [placeholder]="'CREATE_MATERIAL.FIELD_WHY_TAKE_PLACEHOLDER' | translate" rows="2" maxlength="300"></textarea>
-          <span class="cm-char-count" *ngIf="materialForm.get('whyTakeThis')?.value">{{ materialForm.get('whyTakeThis')?.value?.length || 0 }}/300</span>
+          <textarea formControlName="whyTakeThis" [placeholder]="'CREATE_MATERIAL.FIELD_WHY_TAKE_PLACEHOLDER' | translate" rows="2" maxlength="100"></textarea>
+          <span class="cm-char-count" *ngIf="materialForm.get('whyTakeThis')?.value">{{ materialForm.get('whyTakeThis')?.value?.length || 0 }}/100</span>
         </div>
 
         <div class="cm-field-row">

@@ -28,6 +28,9 @@ import { useAuth } from '../hooks/useAuth';
 import { materialService } from '../services/materials';
 import type { MaterialType, LinkedChannels } from '../services/materials';
 
+/** Paid-option checkmark color — matches bundle share step */
+const SETUP_AVAILABILITY_BLUE = '#08a0e8';
+
 type Step = 'type' | 'pricing' | 'details' | 'quiz' | 'preview';
 type QuestionType = 'multiple_choice' | 'fill_blank' | 'true_false' | 'ordering';
 
@@ -43,6 +46,62 @@ interface QuizQuestion {
 }
 
 const STEP_ORDER: Step[] = ['type', 'pricing', 'details', 'quiz', 'preview'];
+
+/** Sub-steps inside “Details”, aligned with desktop create-material wizard. */
+type DetailsWizardStepId =
+  | 'title'
+  | 'description'
+  | 'whyTake'
+  | 'languageLevel'
+  | 'tags'
+  | 'customTopics'
+  | 'thumbnail'
+  | 'videoUrl'
+  | 'readingPassage'
+  | 'listeningAudio'
+  | 'price';
+
+function buildDetailsWizardSteps(selectedType: MaterialType, selectedPricing: 'free' | 'paid'): DetailsWizardStepId[] {
+  const steps: DetailsWizardStepId[] = [
+    'title',
+    'description',
+    'whyTake',
+    'languageLevel',
+    'tags',
+    'customTopics',
+    'thumbnail',
+  ];
+  if (selectedType === 'video_quiz') steps.push('videoUrl');
+  else if (selectedType === 'reading') steps.push('readingPassage');
+  else steps.push('listeningAudio');
+  if (selectedPricing === 'paid') steps.push('price');
+  return steps;
+}
+
+function detailsWizardCopyKeys(id: DetailsWizardStepId, selectedType: MaterialType): { h: string; d: string } {
+  const base: Record<DetailsWizardStepId, { h: string; d: string }> = {
+    title: { h: 'CREATE_MATERIAL.DETAILS_WIZ_TITLE_H', d: 'CREATE_MATERIAL.DETAILS_WIZ_TITLE_D' },
+    description: { h: 'CREATE_MATERIAL.DETAILS_WIZ_DESCRIPTION_H', d: 'CREATE_MATERIAL.DETAILS_WIZ_DESCRIPTION_D' },
+    whyTake: { h: 'CREATE_MATERIAL.DETAILS_WIZ_WHY_H', d: 'CREATE_MATERIAL.DETAILS_WIZ_WHY_D' },
+    languageLevel: { h: 'CREATE_MATERIAL.DETAILS_WIZ_LANG_H', d: 'CREATE_MATERIAL.DETAILS_WIZ_LANG_D' },
+    tags: { h: 'CREATE_MATERIAL.DETAILS_WIZ_TAGS_H', d: 'CREATE_MATERIAL.DETAILS_WIZ_TAGS_D' },
+    customTopics: { h: 'CREATE_MATERIAL.DETAILS_WIZ_TOPICS_H', d: 'CREATE_MATERIAL.DETAILS_WIZ_TOPICS_D' },
+    thumbnail: {
+      h: 'CREATE_MATERIAL.DETAILS_WIZ_THUMBNAIL_H',
+      d:
+        selectedType === 'video_quiz'
+          ? 'CREATE_MATERIAL.DETAILS_WIZ_THUMBNAIL_D_VIDEO'
+          : selectedType === 'reading'
+            ? 'CREATE_MATERIAL.DETAILS_WIZ_THUMBNAIL_D_READING'
+            : 'CREATE_MATERIAL.DETAILS_WIZ_THUMBNAIL_D_LISTENING',
+    },
+    videoUrl: { h: 'CREATE_MATERIAL.DETAILS_WIZ_VIDEO_H', d: 'CREATE_MATERIAL.DETAILS_WIZ_VIDEO_D' },
+    readingPassage: { h: 'CREATE_MATERIAL.DETAILS_WIZ_PASSAGE_H', d: 'CREATE_MATERIAL.DETAILS_WIZ_PASSAGE_D' },
+    listeningAudio: { h: 'CREATE_MATERIAL.DETAILS_WIZ_AUDIO_H', d: 'CREATE_MATERIAL.DETAILS_WIZ_AUDIO_D' },
+    price: { h: 'CREATE_MATERIAL.DETAILS_WIZ_PRICE_H', d: 'CREATE_MATERIAL.DETAILS_WIZ_PRICE_D' },
+  };
+  return base[id];
+}
 
 const STEP_TITLE_KEYS: Record<Step, string> = {
   type: 'CREATE_MATERIAL.STEP_NEW_MATERIAL',
@@ -88,6 +147,52 @@ function createQuestion(type: QuestionType): QuizQuestion {
         options: [{ text: '', isCorrect: true }, { text: '', isCorrect: false }],
       };
   }
+}
+
+function mapQuizQuestionToPayload(q: QuizQuestion): Record<string, any> {
+  const base: Record<string, any> = { type: q.type, question: q.question };
+  if (q.explanation?.trim()) base.explanation = q.explanation.trim();
+  switch (q.type) {
+    case 'multiple_choice':
+      base.options = (q.options || []).filter(o => o.text.trim());
+      break;
+    case 'fill_blank':
+      base.acceptedAnswers = (q.acceptedAnswers || []).filter(a => a.trim());
+      break;
+    case 'true_false':
+      base.correctAnswer = q.correctAnswer;
+      break;
+    case 'ordering':
+      base.correctOrder = (q.correctOrder || []).filter(s => s.trim());
+      break;
+  }
+  return base;
+}
+
+function buildQuizPayloadForApi(quiz: QuizQuestion[]): Record<string, any>[] {
+  return quiz.map(mapQuizQuestionToPayload);
+}
+
+/** When false, omit `quiz` from draft PUT so incomplete WIP is not sent / does not overwrite. */
+function isQuizPayloadCompleteForApi(quiz: QuizQuestion[]): boolean {
+  if (quiz.length === 0) return true;
+  for (let i = 0; i < quiz.length; i++) {
+    const q = quiz[i];
+    if (!q.question.trim()) return false;
+    if (q.type === 'multiple_choice') {
+      const hasCorrect = q.options?.some(o => o.isCorrect && o.text.trim());
+      if (!hasCorrect) return false;
+    }
+    if (q.type === 'fill_blank') {
+      if (!q.acceptedAnswers?.some(a => a.trim())) return false;
+    }
+    if (q.type === 'ordering') {
+      const filled = q.correctOrder?.filter(s => s.trim()).length || 0;
+      if (filled < 2) return false;
+    }
+    if (q.type === 'true_false' && typeof q.correctAnswer !== 'boolean') return false;
+  }
+  return true;
 }
 
 interface Rect { x: number; y: number; w: number; h: number }
@@ -149,7 +254,8 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
   const [topics, setTopics] = useState<string[]>([]);
   const [topicInput, setTopicInput] = useState('');
   const [structuredTags, setStructuredTags] = useState<string[]>([]);
-  const [tagSearch, setTagSearch] = useState('');
+  const [structuredTagInput, setStructuredTagInput] = useState('');
+  const [detailsWizardIndex, setDetailsWizardIndex] = useState(0);
   const [titleTouched, setTitleTouched] = useState(false);
   const [languageTouched, setLanguageTouched] = useState(false);
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
@@ -161,13 +267,14 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
   const [quiz, setQuiz] = useState<QuizQuestion[]>([]);
 
   useEffect(() => {
-    console.log('[CreateMaterial] user.languages:', user?.languages, 'onboardingData.languages:', user?.onboardingData?.languages, 'defaultLang:', defaultLang);
     if (defaultLang && !language) setLanguage(defaultLang);
   }, [defaultLang]);
 
   /* ── Preview / submit state ── */
   const [contentAttested, setContentAttested] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [draftMaterialId, setDraftMaterialId] = useState<string | null>(null);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   useEffect(() => {
@@ -188,46 +295,122 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
   const dstReady = !!fly?.dst;
 
   const stepIndex = STEP_ORDER.indexOf(currentStep);
-  const stepNumber = stepIndex + 1;
-  const totalSteps = STEP_ORDER.length;
-  const progressWidth = (stepNumber / totalSteps) * 100;
+
+  const detailsWizardSteps = useMemo((): DetailsWizardStepId[] => {
+    if (!selectedType || !selectedPricing) return [];
+    return buildDetailsWizardSteps(selectedType, selectedPricing);
+  }, [selectedType, selectedPricing]);
+
+  const detailsWizardStepId: DetailsWizardStepId =
+    detailsWizardSteps[detailsWizardIndex] ?? 'title';
+
+  const prevFlowStepRef = useRef<Step | null>(null);
+  useEffect(() => {
+    if (currentStep === 'details' && prevFlowStepRef.current === 'pricing') {
+      setDetailsWizardIndex(0);
+    }
+    prevFlowStepRef.current = currentStep;
+  }, [currentStep]);
+
+  useEffect(() => {
+    if (detailsWizardSteps.length === 0) return;
+    if (detailsWizardIndex >= detailsWizardSteps.length) {
+      setDetailsWizardIndex(detailsWizardSteps.length - 1);
+    }
+  }, [detailsWizardSteps.length, detailsWizardIndex]);
+
+  useEffect(() => {
+    if (currentStep !== 'details') return;
+    (scrollRef.current as any)?.scrollTo?.({ y: 0, animated: true });
+  }, [detailsWizardIndex, currentStep]);
+
+  /**
+   * Step count starts at “Name your material” (first details sub-step), not type/pricing.
+   * Total = details substeps + quiz + preview.
+   */
+  const numberedMaterialStep = useMemo((): { current: number; total: number } | null => {
+    if (currentStep === 'type' || currentStep === 'pricing') return null;
+    if (!selectedType || !selectedPricing || detailsWizardSteps.length === 0) return null;
+
+    const total = detailsWizardSteps.length + 2;
+    if (currentStep === 'details') {
+      return { current: detailsWizardIndex + 1, total };
+    }
+    if (currentStep === 'quiz') {
+      return { current: detailsWizardSteps.length + 1, total };
+    }
+    if (currentStep === 'preview') {
+      return { current: detailsWizardSteps.length + 2, total };
+    }
+    return null;
+  }, [
+    currentStep,
+    detailsWizardIndex,
+    detailsWizardSteps.length,
+    selectedType,
+    selectedPricing,
+  ]);
+
+  const progressWidth = numberedMaterialStep
+    ? (numberedMaterialStep.current / numberedMaterialStep.total) * 100
+    : 0;
 
   const hasVideoChannel = !!(
     (channels?.youtubeChannelName && channels?.youtubeVerified) ||
     (channels?.vimeoChannelName && channels?.vimeoVerified)
   );
 
-  const stepTitle = t(STEP_TITLE_KEYS[currentStep]) || '';
-
   const navBackLabel = useMemo(() => {
+    if (currentStep === 'details') {
+      if (detailsWizardIndex > 0) {
+        const prevId = detailsWizardSteps[detailsWizardIndex - 1];
+        if (prevId && selectedType) {
+          return t(detailsWizardCopyKeys(prevId, selectedType).h);
+        }
+        return t('CREATE_MATERIAL.DETAILS_WIZ_BACK');
+      }
+      return t('CREATE_MATERIAL.STEP_PRICING');
+    }
     if (stepIndex <= 0) return t('CREATE_MATERIAL.NAV_MY_MATERIALS');
     const prevStep = STEP_ORDER[stepIndex - 1];
     return t(STEP_TITLE_KEYS[prevStep]) || t('CREATE_MATERIAL.NAV_BACK_SHORT');
-  }, [stepIndex, t]);
+  }, [currentStep, detailsWizardIndex, detailsWizardSteps, selectedType, stepIndex, t]);
 
   const handleNavBack = useCallback(() => {
+    if (currentStep === 'details') {
+      if (detailsWizardIndex > 0) {
+        setDetailsWizardIndex(i => i - 1);
+        return;
+      }
+      setCurrentStep('pricing');
+      return;
+    }
     if (stepIndex <= 0) {
       goBack();
     } else {
       setCurrentStep(STEP_ORDER[stepIndex - 1]);
     }
-  }, [stepIndex, goBack]);
+  }, [currentStep, detailsWizardIndex, stepIndex, goBack]);
 
   /* ── FLIP Step A: card pressed → measure source, switch step ── */
   const handleSelectType = useCallback((type: MaterialType, cardRef: View | null) => {
-    if (!cardRef) {
+    const goPricing = () => {
       setSelectedType(type);
+      setSelectedPricing(null);
       setCurrentStep('pricing');
+    };
+    if (!cardRef) {
+      goPricing();
       return;
     }
 
     cardRef.measureInWindow((x, y, w, h) => {
       if (w === 0 && h === 0) {
-        setSelectedType(type);
-        setCurrentStep('pricing');
+        goPricing();
         return;
       }
       setSelectedType(type);
+      setSelectedPricing(null);
       flyProgress.setValue(0);
       contentFade.setValue(0);
       setFly({ type, src: { x, y, w, h }, dst: null });
@@ -263,40 +446,114 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
   }, [dstReady]);
 
   const handleSelectPricing = useCallback((pricing: 'free' | 'paid') => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedPricing(pricing);
     if (pricing === 'free') setPrice(0);
-    setCurrentStep('details');
   }, []);
 
+  const handlePricingNext = useCallback(() => {
+    if (selectedPricing === null) {
+      Alert.alert('', t('CREATE_MATERIAL.TOAST_FILL_REQUIRED'));
+      return;
+    }
+    setCurrentStep('details');
+  }, [selectedPricing, t]);
+
+  const validateDetailsWizardStep = useCallback(
+    (stepId: DetailsWizardStepId): boolean => {
+      switch (stepId) {
+        case 'title':
+          if (!title.trim() || title.trim().length < 3) {
+            setTitleTouched(true);
+            Alert.alert('', t('CREATE_MATERIAL.FIELD_TITLE_ERROR'));
+            return false;
+          }
+          return true;
+        case 'languageLevel':
+          if (!language) {
+            setLanguageTouched(true);
+            Alert.alert('', t('CREATE_MATERIAL.FIELD_LANGUAGE_ERROR'));
+            return false;
+          }
+          return true;
+        case 'videoUrl':
+          if (selectedType === 'video_quiz' && !videoUrl.trim()) {
+            Alert.alert('', t('CREATE_MATERIAL.FIELD_VIDEO_URL_ERROR'));
+            return false;
+          }
+          return true;
+        case 'readingPassage':
+          if (selectedType === 'reading' && !passage.trim()) {
+            Alert.alert('', t('CREATE_MATERIAL.TOAST_ENTER_PASSAGE'));
+            return false;
+          }
+          return true;
+        case 'listeningAudio':
+          if (selectedType === 'listening' && !audioUrl.trim()) {
+            Alert.alert('', t('CREATE_MATERIAL.FIELD_AUDIO_URL_ERROR'));
+            return false;
+          }
+          return true;
+        case 'thumbnail':
+          if (!thumbnailUri?.trim()) {
+            Alert.alert('', t('CREATE_MATERIAL.TOAST_ADD_COVER'));
+            return false;
+          }
+          return true;
+        case 'price':
+          if (selectedPricing === 'paid' && (!Number.isFinite(price) || price < 1)) {
+            Alert.alert('', t('CREATE_MATERIAL.TOAST_FILL_REQUIRED'));
+            return false;
+          }
+          return true;
+        default:
+          return true;
+      }
+    },
+    [title, language, selectedType, videoUrl, passage, audioUrl, thumbnailUri, selectedPricing, price, t],
+  );
+
+  const isCurrentDetailsStepValid = useMemo(() => {
+    const id = detailsWizardStepId;
+    switch (id) {
+      case 'title':
+        return title.trim().length >= 3;
+      case 'languageLevel':
+        return !!language;
+      case 'videoUrl':
+        return selectedType !== 'video_quiz' || !!videoUrl.trim();
+      case 'readingPassage':
+        return selectedType !== 'reading' || !!passage.trim();
+      case 'listeningAudio':
+        return selectedType !== 'listening' || !!audioUrl.trim();
+      case 'thumbnail':
+        return !!thumbnailUri?.trim();
+      case 'price':
+        return selectedPricing !== 'paid' || (Number.isFinite(price) && price >= 1);
+      default:
+        return true;
+    }
+  }, [detailsWizardStepId, title, language, selectedType, videoUrl, passage, audioUrl, thumbnailUri, selectedPricing, price]);
+
   const handleGoToQuiz = useCallback(() => {
-    if (!title.trim() || title.trim().length < 3) {
-      setTitleTouched(true);
-      Alert.alert('', t('CREATE_MATERIAL.FIELD_TITLE_ERROR'));
-      return;
-    }
-    if (!language) {
-      setLanguageTouched(true);
-      Alert.alert('', t('CREATE_MATERIAL.FIELD_LANGUAGE_ERROR'));
-      return;
-    }
-    if (selectedType === 'video_quiz' && !videoUrl.trim()) {
-      Alert.alert('', t('CREATE_MATERIAL.FIELD_VIDEO_URL_ERROR'));
-      return;
-    }
-    if (selectedType === 'reading' && !passage.trim()) {
-      Alert.alert('', 'Please enter a reading passage');
-      return;
-    }
-    if (selectedType === 'listening' && !audioUrl.trim()) {
-      Alert.alert('', t('CREATE_MATERIAL.FIELD_AUDIO_URL_ERROR'));
-      return;
-    }
-    if (!thumbnailUri?.trim()) {
-      Alert.alert('', t('CREATE_MATERIAL.TOAST_ADD_COVER'));
-      return;
-    }
+    if (!validateDetailsWizardStep('title')) return;
+    if (!validateDetailsWizardStep('languageLevel')) return;
+    if (!validateDetailsWizardStep('videoUrl')) return;
+    if (!validateDetailsWizardStep('readingPassage')) return;
+    if (!validateDetailsWizardStep('listeningAudio')) return;
+    if (!validateDetailsWizardStep('thumbnail')) return;
+    if (!validateDetailsWizardStep('price')) return;
     setCurrentStep('quiz');
-  }, [title, language, selectedType, videoUrl, passage, audioUrl, thumbnailUri, t]);
+  }, [validateDetailsWizardStep]);
+
+  const handleDetailsWizardNext = useCallback(() => {
+    if (!validateDetailsWizardStep(detailsWizardStepId)) return;
+    if (detailsWizardIndex >= detailsWizardSteps.length - 1) {
+      handleGoToQuiz();
+      return;
+    }
+    setDetailsWizardIndex(i => i + 1);
+  }, [detailsWizardStepId, detailsWizardIndex, detailsWizardSteps.length, validateDetailsWizardStep, handleGoToQuiz]);
 
   const addTopic = useCallback(() => {
     const trimmed = topicInput.trim();
@@ -306,36 +563,41 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
     }
   }, [topicInput, topics]);
 
+  const addStructuredTag = useCallback(() => {
+    const trimmed = structuredTagInput.trim();
+    if (trimmed && !structuredTags.includes(trimmed)) {
+      setStructuredTags(prev => [...prev, trimmed]);
+      setStructuredTagInput('');
+    }
+  }, [structuredTagInput, structuredTags]);
+
+  const removeStructuredTag = useCallback((idx: number) => {
+    setStructuredTags(prev => prev.filter((_, i) => i !== idx));
+  }, []);
+
   const removeTopic = useCallback((idx: number) => {
     setTopics(prev => prev.filter((_, i) => i !== idx));
   }, []);
 
   /* ── Cover image ── */
   const pickCoverImage = useCallback(async () => {
-    console.log('[Cover] 1. Requesting permissions...');
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    console.log('[Cover] 2. Permission status:', perm.status);
     if (perm.status !== 'granted') {
       Alert.alert('Permission needed', 'Please allow photo access to add a cover image.');
       return;
     }
-    console.log('[Cover] 3. Opening picker...');
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [16, 10],
       quality: 0.85,
     });
-    console.log('[Cover] 4. Picker result canceled?', result.canceled, 'assets count:', result.assets?.length);
     if (result.canceled || !result.assets?.[0]?.uri?.trim()) return;
     const rawUri = result.assets[0].uri.trim();
-    console.log('[Cover] 5. Raw URI:', rawUri.substring(0, 80), '...');
     try {
       const normalized = await manipulateAsync(rawUri, [], { compress: 0.85, format: SaveFormat.JPEG });
-      console.log('[Cover] 6. Normalized URI:', normalized.uri.substring(0, 80), '...');
       setThumbnailUri(normalized.uri);
-    } catch (e) {
-      console.warn('[Cover] 6. Normalize FAILED, using raw URI:', e);
+    } catch {
       setThumbnailUri(rawUri);
     }
   }, []);
@@ -394,7 +656,6 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
 
   /* ── Submit / Publish ── */
   const handleSubmit = useCallback(async () => {
-    console.log('[Publish] 1. contentAttested:', contentAttested, 'thumbnailUri:', thumbnailUri?.substring(0, 60));
     if (!contentAttested) return;
     if (!thumbnailUri?.trim()) {
       Alert.alert('', t('CREATE_MATERIAL.TOAST_ADD_COVER'));
@@ -403,36 +664,15 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
     setIsSubmitting(true);
     try {
       let thumbnailUrl: string | undefined;
-      console.log('[Publish] 2. Uploading thumbnail...');
       try {
         thumbnailUrl = await materialService.uploadThumbnail(thumbnailUri);
-        console.log('[Publish] 3. Thumbnail uploaded OK:', thumbnailUrl?.substring(0, 80));
-      } catch (upErr: any) {
-        console.warn('[Publish] 3. Thumbnail upload FAILED:', upErr?.status, upErr?.message || upErr);
+      } catch {
         Alert.alert('', t('CREATE_MATERIAL.TOAST_UPLOAD_FAILED'));
         setIsSubmitting(false);
         return;
       }
 
-      const quizPayload = quiz.map(q => {
-        const base: Record<string, any> = { type: q.type, question: q.question };
-        if (q.explanation?.trim()) base.explanation = q.explanation.trim();
-        switch (q.type) {
-          case 'multiple_choice':
-            base.options = (q.options || []).filter(o => o.text.trim());
-            break;
-          case 'fill_blank':
-            base.acceptedAnswers = (q.acceptedAnswers || []).filter(a => a.trim());
-            break;
-          case 'true_false':
-            base.correctAnswer = q.correctAnswer;
-            break;
-          case 'ordering':
-            base.correctOrder = (q.correctOrder || []).filter(s => s.trim());
-            break;
-        }
-        return base;
-      });
+      const quizPayload = buildQuizPayloadForApi(quiz);
 
       const payload: Record<string, any> = {
         materialType: selectedType!,
@@ -453,21 +693,110 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
       if (topics.length > 0) payload.topics = topics;
       if (structuredTags.length > 0) payload.structuredTags = structuredTags;
       if (thumbnailUrl) payload.thumbnailUrl = thumbnailUrl;
+      payload.status = 'published';
 
-      console.log('[Publish] 4. Creating material, payload keys:', Object.keys(payload), 'hasThumbnailUrl:', !!payload.thumbnailUrl);
-      const result = await materialService.createMaterial(payload);
-      console.log('[Publish] 5. Created! ID:', result?._id);
+      if (draftMaterialId) {
+        await materialService.updateMaterial(draftMaterialId, payload);
+      } else {
+        await materialService.createMaterial(payload);
+      }
       Alert.alert('Published!', 'Your material is now live.', [
         { text: 'OK', onPress: goBack },
       ]);
     } catch (err: any) {
-      console.warn('[Publish] FAILED:', err?.status, err?.message || err);
       Alert.alert('Error', err?.message || 'Failed to publish material.');
     } finally {
       setIsSubmitting(false);
     }
   }, [contentAttested, thumbnailUri, selectedType, title, description, whyTakeThis, language, level,
-      videoUrl, passage, audioUrl, selectedPricing, price, quiz, topics, structuredTags, goBack, t]);
+      videoUrl, passage, audioUrl, selectedPricing, price, quiz, topics, structuredTags, draftMaterialId,
+      goBack, t]);
+
+  const handleSaveDraft = useCallback(async () => {
+    if (!selectedType || !selectedPricing) return;
+    setIsSavingDraft(true);
+    try {
+      let thumbnailUrl: string | undefined;
+      if (thumbnailUri?.trim()) {
+        try {
+          thumbnailUrl = await materialService.uploadThumbnail(thumbnailUri);
+        } catch {
+          Alert.alert('', t('CREATE_MATERIAL.TOAST_UPLOAD_FAILED'));
+          setIsSavingDraft(false);
+          return;
+        }
+      }
+
+      const draftTitle = title.trim() || t('CREATE_MATERIAL.DRAFT_UNTITLED');
+      const draftLang = language.trim() || defaultLang.trim() || 'English';
+
+      const basePayload: Record<string, any> = {
+        title: draftTitle,
+        description: description.trim() || '',
+        whyTakeThis: whyTakeThis.trim() || '',
+        language: draftLang,
+        level: level || 'any',
+        pricingType: selectedPricing,
+        price: selectedPricing === 'paid' ? price : 0,
+        status: 'draft',
+      };
+
+      if (selectedType === 'video_quiz' && videoUrl.trim()) basePayload.videoUrl = videoUrl.trim();
+      if (selectedType === 'reading') basePayload.passage = passage.trim();
+      if (selectedType === 'listening' && audioUrl.trim()) basePayload.audioUrl = audioUrl.trim();
+      if (topics.length > 0) basePayload.topics = topics;
+      if (structuredTags.length > 0) basePayload.structuredTags = structuredTags;
+      if (thumbnailUrl) basePayload.thumbnailUrl = thumbnailUrl;
+
+      const quizComplete = isQuizPayloadCompleteForApi(quiz);
+      const quizPayload = quizComplete ? buildQuizPayloadForApi(quiz) : [];
+
+      if (draftMaterialId) {
+        const putPayload: Record<string, any> = { ...basePayload };
+        if (quizComplete) putPayload.quiz = quizPayload;
+        await materialService.updateMaterial(draftMaterialId, putPayload);
+      } else {
+        const m = await materialService.createMaterial({
+          ...basePayload,
+          materialType: selectedType,
+          quiz: quizPayload,
+        });
+        setDraftMaterialId(m._id);
+      }
+
+      Alert.alert(
+        t('CREATE_MATERIAL.DRAFT_SAVED'),
+        t('CREATE_MATERIAL.DRAFT_SAVED_MSG'),
+        [{ text: t('CREATE_MATERIAL.DRAFT_SAVED_OK') }],
+      );
+    } catch (err: any) {
+      Alert.alert(
+        t('CREATE_MATERIAL.DRAFT_SAVE_FAILED_TITLE'),
+        err?.message || t('CREATE_MATERIAL.DRAFT_SAVE_FAILED_MSG'),
+      );
+    } finally {
+      setIsSavingDraft(false);
+    }
+  }, [
+    selectedType,
+    selectedPricing,
+    thumbnailUri,
+    title,
+    description,
+    whyTakeThis,
+    language,
+    defaultLang,
+    level,
+    price,
+    videoUrl,
+    passage,
+    audioUrl,
+    topics,
+    structuredTags,
+    quiz,
+    draftMaterialId,
+    t,
+  ]);
 
   const getTypeIcon = (type: MaterialType): keyof typeof Ionicons.glyphMap => {
     switch (type) {
@@ -484,16 +813,6 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
       case 'listening': return t('CREATE_MATERIAL.TYPE_LISTENING');
     }
   };
-
-  const detailsFormValid = useMemo(() => {
-    if (!title.trim() || title.trim().length < 3) return false;
-    if (!language) return false;
-    if (selectedType === 'video_quiz' && !videoUrl.trim()) return false;
-    if (selectedType === 'reading' && !passage.trim()) return false;
-    if (selectedType === 'listening' && !audioUrl.trim()) return false;
-    if (!thumbnailUri?.trim()) return false;
-    return true;
-  }, [title, language, selectedType, videoUrl, passage, audioUrl, thumbnailUri]);
 
   /* ── Flying clone interpolations ── */
   const chipBg = isDark ? '#2c2c2e' : '#f5f5f7';
@@ -536,22 +855,31 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
               {navBackLabel}
             </Text>
           </TouchableOpacity>
-          <View style={styles.navCenter}>
-            <Text style={[styles.navTitle, { color: colors.text }]} numberOfLines={1}>
-              {stepTitle}
+          <View style={styles.navBarSpacer} />
+          {numberedMaterialStep != null && (
+            <Text
+              style={[styles.navStepCount, { color: colors.textSecondary }]}
+              accessibilityRole="text"
+              accessibilityLabel={t('ONBOARDING.STEP_INDICATOR', {
+                current: numberedMaterialStep.current,
+                total: numberedMaterialStep.total,
+              })}
+            >
+              {t('CREATE_MATERIAL.STEP_OF', {
+                current: numberedMaterialStep.current,
+                total: numberedMaterialStep.total,
+              })}
             </Text>
-          </View>
-          <View style={styles.navRight}>
-            <Text style={[styles.navStep, { color: colors.textSecondary }]}>
-              {stepNumber}/{totalSteps}
-            </Text>
-          </View>
+          )}
         </View>
 
-        {/* Progress Bar */}
-        <View style={[styles.progressTrack, { backgroundColor: isDark ? '#2c2c2e' : '#f0f0f2' }]}>
-          <View style={[styles.progressFill, { width: `${progressWidth}%`, backgroundColor: isDark ? '#fff' : '#222' }]} />
-        </View>
+        {numberedMaterialStep != null && (
+          <View style={styles.progressSection}>
+            <View style={[styles.progressTrack, { backgroundColor: isDark ? '#2c2c2e' : '#f0f0f2' }]}>
+              <View style={[styles.progressFill, { width: `${progressWidth}%`, backgroundColor: isDark ? '#fff' : '#222' }]} />
+            </View>
+          </View>
+        )}
 
         {/* Step Content + Footer */}
         <KeyboardAvoidingView
@@ -562,45 +890,57 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
           <Reanimated.ScrollView
             ref={scrollRef}
             style={styles.scroll}
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[
+              styles.scrollContent,
+              (currentStep === 'pricing' || (currentStep === 'details' && !keyboardVisible)) && {
+                paddingBottom: Math.max(insets.bottom, 20) + 100,
+              },
+            ]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
           >
             {currentStep === 'type' && (
-              <StepType
-                hasVideoChannel={hasVideoChannel}
-                onSelect={handleSelectType}
-                colors={colors}
-                t={t}
-              />
+              <View style={[styles.detailsStepMaxWidth, styles.headAlignedStep]}>
+                <StepType
+                  hasVideoChannel={hasVideoChannel}
+                  onSelect={handleSelectType}
+                  colors={colors}
+                  t={t}
+                />
+              </View>
             )}
 
             {currentStep === 'pricing' && selectedType && (
-              <StepPricing
-                selectedType={selectedType}
-                getTypeIcon={getTypeIcon}
-                getTypeLabel={getTypeLabel}
-                onSelect={handleSelectPricing}
-                chipRef={chipRef}
-                chipHidden={isFlying}
-                contentFade={isFlying ? contentFade : undefined}
-                onChipLayout={() => {
-                  setTimeout(() => {
-                    chipRef.current?.measureInWindow((x, y, w, h) => {
-                      handleChipMeasured(x, y, w, h);
-                    });
-                  }, 60);
-                }}
-                colors={colors}
-                t={t}
-              />
+              <View style={[styles.detailsStepMaxWidth, styles.pricingShareWrap]}>
+                <StepPricing
+                  selectedType={selectedType}
+                  selectedPricing={selectedPricing}
+                  getTypeIcon={getTypeIcon}
+                  getTypeLabel={getTypeLabel}
+                  onSelect={handleSelectPricing}
+                  chipRef={chipRef}
+                  chipHidden={isFlying}
+                  contentFade={isFlying ? contentFade : undefined}
+                  onChipLayout={() => {
+                    setTimeout(() => {
+                      chipRef.current?.measureInWindow((x, y, w, h) => {
+                        handleChipMeasured(x, y, w, h);
+                      });
+                    }, 60);
+                  }}
+                  colors={colors}
+                  t={t}
+                />
+              </View>
             )}
 
-            {currentStep === 'details' && selectedType && (
+            {currentStep === 'details' && selectedType && selectedPricing && (
+              <View style={[styles.detailsStepMaxWidth, styles.headAlignedStepBelowProgress]}>
               <StepDetails
+                wizardStepId={detailsWizardStepId}
                 selectedType={selectedType}
-                selectedPricing={selectedPricing!}
+                selectedPricing={selectedPricing}
                 title={title} setTitle={setTitle}
                 description={description} setDescription={setDescription}
                 whyTakeThis={whyTakeThis} setWhyTakeThis={setWhyTakeThis}
@@ -612,31 +952,37 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
                 price={price} setPrice={setPrice}
                 topics={topics} topicInput={topicInput} setTopicInput={setTopicInput}
                 addTopic={addTopic} removeTopic={removeTopic}
+                structuredTags={structuredTags}
+                structuredTagInput={structuredTagInput} setStructuredTagInput={setStructuredTagInput}
+                addStructuredTag={addStructuredTag} removeStructuredTag={removeStructuredTag}
                 titleTouched={titleTouched} setTitleTouched={setTitleTouched}
                 languageTouched={languageTouched} setLanguageTouched={setLanguageTouched}
                 showLanguagePicker={showLanguagePicker} setShowLanguagePicker={setShowLanguagePicker}
                 showLevelPicker={showLevelPicker} setShowLevelPicker={setShowLevelPicker}
                 thumbnailUri={thumbnailUri} pickCoverImage={pickCoverImage} removeCover={() => setThumbnailUri(null)}
                 showVideoPolicy={showVideoPolicy} dismissVideoPolicy={() => setShowVideoPolicy(false)}
-                scrollRef={scrollRef}
                 colors={colors}
                 t={t}
               />
+              </View>
             )}
 
             {currentStep === 'quiz' && (
-              <StepQuiz
-                quiz={quiz}
-                addQuestion={addQuestion}
-                removeQuestion={removeQuestion}
-                updateQuestion={updateQuestion}
-                scrollRef={scrollRef}
-                colors={colors}
-                t={t}
-              />
+              <View style={[styles.detailsStepMaxWidth, styles.headAlignedStepBelowProgress]}>
+                <StepQuiz
+                  quiz={quiz}
+                  addQuestion={addQuestion}
+                  removeQuestion={removeQuestion}
+                  updateQuestion={updateQuestion}
+                  scrollRef={scrollRef}
+                  colors={colors}
+                  t={t}
+                />
+              </View>
             )}
 
             {currentStep === 'preview' && selectedType && (
+              <View style={[styles.detailsStepMaxWidth, styles.headAlignedStepBelowProgress]}>
               <StepPreview
                 selectedType={selectedType}
                 selectedPricing={selectedPricing!}
@@ -654,6 +1000,7 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
                 colors={colors}
                 t={t}
               />
+              </View>
             )}
           </Reanimated.ScrollView>
 
@@ -679,23 +1026,75 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
           )}
 
           {/* Footer buttons per step */}
+          {!keyboardVisible && currentStep === 'pricing' && (
+            <View style={[styles.footer, { borderTopColor: colors.border, backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, 12) }]}>
+              <View style={styles.footerWizardRow}>
+                <TouchableOpacity
+                  style={[styles.wizardNextBtn, {
+                    flex: 1,
+                    backgroundColor: selectedPricing !== null ? (isDark ? '#fff' : '#111') : (isDark ? '#3a3a3c' : '#d1d1d6'),
+                  }]}
+                  activeOpacity={selectedPricing !== null ? 0.85 : 1}
+                  onPress={handlePricingNext}
+                  disabled={selectedPricing === null}
+                >
+                  <Text style={[styles.wizardNextBtnText, {
+                    color: selectedPricing !== null ? (isDark ? '#000' : '#fff') : '#8e8e93',
+                  }]}>
+                    {t('CREATE_MATERIAL.DETAILS_WIZ_NEXT')}
+                  </Text>
+                  <Ionicons
+                    name="arrow-forward"
+                    size={18}
+                    color={selectedPricing !== null ? (isDark ? '#000' : '#fff') : '#8e8e93'}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
           {!keyboardVisible && currentStep === 'details' && (
-            <View style={[styles.footer, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
-              <TouchableOpacity
-                style={[styles.continueBtn, {
-                  backgroundColor: detailsFormValid ? (isDark ? '#fff' : '#111') : (isDark ? '#3a3a3c' : '#d1d1d6'),
-                }]}
-                activeOpacity={detailsFormValid ? 0.85 : 1}
-                onPress={handleGoToQuiz}
-                disabled={!detailsFormValid}
-              >
-                <Text style={[styles.continueBtnText, {
-                  color: detailsFormValid ? (isDark ? '#000' : '#fff') : '#8e8e93',
-                }]}>
-                  {t('CREATE_MATERIAL.CONTINUE_TO_QUIZ')}
-                </Text>
-                <Ionicons name="arrow-forward" size={18} color={detailsFormValid ? (isDark ? '#000' : '#fff') : '#8e8e93'} />
-              </TouchableOpacity>
+            <View style={[styles.footer, { borderTopColor: colors.border, backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, 12) }]}>
+              <View style={styles.footerWizardRow}>
+                {detailsWizardIndex > 0 && (
+                  <TouchableOpacity
+                    style={[styles.wizardBackBtn, { borderColor: colors.border }]}
+                    activeOpacity={0.75}
+                    onPress={handleSaveDraft}
+                    disabled={isSavingDraft}
+                  >
+                    {isSavingDraft ? (
+                      <ActivityIndicator size="small" color={colors.text} />
+                    ) : (
+                      <Text style={[styles.wizardBackBtnText, { color: colors.text }]}>
+                        {t('CREATE_MATERIAL.SAVE_DRAFT')}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={[styles.wizardNextBtn, {
+                    flex: detailsWizardIndex > 0 ? 1.25 : 1,
+                    backgroundColor: isCurrentDetailsStepValid ? (isDark ? '#fff' : '#111') : (isDark ? '#3a3a3c' : '#d1d1d6'),
+                  }]}
+                  activeOpacity={isCurrentDetailsStepValid ? 0.85 : 1}
+                  onPress={handleDetailsWizardNext}
+                  disabled={!isCurrentDetailsStepValid}
+                >
+                  <Text style={[styles.wizardNextBtnText, {
+                    color: isCurrentDetailsStepValid ? (isDark ? '#000' : '#fff') : '#8e8e93',
+                  }]}>
+                    {detailsWizardIndex >= detailsWizardSteps.length - 1
+                      ? t('CREATE_MATERIAL.CONTINUE_TO_QUIZ')
+                      : t('CREATE_MATERIAL.DETAILS_WIZ_NEXT')}
+                  </Text>
+                  <Ionicons
+                    name="arrow-forward"
+                    size={18}
+                    color={isCurrentDetailsStepValid ? (isDark ? '#000' : '#fff') : '#8e8e93'}
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
           )}
 
@@ -864,8 +1263,9 @@ function StepType({ hasVideoChannel, onSelect, colors, t }: {
 
 /* ═══════════ Step 2: Pricing ═══════════ */
 
-function StepPricing({ selectedType, getTypeIcon, getTypeLabel, onSelect, chipRef, chipHidden, contentFade, onChipLayout, colors, t }: {
+function StepPricing({ selectedType, selectedPricing, getTypeIcon, getTypeLabel, onSelect, chipRef, chipHidden, contentFade, onChipLayout, colors, t }: {
   selectedType: MaterialType;
+  selectedPricing: 'free' | 'paid' | null;
   getTypeIcon: (t: MaterialType) => keyof typeof Ionicons.glyphMap;
   getTypeLabel: (t: MaterialType) => string;
   onSelect: (pricing: 'free' | 'paid') => void;
@@ -886,7 +1286,6 @@ function StepPricing({ selectedType, getTypeIcon, getTypeLabel, onSelect, chipRe
 
   return (
     <View>
-      {/* Selected type chip (destination of FLIP) */}
       <View
         ref={chipRef}
         collapsable={false}
@@ -894,6 +1293,8 @@ function StepPricing({ selectedType, getTypeIcon, getTypeLabel, onSelect, chipRe
         style={[styles.selectedChip, {
           backgroundColor: isDark ? '#2c2c2e' : '#f5f5f7',
           opacity: chipHidden ? 0 : 1,
+          marginTop: PRICING_CHIP_MARGIN_TOP,
+          marginBottom: PRICING_CHIP_TO_TITLE_GAP,
         }]}
       >
         <Ionicons name={getTypeIcon(selectedType)} size={16} color={colors.textSecondary} />
@@ -902,13 +1303,36 @@ function StepPricing({ selectedType, getTypeIcon, getTypeLabel, onSelect, chipRe
 
       {contentWrap(
         <>
-          <Text style={[styles.stepHeading, { color: colors.text }]}>
+          <Text style={[styles.detailsHeading, { color: colors.text }]}>
             {t('CREATE_MATERIAL.PRICING_TITLE')}
           </Text>
+          <Text style={[styles.detailsSubheading, styles.pricingShareSubline, { color: colors.textSecondary }]}>
+            {t('CREATE_MATERIAL.WIZ_SHARE_D')}
+          </Text>
+
+          <View style={[styles.shareTip, { backgroundColor: isDark ? '#1c2a3d' : '#F0F7FF', borderColor: isDark ? '#2a3d55' : '#D6E4FF' }]}>
+            <Ionicons name="bulb-outline" size={20} color={isDark ? '#7AB3E0' : '#4B7FBF'} />
+            <View style={styles.shareTipBody}>
+              <Text style={[styles.shareTipTitle, { color: isDark ? '#f5f5f7' : '#222' }]}>
+                {t('CREATE_MATERIAL.SHARE_TIP_TITLE')}
+              </Text>
+              <Text style={[styles.shareTipDesc, { color: isDark ? '#aeaeb2' : '#6a6a6a' }]}>
+                {t('CREATE_MATERIAL.SHARE_TIP_DESC')}
+              </Text>
+            </View>
+          </View>
 
           <View style={styles.pricingCards}>
             <TouchableOpacity
-              style={[styles.pricingCard, { backgroundColor: colors.card, borderColor: colors.border, shadowOpacity: isDark ? 0 : 0.05 }]}
+              style={[
+                styles.pricingCard,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: selectedPricing === 'free' ? colors.text : colors.border,
+                  borderWidth: selectedPricing === 'free' ? 2 : 1,
+                  shadowOpacity: isDark ? 0 : 0.05,
+                },
+              ]}
               activeOpacity={0.7}
               onPress={() => onSelect('free')}
             >
@@ -917,10 +1341,21 @@ function StepPricing({ selectedType, getTypeIcon, getTypeLabel, onSelect, chipRe
               </View>
               <Text style={[styles.pricingTitle, { color: colors.text }]}>{t('CREATE_MATERIAL.PRICING_FREE')}</Text>
               <Text style={[styles.pricingDesc, { color: colors.textSecondary }]}>{t('CREATE_MATERIAL.PRICING_FREE_DESC')}</Text>
+              {selectedPricing === 'free' && (
+                <Ionicons name="checkmark-circle" size={22} color="#10b981" style={styles.pricingCheck} />
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.pricingCard, { backgroundColor: colors.card, borderColor: colors.border, shadowOpacity: isDark ? 0 : 0.05 }]}
+              style={[
+                styles.pricingCard,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: selectedPricing === 'paid' ? colors.text : colors.border,
+                  borderWidth: selectedPricing === 'paid' ? 2 : 1,
+                  shadowOpacity: isDark ? 0 : 0.05,
+                },
+              ]}
               activeOpacity={0.7}
               onPress={() => onSelect('paid')}
             >
@@ -929,6 +1364,9 @@ function StepPricing({ selectedType, getTypeIcon, getTypeLabel, onSelect, chipRe
               </View>
               <Text style={[styles.pricingTitle, { color: colors.text }]}>{t('CREATE_MATERIAL.PRICING_PAID')}</Text>
               <Text style={[styles.pricingDesc, { color: colors.textSecondary }]}>{t('CREATE_MATERIAL.PRICING_PAID_DESC')}</Text>
+              {selectedPricing === 'paid' && (
+                <Ionicons name="checkmark-circle" size={22} color={SETUP_AVAILABILITY_BLUE} style={styles.pricingCheck} />
+              )}
             </TouchableOpacity>
           </View>
         </>
@@ -937,17 +1375,33 @@ function StepPricing({ selectedType, getTypeIcon, getTypeLabel, onSelect, chipRe
   );
 }
 
-/* ═══════════ Step 3: Details ═══════════ */
+/* ═══════════ Step 3: Details (sub-step wizard) ═══════════ */
 
-function StepDetails({ selectedType, selectedPricing, title, setTitle, description, setDescription,
-  whyTakeThis, setWhyTakeThis, language, setLanguage, level, setLevel,
-  videoUrl, setVideoUrl, passage, setPassage, audioUrl, setAudioUrl,
-  price, setPrice, topics, topicInput, setTopicInput, addTopic, removeTopic,
-  titleTouched, setTitleTouched, languageTouched, setLanguageTouched,
-  showLanguagePicker, setShowLanguagePicker, showLevelPicker, setShowLevelPicker,
+function StepDetails({
+  wizardStepId,
+  selectedType,
+  selectedPricing,
+  title, setTitle,
+  description, setDescription,
+  whyTakeThis, setWhyTakeThis,
+  language, setLanguage,
+  level, setLevel,
+  videoUrl, setVideoUrl,
+  passage, setPassage,
+  audioUrl, setAudioUrl,
+  price, setPrice,
+  topics, topicInput, setTopicInput, addTopic, removeTopic,
+  structuredTags,
+  structuredTagInput, setStructuredTagInput, addStructuredTag, removeStructuredTag,
+  titleTouched, setTitleTouched,
+  languageTouched, setLanguageTouched,
+  showLanguagePicker, setShowLanguagePicker,
+  showLevelPicker, setShowLevelPicker,
   thumbnailUri, pickCoverImage, removeCover,
   showVideoPolicy, dismissVideoPolicy,
-  scrollRef, colors, t }: {
+  colors, t,
+}: {
+  wizardStepId: DetailsWizardStepId;
   selectedType: MaterialType;
   selectedPricing: 'free' | 'paid';
   title: string; setTitle: (v: string) => void;
@@ -961,382 +1415,415 @@ function StepDetails({ selectedType, selectedPricing, title, setTitle, descripti
   price: number; setPrice: (v: number) => void;
   topics: string[]; topicInput: string; setTopicInput: (v: string) => void;
   addTopic: () => void; removeTopic: (i: number) => void;
+  structuredTags: string[];
+  structuredTagInput: string; setStructuredTagInput: (v: string) => void;
+  addStructuredTag: () => void; removeStructuredTag: (i: number) => void;
   titleTouched: boolean; setTitleTouched: (v: boolean) => void;
   languageTouched: boolean; setLanguageTouched: (v: boolean) => void;
   showLanguagePicker: boolean; setShowLanguagePicker: (v: boolean) => void;
   showLevelPicker: boolean; setShowLevelPicker: (v: boolean) => void;
   thumbnailUri: string | null; pickCoverImage: () => void; removeCover: () => void;
   showVideoPolicy: boolean; dismissVideoPolicy: () => void;
-  scrollRef: React.RefObject<any>;
   colors: any; t: any;
 }) {
   const isDark = colors.isDark;
   const titleInvalid = titleTouched && title.trim().length < 3;
   const langInvalid = languageTouched && !language;
-  const fieldPositions = useRef<Record<string, number>>({});
-
-  const captureFieldLayout = useCallback((key: string, event: any) => {
-    fieldPositions.current[key] = event.nativeEvent.layout.y;
-  }, []);
-
-  const scrollFieldIntoView = useCallback((key: string) => {
-    const y = fieldPositions.current[key];
-    if (y == null) return;
-    setTimeout(() => {
-      (scrollRef?.current as any)?.scrollTo?.({ y: Math.max(0, y - 80), animated: true });
-    }, 300);
-  }, [scrollRef]);
-
-  const detailsTitle = selectedType === 'video_quiz'
-    ? t('CREATE_MATERIAL.DETAILS_VIDEO_TITLE')
-    : selectedType === 'reading'
-    ? t('CREATE_MATERIAL.DETAILS_READING_TITLE')
-    : t('CREATE_MATERIAL.DETAILS_LISTENING_TITLE');
-
-  const detailsDesc = selectedType === 'video_quiz'
-    ? t('CREATE_MATERIAL.DETAILS_VIDEO_DESC')
-    : selectedType === 'reading'
-    ? t('CREATE_MATERIAL.DETAILS_READING_DESC')
-    : t('CREATE_MATERIAL.DETAILS_LISTENING_DESC');
-
   const inputBg = isDark ? '#1c1c1e' : '#fff';
   const inputBorder = isDark ? '#3a3a3c' : '#e5e5ea';
   const errorBorder = '#ef4444';
-
   const levelLabel = LEVELS.find(l => l.value === level)?.labelKey;
+  const { h, d } = detailsWizardCopyKeys(wizardStepId, selectedType);
 
-  return (
-    <View>
-      {/* Video Policy Notice (paid video only) */}
-      {showVideoPolicy && selectedType === 'video_quiz' && selectedPricing === 'paid' && (
-        <View style={[styles.policyNotice, { backgroundColor: isDark ? '#1c2333' : '#eef4ff', borderColor: isDark ? '#2a3a5c' : '#c7d8f5' }]}>
-          <Ionicons name="shield-checkmark-outline" size={24} color={isDark ? '#60a5fa' : '#3b82f6'} />
-          <View style={{ flex: 1, gap: 6 }}>
-            <Text style={[styles.policyTitle, { color: colors.text }]}>{t('CREATE_MATERIAL.POLICY_TITLE')}</Text>
-            <Text style={[styles.policyBody, { color: colors.textSecondary }]}>{t('CREATE_MATERIAL.POLICY_DESC_1')}</Text>
-            <Text style={[styles.policyBody, { color: colors.textSecondary }]}>{t('CREATE_MATERIAL.POLICY_DESC_2')}</Text>
-            <TouchableOpacity style={[styles.policyBtn, { backgroundColor: isDark ? '#2c2c2e' : '#fff' }]} onPress={dismissVideoPolicy} activeOpacity={0.7}>
-              <Text style={[styles.policyBtnText, { color: colors.text }]}>{t('CREATE_MATERIAL.POLICY_GOT_IT')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
+  const header = (
+    <>
+      <Text style={[styles.detailsHeading, { color: colors.text }]}>{t(h)}</Text>
+      <Text style={[styles.detailsSubheading, { color: colors.textSecondary }]}>{t(d)}</Text>
+    </>
+  );
 
-      {/* Header */}
-      <Text style={[styles.detailsHeading, { color: colors.text }]}>{detailsTitle}</Text>
-      <Text style={[styles.detailsSubheading, { color: colors.textSecondary }]}>{detailsDesc}</Text>
-
-      {/* Title */}
-      <View style={styles.fieldWrap} onLayout={e => captureFieldLayout('title', e)}>
-        <Text style={[styles.fieldLabel, { color: colors.text }]}>
-          {t('CREATE_MATERIAL.FIELD_TITLE')} <Text style={styles.requiredStar}>*</Text>
-        </Text>
-        <TextInput
-          style={[styles.fieldInput, {
-            backgroundColor: inputBg,
-            borderColor: titleInvalid ? errorBorder : inputBorder,
-            color: colors.text,
-          }]}
-          value={title}
-          onChangeText={setTitle}
-          onBlur={() => setTitleTouched(true)}
-          onFocus={() => scrollFieldIntoView('title')}
-          placeholder={t('CREATE_MATERIAL.FIELD_TITLE_PLACEHOLDER')}
-          placeholderTextColor={colors.textTertiary}
-          maxLength={120}
-        />
-        {titleInvalid && (
-          <Text style={styles.fieldError}>{t('CREATE_MATERIAL.FIELD_TITLE_ERROR')}</Text>
-        )}
-      </View>
-
-      {/* Description */}
-      <View style={styles.fieldWrap} onLayout={e => captureFieldLayout('desc', e)}>
-        <Text style={[styles.fieldLabel, { color: colors.text }]}>
-          {t('CREATE_MATERIAL.FIELD_DESCRIPTION')}
-        </Text>
-        <TextInput
-          style={[styles.fieldInput, styles.fieldTextarea, {
-            backgroundColor: inputBg,
-            borderColor: inputBorder,
-            color: colors.text,
-          }]}
-          value={description}
-          onChangeText={setDescription}
-          onFocus={() => scrollFieldIntoView('desc')}
-          placeholder={t('CREATE_MATERIAL.FIELD_DESCRIPTION_PLACEHOLDER')}
-          placeholderTextColor={colors.textTertiary}
-          multiline
-          numberOfLines={3}
-          textAlignVertical="top"
-        />
-      </View>
-
-      {/* Why Take This */}
-      <View style={styles.fieldWrap} onLayout={e => captureFieldLayout('why', e)}>
-        <Text style={[styles.fieldLabel, { color: colors.text }]}>
-          {t('CREATE_MATERIAL.FIELD_WHY_TAKE')}{' '}
-          <Text style={[styles.fieldHint, { color: colors.textTertiary }]}>
-            {t('CREATE_MATERIAL.FIELD_WHY_TAKE_HINT')}
-          </Text>
-        </Text>
-        <TextInput
-          style={[styles.fieldInput, styles.fieldTextarea, {
-            backgroundColor: inputBg,
-            borderColor: inputBorder,
-            color: colors.text,
-          }]}
-          value={whyTakeThis}
-          onChangeText={setWhyTakeThis}
-          onFocus={() => scrollFieldIntoView('why')}
-          placeholder={t('CREATE_MATERIAL.FIELD_WHY_TAKE_PLACEHOLDER')}
-          placeholderTextColor={colors.textTertiary}
-          multiline
-          numberOfLines={2}
-          textAlignVertical="top"
-          maxLength={300}
-        />
-        {whyTakeThis.length > 0 && (
-          <Text style={[styles.charCount, { color: colors.textTertiary }]}>{whyTakeThis.length}/300</Text>
-        )}
-      </View>
-
-      {/* Language */}
-      <View style={styles.fieldWrap}>
-        <Text style={[styles.fieldLabel, { color: colors.text }]}>
-          {t('CREATE_MATERIAL.FIELD_LANGUAGE')} <Text style={styles.requiredStar}>*</Text>
-        </Text>
-        <TouchableOpacity
-          style={[styles.fieldSelect, {
-            backgroundColor: inputBg,
-            borderColor: langInvalid ? errorBorder : inputBorder,
-          }]}
-          activeOpacity={0.7}
-          onPress={() => setShowLanguagePicker(!showLanguagePicker)}
-        >
-          <Text style={[styles.fieldSelectText, { color: language ? colors.text : colors.textTertiary }]}>
-            {language || t('CREATE_MATERIAL.FIELD_LANGUAGE_PLACEHOLDER')}
-          </Text>
-          <Ionicons name="chevron-down" size={18} color={colors.textTertiary} />
-        </TouchableOpacity>
-        {langInvalid && (
-          <Text style={styles.fieldError}>{t('CREATE_MATERIAL.FIELD_LANGUAGE_ERROR')}</Text>
-        )}
-        {showLanguagePicker && (
-          <View style={[styles.pickerList, { backgroundColor: colors.card, borderColor: inputBorder }]}>
-            <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled showsVerticalScrollIndicator={false}>
-              {LANGUAGES.map(lang => (
-                <TouchableOpacity
-                  key={lang}
-                  style={[styles.pickerItem, language === lang && { backgroundColor: isDark ? '#2c2c2e' : '#f5f5f7' }]}
-                  onPress={() => { setLanguage(lang); setShowLanguagePicker(false); setLanguageTouched(true); }}
-                >
-                  <Text style={[styles.pickerItemText, { color: colors.text }]}>{lang}</Text>
-                  {language === lang && <Ionicons name="checkmark" size={18} color={isDark ? '#fff' : '#222'} />}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-      </View>
-
-      {/* Level */}
-      <View style={styles.fieldWrap}>
-        <Text style={[styles.fieldLabel, { color: colors.text }]}>
-          {t('CREATE_MATERIAL.FIELD_LEVEL')}
-        </Text>
-        <TouchableOpacity
-          style={[styles.fieldSelect, { backgroundColor: inputBg, borderColor: inputBorder }]}
-          activeOpacity={0.7}
-          onPress={() => setShowLevelPicker(!showLevelPicker)}
-        >
-          <Text style={[styles.fieldSelectText, { color: colors.text }]}>
-            {levelLabel ? t(levelLabel) : t('CREATE_MATERIAL.LEVEL_ALL')}
-          </Text>
-          <Ionicons name="chevron-down" size={18} color={colors.textTertiary} />
-        </TouchableOpacity>
-        {showLevelPicker && (
-          <View style={[styles.pickerList, { backgroundColor: colors.card, borderColor: inputBorder }]}>
-            {LEVELS.map(lvl => (
-              <TouchableOpacity
-                key={lvl.value}
-                style={[styles.pickerItem, level === lvl.value && { backgroundColor: isDark ? '#2c2c2e' : '#f5f5f7' }]}
-                onPress={() => { setLevel(lvl.value); setShowLevelPicker(false); }}
-              >
-                <Text style={[styles.pickerItemText, { color: colors.text }]}>{t(lvl.labelKey)}</Text>
-                {level === lvl.value && <Ionicons name="checkmark" size={18} color={isDark ? '#fff' : '#222'} />}
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-      </View>
-
-      {/* Tags / Custom Topics */}
-      <View style={styles.fieldWrap} onLayout={e => captureFieldLayout('tags', e)}>
-        <Text style={[styles.fieldLabel, { color: colors.text }]}>
-          Tags{' '}
-          <Text style={[styles.fieldHint, { color: colors.textTertiary }]}>Help students discover this material</Text>
-        </Text>
-        <View style={styles.topicInputRow}>
-          <TextInput
-            style={[styles.fieldInput, { flex: 1, backgroundColor: inputBg, borderColor: inputBorder, color: colors.text }]}
-            value={topicInput}
-            onChangeText={setTopicInput}
-            onFocus={() => scrollFieldIntoView('tags')}
-            placeholder="Search tags..."
-            placeholderTextColor={colors.textTertiary}
-            onSubmitEditing={addTopic}
-            returnKeyType="done"
-          />
-        </View>
-        {topics.length > 0 && (
-          <View style={styles.topicChips}>
-            {topics.map((topic, i) => (
-              <View key={topic} style={[styles.topicChip, { backgroundColor: isDark ? '#2c2c2e' : '#f0f0f2' }]}>
-                <Text style={[styles.topicChipText, { color: colors.text }]}>{topic}</Text>
-                <TouchableOpacity onPress={() => removeTopic(i)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <Ionicons name="close" size={14} color={colors.textTertiary} />
+  switch (wizardStepId) {
+    case 'title':
+      return (
+        <View>
+          {header}
+          {showVideoPolicy && selectedType === 'video_quiz' && selectedPricing === 'paid' && (
+            <View style={[styles.policyNotice, { backgroundColor: isDark ? '#1c2333' : '#eef4ff', borderColor: isDark ? '#2a3a5c' : '#c7d8f5' }]}>
+              <Ionicons name="shield-checkmark-outline" size={24} color={isDark ? '#60a5fa' : '#3b82f6'} />
+              <View style={{ flex: 1, gap: 6 }}>
+                <Text style={[styles.policyTitle, { color: colors.text }]}>{t('CREATE_MATERIAL.POLICY_TITLE')}</Text>
+                <Text style={[styles.policyBody, { color: colors.textSecondary }]}>{t('CREATE_MATERIAL.POLICY_DESC_1')}</Text>
+                <Text style={[styles.policyBody, { color: colors.textSecondary }]}>{t('CREATE_MATERIAL.POLICY_DESC_2')}</Text>
+                <TouchableOpacity style={[styles.policyBtn, { backgroundColor: isDark ? '#2c2c2e' : '#fff' }]} onPress={dismissVideoPolicy} activeOpacity={0.7}>
+                  <Text style={[styles.policyBtnText, { color: colors.text }]}>{t('CREATE_MATERIAL.POLICY_GOT_IT')}</Text>
                 </TouchableOpacity>
               </View>
-            ))}
+            </View>
+          )}
+          <View style={styles.fieldWrap}>
+            <Text style={[styles.fieldLabel, { color: colors.text }]}>
+              {t('CREATE_MATERIAL.FIELD_TITLE')} <Text style={styles.requiredStar}>*</Text>
+            </Text>
+            <TextInput
+              style={[styles.fieldInput, {
+                backgroundColor: inputBg,
+                borderColor: titleInvalid ? errorBorder : inputBorder,
+                color: colors.text,
+              }]}
+              value={title}
+              onChangeText={setTitle}
+              onBlur={() => setTitleTouched(true)}
+              placeholder={t('CREATE_MATERIAL.FIELD_TITLE_PLACEHOLDER')}
+              placeholderTextColor={colors.textTertiary}
+              maxLength={120}
+            />
+            {titleInvalid && (
+              <Text style={styles.fieldError}>{t('CREATE_MATERIAL.FIELD_TITLE_ERROR')}</Text>
+            )}
           </View>
-        )}
-      </View>
-
-      {/* Cover Image */}
-      <View style={styles.fieldWrap}>
-        <Text style={[styles.fieldLabel, { color: colors.text }]}>
-          {t('CREATE_MATERIAL.FIELD_COVER_IMAGE')}{' '}
-          <Text style={[styles.fieldHint, { color: colors.textTertiary }]}>{t('CREATE_MATERIAL.FIELD_COVER_REQUIRED')}</Text>
-        </Text>
-        {thumbnailUri ? (
-          <View style={[styles.coverPreview, { borderColor: inputBorder }]}>
-            <Image source={{ uri: thumbnailUri }} style={styles.coverImage} />
-            <TouchableOpacity style={styles.coverRemove} onPress={removeCover} activeOpacity={0.7}>
-              <Ionicons name="close-circle" size={26} color="rgba(0,0,0,0.6)" />
+        </View>
+      );
+    case 'description':
+      return (
+        <View>
+          {header}
+          <View style={styles.fieldWrap}>
+            <Text style={[styles.fieldLabel, { color: colors.text }]}>{t('CREATE_MATERIAL.FIELD_DESCRIPTION')}</Text>
+            <TextInput
+              style={[styles.fieldInput, styles.fieldTextarea, {
+                backgroundColor: inputBg,
+                borderColor: inputBorder,
+                color: colors.text,
+              }]}
+              value={description}
+              onChangeText={setDescription}
+              placeholder={t('CREATE_MATERIAL.FIELD_DESCRIPTION_PLACEHOLDER')}
+              placeholderTextColor={colors.textTertiary}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+          </View>
+        </View>
+      );
+    case 'whyTake':
+      return (
+        <View>
+          {header}
+          <View style={styles.fieldWrap}>
+            <Text style={[styles.fieldLabel, { color: colors.text }]}>
+              {t('CREATE_MATERIAL.FIELD_WHY_TAKE')}{' '}
+              <Text style={[styles.fieldHint, { color: colors.textTertiary }]}>
+                {t('CREATE_MATERIAL.FIELD_WHY_TAKE_HINT')}
+              </Text>
+            </Text>
+            <TextInput
+              style={[styles.fieldInput, styles.fieldTextarea, {
+                backgroundColor: inputBg,
+                borderColor: inputBorder,
+                color: colors.text,
+              }]}
+              value={whyTakeThis}
+              onChangeText={setWhyTakeThis}
+              placeholder={t('CREATE_MATERIAL.FIELD_WHY_TAKE_PLACEHOLDER')}
+              placeholderTextColor={colors.textTertiary}
+              multiline
+              numberOfLines={2}
+              textAlignVertical="top"
+              maxLength={100}
+            />
+            {whyTakeThis.length > 0 && (
+              <Text style={[styles.charCount, { color: colors.textTertiary }]}>{whyTakeThis.length}/100</Text>
+            )}
+          </View>
+        </View>
+      );
+    case 'languageLevel':
+      return (
+        <View>
+          {header}
+          <View style={styles.fieldWrap}>
+            <Text style={[styles.fieldLabel, { color: colors.text }]}>
+              {t('CREATE_MATERIAL.FIELD_LANGUAGE')} <Text style={styles.requiredStar}>*</Text>
+            </Text>
+            <TouchableOpacity
+              style={[styles.fieldSelect, {
+                backgroundColor: inputBg,
+                borderColor: langInvalid ? errorBorder : inputBorder,
+              }]}
+              activeOpacity={0.7}
+              onPress={() => setShowLanguagePicker(!showLanguagePicker)}
+            >
+              <Text style={[styles.fieldSelectText, { color: language ? colors.text : colors.textTertiary }]}>
+                {language || t('CREATE_MATERIAL.FIELD_LANGUAGE_PLACEHOLDER')}
+              </Text>
+              <Ionicons name="chevron-down" size={18} color={colors.textTertiary} />
             </TouchableOpacity>
+            {langInvalid && (
+              <Text style={styles.fieldError}>{t('CREATE_MATERIAL.FIELD_LANGUAGE_ERROR')}</Text>
+            )}
+            {showLanguagePicker && (
+              <View style={[styles.pickerList, { backgroundColor: colors.card, borderColor: inputBorder }]}>
+                <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                  {LANGUAGES.map(lang => (
+                    <TouchableOpacity
+                      key={lang}
+                      style={[styles.pickerItem, language === lang && { backgroundColor: isDark ? '#2c2c2e' : '#f5f5f7' }]}
+                      onPress={() => { setLanguage(lang); setShowLanguagePicker(false); setLanguageTouched(true); }}
+                    >
+                      <Text style={[styles.pickerItemText, { color: colors.text }]}>{lang}</Text>
+                      {language === lang && <Ionicons name="checkmark" size={18} color={isDark ? '#fff' : '#222'} />}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
           </View>
-        ) : (
-          <TouchableOpacity
-            style={[styles.coverPicker, { backgroundColor: isDark ? '#1c1c1e' : '#fafafa', borderColor: inputBorder }]}
-            onPress={pickCoverImage}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="image-outline" size={32} color={colors.textTertiary} />
-            <Text style={[styles.coverPickerLabel, { color: colors.text }]}>{t('CREATE_MATERIAL.FIELD_COVER_ADD')}</Text>
-            <Text style={[styles.coverPickerHint, { color: colors.textTertiary }]}>{t('CREATE_MATERIAL.FIELD_COVER_HINT')}</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Pro Tip (video / listening only) */}
-      {(selectedType === 'video_quiz' || selectedType === 'listening') && (
-        <View style={[styles.proTip, { backgroundColor: isDark ? '#1c1c2e' : '#f0f0ff', borderColor: isDark ? '#2a2a4c' : '#ddddf5' }]}>
-          <View style={styles.proTipIcon}>
-            <Text style={{ fontSize: 22 }}>🐦</Text>
+          <View style={styles.fieldWrap}>
+            <Text style={[styles.fieldLabel, { color: colors.text }]}>{t('CREATE_MATERIAL.FIELD_LEVEL')}</Text>
+            <TouchableOpacity
+              style={[styles.fieldSelect, { backgroundColor: inputBg, borderColor: inputBorder }]}
+              activeOpacity={0.7}
+              onPress={() => setShowLevelPicker(!showLevelPicker)}
+            >
+              <Text style={[styles.fieldSelectText, { color: colors.text }]}>
+                {levelLabel ? t(levelLabel) : t('CREATE_MATERIAL.LEVEL_ALL')}
+              </Text>
+              <Ionicons name="chevron-down" size={18} color={colors.textTertiary} />
+            </TouchableOpacity>
+            {showLevelPicker && (
+              <View style={[styles.pickerList, { backgroundColor: colors.card, borderColor: inputBorder }]}>
+                {LEVELS.map(lvl => (
+                  <TouchableOpacity
+                    key={lvl.value}
+                    style={[styles.pickerItem, level === lvl.value && { backgroundColor: isDark ? '#2c2c2e' : '#f5f5f7' }]}
+                    onPress={() => { setLevel(lvl.value); setShowLevelPicker(false); }}
+                  >
+                    <Text style={[styles.pickerItemText, { color: colors.text }]}>{t(lvl.labelKey)}</Text>
+                    {level === lvl.value && <Ionicons name="checkmark" size={18} color={isDark ? '#fff' : '#222'} />}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </View>
-          <Text style={[styles.proTipText, { color: colors.textSecondary }]}>
-            <Text style={{ fontWeight: '700', color: colors.text }}>{t('CREATE_MATERIAL.PRO_TIP')} </Text>
-            {selectedType === 'video_quiz' ? t('CREATE_MATERIAL.PRO_TIP_VIDEO') : t('CREATE_MATERIAL.PRO_TIP_AUDIO')}
-          </Text>
         </View>
-      )}
-
-      {/* Type-specific: Video URL */}
-      {selectedType === 'video_quiz' && (
-        <View style={styles.fieldWrap} onLayout={e => captureFieldLayout('video', e)}>
-          <Text style={[styles.fieldLabel, { color: colors.text }]}>
-            {t('CREATE_MATERIAL.FIELD_VIDEO_URL')} <Text style={styles.requiredStar}>*</Text>
-          </Text>
-          <TextInput
-            style={[styles.fieldInput, { backgroundColor: inputBg, borderColor: inputBorder, color: colors.text }]}
-            value={videoUrl}
-            onChangeText={setVideoUrl}
-            onFocus={() => scrollFieldIntoView('video')}
-            placeholder={t('CREATE_MATERIAL.FIELD_VIDEO_URL_PLACEHOLDER')}
-            placeholderTextColor={colors.textTertiary}
-            keyboardType="url"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+      );
+    case 'tags':
+      return (
+        <View>
+          {header}
+          <View style={styles.fieldWrap}>
+            <View style={styles.topicInputRow}>
+              <TextInput
+                style={[styles.fieldInput, { flex: 1, backgroundColor: inputBg, borderColor: inputBorder, color: colors.text }]}
+                value={structuredTagInput}
+                onChangeText={setStructuredTagInput}
+                placeholder={t('CREATE_MATERIAL.DETAILS_WIZ_TAGS_PLACEHOLDER')}
+                placeholderTextColor={colors.textTertiary}
+                onSubmitEditing={addStructuredTag}
+                returnKeyType="done"
+              />
+              <TouchableOpacity
+                style={[styles.wizardChipAddBtn, { backgroundColor: isDark ? '#2c2c2e' : '#f0f0f2' }]}
+                onPress={addStructuredTag}
+                activeOpacity={0.7}
+              >
+                <Text style={{ color: colors.text, fontWeight: '600', fontSize: 14 }}>{t('CREATE_MATERIAL.DETAILS_WIZ_ADD_TAG')}</Text>
+              </TouchableOpacity>
+            </View>
+            {structuredTags.length > 0 && (
+              <View style={styles.topicChips}>
+                {structuredTags.map((tag, i) => (
+                  <View key={`${tag}-${i}`} style={[styles.topicChip, { backgroundColor: isDark ? '#2c2c2e' : '#f0f0f2' }]}>
+                    <Text style={[styles.topicChipText, { color: colors.text }]}>{tag}</Text>
+                    <TouchableOpacity onPress={() => removeStructuredTag(i)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Ionicons name="close" size={14} color={colors.textTertiary} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
         </View>
-      )}
-
-      {/* Type-specific: Reading Passage */}
-      {selectedType === 'reading' && (
-        <View style={styles.fieldWrap} onLayout={e => captureFieldLayout('passage', e)}>
-          <Text style={[styles.fieldLabel, { color: colors.text }]}>
-            {t('CREATE_MATERIAL.FIELD_READING_PASSAGE')} <Text style={styles.requiredStar}>*</Text>
-          </Text>
-          <TextInput
-            style={[styles.fieldInput, styles.fieldPassage, { backgroundColor: inputBg, borderColor: inputBorder, color: colors.text }]}
-            value={passage}
-            onChangeText={setPassage}
-            onFocus={() => scrollFieldIntoView('passage')}
-            placeholder={t('CREATE_MATERIAL.FIELD_READING_PLACEHOLDER')}
-            placeholderTextColor={colors.textTertiary}
-            multiline
-            numberOfLines={8}
-            textAlignVertical="top"
-          />
+      );
+    case 'customTopics':
+      return (
+        <View>
+          {header}
+          <View style={styles.fieldWrap}>
+            <View style={styles.topicInputRow}>
+              <TextInput
+                style={[styles.fieldInput, { flex: 1, backgroundColor: inputBg, borderColor: inputBorder, color: colors.text }]}
+                value={topicInput}
+                onChangeText={setTopicInput}
+                placeholder={t('CREATE_MATERIAL.DETAILS_WIZ_TOPICS_PLACEHOLDER')}
+                placeholderTextColor={colors.textTertiary}
+                onSubmitEditing={addTopic}
+                returnKeyType="done"
+              />
+            </View>
+            {topics.length > 0 && (
+              <View style={styles.topicChips}>
+                {topics.map((topic, i) => (
+                  <View key={topic} style={[styles.topicChip, { backgroundColor: isDark ? '#2c2c2e' : '#f0f0f2' }]}>
+                    <Text style={[styles.topicChipText, { color: colors.text }]}>{topic}</Text>
+                    <TouchableOpacity onPress={() => removeTopic(i)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Ionicons name="close" size={14} color={colors.textTertiary} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
         </View>
-      )}
-
-      {/* Type-specific: Audio URL */}
-      {selectedType === 'listening' && (
-        <View style={styles.fieldWrap} onLayout={e => captureFieldLayout('audio', e)}>
-          <Text style={[styles.fieldLabel, { color: colors.text }]}>
-            {t('CREATE_MATERIAL.FIELD_AUDIO_URL')} <Text style={styles.requiredStar}>*</Text>
-          </Text>
-          <TextInput
-            style={[styles.fieldInput, { backgroundColor: inputBg, borderColor: inputBorder, color: colors.text }]}
-            value={audioUrl}
-            onChangeText={setAudioUrl}
-            onFocus={() => scrollFieldIntoView('audio')}
-            placeholder={t('CREATE_MATERIAL.FIELD_AUDIO_URL_PLACEHOLDER')}
-            placeholderTextColor={colors.textTertiary}
-            keyboardType="url"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+      );
+    case 'thumbnail':
+      return (
+        <View>
+          {header}
+          <View style={styles.fieldWrap}>
+            <Text style={[styles.fieldLabel, { color: colors.text }]}>
+              {t('CREATE_MATERIAL.FIELD_COVER_IMAGE')}{' '}
+              <Text style={[styles.fieldHint, { color: colors.textTertiary }]}>{t('CREATE_MATERIAL.FIELD_COVER_REQUIRED')}</Text>
+            </Text>
+            {thumbnailUri ? (
+              <View style={[styles.coverPreview, { borderColor: inputBorder }]}>
+                <Image source={{ uri: thumbnailUri }} style={styles.coverImage} />
+                <TouchableOpacity style={styles.coverRemove} onPress={removeCover} activeOpacity={0.7}>
+                  <Ionicons name="close-circle" size={26} color="rgba(0,0,0,0.6)" />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={[styles.coverPicker, { backgroundColor: isDark ? '#1c1c1e' : '#fafafa', borderColor: inputBorder }]}
+                onPress={pickCoverImage}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="image-outline" size={32} color={colors.textTertiary} />
+                <Text style={[styles.coverPickerLabel, { color: colors.text }]}>{t('CREATE_MATERIAL.FIELD_COVER_ADD')}</Text>
+                <Text style={[styles.coverPickerHint, { color: colors.textTertiary }]}>{t('CREATE_MATERIAL.FIELD_COVER_HINT')}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
-      )}
-
-      {/* Price (paid only) */}
-      {selectedPricing === 'paid' && (
-        <View style={styles.fieldWrap} onLayout={e => captureFieldLayout('price', e)}>
-          <Text style={[styles.fieldLabel, { color: colors.text }]}>
-            {t('CREATE_MATERIAL.FIELD_PRICE_LABEL')}
-          </Text>
-          <View style={styles.priceDisplay}>
-            <Text style={[styles.priceValue, { color: colors.text }]}>${price}</Text>
-            <Text style={[styles.pricePerQuiz, { color: colors.textTertiary }]}>
-              {t('CREATE_MATERIAL.FIELD_PRICE_PER_QUIZ')}
+      );
+    case 'videoUrl':
+      return (
+        <View>
+          {header}
+          <View style={[styles.proTip, { backgroundColor: isDark ? '#1c1c2e' : '#f0f0ff', borderColor: isDark ? '#2a2a4c' : '#ddddf5' }]}>
+            <View style={styles.proTipIcon}>
+              <Text style={{ fontSize: 22 }}>🐦</Text>
+            </View>
+            <Text style={[styles.proTipText, { color: colors.textSecondary }]}>
+              <Text style={{ fontWeight: '700', color: colors.text }}>{t('CREATE_MATERIAL.PRO_TIP')} </Text>
+              {t('CREATE_MATERIAL.PRO_TIP_VIDEO')}
             </Text>
           </View>
-          <Slider
-            style={styles.priceSlider}
-            minimumValue={1}
-            maximumValue={50}
-            step={1}
-            value={price}
-            onValueChange={(v) => setPrice(Math.round(v))}
-            minimumTrackTintColor={isDark ? '#fff' : '#222'}
-            maximumTrackTintColor={isDark ? '#3a3a3c' : '#e5e5ea'}
-            thumbTintColor={isDark ? '#fff' : '#222'}
-          />
-          <View style={styles.priceRange}>
-            <Text style={[styles.priceRangeLabel, { color: colors.textTertiary }]}>$1</Text>
-            <Text style={[styles.priceRangeLabel, { color: colors.textTertiary }]}>$50</Text>
+          <View style={styles.fieldWrap}>
+            <Text style={[styles.fieldLabel, { color: colors.text }]}>
+              {t('CREATE_MATERIAL.FIELD_VIDEO_URL')} <Text style={styles.requiredStar}>*</Text>
+            </Text>
+            <TextInput
+              style={[styles.fieldInput, { backgroundColor: inputBg, borderColor: inputBorder, color: colors.text }]}
+              value={videoUrl}
+              onChangeText={setVideoUrl}
+              placeholder={t('CREATE_MATERIAL.FIELD_VIDEO_URL_PLACEHOLDER')}
+              placeholderTextColor={colors.textTertiary}
+              keyboardType="url"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
           </View>
-          <Text style={[styles.priceHint, { color: colors.textTertiary }]}>
-            {t('CREATE_MATERIAL.FIELD_PRICE_HINT')}
-          </Text>
         </View>
-      )}
-
-    </View>
-  );
+      );
+    case 'readingPassage':
+      return (
+        <View>
+          {header}
+          <View style={styles.fieldWrap}>
+            <Text style={[styles.fieldLabel, { color: colors.text }]}>
+              {t('CREATE_MATERIAL.FIELD_READING_PASSAGE')} <Text style={styles.requiredStar}>*</Text>
+            </Text>
+            <TextInput
+              style={[styles.fieldInput, styles.fieldPassage, { backgroundColor: inputBg, borderColor: inputBorder, color: colors.text }]}
+              value={passage}
+              onChangeText={setPassage}
+              placeholder={t('CREATE_MATERIAL.FIELD_READING_PLACEHOLDER')}
+              placeholderTextColor={colors.textTertiary}
+              multiline
+              numberOfLines={8}
+              textAlignVertical="top"
+            />
+          </View>
+        </View>
+      );
+    case 'listeningAudio':
+      return (
+        <View>
+          {header}
+          <View style={[styles.proTip, { backgroundColor: isDark ? '#1c1c2e' : '#f0f0ff', borderColor: isDark ? '#2a2a4c' : '#ddddf5' }]}>
+            <View style={styles.proTipIcon}>
+              <Text style={{ fontSize: 22 }}>🐦</Text>
+            </View>
+            <Text style={[styles.proTipText, { color: colors.textSecondary }]}>
+              <Text style={{ fontWeight: '700', color: colors.text }}>{t('CREATE_MATERIAL.PRO_TIP')} </Text>
+              {t('CREATE_MATERIAL.PRO_TIP_AUDIO')}
+            </Text>
+          </View>
+          <View style={styles.fieldWrap}>
+            <Text style={[styles.fieldLabel, { color: colors.text }]}>
+              {t('CREATE_MATERIAL.FIELD_AUDIO_URL')} <Text style={styles.requiredStar}>*</Text>
+            </Text>
+            <TextInput
+              style={[styles.fieldInput, { backgroundColor: inputBg, borderColor: inputBorder, color: colors.text }]}
+              value={audioUrl}
+              onChangeText={setAudioUrl}
+              placeholder={t('CREATE_MATERIAL.FIELD_AUDIO_URL_PLACEHOLDER')}
+              placeholderTextColor={colors.textTertiary}
+              keyboardType="url"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+        </View>
+      );
+    case 'price':
+      return (
+        <View>
+          {header}
+          <View style={styles.fieldWrap}>
+            <Text style={[styles.fieldLabel, { color: colors.text }]}>{t('CREATE_MATERIAL.FIELD_PRICE_LABEL')}</Text>
+            <View style={styles.priceDisplay}>
+              <Text style={[styles.priceValue, { color: colors.text }]}>${price}</Text>
+              <Text style={[styles.pricePerQuiz, { color: colors.textTertiary }]}>
+                {t('CREATE_MATERIAL.FIELD_PRICE_PER_QUIZ')}
+              </Text>
+            </View>
+            <Slider
+              style={styles.priceSlider}
+              minimumValue={1}
+              maximumValue={50}
+              step={1}
+              value={price}
+              onValueChange={(v) => setPrice(Math.round(v))}
+              minimumTrackTintColor={isDark ? '#fff' : '#222'}
+              maximumTrackTintColor={isDark ? '#3a3a3c' : '#e5e5ea'}
+              thumbTintColor={isDark ? '#fff' : '#222'}
+            />
+            <View style={styles.priceRange}>
+              <Text style={[styles.priceRangeLabel, { color: colors.textTertiary }]}>$1</Text>
+              <Text style={[styles.priceRangeLabel, { color: colors.textTertiary }]}>$50</Text>
+            </View>
+            <Text style={[styles.priceHint, { color: colors.textTertiary }]}>
+              {t('CREATE_MATERIAL.FIELD_PRICE_HINT')}
+            </Text>
+          </View>
+        </View>
+      );
+    default:
+      return <View />;
+  }
 }
 
 /* ═══════════ Ordering (sortable) ═══════════ */
@@ -1357,7 +1844,7 @@ function OrderingSection({ qi, correctOrder, updateQuestion, scrollRef, isDark, 
   }, [qi, correctOrder, updateQuestion]);
 
   return (
-    <View style={{ gap: 8, marginTop: 12 }}>
+    <View style={{ gap: 8, marginTop: 22 }}>
       <Text style={[styles.qSectionLabel, { color: colors.text }]}>{t('CREATE_MATERIAL.QUIZ_ITEMS_CORRECT_ORDER')}</Text>
       <Text style={[styles.qSectionHint, { color: colors.textTertiary }]}>{t('CREATE_MATERIAL.QUIZ_ITEMS_HINT')}</Text>
       <Sortable.Flex
@@ -1504,7 +1991,7 @@ function StepQuiz({ quiz, addQuestion, removeQuestion, updateQuestion, scrollRef
 
           {/* Multiple Choice */}
           {q.type === 'multiple_choice' && q.options && (
-            <View style={{ gap: 8, marginTop: 12 }}>
+            <View style={{ gap: 8, marginTop: 22 }}>
               {q.options.map((opt, oi) => (
                 <View key={oi} style={styles.mcOptionRow}>
                   <TouchableOpacity
@@ -1554,7 +2041,7 @@ function StepQuiz({ quiz, addQuestion, removeQuestion, updateQuestion, scrollRef
 
           {/* Fill in the Blank */}
           {q.type === 'fill_blank' && q.acceptedAnswers && (
-            <View style={{ gap: 8, marginTop: 12 }}>
+            <View style={{ gap: 8, marginTop: 22 }}>
               <Text style={[styles.qSectionLabel, { color: colors.text }]}>{t('CREATE_MATERIAL.QUIZ_ACCEPTED_ANSWERS')}</Text>
               <Text style={[styles.qSectionHint, { color: colors.textTertiary }]}>{t('CREATE_MATERIAL.QUIZ_ACCEPTED_HINT')}</Text>
               {q.acceptedAnswers.map((ans, ai) => (
@@ -1594,7 +2081,7 @@ function StepQuiz({ quiz, addQuestion, removeQuestion, updateQuestion, scrollRef
 
           {/* True / False */}
           {q.type === 'true_false' && (
-            <View style={{ gap: 8, marginTop: 12 }}>
+            <View style={{ gap: 8, marginTop: 22 }}>
               <Text style={[styles.qSectionLabel, { color: colors.text }]}>{t('CREATE_MATERIAL.QUIZ_CORRECT_ANSWER')}</Text>
               <View style={styles.tfRow}>
                 <TouchableOpacity
@@ -1633,7 +2120,7 @@ function StepQuiz({ quiz, addQuestion, removeQuestion, updateQuestion, scrollRef
           )}
 
           {/* Explanation */}
-          <View style={{ marginTop: 12 }}>
+          <View style={{ marginTop: 22, gap: 8 }}>
             <Text style={[styles.qSectionLabel, { color: colors.text }]}>{t('CREATE_MATERIAL.QUIZ_EXPLANATION')}</Text>
             <TextInput
               style={[styles.fieldInput, styles.fieldTextarea, { backgroundColor: inputBg, borderColor: inputBorder, color: colors.text, minHeight: 60 }]}
@@ -1819,12 +2306,51 @@ function StepPreview({ selectedType, selectedPricing, title, description, whyTak
   );
 }
 
+/**
+ * Vertical offset from scroll content top → “How would you like to share this?” (chip + gap).
+ * Type & pricing have no progress bar above the scroll; details/quiz/preview do — see below.
+ */
+const PRICING_CHIP_MARGIN_TOP = 6;
+/** Space between type chip and “How would you like to share this?” */
+const PRICING_CHIP_TO_TITLE_GAP = 30;
+/** Approx. chip row height (padding + text line) */
+const PRICING_CHIP_ROW_HEIGHT = 36;
+const PRICING_SHARE_WRAP_PADDING_TOP = 4;
+/** Distance from scroll top to share title (matches StepPricing layout) */
+const PRICING_TITLE_OFFSET_FROM_SCROLL_TOP =
+  PRICING_SHARE_WRAP_PADDING_TOP +
+  PRICING_CHIP_MARGIN_TOP +
+  PRICING_CHIP_ROW_HEIGHT +
+  PRICING_CHIP_TO_TITLE_GAP;
+/** progressSection: marginTop + track + marginBottom — must stay in sync with styles.progressSection */
+const MATERIAL_PROGRESS_ABOVE_SCROLL_HEIGHT = 14 + 3 + 28;
+/**
+ * Details / quiz / preview: progress bar sits above ScrollView, so pull content up by that amount
+ * so the main title matches the share screen Y position.
+ */
+const HEAD_STEP_MARGIN_BELOW_PROGRESS =
+  PRICING_TITLE_OFFSET_FROM_SCROLL_TOP - MATERIAL_PROGRESS_ABOVE_SCROLL_HEIGHT;
+/** Type step: no progress bar above scroll — align with share title offset */
+const HEAD_STEP_MARGIN_NO_PROGRESS = PRICING_TITLE_OFFSET_FROM_SCROLL_TOP;
+
 /* ═══════════ Styles ═══════════ */
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 20, paddingBottom: 40 },
+  detailsStepMaxWidth: {
+    width: '100%' as const,
+    maxWidth: 440,
+    alignSelf: 'center' as const,
+  },
+  pricingShareWrap: { marginTop: 0, paddingTop: PRICING_SHARE_WRAP_PADDING_TOP },
+  headAlignedStep: {
+    marginTop: HEAD_STEP_MARGIN_NO_PROGRESS,
+  },
+  headAlignedStepBelowProgress: {
+    marginTop: HEAD_STEP_MARGIN_BELOW_PROGRESS,
+  },
 
   /* Nav Bar */
   navBar: {
@@ -1834,13 +2360,15 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  navBack: { flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 },
-  navBackLabel: { fontSize: 15, fontWeight: '500' },
-  navCenter: { flex: 2, alignItems: 'center' },
-  navTitle: { fontSize: 16, fontWeight: '700' },
-  navRight: { flex: 1, alignItems: 'flex-end' },
-  navStep: { fontSize: 13, fontWeight: '600' },
+  navBack: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1, minWidth: 0 },
+  navBackLabel: { fontSize: 15, fontWeight: '500', flexShrink: 1 },
+  navBarSpacer: { flex: 1, minWidth: 8 },
+  navStepCount: { fontSize: 13, fontWeight: '600', fontVariant: ['tabular-nums'] },
 
+  progressSection: {
+    marginTop: 14,
+    marginBottom: 28,
+  },
   /* Progress Bar */
   progressTrack: { height: 3, width: '100%' },
   progressFill: { height: '100%', borderRadius: 1.5 },
@@ -1851,10 +2379,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -0.4,
     textAlign: 'center',
-    marginTop: 32,
-    marginBottom: 28,
+    marginTop: 0,
+    marginBottom: 40,
   },
-
   /* Step 1: Type Cards */
   typeCards: { gap: 12 },
   typeCard: {
@@ -1890,10 +2417,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
-    marginTop: 20,
   },
   selectedChipText: { fontSize: 13, fontWeight: '600' },
 
+  pricingShareSubline: {
+    marginBottom: 20,
+  },
+  shareTip: {
+    flexDirection: 'row',
+    gap: 12,
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 20,
+    alignItems: 'flex-start',
+  },
+  shareTipBody: { flex: 1 },
+  shareTipTitle: { fontSize: 15, fontWeight: '700', marginBottom: 4 },
+  shareTipDesc: { fontSize: 13, lineHeight: 18 },
+  pricingCheck: { marginTop: 8 },
   pricingCards: { flexDirection: 'row', gap: 12 },
   pricingCard: {
     flex: 1,
@@ -1941,16 +2483,22 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '800',
     letterSpacing: -0.4,
-    marginTop: 24,
-    marginBottom: 4,
+    textAlign: 'center' as const,
+    marginTop: 0,
+    marginBottom: 10,
   },
   detailsSubheading: {
     fontSize: 14,
     lineHeight: 20,
-    marginBottom: 24,
+    textAlign: 'center' as const,
+    marginBottom: 72,
   },
-  fieldWrap: { marginBottom: 20 },
-  fieldLabel: { fontSize: 14, fontWeight: '600', marginBottom: 8 },
+  fieldWrap: {
+    marginBottom: 28,
+    flexDirection: 'column' as const,
+    gap: 10,
+  },
+  fieldLabel: { fontSize: 14, fontWeight: '600' },
   requiredStar: { color: '#ef4444', fontWeight: '600' },
   fieldHint: { fontSize: 12, fontWeight: '400' },
   fieldInput: {
@@ -2015,6 +2563,32 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
+  footerWizardRow: { flexDirection: 'row', gap: 10, alignItems: 'stretch' },
+  wizardBackBtn: {
+    flex: 1,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingVertical: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  wizardBackBtnText: { fontSize: 15, fontWeight: '600' },
+  wizardNextBtn: {
+    flex: 1.25,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 14,
+    paddingVertical: 15,
+  },
+  wizardNextBtnText: { fontSize: 16, fontWeight: '700' },
+  wizardChipAddBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    justifyContent: 'center',
+  },
   continueBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2069,7 +2643,7 @@ const styles = StyleSheet.create({
   },
   quizInstRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   quizInstText: { flex: 1, fontSize: 13, lineHeight: 18 },
-  addQLabel: { fontSize: 15, fontWeight: '600', marginBottom: 12 },
+  addQLabel: { fontSize: 15, fontWeight: '600', marginBottom: 14 },
   qTypeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
   qTypeBtn: {
     flexBasis: '47%', flexGrow: 1, alignItems: 'center', padding: 16,
@@ -2096,8 +2670,8 @@ const styles = StyleSheet.create({
   mcRadioActive: { backgroundColor: '#10b981', borderColor: '#10b981' },
   addOptionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6 },
   addOptionText: { fontSize: 13, fontWeight: '500' },
-  qSectionLabel: { fontSize: 14, fontWeight: '600', marginBottom: 4 },
-  qSectionHint: { fontSize: 12, marginBottom: 4 },
+  qSectionLabel: { fontSize: 14, fontWeight: '600' },
+  qSectionHint: { fontSize: 12 },
   tfRow: { flexDirection: 'row', gap: 10 },
   tfBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
@@ -2127,7 +2701,7 @@ const styles = StyleSheet.create({
   previewMetaBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
   previewMetaText: { fontSize: 13, fontWeight: '600' },
   previewPassage: { padding: 16, borderTopWidth: StyleSheet.hairlineWidth },
-  previewPassageHeading: { fontSize: 16, fontWeight: '700', marginBottom: 8 },
+  previewPassageHeading: { fontSize: 16, fontWeight: '700', marginBottom: 10 },
   previewPassageText: { fontSize: 14, lineHeight: 22 },
   previewQuizSection: { padding: 16, borderTopWidth: StyleSheet.hairlineWidth },
   previewQuizHeading: { fontSize: 16, fontWeight: '700', marginBottom: 12 },
@@ -2140,7 +2714,7 @@ const styles = StyleSheet.create({
   pqOptionRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 2 },
   pqLetter: { fontSize: 13, fontWeight: '700', width: 16 },
   pqOptionText: { fontSize: 13, flex: 1 },
-  pqAnswerLabel: { fontSize: 12, fontWeight: '600', marginBottom: 4 },
+  pqAnswerLabel: { fontSize: 12, fontWeight: '600', marginBottom: 6 },
   pqChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   pqChip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   pqChipText: { fontSize: 13, fontWeight: '500' },

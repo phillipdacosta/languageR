@@ -228,8 +228,12 @@ router.post('/', verifyToken, async (req, res) => {
       pricingType, price, quiz, status, contentAttested
     } = req.body;
 
-    if (!title || !language) {
-      return res.status(400).json({ success: false, message: 'Title and language are required' });
+    const isDraft = status === 'draft';
+
+    if (!isDraft) {
+      if (!title || !language) {
+        return res.status(400).json({ success: false, message: 'Title and language are required' });
+      }
     }
 
     const type = materialType || 'video_quiz';
@@ -237,65 +241,103 @@ router.post('/', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid material type' });
     }
 
-    if (pricingType === 'paid' && (!price || price <= 0)) {
+    if (!isDraft && pricingType === 'paid' && (!price || price <= 0)) {
       return res.status(400).json({ success: false, message: 'Paid materials must have a price greater than 0' });
     }
 
-    const quizError = validateQuiz(quiz);
-    if (quizError) {
-      return res.status(400).json({ success: false, message: quizError });
+    if (!isDraft) {
+      const quizError = validateQuiz(quiz);
+      if (quizError) {
+        return res.status(400).json({ success: false, message: quizError });
+      }
     }
+
+    const effectiveTitle = (title && String(title).trim()) || (isDraft ? 'Untitled draft' : '');
+    const effectiveLanguage = (language && String(language).trim()) || (isDraft ? 'English' : '');
+
+    if (!isDraft && (!effectiveTitle || !effectiveLanguage)) {
+      return res.status(400).json({ success: false, message: 'Title and language are required' });
+    }
+
+    const paidPrice = pricingType === 'paid'
+      ? (isDraft ? Math.max(0, Number(price) || 0) : price)
+      : 0;
 
     const doc = {
       tutorId: tutor._id,
-      title,
+      title: effectiveTitle,
       description: description || '',
       whyTakeThis: whyTakeThis || '',
-      language,
+      language: effectiveLanguage,
       level: level || 'any',
       topics: Array.isArray(topics) ? topics.map(t => t.trim().toLowerCase()).filter(Boolean) : [],
       structuredTags: Array.isArray(structuredTags) ? structuredTags.map(t => t.trim().toLowerCase()).filter(Boolean) : [],
       materialType: type,
       pricingType: pricingType || 'free',
-      price: pricingType === 'paid' ? price : 0,
-      quiz: quiz || [],
-      status: status || 'published'
+      price: paidPrice,
+      quiz: Array.isArray(quiz) ? quiz : [],
+      status: isDraft ? 'draft' : (status || 'published')
     };
 
     // Type-specific validation & fields
     if (type === 'video_quiz') {
-      if (!videoUrl) {
-        return res.status(400).json({ success: false, message: 'Video URL is required for video quiz materials' });
+      if (!isDraft) {
+        if (!videoUrl) {
+          return res.status(400).json({ success: false, message: 'Video URL is required for video quiz materials' });
+        }
+        const videoInfo = extractVideoInfo(videoUrl);
+        if (!videoInfo) {
+          return res.status(400).json({ success: false, message: 'Invalid YouTube or Vimeo URL' });
+        }
+        doc.videoUrl = videoUrl;
+        doc.videoProvider = videoInfo.provider;
+        doc.videoEmbedUrl = videoInfo.embedUrl;
+        doc.thumbnailUrl = videoInfo.thumbnailUrl;
+      } else if (videoUrl && String(videoUrl).trim()) {
+        const videoInfo = extractVideoInfo(videoUrl);
+        if (!videoInfo) {
+          return res.status(400).json({ success: false, message: 'Invalid YouTube or Vimeo URL' });
+        }
+        doc.videoUrl = videoUrl;
+        doc.videoProvider = videoInfo.provider;
+        doc.videoEmbedUrl = videoInfo.embedUrl;
+        if (!customThumbnail) doc.thumbnailUrl = videoInfo.thumbnailUrl;
       }
-      const videoInfo = extractVideoInfo(videoUrl);
-      if (!videoInfo) {
-        return res.status(400).json({ success: false, message: 'Invalid YouTube or Vimeo URL' });
-      }
-      doc.videoUrl = videoUrl;
-      doc.videoProvider = videoInfo.provider;
-      doc.videoEmbedUrl = videoInfo.embedUrl;
-      doc.thumbnailUrl = videoInfo.thumbnailUrl;
     }
 
     if (type === 'reading') {
-      const strippedPassage = (passage || '').replace(/<[^>]*>/g, '').trim();
-      if (!strippedPassage) {
-        return res.status(400).json({ success: false, message: 'A reading passage is required' });
+      if (!isDraft) {
+        const strippedPassage = (passage || '').replace(/<[^>]*>/g, '').trim();
+        if (!strippedPassage) {
+          return res.status(400).json({ success: false, message: 'A reading passage is required' });
+        }
+        doc.passage = passage;
+      } else {
+        doc.passage = passage || '';
       }
-      doc.passage = passage;
     }
 
     if (type === 'listening') {
-      if (!audioUrl) {
-        return res.status(400).json({ success: false, message: 'An audio URL is required for listening exercises' });
+      if (!isDraft) {
+        if (!audioUrl) {
+          return res.status(400).json({ success: false, message: 'An audio URL is required for listening exercises' });
+        }
+        const audioInfo = extractAudioInfo(audioUrl);
+        if (!audioInfo) {
+          return res.status(400).json({ success: false, message: 'Invalid audio URL. Supported: SoundCloud, Spotify, or direct audio files (.mp3, .wav, etc.). For YouTube/Vimeo, use Video Quiz instead.' });
+        }
+        doc.audioUrl = audioUrl;
+        doc.audioProvider = audioInfo.provider;
+        doc.audioEmbedUrl = audioInfo.embedUrl;
+      } else if (audioUrl && String(audioUrl).trim()) {
+        const audioInfo = extractAudioInfo(audioUrl);
+        if (!audioInfo) {
+          return res.status(400).json({ success: false, message: 'Invalid audio URL. Supported: SoundCloud, Spotify, or direct audio files (.mp3, .wav, etc.). For YouTube/Vimeo, use Video Quiz instead.' });
+        }
+        doc.audioUrl = audioUrl;
+        doc.audioProvider = audioInfo.provider;
+        doc.audioEmbedUrl = audioInfo.embedUrl;
       }
-      const audioInfo = extractAudioInfo(audioUrl);
-      if (!audioInfo) {
-        return res.status(400).json({ success: false, message: 'Invalid audio URL. Supported: SoundCloud, Spotify, or direct audio files (.mp3, .wav, etc.). For YouTube/Vimeo, use Video Quiz instead.' });
-      }
-      doc.audioUrl = audioUrl;
-      doc.audioProvider = audioInfo.provider;
-      doc.audioEmbedUrl = audioInfo.embedUrl;
     }
 
     if (customThumbnail) {
@@ -303,7 +345,8 @@ router.post('/', verifyToken, async (req, res) => {
     }
 
     // Content ownership attestation
-    if (status === 'published' && !contentAttested) {
+    const publishStatus = isDraft ? 'draft' : (status || 'published');
+    if (publishStatus === 'published' && !contentAttested) {
       return res.status(400).json({ success: false, message: 'You must confirm that you own or have rights to this content before publishing' });
     }
     if (contentAttested) {
@@ -311,9 +354,9 @@ router.post('/', verifyToken, async (req, res) => {
       doc.contentAttestedAt = new Date();
     }
 
-    // Auto-verify channel ownership for paid materials
+    // Auto-verify channel ownership for paid materials (not for drafts)
     let channelVerified = false;
-    if (pricingType === 'paid') {
+    if (!isDraft && pricingType === 'paid') {
       if (type === 'video_quiz' && videoUrl) {
         channelVerified = await verifyVideoChannel(videoUrl, tutor);
       } else if (type === 'listening' && audioUrl) {

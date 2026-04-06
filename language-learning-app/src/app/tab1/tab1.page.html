@@ -54,21 +54,32 @@
         <span class="cm-modal-header-spacer" aria-hidden="true"></span>
       </div>
       <div class="cm-modal-topbar" [class.cm-modal-topbar--collapsed]="!createMaterialModalExpanded">
-        <button type="button" class="cm-modal-back" *ngIf="modalShowFooter" (click)="onModalListBackToGateway()">
-          {{ 'CREATE_MATERIAL.MODAL_GO_BACK' | translate }}
-        </button>
-        <button type="button" class="cm-modal-back" *ngIf="modalShowBundleShareGoBack" (click)="onModalBundleShareGoBack()">
-          {{ 'CREATE_MATERIAL.MODAL_GO_BACK' | translate }}
-        </button>
-        <button type="button" class="cm-modal-back" *ngIf="modalShowGoBack" (click)="onModalChromeBack()">
-          <ion-icon name="chevron-back-outline"></ion-icon>
-          {{ 'CREATE_MATERIAL.NAV_BACK_SHORT' | translate }}
-        </button>
-        <button type="button" class="cm-modal-back" *ngIf="cmModalRouterOutletActive" (click)="onModalDetailOutletGoBack()">
-          {{ 'CREATE_MATERIAL.MODAL_GO_BACK' | translate }}
-        </button>
-        <div class="cm-modal-topbar-fill" aria-hidden="true"></div>
-        <button type="button" class="cm-modal-exit" *ngIf="modalShowSaveExit && !cmModalRouterOutletActive" (click)="onCreateMaterialGoBack()">Save and exit</button>
+        <div class="cm-modal-topbar-left">
+          <button type="button" class="cm-modal-back" *ngIf="modalShowFooter" (click)="onModalListBackToGateway()">
+            {{ 'CREATE_MATERIAL.MODAL_GO_BACK' | translate }}
+          </button>
+          <button type="button" class="cm-modal-back" *ngIf="modalShowBundleShareGoBack" (click)="onModalBundleShareGoBack()">
+            <ion-icon name="chevron-back-outline"></ion-icon>
+            {{ modalTopbarNavBackLabel || ('CREATE_MATERIAL.NAV_MY_MATERIALS' | translate) }}
+          </button>
+          <button type="button" class="cm-modal-back" *ngIf="modalShowBundleWizardGoBack" (click)="onModalDetailsWizardBack()">
+            <ion-icon name="chevron-back-outline"></ion-icon>
+            {{ modalTopbarBundleWizardBackLabel || ('CREATE_MATERIAL.NAV_BACK_SHORT' | translate) }}
+          </button>
+          <button type="button" class="cm-modal-back" *ngIf="modalShowGoBack" (click)="onModalChromeBack()">
+            <ion-icon name="chevron-back-outline"></ion-icon>
+            {{ modalTopbarNavBackLabel || ('CREATE_MATERIAL.NAV_BACK_SHORT' | translate) }}
+          </button>
+          <button type="button" class="cm-modal-back" *ngIf="cmModalRouterOutletActive" (click)="onModalDetailOutletGoBack()">
+            {{ 'CREATE_MATERIAL.MODAL_GO_BACK' | translate }}
+          </button>
+        </div>
+        <div class="cm-modal-topbar-center">
+          <span class="cm-modal-topbar-step" *ngIf="modalTopbarCenterStep && !cmModalRouterOutletActive">{{ modalTopbarCenterStep }}</span>
+        </div>
+        <div class="cm-modal-topbar-right">
+          <button type="button" class="cm-modal-exit" *ngIf="modalShowSaveExit && !cmModalRouterOutletActive" (click)="onCreateMaterialGoBack()">Save and exit</button>
+        </div>
       </div>
       <div class="cm-modal-body">
         <div class="cm-modal-router-host" *ngIf="cmModalRouterOutletActive">
@@ -98,10 +109,19 @@
         </ng-container>
         <ng-container *ngIf="createMaterialModalExpanded && modalDetailsWizardFooter && !modalShowFooter">
           <button type="button" class="cm-modal-footer-back" *ngIf="modalDetailsWizardShowBack" (click)="onModalDetailsWizardBack()">
-            {{ 'COMMON.BACK' | translate }}
+            {{ modalFooterBackLabel || ('COMMON.BACK' | translate) }}
+          </button>
+          <button
+            type="button"
+            class="cm-modal-footer-back"
+            *ngIf="modalDetailsWizardShowSaveDraft"
+            (click)="onModalSaveMaterialDraft()"
+            [disabled]="createMaterialRef?.isSavingMaterialDraft || createMaterialRef?.isSavingBundle || createMaterialRef?.isUploadingThumbnail"
+          >
+            {{ (modalFooterSaveLabelKey || 'CREATE_MATERIAL.SAVE_DRAFT') | translate }}
           </button>
           <div class="cm-modal-footer-spacer" aria-hidden="true"></div>
-          <button type="button" class="cm-modal-footer-btn" (click)="onModalDetailsWizardNext()" [disabled]="createMaterialRef?.isSavingBundle">
+          <button type="button" class="cm-modal-footer-btn" (click)="onModalDetailsWizardNext()" [disabled]="createMaterialRef?.isSavingBundle || createMaterialRef?.isSavingMaterialDraft || createMaterialRef?.isUploadingThumbnail || createMaterialRef?.isMaterialPricingNextDisabled || createMaterialRef?.isBundleShareNextDisabled">
             <ng-container *ngIf="!modalDetailsWizardIsLastStep">{{ 'CREATE_MATERIAL.DETAILS_WIZ_NEXT' | translate }}</ng-container>
             <ng-container *ngIf="modalDetailsWizardIsLastStep && !modalDetailsWizardLastStepKey">{{ 'CREATE_MATERIAL.CONTINUE_TO_QUIZ' | translate }}</ng-container>
             <ng-container *ngIf="modalDetailsWizardIsLastStep && modalDetailsWizardLastStepKey">{{ modalDetailsWizardLastStepKey | translate }}</ng-container>

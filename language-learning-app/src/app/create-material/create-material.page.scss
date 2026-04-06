@@ -1541,10 +1541,6 @@
   text-align: left;
 }
 
-.cm-details-wizard-header--tight {
-  margin-bottom: 12px;
-}
-
 .cm-bundle-wizard-pricing-cards {
   max-width: 520px;
   margin-left: auto;
@@ -2032,12 +2028,15 @@
 .cm-step-header {
   margin-bottom: 24px;
 
-  h1 {
-    font-size: 24px;
+  h1 {grid-column: 2;
+    font-size: 23px;
     font-weight: 700;
-    color: #222;
-    margin: 0 0 6px;
-    letter-spacing: -0.3px;
+    color: #1d1d1f;
+    margin: 0;
+    text-align: center;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+    letter-spacing: -0.2px;
+    min-width: 0;
   }
 
   p {
@@ -2067,6 +2066,11 @@
 
 // ── Selected type chip (FLIP destination) ────────────────
 
+.cm-selected-type-chip-host {
+  margin-bottom: 16px;
+  text-align: center;
+}
+
 .cm-selected-type-chip {
   display: inline-flex;
   align-items: center;
@@ -2077,11 +2081,19 @@
   font-size: 13px;
   font-weight: 600;
   color: #222;
-  margin-bottom: 16px;
 
   ion-icon {
     font-size: 16px;
     color: #555;
+  }
+}
+
+@media (max-width: 600px) {
+  .cm-selected-type-chip-host {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    text-align: center;
   }
 }
 
@@ -2227,7 +2239,7 @@
 
   &.cm-pricing-cards--row {
     flex-direction: row;
-    gap: 12px;
+    gap: 14px;
   }
 }
 
@@ -2267,21 +2279,29 @@
     line-height: 1.5;
   }
 
+  // Share step (bundle wizard, bundle form, material pricing): one shared “large tile” look
   &.cm-pricing-card--compact {
     flex: 1;
-    padding: 16px;
+    min-width: 0;
+    padding: 28px 20px;
+    min-height: 176px;
+    box-sizing: border-box;
+    justify-content: center;
     align-items: center;
     text-align: center;
+    border-radius: 20px;
+    border-width: 2px;
 
     h3 {
-      font-size: 16px;
-      margin: 10px 0 4px;
+      font-size: 17px;
+      font-weight: 700;
+      margin: 14px 0 6px;
     }
 
     p {
-      font-size: 13px;
+      font-size: 14px;
       margin: 0;
-      line-height: 1.4;
+      line-height: 1.45;
     }
   }
 }
@@ -2307,6 +2327,21 @@
 
     ion-icon {
       font-size: 20px;
+    }
+  }
+
+  // Match mobile CreateMaterial / CreateBundle: tinted wells + colored glyphs
+  &.cm-pricing-icon--free {
+    background: #ecfdf5;
+    ion-icon {
+      color: #10b981;
+    }
+  }
+
+  &.cm-pricing-icon--paid {
+    background: #eff6ff;
+    ion-icon {
+      color: #2563eb;
     }
   }
 }
@@ -3464,6 +3499,13 @@
   flex-direction: column;
   justify-content: center;
   padding: 8px 0 16px;
+
+  // Desktop: anchor step copy under the progress bar; avoid vertically centered “floating” blocks
+  @media (min-width: 768px) {
+    justify-content: flex-start;
+    padding-top: 16px;
+    padding-bottom: 24px;
+  }
 }
 
 .cm-details-wizard-header {
@@ -3472,6 +3514,18 @@
   margin-left: auto;
   margin-right: auto;
   margin-bottom: 28px;
+
+  @media (min-width: 768px) {
+    margin-bottom: 44px;
+  }
+
+  &.cm-details-wizard-header--tight {
+    margin-bottom: 12px;
+
+    @media (min-width: 768px) {
+      margin-bottom: 12px;
+    }
+  }
 
   h1 {
     font-size: 26px;
@@ -4220,6 +4274,14 @@
     &:hover { border-color: #48484a; }
   }
   .cm-pricing-icon { background: #2c2c2e; ion-icon { color: #4298d2; } }
+  .cm-pricing-icon.cm-pricing-icon--free {
+    background: rgba(16, 185, 129, 0.12);
+    ion-icon { color: #10b981; }
+  }
+  .cm-pricing-icon.cm-pricing-icon--paid {
+    background: rgba(96, 165, 250, 0.12);
+    ion-icon { color: #60a5fa; }
+  }
   .cm-pricing-tag { color: #e5e5e5; }
 
   .cm-form label { color: #e5e5e5; }

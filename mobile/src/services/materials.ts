@@ -319,6 +319,20 @@ export const materialService = {
     return data.material;
   },
 
+  async updateMaterial(id: string, payload: Record<string, any>): Promise<TutorMaterial> {
+    const data = await api.put<{ success: boolean; material: TutorMaterial }>(`/materials/${id}`, payload);
+    if (cache.materials) {
+      const idx = cache.materials.findIndex(m => m._id === id);
+      if (idx >= 0) {
+        cache.materials = cache.materials.map(m => (m._id === id ? data.material : m));
+      } else {
+        cache.materials = [data.material, ...cache.materials];
+      }
+    }
+    schedulePrefetchFromCache();
+    return data.material;
+  },
+
   async toggleArchive(id: string, currentStatus: string): Promise<TutorMaterial | null> {
     const newStatus = currentStatus === 'archived' ? 'published' : 'archived';
     try {
