@@ -794,9 +794,71 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
   ]);
 
   const handleSaveAndExit = useCallback(async () => {
-    await handleSaveDraft();
-    goBack();
-  }, [handleSaveDraft, goBack]);
+    if (!selectedType || !selectedPricing) return;
+    setIsSavingDraft(true);
+    try {
+      let thumbnailUrl: string | undefined;
+      if (thumbnailUri?.trim()) {
+        try {
+          thumbnailUrl = await materialService.uploadThumbnail(thumbnailUri);
+        } catch {
+          Alert.alert('', t('CREATE_MATERIAL.TOAST_UPLOAD_FAILED'));
+          setIsSavingDraft(false);
+          return;
+        }
+      }
+
+      const draftTitle = title.trim() || t('CREATE_MATERIAL.DRAFT_UNTITLED');
+      const draftLang = language.trim() || defaultLang.trim() || 'English';
+
+      const basePayload: Record<string, any> = {
+        title: draftTitle,
+        description: description.trim() || '',
+        whyTakeThis: whyTakeThis.trim() || '',
+        language: draftLang,
+        level: level || 'any',
+        pricingType: selectedPricing,
+        price: selectedPricing === 'paid' ? price : 0,
+        status: 'draft',
+      };
+
+      if (selectedType === 'video_quiz' && videoUrl.trim()) basePayload.videoUrl = videoUrl.trim();
+      if (selectedType === 'reading') basePayload.passage = passage.trim();
+      if (selectedType === 'listening' && audioUrl.trim()) basePayload.audioUrl = audioUrl.trim();
+      if (topics.length > 0) basePayload.topics = topics;
+      if (structuredTags.length > 0) basePayload.structuredTags = structuredTags;
+      if (thumbnailUrl) basePayload.thumbnailUrl = thumbnailUrl;
+
+      const quizComplete = isQuizPayloadCompleteForApi(quiz);
+      const quizPayload = quizComplete ? buildQuizPayloadForApi(quiz) : [];
+
+      if (draftMaterialId) {
+        const putPayload: Record<string, any> = { ...basePayload };
+        if (quizComplete) putPayload.quiz = quizPayload;
+        await materialService.updateMaterial(draftMaterialId, putPayload);
+      } else {
+        const m = await materialService.createMaterial({
+          ...basePayload,
+          materialType: selectedType,
+          quiz: quizPayload,
+        });
+        setDraftMaterialId(m._id);
+      }
+
+      goBack();
+    } catch (err: any) {
+      Alert.alert(
+        t('CREATE_MATERIAL.DRAFT_SAVE_FAILED_TITLE'),
+        err?.message || t('CREATE_MATERIAL.DRAFT_SAVE_FAILED_MSG'),
+      );
+    } finally {
+      setIsSavingDraft(false);
+    }
+  }, [
+    selectedType, selectedPricing, thumbnailUri, title, description, whyTakeThis,
+    language, defaultLang, level, price, videoUrl, passage, audioUrl,
+    topics, structuredTags, quiz, draftMaterialId, t, goBack,
+  ]);
 
   const getTypeLabel = (type: MaterialType) => {
     switch (type) {
