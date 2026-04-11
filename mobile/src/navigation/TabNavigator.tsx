@@ -12,11 +12,13 @@ import HomeScreen from '../screens/HomeScreen';
 import CalendarScreen from '../screens/CalendarScreen';
 import AvailabilitySetupScreen from '../screens/AvailabilitySetupScreen';
 import EventDetailScreen from '../screens/EventDetailScreen';
+import LessonsScreen from '../screens/LessonsScreen';
 import MessagesScreen from '../screens/MessagesScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 
 const Tab = createBottomTabNavigator();
 const CalendarStack = createNativeStackNavigator();
+const LessonsStack = createNativeStackNavigator();
 
 function CalendarStackNavigator() {
   return (
@@ -28,10 +30,19 @@ function CalendarStackNavigator() {
   );
 }
 
+function LessonsStackNavigator() {
+  return (
+    <LessonsStack.Navigator screenOptions={{ headerShown: false }}>
+      <LessonsStack.Screen name="LessonsMain" component={LessonsScreen} />
+      <LessonsStack.Screen name="LessonDetail" component={EventDetailScreen} />
+    </LessonsStack.Navigator>
+  );
+}
+
 function TabNavigatorInner() {
   const { colors } = useTheme();
   const { t } = useTranslation();
-  const { homeOverlayCoversTabBar } = useHomeTabBarOverlay();
+  const { homeOverlayCoversTabBar, lessonOverlayCoversTabBar } = useHomeTabBarOverlay();
 
   return (
     <Tab.Navigator
@@ -43,7 +54,7 @@ function TabNavigatorInner() {
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginBottom: 6 },
       }}
       tabBar={(props) => (
-        <SlidingTabBar {...props} homeOverlayCoversTabBar={homeOverlayCoversTabBar} />
+        <SlidingTabBar {...props} homeOverlayCoversTabBar={homeOverlayCoversTabBar} lessonOverlayCoversTabBar={lessonOverlayCoversTabBar} />
       )}
     >
       <Tab.Screen
@@ -63,6 +74,16 @@ function TabNavigatorInner() {
           tabBarLabel: t('TABS.CALENDAR'),
           tabBarIcon: ({ focused, color }) => (
             <Ionicons name={focused ? 'calendar' : 'calendar-outline'} size={22} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Lessons"
+        component={LessonsStackNavigator}
+        options={{
+          tabBarLabel: t('TABS.LESSONS'),
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons name={focused ? 'school' : 'school-outline'} size={22} color={color} />
           ),
         }}
       />

@@ -21,7 +21,7 @@ export interface Lesson {
   startTime: string;
   endTime: string;
   channelName: string;
-  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled' | 'pending_reschedule';
+  status: 'scheduled' | 'confirmed' | 'in_progress' | 'ended_early' | 'completed' | 'cancelled' | 'pending_reschedule';
   subject: string;
   notes?: string;
   price: number;
@@ -66,7 +66,39 @@ export interface Lesson {
     declined: number;
   };
   classData?: any; // Full class data from backend
-  cancelReason?: string; // Reason for cancellation (e.g., 'minimum_not_met')
+  cancelReason?: string;
+  cancelReasonText?: string;
+  cancelledBy?: 'tutor' | 'student' | 'system' | 'admin' | null;
+  cancelledAt?: string;
+  isLateCancellation?: boolean;
+  cancellationFeeCharged?: number;
+
+  requiresTutorFeedback?: boolean;
+  aiAnalysisEnabledAtTime?: boolean | null;
+  aiAnalysis?: {
+    status?: string;
+    hasAnalysis?: boolean;
+    source?: string | null;
+    overallAssessment?: { summary?: string };
+    studentSummary?: string;
+    progressionMetrics?: { keyImprovements?: string[] };
+  };
+  tutorNote?: { text?: string };
+  tutorFeedback?: {
+    status?: string;
+    providedAt?: string;
+    required?: boolean;
+    overallNotes?: string;
+  };
+
+  /** Backend-enriched context for scheduled lessons — previous session summary. */
+  lastSessionContext?: {
+    isFirstLesson: boolean;
+    previousLessonId?: string;
+    summary?: string | null;
+    recommendedFocus?: string[];
+    areasForImprovement?: string[];
+  };
   
   // Issue Reporting & Investigation
   issueReported?: boolean;
@@ -84,6 +116,9 @@ export interface Lesson {
   actualDurationMinutes?: number;
   actualPrice?: number;
   billingStatus?: 'pending' | 'authorized' | 'charged' | 'refunded' | null;
+  studentLessonIntent?: string;
+  /** Net to tutor after platform fee */
+  tutorPayout?: number;
 }
 
 export interface LessonCreateRequest {

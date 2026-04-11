@@ -2859,10 +2859,11 @@ img.m-card-empty-link-arrow-img {
 }
 
 // =============================================
-// Desktop: Filled Up Next (unchanged)
+// Desktop: Filled Up Next
 // =============================================
 .upnext-filled {
   position: relative;
+  padding: 32px 32px 28px !important;
 
   // Badges row — positioned absolutely so it doesn't push content down
   .upnext-filled-badges {
@@ -2873,7 +2874,7 @@ img.m-card-empty-link-arrow-img {
     display: flex;
     gap: 8px;
     z-index: 2;
-    
+
     &:empty {
       display: none;
     }
@@ -2886,11 +2887,9 @@ img.m-card-empty-link-arrow-img {
   height: 80px;
   border-radius: 20px;
   overflow: hidden;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
   flex-shrink: 0;
-  position: relative;
-  top: 30px;
   
   img {
     width: 100%;
@@ -2919,7 +2918,7 @@ img.m-card-empty-link-arrow-img {
 
 // Text section — replaces "Calendar is open" + subtitle
 .upnext-filled-text {
-  margin-bottom: 24px;
+  margin-bottom: 12px;
   
   h3 {
     font-size: 22px;
@@ -8656,18 +8655,25 @@ img.m-card-empty-link-arrow-img {
 }
 
 .participant-in-call {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 85px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  background: #f0fdf4;
-  border-radius: 10px;
-  margin-bottom: 10px;
+  justify-content: center;
+  gap: 6px;
+  z-index: 2;
+  pointer-events: none;
   animation: fadeInCall 0.4s ease-out;
 
+  @media (max-width: 600px) {
+    bottom: 56px;
+  }
+
   .in-call-dot {
-    width: 8px;
-    height: 8px;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
     background: #22c55e;
     flex-shrink: 0;
@@ -8675,7 +8681,7 @@ img.m-card-empty-link-arrow-img {
   }
 
   .in-call-text {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 500;
     color: #16a34a;
     letter-spacing: -0.1px;

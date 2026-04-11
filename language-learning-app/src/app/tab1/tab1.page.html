@@ -78,7 +78,7 @@
           <span class="cm-modal-topbar-step" *ngIf="modalTopbarCenterStep && !cmModalRouterOutletActive">{{ modalTopbarCenterStep }}</span>
         </div>
         <div class="cm-modal-topbar-right">
-          <button type="button" class="cm-modal-exit" *ngIf="modalShowSaveExit && !cmModalRouterOutletActive" (click)="onCreateMaterialGoBack()">Save and exit</button>
+          <button type="button" class="cm-modal-exit" *ngIf="modalShowSaveExit && !cmModalRouterOutletActive" (click)="(modalIsEditingBundle || modalIsEditingMaterial) ? onEditSaveInPlace() : onCreateMaterialGoBack()">{{ (modalIsEditingBundle || modalIsEditingMaterial) ? 'Save' : 'Save and exit' }}</button>
         </div>
       </div>
       <div class="cm-modal-body">

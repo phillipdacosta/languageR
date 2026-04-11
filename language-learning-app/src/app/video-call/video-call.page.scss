@@ -890,6 +890,77 @@
       }
     }
   }
+
+  .intent-banner {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    right: 20px;
+    max-width: 420px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(0, 0, 0, 0.88);
+    padding: 14px 18px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(12px);
+    z-index: 10;
+    cursor: pointer;
+    animation: intentSlideUp 0.4s ease-out;
+    transition: opacity 0.3s ease;
+
+    &:hover {
+      opacity: 0.85;
+    }
+
+    .intent-banner-emoji {
+      font-size: 24px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .intent-banner-text {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .intent-banner-label {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 13px;
+      font-weight: 500;
+
+      strong {
+        color: #fff;
+        font-weight: 700;
+      }
+    }
+
+    .intent-banner-hint {
+      color: rgba(255, 255, 255, 0.45);
+      font-size: 12px;
+      font-weight: 400;
+    }
+
+    .intent-banner-close {
+      font-size: 16px;
+      color: rgba(255, 255, 255, 0.4);
+      flex-shrink: 0;
+    }
+  }
+
+  @keyframes intentSlideUp {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 }
 
 // Tutor Gallery View - Responsive grid for all participants (tutor view only, whiteboard closed)

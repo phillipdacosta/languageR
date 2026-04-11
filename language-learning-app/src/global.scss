@@ -3955,6 +3955,25 @@ body.cm-desktop-modal-open {
 }
 
 // =============================================================
+// Lesson Detail Modal — Airbnb card-expand overlay
+// =============================================================
+.lesson-detail-modal {
+  --width: 100%;
+  --height: 100%;
+  --border-radius: 0;
+  --box-shadow: none;
+
+  .modal-wrapper {
+    overflow: hidden;
+    will-change: transform, border-radius, opacity;
+  }
+
+  ion-backdrop {
+    --backdrop-opacity: 0.32;
+  }
+}
+
+// =============================================================
 // SHARED ELEMENT TRANSITIONS — Airbnb-style FLIP morphing
 // =============================================================
 // Individual elements (title, balance, links) morph between

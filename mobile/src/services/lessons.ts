@@ -1,4 +1,5 @@
 import { api } from './api';
+import { buildMockCachedLessonDetail, isLessonMockId } from '../utils/lessonMockPreview';
 
 export interface Lesson {
   _id: string;
@@ -16,6 +17,13 @@ export interface Lesson {
     firstName?: string;
     lastName?: string;
     picture?: string;
+    profilePicture?: string;
+    email?: string;
+    rating?: number;
+    stats?: { lessonsCompleted?: number; averageRating?: number };
+    onboardingData?: { bio?: string; summary?: string; languages?: any[]; experienceLevel?: string; goals?: string };
+    nativeLanguage?: string;
+    country?: string;
   };
   tutorId?: {
     _id: string;
@@ -23,6 +31,14 @@ export interface Lesson {
     firstName?: string;
     lastName?: string;
     picture?: string;
+    profilePicture?: string;
+    email?: string;
+    rating?: number;
+    stats?: { lessonsCompleted?: number; averageRating?: number };
+    onboardingData?: { bio?: string; summary?: string; languages?: any[]; hourlyRate?: number };
+    nativeLanguage?: string;
+    country?: string;
+    linkedChannels?: any;
   };
   isClass?: boolean;
   className?: string;
@@ -32,11 +48,46 @@ export interface Lesson {
   attendees?: any[];
   capacity?: number;
   cancelReason?: string;
+  cancelReasonText?: string;
+  lastSessionContext?: {
+    isFirstLesson: boolean;
+    previousLessonId?: string;
+    summary?: string | null;
+    recommendedFocus?: string[];
+    areasForImprovement?: string[];
+  };
   rescheduleProposal?: {
     status?: string;
     proposedBy?: string;
   };
   isTrialLesson?: boolean;
+  isTrial?: boolean;
+  price?: number;
+  /** Net to tutor after platform fee (from lesson / payment reconciliation) */
+  tutorPayout?: number;
+  tip?: { amount?: number };
+  aiAnalysisEnabledAtTime?: boolean | null;
+  actualDurationMinutes?: number;
+  studentLessonIntent?: string;
+  notes?: string;
+  issueReported?: boolean;
+  investigationResolvedAt?: string;
+  requiresTutorFeedback?: boolean;
+  aiAnalysis?: { status?: string; hasAnalysis?: boolean; overallAssessment?: { summary?: string }; studentSummary?: string; progressionMetrics?: { keyImprovements?: string[] } };
+  tutorNote?: { text?: string };
+  tutorFeedback?: { status?: string; overallNotes?: string; required?: boolean };
+  isLateCancellation?: boolean;
+  cancelledBy?: string;
+  cancelledAt?: string;
+  cancellationFeeCharged?: number;
+  isOfficeHours?: boolean;
+  description?: string;
+  billingStatus?: string;
+  actualDurationMinutes?: number;
+  actualPrice?: number;
+  paymentMethod?: string;
+  payoutPaused?: boolean;
+  participants?: Record<string, any>;
 }
 
 interface MyLessonsResponse {
@@ -44,9 +95,67 @@ interface MyLessonsResponse {
   lessons?: Lesson[];
 }
 
-interface LessonDetailResponse {
+export interface PaymentData {
+  status?: string;
+  transferStatus?: string;
+  amount?: number;
+  refundAmount?: number;
+  refundReason?: string;
+  refundMethod?: string;
+  refundedAt?: string;
+  tutorPayout?: number;
+  paymentMethod?: string;
+}
+
+export interface BillingData {
+  estimatedPrice?: number;
+  actualPrice?: number;
+  estimatedDuration?: number;
+  actualDuration?: number;
+  status?: string;
+  callStartTime?: string;
+  callEndTime?: string;
+  isOfficeHours?: boolean;
+}
+
+export interface LessonDetailResponse {
   success?: boolean;
   lesson?: Lesson;
+  lessonsCompleted?: number;
+  recentLessons?: { _id: string; subject?: string; startTime?: string; duration?: number }[];
+  tutorStats?: { rating?: number; totalLessons?: number; students?: number };
+}
+
+/** Matches web `LessonJoinResponse` for Agora join. */
+export interface LessonJoinResponse {
+  success: boolean;
+  agora: {
+    appId: string;
+    channelName: string;
+    token: string;
+    uid: number | string;
+  };
+  lesson?: {
+    _id?: string;
+    id?: string;
+    startTime?: string;
+    endTime?: string;
+    tutor?: unknown;
+    student?: unknown;
+    subject?: string;
+    aiAnalysisEnabledAtTime?: boolean | null;
+  };
+  class?: {
+    _id?: string;
+    id?: string;
+    name?: string;
+    startTime?: string;
+    endTime?: string;
+    tutor?: unknown;
+    students?: unknown[];
+  };
+  userRole: 'tutor' | 'student';
+  serverTime?: string;
 }
 
 /** Start time from API (web uses startTime; legacy clients may use scheduledTime). */
@@ -79,6 +188,53 @@ export interface TimelineEvent {
   subject: string;
 }
 
+export interface CachedLessonDetail {
+  detail: LessonDetailResponse | null;
+  payment: PaymentData | null;
+  billing: BillingData | null;
+  fingerprint: string;
+}
+
+function lessonFingerprint(l: Lesson | undefined | null): string {
+  if (!l) return '';
+  return `${l.status}|${(l as any).tutorFeedback?.status}|${l.tip?.amount}|${l.cancelledAt}|${l.actualDurationMinutes}|${l.billingStatus}|${(l as any).rescheduleProposal?.status}|${l.issueReported}`;
+}
+
+const detailCache = new Map<string, CachedLessonDetail>();
+
+export function getCachedLessonDetail(id: string, listLesson?: Lesson): CachedLessonDetail | null {
+  const entry = detailCache.get(id);
+  if (!entry) return null;
+  if (listLesson && !isLessonMockId(id) && lessonFingerprint(listLesson) !== entry.fingerprint) return null;
+  return entry;
+}
+
+export async function fetchAndCacheLessonDetail(
+  id: string,
+  listLesson?: Lesson,
+  currentUserId?: string,
+): Promise<CachedLessonDetail> {
+  if (isLessonMockId(id)) {
+    const entry = buildMockCachedLessonDetail(id, listLesson, currentUserId);
+    detailCache.set(id, entry);
+    return entry;
+  }
+  const [detail, payment, billing] = await Promise.all([
+    lessonService.getLessonDetail(id),
+    lessonService.getPaymentForLesson(id),
+    lessonService.getBillingSummary(id),
+  ]);
+  const fp = lessonFingerprint(detail?.lesson || listLesson);
+  const entry: CachedLessonDetail = { detail, payment, billing, fingerprint: fp };
+  detailCache.set(id, entry);
+  return entry;
+}
+
+export function clearDetailCache(id?: string) {
+  if (id) detailCache.delete(id);
+  else detailCache.clear();
+}
+
 export const lessonService = {
   async getMyLessons(): Promise<Lesson[]> {
     try {
@@ -93,6 +249,84 @@ export const lessonService = {
     try {
       const data = await api.get<LessonDetailResponse>(`/lessons/${lessonId}`);
       return data.lesson || null;
+    } catch {
+      return null;
+    }
+  },
+
+  async getLessonDetail(lessonId: string): Promise<LessonDetailResponse | null> {
+    try {
+      const data = await api.get<LessonDetailResponse>(`/lessons/${lessonId}`);
+      return data.success ? data : null;
+    } catch {
+      return null;
+    }
+  },
+
+  async getPaymentForLesson(lessonId: string): Promise<PaymentData | null> {
+    try {
+      const data = await api.get<{ success: boolean; payment?: PaymentData }>(`/payments/lesson/${lessonId}`);
+      return data.success && data.payment ? data.payment : null;
+    } catch {
+      return null;
+    }
+  },
+
+  async getBillingSummary(lessonId: string): Promise<BillingData | null> {
+    try {
+      const data = await api.get<{ success: boolean; billing?: BillingData }>(`/lessons/${lessonId}/billing`);
+      return data.success && data.billing ? data.billing : null;
+    } catch {
+      return null;
+    }
+  },
+
+  async joinLesson(
+    lessonId: string,
+    role: 'tutor' | 'student',
+    userId?: string,
+  ): Promise<LessonJoinResponse | null> {
+    try {
+      const data = await api.post<LessonJoinResponse>(`/lessons/${lessonId}/join`, { role, userId });
+      return data.success ? data : null;
+    } catch {
+      return null;
+    }
+  },
+
+  async joinClass(
+    classId: string,
+    role: 'tutor' | 'student',
+    userId?: string,
+  ): Promise<LessonJoinResponse | null> {
+    try {
+      const data = await api.post<LessonJoinResponse>(`/classes/${classId}/join`, { role, userId });
+      return data.success ? data : null;
+    } catch {
+      return null;
+    }
+  },
+
+  async leaveLesson(lessonId: string): Promise<void> {
+    try {
+      await api.post(`/lessons/${lessonId}/leave`, {});
+    } catch {
+      // non-fatal
+    }
+  },
+
+  async leaveClass(classId: string): Promise<void> {
+    try {
+      await api.post(`/classes/${classId}/leave`, {});
+    } catch {
+      // non-fatal
+    }
+  },
+
+  async updateLesson(lessonId: string, data: Record<string, unknown>): Promise<Lesson | null> {
+    try {
+      const res = await api.patch<{ success: boolean; lesson: Lesson }>(`/lessons/${lessonId}`, data);
+      return res.lesson || null;
     } catch {
       return null;
     }

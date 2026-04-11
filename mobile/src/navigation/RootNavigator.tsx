@@ -6,6 +6,9 @@ import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../contexts/ThemeContext';
 import LoginScreen from '../screens/LoginScreen';
 import PreCallScreen from '../screens/PreCallScreen';
+import VideoCallScreen from '../screens/VideoCallScreen';
+import PostLessonStudentScreen from '../screens/PostLessonStudentScreen';
+import PostLessonTutorScreen from '../screens/PostLessonTutorScreen';
 import TabNavigator from './TabNavigator';
 import type { RootStackParamList } from './types';
 
@@ -36,6 +39,25 @@ export default function RootNavigator() {
               animation: 'slide_from_right',
               gestureEnabled: true,
             }}
+          />
+          <Stack.Screen
+            name="VideoCall"
+            component={VideoCallScreen}
+            options={{
+              headerShown: false,
+              animation: 'fade',
+              gestureEnabled: false,
+            }}
+          />
+          <Stack.Screen
+            name="PostLessonStudent"
+            component={PostLessonStudentScreen}
+            options={{ headerShown: false, animation: 'slide_from_right' }}
+          />
+          <Stack.Screen
+            name="PostLessonTutor"
+            component={PostLessonTutorScreen}
+            options={{ headerShown: false, animation: 'slide_from_right' }}
           />
         </Stack.Group>
       ) : (

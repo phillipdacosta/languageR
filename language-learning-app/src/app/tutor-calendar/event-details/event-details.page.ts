@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Location } from '@angular/common';
 import { IonicModule, ModalController, ToastController, LoadingController, ViewWillEnter, ViewDidEnter } from '@ionic/angular';
@@ -23,6 +23,12 @@ import { formatTimeInTz, formatDateInTz } from '../../shared/timezone.utils';
 import { MaterialService, TutorMaterial } from '../../services/material.service';
 import { LearningPlanService, LearningPlanSummary, GOAL_TYPE_LABELS } from '../../services/learning-plan.service';
 import { Subscription } from 'rxjs';
+import {
+  isLessonMockId,
+  buildMockLessonEntity,
+  getMockBillingAndPayment,
+  getMockRecommendedMaterials,
+} from '../../lessons/lesson-mock-preview';
 
 // ── Interfaces ──────────────────────────────────────────────────
 interface AnalysisData {
@@ -92,6 +98,11 @@ interface BillingData {
   imports: [CommonModule, IonicModule, SharedModule, CancelReasonModalComponent, ConfirmActionModalComponent, RescheduleLessonModalComponent]
 })
 export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewDidEnter {
+  /** When presented as a modal, the caller passes the event ID directly */
+  @Input() modalEventId?: string;
+  /** When true, back/close dismisses the modal instead of navigating */
+  @Input() isModal = false;
+
   eventId: string | null = null;
   lesson: any = null;
   classData: any = null;
@@ -214,7 +225,6 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   analysisLabel = 'Analysis'; // Dynamic section label
   hasTutorNote = false;
   hasTutorFeedback = false;
-  hasHomework = false;
 
   // Previous lesson notes for this tutor-student pair
   previousNotesData: any = null;
@@ -262,7 +272,6 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   // Tutor feedback display
   feedbackStrengths: string[] = [];
   feedbackImprovements: string[] = [];
-  feedbackHomework = '';
   feedbackSectionExpanded = false; // Collapsible state for tutor view (closed by default)
   feedbackNotes = '';
   feedbackCefrLevel = '';
@@ -286,6 +295,12 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
   // Class students display
   classStudentsDisplay: { name: string; picture?: string; initials: string }[] = [];
+
+  // Recommended materials (student only)
+  recommendedMaterials: (TutorMaterial & { isSaved?: boolean; _matchedStruggles?: string[]; _isCurrentTutor?: boolean; _typeIcon?: string; _typeLabel?: string })[] = [];
+  recommendedStruggles: string[] = [];
+  recommendedLoading = false;
+  hasRecommendations = false;
 
   // Countdown
   private countdownInterval: any;
@@ -352,7 +367,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   }
 
   ngOnInit() {
-    this.eventId = this.route.snapshot.paramMap.get('id');
+    this.eventId = this.modalEventId || this.route.snapshot.paramMap.get('id');
 
     this.userService.getCurrentUser().subscribe({
       next: (user) => {
@@ -392,9 +407,163 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
   // ── Data Loading ──────────────────────────────────────────────
 
+  /** Preview lessons (same IDs as list mocks) — no API calls. */
+  private applyMockLessonDetails(id: string): void {
+    this.error = null;
+    const lesson = buildMockLessonEntity(id, this.currentUser);
+    if (!lesson) {
+      this.error = 'Event not found';
+      this.loading = false;
+      this.flipTransition.cleanup();
+      this.cdr.detectChanges();
+      return;
+    }
+
+    this.lesson = lesson;
+    this.isClass = false;
+    this.lessonsWithParticipant = 12;
+    this.recentLessons = [];
+    this.tutorStatsRating = '4.9';
+    this.tutorStatsRatingRounded = 5;
+    this.tutorStatsTotalLessons = 240;
+    this.tutorStatsStudents = 18;
+
+    const bp = getMockBillingAndPayment(id);
+    if (bp) {
+      this.billingData = bp.billing as any;
+      this.paymentData = bp.payment as any;
+    }
+
+    this.analysisLoading = false;
+    this.feedbackLoading = false;
+
+    this.computeAllProperties();
+
+    // Hydrate analysis / feedback / sidebar from mock lesson data (mirrors loadAdditionalData flow)
+    const mockAi = (lesson as any).aiAnalysis;
+    if (mockAi && mockAi.status === 'completed') {
+      this.analysisData = this.buildMockAnalysisData(lesson, id);
+      this.computeAnalysisProperties();
+    } else if (mockAi && mockAi.status === 'generating') {
+      this.analysisData = null;
+      this.analysisUnavailable = false;
+    }
+
+    const mockFeedback = (lesson as any).tutorFeedback;
+    if (mockFeedback && mockFeedback.status === 'completed') {
+      this.tutorFeedback = {
+        _id: `mock-fb-${id}`,
+        lessonId: id,
+        tutorId: String((lesson as any).tutorId?._id || ''),
+        studentId: String((lesson as any).studentId?._id || ''),
+        strengths: mockFeedback.strengths || ['Good pronunciation', 'Active participation'],
+        areasForImprovement: mockFeedback.areasForImprovement || ['Listening comprehension', 'Irregular verb conjugation'],
+        homework: mockFeedback.homework || 'Complete exercises 4-6 in workbook chapter 3.',
+        overallNotes: mockFeedback.overallNotes || '',
+        estimatedCefrLevel: mockFeedback.estimatedCefrLevel || 'B1',
+        status: 'completed',
+        providedAt: new Date() as any,
+        createdAt: new Date() as any,
+        remindersSent: 0,
+      };
+      this.computeFeedbackProperties();
+    } else if (mockFeedback && mockFeedback.status === 'pending') {
+      this.tutorFeedback = {
+        _id: `mock-fb-${id}`,
+        lessonId: id,
+        tutorId: String((lesson as any).tutorId?._id || ''),
+        studentId: String((lesson as any).studentId?._id || ''),
+        strengths: [],
+        areasForImprovement: [],
+        homework: '',
+        overallNotes: '',
+        status: 'pending',
+        required: mockFeedback.required !== false,
+        createdAt: new Date() as any,
+        remindersSent: 0,
+      };
+    }
+
+    this.resolveSidebarNotes();
+    this.computeFeedbackStatus();
+
+    if (bp) {
+      this.computeBillingProperties();
+      if (this.paymentData) {
+        this.computePaymentStatus();
+      }
+    }
+
+    // Mock recommended materials
+    const mockRecs = getMockRecommendedMaterials(id);
+    if (mockRecs.length) {
+      this.recommendedMaterials = mockRecs as any;
+      this.hasRecommendations = true;
+    }
+
+    this.loading = false;
+    this.startCountdown();
+    this.flipTransition.cleanup();
+    this.cdr.detectChanges();
+  }
+
+  private buildMockAnalysisData(lesson: any, id: string): AnalysisData {
+    const ai = lesson.aiAnalysis || {};
+    const note = lesson.tutorNote;
+    return {
+      _id: `mock-analysis-${id}`,
+      overallAssessment: ai.overallAssessment || {
+        proficiencyLevel: 'B1 – Intermediate',
+        confidence: 82,
+        summary: ai.studentSummary || 'Good progress in this session.',
+        progressFromLastLesson: 'Slight improvement in verb accuracy.',
+      },
+      grammarAnalysis: {
+        mistakeTypes: [
+          { type: 'Verb conjugation', examples: ['yo soy → yo era (in past context)'], frequency: 3, severity: 'medium' },
+          { type: 'Gender agreement', examples: ['la problema → el problema'], frequency: 2, severity: 'low' },
+        ],
+        suggestions: ['Practice irregular preterite forms', 'Review gendered nouns ending in -ma'],
+        accuracyScore: ai.grammarAnalysis?.accuracyScore ?? 72,
+      },
+      vocabularyAnalysis: {
+        wordsUsed: ['hablar', 'comer', 'estudiar', 'trabajar', 'querer', 'poder', 'saber'],
+        uniqueWordCount: ai.vocabularyAnalysis?.uniqueWordCount ?? 85,
+        vocabularyRange: ai.vocabularyAnalysis?.vocabularyRange || 'Intermediate',
+        suggestedWords: ['aprovechar', 'destacar', 'lograr'],
+        advancedWordsUsed: ['aprovechar'],
+      },
+      fluencyAnalysis: {
+        speakingSpeed: '110 words/min',
+        pauseFrequency: 'moderate',
+        fillerWords: { count: 8, examples: ['um', 'este', 'como'] },
+        overallFluencyScore: ai.fluencyAnalysis?.overallFluencyScore ?? 68,
+      },
+      pronunciationAnalysis: {
+        overallScore: ai.pronunciationAnalysis?.overallScore ?? 75,
+        accuracyScore: 78,
+        fluencyScore: 70,
+        prosodyScore: 73,
+      },
+      topicsDiscussed: ai.topicsDiscussed || ['Past tense narration', 'Daily routines', 'Weekend plans'],
+      recommendedFocus: ai.recommendedFocus || ['Irregular preterite verbs', 'Ser vs estar contextual usage'],
+      suggestedExercises: ['Conjugation drills for ir, ser, tener in preterite', 'Listening practice with native speakers'],
+      homeworkSuggestions: ai.homeworkSuggestions || ['Complete chapter 5 exercises', 'Write a short paragraph about your last vacation'],
+      studentSummary: ai.studentSummary || ai.overallAssessment?.summary || 'Good session overall.',
+      tutorNote: note ? { text: note.text, quickImpression: 'Solid progress', homework: 'Review chapter 5' } : undefined,
+      source: 'ai',
+      status: 'completed',
+    };
+  }
+
   loadEventDetails() {
     if (!this.eventId) return;
     this.loading = true;
+
+    if (isLessonMockId(this.eventId)) {
+      this.applyMockLessonDetails(this.eventId);
+      return;
+    }
 
     this.lessonService.getLesson(this.eventId).subscribe({
       next: (response: any) => {
@@ -607,6 +776,46 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         this.onRequestComplete();
       }
     });
+
+    // Load recommended materials (student-only, non-blocking)
+    if (this.isStudentUser && this.lesson?.language) {
+      this.loadRecommendedMaterials();
+    }
+  }
+
+  private loadRecommendedMaterials() {
+    this.recommendedLoading = true;
+    this.hasRecommendations = false;
+    this.recommendedMaterials = [];
+
+    const language = this.lesson?.language;
+    if (!language) {
+      this.recommendedLoading = false;
+      return;
+    }
+
+    this.materialService.getRecommendedMaterials(language, {
+      lessonId: this.eventId || undefined,
+      tutorId: this.tutorId || undefined
+    }).subscribe({
+      next: (res) => {
+        if (res.success && res.materials?.length) {
+          this.recommendedMaterials = res.materials.map(m => ({
+            ...m,
+            _typeIcon: this.getMaterialTypeIcon(m.materialType),
+            _typeLabel: this.getMaterialTypeLabel(m.materialType)
+          }));
+          this.recommendedStruggles = res.struggles || [];
+          this.hasRecommendations = true;
+        }
+        this.recommendedLoading = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.recommendedLoading = false;
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   private loadPaymentDetails(retryCount = 0) {
@@ -720,6 +929,17 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
   private computeRole() {
     if (!this.lesson || !this.currentUser) return;
+
+    // Mock previews carry an explicit viewing role so tutor accounts
+    // can preview student-perspective cards correctly.
+    const mockRole = (this.lesson as any)._mockViewRole;
+    if (mockRole === 'tutor' || mockRole === 'student') {
+      this.isTutorUser = mockRole === 'tutor';
+      this.isStudentUser = mockRole === 'student';
+      this.userRole = mockRole;
+      return;
+    }
+
     const tutorId = String(this.lesson.tutorId?._id || this.lesson.tutorId);
     const userId = String((this.currentUser as any)._id || this.currentUser.id);
     this.isTutorUser = tutorId === userId;
@@ -900,6 +1120,10 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
   private loadTutorMaterials() {
     if (!this.tutorId) return;
+    if (isLessonMockId(this.eventId)) {
+      this.tutorMaterials = [];
+      return;
+    }
     this.materialService.getTutorMaterials(this.tutorId).subscribe({
       next: (res) => {
         this.tutorMaterials = (res.materials || [])
@@ -944,6 +1168,34 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
   openMaterial(material: TutorMaterial) {
     this.router.navigate(['/material', material._id]);
+  }
+
+  viewRecommendedMaterial(material: any) {
+    this.router.navigate(['/material', material._id]);
+  }
+
+  toggleSaveRecommendation(material: any) {
+    const idx = this.recommendedMaterials.findIndex(m => m._id === material._id);
+    if (idx === -1) return;
+
+    const prev = this.recommendedMaterials[idx].isSaved;
+    this.recommendedMaterials[idx].isSaved = !prev;
+    this.cdr.detectChanges();
+
+    this.materialService.toggleSaveMaterial(material._id, this.eventId || undefined).subscribe({
+      next: (res) => {
+        if (res.success) {
+          this.recommendedMaterials[idx].isSaved = res.saved;
+        } else {
+          this.recommendedMaterials[idx].isSaved = prev;
+        }
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.recommendedMaterials[idx].isSaved = prev;
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   private computeTip() {
@@ -1060,12 +1312,6 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.hasTutorNote = true;
       this.sanitizedTutorNote = this.sanitizer.bypassSecurityTrustHtml(this.analysisData.tutorNote.text);
     }
-
-    // Homework suggestions
-    this.hasHomework = !!(
-      this.analysisData.homeworkSuggestions?.length ||
-      this.analysisData.tutorNote?.homework
-    );
   }
 
   private calcScoreColor(score: number | undefined): string {
@@ -1192,7 +1438,6 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.hasTutorFeedback = true;
     this.feedbackStrengths = this.tutorFeedback.strengths || [];
     this.feedbackImprovements = this.tutorFeedback.areasForImprovement || [];
-    this.feedbackHomework = this.tutorFeedback.homework || '';
     this.feedbackNotes = this.tutorFeedback.overallNotes || '';
     this.feedbackCefrLevel = this.tutorFeedback.estimatedCefrLevel || '';
     this.feedbackDate = this.tutorFeedback.providedAt
@@ -1555,8 +1800,10 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   // ── Actions ───────────────────────────────────────────────────
 
   goBack() {
-    // Use browser history to return to wherever the user came from
-    // (lessons page, tutor calendar, home, notifications, etc.)
+    if (this.isModal) {
+      this.modalController.dismiss();
+      return;
+    }
     this.location.back();
   }
 
@@ -1735,23 +1982,19 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     // Feedback is "provided" if we have either a tutor note or structured TutorFeedback
     this.feedbackProvided = this.hasTutorNote || this.hasTutorFeedback;
 
-    // For tutors, feedback is always shown as pending if not provided
-    // For students, only show "awaiting" if AI analysis is NOT available AND
-    // the lesson actually requires tutor feedback (i.e. AI wasn't supposed to handle it)
+    const requiresTutorFeedback = !!this.lesson.requiresTutorFeedback;
+    const hasPendingFeedbackRecord = !!this.tutorFeedback && this.tutorFeedback.status === 'pending';
+
     if (this.isTutorUser) {
-      this.feedbackPending = !this.feedbackProvided;
+      // Only show "Feedback outstanding" when there's an actual pending + required record.
+      // AI-enabled lessons don't create a TutorFeedback record, so feedback is optional.
+      this.feedbackPending = !this.feedbackProvided
+        && (requiresTutorFeedback || (hasPendingFeedbackRecord && this.tutorFeedback?.required !== false));
     } else {
-      // Student: check both the loaded analysis AND the lesson's embedded aiAnalysis field
       const hasAiAnalysis = this.hasAnalysis
         || this.lesson.aiAnalysis?.status === 'completed'
         || !!this.lesson.aiAnalysis?.generatedAt;
-
-      // If AI analysis was enabled for this lesson, tutor feedback is NOT required.
-      // Only show "Awaiting feedback" when the lesson explicitly requires tutor feedback
-      // (requiresTutorFeedback is true) or when there's a pending TutorFeedback record.
       const aiWasEnabled = this.lesson.aiAnalysisEnabledAtTime === true;
-      const requiresTutorFeedback = !!this.lesson.requiresTutorFeedback;
-      const hasPendingFeedbackRecord = !!this.tutorFeedback && this.tutorFeedback.status === 'pending';
 
       this.feedbackPending = !this.feedbackProvided
         && !hasAiAnalysis

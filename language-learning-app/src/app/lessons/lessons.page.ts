@@ -45,6 +45,7 @@ interface ProcessedLesson {
   canReportIssue: boolean;
   isIssueReported: boolean;
   isInvestigationResolved: boolean;
+  /** Show bottom actions strip (1:1: completed / cancelled / can join; class: can join only) */
   showActions: boolean;
   canJoin: boolean;
   needsTutorFeedback: boolean;
@@ -59,6 +60,11 @@ interface ProcessedLesson {
   classCapacity: number;
   classAttendees: { name: string; picture?: string; initials: string }[];
   classAttendeesOverflow: number;
+  /** Card body: schedule line vs analysis summary vs empty */
+  cardDescMode: 'schedule' | 'analysis' | 'analysis_generating' | 'analysis_empty';
+  cardDescText: string;
+  /** Airbnb-style footer stats (4 columns) */
+  cardStats: { value: string; label: string }[];
 }
 
 @Component({
@@ -82,6 +88,14 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
   filteredLessons: Lesson[] = [];
   processedLessons: ProcessedLesson[] = [];
   processedDisplayed: ProcessedLesson[] = [];
+
+  get displayedLessonCardCount(): number {
+    return this.processedDisplayed.length;
+  }
+
+  get totalLessonCardCount(): number {
+    return this.processedLessons.length;
+  }
 
   // Pagination
   private pageSize = 15;
@@ -121,12 +135,10 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
 
   // (Feedback modal removed — navigates to /lesson-analysis instead)
 
-  // Expanded lesson row (for actions)
-  expandedLessonId: string | null = null;
-
   // Smart caching — prevents visible reload on re-entry
   private _lastDataFetch = 0;
   private _cacheValidityMs = 30000; // 30 seconds
+
 
   constructor(
     private lessonService: LessonService,
@@ -185,6 +197,12 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
         setTimeout(() => this.scrollToLesson(lessonId), 800);
       }
     });
+
+    // Deep-link: /tabs/lessons/:id → navigate to detail page
+    const deepLinkId = this.route.snapshot.paramMap.get('id');
+    if (deepLinkId) {
+      this.router.navigate(['/tabs/lessons', deepLinkId]);
+    }
   }
 
   ionViewWillEnter() {
@@ -365,11 +383,11 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     // Status filter
     if (this.selectedStatusFilter === 'upcoming') {
       filtered = filtered.filter(l =>
-        (l.status === 'scheduled' || l.status === 'in_progress' || l.status === 'pending_reschedule') &&
+        (l.status === 'scheduled' || l.status === 'confirmed' || l.status === 'in_progress' || l.status === 'pending_reschedule') &&
         new Date(l.endTime) >= now
       );
     } else if (this.selectedStatusFilter === 'completed') {
-      filtered = filtered.filter(l => l.status === 'completed');
+      filtered = filtered.filter(l => l.status === 'completed' || l.status === 'ended_early');
     } else if (this.selectedStatusFilter === 'cancelled') {
       filtered = filtered.filter(l => l.status === 'cancelled');
     }
@@ -406,7 +424,8 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     this.filteredLessons = filtered;
 
     // Process lessons (pre-compute display data)
-    this.processedLessons = this.filteredLessons.map(l => this.processLesson(l));
+    const processed = this.filteredLessons.map(l => this.processLesson(l));
+    this.processedLessons = this.appendPreviewMocks(processed);
 
     // Reset pagination
     this.currentPage = 0;
@@ -417,9 +436,482 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   private reprocessLessons() {
-    this.processedLessons = this.filteredLessons.map(l => this.processLesson(l));
+    const processed = this.filteredLessons.map(l => this.processLesson(l));
+    this.processedLessons = this.appendPreviewMocks(processed);
     this.currentPage = 0;
     this.loadFirstPage();
+  }
+
+  /** Minimal lesson for preview mocks when the user has no lessons loaded. */
+  private createShellLesson(): Lesson {
+    const uid = String(this.currentUser?._id || this.currentUser?.id || 'user');
+    const now = new Date();
+    const other = { _id: 'other-preview', name: 'Other', email: 'o@example.com' };
+    const isTutor = this.isTutorUser;
+    return {
+      _id: '__preview_shell__',
+      tutorId: isTutor ? { _id: uid, name: 'Me', email: 'me@example.com' } : other,
+      studentId: isTutor ? other : { _id: uid, name: 'Me', email: 'me@example.com' },
+      startTime: now.toISOString(),
+      endTime: new Date(now.getTime() + 45 * 60000).toISOString(),
+      channelName: 'preview',
+      status: 'completed',
+      subject: 'Lesson',
+      price: 25,
+      duration: 45,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+    } as Lesson;
+  }
+
+  private mockProcessedLesson(base: ProcessedLesson, o: Partial<ProcessedLesson> & { id: string }): ProcessedLesson {
+    return {
+      ...base,
+      ...o,
+      lesson: { ...base.lesson, _id: o.id } as Lesson,
+    };
+  }
+
+  /**
+   * Preview cards for design QA — matches React Native LessonsScreen mocks.
+   * Remove `appendPreviewMocks` usage when no longer needed.
+   */
+  private buildPreviewMockCards(base: ProcessedLesson): ProcessedLesson[] {
+    const T = (k: string, params?: Record<string, string>) => this.translate.instant(k, params);
+    const dur = T('LESSONS_PAGE.CARD_STAT_DURATION');
+    const pri = T('LESSONS_PAGE.CARD_STAT_PRICE');
+    const rec = T('LESSONS_PAGE.CARD_STAT_RECEIVED');
+    const sta = T('LESSONS_PAGE.CARD_STAT_STATUS');
+    const m = (partial: Partial<ProcessedLesson> & { id: string }) => this.mockProcessedLesson(base, partial);
+
+    return [
+      m({
+        id: '__mock_student_completed__',
+        role: 'student',
+        roleLabel: T('LESSONS_PAGE.ROLE_TUTOR'),
+        otherName: 'Maria G.',
+        otherPicture: 'https://randomuser.me/api/portraits/women/44.jpg',
+        otherInitials: 'MG',
+        subject: 'Spanish',
+        formattedDate: 'April 8',
+        formattedMonth: 'Apr',
+        formattedDayNum: '8',
+        formattedTimeRange: '10:00 AM – 10:45 AM',
+        status: 'completed',
+        statusLabel: T('LESSONS_PAGE.STATUS_COMPLETED'),
+        cardDescMode: 'analysis',
+        cardDescText:
+          'Great progress with past tense conjugations today. Your conversational fluency improved noticeably — keep practicing irregular verbs.',
+        cardStats: [
+          { value: '45 min', label: dur },
+          { value: '$25', label: pri },
+          { value: T('LESSONS_PAGE.STATUS_COMPLETED'), label: sta },
+        ],
+        isTrial: false,
+        tipSent: false,
+        isUpcoming: false,
+        showActions: false,
+        canJoin: false,
+        analysisStatus: 'available',
+      }),
+      m({
+        id: '__mock_student_upcoming__',
+        role: 'student',
+        roleLabel: T('LESSONS_PAGE.ROLE_TUTOR'),
+        otherName: 'Carlos R.',
+        otherPicture: 'https://randomuser.me/api/portraits/men/32.jpg',
+        otherInitials: 'CR',
+        subject: 'Spanish',
+        formattedDate: 'April 14',
+        formattedMonth: 'Apr',
+        formattedDayNum: '14',
+        formattedTimeRange: '3:00 PM – 4:00 PM',
+        status: 'scheduled',
+        statusLabel: T('LESSONS_PAGE.STATUS_SCHEDULED'),
+        cardDescMode: 'schedule',
+        cardDescText: T('LESSONS_PAGE.LAST_SESSION_PREFIX') + 'Great progress with past tense conjugations — keep practicing irregular verbs.',
+        cardStats: [
+          { value: '60 min', label: dur },
+          { value: '$30', label: pri },
+          { value: T('LESSONS_PAGE.STATUS_SCHEDULED'), label: sta },
+        ],
+        isTrial: false,
+        tipSent: false,
+        isUpcoming: true,
+        showActions: false,
+        canJoin: false,
+      }),
+      m({
+        id: '__mock_student_cancelled__',
+        role: 'student',
+        roleLabel: T('LESSONS_PAGE.ROLE_TUTOR'),
+        otherName: 'Lucia P.',
+        otherPicture: 'https://randomuser.me/api/portraits/women/68.jpg',
+        otherInitials: 'LP',
+        subject: 'Spanish',
+        formattedDate: 'April 5',
+        formattedMonth: 'Apr',
+        formattedDayNum: '5',
+        formattedTimeRange: '11:00 AM – 11:30 AM',
+        status: 'cancelled',
+        statusLabel: T('LESSONS_PAGE.STATUS_CANCELLED'),
+        cardDescMode: 'schedule',
+        cardDescText: T('LESSONS_PAGE.CANCELLED_BY_TUTOR') + ' — Tutor unavailable',
+        cardStats: [
+          { value: '30 min', label: dur },
+          { value: '$15', label: pri },
+          { value: T('LESSONS_PAGE.STATUS_CANCELLED'), label: sta },
+        ],
+        isTrial: false,
+        tipSent: false,
+        isUpcoming: false,
+        showActions: false,
+        canJoin: false,
+      }),
+      m({
+        id: '__mock_student_awaiting__',
+        role: 'student',
+        roleLabel: T('LESSONS_PAGE.ROLE_TUTOR'),
+        otherName: 'Elena V.',
+        otherPicture: 'https://randomuser.me/api/portraits/women/21.jpg',
+        otherInitials: 'EV',
+        subject: 'Spanish',
+        formattedDate: 'April 7',
+        formattedMonth: 'Apr',
+        formattedDayNum: '7',
+        formattedTimeRange: '2:00 PM – 2:45 PM',
+        status: 'completed',
+        statusLabel: T('LESSONS_PAGE.STATUS_COMPLETED'),
+        cardDescMode: 'analysis',
+        cardDescText: T('LESSONS_PAGE.AWAITING_TUTOR_FEEDBACK'),
+        cardStats: [
+          { value: '45 min', label: dur },
+          { value: '$25', label: pri },
+          { value: T('LESSONS_PAGE.STATUS_COMPLETED'), label: sta },
+        ],
+        isTrial: false,
+        tipSent: false,
+        isUpcoming: false,
+        showActions: false,
+        canJoin: false,
+      }),
+      m({
+        id: '__mock_student_generating__',
+        role: 'student',
+        roleLabel: T('LESSONS_PAGE.ROLE_TUTOR'),
+        otherName: 'Rafael T.',
+        otherPicture: 'https://randomuser.me/api/portraits/men/75.jpg',
+        otherInitials: 'RT',
+        subject: 'Spanish',
+        formattedDate: 'April 9',
+        formattedMonth: 'Apr',
+        formattedDayNum: '9',
+        formattedTimeRange: '12:00 PM – 12:45 PM',
+        status: 'completed',
+        statusLabel: T('LESSONS_PAGE.STATUS_COMPLETED'),
+        cardDescMode: 'analysis_generating',
+        cardDescText: '',
+        cardStats: [
+          { value: '45 min', label: dur },
+          { value: '$25', label: pri },
+          { value: T('LESSONS_PAGE.STATUS_COMPLETED'), label: sta },
+        ],
+        isTrial: false,
+        tipSent: false,
+        isUpcoming: false,
+        showActions: false,
+        canJoin: false,
+        analysisStatus: 'generating',
+      }),
+      m({
+        id: '__mock_student_trial__',
+        role: 'student',
+        roleLabel: T('LESSONS_PAGE.ROLE_TUTOR'),
+        otherName: 'Sofia M.',
+        otherPicture: 'https://randomuser.me/api/portraits/women/55.jpg',
+        otherInitials: 'SM',
+        subject: 'Spanish',
+        formattedDate: 'April 9',
+        formattedMonth: 'Apr',
+        formattedDayNum: '9',
+        formattedTimeRange: '9:00 AM – 9:30 AM',
+        status: 'completed',
+        statusLabel: T('LESSONS_PAGE.STATUS_COMPLETED'),
+        isTrial: true,
+        cardDescMode: 'schedule',
+        cardDescText: T('LESSONS_PAGE.FIRST_LESSON_STUDENT', { name: 'Sofia' }),
+        cardStats: [
+          { value: '30 min', label: dur },
+          { value: '$0', label: pri },
+          { value: T('LESSONS_PAGE.STATUS_COMPLETED'), label: sta },
+        ],
+        tipSent: false,
+        isUpcoming: false,
+        showActions: false,
+        canJoin: false,
+      }),
+      m({
+        id: '__mock_student_tip__',
+        role: 'student',
+        roleLabel: T('LESSONS_PAGE.ROLE_TUTOR'),
+        otherName: 'Maria G.',
+        otherPicture: 'https://randomuser.me/api/portraits/women/44.jpg',
+        otherInitials: 'MG',
+        subject: 'Spanish',
+        formattedDate: 'April 6',
+        formattedMonth: 'Apr',
+        formattedDayNum: '6',
+        formattedTimeRange: '4:00 PM – 5:00 PM',
+        status: 'completed',
+        statusLabel: T('LESSONS_PAGE.STATUS_COMPLETED'),
+        cardDescMode: 'analysis',
+        cardDescText:
+          'Excellent session on subjunctive mood — you nailed the conditional triggers. Review irregular stems before next week.',
+        cardStats: [
+          { value: '60 min', label: dur },
+          { value: '$35', label: pri },
+          { value: T('LESSONS_PAGE.STATUS_COMPLETED'), label: sta },
+        ],
+        isTrial: false,
+        tipSent: true,
+        tipAmount: '5.00',
+        isUpcoming: false,
+        showActions: false,
+        canJoin: false,
+      }),
+      m({
+        id: '__mock_student_analysis_empty__',
+        role: 'student',
+        roleLabel: T('LESSONS_PAGE.ROLE_TUTOR'),
+        otherName: 'Hana T.',
+        otherPicture: 'https://randomuser.me/api/portraits/women/90.jpg',
+        otherInitials: 'HT',
+        subject: 'Spanish',
+        formattedDate: 'April 3',
+        formattedMonth: 'Apr',
+        formattedDayNum: '3',
+        formattedTimeRange: '10:00 AM – 10:45 AM',
+        status: 'completed',
+        statusLabel: T('LESSONS_PAGE.STATUS_COMPLETED'),
+        cardDescMode: 'analysis_empty',
+        cardDescText: '',
+        cardStats: [
+          { value: '45 min', label: dur },
+          { value: '$20', label: pri },
+          { value: T('LESSONS_PAGE.STATUS_COMPLETED'), label: sta },
+        ],
+        isTrial: false,
+        tipSent: false,
+        isUpcoming: false,
+        showActions: false,
+        canJoin: false,
+      }),
+      m({
+        id: '__mock_student_tutor_feedback__',
+        role: 'student',
+        roleLabel: T('LESSONS_PAGE.ROLE_TUTOR'),
+        otherName: 'Liam B.',
+        otherPicture: 'https://randomuser.me/api/portraits/men/11.jpg',
+        otherInitials: 'LB',
+        subject: 'Spanish',
+        formattedDate: 'April 2',
+        formattedMonth: 'Apr',
+        formattedDayNum: '2',
+        formattedTimeRange: '1:00 PM – 1:50 PM',
+        status: 'completed',
+        statusLabel: T('LESSONS_PAGE.STATUS_COMPLETED'),
+        cardDescMode: 'analysis',
+        cardDescText: 'Student has a strong foundation in grammar but needs to work on listening comprehension. Recommend more exposure to native-speed audio content.',
+        cardStats: [
+          { value: '50 min', label: dur },
+          { value: '$30', label: pri },
+          { value: T('LESSONS_PAGE.STATUS_COMPLETED'), label: sta },
+        ],
+        isTrial: false,
+        tipSent: false,
+        isUpcoming: false,
+        showActions: false,
+        canJoin: false,
+        analysisStatus: 'available',
+        hasTutorFeedbackAvailable: true,
+      }),
+      m({
+        id: '__mock_tutor_completed__',
+        role: 'tutor',
+        roleLabel: T('LESSONS_PAGE.ROLE_STUDENT'),
+        otherName: 'Daniel K.',
+        otherPicture: 'https://randomuser.me/api/portraits/men/46.jpg',
+        otherInitials: 'DK',
+        subject: 'Spanish',
+        formattedDate: 'April 7',
+        formattedMonth: 'Apr',
+        formattedDayNum: '7',
+        formattedTimeRange: '1:00 PM – 2:00 PM',
+        status: 'completed',
+        statusLabel: T('LESSONS_PAGE.STATUS_COMPLETED'),
+        cardDescMode: 'schedule',
+        cardDescText:
+          'Covered ser vs estar in present tense. Student struggled with temporary vs permanent states — assign extra practice on contextual usage.',
+        cardStats: [
+          { value: '60 min', label: dur },
+          { value: '$28', label: rec },
+          { value: T('LESSONS_PAGE.STATUS_COMPLETED'), label: sta },
+        ],
+        isTrial: false,
+        tipSent: false,
+        isUpcoming: false,
+        showActions: false,
+        canJoin: false,
+      }),
+      m({
+        id: '__mock_tutor_upcoming__',
+        role: 'tutor',
+        roleLabel: T('LESSONS_PAGE.ROLE_STUDENT'),
+        otherName: 'James L.',
+        otherPicture: 'https://randomuser.me/api/portraits/men/22.jpg',
+        otherInitials: 'JL',
+        subject: 'Spanish',
+        formattedDate: 'April 15',
+        formattedMonth: 'Apr',
+        formattedDayNum: '15',
+        formattedTimeRange: '11:00 AM – 12:00 PM',
+        status: 'scheduled',
+        statusLabel: T('LESSONS_PAGE.STATUS_SCHEDULED'),
+        cardDescMode: 'schedule',
+        cardDescText: T('LESSONS_PAGE.LAST_SESSION_PREFIX') + 'Covered ser vs estar in present tense. Student struggled with temporary vs permanent states.',
+        cardStats: [
+          { value: '60 min', label: dur },
+          { value: '$0', label: rec },
+          { value: T('LESSONS_PAGE.STATUS_SCHEDULED'), label: sta },
+        ],
+        isTrial: false,
+        tipSent: false,
+        isUpcoming: true,
+        showActions: false,
+        canJoin: false,
+      }),
+      m({
+        id: '__mock_tutor_feedback_needed__',
+        role: 'tutor',
+        roleLabel: T('LESSONS_PAGE.ROLE_STUDENT'),
+        otherName: 'Amy W.',
+        otherPicture: 'https://randomuser.me/api/portraits/women/33.jpg',
+        otherInitials: 'AW',
+        subject: 'Spanish',
+        formattedDate: 'April 6',
+        formattedMonth: 'Apr',
+        formattedDayNum: '6',
+        formattedTimeRange: '5:00 PM – 5:45 PM',
+        status: 'completed',
+        statusLabel: T('LESSONS_PAGE.STATUS_COMPLETED'),
+        cardDescMode: 'schedule',
+        cardDescText: T('LESSONS_PAGE.TUTOR_FEEDBACK_NEEDED'),
+        cardStats: [
+          { value: '45 min', label: dur },
+          { value: '$20', label: rec },
+          { value: T('LESSONS_PAGE.STATUS_COMPLETED'), label: sta },
+        ],
+        isTrial: false,
+        tipSent: false,
+        isUpcoming: false,
+        showActions: false,
+        canJoin: false,
+      }),
+      m({
+        id: '__mock_tutor_tip_received__',
+        role: 'tutor',
+        roleLabel: T('LESSONS_PAGE.ROLE_STUDENT'),
+        otherName: 'Daniel K.',
+        otherPicture: 'https://randomuser.me/api/portraits/men/46.jpg',
+        otherInitials: 'DK',
+        subject: 'Spanish',
+        formattedDate: 'April 4',
+        formattedMonth: 'Apr',
+        formattedDayNum: '4',
+        formattedTimeRange: '10:00 AM – 11:00 AM',
+        status: 'completed',
+        statusLabel: T('LESSONS_PAGE.STATUS_COMPLETED'),
+        cardDescMode: 'schedule',
+        cardDescText:
+          'Reviewed reading comprehension strategies. Student showed strong analytical skills with short passages.',
+        cardStats: [
+          { value: '60 min', label: dur },
+          { value: '$28', label: rec },
+          { value: T('LESSONS_PAGE.STATUS_COMPLETED'), label: sta },
+        ],
+        isTrial: false,
+        tipSent: true,
+        tipAmount: '8.00',
+        isUpcoming: false,
+        showActions: false,
+        canJoin: false,
+      }),
+      m({
+        id: '__mock_tutor_no_notes__',
+        role: 'tutor',
+        roleLabel: T('LESSONS_PAGE.ROLE_STUDENT'),
+        otherName: 'Priya S.',
+        otherPicture: 'https://randomuser.me/api/portraits/women/77.jpg',
+        otherInitials: 'PS',
+        subject: 'Spanish',
+        formattedDate: 'April 1',
+        formattedMonth: 'Apr',
+        formattedDayNum: '1',
+        formattedTimeRange: '3:00 PM – 3:30 PM',
+        status: 'completed',
+        statusLabel: T('LESSONS_PAGE.STATUS_COMPLETED'),
+        cardDescMode: 'schedule',
+        cardDescText: T('LESSONS_PAGE.TUTOR_NO_NOTES'),
+        cardStats: [
+          { value: '30 min', label: dur },
+          { value: '$16', label: rec },
+          { value: T('LESSONS_PAGE.STATUS_COMPLETED'), label: sta },
+        ],
+        isTrial: false,
+        tipSent: false,
+        isUpcoming: false,
+        showActions: false,
+        canJoin: false,
+      }),
+      m({
+        id: '__mock_tutor_cancelled__',
+        role: 'tutor',
+        roleLabel: T('LESSONS_PAGE.ROLE_STUDENT'),
+        otherName: 'Marco V.',
+        otherPicture: 'https://randomuser.me/api/portraits/men/52.jpg',
+        otherInitials: 'MV',
+        subject: 'Spanish',
+        formattedDate: 'April 10',
+        formattedMonth: 'Apr',
+        formattedDayNum: '10',
+        formattedTimeRange: '2:00 PM – 2:45 PM',
+        status: 'cancelled',
+        statusLabel: T('LESSONS_PAGE.STATUS_CANCELLED'),
+        cardDescMode: 'schedule',
+        cardDescText: T('LESSONS_PAGE.CANCELLED_BY_STUDENT') + ' — Schedule conflict',
+        cardStats: [
+          { value: '45 min', label: dur },
+          { value: '$0', label: rec },
+          { value: T('LESSONS_PAGE.STATUS_CANCELLED'), label: sta },
+        ],
+        isTrial: false,
+        tipSent: false,
+        isUpcoming: false,
+        showActions: false,
+        canJoin: false,
+      }),
+    ];
+  }
+
+  private appendPreviewMocks(processed: ProcessedLesson[]): ProcessedLesson[] {
+    const base =
+      processed.length > 0 ? processed[0] : this.processLesson(this.createShellLesson());
+    const all = this.buildPreviewMockCards(base);
+
+    const showRole = this.isTutorUser ? 'tutor' : 'student';
+    const mocks = all.filter(p => p.role === showRole);
+
+    return [...mocks, ...processed];
   }
 
   // ─── Pre-compute lesson display data ─────────────────
@@ -443,12 +935,12 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     // Status
     let status = lesson.status;
     let statusLabel = this.getStatusText(lesson);
-    const isUpcoming = (status === 'scheduled' || status === 'in_progress' || status === 'pending_reschedule') && end >= now;
+    const isUpcoming = (status === 'scheduled' || status === 'confirmed' || status === 'in_progress' || status === 'pending_reschedule') && end >= now;
 
     // Analysis status
     let analysisStatus: 'available' | 'generating' | 'unavailable' = 'unavailable';
-    const aiAnalysis = (lesson as any).aiAnalysis;
-    const tutorFeedback = (lesson as any).tutorFeedback;
+    const aiAnalysis = lesson.aiAnalysis;
+    const tutorFeedback = lesson.tutorFeedback;
     if (tutorFeedback?.status === 'completed') {
       analysisStatus = 'available';
     } else if (aiAnalysis?.status === 'generating') {
@@ -458,7 +950,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     }
 
     // Tutor note
-    const tutorNote = (lesson as any).tutorNote;
+    const tutorNote = lesson.tutorNote;
     const hasTutorNoteAvailable = !!(tutorNote && tutorNote.text);
 
     // Can report issue (within 24h of end, both students and tutors)
@@ -467,7 +959,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // Can join (upcoming or in-progress, within 10 min before start to end)
     const minutesUntilStart = (start.getTime() - now.getTime()) / (1000 * 60);
-    const canJoin = (status === 'scheduled' || status === 'in_progress') && minutesUntilStart <= 10 && end > now;
+    const canJoin = (status === 'scheduled' || status === 'confirmed' || status === 'in_progress') && minutesUntilStart <= 10 && end > now;
 
     // Initials
     const nameParts = other.name.split(' ');
@@ -491,8 +983,8 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     // If AI was enabled, tutor feedback is optional — never show a pending badge.
     // Trial lessons are excluded — no feedback expected.
     const hasAiAnalysis = aiAnalysis?.status === 'completed' || !!aiAnalysis?.hasAnalysis;
-    const aiWasEnabled = (lesson as any).aiAnalysisEnabledAtTime === true;
-    const requiresTutorFeedback = !!(lesson as any).requiresTutorFeedback;
+    const aiWasEnabled = lesson.aiAnalysisEnabledAtTime === true;
+    const requiresTutorFeedback = !!lesson.requiresTutorFeedback;
     const hasPendingFeedbackRecord = !!tutorFeedback && tutorFeedback.status === 'pending';
     const feedbackPendingForStudent = role === 'student'
       && status === 'completed'
@@ -508,9 +1000,105 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
       && !hasTutorFeedbackAvailable
       && !needsTutorFeedback;
 
-    // Show actions row? (completed, joinable, or needs feedback badge)
-    const showActions = status === 'completed' || canJoin;
+    // Footer strip: match reference (completed, joinable, cancelled — not empty for 1:1)
+    const showActions =
+      (!lesson.isClass && (canJoin || status === 'completed' || status === 'cancelled'))
+      || (!!lesson.isClass && canJoin);
 
+    let cardDescMode: ProcessedLesson['cardDescMode'] = 'schedule';
+    let cardDescText = '';
+    const T = (k: string, params?: Record<string, string>) => this.translate.instant(k, params);
+
+    if (status === 'completed' || status === 'ended_early') {
+      if (role === 'tutor') {
+        const noteBody = tutorNote?.text;
+        const feedbackNotes = tutorFeedback?.overallNotes;
+        if (noteBody) {
+          cardDescMode = 'schedule';
+          cardDescText = this.truncateCardText(noteBody, 220);
+        } else if (feedbackNotes && hasTutorFeedbackAvailable) {
+          cardDescMode = 'schedule';
+          cardDescText = this.truncateCardText(String(feedbackNotes), 220);
+        } else if (needsTutorFeedback) {
+          cardDescMode = 'schedule';
+          cardDescText = T('LESSONS_PAGE.TUTOR_FEEDBACK_NEEDED');
+        } else {
+          cardDescMode = 'schedule';
+          cardDescText = T('LESSONS_PAGE.TUTOR_NO_NOTES');
+        }
+      } else {
+        if (isTrial) {
+          // no description — card has name + date + stats already
+        } else if (analysisStatus === 'generating') {
+          cardDescMode = 'analysis_generating';
+        } else if (feedbackPendingForStudent) {
+          cardDescMode = 'analysis';
+          cardDescText = T('LESSONS_PAGE.AWAITING_TUTOR_FEEDBACK');
+        } else {
+          const sum = aiAnalysis?.overallAssessment?.summary || aiAnalysis?.studentSummary;
+          const firstImprovement = aiAnalysis?.progressionMetrics?.keyImprovements?.[0];
+          const noteBody = tutorNote?.text;
+          const feedbackNotes = tutorFeedback?.overallNotes;
+
+          if (sum && String(sum).trim()) {
+            cardDescMode = 'analysis';
+            cardDescText = this.truncateCardText(String(sum), 220);
+          } else if (firstImprovement) {
+            cardDescMode = 'analysis';
+            cardDescText = this.truncateCardText(firstImprovement, 220);
+          } else if (noteBody) {
+            cardDescMode = 'analysis';
+            cardDescText = this.truncateCardText(noteBody, 220);
+          } else if (feedbackNotes && hasTutorFeedbackAvailable) {
+            cardDescMode = 'analysis';
+            cardDescText = this.truncateCardText(String(feedbackNotes), 220);
+          } else if (analysisStatus === 'available') {
+            cardDescMode = 'analysis';
+            cardDescText = T('LESSONS_PAGE.ANALYSIS_AVAILABLE_TAP');
+          } else {
+            cardDescMode = 'analysis_empty';
+          }
+        }
+      }
+    } else if (status === 'cancelled') {
+      const cancelBy = lesson.cancelledBy;
+      const reasonText = lesson.cancelReasonText || lesson.cancelReason || '';
+      let byLabel = '';
+      if (cancelBy === 'tutor') byLabel = T('LESSONS_PAGE.CANCELLED_BY_TUTOR');
+      else if (cancelBy === 'student') byLabel = T('LESSONS_PAGE.CANCELLED_BY_STUDENT');
+      else if (cancelBy === 'system' || cancelBy === 'admin') byLabel = T('LESSONS_PAGE.CANCELLED_BY_SYSTEM');
+
+      if (byLabel && reasonText) {
+        cardDescText = `${byLabel} — ${reasonText}`;
+      } else if (byLabel) {
+        cardDescText = byLabel;
+      } else if (reasonText) {
+        cardDescText = reasonText;
+      }
+    } else if (status === 'in_progress') {
+      cardDescText = T('LESSONS_PAGE.LESSON_IN_PROGRESS');
+    } else if (status === 'pending_reschedule') {
+      cardDescText = T('LESSONS_PAGE.RESCHEDULE_PENDING');
+    } else if (status === 'scheduled' || status === 'confirmed') {
+      const ctx = lesson.lastSessionContext;
+      const otherName = other?.name || '';
+      const shortName = otherName.split(' ')[0] || otherName;
+      if (ctx?.isFirstLesson) {
+        const key = role === 'tutor'
+          ? 'LESSONS_PAGE.FIRST_LESSON_TUTOR'
+          : 'LESSONS_PAGE.FIRST_LESSON_STUDENT';
+        cardDescText = T(key, { name: shortName });
+      } else if (ctx?.summary) {
+        cardDescText = T('LESSONS_PAGE.LAST_SESSION_PREFIX') + this.truncateCardText(ctx.summary, 180);
+      }
+    }
+
+    const durLabel = this.translate.instant('LESSONS_PAGE.DURATION_MIN');
+    const cardStats: { value: string; label: string }[] = [
+      { value: `${lesson.duration}${durLabel}`, label: this.translate.instant('LESSONS_PAGE.CARD_STAT_DURATION') },
+      this.lessonCardMoneyStat(lesson, role),
+      { value: statusLabel, label: this.translate.instant('LESSONS_PAGE.CARD_STAT_STATUS') },
+    ];
     return {
       id: lesson._id,
       lesson,
@@ -523,7 +1111,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
       formattedMonth: fmtMonth,
       formattedDayNum: fmtDayNum,
       formattedWeekday: fmtWeekday,
-      formattedDate: `${fmtWeekday}, ${fmtMonthLong} ${fmtDayNum}`,
+      formattedDate: `${fmtMonthLong} ${fmtDayNum}`,
       formattedTimeRange: `${startStr} – ${endStr}`,
       duration: lesson.duration,
       price: lesson.price,
@@ -558,11 +1146,39 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
         initials: this.getInitials(a.name || a.firstName || ''),
       })),
       classAttendeesOverflow: Math.max(0, (lesson.attendees?.length || 0) - 3),
+      cardDescMode,
+      cardDescText,
+      cardStats,
     };
+  }
+
+  private truncateCardText(s: string, max: number): string {
+    const t = (s || '').trim();
+    if (!t) return '';
+    if (t.length <= max) return t;
+    return `${t.slice(0, max - 1).trim()}…`;
   }
 
   private getInitials(name: string): string {
     return name.split(' ').map(p => p.charAt(0)).join('').toUpperCase().slice(0, 2);
+  }
+
+  /** Middle lesson-card column: list price for students, tutor net payout for tutors. */
+  private lessonCardMoneyStat(lesson: Lesson, role: 'tutor' | 'student'): { value: string; label: string } {
+    if (role === 'student') {
+      return {
+        value: `$${(lesson.price || 0).toFixed(0)}`,
+        label: this.translate.instant('LESSONS_PAGE.CARD_STAT_PRICE'),
+      };
+    }
+    const raw = lesson.tutorPayout;
+    const n = typeof raw === 'number' && !Number.isNaN(raw) ? Math.max(0, raw) : 0;
+    const rounded = Math.abs(n - Math.round(n)) < 0.005 ? Math.round(n) : Math.round(n * 100) / 100;
+    const value = `$${rounded.toFixed(Number.isInteger(rounded) ? 0 : 2)}`;
+    return {
+      value,
+      label: this.translate.instant('LESSONS_PAGE.CARD_STAT_RECEIVED'),
+    };
   }
 
   // ─── Pagination ──────────────────────────────────────
@@ -660,9 +1276,13 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
 
   private getStatusText(lesson: Lesson): string {
     switch (lesson.status) {
-      case 'scheduled': return this.translate.instant('LESSONS_PAGE.STATUS_SCHEDULED');
+      case 'scheduled':
+      case 'confirmed':
+        return this.translate.instant('LESSONS_PAGE.STATUS_SCHEDULED');
       case 'in_progress': return this.translate.instant('LESSONS_PAGE.STATUS_IN_PROGRESS');
-      case 'completed': return this.translate.instant('LESSONS_PAGE.STATUS_COMPLETED');
+      case 'completed':
+      case 'ended_early':
+        return this.translate.instant('LESSONS_PAGE.STATUS_COMPLETED');
       case 'cancelled': return this.translate.instant('LESSONS_PAGE.STATUS_CANCELLED');
       case 'pending_reschedule': return this.translate.instant('LESSONS_PAGE.STATUS_PENDING');
       default: return lesson.status;
@@ -683,11 +1303,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     event.target.complete();
   }
 
-  toggleExpand(pl: ProcessedLesson) {
-    this.expandedLessonId = this.expandedLessonId === pl.id ? null : pl.id;
-  }
-
-  onLessonClick(pl: ProcessedLesson, _event?: MouseEvent) {
+  onLessonClick(pl: ProcessedLesson) {
     this.router.navigate(['/tabs/lessons', pl.id]);
   }
 

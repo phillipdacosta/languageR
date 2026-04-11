@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -13,18 +13,27 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import { RtcSurfaceView, VideoMirrorModeType } from 'react-native-agora';
 import type { RootStackParamList } from '../navigation/types';
 import { useAuth } from '../hooks/useAuth';
 import { lessonService, Lesson } from '../services/lessons';
+import { agoraService, type VbMode } from '../services/agora';
+
+type LessonIntent = 'easy' | 'conversational' | 'focused' | 'challenge';
+const INTENT_OPTIONS: { id: LessonIntent; emoji: string; labelKey: string }[] = [
+  { id: 'easy', emoji: '😌', labelKey: 'PRE_CALL.INTENT_EASY' },
+  { id: 'conversational', emoji: '💬', labelKey: 'PRE_CALL.INTENT_CONVERSATIONAL' },
+  { id: 'focused', emoji: '🎯', labelKey: 'PRE_CALL.INTENT_FOCUSED' },
+  { id: 'challenge', emoji: '🔥', labelKey: 'PRE_CALL.INTENT_CHALLENGE' },
+];
 
 const ENTER_TEAL = '#23839d';
-const ENTER_TEAL_ACTIVE = '#1a6a80';
 const WIDE_BREAKPOINT = 768;
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PreCall'>;
@@ -52,16 +61,18 @@ export default function PreCallScreen({ navigation, route }: Props) {
   const [loadError, setLoadError] = useState(false);
 
   const [permission, requestPermission] = useCameraPermissions();
-  const [cameraReady, setCameraReady] = useState(false);
-  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [agoraReady, setAgoraReady] = useState(false);
+  const [agoraError, setAgoraError] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [showVb, setShowVb] = useState(false);
-  const [vbMode, setVbMode] = useState<'none' | 'blur' | 'black'>('none');
+  const [vbMode, setVbMode] = useState<VbMode>('none');
   const [audioLevel, setAudioLevel] = useState(35);
+  const [selectedIntent, setSelectedIntent] = useState<LessonIntent | null>(null);
 
   const isTutor = user?.userType === 'tutor';
 
+  // Fetch lesson data
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -82,6 +93,44 @@ export default function PreCallScreen({ navigation, route }: Props) {
     };
   }, [lessonId]);
 
+  // Initialize Agora engine once camera permission is granted
+  useEffect(() => {
+    if (!permission?.granted) return;
+
+    let destroyed = false;
+    (async () => {
+      try {
+        await agoraService.initialize();
+        if (destroyed) return;
+        agoraService.enablePreview();
+        setAgoraReady(true);
+      } catch (err: any) {
+        if (destroyed) return;
+        setAgoraError(err?.message || 'Failed to initialize video engine');
+      }
+    })();
+
+    return () => {
+      destroyed = true;
+      agoraService.disablePreview();
+      agoraService.destroy();
+      setAgoraReady(false);
+    };
+  }, [permission?.granted]);
+
+  // Sync mute state to Agora
+  useEffect(() => {
+    if (!agoraReady) return;
+    agoraService.muteLocalAudio(isMuted);
+  }, [isMuted, agoraReady]);
+
+  // Sync video off state to Agora
+  useEffect(() => {
+    if (!agoraReady) return;
+    agoraService.muteLocalVideo(isVideoOff);
+  }, [isVideoOff, agoraReady]);
+
+  // Simulated audio meter
   useEffect(() => {
     if (isMuted) {
       setAudioLevel(0);
@@ -144,12 +193,7 @@ export default function PreCallScreen({ navigation, route }: Props) {
 
   const toggleVideo = useCallback(() => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setIsVideoOff(v => {
-      const next = !v;
-      if (!next) setCameraReady(false);
-      return next;
-    });
-    setCameraError(null);
+    setIsVideoOff(v => !v);
   }, []);
 
   const toggleVbPanel = useCallback(() => {
@@ -165,34 +209,53 @@ export default function PreCallScreen({ navigation, route }: Props) {
     ]);
   }, [t]);
 
-  const setVbBlur = useCallback(() => {
-    setVbMode('blur');
-  }, []);
-  const setVbBlack = useCallback(() => {
-    setVbMode('black');
-  }, []);
-  const setVbNormal = useCallback(() => {
-    setVbMode('none');
+  const applyVb = useCallback(
+    (mode: VbMode) => {
+      setVbMode(mode);
+      if (agoraReady) {
+        try {
+          agoraService.setVirtualBackground(mode);
+        } catch {
+          // device may not support virtual background
+        }
+      }
+    },
+    [agoraReady],
+  );
+
+  const handleIntentSelect = useCallback((intent: LessonIntent) => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedIntent(prev => (prev === intent ? null : intent));
   }, []);
 
   const enterClassroom = useCallback(() => {
+    if (!lesson) return;
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert(t('PRE_CALL.ENTER_CLASSROOM'), t('PRE_CALL.ENTER_NATIVE_SOON'));
-  }, [t]);
+    if (selectedIntent && !isTutor) {
+      lessonService.updateLesson(lessonId, { studentLessonIntent: selectedIntent }).catch(() => {});
+    }
+    navigation.replace('VideoCall', {
+      lessonId,
+      isClass: !!lesson.isClass,
+      micOn: !isMuted,
+      videoOn: !isVideoOff,
+    });
+  }, [lesson, lessonId, navigation, isMuted, isVideoOff, selectedIntent, isTutor]);
 
   const camGranted = permission?.granted === true;
-  const showCamera = camGranted && !isVideoOff && !cameraError;
-  const previewLoading = showCamera && !cameraReady;
+  const showCamera = camGranted && !isVideoOff && !agoraError && agoraReady;
 
   const previewPanel = (
     <View style={[styles.previewPanel, isWide && styles.previewPanelWide]}>
-      <TouchableOpacity
-        style={[styles.goBackButton, { top: Math.max(insets.top, Platform.OS === 'ios' ? 12 : 16) + 12 }]}
-        onPress={goBack}
-        activeOpacity={0.85}
-      >
-        <Text style={styles.goBackText}>{t('PRE_CALL.GO_BACK')}</Text>
-      </TouchableOpacity>
+      <View style={styles.goBackRow}>
+        <TouchableOpacity
+          style={styles.goBackButton}
+          onPress={goBack}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.goBackText}>{t('PRE_CALL.GO_BACK')}</Text>
+        </TouchableOpacity>
+      </View>
 
       <View style={styles.previewHeader}>
         <Text style={styles.previewTitle}>{previewTitle}</Text>
@@ -200,18 +263,12 @@ export default function PreCallScreen({ navigation, route }: Props) {
 
       <View style={[styles.videoShell, isVideoOff && styles.videoShellOff]}>
         {showCamera ? (
-          <CameraView
+          <RtcSurfaceView
             style={StyleSheet.absoluteFill}
-            facing="front"
-            mirror
-            mode="video"
-            mute={isMuted}
-            active
-            onCameraReady={() => setCameraReady(true)}
-            onMountError={e => setCameraError(e?.message || 'Camera error')}
+            canvas={{ uid: 0, mirrorMode: VideoMirrorModeType.VideoMirrorModeEnabled }}
           />
         ) : null}
-        {(!camGranted || isVideoOff) && !cameraError ? (
+        {(!camGranted || isVideoOff) && !agoraError ? (
           <View style={styles.videoPlaceholder}>
             <Ionicons name="person" size={72} color="rgba(255,255,255,0.35)" />
             {!camGranted ? (
@@ -226,23 +283,17 @@ export default function PreCallScreen({ navigation, route }: Props) {
             )}
           </View>
         ) : null}
-        {previewLoading ? (
+        {camGranted && !agoraReady && !agoraError && !isVideoOff ? (
           <View style={styles.loadingOverlay} pointerEvents="none">
             <ActivityIndicator size="large" color="#fff" />
             <Text style={styles.loadingOverlayText}>{t('PRE_CALL.LOADING_CAMERA')}</Text>
           </View>
         ) : null}
-        {cameraError ? (
+        {agoraError ? (
           <View style={styles.errorBox}>
             <Ionicons name="alert-circle-outline" size={44} color="#ef4444" />
-            <Text style={styles.errorText}>{cameraError}</Text>
+            <Text style={styles.errorText}>{agoraError}</Text>
           </View>
-        ) : null}
-        {vbMode === 'black' && showCamera && cameraReady ? (
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: '#000' }]} pointerEvents="none" />
-        ) : null}
-        {vbMode === 'blur' && showCamera && cameraReady ? (
-          <View style={[StyleSheet.absoluteFill, styles.fakeBlur]} pointerEvents="none" />
         ) : null}
       </View>
 
@@ -306,24 +357,39 @@ export default function PreCallScreen({ navigation, route }: Props) {
               <Ionicons name="close" size={22} color="rgba(255,255,255,0.85)" />
             </TouchableOpacity>
           </View>
-          <TouchableOpacity style={styles.vbOption} onPress={setVbBlur} activeOpacity={0.85}>
-            <Ionicons name="color-wand-outline" size={20} color="#fff" />
+          <TouchableOpacity
+            style={[styles.vbOption, vbMode === 'blur' && styles.vbOptionActive]}
+            onPress={() => applyVb('blur')}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="water-outline" size={20} color="#fff" />
             <Text style={styles.vbOptionText}>{t('PRE_CALL.VB_BLUR')}</Text>
+            {vbMode === 'blur' ? (
+              <Ionicons name="checkmark-circle" size={18} color="#34C759" />
+            ) : null}
           </TouchableOpacity>
-          <TouchableOpacity style={styles.vbOption} onPress={setVbBlack} activeOpacity={0.85}>
+          <TouchableOpacity
+            style={[styles.vbOption, vbMode === 'black' && styles.vbOptionActive]}
+            onPress={() => applyVb('black')}
+            activeOpacity={0.85}
+          >
             <View style={styles.vbColorDot} />
             <Text style={styles.vbOptionText}>{t('PRE_CALL.VB_BLACK')}</Text>
+            {vbMode === 'black' ? (
+              <Ionicons name="checkmark-circle" size={18} color="#34C759" />
+            ) : null}
           </TouchableOpacity>
-          <TouchableOpacity style={styles.vbOption} onPress={setVbNormal} activeOpacity={0.85}>
+          <TouchableOpacity
+            style={[styles.vbOption, vbMode === 'none' && styles.vbOptionActive]}
+            onPress={() => applyVb('none')}
+            activeOpacity={0.85}
+          >
             <Ionicons name="videocam-outline" size={20} color="#fff" />
             <Text style={styles.vbOptionText}>{t('PRE_CALL.VB_NORMAL')}</Text>
+            {vbMode === 'none' ? (
+              <Ionicons name="checkmark-circle" size={18} color="#34C759" />
+            ) : null}
           </TouchableOpacity>
-          {vbMode !== 'none' ? (
-            <View style={styles.vbStatus}>
-              <Ionicons name="checkmark-circle" size={16} color="#34C759" />
-              <Text style={styles.vbStatusText}>{t('PRE_CALL.VB_ACTIVE')}</Text>
-            </View>
-          ) : null}
         </View>
       ) : null}
     </View>
@@ -354,6 +420,30 @@ export default function PreCallScreen({ navigation, route }: Props) {
             ) : null}
           </View>
           <Text style={styles.lessonSubtitle}>{subtitle}</Text>
+
+          {!isTutor && (
+            <View style={styles.intentSection}>
+              <Text style={styles.intentTitle}>{t('PRE_CALL.INTENT_TITLE')}</Text>
+              <View style={styles.intentChipsRow}>
+                {INTENT_OPTIONS.map(opt => {
+                  const active = selectedIntent === opt.id;
+                  return (
+                    <TouchableOpacity
+                      key={opt.id}
+                      style={[styles.intentChip, active && styles.intentChipActive]}
+                      onPress={() => handleIntentSelect(opt.id)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.intentEmoji}>{opt.emoji}</Text>
+                      <Text style={[styles.intentLabel, active && styles.intentLabelActive]}>
+                        {t(opt.labelKey)}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          )}
         </>
       )}
       <View style={[styles.infoSpacer, isWide && styles.infoSpacerWide]} />
@@ -430,10 +520,12 @@ const styles = StyleSheet.create({
     paddingTop: 32,
     paddingHorizontal: 32,
   },
+  goBackRow: {
+    width: '100%',
+    alignItems: 'flex-start',
+    marginBottom: 4,
+  },
   goBackButton: {
-    position: 'absolute',
-    left: 16,
-    zIndex: 20,
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 8,
@@ -450,7 +542,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 600,
     marginBottom: 20,
-    marginTop: 44,
+    marginTop: 12,
     alignItems: 'center',
   },
   previewTitle: {
@@ -531,9 +623,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 10,
     textAlign: 'center',
-  },
-  fakeBlur: {
-    backgroundColor: 'rgba(30,30,40,0.65)',
   },
   previewControls: {
     width: '100%',
@@ -641,6 +730,10 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.12)',
     marginBottom: 8,
   },
+  vbOptionActive: {
+    borderColor: 'rgba(52, 199, 89, 0.6)',
+    backgroundColor: 'rgba(52, 199, 89, 0.08)',
+  },
   vbOptionText: { color: '#fff', fontSize: 14, fontWeight: '500', flex: 1 },
   vbColorDot: {
     width: 20,
@@ -650,13 +743,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.3)',
   },
-  vbStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 6,
-  },
-  vbStatusText: { color: 'rgba(255,255,255,0.85)', fontSize: 13 },
   infoPanel: {
     flexGrow: 1,
     backgroundColor: '#000000',
@@ -715,6 +801,52 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginBottom: 16,
     paddingHorizontal: 8,
+  },
+  intentSection: {
+    width: '100%',
+    maxWidth: 360,
+    marginTop: 4,
+    marginBottom: 4,
+    alignItems: 'center',
+  },
+  intentTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.6)',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  intentChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  intentChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  intentChipActive: {
+    borderColor: 'rgba(35,131,157,0.7)',
+    backgroundColor: 'rgba(35,131,157,0.18)',
+  },
+  intentEmoji: {
+    fontSize: 16,
+  },
+  intentLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.75)',
+  },
+  intentLabelActive: {
+    color: '#fff',
   },
   infoSpacer: { minHeight: 32, width: '100%' },
   infoSpacerWide: { flex: 1, minHeight: 40 },

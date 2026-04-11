@@ -261,6 +261,16 @@
             <span>{{ remoteParticipantLabel }}</span>
           </div>
         </div>
+
+        <!-- Student Intent Banner (tutor only) -->
+        <div class="intent-banner" *ngIf="showIntentBanner && studentLessonIntent && intentDisplay[studentLessonIntent]" (click)="dismissIntentBanner()">
+          <span class="intent-banner-emoji">{{ intentDisplay[studentLessonIntent].emoji }}</span>
+          <div class="intent-banner-text">
+            <span class="intent-banner-label">Student wants: <strong>{{ intentDisplay[studentLessonIntent].label }}</strong></span>
+            <span class="intent-banner-hint">{{ intentDisplay[studentLessonIntent].hint }}</span>
+          </div>
+          <ion-icon name="close" class="intent-banner-close"></ion-icon>
+        </div>
       </div>
       <ng-template #remoteMainPlaceholder>
         <div class="video-placeholder">

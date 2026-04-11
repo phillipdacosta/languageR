@@ -34,7 +34,7 @@
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
   height: calc(100vh - 160px);
   max-height: 800px;
-  overflow-y: auto;
+  // overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 
   // Full-bleed sticky chrome inside the card (negate horizontal padding) — all breakpoints
@@ -58,7 +58,7 @@
 .cm-library-content-area {
   position: relative;
   transition: filter 0.3s ease, opacity 0.3s ease;
-  padding-top: 45px;
+  // padding-top: 45px;
 
   &.is-blurred {
     filter: blur(6px);
@@ -915,6 +915,32 @@
   font-size: 15px;
   font-weight: 600;
   color: #1d1d1f;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+}
+
+.cm-edit-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  border-radius: 8px;
+  padding: 4px 12px;
+  line-height: 1.4;
+  box-shadow: 0 1px 4px rgba(217, 119, 6, 0.25);
+
+  &--wizard {
+    margin-bottom: 12px;
+    font-size: 13px;
+    padding: 5px 14px;
+  }
 }
 
 .cm-nav-right {
@@ -4250,6 +4276,11 @@
   .cm-nav-back { color: #4298d2; }
   .cm-nav-title { color: #f5f5f7; }
   .cm-nav-step { color: #999; }
+  .cm-edit-badge {
+    color: #fff;
+    background: linear-gradient(135deg, #f59e0b, #b45309);
+    box-shadow: 0 1px 4px rgba(180, 83, 9, 0.35);
+  }
 
   .cm-step-indicator .cm-step-bar { background: #3a3a3c; }
   .cm-step-fill { background: #4298d2; }

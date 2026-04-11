@@ -98,6 +98,21 @@ export interface SavedCard {
   isDefault?: boolean;
 }
 
+export interface RecommendedMaterial extends TutorMaterial {
+  isSaved?: boolean;
+  _matchedStruggles?: string[];
+  _isCurrentTutor?: boolean;
+  _topicScore?: number;
+}
+
+export interface RecommendedMaterialsResponse {
+  success: boolean;
+  materials: RecommendedMaterial[];
+  struggles: string[];
+  studentLevel?: string;
+  isLessonSpecific?: boolean;
+}
+
 export interface LinkedChannels {
   youtubeChannelId?: string | null;
   youtubeChannelUrl?: string | null;
@@ -465,6 +480,51 @@ export const materialService = {
       return { success: true, message: data.message };
     } catch (err: any) {
       return { success: false, message: err?.message || 'Purchase failed' };
+    }
+  },
+
+  /* ── Recommendations ── */
+
+  async getRecommendedMaterials(
+    language: string,
+    opts?: { lessonId?: string; tutorId?: string }
+  ): Promise<RecommendedMaterialsResponse> {
+    try {
+      const params = new URLSearchParams();
+      if (opts?.lessonId) params.set('lessonId', opts.lessonId);
+      if (opts?.tutorId) params.set('tutorId', opts.tutorId);
+      const qs = params.toString();
+      const url = `/materials/recommended/${encodeURIComponent(language)}${qs ? `?${qs}` : ''}`;
+      const data = await api.get<RecommendedMaterialsResponse>(url);
+      return data;
+    } catch (err: any) {
+      console.warn('[Materials] getRecommendedMaterials failed:', err?.message || err);
+      return { success: false, materials: [], struggles: [] };
+    }
+  },
+
+  async toggleSaveMaterial(
+    materialId: string,
+    sourceLessonId?: string
+  ): Promise<{ success: boolean; saved: boolean }> {
+    try {
+      const body: Record<string, string> = { source: 'recommendation' };
+      if (sourceLessonId) body.sourceLessonId = sourceLessonId;
+      const data = await api.post<{ success: boolean; saved: boolean }>(`/materials/${materialId}/save`, body);
+      return data;
+    } catch (err: any) {
+      console.warn('[Materials] toggleSaveMaterial failed:', err?.message || err);
+      return { success: false, saved: false };
+    }
+  },
+
+  async getSavedMaterials(): Promise<TutorMaterial[]> {
+    try {
+      const data = await api.get<{ success: boolean; materials: TutorMaterial[] }>('/materials/saved');
+      return data.materials || [];
+    } catch (err: any) {
+      console.warn('[Materials] getSavedMaterials failed:', err?.message || err);
+      return [];
     }
   },
 };

@@ -13,17 +13,16 @@ const TAB_BAR_FALLBACK_HEIGHT = 88;
 
 type Props = BottomTabBarProps & {
   homeOverlayCoversTabBar: boolean;
+  lessonOverlayCoversTabBar: boolean;
 };
 
-/**
- * When Home full-screen overlays (materials, earnings) dismiss, the tab bar
- * eases back in with a short delay and soft slide-up.
- */
-export default function SlidingTabBar({ homeOverlayCoversTabBar, ...props }: Props) {
+export default function SlidingTabBar({ homeOverlayCoversTabBar, lessonOverlayCoversTabBar, ...props }: Props) {
   const measuredHeight = useSharedValue(TAB_BAR_FALLBACK_HEIGHT);
   const clipHeight = useSharedValue(TAB_BAR_FALLBACK_HEIGHT);
   const translateY = useSharedValue(0);
   const wasCovered = useRef(false);
+
+  const anyCovered = homeOverlayCoversTabBar || lessonOverlayCoversTabBar;
 
   const onBarLayout = (e: LayoutChangeEvent) => {
     const h = e.nativeEvent.layout.height;
@@ -33,7 +32,7 @@ export default function SlidingTabBar({ homeOverlayCoversTabBar, ...props }: Pro
   };
 
   useEffect(() => {
-    if (homeOverlayCoversTabBar) {
+    if (anyCovered) {
       wasCovered.current = true;
       translateY.value = withTiming(18, { duration: 200, easing: Easing.in(Easing.cubic) });
       clipHeight.value = withTiming(0, { duration: 240, easing: Easing.in(Easing.cubic) });
@@ -57,7 +56,7 @@ export default function SlidingTabBar({ homeOverlayCoversTabBar, ...props }: Pro
       clipHeight.value = targetH > 0 ? targetH : TAB_BAR_FALLBACK_HEIGHT;
       translateY.value = 0;
     }
-  }, [homeOverlayCoversTabBar]);
+  }, [anyCovered]);
 
   const clipStyle = useAnimatedStyle(() => ({
     height: clipHeight.value,

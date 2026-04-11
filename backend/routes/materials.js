@@ -8,6 +8,7 @@ const MaterialReport = require('../models/MaterialReport');
 const LessonAnalysis = require('../models/LessonAnalysis');
 const User = require('../models/User');
 const Payment = require('../models/Payment');
+const SavedMaterial = require('../models/SavedMaterial');
 const { verifyToken, getUserFromRequest, uploadImage, uploadImageToGCS } = require('../middleware/videoUploadMiddleware');
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -723,7 +724,10 @@ router.get('/recommended/:language', verifyToken, async (req, res) => {
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
     const language = req.params.language;
+    const lessonId = req.query.lessonId || null;
+    const currentTutorId = req.query.tutorId || null;
 
+    // ── 1. Student CEFR level ──
     const latestAnalysis = await LessonAnalysis.findOne({
       studentId: user._id,
       language,
@@ -733,35 +737,74 @@ router.get('/recommended/:language', verifyToken, async (req, res) => {
     const studentCefr = latestAnalysis?.overallAssessment?.proficiencyLevel || 'A1';
     const studentLevel = cefrToMaterialLevel(studentCefr);
 
+    // ── 2. Collect struggle keywords with recency weighting ──
+    let lessonAnalysis = null;
+    if (lessonId) {
+      lessonAnalysis = await LessonAnalysis.findOne({
+        lessonId,
+        studentId: user._id,
+        status: 'completed'
+      }).select('topErrors errorPatterns progressionMetrics recommendedFocus').lean();
+    }
+
     const recentAnalyses = await LessonAnalysis.find({
       studentId: user._id,
       language,
-      status: 'completed'
+      status: 'completed',
+      ...(lessonId ? { lessonId: { $ne: lessonId } } : {})
     })
       .sort({ lessonDate: -1 })
       .limit(5)
       .select('topErrors errorPatterns progressionMetrics')
       .lean();
 
-    const struggleKeywords = new Set();
-    recentAnalyses.forEach(a => {
+    // Weight map: keyword → weight (higher = more important)
+    const struggleWeights = new Map();
+
+    function addStruggles(keyword, weight) {
+      const k = keyword.toLowerCase().trim();
+      if (!k) return;
+      struggleWeights.set(k, Math.max(struggleWeights.get(k) || 0, weight));
+    }
+
+    // Current lesson struggles get 4x weight
+    if (lessonAnalysis) {
+      (lessonAnalysis.topErrors || []).forEach(e => {
+        if (e.issue) addStruggles(e.issue, 4);
+      });
+      (lessonAnalysis.errorPatterns || []).forEach(p => {
+        if (p.pattern) addStruggles(p.pattern, 4);
+      });
+      (lessonAnalysis.progressionMetrics?.persistentChallenges || []).forEach(c => {
+        addStruggles(c, 4);
+      });
+      (lessonAnalysis.recommendedFocus || []).forEach(f => {
+        addStruggles(f, 4);
+      });
+    }
+
+    // Recent analyses: most recent = 3x, second = 2x, rest = 1x
+    recentAnalyses.forEach((a, index) => {
+      const weight = index === 0 ? 3 : (index === 1 ? 2 : 1);
       (a.topErrors || []).forEach(e => {
-        if (e.issue) struggleKeywords.add(e.issue.toLowerCase().trim());
+        if (e.issue) addStruggles(e.issue, weight);
       });
       (a.errorPatterns || []).forEach(p => {
-        if (p.pattern) struggleKeywords.add(p.pattern.toLowerCase().trim());
+        if (p.pattern) addStruggles(p.pattern, weight);
       });
       (a.progressionMetrics?.persistentChallenges || []).forEach(c => {
-        struggleKeywords.add(c.toLowerCase().trim());
+        addStruggles(c, weight);
       });
     });
 
+    // ── 3. Exclude already-completed materials ──
     const completedMats = await MaterialProgress.find({
       studentId: user._id,
       completed: true
     }).select('materialId').lean();
     const completedIds = completedMats.map(c => c.materialId);
 
+    // ── 4. Fetch candidate materials (all tutors except self) ──
     const materials = await TutorMaterial.find({
       language: { $regex: new RegExp(`^${language}$`, 'i') },
       level: { $in: [studentLevel, 'any'] },
@@ -771,11 +814,10 @@ router.get('/recommended/:language', verifyToken, async (req, res) => {
     })
       .populate('tutorId', 'name firstName lastName picture')
       .sort({ 'stats.averageScore': -1 })
-      .limit(30)
+      .limit(40)
       .lean();
 
-    const struggled = Array.from(struggleKeywords);
-
+    // ── 5. Resolve content tags for topic matching ──
     const ContentTag = require('../models/ContentTag');
     const allTags = await ContentTag.find({ active: true }).lean();
     const tagLabelMap = {};
@@ -789,6 +831,9 @@ router.get('/recommended/:language', verifyToken, async (req, res) => {
       tagLabelMap[tag.tagId] = labels;
     });
 
+    // ── 6. Score materials ──
+    const struggled = [...struggleWeights.keys()];
+
     const scored = materials.map(m => {
       const topics = (m.topics || []).map(t => t.toLowerCase());
       const sTags = (m.structuredTags || []).map(t => t.toLowerCase());
@@ -798,34 +843,122 @@ router.get('/recommended/:language', verifyToken, async (req, res) => {
       let topicScore = 0;
       const matchedStruggles = [];
 
-      struggled.forEach(s => {
-        const sWords = s.split(/\s+/);
+      struggleWeights.forEach((weight, keyword) => {
+        const sWords = keyword.split(/\s+/);
         allSearchableTerms.forEach(t => {
           const tWords = t.split(/\s+/);
           const overlap = sWords.some(sw => tWords.some(tw =>
             tw.includes(sw) || sw.includes(tw)
           ));
           if (overlap) {
-            topicScore += sTags.length > 0 ? 15 : 10;
-            matchedStruggles.push(s);
+            const basePoints = sTags.length > 0 ? 15 : 10;
+            topicScore += basePoints * weight;
+            matchedStruggles.push(keyword);
           }
         });
       });
 
-      return { ...m, _topicScore: topicScore, _matchedStruggles: [...new Set(matchedStruggles)] };
+      // Tutor affinity: current lesson's tutor gets a boost
+      const isCurrentTutor = currentTutorId && m.tutorId?._id?.toString() === currentTutorId;
+      if (isCurrentTutor) {
+        topicScore += 20;
+      }
+
+      return {
+        ...m,
+        _topicScore: topicScore,
+        _matchedStruggles: [...new Set(matchedStruggles)],
+        _isCurrentTutor: !!isCurrentTutor
+      };
     });
 
     scored.sort((a, b) => b._topicScore - a._topicScore);
     const topMaterials = scored.slice(0, 10);
 
+    // ── 7. Attach isSaved flags ──
+    const topIds = topMaterials.map(m => m._id);
+    const savedDocs = await SavedMaterial.find({
+      studentId: user._id,
+      materialId: { $in: topIds }
+    }).select('materialId').lean();
+    const savedSet = new Set(savedDocs.map(s => s.materialId.toString()));
+
+    const result = topMaterials.map(m => ({
+      ...m,
+      isSaved: savedSet.has(m._id.toString())
+    }));
+
     res.json({
       success: true,
-      materials: topMaterials,
+      materials: result,
       studentLevel: studentCefr,
-      struggles: struggled
+      struggles: struggled,
+      isLessonSpecific: !!lessonId
     });
   } catch (error) {
     console.error('Error getting recommended materials:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ── POST /api/materials/:id/save — Toggle save/bookmark a material ────
+
+router.post('/:id/save', verifyToken, async (req, res) => {
+  try {
+    const user = await getUserFromRequest(req);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const materialId = req.params.id;
+    const { sourceLessonId, source } = req.body;
+
+    const existing = await SavedMaterial.findOne({ studentId: user._id, materialId });
+
+    if (existing) {
+      await SavedMaterial.deleteOne({ _id: existing._id });
+      return res.json({ success: true, saved: false });
+    }
+
+    await SavedMaterial.create({
+      studentId: user._id,
+      materialId,
+      sourceLessonId: sourceLessonId || null,
+      source: source || 'manual'
+    });
+
+    res.json({ success: true, saved: true });
+  } catch (error) {
+    console.error('Error toggling saved material:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ── GET /api/materials/saved — Get student's saved materials library ────
+
+router.get('/saved', verifyToken, async (req, res) => {
+  try {
+    const user = await getUserFromRequest(req);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const savedItems = await SavedMaterial.find({ studentId: user._id })
+      .sort({ savedAt: -1 })
+      .populate({
+        path: 'materialId',
+        populate: { path: 'tutorId', select: 'name firstName lastName picture' }
+      })
+      .lean();
+
+    const materials = savedItems
+      .filter(s => s.materialId && s.materialId.status === 'published')
+      .map(s => ({
+        ...s.materialId,
+        savedAt: s.savedAt,
+        sourceLessonId: s.sourceLessonId,
+        source: s.source
+      }));
+
+    res.json({ success: true, materials });
+  } catch (error) {
+    console.error('Error getting saved materials:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });

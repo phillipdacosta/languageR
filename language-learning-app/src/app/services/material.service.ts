@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, take, switchMap, filter } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { UserService } from './user.service';
@@ -328,14 +328,51 @@ export class MaterialService {
     );
   }
 
-  getRecommendedMaterials(language: string): Observable<{ success: boolean; materials: TutorMaterial[]; struggles: string[] }> {
+  getRecommendedMaterials(
+    language: string,
+    opts?: { lessonId?: string; tutorId?: string }
+  ): Observable<{ success: boolean; materials: (TutorMaterial & { isSaved?: boolean; _matchedStruggles?: string[]; _isCurrentTutor?: boolean })[]; struggles: string[]; isLessonSpecific?: boolean }> {
     return this.userService.currentUser$.pipe(
       filter(user => !!user),
       take(1),
       switchMap(() => {
         const headers = this.userService.getAuthHeadersSync();
-        return this.http.get<{ success: boolean; materials: TutorMaterial[]; struggles: string[] }>(
+        let params = new HttpParams();
+        if (opts?.lessonId) params = params.set('lessonId', opts.lessonId);
+        if (opts?.tutorId) params = params.set('tutorId', opts.tutorId);
+        return this.http.get<any>(
           `${this.apiUrl}/recommended/${encodeURIComponent(language)}`,
+          { headers, params }
+        );
+      })
+    );
+  }
+
+  toggleSaveMaterial(materialId: string, sourceLessonId?: string): Observable<{ success: boolean; saved: boolean }> {
+    return this.userService.currentUser$.pipe(
+      filter(user => !!user),
+      take(1),
+      switchMap(() => {
+        const headers = this.userService.getAuthHeadersSync();
+        const body: any = { source: 'recommendation' };
+        if (sourceLessonId) body.sourceLessonId = sourceLessonId;
+        return this.http.post<{ success: boolean; saved: boolean }>(
+          `${this.apiUrl}/${materialId}/save`,
+          body,
+          { headers }
+        );
+      })
+    );
+  }
+
+  getSavedMaterials(): Observable<{ success: boolean; materials: TutorMaterial[] }> {
+    return this.userService.currentUser$.pipe(
+      filter(user => !!user),
+      take(1),
+      switchMap(() => {
+        const headers = this.userService.getAuthHeadersSync();
+        return this.http.get<{ success: boolean; materials: TutorMaterial[] }>(
+          `${this.apiUrl}/saved`,
           { headers }
         );
       })

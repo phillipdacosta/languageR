@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect, useLayoutEffect } from 'react';
 import {
   View,
   Text,
@@ -26,7 +26,7 @@ import * as Haptics from 'expo-haptics';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../hooks/useAuth';
 import { materialService } from '../services/materials';
-import type { MaterialType, LinkedChannels } from '../services/materials';
+import type { MaterialType, LinkedChannels, TutorMaterial } from '../services/materials';
 
 /** Paid-option checkmark color — matches bundle share step */
 const SETUP_AVAILABILITY_BLUE = '#08a0e8';
@@ -210,6 +210,7 @@ interface FlyState {
 interface Props {
   goBack: () => void;
   channels?: LinkedChannels;
+  editingMaterial?: TutorMaterial | null;
 }
 
 /** YouTube default thumbnail for preview when no custom cover is set (matches web behavior). */
@@ -222,7 +223,8 @@ function youtubeThumbnailFromVideoUrl(url: string): string | null {
   return m ? `https://img.youtube.com/vi/${m[1]}/hqdefault.jpg` : null;
 }
 
-export default function CreateMaterialScreen({ goBack, channels }: Props) {
+export default function CreateMaterialScreen({ goBack, channels, editingMaterial }: Props) {
+  const isEditing = !!editingMaterial;
   const { colors } = useTheme();
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -230,9 +232,9 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
   const isDark = colors.isDark;
   const inputBorder = isDark ? '#3a3a3c' : '#e5e5ea';
 
-  const [currentStep, setCurrentStep] = useState<Step>('type');
-  const [selectedType, setSelectedType] = useState<MaterialType | null>(null);
-  const [selectedPricing, setSelectedPricing] = useState<'free' | 'paid' | null>(null);
+  const [currentStep, setCurrentStep] = useState<Step>(isEditing ? 'details' : 'type');
+  const [selectedType, setSelectedType] = useState<MaterialType | null>(editingMaterial?.materialType || null);
+  const [selectedPricing, setSelectedPricing] = useState<'free' | 'paid' | null>(isEditing ? editingMaterial!.pricingType : null);
 
   /* ── Form state ── */
   const defaultLang = useMemo(() => {
@@ -246,18 +248,18 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
     return '';
   }, [user]);
 
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [whyTakeThis, setWhyTakeThis] = useState('');
-  const [language, setLanguage] = useState(defaultLang);
-  const [level, setLevel] = useState('any');
-  const [videoUrl, setVideoUrl] = useState('');
-  const [passage, setPassage] = useState('');
-  const [audioUrl, setAudioUrl] = useState('');
-  const [price, setPrice] = useState(5);
-  const [topics, setTopics] = useState<string[]>([]);
+  const [title, setTitle] = useState(editingMaterial?.title || '');
+  const [description, setDescription] = useState(editingMaterial?.description || '');
+  const [whyTakeThis, setWhyTakeThis] = useState(editingMaterial?.whyTakeThis || '');
+  const [language, setLanguage] = useState(() => editingMaterial?.language || '');
+  const [level, setLevel] = useState<string>(editingMaterial?.level || 'any');
+  const [videoUrl, setVideoUrl] = useState(editingMaterial?.videoUrl || '');
+  const [passage, setPassage] = useState(editingMaterial?.passage || '');
+  const [audioUrl, setAudioUrl] = useState(editingMaterial?.audioUrl || '');
+  const [price, setPrice] = useState(editingMaterial?.price || 5);
+  const [topics, setTopics] = useState<string[]>(editingMaterial?.topics ? [...editingMaterial.topics] : []);
   const [topicInput, setTopicInput] = useState('');
-  const [structuredTags, setStructuredTags] = useState<string[]>([]);
+  const [structuredTags, setStructuredTags] = useState<string[]>(editingMaterial?.structuredTags ? [...editingMaterial.structuredTags] : []);
   const [structuredTagInput, setStructuredTagInput] = useState('');
   const [detailsWizardIndex, setDetailsWizardIndex] = useState(0);
   const [titleTouched, setTitleTouched] = useState(false);
@@ -265,20 +267,25 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
   const [showLevelPicker, setShowLevelPicker] = useState(false);
   const [thumbnailUri, setThumbnailUri] = useState<string | null>(null);
+  const [existingThumbnailUrl, setExistingThumbnailUrl] = useState<string | null>(editingMaterial?.thumbnailUrl || null);
   const [showVideoPolicy, setShowVideoPolicy] = useState(true);
 
+  const displayThumbnailUri = thumbnailUri || existingThumbnailUrl;
+
   /* ── Quiz state ── */
-  const [quiz, setQuiz] = useState<QuizQuestion[]>([]);
+  const [quiz, setQuiz] = useState<QuizQuestion[]>(editingMaterial?.quiz?.length ? editingMaterial.quiz as unknown as QuizQuestion[] : []);
 
   useEffect(() => {
     if (defaultLang && !language) setLanguage(defaultLang);
   }, [defaultLang]);
 
   /* ── Preview / submit state ── */
-  const [contentAttested, setContentAttested] = useState(false);
+  const [contentAttested, setContentAttested] = useState(isEditing);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [draftMaterialId, setDraftMaterialId] = useState<string | null>(null);
+  const [draftMaterialId, setDraftMaterialId] = useState<string | null>(editingMaterial?._id || null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
+  /** In-place edit save (footer / nav) — separate so primary CTA does not show publish spinner. */
+  const [isPersistingEdit, setIsPersistingEdit] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   useEffect(() => {
@@ -328,6 +335,17 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
     (scrollRef.current as any)?.scrollTo?.({ y: 0, animated: true });
   }, [detailsWizardIndex, currentStep]);
 
+  /** Quiz / preview reuse the same ScrollView — reset offset so each step opens at the top. */
+  useLayoutEffect(() => {
+    if (currentStep !== 'quiz' && currentStep !== 'preview') return;
+    const scrollTop = () => {
+      (scrollRef.current as any)?.scrollTo?.({ y: 0, animated: false });
+    };
+    scrollTop();
+    const t = setTimeout(scrollTop, 0);
+    return () => clearTimeout(t);
+  }, [currentStep]);
+
   /**
    * Step count starts at “Name your material” (first details sub-step), not type/pricing.
    * Total = details substeps + quiz + preview.
@@ -365,14 +383,19 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
   );
 
   const navBackLabel = useMemo(() => {
+    if (isEditing && currentStep === 'details' && detailsWizardIndex === 0) return t('CREATE_MATERIAL.NAV_MY_MATERIALS');
     if (stepIndex <= 0) return t('CREATE_MATERIAL.NAV_MY_MATERIALS');
     return t('CREATE_MATERIAL.NAV_BACK_SHORT');
-  }, [stepIndex, t]);
+  }, [stepIndex, isEditing, currentStep, detailsWizardIndex, t]);
 
   const handleNavBack = useCallback(() => {
     if (currentStep === 'details') {
       if (detailsWizardIndex > 0) {
         setDetailsWizardIndex(i => i - 1);
+        return;
+      }
+      if (isEditing) {
+        goBack();
         return;
       }
       setCurrentStep('pricing');
@@ -383,7 +406,7 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
     } else {
       setCurrentStep(STEP_ORDER[stepIndex - 1]);
     }
-  }, [currentStep, detailsWizardIndex, stepIndex, goBack]);
+  }, [currentStep, detailsWizardIndex, stepIndex, isEditing, goBack]);
 
   /* ── FLIP Step A: card pressed → measure source, switch step ── */
   const handleSelectType = useCallback((type: MaterialType, cardRef: View | null) => {
@@ -488,7 +511,7 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
           }
           return true;
         case 'thumbnail':
-          if (!thumbnailUri?.trim()) {
+          if (!displayThumbnailUri?.trim()) {
             Alert.alert('', t('CREATE_MATERIAL.TOAST_ADD_COVER'));
             return false;
           }
@@ -503,7 +526,7 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
           return true;
       }
     },
-    [title, language, selectedType, videoUrl, passage, audioUrl, thumbnailUri, selectedPricing, price, t],
+    [title, language, selectedType, videoUrl, passage, audioUrl, displayThumbnailUri, selectedPricing, price, t],
   );
 
   const isCurrentDetailsStepValid = useMemo(() => {
@@ -520,13 +543,13 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
       case 'listeningAudio':
         return selectedType !== 'listening' || !!audioUrl.trim();
       case 'thumbnail':
-        return !!thumbnailUri?.trim();
+        return !!displayThumbnailUri?.trim();
       case 'price':
         return selectedPricing !== 'paid' || (Number.isFinite(price) && price >= 1);
       default:
         return true;
     }
-  }, [detailsWizardStepId, title, language, selectedType, videoUrl, passage, audioUrl, thumbnailUri, selectedPricing, price]);
+  }, [detailsWizardStepId, title, language, selectedType, videoUrl, passage, audioUrl, displayThumbnailUri, selectedPricing, price]);
 
   const handleGoToQuiz = useCallback(() => {
     if (!validateDetailsWizardStep('title')) return;
@@ -650,20 +673,23 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
   /* ── Submit / Publish ── */
   const handleSubmit = useCallback(async () => {
     if (!contentAttested) return;
-    if (!thumbnailUri?.trim()) {
+    if (!thumbnailUri?.trim() && !existingThumbnailUrl) {
       Alert.alert('', t('CREATE_MATERIAL.TOAST_ADD_COVER'));
       return;
     }
     setIsSubmitting(true);
     try {
       let thumbnailUrl: string | undefined;
-      try {
-        thumbnailUrl = await materialService.uploadThumbnail(thumbnailUri);
-      } catch {
-        Alert.alert('', t('CREATE_MATERIAL.TOAST_UPLOAD_FAILED'));
-        setIsSubmitting(false);
-        return;
+      if (thumbnailUri?.trim()) {
+        try {
+          thumbnailUrl = await materialService.uploadThumbnail(thumbnailUri);
+        } catch {
+          Alert.alert('', t('CREATE_MATERIAL.TOAST_UPLOAD_FAILED'));
+          setIsSubmitting(false);
+          return;
+        }
       }
+      if (!thumbnailUrl) thumbnailUrl = existingThumbnailUrl || undefined;
 
       const quizPayload = buildQuizPayloadForApi(quiz);
 
@@ -693,7 +719,9 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
       } else {
         await materialService.createMaterial(payload);
       }
-      Alert.alert('Published!', 'Your material is now live.', [
+      const alertTitle = isEditing ? 'Updated!' : 'Published!';
+      const alertMsg = isEditing ? 'Your material has been updated.' : 'Your material is now live.';
+      Alert.alert(alertTitle, alertMsg, [
         { text: 'OK', onPress: goBack },
       ]);
     } catch (err: any) {
@@ -701,11 +729,12 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
     } finally {
       setIsSubmitting(false);
     }
-  }, [contentAttested, thumbnailUri, selectedType, title, description, whyTakeThis, language, level,
+  }, [contentAttested, thumbnailUri, existingThumbnailUrl, isEditing, selectedType, title, description, whyTakeThis, language, level,
       videoUrl, passage, audioUrl, selectedPricing, price, quiz, topics, structuredTags, draftMaterialId,
       goBack, t]);
 
   const canSaveDraft = !!selectedType && !!selectedPricing;
+  const showSaveDraft = !isEditing && canSaveDraft;
 
   const handleSaveDraft = useCallback(async () => {
     if (!selectedType || !selectedPricing) return;
@@ -721,6 +750,7 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
           return;
         }
       }
+      if (!thumbnailUrl) thumbnailUrl = existingThumbnailUrl || undefined;
 
       const draftTitle = title.trim() || t('CREATE_MATERIAL.DRAFT_UNTITLED');
       const draftLang = language.trim() || defaultLang.trim() || 'English';
@@ -773,6 +803,7 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
     selectedType,
     selectedPricing,
     thumbnailUri,
+    existingThumbnailUrl,
     title,
     description,
     whyTakeThis,
@@ -790,10 +821,126 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
     t,
   ]);
 
+  /** Persist current material while editing; preserves draft vs published status. */
+  const persistMaterialEdit = useCallback(async (): Promise<boolean> => {
+    if (!isEditing || !editingMaterial?._id) return false;
+    if (!selectedType || !selectedPricing) {
+      Alert.alert('', t('CREATE_MATERIAL.TOAST_FILL_REQUIRED'));
+      return false;
+    }
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setIsPersistingEdit(true);
+    try {
+      let thumbnailUrl: string | undefined;
+      if (thumbnailUri?.trim()) {
+        try {
+          thumbnailUrl = await materialService.uploadThumbnail(thumbnailUri);
+        } catch {
+          Alert.alert('', t('CREATE_MATERIAL.TOAST_UPLOAD_FAILED'));
+          setIsPersistingEdit(false);
+          return false;
+        }
+      }
+      if (!thumbnailUrl) thumbnailUrl = existingThumbnailUrl || undefined;
+
+      const preservedStatus = editingMaterial.status === 'published' ? 'published' : 'draft';
+      const draftTitle = title.trim() || t('CREATE_MATERIAL.DRAFT_UNTITLED');
+      const draftLang = language.trim() || defaultLang.trim() || 'English';
+
+      const basePayload: Record<string, any> = {
+        materialType: selectedType,
+        title: draftTitle,
+        description: description.trim() || '',
+        whyTakeThis: whyTakeThis.trim() || '',
+        language: draftLang,
+        level: level || 'any',
+        pricingType: selectedPricing,
+        price: selectedPricing === 'paid' ? price : 0,
+        status: preservedStatus,
+      };
+
+      if (selectedType === 'video_quiz') {
+        const v = videoUrl.trim();
+        basePayload.videoUrl =
+          preservedStatus === 'published'
+            ? (v || editingMaterial.videoUrl || '')
+            : (v || 'https://placeholder.draft');
+      }
+      if (selectedType === 'reading') {
+        const p = passage.trim();
+        basePayload.passage = preservedStatus === 'published' ? (p || editingMaterial.passage || ' ') : (p || ' ');
+      }
+      if (selectedType === 'listening') {
+        const a = audioUrl.trim();
+        basePayload.audioUrl =
+          preservedStatus === 'published'
+            ? (a || editingMaterial.audioUrl || '')
+            : (a || 'https://placeholder.draft');
+      }
+      if (topics.length > 0) basePayload.topics = topics;
+      if (structuredTags.length > 0) basePayload.structuredTags = structuredTags;
+      if (thumbnailUrl) basePayload.thumbnailUrl = thumbnailUrl;
+
+      const quizComplete = isQuizPayloadCompleteForApi(quiz);
+      const putPayload: Record<string, any> = { ...basePayload };
+      if (quizComplete) putPayload.quiz = buildQuizPayloadForApi(quiz);
+
+      await materialService.updateMaterial(editingMaterial._id, putPayload);
+      if (thumbnailUrl && thumbnailUri?.trim()) {
+        setExistingThumbnailUrl(thumbnailUrl);
+        setThumbnailUri(null);
+      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      return true;
+    } catch (err: any) {
+      Alert.alert(
+        t('CREATE_MATERIAL.DRAFT_SAVE_FAILED_TITLE'),
+        err?.message || t('CREATE_MATERIAL.DRAFT_SAVE_FAILED_MSG'),
+      );
+      return false;
+    } finally {
+      setIsPersistingEdit(false);
+    }
+  }, [
+    isEditing,
+    editingMaterial,
+    selectedType,
+    selectedPricing,
+    thumbnailUri,
+    existingThumbnailUrl,
+    title,
+    description,
+    whyTakeThis,
+    language,
+    defaultLang,
+    level,
+    price,
+    videoUrl,
+    passage,
+    audioUrl,
+    topics,
+    structuredTags,
+    quiz,
+    t,
+  ]);
+
+  const handleFooterSaveInPlace = useCallback(async () => {
+    const ok = await persistMaterialEdit();
+    if (ok) {
+      Alert.alert('', t('CREATE_MATERIAL.SAVED_TOAST'), [{ text: t('COMMON.OK') }]);
+    }
+  }, [persistMaterialEdit, t]);
+
   const handleSaveAndExit = useCallback(async () => {
-    const saved = await handleSaveDraft();
-    if (saved) goBack();
-  }, [handleSaveDraft, goBack]);
+    if (isEditing) {
+      const ok = await persistMaterialEdit();
+      if (ok) goBack();
+    } else {
+      const saved = await handleSaveDraft();
+      if (saved) goBack();
+    }
+  }, [isEditing, persistMaterialEdit, handleSaveDraft, goBack]);
 
   const getTypeLabel = (type: MaterialType) => {
     switch (type) {
@@ -860,14 +1007,26 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
               })}
             </Text>
           )}
-          {canSaveDraft && (
+          {(showSaveDraft || isEditing) && (
             <TouchableOpacity
               style={styles.navSaveExit}
               activeOpacity={0.7}
               onPress={handleSaveAndExit}
-              disabled={isSavingDraft}
+              disabled={
+                !canSaveDraft ||
+                (isEditing ? isPersistingEdit : isSavingDraft)
+              }
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              {isSavingDraft ? (
+              {isEditing ? (
+                isPersistingEdit ? (
+                  <ActivityIndicator size="small" color={SETUP_AVAILABILITY_BLUE} />
+                ) : (
+                  <Text style={[styles.navSaveExitText, { color: SETUP_AVAILABILITY_BLUE }]} numberOfLines={1}>
+                    {t('CREATE_MATERIAL.SAVE_EXIT')}
+                  </Text>
+                )
+              ) : isSavingDraft ? (
                 <ActivityIndicator size="small" color={colors.textSecondary} />
               ) : (
                 <Text style={[styles.navSaveExitText, { color: colors.textSecondary }]}>
@@ -941,6 +1100,14 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
 
             {currentStep === 'details' && selectedType && selectedPricing && (
               <View style={[styles.detailsStepMaxWidth, styles.headAlignedStepBelowProgress]}>
+              {isEditing && (
+                <View style={styles.editBadgeRow}>
+                  <View style={[styles.editBadge, { backgroundColor: isDark ? '#b45309' : '#f59e0b' }]}>
+                    <Ionicons name="create-outline" size={13} color="#fff" />
+                    <Text style={styles.editBadgeText}>{t('CREATE_MATERIAL.EDITING_LABEL')}</Text>
+                  </View>
+                </View>
+              )}
               <StepDetails
                 wizardStepId={detailsWizardStepId}
                 selectedType={selectedType}
@@ -963,7 +1130,7 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
                 languageTouched={languageTouched} setLanguageTouched={setLanguageTouched}
                 showLanguagePicker={showLanguagePicker} setShowLanguagePicker={setShowLanguagePicker}
                 showLevelPicker={showLevelPicker} setShowLevelPicker={setShowLevelPicker}
-                thumbnailUri={thumbnailUri} pickCoverImage={pickCoverImage} removeCover={() => setThumbnailUri(null)}
+                thumbnailUri={displayThumbnailUri} pickCoverImage={pickCoverImage} removeCover={() => { setThumbnailUri(null); setExistingThumbnailUrl(null); }}
                 showVideoPolicy={showVideoPolicy} dismissVideoPolicy={() => setShowVideoPolicy(false)}
                 colors={colors}
                 t={t}
@@ -999,7 +1166,7 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
                 videoUrl={videoUrl}
                 price={price}
                 quiz={quiz}
-                thumbnailUri={thumbnailUri}
+                thumbnailUri={displayThumbnailUri}
                 getTypeLabel={getTypeLabel}
                 colors={colors}
                 t={t}
@@ -1060,7 +1227,7 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
           {!keyboardVisible && currentStep === 'details' && (
             <View style={[styles.footer, { borderTopColor: colors.border, backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, 12) }]}>
               <View style={styles.footerWizardRow}>
-                {detailsWizardIndex > 0 && (
+                {showSaveDraft && detailsWizardIndex > 0 && (
                   <TouchableOpacity
                     style={[styles.wizardBackBtn, { borderColor: colors.border }]}
                     activeOpacity={0.75}
@@ -1074,7 +1241,7 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
                         );
                       }
                     }}
-                    disabled={isSavingDraft}
+                    disabled={isSavingDraft || isPersistingEdit}
                   >
                     {isSavingDraft ? (
                       <ActivityIndicator size="small" color={colors.text} />
@@ -1085,14 +1252,30 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
                     )}
                   </TouchableOpacity>
                 )}
+                {isEditing && (
+                  <TouchableOpacity
+                    style={[styles.wizardBackBtn, { borderColor: colors.border }]}
+                    activeOpacity={0.75}
+                    onPress={handleFooterSaveInPlace}
+                    disabled={isSavingDraft || isPersistingEdit || !canSaveDraft}
+                  >
+                    {isPersistingEdit ? (
+                      <ActivityIndicator size="small" color={colors.text} />
+                    ) : (
+                      <Text style={[styles.wizardBackBtnText, { color: colors.text }]}>
+                        {t('COMMON.SAVE')}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                )}
                 <TouchableOpacity
                   style={[styles.wizardNextBtn, {
-                    flex: detailsWizardIndex > 0 ? 1.25 : 1,
+                    flex: (detailsWizardIndex > 0 && showSaveDraft) || isEditing ? 1.25 : 1,
                     backgroundColor: isCurrentDetailsStepValid ? (isDark ? '#fff' : '#111') : (isDark ? '#3a3a3c' : '#d1d1d6'),
                   }]}
                   activeOpacity={isCurrentDetailsStepValid ? 0.85 : 1}
                   onPress={handleDetailsWizardNext}
-                  disabled={!isCurrentDetailsStepValid}
+                  disabled={!isCurrentDetailsStepValid || isPersistingEdit}
                 >
                   <Text style={[styles.wizardNextBtnText, {
                     color: isCurrentDetailsStepValid ? (isDark ? '#000' : '#fff') : '#8e8e93',
@@ -1113,25 +1296,44 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
 
           {currentStep === 'quiz' && (
             <View style={[styles.footer, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
-              <TouchableOpacity
-                style={[styles.continueBtn, {
-                  backgroundColor: quiz.length === 0 ? (isDark ? '#3a3a3c' : '#d1d1d6') : (isDark ? '#fff' : '#111'),
-                }]}
-                activeOpacity={quiz.length === 0 ? 1 : 0.85}
-                onPress={handleGoToPreview}
-                disabled={quiz.length === 0}
-              >
-                <Text style={[styles.continueBtnText, {
-                  color: quiz.length === 0 ? (isDark ? '#8e8e93' : '#8e8e93') : (isDark ? '#000' : '#fff'),
-                }]}>
-                  {t('CREATE_MATERIAL.QUIZ_PREVIEW_BTN')}
-                </Text>
-                <Ionicons
-                  name="arrow-forward"
-                  size={18}
-                  color={quiz.length === 0 ? '#8e8e93' : (isDark ? '#000' : '#fff')}
-                />
-              </TouchableOpacity>
+              <View style={styles.footerWizardRow}>
+                {isEditing && (
+                  <TouchableOpacity
+                    style={[styles.wizardBackBtn, { borderColor: colors.border }]}
+                    activeOpacity={0.75}
+                    onPress={handleFooterSaveInPlace}
+                    disabled={isPersistingEdit || !canSaveDraft}
+                  >
+                    {isPersistingEdit ? (
+                      <ActivityIndicator size="small" color={colors.text} />
+                    ) : (
+                      <Text style={[styles.wizardBackBtnText, { color: colors.text }]}>
+                        {t('COMMON.SAVE')}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={[styles.continueBtn, {
+                    flex: isEditing ? 1.25 : 1,
+                    backgroundColor: quiz.length === 0 ? (isDark ? '#3a3a3c' : '#d1d1d6') : (isDark ? '#fff' : '#111'),
+                  }]}
+                  activeOpacity={quiz.length === 0 ? 1 : 0.85}
+                  onPress={handleGoToPreview}
+                  disabled={quiz.length === 0 || isPersistingEdit}
+                >
+                  <Text style={[styles.continueBtnText, {
+                    color: quiz.length === 0 ? (isDark ? '#8e8e93' : '#8e8e93') : (isDark ? '#000' : '#fff'),
+                  }]}>
+                    {t('CREATE_MATERIAL.QUIZ_PREVIEW_BTN')}
+                  </Text>
+                  <Ionicons
+                    name="arrow-forward"
+                    size={18}
+                    color={quiz.length === 0 ? '#8e8e93' : (isDark ? '#000' : '#fff')}
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
           )}
 
@@ -1149,26 +1351,45 @@ export default function CreateMaterialScreen({ goBack, channels }: Props) {
                   {t('CREATE_MATERIAL.ATTEST_LABEL')}
                 </Text>
               </View>
-              <TouchableOpacity
-                style={[styles.continueBtn, {
-                  backgroundColor: (!contentAttested || isSubmitting) ? (isDark ? '#3a3a3c' : '#d1d1d6') : (isDark ? '#fff' : '#111'),
-                }]}
-                activeOpacity={(!contentAttested || isSubmitting) ? 1 : 0.85}
-                onPress={handleSubmit}
-                disabled={!contentAttested || isSubmitting}
-              >
-                {isSubmitting ? (
-                  <ActivityIndicator size="small" color={isDark ? '#000' : '#fff'} />
-                ) : (
-                  <>
-                    <Text style={[styles.continueBtnText, {
-                      color: !contentAttested ? '#8e8e93' : (isDark ? '#000' : '#fff'),
-                    }]}>
-                      {t('CREATE_MATERIAL.SUBMIT_PUBLISH')}
-                    </Text>
-                  </>
+              <View style={styles.footerWizardRow}>
+                {isEditing && (
+                  <TouchableOpacity
+                    style={[styles.wizardBackBtn, { borderColor: colors.border }]}
+                    activeOpacity={0.75}
+                    onPress={handleFooterSaveInPlace}
+                    disabled={isPersistingEdit || isSubmitting || !canSaveDraft}
+                  >
+                    {isPersistingEdit ? (
+                      <ActivityIndicator size="small" color={colors.text} />
+                    ) : (
+                      <Text style={[styles.wizardBackBtnText, { color: colors.text }]}>
+                        {t('COMMON.SAVE')}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
                 )}
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.continueBtn, {
+                    flex: isEditing ? 1.25 : 1,
+                    backgroundColor: (!contentAttested || isSubmitting || isPersistingEdit) ? (isDark ? '#3a3a3c' : '#d1d1d6') : (isDark ? '#fff' : '#111'),
+                  }]}
+                  activeOpacity={(!contentAttested || isSubmitting || isPersistingEdit) ? 1 : 0.85}
+                  onPress={handleSubmit}
+                  disabled={!contentAttested || isSubmitting || isPersistingEdit}
+                >
+                  {isSubmitting ? (
+                    <ActivityIndicator size="small" color={isDark ? '#000' : '#fff'} />
+                  ) : (
+                    <>
+                      <Text style={[styles.continueBtnText, {
+                        color: !contentAttested ? '#8e8e93' : (isDark ? '#000' : '#fff'),
+                      }]}>
+                        {isEditing ? t('CREATE_MATERIAL.SUBMIT_UPDATE') : t('CREATE_MATERIAL.SUBMIT_PUBLISH')}
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
           )}
         </KeyboardAvoidingView>
@@ -2383,6 +2604,22 @@ const styles = StyleSheet.create({
   },
   headAlignedStepBelowProgress: {
     marginTop: HEAD_STEP_MARGIN_BELOW_PROGRESS,
+  },
+  editBadgeRow: { alignItems: 'center' as const, marginBottom: 12 },
+  editBadge: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  editBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700' as const,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase' as const,
   },
 
   /* Nav Bar */

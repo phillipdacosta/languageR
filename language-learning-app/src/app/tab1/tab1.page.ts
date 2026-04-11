@@ -105,6 +105,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   modalSidebarTab: 'materials' | 'bundles' = 'materials';
   modalShowFooter = true;
   modalShowSaveExit = true;
+  modalIsEditingBundle = false;
+  modalIsEditingMaterial = false;
   /** Desktop create-material modal topbar: "3/9" style count (centered with Save and exit). */
   modalTopbarCenterStep: string | null = null;
   /** From create-material `syncModalTopbarChrome` — material mid-steps + bundle share exit. */
@@ -7501,6 +7503,19 @@ navigateToLessons() {
     }
   }
 
+  onEditSaveInPlace(): void {
+    const cm = this.createMaterialRef as {
+      saveBundleInPlace?: () => Promise<boolean>;
+      saveMaterialInPlace?: () => Promise<boolean>;
+      viewMode?: string;
+    } | undefined;
+    if (cm?.viewMode === 'bundle-create') {
+      void cm.saveBundleInPlace?.();
+    } else {
+      void cm?.saveMaterialInPlace?.();
+    }
+  }
+
   onCreateMaterialGoBack() {
     if (!this.isMobile && this.activatedRoute.firstChild) {
       this.router.navigate(['/tabs/home']);
@@ -7513,6 +7528,8 @@ navigateToLessons() {
     this.homeInlineToolbar.setMaterialsViewOpen(false);
     document.body.classList.remove('cm-desktop-modal-open');
     this.modalShowSaveExit = true;
+    this.modalIsEditingBundle = false;
+    this.modalIsEditingMaterial = false;
     this.modalTopbarCenterStep = null;
     this.modalTopbarNavBackLabel = '';
     this.modalTopbarBundleWizardBackLabel = '';
@@ -7539,6 +7556,8 @@ navigateToLessons() {
     if (!expanded) {
       this.modalShowFooter = false;
       this.modalShowSaveExit = true;
+      this.modalIsEditingBundle = false;
+      this.modalIsEditingMaterial = false;
       this.modalTopbarCenterStep = null;
       this.modalTopbarNavBackLabel = '';
       this.modalTopbarBundleWizardBackLabel = '';
@@ -7655,10 +7674,14 @@ navigateToLessons() {
     centerStepLabel?: string | null;
     topbarNavBackLabel?: string;
     topbarBundleWizardBackLabel?: string;
+    isEditingBundle?: boolean;
+    isEditingMaterial?: boolean;
   }) {
     if (this.isMobile) return;
     if (this.cmModalRouterOutletActive) return;
     this.modalShowSaveExit = payload.showSaveExit;
+    this.modalIsEditingBundle = !!payload.isEditingBundle;
+    this.modalIsEditingMaterial = !!payload.isEditingMaterial;
     this.modalShowGoBack = payload.showModalBack;
     this.modalShowBundleShareGoBack = !!payload.showBundleShareGoBack;
     this.modalShowBundleWizardGoBack = !!payload.showBundleWizardGoBack;

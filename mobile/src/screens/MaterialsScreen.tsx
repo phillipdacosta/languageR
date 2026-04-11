@@ -75,6 +75,7 @@ export default function MaterialsScreen({ goBack }: Props) {
   const [showCreateBundle, setShowCreateBundle] = useState(false);
   const [previewBundle, setPreviewBundle] = useState<MaterialBundle | null>(null);
   const [editingBundle, setEditingBundle] = useState<MaterialBundle | null>(null);
+  const [editingMaterial, setEditingMaterial] = useState<TutorMaterial | null>(null);
   const [showMaterialsList, setShowMaterialsList] = useState(false);
   const [showBundlesList, setShowBundlesList] = useState(false);
 
@@ -344,7 +345,7 @@ export default function MaterialsScreen({ goBack }: Props) {
             onPress={() => {
               void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               if (showBundlesList) { setEditingBundle(null); setShowCreateBundle(true); }
-              else setShowCreateMaterial(true);
+              else { setEditingMaterial(null); setShowCreateMaterial(true); }
             }}
           >
             <Ionicons name="add" size={16} color="#fff" />
@@ -492,6 +493,7 @@ export default function MaterialsScreen({ goBack }: Props) {
                   activeOpacity={0.7}
                   onPress={() => {
                     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setEditingMaterial(null);
                     setShowCreateMaterial(true);
                   }}
                 >
@@ -534,6 +536,7 @@ export default function MaterialsScreen({ goBack }: Props) {
                     onDelete={handleDelete}
                     onToggleArchive={handleToggleArchive}
                     onPreview={setPreviewMaterial}
+                    onEdit={(mat) => { setEditingMaterial(mat); setShowCreateMaterial(true); }}
                     t={t}
                   />
                 </StaggerRow>
@@ -688,9 +691,11 @@ export default function MaterialsScreen({ goBack }: Props) {
         <CreateMaterialScreen
           goBack={() => {
             setShowCreateMaterial(false);
+            setEditingMaterial(null);
             fetchMaterials(true);
           }}
           channels={channels}
+          editingMaterial={editingMaterial}
         />
       </View>
     )}
@@ -975,7 +980,7 @@ function ChannelPanel({ channels, soundcloudUrl, setSoundcloudUrl, saving, onSav
 
 /* ─── Material Card ─── */
 
-function MaterialCard({ material: m, colors, copiedId, getTypeLabel, getTypeIcon, formatDate, onCopyLink, onDelete, onToggleArchive, onPreview, t }: {
+function MaterialCard({ material: m, colors, copiedId, getTypeLabel, getTypeIcon, formatDate, onCopyLink, onDelete, onToggleArchive, onPreview, onEdit, t }: {
   material: TutorMaterial;
   colors: any;
   copiedId: string | null;
@@ -986,6 +991,7 @@ function MaterialCard({ material: m, colors, copiedId, getTypeLabel, getTypeIcon
   onDelete: (m: TutorMaterial) => void;
   onToggleArchive: (m: TutorMaterial) => void;
   onPreview: (m: TutorMaterial) => void;
+  onEdit: (m: TutorMaterial) => void;
   t: any;
 }) {
   const isDark = colors.isDark;
@@ -1114,7 +1120,7 @@ function MaterialCard({ material: m, colors, copiedId, getTypeLabel, getTypeIcon
 
         {/* Action icons */}
         <View style={styles.actionsRow}>
-          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: isDark ? '#2c2c2e' : '#f5f5f7' }]} activeOpacity={0.7}>
+          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: isDark ? '#2c2c2e' : '#f5f5f7' }]} activeOpacity={0.7} onPress={() => onEdit(m)}>
             <Ionicons name="create-outline" size={15} color={colors.textSecondary} />
           </TouchableOpacity>
           <TouchableOpacity

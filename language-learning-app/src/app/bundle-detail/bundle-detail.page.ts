@@ -71,8 +71,8 @@ export class BundleDetailPage implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnInit() {
     this.embedInHomeMaterialsModal = !!this.route.snapshot.data['embedInHomeMaterialsModal'];
-    this.userService.currentUser$.subscribe((u: any) => {
-      this.currentUserId = u?._id || '';
+    this.userService.currentUser$.subscribe(u => {
+      this.currentUserId = u?.id || '';
     });
 
     const id = this.route.snapshot.paramMap.get('id');
@@ -139,19 +139,11 @@ export class BundleDetailPage implements OnInit, AfterViewInit, OnDestroy {
     this.bundleService.getBundle(id).subscribe({
       next: (res: any) => {
         this.bundle = res.bundle || res;
-        this.hasPurchased = !!res.hasPurchased;
-        this.isOwner = this.bundle?.tutorId?._id === this.currentUserId ||
-                       (this.bundle?.tutorId as any) === this.currentUserId;
-        const bid = this.bundle?._id;
-        if (
-          bid &&
-          !this.embedInHomeMaterialsModal &&
-          this.isOwner &&
-          !this.platformService.isMobile()
-        ) {
-          this.router.navigate(['/tabs/home/bundle', bid], { replaceUrl: true });
-          return;
-        }
+        this.hasPurchased = !!(res.hasPurchased ?? this.bundle?.purchased);
+        const me =
+          this.currentUserId || this.userService.getCurrentUserValue()?.id || '';
+        const tid = (this.bundle?.tutorId as any)?._id || this.bundle?.tutorId;
+        this.isOwner = !!me && !!tid && String(tid) === String(me);
         this.isLoading = false;
         this.cdr.markForCheck();
         this.loadMoreFromTutor();

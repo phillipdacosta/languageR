@@ -4,10 +4,12 @@
     <span>{{ navBackLabel }}</span>
   </button>
   <div class="cm-nav-title" *ngIf="viewMode === 'create'">
+    <span class="cm-edit-badge" *ngIf="editingMaterialId"><ion-icon name="create-outline"></ion-icon> Editing</span>
     <span *ngIf="editingMaterialId">{{ 'CREATE_MATERIAL.EDITING_MATERIAL' | translate }}</span>
     <span *ngIf="!editingMaterialId">{{ stepTitle }}</span>
   </div>
   <div class="cm-nav-title" *ngIf="viewMode === 'bundle-create'">
+    <span class="cm-edit-badge" *ngIf="editingBundleId"><ion-icon name="create-outline"></ion-icon> Editing</span>
     <span>{{ stepTitle }}</span>
   </div>
   <div class="cm-nav-right">
@@ -465,6 +467,7 @@
     <div class="cm-details-wizard-scroll">
       <div class="cm-details-wizard-scroll-inner">
         <div class="cm-step-header cm-details-wizard-header" [class.cm-details-wizard-header--tight]="bundleWizardStepId === 'bundleShare'">
+          <span class="cm-edit-badge cm-edit-badge--wizard" *ngIf="editingBundleId"><ion-icon name="create-outline"></ion-icon> Editing</span>
           <h1>{{ bundleWizardHeadlineKey | translate }}</h1>
           <p *ngIf="bundleWizardStepId !== 'bundleShare'">{{ bundleWizardSublineKey | translate }}</p>
         </div>
@@ -551,15 +554,15 @@
 
         <div class="cm-details-wizard-panel" *ngIf="bundleWizardStepId === 'bundleCover'">
           <div class="cm-field">
-            <label>{{ 'CREATE_MATERIAL.BUNDLE_FIELD_COVER' | translate }}</label>
+            <label>{{ 'CREATE_MATERIAL.BUNDLE_FIELD_COVER' | translate }} <span class="cm-label-hint">Optional</span></label>
             <div class="cm-bundle-cover-upload">
-              <div class="cm-bcu-preview" *ngIf="bundleCoverPreview">
-                <img [src]="bundleCoverPreview" alt="" />
+              <div class="cm-bcu-preview" *ngIf="bundleCoverPreview || bundleCoverUrl">
+                <img [src]="bundleCoverPreview || bundleCoverUrl" alt="" />
                 <button type="button" class="cm-bcu-remove" (click)="removeBundleCover()">
                   <ion-icon name="close-outline"></ion-icon>
                 </button>
               </div>
-              <label class="cm-bcu-dropzone" *ngIf="!bundleCoverPreview">
+              <label class="cm-bcu-dropzone" *ngIf="!bundleCoverPreview && !bundleCoverUrl">
                 <ion-icon name="image-outline"></ion-icon>
                 <span>{{ 'CREATE_MATERIAL.BUNDLE_UPLOAD_COVER' | translate }}</span>
                 <span class="cm-bcu-hint">{{ 'CREATE_MATERIAL.BUNDLE_COVER_HINT' | translate }}</span>
@@ -686,15 +689,15 @@
     </div>
 
     <div class="cm-field">
-      <label>{{ 'CREATE_MATERIAL.BUNDLE_FIELD_COVER' | translate }}</label>
+      <label>{{ 'CREATE_MATERIAL.BUNDLE_FIELD_COVER' | translate }} <span class="cm-label-hint">Optional</span></label>
       <div class="cm-bundle-cover-upload">
-        <div class="cm-bcu-preview" *ngIf="bundleCoverPreview">
-          <img [src]="bundleCoverPreview" alt="" />
+        <div class="cm-bcu-preview" *ngIf="bundleCoverPreview || bundleCoverUrl">
+          <img [src]="bundleCoverPreview || bundleCoverUrl" alt="" />
           <button type="button" class="cm-bcu-remove" (click)="removeBundleCover()">
             <ion-icon name="close-outline"></ion-icon>
           </button>
         </div>
-        <label class="cm-bcu-dropzone" *ngIf="!bundleCoverPreview">
+        <label class="cm-bcu-dropzone" *ngIf="!bundleCoverPreview && !bundleCoverUrl">
           <ion-icon name="image-outline"></ion-icon>
           <span>{{ 'CREATE_MATERIAL.BUNDLE_UPLOAD_COVER' | translate }}</span>
           <span class="cm-bcu-hint">{{ 'CREATE_MATERIAL.BUNDLE_COVER_HINT' | translate }}</span>
@@ -733,7 +736,7 @@
     </div>
 
     <div class="cm-bundle-actions">
-      <button type="button" class="cm-btn-secondary" *ngIf="bundleTitle.trim()" (click)="saveBundleAsDraft()" [disabled]="isSavingBundle || !bundleTitle.trim() || bundlePricingType === null">
+      <button type="button" class="cm-btn-secondary" *ngIf="bundleTitle.trim() && !editingBundleId" (click)="saveBundleAsDraft()" [disabled]="isSavingBundle || !bundleTitle.trim() || bundlePricingType === null">
         <ion-spinner *ngIf="isSavingBundle" name="crescent" style="width:14px;height:14px;margin-right:4px"></ion-spinner>
         {{ 'CREATE_MATERIAL.BUNDLE_SAVE_DRAFT' | translate }}
       </button>
@@ -904,6 +907,7 @@
         <div class="cm-details-wizard-scroll">
           <div class="cm-details-wizard-scroll-inner">
           <div class="cm-step-header cm-details-wizard-header">
+            <span class="cm-edit-badge cm-edit-badge--wizard" *ngIf="editingMaterialId"><ion-icon name="create-outline"></ion-icon> Editing</span>
             <h1>{{ detailsWizardHeadlineKey | translate }}</h1>
             <p>{{ detailsWizardSublineKey | translate }}</p>
           </div>

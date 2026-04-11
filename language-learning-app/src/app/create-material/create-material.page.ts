@@ -67,6 +67,8 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     topbarNavBackLabel: string;
     /** Translated previous bundle wizard step title; empty when not on bundle wizard back. */
     topbarBundleWizardBackLabel: string;
+    isEditingBundle?: boolean;
+    isEditingMaterial?: boolean;
   }>();
   /** Desktop modal footer: details wizard Back / Next (same slot as + New Material). */
   @Output() detailsModalFooterChromeEvent = new EventEmitter<{
@@ -618,7 +620,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
       const desktopBundleWizard = !this.platformService.isMobile() && this.bundleWizardLayoutActive;
       const showFooterBack = desktopBundleWizard ? false : this.bundleWizardStepId !== 'bundleShare';
       const showBundleSaveDraft =
-        !!this.editingBundleId || this.bundleWizardStepIndex >= 2;
+        !this.editingBundleId && this.bundleWizardStepIndex >= 2;
       this.detailsModalFooterChromeEvent.emit({
         active: true,
         showBack: showFooterBack,
@@ -654,7 +656,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     const t = this.detailsWizardStepTotal;
     const detailsLast = this.detailsWizardStepIndex >= t - 1;
     const showMaterialSaveDraft =
-      this.detailsWizardStepIndex > 0 || !!this.editingMaterialId;
+      !this.editingMaterialId && this.detailsWizardStepIndex > 0;
     this.detailsModalFooterChromeEvent.emit({
       active: true,
       showBack: false,
@@ -983,6 +985,8 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
       centerStepLabel,
       topbarNavBackLabel: this.navBackLabel,
       topbarBundleWizardBackLabel,
+      isEditingBundle: !!this.editingBundleId,
+      isEditingMaterial: !!this.editingMaterialId,
     });
   }
 
@@ -2197,6 +2201,91 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
 
   // ── Submit ─────────────────────────────────────────────
 
+  async saveMaterialInPlace(): Promise<boolean> {
+    if (!this.editingMaterialId) return false;
+    if (!this.selectedType || this.selectedPricing === null) return false;
+    if (this.isSavingMaterialDraft || this.isSubmitting) return false;
+
+    this.isSavingMaterialDraft = true;
+    this.cdr.markForCheck();
+
+    let thumbnailUrl = this.existingThumbnailUrl || '';
+    if (this.thumbnailFile) {
+      try {
+        this.isUploadingThumbnail = true;
+        this.cdr.markForCheck();
+        thumbnailUrl = await this.uploadThumbnailToGCS();
+        this.isUploadingThumbnail = false;
+        this.existingThumbnailUrl = thumbnailUrl;
+        this.thumbnailPreview = thumbnailUrl || this.thumbnailPreview;
+        this.thumbnailFile = null;
+      } catch {
+        this.isUploadingThumbnail = false;
+        this.isSavingMaterialDraft = false;
+        this.cdr.markForCheck();
+        await this.showTranslatedToast('CREATE_MATERIAL.TOAST_UPLOAD_FAILED');
+        return false;
+      }
+    }
+
+    const quizData = this.quizArray.value as QuizQuestion[];
+    const payload: CreateMaterialPayload = {
+      title: (this.materialForm.value.title || '').trim() || 'Untitled',
+      description: this.materialForm.value.description || '',
+      whyTakeThis: this.materialForm.value.whyTakeThis || '',
+      language: (this.materialForm.value.language || '').trim() || 'English',
+      level: this.materialForm.value.level || 'any',
+      topics: this.selectedTopics.length > 0 ? this.selectedTopics : undefined,
+      structuredTags: this.selectedStructuredTags.length > 0 ? this.selectedStructuredTags : undefined,
+      materialType: this.selectedType,
+      pricingType: this.selectedPricing,
+      price: this.selectedPricing === 'paid' ? Number(this.materialForm.value.price) || 0 : 0,
+      quiz: Array.isArray(quizData) ? quizData : [],
+      thumbnailUrl: thumbnailUrl?.trim() || undefined,
+    };
+    payload.contentAttested = this.contentAttested;
+
+    if (this.selectedType === 'video_quiz') {
+      payload.videoUrl = this.materialForm.value.videoUrl;
+    }
+    if (this.selectedType === 'reading') {
+      payload.passage = this.materialForm.value.passage;
+    }
+    if (this.selectedType === 'listening') {
+      payload.audioUrl = this.materialForm.value.audioUrl;
+    }
+
+    return new Promise<boolean>(resolve => {
+      this.materialService.updateMaterial(this.editingMaterialId!, payload as any).subscribe({
+        next: async () => {
+          this.isSavingMaterialDraft = false;
+          this.cdr.markForCheck();
+          const toast = await this.toastCtrl.create({
+            message: 'Material saved',
+            duration: 2000,
+            position: 'bottom',
+            color: 'success',
+          });
+          await toast.present();
+          resolve(true);
+        },
+        error: async (err: any) => {
+          this.isSavingMaterialDraft = false;
+          this.cdr.markForCheck();
+          const serverMsg = err?.error?.message || err?.message || 'Failed to save material';
+          const toast = await this.toastCtrl.create({
+            message: serverMsg,
+            duration: 3000,
+            position: 'bottom',
+            color: 'danger',
+          });
+          await toast.present();
+          resolve(false);
+        },
+      });
+    });
+  }
+
   /** Desktop modal footer: save progress without full publish validation. */
   async saveMaterialDraft(): Promise<void> {
     if (this.isSavingMaterialDraft || this.isSubmitting) return;
@@ -2689,7 +2778,9 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     this.bundlePricingType = bundle.pricingType;
     this.bundlePrice = bundle.price;
     this.bundleStructuredTags = [...bundle.structuredTags];
-    this.bundleSelectedMaterialIds = bundle.items.map(i => typeof i.materialId === 'string' ? i.materialId : (i.materialId as any)?._id);
+    this.bundleSelectedMaterialIds = bundle.items
+      .map(i => typeof i.materialId === 'string' ? i.materialId : (i.materialId as any)?._id)
+      .filter((id: string | undefined) => !!id);
     this.bundleCoverFile = null;
     this.bundleCoverPreview = bundle.coverImageUrl || null;
     this.bundleCoverUrl = bundle.coverImageUrl || null;
@@ -2698,6 +2789,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     this.modalExpandEvent.emit(true);
     this.updateNavState();
     this.emitModalSidebarTabSync('bundles');
+    this.cdr.markForCheck();
   }
 
   isMaterialInBundle(materialId: string): boolean {
@@ -2770,6 +2862,58 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
       await toast.present();
       return this.bundleCoverUrl;
     }
+  }
+
+  async saveBundleInPlace(): Promise<boolean> {
+    if (!this.editingBundleId) return false;
+    if (!this.bundleTitle.trim() || !this.bundleLanguage) return false;
+    if (this.bundlePricingType === null) return false;
+
+    this.isSavingBundle = true;
+    const coverUrl = await this.uploadBundleCover();
+
+    const validIds = this.bundleSelectedMaterialIds.filter(id => !!id);
+    const payload: CreateBundlePayload = {
+      title: this.bundleTitle.trim(),
+      description: this.bundleDescription.trim(),
+      coverImageUrl: coverUrl || undefined,
+      language: this.bundleLanguage,
+      level: this.bundleLevel,
+      structuredTags: this.bundleStructuredTags,
+      items: validIds.map((id, i) => ({ materialId: id, sortOrder: i })),
+      pricingType: this.bundlePricingType,
+      price: this.bundlePricingType === 'paid' ? this.bundlePrice : 0,
+    };
+
+    return new Promise<boolean>(resolve => {
+      this.bundleService.updateBundle(this.editingBundleId!, payload).subscribe({
+        next: async () => {
+          this.isSavingBundle = false;
+          this.cdr.markForCheck();
+          const toast = await this.toastCtrl.create({
+            message: 'Bundle saved',
+            duration: 2000,
+            position: 'bottom',
+            color: 'success',
+          });
+          await toast.present();
+          resolve(true);
+        },
+        error: async (err: any) => {
+          this.isSavingBundle = false;
+          this.cdr.markForCheck();
+          const serverMsg = err?.error?.message || err?.message || 'Failed to save bundle';
+          const toast = await this.toastCtrl.create({
+            message: serverMsg,
+            duration: 3000,
+            position: 'bottom',
+            color: 'danger',
+          });
+          await toast.present();
+          resolve(false);
+        },
+      });
+    });
   }
 
   async saveBundle() {

@@ -325,6 +325,12 @@ const LessonSchema = new mongoose.Schema({
     studentSeconds: { type: Number, default: null },
     tutorSeconds: { type: Number, default: null }
   },
+  // Student pre-call lesson intent (how the student wants the lesson to feel)
+  studentLessonIntent: {
+    type: String,
+    enum: ['easy', 'conversational', 'focused', 'challenge', null],
+    default: null
+  },
   // Agora Interactive Whiteboard room info
   whiteboardRoomUUID: {
     type: String,

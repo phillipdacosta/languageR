@@ -97,10 +97,16 @@ export class BundleService {
     ).pipe(map(res => res.bundles));
   }
 
+  /**
+   * Public bundle fetch. Sends auth when the user is logged in so the backend
+   * can return draft bundles to the owner (GET /bundles/:id hides drafts without owner auth).
+   */
   getBundle(id: string): Observable<ContentBundle> {
-    return this.http.get<{ success: boolean; bundle: ContentBundle }>(`${this.apiUrl}/${id}`).pipe(
-      map(res => res.bundle)
-    );
+    const headers = this.userService.getAuthHeadersSync();
+    const hasAuth = !!headers.get('Authorization');
+    return this.http
+      .get<{ success: boolean; bundle: ContentBundle }>(`${this.apiUrl}/${id}`, hasAuth ? { headers } : {})
+      .pipe(map(res => res.bundle));
   }
 
   getBundleAuth(id: string): Observable<ContentBundle> {

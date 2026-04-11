@@ -103,6 +103,8 @@ export default function CreateBundleScreen({ goBack, editingBundle, materials }:
   const [coverUri, setCoverUri] = useState<string | null>(null);
   const [existingCoverUrl, setExistingCoverUrl] = useState(editingBundle?.coverImageUrl || null);
   const [isSaving, setIsSaving] = useState(false);
+  /** In-place edit save (footer / nav) — separate so primary CTA does not show publish spinner. */
+  const [isPersistingEdit, setIsPersistingEdit] = useState(false);
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
   const [showLevelPicker, setShowLevelPicker] = useState(false);
   const [bundleStepIndex, setBundleStepIndex] = useState(0);
@@ -151,7 +153,7 @@ export default function CreateBundleScreen({ goBack, editingBundle, materials }:
       : 0;
   const isLastStep = bundleStepIndex >= bundleSteps.length - 1;
   /** Index 0 = share, 1 = title — show Save draft only from description onward */
-  const showFooterSaveDraft = isEditing || bundleStepIndex >= 2;
+  const showFooterSaveDraft = !isEditing && bundleStepIndex >= 2;
 
   const activeBundleId = editingBundle?._id ?? persistedBundleId;
 
@@ -308,6 +310,78 @@ export default function CreateBundleScreen({ goBack, editingBundle, materials }:
     if (bundleStepIndex >= bundleSteps.length - 1) return;
     setBundleStepIndex(i => i + 1);
   }, [validateCurrentStep, bundleStepIndex, bundleSteps.length]);
+
+  /** Persist current bundle fields while editing; preserves draft vs published status. */
+  const persistBundleEdit = useCallback(async (): Promise<boolean> => {
+    if (!isEditing || !editingBundle?._id) return false;
+    if (!canSaveDraft) {
+      Alert.alert('', t('CREATE_MATERIAL.TOAST_FILL_REQUIRED'));
+      return false;
+    }
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setIsPersistingEdit(true);
+    try {
+      let coverImageUrl = existingCoverUrl || undefined;
+      if (coverUri) {
+        coverImageUrl = await materialService.uploadBundleCover(coverUri);
+        setExistingCoverUrl(coverImageUrl);
+        setCoverUri(null);
+      }
+
+      const preservedStatus = editingBundle.status === 'published' ? 'published' : 'draft';
+      const payload: Record<string, any> = {
+        title: title.trim() || 'Untitled draft',
+        description: description.trim(),
+        coverImageUrl,
+        language,
+        level,
+        items: selectedMaterialIds.map((id, i) => ({ materialId: id, sortOrder: i })),
+        pricingType: pricingType as 'free' | 'paid',
+        price: pricingType === 'paid' ? parseFloat(price) : 0,
+        status: preservedStatus,
+      };
+      if (structuredTags.length > 0) payload.structuredTags = structuredTags;
+
+      const updated = await materialService.updateBundle(editingBundle._id, payload);
+      if (!updated) throw new Error(t('CREATE_BUNDLE.SAVE_FAILED'));
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      return true;
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || t('CREATE_BUNDLE.SAVE_FAILED'));
+      return false;
+    } finally {
+      setIsPersistingEdit(false);
+    }
+  }, [
+    isEditing,
+    editingBundle,
+    canSaveDraft,
+    title,
+    description,
+    language,
+    level,
+    pricingType,
+    price,
+    selectedMaterialIds,
+    coverUri,
+    existingCoverUrl,
+    structuredTags,
+    t,
+  ]);
+
+  const handleFooterSaveInPlace = useCallback(async () => {
+    const ok = await persistBundleEdit();
+    if (ok) {
+      Alert.alert('', t('CREATE_BUNDLE.SAVED_TOAST'), [{ text: t('COMMON.OK') }]);
+    }
+  }, [persistBundleEdit, t]);
+
+  const handleSaveAndExit = useCallback(async () => {
+    const ok = await persistBundleEdit();
+    if (ok) goBack();
+  }, [persistBundleEdit, goBack]);
 
   const saveDraftProgress = useCallback(async () => {
     if (!canSaveDraft) {
@@ -589,7 +663,7 @@ export default function CreateBundleScreen({ goBack, editingBundle, materials }:
       case 'bundleCover':
         return (
           <View style={s.panel}>
-            <Text style={[s.label, { color: colors.text }]}>{t('CREATE_BUNDLE.FIELD_COVER')}</Text>
+            <Text style={[s.label, { color: colors.text }]}>{t('CREATE_BUNDLE.FIELD_COVER')} <Text style={{ color: colors.textSecondary, fontWeight: '400', fontSize: 12 }}>Optional</Text></Text>
             {coverPreview ? (
               <View style={s.coverPreview}>
                 <Image source={{ uri: coverPreview }} style={s.coverImg} contentFit="cover" />
@@ -734,14 +808,33 @@ export default function CreateBundleScreen({ goBack, editingBundle, materials }:
             </Text>
           </TouchableOpacity>
           <View style={s.navBarSpacer} />
-          {bundleStepIndex >= 1 && (
-            <Text style={[s.navStepCount, { color: colors.textSecondary }]}>
-              {t('CREATE_MATERIAL.STEP_OF', {
-                current: bundleNumberedCurrent,
-                total: bundleNumberedTotal,
-              })}
-            </Text>
-          )}
+          <View style={s.navBarRight}>
+            {bundleStepIndex >= 1 && (
+              <Text style={[s.navStepCount, { color: colors.textSecondary }]}>
+                {t('CREATE_MATERIAL.STEP_OF', {
+                  current: bundleNumberedCurrent,
+                  total: bundleNumberedTotal,
+                })}
+              </Text>
+            )}
+            {isEditing && (
+              <TouchableOpacity
+                onPress={handleSaveAndExit}
+                style={s.navSaveExitBtn}
+                disabled={isSaving || isPersistingEdit || !canSaveDraft}
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                {isPersistingEdit ? (
+                  <ActivityIndicator size="small" color={SETUP_AVAILABILITY_BLUE} />
+                ) : (
+                  <Text style={[s.navSaveExitText, { color: SETUP_AVAILABILITY_BLUE }]} numberOfLines={1}>
+                    {t('CREATE_BUNDLE.SAVE_AND_EXIT')}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         <View style={s.progressSection}>
@@ -766,6 +859,14 @@ export default function CreateBundleScreen({ goBack, editingBundle, materials }:
             keyboardDismissMode="interactive"
           >
             <View style={[s.detailsStepMaxWidth, s.headAlignedStep]}>
+              {isEditing && (
+                <View style={s.editBadgeRow}>
+                  <View style={[s.editBadge, { backgroundColor: isDark ? '#b45309' : '#f59e0b' }]}>
+                    <Ionicons name="create-outline" size={13} color="#fff" />
+                    <Text style={s.editBadgeText}>{t('CREATE_BUNDLE.EDITING_LABEL')}</Text>
+                  </View>
+                </View>
+              )}
               <Text style={[s.detailsHeading, { color: colors.text }]}>{t(headlineKey)}</Text>
               <Text style={[s.detailsSubheading, { color: colors.textSecondary }]}>{t(sublineKey)}</Text>
 
@@ -821,13 +922,27 @@ export default function CreateBundleScreen({ goBack, editingBundle, materials }:
                       )}
                     </TouchableOpacity>
                   )}
+                  {isEditing && (
+                    <TouchableOpacity
+                      style={[s.wizardBackBtn, { borderColor: colors.border }]}
+                      onPress={handleFooterSaveInPlace}
+                      disabled={isSaving || isPersistingEdit || !canSaveDraft}
+                      activeOpacity={0.75}
+                    >
+                      {isPersistingEdit ? (
+                        <ActivityIndicator size="small" color={colors.text} />
+                      ) : (
+                        <Text style={[s.wizardBackBtnText, { color: colors.text }]}>{t('COMMON.SAVE')}</Text>
+                      )}
+                    </TouchableOpacity>
+                  )}
                   <TouchableOpacity
                     style={[s.wizardNextBtn, {
-                      flex: showFooterSaveDraft ? 1.25 : 1,
+                      flex: showFooterSaveDraft || isEditing ? 1.25 : 1,
                       backgroundColor: isCurrentStepValid ? (isDark ? '#fff' : '#111') : (isDark ? '#3a3a3c' : '#d1d1d6'),
                     }]}
                     onPress={handleWizardNext}
-                    disabled={!isCurrentStepValid}
+                    disabled={!isCurrentStepValid || isSaving || isPersistingEdit}
                     activeOpacity={0.85}
                   >
                     <Text style={[s.wizardNextBtnText, { color: isCurrentStepValid ? (isDark ? '#000' : '#fff') : '#8e8e93' }]}>
@@ -853,14 +968,28 @@ export default function CreateBundleScreen({ goBack, editingBundle, materials }:
                       )}
                     </TouchableOpacity>
                   )}
+                  {isEditing && (
+                    <TouchableOpacity
+                      style={[s.wizardBackBtn, { borderColor: colors.border }]}
+                      onPress={handleFooterSaveInPlace}
+                      disabled={isSaving || isPersistingEdit || !canSaveDraft}
+                      activeOpacity={0.75}
+                    >
+                      {isPersistingEdit ? (
+                        <ActivityIndicator size="small" color={colors.text} />
+                      ) : (
+                        <Text style={[s.wizardBackBtnText, { color: colors.text }]}>{t('COMMON.SAVE')}</Text>
+                      )}
+                    </TouchableOpacity>
+                  )}
                   <TouchableOpacity
                     style={[s.wizardNextBtn, {
-                      flex: showFooterSaveDraft ? 1.25 : 1,
+                      flex: showFooterSaveDraft || isEditing ? 1.25 : 1,
                       backgroundColor: canPublish ? (isDark ? SETUP_AVAILABILITY_BLUE : '#222') : (isDark ? '#3a3a3c' : '#d1d1d6'),
                       opacity: canPublish ? 1 : 0.85,
                     }]}
                     onPress={savePublished}
-                    disabled={isSaving || !canPublish}
+                    disabled={isSaving || isPersistingEdit || !canPublish}
                     activeOpacity={0.85}
                   >
                     {isSaving ? (
@@ -894,6 +1023,22 @@ const s = StyleSheet.create({
     alignSelf: 'center' as const,
   },
   headAlignedStep: { marginTop: 8 },
+  editBadgeRow: { alignItems: 'center' as const, marginBottom: 12 },
+  editBadge: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  editBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700' as const,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase' as const,
+  },
   detailsHeading: {
     fontSize: 22,
     fontWeight: '800',
@@ -917,6 +1062,24 @@ const s = StyleSheet.create({
   navBack: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1, minWidth: 0, maxWidth: '52%' },
   navBackLabel: { fontSize: 15, fontWeight: '500', flexShrink: 1 },
   navBarSpacer: { flex: 1, minWidth: 8 },
+  navBarRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flexShrink: 0,
+  },
+  navSaveExitBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+    minWidth: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navSaveExitText: {
+    fontSize: 15,
+    fontWeight: '600',
+    maxWidth: 140,
+  },
   navStepCount: { fontSize: 13, fontWeight: '600', fontVariant: ['tabular-nums'] },
   progressSection: {
     marginTop: 14,

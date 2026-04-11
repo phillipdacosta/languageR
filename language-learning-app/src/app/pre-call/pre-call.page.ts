@@ -88,6 +88,15 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
   planSelfAssessedLevel = '';
   hasPlanData = false;
   
+  // Student lesson intent
+  selectedIntent: string | null = null;
+  intentOptions = [
+    { id: 'easy', emoji: '😌', label: 'Keep it light' },
+    { id: 'conversational', emoji: '💬', label: 'Conversational' },
+    { id: 'focused', emoji: '🎯', label: 'Focused' },
+    { id: 'challenge', emoji: '🔥', label: 'Challenge me' },
+  ];
+
   // Error recovery
   showRetryButton = false;
   
@@ -732,7 +741,16 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
     await alert.present();
   }
 
+  selectIntent(intentId: string) {
+    this.selectedIntent = this.selectedIntent === intentId ? null : intentId;
+  }
+
   async enterClassroom() {
+    // Persist student intent if selected (fire-and-forget)
+    if (this.selectedIntent && !this.isTutor && this.lessonId) {
+      this.lessonService.updateLesson(this.lessonId, { studentLessonIntent: this.selectedIntent }).subscribe();
+    }
+
     // Mark that we're entering the classroom so ngOnDestroy doesn't call leaveLesson
     this.isEnteringClassroom = true;
     

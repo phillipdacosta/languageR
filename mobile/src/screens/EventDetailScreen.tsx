@@ -16,6 +16,9 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../contexts/ThemeContext';
 import { CalendarLesson, CalendarClass } from '../types/calendar';
+import { getRootNavigation } from '../utils/navigationRoot';
+import { LessonDateHeaderCenter, formatDateBadgeParts } from '../components/LessonDateHeaderCenter';
+import { SolidToolbarWithBlur } from '../components/SolidToolbarWithBlur';
 
 function formatDisplayName(person: any): string {
   if (!person) return '';
@@ -47,6 +50,7 @@ export default function EventDetailScreen() {
 
   const lesson: CalendarLesson | undefined = route.params?.lesson;
   const calendarClass: CalendarClass | undefined = route.params?.calendarClass;
+  const fromLessons = !!route.params?.fromLessons;
   const isClass = !!calendarClass;
   const item = lesson || calendarClass;
 
@@ -112,12 +116,16 @@ export default function EventDetailScreen() {
   if (!details) {
     return (
       <SafeAreaView style={[st.safe, { backgroundColor: colors.surface }]} edges={['top']}>
-        <View style={st.headerRow}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={st.backBtn}>
-            <Ionicons name="chevron-back" size={22} color={colors.text} />
-            <Text style={[st.backText, { color: colors.text }]}>{t('TABS.CALENDAR')}</Text>
-          </TouchableOpacity>
-        </View>
+        <SolidToolbarWithBlur isDark={isDark}>
+          <View style={st.eventHeaderInner}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={st.backBtn}>
+              <Ionicons name="chevron-back" size={22} color={colors.text} />
+              <Text style={[st.backText, { color: colors.text }]}>
+                {fromLessons ? t('TABS.LESSONS') : t('TABS.CALENDAR')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </SolidToolbarWithBlur>
         <View style={st.center}><Text style={{ color: colors.textSecondary }}>{t('COMMON.LOADING')}</Text></View>
       </SafeAreaView>
     );
@@ -127,19 +135,30 @@ export default function EventDetailScreen() {
   const statusColor = details.isCancelled ? '#C13515' : details.isNow ? C.accent : details.isPast ? C.textTertiary : '#2E7D32';
   const statusLabel = details.isCancelled ? t('HOME.CANCELLED') : details.isNow ? t('HOME.STARTED') : details.isPast ? t('HOME.STATUS_COMPLETED') || 'Completed' : t('HOME.STATUS_SCHEDULED') || 'Scheduled';
 
+  const { month: headerMonth, day: headerDay } = formatDateBadgeParts(details.start);
+  const headerTimeRange = `${formatTime(details.start)} – ${formatTime(details.end)}`;
+  const headerTimeLine = isClass
+    ? `${t('LESSONS_PAGE.CLASS')} · ${headerTimeRange}`
+    : headerTimeRange;
+
   return (
     <SafeAreaView style={[st.safe, { backgroundColor: C.surface }]} edges={['top']}>
-      {/* Header */}
-      <View style={[st.headerRow, { borderBottomColor: C.border }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={st.backBtn}>
-          <Ionicons name="chevron-back" size={22} color={C.text} />
-          <Text style={[st.backText, { color: C.text }]}>{t('TABS.CALENDAR')}</Text>
-        </TouchableOpacity>
-        <View style={[st.statusBadge, { backgroundColor: statusColor + '20' }]}>
-          <View style={[st.statusDot, { backgroundColor: statusColor }]} />
-          <Text style={[st.statusText, { color: statusColor }]}>{statusLabel}</Text>
+      <SolidToolbarWithBlur isDark={isDark}>
+        <View style={st.eventHeaderInner}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={st.backBtn}>
+            <Ionicons name="chevron-back" size={22} color={C.text} />
+            <Text style={[st.backText, { color: C.text }]}>
+              {fromLessons ? t('TABS.LESSONS') : t('TABS.CALENDAR')}
+            </Text>
+          </TouchableOpacity>
+          <View style={[st.statusBadge, { backgroundColor: statusColor + '20' }]}>
+            <View style={[st.statusDot, { backgroundColor: statusColor }]} />
+            <Text style={[st.statusText, { color: statusColor }]} numberOfLines={1}>
+              {statusLabel}
+            </Text>
+          </View>
         </View>
-      </View>
+      </SolidToolbarWithBlur>
 
       <ScrollView style={st.scroll} contentContainerStyle={st.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Hero */}
@@ -152,6 +171,16 @@ export default function EventDetailScreen() {
             </View>
           )}
           <Text style={[st.heroTitle, { color: C.text }]}>{details.title}</Text>
+          <View style={st.heroDateOuter}>
+            <LessonDateHeaderCenter
+              dateBadgeMonth={headerMonth}
+              dateBadgeDay={headerDay}
+              timeLine={headerTimeLine}
+              isDark={isDark}
+              textPrimary={C.text}
+              textSecondary={C.textSecondary}
+            />
+          </View>
           {!!details.subject && <Text style={[st.heroSubject, { color: C.textSecondary }]}>{details.subject}</Text>}
 
           <View style={st.heroBadges}>
@@ -215,7 +244,15 @@ export default function EventDetailScreen() {
         {!details.isPast && !details.isCancelled && (
           <View style={st.actionsSection}>
             {(details.isNow || details.isUpcoming) && (
-              <TouchableOpacity style={[st.actionBtn, { backgroundColor: C.accent }]} activeOpacity={0.85}>
+              <TouchableOpacity
+                style={[st.actionBtn, { backgroundColor: C.accent }]}
+                activeOpacity={0.85}
+                onPress={() => {
+                  const id = (item as any)._id;
+                  const root = getRootNavigation(navigation);
+                  root?.navigate?.('PreCall', { lessonId: id, isClass });
+                }}
+              >
                 <Ionicons name="videocam" size={18} color={C.background} />
                 <Text style={[st.actionBtnText, { color: C.background }]}>{details.isNow ? t('HOME.JOIN_NOW') : t('HOME.JOIN_LESSON')}</Text>
               </TouchableOpacity>
@@ -245,10 +282,19 @@ const st = StyleSheet.create({
   safe: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
+  eventHeaderInner: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    minHeight: 44,
+  },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   backText: { fontSize: 16, fontWeight: '600' },
   statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+  heroDateOuter: { alignItems: 'center', width: '100%', marginTop: 4, marginBottom: 8 },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
   statusText: { fontSize: 12, fontWeight: '600' },
 

@@ -3,19 +3,31 @@ import React, { createContext, useCallback, useContext, useMemo, useState } from
 type Value = {
   homeOverlayCoversTabBar: boolean;
   setHomeOverlayCoversTabBar: (covers: boolean) => void;
+  lessonOverlayCoversTabBar: boolean;
+  setLessonOverlayCoversTabBar: (covers: boolean) => void;
 };
 
 const HomeTabBarOverlayContext = createContext<Value | null>(null);
 
 export function HomeTabBarOverlayProvider({ children }: { children: React.ReactNode }) {
-  const [homeOverlayCoversTabBar, setState] = useState(false);
+  const [homeOverlayCoversTabBar, setHome] = useState(false);
+  const [lessonOverlayCoversTabBar, setLesson] = useState(false);
+
   const setHomeOverlayCoversTabBar = useCallback((covers: boolean) => {
-    setState(covers);
+    setHome(covers);
+  }, []);
+  const setLessonOverlayCoversTabBar = useCallback((covers: boolean) => {
+    setLesson(covers);
   }, []);
 
   const value = useMemo(
-    () => ({ homeOverlayCoversTabBar, setHomeOverlayCoversTabBar }),
-    [homeOverlayCoversTabBar, setHomeOverlayCoversTabBar],
+    () => ({
+      homeOverlayCoversTabBar,
+      setHomeOverlayCoversTabBar,
+      lessonOverlayCoversTabBar,
+      setLessonOverlayCoversTabBar,
+    }),
+    [homeOverlayCoversTabBar, setHomeOverlayCoversTabBar, lessonOverlayCoversTabBar, setLessonOverlayCoversTabBar],
   );
 
   return (

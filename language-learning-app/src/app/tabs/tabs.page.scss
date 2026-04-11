@@ -507,13 +507,13 @@
           }
         }
 
-        // "new" badge — floats in the gap space after "Messages" text
+        // "new" badge — desktop only (min-width: 992px); mobile uses .message-tab-notification-dot
         &.messages-button .new-badge {
           position: absolute;
           left: 100%;
           top: 50%;
           transform: translateY(-50%);
-          margin-left: 6px;
+          margin-left: -8px;
           font-size: 9px;
           font-weight: 600;
           letter-spacing: 0.02em;
