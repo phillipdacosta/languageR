@@ -226,6 +226,11 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   hasTutorNote = false;
   hasTutorFeedback = false;
 
+  // Last session context (for upcoming lessons)
+  hasLastSessionContext = false;
+  lastSessionSummary = '';
+  lastSessionFocus: string[] = [];
+
   // Previous lesson notes for this tutor-student pair
   previousNotesData: any = null;
   hasPreviousNotes = false;
@@ -925,6 +930,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.computeCancellation();
     this.computeIssue();
     this.computeReschedule();
+    this.computeLastSessionContext();
   }
 
   private computeRole() {
@@ -1293,6 +1299,17 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         this.proposedTimeRange = `${formatDateInTz(s, this.userTz, { month: 'short', day: 'numeric', year: undefined })} at ${formatTimeInTz(s, this.userTz, undefined, true)} – ${formatTimeInTz(e, this.userTz, undefined, true)}`;
       }
     }
+  }
+
+  private computeLastSessionContext() {
+    const ctx = this.lesson?.lastSessionContext;
+    if (!ctx || ctx.isFirstLesson || !ctx.summary) {
+      this.hasLastSessionContext = false;
+      return;
+    }
+    this.hasLastSessionContext = true;
+    this.lastSessionSummary = ctx.summary;
+    this.lastSessionFocus = ctx.recommendedFocus || [];
   }
 
   private computeAnalysisProperties() {

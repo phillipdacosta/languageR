@@ -198,6 +198,21 @@
 
           <h1 class="ed-title">{{ lesson?.subject || 'Language Lesson' }}</h1>
 
+    <!-- ── Last Session Context (upcoming lessons) ───────────── -->
+    <ng-container *ngIf="hasLastSessionContext">
+      <div class="ed-divider"></div>
+      <section class="ed-row ed-last-session">
+        <h2 class="ed-section-label">Last session</h2>
+        <p class="ed-body">{{ lastSessionSummary }}</p>
+        <div class="ed-bullets" *ngIf="lastSessionFocus.length">
+          <h3 class="ed-sub-label">Recommended focus</h3>
+          <ul>
+            <li *ngFor="let f of lastSessionFocus">{{ f }}</li>
+          </ul>
+        </div>
+      </section>
+    </ng-container>
+
     <!-- ── Feedback Status Banner ────────────────────────────── -->
     <ng-container *ngIf="isLessonCompleted && !feedbackLoading && !analysisLoading">
       <div class="ed-divider"></div>

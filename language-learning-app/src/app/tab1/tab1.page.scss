@@ -345,12 +345,21 @@ ion-content {
   @media (max-width: 600px) {
     --background: transparent;
   }
+
+  // Inline earnings: full scroll area white (desktop gray + mobile transparent would show otherwise)
+  &.ion-content--earnings-open {
+    --background: #ffffff !important;
+  }
 }
 
 :host-context(html.ion-palette-dark) {
   ion-content {
     @media (max-width: 600px) {
       --background: transparent;
+    }
+
+    &.ion-content--earnings-open {
+      --background: #000000 !important;
     }
   }
 }
@@ -448,18 +457,19 @@ ion-content {
   }
 }
 
-// Inline Earnings Panel (embedded earnings view)
+// Inline Earnings Panel (embedded earnings view) — white canvas; elevated cards match lessons page
 .earnings-inline-panel {
-  padding: 20px 16px;
+  padding: 16px 16px 32px;
   max-width: 1200px;
   margin: 0 auto;
   animation: earningsPanelReveal 0.5s ease-out forwards;
   position: relative;
   z-index: 1;
   min-height: 100%;
-  background: var(--ion-background-color, #f5f5f5);
+  background: #ffffff;
 
   @media (min-width: 769px) {
+    padding: 24px 24px 40px;
     padding-top: 87px;
   }
 }
@@ -11692,6 +11702,10 @@ img.m-card-empty-link-arrow-img {
   }
   .content-wrapper {
     background: transparent !important;
+  }
+
+  .earnings-inline-panel {
+    background: #000000 !important;
   }
 
   // ── Header / toolbar ─────────────────────────────────

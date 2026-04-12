@@ -409,6 +409,10 @@ export default function LessonDetailOverlay({ card, cardRect, onCloseStart, onCl
       (!!tf && tf.status === 'pending' && tf.required !== false)
     );
 
+  const lastCtx = (lesson as any)?.lastSessionContext;
+  const hasLastSession = !!lastCtx && !lastCtx.isFirstLesson && !!lastCtx.summary;
+  const lastSessionFocus: string[] = lastCtx?.recommendedFocus || [];
+
   const showRebook =
     !!info?.isCancelled &&
     isStudent &&
@@ -656,6 +660,28 @@ export default function LessonDetailOverlay({ card, cardRect, onCloseStart, onCl
               {/* ── About / Bio ── */}
               {otherUserBio ? (
                 <Text style={[st.bio, { color: C.textSecondary }]}>{otherUserBio}</Text>
+              ) : null}
+
+              {/* ── Last Session Context (upcoming lessons) ── */}
+              {hasLastSession ? (
+                <>
+                  <View style={[st.hairline, { backgroundColor: isDark ? C.border : '#EBEBEB', marginTop: 4 }]} />
+                  <Text style={[st.sectionHeading, { color: C.text }]}>Last session</Text>
+                  <Text style={[st.noteBody, { color: C.textSecondary, marginBottom: lastSessionFocus.length ? 12 : 0 }]}>
+                    {lastCtx.summary}
+                  </Text>
+                  {lastSessionFocus.length > 0 ? (
+                    <View style={{ marginBottom: 4 }}>
+                      <Text style={[st.focusSubLabel, { color: C.text }]}>Recommended focus</Text>
+                      {lastSessionFocus.map((f: string, i: number) => (
+                        <View key={i} style={st.focusBulletRow}>
+                          <Text style={[st.focusBullet, { color: C.textSecondary }]}>{'\u2022'}</Text>
+                          <Text style={[st.focusBulletText, { color: C.textSecondary }]}>{f}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  ) : null}
+                </>
               ) : null}
 
               {/* ── Awaiting Tutor Feedback (student) ── */}
@@ -1735,5 +1761,26 @@ const st = StyleSheet.create({
   recLoadingText: {
     fontSize: 13,
     fontWeight: '400',
+  },
+  focusSubLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  focusBulletRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 3,
+    paddingLeft: 4,
+  },
+  focusBullet: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginRight: 8,
+  },
+  focusBulletText: {
+    fontSize: 14,
+    lineHeight: 20,
+    flex: 1,
   },
 });
