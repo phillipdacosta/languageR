@@ -142,7 +142,7 @@
               </span>
               <span class="mcal-summary-pill mcal-summary-pill--avail"
                     [class.mcal-pill-pop]="availabilityJustSaved"
-                    *ngIf="todaySummaryHoursAvailable > 0"
+                    *ngIf="todaySummaryGrossHoursAvailable > 0"
                     (click)="openAvailabilityModal()">
                 <ion-icon name="time-outline"></ion-icon>
                 {{ todaySummaryHoursAvailable }}{{ 'TUTOR_CALENDAR.H_AVAILABLE' | translate }}
@@ -491,7 +491,7 @@
               <button class="desktop-avail-pill"
                       type="button"
                       [class.mcal-pill-pop]="availabilityJustSaved"
-                      *ngIf="weekAvailabilityHours > 0 && customView === 'week' && !isOnboardingIncomplete && pendingFeedbackCount === 0"
+                      *ngIf="weekAvailabilityGrossHours > 0 && customView === 'week' && !isOnboardingIncomplete && pendingFeedbackCount === 0"
                       (click)="openAvailabilityModal()">
                 <ion-icon name="time-outline"></ion-icon>
                 {{ weekAvailabilityHours }}h available
@@ -670,7 +670,7 @@
               </div>
               <button type="button"
                       class="day-view-free-hours"
-                      *ngIf="(events | freeHours:selectedDayForDayView) > 0"
+                      *ngIf="(events | grossFreeHours:selectedDayForDayView) > 0"
                       (click)="openDayViewAvailabilityModal()">
                 <ion-icon name="time-outline"></ion-icon>
                 <span>{{ events | freeHours:selectedDayForDayView }}{{ 'TUTOR_CALENDAR.H_AVAILABLE' | translate }}</span>

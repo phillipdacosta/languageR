@@ -26,6 +26,7 @@ import { MobileQuickActionsComponent } from '../components/home/mobile-quick-act
 import { MobileThisWeekComponent } from '../components/home/mobile-this-week.component';
 import { MobilePendingActionsComponent } from '../components/home/mobile-pending-actions.component';
 import { MobileRecentStudentsComponent } from '../components/home/mobile-recent-students.component';
+import { MeshGradientBackgroundComponent } from '../components/mesh-gradient-background/mesh-gradient-background.component';
 
 import { Tab1PageRoutingModule } from './tab1-routing.module';
 
@@ -57,7 +58,8 @@ import { Tab1PageRoutingModule } from './tab1-routing.module';
     MobileQuickActionsComponent,
     MobileThisWeekComponent,
     MobilePendingActionsComponent,
-    MobileRecentStudentsComponent
+    MobileRecentStudentsComponent,
+    MeshGradientBackgroundComponent
   ],
   declarations: [Tab1Page]
 })

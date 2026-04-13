@@ -132,8 +132,15 @@
     </div>
   </div>
 
+  <!-- Full-bleed mesh (viewport width, not max-width content column) -->
+  <div
+    class="home-mesh-gradient-layer"
+    *ngIf="!showEarningsView && !showExploreView && !(showCreateMaterialView && isMobile)"
+  >
+    <!-- <app-mesh-gradient-background></app-mesh-gradient-background> -->
+  </div>
+
   <div class="content-wrapper" *ngIf="!showEarningsView && !showExploreView && !(showCreateMaterialView && isMobile)">
-    
     <!-- Welcome Message with Search Bar (Students) -->
     <div class="welcome-section welcome-section--mobile-hero" *ngIf="currentUser && isStudentUser">
       <div class="welcome-mobile-hero" *ngIf="isMobile">
@@ -180,25 +187,65 @@
         <p class="welcome-subtitle welcome-mobile-tutor-sub" *ngIf="!isLoadingLessons && nextLesson && nextLessonTimeLabel">
           {{ 'HOME.WELCOME_NEXT_LESSON' | translate:{ time: nextLessonTimeLabel } }}
         </p>
-        <p class="welcome-subtitle welcome-mobile-tutor-sub" *ngIf="!isLoadingLessons && (!nextLesson || !nextLessonTimeLabel) && tutorMobileWelcomeSubtitle">
+        <p class="welcome-subtitle welcome-mobile-tutor-sub" *ngIf="!isLoadingLessons && (!nextLesson || !nextLessonTimeLabel) && !growthInsight && tutorMobileWelcomeSubtitle">
           {{ tutorMobileWelcomeSubtitle }}
+        </p>
+        <p class="welcome-subtitle welcome-mobile-tutor-sub growth-ticker-mobile-wrap" *ngIf="!isLoadingLessons && (!nextLesson || !nextLessonTimeLabel) && growthInsight"
+           (click)="onGrowthInsightTapAdvance()">
+          <ng-container *ngFor="let row of growthInsightSlideRow; trackBy: trackGrowthInsightSlide">
+            <span class="growth-ticker-mobile-fade-wrap">
+              <span class="growth-ticker-icon">{{ row.insight.icon }}</span>
+              <span class="growth-ticker-text-mobile">{{ row.insight.text }}</span>
+            </span>
+          </ng-container>
+          <span class="growth-dots growth-dots--mobile" *ngIf="growthCount > 1">
+            <span *ngFor="let dot of growthInsights; let i = index"
+                  class="growth-dot"
+                  [class.growth-dot--active]="i === growthIndex"
+                  (click)="onGrowthInsightDotClick(i); $event.stopPropagation()">
+            </span>
+            <button class="growth-view-all growth-view-all--mobile" (click)="openGrowthInsightsModal(); $event.stopPropagation()">View all</button>
+          </span>
         </p>
       </div>
       <div class="welcome-header">
         <div class="welcome-content" *ngIf="!isMobile">
-          <h1 class="welcome-title">{{ greetingText }}</h1>
-          <p class="welcome-subtitle" *ngIf="isLoadingLessons">
-            <ion-skeleton-text animated style="width: 160px; height: 16px; display: inline-block;"></ion-skeleton-text>
+          <p class="welcome-subtitle welcome-tutor-desktop-line skeleton-text" *ngIf="isLoadingLessons">
+            <ion-skeleton-text animated style="width: 280px; height: 16px; display: inline-block; border-radius: 4px;"></ion-skeleton-text>
           </p>
-          <div *ngIf="!isMobile">     
-          
-          <p class="welcome-subtitle" *ngIf="!isLoadingLessons && nextLesson && nextLessonTimeLabel">
-            {{ 'HOME.WELCOME_NEXT_LESSON' | translate:{ time: nextLessonTimeLabel } }}
+          <p class="welcome-subtitle welcome-tutor-desktop-line" *ngIf="!isLoadingLessons && nextLesson && nextLessonTimeLabel">
+            <span class="welcome-tutor-desktop-greeting"> {{ greetingText }} - </span><span class="welcome-tutor-desktop-sep"> </span>{{ 'HOME.WELCOME_NEXT_LESSON' | translate:{ time: nextLessonTimeLabel } }}
           </p>
-          <p class="welcome-subtitle" *ngIf="!isLoadingLessons && !nextLesson">
-            {{ welcomeMessageText }}
+          <p class="welcome-subtitle welcome-tutor-desktop-line" *ngIf="!isLoadingLessons && !nextLesson">
+            <span class="welcome-tutor-desktop-greeting"> {{ greetingText }} — </span>
+            <ng-container *ngIf="growthInsight; else staticWelcome">
+              <span class="growth-ticker"
+                    (mouseenter)="onGrowthInsightPause()"
+                    (mouseleave)="onGrowthInsightResume()"
+                    (click)="onGrowthInsightClick()">
+                <ng-container *ngFor="let row of growthInsightSlideRow; trackBy: trackGrowthInsightSlide">
+                  <span class="growth-ticker-text">
+                    <span class="growth-ticker-icon">{{ row.insight.icon }}</span>
+                    {{ row.insight.text }}
+                  </span>
+                </ng-container>
+                <button class="growth-dismiss-btn" (click)="onGrowthInsightDismiss(); $event.stopPropagation()" aria-label="Dismiss">
+                  <ion-icon name="close-outline"></ion-icon>
+                </button>
+              </span>
+              <span class="growth-dots" *ngIf="growthCount > 1">
+                <span *ngFor="let dot of growthInsights; let i = index"
+                      class="growth-dot"
+                      [class.growth-dot--active]="i === growthIndex"
+                      (click)="onGrowthInsightDotClick(i)">
+                </span>
+              </span>
+              <button class="growth-view-all" (click)="openGrowthInsightsModal(); $event.stopPropagation()">View all</button>
+            </ng-container>
+            <ng-template #staticWelcome>
+              <ng-container *ngIf="welcomeMessageText"><span class="welcome-tutor-desktop-sep"> </span>{{ welcomeMessageText }}</ng-container>
+            </ng-template>
           </p>
-        </div>
         </div>
 
         <!-- Compact Earnings (desktop only — mobile earnings moved to toolbar "$" pill) -->
@@ -212,6 +259,36 @@
             {{ 'HOME.VIEW_DETAILS' | translate }}
             <ion-icon name="arrow-forward-outline"></ion-icon>
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Growth Insights Modal (inline) -->
+    <div class="growth-modal-backdrop" *ngIf="isGrowthModalOpen" (click)="closeGrowthInsightsModal()">
+      <div class="growth-modal" (click)="$event.stopPropagation()">
+        <div class="growth-modal-header">
+          <h3 class="growth-modal-title">Suggestions for you</h3>
+          <button class="growth-modal-close" (click)="closeGrowthInsightsModal()">
+            <ion-icon name="close-outline"></ion-icon>
+          </button>
+        </div>
+        <div class="growth-modal-list">
+          <div *ngFor="let item of growthModalItems"
+               class="growth-modal-item"
+               [class.growth-modal-item--dismissed]="item.dismissed">
+            <span class="growth-modal-item-icon">{{ item.insight.icon }}</span>
+            <span class="growth-modal-item-text">{{ item.insight.text }}</span>
+            <button *ngIf="item.dismissed"
+                    class="growth-modal-restore-btn"
+                    (click)="onGrowthInsightRestore(item.insight)">
+              Show again
+            </button>
+            <button *ngIf="!item.dismissed && item.active"
+                    class="growth-modal-dismiss-btn"
+                    (click)="onGrowthInsightDismissFromModal(item.insight)">
+              <ion-icon name="close-outline"></ion-icon>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -638,7 +715,7 @@
     <!-- Tutor Dashboard Grid: 2x2 layout -->
     <div class="tutor-dashboard-grid" *ngIf="isTutorUser">
       <div class="grid-cell-upnext">
-        <h2 class="desktop-tutor-section-title" *ngIf="!isMobile && isTutorUser">{{ 'HOME.UP_NEXT' | translate }}</h2>
+        <h2 class="desktop-tutor-section-title" *ngIf="!isMobile && isTutorUser">{{ (nextLesson ? 'HOME.UP_NEXT' : 'HOME.YOUR_SCHEDULE') | translate }}</h2>
 
         <!-- Upcoming Schedule Section -->
 
@@ -735,9 +812,11 @@
 
     <!-- Mobile Empty State -->
     <div class="mobile-section mobile-section-upnext-empty m-stagger m-stagger-1" *ngIf="!isLoadingLessons && !nextLesson" [class.m-stagger-go]="mobileStaggerReady" [class.m-stagger-done]="mobileStaggerDone">
-      <h3 class="mobile-section-title">{{ 'HOME.UP_NEXT' | translate }}</h3>
+      <h3 class="mobile-section-title">{{ 'HOME.YOUR_SCHEDULE' | translate }}</h3>
       <div class="m-card-empty-standalone">
-        <img class="m-card-empty-calendar-art" src="assets/calendar-availability.png" alt="" />
+        <div class="m-card-empty-calendar-wrap">
+          <img class="m-card-empty-calendar-art" src="assets/calendar-availability.png" alt="" />
+        </div>
         <h3 class="m-card-empty-title">{{ emptyStateTitle }}</h3>
         <p class="m-card-empty-subtitle">{{ emptyStateMessage }}</p>
         <a *ngIf="pendingFeedbackCount === 0" class="m-card-empty-link" [routerLink]="hasAvailability ? '/tabs/tutor-calendar' : '/tabs/availability-setup'">
@@ -859,7 +938,7 @@
         </div>
         <ion-button [disabled]="pendingFeedbackCount > 0" fill="solid" expand="block" class="empty-state-clean-btn" routerLink="{{ hasAvailability ? '/tabs/tutor-calendar' : '/tabs/availability-setup' }}">
           <span [@buttonTextFade]="buttonTextState" class="button-text-animated">{{ hasAvailability ? ('HOME.VIEW_CALENDAR' | translate) : ('HOME.SET_AVAILABILITY' | translate) }}</span>
-          <ion-icon name="arrow-forward-outline" slot="end"></ion-icon>
+          <img slot="end" class="empty-state-clean-btn-arrow-img" src="assets/setup-availability-arrow.png" alt="" />
         </ion-button>
       </div>
     </div>
@@ -886,12 +965,12 @@
             <div class="earnings-label">{{ 'HOME.TOTAL_BALANCE' | translate }}</div>
             <div class="earnings-balance" (click)="toggleWalletVisibility($event)">
               <span *ngIf="earningsBalanceLoading" class="earnings-balance-skeleton"><ion-skeleton-text animated style="width: 120px; height: 40px; display: block; border-radius: 8px;"></ion-skeleton-text></span>
-              <span *ngIf="!earningsBalanceLoading && !showWalletBalance && !walletTemporarilyVisible">$<span class="earnings-dots-display">••••</span></span>
-              <span *ngIf="!earningsBalanceLoading && (showWalletBalance || walletTemporarilyVisible)">${{ tutorTotalEarnings.toFixed(2) }}</span>
+              <span *ngIf="!earningsBalanceLoading && !showWalletBalance && !walletTemporarilyVisible"><img class="home-dollar-icon" src="assets/home-earnings-dollar.png" alt="" role="presentation" /><span class="earnings-dots-display">••••</span></span>
+              <span *ngIf="!earningsBalanceLoading && (showWalletBalance || walletTemporarilyVisible)"><img class="home-dollar-icon" src="assets/home-earnings-dollar.png" alt="" role="presentation" />{{ tutorTotalEarnings.toFixed(2) }}</span>
             </div>
             <div class="earnings-pending" *ngIf="tutorPendingEarnings > 0 && (showWalletBalance || walletTemporarilyVisible)">
               <span class="pending-label">{{ 'HOME.PENDING' | translate }}</span>
-              <span class="pending-amount">${{ tutorPendingEarnings.toFixed(2) }}</span>
+              <span class="pending-amount"><img class="home-dollar-icon" src="assets/home-earnings-dollar.png" alt="" role="presentation" />{{ tutorPendingEarnings.toFixed(2) }}</span>
             </div>
           </div>
           <ion-button fill="outline" expand="block" class="withdraw-btn" (click)="openWithdrawModal()">
@@ -943,7 +1022,8 @@
         [staggerReady]="mobileStaggerReady"
         [staggerDone]="mobileStaggerDone"
         (navigateToExplore)="navigateToExplore()"
-        (navigateToCreateMaterial)="navigateToCreateMaterial($event)">
+        (navigateToCreateMaterial)="navigateToCreateMaterial($event)"
+        (navigateToForum)="navigateToForum()">
       </app-mobile-quick-actions>
 
       <!-- Mobile: Pending Actions (only when there are items) -->
@@ -972,23 +1052,37 @@
             <div class="qa-icon">
               <img class="qa-icon-img" src="assets/quick-actions-classes.png" alt="" />
             </div>
-            <span class="qa-label">{{ 'HOME.CLASSES' | translate }}</span>
+            <div class="qa-text">
+              <span class="qa-label">{{ 'HOME.CLASSES' | translate }}</span>
+              <span class="qa-sub">{{ 'HOME.CLASSES_SUB' | translate }}</span>
+            </div>
           </div>
           <div class="quick-action-card qa-create-material qa-with-asset" (click)="navigateToCreateMaterial($event)">
             <div class="qa-icon">
               <img class="qa-icon-img" src="assets/quick-actions-create-material.png" alt="" />
             </div>
-            <span class="qa-label">{{ 'HOME.CREATE_MATERIAL' | translate }}</span>
+            <div class="qa-text">
+              <span class="qa-label">{{ 'HOME.CREATE_MATERIAL' | translate }}</span>
+              <span class="qa-sub">{{ 'HOME.CREATE_MATERIAL_SUB' | translate }}</span>
+            </div>
           </div>
-          <div class="quick-action-card qa-forum qa-with-asset">
+          <div class="quick-action-card qa-forum qa-with-asset" (click)="navigateToForum()">
             <div class="qa-icon">
               <img class="qa-icon-img" src="assets/quick-actions-forum.png" alt="" />
             </div>
-            <span class="qa-label">{{ 'HOME.FORUM' | translate }}</span>
+            <div class="qa-text">
+              <span class="qa-label">{{ 'HOME.FORUM' | translate }}</span>
+              <span class="qa-sub">{{ 'HOME.FORUM_SUB' | translate }}</span>
+            </div>
           </div>
-          <div class="quick-action-card qa-rating">
-            <div class="qa-icon"><ion-icon name="star"></ion-icon></div>
-            <span class="qa-label">{{ 'HOME.STATS_RATING' | translate }} {{ tutorRating }}</span>
+          <div class="quick-action-card qa-rating qa-with-asset">
+            <div class="qa-icon">
+              <ion-icon name="star"></ion-icon>
+            </div>
+            <div class="qa-text">
+              <span class="qa-label">{{ 'HOME.MY_REVIEWS' | translate }}</span>
+              <span class="qa-sub">{{ 'HOME.MY_REVIEWS_SUB' | translate }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -1060,7 +1154,7 @@
         <ion-icon name="book-outline"></ion-icon>
         {{ 'HOME.MATERIALS' | translate }}
       </button>
-      <button class="explore-pill">
+      <button class="explore-pill" (click)="navigateToForum()">
         <ion-icon name="chatbubbles-outline"></ion-icon>
         {{ 'HOME.FORUM' | translate }}
       </button>

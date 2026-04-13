@@ -1,6 +1,7 @@
 export type RootStackParamList = {
   Main: undefined;
   Login: undefined;
+  Onboarding: undefined;
   PreCall: { lessonId: string; isClass?: boolean };
   VideoCall: {
     lessonId: string;

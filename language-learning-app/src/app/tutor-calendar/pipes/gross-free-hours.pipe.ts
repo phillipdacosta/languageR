@@ -1,19 +1,17 @@
 import { Pipe, PipeTransform } from '@angular/core';
 import { EventInput } from '@fullcalendar/core';
-import { computeFutureTotalAvailabilityHoursFromEvents } from '../utils/future-availability.util';
+import { computeGrossFreeHoursFromEvents } from '../utils/future-availability.util';
 
 @Pipe({
-  name: 'totalAvailability',
+  name: 'grossFreeHours',
   standalone: true,
   pure: true
 })
-export class TotalAvailabilityPipe implements PipeTransform {
+export class GrossFreeHoursPipe implements PipeTransform {
   transform(events: EventInput[], selectedDay: { date: Date } | null): number {
     if (!selectedDay || !selectedDay.date || !events || events.length === 0) {
       return 0;
     }
-    return computeFutureTotalAvailabilityHoursFromEvents(events, selectedDay.date, new Date(), 'visible6to23');
+    return computeGrossFreeHoursFromEvents(events, selectedDay.date, 'visible6to23');
   }
 }
-
-

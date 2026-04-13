@@ -1,0 +1,181 @@
+<ion-header class="forum-header ion-no-border">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button fill="clear" (click)="goBack()" [attr.aria-label]="'COMMON.BACK' | translate">
+        <ion-icon name="chevron-back-outline" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>{{ 'FORUM.PAGE_TITLE' | translate }}</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="forum-content" [fullscreen]="true">
+  <div class="forum-shell">
+    <main class="forum-main">
+      <nav class="forum-tabs" role="tablist">
+        <button type="button"
+                class="forum-tab"
+                [class.forum-tab--active]="forumMainTab === 'community'"
+                (click)="onTabCommunity()"
+                role="tab"
+                [attr.aria-selected]="forumMainTab === 'community'">
+          {{ 'FORUM.TAB_COMMUNITY' | translate }}
+        </button>
+        <button type="button"
+                class="forum-tab"
+                [class.forum-tab--active]="forumMainTab === 'profile'"
+                (click)="onTabProfile()"
+                role="tab"
+                [attr.aria-selected]="forumMainTab === 'profile'">
+          {{ 'FORUM.TAB_PROFILE' | translate }}
+        </button>
+        <button type="button"
+                class="forum-tab"
+                [class.forum-tab--active]="forumMainTab === 'answers'"
+                (click)="onTabAnswers()"
+                role="tab"
+                [attr.aria-selected]="forumMainTab === 'answers'">
+          {{ 'FORUM.TAB_MY_ANSWERS' | translate }}
+        </button>
+      </nav>
+
+      <div class="forum-threads-head">
+        <h2 class="forum-threads-title">{{ 'FORUM.THREADS' | translate }}</h2>
+        <div class="forum-toolbar">
+          <ion-select class="forum-select forum-select--topic"
+                      [value]="selectedTopic"
+                      interface="popover"
+                      (ionChange)="onTopicIonChange($event)">
+            <ion-select-option *ngFor="let opt of topicOptions" [value]="opt.value">
+              {{ opt.labelKey | translate }}
+            </ion-select-option>
+          </ion-select>
+
+          <div class="forum-sort-split">
+            <button type="button"
+                    class="forum-sort-btn"
+                    [class.forum-sort-btn--active]="sortKey === 'latest'"
+                    (click)="onSortLatest()">
+              {{ 'FORUM.SORT_LATEST' | translate }}
+            </button>
+            <button type="button"
+                    class="forum-sort-btn"
+                    [class.forum-sort-btn--active]="sortKey === 'popular'"
+                    (click)="onSortPopular()">
+              {{ 'FORUM.SORT_POPULAR' | translate }}
+            </button>
+          </div>
+
+          <button type="button"
+                  class="forum-icon-btn"
+                  [class.forum-icon-btn--active]="bookmarksOnly"
+                  (click)="toggleBookmarks()"
+                  [attr.aria-pressed]="bookmarksOnly">
+            <ion-icon name="bookmark-outline"></ion-icon>
+            <span class="forum-icon-btn-label">{{ 'FORUM.BOOKMARKS' | translate }}</span>
+          </button>
+
+          <button type="button" class="forum-icon-btn forum-icon-btn--icon-only" (click)="toggleSearch()">
+            <ion-icon name="search-outline"></ion-icon>
+          </button>
+        </div>
+      </div>
+
+      <div class="forum-search-bar" *ngIf="searchOpen">
+        <ion-icon name="search-outline" class="forum-search-icon"></ion-icon>
+        <input type="search"
+               class="forum-search-input"
+               [value]="searchQuery"
+               (input)="onSearchInput($any($event.target).value)"
+               [placeholder]="'FORUM.SEARCH_PLACEHOLDER' | translate" />
+      </div>
+
+      <div class="forum-thread-list" *ngIf="displayThreads.length > 0">
+        <article *ngFor="let t of displayThreads; trackBy: trackByThreadId"
+                 class="forum-thread-card"
+                 (click)="openThread(t)">
+          <div class="forum-thread-top">
+            <div class="forum-author">
+              <div class="forum-avatar-wrap">
+                <img *ngIf="t.authorAvatar" [src]="t.authorAvatar" alt="" class="forum-avatar" />
+                <div *ngIf="!t.authorAvatar" class="forum-avatar forum-avatar--placeholder">{{ t.authorName.charAt(0) }}</div>
+              </div>
+              <span class="forum-author-name">{{ t.authorName }}</span>
+              <ion-icon *ngIf="t.isTutorVerified" name="ribbon-outline" class="forum-verified" aria-hidden="true"></ion-icon>
+            </div>
+          </div>
+          <h3 class="forum-thread-title">{{ t.title }}</h3>
+          <p class="forum-thread-excerpt">{{ t.excerpt }}</p>
+          <div class="forum-thread-meta">
+            <span *ngFor="let tag of t.tags" class="forum-tag">{{ tag }}</span>
+            <span class="forum-time">{{ t.timeLabel }}</span>
+          </div>
+          <div class="forum-thread-actions">
+            <button type="button"
+                    class="forum-action-pill"
+                    (click)="toggleBookmarkRow(t, $event)"
+                    [attr.aria-pressed]="t.bookmarked">
+              <ion-icon [name]="t.bookmarked ? 'bookmark' : 'bookmark-outline'"></ion-icon>
+            </button>
+            <div class="forum-upvote">
+              <ion-icon name="thumbs-up-outline"></ion-icon>
+              <span>{{ t.upvotes }}</span>
+            </div>
+            <button type="button" class="forum-reply-btn" (click)="openThread(t); $event.stopPropagation()">
+              <ion-icon name="chatbubble-outline"></ion-icon>
+              {{ 'FORUM.REPLY' | translate }}
+            </button>
+          </div>
+        </article>
+      </div>
+
+      <div class="forum-empty" *ngIf="displayThreads.length === 0">
+        <div class="forum-empty-visual">
+          <ion-icon name="chatbubbles-outline"></ion-icon>
+        </div>
+        <h3 class="forum-empty-title">{{ 'FORUM.EMPTY_TITLE' | translate }}</h3>
+        <p class="forum-empty-text">{{ 'FORUM.EMPTY_SUBTITLE' | translate }}</p>
+        <button type="button" class="forum-empty-cta" (click)="startNewThread()">
+          <ion-icon name="add-outline"></ion-icon>
+          {{ 'FORUM.START_THREAD' | translate }}
+        </button>
+      </div>
+    </main>
+
+    <aside class="forum-sidebar">
+      <button type="button" class="forum-new-thread" (click)="startNewThread()">
+        <ion-icon name="add-outline"></ion-icon>
+        {{ 'FORUM.START_NEW_THREAD' | translate }}
+      </button>
+
+      <section class="forum-side-card">
+        <h3 class="forum-side-title">{{ 'FORUM.TOP_USERS' | translate }}</h3>
+        <ul class="forum-top-users" *ngIf="topUsers.length > 0">
+          <li *ngFor="let u of topUsers" class="forum-top-user">
+            <div class="forum-avatar-wrap forum-avatar-wrap--sm">
+              <img *ngIf="u.avatar" [src]="u.avatar" alt="" class="forum-avatar forum-avatar--sm" />
+              <div *ngIf="!u.avatar" class="forum-avatar forum-avatar--sm forum-avatar--placeholder">{{ u.name.charAt(0) }}</div>
+            </div>
+            <div class="forum-top-user-info">
+              <span class="forum-top-user-name">{{ u.name }}</span>
+              <ion-icon *ngIf="u.verified" name="ribbon-outline" class="forum-verified forum-verified--sm"></ion-icon>
+            </div>
+            <span class="forum-top-user-votes">{{ u.votesLabel }}</span>
+          </li>
+        </ul>
+        <p class="forum-side-empty" *ngIf="topUsers.length === 0">{{ 'FORUM.SIDEBAR_USERS_EMPTY' | translate }}</p>
+      </section>
+
+      <section class="forum-side-card">
+        <h3 class="forum-side-title">{{ 'FORUM.ACTIVE_TOPICS' | translate }}</h3>
+        <ul class="forum-topic-list" *ngIf="activeTopics.length > 0">
+          <li *ngFor="let topic of activeTopics" class="forum-topic-row">
+            <span class="forum-topic-tag">{{ topic.tag }}</span>
+            <span class="forum-topic-count">{{ topic.threadCount }} {{ 'FORUM.THREADS_LABEL' | translate }}</span>
+          </li>
+        </ul>
+        <p class="forum-side-empty" *ngIf="activeTopics.length === 0">{{ 'FORUM.SIDEBAR_TOPICS_EMPTY' | translate }}</p>
+      </section>
+    </aside>
+  </div>
+</ion-content>

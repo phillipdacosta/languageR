@@ -6,7 +6,7 @@ import { PlatformService } from '../services/platform.service';
 import { AuthService } from '../services/auth.service';
 import { UserService, User } from '../services/user.service';
 import { WalletService } from '../services/wallet.service';
-import { Observable, takeUntil, take, filter, firstValueFrom, observeOn, asyncScheduler } from 'rxjs';
+import { Observable, takeUntil, take, filter, firstValueFrom, observeOn, asyncScheduler, forkJoin, of, catchError } from 'rxjs';
 import { Subject, Subscription } from 'rxjs';
 import { LessonService, Lesson } from '../services/lesson.service';
 import { ClassService, ClassInvitation } from '../services/class.service';
@@ -38,6 +38,7 @@ import { LearningPlanService, LearningPlan } from '../services/learning-plan.ser
 import { AnalysisTranslationService } from '../services/analysis-translation.service';
 import { HomeInlineToolbarService } from '../services/home-inline-toolbar.service';
 import { MaterialService, TutorMaterial } from '../services/material.service';
+import { TutorGrowthService, GrowthInsight, GrowthContext } from '../services/tutor-growth.service';
 
 @Component({
   selector: 'app-tab1',
@@ -436,6 +437,21 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   nextLessonOtherJoined = false;
   nextLessonOtherName = '';
 
+  // Growth insight ticker (tutor welcome line)
+  growthInsight: GrowthInsight | null = null;
+  growthInsights: GrowthInsight[] = [];
+  growthIndex = 0;
+  growthCount = 0;
+  growthPaused = false;
+  /** Single-item row; `epoch` bumps every visible change so trackBy never reuses a cached view (restarts CSS fade). */
+  growthInsightSlideRow: { epoch: number; insight: GrowthInsight }[] = [];
+  readonly trackGrowthInsightSlide = (_index: number, row: { epoch: number }) => row.epoch;
+  private _growthSlideEpoch = 0;
+  private _lastGrowthSlideSig = '';
+  isGrowthModalOpen = false;
+  growthModalItems: { insight: GrowthInsight; dismissed: boolean; active: boolean }[] = [];
+  private _growthInsightsLoaded = false;
+
   // Pre-computed template values (avoid function calls in template)
   greetingText = '';
   welcomeMessageText = '';
@@ -488,7 +504,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     private learningPlanService: LearningPlanService,
     private analysisTranslation: AnalysisTranslationService,
     private homeInlineToolbar: HomeInlineToolbarService,
-    private materialService: MaterialService
+    private materialService: MaterialService,
+    private tutorGrowthService: TutorGrowthService
   ) {
     // Subscribe to currentUser$ observable to get updates automatically
     // Use asyncScheduler to prevent synchronous emission from blocking
@@ -1852,6 +1869,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     // Reset dynamic card ready flag so it animates in next time
     this.dynamicCardReady = false;
     
+    this.tutorGrowthService.destroy();
+    this._growthInsightsLoaded = false;
+
     this.destroy$.next();
 
     this.destroy$.complete();
@@ -2349,6 +2369,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.homeInlineToolbar.setExploreViewOpen(true);
     this.cdr.detectChanges();
     this.ionContent?.scrollToTop(0);
+  }
+
+  navigateToForum(): void {
+    this.router.navigate(['/tabs/forum']);
   }
 
   navigateToCreateMaterial(event?: MouseEvent) {
@@ -3597,6 +3621,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     // Check for upcoming lessons and show Smart Island moments
     this.checkUpcomingLessonsForIsland();
 
+    // Compute growth insights for the welcome ticker
+    this.computeGrowthInsights();
+
     // Mobile sections
     this.syncRecentStudents();
     this.syncPendingActionItems();
@@ -3666,6 +3693,263 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     }
 
     this.pendingActionItems = items;
+  }
+
+  private computeGrowthInsights(): void {
+    if (!this.isTutorUser || this._growthInsightsLoaded) return;
+    this._growthInsightsLoaded = true;
+
+    this.tutorGrowthService.setUpdateCallback(() => {
+      this.syncGrowthInsightProperties();
+      this.cdr.detectChanges();
+    });
+
+    const materials$ = this.materialService.getMyMaterials().pipe(
+      take(1),
+      catchError(() => of({ success: false, materials: [] as any[] }))
+    );
+
+    const classes$ = this.classService.getMyClasses().pipe(
+      take(1),
+      catchError(() => of({ success: false, classes: [] as any[] }))
+    );
+
+    forkJoin([materials$, classes$]).subscribe(([matRes, classRes]) => {
+      const materials = matRes.success ? matRes.materials : [];
+      const published = materials.filter((m: any) => m.status === 'published');
+      const sorted = [...published].sort((a: any, b: any) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+
+      let totalViews = 0;
+      let totalQuizAttempts = 0;
+      let totalPurchases = 0;
+      for (const m of published) {
+        if (m.stats) {
+          totalViews += m.stats.views || 0;
+          totalQuizAttempts += m.stats.quizAttempts || 0;
+          totalPurchases += m.stats.purchases || 0;
+        }
+      }
+
+      const classes = classRes.success ? classRes.classes : [];
+      const now = Date.now();
+      const upcomingClasses = classes.filter((c: any) =>
+        c.status !== 'cancelled' && new Date(c.startTime).getTime() > now
+      );
+      const pastClasses = classes
+        .filter((c: any) => c.status !== 'cancelled' && new Date(c.startTime).getTime() <= now)
+        .sort((a: any, b: any) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+
+      const userAny = this.currentUser as any;
+      const todayCounts = this.countTodayLessons();
+
+      const ctx: GrowthContext = {
+        hasAvailability: this.hasAvailability,
+        hasUpcomingLessons: !!this.nextLesson,
+        tutorName: this.currentUser?.firstName || '',
+        lessonsThisWeek: this.lessonsThisWeek,
+        lessonsToday: todayCounts.total,
+        completedToday: todayCounts.completed,
+        totalStudents: this.totalStudents,
+        freeHoursThisWeek: this.estimateFreeHoursThisWeek(),
+        nextGapHours: this.computeNextLessonGap(),
+        scheduleHash: this.computeScheduleHash(),
+        pendingFeedbackCount: this.pendingFeedbackCount,
+        unreadMessages: this.unreadMessages,
+        materialCount: published.length,
+        lastMaterialCreatedAt: sorted.length > 0 ? sorted[0].createdAt : null,
+        totalMaterialViews: totalViews,
+        totalQuizAttempts,
+        totalPurchases,
+        hasUpcomingGroupClass: upcomingClasses.length > 0,
+        lastGroupClassAt: pastClasses.length > 0 ? pastClasses[0].startTime : null,
+        officeHoursEnabled: !!userAny?.profile?.officeHoursEnabled,
+        recentForumPostCount: 0,
+        activeForumThreadsInLanguage: 0,
+        tutorRating: this.tutorRating,
+      };
+
+      this.tutorGrowthService.compute(ctx);
+
+      // Only save baselines when the tutor actually sees the insight — otherwise delta is preserved for next session
+      const activeIds = new Set(this.tutorGrowthService.allInsights.map(i => i.id));
+      if (activeIds.has('material_stats')) {
+        this.tutorGrowthService.snapshotMaterialStats(totalViews, totalQuizAttempts, totalPurchases);
+      }
+      if (activeIds.has('office_hours_gap')) {
+        this.tutorGrowthService.snapshotScheduleHash(ctx.scheduleHash);
+      }
+
+      this.syncGrowthInsightProperties();
+      this.cdr.detectChanges();
+    });
+  }
+
+  private computeNextLessonGap(): number {
+    const now = Date.now();
+    const upcoming = this.lessons
+      .filter(l => l.status !== 'cancelled' && new Date(l.startTime).getTime() > now)
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+    if (upcoming.length < 2) return 0;
+    let maxGap = 0;
+    for (let i = 0; i < upcoming.length - 1; i++) {
+      const endCurrent = new Date(upcoming[i].endTime).getTime();
+      const startNext = new Date(upcoming[i + 1].startTime).getTime();
+      const gapHours = (startNext - endCurrent) / 3600000;
+      if (gapHours > maxGap) maxGap = gapHours;
+    }
+    return Math.round(maxGap);
+  }
+
+  private computeScheduleHash(): string {
+    const now = Date.now();
+    const starts = this.lessons
+      .filter(l => l.status !== 'cancelled' && new Date(l.startTime).getTime() > now)
+      .map(l => l.startTime)
+      .sort()
+      .join(',');
+    let hash = 0;
+    for (let i = 0; i < starts.length; i++) {
+      hash = ((hash << 5) - hash + starts.charCodeAt(i)) | 0;
+    }
+    return String(hash);
+  }
+
+  private syncGrowthInsightProperties(): void {
+    const insight = this.tutorGrowthService.activeInsight;
+    const idx = this.tutorGrowthService.activeIndex;
+    const sig = insight ? `${idx}:${insight.id}` : '';
+    if (sig !== this._lastGrowthSlideSig) {
+      this._lastGrowthSlideSig = sig;
+      if (insight) {
+        this._growthSlideEpoch++;
+      }
+    }
+
+    this.growthInsight = insight;
+    this.growthInsights = this.tutorGrowthService.allInsights;
+    this.growthIndex = idx;
+    this.growthCount = this.tutorGrowthService.count;
+    this.growthPaused = this.tutorGrowthService.paused;
+    this.growthInsightSlideRow = insight
+      ? [{ epoch: this._growthSlideEpoch, insight }]
+      : [];
+  }
+
+  private estimateFreeHoursThisWeek(): number {
+    const now = new Date();
+    const currentDay = now.getDay();
+    const endOfWeek = new Date(now);
+    endOfWeek.setDate(now.getDate() + (7 - currentDay));
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    const bookedMs = this.lessons
+      .filter(l => {
+        if (l.status === 'cancelled') return false;
+        const start = new Date(l.startTime);
+        return start >= now && start <= endOfWeek;
+      })
+      .reduce((sum, l) => sum + (new Date(l.endTime).getTime() - new Date(l.startTime).getTime()), 0);
+
+    const totalAvailMs = (this.availabilityBlocks || [])
+      .reduce((sum: number, b: any) => {
+        const start = new Date(b.startTime || b.start);
+        const end = new Date(b.endTime || b.end);
+        if (start >= now && start <= endOfWeek) {
+          return sum + (end.getTime() - start.getTime());
+        }
+        return sum;
+      }, 0);
+
+    const freeMs = Math.max(0, totalAvailMs - bookedMs);
+    return Math.round(freeMs / 3600000);
+  }
+
+  private countTodayLessons(): { total: number; completed: number } {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfDay = new Date(startOfDay);
+    endOfDay.setDate(endOfDay.getDate() + 1);
+
+    let total = 0;
+    let completed = 0;
+    for (const l of this.lessons) {
+      if (l.status === 'cancelled') continue;
+      const start = new Date(l.startTime);
+      if (start >= startOfDay && start < endOfDay) {
+        total++;
+        const end = new Date(l.endTime);
+        if (end < now || l.status === 'completed') {
+          completed++;
+        }
+      }
+    }
+    return { total, completed };
+  }
+
+  onGrowthInsightDotClick(index: number): void {
+    this.tutorGrowthService.goTo(index);
+    this.syncGrowthInsightProperties();
+  }
+
+  onGrowthInsightPause(): void {
+    this.tutorGrowthService.pause();
+    this.growthPaused = true;
+  }
+
+  onGrowthInsightResume(): void {
+    this.tutorGrowthService.resume();
+    this.growthPaused = false;
+  }
+
+  onGrowthInsightDismiss(): void {
+    const current = this.tutorGrowthService.activeInsight;
+    if (current) {
+      this.tutorGrowthService.dismiss(current);
+      this.syncGrowthInsightProperties();
+    }
+  }
+
+  onGrowthInsightTapAdvance(): void {
+    this.tutorGrowthService.next();
+    this.syncGrowthInsightProperties();
+  }
+
+  onGrowthInsightClick(): void {
+    const current = this.tutorGrowthService.activeInsight;
+    if (!current) return;
+
+    if (current.id === 'create_material' || current.id === 'first_material') {
+      this.navigateToCreateMaterial(new MouseEvent('click'));
+    } else if (current.route.startsWith('/')) {
+      this.router.navigate([current.route]);
+    }
+  }
+
+  openGrowthInsightsModal(): void {
+    this.growthModalItems = this.tutorGrowthService.getAllWithStatus();
+    this.isGrowthModalOpen = true;
+    this.tutorGrowthService.pause();
+    this.syncGrowthInsightProperties();
+  }
+
+  closeGrowthInsightsModal(): void {
+    this.isGrowthModalOpen = false;
+    this.tutorGrowthService.resume();
+    this.syncGrowthInsightProperties();
+  }
+
+  onGrowthInsightRestore(insight: GrowthInsight): void {
+    this.tutorGrowthService.undismiss(insight);
+    this.growthModalItems = this.tutorGrowthService.getAllWithStatus();
+    this.syncGrowthInsightProperties();
+  }
+
+  onGrowthInsightDismissFromModal(insight: GrowthInsight): void {
+    this.tutorGrowthService.dismiss(insight);
+    this.growthModalItems = this.tutorGrowthService.getAllWithStatus();
+    this.syncGrowthInsightProperties();
   }
 
   // New method: Load student insights

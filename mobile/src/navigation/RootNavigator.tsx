@@ -5,6 +5,7 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../contexts/ThemeContext';
 import LoginScreen from '../screens/LoginScreen';
+import OnboardingNavigator from '../onboarding/OnboardingNavigator';
 import PreCallScreen from '../screens/PreCallScreen';
 import VideoCallScreen from '../screens/VideoCallScreen';
 import PostLessonStudentScreen from '../screens/PostLessonStudentScreen';
@@ -17,6 +18,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 export default function RootNavigator() {
   const { user, loading } = useAuth();
   const { colors } = useTheme();
+  const needsOnboarding = user && user.onboardingCompleted === false;
 
   if (loading) {
     return (
@@ -28,7 +30,19 @@ export default function RootNavigator() {
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {user ? (
+      {!user ? (
+        <Stack.Screen
+          name="Login"
+          component={LoginScreen}
+          options={{ animationTypeForReplace: 'pop' }}
+        />
+      ) : needsOnboarding ? (
+        <Stack.Screen
+          name="Onboarding"
+          component={OnboardingNavigator}
+          options={{ animationTypeForReplace: 'pop' }}
+        />
+      ) : (
         <Stack.Group>
           <Stack.Screen name="Main" component={TabNavigator} />
           <Stack.Screen
@@ -60,12 +74,6 @@ export default function RootNavigator() {
             options={{ headerShown: false, animation: 'slide_from_right' }}
           />
         </Stack.Group>
-      ) : (
-        <Stack.Screen
-          name="Login"
-          component={LoginScreen}
-          options={{ animationTypeForReplace: 'pop' }}
-        />
       )}
     </Stack.Navigator>
   );

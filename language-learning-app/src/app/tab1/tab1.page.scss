@@ -8,6 +8,11 @@ $background-hover: #f7f7f7;
 $blue: #3b82f6;
 $green: #22c55e;
 
+// Homepage cards — permanent “lifted” shadow (same as lessons grid card hover)
+$lesson-card-home-border: 1px solid rgba(0, 0, 0, 0.06);
+$lesson-card-home-shadow: 0 6px 28px rgba(0, 0, 0, 0.12);
+$lesson-card-home-shadow-dark: 0 6px 28px rgba(0, 0, 0, 0.5);
+
 // Smooth load-in animations (matching profile page)
 @keyframes fadeInUp {
   from {
@@ -339,7 +344,7 @@ $green: #22c55e;
 // tab1.page.scss
 
 ion-content {
-  --background: var(--ion-color-light, #f5f5f7);
+  --background: #ffffff;
 
   // Mobile home: let ion-tabs background gradient show through
   @media (max-width: 600px) {
@@ -373,6 +378,25 @@ ion-content {
   clip-path: inset(50%);
   white-space: nowrap;
   pointer-events: none;
+}
+
+// Full-bleed mesh behind home (viewport width; under fixed desktop toolbar z-index)
+.home-mesh-gradient-layer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-width: 100%;
+  height: min(480px, 56vh);
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  box-sizing: border-box;
+
+  @media (max-width: 600px) {
+    display: none;
+  }
 }
 
 // Header
@@ -438,6 +462,8 @@ ion-content {
 // Content Wrapper
 .content-wrapper {
   position: relative;
+  z-index: 1;
+  isolation: isolate;
   padding: 20px 16px;
   max-width: 1200px;
   margin: 0 auto;
@@ -1138,7 +1164,7 @@ ion-content {
   .welcome-subtitle {
     font-size: 15px;
     font-weight: 400;
-    color: $text-secondary;
+    color: black;
     margin: 0;
     line-height: 1.4;
     padding-bottom: 30px;
@@ -1156,6 +1182,340 @@ ion-content {
     @media (max-width: 600px) {
       font-size: 14px;
     }
+  }
+
+  // Desktop tutor: one line, greeting uses same size/weight/color as availability copy
+  .welcome-tutor-desktop-line {
+    .welcome-tutor-desktop-greeting,
+    .welcome-tutor-desktop-sep {
+      font: inherit;
+      color: inherit;
+      font-size: 18px;
+    }
+  }
+
+  // Growth insight ticker
+  .growth-ticker {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    position: relative;
+    padding-right: 20px;
+    transition: opacity 0.2s ease;
+
+    &:hover {
+      .growth-dismiss-btn {
+        opacity: 1;
+        pointer-events: auto;
+      }
+    }
+  }
+
+  .growth-ticker-text {
+    display: inline;
+    animation: growthInsightSoftFade 1.05s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .growth-ticker-icon {
+    font-size: 15px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .growth-dismiss-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    color: #9ca3af;
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+
+    ion-icon {
+      font-size: 14px;
+    }
+
+    &:hover {
+      color: #6b7280;
+    }
+  }
+
+  .growth-dots {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: 10px;
+    vertical-align: middle;
+  }
+
+  .growth-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #d1d5db;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    flex-shrink: 0;
+
+    &--active {
+      background: #1f2937;
+      transform: scale(1.2);
+    }
+
+    &:hover:not(&--active) {
+      background: #9ca3af;
+    }
+  }
+
+  // Mobile growth ticker
+  .growth-ticker-mobile-wrap {
+    display: flex;
+    align-items: flex-start;
+    gap: 5px;
+    flex-wrap: wrap;
+    cursor: pointer;
+
+    .growth-ticker-mobile-fade-wrap {
+      display: flex;
+      align-items: flex-start;
+      gap: 5px;
+      flex: 1;
+      flex-wrap: wrap;
+      animation: growthInsightSoftFade 1.05s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    .growth-ticker-icon {
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .growth-ticker-text-mobile {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .growth-dots--mobile {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: 0;
+      margin-top: 6px;
+      width: 100%;
+      justify-content: center;
+    }
+  }
+}
+
+/* Opacity-only + gentle ease so each new insight (DOM from *ngFor trackBy) fades in smoothly */
+@keyframes growthInsightSoftFade {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+// "View all" link for growth insights
+.growth-view-all {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #c5c8cd;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.2s ease;
+  vertical-align: middle;
+
+  &:hover {
+    color: #9ca3af;
+  }
+
+  &--mobile {
+    font-size: 11px;
+    margin-left: 8px;
+  }
+}
+
+// Growth insights modal
+.growth-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: growthModalBgIn 0.2s ease both;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.growth-modal {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 440px;
+  max-height: 70vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.15);
+  animation: growthModalIn 0.3s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+.growth-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid #f3f4f6;
+  flex-shrink: 0;
+}
+
+.growth-modal-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+  letter-spacing: -0.2px;
+}
+
+.growth-modal-close {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: #9ca3af;
+  display: flex;
+  align-items: center;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+
+  ion-icon {
+    font-size: 20px;
+  }
+
+  &:hover {
+    background: #f3f4f6;
+    color: #6b7280;
+  }
+}
+
+.growth-modal-list {
+  overflow-y: auto;
+  padding: 8px 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.growth-modal-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 20px;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: #f9fafb;
+  }
+
+  &--dismissed {
+    opacity: 0.45;
+
+    .growth-modal-item-text {
+      text-decoration: line-through;
+      text-decoration-color: #d1d5db;
+    }
+  }
+}
+
+.growth-modal-item-icon {
+  font-size: 16px;
+  line-height: 1.4;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.growth-modal-item-text {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 400;
+  color: #374151;
+  line-height: 1.5;
+}
+
+.growth-modal-restore-btn {
+  background: none;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+  align-self: center;
+
+  &:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+    color: #374151;
+  }
+}
+
+.growth-modal-dismiss-btn {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: #d1d5db;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+  align-self: center;
+
+  ion-icon {
+    font-size: 16px;
+  }
+
+  &:hover {
+    color: #9ca3af;
+    background: #f3f4f6;
+  }
+}
+
+@keyframes growthModalBgIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes growthModalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
   }
 }
 
@@ -2304,29 +2664,17 @@ ion-content {
   align-items: center;
   text-align: center;
   padding: 65px 32px;
-  background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+  background: #ffffff;
   border-radius: 20px;
-  border: 1px solid rgba(0, 0, 0, 0.04);
-  // Desktop: light elevation only (tutor empty / Up Next card)
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.04),
-    0 6px 18px rgba(0, 0, 0, 0.06);
-  transition: box-shadow 0.3s ease;
-
-  &:hover {
-    box-shadow:
-      0 2px 6px rgba(0, 0, 0, 0.05),
-      0 10px 26px rgba(0, 0, 0, 0.08);
-  }
+  border: $lesson-card-home-border;
+  box-shadow: $lesson-card-home-shadow;
 
   @media (max-width: 600px) {
     padding: 20px 16px;
     border-radius: 16px;
     background: #ffffff;
-    border: 1px solid rgba(0, 0, 0, 0.06);
-    box-shadow:
-      0 1px 3px rgba(0, 0, 0, 0.05),
-      0 5px 14px rgba(0, 0, 0, 0.07);
+    border: $lesson-card-home-border;
+    box-shadow: $lesson-card-home-shadow;
   }
 }
 
@@ -2347,14 +2695,15 @@ ion-content {
     color: rgba(255, 255, 255, 0.95);
   }
 
-  // Tutor desktop Up Next empty — calendar illustration (matches mobile / RN)
+  // Tutor desktop Up Next empty — calendar illustration (no plate behind PNG)
   &.empty-state-clean-icon--calendar {
     background: transparent;
     box-shadow: none;
     width: 120px;
     height: 120px;
     margin-bottom: 16px;
-    border-radius: 0;
+    border-radius: 16px;
+    overflow: hidden;
     animation: none;
 
     .empty-state-clean-calendar-art {
@@ -2395,6 +2744,8 @@ ion-content {
     color: $text-primary;
     margin: 0 0 8px 0;
     letter-spacing: -0.3px;
+    // position: relative;
+    // bottom: 20px;
     
     @media (max-width: 600px) {
       font-size: 20px;
@@ -2564,9 +2915,8 @@ ion-content {
   align-items: center;
   text-align: center;
   background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  // Tutor mobile Up Next — soft lift (matches RN / reference card)
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border: $lesson-card-home-border;
+  box-shadow: $lesson-card-home-shadow;
   border-radius: 28px;
   padding: 10px 24px 14px;
   gap: 10px;
@@ -2603,14 +2953,26 @@ ion-content {
   .in-call-dot { width: 8px; height: 8px; border-radius: 50%; background: #34c759; animation: pulse-dot 1.4s ease-in-out infinite; }
 }
 
-.m-card-empty-calendar-art {
+.m-card-empty-calendar-wrap {
   width: 120px;
   height: 120px;
+  border-radius: 16px;
+  background: transparent;
+  overflow: visible;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-bottom: 2px;
+}
+
+.m-card-empty-calendar-art {
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   display: block;
   pointer-events: none;
   user-select: none;
-  margin-bottom: 2px;
 }
 
 .m-card-empty-title {
@@ -3140,7 +3502,20 @@ img.m-card-empty-link-arrow-img {
     font-size: 18px;
     margin-left: 4px;
   }
-  
+
+  .empty-state-clean-btn-arrow-img {
+    height: 26px;
+    width: auto;
+    object-fit: contain;
+    flex-shrink: 0;
+    display: block;
+    // margin: -2px -8px -2px 10px;
+    pointer-events: none;
+    user-select: none;
+    position: relative;
+    left: 20px;
+  }
+
   .button-text-animated {
     display: inline-block;
     min-width: 110px;
@@ -3685,7 +4060,7 @@ img.m-card-empty-link-arrow-img {
   gap: 8px;
   padding: 12px 20px;
   background: #ffffff;
-  border: 1px solid $border-color;
+  border: $lesson-card-home-border;
   border-radius: 100px;
   font-size: 14px;
   font-weight: 600;
@@ -3693,10 +4068,8 @@ img.m-card-empty-link-arrow-img {
   cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow:
-    0 2px 5px rgba(0, 0, 0, 0.06),
-    0 6px 16px rgba(0, 0, 0, 0.07);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+  box-shadow: $lesson-card-home-shadow;
   
   ion-icon {
     font-size: 18px;
@@ -3708,9 +4081,6 @@ img.m-card-empty-link-arrow-img {
     background: #ffffff;
     border-color: $text-primary;
     transform: translateY(-2px);
-    box-shadow:
-      0 6px 18px rgba(0, 0, 0, 0.12),
-      0 2px 6px rgba(0, 0, 0, 0.06);
     
     ion-icon {
       transform: scale(1.15);
@@ -3719,9 +4089,6 @@ img.m-card-empty-link-arrow-img {
   
   &:active {
     transform: translateY(0) scale(0.97);
-    box-shadow:
-      0 1px 4px rgba(0, 0, 0, 0.07),
-      0 4px 12px rgba(0, 0, 0, 0.08);
   }
   
   @media (max-width: 600px) {
@@ -3737,10 +4104,8 @@ img.m-card-empty-link-arrow-img {
     font-weight: 600;
     color: $text-primary;
     background: #f5f5f7;
-    border: 1px solid rgba(0, 0, 0, 0.04);
-    box-shadow:
-      0 2px 6px rgba(0, 0, 0, 0.07),
-      0 8px 22px rgba(0, 0, 0, 0.1);
+    border: $lesson-card-home-border;
+    box-shadow: $lesson-card-home-shadow;
 
     ion-icon {
       font-size: 18px;
@@ -3750,17 +4115,11 @@ img.m-card-empty-link-arrow-img {
 
     &:hover {
       transform: translateY(-3px);
-      box-shadow:
-        0 8px 26px rgba(0, 0, 0, 0.14),
-        0 3px 10px rgba(0, 0, 0, 0.08);
-      border-color: rgba(0, 0, 0, 0.06);
+      border-color: rgba(0, 0, 0, 0.1);
     }
 
     &:active {
       transform: scale(0.97);
-      box-shadow:
-        0 2px 5px rgba(0, 0, 0, 0.08),
-        0 6px 16px rgba(0, 0, 0, 0.09);
     }
   }
 }
@@ -3821,15 +4180,14 @@ img.m-card-empty-link-arrow-img {
   flex: 0 0 160px;
   border-radius: 12px;
   background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.04);
+  border: $lesson-card-home-border;
+  box-shadow: $lesson-card-home-shadow;
   overflow: hidden;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease;
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
   }
 }
 
@@ -3892,10 +4250,10 @@ img.m-card-empty-link-arrow-img {
   margin-bottom: 28px;
   animation: fadeInUp 0.45s ease-out 0.2s both;
   background: #ffffff;
-  border-radius: 16px;
+  border-radius: 20px;
   padding: 20px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.05);
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  box-shadow: $lesson-card-home-shadow;
+  border: $lesson-card-home-border;
   
   // Section header inside card — no extra margin
   .section-header-new {
@@ -3906,8 +4264,8 @@ img.m-card-empty-link-arrow-img {
     padding: 16px;
     border-radius: 14px;
     background: #ffffff;
-    border: 1px solid rgba(0, 0, 0, 0.06);
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04);
+    border: $lesson-card-home-border;
+    box-shadow: $lesson-card-home-shadow;
   }
 }
 
@@ -6954,6 +7312,7 @@ img.m-card-empty-link-arrow-img {
   flex-shrink: 0;
 
   &--actions {
+    margin-top: 8px;
     margin-bottom: 18px;
   }
 }
@@ -7013,8 +7372,8 @@ img.m-card-empty-link-arrow-img {
       gap: 0;
       background: #ffffff;
       border-radius: 16px;
-      border: 1px solid rgba(0, 0, 0, 0.06);
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04);
+      border: $lesson-card-home-border;
+      box-shadow: $lesson-card-home-shadow;
     }
 
     &:not(.upnext-filled) > .empty-state-clean-btn {
@@ -7287,19 +7646,16 @@ img.m-card-empty-link-arrow-img {
 
 .quick-action-card {
   background: #ffffff;
-  border-radius: 14px;
-  padding: 20px 16px;
-  box-shadow:
-    0 2px 6px rgba(0, 0, 0, 0.07),
-    0 8px 22px rgba(0, 0, 0, 0.09);
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  border-radius: 20px;
+  padding: 20px 18px;
+  box-shadow: $lesson-card-home-shadow;
+  border: $lesson-card-home-border;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
+  gap: 14px;
   cursor: pointer;
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s ease;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s ease;
   animation: fadeInUp 0.4s ease-out both;
 
   &:nth-child(1) { animation-delay: 0.10s; }
@@ -7309,91 +7665,81 @@ img.m-card-empty-link-arrow-img {
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow:
-      0 6px 20px rgba(0, 0, 0, 0.13),
-      0 2px 8px rgba(0, 0, 0, 0.07);
-    border-color: rgba(0, 0, 0, 0.08);
+    border-color: rgba(0, 0, 0, 0.1);
 
-    .qa-icon ion-icon {
-      transform: scale(1.12);
-    }
-
-    .qa-with-asset .qa-icon-img {
-      transform: scale(2.576); // 2.3 * 1.12
-    }
+    .qa-icon ion-icon { transform: scale(1.08); }
+    .qa-icon-img { transform: scale(1.08) !important; }
   }
 
   &:active {
-    transform: translateY(0) scale(0.97);
+    transform: translateY(0) scale(0.98);
   }
 
   .qa-icon {
     width: 44px;
     height: 44px;
     border-radius: 12px;
-    background: #F7F7F7;
+    background: #f2f2f7;
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
 
     ion-icon {
-      font-size: 22px;
-      color: #222222;
+      font-size: 20px;
       transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
   }
 
-  // PNG artwork: layout box matches old ion slots; visual size via transform (no card growth)
-  &.qa-with-asset {
-    overflow: visible;
+  // Per-card tinted icon backgrounds (ion-icon cards only)
+  &.qa-rating .qa-icon {
+    background: rgba(176, 158, 114, 0.12);
+    ion-icon { color: #B09E72; }
   }
 
-  &.qa-with-asset .qa-icon {
-    width: 44px;
-    height: 44px;
-    flex-shrink: 0;
-    padding: 0;
+  // PNG quick actions — no background plate behind artwork
+  &.qa-with-asset .qa-icon:has(.qa-icon-img) {
     background: transparent;
-    border-radius: 0;
     overflow: visible;
   }
 
   &.qa-with-asset .qa-icon-img {
-    width: 24px;
-    height: 24px;
+    width: 44px;
+    height: 44px;
     object-fit: contain;
     display: block;
     pointer-events: none;
     user-select: none;
-    transform: scale(2.3);
-    transform-origin: center center;
     transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
-  &.qa-rating .qa-icon {
-    background: rgba(176, 158, 114, 0.1);
-    ion-icon { color: #B09E72; }
+  .qa-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
   }
 
   .qa-label {
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     color: #222222;
     letter-spacing: -0.01em;
-    text-align: center;
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+  }
+
+  .qa-sub {
+    font-size: 13px;
+    font-weight: 400;
+    color: #717171;
+    letter-spacing: -0.005em;
   }
 
   &.qa-stat {
     cursor: default;
-    align-items: flex-start;
-    gap: 4px;
 
     &:hover {
       transform: none;
-      box-shadow:
-        0 2px 6px rgba(0, 0, 0, 0.07),
-        0 8px 22px rgba(0, 0, 0, 0.09);
     }
   }
 
@@ -7427,37 +7773,30 @@ img.m-card-empty-link-arrow-img {
   }
 }
 
-// When Coming Up card is present, quick actions are grouped on the right — tighter padding + smaller icons
+// When Coming Up card is present, quick actions are grouped on the right — slightly tighter
 .grid-cell-actions:not(.full-width) .quick-action-card {
-  padding: 0 16px;
+  padding: 16px 14px;
 
   .qa-icon {
-    width: 36px;
-    height: 36px;
+    width: 38px;
+    height: 38px;
     border-radius: 10px;
 
-    ion-icon {
-      font-size: 18px;
-    }
+    ion-icon { font-size: 18px; }
   }
 
   &.qa-with-asset .qa-icon {
-    width: 36px;
-    height: 36px;
-    flex-shrink: 0;
-    border-radius: 0;
-    overflow: visible;
+    width: 38px;
+    height: 38px;
   }
 
   &.qa-with-asset .qa-icon-img {
-    width: 36px;
-    height: 36px;
-    transform: scale(2.3);
+    width: 38px;
+    height: 38px;
   }
 
-  .qa-label {
-    font-size: 12px;
-  }
+  .qa-label { font-size: 14px; }
+  .qa-sub { font-size: 12px; }
 }
 
 // =============================================
@@ -7465,10 +7804,10 @@ img.m-card-empty-link-arrow-img {
 // =============================================
 .earnings-card-widget {
   background: #ffffff;
-  border-radius: 16px;
+  border-radius: 20px;
   padding: 24px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  box-shadow: $lesson-card-home-shadow;
+  border: $lesson-card-home-border;
   animation: fadeInUp 0.4s ease-out 0.15s both;
   flex: 1; // Fill grid cell height to match sibling (Up Next card)
   display: flex;
@@ -8209,15 +8548,10 @@ img.m-card-empty-link-arrow-img {
 .next-class-card {
   margin-bottom: 28px;
   border-radius: 20px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 6px 24px rgba(0, 0, 0, 0.1);
+  box-shadow: $lesson-card-home-shadow;
   overflow: hidden;
   background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  transition: box-shadow 0.2s ease;
-
-  &:hover {
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06), 0 8px 32px rgba(0, 0, 0, 0.1);
-  }
+  border: $lesson-card-home-border;
 
   // Disabled state when tutor has outstanding feedback
   &.card-disabled {
@@ -10639,15 +10973,12 @@ img.m-card-empty-link-arrow-img {
 
 // Up Next Card (Left - Upcoming Lesson)
 .up-next-card {
-  border-radius: 24px;
-  // Clean elevated shadow - Apple/Airbnb style
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.05),
-    0 6px 16px rgba(0, 0, 0, 0.08),
-    0 14px 40px rgba(0, 0, 0, 0.07);
-  background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
+  border-radius: 20px;
+  box-shadow: $lesson-card-home-shadow;
+  border: $lesson-card-home-border;
+  background: #ffffff;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: transform 0.2s ease, border-color 0.2s ease;
   margin: 0;
   height: 100%; // Fill wrapper height to match earnings widget
   position: relative;
@@ -10655,24 +10986,21 @@ img.m-card-empty-link-arrow-img {
   display: flex;
   flex-direction: column;
   
-  // Mobile: large radius + single soft shadow (matches RN tutor Up Next)
+  // Mobile: large radius + same lift as lessons grid cards
   @media (max-width: 600px) {
     border-radius: 28px;
     height: auto;
     min-height: auto;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    box-shadow: $lesson-card-home-shadow;
   }
   
   &.has-lesson {
-    background: white;
+    background: #ffffff;
     color: #2d3748;
-    cursor: default; // Not clickable when lesson is scheduled
+    cursor: default;
     
     &:hover {
-      transform: none; // Disable hover effect when lesson is scheduled
-      box-shadow:
-        0 2px 8px rgba(0, 0, 0, 0.06),
-        0 10px 32px rgba(0, 0, 0, 0.09);
+      transform: none;
     }
   }
   
@@ -10681,17 +11009,11 @@ img.m-card-empty-link-arrow-img {
     
     &:hover {
       transform: none;
-      box-shadow:
-        0 2px 8px rgba(0, 0, 0, 0.06),
-        0 10px 32px rgba(0, 0, 0, 0.09);
     }
   }
   
   &:hover {
-    transform: translateY(-4px);
-    box-shadow:
-      0 4px 14px rgba(0, 0, 0, 0.08),
-      0 12px 36px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
     
     @media (max-width: 600px) {
       transform: none; // Disable hover on mobile
@@ -10828,15 +11150,16 @@ img.m-card-empty-link-arrow-img {
     color: var(--ion-color-primary);
   }
 
-  // Desktop: same illustrated calendar as mobile / RN Up Next
+  // Desktop: illustrated calendar — no plate behind PNG
   &.up-next-icon--desktop-art {
-    width: auto;
-    height: auto;
-    min-width: 0;
-    min-height: 0;
+    width: 120px;
+    height: 120px;
+    min-width: 120px;
+    min-height: 120px;
     padding: 0;
     background: transparent;
-    border-radius: 0;
+    border-radius: 16px;
+    overflow: visible;
     bottom: 0;
   }
 }
@@ -11747,6 +12070,49 @@ img.m-card-empty-link-arrow-img {
     }
   }
 
+  // ── Growth ticker dark mode ────────────────────────────
+  .growth-dot {
+    background: #48484a !important;
+    &--active { background: #ffffff !important; }
+    &:hover:not(.growth-dot--active) { background: #636366 !important; }
+  }
+  .growth-dismiss-btn {
+    color: #636366 !important;
+    &:hover { color: #8e8e93 !important; }
+  }
+  .growth-view-all {
+    color: #48484a !important;
+    &:hover { color: #636366 !important; }
+  }
+  .growth-modal {
+    background: #1c1c1e !important;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5) !important;
+  }
+  .growth-modal-header {
+    border-bottom-color: #2c2c2e !important;
+  }
+  .growth-modal-title {
+    color: #f5f5f7 !important;
+  }
+  .growth-modal-close {
+    color: #636366 !important;
+    &:hover { background: #2c2c2e !important; color: #8e8e93 !important; }
+  }
+  .growth-modal-item {
+    &:hover { background: #2c2c2e !important; }
+    &--dismissed .growth-modal-item-text { text-decoration-color: #48484a !important; }
+  }
+  .growth-modal-item-text { color: #e5e5ea !important; }
+  .growth-modal-restore-btn {
+    border-color: #3a3a3c !important;
+    color: #8e8e93 !important;
+    &:hover { background: #2c2c2e !important; color: #f5f5f7 !important; }
+  }
+  .growth-modal-dismiss-btn {
+    color: #48484a !important;
+    &:hover { color: #636366 !important; background: #2c2c2e !important; }
+  }
+
   // ── Search bar ───────────────────────────────────────
   .search-container-compact {
     background: #2a2a2a !important;
@@ -11889,7 +12255,7 @@ img.m-card-empty-link-arrow-img {
   .earnings-card-widget {
     background: #2a2a2a !important;
     border-color: rgba(255, 255, 255, 0.08) !important;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+    box-shadow: $lesson-card-home-shadow-dark !important;
     
     .earnings-label { color: #999 !important; }
     .earnings-balance {
@@ -11981,14 +12347,9 @@ img.m-card-empty-link-arrow-img {
   .quick-action-card {
     background: #2a2a2a !important;
     border-color: rgba(255, 255, 255, 0.08) !important;
-    box-shadow:
-      0 2px 8px rgba(0, 0, 0, 0.45),
-      0 10px 28px rgba(0, 0, 0, 0.55) !important;
+    box-shadow: $lesson-card-home-shadow-dark !important;
 
     &:hover {
-      box-shadow:
-        0 6px 22px rgba(0, 0, 0, 0.6),
-        0 2px 10px rgba(0, 0, 0, 0.45) !important;
       border-color: rgba(255, 255, 255, 0.12) !important;
     }
 
@@ -11997,16 +12358,17 @@ img.m-card-empty-link-arrow-img {
       ion-icon { color: #f5f5f7 !important; }
     }
 
-    &.qa-with-asset .qa-icon {
+    &.qa-with-asset .qa-icon:has(.qa-icon-img) {
       background: transparent !important;
     }
 
     &.qa-rating .qa-icon {
-      background: rgba(176, 158, 114, 0.08) !important;
+      background: rgba(176, 158, 114, 0.1) !important;
       ion-icon { color: #9A8E72 !important; }
     }
 
     .qa-label { color: #f5f5f7 !important; }
+    .qa-sub { color: #8e8e93 !important; }
     .qa-stat-label { color: #888 !important; }
     .qa-stat-value { color: #f5f5f7 !important; }
     .qa-stat-sub { color: #888 !important; }
@@ -12022,7 +12384,7 @@ img.m-card-empty-link-arrow-img {
   .timeline-section {
     background: #2a2a2a !important;
     border-color: rgba(255, 255, 255, 0.08) !important;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+    box-shadow: $lesson-card-home-shadow-dark !important;
   }
 
   
@@ -12030,7 +12392,7 @@ img.m-card-empty-link-arrow-img {
   .next-class-card {
     background: #2a2a2a !important;
     border-color: rgba(255, 255, 255, 0.08) !important;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+    box-shadow: $lesson-card-home-shadow-dark !important;
   }
   
   // Card header dark mode
@@ -12094,10 +12456,8 @@ img.m-card-empty-link-arrow-img {
   // Clean empty state dark mode
   .empty-state-clean-inner {
     background: linear-gradient(180deg, #2a2a2a 0%, #252525 100%) !important;
-    border-color: rgba(255, 255, 255, 0.06) !important;
-    box-shadow:
-      0 2px 8px rgba(0, 0, 0, 0.35),
-      0 8px 22px rgba(0, 0, 0, 0.42) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    box-shadow: $lesson-card-home-shadow-dark !important;
   }
   .empty-state-clean-icon {
     background: linear-gradient(135deg, #3a7ba8 0%, #4298d3 50%, #2d6b94 100%) !important;
@@ -12122,6 +12482,9 @@ img.m-card-empty-link-arrow-img {
       --background: #ffffff !important;
       --color: #1a1a1a !important;
       --border-color: #ffffff !important;
+      .empty-state-clean-btn-arrow-img {
+        filter: brightness(0) saturate(100%);
+      }
     }
     &[disabled] {
       --background: transparent !important;
@@ -12134,6 +12497,9 @@ img.m-card-empty-link-arrow-img {
       --color: #1d1d1f !important;
       --border-color: #ffffff !important;
       animation: none !important;
+      .empty-state-clean-btn-arrow-img {
+        filter: brightness(0) saturate(100%);
+      }
     }
     &.active[disabled] {
       --background: rgba(255, 255, 255, 0.5) !important;
@@ -12164,7 +12530,7 @@ img.m-card-empty-link-arrow-img {
   // Coming up list dark mode
   .coming-up-list {
     background: #2a2a2a !important;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+    box-shadow: $lesson-card-home-shadow-dark !important;
   }
   .coming-up-row {
     border-bottom-color: #3a3a3a !important;
@@ -12189,16 +12555,11 @@ img.m-card-empty-link-arrow-img {
     background: #2a2a2a !important;
     border-color: rgba(255, 255, 255, 0.08) !important;
     color: var(--ion-text-color, #fff) !important;
-    box-shadow:
-      0 2px 8px rgba(0, 0, 0, 0.4),
-      0 8px 22px rgba(0, 0, 0, 0.45) !important;
+    box-shadow: $lesson-card-home-shadow-dark !important;
     ion-icon { color: var(--ion-text-color-step-400, #aaa) !important; }
     &:hover {
       background: #333333 !important;
       border-color: rgba(255, 255, 255, 0.12) !important;
-      box-shadow:
-        0 6px 20px rgba(0, 0, 0, 0.55),
-        0 2px 8px rgba(0, 0, 0, 0.4) !important;
     }
   }
   // Per-pill icon tints (same on mobile & desktop in dark mode)
@@ -12215,7 +12576,10 @@ img.m-card-empty-link-arrow-img {
   .m-card-empty-standalone {
     background: #1c1c1e !important;
     border-color: rgba(255, 255, 255, 0.08) !important;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.38) !important;
+    box-shadow: $lesson-card-home-shadow-dark !important;
+  }
+  .m-card-empty-calendar-wrap {
+    background: transparent !important;
   }
   .m-card-empty-title { color: #ffffff !important; }
   .m-card-empty-subtitle { color: #8e8e93 !important; }
@@ -12289,15 +12653,13 @@ img.m-card-empty-link-arrow-img {
     .timeline-section {
       background: #1c1c1e !important;
       border-color: rgba(255, 255, 255, 0.08) !important;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+      box-shadow: $lesson-card-home-shadow-dark !important;
     }
 
     .empty-state-clean-inner {
       background: #1c1c1e !important;
       border-color: rgba(255, 255, 255, 0.08) !important;
-      box-shadow:
-        0 2px 8px rgba(0, 0, 0, 0.35),
-        0 8px 20px rgba(0, 0, 0, 0.4) !important;
+      box-shadow: $lesson-card-home-shadow-dark !important;
     }
   }
 
@@ -12402,7 +12764,7 @@ img.m-card-empty-link-arrow-img {
   }
   .up-next-card {
     background: linear-gradient(135deg, #1c1c1e 0%, #2a2a2a 100%) !important;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4) !important;
+    box-shadow: $lesson-card-home-shadow-dark !important;
     &.has-lesson {
       background: #1c1c1e !important;
       color: #f5f5f7 !important;

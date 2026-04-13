@@ -37,6 +37,7 @@ import { preloadMaterials } from '../services/materials';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const CTA_DARK_BLUE = '#3a7bc8';
+
 /** Match web `.upnext-filled-avatar` (80×80 @ 20px radius → 0.25 of side). */
 const UP_NEXT_AVATAR_SIZE = 56;
 const UP_NEXT_AVATAR_RADIUS = Math.round(UP_NEXT_AVATAR_SIZE * 0.25);
@@ -325,6 +326,9 @@ export default function HomeScreen() {
         user={user}
         onEarningsTap={() => setShowEarnings(true)}
         colors={colors}
+        loading={loading}
+        greetingTitle={getGreeting(t, displayName)}
+        greetingSub={greetingSub}
       />
 
       <ScrollView
@@ -333,17 +337,9 @@ export default function HomeScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textSecondary} />}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Greeting ── */}
-        <View style={styles.greeting}>
-          <Text style={[styles.greetingTitle, { color: colors.text }]}>
-            {getGreeting(t, displayName)}
-          </Text>
-          {loading ? (
-            <Skeleton width={200} height={13} colors={colors} />
-          ) : greetingSub ? (
-            <Text style={[styles.greetingSub, { color: colors.textSecondary }]}>{greetingSub}</Text>
-          ) : null}
-        </View>
+        {/* Greeting moved to toolbar (experiment) — was:
+        <View style={styles.greeting}> ... </View>
+        */}
 
         {/* ── Up Next ── */}
         {loading ? (
@@ -413,10 +409,11 @@ export default function HomeScreen() {
         {!loading && (
           <View style={styles.quickActionsSectionWrap}>
           <Section title={t('HOME.QUICK_ACTIONS')} colors={colors}>
-            <View style={styles.actionsRow}>
-              <ActionChip image={require('../../assets/shared/classroom.png')} label={t('HOME.CLASSES')} colors={colors} />
-              <ActionChip image={require('../../assets/shared/quick-actions-create-material.png')} label={t('HOME.CREATE_MATERIAL')} colors={colors} onPress={openMaterials} />
-              <ActionChip image={require('../../assets/shared/quick-actions-forum.png')} label={t('HOME.FORUM')} colors={colors} />
+            <View style={styles.actionsGrid}>
+              <ActionChip image={require('../../assets/shared/classroom.png')} label={t('HOME.CLASSES')} sub={t('HOME.CLASSES_SUB')} colors={colors} />
+              <ActionChip image={require('../../assets/shared/quick-actions-create-material.png')} label={t('HOME.CREATE_MATERIAL')} sub={t('HOME.CREATE_MATERIAL_SUB')} colors={colors} onPress={openMaterials} />
+              <ActionChip image={require('../../assets/shared/quick-actions-forum.png')} label={t('HOME.FORUM')} sub={t('HOME.FORUM_SUB')} colors={colors} />
+              <ActionChip icon="star-outline" label={t('HOME.MY_REVIEWS')} sub={t('HOME.MY_REVIEWS_SUB')} colors={colors} />
             </View>
           </Section>
           </View>
@@ -476,13 +473,46 @@ export default function HomeScreen() {
 
 /* ─── Toolbar ─── */
 
-function Toolbar({ user, onEarningsTap, colors }: { user: any; onEarningsTap: () => void; colors: any }) {
+function Toolbar({
+  user,
+  onEarningsTap,
+  colors,
+  loading,
+  greetingTitle,
+  greetingSub,
+}: {
+  user: any;
+  onEarningsTap: () => void;
+  colors: any;
+  loading: boolean;
+  greetingTitle: string;
+  greetingSub: string;
+}) {
   const isDark = colors.isDark;
   return (
     <View style={[styles.toolbar, { backgroundColor: colors.background }]}>
       <View style={styles.toolbarLeft}>
+        {/* Experiment: hide Barnabi mark in toolbar — welcome lives here instead
         <Image source={require('../../assets/shared/barnabi-bird.png')} style={styles.toolbarIcon} />
         <Text style={[styles.toolbarBrand, { color: colors.text }]}>Barnabi</Text>
+        */}
+        {loading ? (
+          <View style={styles.toolbarWelcomeInner}>
+            <Skeleton width={Math.min(SCREEN_W - 160, 220)} height={22} colors={colors} style={{ marginBottom: 6 }} />
+            <Skeleton width={Math.min(SCREEN_W - 200, 160)} height={13} colors={colors} />
+          </View>
+        ) : (
+          <View style={styles.toolbarWelcomeInner}>
+            <Text style={[styles.toolbarWelcomeTitle, { color: colors.text }]} numberOfLines={1}>
+              {greetingTitle}
+            </Text>
+            {greetingSub ? (
+              <Text style={[styles.toolbarWelcomeSub, { color: colors.textSecondary }]} numberOfLines={1}>
+                {greetingSub}
+              </Text>
+            ) : null}
+          </View>
+        )}
       </View>
       <View style={styles.toolbarRight}>
         <TouchableOpacity style={[styles.earningsPill, { backgroundColor: isDark ? '#2a2a2a' : '#f2f2f7' }]} onPress={onEarningsTap} activeOpacity={0.7}>
@@ -606,8 +636,8 @@ function UpNextEmpty({ colors, title, message, ctaLabel, onCta }: {
   const isDark = colors.isDark;
   const { t } = useTranslation();
   return (
-    <View style={[styles.section, styles.upNextSectionSpacing]}>
-      <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('HOME.UP_NEXT')}</Text>
+    <View style={[styles.section, styles.upNextSectionSpacing, styles.upNextScheduleSectionTopPad]}>
+      <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('HOME.YOUR_SCHEDULE')}</Text>
       <View
         style={[
           styles.upNextCardSurface,
@@ -620,17 +650,22 @@ function UpNextEmpty({ colors, title, message, ctaLabel, onCta }: {
           },
         ]}
       >
-        <Image source={require('../../assets/shared/calendar-mobile.png')} style={styles.emptyArtImg} />
-        <Text
-          style={[styles.cardTitle, styles.upNextEmptyTitleShift, { color: colors.text }]}
-        >
+        <View style={[styles.emptyArtWrap, styles.upNextEmptyArtSpacing]}>
+          <Image source={require('../../assets/shared/calendar-mobile.png')} style={styles.emptyArtImg} />
+        </View>
+        <Text style={[styles.cardTitle, styles.upNextEmptyTitleSpacing, { color: colors.text }]}>
           {title}
         </Text>
-        <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>
+        <Text style={[styles.cardSubtitle, styles.upNextEmptyMessageSpacing, { color: colors.textSecondary }]}>
           {message}
         </Text>
         <TouchableOpacity
-          style={[styles.ctaBtn, styles.upNextCardCtaWide, { backgroundColor: isDark ? CTA_DARK_BLUE : '#000000' }]}
+          style={[
+            styles.ctaBtn,
+            styles.upNextCardCtaWide,
+            styles.upNextEmptyCtaSpacing,
+            { backgroundColor: isDark ? CTA_DARK_BLUE : '#000000' },
+          ]}
           activeOpacity={0.85}
           onPress={onCta}
         >
@@ -646,7 +681,7 @@ function UpNextEmpty({ colors, title, message, ctaLabel, onCta }: {
 
 function UpNextSkeleton({ colors }: { colors: any }) {
   return (
-    <View style={[styles.section, styles.upNextSectionSpacing]}>
+    <View style={[styles.section, styles.upNextSectionSpacing, styles.upNextScheduleSectionTopPad]}>
       <Skeleton width={80} height={15} style={{ marginBottom: 14 }} colors={colors} />
       <View
         style={[
@@ -715,7 +750,9 @@ function ComingUpRow({ event, colors, t }: { event: TimelineEvent; colors: any; 
 
 /* ─── Action Chip ─── */
 
-function ActionChip({ image, label, colors, onPress }: { image: any; label: string; colors: any; onPress?: () => void }) {
+function ActionChip({ image, icon, label, sub, colors, onPress }: {
+  image?: any; icon?: string; label: string; sub: string; colors: any; onPress?: () => void;
+}) {
   const isDark = colors.isDark;
   const lift = !isDark;
   return (
@@ -725,19 +762,40 @@ function ActionChip({ image, label, colors, onPress }: { image: any; label: stri
         {
           backgroundColor: isDark ? '#1c1c1e' : '#fff',
           borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
-          shadowOpacity: lift ? (Platform.OS === 'ios' ? 0.045 : 0) : 0,
-          elevation: lift && Platform.OS === 'android' ? 2 : 0,
+          shadowOpacity: lift ? (Platform.OS === 'ios' ? 0.08 : 0) : 0,
+          elevation: lift && Platform.OS === 'android' ? 3 : 0,
         },
       ]}
       activeOpacity={0.7}
       onPress={onPress}
     >
-      <View style={styles.actionChipIconWrap}>
-        <Image source={image} style={styles.actionChipImg} />
+      {(image || icon) ? (
+        <View
+          style={[
+            styles.actionChipIconWrap,
+            styles.actionChipIconBg,
+            {
+              backgroundColor: icon
+                ? (isDark ? 'rgba(176,158,114,0.08)' : 'rgba(176,158,114,0.1)')
+                : 'transparent',
+            },
+          ]}
+        >
+          {image ? (
+            <Image source={image} style={styles.actionChipImg} />
+          ) : (
+            <Ionicons name={icon as any} size={20} color={isDark ? '#9A8E72' : '#B09E72'} />
+          )}
+        </View>
+      ) : null}
+      <View style={styles.actionChipText}>
+        <Text style={[styles.actionChipLabel, { color: isDark ? colors.text : '#222' }]} numberOfLines={1}>
+          {label}
+        </Text>
+        <Text style={[styles.actionChipSub, { color: isDark ? '#8e8e93' : '#717171' }]} numberOfLines={1}>
+          {sub}
+        </Text>
       </View>
-      <Text style={[styles.actionChipLabel, { color: isDark ? colors.text : '#222' }]} numberOfLines={2}>
-        {label}
-      </Text>
     </TouchableOpacity>
   );
 }
@@ -760,7 +818,7 @@ function getGreeting(t: any, name: string) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#f7f7f7' },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingBottom: 32 },
+  content: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 32 },
 
   // Toolbar
   toolbar: {
@@ -768,13 +826,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 18,
-    paddingVertical: 10,
+    paddingTop: 10,
+    paddingBottom: 14,
     backgroundColor: '#f7f7f7',
   },
-  toolbarLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  toolbarLeft: { flex: 1, minWidth: 0, marginRight: 8, justifyContent: 'center' },
+  toolbarWelcomeInner: { width: '100%' },
+  toolbarWelcomeTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+    lineHeight: 24,
+  },
+  toolbarWelcomeSub: { fontSize: 13, lineHeight: 18, marginTop: 2 },
   toolbarIcon: { width: 28, height: 28, borderRadius: 14 },
   toolbarBrand: { fontSize: 17, fontWeight: '700', color: '#1a1a1a' },
-  toolbarRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  toolbarRight: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 0 },
   earningsPill: {
     width: 32,
     height: 32,
@@ -808,8 +875,10 @@ const styles = StyleSheet.create({
 
   // Section
   section: { marginBottom: 22 },
-  /** Extra space below Up Next (card → This Week); overrides section marginBottom when combined. */
-  upNextSectionSpacing: { marginBottom: 32 },
+  /** Space below Up Next before This Week. */
+  upNextSectionSpacing: { marginBottom: 22 },
+  /** Space above “Your schedule” title (empty + skeleton only; RN). */
+  upNextScheduleSectionTopPad: { paddingTop: 20 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1a1a1a', marginBottom: 12, },
   seeAllText: { fontSize: 13, fontWeight: '600', color: '#717171' },
@@ -876,9 +945,20 @@ const styles = StyleSheet.create({
   },
   /** Space between meta block and Join on filled card (same card shell as empty; centered column). */
   upNextFilledCta: { marginTop: 28 },
-  emptyArtImg: { width: 120, height: 120, resizeMode: 'contain', marginBottom: 4 },
-  /** Up Next empty: nudge title toward art without shrinking layout (transform, not negative margins). */
-  upNextEmptyTitleShift: { transform: [{ translateY: -14 }] },
+  emptyArtWrap: {
+    width: 88,
+    height: 88,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'visible',
+  },
+  /** Extra vertical rhythm inside Up Next empty card only (not filled state). */
+  upNextEmptyArtSpacing: { marginBottom: 22 },
+  upNextEmptyTitleSpacing: { marginBottom: 12 },
+  upNextEmptyMessageSpacing: { marginBottom: 22 },
+  upNextEmptyCtaSpacing: { marginTop: 18 },
+  emptyArtImg: { width: 72, height: 72, resizeMode: 'contain' },
 
   // CTA button (black pill with arrow — matching .m-card-empty-link)
   ctaBtn: {
@@ -930,8 +1010,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
 
-  // This Week (extra space below Up Next card)
-  thisWeekSectionWrap: { marginTop: 22 },
+  thisWeekSectionWrap: { marginTop: 10 },
   thisWeekRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -951,38 +1030,51 @@ const styles = StyleSheet.create({
   chevron: { fontSize: 22, color: '#ccc', fontWeight: '300' },
 
   // Quick Actions
-  quickActionsSectionWrap: { marginTop: 16 },
-  /** Compact row — lighter than Up Next hero card */
-  actionsRow: { flexDirection: 'row', gap: 8, alignItems: 'stretch' },
+  quickActionsSectionWrap: { marginTop: 12 },
+  actionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
   actionChip: {
-    flex: 1,
-    flexDirection: 'column',
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 92,
-    borderRadius: 14,
+    width: '48%' as any,
+    flexGrow: 1,
+    borderRadius: 16,
     borderWidth: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    gap: 4,
+    padding: 14,
+    gap: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 8,
   },
   actionChipIconWrap: {
-    width: 56,
-    height: 56,
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
-  actionChipImg: { width: 56, height: 56, resizeMode: 'contain' },
+  actionChipIconBg: {
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  actionChipImg: { width: 40, height: 40, resizeMode: 'contain' },
+  actionChipText: {
+    flexDirection: 'column',
+    gap: 1,
+    flex: 1,
+  },
   actionChipLabel: {
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: '600',
-    textAlign: 'center',
-    lineHeight: 13,
-    letterSpacing: -0.15,
-    paddingHorizontal: 2,
+    letterSpacing: -0.1,
+  },
+  actionChipSub: {
+    fontSize: 12,
+    fontWeight: '400',
+    letterSpacing: -0.05,
   },
 
   // Coming Up
@@ -1012,7 +1104,7 @@ const styles = StyleSheet.create({
   cuBadgeTextTrial: { color: '#F5A623' },
 
   // Recent Students (paddingTop so space isn’t lost to margin collapse with section above)
-  recentStudentsSectionWrap: { paddingTop: 22 },
+  recentStudentsSectionWrap: { paddingTop: 18 },
   recentScroll: { gap: 14 },
   recentItem: { alignItems: 'center', width: 60 },
   recentAvatar: { width: 48, height: 48, borderRadius: 24, marginBottom: 6 },
