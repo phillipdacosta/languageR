@@ -184,13 +184,13 @@
         <p class="welcome-subtitle welcome-mobile-tutor-sub" *ngIf="isLoadingLessons">
           <ion-skeleton-text animated style="width: 200px; height: 15px; display: inline-block; border-radius: 4px;"></ion-skeleton-text>
         </p>
-        <p class="welcome-subtitle welcome-mobile-tutor-sub" *ngIf="!isLoadingLessons && nextLesson && nextLessonTimeLabel">
+        <p class="welcome-subtitle welcome-mobile-tutor-sub" *ngIf="!isLoadingLessons && nextLesson && nextLessonTimeLabel && !hasProfileCriticalInsights">
           {{ 'HOME.WELCOME_NEXT_LESSON' | translate:{ time: nextLessonTimeLabel } }}
         </p>
-        <p class="welcome-subtitle welcome-mobile-tutor-sub" *ngIf="!isLoadingLessons && (!nextLesson || !nextLessonTimeLabel) && !growthInsight && tutorMobileWelcomeSubtitle">
+        <p class="welcome-subtitle welcome-mobile-tutor-sub" *ngIf="!isLoadingLessons && (!nextLesson || !nextLessonTimeLabel) && !growthInsight && tutorMobileWelcomeSubtitle && !hasProfileCriticalInsights">
           {{ tutorMobileWelcomeSubtitle }}
         </p>
-        <p class="welcome-subtitle welcome-mobile-tutor-sub growth-ticker-mobile-wrap" *ngIf="!isLoadingLessons && (!nextLesson || !nextLessonTimeLabel) && growthInsight"
+        <p class="welcome-subtitle welcome-mobile-tutor-sub growth-ticker-mobile-wrap" *ngIf="!isLoadingLessons && ((!nextLesson || !nextLessonTimeLabel) || hasProfileCriticalInsights) && growthInsight"
            (click)="onGrowthInsightTapAdvance()">
           <ng-container *ngFor="let row of growthInsightSlideRow; trackBy: trackGrowthInsightSlide">
             <span class="growth-ticker-mobile-fade-wrap">
@@ -213,10 +213,10 @@
           <p class="welcome-subtitle welcome-tutor-desktop-line skeleton-text" *ngIf="isLoadingLessons">
             <ion-skeleton-text animated style="width: 280px; height: 16px; display: inline-block; border-radius: 4px;"></ion-skeleton-text>
           </p>
-          <p class="welcome-subtitle welcome-tutor-desktop-line" *ngIf="!isLoadingLessons && nextLesson && nextLessonTimeLabel">
+          <p class="welcome-subtitle welcome-tutor-desktop-line" *ngIf="!isLoadingLessons && nextLesson && nextLessonTimeLabel && !hasProfileCriticalInsights">
             <span class="welcome-tutor-desktop-greeting"> {{ greetingText }} - </span><span class="welcome-tutor-desktop-sep"> </span>{{ 'HOME.WELCOME_NEXT_LESSON' | translate:{ time: nextLessonTimeLabel } }}
           </p>
-          <p class="welcome-subtitle welcome-tutor-desktop-line" *ngIf="!isLoadingLessons && !nextLesson">
+          <p class="welcome-subtitle welcome-tutor-desktop-line" *ngIf="!isLoadingLessons && (!nextLesson || hasProfileCriticalInsights)">
             <span class="welcome-tutor-desktop-greeting"> {{ greetingText }} — </span>
             <ng-container *ngIf="growthInsight; else staticWelcome">
               <span class="growth-ticker"
@@ -252,8 +252,12 @@
         <div class="earnings-mobile-card" *ngIf="!insightsLoading && !isMobile" [class.skip-entry-animation]="returningFromEarnings">
           <div class="emc-balance" (click)="toggleWalletVisibility($event)">
             <span *ngIf="earningsBalanceLoading" class="emc-balance-skeleton"><ion-skeleton-text animated style="width: 72px; height: 22px; display: block; border-radius: 6px;"></ion-skeleton-text></span>
-            <span *ngIf="!earningsBalanceLoading && !showWalletBalance && !walletTemporarilyVisible">$<span class="emc-dots">••••</span></span>
-            <span *ngIf="!earningsBalanceLoading && (showWalletBalance || walletTemporarilyVisible)">${{ tutorTotalEarnings.toFixed(2) }}</span>
+            <span *ngIf="!earningsBalanceLoading && !showWalletBalance && !walletTemporarilyVisible">
+              <img class="home-dollar-icon home-dollar-icon--compact" [src]="isDarkModeActive ? 'assets/home-earnings-dollar-dark.png' : 'assets/home-earnings-dollar.png'" alt="" role="presentation" /><span class="emc-dots">••••</span>
+            </span>
+            <span *ngIf="!earningsBalanceLoading && (showWalletBalance || walletTemporarilyVisible)">
+              <img class="home-dollar-icon home-dollar-icon--compact" [src]="isDarkModeActive ? 'assets/home-earnings-dollar-dark.png' : 'assets/home-earnings-dollar.png'" alt="" role="presentation" />{{ tutorTotalEarnings.toFixed(2) }}
+            </span>
           </div>
           <button class="view-details-link" (click)="navigateToEarnings()">
             {{ 'HOME.VIEW_DETAILS' | translate }}
@@ -293,75 +297,24 @@
       </div>
     </div>
     
-    <!-- Profile Hidden Banner (video removed) -->
-    <div class="onboarding-banner-container" *ngIf="isTutorUser && profileHiddenNoVideo">
-      <ion-card class="onboarding-banner profile-hidden-banner">
-        <ion-card-content>
-          <div class="banner-content">
-            <div class="banner-icon">
-              <ion-icon name="eye-off-outline"></ion-icon>
-            </div>
-            <div class="banner-text">
-              <h3>{{ 'HOME.BANNER_PROFILE_HIDDEN' | translate }}</h3>
-              <p class="banner-items">{{ 'HOME.BANNER_PROFILE_HIDDEN_DESC' | translate }}</p>
-            </div>
-            <ion-button fill="solid" (click)="router.navigate(['/tabs/profile'], { queryParams: { scrollTo: 'intro-video-section' } })">
-              <ion-icon name="videocam-outline" slot="start"></ion-icon>
-              {{ 'HOME.BANNER_UPLOAD_VIDEO_CTA' | translate }}
-            </ion-button>
-          </div>
-        </ion-card-content>
-      </ion-card>
-    </div>
-
-    <!-- Tutor Onboarding Banner -->
-    <div class="onboarding-banner-container" *ngIf="isTutorUser && showOnboardingBanner && !profileHiddenNoVideo">
-      <ion-card class="onboarding-banner">
-        <ion-card-content>
-          <div class="banner-content">
-            <div class="banner-icon">
-              <ion-icon name="rocket-outline"></ion-icon>
-            </div>
-            <div class="banner-text">
-              <!-- Fully Approved Message (all items done but tutor still not approved — edge case) -->
-              <div *ngIf="tutorOnboardingStatus?.videoApproved && tutorOnboardingStatus?.credentialsApproved && tutorOnboardingStatus?.stripeComplete && !currentUser?.tutorApproved">
-                <h3>🎉 {{ 'HOME.BANNER_ALMOST_THERE' | translate }}</h3>
-                <p class="banner-items">
-                  {{ 'HOME.BANNER_ALL_APPROVED' | translate }}
-                </p>
-              </div>
-              <!-- Regular Onboarding Message (not everything approved yet) -->
-              <div *ngIf="!(tutorOnboardingStatus?.videoApproved && tutorOnboardingStatus?.credentialsApproved && tutorOnboardingStatus?.stripeComplete)">
-                <h3>{{ 'HOME.BANNER_COMPLETE_SETUP' | translate }}</h3>
-                <p class="banner-items">
-                  <span *ngIf="!hasCustomProfilePhoto"> {{ 'HOME.BANNER_UPLOAD_PHOTO' | translate }}</span>
-                  <span class="separator" *ngIf="!hasCustomProfilePhoto && (!tutorOnboardingStatus?.videoApproved || !tutorOnboardingStatus?.credentialsApproved || !tutorOnboardingStatus?.stripeComplete)"> | </span>
-                  
-                  <span *ngIf="!tutorOnboardingStatus?.videoApproved && (currentUser?.onboardingData?.pendingVideo || currentUser?.onboardingData?.introductionVideo)"> {{ 'HOME.BANNER_VIDEO_PENDING' | translate }} </span>
-                  <span *ngIf="!tutorOnboardingStatus?.videoApproved && !currentUser?.onboardingData?.pendingVideo && !currentUser?.onboardingData?.introductionVideo"> {{ 'HOME.BANNER_UPLOAD_VIDEO' | translate }} </span>
-                  <span class="separator" *ngIf="!tutorOnboardingStatus?.videoApproved && (!tutorOnboardingStatus?.credentialsApproved || !tutorOnboardingStatus?.stripeComplete)"> | </span>
-
-                  <span *ngIf="!tutorOnboardingStatus?.credentialsComplete"> {{ 'HOME.BANNER_UPLOAD_CREDENTIALS' | translate }} </span>
-                  <span *ngIf="tutorOnboardingStatus?.credentialsComplete && !tutorOnboardingStatus?.credentialsApproved"> {{ 'HOME.BANNER_CREDENTIALS_PENDING' | translate }} </span>
-                  <span class="separator" *ngIf="(!tutorOnboardingStatus?.credentialsComplete || !tutorOnboardingStatus?.credentialsApproved) && !tutorOnboardingStatus?.stripeComplete"> | </span>
-                  
-                  <span *ngIf="!tutorOnboardingStatus?.stripeComplete"> {{ 'HOME.BANNER_CONNECT_BANK' | translate }} </span>
-                </p>
-              </div>
-            </div>
-            <!-- Add Availability Button (when everything approved) -->
-            <ion-button *ngIf="tutorOnboardingStatus?.videoApproved && tutorOnboardingStatus?.credentialsApproved && tutorOnboardingStatus?.stripeComplete && !currentUser?.tutorApproved" fill="solid" (click)="router.navigate(['/tabs/tutor-calendar'])" >
-              <ion-icon name="calendar-outline" slot="start"></ion-icon>
-              {{ 'HOME.BANNER_ADD_AVAILABILITY' | translate }}
-            </ion-button>
-            <!-- Continue Setup Button (when onboarding incomplete) -->
-            <ion-button *ngIf="!(tutorOnboardingStatus?.videoApproved && tutorOnboardingStatus?.credentialsApproved && tutorOnboardingStatus?.stripeComplete)" fill="solid" (click)="openTutorOnboarding()">
-              <ion-icon name="arrow-forward" slot="end"></ion-icon>
-              {{ 'HOME.BANNER_CONTINUE_SETUP' | translate }}
-            </ion-button>
-          </div>
-        </ion-card-content>
-      </ion-card>
+    <!-- Inline Profile Checklist (replaces old banner cards) -->
+    <div class="profile-checklist-section" *ngIf="isTutorUser && hasProfileCriticalInsights && profileChecklist.length > 0">
+      <div class="profile-checklist-header">
+        <ion-icon name="alert-circle-outline" class="pcl-warn-icon"></ion-icon>
+        <span class="pcl-title">{{ profileChecklistDoneCount }} / {{ profileChecklistTotal }} complete</span>
+        <span class="pcl-hidden-label" *ngIf="profileChecklistDoneCount < profileChecklistTotal">
+          <ion-icon name="eye-off-outline"></ion-icon> Hidden from students
+        </span>
+      </div>
+      <div class="profile-checklist-items">
+        <a *ngFor="let item of profileChecklist"
+           class="pcl-item" [class.pcl-item--done]="item.done"
+           [routerLink]="item.route">
+          <ion-icon [name]="item.done ? 'checkmark-circle' : 'ellipse-outline'" class="pcl-check"></ion-icon>
+          <span class="pcl-label">{{ item.label }}</span>
+          <ion-icon name="chevron-forward-outline" class="pcl-arrow" *ngIf="!item.done"></ion-icon>
+        </a>
+      </div>
     </div>
     
     <!-- Outstanding Feedback Banner (Airbnb style) -->
@@ -411,7 +364,7 @@
                 <div class="up-next-top-content">
                   <!-- Icon/Avatar -->
                   <div class="up-next-icon" [class.up-next-icon--desktop-art]="!isMobile">
-                    <img *ngIf="!isMobile" class="up-next-calendar-desktop-art" src="assets/calendar-mobile.png" alt="" />
+                    <img *ngIf="!isMobile" class="up-next-calendar-desktop-art" [src]="isDarkModeActive ? 'assets/calendar-mobile-original.png' : 'assets/calendar-mobile.png'" alt="" />
                     <ion-icon *ngIf="isMobile" name="calendar-outline"></ion-icon>
                   </div>
                   
@@ -815,15 +768,15 @@
       <h3 class="mobile-section-title">{{ 'HOME.YOUR_SCHEDULE' | translate }}</h3>
       <div class="m-card-empty-standalone">
         <div class="m-card-empty-calendar-wrap">
-          <img class="m-card-empty-calendar-art" src="assets/calendar-availability.png" alt="" />
+          <img class="m-card-empty-calendar-art" [src]="isDarkModeActive ? 'assets/calendar-availability-original.png' : 'assets/calendar-availability.png'" alt="" />
         </div>
         <h3 class="m-card-empty-title">{{ emptyStateTitle }}</h3>
         <p class="m-card-empty-subtitle">{{ emptyStateMessage }}</p>
-        <a *ngIf="pendingFeedbackCount === 0" class="m-card-empty-link" [routerLink]="hasAvailability ? '/tabs/tutor-calendar' : '/tabs/availability-setup'">
+        <a *ngIf="pendingFeedbackCount === 0 && !hasProfileCriticalInsights" class="m-card-empty-link" [routerLink]="hasAvailability ? '/tabs/tutor-calendar' : '/tabs/availability-setup'">
           <span [@buttonTextFade]="buttonTextState" class="button-text-animated">{{ hasAvailability ? ('HOME.VIEW_CALENDAR' | translate) : ('HOME.SET_AVAILABILITY' | translate) }}</span>
           <img class="m-card-empty-link-chevron m-card-empty-link-arrow-img" src="assets/setup-availability-arrow.png" alt="" />
         </a>
-        <span *ngIf="pendingFeedbackCount > 0" class="m-card-empty-link m-card-empty-link--disabled">{{ hasAvailability ? ('HOME.VIEW_CALENDAR' | translate) : ('HOME.SET_AVAILABILITY' | translate) }}</span>
+        <span *ngIf="pendingFeedbackCount > 0 || hasProfileCriticalInsights" class="m-card-empty-link m-card-empty-link--disabled">{{ hasAvailability ? ('HOME.VIEW_CALENDAR' | translate) : ('HOME.SET_AVAILABILITY' | translate) }}</span>
       </div>
     </div>
 
@@ -930,13 +883,13 @@
     <div class="empty-state-clean" *ngIf="!isMobile && !isNarrowTutorHomeViewport && isTutorUser && !isLoadingLessons && !nextLesson">
       <div class="empty-state-clean-inner">
         <div class="empty-state-clean-icon empty-state-clean-icon--calendar anim-persist">
-          <img class="empty-state-clean-calendar-art" src="assets/calendar-mobile.png" alt="" />
+          <img class="empty-state-clean-calendar-art" [src]="isDarkModeActive ? 'assets/calendar-mobile-original.png' : 'assets/calendar-mobile.png'" alt="" />
         </div>
         <div class="empty-state-clean-text">
           <h3>{{ emptyStateTitle }}</h3>
           <p>{{ emptyStateMessage }}</p>
         </div>
-        <ion-button [disabled]="pendingFeedbackCount > 0" fill="solid" expand="block" class="empty-state-clean-btn" routerLink="{{ hasAvailability ? '/tabs/tutor-calendar' : '/tabs/availability-setup' }}">
+        <ion-button [disabled]="pendingFeedbackCount > 0 || hasProfileCriticalInsights" fill="solid" expand="block" class="empty-state-clean-btn" routerLink="{{ hasAvailability ? '/tabs/tutor-calendar' : '/tabs/availability-setup' }}">
           <span [@buttonTextFade]="buttonTextState" class="button-text-animated">{{ hasAvailability ? ('HOME.VIEW_CALENDAR' | translate) : ('HOME.SET_AVAILABILITY' | translate) }}</span>
           <img slot="end" class="empty-state-clean-btn-arrow-img" src="assets/setup-availability-arrow.png" alt="" />
         </ion-button>
@@ -965,12 +918,12 @@
             <div class="earnings-label">{{ 'HOME.TOTAL_BALANCE' | translate }}</div>
             <div class="earnings-balance" (click)="toggleWalletVisibility($event)">
               <span *ngIf="earningsBalanceLoading" class="earnings-balance-skeleton"><ion-skeleton-text animated style="width: 120px; height: 40px; display: block; border-radius: 8px;"></ion-skeleton-text></span>
-              <span *ngIf="!earningsBalanceLoading && !showWalletBalance && !walletTemporarilyVisible"><img class="home-dollar-icon" src="assets/home-earnings-dollar.png" alt="" role="presentation" /><span class="earnings-dots-display">••••</span></span>
-              <span *ngIf="!earningsBalanceLoading && (showWalletBalance || walletTemporarilyVisible)"><img class="home-dollar-icon" src="assets/home-earnings-dollar.png" alt="" role="presentation" />{{ tutorTotalEarnings.toFixed(2) }}</span>
+              <span *ngIf="!earningsBalanceLoading && !showWalletBalance && !walletTemporarilyVisible"><img class="home-dollar-icon" [src]="isDarkModeActive ? 'assets/home-earnings-dollar-dark.png' : 'assets/home-earnings-dollar.png'" alt="" role="presentation" /><span class="earnings-dots-display">••••</span></span>
+              <span *ngIf="!earningsBalanceLoading && (showWalletBalance || walletTemporarilyVisible)"><img class="home-dollar-icon" [src]="isDarkModeActive ? 'assets/home-earnings-dollar-dark.png' : 'assets/home-earnings-dollar.png'" alt="" role="presentation" />{{ tutorTotalEarnings.toFixed(2) }}</span>
             </div>
             <div class="earnings-pending" *ngIf="tutorPendingEarnings > 0 && (showWalletBalance || walletTemporarilyVisible)">
               <span class="pending-label">{{ 'HOME.PENDING' | translate }}</span>
-              <span class="pending-amount"><img class="home-dollar-icon" src="assets/home-earnings-dollar.png" alt="" role="presentation" />{{ tutorPendingEarnings.toFixed(2) }}</span>
+              <span class="pending-amount"><img class="home-dollar-icon" [src]="isDarkModeActive ? 'assets/home-earnings-dollar-dark.png' : 'assets/home-earnings-dollar.png'" alt="" role="presentation" />{{ tutorPendingEarnings.toFixed(2) }}</span>
             </div>
           </div>
           <ion-button fill="outline" expand="block" class="withdraw-btn" (click)="openWithdrawModal()">
@@ -1021,6 +974,7 @@
         [quickActionsAnimated]="quickActionsAnimated"
         [staggerReady]="mobileStaggerReady"
         [staggerDone]="mobileStaggerDone"
+        [isDarkModeActive]="isDarkModeActive"
         (navigateToExplore)="navigateToExplore()"
         (navigateToCreateMaterial)="navigateToCreateMaterial($event)"
         (navigateToForum)="navigateToForum()">
@@ -1050,7 +1004,7 @@
         <div class="actions-grid">
           <div class="quick-action-card qa-classes qa-with-asset" (click)="navigateToExplore()">
             <div class="qa-icon">
-              <img class="qa-icon-img" src="assets/quick-actions-classes.png" alt="" />
+              <img class="qa-icon-img" [src]="isDarkModeActive ? 'assets/quick-actions-classes-original.png' : 'assets/quick-actions-classes.png'" alt="" />
             </div>
             <div class="qa-text">
               <span class="qa-label">{{ 'HOME.CLASSES' | translate }}</span>
@@ -1059,7 +1013,7 @@
           </div>
           <div class="quick-action-card qa-create-material qa-with-asset" (click)="navigateToCreateMaterial($event)">
             <div class="qa-icon">
-              <img class="qa-icon-img" src="assets/quick-actions-create-material.png" alt="" />
+              <img class="qa-icon-img" [src]="isDarkModeActive ? 'assets/quick-actions-create-material-original.png' : 'assets/quick-actions-create-material.png'" alt="" />
             </div>
             <div class="qa-text">
               <span class="qa-label">{{ 'HOME.CREATE_MATERIAL' | translate }}</span>
@@ -1068,7 +1022,7 @@
           </div>
           <div class="quick-action-card qa-forum qa-with-asset" (click)="navigateToForum()">
             <div class="qa-icon">
-              <img class="qa-icon-img" src="assets/quick-actions-forum.png" alt="" />
+              <img class="qa-icon-img" [src]="isDarkModeActive ? 'assets/quick-actions-forum-original.png' : 'assets/quick-actions-forum.png'" alt="" />
             </div>
             <div class="qa-text">
               <span class="qa-label">{{ 'HOME.FORUM' | translate }}</span>

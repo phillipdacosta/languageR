@@ -1201,7 +1201,11 @@
     "VIDEO_PENDING": "Video pending approval. Your current video will remain visible until the new one is approved.",
     "VIDEO_UPLOAD_HINT": "MP4, MOV — max 5 minutes",
     "PAYMENT_REQUIRED": "Payment Setup Required",
-    "PAYMENT_REQUIRED_DESC": "Your profile is hidden from students until you connect your bank account. Complete the setup below to start accepting bookings."
+    "PAYMENT_REQUIRED_DESC": "Your profile is hidden from students until you connect your bank account. Complete the setup below to start accepting bookings.",
+    "PROFILE_PHOTO": "Profile photo",
+    "CREDENTIALS": "Credentials",
+    "PAYOUT_METHOD": "Payout method",
+    "HIDDEN_UNTIL_COMPLETE": "Hidden from students"
   },
   "TUTOR_APPROVAL": {
     "TOS_ACCEPTED": "Terms Accepted",
@@ -1650,6 +1654,7 @@
     "LOADING_CALENDAR": "Loading calendar...",
     "WEEK": "Week",
     "COMPLETE_PROFILE_SETUP": "Complete Your Profile Setup",
+    "COMPLETE_PROFILE_BEFORE_AVAILABILITY": "You need to complete your profile setup before adding availability. This includes uploading your photo, video, credentials, and setting up a payout method.",
     "UPLOAD_PROFILE_PHOTO": "Upload your profile photo",
     "VIDEO_PENDING_REVIEW": "Introduction video pending review",
     "UPLOAD_INTRO_VIDEO": "Upload your introduction video",

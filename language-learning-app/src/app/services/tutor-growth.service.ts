@@ -39,6 +39,14 @@ export interface GrowthContext {
   activeForumThreadsInLanguage: number;
 
   tutorRating: string;
+
+  hasCustomPhoto: boolean;
+  hasVideo: boolean;
+  videoApproved: boolean;
+  credentialsComplete: boolean;
+  credentialsApproved: boolean;
+  hasPayoutSetup: boolean;
+  tutorApproved: boolean;
 }
 
 interface GrowthState {
@@ -86,6 +94,10 @@ export class TutorGrowthService {
   private readonly ROTATION_MS = 30000;
   private _onUpdate: (() => void) | null = null;
   private _state: GrowthState = emptyState();
+  /** True when the active insights include profile-critical items (photo, video, creds, payout). */
+  hasProfileCritical = false;
+  /** All outstanding profile checklist items (for inline display). */
+  profileChecklist: { id: string; label: string; done: boolean; route: string }[] = [];
 
   constructor(private ngZone: NgZone) {}
 
@@ -126,9 +138,38 @@ export class TutorGrowthService {
     const today = this.dayKey();
     const raw: GrowthInsight[] = [];
 
-    // ── Self-resolving: Set availability ──
-    if (!ctx.hasAvailability) {
-      raw.push({ id: 'set_availability', icon: '📅', text: 'Set your availability to start getting bookings', route: '/tabs/availability-setup', priority: 100 });
+    // ── Profile completion (non-dismissable, highest priority) ──
+    // Each item is checked independently — a tutor can be "approved" but
+    // still lose visibility if their photo was wiped or payout disconnected.
+    if (!ctx.hasCustomPhoto) {
+      raw.push({ id: 'profile_photo', icon: '⚠️', text: 'Upload a profile photo — your profile is hidden until you do', route: '/tutor-approval', priority: 200 });
+    }
+    if (!ctx.hasVideo) {
+      raw.push({ id: 'profile_video', icon: '⚠️', text: 'Upload an introduction video to get listed', route: '/tabs/profile', priority: 198 });
+    } else if (!ctx.videoApproved) {
+      raw.push({ id: 'profile_video_pending', icon: '⏳', text: 'Your introduction video is pending review', route: '/tabs/profile', priority: 110 });
+    }
+    if (!ctx.credentialsComplete) {
+      raw.push({ id: 'profile_credentials', icon: '⚠️', text: 'Upload your credentials to get verified', route: '/tutor-approval', priority: 196 });
+    } else if (!ctx.credentialsApproved) {
+      raw.push({ id: 'profile_credentials_pending', icon: '⏳', text: 'Your credentials are pending review', route: '/tutor-approval', priority: 108 });
+    }
+    if (!ctx.hasPayoutSetup) {
+      raw.push({ id: 'profile_payout', icon: '⚠️', text: 'Connect a payout method to receive payments', route: '/tutor-approval', priority: 194 });
+    }
+
+    // Build full profile checklist for inline display
+    this.profileChecklist = [
+      { id: 'photo', label: 'Profile photo', done: ctx.hasCustomPhoto, route: '/tutor-approval' },
+      { id: 'video', label: ctx.hasVideo && !ctx.videoApproved ? 'Intro video (pending review)' : 'Introduction video', done: ctx.hasVideo, route: '/tabs/profile' },
+      { id: 'credentials', label: ctx.credentialsComplete && !ctx.credentialsApproved ? 'Credentials (pending review)' : 'Credentials', done: ctx.credentialsComplete, route: '/tutor-approval' },
+      { id: 'payout', label: 'Payout method', done: ctx.hasPayoutSetup, route: '/tutor-approval' },
+    ];
+
+    // ── Self-resolving: Set availability (only if profile requirements are met) ──
+    const hasProfileItems = !ctx.hasCustomPhoto || !ctx.hasVideo || !ctx.credentialsComplete || !ctx.hasPayoutSetup;
+    if (!ctx.hasAvailability && !hasProfileItems) {
+      raw.push({ id: 'set_availability', icon: '', text: 'Set your availability to start getting bookings', route: '/tabs/availability-setup', priority: 100 });
     }
 
     // ── Self-resolving: Pending feedback ──
@@ -240,13 +281,15 @@ export class TutorGrowthService {
 
     this._allRaw = [...raw].sort((a, b) => b.priority - a.priority);
 
+    const profileInsightIds = new Set(['profile_photo', 'profile_video', 'profile_video_pending', 'profile_credentials', 'profile_credentials_pending', 'profile_payout']);
     const filtered = raw
-      .filter(i => !this.isDismissedRecently(i.id, 5))
+      .filter(i => profileInsightIds.has(i.id) || !this.isDismissedRecently(i.id, 5))
       .sort((a, b) => b.priority - a.priority)
       .slice(0, 3);
 
     this.insights = filtered;
     this._activeIndex = 0;
+    this.hasProfileCritical = filtered.some(i => profileInsightIds.has(i.id));
     this.startRotation();
   }
 

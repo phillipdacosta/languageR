@@ -34,6 +34,7 @@ import { calendarService } from '../services/calendar';
 import EarningsScreen from './EarningsScreen';
 import MaterialsScreen from './MaterialsScreen';
 import { preloadMaterials } from '../services/materials';
+import { api } from '../services/api';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const CTA_DARK_BLUE = '#3a7bc8';
@@ -166,6 +167,8 @@ export default function HomeScreen() {
   const [materialsVisible, setMaterialsVisible] = useState(false);
   const materialsOverlayOpacity = useRef(new Animated.Value(0)).current;
   const [hasAvailability, setHasAvailability] = useState(false);
+  const [hasPayoutSetup, setHasPayoutSetup] = useState(false);
+  const [payoutLoaded, setPayoutLoaded] = useState(false);
 
   const displayName = user?.firstName || user?.name?.split(' ')[0] || 'there';
   const nextLesson = timeline[0] || null;
@@ -240,13 +243,49 @@ export default function HomeScreen() {
     setHasAvailability(hasFuture);
   }, [isTutor]);
 
+  const fetchPayoutStatus = useCallback(async () => {
+    if (!isTutor) return;
+    try {
+      const res = await api.get<any>('/payments/payout-options');
+      const p = res?.currentProvider || user?.payoutProvider || 'none';
+      setHasPayoutSetup(p !== 'none');
+    } catch { setHasPayoutSetup(false); }
+    finally { setPayoutLoaded(true); }
+  }, [isTutor, user?.payoutProvider]);
+
+  const profileCompletion = useMemo(() => {
+    if (!isTutor || !user) return { complete: true, items: [] as { key: string; label: string; done: boolean }[] };
+    const od = user.onboardingData;
+    const hasCustomPhoto = !!(user.picture && (
+      user.picture.includes('storage.googleapis.com') ||
+      (user.auth0Picture && user.picture !== user.auth0Picture)
+    ));
+    const hasVideo = !!(od?.introductionVideo || od?.pendingVideo);
+    const videoApproved = user.tutorOnboarding?.videoApproved === true;
+    const creds = user.tutorCredentials;
+    const govIdUploaded = !!(creds?.governmentId?.url && creds.governmentId.status !== 'not_uploaded');
+    const certsUploaded = !!(creds?.teachingCertifications && creds.teachingCertifications.length > 0);
+    const credsComplete = govIdUploaded && certsUploaded;
+    const credsApproved = creds?.governmentId?.status === 'approved' && !!(creds?.teachingCertifications?.some((c: any) => c.status === 'approved'));
+    const payoutDone = payoutLoaded ? hasPayoutSetup : (user.stripeConnectOnboarded || user.payoutProvider === 'paypal' || user.payoutProvider === 'manual');
+
+    const items: { key: string; label: string; done: boolean }[] = [
+      { key: 'photo', label: t('PROFILE_SCREEN.PROFILE_PHOTO') || 'Profile photo', done: hasCustomPhoto },
+      { key: 'video', label: hasVideo && !videoApproved ? t('HOME.BANNER_VIDEO_PENDING') : (t('PROFILE_SCREEN.INTRO_VIDEO') || 'Introduction video'), done: hasVideo },
+      { key: 'creds', label: credsComplete && !credsApproved ? t('HOME.BANNER_CREDENTIALS_PENDING') : (t('PROFILE_SCREEN.CREDENTIALS') || 'Credentials'), done: credsComplete },
+      { key: 'payout', label: t('PROFILE_SCREEN.PAYOUT_METHOD') || 'Payout method', done: !!payoutDone },
+    ];
+    const allDone = items.every(i => i.done);
+    return { complete: allDone, items };
+  }, [isTutor, user, payoutLoaded, hasPayoutSetup, t]);
+
   useEffect(() => {
     (async () => {
-      await Promise.all([fetchData(), fetchEarnings(), fetchAvailability()]);
+      await Promise.all([fetchData(), fetchEarnings(), fetchAvailability(), fetchPayoutStatus()]);
       setLoading(false);
     })();
     if (isTutor) preloadMaterials();
-  }, [fetchData, fetchEarnings, fetchAvailability, isTutor]);
+  }, [fetchData, fetchEarnings, fetchAvailability, fetchPayoutStatus, isTutor]);
 
   const openMaterials = useCallback(() => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -279,9 +318,9 @@ export default function HomeScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([fetchData(), fetchEarnings(), fetchAvailability()]);
+    await Promise.all([fetchData(), fetchEarnings(), fetchAvailability(), fetchPayoutStatus()]);
     setRefreshing(false);
-  }, [fetchData, fetchEarnings, fetchAvailability]);
+  }, [fetchData, fetchEarnings, fetchAvailability, fetchPayoutStatus]);
 
   const hadLessonsToday = useMemo(() => {
     const today = new Date();
@@ -311,12 +350,19 @@ export default function HomeScreen() {
   }, [hasAvailability, t]);
 
   const greetingSub = useMemo(() => {
+    if (!isTutor) {
+      if (nextLesson?.countdown) return t('HOME.STARTS_IN_TIME', { time: nextLesson.countdown });
+      return '';
+    }
+    if (!profileCompletion.complete && profileCompletion.items.some(i => !i.done)) {
+      const pending = profileCompletion.items.filter(i => !i.done);
+      return `⚠️ ${pending[0].label}`;
+    }
     if (nextLesson?.countdown) return t('HOME.STARTS_IN_TIME', { time: nextLesson.countdown });
-    if (!isTutor) return '';
     if (!hasAvailability) return t('HOME.WELCOME_SET_AVAILABILITY');
     if (hadLessonsToday) return t('HOME.WELCOME_GREAT_WORK');
     return t('HOME.WELCOME_OPEN_SCHEDULE');
-  }, [nextLesson, isTutor, hasAvailability, hadLessonsToday, t]);
+  }, [nextLesson, isTutor, hasAvailability, hadLessonsToday, profileCompletion, t]);
 
   return (
     <View style={{ flex: 1 }}>
@@ -341,6 +387,40 @@ export default function HomeScreen() {
         <View style={styles.greeting}> ... </View>
         */}
 
+        {/* ── Profile Checklist ── */}
+        {isTutor && !profileCompletion.complete && profileCompletion.items.length > 0 && !loading && (
+          <View style={[styles.profileChecklist, { backgroundColor: colors.isDark ? '#1c1c1e' : '#fff', borderColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', shadowOpacity: colors.isDark ? 0 : 0.06 }]}>
+            <View style={styles.pclHeader}>
+              <Ionicons name="alert-circle-outline" size={18} color="#e8893c" />
+              <Text style={[styles.pclTitle, { color: colors.text }]}>
+                {profileCompletion.items.filter(i => i.done).length} / {profileCompletion.items.length} complete
+              </Text>
+              {profileCompletion.items.some(i => !i.done) && (
+                <View style={[styles.pclHiddenBadge, { backgroundColor: colors.isDark ? 'rgba(232,137,60,0.15)' : 'rgba(232,137,60,0.1)' }]}>
+                  <Ionicons name="eye-off-outline" size={12} color="#e8893c" />
+                  <Text style={styles.pclHiddenText}>Hidden from students</Text>
+                </View>
+              )}
+            </View>
+            {profileCompletion.items.map(item => (
+              <TouchableOpacity
+                key={item.key}
+                activeOpacity={0.7}
+                onPress={() => { if (!item.done) navigation.navigate('Profile'); }}
+                style={[styles.pclItem, item.done && styles.pclItemDone]}
+              >
+                <Ionicons
+                  name={item.done ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={20}
+                  color={item.done ? (colors.isDark ? '#30d158' : '#34c759') : (colors.isDark ? '#555' : '#ccc')}
+                />
+                <Text style={[styles.pclLabel, { color: colors.text }, item.done && styles.pclLabelDone]}>{item.label}</Text>
+                {!item.done && <Ionicons name="chevron-forward-outline" size={14} color={colors.isDark ? '#555' : '#bbb'} />}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
         {/* ── Up Next ── */}
         {loading ? (
           <UpNextSkeleton colors={colors} />
@@ -364,6 +444,7 @@ export default function HomeScreen() {
             title={emptyStateTitle}
             message={emptyStateMessage}
             ctaLabel={emptyStateCta}
+            disabled={!profileCompletion.complete}
             onCta={() => {
               if (hasAvailability) {
                 navigation.navigate('Calendar');
@@ -410,9 +491,40 @@ export default function HomeScreen() {
           <View style={styles.quickActionsSectionWrap}>
           <Section title={t('HOME.QUICK_ACTIONS')} colors={colors}>
             <View style={styles.actionsGrid}>
-              <ActionChip image={require('../../assets/shared/classroom.png')} label={t('HOME.CLASSES')} sub={t('HOME.CLASSES_SUB')} colors={colors} />
-              <ActionChip image={require('../../assets/shared/quick-actions-create-material.png')} label={t('HOME.CREATE_MATERIAL')} sub={t('HOME.CREATE_MATERIAL_SUB')} colors={colors} onPress={openMaterials} />
-              <ActionChip image={require('../../assets/shared/quick-actions-forum.png')} label={t('HOME.FORUM')} sub={t('HOME.FORUM_SUB')} colors={colors} />
+              <ActionChip
+                image={
+                  colors.isDark
+                    ? require('../../assets/shared/classroom-original.png')
+                    : require('../../assets/shared/classroom.png')
+                }
+                label={t('HOME.CLASSES')}
+                sub={t('HOME.CLASSES_SUB')}
+                colors={colors}
+                largeAsset={!colors.isDark}
+              />
+              <ActionChip
+                image={
+                  colors.isDark
+                    ? require('../../assets/shared/quick-actions-create-material-original.png')
+                    : require('../../assets/shared/quick-actions-create-material.png')
+                }
+                label={t('HOME.CREATE_MATERIAL')}
+                sub={t('HOME.CREATE_MATERIAL_SUB')}
+                colors={colors}
+                onPress={openMaterials}
+                largeAsset={!colors.isDark}
+              />
+              <ActionChip
+                image={
+                  colors.isDark
+                    ? require('../../assets/shared/quick-actions-forum-original.png')
+                    : require('../../assets/shared/quick-actions-forum.png')
+                }
+                label={t('HOME.FORUM')}
+                sub={t('HOME.FORUM_SUB')}
+                colors={colors}
+                largeAsset={!colors.isDark}
+              />
               <ActionChip icon="star-outline" label={t('HOME.MY_REVIEWS')} sub={t('HOME.MY_REVIEWS_SUB')} colors={colors} />
             </View>
           </Section>
@@ -516,7 +628,16 @@ function Toolbar({
       </View>
       <View style={styles.toolbarRight}>
         <TouchableOpacity style={[styles.earningsPill, { backgroundColor: isDark ? '#2a2a2a' : '#f2f2f7' }]} onPress={onEarningsTap} activeOpacity={0.7}>
-          <Text style={[styles.earningsPillText, { color: colors.text }]}>$</Text>
+          <Image
+            source={
+              isDark
+                ? require('../assets/home/earnings-dollar-3d-dark.png')
+                : require('../assets/home/earnings-dollar-3d-light.png')
+            }
+            style={styles.earningsPillDollarImg}
+            resizeMode="contain"
+            accessibilityIgnoresInvertColors
+          />
         </TouchableOpacity>
         <TouchableOpacity style={styles.notifBtn} activeOpacity={0.7}>
           <Ionicons name="notifications-outline" size={20} color={colors.text} />
@@ -630,8 +751,8 @@ function UpNextFilled({
 
 /* ─── Up Next: Empty ─── */
 
-function UpNextEmpty({ colors, title, message, ctaLabel, onCta }: {
-  colors: any; title: string; message: string; ctaLabel: string; onCta: () => void;
+function UpNextEmpty({ colors, title, message, ctaLabel, onCta, disabled }: {
+  colors: any; title: string; message: string; ctaLabel: string; onCta: () => void; disabled?: boolean;
 }) {
   const isDark = colors.isDark;
   const { t } = useTranslation();
@@ -651,7 +772,14 @@ function UpNextEmpty({ colors, title, message, ctaLabel, onCta }: {
         ]}
       >
         <View style={[styles.emptyArtWrap, styles.upNextEmptyArtSpacing]}>
-          <Image source={require('../../assets/shared/calendar-mobile.png')} style={styles.emptyArtImg} />
+          <Image
+            source={
+              isDark
+                ? require('../../assets/shared/calendar-mobile-original.png')
+                : require('../../assets/shared/calendar-mobile.png')
+            }
+            style={isDark ? styles.emptyArtImgDark : styles.emptyArtImg}
+          />
         </View>
         <Text style={[styles.cardTitle, styles.upNextEmptyTitleSpacing, { color: colors.text }]}>
           {title}
@@ -665,9 +793,11 @@ function UpNextEmpty({ colors, title, message, ctaLabel, onCta }: {
             styles.upNextCardCtaWide,
             styles.upNextEmptyCtaSpacing,
             { backgroundColor: isDark ? CTA_DARK_BLUE : '#000000' },
+            disabled && { opacity: 0.35 },
           ]}
           activeOpacity={0.85}
-          onPress={onCta}
+          onPress={disabled ? undefined : onCta}
+          disabled={disabled}
         >
           <Text style={styles.ctaBtnText}>{ctaLabel}</Text>
           <Image source={require('../../assets/shared/setup-availability-arrow.png')} style={styles.ctaBtnArrowImg} />
@@ -750,8 +880,15 @@ function ComingUpRow({ event, colors, t }: { event: TimelineEvent; colors: any; 
 
 /* ─── Action Chip ─── */
 
-function ActionChip({ image, icon, label, sub, colors, onPress }: {
-  image?: any; icon?: string; label: string; sub: string; colors: any; onPress?: () => void;
+function ActionChip({ image, icon, label, sub, colors, onPress, largeAsset }: {
+  image?: any;
+  icon?: string;
+  label: string;
+  sub: string;
+  colors: any;
+  onPress?: () => void;
+  /** Wider canvas padding in PNG — same scale for classes / materials / forum */
+  largeAsset?: boolean;
 }) {
   const isDark = colors.isDark;
   const lift = !isDark;
@@ -774,6 +911,7 @@ function ActionChip({ image, icon, label, sub, colors, onPress }: {
           style={[
             styles.actionChipIconWrap,
             styles.actionChipIconBg,
+            image && styles.actionChipIconBgAsset,
             {
               backgroundColor: icon
                 ? (isDark ? 'rgba(176,158,114,0.08)' : 'rgba(176,158,114,0.1)')
@@ -782,7 +920,10 @@ function ActionChip({ image, icon, label, sub, colors, onPress }: {
           ]}
         >
           {image ? (
-            <Image source={image} style={styles.actionChipImg} />
+            <Image
+              source={image}
+              style={[styles.actionChipImg, largeAsset && styles.actionChipImgLargeAsset]}
+            />
           ) : (
             <Ionicons name={icon as any} size={20} color={isDark ? '#9A8E72' : '#B09E72'} />
           )}
@@ -820,6 +961,62 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 32 },
 
+  // Profile Checklist
+  profileChecklist: {
+    borderRadius: 14,
+    padding: 16,
+    paddingBottom: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  pclHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  pclTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  pclHiddenBadge: {
+    marginLeft: 'auto',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 20,
+  },
+  pclHiddenText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#e8893c',
+  },
+  pclItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+  },
+  pclItemDone: {
+    opacity: 0.5,
+  },
+  pclLabel: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  pclLabelDone: {
+    textDecorationLine: 'line-through',
+    textDecorationColor: 'rgba(0,0,0,0.2)',
+  },
+
   // Toolbar
   toolbar: {
     flexDirection: 'row',
@@ -850,7 +1047,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  earningsPillText: { fontSize: 15, fontWeight: '700', color: '#222' },
+  /** Fills the fixed 32×32 pill; pill + toolbar layout unchanged. Nudge down so the 3D art isn’t tight to the top edge. */
+  earningsPillDollarImg: {
+    width: 30,
+    height: 30,
+    backgroundColor: 'transparent',
+    marginTop: 4,
+  },
   notifBtn: {
     width: 32,
     height: 32,
@@ -958,7 +1161,10 @@ const styles = StyleSheet.create({
   upNextEmptyTitleSpacing: { marginBottom: 12 },
   upNextEmptyMessageSpacing: { marginBottom: 22 },
   upNextEmptyCtaSpacing: { marginTop: 18 },
-  emptyArtImg: { width: 72, height: 72, resizeMode: 'contain' },
+  /** Light: new calendar art has extra canvas padding — scale up without shifting layout */
+  emptyArtImg: { width: 72, height: 72, resizeMode: 'contain', transform: [{ scale: 2.05 }] },
+  /** Dark: original calendar asset — no extra scale */
+  emptyArtImgDark: { width: 72, height: 72, resizeMode: 'contain' },
 
   // CTA button (black pill with arrow — matching .m-card-empty-link)
   ctaBtn: {
@@ -1060,7 +1266,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     overflow: 'hidden',
   },
+  /** PNGs use transform scale — allow paint outside 40×40 */
+  actionChipIconBgAsset: {
+    overflow: 'visible',
+  },
   actionChipImg: { width: 40, height: 40, resizeMode: 'contain' },
+  actionChipImgLargeAsset: { transform: [{ scale: 1.38 }] },
   actionChipText: {
     flexDirection: 'column',
     gap: 1,

@@ -795,7 +795,7 @@ export class UserService {
     const userData = {
       email: auth0User.email,
       name: auth0User.name,
-      picture: auth0User.picture,
+      auth0Picture: auth0User.picture,
       emailVerified: auth0User.email_verified,
       userType: userType as 'student' | 'tutor'
     };

@@ -3314,25 +3314,7 @@ ion-content {
   }
 }
 
-// Stripe Onboarding Warning Banner (inline with toolbar, under date)
-.custom-toolbar {
-  .toolbar-center {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0;
-    flex: 1;
-    min-width: 0;
-    text-align: center;
-    
-    .custom-toolbar.onboarding-incomplete & {
-      flex: 0 0 auto;
-      width: auto;
-    }
-  }
-
-}
+// (Toolbar center layout moved outside media query below)
 
 // Pop-float animation for availability pill after save
 @keyframes mcalPillPop {
@@ -3349,38 +3331,8 @@ ion-content {
   background: #eef7ee !important;
 }
 
-// Tutor Onboarding Banner - uses global styles from global.scss
-// Only page-specific overrides here if needed
-.custom-toolbar .onboarding-banner-container {
-  margin: 0 !important;
-  width: 100% !important;
-  max-width: 100% !important;
-}
+// (Profile checklist styles moved outside media query below)
 
-.profile-hidden-banner {
-  background: #fff7ea !important;
-  border: 1px solid #FFB74D !important;
-  box-shadow: 0 2px 8px rgba(255, 152, 0, 0.12) !important;
-
-  .banner-icon {
-    background: linear-gradient(135deg, #FF9500 0%, #FF6B35 100%) !important;
-    box-shadow: 0 2px 8px rgba(255, 149, 0, 0.3) !important;
-  }
-
-  .banner-text {
-    p, .banner-items {
-      color: #5D4037 !important;
-    }
-  }
-
-  ion-button {
-    --background: #222222 !important;
-    --background-hover: #000000 !important;
-    --background-activated: #000000 !important;
-  }
-}
-
-// Feedback banner in toolbar context
 .toolbar-center .feedback-banner-airbnb {
   width: 100%;
   max-width: 100%;
@@ -3602,6 +3554,139 @@ ion-content {
       color: #667eea !important;
       font-weight: 700 !important;
     }
+  }
+}
+
+// Toolbar center layout
+.custom-toolbar {
+  .toolbar-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+  }
+
+  &.onboarding-incomplete .toolbar-center {
+    align-items: stretch;
+    justify-content: flex-start;
+    text-align: left;
+    flex: 1;
+  }
+}
+
+// Inline Profile Checklist (matches home page design)
+.profile-checklist-section {
+  margin: 0 0 12px;
+  background: var(--ion-card-background, #fff);
+  border-radius: 14px;
+  padding: 16px 18px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  width: 100%;
+}
+
+.profile-checklist-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+
+  .pcl-warn-icon {
+    font-size: 18px;
+    color: #e8893c;
+    flex-shrink: 0;
+  }
+
+  .pcl-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ion-text-color, #1a1a1a);
+  }
+
+  .pcl-hidden-label {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #e8893c;
+    background: rgba(232, 137, 60, 0.1);
+    padding: 3px 10px;
+    border-radius: 20px;
+
+    ion-icon { font-size: 13px; }
+  }
+}
+
+.profile-checklist-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pcl-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px;
+  border-radius: 10px;
+  text-decoration: none;
+  color: var(--ion-text-color, #1a1a1a);
+  transition: background 0.15s ease;
+  cursor: pointer;
+
+  &:hover { background: rgba(0, 0, 0, 0.03); }
+
+  .pcl-check {
+    font-size: 20px;
+    flex-shrink: 0;
+    color: #ccc;
+  }
+
+  .pcl-label {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .pcl-arrow {
+    font-size: 14px;
+    color: #bbb;
+    flex-shrink: 0;
+  }
+
+  &.pcl-item--done {
+    opacity: 0.55;
+
+    .pcl-check { color: #34c759; }
+    .pcl-label { text-decoration: line-through; text-decoration-color: rgba(0,0,0,0.2); }
+  }
+}
+
+:host-context(html.ion-palette-dark) {
+  .profile-checklist-section {
+    background: #1c1c1e;
+    border-color: rgba(255, 255, 255, 0.06);
+    box-shadow: none;
+  }
+
+  .pcl-title { color: #fff; }
+
+  .pcl-hidden-label {
+    background: rgba(232, 137, 60, 0.15);
+  }
+
+  .pcl-item {
+    color: #fff;
+    &:hover { background: rgba(255, 255, 255, 0.05); }
+    .pcl-check { color: #555; }
+    .pcl-arrow { color: #555; }
+    &.pcl-item--done .pcl-check { color: #30d158; }
   }
 }
 
@@ -7589,6 +7674,16 @@ ion-content {
     .calendar-title {
       font-size: 16px;
       font-weight: 600;
+      pointer-events: auto;
+    }
+
+    .profile-checklist-section {
+      pointer-events: auto;
+      position: relative;
+      text-align: left;
+    }
+
+    .feedback-banner-airbnb {
       pointer-events: auto;
     }
   }

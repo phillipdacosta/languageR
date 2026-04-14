@@ -1423,6 +1423,7 @@
     "LOADING_CALENDAR": "Loading calendar...",
     "WEEK": "Week",
     "COMPLETE_PROFILE_SETUP": "Complete Your Profile Setup",
+    "COMPLETE_PROFILE_BEFORE_AVAILABILITY": "You need to complete your profile setup before adding availability. This includes uploading your photo, video, credentials, and setting up a payout method.",
     "UPLOAD_PROFILE_PHOTO": "Upload your profile photo",
     "VIDEO_PENDING_REVIEW": "Introduction video pending review",
     "UPLOAD_INTRO_VIDEO": "Upload your introduction video",

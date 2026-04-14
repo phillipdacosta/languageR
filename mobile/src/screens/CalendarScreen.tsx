@@ -409,12 +409,52 @@ export default function CalendarScreen() {
     Animated.spring(fabAnim, { toValue, useNativeDriver: true, friction: 8 }).start();
   };
 
+  const profileChecklist = useMemo(() => {
+    if (!user || user.userType !== 'tutor') return { incomplete: false, items: [], doneCount: 0 };
+    const hasCustomPhoto = !!(user.picture && (
+      user.picture.includes('storage.googleapis.com') ||
+      (user.auth0Picture && user.picture !== user.auth0Picture)
+    ));
+    const od = user.onboardingData;
+    const hasVideo = !!(od?.introductionVideo || od?.pendingVideo);
+    const videoApproved = user.tutorOnboarding?.videoApproved === true;
+    const creds = user.tutorCredentials;
+    const govIdOk = !!(creds?.governmentId?.url && creds.governmentId.status !== 'not_uploaded');
+    const certsOk = !!(creds?.teachingCertifications && creds.teachingCertifications.length > 0);
+    const credsComplete = govIdOk && certsOk;
+    const credsApproved = creds?.governmentId?.status === 'approved' && !!(creds?.teachingCertifications?.some((c: any) => c.status === 'approved'));
+    const hasPayout = !!(user.stripeConnectOnboarded || user.payoutProvider === 'paypal' || user.payoutProvider === 'manual');
+
+    const items = [
+      { id: 'photo', label: t('PROFILE_SCREEN.PROFILE_PHOTO') || 'Profile photo', done: hasCustomPhoto },
+      { id: 'video', label: hasVideo && !videoApproved ? (t('TUTOR_CALENDAR.VIDEO_PENDING_REVIEW') || 'Intro video (pending)') : (t('TUTOR_CALENDAR.UPLOAD_INTRO_VIDEO') || 'Introduction video'), done: hasVideo },
+      { id: 'creds', label: credsComplete && !credsApproved ? (t('PROFILE_SCREEN.CREDENTIALS') + ' (pending)') : (t('PROFILE_SCREEN.CREDENTIALS') || 'Credentials'), done: credsComplete },
+      { id: 'payout', label: t('PROFILE_SCREEN.PAYOUT_METHOD') || 'Payout method', done: hasPayout },
+    ];
+    const doneCount = items.filter(i => i.done).length;
+    return { incomplete: doneCount < items.length, items, doneCount };
+  }, [user, t]);
+
+  const isProfileIncomplete = profileChecklist.incomplete;
+
   const handleFabOption = (key: string) => {
     setFabOpen(false);
     Animated.timing(fabAnim, { toValue: 0, duration: 150, useNativeDriver: true }).start();
-    if (key === 'availability') navigation.navigate('AvailabilitySetup', {});
-    else if (key === 'blockTime') navigation.navigate('AvailabilitySetup', { date: formatDateKey(selectedDate) });
-    else if (key === 'googleCal') {
+    if (key === 'availability' || key === 'blockTime') {
+      if (isProfileIncomplete) {
+        Alert.alert(
+          t('TUTOR_CALENDAR.COMPLETE_PROFILE_SETUP') || 'Complete Your Profile',
+          t('TUTOR_CALENDAR.COMPLETE_PROFILE_BEFORE_AVAILABILITY') || 'Complete your profile setup before adding availability.',
+          [
+            { text: t('COMMON.CANCEL') || 'Cancel', style: 'cancel' },
+            { text: t('TUTOR_CALENDAR.CONTINUE_SETUP') || 'Continue Setup', onPress: () => navigation.navigate('Profile') },
+          ]
+        );
+        return;
+      }
+      if (key === 'availability') navigation.navigate('AvailabilitySetup', {});
+      else navigation.navigate('AvailabilitySetup', { date: formatDateKey(selectedDate) });
+    } else if (key === 'googleCal') {
       if (gcalStatus.connected) showGcalActions();
       else connectGoogleCalendar();
     }
@@ -498,6 +538,35 @@ export default function CalendarScreen() {
       {/* Timeline */}
       <Animated.View style={[{ flex: 1 }, listGateMotion]}>
       <ScrollView style={st.scroll} contentContainerStyle={st.scrollContent} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.textSecondary} />} showsVerticalScrollIndicator={false}>
+        {isProfileIncomplete && profileChecklist.items.length > 0 && (
+          <View style={[st.pclCard, { backgroundColor: C.card, borderColor: C.border }]}>
+            <View style={st.pclHeader}>
+              <Ionicons name="alert-circle-outline" size={18} color="#e8893c" />
+              <Text style={[st.pclTitle, { color: C.text }]}>{profileChecklist.doneCount} / {profileChecklist.items.length} {t('COMMON.COMPLETE') || 'complete'}</Text>
+              <View style={st.pclBadge}>
+                <Ionicons name="eye-off-outline" size={12} color="#e8893c" />
+                <Text style={st.pclBadgeText}>{t('PROFILE_SCREEN.HIDDEN_UNTIL_COMPLETE') || 'Hidden from students'}</Text>
+              </View>
+            </View>
+            {profileChecklist.items.map(item => (
+              <TouchableOpacity
+                key={item.id}
+                style={[st.pclRow, item.done && st.pclRowDone]}
+                onPress={() => { if (!item.done) navigation.navigate('Profile'); }}
+                activeOpacity={item.done ? 1 : 0.7}
+              >
+                <Ionicons
+                  name={item.done ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={20}
+                  color={item.done ? '#34c759' : (isDark ? '#555' : '#ccc')}
+                />
+                <Text style={[st.pclLabel, { color: C.text }, item.done && st.pclLabelDone]}>{item.label}</Text>
+                {!item.done && <Ionicons name="chevron-forward-outline" size={14} color={isDark ? '#555' : '#bbb'} />}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
         {feedbackCount > 0 && (
           <View style={[st.feedbackBanner, { backgroundColor: isDark ? '#2a2000' : '#FFF8E1' }]}>
             <Ionicons name="chatbox-ellipses-outline" size={18} color="#F5A623" />
@@ -522,7 +591,7 @@ export default function CalendarScreen() {
             <Ionicons name="calendar-outline" size={56} color={C.border} />
             <Text style={[st.emptyTitle, { color: C.text }]}>{t('TUTOR_CALENDAR.NO_EVENTS_TITLE')}</Text>
             <Text style={[st.emptySub, { color: C.textSecondary }]}>{t('TUTOR_CALENDAR.NO_EVENTS_DESC')}</Text>
-            {isTutor && <TouchableOpacity style={[st.emptyCta, { backgroundColor: C.accent }]} onPress={() => navigation.navigate('AvailabilitySetup', {})} activeOpacity={0.85}><Text style={[st.emptyCtaText, { color: C.background }]}>{t('TUTOR_CALENDAR.SET_AVAILABILITY')}</Text></TouchableOpacity>}
+            {isTutor && <TouchableOpacity style={[st.emptyCta, { backgroundColor: C.accent }, isProfileIncomplete && { opacity: 0.4 }]} onPress={() => { if (!isProfileIncomplete) navigation.navigate('AvailabilitySetup', {}); }} activeOpacity={0.85} disabled={isProfileIncomplete}><Text style={[st.emptyCtaText, { color: C.background }]}>{t('TUTOR_CALENDAR.SET_AVAILABILITY')}</Text></TouchableOpacity>}
           </View>
         ) : eventEntries.length === 0 && availEntries.length > 0 ? (
           <Text style={[st.waitingText, { color: C.textTertiary }]}>{t('TUTOR_CALENDAR.WAITING_FOR_STUDENTS')}</Text>
@@ -681,6 +750,16 @@ const st = StyleSheet.create({
 
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 16, paddingTop: 8 },
+
+  pclCard: { borderRadius: 14, padding: 16, marginBottom: 12, borderWidth: 1 },
+  pclHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  pclTitle: { fontSize: 14, fontWeight: '600' },
+  pclBadge: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(232,137,60,0.1)', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20 },
+  pclBadgeText: { fontSize: 11, fontWeight: '500', color: '#e8893c' },
+  pclRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 8, borderRadius: 10 },
+  pclRowDone: { opacity: 0.55 },
+  pclLabel: { flex: 1, fontSize: 14, fontWeight: '500' },
+  pclLabelDone: { textDecorationLine: 'line-through', textDecorationColor: 'rgba(0,0,0,0.2)' },
 
   feedbackBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 12, marginBottom: 10 },
   feedbackText: { fontSize: 13, fontWeight: '500', flex: 1 },

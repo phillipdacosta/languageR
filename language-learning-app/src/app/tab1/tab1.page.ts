@@ -443,6 +443,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   growthIndex = 0;
   growthCount = 0;
   growthPaused = false;
+  /** True when the growth ticker contains profile-critical items (should override next lesson display). */
+  hasProfileCriticalInsights = false;
+  /** Profile completion checklist for inline welcome display. */
+  profileChecklist: { id: string; label: string; done: boolean; route: string }[] = [];
+  profileChecklistDoneCount = 0;
+  profileChecklistTotal = 0;
   /** Single-item row; `epoch` bumps every visible change so trackBy never reuses a cached view (restarts CSS fade). */
   growthInsightSlideRow: { epoch: number; insight: GrowthInsight }[] = [];
   readonly trackGrowthInsightSlide = (_index: number, row: { epoch: number }) => row.epoch;
@@ -3513,8 +3519,11 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       (user.auth0Picture && user.picture !== user.auth0Picture) // Different from original Auth0 photo
     ));
     
-    // Show banner only if user is NOT fully approved
-    this.showOnboardingBanner = !user.tutorApproved;
+    // Show banner if user is NOT fully approved, or if approved but missing critical items
+    const hasAllCritical = this.hasCustomProfilePhoto &&
+      (user.tutorOnboarding?.videoApproved || !!user.onboardingData?.introductionVideo || !!user.onboardingData?.pendingVideo) &&
+      this.tutorOnboardingStatus?.stripeComplete;
+    this.showOnboardingBanner = !user.tutorApproved || !hasAllCritical;
 
     // Detect profile hidden due to video removal: onboarding was completed but no video exists
     const hasNoVideo = !user.onboardingData?.introductionVideo && !user.onboardingData?.pendingVideo;
@@ -3744,10 +3753,15 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       const userAny = this.currentUser as any;
       const todayCounts = this.countTodayLessons();
 
+      const user = this.currentUser;
+      const creds = user?.tutorCredentials;
+      const govIdUploaded = !!(creds?.governmentId?.url && creds.governmentId.status !== 'not_uploaded');
+      const certsUploaded = !!(creds?.teachingCertifications && creds.teachingCertifications.length > 0);
+
       const ctx: GrowthContext = {
         hasAvailability: this.hasAvailability,
         hasUpcomingLessons: !!this.nextLesson,
-        tutorName: this.currentUser?.firstName || '',
+        tutorName: user?.firstName || '',
         lessonsThisWeek: this.lessonsThisWeek,
         lessonsToday: todayCounts.total,
         completedToday: todayCounts.completed,
@@ -3768,6 +3782,13 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         recentForumPostCount: 0,
         activeForumThreadsInLanguage: 0,
         tutorRating: this.tutorRating,
+        hasCustomPhoto: this.hasCustomProfilePhoto,
+        hasVideo: !!(user?.onboardingData?.introductionVideo || user?.onboardingData?.pendingVideo),
+        videoApproved: user?.tutorOnboarding?.videoApproved === true,
+        credentialsComplete: govIdUploaded && certsUploaded,
+        credentialsApproved: creds?.governmentId?.status === 'approved' && !!(creds?.teachingCertifications?.some((c: any) => c.status === 'approved')),
+        hasPayoutSetup: this.tutorOnboardingStatus?.stripeComplete === true,
+        tutorApproved: user?.tutorApproved === true,
       };
 
       this.tutorGrowthService.compute(ctx);
@@ -3832,6 +3853,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.growthIndex = idx;
     this.growthCount = this.tutorGrowthService.count;
     this.growthPaused = this.tutorGrowthService.paused;
+    this.hasProfileCriticalInsights = this.tutorGrowthService.hasProfileCritical;
+    this.profileChecklist = this.tutorGrowthService.profileChecklist;
+    this.profileChecklistDoneCount = this.profileChecklist.filter(i => i.done).length;
+    this.profileChecklistTotal = this.profileChecklist.length;
     this.growthInsightSlideRow = insight
       ? [{ epoch: this._growthSlideEpoch, insight }]
       : [];

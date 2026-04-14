@@ -101,6 +101,47 @@ export default function AvailabilitySetupScreen() {
   const userId = user?._id || user?.id || '';
   const use24h = user?.profile?.calendarTimeFormat === '24h';
 
+  const profileBlocked = useMemo(() => {
+    if (!user || user.userType !== 'tutor') return false;
+    const hasCustomPhoto = !!(user.picture && (
+      user.picture.includes('storage.googleapis.com') ||
+      (user.auth0Picture && user.picture !== user.auth0Picture)
+    ));
+    const od = user.onboardingData;
+    const hasVideo = !!(od?.introductionVideo || od?.pendingVideo);
+    const creds = user.tutorCredentials;
+    const govIdOk = !!(creds?.governmentId?.url && creds.governmentId.status !== 'not_uploaded');
+    const certsOk = !!(creds?.teachingCertifications && creds.teachingCertifications.length > 0);
+    const hasPayout = user.stripeConnectOnboarded || user.payoutProvider === 'paypal' || user.payoutProvider === 'manual';
+    return !hasCustomPhoto || !hasVideo || !(govIdOk && certsOk) || !hasPayout;
+  }, [user]);
+
+  if (profileBlocked) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
+          <Ionicons name="alert-circle-outline" size={48} color="#e8893c" style={{ marginBottom: 16 }} />
+          <Text style={{ fontSize: 20, fontWeight: '700', color: colors.text, textAlign: 'center', marginBottom: 10 }}>
+            Complete Your Profile First
+          </Text>
+          <Text style={{ fontSize: 15, lineHeight: 22, color: colors.textSecondary, textAlign: 'center', marginBottom: 24 }}>
+            You need to finish your profile setup before adding availability. This includes your photo, video, credentials, and payout method.
+          </Text>
+          <TouchableOpacity
+            style={{ backgroundColor: colors.isDark ? '#3a7bc8' : '#000', paddingHorizontal: 28, paddingVertical: 14, borderRadius: 12 }}
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate('Profile')}
+          >
+            <Text style={{ color: '#fff', fontSize: 15, fontWeight: '600' }}>Continue Setup</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={{ marginTop: 16 }} onPress={() => navigation.goBack()}>
+            <Text style={{ color: colors.textSecondary, fontSize: 14 }}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   const targetDate = route.params?.date ? new Date(route.params.date + 'T00:00:00') : null;
   const isSingleDay = !!targetDate;
 

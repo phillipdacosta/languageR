@@ -203,13 +203,26 @@ export default function ProfileScreen() {
     if (!isTutor || !user) return { visible: true, loaded: false, missing: [] as string[] };
     const missing: string[] = [];
     if (!user.onboardingCompleted) missing.push(t('HOME.BANNER_COMPLETE_SETUP'));
+    const hasCustomPhoto = !!(user.picture && (
+      user.picture.includes('storage.googleapis.com') ||
+      (user.auth0Picture && user.picture !== user.auth0Picture)
+    ));
+    if (!hasCustomPhoto) missing.push(t('HOME.BANNER_UPLOAD_PHOTO'));
     if (!user.tutorApproved) {
       const videoOk = user.tutorOnboarding?.videoApproved === true;
       if (!videoOk) { const hasAny = !!(od?.introductionVideo || od?.pendingVideo); missing.push(hasAny ? t('HOME.BANNER_VIDEO_PENDING') : t('HOME.BANNER_UPLOAD_VIDEO')); }
+      const creds = user.tutorCredentials;
+      const govIdOk = creds?.governmentId?.status === 'approved';
+      const certsOk = !!(creds?.teachingCertifications?.some((c: any) => c.status === 'approved'));
+      if (!govIdOk || !certsOk) {
+        const govUploaded = !!(creds?.governmentId?.url && creds.governmentId.status !== 'not_uploaded');
+        const certsUploaded = !!(creds?.teachingCertifications && creds.teachingCertifications.length > 0);
+        missing.push(govUploaded && certsUploaded ? t('HOME.BANNER_CREDENTIALS_PENDING') : t('HOME.BANNER_UPLOAD_CREDENTIALS'));
+      }
     }
     if (!hasPayoutSetup && payoutLoaded) missing.push(t('HOME.BANNER_CONNECT_BANK'));
     if (pendingFeedbackCount > 0) missing.push(`${pendingFeedbackCount} ${t('HOME.FEEDBACK_NEEDED')}`);
-    const isVisible = !!user.onboardingCompleted && !!user.tutorApproved && hasPayoutSetup && pendingFeedbackCount === 0;
+    const isVisible = !!user.onboardingCompleted && hasCustomPhoto && !!user.tutorApproved && hasPayoutSetup && pendingFeedbackCount === 0;
     return { visible: isVisible, loaded: payoutLoaded, missing };
   }, [isTutor, user, hasPayoutSetup, payoutLoaded, pendingFeedbackCount, od, t]);
 

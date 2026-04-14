@@ -16,6 +16,7 @@ export class MobileQuickActionsComponent {
   @Input() quickActionsAnimated = false;
   @Input() staggerReady = false;
   @Input() staggerDone = false;
+  @Input() isDarkModeActive = false;
   @Output() navigateToExplore = new EventEmitter<void>();
   @Output() navigateToCreateMaterial = new EventEmitter<MouseEvent>();
   @Output() navigateToForum = new EventEmitter<void>();

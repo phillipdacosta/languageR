@@ -1,10 +1,11 @@
 import { Component, OnInit, ViewChild, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ViewWillEnter } from '@ionic/angular';
-import { RouterModule, ActivatedRoute } from '@angular/router';
+import { Router, RouterModule, ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
+import { takeUntil, take } from 'rxjs/operators';
 import { AvailabilitySetupComponent } from '../../components/availability-setup/availability-setup.component';
+import { UserService } from '../../services/user.service';
 
 @Component({
   selector: 'app-availability-setup-page',
@@ -17,32 +18,56 @@ export class AvailabilitySetupPage implements OnInit, OnDestroy, ViewWillEnter {
   @ViewChild(AvailabilitySetupComponent) availabilityComponent?: AvailabilitySetupComponent;
   
   selectedDate: string | null = null;
+  profileBlocked = false;
   private destroy$ = new Subject<void>();
   private isInitialized = false;
 
-  constructor(private route: ActivatedRoute) {}
+  constructor(
+    private route: ActivatedRoute,
+    private router: Router,
+    private userService: UserService
+  ) {}
 
   ngOnInit() {
-    // Subscribe to route params with takeUntil for proper cleanup
     this.route.params.pipe(takeUntil(this.destroy$)).subscribe(params => {
       this.selectedDate = params['date'] || null;
-      console.log('📅 [AvailabilitySetupPage] Route params:', { selectedDate: this.selectedDate });
       
-      // If component is already initialized and we get new params, refresh it
       if (this.isInitialized && this.availabilityComponent) {
         this.availabilityComponent.forceRefreshAvailability();
       }
     });
     this.isInitialized = true;
+    this.checkProfileRequirements();
   }
 
-  // Ionic lifecycle hook - called every time the view is about to enter
   ionViewWillEnter() {
-    console.log('📅 [AvailabilitySetupPage] ionViewWillEnter');
-    // Force refresh when returning to this page
     if (this.availabilityComponent) {
       this.availabilityComponent.forceRefreshAvailability();
     }
+    this.checkProfileRequirements();
+  }
+
+  private checkProfileRequirements(): void {
+    this.userService.getCurrentUser().pipe(take(1)).subscribe(user => {
+      if (!user || user.userType !== 'tutor') return;
+
+      const hasCustomPhoto = !!(user.picture && (
+        user.picture.includes('storage.googleapis.com') ||
+        (user.auth0Picture && user.picture !== user.auth0Picture)
+      ));
+      const hasVideo = !!(user.onboardingData?.introductionVideo || user.onboardingData?.pendingVideo);
+      const creds = user.tutorCredentials;
+      const govIdUploaded = !!(creds?.governmentId?.url && creds.governmentId.status !== 'not_uploaded');
+      const certsUploaded = !!(creds?.teachingCertifications && creds.teachingCertifications.length > 0);
+      const hasPayoutSetup = user.stripeConnectOnboarded ||
+        user.payoutProvider === 'paypal' || user.payoutProvider === 'manual';
+
+      this.profileBlocked = !hasCustomPhoto || !hasVideo || !(govIdUploaded && certsUploaded) || !hasPayoutSetup;
+    });
+  }
+
+  goToSetup(): void {
+    this.router.navigate(['/tutor-approval']);
   }
 
   ngOnDestroy() {

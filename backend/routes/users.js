@@ -341,9 +341,15 @@ router.post('/', verifyToken, async (req, res) => {
       user.email = email || user.email;
       user.name = name || user.name;
       
-      // Sync picture from Auth0 if available, otherwise use provided picture, otherwise keep existing
+      // Sync picture: never overwrite a custom GCS-uploaded photo with Auth0/Google avatar
       const auth0Picture = req.user.picture || req.user.picture_url || null;
-      user.picture = picture || auth0Picture || user.picture;
+      const hasCustomPicture = user.picture && user.picture.includes('storage.googleapis.com') && user.picture.includes('profile-pictures');
+      if (hasCustomPicture) {
+        // Keep custom upload; only refresh the auth0Picture reference
+        if (auth0Picture) user.auth0Picture = auth0Picture;
+      } else {
+        user.picture = picture || auth0Picture || user.picture;
+      }
       
       user.emailVerified = emailVerified !== undefined ? emailVerified : user.emailVerified;
       user.userType = userType || user.userType; // Update user type
@@ -518,14 +524,20 @@ router.put('/onboarding', verifyToken, async (req, res) => {
       console.log('🔍 User found:', user.email, 'userType:', user.userType);
       console.log('🔍 Current user picture:', user.picture);
       
-      // Sync picture from Auth0 if available and user doesn't have one
+      // Sync picture from Auth0 only if user has no custom GCS upload
       const auth0Picture = req.user.picture || req.user.picture_url || null;
+      const hasCustomPicture = user.picture && user.picture.includes('storage.googleapis.com') && user.picture.includes('profile-pictures');
       if (auth0Picture && !user.picture) {
         console.log('🖼️ User has no picture, syncing from Auth0:', auth0Picture);
         user.picture = auth0Picture;
-      } else if (auth0Picture && auth0Picture !== user.picture) {
-        console.log('🖼️ Updating user picture from Auth0:', { old: user.picture, new: auth0Picture });
+        user.auth0Picture = auth0Picture;
+      } else if (auth0Picture && !hasCustomPicture && auth0Picture !== user.picture) {
+        console.log('🖼️ Updating user picture from Auth0 (no custom upload):', { old: user.picture, new: auth0Picture });
         user.picture = auth0Picture;
+      }
+      // Always keep auth0Picture reference fresh
+      if (auth0Picture && auth0Picture !== user.auth0Picture) {
+        user.auth0Picture = auth0Picture;
       }
       
       // Update firstName, lastName, country, and nativeLanguage if provided
@@ -932,12 +944,14 @@ router.get('/tutors', verifyToken, async (req, res) => {
     } = req.query;
 
     // Build filter query
-    // Only show tutors who can receive payments (Stripe, PayPal, or Manual)
+    // Only show tutors who have completed all required setup:
+    // approved, has video, has custom profile photo, and can receive payments
     const filterQuery = {
       userType: 'tutor',
       onboardingCompleted: true,
       tutorApproved: true,
       'onboardingData.introductionVideo': { $exists: true, $ne: '' },
+      picture: { $regex: /storage\.googleapis\.com.*profile-pictures/ },
       $or: [
         { stripeConnectOnboarded: true },
         { payoutProvider: 'paypal' },

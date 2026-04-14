@@ -2,7 +2,7 @@ import { Component, OnInit, AfterViewInit, OnDestroy, ViewChild, ElementRef, Cha
 import { CommonModule } from '@angular/common';
 import { IonicModule, ViewWillEnter, ViewDidEnter, ActionSheetController, ModalController, ToastController, AlertController, NavController } from '@ionic/angular';
 import { EventDetailsModalComponent } from '../components/event-details-modal/event-details-modal.component';
-import { Router, NavigationEnd, ActivatedRoute } from '@angular/router';
+import { Router, RouterModule, NavigationEnd, ActivatedRoute } from '@angular/router';
 import { UserService, User } from '../services/user.service';
 import { LessonService, Lesson } from '../services/lesson.service';
 import { ClassService } from '../services/class.service';
@@ -110,7 +110,8 @@ interface AgendaSection {
     GrossFreeHoursPipe,
     TotalAvailabilityPipe,
     BookedHoursPipe,
-    TranslateModule
+    TranslateModule,
+    RouterModule
   ],
   animations: [
     trigger('slideInUp', [
@@ -154,17 +155,47 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   isCompactToolbar = false;
   
   get isOnboardingIncomplete(): boolean {
+    const user = this.currentUser;
+    const creds = user?.tutorCredentials;
+    const hasPayoutSetup = user?.stripeConnectOnboarded || user?.payoutProvider === 'paypal' || user?.payoutProvider === 'manual';
+    const govIdUploaded = !!(creds?.governmentId?.url && creds.governmentId.status !== 'not_uploaded');
+    const certsUploaded = !!(creds?.teachingCertifications && creds.teachingCertifications.length > 0);
     return !this.hasCustomProfilePhoto ||
-           !this.currentUser?.tutorOnboarding?.videoApproved ||
-           (!this.currentUser?.tutorOnboarding?.stripeConnected && !this.currentUser?.stripeConnectOnboarded);
+           !user?.tutorOnboarding?.videoApproved ||
+           !(govIdUploaded && certsUploaded) ||
+           !hasPayoutSetup;
   }
 
-  get isProfileHiddenNoVideo(): boolean {
-    return !this.currentUser?.tutorApproved &&
-           !!this.currentUser?.onboardingCompleted &&
-           !this.currentUser?.onboardingData?.introductionVideo &&
-           !this.currentUser?.onboardingData?.pendingVideo &&
-           !this.currentUser?.tutorOnboarding?.videoApproved;
+  /** True when government ID or teaching certs are missing (calendar onboarding banner). */
+  get bannerCredentialsIncomplete(): boolean {
+    const creds = this.currentUser?.tutorCredentials;
+    const gov = creds?.governmentId;
+    const govIdUploaded = !!(gov?.url && gov.status !== 'not_uploaded');
+    const certsUploaded = (creds?.teachingCertifications?.length ?? 0) > 0;
+    return !(govIdUploaded && certsUploaded);
+  }
+
+  get profileChecklist(): { id: string; label: string; done: boolean; route: string }[] {
+    const user = this.currentUser;
+    if (!user) return [];
+    const creds = user.tutorCredentials;
+    const hasVideo = !!(user.onboardingData?.introductionVideo || user.onboardingData?.pendingVideo);
+    const videoApproved = user.tutorOnboarding?.videoApproved === true;
+    const govIdUploaded = !!(creds?.governmentId?.url && creds.governmentId.status !== 'not_uploaded');
+    const certsUploaded = (creds?.teachingCertifications?.length ?? 0) > 0;
+    const credsComplete = govIdUploaded && certsUploaded;
+    const credsApproved = creds?.governmentId?.status === 'approved' && !!(creds?.teachingCertifications?.some((c: any) => c.status === 'approved'));
+    const hasPayout = user.stripeConnectOnboarded || user.payoutProvider === 'paypal' || user.payoutProvider === 'manual';
+    return [
+      { id: 'photo', label: 'Profile photo', done: this.hasCustomProfilePhoto, route: '/tutor-approval' },
+      { id: 'video', label: hasVideo && !videoApproved ? 'Intro video (pending review)' : 'Introduction video', done: hasVideo, route: '/tabs/profile' },
+      { id: 'creds', label: credsComplete && !credsApproved ? 'Credentials (pending review)' : 'Credentials', done: credsComplete, route: '/tutor-approval' },
+      { id: 'payout', label: 'Payout method', done: !!hasPayout, route: '/tutor-approval' },
+    ];
+  }
+
+  get profileChecklistDoneCount(): number {
+    return this.profileChecklist.filter(i => i.done).length;
   }
 
   // Outstanding feedback
@@ -2866,21 +2897,16 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
 
   async onSetUpAvailability(date?: Date, timeSlot?: TimelineEntry) {
-    if (this.isProfileHiddenNoVideo) {
+    if (this.isOnboardingIncomplete) {
       const alert = await this.alertController.create({
-        header: this.translate.instant('TUTOR_CALENDAR.PROFILE_HIDDEN_HEADER'),
-        message: this.translate.instant('TUTOR_CALENDAR.PROFILE_HIDDEN_MSG'),
+        header: this.translate.instant('TUTOR_CALENDAR.COMPLETE_PROFILE_SETUP'),
+        message: this.translate.instant('TUTOR_CALENDAR.COMPLETE_PROFILE_BEFORE_AVAILABILITY'),
         buttons: [
           { text: this.translate.instant('TUTOR_CALENDAR.CANCEL'), role: 'cancel' },
-          { text: this.translate.instant('TUTOR_CALENDAR.UPLOAD_VIDEO'), handler: () => this.router.navigate(['/tabs/profile']) }
+          { text: this.translate.instant('TUTOR_CALENDAR.CONTINUE_SETUP'), handler: () => this.router.navigate(['/tutor-approval']) }
         ]
       });
       await alert.present();
-      return;
-    }
-
-    if (!this.stripeConnectOnboarded) {
-      this.showStripeOnboardingAlert();
       return;
     }
     

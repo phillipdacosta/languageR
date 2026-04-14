@@ -78,6 +78,36 @@ html.ion-palette-dark .mobile-section-actions .mobile-section-title,
   user-select: none;
 }
 
+.mac-action-classes .mac-icon-img {
+  transform: scale(1.34);
+  transform-origin: center center;
+}
+
+html.ion-palette-dark .mac-action-classes .mac-icon-img,
+[data-theme='dark'] .mac-action-classes .mac-icon-img {
+  transform: none;
+}
+
+.mac-action-create-material .mac-icon-img {
+  transform: scale(1.48);
+  transform-origin: center center;
+}
+
+html.ion-palette-dark .mac-action-create-material .mac-icon-img,
+[data-theme='dark'] .mac-action-create-material .mac-icon-img {
+  transform: none;
+}
+
+.mac-action-forum .mac-icon-img {
+  transform: scale(1.72);
+  transform-origin: center center;
+}
+
+html.ion-palette-dark .mac-action-forum .mac-icon-img,
+[data-theme='dark'] .mac-action-forum .mac-icon-img {
+  transform: none;
+}
+
 .mac-text {
   display: flex;
   flex-direction: column;
