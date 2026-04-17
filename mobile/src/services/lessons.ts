@@ -170,16 +170,136 @@ export function getLessonEnd(lesson: Lesson): Date {
   return new Date(start.getTime() + (lesson.duration || 30) * 60000);
 }
 
+/** Match web `LessonService.canJoinLesson` — earliest join this many minutes before start. */
+export const JOIN_WINDOW_MINUTES_BEFORE_START = 15;
+/** Match web `LessonService.canJoinLesson` — join allowed until this many minutes after end. */
+export const JOIN_WINDOW_MINUTES_AFTER_END = 5;
+
+/** Web tab1 `isLessonInProgress`: clock between start and end (inclusive of end instant). */
+export function isLessonInProgressSlot(lesson: Lesson, now: Date = new Date()): boolean {
+  const start = getLessonStart(lesson);
+  const end = getLessonEnd(lesson);
+  const t0 = start.getTime();
+  const t1 = end.getTime();
+  if (Number.isNaN(t0) || Number.isNaN(t1)) return false;
+  const n = now.getTime();
+  return n >= t0 && n <= t1;
+}
+
+/** Align with backend lesson availability (`scheduled` | `confirmed` | `in_progress`) and list feeds that still surface `pending_reschedule`. */
+function joinStatusAllowsToken(lesson: Lesson): boolean {
+  const s = String(lesson.status || 'scheduled').toLowerCase();
+  return (
+    s === 'scheduled' ||
+    s === 'confirmed' ||
+    s === 'in_progress' ||
+    s === 'pending_reschedule'
+  );
+}
+
+/** Same time window + status rules as web `LessonService.canJoinLesson`. */
+export function canJoinLessonByPolicy(lesson: Lesson, now: Date = new Date()): boolean {
+  const start = getLessonStart(lesson);
+  const end = getLessonEnd(lesson);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return false;
+  const earliestJoin = new Date(start.getTime() - JOIN_WINDOW_MINUTES_BEFORE_START * 60000);
+  const latestJoin = new Date(end.getTime() + JOIN_WINDOW_MINUTES_AFTER_END * 60000);
+  return now >= earliestJoin && now <= latestJoin && joinStatusAllowsToken(lesson);
+}
+
+/** Web tab1 `joinStudentLesson` gate: in scheduled slot by clock, or within join policy window. */
+export function canUserJoinLessonNow(lesson: Lesson, now: Date = new Date()): boolean {
+  return isLessonInProgressSlot(lesson, now) || canJoinLessonByPolicy(lesson, now);
+}
+
+export type JoinGateState = {
+  canJoin: boolean;
+  /** Seconds until 15-min-before window; 0 if can join or session ended */
+  waitSeconds: number;
+  /** True when current time is past the join deadline (end + grace). */
+  sessionEnded: boolean;
+};
+
+export function getJoinGateState(lesson: Lesson | null | undefined, now: Date = new Date()): JoinGateState {
+  if (!lesson || (!lesson.startTime && !lesson.scheduledTime)) {
+    return { canJoin: false, waitSeconds: 0, sessionEnded: true };
+  }
+  if (lesson.status === 'cancelled') {
+    return { canJoin: false, waitSeconds: 0, sessionEnded: true };
+  }
+  if (canUserJoinLessonNow(lesson, now)) {
+    return { canJoin: true, waitSeconds: 0, sessionEnded: false };
+  }
+  const start = getLessonStart(lesson);
+  const end = getLessonEnd(lesson);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return { canJoin: false, waitSeconds: 0, sessionEnded: true };
+  }
+  const latestJoin = new Date(end.getTime() + JOIN_WINDOW_MINUTES_AFTER_END * 60000);
+  if (now > latestJoin) {
+    return { canJoin: false, waitSeconds: 0, sessionEnded: true };
+  }
+  const earliestJoin = new Date(start.getTime() - JOIN_WINDOW_MINUTES_BEFORE_START * 60000);
+  const waitSeconds = Math.max(0, Math.ceil((earliestJoin.getTime() - now.getTime()) / 1000));
+  return { canJoin: false, waitSeconds, sessionEnded: false };
+}
+
+/** Web `LessonService.formatTimeUntil` — label for “Join in …”. */
+export function formatJoinWaitDuration(seconds: number): string {
+  if (seconds <= 0) return 'Now';
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m`;
+  return 'Less than 1m';
+}
+
+/** Web tab1 `getTimeUntilLesson` (future branch) — `time` in JOIN_NOT_READY_MSG. */
+export function formatTimeUntilLessonStart(lesson: Lesson, now: Date = new Date()): string {
+  const start = getLessonStart(lesson);
+  const diffMs = start.getTime() - now.getTime();
+  if (diffMs < 0) return 'soon';
+  const diffMinutes = Math.floor(diffMs / 60000);
+  if (diffMinutes <= 0) return 'NOW';
+  const totalHours = Math.floor(diffMinutes / 60);
+  const minutes = diffMinutes % 60;
+  if (totalHours >= 24) {
+    const days = Math.floor(totalHours / 24);
+    const remainingHours = totalHours % 24;
+    if (remainingHours > 0) return `${days}d ${remainingHours}h`;
+    return `${days} day${days !== 1 ? 's' : ''}`;
+  }
+  if (totalHours > 0) {
+    if (minutes > 0) return `${totalHours}h ${minutes}m`;
+    return `${totalHours}h`;
+  }
+  return `${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''}`;
+}
+
+/** Faces for stacked avatars on timeline rows (e.g. group class attendees). */
+export interface TimelineAvatarFace {
+  picture: string | null;
+  initials: string;
+}
+
+/** Max faces shown before a “+N” overflow ring (see `avatarStackOverflow`). */
+export const TIMELINE_AVATAR_STACK_MAX = 6;
+
 export interface TimelineEvent {
   lesson: Lesson;
   name: string;
   avatar: string | null;
+  /** When set (e.g. group class with enrollments), list rows show overlapping avatars. */
+  avatarStack?: TimelineAvatarFace[];
+  /** When total attendees exceed `TIMELINE_AVATAR_STACK_MAX`, remaining count (shown as +N). */
+  avatarStackOverflow?: number;
   date: string;
   time: string;
   duration: number;
   statusLabel: string;
   statusClass: string;
   isToday: boolean;
+  isTomorrow: boolean;
   isTrialLesson: boolean;
   countdown: string;
   timeRange: string;
@@ -353,6 +473,97 @@ export const lessonService = {
   },
 };
 
+function timelineAttendeeInitials(a: { name?: string; firstName?: string; lastName?: string }): string {
+  const raw = `${a.firstName || ''} ${a.lastName || ''}`.trim() || (a.name || '').trim();
+  if (!raw) return '?';
+  const parts = raw.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return `${parts[0].charAt(0)}${parts[1].charAt(0)}`.toUpperCase();
+  return parts[0].charAt(0).toUpperCase();
+}
+
+/** Map a single lesson to a timeline row (same labels as “Coming Up” on Home). */
+export function mapLessonToTimelineEvent(lesson: Lesson, userId: string, now: Date = new Date()): TimelineEvent {
+  const start = getLessonStart(lesson);
+  const end = getLessonEnd(lesson);
+  const isToday = start.toDateString() === now.toDateString();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(now.getDate() + 1);
+  const isTomorrow = start.toDateString() === tomorrow.toDateString();
+  const isClass = !!(lesson as any).isClass;
+
+  let name: string;
+  let avatar: string | null;
+  let subject: string;
+  let avatarStack: TimelineAvatarFace[] | undefined;
+  let avatarStackOverflow: number | undefined;
+
+  if (isClass) {
+    name = (lesson as any).className || lesson.subject || 'Group Class';
+    const thumb = (lesson as any).classData?.thumbnail || null;
+    subject = 'Group Class';
+    const attendees = (lesson.attendees || []) as any[];
+    if (attendees.length > 0) {
+      avatarStack = attendees.slice(0, TIMELINE_AVATAR_STACK_MAX).map(a => ({
+        picture: (a.picture || a.profilePicture || null) as string | null,
+        initials: timelineAttendeeInitials(a),
+      }));
+      avatarStackOverflow = Math.max(0, attendees.length - TIMELINE_AVATAR_STACK_MAX);
+      avatar = avatarStack[0]?.picture || thumb;
+    } else {
+      avatar = thumb;
+    }
+  } else {
+    const otherPerson = lesson.tutorId?._id === userId ? lesson.studentId : lesson.tutorId;
+    name = otherPerson?.firstName
+      ? `${otherPerson.firstName} ${(otherPerson.lastName || '').charAt(0)}.`
+      : otherPerson?.name || 'Student';
+    avatar = otherPerson?.picture || null;
+    subject = lesson.subject || lesson.language || '';
+  }
+
+  const diffMs = start.getTime() - now.getTime();
+  const diffH = Math.floor(diffMs / 3600000);
+  const diffM = Math.floor((diffMs % 3600000) / 60000);
+  let countdown = '';
+  if (diffMs > 0) {
+    if (diffH > 24) countdown = `${Math.floor(diffH / 24)}d`;
+    else if (diffH > 0) countdown = `${diffH}h ${diffM}m`;
+    else countdown = `${diffM}m`;
+  }
+
+  return {
+    lesson,
+    name,
+    avatar,
+    avatarStack,
+    avatarStackOverflow,
+    date: start.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
+    time: start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+    duration: lesson.duration || 30,
+    statusLabel: lesson.isTrialLesson ? 'Trial' : 'Scheduled',
+    statusClass: lesson.isTrialLesson ? 'status-trial' : 'status-scheduled',
+    isToday,
+    isTomorrow,
+    isTrialLesson: lesson.isTrialLesson || false,
+    countdown,
+    timeRange: `${start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – ${end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`,
+    dateTag: isToday
+      ? 'Today'
+      : isTomorrow
+        ? 'Tomorrow'
+        : start.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
+    subject,
+  };
+}
+
+/** Build timeline rows for an arbitrary ordered list (e.g. “This week” lessons). */
+export function buildTimelineEventsForLessons(lessons: Lesson[], userId: string): TimelineEvent[] {
+  const now = new Date();
+  return [...lessons]
+    .sort((a, b) => getLessonStart(a).getTime() - getLessonStart(b).getTime())
+    .map(lesson => mapLessonToTimelineEvent(lesson, userId, now));
+}
+
 export function buildTimelineEvents(lessons: Lesson[], userId: string): TimelineEvent[] {
   const now = new Date();
 
@@ -369,41 +580,5 @@ export function buildTimelineEvents(lessons: Lesson[], userId: string): Timeline
     })
     .sort((a, b) => getLessonStart(a).getTime() - getLessonStart(b).getTime());
 
-  return upcoming.slice(0, 5).map(lesson => {
-    const start = getLessonStart(lesson);
-    const end = getLessonEnd(lesson);
-    const isToday = start.toDateString() === now.toDateString();
-
-    const otherPerson = lesson.tutorId?._id === userId ? lesson.studentId : lesson.tutorId;
-    const name = otherPerson?.firstName
-      ? `${otherPerson.firstName} ${(otherPerson.lastName || '').charAt(0)}.`
-      : otherPerson?.name || 'Student';
-
-    const diffMs = start.getTime() - now.getTime();
-    const diffH = Math.floor(diffMs / 3600000);
-    const diffM = Math.floor((diffMs % 3600000) / 60000);
-    let countdown = '';
-    if (diffMs > 0) {
-      if (diffH > 24) countdown = `${Math.floor(diffH / 24)}d`;
-      else if (diffH > 0) countdown = `${diffH}h ${diffM}m`;
-      else countdown = `${diffM}m`;
-    }
-
-    return {
-      lesson,
-      name,
-      avatar: otherPerson?.picture || null,
-      date: start.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
-      time: start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-      duration: lesson.duration || 30,
-      statusLabel: lesson.isTrialLesson ? 'Trial' : 'Scheduled',
-      statusClass: lesson.isTrialLesson ? 'status-trial' : 'status-scheduled',
-      isToday,
-      isTrialLesson: lesson.isTrialLesson || false,
-      countdown,
-      timeRange: `${start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – ${end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`,
-      dateTag: isToday ? 'Today' : start.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
-      subject: lesson.subject || lesson.language || '',
-    };
-  });
+  return upcoming.slice(0, 5).map(lesson => mapLessonToTimelineEvent(lesson, userId, now));
 }

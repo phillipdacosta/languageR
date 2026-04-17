@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useCallback, useState } from 'react';
+import React, { useEffect, useMemo, useCallback, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,10 @@ import {
   Share,
   Platform,
   ActivityIndicator,
+  Alert,
+  Animated as RNAnimated,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -30,11 +33,22 @@ import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../contexts/ThemeContext';
 import { getRootNavigation } from '../utils/navigationRoot';
 import { ProcessedLessonCard } from '../utils/lessonCardModel';
-import { getLessonEnd, lessonService, LessonDetailResponse, PaymentData, BillingData, getCachedLessonDetail, fetchAndCacheLessonDetail } from '../services/lessons';
+import {
+  getLessonEnd,
+  lessonService,
+  LessonDetailResponse,
+  PaymentData,
+  BillingData,
+  getCachedLessonDetail,
+  fetchAndCacheLessonDetail,
+  getJoinGateState,
+  formatTimeUntilLessonStart,
+  isLessonInProgressSlot,
+} from '../services/lessons';
 import { materialService, RecommendedMaterial } from '../services/materials';
 import { isLessonMockId, getMockRecommendedMaterials } from '../utils/lessonMockPreview';
 import { LessonDateHeaderCenter, formatDateBadgeParts } from './LessonDateHeaderCenter';
-import { SolidToolbarWithBlur, TOOLBAR_TOTAL_CHROME_HEIGHT } from './SolidToolbarWithBlur';
+import { SolidToolbarWithBlur, TOOLBAR_TOTAL_CHROME_HEIGHT, TOOLBAR_SOLID_MIN_HEIGHT, TOOLBAR_BLUR_HEIGHT } from './SolidToolbarWithBlur';
 
 export interface CardRect {
   x: number;
@@ -59,6 +73,11 @@ const AV_SCALE = AV_DETAIL / AV_CARD;
 const NAME_CARD = 18;
 const NAME_DETAIL = 24;
 const NAME_SCALE = NAME_DETAIL / NAME_CARD;
+
+/** Height of the full-bleed class thumbnail hero at the top of the sheet. */
+const CLASS_HERO_H = 260;
+/** How far the content card overlaps the class hero (same as Bundle). */
+const CLASS_CARD_OVERLAP = 80;
 
 const SURFACE_SPRING = { damping: 26, stiffness: 200, mass: 0.85 };
 const HERO_SPRING = { damping: 24, stiffness: 240, mass: 0.75 };
@@ -90,6 +109,13 @@ export default function LessonDetailOverlay({ card, cardRect, onCloseStart, onCl
   const [detailMounted, setDetailMounted] = useState(false);
   const [recMaterials, setRecMaterials] = useState<RecommendedMaterial[]>([]);
   const [recLoading, setRecLoading] = useState(false);
+  const [joinUiTick, setJoinUiTick] = useState(0);
+
+  useEffect(() => {
+    if (!id) return;
+    const timer = setInterval(() => setJoinUiTick(x => x + 1), 10000);
+    return () => clearInterval(timer);
+  }, [id]);
 
   useEffect(() => {
     p.value = withSpring(1, SURFACE_SPRING);
@@ -166,6 +192,8 @@ export default function LessonDetailOverlay({ card, cardRect, onCloseStart, onCl
   }));
 
   const BODY_PAD_OPEN = insets.top + HEADER_H;
+  /** Hero mode omits the blur strip from the toolbar, so we reclaim those pixels so the card can scroll flush. */
+  const HERO_BODY_PAD = insets.top + TOOLBAR_SOLID_MIN_HEIGHT;
 
   // ── Body: static paddingTop applied once open; the surface animation handles the morph
   const bodyPadStyle = useAnimatedStyle(() => ({
@@ -173,19 +201,20 @@ export default function LessonDetailOverlay({ card, cardRect, onCloseStart, onCl
   }));
 
   // ── Hero wrap: transform-only (GPU) — no paddingTop / marginBottom layout work ──
+  // In hero/avatarFade mode the card handles spacing so we skip the translateY offset.
   const heroWrapStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: interpolate(p.value, [0, 1], [32, avExtraH + 12], Extrapolation.CLAMP) }],
+    transform: [{ translateY: showHero ? 0 : interpolate(p.value, [0, 1], [32, avExtraH + 12], Extrapolation.CLAMP) }],
     opacity: interpolate(p.value, [0, 0.08], [0, 1], Extrapolation.CLAMP),
   }));
 
-  // ── Avatar scale (transform-only, GPU) ──
+  // ── Avatar scale — disabled in hero/avatarFade mode (avatar stays at card size). ──
   const avatarGrow = useAnimatedStyle(() => ({
-    transform: [{ scale: interpolate(hero.value, [0, 1], [1, AV_SCALE]) }],
+    transform: [{ scale: showHero ? 1 : interpolate(hero.value, [0, 1], [1, AV_SCALE]) }],
   }));
 
-  // ── Name scale (transform-only, GPU) ──
+  // ── Name scale — disabled in hero/avatarFade mode. ──
   const nameGrow = useAnimatedStyle(() => ({
-    transform: [{ scale: interpolate(hero.value, [0, 1], [1, NAME_SCALE]) }],
+    transform: [{ scale: showHero ? 1 : interpolate(hero.value, [0, 1], [1, NAME_SCALE]) }],
   }));
 
   // ── Header: fades in mid-animation, fades out quickly on close ──
@@ -218,6 +247,14 @@ export default function LessonDetailOverlay({ card, cardRect, onCloseStart, onCl
   }, [card.lesson, detail?.lesson]);
   const isClass = !!lesson?.isClass;
   const classThumbUri = (lesson?.classData?.thumbnail || '').trim();
+
+  /** Scroll parallax for hero (Bundle-style). Must be created unconditionally (hooks rule). */
+  const classScrollY = useRef(new RNAnimated.Value(0)).current; // retained for potential future use
+  const showClassHero = isClass && !!classThumbUri;
+  /** Class thumbnail hero (full-bleed image). */
+  const showHero = showClassHero;
+  const heroThumbUri = classThumbUri;
+  /** 1-on-1: avatar is pinned above scroll and fades as card slides over it. */
 
   const baseInfo = useMemo(() => {
     const src = card.lesson;
@@ -426,6 +463,17 @@ export default function LessonDetailOverlay({ card, cardRect, onCloseStart, onCl
   const showMessageBtn = !!info && !isClass;
   const showStickyFooter = showJoinCta || showMessageBtn || showRebook;
 
+  const joinGate = useMemo(() => getJoinGateState(lesson ?? undefined), [lesson, joinUiTick]);
+  const joinPrimaryLabel = useMemo(() => {
+    if (!lesson || !showJoinCta) return t('HOME.JOIN_LESSON');
+    if (joinGate.canJoin) {
+      if (isLessonInProgressSlot(lesson)) return t('HOME.JOIN_NOW');
+      return isClass ? t('HOME.JOIN_CLASS') : t('HOME.JOIN_LESSON');
+    }
+    if (joinGate.sessionEnded) return t('HOME.JOIN_LESSON_ENDED_TITLE');
+    return t('HOME.JOIN_IN_TIME', { time: formatTimeUntilLessonStart(lesson) });
+  }, [lesson, showJoinCta, joinGate, isClass, t]);
+
   const notesDistinct =
     !!info?.notes &&
     String(info.notes).trim() !== String(card.cardDescText || '').trim();
@@ -563,6 +611,7 @@ export default function LessonDetailOverlay({ card, cardRect, onCloseStart, onCl
           surfaceStyle,
         ]}
       >
+
         {/* Header — solid from top edge through safe area + toolbar + blur */}
         <Animated.View
           style={[
@@ -585,72 +634,89 @@ export default function LessonDetailOverlay({ card, cardRect, onCloseStart, onCl
         </Animated.View>
 
         <Animated.View style={[st.body, bodyPadStyle]}>
-          <ScrollView
+          <RNAnimated.ScrollView
             style={st.scrollFlex}
-            contentContainerStyle={[st.scroll, { paddingBottom: showStickyFooter ? 100 : 32 }]}
+            contentContainerStyle={[
+              showHero ? st.scrollClassHero : st.scroll,
+              { paddingBottom: SH - BODY_PAD_OPEN - insets.bottom + (showStickyFooter ? 100 : 0) },
+            ]}
             showsVerticalScrollIndicator={false}
             bounces={true}
           >
-            {/* Hero: avatar + name — always visible, scales up */}
+            {/* Hero image — inline in scroll, card slides up over it with negative margin */}
+            {showHero && (
+              <View style={st.classHeroInlineImg}>
+                <Image source={{ uri: heroThumbUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+              </View>
+            )}
+            <View
+              style={showHero
+                ? [st.classHeroContentCard, { backgroundColor: C.card }]
+                : undefined}
+            >
+              {showHero && (
+                <View style={st.classHeroDragHandle}>
+                  <View style={[st.classHeroDragPill, { backgroundColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.18)' }]} />
+                </View>
+              )}
+            {/* Hero: avatar + name */}
             <Animated.View style={[st.heroWrap, heroWrapStyle]}>
               <Animated.View style={avatarGrow}>
                 {isClass ? (
-                  <View style={st.classHeroBlock}>
-                    {classThumbUri ? (
+                  <View style={[st.classHeroBlock, showHero && st.classHeroBlockTight]}>
+                    {classThumbUri && !showHero ? (
                       <Image source={{ uri: classThumbUri }} style={st.classCoverHero} resizeMode="cover" />
                     ) : null}
-                    <View style={st.classAvatarRow}>
-                      {card.classAttendees.length > 1 ? (
-                        <>
-                          {card.classAttendees.map((att, i) => (
-                            <View
-                              key={`${att.name}-${i}`}
-                              style={[
-                                st.classStackAv,
-                                {
-                                  marginLeft: i === 0 ? 0 : -12,
-                                  borderColor: C.card,
-                                  zIndex: 4 - i,
-                                },
-                              ]}
-                            >
-                              {att.picture ? (
-                                <Image source={{ uri: att.picture }} style={st.classStackImg} />
-                              ) : (
-                                <Text style={st.classStackIni}>{att.initials}</Text>
-                              )}
-                            </View>
-                          ))}
-                          {card.classAttendeesOverflow > 0 ? (
-                            <Text style={[st.classStackMore, { color: C.textTertiary }]}>+{card.classAttendeesOverflow}</Text>
-                          ) : null}
-                        </>
-                      ) : card.classAttendees.length === 1 ? (
-                        <View style={[st.avatar, { backgroundColor: isDark ? '#3a3a3c' : '#e8e8e8' }]}>
-                          {card.classAttendees[0].picture ? (
-                            <Image source={{ uri: card.classAttendees[0].picture }} style={st.avatarImgFill} />
-                          ) : (
-                            <Text style={[st.initials, { color: C.textSecondary }]}>{card.classAttendees[0].initials}</Text>
-                          )}
-                        </View>
-                      ) : (
-                        <View style={[st.avatar, { backgroundColor: isDark ? '#3a3a3c' : '#e8e8e8' }]}>
-                          <Ionicons name="people-outline" size={28} color={C.textTertiary} />
-                        </View>
-                      )}
-                    </View>
+                    {card.classAttendees.length > 0 ? (
+                      <View style={st.classAvatarRow}>
+                        {card.classAttendees.length > 1 ? (
+                          <>
+                            {card.classAttendees.map((att, i) => (
+                              <View
+                                key={`${att.name}-${i}`}
+                                style={[
+                                  st.classStackAv,
+                                  {
+                                    marginLeft: i === 0 ? 0 : -12,
+                                    borderColor: C.card,
+                                    zIndex: 4 - i,
+                                  },
+                                ]}
+                              >
+                                {att.picture ? (
+                                  <Image source={{ uri: att.picture }} style={st.classStackImg} />
+                                ) : (
+                                  <Text style={st.classStackIni}>{att.initials}</Text>
+                                )}
+                              </View>
+                            ))}
+                            {card.classAttendeesOverflow > 0 ? (
+                              <Text style={[st.classStackMore, { color: C.textTertiary }]}>+{card.classAttendeesOverflow}</Text>
+                            ) : null}
+                          </>
+                        ) : (
+                          <View style={[st.avatar, st.avatarInClassRow, { backgroundColor: isDark ? '#3a3a3c' : '#e8e8e8' }]}>
+                            {card.classAttendees[0].picture ? (
+                              <Image source={{ uri: card.classAttendees[0].picture }} style={st.avatarImgFill} />
+                            ) : (
+                              <Text style={[st.initials, { color: C.textSecondary }]}>{card.classAttendees[0].initials}</Text>
+                            )}
+                          </View>
+                        )}
+                      </View>
+                    ) : null}
                   </View>
-                ) : card.otherPicture ? (
+                ) : card.otherPicture && !showHero ? (
                   <Image source={{ uri: card.otherPicture }} style={st.avatar} />
-                ) : (
+                ) : !card.otherPicture ? (
                   <View style={[st.avatar, { backgroundColor: isDark ? '#3a3a3c' : '#e8e8e8' }]}>
                     <Text style={[st.initials, { color: C.textSecondary }]}>{card.otherInitials}</Text>
                   </View>
-                )}
+                ) : null}
               </Animated.View>
 
               <Animated.View style={nameGrow}>
-                <Text style={[st.name, { color: C.text }]} numberOfLines={2}>
+                <Text style={[st.name, { color: C.text }, showHero && st.nameOnClassHero]} numberOfLines={2}>
                   {card.isClass ? card.className || card.lesson?.subject : card.otherName}
                 </Text>
               </Animated.View>
@@ -1267,7 +1333,8 @@ export default function LessonDetailOverlay({ card, cardRect, onCloseStart, onCl
 
             </Animated.View>
             ) : null}
-          </ScrollView>
+            </View>{/* /classHeroContentCard wrapper */}
+          </RNAnimated.ScrollView>
 
           {showStickyFooter ? (
             <Animated.View
@@ -1284,18 +1351,48 @@ export default function LessonDetailOverlay({ card, cardRect, onCloseStart, onCl
               <View style={st.stickyRow}>
                 {showJoinCta ? (
                   <TouchableOpacity
-                    style={[st.stickyBtn, st.stickyBtnFlex]}
-                    activeOpacity={0.88}
+                    accessibilityRole="button"
+                    style={[
+                      st.stickyBtn,
+                      st.stickyBtnFlex,
+                      { backgroundColor: '#222222' },
+                    ]}
+                    activeOpacity={joinGate.canJoin ? 0.88 : 1}
                     onPress={() => {
                       const lid = lesson?._id;
                       if (!lid) return;
+                      const gate = getJoinGateState(lesson);
+                      if (!gate.canJoin) {
+                        if (gate.sessionEnded) {
+                          Alert.alert(t('HOME.JOIN_LESSON_ENDED_TITLE'), t('HOME.JOIN_LESSON_ENDED_MSG'), [
+                            { text: t('COMMON.OK') },
+                          ]);
+                          return;
+                        }
+                        Alert.alert(
+                          t('HOME.JOIN_NOT_READY_TITLE'),
+                          t('HOME.JOIN_NOT_READY_MSG', {
+                            session: t(isClass ? 'HOME.JOIN_SESSION_CLASS' : 'HOME.JOIN_SESSION_LESSON'),
+                            time: formatTimeUntilLessonStart(lesson),
+                          }),
+                          [{ text: t('COMMON.OK') }],
+                        );
+                        return;
+                      }
                       const root = getRootNavigation(navigation);
                       root?.navigate?.('PreCall', { lessonId: lid, isClass });
                     }}
                   >
-                    <Ionicons name="videocam" size={18} color="#fff" style={{ marginRight: 6 }} />
-                    <Text style={st.stickyBtnText}>
-                      {info && info.isNow ? t('HOME.JOIN_NOW') : t('HOME.JOIN_LESSON')}
+                    <Ionicons
+                      name="videocam"
+                      size={18}
+                      color="#ffffff"
+                      style={{ marginRight: 6 }}
+                    />
+                    <Text
+                      style={[st.stickyBtnText, { color: '#ffffff' }]}
+                    >
+                      {joinPrimaryLabel}
                     </Text>
                   </TouchableOpacity>
                 ) : showRebook ? (
@@ -1348,6 +1445,39 @@ export default function LessonDetailOverlay({ card, cardRect, onCloseStart, onCl
 const st = StyleSheet.create({
   surface: { position: 'absolute', overflow: 'hidden' },
 
+  /** Inline hero image for class — inside scroll, full-width, card slides over with negative margin. */
+  classHeroInlineImg: {
+    width: '100%',
+    height: CLASS_HERO_H,
+    overflow: 'hidden',
+  },
+
+  /** Content card that slides up over the class hero image (negative margin = overlap). */
+  classHeroContentCard: {
+    marginTop: -CLASS_CARD_OVERLAP,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 0,
+    paddingHorizontal: 24,
+    overflow: 'hidden',
+  },
+  classHeroDragHandle: {
+    width: '100%',
+    alignItems: 'center',
+    paddingTop: 10,
+    paddingBottom: 6,
+  },
+  classHeroDragPill: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+  },
+
+  /** ScrollView contentContainerStyle for class hero (no paddingHorizontal — card handles it). */
+  scrollClassHero: {
+    alignItems: 'stretch',
+  },
+
   headerOuter: {
     position: 'absolute',
     top: 0,
@@ -1391,8 +1521,12 @@ const st = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 24,
   },
+  /** Single attendee in class row — no extra margin (row handles spacing). */
+  avatarInClassRow: { marginBottom: 0 },
   avatarImgFill: { width: '100%', height: '100%' },
   classHeroBlock: { alignItems: 'center', width: '100%' },
+  /** Pull class title + avatars closer to the hero thumbnail. */
+  classHeroBlockTight: { marginTop: -10 },
   classCoverHero: {
     width: '100%',
     maxWidth: 400,
@@ -1405,7 +1539,7 @@ const st = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
+    marginBottom: 4,
   },
   classStackAv: {
     width: 48,
@@ -1426,6 +1560,7 @@ const st = StyleSheet.create({
   classStackMore: { marginLeft: 10, fontSize: 14, fontWeight: '600' },
   initials: { fontSize: 26, fontWeight: '600' },
   name: { fontSize: NAME_CARD, fontWeight: '700', textAlign: 'center', letterSpacing: -0.3, marginTop: 4 },
+  nameOnClassHero: { marginTop: 0 },
 
   quickGrid: {
     flexDirection: 'row',

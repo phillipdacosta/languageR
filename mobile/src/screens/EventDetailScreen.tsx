@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,12 @@ import { CalendarLesson, CalendarClass } from '../types/calendar';
 import { getRootNavigation } from '../utils/navigationRoot';
 import { LessonDateHeaderCenter, formatDateBadgeParts } from '../components/LessonDateHeaderCenter';
 import { SolidToolbarWithBlur } from '../components/SolidToolbarWithBlur';
+import type { Lesson } from '../services/lessons';
+import {
+  getJoinGateState,
+  formatTimeUntilLessonStart,
+  isLessonInProgressSlot,
+} from '../services/lessons';
 
 function formatDisplayName(person: any): string {
   if (!person) return '';
@@ -53,6 +59,26 @@ export default function EventDetailScreen() {
   const fromLessons = !!route.params?.fromLessons;
   const isClass = !!calendarClass;
   const item = lesson || calendarClass;
+
+  const [joinUiTick, setJoinUiTick] = useState(0);
+  useEffect(() => {
+    if (!item) return;
+    const tid = setInterval(() => setJoinUiTick(n => n + 1), 10000);
+    return () => clearInterval(tid);
+  }, [(item as any)?._id]);
+
+  const lessonForJoinGate = useMemo((): Lesson | null => {
+    if (!item) return null;
+    const anyItem = item as any;
+    return {
+      _id: anyItem._id,
+      startTime: anyItem.startTime,
+      endTime: anyItem.endTime,
+      duration: anyItem.duration || 30,
+      status: anyItem.status || 'scheduled',
+      ...(isClass ? { isClass: true as const } : {}),
+    } as Lesson;
+  }, [item, isClass]);
 
   const formatTime = (d: Date): string => {
     if (timeFormat === '24h') return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
@@ -112,6 +138,17 @@ export default function EventDetailScreen() {
       maxStudents: cls.maxStudents,
     };
   }, [item, lesson, calendarClass, t]);
+
+  const joinGate = useMemo(() => getJoinGateState(lessonForJoinGate), [lessonForJoinGate, joinUiTick]);
+  const joinPrimaryLabel = useMemo(() => {
+    if (!lessonForJoinGate) return t('HOME.JOIN_LESSON');
+    if (joinGate.canJoin) {
+      if (isLessonInProgressSlot(lessonForJoinGate)) return t('HOME.JOIN_NOW');
+      return isClass ? t('HOME.JOIN_CLASS') : t('HOME.JOIN_LESSON');
+    }
+    if (joinGate.sessionEnded) return t('HOME.JOIN_LESSON_ENDED_TITLE');
+    return t('HOME.JOIN_IN_TIME', { time: formatTimeUntilLessonStart(lessonForJoinGate) });
+  }, [lessonForJoinGate, joinGate, isClass, t]);
 
   if (!details) {
     return (
@@ -245,16 +282,48 @@ export default function EventDetailScreen() {
           <View style={st.actionsSection}>
             {(details.isNow || details.isUpcoming) && (
               <TouchableOpacity
-                style={[st.actionBtn, { backgroundColor: C.accent }]}
-                activeOpacity={0.85}
+                accessibilityRole="button"
+                style={[
+                  st.actionBtn,
+                  { backgroundColor: '#222222' },
+                ]}
+                activeOpacity={joinGate.canJoin ? 0.85 : 1}
                 onPress={() => {
                   const id = (item as any)._id;
+                  const gate = getJoinGateState(lessonForJoinGate);
+                  if (!gate.canJoin) {
+                    if (gate.sessionEnded) {
+                      Alert.alert(t('HOME.JOIN_LESSON_ENDED_TITLE'), t('HOME.JOIN_LESSON_ENDED_MSG'), [
+                        { text: t('COMMON.OK') },
+                      ]);
+                      return;
+                    }
+                    if (lessonForJoinGate) {
+                      Alert.alert(
+                        t('HOME.JOIN_NOT_READY_TITLE'),
+                        t('HOME.JOIN_NOT_READY_MSG', {
+                          session: t(isClass ? 'HOME.JOIN_SESSION_CLASS' : 'HOME.JOIN_SESSION_LESSON'),
+                          time: formatTimeUntilLessonStart(lessonForJoinGate),
+                        }),
+                        [{ text: t('COMMON.OK') }],
+                      );
+                    }
+                    return;
+                  }
                   const root = getRootNavigation(navigation);
                   root?.navigate?.('PreCall', { lessonId: id, isClass });
                 }}
               >
-                <Ionicons name="videocam" size={18} color={C.background} />
-                <Text style={[st.actionBtnText, { color: C.background }]}>{details.isNow ? t('HOME.JOIN_NOW') : t('HOME.JOIN_LESSON')}</Text>
+                <Ionicons
+                  name="videocam"
+                  size={18}
+                  color="#ffffff"
+                />
+                <Text
+                  style={[st.actionBtnText, { color: '#ffffff' }]}
+                >
+                  {joinPrimaryLabel}
+                </Text>
               </TouchableOpacity>
             )}
             {details.isUpcoming && (

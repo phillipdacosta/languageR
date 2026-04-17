@@ -274,6 +274,7 @@
     "JOIN_NOW": "Join Now",
     "JOIN": "Join",
     "JOIN_LESSON": "Join Lesson",
+    "JOIN_IN_TIME": "Join in {{time}}",
     "JOIN_NOT_READY_TITLE": "Not quite yet",
     "JOIN_NOT_READY_MSG": "This {{session}} hasn't started yet. It begins in {{time}}.",
     "JOIN_SESSION_LESSON": "lesson",

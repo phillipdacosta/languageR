@@ -226,6 +226,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   
   // Up Next card properties (cached — updated when nextLesson changes)
   nextLessonTutor: any = null;
+  upNextFormattedPrice = '';
+  upNextLevelLabel = '';
   
   // Tutor date strip and upcoming lesson
   dateStrip: { label: string; dayNum: number; date: Date; isToday: boolean }[] = [];
@@ -4458,6 +4460,41 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   }
 
   /**
+   * Primary date line — matches event-details (`/tabs/lessons/:id`): Today, Tomorrow, or long form in profile TZ.
+   */
+  private formatEventDetailsDatePrimary(startInput: string | Date): string {
+    const start = typeof startInput === 'string' ? new Date(startInput) : startInput;
+    if (isNaN(start.getTime())) return '';
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    if (start.toDateString() === today.toDateString()) {
+      return this.translateService.instant('HOME.TODAY');
+    }
+    if (start.toDateString() === tomorrow.toDateString()) {
+      return this.translateService.instant('HOME.TOMORROW');
+    }
+    return formatDateInTz(
+      start,
+      this.userTz,
+      { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' },
+      this.currentLocale,
+    );
+  }
+
+  /**
+   * Time range — matches event-details (12h, en dash between start and end).
+   */
+  private formatEventDetailsTimeRange(lesson: { startTime?: string; endTime?: string; duration?: number }): string {
+    if (!lesson?.startTime) return '';
+    const start = new Date(lesson.startTime);
+    const end = lesson.endTime
+      ? new Date(lesson.endTime)
+      : new Date(start.getTime() + (Number(lesson.duration) || 60) * 60000);
+    return `${formatTimeInTz(start, this.userTz, undefined, true)} – ${formatTimeInTz(end, this.userTz, undefined, true)}`;
+  }
+
+  /**
    * Get the lesson number for a specific lesson (excluding trial lessons)
    * DEPRECATED: Lesson numbers are now stored as properties on lesson objects.
    * This function is kept for backwards compatibility but should not be called from templates.
@@ -4952,6 +4989,19 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.buttonTextState = this.hasAvailability ? 'view' : 'add';
     const nl = this.nextLesson;
     this.nextLessonTutor = nl ? (nl.tutorId || nl.studentId) : null;
+    const lesson = nl?.lesson as any;
+    if (lesson?.isClass) {
+      const price = lesson.price ?? lesson.classData?.price;
+      this.upNextFormattedPrice = price != null && price > 0 ? `$${(price as number).toFixed(2)}` : 'Free';
+      const levelMap: Record<string, string> = {
+        any: 'Any Level', beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced',
+      };
+      const rawLevel = lesson.classData?.level || lesson.level || '';
+      this.upNextLevelLabel = levelMap[rawLevel] || '';
+    } else {
+      this.upNextFormattedPrice = '';
+      this.upNextLevelLabel = '';
+    }
     this.refreshNextLessonTimeSensitiveFields();
   }
 
@@ -5294,6 +5344,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       rescheduleAccepted: rescheduleAccepted,
       isTrialLesson: isTrialLesson,
       timeRange: this.getTimeRangeOnly(nextLesson),
+      detailDatePrimary: this.formatEventDetailsDatePrimary(lessonDate),
+      detailTimeRange: this.formatEventDetailsTimeRange(nextLesson),
       avatar: this.getOtherParticipantAvatar(nextLesson),
       instructorName: this.getClassInstructorName(nextLesson),
       countdown: this.getTimeUntilLesson(nextLesson),
@@ -5412,6 +5464,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       isRescheduleProposer: isRescheduleProposer,
       rescheduleAccepted: rescheduleAccepted,
       timeRange: this.getTimeRangeOnly(firstLesson),
+      detailDatePrimary: this.formatEventDetailsDatePrimary(lessonDate),
+      detailTimeRange: this.formatEventDetailsTimeRange(firstLesson),
       avatar: this.getOtherParticipantAvatar(firstLesson),
       instructorName: this.getClassInstructorName(firstLesson),
       countdown: this.getTimeUntilLesson(firstLesson),
@@ -5546,12 +5600,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   }
 
   /** Calendar-day groups for the desktop This Week strip (one date column per day, events scroll horizontally). */
-  get timelineDayGroups(): Array<{ dayKey: string; dateLabel: string; events: any[] }> {
+  get timelineDayGroups(): Array<{ dayKey: string; dateLabel: string; dateBadgeMonth: string; dateBadgeDay: string; dateBadgeWeekday: string; isToday: boolean; events: any[] }> {
     const events = this.timelineEvents;
     if (!events.length) {
       return [];
     }
-    const groups: Array<{ dayKey: string; dateLabel: string; events: any[] }> = [];
+    const groups: Array<{ dayKey: string; dateLabel: string; dateBadgeMonth: string; dateBadgeDay: string; dateBadgeWeekday: string; isToday: boolean; events: any[] }> = [];
     for (const ev of events) {
       const st = ev?.lesson?.startTime;
       const d = st ? new Date(st) : new Date();
@@ -5561,7 +5615,15 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       if (last && last.dayKey === dayKey) {
         last.events.push(ev);
       } else {
-        groups.push({ dayKey, dateLabel, events: [ev] });
+        groups.push({
+          dayKey,
+          dateLabel,
+          dateBadgeMonth: ev.dateBadgeMonth || '',
+          dateBadgeDay: ev.dateBadgeDay || '',
+          dateBadgeWeekday: ev.dateBadgeWeekday || '',
+          isToday: !!ev.isToday,
+          events: [ev],
+        });
       }
     }
     return groups;
@@ -5681,6 +5743,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           dateBadgeMonth: dateBadge.month,
           dateBadgeDay: dateBadge.dayNum,
           dateBadgeWeekday: dateBadge.weekdayShort,
+          /** Mirrors lesson.isClass — used by This Week strip for layout (avatar shape, no ring). */
+          isClass: !!isClass,
+          detailDatePrimary: this.formatEventDetailsDatePrimary(startTime),
+          detailTimeRange: this.formatEventDetailsTimeRange(lesson),
           name: isClass 
             ? ((lesson as any).className || lesson.subject || 'Group Class')
             : (participantToShow ? (isStudentView ? this.formatTutorDisplayName(participantToShow) : this.formatStudentDisplayName(participantToShow)) : 'Unknown'),

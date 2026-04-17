@@ -580,8 +580,9 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     }
     this.weekDates = dates;
     this.slotsCache.clear();
-    // Pre-compute slots for all dates to avoid function calls in template
-    this.precomputeDateSlots();
+    // NOTE: intentionally NOT calling precomputeDateSlots() here.
+    // Callers (navigateWeek, goToToday) must call buildAvailabilitySet() +
+    // loadBookedLessons() first, then call precomputeDateSlots() once at the end.
   }
 
   // Pre-compute slots for all dates in the current week
@@ -642,27 +643,26 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     const days = direction === 'next' ? 7 : -7;
     this.currentWeekStart.setDate(this.currentWeekStart.getDate() + days);
     this.recomputeWeekDates();
-    // Update computed properties
     this.updateWeekRangeDisplay();
-    // Rebuild availability set for the new week to apply date filtering
-    this.buildAvailabilitySet();
-    // Reload booked lessons for the new week
-    await this.loadBookedLessons();
-    // Now recompute slots with both availability and bookedSlots ready
+    // Reload availability + booked lessons in parallel for the new week
+    await Promise.all([
+      this.loadAvailability().catch(() => {}),
+      this.loadBookedLessons().catch(() => {}),
+    ]);
     this.precomputeDateSlots();
+    this.cdr.markForCheck();
   }
 
   async goToToday() {
     this.setCurrentWeekStart();
     this.recomputeWeekDates();
-    // Update computed properties
     this.updateWeekRangeDisplay();
-    // Rebuild availability set for the new week to apply date filtering
-    this.buildAvailabilitySet();
-    // Reload booked lessons for the current week
-    await this.loadBookedLessons();
-    // Now recompute slots with both availability and bookedSlots ready
+    await Promise.all([
+      this.loadAvailability().catch(() => {}),
+      this.loadBookedLessons().catch(() => {}),
+    ]);
     this.precomputeDateSlots();
+    this.cdr.markForCheck();
   }
 
   formatTime(time: string): string {
@@ -720,16 +720,9 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
    * Availability is checked by converting each viewer-tz slot → tutor-tz and matching against blocks.
    */
   private computeAvailableTimeLabelsForDate(date: Date): { label: string; time: string; booked: boolean; isPast: boolean }[] {
-    const dateToCheck = new Date(date);
-    dateToCheck.setHours(0, 0, 0, 0);
-
-    const windowStart = new Date(this.currentWeekStart);
-    windowStart.setHours(0, 0, 0, 0);
-    const windowEnd = new Date(this.currentWeekStart);
-    windowEnd.setDate(windowEnd.getDate() + 6);
-    windowEnd.setHours(23, 59, 59, 999);
-
-    if (dateToCheck < windowStart || dateToCheck > windowEnd) return [];
+    // Note: no window-range guard here — this private function is only called
+    // from precomputeDateSlots, which already iterates over this.weekDates
+    // (dates that are by construction within the current week).
 
     const shouldCache = !this.studentBusySlots || this.studentBusySlots.size === 0;
     const cacheKey = `${this.dateKey(date)}_${Math.floor(Date.now() / 60000)}_${this.selectedDuration}_${this.selectedTimezone}`;
@@ -773,28 +766,43 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
         if (block.type !== 'available') return false;
         if (block.day !== tutorDayIndex) return false;
 
-        // Date-specific: absoluteStart / absoluteEnd
+        // Date-specific blocks: check if this block applies to tutorDateStr.
+        // Prefer id-based date matching (format "YYYY-MM-DD-...") because the id
+        // always reflects the tutor's LOCAL calendar date, avoiding UTC-to-local
+        // timezone conversion issues with absoluteStart/absoluteEnd.
         if (block.absoluteStart && block.absoluteEnd) {
-          const blockStart = new Date(block.absoluteStart);
-          const blockEnd = new Date(block.absoluteEnd);
-          blockStart.setHours(0, 0, 0, 0);
-          blockEnd.setHours(0, 0, 0, 0);
-          const [ty, tm, td] = tutorDateStr.split('-').map(Number);
-          const tutorDate = new Date(ty, tm - 1, td, 0, 0, 0, 0);
-          if (tutorDate < blockStart || tutorDate > blockEnd) return false;
-        } else if (block.id && typeof block.id === 'string') {
-          // Date-specific from block id (format: "YYYY-MM-DD-...")
-          const idParts = block.id.split('-');
-          if (idParts.length >= 3) {
-            const byear = parseInt(idParts[0]);
-            const bmonth = parseInt(idParts[1]) - 1;
-            const bday = parseInt(idParts[2]);
-            if (!isNaN(byear) && !isNaN(bmonth) && !isNaN(bday)) {
-              const blockDate = new Date(byear, bmonth, bday, 0, 0, 0, 0);
+          if (block.id && typeof block.id === 'string') {
+            const idParts = block.id.split('-');
+            if (idParts.length >= 3 && /^\d{4}$/.test(idParts[0])) {
+              // id is in "YYYY-MM-DD-..." format — compare date strings directly
+              const blockDateStr = `${idParts[0]}-${idParts[1]}-${idParts[2]}`;
+              if (blockDateStr !== tutorDateStr) return false;
+            } else {
+              // Fallback: use absoluteStart, normalized to midnight in browser tz
+              const blockStart = new Date(block.absoluteStart);
+              const blockEnd = new Date(block.absoluteEnd);
+              blockStart.setHours(0, 0, 0, 0);
+              blockEnd.setHours(0, 0, 0, 0);
               const [ty, tm, td] = tutorDateStr.split('-').map(Number);
               const tutorDate = new Date(ty, tm - 1, td, 0, 0, 0, 0);
-              if (blockDate.getTime() !== tutorDate.getTime()) return false;
+              if (tutorDate < blockStart || tutorDate > blockEnd) return false;
             }
+          } else {
+            // No id — fall back to absoluteStart/absoluteEnd date check
+            const blockStart = new Date(block.absoluteStart);
+            const blockEnd = new Date(block.absoluteEnd);
+            blockStart.setHours(0, 0, 0, 0);
+            blockEnd.setHours(0, 0, 0, 0);
+            const [ty, tm, td] = tutorDateStr.split('-').map(Number);
+            const tutorDate = new Date(ty, tm - 1, td, 0, 0, 0, 0);
+            if (tutorDate < blockStart || tutorDate > blockEnd) return false;
+          }
+        } else if (block.id && typeof block.id === 'string') {
+          // No absoluteStart — try id-based date (format: "YYYY-MM-DD-...")
+          const idParts = block.id.split('-');
+          if (idParts.length >= 3 && /^\d{4}$/.test(idParts[0])) {
+            const blockDateStr = `${idParts[0]}-${idParts[1]}-${idParts[2]}`;
+            if (blockDateStr !== tutorDateStr) return false;
           }
         }
 

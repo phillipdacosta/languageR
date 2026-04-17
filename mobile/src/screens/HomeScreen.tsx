@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,14 @@ import {
   RefreshControl,
   Image,
   TouchableOpacity,
+  Pressable,
+  Modal,
   Animated,
   Easing,
   Dimensions,
   Platform,
   AccessibilityInfo,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -25,10 +28,17 @@ import { useTheme } from '../contexts/ThemeContext';
 import {
   lessonService,
   buildTimelineEvents,
+  buildTimelineEventsForLessons,
+  TIMELINE_AVATAR_STACK_MAX,
   TimelineEvent,
   Lesson,
   getLessonStart,
+  getJoinGateState,
+  formatTimeUntilLessonStart,
+  isLessonInProgressSlot,
 } from '../services/lessons';
+import type { CalendarClass } from '../types/calendar';
+import { getMyClasses, getClassesForTutor } from '../services/classes';
 import { earningsService, EarningsBalance } from '../services/earnings';
 import { calendarService } from '../services/calendar';
 import EarningsScreen from './EarningsScreen';
@@ -37,7 +47,44 @@ import MyClassesScreen from './MyClassesScreen';
 import { preloadMaterials } from '../services/materials';
 import { api } from '../services/api';
 
-const { width: SCREEN_W } = Dimensions.get('window');
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
+
+/** “This week” summary row: overlapping circles (flex + negative margin is unreliable inside TouchableOpacity). */
+const TW_PILE_SIZE = 34;
+const TW_PILE_OVERLAP = 11;
+const TW_PILE_STEP = TW_PILE_SIZE - TW_PILE_OVERLAP;
+
+/** Open Calendar → Event detail from a list lesson (handles synthetic group-class rows). */
+function navigateToEventDetailFromHome(navigation: { navigate: (...args: any[]) => void }, lesson: Lesson) {
+  const anyL = lesson as any;
+  if (anyL.isClass) {
+    const calendarClass: CalendarClass = {
+      _id: String(lesson._id),
+      startTime: lesson.startTime as string,
+      endTime: (lesson.endTime || lesson.startTime) as string,
+      title: anyL.className || lesson.subject || 'Class',
+      description: lesson.notes,
+      maxStudents: typeof anyL.capacity === 'number' ? anyL.capacity : 8,
+      attendees: anyL.attendees || [],
+      confirmedStudents: anyL.attendees,
+      status: lesson.status || 'scheduled',
+      duration: lesson.duration,
+      price: typeof lesson.price === 'number' ? lesson.price : undefined,
+      language: lesson.subject || lesson.language,
+      thumbnail: anyL.classData?.thumbnail,
+      tutorId: lesson.tutorId,
+    };
+    navigation.navigate('Calendar', {
+      screen: 'EventDetail',
+      params: { calendarClass },
+    });
+  } else {
+    navigation.navigate('Calendar', {
+      screen: 'EventDetail',
+      params: { lesson },
+    });
+  }
+}
 const CTA_DARK_BLUE = '#3a7bc8';
 
 /** Match web `.upnext-filled-avatar` (80×80 @ 20px radius → 0.25 of side). */
@@ -149,6 +196,8 @@ function UpNextTrialBadge({ label }: { label: string }) {
 export default function HomeScreen() {
   const { user } = useAuth();
   const { colors } = useTheme();
+  /** Stacked avatar rings on the “This week” summary row (not the sheet). */
+  const thisWeekRowRingBorder = colors.isDark ? 'rgba(255,255,255,0.92)' : '#ffffff';
   const { t } = useTranslation();
   const navigation = useNavigation<any>();
   const isFocused = useIsFocused();
@@ -170,6 +219,9 @@ export default function HomeScreen() {
   const [showMyClasses, setShowMyClasses] = useState(false);
   const [myClassesVisible, setMyClassesVisible] = useState(false);
   const myClassesOverlayOpacity = useRef(new Animated.Value(0)).current;
+  const [thisWeekSheetVisible, setThisWeekSheetVisible] = useState(false);
+  const thisWeekSheetTranslateY = useRef(new Animated.Value(SCREEN_H)).current;
+  const thisWeekSheetBackdropOpacity = useRef(new Animated.Value(0)).current;
   const [hasAvailability, setHasAvailability] = useState(false);
   const [hasPayoutSetup, setHasPayoutSetup] = useState(false);
   const [payoutLoaded, setPayoutLoaded] = useState(false);
@@ -210,23 +262,163 @@ export default function HomeScreen() {
     return result;
   }, [lessons]);
 
-  const thisWeekAvatars = useMemo(() => {
-    const seen = new Set<string>();
-    return thisWeekLessons
-      .map(l => l.studentId)
-      .filter((s): s is NonNullable<typeof s> => !!s && !seen.has(s._id) && (seen.add(s._id), true))
-      .slice(0, 4)
-      .map(s => ({
-        name: s.firstName || s.name || '',
-        avatar: s.picture || null,
-      }));
-  }, [thisWeekLessons]);
+  /**
+   * One face per scheduled item this week (sorted), so the row stacks multiple lessons.
+   * Deduping unique people collapsed tutors/students into a single circle when repeat clients booked often.
+   */
+  const thisWeekLessonSlots = useMemo(() => {
+    const sorted = [...thisWeekLessons].sort(
+      (a, b) => getLessonStart(a).getTime() - getLessonStart(b).getTime(),
+    );
+    const slots: { id: string; name: string; avatar: string | null }[] = [];
+
+    for (const l of sorted) {
+      const slotId = `week-slot-${l._id}`;
+      if ((l as any).isClass) {
+        const attendees = (l.attendees || []) as any[];
+        const thumb = (l as any).classData?.thumbnail || null;
+        if (attendees.length > 0) {
+          const a = attendees[0];
+          const name =
+            a.firstName && a.lastName
+              ? `${a.firstName} ${String(a.lastName).charAt(0)}.`
+              : a.firstName || a.name || 'Student';
+          const pic = (a.picture || a.profilePicture || null) as string | null;
+          slots.push({ id: slotId, name, avatar: pic || thumb });
+        } else {
+          slots.push({
+            id: slotId,
+            name: (l as any).className || l.subject || 'Group class',
+            avatar: thumb,
+          });
+        }
+      } else {
+        const other = l.tutorId?._id === userId ? l.studentId : l.tutorId;
+        const name = other?.firstName
+          ? `${other.firstName} ${(other.lastName || '').charAt(0)}.`
+          : other?.name || 'Student';
+        slots.push({
+          id: slotId,
+          name,
+          avatar: (other?.picture || (other as any)?.profilePicture || null) as string | null,
+        });
+      }
+    }
+    return slots;
+  }, [thisWeekLessons, userId]);
+
+  const thisWeekPileLayout = useMemo(() => {
+    const n = thisWeekLessonSlots.length;
+    const shown = thisWeekLessonSlots.slice(0, TIMELINE_AVATAR_STACK_MAX);
+    const overflow = Math.max(0, n - TIMELINE_AVATAR_STACK_MAX);
+    const hasOverflowPill = overflow > 0;
+    const slotCount = shown.length + (hasOverflowPill ? 1 : 0);
+    const width = slotCount === 0 ? 0 : TW_PILE_SIZE + (slotCount - 1) * TW_PILE_STEP;
+    return { shown, overflow, hasOverflowPill, slotCount, width };
+  }, [thisWeekLessonSlots]);
+
+  const thisWeekSheetEvents = useMemo(
+    () => (thisWeekLessons.length ? buildTimelineEventsForLessons(thisWeekLessons, userId) : []),
+    [thisWeekLessons, userId],
+  );
+
+  const openThisWeekSheet = useCallback(() => {
+    if (thisWeekLessons.length === 0) return;
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setThisWeekSheetVisible(true);
+  }, [thisWeekLessons.length]);
+
+  const closeThisWeekSheet = useCallback(() => {
+    thisWeekSheetTranslateY.stopAnimation();
+    thisWeekSheetBackdropOpacity.stopAnimation();
+    Animated.parallel([
+      Animated.timing(thisWeekSheetBackdropOpacity, {
+        toValue: 0,
+        duration: 200,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.timing(thisWeekSheetTranslateY, {
+        toValue: SCREEN_H,
+        duration: 260,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setThisWeekSheetVisible(false);
+    });
+  }, [thisWeekSheetTranslateY, thisWeekSheetBackdropOpacity]);
+
+  useLayoutEffect(() => {
+    if (!thisWeekSheetVisible) return;
+    thisWeekSheetTranslateY.stopAnimation();
+    thisWeekSheetBackdropOpacity.stopAnimation();
+    thisWeekSheetTranslateY.setValue(SCREEN_H);
+    thisWeekSheetBackdropOpacity.setValue(0);
+    Animated.parallel([
+      Animated.timing(thisWeekSheetBackdropOpacity, {
+        toValue: 1,
+        duration: 220,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.timing(thisWeekSheetTranslateY, {
+        toValue: 0,
+        duration: 320,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [thisWeekSheetVisible, thisWeekSheetTranslateY, thisWeekSheetBackdropOpacity]);
 
   const fetchData = useCallback(async () => {
     const allLessons = await lessonService.getMyLessons();
-    setLessons(allLessons);
-    setTimeline(buildTimelineEvents(allLessons, userId));
-  }, [userId]);
+
+    // Fetch classes and convert to lesson-like objects
+    let classLessons: Lesson[] = [];
+    try {
+      if (isTutor && userId) {
+        const classes = await getClassesForTutor(userId);
+        classLessons = classes.map(cls => ({
+          _id: cls._id,
+          status: cls.status || 'scheduled',
+          startTime: cls.startTime,
+          endTime: cls.endTime,
+          duration: cls.duration || Math.round(
+            (new Date(cls.endTime || cls.startTime).getTime() - new Date(cls.startTime).getTime()) / 60000
+          ),
+          isClass: true,
+          className: cls.name,
+          classData: { thumbnail: cls.thumbnail },
+          attendees: cls.confirmedStudents || [],
+          capacity: cls.capacity,
+        } as unknown as Lesson));
+      } else if (!isTutor) {
+        const classes = await getMyClasses();
+        classLessons = classes.map(cls => ({
+          _id: cls._id,
+          status: cls.status || 'scheduled',
+          startTime: cls.startTime,
+          endTime: cls.endTime,
+          duration: cls.duration || Math.round(
+            (new Date(cls.endTime || cls.startTime).getTime() - new Date(cls.startTime).getTime()) / 60000
+          ),
+          tutorId: cls.tutorId,
+          isClass: true,
+          className: cls.name,
+          classData: { thumbnail: cls.thumbnail },
+          attendees: cls.confirmedStudents || [],
+          capacity: cls.capacity,
+        } as unknown as Lesson));
+      }
+    } catch {
+      // non-fatal: show lessons even if classes fail to load
+    }
+
+    const combined = [...allLessons, ...classLessons];
+    setLessons(combined);
+    setTimeline(buildTimelineEvents(combined, userId));
+  }, [userId, isTutor]);
 
   const fetchEarnings = useCallback(async () => {
     setEarningsLoading(true);
@@ -491,25 +683,98 @@ export default function HomeScreen() {
             {thisWeekLessons.length === 0 ? (
               <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{t('HOME.THIS_WEEK_NOTHING_YET')}</Text>
             ) : (
-              <TouchableOpacity style={[styles.thisWeekRow, { backgroundColor: colors.card, shadowOpacity: colors.isDark ? 0 : 0.04 }]} activeOpacity={0.7}>
-                <View style={styles.avatarStack}>
-                  {thisWeekAvatars.map((a, i) => (
-                    <View key={i} style={[styles.stackAvatar, { marginLeft: i > 0 ? -10 : 0, zIndex: 10 - i }]}>
-                      {a.avatar ? (
-                        <Image source={{ uri: a.avatar }} style={[styles.stackAvatarImg, { borderColor: colors.card }]} />
-                      ) : (
-                        <View style={[styles.stackAvatarImg, { backgroundColor: colors.isDark ? '#3a3a3c' : '#e8e8e8', alignItems: 'center', justifyContent: 'center', borderColor: colors.card }]}>
-                          <Text style={[styles.placeholderLetter, { color: colors.isDark ? '#ccc' : '#999' }]}>{a.name.charAt(0)}</Text>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.thisWeekRow,
+                  {
+                    backgroundColor: colors.card,
+                    shadowOpacity: colors.isDark ? 0 : 0.04,
+                    opacity: pressed ? 0.92 : 1,
+                  },
+                ]}
+                onPress={openThisWeekSheet}
+              >
+                {thisWeekPileLayout.slotCount > 0 ? (
+                  <View
+                    style={[
+                      styles.twStackPile,
+                      {
+                        width: thisWeekPileLayout.width,
+                        minWidth: thisWeekPileLayout.width,
+                        marginRight: 12,
+                      },
+                    ]}
+                  >
+                    {thisWeekPileLayout.shown.map((a, i) => (
+                        <View
+                          key={a.id}
+                          style={[
+                            styles.twStackRing,
+                            {
+                              position: 'absolute',
+                              left: i * TW_PILE_STEP,
+                              top: 0,
+                              zIndex: i + 1,
+                              borderColor: thisWeekRowRingBorder,
+                              ...(Platform.OS === 'android' ? { elevation: i + 1 } : {}),
+                            },
+                          ]}
+                        >
+                          {a.avatar ? (
+                            <Image source={{ uri: a.avatar }} style={styles.twStackImg} />
+                          ) : (
+                            <View
+                              style={[
+                                styles.twStackImg,
+                                {
+                                  backgroundColor: colors.isDark ? '#3a3a3c' : '#e8e8e8',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                },
+                              ]}
+                            >
+                              <Text style={[styles.twStackIni, { color: colors.isDark ? '#ccc' : '#999' }]}>
+                                {a.name.charAt(0)}
+                              </Text>
+                            </View>
+                          )}
                         </View>
-                      )}
-                    </View>
-                  ))}
-                </View>
+                    ))}
+                    {thisWeekPileLayout.hasOverflowPill ? (
+                      <View
+                        style={[
+                          styles.twStackRing,
+                          styles.twStackMoreRing,
+                          {
+                            position: 'absolute',
+                            left: thisWeekPileLayout.shown.length * TW_PILE_STEP,
+                            top: 0,
+                            zIndex: thisWeekPileLayout.shown.length + 1,
+                            borderColor: thisWeekRowRingBorder,
+                            backgroundColor: colors.isDark ? '#3a3a3c' : '#e5e5ea',
+                            ...(Platform.OS === 'android'
+                              ? { elevation: thisWeekPileLayout.shown.length + 1 }
+                              : {}),
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[styles.twStackMoreText, { color: colors.isDark ? '#aeaeb2' : '#8e8e93' }]}
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.75}
+                        >
+                          +{thisWeekPileLayout.overflow}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                ) : null}
                 <Text style={[styles.thisWeekCount, { color: colors.text }]}>
                   {thisWeekLessons.length} {thisWeekLessons.length === 1 ? t('HOME.LESSON_SINGULAR') : t('HOME.LESSON_PLURAL')}
                 </Text>
                 <Text style={[styles.chevron, { color: colors.isDark ? '#555' : '#ccc' }]}>›</Text>
-              </TouchableOpacity>
+              </Pressable>
             )}
           </Section>
           </View>
@@ -599,6 +864,75 @@ export default function HomeScreen() {
         <View style={{ height: 24 }} />
       </ScrollView>
     </SafeAreaView>
+
+    <Modal
+      visible={thisWeekSheetVisible}
+      transparent
+      animationType="none"
+      statusBarTranslucent
+      onRequestClose={closeThisWeekSheet}
+    >
+      <View style={styles.twSheetRoot}>
+        <Animated.View style={[StyleSheet.absoluteFill, { opacity: thisWeekSheetBackdropOpacity }]}>
+          <Pressable
+            style={[
+              StyleSheet.absoluteFill,
+              { backgroundColor: colors.isDark ? 'rgba(0,0,0,0.72)' : 'rgba(0,0,0,0.45)' },
+            ]}
+            onPress={closeThisWeekSheet}
+          />
+        </Animated.View>
+        <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, styles.twSheetSheetSlot]}>
+          <Animated.View style={{ transform: [{ translateY: thisWeekSheetTranslateY }] }}>
+            <View
+              style={[styles.twSheetCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onStartShouldSetResponder={() => true}
+            >
+              <View style={styles.twSheetHandleWrap}>
+                <View style={[styles.twSheetHandle, { backgroundColor: colors.isDark ? '#48484a' : '#d1d5db' }]} />
+              </View>
+              <View
+                style={[
+                  styles.twSheetHeader,
+                  { borderBottomColor: colors.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' },
+                ]}
+              >
+                <Text style={[styles.twSheetTitle, { color: colors.text }]}>{t('HOME.THIS_WEEK')}</Text>
+                <TouchableOpacity
+                  onPress={closeThisWeekSheet}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('COMMON.DONE')}
+                >
+                  <Text style={[styles.twSheetDone, { color: colors.textSecondary }]}>{t('COMMON.DONE')}</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView
+                style={styles.twSheetScroll}
+                contentContainerStyle={styles.twSheetScrollContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                {thisWeekSheetEvents.map(ev => (
+                  <ComingUpRow
+                    key={String(ev.lesson._id)}
+                    event={ev}
+                    colors={colors}
+                    t={t}
+                    rowStyle={styles.comingUpRowSheet}
+                    onPress={() => {
+                      closeThisWeekSheet();
+                      navigateToEventDetailFromHome(navigation, ev.lesson);
+                    }}
+                  />
+                ))}
+              </ScrollView>
+            </View>
+          </Animated.View>
+        </View>
+      </View>
+    </Modal>
+
     {showEarnings && (
       <View style={[StyleSheet.absoluteFill, { zIndex: 50, elevation: 50 }]}>
         <EarningsScreen goBack={() => setShowEarnings(false)} />
@@ -723,10 +1057,49 @@ function UpNextFilled({
   onJoin: () => void;
 }) {
   const isDark = colors.isDark;
+  const [, setJoinUiTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setJoinUiTick(n => n + 1), 10000);
+    return () => clearInterval(id);
+  }, [event.lesson._id]);
+
+  const joinGate = getJoinGateState(event.lesson);
+  const inSlot = isLessonInProgressSlot(event.lesson);
+  const joinCtaLabel = joinGate.canJoin
+    ? inSlot
+      ? t('HOME.JOIN_NOW')
+      : event.lesson.isClass
+        ? t('HOME.JOIN_CLASS')
+        : t('HOME.JOIN_LESSON')
+    : t('HOME.JOIN_IN_TIME', { time: formatTimeUntilLessonStart(event.lesson) });
+
+  const onJoinPress = () => {
+    const gate = getJoinGateState(event.lesson);
+    if (gate.canJoin) {
+      onJoin();
+      return;
+    }
+    if (gate.sessionEnded) {
+      Alert.alert(t('HOME.JOIN_LESSON_ENDED_TITLE'), t('HOME.JOIN_LESSON_ENDED_MSG'), [{ text: t('COMMON.OK') }]);
+      return;
+    }
+    Alert.alert(
+      t('HOME.JOIN_NOT_READY_TITLE'),
+      t('HOME.JOIN_NOT_READY_MSG', {
+        session: t(event.lesson.isClass ? 'HOME.JOIN_SESSION_CLASS' : 'HOME.JOIN_SESSION_LESSON'),
+        time: formatTimeUntilLessonStart(event.lesson),
+      }),
+      [{ text: t('COMMON.OK') }],
+    );
+  };
+
+  /** Web `.empty-state-clean-btn` is always #222 — grey is only used for the "waiting" opacity. */
+  const ctaFg = '#ffffff';
+
   return (
     <View style={[styles.section, styles.upNextSectionSpacing]}>
       <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('HOME.UP_NEXT')}</Text>
-      <TouchableOpacity
+      <View
         style={[
           styles.upNextCardSurface,
           styles.upNextCard,
@@ -737,35 +1110,48 @@ function UpNextFilled({
             elevation: isDark ? 0 : Platform.OS === 'android' ? 14 : 0,
           },
         ]}
-        activeOpacity={0.85}
-        onPress={onJoin}
       >
-        <View style={styles.upNextAvatarWrap}>
+        <View style={event.lesson.isClass ? styles.upNextClassCoverWrap : styles.upNextAvatarWrap}>
           {event.avatar ? (
-            <Image source={{ uri: event.avatar }} style={styles.upNextAvatarImage} />
+            <Image
+              source={{ uri: event.avatar }}
+              style={event.lesson.isClass ? styles.upNextClassCoverImage : styles.upNextAvatarImage}
+              resizeMode="cover"
+            />
           ) : (
             <View
               style={[
-                styles.upNextAvatarImage,
+                event.lesson.isClass ? styles.upNextClassCoverImage : styles.upNextAvatarImage,
                 { backgroundColor: isDark ? '#3a3a3c' : '#e8e8e8', alignItems: 'center', justifyContent: 'center' },
               ]}
             >
-              <Ionicons name="person" size={24} color={colors.textTertiary} />
+              <Ionicons
+                name={event.lesson.isClass ? 'people' : 'person'}
+                size={event.lesson.isClass ? 28 : 24}
+                color={colors.textTertiary}
+              />
             </View>
           )}
         </View>
 
-        <Text style={[styles.cardTitle, { color: colors.text }]}>{event.name}</Text>
+        <Text
+          style={[
+            styles.cardTitle,
+            event.lesson.isClass ? styles.upNextClassTitleBelowCover : undefined,
+            { color: colors.text },
+          ]}
+        >
+          {event.name}
+        </Text>
 
         {event.isTrialLesson && <UpNextTrialBadge label={t('HOME.STATUS_TRIAL')} />}
 
         <View style={styles.upNextFilledMetaWrap}>
           <Text style={[styles.cardMeta, styles.upNextFilledMeta, { color: colors.textSecondary }]}>
-            <Text style={event.isToday ? styles.metaToday : undefined}>
-              {event.isToday ? t('HOME.TODAY') : event.dateTag}
+            <Text style={event.isToday || event.isTomorrow ? styles.metaToday : undefined}>
+              {event.dateTag}
             </Text>
             {'  ·  '}{event.timeRange}
-            {event.subject ? `  ·  ${event.subject}` : ''}
           </Text>
 
           {!!event.countdown && (
@@ -775,11 +1161,24 @@ function UpNextFilled({
           )}
         </View>
 
-        <View style={[styles.ctaBtn, styles.upNextCardCtaWide, styles.upNextFilledCta, { backgroundColor: isDark ? CTA_DARK_BLUE : '#000000' }]}>
-          <Text style={styles.ctaBtnText}>{t('HOME.JOIN_LESSON')}</Text>
-          <Image source={require('../../assets/shared/setup-availability-arrow.png')} style={styles.ctaBtnArrowImg} />
-        </View>
-      </TouchableOpacity>
+        <TouchableOpacity
+          accessibilityRole="button"
+          activeOpacity={joinGate.canJoin ? 0.88 : 1}
+          onPress={onJoinPress}
+          style={[
+            styles.ctaBtn,
+            styles.upNextCardCtaWide,
+            styles.upNextFilledCta,
+            { backgroundColor: '#222222' },
+          ]}
+        >
+          <Text style={[styles.ctaBtnText, { color: '#ffffff' }]}>{joinCtaLabel}</Text>
+          <Image
+            source={require('../../assets/shared/setup-availability-arrow.png')}
+            style={[styles.ctaBtnArrowImg, { tintColor: '#ffffff' }]}
+          />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -879,17 +1278,94 @@ function UpNextSkeleton({ colors }: { colors: any }) {
 
 /* ─── Coming Up Row ─── */
 
-function ComingUpRow({ event, colors, t }: { event: TimelineEvent; colors: any; t: any }) {
+function ComingUpRow({
+  event,
+  colors,
+  t,
+  onPress,
+  rowStyle,
+}: {
+  event: TimelineEvent;
+  colors: any;
+  t: any;
+  onPress?: () => void;
+  rowStyle?: object;
+}) {
   const isDark = colors.isDark;
-  return (
-    <TouchableOpacity style={[styles.comingUpRow, { backgroundColor: colors.card, shadowOpacity: isDark ? 0 : 0.04 }]} activeOpacity={0.7}>
+  const avatarStackBorder = isDark ? 'rgba(255,255,255,0.92)' : '#ffffff';
+  const stackLen = event.avatarStack?.length ?? 0;
+  const row = [
+    styles.comingUpRow,
+    rowStyle,
+    { backgroundColor: colors.card, shadowOpacity: isDark ? 0 : 0.04 },
+  ];
+  const body = (
+    <View style={styles.comingUpRowInner}>
       <View style={styles.cuLeft}>
         <Text style={[styles.cuDate, { color: colors.text }]}>{event.date}</Text>
         <Text style={[styles.cuTime, { color: colors.textSecondary }]}>{event.time}</Text>
         <Text style={[styles.cuDuration, { color: colors.textTertiary }]}>{event.duration} {t('HOME.MINS')}</Text>
       </View>
       <View style={styles.cuCenter}>
-        {event.avatar ? (
+        {event.avatarStack && event.avatarStack.length > 0 ? (
+          <View style={styles.cuAvatarStackRow}>
+            {event.avatarStack.map((face, i) => (
+              <View
+                key={i}
+                style={[
+                  styles.cuAvatarStackRing,
+                  {
+                    marginLeft: i > 0 ? -10 : 0,
+                    zIndex: i + 1,
+                    borderColor: avatarStackBorder,
+                  },
+                ]}
+              >
+                {face.picture ? (
+                  <Image source={{ uri: face.picture }} style={styles.cuAvatarStackImg} />
+                ) : (
+                  <View
+                    style={[
+                      styles.cuAvatarStackImg,
+                      {
+                        backgroundColor: isDark ? '#3a3a3c' : '#e8e8e8',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.cuAvatarStackIni, { color: isDark ? '#ccc' : '#999' }]} numberOfLines={1}>
+                      {face.initials}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            ))}
+            {(event.avatarStackOverflow ?? 0) > 0 ? (
+              <View
+                style={[
+                  styles.cuAvatarStackRing,
+                  styles.cuAvatarStackMoreRing,
+                  {
+                    marginLeft: -10,
+                    zIndex: stackLen + 1,
+                    borderColor: avatarStackBorder,
+                    backgroundColor: isDark ? '#3a3a3c' : '#e5e5ea',
+                  },
+                ]}
+              >
+                <Text
+                  style={[styles.cuAvatarStackMoreText, { color: isDark ? '#aeaeb2' : '#8e8e93' }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.75}
+                >
+                  +{event.avatarStackOverflow}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        ) : event.avatar ? (
           <Image source={{ uri: event.avatar }} style={styles.cuAvatar} />
         ) : (
           <View style={[styles.cuAvatar, { backgroundColor: isDark ? '#3a3a3c' : '#e8e8e8', alignItems: 'center', justifyContent: 'center' }]}>
@@ -898,19 +1374,37 @@ function ComingUpRow({ event, colors, t }: { event: TimelineEvent; colors: any; 
         )}
         <Text style={[styles.cuName, { color: colors.text }]} numberOfLines={1}>{event.name}</Text>
       </View>
-      <View style={[
-        styles.cuBadge,
-        { backgroundColor: isDark ? (event.isTrialLesson ? 'rgba(245,166,35,0.15)' : 'rgba(46,125,50,0.15)') : (event.isTrialLesson ? '#FFF8E1' : '#E8F5E9') },
-      ]}>
-        <Text style={[
-          styles.cuBadgeText,
-          { color: event.isTrialLesson ? (isDark ? '#fbbf24' : '#F5A623') : (isDark ? '#4ade80' : '#2E7D32') },
-        ]}>
+      <View
+        style={[
+          styles.cuBadge,
+          {
+            backgroundColor: isDark
+              ? (event.isTrialLesson ? 'rgba(245,166,35,0.15)' : 'rgba(46,125,50,0.15)')
+              : event.isTrialLesson
+                ? '#FFF8E1'
+                : '#E8F5E9',
+          },
+        ]}
+      >
+        <Text
+          style={[
+            styles.cuBadgeText,
+            { color: event.isTrialLesson ? (isDark ? '#fbbf24' : '#F5A623') : isDark ? '#4ade80' : '#2E7D32' },
+          ]}
+        >
           {event.statusLabel}
         </Text>
       </View>
-    </TouchableOpacity>
+    </View>
   );
+  if (onPress) {
+    return (
+      <TouchableOpacity style={row} activeOpacity={0.7} onPress={onPress}>
+        {body}
+      </TouchableOpacity>
+    );
+  }
+  return <View style={row}>{body}</View>;
 }
 
 /* ─── Action Chip ─── */
@@ -1157,6 +1651,10 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     textAlign: 'center',
   },
+  /** Class Up Next: extra air between cover thumbnail and title (see `upNextClassCoverWrap`). */
+  upNextClassTitleBelowCover: {
+    marginTop: 8,
+  },
   cardSubtitle: {
     fontSize: 14,
     color: '#6b7280',
@@ -1227,6 +1725,16 @@ const styles = StyleSheet.create({
   },
   upNextAvatarImage: { width: '100%', height: '100%' },
 
+  upNextClassCoverWrap: {
+    width: 144,
+    height: 90,
+    borderRadius: 14,
+    overflow: 'hidden',
+    marginBottom: 18,
+    backgroundColor: 'transparent',
+  },
+  upNextClassCoverImage: { width: '100%', height: '100%' },
+
   // Trial badge — web `.badge-inline.badge-trial` (Up Next)
   trialBadgePopWrap: {
     alignSelf: 'center',
@@ -1258,15 +1766,30 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 14,
+    overflow: 'visible',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 6,
     elevation: 1,
   },
-  avatarStack: { flexDirection: 'row', marginRight: 12 },
-  stackAvatar: {},
-  stackAvatarImg: { width: 34, height: 34, borderRadius: 17, borderWidth: 2, borderColor: '#fff' },
+  twStackPile: {
+    height: TW_PILE_SIZE,
+    position: 'relative',
+    alignSelf: 'center',
+    flexShrink: 0,
+  },
+  twStackRing: {
+    width: TW_PILE_SIZE,
+    height: TW_PILE_SIZE,
+    borderRadius: TW_PILE_SIZE / 2,
+    borderWidth: 2,
+    overflow: 'hidden',
+  },
+  twStackImg: { width: '100%', height: '100%' },
+  twStackIni: { fontSize: 13, fontWeight: '700' },
+  twStackMoreRing: { alignItems: 'center', justifyContent: 'center' },
+  twStackMoreText: { fontSize: 12, fontWeight: '700', letterSpacing: -0.2 },
   thisWeekCount: { flex: 1, fontSize: 15, fontWeight: '600', color: '#222' },
   chevron: { fontSize: 22, color: '#ccc', fontWeight: '300' },
 
@@ -1325,9 +1848,6 @@ const styles = StyleSheet.create({
 
   // Coming Up
   comingUpRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
     borderRadius: 14,
     padding: 14,
     marginBottom: 8,
@@ -1337,12 +1857,71 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 1,
   },
+  comingUpRowInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  /** Slightly tighter bottom margin when stacked in “This week” sheet */
+  comingUpRowSheet: {
+    marginBottom: 10,
+  },
+  twSheetRoot: {
+    flex: 1,
+  },
+  twSheetSheetSlot: {
+    justifyContent: 'flex-end',
+  },
+  twSheetCard: {
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 0,
+    maxHeight: Math.round(Dimensions.get('window').height * 0.68),
+    paddingBottom: 28,
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 24,
+  },
+  twSheetHandleWrap: { alignItems: 'center', paddingTop: 10, paddingBottom: 6 },
+  twSheetHandle: { width: 40, height: 4, borderRadius: 2 },
+  twSheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    marginBottom: 12,
+  },
+  twSheetTitle: { fontSize: 18, fontWeight: '700', letterSpacing: -0.3 },
+  twSheetDone: { fontSize: 16, fontWeight: '600' },
+  twSheetScroll: { flexGrow: 0 },
+  twSheetScrollContent: { paddingBottom: 8 },
   cuLeft: { width: 76 },
   cuDate: { fontSize: 12, fontWeight: '600', color: '#222' },
   cuTime: { fontSize: 11, color: '#717171', marginTop: 2 },
   cuDuration: { fontSize: 10, color: '#999', marginTop: 2 },
   cuCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, marginLeft: 8 },
   cuAvatar: { width: 30, height: 30, borderRadius: 15 },
+  cuAvatarStackRow: { flexDirection: 'row', alignItems: 'center' },
+  cuAvatarStackRing: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 2,
+    overflow: 'hidden',
+    backgroundColor: 'transparent',
+  },
+  cuAvatarStackImg: { width: '100%', height: '100%' },
+  cuAvatarStackIni: { fontSize: 10, fontWeight: '700', textAlign: 'center' },
+  cuAvatarStackMoreRing: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cuAvatarStackMoreText: { fontSize: 11, fontWeight: '700', letterSpacing: -0.2 },
   cuName: { flex: 1, fontSize: 14, fontWeight: '600', color: '#222' },
   cuBadge: { backgroundColor: '#E8F5E9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
   cuBadgeTrial: { backgroundColor: '#FFF8E1' },

@@ -4024,6 +4024,15 @@ $dk-red: #ff453a;
       background: #2c2c2e;
       border-color: #444444;
     }
+  }
+
+  // My Classes hub — dark (Create Material `cm-library` / `cm-mc-*` pattern).
+  // Inline modal (`.schedule-class-content-inline.sc-host-chrome`) and full-page `ion-content.schedule-class-content`.
+  .schedule-class-content-inline.sc-host-chrome,
+  .schedule-class-content {
+    .sch-hub-loading ion-spinner {
+      color: #8e8e93;
+    }
 
     .sch-hub-tabs {
       background: #3a3a3c;
@@ -4039,6 +4048,22 @@ $dk-red: #ff453a;
       }
     }
 
+    .sch-hub-empty-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 72px;
+      height: 72px;
+      margin: 0 auto;
+      border-radius: 18px;
+      background: #2c2c2e;
+
+      ion-icon {
+        font-size: 56px;
+        color: #636366;
+      }
+    }
+
     .sch-hub-empty-title,
     .sch-hub-card-title {
       color: #f5f5f7;
@@ -4051,24 +4076,78 @@ $dk-red: #ff453a;
       color: #8e8e93;
     }
 
+    .sch-hub-type-label {
+      color: #8e8e93;
+    }
+
+    .sch-hub-price {
+      color: #4298d2;
+
+      &--free {
+        color: #30d158;
+      }
+    }
+
     .sch-hub-when {
       color: #d1d1d6;
     }
 
-    .sch-hub-thumb,
+    .sch-hub-when--draft {
+      color: #8e8e93;
+    }
+
+    .sch-hub-thumb {
+      background: #2c2c2e;
+    }
+
     .sch-hub-thumb-empty {
-      background: #3a3a3c;
+      background: linear-gradient(135deg, #2c2c2e 0%, #3a3a3c 100%);
+
+      ion-icon {
+        color: #636366;
+      }
+    }
+
+    .sch-hub-badge {
+      background: rgba(44, 44, 46, 0.96);
+      color: #f5f5f7;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+    }
+
+    .sch-hub-badge--live {
+      background: rgba(48, 209, 88, 0.95);
+      color: #fff;
+    }
+
+    .sch-hub-badge--upcoming {
+      background: rgba(66, 152, 210, 0.95);
+      color: #fff;
+    }
+
+    .sch-hub-badge--past {
+      background: rgba(99, 99, 102, 0.95);
+      color: #fff;
+    }
+
+    .sch-hub-badge--cancelled {
+      background: rgba(220, 38, 38, 0.92);
+      color: #fff;
+    }
+
+    .sch-hub-badge--draft {
+      background: rgba(99, 99, 102, 0.95);
+      color: #fff;
     }
 
     .sch-hub-card-action {
-      background: #3a3a3c;
+      background: #2c2c2e;
 
       ion-icon {
         color: #d1d1d6;
       }
 
       &:hover:not(:disabled) {
-        background: #48484a;
+        background: #3a3a3c;
       }
 
       &--danger ion-icon {
@@ -4076,14 +4155,34 @@ $dk-red: #ff453a;
       }
 
       &--danger:hover:not(:disabled) {
-        background: #3d2928;
+        background: rgba(255, 69, 58, 0.12);
       }
     }
 
     .sch-hub-retry {
       background: #2c2c2e;
       color: #f5f5f7;
-      border-color: #f5f5f7;
+      border-color: rgba(255, 255, 255, 0.35);
+
+      &:hover {
+        background: #3a3a3c;
+        border-color: #f5f5f7;
+      }
+    }
+
+    .sch-hub-fab {
+      background: #f5f5f7;
+      color: #1c1c1e;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+
+      &:hover {
+        background: #e5e5ea;
+        box-shadow: 0 6px 28px rgba(0, 0, 0, 0.5);
+      }
+
+      ion-icon {
+        color: #1c1c1e;
+      }
     }
   }
 

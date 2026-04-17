@@ -3172,12 +3172,12 @@ ion-content {
   ion-icon { font-size: 24px; color: #b0b0b0; }
 }
 .m-filled-class-cover-wrap {
-  width: 88px;
-  height: 56px;
-  border-radius: 12px;
+  width: 120px;
+  height: 76px;
+  border-radius: 14px;
   overflow: hidden;
   background: #f0f0f2;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 .m-filled-class-cover-img {
   width: 100%;
@@ -3291,15 +3291,72 @@ ion-content {
   }
 }
 
-// Mobile Up Next — lessons-style date chip (weekday above badge)
+// Mobile Up Next — event-details–style date + time (centered group, badge on left of time)
 .home-m-upnext-date {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 4px 0 2px;
+  max-width: 100%;
+  padding: 0 8px;
+  box-sizing: border-box;
+
+  .tw-date-badge {
+    width: 52px;
+    height: 56px;
+  }
+}
+
+.upnext-date-time {
+  font-size: 13px;
+  font-weight: 500;
+  color: #3c3c43;
+}
+
+// ── Class details row (price + level) below attendees ──
+.upnext-class-details {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 10px;
+  padding: 10px 16px;
+  background: #f7f7f8;
+  border-radius: 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.upnext-class-detail-item {
+  display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 6px;
-  margin: 0 0 2px 0;
-  position: relative;
-  bottom: 20px;
+  color: #3c3c43;
+
+  ion-icon {
+    font-size: 15px;
+    color: #8e8e93;
+    flex-shrink: 0;
+  }
+}
+
+.upnext-class-detail-primary {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1d1d1f;
+  letter-spacing: -0.01em;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+}
+
+.upnext-class-detail-secondary {
+  font-size: 12px;
+  font-weight: 400;
+  color: #8e8e93;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
 }
 
 .m-card-empty-link {
@@ -3518,7 +3575,7 @@ img.m-card-empty-link-arrow-img {
 // =============================================
 .upnext-filled {
   position: relative;
-  padding: 32px 32px 28px !important;
+  padding: 24px 32px 24px !important;
 
   // Badges row — positioned absolutely so it doesn't push content down
   .upnext-filled-badges {
@@ -3536,21 +3593,22 @@ img.m-card-empty-link-arrow-img {
   }
 }
 
-// Class cover — slightly wider than the person avatar, landscape proportions
+// Class cover — landscape tile (tutor desktop Up Next). Slightly larger; padding trimmed to offset.
 .upnext-filled-class-cover {
-  width: 104px;
-  height: 68px;
+  width: 144px;
+  height: 90px;
   border-radius: 14px;
   overflow: hidden;
   background: #f0f0f2;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
   flex-shrink: 0;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
 
   @media (max-width: 600px) {
-    width: 88px;
-    height: 56px;
+    width: 120px;
+    height: 76px;
     border-radius: 12px;
+    margin-bottom: 8px;
   }
 }
 
@@ -3664,14 +3722,25 @@ img.m-card-empty-link-arrow-img {
     align-items: center;
     gap: 8px;
   }
-  
-  @media (max-width: 600px) {
+}
+
+// Date badge row inside the desktop Up Next card (badge uses global This Week tile size)
+.upnext-filled-date-badge {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 4px 0;
+
+  .tw-date-badge {
+    flex-shrink: 0;
+  }
+
+  .tw-date-badge__time {
     font-size: 14px;
-    
-    .flag-icon-inline {
-      width: 16px;
-      height: 12px;
-    }
+    font-weight: 500;
+    color: #3c3c43;
   }
 }
 
@@ -4631,8 +4700,77 @@ img.m-card-empty-link-arrow-img {
   gap: 8px;
 }
 
-.lesson-details-row .home-detail-date {
-  align-items: center;
+.lesson-details-row .detail-group.home-detail-datetime-ed {
+  align-items: flex-start;
+}
+
+// Event-details–style date + time (matches /tabs/lessons/:id profile card)
+.home-detail-datetime-ed {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+
+  ion-icon {
+    font-size: 18px;
+    color: #8e8e93;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  &--stacked {
+    justify-content: center;
+    text-align: center;
+
+    .home-event-datetime__text {
+      align-items: center;
+    }
+  }
+}
+
+.home-event-datetime__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.home-event-datetime__primary {
+  font-size: 13px;
+  font-weight: 600;
+  color: $text-primary;
+  line-height: 1.28;
+  letter-spacing: -0.02em;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+}
+
+.home-event-datetime__secondary {
+  font-size: 12px;
+  font-weight: 400;
+  color: $text-secondary;
+  line-height: 1.35;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+
+  &--inline {
+    white-space: nowrap;
+  }
+}
+
+.home-upnext-meta-datetime-inline {
+  display: inline-flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: 100%;
+  text-align: left;
+
+  &__icon {
+    font-size: 16px;
+    color: #8e8e93;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
 }
 
 .home-date-row--compact {
@@ -4675,16 +4813,11 @@ img.m-card-empty-link-arrow-img {
   max-width: 100%;
   min-width: 0;
   padding: 10px 0 12px;
-  scrollbar-width: thin;
+  scrollbar-width: none;
   background: #ffffff;
 
   &::-webkit-scrollbar {
-    height: 6px;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    border-radius: 4px;
-    background: rgba(0, 0, 0, 0.18);
+    display: none;
   }
 }
 
@@ -4733,54 +4866,112 @@ img.m-card-empty-link-arrow-img {
   }
 }
 
-.tw-day-group__date-badge-stack {
+.tw-day-group__date {
+  flex-shrink: 0;
+  width: 88px;
+  min-width: 80px;
+  padding: 12px 12px 12px 4px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  justify-content: center;
   gap: 6px;
-  margin-bottom: 4px;
+  background: #ffffff;
 }
 
-.tw-day-group__date {
-  flex-shrink: 0;
-  width: 120px;
-  padding: 12px 10px 12px 4px;
+// ── Date badge: Apple Calendar-style tile ──
+.tw-date-badge {
+  width: 52px;
+  height: 56px;
+  border-radius: 12px;
+  background: #f2f2f7;
   display: flex;
   flex-direction: column;
+  align-items: center;
   justify-content: center;
-  gap: 2px;
-  background: #ffffff;
+  gap: 0;
+  flex-shrink: 0;
 
-  .meta-today {
-    color: #3f99d1;
-  }
+  &--today {
+    background: #fff0f0;
 
-  .cu-preview-time {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-    margin-top: 6px;
-  }
+    .tw-date-badge__month {
+      color: #ff3b30;
+    }
 
-  .cu-time-text {
-    display: block;
-    font-size: 15px;
-    font-weight: 700;
-    color: $text-primary;
-    letter-spacing: -0.2px;
-    line-height: 1.25;
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
-  }
+    .tw-date-badge__day {
+      color: #ff3b30;
+    }
 
-  .cu-duration {
-    display: block;
-    font-size: 12px;
-    color: $text-secondary;
-    font-weight: 400;
-    line-height: 1.35;
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+    .tw-date-badge__weekday {
+      color: rgba(#ff3b30, 0.7);
+    }
   }
+}
+
+.tw-date-badge__month {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #ff3b30;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+}
+
+.tw-date-badge__day {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1d1d1f;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+}
+
+.tw-date-badge__weekday {
+  font-size: 9px;
+  font-weight: 500;
+  text-transform: uppercase;
+  color: #8e8e93;
+  letter-spacing: 0.04em;
+  line-height: 1.3;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+}
+
+.tw-date-badge__time {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: #3c3c43;
+  letter-spacing: -0.01em;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+}
+
+.tw-date-badge__duration {
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+  color: #8e8e93;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+}
+
+// This Week strip: compact tile (former Up Next desktop size) — clearer horizontal rhythm
+.timeline-section--week-strip .tw-day-group__date .tw-date-badge {
+  width: 36px;
+  height: 40px;
+  border-radius: 8px;
+}
+
+.timeline-section--week-strip .tw-day-group__date .tw-date-badge__month {
+  font-size: 8px;
+}
+
+.timeline-section--week-strip .tw-day-group__date .tw-date-badge__day {
+  font-size: 16px;
+}
+
+.timeline-section--week-strip .tw-day-group__date .tw-date-badge__weekday {
+  font-size: 7px;
 }
 
 .tw-day-group__sessions {
@@ -4790,15 +4981,6 @@ img.m-card-empty-link-arrow-img {
   letter-spacing: -0.01em;
   margin-top: 4px;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
-}
-
-.tw-day-group__divider {
-  width: 1px;
-  align-self: stretch;
-  min-height: 48px;
-  background: #eeeeee;
-  flex-shrink: 0;
-  margin: 8px 0;
 }
 
 .tw-day-group__events {
@@ -4842,10 +5024,61 @@ img.m-card-empty-link-arrow-img {
   flex-shrink: 0;
 }
 
-.tw-day-event-cell .cu-avatar.tw-day-event-avatar {
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
+// Week strip avatars: split by type so class thumbnails show full image, 1-on-1 shows squircle
+// 1-on-1 lessons: 50x50 squircle + hairline ring
+.tw-day-event-cell:not(.tw-day-event-cell--class) .cu-avatar.tw-day-event-avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 26%;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f7;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  ion-icon {
+    font-size: 22px;
+    color: #b0b0b0;
+  }
+}
+
+// Classes: full thumbnail, natural aspect ratio, no rounding, no ring
+.tw-day-event-cell.tw-day-event-cell--class .cu-avatar.tw-day-event-avatar,
+.cu-avatar.tw-day-event-avatar.tw-day-event-avatar--class {
+  width: auto;
+  height: 50px;
+  max-width: 120px;
+  min-width: 50px;
+  border-radius: 0;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  box-shadow: none;
+
+  img {
+    width: auto;
+    height: 100%;
+    max-width: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  ion-icon {
+    font-size: 22px;
+    color: #b0b0b0;
+  }
 }
 
 .tw-day-event-under {
@@ -4858,14 +5091,14 @@ img.m-card-empty-link-arrow-img {
 }
 
 .tw-day-event-cell__body {
-  // display: flex;
+  display: flex;
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
   gap: 3px;
   min-width: 0;
   flex: 1;
-  padding-right: 88px;
+  padding-right: 32px;
 }
 
 .tw-day-event-time {
@@ -4915,41 +5148,6 @@ img.m-card-empty-link-arrow-img {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
-}
-
-.tw-day-status-pill {
-  position: absolute;
-  right: 14px;
-  bottom: 12px;
-  margin: 0;
-  padding: 5px 10px;
-  border-radius: 999px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  line-height: 1.2;
-
-  &.confirmed {
-    background: #e8f5e9;
-    color: #008a05;
-  }
-
-  &.in-progress {
-    background: rgba(59, 130, 246, 0.12);
-    color: #1d4ed8;
-  }
-
-  &.pending {
-    background: rgba(217, 119, 6, 0.12);
-    color: #b45309;
-  }
-
-  &.cancelled {
-    background: rgba(220, 38, 38, 0.1);
-    color: #dc2626;
-    opacity: 0.85;
-  }
 }
 
 // =============================================
@@ -8121,7 +8319,7 @@ img.m-card-empty-link-arrow-img {
     &.upnext-filled {
       justify-content: center;
       padding: 24px;
-      gap: 20px;
+      gap: 12px;
 
       @media (max-width: 600px) {
         flex: none;
@@ -9278,12 +9476,34 @@ img.m-card-empty-link-arrow-img {
   }
 }
 
+// Match earnings card “View details” link (same section / visual family)
 .see-all-btn {
+  --background: transparent;
+  --background-hover: transparent;
+  --background-activated: transparent;
+  --background-focused: transparent;
+  --box-shadow: none;
+  --ripple-color: rgba(34, 34, 34, 0.08);
   --color: #222222;
   font-weight: 600;
-  font-size: 15px;
+  font-size: 14px;
   text-transform: none;
   text-decoration: underline;
+  letter-spacing: 0;
+  margin: 0;
+  min-height: 0;
+  height: auto;
+  --padding-top: 0;
+  --padding-bottom: 0;
+  --padding-start: 0;
+  --padding-end: 0;
+
+  &::part(native) {
+    padding: 0;
+    min-height: 0;
+    color: #222222;
+    text-decoration: underline;
+  }
 }
 
 // Next Class Text Section (No Card)
@@ -12293,20 +12513,23 @@ img.m-card-empty-link-arrow-img {
       }
     }
     
-    // Class-specific: slightly wider rounded cover instead of circular avatar
+    // Class-specific: rounded cover beside lesson info (student Up Next).
+    // Row height is driven by the taller text column, so we can grow the cover
+    // (height <= text block height) without enlarging the card.
     &.class-content {
       .class-cover-wrap {
-        width: 96px;
-        height: 64px;
-        border-radius: 12px;
+        width: 128px;
+        height: 80px;
+        border-radius: 14px;
         overflow: hidden;
         background: #f0f0f2;
         flex-shrink: 0;
+        align-self: flex-start;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 
         @media (max-width: 600px) {
-          width: 110px;
-          height: 72px;
+          width: 140px;
+          height: 88px;
           border-radius: 14px;
           box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
         }
@@ -13189,7 +13412,14 @@ img.m-card-empty-link-arrow-img {
   .card-name { color: var(--ion-text-color, #fff) !important; }
   .meta-item { color: #999 !important; }
   .meta-item ion-icon { color: #666 !important; }
-  .see-all-btn { --color: #60a5fa !important; }
+  .see-all-btn {
+    --color: #4298d3 !important;
+    --ripple-color: rgba(66, 152, 211, 0.12) !important;
+
+    &::part(native) {
+      color: #4298d3 !important;
+    }
+  }
   
   // Card top row dark mode (legacy)
   .card-top-row {
@@ -13234,35 +13464,32 @@ img.m-card-empty-link-arrow-img {
     background: #2a2a2a !important;
   }
 
-  .tw-day-group__date {
-    .cu-time-text {
-      color: var(--ion-text-color, #fff) !important;
-    }
+  .tw-date-badge {
+    background: #3a3a3c !important;
 
-    .cu-duration {
-      color: #888 !important;
+    &.tw-date-badge--today {
+      background: rgba(#ff3b30, 0.15) !important;
     }
+  }
 
-    .home-date-weekday {
-      color: #8e8e93 !important;
-    }
+  .tw-date-badge__month {
+    color: #ff6b8a !important;
+  }
 
-    .meta-today {
-      color: #5aa3f0 !important;
-    }
+  .tw-date-badge__day {
+    color: #f5f5f7 !important;
+  }
 
-    .lgc-date-badge {
-      background: #2c2c2e !important;
-      border-color: rgba(255, 255, 255, 0.12) !important;
-    }
+  .tw-date-badge__weekday {
+    color: #8e8e93 !important;
+  }
 
-    .lgc-date-badge-month {
-      color: #ff6b8a !important;
-    }
+  .tw-date-badge__time {
+    color: #ebebf0 !important;
+  }
 
-    .lgc-date-badge-day {
-      color: #f5f5f7 !important;
-    }
+  .tw-date-badge__duration {
+    color: #8e8e93 !important;
   }
 
   .lgc-date-badge {
@@ -13291,10 +13518,6 @@ img.m-card-empty-link-arrow-img {
     border-right-color: rgba(255, 255, 255, 0.1) !important;
   }
 
-  .tw-day-group__divider {
-    background: rgba(255, 255, 255, 0.1) !important;
-  }
-
   .tw-day-event-cell:not(:last-child) {
     border-right-color: rgba(255, 255, 255, 0.1) !important;
   }
@@ -13315,26 +13538,19 @@ img.m-card-empty-link-arrow-img {
     color: #8e8e93 !important;
   }
 
-  .tw-day-status-pill {
-    &.confirmed {
-      background: rgba(52, 199, 89, 0.18) !important;
-      color: #4ade80 !important;
-    }
+  .tw-day-event-cell .cu-avatar.tw-day-event-avatar {
+    background: #2c2c2e !important;
+    box-shadow: none !important;
+  }
 
-    &.in-progress {
-      background: rgba(59, 130, 246, 0.2) !important;
-      color: #60a5fa !important;
-    }
+  .tw-day-event-cell.tw-day-event-cell--class .cu-avatar.tw-day-event-avatar,
+  .cu-avatar.tw-day-event-avatar.tw-day-event-avatar--class {
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
 
-    &.pending {
-      background: rgba(217, 119, 6, 0.2) !important;
-      color: #fbbf24 !important;
-    }
-
-    &.cancelled {
-      background: rgba(220, 38, 38, 0.18) !important;
-      color: #f87171 !important;
-    }
+  .tw-day-event-cell:not(.tw-day-event-cell--class) .cu-avatar.tw-day-event-avatar {
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
   }
 
   .tw-week-scroll::-webkit-scrollbar-thumb {
@@ -13415,6 +13631,42 @@ img.m-card-empty-link-arrow-img {
     }
   }
 
+  // Join Lesson / Join now (desktop Up Next) — outline only; not the solid “View calendar” CTA
+  .upnext-filled-actions .empty-state-clean-btn[fill="outline"] {
+    --background: #49aeea !important;
+    --background-hover: #3d99d4 !important;
+    --background-activated: #3588be !important;
+    --color: #ffffff !important;
+    --border-color: #000000 !important;
+    --border-width: 1.5px;
+    --border-style: solid;
+
+    &:hover:not([disabled]) {
+      --background: #3d99d4 !important;
+      --color: #ffffff !important;
+      --border-color: #000000 !important;
+    }
+
+    &[disabled] {
+      --background: rgba(73, 174, 234, 0.35) !important;
+      --color: rgba(255, 255, 255, 0.75) !important;
+      --border-color: rgba(0, 0, 0, 0.45) !important;
+    }
+
+    &.active {
+      --background: #49aeea !important;
+      --color: #ffffff !important;
+      --border-color: #000000 !important;
+      animation: pulse-join 2s ease-in-out infinite;
+    }
+
+    &.active[disabled] {
+      --background: rgba(73, 174, 234, 0.35) !important;
+      --color: rgba(255, 255, 255, 0.65) !important;
+      --border-color: rgba(0, 0, 0, 0.35) !important;
+    }
+  }
+
   // Tutor Up Next card (upnext-filled) — name, meta
   .upnext-filled {
     .upnext-filled-text {
@@ -13422,6 +13674,7 @@ img.m-card-empty-link-arrow-img {
     }
     .upnext-filled-meta,
     .upnext-filled-meta .meta-dot { color: #b0b0b5 !important; }
+    .upnext-filled-date-badge .tw-date-badge__time { color: #ebebf0 !important; }
     .upnext-filled-countdown { color: #8e8e93 !important; }
     .upnext-filled-avatar .avatar-placeholder {
       background: linear-gradient(135deg, #4298d2 0%, #3583b8 100%) !important;
@@ -13505,6 +13758,28 @@ img.m-card-empty-link-arrow-img {
     .flag-icon-inline {
       box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12) !important;
     }
+  }
+
+  .home-m-upnext-date {
+    .upnext-date-time {
+      color: #ebebf0 !important;
+    }
+  }
+
+  .upnext-class-details {
+    background: #2c2c2e !important;
+  }
+
+  .upnext-class-detail-primary {
+    color: #f5f5f7 !important;
+  }
+
+  .upnext-class-detail-secondary {
+    color: #8e8e93 !important;
+  }
+
+  .upnext-class-detail-item ion-icon {
+    color: #636366 !important;
   }
 
   .m-filled-avatar-placeholder { background: #2c2c2e !important; ion-icon { color: #636366 !important; } }
@@ -13748,9 +14023,20 @@ img.m-card-empty-link-arrow-img {
         }
         .instructor-name { color: #b0b0b5 !important; }
         .detail-label,
-        .lesson-details-row .detail-group .detail-label,
-        .lesson-details-row .detail-group span { color: #b0b0b5 !important; }
+        .lesson-details-row .detail-group .detail-label { color: #b0b0b5 !important; }
+        .lesson-details-row .detail-group:not(.home-detail-datetime-ed) span { color: #b0b0b5 !important; }
         ion-icon { color: #8e8e93 !important; }
+        .lesson-details-row .detail-group.home-detail-datetime-ed {
+          .home-event-datetime__primary {
+            color: #f5f5f7 !important;
+          }
+          .home-event-datetime__secondary {
+            color: #8e8e93 !important;
+          }
+          ion-icon {
+            color: #8e8e93 !important;
+          }
+        }
       }
     }
     .lesson-main-content.class-content {

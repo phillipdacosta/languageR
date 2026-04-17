@@ -22,7 +22,13 @@ import * as Haptics from 'expo-haptics';
 import { RtcSurfaceView, VideoMirrorModeType } from 'react-native-agora';
 import type { RootStackParamList } from '../navigation/types';
 import { useAuth } from '../hooks/useAuth';
-import { lessonService, Lesson } from '../services/lessons';
+import {
+  lessonService,
+  Lesson,
+  getJoinGateState,
+  formatJoinWaitDuration,
+  formatTimeUntilLessonStart,
+} from '../services/lessons';
 import { agoraService, type VbMode } from '../services/agora';
 
 type LessonIntent = 'easy' | 'conversational' | 'focused' | 'challenge';
@@ -69,8 +75,15 @@ export default function PreCallScreen({ navigation, route }: Props) {
   const [vbMode, setVbMode] = useState<VbMode>('none');
   const [audioLevel, setAudioLevel] = useState(35);
   const [selectedIntent, setSelectedIntent] = useState<LessonIntent | null>(null);
+  const [joinUiTick, setJoinUiTick] = useState(0);
 
   const isTutor = user?.userType === 'tutor';
+
+  useEffect(() => {
+    if (!lesson || lessonLoading) return;
+    const id = setInterval(() => setJoinUiTick(n => n + 1), 5000);
+    return () => clearInterval(id);
+  }, [lesson?._id, lessonLoading]);
 
   // Fetch lesson data
   useEffect(() => {
@@ -177,6 +190,14 @@ export default function PreCallScreen({ navigation, route }: Props) {
     cam: isVideoOff ? t('PRE_CALL.CAM_OFF') : t('PRE_CALL.CAM_ON'),
   });
 
+  const joinGate = useMemo(() => getJoinGateState(lesson), [lesson, joinUiTick]);
+  const enterButtonLabel = useMemo(() => {
+    if (lessonLoading || !lesson) return t('PRE_CALL.ENTER_CLASSROOM');
+    if (joinGate.canJoin) return t('PRE_CALL.ENTER_CLASSROOM');
+    if (joinGate.sessionEnded) return t('HOME.JOIN_LESSON_ENDED_TITLE');
+    return t('HOME.JOIN_IN_TIME', { time: formatJoinWaitDuration(joinGate.waitSeconds) });
+  }, [lesson, lessonLoading, joinGate, t]);
+
   const goBack = useCallback(() => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     navigation.goBack();
@@ -230,6 +251,23 @@ export default function PreCallScreen({ navigation, route }: Props) {
 
   const enterClassroom = useCallback(() => {
     if (!lesson) return;
+    const gate = getJoinGateState(lesson);
+    if (!gate.canJoin) {
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      if (gate.sessionEnded) {
+        Alert.alert(t('HOME.JOIN_LESSON_ENDED_TITLE'), t('HOME.JOIN_LESSON_ENDED_MSG'), [{ text: t('COMMON.OK') }]);
+        return;
+      }
+      Alert.alert(
+        t('HOME.JOIN_NOT_READY_TITLE'),
+        t('HOME.JOIN_NOT_READY_MSG', {
+          session: t(lesson.isClass ? 'HOME.JOIN_SESSION_CLASS' : 'HOME.JOIN_SESSION_LESSON'),
+          time: formatTimeUntilLessonStart(lesson),
+        }),
+        [{ text: t('COMMON.OK') }],
+      );
+      return;
+    }
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (selectedIntent && !isTutor) {
       lessonService.updateLesson(lessonId, { studentLessonIntent: selectedIntent }).catch(() => {});
@@ -240,7 +278,7 @@ export default function PreCallScreen({ navigation, route }: Props) {
       micOn: !isMuted,
       videoOn: !isVideoOff,
     });
-  }, [lesson, lessonId, navigation, isMuted, isVideoOff, selectedIntent, isTutor]);
+  }, [lesson, lessonId, navigation, isMuted, isVideoOff, selectedIntent, isTutor, t]);
 
   const camGranted = permission?.granted === true;
   const showCamera = camGranted && !isVideoOff && !agoraError && agoraReady;
@@ -448,15 +486,29 @@ export default function PreCallScreen({ navigation, route }: Props) {
       )}
       <View style={[styles.infoSpacer, isWide && styles.infoSpacerWide]} />
       <TouchableOpacity
+        accessibilityRole="button"
         style={[
           styles.enterButton,
           (!lesson || lessonLoading) && styles.enterButtonDisabled,
+          lesson &&
+            !lessonLoading &&
+            !joinGate.canJoin && {
+              backgroundColor: joinGate.sessionEnded ? 'rgba(58,58,60,0.55)' : 'rgba(58,58,60,0.85)',
+              opacity: joinGate.sessionEnded ? 0.5 : 0.75,
+            },
         ]}
         onPress={enterClassroom}
-        activeOpacity={0.9}
+        activeOpacity={joinGate.canJoin && lesson && !lessonLoading ? 0.9 : 1}
         disabled={!lesson || lessonLoading}
       >
-        <Text style={styles.enterButtonText}>{t('PRE_CALL.ENTER_CLASSROOM')}</Text>
+        <Text
+          style={[
+            styles.enterButtonText,
+            lesson && !lessonLoading && !joinGate.canJoin && { color: 'rgba(255,255,255,0.55)' },
+          ]}
+        >
+          {enterButtonLabel}
+        </Text>
       </TouchableOpacity>
     </View>
   );

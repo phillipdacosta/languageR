@@ -94,6 +94,7 @@
     "STATUS_RESCHEDULE_REQUEST": "RESCHEDULE REQUEST",
     "LESSON_NUMBER": "Lesson {{number}}",
     "TODAY": "Today",
+    "TOMORROW": "Tomorrow",
     "STARTED": "STARTED",
     "STARTS_IN": "STARTS IN",
     "STARTS_IN_TIME": "Starts in {{time}}",

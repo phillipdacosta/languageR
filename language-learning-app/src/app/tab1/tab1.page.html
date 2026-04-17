@@ -591,22 +591,15 @@
                         <span class="detail-label">{{ 'HOME.LESSON_NUMBER' | translate:{ number: nextLesson.lesson.lessonNumber } }}</span>
                       </div>
                       
-                      <div class="detail-group home-detail-date">
-                        <ion-icon name="calendar-outline"></ion-icon>
-                        <div class="home-date-row home-date-row--compact">
-                          <span class="home-date-weekday" [class.meta-today]="nextLesson?.isToday">
-                            {{ nextLesson?.isToday ? ('HOME.TODAY' | translate) : nextLesson?.dateBadgeWeekday }}
-                          </span>
-                          <div class="lgc-date-badge lgc-date-badge--inline" aria-hidden="true">
-                            <span class="lgc-date-badge-month">{{ nextLesson?.dateBadgeMonth }}</span>
-                            <span class="lgc-date-badge-day">{{ nextLesson?.dateBadgeDay }}</span>
-                          </div>
+                      <div class="detail-group home-detail-datetime-ed">
+                        <div class="tw-date-badge" [class.tw-date-badge--today]="nextLesson?.isToday">
+                          <span class="tw-date-badge__month">{{ nextLesson?.dateBadgeMonth }}</span>
+                          <span class="tw-date-badge__day">{{ nextLesson?.dateBadgeDay }}</span>
+                          <span class="tw-date-badge__weekday">{{ nextLesson?.dateBadgeWeekday }}</span>
                         </div>
-                      </div>
-                      
-                      <div class="detail-group">
-                        <ion-icon name="time-outline"></ion-icon>
-                        <span class="detail-label">{{ nextLesson?.timeRange }}</span>
+                        <div class="home-event-datetime__text">
+                          <span class="tw-date-badge__time">{{ nextLesson?.detailTimeRange }}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -648,22 +641,15 @@
                     </div>
                     
                     <div class="lesson-details-row">
-                      <div class="detail-group home-detail-date">
-                        <ion-icon name="calendar-outline"></ion-icon>
-                        <div class="home-date-row home-date-row--compact">
-                          <span class="home-date-weekday" [class.meta-today]="nextLesson?.isToday">
-                            {{ nextLesson?.isToday ? ('HOME.TODAY' | translate) : nextLesson?.dateBadgeWeekday }}
-                          </span>
-                          <div class="lgc-date-badge lgc-date-badge--inline" aria-hidden="true">
-                            <span class="lgc-date-badge-month">{{ nextLesson?.dateBadgeMonth }}</span>
-                            <span class="lgc-date-badge-day">{{ nextLesson?.dateBadgeDay }}</span>
-                          </div>
+                      <div class="detail-group home-detail-datetime-ed">
+                        <div class="tw-date-badge" [class.tw-date-badge--today]="nextLesson?.isToday">
+                          <span class="tw-date-badge__month">{{ nextLesson?.dateBadgeMonth }}</span>
+                          <span class="tw-date-badge__day">{{ nextLesson?.dateBadgeDay }}</span>
+                          <span class="tw-date-badge__weekday">{{ nextLesson?.dateBadgeWeekday }}</span>
                         </div>
-                      </div>
-                      
-                      <div class="detail-group">
-                        <ion-icon name="time-outline"></ion-icon>
-                        <span class="detail-label">{{ nextLesson?.timeRange }}</span>
+                        <div class="home-event-datetime__text">
+                          <span class="tw-date-badge__time">{{ nextLesson?.detailTimeRange }}</span>
+                        </div>
                       </div>
                     </div>
                     
@@ -903,19 +889,16 @@
         </span>
 
         <div class="home-m-upnext-date">
-          <span class="home-date-weekday home-date-weekday--stack" [class.meta-today]="nextClass.isToday">
-            {{ nextClass.isToday ? ('HOME.TODAY' | translate) : nextClass.dateBadgeWeekday }}
-          </span>
-          <span class="lgc-date-badge lgc-date-badge--inline" aria-hidden="true">
-            <span class="lgc-date-badge-month">{{ nextClass.dateBadgeMonth }}</span>
-            <span class="lgc-date-badge-day">{{ nextClass.dateBadgeDay }}</span>
-          </span>
+          <div class="tw-date-badge" [class.tw-date-badge--today]="nextClass.isToday">
+            <span class="tw-date-badge__month">{{ nextClass.dateBadgeMonth }}</span>
+            <span class="tw-date-badge__day">{{ nextClass.dateBadgeDay }}</span>
+            <span class="tw-date-badge__weekday">{{ nextClass.dateBadgeWeekday }}</span>
+          </div>
+          <span class="tw-date-badge__time upnext-date-time">{{ nextClass.detailTimeRange }}</span>
         </div>
 
         <p class="m-card-empty-subtitle m-upnext-meta">
-          <span>{{ nextClass.timeRange }}</span>
           <ng-container *ngIf="!nextClass.lesson?.isClass && nextClass.subject">
-            <span> · </span>
             <span *ngIf="flagService.getFlagPath(nextClass.subject)" class="m-upnext-flag-wrap">
               <img [src]="flagService.getFlagPath(nextClass.subject)" class="flag-icon-inline" [alt]="nextClass.subject + ' flag'" />
             </span>
@@ -927,8 +910,21 @@
           *ngIf="nextClass.lesson?.isClass && nextClass.lesson?.attendees"
           [attendees]="nextClass.lesson.attendees"
           [capacity]="nextClass.lesson.capacity"
-          [maxDisplay]="3">
+          [maxDisplay]="4">
         </app-class-attendees>
+
+        <!-- Class details: price + level -->
+        <div class="upnext-class-details" *ngIf="nextClass.lesson?.isClass">
+          <div class="upnext-class-detail-item" *ngIf="upNextFormattedPrice">
+            <ion-icon name="card-outline"></ion-icon>
+            <span class="upnext-class-detail-primary">{{ upNextFormattedPrice }}</span>
+            <span class="upnext-class-detail-secondary">per student</span>
+          </div>
+          <div class="upnext-class-detail-item" *ngIf="upNextLevelLabel">
+            <ion-icon name="school-outline"></ion-icon>
+            <span class="upnext-class-detail-primary">{{ upNextLevelLabel }}</span>
+          </div>
+        </div>
 
         <p class="m-card-empty-subtitle m-filled-countdown" *ngIf="nextClass.lesson?.status !== 'cancelled'">
             {{ 'HOME.STARTS_IN_TIME' | translate:{ time: nextClass.countdown } }}
@@ -940,7 +936,7 @@
         </div>
 
         <button type="button" *ngIf="nextClass.lesson?.status !== 'cancelled'" class="m-card-empty-link m-card-empty-link--as-button" (click)="joinStudentLesson(nextClass); $event.stopPropagation()">
-          <span class="button-text-animated">{{ 'HOME.JOIN_LESSON' | translate }}</span>
+          <span class="button-text-animated">{{ nextClass.joinLabel || ('HOME.JOIN_LESSON' | translate) }}</span>
           <img class="m-card-empty-link-chevron m-card-empty-link-arrow-img" src="assets/setup-availability-arrow.png" alt="" />
         </button>
         <span *ngIf="nextClass.lesson?.status === 'cancelled'" class="m-card-empty-link m-card-empty-link--disabled">
@@ -1026,19 +1022,15 @@
               <img [src]="flagService.getFlagPath(nextClass.subject)" class="flag-icon-inline" [alt]="nextClass.subject + ' flag'" />
             </span>
             <span *ngIf="!nextClass.lesson?.isClass">{{ nextClass.subject }}</span>
-            <span class="meta-dot" *ngIf="!nextClass.lesson?.isClass">·</span>
-            <span class="home-upnext-meta-date">
-              <span class="home-date-weekday" [class.meta-today]="nextClass.isToday">
-                {{ nextClass.isToday ? ('HOME.TODAY' | translate) : nextClass.dateBadgeWeekday }}
-              </span>
-              <span class="lgc-date-badge lgc-date-badge--inline" aria-hidden="true">
-                <span class="lgc-date-badge-month">{{ nextClass.dateBadgeMonth }}</span>
-                <span class="lgc-date-badge-day">{{ nextClass.dateBadgeDay }}</span>
-              </span>
-            </span>
-            <span class="meta-dot">·</span>
-            <span>{{ nextClass.timeRange }}</span>
           </p>
+          <div class="upnext-filled-date-badge">
+            <div class="tw-date-badge" [class.tw-date-badge--today]="nextClass.isToday">
+              <span class="tw-date-badge__month">{{ nextClass.dateBadgeMonth }}</span>
+              <span class="tw-date-badge__day">{{ nextClass.dateBadgeDay }}</span>
+              <span class="tw-date-badge__weekday">{{ nextClass.dateBadgeWeekday }}</span>
+            </div>
+            <span class="tw-date-badge__time">{{ nextClass.detailTimeRange }}</span>
+          </div>
           <p class="upnext-filled-countdown" *ngIf="nextClass.lesson?.status !== 'cancelled'">
             {{ 'HOME.STARTS_IN_TIME' | translate:{ time: nextClass.countdown } }}
           </p>
@@ -1147,33 +1139,27 @@
                   *ngFor="let group of timelineDayGroups; trackBy: trackByTimelineDayGroup; let gi = index"
                   class="tw-day-group">
                   <div class="tw-day-group__date">
-                    <div class="tw-day-group__date-badge-stack">
-                      <span class="home-date-weekday home-date-weekday--stack" [class.meta-today]="group.events[0].isToday">
-                        {{ group.events[0].isToday ? ('HOME.TODAY' | translate) : group.events[0].dateBadgeWeekday }}
-                      </span>
-                      <div class="lgc-date-badge lgc-date-badge--inline" aria-hidden="true">
-                        <span class="lgc-date-badge-month">{{ group.events[0].dateBadgeMonth }}</span>
-                        <span class="lgc-date-badge-day">{{ group.events[0].dateBadgeDay }}</span>
-                      </div>
+                    <div class="tw-date-badge" [class.tw-date-badge--today]="group.isToday">
+                      <span class="tw-date-badge__month">{{ group.dateBadgeMonth }}</span>
+                      <span class="tw-date-badge__day">{{ group.dateBadgeDay }}</span>
+                      <span class="tw-date-badge__weekday">{{ group.dateBadgeWeekday }}</span>
                     </div>
                     <ng-container *ngIf="group.events.length === 1">
-                      <div class="cu-preview-time">
-                        <span class="cu-time-text">{{ group.events[0].time }}</span>
-                        <span class="cu-duration">{{ group.events[0].duration }} {{ 'HOME.MINS' | translate }}</span>
-                      </div>
+                      <span class="tw-date-badge__time">{{ group.events[0].detailTimeRange }}</span>
+                      <span class="tw-date-badge__duration">{{ group.events[0].duration }} {{ 'HOME.MINS' | translate }}</span>
                     </ng-container>
                     <div *ngIf="group.events.length > 1" class="tw-day-group__sessions">
                       {{ 'HOME.WEEK_SAME_DAY_SESSIONS' | translate: { count: group.events.length } }}
                     </div>
                   </div>
-                  <div class="tw-day-group__divider" aria-hidden="true"></div>
                   <div class="tw-day-group__events">
                     <div
                       *ngFor="let ev of group.events; trackBy: trackByTimelineEvent; let ei = index"
                       class="tw-day-event-cell"
+                      [class.tw-day-event-cell--class]="ev.isClass"
                       (click)="navigateToLesson(ev.lesson)">
                       <div class="tw-day-event-cell__icon-col">
-                        <div class="cu-avatar tw-day-event-avatar">
+                        <div class="cu-avatar tw-day-event-avatar" [class.tw-day-event-avatar--class]="ev.isClass">
                           <img *ngIf="ev.avatar" [src]="ev.avatar" [alt]="ev.name" referrerpolicy="no-referrer">
                           <ion-icon *ngIf="!ev.avatar" name="person"></ion-icon>
                         </div>
@@ -1190,7 +1176,6 @@
                           [maxDisplay]="3">
                         </app-class-attendees>
                       </div>
-                      <span class="cu-status-badge tw-day-status-pill" [ngClass]="ev.statusClass">{{ ev.statusLabel }}</span>
                       <ion-button
                         *ngIf="ev.lesson?.status !== 'cancelled' && ev.lesson?.status !== 'completed'"
                         [id]="'tw-event-menu-' + ev.lesson?._id"

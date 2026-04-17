@@ -84,6 +84,26 @@ function formatText(text) {
   return result.charAt(0).toUpperCase() + result.slice(1);
 }
 
+/**
+ * Calendar date key (YYYY-MM-DD) for tutor availability merge/clear.
+ * Prefer id prefix "YYYY-MM-DD-..." from the app — it matches the tutor's
+ * wall date and slot keys. Deriving from absoluteStart + setHours + toISOString
+ * breaks for evening slots (e.g. May 2 8:30pm EDT → May 3 UTC) on UTC servers.
+ */
+function availabilityBlockCalendarDateKey(block) {
+  if (!block) return null;
+  if (typeof block.id === 'string') {
+    const m = block.id.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  }
+  if (block.absoluteStart) {
+    const d = new Date(block.absoluteStart);
+    d.setHours(0, 0, 0, 0);
+    return d.toISOString().split('T')[0];
+  }
+  return null;
+}
+
 // Rate limiters for public endpoints
 const publicProfileLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -735,10 +755,21 @@ router.put('/profile', verifyToken, async (req, res) => {
     
     console.log('📝 After update - showWalletBalance:', user.profile.showWalletBalance, 'remindersEnabled:', user.profile.remindersEnabled);
     
-    // Update interface language if provided
-    if (interfaceLanguage !== undefined && ['en', 'es', 'fr', 'pt', 'de'].includes(interfaceLanguage)) {
+    // Update interface language if provided. Keep in sync with frontend SupportedLanguage list
+    // (language-learning-app/src/app/services/language.service.ts).
+    const SUPPORTED_INTERFACE_LANGUAGES = [
+      'en', 'es', 'fr', 'pt', 'de',
+      'it', 'ru', 'zh', 'ja', 'ko',
+      'ar', 'hi', 'nl', 'pl', 'tr',
+      'sv', 'no', 'da', 'fi', 'el',
+      'cs', 'ro', 'uk', 'vi', 'th',
+      'id', 'ms', 'he', 'fa'
+    ];
+    if (interfaceLanguage !== undefined && SUPPORTED_INTERFACE_LANGUAGES.includes(interfaceLanguage)) {
       user.interfaceLanguage = interfaceLanguage;
       console.log('🌐 Interface language updated to:', interfaceLanguage);
+    } else if (interfaceLanguage !== undefined) {
+      console.warn('⚠️ Rejected unsupported interfaceLanguage:', interfaceLanguage);
     }
     
     console.log('📝 After update - officeHoursEnabled:', user.profile.officeHoursEnabled, 'aiAnalysisEnabled:', user.profile.aiAnalysisEnabled);
@@ -783,7 +814,10 @@ router.put('/profile', verifyToken, async (req, res) => {
         // Include tutor-specific fields to prevent banner flashing
         tutorApproved: user.tutorApproved,
         tutorOnboarding: user.tutorOnboarding,
-        stripeConnectOnboarded: user.stripeConnectOnboarded
+        tutorCredentials: user.tutorCredentials,
+        stripeConnectOnboarded: user.stripeConnectOnboarded,
+        payoutProvider: user.payoutProvider,
+        payoutDetails: user.payoutDetails
       }
     });
   } catch (error) {
@@ -1710,12 +1744,8 @@ router.put('/availability', verifyToken, async (req, res) => {
     
     // Also add dates from new blocks (for backward compatibility)
     availabilityBlocks.forEach(block => {
-      if (block.absoluteStart) {
-        // Normalize to date only (YYYY-MM-DD)
-        const date = new Date(block.absoluteStart);
-        date.setHours(0, 0, 0, 0);
-        datesToClear.add(date.toISOString().split('T')[0]);
-      }
+      const key = availabilityBlockCalendarDateKey(block);
+      if (key) datesToClear.add(key);
     });
     
     console.log('Dates to clear:', Array.from(datesToClear));
@@ -1732,12 +1762,8 @@ router.put('/availability', verifyToken, async (req, res) => {
         return true;
       }
       
-      // Check if existing block is for a date we're clearing
-      const existingDate = new Date(existing.absoluteStart);
-      existingDate.setHours(0, 0, 0, 0);
-      const existingDateKey = existingDate.toISOString().split('T')[0];
-      
-      // Keep if NOT in the dates we're clearing
+      const existingDateKey = availabilityBlockCalendarDateKey(existing);
+      if (!existingDateKey) return true;
       return !datesToClear.has(existingDateKey);
     });
     
