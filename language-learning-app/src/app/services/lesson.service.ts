@@ -129,6 +129,8 @@ export interface LessonCreateRequest {
   subject?: string;
   price: number;
   duration?: number;
+  /** Cover image URL when scheduling from the class flow (optional for API compatibility). */
+  thumbnail?: string;
   bookingData?: {
     selectedDate: string;
     selectedTime: string;

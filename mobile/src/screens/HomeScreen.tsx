@@ -33,6 +33,7 @@ import { earningsService, EarningsBalance } from '../services/earnings';
 import { calendarService } from '../services/calendar';
 import EarningsScreen from './EarningsScreen';
 import MaterialsScreen from './MaterialsScreen';
+import MyClassesScreen from './MyClassesScreen';
 import { preloadMaterials } from '../services/materials';
 import { api } from '../services/api';
 
@@ -166,6 +167,9 @@ export default function HomeScreen() {
   const [showMaterials, setShowMaterials] = useState(false);
   const [materialsVisible, setMaterialsVisible] = useState(false);
   const materialsOverlayOpacity = useRef(new Animated.Value(0)).current;
+  const [showMyClasses, setShowMyClasses] = useState(false);
+  const [myClassesVisible, setMyClassesVisible] = useState(false);
+  const myClassesOverlayOpacity = useRef(new Animated.Value(0)).current;
   const [hasAvailability, setHasAvailability] = useState(false);
   const [hasPayoutSetup, setHasPayoutSetup] = useState(false);
   const [payoutLoaded, setPayoutLoaded] = useState(false);
@@ -312,9 +316,34 @@ export default function HomeScreen() {
     });
   }, [materialsOverlayOpacity]);
 
+  const openMyClasses = useCallback(() => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setShowMyClasses(true);
+    setMyClassesVisible(true);
+    myClassesOverlayOpacity.setValue(0);
+    Animated.timing(myClassesOverlayOpacity, {
+      toValue: 1,
+      duration: 240,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: true,
+    }).start();
+  }, [myClassesOverlayOpacity]);
+
+  const closeMyClasses = useCallback(() => {
+    Animated.timing(myClassesOverlayOpacity, {
+      toValue: 0,
+      duration: 200,
+      easing: Easing.in(Easing.ease),
+      useNativeDriver: true,
+    }).start(() => {
+      setShowMyClasses(false);
+      setMyClassesVisible(false);
+    });
+  }, [myClassesOverlayOpacity]);
+
   useEffect(() => {
-    setHomeOverlayCoversTabBar((showMaterials || showEarnings) && isFocused);
-  }, [showMaterials, showEarnings, isFocused, setHomeOverlayCoversTabBar]);
+    setHomeOverlayCoversTabBar((showMaterials || showEarnings || showMyClasses) && isFocused);
+  }, [showMaterials, showEarnings, showMyClasses, isFocused, setHomeOverlayCoversTabBar]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -501,6 +530,7 @@ export default function HomeScreen() {
                 sub={t('HOME.CLASSES_SUB')}
                 colors={colors}
                 largeAsset={!colors.isDark}
+                onPress={isTutor ? openMyClasses : undefined}
               />
               <ActionChip
                 image={
@@ -577,6 +607,11 @@ export default function HomeScreen() {
     {materialsVisible && (
       <Animated.View style={[StyleSheet.absoluteFill, { zIndex: 50, elevation: 50, opacity: materialsOverlayOpacity }]}>
         <MaterialsScreen goBack={closeMaterials} />
+      </Animated.View>
+    )}
+    {myClassesVisible && (
+      <Animated.View style={[StyleSheet.absoluteFill, { zIndex: 50, elevation: 50, opacity: myClassesOverlayOpacity }]}>
+        <MyClassesScreen goBack={closeMyClasses} />
       </Animated.View>
     )}
     </View>

@@ -217,6 +217,7 @@ export default function LessonDetailOverlay({ card, cardRect, onCloseStart, onCl
     return { ...base, ...detail.lesson, tutorId: detail.lesson.tutorId || base?.tutorId, studentId: detail.lesson.studentId || base?.studentId };
   }, [card.lesson, detail?.lesson]);
   const isClass = !!lesson?.isClass;
+  const classThumbUri = (lesson?.classData?.thumbnail || '').trim();
 
   const baseInfo = useMemo(() => {
     const src = card.lesson;
@@ -545,6 +546,10 @@ export default function LessonDetailOverlay({ card, cardRect, onCloseStart, onCl
     return map[method] || { label: method.charAt(0).toUpperCase() + method.slice(1).replace(/_/g, ' '), icon: 'card-outline' };
   }, [lesson?.paymentMethod, paymentData?.paymentMethod, isStudent]);
 
+  const showClassEnrollmentCol = isClass && isTutor && !!info;
+  const showPriceCol = !!info && !showClassEnrollmentCol && info.price !== undefined && info.price > 0;
+  const enrollmentQuickVal = `${card.classStudentCount}/${Math.max(1, card.classCapacity || 1)}`;
+
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
       {/* Backdrop */}
@@ -589,7 +594,53 @@ export default function LessonDetailOverlay({ card, cardRect, onCloseStart, onCl
             {/* Hero: avatar + name — always visible, scales up */}
             <Animated.View style={[st.heroWrap, heroWrapStyle]}>
               <Animated.View style={avatarGrow}>
-                {card.otherPicture ? (
+                {isClass ? (
+                  <View style={st.classHeroBlock}>
+                    {classThumbUri ? (
+                      <Image source={{ uri: classThumbUri }} style={st.classCoverHero} resizeMode="cover" />
+                    ) : null}
+                    <View style={st.classAvatarRow}>
+                      {card.classAttendees.length > 1 ? (
+                        <>
+                          {card.classAttendees.map((att, i) => (
+                            <View
+                              key={`${att.name}-${i}`}
+                              style={[
+                                st.classStackAv,
+                                {
+                                  marginLeft: i === 0 ? 0 : -12,
+                                  borderColor: C.card,
+                                  zIndex: 4 - i,
+                                },
+                              ]}
+                            >
+                              {att.picture ? (
+                                <Image source={{ uri: att.picture }} style={st.classStackImg} />
+                              ) : (
+                                <Text style={st.classStackIni}>{att.initials}</Text>
+                              )}
+                            </View>
+                          ))}
+                          {card.classAttendeesOverflow > 0 ? (
+                            <Text style={[st.classStackMore, { color: C.textTertiary }]}>+{card.classAttendeesOverflow}</Text>
+                          ) : null}
+                        </>
+                      ) : card.classAttendees.length === 1 ? (
+                        <View style={[st.avatar, { backgroundColor: isDark ? '#3a3a3c' : '#e8e8e8' }]}>
+                          {card.classAttendees[0].picture ? (
+                            <Image source={{ uri: card.classAttendees[0].picture }} style={st.avatarImgFill} />
+                          ) : (
+                            <Text style={[st.initials, { color: C.textSecondary }]}>{card.classAttendees[0].initials}</Text>
+                          )}
+                        </View>
+                      ) : (
+                        <View style={[st.avatar, { backgroundColor: isDark ? '#3a3a3c' : '#e8e8e8' }]}>
+                          <Ionicons name="people-outline" size={28} color={C.textTertiary} />
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                ) : card.otherPicture ? (
                   <Image source={{ uri: card.otherPicture }} style={st.avatar} />
                 ) : (
                   <View style={[st.avatar, { backgroundColor: isDark ? '#3a3a3c' : '#e8e8e8' }]}>
@@ -627,17 +678,32 @@ export default function LessonDetailOverlay({ card, cardRect, onCloseStart, onCl
                       ) : null}
                     </View>
                   </View>
-                  {info.price !== undefined && info.price > 0 ? (
+                  {showPriceCol ? (
                     <>
                       <View style={[st.quickDivider, { backgroundColor: isDark ? C.border : '#E0E0E0' }]} />
                       <View style={st.quickCell}>
-                        <Text style={[st.quickVal, { color: C.text }]} numberOfLines={1}>${info.price.toFixed(2)}</Text>
+                        <Text style={[st.quickVal, { color: C.text }]} numberOfLines={1}>
+                          ${(info.price ?? 0).toFixed(2)}
+                        </Text>
                         <Text style={[st.quickLbl, { color: C.textSecondary }]} numberOfLines={1}>{t('LESSONS_PAGE.CARD_STAT_PRICE')}</Text>
                         <View style={st.quickSubSlot}>
                           {formattedActualPrice ? (
                             <Animated.Text style={[st.quickValSub, { color: C.textTertiary }, asyncSubStyle]} numberOfLines={1}>{formattedActualPrice} final</Animated.Text>
                           ) : null}
                         </View>
+                      </View>
+                    </>
+                  ) : showClassEnrollmentCol ? (
+                    <>
+                      <View style={[st.quickDivider, { backgroundColor: isDark ? C.border : '#E0E0E0' }]} />
+                      <View style={st.quickCell}>
+                        <Text style={[st.quickVal, { color: C.text }]} numberOfLines={1}>
+                          {enrollmentQuickVal}
+                        </Text>
+                        <Text style={[st.quickLbl, { color: C.textSecondary }]} numberOfLines={1}>
+                          {t('LESSONS_PAGE.CARD_STAT_ENROLLED')}
+                        </Text>
+                        <View style={st.quickSubSlot} />
                       </View>
                     </>
                   ) : null}
@@ -1325,6 +1391,39 @@ const st = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 24,
   },
+  avatarImgFill: { width: '100%', height: '100%' },
+  classHeroBlock: { alignItems: 'center', width: '100%' },
+  classCoverHero: {
+    width: '100%',
+    maxWidth: 400,
+    aspectRatio: 16 / 9,
+    borderRadius: 16,
+    marginBottom: 16,
+    backgroundColor: '#e8e8ea',
+  },
+  classAvatarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+  },
+  classStackAv: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    overflow: 'hidden',
+    borderWidth: 3,
+  },
+  classStackImg: { width: '100%', height: '100%' },
+  classStackIni: {
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
+    lineHeight: 48,
+    backgroundColor: '#222',
+    color: '#fff',
+  },
+  classStackMore: { marginLeft: 10, fontSize: 14, fontWeight: '600' },
   initials: { fontSize: 26, fontWeight: '600' },
   name: { fontSize: NAME_CARD, fontWeight: '700', textAlign: 'center', letterSpacing: -0.3, marginTop: 4 },
 

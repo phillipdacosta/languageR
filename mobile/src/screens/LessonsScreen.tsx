@@ -141,9 +141,9 @@ export default function LessonsScreen() {
           lessonService.getMyLessons(),
           getMyClasses(),
         ]);
-        const classesAsLessons: Lesson[] = (classRecords || []).map(c =>
-          classRecordToLesson(c, user, t),
-        );
+        const classesAsLessons: Lesson[] = (classRecords || [])
+          .filter(c => (c.status || 'scheduled') !== 'draft')
+          .map(c => classRecordToLesson(c, user, t));
         const merged = [...lessonList, ...classesAsLessons]
           .filter(l => !(l.status === 'cancelled' && (l as any).cancelReason === 'payment_failed'))
           .sort((a, b) => getLessonStart(b).getTime() - getLessonStart(a).getTime());
@@ -471,6 +471,9 @@ export default function LessonsScreen() {
         activeOpacity={0.85}
         onPress={() => openDetail(pl)}
       >
+        {pl.isClass && pl.classCoverUrl ? (
+          <Image source={{ uri: pl.classCoverUrl }} style={styles.classCoverTop} resizeMode="cover" />
+        ) : null}
         <View style={styles.avatarBlock}>
           {!pl.isClass ? (
             <View style={[styles.avatar, isDark && { backgroundColor: '#3a3a3c' }]}>
@@ -519,6 +522,11 @@ export default function LessonsScreen() {
         <Text style={[styles.title, { color: C.text }]} numberOfLines={2}>
           {pl.isClass ? pl.className || pl.lesson.subject : pl.otherName}
         </Text>
+        {pl.isClass && pl.classEnrollmentLine ? (
+          <Text style={[styles.classEnrollmentMeta, { color: C.textSecondary }]} numberOfLines={1}>
+            {pl.classEnrollmentLine}
+          </Text>
+        ) : null}
         <View style={styles.dateTimeBlockOuter}>
           <LessonDateHeaderCenter
             dateBadgeMonth={pl.dateBadgeMonth}
@@ -904,6 +912,22 @@ const styles = StyleSheet.create({
   // ── Card — copy of HomeScreen upNextCardSurface ──
   // Single View, overflow visible so shadow renders on iOS.
   // Content (text, avatars with own clip) doesn't bleed past radius.
+  classCoverTop: {
+    alignSelf: 'stretch',
+    width: '100%',
+    aspectRatio: 16 / 9,
+    borderRadius: 16,
+    marginBottom: 12,
+    backgroundColor: '#e8e8ea',
+  },
+  classEnrollmentMeta: {
+    fontSize: 13,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginBottom: 6,
+    marginTop: -2,
+    paddingHorizontal: 8,
+  },
   card: {
     backgroundColor: '#ffffff',
     borderWidth: 1,

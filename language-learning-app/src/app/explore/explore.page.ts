@@ -213,7 +213,9 @@ export class ExplorePage implements OnInit, OnDestroy {
 
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          const dest = document.querySelector('.schedule-class-inline .go-back-link') as HTMLElement;
+          const dest = document.querySelector(
+            '.schedule-class-inline .sc-wizard-back-link, .schedule-class-inline .go-back-link'
+          ) as HTMLElement;
 
           if (dest && clone) {
             dest.style.transition = 'none';
@@ -247,8 +249,16 @@ export class ExplorePage implements OnInit, OnDestroy {
     }
   }
 
+  onScheduleBrowsePublic(): void {
+    this.showScheduleForm = false;
+    this.cdr.detectChanges();
+    this.syncExploreToolbarBackLabel();
+  }
+
   onScheduleGoBack() {
-    const srcLink = document.querySelector('.schedule-class-inline .go-back-link') as HTMLElement;
+    const srcLink = document.querySelector(
+      '.schedule-class-inline .sc-wizard-back-link, .schedule-class-inline .go-back-link'
+    ) as HTMLElement;
     const srcRect = srcLink?.getBoundingClientRect();
 
     const dark = this.isDarkMode;

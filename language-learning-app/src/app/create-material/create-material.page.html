@@ -13,7 +13,16 @@
     <span>{{ stepTitle }}</span>
   </div>
   <div class="cm-nav-right">
-    <span class="cm-nav-step" *ngIf="viewMode === 'create' && !editingMaterialId">{{ stepNumber }}/{{ totalSteps }}</span>
+    <span class="cm-nav-step" *ngIf="viewMode === 'create' && !editingMaterialId && currentStep !== 'type'">{{ stepNumber }}/{{ totalSteps }}</span>
+    <button
+      type="button"
+      class="cm-nav-close"
+      *ngIf="inline"
+      (click)="dismissMaterialsModal()"
+      [attr.aria-label]="'COMMON.CLOSE' | translate"
+    >
+      <ion-icon name="close-outline"></ion-icon>
+    </button>
   </div>
 </div>
 
@@ -1090,9 +1099,21 @@
 
         <!-- Back/Next live in tab1 cm-modal-footer when inline (desktop modal); keep inline footer for standalone route -->
         <div class="cm-details-wizard-footer" *ngIf="!inline">
-          <button type="button" class="cm-btn-secondary cm-details-wizard-back" *ngIf="detailsWizardStepIndex > 0" (click)="onDetailsWizardBack()">
-            {{ 'COMMON.BACK' | translate }}
-          </button>
+          <div class="cm-details-wizard-footer-start">
+            <button type="button" class="cm-btn-secondary cm-details-wizard-back" *ngIf="detailsWizardStepIndex > 0" (click)="onDetailsWizardBack()">
+              {{ 'COMMON.BACK' | translate }}
+            </button>
+            <button
+              type="button"
+              class="cm-details-wizard-save"
+              (click)="saveMaterialDraft()"
+              [disabled]="isSavingMaterialDraft || isSubmitting || isUploadingThumbnail"
+            >
+              <ion-spinner *ngIf="isSavingMaterialDraft" name="crescent" style="width:16px;height:16px;color:#1a8d3a"></ion-spinner>
+              <ng-container *ngIf="editingMaterialId && editingMaterialStatus === 'published'">{{ 'COMMON.SAVE' | translate }}</ng-container>
+              <ng-container *ngIf="!editingMaterialId || editingMaterialStatus !== 'published'">{{ 'CREATE_MATERIAL.SAVE_DRAFT' | translate }}</ng-container>
+            </button>
+          </div>
           <div class="cm-details-wizard-footer-spacer"></div>
           <button type="button" class="cm-btn-primary cm-details-wizard-next" (click)="onDetailsWizardNext()">
             <ng-container *ngIf="detailsWizardStepIndex < detailsWizardStepTotal - 1">{{ 'CREATE_MATERIAL.DETAILS_WIZ_NEXT' | translate }}</ng-container>

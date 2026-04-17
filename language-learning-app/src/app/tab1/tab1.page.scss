@@ -2,6 +2,8 @@
 $text-primary: #222222;
 $text-secondary: #717171;
 $text-tertiary: #b0b0b0;
+$home-date-border-light: #ebebeb;
+$home-date-bg-subtle: #f7f7f7;
 $border-color: #ebebeb;
 $border-color-dark: #dddddd;
 $background-hover: #f7f7f7;
@@ -751,6 +753,59 @@ ion-content {
   }
 }
 
+// Schedule Class (desktop) — fill expanded Create Material shell (white modal body, same as create material)
+.cm-modal-body--schedule-class {
+  background: #ffffff;
+
+  app-schedule-class {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  ::ng-deep .schedule-class-content-inline {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    height: 100%;
+  }
+
+  ::ng-deep .onboarding-container.sc-wizard-mode {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    padding: 8px 8px 16px;
+  }
+
+  ::ng-deep .onboarding-content.sc-wizard-mode {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    max-width: none;
+    width: 100%;
+    margin: 0;
+    height: auto;
+    min-height: 0;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  ::ng-deep .right-column.sc-wizard-right {
+    flex: 1;
+    min-height: 0;
+  }
+}
+
 .cm-modal-topbar {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -804,6 +859,70 @@ ion-content {
   letter-spacing: 0.02em;
 }
 
+.cm-schedule-modal-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: #1d1d1f;
+  letter-spacing: -0.02em;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+}
+
+// Schedule class wizard — match Create Material modal chrome (fraction + rail + footer)
+.cm-modal-topbar--schedule-wizard {
+  max-height: none;
+  min-height: 56px;
+  align-items: center;
+  padding-top: 14px;
+  padding-bottom: 12px;
+}
+
+.cm-modal-topbar-center--schedule-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  line-height: 1.2;
+}
+
+.cm-schedule-modal-title--inline {
+  font-size: 13px;
+  font-weight: 600;
+  color: #86868b;
+  letter-spacing: 0.02em;
+}
+
+.cm-schedule-wizard-fraction {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1d1d1f;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+}
+
+.cm-schedule-wizard-progress {
+  height: 3px;
+  width: 100%;
+  flex-shrink: 0;
+  background: #ebebeb;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.cm-schedule-wizard-progress-fill {
+  height: 100%;
+  min-width: 0;
+  background: #1d1d1f;
+  border-radius: 2px;
+  transition: width 0.28s ease;
+}
+
+// Uses default `.cm-modal-footer-back` / `.cm-modal-footer-btn` (12px radius, same as create material footer)
+.cm-modal-footer--schedule-class .cm-modal-footer-btn ion-spinner {
+  width: 18px;
+  height: 18px;
+}
+
 .cm-modal-topbar-right {
   display: flex;
   align-items: center;
@@ -855,6 +974,26 @@ ion-content {
   transition: background 0.15s ease;
 
   &:hover { background: #f5f5f7; }
+}
+
+.cm-modal-save-exit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1d1d1f;
+  cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  transition: opacity 0.15s ease;
+
+  &:hover {
+    opacity: 0.72;
+  }
 }
 
 // ── Compact header (close left, title centered) ─────────
@@ -955,6 +1094,13 @@ ion-content {
   min-width: 0;
 }
 
+.cm-modal-footer-start {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
 .cm-modal-footer-back {
   display: inline-flex;
   align-items: center;
@@ -972,6 +1118,38 @@ ion-content {
   &:hover {
     border-color: #1d1d1f;
     background: #fafafa;
+  }
+}
+
+.cm-modal-footer-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 20px;
+  border-radius: 12px;
+  border: 1.5px solid #e0e0e0;
+  background: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  color: #000000;
+  cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+
+  ion-spinner {
+    width: 16px;
+    height: 16px;
+    color: #1a8d3a;
+  }
+
+  &:hover:not(:disabled) {
+    background: #f0faf3;
+    border-color: #28a745;
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
   }
 }
 
@@ -1013,6 +1191,31 @@ ion-content {
   .cm-modal-topbar-step {
     color: #8e8e93;
   }
+
+  .cm-schedule-modal-title {
+    color: #f5f5f7;
+  }
+
+  .cm-schedule-modal-title--inline {
+    color: #8e8e93;
+  }
+
+  .cm-schedule-wizard-fraction {
+    color: #f5f5f7;
+  }
+
+  .cm-schedule-wizard-progress {
+    background: #3a3a3c;
+  }
+
+  .cm-schedule-wizard-progress-fill {
+    background: #f5f5f7;
+  }
+
+  .cm-modal-body--schedule-class {
+    background: #1c1c1e;
+  }
+
   .cm-modal-back {
     color: #f5f5f7;
     &:hover { background: #2c2c2e; }
@@ -1023,6 +1226,12 @@ ion-content {
     border-color: #48484a;
     color: #f5f5f7;
     &:hover { background: #2c2c2e; }
+  }
+  .cm-modal-save-exit {
+    color: #f5f5f7;
+    &:hover {
+      opacity: 0.85;
+    }
   }
   .cm-modal-title {
     color: #f5f5f7;
@@ -1049,6 +1258,16 @@ ion-content {
     background: #f5f5f7;
     color: #1c1c1e;
     &:hover { background: #e5e5ea; }
+  }
+  .cm-modal-footer-save {
+    background: #2c2c2e;
+    border-color: #30d158;
+    color: #30d158;
+    ion-spinner { color: #30d158; }
+    &:hover:not(:disabled) {
+      background: #1e3a28;
+      border-color: #34c759;
+    }
   }
 }
 
@@ -2952,6 +3171,29 @@ ion-content {
   display: flex; align-items: center; justify-content: center;
   ion-icon { font-size: 24px; color: #b0b0b0; }
 }
+.m-filled-class-cover-wrap {
+  width: 88px;
+  height: 56px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f0f0f2;
+  margin-bottom: 6px;
+}
+.m-filled-class-cover-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.m-filled-class-cover-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  ion-icon { font-size: 24px; color: #fff; }
+}
 .m-filled-badge {
   display: inline-flex;
   align-items: center;
@@ -3049,6 +3291,17 @@ ion-content {
   }
 }
 
+// Mobile Up Next — lessons-style date chip (weekday above badge)
+.home-m-upnext-date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 2px 0;
+  position: relative;
+  bottom: 20px;
+}
+
 .m-card-empty-link {
   display: inline-flex;
   align-items: center;
@@ -3070,6 +3323,15 @@ ion-content {
   &:active {
     background: #3a7bc8;
     transform: scale(0.97);
+  }
+
+  /* Join CTA uses <button> so card shell can navigate without following a link */
+  &.m-card-empty-link--as-button {
+    cursor: pointer;
+    font-family: inherit;
+    width: auto;
+    appearance: none;
+    -webkit-appearance: none;
   }
 }
 
@@ -3274,6 +3536,45 @@ img.m-card-empty-link-arrow-img {
   }
 }
 
+// Class cover — slightly wider than the person avatar, landscape proportions
+.upnext-filled-class-cover {
+  width: 104px;
+  height: 68px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #f0f0f2;
+  margin-bottom: 16px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+
+  @media (max-width: 600px) {
+    width: 88px;
+    height: 56px;
+    border-radius: 12px;
+  }
+}
+
+.upnext-filled-class-cover-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.upnext-filled-class-cover-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
+  ion-icon {
+    font-size: 28px;
+    color: #fff;
+  }
+}
+
 // Avatar — replaces the calendar icon, same position & sizing
 .upnext-filled-avatar {
   width: 80px;
@@ -3355,6 +3656,13 @@ img.m-card-empty-link-arrow-img {
   .meta-today {
     color: #3f99d1;
     font-weight: 600;
+  }
+
+  .home-upnext-meta-date {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
   }
   
   @media (max-width: 600px) {
@@ -4266,7 +4574,72 @@ img.m-card-empty-link-arrow-img {
   color: #8e8e93;
 }
 
-// Coming Up Next Timeline Section — Card container
+// Date chip — parity with lessons list (lessons.page `.lgc-date-badge`)
+.lgc-date-badge {
+  background: $home-date-bg-subtle;
+  border: 1px solid $home-date-border-light;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.lgc-date-badge--inline {
+  width: 32px;
+  padding: 3px 4px 4px;
+  border-radius: 6px;
+}
+
+.lgc-date-badge-month {
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ff385c;
+  line-height: 1;
+  margin-bottom: 1px;
+}
+
+.lgc-date-badge-day {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: $text-primary;
+  line-height: 1.05;
+}
+
+.home-date-weekday {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: $text-secondary;
+  line-height: 1.15;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+}
+
+.home-date-weekday--stack {
+  letter-spacing: 0.06em;
+}
+
+.home-date-row {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.lesson-details-row .home-detail-date {
+  align-items: center;
+}
+
+.home-date-row--compact {
+  flex-wrap: nowrap;
+}
+
+// Coming Up Next — white card wraps lesson row only (title + “Full schedule” live outside)
 .timeline-section {
   margin-bottom: 28px;
   animation: fadeInUp 0.45s ease-out 0.2s both;
@@ -4275,18 +4648,307 @@ img.m-card-empty-link-arrow-img {
   padding: 20px;
   box-shadow: $lesson-card-home-shadow;
   border: $lesson-card-home-border;
-  
-  // Section header inside card — no extra margin
-  .section-header-new {
-    margin-bottom: 16px;
-  }
-  
+
   @media (max-width: 600px) {
     padding: 16px;
     border-radius: 14px;
     background: #ffffff;
     border: $lesson-card-home-border;
     box-shadow: $lesson-card-home-shadow;
+  }
+
+  // Desktop tutor home: fixed-width white card; inner content scrolls horizontally by day group
+  &--week-strip {
+    padding: 0;
+    background: #ffffff;
+    border-radius: 20px;
+    overflow: hidden;
+    isolation: isolate;
+  }
+}
+
+.tw-week-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 10px 0 12px;
+  scrollbar-width: thin;
+  background: #ffffff;
+
+  &::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.18);
+  }
+}
+
+.tw-week-scroll-inner {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0;
+  width: max-content;
+  min-width: 100%;
+  padding: 4px 16px 6px;
+  box-sizing: border-box;
+  background: #ffffff;
+
+  &--single {
+    .tw-day-group {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .tw-day-group__events {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .tw-day-event-cell {
+      flex: 1 1 auto;
+      min-width: 0;
+      max-width: none;
+    }
+  }
+}
+
+.tw-day-group {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  background: #ffffff;
+
+  &:not(:last-child) {
+    border-right: 1px solid #eeeeee;
+    padding-right: 4px;
+    margin-right: 12px;
+  }
+}
+
+.tw-day-group__date-badge-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.tw-day-group__date {
+  flex-shrink: 0;
+  width: 120px;
+  padding: 12px 10px 12px 4px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  background: #ffffff;
+
+  .meta-today {
+    color: #3f99d1;
+  }
+
+  .cu-preview-time {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    margin-top: 6px;
+  }
+
+  .cu-time-text {
+    display: block;
+    font-size: 15px;
+    font-weight: 700;
+    color: $text-primary;
+    letter-spacing: -0.2px;
+    line-height: 1.25;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+  }
+
+  .cu-duration {
+    display: block;
+    font-size: 12px;
+    color: $text-secondary;
+    font-weight: 400;
+    line-height: 1.35;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+  }
+}
+
+.tw-day-group__sessions {
+  font-size: 12px;
+  font-weight: 600;
+  color: #8e8e93;
+  letter-spacing: -0.01em;
+  margin-top: 4px;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+}
+
+.tw-day-group__divider {
+  width: 1px;
+  align-self: stretch;
+  min-height: 48px;
+  background: #eeeeee;
+  flex-shrink: 0;
+  margin: 8px 0;
+}
+
+.tw-day-group__events {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  flex-shrink: 0;
+  background: #ffffff;
+}
+
+.tw-day-event-cell {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 18px;
+  min-width: 220px;
+  max-width: 300px;
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  position: relative;
+  cursor: pointer;
+  background: #ffffff;
+  transition: background 0.15s ease;
+  box-sizing: border-box;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.02);
+  }
+
+  &:not(:last-child) {
+    border-right: 1px solid #eeeeee;
+  }
+}
+
+.tw-day-event-cell__icon-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.tw-day-event-cell .cu-avatar.tw-day-event-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+}
+
+.tw-day-event-under {
+  font-size: 11px;
+  font-weight: 500;
+  color: #8e8e93;
+  text-align: center;
+  white-space: nowrap;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+}
+
+.tw-day-event-cell__body {
+  // display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+  padding-right: 88px;
+}
+
+.tw-day-event-time {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1d1d1f;
+  letter-spacing: -0.02em;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+}
+
+.tw-day-event-sub {
+  font-size: 12px;
+  font-weight: 400;
+  color: #8e8e93;
+  letter-spacing: -0.01em;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+}
+
+.tw-event-menu-btn {
+  --color: #8e8e93;
+  --padding-start: 4px;
+  --padding-end: 4px;
+  position: absolute;
+  right: 6px;
+  top: 8px;
+  z-index: 2;
+  font-size: 16px;
+  min-height: 28px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+
+  .tw-day-event-cell:hover & {
+    opacity: 1;
+  }
+
+  @media (max-width: 600px) {
+    opacity: 1;
+    right: 2px;
+    top: 6px;
+  }
+}
+
+.tw-day-event-cell__body .cu-name {
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.tw-day-status-pill {
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
+  margin: 0;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.2;
+
+  &.confirmed {
+    background: #e8f5e9;
+    color: #008a05;
+  }
+
+  &.in-progress {
+    background: rgba(59, 130, 246, 0.12);
+    color: #1d4ed8;
+  }
+
+  &.pending {
+    background: rgba(217, 119, 6, 0.12);
+    color: #b45309;
+  }
+
+  &.cancelled {
+    background: rgba(220, 38, 38, 0.1);
+    color: #dc2626;
+    opacity: 0.85;
   }
 }
 
@@ -7295,23 +7957,38 @@ img.m-card-empty-link-arrow-img {
 }
 
 // =============================================
-// TUTOR DASHBOARD GRID — 2x2 layout
+// TUTOR DASHBOARD GRID — Up Next + earnings row; full-width This Week when present;
+// then full-width Quick Actions.
 // =============================================
 .tutor-dashboard-grid {
   display: grid;
   grid-template-columns: 1fr 340px;
   grid-template-rows: auto auto;
   grid-template-areas:
-    "upnext    earnings"
-    "comingup  actions";
+    "upnext earnings"
+    "actions actions";
   gap: 24px;
   align-items: stretch;
   margin-bottom: 28px;
+
+  &.tutor-dashboard-grid--with-this-week {
+    grid-template-rows: auto auto auto;
+    grid-template-areas:
+      "upnext earnings"
+      "comingup comingup"
+      "actions actions";
+  }
 
   @media (max-width: 968px) {
     grid-template-columns: 1fr;
     grid-template-areas:
       "upnext";
+
+    &.tutor-dashboard-grid--with-this-week {
+      grid-template-areas:
+        "upnext";
+    }
+
     gap: 20px;
   }
 
@@ -7521,6 +8198,18 @@ img.m-card-empty-link-arrow-img {
     display: none !important;
   }
 
+  .coming-up-section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    animation: fadeInUp 0.4s ease-out 0.1s both;
+
+    .desktop-tutor-section-title {
+      margin-bottom: 0;
+    }
+  }
+
   .timeline-section {
     margin-bottom: 0;
   }
@@ -7532,6 +8221,7 @@ img.m-card-empty-link-arrow-img {
 
 .grid-cell-actions {
   grid-area: actions;
+  grid-column: 1 / -1;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -7541,18 +8231,11 @@ img.m-card-empty-link-arrow-img {
   .actions-grid {
     flex: 1 1 auto;
     min-height: 0;
+    grid-template-columns: repeat(4, 1fr);
   }
 
   @media (max-width: 600px) {
     display: none !important;
-  }
-
-  &.full-width {
-    grid-column: 1 / -1;
-
-    .actions-grid {
-      grid-template-columns: repeat(4, 1fr);
-    }
   }
 }
 
@@ -7821,59 +8504,6 @@ img.m-card-empty-link-arrow-img {
     font-weight: 400;
     color: #717171;
   }
-}
-
-// When Coming Up card is present, quick actions are grouped on the right — slightly tighter
-.grid-cell-actions:not(.full-width) .quick-action-card {
-  padding: 16px 14px;
-
-  .qa-icon {
-    width: 38px;
-    height: 38px;
-    border-radius: 10px;
-
-    ion-icon { font-size: 18px; }
-  }
-
-  &.qa-with-asset .qa-icon {
-    width: 38px;
-    height: 38px;
-  }
-
-  &.qa-with-asset .qa-icon-img {
-    width: 38px;
-    height: 38px;
-  }
-
-  &.qa-classes.qa-with-asset .qa-icon-img {
-    transform: scale(1.3);
-    transform-origin: center center;
-  }
-
-  &:hover.qa-classes.qa-with-asset .qa-icon-img {
-    transform: scale(1.404) !important; /* 1.3 × 1.08 */
-  }
-
-  &.qa-create-material.qa-with-asset .qa-icon-img {
-    transform: scale(1.4);
-    transform-origin: center center;
-  }
-
-  &:hover.qa-create-material.qa-with-asset .qa-icon-img {
-    transform: scale(1.512) !important; /* 1.4 × 1.08 */
-  }
-
-  &.qa-forum.qa-with-asset .qa-icon-img {
-    transform: scale(1.62);
-    transform-origin: center center;
-  }
-
-  &:hover.qa-forum.qa-with-asset .qa-icon-img {
-    transform: scale(1.75) !important; /* 1.62 × 1.08 */
-  }
-
-  .qa-label { font-size: 14px; }
-  .qa-sub { font-size: 12px; }
 }
 
 // =============================================
@@ -11663,28 +12293,43 @@ img.m-card-empty-link-arrow-img {
       }
     }
     
-    // Class-specific content styling
+    // Class-specific: slightly wider rounded cover instead of circular avatar
     &.class-content {
-      .class-avatar {
+      .class-cover-wrap {
+        width: 96px;
+        height: 64px;
         border-radius: 12px;
-        
+        overflow: hidden;
+        background: #f0f0f2;
+        flex-shrink: 0;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+
         @media (max-width: 600px) {
-          border-radius: 16px;
+          width: 110px;
+          height: 72px;
+          border-radius: 14px;
+          box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
         }
-        
-        .avatar-placeholder-icon {
-          width: 100%;
-          height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          color: white;
-          font-size: 32px;
-          
-          @media (max-width: 600px) {
-            border-radius: 16px;
-          }
+      }
+
+      .class-cover-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .class-cover-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
+        ion-icon {
+          font-size: 28px;
+          color: #fff;
         }
       }
     }
@@ -12573,6 +13218,128 @@ img.m-card-empty-link-arrow-img {
   .cu-preview-date { color: #64d2ff !important; }
   .cu-extra-badge { border-color: #2a2a2a !important; }
   .coming-up-preview:hover { background: rgba(255, 255, 255, 0.04) !important; }
+
+  .timeline-section--week-strip {
+    border-radius: 20px !important;
+    overflow: hidden !important;
+  }
+
+  .timeline-section--week-strip,
+  .tw-week-scroll,
+  .tw-week-scroll-inner,
+  .tw-day-group,
+  .tw-day-group__date,
+  .tw-day-group__events,
+  .tw-day-event-cell {
+    background: #2a2a2a !important;
+  }
+
+  .tw-day-group__date {
+    .cu-time-text {
+      color: var(--ion-text-color, #fff) !important;
+    }
+
+    .cu-duration {
+      color: #888 !important;
+    }
+
+    .home-date-weekday {
+      color: #8e8e93 !important;
+    }
+
+    .meta-today {
+      color: #5aa3f0 !important;
+    }
+
+    .lgc-date-badge {
+      background: #2c2c2e !important;
+      border-color: rgba(255, 255, 255, 0.12) !important;
+    }
+
+    .lgc-date-badge-month {
+      color: #ff6b8a !important;
+    }
+
+    .lgc-date-badge-day {
+      color: #f5f5f7 !important;
+    }
+  }
+
+  .lgc-date-badge {
+    background: #2c2c2e !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+  }
+
+  .lgc-date-badge-month {
+    color: #ff6b8a !important;
+  }
+
+  .lgc-date-badge-day {
+    color: #f5f5f7 !important;
+  }
+
+  .home-date-weekday {
+    color: #8e8e93 !important;
+  }
+
+  .upnext-filled .home-upnext-meta-date .meta-today,
+  .upnext-filled-meta .meta-today {
+    color: #5aa3f0 !important;
+  }
+
+  .tw-day-group:not(:last-child) {
+    border-right-color: rgba(255, 255, 255, 0.1) !important;
+  }
+
+  .tw-day-group__divider {
+    background: rgba(255, 255, 255, 0.1) !important;
+  }
+
+  .tw-day-event-cell:not(:last-child) {
+    border-right-color: rgba(255, 255, 255, 0.1) !important;
+  }
+
+  .tw-day-event-cell:hover {
+    background: rgba(255, 255, 255, 0.05) !important;
+  }
+
+  .tw-day-group__sessions {
+    color: #8e8e93 !important;
+  }
+
+  .tw-day-event-time {
+    color: #f5f5f7 !important;
+  }
+
+  .tw-day-event-sub {
+    color: #8e8e93 !important;
+  }
+
+  .tw-day-status-pill {
+    &.confirmed {
+      background: rgba(52, 199, 89, 0.18) !important;
+      color: #4ade80 !important;
+    }
+
+    &.in-progress {
+      background: rgba(59, 130, 246, 0.2) !important;
+      color: #60a5fa !important;
+    }
+
+    &.pending {
+      background: rgba(217, 119, 6, 0.2) !important;
+      color: #fbbf24 !important;
+    }
+
+    &.cancelled {
+      background: rgba(220, 38, 38, 0.18) !important;
+      color: #f87171 !important;
+    }
+  }
+
+  .tw-week-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.22) !important;
+  }
   .cu-status-badge {
     &.confirmed {  color: #4ade80 !important; }
     &.in-progress { background: rgba(59, 130, 246, 0.15) !important; color: #60a5fa !important; }
@@ -12660,11 +13427,20 @@ img.m-card-empty-link-arrow-img {
       background: linear-gradient(135deg, #4298d2 0%, #3583b8 100%) !important;
       color: #ffffff !important;
     }
+    .upnext-filled-class-cover { background: #2c2c2e !important; }
+    .upnext-filled-class-cover-placeholder {
+      background: linear-gradient(135deg, #4298d2 0%, #3583b8 100%) !important;
+    }
     .upnext-filled-menu {
       --color: #b0b0b5 !important;
       ion-icon { color: #b0b0b5 !important; }
       &:hover { --color: #e5e5e7 !important; ion-icon { color: #e5e5e7 !important; } }
     }
+  }
+
+  .m-filled-class-cover-wrap { background: #2c2c2e !important; }
+  .m-filled-class-cover-placeholder {
+    background: linear-gradient(135deg, #4298d2 0%, #3583b8 100%) !important;
   }
   
   // Coming up list dark mode
@@ -12979,6 +13755,10 @@ img.m-card-empty-link-arrow-img {
     }
     .lesson-main-content.class-content {
       .avatar-placeholder-icon { color: #8e8e93 !important; }
+      .class-cover-wrap { background: #2c2c2e !important; }
+      .class-cover-placeholder {
+        background: linear-gradient(135deg, #4298d2 0%, #3583b8 100%) !important;
+      }
     }
   }
   .up-next-loading ion-skeleton-text {
@@ -15027,6 +15807,21 @@ ion-modal.reschedule-proposal-modal {
     .pcl-check { color: #555; }
     .pcl-arrow { color: #555; }
     &.pcl-item--done .pcl-check { color: #30d158; }
+  }
+}
+
+// ── Schedule Class (tutor home, mobile inline panel) ──
+.schedule-class-inline-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--ion-background-color, #f5f5f7);
+}
+
+:host-context(html.ion-palette-dark) {
+  .schedule-class-inline-panel {
+    background: var(--ion-background-color, #000);
   }
 }
 

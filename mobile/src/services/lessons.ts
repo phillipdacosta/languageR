@@ -83,7 +83,6 @@ export interface Lesson {
   isOfficeHours?: boolean;
   description?: string;
   billingStatus?: string;
-  actualDurationMinutes?: number;
   actualPrice?: number;
   paymentMethod?: string;
   payoutPaused?: boolean;

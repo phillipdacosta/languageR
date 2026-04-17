@@ -21,6 +21,21 @@
     <app-create-material #createMaterialRef [inline]="true" (goBackEvent)="onCreateMaterialGoBack()" (modalExpandEvent)="onModalExpand($event)"></app-create-material>
   </div>
 
+  <!-- Schedule Class (mobile, tutor) -->
+  <div class="schedule-class-inline-panel" *ngIf="showScheduleClassView && isMobile">
+    <app-schedule-class
+      #scheduleClassModalRef
+      [inline]="true"
+      [hostChromeFooter]="true"
+      (goBackEvent)="onScheduleClassGoBack()"
+      (classCreated)="onScheduleClassCreated()"
+      (classSaved)="onScheduleClassSaved()"
+      (hubListMutated)="onTutorHubListMutated()"
+      (browseClassesEvent)="onScheduleClassBrowsePublic()"
+      (wizardLayoutChange)="onScheduleClassWizardLayoutChange()">
+    </app-schedule-class>
+  </div>
+
   <!-- Desktop Create Material Modal -->
   <div class="cm-modal-backdrop" *ngIf="showCreateMaterialView && !isMobile" [class.cm-modal-backdrop--visible]="createMaterialBackdropVisible" [class.cm-modal-backdrop--deep]="createMaterialModalExpanded" (click)="onCreateMaterialModalBackdropClick($event)">
 
@@ -78,7 +93,22 @@
           <span class="cm-modal-topbar-step" *ngIf="modalTopbarCenterStep && !cmModalRouterOutletActive">{{ modalTopbarCenterStep }}</span>
         </div>
         <div class="cm-modal-topbar-right">
-          <button type="button" class="cm-modal-exit" *ngIf="modalShowSaveExit && !cmModalRouterOutletActive" (click)="(modalIsEditingBundle || modalIsEditingMaterial) ? onEditSaveInPlace() : onCreateMaterialGoBack()">{{ (modalIsEditingBundle || modalIsEditingMaterial) ? 'Save' : 'Save and exit' }}</button>
+          <button
+            type="button"
+            class="cm-modal-save-exit"
+            *ngIf="modalShowSaveExit && (modalIsEditingBundle || modalIsEditingMaterial) && !cmModalRouterOutletActive"
+            (click)="onEditSaveInPlace()"
+          >
+            {{ 'COMMON.SAVE' | translate }}
+          </button>
+          <button
+            type="button"
+            class="cm-modal-exit"
+            *ngIf="createMaterialModalExpanded && !cmModalRouterOutletActive"
+            (click)="onCreateMaterialGoBack()"
+          >
+            {{ 'COMMON.CLOSE' | translate }}
+          </button>
         </div>
       </div>
       <div class="cm-modal-body">
@@ -108,20 +138,22 @@
           </button>
         </ng-container>
         <ng-container *ngIf="createMaterialModalExpanded && modalDetailsWizardFooter && !modalShowFooter">
-          <button type="button" class="cm-modal-footer-back" *ngIf="modalDetailsWizardShowBack" (click)="onModalDetailsWizardBack()">
-            {{ modalFooterBackLabel || ('COMMON.BACK' | translate) }}
-          </button>
-          <button
-            type="button"
-            class="cm-modal-footer-back"
-            *ngIf="modalDetailsWizardShowSaveDraft"
-            (click)="onModalSaveMaterialDraft()"
-            [disabled]="createMaterialRef?.isSavingMaterialDraft || createMaterialRef?.isSavingBundle || createMaterialRef?.isUploadingThumbnail"
-          >
-            {{ (modalFooterSaveLabelKey || 'CREATE_MATERIAL.SAVE_DRAFT') | translate }}
-          </button>
+          <div class="cm-modal-footer-start" *ngIf="modalDetailsWizardShowBack || modalDetailsWizardShowSaveDraft">
+            <button type="button" class="cm-modal-footer-back" *ngIf="modalDetailsWizardShowBack" (click)="onModalDetailsWizardBack()">
+              {{ modalFooterBackLabel || ('COMMON.BACK' | translate) }}
+            </button>
+            <button
+              type="button"
+              class="cm-modal-footer-save"
+              *ngIf="modalDetailsWizardShowSaveDraft"
+              (click)="onModalSaveMaterialDraft()"
+              [disabled]="createMaterialRef?.isSavingMaterialDraft || createMaterialRef?.isSavingBundle || createMaterialRef?.isUploadingThumbnail"
+            >
+              {{ (modalFooterSaveLabelKey || 'CREATE_MATERIAL.SAVE_DRAFT') | translate }}
+            </button>
+          </div>
           <div class="cm-modal-footer-spacer" aria-hidden="true"></div>
-          <button type="button" class="cm-modal-footer-btn" (click)="onModalDetailsWizardNext()" [disabled]="createMaterialRef?.isSavingBundle || createMaterialRef?.isSavingMaterialDraft || createMaterialRef?.isUploadingThumbnail || createMaterialRef?.isMaterialPricingNextDisabled || createMaterialRef?.isBundleShareNextDisabled">
+          <button type="button" class="cm-modal-footer-btn" (click)="onModalDetailsWizardNext()" [disabled]="createMaterialRef?.isSavingBundle || createMaterialRef?.isSavingMaterialDraft || createMaterialRef?.isUploadingThumbnail || createMaterialRef?.isMaterialPricingNextDisabled || createMaterialRef?.isBundleShareNextDisabled || createMaterialRef?.isMaterialQuizFooterNextDisabled || createMaterialRef?.isMaterialPreviewFooterNextDisabled">
             <ng-container *ngIf="!modalDetailsWizardIsLastStep">{{ 'CREATE_MATERIAL.DETAILS_WIZ_NEXT' | translate }}</ng-container>
             <ng-container *ngIf="modalDetailsWizardIsLastStep && !modalDetailsWizardLastStepKey">{{ 'CREATE_MATERIAL.CONTINUE_TO_QUIZ' | translate }}</ng-container>
             <ng-container *ngIf="modalDetailsWizardIsLastStep && modalDetailsWizardLastStepKey">{{ modalDetailsWizardLastStepKey | translate }}</ng-container>
@@ -132,15 +164,128 @@
     </div>
   </div>
 
+  <!-- Desktop Schedule Class Modal (tutor) — same shell as expanded Create Material -->
+  <div
+    class="cm-modal-backdrop"
+    *ngIf="showScheduleClassView && !isMobile"
+    [class.cm-modal-backdrop--visible]="scheduleClassBackdropVisible"
+    (click)="onScheduleClassModalBackdropClick($event)"
+  >
+    <div
+      class="cm-modal-container cm-modal--expanded cm-modal-container--schedule-class"
+      [class.cm-modal--ready]="scheduleClassModalReady"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="cm-modal-header cm-modal-header--hidden" aria-hidden="true"></div>
+      <div class="cm-modal-topbar cm-modal-topbar--schedule-wizard">
+        <div class="cm-modal-topbar-left">
+          <button
+            type="button"
+            class="cm-modal-back"
+            *ngIf="scheduleClassModalRef?.wizardHostBackLabelKey"
+            (click)="scheduleClassModalRef?.previousStep()"
+          >
+            <ion-icon name="chevron-back-outline"></ion-icon>
+            {{ scheduleClassModalRef?.wizardHostBackLabelKey | translate }}
+          </button>
+        </div>
+        <div class="cm-modal-topbar-center cm-modal-topbar-center--schedule-stack">
+          <span class="cm-schedule-modal-title cm-schedule-modal-title--inline">{{ (scheduleClassModalRef?.scheduleModalTitleKey || 'SCHEDULE_CLASS.MODAL_TITLE') | translate }}</span>
+          <span
+            class="cm-schedule-wizard-fraction"
+            *ngIf="scheduleClassModalRef?.scheduleHubShowsWizardChrome"
+          >
+            {{ scheduleClassModalRef.displayStepIndex }}/{{ scheduleClassModalRef.displayStepTotal }}
+          </span>
+        </div>
+        <div class="cm-modal-topbar-right">
+          <button type="button" class="cm-modal-exit" (click)="onScheduleClassGoBack()">
+            {{ 'COMMON.CLOSE' | translate }}
+          </button>
+        </div>
+      </div>
+      <div
+        class="cm-schedule-wizard-progress"
+        *ngIf="scheduleClassModalRef?.scheduleHubShowsWizardChrome"
+      >
+        <div class="cm-schedule-wizard-progress-fill" [style.width.%]="scheduleClassModalRef.progressPercent"></div>
+      </div>
+      <div class="cm-modal-body cm-modal-body--schedule-class">
+        <app-schedule-class
+          #scheduleClassModalRef
+          [inline]="true"
+          [hostChromeFooter]="true"
+          (goBackEvent)="onScheduleClassGoBack()"
+          (classCreated)="onScheduleClassCreated()"
+          (classSaved)="onScheduleClassSaved()"
+          (hubListMutated)="onTutorHubListMutated()"
+          (browseClassesEvent)="onScheduleClassBrowsePublic()"
+          (wizardLayoutChange)="onScheduleClassWizardLayoutChange()"
+        ></app-schedule-class>
+      </div>
+      <div
+        class="cm-modal-footer cm-modal-footer--schedule-class"
+        *ngIf="scheduleClassModalRef?.scheduleHubShowsWizardChrome"
+      >
+        <div class="cm-modal-footer-start">
+          <button
+            type="button"
+            class="cm-modal-footer-save"
+            *ngIf="scheduleClassModalRef.hubSaveDraftButtonVisible"
+            (click)="scheduleClassModalRef.saveHubWizardDraft()"
+            [disabled]="scheduleClassModalRef.savingDraft"
+          >
+            <ion-spinner *ngIf="scheduleClassModalRef.savingDraft" name="crescent"></ion-spinner>
+            <span *ngIf="!scheduleClassModalRef.savingDraft">{{ 'SCHEDULE_CLASS.HUB_SAVE_DRAFT' | translate }}</span>
+            <span *ngIf="scheduleClassModalRef.savingDraft">{{ 'SCHEDULE_CLASS.HUB_SAVING_DRAFT' | translate }}</span>
+          </button>
+          <button
+            type="button"
+            class="cm-modal-footer-save"
+            *ngIf="scheduleClassModalRef.editingClassId"
+            (click)="scheduleClassModalRef.saveEdit()"
+            [disabled]="scheduleClassModalRef.savingEdit"
+          >
+            <ion-spinner *ngIf="scheduleClassModalRef.savingEdit" name="crescent"></ion-spinner>
+            <span *ngIf="!scheduleClassModalRef.savingEdit">{{ 'SCHEDULE_CLASS.HUB_SAVE_CLASS' | translate }}</span>
+            <span *ngIf="scheduleClassModalRef.savingEdit">{{ 'SCHEDULE_CLASS.HUB_SAVING_CLASS' | translate }}</span>
+          </button>
+        </div>
+        <div class="cm-modal-footer-spacer" aria-hidden="true"></div>
+        <button
+          type="button"
+          class="cm-modal-footer-btn"
+          *ngIf="!scheduleClassModalRef.isLastScheduleStep"
+          (click)="scheduleClassModalRef.nextStep()"
+        >
+          {{ 'SCHEDULE_CLASS.NEXT' | translate }}
+          <ion-icon name="arrow-forward-outline"></ion-icon>
+        </button>
+        <button
+          type="button"
+          class="cm-modal-footer-btn"
+          *ngIf="scheduleClassModalRef.isLastScheduleStep"
+          (click)="scheduleClassModalRef.submit()"
+          [disabled]="scheduleClassModalRef.submitting || scheduleClassModalRef.footerCreateDisabled"
+        >
+          <ion-icon name="checkmark-circle-outline" *ngIf="!scheduleClassModalRef.submitting"></ion-icon>
+          <ion-spinner *ngIf="scheduleClassModalRef.submitting" name="crescent"></ion-spinner>
+          <span *ngIf="!scheduleClassModalRef.submitting">{{ scheduleClassModalRef.scheduleFooterPrimaryLabelKey | translate }}</span>
+          <span *ngIf="scheduleClassModalRef.submitting">{{ scheduleClassModalRef.scheduleFooterPrimaryBusyKey | translate }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Full-bleed mesh (viewport width, not max-width content column) -->
   <div
     class="home-mesh-gradient-layer"
-    *ngIf="!showEarningsView && !showExploreView && !(showCreateMaterialView && isMobile)"
+    *ngIf="!showEarningsView && !showExploreView && !(showCreateMaterialView && isMobile) && !(showScheduleClassView && isMobile)"
   >
     <!-- <app-mesh-gradient-background></app-mesh-gradient-background> -->
   </div>
 
-  <div class="content-wrapper" *ngIf="!showEarningsView && !showExploreView && !(showCreateMaterialView && isMobile)">
+  <div class="content-wrapper" *ngIf="!showEarningsView && !showExploreView && !(showCreateMaterialView && isMobile) && !(showScheduleClassView && isMobile)">
     <!-- Welcome Message with Search Bar (Students) -->
     <div class="welcome-section welcome-section--mobile-hero" *ngIf="currentUser && isStudentUser">
       <div class="welcome-mobile-hero" *ngIf="isMobile">
@@ -348,7 +493,7 @@
             </div>
           </div>
           
-          <ion-card class="up-next-card" [class.has-lesson]="nextLesson" [class.is-loading]="isLoadingLessons" (click)="nextLesson ? null : onUpNextCardClick()">
+          <ion-card class="up-next-card" [class.has-lesson]="nextLesson" [class.is-loading]="isLoadingLessons" (click)="onStudentUpNextCardClick()">
             <ion-card-content>
               <!-- LOADING STATE -->
               <div class="up-next-loading" *ngIf="isLoadingLessons">
@@ -405,7 +550,7 @@
                         *ngIf="nextLesson.lesson?.status === 'pending_reschedule' && nextLesson.lesson?.rescheduleProposal?.status === 'pending' && nextLesson.isRescheduleProposer">
                     <ion-icon name="time"></ion-icon> {{ 'HOME.STATUS_RESCHEDULE_SENT' | translate }}
                   </span>
-                  <span class="status-badge badge-reschedule-action" 
+                  <span class="status-badge badge-reschedule-action"
                         *ngIf="nextLesson.lesson?.status === 'pending_reschedule' && nextLesson.lesson?.rescheduleProposal?.status === 'pending' && !nextLesson.isRescheduleProposer"
                         (click)="showRescheduleProposal(nextLesson.lesson); $event.stopPropagation()">
                     <ion-icon name="alert-circle"></ion-icon> {{ 'HOME.STATUS_RESCHEDULE_REQUEST' | translate }}
@@ -446,9 +591,17 @@
                         <span class="detail-label">{{ 'HOME.LESSON_NUMBER' | translate:{ number: nextLesson.lesson.lessonNumber } }}</span>
                       </div>
                       
-                      <div class="detail-group">
+                      <div class="detail-group home-detail-date">
                         <ion-icon name="calendar-outline"></ion-icon>
-                        <span class="detail-label">{{ nextLesson?.isToday ? ('HOME.TODAY' | translate) : nextLesson?.dateTag }}</span>
+                        <div class="home-date-row home-date-row--compact">
+                          <span class="home-date-weekday" [class.meta-today]="nextLesson?.isToday">
+                            {{ nextLesson?.isToday ? ('HOME.TODAY' | translate) : nextLesson?.dateBadgeWeekday }}
+                          </span>
+                          <div class="lgc-date-badge lgc-date-badge--inline" aria-hidden="true">
+                            <span class="lgc-date-badge-month">{{ nextLesson?.dateBadgeMonth }}</span>
+                            <span class="lgc-date-badge-day">{{ nextLesson?.dateBadgeDay }}</span>
+                          </div>
+                        </div>
                       </div>
                       
                       <div class="detail-group">
@@ -461,14 +614,17 @@
                 
                 <!-- Main Content: Class thumbnail + Info (for classes) -->
                 <div class="lesson-main-content class-content" *ngIf="nextLesson.lesson?.isClass">
-                  <ion-avatar class="lesson-avatar class-avatar">
-                    <img 
-                      *ngIf="nextLesson.lesson?.classData?.thumbnail" 
-                      [src]="nextLesson.lesson.classData.thumbnail" 
+                  <div class="class-cover-wrap">
+                    <img
+                      *ngIf="nextLesson.lesson?.classData?.thumbnail"
+                      class="class-cover-img"
+                      [src]="nextLesson.lesson.classData.thumbnail"
                       [alt]="nextLesson.lesson.className || 'Class'"
                       referrerpolicy="no-referrer">
-                    <ion-icon *ngIf="!nextLesson.lesson?.classData?.thumbnail" name="people" class="avatar-placeholder-icon"></ion-icon>
-                  </ion-avatar>
+                    <div class="class-cover-placeholder" *ngIf="!nextLesson.lesson?.classData?.thumbnail">
+                      <ion-icon name="people"></ion-icon>
+                    </div>
+                  </div>
                   
                   <div class="lesson-info">
                     <!-- Class Name as title -->
@@ -492,9 +648,17 @@
                     </div>
                     
                     <div class="lesson-details-row">
-                      <div class="detail-group">
+                      <div class="detail-group home-detail-date">
                         <ion-icon name="calendar-outline"></ion-icon>
-                        <span class="detail-label">{{ nextLesson?.isToday ? ('HOME.TODAY' | translate) : nextLesson?.dateTag }}</span>
+                        <div class="home-date-row home-date-row--compact">
+                          <span class="home-date-weekday" [class.meta-today]="nextLesson?.isToday">
+                            {{ nextLesson?.isToday ? ('HOME.TODAY' | translate) : nextLesson?.dateBadgeWeekday }}
+                          </span>
+                          <div class="lgc-date-badge lgc-date-badge--inline" aria-hidden="true">
+                            <span class="lgc-date-badge-month">{{ nextLesson?.dateBadgeMonth }}</span>
+                            <span class="lgc-date-badge-day">{{ nextLesson?.dateBadgeDay }}</span>
+                          </div>
+                        </div>
                       </div>
                       
                       <div class="detail-group">
@@ -666,7 +830,7 @@
     
     
     <!-- Tutor Dashboard Grid: 2x2 layout -->
-    <div class="tutor-dashboard-grid" *ngIf="isTutorUser">
+    <div class="tutor-dashboard-grid" *ngIf="isTutorUser" [class.tutor-dashboard-grid--with-this-week]="timelineEvents.length > 0">
       <div class="grid-cell-upnext">
         <h2 class="desktop-tutor-section-title" *ngIf="!isMobile && isTutorUser">{{ (nextLesson ? 'HOME.UP_NEXT' : 'HOME.YOUR_SCHEDULE') | translate }}</h2>
 
@@ -713,13 +877,19 @@
     <!-- Mobile Up Next — Centered vertical card matching empty state layout -->
     <div class="mobile-section mobile-section-upnext-filled m-stagger m-stagger-1" *ngIf="isMobile && !isLoadingLessons && nextLesson && isTutorUser" [class.m-stagger-go]="mobileStaggerReady" [class.m-stagger-done]="mobileStaggerDone">
       <h3 class="mobile-section-title">{{ 'HOME.UP_NEXT' | translate }}</h3>
-      <div class="m-card-empty-standalone m-card-filled-lesson" *ngIf="nextLesson as nextClass" (click)="joinStudentLesson(nextLesson)">
+      <div class="m-card-empty-standalone m-card-filled-lesson" *ngIf="nextLesson as nextClass" (click)="onTutorUpNextCardShellClick($event)">
         <span style="display: none;">{{ countdownTick }}</span>
 
-        <div class="m-filled-avatar-wrap">
+        <div class="m-filled-avatar-wrap" *ngIf="!nextClass.lesson?.isClass">
           <img *ngIf="tutorMobileUpNextCoverUrl" class="m-filled-avatar-img" [src]="tutorMobileUpNextCoverUrl" alt="" referrerpolicy="no-referrer" />
           <div *ngIf="!tutorMobileUpNextCoverUrl" class="m-filled-avatar-placeholder">
-            <ion-icon [name]="nextClass.lesson?.isClass ? 'people' : 'person'"></ion-icon>
+            <ion-icon name="person"></ion-icon>
+          </div>
+        </div>
+        <div class="m-filled-class-cover-wrap" *ngIf="nextClass.lesson?.isClass">
+          <img *ngIf="tutorMobileUpNextCoverUrl" class="m-filled-class-cover-img" [src]="tutorMobileUpNextCoverUrl" alt="" referrerpolicy="no-referrer" />
+          <div *ngIf="!tutorMobileUpNextCoverUrl" class="m-filled-class-cover-placeholder">
+            <ion-icon name="people"></ion-icon>
           </div>
         </div>
 
@@ -732,8 +902,17 @@
           <ion-icon name="star"></ion-icon> {{ 'HOME.STATUS_TRIAL' | translate }}
         </span>
 
+        <div class="home-m-upnext-date">
+          <span class="home-date-weekday home-date-weekday--stack" [class.meta-today]="nextClass.isToday">
+            {{ nextClass.isToday ? ('HOME.TODAY' | translate) : nextClass.dateBadgeWeekday }}
+          </span>
+          <span class="lgc-date-badge lgc-date-badge--inline" aria-hidden="true">
+            <span class="lgc-date-badge-month">{{ nextClass.dateBadgeMonth }}</span>
+            <span class="lgc-date-badge-day">{{ nextClass.dateBadgeDay }}</span>
+          </span>
+        </div>
+
         <p class="m-card-empty-subtitle m-upnext-meta">
-          <span [class.meta-today]="nextClass.isToday">{{ nextClass.isToday ? ('HOME.TODAY' | translate) : nextClass.dateTag }}</span>
           <span>{{ nextClass.timeRange }}</span>
           <ng-container *ngIf="!nextClass.lesson?.isClass && nextClass.subject">
             <span> · </span>
@@ -744,6 +923,13 @@
           </ng-container>
         </p>
 
+        <app-class-attendees
+          *ngIf="nextClass.lesson?.isClass && nextClass.lesson?.attendees"
+          [attendees]="nextClass.lesson.attendees"
+          [capacity]="nextClass.lesson.capacity"
+          [maxDisplay]="3">
+        </app-class-attendees>
+
         <p class="m-card-empty-subtitle m-filled-countdown" *ngIf="nextClass.lesson?.status !== 'cancelled'">
             {{ 'HOME.STARTS_IN_TIME' | translate:{ time: nextClass.countdown } }}
           </p>
@@ -753,10 +939,10 @@
           <span>{{ 'HOME.PARTICIPANT_IN_CALL' | translate:{ name: nextLessonOtherName } }}</span>
         </div>
 
-        <a *ngIf="nextClass.lesson?.status !== 'cancelled'" class="m-card-empty-link">
+        <button type="button" *ngIf="nextClass.lesson?.status !== 'cancelled'" class="m-card-empty-link m-card-empty-link--as-button" (click)="joinStudentLesson(nextClass); $event.stopPropagation()">
           <span class="button-text-animated">{{ 'HOME.JOIN_LESSON' | translate }}</span>
           <img class="m-card-empty-link-chevron m-card-empty-link-arrow-img" src="assets/setup-availability-arrow.png" alt="" />
-        </a>
+        </button>
         <span *ngIf="nextClass.lesson?.status === 'cancelled'" class="m-card-empty-link m-card-empty-link--disabled">
           {{ 'HOME.STATUS_CANCELLED' | translate }}
         </span>
@@ -797,7 +983,7 @@
 
     <!-- Desktop Up Next Card -->
     <div class="empty-state-clean" *ngIf="!isMobile && !isLoadingLessons && nextLesson && isTutorUser">
-      <div class="empty-state-clean-inner upnext-filled" *ngIf="nextLesson as nextClass">
+      <div class="empty-state-clean-inner upnext-filled" *ngIf="nextLesson as nextClass" (click)="onTutorUpNextCardShellClick($event)">
         <span style="display: none;">{{ countdownTick }}</span>
         <div class="upnext-filled-badges">
           <span class="badge-inline badge-trial" *ngIf="nextClass.isTrialLesson && nextClass.lesson?.status !== 'cancelled'">
@@ -816,15 +1002,19 @@
           </span>
           <span class="badge-inline badge-reschedule-proposal" 
                 *ngIf="nextClass.lesson?.status === 'pending_reschedule' && nextClass.lesson?.rescheduleProposal?.status === 'pending' && !nextClass.isRescheduleProposer"
-                (click)="showRescheduleProposal(nextClass.lesson)">
+                (click)="showRescheduleProposal(nextClass.lesson); $event.stopPropagation()">
             <ion-icon name="alert-circle"></ion-icon> {{ 'HOME.STATUS_RESCHEDULE_REQUEST' | translate }}
           </span>
         </div>
-        <ion-avatar class="upnext-filled-avatar">
-          <img *ngIf="nextClass.lesson?.isClass && nextClass.lesson?.classData?.thumbnail" [src]="nextClass.lesson.classData.thumbnail" [alt]="nextClass.lesson.className || 'Class'" referrerpolicy="no-referrer" />
-          <img *ngIf="!nextClass.lesson?.isClass && nextClass.avatar && nextClass.avatar !== 'assets/avatar.png'" [src]="nextClass.avatar" [alt]="nextClass | displayName" referrerpolicy="no-referrer" />
-          <ion-icon *ngIf="nextClass.lesson?.isClass && !nextClass.lesson?.classData?.thumbnail" name="people" class="avatar-placeholder"></ion-icon>
-          <ion-icon *ngIf="!nextClass.lesson?.isClass && (!nextClass.avatar || nextClass.avatar === 'assets/avatar.png')" name="person" class="avatar-placeholder"></ion-icon>
+        <div class="upnext-filled-class-cover" *ngIf="nextClass.lesson?.isClass">
+          <img *ngIf="nextClass.lesson?.classData?.thumbnail" class="upnext-filled-class-cover-img" [src]="nextClass.lesson.classData.thumbnail" [alt]="nextClass.lesson.className || 'Class'" referrerpolicy="no-referrer" />
+          <div class="upnext-filled-class-cover-placeholder" *ngIf="!nextClass.lesson?.classData?.thumbnail">
+            <ion-icon name="people"></ion-icon>
+          </div>
+        </div>
+        <ion-avatar class="upnext-filled-avatar" *ngIf="!nextClass.lesson?.isClass">
+          <img *ngIf="nextClass.avatar && nextClass.avatar !== 'assets/avatar.png'" [src]="nextClass.avatar" [alt]="nextClass | displayName" referrerpolicy="no-referrer" />
+          <ion-icon *ngIf="!nextClass.avatar || nextClass.avatar === 'assets/avatar.png'" name="person" class="avatar-placeholder"></ion-icon>
         </ion-avatar>
         <div class="upnext-filled-text">
           <h3>
@@ -837,7 +1027,15 @@
             </span>
             <span *ngIf="!nextClass.lesson?.isClass">{{ nextClass.subject }}</span>
             <span class="meta-dot" *ngIf="!nextClass.lesson?.isClass">·</span>
-            <span [class.meta-today]="nextClass.isToday">{{ nextClass.isToday ? ('HOME.TODAY' | translate) : nextClass.dateTag }}</span>
+            <span class="home-upnext-meta-date">
+              <span class="home-date-weekday" [class.meta-today]="nextClass.isToday">
+                {{ nextClass.isToday ? ('HOME.TODAY' | translate) : nextClass.dateBadgeWeekday }}
+              </span>
+              <span class="lgc-date-badge lgc-date-badge--inline" aria-hidden="true">
+                <span class="lgc-date-badge-month">{{ nextClass.dateBadgeMonth }}</span>
+                <span class="lgc-date-badge-day">{{ nextClass.dateBadgeDay }}</span>
+              </span>
+            </span>
             <span class="meta-dot">·</span>
             <span>{{ nextClass.timeRange }}</span>
           </p>
@@ -853,15 +1051,15 @@
           <span class="in-call-dot"></span>
           <span class="in-call-text">{{ 'HOME.PARTICIPANT_IN_CALL' | translate:{ name: nextLessonOtherName } }}</span>
         </div>
-        <button class="previous-notes-link" *ngIf="previousNotesData" (click)="showPreviousNotesModal()">
+        <button class="previous-notes-link" *ngIf="previousNotesData" (click)="showPreviousNotesModal(); $event.stopPropagation()">
           <ion-icon name="document-text-outline"></ion-icon><span>Notes from last lesson</span><ion-icon name="chevron-forward-outline" class="chevron"></ion-icon>
         </button>
         <div class="upnext-filled-actions" *ngIf="nextClass.lesson?.status !== 'cancelled'">
-          <ion-button fill="outline" expand="block" class="empty-state-clean-btn" [class.active]="nextClass.isInProgress" (click)="joinStudentLesson(nextClass)">
+          <ion-button fill="outline" expand="block" class="empty-state-clean-btn" [class.active]="nextClass.isInProgress" (click)="joinStudentLesson(nextClass); $event.stopPropagation()">
             {{ nextClass.isInProgress ? ('HOME.JOIN_NOW' | translate) : ('HOME.JOIN_LESSON' | translate) }}
           </ion-button>
         </div>
-        <ion-button *ngIf="!nextClass.isInProgress && nextClass.lesson?.status !== 'cancelled'" [id]="'exp-next-class-menu-' + nextClass.lesson._id" fill="clear" class="upnext-filled-menu">
+        <ion-button *ngIf="!nextClass.isInProgress && nextClass.lesson?.status !== 'cancelled'" [id]="'exp-next-class-menu-' + nextClass.lesson._id" fill="clear" class="upnext-filled-menu" (click)="$event.stopPropagation()">
           <ion-icon slot="icon-only" name="ellipsis-horizontal"></ion-icon>
         </ion-button>
         <ion-popover *ngIf="!nextClass.isInProgress && nextClass.lesson?.status !== 'cancelled'" [trigger]="'exp-next-class-menu-' + nextClass.lesson._id" triggerAction="click" side="bottom" alignment="center" [dismissOnSelect]="true">
@@ -937,34 +1135,111 @@
       </div>
       <!-- Coming Up (Row 2, Left) — only when lessons exist -->
       <div class="grid-cell-comingup" *ngIf="timelineEvents.length > 0">
-        <div class="timeline-section" *ngIf="!isLoadingLessons">
-          <div class="section-header-new">
-            <h2>{{ 'HOME.THIS_WEEK' | translate }}</h2>
+        <ng-container *ngIf="!isLoadingLessons">
+          <div class="coming-up-section-head" *ngIf="!isMobile">
+            <h2 class="desktop-tutor-section-title">{{ 'HOME.THIS_WEEK' | translate }}</h2>
             <ion-button *ngIf="isTutorUser" fill="clear" class="see-all-btn" routerLink="/tabs/tutor-calendar">{{ 'HOME.FULL_SCHEDULE' | translate }}</ion-button>
           </div>
-          <div class="coming-up-single">
-            <div class="coming-up-preview" (click)="navigateToLesson(timelineEvents[0].lesson)">
-              <div class="cu-preview-left">
-                <div class="cu-preview-date">{{ timelineEvents[0].date }}</div>
-                <div class="cu-preview-time">
-                  <span class="cu-time-text">{{ timelineEvents[0].time }}</span>
-                  <span class="cu-duration">{{ timelineEvents[0].duration }} {{ 'HOME.MINS' | translate }}</span>
+          <div class="timeline-section timeline-section--week-strip">
+            <div class="tw-week-scroll">
+              <div class="tw-week-scroll-inner" [class.tw-week-scroll-inner--single]="thisWeekStripSingleEvent">
+                <div
+                  *ngFor="let group of timelineDayGroups; trackBy: trackByTimelineDayGroup; let gi = index"
+                  class="tw-day-group">
+                  <div class="tw-day-group__date">
+                    <div class="tw-day-group__date-badge-stack">
+                      <span class="home-date-weekday home-date-weekday--stack" [class.meta-today]="group.events[0].isToday">
+                        {{ group.events[0].isToday ? ('HOME.TODAY' | translate) : group.events[0].dateBadgeWeekday }}
+                      </span>
+                      <div class="lgc-date-badge lgc-date-badge--inline" aria-hidden="true">
+                        <span class="lgc-date-badge-month">{{ group.events[0].dateBadgeMonth }}</span>
+                        <span class="lgc-date-badge-day">{{ group.events[0].dateBadgeDay }}</span>
+                      </div>
+                    </div>
+                    <ng-container *ngIf="group.events.length === 1">
+                      <div class="cu-preview-time">
+                        <span class="cu-time-text">{{ group.events[0].time }}</span>
+                        <span class="cu-duration">{{ group.events[0].duration }} {{ 'HOME.MINS' | translate }}</span>
+                      </div>
+                    </ng-container>
+                    <div *ngIf="group.events.length > 1" class="tw-day-group__sessions">
+                      {{ 'HOME.WEEK_SAME_DAY_SESSIONS' | translate: { count: group.events.length } }}
+                    </div>
+                  </div>
+                  <div class="tw-day-group__divider" aria-hidden="true"></div>
+                  <div class="tw-day-group__events">
+                    <div
+                      *ngFor="let ev of group.events; trackBy: trackByTimelineEvent; let ei = index"
+                      class="tw-day-event-cell"
+                      (click)="navigateToLesson(ev.lesson)">
+                      <div class="tw-day-event-cell__icon-col">
+                        <div class="cu-avatar tw-day-event-avatar">
+                          <img *ngIf="ev.avatar" [src]="ev.avatar" [alt]="ev.name" referrerpolicy="no-referrer">
+                          <ion-icon *ngIf="!ev.avatar" name="person"></ion-icon>
+                        </div>
+                        <span *ngIf="group.events.length > 1" class="tw-day-event-under">{{ ev.duration }} {{ 'HOME.MINS' | translate }}</span>
+                      </div>
+                      <div class="tw-day-event-cell__body">
+                        <span *ngIf="group.events.length > 1" class="tw-day-event-time">{{ ev.time }}</span>
+                        <span class="cu-name">{{ ev.name }}</span>
+                        <span class="tw-day-event-sub">{{ ev.subject }}</span>
+                        <app-class-attendees
+                          *ngIf="ev.lesson?.isClass && ev.lesson?.attendees"
+                          [attendees]="ev.lesson.attendees"
+                          [capacity]="ev.lesson.capacity"
+                          [maxDisplay]="3">
+                        </app-class-attendees>
+                      </div>
+                      <span class="cu-status-badge tw-day-status-pill" [ngClass]="ev.statusClass">{{ ev.statusLabel }}</span>
+                      <ion-button
+                        *ngIf="ev.lesson?.status !== 'cancelled' && ev.lesson?.status !== 'completed'"
+                        [id]="'tw-event-menu-' + ev.lesson?._id"
+                        fill="clear"
+                        size="small"
+                        class="tw-event-menu-btn"
+                        (click)="$event.stopPropagation()">
+                        <ion-icon slot="icon-only" name="ellipsis-horizontal"></ion-icon>
+                      </ion-button>
+                      <ion-popover
+                        *ngIf="ev.lesson?.status !== 'cancelled' && ev.lesson?.status !== 'completed'"
+                        [trigger]="'tw-event-menu-' + ev.lesson?._id"
+                        triggerAction="click"
+                        side="bottom"
+                        alignment="end"
+                        [dismissOnSelect]="true">
+                        <ng-template>
+                          <ion-content class="ion-padding">
+                            <ion-list>
+                              <ion-item *ngIf="isTutorUser && ev.lesson?.isClass" [button]="true" (click)="inviteStudentToClass(ev.lesson._id)" [detail]="false">
+                                <ion-icon name="person-add-outline" slot="start"></ion-icon>
+                                <ion-label>{{ 'HOME.INVITE_STUDENT' | translate }}</ion-label>
+                              </ion-item>
+                              <ion-item [button]="true" (click)="ev.lesson?.isClass ? rescheduleClass(ev.lesson._id, ev.lesson) : rescheduleLesson(ev.lesson._id, ev.lesson)" [detail]="false">
+                                <ion-icon name="calendar-outline" slot="start"></ion-icon>
+                                <ion-label>{{ 'HOME.RESCHEDULE' | translate }}</ion-label>
+                              </ion-item>
+                              <ion-item [button]="true" (click)="ev.lesson?.isClass ? cancelClass(ev.lesson._id, ev.lesson) : cancelLesson(ev.lesson._id, ev.lesson)" class="ion-text-danger" [detail]="false">
+                                <ion-icon name="close-circle-outline" slot="start"></ion-icon>
+                                <ion-label>{{ 'HOME.CANCEL_LESSON' | translate }}</ion-label>
+                              </ion-item>
+                            </ion-list>
+                          </ion-content>
+                        </ng-template>
+                      </ion-popover>
+                      <button
+                        type="button"
+                        class="cu-extra-badge"
+                        *ngIf="gi === 0 && ei === 0 && sameDayExtraCount > 0"
+                        (click)="openAllLessonsModal(); $event.stopPropagation()">
+                        {{ 'HOME.PLUS_MORE' | translate }}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div class="cu-preview-center">
-                <div class="cu-avatar">
-                  <img *ngIf="timelineEvents[0].avatar" [src]="timelineEvents[0].avatar" [alt]="timelineEvents[0].name" referrerpolicy="no-referrer">
-                  <ion-icon *ngIf="!timelineEvents[0].avatar" name="person"></ion-icon>
-                </div>
-                <span class="cu-name">{{ timelineEvents[0].name }}</span>
-              </div>
-              <div class="cu-preview-right">
-                <span class="cu-status-badge" [ngClass]="timelineEvents[0].statusClass">{{ timelineEvents[0].statusLabel }}</span>
-              </div>
-              <button class="cu-extra-badge" *ngIf="sameDayExtraCount > 0" (click)="openAllLessonsModal(); $event.stopPropagation()">{{ 'HOME.PLUS_MORE' | translate }}</button>
             </div>
           </div>
-        </div>
+        </ng-container>
       </div>
 
       <!-- Mobile: Quick Actions (horizontal scroll) -->
@@ -975,7 +1250,7 @@
         [staggerReady]="mobileStaggerReady"
         [staggerDone]="mobileStaggerDone"
         [isDarkModeActive]="isDarkModeActive"
-        (navigateToExplore)="navigateToExplore()"
+        (navigateToExplore)="onClassesQuickAction()"
         (navigateToCreateMaterial)="navigateToCreateMaterial($event)"
         (navigateToForum)="navigateToForum()">
       </app-mobile-quick-actions>
@@ -998,11 +1273,11 @@
         [staggerDone]="mobileStaggerDone">
       </app-mobile-recent-students>
 
-      <!-- Quick Actions (Row 2, Right / full-width when no Coming Up) — Desktop only -->
-      <div class="grid-cell-actions" *ngIf="!isMobile && !isLoadingLessons" [class.full-width]="timelineEvents.length === 0">
+      <!-- Quick Actions — desktop: always full width + 4-up row (same with or without This Week) -->
+      <div class="grid-cell-actions full-width" *ngIf="!isMobile && !isLoadingLessons">
         <h2 class="desktop-tutor-section-title desktop-tutor-section-title--actions">{{ 'HOME.QUICK_ACTIONS' | translate }}</h2>
         <div class="actions-grid">
-          <div class="quick-action-card qa-classes qa-with-asset" (click)="navigateToExplore()">
+          <div class="quick-action-card qa-classes qa-with-asset" (click)="onClassesQuickAction()">
             <div class="qa-icon">
               <img class="qa-icon-img" [src]="isDarkModeActive ? 'assets/quick-actions-classes-original.png' : 'assets/quick-actions-classes.png'" alt="" />
             </div>
@@ -1322,6 +1597,12 @@
             <div class="airbnb-lesson-left">
               <div class="airbnb-lesson-date">{{ event.date }}</div>
               <div class="airbnb-lesson-time">{{ event.time }} – {{ event.endTime || '' }}</div>
+              <app-class-attendees
+                *ngIf="event.lesson?.isClass && event.lesson?.attendees"
+                [attendees]="event.lesson.attendees"
+                [capacity]="event.lesson.capacity"
+                [maxDisplay]="3">
+              </app-class-attendees>
             </div>
             <div class="airbnb-lesson-right">
               <div class="airbnb-lesson-participant-info">

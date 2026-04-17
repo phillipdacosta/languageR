@@ -8,17 +8,26 @@ export interface CreateClassRequest {
   name: string;
   description?: string;
   capacity: number;
-  isPublic: boolean;
+  isPublic?: boolean;
   thumbnail?: string;
   price?: number;
-  startTime: string; // ISO
-  endTime: string;   // ISO
+  startTime?: string; // ISO (not required for status `draft`)
+  endTime?: string;   // ISO
   recurrence?: { type: 'none' | 'daily' | 'weekly' | 'monthly'; count: number };
   invitedStudentIds?: string[];
+  status?: 'draft';
+  hubDraftForm?: unknown;
+  minStudents?: number;
+  flexibleMinimum?: boolean;
+  level?: string;
+  duration?: number;
+  useSuggestedPricing?: boolean;
+  suggestedPrice?: number;
 }
 
 export interface ClassInvitation {
   _id: string;
+  updatedAt?: string;
   tutorId: {
     _id: string;
     name: string;
@@ -31,7 +40,7 @@ export interface ClassInvitation {
   price: number;
   startTime: string;
   endTime: string;
-  status?: 'scheduled' | 'completed' | 'cancelled'; // Class status
+  status?: 'draft' | 'scheduled' | 'completed' | 'cancelled'; // Class status
   cancelledAt?: string; // When it was cancelled
   cancelReason?: string; // Why it was cancelled (e.g., 'minimum_not_met')
   invitedStudents: Array<{
@@ -56,13 +65,13 @@ export class ClassService {
 
   constructor(private http: HttpClient, private userService: UserService) {}
 
-  createClass(payload: CreateClassRequest): Observable<{ success: boolean; classes: any[] }> {
+  createClass(payload: CreateClassRequest): Observable<{ success: boolean; classes: any[]; class?: any }> {
     return this.userService.currentUser$.pipe(
       filter(user => !!user),
       take(1),
       switchMap(user => {
         const headers = this.userService.getAuthHeadersSync();
-        return this.http.post<{ success: boolean; classes: any[] }>(`${this.apiUrl}/classes`, payload, { headers });
+        return this.http.post<{ success: boolean; classes: any[]; class?: any }>(`${this.apiUrl}/classes`, payload, { headers });
       })
     );
   }
@@ -88,6 +97,22 @@ export class ClassService {
       switchMap(user => {
         const headers = this.userService.getAuthHeadersSync();
         return this.http.post<{ success: boolean; message: string }>(`${this.apiUrl}/classes/${classId}/decline`, {}, { headers });
+      })
+    );
+  }
+
+  /** Public class: create or reopen a pending invitation so the student can pay/accept via the invitation modal. */
+  requestPublicEnrollment(classId: string): Observable<{ success: boolean; message?: string; alreadyPending?: boolean }> {
+    return this.userService.currentUser$.pipe(
+      filter(user => !!user),
+      take(1),
+      switchMap(user => {
+        const headers = this.userService.getAuthHeadersSync();
+        return this.http.post<{ success: boolean; message?: string; alreadyPending?: boolean }>(
+          `${this.apiUrl}/classes/${classId}/request-enrollment`,
+          {},
+          { headers }
+        );
       })
     );
   }
@@ -264,6 +289,16 @@ export class ClassService {
           { headers }
         );
       })
+    );
+  }
+
+  /** Tutor: remove a past or cancelled class from hub only (does not cancel or delete the record). */
+  hideClassFromHub(classId: string): Observable<{ success: boolean; message?: string }> {
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.post<{ success: boolean; message?: string }>(
+      `${this.apiUrl}/classes/${encodeURIComponent(classId)}/hide-from-hub`,
+      {},
+      { headers }
     );
   }
 }

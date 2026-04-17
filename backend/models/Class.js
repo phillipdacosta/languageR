@@ -16,7 +16,9 @@ const ClassSchema = new mongoose.Schema({
   suggestedPrice: { type: Number, default: 0 }, // Platform-calculated suggested price per student
   startTime: { type: Date, required: true },
   endTime: { type: Date, required: true },
-  status: { type: String, enum: ['scheduled', 'in_progress', 'completed', 'cancelled'], default: 'scheduled' }, // Class status
+  status: { type: String, enum: ['draft', 'scheduled', 'in_progress', 'completed', 'cancelled'], default: 'scheduled' }, // Class status
+  /** Tutor hub wizard: partial form + step until class is published (status draft only). */
+  hubDraftForm: { type: mongoose.Schema.Types.Mixed, default: null },
   cancelledAt: { type: Date }, // When the class was cancelled
   cancelReason: { type: String }, // Reason for cancellation (e.g., "minimum_not_met", "tutor_cancelled")
   recurrence: {
@@ -71,7 +73,9 @@ const ClassSchema = new mongoose.Schema({
   whiteboardCreatedAt: {
     type: Date,
     default: null
-  }
+  },
+  /** Tutor hid this class from their hub / dashboard lists (past or cancelled only). */
+  tutorRemovedFromHubAt: { type: Date, default: null },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Class', ClassSchema);

@@ -28,6 +28,10 @@ export interface ProcessedLessonCard {
   classCapacity: number;
   classAttendees: { name: string; picture?: string; initials: string }[];
   classAttendeesOverflow: number;
+  /** Class cover from hub thumbnail (tutor classes). */
+  classCoverUrl?: string;
+  /** e.g. "3 / 8 students" for list subtitle */
+  classEnrollmentLine?: string;
   cardDescMode: CardDescMode;
   cardDescText: string;
   cardStats: { value: string; label: string }[];
@@ -129,6 +133,7 @@ export function classRecordToLesson(cls: MyClassRecord, currentUser: any, t: TFu
   const userId = String(currentUser?._id || currentUser?.id || '');
   const isTutor = String(cls.tutorId?._id || cls.tutorId) === userId;
   const firstStudent = cls.confirmedStudents?.[0];
+  const thumb = cls.thumbnail?.trim();
   return {
     _id: cls._id,
     tutorId: cls.tutorId || { _id: '', name: t('LESSONS_PAGE.UNKNOWN') },
@@ -155,6 +160,7 @@ export function classRecordToLesson(cls: MyClassRecord, currentUser: any, t: TFu
     className: cls.name,
     attendees: cls.confirmedStudents || [],
     capacity: cls.capacity || 1,
+    classData: thumb ? { thumbnail: thumb } : undefined,
   } as Lesson;
 }
 
@@ -323,9 +329,15 @@ export function buildProcessedLessonCard(
           value: `$${(lesson.price || 0).toFixed(0)}`,
           label: t('LESSONS_PAGE.CARD_STAT_PRICE'),
         };
+  const enrolled = lesson.attendees?.length ?? 0;
+  const cap = lesson.capacity || 0;
+  const enrollmentStat =
+    lesson.isClass && role === 'tutor'
+      ? { value: `${enrolled}/${Math.max(1, cap)}`, label: t('LESSONS_PAGE.CARD_STAT_ENROLLED') }
+      : priceOrReceived;
   const cardStats = [
     { value: `${lesson.duration}${durLabel}`, label: t('LESSONS_PAGE.CARD_STAT_DURATION') },
-    priceOrReceived,
+    enrollmentStat,
     { value: statusLabel, label: t('LESSONS_PAGE.CARD_STAT_STATUS') },
   ];
 
@@ -334,6 +346,13 @@ export function buildProcessedLessonCard(
     nameParts.length > 1
       ? `${nameParts[0].charAt(0)}${nameParts[1].charAt(0)}`
       : nameParts[0].charAt(0);
+
+  const classCoverUrl =
+    lesson.isClass && lesson.classData?.thumbnail && String(lesson.classData.thumbnail).trim().length > 0
+      ? String(lesson.classData.thumbnail).trim()
+      : undefined;
+  const classEnrollmentLine =
+    lesson.isClass && cap > 0 ? t('LESSONS_PAGE.CLASS_ENROLLMENT_LINE', { current: enrolled, max: cap }) : undefined;
 
   return {
     id: lesson._id,
@@ -360,6 +379,8 @@ export function buildProcessedLessonCard(
       initials: getInitialsFromName(a.name || a.firstName || ''),
     })),
     classAttendeesOverflow: Math.max(0, (lesson.attendees?.length || 0) - 3),
+    classCoverUrl,
+    classEnrollmentLine,
     cardDescMode,
     cardDescText,
     cardStats,

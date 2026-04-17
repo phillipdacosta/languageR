@@ -40,6 +40,9 @@ export interface GrowthContext {
 
   tutorRating: string;
 
+  /** Any past, non-cancelled session (ended before now) — 1:1 or class. */
+  hasEverHadBooking: boolean;
+
   hasCustomPhoto: boolean;
   hasVideo: boolean;
   videoApproved: boolean;
@@ -269,8 +272,9 @@ export class TutorGrowthService {
       raw.push({ id: 'evening_recap', icon: '✅', text: `${n} lesson${n > 1 ? 's' : ''} done today — great session${n > 1 ? 's' : ''}, ${ctx.tutorName}`, route: '/tabs/tutor-calendar', priority: 25 });
     }
 
-    // ── Onboarding: Share profile (new tutors only) ──
-    if (ctx.hasAvailability && !ctx.hasUpcomingLessons && ctx.totalStudents === 0) {
+    // ── Onboarding: Share profile (tutors who have never had a completed/past session) ──
+    // Do not use totalStudents alone — studentId is often an unpopulated string, so unique count stays 0.
+    if (ctx.hasAvailability && !ctx.hasUpcomingLessons && !ctx.hasEverHadBooking) {
       const cooldownOver = now - this._state.shareProfileDismissedAt > 30 * DAY_MS;
       if (cooldownOver) {
         raw.push({ id: 'share_profile', icon: '🔗', text: 'Your profile is live — share the link to get your first booking', route: '/tabs/profile', priority: 54 });

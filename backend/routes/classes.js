@@ -39,7 +39,45 @@ const formatDisplayName = formatNameWithInitial;
 // POST /api/classes - create class (supports simple recurrence by count)
 router.post('/', verifyToken, async (req, res) => {
   try {
-    const { name, description, capacity, level, duration, isPublic, price, useSuggestedPricing, suggestedPrice, startTime, endTime, recurrence, invitedStudentIds, thumbnail } = req.body;
+    const { name, description, capacity, level, duration, isPublic, price, useSuggestedPricing, suggestedPrice, startTime, endTime, recurrence, invitedStudentIds, thumbnail, status, hubDraftForm, minStudents, flexibleMinimum } = req.body;
+
+    const tutor = await getUserFromRequest(req);
+    if (!tutor) return res.status(404).json({ success: false, message: 'Tutor not found' });
+    if (tutor.userType !== 'tutor') return res.status(403).json({ success: false, message: 'Only tutors can create classes' });
+
+    // ── Draft (My Classes wizard): name only, no payout gate, no availability / invites ──
+    if (status === 'draft') {
+      const trimmed = name != null ? String(name).trim() : '';
+      if (!trimmed) {
+        return res.status(400).json({ success: false, message: 'Name is required to save a draft' });
+      }
+      const startPlaceholder = new Date('2099-01-01T12:00:00.000Z');
+      const endPlaceholder = new Date('2099-01-01T13:00:00.000Z');
+      const finalPrice = price || 0;
+      const cls = new ClassModel({
+        tutorId: tutor._id,
+        name: trimmed,
+        description: description != null ? String(description) : '',
+        capacity: Math.max(1, Number(capacity) || 1),
+        minStudents: Math.max(1, Number(minStudents) || 1),
+        flexibleMinimum: !!flexibleMinimum,
+        level: level || 'any',
+        duration: Math.max(15, Number(duration) || 60),
+        isPublic: false,
+        thumbnail: thumbnail || null,
+        price: finalPrice,
+        useSuggestedPricing: useSuggestedPricing !== undefined ? !!useSuggestedPricing : true,
+        suggestedPrice: suggestedPrice || 0,
+        startTime: startPlaceholder,
+        endTime: endPlaceholder,
+        status: 'draft',
+        recurrence: { type: 'none', count: 1 },
+        invitedStudents: [],
+        hubDraftForm: hubDraftForm != null ? hubDraftForm : null,
+      });
+      await cls.save();
+      return res.json({ success: true, class: cls, classes: [cls] });
+    }
 
     if (!name || !startTime || !endTime) {
       return res.status(400).json({ success: false, message: 'name, startTime and endTime are required' });
@@ -49,10 +87,6 @@ router.post('/', verifyToken, async (req, res) => {
     if (isPublic && !thumbnail) {
       return res.status(400).json({ success: false, message: 'Thumbnail is required for public classes' });
     }
-
-    const tutor = await getUserFromRequest(req);
-    if (!tutor) return res.status(404).json({ success: false, message: 'Tutor not found' });
-    if (tutor.userType !== 'tutor') return res.status(403).json({ success: false, message: 'Only tutors can create classes' });
 
     // Check if tutor has completed payment setup (Stripe Connect, PayPal, or Manual)
     const hasStripeSetup = tutor.stripeConnectOnboarded === true;
@@ -743,6 +777,130 @@ router.post('/:classId/decline', verifyToken, async (req, res) => {
   }
 });
 
+// POST /api/classes/:classId/request-enrollment — Public class: add/reopen a pending invitation so the student can complete payment via /accept
+router.post('/:classId/request-enrollment', verifyToken, async (req, res) => {
+  try {
+    const { classId } = req.params;
+    const student = await getUserFromRequest(req);
+    if (!student) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const cls = await ClassModel.findById(classId);
+    if (!cls) return res.status(404).json({ success: false, message: 'Class not found' });
+
+    if (!cls.isPublic) {
+      return res.status(403).json({ success: false, message: 'This class is not open for public enrollment' });
+    }
+    if (cls.tutorId.toString() === student._id.toString()) {
+      return res.status(400).json({ success: false, message: 'You cannot enroll in your own class' });
+    }
+    if (cls.status === 'cancelled') {
+      return res.status(410).json({ success: false, message: 'This class has been cancelled.', code: 'CLASS_CANCELLED' });
+    }
+
+    const now = new Date();
+    if (new Date(cls.startTime) <= now) {
+      return res.status(410).json({
+        success: false,
+        message: 'This class has already started.',
+        code: 'CLASS_STARTED'
+      });
+    }
+
+    if (cls.confirmedStudents.some((id) => id.toString() === student._id.toString())) {
+      return res.status(400).json({ success: false, message: 'You are already enrolled in this class' });
+    }
+    if (cls.confirmedStudents.length >= cls.capacity) {
+      return res.status(400).json({ success: false, message: 'Class is already full' });
+    }
+
+    const conflictingClasses = await ClassModel.find({
+      confirmedStudents: student._id,
+      _id: { $ne: cls._id },
+      $or: [
+        { startTime: { $gte: cls.startTime, $lt: cls.endTime } },
+        { endTime: { $gt: cls.startTime, $lte: cls.endTime } },
+        { startTime: { $lte: cls.startTime }, endTime: { $gte: cls.endTime } }
+      ]
+    }).select('name startTime endTime');
+
+    if (conflictingClasses.length > 0) {
+      const conflictClass = conflictingClasses[0];
+      const conflictDate = new Date(conflictClass.startTime).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+      return res.status(409).json({
+        success: false,
+        message: `You already have a class "${conflictClass.name}" scheduled at ${conflictDate}. Please choose a different time.`,
+        conflict: { type: 'class', name: conflictClass.name, startTime: conflictClass.startTime, endTime: conflictClass.endTime }
+      });
+    }
+
+    const conflictingLessons = await Lesson.find({
+      studentId: student._id,
+      status: { $nin: ['cancelled', 'completed'] },
+      $or: [
+        { startTime: { $gte: cls.startTime, $lt: cls.endTime } },
+        { endTime: { $gt: cls.startTime, $lte: cls.endTime } },
+        { startTime: { $lte: cls.startTime }, endTime: { $gte: cls.endTime } }
+      ]
+    })
+      .populate('tutorId', 'name firstName lastName')
+      .select('subject startTime endTime tutorId');
+
+    if (conflictingLessons.length > 0) {
+      const conflictLesson = conflictingLessons[0];
+      const conflictDate = new Date(conflictLesson.startTime).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+      const tutorName = conflictLesson.tutorId ? formatDisplayName(conflictLesson.tutorId) : 'a tutor';
+      return res.status(409).json({
+        success: false,
+        message: `You already have a lesson with ${tutorName} scheduled at ${conflictDate}. Please reschedule that lesson first.`,
+        conflict: {
+          type: 'lesson',
+          subject: conflictLesson.subject,
+          tutorName,
+          startTime: conflictLesson.startTime,
+          endTime: conflictLesson.endTime
+        }
+      });
+    }
+
+    const invitation = cls.invitedStudents.find((inv) => inv.studentId.toString() === student._id.toString());
+    if (invitation) {
+      if (invitation.status === 'pending') {
+        return res.json({ success: true, message: 'Enrollment already pending', alreadyPending: true });
+      }
+      if (invitation.status === 'accepted') {
+        return res.status(400).json({ success: false, message: 'Invitation already accepted' });
+      }
+      invitation.status = 'pending';
+      invitation.invitedAt = new Date();
+      invitation.respondedAt = undefined;
+    } else {
+      cls.invitedStudents.push({
+        studentId: student._id,
+        status: 'pending',
+        invitedAt: new Date()
+      });
+    }
+
+    await cls.save();
+    res.json({ success: true, message: 'You can complete enrollment from the next step' });
+  } catch (error) {
+    console.error('Error requesting public class enrollment:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
 // GET /api/classes/invitations/pending - Get pending class invitations for current user
 router.get('/invitations/pending', verifyToken, async (req, res) => {
   try {
@@ -1046,9 +1204,15 @@ router.get('/tutor/:tutorId', verifyToken, async (req, res) => {
 
     console.log(`✅ [GET /api/classes/tutor/:tutorId] Tutor found: ${tutor.name} (${tutor._id})`);
 
-    // Build query with optional date range filtering
-    const query = { tutorId: tutor._id };
-    
+    // Build query with optional date range filtering (exclude classes tutor removed from hub)
+    const query = {
+      tutorId: tutor._id,
+      $or: [
+        { tutorRemovedFromHubAt: { $exists: false } },
+        { tutorRemovedFromHubAt: null },
+      ],
+    };
+
     if (startDate || endDate) {
       query.startTime = {};
       if (startDate) {
@@ -1619,6 +1783,7 @@ router.get('/public/all', verifyToken, async (req, res) => {
     // Find all public classes that haven't ended yet
     const classes = await ClassModel.find({
       isPublic: true,
+      status: { $ne: 'draft' },
       endTime: { $gte: new Date() } // Only show classes that haven't ended
     })
     .populate('tutorId', 'name email picture firstName lastName')
@@ -1656,66 +1821,289 @@ router.get('/public/all', verifyToken, async (req, res) => {
   }
 });
 
-// Update class data (e.g., whiteboard room UUID)
+// Update class (whiteboard; tutor may edit metadata for upcoming scheduled classes)
 router.patch('/:id', verifyToken, async (req, res) => {
   try {
     const user = await getUserFromRequest(req);
-    
+
     if (!user) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'User not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
       });
     }
 
     const classObj = await ClassModel.findById(req.params.id);
-    
+
     if (!classObj) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Class not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Class not found',
       });
     }
 
-    // Only tutor or confirmed students can update class
     const isTutor = classObj.tutorId.toString() === user._id.toString();
-    const isStudent = classObj.confirmedStudents.some(
-      s => s.toString() === user._id.toString()
-    );
-    
+    const isStudent = classObj.confirmedStudents.some((s) => s.toString() === user._id.toString());
+
     if (!isTutor && !isStudent) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Not authorized to update this class' 
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to update this class',
       });
     }
 
-    // Update allowed fields
-    const allowedFields = ['whiteboardRoomUUID', 'whiteboardCreatedAt', 'startTime', 'endTime'];
-    const updates = {};
-    
-    for (const field of allowedFields) {
-      if (req.body[field] !== undefined) {
-        updates[field] = req.body[field];
+    const body = req.body;
+
+    if (isTutor) {
+      // Hub wizard draft: persist partial form without availability / future-slot rules
+      if (classObj.status === 'draft') {
+        if (body.name !== undefined) {
+          const nm = String(body.name).trim();
+          if (!nm) {
+            return res.status(400).json({ success: false, message: 'Name is required' });
+          }
+          classObj.name = nm;
+        }
+        if (body.description !== undefined) {
+          classObj.description = body.description != null ? String(body.description) : '';
+        }
+        if (body.capacity !== undefined) {
+          classObj.capacity = Math.max(1, Number(body.capacity) || 1);
+        }
+        if (body.minStudents !== undefined) {
+          classObj.minStudents = Math.max(1, Number(body.minStudents) || 1);
+        }
+        if (body.flexibleMinimum !== undefined) {
+          classObj.flexibleMinimum = !!body.flexibleMinimum;
+        }
+        if (body.level !== undefined) {
+          classObj.level = body.level || 'any';
+        }
+        if (body.duration !== undefined) {
+          classObj.duration = Number(body.duration) || 60;
+        }
+        if (body.isPublic !== undefined) {
+          classObj.isPublic = !!body.isPublic;
+        }
+        if (body.thumbnail !== undefined) {
+          classObj.thumbnail = body.thumbnail || null;
+        }
+        if (body.price !== undefined) {
+          classObj.price = Number(body.price) || 0;
+        }
+        if (body.useSuggestedPricing !== undefined) {
+          classObj.useSuggestedPricing = !!body.useSuggestedPricing;
+        }
+        if (body.suggestedPrice !== undefined) {
+          classObj.suggestedPrice = Number(body.suggestedPrice) || 0;
+        }
+        if (body.hubDraftForm !== undefined) {
+          classObj.hubDraftForm = body.hubDraftForm;
+        }
+        await classObj.save();
+        return res.json({ success: true, class: classObj });
       }
+
+      const now = new Date();
+      const upcomingScheduled =
+        classObj.status === 'scheduled' && new Date(classObj.startTime) > now;
+
+      if (upcomingScheduled) {
+        if (body.name !== undefined) {
+          classObj.name = String(body.name).trim();
+        }
+        if (body.description !== undefined) {
+          classObj.description = body.description != null ? String(body.description) : '';
+        }
+        if (body.capacity !== undefined) {
+          const cap = Number(body.capacity);
+          const confirmedLen = (classObj.confirmedStudents || []).length;
+          if (!Number.isFinite(cap) || cap < 1) {
+            return res.status(400).json({ success: false, message: 'Invalid capacity' });
+          }
+          if (cap < confirmedLen) {
+            return res.status(400).json({
+              success: false,
+              message: 'Capacity cannot be less than the number of enrolled students',
+            });
+          }
+          classObj.capacity = cap;
+        }
+        if (body.minStudents !== undefined) {
+          classObj.minStudents = Math.max(1, Number(body.minStudents) || 1);
+        }
+        if (body.flexibleMinimum !== undefined) {
+          classObj.flexibleMinimum = !!body.flexibleMinimum;
+        }
+        if (body.level !== undefined) {
+          classObj.level = body.level || 'any';
+        }
+        if (body.duration !== undefined) {
+          classObj.duration = Number(body.duration) || 60;
+        }
+        if (body.isPublic !== undefined) {
+          classObj.isPublic = !!body.isPublic;
+        }
+        if (body.thumbnail !== undefined) {
+          classObj.thumbnail = body.thumbnail || null;
+        }
+        if (body.price !== undefined) {
+          const p = Number(body.price);
+          if (p > 0 && p < 10) {
+            return res.status(400).json({ success: false, message: 'Minimum lesson price is $10.00' });
+          }
+          classObj.price = p;
+        }
+        if (body.useSuggestedPricing !== undefined) {
+          classObj.useSuggestedPricing = !!body.useSuggestedPricing;
+        }
+        if (body.suggestedPrice !== undefined) {
+          classObj.suggestedPrice = Number(body.suggestedPrice) || 0;
+        }
+        if (body.startTime !== undefined) {
+          classObj.startTime = new Date(body.startTime);
+        }
+        if (body.endTime !== undefined) {
+          classObj.endTime = new Date(body.endTime);
+        }
+        if (body.recurrence !== undefined && body.recurrence !== null) {
+          const rt = body.recurrence.type ?? (classObj.recurrence?.type || 'none');
+          const ct = Math.max(1, Math.min(100, parseInt(body.recurrence.count ?? classObj.recurrence?.count ?? 1, 10)));
+          classObj.recurrence = { type: rt, count: ct };
+        }
+
+        if (classObj.isPublic && !classObj.thumbnail) {
+          return res.status(400).json({
+            success: false,
+            message: 'Thumbnail is required for public classes',
+          });
+        }
+
+        if (new Date(classObj.endTime) <= now) {
+          return res.status(400).json({
+            success: false,
+            message: 'Class must be scheduled in the future',
+          });
+        }
+
+        const slotTimeChanged = body.startTime !== undefined || body.endTime !== undefined;
+        if (slotTimeChanged) {
+          const tutorUser = await User.findById(user._id);
+          if (tutorUser && Array.isArray(tutorUser.availability)) {
+            const classIdStr = classObj._id.toString();
+            tutorUser.availability = tutorUser.availability.filter(
+              (slot) => !(slot.id === classIdStr && slot.type === 'class')
+            );
+            const d = new Date(classObj.startTime);
+            const day = d.getDay();
+            const pad = (n) => n.toString().padStart(2, '0');
+            const timeStr = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+            const de = new Date(classObj.endTime);
+            const timeStrEnd = `${pad(de.getHours())}:${pad(de.getMinutes())}`;
+            tutorUser.availability.push({
+              id: classIdStr,
+              absoluteStart: classObj.startTime,
+              absoluteEnd: classObj.endTime,
+              day,
+              startTime: timeStr,
+              endTime: timeStrEnd,
+              type: 'class',
+              title: `Class: ${classObj.name}`,
+              color: '#8b5cf6',
+            });
+            await tutorUser.save();
+          }
+        }
+      }
+
+      if (body.whiteboardRoomUUID !== undefined) {
+        classObj.whiteboardRoomUUID = body.whiteboardRoomUUID;
+      }
+      if (body.whiteboardCreatedAt !== undefined) {
+        classObj.whiteboardCreatedAt = body.whiteboardCreatedAt;
+      }
+
+      await classObj.save();
+      console.log(`✅ Class ${classObj._id} updated by ${user.email}`);
+      return res.json({
+        success: true,
+        class: classObj,
+      });
     }
 
-    // Apply updates
-    Object.assign(classObj, updates);
-    await classObj.save();
+    if (isStudent) {
+      if (body.whiteboardRoomUUID !== undefined) {
+        classObj.whiteboardRoomUUID = body.whiteboardRoomUUID;
+      }
+      if (body.whiteboardCreatedAt !== undefined) {
+        classObj.whiteboardCreatedAt = body.whiteboardCreatedAt;
+      }
+      await classObj.save();
+      return res.json({
+        success: true,
+        class: classObj,
+      });
+    }
 
-    console.log(`✅ Class ${classObj._id} updated by ${user.email}`);
-    
-    res.json({ 
-      success: true, 
-      class: classObj 
+    return res.status(403).json({
+      success: false,
+      message: 'Not authorized to update this class',
     });
   } catch (error) {
     console.error('❌ Error updating class:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to update class' 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update class',
     });
+  }
+});
+
+// POST /api/classes/:classId/hide-from-hub — Tutor removes a past or cancelled class from their hub only
+router.post('/:classId/hide-from-hub', verifyToken, async (req, res) => {
+  try {
+    const { classId } = req.params;
+    const tutor = await getUserFromRequest(req);
+    if (!tutor) {
+      return res.status(404).json({ success: false, message: 'Tutor not found' });
+    }
+
+    const cls = await ClassModel.findById(classId);
+    if (!cls) {
+      return res.status(404).json({ success: false, message: 'Class not found' });
+    }
+
+    const tutorIdStr = cls.tutorId.toString();
+    if (tutorIdStr !== tutor._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    const now = Date.now();
+    const end = new Date(cls.endTime).getTime();
+    const past = end < now;
+    const eligible =
+      past || cls.status === 'completed' || cls.status === 'cancelled';
+    if (!eligible) {
+      return res.status(400).json({
+        success: false,
+        message: 'Only past, completed, or cancelled classes can be removed from history',
+      });
+    }
+
+    if (cls.tutorRemovedFromHubAt) {
+      return res.json({ success: true, message: 'Already removed from your list', class: cls });
+    }
+
+    cls.tutorRemovedFromHubAt = new Date();
+    await cls.save();
+
+    return res.json({
+      success: true,
+      message: 'Class removed from your history',
+      class: cls,
+    });
+  } catch (error) {
+    console.error('❌ Error hide-from-hub:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
 
@@ -1741,6 +2129,12 @@ router.delete('/:classId', verifyToken, async (req, res) => {
     // Check if class is already cancelled
     if (cls.status === 'cancelled') {
       return res.status(400).json({ success: false, message: 'Class is already cancelled' });
+    }
+
+    // Tutor abandons an unpublished hub draft — remove row (no cancellation flow)
+    if (cls.status === 'draft') {
+      await ClassModel.deleteOne({ _id: cls._id });
+      return res.json({ success: true, message: 'Draft deleted' });
     }
     
     // Cancel the class

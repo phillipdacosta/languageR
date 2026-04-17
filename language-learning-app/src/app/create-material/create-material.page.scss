@@ -773,13 +773,10 @@
   position: relative;
   border-radius: 14px;
   overflow: hidden;
-  max-height: 220px;
 
   img {
     width: 100%;
-    height: 100%;
-    max-height: 220px;
-    object-fit: cover;
+    height: auto;
     display: block;
   }
 
@@ -952,6 +949,34 @@
   font-size: 13px;
   font-weight: 500;
   color: #86868b;
+}
+
+.cm-nav-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: #1d1d1f;
+  cursor: pointer;
+  transition: background 0.15s ease, opacity 0.15s ease;
+
+  ion-icon {
+    font-size: 26px;
+  }
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.06);
+  }
+
+  &:active {
+    opacity: 0.75;
+  }
 }
 
 // ── Library Tabs ────────────────────────────────────────
@@ -3684,6 +3709,13 @@
   flex-shrink: 0;
 }
 
+.cm-details-wizard-footer-start {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
 .cm-details-wizard-footer-spacer {
   flex: 1;
   min-width: 0;
@@ -3691,6 +3723,40 @@
 
 .cm-details-wizard-back {
   flex-shrink: 0;
+}
+
+.cm-details-wizard-save {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 12px 20px;
+  border-radius: 12px;
+  border: 1.5px solid #e0e0e0;
+  background: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1d1d1f;
+  cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+
+  ion-spinner {
+    width: 16px;
+    height: 16px;
+    color: #1a8d3a;
+  }
+
+  &:hover:not(:disabled) {
+    background: #f0faf3;
+    border-color: #28a745;
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
 }
 
 .cm-details-wizard-next {
@@ -4276,6 +4342,12 @@
   .cm-nav-back { color: #4298d2; }
   .cm-nav-title { color: #f5f5f7; }
   .cm-nav-step { color: #999; }
+  .cm-nav-close {
+    color: #f5f5f7;
+    &:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+  }
   .cm-edit-badge {
     color: #fff;
     background: linear-gradient(135deg, #f59e0b, #b45309);
@@ -4543,6 +4615,16 @@
     border-color: #444;
     color: #e5e5e5;
     &:hover { background: #3a3a3c; border-color: #555; }
+  }
+
+  .cm-details-wizard-save {
+    background: #2c2c2e;
+    border-color: #444;
+    color: #e5e5e5;
+    &:hover:not(:disabled) {
+      background: rgba(48, 209, 88, 0.12);
+      border-color: #30d158;
+    }
   }
 
   .cm-attestation {

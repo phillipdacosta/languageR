@@ -406,6 +406,48 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     this.emitModalSidebarTabSync(this.libraryTab);
   }
 
+  /**
+   * Desktop inline modal: close from any screen (library, create, bundle wizard).
+   * Resets in-progress create/edit state and notifies Tab1 to dismiss the shell.
+   */
+  dismissMaterialsModal(): void {
+    if (!this.inline) {
+      return;
+    }
+    if (this.viewMode === 'library') {
+      if (this.showMaterialsList || this.showBundlesList) {
+        this.showMaterialsList = false;
+        this.showBundlesList = false;
+      }
+      this.updateNavState();
+      this.modalExpandEvent.emit(false);
+      this.goBackEvent.emit();
+      this.cdr.markForCheck();
+      return;
+    }
+    if (this.viewMode === 'bundle-create') {
+      this.cancelBundleCreate();
+      this.editingBundleId = null;
+      void this.loadMyMaterials();
+      this.goBackEvent.emit();
+      this.cdr.markForCheck();
+      return;
+    }
+    this.resumeBundleAfterMaterial = false;
+    this.editingMaterialId = null;
+    this.editingMaterialStatus = null;
+    this.resetForm();
+    this.viewMode = 'library';
+    this.showMaterialsList = false;
+    this.showBundlesList = false;
+    this.updateNavState();
+    void this.loadMyMaterials();
+    this.modalExpandEvent.emit(false);
+    this.emitModalSidebarTabSync(this.libraryTab);
+    this.goBackEvent.emit();
+    this.cdr.markForCheck();
+  }
+
   handleNavBack() {
     if (this.viewMode === 'library') {
       if (this.showMaterialsList || this.showBundlesList) {
@@ -489,6 +531,8 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
       this.detailsWizardStepIds = [];
       this.detailsWizardStepTotal = 0;
       this.detailsWizardProgressPercent = 100;
+    } else if (this.detailsWizardLayoutActive && this.detailsWizardStepIds.length === 0) {
+      this.initDetailsWizard();
     } else if (this.detailsWizardLayoutActive && this.detailsWizardStepIds.length > 0) {
       this.syncDetailsWizardFromIndex();
     } else if (this.inline) {
@@ -594,8 +638,8 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
       this.detailsModalFooterChromeEvent.emit({
         active: true,
         showBack: false,
-        showSaveDraft: false,
-        footerSaveLabelKey: null,
+        showSaveDraft: true,
+        footerSaveLabelKey: this.materialFooterSaveLabelKey(),
         isLastStep: false,
         lastStepLabelKey: null,
         footerBackLabel: null,
@@ -619,20 +663,41 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
       const bundleLast = this.bundleWizardStepIndex >= this.bundleWizardStepTotal - 1;
       const desktopBundleWizard = !this.platformService.isMobile() && this.bundleWizardLayoutActive;
       const showFooterBack = desktopBundleWizard ? false : this.bundleWizardStepId !== 'bundleShare';
-      const showBundleSaveDraft =
-        !this.editingBundleId && this.bundleWizardStepIndex >= 2;
+      const showBundleSaveDraft = !this.editingBundleId;
       this.detailsModalFooterChromeEvent.emit({
         active: true,
         showBack: showFooterBack,
         showSaveDraft: showBundleSaveDraft,
-        footerSaveLabelKey: showBundleSaveDraft
-          ? 'CREATE_MATERIAL.BUNDLE_SAVE_DRAFT'
-          : null,
+        footerSaveLabelKey: showBundleSaveDraft ? 'CREATE_MATERIAL.BUNDLE_SAVE_DRAFT' : null,
         isLastStep: bundleLast,
         lastStepLabelKey: bundleLast
           ? (this.editingBundleId ? 'CREATE_MATERIAL.BUNDLE_WIZ_UPDATE' : 'CREATE_MATERIAL.BUNDLE_WIZ_PUBLISH')
           : null,
         footerBackLabel: showFooterBack ? this.computeBundleWizardFooterBackLabel() : null,
+      });
+      return;
+    }
+
+    const desktopMaterialQuizOrPreview =
+      this.viewMode === 'create' &&
+      this.inline &&
+      !this.platformService.isMobile() &&
+      (this.currentStep === 'quiz' || this.currentStep === 'preview');
+    if (desktopMaterialQuizOrPreview) {
+      const preview = this.currentStep === 'preview';
+      const lastKey = preview
+        ? this.editingMaterialId
+          ? 'CREATE_MATERIAL.SUBMIT_SAVE'
+          : 'CREATE_MATERIAL.SUBMIT_PUBLISH'
+        : 'CREATE_MATERIAL.QUIZ_PREVIEW_BTN';
+      this.detailsModalFooterChromeEvent.emit({
+        active: true,
+        showBack: true,
+        showSaveDraft: true,
+        footerSaveLabelKey: this.materialFooterSaveLabelKey(),
+        isLastStep: true,
+        lastStepLabelKey: lastKey,
+        footerBackLabel: this.translate.instant('COMMON.BACK'),
       });
       return;
     }
@@ -655,16 +720,15 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     }
     const t = this.detailsWizardStepTotal;
     const detailsLast = this.detailsWizardStepIndex >= t - 1;
-    const showMaterialSaveDraft =
-      !this.editingMaterialId && this.detailsWizardStepIndex > 0;
+    const detailsHasPrev = this.detailsWizardStepIndex > 0;
     this.detailsModalFooterChromeEvent.emit({
       active: true,
-      showBack: false,
-      showSaveDraft: showMaterialSaveDraft,
-      footerSaveLabelKey: showMaterialSaveDraft ? this.materialFooterSaveLabelKey() : null,
+      showBack: detailsHasPrev,
+      showSaveDraft: true,
+      footerSaveLabelKey: this.materialFooterSaveLabelKey(),
       isLastStep: detailsLast,
       lastStepLabelKey: null,
-      footerBackLabel: null,
+      footerBackLabel: detailsHasPrev ? this.translate.instant('COMMON.BACK') : null,
     });
   }
 
@@ -911,6 +975,24 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
       !this.platformService.isMobile()
     ) {
       this.confirmMaterialPricingAndContinueToDetails();
+      return;
+    }
+    if (
+      this.viewMode === 'create' &&
+      this.currentStep === 'quiz' &&
+      this.inline &&
+      !this.platformService.isMobile()
+    ) {
+      this.goToPreview();
+      return;
+    }
+    if (
+      this.viewMode === 'create' &&
+      this.currentStep === 'preview' &&
+      this.inline &&
+      !this.platformService.isMobile()
+    ) {
+      void this.submit();
       return;
     }
     if (this.viewMode === 'bundle-create' && this.bundleWizardLayoutActive) {
@@ -1244,14 +1326,9 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     const { data, role } = await modal.onWillDismiss();
 
     if (role === 'crop' && data) {
-      const croppedFile = new File([data], file.name, { type: 'image/png' });
-      this.thumbnailFile = croppedFile;
-      const reader = new FileReader();
-      reader.onload = (e: any) => {
-        this.thumbnailPreview = e.target.result;
-        this.cdr.detectChanges();
-      };
-      reader.readAsDataURL(croppedFile);
+      this.thumbnailFile = new File([data], file.name, { type: 'image/png' });
+      this.thumbnailPreview = URL.createObjectURL(data);
+      this.cdr.detectChanges();
     }
     event.target.value = '';
   }
@@ -1556,6 +1633,28 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
       this.bundleWizardLayoutActive &&
       this.bundleWizardStepId === 'bundleShare' &&
       this.bundlePricingType === null
+    );
+  }
+
+  /** Tab1 footer: disable quiz → preview until at least one question exists. */
+  get isMaterialQuizFooterNextDisabled(): boolean {
+    return (
+      this.inline &&
+      !this.platformService.isMobile() &&
+      this.viewMode === 'create' &&
+      this.currentStep === 'quiz' &&
+      this.quizArray.length === 0
+    );
+  }
+
+  /** Tab1 footer: disable publish until attestation checked (matches preview step primary CTA). */
+  get isMaterialPreviewFooterNextDisabled(): boolean {
+    return (
+      this.inline &&
+      !this.platformService.isMobile() &&
+      this.viewMode === 'create' &&
+      this.currentStep === 'preview' &&
+      (!this.contentAttested || this.isSubmitting)
     );
   }
 

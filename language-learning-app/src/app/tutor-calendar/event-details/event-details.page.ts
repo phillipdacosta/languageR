@@ -17,12 +17,14 @@ import { WalletService } from '../../services/wallet.service';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { environment } from '../../../environments/environment';
 import { CancelReasonModalComponent } from '../../components/cancel-reason-modal/cancel-reason-modal.component';
+import { ClassAttendeesComponent } from '../../components/class-attendees/class-attendees.component';
+import { ClassInvitationModalComponent } from '../../components/class-invitation-modal/class-invitation-modal.component';
 import { ConfirmActionModalComponent } from '../../components/confirm-action-modal/confirm-action-modal.component';
 import { RescheduleLessonModalComponent } from '../../components/reschedule-lesson-modal/reschedule-lesson-modal.component';
 import { formatTimeInTz, formatDateInTz } from '../../shared/timezone.utils';
 import { MaterialService, TutorMaterial } from '../../services/material.service';
 import { LearningPlanService, LearningPlanSummary, GOAL_TYPE_LABELS } from '../../services/learning-plan.service';
-import { Subscription } from 'rxjs';
+import { Subscription, firstValueFrom } from 'rxjs';
 import {
   isLessonMockId,
   buildMockLessonEntity,
@@ -95,7 +97,7 @@ interface BillingData {
   templateUrl: './event-details.page.html',
   styleUrls: ['./event-details.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, SharedModule, CancelReasonModalComponent, ConfirmActionModalComponent, RescheduleLessonModalComponent]
+  imports: [CommonModule, IonicModule, SharedModule, CancelReasonModalComponent, ConfirmActionModalComponent, RescheduleLessonModalComponent, ClassAttendeesComponent, ClassInvitationModalComponent]
 })
 export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewDidEnter {
   /** When presented as a modal, the caller passes the event ID directly */
@@ -299,7 +301,28 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   paymentStatusDetails: { key: string; value: string }[] = [];
 
   // Class students display
-  classStudentsDisplay: { name: string; picture?: string; initials: string }[] = [];
+  classStudentsDisplay: { name: string; picture?: string; initials: string; paid?: boolean }[] = [];
+
+  // Class layout (matching lesson layout)
+  classTutorName = '';
+  classTutorPicture = '';
+  classTutorInitial = '';
+  classTutorBio = '';
+  classTutorId: string | null = null;
+  classTutorLanguages: string[] = [];
+  classTutorCountry = '';
+  classIsCurrentUserTutor = false;
+  classShowJoinButton = false;
+  classCanJoin = false;
+  classJoinLabel = 'Join';
+  classCanCancel = false;
+  classCanReschedule = false;
+  /** Student class CTA: accept tutor invite, public enroll, or join session when enrolled. */
+  classStudentCtaKind: 'accept_invite' | 'enroll' | 'join_session' | null = null;
+  classStudentPrimaryDisabled = false;
+  classIsCancelled = false;
+  classIsCompleted = false;
+  classStudentsPaidCount = 0;
 
   // Recommended materials (student only)
   recommendedMaterials: (TutorMaterial & { isSaved?: boolean; _matchedStruggles?: string[]; _isCurrentTutor?: boolean; _typeIcon?: string; _typeLabel?: string })[] = [];
@@ -1632,28 +1655,38 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
   private computeClassProperties() {
     if (!this.classData) return;
-    // Compute status for class
     const now = new Date();
     const start = new Date(this.classData.startTime);
     const end = new Date(this.classData.endTime);
 
-    if (now >= start && now <= end) {
+    if (this.classData.status === 'cancelled') {
+      this.statusLabel = 'Cancelled';
+      this.statusColor = '#ef4444';
+      this.statusClass = 'cancelled';
+      this.classIsCancelled = true;
+    } else if (now >= start && now <= end) {
       this.statusLabel = 'In Progress';
       this.statusColor = '#10b981';
       this.statusClass = 'in-progress';
-    } else if (now > end) {
+    } else if (now > end || this.classData.status === 'completed') {
       this.statusLabel = 'Completed';
       this.statusColor = '#6b7280';
       this.statusClass = 'completed';
+      this.classIsCompleted = true;
     } else {
       this.statusLabel = 'Upcoming';
       this.statusColor = '#667eea';
       this.statusClass = 'upcoming';
     }
 
-    // Formatted date/time for class
-    if (start.toDateString() === new Date().toDateString()) {
+    // Formatted date/time
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    if (start.toDateString() === today.toDateString()) {
       this.formattedDate = 'Today';
+    } else if (start.toDateString() === tomorrow.toDateString()) {
+      this.formattedDate = 'Tomorrow';
     } else {
       this.formattedDate = formatDateInTz(start, this.userTz, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
     }
@@ -1661,7 +1694,6 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.formattedDuration = `${this.classData.duration || 60} minutes`;
     this.formattedPrice = this.classData.price ? `$${this.classData.price.toFixed(2)}` : 'Free';
 
-    // Pre-compute class-specific values
     const levelMap: Record<string, string> = {
       any: 'Any Level', beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced'
     };
@@ -1671,20 +1703,84 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.classRevenue = `$${(this.classData.price * this.classData.confirmedStudents.length).toFixed(2)}`;
     }
 
+    // Tutor info for the profile panel
+    const tutor = this.classData.tutorId;
+    const userId = String((this.currentUser as any)?._id || this.currentUser?.id || '');
+    this.classIsCurrentUserTutor = String(tutor?._id || tutor) === userId;
+    this.isTutorUser = this.classIsCurrentUserTutor;
+    this.isStudentUser = !this.classIsCurrentUserTutor;
+
+    if (tutor && typeof tutor === 'object') {
+      this.classTutorName = this.formatPersonName(tutor, 'Tutor');
+      this.classTutorPicture = tutor.picture || tutor.profilePicture || '';
+      this.classTutorInitial = (tutor.name || tutor.firstName || 'T').charAt(0).toUpperCase();
+      this.classTutorBio = tutor.onboardingData?.bio || tutor.profile?.bio || '';
+      this.classTutorId = tutor._id?.toString() || null;
+      this.classTutorLanguages = tutor.onboardingData?.languages || [];
+      this.classTutorCountry = tutor.country || tutor.residenceCountry || '';
+    }
+
+    // Join / cancel button
+    const minutesUntilStart = (start.getTime() - now.getTime()) / (1000 * 60);
+    this.classShowJoinButton = this.statusLabel === 'Upcoming' || this.statusLabel === 'In Progress';
+    if (now >= start && now <= end) {
+      this.classCanJoin = true;
+      this.classJoinLabel = 'Join Now';
+    } else if (minutesUntilStart <= 10 && end > now && !this.classIsCancelled) {
+      this.classCanJoin = true;
+      this.classJoinLabel = 'Join';
+    } else if (this.classShowJoinButton) {
+      this.classCanJoin = false;
+      const secs = Math.max(0, Math.floor((start.getTime() - now.getTime()) / 1000));
+      const h = Math.floor(secs / 3600);
+      const m = Math.floor((secs % 3600) / 60);
+      this.classJoinLabel = h > 0 ? `Join in ${h}h ${m}m` : `Join in ${m}m`;
+    }
+    const tutorCanManage = this.classIsCurrentUserTutor;
+    this.classCanCancel = tutorCanManage && !this.classIsCancelled && !this.classIsCompleted && start > now;
+    this.classCanReschedule = tutorCanManage && !this.classIsCancelled && !this.classIsCompleted && start > now;
+
+    this.classStudentCtaKind = null;
+    this.classStudentPrimaryDisabled = false;
+    if (
+      this.isStudentUser &&
+      this.classData &&
+      (this.statusLabel === 'Upcoming' || this.statusLabel === 'In Progress') &&
+      !this.classIsCancelled
+    ) {
+      const hasPendingInv = this.classData.hasInvitation && this.classData.invitationStatus === 'pending';
+      const enrolled = !!this.classData.isEnrolled;
+      if (hasPendingInv) {
+        this.classStudentCtaKind = 'accept_invite';
+      } else if (this.classData.isPublic && !enrolled && start > now) {
+        this.classStudentCtaKind = 'enroll';
+      } else {
+        this.classStudentCtaKind = 'join_session';
+      }
+      if (this.classStudentCtaKind === 'accept_invite' || this.classStudentCtaKind === 'enroll') {
+        this.classStudentPrimaryDisabled = !!this.classData.isFull || start.getTime() <= now.getTime();
+      }
+    }
+
+    // Payment: count students who have paid
+    const payments: any[] = this.classData.payments || [];
+    const paidStudentIds = new Set(
+      payments
+        .filter((p: any) => p.status === 'succeeded' || p.status === 'authorized')
+        .map((p: any) => String(p.studentId?._id || p.studentId || ''))
+    );
+    this.classStudentsPaidCount = paidStudentIds.size;
+
     this.classStudentsDisplay = (this.classData.confirmedStudents || []).map((s: any) => {
       const name = this.formatPersonName(s, 'Student');
+      const sId = String(s._id || '');
       return {
         name,
         picture: s.picture || s.profilePicture,
         initials: name.split(' ').map((p: string) => p.charAt(0)).join('').toUpperCase().slice(0, 2),
+        paid: paidStudentIds.has(sId),
       };
     });
-
-    // Check for cancelled class
-    if (this.classData.status === 'cancelled') {
-      this.statusLabel = 'Cancelled';
-      this.statusClass = 'cancelled';
-    }
 
     // Compute class payment status
     this.computeClassPaymentStatus();
@@ -1834,6 +1930,69 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         isClass: 'false'
       }
     });
+  }
+
+  async openClassStudentPrimaryAction(): Promise<void> {
+    if (!this.eventId) return;
+    if (this.classStudentCtaKind === 'enroll') {
+      const loading = await this.loadingController.create({
+        message: 'Preparing enrollment…',
+        spinner: 'crescent'
+      });
+      await loading.present();
+      try {
+        await firstValueFrom(this.classService.requestPublicEnrollment(this.eventId));
+      } catch (err: any) {
+        await loading.dismiss();
+        const msg = err?.error?.message || 'Could not start enrollment. Please try again.';
+        const toast = await this.toastController.create({
+          message: msg,
+          duration: 4000,
+          color: 'danger',
+          position: 'bottom'
+        });
+        await toast.present();
+        return;
+      }
+      await loading.dismiss();
+    }
+    if (this.classStudentCtaKind === 'accept_invite' || this.classStudentCtaKind === 'enroll') {
+      const modal = await this.modalController.create({
+        component: ClassInvitationModalComponent,
+        componentProps: { classId: this.eventId },
+        cssClass: 'class-invitation-modal'
+      });
+      await modal.present();
+      const { data } = await modal.onDidDismiss();
+      if (data?.accepted || data?.declined) {
+        this.loadEventDetails();
+      }
+    } else if (this.classStudentCtaKind === 'join_session') {
+      this.joinClass();
+    }
+  }
+
+  joinClass() {
+    if (!this.classData || !this.currentUser) return;
+    if (!this.classCanJoin) return;
+    this.router.navigate(['/pre-call'], {
+      queryParams: {
+        lessonId: this.classData._id,
+        lessonMode: 'true',
+        isClass: 'true'
+      }
+    });
+  }
+
+  messageClassTutor() {
+    if (!this.classTutorId) return;
+    this.router.navigate(['/tabs/messages'], { queryParams: { tutorId: this.classTutorId } });
+  }
+
+  openClassTutorProfile() {
+    if (this.isStudentUser && this.classTutorId) {
+      this.router.navigate(['/tutor', this.classTutorId]);
+    }
   }
 
   viewAnalysis() {
@@ -2106,5 +2265,85 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     } catch {}
   }
 
-  // getScoreColor / getLevelLabel are now pre-computed — see calcScoreColor / computeClassProperties
+  async rescheduleClass() {
+    if (!this.classData || this.classIsCancelled || this.classIsCompleted) return;
+    const className = this.classData.name || 'this class';
+
+    const modal = await this.modalController.create({
+      component: ConfirmActionModalComponent,
+      componentProps: {
+        title: 'Reschedule Class',
+        message: `Do you want to reschedule "${className}"? All enrolled students will be notified of this change.`,
+        confirmText: 'Reschedule',
+        cancelText: 'Cancel',
+        confirmColor: 'primary',
+        icon: 'calendar',
+        iconColor: 'primary'
+      },
+      cssClass: 'confirm-action-modal'
+    });
+
+    await modal.present();
+    const { data } = await modal.onWillDismiss();
+    if (data?.confirmed) {
+      const toast = await this.toastController.create({
+        message: 'Reschedule functionality coming soon',
+        duration: 2000,
+        position: 'bottom'
+      });
+      await toast.present();
+    }
+  }
+
+  async cancelClassAction() {
+    if (!this.classData || this.classIsCancelled || this.classIsCompleted) return;
+    const className = this.classData.name || 'this class';
+
+    const modal = await this.modalController.create({
+      component: ConfirmActionModalComponent,
+      componentProps: {
+        title: 'Cancel Class',
+        message: `Are you sure you want to cancel "${className}"? All enrolled students will be notified and this action cannot be undone.`,
+        confirmText: 'Cancel Class',
+        cancelText: 'Keep Class',
+        confirmColor: 'danger',
+        icon: 'close-circle',
+        iconColor: 'danger'
+      },
+      cssClass: 'confirm-action-modal'
+    });
+
+    await modal.present();
+    const { data } = await modal.onWillDismiss();
+    if (!data?.confirmed) return;
+
+    const loading = await this.loadingController.create({
+      message: 'Cancelling class...',
+      spinner: 'crescent'
+    });
+    await loading.present();
+
+    try {
+      await this.classService.cancelClass(this.eventId!).toPromise();
+      await loading.dismiss();
+      const toast = await this.toastController.create({
+        message: `"${className}" has been cancelled`,
+        duration: 3000,
+        position: 'bottom',
+        color: 'success'
+      });
+      await toast.present();
+      window.dispatchEvent(new CustomEvent('lesson-cancelled', { detail: { lessonId: this.eventId } }));
+      this.loadEventDetails();
+    } catch (error: any) {
+      await loading.dismiss();
+      const toast = await this.toastController.create({
+        message: error?.error?.message || 'Failed to cancel class. Please try again.',
+        duration: 3000,
+        position: 'bottom',
+        color: 'danger'
+      });
+      await toast.present();
+    }
+  }
 }

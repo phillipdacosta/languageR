@@ -126,12 +126,13 @@ export class ClassInvitationModalComponent implements OnInit, OnDestroy {
 
   loadClassDetails() {
     this.loading = true;
-    this.classService.getPendingInvitations().subscribe({
+    this.classService.getClass(this.classId).subscribe({
       next: (response) => {
-        if (response.success) {
-          this.classData = response.classes.find(c => c._id === this.classId) || null;
-          
-          if (!this.classData) {
+        if (response.success && response.class) {
+          const c = response.class as any;
+          this.classData = c as ClassInvitation;
+          const hasPendingInvite = c.hasInvitation && c.invitationStatus === 'pending';
+          if (!hasPendingInvite) {
             this.modalCtrl.dismiss({ expired: true, classId: this.classId });
           } else {
             this.updateSanitizedDescription();
@@ -139,6 +140,8 @@ export class ClassInvitationModalComponent implements OnInit, OnDestroy {
               this.loadPaymentMethods();
             }
           }
+        } else {
+          this.modalCtrl.dismiss({ expired: true, classId: this.classId });
         }
         this.loading = false;
       },

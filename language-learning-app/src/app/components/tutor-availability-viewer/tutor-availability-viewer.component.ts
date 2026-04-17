@@ -190,44 +190,21 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     }
     this.weekDates = dates;
     
-    // CRITICAL: Defer ALL heavy data loading to allow modal to render first
-    // Use longer delay to ensure modal is fully rendered
-    setTimeout(() => {
-      this.loadDataAndComputeSlots().catch(error => {
-        console.error('❌ [Availability] Error loading data:', error);
-        this.isLoading = false;
-      });
-    }, 100); // Increased delay to let modal fully render
+    this.loadDataAndComputeSlots();
   }
   
-  // Separate method for heavy data loading - called after initial render
   private async loadDataAndComputeSlots() {
-    console.log('📊 [AvailabilityViewer] loadDataAndComputeSlots called with tutorId:', this.tutorId);
-    
     try {
-      // Load data sequentially with individual error handling
-      try {
-        await this.loadAvailability();
-        console.log('✅ [AvailabilityViewer] Availability loaded, items:', this.availability?.length || 0);
-      } catch (error) {
-        console.error('❌ Failed to load availability:', error);
-      }
-      
-      try {
-        await this.loadBookedLessons();
-      } catch (error) {
-        console.error('❌ Failed to load booked lessons:', error);
-      }
-      
-      // Compute slots
+      await Promise.all([
+        this.loadAvailability().catch(() => {}),
+        this.loadBookedLessons().catch(() => {}),
+      ]);
       this.precomputeDateSlots();
-      
-      // Turn off loading
-      this.isLoading = false;
-      
     } catch (error) {
       console.error('❌ [Availability] Error loading data:', error);
+    } finally {
       this.isLoading = false;
+      this.cdr.markForCheck();
     }
   }
   
@@ -263,13 +240,7 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
         this.bookedSlots.clear();
         this.isLoading = true;
         
-        // Reload data for the new tutor
-        setTimeout(() => {
-          this.loadDataAndComputeSlots().catch(error => {
-            console.error('❌ [Availability] Error loading data after tutorId change:', error);
-            this.isLoading = false;
-          });
-        }, 100);
+        this.loadDataAndComputeSlots();
       }
     }
     
@@ -281,15 +252,13 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
         this.availabilitySet.clear();
         this.bookedSlots.clear();
         
-        // Force async to ensure UI updates
-        setTimeout(() => {
-          Promise.all([
-            this.loadAvailability(),
-            this.loadBookedLessons()
-          ]).then(() => {
-            this.precomputeDateSlots();
-          });
-        }, 100);
+        Promise.all([
+          this.loadAvailability().catch(() => {}),
+          this.loadBookedLessons().catch(() => {}),
+        ]).then(() => {
+          this.precomputeDateSlots();
+          this.cdr.markForCheck();
+        });
       }
     }
     
@@ -376,13 +345,8 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
               this.tutorBlocked = false;
             }
             
-            // Clear slot caches but NOT bookedSlots (that's managed separately)
             this.slotsCache.clear();
             this.availabilitySet.clear();
-            
-            // Yield to browser to prevent freezing
-            await new Promise(r => setTimeout(r, 0));
-            
             this.buildAvailabilitySet();
             // DON'T call precomputeDateSlots here - let ngOnInit handle it after BOTH availability and bookedLessons are ready
             resolve();
@@ -411,26 +375,23 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     }
     
     try {
-      // Load lessons and classes with individual timeout protection
-      const lessonsPromise = firstValueFrom(this.lessonService.getLessonsByTutor(this.tutorId));
-      const lessonsTimeout = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Lessons timeout')), 5000)
-      );
-      const lessonsResponse: any = await Promise.race([lessonsPromise, lessonsTimeout])
-        .catch(err => {
-          console.error('❌ [Booked Lessons] Lessons fetch failed:', err);
-          return { success: false, lessons: [] };
-        });
-      
-      const classesPromise = firstValueFrom(this.classService.getClassesForTutor(this.tutorId));
-      const classesTimeout = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Classes timeout')), 5000)
-      );
-      const classesResponse: any = await Promise.race([classesPromise, classesTimeout])
-        .catch(err => {
-          console.error('❌ [Booked Lessons] Classes fetch failed:', err);
-          return { success: false, classes: [] };
-        });
+      const rangeStart = new Date(this.currentWeekStart);
+      const rangeEnd = new Date(this.currentWeekStart);
+      rangeEnd.setDate(rangeEnd.getDate() + 28);
+      const sd = rangeStart.toISOString();
+      const ed = rangeEnd.toISOString();
+
+      const lessonsRace = Promise.race([
+        firstValueFrom(this.lessonService.getLessonsByTutor(this.tutorId, false, sd, ed)),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Lessons timeout')), 5000)),
+      ]).catch(() => ({ success: false, lessons: [] }));
+
+      const classesRace = Promise.race([
+        firstValueFrom(this.classService.getClassesForTutor(this.tutorId, sd, ed)),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Classes timeout')), 5000)),
+      ]).catch(() => ({ success: false, classes: [] }));
+
+      const [lessonsResponse, classesResponse]: any[] = await Promise.all([lessonsRace, classesRace]);
       
       // Combine lessons and classes into a single array
       const allBookedSlots: any[] = [];
