@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Easing } from 'react-native';
+import { Animated, Easing, View } from 'react-native';
 
 const BEZIER = Easing.bezier(0.25, 0.1, 0.25, 1);
 
@@ -10,12 +10,21 @@ interface Props {
   stagger?: number;
   /** Max items to stagger before capping the delay (default 10). */
   cap?: number;
+  /**
+   * When true, skip entrance motion (use on full-screen modals / overlays so content
+   * does not “fall in” on top of the home fade).
+   */
+  instant?: boolean;
 }
 
-export default function StaggerRow({ index, children, stagger = 32, cap = 10 }: Props) {
-  const anim = useRef(new Animated.Value(0)).current;
+export default function StaggerRow({ index, children, stagger = 32, cap = 10, instant = false }: Props) {
+  const anim = useRef(new Animated.Value(instant ? 1 : 0)).current;
 
   useEffect(() => {
+    if (instant) {
+      anim.setValue(1);
+      return;
+    }
     anim.setValue(0);
     Animated.timing(anim, {
       toValue: 1,
@@ -24,7 +33,11 @@ export default function StaggerRow({ index, children, stagger = 32, cap = 10 }: 
       easing: BEZIER,
       useNativeDriver: true,
     }).start();
-  }, [index, anim, stagger, cap]);
+  }, [index, anim, stagger, cap, instant]);
+
+  if (instant) {
+    return <View>{children}</View>;
+  }
 
   return (
     <Animated.View

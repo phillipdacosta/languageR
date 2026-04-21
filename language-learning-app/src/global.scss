@@ -260,6 +260,33 @@ ion-modal.withdrawal-modal {
   }
 }
 
+/* Withdraw opened from Home (inline `app-earnings`): match create-material / cm-modal backdrop feel */
+ion-modal.withdrawal-modal.withdrawal-modal--home-context {
+  --backdrop-opacity: 1;
+
+  &::part(backdrop) {
+    background: rgba(0, 0, 0, 0.36);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  ion-backdrop {
+    background: rgba(0, 0, 0, 0.36);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+}
+
+.ion-palette-dark ion-modal.withdrawal-modal.withdrawal-modal--home-context {
+  &::part(backdrop) {
+    background: rgba(0, 0, 0, 0.58);
+  }
+
+  ion-backdrop {
+    background: rgba(0, 0, 0, 0.58);
+  }
+}
+
 
 /**
  * Ionic Dark Mode
@@ -1003,6 +1030,20 @@ ion-modal.invite-student-modal {
   --max-width: 700px;
   --height: 85vh;
   --border-radius: 20px;
+  /* Ionic 8: use rgba on the backdrop part + --backdrop-opacity: 1 so blur shows on desktop */
+  --backdrop-opacity: 1;
+
+  &::part(backdrop) {
+    background: rgba(0, 0, 0, 0.36);
+    backdrop-filter: blur(12px) saturate(1.2);
+    -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  }
+
+  ion-backdrop {
+    background: rgba(0, 0, 0, 0.36);
+    backdrop-filter: blur(12px) saturate(1.2);
+    -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  }
   
   @media (max-width: 768px) {
     --width: 95%;
@@ -1090,6 +1131,24 @@ ion-modal.reschedule-modal {
       flex-shrink: 0;
       height: auto;
     }
+  }
+}
+
+// Reschedule lesson modal — blurred backdrop (Ionic 8: rgba + --backdrop-opacity: 1;
+// see withdrawal-modal--home-context). Global so it applies from tab1 + event-details.
+ion-modal.reschedule-lesson-modal {
+  --backdrop-opacity: 1;
+
+  &::part(backdrop) {
+    background: rgba(0, 0, 0, 0.36);
+    backdrop-filter: blur(12px) saturate(1.2);
+    -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  }
+
+  ion-backdrop {
+    background: rgba(0, 0, 0, 0.36);
+    backdrop-filter: blur(12px) saturate(1.2);
+    -webkit-backdrop-filter: blur(12px) saturate(1.2);
   }
 }
 
@@ -2418,6 +2477,21 @@ html.ion-palette-dark {
   }
   ion-modal::part(backdrop) {
     background: #000000;
+  }
+
+  /* Blurred dimming (opaque #000 above hides the blur on these modals) */
+  ion-modal.reschedule-lesson-modal::part(backdrop),
+  ion-modal.invite-student-modal::part(backdrop) {
+    background: rgba(0, 0, 0, 0.55) !important;
+    backdrop-filter: blur(12px) saturate(1.2) !important;
+    -webkit-backdrop-filter: blur(12px) saturate(1.2) !important;
+  }
+
+  ion-modal.reschedule-lesson-modal ion-backdrop,
+  ion-modal.invite-student-modal ion-backdrop {
+    background: rgba(0, 0, 0, 0.55) !important;
+    backdrop-filter: blur(12px) saturate(1.2) !important;
+    -webkit-backdrop-filter: blur(12px) saturate(1.2) !important;
   }
 
   // Event details modal needs transparent backgrounds — it draws its own overlay

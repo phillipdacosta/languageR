@@ -13,7 +13,6 @@ import {
   Alert,
   Animated as RNAnimated,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -21,9 +20,9 @@ import { useNavigation } from '@react-navigation/native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedReaction,
   withSpring,
   withTiming,
-  withDelay,
   Easing,
   runOnJS,
   interpolate,
@@ -48,7 +47,7 @@ import {
 import { materialService, RecommendedMaterial } from '../services/materials';
 import { isLessonMockId, getMockRecommendedMaterials } from '../utils/lessonMockPreview';
 import { LessonDateHeaderCenter, formatDateBadgeParts } from './LessonDateHeaderCenter';
-import { SolidToolbarWithBlur, TOOLBAR_TOTAL_CHROME_HEIGHT, TOOLBAR_SOLID_MIN_HEIGHT, TOOLBAR_BLUR_HEIGHT } from './SolidToolbarWithBlur';
+import { SolidToolbarWithBlur, TOOLBAR_TOTAL_CHROME_HEIGHT, TOOLBAR_SOLID_MIN_HEIGHT } from './SolidToolbarWithBlur';
 
 export interface CardRect {
   x: number;
@@ -60,29 +59,41 @@ export interface CardRect {
 interface Props {
   card: ProcessedLessonCard;
   cardRect: CardRect;
+  /** Kept for API back-compat. No longer used internally — the overlay now uses a single surface morph, no CTA alignment. */
+  ctaTargetRect?: CardRect | null;
+  /** Kept for API back-compat. No longer used internally — the overlay now uses a single surface morph, no thumbnail FLIP. */
+  thumbnailTargetRect?: CardRect | null;
   onCloseStart: () => void;
   onCloseEnd: () => void;
+  /**
+   * Fires once during close when the overlay's body content has faded out
+   * and the surface itself is about to start fading. Parent animates the
+   * source card 0 → 1 over ~200ms — so the surface and card cross-fade
+   * directly (no opaque-white gap), revealing the card underneath as the
+   * surface becomes transparent.
+   */
+  onBeginReveal?: () => void;
 }
 
 const { width: SW, height: SH } = Dimensions.get('window');
-
-const AV_CARD = 72;
-const AV_DETAIL = 108;
-const AV_SCALE = AV_DETAIL / AV_CARD;
-
-const NAME_CARD = 18;
-const NAME_DETAIL = 24;
-const NAME_SCALE = NAME_DETAIL / NAME_CARD;
 
 /** Height of the full-bleed class thumbnail hero at the top of the sheet. */
 const CLASS_HERO_H = 260;
 /** How far the content card overlaps the class hero (same as Bundle). */
 const CLASS_CARD_OVERLAP = 80;
 
-const SURFACE_SPRING = { damping: 26, stiffness: 200, mass: 0.85 };
-const HERO_SPRING = { damping: 24, stiffness: 240, mass: 0.75 };
+/**
+ * ONE spring, ONE job — animate the surface rect from `cardRect` to full
+ * screen on open, and back on close. Reanimated 4's duration/dampingRatio form
+ * is easier to reason about than stiffness/damping/mass:
+ *  - duration: perceived motion length (ms)
+ *  - dampingRatio: 1 = critical (no overshoot); < 1 bounces; > 1 slower settle
+ * 0.92 gives a subtle, nearly-zero overshoot that reads as "confident" rather
+ * than "wooden." 420ms matches iOS modal-present / Airbnb card-expand feel.
+ */
+const MORPH_SPRING = { duration: 520, dampingRatio: 0.94 } as const;
 
-export default function LessonDetailOverlay({ card, cardRect, onCloseStart, onCloseEnd }: Props) {
+export default function LessonDetailOverlay({ card, cardRect, thumbnailTargetRect, onCloseStart, onCloseEnd, onBeginReveal }: Props) {
   const { user } = useAuth();
   const { colors: C, isDark } = useTheme();
   const { t } = useTranslation();
@@ -94,14 +105,22 @@ export default function LessonDetailOverlay({ card, cardRect, onCloseStart, onCl
   const currentUserId = String(user?._id || user?.id || '');
   const cached = id ? getCachedLessonDetail(id, card.lesson) : null;
 
-  const p = useSharedValue(0);
-  const hero = useSharedValue(0);
-  const asyncFade = useSharedValue(cached ? 1 : 0);
-
-  const CLOSE_SPRING = { damping: 22, stiffness: 260, mass: 0.8 };
-  const CLOSE_HERO_SPRING = { damping: 20, stiffness: 280, mass: 0.7 };
-  const ASYNC_FADE_IN = { duration: 380, easing: Easing.out(Easing.cubic) };
+  /**
+   * Single morph progress: 0 = collapsed at `cardRect`, 1 = full screen.
+   * Drives the surface rect (top/left/width/height/borderRadius), backdrop
+   * opacity, and a delayed content fade-in. No element-level scale/translate
+   * animations — the whole surface is one rigid rectangle growing in place.
+   */
+  const progress = useSharedValue(0);
+  // `closing` gates two behaviours only relevant during the close animation:
+  //  1. Content fades (header / meta / detail / footer) stop fading OUT, so
+  //     the card doesn't briefly look empty between progress ~0.35 and ~0.
+  //  2. A tail opacity fade on the surface during the last ~10% of close
+  //     crossfades the overlay into the real card underneath, hiding any
+  //     sub-pixel layout mismatch at handoff.
   const closing = useSharedValue(0);
+  const asyncFade = useSharedValue(cached ? 1 : 0);
+  const ASYNC_FADE_IN = { duration: 380, easing: Easing.out(Easing.cubic) };
 
   const [detail, setDetail] = useState<LessonDetailResponse | null>(cached?.detail ?? null);
   const [paymentData, setPaymentData] = useState<PaymentData | null>(cached?.payment ?? null);
@@ -118,9 +137,12 @@ export default function LessonDetailOverlay({ card, cardRect, onCloseStart, onCl
   }, [id]);
 
   useEffect(() => {
-    p.value = withSpring(1, SURFACE_SPRING);
-    hero.value = withSpring(1, HERO_SPRING);
-    const timer = setTimeout(() => setDetailMounted(true), 320);
+    progress.value = withSpring(1, MORPH_SPRING);
+    // Defer below-the-fold sections until ~50% into the morph so their initial
+    // mount cost doesn't land on the first ~200ms where the surface is
+    // growing fastest. The `detailStyle` opacity band [0.5, 0.9] takes over
+    // from there to fade them in as the morph settles.
+    const timer = setTimeout(() => setDetailMounted(true), 200);
     return () => clearTimeout(timer);
   }, []);
 
@@ -165,77 +187,354 @@ export default function LessonDetailOverlay({ card, cardRect, onCloseStart, onCl
 
   const close = () => {
     onCloseStart();
-    closing.value = withTiming(1, { duration: 150, easing: Easing.out(Easing.quad) });
-    hero.value = withDelay(60, withSpring(0, CLOSE_HERO_SPRING));
-    p.value = withDelay(100, withSpring(0, CLOSE_SPRING, (fin) => {
+    // Flip the `closing` gate so content fades stop fading OUT and the
+    // surface tail fade kicks in. Gate is UI-thread-visible via shared value.
+    closing.value = 1;
+    // Single spring, identical config to the open — same physics in reverse.
+    // Content, header, footer, hero all fade during specific progress BANDS
+    // (see `useAnimatedStyle` blocks below), so a single target value here is
+    // all we need. The spring's natural deceleration near `0` is what gives
+    // the "velvet landing" feel — no easing curves required.
+    progress.value = withSpring(0, MORPH_SPRING, (fin) => {
       if (fin) runOnJS(onCloseEnd)();
-    }));
+    });
   };
 
   const HEADER_H = TOOLBAR_TOTAL_CHROME_HEIGHT;
-  const avExtraH = (AV_DETAIL - AV_CARD) / 2;
+  const BODY_PAD_OPEN = insets.top + HEADER_H;
 
-  // ── Surface: card rect → full screen ──
-  // Opacity fades near p=0 so the original card blends through on close (hides layout mismatch)
+  // Early-compute display mode so animated styles can reference it without
+  // hitting temporal-dead-zone issues. `showHero` means the class cover
+  // thumbnail is rendered full-bleed at the top of the sheet; in that mode
+  // the "single big avatar" is replaced by an attendee stack and therefore
+  // doesn't need a scale animation.
+  const lessonForMode = detail?.lesson || card.lesson;
+  const isClassMode = !!lessonForMode?.isClass;
+  const classThumbForMode = (lessonForMode?.classData?.thumbnail || '').trim();
+  const showHero = isClassMode && !!classThumbForMode;
+
+  // Scale factors: card-side sizes / detail-side sizes. Used to grow the
+  // avatar and name in lockstep with the surface morph so they feel like
+  // the exact card elements continuously enlarging — no pop, no fade swap.
+  //   card avatar 72px → detail 120px → start scale 0.6
+  //   card name 18pt  → detail 24pt   → start scale 0.75
+  const AVATAR_START_SCALE = 72 / 120;
+  const NAME_START_SCALE = 18 / 24;
+
+  // Position correction: transform-scale keeps the LAYOUT box the same size
+  // as the detail-sized element, so the visual center of the scaled-down
+  // avatar/name lands a few pixels away from where the source card actually
+  // draws them. Without this the avatar appears to "snap down" at the end of
+  // the close as the overlay handoff fires. We translateY each element so
+  // that at progress=0 the visible center sits EXACTLY on the card-side
+  // position, then relax back to 0 at progress=1.
+  //
+  //   card avatar center Y = cardTop + 32 (paddingTop) + 36 (avatar half)  = cardTop + 68
+  //   overlay avatar center Y at progress=0 = surfaceTop + 60 (box center)  → off by +8
+  //
+  //   card name center Y = cardTop + 32 + 72 + 14 (avatarBlock mb) + ~11   = cardTop + 129
+  //   overlay name center Y at progress=0 = surfaceTop + 144 + ~18         → off by -33
+  //
+  // Values derived for iOS default line heights; fine to tweak by ±2-3 if
+  // you spot a residual nudge on a specific device.
+  const AVATAR_START_TRANSLATE_Y = 8;
+  const NAME_START_TRANSLATE_Y = -33;
+
+  // ── Surface ──
+  // ONE rectangle growing/shrinking between `cardRect` and the full screen.
+  // Same `backgroundColor: C.card` as the source card. Corner radius matches
+  // the list card (28) at progress=0 so the rounded silhouette handoff is
+  // seamless.
+  //
+  // Surface opacity: stays 1 the entire open. On close, body content fades
+  // out first ([0.35, 0.6] band, see `contentFadeStyle`), then the SURFACE
+  // itself fades out during [0, 0.35] — cross-fading with the source card
+  // underneath (which LessonsScreen animates 0 → 1 in sync, triggered by
+  // `onBeginReveal` at progress=0.35). Result: no pure-white empty-card
+  // frame; the user sees content fade out, then a smooth cross-fade from
+  // overlay-surface to real card. Tight, airbnb-style handoff.
   const surfaceStyle = useAnimatedStyle(() => ({
-    top: interpolate(p.value, [0, 1], [cardRect.y, 0]),
-    left: interpolate(p.value, [0, 1], [cardRect.x, 0]),
-    width: interpolate(p.value, [0, 1], [cardRect.width, SW]),
-    height: interpolate(p.value, [0, 1], [cardRect.height, SH]),
-    borderRadius: interpolate(p.value, [0, 1], [28, 0]),
-    opacity: interpolate(p.value, [0, 0.12], [0, 1], Extrapolation.CLAMP),
+    top: interpolate(progress.value, [0, 1], [cardRect.y, 0]),
+    left: interpolate(progress.value, [0, 1], [cardRect.x, 0]),
+    width: interpolate(progress.value, [0, 1], [cardRect.width, SW]),
+    height: interpolate(progress.value, [0, 1], [cardRect.height, SH]),
+    // Keep the top corners rounded at full open (~22) so the detail reads
+    // as a sheet pushed over the page, not a flat full-bleed screen.
+    // Matches Airbnb's detail-card look. Card state (progress=0) uses 28
+    // to match the source card's corner radius exactly.
+    borderRadius: interpolate(progress.value, [0, 1], [28, 62]),
+    opacity: closing.value > 0
+      ? interpolate(progress.value, [0, 0.35], [0, 1], Extrapolation.CLAMP)
+      : 1,
+  }));
+
+  // Inner clip layer — mirrors the outer wrapper's borderRadius so content
+  // (header, body, hero image) clips to the rounded silhouette while the
+  // outer wrapper is free to cast its shadow (iOS won't draw shadows
+  // through a view with overflow:hidden, so the shadow must live on the
+  // NON-clipping outer view).
+  const surfaceClipStyle = useAnimatedStyle(() => ({
+    borderRadius: interpolate(progress.value, [0, 1], [28, 62]),
+  }));
+
+  // Shadow is strong while the rectangle reads as a "raised card" and
+  // smoothly attenuates to zero as it reaches full-screen (a drop shadow on
+  // a screen-sized view looks like a dark gutter at the bottom edge — we
+  // don't want that). Peak strength during [0, 0.7], fades out by 1.
+  const surfaceShadowStyle = useAnimatedStyle(() => ({
+    shadowOpacity: interpolate(progress.value, [0, 0.7, 1], [0.22, 0.22, 0], Extrapolation.CLAMP),
   }));
 
   // ── Backdrop ──
   const backdropStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(p.value, [0, 0.5, 1], [0, 0.3, 0.42]),
+    opacity: interpolate(progress.value, [0, 1], [0, 0.38], Extrapolation.CLAMP),
   }));
 
-  const BODY_PAD_OPEN = insets.top + HEADER_H;
-  /** Hero mode omits the blur strip from the toolbar, so we reclaim those pixels so the card can scroll flush. */
-  const HERO_BODY_PAD = insets.top + TOOLBAR_SOLID_MIN_HEIGHT;
-
-  // ── Body: static paddingTop applied once open; the surface animation handles the morph
-  const bodyPadStyle = useAnimatedStyle(() => ({
-    paddingTop: interpolate(p.value, [0, 0.5, 1], [0, BODY_PAD_OPEN, BODY_PAD_OPEN], Extrapolation.CLAMP),
-  }));
-
-  // ── Hero wrap: transform-only (GPU) — no paddingTop / marginBottom layout work ──
-  // In hero/avatarFade mode the card handles spacing so we skip the translateY offset.
-  const heroWrapStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: showHero ? 0 : interpolate(p.value, [0, 1], [32, avExtraH + 12], Extrapolation.CLAMP) }],
-    opacity: interpolate(p.value, [0, 0.08], [0, 1], Extrapolation.CLAMP),
-  }));
-
-  // ── Avatar scale — disabled in hero/avatarFade mode (avatar stays at card size). ──
-  const avatarGrow = useAnimatedStyle(() => ({
-    transform: [{ scale: showHero ? 1 : interpolate(hero.value, [0, 1], [1, AV_SCALE]) }],
-  }));
-
-  // ── Name scale — disabled in hero/avatarFade mode. ──
-  const nameGrow = useAnimatedStyle(() => ({
-    transform: [{ scale: showHero ? 1 : interpolate(hero.value, [0, 1], [1, NAME_SCALE]) }],
-  }));
-
-  // ── Header: fades in mid-animation, fades out quickly on close ──
+  // ── Header chrome ──
+  // Open: fade in late [0.7, 0.95] so it doesn't compete with the morph.
+  // Close: fade out EARLY [0.85, 1] → the X and Share icons are the first
+  // things to disappear the moment the user taps close, so the eye reads
+  // "this page is leaving" immediately rather than having the icons linger
+  // on a shrinking card.
   const headerStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(p.value, [0.35, 0.65], [0, 1], Extrapolation.CLAMP) * (1 - closing.value),
+    opacity: closing.value > 0
+      ? interpolate(progress.value, [0.85, 1], [0, 1], Extrapolation.CLAMP)
+      : interpolate(progress.value, [0.7, 0.95], [0, 1], Extrapolation.CLAMP),
   }));
 
-  // ── Detail sections: gated on both open animation AND async data ready ──
-  const detailStyle = useAnimatedStyle(() => {
-    const openOpacity = interpolate(p.value, [0.35, 0.7], [0, 1], Extrapolation.CLAMP);
-    const closeMultiplier = 1 - closing.value;
+  // ── Body padding ── reclaims header space once surface is mostly open.
+  const bodyPadStyle = useAnimatedStyle(() => ({
+    paddingTop: interpolate(progress.value, [0, 0.5, 1], [0, BODY_PAD_OPEN, BODY_PAD_OPEN], Extrapolation.CLAMP),
+  }));
+
+  // ── Content fade (close only) ──
+  // Tight close timing (progress 1 → 0 over ~420ms):
+  //
+  //   [1.00 → 0.60]  ~40%  body stays visible, card shrinks with content
+  //   [0.60 → 0.35]  ~25%  body fades out FAST (~100ms window in spring time)
+  //   [0.35 → 0.00]  ~35%  surface + card CROSS-FADE (no empty-white frame)
+  //                        surface fades 1 → 0, card fades 0 → 1 in sync
+  //
+  // IMPORTANT: this is applied to the avatar's SIBLINGS (name, date header,
+  // stats grid, detail sections) — never to the avatar itself. The avatar
+  // is the one element that's a true "shared element" between the card and
+  // the detail; it scales continuously from small→big and back, and must
+  // never flash to 0. Previously we applied this fade to the whole body
+  // wrapper, which included the avatar, causing the visible "flash" the
+  // user noticed during close.
+  const contentFadeStyle = useAnimatedStyle(() => ({
+    opacity: closing.value > 0
+      ? interpolate(progress.value, [0.35, 0.6], [0, 1], Extrapolation.CLAMP)
+      : 1,
+  }));
+
+  // Trigger the parent's card fade-in the moment the body content has
+  // finished fading out — synchronized with the start of the surface fade.
+  // `prev` guard makes sure we only fire ONCE per close.
+  useAnimatedReaction(
+    () => closing.value > 0 && progress.value <= 0.35,
+    (curr, prev) => {
+      if (curr && !prev && onBeginReveal) {
+        runOnJS(onBeginReveal)();
+      }
+    },
+  );
+
+  // ── Avatar: LEADS the surface growth + LANDS before the cross-fade ──
+  //
+  // OPEN (progress 0 → 1):
+  //   Avatar reaches full detail scale by progress=0.65, then stays put.
+  //   The surface spends the remaining 35% of the morph settling around it.
+  //   Creates the "avatar pulls the page with it" feel.
+  //
+  // CLOSE (progress 1 → 0):
+  //   [1.00 → 0.65]  avatar stays at full detail size; page shrinks around
+  //   [0.65 → 0.35]  avatar rapidly shrinks to START (card-matching) size
+  //                  and lands pixel-perfect on the source card's avatar
+  //                  position via AVATAR_START_TRANSLATE_Y
+  //   [0.35 → 0.00]  avatar holds at start size/position and fades out
+  //                  IN LOCKSTEP with the surface (both opacity 1→0).
+  //                  Since the source card's avatar is fading 0→1 in the
+  //                  exact same pixels, this reads as a single dissolving
+  //                  avatar — not two ghosts overlapping at different sizes
+  //                  (which is what we saw when the avatar's shrink band
+  //                  extended all the way down to progress=0).
+  const AVATAR_LEAD_END = 0.65;
+  const AVATAR_LAND_BY = 0.35; // avatar reaches card-position at this progress
+  // `bpoAtLand` = value of bodyPadStyle.paddingTop AT progress=AVATAR_LAND_BY.
+  // Needed to keep the locked→released translateY transition continuous.
+  // bodyPadStyle interpolates p [0, 0.5, 1] → [0, BPO, BPO], so at LAND_BY
+  // (which is <0.5) it's linearly (LAND_BY/0.5)*BPO.
+  const BPO_AT_LAND = (AVATAR_LAND_BY / 0.5) * BODY_PAD_OPEN;
+  const LOCKED_TY_AT_LAND =
+    AVATAR_LAND_BY * cardRect.y + AVATAR_START_TRANSLATE_Y - BPO_AT_LAND;
+
+  const avatarScaleStyle = useAnimatedStyle(() => {
+    const p = progress.value;
+
+    if (showHero) {
+      return { transform: [{ translateY: 0 }, { scale: 1 }] };
+    }
+
+    const scale = interpolate(
+      p,
+      [AVATAR_LAND_BY, AVATAR_LEAD_END],
+      [AVATAR_START_SCALE, 1],
+      Extrapolation.CLAMP,
+    );
+
+    // During [0, AVATAR_LAND_BY] we LOCK the avatar's absolute screen-Y to
+    // the source card's avatar position. Without this, the avatar drifts
+    // because the surface top (`cardRect.y → 0`) and the body paddingTop
+    // (`0 → BODY_PAD_OPEN`) both change as progress moves, so "start
+    // scale" at different progress values lands at different screen
+    // positions. The compound of those two shifts is exactly cancelled by
+    // this formula, derived from:
+    //   wanted_abs_y = cardRect.y + 68 (constant, matches card avatar)
+    //   actual_abs_y = surfaceTop(p) + bpo(p) + 60 + translateY
+    //               = (1-p)*cardRect.y + bpo(p) + 60 + translateY
+    //   → translateY = p*cardRect.y + 8 - bpo(p)
+    const bpo = interpolate(
+      p,
+      [0, 0.5, 1],
+      [0, BODY_PAD_OPEN, BODY_PAD_OPEN],
+      Extrapolation.CLAMP,
+    );
+    const lockedTy = p * cardRect.y + AVATAR_START_TRANSLATE_Y - bpo;
+
+    let ty: number;
+    if (p <= AVATAR_LAND_BY) {
+      // Locked to card avatar position — absolute screen Y is constant
+      // here, so the cross-fade with the source card's avatar happens
+      // pixel-on-pixel with no ghosting.
+      ty = lockedTy;
+    } else if (p <= AVATAR_LEAD_END) {
+      // Released: smoothly transition from the locked value to 0 (natural
+      // layout position) over the scale-up band.
+      ty = interpolate(
+        p,
+        [AVATAR_LAND_BY, AVATAR_LEAD_END],
+        [LOCKED_TY_AT_LAND, 0],
+        Extrapolation.CLAMP,
+      );
+    } else {
+      ty = 0;
+    }
+
     return {
-      opacity: openOpacity * asyncFade.value * closeMultiplier,
-      transform: [{ translateY: interpolate(asyncFade.value, [0, 1], [10, 0], Extrapolation.CLAMP) }],
+      transform: [{ translateY: ty }, { scale }],
     };
   });
 
-  const footerFadeStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(p.value, [0.35, 0.7], [0, 1], Extrapolation.CLAMP) * (1 - closing.value),
+  // ── Name: cascades a beat after the avatar ──
+  // Same principle: lands by AVATAR_LAND_BY so it's pixel-aligned with the
+  // card's name when the cross-fade begins, then already fades with
+  // `contentFadeStyle` during [0.35, 0.6]. The transform band stops at
+  // 0.35 so there's no residual motion while the content is crossfading.
+  const NAME_LEAD_END = 0.75;
+  const nameScaleStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: showHero
+          ? 0
+          : interpolate(progress.value, [AVATAR_LAND_BY, NAME_LEAD_END], [NAME_START_TRANSLATE_Y, 0], Extrapolation.CLAMP),
+      },
+      {
+        scale: showHero
+          ? 1
+          : interpolate(progress.value, [AVATAR_LAND_BY, NAME_LEAD_END], [NAME_START_SCALE, 1], Extrapolation.CLAMP),
+      },
+    ],
   }));
 
+  // ── Stats grid + date header ── appear once the card is mostly open.
+  // These are "new" elements not present on the card, so they need a
+  // dedicated fade rather than a naked scale.
+  //
+  // One-way: on open, fade in during [0.35, 0.7]. On close, stay at 1 so the
+  // card doesn't look empty mid-close — the surface tail fade handles the
+  // final handoff to the real card underneath. Previously this faded back
+  // OUT during close, leaving a blank card from progress 0.35 → 0.
+  const metaFadeStyle = useAnimatedStyle(() => ({
+    opacity: closing.value > 0
+      ? 1
+      : interpolate(progress.value, [0.35, 0.7], [0, 1], Extrapolation.CLAMP),
+  }));
+
+  // ── Detail sections (bio, AI, payments, etc.) ── all below-the-fold
+  // content. Fade in LATE on open. On close, clipping by the shrinking
+  // surface handles disappearance (no symmetric fade-out needed). Multiplied
+  // by `asyncFade` so sections with network-pending data stay invisible
+  // until ready.
+  const detailStyle = useAnimatedStyle(() => {
+    const morphOp = closing.value > 0
+      ? 1
+      : interpolate(progress.value, [0.5, 0.9], [0, 1], Extrapolation.CLAMP);
+    return { opacity: morphOp * asyncFade.value };
+  });
+
+  // ── Footer CTA ──
+  // Open: fade in + slide UP from below on a soft band [0.5, 0.95]. Starts
+  // ~40px below its final position and rises into place as the surface
+  // settles — same direction you see in Airbnb's detail-page reveal.
+  // Close: fade out EARLY [0.85, 1] along with the header chrome, sliding
+  // slightly back down so it tucks away instead of popping. The shrinking
+  // card should never look like it's dragging a detached CTA along the
+  // bottom of the screen.
+  const FOOTER_SLIDE = 40;
+  const footerFadeStyle = useAnimatedStyle(() => {
+    const closingNow = closing.value > 0;
+    const op = closingNow
+      ? interpolate(progress.value, [0.85, 1], [0, 1], Extrapolation.CLAMP)
+      : interpolate(progress.value, [0.55, 0.9], [0, 1], Extrapolation.CLAMP);
+    const ty = closingNow
+      ? interpolate(progress.value, [0.85, 1], [FOOTER_SLIDE, 0], Extrapolation.CLAMP)
+      : interpolate(progress.value, [0.5, 0.95], [FOOTER_SLIDE, 0], Extrapolation.CLAMP);
+    return {
+      opacity: op,
+      transform: [{ translateY: ty }],
+    };
+  });
+
+  // ── Class hero image close-to-card mapping ──
+  // For classes with a cover thumbnail, the detail screen shows a full-bleed
+  // 260h hero at the top. In the list, the same image lives INSIDE the card
+  // (inset by card padding, aspect 16:9, borderRadius 16). Without animating
+  // the image itself, on close it stays full-bleed while the surface shrinks
+  // — so at progress=0 the image is at the wrong size/position, creating a
+  // visible "jump" when the overlay unmounts.
+  //
+  // We measure the card's thumbnail rect in `LessonsScreen.openDetail` and
+  // pass it via `thumbnailTargetRect`. Here we interpolate the image's
+  // width/height/top-inset/borderRadius between the card-thumb rect (at
+  // progress=0) and full-bleed (at progress=1). Fallback values use the
+  // known card paddings so it still works if the measurement hasn't arrived.
+  const thumbInsetTop = showHero && thumbnailTargetRect
+    ? Math.max(0, thumbnailTargetRect.y - cardRect.y)
+    : 32;
+  const thumbWidth = showHero && thumbnailTargetRect
+    ? thumbnailTargetRect.width
+    : Math.max(0, cardRect.width - 48);
+  const thumbHeight = showHero && thumbnailTargetRect
+    ? thumbnailTargetRect.height
+    : thumbWidth * 9 / 16;
+
+  const heroImgStyle = useAnimatedStyle(() => ({
+    width: interpolate(progress.value, [0, 1], [thumbWidth, SW], Extrapolation.CLAMP),
+    height: interpolate(progress.value, [0, 1], [thumbHeight, CLASS_HERO_H], Extrapolation.CLAMP),
+    marginTop: interpolate(progress.value, [0, 1], [thumbInsetTop, 0], Extrapolation.CLAMP),
+    borderRadius: interpolate(progress.value, [0, 1], [16, 0], Extrapolation.CLAMP),
+  }));
+
+  // ── Class content card overlap ──
+  // When open, the content card pulls up -80 over the hero image (Bundle-style
+  // overlap). When closed, we need 0 overlap so the content sits cleanly
+  // beneath the (now small, inset) thumb — matching the card's vertical flow.
+  const heroOverlapStyle = useAnimatedStyle(() => ({
+    marginTop: interpolate(progress.value, [0, 1], [0, -CLASS_CARD_OVERLAP], Extrapolation.CLAMP),
+  }));
+
+  // ── Async sub-values (network-ready billing lines) ──
   const asyncSubStyle = useAnimatedStyle(() => ({
     opacity: asyncFade.value,
   }));
@@ -245,16 +544,12 @@ export default function LessonDetailOverlay({ card, cardRect, onCloseStart, onCl
     if (!detail?.lesson) return base;
     return { ...base, ...detail.lesson, tutorId: detail.lesson.tutorId || base?.tutorId, studentId: detail.lesson.studentId || base?.studentId };
   }, [card.lesson, detail?.lesson]);
-  const isClass = !!lesson?.isClass;
-  const classThumbUri = (lesson?.classData?.thumbnail || '').trim();
+  const isClass = isClassMode;
+  const classThumbUri = classThumbForMode;
 
   /** Scroll parallax for hero (Bundle-style). Must be created unconditionally (hooks rule). */
   const classScrollY = useRef(new RNAnimated.Value(0)).current; // retained for potential future use
-  const showClassHero = isClass && !!classThumbUri;
-  /** Class thumbnail hero (full-bleed image). */
-  const showHero = showClassHero;
   const heroThumbUri = classThumbUri;
-  /** 1-on-1: avatar is pinned above scroll and fades as card slides over it. */
 
   const baseInfo = useMemo(() => {
     const src = card.lesson;
@@ -603,14 +898,24 @@ export default function LessonDetailOverlay({ card, cardRect, onCloseStart, onCl
       {/* Backdrop */}
       <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: '#000' }, backdropStyle]} />
 
-      {/* Surface */}
+      {/* Surface — outer wrapper carries the shadow (no overflow clip
+          because iOS won't draw shadows through overflow:hidden) and the
+          interpolated frame. Inner `surfaceClip` view clips content to the
+          rounded corners. */}
       <Animated.View
         style={[
-          st.surface,
-          { backgroundColor: C.card, borderWidth: 1, borderColor: isDark ? C.border : 'rgba(0,0,0,0.06)' },
+          st.surfaceShadow,
           surfaceStyle,
+          surfaceShadowStyle,
         ]}
       >
+        <Animated.View
+          style={[
+            st.surfaceClip,
+            { backgroundColor: C.card, borderWidth: 1, borderColor: isDark ? C.border : 'rgba(0,0,0,0.06)' },
+            surfaceClipStyle,
+          ]}
+        >
 
         {/* Header — solid from top edge through safe area + toolbar + blur */}
         <Animated.View
@@ -643,15 +948,17 @@ export default function LessonDetailOverlay({ card, cardRect, onCloseStart, onCl
             showsVerticalScrollIndicator={false}
             bounces={true}
           >
-            {/* Hero image — inline in scroll, card slides up over it with negative margin */}
+            {/* Hero image — animates between the card's thumbnail rect (close)
+                and full-bleed 260h (open). Centered so it lands exactly over
+                the source card's thumb at progress=0. */}
             {showHero && (
-              <View style={st.classHeroInlineImg}>
+              <Animated.View style={[st.classHeroInlineImg, { alignSelf: 'center' }, heroImgStyle]}>
                 <Image source={{ uri: heroThumbUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-              </View>
+              </Animated.View>
             )}
-            <View
+            <Animated.View
               style={showHero
-                ? [st.classHeroContentCard, { backgroundColor: C.card }]
+                ? [st.classHeroContentCard, { backgroundColor: C.card }, heroOverlapStyle]
                 : undefined}
             >
               {showHero && (
@@ -660,8 +967,8 @@ export default function LessonDetailOverlay({ card, cardRect, onCloseStart, onCl
                 </View>
               )}
             {/* Hero: avatar + name */}
-            <Animated.View style={[st.heroWrap, heroWrapStyle]}>
-              <Animated.View style={avatarGrow}>
+            <View style={st.heroWrap}>
+              <Animated.View style={avatarScaleStyle}>
                 {isClass ? (
                   <View style={[st.classHeroBlock, showHero && st.classHeroBlockTight]}>
                     {classThumbUri && !showHero ? (
@@ -715,13 +1022,13 @@ export default function LessonDetailOverlay({ card, cardRect, onCloseStart, onCl
                 ) : null}
               </Animated.View>
 
-              <Animated.View style={nameGrow}>
+              <Animated.View style={[nameScaleStyle, contentFadeStyle]}>
                 <Text style={[st.name, { color: C.text }, showHero && st.nameOnClassHero]} numberOfLines={2}>
                   {card.isClass ? card.className || card.lesson?.subject : card.otherName}
                 </Text>
               </Animated.View>
 
-              <View style={st.heroDateOuter}>
+              <Animated.View style={[st.heroDateOuter, metaFadeStyle, contentFadeStyle]}>
                 <LessonDateHeaderCenter
                   dateBadgeMonth={dateHeaderParts.month}
                   dateBadgeDay={dateHeaderParts.day}
@@ -730,11 +1037,11 @@ export default function LessonDetailOverlay({ card, cardRect, onCloseStart, onCl
                   textPrimary={C.text}
                   textSecondary={C.textSecondary}
                 />
-              </View>
+              </Animated.View>
 
               {/* Compact info grid — duration, price, status + actual values */}
               {info ? (
-                <View style={[st.quickGrid, { borderColor: isDark ? C.border : '#EBEBEB' }]}>
+                <Animated.View style={[st.quickGrid, { borderColor: isDark ? C.border : '#EBEBEB' }, metaFadeStyle, contentFadeStyle]}>
                   <View style={st.quickCell}>
                     <Text style={[st.quickVal, { color: C.text }]} numberOfLines={1}>{info.duration} min</Text>
                     <Text style={[st.quickLbl, { color: C.textSecondary }]} numberOfLines={1}>{t('LESSONS_PAGE.CARD_STAT_DURATION')}</Text>
@@ -781,13 +1088,13 @@ export default function LessonDetailOverlay({ card, cardRect, onCloseStart, onCl
                     <Text style={[st.quickLbl, { color: C.textSecondary }]} numberOfLines={1}>{t('LESSONS_PAGE.CARD_STAT_STATUS')}</Text>
                     <View style={st.quickSubSlot} />
                   </View>
-                </View>
+                </Animated.View>
               ) : null}
-            </Animated.View>
+            </View>
 
             {/* Expanded detail sections — deferred until open animation settles */}
             {detailMounted ? (
-            <Animated.View style={[st.detailColumn, detailStyle]}>
+            <Animated.View style={[st.detailColumn, detailStyle, contentFadeStyle]}>
 
               {/* ── About / Bio ── */}
               {otherUserBio ? (
@@ -1333,7 +1640,7 @@ export default function LessonDetailOverlay({ card, cardRect, onCloseStart, onCl
 
             </Animated.View>
             ) : null}
-            </View>{/* /classHeroContentCard wrapper */}
+            </Animated.View>{/* /classHeroContentCard wrapper */}
           </RNAnimated.ScrollView>
 
           {showStickyFooter ? (
@@ -1355,7 +1662,7 @@ export default function LessonDetailOverlay({ card, cardRect, onCloseStart, onCl
                     style={[
                       st.stickyBtn,
                       st.stickyBtnFlex,
-                      { backgroundColor: '#222222' },
+                      { backgroundColor: C.joinCtaBackground },
                     ]}
                     activeOpacity={joinGate.canJoin ? 0.88 : 1}
                     onPress={() => {
@@ -1437,13 +1744,32 @@ export default function LessonDetailOverlay({ card, cardRect, onCloseStart, onCl
             </Animated.View>
           ) : null}
         </Animated.View>
+        </Animated.View>
       </Animated.View>
+
     </View>
   );
 }
 
 const st = StyleSheet.create({
-  surface: { position: 'absolute', overflow: 'hidden' },
+  /** Outer shadow-casting wrapper for the morphing surface. No overflow
+   *  hidden here — iOS can't draw shadows through a view that's clipping
+   *  its subviews. `shadowOpacity` is driven by `surfaceShadowStyle` and
+   *  fades to 0 at full-screen. */
+  surfaceShadow: {
+    position: 'absolute',
+    backgroundColor: 'transparent',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 24,
+    elevation: 16,
+  },
+  /** Inner clipping view — holds the actual card background + content.
+   *  Matches the outer wrapper's rounded corners via `surfaceClipStyle`. */
+  surfaceClip: {
+    flex: 1,
+    overflow: 'hidden',
+  },
 
   /** Inline hero image for class — inside scroll, full-width, card slides over with negative margin. */
   classHeroInlineImg: {
@@ -1513,9 +1839,9 @@ const st = StyleSheet.create({
 
   heroWrap: { alignItems: 'center', width: '100%' },
   avatar: {
-    width: AV_CARD,
-    height: AV_CARD,
-    borderRadius: AV_CARD / 2,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1559,7 +1885,7 @@ const st = StyleSheet.create({
   },
   classStackMore: { marginLeft: 10, fontSize: 14, fontWeight: '600' },
   initials: { fontSize: 26, fontWeight: '600' },
-  name: { fontSize: NAME_CARD, fontWeight: '700', textAlign: 'center', letterSpacing: -0.3, marginTop: 4 },
+  name: { fontSize: 24, fontWeight: '700', textAlign: 'center', letterSpacing: -0.3, marginTop: 4 },
   nameOnClassHero: { marginTop: 0 },
 
   quickGrid: {

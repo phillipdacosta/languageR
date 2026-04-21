@@ -285,7 +285,7 @@ export default function EventDetailScreen() {
                 accessibilityRole="button"
                 style={[
                   st.actionBtn,
-                  { backgroundColor: '#222222' },
+                  { backgroundColor: C.joinCtaBackground },
                 ]}
                 activeOpacity={joinGate.canJoin ? 0.85 : 1}
                 onPress={() => {

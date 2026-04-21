@@ -20,6 +20,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../contexts/ThemeContext';
 import { materialService, MaterialBundle, TutorMaterial } from '../services/materials';
+import { cardShadowDark } from '../utils/cardShadow';
 
 const SETUP_AVAILABILITY_BLUE = '#08a0e8';
 
@@ -529,7 +530,7 @@ export default function CreateBundleScreen({ goBack, editingBundle, materials }:
                     backgroundColor: colors.card,
                     borderColor: pricingType === 'free' ? colors.text : colors.border,
                     borderWidth: pricingType === 'free' ? 2 : 1,
-                    shadowOpacity: isDark ? 0 : 0.05,
+                    ...(isDark ? cardShadowDark('subtle') : { shadowOpacity: 0.05 }),
                   },
                 ]}
                 activeOpacity={0.7}
@@ -551,7 +552,7 @@ export default function CreateBundleScreen({ goBack, editingBundle, materials }:
                     backgroundColor: colors.card,
                     borderColor: pricingType === 'paid' ? colors.text : colors.border,
                     borderWidth: pricingType === 'paid' ? 2 : 1,
-                    shadowOpacity: isDark ? 0 : 0.05,
+                    ...(isDark ? cardShadowDark('subtle') : { shadowOpacity: 0.05 }),
                   },
                 ]}
                 activeOpacity={0.7}

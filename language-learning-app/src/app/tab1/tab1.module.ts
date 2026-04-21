@@ -23,6 +23,7 @@ import { EarningsPage } from '../earnings/earnings.page';
 import { ExplorePage } from '../explore/explore.page';
 import { CreateMaterialPage } from '../create-material/create-material.page';
 import { ScheduleClassPage } from '../tutor-calendar/schedule-class/schedule-class.page';
+import { ForumPage } from '../forum/forum.page';
 import { MobileQuickActionsComponent } from '../components/home/mobile-quick-actions.component';
 import { MobileThisWeekComponent } from '../components/home/mobile-this-week.component';
 import { MobilePendingActionsComponent } from '../components/home/mobile-pending-actions.component';
@@ -57,6 +58,7 @@ import { Tab1PageRoutingModule } from './tab1-routing.module';
     ExplorePage,
     CreateMaterialPage,
     ScheduleClassPage,
+    ForumPage,
     MobileQuickActionsComponent,
     MobileThisWeekComponent,
     MobilePendingActionsComponent,

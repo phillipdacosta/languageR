@@ -36,6 +36,14 @@
     </app-schedule-class>
   </div>
 
+  <!-- Forum (mobile): blurred backdrop + card shell (matches My Classes / Materials) -->
+  <div class="forum-inline-panel" *ngIf="showForumView && isMobile">
+    <div class="forum-inline-backdrop" aria-hidden="true"></div>
+    <div class="forum-inline-modal">
+      <app-forum [inline]="true" (goBackEvent)="onForumGoBack()"></app-forum>
+    </div>
+  </div>
+
   <!-- Desktop Create Material Modal -->
   <div class="cm-modal-backdrop" *ngIf="showCreateMaterialView && !isMobile" [class.cm-modal-backdrop--visible]="createMaterialBackdropVisible" [class.cm-modal-backdrop--deep]="createMaterialModalExpanded" (click)="onCreateMaterialModalBackdropClick($event)">
 
@@ -277,15 +285,45 @@
     </div>
   </div>
 
+  <!-- Desktop Forum Modal — same shell as Schedule Class / expanded Create Material -->
+  <div
+    class="cm-modal-backdrop"
+    *ngIf="showForumView && !isMobile"
+    [class.cm-modal-backdrop--visible]="forumBackdropVisible"
+    (click)="onForumModalBackdropClick($event)"
+  >
+    <div
+      class="cm-modal-container cm-modal--expanded"
+      [class.cm-modal--ready]="forumModalReady"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="cm-modal-header cm-modal-header--hidden" aria-hidden="true"></div>
+      <div class="cm-modal-topbar">
+        <div class="cm-modal-topbar-left"></div>
+        <div class="cm-modal-topbar-center">
+          <span class="cm-schedule-modal-title cm-schedule-modal-title--inline">{{ 'FORUM.PAGE_TITLE' | translate }}</span>
+        </div>
+        <div class="cm-modal-topbar-right">
+          <button type="button" class="cm-modal-exit" (click)="onForumGoBack()">
+            {{ 'COMMON.CLOSE' | translate }}
+          </button>
+        </div>
+      </div>
+      <div class="cm-modal-body cm-modal-body--forum">
+        <app-forum [inline]="true" [hideToolbar]="true" (goBackEvent)="onForumGoBack()"></app-forum>
+      </div>
+    </div>
+  </div>
+
   <!-- Full-bleed mesh (viewport width, not max-width content column) -->
   <div
     class="home-mesh-gradient-layer"
-    *ngIf="!showEarningsView && !showExploreView && !(showCreateMaterialView && isMobile) && !(showScheduleClassView && isMobile)"
+    *ngIf="!showEarningsView && !showExploreView && !(showCreateMaterialView && isMobile) && !(showScheduleClassView && isMobile) && !(showForumView && isMobile)"
   >
     <!-- <app-mesh-gradient-background></app-mesh-gradient-background> -->
   </div>
 
-  <div class="content-wrapper" *ngIf="!showEarningsView && !showExploreView && !(showCreateMaterialView && isMobile) && !(showScheduleClassView && isMobile)">
+  <div class="content-wrapper" *ngIf="!showEarningsView && !showExploreView && !(showCreateMaterialView && isMobile) && !(showScheduleClassView && isMobile) && !(showForumView && isMobile)">
     <!-- Welcome Message with Search Bar (Students) -->
     <div class="welcome-section welcome-section--mobile-hero" *ngIf="currentUser && isStudentUser">
       <div class="welcome-mobile-hero" *ngIf="isMobile">
@@ -655,8 +693,8 @@
                     
                     <!-- Attendees for classes (going section) -->
                     <app-class-attendees 
-                      *ngIf="nextLesson.lesson?.attendees"
-                      [attendees]="nextLesson.lesson.attendees"
+                      *ngIf="nextLesson.lesson?.isClass && nextLessonClassAttendeesDisplay.length"
+                      [attendees]="nextLessonClassAttendeesDisplay"
                       [capacity]="nextLesson.lesson.capacity"
                       [maxDisplay]="3">
                     </app-class-attendees>
@@ -907,8 +945,8 @@
         </p>
 
         <app-class-attendees
-          *ngIf="nextClass.lesson?.isClass && nextClass.lesson?.attendees"
-          [attendees]="nextClass.lesson.attendees"
+          *ngIf="nextClass.lesson?.isClass && nextLessonClassAttendeesDisplay.length"
+          [attendees]="nextLessonClassAttendeesDisplay"
           [capacity]="nextClass.lesson.capacity"
           [maxDisplay]="4">
         </app-class-attendees>
@@ -1035,7 +1073,7 @@
             {{ 'HOME.STARTS_IN_TIME' | translate:{ time: nextClass.countdown } }}
           </p>
         </div>
-        <app-class-attendees *ngIf="nextClass.lesson?.isClass && nextClass.lesson?.attendees" [attendees]="nextClass.lesson.attendees" [capacity]="nextClass.lesson.capacity" [maxDisplay]="3"></app-class-attendees>
+        <app-class-attendees *ngIf="nextClass.lesson?.isClass && nextLessonClassAttendeesDisplay.length" [attendees]="nextLessonClassAttendeesDisplay" [capacity]="nextClass.lesson.capacity" [maxDisplay]="3"></app-class-attendees>
         <p class="cancel-reason" *ngIf="nextClass.lesson?.status === 'cancelled' && nextClass.lesson?.cancelReason === 'minimum_not_met'" style="text-align: center;">
           <ion-icon name="information-circle-outline"></ion-icon> {{ 'HOME.CANCELLED_INSUFFICIENT' | translate }}
         </p>
@@ -1116,6 +1154,60 @@
               <span class="pending-amount"><img class="home-dollar-icon" [src]="isDarkModeActive ? 'assets/home-earnings-dollar-dark.png' : 'assets/home-earnings-dollar.png'" alt="" role="presentation" />{{ tutorPendingEarnings.toFixed(2) }}</span>
             </div>
           </div>
+
+          <!-- Weekly Goal (desktop only, tutors) — hidden entirely when wallet balance is masked. -->
+          <div class="earnings-goal"
+               *ngIf="!isMobile && isTutorUser && !earningsBalanceLoading && !isWeeklyGoalMasked"
+               [class.is-reached]="isWeeklyGoalReached">
+            <div class="earnings-goal__head">
+              <span class="earnings-goal__label">Weekly goal</span>
+              <button
+                *ngIf="!isEditingWeeklyGoal"
+                type="button"
+                class="earnings-goal__edit-btn"
+                (click)="startEditWeeklyGoal(); $event.stopPropagation()"
+                aria-label="Edit weekly goal">
+                <ion-icon name="pencil-outline"></ion-icon>
+              </button>
+            </div>
+
+            <div class="earnings-goal__amount" *ngIf="!isEditingWeeklyGoal">
+              {{ weeklyEarningsGoalLabel }}
+            </div>
+
+            <div class="earnings-goal__bar" *ngIf="!isEditingWeeklyGoal">
+              <!-- Ghost layer: earned + scheduled. Only renders when scheduled extends past earned. -->
+              <div
+                class="earnings-goal__bar-scheduled"
+                *ngIf="!isWeeklyGoalReached && weeklyEarningsScheduledPercent > weeklyEarningsGoalPercent"
+                [style.width.%]="weeklyEarningsScheduledPercent">
+              </div>
+              <div class="earnings-goal__bar-fill" [style.width.%]="weeklyEarningsGoalPercent"></div>
+            </div>
+
+            <div class="earnings-goal__sub" *ngIf="!isEditingWeeklyGoal && weeklyEarningsGoalSubLabel">
+              {{ weeklyEarningsGoalSubLabel }}
+            </div>
+
+            <form
+              *ngIf="isEditingWeeklyGoal"
+              class="earnings-goal__edit"
+              (submit)="saveWeeklyGoal(); $event.preventDefault()">
+              <span class="earnings-goal__currency">$</span>
+              <input
+                type="number"
+                class="earnings-goal__input"
+                [(ngModel)]="weeklyGoalEditValue"
+                name="weeklyGoalEditValue"
+                min="1"
+                step="10"
+                autofocus
+                (keydown.escape)="cancelEditWeeklyGoal()" />
+              <button type="button" class="earnings-goal__cancel" (click)="cancelEditWeeklyGoal()">Cancel</button>
+              <button type="submit" class="earnings-goal__save">Save</button>
+            </form>
+          </div>
+
           <ion-button fill="outline" expand="block" class="withdraw-btn" (click)="openWithdrawModal()">
             {{ 'HOME.WITHDRAW_FUNDS' | translate }}
           </ion-button>
@@ -1511,7 +1603,8 @@
         *ngIf="inviteStudentModalProps"
         [className]="inviteStudentModalProps.className"
         [classId]="inviteStudentModalProps.classId"
-        [classData]="inviteStudentModalProps.classData">
+        [classData]="inviteStudentModalProps.classData"
+        (invitationsSent)="onInviteStudentsSent($event)">
       </app-invite-student-modal>
     </ng-template>
   </ion-modal>

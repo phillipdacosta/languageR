@@ -17,6 +17,8 @@ export interface ThemeColors {
   tabBar: string;
   tabBarBorder: string;
   accent: string;
+  /** Solid join CTA (Up Next / event / overlay): black in light mode, blue in dark mode. */
+  joinCtaBackground: string;
   danger: string;
   success: string;
   warning: string;
@@ -39,6 +41,7 @@ const lightColors: ThemeColors = {
   tabBar: '#ffffff',
   tabBarBorder: '#e5e5e5',
   accent: '#222222',
+  joinCtaBackground: '#000000',
   danger: '#E31C5F',
   success: '#10b981',
   warning: '#ff9500',
@@ -48,23 +51,28 @@ const lightColors: ThemeColors = {
   isDark: false,
 };
 
+/** Dark mode: clear elevation steps so toolbar / tab bar / cards don’t read as one flat slab. */
 const darkColors: ThemeColors = {
+  /** Root canvas — scroll views, sheet behind content (OLED black). */
   background: '#000000',
-  surface: '#000000',
-  card: '#1c1c1e',
-  text: '#f5f5f7',
-  textSecondary: '#8e8e93',
+  /** Chrome — top toolbars, secondary grouped areas, safe strips that sit above the void. */
+  surface: '#1C1C1E',
+  /** Raised surfaces — list rows, cards (Apple tertiary grouped; reads above `surface`). */
+  card: '#2C2C2E',
+  text: '#F5F5F7',
+  textSecondary: '#AEAEB2',
   textTertiary: '#636366',
-  border: 'rgba(255,255,255,0.08)',
-  borderLight: '#2c2c2e',
-  inputBg: '#1c1c1e',
-  tabBar: '#1c1c1e',
-  tabBarBorder: 'rgba(255,255,255,0.08)',
+  border: 'rgba(255,255,255,0.12)',
+  borderLight: '#3A3A3C',
+  inputBg: '#3A3A3C',
+  tabBar: '#1C1C1E',
+  tabBarBorder: 'rgba(255,255,255,0.18)',
   accent: '#ffffff',
+  joinCtaBackground: '#49aeea',
   danger: '#ff4d6d',
   success: '#34d399',
   warning: '#fbbf24',
-  skeleton: '#2c2c2e',
+  skeleton: '#3A3A3C',
   overlay: 'rgba(255,255,255,0.04)',
   statusBar: 'light-content',
   isDark: true,

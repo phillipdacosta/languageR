@@ -1,33 +1,35 @@
-<ion-content class="ion-padding reschedule-modal-content">
-  <!-- Back button: from availability-setup to calendar -->
-  <ion-button *ngIf="!showConfirmation && rescheduleView === 'availability-setup'" class="floating-back-button" fill="clear" (click)="goBackToCalendar()">
-    <ion-icon name="arrow-back" slot="icon-only"></ion-icon>
-  </ion-button>
-  <!-- Back button: to proposal modal (when opened from proposal) -->
-  <ion-button *ngIf="!showConfirmation && rescheduleView === 'calendar' && showBackButton" class="floating-back-button" fill="clear" (click)="goBackToProposal()">
-    <ion-icon name="arrow-back" slot="icon-only"></ion-icon>
-  </ion-button>
+<!-- Floating close button - sits on the modal sheet (outside ion-content) so it stays visible while content scrolls -->
+<button type="button" class="floating-close-button" (click)="dismiss()" aria-label="Close">
+  <ion-icon name="close" aria-hidden="true"></ion-icon>
+</button>
 
-  <!-- Floating close button (always visible) -->
-  <button class="floating-close-button" (click)="dismiss()">
-    <ion-icon name="close"></ion-icon>
-  </button>
+<!-- Back buttons - likewise pinned to the sheet so they don't scroll away -->
+<ion-button *ngIf="!showConfirmation && rescheduleView === 'availability-setup'" class="floating-back-button" fill="clear" (click)="goBackToCalendar()">
+  <ion-icon name="arrow-back" slot="icon-only"></ion-icon>
+</ion-button>
+<ion-button *ngIf="!showConfirmation && rescheduleView === 'calendar' && showBackButton" class="floating-back-button" fill="clear" (click)="goBackToProposal()">
+  <ion-icon name="arrow-back" slot="icon-only"></ion-icon>
+</ion-button>
 
-  <!-- Calendar View (pick a time slot) -->
-  <div class="view-container" *ngIf="!showConfirmation && rescheduleView === 'calendar'" [@slideInOut]="animationDirection">
-    <!-- Original Lesson Time Info - Sticky Banner -->
-    <div class="original-time-banner sticky-banner" *ngIf="originalLessonTime">
-      <div class="banner-content">
-        <div class="banner-icon">
-          <ion-icon name="time-outline"></ion-icon>
-        </div>
-        <div class="banner-text">
-          <span class="banner-label">Current lesson time:</span>
-          <span class="banner-time">{{ originalLessonTime }}</span>
-        </div>
+<!-- Pinned header: stays on top of the sheet; modal content scrolls underneath -->
+<header class="reschedule-modal-header" *ngIf="!showConfirmation && rescheduleView === 'calendar' && originalLessonTime">
+  <div class="original-time-banner">
+    <div class="banner-content">
+      <div class="banner-icon">
+        <ion-icon name="time-outline"></ion-icon>
+      </div>
+      <div class="banner-text">
+        <span class="banner-label" *ngIf="!isClassLesson">Current lesson time:</span>
+        <span class="banner-label" *ngIf="isClassLesson">Current class time:</span>
+        <span class="banner-time">{{ originalLessonTime }}</span>
       </div>
     </div>
+  </div>
+</header>
 
+<ion-content class="ion-padding reschedule-modal-content" [fullscreen]="true" [scrollY]="rescheduleView !== 'availability-setup'">
+  <!-- Calendar View (pick a time slot) -->
+  <div class="view-container" *ngIf="!showConfirmation && rescheduleView === 'calendar'" [@slideInOut]="animationDirection">
     <!-- Participant Info -->
     <div class="participant-section">
       <ion-avatar class="participant-avatar">
@@ -36,19 +38,24 @@
       </ion-avatar>
       <div class="participant-info">
         <h3>{{ formattedParticipantName }}</h3>
-        <p *ngIf="!isLoadingMutualAvailability && studentBusySlots.size > 0">
+        <p *ngIf="!isLoadingMutualAvailability && !isClassLesson && studentBusySlots.size > 0">
           Only showing times when both you and {{ formattedParticipantName }} are available. 
           Timeslots may be excluded due to {{ formattedParticipantName }}'s availability.
         </p>
-        <p *ngIf="!isLoadingMutualAvailability && studentBusySlots.size === 0">
+        <p *ngIf="!isLoadingMutualAvailability && !isClassLesson && studentBusySlots.size === 0">
           Select any available time slot to reschedule your lesson with {{ formattedParticipantName }}.
+        </p>
+        <p *ngIf="!isLoadingMutualAvailability && isClassLesson">
+          Pick a new time for <strong>{{ formattedParticipantName }}</strong>. Your calendar availability is shown below; we do not check other students' one-on-one lessons against this class.
         </p>
         <p *ngIf="isLoadingMutualAvailability">Finding available times...</p>
       </div>
     </div>
 
-    <!-- Availability Calendar (Inline) -->
-    <div class="calendar-section" *ngIf="!isLoadingMutualAvailability">
+    <!-- Availability Calendar (Inline) - hidden off-screen when tutor has no availability so the viewer can still emit availabilityLoaded -->
+    <div class="calendar-section"
+         *ngIf="!isLoadingMutualAvailability"
+         [class.is-hidden]="isTutor && tutorHasAvailability === false">
       <app-tutor-availability-viewer
         [tutorId]="tutorId"
         [tutorName]="formattedParticipantName"
@@ -56,12 +63,29 @@
         [selectionMode]="true"
         [refreshTrigger]="refreshTrigger"
         [studentBusySlots]="studentBusySlots"
-        (slotSelected)="onTimeSlotSelected($event)">
+        (slotSelected)="onTimeSlotSelected($event)"
+        (availabilityLoaded)="onAvailabilityLoaded($event)">
       </app-tutor-availability-viewer>
     </div>
 
-    <!-- Add Availability (tutor only) -->
-    <div class="add-availability-section" *ngIf="isTutor && !isLoadingMutualAvailability">
+    <!-- Empty availability state (tutor only) -->
+    <div class="empty-availability-state" *ngIf="isTutor && tutorHasAvailability === false && !isLoadingMutualAvailability">
+      <div class="empty-availability-icon">
+        <ion-icon name="calendar-outline"></ion-icon>
+      </div>
+      <h3 class="empty-availability-title">You have no availability set</h3>
+      <p class="empty-availability-subtitle">
+        Add your weekly hours so {{ isClassLesson ? 'students' : formattedParticipantName }} can pick a new time.
+      </p>
+      <ion-button class="empty-availability-cta" (click)="showAddAvailability()">
+        <ion-icon name="add-circle-outline" slot="start"></ion-icon>
+        Add New Availability
+      </ion-button>
+    </div>
+
+    <!-- Add Availability (tutor only, when availability already exists) -->
+    <div class="add-availability-section"
+         *ngIf="isTutor && !isLoadingMutualAvailability && tutorHasAvailability !== false">
       <div class="add-availability-divider">
         <span>or</span>
       </div>
@@ -87,11 +111,9 @@
 
   <!-- Confirmation View -->
   <div class="view-container confirmation-view" *ngIf="showConfirmation" [@slideInOut]="animationDirection">
-    <!-- Large Calendar Icon -->
+    <!-- Calendar artwork (matches Up Next empty state on home) -->
     <div class="icon-section">
-      <div class="icon-wrapper">
-        <ion-icon name="calendar" class="confirmation-icon"></ion-icon>
-      </div>
+      <img class="confirmation-art" src="assets/calendar-mobile.png" alt="" />
     </div>
 
     <!-- Main Heading -->
@@ -126,21 +148,19 @@
   </div>
 </ion-content>
 
-<ion-footer *ngIf="showConfirmation">
-  <ion-toolbar>
-    <div class="button-group">
-      <ion-button 
-        expand="block" 
-        fill="outline"
-        (click)="goBack()">
-        Cancel
-      </ion-button>
-      <ion-button 
-        expand="block"
-        class="btn-reschedule"
-        (click)="onRescheduleClick()">
-        Reschedule
-      </ion-button>
-    </div>
-  </ion-toolbar>
+<!-- Confirmation footer — sibling of ion-content so it always sits at the bottom of the modal sheet -->
+<ion-footer *ngIf="showConfirmation" class="reschedule-footer">
+  <div class="button-group">
+    <ion-button
+      fill="outline"
+      class="btn-cancel"
+      (click)="goBack()">
+      Cancel
+    </ion-button>
+    <ion-button
+      class="btn-reschedule"
+      (click)="onRescheduleClick()">
+      Reschedule
+    </ion-button>
+  </div>
 </ion-footer>

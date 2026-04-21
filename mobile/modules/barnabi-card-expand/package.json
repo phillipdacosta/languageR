@@ -1,0 +1,12 @@
+{
+  "name": "barnabi-card-expand",
+  "version": "0.1.0",
+  "description": "Native shared-element card expand. Uses SwiftUI matchedGeometryEffect on iOS and Jetpack Compose SharedTransitionLayout on Android — the same APIs Airbnb uses in production. This is a local Expo module; it is auto-linked by Expo's native build system at `pod install` / Gradle sync time.",
+  "main": "index.tsx",
+  "private": true,
+  "peerDependencies": {
+    "expo": "*",
+    "react": "*",
+    "react-native": "*"
+  }
+}

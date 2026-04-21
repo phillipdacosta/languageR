@@ -426,6 +426,41 @@ export const lessonService = {
     }
   },
 
+  async cancelLesson(
+    lessonId: string,
+    params?: { reasonId?: string; reasonText?: string },
+  ): Promise<{ success: boolean; message?: string }> {
+    const q = new URLSearchParams();
+    if (params?.reasonId) q.set('reasonId', params.reasonId);
+    if (params?.reasonText) q.set('reasonText', params.reasonText);
+    const qs = q.toString();
+    return api.delete(`/lessons/${encodeURIComponent(lessonId)}/cancel${qs ? `?${qs}` : ''}`);
+  },
+
+  /** Future lessons for a student (conflict detection for reschedule), aligned with web `getLessonsByStudent`. */
+  async getLessonsByStudent(studentId: string, all = false): Promise<Lesson[]> {
+    try {
+      const qs = all ? '?all=true' : '';
+      const data = await api.get<{ success?: boolean; lessons?: Lesson[] }>(
+        `/lessons/student/${encodeURIComponent(studentId)}${qs}`,
+      );
+      return data.lessons || [];
+    } catch {
+      return [];
+    }
+  },
+
+  async proposeReschedule(
+    lessonId: string,
+    proposedStartTime: string,
+    proposedEndTime: string,
+  ): Promise<{ success: boolean; message?: string; lesson?: Lesson }> {
+    return api.post(`/lessons/${encodeURIComponent(lessonId)}/propose-reschedule`, {
+      proposedStartTime,
+      proposedEndTime,
+    });
+  },
+
   async leaveLesson(lessonId: string): Promise<void> {
     try {
       await api.post(`/lessons/${lessonId}/leave`, {});
@@ -501,17 +536,10 @@ export function mapLessonToTimelineEvent(lesson: Lesson, userId: string, now: Da
     name = (lesson as any).className || lesson.subject || 'Group Class';
     const thumb = (lesson as any).classData?.thumbnail || null;
     subject = 'Group Class';
-    const attendees = (lesson.attendees || []) as any[];
-    if (attendees.length > 0) {
-      avatarStack = attendees.slice(0, TIMELINE_AVATAR_STACK_MAX).map(a => ({
-        picture: (a.picture || a.profilePicture || null) as string | null,
-        initials: timelineAttendeeInitials(a),
-      }));
-      avatarStackOverflow = Math.max(0, attendees.length - TIMELINE_AVATAR_STACK_MAX);
-      avatar = avatarStack[0]?.picture || thumb;
-    } else {
-      avatar = thumb;
-    }
+    // Timeline / This Week rows use the class cover for visuals — not attendee avatars.
+    avatar = thumb;
+    avatarStack = undefined;
+    avatarStackOverflow = undefined;
   } else {
     const otherPerson = lesson.tutorId?._id === userId ? lesson.studentId : lesson.tutorId;
     name = otherPerson?.firstName

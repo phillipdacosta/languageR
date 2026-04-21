@@ -54,6 +54,8 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   @Input() selectedDuration: 25 | 50 = 25; // Default to 25 minutes
   @Output() slotSelected = new EventEmitter<{ selectedDate: string; selectedTime: string; timezone?: string }>();
   @Output() paymentRequested = new EventEmitter<{ tutorId: string; date: string; time: string; duration: number; isTrialLesson: boolean; timezone: string }>();
+  /** Emitted after availability data is fetched so hosts can short-circuit empty states. */
+  @Output() availabilityLoaded = new EventEmitter<{ hasAvailability: boolean; tutorBlocked: boolean }>();
   
   private destroy$ = new Subject<void>();
   availability: AvailabilityBlock[] = [];
@@ -348,7 +350,10 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
             this.slotsCache.clear();
             this.availabilitySet.clear();
             this.buildAvailabilitySet();
-            // DON'T call precomputeDateSlots here - let ngOnInit handle it after BOTH availability and bookedLessons are ready
+            this.availabilityLoaded.emit({
+              hasAvailability: this.availability.length > 0,
+              tutorBlocked: this.tutorBlocked
+            });
             resolve();
           },
           error: (error) => {

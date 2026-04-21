@@ -1,6 +1,12 @@
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { api } from './api';
 
+export interface ClassInvitedStudentRow {
+  studentId: string | { _id: string; name?: string; email?: string; picture?: string; firstName?: string; lastName?: string };
+  status?: 'pending' | 'accepted' | 'declined' | string;
+  invitedAt?: string;
+}
+
 export interface MyClassRecord {
   _id: string;
   name?: string;
@@ -18,6 +24,7 @@ export interface MyClassRecord {
   flexibleMinimum?: boolean;
   recurrence?: { type?: string; count?: number };
   invitationStats?: { total?: number; accepted?: number; pending?: number; declined?: number };
+  invitedStudents?: ClassInvitedStudentRow[];
   confirmedStudents?: any[];
   tutorId?: any;
   hubDraftForm?: unknown;
@@ -102,6 +109,20 @@ export async function hideClassFromHub(classId: string): Promise<{ success: bool
     `/classes/${encodeURIComponent(classId)}/hide-from-hub`,
     {},
   );
+}
+
+export async function inviteStudentsToClass(
+  classId: string,
+  studentIds: string[],
+): Promise<{ success: boolean; message?: string; newInvitationsCount?: number }> {
+  return api.post(`/classes/${encodeURIComponent(classId)}/invite`, { studentIds });
+}
+
+export async function removeStudentFromClass(
+  classId: string,
+  studentId: string,
+): Promise<{ success: boolean; message?: string }> {
+  return api.delete(`/classes/${encodeURIComponent(classId)}/student/${encodeURIComponent(studentId)}`);
 }
 
 export async function uploadClassThumbnail(localUri: string): Promise<string> {

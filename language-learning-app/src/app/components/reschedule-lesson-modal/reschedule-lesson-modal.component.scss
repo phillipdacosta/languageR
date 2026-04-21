@@ -10,6 +10,7 @@ $background-hover: #f7f7f7;
   display: flex;
   flex-direction: column;
   height: 100%;
+  position: relative;
 }
 
 ion-content {
@@ -18,18 +19,14 @@ ion-content {
   --background: #ffffff;
 }
 
-ion-footer {
+ion-footer.reschedule-footer {
   flex-shrink: 0;
-  margin-top: auto;
   background: #ffffff;
+  border-top: 1px solid $border-color;
+  box-shadow: 0 -1px 0 rgba(0, 0, 0, 0.02);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 
-  ion-toolbar {
-    --background: #ffffff;
-    --border-width: 0;
-    --padding-top: 0;
-    --padding-bottom: 0;
-    --min-height: auto;
-  }
+  &::before { display: none; } // hide Ionic's default top-border pseudo
 }
 
 // Floating back button (top-left, when opened from proposal modal)
@@ -37,7 +34,7 @@ ion-footer {
   position: absolute;
   top: 20px;
   left: 20px;
-  z-index: 1001;
+  z-index: 1010;
   --background: $background-hover;
   --background-hover: $border-color;
   --border-radius: 50%;
@@ -58,7 +55,7 @@ ion-footer {
   position: absolute;
   top: 16px;
   right: 16px;
-  z-index: 1001;
+  z-index: 1010;
   width: 32px;
   height: 32px;
   margin: 0;
@@ -91,34 +88,38 @@ ion-footer {
   }
 }
 
-// Footer button group - Airbnb style
+// Footer button group — compact, right-aligned (matches confirm-action-modal style)
 .button-group {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  padding: 16px 24px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
   background: #ffffff;
-  border-top: 1px solid $border-color;
 
   ion-button {
     margin: 0;
     text-transform: none;
     font-weight: 600;
-    --border-radius: 8px;
-    --padding-top: 14px;
-    --padding-bottom: 14px;
-    font-size: 16px;
-    height: 48px;
+    --border-radius: 10px;
+    --padding-top: 10px;
+    --padding-bottom: 10px;
+    --padding-start: 20px;
+    --padding-end: 20px;
+    font-size: 14px;
+    height: 40px;
+    min-width: 96px;
     letter-spacing: -0.1px;
 
     // Cancel button (outline)
-    &[fill="outline"] {
+    &[fill="outline"],
+    &.btn-cancel {
       --border-width: 1px;
-      --border-color: $text-primary;
-      --color: $text-primary;
+      --border-color: #{$border-color-dark};
+      --color: #{$text-primary};
       --background: #ffffff;
-      --background-hover: $background-hover;
-      --background-activated: $border-color;
+      --background-hover: #{$background-hover};
+      --background-activated: #{$border-color};
     }
 
     // Reschedule button (solid black)
@@ -158,27 +159,29 @@ ion-footer {
 .view-container {
   width: 100%;
   min-height: 100%;
-  padding: 60px 24px 24px 24px;
+  padding: 24px 24px 24px 24px;
   will-change: transform, opacity;
+}
+
+/* Pinned modal header (banner) — direct child of :host, sibling of ion-content.
+   Sits above the scroll area so the rest of the modal scrolls beneath it. */
+.reschedule-modal-header {
+  flex-shrink: 0;
+  background: #ffffff;
+  padding: 60px 24px 12px;
+  z-index: 5;
+  box-shadow: 0 1px 0 $border-color;
 }
 
 // Current lesson time banner - Airbnb style
 .original-time-banner {
-  margin-bottom: 20px;
   padding: 16px;
   background: #ffffff;
   border-radius: 12px;
   border: 1px solid $border-color;
-
-  &.sticky-banner {
-    position: sticky;
-    top: 6px;
-    z-index: 100;
-    margin-bottom: 20px;
-    box-shadow:
-      0 1px 2px rgba(0, 0, 0, 0.04),
-      0 4px 12px rgba(0, 0, 0, 0.06);
-  }
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.06);
 
   .banner-content {
     display: flex;
@@ -272,6 +275,85 @@ ion-footer {
 
 .calendar-section {
   margin-bottom: 20px;
+
+  /* Keeps the viewer mounted so it can still emit availabilityLoaded, but out of view */
+  &.is-hidden {
+    position: absolute;
+    pointer-events: none;
+    opacity: 0;
+    height: 0;
+    overflow: hidden;
+  }
+}
+
+// Empty availability state — Airbnb-style card
+.empty-availability-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 36px 24px;
+  background: #ffffff;
+  border: 1px solid $border-color;
+  border-radius: 16px;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.06);
+  margin-bottom: 24px;
+
+  .empty-availability-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    background: $background-hover;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+
+    ion-icon {
+      font-size: 32px;
+      color: $text-primary;
+    }
+  }
+
+  .empty-availability-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: $text-primary;
+    margin: 0 0 8px 0;
+    letter-spacing: -0.4px;
+  }
+
+  .empty-availability-subtitle {
+    font-size: 15px;
+    line-height: 1.5;
+    color: $text-secondary;
+    margin: 0 0 24px 0;
+    letter-spacing: -0.2px;
+    max-width: 320px;
+  }
+
+  .empty-availability-cta {
+    --background: #222222;
+    --background-hover: #000000;
+    --background-activated: #000000;
+    --color: #ffffff;
+    --border-radius: 12px;
+    --padding-top: 14px;
+    --padding-bottom: 14px;
+    height: 48px;
+    font-weight: 600;
+    font-size: 15px;
+    min-width: 220px;
+    text-transform: none;
+    letter-spacing: -0.1px;
+
+    ion-icon {
+      font-size: 20px;
+      margin-right: 8px;
+    }
+  }
 }
 
 // Add Availability (tutor only) — matches schedule-class availability picker modal
@@ -326,8 +408,11 @@ ion-footer {
 }
 
 .availability-setup-view {
-  padding: 60px 0 24px;
-  min-height: 100%;
+  /* height (not min-height) + box-sizing keeps the view bound to ion-content so
+     only the inner grid scrolls and the save bar stays pinned at the bottom. */
+  height: 100%;
+  padding: 60px 0 0;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
 
@@ -405,22 +490,18 @@ ion-footer {
 }
 
 .icon-section {
-  margin-bottom: 24px;
-}
-
-.icon-wrapper {
-  width: 64px;
-  height: 64px;
-  border-radius: 16px;
-  background: $background-hover;
+  margin-bottom: 20px;
   display: flex;
-  align-items: center;
   justify-content: center;
 }
 
-.confirmation-icon {
-  font-size: 32px;
-  color: $text-primary;
+.confirmation-art {
+  width: 120px;
+  height: auto;
+  max-width: 40vw;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .confirmation-heading {
@@ -559,13 +640,8 @@ ion-footer {
     padding: 56px 40px 32px 40px;
   }
 
-  .icon-wrapper {
-    width: 72px;
-    height: 72px;
-  }
-
-  .confirmation-icon {
-    font-size: 36px;
+  .confirmation-art {
+    width: 140px;
   }
 
   .confirmation-heading {
@@ -612,8 +688,7 @@ $dk-text-tertiary: #636366;
     --background: #{$dk-bg} !important;
   }
 
-  ion-footer,
-  ion-footer ion-toolbar {
+  ion-toolbar.reschedule-action-toolbar {
     --background: #{$dk-bg} !important;
   }
 
@@ -634,9 +709,15 @@ $dk-text-tertiary: #636366;
     }
   }
 
+  .reschedule-modal-header {
+    background: $dk-bg;
+    box-shadow: 0 1px 0 $dk-border;
+  }
+
   .original-time-banner {
     background: $dk-card;
     border-color: $dk-border;
+    box-shadow: none;
 
     .banner-icon {
       background: $dk-bg;
@@ -670,6 +751,24 @@ $dk-text-tertiary: #636366;
     }
   }
 
+  .empty-availability-state {
+    background: $dk-card;
+    border-color: $dk-border;
+    box-shadow: none;
+
+    .empty-availability-icon {
+      background: $dk-bg;
+      ion-icon { color: $dk-text; }
+    }
+    .empty-availability-title { color: $dk-text; }
+    .empty-availability-subtitle { color: $dk-text-secondary; }
+    .empty-availability-cta {
+      --background: #{$dk-text};
+      --color: #000;
+      --background-hover: #fff;
+    }
+  }
+
   .button-group {
     background: $dk-bg;
     border-top-color: $dk-border;
@@ -692,10 +791,9 @@ $dk-text-tertiary: #636366;
   // Confirmation view
   .confirmation-view { background: transparent; }
 
-  .icon-wrapper {
-    background: $dk-card;
+  .confirmation-art {
+    filter: brightness(0.95);
   }
-  .confirmation-icon { color: $dk-text; }
 
   .confirmation-heading { color: $dk-text; }
   .confirmation-subheading {

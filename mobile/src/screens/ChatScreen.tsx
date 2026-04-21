@@ -672,7 +672,7 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
               </TouchableOpacity>
               <TextInput
                 ref={inputRef}
-                style={[s.textInput, { color: C.text, backgroundColor: isDark ? '#1c1c1e' : '#f2f2f7' }]}
+                style={[s.textInput, { color: C.text, backgroundColor: C.inputBg }]}
                 placeholder="Your message"
                 placeholderTextColor={C.textTertiary}
                 value={text}

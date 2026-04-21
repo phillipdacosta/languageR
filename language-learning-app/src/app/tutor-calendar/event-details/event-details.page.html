@@ -780,10 +780,14 @@
                 </div>
               </div>
 
-              <div class="ed-pc-detail">
-                <ion-icon name="time-outline"></ion-icon>
-                <div>
-                  <span class="ed-pc-detail-primary">{{ formattedDuration }}</span>
+              <div class="ed-pc-detail ed-pc-detail--attendees">
+                <ion-icon name="people-outline"></ion-icon>
+                <div class="ed-pc-detail-attendees-inner">
+                  <app-class-attendees
+                    [attendees]="classAttendeesForGridStack"
+                    [capacity]="classAttendeesForGridCapacity"
+                    [maxDisplay]="4">
+                  </app-class-attendees>
                 </div>
               </div>
 
@@ -811,15 +815,6 @@
                 </div>
               </div>
             </div>
-
-            <!-- Stacked attendees -->
-            <div class="ed-pc-divider" *ngIf="classStudentsDisplay.length > 0"></div>
-            <app-class-attendees
-              *ngIf="classStudentsDisplay.length > 0"
-              [attendees]="classData.confirmedStudents"
-              [capacity]="classData.maxStudents || classData.capacity"
-              [maxDisplay]="4">
-            </app-class-attendees>
 
           </div>
         </aside>

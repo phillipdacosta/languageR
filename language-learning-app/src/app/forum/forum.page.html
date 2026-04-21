@@ -1,4 +1,4 @@
-<ion-header class="forum-header ion-no-border">
+<ng-template #forumToolbar>
   <ion-toolbar>
     <ion-buttons slot="start">
       <ion-button fill="clear" (click)="goBack()" [attr.aria-label]="'COMMON.BACK' | translate">
@@ -7,9 +7,27 @@
     </ion-buttons>
     <ion-title>{{ 'FORUM.PAGE_TITLE' | translate }}</ion-title>
   </ion-toolbar>
+</ng-template>
+
+<ion-header *ngIf="!inline && !hideToolbar" class="forum-header ion-no-border">
+  <ng-container *ngTemplateOutlet="forumToolbar"></ng-container>
 </ion-header>
 
-<ion-content class="forum-content" [fullscreen]="true">
+<ion-header *ngIf="inline && !hideToolbar" class="forum-header forum-header--inline ion-no-border">
+  <ng-container *ngTemplateOutlet="forumToolbar"></ng-container>
+</ion-header>
+
+<ion-content *ngIf="!inline" class="forum-content" [fullscreen]="true">
+  <ng-container *ngTemplateOutlet="forumMainInner"></ng-container>
+</ion-content>
+
+<div *ngIf="inline" class="forum-inline-root" [class.forum-inline-root--embedded]="hideToolbar">
+  <div class="forum-inline-scroll">
+    <ng-container *ngTemplateOutlet="forumMainInner"></ng-container>
+  </div>
+</div>
+
+<ng-template #forumMainInner>
   <div class="forum-shell">
     <main class="forum-main">
       <nav class="forum-tabs" role="tablist">
@@ -135,7 +153,7 @@
         </div>
         <h3 class="forum-empty-title">{{ 'FORUM.EMPTY_TITLE' | translate }}</h3>
         <p class="forum-empty-text">{{ 'FORUM.EMPTY_SUBTITLE' | translate }}</p>
-        <button type="button" class="forum-empty-cta" (click)="startNewThread()">
+        <button type="button" class="forum-empty-cta" *ngIf="canStartThread" (click)="startNewThread()">
           <ion-icon name="add-outline"></ion-icon>
           {{ 'FORUM.START_THREAD' | translate }}
         </button>
@@ -143,7 +161,7 @@
     </main>
 
     <aside class="forum-sidebar">
-      <button type="button" class="forum-new-thread" (click)="startNewThread()">
+      <button type="button" class="forum-new-thread" *ngIf="canStartThread" (click)="startNewThread()">
         <ion-icon name="add-outline"></ion-icon>
         {{ 'FORUM.START_NEW_THREAD' | translate }}
       </button>
@@ -178,4 +196,4 @@
       </section>
     </aside>
   </div>
-</ion-content>
+</ng-template>

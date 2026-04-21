@@ -2063,6 +2063,26 @@ ion-header {
   }
 }
 
+// Class details grid: same stacked avatars as Up Next (replaces duplicate duration cell).
+.ed-pc-detail--attendees {
+  align-items: center;
+
+  ion-icon {
+    margin-top: 0;
+    align-self: center;
+  }
+
+  .ed-pc-detail-attendees-inner {
+    min-width: 0;
+    flex: 1;
+  }
+
+  ::ng-deep .class-attendees {
+    margin-top: 0;
+    flex-wrap: wrap;
+  }
+}
+
 .ed-pc-detail-primary {
   font-size: 12px;
   font-weight: 600;

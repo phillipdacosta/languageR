@@ -28,6 +28,7 @@ import CreateMaterialScreen from './CreateMaterialScreen';
 import MaterialDetailScreen from './MaterialDetailScreen';
 import BundleDetailScreen from './BundleDetailScreen';
 import CreateBundleScreen from './CreateBundleScreen';
+import { cardShadowDark } from '../utils/cardShadow';
 
 type LibraryTab = 'materials' | 'bundles';
 
@@ -87,20 +88,6 @@ export default function MaterialsScreen({ goBack }: Props) {
   const panelAnim = useRef(new Animated.Value(0)).current;
   const panelHeight = useRef(0);
   const blurAnim = useRef(new Animated.Value(0)).current;
-
-  const screenFade = useRef(new Animated.Value(0)).current;
-  const screenFadeRan = useRef(false);
-
-  useEffect(() => {
-    if (loading || screenFadeRan.current) return;
-    screenFadeRan.current = true;
-    Animated.timing(screenFade, {
-      toValue: 1,
-      duration: 260,
-      easing: Easing.out(Easing.ease),
-      useNativeDriver: true,
-    }).start();
-  }, [loading, screenFade]);
 
   const hasLinkedChannel = !!(
     (channels.youtubeChannelName && channels.youtubeVerified) ||
@@ -316,8 +303,8 @@ export default function MaterialsScreen({ goBack }: Props) {
   return (
     <View style={{ flex: 1 }}>
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
-      {/* Header */}
-      <Animated.View style={[styles.header, { borderBottomColor: colors.border, opacity: screenFade }]}>
+      {/* Header — no separate fade-in; home overlay already eases in */}
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity
           onPress={() => {
             if (listOpen) {
@@ -352,7 +339,7 @@ export default function MaterialsScreen({ goBack }: Props) {
             <Text style={styles.headerNewBtnText}>New</Text>
           </TouchableOpacity>
         )}
-      </Animated.View>
+      </View>
 
       {/* Main area — content scrolls, panel overlays */}
       <View style={{ flex: 1 }}>
@@ -366,7 +353,7 @@ export default function MaterialsScreen({ goBack }: Props) {
         >
           {/* Title + Channels + tabs — hidden when viewing material/bundle list */}
           {!listOpen && (
-          <Animated.View style={{ opacity: screenFade }}>
+          <View>
             <View style={styles.titleRow}>
               <Text style={[styles.title, { color: colors.text }]}>
                 {t('CREATE_MATERIAL.LIBRARY_TITLE')}
@@ -439,7 +426,7 @@ export default function MaterialsScreen({ goBack }: Props) {
               </TouchableOpacity>
             </View>
 
-          </Animated.View>
+          </View>
           )}
 
           {/* Loading */}
@@ -451,12 +438,16 @@ export default function MaterialsScreen({ goBack }: Props) {
 
           {/* Materials Tab — Gateway */}
           {!loading && activeTab === 'materials' && !showMaterialsList && (
-            <Animated.View style={{ opacity: Animated.multiply(screenFade, tabFadeAnim) }}>
+            <Animated.View style={{ opacity: tabFadeAnim }}>
               <View style={[styles.gatewayCard, {
                 backgroundColor: colors.card,
                 borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
-                shadowOpacity: isDark ? 0 : Platform.OS === 'ios' ? 0.14 : 0.12,
-                elevation: isDark ? 0 : Platform.OS === 'android' ? 14 : 0,
+                ...(isDark
+                  ? cardShadowDark('raised')
+                  : {
+                      shadowOpacity: Platform.OS === 'ios' ? 0.14 : 0.12,
+                      elevation: Platform.OS === 'android' ? 14 : 0,
+                    }),
               }]}>
                 {/* Hero illustration */}
                 <View style={[styles.gatewayHero, { backgroundColor: isDark ? '#2c2c2e' : '#fafafa' }]}>
@@ -524,7 +515,7 @@ export default function MaterialsScreen({ goBack }: Props) {
           {!loading && activeTab === 'materials' && showMaterialsList && (
             <Animated.View style={[styles.cardList, { opacity: tabFadeAnim }]}>
               {materials.map((m, index) => (
-                <StaggerRow key={m._id} index={index}>
+                <StaggerRow key={m._id} index={index} instant>
                   <MaterialCard
                     material={m}
                     colors={colors}
@@ -546,12 +537,16 @@ export default function MaterialsScreen({ goBack }: Props) {
 
           {/* Bundles Tab — Gateway */}
           {!loading && activeTab === 'bundles' && !showBundlesList && (
-            <Animated.View style={{ opacity: Animated.multiply(screenFade, tabFadeAnim) }}>
+            <Animated.View style={{ opacity: tabFadeAnim }}>
               <View style={[styles.gatewayCard, {
                 backgroundColor: colors.card,
                 borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
-                shadowOpacity: isDark ? 0 : Platform.OS === 'ios' ? 0.14 : 0.12,
-                elevation: isDark ? 0 : Platform.OS === 'android' ? 14 : 0,
+                ...(isDark
+                  ? cardShadowDark('raised')
+                  : {
+                      shadowOpacity: Platform.OS === 'ios' ? 0.14 : 0.12,
+                      elevation: Platform.OS === 'android' ? 14 : 0,
+                    }),
               }]}>
                 {/* Hero illustration */}
                 <View style={[styles.gatewayHero, { backgroundColor: isDark ? '#2c2c2e' : '#fafafa' }]}>
@@ -621,7 +616,7 @@ export default function MaterialsScreen({ goBack }: Props) {
               ) : (
                 <View style={styles.cardList}>
                   {bundles.map((b, index) => (
-                    <StaggerRow key={b._id} index={index}>
+                    <StaggerRow key={b._id} index={index} instant>
                       <BundleCard
                         bundle={b}
                         colors={colors}

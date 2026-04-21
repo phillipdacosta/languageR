@@ -112,6 +112,7 @@ export interface User {
     aiAnalysisEnabled?: boolean;
     calendarTimeFormat?: '12h' | '24h';
     calendarDefaultView?: 'week' | 'day';
+    weeklyEarningsGoal?: number;
   };
   stats?: {
     totalLessons: number;

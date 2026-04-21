@@ -40,6 +40,7 @@ import { HomeInlineToolbarService } from '../services/home-inline-toolbar.servic
 import { MaterialService, TutorMaterial } from '../services/material.service';
 import { TutorGrowthService, GrowthInsight, GrowthContext } from '../services/tutor-growth.service';
 import { ScheduleClassPage } from '../tutor-calendar/schedule-class/schedule-class.page';
+import { MOCK_CLASS_ATTENDEES_PREVIEW } from '../constants/mock-class-attendees-preview';
 
 @Component({
   selector: 'app-tab1',
@@ -163,6 +164,32 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   private _earningsVisibilityHandler: (() => void) | null = null;
   private _lastEarningsVisibilityRefresh = 0;
 
+  // ─── Desktop earnings widget: weekly goal progress (tutor-only) ───
+  /** Sum of `price` for completed lessons this week (Sun–Sat) where current user is tutor. */
+  weeklyEarningsCompleted = 0;
+  /** Sum of `price` for scheduled/confirmed/in_progress lessons this week. */
+  weeklyEarningsScheduled = 0;
+  /** Count of scheduled lessons this week — used in non-$ copy ("3 lessons scheduled"). */
+  weeklyScheduledLessonCount = 0;
+  /** User-configurable target; persisted per-user in localStorage. */
+  weeklyEarningsGoal = 500;
+  /** 0–100, for the solid (earned) fill. */
+  weeklyEarningsGoalPercent = 0;
+  /** 0–100, for the ghost overlay (earned + scheduled). */
+  weeklyEarningsScheduledPercent = 0;
+  /** Pre-formatted amount label, e.g. "$340 of $500 goal". */
+  weeklyEarningsGoalLabel = '';
+  /** Secondary context line: empty-state / daily target / reached copy. */
+  weeklyEarningsGoalSubLabel = '';
+  /** True when current total ≥ goal — used to switch the bar to a "success" state. */
+  isWeeklyGoalReached = false;
+  /** True when wallet balance is masked (respect same privacy rule as Total Balance). */
+  isWeeklyGoalMasked = false;
+  /** True when inline "Set goal" input is open. */
+  isEditingWeeklyGoal = false;
+  /** Bound to the inline edit input; reset on cancel. */
+  weeklyGoalEditValue: number = 500;
+
   // Inline earnings view toggle
   showEarningsView = false;
   returningFromEarnings = false;
@@ -192,6 +219,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   private _savedScrollBeforeSchedule = 0;
   scheduleClassBackdropVisible = false;
   scheduleClassModalReady = false;
+
+  /** Forum: same shell as My Classes / Create Material quick actions */
+  showForumView = false;
+  private _savedScrollBeforeForum = 0;
+  forumBackdropVisible = false;
+  forumModalReady = false;
 
   // Cached count of active (non-cancelled) invitations — updated when pendingClassInvitations changes
   activeInvitationsCount = 0;
@@ -228,6 +261,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   nextLessonTutor: any = null;
   upNextFormattedPrice = '';
   upNextLevelLabel = '';
+  /** Class Up Next: real or preview attendees for `app-class-attendees` (never overwrites API data). */
+  nextLessonClassAttendeesDisplay: any[] = [];
   
   // Tutor date strip and upcoming lesson
   dateStrip: { label: string; dayNum: number; date: Date; isToday: boolean }[] = [];
@@ -587,6 +622,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         // Load availability immediately — it controls the primary CTA
         if (this.isTutor()) {
           this.loadAvailability();
+          this.loadWeeklyEarningsGoalFromStorage();
+          this.refreshWeeklyEarningsProgress();
           // Defer earnings only — loadTutorInsights runs after loadLessons so growth context sees full lesson feed
           setTimeout(() => {
             this.loadTutorEarnings();
@@ -801,18 +838,21 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         ) {
           // Force re-render inline panels that may be visually stale after
           // returning from a root-level route (e.g. /material/:id on native iOS)
-          if (this.showCreateMaterialView || this.showExploreView || this.showScheduleClassView) {
+          if (this.showCreateMaterialView || this.showExploreView || this.showScheduleClassView || this.showForumView) {
             const wasCM = this.showCreateMaterialView;
             const wasExplore = this.showExploreView;
             const wasSchedule = this.showScheduleClassView;
+            const wasForum = this.showForumView;
             this.showCreateMaterialView = false;
             this.showExploreView = false;
             this.showScheduleClassView = false;
+            this.showForumView = false;
             this.cdr.detectChanges();
             requestAnimationFrame(() => {
               this.showCreateMaterialView = wasCM;
               this.showExploreView = wasExplore;
               this.showScheduleClassView = wasSchedule;
+              this.showForumView = wasForum;
               this.cdr.detectChanges();
               if (wasCM && this.createMaterialRef?.restoreSection) {
                 this.createMaterialRef.restoreSection();
@@ -1813,6 +1853,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     if (this.showScheduleClassView && !toMaterial) {
       this.closeScheduleClassModal(false);
     }
+    if (this.showForumView && !toMaterial) {
+      this.closeForumModal(false);
+    }
   }
 
   // ── Feedback Grace Period Countdown ──────────────────────
@@ -2483,7 +2526,49 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   }
 
   navigateToForum(): void {
-    this.router.navigate(['/tabs/forum']);
+    this.openForumModal();
+  }
+
+  openForumModal(): void {
+    this._savedScrollBeforeForum = this._scrollElRef?.scrollTop || 0;
+    this.showForumView = true;
+    this.forumModalReady = false;
+    this.forumBackdropVisible = false;
+    this.cdr.detectChanges();
+    if (this.isMobile) {
+      this.ionContent?.scrollToTop(0);
+      return;
+    }
+    document.body.classList.add('cm-desktop-modal-open');
+    requestAnimationFrame(() => {
+      this.forumBackdropVisible = true;
+      this.cdr.detectChanges();
+    });
+    setTimeout(() => {
+      this.forumModalReady = true;
+      this.cdr.detectChanges();
+    }, 350);
+  }
+
+  closeForumModal(restoreScroll = true): void {
+    this.forumModalReady = false;
+    this.forumBackdropVisible = false;
+    this.showForumView = false;
+    document.body.classList.remove('cm-desktop-modal-open');
+    this.cdr.detectChanges();
+    if (restoreScroll && this._scrollElRef) {
+      this._scrollElRef.scrollTop = this._savedScrollBeforeForum;
+    }
+  }
+
+  onForumGoBack(): void {
+    this.closeForumModal(true);
+  }
+
+  onForumModalBackdropClick(ev: MouseEvent): void {
+    if ((ev.target as HTMLElement).classList.contains('cm-modal-backdrop')) {
+      this.onForumGoBack();
+    }
   }
 
   navigateToCreateMaterial(event?: MouseEvent) {
@@ -4998,11 +5083,22 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       };
       const rawLevel = lesson.classData?.level || lesson.level || '';
       this.upNextLevelLabel = levelMap[rawLevel] || '';
+      this.nextLessonClassAttendeesDisplay = this.getClassAttendeesForPreview(lesson);
     } else {
       this.upNextFormattedPrice = '';
       this.upNextLevelLabel = '';
+      this.nextLessonClassAttendeesDisplay = [];
     }
     this.refreshNextLessonTimeSensitiveFields();
+    this.refreshWeeklyEarningsProgress();
+  }
+
+  /** Real enrollments when present; otherwise mock list so Up Next “Going” is visible in dev/preview. */
+  private getClassAttendeesForPreview(lesson: any): any[] {
+    if (!lesson?.isClass) return [];
+    const a = lesson.attendees;
+    if (Array.isArray(a) && a.length > 0) return a;
+    return [...MOCK_CLASS_ATTENDEES_PREVIEW];
   }
 
   /** Syncs mobile tutor welcome hero, empty-state copy, and Up Next cover when lessons load. */
@@ -8093,6 +8189,9 @@ navigateToLessons() {
     if (this.showScheduleClassView) {
       this.closeScheduleClassModal(false);
     }
+    if (this.showForumView) {
+      this.closeForumModal(false);
+    }
   }
 
   onExploreGoBack() {
@@ -8509,6 +8608,172 @@ navigateToLessons() {
     }
   }
 
+  // ─── Weekly earnings goal (desktop earnings widget) ─────────────────────────
+  /** Per-user key; keeps goals isolated across tutors sharing a browser.
+   * Persistence hierarchy: profile.weeklyEarningsGoal (DB) → localStorage (offline cache) → 500 default.
+   */
+  private get weeklyGoalStorageKey(): string {
+    return `tutorWeeklyEarningsGoal_${this.currentUser?.id || 'anon'}`;
+  }
+
+  /** Hydrate from user profile first, then localStorage cache, then default.
+   * Called on initial load and whenever currentUser$ emits.
+   */
+  private loadWeeklyEarningsGoalFromStorage(): void {
+    const fromProfile = Number((this.currentUser as any)?.profile?.weeklyEarningsGoal);
+    if (Number.isFinite(fromProfile) && fromProfile > 0) {
+      this.weeklyEarningsGoal = Math.round(fromProfile);
+      try { localStorage.setItem(this.weeklyGoalStorageKey, String(this.weeklyEarningsGoal)); } catch { /* ignore */ }
+      this.weeklyGoalEditValue = this.weeklyEarningsGoal;
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(this.weeklyGoalStorageKey);
+      const parsed = raw != null ? parseFloat(raw) : NaN;
+      if (Number.isFinite(parsed) && parsed > 0) {
+        this.weeklyEarningsGoal = Math.round(parsed);
+      }
+    } catch { /* storage disabled — keep default */ }
+    this.weeklyGoalEditValue = this.weeklyEarningsGoal;
+  }
+
+  /** Recomputes earned + scheduled from lessons; safe to call any time lessons change. */
+  refreshWeeklyEarningsProgress(): void {
+    if (!this.isTutorUser) {
+      this.weeklyEarningsCompleted = 0;
+      this.weeklyEarningsScheduled = 0;
+      this.weeklyScheduledLessonCount = 0;
+      this.updateWeeklyEarningsLabels();
+      return;
+    }
+    const now = new Date();
+    const weekStart = this.getStartOfWeek(this.startOfDay(now));
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+
+    const earnedStatuses = new Set(['completed', 'ended_early']);
+    const upcomingStatuses = new Set(['scheduled', 'confirmed', 'in_progress']);
+
+    // pastLessons → completed; this.lessons may hold upcoming AND recently-completed.
+    const pool: Lesson[] = [...(this.pastLessons || []), ...(this.lessons || [])];
+    const seen = new Set<string>();
+    let earned = 0;
+    let scheduled = 0;
+    let scheduledCount = 0;
+    for (const l of pool) {
+      const id = String((l as any)._id || '');
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      const start = new Date(l.startTime);
+      if (!(start >= weekStart && start < weekEnd)) continue;
+      const price = Number((l as any).price);
+      if (!Number.isFinite(price) || price <= 0) continue;
+      if (earnedStatuses.has(l.status)) {
+        earned += price;
+      } else if (upcomingStatuses.has(l.status)) {
+        scheduled += price;
+        scheduledCount += 1;
+      }
+    }
+    this.weeklyEarningsCompleted = Math.round(earned * 100) / 100;
+    this.weeklyEarningsScheduled = Math.round(scheduled * 100) / 100;
+    this.weeklyScheduledLessonCount = scheduledCount;
+    this.updateWeeklyEarningsLabels();
+  }
+
+  private updateWeeklyEarningsLabels(): void {
+    const goal = this.weeklyEarningsGoal > 0 ? this.weeklyEarningsGoal : 1;
+    const earned = this.weeklyEarningsCompleted;
+    const scheduled = this.weeklyEarningsScheduled;
+    const scheduledCount = this.weeklyScheduledLessonCount;
+
+    const earnedPct = Math.max(0, Math.min(100, (earned / goal) * 100));
+    const combinedPct = Math.max(0, Math.min(100, ((earned + scheduled) / goal) * 100));
+    this.weeklyEarningsGoalPercent = earnedPct;
+    this.weeklyEarningsScheduledPercent = combinedPct;
+    this.isWeeklyGoalReached = earned >= this.weeklyEarningsGoal;
+
+    // When wallet balance is masked we hide the entire goal section — no need to compute
+    // masked copy variants. Still set the flag so the template's *ngIf can gate visibility.
+    this.isWeeklyGoalMasked = !this.showWalletBalance && !this.walletTemporarilyVisible;
+
+    const fmt = (n: number) => (Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`);
+    this.weeklyEarningsGoalLabel = `${fmt(earned)} of ${fmt(this.weeklyEarningsGoal)} goal`;
+
+    // Sub-label priority (first match wins).
+    const combined = earned + scheduled;
+    const lessonWord = scheduledCount === 1 ? 'lesson' : 'lessons';
+
+    if (this.isWeeklyGoalReached) {
+      this.weeklyEarningsGoalSubLabel = 'Goal reached — nice work';
+      return;
+    }
+
+    if (earned > 0) {
+      if (combined >= this.weeklyEarningsGoal && scheduled > 0) {
+        this.weeklyEarningsGoalSubLabel = `On pace · ${fmt(scheduled)} scheduled this week`;
+      } else {
+        const today = new Date();
+        const daysLeft = Math.max(1, 7 - today.getDay());
+        const remaining = Math.max(0, this.weeklyEarningsGoal - earned);
+        const perDay = Math.ceil(remaining / daysLeft);
+        this.weeklyEarningsGoalSubLabel = `$${perDay}/day to hit goal`;
+      }
+      return;
+    }
+
+    if (scheduled > 0) {
+      const shortfall = Math.max(0, this.weeklyEarningsGoal - scheduled);
+      this.weeklyEarningsGoalSubLabel = shortfall > 0
+        ? `${scheduledCount} ${lessonWord} scheduled · ${fmt(shortfall)} to go`
+        : `${scheduledCount} ${lessonWord} scheduled · on pace`;
+      return;
+    }
+
+    this.weeklyEarningsGoalSubLabel = this.hasAvailability
+      ? 'Open for bookings — no lessons yet'
+      : 'Add availability to start earning';
+  }
+
+  startEditWeeklyGoal(): void {
+    this.weeklyGoalEditValue = this.weeklyEarningsGoal;
+    this.isEditingWeeklyGoal = true;
+    this.cdr.markForCheck();
+  }
+
+  cancelEditWeeklyGoal(): void {
+    this.isEditingWeeklyGoal = false;
+    this.weeklyGoalEditValue = this.weeklyEarningsGoal;
+    this.cdr.markForCheck();
+  }
+
+  saveWeeklyGoal(): void {
+    const next = Math.round(Number(this.weeklyGoalEditValue));
+    if (!Number.isFinite(next) || next <= 0) {
+      this.cancelEditWeeklyGoal();
+      return;
+    }
+    const previous = this.weeklyEarningsGoal;
+    // Optimistic local update so UI feels instant; recompute percentages + sub-labels now.
+    this.weeklyEarningsGoal = next;
+    try { localStorage.setItem(this.weeklyGoalStorageKey, String(next)); } catch { /* ignore */ }
+    this.isEditingWeeklyGoal = false;
+    this.refreshWeeklyEarningsProgress();
+    this.cdr.markForCheck();
+
+    // Persist to DB. On failure, roll back to previous value so local + server stay in sync.
+    this.userService.updateProfile({ weeklyEarningsGoal: next } as any).subscribe({
+      error: (err) => {
+        console.error('Failed to save weekly earnings goal:', err);
+        this.weeklyEarningsGoal = previous;
+        this.weeklyGoalEditValue = previous;
+        try { localStorage.setItem(this.weeklyGoalStorageKey, String(previous)); } catch { /* ignore */ }
+        this.refreshWeeklyEarningsProgress();
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
   isTutor(): boolean {
     return this.currentUser?.['userType'] === 'tutor';
   }
@@ -8827,14 +9092,12 @@ navigateToLessons() {
   }
   
   onInviteStudentModalDismiss(event: any) {
-    
     this.isInviteStudentModalOpen = false;
-    
-    const data = event.detail?.data;
-    if (data && data.invited) {
-      // Refresh lessons to show updated invitations (no skeleton)
-      this.loadLessons(false);
-    }
+  }
+
+  /** Invite modal stays open after send; refresh home/calendar data when invites succeed. */
+  onInviteStudentsSent(_payload: { count: number }) {
+    this.loadLessons(false);
   }
 
   /**
@@ -8857,39 +9120,17 @@ navigateToLessons() {
   }
 
   async rescheduleClass(classId: string, lesson: Lesson) {
-    
     try {
-      const className = lesson?.className || lesson?.classData?.name || '';
-      
-      
-      const modal = await this.modalCtrl.create({
-        component: ConfirmActionModalComponent,
-        componentProps: {
-          title: 'Reschedule Class',
-          message: `Do you want to reschedule "${className}"? All invited students will be notified of this change.`,
-          confirmText: 'Reschedule',
-          cancelText: 'Cancel',
-          confirmColor: 'primary',
-          icon: 'calendar',
-          iconColor: 'primary'
-        },
-        cssClass: 'confirm-action-modal'
-      });
-
-      
-      await modal.present();
-      
-      
-      const { data } = await modal.onWillDismiss();
-      if (data && data.confirmed) {
-        // TODO: Implement class reschedule with availability calendar
-        const toast = await this.toastController.create({
-          message: 'Reschedule functionality coming soon',
-          duration: 2000,
-          position: 'bottom'
-        });
-        await toast.present();
-      }
+      const isTutor = this.lessonTutorIsCurrentUser(lesson);
+      const participantAvatar =
+        (lesson as any).classData?.thumbnail ||
+        (lesson as any).thumbnail ||
+        this.getOtherParticipantAvatar(lesson) ||
+        null;
+      const participantForModal = isTutor
+        ? (lesson as any).className || (lesson as any).classData?.name || lesson.subject || 'Class'
+        : lesson.tutorId;
+      await this.openRescheduleModal(classId, lesson, participantForModal, participantAvatar, false);
     } catch (error) {
       console.error('❌ Error opening reschedule class modal:', error);
     }
@@ -8900,7 +9141,7 @@ navigateToLessons() {
     
     try {
       // Get participant info
-      const isTutor = lesson.tutorId?._id === this.currentUser?.id;
+      const isTutor = this.lessonTutorIsCurrentUser(lesson);
       const otherParticipant = isTutor ? lesson.studentId : lesson.tutorId;
       
       // Get participant avatar
@@ -9231,27 +9472,52 @@ navigateToLessons() {
     this.selectedCancelReason = null;
   }
 
+  /**
+   * Whether the current user is the tutor on this row. Handles hub classes where `tutorId`
+   * may be a plain Mongo id string (see `loadLessons` class merge).
+   */
+  private lessonTutorIsCurrentUser(lesson: Lesson | null | undefined): boolean {
+    if (!lesson?.tutorId || !this.currentUser?.id) {
+      return false;
+    }
+    const t = lesson.tutorId as any;
+    const tid = t?._id ?? t;
+    return String(tid) === String(this.currentUser.id);
+  }
+
   // Open reschedule modal with embedded availability calendar
   async openRescheduleModal(lessonId: string, lesson: Lesson, participantObject: any, participantAvatar: string | null, showBackButton: boolean = false) {
-    
-    
+    const isClassLesson = !!(lesson as any)?.isClass;
+
     // Get the other participant's ID
-    const isTutor = lesson.tutorId?._id === this.currentUser?.id;
+    const isTutor = this.lessonTutorIsCurrentUser(lesson);
     let otherParticipantId: string | null = null;
-    
+
     // Use the passed participant object, or extract from lesson
     let otherParticipant = participantObject;
     if (!otherParticipant) {
       otherParticipant = isTutor ? lesson.studentId : lesson.tutorId;
     }
-    
+
     if (otherParticipant && typeof otherParticipant === 'object') {
       otherParticipantId = (otherParticipant as any)?._id || (otherParticipant as any)?.id;
     } else if (typeof otherParticipant === 'string') {
-      otherParticipantId = otherParticipant;
+      otherParticipantId = null;
     }
-    
-    if (!otherParticipantId || !this.currentUser?.id) {
+
+    if (!this.currentUser?.id) {
+      const toast = await this.toastController.create({
+        message: 'Could not find participant information',
+        duration: 2000,
+        color: 'danger',
+        position: 'bottom'
+      });
+      await toast.present();
+      return;
+    }
+
+    // Group classes have no single "other student"; reschedule modal skips mutual student-busy load.
+    if (!isClassLesson && !otherParticipantId) {
       const toast = await this.toastController.create({
         message: 'Could not find participant information',
         duration: 2000,
@@ -9266,11 +9532,16 @@ navigateToLessons() {
     // If it's a string, pass it as-is (will be formatted in modal)
     const participantNameForModal = otherParticipant || 'Student';
     
+    const participantIdForModal =
+      isClassLesson && isTutor
+        ? String(this.currentUser.id)
+        : String(otherParticipantId);
+
     // Set modal data and open inline modal (no programmatic creation = no JIT compilation delay)
     this.rescheduleModalData = {
       lessonId: lessonId,
       lesson: lesson,
-      participantId: otherParticipantId,
+      participantId: participantIdForModal,
       participantName: participantNameForModal,
       participantAvatar: participantAvatar || undefined,
       currentUserId: this.currentUser.id,

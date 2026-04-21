@@ -27,6 +27,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../hooks/useAuth';
 import { materialService } from '../services/materials';
 import type { MaterialType, LinkedChannels, TutorMaterial } from '../services/materials';
+import { cardShadowDark } from '../utils/cardShadow';
 
 /** Paid-option checkmark color — matches bundle share step */
 const SETUP_AVAILABILITY_BLUE = '#08a0e8';
@@ -1472,7 +1473,7 @@ function StepType({ hasVideoChannel, onSelect, colors, t }: {
                 {
                   backgroundColor: colors.card,
                   borderColor: colors.border,
-                  shadowOpacity: isDark ? 0 : 0.05,
+                  ...(isDark ? cardShadowDark('subtle') : { shadowOpacity: 0.05 }),
                   opacity: disabled ? 0.45 : 1,
                 },
               ]}
@@ -1584,7 +1585,7 @@ function StepPricing({ selectedType, selectedPricing, getTypeLabel, onSelect, ch
                   backgroundColor: colors.card,
                   borderColor: selectedPricing === 'free' ? colors.text : colors.border,
                   borderWidth: selectedPricing === 'free' ? 2 : 1,
-                  shadowOpacity: isDark ? 0 : 0.05,
+                  ...(isDark ? cardShadowDark('subtle') : { shadowOpacity: 0.05 }),
                 },
               ]}
               activeOpacity={0.7}
@@ -1607,7 +1608,7 @@ function StepPricing({ selectedType, selectedPricing, getTypeLabel, onSelect, ch
                   backgroundColor: colors.card,
                   borderColor: selectedPricing === 'paid' ? colors.text : colors.border,
                   borderWidth: selectedPricing === 'paid' ? 2 : 1,
-                  shadowOpacity: isDark ? 0 : 0.05,
+                  ...(isDark ? cardShadowDark('subtle') : { shadowOpacity: 0.05 }),
                 },
               ]}
               activeOpacity={0.7}

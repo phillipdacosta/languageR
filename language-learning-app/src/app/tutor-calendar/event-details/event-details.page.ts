@@ -4,7 +4,7 @@ import { Location } from '@angular/common';
 import { IonicModule, ModalController, ToastController, LoadingController, ViewWillEnter, ViewDidEnter } from '@ionic/angular';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { LessonService, Lesson } from '../../services/lesson.service';
+import { LessonService, Lesson, CachedLessonDetailBundle } from '../../services/lesson.service';
 import { AnalysisTranslationService } from '../../services/analysis-translation.service';
 import { ClassService } from '../../services/class.service';
 import { UserService, User } from '../../services/user.service';
@@ -31,6 +31,7 @@ import {
   getMockBillingAndPayment,
   getMockRecommendedMaterials,
 } from '../../lessons/lesson-mock-preview';
+import { MOCK_CLASS_ATTENDEES_PREVIEW } from '../../constants/mock-class-attendees-preview';
 
 // ── Interfaces ──────────────────────────────────────────────────
 interface AnalysisData {
@@ -302,6 +303,10 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
   // Class students display
   classStudentsDisplay: { name: string; picture?: string; initials: string; paid?: boolean }[] = [];
+  /** Class details grid: stacked avatars — real `confirmedStudents`, or preview mocks when empty (same as Up Next). */
+  classAttendeesForGridStack: any[] = [];
+  /** Omit when showing preview mocks so capacity does not contradict the stats row (e.g. 0/6). */
+  classAttendeesForGridCapacity: number | undefined = undefined;
 
   // Class layout (matching lesson layout)
   classTutorName = '';
@@ -333,6 +338,8 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   // Countdown
   private countdownInterval: any;
   private pendingRequests = 0;
+  /** True while a background cache-revalidation is running — suppresses loading flips. */
+  private isRevalidating = false;
 
   private get userTz(): string | undefined {
     return this.currentUser?.profile?.timezone || undefined;
@@ -586,12 +593,34 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
   loadEventDetails() {
     if (!this.eventId) return;
-    this.loading = true;
 
     if (isLessonMockId(this.eventId)) {
+      this.loading = true;
       this.applyMockLessonDetails(this.eventId);
       return;
     }
+
+    // Stale-while-revalidate: hydrate from cache (skip skeleton), then refetch.
+    const cached = this.lessonService.getCachedLessonDetail(this.eventId);
+    if (cached?.lesson || cached?.classData) {
+      this.hydrateFromCache(cached);
+      this.revalidateFromServer();
+      return;
+    }
+
+    this.loading = true;
+    this.fetchLessonDetail(/* silent */ false);
+  }
+
+  /** Background revalidate after a cache hit — never flips `loading` back on. */
+  private revalidateFromServer() {
+    if (!this.eventId || this.isRevalidating) return;
+    this.isRevalidating = true;
+    this.fetchLessonDetail(true);
+  }
+
+  private fetchLessonDetail(silent: boolean) {
+    if (!this.eventId) return;
 
     this.lessonService.getLesson(this.eventId).subscribe({
       next: (response: any) => {
@@ -599,7 +628,8 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
           this.lesson = response.lesson;
           this.isClass = false;
           this.lessonsWithParticipant = response.lessonsCompleted || 0;
-          // Tutor stats from backend aggregation (not from populated user)
+
+          let tutorStats: any = undefined;
           if (response.tutorStats) {
             const ts = response.tutorStats;
             if (ts.rating && Number(ts.rating) >= 4.0) {
@@ -608,28 +638,126 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
             }
             this.tutorStatsTotalLessons = ts.totalLessons || 0;
             this.tutorStatsStudents = ts.students || 0;
+            tutorStats = {
+              rating: ts.rating,
+              totalLessons: ts.totalLessons,
+              students: ts.students,
+            };
           }
+
           this.recentLessons = (response.recentLessons || []).map((l: any) => ({
             _id: l._id,
             subject: l.subject || 'Language Lesson',
             dateLabel: formatDateInTz(l.startTime, this.userTz, { month: 'short', day: 'numeric' }),
-            durationLabel: l.duration < 60 ? `${l.duration}m` : `${Math.floor(l.duration / 60)}h${l.duration % 60 ? ` ${l.duration % 60}m` : ''}`
+            durationLabel: l.duration < 60
+              ? `${l.duration}m`
+              : `${Math.floor(l.duration / 60)}h${l.duration % 60 ? ` ${l.duration % 60}m` : ''}`
           }));
-          // loading stays true — skeleton visible until all additional data loads
+
           this.computeAllProperties();
-          this.loadAdditionalData();
-          this.startCountdown();
+
+          this.lessonService.updateCachedLessonDetail(this.eventId!, {
+            lesson: this.lesson,
+            isClass: false,
+            lessonsCompleted: this.lessonsWithParticipant,
+            tutorStats,
+            recentLessons: this.recentLessons,
+          });
+
+          this.loadAdditionalData(silent);
+          if (!silent) this.startCountdown();
+          if (silent) this.isRevalidating = false;
         } else {
-          this.loadClassDetails();
+          this.loadClassDetails(silent);
         }
       },
       error: () => {
-        this.loadClassDetails();
+        this.loadClassDetails(silent);
       }
     });
   }
 
-  loadClassDetails() {
+  /** Sync-hydrate the view from a cached bundle so no skeleton is rendered. */
+  private hydrateFromCache(cached: CachedLessonDetailBundle) {
+    if (cached.classData) {
+      this.classData = cached.classData;
+      this.isClass = true;
+      if (this.classData?.description) {
+        this.sanitizedDescription = this.sanitizer.bypassSecurityTrustHtml(this.classData.description);
+      }
+      this.computeClassProperties();
+    } else if (cached.lesson) {
+      this.lesson = cached.lesson;
+      this.isClass = false;
+      this.lessonsWithParticipant = cached.lessonsCompleted || 0;
+      if (cached.tutorStats) {
+        const ts = cached.tutorStats;
+        if (ts.rating && Number(ts.rating) >= 4.0) {
+          this.tutorStatsRating = Number(ts.rating).toFixed(1);
+          this.tutorStatsRatingRounded = Math.round(Number(ts.rating));
+        }
+        this.tutorStatsTotalLessons = ts.totalLessons || 0;
+        this.tutorStatsStudents = ts.students || 0;
+      }
+      this.recentLessons = cached.recentLessons || [];
+
+      this.computeAllProperties();
+
+      if (cached.analysis) {
+        this.analysisData = cached.analysis;
+        this.computeAnalysisProperties();
+      }
+      if (cached.analysisUnavailable) {
+        this.analysisUnavailable = true;
+      }
+      if (cached.feedback) {
+        this.tutorFeedback = cached.feedback;
+        this.computeFeedbackProperties();
+      }
+      if (cached.billing) {
+        this.billingData = cached.billing;
+        this.computeBillingProperties();
+      }
+      if (cached.payment) {
+        this.paymentData = cached.payment;
+        this.computePaymentStatus();
+      }
+      if (cached.previousNotes?.hasPreviousNotes && cached.previousNotes.analysis) {
+        this.previousNotesData = cached.previousNotes;
+        this.hasPreviousNotes = true;
+        this.previousNotesIsAiSource = cached.previousNotes.analysis.source !== 'tutor';
+        if (cached.previousNotes.previousLessonDate) {
+          this.previousNotesDate = new Date(cached.previousNotes.previousLessonDate)
+            .toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }
+        if (cached.previousNotes.analysis.tutorNote?.text) {
+          this.previousNotesSanitized = this.sanitizer.bypassSecurityTrustHtml(cached.previousNotes.analysis.tutorNote.text);
+        }
+      }
+      if (cached.paymentMethod) {
+        this.paymentMethodLabel = cached.paymentMethod.label;
+        this.paymentMethodIcon = cached.paymentMethod.icon;
+      }
+      if (cached.tutorMaterials?.length) {
+        this.tutorMaterials = cached.tutorMaterials as any;
+      }
+      if (cached.recommendedMaterials?.length) {
+        this.recommendedMaterials = cached.recommendedMaterials as any;
+        this.recommendedStruggles = cached.recommendedStruggles || [];
+        this.hasRecommendations = true;
+      }
+
+      this.computeFeedbackStatus();
+      this.resolveSidebarNotes();
+    }
+
+    this.loading = false;
+    this.startCountdown();
+    this.flipTransition.cleanup();
+    this.cdr.detectChanges();
+  }
+
+  loadClassDetails(silent = false) {
     if (!this.eventId) return;
 
     this.classService.getClass(this.eventId).subscribe({
@@ -640,17 +768,29 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
           if (this.classData?.description) {
             this.sanitizedDescription = this.sanitizer.bypassSecurityTrustHtml(this.classData.description);
           }
-          this.loading = false;
+          if (!silent) this.loading = false;
           this.computeClassProperties();
-          this.startCountdown();
-          this.flipTransition.cleanup();
-        } else {
+          if (!silent) this.startCountdown();
+          if (!silent) this.flipTransition.cleanup();
+          this.lessonService.updateCachedLessonDetail(this.eventId!, {
+            lesson: null,
+            classData: this.classData,
+            isClass: true,
+          });
+          if (silent) this.isRevalidating = false;
+        } else if (!silent) {
           this.error = 'Event not found';
           this.loading = false;
           this.flipTransition.cleanup();
+        } else {
+          this.isRevalidating = false;
         }
       },
       error: () => {
+        if (silent) {
+          this.isRevalidating = false;
+          return;
+        }
         this.error = 'Failed to load event details';
         this.loading = false;
         this.flipTransition.cleanup();
@@ -658,32 +798,34 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     });
   }
 
-  private loadAdditionalData() {
+  private loadAdditionalData(silent = false) {
     if (!this.eventId || !this.lesson) {
-      this.loading = false;
+      if (!silent) this.loading = false;
       return;
     }
 
-    // Track all pending requests — skeleton stays until everything resolves
-    this.pendingRequests = 5; // analysis + feedback + billing + payment + previous notes
-    if (this.isStudentUser) {
-      this.pendingRequests++; // + payment method
-    }
+    if (!silent) {
+      // Track all pending requests — skeleton stays until everything resolves
+      this.pendingRequests = 5; // analysis + feedback + billing + payment + previous notes
+      if (this.isStudentUser) {
+        this.pendingRequests++; // + payment method
+      }
 
-    this.hasPreviousNotes = false;
-    this.previousNotesData = null;
-    this.previousNotesSanitized = null;
-    this.showSidebarNotesEmpty = false;
-    this.sidebarNotesEmptyDescKey = 'EVENT_DETAILS.SIDEBAR_NOTES_EMPTY_DESC_STUDENT';
-    this.hasSidebarNotes = false;
-    this.sidebarNotesSource = null;
-    this.sidebarNotesAnalysis = null;
-    this.sidebarNotesOriginalAnalysis = null;
-    this.sidebarNotesSanitized = null;
-    this.sidebarNotesAnalysisId = null;
-    this.sidebarNotesTranslating = false;
-    this.sidebarNotesShowingTranslation = false;
-    this.sidebarNotesTranslationCache = null;
+      this.hasPreviousNotes = false;
+      this.previousNotesData = null;
+      this.previousNotesSanitized = null;
+      this.showSidebarNotesEmpty = false;
+      this.sidebarNotesEmptyDescKey = 'EVENT_DETAILS.SIDEBAR_NOTES_EMPTY_DESC_STUDENT';
+      this.hasSidebarNotes = false;
+      this.sidebarNotesSource = null;
+      this.sidebarNotesAnalysis = null;
+      this.sidebarNotesOriginalAnalysis = null;
+      this.sidebarNotesSanitized = null;
+      this.sidebarNotesAnalysisId = null;
+      this.sidebarNotesTranslating = false;
+      this.sidebarNotesShowingTranslation = false;
+      this.sidebarNotesTranslationCache = null;
+    }
 
     // Load learning plan summary (non-blocking sidebar data)
     if (this.isTutorUser && this.participantId) {
@@ -706,7 +848,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     }
 
     // Load analysis
-    this.analysisLoading = true;
+    if (!silent) this.analysisLoading = true;
     const headers = this.userService.getAuthHeadersSync();
     this.http.get<any>(
       `${environment.backendUrl}/api/transcription/lesson/${this.eventId}/analysis`,
@@ -716,35 +858,39 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         if (res.success && res.analysis) {
           this.analysisData = res.analysis;
           this.computeAnalysisProperties();
+          this.lessonService.updateCachedLessonDetail(this.eventId!, { analysis: res.analysis });
         } else if (this.isLessonCompleted) {
           this.analysisUnavailable = true;
+          this.lessonService.updateCachedLessonDetail(this.eventId!, { analysisUnavailable: true });
         }
-        this.analysisLoading = false;
-        this.onRequestComplete();
+        if (!silent) this.analysisLoading = false;
+        this.onRequestComplete(silent);
       },
       error: (err: any) => {
         if (err?.error?.status === 'unavailable' || this.isLessonCompleted) {
           this.analysisUnavailable = true;
+          this.lessonService.updateCachedLessonDetail(this.eventId!, { analysisUnavailable: true });
         }
-        this.analysisLoading = false;
-        this.onRequestComplete();
+        if (!silent) this.analysisLoading = false;
+        this.onRequestComplete(silent);
       }
     });
 
     // Load tutor feedback
-    this.feedbackLoading = true;
+    if (!silent) this.feedbackLoading = true;
     this.tutorFeedbackService.getFeedbackForLesson(this.eventId).subscribe({
       next: (res) => {
         if (res.success && res.hasFeedback && res.feedback) {
           this.tutorFeedback = res.feedback;
           this.computeFeedbackProperties();
+          this.lessonService.updateCachedLessonDetail(this.eventId!, { feedback: res.feedback });
         }
-        this.feedbackLoading = false;
-        this.onRequestComplete();
+        if (!silent) this.feedbackLoading = false;
+        this.onRequestComplete(silent);
       },
       error: () => {
-        this.feedbackLoading = false;
-        this.onRequestComplete();
+        if (!silent) this.feedbackLoading = false;
+        this.onRequestComplete(silent);
       }
     });
 
@@ -754,17 +900,18 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         if (res.success && res.billing) {
           this.billingData = res.billing;
           this.computeBillingProperties();
+          this.lessonService.updateCachedLessonDetail(this.eventId!, { billing: res.billing });
         }
-        this.onRequestComplete();
+        this.onRequestComplete(silent);
       },
       error: () => {
-        this.onRequestComplete();
+        this.onRequestComplete(silent);
       }
     });
 
     // Load payment details (for financial status section)
     // Use a dedicated method that ensures valid auth headers
-    this.loadPaymentDetails();
+    this.loadPaymentDetails(0, silent);
 
     // Load payment method (student only)
     if (this.isStudentUser) {
@@ -776,12 +923,15 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
             );
             if (payment) {
               this.computePaymentMethodLabel(payment.paymentMethod);
+              this.lessonService.updateCachedLessonDetail(this.eventId!, {
+                paymentMethod: { label: this.paymentMethodLabel, icon: this.paymentMethodIcon },
+              });
             }
           }
-          this.onRequestComplete();
+          this.onRequestComplete(silent);
         },
         error: () => {
-          this.onRequestComplete();
+          this.onRequestComplete(silent);
         }
       });
     }
@@ -797,11 +947,12 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
           if (res.analysis.tutorNote?.text) {
             this.previousNotesSanitized = this.sanitizer.bypassSecurityTrustHtml(res.analysis.tutorNote.text);
           }
+          this.lessonService.updateCachedLessonDetail(this.eventId!, { previousNotes: res });
         }
-        this.onRequestComplete();
+        this.onRequestComplete(silent);
       },
       error: () => {
-        this.onRequestComplete();
+        this.onRequestComplete(silent);
       }
     });
 
@@ -835,6 +986,12 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
           }));
           this.recommendedStruggles = res.struggles || [];
           this.hasRecommendations = true;
+          if (this.eventId) {
+            this.lessonService.updateCachedLessonDetail(this.eventId, {
+              recommendedMaterials: this.recommendedMaterials,
+              recommendedStruggles: this.recommendedStruggles,
+            });
+          }
         }
         this.recommendedLoading = false;
         this.cdr.detectChanges();
@@ -846,12 +1003,12 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     });
   }
 
-  private loadPaymentDetails(retryCount = 0) {
+  private loadPaymentDetails(retryCount = 0, silent = false) {
     const headers = this.userService.getAuthHeadersSync();
     const hasAuth = headers.has('Authorization');
 
     if (!hasAuth && retryCount < 2) {
-      setTimeout(() => this.loadPaymentDetails(retryCount + 1), 500);
+      setTimeout(() => this.loadPaymentDetails(retryCount + 1, silent), 500);
       return;
     }
 
@@ -863,21 +1020,41 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         if (res.success && res.payment) {
           this.paymentData = res.payment;
           this.computePaymentStatus();
+          if (this.eventId) {
+            this.lessonService.updateCachedLessonDetail(this.eventId, { payment: res.payment });
+          }
         }
-        this.onRequestComplete();
+        this.onRequestComplete(silent);
       },
       error: () => {
         if (retryCount < 2) {
-          setTimeout(() => this.loadPaymentDetails(retryCount + 1), 800);
+          setTimeout(() => this.loadPaymentDetails(retryCount + 1, silent), 800);
         } else {
-          this.onRequestComplete();
+          this.onRequestComplete(silent);
         }
       }
     });
   }
 
-  /** Called when each async request finishes — reveals content when all done */
-  private onRequestComplete() {
+  /**
+   * Called when each async request finishes.
+   * - Initial load (`silent=false`): flip `loading` off when everything resolves.
+   * - Background revalidate (`silent=true`): never touch `loading`; just refresh
+   *   sidebar/feedback projections and clear the revalidating flag at the end.
+   */
+  private onRequestComplete(silent = false) {
+    if (silent) {
+      // refresh derived projections in case analysis/feedback/previousNotes changed
+      this.computeFeedbackStatus();
+      this.resolveSidebarNotes();
+      this.cdr.detectChanges();
+      // the initial counter isn't maintained in silent mode; flag flips off
+      // opportunistically — any in-flight callbacks are safe because each one
+      // sets it independently.
+      this.isRevalidating = false;
+      return;
+    }
+
     this.pendingRequests--;
     if (this.pendingRequests <= 0) {
       this.computeFeedbackStatus();
@@ -1163,6 +1340,9 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
             _typeIcon: this.getMaterialTypeIcon(m.materialType),
             _typeLabel: this.getMaterialTypeLabel(m.materialType)
           }));
+        if (this.eventId) {
+          this.lessonService.updateCachedLessonDetail(this.eventId, { tutorMaterials: this.tutorMaterials });
+        }
         this.cdr.detectChanges();
       },
       error: () => {
@@ -1782,6 +1962,17 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       };
     });
 
+    const enrolled = this.classData.confirmedStudents || [];
+    if (enrolled.length > 0) {
+      this.classAttendeesForGridStack = enrolled;
+      const cap = this.classData.maxStudents ?? this.classData.capacity;
+      this.classAttendeesForGridCapacity =
+        cap != null && Number.isFinite(Number(cap)) && Number(cap) > 0 ? Number(cap) : undefined;
+    } else {
+      this.classAttendeesForGridStack = [...MOCK_CLASS_ATTENDEES_PREVIEW];
+      this.classAttendeesForGridCapacity = undefined;
+    }
+
     // Compute class payment status
     this.computeClassPaymentStatus();
   }
@@ -1965,6 +2156,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       await modal.present();
       const { data } = await modal.onDidDismiss();
       if (data?.accepted || data?.declined) {
+        if (this.eventId) this.lessonService.clearDetailCache(this.eventId);
         this.loadEventDetails();
       }
     } else if (this.classStudentCtaKind === 'join_session') {
@@ -2048,6 +2240,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     const result = await modal.onDidDismiss();
 
     if (result.data?.rescheduled) {
+      if (this.eventId) this.lessonService.clearDetailCache(this.eventId);
       this.loadEventDetails();
     }
   }
@@ -2127,6 +2320,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         });
         await toast.present();
         window.dispatchEvent(new CustomEvent('lesson-cancelled', { detail: { lessonId } }));
+        this.lessonService.clearDetailCache(lessonId);
         // Reload data
         this.loadEventDetails();
       } else {
@@ -2334,6 +2528,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       });
       await toast.present();
       window.dispatchEvent(new CustomEvent('lesson-cancelled', { detail: { lessonId: this.eventId } }));
+      if (this.eventId) this.lessonService.clearDetailCache(this.eventId);
       this.loadEventDetails();
     } catch (error: any) {
       await loading.dismiss();

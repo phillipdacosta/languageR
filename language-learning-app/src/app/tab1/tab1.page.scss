@@ -754,6 +754,34 @@ ion-content {
 }
 
 // Schedule Class (desktop) — fill expanded Create Material shell (white modal body, same as create material)
+.cm-modal-body--forum {
+  background: var(--forum-page-bg, #f7f8fa);
+  padding: 0;
+
+  app-forum {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  ::ng-deep .forum-inline-root {
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+  }
+
+  ::ng-deep .forum-inline-scroll {
+    background: var(--forum-page-bg, #f7f8fa);
+  }
+
+  ::ng-deep .forum-shell {
+    max-width: none;
+    padding-bottom: 32px;
+  }
+}
+
 .cm-modal-body--schedule-class {
   background: #ffffff;
 
@@ -1214,6 +1242,14 @@ ion-content {
 
   .cm-modal-body--schedule-class {
     background: #1c1c1e;
+  }
+
+  .cm-modal-body--forum {
+    background: #121214;
+
+    ::ng-deep .forum-inline-scroll {
+      background: #121214;
+    }
   }
 
   .cm-modal-back {
@@ -3315,15 +3351,15 @@ ion-content {
   color: #3c3c43;
 }
 
-// ── Class details row (price + level) below attendees ──
+// ── Class details row (price + level) below attendees — keep compact so Up Next doesn’t grow tall ──
 .upnext-class-details {
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  margin-top: 10px;
-  padding: 10px 16px;
+  gap: 12px;
+  margin-top: 6px;
+  padding: 6px 12px;
   background: #f7f7f8;
   border-radius: 12px;
   width: 100%;
@@ -3730,7 +3766,7 @@ img.m-card-empty-link-arrow-img {
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 14px; // was 10px — breathing room between tile and time, no vertical impact
   margin: 4px 0;
 
   .tw-date-badge {
@@ -3739,20 +3775,25 @@ img.m-card-empty-link-arrow-img {
 
   .tw-date-badge__time {
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 600; // was 500 — stronger hierarchy against "STARTS IN" below
     color: #3c3c43;
+    letter-spacing: -0.1px;
+    line-height: 1.3;
   }
 }
 
-// Countdown — subtle, below meta
+// Countdown — subtle, below meta.
+// `position: relative; top:` adds visual space above without affecting flow (so card height is unchanged).
+// The offset is capped at the parent's margin-bottom (12px) to avoid overlapping the Join button.
 .upnext-filled-countdown {
   font-size: 13px;
   font-weight: 500;
   color: #b0b0b0;
   margin: 0;
-  letter-spacing: 0.2px;
+  letter-spacing: 0.4px; // was 0.2px — label-like tracking, feels less cramped
   text-transform: uppercase;
-  
+  position: relative;
+  top: 12px;
   @media (max-width: 600px) {
     font-size: 12px;
   }
@@ -4868,8 +4909,10 @@ img.m-card-empty-link-arrow-img {
 
 .tw-day-group__date {
   flex-shrink: 0;
-  width: 88px;
-  min-width: 80px;
+  // Wide enough for a full range like "12:00 PM – 12:55 PM" on one line (strip scrolls horizontally).
+  width: auto;
+  min-width: 148px;
+  max-width: none;
   padding: 12px 12px 12px 4px;
   display: flex;
   flex-direction: column;
@@ -4893,7 +4936,7 @@ img.m-card-empty-link-arrow-img {
   flex-shrink: 0;
 
   &--today {
-    background: #fff0f0;
+    background: #e4fbff;
 
     .tw-date-badge__month {
       color: #ff3b30;
@@ -4945,6 +4988,7 @@ img.m-card-empty-link-arrow-img {
   color: #3c3c43;
   letter-spacing: -0.01em;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+  white-space: nowrap;
 }
 
 .tw-date-badge__duration {
@@ -5014,6 +5058,11 @@ img.m-card-empty-link-arrow-img {
   &:not(:last-child) {
     border-right: 1px solid #eeeeee;
   }
+}
+
+// Same strip: time in the body column stays one line when multiple sessions share a day.
+.timeline-section--week-strip .tw-day-event-cell {
+  min-width: 252px;
 }
 
 .tw-day-event-cell__icon-col {
@@ -5107,6 +5156,9 @@ img.m-card-empty-link-arrow-img {
   color: #1d1d1f;
   letter-spacing: -0.02em;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+  white-space: nowrap;
+  flex-shrink: 0;
+  max-width: none;
 }
 
 .tw-day-event-sub {
@@ -8790,7 +8842,7 @@ img.m-card-empty-link-arrow-img {
       align-items: center;
       padding: 12px 0;
       border-top: 1px solid #f3f4f6;
-      
+
       .pending-label {
         font-size: 14px;
         color: #6b7280;
@@ -8822,6 +8874,182 @@ img.m-card-empty-link-arrow-img {
     }
   }
   
+  // Weekly earnings goal (desktop only): FLAT section between Pending and Withdraw.
+  // Uses a hairline divider (same pattern as .earnings-pending) — no nested card surface.
+  .earnings-goal {
+    margin: 0 0 16px 0;
+    padding: 14px 0 2px 0;
+    border-top: 1px solid #f3f4f6;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    .earnings-goal__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    // Sentence-case, matches .earnings-label / .pending-label voice.
+    .earnings-goal__label {
+      font-size: 13px;
+      font-weight: 500;
+      color: #6b7280;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+
+    .earnings-goal__edit-btn {
+      background: transparent;
+      border: none;
+      width: 26px;
+      height: 26px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #9ca3af;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
+      padding: 0;
+      margin-right: -4px; // optical alignment to card edge
+
+      ion-icon { font-size: 15px; }
+
+      &:hover {
+        background: #f3f4f6;
+        color: #1f2937;
+      }
+    }
+
+    .earnings-goal__amount {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1f2937;
+      letter-spacing: -0.3px;
+      line-height: 1.1;
+      font-variant-numeric: tabular-nums;
+      margin-top: -2px;
+    }
+
+    .earnings-goal__bar {
+      position: relative;
+      width: 100%;
+      height: 8px;
+      border-radius: 999px;
+      background: #eef0f2;
+      overflow: hidden;
+    }
+
+    // Ghost/projected layer (earned + scheduled) — sits BEHIND the solid fill.
+    // Uses the same color at moderate opacity so scheduled work reads clearly as
+    // "committed, not yet banked" without competing with the solid earned fill.
+    .earnings-goal__bar-scheduled {
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      background: rgba(31, 41, 55, 0.32);
+      border-radius: 999px;
+      transition: width 0.45s cubic-bezier(0.2, 0.8, 0.2, 1),
+                  background-color 0.25s ease;
+      min-width: 8px; // always visible even when scheduled is a tiny sliver
+      z-index: 1;
+    }
+
+    .earnings-goal__bar-fill {
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      background: #1f2937;
+      border-radius: 999px;
+      transition: width 0.45s cubic-bezier(0.2, 0.8, 0.2, 1),
+                  background-color 0.25s ease;
+      min-width: 2px;
+      z-index: 2;
+    }
+
+    .earnings-goal__sub {
+      font-size: 12px;
+      font-weight: 500;
+      color: #9ca3af;
+      letter-spacing: 0;
+      font-variant-numeric: tabular-nums;
+    }
+
+    // Reached state — softer, encouraging green.
+    &.is-reached {
+      .earnings-goal__bar-fill { background: #22c55e; }
+      .earnings-goal__sub { color: #16a34a; font-weight: 600; }
+    }
+
+    // Inline edit mode — single row, Apple-style pill input + subtle actions.
+    .earnings-goal__edit {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 2px 0 6px 0;
+    }
+
+    .earnings-goal__currency {
+      font-size: 15px;
+      font-weight: 600;
+      color: #6b7280;
+    }
+
+    .earnings-goal__input {
+      flex: 1;
+      height: 36px;
+      padding: 0 10px;
+      border-radius: 10px;
+      border: 1px solid #d1d5db;
+      background: #ffffff;
+      font-size: 15px;
+      font-weight: 600;
+      color: #1f2937;
+      letter-spacing: -0.2px;
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+      &:focus {
+        border-color: #222222;
+        box-shadow: 0 0 0 3px rgba(34, 34, 34, 0.08);
+      }
+
+      &::-webkit-inner-spin-button,
+      &::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    }
+
+    .earnings-goal__cancel,
+    .earnings-goal__save {
+      height: 34px;
+      padding: 0 12px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+      border: 1px solid transparent;
+    }
+
+    .earnings-goal__cancel {
+      background: transparent;
+      color: #6b7280;
+      border-color: transparent;
+
+      &:hover { color: #1f2937; }
+    }
+
+    .earnings-goal__save {
+      background: #1f2937;
+      color: #ffffff;
+
+      &:hover { background: #111827; }
+    }
+  }
+
   .withdraw-btn {
     --border-radius: 12px;
     --border-color: #cfcfcf;
@@ -12503,12 +12731,14 @@ img.m-card-empty-link-arrow-img {
         }
       }
       
-      // Class attendees component (going section)
+      // Class attendees — single line; minimal vertical cost on the Up Next card
       app-class-attendees {
-        margin-top: 8px;
-        
+        margin-top: 4px;
+        align-self: flex-start;
+        max-width: 100%;
+
         @media (max-width: 600px) {
-          margin-top: 6px;
+          margin-top: 4px;
         }
       }
     }
@@ -13276,6 +13506,47 @@ img.m-card-empty-link-arrow-img {
       &:hover { --background: #fff !important; --color: #1a1a1a !important; --border-color: #fff !important; }
     }
     .view-details-link { color: #4298d3 !important; }
+
+    // Weekly goal — dark (flat section; no nested surface)
+    .earnings-goal {
+      border-top-color: #3a3a3a !important;
+
+      .earnings-goal__label { color: #9aa0a6 !important; }
+      .earnings-goal__edit-btn {
+        color: #8a8f95 !important;
+        &:hover { background: #2f2f2f !important; color: #ffffff !important; }
+      }
+      .earnings-goal__amount { color: #ffffff !important; }
+      .earnings-goal__bar { background: #2f2f2f !important; }
+      .earnings-goal__bar-scheduled { background: rgba(66, 152, 211, 0.42) !important; }
+      .earnings-goal__bar-fill { background: #4298d3 !important; }
+      .earnings-goal__sub { color: #8a8f95 !important; }
+
+      &.is-reached {
+        .earnings-goal__bar-fill { background: #22c55e !important; }
+        .earnings-goal__sub { color: #4ade80 !important; }
+      }
+
+      .earnings-goal__currency { color: #9aa0a6 !important; }
+      .earnings-goal__input {
+        background: #2a2a2a !important;
+        border-color: #3a3a3a !important;
+        color: #ffffff !important;
+        &:focus {
+          border-color: #4298d3 !important;
+          box-shadow: 0 0 0 3px rgba(66, 152, 211, 0.18) !important;
+        }
+      }
+      .earnings-goal__cancel {
+        color: #9aa0a6 !important;
+        &:hover { color: #ffffff !important; }
+      }
+      .earnings-goal__save {
+        background: #4298d3 !important;
+        color: #ffffff !important;
+        &:hover { background: #3a86bd !important; }
+      }
+    }
   }
 
   // Compact earnings mobile card dark mode
@@ -13468,7 +13739,7 @@ img.m-card-empty-link-arrow-img {
     background: #3a3a3c !important;
 
     &.tw-date-badge--today {
-      background: rgba(#ff3b30, 0.15) !important;
+      background: #30aaff26 !important;
     }
   }
 
@@ -16103,6 +16374,69 @@ ion-modal.reschedule-proposal-modal {
   display: flex;
   flex-direction: column;
   background: var(--ion-background-color, #f5f5f7);
+}
+
+// ── Forum (home quick action, mobile): frosted backdrop + card — matches Create Material card scale
+.forum-inline-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  padding: 12px 12px 20px;
+  box-sizing: border-box;
+  z-index: 2;
+  animation: cmInlineMaterialsReveal 0.48s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+.forum-inline-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(18px) saturate(1.15);
+  -webkit-backdrop-filter: blur(18px) saturate(1.15);
+}
+
+.forum-inline-modal {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.16);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  max-height: min(580px, calc(100vh - 120px));
+  background: var(--ion-background-color, #ffffff);
+
+  app-forum {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+}
+
+:host-context(html.ion-palette-dark) {
+  .forum-inline-backdrop {
+    background: rgba(0, 0, 0, 0.52);
+  }
+
+  .forum-inline-modal {
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.45);
+  }
 }
 
 :host-context(html.ion-palette-dark) {

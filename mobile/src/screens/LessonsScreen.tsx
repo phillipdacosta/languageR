@@ -20,7 +20,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useFocusEffect } from '@react-navigation/native';
-import * as Haptics from 'expo-haptics';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../contexts/ThemeContext';
 import { useHomeTabBarOverlay } from '../contexts/HomeTabBarOverlayContext';
@@ -37,6 +36,19 @@ import {
 } from '../utils/lessonCardModel';
 import LessonDetailOverlay, { CardRect } from '../components/LessonDetailOverlay';
 import { LessonDateHeaderCenter } from '../components/LessonDateHeaderCenter';
+import { cardShadowDark } from '../utils/cardShadow';
+import NativeCardExpandDemo from '../components/NativeCardExpandDemo';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  interpolate,
+  Extrapolation,
+} from 'react-native-reanimated';
+
+// Matches the overlay's morph spring so the background recede and the
+// overlay expand are perfectly in sync.
+const OVERLAY_SPRING = { duration: 520, dampingRatio: 0.94 } as const;
 
 // Matches HomeScreen scroll content paddingHorizontal
 const CONTENT_PAD = 20;
@@ -128,8 +140,48 @@ export default function LessonsScreen() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [overlayCard, setOverlayCard] = useState<ProcessedLessonCard | null>(null);
   const [overlayRect, setOverlayRect] = useState<CardRect>({ x: 0, y: 0, width: 0, height: 0 });
+  const [overlayThumbnailRect, setOverlayThumbnailRect] = useState<CardRect | null>(null);
   const [overlayClosing, setOverlayClosing] = useState(false);
   const cardRefs = useRef<Record<string, View | null>>({});
+  const classCoverRefs = useRef<Record<string, View | null>>({});
+
+  // Card reveal during the final ~35% of the overlay close. Stays at 0 for
+  // the open + the first part of close (while overlay body is visible and
+  // fading). When the overlay signals `onBeginReveal` — i.e. body content
+  // has just finished fading out and the overlay's surface starts becoming
+  // transparent — this animates 0 → 1 over 200ms. The surface fades out in
+  // lockstep (inside the overlay, driven by the same spring), so the user
+  // sees a true cross-fade from overlay-surface to real card: no opaque
+  // white frame in between.
+  const cardRevealOpacity = useRef(new RNAnimated.Value(0)).current;
+  const beginCardReveal = useCallback(() => {
+    RNAnimated.timing(cardRevealOpacity, {
+      toValue: 1,
+      duration: 200,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start();
+  }, [cardRevealOpacity]);
+
+  // Background recede — the list page subtly scales + shifts down as the
+  // overlay expands, giving the detail a sense of depth (like Airbnb /
+  // App Store detail transitions). 0 = list at rest, 1 = fully receded.
+  // Synced to the overlay's morph spring so the two motions feel like one.
+  const listRecede = useSharedValue(0);
+  const listRecedeStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: interpolate(listRecede.value, [0, 1], [1, 0.94], Extrapolation.CLAMP) },
+      { translateY: interpolate(listRecede.value, [0, 1], [0, 40], Extrapolation.CLAMP) },
+    ],
+    // Round the top corners of the receded page so it visually reads as a
+    // sheet behind the detail — flat corners (0) feel like a paused tab,
+    // rounded (22) match Airbnb's stacked-sheet look.
+    borderRadius: interpolate(listRecede.value, [0, 1], [0, 62], Extrapolation.CLAMP),
+  }));
+  // __DEV__-only: controls the native shared-element prototype modal.
+  // Kept out of any persisted state on purpose — we never want this leaking
+  // into a production build surface.
+  const [nativeDemoOpen, setNativeDemoOpen] = useState(false);
 
   const userTz = user?.profile?.timezone as string | undefined;
 
@@ -439,9 +491,41 @@ export default function LessonsScreen() {
     if (!ref) return;
     const handle = findNodeHandle(ref);
     if (!handle) return;
-    UIManager.measure(handle, (_x, _y, w, h, px, py) => {
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setOverlayRect({ x: px, y: py, width: w, height: h });
+
+    // Parallel measurements: the card rect (required) and the class cover
+    // thumbnail (optional — only for classes with a cover image). When present
+    // the overlay uses it to morph the hero image into the exact list-card
+    // thumbnail on close — matching the Up Next card's shared-element feel.
+    const measureNode = (node: View | null): Promise<CardRect | null> =>
+      new Promise((resolve) => {
+        if (!node) return resolve(null);
+        const h = findNodeHandle(node);
+        if (!h) return resolve(null);
+        const measureWin = (node as any).measureInWindow;
+        if (typeof measureWin === 'function') {
+          measureWin.call(node, (px: number, py: number, w: number, hgt: number) => {
+            resolve({ x: px, y: py, width: w, height: hgt });
+          });
+        } else {
+          UIManager.measure(h, (_x, _y, w, hgt, px, py) => {
+            resolve({ x: px, y: py, width: w, height: hgt });
+          });
+        }
+      });
+
+    Promise.all([
+      measureNode(ref),
+      measureNode(classCoverRefs.current[pl.id] ?? null),
+    ]).then(([cardRect, thumbRect]) => {
+      if (!cardRect) return;
+      setOverlayRect(cardRect);
+      setOverlayThumbnailRect(thumbRect);
+      // Reset card reveal opacity to 0 BEFORE the card enters "hidden" mode,
+      // so when close eventually fires beginCardReveal it animates from 0.
+      cardRevealOpacity.setValue(0);
+      // Push the list into its receded state on the same spring the overlay
+      // uses — they animate as one motion, not two.
+      listRecede.value = withSpring(1, OVERLAY_SPRING);
       setOverlayCard(pl);
       setLessonOverlayCoversTabBar(true);
     });
@@ -454,8 +538,32 @@ export default function LessonsScreen() {
 
   const renderCard = ({ item: pl }: { item: ProcessedLessonCard }) => {
     const C = colors;
-    const isHidden = overlayCard?.id === pl.id && !overlayClosing;
+    // The source card is hidden (opacity 0) for the full overlay lifetime
+    // EXCEPT during the last ~10% of the close — the overlay fires
+    // `beginCardReveal` at progress ~0.1 and the card fades 0 → 1 over 60ms,
+    // just after the outgoing overlay text has faded out. No frame has both
+    // overlay text and card text visible at the same time.
+    const isHidden = overlayCard?.id === pl.id;
+    const finalOpacity = pl.isCancelled ? 0.65 : 1;
+    const wrapperOpacity = isHidden
+      ? cardRevealOpacity.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, finalOpacity],
+        })
+      : finalOpacity;
+    // Shadow is applied unconditionally — the wrapper's animated opacity
+    // fades the shadow in along with the rest of the card during the close
+    // cross-fade. Previously we disabled shadow whenever `isHidden` was
+    // true, which caused a visible "shadow pop" at the end when the overlay
+    // unmounted (isHidden false → shadow appears).
+    const cardShadow = isDark
+      ? cardShadowDark('raised')
+      : {
+          shadowOpacity: Platform.OS === 'ios' ? 0.16 : 0.12,
+          elevation: Platform.OS === 'android' ? 14 : 0,
+        };
     return (
+      <RNAnimated.View style={{ opacity: wrapperOpacity }}>
       <TouchableOpacity
         ref={(r) => { cardRefs.current[pl.id] = r as unknown as View; }}
         style={[
@@ -463,16 +571,21 @@ export default function LessonsScreen() {
           {
             backgroundColor: C.card,
             borderColor: C.border,
-            opacity: isHidden ? 0 : pl.isCancelled ? 0.65 : 1,
-            shadowOpacity: isHidden ? 0 : isDark ? 0 : Platform.OS === 'ios' ? 0.16 : 0.12,
-            elevation: isHidden ? 0 : isDark ? 0 : Platform.OS === 'android' ? 14 : 0,
+            ...cardShadow,
           },
         ]}
         activeOpacity={0.85}
         onPress={() => openDetail(pl)}
       >
         {pl.isClass && pl.classCoverUrl ? (
-          <Image source={{ uri: pl.classCoverUrl }} style={styles.classCoverTop} resizeMode="cover" />
+          <Image
+            ref={(r) => {
+              classCoverRefs.current[pl.id] = r as unknown as View;
+            }}
+            source={{ uri: pl.classCoverUrl }}
+            style={styles.classCoverTop}
+            resizeMode="cover"
+          />
         ) : null}
         <View style={styles.avatarBlock}>
           {!pl.isClass ? (
@@ -607,6 +720,7 @@ export default function LessonsScreen() {
           ))}
         </View>
       </TouchableOpacity>
+      </RNAnimated.View>
     );
   };
 
@@ -668,6 +782,30 @@ export default function LessonsScreen() {
           )}
         </View>
 
+        {/* __DEV__-only affordance to launch the native shared-element
+            prototype. Intentionally rendered inline next to Filters so the
+            developer doesn't have to dig through settings, but behind a
+            compile-time flag so it is fully stripped from release bundles
+            by Metro's dead-code elimination. */}
+        {__DEV__ && (
+          <TouchableOpacity
+            style={[
+              styles.filtersBtn,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.text,
+                marginLeft: 8,
+              },
+            ]}
+            onPress={() => setNativeDemoOpen(true)}
+            activeOpacity={0.85}
+            accessibilityLabel="Open native card expand prototype"
+          >
+            <Ionicons name="flask-outline" size={18} color={colors.text} />
+            <Text style={[styles.filtersBtnText, { color: colors.text }]}>Native</Text>
+          </TouchableOpacity>
+        )}
+
         {statusFilter !== 'all' && (
           <>
             <View style={[styles.filterPreviewChip, { backgroundColor: colors.inputBg }]}>
@@ -687,7 +825,13 @@ export default function LessonsScreen() {
   const statusModalOptions: StatusFilter[] = ['all', 'upcoming', 'completed', 'cancelled'];
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
+    // The outer View provides a dark "shelf" that's visible behind the
+    // scaled-down list during the overlay open, giving the sense of
+    // receding into Z-depth. Only the list (inside Animated.View) scales
+    // and shifts — the overlay and modals render at true screen coords.
+    <View style={[styles.safe, { backgroundColor: isDark ? '#000' : '#1a1a1a' }]}>
+      <Animated.View style={[styles.safe, { overflow: 'hidden' }, listRecedeStyle]}>
+        <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
       <FlatList
         data={processed}
         keyExtractor={item => item.id}
@@ -731,6 +875,8 @@ export default function LessonsScreen() {
           )
         }
       />
+        </SafeAreaView>
+      </Animated.View>
 
       <Modal
         visible={filtersOpen}
@@ -783,15 +929,31 @@ export default function LessonsScreen() {
         <LessonDetailOverlay
           card={overlayCard}
           cardRect={overlayRect}
-          onCloseStart={() => setOverlayClosing(true)}
+          thumbnailTargetRect={overlayThumbnailRect}
+          onCloseStart={() => {
+            setOverlayClosing(true);
+            // Return the list to its resting position alongside the
+            // shrinking overlay — both springs end together.
+            listRecede.value = withSpring(0, OVERLAY_SPRING);
+          }}
+          onBeginReveal={beginCardReveal}
           onCloseEnd={() => {
             setOverlayCard(null);
+            setOverlayThumbnailRect(null);
             setOverlayClosing(false);
             setLessonOverlayCoversTabBar(false);
           }}
         />
       )}
-    </SafeAreaView>
+
+      {__DEV__ && (
+        <NativeCardExpandDemo
+          visible={nativeDemoOpen}
+          lessons={processed}
+          onClose={() => setNativeDemoOpen(false)}
+        />
+      )}
+    </View>
   );
 }
 

@@ -1,4 +1,13 @@
-import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  OnDestroy,
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Input,
+  Output,
+  EventEmitter,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
@@ -32,6 +41,13 @@ export interface ForumThreadRow {
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ForumPage implements OnInit, OnDestroy {
+  /** Embedded in tab1 home overlay (mobile card or desktop cm-modal). */
+  @Input() inline = false;
+  /** When true with `inline`, parent provides chrome (desktop modal top bar). */
+  @Input() hideToolbar = false;
+
+  @Output() goBackEvent = new EventEmitter<void>();
+
   forumMainTab: 'community' | 'profile' | 'answers' = 'community';
 
   selectedTopic = 'all';
@@ -58,6 +74,9 @@ export class ForumPage implements OnInit, OnDestroy {
 
   currentUserId: string | null = null;
 
+  /** Only students may create threads; tutors browse only. */
+  canStartThread = false;
+
   private readonly destroy$ = new Subject<void>();
 
   constructor(
@@ -72,6 +91,7 @@ export class ForumPage implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(user => {
         this.currentUserId = user?.id || null;
+        this.canStartThread = user?.userType === 'student';
         this.refreshDisplayThreads();
         this.cdr.markForCheck();
       });
@@ -83,6 +103,10 @@ export class ForumPage implements OnInit, OnDestroy {
   }
 
   goBack(): void {
+    if (this.inline) {
+      this.goBackEvent.emit();
+      return;
+    }
     this.router.navigate(['/tabs/home']);
   }
 
@@ -149,6 +173,9 @@ export class ForumPage implements OnInit, OnDestroy {
   }
 
   startNewThread(): void {
+    if (!this.canStartThread) {
+      return;
+    }
     // Wire when compose / thread API exists
   }
 

@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from 'react';
+import type { RefObject } from 'react';
 import {
   View,
   Text,
@@ -15,8 +16,11 @@ import {
   Platform,
   AccessibilityInfo,
   Alert,
+  findNodeHandle,
+  UIManager,
+  StatusBar,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, initialWindowMetrics } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,54 +41,45 @@ import {
   formatTimeUntilLessonStart,
   isLessonInProgressSlot,
 } from '../services/lessons';
-import type { CalendarClass } from '../types/calendar';
 import { getMyClasses, getClassesForTutor } from '../services/classes';
 import { earningsService, EarningsBalance } from '../services/earnings';
 import { calendarService } from '../services/calendar';
 import EarningsScreen from './EarningsScreen';
 import MaterialsScreen from './MaterialsScreen';
 import MyClassesScreen from './MyClassesScreen';
+import ForumScreen from './ForumScreen';
 import { preloadMaterials } from '../services/materials';
 import { api } from '../services/api';
+import { buildProcessedLessonCard, type ProcessedLessonCard } from '../utils/lessonCardModel';
+import LessonDetailOverlay, { type CardRect } from '../components/LessonDetailOverlay';
+import { RescheduleLessonModal } from '../components/RescheduleLessonModal';
+import { InviteStudentsModal } from '../components/InviteStudentsModal';
+import { cardShadowDark } from '../utils/cardShadow';
+import {
+  resolveClassAttendeesForPreview,
+  attendeeStackInitials,
+} from '../constants/mockClassAttendeesPreview';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
+/** Shorter viewports (SE, mini): tighter Up Next so Quick Actions can sit above the fold. */
+const UP_NEXT_MIN_H = SCREEN_H < 700 ? 308 : SCREEN_H < 780 ? 318 : 328;
+const HOME_SCROLL_PAD_X = 20;
+
+/**
+ * Quick-action overlays (Materials / My Classes / Forum): slide up from bottom as an opaque
+ * sheet — no opacity cross-fade (which would blend home through forum UI on entry). Matches
+ * iOS full-screen modal presentation; exit slides back down.
+ */
+const OVERLAY_SLIDE_IN_MS = 320;
+const OVERLAY_SLIDE_OUT_MS = 260;
+const OVERLAY_SLIDE_IN_EASING = Easing.bezier(0.22, 1, 0.36, 1);
+const OVERLAY_SLIDE_OUT_EASING = Easing.bezier(0.4, 0, 1, 1);
 
 /** “This week” summary row: overlapping circles (flex + negative margin is unreliable inside TouchableOpacity). */
 const TW_PILE_SIZE = 34;
 const TW_PILE_OVERLAP = 11;
 const TW_PILE_STEP = TW_PILE_SIZE - TW_PILE_OVERLAP;
 
-/** Open Calendar → Event detail from a list lesson (handles synthetic group-class rows). */
-function navigateToEventDetailFromHome(navigation: { navigate: (...args: any[]) => void }, lesson: Lesson) {
-  const anyL = lesson as any;
-  if (anyL.isClass) {
-    const calendarClass: CalendarClass = {
-      _id: String(lesson._id),
-      startTime: lesson.startTime as string,
-      endTime: (lesson.endTime || lesson.startTime) as string,
-      title: anyL.className || lesson.subject || 'Class',
-      description: lesson.notes,
-      maxStudents: typeof anyL.capacity === 'number' ? anyL.capacity : 8,
-      attendees: anyL.attendees || [],
-      confirmedStudents: anyL.attendees,
-      status: lesson.status || 'scheduled',
-      duration: lesson.duration,
-      price: typeof lesson.price === 'number' ? lesson.price : undefined,
-      language: lesson.subject || lesson.language,
-      thumbnail: anyL.classData?.thumbnail,
-      tutorId: lesson.tutorId,
-    };
-    navigation.navigate('Calendar', {
-      screen: 'EventDetail',
-      params: { calendarClass },
-    });
-  } else {
-    navigation.navigate('Calendar', {
-      screen: 'EventDetail',
-      params: { lesson },
-    });
-  }
-}
 const CTA_DARK_BLUE = '#3a7bc8';
 
 /** Match web `.upnext-filled-avatar` (80×80 @ 20px radius → 0.25 of side). */
@@ -95,7 +90,17 @@ const UP_NEXT_AVATAR_RADIUS = Math.round(UP_NEXT_AVATAR_SIZE * 0.25);
  * shifts by the same amount. Empty state content (120px art + copy + CTA) is taller than
  * filled (avatar + meta + CTA); without this, filled stayed at 268px while empty grew past it.
  */
-const UP_NEXT_CARD_MIN_HEIGHT = 328;
+/** See `UP_NEXT_MIN_H` — was fixed 328px and pushed Quick Actions below the fold on many devices. */
+const UP_NEXT_CARD_MIN_HEIGHT = UP_NEXT_MIN_H;
+
+function upNextCardShellShadow(isDark: boolean) {
+  return isDark
+    ? cardShadowDark('raised')
+    : {
+        shadowOpacity: Platform.OS === 'ios' ? 0.16 : 0.12,
+        elevation: Platform.OS === 'android' ? 14 : 0,
+      };
+}
 
 /** Matches web `.pop-float` + `@keyframes popFloat` (tab1.page.scss): delay 0.6s, duration 0.7s. */
 const TRIAL_BADGE_POP_DELAY_MS = 600;
@@ -201,7 +206,7 @@ export default function HomeScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation<any>();
   const isFocused = useIsFocused();
-  const { setHomeOverlayCoversTabBar } = useHomeTabBarOverlay();
+  const { setHomeOverlayCoversTabBar, setLessonOverlayCoversTabBar } = useHomeTabBarOverlay();
   const userId = user?._id || user?.id || '';
   const isTutor = user?.userType === 'tutor';
 
@@ -215,16 +220,132 @@ export default function HomeScreen() {
   const [showEarnings, setShowEarnings] = useState(false);
   const [showMaterials, setShowMaterials] = useState(false);
   const [materialsVisible, setMaterialsVisible] = useState(false);
-  const materialsOverlayOpacity = useRef(new Animated.Value(0)).current;
+  const materialsSlideY = useRef(new Animated.Value(SCREEN_H)).current;
   const [showMyClasses, setShowMyClasses] = useState(false);
   const [myClassesVisible, setMyClassesVisible] = useState(false);
-  const myClassesOverlayOpacity = useRef(new Animated.Value(0)).current;
+  const myClassesSlideY = useRef(new Animated.Value(SCREEN_H)).current;
+  const [showForum, setShowForum] = useState(false);
+  const [forumVisible, setForumVisible] = useState(false);
+  const forumSlideY = useRef(new Animated.Value(SCREEN_H)).current;
   const [thisWeekSheetVisible, setThisWeekSheetVisible] = useState(false);
   const thisWeekSheetTranslateY = useRef(new Animated.Value(SCREEN_H)).current;
   const thisWeekSheetBackdropOpacity = useRef(new Animated.Value(0)).current;
+  const [upNextMenuVisible, setUpNextMenuVisible] = useState(false);
+  const upNextMenuTranslateY = useRef(new Animated.Value(SCREEN_H)).current;
+  const upNextMenuBackdropOpacity = useRef(new Animated.Value(0)).current;
+  const [upNextRescheduleLesson, setUpNextRescheduleLesson] = useState<Lesson | null>(null);
+  const [upNextInviteClass, setUpNextInviteClass] = useState<{ classId: string; className: string } | null>(null);
   const [hasAvailability, setHasAvailability] = useState(false);
   const [hasPayoutSetup, setHasPayoutSetup] = useState(false);
   const [payoutLoaded, setPayoutLoaded] = useState(false);
+
+  const [homeLessonOverlayCard, setHomeLessonOverlayCard] = useState<ProcessedLessonCard | null>(null);
+  const [homeLessonOverlayRect, setHomeLessonOverlayRect] = useState<CardRect>({ x: 0, y: 0, width: 0, height: 0 });
+  /**
+   * Tracks whether the overlay was opened from the "This Week" action sheet.
+   * When true we render the overlay inside the sheet's Modal tree (so it can
+   * visually sit above the sheet), keep the sheet open underneath, and morph
+   * back to the exact row that was tapped — not the Up Next fallback rect.
+   */
+  const [homeLessonOverlayFromSheet, setHomeLessonOverlayFromSheet] = useState(false);
+  /**
+   * Target CTA rect for the lesson detail overlay's close animation. When set,
+   * the overlay's bottom CTA translates to land exactly on top of this rect as
+   * the surface collapses — so it reads as one element morphing rather than a
+   * cross-fade between two mismatched buttons.
+   */
+  const [homeLessonOverlayCtaRect, setHomeLessonOverlayCtaRect] = useState<CardRect | null>(null);
+  /**
+   * Target thumbnail rect (e.g. the 144×90 class cover on Up Next). When set,
+   * the overlay's full-bleed hero image morphs into this exact rect on close.
+   */
+  const [homeLessonOverlayThumbnailRect, setHomeLessonOverlayThumbnailRect] = useState<CardRect | null>(null);
+  const upNextCardMeasureRef = useRef<View>(null);
+  const upNextCtaMeasureRef = useRef<View>(null);
+  const upNextThumbnailMeasureRef = useRef<View>(null);
+  const thisWeekRowRefs = useRef<Map<string, RefObject<View | null>>>(new Map());
+
+  const getThisWeekRowRef = useCallback((id: string): RefObject<View | null> => {
+    let ref = thisWeekRowRefs.current.get(id);
+    if (!ref) {
+      ref = React.createRef<View>();
+      thisWeekRowRefs.current.set(id, ref);
+    }
+    return ref;
+  }, []);
+
+  const userTz = user?.profile?.timezone as string | undefined;
+
+  const homeLessonFallbackRect = useMemo((): CardRect => {
+    const metricsTop = initialWindowMetrics?.insets?.top;
+    const topInset =
+      typeof metricsTop === 'number' && metricsTop > 0
+        ? metricsTop
+        : Platform.OS === 'android'
+          ? StatusBar.currentHeight ?? 24
+          : 56;
+    return {
+      x: HOME_SCROLL_PAD_X,
+      y: Math.min(topInset + 168, SCREEN_H * 0.3),
+      width: SCREEN_W - HOME_SCROLL_PAD_X * 2,
+      height: 156,
+    };
+  }, []);
+
+  const openLessonDetailOverlay = useCallback(
+    (
+      lesson: Lesson,
+      measureTargetRef?: RefObject<View | null>,
+      fromSheet = false,
+      ctaTargetRef?: RefObject<View | null>,
+      thumbnailTargetRef?: RefObject<View | null>,
+    ) => {
+      const apply = (
+        rect: CardRect,
+        ctaRect: CardRect | null,
+        thumbRect: CardRect | null,
+      ) => {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        const pl = buildProcessedLessonCard(lesson, user, t, userTz);
+        setHomeLessonOverlayRect(rect);
+        setHomeLessonOverlayCtaRect(ctaRect);
+        setHomeLessonOverlayThumbnailRect(thumbRect);
+        setHomeLessonOverlayCard(pl);
+        setHomeLessonOverlayFromSheet(fromSheet);
+        setLessonOverlayCoversTabBar(true);
+      };
+
+      // Best-effort measurement. We run all targets in parallel and resolve
+      // before applying. A missing ref just means the overlay falls back to
+      // its own fade without pinpoint alignment — no error.
+      const measureNode = (ref?: RefObject<View | null>): Promise<CardRect | null> =>
+        new Promise((resolve) => {
+          const node = ref?.current;
+          if (!node) return resolve(null);
+          const handle = findNodeHandle(node);
+          if (!handle) return resolve(null);
+          const measureWin = (node as any).measureInWindow;
+          if (typeof measureWin === 'function') {
+            measureWin.call(node, (px: number, py: number, w: number, h: number) => {
+              resolve({ x: px, y: py, width: w, height: h });
+            });
+          } else {
+            UIManager.measure(handle, (_x, _y, w, h, px, py) => {
+              resolve({ x: px, y: py, width: w, height: h });
+            });
+          }
+        });
+
+      Promise.all([
+        measureNode(measureTargetRef),
+        measureNode(ctaTargetRef),
+        measureNode(thumbnailTargetRef),
+      ]).then(([cardRect, ctaRect, thumbRect]) => {
+        apply(cardRect ?? homeLessonFallbackRect, ctaRect, thumbRect);
+      });
+    },
+    [user, t, userTz, homeLessonFallbackRect, setLessonOverlayCoversTabBar],
+  );
 
   const displayName = user?.firstName || user?.name?.split(' ')[0] || 'there';
   const nextLesson = timeline[0] || null;
@@ -387,6 +508,7 @@ export default function HomeScreen() {
           duration: cls.duration || Math.round(
             (new Date(cls.endTime || cls.startTime).getTime() - new Date(cls.startTime).getTime()) / 60000
           ),
+          tutorId: { _id: userId },
           isClass: true,
           className: cls.name,
           classData: { thumbnail: cls.thumbnail },
@@ -487,55 +609,194 @@ export default function HomeScreen() {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setShowMaterials(true);
     setMaterialsVisible(true);
-    materialsOverlayOpacity.setValue(0);
-    Animated.timing(materialsOverlayOpacity, {
-      toValue: 1,
-      duration: 240,
-      easing: Easing.out(Easing.ease),
+    materialsSlideY.setValue(SCREEN_H);
+    Animated.timing(materialsSlideY, {
+      toValue: 0,
+      duration: OVERLAY_SLIDE_IN_MS,
+      easing: OVERLAY_SLIDE_IN_EASING,
       useNativeDriver: true,
     }).start();
-  }, [materialsOverlayOpacity]);
+  }, [materialsSlideY]);
 
   const closeMaterials = useCallback(() => {
-    Animated.timing(materialsOverlayOpacity, {
-      toValue: 0,
-      duration: 200,
-      easing: Easing.in(Easing.ease),
+    Animated.timing(materialsSlideY, {
+      toValue: SCREEN_H,
+      duration: OVERLAY_SLIDE_OUT_MS,
+      easing: OVERLAY_SLIDE_OUT_EASING,
       useNativeDriver: true,
     }).start(() => {
       setShowMaterials(false);
       setMaterialsVisible(false);
     });
-  }, [materialsOverlayOpacity]);
+  }, [materialsSlideY]);
 
   const openMyClasses = useCallback(() => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setShowMyClasses(true);
     setMyClassesVisible(true);
-    myClassesOverlayOpacity.setValue(0);
-    Animated.timing(myClassesOverlayOpacity, {
-      toValue: 1,
-      duration: 240,
-      easing: Easing.out(Easing.ease),
+    myClassesSlideY.setValue(SCREEN_H);
+    Animated.timing(myClassesSlideY, {
+      toValue: 0,
+      duration: OVERLAY_SLIDE_IN_MS,
+      easing: OVERLAY_SLIDE_IN_EASING,
       useNativeDriver: true,
     }).start();
-  }, [myClassesOverlayOpacity]);
+  }, [myClassesSlideY]);
 
   const closeMyClasses = useCallback(() => {
-    Animated.timing(myClassesOverlayOpacity, {
-      toValue: 0,
-      duration: 200,
-      easing: Easing.in(Easing.ease),
+    Animated.timing(myClassesSlideY, {
+      toValue: SCREEN_H,
+      duration: OVERLAY_SLIDE_OUT_MS,
+      easing: OVERLAY_SLIDE_OUT_EASING,
       useNativeDriver: true,
     }).start(() => {
       setShowMyClasses(false);
       setMyClassesVisible(false);
     });
-  }, [myClassesOverlayOpacity]);
+  }, [myClassesSlideY]);
+
+  const closeUpNextMenu = useCallback(() => {
+    upNextMenuTranslateY.stopAnimation();
+    upNextMenuBackdropOpacity.stopAnimation();
+    Animated.parallel([
+      Animated.timing(upNextMenuBackdropOpacity, {
+        toValue: 0,
+        duration: 200,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.timing(upNextMenuTranslateY, {
+        toValue: SCREEN_H,
+        duration: 260,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setUpNextMenuVisible(false);
+    });
+  }, [upNextMenuTranslateY, upNextMenuBackdropOpacity]);
+
+  const openUpNextMenu = useCallback(() => {
+    if (!nextLesson) return;
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setUpNextMenuVisible(true);
+  }, [nextLesson]);
+
+  useLayoutEffect(() => {
+    if (!upNextMenuVisible) return;
+    upNextMenuTranslateY.stopAnimation();
+    upNextMenuBackdropOpacity.stopAnimation();
+    upNextMenuTranslateY.setValue(SCREEN_H);
+    upNextMenuBackdropOpacity.setValue(0);
+    Animated.parallel([
+      Animated.timing(upNextMenuBackdropOpacity, {
+        toValue: 1,
+        duration: 220,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.timing(upNextMenuTranslateY, {
+        toValue: 0,
+        duration: 320,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [upNextMenuVisible, upNextMenuTranslateY, upNextMenuBackdropOpacity]);
 
   useEffect(() => {
-    setHomeOverlayCoversTabBar((showMaterials || showEarnings || showMyClasses) && isFocused);
-  }, [showMaterials, showEarnings, showMyClasses, isFocused, setHomeOverlayCoversTabBar]);
+    if (!nextLesson && upNextMenuVisible) {
+      closeUpNextMenu();
+    }
+  }, [nextLesson, upNextMenuVisible, closeUpNextMenu]);
+
+  const handleUpNextMenuInvite = useCallback(() => {
+    const snap = nextLesson;
+    if (!snap) return;
+    closeUpNextMenu();
+    setTimeout(() => {
+      if (!isTutor) {
+        Alert.alert('', t('HOME.UP_NEXT_INVITE_TUTORS_ONLY'));
+        return;
+      }
+      if (!snap.lesson.isClass) {
+        Alert.alert('', t('HOME.UP_NEXT_INVITE_STUDENT_ONLY_GROUPS'));
+        return;
+      }
+      const className =
+        (snap.lesson as any).className || snap.lesson.subject || snap.lesson.language || '';
+      setUpNextInviteClass({ classId: snap.lesson._id, className });
+    }, 280);
+  }, [nextLesson, closeUpNextMenu, isTutor, t]);
+
+  const handleUpNextMenuReschedule = useCallback(() => {
+    const snap = nextLesson;
+    if (!snap) return;
+    closeUpNextMenu();
+    setTimeout(() => {
+      setUpNextRescheduleLesson(snap.lesson);
+    }, 280);
+  }, [nextLesson, closeUpNextMenu]);
+
+  const handleUpNextMenuCancelLesson = useCallback(() => {
+    const snap = nextLesson;
+    if (!snap) return;
+    const lesson = snap.lesson;
+    closeUpNextMenu();
+    setTimeout(() => {
+      if (lesson.isClass) {
+        Alert.alert(t('HOME.UP_NEXT_CANCEL_CLASS_TITLE'), t('HOME.UP_NEXT_CANCEL_CLASS_MSG'), [{ text: t('COMMON.OK') }]);
+        return;
+      }
+      Alert.alert(t('HOME.UP_NEXT_CANCEL_CONFIRM_TITLE'), t('HOME.UP_NEXT_CANCEL_CONFIRM_MSG'), [
+        { text: t('COMMON.CANCEL'), style: 'cancel' },
+        {
+          text: t('HOME.CANCEL_LESSON'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await lessonService.cancelLesson(lesson._id, {
+                reasonId: isTutor ? 'tutor_cancelled' : 'student_cancelled',
+              });
+              Alert.alert('', t('HOME.UP_NEXT_CANCEL_SUCCESS'));
+              await fetchData();
+            } catch (e: any) {
+              Alert.alert(t('COMMON.ERROR'), e?.message || t('HOME.UP_NEXT_CANCEL_FAILED'));
+            }
+          },
+        },
+      ]);
+    }, 280);
+  }, [nextLesson, closeUpNextMenu, isTutor, t, fetchData]);
+
+  const openForum = useCallback(() => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setShowForum(true);
+    setForumVisible(true);
+    forumSlideY.setValue(SCREEN_H);
+    Animated.timing(forumSlideY, {
+      toValue: 0,
+      duration: OVERLAY_SLIDE_IN_MS,
+      easing: OVERLAY_SLIDE_IN_EASING,
+      useNativeDriver: true,
+    }).start();
+  }, [forumSlideY]);
+
+  const closeForum = useCallback(() => {
+    Animated.timing(forumSlideY, {
+      toValue: SCREEN_H,
+      duration: OVERLAY_SLIDE_OUT_MS,
+      easing: OVERLAY_SLIDE_OUT_EASING,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowForum(false);
+      setForumVisible(false);
+    });
+  }, [forumSlideY]);
+
+  useEffect(() => {
+    setHomeOverlayCoversTabBar((showMaterials || showEarnings || showMyClasses || showForum) && isFocused);
+  }, [showMaterials, showEarnings, showMyClasses, showForum, isFocused, setHomeOverlayCoversTabBar]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -610,7 +871,7 @@ export default function HomeScreen() {
 
         {/* ── Profile Checklist ── */}
         {isTutor && !profileCompletion.complete && profileCompletion.items.length > 0 && !loading && (
-          <View style={[styles.profileChecklist, { backgroundColor: colors.isDark ? '#1c1c1e' : '#fff', borderColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', shadowOpacity: colors.isDark ? 0 : 0.06 }]}>
+          <View style={[styles.profileChecklist, { backgroundColor: colors.isDark ? '#1c1c1e' : '#fff', borderColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', ...(colors.isDark ? cardShadowDark('subtle') : { shadowOpacity: 0.06 }) }]}>
             <View style={styles.pclHeader}>
               <Ionicons name="alert-circle-outline" size={18} color="#e8893c" />
               <Text style={[styles.pclTitle, { color: colors.text }]}>
@@ -650,6 +911,19 @@ export default function HomeScreen() {
             event={nextLesson}
             colors={colors}
             t={t}
+            onOpenMenu={openUpNextMenu}
+            cardMeasureRef={upNextCardMeasureRef}
+            ctaMeasureRef={upNextCtaMeasureRef}
+            thumbnailMeasureRef={upNextThumbnailMeasureRef}
+            onPressCard={() =>
+              openLessonDetailOverlay(
+                nextLesson.lesson,
+                upNextCardMeasureRef,
+                false,
+                upNextCtaMeasureRef,
+                upNextThumbnailMeasureRef,
+              )
+            }
             onJoin={() => {
               const tabNav = navigation.getParent();
               const stackNav = tabNav?.getParent?.() ?? tabNav;
@@ -687,8 +961,11 @@ export default function HomeScreen() {
                 style={({ pressed }) => [
                   styles.thisWeekRow,
                   {
-                    backgroundColor: colors.card,
-                    shadowOpacity: colors.isDark ? 0 : 0.04,
+                    // Match Quick Actions (`ActionChip`) surface treatment
+                    backgroundColor: colors.isDark ? '#1c1c1e' : '#fff',
+                    borderColor: colors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                    borderWidth: 1,
+                    ...(colors.isDark ? cardShadowDark('subtle') : { shadowOpacity: 0.04 }),
                     opacity: pressed ? 0.92 : 1,
                   },
                 ]}
@@ -819,20 +1096,12 @@ export default function HomeScreen() {
                 sub={t('HOME.FORUM_SUB')}
                 colors={colors}
                 largeAsset={!colors.isDark}
+                onPress={openForum}
               />
               <ActionChip icon="star-outline" label={t('HOME.MY_REVIEWS')} sub={t('HOME.MY_REVIEWS_SUB')} colors={colors} />
             </View>
           </Section>
           </View>
-        )}
-
-        {/* ── Coming Up ── */}
-        {!loading && timeline.length > 1 && (
-          <Section title={t('HOME.COMING_UP')} rightLabel={t('HOME.FULL_SCHEDULE')} colors={colors}>
-            {timeline.slice(1, 4).map(event => (
-              <ComingUpRow key={event.lesson._id} event={event} colors={colors} t={t} />
-            ))}
-          </Section>
         )}
 
         {/* ── Recent Students ── */}
@@ -913,25 +1182,138 @@ export default function HomeScreen() {
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
               >
-                {thisWeekSheetEvents.map(ev => (
-                  <ComingUpRow
-                    key={String(ev.lesson._id)}
-                    event={ev}
-                    colors={colors}
-                    t={t}
-                    rowStyle={styles.comingUpRowSheet}
-                    onPress={() => {
-                      closeThisWeekSheet();
-                      navigateToEventDetailFromHome(navigation, ev.lesson);
-                    }}
-                  />
-                ))}
+                {thisWeekSheetEvents.map(ev => {
+                  const rowRef = getThisWeekRowRef(String(ev.lesson._id));
+                  return (
+                    <ComingUpRow
+                      key={String(ev.lesson._id)}
+                      innerRef={rowRef}
+                      event={ev}
+                      colors={colors}
+                      t={t}
+                      rowStyle={styles.comingUpRowSheet}
+                      onPress={() => {
+                        // Keep the sheet open. The overlay renders above it and
+                        // the close animation morphs back to this exact row.
+                        openLessonDetailOverlay(ev.lesson, rowRef, true);
+                      }}
+                    />
+                  );
+                })}
               </ScrollView>
+            </View>
+          </Animated.View>
+        </View>
+        {homeLessonOverlayCard && homeLessonOverlayFromSheet ? (
+          <View
+            style={[StyleSheet.absoluteFill, { zIndex: 200, elevation: 200 }]}
+            pointerEvents="box-none"
+          >
+            <LessonDetailOverlay
+              card={homeLessonOverlayCard}
+              cardRect={homeLessonOverlayRect}
+              ctaTargetRect={homeLessonOverlayCtaRect}
+              thumbnailTargetRect={homeLessonOverlayThumbnailRect}
+              onCloseStart={() => {}}
+              onCloseEnd={() => {
+                setHomeLessonOverlayCard(null);
+                setHomeLessonOverlayFromSheet(false);
+                setHomeLessonOverlayCtaRect(null);
+                setHomeLessonOverlayThumbnailRect(null);
+                setLessonOverlayCoversTabBar(false);
+              }}
+            />
+          </View>
+        ) : null}
+      </View>
+    </Modal>
+
+    <Modal
+      visible={upNextMenuVisible}
+      transparent
+      animationType="none"
+      statusBarTranslucent
+      onRequestClose={closeUpNextMenu}
+    >
+      <View style={styles.twSheetRoot}>
+        <Animated.View style={[StyleSheet.absoluteFill, { opacity: upNextMenuBackdropOpacity }]}>
+          <Pressable
+            style={[
+              StyleSheet.absoluteFill,
+              { backgroundColor: colors.isDark ? 'rgba(0,0,0,0.72)' : 'rgba(0,0,0,0.45)' },
+            ]}
+            onPress={closeUpNextMenu}
+          />
+        </Animated.View>
+        <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, styles.twSheetSheetSlot]}>
+          <Animated.View style={{ transform: [{ translateY: upNextMenuTranslateY }] }}>
+            <View
+              style={[styles.twSheetCard, styles.unMenuCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onStartShouldSetResponder={() => true}
+            >
+              <View style={styles.twSheetHandleWrap}>
+                <View style={[styles.twSheetHandle, { backgroundColor: colors.isDark ? '#48484a' : '#d1d5db' }]} />
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                onPress={handleUpNextMenuInvite}
+                style={({ pressed }) => [styles.unMenuRow, pressed && { opacity: 0.65 }]}
+              >
+                <Ionicons name="person-add-outline" size={22} color={colors.text} />
+                <Text style={[styles.unMenuLabel, { color: colors.text }]}>{t('HOME.INVITE_STUDENT')}</Text>
+              </Pressable>
+              <View style={[styles.unMenuSep, { backgroundColor: colors.border }]} />
+              <Pressable
+                accessibilityRole="button"
+                onPress={handleUpNextMenuReschedule}
+                style={({ pressed }) => [styles.unMenuRow, pressed && { opacity: 0.65 }]}
+              >
+                <Ionicons name="calendar-outline" size={22} color={colors.text} />
+                <Text style={[styles.unMenuLabel, { color: colors.text }]}>{t('HOME.RESCHEDULE')}</Text>
+              </Pressable>
+              <View style={[styles.unMenuSep, { backgroundColor: colors.border }]} />
+              <Pressable
+                accessibilityRole="button"
+                onPress={handleUpNextMenuCancelLesson}
+                style={({ pressed }) => [styles.unMenuRow, pressed && { opacity: 0.65 }]}
+              >
+                <Ionicons name="close-circle-outline" size={22} color={colors.danger} />
+                <Text style={[styles.unMenuLabel, { color: colors.danger }]}>{t('HOME.CANCEL_LESSON')}</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={closeUpNextMenu}
+                style={({ pressed }) => [styles.unMenuDismiss, { backgroundColor: colors.isDark ? '#3a3a3c' : '#f2f2f7' }, pressed && { opacity: 0.85 }]}
+              >
+                <Text style={[styles.unMenuDismissText, { color: colors.text }]}>{t('COMMON.CANCEL')}</Text>
+              </Pressable>
             </View>
           </Animated.View>
         </View>
       </View>
     </Modal>
+
+    <RescheduleLessonModal
+      visible={!!upNextRescheduleLesson}
+      lesson={upNextRescheduleLesson}
+      isTutor={isTutor}
+      currentUserId={userId}
+      onClose={() => setUpNextRescheduleLesson(null)}
+      onSuccess={() => {
+        setUpNextRescheduleLesson(null);
+        void fetchData();
+      }}
+    />
+
+    <InviteStudentsModal
+      visible={!!upNextInviteClass}
+      classId={upNextInviteClass?.classId ?? ''}
+      className={upNextInviteClass?.className ?? ''}
+      onClose={() => setUpNextInviteClass(null)}
+      onInvitesSent={() => {
+        void fetchData();
+      }}
+    />
 
     {showEarnings && (
       <View style={[StyleSheet.absoluteFill, { zIndex: 50, elevation: 50 }]}>
@@ -939,15 +1321,59 @@ export default function HomeScreen() {
       </View>
     )}
     {materialsVisible && (
-      <Animated.View style={[StyleSheet.absoluteFill, { zIndex: 50, elevation: 50, opacity: materialsOverlayOpacity }]}>
+      <Animated.View
+        style={[
+          StyleSheet.absoluteFill,
+          { zIndex: 50, elevation: 50, backgroundColor: colors.background, transform: [{ translateY: materialsSlideY }] },
+        ]}
+        collapsable={false}
+      >
         <MaterialsScreen goBack={closeMaterials} />
       </Animated.View>
     )}
     {myClassesVisible && (
-      <Animated.View style={[StyleSheet.absoluteFill, { zIndex: 50, elevation: 50, opacity: myClassesOverlayOpacity }]}>
+      <Animated.View
+        style={[
+          StyleSheet.absoluteFill,
+          { zIndex: 50, elevation: 50, backgroundColor: colors.background, transform: [{ translateY: myClassesSlideY }] },
+        ]}
+        collapsable={false}
+      >
         <MyClassesScreen goBack={closeMyClasses} />
       </Animated.View>
     )}
+    {forumVisible && (
+      <Animated.View
+        style={[
+          StyleSheet.absoluteFill,
+          { zIndex: 50, elevation: 50, backgroundColor: colors.background, transform: [{ translateY: forumSlideY }] },
+        ]}
+        collapsable={false}
+      >
+        <ForumScreen goBack={closeForum} />
+      </Animated.View>
+    )}
+    {homeLessonOverlayCard && !homeLessonOverlayFromSheet ? (
+      <View
+        style={[StyleSheet.absoluteFill, { zIndex: 100, elevation: 100 }]}
+        pointerEvents="box-none"
+      >
+        <LessonDetailOverlay
+          card={homeLessonOverlayCard}
+          cardRect={homeLessonOverlayRect}
+          ctaTargetRect={homeLessonOverlayCtaRect}
+          thumbnailTargetRect={homeLessonOverlayThumbnailRect}
+          onCloseStart={() => {}}
+          onCloseEnd={() => {
+            setHomeLessonOverlayCard(null);
+            setHomeLessonOverlayFromSheet(false);
+            setHomeLessonOverlayCtaRect(null);
+            setHomeLessonOverlayThumbnailRect(null);
+            setLessonOverlayCoversTabBar(false);
+          }}
+        />
+      </View>
+    ) : null}
     </View>
   );
 }
@@ -1049,11 +1475,21 @@ function UpNextFilled({
   event,
   colors,
   t,
+  onOpenMenu,
+  cardMeasureRef,
+  ctaMeasureRef,
+  thumbnailMeasureRef,
+  onPressCard,
   onJoin,
 }: {
   event: TimelineEvent;
   colors: any;
   t: any;
+  onOpenMenu: () => void;
+  cardMeasureRef: RefObject<View | null>;
+  ctaMeasureRef?: RefObject<View | null>;
+  thumbnailMeasureRef?: RefObject<View | null>;
+  onPressCard: () => void;
   onJoin: () => void;
 }) {
   const isDark = colors.isDark;
@@ -1065,6 +1501,23 @@ function UpNextFilled({
 
   const joinGate = getJoinGateState(event.lesson);
   const inSlot = isLessonInProgressSlot(event.lesson);
+
+  const classAttendeesRaw = useMemo(
+    () => resolveClassAttendeesForPreview(event.lesson as any),
+    [event.lesson],
+  );
+  const classAttendeeStack = useMemo(() => {
+    const max = 3;
+    const slice = classAttendeesRaw.slice(0, max);
+    return {
+      items: slice.map((a: any) => ({
+        picture: a.picture || a.profilePicture,
+        initials: attendeeStackInitials(a),
+      })),
+      extra: Math.max(0, classAttendeesRaw.length - max),
+    };
+  }, [classAttendeesRaw]);
+
   const joinCtaLabel = joinGate.canJoin
     ? inSlot
       ? t('HOME.JOIN_NOW')
@@ -1093,25 +1546,32 @@ function UpNextFilled({
     );
   };
 
-  /** Web `.empty-state-clean-btn` is always #222 — grey is only used for the "waiting" opacity. */
-  const ctaFg = '#ffffff';
-
   return (
     <View style={[styles.section, styles.upNextSectionSpacing]}>
-      <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('HOME.UP_NEXT')}</Text>
-      <View
-        style={[
-          styles.upNextCardSurface,
-          styles.upNextCard,
-          {
-            backgroundColor: colors.card,
-            borderColor: colors.border,
-            shadowOpacity: isDark ? 0 : Platform.OS === 'ios' ? 0.16 : 0.12,
-            elevation: isDark ? 0 : Platform.OS === 'android' ? 14 : 0,
-          },
-        ]}
-      >
-        <View style={event.lesson.isClass ? styles.upNextClassCoverWrap : styles.upNextAvatarWrap}>
+      <Text style={[styles.sectionTitle, styles.sectionTitleBelow, { color: colors.text }]}>
+        {t('HOME.UP_NEXT')}
+      </Text>
+      <View style={styles.upNextCardRelWrap}>
+        <Pressable
+          ref={cardMeasureRef}
+          accessibilityRole="button"
+          onPress={onPressCard}
+          style={({ pressed }) => [
+            styles.upNextCardSurface,
+            styles.upNextCard,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              ...upNextCardShellShadow(isDark),
+              opacity: pressed ? 0.96 : 1,
+            },
+          ]}
+          android_ripple={{ color: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}
+        >
+        <View
+          ref={thumbnailMeasureRef}
+          style={event.lesson.isClass ? styles.upNextClassCoverWrap : styles.upNextAvatarWrap}
+        >
           {event.avatar ? (
             <Image
               source={{ uri: event.avatar }}
@@ -1161,7 +1621,45 @@ function UpNextFilled({
           )}
         </View>
 
+        {event.lesson.isClass && classAttendeeStack.items.length > 0 ? (
+          <View style={styles.upNextGoingRow}>
+            <Text style={[styles.upNextGoingLabel, { color: colors.textSecondary }]}>Going</Text>
+            <View style={styles.upNextStackRow}>
+              {classAttendeeStack.items.map((it, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.upNextStackAv,
+                    {
+                      marginLeft: i === 0 ? 0 : -7,
+                      borderColor: colors.card,
+                      zIndex: 3 - i,
+                      backgroundColor: isDark ? '#3a3a3c' : '#e8e8e8',
+                    },
+                  ]}
+                >
+                  {it.picture ? (
+                    <Image source={{ uri: it.picture }} style={styles.upNextStackImg} resizeMode="cover" />
+                  ) : (
+                    <Text style={[styles.upNextStackIni, { color: colors.textSecondary }]}>{it.initials}</Text>
+                  )}
+                </View>
+              ))}
+              {classAttendeeStack.extra > 0 ? (
+                <Text style={[styles.upNextStackMore, { color: colors.textTertiary }]}>+{classAttendeeStack.extra}</Text>
+              ) : null}
+            </View>
+            {(event.lesson as any).capacity > 0 ? (
+              <Text style={[styles.upNextCapacityInline, { color: colors.textTertiary }]}>
+                {' · '}
+                {classAttendeesRaw.length}/{(event.lesson as any).capacity}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
+
         <TouchableOpacity
+          ref={ctaMeasureRef as any}
           accessibilityRole="button"
           activeOpacity={joinGate.canJoin ? 0.88 : 1}
           onPress={onJoinPress}
@@ -1169,7 +1667,7 @@ function UpNextFilled({
             styles.ctaBtn,
             styles.upNextCardCtaWide,
             styles.upNextFilledCta,
-            { backgroundColor: '#222222' },
+            { backgroundColor: colors.joinCtaBackground },
           ]}
         >
           <Text style={[styles.ctaBtnText, { color: '#ffffff' }]}>{joinCtaLabel}</Text>
@@ -1178,6 +1676,19 @@ function UpNextFilled({
             style={[styles.ctaBtnArrowImg, { tintColor: '#ffffff' }]}
           />
         </TouchableOpacity>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('HOME.UP_NEXT_MENU_A11Y')}
+          hitSlop={10}
+          onPress={() => {
+            void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            onOpenMenu();
+          }}
+          style={({ pressed }) => [styles.upNextCardMenuBtn, pressed && { opacity: 0.55 }]}
+        >
+          <Ionicons name="ellipsis-horizontal" size={22} color={colors.textSecondary} />
+        </Pressable>
       </View>
     </View>
   );
@@ -1192,7 +1703,7 @@ function UpNextEmpty({ colors, title, message, ctaLabel, onCta, disabled }: {
   const { t } = useTranslation();
   return (
     <View style={[styles.section, styles.upNextSectionSpacing, styles.upNextScheduleSectionTopPad]}>
-      <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('HOME.YOUR_SCHEDULE')}</Text>
+      <Text style={[styles.sectionTitle, styles.sectionTitleBelow, { color: colors.text }]}>{t('HOME.YOUR_SCHEDULE')}</Text>
       <View
         style={[
           styles.upNextCardSurface,
@@ -1200,8 +1711,7 @@ function UpNextEmpty({ colors, title, message, ctaLabel, onCta, disabled }: {
           {
             backgroundColor: colors.card,
             borderColor: colors.border,
-            shadowOpacity: isDark ? 0 : Platform.OS === 'ios' ? 0.16 : 0.12,
-            elevation: isDark ? 0 : Platform.OS === 'android' ? 14 : 0,
+            ...upNextCardShellShadow(isDark),
           },
         ]}
       >
@@ -1254,8 +1764,7 @@ function UpNextSkeleton({ colors }: { colors: any }) {
           {
             backgroundColor: colors.card,
             borderColor: colors.border,
-            shadowOpacity: colors.isDark ? 0 : Platform.OS === 'ios' ? 0.16 : 0.12,
-            elevation: colors.isDark ? 0 : Platform.OS === 'android' ? 14 : 0,
+            ...upNextCardShellShadow(colors.isDark),
           },
         ]}
       >
@@ -1284,28 +1793,58 @@ function ComingUpRow({
   t,
   onPress,
   rowStyle,
+  innerRef,
 }: {
   event: TimelineEvent;
   colors: any;
   t: any;
   onPress?: () => void;
   rowStyle?: object;
+  innerRef?: RefObject<View | null>;
 }) {
   const isDark = colors.isDark;
   const avatarStackBorder = isDark ? 'rgba(255,255,255,0.92)' : '#ffffff';
   const stackLen = event.avatarStack?.length ?? 0;
+  const isClass = !!(event.lesson as any)?.isClass;
+  const classCoverUri = String(
+    (event.lesson as any)?.classData?.thumbnail || event.avatar || '',
+  ).trim();
   const row = [
     styles.comingUpRow,
     rowStyle,
-    { backgroundColor: colors.card, shadowOpacity: isDark ? 0 : 0.04 },
+    {
+      backgroundColor: colors.card,
+      ...(isDark ? cardShadowDark('subtle') : { shadowOpacity: 0.04 }),
+    },
   ];
   const body = (
-    <View style={styles.comingUpRowInner}>
+    <View style={[styles.comingUpRowInner, isClass && styles.comingUpRowInnerClass]}>
       <View style={styles.cuLeft}>
         <Text style={[styles.cuDate, { color: colors.text }]}>{event.date}</Text>
         <Text style={[styles.cuTime, { color: colors.textSecondary }]}>{event.time}</Text>
         <Text style={[styles.cuDuration, { color: colors.textTertiary }]}>{event.duration} {t('HOME.MINS')}</Text>
       </View>
+      {isClass ? (
+        <View style={styles.cuCenterClass}>
+          <View
+            style={[
+              styles.cuClassCoverWrap,
+              { backgroundColor: isDark ? '#2c2c2e' : '#e8e8ea' },
+            ]}
+          >
+            {classCoverUri ? (
+              <Image source={{ uri: classCoverUri }} style={styles.cuClassCoverImage} resizeMode="cover" />
+            ) : (
+              <View style={styles.cuClassCoverPlaceholder}>
+                <Ionicons name="people" size={14} color={colors.textTertiary} />
+              </View>
+            )}
+          </View>
+          <Text style={[styles.cuNameClass, { color: colors.text }]} numberOfLines={2}>
+            {event.name}
+          </Text>
+        </View>
+      ) : (
       <View style={styles.cuCenter}>
         {event.avatarStack && event.avatarStack.length > 0 ? (
           <View style={styles.cuAvatarStackRow}>
@@ -1374,6 +1913,7 @@ function ComingUpRow({
         )}
         <Text style={[styles.cuName, { color: colors.text }]} numberOfLines={1}>{event.name}</Text>
       </View>
+      )}
       <View
         style={[
           styles.cuBadge,
@@ -1399,12 +1939,21 @@ function ComingUpRow({
   );
   if (onPress) {
     return (
-      <TouchableOpacity style={row} activeOpacity={0.7} onPress={onPress}>
+      <TouchableOpacity
+        ref={innerRef as any}
+        style={row}
+        activeOpacity={0.7}
+        onPress={onPress}
+      >
         {body}
       </TouchableOpacity>
     );
   }
-  return <View style={row}>{body}</View>;
+  return (
+    <View ref={innerRef} style={row}>
+      {body}
+    </View>
+  );
 }
 
 /* ─── Action Chip ─── */
@@ -1428,8 +1977,12 @@ function ActionChip({ image, icon, label, sub, colors, onPress, largeAsset }: {
         {
           backgroundColor: isDark ? '#1c1c1e' : '#fff',
           borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
-          shadowOpacity: lift ? (Platform.OS === 'ios' ? 0.08 : 0) : 0,
-          elevation: lift && Platform.OS === 'android' ? 3 : 0,
+          ...(isDark
+            ? cardShadowDark('subtle')
+            : {
+                shadowOpacity: Platform.OS === 'ios' ? 0.08 : 0,
+                elevation: Platform.OS === 'android' ? 3 : 0,
+              }),
         },
       ]}
       activeOpacity={0.7}
@@ -1488,7 +2041,7 @@ function getGreeting(t: any, name: string) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#f7f7f7' },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 32 },
+  content: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 30 },
 
   // Profile Checklist
   profileChecklist: {
@@ -1606,13 +2159,26 @@ const styles = StyleSheet.create({
   greetingSub: { fontSize: 14, color: '#717171', marginTop: 4, lineHeight: 20, paddingBottom: 20 },
 
   // Section
-  section: { marginBottom: 22 },
+  section: { marginBottom: 20 },
   /** Space below Up Next before This Week. */
-  upNextSectionSpacing: { marginBottom: 22 },
+  upNextSectionSpacing: { marginBottom: 20 },
   /** Space above “Your schedule” title (empty + skeleton only; RN). */
-  upNextScheduleSectionTopPad: { paddingTop: 20 },
+  upNextScheduleSectionTopPad: { paddingTop: 18 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1a1a1a', marginBottom: 12, },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1a1a1a', marginBottom: 0 },
+  /** Titles not wrapped in `sectionHeader` (e.g. Up Next) need space before the card. */
+  sectionTitleBelow: { marginBottom: 12 },
+  upNextCardRelWrap: {
+    position: 'relative',
+    alignSelf: 'stretch',
+  },
+  upNextCardMenuBtn: {
+    position: 'absolute',
+    top: 10,
+    right: 14,
+    zIndex: 6,
+    padding: 8,
+  },
   seeAllText: { fontSize: 13, fontWeight: '600', color: '#717171' },
   emptyText: { fontSize: 14, color: '#999' },
 
@@ -1625,7 +2191,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.06)',
     borderRadius: 28,
-    padding: 24,
+    padding: 23,
     paddingTop: 14,
     alignItems: 'center',
     overflow: 'visible',
@@ -1638,8 +2204,8 @@ const styles = StyleSheet.create({
   },
   /** Same shell for filled + empty Up Next (see UP_NEXT_CARD_MIN_HEIGHT). */
   upNextCard: {
-    paddingTop: 24,
-    paddingBottom: 44,
+    paddingTop: 23,
+    paddingBottom: 42,
     minHeight: UP_NEXT_CARD_MIN_HEIGHT,
     justifyContent: 'center',
   },
@@ -1674,13 +2240,52 @@ const styles = StyleSheet.create({
   },
   upNextFilledMeta: { marginBottom: 0 },
   upNextFilledCountdown: { marginTop: 6, marginBottom: 0 },
+  /** Class Up Next — one horizontal line (label + avatars + capacity) so the card doesn’t grow tall. */
+  upNextGoingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'nowrap',
+    width: '100%',
+    maxWidth: '100%',
+    marginTop: 6,
+    marginBottom: 0,
+    paddingHorizontal: 4,
+  },
+  upNextGoingLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase' as const,
+    marginRight: 8,
+    flexShrink: 0,
+  },
+  upNextStackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  upNextStackAv: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  upNextStackImg: { width: '100%', height: '100%' },
+  upNextStackIni: { fontSize: 9, fontWeight: '600', textAlign: 'center' },
+  upNextStackMore: { marginLeft: 6, fontSize: 12, fontWeight: '600', flexShrink: 0 },
+  upNextCapacityInline: { fontSize: 11, fontWeight: '500', flexShrink: 0 },
   /** Full width of card (parent uses horizontal padding); centers label + arrow. */
   upNextCardCtaWide: {
     alignSelf: 'stretch',
     justifyContent: 'center',
   },
   /** Space between meta block and Join on filled card (same card shell as empty; centered column). */
-  upNextFilledCta: { marginTop: 28 },
+  upNextFilledCta: { marginTop: 20 },
   emptyArtWrap: {
     width: 88,
     height: 88,
@@ -1730,7 +2335,7 @@ const styles = StyleSheet.create({
     height: 90,
     borderRadius: 14,
     overflow: 'hidden',
-    marginBottom: 18,
+    marginBottom: 17,
     backgroundColor: 'transparent',
   },
   upNextClassCoverImage: { width: '100%', height: '100%' },
@@ -1759,7 +2364,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
 
-  thisWeekSectionWrap: { marginTop: 10 },
+  thisWeekSectionWrap: { marginTop: 9 },
   thisWeekRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1783,7 +2388,7 @@ const styles = StyleSheet.create({
     width: TW_PILE_SIZE,
     height: TW_PILE_SIZE,
     borderRadius: TW_PILE_SIZE / 2,
-    borderWidth: 2,
+    borderWidth: 1,
     overflow: 'hidden',
   },
   twStackImg: { width: '100%', height: '100%' },
@@ -1794,7 +2399,7 @@ const styles = StyleSheet.create({
   chevron: { fontSize: 22, color: '#ccc', fontWeight: '300' },
 
   // Quick Actions
-  quickActionsSectionWrap: { marginTop: 12 },
+  quickActionsSectionWrap: { marginTop: 11 },
   actionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1807,7 +2412,8 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     borderRadius: 16,
     borderWidth: 1,
-    padding: 14,
+    paddingVertical: 13,
+    paddingHorizontal: 14,
     gap: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -1862,6 +2468,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
+  /** Class rows: align date + badge to top beside a taller cover thumbnail. */
+  comingUpRowInnerClass: {
+    alignItems: 'flex-start',
+  },
   /** Slightly tighter bottom margin when stacked in “This week” sheet */
   comingUpRowSheet: {
     marginBottom: 10,
@@ -1900,18 +2510,81 @@ const styles = StyleSheet.create({
   twSheetDone: { fontSize: 16, fontWeight: '600' },
   twSheetScroll: { flexGrow: 0 },
   twSheetScrollContent: { paddingBottom: 8 },
-  cuLeft: { width: 76 },
+  /** Up Next overflow menu — compact action sheet (not the tall “This week” sheet). */
+  unMenuCard: {
+    maxHeight: undefined,
+    paddingBottom: 20,
+    paddingHorizontal: 18,
+  },
+  unMenuRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 2,
+  },
+  unMenuLabel: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  unMenuSep: {
+    height: StyleSheet.hairlineWidth,
+    marginLeft: 36,
+  },
+  unMenuDismiss: {
+    marginTop: 14,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unMenuDismissText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  /** Min width fits a full range on one line; sheet row scrolls if needed. */
+  cuLeft: { minWidth: 168, flexShrink: 0, alignItems: 'flex-start' as const },
   cuDate: { fontSize: 12, fontWeight: '600', color: '#222' },
-  cuTime: { fontSize: 11, color: '#717171', marginTop: 2 },
+  cuTime: { fontSize: 11, color: '#717171', marginTop: 2, flexShrink: 0 },
   cuDuration: { fontSize: 10, color: '#999', marginTop: 2 },
   cuCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, marginLeft: 8 },
+  /** This Week sheet — class: compact landscape thumb + title (no avatar stack). */
+  cuCenterClass: {
+    flex: 1,
+    marginLeft: 8,
+    minWidth: 0,
+    gap: 6,
+  },
+  cuClassCoverWrap: {
+    alignSelf: 'flex-start',
+    width: 64,
+    height: 40,
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  cuClassCoverImage: {
+    width: '100%',
+    height: '100%',
+  },
+  cuClassCoverPlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cuNameClass: {
+    fontSize: 14,
+    fontWeight: '600',
+    width: '100%',
+    letterSpacing: -0.2,
+  },
   cuAvatar: { width: 30, height: 30, borderRadius: 15 },
   cuAvatarStackRow: { flexDirection: 'row', alignItems: 'center' },
   cuAvatarStackRing: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    borderWidth: 2,
+    borderWidth: 1,
     overflow: 'hidden',
     backgroundColor: 'transparent',
   },
