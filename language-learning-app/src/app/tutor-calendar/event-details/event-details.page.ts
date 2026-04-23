@@ -19,6 +19,7 @@ import { environment } from '../../../environments/environment';
 import { CancelReasonModalComponent } from '../../components/cancel-reason-modal/cancel-reason-modal.component';
 import { ClassAttendeesComponent } from '../../components/class-attendees/class-attendees.component';
 import { ClassInvitationModalComponent } from '../../components/class-invitation-modal/class-invitation-modal.component';
+import { ClassGoingMessageModalComponent } from '../../components/class-going-message-modal/class-going-message-modal.component';
 import { ConfirmActionModalComponent } from '../../components/confirm-action-modal/confirm-action-modal.component';
 import { RescheduleLessonModalComponent } from '../../components/reschedule-lesson-modal/reschedule-lesson-modal.component';
 import { formatTimeInTz, formatDateInTz } from '../../shared/timezone.utils';
@@ -98,7 +99,7 @@ interface BillingData {
   templateUrl: './event-details.page.html',
   styleUrls: ['./event-details.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, SharedModule, CancelReasonModalComponent, ConfirmActionModalComponent, RescheduleLessonModalComponent, ClassAttendeesComponent, ClassInvitationModalComponent]
+  imports: [CommonModule, IonicModule, SharedModule, CancelReasonModalComponent, ConfirmActionModalComponent, RescheduleLessonModalComponent, ClassAttendeesComponent, ClassInvitationModalComponent, ClassGoingMessageModalComponent]
 })
 export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewDidEnter {
   /** When presented as a modal, the caller passes the event ID directly */
@@ -307,6 +308,10 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   classAttendeesForGridStack: any[] = [];
   /** Omit when showing preview mocks so capacity does not contradict the stats row (e.g. 0/6). */
   classAttendeesForGridCapacity: number | undefined = undefined;
+  /** Student + at least one confirmed classmate: GOING / Students areas open the message tutor modal. */
+  classCanOpenGoingMessage = false;
+  /** Tutor broadcast recipients (confirmed student ids) for the GOING modal. */
+  classGoingReceiverIds: string[] = [];
 
   // Class layout (matching lesson layout)
   classTutorName = '';
@@ -456,6 +461,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
     this.lesson = lesson;
     this.isClass = false;
+    this.classCanOpenGoingMessage = false;
     this.lessonsWithParticipant = 12;
     this.recentLessons = [];
     this.tutorStatsRating = '4.9';
@@ -627,6 +633,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         if (response.success && response.lesson) {
           this.lesson = response.lesson;
           this.isClass = false;
+          this.classCanOpenGoingMessage = false;
           this.lessonsWithParticipant = response.lessonsCompleted || 0;
 
           let tutorStats: any = undefined;
@@ -689,6 +696,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     } else if (cached.lesson) {
       this.lesson = cached.lesson;
       this.isClass = false;
+      this.classCanOpenGoingMessage = false;
       this.lessonsWithParticipant = cached.lessonsCompleted || 0;
       if (cached.tutorStats) {
         const ts = cached.tutorStats;
@@ -1833,6 +1841,40 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     }
   }
 
+  /**
+   * Stable string id for API refs: string, ObjectId, or { _id, id, $oid }.
+   */
+  private normalizeRefId(v: unknown): string {
+    if (v == null) return '';
+    if (typeof v === 'string') return v;
+    if (typeof v === 'object') {
+      const o: any = v;
+      if (typeof o.$oid === 'string') return o.$oid;
+      if (o._id != null) return this.normalizeRefId(o._id);
+      if (o.id != null) return this.normalizeRefId(o.id);
+      if (typeof o.toString === 'function') {
+        const s = o.toString();
+        if (s && s !== '[object Object]') return s;
+      }
+    }
+    return '';
+  }
+
+  /**
+   * Resolve class `tutorId` (string ref or populated lean user) to a user id string.
+   */
+  private tutorUserIdFromClassTutorRef(tutor: unknown): string {
+    if (tutor == null) return '';
+    if (typeof tutor === 'string') return tutor;
+    if (typeof tutor === 'object') {
+      const t: any = tutor;
+      if (t._id != null || t.id != null) {
+        return this.normalizeRefId(t._id ?? t.id);
+      }
+    }
+    return this.normalizeRefId(tutor);
+  }
+
   private computeClassProperties() {
     if (!this.classData) return;
     const now = new Date();
@@ -1885,8 +1927,10 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
     // Tutor info for the profile panel
     const tutor = this.classData.tutorId;
-    const userId = String((this.currentUser as any)?._id || this.currentUser?.id || '');
-    this.classIsCurrentUserTutor = String(tutor?._id || tutor) === userId;
+    const userId = this.normalizeRefId((this.currentUser as any)?._id ?? (this.currentUser as any)?.id);
+    const resolvedTutorUserId = this.tutorUserIdFromClassTutorRef(tutor);
+    this.classTutorId = resolvedTutorUserId || null;
+    this.classIsCurrentUserTutor = userId !== '' && resolvedTutorUserId !== '' && resolvedTutorUserId === userId;
     this.isTutorUser = this.classIsCurrentUserTutor;
     this.isStudentUser = !this.classIsCurrentUserTutor;
 
@@ -1895,7 +1939,6 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.classTutorPicture = tutor.picture || tutor.profilePicture || '';
       this.classTutorInitial = (tutor.name || tutor.firstName || 'T').charAt(0).toUpperCase();
       this.classTutorBio = tutor.onboardingData?.bio || tutor.profile?.bio || '';
-      this.classTutorId = tutor._id?.toString() || null;
       this.classTutorLanguages = tutor.onboardingData?.languages || [];
       this.classTutorCountry = tutor.country || tutor.residenceCountry || '';
     }
@@ -1963,6 +2006,37 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     });
 
     const enrolled = this.classData.confirmedStudents || [];
+    // Tutor broadcast: collect confirmed student ids (excluding self).
+    let receiverIds: string[] = enrolled
+      .map((s: any) => this.normalizeRefId(s?._id ?? s?.id))
+      .filter((id: string) => id && id !== userId);
+
+    // Fall back to the mock preview's seeded auth0Ids when the class has no
+    // real confirmed students yet. This keeps the broadcast flow testable
+    // end-to-end against the preview avatars (see
+    // `backend/scripts/seed-mock-class-students.js`).
+    if (receiverIds.length === 0) {
+      receiverIds = MOCK_CLASS_ATTENDEES_PREVIEW
+        .map((s: any) => (s?.auth0Id || '').trim())
+        .filter((id: string) => id && id !== userId);
+    }
+    this.classGoingReceiverIds = receiverIds;
+
+    // Clickable only when we actually have someone to message:
+    //  - student → tutor: need `classTutorId`.
+    //  - tutor → students: need at least one recipient (real or seeded mock).
+    this.classCanOpenGoingMessage =
+      (this.isStudentUser && !!this.classTutorId) ||
+      (this.classIsCurrentUserTutor && this.classGoingReceiverIds.length > 0);
+    console.log('[EventDetails] going message state', {
+      isStudentUser: this.isStudentUser,
+      classIsCurrentUserTutor: this.classIsCurrentUserTutor,
+      classTutorId: this.classTutorId,
+      userId,
+      classCanOpenGoingMessage: this.classCanOpenGoingMessage,
+      enrolledCount: enrolled.length,
+      classGoingReceiverIds: this.classGoingReceiverIds,
+    });
     if (enrolled.length > 0) {
       this.classAttendeesForGridStack = enrolled;
       const cap = this.classData.maxStudents ?? this.classData.capacity;
@@ -2181,6 +2255,61 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.router.navigate(['/tabs/messages'], { queryParams: { tutorId: this.classTutorId } });
   }
 
+  onClassGoingMessageTap(): void {
+    if (!this.classCanOpenGoingMessage) {
+      return;
+    }
+    void this.openClassGoingMessageModal();
+  }
+
+  async openClassGoingMessageModal(): Promise<void> {
+    if (!this.classCanOpenGoingMessage || !this.classData) return;
+
+    // Student → single tutor recipient. Tutor → broadcast to confirmed students.
+    const receiverId = this.isStudentUser ? (this.classTutorId || '') : '';
+    const receiverIds = this.classIsCurrentUserTutor ? [...this.classGoingReceiverIds] : [];
+
+    try {
+      const modal = await this.modalController.create({
+        component: ClassGoingMessageModalComponent,
+        componentProps: {
+          attendees: this.classAttendeesForGridStack || [],
+          receiverId,
+          receiverIds,
+          className: this.classData.name || '',
+          // Anchor the group thread to this class so the backend routes to
+          // the class-broadcast conversation (membership follows enrollment)
+          // rather than spawning a new ad-hoc thread keyed off the current
+          // participant hash.
+          classId: this.eventId || '',
+        },
+        cssClass: 'class-going-message-modal',
+      });
+      await modal.present();
+      const { data } = await modal.onDidDismiss();
+      if (data?.sent) {
+        const total: number = typeof data?.total === 'number' ? data.total : 1;
+        const toast = await this.toastController.create({
+          message: total > 1 ? `Message sent to ${total} participants` : 'Message sent',
+          duration: 2200,
+          color: 'success',
+          position: 'bottom',
+        });
+        await toast.present();
+
+        if (data?.kind === 'group' && data?.groupId) {
+          await this.router.navigate(['/tabs/messages'], { queryParams: { groupId: data.groupId } });
+        } else if (data?.kind === 'direct' && data?.userId) {
+          await this.router.navigate(['/tabs/messages'], { queryParams: { userId: data.userId } });
+        } else {
+          await this.router.navigate(['/tabs/messages']);
+        }
+      }
+    } catch (e) {
+      console.error('[GoingMessage] modal failed', e);
+    }
+  }
+
   openClassTutorProfile() {
     if (this.isStudentUser && this.classTutorId) {
       this.router.navigate(['/tutor', this.classTutorId]);
@@ -2274,6 +2403,10 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
     await reasonModal.present();
     const reasonResult = await reasonModal.onDidDismiss();
+    if (reasonResult.data?.rescheduleInstead) {
+      await this.openRescheduleModal();
+      return;
+    }
     if (reasonResult.data?.cancelled || !reasonResult.data?.reason) return;
 
     const selectedReason = reasonResult.data.reason;
@@ -2286,7 +2419,8 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         message: `Reason: ${selectedReason.label}`,
         notificationMessage: `${participantName || 'The other participant'} will be notified and this action cannot be undone.`,
         confirmText: 'Cancel Lesson',
-        cancelText: 'Go Back',
+        cancelText: 'Reschedule instead?',
+        secondaryDismissReschedules: true,
         confirmColor: 'danger',
         icon: 'close-circle',
         iconColor: 'danger',
@@ -2298,6 +2432,10 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
     await confirmModal.present();
     const confirmResult = await confirmModal.onDidDismiss();
+    if (confirmResult.data?.rescheduleInstead) {
+      await this.openRescheduleModal();
+      return;
+    }
     if (!confirmResult.data?.confirmed) return;
 
     // Step 3: Proceed with cancellation
@@ -2460,32 +2598,87 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   }
 
   async rescheduleClass() {
-    if (!this.classData || this.classIsCancelled || this.classIsCompleted) return;
-    const className = this.classData.name || 'this class';
+    await this.presentClassRescheduleModal();
+  }
 
-    const modal = await this.modalController.create({
-      component: ConfirmActionModalComponent,
-      componentProps: {
-        title: 'Reschedule Class',
-        message: `Do you want to reschedule "${className}"? All enrolled students will be notified of this change.`,
-        confirmText: 'Reschedule',
-        cancelText: 'Cancel',
-        confirmColor: 'primary',
-        icon: 'calendar',
-        iconColor: 'primary'
-      },
-      cssClass: 'confirm-action-modal'
-    });
+  /** Build a lesson-shaped object for `RescheduleLessonModalComponent` (hub class). */
+  private buildLessonLikeFromClass(): any {
+    const c = this.classData;
+    if (!c || !this.eventId) return null;
+    const duration =
+      typeof c.duration === 'number' && c.duration > 0 ? c.duration : 60;
+    return {
+      _id: c._id || this.eventId,
+      isClass: true,
+      className: c.name,
+      classData: c,
+      startTime: c.startTime,
+      endTime: c.endTime,
+      duration,
+      tutorId: c.tutorId,
+      subject: c.name || 'Class',
+      status: c.status || 'scheduled',
+    };
+  }
 
-    await modal.present();
-    const { data } = await modal.onWillDismiss();
-    if (data?.confirmed) {
+  /** Opens the same reschedule experience as home (availability viewer + confirm). */
+  async presentClassRescheduleModal(): Promise<void> {
+    if (!this.eventId || !this.classData || !this.currentUser?.id) return;
+    if (!this.classCanReschedule) {
       const toast = await this.toastController.create({
-        message: 'Reschedule functionality coming soon',
-        duration: 2000,
-        position: 'bottom'
+        message: 'This class cannot be rescheduled right now.',
+        duration: 2500,
+        position: 'bottom',
+        color: 'medium',
       });
       await toast.present();
+      return;
+    }
+
+    const lesson = this.buildLessonLikeFromClass();
+    if (!lesson) return;
+
+    const classId = this.eventId;
+    const isTutor = this.isTutorUser;
+    const className = this.classData.name || 'Class';
+    const participantAvatar = this.classData.thumbnail || undefined;
+    const participantForModal = isTutor ? className : this.classData.tutorId;
+    const tid = this.classData.tutorId as any;
+    const tutorRawId = tid?._id ?? tid;
+    const participantIdForModal = isTutor
+      ? String(this.currentUser.id)
+      : String(tutorRawId || '');
+
+    if (!isTutor && !participantIdForModal) {
+      const toast = await this.toastController.create({
+        message: 'Could not find tutor information',
+        duration: 2000,
+        color: 'danger',
+        position: 'bottom',
+      });
+      await toast.present();
+      return;
+    }
+
+    const resModal = await this.modalController.create({
+      component: RescheduleLessonModalComponent,
+      componentProps: {
+        lessonId: classId,
+        lesson,
+        participantId: participantIdForModal,
+        participantName: participantForModal,
+        participantAvatar,
+        currentUserId: this.currentUser.id,
+        isTutor,
+        showBackButton: false,
+      },
+      cssClass: 'reschedule-lesson-modal',
+    });
+    await resModal.present();
+    const result = await resModal.onDidDismiss();
+    if (result.data?.rescheduled) {
+      if (this.eventId) this.lessonService.clearDetailCache(this.eventId);
+      this.loadEventDetails();
     }
   }
 
@@ -2493,13 +2686,48 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     if (!this.classData || this.classIsCancelled || this.classIsCompleted) return;
     const className = this.classData.name || 'this class';
 
+    // STEP 1: Reason picker (class variant)
+    const reasonModal = await this.modalController.create({
+      component: CancelReasonModalComponent,
+      componentProps: {
+        entityType: 'class',
+        userRole: 'tutor',
+        className,
+        classThumbnailUrl: this.classData.thumbnail || undefined,
+        lessonStartTime: this.classData.startTime,
+        lessonDuration: this.classData.duration
+      },
+      cssClass: 'cancel-reason-modal'
+    });
+    await reasonModal.present();
+    const reasonResult = await reasonModal.onDidDismiss();
+    if (reasonResult.data?.rescheduleInstead) {
+      if (this.classCanReschedule) {
+        await this.presentClassRescheduleModal();
+      } else {
+        const toast = await this.toastController.create({
+          message: 'This class cannot be rescheduled right now.',
+          duration: 2500,
+          position: 'bottom',
+          color: 'medium',
+        });
+        await toast.present();
+      }
+      return;
+    }
+    if (reasonResult.data?.cancelled || !reasonResult.data?.reason) {
+      return;
+    }
+
+    // STEP 2: Final confirmation
     const modal = await this.modalController.create({
       component: ConfirmActionModalComponent,
       componentProps: {
-        title: 'Cancel Class',
-        message: `Are you sure you want to cancel "${className}"? All enrolled students will be notified and this action cannot be undone.`,
-        confirmText: 'Cancel Class',
-        cancelText: 'Keep Class',
+        title: 'Cancel class?',
+        message: `Are you sure you want to cancel "${className}"? All invited and confirmed students will be notified. This action cannot be undone.`,
+        confirmText: 'Cancel class',
+        cancelText: 'Reschedule instead?',
+        secondaryDismissReschedules: true,
         confirmColor: 'danger',
         icon: 'close-circle',
         iconColor: 'danger'
@@ -2509,6 +2737,20 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
     await modal.present();
     const { data } = await modal.onWillDismiss();
+    if (data?.rescheduleInstead) {
+      if (this.classCanReschedule) {
+        await this.presentClassRescheduleModal();
+      } else {
+        const toast = await this.toastController.create({
+          message: 'This class cannot be rescheduled right now.',
+          duration: 2500,
+          position: 'bottom',
+          color: 'medium',
+        });
+        await toast.present();
+      }
+      return;
+    }
     if (!data?.confirmed) return;
 
     const loading = await this.loadingController.create({

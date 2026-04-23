@@ -1,0 +1,69 @@
+<ion-header class="ion-no-border going-msg-header">
+  <ion-toolbar>
+    <ion-buttons slot="end">
+      <ion-button fill="clear" (click)="dismiss()" [attr.aria-label]="'COMMON.CLOSE' | translate">
+        <ion-icon name="close" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="going-msg-content">
+  <div class="going-msg-inner">
+    <div class="going-msg-title-row">
+      <h2 class="going-msg-in-label">{{ 'EVENT_DETAILS.IN_THIS_CONVERSATION' | translate }}</h2>
+      <div class="going-msg-avatar-stack" *ngIf="attendeeDisplays.length > 0">
+        <div
+          class="going-msg-av"
+          *ngFor="let row of attendeeDisplays; let i = index"
+          [style.z-index]="10 - i"
+        >
+          <img
+            *ngIf="row.imageUrl"
+            [src]="row.imageUrl"
+            alt=""
+            referrerpolicy="no-referrer"
+          />
+          <span *ngIf="!row.imageUrl" class="going-msg-av-ini">{{ row.initials }}</span>
+        </div>
+        <div class="going-msg-av going-msg-av--more" *ngIf="extraAttendeeCount > 0">
+          <span>+{{ extraAttendeeCount }}</span>
+        </div>
+      </div>
+    </div>
+
+    <p class="going-msg-sub">
+      {{ 'EVENT_DETAILS.GOING_MESSAGE_SUBTITLE' | translate }}
+    </p>
+
+    <ion-textarea
+      class="going-msg-textarea"
+      [(ngModel)]="messageText"
+      (ngModelChange)="onMessageTextChange()"
+      [maxlength]="maxChars"
+      [autoGrow]="true"
+      [placeholder]="'EVENT_DETAILS.GOING_MESSAGE_PLACEHOLDER' | translate"
+      rows="5"
+    ></ion-textarea>
+
+    <p class="going-msg-counter">
+      {{ messageCharCount }}/{{ minChars }} {{ 'EVENT_DETAILS.GOING_MESSAGE_REQUIRED_HINT' | translate }}
+    </p>
+
+    <p class="going-msg-empty" *ngIf="!hasRecipients">
+      No one has joined yet — check back once students enroll.
+    </p>
+
+    <div class="going-msg-actions">
+      <button
+        type="button"
+        class="going-msg-send"
+        [disabled]="!canSendMessage"
+        (click)="send()"
+      >
+        <ion-spinner *ngIf="sending" name="crescent" class="going-msg-spin"></ion-spinner>
+        <span *ngIf="!sending">{{ 'EVENT_DETAILS.SEND_MESSAGE' | translate }}</span>
+      </button>
+    </div>
+  </div>
+</ion-content>

@@ -15730,14 +15730,21 @@ img.m-card-empty-link-arrow-img {
   color: #6b7280;
 }
 
-// Modal sizing - Aspect-inspired generous modals
+// Compact Apple-style confirmation dialog
 ion-modal.confirm-action-modal {
-  --width: 95% !important;
-  --max-width: 540px !important;
+  --width: 92% !important;
+  --max-width: 440px !important;
   --height: auto !important;
-  --max-height: 92% !important;
-  --border-radius: 24px !important;
-  --box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15) !important;
+  --max-height: 90% !important;
+  --border-radius: 22px !important;
+  --background: transparent !important;
+  --box-shadow: none !important;
+  --backdrop-opacity: 0.45 !important;
+
+  &::part(content) {
+    background: transparent;
+    box-shadow: none;
+  }
 }
 
 ion-modal.reschedule-lesson-modal {
@@ -15790,8 +15797,8 @@ ion-modal.reschedule-proposal-modal {
 // Desktop adjustments for modals
 @media (min-width: 768px) {
   ion-modal.confirm-action-modal {
-    --width: 540px !important;
-    --max-width: 560px !important;
+    --width: 440px !important;
+    --max-width: 460px !important;
   }
 
   ion-modal.reschedule-lesson-modal,
@@ -15820,8 +15827,8 @@ ion-modal.reschedule-proposal-modal {
 // iPad and tablet sizing
 @media (min-width: 576px) and (max-width: 767px) {
   ion-modal.confirm-action-modal {
-    --width: 90% !important;
-    --max-width: 500px !important;
+    --width: 88% !important;
+    --max-width: 440px !important;
   }
 
   ion-modal.reschedule-lesson-modal,

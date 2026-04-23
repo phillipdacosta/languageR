@@ -966,6 +966,19 @@ ion-modal.payment-dispute-modal {
 }
 
 // Class Invitation Modal - Ensure content is visible
+ion-modal.class-going-message-modal {
+  --width: 96%;
+  --max-width: 560px;
+  /* Fixed height so the textarea + CTA never push off-screen; content scrolls internally. */
+  --height: 640px;
+  --max-height: min(92vh, 720px);
+  --border-radius: 20px;
+
+  @media (min-width: 600px) {
+    --max-width: 500px;
+  }
+}
+
 ion-modal.class-invitation-modal {
   --width: 90%;
   --max-width: 650px;

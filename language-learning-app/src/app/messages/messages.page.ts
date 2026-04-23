@@ -447,13 +447,8 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
           
           // If this is an incoming message (not sent by us) and we're actively viewing the conversation,
           // automatically mark it as read, then update conversations
-          if (!isMyMessage && this.selectedConversation?.otherUser && this.isPageVisible) {
-            this.messagingService.markAsRead(this.selectedConversation.otherUser.auth0Id).subscribe({
-              next: () => {
-                // Reload conversations AFTER marking as read, so unread count is correct
-                this.reloadConversationsDebounced();
-              }
-            });
+          if (!isMyMessage && this.selectedConversation && this.isPageVisible) {
+            this.markConversationAsRead(this.selectedConversation);
           } else {
             // For outgoing messages or when not actively viewing conversation, just reload conversations
             this.reloadConversationsDebounced();
@@ -507,19 +502,23 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
         if (params['tutorId']) {
           this.openConversationWithTutor(params['tutorId']);
-          // Clear the query param after handling
           this.router.navigate([], {
             relativeTo: this.route,
             queryParams: { tutorId: null },
             queryParamsHandling: 'merge'
           });
         } else if (params['userId']) {
-          // Handle generic userId (works for both tutors and students)
           this.openConversationWithUser(params['userId']);
-          // Clear the query param after handling
           this.router.navigate([], {
             relativeTo: this.route,
             queryParams: { userId: null },
+            queryParamsHandling: 'merge'
+          });
+        } else if (params['groupId']) {
+          this.openConversationWithGroup(params['groupId']);
+          this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: { groupId: null },
             queryParamsHandling: 'merge'
           });
         }
@@ -632,6 +631,36 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       return '';
     }
     return id.replace(/^dev-user-/, '');
+  }
+
+  /**
+   * Branches between 1:1 and group endpoints based on the currently-selected
+   * conversation. Returns an Observable whose `messages` field is sorted
+   * ascending by `createdAt`, matching what the rest of the page expects.
+   */
+  private fetchMessagesForSelection(limit: number, before?: string) {
+    const selected = this.selectedConversation;
+    if (selected?.isGroup && selected.groupId) {
+      return this.messagingService.getGroupMessages(selected.groupId, limit, before);
+    }
+    const otherUserId = selected?.otherUser?.auth0Id || '';
+    return this.messagingService.getMessages(otherUserId, limit, before);
+  }
+
+  /** Branches markAsRead between group and 1:1 endpoints for the given conversation. */
+  private markConversationAsRead(conversation: Conversation | null) {
+    if (!conversation) return;
+    if (conversation.isGroup && conversation.groupId) {
+      this.messagingService.markGroupAsRead(conversation.groupId).subscribe({
+        next: () => this.reloadConversationsDebounced()
+      });
+      return;
+    }
+    const otherUserId = conversation.otherUser?.auth0Id;
+    if (!otherUserId) return;
+    this.messagingService.markAsRead(otherUserId).subscribe({
+      next: () => this.reloadConversationsDebounced()
+    });
   }
 
   private findConversationForMessage(message: Message): Conversation | undefined {
@@ -1037,6 +1066,27 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  private openConversationWithGroup(groupId: string) {
+    console.log('💬 Opening group conversation:', groupId);
+    this.messagingService.getConversations().subscribe({
+      next: (response) => {
+        this.conversations = response.conversations;
+        const conversation =
+          this.conversations.find((conv) => conv.isGroup && conv.groupId === groupId) ||
+          this.conversations.find((conv) => conv.conversationId === groupId);
+
+        if (conversation) {
+          this.selectConversation(conversation);
+        } else {
+          console.warn('💬 No existing group conversation found for groupId:', groupId);
+        }
+      },
+      error: (error) => {
+        console.error('❌ Error loading conversations:', error);
+      }
+    });
+  }
+
   private updateConversationPreviewFromReaction(reactionData: any) {
     // Update the conversation preview to show "Name reacted with emoji"
     const conversationId = reactionData.conversationId;
@@ -1071,7 +1121,32 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  /**
+   * Pre-compute avatar cluster fields for group conversations so the template
+   * can stay function-free (per AGENTS rules). For groups with >4 people we
+   * show 3 avatars + a "+N" chip in the 4th slot; for <=4 we show them all.
+   */
+  private decorateGroupAvatarClusters() {
+    const self = (typeof this.getCurrentUserId === 'function' ? this.getCurrentUserId() : '') || '';
+    this.conversations.forEach((c: any) => {
+      if (!c.isGroup) return;
+      const all = Array.isArray(c.participants) ? c.participants : [];
+      // Put "me" last so other people show first in the cluster.
+      const others = all.filter((p: any) => p.auth0Id !== self);
+      const me = all.filter((p: any) => p.auth0Id === self);
+      const ordered = [...others, ...me];
+      if (ordered.length > 4) {
+        c.displayParticipants = ordered.slice(0, 3);
+        c.extraCount = ordered.length - 3;
+      } else {
+        c.displayParticipants = ordered;
+        c.extraCount = 0;
+      }
+    });
+  }
+
   private processConversationsForReactions() {
+    this.decorateGroupAvatarClusters();
     // Merge stored reaction previews when loading conversations
     this.conversations.forEach(conversation => {
       const reactionPreview = this.reactionPreviews.get(conversation.conversationId);
@@ -1658,10 +1733,8 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       this.cdr.detectChanges();
     });
 
-    if (conversation.otherUser && this.isPageVisible) {
-      this.messagingService.markAsRead(conversation.otherUser.auth0Id).subscribe({
-        next: () => console.log(`✅ Conversation marked as read`)
-      });
+    if (this.isPageVisible) {
+      this.markConversationAsRead(conversation);
     }
 
     setTimeout(() => {
@@ -1817,12 +1890,8 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     }, 0);
     
     // Mark as read
-    if (conversation.otherUser && this.isPageVisible) {
-      this.messagingService.markAsRead(conversation.otherUser.auth0Id).subscribe({
-        next: () => {
-          console.log(`✅ [${Date.now()}] Conversation marked as read`);
-        }
-      });
+    if (this.isPageVisible) {
+      this.markConversationAsRead(conversation);
     }
   }
   
@@ -1868,7 +1937,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     });
     
     
-    this.messagesSubscription = this.messagingService.getMessages(receiverId, this.MESSAGE_PAGE_SIZE).subscribe({
+    this.messagesSubscription = this.fetchMessagesForSelection(this.MESSAGE_PAGE_SIZE).subscribe({
       next: (response) => {
         console.log(`📨 [${Date.now()}] Messages received: ${response.messages?.length || 0} messages`);
         if (activeRequestId !== this.messageLoadRequestId) {
@@ -1969,7 +2038,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     const receiverId = this.selectedConversation.otherUser.auth0Id;
     if (!receiverId || !this.selectedConversation.conversationId) return;
     
-    this.messagingService.getMessages(receiverId, this.MESSAGE_PAGE_SIZE).subscribe({
+    this.fetchMessagesForSelection(this.MESSAGE_PAGE_SIZE).subscribe({
       next: (response) => {
         this.messages = response.messages || [];
         this.cdr.detectChanges();
@@ -2041,7 +2110,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     // Save current scroll height to maintain scroll position after prepending
     const previousScrollHeight = container ? container.scrollHeight : 0;
     
-    this.messagingService.getMessages(receiverId, this.MESSAGE_PAGE_SIZE, this.oldestMessageId).subscribe({
+    this.fetchMessagesForSelection(this.MESSAGE_PAGE_SIZE, this.oldestMessageId || undefined).subscribe({
       next: (response) => {
         const olderMessages = response.messages || [];
         
@@ -2084,6 +2153,13 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
+    // Block sends in archived class-broadcast threads — the backend will
+    // reject anyway (no longer an active member) but catching it here avoids
+    // the round-trip + error toast churn.
+    if (this.selectedConversation.archived) {
+      return;
+    }
+
     // If this is a placeholder conversation (no conversationId), we need to send via HTTP
     // to create the conversation, then WebSocket will work for subsequent messages
     const isPlaceholder = !this.selectedConversation.conversationId;
@@ -2096,8 +2172,11 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     // Stop typing indicator
     this.sendTypingIndicator(false);
 
+    // Group threads are HTTP-only (no WS handler for groups on the server).
+    const isGroupThread = !!this.selectedConversation?.isGroup;
+
     // For placeholder conversations, always use HTTP first to create the conversation
-    if (isPlaceholder) {
+    if (isPlaceholder || isGroupThread) {
       this.sendMessageViaHTTP(messageContent);
     } else {
       // Try WebSocket first (preferred for real-time)
@@ -2196,15 +2275,21 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       };
     }
 
-    this.messagingService.sendMessage(
-      receiverId,
-      content,
-      'text',
-      replyTo
-    ).subscribe({
+    const selected = this.selectedConversation;
+    const isGroupThread = !!(selected?.isGroup && selected.groupId);
+    const send$ = isGroupThread
+      ? this.messagingService.sendGroupMessage(selected!.groupId!, content, {
+          type: 'text',
+          participantIds: (selected!.participants || []).map((p) => p.auth0Id),
+          name: selected!.groupName || selected!.otherUser?.name || '',
+          replyTo
+        })
+      : this.messagingService.sendMessage(receiverId, content, 'text', replyTo);
+
+    send$.subscribe({
       next: (response) => {
         const message = response.message;
-        
+
         // Enhanced duplicate check - check by ID, or by content+timestamp if no ID match
         const existingMessage = this.messages.find(m => 
           m.id === message.id || 

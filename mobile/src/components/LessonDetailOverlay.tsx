@@ -5,12 +5,15 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Pressable,
   Image,
   Dimensions,
   Share,
   Platform,
   ActivityIndicator,
   Alert,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
   Animated as RNAnimated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -46,8 +49,18 @@ import {
 } from '../services/lessons';
 import { materialService, RecommendedMaterial } from '../services/materials';
 import { isLessonMockId, getMockRecommendedMaterials } from '../utils/lessonMockPreview';
+import { stripSimpleHtml } from '../utils/stripSimpleHtml';
+import {
+  resolveClassAttendeesForPreview,
+  attendeeStackInitials,
+  MOCK_CLASS_ATTENDEES_PREVIEW,
+} from '../constants/mockClassAttendeesPreview';
 import { LessonDateHeaderCenter, formatDateBadgeParts } from './LessonDateHeaderCenter';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
 import { SolidToolbarWithBlur, TOOLBAR_TOTAL_CHROME_HEIGHT, TOOLBAR_SOLID_MIN_HEIGHT } from './SolidToolbarWithBlur';
+import type { ClassGoingMessageRequest } from './ClassGoingMessageModal';
 
 export interface CardRect {
   x: number;
@@ -73,6 +86,12 @@ interface Props {
    * surface becomes transparent.
    */
   onBeginReveal?: () => void;
+  /**
+   * Parent (Home / Lessons) renders `ClassGoingMessageModal` at screen root
+   * so the RN `Modal` is not nested under Reanimated/another Modal (iOS
+   * often fails to show inner modals).
+   */
+  onClassGoingMessageRequest?: (p: ClassGoingMessageRequest) => void;
 }
 
 const { width: SW, height: SH } = Dimensions.get('window');
@@ -80,7 +99,7 @@ const { width: SW, height: SH } = Dimensions.get('window');
 /** Height of the full-bleed class thumbnail hero at the top of the sheet. */
 const CLASS_HERO_H = 260;
 /** How far the content card overlaps the class hero (same as Bundle). */
-const CLASS_CARD_OVERLAP = 80;
+const CLASS_CARD_OVERLAP = 88;
 
 /**
  * ONE spring, ONE job — animate the surface rect from `cardRect` to full
@@ -92,8 +111,26 @@ const CLASS_CARD_OVERLAP = 80;
  * than "wooden." 420ms matches iOS modal-present / Airbnb card-expand feel.
  */
 const MORPH_SPRING = { duration: 520, dampingRatio: 0.94 } as const;
+/**
+ * Close uses a tight timing curve, not a spring. Spring physics on close
+ * produce a small overshoot right at the end where the surface is settling
+ * back onto the card rect — that's exactly where the eye is tracking the
+ * avatar landing, so the overshoot reads as "not quite aligned." A plain
+ * cubic-out is decisive, predictable, and lands square on the source card.
+ * ~380ms is fast enough to feel responsive without making the scaffold
+ * content fade pop.
+ */
+const MORPH_CLOSE_TIMING = { duration: 380, easing: Easing.out(Easing.cubic) } as const;
 
-export default function LessonDetailOverlay({ card, cardRect, thumbnailTargetRect, onCloseStart, onCloseEnd, onBeginReveal }: Props) {
+export default function LessonDetailOverlay({
+  card,
+  cardRect,
+  thumbnailTargetRect,
+  onCloseStart,
+  onCloseEnd,
+  onBeginReveal,
+  onClassGoingMessageRequest,
+}: Props) {
   const { user } = useAuth();
   const { colors: C, isDark } = useTheme();
   const { t } = useTranslation();
@@ -121,6 +158,13 @@ export default function LessonDetailOverlay({ card, cardRect, thumbnailTargetRec
   const closing = useSharedValue(0);
   const asyncFade = useSharedValue(cached ? 1 : 0);
   const ASYNC_FADE_IN = { duration: 380, easing: Easing.out(Easing.cubic) };
+  /**
+   * Fades the below-the-fold detail column in AFTER the open spring has
+   * finished. Keeping the heavy mount off the spring's critical path is
+   * what lets the card + avatar morph run at native frame rate.
+   */
+  const detailFade = useSharedValue(0);
+  const DETAIL_FADE_IN = { duration: 260, easing: Easing.out(Easing.cubic) };
 
   const [detail, setDetail] = useState<LessonDetailResponse | null>(cached?.detail ?? null);
   const [paymentData, setPaymentData] = useState<PaymentData | null>(cached?.payment ?? null);
@@ -129,6 +173,8 @@ export default function LessonDetailOverlay({ card, cardRect, thumbnailTargetRec
   const [recMaterials, setRecMaterials] = useState<RecommendedMaterial[]>([]);
   const [recLoading, setRecLoading] = useState(false);
   const [joinUiTick, setJoinUiTick] = useState(0);
+  /** Light status text on photo; switches to dark (iOS) when the sheet reads as white (Airbnb). */
+  const [classHeroStatusBarLight, setClassHeroStatusBarLight] = useState(true);
 
   useEffect(() => {
     if (!id) return;
@@ -138,24 +184,49 @@ export default function LessonDetailOverlay({ card, cardRect, thumbnailTargetRec
 
   useEffect(() => {
     progress.value = withSpring(1, MORPH_SPRING);
-    // Defer below-the-fold sections until ~50% into the morph so their initial
-    // mount cost doesn't land on the first ~200ms where the surface is
-    // growing fastest. The `detailStyle` opacity band [0.5, 0.9] takes over
-    // from there to fade them in as the morph settles.
-    const timer = setTimeout(() => setDetailMounted(true), 200);
-    return () => clearTimeout(timer);
+    /**
+     * Defer mounting the heavy detail column until AFTER the morph spring
+     * has settled. The below-the-fold tree (recommended materials, AI bits,
+     * payments, etc.) costs hundreds of ms of reconciliation + Yoga layout
+     * on real lessons; running any of that during the spring blocks the JS
+     * thread and produces the "framey" expansion the user is seeing.
+     *
+     * The mount is off-screen at progress=1 — only the stats grid and above
+     * are in the viewport — so the user never sees the delayed mount. We
+     * fade the column in on its own cheap opacity spring so scrolling down
+     * immediately still reveals it gracefully.
+     */
+    const mountTimer = setTimeout(() => {
+      setDetailMounted(true);
+      detailFade.value = withTiming(1, DETAIL_FADE_IN);
+    }, MORPH_SPRING.duration + 20);
+    return () => clearTimeout(mountTimer);
+  }, []);
+
+  /**
+   * Guards every async `setState` against landing after unmount. Rapid
+   * open/close cycles of the overlay would otherwise let a stale instance's
+   * fetch resolve after its tree was torn down and schedule renders that
+   * the fresh instance (mounted on the *next* tap) pays for — a classic
+   * "UI wedges after a few taps" pattern.
+   */
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
   }, []);
 
   useEffect(() => {
     if (!id) return;
     fetchAndCacheLessonDetail(id, card.lesson, currentUserId).then((fresh) => {
+      if (!isMountedRef.current) return;
       if (fresh.detail) setDetail(fresh.detail);
       if (fresh.payment) setPaymentData(fresh.payment);
       if (fresh.billing) setBillingData(fresh.billing);
       if (!cached) {
         asyncFade.value = withTiming(1, ASYNC_FADE_IN);
       }
-    });
+    }).catch(() => {});
   }, [id, currentUserId]);
 
   useEffect(() => {
@@ -171,7 +242,7 @@ export default function LessonDetailOverlay({ card, cardRect, thumbnailTargetRec
 
     if (id && isLessonMockId(id)) {
       const mockRecs = getMockRecommendedMaterials(id);
-      if (mockRecs.length) setRecMaterials(mockRecs as any);
+      if (mockRecs.length && isMountedRef.current) setRecMaterials(mockRecs as any);
       return;
     }
 
@@ -180,22 +251,30 @@ export default function LessonDetailOverlay({ card, cardRect, thumbnailTargetRec
     setRecLoading(true);
     const tutId = card.lesson?.tutorId?._id || (typeof card.lesson?.tutorId === 'string' ? card.lesson.tutorId : undefined);
     materialService.getRecommendedMaterials(lang, { lessonId: id, tutorId: tutId }).then((res) => {
+      if (!isMountedRef.current) return;
       if (res.success && res.materials?.length) setRecMaterials(res.materials);
       setRecLoading(false);
-    }).catch(() => setRecLoading(false));
+    }).catch(() => {
+      if (isMountedRef.current) setRecLoading(false);
+    });
   }, [id, currentUserId, card.lesson?.tutorId, card.lesson?.language]);
 
+  /**
+   * Debounce close against rapid taps on the X / back button. Without this
+   * every tap re-fires `withSpring(0, …)` which resets the spring callback
+   * and can emit multiple `runOnJS(onCloseEnd)` calls — each triggers
+   * `setOverlayCard(null)` + `setLessonOverlayCoversTabBar(false)` on the
+   * parent, i.e. cascades of re-renders that block the UI thread and wedge
+   * the morph mid-flight. `closingRef` ensures `onCloseStart` and the
+   * spring-to-0 run at most once per mount.
+   */
+  const closingRef = useRef(false);
   const close = () => {
+    if (closingRef.current) return;
+    closingRef.current = true;
     onCloseStart();
-    // Flip the `closing` gate so content fades stop fading OUT and the
-    // surface tail fade kicks in. Gate is UI-thread-visible via shared value.
     closing.value = 1;
-    // Single spring, identical config to the open — same physics in reverse.
-    // Content, header, footer, hero all fade during specific progress BANDS
-    // (see `useAnimatedStyle` blocks below), so a single target value here is
-    // all we need. The spring's natural deceleration near `0` is what gives
-    // the "velvet landing" feel — no easing curves required.
-    progress.value = withSpring(0, MORPH_SPRING, (fin) => {
+    progress.value = withTiming(0, MORPH_CLOSE_TIMING, (fin) => {
       if (fin) runOnJS(onCloseEnd)();
     });
   };
@@ -277,12 +356,27 @@ export default function LessonDetailOverlay({ card, cardRect, thumbnailTargetRec
     borderRadius: interpolate(progress.value, [0, 1], [28, 62]),
   }));
 
-  // Shadow is strong while the rectangle reads as a "raised card" and
-  // smoothly attenuates to zero as it reaches full-screen (a drop shadow on
-  // a screen-sized view looks like a dark gutter at the bottom edge — we
-  // don't want that). Peak strength during [0, 0.7], fades out by 1.
+  /**
+   * Shadow only renders at the two "rest" endpoints of the morph:
+   *   - `p ≤ 0.08`: surface sitting over the source card → shadow visible
+   *     so the overlay reads as a raised sheet before it starts moving.
+   *   - `p ≥ 0.08` through the whole resize phase: shadow off. iOS
+   *     re-rasterizes the drop shadow path *every time* the view's box
+   *     changes size, and the surface changes size every frame here. Any
+   *     non-zero `shadowOpacity` during resize is a constant ~3-5ms/frame
+   *     tax on the UI thread. Zero means iOS skips the shadow pipeline.
+   *   - Fullscreen doesn't want a shadow either (it reads as a dark gutter
+   *     against the screen edge), so we leave it at 0 at `p=1`.
+   * Close reverses: shadow stays off until the surface is nearly settled
+   * back on the card, then pops in for the last ~8% to hand off cleanly.
+   */
   const surfaceShadowStyle = useAnimatedStyle(() => ({
-    shadowOpacity: interpolate(progress.value, [0, 0.7, 1], [0.22, 0.22, 0], Extrapolation.CLAMP),
+    shadowOpacity: interpolate(
+      progress.value,
+      [0, 0.08, 0.92, 1],
+      [0.22, 0, 0, 0],
+      Extrapolation.CLAMP,
+    ),
   }));
 
   // ── Backdrop ──
@@ -302,37 +396,64 @@ export default function LessonDetailOverlay({ card, cardRect, thumbnailTargetRec
       : interpolate(progress.value, [0.7, 0.95], [0, 1], Extrapolation.CLAMP),
   }));
 
-  // ── Body padding ── reclaims header space once surface is mostly open.
+  /**
+   * ── Body padding ── grows LINEARLY with progress so the avatar/name
+   * positional math is a clean `[0, 1]` interpolation (see `avatarScaleStyle`).
+   * Previously this used a piecewise `[0, 0.5, 1] → [0, BPO, BPO]` ramp so
+   * paddingTop hit its target halfway through; that forced the avatar's
+   * translateY to be piecewise too, which is what produced the "stays the
+   * same size for a while, then snaps to final" feel the user sees.
+   *
+   * Class cover (`showHero`) keeps paddingTop at 0 — full-bleed cover uses
+   * extra hero height via `heroOpenHeight` instead.
+   */
   const bodyPadStyle = useAnimatedStyle(() => ({
-    paddingTop: interpolate(progress.value, [0, 0.5, 1], [0, BODY_PAD_OPEN, BODY_PAD_OPEN], Extrapolation.CLAMP),
+    paddingTop: showHero
+      ? 0
+      : interpolate(progress.value, [0, 1], [0, BODY_PAD_OPEN], Extrapolation.CLAMP),
   }));
 
   // ── Content fade (close only) ──
-  // Tight close timing (progress 1 → 0 over ~420ms):
+  // Tight close timing (progress 1 → 0 over ~380ms, cubic-out easing means
+  // progress drops very fast at the start and crawls at the end):
   //
-  //   [1.00 → 0.60]  ~40%  body stays visible, card shrinks with content
-  //   [0.60 → 0.35]  ~25%  body fades out FAST (~100ms window in spring time)
-  //   [0.35 → 0.00]  ~35%  surface + card CROSS-FADE (no empty-white frame)
-  //                        surface fades 1 → 0, card fades 0 → 1 in sync
+  //   [1.00 → 0.80]  body fades out HARD and FAST (~20ms of wall time) —
+  //                  before the surface has had a chance to shrink, so
+  //                  there's no moment where the outgoing text can be
+  //                  caught mid-fade at a position that doesn't match
+  //                  anything. By progress 0.80 the body is a clean,
+  //                  empty surface.
+  //   [0.80 → 0.00]  empty surface shrinks + avatar/name ride it down.
+  //                  Source card is INSTANTLY revealed behind the surface
+  //                  (opacity=1 via `onBeginReveal`) from the very start
+  //                  of close, so as the surface becomes transparent in
+  //                  the tail the card underneath is already fully painted
+  //                  — no fade-in race, no ghosted duplicate text.
   //
   // IMPORTANT: this is applied to the avatar's SIBLINGS (name, date header,
   // stats grid, detail sections) — never to the avatar itself. The avatar
   // is the one element that's a true "shared element" between the card and
   // the detail; it scales continuously from small→big and back, and must
-  // never flash to 0. Previously we applied this fade to the whole body
-  // wrapper, which included the avatar, causing the visible "flash" the
-  // user noticed during close.
+  // never flash to 0.
   const contentFadeStyle = useAnimatedStyle(() => ({
     opacity: closing.value > 0
-      ? interpolate(progress.value, [0.35, 0.6], [0, 1], Extrapolation.CLAMP)
+      ? interpolate(progress.value, [0.80, 0.95], [0, 1], Extrapolation.CLAMP)
       : 1,
   }));
 
-  // Trigger the parent's card fade-in the moment the body content has
-  // finished fading out — synchronized with the start of the surface fade.
-  // `prev` guard makes sure we only fire ONCE per close.
+  // Trigger the parent's card reveal IMMEDIATELY at close start. The parent
+  // snaps `cardRevealOpacity` to 1 in a single frame (no fade), so the
+  // source card sits fully painted at `cardRect` under the overlay surface
+  // for the entire close. The opaque overlay surface hides the card while
+  // it's shrinking; only in the last ~35% (when `surfaceStyle.opacity`
+  // drops 1→0 over the [0, 0.35] progress window — see `surfaceStyle`)
+  // does the card become visible. Because the card is already at opacity
+  // 1 by then, there's no fade-in that could overlap with the dying
+  // overlay text — the eye sees ONE surface fading out to reveal ONE
+  // card, not two semi-transparent sets of text stacked on top of each
+  // other.
   useAnimatedReaction(
-    () => closing.value > 0 && progress.value <= 0.35,
+    () => closing.value > 0,
     (curr, prev) => {
       if (curr && !prev && onBeginReveal) {
         runOnJS(onBeginReveal)();
@@ -340,138 +461,233 @@ export default function LessonDetailOverlay({ card, cardRect, thumbnailTargetRec
     },
   );
 
-  // ── Avatar: LEADS the surface growth + LANDS before the cross-fade ──
-  //
-  // OPEN (progress 0 → 1):
-  //   Avatar reaches full detail scale by progress=0.65, then stays put.
-  //   The surface spends the remaining 35% of the morph settling around it.
-  //   Creates the "avatar pulls the page with it" feel.
-  //
-  // CLOSE (progress 1 → 0):
-  //   [1.00 → 0.65]  avatar stays at full detail size; page shrinks around
-  //   [0.65 → 0.35]  avatar rapidly shrinks to START (card-matching) size
-  //                  and lands pixel-perfect on the source card's avatar
-  //                  position via AVATAR_START_TRANSLATE_Y
-  //   [0.35 → 0.00]  avatar holds at start size/position and fades out
-  //                  IN LOCKSTEP with the surface (both opacity 1→0).
-  //                  Since the source card's avatar is fading 0→1 in the
-  //                  exact same pixels, this reads as a single dissolving
-  //                  avatar — not two ghosts overlapping at different sizes
-  //                  (which is what we saw when the avatar's shrink band
-  //                  extended all the way down to progress=0).
-  const AVATAR_LEAD_END = 0.65;
-  const AVATAR_LAND_BY = 0.35; // avatar reaches card-position at this progress
-  // `bpoAtLand` = value of bodyPadStyle.paddingTop AT progress=AVATAR_LAND_BY.
-  // Needed to keep the locked→released translateY transition continuous.
-  // bodyPadStyle interpolates p [0, 0.5, 1] → [0, BPO, BPO], so at LAND_BY
-  // (which is <0.5) it's linearly (LAND_BY/0.5)*BPO.
-  const BPO_AT_LAND = (AVATAR_LAND_BY / 0.5) * BODY_PAD_OPEN;
-  const LOCKED_TY_AT_LAND =
-    AVATAR_LAND_BY * cardRect.y + AVATAR_START_TRANSLATE_Y - BPO_AT_LAND;
+  /**
+   * Drop the heavy detail tree the moment close begins. It's scrolled
+   * off-screen anyway by the time the surface starts shrinking, so the
+   * user can't see it disappear — but keeping it mounted means every frame
+   * of the shrinking surface has to re-layout the detail column's subtree
+   * as well. On real lessons that's measurably 60-80ms of extra JS-side
+   * work spread across the close, which shows up as stalls right where
+   * the eye is tracking the avatar landing.
+   */
+  useAnimatedReaction(
+    () => closing.value > 0,
+    (curr, prev) => {
+      if (curr && !prev) {
+        runOnJS(setDetailMounted)(false);
+      }
+    },
+  );
 
+  /**
+   * ── Avatar: grows CONTINUOUSLY with the card over the whole morph ──
+   *
+   * Previously the avatar was locked at the source-card position/scale during
+   * `[0, 0.35]`, scaled through `[0.35, 0.65]`, then locked at full detail
+   * size through `[0.65, 1]`. That compresses all the visible growth into
+   * 30% of the animation, which the eye reads as "sits still → snaps to
+   * end". Airbnb's version grows in lockstep with the card surface — the
+   * avatar has frames at every size between the card's 72px and the
+   * detail's 120px.
+   *
+   * With `bodyPadStyle` now linear over `[0, 1]`, keeping the avatar in
+   * exact screen-Y alignment with the source card at `p=0` (and at natural
+   * layout at `p=1`) reduces to a trivial linear translate:
+   *
+   *   wanted_y(p) = (1-p)*(cardRect.y + 68) + p*(BODY_PAD_OPEN + 60)
+   *   actual_y(p) = (1-p)*cardRect.y + p*BODY_PAD_OPEN + 60 + translateY
+   *   → translateY(p) = AVATAR_START_TRANSLATE_Y * (1 - p)
+   *
+   * Scale is also linear `[AVATAR_START_SCALE, 1]`, so at `p=0` the avatar
+   * renders at exactly 72px over the card's avatar slot (cross-fade stays
+   * pixel-perfect on close); at `p=1` it sits at 120px in its natural slot;
+   * every intermediate frame shows a smoothly-scaling avatar tied to the
+   * card's growth.
+   */
+  /**
+   * Open uses a single linear ramp `[0, 1] → [start, end]` so the avatar
+   * grows continuously with the card (the "multiple frames of growth"
+   * Airbnb shows).
+   *
+   * Close uses pixel-precise math to keep the overlay avatar pinned to the
+   * source-card avatar's absolute screen position throughout the entire
+   * cross-fade zone.
+   *
+   * The previous close curve just locked `translateY` at the constant
+   * `AVATAR_START_TRANSLATE_Y = 8` during `[0, 0.35]`. That's only right if
+   * `cardRect.y === BODY_PAD_OPEN` (~100). Real cards sit hundreds of px
+   * lower, so the overlay avatar's *absolute* screen-Y drifted by
+   * `p * (cardRect.y - BODY_PAD_OPEN)` during `[0, 0.35]` — while the
+   * source card's avatar was fading in at a fixed Y. Result: two avatars
+   * ghosting at different vertical positions during the handoff, which is
+   * exactly what shows up in the screenshot.
+   *
+   * The correct `translateY` that pins `abs_y = cardRect.y + 68`:
+   *   natural_y(p) = (1-p)*cardRect.y + p*BPO + 60
+   *   pinned_y    = cardRect.y + 68
+   *   → translateY(p) = AVATAR_START_TRANSLATE_Y + p*(cardRect.y - BPO)
+   *
+   * Below `AVATAR_CLOSE_LAND_BY` we use that pinned formula directly.
+   * Above it we interpolate from the value the formula produces at the
+   * land-point back to the natural end-of-close state at `p=1`.
+   */
+  const AVATAR_CLOSE_LAND_BY = 0.35;
   const avatarScaleStyle = useAnimatedStyle(() => {
     const p = progress.value;
-
     if (showHero) {
       return { transform: [{ translateY: 0 }, { scale: 1 }] };
     }
 
-    const scale = interpolate(
-      p,
-      [AVATAR_LAND_BY, AVATAR_LEAD_END],
-      [AVATAR_START_SCALE, 1],
-      Extrapolation.CLAMP,
-    );
-
-    // During [0, AVATAR_LAND_BY] we LOCK the avatar's absolute screen-Y to
-    // the source card's avatar position. Without this, the avatar drifts
-    // because the surface top (`cardRect.y → 0`) and the body paddingTop
-    // (`0 → BODY_PAD_OPEN`) both change as progress moves, so "start
-    // scale" at different progress values lands at different screen
-    // positions. The compound of those two shifts is exactly cancelled by
-    // this formula, derived from:
-    //   wanted_abs_y = cardRect.y + 68 (constant, matches card avatar)
-    //   actual_abs_y = surfaceTop(p) + bpo(p) + 60 + translateY
-    //               = (1-p)*cardRect.y + bpo(p) + 60 + translateY
-    //   → translateY = p*cardRect.y + 8 - bpo(p)
-    const bpo = interpolate(
-      p,
-      [0, 0.5, 1],
-      [0, BODY_PAD_OPEN, BODY_PAD_OPEN],
-      Extrapolation.CLAMP,
-    );
-    const lockedTy = p * cardRect.y + AVATAR_START_TRANSLATE_Y - bpo;
-
-    let ty: number;
-    if (p <= AVATAR_LAND_BY) {
-      // Locked to card avatar position — absolute screen Y is constant
-      // here, so the cross-fade with the source card's avatar happens
-      // pixel-on-pixel with no ghosting.
-      ty = lockedTy;
-    } else if (p <= AVATAR_LEAD_END) {
-      // Released: smoothly transition from the locked value to 0 (natural
-      // layout position) over the scale-up band.
-      ty = interpolate(
-        p,
-        [AVATAR_LAND_BY, AVATAR_LEAD_END],
-        [LOCKED_TY_AT_LAND, 0],
-        Extrapolation.CLAMP,
-      );
-    } else {
-      ty = 0;
+    if (closing.value > 0) {
+      if (p <= AVATAR_CLOSE_LAND_BY) {
+        return {
+          transform: [
+            { translateY: AVATAR_START_TRANSLATE_Y + p * (cardRect.y - BODY_PAD_OPEN) },
+            { scale: AVATAR_START_SCALE },
+          ],
+        };
+      }
+      const tyAtLand = AVATAR_START_TRANSLATE_Y + AVATAR_CLOSE_LAND_BY * (cardRect.y - BODY_PAD_OPEN);
+      return {
+        transform: [
+          { translateY: interpolate(p, [AVATAR_CLOSE_LAND_BY, 1], [tyAtLand, 0], Extrapolation.CLAMP) },
+          { scale: interpolate(p, [AVATAR_CLOSE_LAND_BY, 1], [AVATAR_START_SCALE, 1], Extrapolation.CLAMP) },
+        ],
+      };
     }
 
-    return {
-      transform: [{ translateY: ty }, { scale }],
-    };
+    const scale = interpolate(p, [0, 1], [AVATAR_START_SCALE, 1], Extrapolation.CLAMP);
+    const ty = interpolate(p, [0, 1], [AVATAR_START_TRANSLATE_Y, 0], Extrapolation.CLAMP);
+    return { transform: [{ translateY: ty }, { scale }] };
   });
 
-  // ── Name: cascades a beat after the avatar ──
-  // Same principle: lands by AVATAR_LAND_BY so it's pixel-aligned with the
-  // card's name when the cross-fade begins, then already fades with
-  // `contentFadeStyle` during [0.35, 0.6]. The transform band stops at
-  // 0.35 so there's no residual motion while the content is crossfading.
-  const NAME_LEAD_END = 0.75;
-  const nameScaleStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        translateY: showHero
-          ? 0
-          : interpolate(progress.value, [AVATAR_LAND_BY, NAME_LEAD_END], [NAME_START_TRANSLATE_Y, 0], Extrapolation.CLAMP),
-      },
-      {
-        scale: showHero
-          ? 1
-          : interpolate(progress.value, [AVATAR_LAND_BY, NAME_LEAD_END], [NAME_START_SCALE, 1], Extrapolation.CLAMP),
-      },
-    ],
-  }));
+  /**
+   * ── Name: same pattern as the avatar ──
+   * Linear over `[0, 1]`. At `p=0` it lands pixel-perfect on the card's
+   * name row; at `p=1` it's at its natural detail position; in between it
+   * grows continuously in lockstep with the card and avatar.
+   */
+  /**
+   * Name mirrors the avatar: open uses linear `[0, 1] → [start, end]`;
+   * close uses the pixel-pinned formula so the overlay name sits exactly
+   * on the source card's name row throughout the cross-fade (and avoids
+   * the same ghosting the avatar had before the fix above).
+   */
+  const nameScaleStyle = useAnimatedStyle(() => {
+    const p = progress.value;
+    if (showHero) {
+      return { transform: [{ translateY: 0 }, { scale: 1 }] };
+    }
+
+    if (closing.value > 0) {
+      if (p <= AVATAR_CLOSE_LAND_BY) {
+        return {
+          transform: [
+            { translateY: NAME_START_TRANSLATE_Y + p * (cardRect.y - BODY_PAD_OPEN) },
+            { scale: NAME_START_SCALE },
+          ],
+        };
+      }
+      const tyAtLand = NAME_START_TRANSLATE_Y + AVATAR_CLOSE_LAND_BY * (cardRect.y - BODY_PAD_OPEN);
+      return {
+        transform: [
+          { translateY: interpolate(p, [AVATAR_CLOSE_LAND_BY, 1], [tyAtLand, 0], Extrapolation.CLAMP) },
+          { scale: interpolate(p, [AVATAR_CLOSE_LAND_BY, 1], [NAME_START_SCALE, 1], Extrapolation.CLAMP) },
+        ],
+      };
+    }
+
+    const scale = interpolate(p, [0, 1], [NAME_START_SCALE, 1], Extrapolation.CLAMP);
+    const ty = interpolate(p, [0, 1], [NAME_START_TRANSLATE_Y, 0], Extrapolation.CLAMP);
+    return { transform: [{ translateY: ty }, { scale }] };
+  });
 
   // ── Stats grid + date header ── appear once the card is mostly open.
   // These are "new" elements not present on the card, so they need a
   // dedicated fade rather than a naked scale.
   //
-  // One-way: on open, fade in during [0.35, 0.7]. On close, stay at 1 so the
-  // card doesn't look empty mid-close — the surface tail fade handles the
-  // final handoff to the real card underneath. Previously this faded back
-  // OUT during close, leaving a blank card from progress 0.35 → 0.
-  const metaFadeStyle = useAnimatedStyle(() => ({
-    opacity: closing.value > 0
-      ? 1
-      : interpolate(progress.value, [0.35, 0.7], [0, 1], Extrapolation.CLAMP),
-  }));
-
-  // ── Detail sections (bio, AI, payments, etc.) ── all below-the-fold
-  // content. Fade in LATE on open. On close, clipping by the shrinking
-  // surface handles disappearance (no symmetric fade-out needed). Multiplied
-  // by `asyncFade` so sections with network-pending data stay invisible
-  // until ready.
-  const detailStyle = useAnimatedStyle(() => {
-    const morphOp = closing.value > 0
-      ? 1
-      : interpolate(progress.value, [0.5, 0.9], [0, 1], Extrapolation.CLAMP);
-    return { opacity: morphOp * asyncFade.value };
+  /**
+   * Date badge + quick-stats strip reveal — combines opacity + a
+   * compensating translateY so they appear cleanly at a STABLE absolute
+   * screen position.
+   *
+   * Two failed attempts before this:
+   *   1. Fade during `[0.3, 0.6]` of progress — user saw them drift down
+   *      as they appeared, because `bodyPadStyle.paddingTop` grows linearly
+   *      through the morph and meta sits below it in the flex stack. So
+   *      during the fade window, meta's absolute screen-Y was climbing
+   *      ~50px while the opacity interpolated 0→1.
+   *   2. Post-morph fade tied to `detailFade` — user saw a visible "gap"
+   *      where the source-card date briefly existed, then nothing, then
+   *      the overlay date popped in 540ms later. The gap reads as a flash.
+   *
+   * The fix combines both lessons: fade in during the LAST 30% of the
+   * morph (so no gap), AND apply a `translateY` that exactly cancels both
+   * the surface-top motion AND the paddingTop growth during that window
+   * so the element's absolute screen-Y is fixed throughout the fade.
+   *
+   * Derivation:
+   *   abs_y(p) = surface_top(p) + body_paddingTop(p) + meta_offset + tyComp(p)
+   *            = (1-p)*cardRect.y + p*BPO + meta_offset + tyComp(p)
+   *   want abs_y(p) = BPO + meta_offset  (= position at p=1)
+   *   → tyComp(p) = (1 - p) * (BPO - cardRect.y)
+   *
+   * That's independent of meta_offset, so the same formula applies to both
+   * the date strip and the stats grid below it.
+   */
+  /**
+   * Fade starts at 82% of the morph. Chosen by walking the math:
+   *   - Avatar is still shrinking/moving toward its final position during
+   *     the morph tail. Its bottom edge at progress `p` sits at roughly
+   *     `0.2·cardRect.y + BPO·p + 60 + 55·(0.6+p·0.4)`.
+   *   - Date sits pinned (via the compensation below) at `BPO + meta_offset`.
+   *   - Starting the fade at 0.82 keeps clearance between the avatar's
+   *     bottom and the date's position for the full typical range of
+   *     `cardRect.y` (up to ~650px, i.e. well below any normal visible
+   *     tap target). Later would feel snappy / popped; earlier would risk
+   *     the faint-opacity date bleeding through the avatar on
+   *     deep-scrolled cards.
+   */
+  const META_FADE_START = 0.82;
+  const metaRevealStyle = useAnimatedStyle(() => {
+    // During close, DO NOT set opacity here — `contentFadeStyle` is the
+    // single source of truth for the close fade-out. Two animated styles
+    // both setting `opacity` in the same style array gets merged in a way
+    // that's not always deterministic on iOS (last-writer-wins by prop,
+    // but the "last writer" can flip between frames on the UI thread),
+    // producing the ghost-text the user sees in IMG_2316.
+    if (closing.value > 0) {
+      return { transform: [{ translateY: 0 }] };
+    }
+    const p = progress.value;
+    const opacity = interpolate(p, [META_FADE_START, 1], [0, 1], Extrapolation.CLAMP);
+    const tyComp = interpolate(
+      p,
+      [META_FADE_START, 1],
+      [(1 - META_FADE_START) * (BODY_PAD_OPEN - cardRect.y), 0],
+      Extrapolation.CLAMP,
+    );
+    return { opacity, transform: [{ translateY: tyComp }] };
   });
+
+  /**
+   * ── Detail sections (bio, AI, payments, etc.) ──
+   *
+   * The detail column mounts AFTER the morph spring completes (see the
+   * main `useEffect`), at which point `progress` is already 1. So opacity
+   * can't be tied to `progress` — we drive it from a dedicated `detailFade`
+   * shared value that runs a short fade-in right after mount. Scrolling
+   * down after open reveals the column with a smooth 260ms fade rather
+   * than a pop.
+   *
+   * During close (`closing.value > 0`) we keep it at full opacity — the
+   * surface itself is doing the cross-fade with the source card, so the
+   * detail column just rides along inside the shrinking surface until the
+   * overlay tears down.
+   */
+  const detailStyle = useAnimatedStyle(() => ({
+    opacity: closing.value > 0 ? 1 : detailFade.value,
+  }));
 
   // ── Footer CTA ──
   // Open: fade in + slide UP from below on a soft band [0.5, 0.95]. Starts
@@ -519,20 +735,137 @@ export default function LessonDetailOverlay({ card, cardRect, thumbnailTargetRec
     ? thumbnailTargetRect.height
     : thumbWidth * 9 / 16;
 
-  const heroImgStyle = useAnimatedStyle(() => ({
-    width: interpolate(progress.value, [0, 1], [thumbWidth, SW], Extrapolation.CLAMP),
-    height: interpolate(progress.value, [0, 1], [thumbHeight, CLASS_HERO_H], Extrapolation.CLAMP),
-    marginTop: interpolate(progress.value, [0, 1], [thumbInsetTop, 0], Extrapolation.CLAMP),
-    borderRadius: interpolate(progress.value, [0, 1], [16, 0], Extrapolation.CLAMP),
-  }));
+  /** Full-bleed class cover extends under the status bar + toolbar (body pad reclaimed). */
+  const heroOpenHeight = CLASS_HERO_H + BODY_PAD_OPEN;
 
-  // ── Class content card overlap ──
-  // When open, the content card pulls up -80 over the hero image (Bundle-style
-  // overlap). When closed, we need 0 overlap so the content sits cleanly
-  // beneath the (now small, inset) thumb — matching the card's vertical flow.
-  const heroOverlapStyle = useAnimatedStyle(() => ({
-    marginTop: interpolate(progress.value, [0, 1], [0, -CLASS_CARD_OVERLAP], Extrapolation.CLAMP),
-  }));
+  /**
+   * Scroll position for the class-hero fade/blur, driven on the NATIVE thread
+   * via `RNAnimated.event({ useNativeDriver: true })`. Matches BundleDetailScreen
+   * exactly — that's the only way the hero stays locked to the card during scroll
+   * on iOS. A JS-bridged scroll (Reanimated shared-value + JS onScroll) lags
+   * roughly one frame behind the native ScrollView and makes the card look like
+   * its top "separates" from the hero mid-scroll.
+   */
+  const mainScrollY = useRef(new RNAnimated.Value(0)).current;
+  const classHeroNavScrollRef = useRef({ paperBy: 0 });
+
+  const classPinnedHeroDimOpacity = mainScrollY.interpolate({
+    inputRange: [0, heroOpenHeight],
+    outputRange: [1, 0.4],
+    extrapolate: 'clamp',
+  });
+  const classPinnedHeroScale = mainScrollY.interpolate({
+    inputRange: [0, heroOpenHeight],
+    outputRange: [1, 1.08],
+    extrapolate: 'clamp',
+  });
+  const classPinnedHeroBlurOpacity = mainScrollY.interpolate({
+    inputRange: [0, heroOpenHeight * 0.6],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
+  const heroSpacerFinal = heroOpenHeight - CLASS_CARD_OVERLAP;
+  /**
+   * `e` = total scroll to bring the card lip to the top. The **pinned-hero** area must read as
+   * full `C.card` **before** the under-scroll **toolbar strip** and pill→flat nav appear, so
+   * the bar never shows over a still-visual photo. Blur/gradient/hero wash share
+   * `classHeroHeroSurfaceBlend`; the solid bar + bar icons use the later `classHeroToolbar...`.
+   */
+  const classHeroChromeBlendEnd = Math.max(120, Math.round(heroSpacerFinal));
+  const classHeroChromeBlendStart = Math.max(16, Math.round(classHeroChromeBlendEnd * 0.1));
+  /**
+   * Anchor everything to the moment the card lip reaches the **bottom of the toolbar strip**
+   * (right at the back/share buttons). At that scroll position the hero must already be full
+   * `C.card` paper **and** the toolbar must already be solid, so there is never a visible
+   * seam between them. `classHeroChromeBlendEnd` is when the card lip hits `y = 0` of the
+   * viewport; the button row sits ~`insets.top + 50`px below that, so we pull the handoff
+   * up by that much (plus a small 8px lead).
+   */
+  const classHeroHandoffBuffer = insets.top + 58;
+  const classHeroHeroPaperBy = Math.max(
+    72,
+    Math.round(classHeroChromeBlendEnd - classHeroHandoffBuffer),
+  );
+  /** Toolbar strip is fully opaque at the same moment the hero finishes going white. */
+  const classHeroToolbarRampEnd = classHeroHeroPaperBy;
+  const classHeroToolbarRampStart = Math.max(
+    classHeroChromeBlendStart,
+    Math.min(classHeroToolbarRampEnd - 40, classHeroToolbarRampEnd - 1),
+  );
+  const classHeroHeroSurfaceBlend = mainScrollY.interpolate({
+    inputRange: [0, classHeroChromeBlendStart, classHeroHeroPaperBy],
+    outputRange: [0, 0, 1],
+    extrapolate: 'clamp',
+  });
+  const classHeroToolbarBarOpacity = mainScrollY.interpolate({
+    inputRange: [0, classHeroToolbarRampStart, classHeroToolbarRampEnd],
+    outputRange: [0, 0, 1],
+    extrapolate: 'clamp',
+  });
+  const classHeroPillsOpacity = mainScrollY.interpolate({
+    inputRange: [0, classHeroToolbarRampStart, classHeroToolbarRampEnd],
+    outputRange: [1, 1, 0],
+    extrapolate: 'clamp',
+  });
+  const classHeroBarIconOpacity = mainScrollY.interpolate({
+    inputRange: [0, classHeroToolbarRampStart, classHeroToolbarRampEnd],
+    outputRange: [0, 0, 1],
+    extrapolate: 'clamp',
+  });
+  const classHeroBlurDampen = mainScrollY.interpolate({
+    inputRange: [0, classHeroChromeBlendStart, classHeroHeroPaperBy],
+    outputRange: [1, 1, 0],
+    extrapolate: 'clamp',
+  });
+  const classHeroPinnedBlurCombined = RNAnimated.multiply(
+    classPinnedHeroBlurOpacity,
+    classHeroBlurDampen,
+  );
+  const classHeroTopGuardOpacity = mainScrollY.interpolate({
+    inputRange: [0, 0.05 * classHeroChromeBlendEnd, 0.42 * classHeroChromeBlendEnd, classHeroHeroPaperBy],
+    outputRange: [0, 0.15, 0.82, 1],
+    extrapolate: 'clamp',
+  });
+  classHeroNavScrollRef.current.paperBy = classHeroHeroPaperBy;
+
+  /**
+   * Bundle (RN) pattern: clear scroll space = (hero area height − overlap). Overlap
+   * is NOT a `marginTop` on the card — that wrapper can split compositing vs a plain
+   * `View` child when scrolling. Height morphs: full thumb stack at p=0, `heroOpenHeight
+   * − overlap` at p=1.
+   *
+   * Once the spring settles (p ≥ 0.999), we pin the value to the EXACT final integer
+   * height so sub-pixel spring tail oscillations can't jiggle the card's starting Y
+   * while the user is scrolling — that's what made the rounded top look like it was
+   * "separating" from the hero on iOS.
+   */
+  const heroSpacerStyle = useAnimatedStyle(() => {
+    const p = progress.value;
+    if (p >= 0.999) return { height: heroSpacerFinal };
+    return {
+      height: interpolate(
+        p,
+        [0, 1],
+        [thumbInsetTop + thumbHeight, heroSpacerFinal],
+        Extrapolation.CLAMP,
+      ),
+    };
+  });
+
+  const heroImgHeightOpen = showHero ? heroOpenHeight : CLASS_HERO_H;
+  const heroImgStyle = useAnimatedStyle(() => {
+    const p = progress.value;
+    if (p >= 0.999) {
+      return { width: SW, height: heroImgHeightOpen, marginTop: 0, borderRadius: 0 };
+    }
+    return {
+      width: interpolate(p, [0, 1], [thumbWidth, SW], Extrapolation.CLAMP),
+      height: interpolate(p, [0, 1], [thumbHeight, heroImgHeightOpen], Extrapolation.CLAMP),
+      marginTop: interpolate(p, [0, 1], [thumbInsetTop, 0], Extrapolation.CLAMP),
+      borderRadius: interpolate(p, [0, 1], [16, 0], Extrapolation.CLAMP),
+    };
+  });
 
   // ── Async sub-values (network-ready billing lines) ──
   const asyncSubStyle = useAnimatedStyle(() => ({
@@ -542,14 +875,57 @@ export default function LessonDetailOverlay({ card, cardRect, thumbnailTargetRec
   const lesson = useMemo(() => {
     const base = card.lesson;
     if (!detail?.lesson) return base;
-    return { ...base, ...detail.lesson, tutorId: detail.lesson.tutorId || base?.tutorId, studentId: detail.lesson.studentId || base?.studentId };
+    const d = detail.lesson;
+    const classMerged = { ...(base as { classData?: { thumbnail?: string; description?: string; name?: string } }).classData, ...(d as { classData?: { thumbnail?: string; description?: string; name?: string } }).classData };
+    const dAtt = (d as { attendees?: unknown[] }).attendees;
+    const baseAtt = (base as { attendees?: unknown[] }).attendees;
+    const attendees =
+      Array.isArray(dAtt) && dAtt.length > 0
+        ? dAtt
+        : Array.isArray(baseAtt) && baseAtt.length > 0
+          ? baseAtt
+          : Array.isArray(dAtt)
+            ? dAtt
+            : baseAtt;
+    return {
+      ...base,
+      ...d,
+      tutorId: d.tutorId || base?.tutorId,
+      studentId: d.studentId || base?.studentId,
+      ...(Object.keys(classMerged).length > 0 ? { classData: classMerged } : {}),
+      ...(attendees !== undefined ? { attendees } : {}),
+    };
   }, [card.lesson, detail?.lesson]);
   const isClass = isClassMode;
   const classThumbUri = classThumbForMode;
-
-  /** Scroll parallax for hero (Bundle-style). Must be created unconditionally (hooks rule). */
-  const classScrollY = useRef(new RNAnimated.Value(0)).current; // retained for potential future use
   const heroThumbUri = classThumbUri;
+
+  const mainScrollRef = useRef<ScrollView>(null);
+
+  /** Native-driven scroll + light listener to flip status bar with the white blend (Airbnb). */
+  const onMainScroll = useMemo(
+    () => RNAnimated.event(
+      [{ nativeEvent: { contentOffset: { y: mainScrollY } } }],
+      {
+        useNativeDriver: true,
+        listener: (ev: NativeSyntheticEvent<NativeScrollEvent>) => {
+          const y = ev.nativeEvent.contentOffset.y;
+          setClassHeroStatusBarLight((prev) => {
+            const next = y < classHeroNavScrollRef.current.paperBy;
+            return prev === next ? prev : next;
+          });
+        },
+      },
+    ),
+    [mainScrollY],
+  );
+
+  useEffect(() => {
+    if (!showHero) return;
+    mainScrollY.setValue(0);
+    setClassHeroStatusBarLight(true);
+    mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [showHero, card.lesson?._id, mainScrollY]);
 
   const baseInfo = useMemo(() => {
     const src = card.lesson;
@@ -778,6 +1154,142 @@ export default function LessonDetailOverlay({ card, cardRect, thumbnailTargetRec
     return other?.onboardingData?.bio || other?.onboardingData?.summary || '';
   }, [isTutor, lesson?.studentId, lesson?.tutorId]);
 
+  /** Group class long description — mirrors web "About this class" (classData.description). */
+  const aboutThisClassText = useMemo(() => {
+    if (!isClass) return '';
+    const raw = (lesson as { classData?: { description?: string } } | null)?.classData?.description;
+    if (!raw || !String(raw).trim()) return '';
+    return stripSimpleHtml(String(raw));
+  }, [isClass, lesson]);
+
+  /** Class roster: real `lesson.attendees` or mock preview (same as Up Next / web). */
+  const goingAttendees = useMemo(
+    () => (isClass ? resolveClassAttendeesForPreview(lesson) : []),
+    [isClass, lesson],
+  );
+
+  const classGoingStackView = useMemo(() => {
+    if (goingAttendees.length === 0) return null;
+    const list = goingAttendees.slice(0, 4);
+    const more = goingAttendees.length - 4;
+    return (
+      <View style={st.classGoingStackRow}>
+        {list.map((a, i) => (
+          <View
+            key={`going-${i}`}
+            style={[
+              st.classGoingStackAv,
+              {
+                marginLeft: i > 0 ? -10 : 0,
+                zIndex: 10 - i,
+                borderColor: C.card,
+                backgroundColor: isDark ? '#2c2c2e' : '#e8e8e8',
+              },
+            ]}
+          >
+            {(a as { picture?: string }).picture ? (
+              <View style={st.classGoingStackAvClip}>
+                <Image source={{ uri: (a as { picture: string }).picture }} style={st.classGoingStackImg} />
+              </View>
+            ) : (
+              <Text style={[st.classGoingStackIni, { color: C.textSecondary }]}>{attendeeStackInitials(a)}</Text>
+            )}
+          </View>
+        ))}
+        {more > 0 ? (
+          <Text style={[st.classGoingMore, { color: C.textTertiary, marginLeft: 10 }]}>+{more}</Text>
+        ) : null}
+      </View>
+    );
+  }, [goingAttendees, C.card, C.textTertiary, C.textSecondary, isDark]);
+
+  const classGoingTutorId = useMemo(() => {
+    const t = lesson ? (lesson as { tutorId?: { _id?: string; auth0Id?: string } | string }).tutorId : undefined;
+    if (typeof t === 'string') return t;
+    // Prefer auth0Id for messaging (backend resolves both shapes).
+    return String(t?.auth0Id || t?._id || '');
+  }, [lesson]);
+
+  /**
+   * Tutor → confirmed students broadcast. Fall back to seeded mock `auth0Id`s
+   * when no real `confirmedStudents` are attached, matching the web flow so the
+   * group message can be tested end-to-end against
+   * `backend/scripts/seed-mock-class-students.js`.
+   */
+  const classGoingReceiverIds = useMemo(() => {
+    if (!isClass || !isTutor) return [] as string[];
+    const confirmed = (lesson as { confirmedStudents?: any[] } | null)?.confirmedStudents || [];
+    const fromReal = confirmed
+      .map((s: any) => String(s?.auth0Id || s?._id || s?.id || '').trim())
+      .filter((id: string) => id && id !== currentUserId);
+    if (fromReal.length > 0) return Array.from(new Set(fromReal));
+    // No real students → use seeded mock auth0Ids so the UX is still testable.
+    return MOCK_CLASS_ATTENDEES_PREVIEW
+      .map((m) => String(m.auth0Id || '').trim())
+      .filter((id) => !!id && id !== currentUserId);
+  }, [isClass, isTutor, lesson, currentUserId]);
+
+  // Same stack as the GOING row: real `lesson.attendees` or `MOCK_CLASS_ATTENDEES_PREVIEW`.
+  // Clickable only when we actually have someone to message:
+  //  - student → tutor: need `classGoingTutorId`.
+  //  - tutor   → students: need at least one recipient (real or seeded mock).
+  const canOpenClassGoingMessageModal = useMemo(
+    () => {
+      if (!isClass || goingAttendees.length === 0) return false;
+      if (isStudent) return !!classGoingTutorId;
+      if (isTutor) return classGoingReceiverIds.length > 0;
+      return false;
+    },
+    [isClass, isStudent, isTutor, goingAttendees.length, classGoingTutorId, classGoingReceiverIds.length],
+  );
+
+  const classNameForGoingMessage = useMemo(
+    () =>
+      card.isClass
+        ? card.className
+          || (lesson as { classData?: { name?: string } } | null)?.classData?.name
+          || (lesson as { subject?: string } | null)?.subject
+          || ''
+        : '',
+    [card.isClass, card.className, lesson],
+  );
+
+  const onGoingMessageRowPress = useCallback(() => {
+    if (!canOpenClassGoingMessageModal) return;
+    // Always thread the class id through when this is a class, so the
+    // backend can route to the stable class-broadcast thread whose
+    // membership follows enrollment changes.
+    const classIdForRequest = isClass && id ? String(id) : undefined;
+    // Student → message the tutor (1:1). Tutor → broadcast to all confirmed
+    // students (group thread, or direct DM if there's exactly one).
+    if (isStudent) {
+      onClassGoingMessageRequest?.({
+        attendees: goingAttendees as ClassGoingMessageRequest['attendees'],
+        receiverId: classGoingTutorId,
+        className: classNameForGoingMessage || undefined,
+        classId: classIdForRequest,
+      });
+    } else if (isTutor) {
+      onClassGoingMessageRequest?.({
+        attendees: goingAttendees as ClassGoingMessageRequest['attendees'],
+        receiverIds: classGoingReceiverIds,
+        className: classNameForGoingMessage || undefined,
+        classId: classIdForRequest,
+      });
+    }
+  }, [
+    canOpenClassGoingMessageModal,
+    isStudent,
+    isTutor,
+    isClass,
+    id,
+    onClassGoingMessageRequest,
+    goingAttendees,
+    classGoingTutorId,
+    classGoingReceiverIds,
+    classNameForGoingMessage,
+  ]);
+
   const paymentStatus = useMemo(() => {
     if (!paymentData) return null;
     const p = paymentData;
@@ -894,7 +1406,11 @@ export default function LessonDetailOverlay({ card, cardRect, thumbnailTargetRec
   const enrollmentQuickVal = `${card.classStudentCount}/${Math.max(1, card.classCapacity || 1)}`;
 
   return (
+    <>
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+      {showHero ? (
+        <StatusBar style={isDark ? 'light' : (classHeroStatusBarLight ? 'light' : 'dark')} />
+      ) : null}
       {/* Backdrop */}
       <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: '#000' }, backdropStyle]} />
 
@@ -912,16 +1428,24 @@ export default function LessonDetailOverlay({ card, cardRect, thumbnailTargetRec
         <Animated.View
           style={[
             st.surfaceClip,
-            { backgroundColor: C.card, borderWidth: 1, borderColor: isDark ? C.border : 'rgba(0,0,0,0.06)' },
+            {
+              backgroundColor: C.card,
+              borderWidth: showHero ? 0 : 1,
+              borderColor: isDark ? C.border : 'rgba(0,0,0,0.06)',
+            },
             surfaceClipStyle,
           ]}
         >
 
-        {/* Header — solid from top edge through safe area + toolbar + blur */}
+        {/* Header — non–class-cover only. Class back/share live OUTSIDE `surfaceClip` (see below)
+            so they are not clipped by rounded corners and are not hidden by `headerStyle` opacity. */}
+        {!showHero ? (
         <Animated.View
           style={[
             st.headerOuter,
-            { backgroundColor: isDark ? '#000' : '#fff' },
+            {
+              backgroundColor: isDark ? '#000' : '#fff',
+            },
             headerStyle,
           ]}
         >
@@ -937,37 +1461,103 @@ export default function LessonDetailOverlay({ card, cardRect, thumbnailTargetRec
             </View>
           </SolidToolbarWithBlur>
         </Animated.View>
+        ) : null}
 
         <Animated.View style={[st.body, bodyPadStyle]}>
+          {/* BundleDetailScreen pattern: hero pinned behind scroll; fade/blur NATIVE-driven.
+              `heroImgStyle` (Reanimated) is only used for the open/close morph (progress) —
+              it stays static during scroll, so it can't "unstick" from the card. The inner
+              dim/scale/blur layers use RN Animated + useNativeDriver so they move in exact
+              lockstep with the ScrollView on iOS. */}
+          {showHero ? (
+            <Animated.View style={[st.classHeroPinned, heroImgStyle]} pointerEvents="none">
+              <RNAnimated.View
+                style={[
+                  st.classHeroPinnedImageInner,
+                  { opacity: classPinnedHeroDimOpacity, transform: [{ scale: classPinnedHeroScale }] },
+                ]}
+              >
+                <Image source={{ uri: heroThumbUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+              </RNAnimated.View>
+              <RNAnimated.View
+                style={[StyleSheet.absoluteFill, { opacity: classHeroPinnedBlurCombined }]}
+                pointerEvents="none"
+              >
+                <BlurView intensity={50} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+              </RNAnimated.View>
+              <RNAnimated.View
+                pointerEvents="none"
+                style={[
+                  StyleSheet.absoluteFill,
+                  { backgroundColor: C.card, opacity: classHeroHeroSurfaceBlend },
+                ]}
+              />
+              {/*
+                Top "gradient guard" (Airbnb): whiten the status-bar / sky band before the
+                main sheet is fully up so the image never shows a hard line under the nav. */}
+              <RNAnimated.View
+                pointerEvents="none"
+                style={[st.classHeroTopGuard, { opacity: classHeroTopGuardOpacity }]}
+              >
+                <LinearGradient
+                  colors={isDark ? ['rgba(28,28,30,0.97)', 'rgba(28,28,30,0)'] : ['rgba(255,255,255,0.98)', 'rgba(255,255,255,0)']}
+                  style={StyleSheet.absoluteFill}
+                  start={{ x: 0.5, y: 0 }}
+                  end={{ x: 0.5, y: 1 }}
+                />
+              </RNAnimated.View>
+              <View style={st.classHeroPhotoPill} pointerEvents="none">
+                <Text style={st.classHeroPhotoPillText}>{enrollmentQuickVal}</Text>
+              </View>
+            </Animated.View>
+          ) : null}
+          {/*
+            Solid `C.card` bar sits UNDER the ScrollView (z1 vs z2) so the white card never
+            scrolls *under* a second white layer — only the nav buttons sit above the sheet. */}
+          {showHero ? (
+            <RNAnimated.View
+              pointerEvents="none"
+              style={[
+                st.classHeroToolbarSolidBg,
+                st.classHeroToolbarUnderScroll,
+                { height: insets.top + 50, backgroundColor: C.card, opacity: classHeroToolbarBarOpacity },
+                {
+                  borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+                },
+              ]}
+            />
+          ) : null}
           <RNAnimated.ScrollView
-            style={st.scrollFlex}
+            ref={mainScrollRef as any}
+            style={[st.scrollFlex, showHero && st.classHeroScrollLayer]}
             contentContainerStyle={[
               showHero ? st.scrollClassHero : st.scroll,
-              { paddingBottom: SH - BODY_PAD_OPEN - insets.bottom + (showStickyFooter ? 100 : 0) },
+              /**
+               * Just enough room for the last row of content to scroll PAST the sticky footer,
+               * so the footer visually floats while content passes under it (Apple/Airbnb feel).
+               * Footer height ≈ 12 (pad top) + 48 (button) + 30 (link row) + bottom safe-area.
+               * A small buffer (24) leaves a breath between the last scrollable row and the
+               * translucent footer edge.
+               */
+              { paddingBottom: (showStickyFooter ? 90 + Math.max(insets.bottom, 12) + 24 : 40) },
             ]}
             showsVerticalScrollIndicator={false}
             bounces={true}
+            scrollEventThrottle={16}
+            onScroll={showHero ? onMainScroll : undefined}
+            removeClippedSubviews={showHero ? false : undefined}
+            nestedScrollEnabled
           >
-            {/* Hero image — animates between the card's thumbnail rect (close)
-                and full-bleed 260h (open). Centered so it lands exactly over
-                the source card's thumb at progress=0. */}
-            {showHero && (
-              <Animated.View style={[st.classHeroInlineImg, { alignSelf: 'center' }, heroImgStyle]}>
-                <Image source={{ uri: heroThumbUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-              </Animated.View>
-            )}
-            <Animated.View
-              style={showHero
-                ? [st.classHeroContentCard, { backgroundColor: C.card }, heroOverlapStyle]
-                : undefined}
+            {showHero ? <Animated.View style={heroSpacerStyle} /> : null}
+            <View
+              style={
+                showHero
+                  ? [st.classHeroContentCard, { backgroundColor: C.card }]
+                  : st.classHeroScrollInnerPlain
+              }
             >
-              {showHero && (
-                <View style={st.classHeroDragHandle}>
-                  <View style={[st.classHeroDragPill, { backgroundColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.18)' }]} />
-                </View>
-              )}
             {/* Hero: avatar + name */}
-            <View style={st.heroWrap}>
+            <View style={[st.heroWrap, showHero && st.heroWrapClassSheet]}>
               <Animated.View style={avatarScaleStyle}>
                 {isClass ? (
                   <View style={[st.classHeroBlock, showHero && st.classHeroBlockTight]}>
@@ -1014,7 +1604,20 @@ export default function LessonDetailOverlay({ card, cardRect, thumbnailTargetRec
                     ) : null}
                   </View>
                 ) : card.otherPicture && !showHero ? (
-                  <Image source={{ uri: card.otherPicture }} style={st.avatar} />
+                  // Round-clip lives on the wrapping View, NOT on the Image.
+                  // Applying `borderRadius + overflow:hidden` directly to an
+                  // Image under a scaling parent transform makes iOS
+                  // re-rasterise the rounded UIImageView every frame and
+                  // blend that bitmap through CoreAnimation's minification
+                  // filter — which is exactly what produces the "blur /
+                  // overlay" the user sees as the avatar shrinks on close.
+                  // Using a static View wrapper lets the clip be a cheap
+                  // layer mask that doesn't get re-rasterised with the
+                  // animated transform. Matches the class + initials
+                  // avatar render paths (which already use this pattern).
+                  <View style={st.avatar}>
+                    <Image source={{ uri: card.otherPicture }} style={st.avatarImgFill} />
+                  </View>
                 ) : !card.otherPicture ? (
                   <View style={[st.avatar, { backgroundColor: isDark ? '#3a3a3c' : '#e8e8e8' }]}>
                     <Text style={[st.initials, { color: C.textSecondary }]}>{card.otherInitials}</Text>
@@ -1028,7 +1631,7 @@ export default function LessonDetailOverlay({ card, cardRect, thumbnailTargetRec
                 </Text>
               </Animated.View>
 
-              <Animated.View style={[st.heroDateOuter, metaFadeStyle, contentFadeStyle]}>
+              <Animated.View style={[st.heroDateOuter, metaRevealStyle, contentFadeStyle]}>
                 <LessonDateHeaderCenter
                   dateBadgeMonth={dateHeaderParts.month}
                   dateBadgeDay={dateHeaderParts.day}
@@ -1041,13 +1644,19 @@ export default function LessonDetailOverlay({ card, cardRect, thumbnailTargetRec
 
               {/* Compact info grid — duration, price, status + actual values */}
               {info ? (
-                <Animated.View style={[st.quickGrid, { borderColor: isDark ? C.border : '#EBEBEB' }, metaFadeStyle, contentFadeStyle]}>
+                <Animated.View style={[st.quickGrid, { borderColor: isDark ? C.border : '#EBEBEB' }, metaRevealStyle, contentFadeStyle]}>
                   <View style={st.quickCell}>
-                    <Text style={[st.quickVal, { color: C.text }]} numberOfLines={1}>{info.duration} min</Text>
-                    <Text style={[st.quickLbl, { color: C.textSecondary }]} numberOfLines={1}>{t('LESSONS_PAGE.CARD_STAT_DURATION')}</Text>
+                    <Text style={[st.goingCaption, { color: C.textTertiary }]} numberOfLines={1}>
+                      {t('LESSONS_PAGE.CARD_STAT_DURATION')}
+                    </Text>
+                    <Text style={[st.quickVal, { color: C.text }]} numberOfLines={1}>
+                      {info.duration} min
+                    </Text>
                     <View style={st.quickSubSlot}>
                       {formattedActualDuration ? (
-                        <Animated.Text style={[st.quickValSub, { color: C.textTertiary }, asyncSubStyle]} numberOfLines={1}>{formattedActualDuration} actual</Animated.Text>
+                        <Animated.Text style={[st.quickValSub, { color: C.textTertiary }, asyncSubStyle]} numberOfLines={1}>
+                          {formattedActualDuration} actual
+                        </Animated.Text>
                       ) : null}
                     </View>
                   </View>
@@ -1055,13 +1664,17 @@ export default function LessonDetailOverlay({ card, cardRect, thumbnailTargetRec
                     <>
                       <View style={[st.quickDivider, { backgroundColor: isDark ? C.border : '#E0E0E0' }]} />
                       <View style={st.quickCell}>
+                        <Text style={[st.goingCaption, { color: C.textTertiary }]} numberOfLines={1}>
+                          {t('LESSONS_PAGE.CARD_STAT_PRICE')}
+                        </Text>
                         <Text style={[st.quickVal, { color: C.text }]} numberOfLines={1}>
                           ${(info.price ?? 0).toFixed(2)}
                         </Text>
-                        <Text style={[st.quickLbl, { color: C.textSecondary }]} numberOfLines={1}>{t('LESSONS_PAGE.CARD_STAT_PRICE')}</Text>
                         <View style={st.quickSubSlot}>
                           {formattedActualPrice ? (
-                            <Animated.Text style={[st.quickValSub, { color: C.textTertiary }, asyncSubStyle]} numberOfLines={1}>{formattedActualPrice} final</Animated.Text>
+                            <Animated.Text style={[st.quickValSub, { color: C.textTertiary }, asyncSubStyle]} numberOfLines={1}>
+                              {formattedActualPrice} final
+                            </Animated.Text>
                           ) : null}
                         </View>
                       </View>
@@ -1070,35 +1683,89 @@ export default function LessonDetailOverlay({ card, cardRect, thumbnailTargetRec
                     <>
                       <View style={[st.quickDivider, { backgroundColor: isDark ? C.border : '#E0E0E0' }]} />
                       <View style={st.quickCell}>
-                        <Text style={[st.quickVal, { color: C.text }]} numberOfLines={1}>
-                          {enrollmentQuickVal}
-                        </Text>
-                        <Text style={[st.quickLbl, { color: C.textSecondary }]} numberOfLines={1}>
-                          {t('LESSONS_PAGE.CARD_STAT_ENROLLED')}
-                        </Text>
-                        <View style={st.quickSubSlot} />
+                        {classGoingStackView ? (
+                          <Pressable
+                            onPress={onGoingMessageRowPress}
+                            disabled={!canOpenClassGoingMessageModal}
+                            style={({ pressed }) => (pressed ? { opacity: 0.92 } : null)}
+                            accessibilityLabel="Going — message"
+                          >
+                            <Text style={[st.goingCaption, { color: C.textTertiary }]} numberOfLines={1}>
+                              {t('LESSONS_PAGE.GOING')}
+                            </Text>
+                            {classGoingStackView}
+                            <View style={st.quickSubSlot} />
+                          </Pressable>
+                        ) : (
+                          <>
+                            <Text style={[st.goingCaption, { color: C.textTertiary }]} numberOfLines={1}>
+                              {t('LESSONS_PAGE.CARD_STAT_ENROLLED')}
+                            </Text>
+                            <Text style={[st.quickVal, { color: C.text }]} numberOfLines={1}>
+                              {enrollmentQuickVal}
+                            </Text>
+                            <View style={st.quickSubSlot} />
+                          </>
+                        )}
                       </View>
                     </>
                   ) : null}
                   <View style={[st.quickDivider, { backgroundColor: isDark ? C.border : '#E0E0E0' }]} />
                   <View style={st.quickCell}>
+                    <Text style={[st.goingCaption, { color: C.textTertiary }]} numberOfLines={1}>
+                      {t('LESSONS_PAGE.CARD_STAT_STATUS')}
+                    </Text>
                     <Text style={[st.quickVal, { color: stColor }]} numberOfLines={1}>
                       {stLabel}
                     </Text>
-                    <Text style={[st.quickLbl, { color: C.textSecondary }]} numberOfLines={1}>{t('LESSONS_PAGE.CARD_STAT_STATUS')}</Text>
                     <View style={st.quickSubSlot} />
                   </View>
+                </Animated.View>
+              ) : null}
+              {isClass && !showClassEnrollmentCol && classGoingStackView ? (
+                <Animated.View
+                  style={[st.classGoingSection, metaRevealStyle, contentFadeStyle]}
+                  pointerEvents="box-none"
+                >
+                  <Pressable
+                    onPress={onGoingMessageRowPress}
+                    style={({ pressed }) => (pressed ? { opacity: 0.92 } : null)}
+                    accessibilityLabel="Going — message"
+                  >
+                    <Text
+                      style={[st.goingCaption, { color: C.textTertiary, marginBottom: 8 }]}
+                      numberOfLines={1}
+                    >
+                      {t('LESSONS_PAGE.GOING')}
+                    </Text>
+                    {classGoingStackView}
+                  </Pressable>
                 </Animated.View>
               ) : null}
             </View>
 
             {/* Expanded detail sections — deferred until open animation settles */}
             {detailMounted ? (
-            <Animated.View style={[st.detailColumn, detailStyle, contentFadeStyle]}>
+            <Animated.View style={[st.detailColumn, showHero && st.detailColumnClassSheet, detailStyle, contentFadeStyle]}>
 
-              {/* ── About / Bio ── */}
+              {/* ── About this class (group) ── */}
+              {aboutThisClassText ? (
+                <View>
+                  <Text style={[st.sectionHeading, { color: C.text, marginTop: 0, marginBottom: 10 }]}>
+                    {t('LESSONS_PAGE.ABOUT_THIS_CLASS')}
+                  </Text>
+                  <Text style={[st.noteBody, { color: C.textSecondary, marginTop: 0, marginBottom: 0 }]}>{aboutThisClassText}</Text>
+                </View>
+              ) : null}
+
+              {/* ── About the other person (1:1 bio) ── */}
               {otherUserBio ? (
-                <Text style={[st.bio, { color: C.textSecondary }]}>{otherUserBio}</Text>
+                <>
+                  {aboutThisClassText ? (
+                    <View style={[st.hairline, { backgroundColor: isDark ? C.border : '#EBEBEB', marginTop: 20, marginBottom: 4 }]} />
+                  ) : null}
+                  <Text style={[st.bio, { color: C.textSecondary }]}>{otherUserBio}</Text>
+                </>
               ) : null}
 
               {/* ── Last Session Context (upcoming lessons) ── */}
@@ -1640,21 +2307,95 @@ export default function LessonDetailOverlay({ card, cardRect, thumbnailTargetRec
 
             </Animated.View>
             ) : null}
-            </Animated.View>{/* /classHeroContentCard wrapper */}
+            </View>
           </RNAnimated.ScrollView>
+
+          {showHero ? (
+            <View
+              style={[st.classHeroButtonsOverlay, { paddingTop: insets.top + 8, paddingHorizontal: 20 }]}
+              pointerEvents="box-none"
+            >
+              <TouchableOpacity
+                onPress={close}
+                style={st.classHeroHeaderHit}
+                activeOpacity={0.85}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Back"
+              >
+                <View style={st.classHeroIconCrossfade}>
+                  <RNAnimated.View style={[st.classHeroIconLayer, { opacity: classHeroPillsOpacity }]}>
+                    <View
+                      style={[
+                        st.classHeroBackBtn,
+                        {
+                          backgroundColor: isDark ? 'rgba(44,44,46,0.78)' : 'rgba(244, 242, 248, 0.96)',
+                          borderColor: isDark ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.14)',
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name="arrow-back"
+                        size={20}
+                        color={isDark ? 'rgba(255,255,255,0.95)' : 'rgba(20,20,20,0.9)'}
+                      />
+                    </View>
+                  </RNAnimated.View>
+                  <RNAnimated.View style={[st.classHeroIconLayer, { opacity: classHeroBarIconOpacity }]}>
+                    <Ionicons name="arrow-back" size={24} color={C.text} />
+                  </RNAnimated.View>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={onShare}
+                style={st.classHeroHeaderHit}
+                activeOpacity={0.85}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Share"
+              >
+                <View style={st.classHeroIconCrossfade}>
+                  <RNAnimated.View style={[st.classHeroIconLayer, { opacity: classHeroPillsOpacity }]}>
+                    <View
+                      style={[
+                        st.classHeroShareBtn,
+                        { backgroundColor: isDark ? 'rgba(50,50,55,0.72)' : 'rgba(255,255,255,0.96)' },
+                      ]}
+                    >
+                      <Ionicons
+                        name="share-outline"
+                        size={20}
+                        color={isDark ? 'rgba(255,255,255,0.95)' : 'rgba(20,20,20,0.88)'}
+                      />
+                    </View>
+                  </RNAnimated.View>
+                  <RNAnimated.View style={[st.classHeroIconLayer, { opacity: classHeroBarIconOpacity }]}>
+                    <Ionicons name="share-outline" size={24} color={C.text} />
+                  </RNAnimated.View>
+                </View>
+              </TouchableOpacity>
+            </View>
+          ) : null}
 
           {showStickyFooter ? (
             <Animated.View
               style={[
                 st.stickyFooter,
                 {
-                  backgroundColor: C.card,
+                  // Translucent card color so the BlurView shows scrolling content through it.
+                  backgroundColor: isDark ? 'rgba(28,28,30,0.78)' : 'rgba(255,255,255,0.82)',
                   borderTopColor: isDark ? C.border : '#EBEBEB',
                   paddingBottom: Math.max(insets.bottom, 12),
                 },
                 footerFadeStyle,
               ]}
             >
+              <BlurView
+                intensity={40}
+                tint={isDark ? 'dark' : 'light'}
+                style={StyleSheet.absoluteFillObject}
+                pointerEvents="none"
+              />
               <View style={st.stickyRow}>
                 {showJoinCta ? (
                   <TouchableOpacity
@@ -1748,6 +2489,7 @@ export default function LessonDetailOverlay({ card, cardRect, thumbnailTargetRec
       </Animated.View>
 
     </View>
+    </>
   );
 }
 
@@ -1777,27 +2519,142 @@ const st = StyleSheet.create({
     height: CLASS_HERO_H,
     overflow: 'hidden',
   },
-
-  /** Content card that slides up over the class hero image (negative margin = overlap). */
-  classHeroContentCard: {
-    marginTop: -CLASS_CARD_OVERLAP,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingTop: 0,
-    paddingHorizontal: 24,
+  /**
+   * Pinned behind scroll (BundleDetailScreen `heroPinned` pattern).
+   * No `zIndex` — source order alone layers this BELOW the ScrollView (correct) and
+   * BELOW the sticky footer (also correct). Previously this + `scrollClassHeroLayer`
+   * zIndex: 1 pushed the ScrollView above the sticky footer too, which hid the CTA
+   * behind the card until you scrolled far enough to reveal it through the
+   * transparent content-bottom.
+   */
+  classHeroPinned: {
+    position: 'absolute',
+    top: 0,
+    alignSelf: 'center',
     overflow: 'hidden',
   },
-  classHeroDragHandle: {
+  classHeroPinnedImageInner: {
+    flex: 1,
     width: '100%',
+  },
+  classHeroScrollInnerPlain: { width: '100%' },
+
+  /**
+   * Full-width sheet that peeks over the hero. Intentionally matches BundleDetailScreen's `card`:
+   * rounded top corners WITHOUT `overflow: 'hidden'`.
+   *
+   * `minHeight: SH` is critical — the pinned class hero sits BEHIND the scroll view (not inside
+   * the card), and the ScrollView itself is transparent. If the card's content is shorter than
+   * the hero, the hero shows through below the last child as a visible band in the middle of the
+   * sheet (the "0/6" ghost band bug). Forcing the card to always extend past the hero guarantees
+   * its background covers the hero entirely once it has scrolled under.
+   */
+  classHeroContentCard: {
+    borderTopLeftRadius: 36,
+    borderTopRightRadius: 36,
+    paddingTop: 20,
+    paddingHorizontal: 0,
+    minHeight: SH,
+  },
+  /** Full-width bar under the ScrollView so the sheet paints over it, not under it. */
+  /**
+   * Strip sits ABOVE the scroll view (zIndex 3). Its opacity stays at 0 until the pinned hero
+   * is fully `C.card` paper; only then does it blend to 1 over a very short window so it reads
+   * as "appearing right as the card top reaches the toolbar area." Because both are the same
+   * white, painting over the card does not read as a separate layer.
+   */
+  classHeroToolbarUnderScroll: {
+    zIndex: 3,
+    ...Platform.select({ default: { elevation: 3 } }),
+  },
+  classHeroScrollLayer: {
+    zIndex: 2,
+    ...Platform.select({ default: { elevation: 2 } }),
+  },
+  /** Back/share only; above the scroll layer AND the toolbar strip so they stay tappable. */
+  classHeroButtonsOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 4,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    ...Platform.select({ default: { elevation: 4 } }),
+  },
+  classHeroTopGuard: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 168,
+  },
+  classHeroToolbarSolidBg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  classHeroHeaderHit: {
+    minWidth: 44,
+    minHeight: 44,
     alignItems: 'center',
-    paddingTop: 10,
-    paddingBottom: 6,
+    justifyContent: 'center',
   },
-  classHeroDragPill: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
+  classHeroIconCrossfade: {
+    width: 40,
+    height: 40,
+    position: 'relative',
   },
+  classHeroIconLayer: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  /**
+   * Airbnb-style floating chrome on class cover: back = pale pill + hairline border;
+   * share = frosted white + soft shadow (no heavy border).
+   */
+  classHeroBackBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  classHeroShareBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.14,
+        shadowRadius: 5,
+      },
+      default: { elevation: 4 },
+    }),
+  },
+  classHeroPhotoPill: {
+    position: 'absolute',
+    bottom: 14,
+    right: 14,
+    backgroundColor: 'rgba(0,0,0,0.52)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+  },
+  classHeroPhotoPillText: { color: '#fff', fontSize: 12, fontWeight: '600' },
 
   /** ScrollView contentContainerStyle for class hero (no paddingHorizontal — card handles it). */
   scrollClassHero: {
@@ -1838,6 +2695,7 @@ const st = StyleSheet.create({
   scroll: { alignItems: 'stretch', paddingHorizontal: 24 },
 
   heroWrap: { alignItems: 'center', width: '100%' },
+  heroWrapClassSheet: { paddingHorizontal: 24 },
   avatar: {
     width: 120,
     height: 120,
@@ -1904,8 +2762,7 @@ const st = StyleSheet.create({
   /** flex-start so value/label/sub rows line up across columns when sub-slots differ (actual/final lines). */
   quickCell: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'flex-start', paddingHorizontal: 4 },
   quickVal: { width: '100%', fontSize: 15, fontWeight: '600', textAlign: 'center', letterSpacing: -0.25 },
-  quickLbl: { width: '100%', fontSize: 10, textAlign: 'center', marginTop: 4, fontWeight: '500' },
-  /** Fixed third row so billing sub-lines don’t grow the row and push status down */
+  /** Fixed third row so billing sub-lines don’t grow the row and push value rows down */
   quickSubSlot: {
     minHeight: 15,
     marginTop: 3,
@@ -1916,8 +2773,57 @@ const st = StyleSheet.create({
   quickValSub: { fontSize: 10, textAlign: 'center', fontWeight: '500' },
   /** Full row height so dividers align with the stat block when sub-lines grow the row */
   quickDivider: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch' },
+  /** Top row in each quick-stat column — matches GOING (caption above value / avatars). */
+  goingCaption: {
+    width: '100%',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  classGoingSection: {
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 2,
+    marginBottom: 10,
+  },
+  classGoingStackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      default: { elevation: 3 },
+    }),
+  },
+  classGoingStackAv: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  classGoingStackAvClip: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  classGoingStackImg: { width: '100%', height: '100%' },
+  classGoingStackIni: { fontSize: 11, fontWeight: '700', textAlign: 'center' },
+  classGoingMore: { fontSize: 14, fontWeight: '700' },
 
   detailColumn: { width: '100%', paddingTop: 0 },
+  detailColumnClassSheet: { paddingHorizontal: 24 },
   /** Space above Notes (AI + body) from hero stats grid, bio, or other blocks */
   notesSectionBlock: {
     marginTop: 28,
@@ -2173,6 +3079,7 @@ const st = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    zIndex: 4,
     paddingHorizontal: 24,
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,

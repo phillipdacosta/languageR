@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const crypto = require('crypto');
 
 const messageSchema = new mongoose.Schema({
   conversationId: {
@@ -12,9 +13,38 @@ const messageSchema = new mongoose.Schema({
     index: true
   },
   receiverId: {
+    // Required for 1:1 DMs; omitted for group messages.
     type: String,
-    required: true,
+    required: function () { return !this.isGroup; },
     index: true
+  },
+  // Group message metadata. `isGroup=true` => use `groupId` + `groupParticipants`; `receiverId` is unused.
+  isGroup: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  groupId: {
+    type: String,
+    required: function () { return this.isGroup; },
+    index: true,
+    sparse: true
+  },
+  groupParticipants: {
+    // Auth0 IDs of all participants (including sender). Deterministic ordering (sorted) at write time.
+    type: [String],
+    default: undefined,
+    index: true
+  },
+  groupName: {
+    // Optional human-readable label (e.g. class name).
+    type: String,
+    required: false
+  },
+  // Per-user read tracking for group messages. For 1:1 we keep `read`/`readAt`.
+  readBy: {
+    type: [String],
+    default: undefined
   },
   content: {
     type: String,
@@ -130,11 +160,26 @@ const messageSchema = new mongoose.Schema({
 // Create indexes for better query performance
 messageSchema.index({ conversationId: 1, createdAt: -1 });
 messageSchema.index({ senderId: 1, receiverId: 1 });
+messageSchema.index({ groupId: 1, createdAt: -1 });
 
 // Generate conversationId from two user IDs (always sorted)
 messageSchema.statics.getConversationId = function(userId1, userId2) {
   const ids = [userId1, userId2].sort();
   return `${ids[0]}_${ids[1]}`;
+};
+
+/**
+ * Deterministic group id from an arbitrary set of participant auth0 IDs.
+ * Same set of people (any order) => same groupId. This is what makes group
+ * threads idempotent: re-sending to the same audience reuses the thread.
+ */
+messageSchema.statics.getGroupId = function(participantIds) {
+  const unique = Array.from(
+    new Set((participantIds || []).map((id) => (id || '').trim()).filter(Boolean))
+  ).sort();
+  if (unique.length < 2) return '';
+  const hash = crypto.createHash('sha1').update(unique.join('\n')).digest('hex').slice(0, 24);
+  return `grp_${hash}`;
 };
 
 module.exports = mongoose.model('Message', messageSchema);

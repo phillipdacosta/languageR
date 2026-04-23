@@ -786,6 +786,11 @@
                   <app-class-attendees
                     [attendees]="classAttendeesForGridStack"
                     [capacity]="classAttendeesForGridCapacity"
+                    [receiverId]="isStudentUser ? (classTutorId || '') : ''"
+                    [receiverIds]="classIsCurrentUserTutor ? classGoingReceiverIds : []"
+                    [className]="classData?.name || ''"
+                    [classId]="eventId || ''"
+                    [clickable]="classCanOpenGoingMessage"
                     [maxDisplay]="4">
                   </app-class-attendees>
                 </div>
@@ -834,7 +839,15 @@
 
           <!-- ── Students (going section) ── -->
           <div class="ed-divider"></div>
-          <section class="ed-row">
+          <section
+            class="ed-row"
+            [class.ed-row--going-tap]="classCanOpenGoingMessage"
+            (click)="onClassGoingMessageTap()"
+            [attr.tabindex]="classCanOpenGoingMessage ? 0 : null"
+            [attr.role]="classCanOpenGoingMessage ? 'button' : null"
+            (keydown.enter)="onClassGoingMessageTap()"
+            (keydown.space)="$event.preventDefault(); onClassGoingMessageTap()"
+          >
             <h2 class="ed-section-label">
               Students
               <span class="ed-count" *ngIf="classData.confirmedStudents?.length">{{ classData.confirmedStudents.length }} / {{ classData.maxStudents || classData.capacity }}</span>

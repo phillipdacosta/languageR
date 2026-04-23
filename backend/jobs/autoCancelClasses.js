@@ -1,6 +1,7 @@
 const Class = require('../models/Class');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
+const { archiveClassConversation } = require('../services/classConversation');
 
 /**
  * Auto-cancel classes that don't meet minimum student requirements
@@ -90,7 +91,16 @@ async function autoCancelClasses(io = null, connectedUsers = null) {
         }
         
         await classItem.save();
-        
+
+        // Archive the class group chat (freeze membership, post system message).
+        try {
+          await archiveClassConversation(classItem._id, {
+            reason: `"${classItem.name}" was cancelled automatically because the minimum of ${minRequired} student(s) was not met.`
+          });
+        } catch (archiveErr) {
+          console.error('⚠️ Failed to archive class conversation on auto-cancel:', archiveErr);
+        }
+
         cancelledCount++;
         
         // Remove the availability block from tutor's calendar

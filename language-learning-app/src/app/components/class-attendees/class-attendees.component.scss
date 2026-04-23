@@ -12,6 +12,11 @@
   flex-wrap: nowrap;
   min-height: 28px;
   max-width: 100%;
+  cursor: default;
+}
+
+.class-attendees.is-clickable {
+  cursor: pointer;
 }
 
 .attendees-label {

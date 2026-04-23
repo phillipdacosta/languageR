@@ -41,7 +41,7 @@ import {
   formatTimeUntilLessonStart,
   isLessonInProgressSlot,
 } from '../services/lessons';
-import { getMyClasses, getClassesForTutor } from '../services/classes';
+import { getMyClasses, getClassesForTutor, cancelClass } from '../services/classes';
 import { earningsService, EarningsBalance } from '../services/earnings';
 import { calendarService } from '../services/calendar';
 import EarningsScreen from './EarningsScreen';
@@ -54,6 +54,8 @@ import { buildProcessedLessonCard, type ProcessedLessonCard } from '../utils/les
 import LessonDetailOverlay, { type CardRect } from '../components/LessonDetailOverlay';
 import { RescheduleLessonModal } from '../components/RescheduleLessonModal';
 import { InviteStudentsModal } from '../components/InviteStudentsModal';
+import { ConfirmCancelClassModal } from '../components/ConfirmCancelClassModal';
+import { ClassGoingMessageModal, type ClassGoingMessageRequest } from '../components/ClassGoingMessageModal';
 import { cardShadowDark } from '../utils/cardShadow';
 import {
   resolveClassAttendeesForPreview,
@@ -92,6 +94,16 @@ const UP_NEXT_AVATAR_RADIUS = Math.round(UP_NEXT_AVATAR_SIZE * 0.25);
  */
 /** See `UP_NEXT_MIN_H` — was fixed 328px and pushed Quick Actions below the fold on many devices. */
 const UP_NEXT_CARD_MIN_HEIGHT = UP_NEXT_MIN_H;
+
+/** Mirrors web: no reschedule once lesson/class has started or ended. */
+function lessonAllowsReschedule(lesson: Lesson | null | undefined): boolean {
+  if (!lesson) return false;
+  const st = String(lesson.status || '');
+  if (st === 'in_progress' || st === 'completed' || st === 'cancelled') return false;
+  const start = lesson.startTime || (lesson as { scheduledTime?: string }).scheduledTime;
+  if (!start) return true;
+  return new Date(start).getTime() > Date.now();
+}
 
 function upNextCardShellShadow(isDark: boolean) {
   return isDark
@@ -235,6 +247,12 @@ export default function HomeScreen() {
   const upNextMenuBackdropOpacity = useRef(new Animated.Value(0)).current;
   const [upNextRescheduleLesson, setUpNextRescheduleLesson] = useState<Lesson | null>(null);
   const [upNextInviteClass, setUpNextInviteClass] = useState<{ classId: string; className: string } | null>(null);
+  const [upNextCancelClass, setUpNextCancelClass] = useState<{
+    classId: string;
+    className: string;
+    lesson: Lesson;
+  } | null>(null);
+  const [cancellingClass, setCancellingClass] = useState(false);
   const [hasAvailability, setHasAvailability] = useState(false);
   const [hasPayoutSetup, setHasPayoutSetup] = useState(false);
   const [payoutLoaded, setPayoutLoaded] = useState(false);
@@ -260,6 +278,7 @@ export default function HomeScreen() {
    * the overlay's full-bleed hero image morphs into this exact rect on close.
    */
   const [homeLessonOverlayThumbnailRect, setHomeLessonOverlayThumbnailRect] = useState<CardRect | null>(null);
+  const [classGoingMessage, setClassGoingMessage] = useState<ClassGoingMessageRequest | null>(null);
   const upNextCardMeasureRef = useRef<View>(null);
   const upNextCtaMeasureRef = useRef<View>(null);
   const upNextThumbnailMeasureRef = useRef<View>(null);
@@ -511,7 +530,12 @@ export default function HomeScreen() {
           tutorId: { _id: userId },
           isClass: true,
           className: cls.name,
-          classData: { thumbnail: cls.thumbnail },
+          classData: {
+            ...(cls.thumbnail ? { thumbnail: cls.thumbnail } : {}),
+            ...(cls.description && String(cls.description).trim()
+              ? { description: String(cls.description) }
+              : {}),
+          },
           attendees: cls.confirmedStudents || [],
           capacity: cls.capacity,
         } as unknown as Lesson));
@@ -528,7 +552,12 @@ export default function HomeScreen() {
           tutorId: cls.tutorId,
           isClass: true,
           className: cls.name,
-          classData: { thumbnail: cls.thumbnail },
+          classData: {
+            ...(cls.thumbnail ? { thumbnail: cls.thumbnail } : {}),
+            ...(cls.description && String(cls.description).trim()
+              ? { description: String(cls.description) }
+              : {}),
+          },
           attendees: cls.confirmedStudents || [],
           capacity: cls.capacity,
         } as unknown as Lesson));
@@ -745,11 +774,23 @@ export default function HomeScreen() {
     closeUpNextMenu();
     setTimeout(() => {
       if (lesson.isClass) {
-        Alert.alert(t('HOME.UP_NEXT_CANCEL_CLASS_TITLE'), t('HOME.UP_NEXT_CANCEL_CLASS_MSG'), [{ text: t('COMMON.OK') }]);
+        const anyLesson = lesson as unknown as { className?: string; classData?: { name?: string } };
+        const className = anyLesson.className || anyLesson.classData?.name || '';
+        setUpNextCancelClass({ classId: lesson._id, className, lesson });
         return;
       }
       Alert.alert(t('HOME.UP_NEXT_CANCEL_CONFIRM_TITLE'), t('HOME.UP_NEXT_CANCEL_CONFIRM_MSG'), [
         { text: t('COMMON.CANCEL'), style: 'cancel' },
+        {
+          text: t('HOME.UP_NEXT_RESCHEDULE_INSTEAD_CTA'),
+          onPress: () => {
+            if (lessonAllowsReschedule(lesson)) {
+              setUpNextRescheduleLesson(lesson);
+            } else {
+              Alert.alert('', t('HOME.UP_NEXT_NO_RESCHEDULE_STARTED'));
+            }
+          },
+        },
         {
           text: t('HOME.CANCEL_LESSON'),
           style: 'destructive',
@@ -768,6 +809,38 @@ export default function HomeScreen() {
       ]);
     }, 280);
   }, [nextLesson, closeUpNextMenu, isTutor, t, fetchData]);
+
+  const handleConfirmCancelClass = useCallback(async () => {
+    if (!upNextCancelClass || cancellingClass) return;
+    setCancellingClass(true);
+    try {
+      const res = await cancelClass(upNextCancelClass.classId);
+      if (res.success === false) {
+        throw new Error(res.message || t('HOME.UP_NEXT_CANCEL_CLASS_FAILED'));
+      }
+      setUpNextCancelClass(null);
+      Alert.alert('', t('HOME.UP_NEXT_CANCEL_CLASS_SUCCESS'));
+      await fetchData();
+    } catch (e: any) {
+      Alert.alert(t('COMMON.ERROR'), e?.message || t('HOME.UP_NEXT_CANCEL_CLASS_FAILED'));
+    } finally {
+      setCancellingClass(false);
+    }
+  }, [upNextCancelClass, cancellingClass, t, fetchData]);
+
+  const handleCancelClassRescheduleInstead = useCallback(() => {
+    if (cancellingClass) return;
+    setUpNextCancelClass((prev) => {
+      if (!prev?.lesson) return prev;
+      const L = prev.lesson;
+      if (!lessonAllowsReschedule(L)) {
+        setTimeout(() => Alert.alert('', t('HOME.UP_NEXT_NO_RESCHEDULE_STARTED')), 0);
+        return prev;
+      }
+      setTimeout(() => setUpNextRescheduleLesson(L), 280);
+      return null;
+    });
+  }, [cancellingClass, t]);
 
   const openForum = useCallback(() => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -1222,6 +1295,7 @@ export default function HomeScreen() {
                 setHomeLessonOverlayThumbnailRect(null);
                 setLessonOverlayCoversTabBar(false);
               }}
+              onClassGoingMessageRequest={setClassGoingMessage}
             />
           </View>
         ) : null}
@@ -1315,6 +1389,17 @@ export default function HomeScreen() {
       }}
     />
 
+    <ConfirmCancelClassModal
+      visible={!!upNextCancelClass}
+      className={upNextCancelClass?.className}
+      submitting={cancellingClass}
+      onConfirm={handleConfirmCancelClass}
+      onRescheduleInstead={handleCancelClassRescheduleInstead}
+      onClose={() => {
+        if (!cancellingClass) setUpNextCancelClass(null);
+      }}
+    />
+
     {showEarnings && (
       <View style={[StyleSheet.absoluteFill, { zIndex: 50, elevation: 50 }]}>
         <EarningsScreen goBack={() => setShowEarnings(false)} />
@@ -1371,9 +1456,30 @@ export default function HomeScreen() {
             setHomeLessonOverlayThumbnailRect(null);
             setLessonOverlayCoversTabBar(false);
           }}
+          onClassGoingMessageRequest={setClassGoingMessage}
         />
       </View>
     ) : null}
+
+    <ClassGoingMessageModal
+      visible={classGoingMessage !== null}
+      onClose={() => setClassGoingMessage(null)}
+      attendees={classGoingMessage?.attendees ?? []}
+      receiverId={classGoingMessage?.receiverId}
+      receiverIds={classGoingMessage?.receiverIds}
+      className={classGoingMessage?.className}
+      classId={classGoingMessage?.classId}
+      onSent={(result) => {
+        // Clear the open request then jump to the Messages tab on the right
+        // thread so the user sees the conversation they just created.
+        setClassGoingMessage(null);
+        if (result.kind === 'group') {
+          navigation.navigate('Messages', { groupId: result.groupId } as never);
+        } else {
+          navigation.navigate('Messages', { userId: result.userId } as never);
+        }
+      }}
+    />
     </View>
   );
 }

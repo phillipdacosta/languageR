@@ -7,6 +7,7 @@ const Notification = require('../models/Notification');
 const { verifyToken, uploadImage, uploadImageToGCS, getUserFromRequest } = require('../middleware/videoUploadMiddleware');
 const { RtcRole, RtcTokenBuilder } = require('agora-token');
 const { formatNameWithInitial } = require('../utils/nameFormatter');
+const { syncClassConversation, archiveClassConversation } = require('../services/classConversation');
 
 const AGORA_APP_ID = process.env.AGORA_APP_ID;
 const AGORA_APP_CERT = process.env.AGORA_APP_CERT;
@@ -689,6 +690,15 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
     }
     
     await cls.save();
+
+    // Keep the class group chat in sync with the new roster. The student
+    // joins as an active member with `joinedAt = now`, so any prior chatter
+    // stays hidden per the "no pre-join history" rule.
+    try {
+      await syncClassConversation(cls._id);
+    } catch (syncErr) {
+      console.error('⚠️ Failed to sync class conversation on accept:', syncErr);
+    }
 
     // Notify tutor that student accepted
     if (cls.tutorId) {
@@ -1761,7 +1771,18 @@ router.delete('/:classId/student/:studentId', verifyToken, async (req, res) => {
       console.error(`Failed to send notification to student ${studentId}:`, notifError);
       // Continue even if notification fails
     }
-    
+
+    // Flip the student's conversation membership to `leftAt = now` so they
+    // stop receiving new messages but can still browse history they had
+    // access to while enrolled.
+    if (wasAccepted) {
+      try {
+        await syncClassConversation(cls._id);
+      } catch (syncErr) {
+        console.error('⚠️ Failed to sync class conversation on student remove:', syncErr);
+      }
+    }
+
     const actionText = wasAccepted ? 'removed from' : 'uninvited from';
     res.json({
       success: true,
@@ -2186,6 +2207,14 @@ router.delete('/:classId', verifyToken, async (req, res) => {
     await cls.save();
     
     console.log(`🔴 [CLASS-CANCEL] Class "${cls.name}" (${cls._id}) cancelled by tutor ${tutor.name}`);
+
+    // Freeze the class group chat: mark all members as left and post a
+    // system message so the archived thread clearly shows why it ended.
+    try {
+      await archiveClassConversation(cls._id, { reason: `"${cls.name}" was cancelled by the tutor.` });
+    } catch (archiveErr) {
+      console.error('⚠️ Failed to archive class conversation on cancel:', archiveErr);
+    }
     
     // Remove the availability block from tutor's calendar
     const classIdStr = cls._id.toString();

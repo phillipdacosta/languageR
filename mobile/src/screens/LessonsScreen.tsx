@@ -19,7 +19,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../contexts/ThemeContext';
 import { useHomeTabBarOverlay } from '../contexts/HomeTabBarOverlayContext';
@@ -35,6 +35,7 @@ import {
   StatusFilter,
 } from '../utils/lessonCardModel';
 import LessonDetailOverlay, { CardRect } from '../components/LessonDetailOverlay';
+import { ClassGoingMessageModal, type ClassGoingMessageRequest } from '../components/ClassGoingMessageModal';
 import { LessonDateHeaderCenter } from '../components/LessonDateHeaderCenter';
 import { cardShadowDark } from '../utils/cardShadow';
 import NativeCardExpandDemo from '../components/NativeCardExpandDemo';
@@ -142,25 +143,29 @@ export default function LessonsScreen() {
   const [overlayRect, setOverlayRect] = useState<CardRect>({ x: 0, y: 0, width: 0, height: 0 });
   const [overlayThumbnailRect, setOverlayThumbnailRect] = useState<CardRect | null>(null);
   const [overlayClosing, setOverlayClosing] = useState(false);
+  const [classGoingMessage, setClassGoingMessage] = useState<ClassGoingMessageRequest | null>(null);
+  const navigation = useNavigation<any>();
   const cardRefs = useRef<Record<string, View | null>>({});
   const classCoverRefs = useRef<Record<string, View | null>>({});
 
-  // Card reveal during the final ~35% of the overlay close. Stays at 0 for
-  // the open + the first part of close (while overlay body is visible and
-  // fading). When the overlay signals `onBeginReveal` — i.e. body content
-  // has just finished fading out and the overlay's surface starts becoming
-  // transparent — this animates 0 → 1 over 200ms. The surface fades out in
-  // lockstep (inside the overlay, driven by the same spring), so the user
-  // sees a true cross-fade from overlay-surface to real card: no opaque
-  // white frame in between.
+  // Source card painting during the overlay close.
+  //
+  // Key idea: there is NO fade-in animation on the card. The moment the
+  // overlay reports `onBeginReveal` (fired synchronously at close-start,
+  // not at the end), we snap `cardRevealOpacity` from 0 to 1 in a single
+  // frame. From that point on the source card is fully painted at its
+  // natural position, just hidden behind the overlay's opaque surface.
+  //
+  // As the overlay's surface fades out in its tail (driven inside the
+  // overlay by `surfaceStyle.opacity`), the card underneath is revealed —
+  // already at 100% opacity, so there is no opacity-vs-opacity cross-fade
+  // where two sets of text ("APR 7" vs "APR 18", two time lines, two
+  // stats grids) can ghost through each other. One surface fading out,
+  // ONE card underneath. Matches the "same line is just shrinking" feel
+  // the user wants rather than a blurred two-layer fade.
   const cardRevealOpacity = useRef(new RNAnimated.Value(0)).current;
   const beginCardReveal = useCallback(() => {
-    RNAnimated.timing(cardRevealOpacity, {
-      toValue: 1,
-      duration: 200,
-      easing: Easing.out(Easing.quad),
-      useNativeDriver: true,
-    }).start();
+    cardRevealOpacity.setValue(1);
   }, [cardRevealOpacity]);
 
   // Background recede — the list page subtly scales + shifts down as the
@@ -486,11 +491,24 @@ export default function LessonsScreen() {
 
   const activeFilterCount = statusFilter !== 'all' ? 1 : 0;
 
+  /**
+   * Guards against rapid taps that could otherwise race to open multiple
+   * overlays / interleave an open with an in-flight close. `openingRef` is
+   * flipped synchronously before the async `measureInWindow` fires, so even
+   * back-to-back taps in the same render tick are collapsed to a single
+   * open. It's cleared when the measurement resolves (on success or
+   * failure), and also by `onCloseEnd` once the overlay is fully gone.
+   */
+  const openingRef = useRef(false);
   const openDetail = useCallback((pl: ProcessedLessonCard) => {
+    if (openingRef.current) return;
+    if (overlayCard || overlayClosing) return;
     const ref = cardRefs.current[pl.id];
     if (!ref) return;
     const handle = findNodeHandle(ref);
     if (!handle) return;
+
+    openingRef.current = true;
 
     // Parallel measurements: the card rect (required) and the class cover
     // thumbnail (optional — only for classes with a cover image). When present
@@ -517,7 +535,10 @@ export default function LessonsScreen() {
       measureNode(ref),
       measureNode(classCoverRefs.current[pl.id] ?? null),
     ]).then(([cardRect, thumbRect]) => {
-      if (!cardRect) return;
+      if (!cardRect) {
+        openingRef.current = false;
+        return;
+      }
       setOverlayRect(cardRect);
       setOverlayThumbnailRect(thumbRect);
       // Reset card reveal opacity to 0 BEFORE the card enters "hidden" mode,
@@ -528,8 +549,10 @@ export default function LessonsScreen() {
       listRecede.value = withSpring(1, OVERLAY_SPRING);
       setOverlayCard(pl);
       setLessonOverlayCoversTabBar(true);
+    }).catch(() => {
+      openingRef.current = false;
     });
-  }, [setLessonOverlayCoversTabBar]);
+  }, [overlayCard, overlayClosing, setLessonOverlayCoversTabBar]);
 
   const applyStatusFilter = (next: StatusFilter) => {
     setStatusFilter(next);
@@ -942,9 +965,34 @@ export default function LessonsScreen() {
             setOverlayThumbnailRect(null);
             setOverlayClosing(false);
             setLessonOverlayCoversTabBar(false);
+            // Clear the open-guard so the next tap is accepted. Done here
+            // (not at open-resolve) so the card can't be re-tapped during
+            // the live overlay's lifetime.
+            openingRef.current = false;
           }}
+          onClassGoingMessageRequest={setClassGoingMessage}
         />
       )}
+
+      <ClassGoingMessageModal
+        visible={classGoingMessage !== null}
+        onClose={() => setClassGoingMessage(null)}
+        attendees={classGoingMessage?.attendees ?? []}
+        receiverId={classGoingMessage?.receiverId}
+        receiverIds={classGoingMessage?.receiverIds}
+        className={classGoingMessage?.className}
+        classId={classGoingMessage?.classId}
+        onSent={(result) => {
+          // Close the modal then deep-link the Messages tab to the thread that
+          // was just created/updated so the user lands directly in context.
+          setClassGoingMessage(null);
+          if (result.kind === 'group') {
+            navigation.navigate('Messages', { groupId: result.groupId });
+          } else {
+            navigation.navigate('Messages', { userId: result.userId });
+          }
+        }}
+      />
 
       {__DEV__ && (
         <NativeCardExpandDemo

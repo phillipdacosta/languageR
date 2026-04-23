@@ -12,7 +12,7 @@ import {
   Platform,
   UIManager,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
@@ -118,7 +118,7 @@ export default function AvailabilitySetupScreen() {
 
   if (profileBlocked) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
+      <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
           <Ionicons name="alert-circle-outline" size={48} color="#e8893c" style={{ marginBottom: 16 }} />
           <Text style={{ fontSize: 20, fontWeight: '700', color: colors.text, textAlign: 'center', marginBottom: 10 }}>
@@ -138,7 +138,7 @@ export default function AvailabilitySetupScreen() {
             <Text style={{ color: colors.textSecondary, fontSize: 14 }}>Go Back</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -411,7 +411,7 @@ export default function AvailabilitySetupScreen() {
   const saveBarTranslateY = saveBarAnim.interpolate({ inputRange: [0, 1], outputRange: [100, 0] });
 
   if (loading) return (
-    <SafeAreaView style={[st.safe, { backgroundColor: C.surface }]} edges={['top']}>
+    <View style={[st.safe, { backgroundColor: C.surface, paddingTop: insets.top }]}>
       <View style={st.headerRow}>
         <TouchableOpacity onPress={() => navigation.navigate('CalendarMain')} style={st.backBtn}>
           <Ionicons name="chevron-back" size={20} color={C.accent} />
@@ -421,11 +421,11 @@ export default function AvailabilitySetupScreen() {
         <View style={{ width: 80 }} />
       </View>
       <View style={st.loadWrap}><ActivityIndicator size="large" color={C.textSecondary} /></View>
-    </SafeAreaView>
+    </View>
   );
 
   return (
-    <SafeAreaView style={[st.safe, { backgroundColor: C.surface }]} edges={['top']}>
+    <View style={[st.safe, { backgroundColor: C.surface, paddingTop: insets.top }]}>
       {/* Header */}
       <View style={[st.headerRow, { borderBottomColor: C.border }]}>
         <TouchableOpacity onPress={() => navigation.navigate('CalendarMain')} style={st.backBtn}>
@@ -539,7 +539,7 @@ export default function AvailabilitySetupScreen() {
           </TouchableOpacity>
         </View>
       </Animated.View>
-    </SafeAreaView>
+    </View>
   );
 }
 

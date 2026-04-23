@@ -1,4 +1,5 @@
 import { api } from './api';
+import { getClass, type MyClassRecord } from './classes';
 import { buildMockCachedLessonDetail, isLessonMockId } from '../utils/lessonMockPreview';
 
 export interface Lesson {
@@ -44,6 +45,9 @@ export interface Lesson {
   className?: string;
   classData?: {
     thumbnail?: string;
+    /** Long-form class copy (may contain simple HTML from the editor) */
+    description?: string;
+    name?: string;
   };
   attendees?: any[];
   capacity?: number;
@@ -338,13 +342,66 @@ export async function fetchAndCacheLessonDetail(
     detailCache.set(id, entry);
     return entry;
   }
-  const [detail, payment, billing] = await Promise.all([
+  const isClass = !!(listLesson as { isClass?: boolean })?.isClass;
+  const [detail, payment, billing, classRecord] = await Promise.all([
     lessonService.getLessonDetail(id),
     lessonService.getPaymentForLesson(id),
     lessonService.getBillingSummary(id),
+    isClass ? getClass(id).catch((): null => null) : Promise.resolve(null as MyClassRecord | null),
   ]);
-  const fp = lessonFingerprint(detail?.lesson || listLesson);
-  const entry: CachedLessonDetail = { detail, payment, billing, fingerprint: fp };
+  /**
+   * Group classes use the **Class** document id as `_id` (see HomeScreen / LessonsScreen
+   * `classRecordToLesson`). `GET /lessons/:id` only resolves **Lesson** documents, so
+   * it 404s for that id and `detail` is always null. Web event-details uses
+   * `GET /classes/:id` for the same id — we do the same here and merge the full
+   * `classData.description` (and other fields) into a synthetic `LessonDetailResponse`
+   * so the overlay can show “About this class” like the screenshot.
+   */
+  let mergedDetail: LessonDetailResponse | null = detail;
+  if (isClass && classRecord) {
+    const list = (listLesson || {}) as Lesson;
+    const fromList = (list as { classData?: { thumbnail?: string; description?: string; name?: string } }).classData;
+    const classData: { thumbnail?: string; description?: string; name?: string } = {
+      ...fromList,
+    };
+    if (classRecord.thumbnail || fromList?.thumbnail) {
+      classData.thumbnail = (classRecord.thumbnail || fromList?.thumbnail) as string;
+    }
+    if (classRecord.description != null && String(classRecord.description).length > 0) {
+      classData.description = String(classRecord.description);
+    } else if (fromList?.description) {
+      classData.description = fromList.description;
+    }
+    if (classRecord.name) {
+      classData.name = classRecord.name;
+    }
+    const mergedLesson: Lesson = {
+      ...list,
+      ...(detail?.lesson || {}),
+      isClass: true,
+      className: classRecord.name || (list as { className?: string }).className,
+      classData: Object.keys(classData).length > 0 ? classData : list.classData,
+      startTime: classRecord.startTime || list.startTime,
+      endTime: classRecord.endTime || list.endTime,
+      duration: classRecord.duration ?? list.duration,
+      price: classRecord.price ?? list.price,
+      subject: classRecord.name || list.subject,
+      capacity: classRecord.capacity ?? (list as { capacity?: number }).capacity,
+      attendees: (classRecord as { confirmedStudents?: unknown[] }).confirmedStudents ?? (list as { attendees?: unknown[] }).attendees,
+      tutorId: (classRecord.tutorId as Lesson['tutorId']) || list.tutorId,
+    };
+    mergedDetail = {
+      success: true,
+      lesson: mergedLesson,
+      lessonsCompleted: detail?.lessonsCompleted,
+      recentLessons: detail?.recentLessons,
+      tutorStats: detail?.tutorStats,
+    };
+  } else if (isClass && !mergedDetail && listLesson) {
+    mergedDetail = { success: true, lesson: listLesson as Lesson };
+  }
+  const fp = lessonFingerprint(mergedDetail?.lesson || listLesson);
+  const entry: CachedLessonDetail = { detail: mergedDetail, payment, billing, fingerprint: fp };
   detailCache.set(id, entry);
   return entry;
 }

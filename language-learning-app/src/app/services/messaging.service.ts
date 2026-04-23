@@ -6,6 +6,14 @@ import { AuthService } from './auth.service';
 import { UserService } from './user.service';
 import { environment } from '../../environments/environment';
 
+export interface GroupParticipantSummary {
+  id: string;
+  auth0Id: string;
+  name: string;
+  picture?: string | null;
+  userType?: string;
+}
+
 export interface Conversation {
   conversationId: string;
   otherUser: {
@@ -21,6 +29,28 @@ export interface Conversation {
     rating?: number;
     bio?: string;
   } | null;
+  // Group-thread metadata (present when the conversation is a multi-participant group).
+  isGroup?: boolean;
+  groupId?: string;
+  groupName?: string;
+  /** Kind of group thread — class-broadcast threads are anchored to a Class. */
+  type?: 'class-broadcast' | 'ad-hoc-group';
+  /** Populated for class-broadcast threads so the UI can deep-link back. */
+  classId?: string | null;
+  /** Active members at query time (excludes students who have left the class). */
+  participants?: GroupParticipantSummary[];
+  /** Full roster including historical members; used for rendering old messages. */
+  allParticipants?: GroupParticipantSummary[];
+  /** True when the current user is no longer an active member (left the class). */
+  archived?: boolean;
+  /** Timestamp when the current user left the thread, if any. */
+  leftAt?: string | null;
+  /** Timestamp when the current user joined; frames their history window. */
+  joinedAt?: string | null;
+  /** Pre-computed in MessagesPage for list avatar cluster (see decorateGroupAvatarClusters). */
+  displayParticipants?: GroupParticipantSummary[];
+  /** How many participants are not shown in the cluster (shown as +N). */
+  extraCount?: number;
   lastMessage: {
     content: string;
     senderId: string;
@@ -239,6 +269,123 @@ export class MessagingService {
       `${this.apiUrl}/conversations/${receiverId}/upload`,
       formData,
       { headers: uploadHeaders }
+    );
+  }
+
+  // ===== Group conversations =====
+
+  /**
+   * Create or get an existing group conversation.
+   *
+   * Two modes:
+   *   - Pass `classId` to open/create the class-anchored broadcast thread.
+   *     The server is authoritative about membership (synced from
+   *     `Class.tutorId + confirmedStudents`); `participantIds` is ignored.
+   *   - Omit `classId` and pass `participantIds` to open/create an ad-hoc
+   *     group thread keyed by the hash of the participant set.
+   */
+  createOrGetGroup(
+    participantIds: string[],
+    name?: string,
+    classId?: string
+  ): Observable<{
+    success: boolean;
+    groupId: string;
+    type?: 'class-broadcast' | 'ad-hoc-group';
+    classId?: string | null;
+    participants: GroupParticipantSummary[];
+    participantIds: string[];
+    name: string;
+    alreadyExists: boolean;
+    archived?: boolean;
+    joinedAt?: string | null;
+    leftAt?: string | null;
+  }> {
+    const body: any = {
+      participantIds: participantIds || [],
+      name: name || ''
+    };
+    if (classId) body.classId = classId;
+    return this.http.post<{
+      success: boolean;
+      groupId: string;
+      type?: 'class-broadcast' | 'ad-hoc-group';
+      classId?: string | null;
+      participants: GroupParticipantSummary[];
+      participantIds: string[];
+      name: string;
+      alreadyExists: boolean;
+      archived?: boolean;
+      joinedAt?: string | null;
+      leftAt?: string | null;
+    }>(
+      `${this.apiUrl}/groups`,
+      body,
+      { headers: this.getHeaders() }
+    );
+  }
+
+  sendGroupMessage(
+    groupId: string,
+    content: string,
+    opts: {
+      type?: string;
+      participantIds?: string[];
+      name?: string;
+      replyTo?: Message['replyTo'];
+    } = {}
+  ): Observable<{ success: boolean; message: Message }> {
+    const body: any = {
+      content,
+      type: opts.type || 'text'
+    };
+    if (opts.participantIds && opts.participantIds.length) body.participantIds = opts.participantIds;
+    if (opts.name) body.name = opts.name;
+    if (opts.replyTo) body.replyTo = opts.replyTo;
+
+    return this.http.post<{ success: boolean; message: Message }>(
+      `${this.apiUrl}/groups/${groupId}/messages`,
+      body,
+      { headers: this.getHeaders() }
+    );
+  }
+
+  getGroupMessages(
+    groupId: string,
+    limit: number = 50,
+    before?: string
+  ): Observable<{
+    success: boolean;
+    messages: Message[];
+    participants: string[];
+    archived?: boolean;
+    leftAt?: string | null;
+    joinedAt?: string | null;
+    type?: 'class-broadcast' | 'ad-hoc-group';
+    classId?: string | null;
+  }> {
+    let url = `${this.apiUrl}/groups/${groupId}/messages?limit=${limit}`;
+    if (before) url += `&before=${before}`;
+    const headers = this.getHeaders()
+      .set('Cache-Control', 'no-cache')
+      .set('Pragma', 'no-cache');
+    return this.http.get<{
+      success: boolean;
+      messages: Message[];
+      participants: string[];
+      archived?: boolean;
+      leftAt?: string | null;
+      joinedAt?: string | null;
+      type?: 'class-broadcast' | 'ad-hoc-group';
+      classId?: string | null;
+    }>(url, { headers });
+  }
+
+  markGroupAsRead(groupId: string): Observable<{ success: boolean; message: string }> {
+    return this.http.put<{ success: boolean; message: string }>(
+      `${this.apiUrl}/groups/${groupId}/read`,
+      {},
+      { headers: this.getHeaders() }
     );
   }
 

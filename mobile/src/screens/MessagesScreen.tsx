@@ -14,7 +14,7 @@ import {
   Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
@@ -43,7 +43,13 @@ export default function MessagesScreen() {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Conversation | null>(null);
   const navigation = useNavigation();
+  const route = useRoute();
   const { shellMotion, listGateMotion } = useScreenEntranceAnimations(loading);
+
+  // Deep link params — e.g., coming back from ClassGoingMessageModal via
+  // navigation.navigate('Messages', { groupId } | { userId }).
+  const routeGroupId = (route.params as { groupId?: string } | undefined)?.groupId;
+  const routeUserId = (route.params as { userId?: string } | undefined)?.userId;
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -64,10 +70,27 @@ export default function MessagesScreen() {
     });
   }, [selected, navigation, colors]);
 
+  /**
+   * Fetch conversations and pre-compute avatar cluster fields for groups so the
+   * list row can stay function-free when we render stacked avatars.
+   */
   const fetchConversations = useCallback(async () => {
     const data = await messagingService.getConversations();
-    setConversations(data);
-  }, []);
+    const decorated = data.map((c) => {
+      if (!c.isGroup) return c;
+      const all = Array.isArray(c.participants) ? c.participants : [];
+      // Put "me" last so other people show first in the cluster.
+      const others = all.filter((p) => p.auth0Id !== userId);
+      const me = all.filter((p) => p.auth0Id === userId);
+      const ordered = [...others, ...me];
+      if (ordered.length > 4) {
+        return { ...c, displayParticipants: ordered.slice(0, 3), extraCount: ordered.length - 3 };
+      }
+      return { ...c, displayParticipants: ordered, extraCount: 0 };
+    });
+    setConversations(decorated);
+    return decorated;
+  }, [userId]);
 
   useEffect(() => {
     (async () => { await fetchConversations(); setLoading(false); })();
@@ -79,12 +102,40 @@ export default function MessagesScreen() {
     setRefreshing(false);
   }, [fetchConversations]);
 
+  /**
+   * Auto-select a conversation when the screen is opened with `{ groupId }` or
+   * `{ userId }` deep-link params (e.g. after sending a class broadcast). We
+   * wait until conversations have loaded, match, and clear the params so a
+   * later back-nav doesn't re-open the thread.
+   */
+  useEffect(() => {
+    if (loading) return;
+    if (!routeGroupId && !routeUserId) return;
+    const match = conversations.find((c) => {
+      if (routeGroupId) return c.isGroup && c.groupId === routeGroupId;
+      if (routeUserId) {
+        return !c.isGroup && (c.otherUser?.auth0Id === routeUserId || c.otherUser?.id === routeUserId);
+      }
+      return false;
+    });
+    if (match) {
+      setSelected(match);
+      // Clear the deep-link param so navigating back doesn't re-select.
+      navigation.setParams?.({ groupId: undefined, userId: undefined } as any);
+    }
+  }, [loading, conversations, routeGroupId, routeUserId, navigation]);
+
   const filtered = useMemo(() => {
     let list = conversations;
     if (filter === 'unread') list = list.filter(c => c.unreadCount > 0);
     if (search.trim()) {
       const q = search.toLowerCase();
-      list = list.filter(c => (c.otherUser?.name || '').toLowerCase().includes(q));
+      list = list.filter((c) => {
+        const label = c.isGroup
+          ? (c.groupName || (c.participants || []).map((p) => p.name).join(', '))
+          : (c.otherUser?.name || '');
+        return label.toLowerCase().includes(q);
+      });
     }
     return list;
   }, [conversations, filter, search]);
@@ -98,9 +149,13 @@ export default function MessagesScreen() {
 
   const handleSelect = useCallback((conv: Conversation) => {
     setSelected(conv);
-    const authId = conv.otherUser?.auth0Id || conv.otherUser?.id;
-    if (conv.unreadCount > 0 && authId) {
-      messagingService.markRead(authId);
+    if (conv.unreadCount > 0) {
+      if (conv.isGroup && conv.groupId) {
+        messagingService.markGroupRead(conv.groupId);
+      } else {
+        const authId = conv.otherUser?.auth0Id || conv.otherUser?.id;
+        if (authId) messagingService.markRead(authId);
+      }
       setConversations(prev => prev.map(c =>
         c.conversationId === conv.conversationId ? { ...c, unreadCount: 0 } : c
       ));
@@ -232,10 +287,17 @@ function ConversationRow({
   else if (c.lastMessage?.type === 'file') preview = '📄';
   else if (c.lastMessage?.type === 'voice') preview = '🎤';
 
+  // Display label for group vs 1:1
+  const displayName = c.isGroup
+    ? c.groupName || (c.participants || []).map((p) => p.name).filter(Boolean).join(', ') || 'Group'
+    : c.otherUser?.name || '?';
+
   return (
     <TouchableOpacity style={s.row} onPress={onPress} activeOpacity={0.6}>
-      {/* Avatar */}
-      {isSystem ? (
+      {/* Avatar — group cluster (up to 3 + "+N" chip) or single avatar. */}
+      {c.isGroup ? (
+        <GroupAvatarCluster conversation={c} />
+      ) : isSystem ? (
         <Image source={require('../../assets/shared/barnabi-bird.png')} style={s.avatar} />
       ) : c.otherUser?.picture ? (
         <Image source={{ uri: c.otherUser.picture }} style={s.avatar} />
@@ -249,7 +311,7 @@ function ConversationRow({
       <View style={s.rowInfo}>
         <View style={s.rowTop}>
           <Text style={[s.rowName, { color: colors.text }, hasUnread && s.rowNameUnread]} numberOfLines={1}>
-            {c.otherUser?.name || '?'}
+            {displayName}
           </Text>
           <Text style={[s.rowTime, { color: colors.textTertiary }, hasUnread && s.rowTimeUnread]}>
             {formatRelativeTime(c.lastMessage?.createdAt)}
@@ -267,6 +329,57 @@ function ConversationRow({
         </View>
       </View>
     </TouchableOpacity>
+  );
+}
+
+/**
+ * Stacked avatar cluster used in the conversations list for group threads.
+ * Uses `conversation.displayParticipants` / `extraCount` pre-computed in
+ * `fetchConversations`, so the render stays function-free.
+ *
+ * Layout: 2×2 grid inside a 52×52 footprint. When >4 real participants, we
+ * show 3 avatars + a "+N" chip in the 4th slot.
+ */
+function GroupAvatarCluster({ conversation: c }: { conversation: Conversation }) {
+  const list = c.displayParticipants || [];
+  const extra = c.extraCount || 0;
+  // Build up to 4 cells: [avatar...][+N]? Match the web treatment.
+  const cells: Array<{ key: string; label: string; picture?: string | null; isMore?: boolean }> = list.map((p, i) => ({
+    key: `p-${i}`,
+    label: (p.name || '?').charAt(0).toUpperCase(),
+    picture: p.picture ?? undefined,
+  }));
+  if (extra > 0) {
+    cells.push({ key: 'more', label: `+${extra}`, isMore: true });
+  }
+
+  return (
+    <View style={s.cluster}>
+      {cells.slice(0, 4).map((cell, i) => {
+        // 2x2 slots: [0]=TL, [1]=TR, [2]=BL, [3]=BR
+        const row = i < 2 ? 0 : 1;
+        const col = i % 2;
+        return (
+          <View
+            key={cell.key}
+            style={[
+              s.clusterCell,
+              {
+                top: row * 26,
+                left: col * 26,
+              },
+              cell.isMore && s.clusterCellMore,
+            ]}
+          >
+            {cell.picture && !cell.isMore ? (
+              <Image source={{ uri: cell.picture }} style={s.clusterImg} />
+            ) : (
+              <Text style={[s.clusterLetter, cell.isMore && s.clusterMoreText]}>{cell.label}</Text>
+            )}
+          </View>
+        );
+      })}
+    </View>
   );
 }
 
@@ -331,6 +444,32 @@ const s = StyleSheet.create({
   avatar: { width: 52, height: 52, borderRadius: 26, marginRight: 14 },
   avatarFallback: { backgroundColor: '#4298d3', alignItems: 'center', justifyContent: 'center' },
   avatarLetter: { fontSize: 20, fontWeight: '700', color: '#fff' },
+
+  // Group avatar cluster — 52x52 footprint, 2x2 grid of 24x24 cells (24+24+4
+  // gap = 52). Each cell is positioned absolutely; `GroupAvatarCluster` fills
+  // it with up to 3 participant avatars + a "+N" overflow chip.
+  cluster: {
+    width: 52,
+    height: 52,
+    marginRight: 14,
+    position: 'relative' as const,
+  },
+  clusterCell: {
+    position: 'absolute' as const,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#e8e8e8',
+    overflow: 'hidden' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    borderWidth: 1.5,
+    borderColor: '#fff',
+  },
+  clusterCellMore: { backgroundColor: '#f0f0f0' },
+  clusterImg: { width: '100%' as any, height: '100%' as any },
+  clusterLetter: { fontSize: 10, fontWeight: '700', color: '#4298d3' },
+  clusterMoreText: { color: '#717171' },
 
   rowInfo: { flex: 1 },
   rowTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },

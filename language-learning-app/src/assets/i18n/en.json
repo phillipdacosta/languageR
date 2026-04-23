@@ -911,6 +911,11 @@
     "INVALID_EMAIL": "Invalid email address"
   },
   "EVENT_DETAILS": {
+    "IN_THIS_CONVERSATION": "In this conversation",
+    "GOING_MESSAGE_SUBTITLE": "Send a message to find out more about this class.",
+    "GOING_MESSAGE_PLACEHOLDER": "Make sure to introduce yourself.",
+    "GOING_MESSAGE_REQUIRED_HINT": "required characters",
+    "SEND_MESSAGE": "Send message",
     "CLASS_ACCEPT_INVITE": "Accept invite",
     "CLASS_ENROLL": "Enroll",
     "CLASS_ENROLL_PREPARING": "Preparing enrollment…",

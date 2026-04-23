@@ -1,0 +1,189 @@
+:host {
+  --going-msg-cta: #222;
+  --going-msg-cta-text: #fff;
+  --going-msg-border: #e8e8ec;
+  --going-msg-text: #1c1c1e;
+  --going-msg-muted: #6b6b6b;
+  --going-msg-surface: #fff;
+  --going-msg-textarea-bg: #fafafa;
+  --going-msg-empty-bg: #f6f6f8;
+
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.going-msg-header ion-toolbar {
+  --background: transparent;
+  --min-height: 44px;
+}
+
+.going-msg-content {
+  --background: var(--going-msg-surface);
+  --padding-top: 0;
+  flex: 1;
+}
+
+.going-msg-inner {
+  padding: 4px 28px 32px;
+  max-width: 560px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.going-msg-title-row {
+  margin-bottom: 20px;
+}
+
+.going-msg-in-label {
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--going-msg-text);
+  margin: 0 0 16px;
+  line-height: 1.25;
+}
+
+.going-msg-avatar-stack {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0;
+}
+
+.going-msg-av {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 3px solid var(--going-msg-surface);
+  overflow: hidden;
+  background: var(--going-msg-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  margin-left: -14px;
+}
+
+.going-msg-av:first-of-type {
+  margin-left: 0;
+}
+
+.going-msg-av img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.going-msg-av-ini {
+  font-size: 15px;
+  font-weight: 700;
+  color: #555;
+}
+
+.going-msg-av--more {
+  background: #eef0f4;
+  font-size: 14px;
+  font-weight: 700;
+  color: #52545a;
+}
+
+.going-msg-sub {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--going-msg-muted);
+  margin: 0 0 18px;
+}
+
+.going-msg-textarea {
+  border: 1px solid var(--going-msg-border);
+  border-radius: 14px;
+  padding: 14px 16px;
+  font-size: 1rem;
+  line-height: 1.5;
+  --background: var(--going-msg-textarea-bg);
+  --padding-start: 0;
+  --padding-end: 0;
+  --padding-top: 0;
+  --padding-bottom: 0;
+  min-height: 220px;
+  margin-bottom: 10px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.going-msg-textarea:focus-within {
+  border-color: var(--going-msg-cta);
+  --background: var(--going-msg-surface);
+}
+
+.going-msg-counter {
+  font-size: 0.78rem;
+  color: #8e8e8e;
+  margin: 0 0 12px;
+}
+
+.going-msg-empty {
+  font-size: 0.85rem;
+  color: var(--going-msg-muted);
+  margin: 0 0 18px;
+  padding: 10px 14px;
+  background: var(--going-msg-empty-bg);
+  border-radius: 12px;
+}
+
+.going-msg-actions {
+  margin-top: auto;
+  padding-top: 16px;
+}
+
+/* Match the app-wide primary CTA (see `.ed-btn-primary` in event-details): 48px, 12px radius, solid brand fill. */
+.going-msg-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 52px;
+  padding: 0 28px;
+  border: none;
+  border-radius: 14px;
+  background: var(--going-msg-cta);
+  color: var(--going-msg-cta-text);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.going-msg-send:hover:not(:disabled) {
+  opacity: 0.92;
+}
+
+.going-msg-send:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.going-msg-send:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.going-msg-spin {
+  width: 22px;
+  height: 22px;
+}
+
+html.ion-palette-dark :host {
+  --going-msg-cta: #4298d2;
+  --going-msg-cta-text: #fff;
+  --going-msg-border: #3a3a3c;
+  --going-msg-text: var(--ion-text-color, #f5f5f7);
+  --going-msg-muted: #9b9ba0;
+  --going-msg-surface: var(--ion-background-color, #1c1c1e);
+  --going-msg-textarea-bg: #2c2c2e;
+  --going-msg-empty-bg: #2c2c2e;
+}

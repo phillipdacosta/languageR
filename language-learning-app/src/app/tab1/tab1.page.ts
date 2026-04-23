@@ -9274,15 +9274,53 @@ navigateToLessons() {
     
     try {
       const className = lesson?.className || lesson?.classData?.name || '';
-      
-      
+      const anyLesson = lesson as any;
+      const classThumbnailUrl =
+        anyLesson?.classData?.thumbnail || anyLesson?.thumbnail || undefined;
+
+      // STEP 1: Show the cancellation reason modal (class variant)
+      const reasonModal = await this.modalCtrl.create({
+        component: CancelReasonModalComponent,
+        componentProps: {
+          entityType: 'class',
+          userRole: 'tutor',
+          className: className,
+          classThumbnailUrl,
+          lessonStartTime: lesson?.startTime,
+          lessonDuration: lesson?.duration
+        },
+        cssClass: 'cancel-reason-modal'
+      });
+      await reasonModal.present();
+      const reasonResult = await reasonModal.onDidDismiss();
+      if (reasonResult.data?.rescheduleInstead) {
+        if (!this.hasLessonStarted(lesson)) {
+          await this.rescheduleClass(classId, lesson);
+        } else {
+          const toast = await this.toastController.create({
+            message: 'This class has already started and cannot be rescheduled.',
+            duration: 3000,
+            position: 'bottom',
+            color: 'medium'
+          });
+          await toast.present();
+        }
+        return;
+      }
+      if (reasonResult.data?.cancelled || !reasonResult.data?.reason) {
+        return;
+      }
+      this.selectedCancelReason = reasonResult.data.reason;
+
+      // STEP 2: Final confirmation (compact Apple-style dialog)
       const modal = await this.modalCtrl.create({
         component: ConfirmActionModalComponent,
         componentProps: {
-          title: 'Cancel Class',
-          message: `Are you sure you want to cancel "${className}"? All invited students will be notified and this action cannot be undone.`,
-          confirmText: 'Cancel Class',
-          cancelText: 'Keep Class',
+          title: 'Cancel class?',
+          message: `Are you sure you want to cancel "${className}"? All invited and confirmed students will be notified. This action cannot be undone.`,
+          confirmText: 'Cancel class',
+          cancelText: 'Reschedule instead?',
+          secondaryDismissReschedules: true,
           confirmColor: 'danger',
           icon: 'close-circle',
           iconColor: 'danger'
@@ -9290,11 +9328,22 @@ navigateToLessons() {
         cssClass: 'confirm-action-modal'
       });
 
-      
       await modal.present();
-      
-      
-      const { data } = await modal.onWillDismiss();
+      const { data } = await modal.onDidDismiss();
+      if (data?.rescheduleInstead) {
+        if (!this.hasLessonStarted(lesson)) {
+          await this.rescheduleClass(classId, lesson);
+        } else {
+          const toast = await this.toastController.create({
+            message: 'This class has already started and cannot be rescheduled.',
+            duration: 3000,
+            position: 'bottom',
+            color: 'medium'
+          });
+          await toast.present();
+        }
+        return;
+      }
       if (data && data.confirmed) {
         const loading = await this.loadingController.create({
           message: 'Cancelling class...',
@@ -9376,7 +9425,22 @@ navigateToLessons() {
       
       await reasonModal.present();
       const reasonResult = await reasonModal.onDidDismiss();
-      
+
+      if (reasonResult.data?.rescheduleInstead) {
+        if (!this.hasLessonStarted(lesson)) {
+          await this.rescheduleLesson(lessonId, lesson);
+        } else {
+          const toast = await this.toastController.create({
+            message: 'This lesson has already started and cannot be rescheduled.',
+            duration: 3000,
+            position: 'bottom',
+            color: 'medium'
+          });
+          await toast.present();
+        }
+        return;
+      }
+
       // If user cancelled or didn't select a reason, stop here
       if (reasonResult.data?.cancelled || !reasonResult.data?.reason) {
         
@@ -9397,6 +9461,22 @@ navigateToLessons() {
             text: 'Go Back',
             role: 'cancel',
             cssClass: 'alert-cancel-button'
+          },
+          {
+            text: 'Reschedule instead?',
+            handler: () => {
+              if (!this.hasLessonStarted(lesson)) {
+                void this.rescheduleLesson(lessonId, lesson);
+              } else {
+                void this.toastController.create({
+                  message: 'This lesson has already started and cannot be rescheduled.',
+                  duration: 3000,
+                  position: 'bottom',
+                  color: 'medium'
+                }).then(t => t.present());
+              }
+              return true;
+            }
           },
           {
             text: 'Cancel Lesson',
@@ -9551,6 +9631,8 @@ navigateToLessons() {
     
     // Open the inline modal
     this.isRescheduleModalOpen = true;
+    // Required when opening from Ionic modal dismiss (e.g. "Reschedule instead?") — OnPush won't refresh otherwise
+    this.cdr.markForCheck();
   }
   
   // Handle inline modal dismissal

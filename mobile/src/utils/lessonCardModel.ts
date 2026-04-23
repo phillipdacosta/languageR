@@ -160,7 +160,15 @@ export function classRecordToLesson(cls: MyClassRecord, currentUser: any, t: TFu
     className: cls.name,
     attendees: cls.confirmedStudents || [],
     capacity: cls.capacity || 1,
-    classData: thumb ? { thumbnail: thumb } : undefined,
+    classData:
+      thumb || (cls.description && String(cls.description).trim())
+        ? {
+            ...(thumb ? { thumbnail: thumb } : {}),
+            ...(cls.description && String(cls.description).trim()
+              ? { description: String(cls.description) }
+              : {}),
+          }
+        : undefined,
   } as Lesson;
 }
 

@@ -2081,6 +2081,43 @@ ion-header {
     margin-top: 0;
     flex-wrap: wrap;
   }
+
+  &.ed-pc-detail--attendees--tap {
+    cursor: pointer;
+    border-radius: 12px;
+    outline: none;
+    margin: -6px;
+    padding: 6px;
+    transition: background 0.2s ease;
+
+    &:hover {
+      background: color-mix(in srgb, var(--ion-color-primary, #7c3aed) 6%, transparent);
+    }
+
+    &:focus-visible {
+      box-shadow: 0 0 0 2px var(--ion-color-primary, #7c3aed);
+    }
+  }
+}
+
+.ed-row--going-tap {
+  border-radius: 12px;
+  margin: 0 -10px;
+  padding: 10px;
+  outline: none;
+  transition: background 0.2s ease;
+
+  &.ed-row--going-tap[role='button'] {
+    cursor: pointer;
+  }
+
+  &:hover:where([role='button']) {
+    background: color-mix(in srgb, var(--ion-color-primary, #7c3aed) 5%, transparent);
+  }
+
+  &:focus-visible[role='button'] {
+    box-shadow: 0 0 0 2px var(--ion-color-primary, #7c3aed);
+  }
 }
 
 .ed-pc-detail-primary {

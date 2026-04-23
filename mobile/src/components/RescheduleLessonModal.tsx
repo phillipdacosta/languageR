@@ -11,7 +11,7 @@ import {
   Image,
   TouchableOpacity,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
@@ -201,6 +201,7 @@ export function RescheduleLessonModal({
   const { t } = useTranslation();
   const { colors } = useTheme();
   const isDark = colors.isDark;
+  const insets = useSafeAreaInsets();
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -539,7 +540,18 @@ export function RescheduleLessonModal({
       presentationStyle="fullScreen"
       onRequestClose={onClose}
     >
-      <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'left', 'right', 'bottom']}>
+      <View
+        style={[
+          styles.safe,
+          {
+            backgroundColor: colors.background,
+            paddingTop: insets.top,
+            paddingLeft: insets.left,
+            paddingRight: insets.right,
+            paddingBottom: insets.bottom,
+          },
+        ]}
+      >
         <SolidToolbarWithBlur isDark={isDark}>
           <View style={styles.toolbarRow}>
             <Pressable
@@ -763,7 +775,7 @@ export function RescheduleLessonModal({
             </TouchableOpacity>
           </View>
         ) : null}
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 }

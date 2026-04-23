@@ -12,7 +12,7 @@ import {
   Image,
   Alert,
 } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
@@ -128,6 +128,7 @@ export function InviteStudentsModal({
   const { t } = useTranslation();
   const { colors } = useTheme();
   const isDark = colors.isDark;
+  const insets = useSafeAreaInsets();
   const fb = t('HOME.INVITE_FALLBACK_NAME');
 
   const [loading, setLoading] = useState(true);
@@ -300,11 +301,18 @@ export function InviteStudentsModal({
 
   return (
     <Modal visible animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
-      <SafeAreaProvider>
-        <SafeAreaView
-          style={[styles.safe, { backgroundColor: colors.background }]}
-          edges={['top', 'left', 'right', 'bottom']}
-        >
+      <View
+        style={[
+          styles.safe,
+          {
+            backgroundColor: colors.background,
+            paddingTop: insets.top,
+            paddingLeft: insets.left,
+            paddingRight: insets.right,
+            paddingBottom: insets.bottom,
+          },
+        ]}
+      >
         <View style={styles.column}>
         <SolidToolbarWithBlur isDark={isDark}>
           <View style={styles.toolbarRow}>
@@ -506,8 +514,7 @@ export function InviteStudentsModal({
           </View>
         ) : null}
         </View>
-        </SafeAreaView>
-      </SafeAreaProvider>
+      </View>
     </Modal>
   );
 }

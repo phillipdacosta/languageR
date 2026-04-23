@@ -5,8 +5,13 @@ const multer = require('multer');
 const { verifyToken } = require('../middleware/videoUploadMiddleware');
 const { initializeGCS } = require('../config/gcs');
 const Message = require('../models/Message');
+const Conversation = require('../models/Conversation');
 const User = require('../models/User');
+const ClassModel = require('../models/Class');
 const { formatNameWithInitial } = require('../utils/nameFormatter');
+const {
+  syncClassConversation
+} = require('../services/classConversation');
 
 // Use shared name formatter
 const formatDisplayName = formatNameWithInitial;
@@ -305,12 +310,134 @@ router.get('/conversations', verifyToken, async (req, res) => {
       })));
     }
     
+    // ===== Group conversations (membership-driven) =====
+    // We key group threads off the `Conversation` collection, which is the
+    // source of truth for roster + per-member visibility windows. A user
+    // sees a thread iff they have a `members` row (active OR historical).
+    //
+    // Lazy migration: any pre-Conversation group threads that still live
+    // only in the `Message` collection are materialized on first list-load
+    // so the user can see them in /messages without first opening them
+    // directly. We discover them by scanning distinct `groupId`s where the
+    // user appears in a message's `groupParticipants` snapshot.
+    const legacyGroupIds = await Message.distinct('groupId', {
+      isGroup: true,
+      groupParticipants: userId
+    });
+    if (legacyGroupIds.length > 0) {
+      const existingConvIds = new Set(
+        (await Conversation.find({ groupId: { $in: legacyGroupIds } }).select('groupId').lean())
+          .map((c) => c.groupId)
+      );
+      const missing = legacyGroupIds.filter((gid) => gid && !existingConvIds.has(gid));
+      // Materialize sequentially — `ensureConversationForGroupId` walks the
+      // full message history per group; running them in parallel risks
+      // hammering the DB on accounts with many legacy threads.
+      for (const gid of missing) {
+        try {
+          await ensureConversationForGroupId(gid);
+        } catch (err) {
+          console.error('Failed to materialize legacy group conversation:', gid, err);
+        }
+      }
+    }
+
+    const memberConversations = await Conversation.find({ 'members.auth0Id': userId })
+      .sort({ lastMessageAt: -1, updatedAt: -1 });
+
+    const groupConversations = await Promise.all(
+      memberConversations.map(async (conv) => {
+        const me = conv.getMember(userId);
+        const isActive = !!(me && !me.leftAt);
+
+        // Visibility window: strictly within my [joinedAt, leftAt] interval.
+        const windowQuery = { isGroup: true, groupId: conv.groupId };
+        windowQuery.createdAt = { $gte: me.joinedAt };
+        if (me.leftAt) windowQuery.createdAt.$lte = me.leftAt;
+
+        const lastMessage = await Message.findOne(windowQuery).sort({ createdAt: -1 }).lean();
+        // If there's nothing in my window yet (eg. just joined), skip the
+        // thread from the list to avoid empty conversation rows polluting UI.
+        if (!lastMessage) return null;
+
+        const unreadCount = await Message.countDocuments({
+          ...windowQuery,
+          senderId: { $ne: userId },
+          readBy: { $ne: userId }
+        });
+
+        // Hydrate participant summaries (all historical members so left
+        // students are still identified on old messages).
+        const memberIds = conv.members.map((m) => m.auth0Id);
+        const userDocs = await User.find({ auth0Id: { $in: memberIds } }).lean();
+        const userMap = new Map(userDocs.map((u) => [u.auth0Id, u]));
+        const participantUsers = memberIds.map((id) => {
+          const u = userMap.get(id);
+          return u ? {
+            id: u._id.toString(),
+            auth0Id: u.auth0Id,
+            name: formatDisplayName(u),
+            picture: u.picture || null,
+            userType: u.userType || 'user'
+          } : { id, auth0Id: id, name: 'Unknown', picture: null, userType: 'user' };
+        });
+
+        // Active-only list drives the avatar cluster (left students shown
+        // only in-thread for historical messages, not in conversation list).
+        const activeMembers = conv.members.filter((m) => !m.leftAt).map((m) => m.auth0Id);
+        const activeParticipants = participantUsers.filter((p) => activeMembers.includes(p.auth0Id));
+        const others = activeParticipants.filter((p) => !userIdsMatch(p.auth0Id, userId));
+        const othersNames = others.map((p) => p.name).filter(Boolean);
+        let displayName = conv.name && conv.name.trim() ? conv.name.trim() : '';
+        if (!displayName) {
+          if (othersNames.length <= 2) displayName = othersNames.join(' & ');
+          else displayName = `${othersNames.slice(0, 2).join(', ')} & ${othersNames.length - 2} more`;
+        }
+
+        return {
+          conversationId: conv.groupId,
+          isGroup: true,
+          groupId: conv.groupId,
+          groupName: conv.name || '',
+          type: conv.type,
+          classId: conv.classId ? conv.classId.toString() : null,
+          participants: activeParticipants,
+          allParticipants: participantUsers,
+          // Current user's status within this thread — drives the "You left
+          // this class" banner + disables the composer on the frontend.
+          archived: !isActive,
+          leftAt: me.leftAt || null,
+          joinedAt: me.joinedAt || null,
+          otherUser: {
+            id: conv.groupId,
+            auth0Id: conv.groupId,
+            name: displayName || conv.name || 'Group chat',
+            picture: conv.picture || others[0]?.picture || null,
+            userType: 'group',
+            timezone: 'UTC'
+          },
+          lastMessage: {
+            content: lastMessage.content,
+            senderId: lastMessage.senderId,
+            createdAt: lastMessage.createdAt,
+            type: lastMessage.type || (lastMessage.isSystemMessage ? 'system' : 'text'),
+            isSystemMessage: !!lastMessage.isSystemMessage,
+            reactions: lastMessage.reactions || []
+          },
+          unreadCount,
+          updatedAt: lastMessage.createdAt
+        };
+      })
+    );
+
+    const combined = [...deduplicatedConversations, ...groupConversations.filter(Boolean)];
+
     // Sort by most recent
-    deduplicatedConversations.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+    combined.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 
     res.json({
       success: true,
-      conversations: deduplicatedConversations
+      conversations: combined
     });
   } catch (error) {
     console.error('Error getting conversations:', error);
@@ -1365,6 +1492,490 @@ router.post('/potential-student', verifyToken, async (req, res) => {
       message: 'Failed to create potential student conversation',
       error: error.message
     });
+  }
+});
+
+// ========== Group conversations (multi-participant threads) ==========
+//
+// Membership lives in the `Conversation` collection. Each group thread has
+// one row there keyed by `groupId`. There are two variants:
+//   - class-broadcast: groupId = `grp_class_<classId>`, synced from Class roster.
+//   - ad-hoc-group:    groupId = sha1 hash of sorted auth0Ids (immutable roster).
+//
+// The routes below look up membership from Conversation, enforce per-user
+// visibility windows (joinedAt/leftAt) on reads/writes, and snapshot the
+// active roster onto every outgoing `Message.groupParticipants` for legacy
+// compatibility with consumers that still read that field.
+
+/**
+ * Lazy migration for pre-Conversation ad-hoc threads: if a groupId exists in
+ * the Messages collection but has no Conversation row yet, materialize one
+ * using the union of historical participants (joinedAt = first appearance
+ * in the thread, so existing users retain full visibility).
+ */
+async function ensureConversationForGroupId(groupId) {
+  if (!groupId) return null;
+  let conv = await Conversation.findOne({ groupId });
+  if (conv) return conv;
+
+  const firstMsg = await Message.findOne({ isGroup: true, groupId }).sort({ createdAt: 1 });
+  if (!firstMsg) return null;
+
+  // Walk the history once to compute each user's first-appearance timestamp.
+  // For legacy threads we treat joinedAt = first-message-createdAt so nobody
+  // retroactively loses access.
+  const firstSeen = new Map();
+  const cursor = Message.find({ isGroup: true, groupId })
+    .sort({ createdAt: 1 })
+    .select('groupParticipants createdAt')
+    .lean()
+    .cursor();
+  for await (const m of cursor) {
+    for (const pid of m.groupParticipants || []) {
+      if (!firstSeen.has(pid)) firstSeen.set(pid, m.createdAt);
+    }
+  }
+
+  conv = await Conversation.create({
+    groupId,
+    type: 'ad-hoc-group',
+    classId: null,
+    name: firstMsg.groupName || '',
+    picture: null,
+    members: Array.from(firstSeen.entries()).map(([auth0Id, joinedAt]) => ({
+      auth0Id,
+      role: 'member',
+      joinedAt,
+      leftAt: null
+    })),
+    lastMessageAt: firstMsg.createdAt
+  });
+  return conv;
+}
+
+/**
+ * Resolve an arbitrary set of user identifiers (auth0Id, Mongo _id, or dev-user-*)
+ * into canonical auth0Ids. Returns `{ ids, users }` where ids are unique+sorted
+ * auth0Ids and `users` is a matching list of resolved User docs (nulls omitted).
+ */
+async function resolveParticipantAuth0Ids(rawIds) {
+  const inputs = Array.from(new Set((rawIds || []).map((x) => (x || '').trim()).filter(Boolean)));
+  const resolved = [];
+  for (const raw of inputs) {
+    let u = await User.findOne({ auth0Id: raw });
+    if (!u && !raw.startsWith('dev-user-')) {
+      u = await User.findOne({ auth0Id: `dev-user-${raw}` });
+    }
+    if (!u && mongoose.Types.ObjectId.isValid(raw)) {
+      u = await User.findById(raw);
+    }
+    if (u && u.auth0Id) {
+      resolved.push(u);
+    }
+  }
+  const seen = new Set();
+  const unique = [];
+  for (const u of resolved) {
+    if (!seen.has(u.auth0Id)) {
+      seen.add(u.auth0Id);
+      unique.push(u);
+    }
+  }
+  const ids = unique.map((u) => u.auth0Id).sort();
+  return { ids, users: unique };
+}
+
+function userToSummary(u) {
+  if (!u) return null;
+  return {
+    id: u._id.toString(),
+    auth0Id: u.auth0Id,
+    name: formatDisplayName(u),
+    picture: u.picture || null,
+    userType: u.userType || 'user',
+    timezone: u.profile?.timezone || u.timezone || 'UTC'
+  };
+}
+
+/**
+ * POST /api/messaging/groups
+ * Create-or-get a group conversation.
+ *
+ * Two modes:
+ *   1. `classId` provided → class-broadcast. Idempotent find-or-create on the
+ *      class, then syncs roster from `Class.tutorId + confirmedStudents`.
+ *      `participantIds` is ignored; the class is authoritative.
+ *   2. No `classId` → ad-hoc. `participantIds` is required; the group is keyed
+ *      by the hash of the (sorted) participant set and the member list is
+ *      immutable for the lifetime of the thread.
+ *
+ * Body: { participantIds?: string[], name?: string, classId?: string }
+ * Returns: { success, groupId, participants, participantIds, name, alreadyExists, type, classId, archived }
+ */
+router.post('/groups', verifyToken, async (req, res) => {
+  try {
+    const senderId = req.user.sub;
+    const { participantIds, name, classId } = req.body || {};
+
+    // -------- Class-broadcast branch --------
+    if (classId) {
+      if (!mongoose.Types.ObjectId.isValid(classId)) {
+        return res.status(400).json({ success: false, message: 'Invalid classId' });
+      }
+      const classDoc = await ClassModel.findById(classId).populate('tutorId confirmedStudents');
+      if (!classDoc) {
+        return res.status(404).json({ success: false, message: 'Class not found' });
+      }
+
+      // Sync first so the caller's state reflects current roster.
+      const { conversation: conv } = await syncClassConversation(classDoc, { suppressSystemMessage: true });
+      if (!conv) {
+        return res.status(500).json({ success: false, message: 'Could not materialize class conversation' });
+      }
+
+      // Verify caller is a member (active or historical). Non-members cannot
+      // open the thread — this blocks, e.g., a random student hitting the URL.
+      const member = conv.getMember(senderId);
+      if (!member) {
+        return res.status(403).json({ success: false, message: 'Not a member of this class thread.' });
+      }
+
+      // Populate active-member user summaries for the client.
+      const activeIds = conv.members.filter((m) => !m.leftAt).map((m) => m.auth0Id);
+      const activeUsers = await User.find({ auth0Id: { $in: activeIds } }).lean();
+      const summaries = activeUsers.map((u) => ({
+        id: u._id.toString(),
+        auth0Id: u.auth0Id,
+        name: formatDisplayName(u),
+        picture: u.picture || null,
+        userType: u.userType || 'user',
+        timezone: u.profile?.timezone || u.timezone || 'UTC'
+      }));
+
+      // Update name if the caller provided one and the conv has none yet
+      // (first-ever open). Don't overwrite a previously-set name silently.
+      if (name && !conv.name) {
+        conv.name = name;
+        await conv.save();
+      }
+
+      return res.json({
+        success: true,
+        groupId: conv.groupId,
+        type: conv.type,
+        classId: conv.classId ? conv.classId.toString() : null,
+        participants: summaries,
+        participantIds: activeIds,
+        name: conv.name || name || classDoc.name || '',
+        alreadyExists: true,
+        archived: !!member.leftAt,
+        joinedAt: member.joinedAt,
+        leftAt: member.leftAt
+      });
+    }
+
+    // -------- Ad-hoc branch --------
+    if (!Array.isArray(participantIds) || participantIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'participantIds or classId required' });
+    }
+
+    const { ids: resolvedIds, users: resolvedUsers } = await resolveParticipantAuth0Ids([
+      senderId,
+      ...participantIds
+    ]);
+    if (resolvedIds.length < 2) {
+      return res.status(400).json({ success: false, message: 'A group needs at least 2 distinct participants.' });
+    }
+
+    const groupId = Message.getGroupId(resolvedIds);
+    if (!groupId) {
+      return res.status(500).json({ success: false, message: 'Could not compute groupId' });
+    }
+
+    // Find-or-create the Conversation row with everyone active from day one.
+    let conv = await Conversation.findOne({ groupId });
+    const alreadyExists = !!conv;
+    if (!conv) {
+      conv = await Conversation.create({
+        groupId,
+        type: 'ad-hoc-group',
+        classId: null,
+        name: (name || '').trim(),
+        members: resolvedIds.map((auth0Id) => ({
+          auth0Id,
+          role: 'member',
+          joinedAt: new Date(),
+          leftAt: null
+        }))
+      });
+    } else if (name && !conv.name) {
+      conv.name = name;
+      await conv.save();
+    }
+
+    const member = conv.getMember(senderId);
+    if (!member) {
+      return res.status(403).json({ success: false, message: 'Not a member of this group.' });
+    }
+
+    const participantsSummary = resolvedUsers
+      .map(userToSummary)
+      .filter(Boolean)
+      .sort((a, b) => resolvedIds.indexOf(a.auth0Id) - resolvedIds.indexOf(b.auth0Id));
+
+    return res.json({
+      success: true,
+      groupId: conv.groupId,
+      type: conv.type,
+      classId: null,
+      participants: participantsSummary,
+      participantIds: resolvedIds,
+      name: conv.name || name || '',
+      alreadyExists,
+      archived: !!member.leftAt,
+      joinedAt: member.joinedAt,
+      leftAt: member.leftAt
+    });
+  } catch (error) {
+    console.error('Error creating/getting group:', error);
+    return res.status(500).json({ success: false, message: 'Failed to create group conversation' });
+  }
+});
+
+/**
+ * POST /api/messaging/groups/:groupId/messages
+ * Send a message to a group. Sender must be an ACTIVE member of the
+ * `Conversation` (i.e. `leftAt` is null). The message is delivered only to
+ * active members at send time — leavers keep read access to their history
+ * but do not receive new writes.
+ *
+ * Body: { content, type?, replyTo? }
+ *   (`participantIds` / `name` are accepted but ignored — roster comes from
+ *   the Conversation, not the client.)
+ */
+router.post('/groups/:groupId/messages', verifyToken, async (req, res) => {
+  try {
+    const senderId = req.user.sub;
+    const { groupId } = req.params;
+    const { content, type = 'text', replyTo } = req.body || {};
+
+    if (!content || !content.trim()) {
+      return res.status(400).json({ success: false, message: 'Message content is required' });
+    }
+
+    const conv = await ensureConversationForGroupId(groupId);
+    if (!conv) {
+      return res.status(404).json({ success: false, message: 'Group conversation not found.' });
+    }
+
+    if (!conv.isActiveMember(senderId)) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are no longer an active member of this group.'
+      });
+    }
+
+    // Snapshot the active roster so downstream consumers that inspect
+    // `groupParticipants` on the Message doc (eg. old badge calculators)
+    // see a coherent list.
+    const activeParticipants = conv.members.filter((m) => !m.leftAt).map((m) => m.auth0Id);
+
+    const messageData = {
+      conversationId: groupId,
+      senderId,
+      isGroup: true,
+      groupId,
+      groupParticipants: activeParticipants,
+      groupName: conv.name || '',
+      content: content.trim(),
+      type,
+      readBy: [senderId]
+    };
+
+    if (replyTo && typeof replyTo === 'object' && replyTo.messageId) {
+      messageData.replyTo = replyTo;
+    }
+
+    const savedMessage = await new Message(messageData).save();
+
+    // Denormalize latest activity onto the conversation so list queries sort correctly.
+    conv.lastMessageAt = savedMessage.createdAt;
+    const senderMember = conv.getMember(senderId);
+    if (senderMember) senderMember.lastReadAt = savedMessage.createdAt;
+    await conv.save();
+
+    const sender = await User.findOne({ auth0Id: senderId });
+
+    const messageResponse = {
+      id: savedMessage._id.toString(),
+      conversationId: savedMessage.conversationId,
+      senderId: savedMessage.senderId,
+      isGroup: true,
+      groupId: savedMessage.groupId,
+      groupParticipants: savedMessage.groupParticipants,
+      groupName: savedMessage.groupName,
+      content: savedMessage.content,
+      type: savedMessage.type,
+      read: false,
+      readBy: savedMessage.readBy,
+      createdAt: savedMessage.createdAt,
+      sender: sender ? {
+        id: sender._id.toString(),
+        name: formatDisplayName(sender),
+        picture: sender.picture
+      } : null
+    };
+    if (savedMessage.replyTo && savedMessage.replyTo.messageId) {
+      messageResponse.replyTo = savedMessage.replyTo;
+    }
+
+    // Broadcast only to active members; left members do NOT get the socket
+    // event, matching the "option 2" semantic on the delivery layer too.
+    if (req.io) {
+      for (const pid of activeParticipants) {
+        req.io.to(`user:${pid}`).emit(pid === senderId ? 'message_sent' : 'new_message', messageResponse);
+      }
+    }
+
+    return res.json({ success: true, message: messageResponse });
+  } catch (error) {
+    console.error('❌ Error sending group message:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to send group message',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/messaging/groups/:groupId/messages
+ * Fetch messages for a group. Caller must be a member (active OR historical)
+ * and only sees messages within their `[joinedAt, leftAt]` visibility window.
+ *
+ * This is what enforces "option 2" on the read side: a left student can
+ * still open the archived thread and browse history up to their `leftAt`,
+ * and a late joiner can't see what was posted before they enrolled.
+ */
+router.get('/groups/:groupId/messages', verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const { groupId } = req.params;
+    const { limit = 50, before } = req.query;
+
+    const conv = await ensureConversationForGroupId(groupId);
+    if (!conv) {
+      return res.status(404).json({ success: false, message: 'Group not found.' });
+    }
+
+    const me = conv.getMember(userId);
+    if (!me) {
+      return res.status(403).json({ success: false, message: 'Not a member of this group.' });
+    }
+
+    const query = { isGroup: true, groupId };
+    // Visibility window — strict slice of history.
+    query.createdAt = { $gte: me.joinedAt };
+    if (me.leftAt) query.createdAt.$lte = me.leftAt;
+
+    if (before) {
+      const beforeMessage = await Message.findById(before).lean();
+      if (beforeMessage && beforeMessage.createdAt) {
+        // Tighten the upper bound to `before`'s createdAt, respecting leftAt cap.
+        const upper = me.leftAt && me.leftAt < beforeMessage.createdAt ? me.leftAt : beforeMessage.createdAt;
+        query.createdAt = { ...query.createdAt, $lt: upper };
+        delete query.createdAt.$lte;
+      }
+    }
+
+    const messagesDesc = await Message.find(query)
+      .sort({ createdAt: -1 })
+      .limit(Math.min(parseInt(limit, 10) || 50, 200));
+
+    // Hydrate sender info including members who have since left, so quoted
+    // names still render correctly in archived history.
+    const senderIds = Array.from(new Set(messagesDesc.map((m) => m.senderId).filter((id) => id && id !== 'system')));
+    const senderUsers = await User.find({ auth0Id: { $in: senderIds } });
+    const senderMap = new Map();
+    senderUsers.forEach((u) => {
+      senderMap.set(u.auth0Id, { id: u._id.toString(), name: formatDisplayName(u), picture: u.picture });
+    });
+
+    const messages = messagesDesc.reverse().map((m) => ({
+      id: m._id.toString(),
+      conversationId: m.conversationId,
+      senderId: m.senderId,
+      isGroup: true,
+      isSystemMessage: !!m.isSystemMessage,
+      groupId: m.groupId,
+      groupParticipants: m.groupParticipants,
+      groupName: m.groupName,
+      content: m.content,
+      type: m.type,
+      read: Array.isArray(m.readBy) && m.readBy.includes(userId),
+      readBy: m.readBy || [],
+      createdAt: m.createdAt,
+      reactions: m.reactions || [],
+      sender: senderMap.get(m.senderId) || null,
+      replyTo: m.replyTo && m.replyTo.messageId ? m.replyTo : undefined
+    }));
+
+    // Snapshot of the ACTIVE roster at query time — surfaces to the client
+    // which members can still send messages, enabling the "X left the class"
+    // UI treatment for members who have left.
+    const activeParticipants = conv.members.filter((m) => !m.leftAt).map((m) => m.auth0Id);
+
+    return res.json({
+      success: true,
+      messages,
+      participants: activeParticipants,
+      archived: !!me.leftAt,
+      leftAt: me.leftAt || null,
+      joinedAt: me.joinedAt || null,
+      type: conv.type,
+      classId: conv.classId ? conv.classId.toString() : null
+    });
+  } catch (error) {
+    console.error('Error getting group messages:', error);
+    return res.status(500).json({ success: false, message: 'Failed to get group messages' });
+  }
+});
+
+/**
+ * PUT /api/messaging/groups/:groupId/read
+ * Mark all group messages in the caller's visibility window as read.
+ * Leavers can still mark their archived history read (e.g. to clear the
+ * unread badge after being removed) but we don't touch messages outside
+ * their window.
+ */
+router.put('/groups/:groupId/read', verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const { groupId } = req.params;
+
+    const conv = await ensureConversationForGroupId(groupId);
+    if (!conv) return res.json({ success: true, message: 'No conversation.' });
+
+    const me = conv.getMember(userId);
+    if (!me) return res.status(403).json({ success: false, message: 'Not a member.' });
+
+    const windowFilter = {
+      isGroup: true,
+      groupId,
+      readBy: { $ne: userId },
+      createdAt: { $gte: me.joinedAt }
+    };
+    if (me.leftAt) windowFilter.createdAt.$lte = me.leftAt;
+
+    await Message.updateMany(windowFilter, { $addToSet: { readBy: userId } });
+
+    me.lastReadAt = new Date();
+    await conv.save();
+
+    return res.json({ success: true, message: 'Marked as read.' });
+  } catch (error) {
+    console.error('Error marking group as read:', error);
+    return res.status(500).json({ success: false, message: 'Failed to mark group as read' });
   }
 });
 
