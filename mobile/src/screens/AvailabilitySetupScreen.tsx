@@ -12,7 +12,7 @@ import {
   Platform,
   UIManager,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
@@ -100,6 +100,47 @@ export default function AvailabilitySetupScreen() {
   const insets = useSafeAreaInsets();
   const userId = user?._id || user?.id || '';
   const use24h = user?.profile?.calendarTimeFormat === '24h';
+
+  const profileBlocked = useMemo(() => {
+    if (!user || user.userType !== 'tutor') return false;
+    const hasCustomPhoto = !!(user.picture && (
+      user.picture.includes('storage.googleapis.com') ||
+      (user.auth0Picture && user.picture !== user.auth0Picture)
+    ));
+    const od = user.onboardingData;
+    const hasVideo = !!(od?.introductionVideo || od?.pendingVideo);
+    const creds = user.tutorCredentials;
+    const govIdOk = !!(creds?.governmentId?.url && creds.governmentId.status !== 'not_uploaded');
+    const certsOk = !!(creds?.teachingCertifications && creds.teachingCertifications.length > 0);
+    const hasPayout = user.stripeConnectOnboarded || user.payoutProvider === 'paypal' || user.payoutProvider === 'manual';
+    return !hasCustomPhoto || !hasVideo || !(govIdOk && certsOk) || !hasPayout;
+  }, [user]);
+
+  if (profileBlocked) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
+          <Ionicons name="alert-circle-outline" size={48} color="#e8893c" style={{ marginBottom: 16 }} />
+          <Text style={{ fontSize: 20, fontWeight: '700', color: colors.text, textAlign: 'center', marginBottom: 10 }}>
+            Complete Your Profile First
+          </Text>
+          <Text style={{ fontSize: 15, lineHeight: 22, color: colors.textSecondary, textAlign: 'center', marginBottom: 24 }}>
+            You need to finish your profile setup before adding availability. This includes your photo, video, credentials, and payout method.
+          </Text>
+          <TouchableOpacity
+            style={{ backgroundColor: colors.isDark ? '#3a7bc8' : '#000', paddingHorizontal: 28, paddingVertical: 14, borderRadius: 12 }}
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate('Profile')}
+          >
+            <Text style={{ color: '#fff', fontSize: 15, fontWeight: '600' }}>Continue Setup</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={{ marginTop: 16 }} onPress={() => navigation.goBack()}>
+            <Text style={{ color: colors.textSecondary, fontSize: 14 }}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   const targetDate = route.params?.date ? new Date(route.params.date + 'T00:00:00') : null;
   const isSingleDay = !!targetDate;
@@ -314,7 +355,7 @@ export default function AvailabilitySetupScreen() {
       setIsDirty(false);
       setInitialSlots(new Set(selectedSlots));
       Alert.alert(t('TUTOR_CALENDAR.SAVED_TITLE'), t('TUTOR_CALENDAR.SAVED_DESC'));
-      navigation.goBack();
+      navigation.navigate('CalendarMain');
     } catch (e: any) {
       Alert.alert(t('COMMON.ERROR') || 'Error', e.message || t('TUTOR_CALENDAR.SAVE_FAILED'));
     } finally { setSaving(false); }
@@ -370,9 +411,9 @@ export default function AvailabilitySetupScreen() {
   const saveBarTranslateY = saveBarAnim.interpolate({ inputRange: [0, 1], outputRange: [100, 0] });
 
   if (loading) return (
-    <SafeAreaView style={[st.safe, { backgroundColor: C.surface }]} edges={['top']}>
+    <View style={[st.safe, { backgroundColor: C.surface, paddingTop: insets.top }]}>
       <View style={st.headerRow}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={st.backBtn}>
+        <TouchableOpacity onPress={() => navigation.navigate('CalendarMain')} style={st.backBtn}>
           <Ionicons name="chevron-back" size={20} color={C.accent} />
           <Text style={[st.backText, { color: C.accent }]}>{t('TABS.CALENDAR')}</Text>
         </TouchableOpacity>
@@ -380,14 +421,14 @@ export default function AvailabilitySetupScreen() {
         <View style={{ width: 80 }} />
       </View>
       <View style={st.loadWrap}><ActivityIndicator size="large" color={C.textSecondary} /></View>
-    </SafeAreaView>
+    </View>
   );
 
   return (
-    <SafeAreaView style={[st.safe, { backgroundColor: C.surface }]} edges={['top']}>
+    <View style={[st.safe, { backgroundColor: C.surface, paddingTop: insets.top }]}>
       {/* Header */}
       <View style={[st.headerRow, { borderBottomColor: C.border }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={st.backBtn}>
+        <TouchableOpacity onPress={() => navigation.navigate('CalendarMain')} style={st.backBtn}>
           <Ionicons name="chevron-back" size={20} color={C.accent} />
           <Text style={[st.backText, { color: C.accent }]}>{t('TABS.CALENDAR')}</Text>
         </TouchableOpacity>
@@ -498,7 +539,7 @@ export default function AvailabilitySetupScreen() {
           </TouchableOpacity>
         </View>
       </Animated.View>
-    </SafeAreaView>
+    </View>
   );
 }
 

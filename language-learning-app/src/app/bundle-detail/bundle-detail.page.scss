@@ -1229,3 +1229,16 @@ $overlap: 40px;
     transform: none !important;
   }
 }
+
+/* Embedded in desktop home materials modal */
+:host.bd-embed-in-modal {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+:host.bd-embed-in-modal ion-content {
+  flex: 1;
+  --offset-top: 0;
+}

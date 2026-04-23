@@ -1,16 +1,32 @@
+:host {
+  display: block;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
 .class-attendees {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 4px;
+  flex-wrap: nowrap;
+  min-height: 28px;
+  max-width: 100%;
+  cursor: default;
+}
+
+.class-attendees.is-clickable {
+  cursor: pointer;
 }
 
 .attendees-label {
+  flex-shrink: 0;
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--ion-color-medium);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  line-height: 1;
 }
 
 .avatars-stack {
@@ -18,6 +34,8 @@
   align-items: center;
   position: relative;
   margin-left: 4px;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 .avatar-stacked {
@@ -69,10 +87,13 @@
 }
 
 .capacity-text {
+  flex-shrink: 0;
+  white-space: nowrap;
   font-size: 0.75rem;
   color: var(--ion-color-medium);
   font-weight: 500;
   margin-left: 4px;
+  line-height: 1;
 }
 
 // Dark mode adjustments

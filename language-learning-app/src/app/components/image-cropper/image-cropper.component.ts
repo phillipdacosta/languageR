@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController } from '@ionic/angular';
 import { ImageCroppedEvent, ImageCropperComponent as NgxImageCropper, LoadedImage } from 'ngx-image-cropper';
@@ -11,61 +11,40 @@ import { ImageCroppedEvent, ImageCropperComponent as NgxImageCropper, LoadedImag
   imports: [CommonModule, IonicModule, NgxImageCropper]
 })
 export class ImageCropperComponent implements OnInit {
+  @ViewChild(NgxImageCropper) private cropper!: NgxImageCropper;
+
   @Input() imageChangedEvent: any;
   @Input() imageFile: File | undefined;
   @Input() aspectRatio = 1;
   @Input() cropTitle = 'Crop Profile Picture';
 
-  croppedImage: any = '';
-  croppedBase64: string | null = null;
   canvasRotation = 0;
   rotation = 0;
   scale = 1;
   showCropper = false;
   containWithinAspectRatio = false;
   transform: any = {};
+  cropReady = false;
 
   constructor(private modalController: ModalController) {}
 
-  ngOnInit() {
-    console.log('ImageCropper initialized with event:', this.imageChangedEvent);
-  }
+  ngOnInit() {}
 
   fileChangeEvent(event: any): void {
     this.imageChangedEvent = event;
   }
 
-  imageCropped(event: ImageCroppedEvent) {
-    this.croppedBase64 = event.base64 || null;
-    if (this.croppedBase64) {
-      this.croppedImage = this.base64ToBlob(this.croppedBase64);
-    }
+  imageCropped(_event: ImageCroppedEvent) {
+    this.cropReady = true;
   }
 
-  private base64ToBlob(base64: string): Blob {
-    const parts = base64.split(',');
-    const mime = parts[0].match(/:(.*?);/)?.[1] || 'image/png';
-    const byteString = atob(parts[1]);
-    const ab = new ArrayBuffer(byteString.length);
-    const ia = new Uint8Array(ab);
-    for (let i = 0; i < byteString.length; i++) {
-      ia[i] = byteString.charCodeAt(i);
-    }
-    return new Blob([ab], { type: mime });
-  }
-
-  imageLoaded(image: LoadedImage) {
+  imageLoaded(_image: LoadedImage) {
     this.showCropper = true;
-    console.log('Image loaded');
   }
 
-  cropperReady() {
-    console.log('Cropper ready');
-  }
+  cropperReady() {}
 
-  loadImageFailed() {
-    console.log('Load failed');
-  }
+  loadImageFailed() {}
 
   rotateLeft() {
     this.canvasRotation--;
@@ -115,9 +94,14 @@ export class ImageCropperComponent implements OnInit {
   }
 
   async crop() {
-    if (this.croppedImage) {
-      await this.modalController.dismiss(this.croppedImage, 'crop');
+    if (!this.cropper) return;
+    try {
+      const result = await this.cropper.crop('blob');
+      if (result?.blob) {
+        await this.modalController.dismiss(result.blob, 'crop');
+      }
+    } catch {
+      await this.modalController.dismiss(null, 'cancel');
     }
   }
 }
-

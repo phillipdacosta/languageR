@@ -1,5 +1,13 @@
 import { api } from './api';
 
+export interface GroupParticipantSummary {
+  id: string;
+  auth0Id: string;
+  name: string;
+  picture?: string | null;
+  userType?: string;
+}
+
 export interface Conversation {
   conversationId: string;
   otherUser: {
@@ -10,6 +18,27 @@ export interface Conversation {
     userType: string;
     timezone?: string;
   } | null;
+  // Group-thread metadata (present when the conversation is a multi-participant group).
+  isGroup?: boolean;
+  groupId?: string;
+  groupName?: string;
+  /** Kind of group thread. class-broadcast = anchored to a class roster. */
+  type?: 'class-broadcast' | 'ad-hoc-group';
+  /** Populated for class-broadcasts; lets the client deep-link to the class. */
+  classId?: string | null;
+  /** Active members (used by the avatar cluster). Left members are excluded. */
+  participants?: GroupParticipantSummary[];
+  /** Full historical roster for rendering old messages with correct names. */
+  allParticipants?: GroupParticipantSummary[];
+  /** True when the current user is no longer an active member. */
+  archived?: boolean;
+  /** When the current user left the thread, if ever. */
+  leftAt?: string | null;
+  /** When the current user joined; bounds visible history. */
+  joinedAt?: string | null;
+  // Pre-computed on the client for avatar clusters in the list.
+  displayParticipants?: GroupParticipantSummary[];
+  extraCount?: number;
   lastMessage: {
     content: string;
     senderId: string;
@@ -19,6 +48,31 @@ export interface Conversation {
   };
   unreadCount: number;
   updatedAt: string;
+}
+
+export interface GroupResponse {
+  success: boolean;
+  groupId: string;
+  type?: 'class-broadcast' | 'ad-hoc-group';
+  classId?: string | null;
+  participants: GroupParticipantSummary[];
+  participantIds: string[];
+  name: string;
+  alreadyExists: boolean;
+  archived?: boolean;
+  joinedAt?: string | null;
+  leftAt?: string | null;
+}
+
+export interface GroupMessagesResponse {
+  success: boolean;
+  messages: Message[];
+  participants?: string[];
+  archived?: boolean;
+  joinedAt?: string | null;
+  leftAt?: string | null;
+  type?: 'class-broadcast' | 'ad-hoc-group';
+  classId?: string | null;
 }
 
 export interface Message {
@@ -122,6 +176,113 @@ export const messagingService = {
     } catch (err: any) {
       console.warn('[Messaging] deleteMessage failed:', err?.message || err);
       return false;
+    }
+  },
+
+  /**
+   * Create or fetch a group conversation.
+   *
+   * Two modes:
+   *   - `classId` provided → class-broadcast thread. Idempotent per class,
+   *     membership follows enrollment. `participantIds` is ignored; backend
+   *     is authoritative.
+   *   - `classId` omitted → ad-hoc thread keyed by the sha1 hash of the
+   *     participant set; members are immutable after creation.
+   */
+  async createOrGetGroup(
+    participantIds: string[],
+    name?: string,
+    classId?: string
+  ): Promise<GroupResponse | null> {
+    try {
+      const body: any = { participantIds: participantIds || [], name };
+      if (classId) body.classId = classId;
+      const data = await api.post<any>('/messaging/groups', body);
+      if (!data?.groupId) return null;
+      return data as GroupResponse;
+    } catch (err: any) {
+      console.warn('[Messaging] createOrGetGroup failed:', err?.message || err);
+      return null;
+    }
+  },
+
+  /**
+   * Post a message to a group thread. On the first write for a group, the
+   * backend requires `participantIds` so it can verify the hash matches
+   * `groupId`.
+   */
+  async sendGroupMessage(
+    groupId: string,
+    content: string,
+    opts: {
+      type?: string;
+      participantIds?: string[];
+      name?: string;
+      replyTo?: Message['replyTo'];
+    } = {}
+  ): Promise<Message | null> {
+    try {
+      const body: any = { content, type: opts.type || 'text' };
+      if (opts.participantIds?.length) body.participantIds = opts.participantIds;
+      if (opts.name) body.name = opts.name;
+      if (opts.replyTo) body.replyTo = opts.replyTo;
+      const data = await api.post<any>(`/messaging/groups/${groupId}/messages`, body);
+      return data?.message || null;
+    } catch (err: any) {
+      console.warn('[Messaging] sendGroupMessage failed:', err?.message || err);
+      return null;
+    }
+  },
+
+  async getGroupMessages(groupId: string, limit = 50, before?: string): Promise<Message[]> {
+    try {
+      let url = `/messaging/groups/${groupId}/messages?limit=${limit}`;
+      if (before) url += `&before=${before}`;
+      const data = await api.get<any>(url);
+      if (Array.isArray(data)) return data;
+      return data?.messages || [];
+    } catch (err: any) {
+      console.warn('[Messaging] getGroupMessages failed:', err?.message || err);
+      return [];
+    }
+  },
+
+  /**
+   * Variant of `getGroupMessages` that surfaces the backend's per-member
+   * metadata (archived / leftAt / etc). Used by `ChatScreen` to decide
+   * whether to show the composer or a read-only archived banner.
+   */
+  async getGroupMessagesWithMeta(
+    groupId: string,
+    limit = 50,
+    before?: string
+  ): Promise<GroupMessagesResponse | null> {
+    try {
+      let url = `/messaging/groups/${groupId}/messages?limit=${limit}`;
+      if (before) url += `&before=${before}`;
+      const data = await api.get<any>(url);
+      if (!data) return null;
+      return {
+        success: !!data.success,
+        messages: Array.isArray(data.messages) ? data.messages : (Array.isArray(data) ? data : []),
+        participants: data.participants,
+        archived: data.archived,
+        joinedAt: data.joinedAt,
+        leftAt: data.leftAt,
+        type: data.type,
+        classId: data.classId
+      };
+    } catch (err: any) {
+      console.warn('[Messaging] getGroupMessagesWithMeta failed:', err?.message || err);
+      return null;
+    }
+  },
+
+  async markGroupRead(groupId: string): Promise<void> {
+    try {
+      await api.put(`/messaging/groups/${groupId}/read`);
+    } catch (err: any) {
+      console.warn('[Messaging] markGroupRead failed:', err?.message || err);
     }
   },
 

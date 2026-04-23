@@ -1,19 +1,42 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit, Input, Output, EventEmitter } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  OnDestroy,
+  ViewChild,
+  ElementRef,
+  AfterViewInit,
+  Input,
+  Output,
+  EventEmitter,
+  ChangeDetectorRef,
+  HostListener,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { IonicModule, ToastController, ModalController, ActionSheetController, ViewWillEnter, IonContent } from '@ionic/angular';
+import {
+  IonicModule,
+  ToastController,
+  ModalController,
+  ActionSheetController,
+  AlertController,
+  ViewWillEnter,
+  IonContent,
+} from '@ionic/angular';
 import { Router, RouterModule } from '@angular/router';
-import { ClassService } from '../../services/class.service';
+import { ClassService, ClassInvitation, CreateClassRequest } from '../../services/class.service';
 import { UserService } from '../../services/user.service';
 import { LessonService } from '../../services/lesson.service';
 import { TutorAvailabilityViewerComponent } from '../../components/tutor-availability-viewer/tutor-availability-viewer.component';
 import { AvailabilitySetupComponent } from '../../components/availability-setup/availability-setup.component';
 import { StudentSelectionActionsheetComponent } from '../../components/student-selection-actionsheet/student-selection-actionsheet.component';
-import { Subscription } from 'rxjs';
+import { Subscription, firstValueFrom } from 'rxjs';
 import { filter, take } from 'rxjs/operators';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { QuillEditorComponent } from 'ngx-quill';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { ImageCropperComponent } from '../../components/image-cropper/image-cropper.component';
 
 interface Student {
   _id: string;
@@ -23,17 +46,78 @@ interface Student {
   userType?: 'student' | 'tutor';
 }
 
+/** Tutor hub list card (precomputed for templates — no per-row method calls). */
+export interface HubClassCardVm {
+  id: string;
+  name: string;
+  price: number;
+  priceDisplay: string;
+  capacity: number;
+  confirmedCount: number;
+  startTime: string;
+  endTime: string;
+  whenLine: string;
+  thumbUrl?: string;
+  badgeKey:
+    | 'SCHEDULE_CLASS.HUB_BADGE_LIVE'
+    | 'SCHEDULE_CLASS.HUB_BADGE_UPCOMING'
+    | 'SCHEDULE_CLASS.HUB_BADGE_PAST'
+    | 'SCHEDULE_CLASS.HUB_BADGE_CANCELLED'
+    | 'SCHEDULE_CLASS.HUB_BADGE_DRAFT';
+  badgeClass: 'live' | 'upcoming' | 'past' | 'cancelled' | 'draft';
+  canEdit: boolean;
+  canCancel: boolean;
+  /** Past, completed, or cancelled — tutor can remove from history list only. */
+  canRemoveFromHistory: boolean;
+  /** Unpublished server draft — continue wizard. */
+  isDraft?: boolean;
+  canResumeDraft?: boolean;
+  canDiscardDraft?: boolean;
+}
+
+/** One screen per field when `inline` (modal / explore). */
+type WizardScreenId =
+  | 'type'
+  | 'name'
+  | 'description'
+  | 'level'
+  | 'duration'
+  | 'pricing'
+  | 'maxStudents'
+  | 'minStudents'
+  | 'flexibleMin'
+  | 'invites'
+  | 'schedule'
+  | 'recurrence'
+  | 'recurrenceCount'
+  | 'student'
+  | 'visibility'
+  | 'thumbnail'
+  | 'review';
+
 @Component({
   selector: 'app-schedule-class',
   templateUrl: './schedule-class.page.html',
   styleUrls: ['./schedule-class.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, FormsModule, ReactiveFormsModule, RouterModule, TutorAvailabilityViewerComponent, AvailabilitySetupComponent, QuillEditorComponent]
+  imports: [CommonModule, IonicModule, FormsModule, ReactiveFormsModule, RouterModule, TutorAvailabilityViewerComponent, AvailabilitySetupComponent, QuillEditorComponent, TranslateModule]
 })
 export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, AfterViewInit {
   @Input() inline = false;
+  /**
+   * When true (desktop home modal), parent renders top bar + `cm-modal-footer`;
+   * this component hides its internal wizard bar and ion nav row.
+   */
+  @Input() hostChromeFooter = false;
   @Output() goBackEvent = new EventEmitter<void>();
   @Output() classCreated = new EventEmitter<void>();
+  @Output() classSaved = new EventEmitter<void>();
+  /** Hub list changed (cancel, remove from history) — parent should refresh home lessons. */
+  @Output() hubListMutated = new EventEmitter<void>();
+  /** Inline/modal: user wants to browse public classes instead */
+  @Output() browseClassesEvent = new EventEmitter<void>();
+  /** Parent (OnPush) should markForCheck when wizard step chrome changes. */
+  @Output() wizardLayoutChange = new EventEmitter<void>();
 
   // Flag to track if students have been loaded
   private studentsLoadAttempted = false;
@@ -54,12 +138,590 @@ export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, Afte
   loadingStudents = false;
   showStudentDropdown = false;
   showEarningsBreakdown = false; // Toggle for earnings breakdown visibility
+
+  /** Desktop modal: start on class list; `create` = stepper (group class, no type step). */
+  scheduleHubPhase: 'list' | 'create' = 'create';
+  hubListTab: 'active' | 'history' | 'drafts' = 'active';
+  /** True after first hub list request finishes (success or error). Prevents empty-state flash before load. */
+  hubInitialLoadDone = false;
+  hubClassesLoading = false;
+  hubLoadError = false;
+  hubActiveCards: HubClassCardVm[] = [];
+  hubHistoryCards: HubClassCardVm[] = [];
+  hubDraftCards: HubClassCardVm[] = [];
+  /** Hub list: class id being edited in wizard (PATCH on submit). */
+  editingClassId: string | null = null;
+  /** Server-backed hub wizard draft id (PATCH); not used when editing a scheduled class. */
+  hubDraftClassId: string | null = null;
+  hubClassDeleteInFlight = false;
+  savingEdit = false;
+  savingDraft = false;
+  /** i18n keys for last-step primary CTA (inline + tab1 footer). */
+  scheduleFooterPrimaryLabelKey = 'SCHEDULE_CLASS.CREATE_CLASS';
+  scheduleFooterPrimaryBusyKey = 'SCHEDULE_CLASS.CREATING';
+  /** Wide layout: use inline checklist instead of Ionic modal for multi-invite. */
+  desktopInviteInlineList = false;
+  inviteStudentPanelOpen = false;
   private userSubscription?: Subscription;
   
-  // Step tracking
+  // Step tracking — classic: 1–5 compound screens; inline: `wizardStepIndex` + `wizardScreenId`
   currentStep = 1;
-  totalSteps = 5; // Class Basics, Economics, Schedule, Recurrence, Visibility
-  showStepsList = false; // For mobile: collapsible steps list
+  /** Index into `getWizardStepIds()` when `inline`. */
+  wizardStepIndex = 0;
+  /** Current wizard screen (inline only); synced in `syncStepUi` for templates. */
+  wizardScreenId: WizardScreenId = 'type';
+  /** i18n key for optional per-step title (inline). */
+  wizardStepHeadingKey = '';
+  /** Centered subline under headline (Create Material–style wizard). */
+  wizardStepSublineKey = '';
+  /** Previous step title for parent top bar `< …` (inline + hostChromeFooter). */
+  wizardHostBackLabelKey = '';
+  /** When true, parent renders footer; hide ion nav row here. */
+  hideInlineWizardFooter = false;
+  showStepsList = false; // For mobile: collapsible steps list (classic layout)
+
+  /** Wizard (modal/inline): one screen per field */
+  get useWizardLayout(): boolean {
+    return this.inline;
+  }
+
+  /** Ordered step ids for classic (non-inline) layout only */
+  get stepSequence(): number[] {
+    return this.classType === 'one' ? [1, 2, 3, 5] : [1, 2, 3, 4, 5];
+  }
+
+  get displayStepIndex(): number {
+    if (this.inline) {
+      return this.wizardStepIndex + 1;
+    }
+    const i = this.stepSequence.indexOf(this.currentStep);
+    return i >= 0 ? i + 1 : 1;
+  }
+
+  get displayStepTotal(): number {
+    if (this.inline) {
+      return this.getWizardStepIds().length;
+    }
+    return this.stepSequence.length;
+  }
+
+  /** Modal top bar title (tab1 reads via ViewChild). */
+  get scheduleModalTitleKey(): string {
+    if (this.hostChromeFooter && this.scheduleHubPhase === 'list') {
+      return 'SCHEDULE_CLASS.HUB_TITLE';
+    }
+    if (this.editingClassId && this.hostChromeFooter && this.scheduleHubPhase === 'create') {
+      return 'SCHEDULE_CLASS.HUB_EDIT_MODAL_TITLE';
+    }
+    return 'SCHEDULE_CLASS.MODAL_TITLE';
+  }
+
+  /** Show step fraction, progress rail, footer (tab1). */
+  get scheduleHubShowsWizardChrome(): boolean {
+    return this.hostChromeFooter && this.scheduleHubPhase === 'create';
+  }
+
+  /** Hub wizard: Save draft only after the class has a name (required for server drafts). */
+  get hubSaveDraftButtonVisible(): boolean {
+    if (!this.inline || this.editingClassId) {
+      return false;
+    }
+    if (!this.hostChromeFooter || this.scheduleHubPhase !== 'create') {
+      return false;
+    }
+    return !!String(this.form.getRawValue().name ?? '').trim();
+  }
+
+  get lastStepId(): number {
+    const seq = this.stepSequence;
+    return seq[seq.length - 1] ?? 5;
+  }
+
+  /** Synced when `currentStep` changes — for template (no method calls in HTML). */
+  isLastScheduleStep = false;
+  progressPercent = 0;
+
+  /** Previous nav enabled (classic: not on first form step; wizard: not on type step) */
+  get canSchedulePrevious(): boolean {
+    if (this.inline) {
+      if (this.hostChromeFooter && this.scheduleHubPhase === 'create' && this.wizardStepIndex <= 0) {
+        return true;
+      }
+      return this.wizardStepIndex > 0;
+    }
+    return this.stepSequence.indexOf(this.currentStep) > 0;
+  }
+
+  getWizardStepIds(): WizardScreenId[] {
+    if (!this.inline) {
+      return [];
+    }
+    const steps: WizardScreenId[] = [];
+    const skipTypeStep = this.hostChromeFooter && this.scheduleHubPhase === 'create';
+    if (!skipTypeStep) {
+      steps.push('type');
+    }
+    steps.push('name', 'description', 'level', 'duration');
+    if (this.classType === 'recurring') {
+      steps.push('maxStudents', 'pricing', 'minStudents', 'flexibleMin', 'invites', 'schedule', 'recurrence');
+      if (this.form.value.recurrenceType !== 'none') {
+        steps.push('recurrenceCount');
+      }
+    } else {
+      steps.push('student', 'schedule');
+    }
+    steps.push('visibility', 'thumbnail', 'review');
+    return steps;
+  }
+
+  /** Wizard review screen: label i18n key + plain-text value (no HTML). */
+  wizardReviewRows: { labelKey: string; value: string }[] = [];
+  /** Review preview: title, format badge key, meta chips. */
+  wizardReviewHeroName = '';
+  wizardReviewFormatLabelKey = '';
+  wizardReviewMetaBadges: string[] = [];
+  /** Rich-text description for review (Quill HTML); null when empty. */
+  wizardReviewDescriptionHtml: SafeHtml | null = null;
+  /** Safe `[src]` for review cover (string only; set in `refreshWizardReviewRows`). */
+  wizardReviewThumbnailSrc = '';
+
+  /**
+   * When inline wizard is on the last screen, primary action should match `isWizardScreenValid` for that screen
+   * (e.g. review + thumbnail rules), not only `form.invalid`.
+   */
+  footerCreateDisabled = false;
+
+  private readonly wizardSublineKeys: Partial<Record<WizardScreenId, string>> = {
+    name: 'SCHEDULE_CLASS.WIZARD_NAME_SUB',
+    description: 'SCHEDULE_CLASS.WIZARD_DESCRIPTION_SUBLINE',
+    level: 'SCHEDULE_CLASS.WIZARD_LEVEL_SUB',
+    duration: 'SCHEDULE_CLASS.WIZARD_DURATION_SUB',
+    pricing: 'SCHEDULE_CLASS.WIZARD_PRICING_SUB',
+    maxStudents: 'SCHEDULE_CLASS.WIZARD_MAX_STUDENTS_SUB',
+    minStudents: 'SCHEDULE_CLASS.WIZARD_MIN_STUDENTS_SUB',
+    flexibleMin: 'SCHEDULE_CLASS.WIZARD_FLEXIBLE_MIN_SUB',
+    invites: 'SCHEDULE_CLASS.WIZARD_INVITES_SUB',
+    schedule: 'SCHEDULE_CLASS.WIZARD_SCHEDULE_SUB',
+    recurrence: 'SCHEDULE_CLASS.WIZARD_RECURRENCE_SUB',
+    recurrenceCount: 'SCHEDULE_CLASS.WIZARD_RECURRENCE_COUNT_SUB',
+    student: 'SCHEDULE_CLASS.CHOOSE_STUDENT_DESC',
+    visibility: 'SCHEDULE_CLASS.WIZARD_VISIBILITY_SUB',
+    thumbnail: 'SCHEDULE_CLASS.WIZARD_THUMBNAIL_SUB',
+    review: 'SCHEDULE_CLASS.WIZARD_REVIEW_SUB',
+  };
+
+  private readonly wizardHeadingKeys: Partial<Record<WizardScreenId, string>> = {
+    name: 'SCHEDULE_CLASS.WIZARD_NAME_TITLE',
+    description: 'SCHEDULE_CLASS.WIZARD_DESCRIPTION_TITLE',
+    level: 'SCHEDULE_CLASS.WIZARD_LEVEL_TITLE',
+    duration: 'SCHEDULE_CLASS.WIZARD_DURATION_TITLE',
+    pricing: 'SCHEDULE_CLASS.WIZARD_PRICING_TITLE',
+    maxStudents: 'SCHEDULE_CLASS.WIZARD_MAX_STUDENTS_TITLE',
+    minStudents: 'SCHEDULE_CLASS.WIZARD_MIN_STUDENTS_TITLE',
+    flexibleMin: 'SCHEDULE_CLASS.WIZARD_FLEXIBLE_MIN_TITLE',
+    invites: 'SCHEDULE_CLASS.WIZARD_INVITES_TITLE',
+    schedule: 'SCHEDULE_CLASS.WIZARD_SCHEDULE_TITLE',
+    recurrence: 'SCHEDULE_CLASS.WIZARD_RECURRENCE_TITLE',
+    recurrenceCount: 'SCHEDULE_CLASS.WIZARD_RECURRENCE_COUNT_TITLE',
+    student: 'SCHEDULE_CLASS.CHOOSE_STUDENT',
+    visibility: 'SCHEDULE_CLASS.WIZARD_VISIBILITY_TITLE',
+    thumbnail: 'SCHEDULE_CLASS.WIZARD_THUMBNAIL_TITLE',
+    review: 'SCHEDULE_CLASS.WIZARD_REVIEW_TITLE',
+  };
+
+  private updateScheduleSubmitLabels(): void {
+    if (this.editingClassId && this.classType === 'recurring') {
+      this.scheduleFooterPrimaryLabelKey = 'SCHEDULE_CLASS.HUB_SAVE_CLASS';
+      this.scheduleFooterPrimaryBusyKey = 'SCHEDULE_CLASS.HUB_SAVING_CLASS';
+    } else {
+      this.scheduleFooterPrimaryLabelKey = 'SCHEDULE_CLASS.CREATE_CLASS';
+      this.scheduleFooterPrimaryBusyKey = 'SCHEDULE_CLASS.CREATING';
+    }
+  }
+
+  private syncStepUi(): void {
+    if (this.inline) {
+      if (this.hostChromeFooter && this.scheduleHubPhase === 'list') {
+        this.wizardHostBackLabelKey = '';
+        this.isLastScheduleStep = false;
+        this.progressPercent = 0;
+        this.hideInlineWizardFooter = this.hostChromeFooter;
+        this.wizardReviewRows = [];
+        this.wizardReviewHeroName = '';
+        this.wizardReviewFormatLabelKey = '';
+        this.wizardReviewMetaBadges = [];
+        this.wizardReviewDescriptionHtml = null;
+        this.wizardReviewThumbnailSrc = '';
+        this.updateScheduleSubmitLabels();
+        if (this.hostChromeFooter) {
+          this.wizardLayoutChange.emit();
+        }
+        this.cdr.markForCheck();
+        return;
+      }
+      const ids = this.getWizardStepIds();
+      if (this.wizardStepIndex >= ids.length) {
+        this.wizardStepIndex = Math.max(0, ids.length - 1);
+      }
+      this.wizardScreenId = ids[this.wizardStepIndex] ?? 'type';
+      if (this.wizardScreenId !== 'invites') {
+        this.inviteStudentPanelOpen = false;
+      }
+      this.wizardStepHeadingKey = this.wizardHeadingKeys[this.wizardScreenId] ?? '';
+      this.wizardStepSublineKey = this.wizardSublineKeys[this.wizardScreenId] ?? '';
+      this.isLastScheduleStep = this.wizardStepIndex >= ids.length - 1;
+      this.syncWizardHostBackLabel(ids);
+      this.refreshWizardReviewRows();
+    } else {
+      this.wizardScreenId = 'type';
+      this.wizardStepHeadingKey = '';
+      this.wizardStepSublineKey = '';
+      this.wizardHostBackLabelKey = '';
+      this.hideInlineWizardFooter = false;
+      this.isLastScheduleStep = this.currentStep === this.lastStepId;
+      this.wizardReviewRows = [];
+      this.wizardReviewHeroName = '';
+      this.wizardReviewFormatLabelKey = '';
+      this.wizardReviewMetaBadges = [];
+      this.wizardReviewDescriptionHtml = null;
+      this.wizardReviewThumbnailSrc = '';
+    }
+    const t = this.displayStepTotal;
+    this.progressPercent = t <= 0 ? 0 : (this.displayStepIndex / t) * 100;
+    if (this.inline) {
+      this.hideInlineWizardFooter = this.hostChromeFooter;
+    }
+    if (this.hostChromeFooter) {
+      this.wizardLayoutChange.emit();
+    }
+    this.updateScheduleSubmitLabels();
+    this.updateFooterCreateDisabled();
+    this.prefetchAvailabilityWhenOnDateTimeStep();
+    this.cdr.markForCheck();
+  }
+
+  private updateFooterCreateDisabled(): void {
+    if (this.submitting) {
+      this.footerCreateDisabled = true;
+      return;
+    }
+    if (!this.inline) {
+      const onFinalClassic =
+        this.currentStep === this.lastStepId && !this.thumbnailFile && !this.form.value.thumbnail;
+      this.footerCreateDisabled = this.form.invalid || !!onFinalClassic;
+      return;
+    }
+    if (!this.isLastScheduleStep) {
+      this.footerCreateDisabled = false;
+      return;
+    }
+    this.footerCreateDisabled = !this.isWizardScreenValid(this.wizardScreenId);
+  }
+
+  private syncWizardHostBackLabel(ids: WizardScreenId[]): void {
+    if (!this.hostChromeFooter) {
+      this.wizardHostBackLabelKey = '';
+      return;
+    }
+    if (this.scheduleHubPhase === 'create' && this.wizardStepIndex <= 0) {
+      this.wizardHostBackLabelKey = 'SCHEDULE_CLASS.HUB_BACK_TO_LIST';
+      return;
+    }
+    if (this.wizardStepIndex <= 0) {
+      this.wizardHostBackLabelKey = '';
+      return;
+    }
+    const prevId = ids[this.wizardStepIndex - 1];
+    if (prevId === 'type') {
+      this.wizardHostBackLabelKey = 'SCHEDULE_CLASS.WIZARD_BACK_TO_TYPE';
+    } else {
+      this.wizardHostBackLabelKey = this.wizardHeadingKeys[prevId] ?? '';
+    }
+  }
+
+  private clampWizardStepAfterIdsChange(): void {
+    if (!this.inline) {
+      return;
+    }
+    const prevId = this.wizardScreenId;
+    const ids = this.getWizardStepIds();
+    if (prevId === 'recurrenceCount' && this.form.value.recurrenceType === 'none') {
+      this.wizardStepIndex = Math.max(0, ids.indexOf('recurrence'));
+    } else if (this.wizardStepIndex >= ids.length) {
+      this.wizardStepIndex = Math.max(0, ids.length - 1);
+    }
+    this.syncStepUi();
+  }
+
+  private refreshWizardReviewRows(): void {
+    if (!this.inline || (this.hostChromeFooter && this.scheduleHubPhase === 'list')) {
+      this.wizardReviewRows = [];
+      this.wizardReviewHeroName = '';
+      this.wizardReviewFormatLabelKey = '';
+      this.wizardReviewMetaBadges = [];
+      this.wizardReviewDescriptionHtml = null;
+      this.wizardReviewThumbnailSrc = '';
+      return;
+    }
+    if (this.wizardScreenId !== 'review') {
+      this.wizardReviewRows = [];
+      this.wizardReviewHeroName = '';
+      this.wizardReviewFormatLabelKey = '';
+      this.wizardReviewMetaBadges = [];
+      this.wizardReviewDescriptionHtml = null;
+      this.wizardReviewThumbnailSrc = '';
+      return;
+    }
+    const v = this.form.value;
+    const rows: { labelKey: string; value: string }[] = [];
+    const yn = (b: boolean) => (b ? 'SCHEDULE_CLASS.WIZARD_REVIEW_YES' : 'SCHEDULE_CLASS.WIZARD_REVIEW_NO');
+
+    const nameTrim = (v.name || '').trim();
+    this.wizardReviewHeroName = nameTrim || this.translate.instant('SCHEDULE_CLASS.WIZARD_REVIEW_UNTITLED');
+    this.wizardReviewFormatLabelKey =
+      this.classType === 'recurring'
+        ? 'SCHEDULE_CLASS.WIZARD_REVIEW_TYPE_GROUP'
+        : 'SCHEDULE_CLASS.WIZARD_REVIEW_TYPE_ONE';
+    const datePart = this.formatReviewDate(v.date);
+    const timePart = (v.time as string) || '—';
+    const levelPart = this.getLevelLabel(v.level) || '—';
+    const listingPart = this.translate.instant(
+      v.isPublic ? 'SCHEDULE_CLASS.WIZARD_REVIEW_LISTING_PUBLIC' : 'SCHEDULE_CLASS.WIZARD_REVIEW_LISTING_PRIVATE'
+    );
+    this.wizardReviewMetaBadges = [datePart, timePart, levelPart, listingPart];
+    const rawDesc = (v.description || '').trim();
+    this.wizardReviewDescriptionHtml = this.isQuillEmptyDescription(rawDesc)
+      ? null
+      : this.sanitizer.bypassSecurityTrustHtml(rawDesc);
+    const thumbRaw = this.thumbnailPreview || (typeof v.thumbnail === 'string' ? v.thumbnail : '');
+    this.wizardReviewThumbnailSrc = (thumbRaw || '').trim();
+
+    rows.push({
+      labelKey: 'SCHEDULE_CLASS.WIZARD_REVIEW_DURATION',
+      value: v.duration ? `${v.duration} min` : '—',
+    });
+
+    if (this.classType === 'recurring') {
+      rows.push({ labelKey: 'SCHEDULE_CLASS.WIZARD_REVIEW_MAX', value: v.maxStudents != null ? String(v.maxStudents) : '—' });
+      rows.push({ labelKey: 'SCHEDULE_CLASS.WIZARD_REVIEW_MIN', value: v.minStudents != null ? String(v.minStudents) : '—' });
+      rows.push({ labelKey: 'SCHEDULE_CLASS.WIZARD_REVIEW_FLEXIBLE', value: this.translate.instant(yn(!!v.flexibleMinimum)) });
+      const price = this.getFinalPrice();
+      if (v.useSuggestedPricing) {
+        rows.push({
+          labelKey: 'SCHEDULE_CLASS.WIZARD_REVIEW_PRICE',
+          value:
+            price > 0
+              ? this.translate.instant('SCHEDULE_CLASS.WIZARD_REVIEW_PRICE_SUGGESTED', { amount: `$${price.toFixed(2)}` })
+              : '—',
+        });
+      } else {
+        const cp = v.customPrice;
+        rows.push({
+          labelKey: 'SCHEDULE_CLASS.WIZARD_REVIEW_PRICE',
+          value: cp != null && Number(cp) > 0 ? `$${Number(cp).toFixed(2)}` : '—',
+        });
+      }
+      const invited = this.getSelectedStudents();
+      rows.push({
+        labelKey: 'SCHEDULE_CLASS.WIZARD_REVIEW_INVITES',
+        value: invited.length ? invited.map(s => s.name).join(', ') : this.translate.instant('SCHEDULE_CLASS.WIZARD_REVIEW_NONE'),
+      });
+    } else {
+      const st = this.students.find(s => s._id === v.studentId);
+      rows.push({ labelKey: 'SCHEDULE_CLASS.WIZARD_REVIEW_STUDENT', value: st?.name || '—' });
+    }
+
+    if (this.classType === 'recurring') {
+      rows.push({ labelKey: 'SCHEDULE_CLASS.WIZARD_REVIEW_RECURRENCE', value: this.recurrenceTypeLabel(v.recurrenceType) });
+      if (v.recurrenceType && v.recurrenceType !== 'none') {
+        rows.push({
+          labelKey: 'SCHEDULE_CLASS.WIZARD_REVIEW_OCCURRENCES',
+          value: v.recurrenceCount != null ? String(v.recurrenceCount) : '—',
+        });
+      }
+    }
+
+    rows.push({ labelKey: 'SCHEDULE_CLASS.WIZARD_REVIEW_PUBLIC', value: this.translate.instant(yn(!!v.isPublic)) });
+
+    this.wizardReviewRows = rows;
+  }
+
+  /** True when Quill output has no visible text (e.g. empty `<p><br></p>`). */
+  private isQuillEmptyDescription(html: string): boolean {
+    const t = (html || '').trim();
+    if (!t) {
+      return true;
+    }
+    if (typeof document === 'undefined') {
+      return !t.replace(/<[^>]*>/g, '').trim();
+    }
+    const el = document.createElement('div');
+    el.innerHTML = t;
+    const text = (el.textContent || '').replace(/\s+/g, ' ').trim();
+    return !text;
+  }
+
+  private formatReviewDate(dateVal: string | null | undefined): string {
+    if (!dateVal) {
+      return '—';
+    }
+    const d = new Date(`${dateVal}T12:00:00`);
+    if (Number.isNaN(d.getTime())) {
+      return dateVal;
+    }
+    return d.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+  }
+
+  private recurrenceTypeLabel(rt: string | null | undefined): string {
+    switch (rt) {
+      case 'daily':
+        return 'Daily';
+      case 'weekly':
+        return 'Weekly';
+      case 'monthly':
+        return 'Monthly';
+      case 'none':
+      default:
+        return 'None (single class)';
+    }
+  }
+
+  private isWizardScreenValid(screen: WizardScreenId): boolean {
+    switch (screen) {
+      case 'type':
+        return true;
+      case 'name':
+        return this.form.controls.name.valid;
+      case 'description':
+        return this.form.controls.description.valid;
+      case 'level':
+        return this.form.controls.level.valid;
+      case 'duration':
+        return this.form.controls.duration.valid;
+      case 'pricing': {
+        if (this.form.value.useSuggestedPricing) {
+          return true;
+        }
+        const c = this.form.controls.customPrice;
+        return !!(c && c.valid && c.value != null && Number(c.value) > 0);
+      }
+      case 'maxStudents':
+        return this.form.controls.maxStudents.valid;
+      case 'minStudents':
+        return this.form.controls.minStudents.valid;
+      case 'flexibleMin':
+        return true;
+      case 'invites':
+        return true;
+      case 'schedule':
+        return this.form.controls.date.valid && this.form.controls.time.valid;
+      case 'recurrence':
+        return this.form.controls.recurrenceType.valid;
+      case 'recurrenceCount':
+        if (this.form.value.recurrenceType === 'none') {
+          return true;
+        }
+        return this.form.controls.recurrenceCount.valid;
+      case 'student':
+        return !!this.form.value.studentId && this.form.controls.studentId.valid;
+      case 'visibility':
+        return true;
+      case 'thumbnail':
+        return !!(this.thumbnailFile || this.form.value.thumbnail);
+      case 'review':
+        if (this.form.invalid) {
+          return false;
+        }
+        return !!(this.thumbnailFile || this.form.value.thumbnail);
+      default:
+        return true;
+    }
+  }
+
+  private markWizardScreenTouched(screen: WizardScreenId): void {
+    switch (screen) {
+      case 'name':
+        this.form.controls.name.markAsTouched();
+        break;
+      case 'description':
+        this.form.controls.description.markAsTouched();
+        break;
+      case 'level':
+        this.form.controls.level.markAsTouched();
+        break;
+      case 'duration':
+        this.form.controls.duration.markAsTouched();
+        break;
+      case 'pricing':
+        if (!this.form.value.useSuggestedPricing) {
+          this.form.controls.customPrice?.markAsTouched();
+        }
+        break;
+      case 'maxStudents':
+        this.form.controls.maxStudents.markAsTouched();
+        break;
+      case 'minStudents':
+        this.form.controls.minStudents.markAsTouched();
+        break;
+      case 'schedule':
+        this.form.controls.date.markAsTouched();
+        this.form.controls.time.markAsTouched();
+        break;
+      case 'recurrence':
+        this.form.controls.recurrenceType.markAsTouched();
+        break;
+      case 'recurrenceCount':
+        this.form.controls.recurrenceCount.markAsTouched();
+        break;
+      case 'student':
+        this.form.controls.studentId.markAsTouched();
+        break;
+      case 'thumbnail':
+        this.form.controls.thumbnail?.markAsTouched();
+        this.form.markAsTouched();
+        break;
+      case 'review':
+        this.form.markAllAsTouched();
+        break;
+      default:
+        break;
+    }
+  }
+
+  private nextWizardStep(): void {
+    const ids = this.getWizardStepIds();
+    const cur = ids[this.wizardStepIndex];
+    if (this.wizardStepIndex >= ids.length - 1 || cur === undefined) {
+      return;
+    }
+    if (!this.isWizardScreenValid(cur)) {
+      this.markWizardScreenTouched(cur);
+      return;
+    }
+    this.wizardStepIndex++;
+    this.syncStepUi();
+    setTimeout(() => this.scrollToTopOnStepChange(), 100);
+  }
+
+  private previousWizardStep(): void {
+    if (this.wizardStepIndex <= 0) {
+      if (this.hostChromeFooter && this.scheduleHubPhase === 'create') {
+        this.scheduleHubPhase = 'list';
+        this.hubListTab = 'active';
+        this.editingClassId = null;
+        this.hubDraftClassId = null;
+        this.updateScheduleSubmitLabels();
+        this.loadHubClasses();
+        this.syncStepUi();
+        this.wizardLayoutChange.emit();
+        this.cdr.markForCheck();
+      }
+      return;
+    }
+    this.wizardStepIndex--;
+    this.syncStepUi();
+    setTimeout(() => this.scrollToTopOnStepChange(), 100);
+  }
   
   // Pricing properties
   readonly STANDARD_LESSON_DURATION = 50; // Base duration for tutor rates (50 minutes, not 60)
@@ -77,7 +739,7 @@ export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, Afte
     minStudents: [2, [Validators.required, Validators.min(2)]], // Minimum students for class to run (default to 2 for group classes)
     flexibleMinimum: [false], // Run class even if minimum not met
     level: ['', Validators.required], // Class level
-    duration: ['', Validators.required], // Lesson duration in minutes
+    duration: [null as number | null, Validators.required], // 25 | 50 (ion-select); null = unset
     date: ['', Validators.required],
     time: ['', Validators.required],
     isPublic: [false],
@@ -117,22 +779,44 @@ export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, Afte
   };
 
   constructor(
+    private readonly hostRef: ElementRef<HTMLElement>,
+    private cdr: ChangeDetectorRef,
     private fb: FormBuilder,
     public router: Router,
     private toast: ToastController,
+    private alertController: AlertController,
+    private sanitizer: DomSanitizer,
     private classService: ClassService,
     private userService: UserService,
     private lessonService: LessonService,
     private modalController: ModalController,
     private actionSheetController: ActionSheetController,
-    private http: HttpClient
+    private http: HttpClient,
+    private translate: TranslateService
   ) {
     // Update validators based on class type
     this.updateFormValidators();
   }
 
+  /** Enter advances Next / Submit (desktop); capture phase avoids implicit <form> submit on single-line fields. */
+  private readonly wizardEnterNavDown = (event: KeyboardEvent) => this.onWizardEnterKeydown(event);
+
   ngOnInit() {
-    console.log('🚀 ScheduleClassPage ngOnInit() called');
+    if (this.inline && this.hostChromeFooter) {
+      this.scheduleHubPhase = 'list';
+      this.hubInitialLoadDone = false;
+      this.hubClassesLoading = true;
+    }
+    if (this.inline) {
+      this.wizardStepIndex = 0;
+    } else {
+      this.currentStep = 1;
+    }
+    this.syncStepUi();
+    this.updateDesktopInviteInlineFlag();
+    if (typeof document !== 'undefined') {
+      document.addEventListener('keydown', this.wizardEnterNavDown, true);
+    }
     // Wait for user to be loaded before loading students
     this.userSubscription = this.userService.currentUser$
       .pipe(
@@ -149,7 +833,8 @@ export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, Afte
         if (user?.id) {
           this.loadStudents();
         }
-        
+        // Hub list: loaded only from enterHubListMode() to avoid finishing before modal init (empty flash).
+
         // Calculate initial suggested price if level and duration are set
         this.calculateSuggestedPrice();
       });
@@ -163,7 +848,7 @@ export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, Afte
       this.loadStudents();
       this.calculateSuggestedPrice();
     }
-    
+
     // Subscribe to form changes to recalculate pricing
     this.form.get('level')?.valueChanges.subscribe(() => {
       this.calculateSuggestedPrice();
@@ -174,6 +859,13 @@ export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, Afte
     });
     
     // Update minStudents max validator when maxStudents changes
+    if (this.inline && this.hostChromeFooter) {
+      this.form.get('name')?.valueChanges.subscribe(() => {
+        this.wizardLayoutChange.emit();
+        this.cdr.markForCheck();
+      });
+    }
+
     this.form.get('maxStudents')?.valueChanges.subscribe((maxStudents) => {
       const minStudentsControl = this.form.get('minStudents');
       if (minStudentsControl && maxStudents) {
@@ -199,52 +891,156 @@ export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, Afte
         this.form.patchValue({ minStudents: recommended });
       }
     });
+
+    this.form.get('recurrenceType')?.valueChanges.subscribe(() => {
+      this.clampWizardStepAfterIdsChange();
+    });
+    this.form.get('isPublic')?.valueChanges.subscribe(() => {
+      this.clampWizardStepAfterIdsChange();
+    });
   }
 
   ngOnDestroy() {
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('keydown', this.wizardEnterNavDown, true);
+    }
     if (this.userSubscription) {
       this.userSubscription.unsubscribe();
     }
   }
 
-  // Step navigation methods
-  getProgressPercentage(): number {
-    return (this.currentStep / this.totalSteps) * 100;
+  private onWizardEnterKeydown(event: KeyboardEvent): void {
+    if (event.key !== 'Enter' || event.repeat || event.defaultPrevented) {
+      return;
+    }
+    if (event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) {
+      return;
+    }
+    if (this.submitting) {
+      return;
+    }
+    if (this.hostChromeFooter && this.scheduleHubPhase === 'list') {
+      return;
+    }
+    const host = this.hostRef.nativeElement;
+    const path = event.composedPath();
+    if (!path.includes(host)) {
+      return;
+    }
+    if (this.inline && this.wizardScreenId === 'type') {
+      return;
+    }
+
+    const t = event.target;
+    if (!(t instanceof Node)) {
+      return;
+    }
+
+    for (const n of path) {
+      if (!(n instanceof HTMLElement)) {
+        continue;
+      }
+      if (n.tagName === 'TEXTAREA' || n.isContentEditable) {
+        return;
+      }
+      if (n.classList?.contains('ql-editor') || n.classList?.contains('ql-container')) {
+        return;
+      }
+      const tag = n.tagName?.toLowerCase();
+      if (
+        tag === 'ion-modal' ||
+        tag === 'ion-popover' ||
+        tag === 'ion-alert' ||
+        tag === 'ion-action-sheet' ||
+        tag === 'ion-picker'
+      ) {
+        return;
+      }
+    }
+
+    const el = t instanceof Element ? t : null;
+    if (el) {
+      if (el.closest('button')) {
+        return;
+      }
+      if (el.closest('ion-toggle, ion-checkbox, ion-radio, ion-datetime, ion-segment')) {
+        return;
+      }
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (this.isLastScheduleStep) {
+      if (!this.footerCreateDisabled) {
+        void this.submit();
+      }
+    } else {
+      this.nextStep();
+    }
+    this.cdr.markForCheck();
   }
 
+  @HostListener('window:resize')
+  onInviteLayoutResize(): void {
+    this.updateDesktopInviteInlineFlag();
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClickCloseInvitePanel(ev: MouseEvent): void {
+    if (!this.inviteStudentPanelOpen || !this.desktopInviteInlineList) {
+      return;
+    }
+    const t = ev.target as HTMLElement;
+    if (t.closest('.student-selector') || t.closest('.sch-invite-panel')) {
+      return;
+    }
+    this.inviteStudentPanelOpen = false;
+    this.cdr.markForCheck();
+  }
+
+  private updateDesktopInviteInlineFlag(): void {
+    this.desktopInviteInlineList = typeof window !== 'undefined' && window.innerWidth > 768;
+    if (!this.desktopInviteInlineList) {
+      this.inviteStudentPanelOpen = false;
+    }
+    this.cdr.markForCheck();
+  }
+
+  // Step navigation methods
   canGoToStep(step: number): boolean {
-    // Can go to step if it's the current step or a previous completed step
+    if (step === 0) return this.inline;
     if (step <= this.currentStep) return true;
-    
-    // Check if previous steps are valid
+
     if (step === 2) {
-      // Step 2 (Economics) requires Step 1 (Basics) to be valid
       return this.isStepValid(1);
     }
     if (step === 3) {
-      // Step 3 (Schedule) requires Step 1 to be valid
-      return this.isStepValid(1);
+      return this.isStepValid(1) && this.isStepValid(2);
     }
     if (step === 4) {
-      // Step 4 (Recurrence) requires Step 1 and 3 to be valid
-      return this.isStepValid(1) && this.isStepValid(3);
+      if (this.classType === 'one') return false;
+      return this.isStepValid(1) && this.isStepValid(2) && this.isStepValid(3);
     }
     if (step === 5) {
-      // Step 5 (Visibility) requires Step 1 and 3 to be valid
-      return this.isStepValid(1) && this.isStepValid(3);
+      return this.isStepValid(1) && (this.classType === 'one' ? this.isStepValid(2) : this.isStepValid(2)) && this.isStepValid(3);
     }
     return false;
   }
 
   isStepValid(step: number): boolean {
     switch (step) {
+      case 0:
+        return true;
       case 1: // Class Basics
         return this.form.controls.name.valid && 
                this.form.controls.description.valid && 
                this.form.controls.level.valid && 
                this.form.controls.duration.valid;
-      case 2: // Economics (only for recurring classes)
-        if (this.classType !== 'recurring') return true;
+      case 2: // Economics (group) or student (1:1)
+        if (this.classType === 'one') {
+          return !!this.form.value.studentId && this.form.controls.studentId.valid;
+        }
         const customPriceValue = this.form.controls.customPrice?.value;
         const hasPrice = this.form.value.useSuggestedPricing || 
                         (customPriceValue !== null && customPriceValue !== undefined && customPriceValue > 0);
@@ -255,11 +1051,8 @@ export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, Afte
         return this.form.controls.date.valid && this.form.controls.time.valid;
       case 4: // Recurrence (optional)
         return true; // Always valid, it's optional
-      case 5: // Visibility (optional)
-        if (this.form.value.isPublic && !this.thumbnailFile && !this.form.value.thumbnail) {
-          return false;
-        }
-        return true;
+      case 5: // Visibility + cover (thumbnail required)
+        return !!(this.thumbnailFile || this.form.value.thumbnail);
       default:
         return true;
     }
@@ -291,31 +1084,65 @@ export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, Afte
   goToStep(step: number) {
     if (this.canGoToStep(step)) {
       this.currentStep = step;
-      // Scroll to top
+      this.syncStepUi();
       setTimeout(() => this.scrollToTopOnStepChange(), 100);
     }
   }
 
   nextStep() {
-    if (this.currentStep < this.totalSteps) {
-      // Validate current step before moving forward
-      if (this.isStepValid(this.currentStep)) {
-        this.currentStep++;
-        // Scroll to top
-        setTimeout(() => this.scrollToTopOnStepChange(), 100);
-      } else {
-        // Mark fields as touched to show errors
-        this.markStepFieldsAsTouched(this.currentStep);
-      }
+    if (this.inline) {
+      this.nextWizardStep();
+      return;
     }
+    const seq = this.stepSequence;
+    const idx = seq.indexOf(this.currentStep);
+    if (idx < 0 || idx >= seq.length - 1) return;
+    if (!this.isStepValid(this.currentStep)) {
+      this.markStepFieldsAsTouched(this.currentStep);
+      return;
+    }
+    this.currentStep = seq[idx + 1];
+    this.syncStepUi();
+    setTimeout(() => this.scrollToTopOnStepChange(), 100);
   }
 
   previousStep() {
-    if (this.currentStep > 1) {
-      this.currentStep--;
-      // Scroll to top
-      setTimeout(() => this.scrollToTopOnStepChange(), 100);
+    if (this.inline) {
+      this.previousWizardStep();
+      return;
     }
+    const seq = this.stepSequence;
+    const idx = seq.indexOf(this.currentStep);
+    if (idx <= 0) return;
+    this.currentStep = seq[idx - 1];
+    this.syncStepUi();
+    setTimeout(() => this.scrollToTopOnStepChange(), 100);
+  }
+
+  selectWizardClassType(type: 'one' | 'recurring'): void {
+    this.classType = type;
+    this.onClassTypeChange();
+    if (this.inline) {
+      const ids = this.getWizardStepIds();
+      const ix = ids.indexOf('name');
+      this.wizardStepIndex = ix >= 0 ? ix : 1;
+    } else {
+      this.currentStep = 1;
+    }
+    this.syncStepUi();
+    setTimeout(() => this.scrollToTopOnStepChange(), 100);
+  }
+
+  requestClose(): void {
+    if (this.inline) {
+      this.goBackEvent.emit();
+    } else {
+      void this.router.navigate(['/tabs/tutor-calendar']);
+    }
+  }
+
+  onBrowsePublicClasses(): void {
+    this.browseClassesEvent.emit();
   }
 
   private markStepFieldsAsTouched(step: number) {
@@ -327,10 +1154,14 @@ export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, Afte
         this.form.controls.duration.markAsTouched();
         break;
       case 2:
-        this.form.controls.maxStudents.markAsTouched();
-        this.form.controls.minStudents.markAsTouched();
-        if (!this.form.value.useSuggestedPricing) {
-          this.form.controls.customPrice?.markAsTouched();
+        if (this.classType === 'one') {
+          this.form.controls.studentId.markAsTouched();
+        } else {
+          this.form.controls.maxStudents.markAsTouched();
+          this.form.controls.minStudents.markAsTouched();
+          if (!this.form.value.useSuggestedPricing) {
+            this.form.controls.customPrice?.markAsTouched();
+          }
         }
         break;
       case 3:
@@ -526,6 +1357,35 @@ export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, Afte
   availabilityPickerProps: any = null;
   modalView: 'availability-viewer' | 'availability-setup' = 'availability-viewer';
   availabilityRefreshTrigger = 0; // Used to refresh the availability viewer
+  /** True while tutor availability + bookings prefetch (same calls as availability viewer) is in flight. */
+  private scheduleAvailabilityPrefetchInFlight = false;
+
+  /**
+   * Warm the same HTTP data the availability picker uses so opening the modal feels instant.
+   * Runs when the user lands on date/time (wizard `schedule` or classic step 3).
+   */
+  private prefetchAvailabilityWhenOnDateTimeStep(): void {
+    if (this.hostChromeFooter && this.scheduleHubPhase === 'list') return;
+    const currentUser = this.userService.getCurrentUserValue();
+    const tutorId = currentUser?.id;
+    if (!tutorId || this.scheduleAvailabilityPrefetchInFlight) return;
+    this.scheduleAvailabilityPrefetchInFlight = true;
+    const now = new Date();
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - now.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+    const rangeEnd = new Date(weekStart);
+    rangeEnd.setDate(rangeEnd.getDate() + 28);
+    const sd = weekStart.toISOString();
+    const ed = rangeEnd.toISOString();
+    void Promise.all([
+      firstValueFrom(this.userService.getTutorAvailability(tutorId)).catch(() => null),
+      firstValueFrom(this.lessonService.getLessonsByTutor(tutorId, false, sd, ed)).catch(() => null),
+      firstValueFrom(this.classService.getClassesForTutor(tutorId, sd, ed)).catch(() => null),
+    ]).finally(() => {
+      this.scheduleAvailabilityPrefetchInFlight = false;
+    });
+  }
 
   async openAvailabilityPicker() {
     const currentUser = this.userService.getCurrentUserValue();
@@ -605,44 +1465,52 @@ export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, Afte
     this.availabilityRefreshTrigger++;
   }
 
-  onThumbnailSelected(event: any) {
+  async onThumbnailSelected(event: any) {
     const file = event.target.files[0];
-    if (file) {
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        this.toast.create({
-          message: 'Please select a valid image file',
-          duration: 2000,
-          color: 'danger'
-        }).then(t => t.present());
-        return;
-      }
-      
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        this.toast.create({
-          message: 'Image size must be less than 5MB',
-          duration: 2000,
-          color: 'danger'
-        }).then(t => t.present());
-        return;
-      }
-      
-      this.thumbnailFile = file;
-      
-      // Create preview
-      const reader = new FileReader();
-      reader.onload = (e: any) => {
-        this.thumbnailPreview = e.target.result;
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      this.toast.create({ message: 'Please select a valid image file', duration: 2000, color: 'danger' }).then(t => t.present());
+      event.target.value = '';
+      return;
     }
+
+    if (file.size > 5 * 1024 * 1024) {
+      this.toast.create({ message: 'Image size must be less than 5MB', duration: 2000, color: 'danger' }).then(t => t.present());
+      event.target.value = '';
+      return;
+    }
+
+    const modal = await this.modalController.create({
+      component: ImageCropperComponent,
+      componentProps: {
+        imageChangedEvent: event,
+        aspectRatio: 16 / 10,
+        cropTitle: 'Crop cover image',
+      },
+      cssClass: 'image-cropper-modal',
+    });
+
+    await modal.present();
+    const { data, role } = await modal.onWillDismiss();
+
+    if (role === 'crop' && data) {
+      this.thumbnailFile = new File([data], file.name, { type: 'image/png' });
+      this.thumbnailPreview = URL.createObjectURL(data);
+      this.refreshWizardReviewRows();
+      this.updateFooterCreateDisabled();
+      this.cdr.detectChanges();
+    }
+    event.target.value = '';
   }
 
   removeThumbnail() {
     this.thumbnailFile = null;
     this.thumbnailPreview = null;
     this.form.patchValue({ thumbnail: '' });
+    this.refreshWizardReviewRows();
+    this.updateFooterCreateDisabled();
+    this.cdr.markForCheck();
   }
 
   async uploadThumbnailToGCS(file: File): Promise<string> {
@@ -678,17 +1546,24 @@ export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, Afte
   }
 
   async submit() {
+    if (this.inline) {
+      const ids = this.getWizardStepIds();
+      const cur = ids[this.wizardStepIndex];
+      if (cur && !this.isWizardScreenValid(cur)) {
+        this.markWizardScreenTouched(cur);
+        return;
+      }
+    }
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
 
-    // Validate thumbnail for public classes
-    if (this.classType === 'recurring' && this.form.value.isPublic && !this.thumbnailFile && !this.form.value.thumbnail) {
+    if (!this.thumbnailFile && !this.form.value.thumbnail) {
       const t = await this.toast.create({
-        message: 'Please upload a thumbnail image for your public class',
-        duration: 2000,
-        color: 'warning'
+        message: this.translate.instant('SCHEDULE_CLASS.WIZARD_THUMBNAIL_REQUIRED_TOAST'),
+        duration: 2500,
+        color: 'warning',
       });
       await t.present();
       return;
@@ -697,13 +1572,13 @@ export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, Afte
     this.submitting = true;
     
     try {
-      // Upload thumbnail to GCS if it's a public class and a file is selected
-      if (this.classType === 'recurring' && this.form.value.isPublic && this.thumbnailFile) {
+      if (this.thumbnailFile) {
         this.isUploadingThumbnail = true;
         
         try {
           const thumbnailUrl = await this.uploadThumbnailToGCS(this.thumbnailFile);
           this.form.patchValue({ thumbnail: thumbnailUrl });
+          this.thumbnailFile = null;
           this.isUploadingThumbnail = false;
         } catch (uploadError) {
           console.error('Error uploading thumbnail:', uploadError);
@@ -760,6 +1635,8 @@ export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, Afte
         if (!currentUser?.id) {
           const t = await this.toast.create({ message: 'User not found', duration: 1800, color: 'danger' });
           await t.present();
+          this.submitting = false;
+          this.updateFooterCreateDisabled();
           return;
         }
 
@@ -772,23 +1649,30 @@ export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, Afte
           subject: name as string,
           description: description as string,
           price: 0, // Default price, can be updated later
-          duration: 60
+          duration: 60,
+          thumbnail: (this.form.value.thumbnail as string) || undefined,
         };
 
         this.lessonService.createLesson(lessonPayload).subscribe({
           next: async (resp) => {
             console.log('📚 Lesson created:', resp);
+            this.submitting = false;
+            this.updateFooterCreateDisabled();
             const t = await this.toast.create({ message: 'Lesson scheduled successfully', duration: 1500, color: 'success' });
             await t.present();
             this.userService.getAvailability().subscribe({
               next: () => {
-                if (this.inline) { this.classCreated.emit(); }
-                else { this.router.navigate(['/tabs/tutor-calendar']); }
+                this.emitAfterInlineCreateSuccess();
+                if (!this.inline) {
+                  this.router.navigate(['/tabs/tutor-calendar']);
+                }
               }
             });
           },
           error: async (err) => {
             console.error('❌ Error creating lesson:', err);
+            this.submitting = false;
+            this.updateFooterCreateDisabled();
             const t = await this.toast.create({ message: 'Failed to schedule lesson', duration: 1800, color: 'danger' });
             await t.present();
           }
@@ -796,7 +1680,7 @@ export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, Afte
       } else {
         // Create a recurring class
         const finalPrice = this.getFinalPrice();
-        const payload = {
+        const recurringBody = {
           name: name as string,
           description: description as string,
           capacity: Number(maxStudents),
@@ -807,7 +1691,8 @@ export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, Afte
           isPublic: !!isPublic,
           thumbnail: thumbnail || undefined,
           price: finalPrice,
-          useSuggestedPricing: this.form.value.useSuggestedPricing,
+          /** Form value can be typed as `boolean | null`; API expects a real boolean. */
+          useSuggestedPricing: !!(this.form.value.useSuggestedPricing ?? true),
           suggestedPrice: this.suggestedPrice,
           startTime: start.toISOString(),
           endTime: end.toISOString(),
@@ -815,59 +1700,837 @@ export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, Afte
             type: (recurrenceType as any) || 'none',
             count: Number(recurrenceCount) || 1
           },
-          invitedStudentIds: this.form.value.studentIds || []
+        };
+        const createPayload: CreateClassRequest = {
+          ...recurringBody,
+          invitedStudentIds: (this.form.value.studentIds || []) as string[],
         };
 
-        console.log('📤 Sending class creation payload:', payload);
+        console.log('📤 Sending class creation payload:', createPayload);
 
-        this.classService.createClass(payload).subscribe({
-          next: async (resp: any) => {
-            console.log('✅ Class created successfully:', resp);
-            const createdClass = resp.class || resp.classes?.[0];
-            if (createdClass) {
-              console.log('📊 Class details:', {
-                id: createdClass._id,
-                name: createdClass.name,
-                isPublic: createdClass.isPublic,
-                duration: createdClass.duration,
-                level: createdClass.level,
-                startTime: createdClass.startTime,
-                endTime: createdClass.endTime
+        if (this.editingClassId) {
+          this.classService.updateClass(this.editingClassId, recurringBody).subscribe({
+            next: async () => {
+              this.submitting = false;
+              this.updateFooterCreateDisabled();
+              const t = await this.toast.create({
+                message: this.translate.instant('SCHEDULE_CLASS.HUB_SAVE_SUCCESS', { name: recurringBody.name }),
+                duration: 2000,
+                color: 'success',
               });
-            }
-            const t = await this.toast.create({ 
-              message: `Class "${payload.name}" created successfully!`, 
-              duration: 2000, 
-              color: 'success' 
-            });
-            await t.present();
-            this.userService.getAvailability().subscribe({
-              next: () => {
-                if (this.inline) { this.classCreated.emit(); }
-                else { this.router.navigate(['/tabs/tutor-calendar']); }
+              await t.present();
+              this.editingClassId = null;
+              this.updateScheduleSubmitLabels();
+              this.userService.getAvailability().subscribe({
+                next: () => {
+                  this.emitAfterInlineCreateSuccess();
+                  if (!this.inline) {
+                    this.router.navigate(['/tabs/tutor-calendar']);
+                  }
+                },
+              });
+            },
+            error: async (err) => {
+              this.submitting = false;
+              this.updateFooterCreateDisabled();
+              const errorMessage = err.error?.message || this.translate.instant('SCHEDULE_CLASS.HUB_SAVE_ERROR');
+              const t = await this.toast.create({
+                message: errorMessage,
+                duration: 3000,
+                color: 'danger',
+              });
+              await t.present();
+            },
+          });
+        } else {
+          this.classService.createClass(createPayload).subscribe({
+            next: async (resp: any) => {
+              const serverDraftId = this.hubDraftClassId;
+              this.clearLocalHubDraftTracking();
+              this.submitting = false;
+              this.updateFooterCreateDisabled();
+              console.log('✅ Class created successfully:', resp);
+              const createdClass = resp.class || resp.classes?.[0];
+              if (createdClass) {
+                console.log('📊 Class details:', {
+                  id: createdClass._id,
+                  name: createdClass.name,
+                  isPublic: createdClass.isPublic,
+                  duration: createdClass.duration,
+                  level: createdClass.level,
+                  startTime: createdClass.startTime,
+                  endTime: createdClass.endTime
+                });
               }
-            });
-          },
-          error: async (err) => {
-            console.error('❌ Error creating class:', err);
-            console.error('❌ Error details:', {
-              status: err.status,
-              message: err.error?.message || err.message,
-              error: err.error
-            });
-            const errorMessage = err.error?.message || 'Failed to create class';
-            const t = await this.toast.create({ 
-              message: errorMessage, 
-              duration: 3000, 
-              color: 'danger' 
-            });
-            await t.present();
-          }
-        });
+              const t = await this.toast.create({
+                message: `Class "${createPayload.name}" created successfully!`,
+                duration: 2000,
+                color: 'success'
+              });
+              await t.present();
+              if (serverDraftId) {
+                try {
+                  await firstValueFrom(this.classService.cancelClass(serverDraftId));
+                } catch {
+                  /* ignore — class is live even if draft row lingers */
+                }
+              }
+              this.userService.getAvailability().subscribe({
+                next: () => {
+                  this.emitAfterInlineCreateSuccess();
+                  if (!this.inline) {
+                    this.router.navigate(['/tabs/tutor-calendar']);
+                  }
+                }
+              });
+            },
+            error: async (err) => {
+              this.submitting = false;
+              this.updateFooterCreateDisabled();
+              console.error('❌ Error creating class:', err);
+              console.error('❌ Error details:', {
+                status: err.status,
+                message: err.error?.message || err.message,
+                error: err.error
+              });
+              const errorMessage = err.error?.message || 'Failed to create class';
+              const t = await this.toast.create({
+                message: errorMessage,
+                duration: 3000,
+                color: 'danger'
+              });
+              await t.present();
+            }
+          });
+        }
       }
     } finally {
-      this.submitting = false;
+      this.updateFooterCreateDisabled();
     }
+  }
+
+  /** Persist hub “create class” wizard to the server (Drafts tab). Requires a non-empty name. */
+  async saveHubWizardDraft(): Promise<void> {
+    if (!this.inline || !this.hostChromeFooter || this.scheduleHubPhase !== 'create' || this.editingClassId) {
+      return;
+    }
+    const name = String(this.form.getRawValue().name ?? '').trim();
+    if (!name || this.savingDraft) {
+      return;
+    }
+    this.savingDraft = true;
+    this.cdr.markForCheck();
+    this.wizardLayoutChange.emit();
+    try {
+      const v = this.form.getRawValue();
+      const hubDraftForm = this.buildHubDraftFormSnapshot();
+      const finalPrice = this.getFinalPrice();
+      const capacity = Math.max(1, Number(v['maxStudents']) || 1);
+      const patchBody: Record<string, unknown> = {
+        name,
+        description: (v['description'] as string) ?? '',
+        capacity,
+        minStudents: Number(v['minStudents']) || 2,
+        flexibleMinimum: !!v['flexibleMinimum'],
+        level: (v['level'] as string) || 'any',
+        duration: Number(v['duration']) || 60,
+        price: finalPrice,
+        useSuggestedPricing: !!v['useSuggestedPricing'],
+        suggestedPrice: this.suggestedPrice,
+        thumbnail: (v['thumbnail'] as string) || undefined,
+        hubDraftForm,
+      };
+      if (this.hubDraftClassId) {
+        await firstValueFrom(this.classService.updateClass(this.hubDraftClassId, patchBody));
+      } else {
+        const resp = await firstValueFrom(
+          this.classService.createClass({
+            status: 'draft',
+            name,
+            description: patchBody['description'] as string,
+            capacity,
+            isPublic: false,
+            minStudents: patchBody['minStudents'] as number,
+            flexibleMinimum: patchBody['flexibleMinimum'] as boolean,
+            level: patchBody['level'] as string,
+            duration: patchBody['duration'] as number,
+            price: finalPrice,
+            useSuggestedPricing: patchBody['useSuggestedPricing'] as boolean,
+            suggestedPrice: this.suggestedPrice,
+            thumbnail: patchBody['thumbnail'] as string | undefined,
+            hubDraftForm,
+          } as CreateClassRequest)
+        );
+        const created = resp.class || resp.classes?.[0];
+        if (created?._id) {
+          this.hubDraftClassId = String(created._id);
+        }
+      }
+      const t = await this.toast.create({
+        message: this.translate.instant('SCHEDULE_CLASS.HUB_DRAFT_SAVED'),
+        duration: 2200,
+        color: 'success',
+      });
+      await t.present();
+      this.hubListMutated.emit();
+    } catch {
+      const t = await this.toast.create({
+        message: this.translate.instant('SCHEDULE_CLASS.HUB_SAVE_ERROR'),
+        duration: 2500,
+        color: 'danger',
+      });
+      await t.present();
+    } finally {
+      this.savingDraft = false;
+      this.cdr.markForCheck();
+      this.wizardLayoutChange.emit();
+    }
+  }
+
+  private buildHubDraftFormSnapshot(): Record<string, unknown> {
+    const v = this.form.getRawValue();
+    let preview: string | null = this.thumbnailPreview;
+    if (preview && (preview.startsWith('blob:') || preview.startsWith('data:'))) {
+      preview = null;
+    }
+    return {
+      v: 1,
+      wizardStepIndex: this.wizardStepIndex,
+      classType: this.classType,
+      suggestedPrice: this.suggestedPrice,
+      thumbnailPreview: preview,
+      form: { ...v },
+    };
+  }
+
+  private clearLocalHubDraftTracking(): void {
+    this.hubDraftClassId = null;
+  }
+
+  private applyHubDraftFromServer(loaded: any): void {
+    const hub = loaded.hubDraftForm || {};
+    this.hubDraftClassId = String(loaded._id);
+    this.editingClassId = null;
+    this.classType = hub.classType === 'one' ? 'one' : 'recurring';
+    this.onClassTypeChange();
+    if (typeof hub.suggestedPrice === 'number' && Number.isFinite(hub.suggestedPrice)) {
+      this.suggestedPrice = hub.suggestedPrice;
+    } else if (Number.isFinite(Number(loaded.suggestedPrice))) {
+      this.suggestedPrice = Math.round(Number(loaded.suggestedPrice) * 100) / 100;
+    }
+    if (hub.form && typeof hub.form === 'object') {
+      this.form.patchValue(hub.form as object);
+    } else {
+      this.form.patchValue({
+        name: loaded.name || '',
+        description: loaded.description ?? '',
+        maxStudents: loaded.capacity ?? 2,
+        minStudents: loaded.minStudents ?? 2,
+        flexibleMinimum: !!loaded.flexibleMinimum,
+        level: loaded.level || '',
+        duration: this.durationToFormSelectValue(loaded.duration),
+        date: '',
+        time: '',
+        isPublic: false,
+        thumbnail: loaded.thumbnail || '',
+        recurrenceType: 'none',
+        recurrenceCount: 1,
+        useSuggestedPricing: loaded.useSuggestedPricing !== false,
+        customPrice: null,
+        studentIds: [],
+        studentId: '',
+      });
+    }
+    const storedThumb = (loaded.thumbnail as string) || '';
+    const prev = hub.thumbnailPreview;
+    if (typeof prev === 'string' && prev.length > 0 && !prev.startsWith('blob:')) {
+      this.thumbnailPreview = prev;
+    } else if (storedThumb) {
+      this.thumbnailPreview = storedThumb;
+    } else {
+      this.thumbnailPreview = null;
+    }
+    this.thumbnailFile = null;
+    const ids = this.getWizardStepIds();
+    const max = Math.max(0, ids.length - 1);
+    this.wizardStepIndex = Math.min(Math.max(0, Number(hub.wizardStepIndex) || 0), max);
+    this.updateFormValidators();
+    this.calculateSuggestedPrice();
+    this.updateScheduleSubmitLabels();
+    this.syncStepUi();
+    this.updateFooterCreateDisabled();
+  }
+
+  async saveEdit(): Promise<void> {
+    if (!this.editingClassId || this.savingEdit) return;
+
+    this.savingEdit = true;
+    try {
+      if (this.thumbnailFile) {
+        this.isUploadingThumbnail = true;
+        try {
+          const thumbnailUrl = await this.uploadThumbnailToGCS(this.thumbnailFile);
+          this.form.patchValue({ thumbnail: thumbnailUrl });
+          this.thumbnailFile = null;
+        } catch {
+          const t = await this.toast.create({
+            message: 'Failed to upload thumbnail. Please try again.',
+            duration: 2000,
+            color: 'danger',
+          });
+          await t.present();
+          this.savingEdit = false;
+          this.isUploadingThumbnail = false;
+          return;
+        } finally {
+          this.isUploadingThumbnail = false;
+        }
+      }
+
+      const v = this.form.value;
+      const start = v.date && v.time ? new Date(`${v.date}T${v.time}`) : null;
+      const lessonDuration = this.classType === 'recurring' && v.duration ? Number(v.duration) : 60;
+      const end = start ? new Date(start.getTime() + lessonDuration * 60000) : null;
+      const finalPrice = this.getFinalPrice();
+
+      const body: Record<string, any> = {
+        name: v.name as string,
+        description: v.description as string,
+        capacity: Number(v.maxStudents) || undefined,
+        minStudents: Number(v.minStudents) || 2,
+        flexibleMinimum: !!v.flexibleMinimum,
+        level: v.level as string,
+        duration: Number(v.duration) || undefined,
+        isPublic: !!v.isPublic,
+        thumbnail: v.thumbnail || undefined,
+        price: finalPrice,
+        useSuggestedPricing: v.useSuggestedPricing,
+        suggestedPrice: this.suggestedPrice,
+        recurrence: {
+          type: (v.recurrenceType as any) || 'none',
+          count: Number(v.recurrenceCount) || 1,
+        },
+      };
+      if (start && end) {
+        body['startTime'] = start.toISOString();
+        body['endTime'] = end.toISOString();
+      }
+
+      await firstValueFrom(this.classService.updateClass(this.editingClassId, body));
+
+      this.classSaved.emit();
+
+      const t = await this.toast.create({
+        message: this.translate.instant('SCHEDULE_CLASS.HUB_SAVE_SUCCESS', { name: body['name'] || '' }),
+        duration: 2000,
+        color: 'success',
+      });
+      await t.present();
+    } catch (err: any) {
+      const errorMessage = err?.error?.message || this.translate.instant('SCHEDULE_CLASS.HUB_SAVE_ERROR');
+      const t = await this.toast.create({
+        message: errorMessage,
+        duration: 3000,
+        color: 'danger',
+      });
+      await t.present();
+    } finally {
+      this.savingEdit = false;
+      this.cdr.markForCheck();
+      if (this.hostChromeFooter) this.wizardLayoutChange.emit();
+    }
+  }
+
+  private emitAfterInlineCreateSuccess(): void {
+    if (!this.inline) {
+      return;
+    }
+    if (this.hostChromeFooter && this.classType === 'recurring') {
+      void this.afterCreateReturnToHub();
+      return;
+    }
+    this.classCreated.emit();
+  }
+
+  private async afterCreateReturnToHub(): Promise<void> {
+    this.clearLocalHubDraftTracking();
+    this.resetFormForNewClass();
+    this.scheduleHubPhase = 'list';
+    this.wizardStepIndex = 0;
+    this.syncStepUi();
+    this.loadHubClasses();
+    this.wizardLayoutChange.emit();
+    this.cdr.markForCheck();
+  }
+
+  private resetFormForNewClass(): void {
+    this.editingClassId = null;
+    this.hubDraftClassId = null;
+    this.thumbnailFile = null;
+    this.thumbnailPreview = null;
+    this.form.reset({
+      studentId: '',
+      studentIds: [],
+      name: '',
+      description: '',
+      maxStudents: 2,
+      minStudents: 2,
+      flexibleMinimum: false,
+      level: '',
+      duration: null,
+      date: '',
+      time: '',
+      isPublic: false,
+      thumbnail: '',
+      recurrenceType: 'none',
+      recurrenceCount: 1,
+      useSuggestedPricing: true,
+      customPrice: null,
+    });
+    this.updateFormValidators();
+    this.calculateSuggestedPrice();
+    this.updateScheduleSubmitLabels();
+  }
+
+  enterHubListMode(): void {
+    if (!this.hostChromeFooter) {
+      return;
+    }
+    this.editingClassId = null;
+    this.hubDraftClassId = null;
+    this.updateScheduleSubmitLabels();
+    this.scheduleHubPhase = 'list';
+    this.hubListTab = 'active';
+    this.hubInitialLoadDone = false;
+    this.hubClassesLoading = true;
+    this.hubLoadError = false;
+    this.wizardStepIndex = 0;
+    this.classType = 'recurring';
+    this.onClassTypeChange();
+    this.syncStepUi();
+    this.loadHubClasses();
+    this.cdr.markForCheck();
+  }
+
+  beginCreateClassFromHub(): void {
+    if (!this.hostChromeFooter) {
+      return;
+    }
+    this.resetFormForNewClass();
+    this.classType = 'recurring';
+    this.onClassTypeChange();
+    this.scheduleHubPhase = 'create';
+    this.wizardStepIndex = 0;
+    this.syncStepUi();
+    setTimeout(() => this.scrollToTopOnStepChange(), 50);
+    this.wizardLayoutChange.emit();
+    this.cdr.markForCheck();
+  }
+
+  loadHubClasses(): void {
+    const id = this.currentUser?.id || this.userService.getCurrentUserValue()?.id;
+    if (!id) {
+      this.hubClassesLoading = false;
+      this.hubInitialLoadDone = true;
+      this.hubActiveCards = [];
+      this.hubHistoryCards = [];
+      this.hubDraftCards = [];
+      this.cdr.markForCheck();
+      return;
+    }
+    this.hubClassesLoading = true;
+    this.hubLoadError = false;
+    this.cdr.markForCheck();
+    this.classService.getClassesForTutor(id).subscribe({
+      next: (res) => {
+        const all = res.classes || [];
+        const { active, history, drafts } = this.partitionHubClasses(all);
+        this.hubActiveCards = active.map((x) => this.classToHubCardVm(x));
+        this.hubHistoryCards = history.map((x) => this.classToHubCardVm(x));
+        this.hubDraftCards = drafts.map((x) => this.classToHubCardVm(x));
+        this.hubClassesLoading = false;
+        this.hubLoadError = false;
+        this.hubInitialLoadDone = true;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.hubClassesLoading = false;
+        this.hubLoadError = true;
+        this.hubInitialLoadDone = true;
+        this.hubActiveCards = [];
+        this.hubHistoryCards = [];
+        this.hubDraftCards = [];
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  private partitionHubClasses(all: ClassInvitation[]): {
+    active: ClassInvitation[];
+    history: ClassInvitation[];
+    drafts: ClassInvitation[];
+  } {
+    const now = Date.now();
+    const active: ClassInvitation[] = [];
+    const history: ClassInvitation[] = [];
+    const drafts: ClassInvitation[] = [];
+    for (const c of all) {
+      const st = c.status || 'scheduled';
+      if (st === 'draft') {
+        drafts.push(c);
+        continue;
+      }
+      const end = new Date(c.endTime).getTime();
+      const start = new Date(c.startTime).getTime();
+      const cancelled = st === 'cancelled';
+      const completed = st === 'completed';
+      const past = end < now || completed;
+      const inProgress = !cancelled && start <= now && now < end;
+      const upcoming = !cancelled && start > now;
+      if (past || cancelled) {
+        history.push(c);
+      } else if (upcoming || inProgress) {
+        active.push(c);
+      } else {
+        history.push(c);
+      }
+    }
+    active.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+    history.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+    drafts.sort(
+      (a, b) =>
+        new Date(b.updatedAt || b.startTime).getTime() - new Date(a.updatedAt || a.startTime).getTime()
+    );
+    return { active, history, drafts };
+  }
+
+  private formatHubWhen(startIso: string, endIso: string): string {
+    const start = new Date(startIso);
+    const end = new Date(endIso);
+    const dOpts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' };
+    const tOpts: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit' };
+    return `${start.toLocaleDateString(undefined, dOpts)} · ${start.toLocaleTimeString(undefined, tOpts)} – ${end.toLocaleTimeString(undefined, tOpts)}`;
+  }
+
+  private classToHubCardVm(c: ClassInvitation): HubClassCardVm {
+    const now = Date.now();
+    const start = new Date(c.startTime).getTime();
+    const end = new Date(c.endTime).getTime();
+    const st = c.status || 'scheduled';
+    if (st === 'draft') {
+      const ext = c as ClassInvitation & { thumbnail?: string };
+      const id = String(ext._id);
+      return {
+        id,
+        name: c.name,
+        price: c.price,
+        priceDisplay: c.price > 0 ? c.price.toFixed(2) : '',
+        capacity: c.capacity,
+        confirmedCount: 0,
+        startTime: c.startTime,
+        endTime: c.endTime,
+        whenLine: '',
+        thumbUrl: ext.thumbnail,
+        badgeKey: 'SCHEDULE_CLASS.HUB_BADGE_DRAFT',
+        badgeClass: 'draft',
+        canEdit: false,
+        canCancel: false,
+        canRemoveFromHistory: false,
+        isDraft: true,
+        canResumeDraft: true,
+        canDiscardDraft: true,
+      };
+    }
+    let badgeKey: HubClassCardVm['badgeKey'] = 'SCHEDULE_CLASS.HUB_BADGE_UPCOMING';
+    let badgeClass: HubClassCardVm['badgeClass'] = 'upcoming';
+    if (st === 'cancelled') {
+      badgeKey = 'SCHEDULE_CLASS.HUB_BADGE_CANCELLED';
+      badgeClass = 'cancelled';
+    } else if (end < now || st === 'completed') {
+      badgeKey = 'SCHEDULE_CLASS.HUB_BADGE_PAST';
+      badgeClass = 'past';
+    } else if (start <= now && now < end) {
+      badgeKey = 'SCHEDULE_CLASS.HUB_BADGE_LIVE';
+      badgeClass = 'live';
+    }
+    const ext = c as ClassInvitation & { thumbnail?: string };
+    const confirmed =
+      Array.isArray(c.confirmedStudents) && c.confirmedStudents.length > 0
+        ? c.confirmedStudents.length
+        : c.invitationStats?.accepted ?? 0;
+    const canEdit = st === 'scheduled' && start > now;
+    const canCancel = st !== 'cancelled' && end > now;
+    const canRemoveFromHistory =
+      end < now || st === 'completed' || st === 'cancelled';
+    return {
+      id: c._id,
+      name: c.name,
+      price: c.price,
+      priceDisplay: c.price > 0 ? c.price.toFixed(2) : '',
+      capacity: c.capacity,
+      confirmedCount: confirmed,
+      startTime: c.startTime,
+      endTime: c.endTime,
+      whenLine: this.formatHubWhen(c.startTime, c.endTime),
+      thumbUrl: ext.thumbnail,
+      badgeKey,
+      badgeClass,
+      canEdit,
+      canCancel,
+      canRemoveFromHistory,
+    };
+  }
+
+  private pad2(n: number): string {
+    return n.toString().padStart(2, '0');
+  }
+
+  /** Map stored duration (e.g. 60) to wizard select values (25 | 50). */
+  private durationToFormSelectValue(d: unknown): number | null {
+    const n = Number(d);
+    if (!Number.isFinite(n) || n <= 0) {
+      return null;
+    }
+    if (n === 25) {
+      return 25;
+    }
+    if (n === 50) {
+      return 50;
+    }
+    return n >= 45 ? 50 : 25;
+  }
+
+  private applyLoadedClassToForm(loaded: any): void {
+    const start = new Date(loaded.startTime);
+    const dateStr = `${start.getFullYear()}-${this.pad2(start.getMonth() + 1)}-${this.pad2(start.getDate())}`;
+    const timeStr = `${this.pad2(start.getHours())}:${this.pad2(start.getMinutes())}`;
+    const rec = loaded.recurrence || { type: 'none', count: 1 };
+    const invited: string[] = [];
+    if (Array.isArray(loaded.invitedStudents)) {
+      for (const inv of loaded.invitedStudents) {
+        const sid = inv.studentId?._id ?? inv.studentId;
+        if (sid) {
+          invited.push(String(sid));
+        }
+      }
+    }
+    const useSuggested = loaded.useSuggestedPricing !== false;
+    const priceNum = Number(loaded.price) || 0;
+    const sug = Number(loaded.suggestedPrice);
+    if (Number.isFinite(sug) && sug > 0) {
+      this.suggestedPrice = Math.round(sug * 100) / 100;
+    }
+    this.form.patchValue({
+      name: loaded.name || '',
+      description: loaded.description || '',
+      maxStudents: loaded.capacity ?? 2,
+      minStudents: loaded.minStudents ?? 2,
+      flexibleMinimum: !!loaded.flexibleMinimum,
+      level: loaded.level || '',
+      duration: this.durationToFormSelectValue(loaded.duration),
+      date: dateStr,
+      time: timeStr,
+      isPublic: !!loaded.isPublic,
+      thumbnail: loaded.thumbnail || '',
+      recurrenceType: rec.type || 'none',
+      recurrenceCount: rec.count ?? 1,
+      useSuggestedPricing: useSuggested,
+      customPrice: useSuggested ? null : priceNum,
+      studentIds: invited,
+      studentId: '',
+    });
+    this.thumbnailFile = null;
+    this.thumbnailPreview = null;
+    this.updateFormValidators();
+    this.calculateSuggestedPrice();
+  }
+
+  async beginEditHubClass(c: HubClassCardVm, ev: Event): Promise<void> {
+    ev.stopPropagation();
+    if (!c.canEdit || !this.hostChromeFooter) {
+      return;
+    }
+    this.clearLocalHubDraftTracking();
+    try {
+      const res = await firstValueFrom(this.classService.getClass(c.id));
+      if (!res.success || !res.class) {
+        const t = await this.toast.create({
+          message: this.translate.instant('SCHEDULE_CLASS.HUB_EDIT_LOAD_ERROR'),
+          duration: 2500,
+          color: 'danger',
+        });
+        await t.present();
+        return;
+      }
+      this.scheduleHubPhase = 'create';
+      this.editingClassId = c.id;
+      this.classType = 'recurring';
+      this.applyLoadedClassToForm(res.class);
+      this.onClassTypeChange();
+      this.wizardStepIndex = 0;
+      if (this.students.length === 0 && !this.loadingStudents) {
+        this.loadStudents();
+      }
+      this.updateScheduleSubmitLabels();
+      this.syncStepUi();
+      this.updateFooterCreateDisabled();
+      setTimeout(() => this.scrollToTopOnStepChange(), 50);
+      this.wizardLayoutChange.emit();
+      this.cdr.markForCheck();
+    } catch {
+      const t = await this.toast.create({
+        message: this.translate.instant('SCHEDULE_CLASS.HUB_EDIT_LOAD_ERROR'),
+        duration: 2500,
+        color: 'danger',
+      });
+      await t.present();
+    }
+  }
+
+  async beginResumeHubDraft(c: HubClassCardVm, ev: Event): Promise<void> {
+    ev.stopPropagation();
+    if (!c.canResumeDraft || !this.hostChromeFooter) {
+      return;
+    }
+    try {
+      const res = await firstValueFrom(this.classService.getClass(c.id));
+      if (!res.success || !res.class) {
+        const t = await this.toast.create({
+          message: this.translate.instant('SCHEDULE_CLASS.HUB_EDIT_LOAD_ERROR'),
+          duration: 2500,
+          color: 'danger',
+        });
+        await t.present();
+        return;
+      }
+      this.scheduleHubPhase = 'create';
+      this.applyHubDraftFromServer(res.class);
+      if (this.students.length === 0 && !this.loadingStudents) {
+        this.loadStudents();
+      }
+      this.updateScheduleSubmitLabels();
+      setTimeout(() => this.scrollToTopOnStepChange(), 50);
+      this.wizardLayoutChange.emit();
+      this.cdr.markForCheck();
+    } catch {
+      const t = await this.toast.create({
+        message: this.translate.instant('SCHEDULE_CLASS.HUB_EDIT_LOAD_ERROR'),
+        duration: 2500,
+        color: 'danger',
+      });
+      await t.present();
+    }
+  }
+
+  async confirmDeleteHubClass(c: HubClassCardVm, ev: Event): Promise<void> {
+    ev.stopPropagation();
+    if ((!c.canCancel && !c.canDiscardDraft) || this.hubClassDeleteInFlight) {
+      return;
+    }
+    const isDraft = !!c.isDraft;
+    const alert = await this.alertController.create({
+      header: this.translate.instant(
+        isDraft ? 'SCHEDULE_CLASS.HUB_DISCARD_DRAFT_TITLE' : 'SCHEDULE_CLASS.HUB_DELETE_TITLE'
+      ),
+      message: this.translate.instant(
+        isDraft ? 'SCHEDULE_CLASS.HUB_DISCARD_DRAFT_MESSAGE' : 'SCHEDULE_CLASS.HUB_DELETE_MESSAGE',
+        { name: c.name }
+      ),
+      buttons: [
+        { text: this.translate.instant('COMMON.CANCEL'), role: 'cancel' },
+        {
+          text: this.translate.instant(
+            isDraft ? 'SCHEDULE_CLASS.HUB_DISCARD_DRAFT_CONFIRM' : 'SCHEDULE_CLASS.HUB_DELETE_CONFIRM'
+          ),
+          role: 'destructive',
+          handler: () => {
+            this.executeHubClassDelete(c.id, isDraft);
+          },
+        },
+      ],
+    });
+    await alert.present();
+  }
+
+  async confirmRemoveFromHistoryHubClass(c: HubClassCardVm, ev: Event): Promise<void> {
+    ev.stopPropagation();
+    if (!c.canRemoveFromHistory || this.hubClassDeleteInFlight) {
+      return;
+    }
+    const alert = await this.alertController.create({
+      header: this.translate.instant('SCHEDULE_CLASS.HUB_REMOVE_HISTORY_TITLE'),
+      message: this.translate.instant('SCHEDULE_CLASS.HUB_REMOVE_HISTORY_MESSAGE', { name: c.name }),
+      buttons: [
+        { text: this.translate.instant('COMMON.CANCEL'), role: 'cancel' },
+        {
+          text: this.translate.instant('SCHEDULE_CLASS.HUB_REMOVE_HISTORY_CONFIRM'),
+          role: 'destructive',
+          handler: () => {
+            this.executeHubClassRemoveFromHistory(c.id);
+          },
+        },
+      ],
+    });
+    await alert.present();
+  }
+
+  private executeHubClassRemoveFromHistory(classId: string): void {
+    this.hubClassDeleteInFlight = true;
+    this.cdr.markForCheck();
+    this.classService.hideClassFromHub(classId).subscribe({
+      next: async () => {
+        this.hubClassDeleteInFlight = false;
+        const t = await this.toast.create({
+          message: this.translate.instant('SCHEDULE_CLASS.HUB_REMOVE_HISTORY_SUCCESS'),
+          duration: 2000,
+          color: 'success',
+        });
+        await t.present();
+        this.loadHubClasses();
+        this.hubListMutated.emit();
+        this.cdr.markForCheck();
+      },
+      error: async (err) => {
+        this.hubClassDeleteInFlight = false;
+        const msg =
+          err.error?.message || this.translate.instant('SCHEDULE_CLASS.HUB_REMOVE_HISTORY_ERROR');
+        const t = await this.toast.create({ message: msg, duration: 2500, color: 'danger' });
+        await t.present();
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  private executeHubClassDelete(classId: string, isDraft = false): void {
+    this.hubClassDeleteInFlight = true;
+    this.cdr.markForCheck();
+    this.classService.cancelClass(classId).subscribe({
+      next: async () => {
+        this.hubClassDeleteInFlight = false;
+        if (this.hubDraftClassId === classId) {
+          this.clearLocalHubDraftTracking();
+        }
+        const t = await this.toast.create({
+          message: this.translate.instant(
+            isDraft ? 'SCHEDULE_CLASS.HUB_DISCARD_DRAFT_SUCCESS' : 'SCHEDULE_CLASS.HUB_DELETE_SUCCESS'
+          ),
+          duration: 2000,
+          color: 'success',
+        });
+        await t.present();
+        this.loadHubClasses();
+        this.hubListMutated.emit();
+        this.cdr.markForCheck();
+      },
+      error: async (err) => {
+        this.hubClassDeleteInFlight = false;
+        const msg =
+          err.error?.message || this.translate.instant('SCHEDULE_CLASS.HUB_DELETE_ERROR');
+        const t = await this.toast.create({ message: msg, duration: 2500, color: 'danger' });
+        await t.present();
+        this.cdr.markForCheck();
+      },
+    });
   }
 
   getSelectedStudentName(): string {
@@ -923,25 +2586,22 @@ export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, Afte
 
   // Multi-select methods
   async toggleMultiStudentDropdown() {
-    console.log('🔄 toggleMultiStudentDropdown called', {
-      loadingStudents: this.loadingStudents,
-      studentsCount: this.students.length,
-      students: this.students
-    });
-    
-    // If students haven't loaded yet, try loading them
     if (this.students.length === 0 && !this.loadingStudents) {
-      console.log('⚠️ No students loaded, attempting to load...');
       this.loadStudents();
       return;
     }
-    
+
     if (this.loadingStudents) {
-      console.log('⏳ Still loading students...');
       return;
     }
-    
-    // Use actionsheet instead of modal
+
+    this.updateDesktopInviteInlineFlag();
+    if (this.desktopInviteInlineList) {
+      this.inviteStudentPanelOpen = !this.inviteStudentPanelOpen;
+      this.cdr.markForCheck();
+      return;
+    }
+
     await this.openStudentSelectionActionSheet();
   }
 
@@ -1216,11 +2876,25 @@ export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, Afte
     return maxStudents;
   }
 
+  /**
+   * Group sizes shown in the earnings breakdown (2 .. maxStudents).
+   * Must always include `maxStudents` so the table updates when capacity changes.
+   * For very large caps, only the largest sizes are listed to keep the table short.
+   */
   getStudentCountRange(): number[] {
-    const max = this.form.value.maxStudents || 10;
-    // Show up to 5 options, or maxStudents if less
-    const count = Math.min(5, max);
-    return Array.from({ length: count }, (_, i) => i + 2); // Start from 2 students
+    const raw = this.form.value.maxStudents;
+    const parsed = Number(raw);
+    const max = Number.isFinite(parsed) && parsed >= 2 ? Math.min(parsed, 50) : 10;
+
+    const totalSizes = max - 1; // 2 through max inclusive
+    const maxRows = 12;
+
+    if (totalSizes <= maxRows) {
+      return Array.from({ length: totalSizes }, (_, i) => i + 2);
+    }
+
+    const start = max - maxRows + 1;
+    return Array.from({ length: maxRows }, (_, i) => start + i);
   }
 }
 

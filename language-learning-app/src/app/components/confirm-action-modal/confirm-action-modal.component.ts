@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input } from '@angular/core';
 import { ModalController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
@@ -10,7 +10,7 @@ import { IonicModule } from '@ionic/angular';
   standalone: true,
   imports: [CommonModule, IonicModule]
 })
-export class ConfirmActionModalComponent implements OnInit {
+export class ConfirmActionModalComponent {
   @Input() title!: string;
   @Input() message!: string;
   @Input() notificationMessage?: string; // Separate notification line (e.g., "Jason G. will be notified...")
@@ -21,23 +21,22 @@ export class ConfirmActionModalComponent implements OnInit {
   @Input() iconColor: string = 'warning';
   @Input() participantName?: string;
   @Input() participantAvatar?: string;
+  /** When true, the secondary (outline) button exits cancel-class and opens reschedule instead */
+  @Input() secondaryDismissReschedules = false;
 
   constructor(private modalController: ModalController) {}
-  
-  ngOnInit() {
-    console.log('🔍 ConfirmActionModal initialized with:', {
-      title: this.title,
-      message: this.message,
-      notificationMessage: this.notificationMessage,
-      participantName: this.participantName,
-      participantAvatar: this.participantAvatar,
-      icon: this.icon,
-      iconColor: this.iconColor
-    });
-  }
 
   dismiss() {
     this.modalController.dismiss({ confirmed: false });
+  }
+
+  /** Secondary row button: optionally signal reschedule instead of plain dismiss */
+  secondaryClick() {
+    if (this.secondaryDismissReschedules) {
+      this.modalController.dismiss({ confirmed: false, rescheduleInstead: true });
+    } else {
+      this.dismiss();
+    }
   }
 
   confirm() {

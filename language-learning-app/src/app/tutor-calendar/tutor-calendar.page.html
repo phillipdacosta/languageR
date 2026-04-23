@@ -39,7 +39,7 @@
             </ion-button>
             <ion-button expand="block" fill="outline"
                         (click)="onSetUpAvailability(); toggleMobileSettings()"
-                        [disabled]="pendingFeedbackCount > 0 || (!currentUser?.picture) || (!currentUser?.tutorOnboarding?.videoApproved) || (!currentUser?.tutorOnboarding?.stripeConnected && !currentUser?.stripeConnectOnboarded)">
+                        [disabled]="pendingFeedbackCount > 0 || isOnboardingIncomplete">
               <ion-icon name="settings-outline" slot="start"></ion-icon>
               {{ 'TUTOR_CALENDAR.SET_UP_AVAILABILITY' | translate }}
             </ion-button>
@@ -142,7 +142,7 @@
               </span>
               <span class="mcal-summary-pill mcal-summary-pill--avail"
                     [class.mcal-pill-pop]="availabilityJustSaved"
-                    *ngIf="todaySummaryHoursAvailable > 0"
+                    *ngIf="todaySummaryGrossHoursAvailable > 0"
                     (click)="openAvailabilityModal()">
                 <ion-icon name="time-outline"></ion-icon>
                 {{ todaySummaryHoursAvailable }}{{ 'TUTOR_CALENDAR.H_AVAILABLE' | translate }}
@@ -317,7 +317,7 @@
 
             <ion-button expand="block" fill="outline" class="action-btn" 
                         (click)="onSetUpAvailability()" 
-                        [disabled]="pendingFeedbackCount > 0 || isScreenLocked() || (!currentUser?.picture) || (!currentUser?.tutorOnboarding?.videoApproved) || (!currentUser?.tutorOnboarding?.stripeConnected && !currentUser?.stripeConnectOnboarded)">
+                        [disabled]="pendingFeedbackCount > 0 || isScreenLocked() || isOnboardingIncomplete">
               <ion-icon name="settings-outline" slot="start"></ion-icon>
               {{ 'TUTOR_CALENDAR.SET_UP_AVAILABILITY' | translate }}
             </ion-button>
@@ -491,7 +491,7 @@
               <button class="desktop-avail-pill"
                       type="button"
                       [class.mcal-pill-pop]="availabilityJustSaved"
-                      *ngIf="weekAvailabilityHours > 0 && customView === 'week' && !isOnboardingIncomplete && pendingFeedbackCount === 0"
+                      *ngIf="weekAvailabilityGrossHours > 0 && customView === 'week' && !isOnboardingIncomplete && pendingFeedbackCount === 0"
                       (click)="openAvailabilityModal()">
                 <ion-icon name="time-outline"></ion-icon>
                 {{ weekAvailabilityHours }}h available
@@ -505,57 +505,24 @@
               <h2 class="calendar-title" *ngIf="customView === 'week' && !isOnboardingIncomplete && pendingFeedbackCount === 0">{{ currentWeekTitle }}</h2>
               <h2 class="calendar-title" *ngIf="customView === 'day' && !isOnboardingIncomplete && pendingFeedbackCount === 0">{{ selectedDayForDayView.monthLabel }} {{ selectedDayForDayView.year }}</h2>
               
-              <!-- Profile Hidden Banner (video removed) -->
-              <div class="onboarding-banner-container" *ngIf="isProfileHiddenNoVideo">
-                <ion-card class="onboarding-banner profile-hidden-banner">
-                  <ion-card-content>
-                    <div class="banner-content">
-                      <div class="banner-icon">
-                        <ion-icon name="eye-off-outline"></ion-icon>
-                      </div>
-                      <div class="banner-text">
-                        <h3>{{ 'HOME.BANNER_PROFILE_HIDDEN' | translate }}</h3>
-                        <p class="banner-items">{{ 'HOME.BANNER_PROFILE_HIDDEN_DESC' | translate }}</p>
-                      </div>
-                      <ion-button fill="solid" (click)="router.navigate(['/tabs/profile'], { queryParams: { scrollTo: 'intro-video-section' } })">
-                        <ion-icon name="videocam-outline" slot="start"></ion-icon>
-                        {{ 'HOME.BANNER_UPLOAD_VIDEO_CTA' | translate }}
-                      </ion-button>
-                    </div>
-                  </ion-card-content>
-                </ion-card>
-              </div>
-
-              <!-- Onboarding Warning Banner - Show when onboarding incomplete -->
-              <div class="onboarding-banner-container" *ngIf="isOnboardingIncomplete && !isProfileHiddenNoVideo">
-                <ion-card class="onboarding-banner">
-                  <ion-card-content>
-                    <div class="banner-content">
-                      <div class="banner-icon">
-                        <ion-icon name="rocket-outline"></ion-icon>
-                      </div>
-                      <div class="banner-text">
-                        <h3>{{ 'TUTOR_CALENDAR.COMPLETE_PROFILE_SETUP' | translate }}</h3>
-                        <p class="banner-items">
-                          <span *ngIf="!hasCustomProfilePhoto">{{ 'TUTOR_CALENDAR.UPLOAD_PROFILE_PHOTO' | translate }}</span>
-                          <span class="separator" *ngIf="!hasCustomProfilePhoto && ((!currentUser?.tutorOnboarding?.videoApproved) || (!currentUser?.tutorOnboarding?.stripeConnected && !currentUser?.stripeConnectOnboarded))"> | </span>
-                          
-                          <span *ngIf="!currentUser?.tutorOnboarding?.videoApproved && (currentUser?.onboardingData?.pendingVideo || currentUser?.onboardingData?.introductionVideo)">{{ 'TUTOR_CALENDAR.VIDEO_PENDING_REVIEW' | translate }}</span>
-                          <span *ngIf="!currentUser?.tutorOnboarding?.videoApproved && !currentUser?.onboardingData?.pendingVideo && !currentUser?.onboardingData?.introductionVideo">{{ 'TUTOR_CALENDAR.UPLOAD_INTRO_VIDEO' | translate }}</span>
-                          <span class="separator" *ngIf="!currentUser?.tutorOnboarding?.videoApproved && (!currentUser?.tutorOnboarding?.stripeConnected && !currentUser?.stripeConnectOnboarded)"> | </span>
-                          
-                          <span *ngIf="!currentUser?.tutorOnboarding?.stripeConnected && !currentUser?.stripeConnectOnboarded">{{ 'TUTOR_CALENDAR.CONNECT_BANK_ACCOUNT' | translate }}</span>
-                          
-                          <span *ngIf="currentUser?.tutorOnboarding?.videoApproved && currentUser?.tutorOnboarding?.stripeConnected && currentUser?.stripeConnectOnboarded">{{ 'TUTOR_CALENDAR.PROFILE_BEING_REVIEWED' | translate }}</span>
-                        </p>
-                      </div>
-                      <ion-button fill="solid" (click)="router.navigate(['/tutor-approval'])">
-                        <ion-icon name="arrow-forward" slot="end"></ion-icon>
-                        {{ 'TUTOR_CALENDAR.CONTINUE_SETUP' | translate }}
-                      </ion-button>
-                    </div>
-                  </ion-card-content>
-                </ion-card>
+              <!-- Inline Profile Checklist -->
+              <div class="profile-checklist-section" *ngIf="isOnboardingIncomplete && profileChecklist.length > 0">
+                <div class="profile-checklist-header">
+                  <ion-icon name="alert-circle-outline" class="pcl-warn-icon"></ion-icon>
+                  <span class="pcl-title">{{ profileChecklistDoneCount }} / {{ profileChecklist.length }} complete</span>
+                  <span class="pcl-hidden-label" *ngIf="profileChecklistDoneCount < profileChecklist.length">
+                    <ion-icon name="eye-off-outline"></ion-icon> Hidden from students
+                  </span>
+                </div>
+                <div class="profile-checklist-items">
+                  <a *ngFor="let item of profileChecklist"
+                     class="pcl-item" [class.pcl-item--done]="item.done"
+                     [routerLink]="item.route">
+                    <ion-icon [name]="item.done ? 'checkmark-circle' : 'ellipse-outline'" class="pcl-check"></ion-icon>
+                    <span class="pcl-label">{{ item.label }}</span>
+                    <ion-icon name="chevron-forward-outline" class="pcl-arrow" *ngIf="!item.done"></ion-icon>
+                  </a>
+                </div>
               </div>
 
               <!-- Outstanding Feedback Banner (Airbnb style) -->
@@ -670,7 +637,7 @@
               </div>
               <button type="button"
                       class="day-view-free-hours"
-                      *ngIf="(events | freeHours:selectedDayForDayView) > 0"
+                      *ngIf="(events | grossFreeHours:selectedDayForDayView) > 0"
                       (click)="openDayViewAvailabilityModal()">
                 <ion-icon name="time-outline"></ion-icon>
                 <span>{{ events | freeHours:selectedDayForDayView }}{{ 'TUTOR_CALENDAR.H_AVAILABLE' | translate }}</span>

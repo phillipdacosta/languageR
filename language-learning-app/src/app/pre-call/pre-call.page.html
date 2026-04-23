@@ -154,6 +154,22 @@
       <p class="lesson-subtitle" *ngIf="!isTutor && isTrialLesson">
         This is your trial lesson with {{ tutorName || 'your tutor' }}
       </p>
+
+      <!-- Student Lesson Intent Chips -->
+      <div class="intent-section" *ngIf="!isTutor">
+        <p class="intent-title">How should today's lesson feel?</p>
+        <div class="intent-chips">
+          <button
+            *ngFor="let opt of intentOptions"
+            class="intent-chip"
+            [class.intent-chip-active]="selectedIntent === opt.id"
+            (click)="selectIntent(opt.id)"
+          >
+            <span class="intent-emoji">{{ opt.emoji }}</span>
+            <span class="intent-label">{{ opt.label }}</span>
+          </button>
+        </div>
+      </div>
       
       <!-- Presence indicator -->
       <div class="presence-indicator-card" *ngIf="otherParticipantJoined">

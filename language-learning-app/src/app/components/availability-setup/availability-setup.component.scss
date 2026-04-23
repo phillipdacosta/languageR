@@ -2939,8 +2939,8 @@ html {
       padding: 0 12px !important;
     }
   }
-  
-  // Action bar at bottom - visible and clear
+
+  // In-flow save bar sits below the internally-scrolling grid so it always stays in view
   .action-bar {
     position: relative !important;
     bottom: auto !important;
@@ -2953,6 +2953,7 @@ html {
     background: #ffffff !important;
     border-top: 1px solid #EBEBEB !important;
     padding: 16px 24px !important;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08) !important;
     flex-shrink: 0 !important;
     z-index: 100 !important;

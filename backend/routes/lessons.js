@@ -1074,7 +1074,6 @@ router.get('/my-lessons', verifyToken, async (req, res) => {
           hasAnalysis: analysisData.status === 'completed',
           source: analysisData.source || null
         };
-        // Include tutorNote if exists
         if (analysisData.tutorNote && analysisData.tutorNote.text) {
           lessonObj.tutorNote = analysisData.tutorNote;
         }
@@ -1096,6 +1095,99 @@ router.get('/my-lessons', verifyToken, async (req, res) => {
       
       return lessonObj;
     });
+
+    // ── Enrich upcoming lessons with previous-session context ──
+    // For each scheduled/in_progress lesson, find the most recent completed
+    // lesson with the same tutor-student pair and attach a summary.
+    const upcomingLessons = lessonsWithAnalysis.filter(
+      l => l.status === 'scheduled' || l.status === 'confirmed' || l.status === 'in_progress' || l.status === 'pending_reschedule'
+    );
+
+    if (upcomingLessons.length > 0) {
+      // Collect unique tutor-student pairs
+      const pairKeys = new Set();
+      const pairList = [];
+      for (const l of upcomingLessons) {
+        const key = `${l.tutorId?._id || l.tutorId}|${l.studentId?._id || l.studentId}`;
+        if (!pairKeys.has(key)) {
+          pairKeys.add(key);
+          pairList.push({
+            tutorId: l.tutorId?._id || l.tutorId,
+            studentId: l.studentId?._id || l.studentId,
+          });
+        }
+      }
+
+      // For each pair, find the most recent completed lesson
+      const pairQueries = pairList.map(p =>
+        Lesson.findOne({
+          tutorId: p.tutorId,
+          studentId: p.studentId,
+          status: { $in: ['completed', 'ended_early'] },
+        })
+          .sort({ startTime: -1 })
+          .select('_id tutorId studentId notes')
+          .lean()
+      );
+      const pairResults = await Promise.all(pairQueries);
+
+      // Build a map of pair → previous lesson id
+      const prevLessonMap = new Map();
+      const prevLessonIds = [];
+      pairResults.forEach((prev, i) => {
+        if (!prev) return;
+        const key = `${pairList[i].tutorId}|${pairList[i].studentId}`;
+        prevLessonMap.set(key, prev);
+        prevLessonIds.push(prev._id);
+      });
+
+      // Load analyses for previous lessons
+      let prevAnalysisMap = new Map();
+      let prevFeedbackMap = new Map();
+      if (prevLessonIds.length > 0) {
+        const [prevAnalyses, prevFeedbacks] = await Promise.all([
+          LessonAnalysis.find({ lessonId: { $in: prevLessonIds }, status: 'completed' })
+            .select('lessonId tutorNote overallAssessment.summary recommendedFocus')
+            .lean(),
+          TutorFeedback.find({ lessonId: { $in: prevLessonIds }, status: 'completed' })
+            .select('lessonId overallNotes areasForImprovement')
+            .lean(),
+        ]);
+        prevAnalyses.forEach(a => prevAnalysisMap.set(a.lessonId.toString(), a));
+        prevFeedbacks.forEach(f => prevFeedbackMap.set(f.lessonId.toString(), f));
+      }
+
+      // Attach lastSessionContext to each upcoming lesson
+      for (const l of upcomingLessons) {
+        const key = `${l.tutorId?._id || l.tutorId}|${l.studentId?._id || l.studentId}`;
+        const prev = prevLessonMap.get(key);
+        if (!prev) {
+          l.lastSessionContext = { isFirstLesson: true };
+          continue;
+        }
+        const pid = prev._id.toString();
+        const pAnalysis = prevAnalysisMap.get(pid);
+        const pFeedback = prevFeedbackMap.get(pid);
+
+        const summary =
+          pAnalysis?.overallAssessment?.summary ||
+          pAnalysis?.tutorNote?.text ||
+          pFeedback?.overallNotes ||
+          prev.notes ||
+          null;
+
+        const recommendedFocus = pAnalysis?.recommendedFocus || [];
+        const areasForImprovement = pFeedback?.areasForImprovement || [];
+
+        l.lastSessionContext = {
+          isFirstLesson: false,
+          previousLessonId: prev._id,
+          summary: summary ? String(summary).slice(0, 250) : null,
+          recommendedFocus: recommendedFocus.slice(0, 3),
+          areasForImprovement: areasForImprovement.slice(0, 3),
+        };
+      }
+    }
 
     res.json({ 
       success: true, 
@@ -1929,7 +2021,7 @@ router.patch('/:id', verifyToken, async (req, res) => {
     }
 
     // Update allowed fields
-    const allowedFields = ['whiteboardRoomUUID', 'whiteboardCreatedAt'];
+    const allowedFields = ['whiteboardRoomUUID', 'whiteboardCreatedAt', 'studentLessonIntent'];
     const updates = {};
     
     for (const field of allowedFields) {
@@ -1992,6 +2084,9 @@ router.patch('/:id/status', verifyToken, async (req, res) => {
 
     // Update status
     lesson.status = status;
+    if (status === 'cancelled') {
+      lesson.tutorPayout = 0;
+    }
     await lesson.save();
 
     console.log(`✅ Lesson ${lesson._id} status updated to: ${status}`);
@@ -3236,6 +3331,7 @@ router.delete('/:id/cancel', verifyToken, async (req, res) => {
     lesson.status = 'cancelled';
     lesson.cancelledAt = new Date();
     lesson.cancelledBy = isTutor ? 'tutor' : 'student';
+    lesson.tutorPayout = 0;
     
     // Store both the reason ID and human-readable text
     lesson.cancelReason = reasonId || (isTutor ? 'tutor_cancelled' : 'student_cancelled');

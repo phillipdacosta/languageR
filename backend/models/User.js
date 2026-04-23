@@ -314,6 +314,12 @@ const userSchema = new mongoose.Schema({
       enum: ['week', 'day'],
       default: 'week',
       comment: 'Default calendar view when opening availability setup'
+    },
+    weeklyEarningsGoal: {
+      type: Number,
+      default: 500,
+      min: 0,
+      comment: 'Tutor-configurable weekly earnings target in USD — used by the Home earnings widget progress bar'
     }
   },
   // Google Calendar integration

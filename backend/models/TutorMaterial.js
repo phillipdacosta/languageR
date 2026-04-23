@@ -62,7 +62,7 @@ const TutorMaterialSchema = new mongoose.Schema({
   structuredTags: [{ type: String, trim: true, lowercase: true }],
 
   // ── Tutor pitch (shown to students before purchase) ───
-  whyTakeThis: { type: String, maxlength: 300 },
+  whyTakeThis: { type: String, maxlength: 100 },
 
   // ── Shared ─────────────────────────────────────────────
   pricingType: {

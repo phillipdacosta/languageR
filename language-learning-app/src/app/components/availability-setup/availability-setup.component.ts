@@ -724,8 +724,9 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
       this.mobileStartIndex = 0;
     }
     this.updateWeekDays();
-    // Just update the time position
     this.updateCurrentTimePosition();
+    // Reload availability for the new week (same as single-day mode does)
+    this.forceRefreshAvailability();
   }
 
   navigateMonth(direction: 'prev' | 'next') {
@@ -739,24 +740,22 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
       this.mobileStartIndex = 0;
     }
     this.updateWeekDays();
+    this.forceRefreshAvailability();
   }
 
   goToToday() {
     if (this.isSingleDayMode) {
-      // In single day mode, go to today
       const today = new Date();
       this.updateWeekDaysForSingleDay(today);
       this.updateCurrentTimePosition();
-      // Reload availability for today
       this.forceRefreshAvailability();
       return;
     }
-    
     this.initializeCurrentWeek();
     this.mobileStartIndex = 0;
     this.updateWeekDays(new Date());
-    // Just update the time position
     this.updateCurrentTimePosition();
+    this.forceRefreshAvailability();
   }
 
   switchToWeekView() {
@@ -854,54 +853,55 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
         if (res.availability && res.availability.length > 0) {
           console.log('🔧 All availability blocks:', res.availability.length);
           res.availability.forEach(block => {
-            // Parse the absolute start date to get the specific date for this block
-            let blockDate: Date;
-            if (block.absoluteStart) {
-              blockDate = new Date(block.absoluteStart);
-            } else {
-              // Fallback: if no absoluteStart, calculate date from day-of-week and current week
-              let dayIndex: number;
-              if (typeof block.day === 'number') {
-                dayIndex = block.day;
-              } else {
-                dayIndex = this.dayNameToIndex(block.day);
+            // Prefer calendar date from block id ("YYYY-MM-DD-...") — matches save keys and
+            // avoids UTC/local shifts from absoluteStart for evening slots.
+            let blockDate: Date | null = null;
+            if (block.id && typeof block.id === 'string') {
+              const idM = block.id.match(/^(\d{4})-(\d{2})-(\d{2})/);
+              if (idM) {
+                blockDate = new Date(Number(idM[1]), Number(idM[2]) - 1, Number(idM[3]), 0, 0, 0, 0);
               }
-              const currentDayArray = this.isSingleDayMode ? this.displayedWeekDays : this.weekDays;
-              const matchingDay = currentDayArray.find(d => d.index === dayIndex);
-              if (!matchingDay) {
-                return;
-              }
-              blockDate = matchingDay.date;
             }
-            
+            if (!blockDate) {
+              if (block.absoluteStart) {
+                blockDate = new Date(block.absoluteStart);
+              } else {
+                let dayIndex: number;
+                if (typeof block.day === 'number') {
+                  dayIndex = block.day;
+                } else {
+                  dayIndex = this.dayNameToIndex(block.day);
+                }
+                const currentDayArray = this.isSingleDayMode ? this.displayedWeekDays : this.weekDays;
+                const matchingDay = currentDayArray.find(d => d.index === dayIndex);
+                if (!matchingDay) {
+                  return;
+                }
+                blockDate = matchingDay.date;
+              }
+            }
+
             const dateStr = this.formatDateKey(blockDate);
-            
-            // CRITICAL: Check if block applies to currently displayed week
-            // For blocks with absoluteStart/absoluteEnd, only load if they fall within displayed dates
+
+            // For dated blocks, only load if that calendar day falls in the displayed week
             if (block.absoluteStart && block.absoluteEnd) {
-              const blockStart = new Date(block.absoluteStart);
-              const blockEnd = new Date(block.absoluteEnd);
-              blockStart.setHours(0, 0, 0, 0);
-              blockEnd.setHours(0, 0, 0, 0);
-              
-              // Get the range of dates currently displayed in the grid
               const currentDayArray = this.isSingleDayMode ? this.displayedWeekDays : this.weekDays;
               const firstDisplayedDate = currentDayArray[0]?.date;
               const lastDisplayedDate = currentDayArray[currentDayArray.length - 1]?.date;
-              
+
               if (!firstDisplayedDate || !lastDisplayedDate) {
                 return;
               }
-              
+
               const firstDate = new Date(firstDisplayedDate);
               const lastDate = new Date(lastDisplayedDate);
               firstDate.setHours(0, 0, 0, 0);
               lastDate.setHours(0, 0, 0, 0);
-              
-              // Check if block's date range overlaps with displayed week
-              // Block is valid if: blockEnd >= firstDate AND blockStart <= lastDate
-              const blockApplies = blockEnd >= firstDate && blockStart <= lastDate;
-              
+
+              const anchor = new Date(blockDate);
+              anchor.setHours(0, 0, 0, 0);
+              const blockApplies = anchor >= firstDate && anchor <= lastDate;
+
               if (!blockApplies) {
                 return;
               }

@@ -856,6 +856,7 @@
     "FIELD_LEVEL": "Tahap",
     "FIELD_COVER_IMAGE": "Imej Muka Depan",
     "FIELD_COVER_RECOMMENDED": "Disyorkan",
+    "FIELD_COVER_REQUIRED": "Wajib",
     "FIELD_COVER_ADD": "Tambah imej muka depan",
     "FIELD_COVER_HINT": "Menjadikan bahan anda menonjol. Anda akan memangkas ke bentuk kad (16:10). JPG atau PNG, maks 5 MB.",
     "PRO_TIP": "Petua pro:",

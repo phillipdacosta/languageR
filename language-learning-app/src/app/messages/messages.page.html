@@ -126,22 +126,44 @@
             (click)="selectConversation(conversation, $event)"
             [@slideInUp]
             [style.animation-delay]="i * 50 + 'ms'">
-            <ion-avatar class="conversation-avatar">
-              <!-- System message: show app icon -->
-              <img *ngIf="conversation.lastMessage?.isSystemMessage || conversation.lastMessage?.type === 'system'" 
-                   src="assets/icons-app-bird-2.png" 
-                   alt="Barnabi" />
-              <!-- Regular message: show user picture or fallback -->
-              <img #avatarImg
-                   *ngIf="!conversation.lastMessage?.isSystemMessage && conversation.lastMessage?.type !== 'system' && conversation.otherUser?.picture" 
-                   [src]="conversation.otherUser?.picture"
-                   referrerpolicy="no-referrer"
-                   (error)="avatarImg.style.display='none'" />
-              <div class="avatar-fallback" 
-                   *ngIf="!conversation.lastMessage?.isSystemMessage && conversation.lastMessage?.type !== 'system'">
-                {{ conversation.otherUser?.name?.charAt(0) || '?' }}
+            <!-- Group conversation: stacked cluster of participant avatars + overflow chip.
+                 `displayParticipants` and `extraCount` are pre-computed in the component
+                 to keep the template function-free (see decorateGroupAvatarClusters). -->
+            <div class="conversation-avatar conversation-avatar--group"
+                 *ngIf="conversation.isGroup; else singleAvatar">
+              <div class="group-avatar-cluster"
+                   [attr.data-count]="(conversation.displayParticipants?.length ?? 0) + ((conversation.extraCount ?? 0) > 0 ? 1 : 0)">
+                <div class="group-avatar"
+                     *ngFor="let p of (conversation.displayParticipants || []); let i = index"
+                     [style.z-index]="10 - i">
+                  <img *ngIf="p.picture" [src]="p.picture" [alt]="p.name" referrerpolicy="no-referrer" />
+                  <div class="avatar-fallback" *ngIf="!p.picture">{{ p.name?.charAt(0) || '?' }}</div>
+                </div>
+                <div class="group-avatar group-avatar--more"
+                     *ngIf="(conversation.extraCount ?? 0) > 0"
+                     [style.z-index]="6">
+                  +{{ conversation.extraCount ?? 0 }}
+                </div>
               </div>
-            </ion-avatar>
+            </div>
+            <ng-template #singleAvatar>
+              <ion-avatar class="conversation-avatar">
+                <!-- System message: show app icon -->
+                <img *ngIf="conversation.lastMessage?.isSystemMessage || conversation.lastMessage?.type === 'system'"
+                     src="assets/icons-app-bird-2.png"
+                     alt="Barnabi" />
+                <!-- Regular message: show user picture or fallback -->
+                <img #avatarImg
+                     *ngIf="!conversation.lastMessage?.isSystemMessage && conversation.lastMessage?.type !== 'system' && conversation.otherUser?.picture"
+                     [src]="conversation.otherUser?.picture"
+                     referrerpolicy="no-referrer"
+                     (error)="avatarImg.style.display='none'" />
+                <div class="avatar-fallback"
+                     *ngIf="!conversation.lastMessage?.isSystemMessage && conversation.lastMessage?.type !== 'system'">
+                  {{ conversation.otherUser?.name?.charAt(0) || '?' }}
+                </div>
+              </ion-avatar>
+            </ng-template>
             <div class="conversation-info">
               <div class="conversation-header-row">
                 <h3>{{ conversation.otherUser?.name || 'Unknown User' }}</h3>
@@ -460,8 +482,13 @@
           </div>
         </div>
 
+        <!-- Archived-thread banner (class conversation the current user is no longer in). -->
+        <div *ngIf="selectedConversation?.archived" class="archived-banner">
+          You're no longer a member of this class conversation. History is read-only.
+        </div>
+
         <!-- Message Input -->
-        <div class="message-input-container">
+        <div class="message-input-container" *ngIf="!selectedConversation?.archived">
           <!-- Hidden file inputs -->
           <input type="file" #imageInput accept="image/*" (change)="onFileSelected($event, 'image')" style="display: none;">
           <input type="file" #documentInput accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx" (change)="onFileSelected($event, 'file')" style="display: none;">
@@ -959,7 +986,11 @@
           </div>
         </div>
  
-        <div class="message-input-container">
+        <div *ngIf="selectedConversation?.archived" class="archived-banner">
+          You're no longer a member of this class conversation. History is read-only.
+        </div>
+
+        <div class="message-input-container" *ngIf="!selectedConversation?.archived">
           <!-- Hidden file inputs -->
           <input type="file" #imageInputMobile accept="image/*" (change)="onFileSelected($event, 'image')" style="display: none;">
           <input type="file" #documentInputMobile accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx" (change)="onFileSelected($event, 'file')" style="display: none;">

@@ -28,6 +28,8 @@ import i18n from 'i18next';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme, ThemeColors } from '../contexts/ThemeContext';
 import { api } from '../services/api';
+import { useScreenEntranceAnimations } from '../hooks/useScreenEntranceAnimations';
+import StaggerRow from '../components/StaggerRow';
 
 // ─── Constants ───
 
@@ -201,13 +203,26 @@ export default function ProfileScreen() {
     if (!isTutor || !user) return { visible: true, loaded: false, missing: [] as string[] };
     const missing: string[] = [];
     if (!user.onboardingCompleted) missing.push(t('HOME.BANNER_COMPLETE_SETUP'));
+    const hasCustomPhoto = !!(user.picture && (
+      user.picture.includes('storage.googleapis.com') ||
+      (user.auth0Picture && user.picture !== user.auth0Picture)
+    ));
+    if (!hasCustomPhoto) missing.push(t('HOME.BANNER_UPLOAD_PHOTO'));
     if (!user.tutorApproved) {
       const videoOk = user.tutorOnboarding?.videoApproved === true;
       if (!videoOk) { const hasAny = !!(od?.introductionVideo || od?.pendingVideo); missing.push(hasAny ? t('HOME.BANNER_VIDEO_PENDING') : t('HOME.BANNER_UPLOAD_VIDEO')); }
+      const creds = user.tutorCredentials;
+      const govIdOk = creds?.governmentId?.status === 'approved';
+      const certsOk = !!(creds?.teachingCertifications?.some((c: any) => c.status === 'approved'));
+      if (!govIdOk || !certsOk) {
+        const govUploaded = !!(creds?.governmentId?.url && creds.governmentId.status !== 'not_uploaded');
+        const certsUploaded = !!(creds?.teachingCertifications && creds.teachingCertifications.length > 0);
+        missing.push(govUploaded && certsUploaded ? t('HOME.BANNER_CREDENTIALS_PENDING') : t('HOME.BANNER_UPLOAD_CREDENTIALS'));
+      }
     }
     if (!hasPayoutSetup && payoutLoaded) missing.push(t('HOME.BANNER_CONNECT_BANK'));
     if (pendingFeedbackCount > 0) missing.push(`${pendingFeedbackCount} ${t('HOME.FEEDBACK_NEEDED')}`);
-    const isVisible = !!user.onboardingCompleted && !!user.tutorApproved && hasPayoutSetup && pendingFeedbackCount === 0;
+    const isVisible = !!user.onboardingCompleted && hasCustomPhoto && !!user.tutorApproved && hasPayoutSetup && pendingFeedbackCount === 0;
     return { visible: isVisible, loaded: payoutLoaded, missing };
   }, [isTutor, user, hasPayoutSetup, payoutLoaded, pendingFeedbackCount, od, t]);
 
@@ -364,6 +379,7 @@ export default function ProfileScreen() {
   const filteredLang = LANGUAGES.filter(l => l.name.toLowerCase().includes(langSearch.toLowerCase()) || l.nativeName.toLowerCase().includes(langSearch.toLowerCase()));
 
   const C = colors;
+  const { shellMotion } = useScreenEntranceAnimations(false);
 
   // ─── Skeleton ───
   if (!user) {
@@ -385,6 +401,7 @@ export default function ProfileScreen() {
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.text} />}>
 
+        <Animated.View style={shellMotion}>
         {/* ═══ Profile Header ═══ */}
         <View style={[s.section, { borderBottomColor: C.border }]}>
           <Text style={[s.sectionTitle, { color: C.text }]}>{t('PROFILE_SCREEN.PROFILE')}</Text>
@@ -439,17 +456,21 @@ export default function ProfileScreen() {
             )}
           </View>
         </View>
+        </Animated.View>
 
         {/* ═══ Payment Warning ═══ */}
         {isTutor && payoutLoaded && !hasPayoutSetup && (
+          <StaggerRow index={0}>
           <View style={[s.warnCard, { backgroundColor: isDark ? '#2a2000' : '#fffbeb', borderColor: isDark ? '#534000' : '#fde68a' }]}>
             <Ionicons name="warning" size={22} color={C.warning} />
             <View style={{ flex: 1 }}><Text style={[s.warnCardTitle, { color: C.text }]}>{t('PROFILE_SCREEN.PAYMENT_REQUIRED')}</Text><Text style={[s.warnCardDesc, { color: C.textSecondary }]}>{t('PROFILE_SCREEN.PAYMENT_REQUIRED_DESC')}</Text></View>
           </View>
+          </StaggerRow>
         )}
 
         {/* ═══ Payouts (tutor) ═══ */}
         {isTutor && (
+          <StaggerRow index={1}>
           <View style={[s.section, { borderBottomColor: C.border }]}>
             <Text style={[s.sectionTitle, { color: C.text }]}>{t('PROFILE_SCREEN.PAYOUTS')}</Text>
             {!payoutLoaded ? (
@@ -471,9 +492,11 @@ export default function ProfileScreen() {
               </>
             )}
           </View>
+          </StaggerRow>
         )}
 
         {/* ═══ Stats ═══ */}
+        <StaggerRow index={2}>
         <View style={[s.section, { borderBottomColor: C.border }]}>
           <Text style={[s.sectionTitle, { color: C.text }]}>{isTutor ? t('PROFILE_SCREEN.TEACHING_STATS') : t('PROFILE_SCREEN.LEARNING_PROGRESS')}</Text>
           <View style={s.statsGrid}>
@@ -486,9 +509,11 @@ export default function ProfileScreen() {
             </View>
           </View>
         </View>
+        </StaggerRow>
 
         {/* ═══ Introduction Video (tutor) ═══ */}
         {isTutor && (
+          <StaggerRow index={3}>
           <View style={[s.section, { borderBottomColor: C.border }]}>
             <Text style={[s.overline, { color: C.textSecondary }]}>{t('PROFILE_SCREEN.INTRO_VIDEO_SUBTITLE').toUpperCase()}</Text>
             <Text style={[s.sectionTitle, { color: C.text }]}>{t('PROFILE_SCREEN.INTRO_VIDEO')}</Text>
@@ -513,27 +538,35 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             )}
           </View>
+          </StaggerRow>
         )}
 
         {/* ═══ About ═══ */}
         {(user.bio || user.profile?.bio || user.onboardingData?.bio) ? (
+          <StaggerRow index={4}>
           <View style={[s.section, { borderBottomColor: C.border }]}><Text style={[s.sectionTitle, { color: C.text }]}>{t('PROFILE.ABOUT')}</Text><Text style={[s.bio, { color: C.textSecondary }]}>{user.bio || user.profile?.bio || user.onboardingData?.bio}</Text></View>
+          </StaggerRow>
         ) : null}
 
         {/* ═══ Experience (tutor) ═══ */}
         {isTutor && user.experience ? (
+          <StaggerRow index={5}>
           <View style={[s.section, { borderBottomColor: C.border }]}><Text style={[s.sectionTitle, { color: C.text }]}>{t('PROFILE.EXPERIENCE')}</Text><Text style={[s.bio, { color: C.textSecondary }]}>{user.experience}</Text></View>
+          </StaggerRow>
         ) : null}
 
         {/* ═══ Learning Goal (student) ═══ */}
         {isStudent && learningGoal && (
+          <StaggerRow index={4}>
           <View style={[s.section, { borderBottomColor: C.border }]}>
             <Text style={[s.sectionTitle, { color: C.text }]}>{t('PROFILE_SCREEN.MY_LEARNING_GOAL')}</Text>
             <View style={s.goalRow}><View style={[s.goalIcon, { backgroundColor: C.inputBg }]}><Ionicons name={(learningGoal.icon || 'flag') as any} size={22} color={C.text} /></View><View style={{ flex: 1 }}><Text style={[s.goalType, { color: C.text }]}>{learningGoal.display}</Text></View></View>
           </View>
+          </StaggerRow>
         )}
 
         {/* ═══ Settings ═══ */}
+        <StaggerRow index={6}>
         <View style={[s.section, { borderBottomColor: C.border }]}>
           <Text style={[s.sectionTitle, { color: C.text }]}>{t('PROFILE_SCREEN.SETTINGS')}</Text>
 
@@ -571,11 +604,14 @@ export default function ProfileScreen() {
           {isStudent && <SettingsToggle icon="analytics-outline" label={t('PROFILE_SCREEN.AI_LESSON_REVIEW')} sublabel={t('PROFILE_SCREEN.AI_LESSON_REVIEW_DESC')} value={aiAnalysisEnabled} onToggle={handleToggleAI} colors={C} />}
           <SettingsRow icon="help-circle-outline" label={t('PROFILE_SCREEN.HELP_SUPPORT')} chevron colors={C} />
         </View>
+        </StaggerRow>
 
         {/* ═══ Sign Out ═══ */}
+        <StaggerRow index={7}>
         <TouchableOpacity style={[s.signOut, { borderColor: C.border }]} onPress={handleLogout} activeOpacity={0.7}>
           <Ionicons name="log-out-outline" size={18} color={C.danger} /><Text style={[s.signOutTxt, { color: C.danger }]}>{t('PROFILE_SCREEN.SIGN_OUT')}</Text>
         </TouchableOpacity>
+        </StaggerRow>
         <View style={{ height: 48 }} />
       </ScrollView>
 

@@ -2,7 +2,7 @@ import { Component, OnInit, AfterViewInit, OnDestroy, ViewChild, ElementRef, Cha
 import { CommonModule } from '@angular/common';
 import { IonicModule, ViewWillEnter, ViewDidEnter, ActionSheetController, ModalController, ToastController, AlertController, NavController } from '@ionic/angular';
 import { EventDetailsModalComponent } from '../components/event-details-modal/event-details-modal.component';
-import { Router, NavigationEnd, ActivatedRoute } from '@angular/router';
+import { Router, RouterModule, NavigationEnd, ActivatedRoute } from '@angular/router';
 import { UserService, User } from '../services/user.service';
 import { LessonService, Lesson } from '../services/lesson.service';
 import { ClassService } from '../services/class.service';
@@ -36,8 +36,10 @@ import { EventTimePipe } from './pipes/event-time.pipe';
 import { IsTodayPipe } from './pipes/is-today.pipe';
 import { IsEventPastPipe } from './pipes/is-event-past.pipe';
 import { FreeHoursPipe } from './pipes/free-hours.pipe';
+import { GrossFreeHoursPipe } from './pipes/gross-free-hours.pipe';
 import { TotalAvailabilityPipe } from './pipes/total-availability.pipe';
 import { BookedHoursPipe } from './pipes/booked-hours.pipe';
+import { futureAvailabilityRange, overlapMinutes, computeFutureFreeHoursFromEvents, computeGrossFreeHoursFromEvents } from './utils/future-availability.util';
 
 interface MobileDayContext {
   date: Date;
@@ -105,9 +107,11 @@ interface AgendaSection {
     IsTodayPipe,
     IsEventPastPipe,
     FreeHoursPipe,
+    GrossFreeHoursPipe,
     TotalAvailabilityPipe,
     BookedHoursPipe,
-    TranslateModule
+    TranslateModule,
+    RouterModule
   ],
   animations: [
     trigger('slideInUp', [
@@ -151,17 +155,47 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   isCompactToolbar = false;
   
   get isOnboardingIncomplete(): boolean {
+    const user = this.currentUser;
+    const creds = user?.tutorCredentials;
+    const hasPayoutSetup = user?.stripeConnectOnboarded || user?.payoutProvider === 'paypal' || user?.payoutProvider === 'manual';
+    const govIdUploaded = !!(creds?.governmentId?.url && creds.governmentId.status !== 'not_uploaded');
+    const certsUploaded = !!(creds?.teachingCertifications && creds.teachingCertifications.length > 0);
     return !this.hasCustomProfilePhoto ||
-           !this.currentUser?.tutorOnboarding?.videoApproved ||
-           (!this.currentUser?.tutorOnboarding?.stripeConnected && !this.currentUser?.stripeConnectOnboarded);
+           !user?.tutorOnboarding?.videoApproved ||
+           !(govIdUploaded && certsUploaded) ||
+           !hasPayoutSetup;
   }
 
-  get isProfileHiddenNoVideo(): boolean {
-    return !this.currentUser?.tutorApproved &&
-           !!this.currentUser?.onboardingCompleted &&
-           !this.currentUser?.onboardingData?.introductionVideo &&
-           !this.currentUser?.onboardingData?.pendingVideo &&
-           !this.currentUser?.tutorOnboarding?.videoApproved;
+  /** True when government ID or teaching certs are missing (calendar onboarding banner). */
+  get bannerCredentialsIncomplete(): boolean {
+    const creds = this.currentUser?.tutorCredentials;
+    const gov = creds?.governmentId;
+    const govIdUploaded = !!(gov?.url && gov.status !== 'not_uploaded');
+    const certsUploaded = (creds?.teachingCertifications?.length ?? 0) > 0;
+    return !(govIdUploaded && certsUploaded);
+  }
+
+  get profileChecklist(): { id: string; label: string; done: boolean; route: string }[] {
+    const user = this.currentUser;
+    if (!user) return [];
+    const creds = user.tutorCredentials;
+    const hasVideo = !!(user.onboardingData?.introductionVideo || user.onboardingData?.pendingVideo);
+    const videoApproved = user.tutorOnboarding?.videoApproved === true;
+    const govIdUploaded = !!(creds?.governmentId?.url && creds.governmentId.status !== 'not_uploaded');
+    const certsUploaded = (creds?.teachingCertifications?.length ?? 0) > 0;
+    const credsComplete = govIdUploaded && certsUploaded;
+    const credsApproved = creds?.governmentId?.status === 'approved' && !!(creds?.teachingCertifications?.some((c: any) => c.status === 'approved'));
+    const hasPayout = user.stripeConnectOnboarded || user.payoutProvider === 'paypal' || user.payoutProvider === 'manual';
+    return [
+      { id: 'photo', label: 'Profile photo', done: this.hasCustomProfilePhoto, route: '/tutor-approval' },
+      { id: 'video', label: hasVideo && !videoApproved ? 'Intro video (pending review)' : 'Introduction video', done: hasVideo, route: '/tabs/profile' },
+      { id: 'creds', label: credsComplete && !credsApproved ? 'Credentials (pending review)' : 'Credentials', done: credsComplete, route: '/tutor-approval' },
+      { id: 'payout', label: 'Payout method', done: !!hasPayout, route: '/tutor-approval' },
+    ];
+  }
+
+  get profileChecklistDoneCount(): number {
+    return this.profileChecklist.filter(i => i.done).length;
   }
 
   // Outstanding feedback
@@ -235,6 +269,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   // Today summary (computed once per timeline build)
   todaySummaryLessonCount = 0;
   todaySummaryHoursAvailable = 0;
+  /** Mobile avail pill visibility: includes past slots for the selected day. */
+  todaySummaryGrossHoursAvailable = 0;
   todaySummaryNextUp: TimelineEntry | null = null;
 
   // Mobile availability blocks for day view
@@ -247,6 +283,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   availabilityJustSaved = false;
   private _pendingAvailPop = false;
   weekAvailabilityHours = 0;
+  /** Sum of free hours across the week including past slots — controls pill visibility. */
+  weekAvailabilityGrossHours = 0;
   weekAvailabilityByDay: {
     label: string;
     totalHours: number;
@@ -691,9 +729,18 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     const lessons = events.filter(e => !e.isCancelled && (e.isLesson || e.isClass));
     this.todaySummaryLessonCount = lessons.length;
 
-    let availMinutes = 0;
+    let grossAvailMinutes = 0;
     for (const block of availability) {
-      availMinutes += block.durationMinutes;
+      grossAvailMinutes += block.durationMinutes;
+    }
+    this.todaySummaryGrossHoursAvailable = Math.round((grossAvailMinutes / 60) * 10) / 10;
+
+    const range = futureAvailabilityRange(day.date, now, 'fullDay');
+    let availMinutes = 0;
+    if (range) {
+      for (const block of availability) {
+        availMinutes += overlapMinutes(block.start, block.end, range.winStart, range.winEnd);
+      }
     }
     this.todaySummaryHoursAvailable = Math.round((availMinutes / 60) * 10) / 10;
 
@@ -739,15 +786,27 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       return title === '' || title === this.translate.instant('TUTOR_CALENDAR.AVAILABLE_FALLBACK');
     }).filter(e => !e.avatarUrl && !e.subtitle);
 
+    const now = new Date();
+    const range = futureAvailabilityRange(dayAnchor, now, 'fullDay');
+
     let dayMinutes = 0;
-    const blocks = availOnly.map(b => {
-      dayMinutes += b.durationMinutes;
-      return {
-        startTime: this.formatTime(b.start),
-        endTime: this.formatTime(b.end),
-        duration: this.formatDurationShort(b.durationMinutes)
-      };
-    });
+    const blocks: { startTime: string; endTime: string; duration: string }[] = [];
+    if (range) {
+      for (const b of availOnly) {
+        const mins = overlapMinutes(b.start, b.end, range.winStart, range.winEnd);
+        if (mins <= 0) {
+          continue;
+        }
+        dayMinutes += mins;
+        const clipStart = new Date(Math.max(b.start.getTime(), range.winStart.getTime()));
+        const clipEnd = new Date(Math.min(b.end.getTime(), range.winEnd.getTime()));
+        blocks.push({
+          startTime: this.formatTime(clipStart),
+          endTime: this.formatTime(clipEnd),
+          duration: this.formatDurationShort(mins)
+        });
+      }
+    }
 
     const dateLabel = dayStart.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
     return {
@@ -761,14 +820,17 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   private computeWeekAvailability() {
     const weekStart = new Date(this.currentWeekStart);
     const result: typeof this.weekAvailabilityByDay = [];
-    let totalMinutes = 0;
+    let totalFutureMinutes = 0;
+    let totalGrossHours = 0;
+    const evs = this.events || [];
 
     for (let d = 0; d < 7; d++) {
       const dayStart = new Date(weekStart);
       dayStart.setDate(weekStart.getDate() + d);
       dayStart.setHours(0, 0, 0, 0);
       const row = this.buildAvailabilityRowForCalendarDay(dayStart);
-      totalMinutes += row.totalMinutes;
+      totalFutureMinutes += row.totalMinutes;
+      totalGrossHours += computeGrossFreeHoursFromEvents(evs, dayStart, 'fullDay');
       result.push({
         label: row.label,
         totalHours: row.totalHours,
@@ -778,7 +840,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     }
 
     this.weekAvailabilityByDay = result;
-    this.weekAvailabilityHours = Math.round((totalMinutes / 60) * 10) / 10;
+    this.weekAvailabilityHours = Math.round((totalFutureMinutes / 60) * 10) / 10;
+    this.weekAvailabilityGrossHours = Math.round(totalGrossHours * 10) / 10;
   }
 
   private collectEventsForDay(dayStart: Date, dayEnd: Date): TimelineEntry[] {
@@ -2834,21 +2897,16 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
 
   async onSetUpAvailability(date?: Date, timeSlot?: TimelineEntry) {
-    if (this.isProfileHiddenNoVideo) {
+    if (this.isOnboardingIncomplete) {
       const alert = await this.alertController.create({
-        header: this.translate.instant('TUTOR_CALENDAR.PROFILE_HIDDEN_HEADER'),
-        message: this.translate.instant('TUTOR_CALENDAR.PROFILE_HIDDEN_MSG'),
+        header: this.translate.instant('TUTOR_CALENDAR.COMPLETE_PROFILE_SETUP'),
+        message: this.translate.instant('TUTOR_CALENDAR.COMPLETE_PROFILE_BEFORE_AVAILABILITY'),
         buttons: [
           { text: this.translate.instant('TUTOR_CALENDAR.CANCEL'), role: 'cancel' },
-          { text: this.translate.instant('TUTOR_CALENDAR.UPLOAD_VIDEO'), handler: () => this.router.navigate(['/tabs/profile']) }
+          { text: this.translate.instant('TUTOR_CALENDAR.CONTINUE_SETUP'), handler: () => this.router.navigate(['/tutor-approval']) }
         ]
       });
       await alert.present();
-      return;
-    }
-
-    if (!this.stripeConnectOnboarded) {
-      this.showStripeOnboardingAlert();
       return;
     }
     
@@ -3682,64 +3740,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     if (!this.selectedDayForDayView || !this.selectedDayForDayView.date) {
       return 0;
     }
-    
-    // Only calculate for the calendar's visible hours (6 AM to 11 PM)
-    const dayStart = new Date(this.selectedDayForDayView.date);
-    dayStart.setHours(6, 0, 0, 0); // Start at 6 AM
-    const dayEnd = new Date(this.selectedDayForDayView.date);
-    dayEnd.setHours(23, 0, 0, 0); // End at 11 PM
-    
-    let totalAvailableMinutes = 0;
-    let totalBookedMinutes = 0;
-    
-    
-    
-    
-    // Loop through all events for this day
-    for (const event of this.events || []) {
-      if (!event.start || !event.end) continue;
-      
-      const eventStart = new Date(event.start as string | number | Date);
-      const eventEnd = new Date(event.end as string | number | Date);
-      
-      if (isNaN(eventStart.getTime()) || isNaN(eventEnd.getTime())) continue;
-      
-      // Check if event overlaps with this day's visible hours
-      if (eventStart >= dayEnd || eventEnd <= dayStart) continue;
-      
-      // Clamp to visible hours
-      const clampedStart = eventStart.getTime() < dayStart.getTime() ? dayStart : eventStart;
-      const clampedEnd = eventEnd.getTime() > dayEnd.getTime() ? dayEnd : eventEnd;
-      const durationMinutes = Math.round((clampedEnd.getTime() - clampedStart.getTime()) / 60000);
-      
-      const extended = (event.extendedProps as any) || {};
-      // Check for 'available' (not 'availability')
-      const isAvailability = extended.type === 'available';
-      const isLesson = Boolean(extended.lessonId);
-      const isClass = Boolean(extended.classId || extended.isClass);
-      
-      if (isAvailability) {
-        // Count availability blocks
-        totalAvailableMinutes += durationMinutes;
-        
-      } else if (isLesson || isClass) {
-        // Count booked lessons/classes
-        totalBookedMinutes += durationMinutes;
-        
-      }
-    }
-    
-    
-    
-    
-    // Available but not booked = total availability - booked lessons
-    const freeMinutes = Math.max(0, totalAvailableMinutes - totalBookedMinutes);
-    const freeHours = Math.round((freeMinutes / 60) * 10) / 10;
-    
-    
-    
-    // Convert to hours (rounded to 1 decimal place)
-    return freeHours;
+    return computeFutureFreeHoursFromEvents(this.events || [], this.selectedDayForDayView.date, new Date(), 'visible6to23');
   }
   
   private generateTimeSlots() {

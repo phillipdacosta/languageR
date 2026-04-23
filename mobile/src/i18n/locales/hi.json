@@ -860,6 +860,7 @@
     "FIELD_LEVEL": "स्तर",
     "FIELD_COVER_IMAGE": "कवर छवि",
     "FIELD_COVER_RECOMMENDED": "अनुशंसित",
+    "FIELD_COVER_REQUIRED": "आवश्यक",
     "FIELD_COVER_ADD": "कवर छवि जोड़ें",
     "FIELD_COVER_HINT": "आपकी सामग्री को आकर्षक बनाता है। आप कार्ड आकार (16:10) में क्रॉप करेंगे। JPG या PNG, अधिकतम 5 MB।",
     "PRO_TIP": "प्रो टिप:",

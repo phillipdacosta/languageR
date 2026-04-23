@@ -8,6 +8,7 @@ const MaterialReport = require('../models/MaterialReport');
 const LessonAnalysis = require('../models/LessonAnalysis');
 const User = require('../models/User');
 const Payment = require('../models/Payment');
+const SavedMaterial = require('../models/SavedMaterial');
 const { verifyToken, getUserFromRequest, uploadImage, uploadImageToGCS } = require('../middleware/videoUploadMiddleware');
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -228,8 +229,12 @@ router.post('/', verifyToken, async (req, res) => {
       pricingType, price, quiz, status, contentAttested
     } = req.body;
 
-    if (!title || !language) {
-      return res.status(400).json({ success: false, message: 'Title and language are required' });
+    const isDraft = status === 'draft';
+
+    if (!isDraft) {
+      if (!title || !language) {
+        return res.status(400).json({ success: false, message: 'Title and language are required' });
+      }
     }
 
     const type = materialType || 'video_quiz';
@@ -237,65 +242,103 @@ router.post('/', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid material type' });
     }
 
-    if (pricingType === 'paid' && (!price || price <= 0)) {
+    if (!isDraft && pricingType === 'paid' && (!price || price <= 0)) {
       return res.status(400).json({ success: false, message: 'Paid materials must have a price greater than 0' });
     }
 
-    const quizError = validateQuiz(quiz);
-    if (quizError) {
-      return res.status(400).json({ success: false, message: quizError });
+    if (!isDraft) {
+      const quizError = validateQuiz(quiz);
+      if (quizError) {
+        return res.status(400).json({ success: false, message: quizError });
+      }
     }
+
+    const effectiveTitle = (title && String(title).trim()) || (isDraft ? 'Untitled draft' : '');
+    const effectiveLanguage = (language && String(language).trim()) || (isDraft ? 'English' : '');
+
+    if (!isDraft && (!effectiveTitle || !effectiveLanguage)) {
+      return res.status(400).json({ success: false, message: 'Title and language are required' });
+    }
+
+    const paidPrice = pricingType === 'paid'
+      ? (isDraft ? Math.max(0, Number(price) || 0) : price)
+      : 0;
 
     const doc = {
       tutorId: tutor._id,
-      title,
+      title: effectiveTitle,
       description: description || '',
       whyTakeThis: whyTakeThis || '',
-      language,
+      language: effectiveLanguage,
       level: level || 'any',
       topics: Array.isArray(topics) ? topics.map(t => t.trim().toLowerCase()).filter(Boolean) : [],
       structuredTags: Array.isArray(structuredTags) ? structuredTags.map(t => t.trim().toLowerCase()).filter(Boolean) : [],
       materialType: type,
       pricingType: pricingType || 'free',
-      price: pricingType === 'paid' ? price : 0,
-      quiz: quiz || [],
-      status: status || 'published'
+      price: paidPrice,
+      quiz: Array.isArray(quiz) ? quiz : [],
+      status: isDraft ? 'draft' : (status || 'published')
     };
 
     // Type-specific validation & fields
     if (type === 'video_quiz') {
-      if (!videoUrl) {
-        return res.status(400).json({ success: false, message: 'Video URL is required for video quiz materials' });
+      if (!isDraft) {
+        if (!videoUrl) {
+          return res.status(400).json({ success: false, message: 'Video URL is required for video quiz materials' });
+        }
+        const videoInfo = extractVideoInfo(videoUrl);
+        if (!videoInfo) {
+          return res.status(400).json({ success: false, message: 'Invalid YouTube or Vimeo URL' });
+        }
+        doc.videoUrl = videoUrl;
+        doc.videoProvider = videoInfo.provider;
+        doc.videoEmbedUrl = videoInfo.embedUrl;
+        doc.thumbnailUrl = videoInfo.thumbnailUrl;
+      } else if (videoUrl && String(videoUrl).trim()) {
+        const videoInfo = extractVideoInfo(videoUrl);
+        if (!videoInfo) {
+          return res.status(400).json({ success: false, message: 'Invalid YouTube or Vimeo URL' });
+        }
+        doc.videoUrl = videoUrl;
+        doc.videoProvider = videoInfo.provider;
+        doc.videoEmbedUrl = videoInfo.embedUrl;
+        if (!customThumbnail) doc.thumbnailUrl = videoInfo.thumbnailUrl;
       }
-      const videoInfo = extractVideoInfo(videoUrl);
-      if (!videoInfo) {
-        return res.status(400).json({ success: false, message: 'Invalid YouTube or Vimeo URL' });
-      }
-      doc.videoUrl = videoUrl;
-      doc.videoProvider = videoInfo.provider;
-      doc.videoEmbedUrl = videoInfo.embedUrl;
-      doc.thumbnailUrl = videoInfo.thumbnailUrl;
     }
 
     if (type === 'reading') {
-      const strippedPassage = (passage || '').replace(/<[^>]*>/g, '').trim();
-      if (!strippedPassage) {
-        return res.status(400).json({ success: false, message: 'A reading passage is required' });
+      if (!isDraft) {
+        const strippedPassage = (passage || '').replace(/<[^>]*>/g, '').trim();
+        if (!strippedPassage) {
+          return res.status(400).json({ success: false, message: 'A reading passage is required' });
+        }
+        doc.passage = passage;
+      } else {
+        doc.passage = passage || '';
       }
-      doc.passage = passage;
     }
 
     if (type === 'listening') {
-      if (!audioUrl) {
-        return res.status(400).json({ success: false, message: 'An audio URL is required for listening exercises' });
+      if (!isDraft) {
+        if (!audioUrl) {
+          return res.status(400).json({ success: false, message: 'An audio URL is required for listening exercises' });
+        }
+        const audioInfo = extractAudioInfo(audioUrl);
+        if (!audioInfo) {
+          return res.status(400).json({ success: false, message: 'Invalid audio URL. Supported: SoundCloud, Spotify, or direct audio files (.mp3, .wav, etc.). For YouTube/Vimeo, use Video Quiz instead.' });
+        }
+        doc.audioUrl = audioUrl;
+        doc.audioProvider = audioInfo.provider;
+        doc.audioEmbedUrl = audioInfo.embedUrl;
+      } else if (audioUrl && String(audioUrl).trim()) {
+        const audioInfo = extractAudioInfo(audioUrl);
+        if (!audioInfo) {
+          return res.status(400).json({ success: false, message: 'Invalid audio URL. Supported: SoundCloud, Spotify, or direct audio files (.mp3, .wav, etc.). For YouTube/Vimeo, use Video Quiz instead.' });
+        }
+        doc.audioUrl = audioUrl;
+        doc.audioProvider = audioInfo.provider;
+        doc.audioEmbedUrl = audioInfo.embedUrl;
       }
-      const audioInfo = extractAudioInfo(audioUrl);
-      if (!audioInfo) {
-        return res.status(400).json({ success: false, message: 'Invalid audio URL. Supported: SoundCloud, Spotify, or direct audio files (.mp3, .wav, etc.). For YouTube/Vimeo, use Video Quiz instead.' });
-      }
-      doc.audioUrl = audioUrl;
-      doc.audioProvider = audioInfo.provider;
-      doc.audioEmbedUrl = audioInfo.embedUrl;
     }
 
     if (customThumbnail) {
@@ -303,7 +346,8 @@ router.post('/', verifyToken, async (req, res) => {
     }
 
     // Content ownership attestation
-    if (status === 'published' && !contentAttested) {
+    const publishStatus = isDraft ? 'draft' : (status || 'published');
+    if (publishStatus === 'published' && !contentAttested) {
       return res.status(400).json({ success: false, message: 'You must confirm that you own or have rights to this content before publishing' });
     }
     if (contentAttested) {
@@ -311,9 +355,9 @@ router.post('/', verifyToken, async (req, res) => {
       doc.contentAttestedAt = new Date();
     }
 
-    // Auto-verify channel ownership for paid materials
+    // Auto-verify channel ownership for paid materials (not for drafts)
     let channelVerified = false;
-    if (pricingType === 'paid') {
+    if (!isDraft && pricingType === 'paid') {
       if (type === 'video_quiz' && videoUrl) {
         channelVerified = await verifyVideoChannel(videoUrl, tutor);
       } else if (type === 'listening' && audioUrl) {
@@ -680,7 +724,10 @@ router.get('/recommended/:language', verifyToken, async (req, res) => {
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
     const language = req.params.language;
+    const lessonId = req.query.lessonId || null;
+    const currentTutorId = req.query.tutorId || null;
 
+    // ── 1. Student CEFR level ──
     const latestAnalysis = await LessonAnalysis.findOne({
       studentId: user._id,
       language,
@@ -690,35 +737,74 @@ router.get('/recommended/:language', verifyToken, async (req, res) => {
     const studentCefr = latestAnalysis?.overallAssessment?.proficiencyLevel || 'A1';
     const studentLevel = cefrToMaterialLevel(studentCefr);
 
+    // ── 2. Collect struggle keywords with recency weighting ──
+    let lessonAnalysis = null;
+    if (lessonId) {
+      lessonAnalysis = await LessonAnalysis.findOne({
+        lessonId,
+        studentId: user._id,
+        status: 'completed'
+      }).select('topErrors errorPatterns progressionMetrics recommendedFocus').lean();
+    }
+
     const recentAnalyses = await LessonAnalysis.find({
       studentId: user._id,
       language,
-      status: 'completed'
+      status: 'completed',
+      ...(lessonId ? { lessonId: { $ne: lessonId } } : {})
     })
       .sort({ lessonDate: -1 })
       .limit(5)
       .select('topErrors errorPatterns progressionMetrics')
       .lean();
 
-    const struggleKeywords = new Set();
-    recentAnalyses.forEach(a => {
+    // Weight map: keyword → weight (higher = more important)
+    const struggleWeights = new Map();
+
+    function addStruggles(keyword, weight) {
+      const k = keyword.toLowerCase().trim();
+      if (!k) return;
+      struggleWeights.set(k, Math.max(struggleWeights.get(k) || 0, weight));
+    }
+
+    // Current lesson struggles get 4x weight
+    if (lessonAnalysis) {
+      (lessonAnalysis.topErrors || []).forEach(e => {
+        if (e.issue) addStruggles(e.issue, 4);
+      });
+      (lessonAnalysis.errorPatterns || []).forEach(p => {
+        if (p.pattern) addStruggles(p.pattern, 4);
+      });
+      (lessonAnalysis.progressionMetrics?.persistentChallenges || []).forEach(c => {
+        addStruggles(c, 4);
+      });
+      (lessonAnalysis.recommendedFocus || []).forEach(f => {
+        addStruggles(f, 4);
+      });
+    }
+
+    // Recent analyses: most recent = 3x, second = 2x, rest = 1x
+    recentAnalyses.forEach((a, index) => {
+      const weight = index === 0 ? 3 : (index === 1 ? 2 : 1);
       (a.topErrors || []).forEach(e => {
-        if (e.issue) struggleKeywords.add(e.issue.toLowerCase().trim());
+        if (e.issue) addStruggles(e.issue, weight);
       });
       (a.errorPatterns || []).forEach(p => {
-        if (p.pattern) struggleKeywords.add(p.pattern.toLowerCase().trim());
+        if (p.pattern) addStruggles(p.pattern, weight);
       });
       (a.progressionMetrics?.persistentChallenges || []).forEach(c => {
-        struggleKeywords.add(c.toLowerCase().trim());
+        addStruggles(c, weight);
       });
     });
 
+    // ── 3. Exclude already-completed materials ──
     const completedMats = await MaterialProgress.find({
       studentId: user._id,
       completed: true
     }).select('materialId').lean();
     const completedIds = completedMats.map(c => c.materialId);
 
+    // ── 4. Fetch candidate materials (all tutors except self) ──
     const materials = await TutorMaterial.find({
       language: { $regex: new RegExp(`^${language}$`, 'i') },
       level: { $in: [studentLevel, 'any'] },
@@ -728,11 +814,10 @@ router.get('/recommended/:language', verifyToken, async (req, res) => {
     })
       .populate('tutorId', 'name firstName lastName picture')
       .sort({ 'stats.averageScore': -1 })
-      .limit(30)
+      .limit(40)
       .lean();
 
-    const struggled = Array.from(struggleKeywords);
-
+    // ── 5. Resolve content tags for topic matching ──
     const ContentTag = require('../models/ContentTag');
     const allTags = await ContentTag.find({ active: true }).lean();
     const tagLabelMap = {};
@@ -746,6 +831,9 @@ router.get('/recommended/:language', verifyToken, async (req, res) => {
       tagLabelMap[tag.tagId] = labels;
     });
 
+    // ── 6. Score materials ──
+    const struggled = [...struggleWeights.keys()];
+
     const scored = materials.map(m => {
       const topics = (m.topics || []).map(t => t.toLowerCase());
       const sTags = (m.structuredTags || []).map(t => t.toLowerCase());
@@ -755,34 +843,122 @@ router.get('/recommended/:language', verifyToken, async (req, res) => {
       let topicScore = 0;
       const matchedStruggles = [];
 
-      struggled.forEach(s => {
-        const sWords = s.split(/\s+/);
+      struggleWeights.forEach((weight, keyword) => {
+        const sWords = keyword.split(/\s+/);
         allSearchableTerms.forEach(t => {
           const tWords = t.split(/\s+/);
           const overlap = sWords.some(sw => tWords.some(tw =>
             tw.includes(sw) || sw.includes(tw)
           ));
           if (overlap) {
-            topicScore += sTags.length > 0 ? 15 : 10;
-            matchedStruggles.push(s);
+            const basePoints = sTags.length > 0 ? 15 : 10;
+            topicScore += basePoints * weight;
+            matchedStruggles.push(keyword);
           }
         });
       });
 
-      return { ...m, _topicScore: topicScore, _matchedStruggles: [...new Set(matchedStruggles)] };
+      // Tutor affinity: current lesson's tutor gets a boost
+      const isCurrentTutor = currentTutorId && m.tutorId?._id?.toString() === currentTutorId;
+      if (isCurrentTutor) {
+        topicScore += 20;
+      }
+
+      return {
+        ...m,
+        _topicScore: topicScore,
+        _matchedStruggles: [...new Set(matchedStruggles)],
+        _isCurrentTutor: !!isCurrentTutor
+      };
     });
 
     scored.sort((a, b) => b._topicScore - a._topicScore);
     const topMaterials = scored.slice(0, 10);
 
+    // ── 7. Attach isSaved flags ──
+    const topIds = topMaterials.map(m => m._id);
+    const savedDocs = await SavedMaterial.find({
+      studentId: user._id,
+      materialId: { $in: topIds }
+    }).select('materialId').lean();
+    const savedSet = new Set(savedDocs.map(s => s.materialId.toString()));
+
+    const result = topMaterials.map(m => ({
+      ...m,
+      isSaved: savedSet.has(m._id.toString())
+    }));
+
     res.json({
       success: true,
-      materials: topMaterials,
+      materials: result,
       studentLevel: studentCefr,
-      struggles: struggled
+      struggles: struggled,
+      isLessonSpecific: !!lessonId
     });
   } catch (error) {
     console.error('Error getting recommended materials:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ── POST /api/materials/:id/save — Toggle save/bookmark a material ────
+
+router.post('/:id/save', verifyToken, async (req, res) => {
+  try {
+    const user = await getUserFromRequest(req);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const materialId = req.params.id;
+    const { sourceLessonId, source } = req.body;
+
+    const existing = await SavedMaterial.findOne({ studentId: user._id, materialId });
+
+    if (existing) {
+      await SavedMaterial.deleteOne({ _id: existing._id });
+      return res.json({ success: true, saved: false });
+    }
+
+    await SavedMaterial.create({
+      studentId: user._id,
+      materialId,
+      sourceLessonId: sourceLessonId || null,
+      source: source || 'manual'
+    });
+
+    res.json({ success: true, saved: true });
+  } catch (error) {
+    console.error('Error toggling saved material:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ── GET /api/materials/saved — Get student's saved materials library ────
+
+router.get('/saved', verifyToken, async (req, res) => {
+  try {
+    const user = await getUserFromRequest(req);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const savedItems = await SavedMaterial.find({ studentId: user._id })
+      .sort({ savedAt: -1 })
+      .populate({
+        path: 'materialId',
+        populate: { path: 'tutorId', select: 'name firstName lastName picture' }
+      })
+      .lean();
+
+    const materials = savedItems
+      .filter(s => s.materialId && s.materialId.status === 'published')
+      .map(s => ({
+        ...s.materialId,
+        savedAt: s.savedAt,
+        sourceLessonId: s.sourceLessonId,
+        source: s.source
+      }));
+
+    res.json({ success: true, materials });
+  } catch (error) {
+    console.error('Error getting saved materials:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });

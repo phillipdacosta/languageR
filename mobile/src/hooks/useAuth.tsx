@@ -5,6 +5,7 @@ import i18n from 'i18next';
 import { User } from '../types/user';
 import { authService } from '../services/auth';
 import { api } from '../services/api';
+import { clearDetailCache } from '../services/lessons';
 import { env } from '../config/env';
 
 interface AuthContextType {
@@ -98,6 +99,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
       // Auth0 clear can fail silently
     }
     api.clearToken();
+    clearDetailCache();
     setUser(null);
   }, [clearSession]);
 

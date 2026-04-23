@@ -6,7 +6,7 @@ import { PlatformService } from '../services/platform.service';
 import { AuthService } from '../services/auth.service';
 import { UserService, User } from '../services/user.service';
 import { WalletService } from '../services/wallet.service';
-import { Observable, takeUntil, take, filter, firstValueFrom, observeOn, asyncScheduler } from 'rxjs';
+import { Observable, takeUntil, take, filter, firstValueFrom, observeOn, asyncScheduler, forkJoin, of, catchError } from 'rxjs';
 import { Subject, Subscription } from 'rxjs';
 import { LessonService, Lesson } from '../services/lesson.service';
 import { ClassService, ClassInvitation } from '../services/class.service';
@@ -38,6 +38,9 @@ import { LearningPlanService, LearningPlan } from '../services/learning-plan.ser
 import { AnalysisTranslationService } from '../services/analysis-translation.service';
 import { HomeInlineToolbarService } from '../services/home-inline-toolbar.service';
 import { MaterialService, TutorMaterial } from '../services/material.service';
+import { TutorGrowthService, GrowthInsight, GrowthContext } from '../services/tutor-growth.service';
+import { ScheduleClassPage } from '../tutor-calendar/schedule-class/schedule-class.page';
+import { MOCK_CLASS_ATTENDEES_PREVIEW } from '../constants/mock-class-attendees-preview';
 
 @Component({
   selector: 'app-tab1',
@@ -89,6 +92,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   @ViewChild('smartIsland') smartIsland!: SmartIslandComponent;
   @ViewChild('earningsComponent') earningsComponent: any;
   @ViewChild('createMaterialRef') createMaterialRef: any;
+  @ViewChild('scheduleClassModalRef') scheduleClassModalRef?: ScheduleClassPage;
   
   // Platform detection properties
   private destroy$ = new Subject<void>();
@@ -97,6 +101,37 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   platformConfig: any = {};
   isWeb = false;
   isMobile = false;
+  createMaterialModalExpanded = false;
+  createMaterialModalReady = false;
+  createMaterialBackdropVisible = false;
+  /** Desktop: material/bundle detail rendered via router-outlet inside the materials modal. */
+  cmModalRouterOutletActive = false;
+  modalSidebarTab: 'materials' | 'bundles' = 'materials';
+  modalShowFooter = true;
+  modalShowSaveExit = true;
+  modalIsEditingBundle = false;
+  modalIsEditingMaterial = false;
+  /** Desktop create-material modal topbar: "3/9" style count (centered with Save and exit). */
+  modalTopbarCenterStep: string | null = null;
+  /** From create-material `syncModalTopbarChrome` — material mid-steps + bundle share exit. */
+  modalTopbarNavBackLabel = '';
+  /** From create-material — previous bundle wizard step title. */
+  modalTopbarBundleWizardBackLabel = '';
+  modalShowGoBack = false;
+  /** Bundle wizard step "How would you like to share this?" — same top bar as list `< Go back`. */
+  modalShowBundleShareGoBack = false;
+  /** Desktop bundle wizard (after share step): Go back in modal top bar */
+  modalShowBundleWizardGoBack = false;
+  modalDetailsWizardFooter = false;
+  modalDetailsWizardShowBack = false;
+  modalDetailsWizardShowSaveDraft = false;
+  /** ngx-translate key from create-material (e.g. SAVE_DRAFT or COMMON.SAVE). */
+  modalFooterSaveLabelKey: string | null = null;
+  modalDetailsWizardIsLastStep = false;
+  /** When set (e.g. bundle publish), overrides "Continue to Quiz" on last wizard step. */
+  modalDetailsWizardLastStepKey: string | null = null;
+  /** Footer Back text (previous step title), from create-material. */
+  modalFooterBackLabel: string | null = null;
   /** Web at ≤600px: use same tutor empty / Up Next UI as native mobile */
   isNarrowTutorHomeViewport = false;
   isDarkModeActive = false;
@@ -129,6 +164,32 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   private _earningsVisibilityHandler: (() => void) | null = null;
   private _lastEarningsVisibilityRefresh = 0;
 
+  // ─── Desktop earnings widget: weekly goal progress (tutor-only) ───
+  /** Sum of `price` for completed lessons this week (Sun–Sat) where current user is tutor. */
+  weeklyEarningsCompleted = 0;
+  /** Sum of `price` for scheduled/confirmed/in_progress lessons this week. */
+  weeklyEarningsScheduled = 0;
+  /** Count of scheduled lessons this week — used in non-$ copy ("3 lessons scheduled"). */
+  weeklyScheduledLessonCount = 0;
+  /** User-configurable target; persisted per-user in localStorage. */
+  weeklyEarningsGoal = 500;
+  /** 0–100, for the solid (earned) fill. */
+  weeklyEarningsGoalPercent = 0;
+  /** 0–100, for the ghost overlay (earned + scheduled). */
+  weeklyEarningsScheduledPercent = 0;
+  /** Pre-formatted amount label, e.g. "$340 of $500 goal". */
+  weeklyEarningsGoalLabel = '';
+  /** Secondary context line: empty-state / daily target / reached copy. */
+  weeklyEarningsGoalSubLabel = '';
+  /** True when current total ≥ goal — used to switch the bar to a "success" state. */
+  isWeeklyGoalReached = false;
+  /** True when wallet balance is masked (respect same privacy rule as Total Balance). */
+  isWeeklyGoalMasked = false;
+  /** True when inline "Set goal" input is open. */
+  isEditingWeeklyGoal = false;
+  /** Bound to the inline edit input; reset on cancel. */
+  weeklyGoalEditValue: number = 500;
+
   // Inline earnings view toggle
   showEarningsView = false;
   returningFromEarnings = false;
@@ -152,6 +213,18 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   showCreateMaterialView = false;
   private _savedScrollBeforeMaterial = 0;
   private _scrollElRef: HTMLElement | null = null;
+
+  /** Tutor: schedule class in modal (desktop) or full-width panel (mobile), like Create Material */
+  showScheduleClassView = false;
+  private _savedScrollBeforeSchedule = 0;
+  scheduleClassBackdropVisible = false;
+  scheduleClassModalReady = false;
+
+  /** Forum: same shell as My Classes / Create Material quick actions */
+  showForumView = false;
+  private _savedScrollBeforeForum = 0;
+  forumBackdropVisible = false;
+  forumModalReady = false;
 
   // Cached count of active (non-cancelled) invitations — updated when pendingClassInvitations changes
   activeInvitationsCount = 0;
@@ -186,6 +259,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   
   // Up Next card properties (cached — updated when nextLesson changes)
   nextLessonTutor: any = null;
+  upNextFormattedPrice = '';
+  upNextLevelLabel = '';
+  /** Class Up Next: real or preview attendees for `app-class-attendees` (never overwrites API data). */
+  nextLessonClassAttendeesDisplay: any[] = [];
   
   // Tutor date strip and upcoming lesson
   dateStrip: { label: string; dayNum: number; date: Date; isToday: boolean }[] = [];
@@ -241,6 +318,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   
   // Student-specific insights
   totalLessonsCompleted = 0;
+
+  /**
+   * From the full lesson/class API feed before trimming to `this.lessons` (tutors only keep upcoming + today).
+   * Used for growth nudges such as "first booking" — do not derive from `this.lessons` alone.
+   */
+  tutorHasEverHadPastBooking = false;
   
   // Coaching badge metrics (for tutors)
   coachingMetrics: any = null;
@@ -405,6 +488,27 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   nextLessonOtherJoined = false;
   nextLessonOtherName = '';
 
+  // Growth insight ticker (tutor welcome line)
+  growthInsight: GrowthInsight | null = null;
+  growthInsights: GrowthInsight[] = [];
+  growthIndex = 0;
+  growthCount = 0;
+  growthPaused = false;
+  /** True when the growth ticker contains profile-critical items (should override next lesson display). */
+  hasProfileCriticalInsights = false;
+  /** Profile completion checklist for inline welcome display. */
+  profileChecklist: { id: string; label: string; done: boolean; route: string }[] = [];
+  profileChecklistDoneCount = 0;
+  profileChecklistTotal = 0;
+  /** Single-item row; `epoch` bumps every visible change so trackBy never reuses a cached view (restarts CSS fade). */
+  growthInsightSlideRow: { epoch: number; insight: GrowthInsight }[] = [];
+  readonly trackGrowthInsightSlide = (_index: number, row: { epoch: number }) => row.epoch;
+  private _growthSlideEpoch = 0;
+  private _lastGrowthSlideSig = '';
+  isGrowthModalOpen = false;
+  growthModalItems: { insight: GrowthInsight; dismissed: boolean; active: boolean }[] = [];
+  private _growthInsightsLoaded = false;
+
   // Pre-computed template values (avoid function calls in template)
   greetingText = '';
   welcomeMessageText = '';
@@ -457,7 +561,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     private learningPlanService: LearningPlanService,
     private analysisTranslation: AnalysisTranslationService,
     private homeInlineToolbar: HomeInlineToolbarService,
-    private materialService: MaterialService
+    private materialService: MaterialService,
+    private tutorGrowthService: TutorGrowthService
   ) {
     // Subscribe to currentUser$ observable to get updates automatically
     // Use asyncScheduler to prevent synchronous emission from blocking
@@ -517,9 +622,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         // Load availability immediately — it controls the primary CTA
         if (this.isTutor()) {
           this.loadAvailability();
-          // Defer non-critical data so loadLessons() gets network priority
+          this.loadWeeklyEarningsGoalFromStorage();
+          this.refreshWeeklyEarningsProgress();
+          // Defer earnings only — loadTutorInsights runs after loadLessons so growth context sees full lesson feed
           setTimeout(() => {
-            this.loadTutorInsights();
             this.loadTutorEarnings();
           }, 1500);
         } else {
@@ -725,18 +831,28 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       }
       if (event instanceof NavigationEnd) {
         const url = (event as NavigationEnd).urlAfterRedirects || (event as NavigationEnd).url;
-        if (url === '/tabs/home' || url === '/tabs/home/') {
+        this.syncMaterialsModalChildRoute(url);
+        if (
+          this.isMobile &&
+          (url === '/tabs/home' || url === '/tabs/home/')
+        ) {
           // Force re-render inline panels that may be visually stale after
           // returning from a root-level route (e.g. /material/:id on native iOS)
-          if (this.showCreateMaterialView || this.showExploreView) {
+          if (this.showCreateMaterialView || this.showExploreView || this.showScheduleClassView || this.showForumView) {
             const wasCM = this.showCreateMaterialView;
             const wasExplore = this.showExploreView;
+            const wasSchedule = this.showScheduleClassView;
+            const wasForum = this.showForumView;
             this.showCreateMaterialView = false;
             this.showExploreView = false;
+            this.showScheduleClassView = false;
+            this.showForumView = false;
             this.cdr.detectChanges();
             requestAnimationFrame(() => {
               this.showCreateMaterialView = wasCM;
               this.showExploreView = wasExplore;
+              this.showScheduleClassView = wasSchedule;
+              this.showForumView = wasForum;
               this.cdr.detectChanges();
               if (wasCM && this.createMaterialRef?.restoreSection) {
                 this.createMaterialRef.restoreSection();
@@ -746,6 +862,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         }
       }
     });
+
+    this.syncMaterialsModalChildRoute(this.router.url);
 
     // Add window resize listener for reactive viewport detection
     this.resizeListener = () => {
@@ -1716,7 +1834,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
 
   ionViewDidLeave() {
     this.stopDynamicCardRefreshInterval();
-    const toMaterial = this.router.url.startsWith('/material/');
+    const u = this.router.url;
+    const toMaterial =
+      u.startsWith('/material/') ||
+      u.includes('/tabs/home/material/') ||
+      u.startsWith('/bundle/') ||
+      u.includes('/tabs/home/bundle/');
     if (this.showCreateMaterialView && !toMaterial) {
       this.showCreateMaterialView = false;
       this.homeInlineToolbar.setMaterialsViewOpen(false);
@@ -1726,6 +1849,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       this.showExploreView = false;
       this.homeInlineToolbar.setExploreViewOpen(false);
       this.cdr.detectChanges();
+    }
+    if (this.showScheduleClassView && !toMaterial) {
+      this.closeScheduleClassModal(false);
+    }
+    if (this.showForumView && !toMaterial) {
+      this.closeForumModal(false);
     }
   }
 
@@ -1782,6 +1911,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   }
 
   ngOnDestroy() {
+    document.body.classList.remove('cm-desktop-modal-open');
     this._darkModeObserver?.disconnect();
     this.translationSub?.unsubscribe();
     if (this.resizeListener) {
@@ -1809,6 +1939,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     // Reset dynamic card ready flag so it animates in next time
     this.dynamicCardReady = false;
     
+    this.tutorGrowthService.destroy();
+    this._growthInsightsLoaded = false;
+
     this.destroy$.next();
 
     this.destroy$.complete();
@@ -2308,6 +2441,136 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.ionContent?.scrollToTop(0);
   }
 
+  /** Tutors open schedule wizard in a modal; students open Explore. */
+  onClassesQuickAction(): void {
+    if (this.isTutorUser) {
+      this.openScheduleClassModal();
+    } else {
+      this.navigateToExplore();
+    }
+  }
+
+  openScheduleClassModal(): void {
+    this._savedScrollBeforeSchedule = this._scrollElRef?.scrollTop || 0;
+    this.showScheduleClassView = true;
+    this.scheduleClassModalReady = false;
+    this.scheduleClassBackdropVisible = false;
+    this.cdr.detectChanges();
+    if (this.isMobile) {
+      this.ionContent?.scrollToTop(0);
+      setTimeout(() => {
+        this.scheduleClassModalRef?.enterHubListMode();
+        this.cdr.markForCheck();
+      }, 0);
+      return;
+    }
+    document.body.classList.add('cm-desktop-modal-open');
+    requestAnimationFrame(() => {
+      this.scheduleClassBackdropVisible = true;
+      this.cdr.detectChanges();
+    });
+    setTimeout(() => {
+      this.scheduleClassModalReady = true;
+      this.scheduleClassModalRef?.enterHubListMode();
+      this.cdr.detectChanges();
+    }, 350);
+  }
+
+  /** @param restoreScroll pass false when route already changed */
+  closeScheduleClassModal(restoreScroll = true): void {
+    this.scheduleClassModalReady = false;
+    this.scheduleClassBackdropVisible = false;
+    this.showScheduleClassView = false;
+    document.body.classList.remove('cm-desktop-modal-open');
+    this.cdr.detectChanges();
+    if (restoreScroll && this._scrollElRef) {
+      this._scrollElRef.scrollTop = this._savedScrollBeforeSchedule;
+    }
+  }
+
+  onScheduleClassGoBack(): void {
+    this.closeScheduleClassModal(true);
+  }
+
+  /** OnPush: child wizard step / labels updated. */
+  onScheduleClassWizardLayoutChange(): void {
+    this.cdr.markForCheck();
+  }
+
+  onScheduleClassModalBackdropClick(ev: MouseEvent): void {
+    if ((ev.target as HTMLElement).classList.contains('cm-modal-backdrop')) {
+      this.onScheduleClassGoBack();
+    }
+  }
+
+  onScheduleClassBrowsePublic(): void {
+    this.closeScheduleClassModal(true);
+    this.navigateToExplore();
+  }
+
+  onScheduleClassCreated(): void {
+    this.closeScheduleClassModal(true);
+  }
+
+  onScheduleClassSaved(): void {
+    this._lastDataFetch = 0;
+    this._cachedFirstLessonHash = '';
+    this._cachedFirstLesson = undefined;
+    this._cachedTimelineEventsHash = '';
+    this._cachedTimelineEvents = [];
+    this.loadLessons(false);
+  }
+
+  onTutorHubListMutated(): void {
+    this.onScheduleClassSaved();
+  }
+
+  navigateToForum(): void {
+    this.openForumModal();
+  }
+
+  openForumModal(): void {
+    this._savedScrollBeforeForum = this._scrollElRef?.scrollTop || 0;
+    this.showForumView = true;
+    this.forumModalReady = false;
+    this.forumBackdropVisible = false;
+    this.cdr.detectChanges();
+    if (this.isMobile) {
+      this.ionContent?.scrollToTop(0);
+      return;
+    }
+    document.body.classList.add('cm-desktop-modal-open');
+    requestAnimationFrame(() => {
+      this.forumBackdropVisible = true;
+      this.cdr.detectChanges();
+    });
+    setTimeout(() => {
+      this.forumModalReady = true;
+      this.cdr.detectChanges();
+    }, 350);
+  }
+
+  closeForumModal(restoreScroll = true): void {
+    this.forumModalReady = false;
+    this.forumBackdropVisible = false;
+    this.showForumView = false;
+    document.body.classList.remove('cm-desktop-modal-open');
+    this.cdr.detectChanges();
+    if (restoreScroll && this._scrollElRef) {
+      this._scrollElRef.scrollTop = this._savedScrollBeforeForum;
+    }
+  }
+
+  onForumGoBack(): void {
+    this.closeForumModal(true);
+  }
+
+  onForumModalBackdropClick(ev: MouseEvent): void {
+    if ((ev.target as HTMLElement).classList.contains('cm-modal-backdrop')) {
+      this.onForumGoBack();
+    }
+  }
+
   navigateToCreateMaterial(event?: MouseEvent) {
     const srcEl = event
       ? (event.currentTarget as HTMLElement || event.target as HTMLElement)
@@ -2315,11 +2578,27 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     const srcRect = srcEl?.getBoundingClientRect() ?? null;
 
     this._savedScrollBeforeMaterial = this._scrollElRef?.scrollTop || 0;
+    this.createMaterialModalExpanded = false;
+    this.modalSidebarTab = 'materials';
     this.showCreateMaterialView = true;
+    this.createMaterialModalReady = false;
+    this.createMaterialBackdropVisible = false;
     this.homeInlineToolbar.setMaterialsViewOpen(true);
     this.cdr.detectChanges();
-    this.ionContent?.scrollToTop(0);
+    if (this.isMobile) this.ionContent?.scrollToTop(0);
 
+    if (!this.isMobile) {
+      document.body.classList.add('cm-desktop-modal-open');
+      requestAnimationFrame(() => {
+        this.createMaterialBackdropVisible = true;
+        this.cdr.detectChanges();
+      });
+      setTimeout(() => {
+        this.createMaterialModalReady = true;
+        this.cdr.detectChanges();
+      }, 350);
+      return;
+    }
     if (!srcRect) return;
 
     const dest = document.querySelector('.cm-library') as HTMLElement;
@@ -3389,6 +3668,33 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       this.openSearchTutors();
     }
   }
+
+  /** Student home: Up Next card opens lesson/class detail; empty card still opens tutor search. */
+  onStudentUpNextCardClick(): void {
+    const lesson = this.nextLesson?.lesson as Lesson | undefined;
+    if (lesson?._id) {
+      this.navigateToLesson(lesson);
+      return;
+    }
+    this.onUpNextCardClick();
+  }
+
+  /** Tutor home: tap card background opens lesson/class on Lessons tab; join/menu/notes keep their own actions. */
+  onTutorUpNextCardShellClick(ev: MouseEvent): void {
+    const target = ev.target as HTMLElement | null;
+    if (!target) return;
+    if (
+      target.closest(
+        'ion-button.upnext-filled-menu, .upnext-filled-actions, .m-card-empty-link, button.previous-notes-link, .badge-reschedule-proposal'
+      )
+    ) {
+      return;
+    }
+    const lesson = this.nextLesson?.lesson as Lesson | undefined;
+    if (lesson?._id) {
+      this.navigateToLesson(lesson);
+    }
+  }
   
   // Check tutor onboarding status and show banner if incomplete
   checkTutorOnboardingStatus() {
@@ -3430,8 +3736,11 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       (user.auth0Picture && user.picture !== user.auth0Picture) // Different from original Auth0 photo
     ));
     
-    // Show banner only if user is NOT fully approved
-    this.showOnboardingBanner = !user.tutorApproved;
+    // Show banner if user is NOT fully approved, or if approved but missing critical items
+    const hasAllCritical = this.hasCustomProfilePhoto &&
+      (user.tutorOnboarding?.videoApproved || !!user.onboardingData?.introductionVideo || !!user.onboardingData?.pendingVideo) &&
+      this.tutorOnboardingStatus?.stripeComplete;
+    this.showOnboardingBanner = !user.tutorApproved || !hasAllCritical;
 
     // Detect profile hidden due to video removal: onboarding was completed but no video exists
     const hasNoVideo = !user.onboardingData?.introductionVideo && !user.onboardingData?.pendingVideo;
@@ -3490,11 +3799,18 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   loadTutorInsights() {
     // TODO: Replace with actual API call to get tutor statistics
     // For now, calculate from lessons
-    const uniqueStudents = new Set(
-      this.lessons
-        .filter(l => l.studentId && typeof l.studentId === 'object')
-        .map(l => (l.studentId as any)._id)
-    );
+    this._growthInsightsLoaded = false;
+
+    const uniqueStudents = new Set<string>();
+    for (const l of this.lessons) {
+      if (l.status === 'cancelled' || (l as any).isClass) continue;
+      const sid = l.studentId as any;
+      if (sid && typeof sid === 'object' && sid._id) {
+        uniqueStudents.add(String(sid._id));
+      } else if (sid != null && sid !== '') {
+        uniqueStudents.add(String(sid));
+      }
+    }
     this.totalStudents = uniqueStudents.size;
 
     // Count completed lessons and classes this week
@@ -3537,6 +3853,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     
     // Check for upcoming lessons and show Smart Island moments
     this.checkUpcomingLessonsForIsland();
+
+    // Compute growth insights for the welcome ticker
+    this.computeGrowthInsights();
 
     // Mobile sections
     this.syncRecentStudents();
@@ -3607,6 +3926,280 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     }
 
     this.pendingActionItems = items;
+  }
+
+  private computeGrowthInsights(): void {
+    if (!this.isTutorUser || this._growthInsightsLoaded) return;
+    this._growthInsightsLoaded = true;
+
+    this.tutorGrowthService.setUpdateCallback(() => {
+      this.syncGrowthInsightProperties();
+      this.cdr.detectChanges();
+    });
+
+    const materials$ = this.materialService.getMyMaterials().pipe(
+      take(1),
+      catchError(() => of({ success: false, materials: [] as any[] }))
+    );
+
+    const classes$ = this.classService.getMyClasses().pipe(
+      take(1),
+      catchError(() => of({ success: false, classes: [] as any[] }))
+    );
+
+    forkJoin([materials$, classes$]).subscribe(([matRes, classRes]) => {
+      const materials = matRes.success ? matRes.materials : [];
+      const published = materials.filter((m: any) => m.status === 'published');
+      const sorted = [...published].sort((a: any, b: any) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+
+      let totalViews = 0;
+      let totalQuizAttempts = 0;
+      let totalPurchases = 0;
+      for (const m of published) {
+        if (m.stats) {
+          totalViews += m.stats.views || 0;
+          totalQuizAttempts += m.stats.quizAttempts || 0;
+          totalPurchases += m.stats.purchases || 0;
+        }
+      }
+
+      const classes = classRes.success ? classRes.classes : [];
+      const now = Date.now();
+      const upcomingClasses = classes.filter((c: any) =>
+        c.status !== 'cancelled' && new Date(c.startTime).getTime() > now
+      );
+      const pastClasses = classes
+        .filter((c: any) => c.status !== 'cancelled' && new Date(c.startTime).getTime() <= now)
+        .sort((a: any, b: any) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+
+      const userAny = this.currentUser as any;
+      const todayCounts = this.countTodayLessons();
+
+      const user = this.currentUser;
+      const creds = user?.tutorCredentials;
+      const govIdUploaded = !!(creds?.governmentId?.url && creds.governmentId.status !== 'not_uploaded');
+      const certsUploaded = !!(creds?.teachingCertifications && creds.teachingCertifications.length > 0);
+
+      const ctx: GrowthContext = {
+        hasAvailability: this.hasAvailability,
+        hasUpcomingLessons: !!this.nextLesson,
+        tutorName: user?.firstName || '',
+        lessonsThisWeek: this.lessonsThisWeek,
+        lessonsToday: todayCounts.total,
+        completedToday: todayCounts.completed,
+        totalStudents: this.totalStudents,
+        hasEverHadBooking: this.tutorHasEverHadPastBooking,
+        freeHoursThisWeek: this.estimateFreeHoursThisWeek(),
+        nextGapHours: this.computeNextLessonGap(),
+        scheduleHash: this.computeScheduleHash(),
+        pendingFeedbackCount: this.pendingFeedbackCount,
+        unreadMessages: this.unreadMessages,
+        materialCount: published.length,
+        lastMaterialCreatedAt: sorted.length > 0 ? sorted[0].createdAt : null,
+        totalMaterialViews: totalViews,
+        totalQuizAttempts,
+        totalPurchases,
+        hasUpcomingGroupClass: upcomingClasses.length > 0,
+        lastGroupClassAt: pastClasses.length > 0 ? pastClasses[0].startTime : null,
+        officeHoursEnabled: !!userAny?.profile?.officeHoursEnabled,
+        recentForumPostCount: 0,
+        activeForumThreadsInLanguage: 0,
+        tutorRating: this.tutorRating,
+        hasCustomPhoto: this.hasCustomProfilePhoto,
+        hasVideo: !!(user?.onboardingData?.introductionVideo || user?.onboardingData?.pendingVideo),
+        videoApproved: user?.tutorOnboarding?.videoApproved === true,
+        credentialsComplete: govIdUploaded && certsUploaded,
+        credentialsApproved: creds?.governmentId?.status === 'approved' && !!(creds?.teachingCertifications?.some((c: any) => c.status === 'approved')),
+        hasPayoutSetup: this.tutorOnboardingStatus?.stripeComplete === true,
+        tutorApproved: user?.tutorApproved === true,
+      };
+
+      this.tutorGrowthService.compute(ctx);
+
+      // Only save baselines when the tutor actually sees the insight — otherwise delta is preserved for next session
+      const activeIds = new Set(this.tutorGrowthService.allInsights.map(i => i.id));
+      if (activeIds.has('material_stats')) {
+        this.tutorGrowthService.snapshotMaterialStats(totalViews, totalQuizAttempts, totalPurchases);
+      }
+      if (activeIds.has('office_hours_gap')) {
+        this.tutorGrowthService.snapshotScheduleHash(ctx.scheduleHash);
+      }
+
+      this.syncGrowthInsightProperties();
+      this.cdr.detectChanges();
+    });
+  }
+
+  private computeNextLessonGap(): number {
+    const now = Date.now();
+    const upcoming = this.lessons
+      .filter(l => l.status !== 'cancelled' && new Date(l.startTime).getTime() > now)
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+    if (upcoming.length < 2) return 0;
+    let maxGap = 0;
+    for (let i = 0; i < upcoming.length - 1; i++) {
+      const endCurrent = new Date(upcoming[i].endTime).getTime();
+      const startNext = new Date(upcoming[i + 1].startTime).getTime();
+      const gapHours = (startNext - endCurrent) / 3600000;
+      if (gapHours > maxGap) maxGap = gapHours;
+    }
+    return Math.round(maxGap);
+  }
+
+  private computeScheduleHash(): string {
+    const now = Date.now();
+    const starts = this.lessons
+      .filter(l => l.status !== 'cancelled' && new Date(l.startTime).getTime() > now)
+      .map(l => l.startTime)
+      .sort()
+      .join(',');
+    let hash = 0;
+    for (let i = 0; i < starts.length; i++) {
+      hash = ((hash << 5) - hash + starts.charCodeAt(i)) | 0;
+    }
+    return String(hash);
+  }
+
+  private syncGrowthInsightProperties(): void {
+    const insight = this.tutorGrowthService.activeInsight;
+    const idx = this.tutorGrowthService.activeIndex;
+    const sig = insight ? `${idx}:${insight.id}` : '';
+    if (sig !== this._lastGrowthSlideSig) {
+      this._lastGrowthSlideSig = sig;
+      if (insight) {
+        this._growthSlideEpoch++;
+      }
+    }
+
+    this.growthInsight = insight;
+    this.growthInsights = this.tutorGrowthService.allInsights;
+    this.growthIndex = idx;
+    this.growthCount = this.tutorGrowthService.count;
+    this.growthPaused = this.tutorGrowthService.paused;
+    this.hasProfileCriticalInsights = this.tutorGrowthService.hasProfileCritical;
+    this.profileChecklist = this.tutorGrowthService.profileChecklist;
+    this.profileChecklistDoneCount = this.profileChecklist.filter(i => i.done).length;
+    this.profileChecklistTotal = this.profileChecklist.length;
+    this.growthInsightSlideRow = insight
+      ? [{ epoch: this._growthSlideEpoch, insight }]
+      : [];
+  }
+
+  private estimateFreeHoursThisWeek(): number {
+    const now = new Date();
+    const currentDay = now.getDay();
+    const endOfWeek = new Date(now);
+    endOfWeek.setDate(now.getDate() + (7 - currentDay));
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    const bookedMs = this.lessons
+      .filter(l => {
+        if (l.status === 'cancelled') return false;
+        const start = new Date(l.startTime);
+        return start >= now && start <= endOfWeek;
+      })
+      .reduce((sum, l) => sum + (new Date(l.endTime).getTime() - new Date(l.startTime).getTime()), 0);
+
+    const totalAvailMs = (this.availabilityBlocks || [])
+      .reduce((sum: number, b: any) => {
+        const start = new Date(b.startTime || b.start);
+        const end = new Date(b.endTime || b.end);
+        if (start >= now && start <= endOfWeek) {
+          return sum + (end.getTime() - start.getTime());
+        }
+        return sum;
+      }, 0);
+
+    const freeMs = Math.max(0, totalAvailMs - bookedMs);
+    return Math.round(freeMs / 3600000);
+  }
+
+  private countTodayLessons(): { total: number; completed: number } {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfDay = new Date(startOfDay);
+    endOfDay.setDate(endOfDay.getDate() + 1);
+
+    let total = 0;
+    let completed = 0;
+    for (const l of this.lessons) {
+      if (l.status === 'cancelled') continue;
+      const start = new Date(l.startTime);
+      if (start >= startOfDay && start < endOfDay) {
+        total++;
+        const end = new Date(l.endTime);
+        if (end < now || l.status === 'completed') {
+          completed++;
+        }
+      }
+    }
+    return { total, completed };
+  }
+
+  onGrowthInsightDotClick(index: number): void {
+    this.tutorGrowthService.goTo(index);
+    this.syncGrowthInsightProperties();
+  }
+
+  onGrowthInsightPause(): void {
+    this.tutorGrowthService.pause();
+    this.growthPaused = true;
+  }
+
+  onGrowthInsightResume(): void {
+    this.tutorGrowthService.resume();
+    this.growthPaused = false;
+  }
+
+  onGrowthInsightDismiss(): void {
+    const current = this.tutorGrowthService.activeInsight;
+    if (current) {
+      this.tutorGrowthService.dismiss(current);
+      this.syncGrowthInsightProperties();
+    }
+  }
+
+  onGrowthInsightTapAdvance(): void {
+    this.tutorGrowthService.next();
+    this.syncGrowthInsightProperties();
+  }
+
+  onGrowthInsightClick(): void {
+    const current = this.tutorGrowthService.activeInsight;
+    if (!current) return;
+
+    if (current.id === 'create_material' || current.id === 'first_material') {
+      this.navigateToCreateMaterial(new MouseEvent('click'));
+    } else if (current.route.startsWith('/')) {
+      this.router.navigate([current.route]);
+    }
+  }
+
+  openGrowthInsightsModal(): void {
+    this.growthModalItems = this.tutorGrowthService.getAllWithStatus();
+    this.isGrowthModalOpen = true;
+    this.tutorGrowthService.pause();
+    this.syncGrowthInsightProperties();
+  }
+
+  closeGrowthInsightsModal(): void {
+    this.isGrowthModalOpen = false;
+    this.tutorGrowthService.resume();
+    this.syncGrowthInsightProperties();
+  }
+
+  onGrowthInsightRestore(insight: GrowthInsight): void {
+    this.tutorGrowthService.undismiss(insight);
+    this.growthModalItems = this.tutorGrowthService.getAllWithStatus();
+    this.syncGrowthInsightProperties();
+  }
+
+  onGrowthInsightDismissFromModal(insight: GrowthInsight): void {
+    this.tutorGrowthService.dismiss(insight);
+    this.growthModalItems = this.tutorGrowthService.getAllWithStatus();
+    this.syncGrowthInsightProperties();
   }
 
   // New method: Load student insights
@@ -3949,6 +4542,41 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   getTimeRangeOnly(lesson: Lesson): string {
     const tz = this.userTz;
     return `${formatTimeInTz(lesson.startTime, tz, undefined, true)} — ${formatTimeInTz(lesson.endTime, tz, undefined, true)}`;
+  }
+
+  /**
+   * Primary date line — matches event-details (`/tabs/lessons/:id`): Today, Tomorrow, or long form in profile TZ.
+   */
+  private formatEventDetailsDatePrimary(startInput: string | Date): string {
+    const start = typeof startInput === 'string' ? new Date(startInput) : startInput;
+    if (isNaN(start.getTime())) return '';
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    if (start.toDateString() === today.toDateString()) {
+      return this.translateService.instant('HOME.TODAY');
+    }
+    if (start.toDateString() === tomorrow.toDateString()) {
+      return this.translateService.instant('HOME.TOMORROW');
+    }
+    return formatDateInTz(
+      start,
+      this.userTz,
+      { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' },
+      this.currentLocale,
+    );
+  }
+
+  /**
+   * Time range — matches event-details (12h, en dash between start and end).
+   */
+  private formatEventDetailsTimeRange(lesson: { startTime?: string; endTime?: string; duration?: number }): string {
+    if (!lesson?.startTime) return '';
+    const start = new Date(lesson.startTime);
+    const end = lesson.endTime
+      ? new Date(lesson.endTime)
+      : new Date(start.getTime() + (Number(lesson.duration) || 60) * 60000);
+    return `${formatTimeInTz(start, this.userTz, undefined, true)} – ${formatTimeInTz(end, this.userTz, undefined, true)}`;
   }
 
   /**
@@ -4446,7 +5074,31 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.buttonTextState = this.hasAvailability ? 'view' : 'add';
     const nl = this.nextLesson;
     this.nextLessonTutor = nl ? (nl.tutorId || nl.studentId) : null;
+    const lesson = nl?.lesson as any;
+    if (lesson?.isClass) {
+      const price = lesson.price ?? lesson.classData?.price;
+      this.upNextFormattedPrice = price != null && price > 0 ? `$${(price as number).toFixed(2)}` : 'Free';
+      const levelMap: Record<string, string> = {
+        any: 'Any Level', beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced',
+      };
+      const rawLevel = lesson.classData?.level || lesson.level || '';
+      this.upNextLevelLabel = levelMap[rawLevel] || '';
+      this.nextLessonClassAttendeesDisplay = this.getClassAttendeesForPreview(lesson);
+    } else {
+      this.upNextFormattedPrice = '';
+      this.upNextLevelLabel = '';
+      this.nextLessonClassAttendeesDisplay = [];
+    }
     this.refreshNextLessonTimeSensitiveFields();
+    this.refreshWeeklyEarningsProgress();
+  }
+
+  /** Real enrollments when present; otherwise mock list so Up Next “Going” is visible in dev/preview. */
+  private getClassAttendeesForPreview(lesson: any): any[] {
+    if (!lesson?.isClass) return [];
+    const a = lesson.attendees;
+    if (Array.isArray(a) && a.length > 0) return a;
+    return [...MOCK_CLASS_ATTENDEES_PREVIEW];
   }
 
   /** Syncs mobile tutor welcome hero, empty-state copy, and Up Next cover when lessons load. */
@@ -4761,6 +5413,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     }
     
     const dateTag = this.getDateTag(lessonDate);
+    const dateBadge = this.lessonDateBadgeParts(lessonDate);
     const isInProgress = this.isLessonInProgress(nextLesson);
     
     // Precompute flags to avoid function calls in template
@@ -4775,6 +5428,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       lessonTime: this.formatLessonTime(nextLesson),
       subject: this.formatSubject(nextLesson.subject),
       dateTag: dateTag,
+      dateBadgeMonth: dateBadge.month,
+      dateBadgeDay: dateBadge.dayNum,
+      dateBadgeWeekday: dateBadge.weekdayShort,
       isToday: isToday,
       isNextClass: true,
       isInProgress: isInProgress,
@@ -4784,6 +5440,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       rescheduleAccepted: rescheduleAccepted,
       isTrialLesson: isTrialLesson,
       timeRange: this.getTimeRangeOnly(nextLesson),
+      detailDatePrimary: this.formatEventDetailsDatePrimary(lessonDate),
+      detailTimeRange: this.formatEventDetailsTimeRange(nextLesson),
       avatar: this.getOtherParticipantAvatar(nextLesson),
       instructorName: this.getClassInstructorName(nextLesson),
       countdown: this.getTimeUntilLesson(nextLesson),
@@ -4877,6 +5535,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     
     const lessonDate = new Date(firstLesson.startTime);
     const dateTag = this.getDateTag(lessonDate);
+    const dateBadge = this.lessonDateBadgeParts(lessonDate);
     const isInProgress = this.isLessonInProgress(firstLesson);
     
     // Precompute reschedule flags to avoid function calls in template
@@ -4890,6 +5549,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       lessonTime: this.formatLessonTime(firstLesson),
       subject: this.formatSubject(firstLesson.subject),
       dateTag: dateTag,
+      dateBadgeMonth: dateBadge.month,
+      dateBadgeDay: dateBadge.dayNum,
+      dateBadgeWeekday: dateBadge.weekdayShort,
       isToday: isToday,
       isNextClass: isNextClass,
       isInProgress: isInProgress,
@@ -4898,6 +5560,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       isRescheduleProposer: isRescheduleProposer,
       rescheduleAccepted: rescheduleAccepted,
       timeRange: this.getTimeRangeOnly(firstLesson),
+      detailDatePrimary: this.formatEventDetailsDatePrimary(lessonDate),
+      detailTimeRange: this.formatEventDetailsTimeRange(firstLesson),
       avatar: this.getOtherParticipantAvatar(firstLesson),
       instructorName: this.getClassInstructorName(firstLesson),
       countdown: this.getTimeUntilLesson(firstLesson),
@@ -5015,6 +5679,58 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     return tutor.id;
   }
 
+  /** Max lessons shown in the desktop This Week horizontal strip (rest via Full schedule / modal). */
+  private readonly thisWeekHomeMaxLessons = 15;
+
+  trackByTimelineEvent(_index: number, ev: { lesson?: { _id?: string; startTime?: string } }): string {
+    const id = ev?.lesson?._id;
+    const st = ev?.lesson?.startTime;
+    if (id != null && st != null) {
+      return `${id}:${st}`;
+    }
+    return String(_index);
+  }
+
+  trackByTimelineDayGroup(_index: number, group: { dayKey: string }): string {
+    return group.dayKey;
+  }
+
+  /** Calendar-day groups for the desktop This Week strip (one date column per day, events scroll horizontally). */
+  get timelineDayGroups(): Array<{ dayKey: string; dateLabel: string; dateBadgeMonth: string; dateBadgeDay: string; dateBadgeWeekday: string; isToday: boolean; events: any[] }> {
+    const events = this.timelineEvents;
+    if (!events.length) {
+      return [];
+    }
+    const groups: Array<{ dayKey: string; dateLabel: string; dateBadgeMonth: string; dateBadgeDay: string; dateBadgeWeekday: string; isToday: boolean; events: any[] }> = [];
+    for (const ev of events) {
+      const st = ev?.lesson?.startTime;
+      const d = st ? new Date(st) : new Date();
+      const dayKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      const dateLabel = ev.date as string;
+      const last = groups[groups.length - 1];
+      if (last && last.dayKey === dayKey) {
+        last.events.push(ev);
+      } else {
+        groups.push({
+          dayKey,
+          dateLabel,
+          dateBadgeMonth: ev.dateBadgeMonth || '',
+          dateBadgeDay: ev.dateBadgeDay || '',
+          dateBadgeWeekday: ev.dateBadgeWeekday || '',
+          isToday: !!ev.isToday,
+          events: [ev],
+        });
+      }
+    }
+    return groups;
+  }
+
+  /** Single lesson in a single day — stretch row inside the fixed-width card. */
+  get thisWeekStripSingleEvent(): boolean {
+    const g = this.timelineDayGroups;
+    return g.length === 1 && g[0].events.length === 1;
+  }
+
   // Get timeline events for "Coming Up Next" section (cached for performance)
   get timelineEvents(): any[] {
     // Create a hash of the inputs to detect changes
@@ -5054,24 +5770,28 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         .map(l => new Date(l.startTime).getTime())
     );
     
-    // Filter and sort all lessons for timeline
-    return allLessonsForTimeline
-      .filter(lesson => {
-        const startTime = new Date(lesson.startTime);
-        const endTime = new Date(lesson.endTime);
-        
-        // For non-cancelled lessons:
-        // Exclude if it's in the past (start time passed)
-        if (startTime <= now) return false;
-        // Exclude if it's completed (ended early)
-        if (lesson.status === 'completed') return false;
-        // Exclude if it's the next class being shown in the "Up Next" card
-        if (nextClassLessonId && String(lesson._id) === String(nextClassLessonId)) return false;
-        return true;
-      })
-      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()) // Sort by time
-      .slice(0, 3) // Get next 3 items
-      .map(lesson => {
+    // Future / active lessons for This Week row(s)
+    const baseFilter = (lesson: any) => {
+      const startTime = new Date(lesson.startTime);
+      const endTime = new Date(lesson.endTime);
+      if (startTime <= now) return false;
+      if (lesson.status === 'completed') return false;
+      return true;
+    };
+
+    const pool = allLessonsForTimeline
+      .filter(baseFilter)
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
+    // Always omit the Up Next lesson — the Up Next card already shows it.
+    // If no other lessons remain, This Week will be hidden entirely.
+    const withoutNext = pool.filter(
+      (lesson) => !nextClassLessonId || String(lesson._id) !== String(nextClassLessonId)
+    );
+    const cap = this.thisWeekHomeMaxLessons;
+    const chosen = withoutNext.slice(0, cap);
+
+    return chosen.map((lesson) => {
         const startTime = new Date(lesson.startTime);
         const endTime = lesson.endTime ? new Date(lesson.endTime) : null;
         const student = lesson.studentId as any;
@@ -5105,11 +5825,24 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           : lesson.status === 'in_progress' ? 'in-progress'
           : lesson.status === 'pending_reschedule' ? 'pending'
           : 'confirmed';
+
+        const lessonDayStart = this.startOfDay(startTime);
+        const todayStart = this.startOfDay(new Date());
+        const isLessonToday = lessonDayStart.getTime() === todayStart.getTime();
+        const dateBadge = this.lessonDateBadgeParts(startTime);
         
         return {
           time: this.formatTimeOnly(startTime),
           endTime: endTime ? this.formatTimeOnly(endTime) : null,
           date: this.formatRelativeDate(startTime),
+          isToday: isLessonToday,
+          dateBadgeMonth: dateBadge.month,
+          dateBadgeDay: dateBadge.dayNum,
+          dateBadgeWeekday: dateBadge.weekdayShort,
+          /** Mirrors lesson.isClass — used by This Week strip for layout (avatar shape, no ring). */
+          isClass: !!isClass,
+          detailDatePrimary: this.formatEventDetailsDatePrimary(startTime),
+          detailTimeRange: this.formatEventDetailsTimeRange(lesson),
           name: isClass 
             ? ((lesson as any).className || lesson.subject || 'Group Class')
             : (participantToShow ? (isStudentView ? this.formatTutorDisplayName(participantToShow) : this.formatStudentDisplayName(participantToShow)) : 'Unknown'),
@@ -5168,7 +5901,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       return true;
     });
     
-    return timelineLessons.length > 3;
+    return timelineLessons.length > this.thisWeekHomeMaxLessons;
   }
 
   // Track if all lessons modal is open
@@ -5364,6 +6097,18 @@ navigateToLessons() {
   // Format time only (e.g., "2:00 PM")
   formatTimeOnly(date: Date): string {
     return formatTimeInTz(date, this.userTz, this.currentLocale);
+  }
+
+  /** Month + day chip + short weekday — matches lessons list `lgc-date-badge` (lessons.page). */
+  lessonDateBadgeParts(isoOrDate: string | Date): { month: string; dayNum: string; weekdayShort: string } {
+    const d = typeof isoOrDate === 'string' ? new Date(isoOrDate) : isoOrDate;
+    const loc = this.currentLocale;
+    const tz = this.userTz;
+    return {
+      month: formatDateInTz(d, tz, { month: 'short', day: undefined, year: undefined }, loc),
+      dayNum: formatDateInTz(d, tz, { day: 'numeric', month: undefined, year: undefined }, loc),
+      weekdayShort: formatDateInTz(d, tz, { weekday: 'short', month: undefined, day: undefined, year: undefined }, loc),
+    };
   }
 
   formatRelativeDate(date: Date): string {
@@ -5898,6 +6643,13 @@ navigateToLessons() {
           
         }
 
+        // Tutor home stores only upcoming + today in `this.lessons` — detect past bookings from full feed
+        this.tutorHasEverHadPastBooking =
+          this.isTutor() &&
+          allLessons.some((l) => {
+            if (l.status === 'cancelled') return false;
+            return new Date(l.endTime).getTime() < now;
+          });
 
         // Filter for upcoming lessons + lessons from today (even if completed)
         const today = this.startOfDay(new Date());
@@ -6156,6 +6908,8 @@ navigateToLessons() {
         this.upNextCardAnimated = true;
         this.mobileStaggerReady = true;
         this.mobileStaggerDone = true;
+        this.refreshPreComputedTemplateValues();
+        this.cdr.detectChanges();
       }
       this.syncTutorMobileWelcomeAboveUpNext();
     }
@@ -7432,6 +8186,12 @@ navigateToLessons() {
       this.showExploreView = false;
       this.homeInlineToolbar.setExploreViewOpen(false);
     }
+    if (this.showScheduleClassView) {
+      this.closeScheduleClassModal(false);
+    }
+    if (this.showForumView) {
+      this.closeForumModal(false);
+    }
   }
 
   onExploreGoBack() {
@@ -7444,14 +8204,313 @@ navigateToLessons() {
     }
   }
 
+  onEditSaveInPlace(): void {
+    const cm = this.createMaterialRef as {
+      saveBundleInPlace?: () => Promise<boolean>;
+      saveMaterialInPlace?: () => Promise<boolean>;
+      viewMode?: string;
+    } | undefined;
+    if (cm?.viewMode === 'bundle-create') {
+      void cm.saveBundleInPlace?.();
+    } else {
+      void cm?.saveMaterialInPlace?.();
+    }
+  }
+
   onCreateMaterialGoBack() {
+    if (!this.isMobile && this.activatedRoute.firstChild) {
+      this.router.navigate(['/tabs/home']);
+    }
+    this.createMaterialModalExpanded = false;
+    this.createMaterialModalReady = false;
+    this.createMaterialBackdropVisible = false;
+    this.cmModalRouterOutletActive = false;
     this.showCreateMaterialView = false;
     this.homeInlineToolbar.setMaterialsViewOpen(false);
+    document.body.classList.remove('cm-desktop-modal-open');
+    this.modalShowSaveExit = true;
+    this.modalIsEditingBundle = false;
+    this.modalIsEditingMaterial = false;
+    this.modalTopbarCenterStep = null;
+    this.modalTopbarNavBackLabel = '';
+    this.modalTopbarBundleWizardBackLabel = '';
+    this.modalShowGoBack = false;
+    this.modalShowBundleShareGoBack = false;
+    this.modalShowBundleWizardGoBack = false;
+    this.modalDetailsWizardFooter = false;
+    this.modalDetailsWizardShowBack = false;
+    this.modalDetailsWizardShowSaveDraft = false;
+    this.modalFooterSaveLabelKey = null;
+    this.modalDetailsWizardIsLastStep = false;
+    this.modalDetailsWizardLastStepKey = null;
+    this.modalFooterBackLabel = null;
     this.cdr.detectChanges();
 
     if (this._scrollElRef) {
       this._scrollElRef.scrollTop = this._savedScrollBeforeMaterial;
     }
+  }
+
+  onModalExpand(expanded: boolean) {
+    this.createMaterialModalExpanded = expanded;
+
+    if (!expanded) {
+      this.modalShowFooter = false;
+      this.modalShowSaveExit = true;
+      this.modalIsEditingBundle = false;
+      this.modalIsEditingMaterial = false;
+      this.modalTopbarCenterStep = null;
+      this.modalTopbarNavBackLabel = '';
+      this.modalTopbarBundleWizardBackLabel = '';
+      this.modalShowGoBack = false;
+      this.modalShowBundleShareGoBack = false;
+      this.modalShowBundleWizardGoBack = false;
+      this.modalDetailsWizardFooter = false;
+      this.modalDetailsWizardShowBack = false;
+      this.modalDetailsWizardShowSaveDraft = false;
+      this.modalFooterSaveLabelKey = null;
+      this.modalDetailsWizardIsLastStep = false;
+      this.modalDetailsWizardLastStepKey = null;
+      this.modalFooterBackLabel = null;
+    } else {
+      this.applyDesktopModalFooterVisibility();
+      setTimeout(() => {
+        const cm = this.createMaterialRef as { refreshModalTopbarChrome?: () => void } | undefined;
+        cm?.refreshModalTopbarChrome?.();
+        this.applyDesktopModalFooterVisibility();
+      }, 0);
+    }
+
+    this.cdr.detectChanges();
+  }
+
+  /** Footer "+ New" only on materials/bundles list — hide during gateway, create, and bundle flows. */
+  private syncMaterialsModalChildRoute(url: string): void {
+    if (this.isMobile) {
+      if (this.cmModalRouterOutletActive) {
+        this.cmModalRouterOutletActive = false;
+        this.cdr.markForCheck();
+      }
+      return;
+    }
+    const prev = this.cmModalRouterOutletActive;
+    const homeMaterial = url.match(/\/tabs\/home\/material\/([^/?#]+)/);
+    const homeBundle = url.match(/\/tabs\/home\/bundle\/([^/?#]+)/);
+    const next = !!(homeMaterial?.[1] || homeBundle?.[1]);
+    this.cmModalRouterOutletActive = next;
+    if (next) {
+      this.showCreateMaterialView = true;
+      this.createMaterialModalExpanded = true;
+      if (!prev) {
+        this.modalSidebarTab = homeMaterial ? 'materials' : 'bundles';
+      }
+      document.body.classList.add('cm-desktop-modal-open');
+      this.homeInlineToolbar.setMaterialsViewOpen(true);
+      if (!this.createMaterialBackdropVisible) {
+        requestAnimationFrame(() => {
+          this.createMaterialBackdropVisible = true;
+          this.cdr.markForCheck();
+        });
+      }
+      if (!this.createMaterialModalReady) {
+        setTimeout(() => {
+          this.createMaterialModalReady = true;
+          this.cdr.markForCheck();
+        }, 350);
+      }
+      this.modalShowFooter = false;
+      this.modalDetailsWizardFooter = false;
+      this.modalShowBundleShareGoBack = false;
+      this.modalShowBundleWizardGoBack = false;
+      this.modalShowSaveExit = false;
+      this.modalTopbarCenterStep = null;
+      this.modalTopbarNavBackLabel = '';
+      this.modalTopbarBundleWizardBackLabel = '';
+      this.modalShowGoBack = false;
+      this.modalDetailsWizardShowSaveDraft = false;
+      this.modalFooterSaveLabelKey = null;
+      this.modalFooterBackLabel = null;
+    }
+    if (prev && !next && this.showCreateMaterialView) {
+      requestAnimationFrame(() => {
+        const ref = this.createMaterialRef as { restoreSection?: () => void; refreshModalTopbarChrome?: () => void } | undefined;
+        ref?.restoreSection?.();
+        ref?.refreshModalTopbarChrome?.();
+        this.applyDesktopModalFooterVisibility();
+        this.cdr.markForCheck();
+      });
+    }
+    if (prev !== next) {
+      this.cdr.markForCheck();
+    }
+  }
+
+  private applyDesktopModalFooterVisibility(): void {
+    if (this.isMobile || !this.createMaterialModalExpanded) {
+      this.modalShowFooter = false;
+      return;
+    }
+    if (this.cmModalRouterOutletActive) {
+      this.modalShowFooter = false;
+      this.modalDetailsWizardFooter = false;
+      return;
+    }
+    const cm = this.createMaterialRef as {
+      viewMode?: string;
+      showMaterialsList?: boolean;
+      showBundlesList?: boolean;
+    } | undefined;
+    const show =
+      !!cm &&
+      cm.viewMode === 'library' &&
+      (cm.showMaterialsList === true || cm.showBundlesList === true);
+    this.modalShowFooter = show;
+  }
+
+  onModalTopbarChrome(payload: {
+    showSaveExit: boolean;
+    showModalBack: boolean;
+    showBundleShareGoBack?: boolean;
+    showBundleWizardGoBack?: boolean;
+    centerStepLabel?: string | null;
+    topbarNavBackLabel?: string;
+    topbarBundleWizardBackLabel?: string;
+    isEditingBundle?: boolean;
+    isEditingMaterial?: boolean;
+  }) {
+    if (this.isMobile) return;
+    if (this.cmModalRouterOutletActive) return;
+    this.modalShowSaveExit = payload.showSaveExit;
+    this.modalIsEditingBundle = !!payload.isEditingBundle;
+    this.modalIsEditingMaterial = !!payload.isEditingMaterial;
+    this.modalShowGoBack = payload.showModalBack;
+    this.modalShowBundleShareGoBack = !!payload.showBundleShareGoBack;
+    this.modalShowBundleWizardGoBack = !!payload.showBundleWizardGoBack;
+    this.modalTopbarCenterStep = payload.centerStepLabel ?? null;
+    this.modalTopbarNavBackLabel = payload.topbarNavBackLabel ?? '';
+    this.modalTopbarBundleWizardBackLabel = payload.topbarBundleWizardBackLabel ?? '';
+    this.applyDesktopModalFooterVisibility();
+    this.cdr.detectChanges();
+  }
+
+  onModalChromeBack() {
+    const cmRef = this.createMaterialRef as { handleNavBack?: () => void } | undefined;
+    cmRef?.handleNavBack?.();
+  }
+
+  onModalListBackToGateway(): void {
+    const cm = this.createMaterialRef as { closeActiveListToGateway?: () => void } | undefined;
+    cm?.closeActiveListToGateway?.();
+  }
+
+  onModalDetailOutletGoBack(): void {
+    const url = this.router.url;
+    const isMaterial = url.includes('/tabs/home/material/');
+    const referrer = isMaterial
+      ? sessionStorage.getItem('materialReferrer')
+      : sessionStorage.getItem('bundleReferrer');
+    if (referrer && (referrer.startsWith('/tabs/home/bundle/') || referrer.startsWith('/tabs/home/material/'))) {
+      this.router.navigate([referrer]);
+    } else {
+      this.router.navigate(['/tabs/home']);
+    }
+  }
+
+  onModalBundleShareGoBack(): void {
+    const cm = this.createMaterialRef as { cancelBundleCreate?: () => void } | undefined;
+    cm?.cancelBundleCreate?.();
+  }
+
+  onDetailsModalFooterChrome(payload: {
+    active: boolean;
+    showBack: boolean;
+    showSaveDraft?: boolean;
+    footerSaveLabelKey?: string | null;
+    isLastStep: boolean;
+    lastStepLabelKey?: string | null;
+    footerBackLabel?: string | null;
+  }) {
+    if (this.isMobile) return;
+    if (this.cmModalRouterOutletActive) return;
+    this.modalDetailsWizardFooter = payload.active;
+    this.modalDetailsWizardShowBack = payload.showBack;
+    this.modalDetailsWizardShowSaveDraft = !!payload.showSaveDraft;
+    this.modalFooterSaveLabelKey = payload.footerSaveLabelKey ?? null;
+    this.modalDetailsWizardIsLastStep = payload.isLastStep;
+    this.modalDetailsWizardLastStepKey = payload.lastStepLabelKey ?? null;
+    this.modalFooterBackLabel = payload.footerBackLabel ?? null;
+    this.cdr.detectChanges();
+  }
+
+  onModalSaveMaterialDraft(): void {
+    const cm = this.createMaterialRef as {
+      viewMode?: string;
+      saveMaterialDraft?: () => Promise<void>;
+      saveBundleAsDraft?: () => Promise<void>;
+    } | undefined;
+    if (cm?.viewMode === 'bundle-create') {
+      void cm.saveBundleAsDraft?.();
+      return;
+    }
+    void cm?.saveMaterialDraft?.();
+  }
+
+  onModalDetailsWizardBack() {
+    const cm = this.createMaterialRef as { onWizardFooterBack?: () => void } | undefined;
+    cm?.onWizardFooterBack?.();
+  }
+
+  onModalDetailsWizardNext() {
+    const cm = this.createMaterialRef as { onWizardFooterNext?: () => void } | undefined;
+    cm?.onWizardFooterNext?.();
+  }
+
+  onModalFooterCreate() {
+    const cmRef = this.createMaterialRef as any;
+    if (this.modalSidebarTab === 'materials' && cmRef?.startCreate) {
+      cmRef.startCreate();
+    } else if (this.modalSidebarTab === 'bundles' && cmRef?.startCreateBundle) {
+      cmRef.startCreateBundle();
+    }
+    this.applyDesktopModalFooterVisibility();
+    this.cdr.detectChanges();
+  }
+
+  onModalSidebarTabFromChild(tab: 'materials' | 'bundles') {
+    if (this.isMobile) return;
+    this.modalSidebarTab = tab;
+    this.applyDesktopModalFooterVisibility();
+    this.cdr.detectChanges();
+  }
+
+  onCreateMaterialModalBackdropClick(event: MouseEvent) {
+    if (this.createMaterialModalExpanded) return;
+    this.onCreateMaterialGoBack();
+  }
+
+  onModalSidebarSwitch(tab: 'materials' | 'bundles') {
+    this.modalSidebarTab = tab;
+    const cmRef = this.createMaterialRef as any;
+    if (cmRef?.switchLibraryTab) {
+      cmRef.switchLibraryTab(tab);
+    }
+    if (cmRef) {
+      cmRef.viewMode = 'library';
+      cmRef.showMaterialsList = false;
+      cmRef.showBundlesList = false;
+      if (tab === 'materials') {
+        cmRef.showMaterialsList = true;
+      } else {
+        cmRef.showBundlesList = true;
+      }
+    }
+    this.cdr.detectChanges();
+    this.applyDesktopModalFooterVisibility();
+    setTimeout(() => {
+      const cm = this.createMaterialRef as { refreshModalTopbarChrome?: () => void } | undefined;
+      cm?.refreshModalTopbarChrome?.();
+      this.applyDesktopModalFooterVisibility();
+    }, 0);
   }
 
   // Check Stripe Connect status for tutors
@@ -7547,6 +8606,172 @@ navigateToLessons() {
       this.earningsBalanceLoading = false;
       this.cdr.detectChanges();
     }
+  }
+
+  // ─── Weekly earnings goal (desktop earnings widget) ─────────────────────────
+  /** Per-user key; keeps goals isolated across tutors sharing a browser.
+   * Persistence hierarchy: profile.weeklyEarningsGoal (DB) → localStorage (offline cache) → 500 default.
+   */
+  private get weeklyGoalStorageKey(): string {
+    return `tutorWeeklyEarningsGoal_${this.currentUser?.id || 'anon'}`;
+  }
+
+  /** Hydrate from user profile first, then localStorage cache, then default.
+   * Called on initial load and whenever currentUser$ emits.
+   */
+  private loadWeeklyEarningsGoalFromStorage(): void {
+    const fromProfile = Number((this.currentUser as any)?.profile?.weeklyEarningsGoal);
+    if (Number.isFinite(fromProfile) && fromProfile > 0) {
+      this.weeklyEarningsGoal = Math.round(fromProfile);
+      try { localStorage.setItem(this.weeklyGoalStorageKey, String(this.weeklyEarningsGoal)); } catch { /* ignore */ }
+      this.weeklyGoalEditValue = this.weeklyEarningsGoal;
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(this.weeklyGoalStorageKey);
+      const parsed = raw != null ? parseFloat(raw) : NaN;
+      if (Number.isFinite(parsed) && parsed > 0) {
+        this.weeklyEarningsGoal = Math.round(parsed);
+      }
+    } catch { /* storage disabled — keep default */ }
+    this.weeklyGoalEditValue = this.weeklyEarningsGoal;
+  }
+
+  /** Recomputes earned + scheduled from lessons; safe to call any time lessons change. */
+  refreshWeeklyEarningsProgress(): void {
+    if (!this.isTutorUser) {
+      this.weeklyEarningsCompleted = 0;
+      this.weeklyEarningsScheduled = 0;
+      this.weeklyScheduledLessonCount = 0;
+      this.updateWeeklyEarningsLabels();
+      return;
+    }
+    const now = new Date();
+    const weekStart = this.getStartOfWeek(this.startOfDay(now));
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+
+    const earnedStatuses = new Set(['completed', 'ended_early']);
+    const upcomingStatuses = new Set(['scheduled', 'confirmed', 'in_progress']);
+
+    // pastLessons → completed; this.lessons may hold upcoming AND recently-completed.
+    const pool: Lesson[] = [...(this.pastLessons || []), ...(this.lessons || [])];
+    const seen = new Set<string>();
+    let earned = 0;
+    let scheduled = 0;
+    let scheduledCount = 0;
+    for (const l of pool) {
+      const id = String((l as any)._id || '');
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      const start = new Date(l.startTime);
+      if (!(start >= weekStart && start < weekEnd)) continue;
+      const price = Number((l as any).price);
+      if (!Number.isFinite(price) || price <= 0) continue;
+      if (earnedStatuses.has(l.status)) {
+        earned += price;
+      } else if (upcomingStatuses.has(l.status)) {
+        scheduled += price;
+        scheduledCount += 1;
+      }
+    }
+    this.weeklyEarningsCompleted = Math.round(earned * 100) / 100;
+    this.weeklyEarningsScheduled = Math.round(scheduled * 100) / 100;
+    this.weeklyScheduledLessonCount = scheduledCount;
+    this.updateWeeklyEarningsLabels();
+  }
+
+  private updateWeeklyEarningsLabels(): void {
+    const goal = this.weeklyEarningsGoal > 0 ? this.weeklyEarningsGoal : 1;
+    const earned = this.weeklyEarningsCompleted;
+    const scheduled = this.weeklyEarningsScheduled;
+    const scheduledCount = this.weeklyScheduledLessonCount;
+
+    const earnedPct = Math.max(0, Math.min(100, (earned / goal) * 100));
+    const combinedPct = Math.max(0, Math.min(100, ((earned + scheduled) / goal) * 100));
+    this.weeklyEarningsGoalPercent = earnedPct;
+    this.weeklyEarningsScheduledPercent = combinedPct;
+    this.isWeeklyGoalReached = earned >= this.weeklyEarningsGoal;
+
+    // When wallet balance is masked we hide the entire goal section — no need to compute
+    // masked copy variants. Still set the flag so the template's *ngIf can gate visibility.
+    this.isWeeklyGoalMasked = !this.showWalletBalance && !this.walletTemporarilyVisible;
+
+    const fmt = (n: number) => (Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`);
+    this.weeklyEarningsGoalLabel = `${fmt(earned)} of ${fmt(this.weeklyEarningsGoal)} goal`;
+
+    // Sub-label priority (first match wins).
+    const combined = earned + scheduled;
+    const lessonWord = scheduledCount === 1 ? 'lesson' : 'lessons';
+
+    if (this.isWeeklyGoalReached) {
+      this.weeklyEarningsGoalSubLabel = 'Goal reached — nice work';
+      return;
+    }
+
+    if (earned > 0) {
+      if (combined >= this.weeklyEarningsGoal && scheduled > 0) {
+        this.weeklyEarningsGoalSubLabel = `On pace · ${fmt(scheduled)} scheduled this week`;
+      } else {
+        const today = new Date();
+        const daysLeft = Math.max(1, 7 - today.getDay());
+        const remaining = Math.max(0, this.weeklyEarningsGoal - earned);
+        const perDay = Math.ceil(remaining / daysLeft);
+        this.weeklyEarningsGoalSubLabel = `$${perDay}/day to hit goal`;
+      }
+      return;
+    }
+
+    if (scheduled > 0) {
+      const shortfall = Math.max(0, this.weeklyEarningsGoal - scheduled);
+      this.weeklyEarningsGoalSubLabel = shortfall > 0
+        ? `${scheduledCount} ${lessonWord} scheduled · ${fmt(shortfall)} to go`
+        : `${scheduledCount} ${lessonWord} scheduled · on pace`;
+      return;
+    }
+
+    this.weeklyEarningsGoalSubLabel = this.hasAvailability
+      ? 'Open for bookings — no lessons yet'
+      : 'Add availability to start earning';
+  }
+
+  startEditWeeklyGoal(): void {
+    this.weeklyGoalEditValue = this.weeklyEarningsGoal;
+    this.isEditingWeeklyGoal = true;
+    this.cdr.markForCheck();
+  }
+
+  cancelEditWeeklyGoal(): void {
+    this.isEditingWeeklyGoal = false;
+    this.weeklyGoalEditValue = this.weeklyEarningsGoal;
+    this.cdr.markForCheck();
+  }
+
+  saveWeeklyGoal(): void {
+    const next = Math.round(Number(this.weeklyGoalEditValue));
+    if (!Number.isFinite(next) || next <= 0) {
+      this.cancelEditWeeklyGoal();
+      return;
+    }
+    const previous = this.weeklyEarningsGoal;
+    // Optimistic local update so UI feels instant; recompute percentages + sub-labels now.
+    this.weeklyEarningsGoal = next;
+    try { localStorage.setItem(this.weeklyGoalStorageKey, String(next)); } catch { /* ignore */ }
+    this.isEditingWeeklyGoal = false;
+    this.refreshWeeklyEarningsProgress();
+    this.cdr.markForCheck();
+
+    // Persist to DB. On failure, roll back to previous value so local + server stay in sync.
+    this.userService.updateProfile({ weeklyEarningsGoal: next } as any).subscribe({
+      error: (err) => {
+        console.error('Failed to save weekly earnings goal:', err);
+        this.weeklyEarningsGoal = previous;
+        this.weeklyGoalEditValue = previous;
+        try { localStorage.setItem(this.weeklyGoalStorageKey, String(previous)); } catch { /* ignore */ }
+        this.refreshWeeklyEarningsProgress();
+        this.cdr.markForCheck();
+      }
+    });
   }
 
   isTutor(): boolean {
@@ -7867,14 +9092,12 @@ navigateToLessons() {
   }
   
   onInviteStudentModalDismiss(event: any) {
-    
     this.isInviteStudentModalOpen = false;
-    
-    const data = event.detail?.data;
-    if (data && data.invited) {
-      // Refresh lessons to show updated invitations (no skeleton)
-      this.loadLessons(false);
-    }
+  }
+
+  /** Invite modal stays open after send; refresh home/calendar data when invites succeed. */
+  onInviteStudentsSent(_payload: { count: number }) {
+    this.loadLessons(false);
   }
 
   /**
@@ -7897,39 +9120,17 @@ navigateToLessons() {
   }
 
   async rescheduleClass(classId: string, lesson: Lesson) {
-    
     try {
-      const className = lesson?.className || lesson?.classData?.name || '';
-      
-      
-      const modal = await this.modalCtrl.create({
-        component: ConfirmActionModalComponent,
-        componentProps: {
-          title: 'Reschedule Class',
-          message: `Do you want to reschedule "${className}"? All invited students will be notified of this change.`,
-          confirmText: 'Reschedule',
-          cancelText: 'Cancel',
-          confirmColor: 'primary',
-          icon: 'calendar',
-          iconColor: 'primary'
-        },
-        cssClass: 'confirm-action-modal'
-      });
-
-      
-      await modal.present();
-      
-      
-      const { data } = await modal.onWillDismiss();
-      if (data && data.confirmed) {
-        // TODO: Implement class reschedule with availability calendar
-        const toast = await this.toastController.create({
-          message: 'Reschedule functionality coming soon',
-          duration: 2000,
-          position: 'bottom'
-        });
-        await toast.present();
-      }
+      const isTutor = this.lessonTutorIsCurrentUser(lesson);
+      const participantAvatar =
+        (lesson as any).classData?.thumbnail ||
+        (lesson as any).thumbnail ||
+        this.getOtherParticipantAvatar(lesson) ||
+        null;
+      const participantForModal = isTutor
+        ? (lesson as any).className || (lesson as any).classData?.name || lesson.subject || 'Class'
+        : lesson.tutorId;
+      await this.openRescheduleModal(classId, lesson, participantForModal, participantAvatar, false);
     } catch (error) {
       console.error('❌ Error opening reschedule class modal:', error);
     }
@@ -7940,7 +9141,7 @@ navigateToLessons() {
     
     try {
       // Get participant info
-      const isTutor = lesson.tutorId?._id === this.currentUser?.id;
+      const isTutor = this.lessonTutorIsCurrentUser(lesson);
       const otherParticipant = isTutor ? lesson.studentId : lesson.tutorId;
       
       // Get participant avatar
@@ -8073,15 +9274,53 @@ navigateToLessons() {
     
     try {
       const className = lesson?.className || lesson?.classData?.name || '';
-      
-      
+      const anyLesson = lesson as any;
+      const classThumbnailUrl =
+        anyLesson?.classData?.thumbnail || anyLesson?.thumbnail || undefined;
+
+      // STEP 1: Show the cancellation reason modal (class variant)
+      const reasonModal = await this.modalCtrl.create({
+        component: CancelReasonModalComponent,
+        componentProps: {
+          entityType: 'class',
+          userRole: 'tutor',
+          className: className,
+          classThumbnailUrl,
+          lessonStartTime: lesson?.startTime,
+          lessonDuration: lesson?.duration
+        },
+        cssClass: 'cancel-reason-modal'
+      });
+      await reasonModal.present();
+      const reasonResult = await reasonModal.onDidDismiss();
+      if (reasonResult.data?.rescheduleInstead) {
+        if (!this.hasLessonStarted(lesson)) {
+          await this.rescheduleClass(classId, lesson);
+        } else {
+          const toast = await this.toastController.create({
+            message: 'This class has already started and cannot be rescheduled.',
+            duration: 3000,
+            position: 'bottom',
+            color: 'medium'
+          });
+          await toast.present();
+        }
+        return;
+      }
+      if (reasonResult.data?.cancelled || !reasonResult.data?.reason) {
+        return;
+      }
+      this.selectedCancelReason = reasonResult.data.reason;
+
+      // STEP 2: Final confirmation (compact Apple-style dialog)
       const modal = await this.modalCtrl.create({
         component: ConfirmActionModalComponent,
         componentProps: {
-          title: 'Cancel Class',
-          message: `Are you sure you want to cancel "${className}"? All invited students will be notified and this action cannot be undone.`,
-          confirmText: 'Cancel Class',
-          cancelText: 'Keep Class',
+          title: 'Cancel class?',
+          message: `Are you sure you want to cancel "${className}"? All invited and confirmed students will be notified. This action cannot be undone.`,
+          confirmText: 'Cancel class',
+          cancelText: 'Reschedule instead?',
+          secondaryDismissReschedules: true,
           confirmColor: 'danger',
           icon: 'close-circle',
           iconColor: 'danger'
@@ -8089,11 +9328,22 @@ navigateToLessons() {
         cssClass: 'confirm-action-modal'
       });
 
-      
       await modal.present();
-      
-      
-      const { data } = await modal.onWillDismiss();
+      const { data } = await modal.onDidDismiss();
+      if (data?.rescheduleInstead) {
+        if (!this.hasLessonStarted(lesson)) {
+          await this.rescheduleClass(classId, lesson);
+        } else {
+          const toast = await this.toastController.create({
+            message: 'This class has already started and cannot be rescheduled.',
+            duration: 3000,
+            position: 'bottom',
+            color: 'medium'
+          });
+          await toast.present();
+        }
+        return;
+      }
       if (data && data.confirmed) {
         const loading = await this.loadingController.create({
           message: 'Cancelling class...',
@@ -8175,7 +9425,22 @@ navigateToLessons() {
       
       await reasonModal.present();
       const reasonResult = await reasonModal.onDidDismiss();
-      
+
+      if (reasonResult.data?.rescheduleInstead) {
+        if (!this.hasLessonStarted(lesson)) {
+          await this.rescheduleLesson(lessonId, lesson);
+        } else {
+          const toast = await this.toastController.create({
+            message: 'This lesson has already started and cannot be rescheduled.',
+            duration: 3000,
+            position: 'bottom',
+            color: 'medium'
+          });
+          await toast.present();
+        }
+        return;
+      }
+
       // If user cancelled or didn't select a reason, stop here
       if (reasonResult.data?.cancelled || !reasonResult.data?.reason) {
         
@@ -8196,6 +9461,22 @@ navigateToLessons() {
             text: 'Go Back',
             role: 'cancel',
             cssClass: 'alert-cancel-button'
+          },
+          {
+            text: 'Reschedule instead?',
+            handler: () => {
+              if (!this.hasLessonStarted(lesson)) {
+                void this.rescheduleLesson(lessonId, lesson);
+              } else {
+                void this.toastController.create({
+                  message: 'This lesson has already started and cannot be rescheduled.',
+                  duration: 3000,
+                  position: 'bottom',
+                  color: 'medium'
+                }).then(t => t.present());
+              }
+              return true;
+            }
           },
           {
             text: 'Cancel Lesson',
@@ -8271,27 +9552,52 @@ navigateToLessons() {
     this.selectedCancelReason = null;
   }
 
+  /**
+   * Whether the current user is the tutor on this row. Handles hub classes where `tutorId`
+   * may be a plain Mongo id string (see `loadLessons` class merge).
+   */
+  private lessonTutorIsCurrentUser(lesson: Lesson | null | undefined): boolean {
+    if (!lesson?.tutorId || !this.currentUser?.id) {
+      return false;
+    }
+    const t = lesson.tutorId as any;
+    const tid = t?._id ?? t;
+    return String(tid) === String(this.currentUser.id);
+  }
+
   // Open reschedule modal with embedded availability calendar
   async openRescheduleModal(lessonId: string, lesson: Lesson, participantObject: any, participantAvatar: string | null, showBackButton: boolean = false) {
-    
-    
+    const isClassLesson = !!(lesson as any)?.isClass;
+
     // Get the other participant's ID
-    const isTutor = lesson.tutorId?._id === this.currentUser?.id;
+    const isTutor = this.lessonTutorIsCurrentUser(lesson);
     let otherParticipantId: string | null = null;
-    
+
     // Use the passed participant object, or extract from lesson
     let otherParticipant = participantObject;
     if (!otherParticipant) {
       otherParticipant = isTutor ? lesson.studentId : lesson.tutorId;
     }
-    
+
     if (otherParticipant && typeof otherParticipant === 'object') {
       otherParticipantId = (otherParticipant as any)?._id || (otherParticipant as any)?.id;
     } else if (typeof otherParticipant === 'string') {
-      otherParticipantId = otherParticipant;
+      otherParticipantId = null;
     }
-    
-    if (!otherParticipantId || !this.currentUser?.id) {
+
+    if (!this.currentUser?.id) {
+      const toast = await this.toastController.create({
+        message: 'Could not find participant information',
+        duration: 2000,
+        color: 'danger',
+        position: 'bottom'
+      });
+      await toast.present();
+      return;
+    }
+
+    // Group classes have no single "other student"; reschedule modal skips mutual student-busy load.
+    if (!isClassLesson && !otherParticipantId) {
       const toast = await this.toastController.create({
         message: 'Could not find participant information',
         duration: 2000,
@@ -8306,11 +9612,16 @@ navigateToLessons() {
     // If it's a string, pass it as-is (will be formatted in modal)
     const participantNameForModal = otherParticipant || 'Student';
     
+    const participantIdForModal =
+      isClassLesson && isTutor
+        ? String(this.currentUser.id)
+        : String(otherParticipantId);
+
     // Set modal data and open inline modal (no programmatic creation = no JIT compilation delay)
     this.rescheduleModalData = {
       lessonId: lessonId,
       lesson: lesson,
-      participantId: otherParticipantId,
+      participantId: participantIdForModal,
       participantName: participantNameForModal,
       participantAvatar: participantAvatar || undefined,
       currentUserId: this.currentUser.id,
@@ -8320,6 +9631,8 @@ navigateToLessons() {
     
     // Open the inline modal
     this.isRescheduleModalOpen = true;
+    // Required when opening from Ionic modal dismiss (e.g. "Reschedule instead?") — OnPush won't refresh otherwise
+    this.cdr.markForCheck();
   }
   
   // Handle inline modal dismissal

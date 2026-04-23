@@ -860,6 +860,7 @@
     "FIELD_LEVEL": "级别",
     "FIELD_COVER_IMAGE": "封面图片",
     "FIELD_COVER_RECOMMENDED": "推荐",
+    "FIELD_COVER_REQUIRED": "必填",
     "FIELD_COVER_ADD": "添加封面图片",
     "FIELD_COVER_HINT": "让您的材料更加突出。您将裁剪为卡片形状（16:10）。JPG 或 PNG，最大 5 MB。",
     "PRO_TIP": "专业提示：",

@@ -859,6 +859,7 @@
     "FIELD_LEVEL": "Επίπεδο",
     "FIELD_COVER_IMAGE": "Εικόνα Εξωφύλλου",
     "FIELD_COVER_RECOMMENDED": "Συνιστάται",
+    "FIELD_COVER_REQUIRED": "Υποχρεωτικό",
     "FIELD_COVER_ADD": "Προσθέστε εικόνα εξωφύλλου",
     "FIELD_COVER_HINT": "Κάνει το υλικό σας να ξεχωρίζει. Θα περικόψετε στο σχήμα κάρτας (16:10). JPG ή PNG, μέγ. 5 MB.",
     "PRO_TIP": "Συμβουλή:",

@@ -7,6 +7,7 @@ import { AvailabilitySetupComponent } from '../availability-setup/availability-s
 import { UserService } from '../../services/user.service';
 import { formatTimeInTz, formatDateInTz } from '../../shared/timezone.utils';
 import { LessonService, Lesson } from '../../services/lesson.service';
+import { ClassService } from '../../services/class.service';
 import { trigger, transition, style, animate, query, stagger } from '@angular/animations';
 import { firstValueFrom } from 'rxjs';
 import { timeout, observeOn } from 'rxjs/operators';
@@ -72,13 +73,21 @@ export class RescheduleLessonModalComponent implements OnInit {
   // View: calendar (pick slot) or availability-setup (add new availability) — tutor only
   rescheduleView: 'calendar' | 'availability-setup' = 'calendar';
 
+  /** null = not yet loaded, true/false once the viewer emits availabilityLoaded. */
+  tutorHasAvailability: boolean | null = null;
+  tutorBlocked = false;
+
+  /** Hub class row: no single-student mutual busy-slot fetch (see tab1 `isClass` merge). */
+  isClassLesson = false;
+
   constructor(
     private modalController: ModalController,
     private loadingController: LoadingController,
     private toastController: ToastController,
     private alertController: AlertController,
     private userService: UserService,
-    private lessonService: LessonService
+    private lessonService: LessonService,
+    private classService: ClassService
   ) {}
 
   private get userTz(): string | undefined {
@@ -86,48 +95,54 @@ export class RescheduleLessonModalComponent implements OnInit {
   }
 
   async ngOnInit() {
-    // Determine tutor and student IDs immediately (lightweight)
+    this.isClassLesson = !!(this.lesson as any)?.isClass;
+
     if (this.isTutor) {
       this.tutorId = this.currentUserId;
-      this.studentId = this.participantId;
+      this.studentId = this.isClassLesson ? '' : this.participantId;
     } else {
       this.tutorId = this.participantId;
       this.studentId = this.currentUserId;
     }
-    
-    // Format participant name (lightweight)
+
     let participantObject: any = this.participantName;
-    
+
     if (typeof this.participantName === 'string') {
-      const isTutor = this.isTutor;
-      const otherParticipant = isTutor ? this.lesson.studentId : this.lesson.tutorId;
-      
+      const otherParticipant = this.isTutor ? this.lesson.studentId : this.lesson.tutorId;
+
       if (otherParticipant && typeof otherParticipant === 'object') {
         participantObject = otherParticipant;
       } else {
         participantObject = this.participantName;
       }
     }
-    
-    this.formattedParticipantName = this.formatStudentDisplayName(participantObject);
-    
-    // Format original lesson time for display
+
+    if (this.isClassLesson && this.isTutor && typeof this.participantName === 'string') {
+      this.formattedParticipantName = String(this.participantName).trim() || 'Class';
+    } else {
+      this.formattedParticipantName = this.formatStudentDisplayName(participantObject);
+    }
+
     this.formatOriginalLessonTime();
-    
+
     console.log('📅 Reschedule modal initialized:', {
       tutorId: this.tutorId,
       studentId: this.studentId,
       lessonToReschedule: this.lessonId,
+      isClassLesson: this.isClassLesson,
       participantNameInput: this.participantName,
-      participantObject: participantObject,
+      participantObject,
       formattedName: this.formattedParticipantName
     });
 
-    // CRITICAL: Defer ALL heavy operations until after Angular completes initialization
-    // This prevents the root scheduler error and UI freeze
-    setTimeout(() => {
-      this.loadStudentLessonsDeferred();
-    }, 50);
+    if (this.isClassLesson) {
+      this.isLoadingMutualAvailability = false;
+      this.studentBusySlots = new Set();
+    } else {
+      setTimeout(() => {
+        this.loadStudentLessonsDeferred();
+      }, 50);
+    }
   }
 
   // Separate method called after initialization to avoid blocking modal render
@@ -203,6 +218,12 @@ export class RescheduleLessonModalComponent implements OnInit {
 
 
   async loadStudentLessons() {
+    if (!this.studentId) {
+      this.isLoadingMutualAvailability = false;
+      this.studentBusySlots = new Set();
+      return;
+    }
+
     const loading = await this.loadingController.create({
       message: 'Finding available times...'
     });
@@ -413,9 +434,11 @@ export class RescheduleLessonModalComponent implements OnInit {
   }
 
   async onRescheduleClick() {
+    const header = this.isClassLesson ? 'Reschedule class' : 'Reschedule Lesson';
+    const subject = this.isClassLesson ? 'this class' : 'this lesson';
     const alert = await this.alertController.create({
-      header: 'Reschedule Lesson',
-      message: `Are you sure you want to reschedule this lesson to ${this.selectedDateFormatted} at ${this.selectedTimeFormatted}?`,
+      header,
+      message: `Are you sure you want to reschedule ${subject} to ${this.selectedDateFormatted} at ${this.selectedTimeFormatted}?`,
       buttons: [
         {
           text: 'Cancel',
@@ -441,7 +464,7 @@ export class RescheduleLessonModalComponent implements OnInit {
     }
 
     const loading = await this.loadingController.create({
-      message: 'Proposing new time...'
+      message: this.isClassLesson ? 'Updating class…' : 'Proposing new time...'
     });
     await loading.present();
 
@@ -458,43 +481,75 @@ export class RescheduleLessonModalComponent implements OnInit {
       const originalDuration = new Date(this.lesson.endTime).getTime() - new Date(this.lesson.startTime).getTime();
       const newEndTime = new Date(newStartTime.getTime() + originalDuration);
 
-      console.log('📅 Proposing reschedule:', {
+      console.log('📅 Reschedule submit:', {
+        isClassLesson: this.isClassLesson,
         selectedDate: this.selectedDate,
         selectedTime: this.selectedTime,
         newStartTime: newStartTime.toString(),
         newStartTimeISO: newStartTime.toISOString()
       });
 
-      // Call API to propose reschedule (not direct reschedule) with timeout protection and asyncScheduler
-      const apiPromise = firstValueFrom(
-        this.lessonService.proposeReschedule(
-        this.lessonId,
-        newStartTime.toISOString(),
-        newEndTime.toISOString()
-        ).pipe(
-          observeOn(asyncScheduler), // Make emissions async to prevent freezing
-          timeout(15000) // 15 second timeout
-        )
-      );
-      
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Request timeout')), 15000)
-      );
-      
-      const response: any = await Promise.race([apiPromise, timeoutPromise]);
+      let response: any;
+
+      if (this.isClassLesson) {
+        if (!this.isTutor) {
+          await loading.dismiss();
+          const toast = await this.toastController.create({
+            message: 'Only the tutor can reschedule this class.',
+            duration: 3000,
+            color: 'warning',
+            position: 'bottom'
+          });
+          await toast.present();
+          return;
+        }
+
+        const apiPromise = firstValueFrom(
+          this.classService
+            .updateClass(this.lessonId, {
+              startTime: newStartTime.toISOString(),
+              endTime: newEndTime.toISOString()
+            })
+            .pipe(observeOn(asyncScheduler), timeout(15000))
+        );
+
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Request timeout')), 15000)
+        );
+
+        response = await Promise.race([apiPromise, timeoutPromise]);
+      } else {
+        const apiPromise = firstValueFrom(
+          this.lessonService
+            .proposeReschedule(this.lessonId, newStartTime.toISOString(), newEndTime.toISOString())
+            .pipe(observeOn(asyncScheduler), timeout(15000))
+        );
+
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Request timeout')), 15000)
+        );
+
+        response = await Promise.race([apiPromise, timeoutPromise]);
+      }
 
       await loading.dismiss();
 
       if (response?.success) {
         const toast = await this.toastController.create({
-          message: 'New time proposed! Waiting for confirmation.',
+          message: this.isClassLesson
+            ? 'Class time updated.'
+            : 'New time proposed! Waiting for confirmation.',
           duration: 3000,
           color: 'success'
         });
         await toast.present();
 
-        // Close modal and return success
-        this.modalController.dismiss({ rescheduled: true, proposed: true, selectedDate: this.selectedDate, selectedTime: this.selectedTime });
+        this.modalController.dismiss({
+          rescheduled: true,
+          proposed: !this.isClassLesson,
+          selectedDate: this.selectedDate,
+          selectedTime: this.selectedTime
+        });
       } else {
         throw new Error('Reschedule failed');
       }
@@ -535,6 +590,11 @@ export class RescheduleLessonModalComponent implements OnInit {
 
   onAvailabilitySaved(): void {
     this.goBackToCalendar();
+  }
+
+  onAvailabilityLoaded(ev: { hasAvailability: boolean; tutorBlocked: boolean }): void {
+    this.tutorHasAvailability = ev.hasAvailability;
+    this.tutorBlocked = ev.tutorBlocked;
   }
 
   /**

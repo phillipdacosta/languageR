@@ -1,17 +1,41 @@
 <div class="mobile-section mobile-section-actions m-stagger m-stagger-3" [class.m-stagger-go]="staggerReady" [class.m-stagger-done]="staggerDone">
   <h3 class="mobile-section-title">{{ 'HOME.QUICK_ACTIONS' | translate }}</h3>
-  <div class="mobile-actions-scroll" [class.qa-go]="quickActionsReady" [class.qa-entered]="quickActionsAnimated">
-    <button class="mobile-action-chip mobile-action-chip--quick-art qa-pop qa-pop-1" (click)="navigateToExplore.emit()">
-      <img class="mobile-action-chip-icon-img" src="assets/quick-actions-classes.png" alt="" />
-      <span>{{ 'HOME.CLASSES' | translate }}</span>
+  <div class="mobile-actions-grid" [class.qa-go]="quickActionsReady" [class.qa-entered]="quickActionsAnimated">
+    <button type="button" class="mobile-action-card mac-action-classes qa-pop qa-pop-1" (click)="navigateToExplore.emit()">
+      <div class="mac-icon">
+        <img class="mac-icon-img" [src]="isDarkModeActive ? 'assets/quick-actions-classes-original.png' : 'assets/quick-actions-classes.png'" alt="" />
+      </div>
+      <div class="mac-text">
+        <span class="mac-title">{{ 'HOME.CLASSES' | translate }}</span>
+        <span class="mac-sub">{{ 'HOME.CLASSES_SUB' | translate }}</span>
+      </div>
     </button>
-    <button class="mobile-action-chip mobile-action-chip--quick-art qa-pop qa-pop-2" (click)="navigateToCreateMaterial.emit($event)">
-      <img class="mobile-action-chip-icon-img" src="assets/quick-actions-create-material.png" alt="" />
-      <span>{{ 'HOME.CREATE_MATERIAL' | translate }}</span>
+    <button type="button" class="mobile-action-card mac-action-create-material qa-pop qa-pop-2" (click)="navigateToCreateMaterial.emit($event)">
+      <div class="mac-icon">
+        <img class="mac-icon-img" [src]="isDarkModeActive ? 'assets/quick-actions-create-material-original.png' : 'assets/quick-actions-create-material.png'" alt="" />
+      </div>
+      <div class="mac-text">
+        <span class="mac-title">{{ 'HOME.CREATE_MATERIAL' | translate }}</span>
+        <span class="mac-sub">{{ 'HOME.CREATE_MATERIAL_SUB' | translate }}</span>
+      </div>
     </button>
-    <button class="mobile-action-chip mobile-action-chip--quick-art qa-pop qa-pop-3">
-      <img class="mobile-action-chip-icon-img" src="assets/quick-actions-forum.png" alt="" />
-      <span>{{ 'HOME.FORUM' | translate }}</span>
+    <button type="button" class="mobile-action-card mac-action-forum qa-pop qa-pop-3" (click)="navigateToForum.emit()">
+      <div class="mac-icon">
+        <img class="mac-icon-img" [src]="isDarkModeActive ? 'assets/quick-actions-forum-original.png' : 'assets/quick-actions-forum.png'" alt="" />
+      </div>
+      <div class="mac-text">
+        <span class="mac-title">{{ 'HOME.FORUM' | translate }}</span>
+        <span class="mac-sub">{{ 'HOME.FORUM_SUB' | translate }}</span>
+      </div>
+    </button>
+    <button class="mobile-action-card qa-pop qa-pop-4">
+      <div class="mac-icon mac-icon--reviews">
+        <ion-icon name="star-outline"></ion-icon>
+      </div>
+      <div class="mac-text">
+        <span class="mac-title">{{ 'HOME.MY_REVIEWS' | translate }}</span>
+        <span class="mac-sub">{{ 'HOME.MY_REVIEWS_SUB' | translate }}</span>
+      </div>
     </button>
   </div>
 </div>

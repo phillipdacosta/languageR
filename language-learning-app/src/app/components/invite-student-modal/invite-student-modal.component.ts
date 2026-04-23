@@ -1,9 +1,12 @@
-import { Component, Input, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, EventEmitter, Input, OnDestroy, OnInit, Output, ChangeDetectorRef } from '@angular/core';
 import { ModalController, ToastController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { FormsModule } from '@angular/forms';
 import { HttpClientModule } from '@angular/common/http';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { UserService } from '../../services/user.service';
 import { ClassService } from '../../services/class.service';
 import { LessonService } from '../../services/lesson.service';
@@ -23,7 +26,7 @@ interface Student {
   templateUrl: './invite-student-modal.component.html',
   styleUrls: ['./invite-student-modal.component.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, FormsModule, HttpClientModule],
+  imports: [CommonModule, IonicModule, FormsModule, HttpClientModule, TranslateModule],
   animations: [
     trigger('slideInOut', [
       transition(':enter', [
@@ -55,10 +58,13 @@ interface Student {
     ])
   ]
 })
-export class InviteStudentModalComponent implements OnInit {
+export class InviteStudentModalComponent implements OnInit, OnDestroy {
   @Input() className!: string;
   @Input() classId!: string;
   @Input() classData?: any; // Class object with invitedStudents
+
+  /** Fired after a successful invite so the host can refresh lessons while the modal stays open. */
+  @Output() invitationsSent = new EventEmitter<{ count: number }>();
 
   students: Student[] = [];
   filteredStudents: Student[] = []; // For search filtering
@@ -74,6 +80,14 @@ export class InviteStudentModalComponent implements OnInit {
   studentToRemove: Student | null = null;
   animationState: 'main' | 'confirmation' = 'main';
   dropdownStateBeforeRemoval = false; // Store dropdown state
+  /** i18n keys for removal copy (avoid string calls in template). */
+  removalStatusPhraseKey = '';
+  removalActionPhraseKey = '';
+
+  /** Footer primary CTA label (computed; refreshed on selection / language change). */
+  inviteFooterLabel = '';
+
+  private readonly destroy$ = new Subject<void>();
 
   constructor(
     private modalController: ModalController,
@@ -81,11 +95,38 @@ export class InviteStudentModalComponent implements OnInit {
     private classService: ClassService,
     private toastController: ToastController,
     private lessonService: LessonService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private translate: TranslateService
   ) {}
 
   ngOnInit() {
+    this.translate.onLangChange.pipe(takeUntil(this.destroy$)).subscribe(() => {
+      this.refreshInviteFooterLabel();
+      this.cdr.markForCheck();
+    });
+    this.refreshInviteFooterLabel();
     this.loadStudents();
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  private refreshInviteFooterLabel(): void {
+    const newCount = this.getNewInvitationsCount();
+    const acceptedCount = this.getAcceptedCount();
+    const pendingCount = this.getPendingCount();
+    if (acceptedCount > 0 && newCount === 0 && pendingCount === 0) {
+      this.inviteFooterLabel = this.translate.instant('HOME.INVITE_BTN_ALL_CONFIRMED', { count: acceptedCount });
+    } else if (newCount > 0) {
+      this.inviteFooterLabel =
+        newCount === 1
+          ? this.translate.instant('HOME.INVITE_BTN_SEND_ONE')
+          : this.translate.instant('HOME.INVITE_BTN_SEND_MANY', { count: newCount });
+    } else {
+      this.inviteFooterLabel = this.translate.instant('HOME.INVITE_BTN_SEND');
+    }
   }
 
   dismiss() {
@@ -111,6 +152,7 @@ export class InviteStudentModalComponent implements OnInit {
     if (!currentUser?.id) {
       console.error('No current user found');
       this.loadingStudents = false;
+      this.refreshInviteFooterLabel();
       return;
     }
     
@@ -173,19 +215,22 @@ export class InviteStudentModalComponent implements OnInit {
           console.log('✅ Pre-selected students:', this.selectedStudents.length);
           
           // Trigger change detection
+          this.refreshInviteFooterLabel();
           this.cdr.detectChanges();
         } else {
           this.loadingStudents = false;
+          this.refreshInviteFooterLabel();
           this.cdr.detectChanges();
         }
       },
       error: async (error) => {
         console.error('❌ Error loading students:', error);
         this.loadingStudents = false;
+        this.refreshInviteFooterLabel();
         this.cdr.detectChanges();
         
         const toast = await this.toastController.create({
-          message: 'Failed to load students',
+          message: this.translate.instant('HOME.INVITE_TOAST_LOAD_FAILED'),
           duration: 2000,
           color: 'danger',
           position: 'bottom'
@@ -213,6 +258,7 @@ export class InviteStudentModalComponent implements OnInit {
     } else {
       this.selectedStudents.splice(index, 1);
     }
+    this.refreshInviteFooterLabel();
   }
 
   isStudentSelected(studentId: string): boolean {
@@ -236,15 +282,6 @@ export class InviteStudentModalComponent implements OnInit {
     });
   }
   
-  getStudentInvitationLabel(student: Student): string {
-    if (student.invitationStatus === 'accepted') {
-      return 'Already Accepted';
-    } else if (student.invitationStatus === 'pending') {
-      return 'Invitation Pending';
-    }
-    return '';
-  }
-  
   // Format student display name as "First L."
   formatStudentDisplayName(studentOrName: any): string {
     // Handle if it's a student object with firstName and lastName
@@ -260,14 +297,14 @@ export class InviteStudentModalComponent implements OnInit {
       
       // Fall back to name field if firstName/lastName not available
       const rawName = studentOrName.name || studentOrName.email;
-      if (!rawName) return 'Student';
+      if (!rawName) return this.translate.instant('HOME.INVITE_FALLBACK_NAME');
       return this.formatStudentDisplayName(rawName); // Recursively handle the string
     }
     
     // Handle if it's just a string name
     const rawName = studentOrName;
     if (!rawName || typeof rawName !== 'string') {
-      return 'Student';
+      return this.translate.instant('HOME.INVITE_FALLBACK_NAME');
     }
 
     const name = rawName.trim();
@@ -275,7 +312,7 @@ export class InviteStudentModalComponent implements OnInit {
     // If it's an email, use the part before @ as a fallback
     if (name.includes('@')) {
       const base = name.split('@')[0];
-      if (!base) return 'Student';
+      if (!base) return this.translate.instant('HOME.INVITE_FALLBACK_NAME');
       const parts = base.split(/[.\s_]+/).filter(Boolean);
       const first = parts[0];
       const lastInitial = parts.length > 1 ? parts[parts.length - 1][0] : '';
@@ -299,7 +336,29 @@ export class InviteStudentModalComponent implements OnInit {
     if (!value) return '';
     return value.charAt(0).toUpperCase() + value.slice(1);
   }
-  
+
+  /** Keep `classData` in sync so a later `loadStudents()` still sees pending invites. */
+  private mergePendingInvitationsIntoClassData(studentIds: string[]) {
+    if (!this.classData) return;
+    if (!this.classData.invitedStudents) this.classData.invitedStudents = [];
+    for (const id of studentIds) {
+      const exists = this.classData.invitedStudents.some((inv: any) => {
+        const invitedId = typeof inv.studentId === 'object' ? inv.studentId._id : inv.studentId;
+        return invitedId === id;
+      });
+      if (!exists) {
+        this.classData.invitedStudents.push({ studentId: id, status: 'pending' });
+      }
+    }
+  }
+
+  private markStudentsInvitationPending(studentIds: string[]) {
+    for (const id of studentIds) {
+      const s = this.students.find(x => x._id === id);
+      if (s) s.invitationStatus = 'pending';
+    }
+  }
+
   getNewInvitationsCount(): number {
     return this.selectedStudents.filter(id => {
       const student = this.students.find(s => s._id === id);
@@ -319,31 +378,6 @@ export class InviteStudentModalComponent implements OnInit {
       const student = this.students.find(s => s._id === id);
       return student?.invitationStatus === 'pending';
     }).length;
-  }
-  
-  getInviteButtonText(): string {
-    const newCount = this.getNewInvitationsCount();
-    const acceptedCount = this.getAcceptedCount();
-    const pendingCount = this.getPendingCount();
-    
-    // If all selected are accepted, show different message
-    if (acceptedCount > 0 && newCount === 0 && pendingCount === 0) {
-      return `${acceptedCount} Already Confirmed`;
-    }
-    
-    // Only show count for NEW invitations (not pending - pending means already invited)
-    // Pending invitations shouldn't trigger a new invitation send
-    if (newCount > 0) {
-      return `Send ${newCount} Invitation${newCount !== 1 ? 's' : ''}`;
-    }
-    
-    // If only pending or accepted (no new), don't show invitation count
-    if (pendingCount > 0 || acceptedCount > 0) {
-      return 'Send Invitations';
-    }
-    
-    // Default
-    return 'Send Invitations';
   }
   
   shouldDisableInviteButton(): boolean {
@@ -370,7 +404,7 @@ export class InviteStudentModalComponent implements OnInit {
       
       if (studentsToInvite.length === 0) {
         const toast = await this.toastController.create({
-          message: 'No new invitations to send',
+          message: this.translate.instant('HOME.INVITE_TOAST_NO_NEW'),
           duration: 2000,
           color: 'warning',
           position: 'bottom'
@@ -383,19 +417,29 @@ export class InviteStudentModalComponent implements OnInit {
       const response = await this.classService.inviteStudentsToClass(this.classId, studentsToInvite).toPromise();
       
       if (response && response.success) {
+        const count = response.newInvitationsCount ?? studentsToInvite.length;
+        const toastMsg =
+          response.message ||
+          (count === 1
+            ? this.translate.instant('HOME.INVITE_TOAST_INVITED_ONE')
+            : this.translate.instant('HOME.INVITE_TOAST_INVITED_MANY', { count }));
         const toast = await this.toastController.create({
-          message: response.message || `Successfully invited ${response.newInvitationsCount} student${response.newInvitationsCount !== 1 ? 's' : ''}`,
+          message: toastMsg,
           duration: 3000,
           color: 'success',
           position: 'bottom'
         });
         await toast.present();
-        
-        this.modalController.dismiss({ invited: true, count: response.newInvitationsCount });
+
+        this.markStudentsInvitationPending(studentsToInvite);
+        this.mergePendingInvitationsIntoClassData(studentsToInvite);
+        this.invitationsSent.emit({ count: response.newInvitationsCount });
+        this.refreshInviteFooterLabel();
+        this.cdr.detectChanges();
       }
     } catch (error: any) {
       console.error('Error inviting students:', error);
-      const errorMessage = error?.error?.message || 'Failed to invite students';
+      const errorMessage = error?.error?.message || this.translate.instant('HOME.INVITE_TOAST_FAILED_INVITE');
       const toast = await this.toastController.create({
         message: errorMessage,
         duration: 3000,
@@ -421,6 +465,14 @@ export class InviteStudentModalComponent implements OnInit {
     
     // Store the student and show confirmation view
     this.studentToRemove = student;
+    this.removalStatusPhraseKey =
+      student.invitationStatus === 'accepted'
+        ? 'HOME.INVITE_REMOVAL_STATUS_ACCEPTED'
+        : 'HOME.INVITE_REMOVAL_STATUS_INVITED';
+    this.removalActionPhraseKey =
+      student.invitationStatus === 'accepted'
+        ? 'HOME.INVITE_REMOVAL_ACTION_REMOVE'
+        : 'HOME.INVITE_REMOVAL_ACTION_CANCEL_INVITE';
     this.showRemovalConfirmation = true;
     this.animationState = 'confirmation';
   }
@@ -432,6 +484,8 @@ export class InviteStudentModalComponent implements OnInit {
     // Restore the dropdown state after animation completes
     setTimeout(() => {
       this.studentToRemove = null;
+      this.removalStatusPhraseKey = '';
+      this.removalActionPhraseKey = '';
       this.showStudentDropdown = this.dropdownStateBeforeRemoval;
       this.dropdownStateBeforeRemoval = false;
     }, 350);
@@ -448,7 +502,7 @@ export class InviteStudentModalComponent implements OnInit {
       
       if (response && response.success) {
         const toast = await this.toastController.create({
-          message: `${student.name} has been removed from the class`,
+          message: this.translate.instant('HOME.INVITE_TOAST_REMOVED', { name: student.name }),
           duration: 3000,
           color: 'success',
           position: 'bottom'
@@ -473,12 +527,14 @@ export class InviteStudentModalComponent implements OnInit {
         // Clear student and reload after animation
         setTimeout(() => {
           this.studentToRemove = null;
+          this.removalStatusPhraseKey = '';
+          this.removalActionPhraseKey = '';
           this.loadStudents();
         }, 350);
       }
     } catch (error: any) {
       console.error('Error removing student:', error);
-      const errorMessage = error?.error?.message || 'Failed to remove student';
+      const errorMessage = error?.error?.message || this.translate.instant('HOME.INVITE_TOAST_FAILED_REMOVE');
       const toast = await this.toastController.create({
         message: errorMessage,
         duration: 3000,
@@ -491,14 +547,5 @@ export class InviteStudentModalComponent implements OnInit {
     }
   }
   
-  getRemovalStatusText(): string {
-    if (!this.studentToRemove) return '';
-    return this.studentToRemove.invitationStatus === 'accepted' ? 'has already accepted' : 'has been invited';
-  }
-  
-  getRemovalActionText(): string {
-    if (!this.studentToRemove) return '';
-    return this.studentToRemove.invitationStatus === 'accepted' ? 'remove them from this class' : 'cancel their invitation';
-  }
 }
 

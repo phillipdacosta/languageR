@@ -32,6 +32,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '../contexts/ThemeContext';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { messagingService, Conversation, Message } from '../services/messaging';
+import { useScreenEntranceAnimations } from '../hooks/useScreenEntranceAnimations';
 
 interface Props {
   conversation: Conversation;
@@ -69,8 +70,36 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
   const otherUser = conversation.otherUser;
   const otherUserId = otherUser?.auth0Id || otherUser?.id || '';
 
+  // Group-thread mode — messages, sends and read receipts all route through the
+  // `/groups/:groupId/...` endpoints instead of the 1:1 `/conversations/:id/...`
+  // set. We keep `otherUserId` for back-compat with 1:1 helpers below.
+  const isGroup = !!conversation.isGroup;
+  const groupId = conversation.groupId || '';
+  const groupParticipants = conversation.participants || [];
+
+  /**
+   * Quick lookup for sender metadata keyed by auth0Id — used when rendering
+   * per-message avatars/names in a group thread. Falls back gracefully when a
+   * participant leaves between send-time and render-time.
+   */
+  const participantById = useMemo(() => {
+    const map: Record<string, { name: string; picture?: string | null }> = {};
+    for (const p of groupParticipants) {
+      if (p.auth0Id) map[p.auth0Id] = { name: p.name || 'Member', picture: p.picture };
+      if (p.id) map[p.id] = { name: p.name || 'Member', picture: p.picture };
+    }
+    return map;
+  }, [groupParticipants]);
+
   const myName = propName || 'You';
   const myPicture = currentUserPicture || null;
+
+  const headerTitle = isGroup
+    ? (conversation.groupName
+        || conversation.otherUser?.name
+        || groupParticipants.map((p) => p.name).filter(Boolean).join(', ')
+        || 'Group')
+    : (otherUser?.name || 'Chat');
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,6 +107,13 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
   const [hasMore, setHasMore] = useState(true);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  /**
+   * True when the current user is no longer an active member of this group
+   * thread (e.g. they left or were removed from the class). The backend
+   * reports this on every group messages fetch; we mirror it here so the
+   * composer can be replaced with a read-only banner.
+   */
+  const [archived, setArchived] = useState<boolean>(!!conversation.archived);
   const flatListRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
   const shouldAutoScroll = useRef(true);
@@ -111,6 +147,7 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
   const [uploading, setUploading] = useState(false);
 
   const invertedMessages = useMemo(() => [...messages].reverse(), [messages]);
+  const { shellMotion, listGateMotion } = useScreenEntranceAnimations(loading);
 
   useEffect(() => {
     if (!otherUser?.timezone) return;
@@ -129,15 +166,31 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
   useEffect(() => { return () => { soundRef.current?.unloadAsync(); }; }, []);
 
   const fetchMessages = useCallback(async () => {
-    const data = await messagingService.getMessages(otherUserId, 50);
+    // Group threads use the `/groups/:id/messages` endpoint; 1:1 threads keep
+    // their existing `/conversations/:otherUserId/messages` behavior.
+    // For groups we use the *WithMeta* variant so we also learn whether the
+    // current user is still an active member (archived=false) or has left
+    // (archived=true), which controls the read-only banner below.
+    let data: Message[] = [];
+    if (isGroup) {
+      const meta = await messagingService.getGroupMessagesWithMeta(groupId, 50);
+      data = meta?.messages || [];
+      setArchived(!!meta?.archived);
+    } else {
+      data = await messagingService.getMessages(otherUserId, 50);
+    }
     const sorted = [...data].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
     setMessages(sorted);
     setHasMore(data.length >= 50);
     setLoading(false);
-    messagingService.markRead(otherUserId);
+    if (isGroup) {
+      if (groupId) messagingService.markGroupRead(groupId);
+    } else if (otherUserId) {
+      messagingService.markRead(otherUserId);
+    }
     isInitialLoad.current = true;
     shouldAutoScroll.current = true;
-  }, [otherUserId]);
+  }, [isGroup, groupId, otherUserId]);
 
   useEffect(() => { fetchMessages(); }, [fetchMessages]);
 
@@ -153,18 +206,23 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
     if (loadingOlder || !hasMore || messages.length === 0) return;
     setLoadingOlder(true);
     const oldest = messages[0];
-    const older = await messagingService.getMessages(otherUserId, 50, oldest.id);
+    const older = isGroup
+      ? await messagingService.getGroupMessages(groupId, 50, oldest.id)
+      : await messagingService.getMessages(otherUserId, 50, oldest.id);
     if (older.length < 50) setHasMore(false);
     if (older.length > 0) {
       const sorted = [...older].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
       setMessages(prev => [...sorted, ...prev]);
     }
     setLoadingOlder(false);
-  }, [loadingOlder, hasMore, messages, otherUserId]);
+  }, [loadingOlder, hasMore, messages, isGroup, groupId, otherUserId]);
 
   const handleSend = useCallback(async () => {
     const content = text.trim();
     if (!content || sending) return;
+    // Archived group threads are read-only; the composer should already be
+    // hidden, but we double-check in case of stale state/races.
+    if (isGroup && archived) return;
     setSending(true);
     setText('');
     const replyPayload = replyTo ? {
@@ -175,16 +233,29 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
     setReplyTo(null);
     const optimistic: Message = {
       id: `temp-${Date.now()}`, conversationId: conversation.conversationId,
-      senderId: currentUserId, receiverId: otherUserId,
+      senderId: currentUserId, receiverId: isGroup ? '' : otherUserId,
       content, type: 'text', read: false,
       createdAt: new Date().toISOString(), replyTo: replyPayload,
     };
     shouldAutoScroll.current = true;
     setMessages(prev => [...prev, optimistic]);
-    const sent = await messagingService.sendMessage(otherUserId, content, 'text', replyPayload);
+    // Group threads fan out via the dedicated group endpoint; on first send
+    // the backend requires `participantIds` so it can verify the group id hash.
+    const sent = isGroup
+      ? await messagingService.sendGroupMessage(groupId, content, {
+          type: 'text',
+          participantIds: groupParticipants.map((p) => p.auth0Id).filter(Boolean),
+          name: conversation.groupName || '',
+          replyTo: replyPayload,
+        })
+      : await messagingService.sendMessage(otherUserId, content, 'text', replyPayload);
     if (sent) setMessages(prev => prev.map(m => m.id === optimistic.id ? { ...sent, createdAt: sent.createdAt || optimistic.createdAt } : m));
     setSending(false);
-  }, [text, sending, conversation.conversationId, currentUserId, otherUserId, replyTo, otherUser?.name]);
+  }, [
+    text, sending, conversation.conversationId, conversation.groupName,
+    currentUserId, otherUserId, replyTo, otherUser?.name,
+    isGroup, groupId, groupParticipants, archived,
+  ]);
 
   const openContextMenu = useCallback((msg: Message, pageY: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -349,12 +420,18 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
       const uri = recordingRef.current.getURI();
       recordingRef.current = null;
       if (!uri || recordingTime < 1) return;
+      // Voice uploads currently only route through the DM endpoint; keep
+      // groups text-only until we add a matching group-upload route.
+      if (isGroup) {
+        Alert.alert('Not available', 'Voice notes aren\'t supported in group chats yet.');
+        return;
+      }
       setUploading(true);
       const sent = await messagingService.uploadFile(otherUserId, uri, `voice-${Date.now()}.m4a`, 'audio/m4a', 'voice');
       if (sent) { shouldAutoScroll.current = true; setMessages(prev => [...prev, sent]); }
       setUploading(false);
     } catch (err) { console.warn('[Chat] stopRecording error:', err); setIsRecording(false); setUploading(false); }
-  }, [otherUserId, recordingTime]);
+  }, [otherUserId, recordingTime, isGroup]);
 
   const pickAttachment = useCallback(() => {
     if (Platform.OS === 'ios') {
@@ -376,6 +453,12 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
         result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
       }
       if (result.canceled || !result.assets?.[0]) return;
+      // Image uploads only go through the DM endpoint today; skip with an
+      // in-app alert for group threads rather than silently dropping.
+      if (isGroup) {
+        Alert.alert('Not available', 'Photo sharing isn\'t supported in group chats yet.');
+        return;
+      }
       const asset = result.assets[0];
       setUploading(true);
       const converted = await manipulateAsync(asset.uri, [], { compress: 0.8, format: SaveFormat.JPEG });
@@ -384,7 +467,7 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
       if (sent) { shouldAutoScroll.current = true; setMessages(prev => [...prev, sent]); }
       setUploading(false);
     } catch (err) { console.warn('[Chat] pickImage error:', err); setUploading(false); }
-  }, [otherUserId]);
+  }, [otherUserId, isGroup]);
 
   const formatTime = (d: string) =>
     new Date(d).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
@@ -417,6 +500,13 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
 
   const getSenderName = (msg: Message) => {
     if (msg.senderId === currentUserId) return formatDisplayName(myName);
+    // In a group thread, resolve from the participants map so each row shows
+    // the actual sender (not the generic "other user"). Fall back to whatever
+    // the server attached as `sender` for safety.
+    if (isGroup) {
+      const p = participantById[msg.senderId];
+      return formatDisplayName(p?.name || msg.sender?.name || 'Member');
+    }
     return formatDisplayName(otherUser?.name || msg.sender?.name || 'User');
   };
 
@@ -424,6 +514,10 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
 
   const getSenderPicture = (msg: Message) => {
     if (msg.senderId === currentUserId) return myPicture || msg.sender?.picture || null;
+    if (isGroup) {
+      const p = participantById[msg.senderId];
+      return p?.picture || msg.sender?.picture || null;
+    }
     return otherUser?.picture || msg.sender?.picture || null;
   };
 
@@ -571,19 +665,22 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
   return (
     <View style={{ flex: 1, backgroundColor: C.background }}>
     <SafeAreaView style={[s.safe, { backgroundColor: C.background }]} edges={['top', 'bottom']}>
+      <Animated.View style={shellMotion}>
       <View style={[s.header, { backgroundColor: C.background, borderBottomColor: C.border }]}>
         <TouchableOpacity onPress={goBack} style={s.backBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="chevron-back" size={24} color={C.text} />
         </TouchableOpacity>
-        <Text style={[s.headerTitle, { color: C.text }]} numberOfLines={1}>{otherUser?.name || 'Chat'}</Text>
+        <Text style={[s.headerTitle, { color: C.text }]} numberOfLines={1}>{headerTitle}</Text>
         <View style={s.headerRight} />
       </View>
+      </Animated.View>
 
       <KeyboardAvoidingView
         style={s.kavContainer}
         behavior="padding"
         keyboardVerticalOffset={insets.bottom}
       >
+        <Animated.View style={[{ flex: 1 }, listGateMotion]}>
         <View style={[s.chatBody, { backgroundColor: C.background }]}>
           {loading ? (
             <View style={s.loadingWrap}><ActivityIndicator size="large" color={C.textTertiary} /></View>
@@ -591,7 +688,11 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
             <View style={s.emptyWrap}>
               <Ionicons name="chatbubble-ellipses-outline" size={40} color={C.textTertiary} />
               <Text style={[s.emptyTitle, { color: C.text }]}>No messages yet</Text>
-              <Text style={[s.emptySub, { color: C.textSecondary }]}>Start a conversation with {otherUser?.name?.split(' ')[0] || 'them'}.</Text>
+              <Text style={[s.emptySub, { color: C.textSecondary }]}>
+                {isGroup
+                  ? `Start the conversation with ${groupParticipants.length} people.`
+                  : `Start a conversation with ${otherUser?.name?.split(' ')[0] || 'them'}.`}
+              </Text>
             </View>
           ) : (
             <FlatList
@@ -617,6 +718,7 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
             />
           )}
         </View>
+        </Animated.View>
 
         <View style={[s.bottomArea, { backgroundColor: C.background }]}>
           {uploading && (
@@ -647,7 +749,14 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
             </View>
           )}
 
-          {isRecording ? (
+          {isGroup && archived ? (
+            <View style={[s.archivedBanner, { backgroundColor: C.inputBg, borderTopColor: C.border }]}>
+              <Ionicons name="lock-closed-outline" size={14} color={C.textSecondary} style={{ marginRight: 6 }} />
+              <Text style={[s.archivedBannerText, { color: C.textSecondary }]}>
+                You're no longer a member of this class conversation. History is read-only.
+              </Text>
+            </View>
+          ) : isRecording ? (
             <View style={[s.inputBar, { backgroundColor: C.background, borderTopColor: C.border }]}>
               <View style={s.recordingPulse} />
               <Text style={[s.recordingLabel, { color: C.text }]}>{Math.floor(recordingTime / 60)}:{String(recordingTime % 60).padStart(2, '0')}</Text>
@@ -666,7 +775,7 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
               </TouchableOpacity>
               <TextInput
                 ref={inputRef}
-                style={[s.textInput, { color: C.text, backgroundColor: isDark ? '#1c1c1e' : '#f2f2f7' }]}
+                style={[s.textInput, { color: C.text, backgroundColor: C.inputBg }]}
                 placeholder="Your message"
                 placeholderTextColor={C.textTertiary}
                 value={text}
@@ -945,6 +1054,15 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8,
     borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#e5e5e5', backgroundColor: '#fff',
+  },
+  archivedBanner: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 20, paddingVertical: 14,
+    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#e5e5e5',
+    backgroundColor: '#f5f5f7',
+  },
+  archivedBannerText: {
+    fontSize: 13, fontWeight: '500', color: '#6a6a6a', textAlign: 'center', letterSpacing: -0.1,
   },
   textInput: {
     flex: 1, fontSize: 15, color: '#111', maxHeight: 100, minHeight: 36,

@@ -2,11 +2,13 @@ import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, HostListener
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController, ToastController, LoadingController } from '@ionic/angular';
 import { Router } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 import { LessonService } from '../../services/lesson.service';
 import { UserService } from '../../services/user.service';
 import { formatTimeInTz, formatDateInTz, isSameDayInTimezone } from '../../shared/timezone.utils';
 import { CancelReasonModalComponent } from '../cancel-reason-modal/cancel-reason-modal.component';
 import { ConfirmActionModalComponent } from '../confirm-action-modal/confirm-action-modal.component';
+import { RescheduleLessonModalComponent } from '../reschedule-lesson-modal/reschedule-lesson-modal.component';
 
 interface EventDetails {
   id?: string;
@@ -52,7 +54,7 @@ interface MenuPosition {
   templateUrl: './event-details-modal.component.html',
   styleUrls: ['./event-details-modal.component.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, CancelReasonModalComponent, ConfirmActionModalComponent]
+  imports: [CommonModule, IonicModule, CancelReasonModalComponent, ConfirmActionModalComponent, RescheduleLessonModalComponent]
 })
 export class EventDetailsModalComponent implements OnInit, OnDestroy {
   @Input() event!: EventDetails;
@@ -181,6 +183,85 @@ export class EventDetailsModalComponent implements OnInit, OnDestroy {
       return `${first} ${lastInitial}.`;
     }
     return name;
+  }
+
+  /** After cancel flow dismisses, load lesson and open the same reschedule modal as event details. */
+  private async presentLessonRescheduleById(lessonId: string): Promise<void> {
+    const now = new Date();
+    if (this.event.start <= now) {
+      const toast = await this.toastController.create({
+        message: 'This lesson has already started and cannot be rescheduled.',
+        duration: 3000,
+        position: 'bottom',
+        color: 'medium',
+      });
+      await toast.present();
+      return;
+    }
+
+    const cu = await this.userService.getCurrentUser().toPromise();
+    const uid = (cu as any)?.id ?? (cu as any)?._id;
+    if (!cu || !uid) return;
+
+    const res = await firstValueFrom(this.lessonService.getLesson(lessonId));
+    if (!res?.success || !res.lesson) {
+      const toast = await this.toastController.create({
+        message: 'Could not load lesson to reschedule.',
+        duration: 2500,
+        position: 'bottom',
+        color: 'danger',
+      });
+      await toast.present();
+      return;
+    }
+
+    const lesson: any = res.lesson;
+    const tutorRaw = lesson.tutorId;
+    const tid = typeof tutorRaw === 'object' ? tutorRaw?._id ?? tutorRaw?.id : tutorRaw;
+    const isTutor = String(tid) === String(uid);
+
+    const otherParticipant = isTutor ? lesson.studentId : lesson.tutorId;
+    let participantId: string | null = null;
+    if (otherParticipant && typeof otherParticipant === 'object') {
+      participantId = (otherParticipant as any)?._id ?? (otherParticipant as any)?.id ?? null;
+    } else if (typeof otherParticipant === 'string') {
+      participantId = otherParticipant;
+    }
+
+    if (!participantId) {
+      const toast = await this.toastController.create({
+        message: 'Could not find participant information',
+        duration: 2000,
+        color: 'danger',
+        position: 'bottom',
+      });
+      await toast.present();
+      return;
+    }
+
+    const participantNameForModal = otherParticipant || this.formatStudentName(
+      this.event.studentDisplayName || this.event.studentName || ''
+    ) || 'Student';
+    const participantAvatar =
+      (isTutor ? (lesson.studentId as any)?.picture : (lesson.tutorId as any)?.picture) ||
+      this.event.avatarUrl ||
+      undefined;
+
+    const m = await this.modalController.create({
+      component: RescheduleLessonModalComponent,
+      componentProps: {
+        lessonId,
+        lesson,
+        participantId,
+        participantName: participantNameForModal,
+        participantAvatar,
+        currentUserId: String(uid),
+        isTutor,
+        showBackButton: false,
+      },
+      cssClass: 'reschedule-lesson-modal',
+    });
+    await m.present();
   }
 
   ngOnDestroy() {
@@ -408,17 +489,19 @@ export class EventDetailsModalComponent implements OnInit, OnDestroy {
     
     await reasonModal.present();
     const reasonResult = await reasonModal.onDidDismiss();
-    
-    // If user cancelled or didn't select a reason, stop here
-    if (reasonResult.data?.cancelled || !reasonResult.data?.reason) {
-      console.log('🔴 User cancelled or did not select a reason');
+
+    if (reasonResult.data?.rescheduleInstead) {
+      await this.presentLessonRescheduleById(lessonId!);
       return;
     }
-    
+
+    // If user cancelled or didn't select a reason, stop here
+    if (reasonResult.data?.cancelled || !reasonResult.data?.reason) {
+      return;
+    }
+
     const selectedReason = reasonResult.data.reason;
-    console.log('🔴 Selected cancellation reason:', selectedReason);
-    console.log('🔴 Calling cancelLesson with - lessonId:', lessonId, 'reasonId:', selectedReason.id, 'reasonText:', selectedReason.label);
-    
+
     // STEP 2: Show confirmation modal
     const confirmModal = await this.modalController.create({
       component: ConfirmActionModalComponent,
@@ -427,7 +510,8 @@ export class EventDetailsModalComponent implements OnInit, OnDestroy {
         message: `Reason: ${selectedReason.label}`,
         notificationMessage: `${participantName || 'The other participant'} will be notified and this action cannot be undone.`,
         confirmText: 'Cancel Lesson',
-        cancelText: 'Go Back',
+        cancelText: 'Reschedule instead?',
+        secondaryDismissReschedules: true,
         confirmColor: 'danger',
         icon: 'close-circle',
         iconColor: 'danger',
@@ -436,13 +520,16 @@ export class EventDetailsModalComponent implements OnInit, OnDestroy {
       },
       cssClass: 'confirm-action-modal'
     });
-    
+
     await confirmModal.present();
     const confirmResult = await confirmModal.onDidDismiss();
-    
-    // If user didn't confirm, stop here
+
+    if (confirmResult.data?.rescheduleInstead) {
+      await this.presentLessonRescheduleById(lessonId!);
+      return;
+    }
+
     if (!confirmResult.data?.confirmed) {
-      console.log('🔴 User did not confirm cancellation');
       return;
     }
     

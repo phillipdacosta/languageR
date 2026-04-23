@@ -63,6 +63,25 @@ export const calendarService = {
     }
   },
 
+  /** Public tutor availability (same payload as web booking / reschedule). */
+  async getTutorAvailabilityByUserId(
+    userId: string,
+  ): Promise<{ availability: AvailabilityBlock[]; acceptingBookings?: boolean }> {
+    try {
+      const data = await api.get<{
+        success?: boolean;
+        availability?: AvailabilityBlock[];
+        acceptingBookings?: boolean;
+      }>(`/users/${encodeURIComponent(userId)}/availability`);
+      return {
+        availability: data.availability || [],
+        acceptingBookings: data.acceptingBookings,
+      };
+    } catch {
+      return { availability: [] };
+    }
+  },
+
   async updateAvailability(
     blocks: AvailabilityBlock[],
     editedDates?: string[],

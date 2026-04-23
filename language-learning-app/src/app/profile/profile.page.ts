@@ -418,10 +418,18 @@ export class ProfilePage implements OnInit {
       missingItems.push('Complete onboarding');
     }
     
-    // Check 2: Tutor fully approved (video + credentials all approved by admin)
+    // Check 2: Custom profile photo uploaded (not just Google/Auth0 default)
+    const hasCustomPhoto = !!(user.picture && (
+      user.picture.includes('storage.googleapis.com') ||
+      (user.auth0Picture && user.picture !== user.auth0Picture)
+    ));
+    if (!hasCustomPhoto) {
+      missingItems.push('Upload profile photo');
+    }
+    
+    // Check 3: Tutor fully approved (video + credentials all approved by admin)
     const tutorApproved = user.tutorApproved === true;
     if (!tutorApproved) {
-      // Give more specific missing item details
       const creds = user.tutorCredentials;
       const govIdOk = creds?.governmentId?.status === 'approved';
       const certsOk = !!(creds?.teachingCertifications?.some((c: any) => c.status === 'approved'));
@@ -435,20 +443,20 @@ export class ProfilePage implements OnInit {
       if (!certsOk) missingItems.push('Teaching certification verification');
     }
     
-    // Check 3: Has payout setup (Stripe, PayPal, or Manual)
+    // Check 4: Has payout setup (Stripe, PayPal, or Manual)
     const hasPayoutMethod = this.hasPayoutSetup === true;
     if (!hasPayoutMethod) {
       missingItems.push('Payout setup');
     }
     
-    // Check 4: No outstanding feedback
+    // Check 5: No outstanding feedback
     const hasPendingFeedback = this.pendingFeedbackCount > 0;
     if (hasPendingFeedback) {
       missingItems.push(`Complete ${this.pendingFeedbackCount} outstanding feedback`);
     }
     
     // All conditions must be met
-    this.isTutorVisible = onboardingCompleted && tutorApproved && hasPayoutMethod && !hasPendingFeedback;
+    this.isTutorVisible = onboardingCompleted && hasCustomPhoto && tutorApproved && hasPayoutMethod && !hasPendingFeedback;
     this.visibilityMissingItems = missingItems;
     this.visibilityMissingText = missingItems.join(' · ');
     

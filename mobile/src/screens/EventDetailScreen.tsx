@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,14 +8,25 @@ import {
   Image,
   Alert,
   Linking,
+  Dimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../contexts/ThemeContext';
 import { CalendarLesson, CalendarClass } from '../types/calendar';
+import { getRootNavigation } from '../utils/navigationRoot';
+import { LessonDateHeaderCenter, formatDateBadgeParts } from '../components/LessonDateHeaderCenter';
+import { SolidToolbarWithBlur } from '../components/SolidToolbarWithBlur';
+import type { Lesson } from '../services/lessons';
+import {
+  getJoinGateState,
+  formatTimeUntilLessonStart,
+  isLessonInProgressSlot,
+} from '../services/lessons';
 
 function formatDisplayName(person: any): string {
   if (!person) return '';
@@ -33,6 +44,7 @@ export default function EventDetailScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     const parent = navigation.getParent?.();
@@ -47,8 +59,29 @@ export default function EventDetailScreen() {
 
   const lesson: CalendarLesson | undefined = route.params?.lesson;
   const calendarClass: CalendarClass | undefined = route.params?.calendarClass;
+  const fromLessons = !!route.params?.fromLessons;
   const isClass = !!calendarClass;
   const item = lesson || calendarClass;
+
+  const [joinUiTick, setJoinUiTick] = useState(0);
+  useEffect(() => {
+    if (!item) return;
+    const tid = setInterval(() => setJoinUiTick(n => n + 1), 10000);
+    return () => clearInterval(tid);
+  }, [(item as any)?._id]);
+
+  const lessonForJoinGate = useMemo((): Lesson | null => {
+    if (!item) return null;
+    const anyItem = item as any;
+    return {
+      _id: anyItem._id,
+      startTime: anyItem.startTime,
+      endTime: anyItem.endTime,
+      duration: anyItem.duration || 30,
+      status: anyItem.status || 'scheduled',
+      ...(isClass ? { isClass: true as const } : {}),
+    } as Lesson;
+  }, [item, isClass]);
 
   const formatTime = (d: Date): string => {
     if (timeFormat === '24h') return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
@@ -109,17 +142,43 @@ export default function EventDetailScreen() {
     };
   }, [item, lesson, calendarClass, t]);
 
+  const joinGate = useMemo(() => getJoinGateState(lessonForJoinGate), [lessonForJoinGate, joinUiTick]);
+  const joinPrimaryLabel = useMemo(() => {
+    if (!lessonForJoinGate) return t('HOME.JOIN_LESSON');
+    if (joinGate.canJoin) {
+      if (isLessonInProgressSlot(lessonForJoinGate)) return t('HOME.JOIN_NOW');
+      return isClass ? t('HOME.JOIN_CLASS') : t('HOME.JOIN_LESSON');
+    }
+    if (joinGate.sessionEnded) return t('HOME.JOIN_LESSON_ENDED_TITLE');
+    return t('HOME.JOIN_IN_TIME', { time: formatTimeUntilLessonStart(lessonForJoinGate) });
+  }, [lessonForJoinGate, joinGate, isClass, t]);
+
   if (!details) {
     return (
-      <SafeAreaView style={[st.safe, { backgroundColor: colors.surface }]} edges={['top']}>
-        <View style={st.headerRow}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={st.backBtn}>
-            <Ionicons name="chevron-back" size={22} color={colors.text} />
-            <Text style={[st.backText, { color: colors.text }]}>{t('TABS.CALENDAR')}</Text>
-          </TouchableOpacity>
-        </View>
+      <View
+        style={[
+          st.safe,
+          {
+            backgroundColor: colors.surface,
+            paddingTop: insets.top,
+            paddingLeft: insets.left,
+            paddingRight: insets.right,
+            paddingBottom: insets.bottom,
+          },
+        ]}
+      >
+        <SolidToolbarWithBlur isDark={isDark}>
+          <View style={st.eventHeaderInner}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={st.backBtn}>
+              <Ionicons name="chevron-back" size={22} color={colors.text} />
+              <Text style={[st.backText, { color: colors.text }]}>
+                {fromLessons ? t('TABS.LESSONS') : t('TABS.CALENDAR')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </SolidToolbarWithBlur>
         <View style={st.center}><Text style={{ color: colors.textSecondary }}>{t('COMMON.LOADING')}</Text></View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -127,46 +186,190 @@ export default function EventDetailScreen() {
   const statusColor = details.isCancelled ? '#C13515' : details.isNow ? C.accent : details.isPast ? C.textTertiary : '#2E7D32';
   const statusLabel = details.isCancelled ? t('HOME.CANCELLED') : details.isNow ? t('HOME.STARTED') : details.isPast ? t('HOME.STATUS_COMPLETED') || 'Completed' : t('HOME.STATUS_SCHEDULED') || 'Scheduled';
 
-  return (
-    <SafeAreaView style={[st.safe, { backgroundColor: C.surface }]} edges={['top']}>
-      {/* Header */}
-      <View style={[st.headerRow, { borderBottomColor: C.border }]}>
+  const { month: headerMonth, day: headerDay } = formatDateBadgeParts(details.start);
+  const headerTimeRange = `${formatTime(details.start)} – ${formatTime(details.end)}`;
+  const headerTimeLine = isClass
+    ? `${t('LESSONS_PAGE.CLASS')} · ${headerTimeRange}`
+    : headerTimeRange;
+
+  const classCoverMode =
+    isClass && !!details.avatar && typeof details.avatar === 'string';
+  const screenW = Dimensions.get('window').width;
+  const classExtendBelowToolbar = Math.min(340, Math.round(screenW * 0.78));
+  const classSheetOverlap = 76;
+  const classToolbarChromeH = insets.top + 52;
+  const classCoverImageHeight = classToolbarChromeH + classExtendBelowToolbar;
+
+  const heroBadges = (
+    <View style={st.heroBadges}>
+      {details.isTrialLesson && (
+        <View style={[st.badge, { backgroundColor: '#FFF8E1' }]}>
+          <Text style={[st.badgeText, { color: '#F5A623' }]}>{t('HOME.STATUS_TRIAL')}</Text>
+        </View>
+      )}
+      {isClass && (
+        <View style={[st.badge, { backgroundColor: '#E8F5E9' }]}>
+          <Text style={[st.badgeText, { color: '#2E7D32' }]}>{t('HOME.CLASSES')}</Text>
+        </View>
+      )}
+      {details.isReschedule && (
+        <View style={[st.badge, { backgroundColor: '#FFF3E0' }]}>
+          <Text style={[st.badgeText, { color: '#E07912' }]}>{t('HOME.RESCHEDULE')}</Text>
+        </View>
+      )}
+    </View>
+  );
+
+  const headerToolbarSolid = (
+    <SolidToolbarWithBlur isDark={isDark}>
+      <View style={st.eventHeaderInner}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={st.backBtn}>
           <Ionicons name="chevron-back" size={22} color={C.text} />
-          <Text style={[st.backText, { color: C.text }]}>{t('TABS.CALENDAR')}</Text>
+          <Text style={[st.backText, { color: C.text }]}>
+            {fromLessons ? t('TABS.LESSONS') : t('TABS.CALENDAR')}
+          </Text>
         </TouchableOpacity>
         <View style={[st.statusBadge, { backgroundColor: statusColor + '20' }]}>
           <View style={[st.statusDot, { backgroundColor: statusColor }]} />
-          <Text style={[st.statusText, { color: statusColor }]}>{statusLabel}</Text>
+          <Text style={[st.statusText, { color: statusColor }]} numberOfLines={1}>
+            {statusLabel}
+          </Text>
         </View>
       </View>
+    </SolidToolbarWithBlur>
+  );
 
-      <ScrollView style={st.scroll} contentContainerStyle={st.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Hero */}
-        <View style={[st.heroCard, { backgroundColor: C.card, borderColor: C.border }]}>
-          {details.avatar ? (
-            <Image source={{ uri: details.avatar }} style={st.heroAvatar} />
-          ) : (
-            <View style={[st.heroAvatar, { backgroundColor: C.inputBg }]}>
-              <Ionicons name={isClass ? 'people' : 'person'} size={28} color={C.textTertiary} />
-            </View>
-          )}
-          <Text style={[st.heroTitle, { color: C.text }]}>{details.title}</Text>
-          {!!details.subject && <Text style={[st.heroSubject, { color: C.textSecondary }]}>{details.subject}</Text>}
-
-          <View style={st.heroBadges}>
-            {details.isTrialLesson && (
-              <View style={[st.badge, { backgroundColor: '#FFF8E1' }]}><Text style={[st.badgeText, { color: '#F5A623' }]}>{t('HOME.STATUS_TRIAL')}</Text></View>
-            )}
-            {isClass && (
-              <View style={[st.badge, { backgroundColor: '#E8F5E9' }]}><Text style={[st.badgeText, { color: '#2E7D32' }]}>{t('HOME.CLASSES')}</Text></View>
-            )}
-            {details.isReschedule && (
-              <View style={[st.badge, { backgroundColor: '#FFF3E0' }]}><Text style={[st.badgeText, { color: '#E07912' }]}>{t('HOME.RESCHEDULE')}</Text></View>
-            )}
+  const headerToolbarOverCover = (
+    <View
+      style={[
+        st.classToolbarWrap,
+        { paddingTop: insets.top, marginLeft: -insets.left, width: screenW },
+      ]}
+      pointerEvents="box-none"
+    >
+      <BlurView intensity={70} tint="dark" style={st.classToolbarBlur}>
+        <View style={st.eventHeaderInner}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={st.backBtn}>
+            <Ionicons name="chevron-back" size={22} color="rgba(255,255,255,0.95)" />
+            <Text style={[st.backText, { color: 'rgba(255,255,255,0.95)' }]}>
+              {fromLessons ? t('TABS.LESSONS') : t('TABS.CALENDAR')}
+            </Text>
+          </TouchableOpacity>
+          <View style={[st.statusBadge, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+            <View style={[st.statusDot, { backgroundColor: statusColor }]} />
+            <Text style={[st.statusText, { color: '#fff' }]} numberOfLines={1}>
+              {statusLabel}
+            </Text>
           </View>
         </View>
+      </BlurView>
+    </View>
+  );
 
+  return (
+    <View
+      style={[
+        st.safe,
+        {
+          backgroundColor: C.surface,
+          paddingTop: classCoverMode ? 0 : insets.top,
+          paddingLeft: insets.left,
+          paddingRight: insets.right,
+          paddingBottom: insets.bottom,
+        },
+      ]}
+    >
+      {!classCoverMode ? headerToolbarSolid : null}
+
+      {classCoverMode ? (
+        <Image
+          source={{ uri: details.avatar as string }}
+          style={[
+            st.classCoverImage,
+            {
+              height: classCoverImageHeight,
+              width: screenW,
+              marginLeft: -insets.left,
+            },
+          ]}
+          resizeMode="cover"
+          accessibilityRole="image"
+        />
+      ) : null}
+
+      <ScrollView
+        style={[st.scroll, classCoverMode && st.scrollTransparent]}
+        contentContainerStyle={[
+          classCoverMode
+            ? {
+                paddingTop: classCoverImageHeight - classSheetOverlap,
+                paddingBottom: 40,
+                paddingHorizontal: 0,
+              }
+            : st.scrollContent,
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        {classCoverMode ? (
+          <View
+            style={[
+              st.classMetaSheet,
+              {
+                backgroundColor: C.surface,
+                marginTop: -classSheetOverlap,
+                paddingBottom: 8,
+              },
+            ]}
+          >
+            <Text style={[st.heroTitle, { color: C.text, marginTop: 0 }]}>{details.title}</Text>
+            <View style={st.heroDateOuter}>
+              <LessonDateHeaderCenter
+                dateBadgeMonth={headerMonth}
+                dateBadgeDay={headerDay}
+                timeLine={headerTimeLine}
+                isDark={isDark}
+                textPrimary={C.text}
+                textSecondary={C.textSecondary}
+              />
+            </View>
+            {!!details.subject && (
+              <Text style={[st.heroSubject, { color: C.textSecondary }]}>{details.subject}</Text>
+            )}
+            {heroBadges}
+          </View>
+        ) : (
+          <View
+            style={[
+              isClass ? st.heroClassFlat : st.heroCard,
+              isClass ? { backgroundColor: C.card } : { backgroundColor: C.card, borderColor: C.border },
+            ]}
+          >
+            {details.avatar ? (
+              <Image source={{ uri: details.avatar as string }} style={st.heroAvatar} />
+            ) : (
+              <View style={[st.heroAvatar, { backgroundColor: C.inputBg }]}>
+                <Ionicons name={isClass ? 'people' : 'person'} size={28} color={C.textTertiary} />
+              </View>
+            )}
+            <Text style={[st.heroTitle, { color: C.text }]}>{details.title}</Text>
+            <View style={st.heroDateOuter}>
+              <LessonDateHeaderCenter
+                dateBadgeMonth={headerMonth}
+                dateBadgeDay={headerDay}
+                timeLine={headerTimeLine}
+                isDark={isDark}
+                textPrimary={C.text}
+                textSecondary={C.textSecondary}
+              />
+            </View>
+            {!!details.subject && (
+              <Text style={[st.heroSubject, { color: C.textSecondary }]}>{details.subject}</Text>
+            )}
+            {heroBadges}
+          </View>
+        )}
+
+        <View style={classCoverMode ? { paddingHorizontal: 16 } : undefined}>
         {/* Schedule */}
         <View style={[st.section, { backgroundColor: C.card, borderColor: C.border }]}>
           <Text style={[st.sectionTitle, { color: C.text }]}>{t('TUTOR_CALENDAR.SCHEDULE')}</Text>
@@ -215,9 +418,49 @@ export default function EventDetailScreen() {
         {!details.isPast && !details.isCancelled && (
           <View style={st.actionsSection}>
             {(details.isNow || details.isUpcoming) && (
-              <TouchableOpacity style={[st.actionBtn, { backgroundColor: C.accent }]} activeOpacity={0.85}>
-                <Ionicons name="videocam" size={18} color={C.background} />
-                <Text style={[st.actionBtnText, { color: C.background }]}>{details.isNow ? t('HOME.JOIN_NOW') : t('HOME.JOIN_LESSON')}</Text>
+              <TouchableOpacity
+                accessibilityRole="button"
+                style={[
+                  st.actionBtn,
+                  { backgroundColor: C.joinCtaBackground },
+                ]}
+                activeOpacity={joinGate.canJoin ? 0.85 : 1}
+                onPress={() => {
+                  const id = (item as any)._id;
+                  const gate = getJoinGateState(lessonForJoinGate);
+                  if (!gate.canJoin) {
+                    if (gate.sessionEnded) {
+                      Alert.alert(t('HOME.JOIN_LESSON_ENDED_TITLE'), t('HOME.JOIN_LESSON_ENDED_MSG'), [
+                        { text: t('COMMON.OK') },
+                      ]);
+                      return;
+                    }
+                    if (lessonForJoinGate) {
+                      Alert.alert(
+                        t('HOME.JOIN_NOT_READY_TITLE'),
+                        t('HOME.JOIN_NOT_READY_MSG', {
+                          session: t(isClass ? 'HOME.JOIN_SESSION_CLASS' : 'HOME.JOIN_SESSION_LESSON'),
+                          time: formatTimeUntilLessonStart(lessonForJoinGate),
+                        }),
+                        [{ text: t('COMMON.OK') }],
+                      );
+                    }
+                    return;
+                  }
+                  const root = getRootNavigation(navigation);
+                  root?.navigate?.('PreCall', { lessonId: id, isClass });
+                }}
+              >
+                <Ionicons
+                  name="videocam"
+                  size={18}
+                  color="#ffffff"
+                />
+                <Text
+                  style={[st.actionBtnText, { color: '#ffffff' }]}
+                >
+                  {joinPrimaryLabel}
+                </Text>
               </TouchableOpacity>
             )}
             {details.isUpcoming && (
@@ -234,10 +477,13 @@ export default function EventDetailScreen() {
             )}
           </View>
         )}
+        </View>
 
         <View style={{ height: 40 }} />
       </ScrollView>
-    </SafeAreaView>
+
+      {classCoverMode ? headerToolbarOverCover : null}
+    </View>
   );
 }
 
@@ -245,17 +491,62 @@ const st = StyleSheet.create({
   safe: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
+  eventHeaderInner: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    minHeight: 44,
+  },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   backText: { fontSize: 16, fontWeight: '600' },
   statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+  heroDateOuter: { alignItems: 'center', width: '100%', marginTop: 4, marginBottom: 8 },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
   statusText: { fontSize: 12, fontWeight: '600' },
 
   scroll: { flex: 1 },
   scrollContent: { padding: 16 },
+  scrollTransparent: { backgroundColor: 'transparent' },
+
+  /** Full-bleed class cover (drawn under toolbar + scroll) */
+  classCoverImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    width: '100%',
+    zIndex: 0,
+  },
+  classToolbarWrap: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+  },
+  classToolbarBlur: {
+    overflow: 'hidden',
+  },
+  /** Borderless sheet overlapping the cover */
+  classMetaSheet: {
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    alignItems: 'center',
+  },
 
   heroCard: { borderRadius: 16, borderWidth: 1, padding: 24, alignItems: 'center', marginBottom: 12 },
+  /** Class without full-bleed cover: same hero content, no bordered “card” */
+  heroClassFlat: {
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
   heroAvatar: { width: 64, height: 64, borderRadius: 32, marginBottom: 12, alignItems: 'center', justifyContent: 'center' },
   heroTitle: { fontSize: 20, fontWeight: '700', marginBottom: 4 },
   heroSubject: { fontSize: 14, marginBottom: 8 },

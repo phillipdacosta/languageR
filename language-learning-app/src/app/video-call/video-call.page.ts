@@ -216,6 +216,16 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   // Snapshot of student's AI analysis setting, locked at lesson start.
   // Mid-lesson changes do NOT affect the current lesson — only the next one.
   aiAnalysisEnabledAtTime: boolean | null = null;
+
+  // Student lesson intent (shown to tutor)
+  studentLessonIntent: string | null = null;
+  showIntentBanner = false;
+  intentDisplay: Record<string, { emoji: string; label: string; hint: string }> = {
+    easy: { emoji: '😌', label: 'Keep it light', hint: 'Easy pace, minimal corrections' },
+    conversational: { emoji: '💬', label: 'Conversational', hint: 'Free talk, follow their lead' },
+    focused: { emoji: '🎯', label: 'Focused', hint: 'Stay on topic, correct actively' },
+    challenge: { emoji: '🔥', label: 'Challenge me', hint: 'Push harder, introduce new material' },
+  };
   
   // Next event warning (for tutors)
   showNextEventWarning: boolean = false;
@@ -706,6 +716,11 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
               this.myProfilePicture = (me as any)?.picture || this.studentProfilePicture || '';
             }
             
+            if (lesson.studentLessonIntent && this.userRole === 'tutor') {
+              this.studentLessonIntent = lesson.studentLessonIntent;
+              this.showIntentBanner = true;
+            }
+
             console.log('🎓 VIDEO-CALL: Session loaded', {
               sessionId: lesson._id,
               isClass: this.isClass,
@@ -1393,7 +1408,17 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         // When a new remote user joins (count increases), play their video
         if (this.remoteUserCount > previousCount) {
           console.log('🎬 Remote user count increased - new user joined, playing videos...');
-          
+
+          if (this.userRole === 'tutor' && !this.studentLessonIntent) {
+            this.lessonService.getLesson(this.lessonId).subscribe(res => {
+              if (res?.lesson?.studentLessonIntent && !this.studentLessonIntent) {
+                this.studentLessonIntent = res.lesson.studentLessonIntent;
+                this.showIntentBanner = true;
+                this.cdr.detectChanges();
+              }
+            });
+          }
+
           // Play join sound notification - but ONLY if:
           // 1. There's actually a remote user (remoteUserCount > 0)
           // 2. We're past the initial join phase (joinSoundEnabled = true)
@@ -6046,6 +6071,10 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         console.error('❌ Error destroying whiteboard:', error);
       }
     }
+  }
+
+  dismissIntentBanner() {
+    this.showIntentBanner = false;
   }
 
   async ngOnDestroy() {

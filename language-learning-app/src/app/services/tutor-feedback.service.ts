@@ -15,6 +15,7 @@ export interface TutorFeedback {
   overallNotes: string;
   estimatedCefrLevel?: string;
   status: 'pending' | 'completed';
+  required?: boolean;
   providedAt?: Date;
   createdAt: Date;
   remindersSent: number;

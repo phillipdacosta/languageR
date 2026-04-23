@@ -1,43 +1,90 @@
+// ── Airbnb-style tokens (invite modal) ─────────────────────────────
+$text: #222222;
+$text-secondary: #717171;
+$text-tertiary: #b0b0b0;
+$border: rgba(0, 0, 0, 0.08);
+$border-strong: rgba(0, 0, 0, 0.12);
+$surface: #ffffff;
+$muted: #f7f7f7;
+$muted-hover: #f0f0f0;
+$radius: 14px;
+$radius-lg: 16px;
+$shadow-soft: 0 2px 12px rgba(0, 0, 0, 0.08);
+$primary: #222222;
+$primary-contrast: #ffffff;
+$success: #008a05;
+$success-soft: rgba(0, 138, 5, 0.1);
+$warning-ink: #b45309;
+$warning-soft: rgba(245, 158, 11, 0.12);
+$danger: #c13515;
+/** Destructive CTA — Airbnb-style coral (not default “alert” red). */
+$coral: #e31c5f;
+$coral-pressed: #c71352;
+
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  position: relative;
+}
+
+ion-content.invite-modal-content {
+  flex: 1;
+  min-height: 0;
+}
+
+ion-footer.invite-modal-footer {
+  flex-shrink: 0;
+}
+
 // Invite Modal Content
 .invite-modal-content {
-  --padding-top: 60px; // Space for floating close button
-  --padding-bottom: 20px;
+  --padding-top: 56px;
+  --padding-bottom: 16px;
   --padding-start: 0;
   --padding-end: 0;
-  --background: #ffffff;
+  --background: #{$surface};
   height: 100%;
 }
 
-// Floating close button (top-right)
+// Floating close — same circular control as reschedule-lesson-modal
 .floating-close-button {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 1000;
-  --background: #f5f5f7;
-  --background-hover: #e8e8ed;
-  --border-radius: 50%;
-  --color: #86868b;
-  --padding-start: 0;
-  --padding-end: 0;
-  width: 36px;
-  height: 36px;
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 1010;
+  width: 32px;
+  height: 32px;
   margin: 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: all 0.2s ease;
+  padding: 0;
+  background: #{$surface};
+  color: #{$text-secondary};
+  border-radius: 50%;
+  border: 1px solid #{$border-strong};
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  outline: none;
+  -webkit-appearance: none;
 
   &:hover {
-    --background: #e8e8ed;
-    --color: #1d1d1f;
-    transform: scale(1.05);
+    color: #{$text};
+    border-color: #{$text-tertiary};
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  }
+
+  &:active {
+    background: #{$muted};
+    transform: scale(0.95);
   }
 
   ion-icon {
-    font-size: 20px;
+    font-size: 18px;
   }
 }
 
-// Animation container
 .view-container {
   position: relative;
   width: 100%;
@@ -49,91 +96,111 @@
   }
 }
 
-// Main Container
 .modal-content {
-  padding: 0 24px 24px 24px;
-  max-width: 650px;
+  padding: 0 20px 24px;
+  max-width: 640px;
   margin: 0 auto;
 
   @media (max-width: 768px) {
-    padding: 0 20px 20px 20px;
+    padding: 0 16px 20px;
   }
 }
 
-// Class Info Banner
+// Class summary — neutral card (no purple gradient)
 .class-info {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 16px;
-  background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
-  border-radius: 14px;
+  padding: 16px 18px;
+  background: #{$surface};
+  border: 1px solid #{$border};
+  border-radius: $radius-lg;
   margin-bottom: 20px;
-  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.25);
+  box-shadow: $shadow-soft;
 
-  .class-icon {
-    font-size: 40px;
-    color: white;
+  .class-info-icon-wrap {
+    width: 64px;
+    min-height: 64px;
+    border-radius: 14px;
+    background: transparent;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
     flex-shrink: 0;
+    padding: 0 0 2px;
+    box-sizing: border-box;
+    overflow: visible;
+  }
+
+  .class-info-hero-img {
+    width: 100%;
+    height: 100%;
+    max-height: 64px;
+    object-fit: contain;
+    object-position: center bottom;
+    display: block;
+    pointer-events: none;
   }
 
   .class-details {
     flex: 1;
+    min-width: 0;
 
     h2 {
-      margin: 0 0 3px 0;
+      margin: 0 0 4px 0;
       font-size: 18px;
-      font-weight: 700;
-      color: white;
-      letter-spacing: -0.3px;
-      line-height: 1.2;
+      font-weight: 600;
+      color: #{$text};
+      letter-spacing: -0.02em;
+      line-height: 1.25;
     }
 
-    p {
+    .class-details-subtitle {
       margin: 0;
-      font-size: 11px;
-      font-weight: 700;
-      color: rgba(255, 255, 255, 0.85);
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
+      font-size: 14px;
+      font-weight: 400;
+      color: #{$text-secondary};
+      line-height: 1.4;
+    }
+
+    .class-details-hint {
+      margin: 8px 0 0 0;
+      font-size: 13px;
+      font-weight: 400;
+      color: #{$text-tertiary};
+      line-height: 1.45;
     }
   }
 
   @media (max-width: 768px) {
-    padding: 14px;
+    padding: 14px 16px;
     margin-bottom: 16px;
-    
-    .class-icon {
-      font-size: 36px;
-    }
-    
-    .class-details h2 {
-      font-size: 17px;
-    }
   }
 }
 
-// Search Bar Styles
 .search-wrapper {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 
   .student-searchbar {
-    --background: #f8f9fa;
+    --background: #{$muted};
     --border-radius: 12px;
     --box-shadow: none;
-    --placeholder-color: #86868b;
-    --placeholder-font-weight: 500;
-    --placeholder-font-size: 14px;
-    --icon-color: #86868b;
-    --color: #1d1d1f;
+    --placeholder-color: #{$text-tertiary};
+    --placeholder-font-weight: 400;
+    --placeholder-font-size: 15px;
+    --icon-color: #{$text-secondary};
+    --color: #{$text};
+    --clear-button-color: #{$text-secondary};
     padding: 0;
-    font-size: 14px;
+    font-size: 15px;
+    border: 1px solid #{$border};
+    border-radius: 12px;
+    overflow: hidden;
   }
 }
 
-// Students List Wrapper
 .students-list-wrapper {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 
   .loading-state,
   .empty-state {
@@ -141,73 +208,78 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 60px 24px;
+    padding: 48px 20px;
     text-align: center;
-    color: #86868b;
-    min-height: 300px;
+    color: #{$text-secondary};
+    min-height: 260px;
 
     ion-spinner {
-      margin-bottom: 20px;
-      --color: #8b5cf6;
+      margin-bottom: 16px;
+      --color: #{$text-secondary};
     }
 
     .empty-icon {
-      font-size: 80px;
-      color: #e5e5ea;
-      margin-bottom: 20px;
-      opacity: 0.7;
+      font-size: 56px;
+      color: #{$text-tertiary};
+      margin-bottom: 16px;
+      opacity: 0.85;
     }
 
     p {
       margin: 0;
       font-size: 15px;
-      line-height: 1.6;
-      color: #86868b;
-      font-weight: 500;
-      max-width: 280px;
+      line-height: 1.55;
+      color: #{$text-secondary};
+      font-weight: 400;
+      max-width: 300px;
     }
   }
 
   .student-list {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
   }
 
   .student-item {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 12px;
-    border-radius: 12px;
-    background: #f8f9fa;
-    border: 2px solid transparent;
+    padding: 12px 14px;
+    border-radius: $radius;
+    background: #{$surface};
+    border: 1px solid #{$border};
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition:
+      background 0.2s ease,
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
 
     &:hover:not(.disabled):not(.accepted) {
-      background: #f1f3f5;
-      border-color: #8b5cf6;
+      background: #{$muted};
+      border-color: #{$border-strong};
     }
 
     &.selected:not(.disabled):not(.accepted) {
-      background: rgba(139, 92, 246, 0.08);
-      border-color: #8b5cf6;
+      background: #{$muted};
+      border-color: #{$primary};
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     }
 
     &.accepted {
-      background: rgba(16, 185, 129, 0.05);
-      border-color: transparent;
+      background: #{$success-soft};
+      border-color: rgba(0, 138, 5, 0.2);
       cursor: default;
 
       &:hover {
-        background: rgba(16, 185, 129, 0.05);
-        border-color: transparent;
+        background: #{$success-soft};
+        border-color: rgba(0, 138, 5, 0.2);
       }
     }
 
     &.disabled {
-      opacity: 0.6;
+      opacity: 0.55;
       cursor: not-allowed;
     }
 
@@ -215,8 +287,8 @@
       width: 48px;
       height: 48px;
       flex-shrink: 0;
-      border: 2px solid white;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      border: 1px solid #{$border};
+      box-shadow: none;
 
       img {
         width: 100%;
@@ -231,10 +303,10 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
-        color: #ffffff;
-        font-weight: 700;
-        font-size: 18px;
+        background: #{$muted};
+        color: #{$text};
+        font-weight: 600;
+        font-size: 17px;
         border-radius: 50%;
       }
     }
@@ -244,38 +316,37 @@
       min-width: 0;
       display: flex;
       flex-direction: column;
-      gap: 3px;
+      gap: 2px;
 
       .student-name {
         font-size: 15px;
         font-weight: 600;
-        color: #1d1d1f;
-        letter-spacing: -0.2px;
+        color: #{$text};
+        letter-spacing: -0.01em;
       }
 
       .student-role {
-        font-size: 12px;
-        font-weight: 500;
-        color: #86868b;
+        font-size: 13px;
+        font-weight: 400;
+        color: #{$text-secondary};
       }
 
       .invitation-status {
-        font-size: 11px;
-        font-weight: 700;
+        font-size: 12px;
+        font-weight: 600;
         padding: 4px 10px;
         border-radius: 8px;
         width: fit-content;
-        letter-spacing: 0.3px;
-        text-transform: uppercase;
+        letter-spacing: 0.01em;
 
         &.status-accepted {
-          background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.12) 100%);
-          color: #059669;
+          background: rgba(0, 138, 5, 0.12);
+          color: #{$success};
         }
 
         &.status-pending {
-          background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.12) 100%);
-          color: #d97706;
+          background: #{$warning-soft};
+          color: #{$warning-ink};
         }
       }
     }
@@ -287,41 +358,36 @@
       justify-content: center;
 
       .remove-icon {
-        font-size: 26px;
-        color: #ef4444;
+        font-size: 22px;
+        color: #{$danger};
         cursor: pointer;
-        transition: all 0.2s ease;
+        transition: opacity 0.2s ease;
 
         &:hover {
-          color: #dc2626;
-          transform: scale(1.1);
-        }
-
-        &:active {
-          transform: scale(0.95);
+          opacity: 0.85;
         }
       }
 
       .custom-checkbox {
-        width: 24px;
-        height: 24px;
-        border-radius: 7px;
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
         border: 2px solid #d1d1d6;
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: all 0.2s ease;
-        background: #ffffff;
+        transition:
+          background 0.2s ease,
+          border-color 0.2s ease;
+        background: #{$surface};
 
         &.checked {
-          background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
-          border-color: #8b5cf6;
-          box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+          background: #{$primary};
+          border-color: #{$primary};
 
           .checkmark-icon {
-            color: #ffffff;
-            font-size: 16px;
-            font-weight: bold;
+            color: #{$primary-contrast};
+            font-size: 14px;
           }
         }
       }
@@ -329,220 +395,495 @@
   }
 }
 
-@keyframes checkmarkPop {
-  0% {
-    transform: scale(0);
-    opacity: 0;
-  }
-  50% {
-    transform: scale(1.2);
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-// Footer with Button
-ion-footer {
-  ion-toolbar {
-    --background: white;
+.invite-modal-footer {
+  ion-toolbar.invite-modal-toolbar {
+    --background: #{$surface};
     --border-width: 0;
-    --padding-top: 10px;
-    --padding-bottom: 10px;
+    --padding-top: 12px;
+    --padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
     --padding-start: 20px;
     --padding-end: 20px;
-    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 -1px 0 #{$border};
+  }
+
+  ion-toolbar.invite-modal-toolbar--removal {
+    --min-height: 0;
   }
 }
 
 .invite-btn {
-  max-width: 650px;
+  max-width: 320px;
+  width: 100%;
   margin: 0 auto;
   display: block;
   height: 48px;
   font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.3px;
+  font-weight: 600;
+  letter-spacing: 0;
   text-transform: none;
   --border-radius: 12px;
-  --background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
-  --background-activated: linear-gradient(135deg, #7c3aed 0%, #9333ea 100%);
-  --box-shadow: 0 4px 16px rgba(139, 92, 246, 0.3);
+  --background: #{$primary};
+  --background-activated: #000000;
+  --background-hover: #333333;
+  --color: #{$primary-contrast};
+  --box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 
   &[disabled] {
-    opacity: 0.5;
+    opacity: 0.4;
     --box-shadow: none;
   }
-  
+
   &.confirmed-only {
-    --background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-    --background-activated: linear-gradient(135deg, #059669 0%, #047857 100%);
-    --box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
-    cursor: default;
-    
+    --background: #{$success};
+    --background-activated: #006904;
+    --background-hover: #007a05;
+    --box-shadow: 0 2px 8px rgba(0, 138, 5, 0.25);
+
     &[disabled] {
-      opacity: 0.7;
+      opacity: 0.55;
     }
   }
 
   ion-spinner {
     width: 20px;
     height: 20px;
+    --color: #{$primary-contrast};
   }
 }
 
-// Removal Confirmation View
+// Removal confirmation — neutral shell, soft notice, coral CTA
 .removal-confirmation-view {
+  padding: 8px 0 24px;
+  min-height: 50%;
+}
+
+.removal-inner {
+  max-width: 440px;
+  margin: 0 auto;
+  padding: 0 20px 8px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  padding: 24px;
-  max-width: 600px;
-  margin: 0 auto;
+  gap: 20px;
+}
 
-  .confirmation-header {
-    text-align: center;
-    
-    .confirmation-icon {
-      font-size: 64px;
-      margin-bottom: 16px;
-      
-      &.danger {
-        color: #ef4444;
-      }
+.removal-header {
+  text-align: left;
+  padding-top: 4px;
+
+  .removal-title {
+    margin: 0 0 8px 0;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    color: #{$text};
+    line-height: 1.2;
+  }
+
+  .removal-subtitle {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 400;
+    color: #{$text-secondary};
+    line-height: 1.45;
+    max-width: 36em;
+  }
+}
+
+.removal-student-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: #{$surface};
+  border: 1px solid #{$border};
+  border-radius: $radius-lg;
+  box-shadow: $shadow-soft;
+}
+
+.removal-avatar-wrap {
+  flex-shrink: 0;
+
+  .removal-avatar {
+    width: 52px;
+    height: 52px;
+    margin: 0;
+    --border-radius: 50%;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
     }
-    
-    h2 {
-      font-size: 24px;
-      font-weight: 700;
-      color: #1d1d1f;
-      margin: 0;
+
+    .avatar-placeholder {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #{$muted};
+      color: #{$text};
+      font-weight: 600;
+      font-size: 19px;
+      border-radius: 50%;
     }
   }
-  
-  .student-card {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 16px;
-    background: rgba(239, 68, 68, 0.05);
-    border-radius: 12px;
-    border: 2px solid rgba(239, 68, 68, 0.15);
-    
-    .student-avatar {
-      width: 56px;
-      height: 56px;
-      margin: 0;
-      flex-shrink: 0;
-      
-      img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        border-radius: 50%;
-      }
-      
-      .avatar-placeholder {
-        width: 100%;
-        height: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
-        color: #ffffff;
-        font-weight: 600;
-        font-size: 22px;
-        border-radius: 50%;
-      }
-    }
-    
-    .student-details {
-      flex: 1;
-      
-      h3 {
-        font-size: 17px;
-        font-weight: 600;
-        color: #1d1d1f;
-        margin: 0 0 4px 0;
-      }
-      
-      .status-text {
-        font-size: 13px;
-        color: #86868b;
-        margin: 0;
-      }
+}
+
+.removal-student-meta {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+
+  .removal-student-name {
+    margin: 0 0 4px 0;
+    font-size: 17px;
+    font-weight: 600;
+    color: #{$text};
+    letter-spacing: -0.02em;
+  }
+
+  .removal-student-status {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: #{$text-secondary};
+  }
+}
+
+.removal-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 16px 16px 14px;
+  background: #{$muted};
+  border: 1px solid #{$border};
+  border-radius: $radius;
+  border-left: 3px solid #{$coral};
+
+  .removal-notice-icon {
+    font-size: 22px;
+    color: #{$coral};
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .removal-notice-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .removal-notice-main {
+    margin: 0 0 6px 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: #{$text};
+    line-height: 1.4;
+  }
+
+  .removal-notice-sub {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 400;
+    color: #{$text-secondary};
+    line-height: 1.45;
+  }
+}
+
+.removal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+
+  &.removal-actions--footer {
+    margin-top: 0;
+    width: 100%;
+    max-width: 440px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  @media (min-width: 480px) {
+    flex-direction: row;
+  }
+
+  ion-button.removal-btn-back {
+    flex: 1;
+    margin: 0;
+    height: 48px;
+    font-size: 15px;
+    font-weight: 600;
+    text-transform: none;
+    --border-radius: 12px;
+    --border-width: 1px;
+    --border-color: #{$border-strong};
+    --color: #{$text};
+    --background: #{$surface};
+    --background-hover: #{$muted};
+
+    &[disabled] {
+      opacity: 0.45;
     }
   }
-  
-  .confirmation-message {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 16px;
-    background: rgba(239, 68, 68, 0.08);
-    border-radius: 12px;
-    border-left: 4px solid #ef4444;
-    
-    ion-icon {
-      font-size: 24px;
-      color: #ef4444;
-      flex-shrink: 0;
-      margin-top: 2px;
+
+  ion-button.removal-btn-confirm {
+    flex: 1;
+    margin: 0;
+    height: 48px;
+    font-size: 15px;
+    font-weight: 600;
+    text-transform: none;
+    --border-radius: 12px;
+    --background: #{$coral};
+    --background-activated: #{$coral-pressed};
+    --background-hover: #d9195a;
+    --color: #ffffff;
+    --box-shadow: 0 2px 10px rgba(227, 28, 95, 0.28);
+
+    &[disabled] {
+      opacity: 0.45;
+      --box-shadow: none;
     }
-    
-    .message-text {
-      flex: 1;
-      
-      .main-message {
-        font-size: 15px;
-        font-weight: 600;
-        color: #1d1d1f;
-        margin: 0 0 6px 0;
-      }
-      
-      .sub-message {
-        font-size: 13px;
-        color: #86868b;
-        margin: 0;
-      }
+
+    ion-spinner {
+      width: 20px;
+      height: 20px;
+      --color: #ffffff;
     }
   }
-  
-  .confirmation-actions {
-    display: flex;
-    gap: 12px;
-    margin-top: 8px;
-    
-    ion-button {
-      flex: 1;
-      height: 48px;
-      font-size: 15px;
-      font-weight: 700;
-      letter-spacing: 0.3px;
-      text-transform: none;
-      --border-radius: 12px;
-      margin: 0;
-      
-      &[fill="outline"] {
-        --border-width: 2px;
-        --border-color: #e5e5ea;
-        --color: #1d1d1f;
-        
-        &:hover {
-          --background: #f5f5f7;
-        }
-      }
-      
-      &[color="danger"] {
-        --background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-        --background-activated: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
-        --box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3);
-      }
+}
+
+// ── Dark mode (Ionic class on html) ────────────────────────────────
+:host-context(html.ion-palette-dark) {
+  $text-d: #f5f5f7;
+  $text-2-d: #a1a1a6;
+  $text-3-d: #636366;
+  $border-d: rgba(255, 255, 255, 0.1);
+  $border-2-d: rgba(255, 255, 255, 0.14);
+  $surface-d: #2c2c2e;
+  $muted-d: #3a3a3c;
+  $page-d: #242426;
+
+  ion-content.invite-modal-content {
+    --background: #{$page-d};
+  }
+
+  .invite-modal-content {
+    --background: #{$page-d};
+  }
+
+  .floating-close-button {
+    background: #{$surface-d};
+    color: #{$text-2-d};
+    border-color: #{$border-2-d};
+
+    &:hover {
+      color: #{$text-d};
+      border-color: #{$text-3-d};
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+
+    &:active {
+      background: #{$muted-d};
+    }
+  }
+
+  .class-info {
+    background: #{$surface-d};
+    border-color: #{$border-d};
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
+
+    .class-info-icon-wrap {
+      background: transparent;
+    }
+
+    .class-details h2 {
+      color: #{$text-d};
+    }
+
+    .class-details .class-details-subtitle {
+      color: #{$text-2-d};
+    }
+
+    .class-details .class-details-hint {
+      color: #{$text-3-d};
+    }
+  }
+
+  .search-wrapper .student-searchbar {
+    --background: #{$muted-d};
+    --placeholder-color: #{$text-3-d};
+    --icon-color: #{$text-2-d};
+    --color: #{$text-d};
+    --clear-button-color: #{$text-2-d};
+    border-color: #{$border-d};
+  }
+
+  .students-list-wrapper {
+    .loading-state,
+    .empty-state {
+      color: #{$text-2-d};
 
       ion-spinner {
-        width: 20px;
-        height: 20px;
+        --color: #{$text-2-d};
+      }
+
+      .empty-icon {
+        color: #{$text-3-d};
+      }
+
+      p {
+        color: #{$text-2-d};
+      }
+    }
+
+    .student-item {
+      background: #{$surface-d};
+      border-color: #{$border-d};
+      box-shadow: none;
+
+      &:hover:not(.disabled):not(.accepted) {
+        background: #{$muted-d};
+        border-color: #{$border-2-d};
+      }
+
+      &.selected:not(.disabled):not(.accepted) {
+        background: #{$muted-d};
+        border-color: rgba(255, 255, 255, 0.35);
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+      }
+
+      &.accepted {
+        background: rgba(52, 199, 89, 0.12);
+        border-color: rgba(52, 199, 89, 0.28);
+      }
+
+      .student-avatar {
+        border-color: #{$border-d};
+
+        .avatar-placeholder {
+          background: #{$muted-d};
+          color: #{$text-d};
+        }
+      }
+
+      .student-name {
+        color: #{$text-d};
+      }
+
+      .student-role {
+        color: #{$text-2-d};
+      }
+
+      .custom-checkbox {
+        border-color: #{$border-2-d};
+        background: #{$surface-d};
+
+        &.checked {
+          background: #{$text-d};
+          border-color: #{$text-d};
+
+          .checkmark-icon {
+            color: #1c1c1e;
+          }
+        }
+      }
+    }
+  }
+
+  .invite-modal-footer ion-toolbar.invite-modal-toolbar {
+    --background: #{$surface-d};
+    box-shadow: 0 -1px 0 #{$border-d};
+  }
+
+  .invite-btn {
+    --background: #{$text-d};
+    --background-activated: #d1d1d6;
+    --background-hover: #e5e5ea;
+    --color: #1c1c1e;
+    --box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+
+    ion-spinner {
+      --color: #1c1c1e;
+    }
+
+    &.confirmed-only {
+      --background: #30d158;
+      --background-activated: #248f3f;
+      --background-hover: #28b54c;
+      --box-shadow: 0 2px 10px rgba(48, 209, 88, 0.35);
+
+      ion-spinner {
+        --color: #1c1c1e;
+      }
+    }
+  }
+
+  .removal-header .removal-title {
+    color: #{$text-d};
+  }
+
+  .removal-header .removal-subtitle {
+    color: #{$text-2-d};
+  }
+
+  .removal-student-card {
+    background: #{$surface-d};
+    border-color: #{$border-d};
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
+  }
+
+  .removal-avatar .avatar-placeholder {
+    background: #{$muted-d};
+    color: #{$text-d};
+  }
+
+  .removal-student-name {
+    color: #{$text-d};
+  }
+
+  .removal-student-status {
+    color: #{$text-2-d};
+  }
+
+  .removal-notice {
+    background: #{$muted-d};
+    border-color: #{$border-d};
+    border-left-color: #ff5a7a;
+
+    .removal-notice-icon {
+      color: #ff7b8a;
+    }
+
+    .removal-notice-main {
+      color: #{$text-d};
+    }
+
+    .removal-notice-sub {
+      color: #{$text-2-d};
+    }
+  }
+
+  .removal-actions {
+    ion-button.removal-btn-back {
+      --border-color: #{$border-2-d};
+      --color: #{$text-d};
+      --background: #{$surface-d};
+
+      --background-hover: #{$muted-d};
+    }
+
+    ion-button.removal-btn-confirm {
+      --background: #ff5a7a;
+      --background-activated: #e04d6c;
+      --background-hover: #ff6f8f;
+      --color: #1c1c1e;
+      --box-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+
+      ion-spinner {
+        --color: #1c1c1e;
       }
     }
   }

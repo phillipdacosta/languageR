@@ -1,4 +1,4 @@
-<ion-header class="md-header">
+<ion-header class="md-header" *ngIf="!embedInHomeMaterialsModal">
   <ion-toolbar class="md-toolbar">
     <div class="md-toolbar-start" slot="start">
       <button type="button" class="md-toolbar-back-mobile" (click)="goBack()" aria-label="Back">
@@ -21,7 +21,7 @@
   <div class="md-page" [class.md-page-ready]="pageReady">
 
     <!-- Breadcrumb (desktop: in-page back; mobile uses toolbar back) -->
-    <div class="md-breadcrumb md-breadcrumb-desktop">
+    <div class="md-breadcrumb md-breadcrumb-desktop" *ngIf="!embedInHomeMaterialsModal">
       <button class="md-back-btn" (click)="goBack()">
         <ion-icon name="chevron-back-outline"></ion-icon>
         <span>Back</span>

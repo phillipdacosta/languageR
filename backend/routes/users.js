@@ -84,6 +84,26 @@ function formatText(text) {
   return result.charAt(0).toUpperCase() + result.slice(1);
 }
 
+/**
+ * Calendar date key (YYYY-MM-DD) for tutor availability merge/clear.
+ * Prefer id prefix "YYYY-MM-DD-..." from the app — it matches the tutor's
+ * wall date and slot keys. Deriving from absoluteStart + setHours + toISOString
+ * breaks for evening slots (e.g. May 2 8:30pm EDT → May 3 UTC) on UTC servers.
+ */
+function availabilityBlockCalendarDateKey(block) {
+  if (!block) return null;
+  if (typeof block.id === 'string') {
+    const m = block.id.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  }
+  if (block.absoluteStart) {
+    const d = new Date(block.absoluteStart);
+    d.setHours(0, 0, 0, 0);
+    return d.toISOString().split('T')[0];
+  }
+  return null;
+}
+
 // Rate limiters for public endpoints
 const publicProfileLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -341,9 +361,15 @@ router.post('/', verifyToken, async (req, res) => {
       user.email = email || user.email;
       user.name = name || user.name;
       
-      // Sync picture from Auth0 if available, otherwise use provided picture, otherwise keep existing
+      // Sync picture: never overwrite a custom GCS-uploaded photo with Auth0/Google avatar
       const auth0Picture = req.user.picture || req.user.picture_url || null;
-      user.picture = picture || auth0Picture || user.picture;
+      const hasCustomPicture = user.picture && user.picture.includes('storage.googleapis.com') && user.picture.includes('profile-pictures');
+      if (hasCustomPicture) {
+        // Keep custom upload; only refresh the auth0Picture reference
+        if (auth0Picture) user.auth0Picture = auth0Picture;
+      } else {
+        user.picture = picture || auth0Picture || user.picture;
+      }
       
       user.emailVerified = emailVerified !== undefined ? emailVerified : user.emailVerified;
       user.userType = userType || user.userType; // Update user type
@@ -518,14 +544,20 @@ router.put('/onboarding', verifyToken, async (req, res) => {
       console.log('🔍 User found:', user.email, 'userType:', user.userType);
       console.log('🔍 Current user picture:', user.picture);
       
-      // Sync picture from Auth0 if available and user doesn't have one
+      // Sync picture from Auth0 only if user has no custom GCS upload
       const auth0Picture = req.user.picture || req.user.picture_url || null;
+      const hasCustomPicture = user.picture && user.picture.includes('storage.googleapis.com') && user.picture.includes('profile-pictures');
       if (auth0Picture && !user.picture) {
         console.log('🖼️ User has no picture, syncing from Auth0:', auth0Picture);
         user.picture = auth0Picture;
-      } else if (auth0Picture && auth0Picture !== user.picture) {
-        console.log('🖼️ Updating user picture from Auth0:', { old: user.picture, new: auth0Picture });
+        user.auth0Picture = auth0Picture;
+      } else if (auth0Picture && !hasCustomPicture && auth0Picture !== user.picture) {
+        console.log('🖼️ Updating user picture from Auth0 (no custom upload):', { old: user.picture, new: auth0Picture });
         user.picture = auth0Picture;
+      }
+      // Always keep auth0Picture reference fresh
+      if (auth0Picture && auth0Picture !== user.auth0Picture) {
+        user.auth0Picture = auth0Picture;
       }
       
       // Update firstName, lastName, country, and nativeLanguage if provided
@@ -658,7 +690,7 @@ router.put('/onboarding', verifyToken, async (req, res) => {
 // PUT /api/users/profile - Update user profile
 router.put('/profile', verifyToken, async (req, res) => {
   try {
-    const { bio, timezone, preferredLanguage, userType, picture, officeHoursEnabled, interfaceLanguage, showWalletBalance, remindersEnabled, aiAnalysisEnabled, calendarTimeFormat, calendarDefaultView } = req.body;
+    const { bio, timezone, preferredLanguage, userType, picture, officeHoursEnabled, interfaceLanguage, showWalletBalance, remindersEnabled, aiAnalysisEnabled, calendarTimeFormat, calendarDefaultView, weeklyEarningsGoal } = req.body;
     console.log('📝 Updating profile for user:', req.user.sub, 'officeHoursEnabled:', officeHoursEnabled, 'aiAnalysisEnabled:', aiAnalysisEnabled);
     
     const user = await User.findOne({ auth0Id: req.user.sub });
@@ -718,15 +750,29 @@ router.put('/profile', verifyToken, async (req, res) => {
       remindersEnabled: remindersEnabled !== undefined ? remindersEnabled : (user.profile?.remindersEnabled ?? true),
       aiAnalysisEnabled: aiAnalysisEnabled !== undefined ? aiAnalysisEnabled : (user.profile?.aiAnalysisEnabled ?? true),
       calendarTimeFormat: calendarTimeFormat !== undefined ? calendarTimeFormat : (user.profile?.calendarTimeFormat ?? '12h'),
-      calendarDefaultView: calendarDefaultView !== undefined ? calendarDefaultView : (user.profile?.calendarDefaultView ?? 'week')
+      calendarDefaultView: calendarDefaultView !== undefined ? calendarDefaultView : (user.profile?.calendarDefaultView ?? 'week'),
+      weeklyEarningsGoal: (weeklyEarningsGoal !== undefined && Number.isFinite(Number(weeklyEarningsGoal)) && Number(weeklyEarningsGoal) > 0)
+        ? Math.round(Number(weeklyEarningsGoal))
+        : (user.profile?.weeklyEarningsGoal ?? 500)
     };
     
     console.log('📝 After update - showWalletBalance:', user.profile.showWalletBalance, 'remindersEnabled:', user.profile.remindersEnabled);
     
-    // Update interface language if provided
-    if (interfaceLanguage !== undefined && ['en', 'es', 'fr', 'pt', 'de'].includes(interfaceLanguage)) {
+    // Update interface language if provided. Keep in sync with frontend SupportedLanguage list
+    // (language-learning-app/src/app/services/language.service.ts).
+    const SUPPORTED_INTERFACE_LANGUAGES = [
+      'en', 'es', 'fr', 'pt', 'de',
+      'it', 'ru', 'zh', 'ja', 'ko',
+      'ar', 'hi', 'nl', 'pl', 'tr',
+      'sv', 'no', 'da', 'fi', 'el',
+      'cs', 'ro', 'uk', 'vi', 'th',
+      'id', 'ms', 'he', 'fa'
+    ];
+    if (interfaceLanguage !== undefined && SUPPORTED_INTERFACE_LANGUAGES.includes(interfaceLanguage)) {
       user.interfaceLanguage = interfaceLanguage;
       console.log('🌐 Interface language updated to:', interfaceLanguage);
+    } else if (interfaceLanguage !== undefined) {
+      console.warn('⚠️ Rejected unsupported interfaceLanguage:', interfaceLanguage);
     }
     
     console.log('📝 After update - officeHoursEnabled:', user.profile.officeHoursEnabled, 'aiAnalysisEnabled:', user.profile.aiAnalysisEnabled);
@@ -771,7 +817,10 @@ router.put('/profile', verifyToken, async (req, res) => {
         // Include tutor-specific fields to prevent banner flashing
         tutorApproved: user.tutorApproved,
         tutorOnboarding: user.tutorOnboarding,
-        stripeConnectOnboarded: user.stripeConnectOnboarded
+        tutorCredentials: user.tutorCredentials,
+        stripeConnectOnboarded: user.stripeConnectOnboarded,
+        payoutProvider: user.payoutProvider,
+        payoutDetails: user.payoutDetails
       }
     });
   } catch (error) {
@@ -932,12 +981,14 @@ router.get('/tutors', verifyToken, async (req, res) => {
     } = req.query;
 
     // Build filter query
-    // Only show tutors who can receive payments (Stripe, PayPal, or Manual)
+    // Only show tutors who have completed all required setup:
+    // approved, has video, has custom profile photo, and can receive payments
     const filterQuery = {
       userType: 'tutor',
       onboardingCompleted: true,
       tutorApproved: true,
       'onboardingData.introductionVideo': { $exists: true, $ne: '' },
+      picture: { $regex: /storage\.googleapis\.com.*profile-pictures/ },
       $or: [
         { stripeConnectOnboarded: true },
         { payoutProvider: 'paypal' },
@@ -1696,12 +1747,8 @@ router.put('/availability', verifyToken, async (req, res) => {
     
     // Also add dates from new blocks (for backward compatibility)
     availabilityBlocks.forEach(block => {
-      if (block.absoluteStart) {
-        // Normalize to date only (YYYY-MM-DD)
-        const date = new Date(block.absoluteStart);
-        date.setHours(0, 0, 0, 0);
-        datesToClear.add(date.toISOString().split('T')[0]);
-      }
+      const key = availabilityBlockCalendarDateKey(block);
+      if (key) datesToClear.add(key);
     });
     
     console.log('Dates to clear:', Array.from(datesToClear));
@@ -1718,12 +1765,8 @@ router.put('/availability', verifyToken, async (req, res) => {
         return true;
       }
       
-      // Check if existing block is for a date we're clearing
-      const existingDate = new Date(existing.absoluteStart);
-      existingDate.setHours(0, 0, 0, 0);
-      const existingDateKey = existingDate.toISOString().split('T')[0];
-      
-      // Keep if NOT in the dates we're clearing
+      const existingDateKey = availabilityBlockCalendarDateKey(existing);
+      if (!existingDateKey) return true;
       return !datesToClear.has(existingDateKey);
     });
     

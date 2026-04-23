@@ -19,16 +19,26 @@ $shadow-card:
   0 8px 24px rgba(0, 0, 0, 0.04);
 $transition-fast: 0.15s ease;
 
+// Lesson card — matches Up Next card style
+$lesson-card-w: 310px;
+$lesson-card-r: 28px;
+$lesson-card-px: 24px;
+$lesson-card-py: 10px;
+$lesson-card-avatar: 60px;
+$lesson-grid-gap: 20px;
+
 // ─── Scrollbar Stability ──────────────────
 // Reserve scrollbar gutter so content doesn't shift left
 // when the lesson list becomes long enough to scroll.
 :host {
   ion-content {
     --overflow: auto;
+    --background: #ffffff;
   }
 
   ion-content::part(scroll) {
     scrollbar-gutter: stable;
+    background: #ffffff;
   }
 }
 
@@ -55,7 +65,7 @@ $transition-fast: 0.15s ease;
   font-weight: 600;
   color: $text-primary;
   letter-spacing: -0.3px;
-  margin: 0 0 20px 0;
+  margin: 0 0 32px 0;
   line-height: 1.2;
 }
 
@@ -78,49 +88,31 @@ $transition-fast: 0.15s ease;
 // ─── Stats Row ─────────────────────────────
 .stats-row {
   display: flex;
-  gap: 12px;
-  margin-bottom: 28px;
+  align-items: center;
+  margin-bottom: 40px;
   padding: 0 4px;
   animation: fadeInUp 0.4s ease-out both;
 }
 
-.stat-pill {
+.stat-cell {
   display: flex;
   flex-direction: column;
   align-items: center;
   flex: 1;
-  padding: 16px 12px;
-  background: $bg-subtle;
-  border-radius: $radius-md;
-  transition: background $transition-fast;
-
-  &:hover {
-    background: darken($bg-subtle, 2%);
-  }
-
-  &.skeleton {
-    .stat-number {
-      color: transparent;
-      background: linear-gradient(90deg, #e8e8ed 25%, #f2f2f7 50%, #e8e8ed 75%);
-      background-size: 200% 100%;
-      animation: shimmerPulse 1.5s ease-in-out infinite;
-      border-radius: 6px;
-      min-width: 24px;
-      min-height: 22px;
-    }
-  }
 }
 
-@keyframes shimmerPulse {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+.stat-divider {
+  width: 1px;
+  height: 28px;
+  background: $border-light;
+  opacity: 0.5;
 }
 
 .stat-number {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 700;
   color: $text-primary;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.3px;
   line-height: 1.2;
 
   &.cancelled {
@@ -128,11 +120,28 @@ $transition-fast: 0.15s ease;
   }
 }
 
-.stat-label {
-  font-size: 13px;
-  font-weight: 400;
+.stat-label-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 3px;
+}
+
+.stat-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+
+  &.dot-total { background: $text-muted; }
+  &.dot-upcoming { background: #34C759; }
+  &.dot-completed { background: #7c3aed; }
+  &.dot-cancelled { background: #FF385C; }
+}
+
+.stat-label-row > span:not(.stat-dot) {
+  font-size: 12px;
+  font-weight: 500;
   color: $text-secondary;
-  margin-top: 2px;
 }
 
 // ─── Filter Tabs ───────────────────────────
@@ -365,6 +374,400 @@ $transition-fast: 0.15s ease;
   &:active {
     transform: scale(0.98);
   }
+}
+
+// ─── Lessons grid (Airbnb-style cards) ─────
+.lessons-grid-wrap {
+  animation: fadeIn 0.4s 0.1s ease-out both;
+}
+
+.lessons-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, $lesson-card-w);
+  justify-content: center;
+  gap: 42px;
+
+  @media (max-width: 400px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.lesson-grid-card {
+  width: 100%;
+  max-width: $lesson-card-w;
+  box-sizing: border-box;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border-radius: $lesson-card-r;
+  cursor: pointer;
+  transition: box-shadow 0.2s ease;
+  overflow: hidden;
+
+  @media (max-width: 400px) {
+    max-width: 100%;
+  }
+
+  &:hover {
+    box-shadow: 0 6px 28px rgba(0, 0, 0, 0.12);
+  }
+
+  &.is-cancelled {
+    opacity: 0.65;
+  }
+}
+
+.lgc-inner {
+  padding:10px 10px 16px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+  flex: 1;
+
+  @media (max-width: 400px) {
+    padding: 10px 18px 12px;
+  }
+}
+
+.lgc-date-badge {
+  background: $bg-subtle;
+  border: 1px solid $border-light;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+// Compact calendar chip — centered; uniform radius.
+.lgc-date-badge--inline {
+  width: 32px;
+  padding: 3px 4px 4px;
+  border-radius: 6px;
+}
+
+.lgc-date-time-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.lgc-date-badge-month {
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ff385c;
+  line-height: 1;
+  margin-bottom: 1px;
+}
+
+.lgc-date-badge-day {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: $text-primary;
+  line-height: 1.05;
+}
+
+.lgc-avatar-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 14px;
+}
+
+.lgc-avatar {
+  width: $lesson-card-avatar;
+  height: $lesson-card-avatar;
+  border-radius: 50%;
+  overflow: hidden;
+  background: $bg-subtle;
+  border: 1px solid $border-light;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+}
+
+.lgc-avatar--class {
+  .lgc-class-placeholder {
+    font-size: 34px;
+    color: $text-muted;
+  }
+}
+
+.lgc-initials {
+  font-size: 22px;
+  font-weight: 600;
+  color: $text-secondary;
+  letter-spacing: -0.5px;
+
+  &.sm {
+    font-size: 13px;
+  }
+}
+
+.lgc-stacked {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0;
+  max-width: 100%;
+}
+
+.lgc-stack-av {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid #ffffff;
+  margin-left: -12px;
+  background: $bg-subtle;
+  flex-shrink: 0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+
+  &:first-child {
+    margin-left: 0;
+  }
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .lgc-initials.sm {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #222222;
+    color: #ffffff;
+    font-weight: 600;
+  }
+}
+
+.lgc-stack-more {
+  margin-left: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: $text-muted;
+}
+
+.lgc-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: $text-primary;
+  letter-spacing: -0.3px;
+  line-height: 1.25;
+  max-width: 100%;
+  word-break: break-word;
+}
+
+.lgc-subtitle {
+  margin: -6px 0 0;
+  font-size: 12px;
+  font-weight: 400;
+  color: $text-secondary;
+  line-height: 1.35;
+}
+
+.lgc-subtitle-under-badge {
+  margin: 0;
+  text-align: center;
+  max-width: 100%;
+}
+
+.lgc-desc {
+  width: 100%;
+  flex: 1;
+  padding: 14px 22px;
+  box-sizing: border-box;
+}
+
+.lgc-desc-text {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 400;
+  color: $text-secondary;
+  line-height: 1.5;
+  text-align: center;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.lgc-desc-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0;
+  font-size: 14px;
+  color: $text-secondary;
+  line-height: 1.35;
+
+  ion-icon {
+    font-size: 22px;
+    opacity: 0.45;
+  }
+}
+
+// ─── Colorful AI Spinner ──────────────────
+.lgc-desc-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+
+  span {
+    font-size: 13px;
+    font-weight: 500;
+    color: $text-secondary;
+  }
+}
+
+$spinner-colors: #8b5cf6, #3b82f6, #06b6d4, #10b981, #f59e0b, #ec4899;
+
+.colorful-spinner {
+  width: 36px;
+  height: 36px;
+  position: relative;
+  animation: spinRing 1.2s linear infinite;
+  animation-play-state: running;
+  will-change: transform;
+
+  .spinner-dot {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+
+    @for $i from 0 through 5 {
+      &:nth-child(#{$i + 1}) {
+        background: nth($spinner-colors, $i + 1);
+        opacity: 0.35 + ($i / 5) * 0.65;
+        transform: rotate(#{$i * 60}deg) translateY(-14px) translate(-50%, -50%);
+      }
+    }
+  }
+}
+
+@keyframes spinRing {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.lgc-badges-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+.lgc-pill {
+  display: inline-flex;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+
+  &.trial {
+    background: rgba(255, 149, 0, 0.08);
+    color: #9a3412;
+    border: 1px solid rgba(255, 149, 0, 0.2);
+    font-weight: 600;
+  }
+
+  &.tip {
+    background: #ecfdf5;
+    color: #047857;
+    font-style: normal;
+    text-transform: none;
+    font-weight: 500;
+    font-size: 10px;
+  }
+}
+
+.lgc-sep {
+  width: 100%;
+  border: none;
+  border-top: 1px solid $border-light;
+  margin: 4px 0 0;
+}
+
+.lgc-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  width: 100%;
+  justify-items: stretch;
+  align-items: stretch;
+}
+
+.lgc-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
+  text-align: center;
+}
+
+.lgc-stat-value {
+  display: block;
+  width: 100%;
+  font-size: 13px;
+  font-weight: 600;
+  color: $text-primary;
+  letter-spacing: -0.1px;
+  text-align: center;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lgc-stat-label {
+  display: block;
+  width: 100%;
+  font-size: 10px;
+  font-weight: 400;
+  color: $text-muted;
+  text-align: center;
+  line-height: 1.2;
+  text-transform: lowercase;
 }
 
 // ─── Lessons Card (wrapper) ────────────────
@@ -1559,6 +1962,87 @@ $transition-fast: 0.15s ease;
   .lessons-card {
     background: #1c1c1e;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.25);
+  }
+
+  ion-content {
+    --background: #000000;
+  }
+
+  ion-content::part(scroll) {
+    background: #000000;
+  }
+
+  .lesson-grid-card {
+    background: #1c1c1e;
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+
+    &:hover {
+      box-shadow: 0 6px 28px rgba(0, 0, 0, 0.5);
+    }
+  }
+
+  .lgc-avatar {
+    background: #2c2c2e;
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .lgc-title {
+    color: #f5f5f7;
+  }
+
+  .lgc-date-badge {
+    background: #2c2c2e;
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .lgc-date-badge-month {
+    color: #ff6b8a;
+  }
+
+  .lgc-date-badge-day {
+    color: #f5f5f7;
+  }
+
+  .lgc-subtitle {
+    color: #8e8e93;
+  }
+
+  .lgc-desc-text {
+    color: #aeaeb2;
+  }
+
+  .lgc-desc-empty,
+  .lgc-desc-generating {
+    color: #8e8e93;
+  }
+
+  .lgc-sep {
+    border-top-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .lgc-stat-value {
+    color: #f5f5f7;
+  }
+
+  .lgc-stat-label {
+    color: #636366;
+  }
+
+  .lgc-stack-av {
+    border-color: #1c1c1e;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  }
+
+  .lgc-pill.tip {
+    background: rgba(52, 199, 89, 0.15);
+    color: #34c759;
+  }
+
+  .lgc-pill.trial {
+    background: rgba(255, 159, 10, 0.12);
+    color: #ffb340;
+    border: 1px solid rgba(255, 159, 10, 0.22);
   }
 
   .lesson-row {

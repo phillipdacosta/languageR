@@ -7,22 +7,27 @@
   <div class="cancel-reason-content">
     <!-- Header Section -->
     <div class="modal-header-section">
-      <h1 class="modal-title">Why are you cancelling?</h1>
+      <h1 class="modal-title">{{ titleText }}</h1>
     </div>
 
-    <!-- Lesson Info Card -->
+    <!-- Lesson / Class Info Card -->
     <div class="lesson-info-card">
       <div class="lesson-avatar">
-        <ion-avatar *ngIf="participantAvatar">
+        <ion-avatar *ngIf="!isClass && participantAvatar">
           <img [src]="participantAvatar" [alt]="participantName || 'Participant'" referrerpolicy="no-referrer">
         </ion-avatar>
-        <div class="avatar-placeholder" *ngIf="!participantAvatar">
+        <ion-avatar *ngIf="isClass && classThumbnailUrl" class="class-thumb-avatar">
+          <img [src]="classThumbnailUrl" [alt]="className || 'Class'" referrerpolicy="no-referrer">
+        </ion-avatar>
+        <div class="avatar-placeholder" *ngIf="isClass && !classThumbnailUrl">
+          <ion-icon name="people-outline"></ion-icon>
+        </div>
+        <div class="avatar-placeholder" *ngIf="!isClass && !participantAvatar">
           <ion-icon name="person"></ion-icon>
         </div>
       </div>
       <div class="lesson-details">
-        <h3 class="lesson-title" *ngIf="participantName">Lesson with {{ participantName }}</h3>
-        <h3 class="lesson-title" *ngIf="!participantName && lessonSubject">{{ lessonSubject }}</h3>
+        <h3 class="lesson-title">{{ lessonTitleText }}</h3>
         <div class="lesson-meta">
           <span class="lesson-datetime" *ngIf="formattedDateTime">
             <ion-icon name="calendar-outline"></ion-icon>
@@ -36,8 +41,8 @@
       </div>
     </div>
 
-    <!-- Warning for late cancellation (within 12 hours) -->
-    <div class="late-cancellation-warning" *ngIf="isWithin12Hours">
+    <!-- Warning for late cancellation (within 12 hours) - lesson only -->
+    <div class="late-cancellation-warning" *ngIf="isWithin12Hours && !isClass">
       <ion-icon name="warning-outline"></ion-icon>
       <div class="warning-text">
         <strong>Late cancellation</strong>
@@ -81,7 +86,7 @@
     <!-- Info text -->
     <div class="info-text">
       <ion-icon name="information-circle-outline"></ion-icon>
-      <span>Your reason will help us improve our service. {{ participantName }} will be notified of the cancellation.</span>
+      <span>{{ infoText }}</span>
     </div>
   </div>
 </ion-content>
@@ -92,8 +97,8 @@
       <ion-button 
         expand="block" 
         fill="outline" 
-        (click)="dismiss()">
-        Keep Lesson
+        (click)="onSecondaryFooterClick()">
+        {{ secondaryFooterCtaLabel }}
       </ion-button>
       <ion-button 
         expand="block"

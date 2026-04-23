@@ -1,10 +1,10 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Location } from '@angular/common';
 import { IonicModule, ModalController, ToastController, LoadingController, ViewWillEnter, ViewDidEnter } from '@ionic/angular';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { LessonService, Lesson } from '../../services/lesson.service';
+import { LessonService, Lesson, CachedLessonDetailBundle } from '../../services/lesson.service';
 import { AnalysisTranslationService } from '../../services/analysis-translation.service';
 import { ClassService } from '../../services/class.service';
 import { UserService, User } from '../../services/user.service';
@@ -17,12 +17,22 @@ import { WalletService } from '../../services/wallet.service';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { environment } from '../../../environments/environment';
 import { CancelReasonModalComponent } from '../../components/cancel-reason-modal/cancel-reason-modal.component';
+import { ClassAttendeesComponent } from '../../components/class-attendees/class-attendees.component';
+import { ClassInvitationModalComponent } from '../../components/class-invitation-modal/class-invitation-modal.component';
+import { ClassGoingMessageModalComponent } from '../../components/class-going-message-modal/class-going-message-modal.component';
 import { ConfirmActionModalComponent } from '../../components/confirm-action-modal/confirm-action-modal.component';
 import { RescheduleLessonModalComponent } from '../../components/reschedule-lesson-modal/reschedule-lesson-modal.component';
 import { formatTimeInTz, formatDateInTz } from '../../shared/timezone.utils';
 import { MaterialService, TutorMaterial } from '../../services/material.service';
 import { LearningPlanService, LearningPlanSummary, GOAL_TYPE_LABELS } from '../../services/learning-plan.service';
-import { Subscription } from 'rxjs';
+import { Subscription, firstValueFrom } from 'rxjs';
+import {
+  isLessonMockId,
+  buildMockLessonEntity,
+  getMockBillingAndPayment,
+  getMockRecommendedMaterials,
+} from '../../lessons/lesson-mock-preview';
+import { MOCK_CLASS_ATTENDEES_PREVIEW } from '../../constants/mock-class-attendees-preview';
 
 // ── Interfaces ──────────────────────────────────────────────────
 interface AnalysisData {
@@ -89,9 +99,14 @@ interface BillingData {
   templateUrl: './event-details.page.html',
   styleUrls: ['./event-details.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, SharedModule, CancelReasonModalComponent, ConfirmActionModalComponent, RescheduleLessonModalComponent]
+  imports: [CommonModule, IonicModule, SharedModule, CancelReasonModalComponent, ConfirmActionModalComponent, RescheduleLessonModalComponent, ClassAttendeesComponent, ClassInvitationModalComponent, ClassGoingMessageModalComponent]
 })
 export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewDidEnter {
+  /** When presented as a modal, the caller passes the event ID directly */
+  @Input() modalEventId?: string;
+  /** When true, back/close dismisses the modal instead of navigating */
+  @Input() isModal = false;
+
   eventId: string | null = null;
   lesson: any = null;
   classData: any = null;
@@ -214,7 +229,11 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   analysisLabel = 'Analysis'; // Dynamic section label
   hasTutorNote = false;
   hasTutorFeedback = false;
-  hasHomework = false;
+
+  // Last session context (for upcoming lessons)
+  hasLastSessionContext = false;
+  lastSessionSummary = '';
+  lastSessionFocus: string[] = [];
 
   // Previous lesson notes for this tutor-student pair
   previousNotesData: any = null;
@@ -262,7 +281,6 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   // Tutor feedback display
   feedbackStrengths: string[] = [];
   feedbackImprovements: string[] = [];
-  feedbackHomework = '';
   feedbackSectionExpanded = false; // Collapsible state for tutor view (closed by default)
   feedbackNotes = '';
   feedbackCefrLevel = '';
@@ -285,11 +303,48 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   paymentStatusDetails: { key: string; value: string }[] = [];
 
   // Class students display
-  classStudentsDisplay: { name: string; picture?: string; initials: string }[] = [];
+  classStudentsDisplay: { name: string; picture?: string; initials: string; paid?: boolean }[] = [];
+  /** Class details grid: stacked avatars — real `confirmedStudents`, or preview mocks when empty (same as Up Next). */
+  classAttendeesForGridStack: any[] = [];
+  /** Omit when showing preview mocks so capacity does not contradict the stats row (e.g. 0/6). */
+  classAttendeesForGridCapacity: number | undefined = undefined;
+  /** Student + at least one confirmed classmate: GOING / Students areas open the message tutor modal. */
+  classCanOpenGoingMessage = false;
+  /** Tutor broadcast recipients (confirmed student ids) for the GOING modal. */
+  classGoingReceiverIds: string[] = [];
+
+  // Class layout (matching lesson layout)
+  classTutorName = '';
+  classTutorPicture = '';
+  classTutorInitial = '';
+  classTutorBio = '';
+  classTutorId: string | null = null;
+  classTutorLanguages: string[] = [];
+  classTutorCountry = '';
+  classIsCurrentUserTutor = false;
+  classShowJoinButton = false;
+  classCanJoin = false;
+  classJoinLabel = 'Join';
+  classCanCancel = false;
+  classCanReschedule = false;
+  /** Student class CTA: accept tutor invite, public enroll, or join session when enrolled. */
+  classStudentCtaKind: 'accept_invite' | 'enroll' | 'join_session' | null = null;
+  classStudentPrimaryDisabled = false;
+  classIsCancelled = false;
+  classIsCompleted = false;
+  classStudentsPaidCount = 0;
+
+  // Recommended materials (student only)
+  recommendedMaterials: (TutorMaterial & { isSaved?: boolean; _matchedStruggles?: string[]; _isCurrentTutor?: boolean; _typeIcon?: string; _typeLabel?: string })[] = [];
+  recommendedStruggles: string[] = [];
+  recommendedLoading = false;
+  hasRecommendations = false;
 
   // Countdown
   private countdownInterval: any;
   private pendingRequests = 0;
+  /** True while a background cache-revalidation is running — suppresses loading flips. */
+  private isRevalidating = false;
 
   private get userTz(): string | undefined {
     return this.currentUser?.profile?.timezone || undefined;
@@ -352,7 +407,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   }
 
   ngOnInit() {
-    this.eventId = this.route.snapshot.paramMap.get('id');
+    this.eventId = this.modalEventId || this.route.snapshot.paramMap.get('id');
 
     this.userService.getCurrentUser().subscribe({
       next: (user) => {
@@ -392,17 +447,196 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
   // ── Data Loading ──────────────────────────────────────────────
 
+  /** Preview lessons (same IDs as list mocks) — no API calls. */
+  private applyMockLessonDetails(id: string): void {
+    this.error = null;
+    const lesson = buildMockLessonEntity(id, this.currentUser);
+    if (!lesson) {
+      this.error = 'Event not found';
+      this.loading = false;
+      this.flipTransition.cleanup();
+      this.cdr.detectChanges();
+      return;
+    }
+
+    this.lesson = lesson;
+    this.isClass = false;
+    this.classCanOpenGoingMessage = false;
+    this.lessonsWithParticipant = 12;
+    this.recentLessons = [];
+    this.tutorStatsRating = '4.9';
+    this.tutorStatsRatingRounded = 5;
+    this.tutorStatsTotalLessons = 240;
+    this.tutorStatsStudents = 18;
+
+    const bp = getMockBillingAndPayment(id);
+    if (bp) {
+      this.billingData = bp.billing as any;
+      this.paymentData = bp.payment as any;
+    }
+
+    this.analysisLoading = false;
+    this.feedbackLoading = false;
+
+    this.computeAllProperties();
+
+    // Hydrate analysis / feedback / sidebar from mock lesson data (mirrors loadAdditionalData flow)
+    const mockAi = (lesson as any).aiAnalysis;
+    if (mockAi && mockAi.status === 'completed') {
+      this.analysisData = this.buildMockAnalysisData(lesson, id);
+      this.computeAnalysisProperties();
+    } else if (mockAi && mockAi.status === 'generating') {
+      this.analysisData = null;
+      this.analysisUnavailable = false;
+    }
+
+    const mockFeedback = (lesson as any).tutorFeedback;
+    if (mockFeedback && mockFeedback.status === 'completed') {
+      this.tutorFeedback = {
+        _id: `mock-fb-${id}`,
+        lessonId: id,
+        tutorId: String((lesson as any).tutorId?._id || ''),
+        studentId: String((lesson as any).studentId?._id || ''),
+        strengths: mockFeedback.strengths || ['Good pronunciation', 'Active participation'],
+        areasForImprovement: mockFeedback.areasForImprovement || ['Listening comprehension', 'Irregular verb conjugation'],
+        homework: mockFeedback.homework || 'Complete exercises 4-6 in workbook chapter 3.',
+        overallNotes: mockFeedback.overallNotes || '',
+        estimatedCefrLevel: mockFeedback.estimatedCefrLevel || 'B1',
+        status: 'completed',
+        providedAt: new Date() as any,
+        createdAt: new Date() as any,
+        remindersSent: 0,
+      };
+      this.computeFeedbackProperties();
+    } else if (mockFeedback && mockFeedback.status === 'pending') {
+      this.tutorFeedback = {
+        _id: `mock-fb-${id}`,
+        lessonId: id,
+        tutorId: String((lesson as any).tutorId?._id || ''),
+        studentId: String((lesson as any).studentId?._id || ''),
+        strengths: [],
+        areasForImprovement: [],
+        homework: '',
+        overallNotes: '',
+        status: 'pending',
+        required: mockFeedback.required !== false,
+        createdAt: new Date() as any,
+        remindersSent: 0,
+      };
+    }
+
+    this.resolveSidebarNotes();
+    this.computeFeedbackStatus();
+
+    if (bp) {
+      this.computeBillingProperties();
+      if (this.paymentData) {
+        this.computePaymentStatus();
+      }
+    }
+
+    // Mock recommended materials
+    const mockRecs = getMockRecommendedMaterials(id);
+    if (mockRecs.length) {
+      this.recommendedMaterials = mockRecs as any;
+      this.hasRecommendations = true;
+    }
+
+    this.loading = false;
+    this.startCountdown();
+    this.flipTransition.cleanup();
+    this.cdr.detectChanges();
+  }
+
+  private buildMockAnalysisData(lesson: any, id: string): AnalysisData {
+    const ai = lesson.aiAnalysis || {};
+    const note = lesson.tutorNote;
+    return {
+      _id: `mock-analysis-${id}`,
+      overallAssessment: ai.overallAssessment || {
+        proficiencyLevel: 'B1 – Intermediate',
+        confidence: 82,
+        summary: ai.studentSummary || 'Good progress in this session.',
+        progressFromLastLesson: 'Slight improvement in verb accuracy.',
+      },
+      grammarAnalysis: {
+        mistakeTypes: [
+          { type: 'Verb conjugation', examples: ['yo soy → yo era (in past context)'], frequency: 3, severity: 'medium' },
+          { type: 'Gender agreement', examples: ['la problema → el problema'], frequency: 2, severity: 'low' },
+        ],
+        suggestions: ['Practice irregular preterite forms', 'Review gendered nouns ending in -ma'],
+        accuracyScore: ai.grammarAnalysis?.accuracyScore ?? 72,
+      },
+      vocabularyAnalysis: {
+        wordsUsed: ['hablar', 'comer', 'estudiar', 'trabajar', 'querer', 'poder', 'saber'],
+        uniqueWordCount: ai.vocabularyAnalysis?.uniqueWordCount ?? 85,
+        vocabularyRange: ai.vocabularyAnalysis?.vocabularyRange || 'Intermediate',
+        suggestedWords: ['aprovechar', 'destacar', 'lograr'],
+        advancedWordsUsed: ['aprovechar'],
+      },
+      fluencyAnalysis: {
+        speakingSpeed: '110 words/min',
+        pauseFrequency: 'moderate',
+        fillerWords: { count: 8, examples: ['um', 'este', 'como'] },
+        overallFluencyScore: ai.fluencyAnalysis?.overallFluencyScore ?? 68,
+      },
+      pronunciationAnalysis: {
+        overallScore: ai.pronunciationAnalysis?.overallScore ?? 75,
+        accuracyScore: 78,
+        fluencyScore: 70,
+        prosodyScore: 73,
+      },
+      topicsDiscussed: ai.topicsDiscussed || ['Past tense narration', 'Daily routines', 'Weekend plans'],
+      recommendedFocus: ai.recommendedFocus || ['Irregular preterite verbs', 'Ser vs estar contextual usage'],
+      suggestedExercises: ['Conjugation drills for ir, ser, tener in preterite', 'Listening practice with native speakers'],
+      homeworkSuggestions: ai.homeworkSuggestions || ['Complete chapter 5 exercises', 'Write a short paragraph about your last vacation'],
+      studentSummary: ai.studentSummary || ai.overallAssessment?.summary || 'Good session overall.',
+      tutorNote: note ? { text: note.text, quickImpression: 'Solid progress', homework: 'Review chapter 5' } : undefined,
+      source: 'ai',
+      status: 'completed',
+    };
+  }
+
   loadEventDetails() {
     if (!this.eventId) return;
+
+    if (isLessonMockId(this.eventId)) {
+      this.loading = true;
+      this.applyMockLessonDetails(this.eventId);
+      return;
+    }
+
+    // Stale-while-revalidate: hydrate from cache (skip skeleton), then refetch.
+    const cached = this.lessonService.getCachedLessonDetail(this.eventId);
+    if (cached?.lesson || cached?.classData) {
+      this.hydrateFromCache(cached);
+      this.revalidateFromServer();
+      return;
+    }
+
     this.loading = true;
+    this.fetchLessonDetail(/* silent */ false);
+  }
+
+  /** Background revalidate after a cache hit — never flips `loading` back on. */
+  private revalidateFromServer() {
+    if (!this.eventId || this.isRevalidating) return;
+    this.isRevalidating = true;
+    this.fetchLessonDetail(true);
+  }
+
+  private fetchLessonDetail(silent: boolean) {
+    if (!this.eventId) return;
 
     this.lessonService.getLesson(this.eventId).subscribe({
       next: (response: any) => {
         if (response.success && response.lesson) {
           this.lesson = response.lesson;
           this.isClass = false;
+          this.classCanOpenGoingMessage = false;
           this.lessonsWithParticipant = response.lessonsCompleted || 0;
-          // Tutor stats from backend aggregation (not from populated user)
+
+          let tutorStats: any = undefined;
           if (response.tutorStats) {
             const ts = response.tutorStats;
             if (ts.rating && Number(ts.rating) >= 4.0) {
@@ -411,28 +645,127 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
             }
             this.tutorStatsTotalLessons = ts.totalLessons || 0;
             this.tutorStatsStudents = ts.students || 0;
+            tutorStats = {
+              rating: ts.rating,
+              totalLessons: ts.totalLessons,
+              students: ts.students,
+            };
           }
+
           this.recentLessons = (response.recentLessons || []).map((l: any) => ({
             _id: l._id,
             subject: l.subject || 'Language Lesson',
             dateLabel: formatDateInTz(l.startTime, this.userTz, { month: 'short', day: 'numeric' }),
-            durationLabel: l.duration < 60 ? `${l.duration}m` : `${Math.floor(l.duration / 60)}h${l.duration % 60 ? ` ${l.duration % 60}m` : ''}`
+            durationLabel: l.duration < 60
+              ? `${l.duration}m`
+              : `${Math.floor(l.duration / 60)}h${l.duration % 60 ? ` ${l.duration % 60}m` : ''}`
           }));
-          // loading stays true — skeleton visible until all additional data loads
+
           this.computeAllProperties();
-          this.loadAdditionalData();
-          this.startCountdown();
+
+          this.lessonService.updateCachedLessonDetail(this.eventId!, {
+            lesson: this.lesson,
+            isClass: false,
+            lessonsCompleted: this.lessonsWithParticipant,
+            tutorStats,
+            recentLessons: this.recentLessons,
+          });
+
+          this.loadAdditionalData(silent);
+          if (!silent) this.startCountdown();
+          if (silent) this.isRevalidating = false;
         } else {
-          this.loadClassDetails();
+          this.loadClassDetails(silent);
         }
       },
       error: () => {
-        this.loadClassDetails();
+        this.loadClassDetails(silent);
       }
     });
   }
 
-  loadClassDetails() {
+  /** Sync-hydrate the view from a cached bundle so no skeleton is rendered. */
+  private hydrateFromCache(cached: CachedLessonDetailBundle) {
+    if (cached.classData) {
+      this.classData = cached.classData;
+      this.isClass = true;
+      if (this.classData?.description) {
+        this.sanitizedDescription = this.sanitizer.bypassSecurityTrustHtml(this.classData.description);
+      }
+      this.computeClassProperties();
+    } else if (cached.lesson) {
+      this.lesson = cached.lesson;
+      this.isClass = false;
+      this.classCanOpenGoingMessage = false;
+      this.lessonsWithParticipant = cached.lessonsCompleted || 0;
+      if (cached.tutorStats) {
+        const ts = cached.tutorStats;
+        if (ts.rating && Number(ts.rating) >= 4.0) {
+          this.tutorStatsRating = Number(ts.rating).toFixed(1);
+          this.tutorStatsRatingRounded = Math.round(Number(ts.rating));
+        }
+        this.tutorStatsTotalLessons = ts.totalLessons || 0;
+        this.tutorStatsStudents = ts.students || 0;
+      }
+      this.recentLessons = cached.recentLessons || [];
+
+      this.computeAllProperties();
+
+      if (cached.analysis) {
+        this.analysisData = cached.analysis;
+        this.computeAnalysisProperties();
+      }
+      if (cached.analysisUnavailable) {
+        this.analysisUnavailable = true;
+      }
+      if (cached.feedback) {
+        this.tutorFeedback = cached.feedback;
+        this.computeFeedbackProperties();
+      }
+      if (cached.billing) {
+        this.billingData = cached.billing;
+        this.computeBillingProperties();
+      }
+      if (cached.payment) {
+        this.paymentData = cached.payment;
+        this.computePaymentStatus();
+      }
+      if (cached.previousNotes?.hasPreviousNotes && cached.previousNotes.analysis) {
+        this.previousNotesData = cached.previousNotes;
+        this.hasPreviousNotes = true;
+        this.previousNotesIsAiSource = cached.previousNotes.analysis.source !== 'tutor';
+        if (cached.previousNotes.previousLessonDate) {
+          this.previousNotesDate = new Date(cached.previousNotes.previousLessonDate)
+            .toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }
+        if (cached.previousNotes.analysis.tutorNote?.text) {
+          this.previousNotesSanitized = this.sanitizer.bypassSecurityTrustHtml(cached.previousNotes.analysis.tutorNote.text);
+        }
+      }
+      if (cached.paymentMethod) {
+        this.paymentMethodLabel = cached.paymentMethod.label;
+        this.paymentMethodIcon = cached.paymentMethod.icon;
+      }
+      if (cached.tutorMaterials?.length) {
+        this.tutorMaterials = cached.tutorMaterials as any;
+      }
+      if (cached.recommendedMaterials?.length) {
+        this.recommendedMaterials = cached.recommendedMaterials as any;
+        this.recommendedStruggles = cached.recommendedStruggles || [];
+        this.hasRecommendations = true;
+      }
+
+      this.computeFeedbackStatus();
+      this.resolveSidebarNotes();
+    }
+
+    this.loading = false;
+    this.startCountdown();
+    this.flipTransition.cleanup();
+    this.cdr.detectChanges();
+  }
+
+  loadClassDetails(silent = false) {
     if (!this.eventId) return;
 
     this.classService.getClass(this.eventId).subscribe({
@@ -443,17 +776,29 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
           if (this.classData?.description) {
             this.sanitizedDescription = this.sanitizer.bypassSecurityTrustHtml(this.classData.description);
           }
-          this.loading = false;
+          if (!silent) this.loading = false;
           this.computeClassProperties();
-          this.startCountdown();
-          this.flipTransition.cleanup();
-        } else {
+          if (!silent) this.startCountdown();
+          if (!silent) this.flipTransition.cleanup();
+          this.lessonService.updateCachedLessonDetail(this.eventId!, {
+            lesson: null,
+            classData: this.classData,
+            isClass: true,
+          });
+          if (silent) this.isRevalidating = false;
+        } else if (!silent) {
           this.error = 'Event not found';
           this.loading = false;
           this.flipTransition.cleanup();
+        } else {
+          this.isRevalidating = false;
         }
       },
       error: () => {
+        if (silent) {
+          this.isRevalidating = false;
+          return;
+        }
         this.error = 'Failed to load event details';
         this.loading = false;
         this.flipTransition.cleanup();
@@ -461,32 +806,34 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     });
   }
 
-  private loadAdditionalData() {
+  private loadAdditionalData(silent = false) {
     if (!this.eventId || !this.lesson) {
-      this.loading = false;
+      if (!silent) this.loading = false;
       return;
     }
 
-    // Track all pending requests — skeleton stays until everything resolves
-    this.pendingRequests = 5; // analysis + feedback + billing + payment + previous notes
-    if (this.isStudentUser) {
-      this.pendingRequests++; // + payment method
-    }
+    if (!silent) {
+      // Track all pending requests — skeleton stays until everything resolves
+      this.pendingRequests = 5; // analysis + feedback + billing + payment + previous notes
+      if (this.isStudentUser) {
+        this.pendingRequests++; // + payment method
+      }
 
-    this.hasPreviousNotes = false;
-    this.previousNotesData = null;
-    this.previousNotesSanitized = null;
-    this.showSidebarNotesEmpty = false;
-    this.sidebarNotesEmptyDescKey = 'EVENT_DETAILS.SIDEBAR_NOTES_EMPTY_DESC_STUDENT';
-    this.hasSidebarNotes = false;
-    this.sidebarNotesSource = null;
-    this.sidebarNotesAnalysis = null;
-    this.sidebarNotesOriginalAnalysis = null;
-    this.sidebarNotesSanitized = null;
-    this.sidebarNotesAnalysisId = null;
-    this.sidebarNotesTranslating = false;
-    this.sidebarNotesShowingTranslation = false;
-    this.sidebarNotesTranslationCache = null;
+      this.hasPreviousNotes = false;
+      this.previousNotesData = null;
+      this.previousNotesSanitized = null;
+      this.showSidebarNotesEmpty = false;
+      this.sidebarNotesEmptyDescKey = 'EVENT_DETAILS.SIDEBAR_NOTES_EMPTY_DESC_STUDENT';
+      this.hasSidebarNotes = false;
+      this.sidebarNotesSource = null;
+      this.sidebarNotesAnalysis = null;
+      this.sidebarNotesOriginalAnalysis = null;
+      this.sidebarNotesSanitized = null;
+      this.sidebarNotesAnalysisId = null;
+      this.sidebarNotesTranslating = false;
+      this.sidebarNotesShowingTranslation = false;
+      this.sidebarNotesTranslationCache = null;
+    }
 
     // Load learning plan summary (non-blocking sidebar data)
     if (this.isTutorUser && this.participantId) {
@@ -509,7 +856,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     }
 
     // Load analysis
-    this.analysisLoading = true;
+    if (!silent) this.analysisLoading = true;
     const headers = this.userService.getAuthHeadersSync();
     this.http.get<any>(
       `${environment.backendUrl}/api/transcription/lesson/${this.eventId}/analysis`,
@@ -519,35 +866,39 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         if (res.success && res.analysis) {
           this.analysisData = res.analysis;
           this.computeAnalysisProperties();
+          this.lessonService.updateCachedLessonDetail(this.eventId!, { analysis: res.analysis });
         } else if (this.isLessonCompleted) {
           this.analysisUnavailable = true;
+          this.lessonService.updateCachedLessonDetail(this.eventId!, { analysisUnavailable: true });
         }
-        this.analysisLoading = false;
-        this.onRequestComplete();
+        if (!silent) this.analysisLoading = false;
+        this.onRequestComplete(silent);
       },
       error: (err: any) => {
         if (err?.error?.status === 'unavailable' || this.isLessonCompleted) {
           this.analysisUnavailable = true;
+          this.lessonService.updateCachedLessonDetail(this.eventId!, { analysisUnavailable: true });
         }
-        this.analysisLoading = false;
-        this.onRequestComplete();
+        if (!silent) this.analysisLoading = false;
+        this.onRequestComplete(silent);
       }
     });
 
     // Load tutor feedback
-    this.feedbackLoading = true;
+    if (!silent) this.feedbackLoading = true;
     this.tutorFeedbackService.getFeedbackForLesson(this.eventId).subscribe({
       next: (res) => {
         if (res.success && res.hasFeedback && res.feedback) {
           this.tutorFeedback = res.feedback;
           this.computeFeedbackProperties();
+          this.lessonService.updateCachedLessonDetail(this.eventId!, { feedback: res.feedback });
         }
-        this.feedbackLoading = false;
-        this.onRequestComplete();
+        if (!silent) this.feedbackLoading = false;
+        this.onRequestComplete(silent);
       },
       error: () => {
-        this.feedbackLoading = false;
-        this.onRequestComplete();
+        if (!silent) this.feedbackLoading = false;
+        this.onRequestComplete(silent);
       }
     });
 
@@ -557,17 +908,18 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         if (res.success && res.billing) {
           this.billingData = res.billing;
           this.computeBillingProperties();
+          this.lessonService.updateCachedLessonDetail(this.eventId!, { billing: res.billing });
         }
-        this.onRequestComplete();
+        this.onRequestComplete(silent);
       },
       error: () => {
-        this.onRequestComplete();
+        this.onRequestComplete(silent);
       }
     });
 
     // Load payment details (for financial status section)
     // Use a dedicated method that ensures valid auth headers
-    this.loadPaymentDetails();
+    this.loadPaymentDetails(0, silent);
 
     // Load payment method (student only)
     if (this.isStudentUser) {
@@ -579,12 +931,15 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
             );
             if (payment) {
               this.computePaymentMethodLabel(payment.paymentMethod);
+              this.lessonService.updateCachedLessonDetail(this.eventId!, {
+                paymentMethod: { label: this.paymentMethodLabel, icon: this.paymentMethodIcon },
+              });
             }
           }
-          this.onRequestComplete();
+          this.onRequestComplete(silent);
         },
         error: () => {
-          this.onRequestComplete();
+          this.onRequestComplete(silent);
         }
       });
     }
@@ -600,21 +955,68 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
           if (res.analysis.tutorNote?.text) {
             this.previousNotesSanitized = this.sanitizer.bypassSecurityTrustHtml(res.analysis.tutorNote.text);
           }
+          this.lessonService.updateCachedLessonDetail(this.eventId!, { previousNotes: res });
         }
-        this.onRequestComplete();
+        this.onRequestComplete(silent);
       },
       error: () => {
-        this.onRequestComplete();
+        this.onRequestComplete(silent);
+      }
+    });
+
+    // Load recommended materials (student-only, non-blocking)
+    if (this.isStudentUser && this.lesson?.language) {
+      this.loadRecommendedMaterials();
+    }
+  }
+
+  private loadRecommendedMaterials() {
+    this.recommendedLoading = true;
+    this.hasRecommendations = false;
+    this.recommendedMaterials = [];
+
+    const language = this.lesson?.language;
+    if (!language) {
+      this.recommendedLoading = false;
+      return;
+    }
+
+    this.materialService.getRecommendedMaterials(language, {
+      lessonId: this.eventId || undefined,
+      tutorId: this.tutorId || undefined
+    }).subscribe({
+      next: (res) => {
+        if (res.success && res.materials?.length) {
+          this.recommendedMaterials = res.materials.map(m => ({
+            ...m,
+            _typeIcon: this.getMaterialTypeIcon(m.materialType),
+            _typeLabel: this.getMaterialTypeLabel(m.materialType)
+          }));
+          this.recommendedStruggles = res.struggles || [];
+          this.hasRecommendations = true;
+          if (this.eventId) {
+            this.lessonService.updateCachedLessonDetail(this.eventId, {
+              recommendedMaterials: this.recommendedMaterials,
+              recommendedStruggles: this.recommendedStruggles,
+            });
+          }
+        }
+        this.recommendedLoading = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.recommendedLoading = false;
+        this.cdr.detectChanges();
       }
     });
   }
 
-  private loadPaymentDetails(retryCount = 0) {
+  private loadPaymentDetails(retryCount = 0, silent = false) {
     const headers = this.userService.getAuthHeadersSync();
     const hasAuth = headers.has('Authorization');
 
     if (!hasAuth && retryCount < 2) {
-      setTimeout(() => this.loadPaymentDetails(retryCount + 1), 500);
+      setTimeout(() => this.loadPaymentDetails(retryCount + 1, silent), 500);
       return;
     }
 
@@ -626,21 +1028,41 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         if (res.success && res.payment) {
           this.paymentData = res.payment;
           this.computePaymentStatus();
+          if (this.eventId) {
+            this.lessonService.updateCachedLessonDetail(this.eventId, { payment: res.payment });
+          }
         }
-        this.onRequestComplete();
+        this.onRequestComplete(silent);
       },
       error: () => {
         if (retryCount < 2) {
-          setTimeout(() => this.loadPaymentDetails(retryCount + 1), 800);
+          setTimeout(() => this.loadPaymentDetails(retryCount + 1, silent), 800);
         } else {
-          this.onRequestComplete();
+          this.onRequestComplete(silent);
         }
       }
     });
   }
 
-  /** Called when each async request finishes — reveals content when all done */
-  private onRequestComplete() {
+  /**
+   * Called when each async request finishes.
+   * - Initial load (`silent=false`): flip `loading` off when everything resolves.
+   * - Background revalidate (`silent=true`): never touch `loading`; just refresh
+   *   sidebar/feedback projections and clear the revalidating flag at the end.
+   */
+  private onRequestComplete(silent = false) {
+    if (silent) {
+      // refresh derived projections in case analysis/feedback/previousNotes changed
+      this.computeFeedbackStatus();
+      this.resolveSidebarNotes();
+      this.cdr.detectChanges();
+      // the initial counter isn't maintained in silent mode; flag flips off
+      // opportunistically — any in-flight callbacks are safe because each one
+      // sets it independently.
+      this.isRevalidating = false;
+      return;
+    }
+
     this.pendingRequests--;
     if (this.pendingRequests <= 0) {
       this.computeFeedbackStatus();
@@ -716,10 +1138,22 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.computeCancellation();
     this.computeIssue();
     this.computeReschedule();
+    this.computeLastSessionContext();
   }
 
   private computeRole() {
     if (!this.lesson || !this.currentUser) return;
+
+    // Mock previews carry an explicit viewing role so tutor accounts
+    // can preview student-perspective cards correctly.
+    const mockRole = (this.lesson as any)._mockViewRole;
+    if (mockRole === 'tutor' || mockRole === 'student') {
+      this.isTutorUser = mockRole === 'tutor';
+      this.isStudentUser = mockRole === 'student';
+      this.userRole = mockRole;
+      return;
+    }
+
     const tutorId = String(this.lesson.tutorId?._id || this.lesson.tutorId);
     const userId = String((this.currentUser as any)._id || this.currentUser.id);
     this.isTutorUser = tutorId === userId;
@@ -900,6 +1334,10 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
   private loadTutorMaterials() {
     if (!this.tutorId) return;
+    if (isLessonMockId(this.eventId)) {
+      this.tutorMaterials = [];
+      return;
+    }
     this.materialService.getTutorMaterials(this.tutorId).subscribe({
       next: (res) => {
         this.tutorMaterials = (res.materials || [])
@@ -910,6 +1348,9 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
             _typeIcon: this.getMaterialTypeIcon(m.materialType),
             _typeLabel: this.getMaterialTypeLabel(m.materialType)
           }));
+        if (this.eventId) {
+          this.lessonService.updateCachedLessonDetail(this.eventId, { tutorMaterials: this.tutorMaterials });
+        }
         this.cdr.detectChanges();
       },
       error: () => {
@@ -944,6 +1385,34 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
   openMaterial(material: TutorMaterial) {
     this.router.navigate(['/material', material._id]);
+  }
+
+  viewRecommendedMaterial(material: any) {
+    this.router.navigate(['/material', material._id]);
+  }
+
+  toggleSaveRecommendation(material: any) {
+    const idx = this.recommendedMaterials.findIndex(m => m._id === material._id);
+    if (idx === -1) return;
+
+    const prev = this.recommendedMaterials[idx].isSaved;
+    this.recommendedMaterials[idx].isSaved = !prev;
+    this.cdr.detectChanges();
+
+    this.materialService.toggleSaveMaterial(material._id, this.eventId || undefined).subscribe({
+      next: (res) => {
+        if (res.success) {
+          this.recommendedMaterials[idx].isSaved = res.saved;
+        } else {
+          this.recommendedMaterials[idx].isSaved = prev;
+        }
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.recommendedMaterials[idx].isSaved = prev;
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   private computeTip() {
@@ -1043,6 +1512,17 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     }
   }
 
+  private computeLastSessionContext() {
+    const ctx = this.lesson?.lastSessionContext;
+    if (!ctx || ctx.isFirstLesson || !ctx.summary) {
+      this.hasLastSessionContext = false;
+      return;
+    }
+    this.hasLastSessionContext = true;
+    this.lastSessionSummary = ctx.summary;
+    this.lastSessionFocus = ctx.recommendedFocus || [];
+  }
+
   private computeAnalysisProperties() {
     if (!this.analysisData) return;
     this.hasAnalysis = this.analysisData.status === 'completed';
@@ -1060,12 +1540,6 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.hasTutorNote = true;
       this.sanitizedTutorNote = this.sanitizer.bypassSecurityTrustHtml(this.analysisData.tutorNote.text);
     }
-
-    // Homework suggestions
-    this.hasHomework = !!(
-      this.analysisData.homeworkSuggestions?.length ||
-      this.analysisData.tutorNote?.homework
-    );
   }
 
   private calcScoreColor(score: number | undefined): string {
@@ -1192,7 +1666,6 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.hasTutorFeedback = true;
     this.feedbackStrengths = this.tutorFeedback.strengths || [];
     this.feedbackImprovements = this.tutorFeedback.areasForImprovement || [];
-    this.feedbackHomework = this.tutorFeedback.homework || '';
     this.feedbackNotes = this.tutorFeedback.overallNotes || '';
     this.feedbackCefrLevel = this.tutorFeedback.estimatedCefrLevel || '';
     this.feedbackDate = this.tutorFeedback.providedAt
@@ -1368,30 +1841,74 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     }
   }
 
+  /**
+   * Stable string id for API refs: string, ObjectId, or { _id, id, $oid }.
+   */
+  private normalizeRefId(v: unknown): string {
+    if (v == null) return '';
+    if (typeof v === 'string') return v;
+    if (typeof v === 'object') {
+      const o: any = v;
+      if (typeof o.$oid === 'string') return o.$oid;
+      if (o._id != null) return this.normalizeRefId(o._id);
+      if (o.id != null) return this.normalizeRefId(o.id);
+      if (typeof o.toString === 'function') {
+        const s = o.toString();
+        if (s && s !== '[object Object]') return s;
+      }
+    }
+    return '';
+  }
+
+  /**
+   * Resolve class `tutorId` (string ref or populated lean user) to a user id string.
+   */
+  private tutorUserIdFromClassTutorRef(tutor: unknown): string {
+    if (tutor == null) return '';
+    if (typeof tutor === 'string') return tutor;
+    if (typeof tutor === 'object') {
+      const t: any = tutor;
+      if (t._id != null || t.id != null) {
+        return this.normalizeRefId(t._id ?? t.id);
+      }
+    }
+    return this.normalizeRefId(tutor);
+  }
+
   private computeClassProperties() {
     if (!this.classData) return;
-    // Compute status for class
     const now = new Date();
     const start = new Date(this.classData.startTime);
     const end = new Date(this.classData.endTime);
 
-    if (now >= start && now <= end) {
+    if (this.classData.status === 'cancelled') {
+      this.statusLabel = 'Cancelled';
+      this.statusColor = '#ef4444';
+      this.statusClass = 'cancelled';
+      this.classIsCancelled = true;
+    } else if (now >= start && now <= end) {
       this.statusLabel = 'In Progress';
       this.statusColor = '#10b981';
       this.statusClass = 'in-progress';
-    } else if (now > end) {
+    } else if (now > end || this.classData.status === 'completed') {
       this.statusLabel = 'Completed';
       this.statusColor = '#6b7280';
       this.statusClass = 'completed';
+      this.classIsCompleted = true;
     } else {
       this.statusLabel = 'Upcoming';
       this.statusColor = '#667eea';
       this.statusClass = 'upcoming';
     }
 
-    // Formatted date/time for class
-    if (start.toDateString() === new Date().toDateString()) {
+    // Formatted date/time
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    if (start.toDateString() === today.toDateString()) {
       this.formattedDate = 'Today';
+    } else if (start.toDateString() === tomorrow.toDateString()) {
+      this.formattedDate = 'Tomorrow';
     } else {
       this.formattedDate = formatDateInTz(start, this.userTz, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
     }
@@ -1399,7 +1916,6 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.formattedDuration = `${this.classData.duration || 60} minutes`;
     this.formattedPrice = this.classData.price ? `$${this.classData.price.toFixed(2)}` : 'Free';
 
-    // Pre-compute class-specific values
     const levelMap: Record<string, string> = {
       any: 'Any Level', beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced'
     };
@@ -1409,19 +1925,126 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.classRevenue = `$${(this.classData.price * this.classData.confirmedStudents.length).toFixed(2)}`;
     }
 
+    // Tutor info for the profile panel
+    const tutor = this.classData.tutorId;
+    const userId = this.normalizeRefId((this.currentUser as any)?._id ?? (this.currentUser as any)?.id);
+    const resolvedTutorUserId = this.tutorUserIdFromClassTutorRef(tutor);
+    this.classTutorId = resolvedTutorUserId || null;
+    this.classIsCurrentUserTutor = userId !== '' && resolvedTutorUserId !== '' && resolvedTutorUserId === userId;
+    this.isTutorUser = this.classIsCurrentUserTutor;
+    this.isStudentUser = !this.classIsCurrentUserTutor;
+
+    if (tutor && typeof tutor === 'object') {
+      this.classTutorName = this.formatPersonName(tutor, 'Tutor');
+      this.classTutorPicture = tutor.picture || tutor.profilePicture || '';
+      this.classTutorInitial = (tutor.name || tutor.firstName || 'T').charAt(0).toUpperCase();
+      this.classTutorBio = tutor.onboardingData?.bio || tutor.profile?.bio || '';
+      this.classTutorLanguages = tutor.onboardingData?.languages || [];
+      this.classTutorCountry = tutor.country || tutor.residenceCountry || '';
+    }
+
+    // Join / cancel button
+    const minutesUntilStart = (start.getTime() - now.getTime()) / (1000 * 60);
+    this.classShowJoinButton = this.statusLabel === 'Upcoming' || this.statusLabel === 'In Progress';
+    if (now >= start && now <= end) {
+      this.classCanJoin = true;
+      this.classJoinLabel = 'Join Now';
+    } else if (minutesUntilStart <= 10 && end > now && !this.classIsCancelled) {
+      this.classCanJoin = true;
+      this.classJoinLabel = 'Join';
+    } else if (this.classShowJoinButton) {
+      this.classCanJoin = false;
+      const secs = Math.max(0, Math.floor((start.getTime() - now.getTime()) / 1000));
+      const h = Math.floor(secs / 3600);
+      const m = Math.floor((secs % 3600) / 60);
+      this.classJoinLabel = h > 0 ? `Join in ${h}h ${m}m` : `Join in ${m}m`;
+    }
+    const tutorCanManage = this.classIsCurrentUserTutor;
+    this.classCanCancel = tutorCanManage && !this.classIsCancelled && !this.classIsCompleted && start > now;
+    this.classCanReschedule = tutorCanManage && !this.classIsCancelled && !this.classIsCompleted && start > now;
+
+    this.classStudentCtaKind = null;
+    this.classStudentPrimaryDisabled = false;
+    if (
+      this.isStudentUser &&
+      this.classData &&
+      (this.statusLabel === 'Upcoming' || this.statusLabel === 'In Progress') &&
+      !this.classIsCancelled
+    ) {
+      const hasPendingInv = this.classData.hasInvitation && this.classData.invitationStatus === 'pending';
+      const enrolled = !!this.classData.isEnrolled;
+      if (hasPendingInv) {
+        this.classStudentCtaKind = 'accept_invite';
+      } else if (this.classData.isPublic && !enrolled && start > now) {
+        this.classStudentCtaKind = 'enroll';
+      } else {
+        this.classStudentCtaKind = 'join_session';
+      }
+      if (this.classStudentCtaKind === 'accept_invite' || this.classStudentCtaKind === 'enroll') {
+        this.classStudentPrimaryDisabled = !!this.classData.isFull || start.getTime() <= now.getTime();
+      }
+    }
+
+    // Payment: count students who have paid
+    const payments: any[] = this.classData.payments || [];
+    const paidStudentIds = new Set(
+      payments
+        .filter((p: any) => p.status === 'succeeded' || p.status === 'authorized')
+        .map((p: any) => String(p.studentId?._id || p.studentId || ''))
+    );
+    this.classStudentsPaidCount = paidStudentIds.size;
+
     this.classStudentsDisplay = (this.classData.confirmedStudents || []).map((s: any) => {
       const name = this.formatPersonName(s, 'Student');
+      const sId = String(s._id || '');
       return {
         name,
         picture: s.picture || s.profilePicture,
         initials: name.split(' ').map((p: string) => p.charAt(0)).join('').toUpperCase().slice(0, 2),
+        paid: paidStudentIds.has(sId),
       };
     });
 
-    // Check for cancelled class
-    if (this.classData.status === 'cancelled') {
-      this.statusLabel = 'Cancelled';
-      this.statusClass = 'cancelled';
+    const enrolled = this.classData.confirmedStudents || [];
+    // Tutor broadcast: collect confirmed student ids (excluding self).
+    let receiverIds: string[] = enrolled
+      .map((s: any) => this.normalizeRefId(s?._id ?? s?.id))
+      .filter((id: string) => id && id !== userId);
+
+    // Fall back to the mock preview's seeded auth0Ids when the class has no
+    // real confirmed students yet. This keeps the broadcast flow testable
+    // end-to-end against the preview avatars (see
+    // `backend/scripts/seed-mock-class-students.js`).
+    if (receiverIds.length === 0) {
+      receiverIds = MOCK_CLASS_ATTENDEES_PREVIEW
+        .map((s: any) => (s?.auth0Id || '').trim())
+        .filter((id: string) => id && id !== userId);
+    }
+    this.classGoingReceiverIds = receiverIds;
+
+    // Clickable only when we actually have someone to message:
+    //  - student → tutor: need `classTutorId`.
+    //  - tutor → students: need at least one recipient (real or seeded mock).
+    this.classCanOpenGoingMessage =
+      (this.isStudentUser && !!this.classTutorId) ||
+      (this.classIsCurrentUserTutor && this.classGoingReceiverIds.length > 0);
+    console.log('[EventDetails] going message state', {
+      isStudentUser: this.isStudentUser,
+      classIsCurrentUserTutor: this.classIsCurrentUserTutor,
+      classTutorId: this.classTutorId,
+      userId,
+      classCanOpenGoingMessage: this.classCanOpenGoingMessage,
+      enrolledCount: enrolled.length,
+      classGoingReceiverIds: this.classGoingReceiverIds,
+    });
+    if (enrolled.length > 0) {
+      this.classAttendeesForGridStack = enrolled;
+      const cap = this.classData.maxStudents ?? this.classData.capacity;
+      this.classAttendeesForGridCapacity =
+        cap != null && Number.isFinite(Number(cap)) && Number(cap) > 0 ? Number(cap) : undefined;
+    } else {
+      this.classAttendeesForGridStack = [...MOCK_CLASS_ATTENDEES_PREVIEW];
+      this.classAttendeesForGridCapacity = undefined;
     }
 
     // Compute class payment status
@@ -1555,8 +2178,10 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   // ── Actions ───────────────────────────────────────────────────
 
   goBack() {
-    // Use browser history to return to wherever the user came from
-    // (lessons page, tutor calendar, home, notifications, etc.)
+    if (this.isModal) {
+      this.modalController.dismiss();
+      return;
+    }
     this.location.back();
   }
 
@@ -1570,6 +2195,125 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         isClass: 'false'
       }
     });
+  }
+
+  async openClassStudentPrimaryAction(): Promise<void> {
+    if (!this.eventId) return;
+    if (this.classStudentCtaKind === 'enroll') {
+      const loading = await this.loadingController.create({
+        message: 'Preparing enrollment…',
+        spinner: 'crescent'
+      });
+      await loading.present();
+      try {
+        await firstValueFrom(this.classService.requestPublicEnrollment(this.eventId));
+      } catch (err: any) {
+        await loading.dismiss();
+        const msg = err?.error?.message || 'Could not start enrollment. Please try again.';
+        const toast = await this.toastController.create({
+          message: msg,
+          duration: 4000,
+          color: 'danger',
+          position: 'bottom'
+        });
+        await toast.present();
+        return;
+      }
+      await loading.dismiss();
+    }
+    if (this.classStudentCtaKind === 'accept_invite' || this.classStudentCtaKind === 'enroll') {
+      const modal = await this.modalController.create({
+        component: ClassInvitationModalComponent,
+        componentProps: { classId: this.eventId },
+        cssClass: 'class-invitation-modal'
+      });
+      await modal.present();
+      const { data } = await modal.onDidDismiss();
+      if (data?.accepted || data?.declined) {
+        if (this.eventId) this.lessonService.clearDetailCache(this.eventId);
+        this.loadEventDetails();
+      }
+    } else if (this.classStudentCtaKind === 'join_session') {
+      this.joinClass();
+    }
+  }
+
+  joinClass() {
+    if (!this.classData || !this.currentUser) return;
+    if (!this.classCanJoin) return;
+    this.router.navigate(['/pre-call'], {
+      queryParams: {
+        lessonId: this.classData._id,
+        lessonMode: 'true',
+        isClass: 'true'
+      }
+    });
+  }
+
+  messageClassTutor() {
+    if (!this.classTutorId) return;
+    this.router.navigate(['/tabs/messages'], { queryParams: { tutorId: this.classTutorId } });
+  }
+
+  onClassGoingMessageTap(): void {
+    if (!this.classCanOpenGoingMessage) {
+      return;
+    }
+    void this.openClassGoingMessageModal();
+  }
+
+  async openClassGoingMessageModal(): Promise<void> {
+    if (!this.classCanOpenGoingMessage || !this.classData) return;
+
+    // Student → single tutor recipient. Tutor → broadcast to confirmed students.
+    const receiverId = this.isStudentUser ? (this.classTutorId || '') : '';
+    const receiverIds = this.classIsCurrentUserTutor ? [...this.classGoingReceiverIds] : [];
+
+    try {
+      const modal = await this.modalController.create({
+        component: ClassGoingMessageModalComponent,
+        componentProps: {
+          attendees: this.classAttendeesForGridStack || [],
+          receiverId,
+          receiverIds,
+          className: this.classData.name || '',
+          // Anchor the group thread to this class so the backend routes to
+          // the class-broadcast conversation (membership follows enrollment)
+          // rather than spawning a new ad-hoc thread keyed off the current
+          // participant hash.
+          classId: this.eventId || '',
+        },
+        cssClass: 'class-going-message-modal',
+      });
+      await modal.present();
+      const { data } = await modal.onDidDismiss();
+      if (data?.sent) {
+        const total: number = typeof data?.total === 'number' ? data.total : 1;
+        const toast = await this.toastController.create({
+          message: total > 1 ? `Message sent to ${total} participants` : 'Message sent',
+          duration: 2200,
+          color: 'success',
+          position: 'bottom',
+        });
+        await toast.present();
+
+        if (data?.kind === 'group' && data?.groupId) {
+          await this.router.navigate(['/tabs/messages'], { queryParams: { groupId: data.groupId } });
+        } else if (data?.kind === 'direct' && data?.userId) {
+          await this.router.navigate(['/tabs/messages'], { queryParams: { userId: data.userId } });
+        } else {
+          await this.router.navigate(['/tabs/messages']);
+        }
+      }
+    } catch (e) {
+      console.error('[GoingMessage] modal failed', e);
+    }
+  }
+
+  openClassTutorProfile() {
+    if (this.isStudentUser && this.classTutorId) {
+      this.router.navigate(['/tutor', this.classTutorId]);
+    }
   }
 
   viewAnalysis() {
@@ -1625,6 +2369,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     const result = await modal.onDidDismiss();
 
     if (result.data?.rescheduled) {
+      if (this.eventId) this.lessonService.clearDetailCache(this.eventId);
       this.loadEventDetails();
     }
   }
@@ -1658,6 +2403,10 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
     await reasonModal.present();
     const reasonResult = await reasonModal.onDidDismiss();
+    if (reasonResult.data?.rescheduleInstead) {
+      await this.openRescheduleModal();
+      return;
+    }
     if (reasonResult.data?.cancelled || !reasonResult.data?.reason) return;
 
     const selectedReason = reasonResult.data.reason;
@@ -1670,7 +2419,8 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         message: `Reason: ${selectedReason.label}`,
         notificationMessage: `${participantName || 'The other participant'} will be notified and this action cannot be undone.`,
         confirmText: 'Cancel Lesson',
-        cancelText: 'Go Back',
+        cancelText: 'Reschedule instead?',
+        secondaryDismissReschedules: true,
         confirmColor: 'danger',
         icon: 'close-circle',
         iconColor: 'danger',
@@ -1682,6 +2432,10 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
     await confirmModal.present();
     const confirmResult = await confirmModal.onDidDismiss();
+    if (confirmResult.data?.rescheduleInstead) {
+      await this.openRescheduleModal();
+      return;
+    }
     if (!confirmResult.data?.confirmed) return;
 
     // Step 3: Proceed with cancellation
@@ -1704,6 +2458,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         });
         await toast.present();
         window.dispatchEvent(new CustomEvent('lesson-cancelled', { detail: { lessonId } }));
+        this.lessonService.clearDetailCache(lessonId);
         // Reload data
         this.loadEventDetails();
       } else {
@@ -1735,23 +2490,19 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     // Feedback is "provided" if we have either a tutor note or structured TutorFeedback
     this.feedbackProvided = this.hasTutorNote || this.hasTutorFeedback;
 
-    // For tutors, feedback is always shown as pending if not provided
-    // For students, only show "awaiting" if AI analysis is NOT available AND
-    // the lesson actually requires tutor feedback (i.e. AI wasn't supposed to handle it)
+    const requiresTutorFeedback = !!this.lesson.requiresTutorFeedback;
+    const hasPendingFeedbackRecord = !!this.tutorFeedback && this.tutorFeedback.status === 'pending';
+
     if (this.isTutorUser) {
-      this.feedbackPending = !this.feedbackProvided;
+      // Only show "Feedback outstanding" when there's an actual pending + required record.
+      // AI-enabled lessons don't create a TutorFeedback record, so feedback is optional.
+      this.feedbackPending = !this.feedbackProvided
+        && (requiresTutorFeedback || (hasPendingFeedbackRecord && this.tutorFeedback?.required !== false));
     } else {
-      // Student: check both the loaded analysis AND the lesson's embedded aiAnalysis field
       const hasAiAnalysis = this.hasAnalysis
         || this.lesson.aiAnalysis?.status === 'completed'
         || !!this.lesson.aiAnalysis?.generatedAt;
-
-      // If AI analysis was enabled for this lesson, tutor feedback is NOT required.
-      // Only show "Awaiting feedback" when the lesson explicitly requires tutor feedback
-      // (requiresTutorFeedback is true) or when there's a pending TutorFeedback record.
       const aiWasEnabled = this.lesson.aiAnalysisEnabledAtTime === true;
-      const requiresTutorFeedback = !!this.lesson.requiresTutorFeedback;
-      const hasPendingFeedbackRecord = !!this.tutorFeedback && this.tutorFeedback.status === 'pending';
 
       this.feedbackPending = !this.feedbackProvided
         && !hasAiAnalysis
@@ -1846,5 +2597,190 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     } catch {}
   }
 
-  // getScoreColor / getLevelLabel are now pre-computed — see calcScoreColor / computeClassProperties
+  async rescheduleClass() {
+    await this.presentClassRescheduleModal();
+  }
+
+  /** Build a lesson-shaped object for `RescheduleLessonModalComponent` (hub class). */
+  private buildLessonLikeFromClass(): any {
+    const c = this.classData;
+    if (!c || !this.eventId) return null;
+    const duration =
+      typeof c.duration === 'number' && c.duration > 0 ? c.duration : 60;
+    return {
+      _id: c._id || this.eventId,
+      isClass: true,
+      className: c.name,
+      classData: c,
+      startTime: c.startTime,
+      endTime: c.endTime,
+      duration,
+      tutorId: c.tutorId,
+      subject: c.name || 'Class',
+      status: c.status || 'scheduled',
+    };
+  }
+
+  /** Opens the same reschedule experience as home (availability viewer + confirm). */
+  async presentClassRescheduleModal(): Promise<void> {
+    if (!this.eventId || !this.classData || !this.currentUser?.id) return;
+    if (!this.classCanReschedule) {
+      const toast = await this.toastController.create({
+        message: 'This class cannot be rescheduled right now.',
+        duration: 2500,
+        position: 'bottom',
+        color: 'medium',
+      });
+      await toast.present();
+      return;
+    }
+
+    const lesson = this.buildLessonLikeFromClass();
+    if (!lesson) return;
+
+    const classId = this.eventId;
+    const isTutor = this.isTutorUser;
+    const className = this.classData.name || 'Class';
+    const participantAvatar = this.classData.thumbnail || undefined;
+    const participantForModal = isTutor ? className : this.classData.tutorId;
+    const tid = this.classData.tutorId as any;
+    const tutorRawId = tid?._id ?? tid;
+    const participantIdForModal = isTutor
+      ? String(this.currentUser.id)
+      : String(tutorRawId || '');
+
+    if (!isTutor && !participantIdForModal) {
+      const toast = await this.toastController.create({
+        message: 'Could not find tutor information',
+        duration: 2000,
+        color: 'danger',
+        position: 'bottom',
+      });
+      await toast.present();
+      return;
+    }
+
+    const resModal = await this.modalController.create({
+      component: RescheduleLessonModalComponent,
+      componentProps: {
+        lessonId: classId,
+        lesson,
+        participantId: participantIdForModal,
+        participantName: participantForModal,
+        participantAvatar,
+        currentUserId: this.currentUser.id,
+        isTutor,
+        showBackButton: false,
+      },
+      cssClass: 'reschedule-lesson-modal',
+    });
+    await resModal.present();
+    const result = await resModal.onDidDismiss();
+    if (result.data?.rescheduled) {
+      if (this.eventId) this.lessonService.clearDetailCache(this.eventId);
+      this.loadEventDetails();
+    }
+  }
+
+  async cancelClassAction() {
+    if (!this.classData || this.classIsCancelled || this.classIsCompleted) return;
+    const className = this.classData.name || 'this class';
+
+    // STEP 1: Reason picker (class variant)
+    const reasonModal = await this.modalController.create({
+      component: CancelReasonModalComponent,
+      componentProps: {
+        entityType: 'class',
+        userRole: 'tutor',
+        className,
+        classThumbnailUrl: this.classData.thumbnail || undefined,
+        lessonStartTime: this.classData.startTime,
+        lessonDuration: this.classData.duration
+      },
+      cssClass: 'cancel-reason-modal'
+    });
+    await reasonModal.present();
+    const reasonResult = await reasonModal.onDidDismiss();
+    if (reasonResult.data?.rescheduleInstead) {
+      if (this.classCanReschedule) {
+        await this.presentClassRescheduleModal();
+      } else {
+        const toast = await this.toastController.create({
+          message: 'This class cannot be rescheduled right now.',
+          duration: 2500,
+          position: 'bottom',
+          color: 'medium',
+        });
+        await toast.present();
+      }
+      return;
+    }
+    if (reasonResult.data?.cancelled || !reasonResult.data?.reason) {
+      return;
+    }
+
+    // STEP 2: Final confirmation
+    const modal = await this.modalController.create({
+      component: ConfirmActionModalComponent,
+      componentProps: {
+        title: 'Cancel class?',
+        message: `Are you sure you want to cancel "${className}"? All invited and confirmed students will be notified. This action cannot be undone.`,
+        confirmText: 'Cancel class',
+        cancelText: 'Reschedule instead?',
+        secondaryDismissReschedules: true,
+        confirmColor: 'danger',
+        icon: 'close-circle',
+        iconColor: 'danger'
+      },
+      cssClass: 'confirm-action-modal'
+    });
+
+    await modal.present();
+    const { data } = await modal.onWillDismiss();
+    if (data?.rescheduleInstead) {
+      if (this.classCanReschedule) {
+        await this.presentClassRescheduleModal();
+      } else {
+        const toast = await this.toastController.create({
+          message: 'This class cannot be rescheduled right now.',
+          duration: 2500,
+          position: 'bottom',
+          color: 'medium',
+        });
+        await toast.present();
+      }
+      return;
+    }
+    if (!data?.confirmed) return;
+
+    const loading = await this.loadingController.create({
+      message: 'Cancelling class...',
+      spinner: 'crescent'
+    });
+    await loading.present();
+
+    try {
+      await this.classService.cancelClass(this.eventId!).toPromise();
+      await loading.dismiss();
+      const toast = await this.toastController.create({
+        message: `"${className}" has been cancelled`,
+        duration: 3000,
+        position: 'bottom',
+        color: 'success'
+      });
+      await toast.present();
+      window.dispatchEvent(new CustomEvent('lesson-cancelled', { detail: { lessonId: this.eventId } }));
+      if (this.eventId) this.lessonService.clearDetailCache(this.eventId);
+      this.loadEventDetails();
+    } catch (error: any) {
+      await loading.dismiss();
+      const toast = await this.toastController.create({
+        message: error?.error?.message || 'Failed to cancel class. Please try again.',
+        duration: 3000,
+        position: 'bottom',
+        color: 'danger'
+      });
+      await toast.present();
+    }
+  }
 }

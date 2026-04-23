@@ -14,6 +14,11 @@ $accent-orange: #E07912;
 $accent-red: #C13515;
 $radius: 12px;
 
+// Routed tab: full page white behind scroll (light mode)
+ion-content.earnings-routed-ion-content {
+  --background: #ffffff;
+}
+
 // ----- Header -----
 ion-toolbar {
   --background: white;
@@ -217,16 +222,170 @@ ion-toolbar {
   to   { opacity: 1; }
 }
 
-// ----- Inline Wrapper (when embedded in another page) -----
+// ----- Inline home: white canvas (tab1) + cards match .lesson-grid-card (lessons.page.scss) -----
+// Same shadow/border as lessons grid cards — FLIP uses .go-back-link / .withdraw-btn
+$surface-radius: 28px;
+$surface-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+$surface-border: 1px solid rgba(0, 0, 0, 0.06);
+
+.earnings-surface-card {
+  background: #ffffff;
+  border: $surface-border;
+  border-radius: $surface-radius;
+  box-shadow: $surface-shadow;
+  box-sizing: border-box;
+  transition: box-shadow 0.2s ease;
+}
+
 .earnings-inline-wrapper {
-  .earnings-content {
-    padding-top: 8px; // Less top padding when inline (parent already has padding)
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 960px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+
+  > .inline-earnings-header {
+    margin-bottom: 0;
+    padding-top: 4px;
+
+    @media (max-width: 600px) {
+      .inline-earnings-title {
+        font-size: 24px;
+      }
+    }
   }
 }
 
-// ----- Inline Chrome (always visible, not behind loading) -----
+.earnings-content--inline {
+  padding: 0 0 32px !important;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.earnings-balance-cluster.earnings-surface-card {
+  padding: 20px 20px 22px;
+
+  .balance-strip {
+    background: #fafafa;
+    border-color: #f0f0f0;
+  }
+
+  .stat-divider {
+    background: #e8e8e8;
+  }
+
+  .withdraw-row {
+    margin: 14px 0 0;
+  }
+
+  .balance-hero {
+    margin-bottom: 0;
+  }
+
+  .balance-hero-main {
+    background: #fafafa;
+    border-color: #f0f0f0;
+  }
+
+  .balance-hero-stat {
+    background: #fafafa;
+    border-color: #f0f0f0;
+  }
+
+  @media (max-width: 600px) {
+    padding: 16px;
+
+    .balance-hero-main {
+      padding: 20px 16px 18px;
+    }
+  }
+}
+
+.earnings-content--inline .earnings-chart-card {
+  margin-bottom: 0;
+  border-radius: $surface-radius;
+  border: $surface-border;
+  box-shadow: $surface-shadow;
+  transition: box-shadow 0.2s ease;
+}
+
+.transfers-section.earnings-surface-card {
+  margin-bottom: 0;
+  padding: 20px 20px 22px;
+
+  .transfers-list {
+    border: none;
+    background: #fafafa;
+    border-radius: $radius;
+    overflow: hidden;
+  }
+
+  @media (max-width: 600px) {
+    padding: 16px;
+  }
+}
+
+.transactions-section.earnings-surface-card {
+  margin-bottom: 0;
+  padding: 20px 20px 28px;
+
+  .section-header {
+    margin-bottom: 14px;
+  }
+
+  .filters-trigger-container {
+    margin-bottom: 16px;
+  }
+
+  @media (max-width: 600px) {
+    padding: 16px 16px 24px;
+  }
+}
+
+.error-container.earnings-surface-card {
+  min-height: 0;
+  padding: 36px 28px;
+  max-width: 960px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.earnings-skeleton--inline {
+  padding: 20px;
+  margin: 0;
+  background: #fff;
+  border: $surface-border;
+  border-radius: $surface-radius;
+  box-shadow: $surface-shadow;
+  box-sizing: border-box;
+
+  .skeleton-balance-strip {
+    margin-bottom: 16px;
+  }
+
+  .skeleton-withdraw-row {
+    margin-bottom: 20px;
+  }
+
+  .skeleton-chart-card {
+    border: none;
+    background: #fafafa;
+    padding: 20px;
+  }
+
+  @media (max-width: 600px) {
+    padding: 16px;
+  }
+}
+
+// ----- Inline Chrome (legacy; unused — header is direct child of .earnings-inline-wrapper) -----
 .inline-earnings-chrome {
-  padding-bottom: 0; // No bottom padding, content continues below
+  padding-bottom: 0;
 }
 
 // ----- Inline Header -----
@@ -2750,6 +2909,44 @@ ion-toolbar {
   }
   .go-back-link {
     color: #8e8e93 !important;
+  }
+
+  .earnings-surface-card {
+    background: #1c1c1e !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+  }
+
+  .earnings-balance-cluster.earnings-surface-card {
+    .balance-strip,
+    .balance-hero-main,
+    .balance-hero-stat {
+      background: #2c2c2e !important;
+      border-color: #3a3a3c !important;
+    }
+
+    .stat-divider {
+      background: #3a3a3c !important;
+    }
+  }
+
+  .transfers-section.earnings-surface-card .transfers-list {
+    background: #2c2c2e !important;
+  }
+
+  .earnings-skeleton--inline {
+    background: #1c1c1e !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+
+    .skeleton-chart-card {
+      background: #2c2c2e !important;
+    }
+  }
+
+  .earnings-content--inline .earnings-chart-card {
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
   }
 
   .loading-container,

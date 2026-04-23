@@ -1,6 +1,7 @@
 import { IonicModule } from '@ionic/angular';
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Tab1Page } from './tab1.page';
 import { ExploreContainerComponentModule } from '../explore-container/explore-container.module';
@@ -21,10 +22,13 @@ import { SmartIslandComponent } from '../components/smart-island/smart-island.co
 import { EarningsPage } from '../earnings/earnings.page';
 import { ExplorePage } from '../explore/explore.page';
 import { CreateMaterialPage } from '../create-material/create-material.page';
+import { ScheduleClassPage } from '../tutor-calendar/schedule-class/schedule-class.page';
+import { ForumPage } from '../forum/forum.page';
 import { MobileQuickActionsComponent } from '../components/home/mobile-quick-actions.component';
 import { MobileThisWeekComponent } from '../components/home/mobile-this-week.component';
 import { MobilePendingActionsComponent } from '../components/home/mobile-pending-actions.component';
 import { MobileRecentStudentsComponent } from '../components/home/mobile-recent-students.component';
+import { MeshGradientBackgroundComponent } from '../components/mesh-gradient-background/mesh-gradient-background.component';
 
 import { Tab1PageRoutingModule } from './tab1-routing.module';
 
@@ -33,6 +37,7 @@ import { Tab1PageRoutingModule } from './tab1-routing.module';
     IonicModule,
     CommonModule,
     FormsModule,
+    RouterModule,
     ExploreContainerComponentModule,
     Tab1PageRoutingModule,
     SharedModule,
@@ -52,10 +57,13 @@ import { Tab1PageRoutingModule } from './tab1-routing.module';
     EarningsPage,
     ExplorePage,
     CreateMaterialPage,
+    ScheduleClassPage,
+    ForumPage,
     MobileQuickActionsComponent,
     MobileThisWeekComponent,
     MobilePendingActionsComponent,
-    MobileRecentStudentsComponent
+    MobileRecentStudentsComponent,
+    MeshGradientBackgroundComponent
   ],
   declarations: [Tab1Page]
 })

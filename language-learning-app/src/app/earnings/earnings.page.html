@@ -6,19 +6,17 @@
     </ion-toolbar>
   </ion-header>
 
-  <ion-content>
+  <ion-content class="earnings-routed-ion-content">
     <ng-container *ngTemplateOutlet="earningsBody"></ng-container>
   </ion-content>
 </ng-container>
 
 <!-- Inline mode: render content directly without ion-header/ion-content -->
 <div class="earnings-inline-wrapper" *ngIf="inline">
-  <!-- Always-visible chrome: header + go back (not behind loading state) -->
-  <div class="earnings-content inline-earnings-chrome">
-    <div class="inline-earnings-header">
-      <h2 class="inline-earnings-title">{{ 'EARNINGS.TITLE' | translate }}</h2>
-      <button class="go-back-link" (click)="goBack()">{{ 'EARNINGS.GO_BACK' | translate }}</button>
-    </div>
+  <!-- Title row: flush on page (not a card); .go-back-link kept for home → earnings FLIP -->
+  <div class="inline-earnings-header">
+    <h2 class="inline-earnings-title">{{ 'EARNINGS.TITLE' | translate }}</h2>
+    <button class="go-back-link" (click)="goBack()">{{ 'EARNINGS.GO_BACK' | translate }}</button>
   </div>
   <!-- Rest of content via template -->
   <ng-container *ngTemplateOutlet="earningsBody"></ng-container>
@@ -27,7 +25,7 @@
 <!-- Shared earnings content template -->
 <ng-template #earningsBody>
   <!-- Loading State — Skeleton that mirrors the real layout -->
-  <div *ngIf="loading" class="earnings-skeleton">
+  <div *ngIf="loading" class="earnings-skeleton" [class.earnings-skeleton--inline]="inline">
     <div class="skeleton-balance-strip">
       <div class="skeleton-stat" *ngFor="let s of [1,2,3]">
         <div class="skeleton-line skeleton-label"></div>
@@ -46,14 +44,17 @@
   </div>
 
   <!-- Error State -->
-  <div *ngIf="error && !loading" class="error-container">
+  <div *ngIf="error && !loading" class="error-container" [class.earnings-surface-card]="inline">
     <ion-icon name="alert-circle-outline"></ion-icon>
     <p>{{ error }}</p>
     <button class="retry-btn" (click)="loadEarnings()">{{ 'EARNINGS.TRY_AGAIN' | translate }}</button>
   </div>
 
   <!-- Earnings Content -->
-  <div *ngIf="!loading && !error" class="earnings-content earnings-fade-in" [class.inline-no-slide]="inline">
+  <div *ngIf="!loading && !error" class="earnings-content earnings-fade-in" [class.inline-no-slide]="inline" [class.earnings-content--inline]="inline">
+
+    <!-- Desktop + mobile balance / withdraw (single surface card when inline) -->
+    <div class="earnings-balance-cluster" [class.earnings-surface-card]="inline">
 
     <!-- Desktop: Balance Strip Row (hidden on mobile) -->
     <div class="balance-strip-row desktop-only">
@@ -91,7 +92,7 @@
       <button class="go-back-link" *ngIf="!inline" (click)="goBack()">{{ 'EARNINGS.GO_BACK' | translate }}</button>
     </div>
 
-    <!-- Desktop: Withdraw Button (hidden on mobile) -->
+    <!-- Desktop: Withdraw Button (hidden on mobile) — .withdraw-btn target for home → earnings FLIP -->
     <div class="withdraw-row desktop-only">
       <button
         class="withdraw-btn"
@@ -136,6 +137,9 @@
       </div>
       <button class="go-back-link" *ngIf="!inline" (click)="goBack()">{{ 'EARNINGS.GO_BACK' | translate }}</button>
     </div>
+
+    </div>
+    <!-- /earnings-balance-cluster -->
 
     <!-- Earnings Over Time Chart -->
     <div class="earnings-chart-card" *ngIf="recentPayments.length > 0">
@@ -190,7 +194,7 @@
     </div>
 
     <!-- Transfer Records Section -->
-    <div class="transfers-section" *ngIf="withdrawalHistory.length > 0">
+    <div class="transfers-section" *ngIf="withdrawalHistory.length > 0" [class.earnings-surface-card]="inline">
       <div class="section-header">
         <h2>{{ 'EARNINGS.TRANSFERS_TITLE' | translate }}</h2>
       </div>
@@ -217,7 +221,7 @@
     </div>
 
     <!-- Transactions Section -->
-    <div class="transactions-section">
+    <div class="transactions-section" [class.earnings-surface-card]="inline">
       <div class="section-header">
         <h2>{{ 'EARNINGS.TXN_TITLE' | translate }}</h2>
       </div>
@@ -612,10 +616,11 @@
   </ng-template>
 </ion-modal>
 
-<!-- Inline Withdrawal Modal -->
-<ion-modal 
-  [isOpen]="isWithdrawalModalOpen" 
+<!-- Inline Withdrawal Modal — home-context class adds blur + dim backdrop (tab1); routed earnings page stays default. -->
+<ion-modal
+  [isOpen]="isWithdrawalModalOpen"
   (didDismiss)="onWithdrawalModalDismissed()"
+  [class.withdrawal-modal--home-context]="inline"
   class="withdrawal-modal">
   
   <ng-template>

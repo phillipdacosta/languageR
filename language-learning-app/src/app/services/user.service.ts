@@ -112,6 +112,7 @@ export interface User {
     aiAnalysisEnabled?: boolean;
     calendarTimeFormat?: '12h' | '24h';
     calendarDefaultView?: 'week' | 'day';
+    weeklyEarningsGoal?: number;
   };
   stats?: {
     totalLessons: number;
@@ -795,7 +796,7 @@ export class UserService {
     const userData = {
       email: auth0User.email,
       name: auth0User.name,
-      picture: auth0User.picture,
+      auth0Picture: auth0User.picture,
       emailVerified: auth0User.email_verified,
       userType: userType as 'student' | 'tutor'
     };

@@ -1,4 +1,9 @@
-<div class="class-attendees" *ngIf="attendees && attendees.length > 0">
+<div
+  class="class-attendees"
+  [class.is-clickable]="clickable"
+  *ngIf="attendees && attendees.length > 0"
+  (click)="openAttendeesModal($event)"
+>
   <div class="attendees-label">Going</div>
   <div class="avatars-stack">
     <!-- Display up to maxDisplay avatars -->

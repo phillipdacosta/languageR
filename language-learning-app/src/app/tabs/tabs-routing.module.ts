@@ -52,6 +52,10 @@ const routes: Routes = [
         loadComponent: () => import('../tutor-calendar/event-details/event-details.page').then(m => m.EventDetailsPage)
       },
       {
+        path: 'forum',
+        loadComponent: () => import('../forum/forum.page').then(m => m.ForumPage)
+      },
+      {
         path: 'home/wallet',
         loadChildren: () => import('../wallet/wallet.module').then(m => m.WalletPageModule)
       },

@@ -1,23 +1,27 @@
 <!-- When standalone (routed page), wrap in ion-content -->
-<ion-content *ngIf="!inline" [fullscreen]="true" class="schedule-class-content">
+<ion-content *ngIf="!inline" [fullscreen]="true" class="schedule-class-content" [class.sc-invite-panel-open]="inviteStudentPanelOpen && desktopInviteInlineList">
   <ng-container *ngTemplateOutlet="scheduleBody"></ng-container>
 </ion-content>
 
 <!-- When inline (embedded in explore), use a plain scrollable div -->
-<div *ngIf="inline" class="schedule-class-content-inline">
+<div *ngIf="inline" class="schedule-class-content-inline" [class.sc-host-chrome]="hostChromeFooter" [class.sc-invite-panel-open]="inviteStudentPanelOpen && desktopInviteInlineList">
   <ng-container *ngTemplateOutlet="scheduleBody"></ng-container>
 </div>
 
 <ng-template #scheduleBody>
-  <div class="onboarding-container">
-    <!-- Go Back Button -->
-    <button class="go-back-link" (click)="inline ? goBackEvent.emit() : router.navigate(['/tabs/tutor-calendar'])">Go back</button>
+  <div class="onboarding-container" [class.sc-wizard-mode]="useWizardLayout">
+    <!-- Go Back Button (full-page calendar flow only) -->
+    <button type="button" class="go-back-link" *ngIf="!useWizardLayout" (click)="requestClose()">Go back</button>
 
     <!-- Two Column Layout -->
-    <div class="onboarding-content">
+    <div
+      class="onboarding-content"
+      [class.sc-wizard-mode]="useWizardLayout"
+      [class.sc-invite-panel-open]="inviteStudentPanelOpen && desktopInviteInlineList"
+      [class.sc-wizard-page-review]="useWizardLayout && wizardScreenId === 'review'">
       
       <!-- Left Column: Progress & Navigation -->
-      <div class="left-column">
+      <div class="left-column" *ngIf="!useWizardLayout">
         <!-- Header -->
         <div class="onboarding-header">
           <h1>Schedule Class</h1>
@@ -27,9 +31,9 @@
         <!-- Progress Bar -->
         <div class="progress-section">
           <div class="progress-bar-bg">
-            <div class="progress-bar-fill" [style.width.%]="getProgressPercentage()"></div>
+            <div class="progress-bar-fill" [style.width.%]="progressPercent"></div>
           </div>
-          <p class="progress-text">Step {{ currentStep }} of {{ totalSteps }}</p>
+          <p class="progress-text">{{ 'SCHEDULE_CLASS.STEP_OF' | translate: { current: displayStepIndex, total: displayStepTotal } }}</p>
         </div>
 
         <!-- Mobile: Collapsible Steps Toggle -->
@@ -56,7 +60,7 @@
             </div>
           </div>
 
-          <!-- Step 2: Class Economics -->
+          <!-- Step 2: Economics (group) or student (1:1) -->
           <div 
             class="step-item"
             [class.completed]="currentStep > 2"
@@ -68,8 +72,10 @@
               <span *ngIf="currentStep <= 2" class="step-number">2</span>
             </div>
             <div class="step-info">
-              <h3>Class Economics</h3>
-              <p>Pricing & student limits</p>
+              <h3 *ngIf="classType === 'recurring'">Class Economics</h3>
+              <p *ngIf="classType === 'recurring'">Pricing & student limits</p>
+              <h3 *ngIf="classType === 'one'">{{ 'SCHEDULE_CLASS.STEP_STUDENT' | translate }}</h3>
+              <p *ngIf="classType === 'one'">{{ 'SCHEDULE_CLASS.STEP_STUDENT_DESC' | translate }}</p>
             </div>
           </div>
 
@@ -90,8 +96,9 @@
             </div>
           </div>
 
-          <!-- Step 4: Recurrence -->
+          <!-- Step 4: Recurrence (group classes only) -->
           <div 
+            *ngIf="classType === 'recurring'"
             class="step-item"
             [class.completed]="currentStep > 4"
             [class.current]="currentStep === 4"
@@ -120,22 +127,306 @@
             </div>
             <div class="step-info">
               <h3>Visibility</h3>
-              <p>Public class & thumbnail</p>
+              <p>Visibility & cover image</p>
             </div>
           </div>
         </div>
       </div>
 
       <!-- Vertical Separator -->
-      <div class="separator"></div>
+      <div class="separator" *ngIf="!useWizardLayout"></div>
 
       <!-- Right Column: Step Content -->
-      <div class="right-column">
-        <div class="step-content-scrollable" #stepContentScrollable>
+      <div class="right-column" [class.sc-wizard-right]="useWizardLayout" [class.sc-invite-panel-open]="inviteStudentPanelOpen && desktopInviteInlineList">
+        <!-- Tutor hub: class list (desktop / modal home) -->
+        <div class="sch-hub" *ngIf="useWizardLayout && hostChromeFooter && scheduleHubPhase === 'list'">
+          <div class="sch-hub-toolbar">
+            <div class="sch-hub-tabs" role="tablist">
+              <button type="button" class="sch-hub-tab" [class.active]="hubListTab === 'active'" (click)="hubListTab = 'active'" role="tab" [attr.aria-selected]="hubListTab === 'active'">
+                {{ 'SCHEDULE_CLASS.HUB_TAB_ACTIVE' | translate }}
+              </button>
+              <button type="button" class="sch-hub-tab" [class.active]="hubListTab === 'history'" (click)="hubListTab = 'history'" role="tab" [attr.aria-selected]="hubListTab === 'history'">
+                {{ 'SCHEDULE_CLASS.HUB_TAB_HISTORY' | translate }}
+              </button>
+              <button type="button" class="sch-hub-tab" [class.active]="hubListTab === 'drafts'" (click)="hubListTab = 'drafts'" role="tab" [attr.aria-selected]="hubListTab === 'drafts'">
+                {{ 'SCHEDULE_CLASS.HUB_TAB_DRAFTS' | translate }}
+              </button>
+            </div>
+          </div>
+
+          <div class="sch-hub-body">
+            <div class="sch-hub-loading" *ngIf="!hubInitialLoadDone || hubClassesLoading">
+              <ion-spinner name="crescent"></ion-spinner>
+              <span>{{ 'SCHEDULE_CLASS.HUB_LOADING' | translate }}</span>
+            </div>
+
+            <div class="sch-hub-error" *ngIf="hubInitialLoadDone && !hubClassesLoading && hubLoadError">
+              <p>{{ 'SCHEDULE_CLASS.HUB_ERROR' | translate }}</p>
+              <button type="button" class="sch-hub-retry" (click)="loadHubClasses()">{{ 'SCHEDULE_CLASS.HUB_RETRY' | translate }}</button>
+            </div>
+
+            <ng-container *ngIf="hubInitialLoadDone && !hubClassesLoading && !hubLoadError">
+              <div class="sch-hub-empty" *ngIf="hubListTab === 'active' && hubActiveCards.length === 0">
+                <div class="sch-hub-empty-icon" aria-hidden="true">
+                  <ion-icon name="calendar-outline"></ion-icon>
+                </div>
+                <h2 class="sch-hub-empty-title">{{ 'SCHEDULE_CLASS.HUB_EMPTY_ACTIVE_TITLE' | translate }}</h2>
+                <p class="sch-hub-empty-desc sch-hub-empty-desc--last">{{ 'SCHEDULE_CLASS.HUB_EMPTY_ACTIVE_DESC' | translate }}</p>
+              </div>
+
+              <div class="sch-hub-empty sch-hub-empty--subtle" *ngIf="hubListTab === 'history' && hubHistoryCards.length === 0">
+                <p class="sch-hub-empty-desc">{{ 'SCHEDULE_CLASS.HUB_EMPTY_HISTORY' | translate }}</p>
+              </div>
+
+              <div class="sch-hub-empty sch-hub-empty--subtle" *ngIf="hubListTab === 'drafts' && hubDraftCards.length === 0">
+                <p class="sch-hub-empty-desc">{{ 'SCHEDULE_CLASS.HUB_EMPTY_DRAFTS' | translate }}</p>
+              </div>
+
+              <div class="sch-hub-grid" *ngIf="hubListTab === 'active' && hubActiveCards.length > 0">
+                <article class="sch-hub-card" *ngFor="let c of hubActiveCards">
+                  <div class="sch-hub-thumb">
+                    <img *ngIf="c.thumbUrl" [src]="c.thumbUrl" [alt]="" />
+                    <div class="sch-hub-thumb-empty" *ngIf="!c.thumbUrl">
+                      <ion-icon name="people-outline"></ion-icon>
+                    </div>
+                    <span class="sch-hub-badge" [ngClass]="'sch-hub-badge--' + c.badgeClass">{{ c.badgeKey | translate }}</span>
+                  </div>
+                  <div class="sch-hub-card-body">
+                    <span class="sch-hub-type-label">{{ 'SCHEDULE_CLASS.HUB_CARD_GROUP' | translate }}</span>
+                    <h3 class="sch-hub-card-title">{{ c.name }}</h3>
+                    <div class="sch-hub-price-row">
+                      <span class="sch-hub-price" [class.sch-hub-price--free]="c.price <= 0">
+                        <ng-container *ngIf="c.price > 0">${{ c.priceDisplay }}</ng-container>
+                        <ng-container *ngIf="c.price <= 0">{{ 'SCHEDULE_CLASS.HUB_CLASS_FREE' | translate }}</ng-container>
+                      </span>
+                    </div>
+                    <p class="sch-hub-when">{{ c.whenLine }}</p>
+                    <p class="sch-hub-meta">{{ 'SCHEDULE_CLASS.HUB_CARD_ENROLLED' | translate: { current: c.confirmedCount, max: c.capacity } }}</p>
+                    <div class="sch-hub-card-actions" *ngIf="c.canEdit || c.canCancel || c.canRemoveFromHistory">
+                      <button
+                        type="button"
+                        class="sch-hub-card-action"
+                        *ngIf="c.canEdit"
+                        (click)="beginEditHubClass(c, $event)"
+                        [attr.title]="'COMMON.EDIT' | translate"
+                      >
+                        <ion-icon name="create-outline"></ion-icon>
+                      </button>
+                      <button
+                        type="button"
+                        class="sch-hub-card-action sch-hub-card-action--danger"
+                        *ngIf="c.canCancel"
+                        [disabled]="hubClassDeleteInFlight"
+                        (click)="confirmDeleteHubClass(c, $event)"
+                        [attr.title]="'COMMON.DELETE' | translate"
+                      >
+                        <ion-icon name="trash-outline"></ion-icon>
+                      </button>
+                      <button
+                        type="button"
+                        class="sch-hub-card-action sch-hub-card-action--danger"
+                        *ngIf="c.canRemoveFromHistory"
+                        [disabled]="hubClassDeleteInFlight"
+                        (click)="confirmRemoveFromHistoryHubClass(c, $event)"
+                        [attr.title]="'SCHEDULE_CLASS.HUB_REMOVE_HISTORY_ACTION' | translate"
+                      >
+                        <ion-icon name="trash-outline"></ion-icon>
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              </div>
+
+              <div class="sch-hub-grid" *ngIf="hubListTab === 'history' && hubHistoryCards.length > 0">
+                <article class="sch-hub-card sch-hub-card--history" *ngFor="let c of hubHistoryCards">
+                  <div class="sch-hub-thumb">
+                    <img *ngIf="c.thumbUrl" [src]="c.thumbUrl" [alt]="" />
+                    <div class="sch-hub-thumb-empty" *ngIf="!c.thumbUrl">
+                      <ion-icon name="people-outline"></ion-icon>
+                    </div>
+                    <span class="sch-hub-badge" [ngClass]="'sch-hub-badge--' + c.badgeClass">{{ c.badgeKey | translate }}</span>
+                  </div>
+                  <div class="sch-hub-card-body">
+                    <span class="sch-hub-type-label">{{ 'SCHEDULE_CLASS.HUB_CARD_GROUP' | translate }}</span>
+                    <h3 class="sch-hub-card-title">{{ c.name }}</h3>
+                    <div class="sch-hub-price-row">
+                      <span class="sch-hub-price" [class.sch-hub-price--free]="c.price <= 0">
+                        <ng-container *ngIf="c.price > 0">${{ c.priceDisplay }}</ng-container>
+                        <ng-container *ngIf="c.price <= 0">{{ 'SCHEDULE_CLASS.HUB_CLASS_FREE' | translate }}</ng-container>
+                      </span>
+                    </div>
+                    <p class="sch-hub-when">{{ c.whenLine }}</p>
+                    <p class="sch-hub-meta">{{ 'SCHEDULE_CLASS.HUB_CARD_ENROLLED' | translate: { current: c.confirmedCount, max: c.capacity } }}</p>
+                    <div class="sch-hub-card-actions" *ngIf="c.canEdit || c.canCancel || c.canRemoveFromHistory">
+                      <button
+                        type="button"
+                        class="sch-hub-card-action"
+                        *ngIf="c.canEdit"
+                        (click)="beginEditHubClass(c, $event)"
+                        [attr.title]="'COMMON.EDIT' | translate"
+                      >
+                        <ion-icon name="create-outline"></ion-icon>
+                      </button>
+                      <button
+                        type="button"
+                        class="sch-hub-card-action sch-hub-card-action--danger"
+                        *ngIf="c.canCancel"
+                        [disabled]="hubClassDeleteInFlight"
+                        (click)="confirmDeleteHubClass(c, $event)"
+                        [attr.title]="'COMMON.DELETE' | translate"
+                      >
+                        <ion-icon name="trash-outline"></ion-icon>
+                      </button>
+                      <button
+                        type="button"
+                        class="sch-hub-card-action sch-hub-card-action--danger"
+                        *ngIf="c.canRemoveFromHistory"
+                        [disabled]="hubClassDeleteInFlight"
+                        (click)="confirmRemoveFromHistoryHubClass(c, $event)"
+                        [attr.title]="'SCHEDULE_CLASS.HUB_REMOVE_HISTORY_ACTION' | translate"
+                      >
+                        <ion-icon name="trash-outline"></ion-icon>
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              </div>
+
+              <div class="sch-hub-grid" *ngIf="hubListTab === 'drafts' && hubDraftCards.length > 0">
+                <article class="sch-hub-card sch-hub-card--draft" *ngFor="let c of hubDraftCards">
+                  <div class="sch-hub-thumb">
+                    <img *ngIf="c.thumbUrl" [src]="c.thumbUrl" [alt]="" />
+                    <div class="sch-hub-thumb-empty" *ngIf="!c.thumbUrl">
+                      <ion-icon name="document-text-outline"></ion-icon>
+                    </div>
+                    <span class="sch-hub-badge" [ngClass]="'sch-hub-badge--' + c.badgeClass">{{ c.badgeKey | translate }}</span>
+                  </div>
+                  <div class="sch-hub-card-body">
+                    <span class="sch-hub-type-label">{{ 'SCHEDULE_CLASS.HUB_CARD_GROUP' | translate }}</span>
+                    <h3 class="sch-hub-card-title">{{ c.name }}</h3>
+                    <div class="sch-hub-price-row">
+                      <span class="sch-hub-price" [class.sch-hub-price--free]="c.price <= 0">
+                        <ng-container *ngIf="c.price > 0">${{ c.priceDisplay }}</ng-container>
+                        <ng-container *ngIf="c.price <= 0">{{ 'SCHEDULE_CLASS.HUB_CLASS_FREE' | translate }}</ng-container>
+                      </span>
+                    </div>
+                    <p class="sch-hub-when sch-hub-when--draft">{{ 'SCHEDULE_CLASS.HUB_DRAFT_SUBLINE' | translate }}</p>
+                    <p class="sch-hub-meta">{{ 'SCHEDULE_CLASS.HUB_CARD_ENROLLED' | translate: { current: c.confirmedCount, max: c.capacity } }}</p>
+                    <div class="sch-hub-card-actions" *ngIf="c.canResumeDraft || c.canDiscardDraft">
+                      <button
+                        type="button"
+                        class="sch-hub-card-action"
+                        *ngIf="c.canResumeDraft"
+                        (click)="beginResumeHubDraft(c, $event)"
+                        [attr.title]="'SCHEDULE_CLASS.HUB_RESUME_DRAFT' | translate"
+                      >
+                        <ion-icon name="play-outline"></ion-icon>
+                      </button>
+                      <button
+                        type="button"
+                        class="sch-hub-card-action sch-hub-card-action--danger"
+                        *ngIf="c.canDiscardDraft"
+                        [disabled]="hubClassDeleteInFlight"
+                        (click)="confirmDeleteHubClass(c, $event)"
+                        [attr.title]="'SCHEDULE_CLASS.HUB_DISCARD_DRAFT_ACTION' | translate"
+                      >
+                        <ion-icon name="trash-outline"></ion-icon>
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              </div>
+            </ng-container>
+          </div>
+
+          <button type="button" class="sch-hub-fab" *ngIf="hubInitialLoadDone && !hubClassesLoading && !hubLoadError" (click)="beginCreateClassFromHub()">
+            <ion-icon name="add-outline"></ion-icon>
+            {{ 'SCHEDULE_CLASS.HUB_CREATE_CLASS_FAB' | translate }}
+          </button>
+        </div>
+
+        <!-- Wizard: top bar (Create Material–style) -->
+        <div class="sc-wizard-top" *ngIf="useWizardLayout && !hostChromeFooter">
+          <button type="button" class="sc-wizard-back-link" *ngIf="wizardScreenId === 'type'" (click)="requestClose()">
+            <ion-icon name="chevron-back-outline"></ion-icon>
+            <span>{{ 'SCHEDULE_CLASS.GO_BACK' | translate }}</span>
+          </button>
+          <button type="button" class="sc-wizard-back-link" *ngIf="wizardScreenId !== 'type'" (click)="previousStep()">
+            <ion-icon name="chevron-back-outline"></ion-icon>
+            <span>{{ 'SCHEDULE_CLASS.BACK' | translate }}</span>
+          </button>
+          <div class="sc-wizard-progress-block" *ngIf="wizardScreenId !== 'type'">
+            <div class="sc-wizard-progress-track">
+              <div class="sc-wizard-progress-fill" [style.width.%]="progressPercent"></div>
+            </div>
+            <p class="sc-wizard-step-text">{{ 'SCHEDULE_CLASS.STEP_OF' | translate: { current: displayStepIndex, total: displayStepTotal } }}</p>
+          </div>
+        </div>
+
+        <!-- Wizard step 0: class type (explore / mobile — hidden on desktop hub) -->
+        <div class="sc-type-step" *ngIf="useWizardLayout && wizardScreenId === 'type' && scheduleHubPhase !== 'list'">
+          <div class="sc-type-step-header">
+            <h1 class="sc-type-heading">{{ 'SCHEDULE_CLASS.TYPE_TITLE' | translate }}</h1>
+          </div>
+          <div class="sc-type-cards">
+            <button type="button" class="sc-type-card" (click)="selectWizardClassType('recurring')">
+              <div class="sc-type-icon sc-type-icon--group">
+                <ion-icon name="people-outline"></ion-icon>
+              </div>
+              <div class="sc-type-text">
+                <h3>{{ 'SCHEDULE_CLASS.TYPE_GROUP_TITLE' | translate }}</h3>
+                <p>{{ 'SCHEDULE_CLASS.TYPE_GROUP_DESC' | translate }}</p>
+              </div>
+              <ion-icon name="chevron-forward-outline" class="sc-type-arrow"></ion-icon>
+            </button>
+            <button type="button" class="sc-type-card" (click)="selectWizardClassType('one')">
+              <div class="sc-type-icon sc-type-icon--one">
+                <ion-icon name="person-outline"></ion-icon>
+              </div>
+              <div class="sc-type-text">
+                <h3>{{ 'SCHEDULE_CLASS.TYPE_ONE_TITLE' | translate }}</h3>
+                <p>{{ 'SCHEDULE_CLASS.TYPE_ONE_DESC' | translate }}</p>
+              </div>
+              <ion-icon name="chevron-forward-outline" class="sc-type-arrow"></ion-icon>
+            </button>
+          </div>
+          <button type="button" class="sc-browse-classes-link" (click)="onBrowsePublicClasses()">
+            {{ 'SCHEDULE_CLASS.BROWSE_PUBLIC' | translate }}
+          </button>
+        </div>
+
+        <div
+          class="step-content-scrollable"
+          #stepContentScrollable
+          *ngIf="(!useWizardLayout || wizardScreenId !== 'type') && !(hostChromeFooter && scheduleHubPhase === 'list')"
+          [class.sc-invite-panel-open]="inviteStudentPanelOpen && desktopInviteInlineList"
+          >
           <form [formGroup]="form" (ngSubmit)="submit()">
-            
-            <!-- STEP 1: Class Basics -->
-            <div *ngIf="currentStep === 1" class="step-content">
+            <ng-template #inviteStudentInlineList>
+              <div class="sch-invite-panel" *ngIf="inviteStudentPanelOpen && desktopInviteInlineList && students.length > 0">
+                <div class="sch-invite-panel-inner" role="listbox">
+                  <button
+                    type="button"
+                    class="sch-invite-row"
+                    *ngFor="let s of students"
+                    role="option"
+                    [attr.aria-selected]="isStudentSelected(s._id)"
+                    [class.sch-invite-row--selected]="isStudentSelected(s._id)"
+                    [disabled]="isStudentDisabled(s._id)"
+                    (click)="toggleMultiStudentSelection(s._id)">
+                    <ion-avatar class="sch-invite-avatar">
+                      <img *ngIf="s.picture" [src]="s.picture" [alt]="s.name" />
+                      <span *ngIf="!s.picture" class="sch-invite-initial">{{ s.name.charAt(0).toUpperCase() }}</span>
+                    </ion-avatar>
+                    <span class="sch-invite-name">{{ s.name }}</span>
+                    <ion-icon *ngIf="isStudentSelected(s._id)" name="checkmark-circle" class="sch-invite-check" aria-hidden="true"></ion-icon>
+                  </button>
+                </div>
+              </div>
+            </ng-template>
+
+            <!-- STEP 1: Class Basics (classic — combined) -->
+            <div *ngIf="!useWizardLayout && currentStep === 1" class="step-content">
               <div class="card-section">
                 <div class="card-content-scrollable">
                 <div class="form-field">
@@ -210,8 +501,112 @@
               </div>
             </div>
 
-            <!-- STEP 2: Class Economics -->
-            <div *ngIf="currentStep === 2 && classType === 'recurring'" class="step-content">
+            <!-- Wizard: one screen per field (basics) -->
+            <div *ngIf="useWizardLayout && wizardScreenId === 'name'" class="step-content sc-wizard-field-step" [class.sc-wizard-cm-flat]="hostChromeFooter">
+              <span class="cm-edit-badge cm-edit-badge--wizard" *ngIf="editingClassId"><ion-icon name="create-outline"></ion-icon> {{ 'SCHEDULE_CLASS.HUB_EDIT_BADGE' | translate }}</span>
+              <h2 class="sc-wizard-step-heading" *ngIf="wizardStepHeadingKey">{{ wizardStepHeadingKey | translate }}</h2>
+              <p class="sc-wizard-step-sub" *ngIf="wizardStepSublineKey">{{ wizardStepSublineKey | translate }}</p>
+              <div class="card-section" [class.sc-wizard-cm-flat-card]="hostChromeFooter">
+                <div class="card-content-scrollable">
+                  <div class="form-field">
+                    <ion-label class="field-label">Class Name <span class="sc-field-required" *ngIf="hostChromeFooter">*</span></ion-label>
+                    <ion-input
+                      class="modern-input"
+                      fill="outline"
+                      formControlName="name"
+                      placeholder="e.g. Intermediate Conversation Practice"
+                      [class.error]="form.controls.name.touched && form.controls.name.invalid">
+                    </ion-input>
+                    <ion-note class="error-note" [class.visible]="form.controls.name.touched && form.controls.name.invalid">
+                      <span *ngIf="form.controls.name.touched && form.controls.name.invalid">Class name is required</span>
+                    </ion-note>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div *ngIf="useWizardLayout && wizardScreenId === 'description'" class="step-content sc-wizard-field-step" [class.sc-wizard-cm-flat]="hostChromeFooter">
+              <span class="cm-edit-badge cm-edit-badge--wizard" *ngIf="editingClassId"><ion-icon name="create-outline"></ion-icon> {{ 'SCHEDULE_CLASS.HUB_EDIT_BADGE' | translate }}</span>
+              <h2 class="sc-wizard-step-heading" *ngIf="wizardStepHeadingKey">{{ wizardStepHeadingKey | translate }}</h2>
+              <p class="sc-wizard-step-sub" *ngIf="wizardStepSublineKey">{{ wizardStepSublineKey | translate }}</p>
+              <div class="card-section" [class.sc-wizard-cm-flat-card]="hostChromeFooter">
+                <div class="card-content-scrollable">
+                  <div class="form-field">
+                    <ion-label class="field-label">Description</ion-label>
+                    <div class="description-editor-wrapper sc-wizard-description-editor">
+                      <quill-editor
+                        formControlName="description"
+                        [modules]="quillConfig"
+                        [styles]="{height: '220px'}"
+                        placeholder="Describe what students will learn, what materials they need, and any prerequisites...">
+                      </quill-editor>
+                    </div>
+                    <ion-note class="error-note" [class.visible]="form.controls.description.touched && form.controls.description.invalid">
+                      <span *ngIf="form.controls.description.touched && form.controls.description.invalid && form.controls.description.errors?.['required']">Description is required</span>
+                      <span *ngIf="form.controls.description.touched && form.controls.description.invalid && form.controls.description.errors?.['minlength']">Minimum 20 characters required</span>
+                    </ion-note>
+                    <ion-note class="helper-note" *ngIf="!hostChromeFooter">
+                      Provide clear details about objectives and requirements
+                    </ion-note>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div *ngIf="useWizardLayout && wizardScreenId === 'level'" class="step-content sc-wizard-field-step" [class.sc-wizard-cm-flat]="hostChromeFooter">
+              <span class="cm-edit-badge cm-edit-badge--wizard" *ngIf="editingClassId"><ion-icon name="create-outline"></ion-icon> {{ 'SCHEDULE_CLASS.HUB_EDIT_BADGE' | translate }}</span>
+              <h2 class="sc-wizard-step-heading" *ngIf="wizardStepHeadingKey">{{ wizardStepHeadingKey | translate }}</h2>
+              <p class="sc-wizard-step-sub" *ngIf="wizardStepSublineKey">{{ wizardStepSublineKey | translate }}</p>
+              <div class="card-section" [class.sc-wizard-cm-flat-card]="hostChromeFooter">
+                <div class="card-content-scrollable">
+                  <div class="form-field">
+                    <ion-label class="field-label">Class level <span class="sc-field-required" *ngIf="hostChromeFooter">*</span></ion-label>
+                    <ion-select
+                      class="modern-select"
+                      fill="outline"
+                      formControlName="level"
+                      interface="popover"
+                      placeholder="Select level">
+                      <ion-select-option *ngFor="let level of levelOptions" [value]="level.value">
+                        {{ level.label }}
+                      </ion-select-option>
+                    </ion-select>
+                    <ion-note class="error-note" [class.visible]="form.controls.level.touched && form.controls.level.invalid">
+                      <span *ngIf="form.controls.level.touched && form.controls.level.invalid">Please select a level</span>
+                    </ion-note>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div *ngIf="useWizardLayout && wizardScreenId === 'duration'" class="step-content sc-wizard-field-step" [class.sc-wizard-cm-flat]="hostChromeFooter">
+              <span class="cm-edit-badge cm-edit-badge--wizard" *ngIf="editingClassId"><ion-icon name="create-outline"></ion-icon> {{ 'SCHEDULE_CLASS.HUB_EDIT_BADGE' | translate }}</span>
+              <h2 class="sc-wizard-step-heading" *ngIf="wizardStepHeadingKey">{{ wizardStepHeadingKey | translate }}</h2>
+              <p class="sc-wizard-step-sub" *ngIf="wizardStepSublineKey">{{ wizardStepSublineKey | translate }}</p>
+              <div class="card-section" [class.sc-wizard-cm-flat-card]="hostChromeFooter">
+                <div class="card-content-scrollable">
+                  <div class="form-field">
+                    <ion-label class="field-label">Lesson duration <span class="sc-field-required" *ngIf="hostChromeFooter">*</span></ion-label>
+                    <ion-select
+                      class="modern-select"
+                      fill="outline"
+                      formControlName="duration"
+                      interface="popover"
+                      placeholder="Select duration">
+                      <ion-select-option *ngFor="let duration of durationOptions" [value]="duration.value">
+                        {{ duration.label }}
+                      </ion-select-option>
+                    </ion-select>
+                    <ion-note class="error-note" [class.visible]="form.controls.duration.touched && form.controls.duration.invalid">
+                      <span *ngIf="form.controls.duration.touched && form.controls.duration.invalid">Please select duration</span>
+                    </ion-note>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- STEP 2: Class Economics (classic) -->
+            <div *ngIf="!useWizardLayout && currentStep === 2 && classType === 'recurring'" class="step-content">
               <div class="card-section economics-section">
                 <div class="card-content-scrollable">
 
@@ -356,10 +751,11 @@
                 <!-- Invite Students -->
                 <div class="econ-group">
                   <h4 class="econ-group-title">Invite students <span class="econ-optional">Optional</span></h4>
-                  
-                  <div 
-                    class="student-selector" 
+                  <div class="sch-invite-anchor">
+                  <div
+                    class="student-selector"
                     [class.disabled]="loadingStudents || students.length === 0"
+                    [class.student-selector--open]="inviteStudentPanelOpen && desktopInviteInlineList"
                     (click)="toggleMultiStudentDropdown()">
                     <div class="selector-content" *ngIf="getSelectedStudentsCount() > 0; else placeholder">
                       <div class="selected-avatars">
@@ -374,8 +770,8 @@
                         </div>
                       </div>
                       <span class="selector-text">{{ getSelectedStudentsCount() }} selected</span>
-                      <ion-icon 
-                        name="close-circle" 
+                      <ion-icon
+                        name="close-circle"
                         class="clear-btn"
                         (click)="clearAllStudents($event)">
                       </ion-icon>
@@ -387,7 +783,8 @@
                     </ng-template>
                     <ion-icon name="chevron-down-outline" class="chevron-icon"></ion-icon>
                   </div>
-
+                  <ng-container *ngTemplateOutlet="inviteStudentInlineList"></ng-container>
+                  </div>
                   <span class="econ-helper-text">Students from your past lessons</span>
                 </div>
 
@@ -395,8 +792,272 @@
               </div>
             </div>
 
-            <!-- STEP 3: Schedule -->
-            <div *ngIf="currentStep === 3" class="step-content">
+            <!-- Wizard: economics (one screen each) -->
+            <div *ngIf="useWizardLayout && wizardScreenId === 'pricing'" class="step-content sc-wizard-field-step sc-wizard-field-step--pricing-wide" [class.sc-wizard-cm-flat]="hostChromeFooter">
+              <span class="cm-edit-badge cm-edit-badge--wizard" *ngIf="editingClassId"><ion-icon name="create-outline"></ion-icon> {{ 'SCHEDULE_CLASS.HUB_EDIT_BADGE' | translate }}</span>
+              <h2 class="sc-wizard-step-heading" *ngIf="wizardStepHeadingKey">{{ wizardStepHeadingKey | translate }}</h2>
+              <p class="sc-wizard-step-sub" *ngIf="wizardStepSublineKey">{{ wizardStepSublineKey | translate }}</p>
+              <div class="card-section economics-section" [class.sc-wizard-cm-flat-card]="hostChromeFooter">
+                <div class="card-content-scrollable">
+                  <div class="sc-pricing-wizard-split">
+                    <div class="sc-pricing-wizard-col sc-pricing-wizard-col--main">
+                      <div class="econ-group sc-pricing-wizard-econ" *ngIf="form.value.duration">
+                        <div class="econ-baseline-row">
+                          <div class="econ-baseline-left">
+                            <span class="econ-baseline-label">Your 1:1 rate ({{form.value.duration}}min)</span>
+                            <span class="econ-baseline-sub">${{ calculate1on1EarningsNet().toFixed(2) }} after fees</span>
+                          </div>
+                          <span class="econ-baseline-amount">${{ calculate1on1EarningsGross().toFixed(2) }}</span>
+                        </div>
+                        <div class="econ-suggested-row" *ngIf="suggestedPrice > 0">
+                          <span class="econ-suggested-label">Suggested per student</span>
+                          <span class="econ-suggested-amount">${{ suggestedPrice.toFixed(2) }}</span>
+                        </div>
+                        <span class="econ-suggested-note" *ngIf="suggestedPrice > 0">Based on {{form.value.duration}}min · {{getLevelLabel(form.value.level)}}</span>
+                        <div class="econ-toggle-row">
+                          <span class="econ-toggle-label">Use suggested pricing</span>
+                          <ion-toggle formControlName="useSuggestedPricing" (ionChange)="onPricingToggleChange()"></ion-toggle>
+                        </div>
+                        <div class="form-field" *ngIf="!form.value.useSuggestedPricing" style="margin-top: 4px;">
+                          <ion-label class="field-label">Custom price per student</ion-label>
+                          <ion-input
+                            class="modern-input price-input"
+                            fill="outline"
+                            type="number"
+                            formControlName="customPrice"
+                            min="10"
+                            step="0.50"
+                            placeholder="10.00">
+                            <span slot="start" class="currency-symbol">$</span>
+                          </ion-input>
+                          <ion-note class="error-note" [class.visible]="!form.value.useSuggestedPricing && form.controls.customPrice?.touched && form.controls.customPrice?.invalid">
+                            <span *ngIf="!form.value.useSuggestedPricing && form.controls.customPrice?.touched && form.controls.customPrice?.invalid && form.controls.customPrice?.errors?.['required']">Price is required</span>
+                            <span *ngIf="!form.value.useSuggestedPricing && form.controls.customPrice?.touched && form.controls.customPrice?.invalid && form.controls.customPrice?.errors?.['min']">Minimum $10.00</span>
+                          </ion-note>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="sc-pricing-wizard-col sc-pricing-wizard-col--side" *ngIf="getFinalPrice() > 0">
+                      <div class="sc-pricing-wizard-side-scroll">
+                        <div class="econ-group sc-pricing-wizard-econ sc-pricing-wizard-econ--side">
+                          <button class="econ-breakdown-toggle sc-pricing-wizard-breakdown-toggle" type="button" (click)="showEarningsBreakdown = !showEarningsBreakdown">
+                            <span>Earnings breakdown</span>
+                            <ion-icon [name]="showEarningsBreakdown ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon>
+                          </button>
+                          <div
+                            class="econ-breakdown-table sc-pricing-wizard-breakdown-table"
+                            [class.sc-pricing-wizard-breakdown-table--collapsed-mobile]="!showEarningsBreakdown">
+                            <div class="econ-table-row header">
+                              <span>Students</span>
+                              <span>Net earnings</span>
+                            </div>
+                            <div class="econ-table-row baseline">
+                              <span>1:1 Lesson</span>
+                              <span>${{ calculate1on1EarningsNet().toFixed(2) }}</span>
+                            </div>
+                            <div class="econ-table-row"
+                                 *ngFor="let count of getStudentCountRange()"
+                                 [class.profitable]="isProfitable(count)"
+                                 [class.below-target]="!isProfitable(count)">
+                              <span>{{ count }} students</span>
+                              <div class="econ-table-value">
+                                <span>${{ calculateGroupEarningsNet(count).toFixed(2) }}</span>
+                                <span class="econ-pct" [class.up]="isProfitable(count)" [class.down]="!isProfitable(count)">{{ getEarningsPercentage(count) }}%</span>
+                              </div>
+                            </div>
+                            <div class="econ-table-footer">{{ PLATFORM_FEE_PERCENTAGE }}% platform fee deducted</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div *ngIf="useWizardLayout && wizardScreenId === 'maxStudents'" class="step-content sc-wizard-field-step" [class.sc-wizard-cm-flat]="hostChromeFooter">
+              <span class="cm-edit-badge cm-edit-badge--wizard" *ngIf="editingClassId"><ion-icon name="create-outline"></ion-icon> {{ 'SCHEDULE_CLASS.HUB_EDIT_BADGE' | translate }}</span>
+              <h2 class="sc-wizard-step-heading" *ngIf="wizardStepHeadingKey">{{ wizardStepHeadingKey | translate }}</h2>
+              <p class="sc-wizard-step-sub" *ngIf="wizardStepSublineKey">{{ wizardStepSublineKey | translate }}</p>
+              <div class="card-section economics-section" [class.sc-wizard-cm-flat-card]="hostChromeFooter">
+                <div class="card-content-scrollable">
+                  <div class="form-field">
+                    <ion-label class="field-label">Maximum students <span class="sc-field-required" *ngIf="hostChromeFooter">*</span></ion-label>
+                    <ion-input
+                      class="modern-input"
+                      fill="outline"
+                      type="number"
+                      formControlName="maxStudents"
+                      min="2"
+                      max="50"
+                      placeholder="2">
+                    </ion-input>
+                    <ion-note class="error-note" [class.visible]="form.controls.maxStudents.touched && form.controls.maxStudents.invalid">
+                      <span *ngIf="form.controls.maxStudents.touched && form.controls.maxStudents.invalid && form.controls.maxStudents.errors?.['required']">Required</span>
+                      <span *ngIf="form.controls.maxStudents.touched && form.controls.maxStudents.invalid && form.controls.maxStudents.errors?.['min']">Min 2 students</span>
+                      <span *ngIf="form.controls.maxStudents.touched && form.controls.maxStudents.invalid && form.controls.maxStudents.errors?.['max']">Max 50 students</span>
+                    </ion-note>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div *ngIf="useWizardLayout && wizardScreenId === 'minStudents'" class="step-content sc-wizard-field-step" [class.sc-wizard-cm-flat]="hostChromeFooter">
+              <span class="cm-edit-badge cm-edit-badge--wizard" *ngIf="editingClassId"><ion-icon name="create-outline"></ion-icon> {{ 'SCHEDULE_CLASS.HUB_EDIT_BADGE' | translate }}</span>
+              <h2 class="sc-wizard-step-heading" *ngIf="wizardStepHeadingKey">{{ wizardStepHeadingKey | translate }}</h2>
+              <p class="sc-wizard-step-sub" *ngIf="wizardStepSublineKey">{{ wizardStepSublineKey | translate }}</p>
+              <div class="card-section economics-section" [class.sc-wizard-cm-flat-card]="hostChromeFooter">
+                <div class="card-content-scrollable">
+                  <div class="form-field">
+                    <ion-label class="field-label">Minimum students <span class="sc-field-required" *ngIf="hostChromeFooter">*</span></ion-label>
+                    <ion-input
+                      class="modern-input"
+                      fill="outline"
+                      type="number"
+                      formControlName="minStudents"
+                      min="2"
+                      [max]="form.value.maxStudents || 50"
+                      placeholder="2">
+                    </ion-input>
+                    <ion-note class="error-note" [class.visible]="form.controls.minStudents.touched && form.controls.minStudents.invalid">
+                      <span *ngIf="form.controls.minStudents.touched && form.controls.minStudents.invalid && form.controls.minStudents.errors?.['required']">Required</span>
+                      <span *ngIf="form.controls.minStudents.touched && form.controls.minStudents.invalid && form.controls.minStudents.errors?.['min']">Min 2 students</span>
+                      <span *ngIf="form.controls.minStudents.touched && form.controls.minStudents.invalid && form.controls.minStudents.errors?.['max']">Cannot exceed max</span>
+                    </ion-note>
+                  </div>
+                  <div class="econ-hint-row" *ngIf="getFinalPrice() > 0 && form.value.maxStudents">
+                    <ion-icon name="information-circle-outline"></ion-icon>
+                    <span>Recommended minimum: <strong>{{ getRecommendedMinimum() }} students</strong> to match your 1:1 net earnings</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div *ngIf="useWizardLayout && wizardScreenId === 'flexibleMin'" class="step-content sc-wizard-field-step" [class.sc-wizard-cm-flat]="hostChromeFooter">
+              <span class="cm-edit-badge cm-edit-badge--wizard" *ngIf="editingClassId"><ion-icon name="create-outline"></ion-icon> {{ 'SCHEDULE_CLASS.HUB_EDIT_BADGE' | translate }}</span>
+              <h2 class="sc-wizard-step-heading" *ngIf="wizardStepHeadingKey">{{ wizardStepHeadingKey | translate }}</h2>
+              <p class="sc-wizard-step-sub" *ngIf="wizardStepSublineKey">{{ wizardStepSublineKey | translate }}</p>
+              <div class="card-section economics-section" [class.sc-wizard-cm-flat-card]="hostChromeFooter">
+                <div class="card-content-scrollable">
+                  <div class="econ-toggle-row">
+                    <div>
+                      <span class="econ-toggle-label">Flexible minimum</span>
+                      <span class="econ-toggle-sub">Run class even if minimum not met</span>
+                    </div>
+                    <ion-toggle formControlName="flexibleMinimum"></ion-toggle>
+                  </div>
+                  <div class="econ-hint-row warning" *ngIf="!form.value.flexibleMinimum && form.value.minStudents">
+                    <ion-icon name="alert-circle-outline"></ion-icon>
+                    <span>Auto-cancels <strong>1 hour before start</strong> if fewer than <strong>{{form.value.minStudents}} students</strong> enrolled</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div *ngIf="useWizardLayout && wizardScreenId === 'invites'" class="step-content sc-wizard-field-step" [class.sc-wizard-cm-flat]="hostChromeFooter">
+              <span class="cm-edit-badge cm-edit-badge--wizard" *ngIf="editingClassId"><ion-icon name="create-outline"></ion-icon> {{ 'SCHEDULE_CLASS.HUB_EDIT_BADGE' | translate }}</span>
+              <h2 class="sc-wizard-step-heading" *ngIf="wizardStepHeadingKey">{{ wizardStepHeadingKey | translate }}</h2>
+              <p class="sc-wizard-step-sub" *ngIf="wizardStepSublineKey">{{ wizardStepSublineKey | translate }}</p>
+              <div class="card-section economics-section" [class.sc-wizard-cm-flat-card]="hostChromeFooter">
+                <div class="card-content-scrollable">
+                  <div class="econ-group">
+                  <div class="sch-invite-anchor">
+                  <div
+                    class="student-selector"
+                    [class.disabled]="loadingStudents || students.length === 0"
+                    [class.student-selector--open]="inviteStudentPanelOpen && desktopInviteInlineList"
+                    (click)="toggleMultiStudentDropdown()">
+                    <div class="selector-content" *ngIf="getSelectedStudentsCount() > 0; else wizInvitePlaceholder">
+                      <div class="selected-avatars">
+                        <ion-avatar *ngFor="let student of getSelectedStudents().slice(0, 3)" class="avatar-sm">
+                          <img *ngIf="student.picture" [src]="student.picture" [alt]="student.name">
+                          <div *ngIf="!student.picture" class="avatar-placeholder">
+                            {{ student.name.charAt(0).toUpperCase() }}
+                          </div>
+                        </ion-avatar>
+                        <div class="more-badge" *ngIf="getSelectedStudentsCount() > 3">
+                          +{{ getSelectedStudentsCount() - 3 }}
+                        </div>
+                      </div>
+                      <span class="selector-text">{{ getSelectedStudentsCount() }} selected</span>
+                      <ion-icon
+                        name="close-circle"
+                        class="clear-btn"
+                        (click)="clearAllStudents($event)">
+                      </ion-icon>
+                    </div>
+                    <ng-template #wizInvitePlaceholder>
+                      <span class="placeholder-text">
+                        {{ loadingStudents ? 'Loading...' : (students.length === 0 ? 'No students found' : 'Select students') }}
+                      </span>
+                    </ng-template>
+                    <ion-icon name="chevron-down-outline" class="chevron-icon"></ion-icon>
+                  </div>
+                  <ng-container *ngTemplateOutlet="inviteStudentInlineList"></ng-container>
+                  </div>
+                  <span class="econ-helper-text">Students from your past lessons</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- STEP 2: One-on-one — choose student (classic) -->
+            <div *ngIf="!useWizardLayout && currentStep === 2 && classType === 'one'" class="step-content">
+              <div class="card-section">
+                <div class="card-content-scrollable">
+                  <h2 class="sc-student-heading">{{ 'SCHEDULE_CLASS.CHOOSE_STUDENT' | translate }}</h2>
+                  <p class="sc-student-sub">{{ 'SCHEDULE_CLASS.CHOOSE_STUDENT_DESC' | translate }}</p>
+                  <div class="sc-student-list" *ngIf="students.length > 0">
+                    <button
+                      type="button"
+                      class="sc-student-row"
+                      *ngFor="let s of students"
+                      [class.sc-student-row--selected]="form.value.studentId === s._id"
+                      (click)="selectStudent(s._id)">
+                      <ion-avatar class="sc-student-avatar">
+                        <img *ngIf="s.picture" [src]="s.picture" [alt]="s.name" />
+                        <span *ngIf="!s.picture" class="sc-student-initial">{{ s.name.charAt(0).toUpperCase() }}</span>
+                      </ion-avatar>
+                      <span class="sc-student-name">{{ s.name }}</span>
+                      <ion-icon *ngIf="form.value.studentId === s._id" name="checkmark-circle" class="sc-student-check"></ion-icon>
+                    </button>
+                  </div>
+                  <p class="sc-student-empty" *ngIf="!loadingStudents && students.length === 0">{{ 'SCHEDULE_CLASS.NO_STUDENTS' | translate }}</p>
+                  <p class="sc-student-loading" *ngIf="loadingStudents">{{ 'SCHEDULE_CLASS.LOADING_STUDENTS' | translate }}</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Wizard: one-on-one — student -->
+            <div *ngIf="useWizardLayout && wizardScreenId === 'student'" class="step-content sc-wizard-field-step" [class.sc-wizard-cm-flat]="hostChromeFooter">
+              <span class="cm-edit-badge cm-edit-badge--wizard" *ngIf="editingClassId"><ion-icon name="create-outline"></ion-icon> {{ 'SCHEDULE_CLASS.HUB_EDIT_BADGE' | translate }}</span>
+              <h2 class="sc-wizard-step-heading" *ngIf="wizardStepHeadingKey">{{ wizardStepHeadingKey | translate }}</h2>
+              <p class="sc-wizard-step-sub" *ngIf="wizardStepSublineKey">{{ wizardStepSublineKey | translate }}</p>
+              <div class="card-section" [class.sc-wizard-cm-flat-card]="hostChromeFooter">
+                <div class="card-content-scrollable">
+                  <div class="sc-student-list" *ngIf="students.length > 0">
+                    <button
+                      type="button"
+                      class="sc-student-row"
+                      *ngFor="let s of students"
+                      [class.sc-student-row--selected]="form.value.studentId === s._id"
+                      (click)="selectStudent(s._id)">
+                      <ion-avatar class="sc-student-avatar">
+                        <img *ngIf="s.picture" [src]="s.picture" [alt]="s.name" />
+                        <span *ngIf="!s.picture" class="sc-student-initial">{{ s.name.charAt(0).toUpperCase() }}</span>
+                      </ion-avatar>
+                      <span class="sc-student-name">{{ s.name }}</span>
+                      <ion-icon *ngIf="form.value.studentId === s._id" name="checkmark-circle" class="sc-student-check"></ion-icon>
+                    </button>
+                  </div>
+                  <p class="sc-student-empty" *ngIf="!loadingStudents && students.length === 0">{{ 'SCHEDULE_CLASS.NO_STUDENTS' | translate }}</p>
+                  <p class="sc-student-loading" *ngIf="loadingStudents">{{ 'SCHEDULE_CLASS.LOADING_STUDENTS' | translate }}</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- STEP 3: Schedule (classic) -->
+            <div *ngIf="!useWizardLayout && currentStep === 3" class="step-content">
               <div class="card-section">
                 <div class="card-content-scrollable">
                 <div class="button-container">
@@ -438,8 +1099,53 @@
               </div>
             </div>
 
-            <!-- STEP 4: Recurrence -->
-            <div *ngIf="currentStep === 4" class="step-content">
+            <!-- Wizard: schedule -->
+            <div *ngIf="useWizardLayout && wizardScreenId === 'schedule'" class="step-content sc-wizard-field-step" [class.sc-wizard-cm-flat]="hostChromeFooter">
+              <span class="cm-edit-badge cm-edit-badge--wizard" *ngIf="editingClassId"><ion-icon name="create-outline"></ion-icon> {{ 'SCHEDULE_CLASS.HUB_EDIT_BADGE' | translate }}</span>
+              <h2 class="sc-wizard-step-heading" *ngIf="wizardStepHeadingKey">{{ wizardStepHeadingKey | translate }}</h2>
+              <p class="sc-wizard-step-sub" *ngIf="wizardStepSublineKey">{{ wizardStepSublineKey | translate }}</p>
+              <div class="card-section" [class.sc-wizard-cm-flat-card]="hostChromeFooter">
+                <div class="card-content-scrollable">
+                  <div class="button-container">
+                    <ion-button
+                      fill="outline"
+                      class="availability-btn"
+                      [disabled]="classType === 'recurring' && !form.value.duration"
+                      (click)="openAvailabilityPicker()">
+                      <ion-icon name="calendar-clear-outline" slot="start"></ion-icon>
+                      Choose from Your Availability
+                    </ion-button>
+                  </div>
+                  <div class="form-row datetime-row">
+                    <div class="form-field">
+                      <ion-label class="field-label">Date</ion-label>
+                      <ion-input
+                        class="modern-input date-input"
+                        fill="outline"
+                        type="date"
+                        formControlName="date"
+                        readonly
+                        [disabled]="true">
+                      </ion-input>
+                    </div>
+                    <div class="form-field">
+                      <ion-label class="field-label">Time</ion-label>
+                      <ion-input
+                        class="modern-input time-input"
+                        fill="outline"
+                        type="time"
+                        formControlName="time"
+                        readonly
+                        [disabled]="true">
+                      </ion-input>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- STEP 4: Recurrence (classic) -->
+            <div *ngIf="!useWizardLayout && currentStep === 4 && classType === 'recurring'" class="step-content">
               <div class="card-section">
                 <div class="card-content-scrollable">
                 <div class="form-row">
@@ -473,66 +1179,216 @@
               </div>
             </div>
 
-            <!-- STEP 5: Visibility -->
-            <div *ngIf="currentStep === 5" class="step-content">
+            <!-- Wizard: recurrence pattern -->
+            <div *ngIf="useWizardLayout && wizardScreenId === 'recurrence'" class="step-content sc-wizard-field-step" [class.sc-wizard-cm-flat]="hostChromeFooter">
+              <span class="cm-edit-badge cm-edit-badge--wizard" *ngIf="editingClassId"><ion-icon name="create-outline"></ion-icon> {{ 'SCHEDULE_CLASS.HUB_EDIT_BADGE' | translate }}</span>
+              <h2 class="sc-wizard-step-heading" *ngIf="wizardStepHeadingKey">{{ wizardStepHeadingKey | translate }}</h2>
+              <p class="sc-wizard-step-sub" *ngIf="wizardStepSublineKey">{{ wizardStepSublineKey | translate }}</p>
+              <div class="card-section" [class.sc-wizard-cm-flat-card]="hostChromeFooter">
+                <div class="card-content-scrollable">
+                  <div class="form-field">
+                    <ion-label class="field-label">Repeat Pattern</ion-label>
+                    <ion-select
+                      class="modern-select"
+                      fill="outline"
+                      interface="popover"
+                      formControlName="recurrenceType">
+                      <ion-select-option value="none">None (Single class)</ion-select-option>
+                      <ion-select-option value="daily">Daily</ion-select-option>
+                      <ion-select-option value="weekly">Weekly</ion-select-option>
+                      <ion-select-option value="monthly">Monthly</ion-select-option>
+                    </ion-select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Wizard: recurrence count -->
+            <div *ngIf="useWizardLayout && wizardScreenId === 'recurrenceCount'" class="step-content sc-wizard-field-step" [class.sc-wizard-cm-flat]="hostChromeFooter">
+              <span class="cm-edit-badge cm-edit-badge--wizard" *ngIf="editingClassId"><ion-icon name="create-outline"></ion-icon> {{ 'SCHEDULE_CLASS.HUB_EDIT_BADGE' | translate }}</span>
+              <h2 class="sc-wizard-step-heading" *ngIf="wizardStepHeadingKey">{{ wizardStepHeadingKey | translate }}</h2>
+              <p class="sc-wizard-step-sub" *ngIf="wizardStepSublineKey">{{ wizardStepSublineKey | translate }}</p>
+              <div class="card-section" [class.sc-wizard-cm-flat-card]="hostChromeFooter">
+                <div class="card-content-scrollable">
+                  <div class="form-field">
+                    <ion-label class="field-label">Occurrences</ion-label>
+                    <ion-input
+                      class="modern-input"
+                      fill="outline"
+                      type="number"
+                      min="1"
+                      max="52"
+                      formControlName="recurrenceCount"
+                      placeholder="1">
+                    </ion-input>
+                    <ion-note class="error-note" [class.visible]="form.controls.recurrenceCount.touched && form.controls.recurrenceCount.invalid">
+                      <span *ngIf="form.controls.recurrenceCount.errors?.['min']">At least 1 occurrence</span>
+                      <span *ngIf="form.controls.recurrenceCount.errors?.['max']">Maximum 52</span>
+                    </ion-note>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- STEP 5: Visibility (classic) -->
+            <div *ngIf="!useWizardLayout && currentStep === 5" class="step-content">
               <div class="card-section">
                 <div class="card-content-scrollable">
                 <div class="visibility-toggle">
-                  <ion-item lines="none">
-                    <ion-label>
-                      <h3>Public Class</h3>
-                      <p>Make visible to all students on platform</p>
-                    </ion-label>
-                    <ion-toggle formControlName="isPublic"></ion-toggle>
-                  </ion-item>
-                </div>
-
-                <!-- Thumbnail Upload (Public Classes only) -->
-                <div class="thumbnail-section" *ngIf="form.value.isPublic">
-                  <ion-label class="field-label">Class Thumbnail</ion-label>
-                  
-                  <div class="thumbnail-info-card">
-                    <ion-icon name="image-outline"></ion-icon>
-                    <div>
-                      <div class="info-title">Upload an attractive class image</div>
-                      <div class="info-subtitle">Recommended: 1200×630px • Max 5MB</div>
+                  <div class="sc-visibility-toggle-frame">
+                    <div class="sc-visibility-toggle-inner">
+                      <div class="sc-visibility-toggle-copy">
+                        <h3 class="sc-visibility-toggle-title">Public Class</h3>
+                        <p class="sc-visibility-toggle-sub">Make visible to all students on platform</p>
+                      </div>
+                      <ion-toggle formControlName="isPublic" class="sc-visibility-toggle-switch"></ion-toggle>
                     </div>
                   </div>
-                  
-                  <div class="thumbnail-preview" *ngIf="thumbnailPreview">
-                    <img [src]="thumbnailPreview" alt="Class thumbnail">
-                    <ion-button 
-                      fill="clear" 
-                      class="remove-btn"
-                      (click)="removeThumbnail()">
-                      <ion-icon name="close-circle" slot="icon-only"></ion-icon>
-                    </ion-button>
-                  </div>
-                  
-                  <input 
-                    type="file" 
-                    #thumbnailInput 
-                    accept="image/*" 
-                    (change)="onThumbnailSelected($event)" 
-                    style="display: none;">
-                  
-                  <div class="button-container">
-                    <ion-button 
-                      fill="outline"
-                      class="upload-btn"
-                      (click)="thumbnailInput.click()"
-                      [disabled]="isUploadingThumbnail"
-                      *ngIf="!thumbnailPreview">
-                      <ion-icon name="cloud-upload-outline" slot="start"></ion-icon>
-                      Upload Thumbnail
-                    </ion-button>
-                  </div>
-                  
-                  <div class="error-card" *ngIf="form.value.isPublic && !thumbnailPreview && (form.touched || form.controls.thumbnail?.touched)">
-                    <ion-icon name="alert-circle"></ion-icon>
-                    <span>Thumbnail required for public classes</span>
+                </div>
+
+                <!-- Cover image (required) — same pattern as Create Material `cm-thumbnail-field` -->
+                <div class="thumbnail-section">
+                  <div class="cm-thumbnail-field">
+                    <label>{{ 'SCHEDULE_CLASS.WIZARD_THUMBNAIL_FIELD' | translate }}
+                      <span class="cm-label-hint">{{ 'SCHEDULE_CLASS.WIZARD_THUMBNAIL_REQUIRED_LABEL' | translate }}</span>
+                    </label>
+                    <input
+                      type="file"
+                      #thumbnailInput
+                      accept="image/*"
+                      (change)="onThumbnailSelected($event)"
+                      hidden>
+                    <div class="cm-thumbnail-picker" *ngIf="!thumbnailPreview && !form.value.thumbnail">
+                      <button type="button" class="cm-thumbnail-btn" (click)="thumbnailInput.click()" [disabled]="isUploadingThumbnail">
+                        <ion-spinner *ngIf="isUploadingThumbnail" name="crescent" class="cm-thumbnail-spinner"></ion-spinner>
+                        <ng-container *ngIf="!isUploadingThumbnail">
+                          <ion-icon name="image-outline"></ion-icon>
+                          <span>{{ 'SCHEDULE_CLASS.WIZARD_THUMBNAIL_BTN_PRIMARY' | translate }}</span>
+                          <span class="cm-thumbnail-hint">{{ 'SCHEDULE_CLASS.WIZARD_THUMBNAIL_BTN_HINT' | translate }}</span>
+                        </ng-container>
+                      </button>
+                    </div>
+                    <div class="cm-thumbnail-preview" *ngIf="thumbnailPreview || form.value.thumbnail">
+                      <img [src]="thumbnailPreview || form.value.thumbnail" alt="">
+                      <button type="button" class="cm-thumbnail-remove" (click)="removeThumbnail()">
+                        <ion-icon name="close-circle"></ion-icon>
+                      </button>
+                    </div>
+                    <div class="error-card cm-thumbnail-error" *ngIf="!thumbnailPreview && !form.value.thumbnail && (form.touched || form.controls.thumbnail?.touched)">
+                      <ion-icon name="alert-circle"></ion-icon>
+                      <span>{{ 'SCHEDULE_CLASS.WIZARD_THUMBNAIL_REQUIRED_HINT' | translate }}</span>
+                    </div>
                   </div>
                 </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Wizard: visibility (public toggle only) -->
+            <div *ngIf="useWizardLayout && wizardScreenId === 'visibility'" class="step-content sc-wizard-field-step" [class.sc-wizard-cm-flat]="hostChromeFooter">
+              <span class="cm-edit-badge cm-edit-badge--wizard" *ngIf="editingClassId"><ion-icon name="create-outline"></ion-icon> {{ 'SCHEDULE_CLASS.HUB_EDIT_BADGE' | translate }}</span>
+              <h2 class="sc-wizard-step-heading" *ngIf="wizardStepHeadingKey">{{ wizardStepHeadingKey | translate }}</h2>
+              <p class="sc-wizard-step-sub" *ngIf="wizardStepSublineKey">{{ wizardStepSublineKey | translate }}</p>
+              <div class="card-section" [class.sc-wizard-cm-flat-card]="hostChromeFooter">
+                <div class="card-content-scrollable">
+                  <div class="visibility-toggle">
+                    <div class="sc-visibility-toggle-frame">
+                      <div class="sc-visibility-toggle-inner">
+                        <div class="sc-visibility-toggle-copy">
+                          <h3 class="sc-visibility-toggle-title">Public Class</h3>
+                          <p class="sc-visibility-toggle-sub">Make visible to all students on platform</p>
+                        </div>
+                        <ion-toggle formControlName="isPublic" class="sc-visibility-toggle-switch"></ion-toggle>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Wizard: thumbnail — Create Material `cm-thumbnail-field` layout -->
+            <div *ngIf="useWizardLayout && wizardScreenId === 'thumbnail'" class="step-content sc-wizard-field-step sc-wizard-thumbnail-cm-step" [class.sc-wizard-cm-flat]="hostChromeFooter">
+              <span class="cm-edit-badge cm-edit-badge--wizard" *ngIf="editingClassId"><ion-icon name="create-outline"></ion-icon> {{ 'SCHEDULE_CLASS.HUB_EDIT_BADGE' | translate }}</span>
+              <h2 class="sc-wizard-step-heading" *ngIf="wizardStepHeadingKey">{{ wizardStepHeadingKey | translate }}</h2>
+              <p class="sc-wizard-step-sub" *ngIf="wizardStepSublineKey">{{ wizardStepSublineKey | translate }}</p>
+              <div class="sc-wizard-cm-cover-divider" aria-hidden="true"></div>
+              <div class="card-section" [class.sc-wizard-cm-flat-card]="hostChromeFooter">
+                <div class="card-content-scrollable">
+                  <div class="cm-thumbnail-field">
+                    <label>{{ 'SCHEDULE_CLASS.WIZARD_THUMBNAIL_FIELD' | translate }}
+                      <span class="cm-label-hint">{{ 'SCHEDULE_CLASS.WIZARD_THUMBNAIL_REQUIRED_LABEL' | translate }}</span>
+                    </label>
+                    <input
+                      type="file"
+                      #thumbnailInputWizard
+                      accept="image/*"
+                      (change)="onThumbnailSelected($event)"
+                      hidden>
+                    <div class="cm-thumbnail-picker" *ngIf="!thumbnailPreview && !form.value.thumbnail">
+                      <button type="button" class="cm-thumbnail-btn" (click)="thumbnailInputWizard.click()" [disabled]="isUploadingThumbnail">
+                        <ion-spinner *ngIf="isUploadingThumbnail" name="crescent" class="cm-thumbnail-spinner"></ion-spinner>
+                        <ng-container *ngIf="!isUploadingThumbnail">
+                          <ion-icon name="image-outline"></ion-icon>
+                          <span>{{ 'SCHEDULE_CLASS.WIZARD_THUMBNAIL_BTN_PRIMARY' | translate }}</span>
+                          <span class="cm-thumbnail-hint">{{ 'SCHEDULE_CLASS.WIZARD_THUMBNAIL_BTN_HINT' | translate }}</span>
+                        </ng-container>
+                      </button>
+                    </div>
+                    <div class="cm-thumbnail-preview" *ngIf="thumbnailPreview || form.value.thumbnail">
+                      <img [src]="thumbnailPreview || form.value.thumbnail" alt="">
+                      <button type="button" class="cm-thumbnail-remove" (click)="removeThumbnail()">
+                        <ion-icon name="close-circle"></ion-icon>
+                      </button>
+                    </div>
+                    <div class="error-card cm-thumbnail-error" *ngIf="!thumbnailPreview && !form.value.thumbnail && (form.touched || form.controls.thumbnail?.touched)">
+                      <ion-icon name="alert-circle"></ion-icon>
+                      <span>{{ 'SCHEDULE_CLASS.WIZARD_THUMBNAIL_REQUIRED_HINT' | translate }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Wizard: review — compact cover + two columns (description / details) -->
+            <div *ngIf="useWizardLayout && wizardScreenId === 'review'" class="step-content sc-wizard-field-step sc-wizard-field-step--review-full sc-wizard-review-step" [class.sc-wizard-cm-flat]="hostChromeFooter">
+              <div class="cm-step sc-wizard-review-cm-step">
+                <div class="cm-step-header cm-details-wizard-header sc-wizard-review-cm-header">
+                  <span class="cm-edit-badge cm-edit-badge--wizard" *ngIf="editingClassId"><ion-icon name="create-outline"></ion-icon> {{ 'SCHEDULE_CLASS.HUB_EDIT_BADGE' | translate }}</span>
+                  <h1 *ngIf="wizardStepHeadingKey">{{ wizardStepHeadingKey | translate }}</h1>
+                  <p *ngIf="wizardStepSublineKey">{{ wizardStepSublineKey | translate }}</p>
+                </div>
+                <div class="sc-wizard-review-card">
+                  <div class="sc-wizard-review-hero">
+                    <div class="sc-wizard-review-thumb" *ngIf="wizardReviewThumbnailSrc">
+                      <img [src]="wizardReviewThumbnailSrc" alt="" />
+                    </div>
+                    <div class="sc-wizard-review-hero-meta" [class.sc-wizard-review-hero-meta--full]="!wizardReviewThumbnailSrc">
+                      <span class="sc-wizard-review-format-badge" *ngIf="wizardReviewFormatLabelKey">{{ wizardReviewFormatLabelKey | translate }}</span>
+                      <div class="sc-wizard-review-meta-chips">
+                        <span class="sc-wizard-review-chip" *ngFor="let b of wizardReviewMetaBadges">{{ b }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="sc-wizard-review-columns">
+                    <div class="sc-wizard-review-col sc-wizard-review-col--main">
+                      <h2 class="sc-wizard-review-title">{{ wizardReviewHeroName }}</h2>
+                      <div class="sc-wizard-review-desc-wrap" *ngIf="wizardReviewDescriptionHtml">
+                        <div class="sc-wizard-review-quill ql-snow">
+                          <div class="ql-editor" [innerHTML]="wizardReviewDescriptionHtml"></div>
+                        </div>
+                      </div>
+                      <p class="sc-wizard-review-desc-empty" *ngIf="!wizardReviewDescriptionHtml">{{ 'SCHEDULE_CLASS.WIZARD_REVIEW_NO_DESCRIPTION' | translate }}</p>
+                    </div>
+                    <div class="sc-wizard-review-col sc-wizard-review-col--details">
+                      <h3 class="sc-wizard-review-details-heading">{{ 'SCHEDULE_CLASS.WIZARD_REVIEW_DETAILS' | translate }}</h3>
+                      <div class="sc-wizard-review-rows">
+                        <div class="sc-wizard-review-row" *ngFor="let row of wizardReviewRows">
+                          <span class="sc-wizard-review-row-label">{{ row.labelKey | translate }}</span>
+                          <span class="sc-wizard-review-row-value">{{ row.value }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -541,26 +1397,40 @@
         </div>
         
         <!-- Navigation Buttons - Outside scrollable area -->
-        <div class="nav-buttons">
-          <ion-button 
-            fill="outline" 
-            (click)="previousStep()"
-            [disabled]="currentStep === 1">
-            Previous
+        <div class="nav-buttons" *ngIf="(!useWizardLayout || wizardScreenId !== 'type') && !hideInlineWizardFooter">
+          <ion-button
+            fill="outline"
+            *ngIf="hubSaveDraftButtonVisible"
+            (click)="saveHubWizardDraft()"
+            [disabled]="savingDraft"
+            class="sc-save-edit-btn">
+            <ion-spinner *ngIf="savingDraft" name="crescent" slot="start"></ion-spinner>
+            <span *ngIf="!savingDraft">{{ 'SCHEDULE_CLASS.HUB_SAVE_DRAFT' | translate }}</span>
+            <span *ngIf="savingDraft">{{ 'SCHEDULE_CLASS.HUB_SAVING_DRAFT' | translate }}</span>
+          </ion-button>
+          <ion-button
+            fill="outline"
+            *ngIf="editingClassId"
+            (click)="saveEdit()"
+            [disabled]="savingEdit"
+            class="sc-save-edit-btn">
+            <ion-spinner *ngIf="savingEdit" name="crescent" slot="start"></ion-spinner>
+            <span *ngIf="!savingEdit">{{ 'SCHEDULE_CLASS.HUB_SAVE_CLASS' | translate }}</span>
+            <span *ngIf="savingEdit">{{ 'SCHEDULE_CLASS.HUB_SAVING_CLASS' | translate }}</span>
           </ion-button>
           <ion-button 
-            *ngIf="currentStep < totalSteps"
+            *ngIf="!isLastScheduleStep"
             (click)="nextStep()">
-            Next
+            {{ 'SCHEDULE_CLASS.NEXT' | translate }}
           </ion-button>
           <ion-button 
-            *ngIf="currentStep === totalSteps"
+            *ngIf="isLastScheduleStep"
             (click)="submit()"
-            [disabled]="submitting || form.invalid">
+            [disabled]="submitting || footerCreateDisabled">
             <ion-icon name="checkmark-circle-outline" slot="start" *ngIf="!submitting"></ion-icon>
             <ion-spinner *ngIf="submitting" name="crescent" slot="start"></ion-spinner>
-            <span *ngIf="!submitting">Create Class</span>
-            <span *ngIf="submitting">Creating...</span>
+            <span *ngIf="!submitting">{{ scheduleFooterPrimaryLabelKey | translate }}</span>
+            <span *ngIf="submitting">{{ scheduleFooterPrimaryBusyKey | translate }}</span>
           </ion-button>
         </div>
       </div>

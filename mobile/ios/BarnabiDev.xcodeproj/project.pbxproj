@@ -8,25 +8,25 @@
 
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
+		15424D1444D2344AE5CF417B /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E6EC7DDBE3FEAC7B567B546 /* ExpoModulesProvider.swift */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		674A05C5CEBCAB050852840D /* libPods-BarnabiDev.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 70D2EADC2D372862F06EEBD3 /* libPods-BarnabiDev.a */; };
-		A3BB64670902ABF9A754B0F8 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 703ABF92B6DDF154E932A577 /* ExpoModulesProvider.swift */; };
-		A7B1F8E46BBC1DF2E4A46D39 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A322840F3E0A6564ADF9B0C8 /* PrivacyInfo.xcprivacy */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
+		E680A8AFC42F799ADEBC11E3 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 9021F52AB015243647BE3D4A /* PrivacyInfo.xcprivacy */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
+		F5CB83AE3C98F333D491CB8B /* libPods-BarnabiDev.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E8A62CDEE05D30305FC692B9 /* libPods-BarnabiDev.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		0E37BB7924FE2D4C9A754D42 /* Pods-BarnabiDev.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-BarnabiDev.debug.xcconfig"; path = "Target Support Files/Pods-BarnabiDev/Pods-BarnabiDev.debug.xcconfig"; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* BarnabiDev.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BarnabiDev.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = BarnabiDev/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = BarnabiDev/Info.plist; sourceTree = "<group>"; };
-		27F2383A995A9529AD2E6372 /* Pods-BarnabiDev.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-BarnabiDev.release.xcconfig"; path = "Target Support Files/Pods-BarnabiDev/Pods-BarnabiDev.release.xcconfig"; sourceTree = "<group>"; };
-		703ABF92B6DDF154E932A577 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-BarnabiDev/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		70D2EADC2D372862F06EEBD3 /* libPods-BarnabiDev.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-BarnabiDev.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		A322840F3E0A6564ADF9B0C8 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = BarnabiDev/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		59DFFB7478F4C4C95D855D13 /* Pods-BarnabiDev.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-BarnabiDev.release.xcconfig"; path = "Target Support Files/Pods-BarnabiDev/Pods-BarnabiDev.release.xcconfig"; sourceTree = "<group>"; };
+		6E6EC7DDBE3FEAC7B567B546 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-BarnabiDev/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		9021F52AB015243647BE3D4A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = BarnabiDev/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		9E05047CC59527CB41A83781 /* Pods-BarnabiDev.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-BarnabiDev.debug.xcconfig"; path = "Target Support Files/Pods-BarnabiDev/Pods-BarnabiDev.debug.xcconfig"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = BarnabiDev/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
+		E8A62CDEE05D30305FC692B9 /* libPods-BarnabiDev.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-BarnabiDev.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = BarnabiDev/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* BarnabiDev-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "BarnabiDev-Bridging-Header.h"; path = "BarnabiDev/BarnabiDev-Bridging-Header.h"; sourceTree = "<group>"; };
@@ -37,13 +37,22 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				674A05C5CEBCAB050852840D /* libPods-BarnabiDev.a in Frameworks */,
+				F5CB83AE3C98F333D491CB8B /* libPods-BarnabiDev.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		004D16CF05C82D15126B4FFB /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				9E05047CC59527CB41A83781 /* Pods-BarnabiDev.debug.xcconfig */,
+				59DFFB7478F4C4C95D855D13 /* Pods-BarnabiDev.release.xcconfig */,
+			);
+			path = Pods;
+			sourceTree = "<group>";
+		};
 		13B07FAE1A68108700A75B9A /* BarnabiDev */ = {
 			isa = PBXGroup;
 			children = (
@@ -53,35 +62,34 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				A322840F3E0A6564ADF9B0C8 /* PrivacyInfo.xcprivacy */,
+				9021F52AB015243647BE3D4A /* PrivacyInfo.xcprivacy */,
 			);
 			name = BarnabiDev;
+			sourceTree = "<group>";
+		};
+		15902B6223C606682AE2B2C7 /* BarnabiDev */ = {
+			isa = PBXGroup;
+			children = (
+				6E6EC7DDBE3FEAC7B567B546 /* ExpoModulesProvider.swift */,
+			);
+			name = BarnabiDev;
+			sourceTree = "<group>";
+		};
+		2976B71757139377966E5C44 /* ExpoModulesProviders */ = {
+			isa = PBXGroup;
+			children = (
+				15902B6223C606682AE2B2C7 /* BarnabiDev */,
+			);
+			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
 		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				70D2EADC2D372862F06EEBD3 /* libPods-BarnabiDev.a */,
+				E8A62CDEE05D30305FC692B9 /* libPods-BarnabiDev.a */,
 			);
 			name = Frameworks;
-			sourceTree = "<group>";
-		};
-		39BB99F70CCCAB7FEC0FDC0B /* BarnabiDev */ = {
-			isa = PBXGroup;
-			children = (
-				703ABF92B6DDF154E932A577 /* ExpoModulesProvider.swift */,
-			);
-			name = BarnabiDev;
-			sourceTree = "<group>";
-		};
-		68E03105E97218F43B734E33 /* Pods */ = {
-			isa = PBXGroup;
-			children = (
-				0E37BB7924FE2D4C9A754D42 /* Pods-BarnabiDev.debug.xcconfig */,
-				27F2383A995A9529AD2E6372 /* Pods-BarnabiDev.release.xcconfig */,
-			);
-			path = Pods;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -98,8 +106,8 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				68E03105E97218F43B734E33 /* Pods */,
-				943D6160740036088672B6B9 /* ExpoModulesProviders */,
+				004D16CF05C82D15126B4FFB /* Pods */,
+				2976B71757139377966E5C44 /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -112,14 +120,6 @@
 				13B07F961A680F5B00A75B9A /* BarnabiDev.app */,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		943D6160740036088672B6B9 /* ExpoModulesProviders */ = {
-			isa = PBXGroup;
-			children = (
-				39BB99F70CCCAB7FEC0FDC0B /* BarnabiDev */,
-			);
-			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
@@ -139,13 +139,13 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "BarnabiDev" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				417C59AD4CF89AB7EA633901 /* [Expo] Configure project */,
+				65FF4F3CC58E96B2FF9B229B /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				37927492B78DB6659D5AB8F6 /* [CP] Embed Pods Frameworks */,
+				1F607D74406E88444921EC1E /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -195,7 +195,7 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				A7B1F8E46BBC1DF2E4A46D39 /* PrivacyInfo.xcprivacy in Resources */,
+				E680A8AFC42F799ADEBC11E3 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -241,19 +241,67 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		37927492B78DB6659D5AB8F6 /* [CP] Embed Pods Frameworks */ = {
+		1F607D74406E88444921EC1E /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			inputPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-BarnabiDev/Pods-BarnabiDev-frameworks.sh",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/AgoraIrisRTC_iOS2/AgoraRtcWrapper.framework/AgoraRtcWrapper",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/AgoraVideo_Special_iOS/AgoraAiEchoCancellationExtension.framework/AgoraAiEchoCancellationExtension",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/AgoraVideo_Special_iOS/AgoraAiEchoCancellationLLExtension.framework/AgoraAiEchoCancellationLLExtension",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/AgoraVideo_Special_iOS/AgoraAiNoiseSuppressionExtension.framework/AgoraAiNoiseSuppressionExtension",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/AgoraVideo_Special_iOS/AgoraAiNoiseSuppressionLLExtension.framework/AgoraAiNoiseSuppressionLLExtension",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/AgoraVideo_Special_iOS/AgoraAudioBeautyExtension.framework/AgoraAudioBeautyExtension",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/AgoraVideo_Special_iOS/AgoraClearVisionExtension.framework/AgoraClearVisionExtension",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/AgoraVideo_Special_iOS/AgoraContentInspectExtension.framework/AgoraContentInspectExtension",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/AgoraVideo_Special_iOS/AgoraFaceCaptureExtension.framework/AgoraFaceCaptureExtension",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/AgoraVideo_Special_iOS/AgoraFaceDetectionExtension.framework/AgoraFaceDetectionExtension",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/AgoraVideo_Special_iOS/AgoraLipSyncExtension.framework/AgoraLipSyncExtension",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/AgoraVideo_Special_iOS/AgoraReplayKitExtension.framework/AgoraReplayKitExtension",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/AgoraVideo_Special_iOS/AgoraRtcKit.framework/AgoraRtcKit",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/AgoraVideo_Special_iOS/AgoraSoundTouch.framework/AgoraSoundTouch",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/AgoraVideo_Special_iOS/AgoraSpatialAudioExtension.framework/AgoraSpatialAudioExtension",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/AgoraVideo_Special_iOS/AgoraVideoAv1EncoderExtension.framework/AgoraVideoAv1EncoderExtension",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/AgoraVideo_Special_iOS/AgoraVideoEncoderExtension.framework/AgoraVideoEncoderExtension",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/AgoraVideo_Special_iOS/AgoraVideoQualityAnalyzerExtension.framework/AgoraVideoQualityAnalyzerExtension",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/AgoraVideo_Special_iOS/AgoraVideoSegmentationExtension.framework/AgoraVideoSegmentationExtension",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/AgoraVideo_Special_iOS/Agorafdkaac.framework/Agorafdkaac",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/AgoraVideo_Special_iOS/Agoraffmpeg.framework/Agoraffmpeg",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/AgoraVideo_Special_iOS/aosl.framework/aosl",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/AgoraVideo_Special_iOS/video_dec.framework/video_dec",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/AgoraVideo_Special_iOS/video_enc.framework/video_enc",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/React-Core-prebuilt/React.framework/React",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeDependencies/ReactNativeDependencies.framework/ReactNativeDependencies",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
 			);
 			name = "[CP] Embed Pods Frameworks";
 			outputPaths = (
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/AgoraRtcWrapper.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/AgoraAiEchoCancellationExtension.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/AgoraAiEchoCancellationLLExtension.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/AgoraAiNoiseSuppressionExtension.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/AgoraAiNoiseSuppressionLLExtension.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/AgoraAudioBeautyExtension.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/AgoraClearVisionExtension.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/AgoraContentInspectExtension.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/AgoraFaceCaptureExtension.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/AgoraFaceDetectionExtension.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/AgoraLipSyncExtension.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/AgoraReplayKitExtension.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/AgoraRtcKit.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/AgoraSoundTouch.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/AgoraSpatialAudioExtension.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/AgoraVideoAv1EncoderExtension.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/AgoraVideoEncoderExtension.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/AgoraVideoQualityAnalyzerExtension.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/AgoraVideoSegmentationExtension.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Agorafdkaac.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Agoraffmpeg.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/aosl.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/video_dec.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/video_enc.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/React.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ReactNativeDependencies.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
@@ -263,7 +311,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-BarnabiDev/Pods-BarnabiDev-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		417C59AD4CF89AB7EA633901 /* [Expo] Configure project */ = {
+		65FF4F3CC58E96B2FF9B229B /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -303,6 +351,8 @@
 				"${PODS_CONFIGURATION_BUILD_DIR}/React-Core/React-Core_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/React-cxxreact/React-cxxreact_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/SDWebImage/SDWebImage.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/lottie-ios/LottiePrivacyInfo.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/lottie-react-native/Lottie_React_Native_Privacy.bundle",
 			);
 			name = "[CP] Copy Pods Resources";
 			outputPaths = (
@@ -315,6 +365,8 @@
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-Core_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-cxxreact_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/SDWebImage.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/LottiePrivacyInfo.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Lottie_React_Native_Privacy.bundle",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -329,7 +381,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				A3BB64670902ABF9A754B0F8 /* ExpoModulesProvider.swift in Sources */,
+				15424D1444D2344AE5CF417B /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -338,7 +390,7 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 0E37BB7924FE2D4C9A754D42 /* Pods-BarnabiDev.debug.xcconfig */;
+			baseConfigurationReference = 9E05047CC59527CB41A83781 /* Pods-BarnabiDev.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -375,7 +427,7 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 27F2383A995A9529AD2E6372 /* Pods-BarnabiDev.release.xcconfig */;
+			baseConfigurationReference = 59DFFB7478F4C4C95D855D13 /* Pods-BarnabiDev.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;

@@ -856,6 +856,7 @@
     "FIELD_LEVEL": "سطح",
     "FIELD_COVER_IMAGE": "تصویر جلد",
     "FIELD_COVER_RECOMMENDED": "توصیه شده",
+    "FIELD_COVER_REQUIRED": "الزامی",
     "FIELD_COVER_ADD": "تصویر جلد اضافه کنید",
     "FIELD_COVER_HINT": "مواد آموزشی شما را متمایز می‌کند. به شکل کارت (۱۶:۱۰) برش خواهید داد. JPG یا PNG، حداکثر ۵ مگابایت.",
     "PRO_TIP": "نکته حرفه‌ای:",

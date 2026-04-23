@@ -1,5 +1,5 @@
 .pre-call-content {
-  --background: #0a0a0a;
+  --background: #000000;
   --padding-start: 0;
   --padding-end: 0;
   --padding-top: 0;
@@ -12,7 +12,7 @@
   display: flex;
   height: 100vh;
   max-height: 100vh;
-  background: #0a0a0a;
+  background: #000000;
   color: #fff;
   position: relative;
   overflow: hidden;
@@ -63,7 +63,7 @@
 
 .preview-panel {
   flex: 1;
-  background: linear-gradient(135deg, #6b21a8 0%, #7c3aed 100%);
+  background: #000000;
   display: flex;
   flex-direction: column;
   padding: 32px;
@@ -373,7 +373,7 @@
   justify-content: flex-start;
   align-items: stretch;
   padding: 40px 48px;
-  background: #0a0a0a;
+  background: #000000;
   overflow: hidden;
   height: 100vh;
   max-height: 100vh;
@@ -445,6 +445,64 @@
     }
   }
 
+  .intent-section {
+    width: 100%;
+    margin-bottom: 20px;
+    flex-shrink: 0;
+    text-align: center;
+
+    .intent-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.55);
+      margin: 0 0 12px 0;
+      letter-spacing: 0.2px;
+    }
+
+    .intent-chips {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .intent-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 16px;
+      border-radius: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.05);
+      color: rgba(255, 255, 255, 0.75);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      outline: none;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.25);
+      }
+
+      .intent-emoji {
+        font-size: 16px;
+        line-height: 1;
+      }
+
+      .intent-label {
+        line-height: 1;
+      }
+    }
+
+    .intent-chip-active {
+      border-color: rgba(35, 131, 157, 0.65);
+      background: rgba(35, 131, 157, 0.18);
+      color: #fff;
+    }
+  }
+
   .presence-indicator-card {
     display: flex;
     align-items: center;
@@ -484,7 +542,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        border: 2px solid #0a0a0a;
+        border: 2px solid #000000;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 
         ion-icon {
@@ -838,9 +896,9 @@
   }
 
   .enter-button {
-    --background: #ec4899;
-    --background-activated: #db2777;
-    --background-hover: #f472b6;
+    --background: #23839d;
+    --background-activated: #1a6a80;
+    --background-hover: #2a9bb5;
     --color: #fff;
     --border-radius: 12px;
     --padding-top: 14px;
@@ -850,13 +908,13 @@
     font-weight: 600;
     text-transform: none;
     min-width: 280px;
-    box-shadow: 0 4px 16px rgba(236, 72, 153, 0.3);
+    box-shadow: 0 4px 16px rgba(35, 131, 157, 0.35);
     flex-shrink: 0;
     margin-top: auto; // Push to bottom
 
     &:hover {
-      --background: #f472b6;
-      box-shadow: 0 6px 20px rgba(236, 72, 153, 0.4);
+      --background: #2a9bb5;
+      box-shadow: 0 6px 20px rgba(35, 131, 157, 0.45);
     }
 
     @media (max-width: 768px) {

@@ -859,6 +859,7 @@
     "FIELD_LEVEL": "Trình độ",
     "FIELD_COVER_IMAGE": "Ảnh bìa",
     "FIELD_COVER_RECOMMENDED": "Khuyến nghị",
+    "FIELD_COVER_REQUIRED": "Bắt buộc",
     "FIELD_COVER_ADD": "Thêm ảnh bìa",
     "FIELD_COVER_HINT": "Giúp tài liệu của bạn nổi bật. Bạn sẽ cắt theo hình thẻ (16:10). JPG hoặc PNG, tối đa 5 MB.",
     "PRO_TIP": "Mẹo chuyên nghiệp:",

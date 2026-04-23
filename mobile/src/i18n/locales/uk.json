@@ -859,6 +859,7 @@
     "FIELD_LEVEL": "Рівень",
     "FIELD_COVER_IMAGE": "Обкладинка",
     "FIELD_COVER_RECOMMENDED": "Рекомендовано",
+    "FIELD_COVER_REQUIRED": "Обов'язково",
     "FIELD_COVER_ADD": "Додати обкладинку",
     "FIELD_COVER_HINT": "Зробіть ваш матеріал помітним. Ви обріжете до форми картки (16:10). JPG або PNG, макс. 5 МБ.",
     "PRO_TIP": "Порада:",

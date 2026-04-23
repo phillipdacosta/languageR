@@ -24,7 +24,11 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.barnabi.dev"
+      "package": "com.barnabi.dev",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -51,8 +55,20 @@
           "microphonePermission": "Barnabi needs access to your microphone to record voice messages."
         }
       ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Barnabi needs camera access to preview how you will appear before joining a lesson.",
+          "microphonePermission": "Barnabi needs microphone access for your lesson preview."
+        }
+      ],
       "expo-web-browser",
       "expo-video"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "34ca8482-5742-4ec4-945a-ed93d9c7d5ce"
+      }
+    }
   }
 }

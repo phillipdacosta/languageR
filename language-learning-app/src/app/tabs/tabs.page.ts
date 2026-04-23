@@ -104,6 +104,9 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       if (normalizedUrl.includes('/schedule-class')) {
         return true;
       }
+      if (this.isHomePage && this.homeMaterialsViewOpen) {
+        return true;
+      }
     }
 
     return false;

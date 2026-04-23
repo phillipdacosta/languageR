@@ -236,7 +236,8 @@
   --color: #2c3e50;
   --border-color: #e0e0e0;
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  // Subtle lift under fixed bar (desktop web only)
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 2px 8px rgba(0, 0, 0, 0.04);
   position: fixed;
   top: 0;
   left: 0;
@@ -507,13 +508,13 @@
           }
         }
 
-        // "new" badge — floats in the gap space after "Messages" text
+        // "new" badge — desktop only (min-width: 992px); mobile uses .message-tab-notification-dot
         &.messages-button .new-badge {
           position: absolute;
           left: 100%;
           top: 50%;
           transform: translateY(-50%);
-          margin-left: 6px;
+          margin-left: -8px;
           font-size: 9px;
           font-weight: 600;
           letter-spacing: 0.02em;
@@ -1932,9 +1933,10 @@ ion-tab-button {
   .desktop-nav-toolbar {
     --background: #1c1c1e;
     --color: #ffffff;
-    --border-color: rgba(255, 255, 255, 0.08);
-    border-bottom-color: rgba(255, 255, 255, 0.08);
+    // --border-color: rgba(255, 255, 255, 0.08);
+    // border-bottom-color: rgba(255, 255, 255, 0.08);
     background: rgba(28, 28, 30, 0.95) !important;
+    // box-shadow: 0 2px 10px rgba(0, 0, 0, 0.22) !important;
     
     .app-icon-container {
       &:hover {
@@ -2355,6 +2357,7 @@ ion-tab-button {
     --border-color: rgba(255, 255, 255, 0.08);
     border-bottom-color: rgba(255, 255, 255, 0.08);
     background: rgba(28, 28, 30, 0.95) !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.22) !important;
     
     .app-icon-container {
       &:hover {

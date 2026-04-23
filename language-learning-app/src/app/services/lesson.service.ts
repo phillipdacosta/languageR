@@ -4,6 +4,52 @@ import { Observable, BehaviorSubject } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { UserService } from './user.service';
 
+/**
+ * Cached snapshot for a single lesson/class detail page.
+ * Populated incrementally by the detail view as async pieces resolve, so the
+ * next navigation to the same id can render instantly (no skeleton) while a
+ * background revalidation runs.
+ */
+export interface CachedLessonDetailBundle {
+  lesson: any | null;
+  classData?: any | null;
+  isClass: boolean;
+  lessonsCompleted?: number;
+  tutorStats?: { rating?: any; totalLessons?: number; students?: number };
+  recentLessons?: { _id: string; subject: string; dateLabel: string; durationLabel: string }[];
+  analysis?: any;
+  analysisUnavailable?: boolean;
+  feedback?: any;
+  billing?: any;
+  payment?: any;
+  previousNotes?: any;
+  paymentMethod?: { label: string; icon: string } | null;
+  recommendedMaterials?: any[];
+  recommendedStruggles?: string[];
+  tutorMaterials?: any[];
+  fingerprint: string;
+  cachedAt: number;
+}
+
+const LESSON_DETAIL_TTL_MS = 10 * 60 * 1000;
+const LESSON_DETAIL_MAX_ENTRIES = 50;
+
+function lessonFingerprint(l: any): string {
+  if (!l) return '';
+  return [
+    l.status,
+    l?.tutorFeedback?.status,
+    l?.tip?.amount,
+    l?.cancelledAt,
+    l?.actualDurationMinutes,
+    l?.billingStatus,
+    l?.rescheduleProposal?.status,
+    l?.issueReported,
+    l?.aiAnalysis?.status,
+    l?.updatedAt,
+  ].join('|');
+}
+
 export interface Lesson {
   _id: string;
   tutorId: {
@@ -21,7 +67,7 @@ export interface Lesson {
   startTime: string;
   endTime: string;
   channelName: string;
-  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled' | 'pending_reschedule';
+  status: 'scheduled' | 'confirmed' | 'in_progress' | 'ended_early' | 'completed' | 'cancelled' | 'pending_reschedule';
   subject: string;
   notes?: string;
   price: number;
@@ -66,7 +112,39 @@ export interface Lesson {
     declined: number;
   };
   classData?: any; // Full class data from backend
-  cancelReason?: string; // Reason for cancellation (e.g., 'minimum_not_met')
+  cancelReason?: string;
+  cancelReasonText?: string;
+  cancelledBy?: 'tutor' | 'student' | 'system' | 'admin' | null;
+  cancelledAt?: string;
+  isLateCancellation?: boolean;
+  cancellationFeeCharged?: number;
+
+  requiresTutorFeedback?: boolean;
+  aiAnalysisEnabledAtTime?: boolean | null;
+  aiAnalysis?: {
+    status?: string;
+    hasAnalysis?: boolean;
+    source?: string | null;
+    overallAssessment?: { summary?: string };
+    studentSummary?: string;
+    progressionMetrics?: { keyImprovements?: string[] };
+  };
+  tutorNote?: { text?: string };
+  tutorFeedback?: {
+    status?: string;
+    providedAt?: string;
+    required?: boolean;
+    overallNotes?: string;
+  };
+
+  /** Backend-enriched context for scheduled lessons — previous session summary. */
+  lastSessionContext?: {
+    isFirstLesson: boolean;
+    previousLessonId?: string;
+    summary?: string | null;
+    recommendedFocus?: string[];
+    areasForImprovement?: string[];
+  };
   
   // Issue Reporting & Investigation
   issueReported?: boolean;
@@ -84,6 +162,9 @@ export interface Lesson {
   actualDurationMinutes?: number;
   actualPrice?: number;
   billingStatus?: 'pending' | 'authorized' | 'charged' | 'refunded' | null;
+  studentLessonIntent?: string;
+  /** Net to tutor after platform fee */
+  tutorPayout?: number;
 }
 
 export interface LessonCreateRequest {
@@ -94,6 +175,8 @@ export interface LessonCreateRequest {
   subject?: string;
   price: number;
   duration?: number;
+  /** Cover image URL when scheduling from the class flow (optional for API compatibility). */
+  thumbnail?: string;
   bookingData?: {
     selectedDate: string;
     selectedTime: string;
@@ -160,7 +243,36 @@ export class LessonService {
   private lessonsSubject = new BehaviorSubject<Lesson[]>([]);
   public lessons$ = this.lessonsSubject.asObservable();
 
-  constructor(private http: HttpClient, private userService: UserService) {}
+  /**
+   * Per-lesson detail cache keyed by lesson/class id. Evicted on user change,
+   * known mutations (cancel, reschedule), and a conservative TTL. The detail
+   * page reads the cached bundle synchronously to skip its skeleton loader,
+   * then revalidates in the background.
+   */
+  private detailCache = new Map<string, CachedLessonDetailBundle>();
+  private lastCachedUserId: string | null = null;
+
+  constructor(private http: HttpClient, private userService: UserService) {
+    this.userService.currentUser$.subscribe((u) => {
+      const uid = ((u as any)?._id ?? (u as any)?.id ?? null);
+      const next = uid != null ? String(uid) : null;
+      if (next !== this.lastCachedUserId) {
+        this.detailCache.clear();
+        this.lastCachedUserId = next;
+      }
+    });
+
+    // Global invalidation: any caller dispatching `lesson-cancelled` or
+    // `lesson-updated` with a lessonId in `detail` evicts that id.
+    if (typeof window !== 'undefined') {
+      const evict = (e: Event) => {
+        const id = (e as CustomEvent)?.detail?.lessonId;
+        if (id) this.detailCache.delete(id);
+      };
+      window.addEventListener('lesson-cancelled', evict as EventListener);
+      window.addEventListener('lesson-updated', evict as EventListener);
+    }
+  }
 
   // Create a new lesson (called after checkout)
   createLesson(lessonData: LessonCreateRequest): Observable<{ success: boolean; lesson: Lesson }> {
@@ -397,11 +509,97 @@ export class LessonService {
   // Update local lessons cache
   updateLessonsCache(lessons: Lesson[]): void {
     this.lessonsSubject.next(lessons);
+    this.reconcileDetailCacheWithList(lessons);
   }
 
   // Get lessons from cache
   getCachedLessons(): Lesson[] {
     return this.lessonsSubject.value;
+  }
+
+  /* ── Lesson-detail cache ────────────────────────────────────────── */
+
+  /**
+   * Return cached detail bundle for a lesson id, or null when missing/stale.
+   * When `listLesson` is supplied (e.g. from the Lessons list), the cached
+   * fingerprint must still match — otherwise we treat the entry as stale.
+   */
+  getCachedLessonDetail(id: string, listLesson?: Lesson): CachedLessonDetailBundle | null {
+    const entry = this.detailCache.get(id);
+    if (!entry) return null;
+    if (Date.now() - entry.cachedAt > LESSON_DETAIL_TTL_MS) {
+      this.detailCache.delete(id);
+      return null;
+    }
+    if (listLesson && entry.fingerprint && lessonFingerprint(listLesson) !== entry.fingerprint) {
+      this.detailCache.delete(id);
+      return null;
+    }
+    return entry;
+  }
+
+  /**
+   * Merge a partial bundle into the cache. Keeps fingerprint in sync when the
+   * underlying lesson changes, and enforces a soft LRU cap to avoid growth.
+   */
+  updateCachedLessonDetail(id: string, patch: Partial<CachedLessonDetailBundle>): void {
+    if (!id) return;
+    const prev = this.detailCache.get(id);
+    const merged: CachedLessonDetailBundle = {
+      lesson: patch.lesson ?? prev?.lesson ?? null,
+      classData: patch.classData ?? prev?.classData ?? null,
+      isClass: patch.isClass ?? prev?.isClass ?? false,
+      lessonsCompleted: patch.lessonsCompleted ?? prev?.lessonsCompleted,
+      tutorStats: patch.tutorStats ?? prev?.tutorStats,
+      recentLessons: patch.recentLessons ?? prev?.recentLessons,
+      analysis: patch.analysis !== undefined ? patch.analysis : prev?.analysis,
+      analysisUnavailable: patch.analysisUnavailable !== undefined
+        ? patch.analysisUnavailable
+        : prev?.analysisUnavailable,
+      feedback: patch.feedback !== undefined ? patch.feedback : prev?.feedback,
+      billing: patch.billing !== undefined ? patch.billing : prev?.billing,
+      payment: patch.payment !== undefined ? patch.payment : prev?.payment,
+      previousNotes: patch.previousNotes !== undefined ? patch.previousNotes : prev?.previousNotes,
+      paymentMethod: patch.paymentMethod !== undefined ? patch.paymentMethod : prev?.paymentMethod,
+      recommendedMaterials: patch.recommendedMaterials ?? prev?.recommendedMaterials,
+      recommendedStruggles: patch.recommendedStruggles ?? prev?.recommendedStruggles,
+      tutorMaterials: patch.tutorMaterials ?? prev?.tutorMaterials,
+      fingerprint: patch.lesson
+        ? lessonFingerprint(patch.lesson)
+        : (prev?.fingerprint ?? (patch.classData ? 'class' : '')),
+      cachedAt: Date.now(),
+    };
+
+    this.detailCache.delete(id); // re-insert to move to LRU tail
+    this.detailCache.set(id, merged);
+    if (this.detailCache.size > LESSON_DETAIL_MAX_ENTRIES) {
+      const oldest = this.detailCache.keys().next().value;
+      if (oldest) this.detailCache.delete(oldest);
+    }
+  }
+
+  /** Evict one entry (when known-stale) or the whole cache. */
+  clearDetailCache(id?: string): void {
+    if (id) this.detailCache.delete(id);
+    else this.detailCache.clear();
+  }
+
+  /**
+   * When the lessons list changes, drop detail entries whose fingerprint no
+   * longer matches the list copy — covers server-side status changes noticed
+   * via a list refresh without an explicit invalidation call.
+   */
+  private reconcileDetailCacheWithList(lessons: Lesson[]): void {
+    if (!this.detailCache.size) return;
+    for (const l of lessons) {
+      const id = (l as any)?._id;
+      if (!id) continue;
+      const entry = this.detailCache.get(id);
+      if (!entry || !entry.fingerprint) continue;
+      if (lessonFingerprint(l) !== entry.fingerprint) {
+        this.detailCache.delete(id);
+      }
+    }
   }
 
   // Reschedule lesson to a new time

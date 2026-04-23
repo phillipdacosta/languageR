@@ -1,4 +1,7 @@
-<div class="availability-setup" [class.single-day-mode]="isSingleDayMode" [class.embedded-mode]="embeddedMode">
+<div
+  class="availability-setup"
+  [class.single-day-mode]="isSingleDayMode"
+  [class.embedded-mode]="embeddedMode">
   <!-- Mobile Header -->
   <div class="mobile-header" *ngIf="!embeddedMode" #mobileHeaderRef>
     <ion-button fill="clear" class="mobile-back-button" (click)="goBack()">

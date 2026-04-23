@@ -4,14 +4,25 @@
     <span>{{ navBackLabel }}</span>
   </button>
   <div class="cm-nav-title" *ngIf="viewMode === 'create'">
+    <span class="cm-edit-badge" *ngIf="editingMaterialId"><ion-icon name="create-outline"></ion-icon> Editing</span>
     <span *ngIf="editingMaterialId">{{ 'CREATE_MATERIAL.EDITING_MATERIAL' | translate }}</span>
     <span *ngIf="!editingMaterialId">{{ stepTitle }}</span>
   </div>
   <div class="cm-nav-title" *ngIf="viewMode === 'bundle-create'">
+    <span class="cm-edit-badge" *ngIf="editingBundleId"><ion-icon name="create-outline"></ion-icon> Editing</span>
     <span>{{ stepTitle }}</span>
   </div>
   <div class="cm-nav-right">
-    <span class="cm-nav-step" *ngIf="viewMode === 'create' && !editingMaterialId">{{ stepNumber }}/{{ totalSteps }}</span>
+    <span class="cm-nav-step" *ngIf="viewMode === 'create' && !editingMaterialId && currentStep !== 'type'">{{ stepNumber }}/{{ totalSteps }}</span>
+    <button
+      type="button"
+      class="cm-nav-close"
+      *ngIf="inline"
+      (click)="dismissMaterialsModal()"
+      [attr.aria-label]="'COMMON.CLOSE' | translate"
+    >
+      <ion-icon name="close-outline"></ion-icon>
+    </button>
   </div>
 </div>
 
@@ -25,21 +36,8 @@
     <ion-spinner name="crescent"></ion-spinner>
   </div>
 
-  <!-- Empty state -->
-  <div class="cm-library-empty" *ngIf="!isLoadingMaterials && myMaterials.length === 0">
-    <div class="cm-empty-icon">
-      <ion-icon name="layers-outline"></ion-icon>
-    </div>
-    <h3>{{ 'CREATE_MATERIAL.LIBRARY_EMPTY_TITLE' | translate }}</h3>
-    <p>{{ 'CREATE_MATERIAL.LIBRARY_EMPTY_DESC' | translate }}</p>
-    <button class="cm-btn-primary cm-btn-empty-create" (click)="startCreate()">
-      {{ 'CREATE_MATERIAL.LIBRARY_GET_STARTED' | translate }}
-      <ion-icon name="arrow-forward-outline"></ion-icon>
-    </button>
-  </div>
-
-  <!-- Has materials -->
-  <ng-container *ngIf="!isLoadingMaterials && myMaterials.length > 0">
+  <!-- Has materials or empty — unified gateway layout -->
+  <ng-container *ngIf="!isLoadingMaterials">
 
     <!-- Post-publish share banner -->
     <div class="cm-publish-banner" *ngIf="justPublishedId">
@@ -64,10 +62,10 @@
       </button>
     </div>
 
-    <!-- Sticks while list scrolls (My Materials → New) -->
+    <!-- Sticky header -->
     <div class="cm-library-sticky">
       <div class="cm-library-header">
-        <h1>{{ 'CREATE_MATERIAL.LIBRARY_TITLE' | translate }}</h1>
+        <h1>{{ (libraryTab === 'bundles' ? 'CREATE_MATERIAL.LIBRARY_TITLE_BUNDLES' : 'CREATE_MATERIAL.LIBRARY_TITLE') | translate }}</h1>
         <div class="cm-library-actions">
           <button class="cm-btn-link-channels" (click)="showChannelLinking = !showChannelLinking">
             <ion-icon [name]="hasLinkedChannel() ? 'link' : 'link-outline'"></ion-icon>
@@ -76,7 +74,7 @@
         </div>
       </div>
 
-      <!-- Channel Linking Panel (animated open/close) -->
+      <!-- Channel Linking Panel -->
       <div class="cm-channel-panel-wrapper" [class.is-open]="showChannelLinking">
         <div class="cm-channel-panel">
         <div class="cm-channel-header">
@@ -84,8 +82,6 @@
           <p>{{ 'CREATE_MATERIAL.CHANNEL_DESC' | translate }}</p>
         </div>
         <div class="cm-channel-fields">
-
-          <!-- YouTube (OAuth verified) -->
           <div class="cm-channel-field">
             <label>
               <img src="assets/youtube.png" alt="" class="cm-channel-label-icon" />
@@ -108,8 +104,6 @@
               <span *ngIf="isLinkingYouTube">{{ 'CREATE_MATERIAL.CHANNEL_CONNECTING' | translate }}</span>
             </button>
           </div>
-
-          <!-- Vimeo (OAuth verified) -->
           <div class="cm-channel-field">
             <label>
               <img src="assets/vimeo.jpeg" alt="" class="cm-channel-label-icon" />
@@ -131,8 +125,6 @@
               <span *ngIf="isLinkingVimeo">{{ 'CREATE_MATERIAL.CHANNEL_CONNECTING' | translate }}</span>
             </button>
           </div>
-
-          <!-- SoundCloud -->
           <div class="cm-channel-field">
             <label>
               <ion-icon name="musical-notes-outline"></ion-icon>
@@ -152,7 +144,6 @@
             </div>
             <input *ngIf="!linkedChannels.soundcloudProfileName || editingSoundCloud" type="url" [(ngModel)]="linkedChannels.soundcloudProfileUrl" [ngModelOptions]="{standalone: true}" placeholder="https://soundcloud.com/yourprofile" />
           </div>
-
         </div>
         <div class="cm-channel-actions">
           <button class="cm-btn-secondary cm-btn-sm" (click)="showChannelLinking = false; editingYouTube = false; editingVimeo = false; editingSoundCloud = false">{{ 'COMMON.CANCEL' | translate }}</button>
@@ -163,12 +154,13 @@
         </div>
         </div>
       </div>
-
     </div>
 
-    <!-- Content below channel panel — blurred when panel open -->
+    <!-- Content area -->
     <div class="cm-library-content-area" [class.is-blurred]="showChannelLinking">
-      <div class="cm-library-tabs">
+
+      <!-- ══════ Mobile Tabs (hidden on desktop) ══════ -->
+      <div class="cm-library-tabs cm-mobile-only">
         <button class="cm-library-tab" [class.active]="libraryTab === 'materials'" (click)="switchLibraryTab('materials')">
           <ion-icon name="layers-outline"></ion-icon>
           Materials
@@ -181,160 +173,228 @@
         </button>
       </div>
 
-      <div class="cm-section-action" *ngIf="libraryTab === 'materials'">
-        <button class="cm-btn-primary cm-btn-section-create" (click)="startCreate()">
-          <ion-icon name="add-outline"></ion-icon>
-          {{ 'CREATE_MATERIAL.LIBRARY_NEW' | translate }}
-        </button>
-      </div>
-      <div class="cm-section-action" *ngIf="libraryTab === 'bundles'">
-        <button class="cm-btn-primary cm-btn-section-create" (click)="startCreateBundle()">
-          <ion-icon name="add-outline"></ion-icon>
-          New Bundle
-        </button>
-      </div>
-
-    <!-- Content Panel -->
-    <div class="cm-library-panel">
-
-    <!-- ── Materials List ── -->
-    <div class="cm-library-list" *ngIf="libraryTab === 'materials'">
-      <div class="cm-material-card" *ngFor="let m of myMaterials" [class.archived]="m.status === 'archived'">
-
-        <!-- Thumbnail area with overlaid badges -->
-        <div class="cm-mc-thumb">
-          <img *ngIf="m.thumbnailUrl" [src]="m.thumbnailUrl" [alt]="m.title" />
-          <div class="cm-mc-thumb-empty" *ngIf="!m.thumbnailUrl">
-            <ion-icon [name]="m.materialType === 'video_quiz' ? 'videocam' : m.materialType === 'reading' ? 'book' : 'headset'"></ion-icon>
+      <!-- ══════ Desktop Split Gateway (hidden on mobile) ══════ -->
+      <div class="cm-desktop-split" *ngIf="!showMaterialsList && !showBundlesList">
+        <!-- Materials column -->
+        <div class="cm-split-col">
+          <div class="cm-split-label">
+            <ion-icon name="layers-outline"></ion-icon>
+            <span>Materials</span>
+            <span class="cm-split-count" *ngIf="myMaterials.length > 0">{{ myMaterials.length }}</span>
           </div>
-          <span class="cm-mc-status-badge" 
-            [class.draft]="m.status === 'draft'" 
-            [class.archived]="m.status === 'archived'"
-            *ngIf="m.status === 'draft' || m.status === 'archived'">{{ m.status }}</span>
-        </div>
-
-        <div class="cm-mc-body">
-          <!-- Media unavailable warning -->
-          <div class="cm-mc-unavailable" *ngIf="m.mediaUnavailable && m.pricingType === 'paid'">
-            <ion-icon name="warning-outline"></ion-icon>
-            <span>{{ 'CREATE_MATERIAL.CARD_VIDEO_UNAVAILABLE' | translate }}</span>
-          </div>
-
-          <!-- Type + Review badges row -->
-          <div class="cm-mc-badges">
-            <span class="cm-mc-type-label">{{ getMaterialTypeLabel(m.materialType) }}</span>
-            <span class="cm-mc-review-badge verified" *ngIf="m.channelVerified">
-              <ion-icon name="checkmark-circle"></ion-icon> {{ 'CREATE_MATERIAL.CARD_VERIFIED' | translate }}
-            </span>
-            <span class="cm-mc-review-badge" *ngIf="m.reviewStatus === 'pending_review'">
-              <ion-icon name="time-outline"></ion-icon> {{ 'CREATE_MATERIAL.CARD_PENDING' | translate }}
-            </span>
-            <span class="cm-mc-review-badge rejected" *ngIf="m.reviewStatus === 'rejected'">
-              <ion-icon name="close-circle-outline"></ion-icon> {{ 'CREATE_MATERIAL.CARD_REJECTED' | translate }}
-            </span>
-          </div>
-
-          <h3 class="cm-mc-title">{{ m.title }}</h3>
-
-          <div class="cm-mc-price-row">
-            <span class="cm-mc-price" [class.free]="m.pricingType !== 'paid'">{{ m.pricingType === 'paid' ? '$' + m.price : ('CREATE_MATERIAL.CARD_FREE' | translate) }}</span>
-            <span class="cm-mc-questions">{{ m.quiz.length !== 1 ? ('CREATE_MATERIAL.CARD_QUESTIONS_PLURAL' | translate:{count: m.quiz.length}) : ('CREATE_MATERIAL.CARD_QUESTIONS' | translate:{count: m.quiz.length}) }}</span>
-          </div>
-
-          <div class="cm-mc-details-line">
-            <span class="cm-mc-details-text">{{ m.language }}</span>
-            <span class="cm-mc-details-sep" aria-hidden="true">·</span>
-            <span class="cm-mc-details-text">{{ formatDate(m.createdAt) }}</span>
-          </div>
-
-          <div class="cm-mc-stats">
-            <div class="cm-mc-stat"><ion-icon name="eye-outline"></ion-icon> {{ m.stats.views }}</div>
-            <div class="cm-mc-stat"><ion-icon name="school-outline"></ion-icon> {{ m.stats.quizAttempts }}</div>
-            <div class="cm-mc-stat" *ngIf="m.stats.averageScore > 0"><ion-icon name="trending-up-outline"></ion-icon> {{ m.stats.averageScore }}%</div>
-            <div class="cm-mc-stat" *ngIf="m.pricingType === 'paid'"><ion-icon name="card-outline"></ion-icon> {{ m.stats.purchases }}</div>
-          </div>
-
-          <button class="cm-mc-preview-btn" (click)="previewMaterial(m)">
-            <ion-icon name="eye-outline"></ion-icon>
-            {{ 'CREATE_MATERIAL.CARD_PREVIEW' | translate }}
-          </button>
-
-          <div class="cm-mc-actions">
-            <button class="cm-mc-action" (click)="editMaterial(m)" [title]="'COMMON.EDIT' | translate">
-              <ion-icon name="create-outline"></ion-icon>
-            </button>
-            <button class="cm-mc-action" (click)="copyShareLink(m._id)" [title]="'COMMON.SHARE' | translate">
-              <ion-icon [name]="copiedLinkId === m._id ? 'checkmark-outline' : 'link-outline'"></ion-icon>
-            </button>
-            <button class="cm-mc-action" (click)="toggleArchive(m)" [title]="m.status === 'archived' ? ('CREATE_MATERIAL.ALERT_PUBLISH_BTN' | translate) : ('CREATE_MATERIAL.ALERT_ARCHIVE_BTN' | translate)">
-              <ion-icon [name]="m.status === 'archived' ? 'arrow-undo-outline' : 'archive-outline'"></ion-icon>
-            </button>
-            <button class="cm-mc-action cm-mc-action--danger" (click)="confirmDelete(m)" [title]="'COMMON.DELETE' | translate">
-              <ion-icon name="trash-outline"></ion-icon>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── Bundles Section ── -->
-    <div class="cm-bundles-section" *ngIf="libraryTab === 'bundles'">
-      <div class="cm-library-loading" *ngIf="isLoadingBundles">
-        <ion-spinner name="crescent"></ion-spinner>
-      </div>
-
-      <div class="cm-library-empty" *ngIf="!isLoadingBundles && myBundles.length === 0">
-        <div class="cm-empty-icon">
-          <ion-icon name="folder-open-outline"></ion-icon>
-        </div>
-        <h3>No bundles yet</h3>
-        <p>Group your materials into bundles to offer structured learning packs to students.</p>
-        <button class="cm-btn-primary cm-btn-empty-create" (click)="startCreateBundle()">
-          Create your first bundle
-          <ion-icon name="arrow-forward-outline"></ion-icon>
-        </button>
-      </div>
-
-      <div class="cm-bundle-grid" *ngIf="!isLoadingBundles && myBundles.length > 0">
-        <div class="cm-bundle-card" *ngFor="let b of myBundles">
-
-          <!-- Cover -->
-          <div class="cm-bc-cover">
-            <img *ngIf="b.coverImageUrl" [src]="b.coverImageUrl" [alt]="b.title" />
-            <div class="cm-bc-cover-placeholder" *ngIf="!b.coverImageUrl">
-              <ion-icon name="folder-outline"></ion-icon>
+          <div class="cm-gateway-card">
+            <div class="cm-gateway-hero">
+              <img src="assets/materials-gateway.png" alt="" />
             </div>
-            <span class="cm-bc-status-badge" *ngIf="b.status === 'draft'">Draft</span>
-            <span class="cm-bc-price-badge" [class.free]="b.pricingType !== 'paid'">{{ b.pricingType === 'paid' ? '$' + b.price : 'Free' }}</span>
-          </div>
-
-          <!-- Body -->
-          <div class="cm-bc-body">
-            <h3 class="cm-bc-title">{{ b.title }}</h3>
-            <p class="cm-bc-description" *ngIf="b.description">{{ b.description }}</p>
-
-            <div class="cm-bc-meta">
-              <span class="cm-bc-meta-item"><ion-icon name="layers-outline"></ion-icon> {{ getBundleItemTypes(b) }}</span>
-              <span class="cm-bc-meta-item"><ion-icon name="globe-outline"></ion-icon> {{ b.language }}</span>
-            </div>
-
-            <div class="cm-bc-tags" *ngIf="b.structuredTags && b.structuredTags.length > 0">
-              <span class="cm-bc-tag" *ngFor="let tag of b.structuredTags | slice:0:3">{{ tag }}</span>
-            </div>
-
-            <div class="cm-bc-footer">
-              <div class="cm-bc-stats">
-                <span class="cm-bc-stat"><ion-icon name="eye-outline"></ion-icon> {{ b.stats?.views || 0 }}</span>
-                <span class="cm-bc-stat" *ngIf="b.pricingType === 'paid'"><ion-icon name="card-outline"></ion-icon> {{ b.stats?.purchases || 0 }}</span>
+            <button class="cm-gateway-row" *ngIf="myMaterials.length > 0" (click)="openMaterialsList()">
+              <div class="cm-gateway-row-content">
+                <div class="cm-gateway-icon cm-gateway-icon--view">
+                  <ion-icon name="layers-outline"></ion-icon>
+                </div>
+                <div class="cm-gateway-text">
+                  <span class="cm-gateway-title">{{ 'CREATE_MATERIAL.VIEW_EXISTING' | translate }}</span>
+                  <span class="cm-gateway-subtitle">{{ myMaterials.length }} {{ myMaterials.length === 1 ? 'material' : 'materials' }} {{ 'CREATE_MATERIAL.CREATED' | translate }}</span>
+                </div>
               </div>
-              <div class="cm-bc-actions">
-                <button class="cm-bc-action" (click)="previewBundle(b)" title="Preview">
-                  <ion-icon name="eye-outline"></ion-icon>
-                </button>
-                <button class="cm-bc-action" (click)="editBundle(b)" title="Edit">
+              <ion-icon name="chevron-forward-outline" class="cm-gateway-chevron"></ion-icon>
+            </button>
+            <button type="button" class="cm-gateway-row" (click)="startCreate()">
+              <div class="cm-gateway-row-content">
+                <div class="cm-gateway-icon cm-gateway-icon--create">
+                  <ion-icon name="add-outline"></ion-icon>
+                </div>
+                <div class="cm-gateway-text">
+                  <span class="cm-gateway-title">{{ myMaterials.length > 0 ? ('CREATE_MATERIAL.CREATE_NEW' | translate) : ('CREATE_MATERIAL.CREATE_FIRST' | translate) }}</span>
+                  <span class="cm-gateway-subtitle">{{ myMaterials.length > 0 ? ('CREATE_MATERIAL.CREATE_NEW_DESC' | translate) : ('CREATE_MATERIAL.LIBRARY_EMPTY_DESC' | translate) }}</span>
+                </div>
+              </div>
+              <ion-icon name="chevron-forward-outline" class="cm-gateway-chevron"></ion-icon>
+            </button>
+          </div>
+        </div>
+
+        <!-- Bundles column -->
+        <div class="cm-split-col">
+          <div class="cm-split-label">
+            <ion-icon name="folder-outline"></ion-icon>
+            <span>Bundles</span>
+            <span class="cm-split-count" *ngIf="myBundles.length > 0">{{ myBundles.length }}</span>
+          </div>
+          <div class="cm-gateway-card">
+            <div class="cm-gateway-hero">
+              <img src="assets/bundles-gateway.png" alt="" />
+            </div>
+            <button class="cm-gateway-row" *ngIf="myBundles.length > 0" (click)="openBundlesList()">
+              <div class="cm-gateway-row-content">
+                <div class="cm-gateway-icon cm-gateway-icon--view">
+                  <ion-icon name="folder-outline"></ion-icon>
+                </div>
+                <div class="cm-gateway-text">
+                  <span class="cm-gateway-title">View your bundles</span>
+                  <span class="cm-gateway-subtitle">{{ myBundles.length }} {{ myBundles.length === 1 ? 'bundle' : 'bundles' }} created</span>
+                </div>
+              </div>
+              <ion-icon name="chevron-forward-outline" class="cm-gateway-chevron"></ion-icon>
+            </button>
+            <button class="cm-gateway-row" (click)="startCreateBundle()">
+              <div class="cm-gateway-row-content">
+                <div class="cm-gateway-icon cm-gateway-icon--create">
+                  <ion-icon name="add-outline"></ion-icon>
+                </div>
+                <div class="cm-gateway-text">
+                  <span class="cm-gateway-title">{{ myBundles.length > 0 ? 'Create new bundle' : 'Create your first bundle' }}</span>
+                  <span class="cm-gateway-subtitle">{{ myBundles.length > 0 ? 'Build another learning pack' : 'Group materials into structured learning packs' }}</span>
+                </div>
+              </div>
+              <ion-icon name="chevron-forward-outline" class="cm-gateway-chevron"></ion-icon>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════ Mobile Materials Tab Gateway (hidden on desktop) ══════ -->
+      <ng-container *ngIf="libraryTab === 'materials'">
+        <div class="cm-gateway-card cm-mobile-only" *ngIf="!showMaterialsList">
+          <div class="cm-gateway-hero">
+            <img src="assets/materials-gateway.png" alt="" />
+          </div>
+          <button class="cm-gateway-row" *ngIf="myMaterials.length > 0" (click)="openMaterialsList()">
+            <div class="cm-gateway-row-content">
+              <div class="cm-gateway-icon cm-gateway-icon--view">
+                <ion-icon name="layers-outline"></ion-icon>
+              </div>
+              <div class="cm-gateway-text">
+                <span class="cm-gateway-title">{{ 'CREATE_MATERIAL.VIEW_EXISTING' | translate }}</span>
+                <span class="cm-gateway-subtitle">{{ myMaterials.length }} {{ myMaterials.length === 1 ? 'material' : 'materials' }} {{ 'CREATE_MATERIAL.CREATED' | translate }}</span>
+              </div>
+            </div>
+            <ion-icon name="chevron-forward-outline" class="cm-gateway-chevron"></ion-icon>
+          </button>
+          <button type="button" class="cm-gateway-row" (click)="startCreate()">
+            <div class="cm-gateway-row-content">
+              <div class="cm-gateway-icon cm-gateway-icon--create">
+                <ion-icon name="add-outline"></ion-icon>
+              </div>
+              <div class="cm-gateway-text">
+                <span class="cm-gateway-title">{{ myMaterials.length > 0 ? ('CREATE_MATERIAL.CREATE_NEW' | translate) : ('CREATE_MATERIAL.CREATE_FIRST' | translate) }}</span>
+                <span class="cm-gateway-subtitle">{{ myMaterials.length > 0 ? ('CREATE_MATERIAL.CREATE_NEW_DESC' | translate) : ('CREATE_MATERIAL.LIBRARY_EMPTY_DESC' | translate) }}</span>
+              </div>
+            </div>
+            <ion-icon name="chevron-forward-outline" class="cm-gateway-chevron"></ion-icon>
+          </button>
+        </div>
+      </ng-container>
+
+      <!-- ══════ Mobile Bundles Tab Gateway (hidden on desktop) ══════ -->
+      <ng-container *ngIf="libraryTab === 'bundles'">
+        <div class="cm-gateway-card cm-mobile-only" *ngIf="!showBundlesList && !isLoadingBundles">
+          <div class="cm-gateway-hero">
+            <img src="assets/bundles-gateway.png" alt="" />
+          </div>
+          <button class="cm-gateway-row" *ngIf="myBundles.length > 0" (click)="openBundlesList()">
+            <div class="cm-gateway-row-content">
+              <div class="cm-gateway-icon cm-gateway-icon--view">
+                <ion-icon name="folder-outline"></ion-icon>
+              </div>
+              <div class="cm-gateway-text">
+                <span class="cm-gateway-title">View your bundles</span>
+                <span class="cm-gateway-subtitle">{{ myBundles.length }} {{ myBundles.length === 1 ? 'bundle' : 'bundles' }} created</span>
+              </div>
+            </div>
+            <ion-icon name="chevron-forward-outline" class="cm-gateway-chevron"></ion-icon>
+          </button>
+          <button class="cm-gateway-row" (click)="startCreateBundle()">
+            <div class="cm-gateway-row-content">
+              <div class="cm-gateway-icon cm-gateway-icon--create">
+                <ion-icon name="add-outline"></ion-icon>
+              </div>
+              <div class="cm-gateway-text">
+                <span class="cm-gateway-title">{{ myBundles.length > 0 ? 'Create new bundle' : 'Create your first bundle' }}</span>
+                <span class="cm-gateway-subtitle">{{ myBundles.length > 0 ? 'Build another learning pack' : 'Group materials into structured learning packs' }}</span>
+              </div>
+            </div>
+            <ion-icon name="chevron-forward-outline" class="cm-gateway-chevron"></ion-icon>
+          </button>
+        </div>
+        <div class="cm-library-loading" *ngIf="isLoadingBundles">
+          <ion-spinner name="crescent"></ion-spinner>
+        </div>
+      </ng-container>
+
+      <!-- ══════ Materials List (both mobile & desktop) ══════ -->
+      <div class="cm-library-panel" *ngIf="showMaterialsList">
+        <div class="cm-list-header">
+          <button class="cm-list-back" type="button" (click)="closeMaterialsListToGateway()">
+            <ion-icon name="chevron-back-outline"></ion-icon>
+            Back
+          </button>
+          <button class="cm-btn-primary cm-btn-section-create" (click)="startCreate()">
+            <ion-icon name="add-outline"></ion-icon>
+            {{ 'CREATE_MATERIAL.LIBRARY_NEW' | translate }}
+          </button>
+        </div>
+        <div class="cm-library-list">
+          <div class="cm-material-card" *ngFor="let m of myMaterials" [class.archived]="m.status === 'archived'">
+            <div class="cm-mc-thumb">
+              <img *ngIf="m.thumbnailUrl" [src]="m.thumbnailUrl" [alt]="m.title" />
+              <div class="cm-mc-thumb-empty" *ngIf="!m.thumbnailUrl">
+                <img *ngIf="m.materialType === 'reading'" class="cm-mc-type-raster" src="assets/create-material-type-reading.png" alt="" />
+                <img *ngIf="m.materialType === 'listening'" class="cm-mc-type-raster" src="assets/create-material-type-listening.png" alt="" />
+                <ion-icon *ngIf="m.materialType === 'video_quiz'" name="videocam"></ion-icon>
+              </div>
+              <span class="cm-mc-status-badge" 
+                [class.draft]="m.status === 'draft'" 
+                [class.archived]="m.status === 'archived'"
+                *ngIf="m.status === 'draft' || m.status === 'archived'">{{ m.status }}</span>
+            </div>
+            <div class="cm-mc-body">
+              <div class="cm-mc-unavailable" *ngIf="m.mediaUnavailable && m.pricingType === 'paid'">
+                <ion-icon name="warning-outline"></ion-icon>
+                <span>{{ 'CREATE_MATERIAL.CARD_VIDEO_UNAVAILABLE' | translate }}</span>
+              </div>
+              <div class="cm-mc-badges">
+                <span class="cm-mc-type-label">{{ getMaterialTypeLabel(m.materialType) }}</span>
+                <span class="cm-mc-review-badge verified" *ngIf="m.channelVerified">
+                  <ion-icon name="checkmark-circle"></ion-icon> {{ 'CREATE_MATERIAL.CARD_VERIFIED' | translate }}
+                </span>
+                <span class="cm-mc-review-badge" *ngIf="m.reviewStatus === 'pending_review'">
+                  <ion-icon name="time-outline"></ion-icon> {{ 'CREATE_MATERIAL.CARD_PENDING' | translate }}
+                </span>
+                <span class="cm-mc-review-badge rejected" *ngIf="m.reviewStatus === 'rejected'">
+                  <ion-icon name="close-circle-outline"></ion-icon> {{ 'CREATE_MATERIAL.CARD_REJECTED' | translate }}
+                </span>
+              </div>
+              <h3 class="cm-mc-title">{{ m.title }}</h3>
+              <div class="cm-mc-price-row">
+                <span class="cm-mc-price" [class.free]="m.pricingType !== 'paid'">{{ m.pricingType === 'paid' ? '$' + m.price : ('CREATE_MATERIAL.CARD_FREE' | translate) }}</span>
+                <span class="cm-mc-questions">{{ m.quiz.length !== 1 ? ('CREATE_MATERIAL.CARD_QUESTIONS_PLURAL' | translate:{count: m.quiz.length}) : ('CREATE_MATERIAL.CARD_QUESTIONS' | translate:{count: m.quiz.length}) }}</span>
+              </div>
+              <div class="cm-mc-details-line">
+                <span class="cm-mc-details-text">{{ m.language }}</span>
+                <span class="cm-mc-details-sep" aria-hidden="true">·</span>
+                <span class="cm-mc-details-text">{{ formatDate(m.createdAt) }}</span>
+              </div>
+              <div class="cm-mc-stats">
+                <div class="cm-mc-stat"><ion-icon name="eye-outline"></ion-icon> {{ m.stats.views }}</div>
+                <div class="cm-mc-stat"><ion-icon name="school-outline"></ion-icon> {{ m.stats.quizAttempts }}</div>
+                <div class="cm-mc-stat" *ngIf="m.stats.averageScore > 0"><ion-icon name="trending-up-outline"></ion-icon> {{ m.stats.averageScore }}%</div>
+                <div class="cm-mc-stat" *ngIf="m.pricingType === 'paid'"><ion-icon name="card-outline"></ion-icon> {{ m.stats.purchases }}</div>
+              </div>
+              <button class="cm-mc-preview-btn" (click)="previewMaterial(m)">
+                <ion-icon name="eye-outline"></ion-icon>
+                {{ 'CREATE_MATERIAL.CARD_PREVIEW' | translate }}
+              </button>
+              <div class="cm-mc-actions">
+                <button class="cm-mc-action" (click)="editMaterial(m)" [title]="'COMMON.EDIT' | translate">
                   <ion-icon name="create-outline"></ion-icon>
                 </button>
-                <button class="cm-bc-action cm-bc-action--danger" (click)="confirmDeleteBundle(b)" title="Delete">
+                <button class="cm-mc-action" (click)="copyShareLink(m._id)" [title]="'COMMON.SHARE' | translate">
+                  <ion-icon [name]="copiedLinkId === m._id ? 'checkmark-outline' : 'link-outline'"></ion-icon>
+                </button>
+                <button class="cm-mc-action" (click)="toggleArchive(m)" [title]="m.status === 'archived' ? ('CREATE_MATERIAL.ALERT_PUBLISH_BTN' | translate) : ('CREATE_MATERIAL.ALERT_ARCHIVE_BTN' | translate)">
+                  <ion-icon [name]="m.status === 'archived' ? 'arrow-undo-outline' : 'archive-outline'"></ion-icon>
+                </button>
+                <button class="cm-mc-action cm-mc-action--danger" (click)="confirmDelete(m)" [title]="'COMMON.DELETE' | translate">
                   <ion-icon name="trash-outline"></ion-icon>
                 </button>
               </div>
@@ -342,9 +402,60 @@
           </div>
         </div>
       </div>
-    </div>
 
-    </div><!-- .cm-library-panel -->
+      <!-- ══════ Bundles List (both mobile & desktop) ══════ -->
+      <div class="cm-library-panel" *ngIf="showBundlesList && !isLoadingBundles">
+        <div class="cm-list-header">
+          <button class="cm-list-back" type="button" (click)="closeBundlesListToGateway()">
+            <ion-icon name="chevron-back-outline"></ion-icon>
+            Back
+          </button>
+          <button class="cm-btn-primary cm-btn-section-create" (click)="startCreateBundle()">
+            <ion-icon name="add-outline"></ion-icon>
+            New Bundle
+          </button>
+        </div>
+        <div class="cm-bundle-grid">
+          <div class="cm-bundle-card" *ngFor="let b of myBundles">
+            <div class="cm-bc-cover">
+              <img *ngIf="b.coverImageUrl" [src]="b.coverImageUrl" [alt]="b.title" />
+              <div class="cm-bc-cover-placeholder" *ngIf="!b.coverImageUrl">
+                <ion-icon name="folder-outline"></ion-icon>
+              </div>
+              <span class="cm-bc-status-badge" *ngIf="b.status === 'draft'">Draft</span>
+              <span class="cm-bc-price-badge" [class.free]="b.pricingType !== 'paid'">{{ b.pricingType === 'paid' ? '$' + b.price : 'Free' }}</span>
+            </div>
+            <div class="cm-bc-body">
+              <h3 class="cm-bc-title">{{ b.title }}</h3>
+              <p class="cm-bc-description" *ngIf="b.description">{{ b.description }}</p>
+              <div class="cm-bc-meta">
+                <span class="cm-bc-meta-item"><ion-icon name="layers-outline"></ion-icon> {{ getBundleItemTypes(b) }}</span>
+                <span class="cm-bc-meta-item"><ion-icon name="globe-outline"></ion-icon> {{ b.language }}</span>
+              </div>
+              <div class="cm-bc-tags" *ngIf="b.structuredTags && b.structuredTags.length > 0">
+                <span class="cm-bc-tag" *ngFor="let tag of b.structuredTags | slice:0:3">{{ tag }}</span>
+              </div>
+              <div class="cm-bc-footer">
+                <div class="cm-bc-stats">
+                  <span class="cm-bc-stat"><ion-icon name="eye-outline"></ion-icon> {{ b.stats?.views || 0 }}</span>
+                  <span class="cm-bc-stat" *ngIf="b.pricingType === 'paid'"><ion-icon name="card-outline"></ion-icon> {{ b.stats?.purchases || 0 }}</span>
+                </div>
+                <div class="cm-bc-actions">
+                  <button class="cm-bc-action" (click)="previewBundle(b)" title="Preview">
+                    <ion-icon name="eye-outline"></ion-icon>
+                  </button>
+                  <button class="cm-bc-action" (click)="editBundle(b)" title="Edit">
+                    <ion-icon name="create-outline"></ion-icon>
+                  </button>
+                  <button class="cm-bc-action cm-bc-action--danger" (click)="confirmDeleteBundle(b)" title="Delete">
+                    <ion-icon name="trash-outline"></ion-icon>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
     </div><!-- .cm-library-content-area -->
 
@@ -357,118 +468,216 @@
 <!-- ═══════════════════════════════════════════════════════ -->
 <div class="cm-bundle-editor" *ngIf="viewMode === 'bundle-create'">
 
-  <!-- Intro Tip -->
-  <div class="cm-bundle-tip cm-bundle-tip--intro">
-    <ion-icon name="bulb-outline"></ion-icon>
-    <div>
-      <strong>What's a bundle?</strong>
-      <p>A bundle groups your materials (videos, readings, listening exercises) into a structured learning pack. Students can purchase or access the entire bundle at once — great for themed content like "Travel Spanish" or "Business English Basics".</p>
+  <!-- Desktop: focused step wizard (matches material details wizard) -->
+  <div *ngIf="bundleWizardLayoutActive" class="cm-details-wizard cm-bundle-wizard">
+    <div class="cm-details-wizard-progress" *ngIf="bundleWizardStepTotal > 1 && bundleWizardStepId !== 'bundleShare'" aria-hidden="true">
+      <div class="cm-details-wizard-progress-fill" [style.width.%]="bundleWizardProgressPercent"></div>
+    </div>
+    <div class="cm-details-wizard-scroll">
+      <div class="cm-details-wizard-scroll-inner">
+        <div class="cm-step-header cm-details-wizard-header" [class.cm-details-wizard-header--tight]="bundleWizardStepId === 'bundleShare'">
+          <span class="cm-edit-badge cm-edit-badge--wizard" *ngIf="editingBundleId"><ion-icon name="create-outline"></ion-icon> Editing</span>
+          <h1>{{ bundleWizardHeadlineKey | translate }}</h1>
+          <p *ngIf="bundleWizardStepId !== 'bundleShare'">{{ bundleWizardSublineKey | translate }}</p>
+        </div>
+
+        <div class="cm-details-wizard-panel" *ngIf="bundleWizardStepId === 'bundleShare'">
+          <div class="cm-pricing-cards cm-pricing-cards--row cm-bundle-wizard-pricing-cards">
+            <button type="button" class="cm-pricing-card cm-pricing-card--compact" [class.selected]="bundlePricingType === 'free'" (click)="selectBundleSharePricing('free')">
+              <div class="cm-pricing-icon cm-pricing-icon--free">
+                <ion-icon name="gift-outline"></ion-icon>
+              </div>
+              <h3>{{ 'CREATE_MATERIAL.PRICING_FREE' | translate }}</h3>
+              <p>{{ 'CREATE_MATERIAL.PRICING_FREE_DESC' | translate }}</p>
+            </button>
+            <button type="button" class="cm-pricing-card cm-pricing-card--compact" [class.selected]="bundlePricingType === 'paid'" (click)="selectBundleSharePricing('paid')">
+              <div class="cm-pricing-icon cm-pricing-icon--paid">
+                <ion-icon name="card-outline"></ion-icon>
+              </div>
+              <h3>{{ 'CREATE_MATERIAL.PRICING_PAID' | translate }}</h3>
+              <p>{{ 'CREATE_MATERIAL.BUNDLE_PRICING_PAID_DESC' | translate }}</p>
+            </button>
+          </div>
+        </div>
+
+        <div class="cm-details-wizard-panel" *ngIf="bundleWizardStepId === 'bundleTitle'">
+          <div class="cm-bundle-tip cm-bundle-tip--intro">
+            <ion-icon name="bulb-outline"></ion-icon>
+            <div>
+              <strong>{{ 'CREATE_MATERIAL.BUNDLE_INTRO_TITLE' | translate }}</strong>
+              <p>{{ 'CREATE_MATERIAL.BUNDLE_INTRO_BODY' | translate }}</p>
+            </div>
+          </div>
+          <div class="cm-field">
+            <label>{{ 'CREATE_MATERIAL.BUNDLE_FIELD_TITLE' | translate }} <span class="required">*</span></label>
+            <input type="text" [(ngModel)]="bundleTitle" [placeholder]="'CREATE_MATERIAL.BUNDLE_FIELD_TITLE_PH' | translate" maxlength="100" />
+            <span class="cm-field-tip">{{ 'CREATE_MATERIAL.BUNDLE_FIELD_TITLE_TIP' | translate }}</span>
+          </div>
+        </div>
+
+        <div class="cm-details-wizard-panel" *ngIf="bundleWizardStepId === 'bundleDescription'">
+          <div class="cm-field">
+            <label>{{ 'CREATE_MATERIAL.BUNDLE_FIELD_DESC' | translate }}</label>
+            <textarea [(ngModel)]="bundleDescription" [placeholder]="'CREATE_MATERIAL.BUNDLE_FIELD_DESC_PH' | translate" rows="5" maxlength="500"></textarea>
+          </div>
+        </div>
+
+        <div class="cm-details-wizard-panel" *ngIf="bundleWizardStepId === 'bundleMaterials'">
+          <div class="cm-field cm-bundle-materials-field">
+            <label>{{ 'CREATE_MATERIAL.BUNDLE_FIELD_MATERIALS' | translate }} <span class="cm-label-hint">{{ 'CREATE_MATERIAL.BUNDLE_FIELD_MATERIALS_HINT' | translate: { count: bundleSelectedMaterialIds.length } }}</span></label>
+            <div class="cm-bundle-material-empty" *ngIf="publishedMaterials.length === 0">
+              <ion-icon name="layers-outline"></ion-icon>
+              <p class="cm-bundle-material-empty-title">{{ 'CREATE_MATERIAL.BUNDLE_MATERIALS_EMPTY_TITLE' | translate }}</p>
+              <p class="cm-bundle-material-empty-body">{{ 'CREATE_MATERIAL.BUNDLE_MATERIALS_EMPTY_BODY' | translate }}</p>
+              <button type="button" class="cm-btn-primary cm-bundle-material-empty-cta" (click)="goToCreateMaterialFromBundle()">{{ 'CREATE_MATERIAL.BUNDLE_MATERIALS_CREATE_CTA' | translate }}</button>
+            </div>
+            <div class="cm-bundle-material-list" *ngIf="publishedMaterials.length > 0">
+              <button type="button" class="cm-bundle-material-item" *ngFor="let m of publishedMaterials" [class.selected]="isMaterialInBundle(m._id)" (click)="toggleMaterialInBundle(m._id)">
+                <div class="cm-bmi-check">
+                  <ion-icon [name]="isMaterialInBundle(m._id) ? 'checkbox' : 'square-outline'"></ion-icon>
+                </div>
+                <div class="cm-bmi-thumb">
+                  <img *ngIf="m.thumbnailUrl" [src]="m.thumbnailUrl" [alt]="m.title" />
+                  <img *ngIf="!m.thumbnailUrl && m.materialType === 'reading'" class="cm-bmi-type-raster" src="assets/create-material-type-reading.png" alt="" />
+                  <img *ngIf="!m.thumbnailUrl && m.materialType === 'listening'" class="cm-bmi-type-raster" src="assets/create-material-type-listening.png" alt="" />
+                  <ion-icon *ngIf="!m.thumbnailUrl && m.materialType === 'video_quiz'" name="videocam"></ion-icon>
+                </div>
+                <div class="cm-bmi-info">
+                  <span class="cm-bmi-title">{{ m.title }}</span>
+                  <span class="cm-bmi-meta">{{ getMaterialTypeLabel(m.materialType) }} · {{ m.quiz.length }} questions</span>
+                </div>
+                <span class="cm-bmi-price" *ngIf="m.pricingType === 'paid'">${{ m.price }}</span>
+                <span class="cm-bmi-price free" *ngIf="m.pricingType !== 'paid'">Free</span>
+              </button>
+            </div>
+            <div class="cm-bundle-tip cm-bundle-tip--warning" *ngIf="hasPaidMaterialsInFreeBundle">
+              <img src="assets/icons-app-bird-2.png" alt="" class="cm-tip-mascot" />
+              <div>
+                <strong>Heads up — you're including paid materials in a free bundle</strong>
+                <p>{{ selectedPaidMaterials.length }} paid material{{ selectedPaidMaterials.length > 1 ? 's' : '' }} worth ${{ bundlePaidMaterialsValue | number:'1.2-2' }} total will become free for anyone who gets this bundle. This is fine if you want to use this bundle as a way to attract students — just make sure it's intentional.</p>
+              </div>
+            </div>
+            <span class="cm-field-tip">{{ 'CREATE_MATERIAL.BUNDLE_MATERIALS_FOOTTIP' | translate }}</span>
+          </div>
+        </div>
+
+        <div class="cm-details-wizard-panel" *ngIf="bundleWizardStepId === 'bundleCover'">
+          <div class="cm-field">
+            <label>{{ 'CREATE_MATERIAL.BUNDLE_FIELD_COVER' | translate }} <span class="cm-label-hint">Optional</span></label>
+            <div class="cm-bundle-cover-upload">
+              <div class="cm-bcu-preview" *ngIf="bundleCoverPreview || bundleCoverUrl">
+                <img [src]="bundleCoverPreview || bundleCoverUrl" alt="" />
+                <button type="button" class="cm-bcu-remove" (click)="removeBundleCover()">
+                  <ion-icon name="close-outline"></ion-icon>
+                </button>
+              </div>
+              <label class="cm-bcu-dropzone" *ngIf="!bundleCoverPreview && !bundleCoverUrl">
+                <ion-icon name="image-outline"></ion-icon>
+                <span>{{ 'CREATE_MATERIAL.BUNDLE_UPLOAD_COVER' | translate }}</span>
+                <span class="cm-bcu-hint">{{ 'CREATE_MATERIAL.BUNDLE_COVER_HINT' | translate }}</span>
+                <input type="file" accept="image/*" (change)="onBundleCoverSelected($event)" hidden />
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="cm-details-wizard-panel" *ngIf="bundleWizardStepId === 'bundleLanguageLevel'">
+          <div class="cm-field-row cm-details-wizard-field-row">
+            <div class="cm-field">
+              <label>{{ 'CREATE_MATERIAL.BUNDLE_FIELD_LANG' | translate }} <span class="required">*</span></label>
+              <select [(ngModel)]="bundleLanguage">
+                <option *ngFor="let lang of languages" [value]="lang">{{ lang }}</option>
+              </select>
+            </div>
+            <div class="cm-field">
+              <label>{{ 'CREATE_MATERIAL.BUNDLE_FIELD_LEVEL' | translate }}</label>
+              <select [(ngModel)]="bundleLevel">
+                <option *ngFor="let lv of levels" [value]="lv.value">{{ lv.label }}</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="cm-details-wizard-panel" *ngIf="bundleWizardStepId === 'bundleTags'">
+          <div class="cm-field">
+            <label>{{ 'CREATE_MATERIAL.BUNDLE_FIELD_TAGS' | translate }} <span class="cm-label-hint">{{ 'CREATE_MATERIAL.BUNDLE_FIELD_TAGS_HINT' | translate }}</span></label>
+            <app-tag-picker [selectedTagIds]="bundleStructuredTags" (selectedTagIdsChange)="bundleStructuredTags = $event" [maxTags]="8"></app-tag-picker>
+          </div>
+        </div>
+
+        <div class="cm-details-wizard-panel" *ngIf="bundleWizardStepId === 'bundlePrice'">
+          <div class="cm-field">
+            <label>{{ 'CREATE_MATERIAL.BUNDLE_WIZ_PRICE_FIELD' | translate }}</label>
+            <div class="cm-bundle-price-input">
+              <span class="cm-price-prefix">$</span>
+              <input type="number" [(ngModel)]="bundlePrice" min="1" max="500" step="0.01" placeholder="15.00" />
+            </div>
+            <span class="cm-field-tip">{{ 'CREATE_MATERIAL.BUNDLE_WIZ_PRICE_TIP' | translate }}</span>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <div class="cm-bundle-form">
-    <!-- Title -->
-    <div class="cm-field">
-      <label>Bundle Title <span class="required">*</span></label>
-      <input type="text" [(ngModel)]="bundleTitle" placeholder="e.g. Spanish for Travel - Complete Pack" maxlength="100" />
-      <span class="cm-field-tip">Choose something descriptive — students browse by title first.</span>
+  <!-- Mobile / standalone: full stacked form (share → intro → title → …) -->
+  <div *ngIf="!bundleWizardLayoutActive" class="cm-bundle-form">
+    <div class="cm-bundle-form-share-header">
+      <h1>{{ 'CREATE_MATERIAL.BUNDLE_WIZ_SHARE_H' | translate }}</h1>
     </div>
-
-    <!-- Description -->
-    <div class="cm-field">
-      <label>Description</label>
-      <textarea [(ngModel)]="bundleDescription" placeholder="What will students learn from this bundle?" rows="3" maxlength="500"></textarea>
-    </div>
-
-    <!-- Cover Image -->
-    <div class="cm-field">
-      <label>Cover Image</label>
-      <div class="cm-bundle-cover-upload">
-        <div class="cm-bcu-preview" *ngIf="bundleCoverPreview">
-          <img [src]="bundleCoverPreview" alt="Cover preview" />
-          <button class="cm-bcu-remove" (click)="removeBundleCover()">
-            <ion-icon name="close-outline"></ion-icon>
-          </button>
+    <div class="cm-pricing-cards cm-pricing-cards--row cm-bundle-form-pricing-cards">
+      <button type="button" class="cm-pricing-card cm-pricing-card--compact" [class.selected]="bundlePricingType === 'free'" (click)="selectBundleSharePricing('free')">
+        <div class="cm-pricing-icon cm-pricing-icon--free">
+          <ion-icon name="gift-outline"></ion-icon>
         </div>
-        <label class="cm-bcu-dropzone" *ngIf="!bundleCoverPreview">
-          <ion-icon name="image-outline"></ion-icon>
-          <span>Upload cover image</span>
-          <span class="cm-bcu-hint">Recommended: 1200 x 630px</span>
-          <input type="file" accept="image/*" (change)="onBundleCoverSelected($event)" hidden />
-        </label>
+        <h3>{{ 'CREATE_MATERIAL.PRICING_FREE' | translate }}</h3>
+        <p>{{ 'CREATE_MATERIAL.PRICING_FREE_DESC' | translate }}</p>
+      </button>
+      <button type="button" class="cm-pricing-card cm-pricing-card--compact" [class.selected]="bundlePricingType === 'paid'" (click)="selectBundleSharePricing('paid')">
+        <div class="cm-pricing-icon cm-pricing-icon--paid">
+          <ion-icon name="card-outline"></ion-icon>
+        </div>
+        <h3>{{ 'CREATE_MATERIAL.PRICING_PAID' | translate }}</h3>
+        <p>{{ 'CREATE_MATERIAL.BUNDLE_PRICING_PAID_DESC' | translate }}</p>
+      </button>
+    </div>
+
+    <div class="cm-bundle-tip cm-bundle-tip--intro">
+      <ion-icon name="bulb-outline"></ion-icon>
+      <div>
+        <strong>{{ 'CREATE_MATERIAL.BUNDLE_INTRO_TITLE' | translate }}</strong>
+        <p>{{ 'CREATE_MATERIAL.BUNDLE_INTRO_BODY' | translate }}</p>
       </div>
     </div>
 
-    <!-- Language & Level -->
-    <div class="cm-field-row">
-      <div class="cm-field">
-        <label>Language <span class="required">*</span></label>
-        <select [(ngModel)]="bundleLanguage">
-          <option *ngFor="let lang of languages" [value]="lang">{{ lang }}</option>
-        </select>
-      </div>
-      <div class="cm-field">
-        <label>Level</label>
-        <select [(ngModel)]="bundleLevel">
-          <option value="any">Any Level</option>
-          <option value="beginner">Beginner</option>
-          <option value="intermediate">Intermediate</option>
-          <option value="advanced">Advanced</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Tags -->
     <div class="cm-field">
-      <label>Tags <span class="cm-label-hint">Help students discover this bundle</span></label>
-      <app-tag-picker
-        [selectedTagIds]="bundleStructuredTags"
-        (selectedTagIdsChange)="bundleStructuredTags = $event"
-        [maxTags]="8">
-      </app-tag-picker>
+      <label>{{ 'CREATE_MATERIAL.BUNDLE_FIELD_TITLE' | translate }} <span class="required">*</span></label>
+      <input type="text" [(ngModel)]="bundleTitle" [placeholder]="'CREATE_MATERIAL.BUNDLE_FIELD_TITLE_PH' | translate" maxlength="100" />
+      <span class="cm-field-tip">{{ 'CREATE_MATERIAL.BUNDLE_FIELD_TITLE_TIP' | translate }}</span>
     </div>
 
-    <!-- Pricing -->
     <div class="cm-field">
-      <label>Pricing</label>
-      <div class="cm-bundle-pricing-toggle">
-        <button class="cm-pricing-opt" [class.active]="bundlePricingType === 'free'" (click)="bundlePricingType = 'free'">
-          <ion-icon name="gift-outline"></ion-icon> Free
-        </button>
-        <button class="cm-pricing-opt" [class.active]="bundlePricingType === 'paid'" (click)="bundlePricingType = 'paid'">
-          <ion-icon name="card-outline"></ion-icon> Paid
-        </button>
-      </div>
-      <div class="cm-bundle-price-input" *ngIf="bundlePricingType === 'paid'">
-        <span class="cm-price-prefix">$</span>
-        <input type="number" [(ngModel)]="bundlePrice" min="1" max="500" step="0.01" placeholder="15.00" />
-      </div>
-      <span class="cm-field-tip" *ngIf="bundlePricingType === 'paid'">Tip: Price below the total of individual materials to make the bundle an obvious deal.</span>
-      <span class="cm-field-tip" *ngIf="bundlePricingType === 'free'">Free bundles are great for attracting new students — they can discover your teaching style.</span>
+      <label>{{ 'CREATE_MATERIAL.BUNDLE_FIELD_DESC' | translate }}</label>
+      <textarea [(ngModel)]="bundleDescription" [placeholder]="'CREATE_MATERIAL.BUNDLE_FIELD_DESC_PH' | translate" rows="3" maxlength="500"></textarea>
     </div>
 
-    <!-- Select Materials -->
     <div class="cm-field cm-bundle-materials-field">
-      <label>Materials in Bundle <span class="cm-label-hint">{{ bundleSelectedMaterialIds.length }} selected</span></label>
-
+      <label>{{ 'CREATE_MATERIAL.BUNDLE_FIELD_MATERIALS' | translate }} <span class="cm-label-hint">{{ 'CREATE_MATERIAL.BUNDLE_FIELD_MATERIALS_HINT' | translate: { count: bundleSelectedMaterialIds.length } }}</span></label>
       <div class="cm-bundle-material-empty" *ngIf="publishedMaterials.length === 0">
         <ion-icon name="layers-outline"></ion-icon>
-        <p>No materials available. Create some materials first.</p>
+        <p class="cm-bundle-material-empty-title">{{ 'CREATE_MATERIAL.BUNDLE_MATERIALS_EMPTY_TITLE' | translate }}</p>
+        <p class="cm-bundle-material-empty-body">{{ 'CREATE_MATERIAL.BUNDLE_MATERIALS_EMPTY_BODY' | translate }}</p>
+        <button type="button" class="cm-btn-primary cm-bundle-material-empty-cta" (click)="goToCreateMaterialFromBundle()">{{ 'CREATE_MATERIAL.BUNDLE_MATERIALS_CREATE_CTA' | translate }}</button>
       </div>
-
       <div class="cm-bundle-material-list" *ngIf="publishedMaterials.length > 0">
-        <button
-          type="button"
-          class="cm-bundle-material-item"
-          *ngFor="let m of publishedMaterials"
-          [class.selected]="isMaterialInBundle(m._id)"
-          (click)="toggleMaterialInBundle(m._id)">
+        <button type="button" class="cm-bundle-material-item" *ngFor="let m of publishedMaterials" [class.selected]="isMaterialInBundle(m._id)" (click)="toggleMaterialInBundle(m._id)">
           <div class="cm-bmi-check">
             <ion-icon [name]="isMaterialInBundle(m._id) ? 'checkbox' : 'square-outline'"></ion-icon>
           </div>
           <div class="cm-bmi-thumb">
             <img *ngIf="m.thumbnailUrl" [src]="m.thumbnailUrl" [alt]="m.title" />
-            <ion-icon *ngIf="!m.thumbnailUrl" [name]="m.materialType === 'video_quiz' ? 'videocam' : m.materialType === 'reading' ? 'book' : 'headset'"></ion-icon>
+            <img *ngIf="!m.thumbnailUrl && m.materialType === 'reading'" class="cm-bmi-type-raster" src="assets/create-material-type-reading.png" alt="" />
+            <img *ngIf="!m.thumbnailUrl && m.materialType === 'listening'" class="cm-bmi-type-raster" src="assets/create-material-type-listening.png" alt="" />
+            <ion-icon *ngIf="!m.thumbnailUrl && m.materialType === 'video_quiz'" name="videocam"></ion-icon>
           </div>
           <div class="cm-bmi-info">
             <span class="cm-bmi-title">{{ m.title }}</span>
@@ -478,28 +687,71 @@
           <span class="cm-bmi-price free" *ngIf="m.pricingType !== 'paid'">Free</span>
         </button>
       </div>
-
-      <!-- Paid materials in free bundle warning -->
       <div class="cm-bundle-tip cm-bundle-tip--warning" *ngIf="hasPaidMaterialsInFreeBundle">
-        <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="cm-tip-mascot" />
+        <img src="assets/icons-app-bird-2.png" alt="" class="cm-tip-mascot" />
         <div>
           <strong>Heads up — you're including paid materials in a free bundle</strong>
           <p>{{ selectedPaidMaterials.length }} paid material{{ selectedPaidMaterials.length > 1 ? 's' : '' }} worth ${{ bundlePaidMaterialsValue | number:'1.2-2' }} total will become free for anyone who gets this bundle. This is fine if you want to use this bundle as a way to attract students — just make sure it's intentional.</p>
         </div>
       </div>
-
-      <span class="cm-field-tip">Students who get the bundle unlock all materials inside it, regardless of individual pricing.</span>
+      <span class="cm-field-tip">{{ 'CREATE_MATERIAL.BUNDLE_MATERIALS_FOOTTIP' | translate }}</span>
     </div>
 
-    <!-- Actions -->
+    <div class="cm-field">
+      <label>{{ 'CREATE_MATERIAL.BUNDLE_FIELD_COVER' | translate }} <span class="cm-label-hint">Optional</span></label>
+      <div class="cm-bundle-cover-upload">
+        <div class="cm-bcu-preview" *ngIf="bundleCoverPreview || bundleCoverUrl">
+          <img [src]="bundleCoverPreview || bundleCoverUrl" alt="" />
+          <button type="button" class="cm-bcu-remove" (click)="removeBundleCover()">
+            <ion-icon name="close-outline"></ion-icon>
+          </button>
+        </div>
+        <label class="cm-bcu-dropzone" *ngIf="!bundleCoverPreview && !bundleCoverUrl">
+          <ion-icon name="image-outline"></ion-icon>
+          <span>{{ 'CREATE_MATERIAL.BUNDLE_UPLOAD_COVER' | translate }}</span>
+          <span class="cm-bcu-hint">{{ 'CREATE_MATERIAL.BUNDLE_COVER_HINT' | translate }}</span>
+          <input type="file" accept="image/*" (change)="onBundleCoverSelected($event)" hidden />
+        </label>
+      </div>
+    </div>
+
+    <div class="cm-field-row">
+      <div class="cm-field">
+        <label>{{ 'CREATE_MATERIAL.BUNDLE_FIELD_LANG' | translate }} <span class="required">*</span></label>
+        <select [(ngModel)]="bundleLanguage">
+          <option *ngFor="let lang of languages" [value]="lang">{{ lang }}</option>
+        </select>
+      </div>
+      <div class="cm-field">
+        <label>{{ 'CREATE_MATERIAL.BUNDLE_FIELD_LEVEL' | translate }}</label>
+        <select [(ngModel)]="bundleLevel">
+          <option *ngFor="let lv of levels" [value]="lv.value">{{ lv.label }}</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="cm-field">
+      <label>{{ 'CREATE_MATERIAL.BUNDLE_FIELD_TAGS' | translate }} <span class="cm-label-hint">{{ 'CREATE_MATERIAL.BUNDLE_FIELD_TAGS_HINT' | translate }}</span></label>
+      <app-tag-picker [selectedTagIds]="bundleStructuredTags" (selectedTagIdsChange)="bundleStructuredTags = $event" [maxTags]="8"></app-tag-picker>
+    </div>
+
+    <div class="cm-field" *ngIf="bundlePricingType === 'paid'">
+      <label>{{ 'CREATE_MATERIAL.BUNDLE_WIZ_PRICE_FIELD' | translate }}</label>
+      <div class="cm-bundle-price-input">
+        <span class="cm-price-prefix">$</span>
+        <input type="number" [(ngModel)]="bundlePrice" min="1" max="500" step="0.01" placeholder="15.00" />
+      </div>
+      <span class="cm-field-tip">{{ 'CREATE_MATERIAL.BUNDLE_WIZ_PRICE_TIP' | translate }}</span>
+    </div>
+
     <div class="cm-bundle-actions">
-      <button class="cm-btn-secondary" (click)="saveBundleAsDraft()" [disabled]="isSavingBundle || !bundleTitle.trim()">
+      <button type="button" class="cm-btn-secondary" *ngIf="bundleTitle.trim() && !editingBundleId" (click)="saveBundleAsDraft()" [disabled]="isSavingBundle || !bundleTitle.trim() || bundlePricingType === null">
         <ion-spinner *ngIf="isSavingBundle" name="crescent" style="width:14px;height:14px;margin-right:4px"></ion-spinner>
-        Save as Draft
+        {{ 'CREATE_MATERIAL.BUNDLE_SAVE_DRAFT' | translate }}
       </button>
-      <button class="cm-btn-primary" (click)="saveBundle()" [disabled]="isSavingBundle || !bundleTitle.trim() || !bundleLanguage || (bundlePricingType === 'paid' && bundlePrice <= 0)">
+      <button type="button" class="cm-btn-primary" (click)="saveBundle()" [disabled]="isSavingBundle || !bundleTitle.trim() || !bundleLanguage || bundlePricingType === null || (bundlePricingType === 'paid' && bundlePrice <= 0) || bundleSelectedMaterialIds.length < 2">
         <ion-spinner *ngIf="isSavingBundle" name="crescent" style="width:14px;height:14px;color:#fff;margin-right:4px"></ion-spinner>
-        {{ editingBundleId ? 'Update Bundle' : 'Publish Bundle' }}
+        {{ editingBundleId ? ('CREATE_MATERIAL.BUNDLE_WIZ_UPDATE' | translate) : ('CREATE_MATERIAL.BUNDLE_WIZ_PUBLISH' | translate) }}
       </button>
     </div>
   </div>
@@ -508,10 +760,14 @@
 <!-- ═══════════════════════════════════════════════════════ -->
 <!-- CREATE / EDIT VIEW                                     -->
 <!-- ═══════════════════════════════════════════════════════ -->
-<div class="create-material-container" [class.inline]="inline" *ngIf="viewMode === 'create'">
+<div
+  class="create-material-container"
+  [class.inline]="inline"
+  [class.cm-details-wizard-layout]="createMaterialContainerDetailsWizardLayout"
+  *ngIf="viewMode === 'create'">
 
-  <!-- Step progress bar -->
-  <div class="cm-step-indicator" *ngIf="!editingMaterialId">
+  <!-- Step progress bar (hide during desktop details sub-wizard; hide on desktop type + pricing steps) -->
+  <div class="cm-step-indicator" *ngIf="showMaterialCreateTopProgressBar">
     <div class="cm-step-bar">
       <div class="cm-step-fill" [style.width.%]="(stepNumber / totalSteps) * 100"></div>
     </div>
@@ -525,8 +781,8 @@
 
     <div class="cm-type-cards">
       <button class="cm-type-card" [class.cm-type-disabled]="!hasVideoChannel" data-type="video_quiz" (click)="hasVideoChannel ? onTypeCardClick($event, 'video_quiz') : null" [disabled]="!hasVideoChannel">
-        <div class="cm-type-icon">
-          <ion-icon name="videocam-outline"></ion-icon>
+        <div class="cm-type-icon cm-type-icon--video">
+          <img src="assets/create-material-type-video-quiz.png" alt="" />
         </div>
         <div class="cm-type-text">
           <h3>{{ 'CREATE_MATERIAL.TYPE_VIDEO_QUIZ' | translate }}</h3>
@@ -540,8 +796,8 @@
       </button>
 
       <button class="cm-type-card" data-type="reading" (click)="onTypeCardClick($event, 'reading')">
-        <div class="cm-type-icon">
-          <ion-icon name="book-outline"></ion-icon>
+        <div class="cm-type-icon cm-type-icon--reading">
+          <img src="assets/create-material-type-reading.png" alt="" />
         </div>
         <div class="cm-type-text">
           <h3>{{ 'CREATE_MATERIAL.TYPE_READING' | translate }}</h3>
@@ -551,8 +807,8 @@
       </button>
 
       <button class="cm-type-card" data-type="listening" (click)="onTypeCardClick($event, 'listening')">
-        <div class="cm-type-icon">
-          <ion-icon name="headset-outline"></ion-icon>
+        <div class="cm-type-icon cm-type-icon--listening">
+          <img src="assets/create-material-type-listening.png" alt="" />
         </div>
         <div class="cm-type-text">
           <h3>{{ 'CREATE_MATERIAL.TYPE_LISTENING' | translate }}</h3>
@@ -563,35 +819,69 @@
     </div>
   </div>
 
-  <!-- ═══════════ STEP 2: Pricing ═══════════ -->
-  <div class="cm-step cm-step--compact" *ngIf="currentStep === 'pricing' && !editingMaterialId">
-    <div class="cm-selected-type-chip" id="cm-type-dest">
-      <ion-icon [name]="typeIcon"></ion-icon>
-      <span>{{ typeLabel }}</span>
+  <!-- ═══════════ STEP 2: Pricing (markup aligned with bundle share: wizard vs form) ═══════════ -->
+  <div class="cm-step" *ngIf="currentStep === 'pricing' && !editingMaterialId">
+    <!-- FLIP destination: keep above wizard scroll so fly-to rect matches original layout -->
+    <div class="cm-selected-type-chip-host">
+      <div class="cm-selected-type-chip" id="cm-type-dest">
+        <img *ngIf="selectedType === 'video_quiz'" class="cm-selected-type-chip-img" src="assets/create-material-type-video-quiz.png" alt="" />
+        <img *ngIf="selectedType === 'reading'" class="cm-selected-type-chip-img" src="assets/create-material-type-reading.png" alt="" />
+        <img *ngIf="selectedType === 'listening'" class="cm-selected-type-chip-img" src="assets/create-material-type-listening.png" alt="" />
+        <span>{{ typeLabel }}</span>
+      </div>
     </div>
 
-    <div class="cm-step-header cm-step-header--tight">
-      <h1>{{ 'CREATE_MATERIAL.PRICING_TITLE' | translate }}</h1>
-    </div>
-
-    <div class="cm-pricing-cards cm-pricing-cards--row">
-      <button class="cm-pricing-card cm-pricing-card--compact" [class.selected]="selectedPricing === 'free'" (click)="selectPricing('free')">
-        <div class="cm-pricing-icon cm-pricing-icon--sm">
-          <ion-icon name="gift-outline"></ion-icon>
+    <!-- Desktop inline modal: same shell as bundle wizard `bundleShare` -->
+    <div *ngIf="materialPricingDesktopInlineWizard" class="cm-details-wizard cm-bundle-wizard">
+      <div class="cm-details-wizard-scroll">
+        <div class="cm-details-wizard-scroll-inner">
+          <div class="cm-step-header cm-details-wizard-header cm-details-wizard-header--tight">
+            <h1>{{ 'CREATE_MATERIAL.PRICING_TITLE' | translate }}</h1>
+          </div>
+          <div class="cm-details-wizard-panel">
+            <div class="cm-pricing-cards cm-pricing-cards--row cm-bundle-wizard-pricing-cards">
+              <button type="button" class="cm-pricing-card cm-pricing-card--compact" [class.selected]="selectedPricing === 'free'" (click)="selectPricing('free')">
+                <div class="cm-pricing-icon cm-pricing-icon--free">
+                  <ion-icon name="gift-outline"></ion-icon>
+                </div>
+                <h3>{{ 'CREATE_MATERIAL.PRICING_FREE' | translate }}</h3>
+                <p>{{ 'CREATE_MATERIAL.PRICING_FREE_DESC' | translate }}</p>
+              </button>
+              <button type="button" class="cm-pricing-card cm-pricing-card--compact" [class.selected]="selectedPricing === 'paid'" (click)="selectPricing('paid')">
+                <div class="cm-pricing-icon cm-pricing-icon--paid">
+                  <ion-icon name="card-outline"></ion-icon>
+                </div>
+                <h3>{{ 'CREATE_MATERIAL.PRICING_PAID' | translate }}</h3>
+                <p>{{ 'CREATE_MATERIAL.PRICING_PAID_DESC' | translate }}</p>
+              </button>
+            </div>
+          </div>
         </div>
-        <h3>{{ 'CREATE_MATERIAL.PRICING_FREE' | translate }}</h3>
-        <p>{{ 'CREATE_MATERIAL.PRICING_FREE_DESC' | translate }}</p>
-      </button>
-
-      <button class="cm-pricing-card cm-pricing-card--compact" [class.selected]="selectedPricing === 'paid'" (click)="selectPricing('paid')">
-        <div class="cm-pricing-icon cm-pricing-icon--sm">
-          <ion-icon name="card-outline"></ion-icon>
-        </div>
-        <h3>{{ 'CREATE_MATERIAL.PRICING_PAID' | translate }}</h3>
-        <p>{{ 'CREATE_MATERIAL.PRICING_PAID_DESC' | translate }}</p>
-      </button>
+      </div>
     </div>
 
+    <!-- Mobile & full-page create: same as bundle `cm-bundle-form` share block -->
+    <ng-container *ngIf="!materialPricingDesktopInlineWizard">
+      <div class="cm-bundle-form-share-header">
+        <h1>{{ 'CREATE_MATERIAL.PRICING_TITLE' | translate }}</h1>
+      </div>
+      <div class="cm-pricing-cards cm-pricing-cards--row cm-bundle-form-pricing-cards">
+        <button type="button" class="cm-pricing-card cm-pricing-card--compact" [class.selected]="selectedPricing === 'free'" (click)="selectPricing('free')">
+          <div class="cm-pricing-icon cm-pricing-icon--free">
+            <ion-icon name="gift-outline"></ion-icon>
+          </div>
+          <h3>{{ 'CREATE_MATERIAL.PRICING_FREE' | translate }}</h3>
+          <p>{{ 'CREATE_MATERIAL.PRICING_FREE_DESC' | translate }}</p>
+        </button>
+        <button type="button" class="cm-pricing-card cm-pricing-card--compact" [class.selected]="selectedPricing === 'paid'" (click)="selectPricing('paid')">
+          <div class="cm-pricing-icon cm-pricing-icon--paid">
+            <ion-icon name="card-outline"></ion-icon>
+          </div>
+          <h3>{{ 'CREATE_MATERIAL.PRICING_PAID' | translate }}</h3>
+          <p>{{ 'CREATE_MATERIAL.PRICING_PAID_DESC' | translate }}</p>
+        </button>
+      </div>
+    </ng-container>
   </div>
 
   <!-- ═══════════ STEP 3: Details ═══════════ -->
@@ -611,192 +901,403 @@
             <input type="checkbox" [(ngModel)]="videoPolicyDismissed" [ngModelOptions]="{standalone: true}" />
             <span>{{ 'CREATE_MATERIAL.POLICY_DONT_SHOW' | translate }}</span>
           </label>
-          <button class="cm-policy-dismiss" (click)="dismissVideoPolicy(videoPolicyDismissed)">{{ 'CREATE_MATERIAL.POLICY_GOT_IT' | translate }}</button>
+          <button type="button" class="cm-policy-dismiss" (click)="dismissVideoPolicy(videoPolicyDismissed)">{{ 'CREATE_MATERIAL.POLICY_GOT_IT' | translate }}</button>
         </div>
       </div>
     </div>
 
-    <div class="cm-step-header">
-      <h1>{{ detailsTitle }}</h1>
-      <p>{{ detailsDesc }}</p>
-    </div>
+    <form [formGroup]="materialForm" class="cm-form" [class.cm-form--details-wizard]="detailsWizardLayoutActive">
 
-    <form [formGroup]="materialForm" class="cm-form">
-      <div class="cm-field" [class.cm-field-error]="materialForm.get('title')?.invalid && materialForm.get('title')?.touched">
-        <label>{{ 'CREATE_MATERIAL.FIELD_TITLE' | translate }} <span class="required">*</span></label>
-        <input type="text" formControlName="title" [placeholder]="'CREATE_MATERIAL.FIELD_TITLE_PLACEHOLDER' | translate" />
-        <span class="cm-field-hint cm-error-hint" *ngIf="materialForm.get('title')?.invalid && materialForm.get('title')?.touched">
-          {{ 'CREATE_MATERIAL.FIELD_TITLE_ERROR' | translate }}
-        </span>
-      </div>
+      <!-- Desktop: one focused sub-step at a time -->
+      <div class="cm-details-wizard" *ngIf="detailsWizardLayoutActive">
+        <div class="cm-details-wizard-progress" *ngIf="detailsWizardStepTotal > 1" aria-hidden="true">
+          <div class="cm-details-wizard-progress-fill" [style.width.%]="detailsWizardProgressPercent"></div>
+        </div>
+        <div class="cm-details-wizard-scroll">
+          <div class="cm-details-wizard-scroll-inner">
+          <div class="cm-step-header cm-details-wizard-header">
+            <span class="cm-edit-badge cm-edit-badge--wizard" *ngIf="editingMaterialId"><ion-icon name="create-outline"></ion-icon> Editing</span>
+            <h1>{{ detailsWizardHeadlineKey | translate }}</h1>
+            <p>{{ detailsWizardSublineKey | translate }}</p>
+          </div>
 
-      <div class="cm-field">
-        <label>{{ 'CREATE_MATERIAL.FIELD_DESCRIPTION' | translate }}</label>
-        <textarea formControlName="description" [placeholder]="'CREATE_MATERIAL.FIELD_DESCRIPTION_PLACEHOLDER' | translate" rows="3"></textarea>
-      </div>
+          <div class="cm-details-wizard-panel" *ngIf="detailsWizardStepId === 'title'">
+            <div class="cm-field" [class.cm-field-error]="materialForm.get('title')?.invalid && materialForm.get('title')?.touched">
+              <label>{{ 'CREATE_MATERIAL.FIELD_TITLE' | translate }} <span class="required">*</span></label>
+              <input type="text" formControlName="title" [placeholder]="'CREATE_MATERIAL.FIELD_TITLE_PLACEHOLDER' | translate" />
+              <span class="cm-field-hint cm-error-hint" *ngIf="materialForm.get('title')?.invalid && materialForm.get('title')?.touched">
+                {{ 'CREATE_MATERIAL.FIELD_TITLE_ERROR' | translate }}
+              </span>
+            </div>
+          </div>
 
-      <div class="cm-field">
-        <label>{{ 'CREATE_MATERIAL.FIELD_WHY_TAKE' | translate }} <span class="cm-label-hint">{{ 'CREATE_MATERIAL.FIELD_WHY_TAKE_HINT' | translate }}</span></label>
-        <textarea formControlName="whyTakeThis" [placeholder]="'CREATE_MATERIAL.FIELD_WHY_TAKE_PLACEHOLDER' | translate" rows="2" maxlength="300"></textarea>
-        <span class="cm-char-count" *ngIf="materialForm.get('whyTakeThis')?.value">{{ materialForm.get('whyTakeThis')?.value?.length || 0 }}/300</span>
-      </div>
+          <div class="cm-details-wizard-panel" *ngIf="detailsWizardStepId === 'description'">
+            <div class="cm-field">
+              <label>{{ 'CREATE_MATERIAL.FIELD_DESCRIPTION' | translate }}</label>
+              <textarea formControlName="description" [placeholder]="'CREATE_MATERIAL.FIELD_DESCRIPTION_PLACEHOLDER' | translate" rows="6"></textarea>
+            </div>
+          </div>
 
-      <div class="cm-field-row">
-        <div class="cm-field" [class.cm-field-error]="materialForm.get('language')?.invalid && materialForm.get('language')?.touched">
-          <label>{{ 'CREATE_MATERIAL.FIELD_LANGUAGE' | translate }} <span class="required">*</span></label>
-          <select formControlName="language">
-            <option value="" disabled>{{ 'CREATE_MATERIAL.FIELD_LANGUAGE_PLACEHOLDER' | translate }}</option>
-            <option *ngFor="let lang of languages" [value]="lang">{{ lang }}</option>
-          </select>
-          <span class="cm-field-hint cm-error-hint" *ngIf="materialForm.get('language')?.invalid && materialForm.get('language')?.touched">
-            {{ 'CREATE_MATERIAL.FIELD_LANGUAGE_ERROR' | translate }}
-          </span>
-        </div>
-        <div class="cm-field">
-          <label>{{ 'CREATE_MATERIAL.FIELD_LEVEL' | translate }}</label>
-          <select formControlName="level">
-            <option *ngFor="let lvl of levels" [value]="lvl.value">{{ lvl.label }}</option>
-          </select>
-        </div>
-      </div>
+          <div class="cm-details-wizard-panel" *ngIf="detailsWizardStepId === 'whyTake'">
+            <div class="cm-field">
+              <label>{{ 'CREATE_MATERIAL.FIELD_WHY_TAKE' | translate }} <span class="cm-label-hint">{{ 'CREATE_MATERIAL.FIELD_WHY_TAKE_HINT' | translate }}</span></label>
+              <textarea formControlName="whyTakeThis" [placeholder]="'CREATE_MATERIAL.FIELD_WHY_TAKE_PLACEHOLDER' | translate" rows="4" maxlength="100"></textarea>
+              <span class="cm-char-count" *ngIf="materialForm.get('whyTakeThis')?.value">{{ materialForm.get('whyTakeThis')?.value?.length || 0 }}/100</span>
+            </div>
+          </div>
 
-      <!-- Structured Tags (taxonomy) -->
-      <div class="cm-field cm-topics-field">
-        <label>Tags <span class="cm-label-hint">Help students discover this material</span></label>
-        <app-tag-picker
-          [selectedTagIds]="selectedStructuredTags"
-          (selectedTagIdsChange)="selectedStructuredTags = $event"
-          [maxTags]="8">
-        </app-tag-picker>
-      </div>
+          <div class="cm-details-wizard-panel" *ngIf="detailsWizardStepId === 'languageLevel'">
+            <div class="cm-field-row cm-details-wizard-field-row">
+              <div class="cm-field" [class.cm-field-error]="materialForm.get('language')?.invalid && materialForm.get('language')?.touched">
+                <label>{{ 'CREATE_MATERIAL.FIELD_LANGUAGE' | translate }} <span class="required">*</span></label>
+                <select formControlName="language">
+                  <option value="" disabled>{{ 'CREATE_MATERIAL.FIELD_LANGUAGE_PLACEHOLDER' | translate }}</option>
+                  <option *ngFor="let lang of languages" [value]="lang">{{ lang }}</option>
+                </select>
+                <span class="cm-field-hint cm-error-hint" *ngIf="materialForm.get('language')?.invalid && materialForm.get('language')?.touched">
+                  {{ 'CREATE_MATERIAL.FIELD_LANGUAGE_ERROR' | translate }}
+                </span>
+              </div>
+              <div class="cm-field">
+                <label>{{ 'CREATE_MATERIAL.FIELD_LEVEL' | translate }}</label>
+                <select formControlName="level">
+                  <option *ngFor="let lvl of levels" [value]="lvl.value">{{ lvl.label }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
 
-      <!-- Additional Topics (free-text, optional) -->
-      <div class="cm-field cm-topics-field">
-        <label>Custom Topics <span class="cm-label-hint">Add extra keywords not covered above</span></label>
-        <div class="cm-topics-input-row">
-          <input type="text"
-                 placeholder="e.g. Dominican slang, DELE B2..."
-                 [(ngModel)]="topicInput"
-                 [ngModelOptions]="{ standalone: true }"
-                 (keydown.enter)="addTopic($event)"
-                 class="cm-topic-input" />
-          <button type="button" class="cm-topic-add-btn" (click)="addTopic($event)" [disabled]="!topicInput?.trim()">Add</button>
-        </div>
-        <div class="cm-topics-chips" *ngIf="selectedTopics.length > 0">
-          <span class="cm-topic-chip" *ngFor="let topic of selectedTopics; let i = index">
-            {{ topic }}
-            <button type="button" class="cm-topic-remove" (click)="removeTopic(i)">&times;</button>
-          </span>
-        </div>
-      </div>
+          <div class="cm-details-wizard-panel" *ngIf="detailsWizardStepId === 'tags'">
+            <div class="cm-field cm-topics-field">
+              <label>Tags <span class="cm-label-hint">Help students discover this material</span></label>
+              <app-tag-picker
+                [selectedTagIds]="selectedStructuredTags"
+                (selectedTagIdsChange)="selectedStructuredTags = $event"
+                [maxTags]="8">
+              </app-tag-picker>
+            </div>
+          </div>
 
-      <!-- Thumbnail -->
-      <div class="cm-thumbnail-field">
-        <label>{{ 'CREATE_MATERIAL.FIELD_COVER_IMAGE' | translate }}
-          <span class="cm-label-hint" *ngIf="selectedType === 'video_quiz'">{{ 'CREATE_MATERIAL.FIELD_COVER_RECOMMENDED' | translate }}</span>
-          <span class="required" *ngIf="selectedType !== 'video_quiz'">*</span>
-        </label>
-        <div class="cm-thumbnail-picker" *ngIf="!thumbnailPreview">
-          <button type="button" class="cm-thumbnail-btn" (click)="thumbInput.click()">
-            <ion-icon name="image-outline"></ion-icon>
-            <span>{{ 'CREATE_MATERIAL.FIELD_COVER_ADD' | translate }}</span>
-            <span class="cm-thumbnail-hint">{{ 'CREATE_MATERIAL.FIELD_COVER_HINT' | translate }}</span>
-          </button>
-        </div>
-        <div class="cm-thumbnail-preview" *ngIf="thumbnailPreview">
-          <img [src]="thumbnailPreview" alt="Cover image" />
-          <button type="button" class="cm-thumbnail-remove" (click)="removeThumbnail()">
-            <ion-icon name="close-circle"></ion-icon>
-          </button>
-        </div>
-        <input type="file" #thumbInput accept="image/jpeg,image/jpg,image/png,image/webp" (change)="onThumbnailSelected($event)" style="display:none" />
-      </div>
+          <div class="cm-details-wizard-panel" *ngIf="detailsWizardStepId === 'customTopics'">
+            <div class="cm-field cm-topics-field">
+              <label>Custom Topics <span class="cm-label-hint">Add extra keywords not covered above</span></label>
+              <div class="cm-topics-input-row">
+                <input type="text"
+                       placeholder="e.g. Dominican slang, DELE B2..."
+                       [(ngModel)]="topicInput"
+                       [ngModelOptions]="{ standalone: true }"
+                       (keydown.enter)="addTopic($event)"
+                       class="cm-topic-input" />
+                <button type="button" class="cm-topic-add-btn" (click)="addTopic($event)" [disabled]="!topicInput?.trim()">Add</button>
+              </div>
+              <div class="cm-topics-chips" *ngIf="selectedTopics.length > 0">
+                <span class="cm-topic-chip" *ngFor="let topic of selectedTopics; let i = index">
+                  {{ topic }}
+                  <button type="button" class="cm-topic-remove" (click)="removeTopic(i)">&times;</button>
+                </span>
+              </div>
+            </div>
+          </div>
 
-      <!-- Branding tip for video/audio content -->
-      <div class="cm-brand-tip" *ngIf="selectedType === 'video_quiz' || selectedType === 'listening'">
-        <img src="assets/icons-app-bird-2.png" alt="" class="cm-brand-tip-icon" />
-        <div class="cm-brand-tip-text">
-          <strong>{{ 'CREATE_MATERIAL.PRO_TIP' | translate }}</strong> {{ selectedType === 'video_quiz' ? ('CREATE_MATERIAL.PRO_TIP_VIDEO' | translate) : ('CREATE_MATERIAL.PRO_TIP_AUDIO' | translate) }}
-        </div>
-      </div>
+          <div class="cm-details-wizard-panel" *ngIf="detailsWizardStepId === 'thumbnail'">
+            <div class="cm-thumbnail-field">
+              <label>{{ 'CREATE_MATERIAL.FIELD_COVER_IMAGE' | translate }}
+                <span class="cm-label-hint">{{ 'CREATE_MATERIAL.FIELD_COVER_REQUIRED' | translate }}</span>
+              </label>
+              <div class="cm-thumbnail-picker" *ngIf="!thumbnailPreview">
+                <button type="button" class="cm-thumbnail-btn" (click)="thumbFileInput.click()">
+                  <ion-icon name="image-outline"></ion-icon>
+                  <span>{{ 'CREATE_MATERIAL.FIELD_COVER_ADD' | translate }}</span>
+                  <span class="cm-thumbnail-hint">{{ 'CREATE_MATERIAL.FIELD_COVER_HINT' | translate }}</span>
+                </button>
+              </div>
+              <div class="cm-thumbnail-preview" *ngIf="thumbnailPreview">
+                <img [src]="thumbnailPreview" alt="Cover image" />
+                <button type="button" class="cm-thumbnail-remove" (click)="removeThumbnail()">
+                  <ion-icon name="close-circle"></ion-icon>
+                </button>
+              </div>
+            </div>
+            <div class="cm-brand-tip" *ngIf="selectedType === 'video_quiz' || selectedType === 'listening'">
+              <img src="assets/icons-app-bird-2.png" alt="" class="cm-brand-tip-icon" />
+              <div class="cm-brand-tip-text">
+                <strong>{{ 'CREATE_MATERIAL.PRO_TIP' | translate }}</strong> {{ selectedType === 'video_quiz' ? ('CREATE_MATERIAL.PRO_TIP_VIDEO' | translate) : ('CREATE_MATERIAL.PRO_TIP_AUDIO' | translate) }}
+              </div>
+            </div>
+          </div>
 
-      <!-- Video Quiz: video URL -->
-      <ng-container *ngIf="selectedType === 'video_quiz'">
-        <div class="cm-field">
-          <label>{{ 'CREATE_MATERIAL.FIELD_VIDEO_URL' | translate }} <span class="required">*</span></label>
-          <input type="url" formControlName="videoUrl" [placeholder]="'CREATE_MATERIAL.FIELD_VIDEO_URL_PLACEHOLDER' | translate" />
-          <span class="cm-field-hint" *ngIf="!videoPreviewUrl && materialForm.get('videoUrl')?.value">
-            <ion-icon name="alert-circle-outline"></ion-icon>
-            {{ 'CREATE_MATERIAL.FIELD_VIDEO_URL_ERROR' | translate }}
-          </span>
-        </div>
-        <div class="cm-video-preview" *ngIf="videoPreviewUrl">
-          <iframe [src]="videoPreviewUrl" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-        </div>
-      </ng-container>
+          <div class="cm-details-wizard-panel" *ngIf="detailsWizardStepId === 'videoUrl' && selectedType === 'video_quiz'">
+            <div class="cm-field">
+              <label>{{ 'CREATE_MATERIAL.FIELD_VIDEO_URL' | translate }} <span class="required">*</span></label>
+              <input type="url" formControlName="videoUrl" [placeholder]="'CREATE_MATERIAL.FIELD_VIDEO_URL_PLACEHOLDER' | translate" />
+              <span class="cm-field-hint" *ngIf="!videoPreviewUrl && materialForm.get('videoUrl')?.value">
+                <ion-icon name="alert-circle-outline"></ion-icon>
+                {{ 'CREATE_MATERIAL.FIELD_VIDEO_URL_ERROR' | translate }}
+              </span>
+            </div>
+            <div class="cm-video-preview" *ngIf="videoPreviewUrl">
+              <iframe [src]="videoPreviewUrl" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+            </div>
+          </div>
 
-      <!-- Reading: passage (Quill editor) -->
-      <ng-container *ngIf="selectedType === 'reading'">
-        <div class="cm-field cm-quill-wrapper">
-          <label>{{ 'CREATE_MATERIAL.FIELD_READING_PASSAGE' | translate }} <span class="required">*</span></label>
-          <quill-editor
-            formControlName="passage"
-            [modules]="quillConfig"
-            [styles]="{minHeight: '200px'}"
-            [placeholder]="'CREATE_MATERIAL.FIELD_READING_PLACEHOLDER' | translate">
-          </quill-editor>
-        </div>
-      </ng-container>
+          <div class="cm-details-wizard-panel" *ngIf="detailsWizardStepId === 'readingPassage' && selectedType === 'reading'">
+            <div class="cm-field cm-quill-wrapper">
+              <label>{{ 'CREATE_MATERIAL.FIELD_READING_PASSAGE' | translate }} <span class="required">*</span></label>
+              <quill-editor
+                formControlName="passage"
+                [modules]="quillConfig"
+                [styles]="{minHeight: '280px'}"
+                [placeholder]="'CREATE_MATERIAL.FIELD_READING_PLACEHOLDER' | translate">
+              </quill-editor>
+            </div>
+          </div>
 
-      <!-- Listening: audio URL -->
-      <ng-container *ngIf="selectedType === 'listening'">
-        <div class="cm-field">
-          <label>{{ 'CREATE_MATERIAL.FIELD_AUDIO_URL' | translate }} <span class="required">*</span></label>
-          <input type="url" formControlName="audioUrl" [placeholder]="'CREATE_MATERIAL.FIELD_AUDIO_URL_PLACEHOLDER' | translate" />
-          <span class="cm-field-hint" *ngIf="!audioPreviewUrl && materialForm.get('audioUrl')?.value">
-            <ion-icon name="alert-circle-outline"></ion-icon>
-            {{ 'CREATE_MATERIAL.FIELD_AUDIO_URL_ERROR' | translate }}
-          </span>
-        </div>
-        <div class="cm-audio-preview" *ngIf="audioPreviewUrl && audioProviderType !== 'direct'">
-          <iframe [src]="audioPreviewUrl" frameborder="0" allow="autoplay; encrypted-media"></iframe>
-        </div>
-        <div class="cm-audio-player" *ngIf="audioPreviewUrl && audioProviderType === 'direct'">
-          <audio controls [src]="materialForm.get('audioUrl')?.value">
-            Your browser does not support audio playback.
-          </audio>
-        </div>
-      </ng-container>
+          <div class="cm-details-wizard-panel" *ngIf="detailsWizardStepId === 'listeningAudio' && selectedType === 'listening'">
+            <div class="cm-field">
+              <label>{{ 'CREATE_MATERIAL.FIELD_AUDIO_URL' | translate }} <span class="required">*</span></label>
+              <input type="url" formControlName="audioUrl" [placeholder]="'CREATE_MATERIAL.FIELD_AUDIO_URL_PLACEHOLDER' | translate" />
+              <span class="cm-field-hint" *ngIf="!audioPreviewUrl && materialForm.get('audioUrl')?.value">
+                <ion-icon name="alert-circle-outline"></ion-icon>
+                {{ 'CREATE_MATERIAL.FIELD_AUDIO_URL_ERROR' | translate }}
+              </span>
+            </div>
+            <div class="cm-audio-preview" *ngIf="audioPreviewUrl && audioProviderType !== 'direct'">
+              <iframe [src]="audioPreviewUrl" frameborder="0" allow="autoplay; encrypted-media"></iframe>
+            </div>
+            <div class="cm-audio-player" *ngIf="audioPreviewUrl && audioProviderType === 'direct'">
+              <audio controls [src]="materialForm.get('audioUrl')?.value">
+                Your browser does not support audio playback.
+              </audio>
+            </div>
+          </div>
 
-      <!-- Price (paid only) -->
-      <div class="cm-field cm-price-field" *ngIf="selectedPricing === 'paid'">
-        <label>{{ 'CREATE_MATERIAL.FIELD_PRICE_LABEL' | translate }}</label>
-        <div class="cm-price-slider-container">
-          <ion-range
-            [min]="1"
-            [max]="50"
-            [step]="1"
-            [snaps]="true"
-            [pin]="true"
-            [pinFormatter]="pricePin"
-            [value]="materialForm.get('price')?.value || 1"
-            (ionChange)="onPriceSliderChange($event)"
-            class="cm-price-slider">
-          </ion-range>
-          <div class="cm-price-display">
-            <span class="cm-price-value">${{ materialForm.get('price')?.value || 0 }}</span>
-            <span class="cm-price-note">{{ 'CREATE_MATERIAL.FIELD_PRICE_PER_QUIZ' | translate }}</span>
+          <div class="cm-details-wizard-panel" *ngIf="detailsWizardStepId === 'price' && selectedPricing === 'paid'">
+            <div class="cm-field cm-price-field">
+              <label>{{ 'CREATE_MATERIAL.FIELD_PRICE_LABEL' | translate }}</label>
+              <div class="cm-price-slider-container">
+                <ion-range
+                  [min]="1"
+                  [max]="50"
+                  [step]="1"
+                  [snaps]="true"
+                  [pin]="true"
+                  [pinFormatter]="pricePin"
+                  [value]="materialForm.get('price')?.value || 1"
+                  (ionChange)="onPriceSliderChange($event)"
+                  class="cm-price-slider">
+                </ion-range>
+                <div class="cm-price-display">
+                  <span class="cm-price-value">${{ materialForm.get('price')?.value || 0 }}</span>
+                  <span class="cm-price-note">{{ 'CREATE_MATERIAL.FIELD_PRICE_PER_QUIZ' | translate }}</span>
+                </div>
+              </div>
+              <p class="cm-price-hint">{{ 'CREATE_MATERIAL.FIELD_PRICE_HINT' | translate }}</p>
+            </div>
+          </div>
           </div>
         </div>
-        <p class="cm-price-hint">{{ 'CREATE_MATERIAL.FIELD_PRICE_HINT' | translate }}</p>
+
+        <!-- Back/Next live in tab1 cm-modal-footer when inline (desktop modal); keep inline footer for standalone route -->
+        <div class="cm-details-wizard-footer" *ngIf="!inline">
+          <div class="cm-details-wizard-footer-start">
+            <button type="button" class="cm-btn-secondary cm-details-wizard-back" *ngIf="detailsWizardStepIndex > 0" (click)="onDetailsWizardBack()">
+              {{ 'COMMON.BACK' | translate }}
+            </button>
+            <button
+              type="button"
+              class="cm-details-wizard-save"
+              (click)="saveMaterialDraft()"
+              [disabled]="isSavingMaterialDraft || isSubmitting || isUploadingThumbnail"
+            >
+              <ion-spinner *ngIf="isSavingMaterialDraft" name="crescent" style="width:16px;height:16px;color:#1a8d3a"></ion-spinner>
+              <ng-container *ngIf="editingMaterialId && editingMaterialStatus === 'published'">{{ 'COMMON.SAVE' | translate }}</ng-container>
+              <ng-container *ngIf="!editingMaterialId || editingMaterialStatus !== 'published'">{{ 'CREATE_MATERIAL.SAVE_DRAFT' | translate }}</ng-container>
+            </button>
+          </div>
+          <div class="cm-details-wizard-footer-spacer"></div>
+          <button type="button" class="cm-btn-primary cm-details-wizard-next" (click)="onDetailsWizardNext()">
+            <ng-container *ngIf="detailsWizardStepIndex < detailsWizardStepTotal - 1">{{ 'CREATE_MATERIAL.DETAILS_WIZ_NEXT' | translate }}</ng-container>
+            <ng-container *ngIf="detailsWizardStepIndex >= detailsWizardStepTotal - 1">{{ 'CREATE_MATERIAL.CONTINUE_TO_QUIZ' | translate }}</ng-container>
+            <ion-icon name="arrow-forward-outline"></ion-icon>
+          </button>
+        </div>
       </div>
 
-      <div class="cm-actions cm-actions--end">
-        <button class="cm-btn-primary" (click)="goToQuizStep()">
-          {{ 'CREATE_MATERIAL.CONTINUE_TO_QUIZ' | translate }}
-          <ion-icon name="arrow-forward-outline"></ion-icon>
-        </button>
-      </div>
+      <!-- Mobile / non-desktop: classic single-page details -->
+      <ng-container *ngIf="!detailsWizardLayoutActive">
+        <div class="cm-step-header">
+          <h1>{{ detailsTitle }}</h1>
+          <p>{{ detailsDesc }}</p>
+        </div>
+
+        <div class="cm-field" [class.cm-field-error]="materialForm.get('title')?.invalid && materialForm.get('title')?.touched">
+          <label>{{ 'CREATE_MATERIAL.FIELD_TITLE' | translate }} <span class="required">*</span></label>
+          <input type="text" formControlName="title" [placeholder]="'CREATE_MATERIAL.FIELD_TITLE_PLACEHOLDER' | translate" />
+          <span class="cm-field-hint cm-error-hint" *ngIf="materialForm.get('title')?.invalid && materialForm.get('title')?.touched">
+            {{ 'CREATE_MATERIAL.FIELD_TITLE_ERROR' | translate }}
+          </span>
+        </div>
+
+        <div class="cm-field">
+          <label>{{ 'CREATE_MATERIAL.FIELD_DESCRIPTION' | translate }}</label>
+          <textarea formControlName="description" [placeholder]="'CREATE_MATERIAL.FIELD_DESCRIPTION_PLACEHOLDER' | translate" rows="3"></textarea>
+        </div>
+
+        <div class="cm-field">
+          <label>{{ 'CREATE_MATERIAL.FIELD_WHY_TAKE' | translate }} <span class="cm-label-hint">{{ 'CREATE_MATERIAL.FIELD_WHY_TAKE_HINT' | translate }}</span></label>
+          <textarea formControlName="whyTakeThis" [placeholder]="'CREATE_MATERIAL.FIELD_WHY_TAKE_PLACEHOLDER' | translate" rows="2" maxlength="100"></textarea>
+          <span class="cm-char-count" *ngIf="materialForm.get('whyTakeThis')?.value">{{ materialForm.get('whyTakeThis')?.value?.length || 0 }}/100</span>
+        </div>
+
+        <div class="cm-field-row">
+          <div class="cm-field" [class.cm-field-error]="materialForm.get('language')?.invalid && materialForm.get('language')?.touched">
+            <label>{{ 'CREATE_MATERIAL.FIELD_LANGUAGE' | translate }} <span class="required">*</span></label>
+            <select formControlName="language">
+              <option value="" disabled>{{ 'CREATE_MATERIAL.FIELD_LANGUAGE_PLACEHOLDER' | translate }}</option>
+              <option *ngFor="let lang of languages" [value]="lang">{{ lang }}</option>
+            </select>
+            <span class="cm-field-hint cm-error-hint" *ngIf="materialForm.get('language')?.invalid && materialForm.get('language')?.touched">
+              {{ 'CREATE_MATERIAL.FIELD_LANGUAGE_ERROR' | translate }}
+            </span>
+          </div>
+          <div class="cm-field">
+            <label>{{ 'CREATE_MATERIAL.FIELD_LEVEL' | translate }}</label>
+            <select formControlName="level">
+              <option *ngFor="let lvl of levels" [value]="lvl.value">{{ lvl.label }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="cm-field cm-topics-field">
+          <label>Tags <span class="cm-label-hint">Help students discover this material</span></label>
+          <app-tag-picker
+            [selectedTagIds]="selectedStructuredTags"
+            (selectedTagIdsChange)="selectedStructuredTags = $event"
+            [maxTags]="8">
+          </app-tag-picker>
+        </div>
+
+        <div class="cm-field cm-topics-field">
+          <label>Custom Topics <span class="cm-label-hint">Add extra keywords not covered above</span></label>
+          <div class="cm-topics-input-row">
+            <input type="text"
+                   placeholder="e.g. Dominican slang, DELE B2..."
+                   [(ngModel)]="topicInput"
+                   [ngModelOptions]="{ standalone: true }"
+                   (keydown.enter)="addTopic($event)"
+                   class="cm-topic-input" />
+            <button type="button" class="cm-topic-add-btn" (click)="addTopic($event)" [disabled]="!topicInput?.trim()">Add</button>
+          </div>
+          <div class="cm-topics-chips" *ngIf="selectedTopics.length > 0">
+            <span class="cm-topic-chip" *ngFor="let topic of selectedTopics; let i = index">
+              {{ topic }}
+              <button type="button" class="cm-topic-remove" (click)="removeTopic(i)">&times;</button>
+            </span>
+          </div>
+        </div>
+
+        <div class="cm-thumbnail-field">
+          <label>{{ 'CREATE_MATERIAL.FIELD_COVER_IMAGE' | translate }}
+            <span class="cm-label-hint">{{ 'CREATE_MATERIAL.FIELD_COVER_REQUIRED' | translate }}</span>
+          </label>
+          <div class="cm-thumbnail-picker" *ngIf="!thumbnailPreview">
+            <button type="button" class="cm-thumbnail-btn" (click)="thumbFileInput.click()">
+              <ion-icon name="image-outline"></ion-icon>
+              <span>{{ 'CREATE_MATERIAL.FIELD_COVER_ADD' | translate }}</span>
+              <span class="cm-thumbnail-hint">{{ 'CREATE_MATERIAL.FIELD_COVER_HINT' | translate }}</span>
+            </button>
+          </div>
+          <div class="cm-thumbnail-preview" *ngIf="thumbnailPreview">
+            <img [src]="thumbnailPreview" alt="Cover image" />
+            <button type="button" class="cm-thumbnail-remove" (click)="removeThumbnail()">
+              <ion-icon name="close-circle"></ion-icon>
+            </button>
+          </div>
+        </div>
+
+        <div class="cm-brand-tip" *ngIf="selectedType === 'video_quiz' || selectedType === 'listening'">
+          <img src="assets/icons-app-bird-2.png" alt="" class="cm-brand-tip-icon" />
+          <div class="cm-brand-tip-text">
+            <strong>{{ 'CREATE_MATERIAL.PRO_TIP' | translate }}</strong> {{ selectedType === 'video_quiz' ? ('CREATE_MATERIAL.PRO_TIP_VIDEO' | translate) : ('CREATE_MATERIAL.PRO_TIP_AUDIO' | translate) }}
+          </div>
+        </div>
+
+        <ng-container *ngIf="selectedType === 'video_quiz'">
+          <div class="cm-field">
+            <label>{{ 'CREATE_MATERIAL.FIELD_VIDEO_URL' | translate }} <span class="required">*</span></label>
+            <input type="url" formControlName="videoUrl" [placeholder]="'CREATE_MATERIAL.FIELD_VIDEO_URL_PLACEHOLDER' | translate" />
+            <span class="cm-field-hint" *ngIf="!videoPreviewUrl && materialForm.get('videoUrl')?.value">
+              <ion-icon name="alert-circle-outline"></ion-icon>
+              {{ 'CREATE_MATERIAL.FIELD_VIDEO_URL_ERROR' | translate }}
+            </span>
+          </div>
+          <div class="cm-video-preview" *ngIf="videoPreviewUrl">
+            <iframe [src]="videoPreviewUrl" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+          </div>
+        </ng-container>
+
+        <ng-container *ngIf="selectedType === 'reading'">
+          <div class="cm-field cm-quill-wrapper">
+            <label>{{ 'CREATE_MATERIAL.FIELD_READING_PASSAGE' | translate }} <span class="required">*</span></label>
+            <quill-editor
+              formControlName="passage"
+              [modules]="quillConfig"
+              [styles]="{minHeight: '200px'}"
+              [placeholder]="'CREATE_MATERIAL.FIELD_READING_PLACEHOLDER' | translate">
+            </quill-editor>
+          </div>
+        </ng-container>
+
+        <ng-container *ngIf="selectedType === 'listening'">
+          <div class="cm-field">
+            <label>{{ 'CREATE_MATERIAL.FIELD_AUDIO_URL' | translate }} <span class="required">*</span></label>
+            <input type="url" formControlName="audioUrl" [placeholder]="'CREATE_MATERIAL.FIELD_AUDIO_URL_PLACEHOLDER' | translate" />
+            <span class="cm-field-hint" *ngIf="!audioPreviewUrl && materialForm.get('audioUrl')?.value">
+              <ion-icon name="alert-circle-outline"></ion-icon>
+              {{ 'CREATE_MATERIAL.FIELD_AUDIO_URL_ERROR' | translate }}
+            </span>
+          </div>
+          <div class="cm-audio-preview" *ngIf="audioPreviewUrl && audioProviderType !== 'direct'">
+            <iframe [src]="audioPreviewUrl" frameborder="0" allow="autoplay; encrypted-media"></iframe>
+          </div>
+          <div class="cm-audio-player" *ngIf="audioPreviewUrl && audioProviderType === 'direct'">
+            <audio controls [src]="materialForm.get('audioUrl')?.value">
+              Your browser does not support audio playback.
+            </audio>
+          </div>
+        </ng-container>
+
+        <div class="cm-field cm-price-field" *ngIf="selectedPricing === 'paid'">
+          <label>{{ 'CREATE_MATERIAL.FIELD_PRICE_LABEL' | translate }}</label>
+          <div class="cm-price-slider-container">
+            <ion-range
+              [min]="1"
+              [max]="50"
+              [step]="1"
+              [snaps]="true"
+              [pin]="true"
+              [pinFormatter]="pricePin"
+              [value]="materialForm.get('price')?.value || 1"
+              (ionChange)="onPriceSliderChange($event)"
+              class="cm-price-slider">
+            </ion-range>
+            <div class="cm-price-display">
+              <span class="cm-price-value">${{ materialForm.get('price')?.value || 0 }}</span>
+              <span class="cm-price-note">{{ 'CREATE_MATERIAL.FIELD_PRICE_PER_QUIZ' | translate }}</span>
+            </div>
+          </div>
+          <p class="cm-price-hint">{{ 'CREATE_MATERIAL.FIELD_PRICE_HINT' | translate }}</p>
+        </div>
+
+        <div class="cm-actions cm-actions--end">
+          <button type="button" class="cm-btn-primary" (click)="goToQuizStep()">
+            {{ 'CREATE_MATERIAL.CONTINUE_TO_QUIZ' | translate }}
+            <ion-icon name="arrow-forward-outline"></ion-icon>
+          </button>
+        </div>
+      </ng-container>
+
+      <input type="file" #thumbFileInput accept="image/jpeg,image/jpg,image/png,image/webp" (change)="onThumbnailSelected($event)" hidden />
     </form>
   </div>
 

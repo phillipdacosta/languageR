@@ -27,6 +27,40 @@ export class CancelReasonModalComponent implements OnInit {
   @Input() lessonStartTime?: Date;
   @Input() lessonSubject?: string;
   @Input() lessonDuration?: number; // in minutes
+  @Input() entityType: 'lesson' | 'class' = 'lesson';
+  @Input() className?: string;
+  /** Class cover image URL (from Class.thumbnail); when missing, class flow falls back to people icon */
+  @Input() classThumbnailUrl?: string;
+
+  get isClass(): boolean {
+    return this.entityType === 'class';
+  }
+
+  get titleText(): string {
+    return this.isClass ? 'Why are you cancelling this class?' : 'Why are you cancelling?';
+  }
+
+  get lessonTitleText(): string {
+    if (this.isClass) {
+      return this.className || this.lessonSubject || 'Group class';
+    }
+    if (this.participantName) {
+      return `Lesson with ${this.participantName}`;
+    }
+    return this.lessonSubject || 'Lesson';
+  }
+
+  /** Left footer: pivot to reschedule (lesson or class cancel flow) */
+  get secondaryFooterCtaLabel(): string {
+    return 'Reschedule instead?';
+  }
+
+  get infoText(): string {
+    if (this.isClass) {
+      return 'Your reason helps us improve. All invited and confirmed students will be notified of the cancellation.';
+    }
+    return `Your reason will help us improve our service. ${this.participantName || 'Your participant'} will be notified of the cancellation.`;
+  }
 
   selectedReason: CancellationReason | null = null;
   otherReasonText: string = '';
@@ -61,8 +95,12 @@ export class CancelReasonModalComponent implements OnInit {
   }
 
   ngOnInit() {
-    // Select reasons based on user role
-    this.reasons = this.userRole === 'tutor' ? this.tutorReasons : this.studentReasons;
+    // Select reasons based on context
+    if (this.entityType === 'class') {
+      this.reasons = this.tutorReasons;
+    } else {
+      this.reasons = this.userRole === 'tutor' ? this.tutorReasons : this.studentReasons;
+    }
     
     // Check if cancellation is within 12 hours and format date/time
     if (this.lessonStartTime) {
@@ -152,6 +190,15 @@ export class CancelReasonModalComponent implements OnInit {
 
   dismiss() {
     this.modalController.dismiss({ cancelled: true });
+  }
+
+  /** Skip picking a reason; parent opens reschedule (lesson or class). */
+  rescheduleInstead() {
+    this.modalController.dismiss({ rescheduleInstead: true });
+  }
+
+  onSecondaryFooterClick(): void {
+    this.rescheduleInstead();
   }
 
   confirm() {

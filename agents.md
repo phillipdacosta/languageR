@@ -1,5 +1,10 @@
 # Agent Rules & Guidelines
 
+## Communication (token efficiency)
+- **Keep responses concise** — say what’s needed for the task; avoid long preambles, repetition, and tangents.
+- **No flattery or filler** — skip praise (“great question”), hype, and engagement-style closings unless the user asks for tone.
+- **Prefer dense, scannable structure** — short paragraphs, bullets, and code citations over essay-style prose when either works.
+
 ## Code Quality Standards
 
 ### HTML/Template Rules
@@ -78,16 +83,6 @@ ngOnInit() {
 - Add meaningful variable names
 - Comment complex logic
 - Use TypeScript types strictly
-
-
-
-
-
-
-
-
-
-
 
 
 

@@ -860,6 +860,7 @@
     "FIELD_LEVEL": "Niveau",
     "FIELD_COVER_IMAGE": "Omslagafbeelding",
     "FIELD_COVER_RECOMMENDED": "Aanbevolen",
+    "FIELD_COVER_REQUIRED": "Verplicht",
     "FIELD_COVER_ADD": "Voeg een omslagafbeelding toe",
     "FIELD_COVER_HINT": "Laat je materiaal opvallen. Je kunt bijsnijden naar kaartvorm (16:10). JPG of PNG, max 5 MB.",
     "PRO_TIP": "Tip:",

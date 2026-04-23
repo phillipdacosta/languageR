@@ -859,6 +859,7 @@
     "FIELD_LEVEL": "Nivel",
     "FIELD_COVER_IMAGE": "Imagine de Copertă",
     "FIELD_COVER_RECOMMENDED": "Recomandat",
+    "FIELD_COVER_REQUIRED": "Obligatoriu",
     "FIELD_COVER_ADD": "Adaugă o imagine de copertă",
     "FIELD_COVER_HINT": "Face materialul tău să iasă în evidență. Vei decupa la forma cardului (16:10). JPG sau PNG, max 5 MB.",
     "PRO_TIP": "Sfat profesional:",

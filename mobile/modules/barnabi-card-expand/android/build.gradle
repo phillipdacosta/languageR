@@ -1,0 +1,89 @@
+// Jetpack Compose-based local Expo module.
+//
+// Why we bring our own Compose plugin classpath instead of using Expo's
+// `coreFeatures = ['compose']` property:
+//   - `coreFeatures` is intended for modules that want Compose made available
+//     THROUGH expo-modules-core. It requires plumbing at the root project
+//     level (see expo-modules-core/android/build.gradle). For a one-off
+//     local module that's overkill and leaks Compose into every sibling
+//     module's classpath.
+//   - Declaring our own classpath isolates the Compose dependency here. If
+//     we ever remove this module, nothing else breaks.
+//
+// Kotlin version must match whatever Expo's root project pins (2.0.21 at
+// time of writing). We read it from `rootProject.ext.kotlinVersion` which
+// Expo's autolinking sets. Hardcoding would silently drift.
+// Kotlin version MUST match whatever the `expo-root-project` plugin pins
+// (2.0.21 at the time of writing). We reference `kotlinVersion` as a bare
+// identifier — Gradle resolves it from `rootProject.ext.kotlinVersion`
+// which `expo-root-project` sets during root evaluation. This is the
+// exact same mechanism that `expo-modules-core/android/build.gradle` uses
+// (see its `buildscript { }` block), so if ever that breaks, so does
+// Expo itself — our module doesn't introduce new surface.
+buildscript {
+  repositories {
+    google()
+    mavenCentral()
+  }
+  dependencies {
+    classpath "org.jetbrains.kotlin.plugin.compose:org.jetbrains.kotlin.plugin.compose.gradle.plugin:${kotlinVersion}"
+  }
+}
+
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+// Compose plugin is applied AFTER expo-module-gradle-plugin because the
+// latter applies the Kotlin Android plugin, which the Compose plugin
+// depends on. Applying them in the reverse order fails with
+// "The Kotlin Android Gradle plugin must be applied before the Compose
+// Compiler plugin".
+apply plugin: 'org.jetbrains.kotlin.plugin.compose'
+
+android {
+  namespace 'expo.modules.barnabicardexpand'
+
+  buildFeatures {
+    compose true
+  }
+
+  // Compose requires 1.8 JVM target. If the rest of the project uses 17
+  // (AGP 8+ default) this is a no-op, but set explicitly to avoid a
+  // surprise downgrade.
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
+  }
+  kotlinOptions {
+    jvmTarget = "17"
+  }
+}
+
+dependencies {
+  implementation 'com.facebook.react:react-android'
+
+  // Compose BOM pins all compose artifact versions to a tested set.
+  // 2024.10.00 is the first BOM that ships the stable
+  // SharedTransitionLayout API — we pin to it explicitly so the motion
+  // primitive is known-available.
+  def composeBom = platform('androidx.compose:compose-bom:2024.10.00')
+  implementation composeBom
+  androidTestImplementation composeBom
+
+  implementation 'androidx.compose.ui:ui'
+  implementation 'androidx.compose.ui:ui-graphics'
+  implementation 'androidx.compose.foundation:foundation'
+  implementation 'androidx.compose.material3:material3'
+  // `animation` gives us SharedTransitionLayout + AnimatedContent. It is a
+  // separate artifact from `foundation`.
+  implementation 'androidx.compose.animation:animation'
+  implementation 'androidx.compose.runtime:runtime'
+  implementation 'androidx.activity:activity-compose:1.9.2'
+
+  // Coil is the smallest async image library that works well with Compose
+  // shared-element transitions. Glide's Compose integration is also viable
+  // but pulls in kapt. Coil stays KSP-free and has a much smaller tail.
+  implementation 'io.coil-kt:coil-compose:2.7.0'
+}
