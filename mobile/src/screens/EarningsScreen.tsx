@@ -45,6 +45,9 @@ const DATE_OPTION_KEYS: { key: DateRange; tKey: string }[] = [
   { key: 'year', tKey: 'EARNINGS.FILTER_THIS_YEAR' },
 ];
 
+type StudentFilterOption = { id: string; name: string; picture?: string };
+type ClassEarningsFilterMode = 'all' | 'classes_only';
+
 interface Props { goBack: () => void }
 
 export default function EarningsScreen({ goBack }: Props) {
@@ -67,21 +70,33 @@ export default function EarningsScreen({ goBack }: Props) {
   // Filters
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filterDate, setFilterDate] = useState<DateRange>('all');
+  const [classEarningsFilter, setClassEarningsFilter] = useState<ClassEarningsFilterMode>('all');
   const [filterStudent, setFilterStudent] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
 
   const chartData = buildChartData(payments, chartPeriod);
   const hasChartData = chartData.data.some(v => v > 0);
 
-  const uniqueStudents = useMemo(() => {
-    const map = new Map<string, { id: string; name: string; picture?: string }>();
+  const uniqueStudents = useMemo((): StudentFilterOption[] => {
+    const map = new Map<string, StudentFilterOption>();
     for (const p of payments) {
-      if (p.studentName && !map.has(p.studentName)) {
-        map.set(p.studentName, { id: p.studentName, name: p.studentName, picture: p.studentPicture });
+      const sn = p.studentName?.trim();
+      if (sn && sn !== '—' && sn !== '–' && sn !== 'N/A' && sn !== 'Student') {
+        if (!map.has(sn)) {
+          map.set(sn, { id: sn, name: sn, picture: p.studentPicture });
+        } else {
+          const cur = map.get(sn)!;
+          if (!cur.picture && p.studentPicture) cur.picture = p.studentPicture;
+        }
       }
     }
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [payments]);
+
+  const filterStudentLabel = useMemo(() => {
+    if (filterStudent === 'all') return '';
+    return uniqueStudents.find((s) => s.id === filterStudent)?.name || filterStudent;
+  }, [filterStudent, uniqueStudents]);
 
   const uniqueStatuses = useMemo(() => {
     const s = new Set<string>();
@@ -101,12 +116,19 @@ export default function EarningsScreen({ goBack }: Props) {
       else start = new Date(now.getFullYear(), 0, 1);
       filtered = filtered.filter(p => new Date(p.date) >= start);
     }
-    if (filterStudent !== 'all') filtered = filtered.filter(p => p.studentName === filterStudent);
+    if (classEarningsFilter === 'classes_only') {
+      filtered = filtered.filter((p) => !!p.isClassPayment);
+    }
+    if (filterStudent !== 'all') filtered = filtered.filter((p) => p.studentName === filterStudent);
     if (filterStatus !== 'all') filtered = filtered.filter(p => p.status === filterStatus);
     return filtered;
-  }, [payments, filterDate, filterStudent, filterStatus]);
+  }, [payments, filterDate, classEarningsFilter, filterStudent, filterStatus]);
 
-  const activeFilterCount = (filterDate !== 'all' ? 1 : 0) + (filterStudent !== 'all' ? 1 : 0) + (filterStatus !== 'all' ? 1 : 0);
+  const activeFilterCount =
+    (filterDate !== 'all' ? 1 : 0) +
+    (classEarningsFilter === 'classes_only' ? 1 : 0) +
+    (filterStudent !== 'all' ? 1 : 0) +
+    (filterStatus !== 'all' ? 1 : 0);
   const displayedPayments = filteredPayments.slice(0, displayLimit);
 
   const fetchAll = useCallback(async () => {
@@ -154,9 +176,10 @@ export default function EarningsScreen({ goBack }: Props) {
   };
 
   const setFilterDateSmooth = (v: DateRange) => { smoothLayout(); setFilterDate(v); };
+  const setClassEarningsFilterSmooth = (v: ClassEarningsFilterMode) => { smoothLayout(); setClassEarningsFilter(v); };
   const setFilterStudentSmooth = (v: string) => { smoothLayout(); setFilterStudent(v); };
   const setFilterStatusSmooth = (v: string) => { smoothLayout(); setFilterStatus(v); };
-  const clearFilters = () => { smoothLayout(); setFilterDate('all'); setFilterStudent('all'); setFilterStatus('all'); };
+  const clearFilters = () => { smoothLayout(); setFilterDate('all'); setClassEarningsFilter('all'); setFilterStudent('all'); setFilterStatus('all'); };
 
   const getStatusLabel = (st: string) => {
     const map: Record<string, string> = {
@@ -290,9 +313,15 @@ export default function EarningsScreen({ goBack }: Props) {
                   <Ionicons name="close" size={14} color={colors.textSecondary} />
                 </TouchableOpacity>
               )}
+              {classEarningsFilter === 'classes_only' && (
+                <TouchableOpacity style={[s.chip, { backgroundColor: colors.inputBg }]} onPress={() => setClassEarningsFilterSmooth('all')}>
+                  <Text style={[s.chipText, { color: colors.text }]}>{t('EARNINGS.FILTER_CLASSES_ONLY')}</Text>
+                  <Ionicons name="close" size={14} color={colors.textSecondary} />
+                </TouchableOpacity>
+              )}
               {filterStudent !== 'all' && (
                 <TouchableOpacity style={[s.chip, { backgroundColor: colors.inputBg }]} onPress={() => setFilterStudentSmooth('all')}>
-                  <Text style={[s.chipText, { color: colors.text }]}>{filterStudent}</Text>
+                  <Text style={[s.chipText, { color: colors.text }]}>{filterStudentLabel}</Text>
                   <Ionicons name="close" size={14} color={colors.textSecondary} />
                 </TouchableOpacity>
               )}
@@ -314,11 +343,19 @@ export default function EarningsScreen({ goBack }: Props) {
               {activeFilterCount > 0 && <TouchableOpacity onPress={clearFilters}><Text style={s.clearLink}>{t('EARNINGS.TXN_CLEAR_FILTERS')}</Text></TouchableOpacity>}
             </View>
           ) : (
-            displayedPayments.map(p => (
+            displayedPayments.map((p) => {
+              const avatarUri = p.isClassPayment
+                ? p.classThumbnail || p.studentPicture
+                : p.studentPicture;
+              return (
               <View key={p.id} style={[s.txnRow, { borderTopColor: colors.border }]}>
                 <View style={s.txnAvatarWrap}>
-                  {p.studentPicture ? <Image source={{ uri: p.studentPicture }} style={s.txnAvatar} /> : (
-                    <View style={[s.txnAvatar, s.txnAvatarPH, { backgroundColor: colors.inputBg }]}><Ionicons name="person" size={16} color={colors.textTertiary} /></View>
+                  {avatarUri ? (
+                    <Image source={{ uri: avatarUri }} style={s.txnAvatar} />
+                  ) : (
+                    <View style={[s.txnAvatar, s.txnAvatarPH, { backgroundColor: colors.inputBg }]}>
+                      <Ionicons name={p.isClassPayment ? 'people' : 'person'} size={16} color={colors.textTertiary} />
+                    </View>
                   )}
                 </View>
                 <View style={{ flex: 1 }}>
@@ -338,7 +375,8 @@ export default function EarningsScreen({ goBack }: Props) {
                   </View>
                 </View>
               </View>
-            ))
+            );
+            })
           )}
           {displayLimit < filteredPayments.length && (
             <TouchableOpacity style={s.loadMore} onPress={() => setDisplayLimit(n => n + 20)} activeOpacity={0.7}>
@@ -369,9 +407,15 @@ export default function EarningsScreen({ goBack }: Props) {
                     <Ionicons name="close-circle" size={16} color={colors.textSecondary} />
                   </TouchableOpacity>
                 )}
+                {classEarningsFilter === 'classes_only' && (
+                  <TouchableOpacity style={[s.filterChip, { backgroundColor: colors.inputBg }]} onPress={() => setClassEarningsFilterSmooth('all')}>
+                    <Text style={[s.filterChipText, { color: colors.text }]}>{t('EARNINGS.FILTER_CLASSES_ONLY')}</Text>
+                    <Ionicons name="close-circle" size={16} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                )}
                 {filterStudent !== 'all' && (
                   <TouchableOpacity style={[s.filterChip, { backgroundColor: colors.inputBg }]} onPress={() => setFilterStudentSmooth('all')}>
-                    <Text style={[s.filterChipText, { color: colors.text }]}>{filterStudent}</Text>
+                    <Text style={[s.filterChipText, { color: colors.text }]}>{filterStudentLabel}</Text>
                     <Ionicons name="close-circle" size={16} color={colors.textSecondary} />
                   </TouchableOpacity>
                 )}
@@ -394,16 +438,50 @@ export default function EarningsScreen({ goBack }: Props) {
               ))}
             </View>
 
+            <Text style={[s.filterSectionTitle, { color: colors.text }]}>{t('EARNINGS.FILTER_CLASSES')}</Text>
+            <View style={s.classScopeRow}>
+              <TouchableOpacity
+                style={[
+                  s.classScopeBtn,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                  classEarningsFilter === 'all' && s.classScopeBtnActive,
+                ]}
+                onPress={() => setClassEarningsFilterSmooth('all')}
+                activeOpacity={0.7}
+              >
+                <Text style={[s.classScopeBtnText, { color: colors.text }, classEarningsFilter === 'all' && s.classScopeBtnTextActive]}>
+                  {t('EARNINGS.FILTER_CLASS_SCOPE_ALL')}
+                </Text>
+                {classEarningsFilter === 'all' && <Ionicons name="checkmark" size={16} color="#3478f7" style={{ marginLeft: 6 }} />}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  s.classScopeBtn,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                  classEarningsFilter === 'classes_only' && s.classScopeBtnActive,
+                ]}
+                onPress={() => setClassEarningsFilterSmooth('classes_only')}
+                activeOpacity={0.7}
+              >
+                <Text style={[s.classScopeBtnText, { color: colors.text }, classEarningsFilter === 'classes_only' && s.classScopeBtnTextActive]}>
+                  {t('EARNINGS.FILTER_CLASSES_ONLY')}
+                </Text>
+                {classEarningsFilter === 'classes_only' && <Ionicons name="checkmark" size={16} color="#3478f7" style={{ marginLeft: 6 }} />}
+              </TouchableOpacity>
+            </View>
+
             <Text style={[s.filterSectionTitle, { color: colors.text }]}>{t('EARNINGS.FILTER_STUDENT')}</Text>
             <TouchableOpacity style={[s.filterListItem, { borderBottomColor: colors.border }, filterStudent === 'all' && s.filterListItemActive]} onPress={() => setFilterStudentSmooth('all')}>
               <Text style={[s.filterListText, { color: colors.text }, filterStudent === 'all' && s.filterListTextActive]}>{t('EARNINGS.FILTER_ALL_STUDENTS')}</Text>
               {filterStudent === 'all' && <Ionicons name="checkmark" size={18} color="#3478f7" />}
             </TouchableOpacity>
-            {uniqueStudents.map(st => (
+            {uniqueStudents.map((st) => (
               <TouchableOpacity key={st.id} style={[s.filterListItem, { borderBottomColor: colors.border }, filterStudent === st.id && s.filterListItemActive]} onPress={() => setFilterStudentSmooth(st.id)}>
                 <View style={s.filterStudentRow}>
                   {st.picture ? <Image source={{ uri: st.picture }} style={s.filterStudentAvatar} /> : (
-                    <View style={[s.filterStudentAvatar, s.txnAvatarPH, { backgroundColor: colors.inputBg }]}><Ionicons name="person" size={14} color={colors.textTertiary} /></View>
+                    <View style={[s.filterStudentAvatar, s.txnAvatarPH, { backgroundColor: colors.inputBg }]}>
+                      <Ionicons name="person" size={14} color={colors.textTertiary} />
+                    </View>
                   )}
                   <Text style={[s.filterListText, { color: colors.text }, filterStudent === st.id && s.filterListTextActive]}>{st.name}</Text>
                 </View>
@@ -648,6 +726,11 @@ const s = StyleSheet.create({
   filterGridBtnActive: { borderColor: '#3478f7', backgroundColor: '#EFF6FF' },
   filterGridBtnText: { fontSize: 13, fontWeight: '600', color: '#222' },
   filterGridBtnTextActive: { color: '#3478f7' },
+  classScopeRow: { flexDirection: 'row', gap: 10, marginBottom: 4 },
+  classScopeBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, paddingHorizontal: 8, borderRadius: 10, borderWidth: 1 },
+  classScopeBtnActive: { borderColor: '#3478f7', backgroundColor: '#EFF6FF' },
+  classScopeBtnText: { fontSize: 14, fontWeight: '600' },
+  classScopeBtnTextActive: { color: '#3478f7' },
   filterListItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#f0f0f0' },
   filterListItemActive: {},
   filterListText: { fontSize: 15, color: '#222' },

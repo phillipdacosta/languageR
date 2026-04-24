@@ -1533,6 +1533,36 @@ ion-header ion-toolbar {
 
 }
 
+/* ── Leave class (student) — deliberately understated. Plain text link
+   with tertiary color; only turns red on hover so it recedes visually
+   while staying within Apple-style tap target sizing. */
+.ed-class-leave {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 4px;
+}
+
+.ed-leave-link {
+  background: transparent;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 10px;
+  color: var(--ed-text-tertiary, #8e8e93);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+
+  &:hover {
+    color: #ff3b30;
+    background: rgba(255, 59, 48, 0.06);
+  }
+
+  &:active { transform: scale(0.98); }
+}
+
 /* ── Header Toolbar ───────────────────────────────────── */
 ion-header {
   ion-toolbar {

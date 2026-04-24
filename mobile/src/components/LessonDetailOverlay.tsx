@@ -48,6 +48,7 @@ import {
   isLessonInProgressSlot,
 } from '../services/lessons';
 import { materialService, RecommendedMaterial } from '../services/materials';
+import { leaveClass as leaveClassApi } from '../services/classes';
 import { isLessonMockId, getMockRecommendedMaterials } from '../utils/lessonMockPreview';
 import { stripSimpleHtml } from '../utils/stripSimpleHtml';
 import {
@@ -1132,7 +1133,30 @@ export default function LessonDetailOverlay({
   const showCancelLesson =
     !!info && !info.isCancelled && info.isUpcoming && !info.isNow;
   const showMessageBtn = !!info && !isClass;
-  const showStickyFooter = showJoinCta || showMessageBtn || showRebook;
+
+  /**
+   * Student-only "Leave class" affordance. Visible when viewing a scheduled
+   * class the current user is confirmed on and it hasn't started. Matches the
+   * backend guard on POST /:classId/unenroll (scheduled + confirmed).
+   */
+  const isConfirmedInClass = useMemo(() => {
+    if (!isClass || !isStudent || !currentUserId) return false;
+    const confirmed = (lesson as { confirmedStudents?: any[] } | null)?.confirmedStudents || [];
+    return confirmed.some((s: any) => {
+      const sid = String(s?._id || s?.id || s?.auth0Id || '');
+      return sid === currentUserId;
+    });
+  }, [isClass, isStudent, currentUserId, lesson]);
+  const showLeaveClass =
+    !!info &&
+    isClass &&
+    isStudent &&
+    isConfirmedInClass &&
+    !info.isCancelled &&
+    info.isUpcoming &&
+    !info.isNow;
+
+  const showStickyFooter = showJoinCta || showMessageBtn || showRebook || showLeaveClass;
 
   const joinGate = useMemo(() => getJoinGateState(lesson ?? undefined), [lesson, joinUiTick]);
   const joinPrimaryLabel = useMemo(() => {
@@ -1289,6 +1313,50 @@ export default function LessonDetailOverlay({
     classGoingReceiverIds,
     classNameForGoingMessage,
   ]);
+
+  const [isLeavingClass, setIsLeavingClass] = useState(false);
+
+  /**
+   * Student "Leave class" flow. Confirms via native alert, hits the unenroll
+   * endpoint (which releases any authorized Stripe hold + posts a system
+   * message), then closes the overlay and tells the parent to refresh.
+   */
+  const handleLeaveClass = useCallback(() => {
+    if (isLeavingClass || !id) return;
+    const cname =
+      classNameForGoingMessage ||
+      card.className ||
+      (lesson as { classData?: { name?: string } } | null)?.classData?.name ||
+      'this class';
+    Alert.alert(
+      'Leave class?',
+      `Are you sure you want to leave "${cname}"? Any authorized payment will be released and your seat will be given up. This can't be undone.`,
+      [
+        { text: 'Stay enrolled', style: 'cancel' },
+        {
+          text: 'Leave class',
+          style: 'destructive',
+          onPress: async () => {
+            setIsLeavingClass(true);
+            try {
+              await leaveClassApi(String(id));
+              // Close the overlay; the home/lessons tabs refetch on focus.
+              try { onCloseStart?.(); } catch {}
+            } catch (err: any) {
+              Alert.alert(
+                'Could not leave class',
+                err?.response?.data?.message ||
+                  err?.message ||
+                  'Please try again in a moment.',
+              );
+            } finally {
+              setIsLeavingClass(false);
+            }
+          },
+        },
+      ],
+    );
+  }, [isLeavingClass, id, classNameForGoingMessage, card.className, lesson, onCloseStart]);
 
   const paymentStatus = useMemo(() => {
     if (!paymentData) return null;
@@ -2480,6 +2548,22 @@ export default function LessonDetailOverlay({
                   style={st.footerLink}
                 >
                   <Text style={st.footerLinkText}>Reschedule or cancel</Text>
+                </TouchableOpacity>
+              ) : null}
+
+              {showLeaveClass ? (
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  activeOpacity={0.7}
+                  disabled={isLeavingClass}
+                  onPress={handleLeaveClass}
+                  style={st.footerLink}
+                >
+                  {isLeavingClass ? (
+                    <ActivityIndicator size="small" color="#717171" />
+                  ) : (
+                    <Text style={st.footerLinkText}>Leave class</Text>
+                  )}
                 </TouchableOpacity>
               ) : null}
             </Animated.View>

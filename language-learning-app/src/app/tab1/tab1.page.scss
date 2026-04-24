@@ -15747,15 +15747,6 @@ ion-modal.confirm-action-modal {
   }
 }
 
-ion-modal.reschedule-lesson-modal {
-  --width: 96% !important;
-  --max-width: 900px !important;
-  --height: 94% !important;
-  --max-height: 900px !important;
-  --border-radius: 24px !important;
-  --box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15) !important;
-}
-
 ion-modal.tutor-booking-modal {
   --width: 96% !important;
   --max-width: 900px !important;
@@ -15801,14 +15792,6 @@ ion-modal.reschedule-proposal-modal {
     --max-width: 460px !important;
   }
 
-  ion-modal.reschedule-lesson-modal,
-  ion-modal.cancel-reason-modal {
-    --width: 900px !important;
-    --max-width: 1000px !important;
-    --height: 90% !important;
-    --max-height: 960px !important;
-  }
-
   ion-modal.tutor-booking-modal {
     --width: 900px !important;
     --max-width: 1000px !important;
@@ -15829,13 +15812,6 @@ ion-modal.reschedule-proposal-modal {
   ion-modal.confirm-action-modal {
     --width: 88% !important;
     --max-width: 440px !important;
-  }
-
-  ion-modal.reschedule-lesson-modal,
-  ion-modal.cancel-reason-modal {
-    --width: 92% !important;
-    --max-width: 700px !important;
-    --height: 90% !important;
   }
 
   ion-modal.tutor-booking-modal {

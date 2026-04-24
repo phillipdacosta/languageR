@@ -239,8 +239,11 @@
           <span class="filter-chip-preview" *ngIf="selectedDateRange !== 'all'">
             {{ dateRangeLabel }}
           </span>
+          <span class="filter-chip-preview" *ngIf="classEarningsFilter === 'classes_only'">
+            {{ classFilterLabel }}
+          </span>
           <span class="filter-chip-preview" *ngIf="selectedStudent !== 'all'">
-            {{ selectedStudent }}
+            {{ studentFilterLabel }}
           </span>
           <span class="filter-chip-preview" *ngIf="selectedStatus !== 'all'">
             {{ getStatusText(selectedStatus) }}
@@ -275,11 +278,11 @@
              (click)="(payment.lessonId || payment.classId) && viewEvent(payment.lessonId, payment.classId)">
           <div class="txn-mobile-top">
             <div class="txn-mobile-student">
-              <div class="avatar" *ngIf="payment.studentPicture">
-                <img [src]="payment.studentPicture" [alt]="payment.studentName" referrerpolicy="no-referrer" loading="lazy" (error)="onImageError($event)">
+              <div class="avatar" *ngIf="payment.txnAvatarUrl">
+                <img [src]="payment.txnAvatarUrl" [alt]="payment.className || payment.studentName" referrerpolicy="no-referrer" loading="lazy" (error)="onImageError($event)">
               </div>
-              <div class="avatar fallback" *ngIf="!payment.studentPicture">
-                <ion-icon name="person"></ion-icon>
+              <div class="avatar fallback" *ngIf="!payment.txnAvatarUrl">
+                <ion-icon [name]="payment.isClassPayment ? 'people' : 'person'"></ion-icon>
               </div>
               <div class="txn-mobile-meta">
                 <span class="txn-mobile-name">{{ payment.studentName }}</span>
@@ -338,16 +341,16 @@
               <!-- Student -->
               <td class="student-col">
                 <div class="student-row">
-                  <div class="avatar" *ngIf="payment.studentPicture">
+                  <div class="avatar" *ngIf="payment.txnAvatarUrl">
                     <img 
-                      [src]="payment.studentPicture" 
-                      [alt]="payment.studentName"
+                      [src]="payment.txnAvatarUrl" 
+                      [alt]="payment.className || payment.studentName"
                       referrerpolicy="no-referrer"
                       loading="lazy"
                       (error)="onImageError($event)">
                   </div>
-                  <div class="avatar fallback" *ngIf="!payment.studentPicture">
-                    <ion-icon name="person"></ion-icon>
+                  <div class="avatar fallback" *ngIf="!payment.txnAvatarUrl">
+                    <ion-icon [name]="payment.isClassPayment ? 'people' : 'person'"></ion-icon>
                   </div>
                   <div class="student-meta">
                     <span class="name">{{ payment.studentName }}</span>
@@ -460,6 +463,10 @@
             <span>{{ dateRangeLabel }}</span>
             <ion-icon name="close"></ion-icon>
           </button>
+          <button class="ef-filter-chip" *ngIf="classEarningsFilter === 'classes_only'" (click)="classEarningsFilter = 'all'; onFilterChange()">
+            <span>{{ classFilterLabel }}</span>
+            <ion-icon name="close"></ion-icon>
+          </button>
           <button class="ef-filter-chip" *ngIf="selectedStudent !== 'all'" (click)="selectedStudent = 'all'; onFilterChange()">
             <span>{{ studentFilterLabel }}</span>
             <ion-icon name="close"></ion-icon>
@@ -538,11 +545,32 @@
 
       <div class="ef-divider"></div>
 
-      <!-- Student Section -->
+      <!-- Classes: scope only (no per-class list) -->
+      <section class="ef-section">
+        <h3 class="ef-section-title">{{ 'EARNINGS.FILTER_CLASSES' | translate }}</h3>
+        <div class="ef-time-grid ef-time-grid-2">
+          <button
+            class="ef-time-btn"
+            [class.active]="classEarningsFilter === 'all'"
+            (click)="classEarningsFilter = 'all'; onFilterChange()">
+            {{ 'EARNINGS.FILTER_CLASS_SCOPE_ALL' | translate }}
+          </button>
+          <button
+            class="ef-time-btn"
+            [class.active]="classEarningsFilter === 'classes_only'"
+            (click)="classEarningsFilter = 'classes_only'; onFilterChange()">
+            {{ 'EARNINGS.FILTER_CLASSES_ONLY' | translate }}
+          </button>
+        </div>
+      </section>
+
+      <div class="ef-divider"></div>
+
+      <!-- Students -->
       <section class="ef-section">
         <h3 class="ef-section-title">{{ 'EARNINGS.FILTER_STUDENT' | translate }}</h3>
         <div class="ef-student-list">
-          <button 
+          <button
             class="ef-student-btn"
             [class.active]="selectedStudent === 'all'"
             (click)="selectedStudent = 'all'; onFilterChange()">
@@ -551,21 +579,21 @@
               <ion-icon name="checkmark"></ion-icon>
             </div>
           </button>
-          <button 
+          <button
             class="ef-student-btn"
-            *ngFor="let student of uniqueStudents"
-            [class.active]="selectedStudent === student.id"
-            (click)="selectedStudent = student.id; onFilterChange()">
+            *ngFor="let st of uniqueStudents"
+            [class.active]="selectedStudent === st.id"
+            (click)="selectedStudent = st.id; onFilterChange()">
             <div class="ef-student-info">
-              <div class="ef-avatar" *ngIf="student.picture">
-                <img [src]="student.picture" [alt]="student.name" referrerpolicy="no-referrer" (error)="onImageError($event)">
+              <div class="ef-avatar" *ngIf="st.picture">
+                <img [src]="st.picture" [alt]="st.name" referrerpolicy="no-referrer" (error)="onImageError($event)">
               </div>
-              <div class="ef-avatar fallback" *ngIf="!student.picture">
+              <div class="ef-avatar fallback" *ngIf="!st.picture">
                 <ion-icon name="person"></ion-icon>
               </div>
-              <span>{{ student.name }}</span>
+              <span>{{ st.name }}</span>
             </div>
-            <div class="ef-check" *ngIf="selectedStudent === student.id">
+            <div class="ef-check" *ngIf="selectedStudent === st.id">
               <ion-icon name="checkmark"></ion-icon>
             </div>
           </button>

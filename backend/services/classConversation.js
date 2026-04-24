@@ -25,9 +25,10 @@ const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const User = require('../models/User');
 const ClassModel = require('../models/Class');
-const { formatNameWithInitial } = require('../utils/nameFormatter');
+const { formatNameWithInitialListStyle } = require('../utils/nameFormatter');
 
-const formatDisplayName = formatNameWithInitial;
+/** List-style names in system messages (no period after initial — avoids "., "). */
+const formatDisplayName = formatNameWithInitialListStyle;
 
 /**
  * Build a snapshot of current class membership: the tutor + every confirmed

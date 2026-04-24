@@ -125,6 +125,14 @@ export async function removeStudentFromClass(
   return api.delete(`/classes/${encodeURIComponent(classId)}/student/${encodeURIComponent(studentId)}`);
 }
 
+/** Student: un-enroll from a class they accepted (while status is still `scheduled`). */
+export async function leaveClass(classId: string): Promise<{ success: boolean; message?: string }> {
+  return api.post<{ success: boolean; message?: string }>(
+    `/classes/${encodeURIComponent(classId)}/unenroll`,
+    {},
+  );
+}
+
 export async function uploadClassThumbnail(localUri: string): Promise<string> {
   const processed = await manipulateAsync(localUri, [], { compress: 0.82, format: SaveFormat.JPEG });
   const formData = new FormData();

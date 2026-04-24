@@ -104,26 +104,51 @@ export default function MessagesScreen() {
 
   /**
    * Auto-select a conversation when the screen is opened with `{ groupId }` or
-   * `{ userId }` deep-link params (e.g. after sending a class broadcast). We
-   * wait until conversations have loaded, match, and clear the params so a
-   * later back-nav doesn't re-open the thread.
+   * `{ userId }` deep-link params (e.g. after sending a class broadcast).
+   *
+   * MessagesScreen lives inside the bottom tab navigator and stays mounted
+   * between tab switches, so the `conversations` list we captured on first
+   * load is often stale by the time a deep-link arrives (e.g. the user just
+   * sent the first message in a brand-new class thread from Home). If we
+   * can't match against the current snapshot, we refetch once and retry —
+   * that guarantees newly-created threads (`grp_class_<classId>`) surface
+   * instead of silently dropping the user into the inbox as if it were a
+   * "new" thread.
    */
   useEffect(() => {
-    if (loading) return;
     if (!routeGroupId && !routeUserId) return;
-    const match = conversations.find((c) => {
-      if (routeGroupId) return c.isGroup && c.groupId === routeGroupId;
-      if (routeUserId) {
-        return !c.isGroup && (c.otherUser?.auth0Id === routeUserId || c.otherUser?.id === routeUserId);
+
+    const findMatch = (list: Conversation[]) =>
+      list.find((c) => {
+        if (routeGroupId) return c.isGroup && c.groupId === routeGroupId;
+        if (routeUserId) {
+          return !c.isGroup && (c.otherUser?.auth0Id === routeUserId || c.otherUser?.id === routeUserId);
+        }
+        return false;
+      });
+
+    let cancelled = false;
+
+    const run = async () => {
+      if (loading) return;
+      let match = findMatch(conversations);
+      if (!match) {
+        const fresh = await fetchConversations();
+        if (cancelled) return;
+        match = findMatch(fresh);
       }
-      return false;
-    });
-    if (match) {
-      setSelected(match);
-      // Clear the deep-link param so navigating back doesn't re-select.
-      navigation.setParams?.({ groupId: undefined, userId: undefined } as any);
-    }
-  }, [loading, conversations, routeGroupId, routeUserId, navigation]);
+      if (cancelled) return;
+      if (match) {
+        setSelected(match);
+        navigation.setParams?.({ groupId: undefined, userId: undefined } as any);
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, conversations, routeGroupId, routeUserId, navigation, fetchConversations]);
 
   const filtered = useMemo(() => {
     let list = conversations;
@@ -294,8 +319,8 @@ function ConversationRow({
 
   return (
     <TouchableOpacity style={s.row} onPress={onPress} activeOpacity={0.6}>
-      {/* Avatar — group cluster (up to 3 + "+N" chip) or single avatar. */}
-      {c.isGroup ? (
+      {/* Avatar — group cluster unless last message is system (Barnabi, same as web). */}
+      {c.isGroup && !isSystem ? (
         <GroupAvatarCluster conversation={c} />
       ) : isSystem ? (
         <Image source={require('../../assets/shared/barnabi-bird.png')} style={s.avatar} />

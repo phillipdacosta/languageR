@@ -940,6 +940,16 @@
             </section>
           </ng-container>
 
+          <!-- ── Leave class (student only, subtle footer link) ── -->
+          <ng-container *ngIf="classCanLeave">
+            <div class="ed-divider"></div>
+            <section class="ed-row ed-class-leave">
+              <button type="button" class="ed-leave-link" (click)="leaveClassAction()">
+                Leave class
+              </button>
+            </section>
+          </ng-container>
+
         </div>
       </div>
 

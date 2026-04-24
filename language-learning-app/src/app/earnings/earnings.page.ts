@@ -36,6 +36,13 @@ interface PaymentBreakdown {
   lessonId: string;
   classId?: string;
   className?: string;
+  /** Class cover image for table avatar when `isClassPayment` */
+  classThumbnail?: string | null;
+  /**
+   * Precomputed in `computePaymentDisplayDates`: class cover for group rows,
+   * else student headshot (templates avoid method calls per AGENTS.md).
+   */
+  txnAvatarUrl?: string | null;
   isClassPayment?: boolean;
   isMaterialPurchase?: boolean;
   materialId?: string;
@@ -141,13 +148,15 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   
   // Filters
   selectedDateRange: 'all' | 'today' | 'week' | 'month' | 'year' | 'custom' = 'all';
+  /** 'classes_only' = class earnings rows only; tutor narrows further with date / student / status. */
+  classEarningsFilter: 'all' | 'classes_only' = 'all';
+  /** Student display name; 'all' = any. */
   selectedStudent: string = 'all';
   selectedStatus: string = 'all';
   customStartDate: string = '';
   customEndDate: string = '';
   
-  // Filter options
-  uniqueStudents: Array<{ id: string; name: string; picture?: string }> = [];
+  uniqueStudents: { id: string; name: string; picture?: string }[] = [];
   uniqueStatuses: string[] = [];
   
   error: string | null = null;
@@ -160,6 +169,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   isFiltersModalOpen: boolean = false;
   activeFilterCount: number = 0;
   dateRangeLabel: string = '';
+  classFilterLabel: string = '';
   studentFilterLabel: string = '';
   statusFilterLabel: string = '';
 
@@ -466,6 +476,9 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       p.formattedTime = p.startTime
         ? formatTimeInTz(p.startTime, tz)
         : (p.paymentType === 'tip' && p.date ? formatTimeInTz(p.date, tz) : '');
+      p.txnAvatarUrl = p.isClassPayment
+        ? p.classThumbnail || p.studentPicture || null
+        : p.studentPicture || null;
     }
   }
 
@@ -1319,31 +1332,32 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
 
   // Filter methods
   extractFilterOptions() {
-    // Extract unique students
     const studentMap = new Map<string, { id: string; name: string; picture?: string }>();
     const statusSet = new Set<string>();
 
-    this.recentPayments.forEach(payment => {
-      // Add student (use studentName as the key since it's unique per student)
-      if (payment.studentName) {
-        if (!studentMap.has(payment.studentName)) {
-          studentMap.set(payment.studentName, {
-            id: payment.studentName,
-            name: payment.studentName,
-            picture: payment.studentPicture
-          });
-        }
-      }
-
-      // Add status
+    for (const payment of this.recentPayments) {
       if (payment.status) {
         statusSet.add(payment.status);
       }
-    });
 
-    this.uniqueStudents = Array.from(studentMap.values()).sort((a, b) => 
-      a.name.localeCompare(b.name)
-    );
+      const sn = payment.studentName?.trim();
+      if (sn && sn !== '—' && sn !== '–' && sn !== 'N/A' && sn !== 'Student') {
+        if (!studentMap.has(sn)) {
+          studentMap.set(sn, {
+            id: sn,
+            name: sn,
+            picture: payment.studentPicture,
+          });
+        } else {
+          const cur = studentMap.get(sn)!;
+          if (!cur.picture && payment.studentPicture) {
+            cur.picture = payment.studentPicture;
+          }
+        }
+      }
+    }
+
+    this.uniqueStudents = Array.from(studentMap.values()).sort((a, b) => a.name.localeCompare(b.name));
     this.uniqueStatuses = Array.from(statusSet).sort();
   }
 
@@ -1391,11 +1405,11 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       }
     }
 
-    // Student filter
+    if (this.classEarningsFilter === 'classes_only') {
+      filtered = filtered.filter((p) => !!p.isClassPayment);
+    }
     if (this.selectedStudent !== 'all') {
-      filtered = filtered.filter(payment => {
-        return payment.studentName === this.selectedStudent;
-      });
+      filtered = filtered.filter((p) => p.studentName === this.selectedStudent);
     }
 
     // Status filter
@@ -1440,6 +1454,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     // Count active filters
     let count = 0;
     if (this.selectedDateRange !== 'all') count++;
+    if (this.classEarningsFilter === 'classes_only') count++;
     if (this.selectedStudent !== 'all') count++;
     if (this.selectedStatus !== 'all') count++;
     this.activeFilterCount = count;
@@ -1460,9 +1475,12 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       default: this.dateRangeLabel = ''; break;
     }
 
-    // Student label
+    this.classFilterLabel = this.classEarningsFilter === 'classes_only'
+      ? this.translateService.instant('EARNINGS.FILTER_CLASSES_ONLY')
+      : '';
+
     if (this.selectedStudent !== 'all') {
-      const s = this.uniqueStudents.find(s => s.name === this.selectedStudent);
+      const s = this.uniqueStudents.find((o) => o.id === this.selectedStudent);
       this.studentFilterLabel = s?.name || this.selectedStudent;
     } else {
       this.studentFilterLabel = '';
@@ -1476,6 +1494,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
 
   clearFilters() {
     this.selectedDateRange = 'all';
+    this.classEarningsFilter = 'all';
     this.selectedStudent = 'all';
     this.selectedStatus = 'all';
     this.customStartDate = '';
@@ -1486,6 +1505,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
 
   hasActiveFilters(): boolean {
     return this.selectedDateRange !== 'all' || 
+           this.classEarningsFilter === 'classes_only' ||
            this.selectedStudent !== 'all' || 
            this.selectedStatus !== 'all';
   }

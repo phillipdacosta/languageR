@@ -327,6 +327,8 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   classJoinLabel = 'Join';
   classCanCancel = false;
   classCanReschedule = false;
+  /** Student-only: confirmed in a scheduled class → allowed to leave/unenroll. */
+  classCanLeave = false;
   /** Student class CTA: accept tutor invite, public enroll, or join session when enrolled. */
   classStudentCtaKind: 'accept_invite' | 'enroll' | 'join_session' | null = null;
   classStudentPrimaryDisabled = false;
@@ -1963,6 +1965,22 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.classCanCancel = tutorCanManage && !this.classIsCancelled && !this.classIsCompleted && start > now;
     this.classCanReschedule = tutorCanManage && !this.classIsCancelled && !this.classIsCompleted && start > now;
 
+    // Student-only: may leave a scheduled class they're confirmed on, as long
+    // as it hasn't started. Mirrors backend guard on POST /:classId/unenroll.
+    const classStatus = String(this.classData?.status || '').toLowerCase();
+    const isConfirmedStudent =
+      !!userId &&
+      (this.classData?.confirmedStudents || []).some(
+        (s: any) => this.normalizeRefId(s?._id ?? s?.id) === userId
+      );
+    this.classCanLeave =
+      this.isStudentUser &&
+      isConfirmedStudent &&
+      classStatus === 'scheduled' &&
+      !this.classIsCancelled &&
+      !this.classIsCompleted &&
+      start > now;
+
     this.classStudentCtaKind = null;
     this.classStudentPrimaryDisabled = false;
     if (
@@ -2776,6 +2794,67 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       await loading.dismiss();
       const toast = await this.toastController.create({
         message: error?.error?.message || 'Failed to cancel class. Please try again.',
+        duration: 3000,
+        position: 'bottom',
+        color: 'danger'
+      });
+      await toast.present();
+    }
+  }
+
+  /**
+   * Student-initiated "Leave class". One-step confirmation modal, then hits
+   * POST /api/classes/:classId/unenroll — backend releases any authorized
+   * Stripe hold, syncs the class conversation, and notifies the tutor.
+   */
+  async leaveClassAction() {
+    if (!this.classData || !this.classCanLeave || !this.eventId) return;
+    const className = this.classData.name || 'this class';
+
+    const modal = await this.modalController.create({
+      component: ConfirmActionModalComponent,
+      componentProps: {
+        title: 'Leave class?',
+        message: `Are you sure you want to leave "${className}"? Any authorized payment will be released and your seat will be given up. This can't be undone.`,
+        confirmText: 'Leave class',
+        cancelText: 'Stay enrolled',
+        confirmColor: 'danger',
+        icon: 'exit-outline',
+        iconColor: 'danger'
+      },
+      cssClass: 'confirm-action-modal'
+    });
+    await modal.present();
+    const { data } = await modal.onWillDismiss();
+    if (!data?.confirmed) return;
+
+    const loading = await this.loadingController.create({
+      message: 'Leaving class...',
+      spinner: 'crescent'
+    });
+    await loading.present();
+
+    try {
+      await firstValueFrom(this.classService.unenrollFromClass(this.eventId));
+      await loading.dismiss();
+      const toast = await this.toastController.create({
+        message: `You have left "${className}".`,
+        duration: 3000,
+        position: 'bottom',
+        color: 'success'
+      });
+      await toast.present();
+      window.dispatchEvent(new CustomEvent('class-unenrolled', { detail: { classId: this.eventId } }));
+      if (this.eventId) this.lessonService.clearDetailCache(this.eventId);
+      if (this.isModal) {
+        this.modalController.dismiss({ unenrolled: true });
+      } else {
+        this.router.navigate(['/tabs/lessons']);
+      }
+    } catch (error: any) {
+      await loading.dismiss();
+      const toast = await this.toastController.create({
+        message: error?.error?.message || 'Failed to leave class. Please try again.',
         duration: 3000,
         position: 'bottom',
         color: 'danger'

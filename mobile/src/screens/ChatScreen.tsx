@@ -19,6 +19,7 @@ import {
   Linking,
   ActionSheetIOS,
   Dimensions,
+  type ViewStyle,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
@@ -31,7 +32,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../contexts/ThemeContext';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
-import { messagingService, Conversation, Message } from '../services/messaging';
+import { messagingService, Conversation, GroupParticipantSummary, Message } from '../services/messaging';
 import { useScreenEntranceAnimations } from '../hooks/useScreenEntranceAnimations';
 
 interface Props {
@@ -44,6 +45,8 @@ interface Props {
 
 const HEADER_HEIGHT = 56;
 const GROUP_GAP_MS = 120000;
+/** Barnabi — same role as `assets/icons-app-bird-2.png` on web system messages. */
+const BARNABI_MASCOT = require('../../assets/shared/barnabi-bird.png');
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏', '👎', '‼️', '❓', '🤔', '🔥', '🎉', '💯', '🥺'];
 const EXTENDED_EMOJIS = [
   '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '😊',
@@ -64,6 +67,41 @@ const isEmojiOnly = (text: string): boolean => {
   return emojiRegex.test(stripped) && stripped.length <= 12;
 };
 
+/** 40px cluster, positions aligned with web `.chat-avatar--group` (tab1 messages). */
+function headerClusterCellStyle(n: number, i: number): ViewStyle {
+  const base: ViewStyle = { position: 'absolute', backgroundColor: '#eef0f4' };
+  if (n === 1) {
+    return { ...base, width: 20, height: 20, borderRadius: 10, top: 0, left: 0 };
+  }
+  if (n === 2) {
+    if (i === 0) {
+      return { ...base, width: 26, height: 26, borderRadius: 13, top: 1, left: 0 };
+    }
+    return { ...base, width: 26, height: 26, borderRadius: 13, bottom: 1, right: 0 };
+  }
+  if (n === 3) {
+    if (i === 0) {
+      return { ...base, width: 22, height: 22, borderRadius: 11, top: 0, left: 9 };
+    }
+    if (i === 1) {
+      return { ...base, width: 22, height: 22, borderRadius: 11, bottom: 0, left: 0 };
+    }
+    return { ...base, width: 22, height: 22, borderRadius: 11, bottom: 0, right: 0 };
+  }
+  const w = 20;
+  const r = 10;
+  if (i === 0) {
+    return { ...base, width: w, height: w, borderRadius: r, top: 0, left: 0 };
+  }
+  if (i === 1) {
+    return { ...base, width: w, height: w, borderRadius: r, top: 0, right: 0 };
+  }
+  if (i === 2) {
+    return { ...base, width: w, height: w, borderRadius: r, bottom: 0, left: 0 };
+  }
+  return { ...base, width: w, height: w, borderRadius: r, bottom: 0, right: 0 };
+}
+
 export default function ChatScreen({ conversation, currentUserId, currentUserName: propName, currentUserPicture, goBack }: Props) {
   const insets = useSafeAreaInsets();
   const { colors: C, isDark } = useTheme();
@@ -76,6 +114,8 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
   const isGroup = !!conversation.isGroup;
   const groupId = conversation.groupId || '';
   const groupParticipants = conversation.participants || [];
+  /** Group class chat (broadcast or legacy with classId) — no single "their" time. */
+  const isClassConversation = !!conversation.classId || conversation.type === 'class-broadcast';
 
   /**
    * Quick lookup for sender metadata keyed by auth0Id — used when rendering
@@ -149,7 +189,50 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
   const invertedMessages = useMemo(() => [...messages].reverse(), [messages]);
   const { shellMotion, listGateMotion } = useScreenEntranceAnimations(loading);
 
+  /**
+   * Header avatar cluster for group threads (same ordering as web
+   * `decorateGroupAvatarCluster`: others first, "me" last; >4 → 3 faces + +N).
+   * Used only for display — not called from JSX as a function.
+   */
+  const headerGroupCluster = useMemo(() => {
+    if (!isGroup) {
+      return null;
+    }
+    const all = groupParticipants;
+    const self = currentUserId;
+    const others = all.filter((p) => p.auth0Id && p.auth0Id !== self);
+    const me = all.filter((p) => p.auth0Id && p.auth0Id === self);
+    const ordered = [...others, ...me];
+    if (ordered.length === 0) {
+      return { cells: [] as Array<{ p?: GroupParticipantSummary; isMore?: boolean; n?: string }>, a11yLabel: '', layoutN: 0 };
+    }
+    const a11yLabel = ordered
+      .map((p) => (p.auth0Id === self ? 'You' : (p.name || '').trim()))
+      .filter((n) => !!n)
+      .join(', ');
+    let display: GroupParticipantSummary[];
+    let extra: number;
+    if (ordered.length > 4) {
+      display = ordered.slice(0, 3);
+      extra = ordered.length - 3;
+    } else {
+      display = ordered;
+      extra = 0;
+    }
+    const cells: Array<{ p?: GroupParticipantSummary; isMore?: boolean; n?: string }> = display.map((p) => ({ p }));
+    if (extra > 0) {
+      cells.push({ isMore: true, n: `+${extra}` });
+    }
+    const sliced = cells.slice(0, 4);
+    const layoutN = Math.min(sliced.length, 4) as 1 | 2 | 3 | 4;
+    return { cells: sliced, a11yLabel, layoutN: layoutN || 1 };
+  }, [isGroup, groupParticipants, currentUserId]);
+
   useEffect(() => {
+    if (isClassConversation) {
+      setOtherUserTime('');
+      return;
+    }
     if (!otherUser?.timezone) return;
     const update = () => {
       try {
@@ -161,7 +244,7 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
     update();
     const iv = setInterval(update, 30000);
     return () => clearInterval(iv);
-  }, [otherUser?.timezone]);
+  }, [isClassConversation, otherUser?.timezone]);
 
   useEffect(() => { return () => { soundRef.current?.unloadAsync(); }; }, []);
 
@@ -546,6 +629,13 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
 
         {isSystem ? (
           <View style={s.systemRow}>
+            <Image
+              source={BARNABI_MASCOT}
+              style={s.systemMascot}
+              resizeMode="cover"
+              accessibilityRole="image"
+              accessibilityLabel="Barnabi"
+            />
             <Text style={[s.systemText, { color: C.textSecondary }]}>{item.content}</Text>
           </View>
         ) : (
@@ -670,7 +760,67 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
         <TouchableOpacity onPress={goBack} style={s.backBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="chevron-back" size={24} color={C.text} />
         </TouchableOpacity>
-        <Text style={[s.headerTitle, { color: C.text }]} numberOfLines={1}>{headerTitle}</Text>
+
+        {!isGroup ? (
+          <View style={s.headerSingleAvatarWrap}>
+            {otherUser?.picture ? (
+              <Image source={{ uri: otherUser.picture }} style={s.headerAvatarImg} />
+            ) : (
+              <View style={[s.headerAvatarImg, s.headerAvatarFB]}>
+                <Text style={s.headerAvatarLetter}>
+                  {(otherUser?.name || '?').charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            )}
+          </View>
+        ) : headerGroupCluster && headerGroupCluster.cells.length > 0 ? (
+          <View
+            style={s.headerClusterWrap}
+            accessible
+            accessibilityRole="image"
+            accessibilityLabel={headerGroupCluster.a11yLabel || headerTitle}
+          >
+            <View style={s.headerClusterBox}>
+              {headerGroupCluster.cells.map((c, i) => {
+                const n = headerGroupCluster.layoutN;
+                if (c.isMore) {
+                  return (
+                    <View key="more" style={[headerClusterCellStyle(n, i), s.hcMore]}>
+                      <Text style={s.hcMoreText} numberOfLines={1}>{c.n}</Text>
+                    </View>
+                  );
+                }
+                const p = c.p!;
+                return (
+                  <View
+                    key={`${p.auth0Id || p.id}-${i}`}
+                    style={[headerClusterCellStyle(n, i), s.hcRing, { borderColor: isDark ? '#1c1c1e' : '#fff' }]}
+                  >
+                    {p.picture ? (
+                      <Image source={{ uri: p.picture }} style={s.hcCellFill} />
+                    ) : (
+                      <View style={[s.hcCellFill, s.hcFallback]}>
+                        <Text style={s.hcCellLetter}>{(p.name || '?').charAt(0).toUpperCase()}</Text>
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        ) : (
+          <View style={s.headerClusterWrap} accessibilityLabel={headerTitle} accessible>
+            <View style={[s.headerGroupPlaceholder, { backgroundColor: isDark ? '#2c2c2e' : '#eef0f4' }]}>
+              <Ionicons name="people" size={22} color={C.textSecondary} />
+            </View>
+          </View>
+        )}
+
+        <View style={s.headerTitleWrap}>
+          <Text style={[s.headerTitle, { color: C.text }]} numberOfLines={1}>
+            {headerTitle}
+          </Text>
+        </View>
         <View style={s.headerRight} />
       </View>
       </Animated.View>
@@ -707,7 +857,6 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
               keyboardShouldPersistTaps="handled"
               onContentSizeChange={handleContentSizeChange}
               onScrollBeginDrag={() => { shouldAutoScroll.current = false; }}
-              maintainVisibleContentPosition={{ minIndexForVisible: 1 }}
               ListFooterComponent={loadingOlder ? (
                 <View style={s.olderLoader}><ActivityIndicator size="small" color={C.textTertiary} /></View>
               ) : hasMore && messages.length >= 50 ? (
@@ -743,7 +892,7 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
             </View>
           )}
 
-          {otherUserTime !== '' && (
+          {otherUserTime !== '' && !isClassConversation && (
             <View style={[s.theirTimeRow, { backgroundColor: C.background }]}>
               <Text style={[s.theirTimeText, { color: C.textTertiary }]}>It's {otherUserTime.toLowerCase()} for them</Text>
             </View>
@@ -959,12 +1108,55 @@ const s = StyleSheet.create({
   kavContainer: { flex: 1 },
 
   header: {
-    flexDirection: 'row', alignItems: 'center', height: HEADER_HEIGHT,
-    paddingHorizontal: 4, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e5e5e5', backgroundColor: '#fff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: HEADER_HEIGHT,
+    paddingRight: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#e5e5e5',
+    backgroundColor: '#fff',
   },
   backBtn: { padding: 8 },
-  headerTitle: { flex: 1, fontSize: 17, fontWeight: '600', color: '#111', textAlign: 'center', marginRight: 40 },
-  headerRight: { width: 40 },
+  /** Single 1:1 + stacked group avatars to the right of the back chevron (matches web). */
+  headerSingleAvatarWrap: { marginLeft: 2, marginRight: 2, justifyContent: 'center' },
+  headerAvatarImg: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#e8e8e8',
+    overflow: 'hidden',
+  },
+  headerAvatarFB: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#4298d3',
+  },
+  headerAvatarLetter: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  headerClusterWrap: { marginLeft: 2, marginRight: 2, justifyContent: 'center' },
+  headerClusterBox: { width: 40, height: 40, position: 'relative' },
+  headerGroupPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hcRing: {
+    borderWidth: 2,
+    overflow: 'hidden',
+  },
+  hcCellFill: { width: '100%' as any, height: '100%' as any },
+  hcFallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#4298d3' },
+  hcCellLetter: { fontSize: 10, fontWeight: '700', color: '#fff' },
+  hcMore: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2f2f33',
+  },
+  hcMoreText: { color: '#fff', fontSize: 9, fontWeight: '700' },
+  headerTitleWrap: { flex: 1, minWidth: 0, marginLeft: 4, paddingRight: 4, justifyContent: 'center' },
+  headerTitle: { fontSize: 17, fontWeight: '600', textAlign: 'left' },
+  headerRight: { width: 40, flexShrink: 0 },
 
   chatBody: { flex: 1, backgroundColor: '#fff' },
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -972,7 +1164,21 @@ const s = StyleSheet.create({
   emptyTitle: { fontSize: 17, fontWeight: '600', color: '#222' },
   emptySub: { fontSize: 14, color: '#999', textAlign: 'center', lineHeight: 20 },
 
-  messagesContent: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
+  /**
+   * Inverted chat: `flexGrow` + `justifyContent: 'flex-end'` keeps a short
+   * thread from floating mid-screen with a large gap under the header; it
+   * pins the message block to the end of the flex column (the input side
+   * in an inverted list, i.e. content reads top→bottom like a normal chat).
+   * `maintainVisibleContentPosition` was removed — it often adds extra top
+   * padding on first paint for inverted lists.
+   */
+  messagesContent: {
+    flexGrow: 1,
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
 
   olderLoader: { alignItems: 'center', paddingVertical: 16 },
   loadOlderBtn: { fontSize: 13, fontWeight: '600', color: '#4298d3' },
@@ -980,8 +1186,25 @@ const s = StyleSheet.create({
   dateSep: { alignItems: 'center', paddingVertical: 16 },
   dateSepText: { fontSize: 13, fontWeight: '600', color: '#717171' },
 
-  systemRow: { alignItems: 'center', paddingVertical: 10 },
-  systemText: { fontSize: 13, color: '#999', textAlign: 'center', fontStyle: 'italic' },
+  systemRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+  },
+  systemMascot: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    flexShrink: 0,
+    marginRight: 10,
+  },
+  systemText: {
+    flex: 1,
+    fontSize: 13,
+    fontStyle: 'italic',
+    lineHeight: 19,
+  },
 
   msgContainer: { paddingVertical: 1 },
   msgContainerFirst: { marginTop: 16 },

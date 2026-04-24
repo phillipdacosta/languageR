@@ -5,7 +5,8 @@ import { IonicModule } from '@ionic/angular';
 import { TutorAvailabilityViewerComponent } from '../tutor-availability-viewer/tutor-availability-viewer.component';
 import { AvailabilitySetupComponent } from '../availability-setup/availability-setup.component';
 import { UserService } from '../../services/user.service';
-import { formatTimeInTz, formatDateInTz } from '../../shared/timezone.utils';
+import { formatTimeInTz, formatDateInTz, utcToWallClock } from '../../shared/timezone.utils';
+import { detectUserTimezone } from '../../shared/timezone.constants';
 import { LessonService, Lesson } from '../../services/lesson.service';
 import { ClassService } from '../../services/class.service';
 import { trigger, transition, style, animate, query, stagger } from '@angular/animations';
@@ -80,6 +81,21 @@ export class RescheduleLessonModalComponent implements OnInit {
   /** Hub class row: no single-student mutual busy-slot fetch (see tab1 `isClass` merge). */
   isClassLesson = false;
 
+  /**
+   * Set when the student's lessons could not be loaded. We still let the tutor
+   * pick a slot (so they're not stuck when the endpoint is down), but we warn
+   * them before submitting so they know student-side conflicts weren't checked.
+   */
+  studentAvailabilityFailed = false;
+
+  /**
+   * Timezone used to key busy slots. Must match the timezone the availability
+   * viewer uses to render its grid (`selectedTimezone`), otherwise busy keys
+   * won't collide with viewer slot keys after DST transitions or across zones.
+   * The viewer defaults to `detectUserTimezone()`, so we do the same.
+   */
+  private viewerTz: string = '';
+
   constructor(
     private modalController: ModalController,
     private loadingController: LoadingController,
@@ -96,6 +112,7 @@ export class RescheduleLessonModalComponent implements OnInit {
 
   async ngOnInit() {
     this.isClassLesson = !!(this.lesson as any)?.isClass;
+    this.viewerTz = detectUserTimezone();
 
     if (this.isTutor) {
       this.tutorId = this.currentUserId;
@@ -217,11 +234,16 @@ export class RescheduleLessonModalComponent implements OnInit {
   }
 
 
-  async loadStudentLessons() {
+  async loadStudentLessons(isRetry = false) {
     if (!this.studentId) {
       this.isLoadingMutualAvailability = false;
       this.studentBusySlots = new Set();
       return;
+    }
+
+    if (isRetry) {
+      this.studentAvailabilityFailed = false;
+      this.isLoadingMutualAvailability = true;
     }
 
     const loading = await this.loadingController.create({
@@ -230,142 +252,100 @@ export class RescheduleLessonModalComponent implements OnInit {
     await loading.present();
 
     try {
-      // Load student's lessons using the dedicated endpoint with timeout protection
-      console.log('📅 Loading lessons for student:', this.studentId);
-      
-      // Create a timeout promise (10 seconds)
-      const timeoutPromise = new Promise((_, reject) => 
+      const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Request timeout')), 10000)
       );
-      
-      // Create the API call promise with RxJS timeout operator AND asyncScheduler
-      // asyncScheduler prevents synchronous emissions from blocking the UI
+
       const apiPromise = firstValueFrom(
         this.lessonService.getLessonsByStudent(this.studentId, false).pipe(
-          observeOn(asyncScheduler), // Make emissions async to prevent freezing
-          timeout(10000) // 10 second timeout
+          observeOn(asyncScheduler),
+          timeout(10000)
         )
       );
-      
-      // Race between API call and timeout
+
       const response: any = await Promise.race([apiPromise, timeoutPromise]);
-      
-      if (response?.success && response.lessons) {
-        console.log('📅 Loaded', response.lessons.length, 'lessons for student');
-        
-        // Build busy slots from student's lessons (excluding the lesson we're rescheduling)
+
+      if (response?.success && Array.isArray(response.lessons)) {
         this.buildStudentBusySlots(response.lessons);
-        
-        console.log('📅 Student busy slots calculated:', this.studentBusySlots.size, 'slots');
-        console.log('📅 Sample busy slots:', Array.from(this.studentBusySlots).slice(0, 10));
+        this.studentAvailabilityFailed = false;
+        this.refreshTrigger++;
+      } else {
+        throw new Error('Unexpected response shape');
       }
-      
+
       await loading.dismiss();
       this.isLoadingMutualAvailability = false;
-      
     } catch (error: any) {
-      console.error('❌ Error loading student lessons:', error);
+      console.error('Error loading student lessons:', error);
       await loading.dismiss();
       this.isLoadingMutualAvailability = false;
-      
-      // Show more specific error message
-      const errorMessage = error.message === 'Request timeout' 
-        ? 'Request timed out. Showing all tutor slots.'
-        : 'Could not check student availability. Showing all tutor slots.';
-      
+      this.studentAvailabilityFailed = true;
+      this.studentBusySlots = new Set();
+
       const toast = await this.toastController.create({
-        message: errorMessage,
-        duration: 3000,
+        message:
+          error?.message === 'Request timeout'
+            ? 'Timed out checking student availability. You can retry or continue.'
+            : "Couldn't verify student availability. You can retry or continue.",
+        duration: 3500,
         color: 'warning'
       });
       await toast.present();
     }
   }
 
+  retryStudentAvailability() {
+    this.loadStudentLessons(true);
+  }
+
+  /**
+   * Build the set of 30-minute slot keys that are busy for the student.
+   *
+   * Keys are written in the viewer's display timezone (`this.viewerTz`) so
+   * they collide with the `${dateKey}-${timeSlot}` keys the availability
+   * viewer checks. Converting via `utcToWallClock` keeps us DST-correct
+   * regardless of the browser's local zone.
+   *
+   * We intentionally DO NOT emit day-based (`${dayOfWeek}-${time}`) keys —
+   * those would over-block every future occurrence of the same weekday/time.
+   * All repeating student lessons already appear as discrete rows in the
+   * response, so date-specific keys are sufficient and precise.
+   */
   buildStudentBusySlots(lessons: Lesson[]) {
     const busySlots = new Set<string>();
     const now = new Date();
-    
-    // Look ahead 60 days for potential reschedule dates
     const futureLimit = new Date(now);
     futureLimit.setDate(futureLimit.getDate() + 60);
-    
-    console.log('📅 Building busy slots from', lessons.length, 'lessons');
-    console.log('📅 Date range:', now.toISOString(), 'to', futureLimit.toISOString());
-    console.log('📅 Lesson being rescheduled (to skip):', this.lessonId);
-    
+
+    const BLOCKING_STATUSES = new Set([
+      'scheduled',
+      'confirmed',
+      'in_progress',
+      'pending_reschedule'
+    ]);
+
     for (const lesson of lessons) {
-      // Skip the lesson we're rescheduling
-      if (lesson._id === this.lessonId) {
-        console.log('⏭️ Skipping lesson being rescheduled:', lesson._id);
-        continue;
-      }
-      
-      // Only consider scheduled or in_progress lessons
-      if (lesson.status !== 'scheduled' && lesson.status !== 'in_progress') {
-        console.log('⏭️ Skipping lesson with status:', lesson.status);
-        continue;
-      }
+      if (lesson._id === this.lessonId) continue;
+      if (!BLOCKING_STATUSES.has(lesson.status as string)) continue;
 
       const startTime = new Date(lesson.startTime);
       const endTime = new Date(lesson.endTime);
-      
-      console.log('📅 Processing lesson:', {
-        id: lesson._id,
-        start: startTime.toISOString(),
-        end: endTime.toISOString(),
-        status: lesson.status
-      });
-      
-      // Only consider future lessons within our date range
-      if (endTime < now) {
-        console.log('⏭️ Skipping past lesson:', lesson._id);
-        continue;
-      }
-      
-      if (startTime > futureLimit) {
-        console.log('⏭️ Skipping lesson too far in future:', lesson._id);
-        continue;
-      }
-      
-      // Get the day of week for this lesson (0=Sun, 1=Mon, ..., 6=Sat)
-      const dayOfWeek = startTime.getDay();
-      
-      // Generate 30-minute slots between start and end
-      let currentTime = new Date(startTime);
-      let slotCount = 0;
-      while (currentTime < endTime) {
-        const hours = currentTime.getHours().toString().padStart(2, '0');
-        const minutes = currentTime.getMinutes().toString().padStart(2, '0');
-        const timeSlot = `${hours}:${minutes}`;
-        
-        // Create key: "dayOfWeek-HH:MM" (e.g., "1-14:30" for Monday 2:30 PM)
-        const key = `${dayOfWeek}-${timeSlot}`;
-        busySlots.add(key);
-        
-        // Also add specific date-based key for more precise filtering
-        const dateKey = this.getDateKey(currentTime);
-        const dateSpecificKey = `${dateKey}-${timeSlot}`;
-        busySlots.add(dateSpecificKey);
-        
-        slotCount++;
-        
-        // Move to next 30-minute slot
-        currentTime.setMinutes(currentTime.getMinutes() + 30);
-      }
-      
-      console.log('✅ Added', slotCount, 'busy slots for lesson', lesson._id);
-    }
-    
-    this.studentBusySlots = busySlots;
-    console.log('📅 Total busy slots:', busySlots.size);
-  }
+      if (!(startTime instanceof Date) || isNaN(startTime.getTime())) continue;
+      if (!(endTime instanceof Date) || isNaN(endTime.getTime())) continue;
+      if (endTime <= now) continue;
+      if (startTime > futureLimit) continue;
 
-  private getDateKey(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+      // Iterate in UTC (30-min steps) and translate each step into the
+      // viewer's local wall-clock to produce the slot key.
+      let cursor = new Date(startTime);
+      while (cursor < endTime) {
+        const wall = utcToWallClock(cursor, this.viewerTz);
+        busySlots.add(`${wall.date}-${wall.time}`);
+        cursor = new Date(cursor.getTime() + 30 * 60 * 1000);
+      }
+    }
+
+    this.studentBusySlots = busySlots;
   }
 
   onTimeSlotSelected(event: any) {
@@ -436,9 +416,13 @@ export class RescheduleLessonModalComponent implements OnInit {
   async onRescheduleClick() {
     const header = this.isClassLesson ? 'Reschedule class' : 'Reschedule Lesson';
     const subject = this.isClassLesson ? 'this class' : 'this lesson';
+    const warnUnverified =
+      !this.isClassLesson && this.studentAvailabilityFailed
+        ? " We couldn't verify the student's calendar, so this slot may conflict with another lesson."
+        : '';
     const alert = await this.alertController.create({
       header,
-      message: `Are you sure you want to reschedule ${subject} to ${this.selectedDateFormatted} at ${this.selectedTimeFormatted}?`,
+      message: `Are you sure you want to reschedule ${subject} to ${this.selectedDateFormatted} at ${this.selectedTimeFormatted}?${warnUnverified}`,
       buttons: [
         {
           text: 'Cancel',

@@ -270,6 +270,37 @@ ion-footer.reschedule-footer {
       line-height: 1.5;
       letter-spacing: -0.1px;
     }
+
+    .student-availability-warning {
+      margin-top: 6px;
+      padding: 10px 12px;
+      background: #fff8ec;
+      border: 1px solid #f6d98c;
+      border-radius: 10px;
+      color: #6b4b00;
+      font-size: 13px;
+      line-height: 1.45;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+
+      .retry-link {
+        appearance: none;
+        background: transparent;
+        border: 0;
+        padding: 0;
+        margin: 0;
+        font-size: 13px;
+        font-weight: 600;
+        color: #b25e00;
+        cursor: pointer;
+        text-decoration: underline;
+        letter-spacing: -0.1px;
+
+        &:hover { color: #8a4700; }
+      }
+    }
   }
 }
 

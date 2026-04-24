@@ -60,6 +60,7 @@ export interface PaymentItem {
   lessonId?: string;
   classId?: string;
   className?: string;
+  classThumbnail?: string | null;
   isClassPayment?: boolean;
   isMaterialPurchase?: boolean;
   materialTitle?: string;

@@ -1617,7 +1617,6 @@ router.post('/groups', verifyToken, async (req, res) => {
     const senderId = req.user.sub;
     const { participantIds, name, classId } = req.body || {};
 
-    // -------- Class-broadcast branch --------
     if (classId) {
       if (!mongoose.Types.ObjectId.isValid(classId)) {
         return res.status(400).json({ success: false, message: 'Invalid classId' });

@@ -1231,6 +1231,10 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
   }
 }
 
+.ef-time-grid-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
 .ef-time-btn {
   padding: 14px 16px;
   background: #fff;

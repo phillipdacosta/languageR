@@ -236,6 +236,28 @@ export class ClassService {
     );
   }
 
+  /**
+   * Student-initiated un-enrollment from a scheduled class. Counterpart to
+   * the tutor-side remove-student flow. Backend releases any authorized
+   * Stripe hold, removes the student from the roster, syncs the class
+   * conversation ("X left the class"), and notifies the tutor.
+   * Distinct from `leaveClass` above, which is the video-call presence ping.
+   */
+  unenrollFromClass(classId: string): Observable<{ success: boolean; message: string }> {
+    return this.userService.currentUser$.pipe(
+      filter(user => !!user),
+      take(1),
+      switchMap(() => {
+        const headers = this.userService.getAuthHeadersSync();
+        return this.http.post<{ success: boolean; message: string }>(
+          `${this.apiUrl}/classes/${classId}/unenroll`,
+          {},
+          { headers }
+        );
+      })
+    );
+  }
+
   getAcceptedClasses(): Observable<{ success: boolean; classes: ClassInvitation[] }> {
     return this.userService.currentUser$.pipe(
       filter(user => !!user),
