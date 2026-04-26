@@ -50,7 +50,22 @@ export interface Lesson {
     name?: string;
   };
   attendees?: any[];
+  /**
+   * Populated list of students who accepted the class invite. Merged from the
+   * Class document on detail fetch (see `fetchAndCacheLessonDetail`) so
+   * tutor-only UI that mirrors web (`classStudentsDisplay`, `classRevenue`)
+   * has the same shape as on the web event-details page.
+   */
+  confirmedStudents?: any[];
   capacity?: number;
+  /**
+   * Class cancellation rule. `minStudents` is the minimum enrolled students
+   * required for the class to run; `flexibleMinimum` disables auto-cancel.
+   * Used by the lessons/:id overlay to render the "runs if …" rule beside
+   * the Students section (same copy as the schedule-class wizard).
+   */
+  minStudents?: number;
+  flexibleMinimum?: boolean;
   cancelReason?: string;
   cancelReasonText?: string;
   lastSessionContext?: {
@@ -248,14 +263,36 @@ export function getJoinGateState(lesson: Lesson | null | undefined, now: Date = 
   return { canJoin: false, waitSeconds, sessionEnded: false };
 }
 
+/**
+ * Matches web `LessonService.formatTimeUntil`: for waits ≥1 day, shows
+ * "2 days 4 hrs" instead of a large hour count.
+ */
+function formatTimeUntilFromSeconds(totalSeconds: number): string {
+  if (totalSeconds <= 0) return 'Now';
+  const days = Math.floor(totalSeconds / 86400);
+  const rem = totalSeconds % 86400;
+  const hours = Math.floor(rem / 3600);
+  const minutes = Math.floor((rem % 3600) / 60);
+  if (days > 0) {
+    const dayPart = days === 1 ? '1 day' : `${days} days`;
+    if (hours > 0) {
+      const hrPart = hours === 1 ? '1 hr' : `${hours} hrs`;
+      return `${dayPart} ${hrPart}`;
+    }
+    if (minutes > 0) return `${dayPart} ${minutes} min`;
+    return dayPart;
+  }
+  if (hours > 0) {
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+  }
+  if (minutes > 0) return `${minutes}m`;
+  return 'Less than 1m';
+}
+
 /** Web `LessonService.formatTimeUntil` — label for “Join in …”. */
 export function formatJoinWaitDuration(seconds: number): string {
   if (seconds <= 0) return 'Now';
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  if (minutes > 0) return `${minutes}m`;
-  return 'Less than 1m';
+  return formatTimeUntilFromSeconds(seconds);
 }
 
 /** Web tab1 `getTimeUntilLesson` (future branch) — `time` in JOIN_NOT_READY_MSG. */
@@ -265,14 +302,12 @@ export function formatTimeUntilLessonStart(lesson: Lesson, now: Date = new Date(
   if (diffMs < 0) return 'soon';
   const diffMinutes = Math.floor(diffMs / 60000);
   if (diffMinutes <= 0) return 'NOW';
+  const totalSeconds = Math.floor(diffMs / 1000);
+  if (totalSeconds >= 86400) {
+    return formatTimeUntilFromSeconds(totalSeconds);
+  }
   const totalHours = Math.floor(diffMinutes / 60);
   const minutes = diffMinutes % 60;
-  if (totalHours >= 24) {
-    const days = Math.floor(totalHours / 24);
-    const remainingHours = totalHours % 24;
-    if (remainingHours > 0) return `${days}d ${remainingHours}h`;
-    return `${days} day${days !== 1 ? 's' : ''}`;
-  }
   if (totalHours > 0) {
     if (minutes > 0) return `${totalHours}h ${minutes}m`;
     return `${totalHours}h`;
@@ -309,6 +344,10 @@ export interface TimelineEvent {
   timeRange: string;
   dateTag: string;
   subject: string;
+  /** Three-part date badge components (mirrors web `tw-date-badge`). */
+  dateBadgeMonth: string;
+  dateBadgeDay: string;
+  dateBadgeWeekday: string;
 }
 
 export interface CachedLessonDetail {
@@ -388,6 +427,18 @@ export async function fetchAndCacheLessonDetail(
       subject: classRecord.name || list.subject,
       capacity: classRecord.capacity ?? (list as { capacity?: number }).capacity,
       attendees: (classRecord as { confirmedStudents?: unknown[] }).confirmedStudents ?? (list as { attendees?: unknown[] }).attendees,
+      /**
+       * Mirror web: the web event-details page reads `classData.confirmedStudents`
+       * and `classData.minStudents/flexibleMinimum` directly. RN merges the same
+       * fields onto the lesson so the overlay can compute revenue + the
+       * auto-cancel rule without a second round-trip.
+       */
+      confirmedStudents:
+        (classRecord as { confirmedStudents?: unknown[] }).confirmedStudents ??
+        (list as { confirmedStudents?: unknown[] }).confirmedStudents,
+      minStudents: classRecord.minStudents ?? (list as { minStudents?: number }).minStudents,
+      flexibleMinimum:
+        classRecord.flexibleMinimum ?? (list as { flexibleMinimum?: boolean }).flexibleMinimum,
       tutorId: (classRecord.tutorId as Lesson['tutorId']) || list.tutorId,
     };
     mergedDetail = {
@@ -607,13 +658,9 @@ export function mapLessonToTimelineEvent(lesson: Lesson, userId: string, now: Da
   }
 
   const diffMs = start.getTime() - now.getTime();
-  const diffH = Math.floor(diffMs / 3600000);
-  const diffM = Math.floor((diffMs % 3600000) / 60000);
   let countdown = '';
   if (diffMs > 0) {
-    if (diffH > 24) countdown = `${Math.floor(diffH / 24)}d`;
-    else if (diffH > 0) countdown = `${diffH}h ${diffM}m`;
-    else countdown = `${diffM}m`;
+    countdown = formatTimeUntilFromSeconds(Math.floor(diffMs / 1000));
   }
 
   return {
@@ -638,6 +685,9 @@ export function mapLessonToTimelineEvent(lesson: Lesson, userId: string, now: Da
         ? 'Tomorrow'
         : start.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
     subject,
+    dateBadgeMonth: start.toLocaleDateString('en-US', { month: 'short' }).toUpperCase(),
+    dateBadgeDay: String(start.getDate()),
+    dateBadgeWeekday: start.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
   };
 }
 

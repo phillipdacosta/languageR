@@ -1321,6 +1321,14 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     this.updateSelectedCount();
   }
 
+  @HostListener('window:beforeunload', ['$event'])
+  onBeforeUnload(event: BeforeUnloadEvent) {
+    if (this.hasUnsavedChanges) {
+      event.preventDefault();
+      event.returnValue = '';
+    }
+  }
+
   @HostListener('document:mouseup')
   @HostListener('document:touchend')
   endSelection() {

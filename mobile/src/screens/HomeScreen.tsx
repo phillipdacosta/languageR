@@ -25,7 +25,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useIsFocused, useNavigation } from '@react-navigation/native';
+import { useIsFocused, useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useHomeTabBarOverlay } from '../contexts/HomeTabBarOverlayContext';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../contexts/ThemeContext';
@@ -50,17 +50,23 @@ import MyClassesScreen from './MyClassesScreen';
 import ForumScreen from './ForumScreen';
 import { preloadMaterials } from '../services/materials';
 import { api } from '../services/api';
+import { getUnreadCount } from '../services/notifications';
 import { buildProcessedLessonCard, type ProcessedLessonCard } from '../utils/lessonCardModel';
 import LessonDetailOverlay, { type CardRect } from '../components/LessonDetailOverlay';
 import { RescheduleLessonModal } from '../components/RescheduleLessonModal';
 import { InviteStudentsModal } from '../components/InviteStudentsModal';
-import { ConfirmCancelClassModal } from '../components/ConfirmCancelClassModal';
+import { CancelClassReasonModal, classLessonToCancelModalProps } from '../components/CancelClassReasonModal';
 import { ClassGoingMessageModal, type ClassGoingMessageRequest } from '../components/ClassGoingMessageModal';
 import { cardShadowDark } from '../utils/cardShadow';
+import { getLanguageFlag } from '../utils/languageFlags';
 import {
   resolveClassAttendeesForPreview,
   attendeeStackInitials,
 } from '../constants/mockClassAttendeesPreview';
+import { useSpringPopAnim } from '../hooks/useSpringPopAnim';
+import { useScreenEntranceAnimations } from '../hooks/useScreenEntranceAnimations';
+import { Image as ExpoImage } from 'expo-image';
+import ShimmerSkeleton from '../components/ShimmerSkeleton';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 /** Shorter viewports (SE, mini): tighter Up Next so Quick Actions can sit above the fold. */
@@ -85,7 +91,7 @@ const TW_PILE_STEP = TW_PILE_SIZE - TW_PILE_OVERLAP;
 const CTA_DARK_BLUE = '#3a7bc8';
 
 /** Match web `.upnext-filled-avatar` (80×80 @ 20px radius → 0.25 of side). */
-const UP_NEXT_AVATAR_SIZE = 56;
+const UP_NEXT_AVATAR_SIZE = 80;
 const UP_NEXT_AVATAR_RADIUS = Math.round(UP_NEXT_AVATAR_SIZE * 0.25);
 /**
  * Shared min height for Up Next filled + empty cards so the home stack (“This Week”, etc.)
@@ -222,7 +228,28 @@ export default function HomeScreen() {
   const userId = user?._id || user?.id || '';
   const isTutor = user?.userType === 'tutor';
 
+  const openNotifications = useCallback(() => {
+    /** `Notifications` is on the root stack (sibling of `Main`); navigate bubbles up. */
+    navigation.navigate('Notifications' as never);
+  }, [navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        try {
+          const res = await getUnreadCount();
+          if (!cancelled && res.success) setNotifUnreadCount(res.count);
+        } catch {
+          if (!cancelled) setNotifUnreadCount(0);
+        }
+      })();
+      return () => { cancelled = true; };
+    }, []),
+  );
+
   const [loading, setLoading] = useState(true);
+  const { shellMotion, listGateMotion } = useScreenEntranceAnimations(loading);
   const [refreshing, setRefreshing] = useState(false);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
@@ -256,6 +283,7 @@ export default function HomeScreen() {
   const [hasAvailability, setHasAvailability] = useState(false);
   const [hasPayoutSetup, setHasPayoutSetup] = useState(false);
   const [payoutLoaded, setPayoutLoaded] = useState(false);
+  const [notifUnreadCount, setNotifUnreadCount] = useState(0);
 
   const [homeLessonOverlayCard, setHomeLessonOverlayCard] = useState<ProcessedLessonCard | null>(null);
   const [homeLessonOverlayRect, setHomeLessonOverlayRect] = useState<CardRect>({ x: 0, y: 0, width: 0, height: 0 });
@@ -810,23 +838,47 @@ export default function HomeScreen() {
     }, 280);
   }, [nextLesson, closeUpNextMenu, isTutor, t, fetchData]);
 
-  const handleConfirmCancelClass = useCallback(async () => {
-    if (!upNextCancelClass || cancellingClass) return;
-    setCancellingClass(true);
-    try {
-      const res = await cancelClass(upNextCancelClass.classId);
-      if (res.success === false) {
-        throw new Error(res.message || t('HOME.UP_NEXT_CANCEL_CLASS_FAILED'));
-      }
-      setUpNextCancelClass(null);
-      Alert.alert('', t('HOME.UP_NEXT_CANCEL_CLASS_SUCCESS'));
-      await fetchData();
-    } catch (e: any) {
-      Alert.alert(t('COMMON.ERROR'), e?.message || t('HOME.UP_NEXT_CANCEL_CLASS_FAILED'));
-    } finally {
-      setCancellingClass(false);
-    }
-  }, [upNextCancelClass, cancellingClass, t, fetchData]);
+  const handleConfirmCancelClass = useCallback(
+    (reason: { id: string; label: string; originalLabel: string }) => {
+      if (!upNextCancelClass || cancellingClass) return;
+      const { classId, className, lesson } = upNextCancelClass;
+      const fromLesson = classLessonToCancelModalProps(lesson);
+      const displayName = (className || fromLesson.className || '').trim() || t('CANCEL_CLASS_REASON.DEFAULT_CLASS_TITLE');
+      Alert.alert(
+        t('CANCEL_CLASS_REASON.CONFIRM_TITLE'),
+        t('CANCEL_CLASS_REASON.CONFIRM_MESSAGE', { className: displayName }),
+        [
+          { text: t('CANCEL_CLASS_REASON.CONFIRM_STAY'), style: 'cancel' },
+          {
+            text: t('CANCEL_CLASS_REASON.CONFIRM_PROCEED'),
+            style: 'destructive',
+            onPress: () => {
+              void (async () => {
+                setCancellingClass(true);
+                try {
+                  const res = await cancelClass(classId, {
+                    reasonId: reason.id,
+                    reasonText: reason.label,
+                  });
+                  if (res.success === false) {
+                    throw new Error(res.message || t('HOME.UP_NEXT_CANCEL_CLASS_FAILED'));
+                  }
+                  setUpNextCancelClass(null);
+                  Alert.alert('', t('HOME.UP_NEXT_CANCEL_CLASS_SUCCESS'));
+                  await fetchData();
+                } catch (e: any) {
+                  Alert.alert(t('COMMON.ERROR'), e?.message || t('HOME.UP_NEXT_CANCEL_CLASS_FAILED'));
+                } finally {
+                  setCancellingClass(false);
+                }
+              })();
+            },
+          },
+        ],
+      );
+    },
+    [upNextCancelClass, cancellingClass, t, fetchData],
+  );
 
   const handleCancelClassRescheduleInstead = useCallback(() => {
     if (cancellingClass) return;
@@ -923,15 +975,23 @@ export default function HomeScreen() {
     <View style={{ flex: 1 }}>
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
       {/* ── Toolbar ── */}
+      <Animated.View style={shellMotion}>
       <Toolbar
         user={user}
         onEarningsTap={() => setShowEarnings(true)}
+        onNotificationsTap={openNotifications}
+        notifUnreadCount={notifUnreadCount}
         colors={colors}
         loading={loading}
         greetingTitle={getGreeting(t, displayName)}
         greetingSub={greetingSub}
       />
+      </Animated.View>
 
+      {/* Skeleton – rendered outside listGateMotion so it's visible while opacity is 0 */}
+      {loading && <UpNextSkeleton colors={colors} />}
+
+      <Animated.View style={[{ flex: loading ? 0 : 1, overflow: 'hidden' }, listGateMotion]}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
@@ -977,9 +1037,7 @@ export default function HomeScreen() {
         )}
 
         {/* ── Up Next ── */}
-        {loading ? (
-          <UpNextSkeleton colors={colors} />
-        ) : nextLesson ? (
+        {nextLesson ? (
           <UpNextFilled
             event={nextLesson}
             colors={colors}
@@ -1071,7 +1129,7 @@ export default function HomeScreen() {
                           ]}
                         >
                           {a.avatar ? (
-                            <Image source={{ uri: a.avatar }} style={styles.twStackImg} />
+                            <ExpoImage source={{ uri: a.avatar }} style={styles.twStackImg} contentFit="cover" transition={200} />
                           ) : (
                             <View
                               style={[
@@ -1188,7 +1246,7 @@ export default function HomeScreen() {
                 {recentStudents.map(s => (
                   <View key={s.id} style={styles.recentItem}>
                     {s.avatar ? (
-                      <Image source={{ uri: s.avatar }} style={styles.recentAvatar} />
+                      <ExpoImage source={{ uri: s.avatar }} style={styles.recentAvatar} contentFit="cover" transition={200} />
                     ) : (
                       <View style={[styles.recentAvatar, { backgroundColor: colors.isDark ? '#3a3a3c' : '#e8e8e8', alignItems: 'center', justifyContent: 'center' }]}>
                         <Text style={[styles.placeholderLetterLg, { color: colors.isDark ? '#ccc' : '#999' }]}>{s.name.charAt(0)}</Text>
@@ -1205,6 +1263,7 @@ export default function HomeScreen() {
 
         <View style={{ height: 24 }} />
       </ScrollView>
+      </Animated.View>
     </SafeAreaView>
 
     <Modal
@@ -1255,12 +1314,13 @@ export default function HomeScreen() {
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
               >
-                {thisWeekSheetEvents.map(ev => {
+                {thisWeekSheetEvents.map((ev, idx) => {
                   const rowRef = getThisWeekRowRef(String(ev.lesson._id));
                   return (
                     <ComingUpRow
                       key={String(ev.lesson._id)}
                       innerRef={rowRef}
+                      index={idx}
                       event={ev}
                       colors={colors}
                       t={t}
@@ -1389,11 +1449,13 @@ export default function HomeScreen() {
       }}
     />
 
-    <ConfirmCancelClassModal
+    <CancelClassReasonModal
       visible={!!upNextCancelClass}
-      className={upNextCancelClass?.className}
+      {...classLessonToCancelModalProps(upNextCancelClass?.lesson)}
+      className={upNextCancelClass?.className ?? ''}
+      userTimezone={userTz}
       submitting={cancellingClass}
-      onConfirm={handleConfirmCancelClass}
+      onContinue={handleConfirmCancelClass}
       onRescheduleInstead={handleCancelClassRescheduleInstead}
       onClose={() => {
         if (!cancellingClass) setUpNextCancelClass(null);
@@ -1489,6 +1551,8 @@ export default function HomeScreen() {
 function Toolbar({
   user,
   onEarningsTap,
+  onNotificationsTap,
+  notifUnreadCount,
   colors,
   loading,
   greetingTitle,
@@ -1496,12 +1560,24 @@ function Toolbar({
 }: {
   user: any;
   onEarningsTap: () => void;
+  onNotificationsTap: () => void;
+  notifUnreadCount: number;
   colors: any;
   loading: boolean;
   greetingTitle: string;
   greetingSub: string;
 }) {
   const isDark = colors.isDark;
+  const prevCount = useRef(0);
+  const badgePop = useSpringPopAnim({
+    delay: 150,
+    overshoot: 1.35,
+    translateYPeak: -3,
+    enabled: notifUnreadCount > 0 && prevCount.current === 0,
+  });
+  // Update ref after render so next transition can detect 0→N
+  useEffect(() => { prevCount.current = notifUnreadCount; });
+
   return (
     <View style={[styles.toolbar, { backgroundColor: colors.background }]}>
       <View style={styles.toolbarLeft}>
@@ -1540,11 +1616,32 @@ function Toolbar({
             accessibilityIgnoresInvertColors
           />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.notifBtn} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.notifBtn}
+          activeOpacity={0.7}
+          onPress={onNotificationsTap}
+          accessibilityRole="button"
+          accessibilityLabel={notifUnreadCount > 0 ? `Notifications, ${notifUnreadCount} unread` : 'Notifications'}
+        >
           <Ionicons name="notifications-outline" size={20} color={colors.text} />
+          {notifUnreadCount > 0 ? (
+            <Animated.View
+              style={[
+                styles.notifBadge,
+                {
+                  opacity: badgePop.opacity,
+                  transform: [{ scale: badgePop.scale }, { translateY: badgePop.translateY }],
+                },
+              ]}
+            >
+              <Text style={styles.notifBadgeText}>
+                {notifUnreadCount > 99 ? '99+' : notifUnreadCount}
+              </Text>
+            </Animated.View>
+          ) : null}
         </TouchableOpacity>
         {user?.picture ? (
-          <Image source={{ uri: user.picture }} style={styles.toolbarAvatar} />
+          <ExpoImage source={{ uri: user.picture }} style={styles.toolbarAvatar} contentFit="cover" transition={200} />
         ) : (
           <View style={[styles.toolbarAvatar, { backgroundColor: isDark ? '#3a3a3c' : '#e8e8e8', alignItems: 'center', justifyContent: 'center' }]}>
             <Text style={[styles.toolbarAvatarLetter, { color: isDark ? '#ccc' : '#fff' }]}>
@@ -1608,6 +1705,8 @@ function UpNextFilled({
   const joinGate = getJoinGateState(event.lesson);
   const inSlot = isLessonInProgressSlot(event.lesson);
 
+  const joinCtaPop = useSpringPopAnim({ delay: 620 });
+
   const classAttendeesRaw = useMemo(
     () => resolveClassAttendeesForPreview(event.lesson as any),
     [event.lesson],
@@ -1631,6 +1730,13 @@ function UpNextFilled({
         ? t('HOME.JOIN_CLASS')
         : t('HOME.JOIN_LESSON')
     : t('HOME.JOIN_IN_TIME', { time: formatTimeUntilLessonStart(event.lesson) });
+
+  /**
+   * 1:1 lesson "subject chip" (🇪🇸 Spanish) shown under the name. Mirrors
+   * web `.upnext-filled-meta`. Computed once per render, no template fn.
+   */
+  const subjectChipText = !event.lesson.isClass ? event.subject || '' : '';
+  const subjectChipFlag = subjectChipText ? getLanguageFlag(subjectChipText) : null;
 
   const onJoinPress = () => {
     const gate = getJoinGateState(event.lesson);
@@ -1665,6 +1771,7 @@ function UpNextFilled({
           style={({ pressed }) => [
             styles.upNextCardSurface,
             styles.upNextCard,
+            styles.upNextCardFilled,
             {
               backgroundColor: colors.card,
               borderColor: colors.border,
@@ -1679,10 +1786,11 @@ function UpNextFilled({
           style={event.lesson.isClass ? styles.upNextClassCoverWrap : styles.upNextAvatarWrap}
         >
           {event.avatar ? (
-            <Image
+            <ExpoImage
               source={{ uri: event.avatar }}
               style={event.lesson.isClass ? styles.upNextClassCoverImage : styles.upNextAvatarImage}
-              resizeMode="cover"
+              contentFit="cover"
+              transition={200}
             />
           ) : (
             <View
@@ -1703,7 +1811,7 @@ function UpNextFilled({
         <Text
           style={[
             styles.cardTitle,
-            event.lesson.isClass ? styles.upNextClassTitleBelowCover : undefined,
+            event.lesson.isClass ? styles.upNextClassTitleBelowCover : styles.upNextLessonTitle,
             { color: colors.text },
           ]}
         >
@@ -1713,17 +1821,130 @@ function UpNextFilled({
         {event.isTrialLesson && <UpNextTrialBadge label={t('HOME.STATUS_TRIAL')} />}
 
         <View style={styles.upNextFilledMetaWrap}>
-          <Text style={[styles.cardMeta, styles.upNextFilledMeta, { color: colors.textSecondary }]}>
-            <Text style={event.isToday || event.isTomorrow ? styles.metaToday : undefined}>
-              {event.dateTag}
-            </Text>
-            {'  ·  '}{event.timeRange}
-          </Text>
+          {event.lesson.isClass ? (
+            <>
+              <View
+                style={[
+                  styles.upNextClassScheduleTray,
+                  {
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : '#f7f7f9',
+                    shadowColor: isDark ? 'transparent' : '#000',
+                  },
+                ]}
+              >
+                {/* Date badge tile — mirrors web .tw-date-badge */}
+                <View
+                  style={[
+                    styles.upNextDateBadge,
+                    event.isToday
+                      ? { backgroundColor: '#4298d3' }
+                      : isDark
+                        ? { backgroundColor: '#3a3a3c' }
+                        : { backgroundColor: '#f2f2f7' },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.upNextDateBadgeMonth,
+                      event.isToday
+                        ? { color: '#ffffff' }
+                        : { color: isDark ? '#ff6b8a' : '#ff3b30' },
+                    ]}
+                  >
+                    {event.isToday ? 'TODAY' : event.isTomorrow ? 'TMW' : event.dateBadgeMonth}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.upNextDateBadgeDay,
+                      event.isToday
+                        ? { color: '#ffffff' }
+                        : isDark
+                          ? { color: '#f5f5f7' }
+                          : { color: '#1d1d1f' },
+                    ]}
+                  >
+                    {event.dateBadgeDay}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.upNextDateBadgeWeekday,
+                      event.isToday
+                        ? { color: 'rgba(255,255,255,0.78)' }
+                        : isDark
+                          ? { color: '#8e8e93' }
+                          : { color: '#8e8e93' },
+                    ]}
+                  >
+                    {event.dateBadgeWeekday}
+                  </Text>
+                </View>
 
-          {!!event.countdown && (
-            <Text style={[styles.cardCountdown, styles.upNextFilledCountdown, { color: colors.textSecondary }]}>
-              {t('HOME.STARTS_IN_TIME', { time: event.countdown })}
-            </Text>
+                {/* Time + duration block */}
+                <View style={styles.upNextClassScheduleInfo}>
+                  <Text style={[styles.upNextClassScheduleTime, { color: isDark ? '#ffffff' : '#1d1d1f' }]}>
+                    {event.timeRange}
+                  </Text>
+                  {event.duration > 0 && (
+                    <Text style={[styles.upNextClassScheduleDuration, { color: '#8e8e93' }]}>
+                      {t('HOME.CLASS_DURATION_MIN', { count: event.duration })}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            </>
+          ) : (
+            <>
+              {subjectChipText ? (
+                <View
+                  style={[
+                    styles.upNextLessonSubjectChip,
+                    {
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#f1f1f3',
+                    },
+                  ]}
+                >
+                  {subjectChipFlag ? (
+                    <Text style={styles.upNextLessonSubjectFlag}>{subjectChipFlag}</Text>
+                  ) : null}
+                  <Text style={[styles.upNextLessonSubjectText, { color: colors.textSecondary }]}>
+                    {subjectChipText}
+                  </Text>
+                </View>
+              ) : null}
+              <View
+                style={[
+                  styles.upNextLessonScheduleTray,
+                  {
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : '#f7f7f9',
+                    shadowColor: isDark ? 'transparent' : '#000',
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.upNextLessonDay,
+                    event.isToday || event.isTomorrow
+                      ? { color: '#34C759' }
+                      : { color: colors.textTertiary },
+                  ]}
+                >
+                  {event.dateTag}
+                </Text>
+                <Text style={[styles.upNextLessonTime, { color: colors.text }]}>
+                  {event.timeRange}
+                </Text>
+                {event.duration > 0 && (
+                  <Text style={[styles.upNextLessonDuration, { color: colors.textTertiary }]}>
+                    {t('HOME.LESSON_DURATION_MIN', { count: event.duration })}
+                  </Text>
+                )}
+              </View>
+              {!!event.countdown && joinGate.canJoin && (
+                <Text style={[styles.cardCountdown, styles.upNextFilledCountdown, { color: colors.textSecondary }]}>
+                  {t('HOME.STARTS_IN_TIME', { time: event.countdown })}
+                </Text>
+              )}
+            </>
           )}
         </View>
 
@@ -1745,7 +1966,7 @@ function UpNextFilled({
                   ]}
                 >
                   {it.picture ? (
-                    <Image source={{ uri: it.picture }} style={styles.upNextStackImg} resizeMode="cover" />
+                    <ExpoImage source={{ uri: it.picture }} style={styles.upNextStackImg} contentFit="cover" transition={200} />
                   ) : (
                     <Text style={[styles.upNextStackIni, { color: colors.textSecondary }]}>{it.initials}</Text>
                   )}
@@ -1764,24 +1985,27 @@ function UpNextFilled({
           </View>
         ) : null}
 
-        <TouchableOpacity
-          ref={ctaMeasureRef as any}
-          accessibilityRole="button"
-          activeOpacity={joinGate.canJoin ? 0.88 : 1}
-          onPress={onJoinPress}
-          style={[
-            styles.ctaBtn,
-            styles.upNextCardCtaWide,
-            styles.upNextFilledCta,
-            { backgroundColor: colors.joinCtaBackground },
-          ]}
-        >
-          <Text style={[styles.ctaBtnText, { color: '#ffffff' }]}>{joinCtaLabel}</Text>
-          <Image
-            source={require('../../assets/shared/setup-availability-arrow.png')}
-            style={[styles.ctaBtnArrowImg, { tintColor: '#ffffff' }]}
-          />
-        </TouchableOpacity>
+        <View style={[styles.upNextFilledCtaWrap, { marginTop: 'auto' }]}>
+          <Animated.View style={{ opacity: joinCtaPop.opacity, transform: [{ scale: joinCtaPop.scale }, { translateY: joinCtaPop.translateY }] }}>
+          <TouchableOpacity
+            ref={ctaMeasureRef as any}
+            accessibilityRole="button"
+            activeOpacity={joinGate.canJoin ? 0.88 : 1}
+            onPress={onJoinPress}
+            style={[
+              styles.ctaBtn,
+              styles.upNextCardCtaWide,
+              { backgroundColor: colors.joinCtaBackground },
+            ]}
+          >
+            <Text style={[styles.ctaBtnText, { color: '#ffffff' }]}>{joinCtaLabel}</Text>
+            <Image
+              source={require('../../assets/shared/setup-availability-arrow.png')}
+              style={[styles.ctaBtnArrowImg, { tintColor: '#ffffff' }]}
+            />
+          </TouchableOpacity>
+          </Animated.View>
+        </View>
         </Pressable>
         <Pressable
           accessibilityRole="button"
@@ -1874,14 +2098,12 @@ function UpNextSkeleton({ colors }: { colors: any }) {
           },
         ]}
       >
-        <View
-          style={{
-            width: UP_NEXT_AVATAR_SIZE,
-            height: UP_NEXT_AVATAR_SIZE,
-            borderRadius: UP_NEXT_AVATAR_RADIUS,
-            backgroundColor: colors.skeleton,
-            marginBottom: 12,
-          }}
+        <ShimmerSkeleton
+          width={UP_NEXT_AVATAR_SIZE}
+          height={UP_NEXT_AVATAR_SIZE}
+          borderRadius={UP_NEXT_AVATAR_RADIUS}
+          style={{ marginBottom: 12 }}
+          colors={colors}
         />
         <Skeleton width={140} height={15} style={{ marginBottom: 8 }} colors={colors} />
         <Skeleton width={210} height={12} style={{ marginBottom: 8 }} colors={colors} />
@@ -1900,6 +2122,7 @@ function ComingUpRow({
   onPress,
   rowStyle,
   innerRef,
+  index = 0,
 }: {
   event: TimelineEvent;
   colors: any;
@@ -1907,8 +2130,20 @@ function ComingUpRow({
   onPress?: () => void;
   rowStyle?: object;
   innerRef?: RefObject<View | null>;
+  index?: number;
 }) {
   const isDark = colors.isDark;
+  const enterAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(enterAnim, {
+      toValue: 1,
+      duration: 260,
+      delay: index * 55,
+      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+      useNativeDriver: true,
+    }).start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const avatarStackBorder = isDark ? 'rgba(255,255,255,0.92)' : '#ffffff';
   const stackLen = event.avatarStack?.length ?? 0;
   const isClass = !!(event.lesson as any)?.isClass;
@@ -1939,7 +2174,7 @@ function ComingUpRow({
             ]}
           >
             {classCoverUri ? (
-              <Image source={{ uri: classCoverUri }} style={styles.cuClassCoverImage} resizeMode="cover" />
+              <ExpoImage source={{ uri: classCoverUri }} style={styles.cuClassCoverImage} contentFit="cover" transition={200} />
             ) : (
               <View style={styles.cuClassCoverPlaceholder}>
                 <Ionicons name="people" size={14} color={colors.textTertiary} />
@@ -1967,7 +2202,7 @@ function ComingUpRow({
                 ]}
               >
                 {face.picture ? (
-                  <Image source={{ uri: face.picture }} style={styles.cuAvatarStackImg} />
+                  <ExpoImage source={{ uri: face.picture }} style={styles.cuAvatarStackImg} contentFit="cover" transition={200} />
                 ) : (
                   <View
                     style={[
@@ -2011,7 +2246,7 @@ function ComingUpRow({
             ) : null}
           </View>
         ) : event.avatar ? (
-          <Image source={{ uri: event.avatar }} style={styles.cuAvatar} />
+          <ExpoImage source={{ uri: event.avatar }} style={styles.cuAvatar} contentFit="cover" transition={200} />
         ) : (
           <View style={[styles.cuAvatar, { backgroundColor: isDark ? '#3a3a3c' : '#e8e8e8', alignItems: 'center', justifyContent: 'center' }]}>
             <Text style={[styles.placeholderLetter, { color: isDark ? '#ccc' : '#999' }]}>{event.name.charAt(0)}</Text>
@@ -2043,22 +2278,30 @@ function ComingUpRow({
       </View>
     </View>
   );
+  const enterMotion = {
+    opacity: enterAnim,
+    transform: [{ translateY: enterAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
+  };
   if (onPress) {
     return (
-      <TouchableOpacity
-        ref={innerRef as any}
-        style={row}
-        activeOpacity={0.7}
-        onPress={onPress}
-      >
-        {body}
-      </TouchableOpacity>
+      <Animated.View style={enterMotion}>
+        <TouchableOpacity
+          ref={innerRef as any}
+          style={row}
+          activeOpacity={0.7}
+          onPress={onPress}
+        >
+          {body}
+        </TouchableOpacity>
+      </Animated.View>
     );
   }
   return (
-    <View ref={innerRef} style={row}>
-      {body}
-    </View>
+    <Animated.View style={enterMotion}>
+      <View ref={innerRef} style={row}>
+        {body}
+      </View>
+    </Animated.View>
   );
 }
 
@@ -2132,7 +2375,7 @@ function ActionChip({ image, icon, label, sub, colors, onPress, largeAsset }: {
 /* ─── Skeleton ─── */
 
 function Skeleton({ width, height, style, colors }: { width: number; height: number; style?: any; colors?: any }) {
-  return <View style={[{ width, height, borderRadius: height / 2, backgroundColor: colors?.skeleton || '#f0f0f0' }, style]} />;
+  return <ShimmerSkeleton width={width} height={height} borderRadius={Math.min(height / 2, 10)} style={style} colors={colors} />;
 }
 
 function getGreeting(t: any, name: string) {
@@ -2248,7 +2491,21 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
   },
+  notifBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+    backgroundColor: '#007AFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notifBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
   notifIcon: { fontSize: 18 },
   toolbarAvatar: { width: 30, height: 30, borderRadius: 15 },
   toolbarAvatarLetter: { fontSize: 13, fontWeight: '600', color: '#fff' },
@@ -2315,6 +2572,14 @@ const styles = StyleSheet.create({
     minHeight: UP_NEXT_CARD_MIN_HEIGHT,
     justifyContent: 'center',
   },
+  /**
+   * Filled card: stack from the top; Join CTA sits in `upNextFilledCtaWrap` with
+   * `marginTop: 'auto'` so it stays anchored to the bottom of the min-height
+   * shell (1:1 lessons align with the class “Going” layout).
+   */
+  upNextCardFilled: {
+    justifyContent: 'flex-start',
+  },
   cardTitle: {
     fontSize: 18,
     fontWeight: '700',
@@ -2326,6 +2591,80 @@ const styles = StyleSheet.create({
   /** Class Up Next: extra air between cover thumbnail and title (see `upNextClassCoverWrap`). */
   upNextClassTitleBelowCover: {
     marginTop: 8,
+    fontSize: 20,
+    letterSpacing: -0.4,
+  },
+  /** 1:1 Up Next: bigger title to balance the larger 80px avatar. */
+  upNextLessonTitle: {
+    fontSize: 24,
+    letterSpacing: -0.5,
+    marginBottom: 8,
+  },
+  /**
+   * Subject chip below the name (e.g., 🇪🇸 Spanish). Mirrors web
+   * `.upnext-filled-meta` pill so 1:1 cards carry the language signal.
+   */
+  upNextLessonSubjectChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    marginBottom: 12,
+  },
+  upNextLessonSubjectFlag: {
+    fontSize: 13,
+    marginRight: 6,
+  },
+  upNextLessonSubjectText: {
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.1,
+  },
+  /**
+   * Schedule "tray": soft surface that groups date → time → duration into
+   * one block (mirrors web `.upnext-filled-schedule`). Sits centered, hugs
+   * its content, no full-width fill.
+   */
+  upNextLessonScheduleTray: {
+    alignSelf: 'center',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    minWidth: 160,
+    ...Platform.select({
+      ios: {
+        shadowOpacity: 0.04,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 2 },
+      },
+      android: {},
+    }),
+  },
+  /** 1:1 Up Next meta — Apple-style stacked hierarchy: day → time → duration. */
+  upNextLessonDay: {
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase' as const,
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  upNextLessonTime: {
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: -0.2,
+    textAlign: 'center',
+    marginBottom: 1,
+  },
+  upNextLessonDuration: {
+    fontSize: 10,
+    fontWeight: '500',
+    textAlign: 'center',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase' as const,
   },
   cardSubtitle: {
     fontSize: 14,
@@ -2342,10 +2681,78 @@ const styles = StyleSheet.create({
   upNextFilledMetaWrap: {
     alignItems: 'center',
     width: '100%',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   upNextFilledMeta: { marginBottom: 0 },
   upNextFilledCountdown: { marginTop: 6, marginBottom: 0 },
+  /**
+   * Class Up Next: schedule tray — mirrors web `.upnext-filled-schedule`.
+   * Horizontal: date badge tile on the left, time+duration block on the right.
+   */
+  upNextClassScheduleTray: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    minWidth: 196,
+    ...Platform.select({
+      ios: {
+        shadowOpacity: 0.04,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 2 },
+      },
+      android: {},
+    }),
+  },
+  /** Date tile inside the class schedule tray (MAY / 2 / SAT). */
+  upNextDateBadge: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 46,
+    height: 52,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  upNextDateBadgeMonth: {
+    fontSize: 8,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase' as const,
+    color: '#ff3b30',
+    marginBottom: 0,
+  },
+  upNextDateBadgeDay: {
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: -0.45,
+    lineHeight: 22,
+  },
+  upNextDateBadgeWeekday: {
+    fontSize: 8,
+    fontWeight: '500',
+    letterSpacing: 0.35,
+    textTransform: 'uppercase' as const,
+    marginTop: 0,
+  },
+  upNextClassScheduleInfo: {
+    flexShrink: 1,
+    alignItems: 'flex-start',
+    gap: 1,
+  },
+  upNextClassScheduleTime: {
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: -0.2,
+  },
+  upNextClassScheduleDuration: {
+    fontSize: 10,
+    fontWeight: '500',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase' as const,
+  },
   /** Class Up Next — one horizontal line (label + avatars + capacity) so the card doesn’t grow tall. */
   upNextGoingRow: {
     flexDirection: 'row',
@@ -2390,8 +2797,15 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     justifyContent: 'center',
   },
-  /** Space between meta block and Join on filled card (same card shell as empty; centered column). */
-  upNextFilledCta: { marginTop: 20 },
+  /**
+   * Pushes the Join CTA to the card bottom; `marginTop: 'auto'` is applied
+   * inline. `paddingTop` = minimum space when there is no extra flex gap.
+   */
+  upNextFilledCtaWrap: {
+    alignSelf: 'stretch',
+    width: '100%',
+    paddingTop: 20,
+  },
   emptyArtWrap: {
     width: 88,
     height: 88,
@@ -2431,8 +2845,17 @@ const styles = StyleSheet.create({
     height: UP_NEXT_AVATAR_SIZE,
     borderRadius: UP_NEXT_AVATAR_RADIUS,
     overflow: 'hidden',
-    marginBottom: 10,
+    marginBottom: 14,
     backgroundColor: 'transparent',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.06,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
+      },
+      android: { elevation: 2 },
+    }),
   },
   upNextAvatarImage: { width: '100%', height: '100%' },
 

@@ -1,5 +1,6 @@
 export type RootStackParamList = {
   Main: undefined;
+  Notifications: undefined;
   Login: undefined;
   Onboarding: undefined;
   PreCall: { lessonId: string; isClass?: boolean };

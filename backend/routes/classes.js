@@ -8,6 +8,7 @@ const { verifyToken, uploadImage, uploadImageToGCS, getUserFromRequest } = requi
 const { RtcRole, RtcTokenBuilder } = require('agora-token');
 const { formatNameWithInitial } = require('../utils/nameFormatter');
 const { syncClassConversation, archiveClassConversation } = require('../services/classConversation');
+const { emitClassStateChanged, REASONS: CLASS_STATE_REASONS } = require('../services/classStateBroadcaster');
 
 const AGORA_APP_ID = process.env.AGORA_APP_ID;
 const AGORA_APP_CERT = process.env.AGORA_APP_CERT;
@@ -690,6 +691,11 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
     }
     
     await cls.save();
+
+    emitClassStateChanged(req.io, cls._id, {
+      reason: CLASS_STATE_REASONS.studentEnrolled,
+      actorId: student && student._id,
+    }).catch(() => {});
 
     // Keep the class group chat in sync with the new roster. The student
     // joins as an active member with `joinedAt = now`, so any prior chatter
@@ -1476,7 +1482,12 @@ router.post('/:classId/join', verifyToken, async (req, res) => {
           cls.participants.set(key, prev);
           
           await cls.save();
-          
+
+          emitClassStateChanged(req.io, cls._id, {
+            reason: CLASS_STATE_REASONS.paymentStatusChanged,
+            actorId: user && user._id,
+          }).catch(() => {});
+
           console.log(`💳 Payment captured for student ${user.email} joining class: ${cls.name} ($${cls.price})`);
         } else if (!studentPayment) {
           console.warn(`⚠️ No payment record found for student ${user.email} in class ${cls.name}`);
@@ -1768,6 +1779,11 @@ router.post('/:classId/unenroll', verifyToken, async (req, res) => {
 
     await cls.save();
 
+    emitClassStateChanged(req.io, cls._id, {
+      reason: CLASS_STATE_REASONS.studentUnenrolled,
+      actorId: user && user._id,
+    }).catch(() => {});
+
     try {
       await syncClassConversation(cls._id);
     } catch (syncErr) {
@@ -1854,7 +1870,12 @@ router.delete('/:classId/student/:studentId', verifyToken, async (req, res) => {
     }
     
     await cls.save();
-    
+
+    emitClassStateChanged(req.io, cls._id, {
+      reason: CLASS_STATE_REASONS.studentRemoved,
+      actorId: tutor && tutor._id,
+    }).catch(() => {});
+
     // Send notification to student
     try {
       const tutorDisplayName = formatDisplayName(tutor);
@@ -2172,6 +2193,12 @@ router.patch('/:id', verifyToken, async (req, res) => {
       }
 
       await classObj.save();
+
+      emitClassStateChanged(req.io, classObj._id, {
+        reason: CLASS_STATE_REASONS.classUpdated,
+        actorId: user && user._id,
+      }).catch(() => {});
+
       console.log(`✅ Class ${classObj._id} updated by ${user.email}`);
       return res.json({
         success: true,
@@ -2259,6 +2286,8 @@ router.post('/:classId/hide-from-hub', verifyToken, async (req, res) => {
 router.delete('/:classId', verifyToken, async (req, res) => {
   try {
     const { classId } = req.params;
+    const reasonIdRaw = (req.query.reasonId && String(req.query.reasonId).trim()) || '';
+    const reasonTextRaw = (req.query.reasonText && String(req.query.reasonText).trim()) || '';
     
     const tutor = await getUserFromRequest(req);
     if (!tutor) return res.status(404).json({ success: false, message: 'Tutor not found' });
@@ -2289,6 +2318,12 @@ router.delete('/:classId', verifyToken, async (req, res) => {
     cls.status = 'cancelled';
     cls.cancelledAt = new Date();
     cls.cancelReason = 'tutor_cancelled';
+    if (reasonIdRaw) {
+      cls.cancelReasonId = reasonIdRaw.slice(0, 64);
+    }
+    if (reasonTextRaw) {
+      cls.cancelReasonText = reasonTextRaw.slice(0, 300);
+    }
     
     // 💳 RELEASE ALL AUTHORIZED PAYMENTS: Cancel all payment holds
     const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
@@ -2332,7 +2367,12 @@ router.delete('/:classId', verifyToken, async (req, res) => {
     }
     
     await cls.save();
-    
+
+    emitClassStateChanged(req.io, cls._id, {
+      reason: CLASS_STATE_REASONS.classCancelled,
+      actorId: tutor && tutor._id,
+    }).catch(() => {});
+
     console.log(`🔴 [CLASS-CANCEL] Class "${cls.name}" (${cls._id}) cancelled by tutor ${tutor.name}`);
 
     // Freeze the class group chat: mark all members as left and post a

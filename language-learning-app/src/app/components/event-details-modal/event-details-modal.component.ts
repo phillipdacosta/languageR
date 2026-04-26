@@ -9,6 +9,7 @@ import { formatTimeInTz, formatDateInTz, isSameDayInTimezone } from '../../share
 import { CancelReasonModalComponent } from '../cancel-reason-modal/cancel-reason-modal.component';
 import { ConfirmActionModalComponent } from '../confirm-action-modal/confirm-action-modal.component';
 import { RescheduleLessonModalComponent } from '../reschedule-lesson-modal/reschedule-lesson-modal.component';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
 interface EventDetails {
   id?: string;
@@ -54,7 +55,7 @@ interface MenuPosition {
   templateUrl: './event-details-modal.component.html',
   styleUrls: ['./event-details-modal.component.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, CancelReasonModalComponent, ConfirmActionModalComponent, RescheduleLessonModalComponent]
+  imports: [CommonModule, IonicModule, TranslateModule, CancelReasonModalComponent, ConfirmActionModalComponent, RescheduleLessonModalComponent]
 })
 export class EventDetailsModalComponent implements OnInit, OnDestroy {
   @Input() event!: EventDetails;
@@ -77,7 +78,8 @@ export class EventDetailsModalComponent implements OnInit, OnDestroy {
     private loadingController: LoadingController,
     private router: Router,
     private lessonService: LessonService,
-    private userService: UserService
+    private userService: UserService,
+    private translate: TranslateService
   ) {}
 
   private get userTz(): string | undefined {
@@ -150,7 +152,9 @@ export class EventDetailsModalComponent implements OnInit, OnDestroy {
       this.joinLabel = 'Join';
     } else {
       const secs = this.lessonService.getTimeUntilJoin(lessonLike);
-      this.joinLabel = `Join in ${this.lessonService.formatTimeUntil(secs)}`;
+      this.joinLabel = this.translate.instant('HOME.JOIN_IN_TIME', {
+        time: this.lessonService.formatTimeUntil(secs),
+      });
     }
   }
 

@@ -254,6 +254,11 @@ export function ClassGoingMessageModal({
                 multiline
                 maxLength={maxChars}
                 textAlignVertical="top"
+                // Android: default multiline underline + system cursor color can look like
+                // a green bar on the bottom edge; hide the underline and align colors.
+                underlineColorAndroid="transparent"
+                cursorColor={isDark ? colors.joinCtaBackground : colors.text}
+                selectionColor="rgba(73, 174, 234, 0.3)"
                 style={[
                   st.input,
                   {

@@ -21,6 +21,10 @@ const ClassSchema = new mongoose.Schema({
   hubDraftForm: { type: mongoose.Schema.Types.Mixed, default: null },
   cancelledAt: { type: Date }, // When the class was cancelled
   cancelReason: { type: String }, // Reason for cancellation (e.g., "minimum_not_met", "tutor_cancelled")
+  /** Tutor-chosen category from cancel flow (e.g. schedule_conflict) */
+  cancelReasonId: { type: String },
+  /** Human-readable detail: preset label or free-text for "other" */
+  cancelReasonText: { type: String },
   recurrence: {
     type: { type: String, enum: ['none', 'daily', 'weekly', 'monthly'], default: 'none' },
     count: { type: Number, default: 1 }

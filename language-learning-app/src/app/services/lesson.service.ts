@@ -491,19 +491,36 @@ export class LessonService {
     return Math.max(0, Math.ceil((earliestJoin.getTime() - now.getTime()) / 1000));
   }
 
+  /**
+   * Human-readable time until the join window (or start). For waits ≥1 day,
+   * shows days + hours (e.g. "2 days 4 hrs") instead of a large hour count.
+   */
   formatTimeUntil(seconds: number): string {
     if (seconds <= 0) return 'Now';
-    
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    } else if (minutes > 0) {
-      return `${minutes}m`;
-    } else {
-      return 'Less than 1m';
+
+    const days = Math.floor(seconds / 86400);
+    const rem = seconds % 86400;
+    const hours = Math.floor(rem / 3600);
+    const minutes = Math.floor((rem % 3600) / 60);
+
+    if (days > 0) {
+      const dayPart = days === 1 ? '1 day' : `${days} days`;
+      if (hours > 0) {
+        const hrPart = hours === 1 ? '1 hr' : `${hours} hrs`;
+        return `${dayPart} ${hrPart}`;
+      }
+      if (minutes > 0) {
+        return `${dayPart} ${minutes} min`;
+      }
+      return dayPart;
     }
+    if (hours > 0) {
+      return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+    }
+    if (minutes > 0) {
+      return `${minutes}m`;
+    }
+    return 'Less than 1m';
   }
 
   // Update local lessons cache

@@ -99,6 +99,9 @@
   margin: 0 0 18px;
 }
 
+/* ion-textarea (md): Ionic draws a bottom “highlight” line; without overrides it
+   often appears green (valid/focus) and sits under our own border. Hide it and
+   rely on :focus-within + caret-color below. */
 .going-msg-textarea {
   border: 1px solid var(--going-msg-border);
   border-radius: 14px;
@@ -110,6 +113,10 @@
   --padding-end: 0;
   --padding-top: 0;
   --padding-bottom: 0;
+  --highlight-height: 0;
+  --highlight-color-focused: transparent;
+  --highlight-color-valid: transparent;
+  --highlight-color-invalid: transparent;
   min-height: 220px;
   margin-bottom: 10px;
   transition: border-color 0.15s ease, background 0.15s ease;
@@ -118,6 +125,12 @@
 .going-msg-textarea:focus-within {
   border-color: var(--going-msg-cta);
   --background: var(--going-msg-surface);
+}
+
+:host ::ng-deep .going-msg-textarea::part(native) {
+  outline: none;
+  caret-color: var(--going-msg-text);
+  resize: none;
 }
 
 .going-msg-counter {

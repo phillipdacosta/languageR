@@ -12,7 +12,7 @@ export class FreeHoursPipe implements PipeTransform {
     if (!selectedDay || !selectedDay.date || !events || events.length === 0) {
       return 0;
     }
-    return computeFutureFreeHoursFromEvents(events, selectedDay.date, new Date(), 'visible6to23');
+    return computeFutureFreeHoursFromEvents(events, selectedDay.date, new Date(), 'fullDay');
   }
 }
 

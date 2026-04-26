@@ -6,6 +6,7 @@ import { User } from '../types/user';
 import { authService } from '../services/auth';
 import { api } from '../services/api';
 import { clearDetailCache } from '../services/lessons';
+import { socketService } from '../services/socket';
 import { env } from '../config/env';
 
 interface AuthContextType {
@@ -46,6 +47,18 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
       console.log('[Auth] Using token type:', creds.idToken ? 'idToken' : 'accessToken');
       api.setToken(token);
       const backendUser = await authService.getMe(token);
+      /**
+       * Establish the realtime socket once we have an authenticated user.
+       * The socket is idempotent — calling connect() again on token refresh
+       * is safe. No-op during the brief window where the token is set but
+       * the backend hasn't been reached yet (that's fine, first consumer
+       * will reconnect).
+       */
+      try {
+        socketService.connect();
+      } catch (e) {
+        console.warn('[Auth] socket connect failed:', e);
+      }
       return backendUser;
     } catch (err: any) {
       console.warn('[Auth] fetchBackendUser failed:', err?.message || err);
@@ -100,6 +113,11 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     }
     api.clearToken();
     clearDetailCache();
+    try {
+      socketService.disconnect();
+    } catch {
+      // Best-effort — don't block logout on socket teardown.
+    }
     setUser(null);
   }, [clearSession]);
 

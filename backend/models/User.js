@@ -336,7 +336,8 @@ const userSchema = new mongoose.Schema({
     watchChannelId: { type: String, default: null },
     watchResourceId: { type: String, default: null },
     watchExpiration: { type: Date, default: null },
-    watchToken: { type: String, default: null }
+    watchToken: { type: String, default: null },
+    grantedScopes: { type: [String], default: [] }
   },
   // Native language for providing feedback in the user's language
   nativeLanguage: {

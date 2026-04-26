@@ -13,13 +13,14 @@ import {
   UIManager,
   Animated,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../contexts/ThemeContext';
 import { messagingService, Conversation } from '../services/messaging';
+import { socketService } from '../services/socket';
 import { useScreenEntranceAnimations } from '../hooks/useScreenEntranceAnimations';
 import StaggerRow from '../components/StaggerRow';
 import ChatScreen from './ChatScreen';
@@ -34,6 +35,7 @@ export default function MessagesScreen() {
   const { user } = useAuth();
   const { colors } = useTheme();
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const userId = user?.auth0Id || user?._id || user?.id || '';
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -101,6 +103,72 @@ export default function MessagesScreen() {
     await fetchConversations();
     setRefreshing(false);
   }, [fetchConversations]);
+
+  /**
+   * Realtime: bump the matching conversation (last message + unread count)
+   * when a `new_message` arrives. If the user is currently inside that
+   * thread (`selected`), we leave `unreadCount` alone because `ChatScreen`
+   * will mark it read anyway. Unknown conversations trigger a refetch so
+   * the list self-heals when the backend creates a new thread we haven't
+   * seen yet (e.g. first message in a brand-new group).
+   */
+  useEffect(() => {
+    const selectedConvKey = selected
+      ? (selected.isGroup ? `g:${selected.groupId || ''}` : `c:${selected.conversationId || ''}`)
+      : null;
+
+    const applyIncoming = (msg: any, incrementUnread: boolean) => {
+      if (!msg) return;
+      const isGroup = !!msg.isGroup;
+      const matchKey = isGroup ? `g:${msg.groupId || ''}` : `c:${msg.conversationId || ''}`;
+      if (!matchKey || matchKey === 'c:' || matchKey === 'g:') return;
+
+      const preview = typeof msg.content === 'string' ? msg.content : '';
+      const createdAt = msg.createdAt || new Date().toISOString();
+      const sameAsOpen = selectedConvKey === matchKey;
+
+      setConversations((prev) => {
+        let matched = false;
+        const next = prev.map((c) => {
+          const key = c.isGroup ? `g:${c.groupId || ''}` : `c:${c.conversationId || ''}`;
+          if (key !== matchKey) return c;
+          matched = true;
+          return {
+            ...c,
+            lastMessage: {
+              content: preview,
+              senderId: msg.senderId || c.lastMessage?.senderId || '',
+              createdAt,
+              type: msg.type || 'text',
+            },
+            updatedAt: createdAt,
+            unreadCount:
+              incrementUnread && !sameAsOpen
+                ? Math.max(0, (c.unreadCount || 0) + 1)
+                : (c.unreadCount || 0),
+          };
+        });
+        if (matched) {
+          next.sort(
+            (a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime(),
+          );
+          return next;
+        }
+        return prev;
+      });
+
+      if (!sameAsOpen) {
+        void fetchConversations();
+      }
+    };
+
+    const offNew = socketService.on('new_message', (msg) => applyIncoming(msg, true));
+    const offSent = socketService.on('message_sent', (msg) => applyIncoming(msg, false));
+    return () => {
+      offNew();
+      offSent();
+    };
+  }, [selected, fetchConversations]);
 
   /**
    * Auto-select a conversation when the screen is opened with `{ groupId }` or
@@ -205,7 +273,7 @@ export default function MessagesScreen() {
   }
 
   return (
-    <SafeAreaView style={[s.safe, { backgroundColor: colors.background }]} edges={['top']}>
+    <View style={[s.safe, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <Animated.View style={shellMotion}>
       {/* Header */}
       <View style={s.header}>
@@ -286,7 +354,7 @@ export default function MessagesScreen() {
         />
       )}
       </Animated.View>
-    </SafeAreaView>
+    </View>
   );
 }
 

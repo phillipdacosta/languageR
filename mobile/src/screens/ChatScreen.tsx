@@ -21,7 +21,7 @@ import {
   Dimensions,
   type ViewStyle,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 
 import { BlurView } from 'expo-blur';
@@ -33,6 +33,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '../contexts/ThemeContext';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { messagingService, Conversation, GroupParticipantSummary, Message } from '../services/messaging';
+import { socketService } from '../services/socket';
 import { useScreenEntranceAnimations } from '../hooks/useScreenEntranceAnimations';
 
 interface Props {
@@ -104,6 +105,7 @@ function headerClusterCellStyle(n: number, i: number): ViewStyle {
 
 export default function ChatScreen({ conversation, currentUserId, currentUserName: propName, currentUserPicture, goBack }: Props) {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const { colors: C, isDark } = useTheme();
   const otherUser = conversation.otherUser;
   const otherUserId = otherUser?.auth0Id || otherUser?.id || '';
@@ -172,6 +174,20 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
 
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [imageViewerUrl, setImageViewerUrl] = useState<string | null>(null);
+  /**
+   * Class roster bottom sheet: built from `groupParticipants`, ordered like
+   * the header cluster (others first, "me" last). `mounted` drives the Modal
+   * visibility; `rosterAnim` runs the backdrop fade + sheet slide-up so we
+   * don't rely on the RN Modal's default `slide` (which animates the backdrop
+   * and the sheet together and reads as "the whole chat wipes up").
+   */
+  const [rosterMounted, setRosterMounted] = useState(false);
+  const [rosterData, setRosterData] = useState<{
+    title: string;
+    empty: boolean;
+    rows: Array<{ id: string; name: string; picture?: string | null; isSelf: boolean }>;
+  } | null>(null);
+  const rosterAnim = useRef(new Animated.Value(0)).current;
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const highlightAnim = useRef(new Animated.Value(0)).current;
 
@@ -187,7 +203,7 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
   const [uploading, setUploading] = useState(false);
 
   const invertedMessages = useMemo(() => [...messages].reverse(), [messages]);
-  const { shellMotion, listGateMotion } = useScreenEntranceAnimations(loading);
+  const { listGateMotion } = useScreenEntranceAnimations(loading);
 
   /**
    * Header avatar cluster for group threads (same ordering as web
@@ -227,6 +243,49 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
     const layoutN = Math.min(sliced.length, 4) as 1 | 2 | 3 | 4;
     return { cells: sliced, a11yLabel, layoutN: layoutN || 1 };
   }, [isGroup, groupParticipants, currentUserId]);
+
+  const closeClassRosterSheet = useCallback(() => {
+    Animated.timing(rosterAnim, {
+      toValue: 0,
+      duration: 180,
+      easing: Easing.in(Easing.cubic),
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished) {
+        setRosterMounted(false);
+        setRosterData(null);
+      }
+    });
+  }, [rosterAnim]);
+
+  /** Class-broadcast threads: roster in a bottom sheet (same order as header cluster). */
+  const showClassRosterActionSheet = useCallback(() => {
+    if (!isClassConversation) {
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const self = currentUserId;
+    const others = groupParticipants.filter((p) => p.auth0Id && p.auth0Id !== self);
+    const me = groupParticipants.filter((p) => p.auth0Id && p.auth0Id === self);
+    const ordered = [...others, ...me];
+    const rows = ordered.map((p, i) => ({
+      id: p.auth0Id || p.id || `row-${i}`,
+      name: p.auth0Id === self ? t('MESSAGES.YOU') : (p.name || '').trim() || '—',
+      picture: p.picture || null,
+      isSelf: p.auth0Id === self,
+    }));
+    const count = rows.length;
+    const title = t('MESSAGES.CLASS_ROSTER_TITLE', { count });
+    setRosterData({ title, empty: count === 0, rows });
+    setRosterMounted(true);
+    rosterAnim.setValue(0);
+    Animated.timing(rosterAnim, {
+      toValue: 1,
+      duration: 260,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [isClassConversation, currentUserId, groupParticipants, t, rosterAnim]);
 
   useEffect(() => {
     if (isClassConversation) {
@@ -276,6 +335,99 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
   }, [isGroup, groupId, otherUserId]);
 
   useEffect(() => { fetchMessages(); }, [fetchMessages]);
+
+  /**
+   * Realtime: append new messages for the open thread, dedupe against
+   * optimistic sends (temp ids) by id, and mark the thread read so the
+   * inbox badge doesn't grow while the user is looking at it. Also wipes
+   * deleted messages and applies reaction updates so the UI stays in
+   * sync across devices without a refetch.
+   */
+  useEffect(() => {
+    const matches = (m: any) => {
+      if (!m) return false;
+      if (isGroup) return !!m.isGroup && m.groupId === groupId;
+      if (m.isGroup) return false;
+      return m.conversationId === conversation.conversationId;
+    };
+
+    const applyIncoming = (raw: any) => {
+      if (!matches(raw)) return;
+      const incoming: Message = {
+        id: raw.id || raw._id || `rt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        conversationId: raw.conversationId || conversation.conversationId,
+        senderId: raw.senderId || '',
+        receiverId: raw.receiverId || '',
+        content: raw.content || '',
+        type: raw.type || 'text',
+        read: !!raw.read,
+        createdAt: raw.createdAt || new Date().toISOString(),
+        fileUrl: raw.fileUrl,
+        fileName: raw.fileName,
+        fileType: raw.fileType,
+        fileSize: raw.fileSize,
+        thumbnailUrl: raw.thumbnailUrl,
+        duration: raw.duration,
+        sender: raw.sender,
+        replyTo: raw.replyTo,
+        isSystemMessage: raw.isSystemMessage,
+        reactions: raw.reactions,
+      };
+      if (!incoming.id) return;
+
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === incoming.id)) return prev;
+        const temp = prev.find(
+          (m) =>
+            m.id.startsWith('temp-') &&
+            m.senderId === incoming.senderId &&
+            m.content === incoming.content &&
+            m.type === incoming.type,
+        );
+        if (temp) {
+          return prev.map((m) => (m.id === temp.id ? incoming : m));
+        }
+        shouldAutoScroll.current = true;
+        return [...prev, incoming];
+      });
+
+      if (incoming.senderId && incoming.senderId !== currentUserId) {
+        if (isGroup) {
+          if (groupId) void messagingService.markGroupRead(groupId);
+        } else if (otherUserId) {
+          void messagingService.markRead(otherUserId);
+        }
+      }
+    };
+
+    const applyDeleted = (raw: any) => {
+      if (!matches(raw)) return;
+      const id = raw.id || raw._id || raw.messageId;
+      if (!id) return;
+      setMessages((prev) => prev.filter((m) => m.id !== id));
+    };
+
+    const applyReaction = (raw: any) => {
+      if (!matches(raw)) return;
+      const id = raw.id || raw._id || raw.messageId;
+      if (!id) return;
+      setMessages((prev) =>
+        prev.map((m) => (m.id === id ? { ...m, reactions: raw.reactions || m.reactions } : m)),
+      );
+    };
+
+    const offNew = socketService.on('new_message', applyIncoming);
+    const offSent = socketService.on('message_sent', applyIncoming);
+    const offDeleted = socketService.on('message_deleted', applyDeleted);
+    const offReaction = socketService.on('reaction_updated', applyReaction);
+
+    return () => {
+      offNew();
+      offSent();
+      offDeleted();
+      offReaction();
+    };
+  }, [isGroup, groupId, conversation.conversationId, otherUserId, currentUserId]);
 
   const handleContentSizeChange = useCallback(() => {
     if (shouldAutoScroll.current) {
@@ -754,8 +906,7 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
 
   return (
     <View style={{ flex: 1, backgroundColor: C.background }}>
-    <SafeAreaView style={[s.safe, { backgroundColor: C.background }]} edges={['top', 'bottom']}>
-      <Animated.View style={shellMotion}>
+    <View style={[s.safe, { backgroundColor: C.background, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <View style={[s.header, { backgroundColor: C.background, borderBottomColor: C.border }]}>
         <TouchableOpacity onPress={goBack} style={s.backBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="chevron-back" size={24} color={C.text} />
@@ -774,13 +925,21 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
             )}
           </View>
         ) : headerGroupCluster && headerGroupCluster.cells.length > 0 ? (
-          <View
-            style={s.headerClusterWrap}
+          <Pressable
+            onPress={isClassConversation ? showClassRosterActionSheet : undefined}
+            style={({ pressed }) => [
+              s.headerClusterWrap,
+              isClassConversation && pressed && { opacity: 0.86 },
+            ]}
             accessible
-            accessibilityRole="image"
-            accessibilityLabel={headerGroupCluster.a11yLabel || headerTitle}
+            accessibilityRole={isClassConversation ? 'button' : 'image'}
+            accessibilityLabel={
+              isClassConversation
+                ? t('MESSAGES.CLASS_ROSTER_SHEET_HINT')
+                : headerGroupCluster.a11yLabel || headerTitle
+            }
           >
-            <View style={s.headerClusterBox}>
+            <View style={s.headerClusterBox} pointerEvents="box-none">
               {headerGroupCluster.cells.map((c, i) => {
                 const n = headerGroupCluster.layoutN;
                 if (c.isMore) {
@@ -807,13 +966,22 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
                 );
               })}
             </View>
-          </View>
+          </Pressable>
         ) : (
-          <View style={s.headerClusterWrap} accessibilityLabel={headerTitle} accessible>
-            <View style={[s.headerGroupPlaceholder, { backgroundColor: isDark ? '#2c2c2e' : '#eef0f4' }]}>
+          <Pressable
+            onPress={isClassConversation ? showClassRosterActionSheet : undefined}
+            style={({ pressed }) => [
+              s.headerClusterWrap,
+              isClassConversation && pressed && { opacity: 0.86 },
+            ]}
+            accessible
+            accessibilityLabel={isClassConversation ? t('MESSAGES.CLASS_ROSTER_SHEET_HINT') : headerTitle}
+            accessibilityRole={isClassConversation ? 'button' : 'image'}
+          >
+            <View style={[s.headerGroupPlaceholder, { backgroundColor: isDark ? '#2c2c2e' : '#eef0f4' }]} pointerEvents="none">
               <Ionicons name="people" size={22} color={C.textSecondary} />
             </View>
-          </View>
+          </Pressable>
         )}
 
         <View style={s.headerTitleWrap}>
@@ -823,7 +991,6 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
         </View>
         <View style={s.headerRight} />
       </View>
-      </Animated.View>
 
       <KeyboardAvoidingView
         style={s.kavContainer}
@@ -957,7 +1124,114 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
           <View style={{ height: insets.bottom }} />
         </View>
       </Modal>
-    </SafeAreaView>
+
+      {/*
+        Roster bottom sheet.
+        - animationType="none" + our own Animated values so the backdrop fades
+          independently of the sheet slide-up (RN's default `slide` moves
+          everything together and reads as "the whole chat wipes away").
+        - statusBarTranslucent avoids the gap under the status bar on Android.
+      */}
+      <Modal
+        visible={rosterMounted}
+        transparent
+        animationType="none"
+        onRequestClose={closeClassRosterSheet}
+        statusBarTranslucent
+      >
+        <View style={s.classRosterRoot}>
+          <Animated.View
+            style={[
+              s.classRosterBackdrop,
+              {
+                backgroundColor: isDark ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.45)',
+                opacity: rosterAnim,
+              },
+            ]}
+          >
+            <Pressable style={StyleSheet.absoluteFill} onPress={closeClassRosterSheet} />
+          </Animated.View>
+          <Animated.View
+            style={[
+              s.classRosterSheet,
+              {
+                backgroundColor: C.card,
+                borderTopColor: C.border,
+                paddingBottom: Math.max(insets.bottom, 12) + 8,
+                transform: [{
+                  translateY: rosterAnim.interpolate({ inputRange: [0, 1], outputRange: [480, 0] }),
+                }],
+              },
+            ]}
+          >
+            <View style={[s.classRosterHandle, { backgroundColor: isDark ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.18)' }]} />
+            {rosterData && (
+              <>
+                <Text style={[s.classRosterTitle, { color: C.text }]}>{rosterData.title}</Text>
+                <Text style={[s.classRosterHint, { color: C.textSecondary }]} numberOfLines={2}>
+                  {t('MESSAGES.CLASS_ROSTER_SHEET_HINT')}
+                </Text>
+                {rosterData.empty ? (
+                  <View style={s.classRosterEmptyWrap}>
+                    <Text style={[s.classRosterEmptyText, { color: C.textSecondary }]}>
+                      {t('MESSAGES.CLASS_ROSTER_EMPTY')}
+                    </Text>
+                  </View>
+                ) : (
+                  <ScrollView
+                    style={s.classRosterScroll}
+                    contentContainerStyle={s.classRosterScrollContent}
+                    showsVerticalScrollIndicator
+                    bounces
+                    keyboardShouldPersistTaps="handled"
+                  >
+                    {rosterData.rows.map((row, i) => {
+                      const isLast = i === rosterData.rows.length - 1;
+                      const initial = (row.name || '?').trim().charAt(0).toUpperCase() || '?';
+                      return (
+                        <View
+                          key={row.id}
+                          style={[
+                            s.classRosterRow,
+                            !isLast && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.border },
+                          ]}
+                        >
+                          {row.picture ? (
+                            <Image source={{ uri: row.picture }} style={s.classRosterAvatar} />
+                          ) : (
+                            <View style={[s.classRosterAvatar, s.classRosterAvatarFB]}>
+                              <Text style={s.classRosterAvatarLetter}>{initial}</Text>
+                            </View>
+                          )}
+                          <Text
+                            style={[
+                              s.classRosterName,
+                              { color: C.text },
+                              row.isSelf && { fontWeight: '600' },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {row.name}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </ScrollView>
+                )}
+                <TouchableOpacity
+                  style={[s.classRosterDone, { backgroundColor: isDark ? '#3a3a3c' : '#f0f0f0' }]}
+                  onPress={closeClassRosterSheet}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[s.classRosterDoneText, { color: C.accent }]}>{t('COMMON.OK')}</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </Animated.View>
+        </View>
+      </Modal>
+
+    </View>
 
     <View style={StyleSheet.absoluteFill} pointerEvents={contextVisible ? 'auto' : 'none'}>
       <Animated.View style={[StyleSheet.absoluteFill, { opacity: contextAnim }]}>
@@ -1419,4 +1693,49 @@ const s = StyleSheet.create({
   imgViewerHeader: { flexDirection: 'row', justifyContent: 'flex-start', paddingHorizontal: 16, paddingBottom: 12 },
   imgCloseBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
   imgViewerImage: { flex: 1, width: '100%' },
+
+  /**
+   * Class roster bottom sheet — bottom-anchored card with a drag handle,
+   * avatar + name rows, and a "Done" button. The sheet and backdrop animate
+   * independently (see `rosterAnim` in the component body).
+   */
+  classRosterRoot: { flex: 1, justifyContent: 'flex-end' },
+  classRosterBackdrop: { ...StyleSheet.absoluteFillObject },
+  classRosterSheet: {
+    maxHeight: '88%' as any,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: 8,
+    paddingHorizontal: 20,
+  },
+  classRosterHandle: { width: 40, height: 5, borderRadius: 2.5, alignSelf: 'center', marginBottom: 12 },
+  classRosterTitle: { fontSize: 17, fontWeight: '600', textAlign: 'center' },
+  classRosterHint: { fontSize: 13, textAlign: 'center', marginTop: 4, marginBottom: 12, lineHeight: 18, paddingHorizontal: 8 },
+  classRosterScroll: { maxHeight: Dimensions.get('window').height * 0.46 },
+  classRosterScrollContent: { paddingBottom: 8 },
+  classRosterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    gap: 12,
+  },
+  classRosterAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#e8e8e8',
+    overflow: 'hidden',
+  },
+  classRosterAvatarFB: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#4298d3',
+  },
+  classRosterAvatarLetter: { fontSize: 14, fontWeight: '700', color: '#fff' },
+  classRosterName: { flex: 1, fontSize: 16, lineHeight: 22 },
+  classRosterEmptyWrap: { paddingVertical: 24, alignItems: 'center' },
+  classRosterEmptyText: { fontSize: 14, lineHeight: 20, textAlign: 'center' },
+  classRosterDone: { marginTop: 8, borderRadius: 12, paddingVertical: 15, alignItems: 'center' },
+  classRosterDoneText: { fontSize: 17, fontWeight: '600' },
 });

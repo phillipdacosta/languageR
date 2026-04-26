@@ -705,7 +705,7 @@
                   <div class="econ-toggle-row">
                     <div>
                       <span class="econ-toggle-label">Flexible minimum</span>
-                      <span class="econ-toggle-sub">Run class even if minimum not met</span>
+                      <span class="econ-toggle-sub">Run class with fewer students. Disables auto-cancel.</span>
                     </div>
                     <ion-toggle formControlName="flexibleMinimum"></ion-toggle>
                   </div>
@@ -713,6 +713,11 @@
                   <div class="econ-hint-row warning" *ngIf="!form.value.flexibleMinimum && form.value.minStudents">
                     <ion-icon name="alert-circle-outline"></ion-icon>
                     <span>Auto-cancels <strong>1 hour before start</strong> if fewer than <strong>{{form.value.minStudents}} students</strong> enrolled</span>
+                  </div>
+
+                  <div class="econ-hint-row" *ngIf="form.value.flexibleMinimum">
+                    <ion-icon name="information-circle-outline"></ion-icon>
+                    <span>Auto-cancel <strong>disabled</strong>. Class will still cancel <strong>1 hour before start</strong> if <strong>no students</strong> enroll.</span>
                   </div>
                 </div>
 
@@ -942,13 +947,17 @@
                   <div class="econ-toggle-row">
                     <div>
                       <span class="econ-toggle-label">Flexible minimum</span>
-                      <span class="econ-toggle-sub">Run class even if minimum not met</span>
+                      <span class="econ-toggle-sub">Run class with fewer students. Disables auto-cancel.</span>
                     </div>
                     <ion-toggle formControlName="flexibleMinimum"></ion-toggle>
                   </div>
                   <div class="econ-hint-row warning" *ngIf="!form.value.flexibleMinimum && form.value.minStudents">
                     <ion-icon name="alert-circle-outline"></ion-icon>
                     <span>Auto-cancels <strong>1 hour before start</strong> if fewer than <strong>{{form.value.minStudents}} students</strong> enrolled</span>
+                  </div>
+                  <div class="econ-hint-row" *ngIf="form.value.flexibleMinimum">
+                    <ion-icon name="information-circle-outline"></ion-icon>
+                    <span>Auto-cancel <strong>disabled</strong>. Class will still cancel <strong>1 hour before start</strong> if <strong>no students</strong> enroll.</span>
                   </div>
                 </div>
               </div>

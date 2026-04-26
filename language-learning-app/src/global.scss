@@ -965,7 +965,7 @@ ion-modal.payment-dispute-modal {
   }
 }
 
-// Class Invitation Modal - Ensure content is visible
+// Class "going" message modal (intro message before chat)
 ion-modal.class-going-message-modal {
   --width: 96%;
   --max-width: 560px;
@@ -976,6 +976,24 @@ ion-modal.class-going-message-modal {
 
   @media (min-width: 600px) {
     --max-width: 500px;
+  }
+}
+
+/* Dark: dim the page behind the sheet more (default wash is too light on #000 UIs). */
+html.ion-palette-dark ion-modal.class-going-message-modal,
+.ion-palette-dark ion-modal.class-going-message-modal {
+  --backdrop-opacity: 1;
+
+  &::part(backdrop) {
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(12px) saturate(1.1);
+    -webkit-backdrop-filter: blur(12px) saturate(1.1);
+  }
+
+  ion-backdrop {
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(12px) saturate(1.1);
+    -webkit-backdrop-filter: blur(12px) saturate(1.1);
   }
 }
 

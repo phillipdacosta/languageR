@@ -4119,3 +4119,39 @@ ion-header {
     font-size: 14px;
   }
 }
+
+/**
+ * Auto-cancel rule row shown under the Students list. Matches the compact
+ * hint style from `schedule-class.page` so scheduling + viewing feel like
+ * the same surface.
+ */
+.ed-class-rule {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--ed-border, #ebebeb);
+  background: var(--ed-rule-bg, #f7f7f8);
+  color: var(--ed-text-secondary, #717171);
+  font-size: 13px;
+  line-height: 18px;
+
+  ion-icon {
+    flex: 0 0 auto;
+    margin-top: 2px;
+    font-size: 16px;
+    color: var(--ed-text-secondary, #717171);
+  }
+
+  &--flexible ion-icon {
+    color: #2e7d32;
+  }
+}
+
+:host-context(html.ion-palette-dark) .ed-class-rule,
+:host-context(.ion-palette-dark) .ed-class-rule {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--ed-border, rgba(255, 255, 255, 0.1));
+}

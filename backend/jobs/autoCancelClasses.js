@@ -2,53 +2,65 @@ const Class = require('../models/Class');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
 const { archiveClassConversation } = require('../services/classConversation');
+const { emitClassStateChanged, REASONS: CLASS_STATE_REASONS } = require('../services/classStateBroadcaster');
 
 /**
- * Auto-cancel classes that don't meet minimum student requirements
- * Runs 15 minutes before class start time
+ * Auto-cancel classes that don't meet minimum student requirements.
+ * Runs ~1 hour before class start time. Window width matches the cron
+ * interval (every 10 minutes) so each class is evaluated exactly once.
  * @param {Object} io - Socket.IO server instance
  * @param {Map} connectedUsers - Map of connected users (auth0Id -> socketId)
  */
 async function autoCancelClasses(io = null, connectedUsers = null) {
   console.log('🔍 [AUTO-CANCEL] Checking for classes to auto-cancel...');
-  
+
   const now = new Date();
-  const tenMinutesFromNow = new Date(now.getTime() + 10 * 60 * 1000); // 10 min
-  const twentyMinutesFromNow = new Date(now.getTime() + 20 * 60 * 1000);  // 20 min
-  
+  const fiftyFiveMinutesFromNow = new Date(now.getTime() + 55 * 60 * 1000); // 55 min
+  const sixtyFiveMinutesFromNow = new Date(now.getTime() + 65 * 60 * 1000); // 65 min
+
   try {
-    // Find all scheduled classes that:
-    // 1. Start between 10-20 minutes from now (cancel at ~15 minute mark)
-    // 2. Are scheduled (not already cancelled/completed)
-    // 3. Have flexibleMinimum = false
-    // 4. Don't have enough confirmed students
+    // Find all scheduled classes that start between 55-65 minutes from now
+    // (cancel at ~1 hour before start). We evaluate both strict-minimum and
+    // flexibleMinimum classes here — the cancel decision is per-class below.
     const classes = await Class.find({
       startTime: {
-        $gte: tenMinutesFromNow,
-        $lt: twentyMinutesFromNow
+        $gte: fiftyFiveMinutesFromNow,
+        $lt: sixtyFiveMinutesFromNow
       },
-      status: 'scheduled',
-      flexibleMinimum: false
+      status: 'scheduled'
     }).populate('tutorId', 'name email firstName lastName auth0Id')
       .populate('confirmedStudents', 'name email firstName lastName auth0Id');
-    
-    console.log(`📊 [AUTO-CANCEL] Found ${classes.length} scheduled classes in the next 10-20 minutes (~15 min window)`);
-    
+
+    console.log(`📊 [AUTO-CANCEL] Found ${classes.length} scheduled classes in the next 55-65 minutes (~1 hour window)`);
+
     let cancelledCount = 0;
-    
+
     for (const classItem of classes) {
       const confirmedCount = classItem.confirmedStudents.length;
       const minRequired = classItem.minStudents;
-      
-      console.log(`🔍 [AUTO-CANCEL] Class "${classItem.name}" (${classItem._id}): ${confirmedCount}/${minRequired} students`);
-      
-      if (confirmedCount < minRequired) {
-        console.log(`❌ [AUTO-CANCEL] Cancelling class "${classItem.name}" - only ${confirmedCount}/${minRequired} students enrolled`);
-        
+      const isFlexible = !!classItem.flexibleMinimum;
+
+      // Decision:
+      // - flexibleMinimum: cancel only if literally 0 students enrolled
+      //   (≥1-student floor — never let a tutor sit in an empty room)
+      // - strict minimum: cancel if confirmed < minStudents
+      const shouldCancel = isFlexible
+        ? confirmedCount === 0
+        : confirmedCount < minRequired;
+      const cancelReason = isFlexible ? 'no_students_enrolled' : 'minimum_not_met';
+
+      console.log(`🔍 [AUTO-CANCEL] Class "${classItem.name}" (${classItem._id}): ${confirmedCount}/${minRequired} students, flexible=${isFlexible}, shouldCancel=${shouldCancel}`);
+
+      if (shouldCancel) {
+        const reasonLog = isFlexible
+          ? 'no students enrolled (flexibleMinimum=true ≥1 floor)'
+          : `only ${confirmedCount}/${minRequired} students enrolled`;
+        console.log(`❌ [AUTO-CANCEL] Cancelling class "${classItem.name}" — ${reasonLog}`);
+
         // Cancel the class
         classItem.status = 'cancelled';
         classItem.cancelledAt = new Date();
-        classItem.cancelReason = 'minimum_not_met';
+        classItem.cancelReason = cancelReason;
         
         // 💳 RELEASE ALL AUTHORIZED PAYMENTS: Cancel all payment holds
         const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
@@ -92,22 +104,29 @@ async function autoCancelClasses(io = null, connectedUsers = null) {
         
         await classItem.save();
 
+        emitClassStateChanged(io, classItem._id, {
+          reason: CLASS_STATE_REASONS.classAutoCancelled,
+        }).catch(() => {});
+
         // Archive the class group chat (freeze membership, post system message).
         try {
+          const archiveReason = isFlexible
+            ? `"${classItem.name}" was cancelled automatically because no students enrolled.`
+            : `"${classItem.name}" was cancelled automatically because the minimum of ${minRequired} student(s) was not met.`;
           await archiveClassConversation(classItem._id, {
-            reason: `"${classItem.name}" was cancelled automatically because the minimum of ${minRequired} student(s) was not met.`
+            reason: archiveReason
           });
         } catch (archiveErr) {
           console.error('⚠️ Failed to archive class conversation on auto-cancel:', archiveErr);
         }
 
         cancelledCount++;
-        
+
         // Remove the availability block from tutor's calendar
         await removeClassAvailability(classItem);
-        
+
         // Create notifications and emit WebSocket events for tutor and all invited/confirmed students
-        await createCancellationNotifications(classItem, io, connectedUsers);
+        await createCancellationNotifications(classItem, io, connectedUsers, { isFlexible });
       }
     }
     
@@ -197,47 +216,57 @@ async function removeClassAvailability(classItem) {
  * @param {Object} classItem - The cancelled class
  * @param {Object} io - Socket.IO server instance
  * @param {Map} connectedUsers - Map of connected users (auth0Id -> socketId)
+ * @param {Object} [opts]
+ * @param {boolean} [opts.isFlexible=false] - True when cancelled under the
+ *   flexibleMinimum ≥1-student floor (0 enrolled). Tweaks tutor copy + cancel
+ *   reason; student copy stays generic ("insufficient enrollment").
  */
-async function createCancellationNotifications(classItem, io, connectedUsers) {
+async function createCancellationNotifications(classItem, io, connectedUsers, opts = {}) {
+  const isFlexible = !!opts.isFlexible;
   const tutor = classItem.tutorId;
   const confirmedStudents = classItem.confirmedStudents;
   const allInvitedStudentIds = classItem.invitedStudents.map(inv => inv.studentId);
-  
+
   // Format date/time for notification
   const startTime = new Date(classItem.startTime);
-  const formattedDate = startTime.toLocaleDateString('en-US', { 
-    weekday: 'short', 
-    month: 'short', 
-    day: 'numeric', 
-    year: 'numeric' 
+  const formattedDate = startTime.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
   });
-  const formattedTime = startTime.toLocaleTimeString('en-US', { 
-    hour: 'numeric', 
-    minute: '2-digit' 
+  const formattedTime = startTime.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit'
   });
-  
+
   // Import name formatter
   const { formatNameWithInitial } = require('../utils/nameFormatter');
   const tutorName = formatNameWithInitial(tutor);
-  
+
+  const tutorCancelReason = isFlexible ? 'no_students_enrolled' : 'minimum_not_met';
+  const tutorMessage = isFlexible
+    ? `Your class <strong>"${classItem.name}"</strong> scheduled for <strong>${formattedDate} at ${formattedTime}</strong> has been automatically <strong>cancelled</strong> because no students enrolled.`
+    : `Your class <strong>"${classItem.name}"</strong> scheduled for <strong>${formattedDate} at ${formattedTime}</strong> has been automatically <strong>cancelled</strong> because the minimum student requirement (${classItem.minStudents} students) was not met.`;
+
   // Notify tutor
   try {
     const notification = await Notification.create({
       userId: tutor._id,
       type: 'class_auto_cancelled',
       title: 'Class Auto-Cancelled',
-      message: `Your class <strong>"${classItem.name}"</strong> scheduled for <strong>${formattedDate} at ${formattedTime}</strong> has been automatically <strong>cancelled</strong> because the minimum student requirement (${classItem.minStudents} students) was not met.`,
+      message: tutorMessage,
       data: {
         classId: classItem._id.toString(),
         className: classItem.name,
         startTime: classItem.startTime,
         minStudents: classItem.minStudents,
         confirmedCount: confirmedStudents.length,
-        cancelReason: 'minimum_not_met'
+        cancelReason: tutorCancelReason
       }
     });
     console.log(`📧 [AUTO-CANCEL] Notified tutor ${tutorName} about cancellation`);
-    
+
     // Emit WebSocket event to tutor if connected
     if (io && connectedUsers && tutor.auth0Id) {
       const tutorSocketId = connectedUsers.get(tutor.auth0Id);
@@ -245,13 +274,14 @@ async function createCancellationNotifications(classItem, io, connectedUsers) {
         io.to(tutorSocketId).emit('new_notification', {
           type: 'class_auto_cancelled',
           title: 'Class Auto-Cancelled',
-          message: `Your class <strong>"${classItem.name}"</strong> scheduled for <strong>${formattedDate} at ${formattedTime}</strong> has been automatically <strong>cancelled</strong> because the minimum student requirement (${classItem.minStudents} students) was not met.`,
+          message: tutorMessage,
           data: {
             classId: classItem._id.toString(),
             className: classItem.name,
             startTime: classItem.startTime,
             minStudents: classItem.minStudents,
-            confirmedCount: confirmedStudents.length
+            confirmedCount: confirmedStudents.length,
+            cancelReason: tutorCancelReason
           }
         });
         console.log(`🔔 [AUTO-CANCEL] WebSocket notification sent to tutor ${tutorName}`);

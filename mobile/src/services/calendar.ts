@@ -17,9 +17,10 @@ export interface GoogleCalendarStatus {
 export interface GoogleCalendarEvent {
   id: string;
   summary: string;
-  start: { dateTime?: string; date?: string };
-  end: { dateTime?: string; date?: string };
+  start: string;
+  end: string;
   allDay?: boolean;
+  status?: string;
 }
 
 interface AvailabilityResponse {

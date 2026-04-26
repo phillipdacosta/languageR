@@ -6,6 +6,7 @@ import { Subject } from 'rxjs';
 import { takeUntil, take } from 'rxjs/operators';
 import { AvailabilitySetupComponent } from '../../components/availability-setup/availability-setup.component';
 import { UserService } from '../../services/user.service';
+import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
 
 @Component({
   selector: 'app-availability-setup-page',
@@ -14,7 +15,7 @@ import { UserService } from '../../services/user.service';
   standalone: true,
   imports: [CommonModule, IonicModule, RouterModule, AvailabilitySetupComponent]
 })
-export class AvailabilitySetupPage implements OnInit, OnDestroy, ViewWillEnter {
+export class AvailabilitySetupPage implements OnInit, OnDestroy, ViewWillEnter, HasUnsavedChanges {
   @ViewChild(AvailabilitySetupComponent) availabilityComponent?: AvailabilitySetupComponent;
   
   selectedDate: string | null = null;
@@ -68,6 +69,16 @@ export class AvailabilitySetupPage implements OnInit, OnDestroy, ViewWillEnter {
 
   goToSetup(): void {
     this.router.navigate(['/tutor-approval']);
+  }
+
+  get hasUnsavedChanges(): boolean {
+    return !!(this.availabilityComponent?.hasUnsavedChanges);
+  }
+
+  async saveAvailability(): Promise<void> {
+    if (this.availabilityComponent) {
+      await this.availabilityComponent.saveAvailability();
+    }
   }
 
   ngOnDestroy() {

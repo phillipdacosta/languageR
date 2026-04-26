@@ -577,7 +577,6 @@
                   <div class="event-container">
                     <div *ngFor="let event of events | eventsForDay:day; trackBy: trackByEventId" 
                          class="calendar-event"
-                         style="border-radius: 5px;"
                          [class.availability-event]="event.isAvailability"
                          [class.class-event]="event.isClass"
                          [class.gcal-event]="event.isGoogleCalendar"
@@ -588,34 +587,39 @@
                          [class.short-event]="(event | eventHeight) < 45"
                          [class.compact-event]="(event | eventHeight) < 30"
                          (click)="handleEventClick(event, $event)">
-                      
-                      <!-- Trial badge for trial lessons -->
-                      <div class="calendar-trial-badge" 
-                           *ngIf="event.extendedProps?.isTrialLesson">
+
+                      <!-- Trial badge -->
+                      <div class="calendar-trial-badge" *ngIf="event.extendedProps?.isTrialLesson">
                         <ion-icon name="star"></ion-icon>
                         <span class="trial-tooltip">{{ 'TUTOR_CALENDAR.TRIAL_LESSON' | translate }}</span>
                       </div>
-                      
-                      <div class="event-header">
-                        <!-- First row: Time and duration (left aligned) -->
-                        <div class="event-time-row">
-                          <div class="event-time">{{ event | eventTime:userTz:calendarTimeFormat }}</div>
-                        </div>
-                        
-                        <!-- Second row: Avatar/icon and name (left aligned) -->
-                        <div class="event-info-row">
-                          <img *ngIf="event.isGoogleCalendar" 
-                               src="assets/google.png" 
-                               alt="Google" 
-                               class="event-avatar gcal-avatar">
-                          <img *ngIf="event.studentAvatar && !event.isAvailability && !event.isGoogleCalendar" 
-                               [src]="event.studentAvatar" 
-                               class="event-avatar" 
-                               [attr.alt]="'TUTOR_CALENDAR.STUDENT_AVATAR' | translate">
-                          <div class="event-title" *ngIf="event.isGoogleCalendar">{{ event.title }}</div>
-                          <div class="event-title" *ngIf="!event.isAvailability && !event.isGoogleCalendar">{{ event.studentName }}</div>
-                          <div class="event-title" *ngIf="event.isAvailability">{{ event.title }}</div>
-                        </div>
+
+                      <!-- Class: full-height rectangular thumbnail -->
+                      <img *ngIf="event.isClass && event.studentAvatar && !event.isAvailability"
+                           [src]="event.studentAvatar"
+                           class="event-class-thumb"
+                           alt="">
+                      <div *ngIf="event.isClass && !event.studentAvatar && !event.isAvailability"
+                           class="event-class-thumb event-class-thumb--placeholder">
+                        <ion-icon name="people-outline"></ion-icon>
+                      </div>
+
+                      <!-- Lesson: circular avatar -->
+                      <img *ngIf="!event.isClass && event.studentAvatar && !event.isAvailability && !event.isGoogleCalendar"
+                           [src]="event.studentAvatar"
+                           class="event-avatar"
+                           [attr.alt]="'TUTOR_CALENDAR.STUDENT_AVATAR' | translate">
+
+                      <!-- Google Calendar: logo -->
+                      <img *ngIf="event.isGoogleCalendar"
+                           src="assets/google.png"
+                           alt="Google"
+                           class="event-avatar gcal-avatar">
+
+                      <!-- Text content -->
+                      <div class="event-content">
+                        <div class="event-title" *ngIf="!event.isAvailability">{{ event.studentName }}</div>
+                        <div class="event-time">{{ event | eventTime:userTz:calendarTimeFormat }}</div>
                       </div>
                     </div>
                   </div>
@@ -660,7 +664,6 @@
                 <div class="event-container" *ngIf="(events | eventsForSelectedDay:selectedDayForDayView).length > 0; else noEventsTemplate">
                   <div *ngFor="let event of events | eventsForSelectedDay:selectedDayForDayView; trackBy: trackByEventId" 
                        class="calendar-event"
-                       style="border-radius: 5px;"
                        [class.availability-event]="event.isAvailability"
                        [class.class-event]="event.isClass"
                        [class.gcal-event]="event.isGoogleCalendar"
@@ -671,30 +674,39 @@
                        [class.short-event]="(event | eventHeight) < 45"
                        [class.compact-event]="(event | eventHeight) < 30"
                        (click)="handleEventClick(event)">
-                    
-                    <div class="event-header">
-                      <div class="event-time-row">
-                        <div class="event-time">{{ event | eventTime:userTz:calendarTimeFormat }}</div>
-                      </div>
-                      
-                      <div class="event-info-row">
-                        <img *ngIf="event.isGoogleCalendar" 
-                             src="assets/google.png" 
-                             alt="Google" 
-                             class="event-avatar gcal-avatar">
-                        <img *ngIf="event.studentAvatar && !event.isAvailability && !event.isGoogleCalendar" 
-                             [src]="event.studentAvatar" 
-                             class="event-avatar" 
-                             [attr.alt]="'TUTOR_CALENDAR.STUDENT_AVATAR' | translate">
-                        <div class="event-title" *ngIf="event.isGoogleCalendar">{{ event.title }}</div>
-                        <div class="event-title" *ngIf="!event.isAvailability && !event.isGoogleCalendar">
-                          {{ event.studentName }}
-                          <span class="calendar-trial-inline" *ngIf="event.extendedProps?.isTrialLesson">
-                            <ion-icon name="star"></ion-icon> {{ 'TUTOR_CALENDAR.TRIAL' | translate }}
-                          </span>
-                        </div>
-                        <div class="event-title" *ngIf="event.isAvailability">{{ event.title }}</div>
-                      </div>
+
+                    <!-- Trial badge -->
+                    <div class="calendar-trial-badge" *ngIf="event.extendedProps?.isTrialLesson">
+                      <ion-icon name="star"></ion-icon>
+                      <span class="trial-tooltip">{{ 'TUTOR_CALENDAR.TRIAL_LESSON' | translate }}</span>
+                    </div>
+
+                    <!-- Class: full-height rectangular thumbnail -->
+                    <img *ngIf="event.isClass && event.studentAvatar && !event.isAvailability"
+                         [src]="event.studentAvatar"
+                         class="event-class-thumb"
+                         alt="">
+                    <div *ngIf="event.isClass && !event.studentAvatar && !event.isAvailability"
+                         class="event-class-thumb event-class-thumb--placeholder">
+                      <ion-icon name="people-outline"></ion-icon>
+                    </div>
+
+                    <!-- Lesson: circular avatar -->
+                    <img *ngIf="!event.isClass && event.studentAvatar && !event.isAvailability && !event.isGoogleCalendar"
+                         [src]="event.studentAvatar"
+                         class="event-avatar"
+                         [attr.alt]="'TUTOR_CALENDAR.STUDENT_AVATAR' | translate">
+
+                    <!-- Google Calendar: logo -->
+                    <img *ngIf="event.isGoogleCalendar"
+                         src="assets/google.png"
+                         alt="Google"
+                         class="event-avatar gcal-avatar">
+
+                    <!-- Text content -->
+                    <div class="event-content">
+                      <div class="event-title" *ngIf="!event.isAvailability">{{ event.studentName }}</div>
+                      <div class="event-time">{{ event | eventTime:userTz:calendarTimeFormat }}</div>
                     </div>
                   </div>
                 </div>

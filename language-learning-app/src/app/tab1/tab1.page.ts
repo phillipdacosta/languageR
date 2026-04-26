@@ -5064,7 +5064,54 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       cached.hasStarted = this.hasLessonStarted(cached.lesson);
       cached.countdown = this.getTimeUntilLesson(cached.lesson);
       cached.joinLabel = this.calculateJoinLabel(cached.lesson);
+      cached.joinButtonText = this.computeUpNextJoinButtonText(cached.lesson);
+      cached.showStartsInLine = this.computeShowStartsInLine(cached.lesson);
     }
+  }
+
+  /**
+   * Up Next: precomputed "25 min lesson" / "60 min class" line shown inside the
+   * schedule tray. Done in TS so the template stays free of function calls.
+   */
+  private computeDurationLabel(lesson: Lesson): string {
+    const minutes = Math.max(1, Math.round(Number((lesson as any).duration) || 25));
+    const key = (lesson as any).isClass ? 'HOME.MIN_CLASS' : 'HOME.MIN_LESSON';
+    return this.translateService.instant(key, { minutes });
+  }
+
+  /**
+   * Up Next: when the CTA already shows "Join in {time}" the secondary
+   * "STARTS IN {time}" line above it duplicates the same value. Only show the
+   * line when the lesson is actually in progress (label flips to "STARTED")
+   * or already inside the join window (CTA flips to plain "Join", so the line
+   * adds the actual countdown the button no longer carries).
+   */
+  private computeShowStartsInLine(lesson: Lesson): boolean {
+    return this.isLessonInProgress(lesson) || this.lessonService.canJoinLesson(lesson);
+  }
+
+  /**
+   * CTA label for the Up Next card (student + tutor). When the lesson is not
+   * yet in the join window, shows `HOME.JOIN_IN_TIME` with the formatted
+   * duration — same source of truth as `event-details` / `event-details-modal`.
+   * When in progress, uses `HOME.JOIN_NOW` (not plain `HOME.JOIN`) except the
+   * rejoin edge case, which matches `calculateJoinLabel`.
+   */
+  private computeUpNextJoinButtonText(lesson: Lesson): string {
+    const participant = (lesson as any).participant;
+    if (this.isLessonInProgress(lesson) && participant?.joinedBefore && participant?.leftAfterJoin) {
+      return 'Rejoin';
+    }
+    if (this.isLessonInProgress(lesson) || this.lessonService.canJoinLesson(lesson)) {
+      if (this.isLessonInProgress(lesson)) {
+        return this.translateService.instant('HOME.JOIN_NOW');
+      }
+      return this.translateService.instant('HOME.JOIN');
+    }
+    const secs = this.lessonService.getTimeUntilJoin(lesson);
+    return this.translateService.instant('HOME.JOIN_IN_TIME', {
+      time: this.lessonService.formatTimeUntil(secs),
+    });
   }
 
   /** Refreshes all pre-computed template values that depend on user/lesson state. */
@@ -5436,12 +5483,15 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       isInProgress: isInProgress,
       startTime: nextLesson.startTime,
       joinLabel: this.calculateJoinLabel(nextLesson),
+      joinButtonText: this.computeUpNextJoinButtonText(nextLesson),
+      showStartsInLine: this.computeShowStartsInLine(nextLesson),
       isRescheduleProposer: isRescheduleProposer,
       rescheduleAccepted: rescheduleAccepted,
       isTrialLesson: isTrialLesson,
       timeRange: this.getTimeRangeOnly(nextLesson),
       detailDatePrimary: this.formatEventDetailsDatePrimary(lessonDate),
       detailTimeRange: this.formatEventDetailsTimeRange(nextLesson),
+      durationLabel: this.computeDurationLabel(nextLesson),
       avatar: this.getOtherParticipantAvatar(nextLesson),
       instructorName: this.getClassInstructorName(nextLesson),
       countdown: this.getTimeUntilLesson(nextLesson),
@@ -5557,11 +5607,14 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       isInProgress: isInProgress,
       startTime: firstLesson.startTime,
       joinLabel: this.calculateJoinLabel(firstLesson),
+      joinButtonText: this.computeUpNextJoinButtonText(firstLesson),
+      showStartsInLine: this.computeShowStartsInLine(firstLesson),
       isRescheduleProposer: isRescheduleProposer,
       rescheduleAccepted: rescheduleAccepted,
       timeRange: this.getTimeRangeOnly(firstLesson),
       detailDatePrimary: this.formatEventDetailsDatePrimary(lessonDate),
       detailTimeRange: this.formatEventDetailsTimeRange(firstLesson),
+      durationLabel: this.computeDurationLabel(firstLesson),
       avatar: this.getOtherParticipantAvatar(firstLesson),
       instructorName: this.getClassInstructorName(firstLesson),
       countdown: this.getTimeUntilLesson(firstLesson),
@@ -5626,15 +5679,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     const totalHours = Math.floor(diffMinutes / 60);
     const minutes = diffMinutes % 60;
     
-    // If more than 24 hours, show days
+    // If more than 24 hours, show days + hours (e.g. "2 days 4 hrs") — same as LessonService.formatTimeUntil
     if (totalHours >= 24) {
-      const days = Math.floor(totalHours / 24);
-      const remainingHours = totalHours % 24;
-      
-      if (remainingHours > 0) {
-        return `${days}d ${remainingHours}h`;
-      }
-      return `${days} day${days !== 1 ? 's' : ''}`;
+      const totalSeconds = Math.floor(diffMs / 1000);
+      return this.lessonService.formatTimeUntil(totalSeconds);
     }
     
     // Less than 24 hours
@@ -7371,10 +7419,14 @@ navigateToLessons() {
   }
 
   upcomingJoinLabel(): string {
-    if (!this.upcomingLesson) return 'Join';
+    if (!this.upcomingLesson) return this.translateService.instant('HOME.JOIN');
     const participant = (this.upcomingLesson as any).participant;
-    if (this.isLessonInProgress(this.upcomingLesson) && participant?.joinedBefore && participant?.leftAfterJoin) return 'Rejoin';
-    return this.canJoinUpcoming() ? 'Join' : `Join in ${this.upcomingJoinCountdown()}`;
+    if (this.isLessonInProgress(this.upcomingLesson) && participant?.joinedBefore && participant?.leftAfterJoin) {
+      return 'Rejoin';
+    }
+    return this.canJoinUpcoming()
+      ? this.translateService.instant('HOME.JOIN')
+      : this.translateService.instant('HOME.JOIN_IN_TIME', { time: this.upcomingJoinCountdown() });
   }
 
   isLessonInProgress(lesson: Lesson): boolean {
@@ -8807,11 +8859,13 @@ navigateToLessons() {
     }
     
     if (this.isLessonInProgress(lesson) || this.lessonService.canJoinLesson(lesson)) {
-      return 'Join';
+      return this.translateService.instant('HOME.JOIN');
     }
-    
+
     const secs = this.lessonService.getTimeUntilJoin(lesson);
-    return `Join in ${this.lessonService.formatTimeUntil(secs)}`;
+    return this.translateService.instant('HOME.JOIN_IN_TIME', {
+      time: this.lessonService.formatTimeUntil(secs),
+    });
   }
 
   /**

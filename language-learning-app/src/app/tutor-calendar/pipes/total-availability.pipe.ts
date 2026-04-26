@@ -12,7 +12,7 @@ export class TotalAvailabilityPipe implements PipeTransform {
     if (!selectedDay || !selectedDay.date || !events || events.length === 0) {
       return 0;
     }
-    return computeFutureTotalAvailabilityHoursFromEvents(events, selectedDay.date, new Date(), 'visible6to23');
+    return computeFutureTotalAvailabilityHoursFromEvents(events, selectedDay.date, new Date(), 'fullDay');
   }
 }
 
