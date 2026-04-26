@@ -11,6 +11,7 @@ import VideoCallScreen from '../screens/VideoCallScreen';
 import PostLessonStudentScreen from '../screens/PostLessonStudentScreen';
 import PostLessonTutorScreen from '../screens/PostLessonTutorScreen';
 import TabNavigator from './TabNavigator';
+import NotificationsScreen from '../screens/NotificationsScreen';
 import type { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -45,6 +46,15 @@ export default function RootNavigator() {
       ) : (
         <Stack.Group>
           <Stack.Screen name="Main" component={TabNavigator} />
+          <Stack.Screen
+            name="Notifications"
+            component={NotificationsScreen}
+            options={{
+              headerShown: false,
+              animation: 'slide_from_right',
+              gestureEnabled: true,
+            }}
+          />
           <Stack.Screen
             name="PreCall"
             component={PreCallScreen}

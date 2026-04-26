@@ -1,21 +1,23 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Modal,
   Pressable,
-  Animated,
   TextInput,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Image,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../contexts/ThemeContext';
+import { SolidToolbarWithBlur } from './SolidToolbarWithBlur';
 import { attendeeStackInitials } from '../constants/mockClassAttendeesPreview';
 import { messagingService } from '../services/messaging';
 
@@ -88,13 +90,10 @@ export function ClassGoingMessageModal({
   const { t } = useTranslation();
   const { colors } = useTheme();
   const isDark = colors.isDark;
+  const insets = useSafeAreaInsets();
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
-  const backdropOpacity = useRef(new Animated.Value(0)).current;
-  const scale = useRef(new Animated.Value(0.96)).current;
 
-  // Resolve the final recipient set — `receiverIds` (multi) takes priority, then
-  // `receiverId` (single). Both paths are de-duped and emptied of falsy ids.
   const recipients = useMemo(() => {
     const ids = receiverIds && receiverIds.length > 0 ? receiverIds : receiverId ? [receiverId] : [];
     return Array.from(new Set(ids.map((id) => (id || '').trim()).filter(Boolean)));
@@ -118,47 +117,28 @@ export function ClassGoingMessageModal({
     if (visible) {
       setText('');
       setSending(false);
-      backdropOpacity.setValue(0);
-      scale.setValue(0.96);
-      Animated.parallel([
-        Animated.timing(backdropOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
-        Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 9, tension: 100 }),
-      ]).start();
-    } else {
-      backdropOpacity.setValue(0);
     }
-  }, [visible, backdropOpacity, scale]);
-
-  const runClose = useCallback(() => {
-    Animated.parallel([
-      Animated.timing(backdropOpacity, { toValue: 0, duration: 180, useNativeDriver: true }),
-      Animated.timing(scale, { toValue: 0.96, duration: 160, useNativeDriver: true }),
-    ]).start(() => onClose());
-  }, [backdropOpacity, scale, onClose]);
+  }, [visible]);
 
   const onRequestClose = useCallback(() => {
     if (sending) return;
-    runClose();
-  }, [sending, runClose]);
+    onClose();
+  }, [sending, onClose]);
 
   const onSend = useCallback(async () => {
     if (!canSend) return;
     setSending(true);
-    const body = className ? `[${className}] ${text.trim()}` : text.trim();
+    const body = text.trim();
 
     try {
-      // 1:1 path — keep existing direct-conversation flow.
-      if (recipients.length === 1) {
+      if (recipients.length === 1 && !classId) {
         const res = await messagingService.sendMessage(recipients[0], body, 'text');
         if (!res) throw new Error('sendMessage returned null');
         onSent?.({ kind: 'direct', userId: recipients[0] });
-        runClose();
+        onClose();
         return;
       }
 
-      // Multi-recipient — route to the class-broadcast thread if we have a
-      // classId (stable across roster changes); otherwise fall back to the
-      // ad-hoc hash-keyed group path.
       const group = await messagingService.createOrGetGroup(recipients, className || undefined, classId);
       if (!group?.groupId) throw new Error('Could not resolve groupId');
 
@@ -169,61 +149,63 @@ export function ClassGoingMessageModal({
       if (!sent) throw new Error('sendGroupMessage returned null');
 
       onSent?.({ kind: 'group', groupId: group.groupId, participantIds: group.participantIds });
-      runClose();
+      onClose();
     } catch (e) {
       Alert.alert('Could not send', 'Please try again.');
     } finally {
       setSending(false);
     }
-  }, [canSend, className, classId, text, recipients, onSent, runClose]);
+  }, [canSend, className, classId, text, recipients, onSent, onClose]);
 
   return (
     <Modal
       visible={visible}
-      transparent
-      animationType="none"
-      statusBarTranslucent
+      animationType="slide"
+      presentationStyle="fullScreen"
       onRequestClose={onRequestClose}
     >
-      <KeyboardAvoidingView
-        style={st.root}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      <View
+        style={[
+          st.root,
+          {
+            backgroundColor: colors.background,
+            paddingTop: insets.top,
+            paddingLeft: insets.left,
+            paddingRight: insets.right,
+            paddingBottom: insets.bottom,
+          },
+        ]}
       >
-        <Animated.View style={[StyleSheet.absoluteFill, { opacity: backdropOpacity }]}>
-          <Pressable
-            style={[
-              StyleSheet.absoluteFill,
-              { backgroundColor: isDark ? 'rgba(0,0,0,0.72)' : 'rgba(0,0,0,0.45)' },
-            ]}
-            onPress={onRequestClose}
-          />
-        </Animated.View>
-
-        <View style={st.center} pointerEvents="box-none">
-          <Animated.View style={{ transform: [{ scale }], width: '100%', maxWidth: 420, paddingHorizontal: 20 }}>
-            <View
-              style={[
-                st.card,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-              onStartShouldSetResponder={() => true}
-            >
-              <View style={st.topRow}>
-                <View style={{ flex: 1 }} />
-                <Pressable
-                  accessibilityRole="button"
-                  hitSlop={12}
-                  onPress={onRequestClose}
-                  disabled={sending}
-                >
-                  <Ionicons name="close" size={26} color={colors.textSecondary} />
-                </Pressable>
-              </View>
-
-              <Text style={[st.heading, { color: colors.text }]} numberOfLines={2}>
+        <View style={st.column}>
+          <SolidToolbarWithBlur isDark={isDark}>
+            <View style={st.toolbarRow}>
+              <Pressable
+                accessibilityRole="button"
+                hitSlop={12}
+                onPress={onRequestClose}
+                disabled={sending}
+                style={({ pressed }) => [st.toolbarBtn, pressed && { opacity: 0.55 }]}
+              >
+                <Ionicons name="close" size={24} color={colors.text} />
+              </Pressable>
+              <Text style={[st.toolbarTitle, { color: colors.text }]} numberOfLines={1}>
                 {t('LESSONS_PAGE.IN_THIS_CONVERSATION')}
               </Text>
+              <View style={{ width: 40 }} />
+            </View>
+          </SolidToolbarWithBlur>
 
+          <KeyboardAvoidingView
+            style={st.kav}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={0}
+          >
+            <ScrollView
+              style={st.scroll}
+              contentContainerStyle={st.scrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
               {displayRows.length > 0 ? (
                 <View style={st.avatarRow}>
                   {displayRows.map((row, i) => (
@@ -234,7 +216,7 @@ export function ClassGoingMessageModal({
                         {
                           marginLeft: i > 0 ? -10 : 0,
                           zIndex: 10 - i,
-                          borderColor: colors.card,
+                          borderColor: colors.background,
                           backgroundColor: isDark ? '#2c2c2e' : '#e8e8e8',
                         },
                       ]}
@@ -253,7 +235,7 @@ export function ClassGoingMessageModal({
                       style={[
                         st.av,
                         st.avMore,
-                        { marginLeft: 10, borderColor: colors.card, backgroundColor: isDark ? '#3a3a3c' : '#f0f0f0' },
+                        { marginLeft: 10, borderColor: colors.background, backgroundColor: isDark ? '#3a3a3c' : '#f0f0f0' },
                       ]}
                     >
                       <Text style={[st.ini, { color: colors.textSecondary }]}>+{extra}</Text>
@@ -272,12 +254,17 @@ export function ClassGoingMessageModal({
                 multiline
                 maxLength={maxChars}
                 textAlignVertical="top"
+                // Android: default multiline underline + system cursor color can look like
+                // a green bar on the bottom edge; hide the underline and align colors.
+                underlineColorAndroid="transparent"
+                cursorColor={isDark ? colors.joinCtaBackground : colors.text}
+                selectionColor="rgba(73, 174, 234, 0.3)"
                 style={[
                   st.input,
                   {
                     color: colors.text,
-                    borderColor: isDark ? '#3a3a3c' : '#ddd',
-                    backgroundColor: isDark ? '#1c1c1e' : '#fafafa',
+                    borderColor: isDark ? '#3a3a3c' : colors.border,
+                    backgroundColor: isDark ? '#1c1c1e' : colors.inputBg,
                   },
                 ]}
               />
@@ -291,8 +278,6 @@ export function ClassGoingMessageModal({
                 disabled={!canSend}
                 style={({ pressed }) => [
                   st.sendBtn,
-                  // Match global CTA: black in light mode, blue in dark
-                  // (`ThemeColors.joinCtaBackground`).
                   { backgroundColor: colors.joinCtaBackground },
                   !canSend && { opacity: 0.4 },
                   pressed && canSend && { opacity: 0.9 },
@@ -304,37 +289,37 @@ export function ClassGoingMessageModal({
                   <Text style={st.sendLabel}>{t('LESSONS_PAGE.SEND_MESSAGE')}</Text>
                 )}
               </Pressable>
-            </View>
-          </Animated.View>
+            </ScrollView>
+          </KeyboardAvoidingView>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
 
 const st = StyleSheet.create({
-  root: { flex: 1, justifyContent: 'center' },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
+  root: { flex: 1 },
+  column: { flex: 1 },
+  toolbarRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 44,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
-  card: {
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 20,
+  toolbarBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  topRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4, minHeight: 40 },
-  heading: { fontSize: 18, fontWeight: '700', letterSpacing: -0.3, marginBottom: 12, textAlign: 'center' },
-  sub: { fontSize: 14, lineHeight: 20, marginTop: 12, marginBottom: 14, textAlign: 'center' },
-  avatarRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' },
+  toolbarTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '600', letterSpacing: -0.3, paddingHorizontal: 8 },
+  kav: { flex: 1 },
+  scroll: { flex: 1 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24 },
+  sub: { fontSize: 15, lineHeight: 22, marginBottom: 16, textAlign: 'center' },
+  avatarRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', marginBottom: 8 },
   av: {
     width: 40,
     height: 40,
@@ -349,13 +334,13 @@ const st = StyleSheet.create({
   avImg: { width: '100%', height: '100%' },
   ini: { fontSize: 12, fontWeight: '700' },
   input: {
-    minHeight: 120,
-    borderWidth: 1,
+    minHeight: 160,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 12,
-    padding: 12,
+    padding: 14,
     fontSize: 16,
   },
-  counter: { fontSize: 12, marginTop: 8, marginBottom: 16 },
+  counter: { fontSize: 12, marginTop: 8, marginBottom: 20 },
   sendBtn: { borderRadius: 12, minHeight: 50, alignItems: 'center', justifyContent: 'center' },
   sendLabel: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });

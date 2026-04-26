@@ -12,6 +12,6 @@ export class GrossFreeHoursPipe implements PipeTransform {
     if (!selectedDay || !selectedDay.date || !events || events.length === 0) {
       return 0;
     }
-    return computeGrossFreeHoursFromEvents(events, selectedDay.date, 'visible6to23');
+    return computeGrossFreeHoursFromEvents(events, selectedDay.date, 'fullDay');
   }
 }

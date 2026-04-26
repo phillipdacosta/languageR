@@ -637,6 +637,7 @@
                         </div>
                         <div class="home-event-datetime__text">
                           <span class="tw-date-badge__time">{{ nextLesson?.detailTimeRange }}</span>
+                          <span class="tw-date-badge__duration">{{ nextLesson?.durationLabel }}</span>
                         </div>
                       </div>
                     </div>
@@ -687,6 +688,7 @@
                         </div>
                         <div class="home-event-datetime__text">
                           <span class="tw-date-badge__time">{{ nextLesson?.detailTimeRange }}</span>
+                          <span class="tw-date-badge__duration">{{ nextLesson?.durationLabel }}</span>
                         </div>
                       </div>
                     </div>
@@ -715,16 +717,18 @@
                 </button>
 
                 <!-- Starts In Card (matches tutor design) -->
-                <div class="starts-in-card" *ngIf="nextLesson.lesson?.status !== 'cancelled'">
-                  <span class="starts-label-modern">{{ nextLesson.isInProgress ? ('HOME.STARTED' | translate) : ('HOME.STARTS_IN' | translate) }}</span>
-                  <span class="countdown-modern">{{ nextLesson.countdown }}</span>
-                  <ion-button 
+                <div class="starts-in-card" *ngIf="nextLesson.lesson?.status !== 'cancelled'" [class.starts-in-card--cta-only]="!nextLesson.showStartsInLine">
+                  <ng-container *ngIf="nextLesson.showStartsInLine">
+                    <span class="starts-label-modern">{{ nextLesson.isInProgress ? ('HOME.STARTED' | translate) : ('HOME.STARTS_IN' | translate) }}</span>
+                    <span class="countdown-modern">{{ nextLesson.countdown }}</span>
+                  </ng-container>
+                  <ion-button
                     class="join-button-modern"
                     [class.active]="nextLesson.isInProgress"
                     [class.dark-join]="isDarkModeActive"
                     (click)="joinStudentLesson(nextLesson); $event.stopPropagation()">
                     <ion-icon slot="start" [name]="nextLesson.isInProgress ? 'videocam' : 'videocam-outline'"></ion-icon>
-                    {{ nextLesson.isInProgress ? ('HOME.JOIN_NOW' | translate) : ('HOME.JOIN' | translate) }}
+                    {{ nextLesson.joinButtonText }}
                   </ion-button>
                 </div>
                 
@@ -964,7 +968,7 @@
           </div>
         </div>
 
-        <p class="m-card-empty-subtitle m-filled-countdown" *ngIf="nextClass.lesson?.status !== 'cancelled'">
+        <p class="m-card-empty-subtitle m-filled-countdown" *ngIf="nextClass.lesson?.status !== 'cancelled' && nextClass.showStartsInLine">
             {{ 'HOME.STARTS_IN_TIME' | translate:{ time: nextClass.countdown } }}
           </p>
 
@@ -974,7 +978,7 @@
         </div>
 
         <button type="button" *ngIf="nextClass.lesson?.status !== 'cancelled'" class="m-card-empty-link m-card-empty-link--as-button" (click)="joinStudentLesson(nextClass); $event.stopPropagation()">
-          <span class="button-text-animated">{{ nextClass.joinLabel || ('HOME.JOIN_LESSON' | translate) }}</span>
+          <span class="button-text-animated">{{ nextClass.joinButtonText || nextClass.joinLabel || ('HOME.JOIN_LESSON' | translate) }}</span>
           <img class="m-card-empty-link-chevron m-card-empty-link-arrow-img" src="assets/setup-availability-arrow.png" alt="" />
         </button>
         <span *ngIf="nextClass.lesson?.status === 'cancelled'" class="m-card-empty-link m-card-empty-link--disabled">
@@ -1055,24 +1059,30 @@
             <span *ngIf="nextClass.lesson?.isClass">{{ nextClass.lesson.className || nextClass.lesson.subject || ('HOME.GROUP_CLASS' | translate) }}</span>
             <span *ngIf="!nextClass.lesson?.isClass">{{ nextClass | displayName }}</span>
           </h3>
-          <p class="upnext-filled-meta">
-            <span *ngIf="!nextClass.lesson?.isClass && flagService.getFlagPath(nextClass.subject)">
-              <img [src]="flagService.getFlagPath(nextClass.subject)" class="flag-icon-inline" [alt]="nextClass.subject + ' flag'" />
-            </span>
-            <span *ngIf="!nextClass.lesson?.isClass">{{ nextClass.subject }}</span>
-          </p>
-          <div class="upnext-filled-date-badge">
-            <div class="tw-date-badge" [class.tw-date-badge--today]="nextClass.isToday">
-              <span class="tw-date-badge__month">{{ nextClass.dateBadgeMonth }}</span>
-              <span class="tw-date-badge__day">{{ nextClass.dateBadgeDay }}</span>
-              <span class="tw-date-badge__weekday">{{ nextClass.dateBadgeWeekday }}</span>
-            </div>
-            <span class="tw-date-badge__time">{{ nextClass.detailTimeRange }}</span>
-          </div>
-          <p class="upnext-filled-countdown" *ngIf="nextClass.lesson?.status !== 'cancelled'">
-            {{ 'HOME.STARTS_IN_TIME' | translate:{ time: nextClass.countdown } }}
+          <p class="upnext-filled-meta" *ngIf="!nextClass.lesson?.isClass">
+            <img *ngIf="flagService.getFlagPath(nextClass.subject)"
+                 [src]="flagService.getFlagPath(nextClass.subject)"
+                 class="flag-icon-inline"
+                 [alt]="nextClass.subject + ' flag'" />
+            <span class="upnext-filled-meta-subject">{{ nextClass.subject }}</span>
           </p>
         </div>
+
+        <div class="upnext-filled-schedule">
+          <div class="tw-date-badge" [class.tw-date-badge--today]="nextClass.isToday">
+            <span class="tw-date-badge__month">{{ nextClass.dateBadgeMonth }}</span>
+            <span class="tw-date-badge__day">{{ nextClass.dateBadgeDay }}</span>
+            <span class="tw-date-badge__weekday">{{ nextClass.dateBadgeWeekday }}</span>
+          </div>
+          <div class="upnext-filled-schedule-info">
+            <span class="upnext-filled-schedule-time">{{ nextClass.detailTimeRange }}</span>
+            <span class="upnext-filled-schedule-duration">{{ nextClass.durationLabel }}</span>
+          </div>
+        </div>
+
+        <p class="upnext-filled-countdown" *ngIf="nextClass.lesson?.status !== 'cancelled' && nextClass.showStartsInLine">
+          {{ 'HOME.STARTS_IN_TIME' | translate:{ time: nextClass.countdown } }}
+        </p>
         <app-class-attendees *ngIf="nextClass.lesson?.isClass && nextLessonClassAttendeesDisplay.length" [attendees]="nextLessonClassAttendeesDisplay" [capacity]="nextClass.lesson.capacity" [maxDisplay]="3"></app-class-attendees>
         <p class="cancel-reason" *ngIf="nextClass.lesson?.status === 'cancelled' && nextClass.lesson?.cancelReason === 'minimum_not_met'" style="text-align: center;">
           <ion-icon name="information-circle-outline"></ion-icon> {{ 'HOME.CANCELLED_INSUFFICIENT' | translate }}
@@ -1086,7 +1096,7 @@
         </button>
         <div class="upnext-filled-actions" *ngIf="nextClass.lesson?.status !== 'cancelled'">
           <ion-button fill="outline" expand="block" class="empty-state-clean-btn" [class.active]="nextClass.isInProgress" (click)="joinStudentLesson(nextClass); $event.stopPropagation()">
-            {{ nextClass.isInProgress ? ('HOME.JOIN_NOW' | translate) : ('HOME.JOIN_LESSON' | translate) }}
+            {{ nextClass.joinButtonText || nextClass.joinLabel || ('HOME.JOIN_LESSON' | translate) }}
           </ion-button>
         </div>
         <ion-button *ngIf="!nextClass.isInProgress && nextClass.lesson?.status !== 'cancelled'" [id]="'exp-next-class-menu-' + nextClass.lesson._id" fill="clear" class="upnext-filled-menu" (click)="$event.stopPropagation()">
@@ -1147,7 +1157,7 @@
             <div class="earnings-balance" (click)="toggleWalletVisibility($event)">
               <span *ngIf="earningsBalanceLoading" class="earnings-balance-skeleton"><ion-skeleton-text animated style="width: 120px; height: 40px; display: block; border-radius: 8px;"></ion-skeleton-text></span>
               <span *ngIf="!earningsBalanceLoading && !showWalletBalance && !walletTemporarilyVisible"><img class="home-dollar-icon" [src]="isDarkModeActive ? 'assets/home-earnings-dollar-dark.png' : 'assets/home-earnings-dollar.png'" alt="" role="presentation" /><span class="earnings-dots-display">••••</span></span>
-              <span *ngIf="!earningsBalanceLoading && (showWalletBalance || walletTemporarilyVisible)"><img class="home-dollar-icon" [src]="isDarkModeActive ? 'assets/home-earnings-dollar-dark.png' : 'assets/home-earnings-dollar.png'" alt="" role="presentation" />{{ tutorTotalEarnings.toFixed(2) }}</span>
+              <span *ngIf="!earningsBalanceLoading && (showWalletBalance || walletTemporarilyVisible)"><img class="home-dollar-icon" [src]="isDarkModeActive ? 'assets/home-earnings-dollar-dark.png' : 'assets/home-earnings-dollar.png'" alt="" role="presentation" /><span class="earnings-amount-text"> {{ tutorTotalEarnings.toFixed(2) }}</span></span>
             </div>
             <div class="earnings-pending" *ngIf="tutorPendingEarnings > 0 && (showWalletBalance || walletTemporarilyVisible)">
               <span class="pending-label">{{ 'HOME.PENDING' | translate }}</span>

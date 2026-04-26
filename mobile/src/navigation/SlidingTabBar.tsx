@@ -14,15 +14,16 @@ const TAB_BAR_FALLBACK_HEIGHT = 88;
 type Props = BottomTabBarProps & {
   homeOverlayCoversTabBar: boolean;
   lessonOverlayCoversTabBar: boolean;
+  screenHidesTabBar: boolean;
 };
 
-export default function SlidingTabBar({ homeOverlayCoversTabBar, lessonOverlayCoversTabBar, ...props }: Props) {
+export default function SlidingTabBar({ homeOverlayCoversTabBar, lessonOverlayCoversTabBar, screenHidesTabBar, ...props }: Props) {
   const measuredHeight = useSharedValue(TAB_BAR_FALLBACK_HEIGHT);
   const clipHeight = useSharedValue(TAB_BAR_FALLBACK_HEIGHT);
   const translateY = useSharedValue(0);
   const wasCovered = useRef(false);
 
-  const anyCovered = homeOverlayCoversTabBar || lessonOverlayCoversTabBar;
+  const anyCovered = homeOverlayCoversTabBar || lessonOverlayCoversTabBar || screenHidesTabBar;
 
   const onBarLayout = (e: LayoutChangeEvent) => {
     const h = e.nativeEvent.layout.height;

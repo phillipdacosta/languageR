@@ -14,11 +14,13 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../contexts/ThemeContext';
+import { useHomeTabBarOverlay } from '../contexts/HomeTabBarOverlayContext';
+import { useScreenEntranceAnimations } from '../hooks/useScreenEntranceAnimations';
 import { calendarService } from '../services/calendar';
 import { AvailabilityBlock } from '../types/calendar';
 
@@ -34,6 +36,7 @@ const SLOT_HEIGHT = 28;
 const SLOT_GAP = 2;
 const DATE_CIRCLE = 32;
 const SLOT_COLOR = '#08a0e8';
+const TODAY_HEADER_BG = '#4298d3';
 
 function getMonday(d: Date): Date {
   const date = new Date(d);
@@ -98,6 +101,7 @@ export default function AvailabilitySetupScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const insets = useSafeAreaInsets();
+  const { setScreenHidesTabBar } = useHomeTabBarOverlay();
   const userId = user?._id || user?.id || '';
   const use24h = user?.profile?.calendarTimeFormat === '24h';
 
@@ -152,12 +156,12 @@ export default function AvailabilitySetupScreen() {
   const [selectedSlots, setSelectedSlots] = useState<Set<string>>(new Set());
   const [initialSlots, setInitialSlots] = useState<Set<string>>(new Set());
   const [bookedSlots, setBookedSlots] = useState<Set<string>>(new Set());
-  const [isDirty, setIsDirty] = useState(false);
 
   const scrollRef = useRef<ScrollView>(null);
   const saveBarAnim = useRef(new Animated.Value(0)).current;
   const hasScrolledToNow = useRef(false);
   const justSaved = useRef(false);
+  const [saveBarHeight, setSaveBarHeight] = useState(0);
 
   const allWeekDays: WeekDay[] = useMemo(() => {
     const today = new Date();
@@ -188,7 +192,13 @@ export default function AvailabilitySetupScreen() {
 
   const colWidth = useMemo(() => (SCREEN_W - 16 - TIME_LABEL_W) / displayedDays.length, [displayedDays.length]);
 
-  const hasChanges = isDirty;
+  const hasChanges = useMemo(() => {
+    if (selectedSlots.size !== initialSlots.size) return true;
+    for (const slot of selectedSlots) {
+      if (!initialSlots.has(slot)) return true;
+    }
+    return false;
+  }, [selectedSlots, initialSlots]);
 
   const hoursDelta = useMemo(() => countSlotHours(selectedSlots) - countSlotHours(initialSlots), [selectedSlots, initialSlots]);
   const totalWeekHours = useMemo(() => countSlotHours(selectedSlots), [selectedSlots]);
@@ -220,20 +230,19 @@ export default function AvailabilitySetupScreen() {
     if (!loading && !hasScrolledToNow.current && displayedDays.some(d => d.isToday)) {
       hasScrolledToNow.current = true;
       const scrollTarget = Math.max(0, (nowSlotIdx - 4) * (SLOT_HEIGHT + SLOT_GAP));
-      setTimeout(() => scrollRef.current?.scrollTo({ y: scrollTarget, animated: true }), 300);
+      setTimeout(() => scrollRef.current?.scrollTo({ y: scrollTarget, animated: true }), 380);
     }
   }, [loading, displayedDays, nowSlotIdx]);
 
-  // Hide tab bar on mount, restore on unmount
-  useEffect(() => {
-    const parent = navigation.getParent?.();
-    if (parent) {
-      parent.setOptions({ tabBarStyle: { display: 'none' } });
+  // Hide tab bar while this screen is focused, restore as soon as it loses focus
+  useFocusEffect(
+    useCallback(() => {
+      setScreenHidesTabBar(true);
       return () => {
-        parent.setOptions({ tabBarStyle: undefined });
+        setScreenHidesTabBar(false);
       };
-    }
-  }, [navigation, colors]);
+    }, [setScreenHidesTabBar])
+  );
 
   // Prompt save on back if unsaved
   useEffect(() => {
@@ -244,8 +253,8 @@ export default function AvailabilitySetupScreen() {
         t('TUTOR_CALENDAR.UNSAVED_TITLE') || 'Unsaved Changes',
         t('TUTOR_CALENDAR.UNSAVED_DESC') || 'You have unsaved availability changes. Would you like to save before leaving?',
         [
-          { text: t('TUTOR_CALENDAR.DISCARD') || 'Discard', style: 'destructive', onPress: () => navigation.dispatch(e.data.action) },
-          { text: t('TUTOR_CALENDAR.SAVE_AVAILABILITY'), onPress: async () => {
+          { text: t('TUTOR_CALENDAR.DISCARD') || "Don't save", style: 'destructive', onPress: () => navigation.dispatch(e.data.action) },
+          { text: t('TUTOR_CALENDAR.SAVE_AVAILABILITY') || 'Save', onPress: async () => {
             setSaving(true);
             try {
               await calendarService.updateAvailability(convertSlotsToBlocks(), getEditedDates());
@@ -254,7 +263,6 @@ export default function AvailabilitySetupScreen() {
               Alert.alert(t('COMMON.ERROR') || 'Error', err.message || t('TUTOR_CALENDAR.SAVE_FAILED'));
             } finally { setSaving(false); }
           }},
-          { text: t('COMMON.CANCEL'), style: 'cancel' },
         ]
       );
     });
@@ -281,7 +289,6 @@ export default function AvailabilitySetupScreen() {
     });
     setSelectedSlots(new Set(slots));
     setInitialSlots(new Set(slots));
-    setIsDirty(false);
 
     const booked = new Set<string>();
     lessons.forEach(l => {
@@ -305,7 +312,6 @@ export default function AvailabilitySetupScreen() {
     const key = `${dateKey}-${slotIdx}`;
     if (bookedSlots.has(key)) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setIsDirty(true);
     setSelectedSlots(prev => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key); else next.add(key);
@@ -352,10 +358,9 @@ export default function AvailabilitySetupScreen() {
       await calendarService.updateAvailability(convertSlotsToBlocks(), getEditedDates());
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       justSaved.current = true;
-      setIsDirty(false);
       setInitialSlots(new Set(selectedSlots));
       Alert.alert(t('TUTOR_CALENDAR.SAVED_TITLE'), t('TUTOR_CALENDAR.SAVED_DESC'));
-      navigation.navigate('CalendarMain');
+      navigation.goBack();
     } catch (e: any) {
       Alert.alert(t('COMMON.ERROR') || 'Error', e.message || t('TUTOR_CALENDAR.SAVE_FAILED'));
     } finally { setSaving(false); }
@@ -366,7 +371,6 @@ export default function AvailabilitySetupScreen() {
       { text: t('COMMON.CANCEL'), style: 'cancel' },
       { text: t('TUTOR_CALENDAR.CLEAR'), onPress: () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        setIsDirty(true);
         const cleared = new Set<string>();
         bookedSlots.forEach(k => { if (selectedSlots.has(k)) cleared.add(k); });
         setSelectedSlots(cleared);
@@ -376,7 +380,6 @@ export default function AvailabilitySetupScreen() {
 
   const handleBusinessHours = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setIsDirty(true);
     const next = new Set(selectedSlots);
     allWeekDays.forEach(wd => {
       const dow = wd.date.getDay();
@@ -409,11 +412,12 @@ export default function AvailabilitySetupScreen() {
 
   const C = colors;
   const saveBarTranslateY = saveBarAnim.interpolate({ inputRange: [0, 1], outputRange: [100, 0] });
+  const { shellMotion } = useScreenEntranceAnimations(loading, { deferShellUntilListReady: true });
 
   if (loading) return (
     <View style={[st.safe, { backgroundColor: C.surface, paddingTop: insets.top }]}>
       <View style={st.headerRow}>
-        <TouchableOpacity onPress={() => navigation.navigate('CalendarMain')} style={st.backBtn}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={st.backBtn}>
           <Ionicons name="chevron-back" size={20} color={C.accent} />
           <Text style={[st.backText, { color: C.accent }]}>{t('TABS.CALENDAR')}</Text>
         </TouchableOpacity>
@@ -425,10 +429,10 @@ export default function AvailabilitySetupScreen() {
   );
 
   return (
-    <View style={[st.safe, { backgroundColor: C.surface, paddingTop: insets.top }]}>
+    <Animated.View style={[st.safe, { backgroundColor: C.surface, paddingTop: insets.top }, shellMotion]}>
       {/* Header */}
       <View style={[st.headerRow, { borderBottomColor: C.border }]}>
-        <TouchableOpacity onPress={() => navigation.navigate('CalendarMain')} style={st.backBtn}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={st.backBtn}>
           <Ionicons name="chevron-back" size={20} color={C.accent} />
           <Text style={[st.backText, { color: C.accent }]}>{t('TABS.CALENDAR')}</Text>
         </TouchableOpacity>
@@ -445,10 +449,10 @@ export default function AvailabilitySetupScreen() {
             <Ionicons name="chevron-back" size={14} color={C.textSecondary} />
           </TouchableOpacity>
           <View style={st.dayHeaders}>
-            {displayedDays.map(d => (
+            {displayedDays.map((d, idx) => (
               <View key={d.dateKey} style={[st.dayHeaderCol, { width: colWidth }]}>
-                <Text style={[st.dayWeekday, { color: d.isToday ? SLOT_COLOR : C.textSecondary }]}>{d.weekdayLabel}</Text>
-                <View style={[st.dateCircle, d.isToday && { backgroundColor: SLOT_COLOR }]}>
+                <Text style={[st.dayWeekday, { color: d.isToday ? TODAY_HEADER_BG : C.textSecondary }]}>{d.weekdayLabel}</Text>
+                <View style={[st.dateCircle, d.isToday && { backgroundColor: TODAY_HEADER_BG }]}>
                   <Text style={[st.dayDateNum, { color: d.isToday ? '#fff' : C.text }]}>{d.date.getDate()}</Text>
                 </View>
               </View>
@@ -461,18 +465,19 @@ export default function AvailabilitySetupScreen() {
       </View>
 
       {/* Time Grid */}
-      <ScrollView ref={scrollRef} style={st.gridScroll} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
-        {Array.from({ length: SLOTS_PER_DAY }, (_, slotIdx) => {
-          const showLabel = slotIdx % 2 === 0;
-          const isNowRow = displayedDays.some(d => d.isToday) && nowSlotIdx === slotIdx;
+      <ScrollView ref={scrollRef} style={st.gridScroll} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 + (hasChanges ? saveBarHeight : 0) }}>
+        {Array.from({ length: SLOTS_PER_DAY + 1 }, (_, slotIdx) => {
+          const isTerminator = slotIdx === SLOTS_PER_DAY;
+          const showLabel = isTerminator || slotIdx % 2 === 0;
+          const isNowRow = !isTerminator && displayedDays.some(d => d.isToday) && nowSlotIdx === slotIdx;
 
           return (
-            <View key={slotIdx} style={st.slotRow}>
-              <View style={st.timeLabelWrap}>
+            <View key={slotIdx} style={[st.slotRow, isTerminator && { height: 20 }]}>
+              <View style={[st.timeLabelWrap, { borderRightWidth: 1, borderRightColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)' }]}>
                 {showLabel && <Text style={[st.timeLabelText, { color: C.textTertiary }]}>{formatTimeLabel(slotIdx, use24h)}</Text>}
               </View>
 
-              {displayedDays.map(day => {
+              {!isTerminator && displayedDays.map((day, idx) => {
                 const key = `${day.dateKey}-${slotIdx}`;
                 const isSelected = selectedSlots.has(key);
                 const isBooked = bookedSlots.has(key);
@@ -482,12 +487,19 @@ export default function AvailabilitySetupScreen() {
                 return (
                   <TouchableOpacity
                     key={key}
-                    style={[st.slotCell, { width: colWidth }]}
+                    style={[
+                      st.slotCell,
+                      { width: colWidth },
+                      idx < displayedDays.length - 1 && {
+                        borderRightWidth: 1,
+                        borderRightColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)',
+                      },
+                    ]}
                     onPress={() => !isPast && !isBooked && toggleSlot(day.dateKey, slotIdx)}
                     activeOpacity={isBooked || isPast ? 1 : 0.6}
                     disabled={isBooked || isPast}
                   >
-                    <View style={[st.gridLine, { backgroundColor: C.border }, slotIdx % 2 !== 0 && st.gridLineHalf]} />
+                    <View style={[st.gridLine, { backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)' }, slotIdx % 2 !== 0 && st.gridLineHalf]} />
 
                     {isSelected && !isBooked ? (
                       <View style={[st.slotBar, { backgroundColor: SLOT_COLOR }]}>
@@ -516,7 +528,7 @@ export default function AvailabilitySetupScreen() {
       </ScrollView>
 
       {/* Save Bar - slides in from bottom */}
-      <Animated.View style={[st.saveBar, { backgroundColor: C.card, borderTopColor: C.border, paddingBottom: Math.max(insets.bottom, 16), transform: [{ translateY: saveBarTranslateY }] }]}>
+      <Animated.View style={[st.saveBar, { backgroundColor: C.card, borderTopColor: C.border, paddingBottom: Math.max(insets.bottom, 16), transform: [{ translateY: saveBarTranslateY }] }]} onLayout={(e) => setSaveBarHeight(e.nativeEvent.layout.height)}>
         <View style={st.saveBarInner}>
           <View style={st.saveInfoCol}>
             <Text style={[st.saveDelta, { color: hoursDelta >= 0 ? '#2E7D32' : C.danger }]}>
@@ -539,7 +551,7 @@ export default function AvailabilitySetupScreen() {
           </TouchableOpacity>
         </View>
       </Animated.View>
-    </View>
+    </Animated.View>
   );
 }
 

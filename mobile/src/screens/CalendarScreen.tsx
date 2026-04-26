@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
   RefreshControl,
   ActivityIndicator,
   Animated,
@@ -14,8 +13,11 @@ import {
   Alert,
   ActionSheetIOS,
   Platform,
+  Image,
+  StatusBar,
+  AppState,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets, initialWindowMetrics } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
@@ -24,9 +26,15 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../contexts/ThemeContext';
+import { useHomeTabBarOverlay } from '../contexts/HomeTabBarOverlayContext';
 import { useScreenEntranceAnimations } from '../hooks/useScreenEntranceAnimations';
-import StaggerRow from '../components/StaggerRow';
 import { calendarService, GoogleCalendarStatus, GoogleCalendarEvent } from '../services/calendar';
+import { socketService } from '../services/socket';
+import type { MyClassRecord } from '../services/classes';
+import type { Lesson } from '../services/lessons';
+import { buildProcessedLessonCard, classRecordToLesson, type ProcessedLessonCard } from '../utils/lessonCardModel';
+import LessonDetailOverlay, { type CardRect } from '../components/LessonDetailOverlay';
+import { ClassGoingMessageModal, type ClassGoingMessageRequest } from '../components/ClassGoingMessageModal';
 import {
   AvailabilityBlock,
   CalendarLesson,
@@ -35,9 +43,16 @@ import {
   DayCell,
 } from '../types/calendar';
 
-const { width: SCREEN_W } = Dimensions.get('window');
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const DAY_CELL_SIZE = 40;
 const ACCENT_BLUE = '#08a0e8';
+const TODAY_BG = '#4298d3';
+const TIMELINE_HOUR_HEIGHT = 120;
+const TIMELINE_LABEL_W = 72;
+const TIMELINE_LINE_GAP = 6;
+const TIMELINE_LEFT_PAD = 16;
+const TIMELINE_START_HOUR = 0;
+const TIMELINE_END_HOUR = 24;
 
 function getMonday(d: Date): Date {
   const date = new Date(d);
@@ -54,6 +69,42 @@ function isSameDay(a: Date, b: Date): boolean {
 
 function formatDateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function minutesSinceMidnight(d: Date): number {
+  return d.getHours() * 60 + d.getMinutes();
+}
+
+function formatHourLabel(hour24: number, timeFormat: '12h' | '24h'): string {
+  if (timeFormat === '24h') {
+    const h = hour24 % 24;
+    return `${String(h).padStart(2, '0')}:00`;
+  }
+  const h = hour24 % 24;
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  const ampm = h < 12 ? 'AM' : 'PM';
+  return `${h12}:00 ${ampm}`;
+}
+
+function calendarClassToMyRecord(c: CalendarClass): MyClassRecord {
+  return {
+    _id: c._id,
+    name: c.name || c.title,
+    description: c.description,
+    startTime: c.startTime,
+    endTime: c.endTime,
+    status: c.status,
+    duration: c.duration ?? 60,
+    price: c.price,
+    capacity: c.maxStudents,
+    thumbnail: c.thumbnail,
+    confirmedStudents:
+      c.confirmedStudents && c.confirmedStudents.length > 0 ? c.confirmedStudents : c.attendees,
+    tutorId: c.tutorId,
+    invitationStats: c.invitationStats,
+    minStudents: (c as any).minStudents,
+    flexibleMinimum: (c as any).flexibleMinimum,
+  };
 }
 
 function formatDisplayName(person: any): string {
@@ -80,9 +131,11 @@ export default function CalendarScreen() {
   const navigation = useNavigation<any>();
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
+  const { setLessonOverlayCoversTabBar } = useHomeTabBarOverlay();
   const userId = user?._id || user?.id || '';
   const isTutor = user?.userType === 'tutor';
   const timeFormat = user?.profile?.calendarTimeFormat || '12h';
+  const userTz = user?.profile?.timezone as string | undefined;
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -96,10 +149,35 @@ export default function CalendarScreen() {
   const [availModalVisible, setAvailModalVisible] = useState(false);
   const fabAnim = useRef(new Animated.Value(0)).current;
 
+  const [lessonOverlayCard, setLessonOverlayCard] = useState<ProcessedLessonCard | null>(null);
+  const [classGoingMessage, setClassGoingMessage] = useState<ClassGoingMessageRequest | null>(null);
+  const lessonOverlayBusy = useRef(false);
+
+  const calendarLessonFallbackRect = useMemo((): CardRect => {
+    const metricsTop = initialWindowMetrics?.insets?.top;
+    const topInset =
+      typeof metricsTop === 'number' && metricsTop > 0
+        ? metricsTop
+        : Platform.OS === 'android'
+          ? StatusBar.currentHeight ?? 24
+          : 56;
+    return {
+      x: TIMELINE_LEFT_PAD,
+      y: Math.min(topInset + 140, SCREEN_H * 0.28),
+      width: SCREEN_W - TIMELINE_LEFT_PAD * 2,
+      height: 148,
+    };
+  }, []);
+
   const [gcalStatus, setGcalStatus] = useState<GoogleCalendarStatus>({ connected: false });
   const [gcalEvents, setGcalEvents] = useState<GoogleCalendarEvent[]>([]);
   const [gcalConnecting, setGcalConnecting] = useState(false);
   const gcalPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastGcalEventsFetchRef = useRef<number>(0);
+  const GCAL_REFRESH_MIN_GAP_MS = 3 * 1000;
+  const GCAL_POLL_MS = 2 * 60 * 1000;
+  const timelineScrollRef = useRef<ScrollView>(null);
+  const didScrollToNow = useRef(false);
 
   const dayCells: DayCell[] = useMemo(() => {
     const today = new Date();
@@ -159,12 +237,12 @@ export default function CalendarScreen() {
     classes.filter(c => isSameDay(new Date(c.startTime), selectedDate)).forEach(c => {
       const start = new Date(c.startTime);
       const end = new Date(c.endTime || start.getTime() + (c.duration || 60) * 60000);
-      entries.push({ id: `class-${c._id}`, type: 'class', startTime: start, endTime: end, title: c.title, subtitle: c.language || '', status: c.status, isPast: end < now, isNow: start <= now && end > now, classId: c._id, duration: c.duration || Math.round((end.getTime() - start.getTime()) / 60000), attendeeCount: c.attendees?.length || 0, maxStudents: c.maxStudents, calendarClass: c });
+      entries.push({ id: `class-${c._id}`, type: 'class', startTime: start, endTime: end, title: c.name || c.title || 'Group Class', subtitle: c.language || '', status: c.status, isPast: end < now, isNow: start <= now && end > now, classId: c._id, duration: c.duration || Math.round((end.getTime() - start.getTime()) / 60000), attendeeCount: c.attendees?.length || 0, maxStudents: c.maxStudents, calendarClass: c });
     });
 
     gcalEvents.forEach(ge => {
-      const startStr = ge.start.dateTime || ge.start.date;
-      const endStr = ge.end.dateTime || ge.end.date;
+      const startStr = ge.start;
+      const endStr = ge.end;
       if (!startStr || !endStr) return;
       const start = new Date(startStr);
       const end = new Date(endStr);
@@ -187,8 +265,7 @@ export default function CalendarScreen() {
   }, [selectedDate, availability, lessons, classes, gcalEvents, t]);
 
   const availEntries = timeline.filter(e => e.type === 'availability');
-  const eventEntries = timeline.filter(e => e.type !== 'availability');
-  const dayLessonCount = eventEntries.filter(e => !e.isCancelled).length;
+  const dayLessonCount = timeline.filter(e => e.type !== 'availability' && !e.isCancelled).length;
   const dayAvailHours = availEntries.reduce((sum, e) => sum + (e.duration || 0), 0) / 60;
 
   const weekAvailSummary = useMemo(() => {
@@ -257,11 +334,12 @@ export default function CalendarScreen() {
     rangeEnd.setDate(rangeEnd.getDate() + 8);
     const events = await calendarService.getGoogleCalendarEvents(rangeStart, rangeEnd);
     setGcalEvents(events.filter(e => !e.allDay));
+    lastGcalEventsFetchRef.current = Date.now();
   }, [gcalStatus.connected, weekStart]);
 
   const startGcalPolling = useCallback(() => {
     if (gcalPollRef.current) clearInterval(gcalPollRef.current);
-    gcalPollRef.current = setInterval(() => { loadGcalEvents(); }, 120000);
+    gcalPollRef.current = setInterval(() => { loadGcalEvents(); }, GCAL_POLL_MS);
   }, [loadGcalEvents]);
 
   const stopGcalPolling = useCallback(() => {
@@ -366,7 +444,45 @@ export default function CalendarScreen() {
     return () => stopGcalPolling();
   }, [fetchData, loadGcalStatus]);
 
-  useEffect(() => { if (isFocused && !loading) fetchData(); }, [isFocused]);
+  const refreshGcalIfDue = useCallback(async () => {
+    if (!isTutor) return;
+    const now = Date.now();
+    if (now - lastGcalEventsFetchRef.current < GCAL_REFRESH_MIN_GAP_MS) return;
+    const status = await loadGcalStatus();
+    if (status?.connected) loadGcalEvents();
+  }, [isTutor, loadGcalStatus, loadGcalEvents]);
+
+  useEffect(() => {
+    if (!isFocused || loading) return;
+    fetchData();
+    refreshGcalIfDue();
+  }, [isFocused]);
+
+  useEffect(() => {
+    if (!isTutor) return;
+    const sub = AppState.addEventListener('change', state => {
+      if (state === 'active') refreshGcalIfDue();
+    });
+    return () => { sub.remove(); };
+  }, [isTutor, refreshGcalIfDue]);
+
+  useEffect(() => {
+    if (!isTutor) return;
+    const offStatus = socketService.on('gcal-status-updated', async () => {
+      const status = await loadGcalStatus();
+      if (status?.connected) {
+        loadGcalEvents();
+        if (!gcalPollRef.current) startGcalPolling();
+      } else {
+        setGcalEvents([]);
+        stopGcalPolling();
+      }
+    });
+    const offEvents = socketService.on('gcal-events-updated', () => {
+      loadGcalEvents();
+    });
+    return () => { offStatus(); offEvents(); };
+  }, [isTutor, loadGcalStatus, loadGcalEvents, startGcalPolling, stopGcalPolling]);
 
   useEffect(() => {
     if (!isFocused) return;
@@ -460,20 +576,81 @@ export default function CalendarScreen() {
     }
   };
 
-  const navigateToEventDetail = (entry: TimelineEntry) => {
-    if (entry.type === 'lesson' && entry.lesson) navigation.navigate('EventDetail', { lesson: entry.lesson });
-    else if (entry.type === 'class' && entry.calendarClass) navigation.navigate('EventDetail', { calendarClass: entry.calendarClass });
-  };
+  const openTimelineLessonOverlay = useCallback(
+    (entry: TimelineEntry) => {
+      if (lessonOverlayBusy.current || lessonOverlayCard) return;
+      if (!user) return;
+      let lessonModel: Lesson | null = null;
+      if (entry.type === 'lesson' && entry.lesson) {
+        lessonModel = entry.lesson as unknown as Lesson;
+      } else if (entry.type === 'class' && entry.calendarClass) {
+        lessonModel = classRecordToLesson(calendarClassToMyRecord(entry.calendarClass), user, t);
+      } else {
+        return;
+      }
+      lessonOverlayBusy.current = true;
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const pl = buildProcessedLessonCard(lessonModel, user, t, userTz);
+      setLessonOverlayCard(pl);
+      setLessonOverlayCoversTabBar(true);
+    },
+    [user, t, userTz, lessonOverlayCard, setLessonOverlayCoversTabBar],
+  );
 
   const formatTime = (d: Date): string => {
     if (timeFormat === '24h') return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
     return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true });
   };
 
+  const timelineBounds = { startHour: TIMELINE_START_HOUR, endHour: TIMELINE_END_HOUR };
+
+  const positionedTimelineEntries = useMemo(() => {
+    const startMin = TIMELINE_START_HOUR * 60;
+    return timeline
+      .filter(e => e.type !== 'availability')
+      .map(entry => {
+        const top = ((minutesSinceMidnight(entry.startTime) - startMin) / 60) * TIMELINE_HOUR_HEIGHT;
+        const rawHeight = ((minutesSinceMidnight(entry.endTime) - minutesSinceMidnight(entry.startTime)) / 60) * TIMELINE_HOUR_HEIGHT;
+        const height = Math.max(44, rawHeight);
+        return { entry, top, height };
+      });
+  }, [timeline]);
+
+  const positionedAvailEntries = useMemo(() => {
+    const startMin = TIMELINE_START_HOUR * 60;
+    const endMin = TIMELINE_END_HOUR * 60;
+    return timeline
+      .filter(e => e.type === 'availability')
+      .map(entry => {
+        const eStart = Math.max(minutesSinceMidnight(entry.startTime), startMin);
+        const eEnd = Math.min(minutesSinceMidnight(entry.endTime), endMin);
+        if (eEnd <= eStart) return null;
+        const top = ((eStart - startMin) / 60) * TIMELINE_HOUR_HEIGHT;
+        const height = ((eEnd - eStart) / 60) * TIMELINE_HOUR_HEIGHT;
+        return { entry, top, height };
+      })
+      .filter(Boolean) as { entry: typeof timeline[0]; top: number; height: number }[];
+  }, [timeline]);
+
   const C = colors;
   const { shellMotion, listGateMotion } = useScreenEntranceAnimations(loading, {
     deferShellUntilListReady: true,
   });
+
+  // Scroll to current time once after content loads + entrance animation settles
+  useEffect(() => {
+    if (loading || didScrollToNow.current) return;
+    if (!isSameDay(selectedDate, new Date())) return;
+    const nowOffset = Math.max(
+      0,
+      ((minutesSinceMidnight(new Date()) - TIMELINE_START_HOUR * 60) / 60) * TIMELINE_HOUR_HEIGHT - 100,
+    );
+    const timer = setTimeout(() => {
+      timelineScrollRef.current?.scrollTo({ y: nowOffset, animated: true });
+      didScrollToNow.current = true;
+    }, 380);
+    return () => clearTimeout(timer);
+  }, [loading, selectedDate]);
 
   if (loading) return (
     <SafeAreaView style={[st.safe, { backgroundColor: C.surface }]} edges={['top']}>
@@ -500,9 +677,31 @@ export default function CalendarScreen() {
         <View style={st.weekDays}>
           {dayCells.map((cell, i) => (
             <TouchableOpacity key={i} style={st.dayCellWrap} onPress={() => setSelectedDate(cell.date)} activeOpacity={0.7}>
-              <Text style={[st.dayLabel, { color: cell.isSelected || cell.isToday ? ACCENT_BLUE : C.textSecondary }]}>{cell.dayLabel}</Text>
-              <View style={[st.dateCircle, cell.isSelected && { backgroundColor: ACCENT_BLUE }, cell.isToday && !cell.isSelected && { borderWidth: 2, borderColor: ACCENT_BLUE }]}>
-                <Text style={[st.dateLabel, { color: cell.isSelected ? '#fff' : cell.isToday ? ACCENT_BLUE : C.text }]}>{cell.dateLabel}</Text>
+              <Text
+                style={[
+                  st.dayLabel,
+                  {
+                    color:
+                      cell.isSelected && cell.isToday
+                        ? TODAY_BG
+                        : cell.isSelected
+                          ? (isDark ? '#ffffff' : '#000000')
+                          : cell.isToday
+                            ? TODAY_BG
+                            : C.textSecondary,
+                  },
+                ]}
+              >
+                {cell.dayLabel}
+              </Text>
+              <View
+                style={[
+                  st.dateCircle,
+                  cell.isToday && { backgroundColor: TODAY_BG },
+                  cell.isSelected && !cell.isToday && { backgroundColor: '#000000' },
+                ]}
+              >
+                <Text style={[st.dateLabel, { color: cell.isSelected || cell.isToday ? '#fff' : C.text }]}>{cell.dateLabel}</Text>
               </View>
               {cell.hasLessons && !cell.isSelected && <View style={[st.dayDot, { backgroundColor: C.accent }]} />}
             </TouchableOpacity>
@@ -526,9 +725,21 @@ export default function CalendarScreen() {
         <View style={st.dateBarPills}>
           {dayLessonCount > 0 && <View style={[st.pill, { backgroundColor: isDark ? '#1a3a1a' : '#E8F5E9' }]}><Text style={[st.pillText, { color: '#2E7D32' }]}>{dayLessonCount} {dayLessonCount === 1 ? t('HOME.LESSON_SINGULAR') : t('HOME.LESSON_PLURAL')}</Text></View>}
           {dayAvailHours > 0 && (
-            <TouchableOpacity style={[st.pill, { backgroundColor: isDark ? '#1a2a3a' : '#f0f7f0' }]} onPress={() => setAvailModalVisible(true)}>
-              <Ionicons name="time-outline" size={12} color={isDark ? '#7ab8e8' : '#888'} style={{ marginRight: 4 }} />
-              <Text style={[st.pillText, { color: isDark ? '#7ab8e8' : '#666' }]}>{dayAvailHours % 1 === 0 ? dayAvailHours.toFixed(0) : dayAvailHours.toFixed(1)}h {t('TUTOR_CALENDAR.AVAILABLE_SHORT')}</Text>
+            <TouchableOpacity
+              style={[
+                st.pill,
+                {
+                  backgroundColor: isDark ? 'rgba(8, 160, 232, 0.14)' : 'rgba(8, 160, 232, 0.1)',
+                  borderWidth: StyleSheet.hairlineWidth,
+                  borderColor: isDark ? 'rgba(8, 160, 232, 0.35)' : 'rgba(8, 160, 232, 0.25)',
+                },
+              ]}
+              onPress={() => setAvailModalVisible(true)}
+            >
+              <Ionicons name="time-outline" size={12} color={ACCENT_BLUE} style={{ marginRight: 4 }} />
+              <Text style={[st.pillText, { color: isDark ? '#5ac8fa' : '#0077b3' }]}>
+                {dayAvailHours % 1 === 0 ? dayAvailHours.toFixed(0) : dayAvailHours.toFixed(1)}h {t('TUTOR_CALENDAR.AVAILABLE_SHORT')}
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -537,9 +748,15 @@ export default function CalendarScreen() {
 
       {/* Timeline */}
       <Animated.View style={[{ flex: 1 }, listGateMotion]}>
-      <ScrollView style={st.scroll} contentContainerStyle={st.scrollContent} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.textSecondary} />} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={st.scroll}
+        contentContainerStyle={st.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.textSecondary} />}
+        showsVerticalScrollIndicator={false}
+        ref={timelineScrollRef}
+      >
         {isProfileIncomplete && profileChecklist.items.length > 0 && (
-          <View style={[st.pclCard, { backgroundColor: C.card, borderColor: C.border }]}>
+          <View style={[st.pclCard, { backgroundColor: C.card, borderColor: C.border, marginHorizontal: 16 }]}>
             <View style={st.pclHeader}>
               <Ionicons name="alert-circle-outline" size={18} color="#e8893c" />
               <Text style={[st.pclTitle, { color: C.text }]}>{profileChecklist.doneCount} / {profileChecklist.items.length} {t('COMMON.COMPLETE') || 'complete'}</Text>
@@ -568,68 +785,202 @@ export default function CalendarScreen() {
         )}
 
         {feedbackCount > 0 && (
-          <View style={[st.feedbackBanner, { backgroundColor: isDark ? '#2a2000' : '#FFF8E1' }]}>
+          <View style={[st.feedbackBanner, { backgroundColor: isDark ? '#2a2000' : '#FFF8E1', marginHorizontal: 16 }]}>
             <Ionicons name="chatbox-ellipses-outline" size={18} color="#F5A623" />
             <Text style={[st.feedbackText, { color: isDark ? '#fbbf24' : '#92400e' }]}>{t('HOME.FEEDBACK_COUNT', { count: feedbackCount, plural: feedbackCount > 1 ? 's' : '' })}</Text>
           </View>
         )}
 
-        {/* Availability Rows */}
-        {availEntries.length > 0 && availEntries.map((e, i) => (
-          <StaggerRow key={e.id} index={i}>
-          <TouchableOpacity style={[st.availRow, { backgroundColor: isDark ? '#1a2e1a' : '#f0faf0', borderColor: isDark ? '#2a4a2a' : '#e0f0e0' }]} onPress={() => setAvailModalVisible(true)} activeOpacity={0.7}>
-            <View style={st.availCheck}><Ionicons name="checkmark-circle" size={22} color="#4CAF50" /></View>
-            <Text style={[st.availTimeText, { color: C.text }]}>{formatTime(e.startTime)} – {formatTime(e.endTime)}</Text>
-            <Ionicons name="chevron-forward" size={16} color={C.textTertiary} />
-          </TouchableOpacity>
-          </StaggerRow>
-        ))}
+        {/* Day timeline — always show grid; empty state only when no bookable events */}
+        {(() => {
+          const hasEvents = timeline.some(e => e.type !== 'availability');
+          const hourCount = TIMELINE_END_HOUR - TIMELINE_START_HOUR;
+          const gridHeight = hourCount * TIMELINE_HOUR_HEIGHT;
+          const now = new Date();
+          const nowInView = isSameDay(selectedDate, now);
+          const nowTop = nowInView
+            ? ((minutesSinceMidnight(now) - TIMELINE_START_HOUR * 60) / 60) * TIMELINE_HOUR_HEIGHT
+            : -1;
 
-        {/* Empty state: no availability AND no events */}
-        {eventEntries.length === 0 && availEntries.length === 0 ? (
-          <View style={st.emptyState}>
-            <Ionicons name="calendar-outline" size={56} color={C.border} />
-            <Text style={[st.emptyTitle, { color: C.text }]}>{t('TUTOR_CALENDAR.NO_EVENTS_TITLE')}</Text>
-            <Text style={[st.emptySub, { color: C.textSecondary }]}>{t('TUTOR_CALENDAR.NO_EVENTS_DESC')}</Text>
-            {isTutor && <TouchableOpacity style={[st.emptyCta, { backgroundColor: C.accent }, isProfileIncomplete && { opacity: 0.4 }]} onPress={() => { if (!isProfileIncomplete) navigation.navigate('AvailabilitySetup', {}); }} activeOpacity={0.85} disabled={isProfileIncomplete}><Text style={[st.emptyCtaText, { color: C.background }]}>{t('TUTOR_CALENDAR.SET_AVAILABILITY')}</Text></TouchableOpacity>}
-          </View>
-        ) : eventEntries.length === 0 && availEntries.length > 0 ? (
-          <Text style={[st.waitingText, { color: C.textTertiary }]}>{t('TUTOR_CALENDAR.WAITING_FOR_STUDENTS')}</Text>
-        ) : eventEntries.map((entry, ei) => (
-          <StaggerRow key={entry.id} index={availEntries.length + ei}>
-          <TouchableOpacity style={[st.eventRow, { backgroundColor: C.card, borderColor: C.border }, entry.isNow && { borderLeftColor: C.accent, borderLeftWidth: 3 }, entry.isCancelled && { opacity: 0.5 }]} onPress={() => navigateToEventDetail(entry)} activeOpacity={0.7}>
-            <View style={st.eventTime}>
-              <Text style={[st.eventTimeText, { color: entry.isNow ? C.accent : C.text }]}>{formatTime(entry.startTime)}</Text>
-              <Text style={[st.eventDuration, { color: C.textTertiary }]}>{entry.duration}m</Text>
-            </View>
-            <View style={[st.eventStrip, { backgroundColor: entry.isGoogleCalendar ? '#4285F4' : entry.type === 'class' ? '#4CAF50' : entry.isTrialLesson ? '#F5A623' : '#4298d3' }]} />
-            <View style={st.eventBody}>
-              <View style={st.eventTop}>
-                {entry.isGoogleCalendar ? (
-                  <View style={[st.eventAvatar, { backgroundColor: '#e8f0fe' }]}><Ionicons name="logo-google" size={14} color="#4285F4" /></View>
-                ) : entry.avatar ? (
-                  <Image source={{ uri: entry.avatar }} style={st.eventAvatar} />
-                ) : (
-                  <View style={[st.eventAvatar, { backgroundColor: C.inputBg }]}><Ionicons name={entry.type === 'class' ? 'people' : 'person'} size={14} color={C.textTertiary} /></View>
-                )}
-                <View style={{ flex: 1 }}>
-                  <Text style={[st.eventTitle, { color: C.text }, entry.isCancelled && { textDecorationLine: 'line-through' }]} numberOfLines={1}>{entry.title}</Text>
-                  {!!entry.subtitle && <Text style={[st.eventSub, { color: C.textSecondary }]} numberOfLines={1}>{entry.subtitle}</Text>}
+          return (
+            <View style={st.timelineOuter}>
+              {/* Grid: normal-flow rows — labels are in document flow, never clipped */}
+              <View style={{ position: 'relative' }}>
+                {Array.from({ length: hourCount + 1 }, (_, idx) => {
+                  const hour = TIMELINE_START_HOUR + idx;
+                  return (
+                    <View key={hour} style={[st.timelineRow, idx === hourCount && st.timelineRowTerminator]}>
+                      <Text style={[st.timelineHourLabel, { color: C.textTertiary }]}>
+                        {formatHourLabel(hour, timeFormat as '12h' | '24h')}
+                      </Text>
+                      <View style={[st.timelineLine, { backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)' }]} />
+                    </View>
+                  );
+                })}
+
+              {/* Vertical separator between time labels and event grid */}
+                <View
+                  style={[
+                    st.timelineVerticalRule,
+                    {
+                      height: gridHeight,
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)',
+                      left: TIMELINE_LABEL_W,
+                    },
+                  ]}
+                  pointerEvents="none"
+                />
+
+                {/* Events layer — absolutely overlaid, left-offset past label column */}
+                <View style={[st.timelineEventsLayer, { height: gridHeight }]}>
+                  {/* Availability shading — silent green overlay, behind events */}
+                  {positionedAvailEntries.map(({ entry, top, height }) => (
+                    <View
+                      key={`avail-${entry.id}`}
+                      pointerEvents="none"
+                      style={[
+                        st.timelineAvailBlock,
+                        {
+                          top,
+                          height,
+                          backgroundColor: isDark
+                            ? 'rgba(52,199,89,0.10)'
+                            : 'rgba(4,65,44,0.06)',
+                        },
+                      ]}
+                    />
+                  ))}
+                  {positionedTimelineEntries.map(({ entry, top, height }, idx) => {
+                    const isClass = entry.type === 'class';
+                    const isGoogle = entry.isGoogleCalendar;
+                    const isCancelled = entry.isCancelled;
+                    const isPast = entry.isPast;
+
+                    const accentColor = isClass
+                      ? '#8b5cf6'
+                      : isGoogle
+                        ? '#4285F4'
+                        : '#007AFF';
+
+                    const cardBg = isDark
+                      ? (isCancelled ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.07)')
+                      : (isCancelled ? '#f3f4f6' : '#ffffff');
+                    const titleColor = isDark
+                      ? (isCancelled ? '#636366' : '#ffffff')
+                      : (isCancelled ? '#9ca3af' : '#1d1d1f');
+                    const subColor = isDark
+                      ? 'rgba(255,255,255,0.5)'
+                      : '#8e8e93';
+                    const barColor = isCancelled
+                      ? (isDark ? '#636366' : '#d1d5db')
+                      : accentColor;
+
+                    // Initials fallback for lesson avatar
+                    const initials = (entry.title || '?')
+                      .split(' ')
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .map(w => w[0].toUpperCase())
+                      .join('');
+
+                    const thumbnail = entry.calendarClass?.thumbnail;
+
+                    return (
+                      <TouchableOpacity
+                        key={entry.id}
+                        style={[
+                          st.timelineEventCard,
+                          {
+                            top,
+                            height,
+                            backgroundColor: cardBg,
+                            opacity: isPast && !isCancelled ? 0.55 : 1,
+                            zIndex: idx + 1,
+                            shadowColor: isDark ? 'transparent' : '#000',
+                          },
+                        ]}
+                        activeOpacity={0.75}
+                        onPress={() => openTimelineLessonOverlay(entry)}
+                      >
+                        {/* Left accent bar */}
+                        <View style={[st.timelineEventBar, { backgroundColor: barColor }]} />
+
+                        {/* Class: full-bleed thumbnail */}
+                        {isClass && (
+                          thumbnail
+                            ? <Image source={{ uri: thumbnail }} style={st.timelineEventThumb} resizeMode="cover" />
+                            : (
+                              <View style={[st.timelineEventThumbPlaceholder, { backgroundColor: isDark ? 'rgba(139,92,246,0.2)' : 'rgba(139,92,246,0.1)' }]}>
+                                <Ionicons name="people" size={18} color="#8b5cf6" />
+                              </View>
+                            )
+                        )}
+
+                        {/* Lesson: circular avatar */}
+                        {!isClass && !isGoogle && (
+                          <View style={st.timelineEventAvatarWrap}>
+                            {entry.avatar
+                              ? <Image source={{ uri: entry.avatar }} style={st.timelineEventAvatar} />
+                              : (
+                                <View style={[st.timelineEventAvatarFallback, { backgroundColor: accentColor }]}>
+                                  <Text style={st.timelineEventAvatarInitials}>{initials}</Text>
+                                </View>
+                              )
+                            }
+                          </View>
+                        )}
+
+                        {/* Text content */}
+                        <View style={st.timelineEventContent}>
+                          <Text
+                            style={[
+                              st.timelineEventTitle,
+                              { color: titleColor, textDecorationLine: isCancelled ? 'line-through' : 'none' },
+                            ]}
+                            numberOfLines={2}
+                          >
+                            {entry.title}
+                          </Text>
+                          {!!entry.subtitle && (
+                            <Text style={[st.timelineEventSub, { color: subColor }]} numberOfLines={1}>
+                              {entry.subtitle}
+                            </Text>
+                          )}
+                          <Text style={[st.timelineEventTime, { color: subColor }]}>
+                            {formatTime(entry.startTime)} – {formatTime(entry.endTime)}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
-              </View>
-              <View style={st.eventBadges}>
-                {entry.isTrialLesson && <View style={[st.badge, { backgroundColor: '#FFF8E1' }]}><Text style={[st.badgeText, { color: '#F5A623' }]}>{t('HOME.STATUS_TRIAL')}</Text></View>}
-                {entry.type === 'class' && <View style={[st.badge, { backgroundColor: '#E8F5E9' }]}><Text style={[st.badgeText, { color: '#2E7D32' }]}>{t('HOME.CLASSES')}</Text></View>}
-                {entry.isReschedule && <View style={[st.badge, { backgroundColor: '#FFF3E0' }]}><Text style={[st.badgeText, { color: '#E07912' }]}>{t('HOME.RESCHEDULE')}</Text></View>}
-                {entry.isCancelled && <View style={[st.badge, { backgroundColor: '#FFEBEE' }]}><Text style={[st.badgeText, { color: '#C13515' }]}>{t('HOME.CANCELLED')}</Text></View>}
-                {entry.type === 'class' && entry.attendeeCount !== undefined && <Text style={[st.attendeeCount, { color: C.textTertiary }]}>{entry.attendeeCount}/{entry.maxStudents}</Text>}
+
+                {/* "Now" red line */}
+                {nowTop >= 0 && nowTop <= gridHeight && (
+                  <View
+                    style={[
+                      st.nowIndicator,
+                      { top: nowTop, left: TIMELINE_LABEL_W + TIMELINE_LINE_GAP },
+                    ]}
+                  >
+                    <View style={st.nowDot} />
+                    <View style={st.nowLine} />
+                  </View>
+                )}
+
+                {!hasEvents && (
+                  <View style={[st.timelineNoEvents, { top: Math.min(80, gridHeight / 3) }]}>
+                    <Text style={[st.timelineNoEventsText, { color: C.textTertiary }]}>
+                      {isTutor
+                        ? t('TUTOR_CALENDAR.WAITING_FOR_STUDENTS')
+                        : t('TUTOR_CALENDAR.NO_EVENTS_TITLE')}
+                    </Text>
+                  </View>
+                )}
               </View>
             </View>
-            <Ionicons name="chevron-forward" size={16} color={C.textTertiary} />
-          </TouchableOpacity>
-          </StaggerRow>
-        ))}
-        <View style={{ height: 100 }} />
+          );
+        })()}
       </ScrollView>
       </Animated.View>
 
@@ -675,7 +1026,9 @@ export default function CalendarScreen() {
             {/* Hero with close button inline */}
             <View style={st.modalHeroWrap}>
               <View style={st.modalHero}>
-                <View style={st.modalIconCircle}><Ionicons name="calendar" size={24} color="#fff" /></View>
+                <View style={st.modalIconCircle}>
+                  <Ionicons name="calendar" size={24} color="#fff" />
+                </View>
                 <Text style={[st.modalTitle, { color: C.text }]}>{t('TUTOR_CALENDAR.YOUR_AVAILABILITY')}</Text>
                 <Text style={[st.modalSubtitle, { color: C.textTertiary }]}>
                   {weekAvailSummary.totalWeekHours % 1 === 0 ? weekAvailSummary.totalWeekHours.toFixed(0) : weekAvailSummary.totalWeekHours.toFixed(1)}h {t('TUTOR_CALENDAR.AVAILABLE_SHORT')} {t('TUTOR_CALENDAR.THIS_WEEK') || 'this week'}
@@ -693,12 +1046,18 @@ export default function CalendarScreen() {
                 <View key={i} style={st.modalDaySection}>
                   <View style={st.modalDayHeader}>
                     <Text style={[st.modalDayName, { color: C.text }]}>{day.fullDate}</Text>
-                    <Text style={[st.modalDayHours, { color: day.hours > 0 ? '#4CAF50' : C.textTertiary }]}>{hoursLabel}</Text>
+                    <Text style={[st.modalDayHours, { color: day.hours > 0 ? ACCENT_BLUE : C.textTertiary }]}>{hoursLabel}</Text>
                   </View>
                   {day.slots.length === 0 ? (
                     <Text style={[st.modalDayOff, { color: C.textTertiary }]}>{t('TUTOR_CALENDAR.DAY_OFF') || 'Day off'}</Text>
                   ) : day.slots.map((slot, j) => (
-                    <View key={j} style={[st.modalSlotCard, { backgroundColor: isDark ? '#1a2e1a' : '#f8fbf8', borderColor: isDark ? '#2a4a2a' : '#e8f0e8' }]}>
+                    <View
+                      key={j}
+                      style={[
+                        st.modalSlotCard,
+                        { backgroundColor: C.card, borderColor: C.border },
+                      ]}
+                    >
                       <View style={st.modalSlotAccent} />
                       <Text style={[st.modalSlotTime, { color: C.text }]}>{slot.label}</Text>
                       <Text style={[st.modalSlotDur, { color: C.textTertiary }]}>{slot.durationLabel}</Text>
@@ -720,6 +1079,40 @@ export default function CalendarScreen() {
           </View>
         </View>
       </Modal>
+
+      {lessonOverlayCard ? (
+        <View style={[StyleSheet.absoluteFill, { zIndex: 120, elevation: 120 }]} pointerEvents="box-none">
+          <LessonDetailOverlay
+            card={lessonOverlayCard}
+            cardRect={calendarLessonFallbackRect}
+            onCloseStart={() => {}}
+            onCloseEnd={() => {
+              lessonOverlayBusy.current = false;
+              setLessonOverlayCard(null);
+              setLessonOverlayCoversTabBar(false);
+            }}
+            onClassGoingMessageRequest={setClassGoingMessage}
+          />
+        </View>
+      ) : null}
+
+      <ClassGoingMessageModal
+        visible={classGoingMessage !== null}
+        onClose={() => setClassGoingMessage(null)}
+        attendees={classGoingMessage?.attendees ?? []}
+        receiverId={classGoingMessage?.receiverId}
+        receiverIds={classGoingMessage?.receiverIds}
+        className={classGoingMessage?.className}
+        classId={classGoingMessage?.classId}
+        onSent={(result) => {
+          setClassGoingMessage(null);
+          if (result.kind === 'group') {
+            navigation.navigate('Messages', { groupId: result.groupId } as never);
+          } else {
+            navigation.navigate('Messages', { userId: result.userId } as never);
+          }
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -749,7 +1142,7 @@ const st = StyleSheet.create({
   pillText: { fontSize: 12, fontWeight: '600' },
 
   scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 16, paddingTop: 8 },
+  scrollContent: { paddingHorizontal: 0, paddingTop: 0, paddingBottom: 80 },
 
   pclCard: { borderRadius: 14, padding: 16, marginBottom: 12, borderWidth: 1 },
   pclHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
@@ -764,11 +1157,172 @@ const st = StyleSheet.create({
   feedbackBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 12, marginBottom: 10 },
   feedbackText: { fontSize: 13, fontWeight: '500', flex: 1 },
 
-  availRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 14, padding: 14, marginBottom: 8, borderWidth: 1 },
-  availCheck: { marginRight: 12 },
-  availTimeText: { flex: 1, fontSize: 13, fontWeight: '500' },
+  availRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 8,
+    borderWidth: 1,
+  },
+  /** Soft circle behind time icon — reads as “time window”, not a booking check. */
+  availIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  availRowTextCol: { flex: 1, minWidth: 0 },
+  availTimeText: { fontSize: 14, fontWeight: '600', letterSpacing: -0.2 },
+  availHint: { fontSize: 11, fontWeight: '500', marginTop: 2 },
 
   waitingText: { fontSize: 14, textAlign: 'center', marginTop: 24, marginBottom: 8 },
+  timelineOuter: {
+    paddingLeft: TIMELINE_LEFT_PAD,
+    paddingRight: 12,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  timelineRow: {
+    height: TIMELINE_HOUR_HEIGHT,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  /** Terminal row — just enough height to keep the midnight label visible */
+  timelineRowTerminator: {
+    height: 20,
+  },
+  timelineHourLabel: {
+    width: TIMELINE_LABEL_W,
+    fontSize: 11,
+    fontWeight: '500',
+    textAlign: 'right',
+    paddingRight: 10,
+    marginTop: -6,
+  },
+  timelineLine: {
+    flex: 1,
+    height: 1,
+  },
+  timelineVerticalRule: {
+    position: 'absolute',
+    top: 0,
+    width: 1,
+  },
+  timelineEventsLayer: {
+    position: 'absolute',
+    top: 0,
+    left: TIMELINE_LABEL_W + TIMELINE_LINE_GAP,
+    right: 0,
+    // height is set inline (gridHeight) — do not set bottom here
+  },
+  timelineEventCard: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    borderRadius: 10,
+    flexDirection: 'row',
+    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.07,
+    shadowRadius: 4,
+    elevation: 2,
+    marginRight: 4,
+  },
+  timelineEventBar: {
+    width: 3,
+    alignSelf: 'stretch',
+  },
+  /** Class thumbnail — full card height, fixed width, no border radius (card clips it) */
+  timelineEventThumb: {
+    width: 52,
+    alignSelf: 'stretch',
+  },
+  timelineEventThumbPlaceholder: {
+    width: 52,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  /** Lesson avatar */
+  timelineEventAvatarWrap: {
+    justifyContent: 'center',
+    paddingLeft: 8,
+  },
+  timelineEventAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+  },
+  timelineEventAvatarFallback: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timelineEventAvatarInitials: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  timelineEventContent: {
+    flex: 1,
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+    justifyContent: 'flex-start',
+  },
+  timelineEventTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: -0.1,
+    marginBottom: 1,
+  },
+  timelineEventSub: {
+    fontSize: 11,
+    fontWeight: '400',
+    marginBottom: 1,
+  },
+  timelineEventTime: {
+    fontSize: 10,
+    fontWeight: '400',
+    marginTop: 'auto' as any,
+  },
+  timelineAvailBlock: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 0,
+    borderRadius: 6,
+  },
+  nowIndicator: {
+    position: 'absolute',
+    right: 0,
+    height: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 100,
+  },
+  nowDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#E53935',
+    marginLeft: -4,
+  },
+  nowLine: { flex: 1, height: 2, backgroundColor: '#E53935' },
+  timelineNoEvents: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  timelineNoEventsText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
 
   eventRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 14, padding: 12, marginBottom: 8, borderWidth: 1 },
   eventTime: { width: 52, alignItems: 'center' },
@@ -803,7 +1357,15 @@ const st = StyleSheet.create({
   modalHeroWrap: { position: 'relative', paddingTop: 20, paddingBottom: 16 },
   modalHero: { alignItems: 'center' },
   modalCloseBtn: { position: 'absolute', top: 20, right: 0 },
-  modalIconCircle: { width: 52, height: 52, borderRadius: 26, backgroundColor: '#4CAF50', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  modalIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: ACCENT_BLUE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
   modalTitle: { fontSize: 20, fontWeight: '800', marginBottom: 4 },
   modalSubtitle: { fontSize: 13, fontWeight: '500' },
   modalDaySection: { marginBottom: 16 },
@@ -812,7 +1374,7 @@ const st = StyleSheet.create({
   modalDayHours: { fontSize: 14, fontWeight: '600' },
   modalDayOff: { fontSize: 13, marginLeft: 2, marginTop: 2 },
   modalSlotCard: { flexDirection: 'row', alignItems: 'stretch', borderRadius: 10, borderWidth: 1, overflow: 'hidden', marginBottom: 6 },
-  modalSlotAccent: { width: 3, backgroundColor: '#4CAF50' },
+  modalSlotAccent: { width: 3, backgroundColor: ACCENT_BLUE },
   modalSlotTime: { flex: 1, fontSize: 14, fontWeight: '500', paddingVertical: 12, paddingLeft: 12 },
   modalSlotDur: { fontSize: 13, fontWeight: '500', paddingVertical: 12, paddingRight: 14 },
   modalFooter: { flexDirection: 'row', gap: 10, padding: 16, borderTopWidth: StyleSheet.hairlineWidth },

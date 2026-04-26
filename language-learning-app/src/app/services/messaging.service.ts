@@ -51,6 +51,8 @@ export interface Conversation {
   displayParticipants?: GroupParticipantSummary[];
   /** How many participants are not shown in the cluster (shown as +N). */
   extraCount?: number;
+  /** Pre-computed, comma-separated roster used by the "+N" hover tooltip. */
+  participantNamesList?: string;
   lastMessage: {
     content: string;
     senderId: string;

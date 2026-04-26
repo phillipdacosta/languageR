@@ -42,7 +42,7 @@ function LessonsStackNavigator() {
 function TabNavigatorInner() {
   const { colors } = useTheme();
   const { t } = useTranslation();
-  const { homeOverlayCoversTabBar, lessonOverlayCoversTabBar } = useHomeTabBarOverlay();
+  const { homeOverlayCoversTabBar, lessonOverlayCoversTabBar, screenHidesTabBar } = useHomeTabBarOverlay();
 
   return (
     <Tab.Navigator
@@ -54,7 +54,7 @@ function TabNavigatorInner() {
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginBottom: 6 },
       }}
       tabBar={(props) => (
-        <SlidingTabBar {...props} homeOverlayCoversTabBar={homeOverlayCoversTabBar} lessonOverlayCoversTabBar={lessonOverlayCoversTabBar} />
+        <SlidingTabBar {...props} homeOverlayCoversTabBar={homeOverlayCoversTabBar} lessonOverlayCoversTabBar={lessonOverlayCoversTabBar} screenHidesTabBar={screenHidesTabBar} />
       )}
     >
       <Tab.Screen

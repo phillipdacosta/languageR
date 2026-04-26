@@ -874,6 +874,15 @@
             <span class="ed-no-students" *ngIf="!classData.confirmedStudents?.length">
               {{ classIsCancelled || classIsCompleted ? 'No students enrolled' : 'No students enrolled yet' }}
             </span>
+
+            <div
+              *ngIf="classRuleVisible"
+              class="ed-class-rule"
+              [class.ed-class-rule--flexible]="classRuleKind === 'flexible'"
+            >
+              <ion-icon [name]="classRuleIcon"></ion-icon>
+              <span>{{ classRuleText }}</span>
+            </div>
           </section>
 
           <!-- ── Cancellation ── -->
@@ -937,6 +946,16 @@
                   <ion-icon name="close-circle-outline"></ion-icon> Cancel class
                 </button>
               </div>
+            </section>
+          </ng-container>
+
+          <!-- ── Leave class (student only, subtle footer link) ── -->
+          <ng-container *ngIf="classCanLeave">
+            <div class="ed-divider"></div>
+            <section class="ed-row ed-class-leave">
+              <button type="button" class="ed-leave-link" (click)="leaveClassAction()">
+                Leave class
+              </button>
             </section>
           </ng-container>
 

@@ -1,6 +1,7 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 import { TabsPage } from './tabs.page';
+import { UnsavedChangesGuard } from '../guards/unsaved-changes.guard';
 
 const routes: Routes = [
   {
@@ -33,11 +34,13 @@ const routes: Routes = [
       },
       {
         path: 'availability-setup',
-        loadComponent: () => import('../pages/availability-setup/availability-setup.page').then(m => m.AvailabilitySetupPage)
+        loadComponent: () => import('../pages/availability-setup/availability-setup.page').then(m => m.AvailabilitySetupPage),
+        canDeactivate: [UnsavedChangesGuard]
       },
       {
         path: 'availability-setup/:date',
-        loadComponent: () => import('../pages/availability-setup/availability-setup.page').then(m => m.AvailabilitySetupPage)
+        loadComponent: () => import('../pages/availability-setup/availability-setup.page').then(m => m.AvailabilitySetupPage),
+        canDeactivate: [UnsavedChangesGuard]
       },
       {
         path: 'notifications',

@@ -3740,12 +3740,12 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     if (!this.selectedDayForDayView || !this.selectedDayForDayView.date) {
       return 0;
     }
-    return computeFutureFreeHoursFromEvents(this.events || [], this.selectedDayForDayView.date, new Date(), 'visible6to23');
+    return computeFutureFreeHoursFromEvents(this.events || [], this.selectedDayForDayView.date, new Date(), 'fullDay');
   }
   
   private generateTimeSlots() {
     this.timeSlots = [];
-    for (let hour = 6; hour <= 23; hour++) {
+    for (let hour = 0; hour <= 23; hour++) {
       if (this.is24h) {
         this.timeSlots.push(`${hour.toString().padStart(2, '0')}:00`);
       } else {
@@ -3914,10 +3914,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   calculateEventTop(event: any): number {
     const startHour = getHoursInTz(event.start, this.userTz);
     const startMinute = getMinutesInTz(event.start, this.userTz);
-    const startOffset = 6;
-    const slotHeight = 70;
-
-    return ((startHour - startOffset) * slotHeight) + (startMinute / 60 * slotHeight);
+    const startOffset = 0;
+    const slotHeight = 70;    return ((startHour - startOffset) * slotHeight) + (startMinute / 60 * slotHeight);
   }
   
   calculateEventHeight(event: any): number {
@@ -3957,7 +3955,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     const parts = formatter.formatToParts(new Date());
     const currentHour = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
     const currentMinute = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
-    const startOffset = 6;
+    const startOffset = 0;
     const slotHeight = 110;
 
     this.currentTimePosition = ((currentHour - startOffset) * slotHeight) + (currentMinute / 60 * slotHeight);

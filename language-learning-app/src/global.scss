@@ -965,7 +965,7 @@ ion-modal.payment-dispute-modal {
   }
 }
 
-// Class Invitation Modal - Ensure content is visible
+// Class "going" message modal (intro message before chat)
 ion-modal.class-going-message-modal {
   --width: 96%;
   --max-width: 560px;
@@ -976,6 +976,24 @@ ion-modal.class-going-message-modal {
 
   @media (min-width: 600px) {
     --max-width: 500px;
+  }
+}
+
+/* Dark: dim the page behind the sheet more (default wash is too light on #000 UIs). */
+html.ion-palette-dark ion-modal.class-going-message-modal,
+.ion-palette-dark ion-modal.class-going-message-modal {
+  --backdrop-opacity: 1;
+
+  &::part(backdrop) {
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(12px) saturate(1.1);
+    -webkit-backdrop-filter: blur(12px) saturate(1.1);
+  }
+
+  ion-backdrop {
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(12px) saturate(1.1);
+    -webkit-backdrop-filter: blur(12px) saturate(1.1);
   }
 }
 
@@ -1147,10 +1165,24 @@ ion-modal.reschedule-modal {
   }
 }
 
-// Reschedule lesson modal — blurred backdrop (Ionic 8: rgba + --backdrop-opacity: 1;
-// see withdrawal-modal--home-context). Global so it applies from tab1 + event-details.
+// Reschedule lesson — same size + 24px corners as cancel-reason / home. Must be global: modals
+// are portaled outside the tab; rules in tab1.page.scss do not apply from /tabs/lessons/:id.
 ion-modal.reschedule-lesson-modal {
+  --width: 96%;
+  --max-width: 900px;
+  --height: 94%;
+  --max-height: 900px;
+  --border-radius: 24px;
+  --box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
   --backdrop-opacity: 1;
+
+  @media (max-width: 768px) {
+    --width: 96%;
+    --max-width: none;
+    --border-radius: 24px;
+    --height: 94%;
+    --max-height: 900px;
+  }
 
   &::part(backdrop) {
     background: rgba(0, 0, 0, 0.36);
@@ -1162,6 +1194,45 @@ ion-modal.reschedule-lesson-modal {
     background: rgba(0, 0, 0, 0.36);
     backdrop-filter: blur(12px) saturate(1.2);
     -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  }
+
+  .ion-page {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  app-reschedule-lesson-modal {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+
+    ion-content {
+      flex: 1;
+      --background: #ffffff;
+    }
+
+    ion-footer {
+      flex-shrink: 0;
+      height: auto;
+    }
+  }
+}
+
+@media (min-width: 768px) {
+  ion-modal.reschedule-lesson-modal {
+    --width: 900px;
+    --max-width: 1000px;
+    --height: 90%;
+    --max-height: 960px;
+  }
+}
+
+@media (min-width: 576px) and (max-width: 767px) {
+  ion-modal.reschedule-lesson-modal {
+    --width: 92%;
+    --max-width: 700px;
+    --height: 90%;
   }
 }
 

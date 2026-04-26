@@ -76,6 +76,8 @@ export interface CreateClassPayload {
   hubDraftForm?: unknown;
   minStudents?: number;
   flexibleMinimum?: boolean;
+  cancelReasonId?: string;
+  cancelReasonText?: string;
 }
 
 export interface CreateClassResponse {
@@ -99,8 +101,16 @@ export async function getClass(classId: string): Promise<MyClassRecord> {
   return data.class;
 }
 
-export async function cancelClass(classId: string): Promise<{ success: boolean; message?: string }> {
-  return api.delete<{ success: boolean; message?: string }>(`/classes/${encodeURIComponent(classId)}`);
+export async function cancelClass(
+  classId: string,
+  opts?: { reasonId?: string; reasonText?: string },
+): Promise<{ success: boolean; message?: string }> {
+  const params = new URLSearchParams();
+  if (opts?.reasonId) params.set('reasonId', opts.reasonId);
+  if (opts?.reasonText) params.set('reasonText', opts.reasonText);
+  const q = params.toString();
+  const path = `/classes/${encodeURIComponent(classId)}${q ? `?${q}` : ''}`;
+  return api.delete<{ success: boolean; message?: string }>(path);
 }
 
 /** Tutor: hide a past or cancelled class from hub only. */
@@ -123,6 +133,14 @@ export async function removeStudentFromClass(
   studentId: string,
 ): Promise<{ success: boolean; message?: string }> {
   return api.delete(`/classes/${encodeURIComponent(classId)}/student/${encodeURIComponent(studentId)}`);
+}
+
+/** Student: un-enroll from a class they accepted (while status is still `scheduled`). */
+export async function leaveClass(classId: string): Promise<{ success: boolean; message?: string }> {
+  return api.post<{ success: boolean; message?: string }>(
+    `/classes/${encodeURIComponent(classId)}/unenroll`,
+    {},
+  );
 }
 
 export async function uploadClassThumbnail(localUri: string): Promise<string> {

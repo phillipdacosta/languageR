@@ -107,6 +107,8 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   checkoutData: { tutorId: string; date: string; time: string; duration: number; timezone?: string } | null = null;
   otherUserLocalTime = '';
   private localTimeInterval: any = null;
+  /** Set when the open thread is a class-broadcast chat (for template, no method calls). */
+  selectedIsClassBroadcast = false;
   private hoverCardTimeout: any = null;
   currentUserId$ = new BehaviorSubject<string>('');
   currentUserType: 'student' | 'tutor' | null = null;
@@ -912,6 +914,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     // This ensures users can choose which conversation to view
     if (!this.isDesktop) {
       this.selectedConversation = null;
+      this.refreshSelectedThreadTypeFlags();
       this.messages = [];
       // Notify service that no conversation is selected
       this.messagingService.setHasSelectedConversation(false);
@@ -943,6 +946,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     this.isPageVisible = false;
 
     this.selectedConversation = null;
+    this.refreshSelectedThreadTypeFlags();
     this.hasConversationSelected = false;
     this.messages = [];
     this.stopLocalTimeClock();
@@ -1008,6 +1012,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
               
               // Select this placeholder conversation
               this.selectedConversation = placeholderConversation;
+              this.refreshSelectedThreadTypeFlags();
               this.messages = [];
               this.isLoadingMessages = false; // Don't show loading for new conversations
               // Notify service that a conversation is selected (for hiding tabs on mobile)
@@ -1125,24 +1130,38 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
    * Pre-compute avatar cluster fields for group conversations so the template
    * can stay function-free (per AGENTS rules). For groups with >4 people we
    * show 3 avatars + a "+N" chip in the 4th slot; for <=4 we show them all.
+   * Also decorates `selectedConversation` directly so the chat header's avatar
+   * cluster updates live when students join/leave (class-broadcast threads).
    */
   private decorateGroupAvatarClusters() {
     const self = (typeof this.getCurrentUserId === 'function' ? this.getCurrentUserId() : '') || '';
-    this.conversations.forEach((c: any) => {
-      if (!c.isGroup) return;
-      const all = Array.isArray(c.participants) ? c.participants : [];
-      // Put "me" last so other people show first in the cluster.
-      const others = all.filter((p: any) => p.auth0Id !== self);
-      const me = all.filter((p: any) => p.auth0Id === self);
-      const ordered = [...others, ...me];
-      if (ordered.length > 4) {
-        c.displayParticipants = ordered.slice(0, 3);
-        c.extraCount = ordered.length - 3;
-      } else {
-        c.displayParticipants = ordered;
-        c.extraCount = 0;
-      }
-    });
+    this.conversations.forEach((c: any) => this.decorateGroupAvatarCluster(c, self));
+    if (this.selectedConversation) {
+      this.decorateGroupAvatarCluster(this.selectedConversation, self);
+    }
+  }
+
+  /** Single-conversation variant, used by the loop and when reselecting. */
+  private decorateGroupAvatarCluster(c: any, self?: string) {
+    if (!c || !c.isGroup) return;
+    const selfId = (self ?? ((typeof this.getCurrentUserId === 'function' ? this.getCurrentUserId() : '') || ''));
+    const all = Array.isArray(c.participants) ? c.participants : [];
+    const others = all.filter((p: any) => p.auth0Id !== selfId);
+    const me = all.filter((p: any) => p.auth0Id === selfId);
+    const ordered = [...others, ...me];
+    if (ordered.length > 4) {
+      c.displayParticipants = ordered.slice(0, 3);
+      c.extraCount = ordered.length - 3;
+    } else {
+      c.displayParticipants = ordered;
+      c.extraCount = 0;
+    }
+    // Full roster for the "+N" hover tooltip. Labels "me" as "You" so the list
+    // reads naturally. Template stays function-free per AGENTS rules.
+    c.participantNamesList = ordered
+      .map((p: any) => (p.auth0Id === selfId ? 'You' : (p.name || '').trim()))
+      .filter((n: string) => !!n)
+      .join(', ');
   }
 
   private processConversationsForReactions() {
@@ -1335,6 +1354,18 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
                   if (newConv.lastMessage) {
                     this.conversations[existingIndex].lastMessage = newConv.lastMessage;
                   }
+                  // Group class-broadcast threads: keep participant cluster in sync
+                  // as students join/leave. This is cheap and doesn't touch the name
+                  // or other header bits, so it doesn't cause the flicker the skip
+                  // above was added to prevent.
+                  if (existingConv.isGroup) {
+                    this.conversations[existingIndex].participants = newConv.participants;
+                    if (this.selectedConversation?.conversationId === existingConv.conversationId) {
+                      (this.selectedConversation as any).participants = newConv.participants;
+                      this.decorateGroupAvatarCluster(this.selectedConversation);
+                    }
+                    this.decorateGroupAvatarCluster(this.conversations[existingIndex]);
+                  }
                   return; // Skip other updates to prevent flicker
                 }
                 
@@ -1505,6 +1536,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     // Use View Transition API for smooth back animation if supported
     const updateView = () => {
       this.selectedConversation = null;
+      this.refreshSelectedThreadTypeFlags();
       this.hasConversationSelected = false;
       this.messages = [];
       this.stopLocalTimeClock();
@@ -1721,6 +1753,8 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     };
 
     this.selectedConversation = conversation;
+    this.decorateGroupAvatarCluster(this.selectedConversation);
+    this.refreshSelectedThreadTypeFlags();
     this.hasConversationSelected = true;
     this.messagingService.setHasSelectedConversation(true);
     this.startLocalTimeClock();
@@ -1834,34 +1868,48 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   }
   
   private resetChatContainer() {
-    if (!this.platformService.isSmallScreen()) return;
-    
+    const containers = document.querySelectorAll('.chat-messages');
+    if (containers.length === 0) {
+      return;
+    }
+
+    containers.forEach((node) => {
+      const container = node as HTMLElement;
+      // Remove ready state (hides with visibility, not display)
+      container.classList.remove('messages-ready');
+      // Reset scroll position for next open
+      container.scrollTop = 0;
+    });
+
+    // Force reflow on primary container (keeps layout stable for dual layouts)
     const container = this.chatContainer?.nativeElement;
-    if (!container) return;
-    
-    // Remove ready state (hides with visibility, not display)
-    container.classList.remove('messages-ready');
-    
-    // Force dimension recalculation without hiding
-    // Use transform trick to force reflow without affecting rendering
-    const currentTransform = container.style.transform;
-    container.style.transform = 'translateZ(0)';
-    
-    // Trigger reflow - forces browser to recalculate everything
-    void container.offsetHeight;
-    void container.getBoundingClientRect();
-    
-    // Restore transform
-    container.style.transform = currentTransform || '';
-    
-    // Reset scroll position
-    container.scrollTop = 0;
-    
-    console.log('🔄 Chat container fully reset');
+    if (container) {
+      const currentTransform = container.style.transform;
+      container.style.transform = 'translateZ(0)';
+      void container.offsetHeight;
+      void container.getBoundingClientRect();
+      container.style.transform = currentTransform || '';
+    }
+
+    console.log('🔄 Chat container(s) fully reset');
+  }
+
+  /**
+   * Show the message list after the initial scroll position (first unread or
+   * bottom) is applied. Hides the list with CSS until this runs so the user
+   * does not see a flash at the top before we jump.
+   */
+  private revealChatMessages() {
+    document.querySelectorAll('.chat-messages').forEach((el) => {
+      (el as HTMLElement).classList.add('messages-ready');
+    });
+    this.cdr.markForCheck();
   }
   
   private updateConversationView(conversation: Conversation, unreadCount: number, requestId: number) {
     this.selectedConversation = conversation;
+    this.decorateGroupAvatarCluster(this.selectedConversation);
+    this.refreshSelectedThreadTypeFlags();
     this.hasConversationSelected = true;
     this.startLocalTimeClock();
     console.log(`✅ [${Date.now()}] selectedConversation SET, hasConversationSelected: ${this.hasConversationSelected}`);
@@ -1991,12 +2039,6 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
               // No unread messages - scroll to bottom with retry for late-rendering content
               await this.waitForMediaToLoad();
               this.scrollToBottomWithRetry();
-
-              // Make messages visible on mobile (scrollToFirstUnreadMessage does this internally)
-              if (this.platformService.isSmallScreen()) {
-                const ctr = this.getActiveChatContainer();
-                if (ctr) ctr.classList.add('messages-ready');
-              }
             }
             
             console.log(`✅ [${Date.now()}] Messages loaded and positioned`);
@@ -2015,11 +2057,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
         if (error.status === 404) {
           this.messages = [];
         }
-        // Ensure messages are visible on mobile even on error
-        if (this.platformService.isSmallScreen()) {
-          const ctr = this.getActiveChatContainer();
-          if (ctr) ctr.classList.add('messages-ready');
-        }
+        this.revealChatMessages();
         this.cdr.detectChanges();
       },
       complete: () => {
@@ -2525,11 +2563,6 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     
-    // Make messages visible on mobile
-    if (this.platformService.isSmallScreen()) {
-      container.classList.add('messages-ready');
-    }
-    
     // Check if this conversation only contains system messages
     const onlySystemMessages = this.messages.length > 0 && 
       this.messages.every(m => m.type === 'system' || m.isSystemMessage);
@@ -2537,6 +2570,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     if (onlySystemMessages) {
       console.log('📍 System messages only - scrolling to top');
       container.scrollTop = 0;
+      this.revealChatMessages();
       return;
     }
     
@@ -2557,6 +2591,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     } else {
       // No unread messages - scroll to bottom
       container.scrollTop = container.scrollHeight;
+      this.revealChatMessages();
     }
   }
   
@@ -2677,6 +2712,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     setTimeout(() => { this.highlightedMessageId = null; }, 2000);
     
     console.log(`✅ Scroll to unread message complete, scrollTop: ${container.scrollTop}`);
+    this.revealChatMessages();
   }
   
   /**
@@ -2713,6 +2749,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
         this.scrollToBottomWithRetry(attempt + 1);
       } else {
         console.log(`✅ Scroll to bottom complete, scrollTop: ${container.scrollTop}`);
+        this.revealChatMessages();
       }
     }, attempt === 0 ? 150 : 75);
   }
@@ -3195,7 +3232,26 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     return '';
   }
 
+  /**
+   * Class-anchored group threads have no single "the other person" in the
+   * header; hide the "X local time" line (mirrors mobile ChatScreen).
+   */
+  private isClassBroadcastThread(conv: Conversation | null | undefined): boolean {
+    if (!conv) {
+      return false;
+    }
+    return !!conv.classId || conv.type === 'class-broadcast';
+  }
+
+  private refreshSelectedThreadTypeFlags(): void {
+    this.selectedIsClassBroadcast = this.isClassBroadcastThread(this.selectedConversation);
+  }
+
   updateOtherUserLocalTime() {
+    if (this.isClassBroadcastThread(this.selectedConversation)) {
+      this.otherUserLocalTime = '';
+      return;
+    }
     const user = this.selectedConversation?.otherUser;
     if (user?.timezone) {
       const time = this.getUserLocalTime(user);
@@ -3207,6 +3263,10 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
 
   private startLocalTimeClock() {
     this.stopLocalTimeClock();
+    if (this.isClassBroadcastThread(this.selectedConversation)) {
+      this.otherUserLocalTime = '';
+      return;
+    }
     this.updateOtherUserLocalTime();
     this.localTimeInterval = setInterval(() => this.updateOtherUserLocalTime(), 30000);
   }
@@ -3225,7 +3285,13 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       event.preventDefault();
       event.stopPropagation();
     }
-    
+
+    const classId = this.selectedConversation?.classId;
+    if (this.selectedIsClassBroadcast && classId) {
+      this.router.navigate(['/tabs/lessons', String(classId)]);
+      return;
+    }
+
     const other = this.selectedConversation?.otherUser;
     if (!other) return;
 

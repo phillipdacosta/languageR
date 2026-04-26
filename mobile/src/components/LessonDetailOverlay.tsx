@@ -48,6 +48,8 @@ import {
   isLessonInProgressSlot,
 } from '../services/lessons';
 import { materialService, RecommendedMaterial } from '../services/materials';
+import { leaveClass as leaveClassApi } from '../services/classes';
+import { socketService, ClassStatePatch } from '../services/socket';
 import { isLessonMockId, getMockRecommendedMaterials } from '../utils/lessonMockPreview';
 import { stripSimpleHtml } from '../utils/stripSimpleHtml';
 import {
@@ -176,6 +178,16 @@ export default function LessonDetailOverlay({
   /** Light status text on photo; switches to dark (iOS) when the sheet reads as white (Airbnb). */
   const [classHeroStatusBarLight, setClassHeroStatusBarLight] = useState(true);
 
+  /**
+   * Latest realtime patch for the class this overlay is viewing. The socket
+   * service streams `class_state_changed` events from the backend as the
+   * roster / payments / cancellation state changes. We merge this into the
+   * `lesson` memo so the Students + Revenue + cancellation-rule sections
+   * update without a refetch. `null` while we haven't received anything yet
+   * (the memo will then fall back to whatever `detail.lesson` shipped).
+   */
+  const [classStatePatch, setClassStatePatch] = useState<ClassStatePatch | null>(null);
+
   useEffect(() => {
     if (!id) return;
     const timer = setInterval(() => setJoinUiTick(x => x + 1), 10000);
@@ -228,6 +240,30 @@ export default function LessonDetailOverlay({
       }
     }).catch(() => {});
   }, [id, currentUserId]);
+
+  /**
+   * Realtime: subscribe to `class_state_changed` for this class while the
+   * overlay is open. We only subscribe for classes (not 1:1 lessons) and
+   * always tear down on unmount / id change so a quickly-swapped overlay
+   * doesn't leak handlers or stream events we no longer care about. The
+   * server's initial ack flows through the same handler so there's a
+   * single code path to reason about.
+   */
+  useEffect(() => {
+    if (!id) return;
+    const viewingClass = !!card.isClass || !!card.lesson?.isClass;
+    if (!viewingClass) return;
+    // Clear any stale patch from a previous class so `lesson` doesn't
+    // momentarily render with the wrong roster during an id swap.
+    setClassStatePatch(null);
+    const unsubscribe = socketService.subscribeToClass(id, (evt) => {
+      if (!isMountedRef.current || !evt || !evt.state) return;
+      setClassStatePatch(evt.state);
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, [id, card.isClass, card.lesson?.isClass]);
 
   useEffect(() => {
     const mockRole = (card.lesson as any)?._mockViewRole;
@@ -874,28 +910,69 @@ export default function LessonDetailOverlay({
 
   const lesson = useMemo(() => {
     const base = card.lesson;
-    if (!detail?.lesson) return base;
-    const d = detail.lesson;
-    const classMerged = { ...(base as { classData?: { thumbnail?: string; description?: string; name?: string } }).classData, ...(d as { classData?: { thumbnail?: string; description?: string; name?: string } }).classData };
-    const dAtt = (d as { attendees?: unknown[] }).attendees;
-    const baseAtt = (base as { attendees?: unknown[] }).attendees;
-    const attendees =
-      Array.isArray(dAtt) && dAtt.length > 0
-        ? dAtt
-        : Array.isArray(baseAtt) && baseAtt.length > 0
-          ? baseAtt
-          : Array.isArray(dAtt)
-            ? dAtt
-            : baseAtt;
-    return {
-      ...base,
-      ...d,
-      tutorId: d.tutorId || base?.tutorId,
-      studentId: d.studentId || base?.studentId,
-      ...(Object.keys(classMerged).length > 0 ? { classData: classMerged } : {}),
-      ...(attendees !== undefined ? { attendees } : {}),
+    let merged: any;
+    if (!detail?.lesson) {
+      merged = base;
+    } else {
+      const d = detail.lesson;
+      const classMerged = { ...(base as { classData?: { thumbnail?: string; description?: string; name?: string } }).classData, ...(d as { classData?: { thumbnail?: string; description?: string; name?: string } }).classData };
+      const dAtt = (d as { attendees?: unknown[] }).attendees;
+      const baseAtt = (base as { attendees?: unknown[] }).attendees;
+      const attendees =
+        Array.isArray(dAtt) && dAtt.length > 0
+          ? dAtt
+          : Array.isArray(baseAtt) && baseAtt.length > 0
+            ? baseAtt
+            : Array.isArray(dAtt)
+              ? dAtt
+              : baseAtt;
+      merged = {
+        ...base,
+        ...d,
+        tutorId: d.tutorId || base?.tutorId,
+        studentId: d.studentId || base?.studentId,
+        ...(Object.keys(classMerged).length > 0 ? { classData: classMerged } : {}),
+        ...(attendees !== undefined ? { attendees } : {}),
+      };
+    }
+
+    /**
+     * Overlay the realtime class-state patch on top of the fetched/cached
+     * detail. We rebuild `confirmedStudents`, classData.price/status/
+     * cancelReason, and a synthesized `classData.payments` (map → array)
+     * so the downstream memos (`classStudentsDisplay`, `classRevenue`,
+     * `classCancellationRule`) keep their existing code paths — they keep
+     * reading the same fields, now fed by the live broadcaster.
+     */
+    if (!classStatePatch || !merged) return merged;
+    const patch = classStatePatch;
+    const confirmedStudents = Array.isArray(patch.confirmedStudents)
+      ? patch.confirmedStudents.map((s) => ({ _id: s.id, name: s.name, picture: s.picture || '' }))
+      : (merged as any).confirmedStudents;
+    const studentPaymentsMap = patch.studentPayments || {};
+    const syntheticPayments = Object.keys(studentPaymentsMap).map((sid) => ({
+      studentId: sid,
+      status:
+        studentPaymentsMap[sid] === 'captured' ? 'succeeded' : studentPaymentsMap[sid],
+    }));
+    const nextClassData = {
+      ...(merged as any).classData,
+      price: patch.price ?? (merged as any).classData?.price,
+      status: patch.status || (merged as any).classData?.status,
+      cancelReason: patch.cancelReason ?? (merged as any).classData?.cancelReason,
+      payments: syntheticPayments,
     };
-  }, [card.lesson, detail?.lesson]);
+    return {
+      ...merged,
+      confirmedStudents,
+      minStudents: patch.minStudents ?? (merged as any).minStudents,
+      flexibleMinimum:
+        typeof patch.flexibleMinimum === 'boolean'
+          ? patch.flexibleMinimum
+          : (merged as any).flexibleMinimum,
+      classData: nextClassData,
+    };
+  }, [card.lesson, detail?.lesson, classStatePatch]);
   const isClass = isClassMode;
   const classThumbUri = classThumbForMode;
   const heroThumbUri = classThumbUri;
@@ -1132,7 +1209,30 @@ export default function LessonDetailOverlay({
   const showCancelLesson =
     !!info && !info.isCancelled && info.isUpcoming && !info.isNow;
   const showMessageBtn = !!info && !isClass;
-  const showStickyFooter = showJoinCta || showMessageBtn || showRebook;
+
+  /**
+   * Student-only "Leave class" affordance. Visible when viewing a scheduled
+   * class the current user is confirmed on and it hasn't started. Matches the
+   * backend guard on POST /:classId/unenroll (scheduled + confirmed).
+   */
+  const isConfirmedInClass = useMemo(() => {
+    if (!isClass || !isStudent || !currentUserId) return false;
+    const confirmed = (lesson as { confirmedStudents?: any[] } | null)?.confirmedStudents || [];
+    return confirmed.some((s: any) => {
+      const sid = String(s?._id || s?.id || s?.auth0Id || '');
+      return sid === currentUserId;
+    });
+  }, [isClass, isStudent, currentUserId, lesson]);
+  const showLeaveClass =
+    !!info &&
+    isClass &&
+    isStudent &&
+    isConfirmedInClass &&
+    !info.isCancelled &&
+    info.isUpcoming &&
+    !info.isNow;
+
+  const showStickyFooter = showJoinCta || showMessageBtn || showRebook || showLeaveClass;
 
   const joinGate = useMemo(() => getJoinGateState(lesson ?? undefined), [lesson, joinUiTick]);
   const joinPrimaryLabel = useMemo(() => {
@@ -1254,6 +1354,122 @@ export default function LessonDetailOverlay({
     [card.isClass, card.className, lesson],
   );
 
+  /**
+   * Per-student roster for the "Students" section — mirrors the web
+   * `classStudentsDisplay` (event-details). Falls back to the seeded mock
+   * roster when no real `confirmedStudents` are attached, so the section
+   * has something to show in dev / previews (same approach as `goingAttendees`).
+   *
+   * `paid` is derived from `classData.payments` when present; with mock data
+   * we leave every row unpaid so the tutor view still reads "Pending".
+   */
+  const classStudentsDisplay = useMemo(() => {
+    if (!isClass) return [] as Array<{ id: string; name: string; picture?: string; initials: string; paid: boolean }>;
+
+    const classData =
+      (lesson as { classData?: { payments?: any[]; price?: number } } | null)?.classData;
+    const payments: any[] = Array.isArray(classData?.payments) ? (classData!.payments as any[]) : [];
+    const paidIds = new Set(
+      payments
+        .filter((p: any) => p?.status === 'succeeded' || p?.status === 'authorized')
+        .map((p: any) => String(p?.studentId?._id || p?.studentId || '')),
+    );
+
+    /**
+     * Prefer `lesson.confirmedStudents` (merged from the Class doc by
+     * `fetchAndCacheLessonDetail`). Fall back to `lesson.attendees`, which
+     * list/card rows already populate from `cls.confirmedStudents`, so the
+     * section shows real students even when the overlay renders before the
+     * detail fetch resolves. Only drop to `goingAttendees` (may contain
+     * preview mocks) when nothing real is attached — matches web intent.
+     */
+    const confirmed: any[] =
+      ((lesson as { confirmedStudents?: any[] } | null)?.confirmedStudents) ||
+      ((lesson as { attendees?: any[] } | null)?.attendees) ||
+      [];
+    const source: any[] = confirmed.length > 0 ? confirmed : goingAttendees;
+
+    return source.map((s: any, i: number) => {
+      const name =
+        (s.firstName && s.lastName
+          ? `${s.firstName} ${String(s.lastName).charAt(0)}.`.trim()
+          : s.name) ||
+        (typeof s.email === 'string' ? s.email.split('@')[0] : '') ||
+        'Student';
+      const picture: string | undefined = s.picture || s.profilePicture || undefined;
+      const initials = attendeeStackInitials(s);
+      const sid = String(s._id || s.id || s.auth0Id || '');
+      return {
+        id: sid || `student-${i}`,
+        name,
+        picture,
+        initials,
+        paid: !!sid && paidIds.has(sid),
+      };
+    });
+  }, [isClass, lesson, goingAttendees]);
+
+  const classStudentsPaidCount = useMemo(
+    () => classStudentsDisplay.filter((s) => s.paid).length,
+    [classStudentsDisplay],
+  );
+
+  /**
+   * Tutor-only revenue string: `price × (real confirmed count)` (matches web
+   * `classRevenue`). We intentionally ignore the mock roster (`goingAttendees`)
+   * so tutors never see fabricated dollar amounts in previews. `attendees` is
+   * a safe secondary source because HomeScreen / lessonCardModel always map
+   * it from `cls.confirmedStudents` — never from seeded preview mocks.
+   */
+  const classRevenue = useMemo(() => {
+    if (!isClass || !isTutor) return '';
+    const price =
+      (lesson as { classData?: { price?: number } } | null)?.classData?.price ??
+      (lesson as { price?: number } | null)?.price;
+    const confirmed =
+      ((lesson as { confirmedStudents?: any[] } | null)?.confirmedStudents) ||
+      ((lesson as { attendees?: any[] } | null)?.attendees) ||
+      [];
+    if (!price || !confirmed.length) return '';
+    return `$${(Number(price) * confirmed.length).toFixed(2)}`;
+  }, [isClass, isTutor, lesson]);
+
+  /**
+   * Auto-cancel rule sourced from the class doc (`minStudents` +
+   * `flexibleMinimum`). Mirrors the copy in the schedule-class wizard hint
+   * (`schedule-class.page.html`). We do NOT show this once the class has
+   * already reached a terminal state — the rule is a forward-looking promise
+   * about whether it will run, not a post-hoc explanation.
+   */
+  const classCancellationRule = useMemo(() => {
+    if (!isClass) return null;
+    const status = String((lesson as { status?: string } | null)?.status || '').toLowerCase();
+    if (status === 'cancelled' || status === 'completed' || status === 'in_progress') return null;
+
+    const classData =
+      (lesson as { classData?: { minStudents?: number; flexibleMinimum?: boolean } } | null)?.classData;
+    const min =
+      (lesson as { minStudents?: number } | null)?.minStudents ??
+      classData?.minStudents;
+    const flexible =
+      (lesson as { flexibleMinimum?: boolean } | null)?.flexibleMinimum ??
+      classData?.flexibleMinimum;
+
+    if (flexible) {
+      return {
+        kind: 'flexible' as const,
+        iconName: 'infinite-outline' as const,
+        text: t('LESSONS_PAGE.CLASS_RULE_FLEXIBLE'),
+      };
+    }
+    if (!min || Number(min) <= 0) return null;
+    return {
+      kind: 'min' as const,
+      iconName: 'alert-circle-outline' as const,
+      text: t('LESSONS_PAGE.CLASS_RULE_MIN', { count: Number(min) }),
+    };
+  }, [isClass, lesson, t]);
+
   const onGoingMessageRowPress = useCallback(() => {
     if (!canOpenClassGoingMessageModal) return;
     // Always thread the class id through when this is a class, so the
@@ -1289,6 +1505,50 @@ export default function LessonDetailOverlay({
     classGoingReceiverIds,
     classNameForGoingMessage,
   ]);
+
+  const [isLeavingClass, setIsLeavingClass] = useState(false);
+
+  /**
+   * Student "Leave class" flow. Confirms via native alert, hits the unenroll
+   * endpoint (which releases any authorized Stripe hold + posts a system
+   * message), then closes the overlay and tells the parent to refresh.
+   */
+  const handleLeaveClass = useCallback(() => {
+    if (isLeavingClass || !id) return;
+    const cname =
+      classNameForGoingMessage ||
+      card.className ||
+      (lesson as { classData?: { name?: string } } | null)?.classData?.name ||
+      'this class';
+    Alert.alert(
+      'Leave class?',
+      `Are you sure you want to leave "${cname}"? Any authorized payment will be released and your seat will be given up. This can't be undone.`,
+      [
+        { text: 'Stay enrolled', style: 'cancel' },
+        {
+          text: 'Leave class',
+          style: 'destructive',
+          onPress: async () => {
+            setIsLeavingClass(true);
+            try {
+              await leaveClassApi(String(id));
+              // Close the overlay; the home/lessons tabs refetch on focus.
+              try { onCloseStart?.(); } catch {}
+            } catch (err: any) {
+              Alert.alert(
+                'Could not leave class',
+                err?.response?.data?.message ||
+                  err?.message ||
+                  'Please try again in a moment.',
+              );
+            } finally {
+              setIsLeavingClass(false);
+            }
+          },
+        },
+      ],
+    );
+  }, [isLeavingClass, id, classNameForGoingMessage, card.className, lesson, onCloseStart]);
 
   const paymentStatus = useMemo(() => {
     if (!paymentData) return null;
@@ -1560,47 +1820,12 @@ export default function LessonDetailOverlay({
             <View style={[st.heroWrap, showHero && st.heroWrapClassSheet]}>
               <Animated.View style={avatarScaleStyle}>
                 {isClass ? (
+                  /* Avatar stack intentionally removed from the class hero — the
+                     full roster is now rendered below in the "Students" section,
+                     so a stacked preview above the title was redundant. */
                   <View style={[st.classHeroBlock, showHero && st.classHeroBlockTight]}>
                     {classThumbUri && !showHero ? (
                       <Image source={{ uri: classThumbUri }} style={st.classCoverHero} resizeMode="cover" />
-                    ) : null}
-                    {card.classAttendees.length > 0 ? (
-                      <View style={st.classAvatarRow}>
-                        {card.classAttendees.length > 1 ? (
-                          <>
-                            {card.classAttendees.map((att, i) => (
-                              <View
-                                key={`${att.name}-${i}`}
-                                style={[
-                                  st.classStackAv,
-                                  {
-                                    marginLeft: i === 0 ? 0 : -12,
-                                    borderColor: C.card,
-                                    zIndex: 4 - i,
-                                  },
-                                ]}
-                              >
-                                {att.picture ? (
-                                  <Image source={{ uri: att.picture }} style={st.classStackImg} />
-                                ) : (
-                                  <Text style={st.classStackIni}>{att.initials}</Text>
-                                )}
-                              </View>
-                            ))}
-                            {card.classAttendeesOverflow > 0 ? (
-                              <Text style={[st.classStackMore, { color: C.textTertiary }]}>+{card.classAttendeesOverflow}</Text>
-                            ) : null}
-                          </>
-                        ) : (
-                          <View style={[st.avatar, st.avatarInClassRow, { backgroundColor: isDark ? '#3a3a3c' : '#e8e8e8' }]}>
-                            {card.classAttendees[0].picture ? (
-                              <Image source={{ uri: card.classAttendees[0].picture }} style={st.avatarImgFill} />
-                            ) : (
-                              <Text style={[st.initials, { color: C.textSecondary }]}>{card.classAttendees[0].initials}</Text>
-                            )}
-                          </View>
-                        )}
-                      </View>
                     ) : null}
                   </View>
                 ) : card.otherPicture && !showHero ? (
@@ -1756,6 +1981,143 @@ export default function LessonDetailOverlay({
                   </Text>
                   <Text style={[st.noteBody, { color: C.textSecondary, marginTop: 0, marginBottom: 0 }]}>{aboutThisClassText}</Text>
                 </View>
+              ) : null}
+
+              {/* ── Students roster (mirrors web event-details "Students" section) ── */}
+              {isClass ? (
+                <>
+                  {aboutThisClassText ? (
+                    <View style={[st.hairline, { backgroundColor: isDark ? C.border : '#EBEBEB', marginTop: 20, marginBottom: 16 }]} />
+                  ) : null}
+                  <View style={st.classStudentsHeaderRow}>
+                    <Text style={[st.sectionHeading, { color: C.text, marginTop: 0, marginBottom: 0 }]}>
+                      {t('LESSONS_PAGE.CLASS_STUDENTS_TITLE')}
+                    </Text>
+                    {classStudentsDisplay.length > 0 && card.classCapacity ? (
+                      <View style={[st.classStudentsCountChip, { backgroundColor: isDark ? '#2c2c2e' : '#f1f1f3' }]}>
+                        <Text style={[st.classStudentsCountChipText, { color: C.textSecondary }]} numberOfLines={1}>
+                          {t('LESSONS_PAGE.CLASS_STUDENTS_COUNT', {
+                            current: classStudentsDisplay.length,
+                            max: card.classCapacity,
+                          })}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  {classStudentsDisplay.length > 0 ? (
+                    <View style={{ marginTop: 10 }}>
+                      {classStudentsDisplay.map((s, i) => {
+                        const isLast = i === classStudentsDisplay.length - 1;
+                        return (
+                          <View
+                            key={s.id}
+                            style={[
+                              st.classStudentRow,
+                              !isLast && {
+                                borderBottomWidth: StyleSheet.hairlineWidth,
+                                borderBottomColor: isDark ? C.border : '#EBEBEB',
+                              },
+                            ]}
+                          >
+                            {s.picture ? (
+                              <Image source={{ uri: s.picture }} style={st.classStudentAvatar} />
+                            ) : (
+                              <View
+                                style={[
+                                  st.classStudentAvatar,
+                                  st.classStudentAvatarFB,
+                                  { backgroundColor: isDark ? '#2c2c2e' : '#e8e8e8' },
+                                ]}
+                              >
+                                <Text style={[st.classStudentAvatarLetter, { color: C.textSecondary }]}>
+                                  {s.initials}
+                                </Text>
+                              </View>
+                            )}
+                            <Text
+                              style={[st.classStudentName, { color: C.text }]}
+                              numberOfLines={1}
+                            >
+                              {s.name}
+                            </Text>
+                            {isTutor ? (
+                              <View style={st.classStudentStatus}>
+                                <Ionicons
+                                  name={s.paid ? 'checkmark-circle' : 'time-outline'}
+                                  size={16}
+                                  color={s.paid ? (isDark ? '#34d399' : '#2E7D32') : C.textTertiary}
+                                />
+                                <Text
+                                  style={[
+                                    st.classStudentStatusText,
+                                    { color: s.paid ? (isDark ? '#34d399' : '#2E7D32') : C.textTertiary },
+                                  ]}
+                                  numberOfLines={1}
+                                >
+                                  {s.paid
+                                    ? t('LESSONS_PAGE.CLASS_STUDENT_PAID')
+                                    : t('LESSONS_PAGE.CLASS_STUDENT_PENDING')}
+                                </Text>
+                              </View>
+                            ) : null}
+                          </View>
+                        );
+                      })}
+                    </View>
+                  ) : (
+                    <Text style={[st.noteBody, { color: C.textSecondary, marginTop: 10 }]}>
+                      {info?.isCancelled || (info?.isPast && !info?.isNow)
+                        ? t('LESSONS_PAGE.CLASS_STUDENTS_EMPTY_PAST')
+                        : t('LESSONS_PAGE.CLASS_STUDENTS_EMPTY')}
+                    </Text>
+                  )}
+
+                  {classCancellationRule ? (
+                    <View
+                      style={[
+                        st.classRuleRow,
+                        {
+                          backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : '#F7F7F8',
+                          borderColor: isDark ? C.border : '#EBEBEB',
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name={classCancellationRule.iconName}
+                        size={16}
+                        color={
+                          classCancellationRule.kind === 'flexible'
+                            ? (isDark ? '#34d399' : '#2E7D32')
+                            : C.textSecondary
+                        }
+                        style={st.classRuleIcon}
+                      />
+                      <Text style={[st.classRuleText, { color: C.textSecondary }]}>
+                        {classCancellationRule.text}
+                      </Text>
+                    </View>
+                  ) : null}
+                </>
+              ) : null}
+
+              {/* ── Revenue (tutor view only) ── */}
+              {isClass && isTutor && classRevenue ? (
+                <>
+                  <View style={[st.hairline, { backgroundColor: isDark ? C.border : '#EBEBEB', marginTop: 20, marginBottom: 16 }]} />
+                  <Text style={[st.sectionHeading, { color: C.text, marginTop: 0, marginBottom: 8 }]}>
+                    {t('LESSONS_PAGE.CLASS_REVENUE_TITLE')}
+                  </Text>
+                  <View style={st.classRevenueRow}>
+                    <Text style={[st.classRevenueValue, { color: C.text }]}>{classRevenue}</Text>
+                    <Text style={[st.classRevenueMeta, { color: C.textSecondary }]} numberOfLines={1}>
+                      {t('LESSONS_PAGE.CLASS_REVENUE_PAID_LINE', {
+                        paid: classStudentsPaidCount,
+                        total: classStudentsDisplay.length,
+                      })}
+                    </Text>
+                  </View>
+                </>
               ) : null}
 
               {/* ── About the other person (1:1 bio) ── */}
@@ -2480,6 +2842,22 @@ export default function LessonDetailOverlay({
                   style={st.footerLink}
                 >
                   <Text style={st.footerLinkText}>Reschedule or cancel</Text>
+                </TouchableOpacity>
+              ) : null}
+
+              {showLeaveClass ? (
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  activeOpacity={0.7}
+                  disabled={isLeavingClass}
+                  onPress={handleLeaveClass}
+                  style={st.footerLink}
+                >
+                  {isLeavingClass ? (
+                    <ActivityIndicator size="small" color="#717171" />
+                  ) : (
+                    <Text style={st.footerLinkText}>Leave class</Text>
+                  )}
                 </TouchableOpacity>
               ) : null}
             </Animated.View>
@@ -3249,5 +3627,98 @@ const st = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     flex: 1,
+  },
+
+  /* ── Class → Students section (mirrors event-details on web) ── */
+  classStudentsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  classStudentsCountChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  classStudentsCountChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  classStudentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    gap: 12,
+  },
+  classStudentAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#e8e8e8',
+  },
+  classStudentAvatarFB: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  classStudentAvatarLetter: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  classStudentName: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  classStudentStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  classStudentStatusText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+
+  /**
+   * Auto-cancel rule row — rendered beneath the Students list so both students
+   * and tutors see the run-condition the tutor set when scheduling the class.
+   * Matches the compact hint style used in `schedule-class.page.html`
+   * (`econ-hint-row`) on the web.
+   */
+  classRuleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginTop: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  classRuleIcon: {
+    marginTop: 1,
+  },
+  classRuleText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+
+  /* ── Class → Revenue (tutor only) ── */
+  classRevenueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  classRevenueValue: {
+    fontSize: 28,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+  },
+  classRevenueMeta: {
+    fontSize: 14,
+    flexShrink: 1,
   },
 });

@@ -118,6 +118,34 @@ export class WebSocketService {
   private paymentStatusChangedSubject = new Subject<{ paymentId: string; lessonId: string; status: string; updatedAt: Date }>();
   public paymentStatusChanged$ = this.paymentStatusChangedSubject.asObservable();
 
+  /**
+   * Real-time class detail updates. Fired for every viewer subscribed to a
+   * class room via `joinClassRoom(classId)`. The `state` object is a compact
+   * projection of the class doc (see backend `classStateBroadcaster`); merge
+   * it into your local model rather than refetching.
+   */
+  private classStateChangedSubject = new Subject<{
+    classId: string;
+    version: string | null;
+    reason: string;
+    actorId?: string | null;
+    timestamp?: string;
+    state: {
+      confirmedStudents: Array<{ id: string; name: string; picture?: string }>;
+      studentPayments: { [studentId: string]: string };
+      capacity: number | null;
+      minStudents: number | null;
+      flexibleMinimum: boolean;
+      price: number | null;
+      status: string;
+      cancelReason?: string | null;
+    };
+  }>();
+  public classStateChanged$ = this.classStateChangedSubject.asObservable();
+
+  /** Rooms we've asked the server to subscribe us to. Reclaimed on reconnect. */
+  private subscribedClassRooms = new Set<string>();
+
   constructor(
     private authService: AuthService,
     private userService: UserService
@@ -154,6 +182,7 @@ export class WebSocketService {
     this.socket.off('credential_rejected');
     this.socket.off('lesson_status_changed');
     this.socket.off('payment_status_changed');
+    this.socket.off('class_state_changed');
 
     // Listen for new messages (incoming)
     this.socket.on('new_message', (message: Message) => {
@@ -323,7 +352,58 @@ export class WebSocketService {
       this.paymentStatusChangedSubject.next(data);
     });
 
+    // Listen for compact "class state changed" patches. Every viewer of a
+    // class detail page calls `joinClassRoom(id)` on enter and receives a
+    // patch for that class on every mutation (enroll, unenroll, remove,
+    // cancel, payment status change). The page merges `state` into its
+    // local model — no refetch.
+    this.socket.on('class_state_changed', (data: any) => {
+      if (!data || !data.classId || !data.state) return;
+      this.classStateChangedSubject.next(data);
+    });
+
     this.listenersSetup = true;
+
+    // After a (re)connect we re-ask the server to put us back into any rooms
+    // we had joined. The server has a fresh socket id and no longer knows us.
+    if (this.subscribedClassRooms.size > 0) {
+      for (const classId of this.subscribedClassRooms) {
+        this.socket.emit('class:subscribe', { classId }, (ack: any) => {
+          if (ack && ack.ok && ack.state) {
+            this.classStateChangedSubject.next(ack.state);
+          }
+        });
+      }
+    }
+  }
+
+  /**
+   * Join a class detail room. Safe to call multiple times — de-duped on the
+   * client and idempotent on the server. The optional ack callback receives
+   * the initial snapshot (same shape as `class_state_changed`).
+   */
+  joinClassRoom(classId: string, onInitialState?: (snapshot: any) => void): void {
+    if (!classId) return;
+    this.subscribedClassRooms.add(classId);
+    if (!this.socket || !this.socket.connected) {
+      this.ensureConnected();
+      return;
+    }
+    this.socket.emit('class:subscribe', { classId }, (ack: any) => {
+      if (ack && ack.ok && ack.state) {
+        if (onInitialState) onInitialState(ack.state);
+        this.classStateChangedSubject.next(ack.state);
+      }
+    });
+  }
+
+  /** Leave a class detail room. */
+  leaveClassRoom(classId: string): void {
+    if (!classId) return;
+    this.subscribedClassRooms.delete(classId);
+    if (this.socket && this.socket.connected) {
+      this.socket.emit('class:unsubscribe', { classId });
+    }
   }
 
   connect(): void {

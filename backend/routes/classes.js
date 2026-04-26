@@ -8,6 +8,7 @@ const { verifyToken, uploadImage, uploadImageToGCS, getUserFromRequest } = requi
 const { RtcRole, RtcTokenBuilder } = require('agora-token');
 const { formatNameWithInitial } = require('../utils/nameFormatter');
 const { syncClassConversation, archiveClassConversation } = require('../services/classConversation');
+const { emitClassStateChanged, REASONS: CLASS_STATE_REASONS } = require('../services/classStateBroadcaster');
 
 const AGORA_APP_ID = process.env.AGORA_APP_ID;
 const AGORA_APP_CERT = process.env.AGORA_APP_CERT;
@@ -690,6 +691,11 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
     }
     
     await cls.save();
+
+    emitClassStateChanged(req.io, cls._id, {
+      reason: CLASS_STATE_REASONS.studentEnrolled,
+      actorId: student && student._id,
+    }).catch(() => {});
 
     // Keep the class group chat in sync with the new roster. The student
     // joins as an active member with `joinedAt = now`, so any prior chatter
@@ -1476,7 +1482,12 @@ router.post('/:classId/join', verifyToken, async (req, res) => {
           cls.participants.set(key, prev);
           
           await cls.save();
-          
+
+          emitClassStateChanged(req.io, cls._id, {
+            reason: CLASS_STATE_REASONS.paymentStatusChanged,
+            actorId: user && user._id,
+          }).catch(() => {});
+
           console.log(`💳 Payment captured for student ${user.email} joining class: ${cls.name} ($${cls.price})`);
         } else if (!studentPayment) {
           console.warn(`⚠️ No payment record found for student ${user.email} in class ${cls.name}`);
@@ -1684,6 +1695,138 @@ router.post('/:classId/leave', verifyToken, async (req, res) => {
   }
 });
 
+/**
+ * POST /api/classes/:classId/unenroll
+ *
+ * Student-initiated un-enrollment — the counterpart to the tutor-side
+ * DELETE `/:classId/student/:studentId` flow. The caller must already be a
+ * confirmed student on the class and the class must still be `scheduled`
+ * (no leaving mid-session or after completion).
+ *
+ * Side effects:
+ *  - Cancels any authorized Stripe PaymentIntent for this student, releasing
+ *    the hold. Mirrors the auto-cancel job so leavers are not left with a
+ *    pending charge.
+ *  - Removes the student from `confirmedStudents` and prunes their
+ *    `invitedStudents` entry (if any) so the invitation can't be re-accepted
+ *    silently later.
+ *  - Calls `syncClassConversation` → flips their conversation membership
+ *    to `leftAt = now` and posts a "X left the class" system message so
+ *    everyone sees the roster change.
+ *  - Notifies the tutor.
+ */
+router.post('/:classId/unenroll', verifyToken, async (req, res) => {
+  try {
+    const user = await getUserFromRequest(req);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const cls = await ClassModel.findById(req.params.classId);
+    if (!cls) return res.status(404).json({ success: false, message: 'Class not found' });
+
+    const userIdStr = user._id.toString();
+    const isTutor = cls.tutorId.toString() === userIdStr;
+    if (isTutor) {
+      return res.status(400).json({ success: false, message: 'The class tutor cannot unenroll. Cancel the class instead.' });
+    }
+
+    const wasConfirmed = cls.confirmedStudents.some((id) => id.toString() === userIdStr);
+    if (!wasConfirmed) {
+      return res.status(400).json({ success: false, message: 'You are not enrolled in this class.' });
+    }
+    if (cls.status !== 'scheduled') {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot leave a class that is ${cls.status}. Contact the tutor if you need to cancel.`
+      });
+    }
+
+    if (cls.price > 0) {
+      const studentPayment = (cls.studentPayments || []).find(
+        (sp) => sp.studentId && sp.studentId.toString() === userIdStr
+      );
+      if (studentPayment && studentPayment.paymentStatus === 'authorized' && studentPayment.stripePaymentIntentId) {
+        try {
+          const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+          const cancelledIntent = await stripe.paymentIntents.cancel(
+            studentPayment.stripePaymentIntentId
+          );
+          if (cancelledIntent.status === 'canceled') {
+            studentPayment.paymentStatus = 'cancelled';
+            studentPayment.cancelledAt = new Date();
+
+            const Payment = require('../models/Payment');
+            const payment = await Payment.findById(studentPayment.paymentId);
+            if (payment) {
+              payment.status = 'cancelled';
+              payment.metadata = payment.metadata || {};
+              payment.metadata.cancelReason = 'student_unenrolled';
+              payment.metadata.cancelledAt = new Date();
+              await payment.save();
+            }
+          }
+        } catch (stripeError) {
+          console.error('⚠️ Failed to cancel payment authorization on unenroll:', stripeError.message);
+        }
+      }
+    }
+
+    cls.confirmedStudents = cls.confirmedStudents.filter(
+      (id) => id.toString() !== userIdStr
+    );
+    cls.invitedStudents = cls.invitedStudents.filter(
+      (inv) => inv.studentId && inv.studentId.toString() !== userIdStr
+    );
+
+    await cls.save();
+
+    emitClassStateChanged(req.io, cls._id, {
+      reason: CLASS_STATE_REASONS.studentUnenrolled,
+      actorId: user && user._id,
+    }).catch(() => {});
+
+    try {
+      await syncClassConversation(cls._id);
+    } catch (syncErr) {
+      console.error('⚠️ Failed to sync class conversation on unenroll:', syncErr);
+    }
+
+    try {
+      const tutor = await User.findById(cls.tutorId);
+      if (tutor) {
+        const studentDisplayName = formatDisplayName(user);
+        const startDate = new Date(cls.startTime);
+        const formattedDate = startDate.toLocaleDateString('en-US', {
+          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+        });
+        const formattedStartTime = startDate.toLocaleTimeString('en-US', {
+          hour: '2-digit', minute: '2-digit', hour12: true
+        });
+        await Notification.create({
+          userId: tutor._id,
+          type: 'class_student_left',
+          title: 'Student Left Class',
+          message: `<strong>${studentDisplayName}</strong> left <strong>"${cls.name}"</strong> on <strong>${formattedDate} at ${formattedStartTime}</strong>.`,
+          relatedUserPicture: user.picture || null,
+          data: {
+            classId: cls._id.toString(),
+            className: cls.name,
+            studentId: user._id.toString(),
+            studentName: studentDisplayName,
+            startTime: cls.startTime
+          }
+        });
+      }
+    } catch (notifError) {
+      console.error('Failed to notify tutor of student unenroll:', notifError);
+    }
+
+    res.json({ success: true, message: 'You have left the class.' });
+  } catch (error) {
+    console.error('Error unenrolling from class:', error);
+    res.status(500).json({ success: false, message: 'Failed to leave class' });
+  }
+});
+
 // DELETE /api/classes/:classId/student/:studentId - Remove a student from a class
 router.delete('/:classId/student/:studentId', verifyToken, async (req, res) => {
   try {
@@ -1727,7 +1870,12 @@ router.delete('/:classId/student/:studentId', verifyToken, async (req, res) => {
     }
     
     await cls.save();
-    
+
+    emitClassStateChanged(req.io, cls._id, {
+      reason: CLASS_STATE_REASONS.studentRemoved,
+      actorId: tutor && tutor._id,
+    }).catch(() => {});
+
     // Send notification to student
     try {
       const tutorDisplayName = formatDisplayName(tutor);
@@ -2045,6 +2193,12 @@ router.patch('/:id', verifyToken, async (req, res) => {
       }
 
       await classObj.save();
+
+      emitClassStateChanged(req.io, classObj._id, {
+        reason: CLASS_STATE_REASONS.classUpdated,
+        actorId: user && user._id,
+      }).catch(() => {});
+
       console.log(`✅ Class ${classObj._id} updated by ${user.email}`);
       return res.json({
         success: true,
@@ -2132,6 +2286,8 @@ router.post('/:classId/hide-from-hub', verifyToken, async (req, res) => {
 router.delete('/:classId', verifyToken, async (req, res) => {
   try {
     const { classId } = req.params;
+    const reasonIdRaw = (req.query.reasonId && String(req.query.reasonId).trim()) || '';
+    const reasonTextRaw = (req.query.reasonText && String(req.query.reasonText).trim()) || '';
     
     const tutor = await getUserFromRequest(req);
     if (!tutor) return res.status(404).json({ success: false, message: 'Tutor not found' });
@@ -2162,6 +2318,12 @@ router.delete('/:classId', verifyToken, async (req, res) => {
     cls.status = 'cancelled';
     cls.cancelledAt = new Date();
     cls.cancelReason = 'tutor_cancelled';
+    if (reasonIdRaw) {
+      cls.cancelReasonId = reasonIdRaw.slice(0, 64);
+    }
+    if (reasonTextRaw) {
+      cls.cancelReasonText = reasonTextRaw.slice(0, 300);
+    }
     
     // 💳 RELEASE ALL AUTHORIZED PAYMENTS: Cancel all payment holds
     const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
@@ -2205,7 +2367,12 @@ router.delete('/:classId', verifyToken, async (req, res) => {
     }
     
     await cls.save();
-    
+
+    emitClassStateChanged(req.io, cls._id, {
+      reason: CLASS_STATE_REASONS.classCancelled,
+      actorId: tutor && tutor._id,
+    }).catch(() => {});
+
     console.log(`🔴 [CLASS-CANCEL] Class "${cls.name}" (${cls._id}) cancelled by tutor ${tutor.name}`);
 
     // Freeze the class group chat: mark all members as left and post a

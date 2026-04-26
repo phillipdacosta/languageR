@@ -210,6 +210,22 @@ export class ReminderService {
     } else if (minutes < 60) {
       return `In ${minutes} mins`;
     } else {
+      // ≥1 day: show "In 2 days 4 hrs" instead of a large hour count
+      if (minutes >= 24 * 60) {
+        const days = Math.floor(minutes / (24 * 60));
+        const rem = minutes % (24 * 60);
+        const hours = Math.floor(rem / 60);
+        const remMins = rem % 60;
+        const dayPart = days === 1 ? '1 day' : `${days} days`;
+        if (hours > 0) {
+          const hrPart = hours === 1 ? '1 hr' : `${hours} hrs`;
+          return `In ${dayPart} ${hrPart}`;
+        }
+        if (remMins > 0) {
+          return `In ${dayPart} ${remMins} min`;
+        }
+        return `In ${dayPart}`;
+      }
       const hours = Math.floor(minutes / 60);
       const remainingMins = minutes % 60;
       if (remainingMins === 0) {

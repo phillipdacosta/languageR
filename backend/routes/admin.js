@@ -1855,7 +1855,7 @@ router.post('/finalize-classes', verifyToken, requireAdmin, async (req, res) => 
   try {
     console.log('🔧 [ADMIN] Manually triggering finalize classes job...');
     
-    const result = await autoReleaseClassPayments();
+    const result = await autoReleaseClassPayments(req.io);
     
     res.json({
       success: true,

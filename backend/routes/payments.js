@@ -1186,7 +1186,7 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
     // Get payments (limit=0 returns all for chart data)
     let paymentsQuery = Payment.find(query)
       .populate('lessonId', 'startTime endTime duration status cancelReason price actualPrice tutorPayout platformFee')
-      .populate('classId', 'startTime endTime name status price')
+      .populate('classId', 'startTime endTime name status price thumbnail')
       .populate('materialId', 'title materialType')
       .populate('studentId', 'name firstName lastName picture')
       .sort({ createdAt: -1 }); // Sort by booking date
@@ -1215,7 +1215,7 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
         transferStatus: { $ne: 'acknowledged' }
       })
         .populate('lessonId', 'startTime endTime duration status cancelReason price actualPrice tutorPayout platformFee')
-        .populate('classId', 'startTime endTime name status price')
+        .populate('classId', 'startTime endTime name status price thumbnail')
         .populate('studentId', 'name firstName lastName picture');
 
       if (missingPartners.length > 0) {
@@ -1358,6 +1358,7 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
         lessonId: payment.lessonId?._id || null,
         classId: payment.classId?._id || null,
         className: payment.classId?.name || null,
+        classThumbnail: isClassPayment && payment.classId?.thumbnail ? payment.classId.thumbnail : null,
         materialId: payment.materialId?._id || null,
         materialTitle: payment.materialId?.title || payment.metadata?.materialTitle || null,
         materialType: payment.materialId?.materialType || payment.metadata?.materialType || null,
@@ -1434,7 +1435,7 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
     const cancelledClasses = await ClassModel.find({
       tutorId: user._id,
       status: 'cancelled'
-    }).select('name startTime endTime price status cancelReason cancelledAt').lean();
+    }).select('name startTime endTime price status cancelReason cancelledAt thumbnail').lean();
 
     for (const cls of cancelledClasses) {
       if (classIdsWithPayments.has(cls._id.toString())) continue;
@@ -1458,7 +1459,58 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
         lessonId: null,
         classId: cls._id,
         className: cls.name,
+        classThumbnail: cls.thumbnail || null,
         isClassPayment: true,
+        paymentType: 'class_booking',
+        transferStatus: null,
+        receiptUrl: null,
+        stripeChargeId: null,
+        paypalTransactionId: null
+      });
+    }
+    // ──────────────────────────────────────────────────────────────────
+
+    // ─── Upcoming (scheduled) classes with no payment row yet ───────
+    // Calendar / home can show a class before any student has paid, or mock
+    // data may not create Payment docs. Mirror cancelled-classes: one row
+    // per class so the transactions table stays aligned with the schedule.
+    const classIdsInRecent = new Set(
+      recentPayments.filter((r) => r.classId).map((r) => r.classId.toString())
+    );
+    const now = new Date();
+    const scheduledUpcoming = await ClassModel.find({
+      tutorId: user._id,
+      status: 'scheduled',
+      startTime: { $gt: now }
+    })
+      .select('name startTime endTime price status thumbnail')
+      .lean();
+
+    for (const cls of scheduledUpcoming) {
+      if (classIdsInRecent.has(cls._id.toString())) continue;
+      recentPayments.push({
+        id: `upcoming-class-${cls._id}`,
+        studentName: '—',
+        studentPicture: null,
+        date: cls.startTime || cls.endTime,
+        startTime: cls.startTime,
+        endTime: cls.endTime,
+        amount: cls.price || 0,
+        tutorPayout: 0,
+        platformFee: 0,
+        stripeFee: 0,
+        refundAmount: 0,
+        refundReason: null,
+        status: 'class_scheduled',
+        lessonStatus: 'unknown',
+        classStatus: 'scheduled',
+        cancelReason: null,
+        lessonId: null,
+        classId: cls._id,
+        className: cls.name,
+        classThumbnail: cls.thumbnail || null,
+        isClassPayment: true,
+        isMaterialPurchase: false,
         paymentType: 'class_booking',
         transferStatus: null,
         receiptUrl: null,

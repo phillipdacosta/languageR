@@ -1942,24 +1942,28 @@ ion-content {
   }
 }
 
-// Event Cards (Airbnb Style)
+// Event Cards
 .calendar-event {
   position: absolute;
   left: 2px;
   right: 2px;
   background: #ffffff;
-  border: 1px solid #EBEBEB;
-  border-left: 3px solid #222222;
-  border-radius: 0 8px 8px 0;
-  padding: 6px 8px;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-left: 3px solid #007AFF;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  
-  // Trial badge - tiny orange star in bottom right corner (week view)
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+  overflow: hidden;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+
+  // Trial badge — absolute so it doesn't affect flex layout
   .calendar-trial-badge {
     position: absolute;
-    bottom: 2px;
-    right: 2px;
+    bottom: 3px;
+    right: 3px;
     width: 14px;
     height: 14px;
     background: linear-gradient(135deg, #FFA500 0%, #FF6B35 100%);
@@ -1969,10 +1973,7 @@ ion-content {
     justify-content: center;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
     z-index: 10;
-    transition: transform 0.2s ease;
-    cursor: pointer;
-    
-    // Custom tooltip with fast appearance
+
     .trial-tooltip {
       position: absolute;
       bottom: 100%;
@@ -1990,8 +1991,7 @@ ion-content {
       transform: translateY(-4px);
       transition: opacity 0.1s ease, transform 0.1s ease, visibility 0s linear 0.1s;
       z-index: 1000;
-      
-      // Arrow pointing down
+
       &::after {
         content: '';
         position: absolute;
@@ -2001,279 +2001,190 @@ ion-content {
         border-top-color: rgba(0, 0, 0, 0.85);
       }
     }
-    
+
     &:hover .trial-tooltip {
       opacity: 1;
       visibility: visible;
       transform: translateY(0);
       transition: opacity 0.1s ease, transform 0.1s ease, visibility 0s;
     }
-    
-    ion-icon {
-      font-size: 8px;
-      color: #ffffff;
-    }
-    
-    // Custom tooltip with fast appearance
-    .trial-tooltip {
-      position: absolute;
-      bottom: 100%;
-      right: 0;
-      margin-bottom: 6px;
-      padding: 4px 8px;
-      background: rgba(0, 0, 0, 0.85);
-      color: #ffffff;
-      font-size: 11px;
-      white-space: nowrap;
-      border-radius: 4px;
-      pointer-events: none;
-      opacity: 0;
-      visibility: hidden;
-      transform: translateY(-4px);
-      transition: opacity 0.1s ease, transform 0.1s ease, visibility 0s linear 0.1s;
-      z-index: 1000;
-      
-      // Arrow pointing down
-      &::after {
-        content: '';
-        position: absolute;
-        top: 100%;
-        right: 8px;
-        border: 4px solid transparent;
-        border-top-color: rgba(0, 0, 0, 0.85);
-      }
-    }
-  }
-  
-  // Inline trial badge (day view) - appears next to student name
-  .calendar-trial-inline {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    margin-left: 6px;
-    padding: 2px 6px;
-    background: linear-gradient(135deg, #FFA500 0%, #FF6B35 100%);
-    color: #ffffff;
-    font-size: 10px;
-    font-weight: 600;
-    border-radius: 10px;
-    white-space: nowrap;
-    
-    ion-icon {
-      font-size: 10px;
-    }
-  }
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  justify-content: center; // Center content vertically
-  gap: 3px; // Increased from 2px
-  
-  &:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    transform: translateY(-0.5px);
-    z-index: 10;
-  }
-  
-  &.past {
-    opacity: 0.5;
-    background: #fafafa;
-  }
-  
-  &.availability-event {
-    border-left: none; // No border
-    background: #04412c0f; // Light green background
-    cursor: default; // Not clickable
-    pointer-events: none; // Disable all interactions
-    
-    // Hide all text content
-    .event-header,
-    .event-title,
-    .event-time,
-    .event-time-row,
-    .event-info-row,
-    .event-avatar {
-      display: none !important;
-    }
-  }
-  
-  // Class events - purple theme
-  &.class-event {
-    border-left-color: #8b5cf6; // Purple
-    background: #ffffff;
-    
-    .event-avatar {
-      border-radius: 4px; // Square corners for class thumbnails
-    }
-    
-    .event-title {
-      color: #222222;
-      font-weight: 500;
-    }
-    
-    .event-time {
-      color: #717171;
-    }
-  }
-  
-  // Cancelled events
-  &.is-cancelled {
-    opacity: 0.6;
-    background: #f3f4f6;
-    border-left-color: #9ca3af;
-    
-    .event-title,
-    .event-time {
-      text-decoration: line-through;
-      color: #6b7280;
-    }
+
+    ion-icon { font-size: 8px; color: #ffffff; }
   }
 
-  &.gcal-event {
-    border-left-color: #6b7280;
-    background: #f9fafb;
-
-    .event-title {
-      color: #374151;
-      font-weight: 500;
-    }
-
-    .event-time {
-      color: #6b7280;
-    }
-
-    .gcal-avatar {
-      width: 16px;
-      height: 16px;
-      border-radius: 0;
-      object-fit: contain;
-    }
-  }
-  
-  .event-header {
-    display: flex;
-    flex-direction: column; // Stack rows vertically
-    align-items: flex-start; // Left align
-    gap: 3px;
-    min-height: 0;
-  }
-  
-  // First row: Time and duration
-  .event-time-row {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    width: 100%;
-  }
-  
-  // Second row: Avatar and name
-  .event-info-row {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    width: 100%;
-  }
-  
-  .event-avatar {
-    width: 20px; // Increased from 18px
-    height: 20px; // Increased from 18px
-    border-radius: 7px !important;
+  // Class thumbnail — flush to card edge, full height, no rounding
+  .event-class-thumb {
+    width: 46px;
+    align-self: stretch;
     object-fit: cover;
     flex-shrink: 0;
-    border: 1px solid rgba(0, 0, 0, 0.08);
+
+    &--placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(139, 92, 246, 0.08);
+      ion-icon { font-size: 16px; color: #8b5cf6; }
+    }
+  }
+
+  // Lesson avatar — circular, vertically centered
+  .event-avatar {
+    width: 22px;
+    height: 22px;
+    border-radius: 11px;
+    object-fit: cover;
+    flex-shrink: 0;
+    align-self: center;
+    margin: 0 2px 0 8px;
+    border: 1px solid rgba(0, 0, 0, 0.07);
     background: #f5f5f5;
   }
-  
-  .event-info {
+
+  .gcal-avatar {
+    width: 16px;
+    height: 16px;
+    border-radius: 0;
+    object-fit: contain;
+    margin: 0 2px 0 8px;
+  }
+
+  // Text column
+  .event-content {
     flex: 1;
     min-width: 0;
     display: flex;
-    flex-direction: row; // Keep time and name in same conceptual flow
-    align-items: center;
-    gap: 0px;
+    flex-direction: column;
+    justify-content: center;
+    padding: 4px 7px;
+    gap: 1px;
   }
-  
-  .event-time {
-    font-size: 10.5px; // Increased from 9.5px
-    font-weight: 500;
-    color: #717171;
-    letter-spacing: -0.01em;
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
-    line-height: 1.2;
-    flex-shrink: 0;
-  }
-  
+
   .event-title {
-    font-size: 12px; // Increased from 11px
-    font-weight: 500;
-    color: #222222;
+    font-size: 11px;
+    font-weight: 600;
+    color: #1d1d1f;
     line-height: 1.3;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     letter-spacing: -0.01em;
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
-    flex: 1;
-    min-width: 0;
   }
-  
-  .event-subject {
-    font-size: 8px;
-    font-weight: 400;
-    color: rgba(0, 0, 0, 0.4);
-    line-height: 1.25;
+
+  .event-time {
+    font-size: 10px;
+    font-weight: 500;
+    color: #8e8e93;
+    line-height: 1.2;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    margin-top: 1px;
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
   }
-  
-  // Compact version for short events (under 50px) - align to top
+
+  &:hover {
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    transform: translateY(-0.5px);
+    z-index: 10;
+  }
+
+  &.past {
+    opacity: 0.5;
+  }
+
+  // Availability — silent green shading, no interaction
+  &.availability-event {
+    border-left: none;
+    border: none;
+    background: #04412c0f;
+    box-shadow: none;
+    cursor: default;
+    pointer-events: none;
+
+    .event-content,
+    .event-class-thumb,
+    .event-avatar {
+      display: none !important;
+    }
+  }
+
+  // Lesson — blue accent
+  &:not(.class-event):not(.gcal-event):not(.availability-event) {
+    border-left-color: #007AFF;
+  }
+
+  // Class — purple accent
+  &.class-event {
+    border-left-color: #8b5cf6;
+    .event-title { font-weight: 600; }
+  }
+
+  // Cancelled
+  &.is-cancelled {
+    opacity: 0.55;
+    background: #f3f4f6;
+    border-left-color: #9ca3af;
+    box-shadow: none;
+
+    .event-title { text-decoration: line-through; color: #6b7280; }
+    .event-time  { color: #9ca3af; }
+  }
+
+  // Google Calendar
+  &.gcal-event {
+    border-left-color: #4285F4;
+    background: #f9fafb;
+    .event-title { color: #374151; }
+    .event-time  { color: #6b7280; }
+  }
+
+  // Short / compact — hide thumbnail, rely only on text
   &.short-event,
   &.compact-event {
-    justify-content: flex-start; // Align to top for short events
-    padding: 1px 6px 1px;
-    gap: 1px;
-    
-    .event-header {
-      gap: 2px;
-    }
-    
-    .event-time-row {
-      gap: 3px;
-    }
-    
-    .event-info-row {
-      gap: 4px;
-    }
-    
-    .event-avatar {
-      width: 13px;
-      height: 13px;
-    }
-    
-    .event-time {
-      font-size: 8.5px;
-    }
-    
-    .event-title {
-      font-size: 9px;
-      font-weight: 400;
-    }
+    .event-class-thumb { display: none; }
+    .event-content { padding: 2px 6px; }
+    .event-avatar { width: 16px; height: 16px; margin-left: 5px; }
   }
-  
-  // Medium events (50-80px) - hide subject
-  &[style*="height: 50px"],
-  &[style*="height: 60px"],
-  &[style*="height: 70px"] {
-    .event-subject {
-      display: none;
-    }
+
+  &.compact-event {
+    .event-avatar { display: none; }
+    .event-time   { display: none; }
   }
 }
 
+// Dark mode overrides for calendar event cards
+ion-app.dark {
+  .calendar-event {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(255, 255, 255, 0.06);
+
+    .event-title { color: #ffffff; }
+    .event-time  { color: rgba(255, 255, 255, 0.5); }
+    .event-avatar { border-color: rgba(255, 255, 255, 0.1); }
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.1);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+    }
+
+    &.past { opacity: 0.4; }
+
+    &.is-cancelled {
+      background: rgba(255, 255, 255, 0.04);
+      border-left-color: #4b5563;
+      .event-title { color: #6b7280; }
+    }
+
+    &.gcal-event {
+      background: rgba(66, 133, 244, 0.1);
+      .event-title { color: rgba(255, 255, 255, 0.85); }
+    }
+
+    &.class-event .event-class-thumb--placeholder {
+      background: rgba(139, 92, 246, 0.2);
+    }
+  }
+}
+  
 // ============ END CUSTOM CALENDAR STYLES ============
 
 // Apple-style time indicator (BACKUP - FULLCALENDAR)

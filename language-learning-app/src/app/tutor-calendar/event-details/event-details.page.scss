@@ -1533,6 +1533,36 @@ ion-header ion-toolbar {
 
 }
 
+/* ── Leave class (student) — deliberately understated. Plain text link
+   with tertiary color; only turns red on hover so it recedes visually
+   while staying within Apple-style tap target sizing. */
+.ed-class-leave {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 4px;
+}
+
+.ed-leave-link {
+  background: transparent;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 10px;
+  color: var(--ed-text-tertiary, #8e8e93);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+
+  &:hover {
+    color: #ff3b30;
+    background: rgba(255, 59, 48, 0.06);
+  }
+
+  &:active { transform: scale(0.98); }
+}
+
 /* ── Header Toolbar ───────────────────────────────────── */
 ion-header {
   ion-toolbar {
@@ -4088,4 +4118,40 @@ ion-header {
   ion-icon {
     font-size: 14px;
   }
+}
+
+/**
+ * Auto-cancel rule row shown under the Students list. Matches the compact
+ * hint style from `schedule-class.page` so scheduling + viewing feel like
+ * the same surface.
+ */
+.ed-class-rule {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--ed-border, #ebebeb);
+  background: var(--ed-rule-bg, #f7f7f8);
+  color: var(--ed-text-secondary, #717171);
+  font-size: 13px;
+  line-height: 18px;
+
+  ion-icon {
+    flex: 0 0 auto;
+    margin-top: 2px;
+    font-size: 16px;
+    color: var(--ed-text-secondary, #717171);
+  }
+
+  &--flexible ion-icon {
+    color: #2e7d32;
+  }
+}
+
+:host-context(html.ion-palette-dark) .ed-class-rule,
+:host-context(.ion-palette-dark) .ed-class-rule {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--ed-border, rgba(255, 255, 255, 0.1));
 }

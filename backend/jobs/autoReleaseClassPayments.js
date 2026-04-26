@@ -23,11 +23,19 @@ const Class = require('../models/Class');
 const Payment = require('../models/Payment');
 const User = require('../models/User');
 const walletService = require('../services/walletService');
+const { emitClassStateChanged, REASONS: CLASS_STATE_REASONS } = require('../services/classStateBroadcaster');
 
 /**
- * Main function to finalize classes and release payments
+ * Main function to finalize classes and release payments.
+ *
+ * @param {object} [io] — optional socket.io server. When provided, every
+ *   class whose state mutates (status flips to `cancelled`, or any
+ *   `studentPayments` entry transitions to `cancelled` / `refunded`)
+ *   triggers a `class_state_changed` broadcast so viewers on `/lessons/:id`
+ *   update in real time. Safe to omit in tests or manual admin triggers —
+ *   the job still runs; it just doesn't push live updates.
  */
-async function autoReleaseClassPayments() {
+async function autoReleaseClassPayments(io = null) {
   console.log('\n========================================');
   console.log('🔄 [CRON] Auto-Finalize Classes Job Started');
   console.log(`   Time: ${new Date().toISOString()}`);
@@ -110,7 +118,11 @@ async function autoReleaseClassPayments() {
           classObj.cancelledAt = now;
           classObj.cancelReason = 'no_show_both_parties';
           await classObj.save();
-          
+
+          emitClassStateChanged(io, classObj._id, {
+            reason: CLASS_STATE_REASONS.classCancelled,
+          }).catch(() => {});
+
           classesFinalized++;
           console.log(`   ✅ Class marked as cancelled (no-show)`);
           
@@ -180,6 +192,9 @@ async function autoReleaseClassPayments() {
           
           if (classUpdated) {
             await classObj.save();
+            emitClassStateChanged(io, classObj._id, {
+              reason: CLASS_STATE_REASONS.paymentStatusChanged,
+            }).catch(() => {});
           }
         } catch (classError) {
           console.error(`❌ Error processing class ${classObj._id}:`, classError.message);

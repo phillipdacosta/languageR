@@ -146,13 +146,13 @@ export function classRecordToLesson(cls: MyClassRecord, currentUser: any, t: TFu
     startTime: cls.startTime,
     endTime: cls.endTime || new Date(new Date(cls.startTime).getTime() + (cls.duration || 60) * 60000).toISOString(),
     status:
-      cls.status === 'scheduled'
-        ? 'scheduled'
+      cls.status === 'cancelled'
+        ? 'cancelled'
         : cls.status === 'in_progress'
           ? 'in_progress'
           : cls.status === 'completed'
             ? 'completed'
-            : 'cancelled',
+            : 'scheduled',
     subject: cls.name || t('LESSONS_PAGE.CLASS'),
     price: cls.price || 0,
     duration: cls.duration || 60,

@@ -13,7 +13,7 @@ export class EventTopPipe implements PipeTransform {
     const startTime = new Date(event.start);
     const startHour = getHoursInTz(startTime, timezone);
     const startMinute = getMinutesInTz(startTime, timezone);
-    const startOffset = 6;
+    const startOffset = 0;
     const slotHeight = 110.3;
 
     return ((startHour - startOffset) * slotHeight) + (startMinute / 60 * slotHeight);

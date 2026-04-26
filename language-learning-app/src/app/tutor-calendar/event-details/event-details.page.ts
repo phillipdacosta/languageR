@@ -25,7 +25,10 @@ import { RescheduleLessonModalComponent } from '../../components/reschedule-less
 import { formatTimeInTz, formatDateInTz } from '../../shared/timezone.utils';
 import { MaterialService, TutorMaterial } from '../../services/material.service';
 import { LearningPlanService, LearningPlanSummary, GOAL_TYPE_LABELS } from '../../services/learning-plan.service';
+import { WebSocketService } from '../../services/websocket.service';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Subscription, firstValueFrom } from 'rxjs';
+import { filter } from 'rxjs/operators';
 import {
   isLessonMockId,
   buildMockLessonEntity,
@@ -99,7 +102,7 @@ interface BillingData {
   templateUrl: './event-details.page.html',
   styleUrls: ['./event-details.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, SharedModule, CancelReasonModalComponent, ConfirmActionModalComponent, RescheduleLessonModalComponent, ClassAttendeesComponent, ClassInvitationModalComponent, ClassGoingMessageModalComponent]
+  imports: [CommonModule, IonicModule, SharedModule, TranslateModule, CancelReasonModalComponent, ConfirmActionModalComponent, RescheduleLessonModalComponent, ClassAttendeesComponent, ClassInvitationModalComponent, ClassGoingMessageModalComponent]
 })
 export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewDidEnter {
   /** When presented as a modal, the caller passes the event ID directly */
@@ -260,6 +263,8 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   sidebarNotesShowingTranslation = false;
   sidebarNotesTranslationCache: any = null;
   private translationSub?: Subscription;
+  private classStateSub?: Subscription;
+  private activeClassRoomId: string | null = null;
 
   // Pre-computed score colors (no functions in template)
   grammarScoreColor = '#6b7280';
@@ -269,6 +274,16 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   // Class-specific pre-computed
   levelLabel = '';
   classRevenue = '';
+  /**
+   * Auto-cancel rule shown in the Students section. Mirrors the wizard hint
+   * (`schedule-class.page.html`) so students + tutors see the exact promise
+   * the tutor made when scheduling. Computed once in `populateClassDetails`
+   * to keep the template free of method calls (see AGENTS.md).
+   */
+  classRuleVisible = false;
+  classRuleKind: 'flexible' | 'min' | null = null;
+  classRuleIcon = '';
+  classRuleText = '';
 
   // Class payment status
   hasClassPaymentStatus = false;
@@ -327,6 +342,8 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   classJoinLabel = 'Join';
   classCanCancel = false;
   classCanReschedule = false;
+  /** Student-only: confirmed in a scheduled class → allowed to leave/unenroll. */
+  classCanLeave = false;
   /** Student class CTA: accept tutor invite, public enroll, or join session when enrolled. */
   classStudentCtaKind: 'accept_invite' | 'enroll' | 'join_session' | null = null;
   classStudentPrimaryDisabled = false;
@@ -369,7 +386,9 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     private cdr: ChangeDetectorRef,
     private materialService: MaterialService,
     private learningPlanService: LearningPlanService,
-    private analysisTranslation: AnalysisTranslationService
+    private analysisTranslation: AnalysisTranslationService,
+    private webSocketService: WebSocketService,
+    private translate: TranslateService
   ) {}
 
   ionViewWillEnter() {
@@ -443,6 +462,96 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       clearInterval(this.countdownInterval);
     }
     this.flipTransition.cleanup();
+    this.teardownClassRoomSubscription();
+  }
+
+  ionViewWillLeave() {
+    /**
+     * Detach from the class room when the user navigates away. We keep the
+     * subject subscription up until ngOnDestroy so any in-flight patch that
+     * lands mid-transition still updates the cached snapshot.
+     */
+    this.teardownClassRoomSubscription();
+  }
+
+  /**
+   * Wire the page to the backend's `class_state_changed` stream. Idempotent:
+   * re-calling with the same id is a no-op; calling with a new id cleans up
+   * first. Safe to call before `classData` is populated — the merge handler
+   * defends against that.
+   */
+  private ensureClassRoomSubscription(classId: string): void {
+    if (!classId) return;
+    if (this.activeClassRoomId === classId && this.classStateSub) return;
+
+    if (this.activeClassRoomId && this.activeClassRoomId !== classId) {
+      this.webSocketService.leaveClassRoom(this.activeClassRoomId);
+    }
+
+    this.activeClassRoomId = classId;
+    this.classStateSub?.unsubscribe();
+    this.classStateSub = this.webSocketService.classStateChanged$
+      .pipe(filter((evt) => !!evt && evt.classId === classId))
+      .subscribe((evt) => this.applyClassStatePatch(evt));
+
+    this.webSocketService.joinClassRoom(classId);
+  }
+
+  private teardownClassRoomSubscription(): void {
+    this.classStateSub?.unsubscribe();
+    this.classStateSub = undefined;
+    if (this.activeClassRoomId) {
+      this.webSocketService.leaveClassRoom(this.activeClassRoomId);
+      this.activeClassRoomId = null;
+    }
+  }
+
+  /**
+   * Merge a compact state patch into `classData` and recompute derived
+   * properties. Synthesizes a `payments` array from `state.studentPayments`
+   * so `computeClassProperties()` — which reads `classData.payments` to
+   * drive the paid count — reflects real-time status without an extra
+   * backend fetch.
+   */
+  private applyClassStatePatch(evt: {
+    classId: string;
+    version: string | null;
+    reason: string;
+    state: any;
+  }): void {
+    if (!evt || !evt.state) return;
+    if (!this.classData) return;
+
+    const patch = evt.state;
+    this.classData.confirmedStudents = Array.isArray(patch.confirmedStudents)
+      ? patch.confirmedStudents.map((s: any) => ({
+          _id: s.id,
+          name: s.name,
+          picture: s.picture || '',
+        }))
+      : this.classData.confirmedStudents;
+
+    if (patch.capacity !== undefined && patch.capacity !== null) this.classData.capacity = patch.capacity;
+    if (patch.minStudents !== undefined && patch.minStudents !== null) this.classData.minStudents = patch.minStudents;
+    if (typeof patch.flexibleMinimum === 'boolean') this.classData.flexibleMinimum = patch.flexibleMinimum;
+    if (patch.price !== undefined && patch.price !== null) this.classData.price = patch.price;
+    if (patch.status) this.classData.status = patch.status;
+    if (patch.cancelReason !== undefined) this.classData.cancelReason = patch.cancelReason;
+
+    const studentPayments = patch.studentPayments || {};
+    const syntheticPayments = Object.keys(studentPayments).map((sid) => {
+      const raw = studentPayments[sid];
+      const status = raw === 'captured' ? 'succeeded' : raw;
+      return { studentId: sid, status };
+    });
+    this.classData.payments = syntheticPayments;
+    this.classData.studentPayments = Object.keys(studentPayments).map((sid) => ({
+      studentId: sid,
+      paymentStatus: studentPayments[sid],
+    }));
+
+    this.computeClassProperties();
+    this.cdr.detectChanges();
   }
 
   // ── Data Loading ──────────────────────────────────────────────
@@ -693,6 +802,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         this.sanitizedDescription = this.sanitizer.bypassSecurityTrustHtml(this.classData.description);
       }
       this.computeClassProperties();
+      if (this.eventId) this.ensureClassRoomSubscription(this.eventId);
     } else if (cached.lesson) {
       this.lesson = cached.lesson;
       this.isClass = false;
@@ -785,6 +895,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
             classData: this.classData,
             isClass: true,
           });
+          this.ensureClassRoomSubscription(this.eventId!);
           if (silent) this.isRevalidating = false;
         } else if (!silent) {
           this.error = 'Event not found';
@@ -1213,7 +1324,9 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     } else if (this.showJoinButton) {
       this.canJoinLesson = false;
       const secs = this.lessonService.getTimeUntilJoin(this.lesson);
-      this.joinLabel = `Join in ${this.lessonService.formatTimeUntil(secs)}`;
+      this.joinLabel = this.translate.instant('HOME.JOIN_IN_TIME', {
+        time: this.lessonService.formatTimeUntil(secs),
+      });
     }
   }
 
@@ -1925,6 +2038,39 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.classRevenue = `$${(this.classData.price * this.classData.confirmedStudents.length).toFixed(2)}`;
     }
 
+    /**
+     * Auto-cancel rule — mirrors the schedule-class wizard hint. Hidden once
+     * the class has reached a terminal state (completed / in-progress /
+     * cancelled), since the rule is a forward-looking promise. Copy tracks
+     * the 1-hour job window in `backend/jobs/autoCancelClasses.js`.
+     */
+    const ruleClassStatus = String(this.classData?.status || '').toLowerCase();
+    const ruleTerminalStatus =
+      ruleClassStatus === 'cancelled' || ruleClassStatus === 'completed' || ruleClassStatus === 'in_progress';
+    const minStudents = Number(this.classData?.minStudents ?? 0) || 0;
+    const flexibleMinimum = !!this.classData?.flexibleMinimum;
+    if (ruleTerminalStatus) {
+      this.classRuleVisible = false;
+      this.classRuleKind = null;
+      this.classRuleIcon = '';
+      this.classRuleText = '';
+    } else if (flexibleMinimum) {
+      this.classRuleVisible = true;
+      this.classRuleKind = 'flexible';
+      this.classRuleIcon = 'infinite-outline';
+      this.classRuleText = `Auto-cancel disabled. Class will still cancel 1 hour before start if no students enroll.`;
+    } else if (minStudents > 0) {
+      this.classRuleVisible = true;
+      this.classRuleKind = 'min';
+      this.classRuleIcon = 'alert-circle-outline';
+      this.classRuleText = `Auto-cancels 1 hour before start if fewer than ${minStudents} student${minStudents === 1 ? '' : 's'} enroll${minStudents === 1 ? 's' : ''}.`;
+    } else {
+      this.classRuleVisible = false;
+      this.classRuleKind = null;
+      this.classRuleIcon = '';
+      this.classRuleText = '';
+    }
+
     // Tutor info for the profile panel
     const tutor = this.classData.tutorId;
     const userId = this.normalizeRefId((this.currentUser as any)?._id ?? (this.currentUser as any)?.id);
@@ -1955,13 +2101,29 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     } else if (this.classShowJoinButton) {
       this.classCanJoin = false;
       const secs = Math.max(0, Math.floor((start.getTime() - now.getTime()) / 1000));
-      const h = Math.floor(secs / 3600);
-      const m = Math.floor((secs % 3600) / 60);
-      this.classJoinLabel = h > 0 ? `Join in ${h}h ${m}m` : `Join in ${m}m`;
+      this.classJoinLabel = this.translate.instant('HOME.JOIN_IN_TIME', {
+        time: this.lessonService.formatTimeUntil(secs),
+      });
     }
     const tutorCanManage = this.classIsCurrentUserTutor;
     this.classCanCancel = tutorCanManage && !this.classIsCancelled && !this.classIsCompleted && start > now;
     this.classCanReschedule = tutorCanManage && !this.classIsCancelled && !this.classIsCompleted && start > now;
+
+    // Student-only: may leave a scheduled class they're confirmed on, as long
+    // as it hasn't started. Mirrors backend guard on POST /:classId/unenroll.
+    const classStatus = String(this.classData?.status || '').toLowerCase();
+    const isConfirmedStudent =
+      !!userId &&
+      (this.classData?.confirmedStudents || []).some(
+        (s: any) => this.normalizeRefId(s?._id ?? s?.id) === userId
+      );
+    this.classCanLeave =
+      this.isStudentUser &&
+      isConfirmedStudent &&
+      classStatus === 'scheduled' &&
+      !this.classIsCancelled &&
+      !this.classIsCompleted &&
+      start > now;
 
     this.classStudentCtaKind = null;
     this.classStudentPrimaryDisabled = false;
@@ -2776,6 +2938,67 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       await loading.dismiss();
       const toast = await this.toastController.create({
         message: error?.error?.message || 'Failed to cancel class. Please try again.',
+        duration: 3000,
+        position: 'bottom',
+        color: 'danger'
+      });
+      await toast.present();
+    }
+  }
+
+  /**
+   * Student-initiated "Leave class". One-step confirmation modal, then hits
+   * POST /api/classes/:classId/unenroll — backend releases any authorized
+   * Stripe hold, syncs the class conversation, and notifies the tutor.
+   */
+  async leaveClassAction() {
+    if (!this.classData || !this.classCanLeave || !this.eventId) return;
+    const className = this.classData.name || 'this class';
+
+    const modal = await this.modalController.create({
+      component: ConfirmActionModalComponent,
+      componentProps: {
+        title: 'Leave class?',
+        message: `Are you sure you want to leave "${className}"? Any authorized payment will be released and your seat will be given up. This can't be undone.`,
+        confirmText: 'Leave class',
+        cancelText: 'Stay enrolled',
+        confirmColor: 'danger',
+        icon: 'exit-outline',
+        iconColor: 'danger'
+      },
+      cssClass: 'confirm-action-modal'
+    });
+    await modal.present();
+    const { data } = await modal.onWillDismiss();
+    if (!data?.confirmed) return;
+
+    const loading = await this.loadingController.create({
+      message: 'Leaving class...',
+      spinner: 'crescent'
+    });
+    await loading.present();
+
+    try {
+      await firstValueFrom(this.classService.unenrollFromClass(this.eventId));
+      await loading.dismiss();
+      const toast = await this.toastController.create({
+        message: `You have left "${className}".`,
+        duration: 3000,
+        position: 'bottom',
+        color: 'success'
+      });
+      await toast.present();
+      window.dispatchEvent(new CustomEvent('class-unenrolled', { detail: { classId: this.eventId } }));
+      if (this.eventId) this.lessonService.clearDetailCache(this.eventId);
+      if (this.isModal) {
+        this.modalController.dismiss({ unenrolled: true });
+      } else {
+        this.router.navigate(['/tabs/lessons']);
+      }
+    } catch (error: any) {
+      await loading.dismiss();
+      const toast = await this.toastController.create({
+        message: error?.error?.message || 'Failed to leave class. Please try again.',
         duration: 3000,
         position: 'bottom',
         color: 'danger'

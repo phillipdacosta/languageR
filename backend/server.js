@@ -362,6 +362,94 @@ io.on('connection', async (socket) => {
     });
   });
 
+  /**
+   * ──────────────────────────────────────────────────────────────────────
+   * Class detail real-time subscriptions
+   *
+   * A client viewing `/lessons/:id` for a class (web event-details or the
+   * RN LessonDetailOverlay) emits `class:subscribe` with the class id. The
+   * server validates the requester is a legitimate member of that class
+   * (tutor, invited student, or confirmed student) and joins them to
+   * `class:${classId}`. The `classStateBroadcaster` service fans out
+   * `class_state_changed` events to this room on every mutation (enroll,
+   * unenroll, remove student, cancel, payment status change…) so clients
+   * can merge patches into their local cache without refetching.
+   *
+   * Ack callback mirrors socket.io convention: the third arg (if provided)
+   * receives `{ ok: boolean, state?, error? }`. Clients use it to hydrate
+   * the initial snapshot in one round trip.
+   * ──────────────────────────────────────────────────────────────────────
+   */
+  socket.on('class:subscribe', async (data, ack) => {
+    try {
+      const classId = data && data.classId ? String(data.classId) : '';
+      if (!classId) {
+        if (typeof ack === 'function') ack({ ok: false, error: 'classId_required' });
+        return;
+      }
+
+      const Class = require('./models/Class');
+      const User = require('./models/User');
+      const { buildStatePatch } = require('./services/classStateBroadcaster');
+
+      const [cls, user] = await Promise.all([
+        Class.findById(classId)
+          .populate('confirmedStudents', 'name firstName lastName picture profilePicture email')
+          .lean(),
+        User.findOne({ auth0Id: userId }).lean(),
+      ]);
+
+      if (!cls) {
+        if (typeof ack === 'function') ack({ ok: false, error: 'class_not_found' });
+        return;
+      }
+
+      const myMongoId = user && user._id ? String(user._id) : null;
+      const tutorId = cls.tutorId ? String(cls.tutorId) : null;
+      const isTutor = !!myMongoId && !!tutorId && myMongoId === tutorId;
+      const isConfirmed =
+        !!myMongoId &&
+        Array.isArray(cls.confirmedStudents) &&
+        cls.confirmedStudents.some((s) => {
+          const sid = s && typeof s === 'object' ? String(s._id || s.id || '') : String(s);
+          return sid === myMongoId;
+        });
+      const isInvited =
+        !!myMongoId &&
+        Array.isArray(cls.invitedStudents) &&
+        cls.invitedStudents.some((inv) => String(inv && inv.studentId) === myMongoId);
+
+      if (!isTutor && !isConfirmed && !isInvited) {
+        if (typeof ack === 'function') ack({ ok: false, error: 'not_authorized' });
+        return;
+      }
+
+      const room = `class:${classId}`;
+      socket.join(room);
+
+      if (typeof ack === 'function') {
+        ack({
+          ok: true,
+          state: {
+            classId,
+            version: cls.updatedAt ? new Date(cls.updatedAt).toISOString() : null,
+            reason: 'initial_snapshot',
+            state: buildStatePatch(cls),
+          },
+        });
+      }
+    } catch (err) {
+      console.error('[class:subscribe] Error:', err);
+      if (typeof ack === 'function') ack({ ok: false, error: 'server_error' });
+    }
+  });
+
+  socket.on('class:unsubscribe', (data) => {
+    const classId = data && data.classId ? String(data.classId) : '';
+    if (!classId) return;
+    socket.leave(`class:${classId}`);
+  });
+
   // Handle disconnect
   socket.on('disconnect', () => {
     const userId = socket.userId;
@@ -407,7 +495,7 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log('⏰ Cron job started: Auto-finalize lessons (every minute)');
   
   // Start background job to auto-cancel classes that don't meet minimum enrollment
-  // Runs every 10 minutes (checks for classes 11-21 minutes out, ~16 min window)
+  // Runs every 10 minutes (checks for classes 55-65 minutes out, ~1 hour before start)
   cron.schedule('*/10 * * * *', () => {
     autoCancelClasses(io, connectedUsers).catch(err => {
       console.error('❌ [Cron] Error in autoCancelClasses:', err);
@@ -418,7 +506,7 @@ server.listen(PORT, '0.0.0.0', () => {
   // Start background job to finalize classes (refund no-shows, release payments)
   // Runs every 10 minutes to quickly catch classes that didn't happen
   cron.schedule('*/10 * * * *', () => {
-    autoReleaseClassPayments().catch(err => {
+    autoReleaseClassPayments(io).catch(err => {
       console.error('❌ [Cron] Error in autoReleaseClassPayments:', err);
     });
   });

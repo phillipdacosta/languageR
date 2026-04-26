@@ -38,12 +38,16 @@
       </ion-avatar>
       <div class="participant-info">
         <h3>{{ formattedParticipantName }}</h3>
-        <p *ngIf="!isLoadingMutualAvailability && !isClassLesson && studentBusySlots.size > 0">
-          Only showing times when both you and {{ formattedParticipantName }} are available. 
+        <p *ngIf="!isLoadingMutualAvailability && !isClassLesson && !studentAvailabilityFailed && studentBusySlots.size > 0">
+          Only showing times when both you and {{ formattedParticipantName }} are available.
           Timeslots may be excluded due to {{ formattedParticipantName }}'s availability.
         </p>
-        <p *ngIf="!isLoadingMutualAvailability && !isClassLesson && studentBusySlots.size === 0">
+        <p *ngIf="!isLoadingMutualAvailability && !isClassLesson && !studentAvailabilityFailed && studentBusySlots.size === 0">
           Select any available time slot to reschedule your lesson with {{ formattedParticipantName }}.
+        </p>
+        <p *ngIf="!isLoadingMutualAvailability && !isClassLesson && studentAvailabilityFailed" class="student-availability-warning">
+          We couldn't check {{ formattedParticipantName }}'s calendar. Your slots below aren't filtered by their availability.
+          <button type="button" class="retry-link" (click)="retryStudentAvailability()">Retry</button>
         </p>
         <p *ngIf="!isLoadingMutualAvailability && isClassLesson">
           Pick a new time for <strong>{{ formattedParticipantName }}</strong>. Your calendar availability is shown below; we do not check other students' one-on-one lessons against this class.

@@ -5,6 +5,8 @@ type Value = {
   setHomeOverlayCoversTabBar: (covers: boolean) => void;
   lessonOverlayCoversTabBar: boolean;
   setLessonOverlayCoversTabBar: (covers: boolean) => void;
+  screenHidesTabBar: boolean;
+  setScreenHidesTabBar: (hidden: boolean) => void;
 };
 
 const HomeTabBarOverlayContext = createContext<Value | null>(null);
@@ -12,12 +14,16 @@ const HomeTabBarOverlayContext = createContext<Value | null>(null);
 export function HomeTabBarOverlayProvider({ children }: { children: React.ReactNode }) {
   const [homeOverlayCoversTabBar, setHome] = useState(false);
   const [lessonOverlayCoversTabBar, setLesson] = useState(false);
+  const [screenHidesTabBar, setScreenHides] = useState(false);
 
   const setHomeOverlayCoversTabBar = useCallback((covers: boolean) => {
     setHome(covers);
   }, []);
   const setLessonOverlayCoversTabBar = useCallback((covers: boolean) => {
     setLesson(covers);
+  }, []);
+  const setScreenHidesTabBar = useCallback((hidden: boolean) => {
+    setScreenHides(hidden);
   }, []);
 
   const value = useMemo(
@@ -26,8 +32,10 @@ export function HomeTabBarOverlayProvider({ children }: { children: React.ReactN
       setHomeOverlayCoversTabBar,
       lessonOverlayCoversTabBar,
       setLessonOverlayCoversTabBar,
+      screenHidesTabBar,
+      setScreenHidesTabBar,
     }),
-    [homeOverlayCoversTabBar, setHomeOverlayCoversTabBar, lessonOverlayCoversTabBar, setLessonOverlayCoversTabBar],
+    [homeOverlayCoversTabBar, setHomeOverlayCoversTabBar, lessonOverlayCoversTabBar, setLessonOverlayCoversTabBar, screenHidesTabBar, setScreenHidesTabBar],
   );
 
   return (

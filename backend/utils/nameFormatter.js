@@ -28,6 +28,19 @@ function formatNameWithInitial(user) {
 }
 
 /**
+ * Same as formatNameWithInitial but without the period after the last initial
+ * (e.g. "Phillip D" not "Phillip D."). Use in comma-separated lists so you
+ * do not get awkward "., " between names ("Phillip D., Elena V.,").
+ *
+ * @param {Object|String} user
+ * @returns {String}
+ */
+function formatNameWithInitialListStyle(user) {
+  const s = formatNameWithInitial(user);
+  return s.replace(/ ([A-Za-z])\.$/, ' $1');
+}
+
+/**
  * Format a string name as "First L."
  * Handles emails, full names, etc.
  * 
@@ -75,6 +88,7 @@ function capitalize(str) {
 
 module.exports = {
   formatNameWithInitial,
+  formatNameWithInitialListStyle,
   formatStringName,
   capitalize
 };

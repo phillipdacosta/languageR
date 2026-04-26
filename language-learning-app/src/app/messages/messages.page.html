@@ -132,7 +132,8 @@
             <div class="conversation-avatar conversation-avatar--group"
                  *ngIf="conversation.isGroup; else singleAvatar">
               <div class="group-avatar-cluster"
-                   [attr.data-count]="(conversation.displayParticipants?.length ?? 0) + ((conversation.extraCount ?? 0) > 0 ? 1 : 0)">
+                   [attr.data-count]="(conversation.displayParticipants?.length ?? 0) + ((conversation.extraCount ?? 0) > 0 ? 1 : 0)"
+                   [attr.title]="conversation.participantNamesList || null">
                 <div class="group-avatar"
                      *ngFor="let p of (conversation.displayParticipants || []); let i = index"
                      [style.z-index]="10 - i">
@@ -144,6 +145,9 @@
                      [style.z-index]="6">
                   +{{ conversation.extraCount ?? 0 }}
                 </div>
+                <span class="group-avatar-tooltip" *ngIf="conversation.participantNamesList">
+                  {{ conversation.participantNamesList }}
+                </span>
               </div>
             </div>
             <ng-template #singleAvatar>
@@ -211,30 +215,62 @@
 
       <!-- Middle Column: Chat View or Empty State -->
       
-      <!-- STABLE NAME - Always rendered, visibility controlled by opacity -->
-      <div class="stable-chat-header" 
-           [style.opacity]="hasConversationSelected ? '1' : '0'"
-           [style.pointer-events]="hasConversationSelected ? 'auto' : 'none'">
-           <!-- <ion-avatar class="stable-chat-avatar">
-            <img [src]="selectedConversation?.otherUser?.picture" *ngIf="selectedConversation?.otherUser?.picture" referrerpolicy="no-referrer" />
-            <div class="avatar-fallback" *ngIf="!selectedConversation?.otherUser?.picture && selectedConversation">
-              {{ selectedConversation?.otherUser?.name?.charAt(0) || '?' }}
+    <!-- STABLE NAME - Always rendered, visibility controlled by opacity -->
+    <div class="stable-chat-header" 
+         [style.opacity]="hasConversationSelected ? '1' : '0'"
+         [style.pointer-events]="hasConversationSelected ? 'auto' : 'none'">
+      <!-- Group class chat: stacked avatar cluster (updates as students join/leave).
+           1:1 chat: single circular avatar. Kept template function-free by reusing
+           the decorated displayParticipants / extraCount on selectedConversation. -->
+      <ng-container *ngIf="selectedConversation?.isGroup; else stableSingleAvatar">
+        <div class="stable-chat-avatar stable-chat-avatar--group"
+             (click)="toggleDetailsPanel()">
+          <div class="group-avatar-cluster"
+               [attr.data-count]="(selectedConversation?.displayParticipants?.length ?? 0) + ((selectedConversation?.extraCount ?? 0) > 0 ? 1 : 0)"
+               [attr.title]="selectedConversation?.participantNamesList || null">
+            <div class="group-avatar"
+                 *ngFor="let p of (selectedConversation?.displayParticipants || []); let i = index"
+                 [style.z-index]="10 - i">
+              <img *ngIf="p.picture" [src]="p.picture" [alt]="p.name" referrerpolicy="no-referrer" />
+              <div class="avatar-fallback" *ngIf="!p.picture">{{ p.name?.charAt(0) || '?' }}</div>
             </div>
-          </ion-avatar> -->
-        <div class="stable-chat-name-group">
-          <div class="stable-chat-name" 
-               [textContent]="selectedConversation?.otherUser?.name || ''"
-               (click)="toggleDetailsPanel()"
-               (mouseenter)="showHoverCard()"
-               (mouseleave)="hideHoverCard()">
+            <div class="group-avatar group-avatar--more"
+                 *ngIf="(selectedConversation?.extraCount ?? 0) > 0"
+                 [style.z-index]="6">
+              +{{ selectedConversation?.extraCount ?? 0 }}
+            </div>
+            <span class="group-avatar-tooltip" *ngIf="selectedConversation?.participantNamesList">
+              {{ selectedConversation?.participantNamesList }}
+            </span>
           </div>
-          <span class="other-user-local-time" *ngIf="otherUserLocalTime">
-            <ion-icon name="time-outline"></ion-icon>
-            {{ otherUserLocalTime }}
-          </span>
         </div>
+      </ng-container>
+      <ng-template #stableSingleAvatar>
+        <ion-avatar class="stable-chat-avatar"
+                    *ngIf="selectedConversation"
+                    (click)="toggleDetailsPanel()">
+          <img [src]="selectedConversation?.otherUser?.picture"
+               *ngIf="selectedConversation?.otherUser?.picture"
+               referrerpolicy="no-referrer" />
+          <div class="avatar-fallback" *ngIf="!selectedConversation?.otherUser?.picture">
+            {{ selectedConversation?.otherUser?.name?.charAt(0) || '?' }}
+          </div>
+        </ion-avatar>
+      </ng-template>
+      <div class="stable-chat-name-group">
+        <div class="stable-chat-name" 
+             [textContent]="selectedConversation?.otherUser?.name || ''"
+             (click)="toggleDetailsPanel()"
+             (mouseenter)="showHoverCard()"
+             (mouseleave)="hideHoverCard()">
+        </div>
+        <span class="other-user-local-time" *ngIf="otherUserLocalTime">
+          <ion-icon name="time-outline"></ion-icon>
+          {{ otherUserLocalTime }}
+        </span>
+      </div>
 
-        <ion-button size="small" fill="clear" (click)="openBookLesson(); $event.stopPropagation()" *ngIf="selectedConversation && currentUserType === 'student'">
+        <ion-button size="small" fill="clear" (click)="openBookLesson(); $event.stopPropagation()" *ngIf="selectedConversation && currentUserType === 'student' && !selectedIsClassBroadcast">
           <ion-icon name="calendar-outline" slot="start"></ion-icon>
           Book Lesson
         </ion-button>
@@ -285,13 +321,17 @@
               </div>
 
               <div class="hover-card-buttons">
-                <ion-button size="small" fill="default" (click)="openBookLesson(); $event.stopPropagation()" *ngIf="currentUserType === 'student'">
+                <ion-button size="small" fill="default" (click)="openBookLesson(); $event.stopPropagation()" *ngIf="currentUserType === 'student' && !selectedIsClassBroadcast">
                   <ion-icon name="calendar-outline" slot="start"></ion-icon>
                   Book Lesson
                 </ion-button>
-                <ion-button size="small" fill="clear" (click)="openOtherUserProfile($event)">
+                <ion-button size="small" fill="clear" (click)="openOtherUserProfile($event)" *ngIf="!selectedIsClassBroadcast">
                   <ion-icon name="person-outline" slot="start"></ion-icon>
-                  View Profile  
+                  {{ 'MESSAGES.VIEW_PROFILE' | translate }}
+                </ion-button>
+                <ion-button size="small" fill="clear" (click)="openOtherUserProfile($event)" *ngIf="selectedIsClassBroadcast">
+                  <ion-icon name="easel-outline" slot="start"></ion-icon>
+                  {{ 'MESSAGES.VIEW_CLASS_DETAILS' | translate }}
                 </ion-button>
               </div>
             </div>
@@ -792,12 +832,36 @@
           <ion-button fill="clear" (click)="clearSelectedConversation()" class="back-button">
             <ion-icon name="chevron-back"></ion-icon>
           </ion-button>
-          <ion-avatar class="chat-avatar" (click)="openOtherUserProfile($event)">
-            <img [src]="selectedConversation.otherUser?.picture" *ngIf="selectedConversation.otherUser?.picture" referrerpolicy="no-referrer" />
-            <div class="avatar-fallback" *ngIf="!selectedConversation.otherUser?.picture">
-              {{ selectedConversation.otherUser?.name?.charAt(0) || '?' }}
+          <ng-container *ngIf="selectedConversation.isGroup; else mobileSingleAvatar">
+            <div class="chat-avatar chat-avatar--group" (click)="openOtherUserProfile($event)">
+              <div class="group-avatar-cluster"
+                   [attr.data-count]="(selectedConversation?.displayParticipants?.length ?? 0) + ((selectedConversation?.extraCount ?? 0) > 0 ? 1 : 0)"
+                   [attr.title]="selectedConversation?.participantNamesList || null">
+                <div class="group-avatar"
+                     *ngFor="let p of (selectedConversation?.displayParticipants || []); let i = index"
+                     [style.z-index]="10 - i">
+                  <img *ngIf="p.picture" [src]="p.picture" [alt]="p.name" referrerpolicy="no-referrer" />
+                  <div class="avatar-fallback" *ngIf="!p.picture">{{ p.name?.charAt(0) || '?' }}</div>
+                </div>
+                <div class="group-avatar group-avatar--more"
+                     *ngIf="(selectedConversation?.extraCount ?? 0) > 0"
+                     [style.z-index]="6">
+                  +{{ selectedConversation?.extraCount ?? 0 }}
+                </div>
+                <span class="group-avatar-tooltip" *ngIf="selectedConversation?.participantNamesList">
+                  {{ selectedConversation?.participantNamesList }}
+                </span>
+              </div>
             </div>
-          </ion-avatar>
+          </ng-container>
+          <ng-template #mobileSingleAvatar>
+            <ion-avatar class="chat-avatar" (click)="openOtherUserProfile($event)">
+              <img [src]="selectedConversation.otherUser?.picture" *ngIf="selectedConversation.otherUser?.picture" referrerpolicy="no-referrer" />
+              <div class="avatar-fallback" *ngIf="!selectedConversation.otherUser?.picture">
+                {{ selectedConversation.otherUser?.name?.charAt(0) || '?' }}
+              </div>
+            </ion-avatar>
+          </ng-template>
           <div class="chat-header-info" (click)="openOtherUserProfile($event)">
             <div class="chat-user-info">
               <h3>{{ selectedConversation.otherUser?.name || 'Unknown User' }}</h3>

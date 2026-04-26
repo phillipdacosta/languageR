@@ -48,7 +48,8 @@ export interface CalendarClass {
   _id: string;
   startTime: string;
   endTime: string;
-  title: string;
+  title: string;   // legacy alias kept for timeline entry
+  name?: string;   // actual backend field (Class.name)
   description?: string;
   maxStudents: number;
   attendees: any[];

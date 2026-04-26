@@ -19,9 +19,16 @@ function buildCallbackHtml(success, error, origin) {
   const payload = success
     ? JSON.stringify({ type: 'google_calendar_linked', success: true })
     : JSON.stringify({ type: 'google_calendar_linked', success: false, error: error || 'unknown' });
-  const message = success
-    ? 'Google Calendar connected!'
-    : 'Google Calendar connection failed.';
+  let message;
+  let detail = 'You can close this window now.';
+  if (success) {
+    message = 'Google Calendar connected!';
+  } else if (error === 'calendar_scope_not_granted') {
+    message = 'Calendar permission is required.';
+    detail = 'Please reconnect and check the calendar checkboxes on the Google consent screen.';
+  } else {
+    message = 'Google Calendar connection failed.';
+  }
 
   return `<!DOCTYPE html>
 <html><head><title>Google Calendar – Barnabi</title>
@@ -41,7 +48,7 @@ function buildCallbackHtml(success, error, origin) {
 <body><div class="card">
   <div class="icon">${success ? '✅' : '❌'}</div>
   <h2>${message}</h2>
-  <p>You can close this window now.</p>
+  <p>${detail}</p>
 </div>
 <script>
   var msg = ${payload};
@@ -118,12 +125,22 @@ router.get('/google-calendar/callback', async (req, res) => {
     const { tokens } = await oauth2Client.getToken(code);
     oauth2Client.setCredentials(tokens);
 
-    // Get the user's email from the Google account
+    const grantedScopes = (tokens.scope || '').split(/\s+/).filter(Boolean);
+    const hasCalendarScope = grantedScopes.some(s =>
+      s === 'https://www.googleapis.com/auth/calendar.readonly' ||
+      s === 'https://www.googleapis.com/auth/calendar.events' ||
+      s === 'https://www.googleapis.com/auth/calendar'
+    );
+    console.log('[GCal Callback] Granted scopes:', grantedScopes);
+    if (!hasCalendarScope) {
+      console.error('[GCal Callback] Calendar scope NOT granted. User must check calendar boxes on consent screen.');
+      return sendError('calendar_scope_not_granted');
+    }
+
     const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
     const userInfoRes = await oauth2.userinfo.get();
     const googleEmail = userInfoRes.data.email;
 
-    // Compute token expiry
     const tokenExpiry = tokens.expiry_date ? new Date(tokens.expiry_date) : null;
 
     await User.findByIdAndUpdate(userId, {
@@ -135,10 +152,17 @@ router.get('/google-calendar/callback', async (req, res) => {
       'googleCalendar.calendarId': 'primary',
       'googleCalendar.syncEnabled': true,
       'googleCalendar.pushToGoogle': true,
-      'googleCalendar.lastSyncAt': null
+      'googleCalendar.lastSyncAt': null,
+      'googleCalendar.grantedScopes': grantedScopes
     });
 
-    // Register push notification watch channel (non-blocking)
+    if (req.io) {
+      req.io.to(`mongo:${userId}`).emit('gcal-status-updated', {
+        connected: true,
+        email: googleEmail
+      });
+    }
+
     registerWatch(userId).catch(err => {
       console.error('[GCal Callback] Watch registration failed (non-blocking):', err.message);
     });
@@ -177,6 +201,10 @@ router.post('/google-calendar/disconnect', verifyToken, async (req, res) => {
       'googleCalendar.watchExpiration': null,
       'googleCalendar.watchToken': null
     });
+
+    if (req.io) {
+      req.io.to(`mongo:${dbUser._id}`).emit('gcal-status-updated', { connected: false });
+    }
 
     res.json({ success: true });
   } catch (err) {
@@ -241,9 +269,15 @@ async function getAuthenticatedClient(userId) {
 
 // Register a Google Calendar watch channel for push notifications
 async function registerWatch(userId) {
-  const backendUrl = process.env.BACKEND_PUBLIC_URL;
-  if (!backendUrl) {
+  const rawBackendUrl = process.env.BACKEND_PUBLIC_URL;
+  if (!rawBackendUrl) {
     console.log('[GCal Watch] BACKEND_PUBLIC_URL not set, skipping watch registration (local dev)');
+    return null;
+  }
+
+  const backendUrl = rawBackendUrl.trim().replace(/\/+$/, '');
+  if (!/^https:\/\//i.test(backendUrl)) {
+    console.error(`[GCal Watch] BACKEND_PUBLIC_URL must be HTTPS, got "${rawBackendUrl}"`);
     return null;
   }
 
@@ -453,6 +487,53 @@ router.put('/google-calendar/settings', verifyToken, async (req, res) => {
   } catch (err) {
     console.error('Google Calendar settings error:', err);
     res.status(500).json({ error: 'Failed to update settings' });
+  }
+});
+
+// GET /api/auth/google-calendar/debug-scopes — Inspect granted scopes on saved token
+router.get('/google-calendar/debug-scopes', verifyToken, async (req, res) => {
+  try {
+    const dbUser = await User.findOne({ email: req.user.email })
+      .select('+googleCalendar.accessToken +googleCalendar.refreshToken +googleCalendar.tokenExpiry +googleCalendar.connected googleCalendar.grantedScopes googleCalendar.email');
+    if (!dbUser) return res.status(404).json({ error: 'User not found' });
+
+    const gcal = dbUser.googleCalendar || {};
+    if (!gcal.accessToken) {
+      return res.json({
+        connected: gcal.connected || false,
+        email: gcal.email || null,
+        savedGrantedScopes: gcal.grantedScopes || null,
+        liveScopes: null,
+        note: 'No access token stored.'
+      });
+    }
+
+    let liveScopes = null;
+    let liveError = null;
+    try {
+      const r = await fetch(`https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(gcal.accessToken)}`);
+      const data = await r.json();
+      liveScopes = (data?.scope || '').split(/\s+/).filter(Boolean);
+      if (data?.error) liveError = data.error_description || data.error;
+    } catch (e) {
+      liveError = e.message;
+    }
+
+    res.json({
+      connected: gcal.connected || false,
+      email: gcal.email || null,
+      tokenExpiry: gcal.tokenExpiry || null,
+      savedGrantedScopes: gcal.grantedScopes || null,
+      liveScopes,
+      liveError,
+      hasCalendarScope: (liveScopes || []).some(s =>
+        s === 'https://www.googleapis.com/auth/calendar.readonly' ||
+        s === 'https://www.googleapis.com/auth/calendar.events' ||
+        s === 'https://www.googleapis.com/auth/calendar'
+      )
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
