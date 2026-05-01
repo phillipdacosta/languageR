@@ -55,7 +55,7 @@
                     <button class="feedback-action-btn" 
                             *ngIf="pendingFeedbackCount > 0"
                             (click)="openFeedbackModal()">
-                      <ion-icon name="clipboard-outline"></ion-icon>
+                      <ion-icon name="warning-outline"></ion-icon>
                       Leave Feedback ({{ pendingFeedbackCount }})
                     </button>
                   </ng-container>
@@ -575,7 +575,7 @@
             <span class="airbnb-month-label">{{ pendingFeedbackCount }} lesson{{ pendingFeedbackCount !== 1 ? 's' : '' }} need your feedback</span>
           </div>
           <div class="feedback-modal-icon">
-            <ion-icon name="clipboard-outline"></ion-icon>
+            <ion-icon name="warning-outline"></ion-icon>
           </div>
         </div>
       </ion-header>

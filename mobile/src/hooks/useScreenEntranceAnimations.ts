@@ -70,7 +70,6 @@ export function useScreenEntranceAnimations(
 
   const shellMotion = useMemo(
     () => ({
-      opacity: shellEnter,
       transform: [{ translateY: shellEnter.interpolate({ inputRange: [0, 1], outputRange: [hadInitialLoading ? 10 : 4, 0] }) }],
     }),
     [shellEnter, hadInitialLoading],
@@ -78,7 +77,6 @@ export function useScreenEntranceAnimations(
 
   const listGateMotion = useMemo(
     () => ({
-      opacity: listGateEnter,
       transform: [{ translateY: listGateEnter.interpolate({ inputRange: [0, 1], outputRange: [hadInitialLoading ? 12 : 5, 0] }) }],
     }),
     [listGateEnter, hadInitialLoading],

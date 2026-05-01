@@ -6,6 +6,7 @@ const { verifyToken } = require('../middleware/videoUploadMiddleware');
 const { initializeGCS } = require('../config/gcs');
 const Message = require('../models/Message');
 const Conversation = require('../models/Conversation');
+const MessagingPreference = require('../models/MessagingPreference');
 const User = require('../models/User');
 const ClassModel = require('../models/Class');
 const { formatNameWithInitial } = require('../utils/nameFormatter');
@@ -138,14 +139,32 @@ router.delete('/channels/:channelName/messages', verifyToken, async (req, res) =
 // User-to-user messaging endpoints
 
 // Get all conversations for the current user
+//
+// Query params:
+//   • filter=all       (default) — Active inbox: excludes user-archived and
+//                                  user-hidden threads.
+//   • filter=archived            — Archive folder: only user-archived threads
+//                                  (still excludes user-hidden ones, those are
+//                                  permanently soft-deleted).
+//
+// Per-user state lives in two places depending on thread type:
+//   • Group threads — `Conversation.members[].archivedAt / .hiddenAt`.
+//   • 1:1 threads   — `MessagingPreference` keyed by (ownerAuth0Id, peerAuth0Id).
 router.get('/conversations', verifyToken, async (req, res) => {
   try {
     const userId = req.user.sub;
-    
+    const filterParam = String(req.query.filter || 'all').toLowerCase();
+    const filter = filterParam === 'archived' ? 'archived' : 'all';
+
     // Get all unique conversations where user is sender or receiver
     // Also include conversations with system messages that are visible to tutor only (if user is tutor)
     const user = await User.findOne({ auth0Id: userId });
     const isTutor = user && user.userType === 'tutor';
+
+    // Pull user-level prefs for 1:1 threads in one shot so the per-row
+    // filter check is O(1). Keyed by peer auth0Id.
+    const prefDocs = await MessagingPreference.find({ ownerAuth0Id: userId }).lean();
+    const prefByPeer = new Map(prefDocs.map((p) => [p.peerAuth0Id, p]));
     
     let messageQuery = {
       $or: [{ senderId: userId }, { receiverId: userId }]
@@ -229,9 +248,22 @@ router.get('/conversations', verifyToken, async (req, res) => {
       }
     }
 
+    // Apply per-user inbox state to 1:1 threads:
+    //   • hidden  → never show, in any filter (permanent soft-delete).
+    //   • archived → show only when filter=archived; hide otherwise.
+    //   • neither → show only when filter=all; hide when filter=archived.
+    const visibleOneOnOne = Array.from(conversationMap.values()).filter((conv) => {
+      const pref = prefByPeer.get(conv.otherUserId);
+      if (pref && pref.hiddenAt) return false;
+      const isArchived = !!(pref && pref.archivedAt);
+      return filter === 'archived' ? isArchived : !isArchived;
+    });
+
     // Get user details for each conversation
     const conversations = await Promise.all(
-      Array.from(conversationMap.values()).map(async (conv) => {
+      visibleOneOnOne.map(async (conv) => {
+        const pref = prefByPeer.get(conv.otherUserId);
+        const archivedAt = pref && pref.archivedAt ? pref.archivedAt : null;
         // Try to find user by auth0Id
         let otherUser = await User.findOne({ auth0Id: conv.otherUserId });
         
@@ -271,6 +303,12 @@ router.get('/conversations', verifyToken, async (req, res) => {
             userType: 'user',
             timezone: 'UTC'
           },
+          // Per-user inbox state. `userArchived` indicates the current user
+          // has moved this thread to their Archive folder (independent of
+          // the legacy `archived` flag, which on group threads means "you
+          // left the class").
+          userArchived: !!archivedAt,
+          userArchivedAt: archivedAt,
           lastMessage: {
             content: conv.lastMessage.content,
             senderId: conv.lastMessage.senderId,
@@ -345,10 +383,29 @@ router.get('/conversations', verifyToken, async (req, res) => {
     const memberConversations = await Conversation.find({ 'members.auth0Id': userId })
       .sort({ lastMessageAt: -1, updatedAt: -1 });
 
+    // Pre-fetch class status so we can surface `cancelled` on class-broadcast
+    // rows (drives the small "Cancelled" pill on the conversation row UI).
+    const classIds = memberConversations
+      .map((c) => c.classId)
+      .filter(Boolean);
+    const classDocs = classIds.length
+      ? await ClassModel.find({ _id: { $in: classIds } }).select('_id status').lean()
+      : [];
+    const classStatusById = new Map(classDocs.map((c) => [c._id.toString(), c.status]));
+
     const groupConversations = await Promise.all(
       memberConversations.map(async (conv) => {
         const me = conv.getMember(userId);
         const isActive = !!(me && !me.leftAt);
+
+        // Apply per-user inbox state:
+        //   • hidden  → never show, in any filter (soft-deleted for me).
+        //   • archived → only show under filter=archived.
+        //   • neither → only show under filter=all (default inbox).
+        if (me && me.hiddenAt) return null;
+        const userArchived = !!(me && me.archivedAt);
+        if (filter === 'archived' && !userArchived) return null;
+        if (filter !== 'archived' && userArchived) return null;
 
         // Visibility window: strictly within my [joinedAt, leftAt] interval.
         const windowQuery = { isGroup: true, groupId: conv.groupId };
@@ -394,6 +451,9 @@ router.get('/conversations', verifyToken, async (req, res) => {
           else displayName = `${othersNames.slice(0, 2).join(', ')} & ${othersNames.length - 2} more`;
         }
 
+        const classStatus = conv.classId ? classStatusById.get(conv.classId.toString()) : null;
+        const classCancelled = classStatus === 'cancelled';
+
         return {
           conversationId: conv.groupId,
           isGroup: true,
@@ -401,13 +461,25 @@ router.get('/conversations', verifyToken, async (req, res) => {
           groupName: conv.name || '',
           type: conv.type,
           classId: conv.classId ? conv.classId.toString() : null,
+          // True when the current user owns this class chat as the tutor.
+          // Used by the kebab menu to hide "Delete" on a tutor's own class
+          // broadcast (tutor must remain reachable while they own the class).
+          isTutor: !!(me && me.role === 'tutor'),
+          // Class-broadcast threads where the underlying class is cancelled.
+          // Drives a "Cancelled" pill on the conversation row.
+          classCancelled,
+          classStatus: classStatus || null,
           participants: activeParticipants,
           allParticipants: participantUsers,
-          // Current user's status within this thread — drives the "You left
-          // this class" banner + disables the composer on the frontend.
+          // Legacy: true when the user has left the group roster. Drives
+          // the read-only banner inside the chat. Stays per-roster (not
+          // per-user-archive — that's `userArchived`).
           archived: !isActive,
           leftAt: me.leftAt || null,
           joinedAt: me.joinedAt || null,
+          // Per-user inbox state — separate from roster-level `archived`.
+          userArchived,
+          userArchivedAt: me.archivedAt || null,
           otherUser: {
             id: conv.groupId,
             auth0Id: conv.groupId,
@@ -1975,6 +2047,187 @@ router.put('/groups/:groupId/read', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('Error marking group as read:', error);
     return res.status(500).json({ success: false, message: 'Failed to mark group as read' });
+  }
+});
+
+// ===========================================================================
+// Archive / Unarchive / Delete (per-user inbox state)
+//
+// `:conversationId` accepts either:
+//   • a group `groupId` (e.g. `grp_class_<classId>` or sha1 hash) — handled
+//     by the `Conversation.members[]` flag on the caller's row.
+//   • a 1:1 `conversationId` of the form `<authIdA>_<authIdB>` (sorted) —
+//     handled by upserting a `MessagingPreference` row keyed by
+//     (ownerAuth0Id = caller, peerAuth0Id = the other user).
+//
+// Routing for both shapes is centralised here so the frontend doesn't have
+// to care which kind of thread it's acting on.
+// ===========================================================================
+
+/**
+ * Resolve the "other" auth0Id from a 1:1 conversationId of the form
+ * `<authA>_<authB>` (sorted) given the caller's auth0Id. Returns null if the
+ * id doesn't look like a 1:1 conversationId or doesn't include the caller.
+ *
+ * Auth0 ids contain `|` (e.g. `auth0|abc123`) and never end with `_X` where
+ * X is purely the suffix, so we can split safely on the FIRST `_` after a
+ * known half. We try both halves and pick the one that matches the caller.
+ */
+function resolveOneOnOnePeer(conversationId, callerId) {
+  if (!conversationId || !conversationId.includes('_')) return null;
+  // Auth0 ids may contain underscores in pathological cases, but the
+  // canonical sorted-pair format we generate uses `_` only as the separator.
+  // Try splitting at every underscore and pick the split that yields the
+  // caller in one half — this handles ids that contain auth0 connection
+  // names, dev-user prefixes, etc.
+  let pos = conversationId.indexOf('_');
+  while (pos !== -1) {
+    const a = conversationId.slice(0, pos);
+    const b = conversationId.slice(pos + 1);
+    if (a === callerId && b) return b;
+    if (b === callerId && a) return a;
+    pos = conversationId.indexOf('_', pos + 1);
+  }
+  return null;
+}
+
+/**
+ * Apply an inbox-state mutation to a conversation. Encapsulates the
+ * group-vs-1:1 dispatch so each endpoint stays small.
+ *
+ * `mutation` receives:
+ *   • for a group: { kind: 'group', conv, member, isTutorClassBroadcast }
+ *   • for a 1:1:   { kind: 'oneOnOne', pref }   ← pref is upserted by caller
+ *
+ * The mutation should set/clear the relevant fields and return nothing.
+ * The caller persists the change.
+ */
+async function applyInboxStateChange(req, res, mutation) {
+  const userId = req.user.sub;
+  const { conversationId } = req.params;
+  if (!conversationId) {
+    return res.status(400).json({ success: false, message: 'conversationId required.' });
+  }
+
+  // Group thread? Find the Conversation row.
+  const conv = await Conversation.findOne({ groupId: conversationId });
+  if (conv) {
+    const member = conv.getMember(userId);
+    if (!member) {
+      return res.status(403).json({ success: false, message: 'Not a member of this conversation.' });
+    }
+    // A tutor on their own class broadcast cannot fully sever themselves
+    // (we never set leftAt for them). Surface the flag so the caller can
+    // enforce policy (e.g. delete-not-allowed).
+    const isTutorClassBroadcast = conv.type === 'class-broadcast' && member.role === 'tutor';
+    try {
+      await mutation({ kind: 'group', conv, member, isTutorClassBroadcast });
+      await conv.save();
+      return res.json({ success: true });
+    } catch (err) {
+      if (err && err.statusCode) {
+        return res.status(err.statusCode).json({ success: false, message: err.message });
+      }
+      throw err;
+    }
+  }
+
+  // 1:1 thread — derive peer + upsert MessagingPreference.
+  const peerAuth0Id = resolveOneOnOnePeer(conversationId, userId);
+  if (!peerAuth0Id) {
+    return res.status(404).json({ success: false, message: 'Conversation not found.' });
+  }
+  const pref = await MessagingPreference.findOneAndUpdate(
+    { ownerAuth0Id: userId, peerAuth0Id },
+    { $setOnInsert: { ownerAuth0Id: userId, peerAuth0Id } },
+    { upsert: true, new: true }
+  );
+  await mutation({ kind: 'oneOnOne', pref });
+  await pref.save();
+  return res.json({ success: true });
+}
+
+/**
+ * POST /api/messaging/conversations/:conversationId/archive
+ * Move the thread to the caller's Archive folder. Reversible via unarchive.
+ * Other party is unaffected; new messages still arrive.
+ */
+router.post('/conversations/:conversationId/archive', verifyToken, async (req, res) => {
+  try {
+    await applyInboxStateChange(req, res, async ({ kind, member, pref }) => {
+      const now = new Date();
+      if (kind === 'group') {
+        member.archivedAt = now;
+      } else {
+        pref.archivedAt = now;
+      }
+    });
+  } catch (error) {
+    console.error('Error archiving conversation:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: 'Failed to archive conversation.' });
+    }
+  }
+});
+
+/**
+ * POST /api/messaging/conversations/:conversationId/unarchive
+ * Move the thread back to the caller's main inbox.
+ */
+router.post('/conversations/:conversationId/unarchive', verifyToken, async (req, res) => {
+  try {
+    await applyInboxStateChange(req, res, async ({ kind, member, pref }) => {
+      if (kind === 'group') {
+        member.archivedAt = null;
+      } else {
+        pref.archivedAt = null;
+      }
+    });
+  } catch (error) {
+    console.error('Error unarchiving conversation:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: 'Failed to unarchive conversation.' });
+    }
+  }
+});
+
+/**
+ * POST /api/messaging/conversations/:conversationId/delete
+ *
+ * Per-user permanent removal. Sets `hiddenAt = now` and (for group threads)
+ * `leftAt = now` so the user no longer receives new messages. The thread is
+ * NOT destroyed for the other participants.
+ *
+ * Tutor-on-class-broadcast guard:
+ *   The class tutor cannot sever themselves from their own class chat (rule:
+ *   "tutors are always reachable while they own the class"). For that case
+ *   we hide the thread from their UI but keep them as an active member of
+ *   the roster, so messages keep flowing. They can re-surface the thread by
+ *   the back-end's roster sync (eg. sending a message into the class via
+ *   another entry-point) but will not see student replies in their inbox
+ *   until they unhide. Practically this is the kebab menu hiding Delete on
+ *   class-broadcast for tutors — but the API still tolerates it for safety.
+ */
+router.post('/conversations/:conversationId/delete', verifyToken, async (req, res) => {
+  try {
+    await applyInboxStateChange(req, res, async ({ kind, member, pref, isTutorClassBroadcast }) => {
+      const now = new Date();
+      if (kind === 'group') {
+        member.hiddenAt = now;
+        member.archivedAt = null;
+        if (!isTutorClassBroadcast) {
+          member.leftAt = now;
+        }
+      } else {
+        pref.hiddenAt = now;
+        pref.archivedAt = null;
+      }
+    });
+  } catch (error) {
+    console.error('Error deleting conversation:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: 'Failed to delete conversation.' });
+    }
   }
 });
 

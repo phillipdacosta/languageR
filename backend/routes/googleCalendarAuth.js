@@ -498,13 +498,26 @@ router.get('/google-calendar/debug-scopes', verifyToken, async (req, res) => {
     if (!dbUser) return res.status(404).json({ error: 'User not found' });
 
     const gcal = dbUser.googleCalendar || {};
+    const _rawB = process.env.BACKEND_PUBLIC_URL;
+    const _backendBase = _rawB ? _rawB.trim().replace(/\/+$/, '') : null;
+    const _watch = {
+      backendPublicUrlSet: Boolean(_backendBase),
+      webhookUrl: _backendBase ? `${_backendBase}/api/webhooks/google-calendar` : null,
+      channelId: gcal.watchChannelId || null,
+      resourceId: gcal.watchResourceId || null,
+      watchExpiration: gcal.watchExpiration || null,
+      watchActive: Boolean(
+        gcal.watchChannelId && gcal.watchExpiration && new Date(gcal.watchExpiration) > new Date()
+      )
+    };
     if (!gcal.accessToken) {
       return res.json({
         connected: gcal.connected || false,
         email: gcal.email || null,
         savedGrantedScopes: gcal.grantedScopes || null,
         liveScopes: null,
-        note: 'No access token stored.'
+        note: 'No access token stored.',
+        watch: _watch
       });
     }
 
@@ -530,6 +543,32 @@ router.get('/google-calendar/debug-scopes', verifyToken, async (req, res) => {
         s === 'https://www.googleapis.com/auth/calendar.readonly' ||
         s === 'https://www.googleapis.com/auth/calendar.events' ||
         s === 'https://www.googleapis.com/auth/calendar'
+      ),
+      watch: _watch
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/auth/google-calendar/watch-diagnostics — same watch fields as debug-scopes; safe for quick browser check
+router.get('/google-calendar/watch-diagnostics', verifyToken, async (req, res) => {
+  try {
+    const dbUser = await User.findOne({ email: req.user.email });
+    if (!dbUser) return res.status(404).json({ error: 'User not found' });
+    const g = dbUser.googleCalendar || {};
+    const raw = process.env.BACKEND_PUBLIC_URL;
+    const backendBase = raw ? raw.trim().replace(/\/+$/, '') : null;
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.json({
+      connected: g.connected || false,
+      email: g.email || null,
+      backendPublicUrlSet: Boolean(backendBase),
+      webhookUrl: backendBase ? `${backendBase}/api/webhooks/google-calendar` : null,
+      channelId: g.watchChannelId || null,
+      watchExpiration: g.watchExpiration || null,
+      watchActive: Boolean(
+        g.watchChannelId && g.watchExpiration && new Date(g.watchExpiration) > new Date()
       )
     });
   } catch (err) {
@@ -540,6 +579,9 @@ router.get('/google-calendar/debug-scopes', verifyToken, async (req, res) => {
 // POST /api/auth/google-calendar/register-watch — Manually (re-)register push notifications
 router.post('/google-calendar/register-watch', verifyToken, async (req, res) => {
   try {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.set('Pragma', 'no-cache');
+
     const dbUser = await User.findOne({ email: req.user.email });
     if (!dbUser) return res.status(404).json({ error: 'User not found' });
     if (!dbUser.googleCalendar?.connected) return res.status(400).json({ error: 'Google Calendar not connected' });

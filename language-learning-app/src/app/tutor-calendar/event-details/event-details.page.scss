@@ -1020,12 +1020,12 @@ ion-header ion-toolbar {
   padding: 16px;
   background: #f9fafb;
 
-  &.refunded  { background: #fef2f2; }
-  &.partial   { background: #fffbeb; }
-  &.cancelled { background: #f9fafb; }
-  &.paid      { background: #f0fdf4; }
-  &.pending   { background: #eff6ff; }
-  &.on-hold   { background: #fffbeb; }
+  &.refunded  { background: #f9f9f9; }
+  &.partial   { background: #f9f9f9; }
+  &.cancelled { background: #f9f9f9; }
+  &.paid      { background: #f9f9f9; }
+  &.pending   { background: #f9f9f9; }
+  &.on-hold   { background: #f9f9f9; }
 }
 
 .ed-payment-status-header {
@@ -1585,17 +1585,17 @@ ion-header {
 
   &.pending {
     background: #FFF7ED;
-    border: 1px solid #FED7AA;
+    border: 1px solid #ffffff;
   }
 
   &.provided {
     background: #F0FDF4;
-    border: 1px solid #BBF7D0;
+    border: 1px solid #ffffff;
   }
 
   &.awaiting {
     background: #F0F4FF;
-    border: 1px solid #C7D2FE;
+    border: 1px solid #ffffff;
   }
 }
 
@@ -1956,12 +1956,18 @@ ion-header {
 }
 
 .ed-pc-btn {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
-  padding: 10px 16px;
+  height: 44px;
+  padding: 0 16px;
   border-radius: 10px;
   font-size: 14px;
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   cursor: pointer;
   transition: all 0.15s ease;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
@@ -2241,7 +2247,6 @@ ion-header {
   }
 
   .ed-pc-btn {
-    padding: 13px 16px;
     font-size: 15px;
   }
 
@@ -3729,15 +3734,15 @@ ion-header {
   .ed-feedback-status {
     &.pending {
       background: rgba(249, 115, 22, 0.15);
-      border-color: rgba(251, 191, 36, 0.4);
+      border-color: #ffffff;
     }
     &.provided {
       background: rgba(52, 199, 89, 0.15);
-      border-color: rgba(52, 199, 89, 0.3);
+      border-color: #ffffff;
     }
     &.awaiting {
       background: rgba(66, 152, 210, 0.15);
-      border-color: rgba(66, 152, 210, 0.3);
+      border-color: #ffffff;
     }
   }
 

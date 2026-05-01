@@ -155,7 +155,9 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   participantEmail = '';
   participantPicture = '';
   participantInitial = '';
-  participantRole = ''; // "Student" or "Tutor"
+  participantRole = ''; // legacy; prefer participantRoleDisplay
+  /** Localized sidebar role label (student vs tutor). */
+  participantRoleDisplay = '';
   participantCountry = '';
   tutorId: string | null = null; // For navigation to tutor profile (students only)
 
@@ -263,6 +265,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   sidebarNotesShowingTranslation = false;
   sidebarNotesTranslationCache: any = null;
   private translationSub?: Subscription;
+  private langChangeSub?: Subscription;
   private classStateSub?: Subscription;
   private activeClassRoomId: string | null = null;
 
@@ -454,10 +457,24 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         this.cdr.detectChanges();
       }
     });
+
+    this.langChangeSub = this.translate.onLangChange.subscribe(() => {
+      if (this.paymentData) {
+        this.computePaymentStatus();
+      }
+      if (this.lesson && !this.isClass) {
+        this.computeAllProperties();
+      }
+      if (this.classData && this.isClass) {
+        this.computeClassProperties();
+      }
+      this.cdr.detectChanges();
+    });
   }
 
   ngOnDestroy() {
     this.translationSub?.unsubscribe();
+    this.langChangeSub?.unsubscribe();
     if (this.countdownInterval) {
       clearInterval(this.countdownInterval);
     }
@@ -1276,7 +1293,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     if (!this.lesson) return;
 
     if (this.lesson.status === 'cancelled') {
-      this.statusLabel = 'Cancelled';
+      this.statusLabel = this.translate.instant('LESSONS_PAGE.STATUS_CANCELLED');
       this.statusColor = '#ef4444';
       this.statusClass = 'cancelled';
       return;
@@ -1287,21 +1304,21 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     const end = new Date(this.lesson.endTime);
 
     if (now >= start && now <= end) {
-      this.statusLabel = 'In Progress';
+      this.statusLabel = this.translate.instant('LESSONS_PAGE.STATUS_IN_PROGRESS');
       this.statusColor = '#60a5fa';
       this.statusClass = 'in-progress';
       this.isLessonInProgress = true;
     } else if (now > end) {
-      this.statusLabel = 'Completed';
+      this.statusLabel = this.translate.instant('LESSONS_PAGE.STATUS_COMPLETED');
       this.statusColor = '#6b7280';
       this.statusClass = 'completed';
       this.isLessonCompleted = true;
     } else if (this.lesson.status === 'pending_reschedule') {
-      this.statusLabel = 'Pending Reschedule';
+      this.statusLabel = this.translate.instant('LESSONS_PAGE.STATUS_PENDING_RESCHEDULE');
       this.statusColor = '#f59e0b';
       this.statusClass = 'pending';
     } else {
-      this.statusLabel = 'Upcoming';
+      this.statusLabel = this.translate.instant('LESSONS_PAGE.STATUS_UPCOMING');
       this.statusColor = '#667eea';
       this.statusClass = 'upcoming';
     }
@@ -1313,14 +1330,14 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     const start = new Date(this.lesson.startTime);
     const end = new Date(this.lesson.endTime);
 
-    this.showJoinButton = this.statusLabel === 'Upcoming' || this.statusLabel === 'In Progress';
+    this.showJoinButton = this.statusClass === 'upcoming' || this.statusClass === 'in-progress';
 
     if (now >= start && now <= end) {
       this.canJoinLesson = true;
-      this.joinLabel = 'Join Now';
+      this.joinLabel = this.translate.instant('HOME.JOIN_NOW');
     } else if (this.lessonService.canJoinLesson(this.lesson)) {
       this.canJoinLesson = true;
-      this.joinLabel = 'Join';
+      this.joinLabel = this.translate.instant('HOME.JOIN');
     } else if (this.showJoinButton) {
       this.canJoinLesson = false;
       const secs = this.lessonService.getTimeUntilJoin(this.lesson);
@@ -1351,9 +1368,9 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
     if (start.toDateString() === today.toDateString()) {
-      this.formattedDate = 'Today';
+      this.formattedDate = this.translate.instant('HOME.TODAY');
     } else if (start.toDateString() === tomorrow.toDateString()) {
-      this.formattedDate = 'Tomorrow';
+      this.formattedDate = this.translate.instant('HOME.TOMORROW');
     } else {
       this.formattedDate = formatDateInTz(start, this.userTz, {
         weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
@@ -1390,7 +1407,12 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.participantPicture = p.picture || '';
       this.participantInitial = (p.name || p.firstName || 'P').charAt(0).toUpperCase();
       this.participantRole = this.isTutorUser ? 'Student' : 'Tutor';
+      this.participantRoleDisplay = this.isTutorUser
+        ? this.translate.instant('LESSONS_PAGE.STUDENT')
+        : this.translate.instant('LESSONS_PAGE.TUTOR');
       this.participantCountry = p.country || p.residenceCountry || '';
+    } else {
+      this.participantRoleDisplay = '';
     }
 
     // Pre-compute tutor display name for student view ("Phillip D.")
@@ -1400,7 +1422,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       const tLast = tutor.lastName || tutor.name?.split(' ').slice(1).join(' ') || '';
       this.tutorDisplayName = tFirst && tLast
         ? `${tFirst} ${tLast.charAt(0).toUpperCase()}.`
-        : tutor.name || 'Your tutor';
+        : tutor.name || this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.TUTOR_DISPLAY_FALLBACK');
       
       this.tutorId = tutor._id?.toString() || tutor.toString() || null;
     }
@@ -1556,11 +1578,16 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     if (!this.lesson) return;
     this.isCancelled = this.lesson.status === 'cancelled';
     if (this.isCancelled) {
+      const ls = (k: string) => this.translate.instant(`EVENT_DETAILS.LESSON_SCREEN.${k}`);
       const cancelledByMap: Record<string, string> = {
-        tutor: 'Tutor', student: 'Student', system: 'System', admin: 'Admin'
+        tutor: ls('ROLE_TUTOR'),
+        student: ls('ROLE_STUDENT'),
+        system: ls('ROLE_SYSTEM'),
+        admin: ls('ROLE_ADMIN'),
       };
-      this.cancelledByLabel = cancelledByMap[this.lesson.cancelledBy] || 'Unknown';
-      this.cancelReasonLabel = this.lesson.cancelReasonText || this.lesson.cancelReason || 'No reason provided';
+      this.cancelledByLabel = cancelledByMap[this.lesson.cancelledBy] || ls('ROLE_UNKNOWN');
+      this.cancelReasonLabel =
+        this.lesson.cancelReasonText || this.lesson.cancelReason || ls('NO_CANCEL_REASON');
       this.cancelledAtLabel = this.lesson.cancelledAt
         ? `${formatDateInTz(this.lesson.cancelledAt, this.userTz, { month: 'short', day: 'numeric', year: 'numeric' })} ${formatTimeInTz(this.lesson.cancelledAt, this.userTz, undefined, true)}`
         : '';
@@ -1571,15 +1598,18 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     if (!this.lesson) return;
     this.hasIssue = !!this.lesson.issueReported;
     if (this.hasIssue) {
-      const issueMap: Record<string, string> = {
-        tutor_no_show: 'Tutor No-Show',
-        ended_early: 'Ended Early',
-        poor_quality: 'Poor Quality',
-        inappropriate: 'Inappropriate Behavior',
-        technical: 'Technical Issues',
-        other: 'Other'
+      const issueKeyMap: Record<string, string> = {
+        tutor_no_show: 'LESSONS_PAGE.ISSUE_TUTOR_NO_SHOW',
+        ended_early: 'LESSONS_PAGE.ISSUE_ENDED_EARLY',
+        poor_quality: 'LESSONS_PAGE.ISSUE_POOR_QUALITY',
+        inappropriate: 'LESSONS_PAGE.ISSUE_INAPPROPRIATE',
+        technical: 'LESSONS_PAGE.ISSUE_TECHNICAL',
+        other: 'LESSONS_PAGE.ISSUE_OTHER',
       };
-      this.issueTypeLabel = issueMap[this.lesson.issueType || ''] || 'Issue Reported';
+      const ik = issueKeyMap[this.lesson.issueType || ''];
+      this.issueTypeLabel = ik
+        ? this.translate.instant(ik)
+        : this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.ISSUE_FALLBACK');
 
       // Only the person who reported the issue sees the detailed text
       const reporterId = this.lesson.issueReportedBy?._id?.toString()
@@ -1594,18 +1624,18 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.isUnderInvestigation = !!this.lesson.underInvestigation;
       this.isInvestigationResolved = !!this.lesson.investigationResolvedAt;
       if (this.isInvestigationResolved) {
+        const ls = (k: string) => this.translate.instant(`EVENT_DETAILS.LESSON_SCREEN.${k}`);
         if (this.isTutorUser) {
-          // Tutor just sees "Resolved" — no need for specifics
-          this.investigationResolutionLabel = 'Resolved';
+          this.investigationResolutionLabel = ls('RESOLVED');
         } else {
-          // Student sees the specific outcome
           const resolutionMap: Record<string, string> = {
-            approved: 'Resolved — No issue found',
-            refunded: 'Resolved — Refunded',
-            partial_refund: 'Resolved — Partially refunded',
-            no_action: 'Resolved — No action taken'
+            approved: ls('RESOLUTION_NO_ISSUE'),
+            refunded: ls('RESOLUTION_REFUNDED'),
+            partial_refund: ls('RESOLUTION_PARTIAL'),
+            no_action: ls('RESOLUTION_NO_ACTION'),
           };
-          this.investigationResolutionLabel = resolutionMap[this.lesson.investigationResolution || ''] || 'Resolved';
+          this.investigationResolutionLabel =
+            resolutionMap[this.lesson.investigationResolution || ''] || ls('RESOLVED');
         }
       }
     }
@@ -1616,7 +1646,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     const rp = this.lesson.rescheduleProposal;
     if (rp.status === 'pending' && rp.proposedStartTime && rp.proposedEndTime && rp.proposedBy) {
       this.hasReschedule = true;
-      this.rescheduleStatus = 'Pending';
+      this.rescheduleStatus = this.translate.instant('LESSONS_PAGE.STATUS_PENDING');
       const s = new Date(rp.proposedStartTime);
       const e = new Date(rp.proposedEndTime);
       if (!isNaN(s.getTime()) && !isNaN(e.getTime())) {
@@ -1821,9 +1851,16 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     }
   }
 
+  /** Payment status copy under `EVENT_DETAILS.PAYMENT.*` */
+  private paymentTr(key: string): string {
+    return this.translate.instant(`EVENT_DETAILS.PAYMENT.${key}`);
+  }
+
   private computePaymentStatus() {
     const p = this.paymentData;
     if (!p) return;
+
+    this.paymentStatusDetails = [];
 
     const status = p.status;
     const transferStatus = p.transferStatus;
@@ -1840,43 +1877,65 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.paymentStatusClass = 'refunded';
       this.paymentStatusIcon = 'arrow-undo-circle-outline';
       if (this.isStudentUser) {
-        this.paymentStatusTitle = 'Payment refunded';
-        this.paymentStatusDescription = `$${refundAmt > 0 ? refundAmt.toFixed(2) : amount.toFixed(2)} was returned to your account.`;
+        this.paymentStatusTitle = this.paymentTr('REFUNDED_TITLE_STUDENT');
+        const refundDisplay = refundAmt > 0 ? refundAmt.toFixed(2) : amount.toFixed(2);
+        this.paymentStatusDescription = this.paymentTr('REFUNDED_DESC_STUDENT').replace(
+          '{{amount}}',
+          `$${refundDisplay}`,
+        );
         if (p.refundReason) {
-          this.paymentStatusDetails.push({ key: 'Reason', value: p.refundReason });
+          this.paymentStatusDetails.push({ key: this.paymentTr('ROW_REASON'), value: p.refundReason });
         }
         if (p.refundMethod) {
-          const methodLabel = p.refundMethod === 'wallet' ? 'Wallet credit' : 'Original payment method';
-          this.paymentStatusDetails.push({ key: 'Refunded to', value: methodLabel });
+          const methodLabel =
+            p.refundMethod === 'wallet'
+              ? this.paymentTr('ROW_WALLET_CREDIT')
+              : this.paymentTr('ROW_ORIGINAL_PAYMENT_METHOD');
+          this.paymentStatusDetails.push({ key: this.paymentTr('ROW_REFUNDED_TO'), value: methodLabel });
         }
       } else {
-        this.paymentStatusTitle = 'Payment reversed';
-        this.paymentStatusDescription = 'The payment for this lesson was refunded to the student. No earnings apply.';
+        this.paymentStatusTitle = this.paymentTr('REVERSED_TITLE_TUTOR');
+        this.paymentStatusDescription = this.paymentTr('REVERSED_DESC_TUTOR');
         if (p.refundReason) {
-          this.paymentStatusDetails.push({ key: 'Reason', value: p.refundReason });
+          this.paymentStatusDetails.push({ key: this.paymentTr('ROW_REASON'), value: p.refundReason });
         }
       }
     } else if (status === 'partially_refunded') {
       this.paymentStatusClass = 'partial';
       this.paymentStatusIcon = 'swap-horizontal-outline';
       if (this.isStudentUser) {
-        this.paymentStatusTitle = 'Payment reduced';
-        this.paymentStatusDescription = `$${refundAmt.toFixed(2)} was refunded to your account.`;
+        this.paymentStatusTitle = this.paymentTr('PARTIAL_TITLE_STUDENT');
+        this.paymentStatusDescription = this.paymentTr('PARTIAL_DESC_STUDENT').replace(
+          '{{amount}}',
+          `$${refundAmt.toFixed(2)}`,
+        );
         const finalCharge = amount - refundAmt;
-        this.paymentStatusDetails.push({ key: 'Original amount', value: `$${amount.toFixed(2)}` });
-        this.paymentStatusDetails.push({ key: 'Refunded', value: `$${refundAmt.toFixed(2)}` });
-        this.paymentStatusDetails.push({ key: 'Final charge', value: `$${finalCharge.toFixed(2)}` });
+        this.paymentStatusDetails.push({
+          key: this.paymentTr('ROW_ORIGINAL_AMOUNT'),
+          value: `$${amount.toFixed(2)}`,
+        });
+        this.paymentStatusDetails.push({
+          key: this.paymentTr('ROW_REFUNDED'),
+          value: `$${refundAmt.toFixed(2)}`,
+        });
+        this.paymentStatusDetails.push({
+          key: this.paymentTr('ROW_FINAL_CHARGE'),
+          value: `$${finalCharge.toFixed(2)}`,
+        });
         if (p.refundReason) {
-          this.paymentStatusDetails.push({ key: 'Reason', value: p.refundReason });
+          this.paymentStatusDetails.push({ key: this.paymentTr('ROW_REASON'), value: p.refundReason });
         }
       } else {
-        this.paymentStatusTitle = 'Earnings adjusted';
-        this.paymentStatusDescription = 'The student received a partial refund. Your earnings were adjusted accordingly.';
+        this.paymentStatusTitle = this.paymentTr('ADJUSTED_TITLE_TUTOR');
+        this.paymentStatusDescription = this.paymentTr('ADJUSTED_DESC_TUTOR');
         if (tutorPayout > 0) {
-          this.paymentStatusDetails.push({ key: 'Your earnings', value: `$${tutorPayout.toFixed(2)}` });
+          this.paymentStatusDetails.push({
+            key: this.paymentTr('ROW_YOUR_EARNINGS'),
+            value: `$${tutorPayout.toFixed(2)}`,
+          });
         }
         if (p.refundReason) {
-          this.paymentStatusDetails.push({ key: 'Reason', value: p.refundReason });
+          this.paymentStatusDetails.push({ key: this.paymentTr('ROW_REASON'), value: p.refundReason });
         }
       }
     } else if (status === 'cancelled' || (isCancelled && status !== 'succeeded')) {
@@ -1884,34 +1943,44 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.paymentStatusIcon = 'close-circle-outline';
       if (this.isStudentUser) {
         if (isLate && cancellationFee > 0) {
-          this.paymentStatusTitle = 'Cancellation fee applied';
-          this.paymentStatusDescription = `A late cancellation fee of $${cancellationFee.toFixed(2)} was charged.`;
+          this.paymentStatusTitle = this.paymentTr('CANCEL_FEE_TITLE_STUDENT');
+          this.paymentStatusDescription = this.paymentTr('CANCEL_FEE_DESC_STUDENT').replace(
+            '{{fee}}',
+            `$${cancellationFee.toFixed(2)}`,
+          );
           if (amount - cancellationFee > 0) {
-            this.paymentStatusDetails.push({ key: 'Refunded', value: `$${(amount - cancellationFee).toFixed(2)}` });
+            this.paymentStatusDetails.push({
+              key: this.paymentTr('ROW_REFUNDED'),
+              value: `$${(amount - cancellationFee).toFixed(2)}`,
+            });
           }
-          this.paymentStatusDetails.push({ key: 'Cancellation fee', value: `$${cancellationFee.toFixed(2)}` });
+          this.paymentStatusDetails.push({
+            key: this.paymentTr('ROW_CANCELLATION_FEE'),
+            value: `$${cancellationFee.toFixed(2)}`,
+          });
         } else {
-          this.paymentStatusTitle = 'No charge applied';
-          this.paymentStatusDescription = 'The lesson was cancelled and no payment was charged.';
+          this.paymentStatusTitle = this.paymentTr('NO_CHARGE_TITLE_STUDENT');
+          this.paymentStatusDescription = this.paymentTr('NO_CHARGE_DESC_STUDENT');
         }
       } else {
         if (isLate && cancellationFee > 0) {
-          this.paymentStatusTitle = 'Late cancellation compensation';
-          this.paymentStatusDescription = `You earned $${tutorPayout > 0 ? tutorPayout.toFixed(2) : cancellationFee.toFixed(2)} from the late cancellation fee.`;
+          this.paymentStatusTitle = this.paymentTr('LATE_COMP_TITLE_TUTOR');
+          const comp = tutorPayout > 0 ? tutorPayout.toFixed(2) : cancellationFee.toFixed(2);
+          this.paymentStatusDescription = this.paymentTr('LATE_COMP_DESC_TUTOR').replace('{{amount}}', `$${comp}`);
         } else {
-          this.paymentStatusTitle = 'No earnings';
-          this.paymentStatusDescription = 'This lesson was cancelled. No earnings apply.';
+          this.paymentStatusTitle = this.paymentTr('NO_EARNINGS_TITLE_TUTOR');
+          this.paymentStatusDescription = this.paymentTr('NO_EARNINGS_DESC_TUTOR');
         }
       }
     } else if (transferStatus === 'on_hold' || this.lesson?.payoutPaused) {
       this.paymentStatusClass = 'on-hold';
       this.paymentStatusIcon = 'pause-circle-outline';
       if (this.isStudentUser) {
-        this.paymentStatusTitle = 'Payment on hold';
-        this.paymentStatusDescription = 'Your payment is on hold while this lesson is being reviewed.';
+        this.paymentStatusTitle = this.paymentTr('HOLD_TITLE_STUDENT');
+        this.paymentStatusDescription = this.paymentTr('HOLD_DESC_STUDENT');
       } else {
-        this.paymentStatusTitle = 'Earnings on hold';
-        this.paymentStatusDescription = 'Your earnings are on hold while this lesson is being reviewed.';
+        this.paymentStatusTitle = this.paymentTr('HOLD_TITLE_TUTOR');
+        this.paymentStatusDescription = this.paymentTr('HOLD_DESC_TUTOR');
       }
     } else if (status === 'succeeded' || status === 'authorized') {
       const lessonCompleted = this.lesson?.status === 'completed';
@@ -1922,35 +1991,95 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.paymentStatusIcon = isFinished ? 'checkmark-circle-outline' : 'time-outline';
       if (this.isStudentUser) {
         if (isFinished) {
-          this.paymentStatusTitle = 'Payment complete';
-          this.paymentStatusDescription = `$${amount.toFixed(2)} was charged.`;
+          this.paymentStatusTitle = this.paymentTr('COMPLETE_TITLE_STUDENT');
+          this.paymentStatusDescription = this.paymentTr('COMPLETE_DESC_STUDENT').replace(
+            '{{amount}}',
+            `$${amount.toFixed(2)}`,
+          );
         } else {
-          this.paymentStatusTitle = 'Payment authorized';
-          this.paymentStatusDescription = `$${amount.toFixed(2)} will be charged after the lesson.`;
+          this.paymentStatusTitle = this.paymentTr('AUTHORIZED_TITLE_STUDENT');
+          this.paymentStatusDescription = this.paymentTr('AUTHORIZED_DESC_STUDENT').replace(
+            '{{amount}}',
+            `$${amount.toFixed(2)}`,
+          );
         }
       } else {
+        const tipNet = this.lesson?.tip?.tutorReceived ?? this.lesson?.tip?.amount ?? 0;
+        const totalEarned = tutorPayout + tipNet;
+        const hasTip = tipNet > 0;
         if (isFinished) {
-          this.paymentStatusTitle = 'Earnings confirmed';
-          this.paymentStatusDescription = tutorPayout > 0
-            ? `You earned $${tutorPayout.toFixed(2)} from this lesson.`
-            : 'Your earnings for this lesson have been confirmed.';
+          this.paymentStatusTitle = this.paymentTr('CONFIRMED_TITLE_TUTOR');
+          if (totalEarned > 0) {
+            const descKey = hasTip ? 'CONFIRMED_DESC_TUTOR_WITH_TIP' : 'CONFIRMED_DESC_TUTOR';
+            this.paymentStatusDescription = this.paymentTr(descKey).replace('{{total}}', `$${totalEarned.toFixed(2)}`);
+          } else {
+            this.paymentStatusDescription = this.paymentTr('CONFIRMED_DESC_TUTOR_EMPTY');
+          }
+          if (amount > 0 && tutorPayout > 0 && amount > tutorPayout) {
+            const platformFee = amount - tutorPayout;
+            this.paymentStatusDetails.push({
+              key: this.paymentTr('ROW_LESSON_PRICE'),
+              value: `+$${amount.toFixed(2)}`,
+            });
+            this.paymentStatusDetails.push({
+              key: this.paymentTr('ROW_PLATFORM_FEE'),
+              value: `−$${platformFee.toFixed(2)}`,
+            });
+            this.paymentStatusDetails.push({
+              key: this.paymentTr('ROW_YOUR_EARNINGS'),
+              value: `$${tutorPayout.toFixed(2)}`,
+            });
+          }
         } else {
-          this.paymentStatusTitle = 'Earnings pending';
-          this.paymentStatusDescription = tutorPayout > 0
-            ? `You'll earn $${tutorPayout.toFixed(2)} after this lesson.`
-            : 'Your earnings will be confirmed after the lesson.';
+          this.paymentStatusTitle = this.paymentTr('PENDING_TITLE_TUTOR');
+          if (totalEarned > 0) {
+            const descKey = hasTip ? 'PENDING_DESC_TUTOR_WITH_TIP' : 'PENDING_DESC_TUTOR';
+            this.paymentStatusDescription = this.paymentTr(descKey).replace('{{total}}', `$${totalEarned.toFixed(2)}`);
+          } else {
+            this.paymentStatusDescription = this.paymentTr('PENDING_DESC_TUTOR_EMPTY');
+          }
+          if (amount > 0 && tutorPayout > 0 && amount > tutorPayout) {
+            const platformFee = amount - tutorPayout;
+            this.paymentStatusDetails.push({
+              key: this.paymentTr('ROW_LESSON_PRICE'),
+              value: `+$${amount.toFixed(2)}`,
+            });
+            this.paymentStatusDetails.push({
+              key: this.paymentTr('ROW_PLATFORM_FEE'),
+              value: `−$${platformFee.toFixed(2)}`,
+            });
+            this.paymentStatusDetails.push({
+              key: this.paymentTr('ROW_YOUR_EARNINGS'),
+              value: `$${tutorPayout.toFixed(2)}`,
+            });
+          }
         }
       }
     } else {
-      // Pending, processing, or unknown
       this.hasPaymentStatus = false;
     }
 
     if (p.refundedAt && this.hasPaymentStatus && (status === 'refunded' || status === 'partially_refunded')) {
       this.paymentStatusDetails.push({
-        key: 'Date',
-        value: formatDateInTz(p.refundedAt, this.userTz, { month: 'short', day: 'numeric', year: 'numeric' })
+        key: this.paymentTr('ROW_DATE'),
+        value: formatDateInTz(p.refundedAt, this.userTz, { month: 'short', day: 'numeric', year: 'numeric' }),
       });
+    }
+
+    if (this.hasPaymentStatus && this.hasTip) {
+      if (this.isTutorUser && this.tipHasFee) {
+        this.paymentStatusDetails.push({ key: this.paymentTr('ROW_TIP'), value: `+${this.tipAmount}` });
+        this.paymentStatusDetails.push({ key: this.paymentTr('ROW_PROCESSING_FEE'), value: `−${this.tipStripeFee}` });
+        this.paymentStatusDetails.push({
+          key: this.paymentTr('ROW_TIP_RECEIVED'),
+          value: this.tipTutorReceived,
+        });
+      } else {
+        this.paymentStatusDetails.push({
+          key: this.isTutorUser ? this.paymentTr('ROW_TIP_RECEIVED') : this.paymentTr('ROW_TIP_SENT'),
+          value: this.tipAmount,
+        });
+      }
     }
   }
 
@@ -1995,21 +2124,21 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     const end = new Date(this.classData.endTime);
 
     if (this.classData.status === 'cancelled') {
-      this.statusLabel = 'Cancelled';
+      this.statusLabel = this.translate.instant('LESSONS_PAGE.STATUS_CANCELLED');
       this.statusColor = '#ef4444';
       this.statusClass = 'cancelled';
       this.classIsCancelled = true;
     } else if (now >= start && now <= end) {
-      this.statusLabel = 'In Progress';
+      this.statusLabel = this.translate.instant('LESSONS_PAGE.STATUS_IN_PROGRESS');
       this.statusColor = '#10b981';
       this.statusClass = 'in-progress';
     } else if (now > end || this.classData.status === 'completed') {
-      this.statusLabel = 'Completed';
+      this.statusLabel = this.translate.instant('LESSONS_PAGE.STATUS_COMPLETED');
       this.statusColor = '#6b7280';
       this.statusClass = 'completed';
       this.classIsCompleted = true;
     } else {
-      this.statusLabel = 'Upcoming';
+      this.statusLabel = this.translate.instant('LESSONS_PAGE.STATUS_UPCOMING');
       this.statusColor = '#667eea';
       this.statusClass = 'upcoming';
     }
@@ -2019,15 +2148,17 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
     if (start.toDateString() === today.toDateString()) {
-      this.formattedDate = 'Today';
+      this.formattedDate = this.translate.instant('HOME.TODAY');
     } else if (start.toDateString() === tomorrow.toDateString()) {
-      this.formattedDate = 'Tomorrow';
+      this.formattedDate = this.translate.instant('HOME.TOMORROW');
     } else {
       this.formattedDate = formatDateInTz(start, this.userTz, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
     }
     this.formattedTimeRange = `${formatTimeInTz(start, this.userTz, undefined, true)} – ${formatTimeInTz(end, this.userTz, undefined, true)}`;
     this.formattedDuration = `${this.classData.duration || 60} minutes`;
-    this.formattedPrice = this.classData.price ? `$${this.classData.price.toFixed(2)}` : 'Free';
+    this.formattedPrice = this.classData.price
+      ? `$${this.classData.price.toFixed(2)}`
+      : this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.MATERIAL_FREE');
 
     const levelMap: Record<string, string> = {
       any: 'Any Level', beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced'
@@ -2091,13 +2222,13 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
     // Join / cancel button
     const minutesUntilStart = (start.getTime() - now.getTime()) / (1000 * 60);
-    this.classShowJoinButton = this.statusLabel === 'Upcoming' || this.statusLabel === 'In Progress';
+    this.classShowJoinButton = this.statusClass === 'upcoming' || this.statusClass === 'in-progress';
     if (now >= start && now <= end) {
       this.classCanJoin = true;
-      this.classJoinLabel = 'Join Now';
+      this.classJoinLabel = this.translate.instant('HOME.JOIN_NOW');
     } else if (minutesUntilStart <= 10 && end > now && !this.classIsCancelled) {
       this.classCanJoin = true;
-      this.classJoinLabel = 'Join';
+      this.classJoinLabel = this.translate.instant('HOME.JOIN');
     } else if (this.classShowJoinButton) {
       this.classCanJoin = false;
       const secs = Math.max(0, Math.floor((start.getTime() - now.getTime()) / 1000));
@@ -2130,7 +2261,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     if (
       this.isStudentUser &&
       this.classData &&
-      (this.statusLabel === 'Upcoming' || this.statusLabel === 'In Progress') &&
+      (this.statusClass === 'upcoming' || this.statusClass === 'in-progress') &&
       !this.classIsCancelled
     ) {
       const hasPendingInv = this.classData.hasInvitation && this.classData.invitationStatus === 'pending';
@@ -2190,15 +2321,6 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.classCanOpenGoingMessage =
       (this.isStudentUser && !!this.classTutorId) ||
       (this.classIsCurrentUserTutor && this.classGoingReceiverIds.length > 0);
-    console.log('[EventDetails] going message state', {
-      isStudentUser: this.isStudentUser,
-      classIsCurrentUserTutor: this.classIsCurrentUserTutor,
-      classTutorId: this.classTutorId,
-      userId,
-      classCanOpenGoingMessage: this.classCanOpenGoingMessage,
-      enrolledCount: enrolled.length,
-      classGoingReceiverIds: this.classGoingReceiverIds,
-    });
     if (enrolled.length > 0) {
       this.classAttendeesForGridStack = enrolled;
       const cap = this.classData.maxStudents ?? this.classData.capacity;
@@ -2654,11 +2776,14 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
     const requiresTutorFeedback = !!this.lesson.requiresTutorFeedback;
     const hasPendingFeedbackRecord = !!this.tutorFeedback && this.tutorFeedback.status === 'pending';
+    const aiWasDisabled = this.lesson.aiAnalysisEnabledAtTime === false;
 
     if (this.isTutorUser) {
-      // Only show "Feedback outstanding" when there's an actual pending + required record.
-      // AI-enabled lessons don't create a TutorFeedback record, so feedback is optional.
+      // Only show "Feedback outstanding" when AI was DISABLED for this lesson AND
+      // there's an actual pending + required record. AI-enabled lessons don't
+      // create a TutorFeedback record, so feedback is optional.
       this.feedbackPending = !this.feedbackProvided
+        && aiWasDisabled
         && (requiresTutorFeedback || (hasPendingFeedbackRecord && this.tutorFeedback?.required !== false));
     } else {
       const hasAiAnalysis = this.hasAnalysis

@@ -683,6 +683,166 @@
       background-color: #ebebeb;
     }
   }
+
+  // Kebab affordance — hidden until hover or while its menu is open. Apple
+  // clean: ~32px hit target, calm grey icon, no chrome.
+  .conversation-kebab {
+    flex: none;
+    width: 32px;
+    height: 32px;
+    border: 0;
+    background: transparent;
+    border-radius: 8px;
+    color: #717171;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s ease, background-color 0.15s ease;
+    margin-left: 4px;
+
+    ion-icon {
+      font-size: 18px;
+    }
+
+    &:hover {
+      background-color: rgba(0, 0, 0, 0.06);
+      color: #222;
+    }
+  }
+
+  &:hover .conversation-kebab,
+  &.has-kebab-open .conversation-kebab {
+    opacity: 1;
+  }
+
+  // Kebab on mobile is always visible — touch UIs have no hover.
+  .conversation-kebab--mobile {
+    opacity: 1;
+  }
+}
+
+// Conversation row pills (e.g. "Cancelled" badge for cancelled class chats).
+.conversation-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  margin-left: 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+  vertical-align: middle;
+
+  &--cancelled {
+    background: rgba(255, 59, 48, 0.1);
+    color: #d70015;
+  }
+}
+
+// Kebab popover menu — Apple-clean overflow, soft elevation, no border
+// chrome. Rendered fixed-position above everything via the overlay below.
+.kebab-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+}
+
+.kebab-menu {
+  position: fixed;
+  min-width: 168px;
+  background: rgba(255, 255, 255, 0.98);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-radius: 12px;
+  padding: 4px;
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.04),
+    0 8px 28px rgba(0, 0, 0, 0.16);
+  display: flex;
+  flex-direction: column;
+  z-index: 10000;
+  animation: kebabMenuPop 0.14s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@keyframes kebabMenuPop {
+  from { opacity: 0; transform: translateY(-4px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.kebab-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 500;
+  color: #222;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.12s ease;
+
+  ion-icon {
+    font-size: 17px;
+    color: #717171;
+  }
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.04);
+  }
+
+  &--danger {
+    color: #d70015;
+
+    ion-icon {
+      color: #d70015;
+    }
+
+    &:hover {
+      background-color: rgba(255, 59, 48, 0.08);
+    }
+  }
+}
+
+// Dark mode variants
+@media (prefers-color-scheme: dark) {
+  .kebab-menu {
+    background: rgba(28, 28, 30, 0.98);
+    box-shadow:
+      0 1px 1px rgba(0, 0, 0, 0.4),
+      0 8px 28px rgba(0, 0, 0, 0.5);
+  }
+
+  .kebab-menu-item {
+    color: #f5f5f7;
+
+    ion-icon {
+      color: #98989d;
+    }
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.06);
+    }
+
+    &--danger {
+      color: #ff453a;
+
+      ion-icon {
+        color: #ff453a;
+      }
+    }
+  }
+
+  .conversation-pill--cancelled {
+    background: rgba(255, 69, 58, 0.16);
+    color: #ff6961;
+  }
 }
 
 .conversation-avatar {
@@ -2188,6 +2348,27 @@
   }
 }
 
+/** Other user's local time, directly above the desktop message composer. */
+.composer-local-time {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 24px 6px;
+  border-top: 0.5px solid rgba(0, 0, 0, 0.08);
+  background: #ffffff;
+  font-size: 12px;
+  font-weight: 400;
+  color: #86868b;
+  letter-spacing: -0.1px;
+  flex-shrink: 0;
+
+  ion-icon {
+    font-size: 14px;
+    opacity: 0.7;
+  }
+}
+
 .message-input-container {
   display: flex;
   align-items: center;
@@ -2198,6 +2379,11 @@
   position: relative;
   z-index: 10;
   flex-shrink: 0;
+
+  &.message-input--below-local-time {
+    border-top: none;
+    padding-top: 4px;
+  }
 
   @media (max-width: 768px) {
     padding: 12px 16px;
@@ -3780,6 +3966,12 @@
 
   .other-user-local-time {
     color: #8e8e93;
+  }
+
+  .composer-local-time {
+    background: #000000;
+    color: #8e8e93;
+    border-top-color: rgba(255, 255, 255, 0.12);
   }
 
   .chat-header {

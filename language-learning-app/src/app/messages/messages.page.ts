@@ -11,7 +11,7 @@ import { MessageContextMenuComponent } from './message-context-menu.component';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
 import { TutorAvailabilitySelectionModalComponent } from '../components/tutor-availability-selection-modal/tutor-availability-selection-modal.component';
 import { TranslateService } from '@ngx-translate/core';
-import { formatTimeInTz, formatDateInTz, getGlobalHour12 } from '../shared/timezone.utils';
+import { formatTimeInTz, formatDateInTz, getGlobalHour12, setGlobalTimeFormat } from '../shared/timezone.utils';
 import { Subject, BehaviorSubject, Subscription } from 'rxjs';
 import { takeUntil, debounceTime, take, switchMap, filter } from 'rxjs/operators';
 import { trigger, style, transition, animate } from '@angular/animations';
@@ -117,8 +117,21 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   searchTerm = '';
   private searchInput$ = new Subject<string>();
   
-  // Conversations filter
-  conversationsFilter: 'all' | 'unread' = 'all';
+  // Conversations filter — extends to 'archived' so the user can flip
+  // between active inbox and the Archive folder. Backend expects either
+  // ?filter=all (default) or ?filter=archived; 'unread' is purely a
+  // client-side filter applied on top.
+  conversationsFilter: 'all' | 'unread' | 'archived' = 'all';
+
+  // Three-dots menu state. Only one row's menu can be open at a time so we
+  // track the conversationId of the open row instead of a per-row boolean.
+  // `kebabMenuPos` is fixed-positioned next to the kebab button; computed in
+  // openKebabMenu so the template can stay function-free.
+  openKebabConversationId: string | null = null;
+  kebabMenuPos: { top: number; left: number } | null = null;
+  kebabMenuTarget: Conversation | null = null;
+  /** True when the open kebab menu's conversation is a tutor's own class broadcast — Delete is hidden in this case (rule: tutors are always reachable while they own the class). */
+  kebabMenuHideDelete = false;
   
   // Reply functionality
   replyingToMessage: Message | null = null;
@@ -495,6 +508,8 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       this.userService.currentUser$.pipe(takeUntil(this.destroy$)).subscribe(user => {
         this.currentUser = user ?? null;
         this.currentUserType = user?.userType || null;
+        setGlobalTimeFormat((user?.profile?.calendarTimeFormat as '12h' | '24h') || '12h');
+        this.updateOtherUserLocalTime();
       });
 
       // Ensure current user is loaded
@@ -611,20 +626,38 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   // Computed list filtered by search term (matches other user's name)
+  //
+  // Filter semantics:
+  //   • 'all'      — `conversations` array reflects the active inbox.
+  //   • 'archived' — `conversations` array is replaced with the archive
+  //                  folder by `setConversationsFilter('archived')`. We
+  //                  don't apply any extra client-side cut.
+  //   • 'unread'   — show 'all' minus reads. Pure client-side filter on top
+  //                  of the active inbox, no refetch needed.
   get filteredConversations(): Conversation[] {
     let filtered = this.conversations;
-    
-    // Apply unread filter if selected
+
+    // Hard client-side guard that mirrors the server-side filter.
+    // This ensures the archived / active separation holds even if a
+    // background reload populates `this.conversations` with stale data
+    // before the filter-aware fetch resolves.
+    if (this.conversationsFilter === 'archived') {
+      filtered = filtered.filter(c => c.userArchived === true);
+    } else {
+      // 'all' and 'unread' are both the active inbox — never show archived rows.
+      filtered = filtered.filter(c => !c.userArchived);
+    }
+
     if (this.conversationsFilter === 'unread') {
       filtered = filtered.filter(c => c.unreadCount > 0);
     }
-    
+
     // Apply search filter
     if (this.searchTerm) {
       const searchLower = this.searchTerm.toLowerCase();
       filtered = filtered.filter(c => (c.otherUser?.name || '').toLowerCase().includes(searchLower));
     }
-    
+
     return filtered;
   }
 
@@ -788,8 +821,174 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     this.searchInput$.next('');
   }
 
-  setConversationsFilter(filter: 'all' | 'unread') {
+  setConversationsFilter(filter: 'all' | 'unread' | 'archived') {
+    if (this.conversationsFilter === filter) return;
     this.conversationsFilter = filter;
+    // 'archived' is a server-driven view; refetch the archive list. 'all'
+    // and 'unread' both share the active-inbox dataset, but coming back
+    // from 'archived' we need a fresh active list too.
+    this.loadConversationsForCurrentFilter();
+  }
+
+  /**
+   * Fetch conversations matching `conversationsFilter`. Routes 'archived' to
+   * the dedicated server filter; 'all' and 'unread' use the default inbox.
+   */
+  private loadConversationsForCurrentFilter() {
+    const filter = this.conversationsFilter === 'archived' ? 'archived' : 'all';
+    this.isLoading = true;
+    this.messagingService.getConversations(filter).subscribe({
+      next: (response) => {
+        this.conversations = response.conversations || [];
+        this.decorateGroupAvatarClusters();
+        this.isLoading = false;
+        this.isInitialLoad = false;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('[MessagesPage] loadConversationsForCurrentFilter error:', err);
+        this.isLoading = false;
+      }
+    });
+  }
+
+  /**
+   * Open the kebab (three-dots) overflow menu for a conversation row.
+   * Positions the popover next to the clicked button using its bounding
+   * rect, then records the target conversation so the menu's actions know
+   * what to operate on. Stops propagation to avoid selecting the row.
+   */
+  openKebabMenu(event: MouseEvent, conv: Conversation) {
+    event.preventDefault();
+    event.stopPropagation();
+    const button = event.currentTarget as HTMLElement | null;
+    const rect = button ? button.getBoundingClientRect() : null;
+    this.kebabMenuTarget = conv;
+    this.openKebabConversationId = conv.conversationId;
+    // Tutor-on-class-broadcast policy: tutors can archive but not delete
+    // their own class chat. The server enforces this too as a safety net.
+    this.kebabMenuHideDelete = !!(conv.isGroup && conv.type === 'class-broadcast' && conv.isTutor);
+    if (rect) {
+      // Position the menu just below the button, right-aligned to it.
+      this.kebabMenuPos = {
+        top: rect.bottom + 6,
+        left: Math.max(8, rect.right - 168)
+      };
+    } else {
+      this.kebabMenuPos = null;
+    }
+    this.cdr.detectChanges();
+  }
+
+  /** Dismiss the kebab menu without performing an action. */
+  closeKebabMenu() {
+    this.openKebabConversationId = null;
+    this.kebabMenuTarget = null;
+    this.kebabMenuPos = null;
+    this.kebabMenuHideDelete = false;
+  }
+
+  /**
+   * Archive (or unarchive, when viewing the Archive folder) the row whose
+   * kebab menu is currently open. Confirms first to avoid mis-clicks, then
+   * optimistically removes the row and reconciles with the server response.
+   */
+  async onKebabArchive() {
+    const target = this.kebabMenuTarget;
+    if (!target) return;
+    const conversationId = target.conversationId;
+    const isUnarchive = this.conversationsFilter === 'archived';
+    this.closeKebabMenu();
+
+    const alert = await this.alertController.create({
+      header: isUnarchive ? 'Move to Inbox?' : 'Archive conversation?',
+      message: isUnarchive
+        ? 'It will return to your main inbox.'
+        : 'It will be moved to your Archive folder. You\'ll still receive new messages and can move it back anytime.',
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: isUnarchive ? 'Move to Inbox' : 'Archive',
+          handler: () => {
+            this.conversations = this.conversations.filter(c => c.conversationId !== conversationId);
+            if (this.selectedConversation?.conversationId === conversationId) {
+              this.selectedConversation = null;
+              this.hasConversationSelected = false;
+            }
+
+            const obs = isUnarchive
+              ? this.messagingService.unarchiveConversation(conversationId)
+              : this.messagingService.archiveConversation(conversationId);
+
+            obs.subscribe({
+              next: () => {
+                this.toastController.create({
+                  message: isUnarchive ? 'Conversation moved to inbox' : 'Conversation archived',
+                  duration: 2000,
+                  position: 'bottom',
+                  color: 'dark'
+                }).then((t: HTMLIonToastElement) => t.present());
+              },
+              error: (err) => {
+                console.error('[MessagesPage] archive/unarchive failed:', err);
+                this.loadConversationsForCurrentFilter();
+              }
+            });
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  /**
+   * Permanently remove the conversation from the current user's UI. For
+   * group chats this also removes them from the active roster (server-side)
+   * so they receive no future messages. Confirmation alert prevents
+   * accidental destruction.
+   */
+  async onKebabDelete() {
+    const target = this.kebabMenuTarget;
+    if (!target) return;
+    const conversationId = target.conversationId;
+    this.closeKebabMenu();
+
+    const alert = await this.alertController.create({
+      header: 'Delete conversation?',
+      message: target.isGroup
+        ? 'You will leave this chat and stop receiving new messages. This cannot be undone.'
+        : 'This conversation will be removed from your inbox permanently. This cannot be undone.',
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Delete',
+          role: 'destructive',
+          cssClass: 'alert-button-destructive',
+          handler: () => {
+            this.conversations = this.conversations.filter(c => c.conversationId !== conversationId);
+            if (this.selectedConversation?.conversationId === conversationId) {
+              this.selectedConversation = null;
+              this.hasConversationSelected = false;
+            }
+            this.messagingService.deleteConversation(conversationId).subscribe({
+              next: () => {
+                this.toastController.create({
+                  message: 'Conversation deleted',
+                  duration: 2000,
+                  position: 'bottom',
+                  color: 'dark'
+                }).then((t: HTMLIonToastElement) => t.present());
+              },
+              error: (err) => {
+                console.error('[MessagesPage] delete failed:', err);
+                this.loadConversationsForCurrentFilter();
+              }
+            });
+          }
+        }
+      ]
+    });
+    await alert.present();
   }
 
   /**
@@ -955,13 +1154,12 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
 
   private openConversationWithTutor(tutorId: string) {
     console.log('💬 Opening conversation with tutor:', tutorId);
-    
-    // First, ensure conversations are loaded
-    this.messagingService.getConversations().subscribe({
+    // Always switch to the main inbox before deep-linking to a conversation.
+    this.conversationsFilter = 'all';
+    this.messagingService.getConversations('all').subscribe({
       next: (response) => {
         this.conversations = response.conversations;
-        
-        // Fetch tutor info first to get both MongoDB _id and auth0Id
+        // Fetch tutor info to get both MongoDB _id and auth0Id
         this.userService.getTutorPublic(tutorId).subscribe({
           next: (tutorRes) => {
             const tutor = tutorRes.tutor;
@@ -980,14 +1178,12 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
             );
 
             if (conversation) {
-              // Conversation exists, select it
               console.log('💬 Found existing conversation, selecting it');
               this.selectConversation(conversation);
             } else {
-              // No conversation exists yet - create a placeholder
               console.log('💬 No existing conversation, creating placeholder');
               const placeholderConversation: Conversation = {
-                conversationId: '', // Will be created when first message is sent
+                conversationId: '',
                 otherUser: {
                   id: tutor.id || tutorId,
                   auth0Id: tutor.auth0Id || tutorId,
@@ -1009,22 +1205,15 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
                 unreadCount: 0,
                 updatedAt: new Date().toISOString()
               };
-              
-              // Select this placeholder conversation
               this.selectedConversation = placeholderConversation;
               this.refreshSelectedThreadTypeFlags();
               this.messages = [];
-              this.isLoadingMessages = false; // Don't show loading for new conversations
-              // Notify service that a conversation is selected (for hiding tabs on mobile)
+              this.isLoadingMessages = false;
               this.messagingService.setHasSelectedConversation(true);
-              
-              // Focus the message input
               setTimeout(() => {
                 if (this.messageInput?.nativeElement) {
                   const inputElement = this.messageInput.nativeElement.querySelector('input');
-                  if (inputElement) {
-                    inputElement.focus();
-                  }
+                  if (inputElement) inputElement.focus();
                 }
                 this.scrollToBottom();
               }, 100);
@@ -1043,26 +1232,19 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
 
   private openConversationWithUser(userId: string) {
     console.log('💬 Opening conversation with user:', userId);
-    
-    // First, ensure conversations are loaded
-    this.messagingService.getConversations().subscribe({
+    this.conversationsFilter = 'all';
+    this.messagingService.getConversations('all').subscribe({
       next: (response) => {
         this.conversations = response.conversations;
-        
-        // Try to find existing conversation by matching userId with either auth0Id or id
         const conversation = this.conversations.find(
           conv => conv.otherUser?.auth0Id === userId || 
                   conv.otherUser?.id === userId
         );
-
         if (conversation) {
-          // Conversation exists, select it directly
           console.log('💬 Found existing conversation, selecting it');
           this.selectConversation(conversation);
         } else {
           console.log('💬 No existing conversation found for userId:', userId);
-          // If no conversation exists, the dropdown shouldn't have shown it
-          // But we'll handle gracefully by just logging
         }
       },
       error: (error) => {
@@ -1073,13 +1255,13 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
 
   private openConversationWithGroup(groupId: string) {
     console.log('💬 Opening group conversation:', groupId);
-    this.messagingService.getConversations().subscribe({
+    this.conversationsFilter = 'all';
+    this.messagingService.getConversations('all').subscribe({
       next: (response) => {
         this.conversations = response.conversations;
         const conversation =
           this.conversations.find((conv) => conv.isGroup && conv.groupId === groupId) ||
           this.conversations.find((conv) => conv.conversationId === groupId);
-
         if (conversation) {
           this.selectConversation(conversation);
         } else {
@@ -1259,7 +1441,9 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
         take(1),
         switchMap(user => {
           console.log('[MessagesPage] loadConversations: user authenticated, fetching conversations');
-          return this.messagingService.getConversations();
+          return this.messagingService.getConversations(
+            this.conversationsFilter === 'archived' ? 'archived' : 'all'
+          );
         })
       ).subscribe({
         next: (response) => {
@@ -3234,7 +3418,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
 
   /**
    * Class-anchored group threads have no single "the other person" in the
-   * header; hide the "X local time" line (mirrors mobile ChatScreen).
+   * header; hide the "It's … for them" line (mirrors mobile ChatScreen).
    */
   private isClassBroadcastThread(conv: Conversation | null | undefined): boolean {
     if (!conv) {
@@ -3254,8 +3438,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     }
     const user = this.selectedConversation?.otherUser;
     if (user?.timezone) {
-      const time = this.getUserLocalTime(user);
-      this.otherUserLocalTime = time ? ` ${time} local time` : '';
+      this.otherUserLocalTime = this.getUserLocalTime(user) || '';
     } else {
       this.otherUserLocalTime = '';
     }

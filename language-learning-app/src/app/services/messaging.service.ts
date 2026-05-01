@@ -47,6 +47,15 @@ export interface Conversation {
   leftAt?: string | null;
   /** Timestamp when the current user joined; frames their history window. */
   joinedAt?: string | null;
+  /** Per-user inbox state — true when the user moved the thread to Archive. */
+  userArchived?: boolean;
+  userArchivedAt?: string | null;
+  /** True when the current user owns this class chat as the tutor. Drives kebab menu policy. */
+  isTutor?: boolean;
+  /** True when the underlying class has been cancelled (class-broadcast threads only). */
+  classCancelled?: boolean;
+  /** Raw class status when applicable (`scheduled` | `cancelled` | `completed` | `draft`). */
+  classStatus?: string | null;
   /** Pre-computed in MessagesPage for list avatar cluster (see decorateGroupAvatarClusters). */
   displayParticipants?: GroupParticipantSummary[];
   /** How many participants are not shown in the cluster (shown as +N). */
@@ -158,24 +167,70 @@ export class MessagingService {
   }
 
   // Get all conversations
-  getConversations(): Observable<{ success: boolean; conversations: Conversation[] }> {
+  //
+  // `filter` controls which inbox the call returns:
+  //   • 'all'      (default) — Active inbox, hides per-user archived threads.
+  //   • 'archived'           — Archive folder.
+  // The shared `conversations$` subject is only updated when fetching the
+  // default inbox so the unread badge stays in sync; fetching the archive
+  // folder is treated as a side-channel read.
+  getConversations(
+    filter: 'all' | 'archived' = 'all'
+  ): Observable<{ success: boolean; conversations: Conversation[] }> {
     // Add cache-busting headers to ensure fresh data
     const headers = this.getHeaders()
       .set('Cache-Control', 'no-cache')
       .set('Pragma', 'no-cache');
-    
+
+    const url = filter === 'archived'
+      ? `${this.apiUrl}/conversations?filter=archived`
+      : `${this.apiUrl}/conversations`;
+
     return this.http.get<{ success: boolean; conversations: Conversation[] }>(
-      `${this.apiUrl}/conversations`,
+      url,
       { headers }
     ).pipe(
       tap(response => {
-        // Update the shared conversations subject (single source of truth)
-        this.conversationsSubject.next(response.conversations);
-        
-        // Update the unread count: total unread messages across all conversations
-        const totalUnread = response.conversations.reduce((sum, conv) => sum + (conv.unreadCount || 0), 0);
-        this.updateUnreadCount(totalUnread);
+        if (filter === 'all') {
+          // Update the shared conversations subject (single source of truth)
+          this.conversationsSubject.next(response.conversations);
+
+          // Update the unread count: total unread messages across all conversations
+          const totalUnread = response.conversations.reduce((sum, conv) => sum + (conv.unreadCount || 0), 0);
+          this.updateUnreadCount(totalUnread);
+        }
       })
+    );
+  }
+
+  // Archive a conversation for the current user. Reversible via unarchive.
+  archiveConversation(conversationId: string): Observable<{ success: boolean }> {
+    return this.http.post<{ success: boolean }>(
+      `${this.apiUrl}/conversations/${encodeURIComponent(conversationId)}/archive`,
+      {},
+      { headers: this.getHeaders() }
+    );
+  }
+
+  // Move an archived conversation back to the main inbox.
+  unarchiveConversation(conversationId: string): Observable<{ success: boolean }> {
+    return this.http.post<{ success: boolean }>(
+      `${this.apiUrl}/conversations/${encodeURIComponent(conversationId)}/unarchive`,
+      {},
+      { headers: this.getHeaders() }
+    );
+  }
+
+  // Permanently remove a conversation from the current user's UI. For group
+  // threads, also removes the user from the active roster so they no longer
+  // receive new messages. Tutors on a class-broadcast keep their roster spot
+  // (server-side guard) — their copy of the thread is hidden but the class
+  // remains messageable for everyone else.
+  deleteConversation(conversationId: string): Observable<{ success: boolean }> {
+    return this.http.post<{ success: boolean }>(
+      `${this.apiUrl}/conversations/${encodeURIComponent(conversationId)}/delete`,
+      {},
+      { headers: this.getHeaders() }
     );
   }
 

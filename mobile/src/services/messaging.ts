@@ -36,6 +36,15 @@ export interface Conversation {
   leftAt?: string | null;
   /** When the current user joined; bounds visible history. */
   joinedAt?: string | null;
+  /** Per-user inbox state — true when the user moved this thread to Archive. */
+  userArchived?: boolean;
+  userArchivedAt?: string | null;
+  /** True when the caller owns this class chat as the tutor — drives kebab policy. */
+  isTutor?: boolean;
+  /** Class-broadcast threads only: true when the underlying class is cancelled. */
+  classCancelled?: boolean;
+  /** Raw class status, when applicable. */
+  classStatus?: string | null;
   // Pre-computed on the client for avatar clusters in the list.
   displayParticipants?: GroupParticipantSummary[];
   extraCount?: number;
@@ -113,9 +122,18 @@ interface MessagesResponse {
 }
 
 export const messagingService = {
-  async getConversations(): Promise<Conversation[]> {
+  /**
+   * Fetch the current user's conversation list.
+   *
+   * @param filter 'all' (default; active inbox, hides per-user archived
+   *               threads) or 'archived' (Archive folder).
+   */
+  async getConversations(filter: 'all' | 'archived' = 'all'): Promise<Conversation[]> {
     try {
-      const data = await api.get<any>('/messaging/conversations');
+      const url = filter === 'archived'
+        ? '/messaging/conversations?filter=archived'
+        : '/messaging/conversations';
+      const data = await api.get<any>(url);
       console.log('[Messaging] getConversations raw:', JSON.stringify(data).substring(0, 500));
       if (Array.isArray(data)) return data;
       if (data?.conversations && Array.isArray(data.conversations)) return data.conversations;
@@ -123,6 +141,46 @@ export const messagingService = {
     } catch (err: any) {
       console.warn('[Messaging] getConversations failed:', err?.message || err);
       return [];
+    }
+  },
+
+  /**
+   * Move a conversation to the user's Archive folder. Reversible via
+   * `unarchiveConversation`. Other party is unaffected.
+   */
+  async archiveConversation(conversationId: string): Promise<boolean> {
+    try {
+      await api.post(`/messaging/conversations/${encodeURIComponent(conversationId)}/archive`);
+      return true;
+    } catch (err: any) {
+      console.warn('[Messaging] archiveConversation failed:', err?.message || err);
+      return false;
+    }
+  },
+
+  /** Move an archived conversation back to the active inbox. */
+  async unarchiveConversation(conversationId: string): Promise<boolean> {
+    try {
+      await api.post(`/messaging/conversations/${encodeURIComponent(conversationId)}/unarchive`);
+      return true;
+    } catch (err: any) {
+      console.warn('[Messaging] unarchiveConversation failed:', err?.message || err);
+      return false;
+    }
+  },
+
+  /**
+   * Permanently remove a conversation from this user's UI. For groups, also
+   * leaves the active roster (no future messages). Tutor-on-class-broadcast
+   * keeps roster membership but the thread is hidden from their inbox.
+   */
+  async deleteConversation(conversationId: string): Promise<boolean> {
+    try {
+      await api.post(`/messaging/conversations/${encodeURIComponent(conversationId)}/delete`);
+      return true;
+    } catch (err: any) {
+      console.warn('[Messaging] deleteConversation failed:', err?.message || err);
+      return false;
     }
   },
 

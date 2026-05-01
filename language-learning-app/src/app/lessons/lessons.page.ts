@@ -38,6 +38,8 @@ interface ProcessedLesson {
   statusLabel: string;
   isTrial: boolean;
   isUpcoming: boolean;
+  /** Lesson/class end time is before now */
+  isPast: boolean;
   analysisStatus: 'available' | 'generating' | 'unavailable';
   hasTutorFeedbackAvailable: boolean;
   hasAIAnalysisAvailable: boolean;
@@ -60,11 +62,14 @@ interface ProcessedLesson {
   classCapacity: number;
   classAttendees: { name: string; picture?: string; initials: string }[];
   classAttendeesOverflow: number;
+  classThumbnail: string;
   /** Card body: schedule line vs analysis summary vs empty */
   cardDescMode: 'schedule' | 'analysis' | 'analysis_generating' | 'analysis_empty';
   cardDescText: string;
   /** Airbnb-style footer stats (4 columns) */
-  cardStats: { value: string; label: string }[];
+  cardStats: { value: string; label: string; sub?: string }[];
+  isToday: boolean;
+  durationLabel: string;
 }
 
 @Component({
@@ -107,14 +112,18 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
   selectedTimeFilter: 'all' | '7days' | '30days' | '3months' = 'all';
   selectedTutorFilter = 'all';
   selectedStudentFilter = 'all';
+  selectedLessonTypeFilter: 'all' | 'one-on-one' | 'class' = 'all';
+  selectedSubjectFilter = 'all';
+  filterHasTip = false;
+  filterOutstandingFeedback = false;
+  filterIsTrial = false;
   uniqueTutors: Array<{ id: string; name: string; picture: string }> = [];
   uniqueStudents: Array<{ id: string; name: string; picture: string }> = [];
+  uniqueSubjects: string[] = [];
 
-  // Pre-computed counts
-  totalCount = 0;
-  upcomingCount = 0;
-  completedCount = 0;
-  cancelledCount = 0;
+  // Filter label strings
+  lessonTypeFilterLabel = '';
+  subjectFilterLabel = '';
 
   // Pre-computed user type flags (no function calls in template)
   isStudentUser = false;
@@ -240,8 +249,8 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
         .filter(l => !(l.status === 'cancelled' && (l as any).cancelReason === 'payment_failed'))
         .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
 
-      this.computeCounts();
       this.extractUniqueParticipants();
+      this.extractUniqueSubjects();
       this.applyFilters();
       this.hasInitiallyLoaded = true;
       this._lastDataFetch = Date.now();
@@ -281,19 +290,8 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
       className: cls.name,
       attendees: cls.confirmedStudents || [],
       capacity: cls.capacity || 1,
+      classData: cls,
     } as any;
-  }
-
-  // ─── Counts ──────────────────────────────────────────
-  private computeCounts() {
-    const now = new Date();
-    this.totalCount = this.allLessons.length;
-    this.upcomingCount = this.allLessons.filter(l =>
-      (l.status === 'scheduled' || l.status === 'in_progress' || l.status === 'pending_reschedule') &&
-      new Date(l.endTime) >= now
-    ).length;
-    this.completedCount = this.allLessons.filter(l => l.status === 'completed').length;
-    this.cancelledCount = this.allLessons.filter(l => l.status === 'cancelled').length;
   }
 
   // ─── Filters ─────────────────────────────────────────
@@ -331,6 +329,11 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     this.selectedTutorFilter = 'all';
     this.selectedStudentFilter = 'all';
     this.selectedTimeFilter = 'all';
+    this.selectedLessonTypeFilter = 'all';
+    this.selectedSubjectFilter = 'all';
+    this.filterHasTip = false;
+    this.filterOutstandingFeedback = false;
+    this.filterIsTrial = false;
     this.applyFilters();
   }
 
@@ -338,7 +341,12 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     return this.selectedStatusFilter !== 'all' ||
            this.selectedTutorFilter !== 'all' ||
            this.selectedStudentFilter !== 'all' ||
-           this.selectedTimeFilter !== 'all';
+           this.selectedTimeFilter !== 'all' ||
+           this.selectedLessonTypeFilter !== 'all' ||
+           this.selectedSubjectFilter !== 'all' ||
+           this.filterHasTip ||
+           this.filterOutstandingFeedback ||
+           this.filterIsTrial;
   }
 
   private updateFilterState() {
@@ -347,6 +355,11 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     if (this.selectedTimeFilter !== 'all') count++;
     if (this.isStudentUser && this.selectedTutorFilter !== 'all') count++;
     if (this.isTutorUser && this.selectedStudentFilter !== 'all') count++;
+    if (this.selectedLessonTypeFilter !== 'all') count++;
+    if (this.selectedSubjectFilter !== 'all') count++;
+    if (this.filterHasTip) count++;
+    if (this.filterOutstandingFeedback) count++;
+    if (this.filterIsTrial) count++;
     this.activeFilterCount = count;
     this.hasActiveSecondaryFilters = count > 0;
 
@@ -374,6 +387,14 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     } else {
       this.participantFilterLabel = '';
     }
+
+    switch (this.selectedLessonTypeFilter) {
+      case 'one-on-one': this.lessonTypeFilterLabel = this.translate.instant('LESSONS_PAGE.FILTER_TYPE_ONE_ON_ONE'); break;
+      case 'class': this.lessonTypeFilterLabel = this.translate.instant('LESSONS_PAGE.FILTER_TYPE_CLASS'); break;
+      default: this.lessonTypeFilterLabel = ''; break;
+    }
+
+    this.subjectFilterLabel = this.selectedSubjectFilter !== 'all' ? this.selectedSubjectFilter : '';
   }
 
   applyFilters() {
@@ -421,10 +442,34 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
       });
     }
 
+    // Lesson type filter
+    if (this.selectedLessonTypeFilter === 'class') {
+      filtered = filtered.filter(l => !!l.isClass);
+    } else if (this.selectedLessonTypeFilter === 'one-on-one') {
+      filtered = filtered.filter(l => !l.isClass);
+    }
+
+    // Subject/language filter (language-agnostic: uses whatever subject strings exist)
+    if (this.selectedSubjectFilter !== 'all') {
+      filtered = filtered.filter(l => (l.subject || '').trim() === this.selectedSubjectFilter);
+    }
+
     this.filteredLessons = filtered;
 
     // Process lessons (pre-compute display data)
-    const processed = this.filteredLessons.map(l => this.processLesson(l));
+    let processed = this.filteredLessons.map(l => this.processLesson(l));
+
+    // Post-process filters (require computed fields)
+    if (this.filterHasTip) {
+      processed = processed.filter(p => p.tipSent);
+    }
+    if (this.filterOutstandingFeedback && this.isTutorUser) {
+      processed = processed.filter(p => p.needsTutorFeedback);
+    }
+    if (this.filterIsTrial) {
+      processed = processed.filter(p => p.isTrial);
+    }
+
     this.processedLessons = this.appendPreviewMocks(processed);
 
     // Reset pagination
@@ -465,11 +510,23 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   private mockProcessedLesson(base: ProcessedLesson, o: Partial<ProcessedLesson> & { id: string }): ProcessedLesson {
-    return {
+    const merged: ProcessedLesson = {
       ...base,
+      // Reset class-specific fields so 1:1 lesson mocks don't inherit class state
+      isClass: false,
+      classThumbnail: '',
+      classAttendees: [],
+      classAttendeesOverflow: 0,
+      classStudentCount: 0,
+      isPast: true,
       ...o,
       lesson: { ...base.lesson, _id: o.id } as Lesson,
     };
+    if (o.isPast === undefined) {
+      merged.isPast =
+        o.id === '__mock_student_upcoming__' || o.id === '__mock_tutor_upcoming__' ? false : true;
+    }
+    return merged;
   }
 
   /**
@@ -583,7 +640,8 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
         status: 'completed',
         statusLabel: T('LESSONS_PAGE.STATUS_COMPLETED'),
         cardDescMode: 'analysis',
-        cardDescText: T('LESSONS_PAGE.AWAITING_TUTOR_FEEDBACK'),
+        cardDescText: '',
+        feedbackPendingForStudent: true,
         cardStats: [
           { value: '45 min', label: dur },
           { value: '$25', label: pri },
@@ -669,7 +727,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
           'Excellent session on subjunctive mood — you nailed the conditional triggers. Review irregular stems before next week.',
         cardStats: [
           { value: '60 min', label: dur },
-          { value: '$35', label: pri },
+          { value: '$35', label: pri, sub: '+ $5 tip' },
           { value: T('LESSONS_PAGE.STATUS_COMPLETED'), label: sta },
         ],
         isTrial: false,
@@ -805,10 +863,40 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
         status: 'completed',
         statusLabel: T('LESSONS_PAGE.STATUS_COMPLETED'),
         cardDescMode: 'schedule',
-        cardDescText: T('LESSONS_PAGE.TUTOR_FEEDBACK_NEEDED'),
+        cardDescText: '',
+        needsTutorFeedback: true,
         cardStats: [
           { value: '45 min', label: dur },
           { value: '$20', label: rec },
+          { value: T('LESSONS_PAGE.STATUS_COMPLETED'), label: sta },
+        ],
+        isTrial: false,
+        tipSent: false,
+        isUpcoming: false,
+        showActions: false,
+        canJoin: false,
+      }),
+      m({
+        id: '__mock_tutor_feedback_optional__',
+        role: 'tutor',
+        roleLabel: T('LESSONS_PAGE.ROLE_STUDENT'),
+        otherName: 'Olivia C.',
+        otherPicture: 'https://randomuser.me/api/portraits/women/12.jpg',
+        otherInitials: 'OC',
+        subject: 'Spanish',
+        formattedDate: 'April 5',
+        formattedMonth: 'Apr',
+        formattedDayNum: '5',
+        formattedTimeRange: '3:00 PM – 4:00 PM',
+        status: 'completed',
+        statusLabel: T('LESSONS_PAGE.STATUS_COMPLETED'),
+        cardDescMode: 'schedule',
+        cardDescText: 'AI analysis handled this lesson — adding a note is optional.',
+        // AI was enabled → no feedback banner; skip remains visible on post-lesson form
+        needsTutorFeedback: false,
+        cardStats: [
+          { value: '60 min', label: dur },
+          { value: '$24', label: rec },
           { value: T('LESSONS_PAGE.STATUS_COMPLETED'), label: sta },
         ],
         isTrial: false,
@@ -836,7 +924,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
           'Reviewed reading comprehension strategies. Student showed strong analytical skills with short passages.',
         cardStats: [
           { value: '60 min', label: dur },
-          { value: '$28', label: rec },
+          { value: '$28', label: rec, sub: '+ $8 tip' },
           { value: T('LESSONS_PAGE.STATUS_COMPLETED'), label: sta },
         ],
         isTrial: false,
@@ -929,13 +1017,14 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     const locale = this.translate.currentLang || this.translate.defaultLang || 'en';
     const fmtMonth = formatDateInTz(start, tz, { month: 'short', day: undefined, year: undefined }, locale);
     const fmtDayNum = formatDateInTz(start, tz, { day: 'numeric', month: undefined, year: undefined }, locale);
-    const fmtWeekday = formatDateInTz(start, tz, { weekday: 'long', month: undefined, day: undefined, year: undefined }, locale);
+    const fmtWeekday = formatDateInTz(start, tz, { weekday: 'short', month: undefined, day: undefined, year: undefined }, locale);
     const fmtMonthLong = formatDateInTz(start, tz, { month: 'long', day: undefined, year: undefined }, locale);
 
     // Status
     let status = lesson.status;
     let statusLabel = this.getStatusText(lesson);
     const isUpcoming = (status === 'scheduled' || status === 'confirmed' || status === 'in_progress' || status === 'pending_reschedule') && end >= now;
+    const isPast = end < now;
 
     // Analysis status
     let analysisStatus: 'available' | 'generating' | 'unavailable' = 'unavailable';
@@ -967,13 +1056,19 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
       ? `${nameParts[0].charAt(0)}${nameParts[1].charAt(0)}`
       : nameParts[0].charAt(0);
 
-    // Tutor needs to leave feedback? Only when a TutorFeedback record exists, is pending, and is required
-    // Trial lessons are excluded — no feedback expected
+    // Tutor needs to leave feedback only when:
+    //   1. AI analysis was DISABLED for this lesson (aiAnalysisEnabledAtTime === false)
+    //   2. A TutorFeedback record exists, is pending, and is required
+    // Backend invariant: TutorFeedback records are only created for AI-disabled lessons.
+    // We add the explicit AI check as a defensive guard against stray/legacy records.
+    // Trial lessons are excluded — no feedback expected.
     const isTrial = !!lesson.isTrialLesson;
+    const aiWasDisabled = lesson.aiAnalysisEnabledAtTime === false;
     const hasTutorFeedbackAvailable = tutorFeedback?.status === 'completed';
     const needsTutorFeedback = role === 'tutor'
       && status === 'completed'
       && !isTrial
+      && aiWasDisabled
       && !!tutorFeedback
       && tutorFeedback.status === 'pending'
       && tutorFeedback.required !== false;
@@ -1021,7 +1116,8 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
           cardDescText = this.truncateCardText(String(feedbackNotes), 220);
         } else if (needsTutorFeedback) {
           cardDescMode = 'schedule';
-          cardDescText = T('LESSONS_PAGE.TUTOR_FEEDBACK_NEEDED');
+          // Card banner explains feedback needed — avoid duplicating TUTOR_FEEDBACK_NEEDED in desc
+          cardDescText = '';
         } else {
           cardDescMode = 'schedule';
           cardDescText = T('LESSONS_PAGE.TUTOR_NO_NOTES');
@@ -1033,7 +1129,8 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
           cardDescMode = 'analysis_generating';
         } else if (feedbackPendingForStudent) {
           cardDescMode = 'analysis';
-          cardDescText = T('LESSONS_PAGE.AWAITING_TUTOR_FEEDBACK');
+          // Banner shows awaiting state — avoid duplicate line under it
+          cardDescText = '';
         } else {
           const sum = aiAnalysis?.overallAssessment?.summary || aiAnalysis?.studentSummary;
           const firstImprovement = aiAnalysis?.progressionMetrics?.keyImprovements?.[0];
@@ -1093,10 +1190,12 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
       }
     }
 
+    const tipRaw = (lesson as any).tip?.amount;
+    const tipAmt = tipRaw ? Number(tipRaw) : 0;
     const durLabel = this.translate.instant('LESSONS_PAGE.DURATION_MIN');
-    const cardStats: { value: string; label: string }[] = [
+    const cardStats: { value: string; label: string; sub?: string }[] = [
       { value: `${lesson.duration}${durLabel}`, label: this.translate.instant('LESSONS_PAGE.CARD_STAT_DURATION') },
-      this.lessonCardMoneyStat(lesson, role),
+      this.lessonCardMoneyStat(lesson, role, tipAmt),
       { value: statusLabel, label: this.translate.instant('LESSONS_PAGE.CARD_STAT_STATUS') },
     ];
     return {
@@ -1120,6 +1219,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
       statusLabel,
       isTrial: !!lesson.isTrialLesson,
       isUpcoming,
+      isPast,
       analysisStatus,
       hasTutorFeedbackAvailable,
       hasAIAnalysisAvailable: aiAnalysis?.status === 'completed' || !!aiAnalysis?.hasAnalysis,
@@ -1146,9 +1246,12 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
         initials: this.getInitials(a.name || a.firstName || ''),
       })),
       classAttendeesOverflow: Math.max(0, (lesson.attendees?.length || 0) - 3),
+      classThumbnail: (lesson as any).classData?.thumbnail || (lesson as any).thumbnail || '',
       cardDescMode,
       cardDescText,
       cardStats,
+      isToday: start.toDateString() === now.toDateString(),
+      durationLabel: '',
     };
   }
 
@@ -1164,11 +1267,13 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   /** Middle lesson-card column: list price for students, tutor net payout for tutors. */
-  private lessonCardMoneyStat(lesson: Lesson, role: 'tutor' | 'student'): { value: string; label: string } {
+  private lessonCardMoneyStat(lesson: Lesson, role: 'tutor' | 'student', tipAmt = 0): { value: string; label: string; sub?: string } {
     if (role === 'student') {
+      const base = (lesson.price || 0).toFixed(0);
       return {
-        value: `$${(lesson.price || 0).toFixed(0)}`,
+        value: `$${base}`,
         label: this.translate.instant('LESSONS_PAGE.CARD_STAT_PRICE'),
+        sub: tipAmt > 0 ? `+ $${tipAmt.toFixed(tipAmt % 1 === 0 ? 0 : 2)} tip` : undefined,
       };
     }
     const raw = lesson.tutorPayout;
@@ -1178,6 +1283,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     return {
       value,
       label: this.translate.instant('LESSONS_PAGE.CARD_STAT_RECEIVED'),
+      sub: tipAmt > 0 ? `+ $${tipAmt.toFixed(tipAmt % 1 === 0 ? 0 : 2)} tip` : undefined,
     };
   }
 
@@ -1234,6 +1340,15 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
 
     this.uniqueTutors = Array.from(tutorMap.values());
     this.uniqueStudents = Array.from(studentMap.values());
+  }
+
+  private extractUniqueSubjects() {
+    const seen = new Set<string>();
+    this.allLessons.forEach(l => {
+      const s = (l.subject || '').trim();
+      if (s && !l.isClass) seen.add(s);
+    });
+    this.uniqueSubjects = Array.from(seen).sort();
   }
 
   // ─── Helper methods (called in TS only, NOT template) ─

@@ -3,61 +3,40 @@
     <ion-refresher-content></ion-refresher-content>
   </ion-refresher>
 
+  <!-- Sticky header: sticks to the top of the ion-content scroll area -->
+  <div class="lessons-sticky-header">
+    <div class="lessons-sticky-inner">
+      <h1 class="page-title">{{ 'LESSONS_PAGE.PAGE_TITLE' | translate }}</h1>
 
+      <!-- Airbnb-style Filters Trigger -->
+      <div class="filters-trigger-container">
+        <button class="filters-trigger-btn" (click)="openFiltersModal()">
+          <ion-icon name="options-outline"></ion-icon>
+          <span>{{ 'LESSONS_PAGE.FILTERS' | translate }}</span>
+          <span class="filter-count" *ngIf="activeFilterCount > 0">{{ activeFilterCount }}</span>
+        </button>
+
+        <!-- Active Filter Chips -->
+        <div class="active-filters-preview" *ngIf="activeFilterCount > 0">
+          <span class="filter-chip-preview" *ngIf="statusFilterLabel">
+            {{ statusFilterLabel }}
+          </span>
+          <span class="filter-chip-preview" *ngIf="timeFilterLabel">
+            {{ timeFilterLabel }}
+          </span>
+          <span class="filter-chip-preview" *ngIf="participantFilterLabel">
+            {{ participantFilterLabel }}
+          </span>
+        </div>
+
+        <button class="clear-all-inline" *ngIf="activeFilterCount > 0" (click)="clearSecondaryFilters()">
+          {{ 'LESSONS_PAGE.CLEAR_ALL' | translate }}
+        </button>
+      </div>
+    </div>
+  </div>
 
   <div class="lessons-page">
-    <h1 class="page-title">{{ 'LESSONS_PAGE.PAGE_TITLE' | translate }}</h1>
-
-    <!-- Stats Summary Row -->
-    <div class="stats-row">
-      <div class="stat-cell">
-        <span class="stat-number">{{ isLoading ? '–' : totalCount }}</span>
-        <span class="stat-label-row"><span class="stat-dot dot-total"></span>{{ 'LESSONS_PAGE.STAT_TOTAL' | translate }}</span>
-      </div>
-      <div class="stat-divider"></div>
-      <div class="stat-cell">
-        <span class="stat-number">{{ isLoading ? '–' : upcomingCount }}</span>
-        <span class="stat-label-row"><span class="stat-dot dot-upcoming"></span>{{ 'LESSONS_PAGE.STAT_UPCOMING' | translate }}</span>
-      </div>
-      <div class="stat-divider"></div>
-      <div class="stat-cell">
-        <span class="stat-number">{{ isLoading ? '–' : completedCount }}</span>
-        <span class="stat-label-row"><span class="stat-dot dot-completed"></span>{{ 'LESSONS_PAGE.STAT_COMPLETED' | translate }}</span>
-      </div>
-      <div class="stat-divider"></div>
-      <div class="stat-cell">
-        <span class="stat-number" [class.cancelled]="!isLoading && cancelledCount > 0">{{ isLoading ? '–' : cancelledCount }}</span>
-        <span class="stat-label-row"><span class="stat-dot dot-cancelled"></span>{{ 'LESSONS_PAGE.STAT_CANCELLED' | translate }}</span>
-      </div>
-    </div>
-
-
-
-    <!-- Airbnb-style Filters Trigger -->
-    <div class="filters-trigger-container">
-      <button class="filters-trigger-btn" (click)="openFiltersModal()">
-        <ion-icon name="options-outline"></ion-icon>
-        <span>{{ 'LESSONS_PAGE.FILTERS' | translate }}</span>
-        <span class="filter-count" *ngIf="activeFilterCount > 0">{{ activeFilterCount }}</span>
-      </button>
-
-      <!-- Active Filter Chips -->
-      <div class="active-filters-preview" *ngIf="activeFilterCount > 0">
-        <span class="filter-chip-preview" *ngIf="statusFilterLabel">
-          {{ statusFilterLabel }}
-        </span>
-        <span class="filter-chip-preview" *ngIf="timeFilterLabel">
-          {{ timeFilterLabel }}
-        </span>
-        <span class="filter-chip-preview" *ngIf="participantFilterLabel">
-          {{ participantFilterLabel }}
-        </span>
-      </div>
-
-      <button class="clear-all-inline" *ngIf="activeFilterCount > 0" (click)="clearSecondaryFilters()">
-        {{ 'LESSONS_PAGE.CLEAR_ALL' | translate }}
-      </button>
-    </div>
 
     <!-- Loading State -->
     <div class="loading-container" *ngIf="isLoading">
@@ -95,64 +74,125 @@
 
           <div class="lgc-inner">
             <div class="lgc-avatar-wrap">
+              <!-- 1:1 lesson: show the other person's avatar -->
               <ng-container *ngIf="!pl.isClass">
                 <div class="lgc-avatar">
                   <img *ngIf="pl.otherPicture" [src]="pl.otherPicture" [alt]="pl.otherName" referrerpolicy="no-referrer">
                   <span *ngIf="!pl.otherPicture" class="lgc-initials">{{ pl.otherInitials }}</span>
                 </div>
               </ng-container>
+              <!-- Class: show cover thumbnail -->
               <ng-container *ngIf="pl.isClass">
-                <div class="lgc-avatar lgc-avatar--class" *ngIf="pl.classAttendees.length <= 1">
-                  <ng-container *ngIf="pl.classAttendees.length === 1">
-                    <img *ngIf="pl.classAttendees[0].picture" [src]="pl.classAttendees[0].picture" [alt]="pl.classAttendees[0].name" referrerpolicy="no-referrer">
-                    <span *ngIf="!pl.classAttendees[0].picture" class="lgc-initials">{{ pl.classAttendees[0].initials }}</span>
-                  </ng-container>
-                  <ion-icon *ngIf="pl.classAttendees.length === 0" name="people-outline" class="lgc-class-placeholder"></ion-icon>
-                </div>
-                <div class="lgc-stacked" *ngIf="pl.classAttendees.length > 1">
-                  <div class="lgc-stack-av" *ngFor="let att of pl.classAttendees; let i = index" [style.z-index]="4 - i">
-                    <img *ngIf="att.picture" [src]="att.picture" [alt]="att.name" referrerpolicy="no-referrer">
-                    <span *ngIf="!att.picture" class="lgc-initials sm">{{ att.initials }}</span>
+                <div class="lgc-class-thumb-wrap">
+                  <img *ngIf="pl.classThumbnail" class="lgc-class-thumb" [src]="pl.classThumbnail" [alt]="pl.className" referrerpolicy="no-referrer">
+                  <div *ngIf="!pl.classThumbnail" class="lgc-class-thumb lgc-class-thumb--placeholder">
+                    <ion-icon name="people-outline"></ion-icon>
                   </div>
-                  <span class="lgc-stack-more" *ngIf="pl.classAttendeesOverflow > 0">+{{ pl.classAttendeesOverflow }}</span>
                 </div>
               </ng-container>
             </div>
 
-            <h2 class="lgc-title">{{ pl.isClass ? (pl.className || pl.subject) : pl.otherName }}</h2>
-            <div class="lgc-date-time-block">
-              <div class="lgc-date-badge lgc-date-badge--inline" aria-hidden="true">
-                <span class="lgc-date-badge-month">{{ pl.formattedMonth }}</span>
-                <span class="lgc-date-badge-day">{{ pl.formattedDayNum }}</span>
-              </div>
-              <p class="lgc-subtitle lgc-subtitle-under-badge" *ngIf="!pl.isClass">{{ pl.formattedTimeRange }}</p>
-              <p class="lgc-subtitle lgc-subtitle-under-badge" *ngIf="pl.isClass">{{ 'LESSONS_PAGE.CLASS' | translate }} · {{ pl.formattedTimeRange }}</p>
+            <div class="lgc-title-wrap">
+              <h2 class="lgc-title">{{ pl.isClass ? (pl.className || pl.subject) : pl.otherName }}</h2>
             </div>
-
-            <div class="lgc-badges-row" *ngIf="pl.isTrial || pl.tipSent">
-              <span class="lgc-pill trial" *ngIf="pl.isTrial">{{ 'LESSONS_PAGE.TRIAL_BADGE' | translate }}</span>
-              <span class="lgc-pill tip" *ngIf="pl.tipSent">{{ pl.role === 'tutor' ? ('LESSONS_PAGE.TIP_RECEIVED' | translate) : ('LESSONS_PAGE.TIP_SENT' | translate) }}</span>
-            </div>
-
-            <div class="lgc-desc">
-              <div class="lgc-desc-spinner" *ngIf="pl.cardDescMode === 'analysis_generating'">
-                <div class="colorful-spinner">
-                  <div class="spinner-dot" *ngFor="let d of [0,1,2,3,4,5]"></div>
+            <div class="lgc-date-time-wrap">
+              <div class="lgc-date-time-block">
+                <div class="lgc-dt-chip" [class.lgc-dt-chip--today]="pl.isToday">
+                  <span class="lgc-dt-month">{{ pl.formattedMonth }}</span>
+                  <span class="lgc-dt-day">{{ pl.formattedDayNum }}</span>
+                  <span class="lgc-dt-weekday">{{ pl.formattedWeekday }}</span>
                 </div>
-                <span>Generating analysis…</span>
+                <div class="lgc-dt-info">
+                  <span class="lgc-dt-time">{{ pl.formattedTimeRange }}</span>
+                  <span class="lgc-dt-duration" *ngIf="pl.durationLabel">{{ pl.durationLabel }}</span>
+                </div>
               </div>
-              <div class="lgc-desc-empty" *ngIf="pl.cardDescMode === 'analysis_empty'">
-                <ion-icon name="document-text-outline"></ion-icon>
-                <span>{{ 'LESSONS_PAGE.CARD_DESC_EMPTY' | translate }}</span>
-              </div>
-              <p class="lgc-desc-text" *ngIf="(pl.cardDescMode === 'analysis' || pl.cardDescMode === 'schedule') && pl.cardDescText">{{ pl.cardDescText }}</p>
             </div>
 
-            <hr class="lgc-sep" />
+            <div
+              class="lgc-mid"
+              [class.lgc-mid--has-feedback-banner]="(isTutorUser && pl.needsTutorFeedback) || (isStudentUser && pl.feedbackPendingForStudent)">
+              <div class="lgc-badges-row" *ngIf="pl.isTrial">
+                <span class="lgc-pill trial" *ngIf="pl.isTrial">{{ 'LESSONS_PAGE.TRIAL_BADGE' | translate }}</span>
+              </div>
+
+              <div
+                class="lgc-feedback-banner-slot"
+                *ngIf="(isTutorUser && pl.needsTutorFeedback) || (isStudentUser && pl.feedbackPendingForStudent)">
+                <div
+                  class="lgc-feedback-banner"
+                  [class.lgc-feedback-banner--tutor]="isTutorUser && pl.needsTutorFeedback"
+                  [class.lgc-feedback-banner--student]="isStudentUser && pl.feedbackPendingForStudent">
+                  <div class="lgc-feedback-banner-icon-wrap" *ngIf="isTutorUser && pl.needsTutorFeedback">
+                    <ion-icon name="warning-outline"></ion-icon>
+                  </div>
+                  <div class="lgc-feedback-banner-icon-wrap" *ngIf="isStudentUser && pl.feedbackPendingForStudent">
+                    <ion-icon name="time-outline"></ion-icon>
+                  </div>
+                  <div class="lgc-feedback-banner-text">
+                    <span class="lgc-feedback-banner-title">
+                      {{ (isTutorUser && pl.needsTutorFeedback)
+                          ? ('LESSONS_PAGE.FEEDBACK_BANNER_TITLE_TUTOR' | translate)
+                          : ('LESSONS_PAGE.FEEDBACK_BANNER_TITLE_STUDENT' | translate) }}
+                    </span>
+                    <span class="lgc-feedback-banner-sub">
+                      {{ (isTutorUser && pl.needsTutorFeedback)
+                          ? ('LESSONS_PAGE.FEEDBACK_BANNER_SUB_TUTOR' | translate)
+                          : ('LESSONS_PAGE.FEEDBACK_BANNER_SUB_STUDENT' | translate) }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="lgc-desc">
+              <!-- Class: going attendees or empty state -->
+              <ng-container *ngIf="pl.isClass">
+                <div class="lgc-going" *ngIf="pl.classAttendees.length > 0">
+                  <div class="lgc-going-avatars">
+                    <div class="lgc-going-av" *ngFor="let att of pl.classAttendees; let i = index" [style.z-index]="4 - i" [style.margin-left]="i > 0 ? '-8px' : '0'">
+                      <img *ngIf="att.picture" [src]="att.picture" [alt]="att.name" referrerpolicy="no-referrer">
+                      <span *ngIf="!att.picture" class="lgc-going-initials">{{ att.initials }}</span>
+                    </div>
+                    <span class="lgc-going-more" *ngIf="pl.classAttendeesOverflow > 0">+{{ pl.classAttendeesOverflow }}</span>
+                  </div>
+                  <span class="lgc-going-label">{{ pl.isPast ? ('LESSONS_PAGE.CLASS_ATTENDED_COUNT' | translate:{ count: pl.classStudentCount }) : ('LESSONS_PAGE.CLASS_GOING_COUNT' | translate:{ count: pl.classStudentCount }) }}</span>
+                </div>
+                <div class="lgc-going-empty" *ngIf="pl.classAttendees.length === 0">
+                  <ion-icon name="people-outline"></ion-icon>
+                  <span>{{ pl.isPast ? ('LESSONS_PAGE.CLASS_NO_SIGNUPS_PAST' | translate) : ('LESSONS_PAGE.CLASS_NO_SIGNUPS_YET' | translate) }}</span>
+                </div>
+              </ng-container>
+              <!-- Lesson: analysis / schedule text -->
+              <ng-container *ngIf="!pl.isClass">
+                <div class="lgc-desc-spinner" *ngIf="pl.cardDescMode === 'analysis_generating'">
+                  <div class="colorful-spinner">
+                    <div class="spinner-dot" *ngFor="let d of [0,1,2,3,4,5]"></div>
+                  </div>
+                  <span>Generating analysis…</span>
+                </div>
+                <div class="lgc-desc-empty" *ngIf="pl.cardDescMode === 'analysis_empty'">
+                  <ion-icon name="document-text-outline"></ion-icon>
+                  <span>{{ 'LESSONS_PAGE.CARD_DESC_EMPTY' | translate }}</span>
+                </div>
+                <div class="lgc-desc-row" *ngIf="(pl.cardDescMode === 'analysis' || pl.cardDescMode === 'schedule') && pl.cardDescText">
+                  <ion-icon
+                    *ngIf="(pl.feedbackPendingForStudent || pl.needsTutorFeedback) && !((isTutorUser && pl.needsTutorFeedback) || (isStudentUser && pl.feedbackPendingForStudent))"
+                    name="warning-outline"
+                    class="lgc-feedback-warn-icon">
+                  </ion-icon>
+                  <p class="lgc-desc-text">{{ pl.cardDescText }}</p>
+                </div>
+              </ng-container>
+              </div>
+
+              <hr class="lgc-sep" />
+            </div>
 
             <div class="lgc-stats">
               <div class="lgc-stat" *ngFor="let st of pl.cardStats">
-                <span class="lgc-stat-value">{{ st.value }}</span>
+                <span class="lgc-stat-value">
+                  {{ st.value }}<span class="lgc-stat-tip" *ngIf="st.sub">&nbsp;{{ st.sub }}</span>
+                </span>
                 <span class="lgc-stat-label">{{ st.label }}</span>
               </div>
             </div>
@@ -221,6 +261,26 @@
           </button>
           <button class="lf-filter-chip" *ngIf="isTutorUser && selectedStudentFilter !== 'all'" (click)="selectedStudentFilter = 'all'; applyFilters()">
             <span>{{ participantFilterLabel }}</span>
+            <ion-icon name="close"></ion-icon>
+          </button>
+          <button class="lf-filter-chip" *ngIf="selectedLessonTypeFilter !== 'all'" (click)="selectedLessonTypeFilter = 'all'; applyFilters()">
+            <span>{{ lessonTypeFilterLabel }}</span>
+            <ion-icon name="close"></ion-icon>
+          </button>
+          <button class="lf-filter-chip" *ngIf="selectedSubjectFilter !== 'all'" (click)="selectedSubjectFilter = 'all'; applyFilters()">
+            <span>{{ subjectFilterLabel }}</span>
+            <ion-icon name="close"></ion-icon>
+          </button>
+          <button class="lf-filter-chip" *ngIf="filterHasTip" (click)="filterHasTip = false; applyFilters()">
+            <span>{{ 'LESSONS_PAGE.FILTER_WITH_TIP' | translate }}</span>
+            <ion-icon name="close"></ion-icon>
+          </button>
+          <button class="lf-filter-chip" *ngIf="filterOutstandingFeedback" (click)="filterOutstandingFeedback = false; applyFilters()">
+            <span>{{ 'LESSONS_PAGE.FILTER_OUTSTANDING_FEEDBACK' | translate }}</span>
+            <ion-icon name="close"></ion-icon>
+          </button>
+          <button class="lf-filter-chip" *ngIf="filterIsTrial" (click)="filterIsTrial = false; applyFilters()">
+            <span>{{ 'LESSONS_PAGE.FILTER_TRIAL' | translate }}</span>
             <ion-icon name="close"></ion-icon>
           </button>
         </div>
@@ -372,6 +432,96 @@
             <span>{{ 'LESSONS_PAGE.STATUS_CANCELLED' | translate }}</span>
             <div class="lf-check" *ngIf="selectedStatusFilter === 'cancelled'">
               <ion-icon name="checkmark"></ion-icon>
+            </div>
+          </button>
+        </div>
+      </section>
+
+      <div class="lf-divider"></div>
+
+      <!-- Lesson Type Section -->
+      <section class="lf-section">
+        <h3 class="lf-section-title">{{ 'LESSONS_PAGE.FILTER_TYPE' | translate }}</h3>
+        <div class="lf-time-grid">
+          <button
+            class="lf-time-btn"
+            [class.active]="selectedLessonTypeFilter === 'all'"
+            (click)="selectedLessonTypeFilter = 'all'; applyFilters()">
+            {{ 'LESSONS_PAGE.ALL_TIME' | translate }}
+          </button>
+          <button
+            class="lf-time-btn"
+            [class.active]="selectedLessonTypeFilter === 'one-on-one'"
+            (click)="selectedLessonTypeFilter = 'one-on-one'; applyFilters()">
+            {{ 'LESSONS_PAGE.FILTER_TYPE_ONE_ON_ONE' | translate }}
+          </button>
+          <button
+            class="lf-time-btn"
+            [class.active]="selectedLessonTypeFilter === 'class'"
+            (click)="selectedLessonTypeFilter = 'class'; applyFilters()">
+            {{ 'LESSONS_PAGE.FILTER_TYPE_CLASS' | translate }}
+          </button>
+        </div>
+      </section>
+
+      <!-- Language / Subject Section -->
+      <div class="lf-divider" *ngIf="uniqueSubjects.length >= 1"></div>
+      <section class="lf-section" *ngIf="uniqueSubjects.length >= 1">
+        <h3 class="lf-section-title">{{ 'LESSONS_PAGE.FILTER_SUBJECT' | translate }}</h3>
+        <div class="lf-participant-list">
+          <button
+            class="lf-participant-btn"
+            [class.active]="selectedSubjectFilter === 'all'"
+            (click)="selectedSubjectFilter = 'all'; applyFilters()">
+            <span>{{ 'LESSONS_PAGE.ALL_SUBJECTS' | translate }}</span>
+            <div class="lf-check" *ngIf="selectedSubjectFilter === 'all'">
+              <ion-icon name="checkmark"></ion-icon>
+            </div>
+          </button>
+          <button
+            class="lf-participant-btn"
+            *ngFor="let subject of uniqueSubjects"
+            [class.active]="selectedSubjectFilter === subject"
+            (click)="selectedSubjectFilter = subject; applyFilters()">
+            <span>{{ subject }}</span>
+            <div class="lf-check" *ngIf="selectedSubjectFilter === subject">
+              <ion-icon name="checkmark"></ion-icon>
+            </div>
+          </button>
+        </div>
+      </section>
+
+      <div class="lf-divider"></div>
+
+      <!-- Special Filters Section -->
+      <section class="lf-section">
+        <h3 class="lf-section-title">{{ 'LESSONS_PAGE.FILTER_SPECIAL' | translate }}</h3>
+        <div class="lf-toggle-list">
+          <button class="lf-toggle-btn" [class.active]="filterIsTrial" (click)="filterIsTrial = !filterIsTrial; applyFilters()">
+            <div class="lf-toggle-info">
+              <ion-icon name="star-outline" class="lf-toggle-icon"></ion-icon>
+              <span>{{ 'LESSONS_PAGE.FILTER_TRIAL' | translate }}</span>
+            </div>
+            <div class="lf-toggle-switch" [class.on]="filterIsTrial">
+              <div class="lf-toggle-thumb"></div>
+            </div>
+          </button>
+          <button class="lf-toggle-btn" [class.active]="filterHasTip" (click)="filterHasTip = !filterHasTip; applyFilters()">
+            <div class="lf-toggle-info">
+              <ion-icon name="gift-outline" class="lf-toggle-icon"></ion-icon>
+              <span>{{ 'LESSONS_PAGE.FILTER_WITH_TIP' | translate }}</span>
+            </div>
+            <div class="lf-toggle-switch" [class.on]="filterHasTip">
+              <div class="lf-toggle-thumb"></div>
+            </div>
+          </button>
+          <button class="lf-toggle-btn" *ngIf="isTutorUser" [class.active]="filterOutstandingFeedback" (click)="filterOutstandingFeedback = !filterOutstandingFeedback; applyFilters()">
+            <div class="lf-toggle-info">
+              <ion-icon name="alert-circle-outline" class="lf-toggle-icon"></ion-icon>
+              <span>{{ 'LESSONS_PAGE.FILTER_OUTSTANDING_FEEDBACK' | translate }}</span>
+            </div>
+            <div class="lf-toggle-switch" [class.on]="filterOutstandingFeedback">
+              <div class="lf-toggle-thumb"></div>
             </div>
           </button>
         </div>

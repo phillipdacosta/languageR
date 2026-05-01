@@ -5,18 +5,19 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
+  ScrollView,
   Image,
   RefreshControl,
   ActivityIndicator,
   Modal,
-  Pressable,
   Platform,
   findNodeHandle,
   UIManager,
   Animated as RNAnimated,
   Easing,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Image as ExpoImage } from 'expo-image';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -38,7 +39,7 @@ import LessonDetailOverlay, { CardRect } from '../components/LessonDetailOverlay
 import { ClassGoingMessageModal, type ClassGoingMessageRequest } from '../components/ClassGoingMessageModal';
 import { LessonDateHeaderCenter } from '../components/LessonDateHeaderCenter';
 import { cardShadowDark } from '../utils/cardShadow';
-import NativeCardExpandDemo from '../components/NativeCardExpandDemo';
+import { lessonFeedbackBanner } from '../utils/lessonFeedbackBannerColors';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -46,6 +47,12 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
+
+/** Matches web lessons `.lgc-avatar`: 80×80 rounded square (~¼ radius), hairline border. */
+const LESSON_CARD_AVATAR = 80;
+const LESSON_CARD_AVATAR_RADIUS = Math.round(LESSON_CARD_AVATAR * 0.25);
+/** Web `.lgc-class-thumb` — fixed height strip, not 16:9 */
+const LESSON_CLASS_COVER_HEIGHT = 80;
 
 // Matches the overlay's morph spring so the background recede and the
 // overlay expand are perfectly in sync.
@@ -134,10 +141,19 @@ export default function LessonsScreen() {
   const { colors, isDark } = useTheme();
   const { t } = useTranslation();
   const { setLessonOverlayCoversTabBar } = useHomeTabBarOverlay();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [allLessons, setAllLessons] = useState<Lesson[]>([]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [timeFilter, setTimeFilter] = useState<'all' | '7days' | '30days' | '3months'>('all');
+  const [tutorFilter, setTutorFilter] = useState('all');
+  const [studentFilter, setStudentFilter] = useState('all');
+  const [lessonTypeFilter, setLessonTypeFilter] = useState<'all' | 'one-on-one' | 'class'>('all');
+  const [subjectFilter, setSubjectFilter] = useState('all');
+  const [filterHasTip, setFilterHasTip] = useState(false);
+  const [filterOutstandingFeedback, setFilterOutstandingFeedback] = useState(false);
+  const [filterIsTrial, setFilterIsTrial] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [overlayCard, setOverlayCard] = useState<ProcessedLessonCard | null>(null);
   const [overlayRect, setOverlayRect] = useState<CardRect>({ x: 0, y: 0, width: 0, height: 0 });
@@ -186,7 +202,6 @@ export default function LessonsScreen() {
   // __DEV__-only: controls the native shared-element prototype modal.
   // Kept out of any persisted state on purpose — we never want this leaking
   // into a production build surface.
-  const [nativeDemoOpen, setNativeDemoOpen] = useState(false);
 
   const userTz = user?.profile?.timezone as string | undefined;
 
@@ -224,25 +239,76 @@ export default function LessonsScreen() {
     }, [load]),
   );
 
-  const counts = useMemo(() => {
-    const now = new Date();
-    const upcoming = allLessons.filter(
-      l =>
-        (l.status === 'scheduled' || l.status === 'in_progress' || l.status === 'pending_reschedule') &&
-        getLessonEnd(l) >= now,
-    ).length;
-    return {
-      total: allLessons.length,
-      upcoming,
-      completed: allLessons.filter(l => l.status === 'completed').length,
-      cancelled: allLessons.filter(l => l.status === 'cancelled').length,
-    };
+  const uniqueTutors = useMemo(() => {
+    if (user?.userType !== 'student') return [];
+    const map = new Map<string, { id: string; name: string }>();
+    allLessons.forEach(l => {
+      const tutor = l.tutorId as any;
+      const id = String(tutor?._id || tutor?.id || tutor || '');
+      if (!id || map.has(id)) return;
+      const name = tutor?.name || (tutor?.firstName ? `${tutor.firstName} ${(tutor.lastName || '').charAt(0)}.`.trim() : '') || t('LESSONS_PAGE.UNKNOWN');
+      map.set(id, { id, name });
+    });
+    return Array.from(map.values());
+  }, [allLessons, user, t]);
+
+  const uniqueStudents = useMemo(() => {
+    if (user?.userType !== 'tutor') return [];
+    const map = new Map<string, { id: string; name: string }>();
+    allLessons.forEach(l => {
+      const student = l.studentId as any;
+      const id = String(student?._id || student?.id || student || '');
+      if (!id || map.has(id)) return;
+      const name = student?.name || (student?.firstName ? `${student.firstName} ${(student.lastName || '').charAt(0)}.`.trim() : '') || t('LESSONS_PAGE.UNKNOWN');
+      map.set(id, { id, name });
+    });
+    return Array.from(map.values());
+  }, [allLessons, user, t]);
+
+  const uniqueSubjects = useMemo(() => {
+    const seen = new Set<string>();
+    allLessons.forEach(l => {
+      const s = ((l as any).subject || '').trim();
+      if (s && !(l as any).isClass) seen.add(s);
+    });
+    return Array.from(seen).sort();
   }, [allLessons]);
 
   const filtered = useMemo(() => {
-    const f = filterLessonsByStatus(allLessons, statusFilter);
-    return sortLessonsNewestFirst(f);
-  }, [allLessons, statusFilter]);
+    let list = filterLessonsByStatus(allLessons, statusFilter);
+
+    if (timeFilter !== 'all') {
+      const now = new Date();
+      const cutoff = new Date();
+      if (timeFilter === '7days') cutoff.setDate(now.getDate() - 7);
+      else if (timeFilter === '30days') cutoff.setDate(now.getDate() - 30);
+      else if (timeFilter === '3months') cutoff.setMonth(now.getMonth() - 3);
+      list = list.filter(l => getLessonStart(l) >= cutoff);
+    }
+
+    if (lessonTypeFilter === 'class') list = list.filter(l => !!(l as any).isClass);
+    else if (lessonTypeFilter === 'one-on-one') list = list.filter(l => !(l as any).isClass);
+
+    if (subjectFilter !== 'all') {
+      list = list.filter(l => ((l as any).subject || '').trim() === subjectFilter);
+    }
+
+    if (tutorFilter !== 'all' && user?.userType === 'student') {
+      list = list.filter(l => {
+        const tutor = l.tutorId as any;
+        return String(tutor?._id || tutor?.id || tutor || '') === tutorFilter;
+      });
+    }
+
+    if (studentFilter !== 'all' && user?.userType === 'tutor') {
+      list = list.filter(l => {
+        const student = l.studentId as any;
+        return String(student?._id || student?.id || student || '') === studentFilter;
+      });
+    }
+
+    return sortLessonsNewestFirst(list);
+  }, [allLessons, statusFilter, timeFilter, lessonTypeFilter, subjectFilter, tutorFilter, studentFilter, user]);
 
   const processed = useMemo(() => {
     const cards = filtered.map(l => buildProcessedLessonCard(l, user, t, userTz));
@@ -264,8 +330,29 @@ export default function LessonsScreen() {
     const pri = t('LESSONS_PAGE.CARD_STAT_PRICE');
     const rec = t('LESSONS_PAGE.CARD_STAT_RECEIVED');
     const sta = t('LESSONS_PAGE.CARD_STAT_STATUS');
+    const dl = (_mins: number, _isCls = false) => '';
+    const withPill = <T extends { formattedTime: string }>(
+      row: T,
+      weekday: string,
+      durationMins: number,
+      isCls = false,
+    ): T & {
+      formattedWeekday: string;
+      formattedTimeRange: string;
+      durationLabel: string;
+      isToday: boolean;
+      isPast: boolean;
+    } => ({
+      ...row,
+      formattedWeekday: weekday,
+      formattedTimeRange: row.formattedTime,
+      durationLabel: dl(durationMins, isCls),
+      isToday: false,
+      isPast: (row as Partial<ProcessedLessonCard>).isPast ?? false,
+    });
 
     const mocks: ProcessedLessonCard[] = [
+      withPill(
       {
         ...baseShared,
         lesson: mkLesson('__mock_student_upcoming__'),
@@ -280,17 +367,22 @@ export default function LessonsScreen() {
         dateBadgeDay: '14',
         formattedTime: '3:00 PM – 4:00 PM',
         status: 'scheduled',
-        statusLabel: t('LESSONS_PAGE.STATUS_SCHEDULED'),
+        statusLabel: t('LESSONS_PAGE.STATUS_UPCOMING'),
         cardDescMode: 'schedule',
         cardDescText: t('LESSONS_PAGE.LAST_SESSION_PREFIX') + 'Great progress with past tense conjugations — keep practicing irregular verbs.',
         cardStats: [
           { value: '60 min', label: dur },
           { value: '$30', label: pri },
-          { value: t('LESSONS_PAGE.STATUS_SCHEDULED'), label: sta },
+          { value: t('LESSONS_PAGE.STATUS_UPCOMING'), label: sta, color: '#1a73e8' },
         ],
         tipSent: false,
         isCancelled: false,
+        isPast: false,
       },
+      'MON',
+      60,
+      ),
+      withPill(
       {
         ...baseShared,
         lesson: mkLesson('__mock_student_completed__'),
@@ -315,7 +407,12 @@ export default function LessonsScreen() {
         ],
         tipSent: false,
         isCancelled: false,
+        isPast: true,
       },
+      'TUE',
+      45,
+      ),
+      withPill(
       {
         ...baseShared,
         lesson: mkLesson('__mock_student_tutor_feedback__'),
@@ -340,7 +437,43 @@ export default function LessonsScreen() {
         ],
         tipSent: false,
         isCancelled: false,
+        isPast: true,
       },
+      'WED',
+      50,
+      ),
+      withPill(
+      {
+        ...baseShared,
+        lesson: mkLesson('__mock_student_awaiting__'),
+        id: '__mock_student_awaiting__',
+        role: 'student',
+        roleLabel: t('LESSONS_PAGE.ROLE_TUTOR'),
+        otherName: 'Elena V.',
+        otherPicture: 'https://randomuser.me/api/portraits/women/21.jpg',
+        otherInitials: 'EV',
+        formattedDate: 'April 7',
+        dateBadgeMonth: 'APR',
+        dateBadgeDay: '7',
+        formattedTime: '2:00 PM – 2:45 PM',
+        status: 'completed',
+        statusLabel: t('LESSONS_PAGE.STATUS_COMPLETED'),
+        cardDescMode: 'analysis',
+        cardDescText: '',
+        cardStats: [
+          { value: '45 min', label: dur },
+          { value: '$25', label: pri },
+          { value: t('LESSONS_PAGE.STATUS_COMPLETED'), label: sta },
+        ],
+        tipSent: false,
+        isCancelled: false,
+        isPast: true,
+        feedbackPendingForStudent: true,
+      },
+      'SUN',
+      45,
+      ),
+      withPill(
       {
         ...baseShared,
         lesson: mkLesson('__mock_student_cancelled__'),
@@ -365,7 +498,42 @@ export default function LessonsScreen() {
         ],
         tipSent: false,
         isCancelled: true,
+        isPast: true,
       },
+      'THU',
+      30,
+      ),
+      withPill(
+      {
+        ...baseShared,
+        lesson: mkLesson('__mock_tutor_tip_received__'),
+        id: '__mock_tutor_tip_received__',
+        role: 'tutor',
+        roleLabel: t('LESSONS_PAGE.ROLE_STUDENT'),
+        otherName: 'Daniel K.',
+        otherPicture: 'https://randomuser.me/api/portraits/men/46.jpg',
+        otherInitials: 'DK',
+        formattedDate: 'April 27',
+        dateBadgeMonth: 'APR',
+        dateBadgeDay: '27',
+        formattedTime: '10:10 AM – 11:10 AM',
+        status: 'completed',
+        statusLabel: t('LESSONS_PAGE.STATUS_COMPLETED'),
+        cardDescMode: 'schedule',
+        cardDescText: 'Reviewed reading comprehension strategies. Student showed strong analytical skills.',
+        cardStats: [
+          { value: '60 min', label: dur },
+          { value: '$26', label: rec, sub: '+ $8 tip' },
+          { value: t('LESSONS_PAGE.STATUS_COMPLETED'), label: sta },
+        ],
+        tipSent: true,
+        isCancelled: false,
+        isPast: true,
+      },
+      'MON',
+      60,
+      ),
+      withPill(
       {
         ...baseShared,
         lesson: mkLesson('__mock_tutor_completed__'),
@@ -391,7 +559,12 @@ export default function LessonsScreen() {
         ],
         tipSent: false,
         isCancelled: false,
+        isPast: true,
       },
+      'FRI',
+      60,
+      ),
+      withPill(
       {
         ...baseShared,
         lesson: mkLesson('__mock_tutor_upcoming__'),
@@ -406,17 +579,22 @@ export default function LessonsScreen() {
         dateBadgeDay: '15',
         formattedTime: '11:00 AM – 12:00 PM',
         status: 'scheduled',
-        statusLabel: t('LESSONS_PAGE.STATUS_SCHEDULED'),
+        statusLabel: t('LESSONS_PAGE.STATUS_UPCOMING'),
         cardDescMode: 'schedule',
         cardDescText: t('LESSONS_PAGE.LAST_SESSION_PREFIX') + 'Covered ser vs estar in present tense. Student struggled with temporary vs permanent states.',
         cardStats: [
           { value: '60 min', label: dur },
           { value: '$0', label: rec },
-          { value: t('LESSONS_PAGE.STATUS_SCHEDULED'), label: sta },
+          { value: t('LESSONS_PAGE.STATUS_UPCOMING'), label: sta, color: '#1a73e8' },
         ],
         tipSent: false,
         isCancelled: false,
+        isPast: false,
       },
+      'SAT',
+      60,
+      ),
+      withPill(
       {
         ...baseShared,
         lesson: mkLesson('__mock_tutor_feedback_needed__'),
@@ -433,7 +611,7 @@ export default function LessonsScreen() {
         status: 'completed',
         statusLabel: t('LESSONS_PAGE.STATUS_COMPLETED'),
         cardDescMode: 'schedule',
-        cardDescText: t('LESSONS_PAGE.TUTOR_FEEDBACK_NEEDED'),
+        cardDescText: '',
         cardStats: [
           { value: '45 min', label: dur },
           { value: '$20', label: rec },
@@ -441,7 +619,44 @@ export default function LessonsScreen() {
         ],
         tipSent: false,
         isCancelled: false,
+        isPast: true,
+        needsTutorFeedback: true,
       },
+      'SUN',
+      45,
+      ),
+      withPill(
+      {
+        ...baseShared,
+        lesson: mkLesson('__mock_tutor_feedback_optional__'),
+        id: '__mock_tutor_feedback_optional__',
+        role: 'tutor',
+        roleLabel: t('LESSONS_PAGE.ROLE_STUDENT'),
+        otherName: 'Olivia C.',
+        otherPicture: 'https://randomuser.me/api/portraits/women/12.jpg',
+        otherInitials: 'OC',
+        formattedDate: 'April 5',
+        dateBadgeMonth: 'APR',
+        dateBadgeDay: '5',
+        formattedTime: '3:00 PM – 4:00 PM',
+        status: 'completed',
+        statusLabel: t('LESSONS_PAGE.STATUS_COMPLETED'),
+        cardDescMode: 'schedule',
+        cardDescText: 'AI analysis handled this lesson — adding a note is optional.',
+        cardStats: [
+          { value: '60 min', label: dur },
+          { value: '$24', label: rec },
+          { value: t('LESSONS_PAGE.STATUS_COMPLETED'), label: sta },
+        ],
+        tipSent: false,
+        isCancelled: false,
+        isPast: true,
+        // AI was enabled → no feedback banner; skip remains visible on post-lesson form
+        needsTutorFeedback: false,
+      },
+      'SAT',
+      60,
+      ),
     ];
     // Only show mocks matching the logged-in user's account type
     const showRole = user?.userType === 'tutor' ? 'tutor' : 'student';
@@ -449,30 +664,16 @@ export default function LessonsScreen() {
     cards.unshift(...filteredMocks);
     // ── END MOCK ──
 
-    return cards;
-  }, [filtered, user, t, userTz]);
-
-  const statItems: { key: 'total' | 'upcoming' | 'completed' | 'cancelled'; count: number }[] = [
-    { key: 'total', count: counts.total },
-    { key: 'upcoming', count: counts.upcoming },
-    { key: 'completed', count: counts.completed },
-    { key: 'cancelled', count: counts.cancelled },
-  ];
-
-  const statLabel = (k: (typeof statItems)[number]['key']) => {
-    switch (k) {
-      case 'total':
-        return t('LESSONS_PAGE.STAT_TOTAL');
-      case 'upcoming':
-        return t('LESSONS_PAGE.STAT_UPCOMING');
-      case 'completed':
-        return t('LESSONS_PAGE.STAT_COMPLETED');
-      case 'cancelled':
-        return t('LESSONS_PAGE.STAT_CANCELLED');
-      default:
-        return k;
+    // Post-process filters (operate on computed card fields)
+    let result = cards;
+    if (filterHasTip) result = result.filter(p => p.tipSent);
+    if (filterIsTrial) result = result.filter(p => p.isTrial);
+    if (filterOutstandingFeedback && user?.userType === 'tutor') {
+      result = result.filter(p => p.needsTutorFeedback);
     }
-  };
+
+    return result;
+  }, [filtered, user, t, userTz, filterHasTip, filterIsTrial, filterOutstandingFeedback]);
 
   const filterModalLabel = (k: StatusFilter) => {
     switch (k) {
@@ -489,7 +690,17 @@ export default function LessonsScreen() {
     }
   };
 
-  const activeFilterCount = statusFilter !== 'all' ? 1 : 0;
+  const activeFilterCount = [
+    statusFilter !== 'all',
+    timeFilter !== 'all',
+    tutorFilter !== 'all',
+    studentFilter !== 'all',
+    lessonTypeFilter !== 'all',
+    subjectFilter !== 'all',
+    filterHasTip,
+    filterOutstandingFeedback,
+    filterIsTrial,
+  ].filter(Boolean).length;
 
   /**
    * Guards against rapid taps that could otherwise race to open multiple
@@ -500,6 +711,19 @@ export default function LessonsScreen() {
    * failure), and also by `onCloseEnd` once the overlay is fully gone.
    */
   const openingRef = useRef(false);
+
+  // Prefetch every avatar and cover image as soon as the card list is ready,
+  // so ExpoImage's disk cache has them before they scroll into view.
+  useEffect(() => {
+    const urls: string[] = [];
+    processed.forEach(pl => {
+      if (pl.otherPicture) urls.push(pl.otherPicture);
+      if (pl.classCoverUrl) urls.push(pl.classCoverUrl);
+      pl.classAttendees.forEach(a => { if (a.picture) urls.push(a.picture); });
+    });
+    if (urls.length > 0) ExpoImage.prefetch(urls);
+  }, [processed]);
+
   const openDetail = useCallback((pl: ProcessedLessonCard) => {
     if (openingRef.current) return;
     if (overlayCard || overlayClosing) return;
@@ -554,9 +778,16 @@ export default function LessonsScreen() {
     });
   }, [overlayCard, overlayClosing, setLessonOverlayCoversTabBar]);
 
-  const applyStatusFilter = (next: StatusFilter) => {
-    setStatusFilter(next);
-    setFiltersOpen(false);
+  const clearAllFilters = () => {
+    setStatusFilter('all');
+    setTimeFilter('all');
+    setTutorFilter('all');
+    setStudentFilter('all');
+    setLessonTypeFilter('all');
+    setSubjectFilter('all');
+    setFilterHasTip(false);
+    setFilterOutstandingFeedback(false);
+    setFilterIsTrial(false);
   };
 
   const renderCard = ({ item: pl }: { item: ProcessedLessonCard }) => {
@@ -585,6 +816,11 @@ export default function LessonsScreen() {
           shadowOpacity: Platform.OS === 'ios' ? 0.16 : 0.12,
           elevation: Platform.OS === 'android' ? 14 : 0,
         };
+    const feedbackBannerTutor = user?.userType === 'tutor' && pl.needsTutorFeedback;
+    const feedbackBannerStudent = user?.userType === 'student' && pl.feedbackPendingForStudent;
+    const showFeedbackBanner = !!(feedbackBannerTutor || feedbackBannerStudent);
+    const showDescFeedbackIcon =
+      (pl.feedbackPendingForStudent || pl.needsTutorFeedback) && !showFeedbackBanner;
     return (
       <RNAnimated.View style={{ opacity: wrapperOpacity }}>
       <TouchableOpacity
@@ -600,141 +836,226 @@ export default function LessonsScreen() {
         activeOpacity={0.85}
         onPress={() => openDetail(pl)}
       >
-        {pl.isClass && pl.classCoverUrl ? (
-          <Image
+        {pl.isClass ? (
+          <View
             ref={(r) => {
               classCoverRefs.current[pl.id] = r as unknown as View;
             }}
-            source={{ uri: pl.classCoverUrl }}
-            style={styles.classCoverTop}
-            resizeMode="cover"
-          />
-        ) : null}
-        <View style={styles.avatarBlock}>
-          {!pl.isClass ? (
-            <View style={[styles.avatar, isDark && { backgroundColor: '#3a3a3c' }]}>
+            style={[
+              styles.classCoverWrap,
+              { backgroundColor: isDark ? '#2c2c2e' : '#f2f2f7' },
+            ]}
+          >
+            {pl.classCoverUrl ? (
+              <ExpoImage
+                source={{ uri: pl.classCoverUrl }}
+                style={styles.classCoverImg}
+                contentFit="cover"
+                transition={200}
+              />
+            ) : (
+              <View style={styles.classCoverPlaceholderInner}>
+                <Ionicons name="people-outline" size={28} color={isDark ? '#636366' : '#b0b0b0'} />
+              </View>
+            )}
+          </View>
+        ) : (
+          <View style={styles.avatarBlock}>
+            <View
+              style={[
+                styles.avatar,
+                isDark && { backgroundColor: '#3a3a3c' },
+                { borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.06)' },
+              ]}
+            >
               {pl.otherPicture ? (
-                <Image source={{ uri: pl.otherPicture }} style={styles.avatarImg} />
+                <ExpoImage source={{ uri: pl.otherPicture }} style={styles.avatarImg} contentFit="cover" transition={200} />
               ) : (
                 <Text style={[styles.avatarInitials, { color: C.textSecondary }]}>{pl.otherInitials}</Text>
               )}
             </View>
-          ) : pl.classAttendees.length > 1 ? (
-            <View style={styles.stackRow}>
-              {pl.classAttendees.map((att, i) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.stackAv,
-                    { marginLeft: i === 0 ? 0 : -12, borderColor: C.card, zIndex: 3 - i },
-                  ]}
-                >
-                  {att.picture ? (
-                    <Image source={{ uri: att.picture }} style={styles.stackImg} />
-                  ) : (
-                    <Text style={styles.stackIni}>{att.initials}</Text>
-                  )}
-                </View>
-              ))}
-              {pl.classAttendeesOverflow > 0 && (
-                <Text style={[styles.stackMore, { color: C.textTertiary }]}>+{pl.classAttendeesOverflow}</Text>
-              )}
-            </View>
-          ) : (
-            <View style={[styles.avatar, isDark && { backgroundColor: '#3a3a3c' }]}>
-              {pl.classAttendees.length === 1 && pl.classAttendees[0].picture ? (
-                <Image source={{ uri: pl.classAttendees[0].picture }} style={styles.avatarImg} />
-              ) : pl.classAttendees.length === 1 ? (
-                <Text style={[styles.avatarInitials, { color: C.textSecondary }]}>
-                  {pl.classAttendees[0].initials}
-                </Text>
-              ) : (
-                <Ionicons name="people-outline" size={28} color={C.textTertiary} />
-              )}
-            </View>
-          )}
-        </View>
+          </View>
+        )}
 
-        <Text style={[styles.title, { color: C.text }]} numberOfLines={2}>
-          {pl.isClass ? pl.className || pl.lesson.subject : pl.otherName}
-        </Text>
-        {pl.isClass && pl.classEnrollmentLine ? (
-          <Text style={[styles.classEnrollmentMeta, { color: C.textSecondary }]} numberOfLines={1}>
-            {pl.classEnrollmentLine}
+        <View style={styles.titleWrap}>
+          <Text style={[styles.title, { color: C.text }]} numberOfLines={2}>
+            {pl.isClass ? pl.className || pl.lesson.subject : pl.otherName}
           </Text>
-        ) : null}
+        </View>
         <View style={styles.dateTimeBlockOuter}>
           <LessonDateHeaderCenter
             dateBadgeMonth={pl.dateBadgeMonth}
             dateBadgeDay={pl.dateBadgeDay}
-            timeLine={
-              pl.isClass ? `${t('LESSONS_PAGE.CLASS')} · ${pl.formattedTime}` : pl.formattedTime
-            }
+            weekdayShort={pl.formattedWeekday}
+            timeRange={pl.formattedTimeRange}
+            durationLine={pl.durationLabel}
+            isToday={pl.isToday}
             isDark={isDark}
             textPrimary={C.text}
             textSecondary={C.textSecondary}
           />
         </View>
 
-        {(pl.isTrial || pl.tipSent) && (
+        {pl.isTrial ? (
           <View style={styles.badgesRow}>
-            {pl.isTrial && (
+            <View
+              style={[
+                styles.trialPill,
+                isDark
+                  ? { backgroundColor: 'rgba(255, 159, 10, 0.12)', borderColor: 'rgba(255, 159, 10, 0.22)' }
+                  : { backgroundColor: 'rgba(255, 149, 0, 0.08)', borderColor: 'rgba(255, 149, 0, 0.2)' },
+              ]}
+            >
+              <Text style={[styles.trialPillText, { color: isDark ? '#FFB340' : '#9A3412' }]}>
+                {t('LESSONS_PAGE.TRIAL_BADGE')}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
+        <View style={[styles.midSection, showFeedbackBanner && styles.midSectionWithBanner]}>
+          {showFeedbackBanner ? (
+            <View style={styles.feedbackBannerSlot}>
               <View
                 style={[
-                  styles.trialPill,
-                  isDark
-                    ? { backgroundColor: 'rgba(255, 159, 10, 0.12)', borderColor: 'rgba(255, 159, 10, 0.22)' }
-                    : { backgroundColor: 'rgba(255, 149, 0, 0.08)', borderColor: 'rgba(255, 149, 0, 0.2)' },
+                  styles.feedbackBanner,
+                  {
+                    borderColor: '#ffffff',
+                    backgroundColor: feedbackBannerStudent
+                      ? (isDark ? lessonFeedbackBanner.student.dark.background : lessonFeedbackBanner.student.light.background)
+                      : (isDark ? lessonFeedbackBanner.tutor.dark.background : lessonFeedbackBanner.tutor.light.background),
+                  },
                 ]}
               >
-                <Text
+                <View
                   style={[
-                    styles.trialPillText,
-                    { color: isDark ? '#FFB340' : '#9A3412' },
+                    styles.feedbackBannerIconWrap,
+                    {
+                      backgroundColor: feedbackBannerStudent
+                        ? (isDark ? lessonFeedbackBanner.student.dark.iconBackground : lessonFeedbackBanner.student.light.iconBackground)
+                        : (isDark ? lessonFeedbackBanner.tutor.dark.iconBackground : lessonFeedbackBanner.tutor.light.iconBackground),
+                    },
                   ]}
                 >
-                  {t('LESSONS_PAGE.TRIAL_BADGE')}
+                  <Ionicons
+                    name={feedbackBannerStudent ? 'time-outline' : 'warning-outline'}
+                    size={14}
+                    color={
+                      feedbackBannerStudent
+                        ? (isDark ? lessonFeedbackBanner.student.dark.icon : lessonFeedbackBanner.student.light.icon)
+                        : (isDark ? lessonFeedbackBanner.tutor.dark.icon : lessonFeedbackBanner.tutor.light.icon)
+                    }
+                  />
+                </View>
+                <View style={styles.feedbackBannerTextCol}>
+                  <Text
+                    style={[
+                      styles.feedbackBannerTitle,
+                      { color: isDark ? lessonFeedbackBanner.textDark.title : lessonFeedbackBanner.textLight.title },
+                    ]}
+                  >
+                    {feedbackBannerTutor
+                      ? t('LESSONS_PAGE.FEEDBACK_BANNER_TITLE_TUTOR')
+                      : t('LESSONS_PAGE.FEEDBACK_BANNER_TITLE_STUDENT')}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.feedbackBannerSub,
+                      { color: isDark ? lessonFeedbackBanner.textDark.sub : lessonFeedbackBanner.textLight.sub },
+                    ]}
+                  >
+                    {feedbackBannerTutor
+                      ? t('LESSONS_PAGE.FEEDBACK_BANNER_SUB_TUTOR')
+                      : t('LESSONS_PAGE.FEEDBACK_BANNER_SUB_STUDENT')}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          ) : null}
+
+          <View style={[styles.descBlock, showFeedbackBanner && styles.descBlockCollapsed]}>
+          {pl.isClass ? (
+            pl.classAttendees.length > 0 ? (
+              <View style={styles.classGoing}>
+                <View style={styles.classGoingAvatars}>
+                  {pl.classAttendees.map((att, i) => (
+                    <View
+                      key={`${pl.id}-go-${i}`}
+                      style={[
+                        styles.classGoingAv,
+                        {
+                          marginLeft: i === 0 ? 0 : -8,
+                          borderColor: C.card,
+                          zIndex: 4 - i,
+                          backgroundColor: isDark ? '#3a3a3c' : '#f2f2f7',
+                        },
+                      ]}
+                    >
+                      {att.picture ? (
+                        <ExpoImage source={{ uri: att.picture }} style={styles.classGoingAvImg} contentFit="cover" transition={200} />
+                      ) : (
+                        <Text style={[styles.classGoingIni, { color: C.textSecondary }]} numberOfLines={1}>
+                          {att.initials}
+                        </Text>
+                      )}
+                    </View>
+                  ))}
+                  {pl.classAttendeesOverflow > 0 ? (
+                    <Text style={[styles.classGoingMore, { color: C.textSecondary }]}>
+                      +{pl.classAttendeesOverflow}
+                    </Text>
+                  ) : null}
+                </View>
+                <Text style={[styles.classGoingLabel, { color: C.textSecondary }]}>
+                  {pl.isPast
+                    ? t('LESSONS_PAGE.CLASS_ATTENDED_COUNT', { count: pl.classStudentCount })
+                    : t('LESSONS_PAGE.CLASS_GOING_COUNT', { count: pl.classStudentCount })}
                 </Text>
               </View>
-            )}
-            {pl.tipSent && (
-              <View
-                style={[
-                  styles.tipPill,
-                  { backgroundColor: isDark ? 'rgba(52,199,89,0.15)' : '#ecfdf5' },
-                ]}
-              >
-                <Text style={[styles.tipPillText, { color: '#047857' }]}>
-                  {pl.role === 'tutor' ? t('LESSONS_PAGE.TIP_RECEIVED') : t('LESSONS_PAGE.TIP_SENT')}
+            ) : (
+              <View style={styles.classGoingEmpty}>
+                <Ionicons name="people-outline" size={20} color={C.textTertiary} style={{ opacity: 0.45 }} />
+                <Text style={[styles.classGoingEmptyText, { color: C.textTertiary }]}>
+                  {pl.isPast
+                    ? t('LESSONS_PAGE.CLASS_NO_SIGNUPS_PAST')
+                    : t('LESSONS_PAGE.CLASS_NO_SIGNUPS_YET')}
                 </Text>
               </View>
-            )}
+            )
+          ) : (
+            <>
+              {pl.cardDescMode === 'analysis_generating' && <AiGeneratingSpinner />}
+              {pl.cardDescMode === 'analysis_empty' && (
+                <Text style={[styles.descText, { color: C.textSecondary }]}>
+                  {t('LESSONS_PAGE.CARD_DESC_EMPTY')}
+                </Text>
+              )}
+              {(pl.cardDescMode === 'analysis' || pl.cardDescMode === 'schedule') && !!pl.cardDescText && (
+                <View style={styles.descRow}>
+                  {showDescFeedbackIcon ? (
+                    <Ionicons name="warning-outline" size={15} color="#f97316" style={styles.feedbackWarnIcon} />
+                  ) : null}
+                  <Text style={[styles.descText, { color: C.textSecondary }]}>{pl.cardDescText}</Text>
+                </View>
+              )}
+            </>
+          )}
           </View>
-        )}
 
-        <View style={styles.descBlock}>
-          {pl.cardDescMode === 'analysis_generating' && (
-            <AiGeneratingSpinner />
-          )}
-          {pl.cardDescMode === 'analysis_empty' && (
-            <Text style={[styles.descText, { color: C.textSecondary }]}>
-              {t('LESSONS_PAGE.CARD_DESC_EMPTY')}
-            </Text>
-          )}
-          {(pl.cardDescMode === 'analysis' || pl.cardDescMode === 'schedule') && !!pl.cardDescText && (
-            <Text style={[styles.descText, { color: C.textSecondary }]}>
-              {pl.cardDescText}
-            </Text>
-          )}
+          <View style={[styles.sep, { borderTopColor: isDark ? C.border : '#EBEBEB' }]} />
         </View>
-
-        <View style={[styles.sep, { borderTopColor: isDark ? C.border : '#EBEBEB' }]} />
 
         <View style={styles.cardFooterStats}>
           {pl.cardStats.map((st, i) => (
             <View key={i} style={styles.cardFooterStatCol}>
-              <Text style={[styles.cardFooterStatVal, { color: C.text }]} numberOfLines={1}>
+              <Text style={[styles.cardFooterStatVal, { color: st.color ?? C.text }]} numberOfLines={1}>
                 {st.value}
+                {st.sub ? (
+                  <Text style={[styles.cardFooterStatTip, { color: isDark ? '#30d158' : '#34c759' }]}>
+                    {' '}
+                    {st.sub}
+                  </Text>
+                ) : null}
               </Text>
               <Text style={[styles.cardFooterStatLbl, { color: C.textTertiary }]} numberOfLines={1}>
                 {st.label}
@@ -749,38 +1070,9 @@ export default function LessonsScreen() {
 
   const showInitialLoading = loading && allLessons.length === 0;
 
-  const listHeader = (
-    <View>
+  const stickyHeader = (
+    <View style={[styles.stickyHeader, { backgroundColor: colors.background, borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : '#ebebeb' }]}>
       <Text style={[styles.pageTitle, { color: colors.text }]}>{t('LESSONS_PAGE.PAGE_TITLE')}</Text>
-
-      <View style={styles.summaryRow}>
-        {statItems.map(({ key, count }, i) => {
-          const numStr = showInitialLoading ? '–' : String(count);
-          const dotColor =
-            key === 'upcoming' ? '#34C759' :
-            key === 'completed' ? (isDark ? '#a78bfa' : '#7c3aed') :
-            key === 'cancelled' ? '#FF385C' :
-            colors.textTertiary;
-          const numColor =
-            key === 'cancelled' && !showInitialLoading && count > 0 ? '#FF385C' : colors.text;
-          return (
-            <React.Fragment key={key}>
-              {i > 0 && <View style={[styles.statDivider, { backgroundColor: colors.border }]} />}
-              <View style={styles.statCell}>
-                <Text style={[styles.summaryNumber, { color: numColor }]} numberOfLines={1}>
-                  {numStr}
-                </Text>
-                <View style={styles.statLabelRow}>
-                  <View style={[styles.statDot, { backgroundColor: dotColor }]} />
-                  <Text style={[styles.summaryLabel, { color: colors.textSecondary }]} numberOfLines={1}>
-                    {statLabel(key)}
-                  </Text>
-                </View>
-              </View>
-            </React.Fragment>
-          );
-        })}
-      </View>
 
       <View style={styles.filtersBar}>
         <View style={styles.filtersBtnWrap}>
@@ -795,7 +1087,7 @@ export default function LessonsScreen() {
             onPress={() => setFiltersOpen(true)}
             activeOpacity={0.85}
           >
-            <Ionicons name="options-outline" size={20} color={colors.text} />
+            <Ionicons name="options-outline" size={16} color={colors.text} />
             <Text style={[styles.filtersBtnText, { color: colors.text }]}>{t('LESSONS_PAGE.FILTERS')}</Text>
           </TouchableOpacity>
           {activeFilterCount > 0 && (
@@ -805,38 +1097,23 @@ export default function LessonsScreen() {
           )}
         </View>
 
-        {/* __DEV__-only affordance to launch the native shared-element
-            prototype. Intentionally rendered inline next to Filters so the
-            developer doesn't have to dig through settings, but behind a
-            compile-time flag so it is fully stripped from release bundles
-            by Metro's dead-code elimination. */}
-        {__DEV__ && (
-          <TouchableOpacity
-            style={[
-              styles.filtersBtn,
-              {
-                backgroundColor: colors.card,
-                borderColor: colors.text,
-                marginLeft: 8,
-              },
-            ]}
-            onPress={() => setNativeDemoOpen(true)}
-            activeOpacity={0.85}
-            accessibilityLabel="Open native card expand prototype"
-          >
-            <Ionicons name="flask-outline" size={18} color={colors.text} />
-            <Text style={[styles.filtersBtnText, { color: colors.text }]}>Native</Text>
-          </TouchableOpacity>
-        )}
-
-        {statusFilter !== 'all' && (
+        {activeFilterCount > 0 && (
           <>
             <View style={[styles.filterPreviewChip, { backgroundColor: colors.inputBg }]}>
               <Text style={[styles.filterPreviewText, { color: colors.text }]} numberOfLines={1}>
-                {filterModalLabel(statusFilter)}
+                {activeFilterCount === 1
+                  ? statusFilter !== 'all' ? filterModalLabel(statusFilter)
+                    : timeFilter !== 'all' ? (timeFilter === '7days' ? t('LESSONS_PAGE.LAST_7_DAYS') : timeFilter === '30days' ? t('LESSONS_PAGE.LAST_30_DAYS') : t('LESSONS_PAGE.LAST_3_MONTHS'))
+                    : lessonTypeFilter !== 'all' ? (lessonTypeFilter === 'class' ? t('LESSONS_PAGE.FILTER_TYPE_CLASS') : t('LESSONS_PAGE.FILTER_TYPE_ONE_ON_ONE'))
+                    : subjectFilter !== 'all' ? subjectFilter
+                    : filterHasTip ? t('LESSONS_PAGE.FILTER_WITH_TIP')
+                    : filterIsTrial ? t('LESSONS_PAGE.FILTER_TRIAL')
+                    : filterOutstandingFeedback ? t('LESSONS_PAGE.FILTER_OUTSTANDING_FEEDBACK')
+                    : `${activeFilterCount} filters`
+                  : `${activeFilterCount} filters`}
               </Text>
             </View>
-            <TouchableOpacity onPress={() => setStatusFilter('all')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity onPress={clearAllFilters} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Text style={[styles.clearAll, { color: colors.textSecondary }]}>{t('LESSONS_PAGE.CLEAR_ALL')}</Text>
             </TouchableOpacity>
           </>
@@ -844,8 +1121,6 @@ export default function LessonsScreen() {
       </View>
     </View>
   );
-
-  const statusModalOptions: StatusFilter[] = ['all', 'upcoming', 'completed', 'cancelled'];
 
   return (
     // The outer View provides a dark "shelf" that's visible behind the
@@ -855,11 +1130,11 @@ export default function LessonsScreen() {
     <View style={[styles.safe, { backgroundColor: isDark ? '#000' : '#1a1a1a' }]}>
       <Animated.View style={[styles.safe, { overflow: 'hidden' }, listRecedeStyle]}>
         <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
+          {stickyHeader}
       <FlatList
         data={processed}
         keyExtractor={item => item.id}
         renderItem={renderCard}
-        ListHeaderComponent={listHeader}
         contentContainerStyle={[
           styles.listContent,
           processed.length === 0 && !showInitialLoading && styles.listEmpty,
@@ -904,45 +1179,238 @@ export default function LessonsScreen() {
       <Modal
         visible={filtersOpen}
         animationType="slide"
-        transparent
+        presentationStyle="fullScreen"
         onRequestClose={() => setFiltersOpen(false)}
       >
-        <View style={styles.modalOverlay}>
-          <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setFiltersOpen(false)} />
-          <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
-            <View style={[styles.modalGrab, { backgroundColor: colors.border }]} />
-            <Text style={[styles.modalTitle, { color: colors.text }]}>{t('LESSONS_PAGE.MODAL_FILTERS_TITLE')}</Text>
-            <Text style={[styles.modalSection, { color: colors.textSecondary }]}>{t('LESSONS_PAGE.STATUS')}</Text>
-            <View style={styles.modalOptions}>
-              {statusModalOptions.map(opt => {
-                const selected = statusFilter === opt;
+        <View style={[styles.fmRoot, { backgroundColor: colors.background, paddingBottom: insets.bottom }]}>
+          {/* Header */}
+          <View style={[styles.fmHeader, { borderBottomColor: colors.border, paddingTop: insets.top + 16 }]}>
+            <TouchableOpacity style={styles.fmCloseBtn} onPress={() => setFiltersOpen(false)} activeOpacity={0.7}>
+              <Ionicons name="close" size={22} color={colors.text} />
+            </TouchableOpacity>
+            <Text style={[styles.fmTitle, { color: colors.text }]}>{t('LESSONS_PAGE.MODAL_FILTERS_TITLE')}</Text>
+            <View style={styles.fmCloseBtn} />
+          </View>
+
+          {/* Scrollable body */}
+          <ScrollView style={styles.fmScroll} contentContainerStyle={styles.fmScrollContent} showsVerticalScrollIndicator={false}>
+
+            {/* Active filter chips */}
+            {activeFilterCount > 0 && (
+              <>
+                <Text style={[styles.fmSectionTitle, { color: colors.textSecondary }]}>{t('LESSONS_PAGE.SELECTED')}</Text>
+                <View style={styles.fmChipRow}>
+                  {statusFilter !== 'all' && (
+                    <TouchableOpacity style={[styles.fmChip, { backgroundColor: colors.text }]} onPress={() => setStatusFilter('all')}>
+                      <Text style={[styles.fmChipText, { color: colors.background }]}>{filterModalLabel(statusFilter)}</Text>
+                      <Ionicons name="close" size={13} color={colors.background} />
+                    </TouchableOpacity>
+                  )}
+                  {timeFilter !== 'all' && (
+                    <TouchableOpacity style={[styles.fmChip, { backgroundColor: colors.text }]} onPress={() => setTimeFilter('all')}>
+                      <Text style={[styles.fmChipText, { color: colors.background }]}>
+                        {timeFilter === '7days' ? t('LESSONS_PAGE.LAST_7_DAYS') : timeFilter === '30days' ? t('LESSONS_PAGE.LAST_30_DAYS') : t('LESSONS_PAGE.LAST_3_MONTHS')}
+                      </Text>
+                      <Ionicons name="close" size={13} color={colors.background} />
+                    </TouchableOpacity>
+                  )}
+                  {lessonTypeFilter !== 'all' && (
+                    <TouchableOpacity style={[styles.fmChip, { backgroundColor: colors.text }]} onPress={() => setLessonTypeFilter('all')}>
+                      <Text style={[styles.fmChipText, { color: colors.background }]}>
+                        {lessonTypeFilter === 'class' ? t('LESSONS_PAGE.FILTER_TYPE_CLASS') : t('LESSONS_PAGE.FILTER_TYPE_ONE_ON_ONE')}
+                      </Text>
+                      <Ionicons name="close" size={13} color={colors.background} />
+                    </TouchableOpacity>
+                  )}
+                  {subjectFilter !== 'all' && (
+                    <TouchableOpacity style={[styles.fmChip, { backgroundColor: colors.text }]} onPress={() => setSubjectFilter('all')}>
+                      <Text style={[styles.fmChipText, { color: colors.background }]}>{subjectFilter}</Text>
+                      <Ionicons name="close" size={13} color={colors.background} />
+                    </TouchableOpacity>
+                  )}
+                  {tutorFilter !== 'all' && (
+                    <TouchableOpacity style={[styles.fmChip, { backgroundColor: colors.text }]} onPress={() => setTutorFilter('all')}>
+                      <Text style={[styles.fmChipText, { color: colors.background }]}>{uniqueTutors.find(x => x.id === tutorFilter)?.name ?? tutorFilter}</Text>
+                      <Ionicons name="close" size={13} color={colors.background} />
+                    </TouchableOpacity>
+                  )}
+                  {studentFilter !== 'all' && (
+                    <TouchableOpacity style={[styles.fmChip, { backgroundColor: colors.text }]} onPress={() => setStudentFilter('all')}>
+                      <Text style={[styles.fmChipText, { color: colors.background }]}>{uniqueStudents.find(x => x.id === studentFilter)?.name ?? studentFilter}</Text>
+                      <Ionicons name="close" size={13} color={colors.background} />
+                    </TouchableOpacity>
+                  )}
+                  {filterHasTip && (
+                    <TouchableOpacity style={[styles.fmChip, { backgroundColor: colors.text }]} onPress={() => setFilterHasTip(false)}>
+                      <Text style={[styles.fmChipText, { color: colors.background }]}>{t('LESSONS_PAGE.FILTER_WITH_TIP')}</Text>
+                      <Ionicons name="close" size={13} color={colors.background} />
+                    </TouchableOpacity>
+                  )}
+                  {filterOutstandingFeedback && (
+                    <TouchableOpacity style={[styles.fmChip, { backgroundColor: colors.text }]} onPress={() => setFilterOutstandingFeedback(false)}>
+                      <Text style={[styles.fmChipText, { color: colors.background }]}>{t('LESSONS_PAGE.FILTER_OUTSTANDING_FEEDBACK')}</Text>
+                      <Ionicons name="close" size={13} color={colors.background} />
+                    </TouchableOpacity>
+                  )}
+                  {filterIsTrial && (
+                    <TouchableOpacity style={[styles.fmChip, { backgroundColor: colors.text }]} onPress={() => setFilterIsTrial(false)}>
+                      <Text style={[styles.fmChipText, { color: colors.background }]}>{t('LESSONS_PAGE.FILTER_TRIAL')}</Text>
+                      <Ionicons name="close" size={13} color={colors.background} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+                <View style={[styles.fmDivider, { backgroundColor: colors.border }]} />
+              </>
+            )}
+
+            {/* Time period */}
+            <Text style={[styles.fmSectionTitle, { color: colors.textSecondary }]}>{t('LESSONS_PAGE.TIME_PERIOD')}</Text>
+            <View style={styles.fmPillRow}>
+              {(['all', '7days', '30days', '3months'] as const).map(opt => {
+                const sel = timeFilter === opt;
+                const label = opt === 'all' ? t('LESSONS_PAGE.ALL_TIME') : opt === '7days' ? t('LESSONS_PAGE.LAST_7_DAYS') : opt === '30days' ? t('LESSONS_PAGE.LAST_30_DAYS') : t('LESSONS_PAGE.LAST_3_MONTHS');
                 return (
-                  <TouchableOpacity
-                    key={opt}
-                    style={[
-                      styles.modalOption,
-                      {
-                        backgroundColor: selected ? colors.text : colors.inputBg,
-                        borderColor: selected ? colors.text : colors.border,
-                      },
-                    ]}
-                    onPress={() => applyStatusFilter(opt)}
-                    activeOpacity={0.9}
-                  >
-                    <Text
-                      style={[
-                        styles.modalOptionText,
-                        { color: selected ? colors.background : colors.text },
-                      ]}
-                    >
-                      {filterModalLabel(opt)}
-                    </Text>
+                  <TouchableOpacity key={opt} style={[styles.fmPill, { backgroundColor: sel ? colors.text : colors.inputBg, borderColor: sel ? colors.text : colors.border }]} onPress={() => setTimeFilter(opt)} activeOpacity={0.85}>
+                    <Text style={[styles.fmPillText, { color: sel ? colors.background : colors.text }]}>{label}</Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
-            <TouchableOpacity style={styles.modalCloseRow} onPress={() => setFiltersOpen(false)}>
-              <Text style={[styles.modalCloseText, { color: colors.textSecondary }]}>{t('LESSONS_PAGE.CLOSE')}</Text>
+            <View style={[styles.fmDivider, { backgroundColor: colors.border }]} />
+
+            {/* Tutor (students only) */}
+            {user?.userType === 'student' && uniqueTutors.length >= 1 && (
+              <>
+                <Text style={[styles.fmSectionTitle, { color: colors.textSecondary }]}>{t('LESSONS_PAGE.TUTOR')}</Text>
+                <View style={styles.fmList}>
+                  {[{ id: 'all', name: t('LESSONS_PAGE.ALL_TUTORS') }, ...uniqueTutors].map(item => {
+                    const sel = tutorFilter === item.id;
+                    return (
+                      <TouchableOpacity key={item.id} style={[styles.fmListRow, { borderBottomColor: colors.border }]} onPress={() => setTutorFilter(item.id)} activeOpacity={0.8}>
+                        <Text style={[styles.fmListRowText, { color: colors.text }]}>{item.name}</Text>
+                        {sel && <Ionicons name="checkmark" size={18} color={colors.text} />}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                <View style={[styles.fmDivider, { backgroundColor: colors.border }]} />
+              </>
+            )}
+
+            {/* Student (tutors only) */}
+            {user?.userType === 'tutor' && uniqueStudents.length >= 1 && (
+              <>
+                <Text style={[styles.fmSectionTitle, { color: colors.textSecondary }]}>{t('LESSONS_PAGE.STUDENT')}</Text>
+                <View style={styles.fmList}>
+                  {[{ id: 'all', name: t('LESSONS_PAGE.ALL_STUDENTS') }, ...uniqueStudents].map(item => {
+                    const sel = studentFilter === item.id;
+                    return (
+                      <TouchableOpacity key={item.id} style={[styles.fmListRow, { borderBottomColor: colors.border }]} onPress={() => setStudentFilter(item.id)} activeOpacity={0.8}>
+                        <Text style={[styles.fmListRowText, { color: colors.text }]}>{item.name}</Text>
+                        {sel && <Ionicons name="checkmark" size={18} color={colors.text} />}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                <View style={[styles.fmDivider, { backgroundColor: colors.border }]} />
+              </>
+            )}
+
+            {/* Status */}
+            <Text style={[styles.fmSectionTitle, { color: colors.textSecondary }]}>{t('LESSONS_PAGE.STATUS')}</Text>
+            <View style={styles.fmList}>
+              {(['all', 'upcoming', 'completed', 'cancelled'] as StatusFilter[]).map(opt => {
+                const sel = statusFilter === opt;
+                const label = opt === 'all' ? t('LESSONS_PAGE.ALL_STATUSES') : opt === 'upcoming' ? t('LESSONS_PAGE.STATUS_UPCOMING') : opt === 'completed' ? t('LESSONS_PAGE.STATUS_COMPLETED') : t('LESSONS_PAGE.STATUS_CANCELLED');
+                return (
+                  <TouchableOpacity key={opt} style={[styles.fmListRow, { borderBottomColor: colors.border }]} onPress={() => setStatusFilter(opt)} activeOpacity={0.8}>
+                    <Text style={[styles.fmListRowText, { color: colors.text }]}>{label}</Text>
+                    {sel && <Ionicons name="checkmark" size={18} color={colors.text} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <View style={[styles.fmDivider, { backgroundColor: colors.border }]} />
+
+            {/* Lesson type */}
+            <Text style={[styles.fmSectionTitle, { color: colors.textSecondary }]}>{t('LESSONS_PAGE.FILTER_TYPE')}</Text>
+            <View style={styles.fmPillRow}>
+              {(['all', 'one-on-one', 'class'] as const).map(opt => {
+                const sel = lessonTypeFilter === opt;
+                const label = opt === 'all' ? t('LESSONS_PAGE.ALL_TIME') : opt === 'one-on-one' ? t('LESSONS_PAGE.FILTER_TYPE_ONE_ON_ONE') : t('LESSONS_PAGE.FILTER_TYPE_CLASS');
+                return (
+                  <TouchableOpacity key={opt} style={[styles.fmPill, { backgroundColor: sel ? colors.text : colors.inputBg, borderColor: sel ? colors.text : colors.border }]} onPress={() => setLessonTypeFilter(opt)} activeOpacity={0.85}>
+                    <Text style={[styles.fmPillText, { color: sel ? colors.background : colors.text }]}>{label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <View style={[styles.fmDivider, { backgroundColor: colors.border }]} />
+
+            {/* Language / Subject */}
+            {uniqueSubjects.length >= 1 && (
+              <>
+                <Text style={[styles.fmSectionTitle, { color: colors.textSecondary }]}>{t('LESSONS_PAGE.FILTER_SUBJECT')}</Text>
+                <View style={styles.fmList}>
+                  {[{ id: 'all', label: t('LESSONS_PAGE.ALL_SUBJECTS') }, ...uniqueSubjects.map(s => ({ id: s, label: s }))].map(item => {
+                    const sel = subjectFilter === item.id;
+                    return (
+                      <TouchableOpacity key={item.id} style={[styles.fmListRow, { borderBottomColor: colors.border }]} onPress={() => setSubjectFilter(item.id)} activeOpacity={0.8}>
+                        <Text style={[styles.fmListRowText, { color: colors.text }]}>{item.label}</Text>
+                        {sel && <Ionicons name="checkmark" size={18} color={colors.text} />}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                <View style={[styles.fmDivider, { backgroundColor: colors.border }]} />
+              </>
+            )}
+
+            {/* More filters (toggles) */}
+            <Text style={[styles.fmSectionTitle, { color: colors.textSecondary }]}>{t('LESSONS_PAGE.FILTER_SPECIAL')}</Text>
+            <View style={styles.fmList}>
+              <TouchableOpacity style={[styles.fmToggleRow, { borderBottomColor: colors.border }]} onPress={() => setFilterIsTrial(v => !v)} activeOpacity={0.8}>
+                <View style={styles.fmToggleLeft}>
+                  <Ionicons name="star-outline" size={20} color={colors.textSecondary} />
+                  <Text style={[styles.fmListRowText, { color: colors.text }]}>{t('LESSONS_PAGE.FILTER_TRIAL')}</Text>
+                </View>
+                <View style={[styles.fmSwitch, filterIsTrial && styles.fmSwitchOn, filterIsTrial && { backgroundColor: colors.text }]}>
+                  <View style={[styles.fmSwitchThumb, filterIsTrial && styles.fmSwitchThumbOn]} />
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.fmToggleRow, { borderBottomColor: colors.border }]} onPress={() => setFilterHasTip(v => !v)} activeOpacity={0.8}>
+                <View style={styles.fmToggleLeft}>
+                  <Ionicons name="gift-outline" size={20} color={colors.textSecondary} />
+                  <Text style={[styles.fmListRowText, { color: colors.text }]}>{t('LESSONS_PAGE.FILTER_WITH_TIP')}</Text>
+                </View>
+                <View style={[styles.fmSwitch, filterHasTip && styles.fmSwitchOn, filterHasTip && { backgroundColor: colors.text }]}>
+                  <View style={[styles.fmSwitchThumb, filterHasTip && styles.fmSwitchThumbOn]} />
+                </View>
+              </TouchableOpacity>
+              {user?.userType === 'tutor' && (
+                <TouchableOpacity style={[styles.fmToggleRow, { borderBottomColor: 'transparent' }]} onPress={() => setFilterOutstandingFeedback(v => !v)} activeOpacity={0.8}>
+                  <View style={styles.fmToggleLeft}>
+                    <Ionicons name="alert-circle-outline" size={20} color={colors.textSecondary} />
+                    <Text style={[styles.fmListRowText, { color: colors.text }]}>{t('LESSONS_PAGE.FILTER_OUTSTANDING_FEEDBACK')}</Text>
+                  </View>
+                  <View style={[styles.fmSwitch, filterOutstandingFeedback && styles.fmSwitchOn, filterOutstandingFeedback && { backgroundColor: colors.text }]}>
+                    <View style={[styles.fmSwitchThumb, filterOutstandingFeedback && styles.fmSwitchThumbOn]} />
+                  </View>
+                </TouchableOpacity>
+              )}
+            </View>
+
+          </ScrollView>
+
+          {/* Footer */}
+          <View style={[styles.fmFooter, { borderTopColor: colors.border }]}>
+            <TouchableOpacity style={styles.fmClearBtn} onPress={clearAllFilters} disabled={activeFilterCount === 0} activeOpacity={0.7}>
+              <Text style={[styles.fmClearText, { color: activeFilterCount > 0 ? colors.text : colors.textTertiary }]}>{t('LESSONS_PAGE.CLEAR_ALL')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.fmApplyBtn, { backgroundColor: colors.text }]} onPress={() => setFiltersOpen(false)} activeOpacity={0.85}>
+              <Text style={[styles.fmApplyText, { color: colors.background }]}>
+                {processed.length === 1 ? t('LESSONS_PAGE.SHOW_LESSON', { count: processed.length }) : t('LESSONS_PAGE.SHOW_LESSONS', { count: processed.length })}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -994,56 +1462,24 @@ export default function LessonsScreen() {
         }}
       />
 
-      {__DEV__ && (
-        <NativeCardExpandDemo
-          visible={nativeDemoOpen}
-          lessons={processed}
-          onClose={() => setNativeDemoOpen(false)}
-        />
-      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+  stickyHeader: {
+    borderBottomWidth: 1,
+    paddingTop: 20,
+    paddingBottom: 4,
+  },
   pageTitle: {
     fontSize: 28,
     fontWeight: '800',
     paddingHorizontal: CONTENT_PAD,
-    marginBottom: 24,
+    marginBottom: 14,
     letterSpacing: -0.5,
   },
-
-  // ── Stats row ──
-  summaryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: CONTENT_PAD,
-    marginBottom: 28,
-  },
-  statCell: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statDivider: {
-    width: StyleSheet.hairlineWidth,
-    height: 28,
-    opacity: 0.5,
-  },
-  summaryNumber: { fontSize: 20, fontWeight: '700', letterSpacing: -0.3 },
-  statLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 3,
-  },
-  statDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  summaryLabel: { fontSize: 12, fontWeight: '500' },
 
   // ── Filters bar ──
   filtersBar: {
@@ -1053,32 +1489,31 @@ const styles = StyleSheet.create({
     gap: 12,
     rowGap: 10,
     paddingHorizontal: CONTENT_PAD,
-    marginTop: 8,
-    marginBottom: 20,
+    paddingBottom: 14,
   },
   filtersBtnWrap: { position: 'relative', alignSelf: 'flex-start' },
   filtersBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    borderWidth: 2,
-    borderRadius: 30,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    gap: 6,
+    borderWidth: 1.5,
+    borderRadius: 24,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
   },
-  filtersBtnText: { fontSize: 14, fontWeight: '600' },
+  filtersBtnText: { fontSize: 13, fontWeight: '600' },
   filtersBadge: {
     position: 'absolute',
     top: -4,
     right: -4,
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 6,
+    paddingHorizontal: 5,
   },
-  filtersBadgeText: { fontSize: 12, fontWeight: '600' },
+  filtersBadgeText: { fontSize: 11, fontWeight: '600' },
   filterPreviewChip: {
     borderRadius: 20,
     paddingVertical: 8,
@@ -1115,27 +1550,171 @@ const styles = StyleSheet.create({
   modalCloseRow: { marginTop: 20, alignItems: 'center', paddingVertical: 8 },
   modalCloseText: { fontSize: 15, fontWeight: '600' },
 
+  // ── Full-page filter modal ──
+  fmRoot: { flex: 1 },
+  fmHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  fmCloseBtn: {
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 19,
+  },
+  fmTitle: { fontSize: 17, fontWeight: '700', letterSpacing: -0.3 },
+  fmScroll: { flex: 1 },
+  fmScrollContent: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 32 },
+  fmSectionTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 12,
+  },
+  fmDivider: { height: StyleSheet.hairlineWidth, marginVertical: 20 },
+  fmPillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
+  fmPill: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    borderWidth: 1,
+  },
+  fmPillText: { fontSize: 14, fontWeight: '600' },
+  fmList: { gap: 0 },
+  fmListRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 15,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  fmListRowText: { fontSize: 16, fontWeight: '400' },
+  fmToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 15,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  fmToggleLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  fmSwitch: {
+    width: 48,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#e5e5e5',
+    justifyContent: 'center',
+    padding: 2,
+  },
+  fmSwitchOn: {},
+  fmSwitchThumb: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.18,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  fmSwitchThumbOn: { alignSelf: 'flex-end' },
+  fmChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
+  fmChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+  },
+  fmChipText: { fontSize: 13, fontWeight: '600' },
+  fmFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  fmClearBtn: { paddingVertical: 12, paddingHorizontal: 4 },
+  fmClearText: { fontSize: 16, fontWeight: '600' },
+  fmApplyBtn: {
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 10,
+  },
+  fmApplyText: { fontSize: 16, fontWeight: '700' },
+
   // ── List ──
-  listContent: { paddingHorizontal: CONTENT_PAD, paddingBottom: 32 },
+  listContent: { paddingHorizontal: CONTENT_PAD, paddingTop: 20, paddingBottom: 32 },
   listEmpty: { flexGrow: 1 },
 
   // ── Card — copy of HomeScreen upNextCardSurface ──
   // Single View, overflow visible so shadow renders on iOS.
   // Content (text, avatars with own clip) doesn't bleed past radius.
-  classCoverTop: {
-    alignSelf: 'stretch',
-    width: '100%',
-    aspectRatio: 16 / 9,
-    borderRadius: 16,
-    marginBottom: 12,
-    backgroundColor: '#e8e8ea',
+  /**
+   * Wrapper for class cover: overflow:hidden is on the View so the Image
+   * corners are properly clipped (borderRadius on Image alone doesn't clip
+   * on iOS when the parent has overflow:visible for shadows).
+   */
+  /** Exact copy of HomeScreen `upNextClassCoverWrap` / `upNextClassCoverImage` */
+  classCoverWrap: {
+    width: 144,
+    height: 90,
+    borderRadius: 14,
+    overflow: 'hidden',
+    marginBottom: 10,
+    backgroundColor: 'transparent',
   },
-  classEnrollmentMeta: {
-    fontSize: 13,
-    fontWeight: '500',
+  classCoverImg: { width: '100%', height: '100%' },
+  classCoverPlaceholderInner: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  /** Web `lgc-going` — under title/date, not under cover */
+  classGoing: {
+    width: '100%',
+    alignItems: 'center',
+    gap: 6,
+  },
+  classGoingAvatars: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  classGoingAv: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    overflow: 'hidden',
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  classGoingAvImg: { width: '100%', height: '100%' },
+  classGoingIni: { fontSize: 11, fontWeight: '600' },
+  classGoingMore: { marginLeft: 6, fontSize: 11, fontWeight: '600' },
+  classGoingLabel: { fontSize: 12, fontWeight: '500', textAlign: 'center' },
+  classGoingEmpty: {
+    width: '100%',
+    alignItems: 'center',
+    gap: 5,
+  },
+  classGoingEmptyText: {
+    fontSize: 12,
+    fontWeight: '400',
     textAlign: 'center',
-    marginBottom: 6,
-    marginTop: -2,
     paddingHorizontal: 8,
   },
   card: {
@@ -1143,15 +1722,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.06)',
     borderRadius: 28,
-    padding: 24,
-    paddingTop: 32,
-    paddingBottom: 28,
+    paddingTop: 18,
+    paddingBottom: 16,
+    paddingHorizontal: 10,
     alignItems: 'center',
     overflow: 'visible',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowRadius: 28,
-    shadowOpacity: 0.14,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 20,
+    shadowOpacity: 0.08,
     elevation: 14,
     marginBottom: 24,
     marginHorizontal: 12,
@@ -1160,42 +1739,80 @@ const styles = StyleSheet.create({
   avatarBlock: {
     width: '100%',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 10,
   },
   dateTimeBlockOuter: {
     alignItems: 'center',
     width: '100%',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: LESSON_CARD_AVATAR,
+    height: LESSON_CARD_AVATAR,
+    borderRadius: LESSON_CARD_AVATAR_RADIUS,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#e8e8e8',
+    borderWidth: StyleSheet.hairlineWidth,
   },
   avatarImg: { width: '100%', height: '100%' },
-  avatarInitials: { fontSize: 26, fontWeight: '600' },
-  stackRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-  stackAv: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 3,
-    overflow: 'hidden',
-    backgroundColor: '#e8e8e8',
-  },
-  stackImg: { width: '100%', height: '100%' },
-  stackIni: { fontSize: 12, fontWeight: '600', textAlign: 'center', lineHeight: 44, backgroundColor: '#222', color: '#fff' },
-  stackMore: { marginLeft: 10, fontSize: 14, fontWeight: '600' },
+  avatarInitials: { fontSize: 22, fontWeight: '600' },
 
-  // ── Title / date + time ──
-  title: { fontSize: 18, fontWeight: '700', textAlign: 'center', letterSpacing: -0.3, marginBottom: 6 },
+  // ── Title (matches web `lgc-title` + fixed wrap height) ──
+  titleWrap: {
+    minHeight: 55,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '700',
+    textAlign: 'center',
+    letterSpacing: -0.3,
+    lineHeight: 28,
+    maxWidth: '100%',
+  },
 
   // ── Badges ──
   badgesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'center', marginBottom: 8 },
+
+  midSection: {
+    width: '100%',
+    flexDirection: 'column',
+    alignItems: 'stretch',
+  },
+  midSectionWithBanner: {
+    justifyContent: 'center',
+    minHeight: 90,
+  },
+  feedbackBannerSlot: {
+    width: '100%',
+    paddingHorizontal: 10,
+  },
+  feedbackBanner: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  feedbackBannerIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  feedbackBannerTextCol: { flex: 1, gap: 1 },
+  feedbackBannerTitle: { fontSize: 12, fontWeight: '600', letterSpacing: -0.1, lineHeight: 15 },
+  feedbackBannerSub: { fontSize: 11, fontWeight: '400', lineHeight: 14 },
+  descBlockCollapsed: { paddingVertical: 0 },
   trialPill: {
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -1209,15 +1826,25 @@ const styles = StyleSheet.create({
   // ── Description ──
   descBlock: {
     width: '100%',
-    marginBottom: 12,
+    marginBottom: 0,
     paddingVertical: 14,
     paddingHorizontal: 22,
     justifyContent: 'center',
   },
+  descRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 5,
+    justifyContent: 'center',
+  },
+  feedbackWarnIcon: {
+    marginTop: 2, // optical alignment with text baseline
+  },
   descText: {
     fontSize: 14,
-    lineHeight: 22,
+    lineHeight: 21,
     textAlign: 'center',
+    flex: 1,
   },
 
   // ── Separator + stats (extra top padding so duration/price/status aren’t tight to the rule) ──
@@ -1244,6 +1871,10 @@ const styles = StyleSheet.create({
     letterSpacing: -0.1,
     textAlign: 'center',
   },
+  cardFooterStatTip: {
+    fontSize: 10,
+    fontWeight: '500',
+  },
   cardFooterStatLbl: {
     width: '100%',
     fontSize: 10,
@@ -1255,7 +1886,14 @@ const styles = StyleSheet.create({
   // ── Empty / loading ──
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   emptyBox: { alignItems: 'center', paddingVertical: 48, paddingHorizontal: 24 },
-  emptyIcon: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  emptyIcon: {
+    width: LESSON_CARD_AVATAR,
+    height: LESSON_CARD_AVATAR,
+    borderRadius: LESSON_CARD_AVATAR_RADIUS,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
   emptyTitle: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
   emptySub: { fontSize: 14, textAlign: 'center', lineHeight: 20 },
 });

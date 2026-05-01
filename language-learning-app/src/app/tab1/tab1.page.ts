@@ -9865,7 +9865,7 @@ navigateToLessons() {
         : '';
       return {
         text: `${fb.studentName || 'Student'} — ${date}`,
-        icon: 'clipboard-outline',
+        icon: 'warning-outline',
         handler: () => {
           this.openFeedbackForm(fb.lessonId, fb._id);
         }

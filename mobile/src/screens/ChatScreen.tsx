@@ -19,6 +19,7 @@ import {
   Linking,
   ActionSheetIOS,
   Dimensions,
+  Keyboard,
   type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -35,6 +36,7 @@ import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { messagingService, Conversation, GroupParticipantSummary, Message } from '../services/messaging';
 import { socketService } from '../services/socket';
 import { useScreenEntranceAnimations } from '../hooks/useScreenEntranceAnimations';
+import { useAuth } from '../hooks/useAuth';
 
 interface Props {
   conversation: Conversation;
@@ -107,6 +109,17 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const { colors: C, isDark } = useTheme();
+  const { user: authUser } = useAuth();
+  const timeFormat: '12h' | '24h' = (authUser?.profile?.calendarTimeFormat as '12h' | '24h') || '12h';
+  const timeHour12 = timeFormat === '12h';
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+    return () => { showSub.remove(); hideSub.remove(); };
+  }, []);
   const otherUser = conversation.otherUser;
   const otherUserId = otherUser?.auth0Id || otherUser?.id || '';
 
@@ -296,14 +309,17 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
     const update = () => {
       try {
         setOtherUserTime(new Date().toLocaleTimeString('en-US', {
-          timeZone: otherUser.timezone!, hour: 'numeric', minute: '2-digit', hour12: true,
+          timeZone: otherUser.timezone!,
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: timeHour12,
         }));
       } catch { setOtherUserTime(''); }
     };
     update();
     const iv = setInterval(update, 30000);
     return () => clearInterval(iv);
-  }, [isClassConversation, otherUser?.timezone]);
+  }, [isClassConversation, otherUser?.timezone, timeHour12]);
 
   useEffect(() => { return () => { soundRef.current?.unloadAsync(); }; }, []);
 
@@ -704,8 +720,11 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
     } catch (err) { console.warn('[Chat] pickImage error:', err); setUploading(false); }
   }, [otherUserId, isGroup]);
 
-  const formatTime = (d: string) =>
-    new Date(d).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  const formatTime = useCallback(
+    (d: string) =>
+      new Date(d).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: timeHour12 }),
+    [timeHour12]
+  );
 
   const formatDateSep = (d: string) => {
     const date = new Date(d);
@@ -906,7 +925,7 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
 
   return (
     <View style={{ flex: 1, backgroundColor: C.background }}>
-    <View style={[s.safe, { backgroundColor: C.background, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <View style={[s.safe, { backgroundColor: C.background, paddingTop: insets.top }]}>
       <View style={[s.header, { backgroundColor: C.background, borderBottomColor: C.border }]}>
         <TouchableOpacity onPress={goBack} style={s.backBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="chevron-back" size={24} color={C.text} />
@@ -995,7 +1014,7 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
       <KeyboardAvoidingView
         style={s.kavContainer}
         behavior="padding"
-        keyboardVerticalOffset={insets.bottom}
+        keyboardVerticalOffset={0}
       >
         <Animated.View style={[{ flex: 1 }, listGateMotion]}>
         <View style={[s.chatBody, { backgroundColor: C.background }]}>
@@ -1036,7 +1055,7 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
         </View>
         </Animated.View>
 
-        <View style={[s.bottomArea, { backgroundColor: C.background }]}>
+        <View style={[s.bottomArea, { backgroundColor: C.background, paddingBottom: keyboardVisible ? 0 : insets.bottom }]}>
           {uploading && (
             <View style={[s.uploadBar, { backgroundColor: C.card }]}>
               <ActivityIndicator size="small" color="#4298d3" />
@@ -1061,7 +1080,7 @@ export default function ChatScreen({ conversation, currentUserId, currentUserNam
 
           {otherUserTime !== '' && !isClassConversation && (
             <View style={[s.theirTimeRow, { backgroundColor: C.background }]}>
-              <Text style={[s.theirTimeText, { color: C.textTertiary }]}>It's {otherUserTime.toLowerCase()} for them</Text>
+              <Text style={[s.theirTimeText, { color: C.textTertiary }]}>It&apos;s {otherUserTime} for them</Text>
             </View>
           )}
 

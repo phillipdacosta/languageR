@@ -192,8 +192,19 @@ function joinNames(auth0Ids, nameMap) {
 }
 
 /**
- * Mark every member as left. Used when a class is cancelled / deleted so the
- * thread freezes for everyone but remains readable as an archive.
+ * Mark a class conversation as cancelled.
+ *
+ * Behaviour (post-revision): the thread stays fully accessible to everyone —
+ * tutor and students keep their `leftAt = null` membership and can continue
+ * messaging. We only post a "Class was cancelled" system message so the
+ * thread has a clear audit trail of what happened.
+ *
+ * Rationale: cancellation can be administrative; participants often need to
+ * coordinate refunds, makeup sessions, or simply say goodbye. Locking the
+ * thread immediately prevents that. Per-user "archive" / "delete" actions
+ * (in `routes/messaging.js`) are the right way for an individual to drop
+ * out of an unwanted post-cancellation thread without forcing everyone else
+ * out of it.
  */
 async function archiveClassConversation(classIdOrDoc, { reason = 'Class was cancelled.' } = {}) {
   const classDoc = typeof classIdOrDoc === 'string' || classIdOrDoc instanceof mongoose.Types.ObjectId
@@ -204,16 +215,10 @@ async function archiveClassConversation(classIdOrDoc, { reason = 'Class was canc
   const conv = await Conversation.findOne({ classId: classDoc._id });
   if (!conv) return null;
 
-  const now = new Date();
-  const stillActive = conv.members.filter((m) => !m.leftAt);
-  if (stillActive.length === 0) return conv;
-
-  for (const m of stillActive) m.leftAt = now;
-  await conv.save();
-
+  const activeAuth0Ids = conv.members.filter((m) => !m.leftAt).map((m) => m.auth0Id);
   await postSystemMessage(conv, {
     content: reason,
-    activeAuth0Ids: stillActive.map((m) => m.auth0Id)
+    activeAuth0Ids
   });
 
   return conv;

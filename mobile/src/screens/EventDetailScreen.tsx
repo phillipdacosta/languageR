@@ -22,6 +22,7 @@ import { getRootNavigation } from '../utils/navigationRoot';
 import { LessonDateHeaderCenter, formatDateBadgeParts } from '../components/LessonDateHeaderCenter';
 import { SolidToolbarWithBlur } from '../components/SolidToolbarWithBlur';
 import type { Lesson } from '../services/lessons';
+import { isGroupClassLesson } from '../utils/lessonCardModel';
 import {
   getJoinGateState,
   formatTimeUntilLessonStart,
@@ -60,7 +61,7 @@ export default function EventDetailScreen() {
   const lesson: CalendarLesson | undefined = route.params?.lesson;
   const calendarClass: CalendarClass | undefined = route.params?.calendarClass;
   const fromLessons = !!route.params?.fromLessons;
-  const isClass = !!calendarClass;
+  const isClass = !!calendarClass || isGroupClassLesson(lesson as Lesson | undefined);
   const item = lesson || calendarClass;
 
   const [joinUiTick, setJoinUiTick] = useState(0);
@@ -188,9 +189,13 @@ export default function EventDetailScreen() {
 
   const { month: headerMonth, day: headerDay } = formatDateBadgeParts(details.start);
   const headerTimeRange = `${formatTime(details.start)} – ${formatTime(details.end)}`;
-  const headerTimeLine = isClass
-    ? `${t('LESSONS_PAGE.CLASS')} · ${headerTimeRange}`
-    : headerTimeRange;
+  const headerWeekday = details.start
+    .toLocaleDateString(undefined, { weekday: 'short' })
+    .replace(/\./g, '')
+    .toUpperCase();
+  const headerDurationLine = '';
+  const headerIsToday = details.start.toDateString() === new Date().toDateString();
+  const headerTimeLine = headerTimeRange;
 
   const classCoverMode =
     isClass && !!details.avatar && typeof details.avatar === 'string';
@@ -326,6 +331,10 @@ export default function EventDetailScreen() {
               <LessonDateHeaderCenter
                 dateBadgeMonth={headerMonth}
                 dateBadgeDay={headerDay}
+                weekdayShort={headerWeekday}
+                timeRange={headerTimeRange}
+                durationLine={headerDurationLine}
+                isToday={headerIsToday}
                 timeLine={headerTimeLine}
                 isDark={isDark}
                 textPrimary={C.text}
@@ -356,6 +365,10 @@ export default function EventDetailScreen() {
               <LessonDateHeaderCenter
                 dateBadgeMonth={headerMonth}
                 dateBadgeDay={headerDay}
+                weekdayShort={headerWeekday}
+                timeRange={headerTimeRange}
+                durationLine={headerDurationLine}
+                isToday={headerIsToday}
                 timeLine={headerTimeLine}
                 isDark={isDark}
                 textPrimary={C.text}
@@ -382,7 +395,7 @@ export default function EventDetailScreen() {
           <View style={st.infoRow}>
             <Ionicons name="time-outline" size={18} color={C.textSecondary} />
             <Text style={[st.infoText, { color: C.text }]}>
-              {formatTime(details.start)} – {formatTime(details.end)} ({details.duration} {t('HOME.MINS')})
+              {formatTime(details.start)} – {formatTime(details.end)}
             </Text>
           </View>
           {details.price !== undefined && details.price > 0 && (

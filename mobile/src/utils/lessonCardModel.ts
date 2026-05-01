@@ -18,7 +18,13 @@ export interface ProcessedLessonCard {
   dateBadgeMonth: string;
   /** Day of month for badge, e.g. "17" */
   dateBadgeDay: string;
+  /** Short weekday uppercase e.g. "SAT" for date chip */
+  formattedWeekday: string;
   formattedTime: string;
+  /** Same as formattedTime — explicit range for pill UI */
+  formattedTimeRange: string;
+  durationLabel: string;
+  isToday: boolean;
   status: string;
   statusLabel: string;
   isTrial: boolean;
@@ -34,9 +40,15 @@ export interface ProcessedLessonCard {
   classEnrollmentLine?: string;
   cardDescMode: CardDescMode;
   cardDescText: string;
-  cardStats: { value: string; label: string }[];
+  cardStats: { value: string; label: string; sub?: string; color?: string }[];
   tipSent: boolean;
   isCancelled: boolean;
+  /** Class / lesson ended before now */
+  isPast: boolean;
+  /** Tutor needs to provide feedback */
+  needsTutorFeedback?: boolean;
+  /** Student is waiting for tutor feedback */
+  feedbackPendingForStudent?: boolean;
 }
 
 function truncateCardText(s: string, max: number): string {
@@ -47,7 +59,7 @@ function truncateCardText(s: string, max: number): string {
 }
 
 /** USD string for card middle column; whole dollars omit decimals. */
-function formatCardUsd(n: number): string {
+export function formatCardUsd(n: number): string {
   const x = Math.max(0, n);
   const rounded = Math.abs(x - Math.round(x)) < 0.005 ? Math.round(x) : Math.round(x * 100) / 100;
   return `$${rounded.toFixed(Number.isInteger(rounded) ? 0 : 2)}`;
@@ -114,7 +126,7 @@ function statusLabelFor(lesson: Lesson, t: TFunction): string {
   switch (lesson.status) {
     case 'scheduled':
     case 'confirmed':
-      return t('LESSONS_PAGE.STATUS_SCHEDULED');
+      return t('LESSONS_PAGE.STATUS_UPCOMING');
     case 'in_progress':
       return t('LESSONS_PAGE.STATUS_IN_PROGRESS');
     case 'completed':
@@ -172,12 +184,24 @@ export function classRecordToLesson(cls: MyClassRecord, currentUser: any, t: TFu
   } as Lesson;
 }
 
+/**
+ * Group-class rows sometimes omit `isClass` from the API but include `className` / `classData`.
+ */
+export function isGroupClassLesson(lesson: Partial<Lesson> | null | undefined): boolean {
+  if (!lesson) return false;
+  if (lesson.isClass) return true;
+  if (lesson.classData != null && typeof lesson.classData === 'object') return true;
+  if (String(lesson.className || '').trim().length > 0) return true;
+  return false;
+}
+
 export function buildProcessedLessonCard(
   lesson: Lesson,
   currentUser: { _id?: string; id?: string } | null,
   t: TFunction,
   userTz?: string,
 ): ProcessedLessonCard {
+  const groupClass = isGroupClassLesson(lesson);
   const userId = String(currentUser?._id || currentUser?.id || '');
   const role = getUserRole(lesson, userId);
   const other = getOtherParticipant(lesson, role, t);
@@ -188,14 +212,22 @@ export function buildProcessedLessonCard(
   const fmtMonthLong = formatInTimeZone(start, userTz, { month: 'long' }, locale);
   const fmtMonthShort = formatInTimeZone(start, userTz, { month: 'short' }, locale);
   const fmtDayNum = formatInTimeZone(start, userTz, { day: 'numeric' }, locale);
+  const fmtWeekdayRaw = formatInTimeZone(start, userTz, { weekday: 'short' }, locale);
   const formattedDate = `${fmtMonthLong} ${fmtDayNum}`;
   const dateBadgeMonth = fmtMonthShort.replace(/\./g, '').toUpperCase();
   const dateBadgeDay = fmtDayNum;
+  const formattedWeekday = fmtWeekdayRaw.replace(/\./g, '').toUpperCase();
+
+  const now = new Date();
+  const isToday = start.toDateString() === now.toDateString();
+  const isPast = end.getTime() < now.getTime();
 
   const timeOpts: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit' };
   const fmtStart = formatInTimeZone(start, userTz, timeOpts, locale);
   const fmtEnd = formatInTimeZone(end, userTz, timeOpts, locale);
   const formattedTime = `${fmtStart} – ${fmtEnd}`;
+  const formattedTimeRange = formattedTime;
+  const durationLabel = '';
 
   const status = lesson.status;
   const statusLabel = statusLabelFor(lesson, t);
@@ -215,10 +247,15 @@ export function buildProcessedLessonCard(
   const tutorNote = (lesson as any).tutorNote;
   const hasTutorNoteAvailable = !!(tutorNote && tutorNote.text);
   const hasTutorFeedbackAvailable = tutorFeedback?.status === 'completed';
+  // Tutor feedback banner only when AI was disabled for this lesson.
+  // Backend only creates TutorFeedback records for AI-disabled lessons; the
+  // explicit check here guards against stray/legacy records.
+  const aiWasDisabled = (lesson as any).aiAnalysisEnabledAtTime === false;
   const needsTutorFeedback =
     role === 'tutor' &&
     status === 'completed' &&
     !isTrial &&
+    aiWasDisabled &&
     !!tutorFeedback &&
     tutorFeedback.status === 'pending' &&
     tutorFeedback.required !== false;
@@ -251,7 +288,7 @@ export function buildProcessedLessonCard(
         cardDescText = truncateCardText(String(feedbackNotes), 220);
       } else if (needsTutorFeedback) {
         cardDescMode = 'schedule';
-        cardDescText = t('LESSONS_PAGE.TUTOR_FEEDBACK_NEEDED');
+        cardDescText = '';
       } else {
         cardDescMode = 'schedule';
         cardDescText = t('LESSONS_PAGE.TUTOR_NO_NOTES');
@@ -263,7 +300,7 @@ export function buildProcessedLessonCard(
         cardDescMode = 'analysis_generating';
       } else if (feedbackPendingForStudent) {
         cardDescMode = 'analysis';
-        cardDescText = t('LESSONS_PAGE.AWAITING_TUTOR_FEEDBACK');
+        cardDescText = '';
       } else {
         const sum = aiAnalysis?.overallAssessment?.summary || aiAnalysis?.studentSummary;
         const firstImprovement = aiAnalysis?.progressionMetrics?.keyImprovements?.[0];
@@ -323,6 +360,11 @@ export function buildProcessedLessonCard(
   }
 
   const durLabel = t('LESSONS_PAGE.DURATION_MIN');
+  const tipRaw = (lesson as any).tip?.amount;
+  const tipAmt = tipRaw ? Number(tipRaw) : 0;
+  const tipSub =
+    tipAmt > 0 ? `+ $${tipAmt.toFixed(tipAmt % 1 === 0 ? 0 : 2)} tip` : undefined;
+
   const priceOrReceived =
     role === 'tutor'
       ? {
@@ -332,21 +374,22 @@ export function buildProcessedLessonCard(
               : 0,
           ),
           label: t('LESSONS_PAGE.CARD_STAT_RECEIVED'),
+          sub: tipSub,
         }
       : {
           value: `$${(lesson.price || 0).toFixed(0)}`,
           label: t('LESSONS_PAGE.CARD_STAT_PRICE'),
+          sub: tipSub,
         };
   const enrolled = lesson.attendees?.length ?? 0;
   const cap = lesson.capacity || 0;
-  const enrollmentStat =
-    lesson.isClass && role === 'tutor'
-      ? { value: `${enrolled}/${Math.max(1, cap)}`, label: t('LESSONS_PAGE.CARD_STAT_ENROLLED') }
-      : priceOrReceived;
+  const isUpcomingStatus = status === 'scheduled' || status === 'confirmed';
   const cardStats = [
-    { value: `${lesson.duration}${durLabel}`, label: t('LESSONS_PAGE.CARD_STAT_DURATION') },
-    enrollmentStat,
-    { value: statusLabel, label: t('LESSONS_PAGE.CARD_STAT_STATUS') },
+    ...(groupClass
+      ? []
+      : [{ value: `${lesson.duration}${durLabel}`, label: t('LESSONS_PAGE.CARD_STAT_DURATION') }]),
+    priceOrReceived,
+    { value: statusLabel, label: t('LESSONS_PAGE.CARD_STAT_STATUS'), color: isUpcomingStatus ? '#1a73e8' : undefined },
   ];
 
   const nameParts = other.name.split(' ');
@@ -356,28 +399,32 @@ export function buildProcessedLessonCard(
       : nameParts[0].charAt(0);
 
   const classCoverUrl =
-    lesson.isClass && lesson.classData?.thumbnail && String(lesson.classData.thumbnail).trim().length > 0
+    groupClass && lesson.classData?.thumbnail && String(lesson.classData.thumbnail).trim().length > 0
       ? String(lesson.classData.thumbnail).trim()
       : undefined;
   const classEnrollmentLine =
-    lesson.isClass && cap > 0 ? t('LESSONS_PAGE.CLASS_ENROLLMENT_LINE', { current: enrolled, max: cap }) : undefined;
+    groupClass && cap > 0 ? t('LESSONS_PAGE.CLASS_ENROLLMENT_LINE', { current: enrolled, max: cap }) : undefined;
 
   return {
     id: lesson._id,
     lesson,
     role,
     roleLabel: role === 'student' ? t('LESSONS_PAGE.ROLE_TUTOR') : t('LESSONS_PAGE.ROLE_STUDENT'),
-    otherName: lesson.isClass ? lesson.className || lesson.subject || t('LESSONS_PAGE.CLASS') : other.name,
-    otherPicture: lesson.isClass ? '' : other.picture,
+    otherName: groupClass ? lesson.className || lesson.subject || t('LESSONS_PAGE.CLASS') : other.name,
+    otherPicture: groupClass ? '' : other.picture,
     otherInitials: initials.toUpperCase(),
     formattedDate,
     dateBadgeMonth,
     dateBadgeDay,
+    formattedWeekday,
     formattedTime,
+    formattedTimeRange,
+    durationLabel,
+    isToday,
     status,
     statusLabel,
     isTrial,
-    isClass: !!lesson.isClass,
+    isClass: groupClass,
     className: lesson.className || '',
     classStudentCount: lesson.attendees?.length || 0,
     classCapacity: lesson.capacity || 0,
@@ -394,6 +441,9 @@ export function buildProcessedLessonCard(
     cardStats,
     tipSent: !!(lesson as any).tip && !!(lesson as any).tip.amount,
     isCancelled: status === 'cancelled',
+    isPast,
+    needsTutorFeedback,
+    feedbackPendingForStudent,
   };
 }
 

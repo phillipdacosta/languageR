@@ -8,10 +8,12 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  Keyboard,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useTranslation } from 'react-i18next';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Image } from 'expo-image';
@@ -20,6 +22,7 @@ import * as Haptics from 'expo-haptics';
 import type { RootStackParamList } from '../navigation/types';
 import { lessonService, Lesson, clearDetailCache } from '../services/lessons';
 import { fetchLessonAnalysis, submitTutorNote, type LessonAnalysis } from '../services/postLesson';
+import { useTheme } from '../contexts/ThemeContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PostLessonTutor'>;
 
@@ -70,6 +73,9 @@ const GRACE_MS = 2 * 60 * 60 * 1000;
 export default function PostLessonTutorScreen({ navigation, route }: Props) {
   const { lessonId, fromVideoCall = false } = route.params;
   const { t } = useTranslation();
+  const { colors: C, isDark } = useTheme();
+  const styles = makeStyles(C, isDark);
+  const insets = useSafeAreaInsets();
 
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [student, setStudent] = useState<Lesson['studentId'] | null>(null);
@@ -92,9 +98,26 @@ export default function PostLessonTutorScreen({ navigation, route }: Props) {
 
   const [countdown, setCountdown] = useState('');
   const [countdownExpired, setCountdownExpired] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardWillShow', () => setKeyboardVisible(true));
+    const hide = Keyboard.addListener('keyboardWillHide', () => setKeyboardVisible(false));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
   const [showCountdown, setShowCountdown] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const deadlineRef = useRef<Date | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  const noteYRef = useRef(0);
+  const hwYRef = useRef(0);
+
+  const scrollToY = (y: number) => {
+    setTimeout(() => {
+      const target = Math.max(0, y - 80);
+      scrollRef.current?.scrollTo({ y: target, animated: true });
+    }, 80);
+  };
 
   const studentDisplayName = useMemo(() => {
     if (!student || typeof student !== 'object') return t('POST_LESSON_TUTOR.STUDENT');
@@ -215,7 +238,11 @@ export default function PostLessonTutorScreen({ navigation, route }: Props) {
 
   const goHome = () => {
     clearDetailCache(lessonId);
-    navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+    }
   };
 
   const tryGoHome = () => {
@@ -239,16 +266,26 @@ export default function PostLessonTutorScreen({ navigation, route }: Props) {
   const backLabel = fromVideoCall ? t('POST_LESSON_TUTOR.HOME') : t('POST_LESSON_TUTOR.BACK');
 
   return (
-    <View style={styles.root}>
-      <StatusBar style="light" />
-      <SafeAreaView style={styles.safe} edges={['top']}>
+    <View style={[styles.root, { backgroundColor: C.background }]}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
+      <View style={[styles.safe, { paddingTop: insets.top }]}>
         <TouchableOpacity style={styles.backBtn} onPress={tryGoHome}>
-          <Ionicons name="chevron-back" size={22} color="#fff" />
+          <Ionicons name="chevron-back" size={22} color={C.text} />
           <Text style={styles.backText}>{backLabel}</Text>
         </TouchableOpacity>
 
         {!submitted ? (
-          <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          <KeyboardAvoidingView
+            style={styles.kavContainer}
+            behavior="padding"
+            keyboardVerticalOffset={0}
+          >
+          <ScrollView
+            ref={scrollRef}
+            contentContainerStyle={styles.scroll}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+          >
             <View style={styles.header}>
               <Text style={styles.emoji}>🎉</Text>
               <Text style={styles.title}>{t('POST_LESSON_TUTOR.TITLE')}</Text>
@@ -308,6 +345,14 @@ export default function PostLessonTutorScreen({ navigation, route }: Props) {
               <Text style={styles.tipEmoji}>🎓</Text>
               <Text style={styles.tipLead}>{t('POST_LESSON_TUTOR.TIP_LEAD')}</Text>
               <Text style={styles.tipDetail}>{t('POST_LESSON_TUTOR.TIP_DETAIL')}</Text>
+              <View style={styles.tipBadgeRow}>
+                <Text style={styles.tipBadgeIcon}>🏅</Text>
+                <Text style={styles.tipBadgeText}>
+                  Consistent, quality feedback earns you the{' '}
+                  <Text style={styles.tipBadgeHighlight}>Coaching-Oriented Tutor</Text>
+                  {' '}badge — visible to all students searching for tutors.
+                </Text>
+              </View>
             </View>
 
             <Text style={styles.sectionTitle}>{t('POST_LESSON_TUTOR.NOTE_SECTION')}</Text>
@@ -425,6 +470,8 @@ export default function PostLessonTutorScreen({ navigation, route }: Props) {
               value={noteText}
               onChangeText={setNoteText}
               textAlignVertical="top"
+              onLayout={e => { noteYRef.current = e.nativeEvent.layout.y; }}
+              onFocus={() => scrollToY(noteYRef.current)}
             />
 
             <Text style={styles.label}>{t('POST_LESSON_TUTOR.HOMEWORK')}</Text>
@@ -436,6 +483,8 @@ export default function PostLessonTutorScreen({ navigation, route }: Props) {
               value={homework}
               onChangeText={setHomework}
               textAlignVertical="top"
+              onLayout={e => { hwYRef.current = e.nativeEvent.layout.y; }}
+              onFocus={() => scrollToY(hwYRef.current)}
             />
 
             <TouchableOpacity
@@ -455,6 +504,22 @@ export default function PostLessonTutorScreen({ navigation, route }: Props) {
               </TouchableOpacity>
             ) : null}
           </ScrollView>
+
+          {keyboardVisible && (
+            <View style={[styles.kbToolbar, {
+              backgroundColor: isDark ? '#2c2c2e' : '#f0f0f2',
+              borderTopColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)',
+            }]}>
+              <TouchableOpacity
+                style={[styles.kbDoneBtn, { backgroundColor: isDark ? '#fff' : '#111' }]}
+                activeOpacity={0.8}
+                onPress={() => Keyboard.dismiss()}
+              >
+                <Text style={[styles.kbDoneText, { color: isDark ? '#000' : '#fff' }]}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          </KeyboardAvoidingView>
         ) : (
           <View style={styles.success}>
             <Ionicons name="checkmark-circle" size={64} color="#4CAF50" />
@@ -462,131 +527,99 @@ export default function PostLessonTutorScreen({ navigation, route }: Props) {
             <Text style={styles.successSub}>{t('POST_LESSON_TUTOR.SENT_SUB', { name: studentDisplayName })}</Text>
           </View>
         )}
-      </SafeAreaView>
+      </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0f0f12' },
-  safe: { flex: 1 },
-  backBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 4 },
-  backText: { color: '#fff', fontSize: 16, fontWeight: '500' },
-  scroll: { paddingHorizontal: 20, paddingBottom: 48 },
-  header: { alignItems: 'center', marginBottom: 20 },
-  emoji: { fontSize: 36, marginBottom: 8 },
-  title: { color: '#fff', fontSize: 26, fontWeight: '800' },
-  sub: { color: 'rgba(255,255,255,0.6)', fontSize: 15, marginTop: 6 },
-  studentRow: { flexDirection: 'row', gap: 14, marginBottom: 20, alignItems: 'center' },
-  avatar: { width: 56, height: 56, borderRadius: 14, backgroundColor: '#2a2a2a' },
-  avatarPh: { alignItems: 'center', justifyContent: 'center' },
-  studentMeta: { flex: 1 },
-  studentName: { color: '#fff', fontSize: 18, fontWeight: '700' },
-  dt: { color: 'rgba(255,255,255,0.55)', fontSize: 13, marginTop: 2 },
-  dur: { color: 'rgba(255,255,255,0.45)', fontSize: 12, marginTop: 2 },
-  metrics: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-  metric: {
-    flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 12,
-    padding: 12,
-    alignItems: 'center',
-  },
-  metricVal: { color: '#fff', fontSize: 18, fontWeight: '800' },
-  metricLbl: { color: 'rgba(255,255,255,0.5)', fontSize: 11, marginTop: 4 },
-  banner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.4)',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 16,
-  },
-  bannerBad: { backgroundColor: 'rgba(239, 68, 68, 0.12)', borderColor: 'rgba(239, 68, 68, 0.35)' },
-  bannerText: { color: 'rgba(255,255,255,0.9)', fontSize: 14, flex: 1, lineHeight: 20 },
-  tip: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  tipEmoji: { fontSize: 22, marginBottom: 6 },
-  tipLead: { color: '#fff', fontSize: 15, fontWeight: '600', marginBottom: 6 },
-  tipDetail: { color: 'rgba(255,255,255,0.55)', fontSize: 13, lineHeight: 19 },
-  sectionTitle: { color: '#fff', fontSize: 20, fontWeight: '700', marginBottom: 8 },
-  badge: { alignSelf: 'flex-start', backgroundColor: 'rgba(245, 158, 11, 0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginBottom: 12 },
-  badgeText: { color: '#fbbf24', fontSize: 12, fontWeight: '700' },
-  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  chip: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  chipOn: { borderColor: '#23839d', backgroundColor: 'rgba(35, 131, 157, 0.25)' },
-  chipText: { color: '#fff', fontSize: 13 },
-  cefrChip: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  tag: {
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  tagOn: { borderColor: '#94a3b8' },
-  tagGreen: { backgroundColor: 'rgba(34, 197, 94, 0.15)', borderColor: 'rgba(34, 197, 94, 0.4)' },
-  tagAmber: { backgroundColor: 'rgba(245, 158, 11, 0.15)', borderColor: 'rgba(245, 158, 11, 0.4)' },
-  tagText: { color: 'rgba(255,255,255,0.9)', fontSize: 12 },
-  label: { color: 'rgba(255,255,255,0.85)', fontSize: 14, fontWeight: '600', marginBottom: 8 },
-  req: { color: '#f87171' },
-  dots: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginBottom: 16 },
-  dot: { width: 14, height: 14, borderRadius: 7, backgroundColor: 'rgba(255,255,255,0.15)' },
-  dotOn: { backgroundColor: '#23839d' },
-  dotVal: { color: 'rgba(255,255,255,0.7)', fontSize: 13, marginLeft: 8 },
-  noteInput: {
-    minHeight: 120,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 12,
-    padding: 14,
-    color: '#fff',
-    fontSize: 15,
-    marginBottom: 16,
-  },
-  hwInput: {
-    minHeight: 72,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 12,
-    padding: 14,
-    color: '#fff',
-    fontSize: 15,
-    marginBottom: 20,
-  },
-  submitBtn: {
-    backgroundColor: '#23839d',
-    paddingVertical: 16,
-    borderRadius: 14,
-    alignItems: 'center',
-  },
-  submitDisabled: { opacity: 0.45 },
-  submitText: { color: '#fff', fontSize: 17, fontWeight: '700' },
-  skipBtn: { alignItems: 'center', paddingVertical: 16 },
-  skipText: { color: 'rgba(255,255,255,0.55)', fontSize: 15 },
-  success: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 12 },
-  successTitle: { color: '#fff', fontSize: 22, fontWeight: '700' },
-  successSub: { color: 'rgba(255,255,255,0.65)', fontSize: 15, textAlign: 'center', lineHeight: 22 },
-});
+function makeStyles(C: ReturnType<typeof import('../contexts/ThemeContext').useTheme>['colors'], isDark: boolean) {
+  const surfaceBg = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)';
+  const surfaceBorder = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
+  const textPrimary = C.text;
+  const textSec = C.textSecondary;
+  const textTer = C.textTertiary;
+  return StyleSheet.create({
+    root: { flex: 1 },
+    safe: { flex: 1, backgroundColor: 'transparent' },
+    kavContainer: { flex: 1 },
+    kbToolbar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderTopWidth: StyleSheet.hairlineWidth,
+    },
+    kbDoneBtn: {
+      paddingHorizontal: 20,
+      paddingVertical: 9,
+      borderRadius: 20,
+    },
+    kbDoneText: {
+      fontSize: 15,
+      fontWeight: '600',
+    },
+    backBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 4 },
+    backText: { color: textPrimary, fontSize: 16, fontWeight: '500' },
+    scroll: { paddingHorizontal: 20, paddingBottom: 48 },
+    header: { alignItems: 'center', marginBottom: 20 },
+    emoji: { fontSize: 36, marginBottom: 8 },
+    title: { color: textPrimary, fontSize: 26, fontWeight: '800' },
+    sub: { color: textSec, fontSize: 15, marginTop: 6 },
+    studentRow: { flexDirection: 'row', gap: 14, marginBottom: 20, alignItems: 'center' },
+    avatar: { width: 56, height: 56, borderRadius: 14, backgroundColor: isDark ? '#2a2a2a' : '#e8e8ea' },
+    avatarPh: { alignItems: 'center', justifyContent: 'center' },
+    studentMeta: { flex: 1 },
+    studentName: { color: textPrimary, fontSize: 18, fontWeight: '700' },
+    dt: { color: textSec, fontSize: 13, marginTop: 2 },
+    dur: { color: textTer, fontSize: 12, marginTop: 2 },
+    metrics: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+    metric: { flex: 1, backgroundColor: surfaceBg, borderRadius: 12, padding: 12, alignItems: 'center' },
+    metricVal: { color: textPrimary, fontSize: 18, fontWeight: '800' },
+    metricLbl: { color: textTer, fontSize: 11, marginTop: 4 },
+    banner: {
+      flexDirection: 'row', alignItems: 'flex-start', gap: 12,
+      backgroundColor: 'rgba(245,158,11,0.12)', borderWidth: 1,
+      borderColor: 'rgba(245,158,11,0.35)', borderRadius: 12, padding: 14, marginBottom: 16,
+    },
+    bannerBad: { backgroundColor: 'rgba(239,68,68,0.12)', borderColor: 'rgba(239,68,68,0.35)' },
+    bannerText: { color: isDark ? 'rgba(255,255,255,0.9)' : '#92400e', fontSize: 14, flex: 1, lineHeight: 20 },
+    tip: { backgroundColor: surfaceBg, borderRadius: 14, padding: 14, marginBottom: 20, borderWidth: 1, borderColor: surfaceBorder },
+    tipEmoji: { fontSize: 22, marginBottom: 6 },
+    tipLead: { color: textPrimary, fontSize: 15, fontWeight: '600', marginBottom: 6 },
+    tipDetail: { color: textSec, fontSize: 13, lineHeight: 19, marginBottom: 10 },
+    tipBadgeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, paddingTop: 10, borderTopWidth: 1, borderTopColor: surfaceBorder },
+    tipBadgeIcon: { fontSize: 14, lineHeight: 19 },
+    tipBadgeText: { flex: 1, fontSize: 12, color: textSec, lineHeight: 17 },
+    tipBadgeHighlight: { color: '#7C3AED', fontWeight: '600' },
+    sectionTitle: { color: textPrimary, fontSize: 20, fontWeight: '700', marginBottom: 8 },
+    badge: { alignSelf: 'flex-start', backgroundColor: 'rgba(245,158,11,0.15)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginBottom: 12 },
+    badgeText: { color: '#f59e0b', fontSize: 12, fontWeight: '700' },
+    chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+    chip: { paddingVertical: 10, paddingHorizontal: 12, borderRadius: 20, backgroundColor: surfaceBg, borderWidth: 1, borderColor: 'transparent' },
+    chipOn: { borderColor: '#23839d', backgroundColor: 'rgba(35,131,157,0.2)' },
+    chipText: { color: textPrimary, fontSize: 13 },
+    cefrChip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 10, backgroundColor: surfaceBg, borderWidth: 1, borderColor: 'transparent' },
+    tag: { paddingVertical: 8, paddingHorizontal: 10, borderRadius: 10, backgroundColor: surfaceBg, borderWidth: 1, borderColor: surfaceBorder },
+    tagOn: { borderColor: '#94a3b8' },
+    tagGreen: { backgroundColor: 'rgba(34,197,94,0.12)', borderColor: 'rgba(34,197,94,0.35)' },
+    tagAmber: { backgroundColor: 'rgba(245,158,11,0.12)', borderColor: 'rgba(245,158,11,0.35)' },
+    tagText: { color: textPrimary, fontSize: 12 },
+    label: { color: textPrimary, fontSize: 14, fontWeight: '600', marginBottom: 8 },
+    req: { color: '#ef4444' },
+    dots: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginBottom: 16 },
+    dot: { width: 14, height: 14, borderRadius: 7, backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)' },
+    dotOn: { backgroundColor: '#23839d' },
+    dotVal: { color: textSec, fontSize: 13, marginLeft: 8 },
+    noteInput: { minHeight: 120, backgroundColor: surfaceBg, borderRadius: 12, padding: 14, color: textPrimary, fontSize: 15, marginBottom: 16 },
+    hwInput: { minHeight: 72, backgroundColor: surfaceBg, borderRadius: 12, padding: 14, color: textPrimary, fontSize: 15, marginBottom: 20 },
+    submitBtn: { backgroundColor: '#000000', paddingVertical: 16, borderRadius: 14, alignItems: 'center' },
+    submitDisabled: { opacity: 0.45 },
+    submitText: { color: '#fff', fontSize: 17, fontWeight: '700' },
+    skipBtn: { alignItems: 'center', paddingVertical: 16 },
+    skipText: { color: textTer, fontSize: 15 },
+    success: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 12 },
+    successTitle: { color: textPrimary, fontSize: 22, fontWeight: '700' },
+    successSub: { color: textSec, fontSize: 15, textAlign: 'center', lineHeight: 22 },
+  });
+}

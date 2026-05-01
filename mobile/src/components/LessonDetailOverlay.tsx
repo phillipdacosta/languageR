@@ -34,7 +34,8 @@ import Animated, {
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../contexts/ThemeContext';
 import { getRootNavigation } from '../utils/navigationRoot';
-import { ProcessedLessonCard } from '../utils/lessonCardModel';
+import { ProcessedLessonCard, formatCardUsd, isGroupClassLesson } from '../utils/lessonCardModel';
+import { lessonFeedbackBanner } from '../utils/lessonFeedbackBannerColors';
 import {
   getLessonEnd,
   lessonService,
@@ -324,16 +325,16 @@ export default function LessonDetailOverlay({
   // the "single big avatar" is replaced by an attendee stack and therefore
   // doesn't need a scale animation.
   const lessonForMode = detail?.lesson || card.lesson;
-  const isClassMode = !!lessonForMode?.isClass;
+  const isClassMode = isGroupClassLesson(lessonForMode);
   const classThumbForMode = (lessonForMode?.classData?.thumbnail || '').trim();
   const showHero = isClassMode && !!classThumbForMode;
 
   // Scale factors: card-side sizes / detail-side sizes. Used to grow the
   // avatar and name in lockstep with the surface morph so they feel like
   // the exact card elements continuously enlarging — no pop, no fade swap.
-  //   card avatar 72px → detail 120px → start scale 0.6
+  //   card avatar 80px → detail 120px → start scale 2/3
   //   card name 18pt  → detail 24pt   → start scale 0.75
-  const AVATAR_START_SCALE = 72 / 120;
+  const AVATAR_START_SCALE = 80 / 120;
   const NAME_START_SCALE = 18 / 24;
 
   // Position correction: transform-scale keeps the LAYOUT box the same size
@@ -344,16 +345,16 @@ export default function LessonDetailOverlay({
   // that at progress=0 the visible center sits EXACTLY on the card-side
   // position, then relax back to 0 at progress=1.
   //
-  //   card avatar center Y = cardTop + 32 (paddingTop) + 36 (avatar half)  = cardTop + 68
-  //   overlay avatar center Y at progress=0 = surfaceTop + 60 (box center)  → off by +8
+  //   card avatar center Y = cardTop + 32 (paddingTop) + 40 (avatar half)  = cardTop + 72
+  //   overlay avatar center Y at progress=0 = surfaceTop + 60 (box center)  → off by +12
   //
-  //   card name center Y = cardTop + 32 + 72 + 14 (avatarBlock mb) + ~11   = cardTop + 129
+  //   card name center Y = cardTop + 32 + 80 + 14 (avatarBlock mb) + ~11   = cardTop + 137
   //   overlay name center Y at progress=0 = surfaceTop + 144 + ~18         → off by -33
   //
   // Values derived for iOS default line heights; fine to tweak by ±2-3 if
   // you spot a residual nudge on a specific device.
-  const AVATAR_START_TRANSLATE_Y = 8;
-  const NAME_START_TRANSLATE_Y = -33;
+  const AVATAR_START_TRANSLATE_Y = 12;
+  const NAME_START_TRANSLATE_Y = -25;
 
   // ── Surface ──
   // ONE rectangle growing/shrinking between `cardRect` and the full screen.
@@ -523,19 +524,19 @@ export default function LessonDetailOverlay({
    * size through `[0.65, 1]`. That compresses all the visible growth into
    * 30% of the animation, which the eye reads as "sits still → snaps to
    * end". Airbnb's version grows in lockstep with the card surface — the
-   * avatar has frames at every size between the card's 72px and the
+   * avatar has frames at every size between the card's 80px and the
    * detail's 120px.
    *
    * With `bodyPadStyle` now linear over `[0, 1]`, keeping the avatar in
    * exact screen-Y alignment with the source card at `p=0` (and at natural
    * layout at `p=1`) reduces to a trivial linear translate:
    *
-   *   wanted_y(p) = (1-p)*(cardRect.y + 68) + p*(BODY_PAD_OPEN + 60)
+   *   wanted_y(p) = (1-p)*(cardRect.y + 72) + p*(BODY_PAD_OPEN + 60)
    *   actual_y(p) = (1-p)*cardRect.y + p*BODY_PAD_OPEN + 60 + translateY
    *   → translateY(p) = AVATAR_START_TRANSLATE_Y * (1 - p)
    *
    * Scale is also linear `[AVATAR_START_SCALE, 1]`, so at `p=0` the avatar
-   * renders at exactly 72px over the card's avatar slot (cross-fade stays
+   * renders at exactly 80px over the card's avatar slot (cross-fade stays
    * pixel-perfect on close); at `p=1` it sits at 120px in its natural slot;
    * every intermediate frame shows a smoothly-scaling avatar tied to the
    * card's growth.
@@ -558,9 +559,9 @@ export default function LessonDetailOverlay({
    * ghosting at different vertical positions during the handoff, which is
    * exactly what shows up in the screenshot.
    *
-   * The correct `translateY` that pins `abs_y = cardRect.y + 68`:
+   * The correct `translateY` that pins `abs_y = cardRect.y + 72`:
    *   natural_y(p) = (1-p)*cardRect.y + p*BPO + 60
-   *   pinned_y    = cardRect.y + 68
+   *   pinned_y    = cardRect.y + 72
    *   → translateY(p) = AVATAR_START_TRANSLATE_Y + p*(cardRect.y - BPO)
    *
    * Below `AVATAR_CLOSE_LAND_BY` we use that pinned formula directly.
@@ -1073,16 +1074,34 @@ export default function LessonDetailOverlay({
 
   const dateHeaderParts = useMemo(() => {
     const baseTime = info?.timeRange || card.formattedTime || '';
-    const timeLine =
-      card.isClass && baseTime ? `${t('LESSONS_PAGE.CLASS')} · ${baseTime}` : baseTime;
+    const timeRange = card.formattedTimeRange || baseTime;
+    const durationLine = card.durationLabel || '';
+    let month = card.dateBadgeMonth;
+    let day = card.dateBadgeDay;
+    let weekday = card.formattedWeekday || '';
+    let isTodayHeader = card.isToday;
+
     if (info?.start) {
-      const { month, day } = formatDateBadgeParts(info.start);
-      return { month, day, timeLine };
+      const parts = formatDateBadgeParts(info.start);
+      month = parts.month;
+      day = parts.day;
+      weekday = info.start
+        .toLocaleDateString(undefined, { weekday: 'short' })
+        .replace(/\./g, '')
+        .toUpperCase();
+      isTodayHeader = info.start.toDateString() === new Date().toDateString();
     }
+
+    const legacyTimeLine = baseTime;
+
     return {
-      month: card.dateBadgeMonth,
-      day: card.dateBadgeDay,
-      timeLine,
+      month,
+      day,
+      weekday,
+      timeRange,
+      durationLine,
+      isTodayHeader,
+      legacyTimeLine,
     };
   }, [
     info?.start,
@@ -1090,8 +1109,10 @@ export default function LessonDetailOverlay({
     card.dateBadgeMonth,
     card.dateBadgeDay,
     card.formattedTime,
-    card.isClass,
-    t,
+    card.formattedTimeRange,
+    card.durationLabel,
+    card.formattedWeekday,
+    card.isToday,
   ]);
 
   const stColor = info?.isCancelled
@@ -1100,14 +1121,14 @@ export default function LessonDetailOverlay({
       ? C.accent
       : info?.isPast
         ? C.text
-        : '#2E7D32';
+        : '#1a73e8';
   const stLabel = info?.isCancelled
     ? t('HOME.CANCELLED')
     : info?.isNow
       ? t('HOME.STARTED')
       : info?.isPast
         ? 'Completed'
-        : 'Scheduled';
+        : t('LESSONS_PAGE.STATUS_UPCOMING');
 
   const onShare = useCallback(async () => {
     try {
@@ -1553,6 +1574,8 @@ export default function LessonDetailOverlay({
   const paymentStatus = useMemo(() => {
     if (!paymentData) return null;
     const p = paymentData;
+    const pt = (key: string, opt?: Record<string, string>): string =>
+      (opt ? t(`LESSONS_PAGE.PAYMENT.${key}`, opt as never) : t(`LESSONS_PAGE.PAYMENT.${key}`)) as string;
     const status = p.status;
     const transferStatus = p.transferStatus;
     const isCancelled = lesson?.status === 'cancelled';
@@ -1572,79 +1595,128 @@ export default function LessonDetailOverlay({
       cls = 'refunded';
       icon = 'arrow-undo-circle-outline';
       if (isStudent) {
-        title = 'Payment refunded';
-        desc = `$${refundAmt > 0 ? refundAmt.toFixed(2) : amount.toFixed(2)} was returned to your account.`;
-        if (p.refundReason) details.push({ key: 'Reason', value: p.refundReason });
-        if (p.refundMethod) details.push({ key: 'Refunded to', value: p.refundMethod === 'wallet' ? 'Wallet credit' : 'Original payment method' });
+        title = pt('REFUNDED_TITLE_STUDENT');
+        const refundDisplay = refundAmt > 0 ? refundAmt.toFixed(2) : amount.toFixed(2);
+        desc = pt('REFUNDED_DESC_STUDENT', { amount: `$${refundDisplay}` });
+        if (p.refundReason) details.push({ key: pt('ROW_REASON'), value: p.refundReason });
+        if (p.refundMethod) {
+          const methodLabel =
+            p.refundMethod === 'wallet' ? pt('ROW_WALLET_CREDIT') : pt('ROW_ORIGINAL_PAYMENT_METHOD');
+          details.push({ key: pt('ROW_REFUNDED_TO'), value: methodLabel });
+        }
       } else {
-        title = 'Payment reversed';
-        desc = 'The payment for this lesson was refunded to the student.';
-        if (p.refundReason) details.push({ key: 'Reason', value: p.refundReason });
+        title = pt('REVERSED_TITLE_TUTOR');
+        desc = pt('REVERSED_DESC_TUTOR');
+        if (p.refundReason) details.push({ key: pt('ROW_REASON'), value: p.refundReason });
       }
     } else if (status === 'partially_refunded') {
       cls = 'partial';
       icon = 'swap-horizontal-outline';
       if (isStudent) {
-        title = 'Payment reduced';
-        desc = `$${refundAmt.toFixed(2)} was refunded to your account.`;
-        details.push({ key: 'Original amount', value: `$${amount.toFixed(2)}` });
-        details.push({ key: 'Refunded', value: `$${refundAmt.toFixed(2)}` });
-        details.push({ key: 'Final charge', value: `$${(amount - refundAmt).toFixed(2)}` });
+        title = pt('PARTIAL_TITLE_STUDENT');
+        desc = pt('PARTIAL_DESC_STUDENT', { amount: `$${refundAmt.toFixed(2)}` });
+        details.push({ key: pt('ROW_ORIGINAL_AMOUNT'), value: `$${amount.toFixed(2)}` });
+        details.push({ key: pt('ROW_REFUNDED'), value: `$${refundAmt.toFixed(2)}` });
+        details.push({ key: pt('ROW_FINAL_CHARGE'), value: `$${(amount - refundAmt).toFixed(2)}` });
+        if (p.refundReason) details.push({ key: pt('ROW_REASON'), value: p.refundReason });
       } else {
-        title = 'Earnings adjusted';
-        desc = 'The student received a partial refund. Your earnings were adjusted.';
-        if (tutorPayout > 0) details.push({ key: 'Your earnings', value: `$${tutorPayout.toFixed(2)}` });
+        title = pt('ADJUSTED_TITLE_TUTOR');
+        desc = pt('ADJUSTED_DESC_TUTOR');
+        if (tutorPayout > 0) details.push({ key: pt('ROW_YOUR_EARNINGS'), value: `$${tutorPayout.toFixed(2)}` });
+        if (p.refundReason) details.push({ key: pt('ROW_REASON'), value: p.refundReason });
       }
     } else if (status === 'cancelled' || (isCancelled && status !== 'succeeded')) {
       cls = 'cancelled';
       icon = 'close-circle-outline';
       if (isStudent) {
         if (isLate && cancellationFee > 0) {
-          title = 'Cancellation fee applied';
-          desc = `A late cancellation fee of $${cancellationFee.toFixed(2)} was charged.`;
-          if (amount - cancellationFee > 0) details.push({ key: 'Refunded', value: `$${(amount - cancellationFee).toFixed(2)}` });
-          details.push({ key: 'Cancellation fee', value: `$${cancellationFee.toFixed(2)}` });
+          title = pt('CANCEL_FEE_TITLE_STUDENT');
+          desc = pt('CANCEL_FEE_DESC_STUDENT', { fee: `$${cancellationFee.toFixed(2)}` });
+          if (amount - cancellationFee > 0) {
+            details.push({ key: pt('ROW_REFUNDED'), value: `$${(amount - cancellationFee).toFixed(2)}` });
+          }
+          details.push({ key: pt('ROW_CANCELLATION_FEE'), value: `$${cancellationFee.toFixed(2)}` });
         } else {
-          title = 'No charge applied';
-          desc = 'The lesson was cancelled and no payment was charged.';
+          title = pt('NO_CHARGE_TITLE_STUDENT');
+          desc = pt('NO_CHARGE_DESC_STUDENT');
         }
       } else {
         if (isLate && cancellationFee > 0) {
-          title = 'Late cancellation compensation';
-          desc = `You earned $${tutorPayout > 0 ? tutorPayout.toFixed(2) : cancellationFee.toFixed(2)} from the late cancellation fee.`;
+          title = pt('LATE_COMP_TITLE_TUTOR');
+          const comp = tutorPayout > 0 ? tutorPayout.toFixed(2) : cancellationFee.toFixed(2);
+          desc = pt('LATE_COMP_DESC_TUTOR', { amount: `$${comp}` });
         } else {
-          title = 'No earnings';
-          desc = 'This lesson was cancelled. No earnings apply.';
+          title = pt('NO_EARNINGS_TITLE_TUTOR');
+          desc = pt('NO_EARNINGS_DESC_TUTOR');
         }
       }
     } else if (transferStatus === 'on_hold' || lesson?.payoutPaused) {
       cls = 'on-hold';
       icon = 'pause-circle-outline';
-      title = isStudent ? 'Payment on hold' : 'Earnings on hold';
-      desc = isStudent ? 'Your payment is on hold while this lesson is being reviewed.' : 'Your earnings are on hold while this lesson is being reviewed.';
+      title = isStudent ? pt('HOLD_TITLE_STUDENT') : pt('HOLD_TITLE_TUTOR');
+      desc = isStudent ? pt('HOLD_DESC_STUDENT') : pt('HOLD_DESC_TUTOR');
     } else if (status === 'succeeded' || status === 'authorized') {
       const isFinished = lesson?.status === 'completed' || (lesson?.endTime && new Date(lesson.endTime).getTime() < Date.now());
       cls = isFinished ? 'paid' : 'pending';
       icon = isFinished ? 'checkmark-circle-outline' : 'time-outline';
       if (isStudent) {
-        title = isFinished ? 'Payment complete' : 'Payment authorized';
-        desc = isFinished ? `$${amount.toFixed(2)} was charged.` : `$${amount.toFixed(2)} will be charged after the lesson.`;
-      } else {
-        title = isFinished ? 'Earnings confirmed' : 'Earnings pending';
+        title = isFinished ? pt('COMPLETE_TITLE_STUDENT') : pt('AUTHORIZED_TITLE_STUDENT');
         desc = isFinished
-          ? (tutorPayout > 0 ? `You earned $${tutorPayout.toFixed(2)} from this lesson.` : 'Your earnings have been confirmed.')
-          : (tutorPayout > 0 ? `You'll earn $${tutorPayout.toFixed(2)} after this lesson.` : 'Your earnings will be confirmed after the lesson.');
+          ? pt('COMPLETE_DESC_STUDENT', { amount: `$${amount.toFixed(2)}` })
+          : pt('AUTHORIZED_DESC_STUDENT', { amount: `$${amount.toFixed(2)}` });
+      } else {
+        const tipNet = (lesson?.tip as any)?.tutorReceived ?? lesson?.tip?.amount ?? 0;
+        const totalEarned = tutorPayout + tipNet;
+        const hasTip = tipNet > 0;
+        title = isFinished ? pt('CONFIRMED_TITLE_TUTOR') : pt('PENDING_TITLE_TUTOR');
+        if (totalEarned > 0) {
+          const descKey = isFinished
+            ? hasTip
+              ? 'CONFIRMED_DESC_TUTOR_WITH_TIP'
+              : 'CONFIRMED_DESC_TUTOR'
+            : hasTip
+              ? 'PENDING_DESC_TUTOR_WITH_TIP'
+              : 'PENDING_DESC_TUTOR';
+          desc = pt(descKey, { total: `$${totalEarned.toFixed(2)}` });
+        } else {
+          desc = isFinished ? pt('CONFIRMED_DESC_TUTOR_EMPTY') : pt('PENDING_DESC_TUTOR_EMPTY');
+        }
+        if (amount > 0 && tutorPayout > 0 && amount > tutorPayout) {
+          const platformFee = amount - tutorPayout;
+          details.push({ key: pt('ROW_LESSON_PRICE'), value: `+$${amount.toFixed(2)}` });
+          details.push({ key: pt('ROW_PLATFORM_FEE'), value: `−$${platformFee.toFixed(2)}` });
+          details.push({ key: pt('ROW_YOUR_EARNINGS'), value: `$${tutorPayout.toFixed(2)}` });
+        }
       }
     } else {
       return null;
     }
 
     if (p.refundedAt && (status === 'refunded' || status === 'partially_refunded')) {
-      details.push({ key: 'Date', value: new Date(p.refundedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) });
+      details.push({
+        key: pt('ROW_DATE'),
+        value: new Date(p.refundedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
+      });
+    }
+
+    const tipAmt = lesson?.tip?.amount;
+    if (tipAmt && tipAmt > 0) {
+      const stripeFee = (lesson?.tip as any)?.stripeFee || 0;
+      const tutorReceived = (lesson?.tip as any)?.tutorReceived;
+      if (isTutor && stripeFee > 0 && tutorReceived != null) {
+        details.push({ key: pt('ROW_TIP'), value: `+$${tipAmt.toFixed(2)}` });
+        details.push({ key: pt('ROW_PROCESSING_FEE'), value: `−$${stripeFee.toFixed(2)}` });
+        details.push({ key: pt('ROW_TIP_RECEIVED'), value: `$${tutorReceived.toFixed(2)}` });
+      } else {
+        details.push({
+          key: isTutor ? pt('ROW_TIP_RECEIVED') : pt('ROW_TIP_SENT'),
+          value: `$${tipAmt.toFixed(2)}`,
+        });
+      }
     }
 
     return { icon, title, desc, cls, details };
-  }, [paymentData, lesson, isStudent, isTutor]);
+  }, [paymentData, lesson, isStudent, isTutor, t]);
 
   const formattedActualDuration = billingData?.actualDuration != null ? `${billingData.actualDuration} min` : '';
   const formattedActualPrice = billingData?.actualPrice != null ? `$${billingData.actualPrice.toFixed(2)}` : '';
@@ -1661,8 +1733,20 @@ export default function LessonDetailOverlay({
     return map[method] || { label: method.charAt(0).toUpperCase() + method.slice(1).replace(/_/g, ' '), icon: 'card-outline' };
   }, [lesson?.paymentMethod, paymentData?.paymentMethod, isStudent]);
 
-  const showClassEnrollmentCol = isClass && isTutor && !!info;
-  const showPriceCol = !!info && !showClassEnrollmentCol && info.price !== undefined && info.price > 0;
+  /** Middle grid column always matches list cards: price (student) or received (tutor), never enrollment. */
+  const showStudentPriceCol = !isTutor && !!info && info.price !== undefined;
+  const showTutorReceivedCol = isTutor && !!info;
+  const tutorReceivedQuickVal = useMemo(() => {
+    const raw = lesson?.tutorPayout;
+    const n = typeof raw === 'number' && !Number.isNaN(raw) ? Math.max(0, raw) : 0;
+    return formatCardUsd(n);
+  }, [lesson?.tutorPayout]);
+  const tutorTipQuickSub = useMemo(() => {
+    const tipRaw = (lesson as any)?.tip?.amount;
+    const tipAmt = tipRaw ? Number(tipRaw) : 0;
+    if (tipAmt <= 0) return '';
+    return `+ $${tipAmt.toFixed(tipAmt % 1 === 0 ? 0 : 2)} tip`;
+  }, [lesson]);
   const enrollmentQuickVal = `${card.classStudentCount}/${Math.max(1, card.classCapacity || 1)}`;
 
   return (
@@ -1860,94 +1944,19 @@ export default function LessonDetailOverlay({
                 <LessonDateHeaderCenter
                   dateBadgeMonth={dateHeaderParts.month}
                   dateBadgeDay={dateHeaderParts.day}
-                  timeLine={dateHeaderParts.timeLine}
+                  weekdayShort={dateHeaderParts.weekday}
+                  timeRange={dateHeaderParts.timeRange}
+                  durationLine={dateHeaderParts.durationLine}
+                  isToday={dateHeaderParts.isTodayHeader}
+                  timeLine={dateHeaderParts.legacyTimeLine}
                   isDark={isDark}
                   textPrimary={C.text}
                   textSecondary={C.textSecondary}
+                  compact
                 />
               </Animated.View>
 
-              {/* Compact info grid — duration, price, status + actual values */}
-              {info ? (
-                <Animated.View style={[st.quickGrid, { borderColor: isDark ? C.border : '#EBEBEB' }, metaRevealStyle, contentFadeStyle]}>
-                  <View style={st.quickCell}>
-                    <Text style={[st.goingCaption, { color: C.textTertiary }]} numberOfLines={1}>
-                      {t('LESSONS_PAGE.CARD_STAT_DURATION')}
-                    </Text>
-                    <Text style={[st.quickVal, { color: C.text }]} numberOfLines={1}>
-                      {info.duration} min
-                    </Text>
-                    <View style={st.quickSubSlot}>
-                      {formattedActualDuration ? (
-                        <Animated.Text style={[st.quickValSub, { color: C.textTertiary }, asyncSubStyle]} numberOfLines={1}>
-                          {formattedActualDuration} actual
-                        </Animated.Text>
-                      ) : null}
-                    </View>
-                  </View>
-                  {showPriceCol ? (
-                    <>
-                      <View style={[st.quickDivider, { backgroundColor: isDark ? C.border : '#E0E0E0' }]} />
-                      <View style={st.quickCell}>
-                        <Text style={[st.goingCaption, { color: C.textTertiary }]} numberOfLines={1}>
-                          {t('LESSONS_PAGE.CARD_STAT_PRICE')}
-                        </Text>
-                        <Text style={[st.quickVal, { color: C.text }]} numberOfLines={1}>
-                          ${(info.price ?? 0).toFixed(2)}
-                        </Text>
-                        <View style={st.quickSubSlot}>
-                          {formattedActualPrice ? (
-                            <Animated.Text style={[st.quickValSub, { color: C.textTertiary }, asyncSubStyle]} numberOfLines={1}>
-                              {formattedActualPrice} final
-                            </Animated.Text>
-                          ) : null}
-                        </View>
-                      </View>
-                    </>
-                  ) : showClassEnrollmentCol ? (
-                    <>
-                      <View style={[st.quickDivider, { backgroundColor: isDark ? C.border : '#E0E0E0' }]} />
-                      <View style={st.quickCell}>
-                        {classGoingStackView ? (
-                          <Pressable
-                            onPress={onGoingMessageRowPress}
-                            disabled={!canOpenClassGoingMessageModal}
-                            style={({ pressed }) => (pressed ? { opacity: 0.92 } : null)}
-                            accessibilityLabel="Going — message"
-                          >
-                            <Text style={[st.goingCaption, { color: C.textTertiary }]} numberOfLines={1}>
-                              {t('LESSONS_PAGE.GOING')}
-                            </Text>
-                            {classGoingStackView}
-                            <View style={st.quickSubSlot} />
-                          </Pressable>
-                        ) : (
-                          <>
-                            <Text style={[st.goingCaption, { color: C.textTertiary }]} numberOfLines={1}>
-                              {t('LESSONS_PAGE.CARD_STAT_ENROLLED')}
-                            </Text>
-                            <Text style={[st.quickVal, { color: C.text }]} numberOfLines={1}>
-                              {enrollmentQuickVal}
-                            </Text>
-                            <View style={st.quickSubSlot} />
-                          </>
-                        )}
-                      </View>
-                    </>
-                  ) : null}
-                  <View style={[st.quickDivider, { backgroundColor: isDark ? C.border : '#E0E0E0' }]} />
-                  <View style={st.quickCell}>
-                    <Text style={[st.goingCaption, { color: C.textTertiary }]} numberOfLines={1}>
-                      {t('LESSONS_PAGE.CARD_STAT_STATUS')}
-                    </Text>
-                    <Text style={[st.quickVal, { color: stColor }]} numberOfLines={1}>
-                      {stLabel}
-                    </Text>
-                    <View style={st.quickSubSlot} />
-                  </View>
-                </Animated.View>
-              ) : null}
-              {isClass && !showClassEnrollmentCol && classGoingStackView ? (
+              {isClass && classGoingStackView ? (
                 <Animated.View
                   style={[st.classGoingSection, metaRevealStyle, contentFadeStyle]}
                   pointerEvents="box-none"
@@ -1972,6 +1981,34 @@ export default function LessonDetailOverlay({
             {/* Expanded detail sections — deferred until open animation settles */}
             {detailMounted ? (
             <Animated.View style={[st.detailColumn, showHero && st.detailColumnClassSheet, detailStyle, contentFadeStyle]}>
+
+              {/* ── Lesson details ── */}
+              {info && !isClass ? (
+                <>
+                  <View style={[st.hairline, { backgroundColor: isDark ? C.border : '#EBEBEB', marginBottom: 16 }]} />
+                  <Text style={[st.sectionHeading, { color: C.text, marginTop: 0 }]}>
+                    {t('LESSONS_PAGE.LESSON_DETAILS_TITLE')}
+                  </Text>
+                  <View style={st.kvRow}>
+                    <Text style={[st.kvKey, { color: C.textSecondary, textTransform: 'capitalize' }]}>{t('LESSONS_PAGE.CARD_STAT_STATUS')}</Text>
+                    <Text style={[st.kvVal, { color: stColor }]}>{stLabel}</Text>
+                  </View>
+                  <View style={st.kvRow}>
+                    <Text style={[st.kvKey, { color: C.textSecondary, textTransform: 'capitalize' }]}>{t('LESSONS_PAGE.CARD_STAT_DURATION')}</Text>
+                    <Text style={[st.kvVal, { color: C.text }]}>
+                      {info.duration} min{formattedActualDuration ? ` (${formattedActualDuration} actual)` : ''}
+                    </Text>
+                  </View>
+                  {showStudentPriceCol ? (
+                    <View style={st.kvRow}>
+                      <Text style={[st.kvKey, { color: C.textSecondary, textTransform: 'capitalize' }]}>{t('LESSONS_PAGE.CARD_STAT_PRICE')}</Text>
+                      <Text style={[st.kvVal, { color: C.text }]}>
+                        ${(info.price ?? 0).toFixed(2)}{formattedActualPrice ? ` (${formattedActualPrice} final)` : ''}
+                      </Text>
+                    </View>
+                  ) : null}
+                </>
+              ) : null}
 
               {/* ── About this class (group) ── */}
               {aboutThisClassText ? (
@@ -2134,13 +2171,13 @@ export default function LessonDetailOverlay({
               {hasLastSession ? (
                 <>
                   <View style={[st.hairline, { backgroundColor: isDark ? C.border : '#EBEBEB', marginTop: 4 }]} />
-                  <Text style={[st.sectionHeading, { color: C.text }]}>Last session</Text>
+                  <Text style={[st.sectionHeading, { color: C.text }]}>{t('EVENT_DETAILS.LESSON_SCREEN.LAST_SESSION')}</Text>
                   <Text style={[st.noteBody, { color: C.textSecondary, marginBottom: lastSessionFocus.length ? 12 : 0 }]}>
                     {lastCtx.summary}
                   </Text>
                   {lastSessionFocus.length > 0 ? (
                     <View style={{ marginBottom: 4 }}>
-                      <Text style={[st.focusSubLabel, { color: C.text }]}>Recommended focus</Text>
+                      <Text style={[st.focusSubLabel, { color: C.text }]}>{t('EVENT_DETAILS.LESSON_SCREEN.RECOMMENDED_FOCUS')}</Text>
                       {lastSessionFocus.map((f: string, i: number) => (
                         <View key={i} style={st.focusBulletRow}>
                           <Text style={[st.focusBullet, { color: C.textSecondary }]}>{'\u2022'}</Text>
@@ -2156,11 +2193,58 @@ export default function LessonDetailOverlay({
               {awaitingTutorFeedback ? (
                 <>
                   <View style={[st.hairline, { backgroundColor: isDark ? C.border : '#EBEBEB', marginTop: 4 }]} />
-                  <View style={[st.awaitingBanner, { backgroundColor: isDark ? '#2c1f0f' : '#FFF8E1' }]}>
-                    <Ionicons name="time-outline" size={20} color="#E07912" style={{ marginRight: 10 }} />
+                  <View
+                    style={[
+                      st.awaitingBanner,
+                      {
+                        backgroundColor: isDark
+                          ? lessonFeedbackBanner.student.dark.background
+                          : lessonFeedbackBanner.student.light.background,
+                        borderColor: isDark
+                          ? lessonFeedbackBanner.student.dark.border
+                          : lessonFeedbackBanner.student.light.border,
+                        borderWidth: 1,
+                      },
+                    ]}
+                  >
+                    <View
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 20,
+                        backgroundColor: isDark
+                          ? lessonFeedbackBanner.student.dark.iconBackground
+                          : lessonFeedbackBanner.student.light.iconBackground,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginRight: 14,
+                      }}
+                    >
+                      <Ionicons
+                        name="time-outline"
+                        size={20}
+                        color={isDark ? lessonFeedbackBanner.student.dark.icon : lessonFeedbackBanner.student.light.icon}
+                      />
+                    </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: isDark ? '#FFB74D' : '#E07912', fontSize: 14, fontWeight: '600' }}>Awaiting tutor feedback</Text>
-                      <Text style={{ color: isDark ? '#BFA070' : '#C17A26', fontSize: 12, marginTop: 2 }}>Your tutor hasn't submitted feedback yet</Text>
+                      <Text
+                        style={{
+                          color: isDark ? lessonFeedbackBanner.textDark.title : lessonFeedbackBanner.textLight.title,
+                          fontSize: 15,
+                          fontWeight: '600',
+                        }}
+                      >
+                        {t('EVENT_DETAILS.LESSON_SCREEN.AWAITING_FEEDBACK_TITLE')}
+                      </Text>
+                      <Text
+                        style={{
+                          color: isDark ? lessonFeedbackBanner.textDark.sub : lessonFeedbackBanner.textLight.sub,
+                          fontSize: 13,
+                          marginTop: 2,
+                        }}
+                      >
+                        {t('EVENT_DETAILS.LESSON_SCREEN.AWAITING_FEEDBACK_SUB')}
+                      </Text>
                     </View>
                   </View>
                 </>
@@ -2173,8 +2257,8 @@ export default function LessonDetailOverlay({
                   <View style={[st.generatingCard, { backgroundColor: isDark ? '#1c1c1e' : '#f9f9f9' }]}>
                     <ActivityIndicator size="small" color={C.accent} style={{ marginRight: 12 }} />
                     <View style={{ flex: 1 }}>
-                      <Text style={[{ fontSize: 14, fontWeight: '600' }, { color: C.text }]}>Generating analysis</Text>
-                      <Text style={{ color: C.textSecondary, fontSize: 12, marginTop: 2 }}>Your lesson analysis is being prepared...</Text>
+                      <Text style={[{ fontSize: 14, fontWeight: '600' }, { color: C.text }]}>{t('EVENT_DETAILS.LESSON_SCREEN.ANALYSIS_GENERATING_TITLE')}</Text>
+                      <Text style={{ color: C.textSecondary, fontSize: 12, marginTop: 2 }}>{t('EVENT_DETAILS.LESSON_SCREEN.ANALYSIS_GENERATING_SUB')}</Text>
                     </View>
                   </View>
                 </>
@@ -2187,10 +2271,89 @@ export default function LessonDetailOverlay({
                   <View style={[st.generatingCard, { backgroundColor: isDark ? '#1c1c1e' : '#f9f9f9' }]}>
                     <Ionicons name="analytics-outline" size={20} color={C.textTertiary} style={{ marginRight: 12 }} />
                     <View style={{ flex: 1 }}>
-                      <Text style={[{ fontSize: 14, fontWeight: '600' }, { color: C.text }]}>Analysis unavailable</Text>
-                      <Text style={{ color: C.textSecondary, fontSize: 12, marginTop: 2 }}>We couldn't generate an analysis for this lesson</Text>
+                      <Text style={[{ fontSize: 14, fontWeight: '600' }, { color: C.text }]}>{t('EVENT_DETAILS.LESSON_SCREEN.ANALYSIS_UNAVAILABLE_TITLE')}</Text>
+                      <Text style={{ color: C.textSecondary, fontSize: 12, marginTop: 2 }}>{t('EVENT_DETAILS.LESSON_SCREEN.ANALYSIS_UNAVAILABLE_SUB')}</Text>
                     </View>
                   </View>
+                </>
+              ) : null}
+
+              {/* ── Feedback status (tutor needs to leave) ──
+                  Only shown when AI was DISABLED for this lesson; AI-enabled
+                  lessons make feedback optional. */}
+              {(lesson as any)?.aiAnalysisEnabledAtTime === false
+                && lesson?.tutorFeedback
+                && lesson.tutorFeedback.status === 'pending'
+                && lesson.tutorFeedback.required !== false
+                && isTutor ? (
+                <>
+                  <View style={[st.hairline, { backgroundColor: isDark ? C.border : '#EBEBEB', marginTop: 4 }]} />
+                  <TouchableOpacity
+                    style={[
+                      st.feedbackBanner,
+                      {
+                        backgroundColor: isDark
+                          ? lessonFeedbackBanner.tutor.dark.background
+                          : lessonFeedbackBanner.tutor.light.background,
+                        borderColor: isDark
+                          ? lessonFeedbackBanner.tutor.dark.border
+                          : lessonFeedbackBanner.tutor.light.border,
+                        borderWidth: 1,
+                      },
+                    ]}
+                    activeOpacity={0.75}
+                    onPress={() => {
+                      const id = lesson?._id;
+                      if (!id) return;
+                      const root = getRootNavigation(navigation);
+                      root?.navigate?.('PostLessonTutor', { lessonId: id });
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 20,
+                        backgroundColor: isDark
+                          ? lessonFeedbackBanner.tutor.dark.iconBackground
+                          : lessonFeedbackBanner.tutor.light.iconBackground,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginRight: 14,
+                      }}
+                    >
+                      <Ionicons
+                        name="warning-outline"
+                        size={20}
+                        color={isDark ? lessonFeedbackBanner.tutor.dark.icon : lessonFeedbackBanner.tutor.light.icon}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={{
+                          color: isDark ? lessonFeedbackBanner.textDark.title : lessonFeedbackBanner.textLight.title,
+                          fontSize: 15,
+                          fontWeight: '600',
+                        }}
+                      >
+                        {t('EVENT_DETAILS.LESSON_SCREEN.FB_TUTOR_PENDING_TITLE')}
+                      </Text>
+                      <Text
+                        style={{
+                          color: isDark ? lessonFeedbackBanner.textDark.sub : lessonFeedbackBanner.textLight.sub,
+                          fontSize: 13,
+                          marginTop: 2,
+                        }}
+                      >
+                        {t('EVENT_DETAILS.LESSON_SCREEN.FB_TUTOR_PENDING_SUB')}
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={18}
+                      color={isDark ? lessonFeedbackBanner.textDark.sub : lessonFeedbackBanner.textLight.sub}
+                    />
+                  </TouchableOpacity>
                 </>
               ) : null}
 
@@ -2201,7 +2364,7 @@ export default function LessonDetailOverlay({
                     <View style={[st.hairline, { backgroundColor: isDark ? C.border : '#EBEBEB' }]} />
                   ) : null}
                   <View style={st.fbHeaderRow}>
-                    <Text style={[st.sectionHeading, { color: C.text, marginBottom: 0 }]}>Notes</Text>
+                    <Text style={[st.sectionHeading, { color: C.text, marginBottom: 0 }]}>{t('EVENT_DETAILS.LESSON_SCREEN.NOTES')}</Text>
                     {aiAnalysis.overallAssessment?.proficiencyLevel ? (
                       <View style={[st.cefrBadge, { backgroundColor: isDark ? '#1a2e1a' : '#E8F5E9' }]}>
                         <Text style={st.cefrText}>{aiAnalysis.overallAssessment.proficiencyLevel}</Text>
@@ -2228,7 +2391,7 @@ export default function LessonDetailOverlay({
                           <Text style={[st.analysisScoreNum, { color: scoreColor(aiAnalysis.grammarAnalysis.accuracyScore) }]}>
                             {aiAnalysis.grammarAnalysis.accuracyScore}
                           </Text>
-                          <Text style={[st.analysisScoreName, { color: C.textSecondary }]}>Grammar</Text>
+                          <Text style={[st.analysisScoreName, { color: C.textSecondary }]}>{t('EVENT_DETAILS.LESSON_SCREEN.SCORE_GRAMMAR')}</Text>
                         </View>
                       ) : null}
                       {aiAnalysis.fluencyAnalysis?.overallFluencyScore != null ? (
@@ -2241,7 +2404,7 @@ export default function LessonDetailOverlay({
                           <Text style={[st.analysisScoreNum, { color: scoreColor(aiAnalysis.fluencyAnalysis.overallFluencyScore) }]}>
                             {aiAnalysis.fluencyAnalysis.overallFluencyScore}
                           </Text>
-                          <Text style={[st.analysisScoreName, { color: C.textSecondary }]}>Fluency</Text>
+                          <Text style={[st.analysisScoreName, { color: C.textSecondary }]}>{t('EVENT_DETAILS.LESSON_SCREEN.SCORE_FLUENCY')}</Text>
                         </View>
                       ) : null}
                       {aiAnalysis.pronunciationAnalysis?.overallScore != null ? (
@@ -2254,7 +2417,7 @@ export default function LessonDetailOverlay({
                           <Text style={[st.analysisScoreNum, { color: scoreColor(aiAnalysis.pronunciationAnalysis.overallScore) }]}>
                             {aiAnalysis.pronunciationAnalysis.overallScore}
                           </Text>
-                          <Text style={[st.analysisScoreName, { color: C.textSecondary }]}>Pronunciation</Text>
+                          <Text style={[st.analysisScoreName, { color: C.textSecondary }]}>{t('EVENT_DETAILS.LESSON_SCREEN.SCORE_PRONUNCIATION')}</Text>
                         </View>
                       ) : null}
                       {aiAnalysis.vocabularyAnalysis?.vocabularyRange ? (
@@ -2267,7 +2430,7 @@ export default function LessonDetailOverlay({
                           <Text style={[st.analysisScoreWord, { color: C.text }]} numberOfLines={2}>
                             {aiAnalysis.vocabularyAnalysis.vocabularyRange}
                           </Text>
-                          <Text style={[st.analysisScoreName, { color: C.textSecondary }]}>Vocabulary</Text>
+                          <Text style={[st.analysisScoreName, { color: C.textSecondary }]}>{t('EVENT_DETAILS.LESSON_SCREEN.SCORE_VOCABULARY')}</Text>
                         </View>
                       ) : null}
                     </View>
@@ -2275,7 +2438,7 @@ export default function LessonDetailOverlay({
 
                   {Array.isArray(aiAnalysis.topicsDiscussed) && aiAnalysis.topicsDiscussed.length > 0 ? (
                     <View style={{ marginBottom: 14 }}>
-                      <Text style={[st.fbSubLabel, { color: C.text }]}>Topics covered</Text>
+                      <Text style={[st.fbSubLabel, { color: C.text }]}>{t('EVENT_DETAILS.LESSON_SCREEN.TOPICS_COVERED')}</Text>
                       <View style={st.topicPills}>
                         {aiAnalysis.topicsDiscussed.map((topic: string, i: number) => (
                           <View key={i} style={[st.topicPill, { backgroundColor: isDark ? '#2c2c2e' : '#f2f2f7' }]}>
@@ -2288,7 +2451,7 @@ export default function LessonDetailOverlay({
 
                   {Array.isArray(aiAnalysis.recommendedFocus) && aiAnalysis.recommendedFocus.length > 0 ? (
                     <View style={{ marginBottom: 14 }}>
-                      <Text style={[st.fbSubLabel, { color: C.text }]}>Recommended focus</Text>
+                      <Text style={[st.fbSubLabel, { color: C.text }]}>{t('EVENT_DETAILS.LESSON_SCREEN.RECOMMENDED_FOCUS')}</Text>
                       {aiAnalysis.recommendedFocus.map((item: string, i: number) => (
                         <View key={i} style={st.bulletItem}>
                           <Ionicons name="arrow-forward-circle-outline" size={14} color={isDark ? '#93C5FD' : '#1D4ED8'} style={{ marginRight: 8, marginTop: 3 }} />
@@ -2323,7 +2486,7 @@ export default function LessonDetailOverlay({
                 <>
                   <View style={[st.hairline, { backgroundColor: isDark ? C.border : '#EBEBEB', marginTop: hasAiSummary ? 16 : 0 }]} />
                   <View style={st.fbHeaderRow}>
-                    <Text style={[st.sectionHeading, { color: C.text, marginBottom: 0 }]}>Tutor feedback</Text>
+                    <Text style={[st.sectionHeading, { color: C.text, marginBottom: 0 }]}>{t('EVENT_DETAILS.LESSON_SCREEN.TUTOR_FEEDBACK')}</Text>
                     {tf.estimatedCefrLevel ? (
                       <View style={[st.cefrBadge, { backgroundColor: isDark ? '#1a2e1a' : '#E8F5E9' }]}>
                         <Text style={st.cefrText}>{tf.estimatedCefrLevel}</Text>
@@ -2339,7 +2502,7 @@ export default function LessonDetailOverlay({
 
                   {Array.isArray(tf.strengths) && tf.strengths.length > 0 ? (
                     <View style={{ marginBottom: 12 }}>
-                      <Text style={[st.fbSubLabel, { color: C.text }]}>Strengths</Text>
+                      <Text style={[st.fbSubLabel, { color: C.text }]}>{t('EVENT_DETAILS.LESSON_SCREEN.STRENGTHS')}</Text>
                       {tf.strengths.map((s: string, i: number) => (
                         <View key={i} style={st.bulletItem}>
                           <View style={[st.fbDot, { backgroundColor: '#2E7D32' }]} />
@@ -2351,7 +2514,7 @@ export default function LessonDetailOverlay({
 
                   {Array.isArray(tf.areasForImprovement) && tf.areasForImprovement.length > 0 ? (
                     <View style={{ marginBottom: 12 }}>
-                      <Text style={[st.fbSubLabel, { color: C.text }]}>Areas for improvement</Text>
+                      <Text style={[st.fbSubLabel, { color: C.text }]}>{t('EVENT_DETAILS.LESSON_SCREEN.AREAS_FOR_IMPROVEMENT')}</Text>
                       {tf.areasForImprovement.map((s: string, i: number) => (
                         <View key={i} style={st.bulletItem}>
                           <View style={[st.fbDot, { backgroundColor: '#E07912' }]} />
@@ -2363,11 +2526,11 @@ export default function LessonDetailOverlay({
                 </>
               ) : null}
 
-              {/* ── Tutor Note ── */}
-              {tutorNoteText && !hasTutorFeedback ? (
+              {/* ── Tutor Note (student view only) ── */}
+              {!isTutor && tutorNoteText && !hasTutorFeedback ? (
                 <>
                   <View style={[st.hairline, { backgroundColor: isDark ? C.border : '#EBEBEB', marginTop: hasAiSummary ? 16 : 0 }]} />
-                  <Text style={[st.sectionHeading, { color: C.text }]}>Tutor note</Text>
+                  <Text style={[st.sectionHeading, { color: C.text }]}>{t('EVENT_DETAILS.LESSON_SCREEN.TUTOR_NOTE')}</Text>
                   <Text style={[st.noteBody, { color: C.textSecondary }]}>{tutorNoteText}</Text>
                 </>
               ) : null}
@@ -2382,7 +2545,7 @@ export default function LessonDetailOverlay({
                         <Ionicons name={paymentMethodInfo.icon as any} size={18} color={C.textTertiary} style={st.detailGridIcon} />
                         <View>
                           <Text style={[st.detailGridPrimary, { color: C.text }]}>{paymentMethodInfo.label}</Text>
-                          <Text style={[st.detailGridSecondary, { color: C.textSecondary }]}>Payment method</Text>
+                          <Text style={[st.detailGridSecondary, { color: C.textSecondary }]}>{t('EVENT_DETAILS.LESSON_SCREEN.PAYMENT_METHOD')}</Text>
                         </View>
                       </View>
                     ) : null}
@@ -2401,7 +2564,7 @@ export default function LessonDetailOverlay({
               {/* ── Notes fallback (no AI analysis) ── */}
               {!hasAiSummary && info?.notes ? (
                 <>
-                  <Text style={[st.sectionHeading, { color: C.text, marginTop: 28 }]}>Notes</Text>
+                  <Text style={[st.sectionHeading, { color: C.text, marginTop: 28 }]}>{t('EVENT_DETAILS.LESSON_SCREEN.NOTES')}</Text>
                   <Text style={[st.noteBody, { color: C.textSecondary }]}>{info.notes}</Text>
                 </>
               ) : null}
@@ -2410,24 +2573,30 @@ export default function LessonDetailOverlay({
               {info && info.isCancelled ? (
                 <>
                   <View style={[st.hairline, { backgroundColor: isDark ? C.border : '#EBEBEB', marginTop: 16 }]} />
-                  <Text style={[st.sectionHeading, { color: C.text }]}>Cancellation</Text>
+                  <Text style={[st.sectionHeading, { color: C.text }]}>{t('EVENT_DETAILS.LESSON_SCREEN.CANCELLATION')}</Text>
                   {lesson?.cancelledBy ? (
                     <View style={st.kvRow}>
-                      <Text style={[st.kvKey, { color: C.textSecondary }]}>Cancelled by</Text>
+                      <Text style={[st.kvKey, { color: C.textSecondary }]}>{t('EVENT_DETAILS.LESSON_SCREEN.CANCELLED_BY')}</Text>
                       <Text style={[st.kvVal, { color: C.text }]}>
-                        {lesson.cancelledBy === 'tutor' ? 'Tutor' : lesson.cancelledBy === 'student' ? 'Student' : lesson.cancelledBy === 'system' ? 'System' : 'Unknown'}
+                        {lesson.cancelledBy === 'tutor'
+                          ? t('EVENT_DETAILS.LESSON_SCREEN.ROLE_TUTOR')
+                          : lesson.cancelledBy === 'student'
+                            ? t('EVENT_DETAILS.LESSON_SCREEN.ROLE_STUDENT')
+                            : lesson.cancelledBy === 'system'
+                              ? t('EVENT_DETAILS.LESSON_SCREEN.ROLE_SYSTEM')
+                              : t('EVENT_DETAILS.LESSON_SCREEN.ROLE_UNKNOWN')}
                       </Text>
                     </View>
                   ) : null}
                   {lesson?.cancelReason ? (
                     <View style={st.kvRow}>
-                      <Text style={[st.kvKey, { color: C.textSecondary }]}>Reason</Text>
+                      <Text style={[st.kvKey, { color: C.textSecondary }]}>{t('EVENT_DETAILS.LESSON_SCREEN.REASON')}</Text>
                       <Text style={[st.kvVal, { color: C.text }]}>{lesson.cancelReason}</Text>
                     </View>
                   ) : null}
                   {lesson?.cancelledAt ? (
                     <View style={st.kvRow}>
-                      <Text style={[st.kvKey, { color: C.textSecondary }]}>Date</Text>
+                      <Text style={[st.kvKey, { color: C.textSecondary }]}>{t('EVENT_DETAILS.LESSON_SCREEN.DATE')}</Text>
                       <Text style={[st.kvVal, { color: C.text }]}>
                         {new Date(lesson.cancelledAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                       </Text>
@@ -2436,7 +2605,7 @@ export default function LessonDetailOverlay({
                   {lesson?.isLateCancellation ? (
                     <View style={[st.warningBanner, { backgroundColor: '#FFF3E0', marginTop: 8 }]}>
                       <Ionicons name="warning-outline" size={16} color="#E07912" style={{ marginRight: 8 }} />
-                      <Text style={{ color: '#E07912', fontSize: 13, fontWeight: '500', flex: 1 }}>Late cancellation - fee may apply</Text>
+                      <Text style={{ color: '#E07912', fontSize: 13, fontWeight: '500', flex: 1 }}>{t('EVENT_DETAILS.LESSON_SCREEN.LATE_CANCEL_TAG')}</Text>
                     </View>
                   ) : null}
                 </>
@@ -2446,7 +2615,7 @@ export default function LessonDetailOverlay({
               {paymentStatus ? (
                 <>
                   <View style={[st.hairline, { backgroundColor: isDark ? C.border : '#EBEBEB', marginTop: 16 }]} />
-                  <Text style={[st.sectionHeading, { color: C.text }]}>Payment status</Text>
+                  <Text style={[st.sectionHeading, { color: C.text }]}>{t('LESSONS_PAGE.PAYMENT.SECTION_TITLE')}</Text>
                   <View style={[st.paymentCard, { backgroundColor: isDark ? '#1c1c1e' : '#f9f9f9' }]}>
                     <View style={st.paymentHeader}>
                       <View style={[st.paymentIconWrap, {
@@ -2475,19 +2644,6 @@ export default function LessonDetailOverlay({
                 </>
               ) : null}
 
-              {/* ── Tip ── */}
-              {lesson?.tip && lesson.tip.amount && lesson.tip.amount > 0 ? (
-                <>
-                  <View style={[st.hairline, { backgroundColor: isDark ? C.border : '#EBEBEB', marginTop: 16 }]} />
-                  <Text style={[st.sectionHeading, { color: C.text }]}>
-                    {isTutor ? t('LESSONS_PAGE.TIP_RECEIVED') : t('LESSONS_PAGE.TIP_SENT')}
-                  </Text>
-                  <View style={[st.tipBanner, { backgroundColor: isDark ? '#1a2e1a' : '#E8F5E9' }]}>
-                    <Ionicons name="heart" size={18} color="#2E7D32" style={{ marginRight: 10 }} />
-                    <Text style={{ color: '#2E7D32', fontSize: 15, fontWeight: '600' }}>${lesson.tip.amount.toFixed(2)}</Text>
-                  </View>
-                </>
-              ) : null}
 
               {/* ── Issue ── */}
               {lesson?.issueReported ? (
@@ -2496,33 +2652,9 @@ export default function LessonDetailOverlay({
                   <View style={st.issueRow}>
                     <Ionicons name="flag" size={18} color="#C13515" style={{ marginRight: 10 }} />
                     <Text style={{ color: '#C13515', fontSize: 14, fontWeight: '500', flex: 1 }}>
-                      {lesson.investigationResolvedAt ? 'Issue resolved' : t('LESSONS_PAGE.ISSUE_REPORTED')}
+                      {lesson.investigationResolvedAt ? t('LESSONS_PAGE.ISSUE_RESOLVED') : t('LESSONS_PAGE.ISSUE_REPORTED')}
                     </Text>
                   </View>
-                </>
-              ) : null}
-
-              {/* ── Feedback status (tutor needs to leave) ── */}
-              {lesson?.tutorFeedback && lesson.tutorFeedback.status === 'pending' && lesson.tutorFeedback.required !== false && isTutor ? (
-                <>
-                  <View style={[st.hairline, { backgroundColor: isDark ? C.border : '#EBEBEB', marginTop: 16 }]} />
-                  <TouchableOpacity
-                    style={[st.feedbackBanner, { backgroundColor: isDark ? '#2c1f0f' : '#FFF3E0' }]}
-                    activeOpacity={0.75}
-                    onPress={() => {
-                      const id = lesson?._id;
-                      if (!id) return;
-                      const root = getRootNavigation(navigation);
-                      root?.navigate?.('PostLessonTutor', { lessonId: id });
-                    }}
-                  >
-                    <Ionicons name="clipboard-outline" size={20} color="#E07912" style={{ marginRight: 10 }} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: isDark ? '#FFB74D' : '#E07912', fontSize: 14, fontWeight: '600' }}>Feedback outstanding</Text>
-                      <Text style={{ color: isDark ? '#BFA070' : '#C17A26', fontSize: 12, marginTop: 2 }}>Leave feedback while the lesson is fresh</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={18} color={isDark ? '#BFA070' : '#C17A26'} />
-                  </TouchableOpacity>
                 </>
               ) : null}
 
@@ -2531,7 +2663,7 @@ export default function LessonDetailOverlay({
                 <>
                   <View style={[st.hairline, { backgroundColor: isDark ? C.border : '#EBEBEB', marginTop: 16 }]} />
                   <View style={st.fbHeaderRow}>
-                    <Text style={[st.sectionHeading, { color: C.text, marginBottom: 0 }]}>Your feedback</Text>
+                    <Text style={[st.sectionHeading, { color: C.text, marginBottom: 0 }]}>{t('EVENT_DETAILS.LESSON_SCREEN.YOUR_FEEDBACK')}</Text>
                     {tf.estimatedCefrLevel ? (
                       <View style={[st.cefrBadge, { backgroundColor: isDark ? '#1a2e1a' : '#E8F5E9' }]}>
                         <Text style={st.cefrText}>{tf.estimatedCefrLevel}</Text>
@@ -2543,7 +2675,7 @@ export default function LessonDetailOverlay({
                   ) : null}
                   {Array.isArray(tf.strengths) && tf.strengths.length > 0 ? (
                     <View style={{ marginTop: 8, marginBottom: 8 }}>
-                      <Text style={[st.fbSubLabel, { color: C.text }]}>Strengths</Text>
+                      <Text style={[st.fbSubLabel, { color: C.text }]}>{t('EVENT_DETAILS.LESSON_SCREEN.STRENGTHS')}</Text>
                       {tf.strengths.map((s: string, i: number) => (
                         <View key={i} style={st.bulletItem}>
                           <View style={[st.fbDot, { backgroundColor: '#2E7D32' }]} />
@@ -2554,7 +2686,7 @@ export default function LessonDetailOverlay({
                   ) : null}
                   {Array.isArray(tf.areasForImprovement) && tf.areasForImprovement.length > 0 ? (
                     <View style={{ marginBottom: 8 }}>
-                      <Text style={[st.fbSubLabel, { color: C.text }]}>Areas for improvement</Text>
+                      <Text style={[st.fbSubLabel, { color: C.text }]}>{t('EVENT_DETAILS.LESSON_SCREEN.AREAS_FOR_IMPROVEMENT')}</Text>
                       {tf.areasForImprovement.map((s: string, i: number) => (
                         <View key={i} style={st.bulletItem}>
                           <View style={[st.fbDot, { backgroundColor: '#E07912' }]} />
@@ -2570,7 +2702,7 @@ export default function LessonDetailOverlay({
               {isTutor && tutorNoteText && !hasTutorFeedback ? (
                 <>
                   <View style={[st.hairline, { backgroundColor: isDark ? C.border : '#EBEBEB', marginTop: 16 }]} />
-                  <Text style={[st.sectionHeading, { color: C.text }]}>Your note</Text>
+                  <Text style={[st.sectionHeading, { color: C.text }]}>{t('EVENT_DETAILS.LESSON_SCREEN.YOUR_NOTE')}</Text>
                   <Text style={[st.noteBody, { color: C.textSecondary }]}>{tutorNoteText}</Text>
                 </>
               ) : null}
@@ -2579,8 +2711,8 @@ export default function LessonDetailOverlay({
               {isStudent && recMaterials.length > 0 ? (
                 <View style={st.recSection}>
                   <View style={[st.hairline, { backgroundColor: isDark ? C.border : '#EBEBEB' }]} />
-                  <Text style={[st.sectionHeading, { color: C.text }]}>Practice these areas</Text>
-                  <Text style={[st.recSubtitle, { color: C.textSecondary }]}>Based on your recent lessons</Text>
+                  <Text style={[st.sectionHeading, { color: C.text }]}>{t('EVENT_DETAILS.LESSON_SCREEN.PRACTICE_AREAS')}</Text>
+                  <Text style={[st.recSubtitle, { color: C.textSecondary }]}>{t('EVENT_DETAILS.LESSON_SCREEN.BASED_ON_RECENT')}</Text>
                   <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -2615,7 +2747,7 @@ export default function LessonDetailOverlay({
                               </Text>
                               {mat._isCurrentTutor ? (
                                 <View style={[st.recTutorBadge, { backgroundColor: isDark ? '#2c2c2e' : '#f0f0f0' }]}>
-                                  <Text style={[st.recTutorBadgeText, { color: isDark ? '#aaa' : '#555' }]}>Your tutor</Text>
+                                  <Text style={[st.recTutorBadgeText, { color: isDark ? '#aaa' : '#555' }]}>{t('EVENT_DETAILS.LESSON_SCREEN.YOUR_TUTOR_BADGE')}</Text>
                                 </View>
                               ) : null}
                             </View>
@@ -2648,7 +2780,7 @@ export default function LessonDetailOverlay({
                             color={mat.isSaved ? (isDark ? '#000' : '#fff') : (isDark ? '#8e8e93' : '#666')}
                           />
                           <Text style={[st.recSaveBtnText, { color: mat.isSaved ? (isDark ? '#000' : '#fff') : (isDark ? '#8e8e93' : '#666') }]}>
-                            {mat.isSaved ? 'Saved' : 'Save'}
+                            {mat.isSaved ? t('EVENT_DETAILS.LESSON_SCREEN.MATERIAL_SAVED') : t('EVENT_DETAILS.LESSON_SCREEN.MATERIAL_SAVE')}
                           </Text>
                         </TouchableOpacity>
                       </TouchableOpacity>
@@ -2662,7 +2794,7 @@ export default function LessonDetailOverlay({
                   <View style={[st.hairline, { backgroundColor: isDark ? C.border : '#EBEBEB' }]} />
                   <View style={st.recLoadingRow}>
                     <ActivityIndicator size="small" color={C.textSecondary} />
-                    <Text style={[st.recLoadingText, { color: C.textSecondary }]}>Finding recommendations…</Text>
+                    <Text style={[st.recLoadingText, { color: C.textSecondary }]}>{t('EVENT_DETAILS.LESSON_SCREEN.FINDING_RECOMMENDATIONS')}</Text>
                   </View>
                 </View>
               ) : null}
@@ -2801,6 +2933,7 @@ export default function LessonDetailOverlay({
                     />
                     <Text
                       style={[st.stickyBtnText, { color: '#ffffff' }]}
+                      numberOfLines={1}
                     >
                       {joinPrimaryLabel}
                     </Text>
@@ -3077,7 +3210,7 @@ const st = StyleSheet.create({
   avatar: {
     width: 120,
     height: 120,
-    borderRadius: 60,
+    borderRadius: 30, // ¼ of 120 — matches lesson card tile (not a circle)
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
@@ -3368,7 +3501,8 @@ const st = StyleSheet.create({
   awaitingBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
     borderRadius: 14,
     marginBottom: 8,
   },
@@ -3402,7 +3536,8 @@ const st = StyleSheet.create({
   feedbackBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
     borderRadius: 14,
     marginTop: 4,
   },
@@ -3473,23 +3608,27 @@ const st = StyleSheet.create({
   },
   stickyBtn: {
     backgroundColor: '#111',
-    height: 48,
+    height: 44,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
+    overflow: 'hidden',
+    paddingHorizontal: 14,
   },
-  stickyBtnFlex: { flex: 1 },
+  stickyBtnFlex: { flex: 1, minWidth: 0 },
   stickyBtnFull: { width: '100%' },
-  stickyBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  stickyBtnText: { color: '#fff', fontSize: 14, fontWeight: '600', flexShrink: 1 },
   stickyBtnOutline: {
-    height: 48,
+    height: 44,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#111',
+    overflow: 'hidden',
+    paddingHorizontal: 14,
   },
-  stickyBtnOutlineText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  stickyBtnOutlineText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   footerLink: {
     alignItems: 'center',
     paddingTop: 10,
