@@ -725,6 +725,7 @@
     "CONVERSATIONS": "Conversations",
     "SEARCH_CONVERSATIONS": "Search conversations",
     "SEARCH_BY_NAME": "Search by name",
+    "CANCEL": "Cancel",
     "ALL": "All",
     "UNREAD": "Unread",
     "SEARCH_EMPTY_TITLE": "Hmm, can't find that",
@@ -762,7 +763,8 @@
       "TIP_4": "Ask about their objectives and preferred learning style; this will help guide future lessons.",
       "TIP_5": "Be welcoming and supportive—trial sessions often determine whether the student will continue with you.",
       "SUPPORT_TEXT": "If you have any questions, feel free to contact support at any time."
-    }
+    },
+    "SEARCH_ALL_MESSAGES": "Search all messages"
   },
   "NOTIFICATIONS": {
     "TITLE": "Notifications",

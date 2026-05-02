@@ -1,6 +1,23 @@
 // Load environment variables FIRST before any other imports
 require('dotenv').config({ path: './config.env' });
 
+// Loud check for the auth config so missing values don't silently fall back
+// to dev tokens. verifyAuth.js itself throws in production if AUTH0_DOMAIN is
+// missing; here we just warn in dev so contributors notice.
+(function checkAuthEnv() {
+  const isProd = process.env.NODE_ENV === 'production';
+  if (!process.env.AUTH0_DOMAIN) {
+    const msg = '[boot] AUTH0_DOMAIN is not set — Auth0 JWT verification will reject all real tokens';
+    if (isProd) {
+      throw new Error(msg);
+    }
+    console.warn(`⚠️  ${msg}. Add it to config.env (see config.env.example).`);
+  }
+  if (isProd && process.env.ALLOW_DEV_TOKENS === 'true') {
+    console.warn('⚠️  ALLOW_DEV_TOKENS=true in production — this is ignored by verifyAuth, but you should remove it from your env to avoid confusion.');
+  }
+})();
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -235,6 +252,7 @@ io.use(async (socket, next) => {
 io.on('connection', async (socket) => {
   const userId = socket.userId;
   console.log(`✅ User connected: ${userId}, socket.id: ${socket.id}`);
+  console.log(`[archive-sync] socket joined room=user:${userId} sock=${socket.id} clientUA=${socket.handshake.headers['user-agent']?.slice(0, 60) || 'n/a'}`);
   
   // Store user connection by Auth0 ID
   connectedUsers.set(userId, socket.id);

@@ -686,7 +686,8 @@
       "TIP_4": "Pregunta sobre sus objetivos y estilo de aprendizaje preferido; esto ayudará a guiar las lecciones futuras.",
       "TIP_5": "Sé acogedor y solidario: las sesiones de prueba a menudo determinan si el estudiante continuará contigo.",
       "SUPPORT_TEXT": "Si tienes alguna pregunta, no dudes en contactar al soporte en cualquier momento."
-    }
+    },
+    "SEARCH_ALL_MESSAGES": "Buscar en todos los mensajes"
   },
   "NOTIFICATIONS": {
     "TITLE": "Notificaciones",

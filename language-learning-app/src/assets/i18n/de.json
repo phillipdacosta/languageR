@@ -755,7 +755,8 @@
       "TIP_4": "Fragen Sie nach ihren Zielen und bevorzugtem Lernstil; dies wird helfen, zukünftige Lektionen zu gestalten.",
       "TIP_5": "Seien Sie freundlich und unterstützend—Probesitzungen bestimmen oft, ob der Schüler bei Ihnen weitermachen wird.",
       "SUPPORT_TEXT": "Wenn Sie Fragen haben, können Sie sich jederzeit an den Support wenden."
-    }
+    },
+    "SEARCH_ALL_MESSAGES": "Alle Nachrichten durchsuchen"
   },
   "NOTIFICATIONS": {
     "TITLE": "Benachrichtigungen",

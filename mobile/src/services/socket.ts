@@ -74,7 +74,9 @@ export type UserEventName =
   | 'new_notification'
   | 'user_typing'
   | 'gcal-events-updated'
-  | 'gcal-status-updated';
+  | 'gcal-status-updated'
+  | 'conversation_archived'
+  | 'conversation_unarchived';
 
 type UserEventHandler = (payload: any) => void;
 
@@ -165,6 +167,8 @@ class SocketService {
       'user_typing',
       'gcal-events-updated',
       'gcal-status-updated',
+      'conversation_archived',
+      'conversation_unarchived',
     ];
     for (const evt of USER_EVENTS) {
       this.socket.on(evt, (payload: any) => this.dispatchUserEvent(evt, payload));

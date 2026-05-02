@@ -110,6 +110,12 @@ export class WebSocketService {
   private messageDeletedSubject = new Subject<{ messageId: string; conversationId: string }>();
   public messageDeleted$ = this.messageDeletedSubject.asObservable();
 
+  private conversationArchivedSubject = new Subject<{ conversationId: string }>();
+  public conversationArchived$ = this.conversationArchivedSubject.asObservable();
+
+  private conversationUnarchivedSubject = new Subject<{ conversationId: string }>();
+  public conversationUnarchived$ = this.conversationUnarchivedSubject.asObservable();
+
   // Lesson status change subjects
   private lessonStatusChangedSubject = new Subject<{ lessonId: string; status: string; updatedAt: Date }>();
   public lessonStatusChanged$ = this.lessonStatusChangedSubject.asObservable();
@@ -220,6 +226,14 @@ export class WebSocketService {
     });
 
     // Listen for message deletions
+    this.socket.on('conversation_archived', (data: { conversationId: string }) => {
+      this.conversationArchivedSubject.next(data);
+    });
+
+    this.socket.on('conversation_unarchived', (data: { conversationId: string }) => {
+      this.conversationUnarchivedSubject.next(data);
+    });
+
     this.socket.on('message_deleted', (data: { messageId: string; conversationId: string }) => {
       console.log('🗑️ Received message_deleted:', data);
       this.messageDeletedSubject.next(data);

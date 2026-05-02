@@ -1126,6 +1126,7 @@
     "TODAY": "Today",
     "YESTERDAY": "Yesterday",
     "YOU": "You",
+    "CANCEL": "Cancel",
     "CLASS_ROSTER_TITLE": "Class members ({{count}})",
     "CLASS_ROSTER_EMPTY": "No one is in this class chat yet.",
     "CLASS_ROSTER_SHEET_HINT": "View everyone in this class",
@@ -1146,7 +1147,16 @@
       "TIP_4": "Ask about their objectives and preferred learning style; this will help guide future lessons.",
       "TIP_5": "Be welcoming and supportive—trial sessions often determine whether the student will continue with you.",
       "SUPPORT_TEXT": "If you have any questions, feel free to contact support at any time."
-    }
+    },
+    "SEARCH_ALL_MESSAGES": "Search all messages",
+    "ARCHIVED": "Archived",
+    "ARCHIVE": "Archive",
+    "MOVE_TO_INBOX": "Move to Inbox",
+    "NO_ARCHIVED_CONVERSATIONS": "No archived conversations",
+    "ARCHIVED_EMPTY_HINT": "Conversations you archive will appear here.",
+    "DELETE_CONVERSATION": "Delete conversation",
+    "DELETE_CONVERSATION_CONFIRM": "This will permanently remove the conversation from your inbox.",
+    "DELETE": "Delete"
   },
   "NOTIFICATIONS": {
     "TITLE": "Notifications",

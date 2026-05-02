@@ -92,34 +92,41 @@
          *ngIf="isDesktop">
       <!-- Left Column: Conversation List -->
       <div class="conversations-panel">
-        <div class="conversations-header">
-          <h2>{{ 'MESSAGES.TITLE' | translate }}</h2>
-          <div class="header-actions">
-            <ion-button fill="clear" size="small">
-              <ion-icon name="create-outline"></ion-icon>
-            </ion-button>
-            <ion-button fill="clear" size="small">
-              <ion-icon name="search-outline"></ion-icon>
-            </ion-button>
+        <!-- Header: fixed-height container crossfades title ↔ search bar -->
+        <div class="messages-header-switcher" [class.search-is-open]="searchOpen">
+          <!-- Title row -->
+          <div class="messages-main-heading messages-header-layer">
+            <h2 class="messages-main-title">{{ 'MESSAGES.TITLE' | translate }}</h2>
+            <div class="messages-heading-actions">
+              <ion-button fill="clear" size="small">
+                <ion-icon name="create-outline"></ion-icon>
+              </ion-button>
+            </div>
           </div>
-        </div>
 
-        <!-- Conversations Search Header -->
-        <div class="conversations-search-header" [@slideInUp]>
-          <ion-icon name="search-outline" class="search-icon"></ion-icon>
-          <input
-            type="text"
-            class="search-input"
-            [placeholder]="'MESSAGES.SEARCH_BY_NAME' | translate"
-            [value]="searchTerm"
-            (input)="onSearchChange($any($event.target).value)"
-          />
-          <ion-icon 
-            *ngIf="searchTerm" 
-            name="close-circle" 
-            class="clear-icon"
-            (click)="clearSearch()">
-          </ion-icon>
+          <!-- Search bar: icon lives inside the pill so it physically travels
+               as the pill's left edge sweeps across to its open position -->
+          <div class="messages-header-layer messages-header-layer--search">
+            <div class="search-pill" (click)="!searchOpen && openSearch()">
+              <ion-icon name="search-outline" class="search-pill-icon"></ion-icon>
+              <input
+                type="text"
+                class="search-input conversations-search-input"
+                [placeholder]="'MESSAGES.SEARCH_ALL_MESSAGES' | translate"
+                [value]="searchTerm"
+                (input)="onSearchChange($any($event.target).value)"
+              />
+              <ion-icon
+                *ngIf="searchTerm"
+                name="close-circle"
+                class="clear-icon"
+                (click)="clearSearch()">
+              </ion-icon>
+            </div>
+            <button class="search-cancel-btn" (click)="closeSearch()">
+              {{ 'MESSAGES.CANCEL' | translate }}
+            </button>
+          </div>
         </div>
 
         <!-- Conversations Filter Buttons -->
@@ -205,7 +212,10 @@
             <div class="conversation-info">
               <div class="conversation-header-row">
                 <h3>
-                  {{ conversation.otherUser?.name || 'Unknown User' }}
+                  <span *ngIf="!conversation.isGroup"
+                        [innerHTML]="(conversation.otherUser?.name || 'Unknown User') | highlight:searchTerm"></span>
+                  <span *ngIf="conversation.isGroup"
+                        [innerHTML]="(conversation.groupName || conversation.participantNamesList || 'Group') | highlight:searchTerm"></span>
                   <span class="conversation-pill conversation-pill--cancelled"
                         *ngIf="conversation.classCancelled">Cancelled</span>
                 </h3>
@@ -215,16 +225,16 @@
                 <p class="preview-text" 
                    [class.sent-by-me]="conversation.lastMessage.senderId === getCurrentUserId()">
                   <!-- For reactions, show the person's name who reacted -->
-                  <span *ngIf="conversation.lastMessage.type === 'reaction' && conversation.lastMessage.senderId !== getCurrentUserId()">
-                    {{ conversation.otherUser?.name }}: {{ conversation.lastMessage.content }}
-                  </span>
+                  <span *ngIf="conversation.lastMessage.type === 'reaction' && conversation.lastMessage.senderId !== getCurrentUserId()"
+                        [innerHTML]="((conversation.otherUser?.name || '') + ': ' + conversation.lastMessage.content) | highlight:searchTerm"></span>
                   <span *ngIf="conversation.lastMessage.type === 'reaction' && conversation.lastMessage.senderId === getCurrentUserId()">
-                    {{ 'MESSAGES.YOU' | translate }}: {{ conversation.lastMessage.content }}
+                    {{ 'MESSAGES.YOU' | translate }}: <span [innerHTML]="conversation.lastMessage.content | highlight:searchTerm"></span>
                   </span>
                   <span *ngIf="conversation.lastMessage.type !== 'reaction' && conversation.lastMessage.senderId === getCurrentUserId()">{{ 'MESSAGES.YOU' | translate }}: </span>
                   <!-- Regular message content -->
-                  <span *ngIf="conversation.lastMessage.type !== 'reaction' && conversation.lastMessage.type !== 'system' && !conversation.lastMessage.isSystemMessage">{{ conversation.lastMessage.content }}</span>
-                  <!-- System messages with HTML -->
+                  <span *ngIf="conversation.lastMessage.type !== 'reaction' && conversation.lastMessage.type !== 'system' && !conversation.lastMessage.isSystemMessage"
+                        [innerHTML]="conversation.lastMessage.content | highlight:searchTerm"></span>
+                  <!-- System messages with HTML (no highlight to avoid breaking markup) -->
                   <span *ngIf="conversation.lastMessage.type !== 'reaction' && (conversation.lastMessage.type === 'system' || conversation.lastMessage.isSystemMessage)" [innerHTML]="conversation.lastMessage.content"></span>
                 </p>
                 <ion-badge *ngIf="conversation.unreadCount > 0" color="primary" class="unread-badge">
@@ -247,14 +257,14 @@
         </div>
 
         <!-- Search Empty State -->
-        <div *ngIf="!isInitialLoad && searchTerm && filteredConversations.length === 0 && conversations.length > 0" class="empty-state search-empty-state" [@fadeInOut]>
+        <div *ngIf="!isInitialLoad && !isFilterSwitching && searchTerm && filteredConversations.length === 0 && conversations.length > 0" class="empty-state search-empty-state" [@fadeInOut]>
           <ion-icon name="search-outline" class="empty-icon"></ion-icon>
           <p>{{ 'MESSAGES.SEARCH_EMPTY_TITLE' | translate }}</p>
           <p class="empty-hint">{{ 'MESSAGES.SEARCH_EMPTY_HINT' | translate }}</p>
         </div>
 
         <!-- Empty State -->
-        <div *ngIf="!isInitialLoad && filteredConversations.length === 0 && !searchTerm" class="empty-state" [@fadeInOut]>
+        <div *ngIf="!isInitialLoad && !isFilterSwitching && filteredConversations.length === 0 && !searchTerm" class="empty-state" [@fadeInOut]>
           <ion-icon [name]="conversationsFilter === 'archived' ? 'archive-outline' : 'chatbubbles-outline'" class="empty-icon"></ion-icon>
           <p *ngIf="conversationsFilter === 'archived'">No archived conversations</p>
           <p class="empty-hint" *ngIf="conversationsFilter === 'archived'">Conversations you archive will appear here.</p>
@@ -777,8 +787,8 @@
     <div class="mobile-messages-wrapper" *ngIf="!isDesktop">
       <!-- Conversation List View (Mobile) -->
       <div class="conversations-panel" *ngIf="!selectedConversation">
-        <div class="conversations-header">
-          <h2>{{ 'MESSAGES.TITLE' | translate }}</h2>
+        <div class="messages-main-heading messages-main-heading--title-only">
+          <h2 class="messages-main-title">{{ 'MESSAGES.TITLE' | translate }}</h2>
         </div>
 
         <!-- Mobile: Conversations Search Header -->
@@ -787,7 +797,7 @@
           <input
             type="text"
             class="search-input"
-            [placeholder]="'MESSAGES.SEARCH_BY_NAME' | translate"
+            [placeholder]="'MESSAGES.SEARCH_ALL_MESSAGES' | translate"
             [value]="searchTerm"
             (input)="onSearchChange($any($event.target).value)"
           />
@@ -892,13 +902,13 @@
         </div>
 
         <!-- Search Empty State (Mobile) -->
-        <div *ngIf="!isInitialLoad && searchTerm && filteredConversations.length === 0 && conversations.length > 0" class="empty-state search-empty-state" [@fadeInOut]>
+        <div *ngIf="!isInitialLoad && !isFilterSwitching && searchTerm && filteredConversations.length === 0 && conversations.length > 0" class="empty-state search-empty-state" [@fadeInOut]>
           <ion-icon name="search-outline" class="empty-icon"></ion-icon>
           <h2>{{ 'MESSAGES.SEARCH_EMPTY_TITLE' | translate }}</h2>
           <p class="empty-hint">{{ 'MESSAGES.SEARCH_EMPTY_HINT' | translate }}</p>
         </div>
 
-        <div *ngIf="!isInitialLoad && filteredConversations.length === 0 && !searchTerm" class="empty-state" [@fadeInOut]>
+        <div *ngIf="!isInitialLoad && !isFilterSwitching && filteredConversations.length === 0 && !searchTerm" class="empty-state" [@fadeInOut]>
           <ion-icon [name]="conversationsFilter === 'archived' ? 'archive-outline' : 'chatbubbles-outline'" class="empty-icon"></ion-icon>
           <h2 *ngIf="conversationsFilter === 'archived'">No archived conversations</h2>
           <p *ngIf="conversationsFilter === 'archived'">Conversations you archive will appear here.</p>

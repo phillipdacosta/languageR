@@ -42,6 +42,24 @@ import { trigger, style, transition, animate } from '@angular/animations';
           transform: 'translateY(0) scale(1)' 
         }))
       ])
+    ]),
+    trigger('searchBarAnim', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'translateY(-6px)' }),
+        animate('220ms cubic-bezier(0.4,0,0.2,1)', style({ opacity: 1, transform: 'translateY(0)' }))
+      ]),
+      transition(':leave', [
+        animate('160ms cubic-bezier(0.4,0,0.2,1)', style({ opacity: 0, transform: 'translateY(-6px)' }))
+      ])
+    ]),
+    trigger('titleAnim', [
+      transition(':enter', [
+        style({ opacity: 0 }),
+        animate('180ms 60ms ease', style({ opacity: 1 }))
+      ]),
+      transition(':leave', [
+        animate('140ms ease', style({ opacity: 0 }))
+      ])
     ])
   ]
 })
@@ -61,6 +79,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   messages: Message[] = [];
   isLoading = false;
   isInitialLoad = true; // Only show spinner on first load
+  isFilterSwitching = false; // True while a filter-change fetch is in flight — suppresses empty state flash
   isLoadingMessages = false;
   
   // Lazy loading for messages
@@ -115,6 +134,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   currentUser: any = null;
   // Conversations search
   searchTerm = '';
+  searchOpen = false;
   private searchInput$ = new Subject<string>();
   
   // Conversations filter — extends to 'archived' so the user can flip
@@ -541,6 +561,37 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
         }
       });
 
+      // Sync archive/unarchive actions from other connected devices (e.g. web ↔ RN)
+      this.websocketService.conversationArchived$.pipe(takeUntil(this.destroy$)).subscribe(({ conversationId }) => {
+        if (this.conversationsFilter !== 'archived') {
+          // Remove from active inbox immediately
+          this.conversations = this.conversations.filter(c => c.conversationId !== conversationId);
+          if (this.selectedConversation?.conversationId === conversationId) {
+            this.selectedConversation = null;
+            this.hasConversationSelected = false;
+          }
+          this.cdr.detectChanges();
+        } else {
+          // We're in the archive view — the item should appear; refetch to get it
+          this.loadConversationsForCurrentFilter();
+        }
+      });
+
+      this.websocketService.conversationUnarchived$.pipe(takeUntil(this.destroy$)).subscribe(({ conversationId }) => {
+        if (this.conversationsFilter === 'archived') {
+          // Remove from archive view immediately
+          this.conversations = this.conversations.filter(c => c.conversationId !== conversationId);
+          if (this.selectedConversation?.conversationId === conversationId) {
+            this.selectedConversation = null;
+            this.hasConversationSelected = false;
+          }
+          this.cdr.detectChanges();
+        } else {
+          // We're in the inbox — the item should reappear; refetch
+          this.loadConversationsForCurrentFilter();
+        }
+      });
+
       // Debounce search input updates for smoother filtering
       this.searchInput$.pipe(debounceTime(150), takeUntil(this.destroy$)).subscribe(term => {
         this.searchTerm = (term || '').trim();
@@ -652,10 +703,22 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       filtered = filtered.filter(c => c.unreadCount > 0);
     }
 
-    // Apply search filter
+    // Apply search filter — matches conversation name, all participant names, and last message text
     if (this.searchTerm) {
-      const searchLower = this.searchTerm.toLowerCase();
-      filtered = filtered.filter(c => (c.otherUser?.name || '').toLowerCase().includes(searchLower));
+      const q = this.searchTerm.toLowerCase();
+      filtered = filtered.filter(c => {
+        // 1:1 conversation — match the other user's name
+        if ((c.otherUser?.name || '').toLowerCase().includes(q)) return true;
+        // Group conversation — match group name
+        if ((c.groupName || '').toLowerCase().includes(q)) return true;
+        // Group — match any participant's name
+        if (c.participants?.some(p => p.name.toLowerCase().includes(q))) return true;
+        // Last message preview text (non-system messages only)
+        const msgContent = c.lastMessage?.content || '';
+        const isSystem = c.lastMessage?.isSystemMessage || c.lastMessage?.type === 'system';
+        if (!isSystem && msgContent.toLowerCase().includes(q)) return true;
+        return false;
+      });
     }
 
     return filtered;
@@ -816,6 +879,21 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     this.searchInput$.next(value);
   }
 
+  openSearch() {
+    this.searchOpen = true;
+    // Focus the input on the next tick so the animation completes first
+    setTimeout(() => {
+      const el = document.querySelector('.conversations-search-input') as HTMLInputElement | null;
+      el?.focus();
+    }, 80);
+  }
+
+  closeSearch() {
+    this.searchOpen = false;
+    this.searchTerm = '';
+    this.searchInput$.next('');
+  }
+
   clearSearch() {
     this.searchTerm = '';
     this.searchInput$.next('');
@@ -837,17 +915,20 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   private loadConversationsForCurrentFilter() {
     const filter = this.conversationsFilter === 'archived' ? 'archived' : 'all';
     this.isLoading = true;
+    this.isFilterSwitching = true;
     this.messagingService.getConversations(filter).subscribe({
       next: (response) => {
         this.conversations = response.conversations || [];
         this.decorateGroupAvatarClusters();
         this.isLoading = false;
+        this.isFilterSwitching = false;
         this.isInitialLoad = false;
         this.cdr.detectChanges();
       },
       error: (err) => {
         console.error('[MessagesPage] loadConversationsForCurrentFilter error:', err);
         this.isLoading = false;
+        this.isFilterSwitching = false;
       }
     });
   }

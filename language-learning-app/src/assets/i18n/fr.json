@@ -755,7 +755,8 @@
       "TIP_4": "Renseignez-vous sur leurs objectifs et leur style d'apprentissage préféré ; cela aidera à guider les futures leçons.",
       "TIP_5": "Soyez accueillant et encourageant—les sessions d'essai déterminent souvent si l'étudiant continuera avec vous.",
       "SUPPORT_TEXT": "Si vous avez des questions, n'hésitez pas à contacter le support à tout moment."
-    }
+    },
+    "SEARCH_ALL_MESSAGES": "Rechercher dans tous les messages"
   },
   "NOTIFICATIONS": {
     "TITLE": "Notifications",

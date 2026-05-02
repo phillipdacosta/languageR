@@ -6,6 +6,9 @@ backend/config.env
 *.env
 *.env.*
 *.local
+# Keep example templates in source control so contributors know what to fill in
+!*.env.example
+!backend/config.env.example
 
 # Service account keys
 backend/languager-*.json

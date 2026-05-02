@@ -2102,12 +2102,26 @@ function resolveOneOnOnePeer(conversationId, callerId) {
  * The mutation should set/clear the relevant fields and return nothing.
  * The caller persists the change.
  */
-async function applyInboxStateChange(req, res, mutation) {
+async function applyInboxStateChange(req, res, mutation, socketEventName = null) {
   const userId = req.user.sub;
   const { conversationId } = req.params;
   if (!conversationId) {
     return res.status(400).json({ success: false, message: 'conversationId required.' });
   }
+
+  const emitToUser = () => {
+    if (socketEventName && req.io) {
+      const room = `user:${userId}`;
+      const sockets = req.io.sockets.adapter.rooms.get(room);
+      const socketCount = sockets ? sockets.size : 0;
+      console.log(`[archive-sync] route=${socketEventName} sub=${userId} room=${room} socketsInRoom=${socketCount}`);
+      if (socketCount === 0) {
+        const allRooms = Array.from(req.io.sockets.adapter.rooms.keys()).filter(r => r.startsWith('user:'));
+        console.log(`[archive-sync] no listener — known user: rooms:`, allRooms);
+      }
+      req.io.to(room).emit(socketEventName, { conversationId });
+    }
+  };
 
   // Group thread? Find the Conversation row.
   const conv = await Conversation.findOne({ groupId: conversationId });
@@ -2123,6 +2137,7 @@ async function applyInboxStateChange(req, res, mutation) {
     try {
       await mutation({ kind: 'group', conv, member, isTutorClassBroadcast });
       await conv.save();
+      emitToUser();
       return res.json({ success: true });
     } catch (err) {
       if (err && err.statusCode) {
@@ -2144,6 +2159,7 @@ async function applyInboxStateChange(req, res, mutation) {
   );
   await mutation({ kind: 'oneOnOne', pref });
   await pref.save();
+  emitToUser();
   return res.json({ success: true });
 }
 
@@ -2161,7 +2177,7 @@ router.post('/conversations/:conversationId/archive', verifyToken, async (req, r
       } else {
         pref.archivedAt = now;
       }
-    });
+    }, 'conversation_archived');
   } catch (error) {
     console.error('Error archiving conversation:', error);
     if (!res.headersSent) {
@@ -2182,7 +2198,7 @@ router.post('/conversations/:conversationId/unarchive', verifyToken, async (req,
       } else {
         pref.archivedAt = null;
       }
-    });
+    }, 'conversation_unarchived');
   } catch (error) {
     console.error('Error unarchiving conversation:', error);
     if (!res.headersSent) {

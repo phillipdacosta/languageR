@@ -10,6 +10,7 @@ import { TutorAvailabilityViewerComponent } from '../components/tutor-availabili
 import { TutorAvailabilitySelectionModalComponent } from '../components/tutor-availability-selection-modal/tutor-availability-selection-modal.component';
 import { CheckoutPage } from '../checkout/checkout.page';
 import { MarkdownLinkPipe } from './pipes/markdown-link.pipe';
+import { HighlightPipe } from './pipes/highlight.pipe';
 
 import { MessagesPageRoutingModule } from './messages-routing.module';
 
@@ -25,7 +26,7 @@ import { MessagesPageRoutingModule } from './messages-routing.module';
     TutorAvailabilitySelectionModalComponent,
     CheckoutPage
   ],
-  declarations: [MessagesPage, ImageViewerModal, MessageContextMenuComponent, MarkdownLinkPipe]
+  declarations: [MessagesPage, ImageViewerModal, MessageContextMenuComponent, MarkdownLinkPipe, HighlightPipe]
 })
 export class MessagesPageModule {}
 

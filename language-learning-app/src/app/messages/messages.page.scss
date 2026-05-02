@@ -507,112 +507,239 @@
   padding-top: 0;
 }
 
-.conversations-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 24px 16px;
-  border-bottom: none;
+// Fixed-height switcher: title and search bar occupy the same vertical space.
+// Both layers are absolute so nothing below shifts when they swap.
+.messages-header-switcher {
+  position: relative;
+  height: 78px;
+  overflow: hidden;
   background: white;
+  flex-shrink: 0;
+}
 
-  h2 {
-    margin: 0;
-    font-size: 26px;
-    font-weight: 800;
-    color: #222222;
-    letter-spacing: -0.5px;
-  }
+.messages-header-layer {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
 
-  .header-actions {
-    display: flex;
-    gap: 4px;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
 
-    ion-button {
-      --color: #717171;
-      --padding-start: 8px;
-      --padding-end: 8px;
-      margin: 0;
-      
-      &:hover {
-        --color: #222222;
-      }
-    }
+  // Search row: always in DOM (no opacity crossfade on the whole layer).
+  &--search {
+    pointer-events: none;
   }
 }
 
-.conversations-search-header {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  padding: 0 24px 12px;
-  border-bottom: none;
-  background: white;
-  min-height: auto;
-  box-shadow: none;
-  margin-top: 0;
-  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
-              transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  backface-visibility: hidden;
-  transform: translateZ(0);
-  will-change: transform, opacity;
+// Title row when search is CLOSED: fade-in waits until Cancel has finished hiding.
+.messages-header-switcher:not(.search-is-open)
+  .messages-header-layer:not(.messages-header-layer--search) {
+  transition: opacity 0.22s cubic-bezier(0.4, 0, 0.2, 1) 0.32s,
+              visibility 0s linear 0s;
+}
 
-  .search-icon {
+.messages-header-layer--search {
+  padding: 0;
+  pointer-events: auto; // pill is always tappable
+
+  // The pill contains the icon on its left side.
+  // Closed: right edge is fixed at the cancel area; left edge is pulled far right
+  //   so only the icon "circle" is visible — sitting exactly where the title
+  //   row's search trigger button is.
+  // Open: left edge sweeps to 24px, revealing the full input.
+  .search-pill {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 44px;
+    // Align with heading: 28px inset + 40px compose + 6px gap = 74px from right
+    right: 74px;
+    // Closed: 40px wide, tight to compose pill
+    left: calc(100% - 74px - 40px);
+    cursor: pointer;
+
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    border-radius: 22px;
+    background: #f7f7f7;
+    // Heavier stroke reads clearly when open; transparent when collapsed
+    border: 2px solid transparent;
+    box-sizing: border-box;
+
+    transition: left 0.55s cubic-bezier(0.32, 0.72, 0, 1),
+                right 0.55s cubic-bezier(0.32, 0.72, 0, 1),
+                border-color 0.15s ease 0.2s;
+    will-change: left, right;
+  }
+
+  .search-pill-icon {
+    flex-shrink: 0;
+    width: 40px;
     font-size: 16px;
     color: #717171;
-    flex-shrink: 0;
-    position: absolute;
-    left: 36px;
-    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     pointer-events: none;
   }
 
   .search-input {
     flex: 1;
-    height: 44px;
-    padding: 0 12px 0 36px;
-    border-radius: 24px;
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    background: #f7f7f7;
+    min-width: 0;
+    height: 100%;
+    padding: 0 12px 0 0;
+    border: none;
+    background: transparent;
     font-size: 14px;
     outline: none;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     color: #222222;
-    
+
     &::placeholder {
       color: #717171;
-    }
-    
-    &:focus {
-      border-color: #222222;
-      background: white;
-      box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05);
     }
   }
 
   .clear-icon {
     font-size: 18px;
     color: #717171;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    cursor: pointer;
     flex-shrink: 0;
-    margin-left: -32px;
-    z-index: 1;
-    
+    margin-right: 12px;
+    cursor: pointer;
+    transition: color 0.15s ease;
+
+    &:hover { color: #222222; }
+    &:active { transform: scale(0.95); }
+  }
+
+  .search-cancel-btn {
+    position: absolute;
+    right: 28px;
+    top: 50%;
+    // Closed: hidden and slid off to the right so it doesn't block the compose button
+    transform: translateY(-50%) translateX(20px);
+    opacity: 0;
+    pointer-events: none;
+    // Close: fade out fully before title row (edit pill) fades back in
+    transition: opacity 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+                transform 0.26s cubic-bezier(0.4, 0, 1, 1);
+  }
+}
+
+.messages-header-switcher.search-is-open {
+  .messages-header-layer:not(.messages-header-layer--search) {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.16s ease,
+                visibility 0s linear 0.16s;
+  }
+
+  .messages-header-layer--search {
+    .search-pill {
+      // Match horizontal inset with .messages-main-heading
+      left: 28px;
+      // Reserve Cancel (~56px) + gap (~18px) + right inset (28px) ≈ 102px
+      right: 102px;
+      border-color: #222222;
+      cursor: default;
+    }
+
+    .search-cancel-btn {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(-50%) translateX(0);
+      // Open transition: delayed so it appears after the pill has started expanding
+      transition: opacity 0.2s ease 0.25s,
+                  transform 0.3s cubic-bezier(0.32, 0.72, 0, 1) 0.2s;
+    }
+  }
+}
+
+// Heading block sits entirely above the search bar (title + optional actions on one row)
+.messages-main-heading {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 8px 28px 12px;
+  border-bottom: none;
+  background: white;
+  width: 100%;
+
+  &--title-only {
+    padding-bottom: 10px;
+  }
+}
+
+.messages-main-title {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  font-size: 26px;
+  font-weight: 800;
+  color: #222222;
+  letter-spacing: -0.5px;
+  line-height: 1.15;
+}
+
+.messages-heading-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+
+  ion-button {
+    --color: #717171;
+    // Match the search pill's circular size (40×40)
+    --padding-start: 0;
+    --padding-end: 0;
+    width: 40px;
+    height: 40px;
+    margin: 0;
+    // Same pill style as the search icon
+    background: #f7f7f7;
+    border-radius: 50%;
+
     &:hover {
-      color: #222222;
+      --color: #222222;
+      background: #efefef;
     }
-    
-    &:active {
-      transform: scale(0.95);
+
+    ion-icon {
+      font-size: 16px;
     }
+  }
+}
+
+
+.search-cancel-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: #222222;
+  padding: 0;
+  flex-shrink: 0;
+  white-space: nowrap;
+  transition: opacity 0.15s ease;
+
+  &:hover {
+    opacity: 0.65;
   }
 }
 
 // Conversations filter container — Airbnb pill style
 .conversations-filter-container {
   display: flex;
-  gap: 8px;
-  padding: 8px 24px 16px;
+  gap: 10px;
+  padding: 12px 28px 18px;
   background: white;
   border-bottom: 0.5px solid rgba(0, 0, 0, 0.08);
 
@@ -655,6 +782,15 @@
   transform: translateZ(0);
   backface-visibility: hidden;
   will-change: auto;
+}
+
+// Search match highlight — rendered via [innerHTML] + HighlightPipe.
+.search-highlight {
+  background: rgba(255, 112, 0, 0.32);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 1px;
+  font-weight: 600;
 }
 
 .conversation-item {
@@ -3824,41 +3960,59 @@
     border-right-color: rgba(255, 255, 255, 0.12);
   }
 
-  .conversations-header {
+  .messages-main-heading {
     background: #000000;
 
-    h2 {
+    .messages-main-title {
       color: #f5f5f7;
     }
 
-    .header-actions ion-button {
+    .messages-heading-actions ion-button {
       --color: #8e8e93;
+      background: #2c2c2e;
 
       &:hover {
         --color: #f5f5f7;
+        background: #3a3a3c;
       }
     }
   }
 
-  .conversations-search-header {
+  .messages-header-switcher {
     background: #000000;
+  }
 
-    .search-icon {
+  .messages-main-heading {
+    background: #000000;
+  }
+
+  .search-cancel-btn {
+    color: #f5f5f7;
+  }
+
+  .messages-header-switcher.search-is-open .messages-header-layer--search .search-pill {
+    border-color: rgba(255, 255, 255, 0.55);
+  }
+
+  .messages-header-layer--search {
+    .search-pill {
+      background: #2c2c2e;
+
+      &:focus-within {
+        border-color: #4298d2;
+        background: #1c1c1e;
+      }
+    }
+
+    .search-pill-icon {
       color: #8e8e93;
     }
 
     .search-input {
-      background: #2c2c2e;
-      border-color: rgba(255, 255, 255, 0.12);
       color: #f5f5f7;
 
       &::placeholder {
         color: #8e8e93;
-      }
-
-      &:focus {
-        border-color: #4298d2;
-        background: #1c1c1e;
       }
     }
 
@@ -3895,6 +4049,11 @@
 
   .conversations-list {
     background: #000000;
+  }
+
+  .search-highlight {
+    background: rgba(255, 132, 48, 0.38);
+    color: #f5f5f7;
   }
 
   .conversation-item {
