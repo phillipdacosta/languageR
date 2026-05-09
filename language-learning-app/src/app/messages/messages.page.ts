@@ -6,6 +6,7 @@ import { MessagingService, Conversation, Message } from '../services/messaging.s
 import { WebSocketService } from '../services/websocket.service';
 import { AuthService } from '../services/auth.service';
 import { UserService } from '../services/user.service';
+import { LearningPlanService, LearningPlanSummary } from '../services/learning-plan.service';
 import { ImageViewerModal } from './image-viewer-modal.component';
 import { MessageContextMenuComponent } from './message-context-menu.component';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
@@ -132,6 +133,21 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   currentUserId$ = new BehaviorSubject<string>('');
   currentUserType: 'student' | 'tutor' | null = null;
   currentUser: any = null;
+
+  // Plan-context strip shown above the chat thread when a tutor opens a
+  // 1:1 conversation with one of their students. Null = nothing to render
+  // (not a tutor, group thread, no plan, or still loading).
+  studentPlanStrip: {
+    studentId: string;
+    language: string;
+    phaseLabel: string;
+    phaseIndex: number;
+    totalPhases: number;
+    focus: string;
+  } | null = null;
+  // Cache by studentId to avoid re-fetching when the tutor flips between
+  // threads with the same student.
+  private studentPlanCache = new Map<string, LearningPlanSummary[]>();
   // Conversations search
   searchTerm = '';
   searchOpen = false;
@@ -264,7 +280,8 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     private alertController: AlertController,
     private toastController: ToastController,
     private cdr: ChangeDetectorRef,
-    private translateService: TranslateService
+    private translateService: TranslateService,
+    private learningPlanService: LearningPlanService
   ) {}
 
   ngOnInit() {
@@ -2177,6 +2194,11 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     this.refreshSelectedThreadTypeFlags();
     this.hasConversationSelected = true;
     this.startLocalTimeClock();
+    // Surface the student's current phase + focus when a tutor is opening
+    // a 1:1 thread with a student. Cleared first so previous strip doesn't
+    // flash before the new fetch resolves.
+    this.studentPlanStrip = null;
+    void this.loadStudentPlanStrip(conversation);
     console.log(`✅ [${Date.now()}] selectedConversation SET, hasConversationSelected: ${this.hasConversationSelected}`);
     
     // Force immediate change detection
@@ -2206,6 +2228,68 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     if (this.isPageVisible) {
       this.markConversationAsRead(conversation);
     }
+  }
+
+  /**
+   * For tutor → student 1:1 threads, fetch the student's plan summary so
+   * we can show a tiny phase + focus strip above the chat. No-op in any
+   * other configuration (student viewer, group thread, no other user, etc.).
+   * Cached per-student so flipping back and forth is instant.
+   */
+  private async loadStudentPlanStrip(conversation: Conversation): Promise<void> {
+    const other = conversation?.otherUser;
+    if (
+      this.currentUserType !== 'tutor' ||
+      !other ||
+      other.userType !== 'student' ||
+      conversation.isGroup ||
+      this.selectedIsClassBroadcast
+    ) {
+      this.studentPlanStrip = null;
+      return;
+    }
+    const studentId = other.id;
+    if (!studentId) { this.studentPlanStrip = null; return; }
+
+    let summaries = this.studentPlanCache.get(studentId) || null;
+    if (!summaries) {
+      try {
+        const resp = await this.learningPlanService.getStudentPlanSummary(studentId).toPromise();
+        summaries = resp?.summaries || [];
+        this.studentPlanCache.set(studentId, summaries);
+      } catch {
+        // 404 — student has no plan yet. Cache empty so we don't keep retrying.
+        this.studentPlanCache.set(studentId, []);
+        summaries = [];
+      }
+    }
+
+    // Bail if the conversation changed under us during the fetch.
+    if (this.selectedConversation?.otherUser?.id !== studentId) return;
+
+    if (!summaries.length) { this.studentPlanStrip = null; this.cdr.markForCheck(); return; }
+
+    // Prefer an active plan; if multiple languages, pick the one whose
+    // language matches a language tag on the conversation's other-user
+    // (which may include `languages: string[]`).
+    const userLangs: string[] = Array.isArray((other as any).languages)
+      ? (other as any).languages.map((l: string) => (l || '').toLowerCase().trim())
+      : [];
+    const match = summaries.find(s =>
+      s.status === 'active' && userLangs.includes((s.language || '').toLowerCase().trim())
+    ) || summaries.find(s => s.status === 'active') || summaries[0];
+
+    if (!match || !match.currentPhase) { this.studentPlanStrip = null; this.cdr.markForCheck(); return; }
+
+    this.studentPlanStrip = {
+      studentId,
+      language: match.language,
+      phaseLabel: match.currentPhase.title || `Phase ${match.currentPhaseIndex + 1}`,
+      phaseIndex: match.currentPhaseIndex + 1,
+      totalPhases: match.totalPhases,
+      focus: (match.nextLessonFocus || '').trim()
+    };
+    this.cdr.markForCheck();
   }
   
 

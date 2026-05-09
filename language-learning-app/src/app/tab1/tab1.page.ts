@@ -35,6 +35,7 @@ import { environment } from '../../environments/environment';
 import { SmartIslandService, DynamicCard } from '../services/smart-island.service';
 import { TranslateService } from '@ngx-translate/core';
 import { LearningPlanService, LearningPlan } from '../services/learning-plan.service';
+import { ReviewDeckService } from '../services/review-deck.service';
 import { AnalysisTranslationService } from '../services/analysis-translation.service';
 import { HomeInlineToolbarService } from '../services/home-inline-toolbar.service';
 import { MaterialService, TutorMaterial } from '../services/material.service';
@@ -356,6 +357,19 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   isTutorUser = false; // Use property instead of function call in template
   isStudentUser = false; // Use property instead of function call in template
 
+  // Premium pre-lesson warm-up (Batch 9). Populated only when the next
+  // lesson is in the next 30 minutes. Free students never see this card.
+  warmup: null | {
+    lessonId: string;
+    startsAt: string;
+    focus: string;
+    quiz: any;
+    personalizedHeader: string;
+  } = null;
+
+  // Live count of spaced-repetition cards due — drives the Practice quick action badge.
+  practiceDueCount = 0;
+
   // Learning Plan precomputed properties (no functions in template)
   learningPlanData: any = null;
   learningPlanCurrentPhase = 0;
@@ -364,6 +378,25 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   learningPlanSummary = '';
   learningPlanNextFocus = '';
   learningPlanPhaseDots: boolean[] = [];
+
+  // Journey widget bindings (replaces blank student earnings slot on home)
+  journeyWidgetState: 'loading' | 'empty-goal' | 'draft' | 'active' | 'completed' | 'unframed' | 'paused' = 'loading';
+  journeyPhaseLabels: string[] = [];
+  journeyCurrentPhaseIndex = 0;
+  journeyPhaseTitle = '';
+  journeySummary = '';
+  journeyNextLessonFocus = '';
+  journeyGoalLabel = '';
+  journeyLanguageLabel = '';
+  journeyMasteryAverage: number | null = null;
+  journeyLessonsCompleted = 0;
+  journeyEstimatedLessons = 5;
+  // Server-attached qualitative state (see masteryService.phaseProgressState).
+  // Replaces the old "Mastery 75%" exam-style copy. See voice-and-framing.md.
+  journeyProgressState: 'getting_started' | 'building' | 'progressing' | 'ready_soon' | 'wrapping_up' | null = null;
+  journeyProgressStateLabel = '';
+  journeyWindowProgressPercent: number | null = null;
+  journeyIsPremium = false;
 
   homePracticeMaterials: any[] = [];
   
@@ -559,6 +592,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     private translateService: TranslateService,
     private activatedRoute: ActivatedRoute,
     private learningPlanService: LearningPlanService,
+    private reviewDeckService: ReviewDeckService,
     private analysisTranslation: AnalysisTranslationService,
     private homeInlineToolbar: HomeInlineToolbarService,
     private materialService: MaterialService,
@@ -576,6 +610,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         this.currentUser = user;
         this.isTutorUser = this.isTutor(); // Set property once
         this.isStudentUser = this.isStudent(); // Set property once
+        if (this.isStudentUser) {
+          this.loadPracticeDueCount();
+        }
         
         // Update showWalletBalance immediately when user profile changes
         // This ensures instant update when toggled in profile page
@@ -1510,6 +1547,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     }
     this.refreshPrevNotesTranslationState();
 
+    // Refresh the Practice badge so returning from the review deck
+    // reflects newly mastered cards immediately.
+    if (this.isStudentUser) {
+      this.loadPracticeDueCount();
+    }
+
     if (this.showCreateMaterialView && this.createMaterialRef?.restoreSection) {
       this.createMaterialRef.restoreSection();
     }
@@ -2384,24 +2427,583 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   }
   
   loadLearningPlan(language: string) {
+    this.journeyLanguageLabel = language || '';
     this.learningPlanService.getPlan(language).pipe(take(1)).subscribe({
-      next: (res) => {
+      next: (res: any) => {
         if (res.success && res.plan) {
-          const plan = res.plan;
-          this.learningPlanData = plan;
-          this.learningPlanCurrentPhase = plan.currentPhaseIndex + 1;
-          this.learningPlanTotalPhases = plan.phases.length;
-          const activePhase = plan.phases[plan.currentPhaseIndex];
-          this.learningPlanPhaseTitle = activePhase?.title || '';
-          this.learningPlanSummary = plan.studentSummary || '';
-          this.learningPlanNextFocus = plan.nextLessonFocus || '';
-          this.learningPlanPhaseDots = plan.phases.map(
-            (p: any) => p.status === 'completed' || p.status === 'active'
-          );
-          this.cdr.detectChanges();
+          this.applyLearningPlan(res.plan, res.entitlements || null);
+        } else {
+          this.applyLearningPlanMissing();
         }
       },
-      error: () => {}
+      error: (err) => {
+        if (err?.status === 404) {
+          this.applyLearningPlanMissing();
+        } else {
+          this.journeyWidgetState = 'empty-goal';
+          this.cdr.detectChanges();
+        }
+      }
+    });
+  }
+
+  private applyLearningPlan(plan: any, entitlements: any = null) {
+    this.learningPlanData = plan;
+    this.journeyIsPremium = entitlements?.tier === 'premium';
+    this.learningPlanCurrentPhase = (plan.currentPhaseIndex || 0) + 1;
+    this.learningPlanTotalPhases = (plan.phases || []).length;
+    const activePhase = plan.phases?.[plan.currentPhaseIndex || 0];
+    this.learningPlanPhaseTitle = activePhase?.title || '';
+    this.learningPlanSummary = plan.studentSummary || '';
+    this.learningPlanNextFocus = plan.nextLessonFocus || '';
+    this.learningPlanPhaseDots = (plan.phases || []).map(
+      (p: any) => p.status === 'completed' || p.status === 'active'
+    );
+
+    this.journeyPhaseLabels = (plan.phases || []).map((p: any) => p.title || '');
+    this.journeyCurrentPhaseIndex = plan.currentPhaseIndex || 0;
+    this.journeyPhaseTitle = activePhase?.title || '';
+    this.journeySummary = plan.studentSummary || '';
+    this.journeyNextLessonFocus = plan.nextLessonFocus || '';
+    this.journeyGoalLabel = plan.goal?.description
+      || this.translateService.instant('LEARNING_PLAN.GOAL_LABEL_' + (plan.goal?.type || 'OTHER').toUpperCase())
+      || '';
+    this.journeyMasteryAverage = activePhase?.masteryAverage ?? null;
+    this.journeyLessonsCompleted = activePhase?.lessonsCompleted || 0;
+    this.journeyEstimatedLessons = activePhase?.estimatedLessons || 5;
+    this.journeyProgressState = (activePhase as any)?.progressState || null;
+    this.journeyWindowProgressPercent =
+      typeof (activePhase as any)?.windowProgressPercent === 'number'
+        ? (activePhase as any).windowProgressPercent
+        : null;
+    this.journeyProgressStateLabel = this.journeyProgressState
+      ? this.translateService.instant(`JOURNEY.PROGRESS_STATE.${this.journeyProgressState.toUpperCase()}`)
+      : '';
+
+    if (plan.status === 'completed') {
+      this.journeyWidgetState = 'completed';
+    } else if (plan.status === 'draft') {
+      this.journeyWidgetState = 'draft';
+    } else if (plan.status === 'unframed') {
+      this.journeyWidgetState = 'unframed';
+    } else if (plan.status === 'paused') {
+      this.journeyWidgetState = 'paused';
+    } else {
+      this.journeyWidgetState = 'active';
+    }
+    this.cdr.detectChanges();
+
+    // For 'unframed' / 'paused' there's no journey roadmap to navigate to,
+    // so stop here. We still want CEFR estimate + recommendations to flow
+    // (those happen on the post-lesson pipeline server-side).
+    if (plan.status === 'unframed' || plan.status === 'paused') {
+      return;
+    }
+
+    // Warm the browser image cache for the journey map background so it's
+    // already decoded by the time the user taps "View roadmap". We do this
+    // while the user is still on the home page — effectively zero cost.
+    const chapterTheme: string = (plan as any).chapterTheme || 'a1-desert';
+    const preloadImg = new Image();
+    preloadImg.src = `assets/journey-backgrounds/${chapterTheme}.png`;
+
+    // Pre-mount the journey component hidden (behind *ngIf="journeyPreloaded")
+    // so Angular bootstraps it, the cache-first getPlanWithCache returns
+    // synchronously, and the SVG path + canvas are computed while the user is
+    // still on the home page. Tap → instant reveal with no loading delay.
+    // Defer slightly so the home page renders first (don't compete with the
+    // initial LCP paint).
+    if (!this.journeyPreloaded) {
+      setTimeout(() => { this.journeyPreloaded = true; this.cdr.detectChanges(); }, 800);
+    }
+
+    // Show the "Your roadmap is ready" intro only when the student just finished
+    // onboarding in this browser session (flag set by onboarding.page.ts) and
+    // the plan has never been formally introduced before.
+    const justOnboarded = (() => { try { return sessionStorage.getItem('showJourneyIntro') === 'true'; } catch (_) { return false; } })();
+    if (justOnboarded && !plan.journeyIntroSeenAt && (plan.phases || []).length) {
+      setTimeout(() => this.openJourneyIntroModal(plan, this.journeyLanguageLabel), 400);
+    }
+
+    // Chapter transition celebration (Batch 4). When a student lands on
+    // home with a pending chapter transition flag, surface the same
+    // celebration modal here so the moment isn't gated behind a tab swap.
+    // The modal acks the flag so it won't re-open.
+    void this.maybeShowChapterCelebrationOnHome(plan);
+
+    // Pre-lesson warm-up check (premium, Batch 9). Best-effort, non-blocking.
+    if (this.journeyIsPremium && plan.language) {
+      this.loadWarmup(plan.language);
+    }
+  }
+
+  /** Open the chapter-complete modal on the home page when a pending
+   *  transition flag is set. Mirrors the journey page logic but takes
+   *  precedence: by acking from here, the journey page won't re-show. */
+  private async maybeShowChapterCelebrationOnHome(plan: any) {
+    if (!plan?.pendingTransitions) return;
+    if (this.learningPlanService.chapterTransitionShownThisSession) return;
+
+    const flags = plan.pendingTransitions;
+    let mode: 'graduated' | 'demoted' | 'mastery_mode' | 'promoted' | null = null;
+    if (flags.masteryModeEntered) mode = 'mastery_mode';
+    else if (flags.chapterJustCompleted) mode = 'graduated';
+    else if (flags.chapterPromotionPending) mode = 'promoted';
+    else if (flags.chapterDemotionPending) mode = 'demoted';
+
+    if (!mode) return;
+    this.learningPlanService.chapterTransitionShownThisSession = true;
+
+    // Lazy import to keep the home-tab bundle small.
+    const { ChapterCompleteModalComponent } =
+      await import('../journey/chapter-complete-modal/chapter-complete-modal.component');
+
+    const lastCompleted = (plan.chaptersCompleted || []).slice(-1)[0];
+    const fromLevel = lastCompleted?.level || null;
+    const toLevel = plan.chapterLevel || null;
+
+    const modal = await this.modalCtrl.create({
+      component: ChapterCompleteModalComponent,
+      cssClass: 'chapter-complete-modal',
+      backdropDismiss: false,
+      componentProps: {
+        mode,
+        fromLevel,
+        toLevel,
+        masteryAtCompletion: lastCompleted?.masteryAtCompletion ?? null,
+        lessonsCompleted: lastCompleted
+          ? (lastCompleted.phases || []).reduce(
+              (s: number, p: any) => s + (p.lessonsCompleted || 0), 0)
+          : null
+      }
+    });
+    await modal.present();
+    await modal.onDidDismiss();
+
+    // Ack the flag so subsequent app loads don't re-open. Best-effort.
+    const flag =
+      mode === 'graduated'    ? 'chapterJustCompleted' :
+      mode === 'demoted'      ? 'chapterDemotionPending' :
+      mode === 'mastery_mode' ? 'masteryModeEntered' :
+      /* promoted */            'chapterPromotionPending';
+    this.learningPlanService.ackTransition(plan.language, flag as any)
+      .pipe(take(1)).subscribe({ next: () => {}, error: () => {} });
+  }
+
+  /** Polls the warm-up endpoint. Returns null for free users / no upcoming
+   *  lesson — the card simply doesn't render in that case. */
+  private loadWarmup(language: string) {
+    this.learningPlanService.getWarmup(language).pipe(take(1)).subscribe({
+      next: (res) => {
+        this.warmup = res?.warmup || null;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.warmup = null;
+      }
+    });
+  }
+
+  /** Open a placeholder quiz route. Real quiz player is built alongside the
+   *  Materials → Quiz section (Batch 8 surfacing). For now we surface the
+   *  quiz title via toast and persist completion when the user dismisses. */
+  async startWarmup() {
+    if (!this.warmup?.quiz) return;
+    const toast = await this.toastController.create({
+      message: this.translateService.instant('HOME.WARMUP_STARTED', { title: this.warmup.quiz.title }),
+      duration: 2500,
+      color: 'primary',
+      position: 'top'
+    });
+    await toast.present();
+    // After the user opens it, hide the card to avoid nagging.
+    this.warmup = null;
+    this.cdr.markForCheck();
+  }
+
+  private async openJourneyIntroModal(plan: any, language: string) {
+    // Prevent duplicate modals within the same session.
+    if (this.learningPlanService.introModalShownThisSession) return;
+
+    // Belt-and-suspenders: if a journey-intro modal is already on screen, bail out.
+    const existing = await this.modalCtrl.getTop();
+    if (existing?.classList.contains('journey-intro-modal')) return;
+
+    // Consume the sessionStorage flag so subsequent tab visits don't re-open.
+    try { sessionStorage.removeItem('showJourneyIntro'); } catch (_) {}
+    this.learningPlanService.introModalShownThisSession = true;
+
+    const { JourneyIntroComponent } = await import('../journey/journey-intro.component');
+    const modal = await this.modalCtrl.create({
+      component: JourneyIntroComponent,
+      componentProps: {
+        phaseLabels: (plan.phases || []).map((p: any) => p.title || ''),
+        plan,
+        language,
+        calledFromHome: true
+      },
+      cssClass: 'journey-intro-modal'
+    });
+    await modal.present();
+    const { data } = await modal.onDidDismiss();
+    if (data?.reason === 'done' || data?.reason === 'skip') {
+      this.learningPlanService.markIntroSeen(language).pipe(take(1)).subscribe();
+    }
+  }
+
+  private applyLearningPlanMissing() {
+    const hasGoal = !!this.currentUser?.onboardingData?.learningGoal?.type;
+    if (hasGoal) {
+      const language = this.currentUser?.onboardingData?.languages?.[0];
+      if (language) {
+        this.learningPlanService.createInitialPlan(language).pipe(take(1)).subscribe({
+          next: (res: any) => {
+            if (res?.success && res.plan) {
+              this.applyLearningPlan(res.plan, res.entitlements || null);
+            } else {
+              this.journeyWidgetState = 'empty-goal';
+              this.cdr.detectChanges();
+            }
+          },
+          error: () => {
+            this.journeyWidgetState = 'empty-goal';
+            this.cdr.detectChanges();
+          }
+        });
+        return;
+      }
+    }
+    this.journeyWidgetState = 'empty-goal';
+    this.cdr.detectChanges();
+  }
+
+  /** Toggled by the home journey widget's "View roadmap" CTA. Mirrors the
+   *  earnings inline pattern so the FLIP flight is short and feels native. */
+  showJourneyView = false;
+  /** True once the learning plan has loaded — causes <app-journey-page> to
+   *  be mounted hidden in the background so the canvas is ready before
+   *  the user taps "View roadmap". */
+  journeyPreloaded = false;
+  journeyCtaHidden = false; // hides .jw-primary-cta-btn via CSS during FLIP flight
+
+  goToJourney() {
+    // === FLIP Animation: Home "View roadmap" link → Inline Journey black pill ===
+    // Sequential timeline (no overlapping text):
+    //   0-100ms : outgoing text fades out
+    //   60-460ms: wrapper morphs (position, size, bg, border-radius, padding)
+    //   440-540ms: incoming text fades in
+    // Padding lives ONLY on the wrapper; both layers force padding:0 so they
+    // don't double-up the cloned button's class-defined padding.
+
+    const srcEl = document.querySelector('app-journey-widget .jw-cta-link') as HTMLElement | null;
+    const srcRect = srcEl?.getBoundingClientRect();
+
+    if (!srcEl || !srcRect) {
+      this.showJourneyView = true;
+      this.cdr.detectChanges();
+      this.ionContent?.scrollToTop(0);
+      return;
+    }
+
+    const srcCS = getComputedStyle(srcEl);
+
+    const clone = document.createElement('div');
+    Object.assign(clone.style, {
+      position: 'fixed',
+      left: `${srcRect.left}px`,
+      top: `${srcRect.top}px`,
+      width: `${srcRect.width}px`,
+      height: `${srcRect.height}px`,
+      margin: '0',
+      padding: '0',
+      background: 'transparent',
+      borderRadius: srcCS.borderRadius || '0',
+      zIndex: '10000',
+      pointerEvents: 'none',
+      transition: 'none',
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      boxSizing: 'border-box',
+      overflow: 'hidden',
+    } as Partial<CSSStyleDeclaration>);
+
+    // Outgoing layer — cloned source. inset:0 fills the wrapper. Padding/bg
+    // forced off so the wrapper owns visual chrome. Flex alignment is left
+    // un-overridden so the cloned element keeps its class-defined layout
+    // (matches what the real source/dest looks like).
+    const outgoing = srcEl.cloneNode(true) as HTMLElement;
+    Object.assign(outgoing.style, {
+      position: 'absolute',
+      inset: '0',
+      margin: '0',
+      padding: '0',
+      background: 'transparent',
+      border: 'none',
+      whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      opacity: '1',
+      transition: 'opacity 0.1s ease 0s',
+    } as Partial<CSSStyleDeclaration>);
+    clone.appendChild(outgoing);
+
+    document.body.appendChild(clone);
+
+    // Hide the real CTA button until landing so the clone owns the visual.
+    this.journeyCtaHidden = true;
+    this.showJourneyView = true;
+    this.cdr.detectChanges();
+    this.ionContent?.scrollToTop(0);
+
+    let landed = false;
+    let pulseAnim: Animation | null = null;
+
+    const flyToDestination = (dest: HTMLElement) => {
+      if (landed) return;
+      landed = true;
+      if (pulseAnim) { pulseAnim.cancel(); pulseAnim = null; }
+
+      const destRect = dest.getBoundingClientRect();
+      const destCS = getComputedStyle(dest);
+
+      // Single-text morph: the outgoing source clone fades out fast, the
+      // wrapper morphs as an empty pill (no text overlap during transit),
+      // and at landing the REAL destination button is unhidden — its CSS
+      // opacity transition handles the text reveal. This avoids the
+      // double-text ghosting that came from cross-fading two cloned text
+      // layers with very different shapes (1-line vs 2-line).
+      const morphEase = 'cubic-bezier(0.32, 0.72, 0, 1)';
+      clone.style.transition = [
+        `left 0.4s ${morphEase} 0.06s`,
+        `top 0.4s ${morphEase} 0.06s`,
+        `width 0.4s ${morphEase} 0.06s`,
+        `height 0.4s ${morphEase} 0.06s`,
+        `border-radius 0.4s ${morphEase} 0.06s`,
+        `padding 0.4s ${morphEase} 0.06s`,
+        `background-color 0.32s ease 0.1s`,
+      ].join(', ');
+
+      requestAnimationFrame(() => {
+        clone.style.left = `${destRect.left}px`;
+        clone.style.top = `${destRect.top}px`;
+        clone.style.width = `${destRect.width}px`;
+        clone.style.height = `${destRect.height}px`;
+        clone.style.backgroundColor = destCS.backgroundColor;
+        clone.style.borderRadius = destCS.borderRadius;
+        clone.style.padding = destCS.padding;
+        outgoing.style.opacity = '0';
+      });
+
+      setTimeout(() => {
+        const finalRect = dest.getBoundingClientRect();
+        clone.style.transition = 'none';
+        clone.style.left = `${finalRect.left}px`;
+        clone.style.top = `${finalRect.top}px`;
+        clone.style.width = `${finalRect.width}px`;
+        clone.style.height = `${finalRect.height}px`;
+
+        requestAnimationFrame(() => {
+          this.journeyCtaHidden = false;
+          this.cdr.detectChanges();
+          clone.style.transition = 'opacity 0.18s ease';
+          clone.style.opacity = '0';
+          setTimeout(() => { if (clone.parentNode) clone.remove(); }, 220);
+        });
+      }, 480);
+    };
+
+    const existing = document.querySelector('.journey-inline-panel .jw-primary-cta-btn') as HTMLElement | null;
+    if (existing) { flyToDestination(existing); return; }
+
+    const panelEl = document.querySelector('.journey-inline-panel');
+    if (!panelEl) {
+      clone.style.opacity = '0';
+      setTimeout(() => { if (clone.parentNode) clone.remove(); }, 250);
+      return;
+    }
+
+    const observer = new MutationObserver(() => {
+      const dest = document.querySelector('.journey-inline-panel .jw-primary-cta-btn') as HTMLElement | null;
+      if (dest) { observer.disconnect(); flyToDestination(dest); }
+    });
+    observer.observe(panelEl, { childList: true, subtree: true });
+
+    setTimeout(() => {
+      if (!landed && clone.parentNode) {
+        pulseAnim = clone.animate([
+          { transform: 'scale(1)', opacity: 1 },
+          { transform: 'scale(1.04)', opacity: 0.85 },
+          { transform: 'scale(1)', opacity: 1 }
+        ], { duration: 1600, iterations: Infinity, easing: 'ease-in-out' });
+      }
+    }, 1000);
+
+    setTimeout(() => {
+      if (!landed) {
+        observer.disconnect();
+        if (pulseAnim) { pulseAnim.cancel(); pulseAnim = null; }
+        clone.style.transition = 'opacity 0.3s ease';
+        clone.style.opacity = '0';
+        setTimeout(() => { if (clone.parentNode) clone.remove(); }, 350);
+      }
+    }, 15000);
+  }
+
+  onJourneyGoBack() {
+    // === FLIP Animation: Inline Journey black pill → Home "View roadmap" ===
+    // We cloneNode the source pill so the initial frame is PIXEL-PERFECT.
+    // Then we transition to match the destination link's computed styles.
+
+    const srcEl = document.querySelector('.journey-inline-panel .jw-primary-cta-btn') as HTMLElement | null;
+    const srcRect = srcEl?.getBoundingClientRect();
+
+    if (!srcEl || !srcRect) {
+      this.showJourneyView = false;
+      this.cdr.detectChanges();
+      return;
+    }
+
+    // Sequential timing: outgoing fades out → wrapper morphs → incoming fades in.
+    const srcCS = getComputedStyle(srcEl);
+
+    const clone = document.createElement('div');
+    Object.assign(clone.style, {
+      position: 'fixed',
+      left: `${srcRect.left}px`,
+      top: `${srcRect.top}px`,
+      width: `${srcRect.width}px`,
+      height: `${srcRect.height}px`,
+      margin: '0',
+      zIndex: '10000',
+      pointerEvents: 'none',
+      transition: 'none',
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      boxSizing: 'border-box',
+      overflow: 'hidden',
+      backgroundColor: srcCS.backgroundColor,
+      borderRadius: srcCS.borderRadius,
+      padding: srcCS.padding,
+    } as Partial<CSSStyleDeclaration>);
+
+    const outgoing = srcEl.cloneNode(true) as HTMLElement;
+    Object.assign(outgoing.style, {
+      position: 'absolute',
+      inset: '0',
+      margin: '0',
+      padding: '0',
+      background: 'transparent',
+      border: 'none',
+      whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      opacity: '1',
+      transition: 'opacity 0.1s ease 0s',
+    } as Partial<CSSStyleDeclaration>);
+    clone.appendChild(outgoing);
+
+    document.body.appendChild(clone);
+
+    this.showJourneyView = false;
+    this.cdr.detectChanges();
+    this.ionContent?.scrollToTop(0);
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const dest = document.querySelector('.content-wrapper app-journey-widget .jw-cta-link') as HTMLElement | null;
+
+        if (dest) {
+          dest.style.transition = 'none';
+          dest.style.opacity = '0';
+          const destRect = dest.getBoundingClientRect();
+          const destCS = getComputedStyle(dest);
+
+          // Single-text morph (see goToJourney for rationale): the outgoing
+          // source clone fades out fast, the wrapper morphs as an empty
+          // pill, and at landing the real destination element fades in.
+          const morphEase = 'cubic-bezier(0.32, 0.72, 0, 1)';
+          clone.style.transition = [
+            `left 0.4s ${morphEase} 0.06s`,
+            `top 0.4s ${morphEase} 0.06s`,
+            `width 0.4s ${morphEase} 0.06s`,
+            `height 0.4s ${morphEase} 0.06s`,
+            `border-radius 0.4s ${morphEase} 0.06s`,
+            `padding 0.4s ${morphEase} 0.06s`,
+            `background-color 0.32s ease 0.1s`,
+          ].join(', ');
+
+          requestAnimationFrame(() => {
+            clone.style.left = `${destRect.left}px`;
+            clone.style.top = `${destRect.top}px`;
+            clone.style.width = `${destRect.width}px`;
+            clone.style.height = `${destRect.height}px`;
+            clone.style.backgroundColor = destCS.backgroundColor;
+            clone.style.borderRadius = destCS.borderRadius;
+            clone.style.padding = destCS.padding;
+            outgoing.style.opacity = '0';
+          });
+
+          setTimeout(() => {
+            const finalRect = dest.getBoundingClientRect();
+            clone.style.transition = 'none';
+            clone.style.left = `${finalRect.left}px`;
+            clone.style.top = `${finalRect.top}px`;
+            clone.style.width = `${finalRect.width}px`;
+            clone.style.height = `${finalRect.height}px`;
+
+            requestAnimationFrame(() => {
+              clone.style.transition = 'opacity 0.18s ease';
+              clone.style.opacity = '0';
+              dest.style.transition = 'opacity 0.18s ease';
+              dest.style.opacity = '1';
+              setTimeout(() => {
+                if (clone.parentNode) clone.remove();
+                dest.style.transition = '';
+                dest.style.opacity = '';
+              }, 220);
+            });
+          }, 480);
+        } else {
+          clone.style.transition = 'opacity 0.3s ease';
+          clone.style.opacity = '0';
+          setTimeout(() => { if (clone.parentNode) clone.remove(); }, 350);
+        }
+      });
+    });
+  }
+
+  openSetGoalFlow() {
+    this.router.navigate(['/tabs/profile'], { queryParams: { editGoal: '1' } });
+  }
+
+  /**
+   * Tapped from the journey-widget unframed-state CTA. Sends the student to
+   * the profile page where the "Add a learning goal" form lives. Same target
+   * as openSetGoalFlow — kept as a separate handler so analytics stays clean.
+   */
+  openBuildPlanFlow() {
+    this.router.navigate(['/tabs/profile'], { queryParams: { editGoal: '1', from: 'unframed' } });
+  }
+
+  /**
+   * Tapped from the journey-widget paused-state CTA. Resumes the paused plan
+   * in place and re-renders the active home widget on success.
+   */
+  async resumePausedPlan() {
+    const language = this.journeyLanguageLabel || this.currentUser?.onboardingData?.languages?.[0];
+    if (!language) {
+      this.openSetGoalFlow();
+      return;
+    }
+    this.learningPlanService.resumePlan(language).pipe(take(1)).subscribe({
+      next: (res: any) => {
+        if (res?.success && res.plan) {
+          this.applyLearningPlan(res.plan, res.entitlements || null);
+        }
+      },
+      error: (err) => {
+        console.error('Failed to resume plan', err);
+      }
     });
   }
 
@@ -2527,6 +3129,33 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
 
   navigateToForum(): void {
     this.openForumModal();
+  }
+
+  /**
+   * Open the spaced-repetition review deck. Single source of truth for
+   * the Practice quick action (mobile + desktop).
+   */
+  navigateToPractice(): void {
+    this.router.navigate(['/review-deck']);
+  }
+
+  /**
+   * Refresh the "N due" badge for the Practice quick action.
+   * Called on home init and after returning from the review deck.
+   */
+  loadPracticeDueCount(): void {
+    if (!this.isStudentUser) {
+      this.practiceDueCount = 0;
+      return;
+    }
+    this.reviewDeckService.getNeedsReviewCount().subscribe({
+      next: (res) => {
+        this.practiceDueCount = res?.count || 0;
+      },
+      error: () => {
+        this.practiceDueCount = 0;
+      }
+    });
   }
 
   openForumModal(): void {
@@ -5159,7 +5788,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   }
 
   private syncThisWeekMobileNothingYet(): void {
-    if (!this.isTutorUser || this.isLoadingLessons) {
+    if (!(this.isTutorUser || this.isStudentUser) || this.isLoadingLessons) {
       this.thisWeekMobileShowNothingYet = false;
       this.thisWeekAvatars = [];
       this.thisWeekLessonCount = 0;
@@ -5193,6 +5822,16 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         key = 'class_' + ((lesson as any).className || lesson.subject || 'group');
         name = (lesson as any).className || lesson.subject || 'Group Class';
         avatar = (lesson as any).classData?.thumbnail || null;
+      } else if (this.isStudentUser) {
+        const tutor = lesson.tutorId as any;
+        const tutorId = typeof tutor === 'string' ? tutor : tutor?._id || tutor?.id || 'unknown';
+        key = String(tutorId);
+        name = tutor && typeof tutor === 'object'
+          ? this.formatTutorDisplayName(tutor)
+          : 'Tutor';
+        avatar = tutor && typeof tutor === 'object'
+          ? (tutor.picture || tutor.profilePicture || null)
+          : null;
       } else {
         const student = lesson.studentId as any;
         const studentId = typeof student === 'string' ? student : student?._id || student?.id || 'unknown';
@@ -5228,9 +5867,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     }
   }
 
-  /** Mobile tutor home: headline + subtitle match desktop welcome (not MOBILE_TUTOR_DASHBOARD). */
+  /** Mobile home: headline + subtitle (tutor dashboard layout — students share the same chrome). */
   private syncTutorMobileWelcomeSection(): void {
-    if (!this.isTutorUser || !this.isMobile) {
+    if (!this.isMobile || (!this.isTutorUser && !this.isStudentUser)) {
       this.tutorMobileWelcomeTitle = '';
       this.tutorMobileWelcomeSubtitle = '';
       return;
@@ -5244,11 +5883,16 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       this.tutorMobileWelcomeSubtitle = '';
       return;
     }
+    if (this.isStudentUser) {
+      // Invitation / default lines are rendered in the template (student branch).
+      this.tutorMobileWelcomeSubtitle = '';
+      return;
+    }
     this.tutorMobileWelcomeSubtitle = this.getWelcomeMessage();
   }
 
   private syncTutorMobileUpNextCoverUrl(): void {
-    if (!this.isMobile || !this.isTutorUser) {
+    if (!this.isMobile || (!this.isTutorUser && !this.isStudentUser)) {
       this.tutorMobileUpNextCoverUrl = null;
       return;
     }
@@ -5320,6 +5964,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   }
 
   getEmptyStateTitle(): string {
+    if (this.isStudentUser) {
+      return this.translateService.instant('HOME.STUDENT_HOME_SCHEDULE_EMPTY_TITLE');
+    }
     if (!this.hadLessonsToday) {
       return this.translateService.instant('HOME.EMPTY_TITLE_CLEAR');
     }
@@ -5327,6 +5974,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   }
 
   getEmptyStateMessage(): string {
+    if (this.isStudentUser) {
+      return this.translateService.instant('HOME.STUDENT_HOME_SCHEDULE_EMPTY_MSG');
+    }
     if (!this.hasAvailability) {
       return this.translateService.instant('HOME.EMPTY_MSG_NO_AVAILABILITY');
     }
@@ -6184,7 +6834,7 @@ navigateToLessons() {
     if (this.thisWeekSingleLesson?._id) {
       this.router.navigate(['/tabs/lessons', this.thisWeekSingleLesson._id]);
     } else {
-      this.router.navigate(['/tabs/tutor-calendar']);
+      this.router.navigate([this.isStudentUser ? '/tabs/lessons' : '/tabs/tutor-calendar']);
     }
   }
 
@@ -9922,9 +10572,14 @@ navigateToLessons() {
   /**
    * Handle tutor note saved event
    */
-  async onTutorNoteSaved(noteData: { quickImpression: string; text: string; homework: string }) {
+  async onTutorNoteSaved(noteData: {
+    quickImpression: string;
+    text: string;
+    homework: string;
+    capturedCorrections?: Array<{ original: string; corrected: string; explanation?: string }>;
+  }) {
     if (!this.tutorNoteModalData) return;
-    
+
     try {
       await firstValueFrom(
         this.lessonService.saveTutorNote(this.tutorNoteModalData.lessonId, noteData)

@@ -12,6 +12,7 @@ import { formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
 import { CardManagementModalComponent } from '../components/card-management-modal/card-management-modal.component';
 import { VocabularyService, VocabEntry, GoalEntry } from '../services/vocabulary.service';
 import { ReviewDeckService } from '../services/review-deck.service';
+import { LearningPlanService } from '../services/learning-plan.service';
 
 interface LessonInfo {
   _id: string;
@@ -118,6 +119,103 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
   pollCount = 0;
   maxPollAttempts = 60;
 
+  // Quick-summary cards are deliberately *qualitative* by default to
+  // avoid making each lesson feel like an exam. Students can opt into
+  // raw numbers via this toggle. Per-mount only — qualitative is always
+  // the first read, no persisted preference.
+  showAnalysisDetails = false;
+
+  /** Pre-computed chips for the quick summary block. Built once when
+   *  the analysis lands so the template never calls a function — see
+   *  AGENTS.md "no functions in templates" rule. */
+  quickSummaryChips: Array<{
+    key: 'level' | 'vocabulary' | 'grammar';
+    label: string;          // localized field name
+    qualitative: string;    // "Strong", "Solid", "B1", "142 words"
+    detail: string;         // raw value for the "Show details" toggle
+    tone: 'neutral' | 'strong' | 'solid' | 'building' | 'needs_work';
+  }> = [];
+
+  toggleAnalysisDetails() {
+    this.showAnalysisDetails = !this.showAnalysisDetails;
+  }
+
+  /** Map a 0–100 score → student-facing qualitative bucket + tone. */
+  private qualitativeFromScore(score: number | null | undefined): { label: string; tone: 'neutral' | 'strong' | 'solid' | 'building' | 'needs_work' } {
+    if (score === null || score === undefined || !Number.isFinite(score)) {
+      return { label: '—', tone: 'neutral' };
+    }
+    if (score >= 80) return { label: 'Strong',     tone: 'strong' };
+    if (score >= 60) return { label: 'Solid',      tone: 'solid' };
+    if (score >= 40) return { label: 'Building',   tone: 'building' };
+    return                    { label: 'Needs work', tone: 'needs_work' };
+  }
+
+  private rebuildQuickSummary() {
+    if (!this.analysis) { this.quickSummaryChips = []; return; }
+    const a: any = this.analysis;
+
+    const level: string = a.overallAssessment?.proficiencyLevel || 'N/A';
+    const vocabCount: number = a.vocabularyAnalysis?.uniqueWordCount || 0;
+    const grammarScore: number | null =
+      typeof a.grammarAnalysis?.accuracyScore === 'number' ? a.grammarAnalysis.accuracyScore : null;
+
+    const grammarQ = this.qualitativeFromScore(grammarScore);
+
+    this.quickSummaryChips = [
+      {
+        key: 'level',
+        label: 'Level',
+        qualitative: level,
+        detail: level,
+        tone: 'neutral'
+      },
+      {
+        key: 'vocabulary',
+        label: 'Vocabulary',
+        qualitative: `${vocabCount} word${vocabCount === 1 ? '' : 's'}`,
+        detail: `${vocabCount}`,
+        tone: 'neutral'
+      },
+      {
+        key: 'grammar',
+        label: 'Grammar',
+        qualitative: grammarQ.label,
+        detail: grammarScore === null ? '—' : `${Math.round(grammarScore)}%`,
+        tone: grammarQ.tone
+      }
+    ];
+  }
+
+  // Plan-update card (Phase 3 of the better-than-toast UX). Surfaces
+  // freshly-fired pendingTransitions flags right after the lesson, with
+  // intent-aligned CTAs. Acked here so the journey-page toast doesn't
+  // re-fire later. Source: backend/services/learningPlanService.js.
+  planUpdate: {
+    kind: 'decay_warning' | 'human_intervention' | 'phase_split';
+    title: string;
+    body: string;
+    ctaLabel: string;
+    ctaAction: 'message_tutor' | 'open_journey' | 'dismiss';
+  } | null = null;
+  private planUpdateLanguage: string | null = null;
+  private planUpdateAcked = false;
+
+  // "Want a plan?" soft prompt for students learning at their own pace or
+  // with a paused plan. Backend gates eligibility (≥ 3 lessons since the
+  // plan went unframed/paused, dismissal throttled to 30 days). Premium
+  // users see a softer copy ("Premium still works without a plan — but a
+  // roadmap can sharpen each lesson") instead of the marketing pitch.
+  // Copy is precomputed (no template fns / pipes per AGENTS.md).
+  softPlanPrompt: {
+    mode: 'unframed' | 'paused';
+    isPremium: boolean;
+    lessonsSince: number;
+    title: string;
+    body: string;
+    ctaLabel: string;
+  } | null = null;
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
@@ -130,7 +228,8 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     private modalCtrl: ModalController,
     private vocabularyService: VocabularyService,
     private reviewDeckService: ReviewDeckService,
-    private location: Location
+    private location: Location,
+    private learningPlanService: LearningPlanService
   ) {}
 
   async ngOnInit() {
@@ -150,9 +249,182 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
       } else {
         console.log('⏭️ POST-LESSON-STUDENT: Skipping analysis polling (AI disabled or trial lesson)');
       }
+
+      // Plan-update card (Phase 3 of the better-than-toast UX). Fire-and-forget.
+      // Trial lessons don't update the learning plan, so skip there.
+      if (!this.isTrialLesson) {
+        this.loadPlanUpdate();
+      }
     } else {
       console.error('❌ POST-LESSON-STUDENT: No lesson ID provided!');
     }
+  }
+
+  /**
+   * Phase 3 of the better-than-toast UX. After every non-trial lesson we
+   * check the student's learning plan for unacknowledged transition flags
+   * (decay warning, human-intervention suggested, phase split). When set,
+   * we surface a card on this recap with intent-aligned copy + CTA, and
+   * acknowledge the flag so the journey-page toast doesn't re-fire later.
+   *
+   * For AI-enabled flows the flag is set by `updatePlanAfterLesson` before
+   * we land here, so it's typically already set on first read. For
+   * tutor-feedback-only flows the tutor still needs to submit feedback,
+   * so the card may not appear immediately — the journey banner handles
+   * those cases instead.
+   */
+  private async loadPlanUpdate() {
+    try {
+      const user = this.userService.getCurrentUserValue();
+      const language = user?.onboardingData?.languages?.[0];
+      if (!language) return;
+
+      this.planUpdateLanguage = language;
+
+      const res: any = await firstValueFrom(this.learningPlanService.getPlan(language));
+      if (!res?.success || !res.plan) return;
+
+      // "Want a plan?" soft prompt — only for plans without a structured
+      // roadmap. Server attaches `softPlanPrompt.eligible` when ≥ 3 lessons
+      // have happened since the plan went unframed / paused and the
+      // 30-day dismissal throttle has elapsed.
+      if (
+        (res.plan.status === 'unframed' || res.plan.status === 'paused') &&
+        res.plan.softPlanPrompt?.eligible
+      ) {
+        const mode: 'unframed' | 'paused' = res.plan.status;
+        const isPremium = res.entitlements?.tier === 'premium';
+        const title = mode === 'paused'
+          ? 'Ready to pick your plan back up?'
+          : 'Want a roadmap?';
+        const body = mode === 'paused'
+          ? (isPremium
+              ? 'Resuming brings back your phases and tutor focus — premium analysis keeps running either way.'
+              : 'You\'ve kept showing up. Resuming your plan picks up right where you left off.')
+          : (isPremium
+              ? 'Premium is doing its job — but a roadmap helps the AI tune each lesson to where you\'re going next.'
+              : 'You\'ve taken a few lessons at your own pace. A short roadmap can sharpen each session — same lessons, with a clearer next step.');
+        const ctaLabel = mode === 'paused' ? 'Resume my plan' : 'Build me a plan';
+
+        this.softPlanPrompt = {
+          mode,
+          isPremium,
+          lessonsSince: res.plan.softPlanPrompt.lessonsSince || 0,
+          title,
+          body,
+          ctaLabel
+        };
+      }
+
+      const flags = res.plan.pendingTransitions || {};
+      // Order matters — we surface the highest-urgency flag first, and
+      // ack only that one so a follow-up plays its part on the next lesson.
+      if (flags.humanInterventionSuggested) {
+        this.planUpdate = {
+          kind: 'human_intervention',
+          title: 'A check-in might help',
+          body: 'Your last few lessons have been bumpy. Talking to your tutor about your plan can get you back on track quickly.',
+          ctaLabel: 'Message your tutor',
+          ctaAction: 'message_tutor'
+        };
+      } else if (flags.decayWarning) {
+        this.planUpdate = {
+          kind: 'decay_warning',
+          title: 'The last few lessons were tough',
+          body: 'Your tutor will tailor the next session to help you catch up. No action needed — just keep showing up.',
+          ctaLabel: 'Got it',
+          ctaAction: 'dismiss'
+        };
+      } else if (flags.phaseSplit) {
+        this.planUpdate = {
+          kind: 'phase_split',
+          title: 'We adjusted your plan',
+          body: 'This phase was harder than expected, so we split it in two — same total length, more time to master it.',
+          ctaLabel: 'See the change',
+          ctaAction: 'open_journey'
+        };
+      }
+
+      // Eager ack — once shown, clear the backend flag so the journey-page
+      // toast doesn't replay it. The user may dismiss without reading,
+      // but the recap is a high-attention surface so this is the right call.
+      if (this.planUpdate) {
+        this.ackPlanUpdate(); // fire and forget
+      }
+    } catch (err) {
+      // Non-blocking — just no card.
+      console.warn('[PostLesson] Plan-update card load failed:', err);
+    }
+  }
+
+  private ackPlanUpdate() {
+    if (this.planUpdateAcked || !this.planUpdate || !this.planUpdateLanguage) return;
+    this.planUpdateAcked = true;
+    const map: Record<string, 'decayWarning' | 'humanInterventionSuggested' | 'phaseSplit'> = {
+      decay_warning: 'decayWarning',
+      human_intervention: 'humanInterventionSuggested',
+      phase_split: 'phaseSplit'
+    };
+    const flag = map[this.planUpdate.kind];
+    if (!flag) return;
+    this.learningPlanService.ackTransition(this.planUpdateLanguage, flag).subscribe({
+      next: () => {},
+      error: () => { this.planUpdateAcked = false; }
+    });
+  }
+
+  /** Card CTA tap. Routes to the right surface based on `ctaAction`. */
+  onPlanUpdateCta() {
+    if (!this.planUpdate) return;
+    const action = this.planUpdate.ctaAction;
+    this.dismissPlanUpdate();
+    if (action === 'message_tutor' && this.tutor?._id) {
+      this.router.navigate(['/messages'], { queryParams: { tutorId: this.tutor._id } });
+    } else if (action === 'open_journey') {
+      this.router.navigate(['/tabs/home/journey']);
+    }
+    // 'dismiss' → no navigation, just close the card.
+  }
+
+  /** Inline close button on the card. Already acked at load time. */
+  dismissPlanUpdate() {
+    this.planUpdate = null;
+  }
+
+  /** "Want a plan?" CTA — paused plans resume in place; unframed plans
+   *  jump to the profile to add a goal (which then promotes the plan). */
+  onSoftPlanPromptAccept() {
+    if (!this.softPlanPrompt || !this.planUpdateLanguage) return;
+    const mode = this.softPlanPrompt.mode;
+    this.softPlanPrompt = null;
+
+    if (mode === 'paused') {
+      this.learningPlanService.resumePlan(this.planUpdateLanguage).subscribe({
+        next: () => {
+          this.toastCtrl.create({
+            message: 'Your plan is back. Welcome back.',
+            duration: 2500, position: 'top'
+          }).then(t => t.present());
+        },
+        error: () => {}
+      });
+      return;
+    }
+
+    this.router.navigate(['/tabs/profile'], { queryParams: { editGoal: '1', from: 'post_lesson' } });
+  }
+
+  /** Dismiss the soft prompt (server-throttled for 30 days). */
+  onSoftPlanPromptDismiss() {
+    if (!this.softPlanPrompt || !this.planUpdateLanguage) {
+      this.softPlanPrompt = null;
+      return;
+    }
+    this.softPlanPrompt = null;
+    this.learningPlanService.dismissSoftPlanPrompt(this.planUpdateLanguage).subscribe({
+      next: () => {},
+      error: () => {}
+    });
   }
 
   private async ensureUserLoaded(): Promise<void> {
@@ -269,6 +541,7 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
       if (status === 'completed') {
         this.analysis = response.analysis;
         this.analysisReady = true;
+        this.rebuildQuickSummary();
         if (this.pollingInterval) {
           clearInterval(this.pollingInterval);
         }

@@ -26,6 +26,7 @@ import { Haptics, NotificationType } from '@capacitor/haptics';
 import { Browser } from '@capacitor/browser';
 import { environment } from '../../environments/environment';
 import { TutorFeedbackService } from '../services/tutor-feedback.service';
+import { LearningPlanService, LearningPlanSummary } from '../services/learning-plan.service';
 import { getHoursInTz, getMinutesInTz, formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
 // Performance pipes
 import { EventsForDayPipe } from './pipes/events-for-day.pipe';
@@ -73,6 +74,10 @@ interface TimelineEntry {
   capacity?: number;
   id?: string; // Lesson ID or Class ID
   isLesson?: boolean; // True if this is a 1:1 lesson
+  // Plan-context fields used by the tiny phase/focus chip on the
+  // upcoming-lesson card. Populated post-build via loadPlanChipsForTimeline.
+  studentId?: string;
+  studentLanguage?: string;
   isGoogleCalendar?: boolean;
   thumbnail?: string; // Thumbnail image for classes
 }
@@ -265,6 +270,13 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   mobileTimeline: TimelineEntry[] = [];
   mobileTimelineEvents: TimelineEntry[] = [];
   isLoadingMobileData = true;
+
+  // Plan-context chips for upcoming-lesson cards. Keyed by lessonId so the
+  // template can read directly without method calls. Populated lazily from
+  // /api/learning-plan/student/:id/summary; cached at the studentId level
+  // so multiple lessons with the same student incur a single fetch.
+  lessonPlanChips: { [lessonId: string]: { phaseLabel: string; phaseIndex: number; totalPhases: number; focus: string } } = {};
+  private studentPlanSummaryCache = new Map<string, LearningPlanSummary[]>();
 
   // Today summary (computed once per timeline build)
   todaySummaryLessonCount = 0;
@@ -492,7 +504,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     private http: HttpClient,
     private tutorFeedbackService: TutorFeedbackService,
     private translate: TranslateService,
-    private navCtrl: NavController
+    private navCtrl: NavController,
+    private learningPlanService: LearningPlanService
   ) { }
 
   private evaluateViewport() {
@@ -722,6 +735,72 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.mobileAvailabilityBlocks = availabilityBlocks;
 
     this.computeTodaySummary(activeDay, timelineEvents, availabilityBlocks);
+
+    // Fire-and-forget: populate the phase/focus chips for each 1:1 lesson
+    // card. Cached per-student so flipping days is cheap.
+    void this.loadPlanChipsForTimeline();
+  }
+
+  /**
+   * For each upcoming 1:1 lesson in the current mobile timeline, fetch the
+   * student's plan summary and decorate `lessonPlanChips` with phase + focus
+   * data so the card chip renders. No-op for classes / availability / past
+   * lessons. Per-student fetches are cached for the page lifetime.
+   */
+  private async loadPlanChipsForTimeline(): Promise<void> {
+    const lessons = (this.mobileTimelineEvents || []).filter(
+      e => e.isLesson && !e.isPast && !e.isCancelled && e.id && e.studentId && e.studentLanguage
+    );
+    if (!lessons.length) return;
+
+    // Group by studentId so we only hit the summary endpoint once per student.
+    const byStudent = new Map<string, TimelineEntry[]>();
+    for (const lesson of lessons) {
+      const sid = String(lesson.studentId);
+      const list = byStudent.get(sid) || [];
+      list.push(lesson);
+      byStudent.set(sid, list);
+    }
+
+    const tasks: Promise<void>[] = [];
+    for (const [studentId, items] of byStudent) {
+      tasks.push(this.fetchAndApplyPlanChips(studentId, items));
+    }
+    await Promise.all(tasks);
+    this.cdr.markForCheck();
+  }
+
+  private async fetchAndApplyPlanChips(studentId: string, items: TimelineEntry[]): Promise<void> {
+    let summaries = this.studentPlanSummaryCache.get(studentId) || null;
+    if (!summaries) {
+      try {
+        const resp = await this.learningPlanService.getStudentPlanSummary(studentId).toPromise();
+        summaries = resp?.summaries || [];
+        this.studentPlanSummaryCache.set(studentId, summaries);
+      } catch {
+        // 404 = student has no plan yet — that's a valid "no chip" state.
+        this.studentPlanSummaryCache.set(studentId, []);
+        summaries = [];
+      }
+    }
+
+    if (!summaries.length) return;
+
+    for (const item of items) {
+      if (!item.id) continue;
+      const lang = (item.studentLanguage || '').toLowerCase().trim();
+      const match = summaries.find(s => (s.language || '').toLowerCase().trim() === lang)
+        || summaries.find(s => s.status === 'active')
+        || summaries[0];
+      if (!match || !match.currentPhase) continue;
+      const phaseTitle = match.currentPhase.title || `Phase ${match.currentPhaseIndex + 1}`;
+      this.lessonPlanChips[item.id] = {
+        phaseLabel: phaseTitle,
+        phaseIndex: match.currentPhaseIndex + 1,
+        totalPhases: match.totalPhases,
+        focus: (match.nextLessonFocus || '').trim()
+      };
+    }
   }
 
   private computeTodaySummary(day: MobileDayContext, events: TimelineEntry[], availability: TimelineEntry[]) {
@@ -976,13 +1055,17 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       isTrialLesson,
       isClass: isClass || false,
       isOfficeHours: isOfficeHours || false,
-      isCancelled: isCancelled, // Use the local variable that was updated from classesMap
+      isCancelled: isCancelled,
       attendees,
       capacity,
       thumbnail,
       id: extended.lessonId || extended.classId,
       isLesson: isLesson,
-      isGoogleCalendar
+      isGoogleCalendar,
+      // Carried through so the post-build plan-chip loader can match
+      // each timeline entry to the right student plan summary.
+      studentId: isLesson ? (extended.studentId || undefined) : undefined,
+      studentLanguage: isLesson ? (extended.subjectRaw || extended.subject || undefined) : undefined
     };
   }
 
@@ -1033,17 +1116,36 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   };
 
   private gcalWsSub: any = null;
+  private gcalChangedSub: any = null;
 
   ngOnInit() {
     // Listen for lesson cancelled events (from event-details-modal)
     window.addEventListener('lesson-cancelled', this.lessonCancelledHandler);
 
-    // Listen for real-time Google Calendar push updates via WebSocket
+    // Real-time Google Calendar update signal: server emits "something changed"
+    // and the client refetches the window it is currently viewing. We can't rely
+    // on the server pushing us a fixed week's worth of events because the user
+    // may have navigated to a future week — pushing current-week events would
+    // wipe their view. Refetching against `currentWeekStart` always gets the
+    // right window.
+    this.gcalChangedSub = this.websocketService.on('gcal-changed')
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        if (!this.gcalConnected) return;
+        this.gcalLoadingInProgress = false;
+        this.loadGoogleCalendarEvents();
+      });
+
+    // Backward-compat: the old payload-carrying event is still emitted by older
+    // server versions. Treat it as a refresh trigger only — don't trust the
+    // attached events because they are scoped to the server's notion of "this
+    // week" rather than the client's currently-viewed window.
     this.gcalWsSub = this.websocketService.on('gcal-events-updated')
       .pipe(takeUntil(this.destroy$))
-      .subscribe((data: any) => {
-        if (!data?.events || !this.gcalConnected) return;
-        this.mergeGcalWebSocketEvents(data.events);
+      .subscribe(() => {
+        if (!this.gcalConnected) return;
+        this.gcalLoadingInProgress = false;
+        this.loadGoogleCalendarEvents();
       });
 
     // Re-fetch Google Calendar events whenever WebSocket reconnects,
@@ -1494,14 +1596,20 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
             this.gcalSyncEnabled = status.syncEnabled ?? true;
             this.gcalPushToGoogle = status.pushToGoogle ?? true;
             this.gcalLastSyncAt = status.lastSyncAt ? new Date(status.lastSyncAt) : null;
+            this.gcalWatchActive = !!status.watchActive;
             if (this.gcalConnected) {
               this.startGcalPolling();
               if (!this.gcalEventsLoaded) {
                 this.loadGoogleCalendarEvents();
               }
               // Auto-register webhook if not active (e.g. BACKEND_PUBLIC_URL was set after initial connect)
-              if (!(status as any).watchActive) {
+              if (!status.watchActive) {
                 this.userService.registerGoogleCalendarWatch().subscribe({
+                  next: () => {
+                    // Watch is now active; downshift polling to slow rate.
+                    this.gcalWatchActive = true;
+                    this.startGcalPolling();
+                  },
                   error: (err: any) => console.warn('[GCal] Watch registration failed:', err?.error?.error || err.message)
                 });
               }
@@ -1794,7 +1902,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           studentName: studentName,
           studentDisplayName: studentName,
           studentAvatar: student?.picture || student?.avatar || student?.photoUrl,
+          studentId: student?._id || student?.id || (typeof lesson.studentId === 'string' ? lesson.studentId : null),
           subject: subjectWithType,
+          subjectRaw: subject,
           status: lesson.status,
           timeStr: timeStr,
           price: lesson.price,
@@ -2969,7 +3079,14 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   private gcalLoadingInProgress = false;
   private gcalPollInterval: any = null;
   private gcalLastFetchTime = 0;
-  private static readonly GCAL_POLL_MS = 2 * 60 * 1000;
+  private gcalWatchActive = false;
+  // Polling acts as a fallback for the websocket push. When the watch channel
+  // is healthy (server is receiving Google webhooks) we don't need to spam the
+  // backend — Google will tell us about changes in real time. We still poll
+  // slowly as paranoia in case the watch silently dies between status checks.
+  // Without an active watch we poll faster because it's the only refresh path.
+  private static readonly GCAL_POLL_FAST_MS = 2 * 60 * 1000;
+  private static readonly GCAL_POLL_SLOW_MS = 10 * 60 * 1000;
   private static readonly GCAL_DEBOUNCE_MS = 10 * 1000;
 
   connectGoogleCalendar() {
@@ -3218,39 +3335,16 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.loadGoogleCalendarEvents();
   }
 
-  private mergeGcalWebSocketEvents(rawEvents: any[]) {
-    const nonGcalEvents = this.events.filter(e => !(e.extendedProps as any)?.isGoogleCalendar);
-
-    const gcalEvents: EventInput[] = rawEvents
-      .filter((evt: any) => !evt.allDay)
-      .map((evt: any) => ({
-        id: `gcal-${evt.id}`,
-        title: evt.summary || 'Busy',
-        start: new Date(evt.start).toISOString(),
-        end: new Date(evt.end).toISOString(),
-        backgroundColor: '#6b7280',
-        borderColor: '#4b5563',
-        textColor: '#ffffff',
-        classNames: ['calendar-gcal-event'],
-        extendedProps: {
-          isGoogleCalendar: true,
-          summary: evt.summary || 'Busy',
-          type: 'google-calendar'
-        }
-      }));
-
-    this.events = [...nonGcalEvents, ...gcalEvents];
-    this.updateCalendarEvents();
-    this.cdr.detectChanges();
-  }
-
   private startGcalPolling() {
     this.stopGcalPolling();
+    const intervalMs = this.gcalWatchActive
+      ? TutorCalendarPage.GCAL_POLL_SLOW_MS
+      : TutorCalendarPage.GCAL_POLL_FAST_MS;
     this.gcalPollInterval = setInterval(() => {
       if (this.gcalConnected) {
         this.loadGoogleCalendarEvents();
       }
-    }, TutorCalendarPage.GCAL_POLL_MS);
+    }, intervalMs);
   }
 
   private stopGcalPolling() {
@@ -3779,6 +3873,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       this.checkAndLoadMoreData(this.currentWeekStart, weekEnd);
       // Regenerate availability events for the new week
       this.loadAndUpdateCalendarData();
+      // Refetch Google Calendar events for the new week's window. Without this,
+      // the calendar would keep showing whatever week's gcal events were loaded
+      // on first paint, hiding events that exist in the week the user navigated to.
+      this.refreshGcalForVisibleWindow();
     } else {
       // Day view - go back one day
       const newDate = new Date(this.selectedDayForDayView.date);
@@ -3799,6 +3897,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       this.checkAndLoadMoreData(this.currentWeekStart, weekEnd);
       // Regenerate availability events for the new week
       this.loadAndUpdateCalendarData();
+      this.refreshGcalForVisibleWindow();
     } else {
       // Day view - go forward one day
       const newDate = new Date(this.selectedDayForDayView.date);
@@ -3820,10 +3919,20 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       this.updateWeekTitle();
       // Regenerate availability events for today's week
       this.loadAndUpdateCalendarData();
+      this.refreshGcalForVisibleWindow();
     } else {
       // Day view - go to today
       this.updateSelectedDayForDayView(today);
     }
+  }
+
+  // Force a Google Calendar refetch for the currently-visible week, bypassing the
+  // load-once-per-page-load gate but respecting the in-flight guard so rapid
+  // navigation clicks coalesce into a single request.
+  private refreshGcalForVisibleWindow() {
+    if (!this.gcalConnected) return;
+    this.gcalLoadingInProgress = false;
+    this.loadGoogleCalendarEvents();
   }
   
   isToday(date: Date): boolean {

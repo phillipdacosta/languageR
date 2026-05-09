@@ -12,6 +12,7 @@ export interface GoogleCalendarStatus {
   syncEnabled?: boolean;
   pushToGoogle?: boolean;
   lastSyncAt?: string;
+  watchActive?: boolean;
 }
 
 export interface GoogleCalendarEvent {

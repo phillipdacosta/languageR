@@ -2074,6 +2074,19 @@ async function analyzeLesson(transcriptId) {
       // Don't fail the analysis if notes update fails
     }
 
+    // Auto-hydrate the student's review deck with the AI-extracted
+    // corrected excerpts from this lesson. Idempotent + non-blocking.
+    try {
+      const reviewDeckHydration = require('../services/reviewDeckHydrationService');
+      await reviewDeckHydration.hydrateFromAnalysis({
+        analysis,
+        userId: transcript.studentId,
+        language: transcript.language
+      });
+    } catch (deckError) {
+      console.error('⚠️ Review deck hydration failed (non-blocking):', deckError);
+    }
+
     // After analysis is saved, update or create learning plan
     try {
       const LearningPlanModel = require('../models/LearningPlan');

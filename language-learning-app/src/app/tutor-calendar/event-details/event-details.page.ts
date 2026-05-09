@@ -24,7 +24,7 @@ import { ConfirmActionModalComponent } from '../../components/confirm-action-mod
 import { RescheduleLessonModalComponent } from '../../components/reschedule-lesson-modal/reschedule-lesson-modal.component';
 import { formatTimeInTz, formatDateInTz } from '../../shared/timezone.utils';
 import { MaterialService, TutorMaterial } from '../../services/material.service';
-import { LearningPlanService, LearningPlanSummary, GOAL_TYPE_LABELS } from '../../services/learning-plan.service';
+import { LearningPlanService, LearningPlanSummary, GOAL_TYPE_LABELS, LessonPrep } from '../../services/learning-plan.service';
 import { WebSocketService } from '../../services/websocket.service';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Subscription, firstValueFrom } from 'rxjs';
@@ -192,6 +192,27 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   edPlanNextFocus = '';
   edPlanStudentSummary = '';
   edHasPlan = false;
+
+  // Pre-lesson briefing (tutor only) — populated alongside plan summary.
+  // Combines plan + latest analysis + a short deterministic agenda.
+  edPrep: LessonPrep | null = null;
+  edPrepHasContent = false;
+  edPrepMasteryLabel = '';
+  edPrepMasteryPercent = 0;
+  edPrepProficiencyChangeIcon: 'arrow-up-outline' | 'remove-outline' | 'arrow-down-outline' | null = null;
+  edPrepProficiencyChangeLabel = '';
+  edPrepBriefingExpanded = true;
+  // Compact phase pill — surfaced in the briefing header so the tutor
+  // sees the student's current phase without expanding anything.
+  edPrepPhasePillLabel = '';
+  edPrepPhasePillIndex = '';
+  // True when the tutor has never completed a lesson with this student
+  // in this language. Drives the auto-expand + a small badge.
+  edPrepFirstTimePairing = false;
+  // True when the student has personally edited the active phase. Drives
+  // a small "Personalised by student" pill in the briefing header — a
+  // high-signal cue that the framing reflects the student's own priorities.
+  edPrepStudentEdited = false;
 
   // Tip info
   hasTip = false;
@@ -981,6 +1002,22 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         },
         error: () => {}
       });
+
+      // Pre-lesson briefing (mastery + top errors + persistent challenges +
+      // recent excerpts + agenda). Picks the language from the lesson if
+      // present, otherwise from the plan summary above.
+      const briefingLanguage = (this.lesson as any)?.language || (this.lesson as any)?.subject;
+      if (briefingLanguage) {
+        this.learningPlanService.getLessonPrep(this.participantId, briefingLanguage).subscribe({
+          next: (res) => {
+            if (res.success && res.prep) {
+              this.applyLessonPrep(res.prep);
+              this.cdr.detectChanges();
+            }
+          },
+          error: () => {}
+        });
+      }
     }
 
     // Load analysis
@@ -1664,6 +1701,72 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.hasLastSessionContext = true;
     this.lastSessionSummary = ctx.summary;
     this.lastSessionFocus = ctx.recommendedFocus || [];
+  }
+
+  /**
+   * Map the lesson-prep payload onto the briefing UI bindings.
+   * Pure presentation — no fetches.
+   */
+  private applyLessonPrep(prep: LessonPrep) {
+    this.edPrep = prep;
+
+    const phase = prep.plan?.currentPhase;
+    const mastery = phase?.masteryAverage;
+    if (mastery !== null && mastery !== undefined) {
+      this.edPrepMasteryLabel = `Mastery ${mastery}/100`;
+      this.edPrepMasteryPercent = Math.max(0, Math.min(100, mastery));
+    } else {
+      this.edPrepMasteryLabel = '';
+      this.edPrepMasteryPercent = 0;
+    }
+
+    // Phase pill — short label so it fits next to the briefing title.
+    if (phase?.title && prep.plan) {
+      const idx = (prep.plan.currentPhaseIndex ?? 0) + 1;
+      const total = prep.plan.totalPhases ?? 0;
+      this.edPrepPhasePillLabel = phase.title;
+      this.edPrepPhasePillIndex = total ? `${idx}/${total}` : `${idx}`;
+    } else {
+      this.edPrepPhasePillLabel = '';
+      this.edPrepPhasePillIndex = '';
+    }
+
+    this.edPrepStudentEdited = !!phase?.studentEditedAt;
+
+    // First-time pairing → auto-expand briefing so the tutor reads it
+    // before the lesson starts. We only force-expand once on load; the
+    // tutor can collapse it manually if they want to.
+    this.edPrepFirstTimePairing = !!prep.firstTimePairing;
+    if (this.edPrepFirstTimePairing) {
+      this.edPrepBriefingExpanded = true;
+    }
+
+    const change = prep.latestAnalysis?.proficiencyChange;
+    if (change === 'improved') {
+      this.edPrepProficiencyChangeIcon = 'arrow-up-outline';
+      this.edPrepProficiencyChangeLabel = 'Improving';
+    } else if (change === 'declined') {
+      this.edPrepProficiencyChangeIcon = 'arrow-down-outline';
+      this.edPrepProficiencyChangeLabel = 'Slipping';
+    } else if (change === 'maintained') {
+      this.edPrepProficiencyChangeIcon = 'remove-outline';
+      this.edPrepProficiencyChangeLabel = 'Holding steady';
+    } else {
+      this.edPrepProficiencyChangeIcon = null;
+      this.edPrepProficiencyChangeLabel = '';
+    }
+
+    this.edPrepHasContent = !!(
+      prep.agenda?.length ||
+      prep.latestAnalysis?.topErrors?.length ||
+      prep.latestAnalysis?.persistentChallenges?.length ||
+      prep.latestAnalysis?.correctedExcerpts?.length ||
+      mastery !== null
+    );
+  }
+
+  toggleBriefingExpanded() {
+    this.edPrepBriefingExpanded = !this.edPrepBriefingExpanded;
   }
 
   private computeAnalysisProperties() {

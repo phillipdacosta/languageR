@@ -116,10 +116,38 @@ export class ReviewDeckService {
   /**
    * Get items that need review (spaced repetition)
    */
-  getItemsNeedingReview(limit = 10): Observable<{ items: ReviewDeckItem[] }> {
-    const params = new HttpParams().set('limit', limit.toString());
+  getItemsNeedingReview(limit = 10, language?: string): Observable<{ items: ReviewDeckItem[] }> {
+    let params = new HttpParams().set('limit', limit.toString());
+    if (language) params = params.set('language', language);
     const headers = this.userService.getAuthHeadersSync();
     return this.http.get<{ items: ReviewDeckItem[] }>(`${this.apiUrl}/needs-review`, { params, headers });
+  }
+
+  /**
+   * Lightweight count of items currently due — used by the home Practice badge.
+   */
+  getNeedsReviewCount(language?: string): Observable<{ count: number }> {
+    return this.userService.getCurrentUser().pipe(
+      take(1),
+      switchMap(() => {
+        const headers = this.userService.getAuthHeadersSync();
+        let params = new HttpParams();
+        if (language) params = params.set('language', language);
+        return this.http.get<{ count: number }>(`${this.apiUrl}/needs-review/count`, { params, headers });
+      })
+    );
+  }
+
+  /**
+   * Mark item as reviewed with optional quality grade.
+   */
+  markReviewed(id: string, quality: 'again' | 'good' | 'easy' = 'good'): Observable<{ message: string; item: ReviewDeckItem }> {
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.put<{ message: string; item: ReviewDeckItem }>(
+      `${this.apiUrl}/${id}/review`,
+      { quality },
+      { headers }
+    );
   }
 
   /**

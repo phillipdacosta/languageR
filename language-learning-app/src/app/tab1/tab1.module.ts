@@ -28,7 +28,11 @@ import { MobileQuickActionsComponent } from '../components/home/mobile-quick-act
 import { MobileThisWeekComponent } from '../components/home/mobile-this-week.component';
 import { MobilePendingActionsComponent } from '../components/home/mobile-pending-actions.component';
 import { MobileRecentStudentsComponent } from '../components/home/mobile-recent-students.component';
+import { JourneyWidgetComponent } from '../components/home/journey-widget.component';
+import { PremiumWhenUnframedComponent } from '../components/home/premium-when-unframed.component';
 import { MeshGradientBackgroundComponent } from '../components/mesh-gradient-background/mesh-gradient-background.component';
+import { JourneyIntroComponent } from '../journey/journey-intro.component';
+import { JourneyPage } from '../journey/journey.page';
 
 import { Tab1PageRoutingModule } from './tab1-routing.module';
 
@@ -63,7 +67,11 @@ import { Tab1PageRoutingModule } from './tab1-routing.module';
     MobileThisWeekComponent,
     MobilePendingActionsComponent,
     MobileRecentStudentsComponent,
-    MeshGradientBackgroundComponent
+    JourneyWidgetComponent,
+    PremiumWhenUnframedComponent,
+    MeshGradientBackgroundComponent,
+    JourneyIntroComponent,
+    JourneyPage
   ],
   declarations: [Tab1Page]
 })

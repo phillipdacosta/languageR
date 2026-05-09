@@ -5693,6 +5693,80 @@ ion-app.dark {
     &::before { content: '📍'; font-size: 12px; }
   }
 
+  // ── Plan-context chip on lesson cards (tutor view) ───────────────
+  // Single-line strip showing the student's current phase + the next
+  // lesson focus. Reads like a tag, not a button — tap target is the
+  // whole card (which already opens the briefing).
+  .mcal-plan-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: #F0F4FF;
+    border: 1px solid rgba(76, 126, 244, 0.18);
+    border-radius: 10px;
+    font-size: 12px;
+    color: #2B5FD9;
+    line-height: 1.3;
+    min-width: 0;
+  }
+
+  .mcal-plan-chip-icon {
+    font-size: 14px;
+    flex: 0 0 auto;
+    color: #4C7EF4;
+  }
+
+  .mcal-plan-chip-phase {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    flex: 0 1 auto;
+  }
+
+  .mcal-plan-chip-idx {
+    flex: 0 0 auto;
+    font-weight: 700;
+    background: #4C7EF4;
+    color: #fff;
+    border-radius: 6px;
+    padding: 1px 6px;
+    font-size: 10.5px;
+    letter-spacing: 0.02em;
+  }
+
+  .mcal-plan-chip-title {
+    font-weight: 600;
+    color: #1f3a8a;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 140px;
+  }
+
+  .mcal-plan-chip-focus {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    color: #4b5563;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1 1 auto;
+
+    ion-icon { font-size: 12px; color: #f59e0b; flex: 0 0 auto; }
+  }
+
+  .mcal-plan-chip-divider {
+    flex: 0 0 1px;
+    width: 1px;
+    height: 12px;
+    background: rgba(76, 126, 244, 0.25);
+  }
+
   // ── Empty state ──
   .mcal-empty {
     display: flex;
@@ -7433,6 +7507,15 @@ ion-app.dark {
       background: #2c2c2e;
       color: #8e8e93;
     }
+
+    .mcal-plan-chip {
+      background: rgba(76, 126, 244, 0.10);
+      border-color: rgba(76, 126, 244, 0.28);
+      color: #b9ccff;
+    }
+    .mcal-plan-chip-title { color: #dbe5ff; }
+    .mcal-plan-chip-focus { color: #c5c8d0; }
+    .mcal-plan-chip-divider { background: rgba(76, 126, 244, 0.3); }
 
     .mcal-avatar { border-color: #1c1c1e; }
     .mcal-avatar-icon { background: #2c2c2e; }

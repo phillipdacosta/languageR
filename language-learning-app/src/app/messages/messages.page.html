@@ -395,6 +395,22 @@
           </div>
         </div>
 
+        <!-- Tutor → student plan strip (desktop). Renders just below the
+             chat header so it's the first thing the tutor sees when they
+             open the thread. Surface-only: tap the briefing CTA to open
+             the lesson briefing for full context. -->
+        <div class="plan-strip" *ngIf="studentPlanStrip as plan">
+          <div class="plan-strip-row">
+            <ion-icon name="map-outline" class="plan-strip-leading"></ion-icon>
+            <span class="plan-strip-phase-idx">{{ plan.phaseIndex }}/{{ plan.totalPhases }}</span>
+            <span class="plan-strip-phase-title">{{ plan.phaseLabel }}</span>
+          </div>
+          <div class="plan-strip-row plan-strip-row--focus" *ngIf="plan.focus">
+            <ion-icon name="flash-outline"></ion-icon>
+            <span class="plan-strip-focus">{{ plan.focus }}</span>
+          </div>
+        </div>
+
         <div class="chat-messages" #chatContainer>
           <!-- Loading Overlay - covers entire messages area with smooth fade -->
           <div *ngIf="isLoadingMessages" class="loading-overlay">
@@ -984,6 +1000,21 @@
             (click)="openBookLesson(); $event.stopPropagation()">
             <ion-icon name="calendar-outline" slot="icon-only"></ion-icon>
           </ion-button>
+        </div>
+
+        <!-- Tutor → student plan strip (mobile). Same data as the desktop
+             strip; rendered between the mobile chat header and the message
+             list so it sits above the conversation. -->
+        <div class="plan-strip plan-strip--mobile" *ngIf="studentPlanStrip as plan">
+          <div class="plan-strip-row">
+            <ion-icon name="map-outline" class="plan-strip-leading"></ion-icon>
+            <span class="plan-strip-phase-idx">{{ plan.phaseIndex }}/{{ plan.totalPhases }}</span>
+            <span class="plan-strip-phase-title">{{ plan.phaseLabel }}</span>
+          </div>
+          <div class="plan-strip-row plan-strip-row--focus" *ngIf="plan.focus">
+            <ion-icon name="flash-outline"></ion-icon>
+            <span class="plan-strip-focus">{{ plan.focus }}</span>
+          </div>
         </div>
 
         <div class="chat-messages" #chatContainer>

@@ -1429,6 +1429,39 @@ ion-header {
   }
 }
 
+.goal-skip-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 0;
+  color: #555;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 4px;
+  margin-top: 18px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.18s ease;
+
+  ion-icon {
+    font-size: 16px;
+  }
+
+  &:hover {
+    color: #111;
+  }
+}
+
+.goal-skip-help {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #898989;
+  max-width: 360px;
+  line-height: 1.5;
+}
+
 // Level Cards (Step 5)
 .level-cards-list {
   display: flex;

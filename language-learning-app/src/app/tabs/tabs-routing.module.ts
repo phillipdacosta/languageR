@@ -71,6 +71,14 @@ const routes: Routes = [
         loadComponent: () => import('../explore/explore.page').then(m => m.ExplorePage)
       },
       {
+        path: 'home/journey',
+        loadComponent: () => import('../journey/journey.page').then(m => m.JourneyPage)
+      },
+      {
+        path: 'home/upgrade',
+        loadComponent: () => import('../upgrade/upgrade.page').then(m => m.UpgradePage)
+      },
+      {
         path: '',
         redirectTo: 'home',
         pathMatch: 'full'

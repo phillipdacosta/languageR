@@ -1,0 +1,230 @@
+<div
+  class="journey-widget"
+  [class.journey-widget--compact]="variant === 'compact'"
+  [class.journey-widget--full]="variant === 'full'"
+  [class.journey-widget--loading]="state === 'loading'"
+  [class.journey-widget--empty-goal]="state === 'empty-goal'"
+  [class.journey-widget--draft]="state === 'draft'"
+  [class.journey-widget--active]="state === 'active'"
+  [class.journey-widget--completed]="state === 'completed'"
+  [class.journey-widget--unframed]="state === 'unframed'"
+  [class.journey-widget--paused]="state === 'paused'"
+  [attr.role]="state === 'loading' ? null : 'button'"
+  [attr.tabindex]="state === 'loading' ? null : 0"
+  (click)="onCardClick()"
+  (keyup.enter)="onCardClick()">
+
+  <!-- ─────────────────────────────────────────────────────────────
+       COMPACT VARIANT — single line, mirrors the tutor compact
+       earnings card. No body, no focus, no goal anchor.
+       ───────────────────────────────────────────────────────────── -->
+  <ng-container *ngIf="variant === 'compact'">
+    <ng-container *ngIf="state === 'loading'">
+      <div class="jw-skeleton jw-skeleton--pill"></div>
+      <div class="jw-skeleton jw-skeleton--row"></div>
+    </ng-container>
+
+    <ng-container *ngIf="state === 'empty-goal'">
+      <span class="jwc-icon"><ion-icon name="map-outline"></ion-icon></span>
+      <span class="jwc-text">
+        <span class="jwc-eyebrow">{{ 'HOME.JOURNEY_TITLE' | translate }}</span>
+        <span class="jwc-title">{{ 'HOME.JOURNEY_NO_GOAL_TITLE' | translate }}</span>
+      </span>
+      <ion-icon class="jwc-chevron" name="chevron-forward-outline"></ion-icon>
+    </ng-container>
+
+    <ng-container *ngIf="state === 'unframed'">
+      <span class="jwc-icon"><ion-icon name="leaf-outline"></ion-icon></span>
+      <span class="jwc-text">
+        <span class="jwc-eyebrow">{{ 'HOME.JOURNEY_TITLE' | translate }}</span>
+        <span class="jwc-title">{{ 'HOME.JOURNEY_UNFRAMED_COMPACT' | translate }}</span>
+      </span>
+      <ion-icon class="jwc-chevron" name="chevron-forward-outline"></ion-icon>
+    </ng-container>
+
+    <ng-container *ngIf="state === 'paused'">
+      <span class="jwc-icon"><ion-icon name="pause-circle-outline"></ion-icon></span>
+      <span class="jwc-text">
+        <span class="jwc-eyebrow">{{ 'HOME.JOURNEY_TITLE' | translate }}</span>
+        <span class="jwc-title">{{ 'HOME.JOURNEY_PAUSED_COMPACT' | translate }}</span>
+      </span>
+      <ion-icon class="jwc-chevron" name="chevron-forward-outline"></ion-icon>
+    </ng-container>
+
+    <ng-container *ngIf="state === 'draft' || state === 'active' || state === 'completed'">
+      <span class="jwc-pill">
+        <ng-container *ngIf="state !== 'completed'">
+          {{ 'HOME.JOURNEY_PHASE_OF' | translate:{ current: currentPhaseIndex + 1, total: phaseNodes.length } }}
+        </ng-container>
+        <ng-container *ngIf="state === 'completed'">
+          {{ 'HOME.JOURNEY_COMPLETED_PILL' | translate }}
+        </ng-container>
+      </span>
+      <span class="jwc-text">
+        <span class="jwc-eyebrow">{{ 'HOME.JOURNEY_TITLE' | translate }}</span>
+        <span class="jwc-title">{{ phaseTitle || ('HOME.JOURNEY_GETTING_STARTED' | translate) }}</span>
+      </span>
+      <ion-icon class="jwc-chevron" name="chevron-forward-outline"></ion-icon>
+    </ng-container>
+  </ng-container>
+
+  <!-- ─────────────────────────────────────────────────────────────
+       FULL VARIANT — rich card (home grid + Journey page hero).
+       ───────────────────────────────────────────────────────────── -->
+  <ng-container *ngIf="variant === 'full'">
+
+    <ng-container *ngIf="state === 'loading'">
+      <div class="jw-skeleton jw-skeleton--pill"></div>
+      <div class="jw-skeleton jw-skeleton--row"></div>
+      <div class="jw-skeleton jw-skeleton--title"></div>
+      <div class="jw-skeleton jw-skeleton--line"></div>
+    </ng-container>
+
+    <ng-container *ngIf="state === 'empty-goal'">
+      <div class="jw-empty-icon" aria-hidden="true">
+        <ion-icon name="map-outline"></ion-icon>
+      </div>
+      <h3 class="jw-empty-title">{{ 'HOME.JOURNEY_NO_GOAL_TITLE' | translate }}</h3>
+      <p class="jw-empty-body">{{ 'HOME.JOURNEY_NO_GOAL_BODY' | translate }}</p>
+      <span class="jw-empty-cta">
+        {{ 'HOME.JOURNEY_SET_GOAL' | translate }}
+        <ion-icon name="arrow-forward-outline"></ion-icon>
+      </span>
+    </ng-container>
+
+    <!-- ───────────────────────────────────────────────────────────
+         UNFRAMED — student is learning at their own pace.
+         No phases, no progress bar — just a calm landing card with
+         a single "Build me a plan" CTA.
+         ─────────────────────────────────────────────────────────── -->
+    <ng-container *ngIf="state === 'unframed'">
+      <div class="jw-empty-icon" aria-hidden="true">
+        <ion-icon name="leaf-outline"></ion-icon>
+      </div>
+      <h3 class="jw-empty-title">{{ 'HOME.JOURNEY_UNFRAMED_TITLE' | translate }}</h3>
+      <p class="jw-empty-body">
+        <ng-container *ngIf="isPremium">
+          {{ 'HOME.JOURNEY_UNFRAMED_BODY_PREMIUM' | translate }}
+        </ng-container>
+        <ng-container *ngIf="!isPremium">
+          {{ 'HOME.JOURNEY_UNFRAMED_BODY_FREE' | translate }}
+        </ng-container>
+      </p>
+      <span class="jw-empty-cta">
+        {{ 'HOME.JOURNEY_UNFRAMED_CTA' | translate }}
+        <ion-icon name="arrow-forward-outline"></ion-icon>
+      </span>
+    </ng-container>
+
+    <!-- ───────────────────────────────────────────────────────────
+         PAUSED — student paused an existing plan. Single "Resume"
+         CTA. No progress is shown to avoid implying decay.
+         ─────────────────────────────────────────────────────────── -->
+    <ng-container *ngIf="state === 'paused'">
+      <div class="jw-empty-icon" aria-hidden="true">
+        <ion-icon name="pause-circle-outline"></ion-icon>
+      </div>
+      <h3 class="jw-empty-title">{{ 'HOME.JOURNEY_PAUSED_TITLE' | translate }}</h3>
+      <p class="jw-empty-body">{{ 'HOME.JOURNEY_PAUSED_BODY' | translate }}</p>
+      <span class="jw-empty-cta">
+        {{ 'HOME.JOURNEY_PAUSED_CTA' | translate }}
+        <ion-icon name="arrow-forward-outline"></ion-icon>
+      </span>
+    </ng-container>
+
+    <ng-container *ngIf="state === 'draft' || state === 'active' || state === 'completed'">
+      <!-- Header pills: phase pill + premium chip (no misleading "Draft" tag) -->
+      <div class="jw-header">
+        <span class="jw-phase-pill" *ngIf="phaseNodes.length">
+          <img src="assets/journey-phase.png" alt="" class="jw-phase-pill-icon" />
+          <ng-container *ngIf="state !== 'completed'">
+            {{ 'HOME.JOURNEY_PHASE_OF' | translate:{ current: currentPhaseIndex + 1, total: phaseNodes.length } }}
+          </ng-container>
+          <ng-container *ngIf="state === 'completed'">
+            {{ 'HOME.JOURNEY_COMPLETED_PILL' | translate }}
+          </ng-container>
+        </span>
+        <span class="jw-premium-chip" *ngIf="isPremium" aria-label="Premium plan">
+          <ion-icon name="sparkles-outline"></ion-icon>
+          {{ 'HOME.JOURNEY_PREMIUM_CHIP' | translate }}
+        </span>
+      </div>
+
+      <!-- Big editorial title -->
+      <h3 class="jw-title">{{ phaseTitle || ('HOME.JOURNEY_GETTING_STARTED' | translate) }}</h3>
+
+      <!-- Phase progress: header row + thin bar (always rendered for layout consistency) -->
+      <div class="jw-progress">
+        <div class="jw-progress-row">
+          <span class="jw-progress-label">{{ 'HOME.JOURNEY_PHASE_PROGRESS' | translate }}</span>
+          <span class="jw-progress-value" [class.jw-progress-value--ready]="masteryReady">
+            {{ phaseProgressRightLabel }}
+          </span>
+        </div>
+        <div class="jw-progress-bar">
+          <div
+            class="jw-progress-fill"
+            [class.jw-progress-fill--ready]="masteryReady"
+            [style.width.%]="phaseProgressPercent">
+          </div>
+        </div>
+      </div>
+
+      <!-- Next lesson focus — separated by hairline -->
+      <div class="jw-focus" *ngIf="nextLessonFocus && state !== 'completed'">
+        <span class="jw-focus-icon-wrap" aria-hidden="true">
+          <img src="assets/journey-focus.png" alt="" class="jw-focus-icon-img" />
+        </span>
+        <div class="jw-focus-text">
+          <span class="jw-focus-label">{{ 'HOME.JOURNEY_NEXT_FOCUS' | translate }}</span>
+          <span class="jw-focus-value">{{ nextLessonFocus }}</span>
+        </div>
+      </div>
+
+      <!-- Draft hint — only when there's nothing else to show. Tier-aware so
+           free students aren't promised AI tuning they don't get. -->
+      <p class="jw-body-summary jw-body-summary--draft"
+         *ngIf="state === 'draft' && !nextLessonFocus">
+        <ng-container *ngIf="isPremium">
+          {{ 'HOME.JOURNEY_DRAFT_BODY_PREMIUM' | translate }}
+        </ng-container>
+        <ng-container *ngIf="!isPremium">
+          {{ 'HOME.JOURNEY_DRAFT_BODY_FREE' | translate }}
+        </ng-container>
+      </p>
+
+      <!-- Goal anchor chip -->
+      <div class="jw-goal" *ngIf="goalLabel">
+        <img src="assets/journey-goal.png" alt="" class="jw-goal-icon-img" />
+        <span class="jw-goal-label">{{ 'HOME.JOURNEY_GOAL' | translate }}:</span>
+        <span class="jw-goal-value">{{ goalLabel }}</span>
+      </div>
+
+      <!-- Footer CTA, separated by hairline. Hidden on surfaces that already
+           ARE the roadmap (e.g. /tabs/home/journey hero). -->
+      <div class="jw-cta-row" *ngIf="!hideRoadmapCta">
+        <span class="jw-cta-link">
+          {{ 'HOME.JOURNEY_VIEW_ROADMAP' | translate }}
+          <ion-icon name="arrow-forward-outline"></ion-icon>
+        </span>
+      </div>
+
+      <!-- Smart adaptive primary CTA — bottom-right of the card. Mirrors the
+           "Withdraw Funds" black pill on the earnings card. Shown only on
+           the journey page itself (when hideRoadmapCta=true and a label is
+           provided by the host). -->
+      <div class="jw-primary-cta-row" *ngIf="hideRoadmapCta && primaryCtaLabel">
+        <button
+          type="button"
+          class="jw-primary-cta-btn"
+          (click)="$event.stopPropagation(); primaryCtaTap.emit()">
+          <span class="jw-primary-cta-content">
+            <span class="jw-primary-cta-label">{{ primaryCtaLabel }}</span>
+            <span class="jw-primary-cta-sub" *ngIf="primaryCtaSubLabel">{{ primaryCtaSubLabel }}</span>
+          </span>
+          <ion-icon *ngIf="primaryCtaIcon" [name]="primaryCtaIcon"></ion-icon>
+        </button>
+      </div>
+    </ng-container>
+  </ng-container>
+</div>

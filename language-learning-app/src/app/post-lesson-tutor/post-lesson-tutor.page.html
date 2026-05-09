@@ -208,6 +208,44 @@
         </div>
       </div>
 
+      <!-- Captured corrections — feed student's spaced-repetition deck -->
+      <div class="corrections-section">
+        <div class="corrections-section-header">
+          <div>
+            <h3 class="corrections-section-title">Capture corrections <span class="opt">(Optional)</span></h3>
+            <p class="corrections-section-sub">Each becomes a flashcard in your student's daily review.</p>
+          </div>
+        </div>
+
+        <div class="corrections-section-list" *ngIf="capturedCorrections.length">
+          <div class="correction-row" *ngFor="let c of capturedCorrections; let i = index; trackBy: trackByIndex">
+            <div class="correction-row-fields">
+              <ion-input
+                [(ngModel)]="c.original"
+                placeholder="Student said…"
+                fill="outline"></ion-input>
+              <ion-input
+                [(ngModel)]="c.corrected"
+                placeholder="Should be…"
+                fill="outline"></ion-input>
+              <ion-input
+                [(ngModel)]="c.explanation"
+                placeholder="Why (optional)"
+                fill="outline"
+                class="correction-input--why"></ion-input>
+            </div>
+            <button type="button" class="correction-remove" (click)="removeCorrectionRow(i)" aria-label="Remove correction">
+              <ion-icon name="close-outline"></ion-icon>
+            </button>
+          </div>
+        </div>
+
+        <button type="button" class="correction-add" (click)="addCorrectionRow()">
+          <ion-icon name="add-outline"></ion-icon>
+          <span>Add a correction</span>
+        </button>
+      </div>
+
       <!-- Learning Plan Override (optional) -->
       <div class="plan-override-section" *ngIf="hasActivePlan">
         <div class="plan-override-header" (click)="showPlanOverride = !showPlanOverride">

@@ -127,6 +127,12 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   goalTimeline: string = 'no_rush';
   goalTargetDate: string = '';
 
+  /** When true, the student opted to skip the goal/level/timeline steps and
+   *  start with an unframed plan ("I'll start by trying a lesson"). Backend
+   *  creates a thin shell plan automatically since `learningGoal` is omitted
+   *  from the onboarding payload. */
+  skipGoalSetup: boolean = false;
+
   goalTypeOptions = [
     { value: 'conversational', label: 'Become conversational', icon: 'chatbubbles-outline', description: 'Hold natural conversations with native speakers' },
     { value: 'exam_prep', label: 'Prepare for an exam', icon: 'school-outline', description: 'DELF, DELE, JLPT, or other certification' },
@@ -586,14 +592,20 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   nextStep() {
-    // Validate current step before proceeding
     if (this.currentStep === 1) {
       if (!this.firstName.trim() || !this.lastName.trim()) {
         alert('Please enter your first and last name');
         return;
       }
     }
-    
+
+    // "Learn at my own pace" path: from the goal step, jump straight to the
+    // last step (preview button visibility is keyed off currentStep === totalSteps).
+    if (this.currentStep === 4 && this.skipGoalSetup) {
+      this.currentStep = this.totalSteps;
+      return;
+    }
+
     if (this.currentStep < this.totalSteps) {
       this.currentStep++;
     }
@@ -654,9 +666,24 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
 
   setLearningGoalType(value: string) {
     this.learningGoalType = value;
+    this.skipGoalSetup = false;
     if (value !== 'other') {
       this.learningGoalDescription = '';
     }
+  }
+
+  /**
+   * Second-path entry on the goal step: skip goal/level/timeline and create
+   * an unframed plan after onboarding. Selecting an actual goal afterwards
+   * unsets the flag (see setLearningGoalType).
+   */
+  chooseSkipGoalSetup() {
+    this.skipGoalSetup = true;
+    this.learningGoalType = '';
+    this.learningGoalDescription = '';
+    this.selfAssessedLevel = '';
+    this.goalTimeline = '';
+    this.goalTargetDate = '';
   }
 
   setSelfAssessedLevel(value: string) {
@@ -681,7 +708,9 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     const nativeLang = this.nativeLanguageOptions.find(l => l.code === this.nativeLanguage);
     this.previewNativeLanguageName = nativeLang ? nativeLang.name : this.nativeLanguage;
     this.previewSelectedLanguages = this.selectedLanguages.join(', ');
-    if (this.learningGoalType === 'other') {
+    if (this.skipGoalSetup) {
+      this.previewGoalLabel = this.translateService.instant('ONBOARDING.STUDENT.SKIP_GOAL_PREVIEW');
+    } else if (this.learningGoalType === 'other') {
       this.previewGoalLabel = this.learningGoalDescription || 'Custom goal';
     } else {
       const goalOpt = this.goalTypeOptions.find(o => o.value === this.learningGoalType);
@@ -833,26 +862,32 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
             : this.selfAssessedLevel === 'advanced' ? 'Advanced' : 'Beginner';
 
         // Student onboarding
-        const onboardingData: OnboardingData & { userType: string; picture?: string; nativeLanguage?: string; interfaceLanguage?: string; learningGoal?: any } = {
+        const onboardingData: OnboardingData & { userType: string; picture?: string; nativeLanguage?: string; interfaceLanguage?: string; learningGoal?: any; skipGoalSetup?: boolean } = {
           userType: 'student',
           firstName: this.formatName(this.firstName),
           lastName: this.formatName(this.lastName),
           nativeLanguage: this.nativeLanguage,
           interfaceLanguage: this.selectedInterfaceLanguage,
           languages: this.selectedLanguages,
-          goals: this.learningGoals.length > 0 ? this.learningGoals : [this.learningGoalType],
+          goals: this.learningGoals.length > 0 ? this.learningGoals : (this.learningGoalType ? [this.learningGoalType] : []),
           experienceLevel: legacyLevel,
           preferredSchedule: this.preferredSchedule || 'Flexible schedule',
-          picture: auth0User.picture,
-          learningGoal: {
+          picture: auth0User.picture
+        };
+        if (this.skipGoalSetup) {
+          // Signal "learn at my own pace" — backend creates an unframed plan
+          // for each selected language post-onboarding.
+          onboardingData.skipGoalSetup = true;
+        } else {
+          onboardingData.learningGoal = {
             type: this.learningGoalType,
             description: this.learningGoalDescription,
             targetLevel: '',
             selfAssessedLevel: this.selfAssessedLevel,
             timeline: this.goalTimeline,
             targetDate: this.goalTimeline === 'specific_date' && this.goalTargetDate ? this.goalTargetDate : null
-          }
-        };
+          };
+        }
 
         console.log('💾 Saving student onboarding data (user will be created if needed)');
         console.log('🖼️ Student onboarding picture:', auth0User.picture);
@@ -994,19 +1029,27 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
       case 3:
         return this.selectedLanguages.length > 0;
       case 4:
+        if (this.skipGoalSetup) return true;
         if (!this.learningGoalType) return false;
         if (this.learningGoalType === 'other' && !this.learningGoalDescription.trim()) return false;
         return true;
       case 5:
-        return this.selfAssessedLevel !== '';
+        return this.skipGoalSetup || this.selfAssessedLevel !== '';
       case 6:
-        return this.goalTimeline !== '';
+        return this.skipGoalSetup || this.goalTimeline !== '';
       default:
         return false;
     }
   }
 
   navigateToHome() {
+    // Signal to the home page that the student just finished onboarding so
+    // the journey intro modal fires exactly once on their first landing.
+    // Skipped for unframed students — there's no roadmap to introduce.
+    if (!this.skipGoalSetup) {
+      try { sessionStorage.setItem('showJourneyIntro', 'true'); } catch (_) {}
+    }
+
     const returnUrl = localStorage.getItem('returnUrl');
     if (returnUrl) {
       console.log('🔄 Onboarding complete, returning to saved URL:', returnUrl);

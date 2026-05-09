@@ -316,7 +316,7 @@
     <!-- Student-specific sections -->
     <ng-container *ngIf="isStudentUser">
       <!-- My Learning Goal Card -->
-      <ion-card class="learning-goal-card" *ngIf="!isViewingOtherUser && learningGoalDisplay">
+      <ion-card class="learning-goal-card" *ngIf="!isViewingOtherUser && learningGoalDisplay && !isUnframed">
         <ion-card-header>
           <ion-card-title>My Learning Goal</ion-card-title>
         </ion-card-header>
@@ -343,6 +343,140 @@
             <ion-icon name="time-outline"></ion-icon>
             <span>You can update your goal again on {{ goalCooldownDateDisplay }}</span>
           </div>
+
+          <!-- Plan lifecycle actions -->
+          <div class="lg-plan-actions" *ngIf="hasStructuredPlan && !isPaused">
+            <button class="lg-plan-action lg-plan-action--secondary" (click)="pauseMyPlan()">
+              <ion-icon name="pause-circle-outline"></ion-icon>
+              <span>Pause my plan</span>
+            </button>
+            <button class="lg-plan-action lg-plan-action--ghost" (click)="skipMyPlan()">
+              <ion-icon name="leaf-outline"></ion-icon>
+              <span>Learn at my own pace</span>
+            </button>
+          </div>
+          <div class="lg-plan-actions" *ngIf="isPaused">
+            <button class="lg-plan-action lg-plan-action--primary" (click)="resumeMyPlan()">
+              <ion-icon name="play-outline"></ion-icon>
+              <span>Resume my plan</span>
+            </button>
+            <button class="lg-plan-action lg-plan-action--ghost" (click)="skipMyPlan()">
+              <ion-icon name="leaf-outline"></ion-icon>
+              <span>Learn at my own pace</span>
+            </button>
+          </div>
+        </ion-card-content>
+      </ion-card>
+
+      <!-- Unframed Card — shown when student opted out of a structured plan -->
+      <ion-card class="learning-goal-card learning-goal-card--unframed" *ngIf="!isViewingOtherUser && isUnframed">
+        <ion-card-content>
+          <div class="lg-unframed-inner">
+            <div class="lg-unframed-icon">
+              <ion-icon name="leaf-outline"></ion-icon>
+            </div>
+            <h3 class="lg-unframed-title">Learning at your own pace</h3>
+            <p class="lg-unframed-body" *ngIf="planIsPremium">
+              Premium still works without a plan — AI analysis, your review
+              deck, and tutor briefings keep running on every lesson.
+            </p>
+            <p class="lg-unframed-body" *ngIf="!planIsPremium">
+              You'll keep growing with every lesson. Add a goal any time to
+              get a personalized roadmap.
+            </p>
+            <button class="lg-plan-action lg-plan-action--primary" (click)="openGoalEditor()">
+              <ion-icon name="rocket-outline"></ion-icon>
+              <span>Add a learning goal</span>
+            </button>
+          </div>
+        </ion-card-content>
+      </ion-card>
+
+      <!-- CEFR Estimate Card — milestone-gated. Only own profile. -->
+      <ion-card class="cefr-card" *ngIf="!isViewingOtherUser">
+        <ion-card-header>
+          <ion-card-title>{{ 'JOURNEY.CEFR.PROFILE_HEADING' | translate }}</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <!-- Revealed state -->
+          <ng-container *ngIf="cefrRevealed">
+            <div class="cefr-card-row">
+              <div class="cefr-card-level-wrap">
+                <span class="cefr-card-level-eyebrow">{{ 'JOURNEY.CEFR.YOUR_LEVEL' | translate }}</span>
+                <span class="cefr-card-level">{{ cefrRevealed.level }}</span>
+              </div>
+              <div class="cefr-card-scale">
+                <span
+                  *ngFor="let s of cefrScale"
+                  class="cefr-card-scale-step"
+                  [class.cefr-card-scale-step--active]="s.active">
+                  {{ s.level }}
+                </span>
+              </div>
+            </div>
+            <p class="cefr-card-narrative">{{ cefrRevealed.narrative }}</p>
+            <div class="cefr-card-meta">
+              <span class="cefr-card-meta-item">
+                <strong>{{ 'JOURNEY.CEFR.BASED_ON' | translate }}:</strong>
+                {{ cefrSourcesLabel }}
+              </span>
+              <span class="cefr-card-meta-dot"></span>
+              <span class="cefr-card-meta-item">
+                <span class="cefr-card-agreement-dot"
+                  [class.cefr-card-agreement-dot--high]="cefrRevealed.agreement === 'high'"
+                  [class.cefr-card-agreement-dot--medium]="cefrRevealed.agreement === 'medium'"
+                  [class.cefr-card-agreement-dot--low]="cefrRevealed.agreement === 'low'">
+                </span>
+                {{ cefrAgreementShortLabel }}
+              </span>
+            </div>
+
+            <!-- Source divergence — only when AI vs tutor means differ ≥ 1 level -->
+            <div class="cefr-divergence" *ngIf="cefrRevealed.divergence">
+              <ion-icon name="alert-circle-outline" aria-hidden="true"></ion-icon>
+              <div class="cefr-divergence-text">
+                <strong>{{ 'JOURNEY.CEFR.DIVERGENCE_TITLE' | translate }}</strong>
+                <span>
+                  {{ 'JOURNEY.CEFR.DIVERGENCE_BODY' | translate:{
+                    aiLevel: cefrRevealed.divergence.aiLevel,
+                    tutorLevel: cefrRevealed.divergence.tutorLevel
+                  } }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Evolution timeline — last few reveals so the student sees their journey -->
+            <div class="cefr-evolution" *ngIf="cefrEvolution.length > 1">
+              <h4 class="cefr-evolution-title">{{ 'JOURNEY.CEFR.EVOLUTION_TITLE' | translate }}</h4>
+              <ol class="cefr-evolution-timeline">
+                <li
+                  *ngFor="let rev of cefrEvolution; let last = last"
+                  class="cefr-evolution-step"
+                  [class.cefr-evolution-step--current]="last">
+                  <span class="cefr-evolution-dot"
+                    [class.cefr-evolution-dot--up]="rev.deltaSign === 'up'"
+                    [class.cefr-evolution-dot--down]="rev.deltaSign === 'down'"
+                    [class.cefr-evolution-dot--flat]="rev.deltaSign === 'flat'">
+                  </span>
+                  <div class="cefr-evolution-meta">
+                    <span class="cefr-evolution-level">{{ rev.level }}</span>
+                    <span class="cefr-evolution-date">{{ rev.dateLabel }}</span>
+                  </div>
+                </li>
+              </ol>
+            </div>
+          </ng-container>
+
+          <!-- Not yet revealed -->
+          <ng-container *ngIf="!cefrRevealed">
+            <div class="cefr-card-empty">
+              <div class="cefr-card-empty-icon" aria-hidden="true">
+                <ion-icon name="hourglass-outline"></ion-icon>
+              </div>
+              <h4 class="cefr-card-empty-title">{{ 'JOURNEY.CEFR.PROFILE_NOT_YET_TITLE' | translate }}</h4>
+              <p class="cefr-card-empty-body">{{ 'JOURNEY.CEFR.PROFILE_NOT_YET_BODY' | translate }}</p>
+            </div>
+          </ng-container>
         </ion-card-content>
       </ion-card>
 

@@ -1,5 +1,5 @@
 <!-- home.page.html -->
-<ion-content [class.ion-content--earnings-open]="showEarningsView">
+<ion-content [class.ion-content--earnings-open]="showEarningsView" [class.ion-content--journey-open]="showJourneyView">
   
   <!-- Hidden Earnings Component (for modal only) -->
   <div class="visually-hidden-container">
@@ -9,6 +9,19 @@
   <!-- Inline Earnings View -->
   <div class="earnings-inline-panel" *ngIf="showEarningsView">
     <app-earnings #earningsViewComponent [inline]="true" (goBackEvent)="onEarningsGoBack()" (balanceChanged)="onEarningsBalanceChanged($event)"></app-earnings>
+  </div>
+
+  <!-- Inline Journey View — student counterpart to the earnings inline panel.
+       The component is pre-mounted (hidden) as soon as the plan loads so the
+       map canvas and background image are already ready when the user taps
+       "View roadmap". Visibility is toggled with [hidden] instead of *ngIf
+       to avoid destroy/recreate on every open/close. -->
+  <div
+    class="journey-inline-panel"
+    [class.journey-cta-fly-in]="journeyCtaHidden"
+    [hidden]="!showJourneyView"
+    *ngIf="journeyPreloaded">
+    <app-journey-page [inline]="true" (goBackEvent)="onJourneyGoBack()"></app-journey-page>
   </div>
 
   <!-- Inline Explore View -->
@@ -318,62 +331,36 @@
   <!-- Full-bleed mesh (viewport width, not max-width content column) -->
   <div
     class="home-mesh-gradient-layer"
-    *ngIf="!showEarningsView && !showExploreView && !(showCreateMaterialView && isMobile) && !(showScheduleClassView && isMobile) && !(showForumView && isMobile)"
+    *ngIf="!showEarningsView && !showJourneyView && !showExploreView && !(showCreateMaterialView && isMobile) && !(showScheduleClassView && isMobile) && !(showForumView && isMobile)"
   >
     <!-- <app-mesh-gradient-background></app-mesh-gradient-background> -->
   </div>
 
-  <div class="content-wrapper" *ngIf="!showEarningsView && !showExploreView && !(showCreateMaterialView && isMobile) && !(showScheduleClassView && isMobile) && !(showForumView && isMobile)">
-    <!-- Welcome Message with Search Bar (Students) -->
-    <div class="welcome-section welcome-section--mobile-hero" *ngIf="currentUser && isStudentUser">
-      <div class="welcome-mobile-hero" *ngIf="isMobile">
-        <h1 class="welcome-mobile-headline" *ngIf="mobileHeroHeadline">{{ mobileHeroHeadline }}</h1>
-      </div>
-      <div class="welcome-header">
-        <div class="welcome-content">
-          <h1 class="welcome-title" *ngIf="!isMobile">{{ greetingText }}</h1>
-          <!-- Show skeleton while loading -->
-          <p class="welcome-subtitle skeleton-text" *ngIf="isLoadingLessons">
-            <ion-skeleton-text animated style="width: 180px; height: 16px; display: inline-block;"></ion-skeleton-text>
-          </p>
-          <!-- Show actual content only after loading completes -->
-          <p class="welcome-subtitle" *ngIf="!isLoadingLessons && activeInvitationsCount > 0 && !nextLesson">
-            {{ (activeInvitationsCount === 1 ? 'HOME.WELCOME_INVITATION_ONE' : 'HOME.WELCOME_INVITATION_MANY') | translate:{ count: activeInvitationsCount } }}
-          </p>
-          <p class="welcome-subtitle" *ngIf="!isLoadingLessons && !activeInvitationsCount && nextLesson && nextLessonTimeLabel">
-            {{ 'HOME.WELCOME_NEXT_LESSON' | translate:{ time: nextLessonTimeLabel } }}
-          </p>
-          <p class="welcome-subtitle" *ngIf="!isLoadingLessons && activeInvitationsCount > 0 && nextLesson && nextLessonTimeLabel">
-            {{ (activeInvitationsCount === 1 ? 'HOME.WELCOME_INVITATION_ONE_AND_LESSON' : 'HOME.WELCOME_INVITATION_MANY_AND_LESSON') | translate:{ count: activeInvitationsCount, time: nextLessonTimeLabel } }}
-          </p>
-          <p class="welcome-subtitle" *ngIf="!isLoadingLessons && !activeInvitationsCount && (!nextLesson || !nextLessonTimeLabel)">
-            {{ 'HOME.WELCOME_DEFAULT' | translate }}
-          </p>
-        </div>
-        
-        <!-- Compact Search Bar -->
-        <div class="search-container-compact" (click)="openSearchTutors()">
-          <ion-icon name="search-outline" class="search-icon"></ion-icon>
-          <input type="text" [placeholder]="'HOME.SEARCH_PLACEHOLDER' | translate" readonly class="search-input">
-        </div>
-      </div>
-    </div>
-    
-    <!-- Welcome Message (Tutors) -->
-    <div class="welcome-section welcome-section--mobile-hero" *ngIf="currentUser && isTutorUser">
+  <div class="content-wrapper" *ngIf="!showEarningsView && !showJourneyView && !showExploreView && !(showCreateMaterialView && isMobile) && !(showScheduleClassView && isMobile) && !(showForumView && isMobile)">
+    <!-- Welcome (tutor dashboard layout — students share the same chrome; earnings blank for students) -->
+    <div class="welcome-section welcome-section--mobile-hero" *ngIf="currentUser && (isTutorUser || isStudentUser)">
       <!-- Mobile: same welcome as desktop (greeting + subtitle), not dashboard headline -->
       <div class="welcome-mobile-hero welcome-mobile-hero--tutor-welcome" *ngIf="isMobile">
         <h1 class="welcome-mobile-headline" *ngIf="tutorMobileWelcomeTitle">{{ tutorMobileWelcomeTitle }}</h1>
         <p class="welcome-subtitle welcome-mobile-tutor-sub" *ngIf="isLoadingLessons">
           <ion-skeleton-text animated style="width: 200px; height: 15px; display: inline-block; border-radius: 4px;"></ion-skeleton-text>
         </p>
-        <p class="welcome-subtitle welcome-mobile-tutor-sub" *ngIf="!isLoadingLessons && nextLesson && nextLessonTimeLabel && !hasProfileCriticalInsights">
+        <p class="welcome-subtitle welcome-mobile-tutor-sub" *ngIf="!isLoadingLessons && nextLesson && nextLessonTimeLabel && !hasProfileCriticalInsights && (isTutorUser || activeInvitationsCount === 0)">
           {{ 'HOME.WELCOME_NEXT_LESSON' | translate:{ time: nextLessonTimeLabel } }}
         </p>
-        <p class="welcome-subtitle welcome-mobile-tutor-sub" *ngIf="!isLoadingLessons && (!nextLesson || !nextLessonTimeLabel) && !growthInsight && tutorMobileWelcomeSubtitle && !hasProfileCriticalInsights">
+        <p class="welcome-subtitle welcome-mobile-tutor-sub" *ngIf="isStudentUser && !isLoadingLessons && activeInvitationsCount > 0 && !nextLesson">
+          {{ (activeInvitationsCount === 1 ? 'HOME.WELCOME_INVITATION_ONE' : 'HOME.WELCOME_INVITATION_MANY') | translate:{ count: activeInvitationsCount } }}
+        </p>
+        <p class="welcome-subtitle welcome-mobile-tutor-sub" *ngIf="isStudentUser && !isLoadingLessons && activeInvitationsCount > 0 && nextLesson && nextLessonTimeLabel">
+          {{ (activeInvitationsCount === 1 ? 'HOME.WELCOME_INVITATION_ONE_AND_LESSON' : 'HOME.WELCOME_INVITATION_MANY_AND_LESSON') | translate:{ count: activeInvitationsCount, time: nextLessonTimeLabel } }}
+        </p>
+        <p class="welcome-subtitle welcome-mobile-tutor-sub" *ngIf="isStudentUser && !isLoadingLessons && !activeInvitationsCount && (!nextLesson || !nextLessonTimeLabel)">
+          {{ 'HOME.WELCOME_DEFAULT' | translate }}
+        </p>
+        <p class="welcome-subtitle welcome-mobile-tutor-sub" *ngIf="isTutorUser && !isLoadingLessons && (!nextLesson || !nextLessonTimeLabel) && !growthInsight && tutorMobileWelcomeSubtitle && !hasProfileCriticalInsights">
           {{ tutorMobileWelcomeSubtitle }}
         </p>
-        <p class="welcome-subtitle welcome-mobile-tutor-sub growth-ticker-mobile-wrap" *ngIf="!isLoadingLessons && ((!nextLesson || !nextLessonTimeLabel) || hasProfileCriticalInsights) && growthInsight"
+        <p class="welcome-subtitle welcome-mobile-tutor-sub growth-ticker-mobile-wrap" *ngIf="isTutorUser && !isLoadingLessons && ((!nextLesson || !nextLessonTimeLabel) || hasProfileCriticalInsights) && growthInsight"
            (click)="onGrowthInsightTapAdvance()">
           <ng-container *ngFor="let row of growthInsightSlideRow; trackBy: trackGrowthInsightSlide">
             <span class="growth-ticker-mobile-fade-wrap">
@@ -392,7 +379,25 @@
         </p>
       </div>
       <div class="welcome-header">
-        <div class="welcome-content" *ngIf="!isMobile">
+        <div class="welcome-content" *ngIf="!isMobile && isStudentUser">
+          <p class="welcome-subtitle welcome-tutor-desktop-line skeleton-text" *ngIf="isLoadingLessons">
+            <ion-skeleton-text animated style="width: 280px; height: 16px; display: inline-block; border-radius: 4px;"></ion-skeleton-text>
+          </p>
+          <p class="welcome-subtitle welcome-tutor-desktop-line" *ngIf="!isLoadingLessons && activeInvitationsCount > 0 && !nextLesson">
+            <span class="welcome-tutor-desktop-greeting">{{ greetingText }} — </span><span class="welcome-tutor-desktop-sep"></span>{{ (activeInvitationsCount === 1 ? 'HOME.WELCOME_INVITATION_ONE' : 'HOME.WELCOME_INVITATION_MANY') | translate:{ count: activeInvitationsCount } }}
+          </p>
+          <p class="welcome-subtitle welcome-tutor-desktop-line" *ngIf="!isLoadingLessons && !activeInvitationsCount && nextLesson && nextLessonTimeLabel">
+            <span class="welcome-tutor-desktop-greeting">{{ greetingText }} — </span><span class="welcome-tutor-desktop-sep"></span>{{ 'HOME.WELCOME_NEXT_LESSON' | translate:{ time: nextLessonTimeLabel } }}
+          </p>
+          <p class="welcome-subtitle welcome-tutor-desktop-line" *ngIf="!isLoadingLessons && activeInvitationsCount > 0 && nextLesson && nextLessonTimeLabel">
+            <span class="welcome-tutor-desktop-greeting">{{ greetingText }} — </span><span class="welcome-tutor-desktop-sep"></span>{{ (activeInvitationsCount === 1 ? 'HOME.WELCOME_INVITATION_ONE_AND_LESSON' : 'HOME.WELCOME_INVITATION_MANY_AND_LESSON') | translate:{ count: activeInvitationsCount, time: nextLessonTimeLabel } }}
+          </p>
+          <p class="welcome-subtitle welcome-tutor-desktop-line" *ngIf="!isLoadingLessons && !activeInvitationsCount && (!nextLesson || !nextLessonTimeLabel)">
+            <span class="welcome-tutor-desktop-greeting">{{ greetingText }} — </span><span class="welcome-tutor-desktop-sep"></span>{{ 'HOME.WELCOME_DEFAULT' | translate }}
+          </p>
+        </div>
+
+        <div class="welcome-content" *ngIf="!isMobile && isTutorUser">
           <p class="welcome-subtitle welcome-tutor-desktop-line skeleton-text" *ngIf="isLoadingLessons">
             <ion-skeleton-text animated style="width: 280px; height: 16px; display: inline-block; border-radius: 4px;"></ion-skeleton-text>
           </p>
@@ -431,8 +436,8 @@
           </p>
         </div>
 
-        <!-- Compact Earnings (desktop only — mobile earnings moved to toolbar "$" pill) -->
-        <div class="earnings-mobile-card" *ngIf="!insightsLoading && !isMobile" [class.skip-entry-animation]="returningFromEarnings">
+        <!-- Students: no compact header widget (full Journey widget lives in the right grid column) -->
+        <div class="earnings-mobile-card" *ngIf="!insightsLoading && !isMobile && isTutorUser" [class.skip-entry-animation]="returningFromEarnings">
           <div class="emc-balance" (click)="toggleWalletVisibility($event)">
             <span *ngIf="earningsBalanceLoading" class="emc-balance-skeleton"><ion-skeleton-text animated style="width: 72px; height: 22px; display: block; border-radius: 6px;"></ion-skeleton-text></span>
             <span *ngIf="!earningsBalanceLoading && !showWalletBalance && !walletTemporarilyVisible">
@@ -515,352 +520,14 @@
       </button>
     </div>
 
-    
-    <!-- Up Next Section (Two Cards Side-by-Side for Students) -->
-    <div class="up-next-section" *ngIf="isStudentUser">
-      <div class="up-next-grid">
-        <!-- Left Card: Upcoming Lesson -->
-        <div class="up-next-card-wrapper">
-          <!-- Up Next Badge (Two-part design) - OUTSIDE the ion-card -->
-          <div class="up-next-badge">
-            <!-- <div class="badge-icon">
-              <ion-icon name="calendar"></ion-icon>
-            </div> -->
-            <div class="badge-label">
-              <span>{{ 'HOME.UP_NEXT' | translate }}</span>
-            </div>
-          </div>
-          
-          <ion-card class="up-next-card" [class.has-lesson]="nextLesson" [class.is-loading]="isLoadingLessons" (click)="onStudentUpNextCardClick()">
-            <ion-card-content>
-              <!-- LOADING STATE -->
-              <div class="up-next-loading" *ngIf="isLoadingLessons">
-                <ion-skeleton-text animated style="width: 80px; height: 80px; border-radius: 16px; margin-bottom: 16px;"></ion-skeleton-text>
-                <ion-skeleton-text animated style="width: 60%; height: 20px; margin-bottom: 12px;"></ion-skeleton-text>
-                <ion-skeleton-text animated style="width: 80%; height: 16px; margin-bottom: 8px;"></ion-skeleton-text>
-                <ion-skeleton-text animated style="width: 70%; height: 16px;"></ion-skeleton-text>
-              </div>
-              
-              <!-- EMPTY STATE: No lesson scheduled -->
-              <div class="up-next-content" *ngIf="!isLoadingLessons && !nextLesson">
-                <!-- Top content group -->
-                <div class="up-next-top-content">
-                  <!-- Icon/Avatar -->
-                  <div class="up-next-icon" [class.up-next-icon--desktop-art]="!isMobile">
-                    <img *ngIf="!isMobile" class="up-next-calendar-desktop-art" [src]="isDarkModeActive ? 'assets/calendar-mobile-original.png' : 'assets/calendar-mobile.png'" alt="" />
-                    <ion-icon *ngIf="isMobile" name="calendar-outline"></ion-icon>
-                  </div>
-                  
-                  <!-- Content -->
-                  <div class="up-next-text">
-                    <h3 class="up-next-title">{{ 'HOME.NEXT_LESSON_AWAITS' | translate }}</h3>
-                    <p class="up-next-subtitle">
-                      {{ 'HOME.BOOK_SESSION' | translate }}
-                    </p>
-                  </div>
-                </div>
-                
-                <!-- CTA Button stays at bottom -->
-                <div class="text-link-cta" (click)="openSearchTutors(); $event.stopPropagation()">
-                  {{ 'HOME.FIND_TUTORS' | translate }}
-                  <ion-icon name="arrow-forward"></ion-icon>
-                </div>
-              </div>
-              
-              <!-- LESSON SCHEDULED: Show full lesson details -->
-              <div class="up-next-lesson-content" *ngIf="!isLoadingLessons && nextLesson">
-                <!-- Hidden reference to countdownTick to trigger change detection -->
-                <span style="display: none;">{{ countdownTick }}</span>
-                
-                <!-- Status Badges (if any) -->
-                <div class="lesson-status-badges" *ngIf="nextLesson.lesson?.status === 'cancelled' || nextLesson.isTrialLesson || nextLesson.lesson?.rescheduleProposal">
-                  <span class="status-badge badge-cancelled" *ngIf="nextLesson.lesson?.status === 'cancelled'">
-                    <ion-icon name="close-circle"></ion-icon> {{ 'HOME.STATUS_CANCELLED' | translate }}
-                  </span>
-                  <span class="status-badge badge-trial" *ngIf="nextLesson.isTrialLesson && nextLesson.lesson?.status !== 'cancelled'">
-                    <ion-icon name="star"></ion-icon> {{ 'HOME.STATUS_TRIAL' | translate }}
-                  </span>
-                  <span class="status-badge badge-rescheduled" 
-                        *ngIf="nextLesson.lesson?.rescheduleProposal?.status === 'accepted' && nextLesson.lesson?.status === 'scheduled'">
-                    <ion-icon name="checkmark-circle"></ion-icon> {{ 'HOME.STATUS_RESCHEDULED' | translate }}
-                  </span>
-                  <span class="status-badge badge-reschedule-sent" 
-                        *ngIf="nextLesson.lesson?.status === 'pending_reschedule' && nextLesson.lesson?.rescheduleProposal?.status === 'pending' && nextLesson.isRescheduleProposer">
-                    <ion-icon name="time"></ion-icon> {{ 'HOME.STATUS_RESCHEDULE_SENT' | translate }}
-                  </span>
-                  <span class="status-badge badge-reschedule-action"
-                        *ngIf="nextLesson.lesson?.status === 'pending_reschedule' && nextLesson.lesson?.rescheduleProposal?.status === 'pending' && !nextLesson.isRescheduleProposer"
-                        (click)="showRescheduleProposal(nextLesson.lesson); $event.stopPropagation()">
-                    <ion-icon name="alert-circle"></ion-icon> {{ 'HOME.STATUS_RESCHEDULE_REQUEST' | translate }}
-                  </span>
-                </div>
-                
-                <!-- Main Content: Avatar + Info (for regular 1:1 lessons) -->
-                <div class="lesson-main-content" *ngIf="!nextLesson.lesson?.isClass">
-                  <ion-avatar class="lesson-avatar">
-                    <img 
-                      *ngIf="nextLesson && nextLesson.avatar" 
-                      [src]="nextLesson.avatar" 
-                      [alt]="nextLesson | displayName"
-                      referrerpolicy="no-referrer">
-                    <div class="avatar-placeholder" *ngIf="!nextLesson || !nextLesson.avatar">
-                      {{ (nextLesson | displayName)?.charAt(0) || 'T' }}
-                    </div>
-                  </ion-avatar>
-                  
-                  <div class="lesson-info">
-                    <h3 class="tutor-name">
-                      {{ nextLesson | displayName }}
-                    </h3>
-                    
-                    <div class="lesson-details-row">
-                      <div class="detail-group">
-                        <img 
-                          *ngIf="flagService.getFlagPath(nextLesson?.subject)" 
-                          [src]="flagService.getFlagPath(nextLesson?.subject)" 
-                          class="flag-icon"
-                          [alt]="nextLesson?.subject + ' flag'"
-                        />
-                        <span class="detail-label">{{ nextLesson?.subject }}</span>
-                      </div>
-                      
-                      <div class="detail-group" *ngIf="nextLesson?.lesson?.lessonNumber">
-                        <ion-icon name="book-outline"></ion-icon>
-                        <span class="detail-label">{{ 'HOME.LESSON_NUMBER' | translate:{ number: nextLesson.lesson.lessonNumber } }}</span>
-                      </div>
-                      
-                      <div class="detail-group home-detail-datetime-ed">
-                        <div class="tw-date-badge" [class.tw-date-badge--today]="nextLesson?.isToday">
-                          <span class="tw-date-badge__month">{{ nextLesson?.dateBadgeMonth }}</span>
-                          <span class="tw-date-badge__day">{{ nextLesson?.dateBadgeDay }}</span>
-                          <span class="tw-date-badge__weekday">{{ nextLesson?.dateBadgeWeekday }}</span>
-                        </div>
-                        <div class="home-event-datetime__text">
-                          <span class="tw-date-badge__time">{{ nextLesson?.detailTimeRange }}</span>
-                          <span class="tw-date-badge__duration">{{ nextLesson?.durationLabel }}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <!-- Main Content: Class thumbnail + Info (for classes) -->
-                <div class="lesson-main-content class-content" *ngIf="nextLesson.lesson?.isClass">
-                  <div class="class-cover-wrap">
-                    <img
-                      *ngIf="nextLesson.lesson?.classData?.thumbnail"
-                      class="class-cover-img"
-                      [src]="nextLesson.lesson.classData.thumbnail"
-                      [alt]="nextLesson.lesson.className || 'Class'"
-                      referrerpolicy="no-referrer">
-                    <div class="class-cover-placeholder" *ngIf="!nextLesson.lesson?.classData?.thumbnail">
-                      <ion-icon name="people"></ion-icon>
-                    </div>
-                  </div>
-                  
-                  <div class="lesson-info">
-                    <!-- Class Name as title -->
-                    <h3 class="tutor-name class-title">
-                      {{ nextLesson.lesson.className || nextLesson.lesson.subject || ('HOME.GROUP_CLASS' | translate) }}
-                    </h3>
-                    
-                    <!-- Instructor info -->
-                    <div class="instructor-info">
-                      <ion-avatar class="instructor-avatar">
-                        <img 
-                          *ngIf="nextLesson.lesson?.tutorId?.picture" 
-                          [src]="nextLesson.lesson.tutorId.picture" 
-                          [alt]="nextLesson.instructorName"
-                          referrerpolicy="no-referrer">
-                        <div class="instructor-avatar-placeholder" *ngIf="!nextLesson.lesson?.tutorId?.picture">
-                          {{ nextLesson.instructorName?.charAt(0) || 'T' }}
-                        </div>
-                      </ion-avatar>
-                      <span class="instructor-name">{{ nextLesson.instructorName }}</span>
-                    </div>
-                    
-                    <div class="lesson-details-row">
-                      <div class="detail-group home-detail-datetime-ed">
-                        <div class="tw-date-badge" [class.tw-date-badge--today]="nextLesson?.isToday">
-                          <span class="tw-date-badge__month">{{ nextLesson?.dateBadgeMonth }}</span>
-                          <span class="tw-date-badge__day">{{ nextLesson?.dateBadgeDay }}</span>
-                          <span class="tw-date-badge__weekday">{{ nextLesson?.dateBadgeWeekday }}</span>
-                        </div>
-                        <div class="home-event-datetime__text">
-                          <span class="tw-date-badge__time">{{ nextLesson?.detailTimeRange }}</span>
-                          <span class="tw-date-badge__duration">{{ nextLesson?.durationLabel }}</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <!-- Attendees for classes (going section) -->
-                    <app-class-attendees 
-                      *ngIf="nextLesson.lesson?.isClass && nextLessonClassAttendeesDisplay.length"
-                      [attendees]="nextLessonClassAttendeesDisplay"
-                      [capacity]="nextLesson.lesson.capacity"
-                      [maxDisplay]="3">
-                    </app-class-attendees>
-                  </div>
-                </div>
-                
-                <!-- Other participant in call indicator -->
-                <div class="participant-in-call" *ngIf="nextLessonOtherJoined && nextLesson.lesson?.status !== 'cancelled'">
-                  <span class="in-call-dot"></span>
-                  <span class="in-call-text">{{ 'HOME.PARTICIPANT_IN_CALL' | translate:{ name: nextLessonOtherName } }}</span>
-                </div>
-
-                <!-- Previous lesson notes link -->
-                <button class="previous-notes-link" *ngIf="previousNotesData" (click)="showPreviousNotesModal(); $event.stopPropagation()">
-                  <ion-icon name="document-text-outline"></ion-icon>
-                  <span>Notes from last lesson</span>
-                  <ion-icon name="chevron-forward-outline" class="chevron"></ion-icon>
-                </button>
-
-                <!-- Starts In Card (matches tutor design) -->
-                <div class="starts-in-card" *ngIf="nextLesson.lesson?.status !== 'cancelled'" [class.starts-in-card--cta-only]="!nextLesson.showStartsInLine">
-                  <ng-container *ngIf="nextLesson.showStartsInLine">
-                    <span class="starts-label-modern">{{ nextLesson.isInProgress ? ('HOME.STARTED' | translate) : ('HOME.STARTS_IN' | translate) }}</span>
-                    <span class="countdown-modern">{{ nextLesson.countdown }}</span>
-                  </ng-container>
-                  <ion-button
-                    class="join-button-modern"
-                    [class.active]="nextLesson.isInProgress"
-                    [class.dark-join]="isDarkModeActive"
-                    (click)="joinStudentLesson(nextLesson); $event.stopPropagation()">
-                    <ion-icon slot="start" [name]="nextLesson.isInProgress ? 'videocam' : 'videocam-outline'"></ion-icon>
-                    {{ nextLesson.joinButtonText }}
-                  </ion-button>
-                </div>
-                
-                <!-- Three-dot menu for lesson options -->
-                <ion-button 
-                  *ngIf="!isMobile"
-                  [id]="'up-next-menu-' + nextLesson?.lesson?._id"
-                  fill="clear"
-                  class="up-next-menu-button"
-                  (click)="$event.stopPropagation()">
-                  <ion-icon slot="icon-only" name="ellipsis-vertical"></ion-icon>
-                </ion-button>
-                
-                <ion-popover 
-                  *ngIf="!isMobile && nextLesson?.lesson"
-                  [trigger]="'up-next-menu-' + nextLesson?.lesson?._id"
-                  triggerAction="click"
-                  side="bottom"
-                  alignment="end"
-                  [dismissOnSelect]="true">
-                  <ng-template>
-                    <ion-content class="ion-padding">
-                      <ion-list>
-                        <!-- Reschedule -->
-                        <ion-item *ngIf="!nextLesson.hasStarted" [button]="true" (click)="rescheduleLesson(nextLesson?.lesson?._id, nextLesson?.lesson)" [detail]="false">
-                          <ion-icon name="calendar-outline" slot="start"></ion-icon>
-                          <ion-label>{{ 'HOME.RESCHEDULE' | translate }}</ion-label>
-                        </ion-item>
-                        <ion-item *ngIf="nextLesson.hasStarted" [button]="false" [detail]="false" class="reschedule-disabled">
-                          <ion-icon name="calendar-outline" slot="start"></ion-icon>
-                          <ion-label>{{ 'HOME.RESCHEDULE' | translate }}</ion-label>
-                        </ion-item>
-                        
-                        <!-- Cancel -->
-                        <ion-item [button]="true" (click)="cancelLesson(nextLesson?.lesson?._id, nextLesson?.lesson)" class="ion-text-danger" [detail]="false">
-                          <ion-icon name="close-circle-outline" slot="start"></ion-icon>
-                          <ion-label>{{ 'HOME.CANCEL_LESSON' | translate }}</ion-label>
-                        </ion-item>
-                      </ion-list>
-                    </ion-content>
-                  </ng-template>
-                </ion-popover>
-                
-                <!-- Mobile menu button -->
-                <ion-button 
-                  *ngIf="isMobile"
-                  fill="clear" 
-                  size="small" 
-                  class="up-next-menu-button"
-                  (click)="openMobileLessonMenu($event, nextLesson?.lesson)">
-                  <ion-icon name="ellipsis-vertical" slot="icon-only"></ion-icon>
-                </ion-button>
-              </div>
-            </ion-card-content>
-          </ion-card>
-        </div> <!-- Close up-next-card-wrapper -->
-        
-        <!-- Right Card: Dynamic Gamification Card -->
-        <ion-card class="dynamic-card" [class.loading]="!dynamicCard">
-          <ion-card-content>
-            <!-- Loading Skeleton -->
-            <div class="dynamic-card-skeleton" *ngIf="!dynamicCard">
-              <ion-skeleton-text animated style="width: 64px; height: 64px; border-radius: 16px; margin: 0 auto 16px;"></ion-skeleton-text>
-              <ion-skeleton-text animated style="width: 70%; height: 20px; margin: 0 auto 8px; border-radius: 8px;"></ion-skeleton-text>
-              <ion-skeleton-text animated style="width: 90%; height: 16px; margin: 0 auto 16px; border-radius: 8px;"></ion-skeleton-text>
-              <ion-skeleton-text animated style="width: 50%; height: 40px; margin: 16px auto 0; border-radius: 12px;"></ion-skeleton-text>
-            </div>
-            
-            <!-- Actual Card Content - Use *ngFor with single item to force DOM recreation -->
-            <div class="dynamic-card-content" 
-                 *ngFor="let card of [dynamicCard]; trackBy: trackByCardType"
-                 [@fadeIn]
-                 [attr.data-card-type]="card?.type">
-              <!-- Top Content Group -->
-              <div class="card-top-content" *ngIf="card">
-                <!-- Stacked Avatars (for tutors online) -->
-                <div class="stacked-avatars" *ngIf="card.avatars && card.avatars.length > 0">
-                  <ion-avatar *ngFor="let avatar of card.avatars; let i = index; trackBy: trackByIndex" 
-                              class="stacked-avatar"
-                              [style.zIndex]="card.avatars.length - i"
-                              [style.marginLeft]="i === 0 ? '0' : '-12px'">
-                    <img [src]="avatar" alt="Tutor" referrerpolicy="no-referrer">
-                  </ion-avatar>
-                </div>
-                
-                <!-- Single Avatar (for tutor recommendations, pending ratings) -->
-                <ion-avatar class="single-avatar" *ngIf="card.avatarUrl && !card.avatars">
-                  <img [src]="card.avatarUrl" alt="User" referrerpolicy="no-referrer">
-                </ion-avatar>
-                
-                <!-- Icon (when no avatars) -->
-                <div class="card-icon" *ngIf="!card.avatars && !card.avatarUrl"
-                     [style.background]="'linear-gradient(135deg, ' + card.iconColor + ' 0%, ' + card.iconColor + '99 100%)'">
-                  <ion-icon [name]="card.icon"></ion-icon>
-                </div>
-                
-                <h3 class="card-title">{{ card.title }}</h3>
-                <p class="card-subtitle">{{ card.subtitle }}</p>
-                
-                <!-- Progress bar for badge/goal cards -->
-                <div class="card-progress" *ngIf="card.data?.current !== undefined && card.data?.target">
-                  <div class="progress-bar-container">
-                    <div class="progress-bar-fill" [style.width.%]="(card.data.current / card.data.target) * 100"></div>
-                  </div>
-                  <div class="progress-text">{{ card.data.current }} / {{ card.data.target }}</div>
-                </div>
-                
-                <!-- Star Rating (for pending ratings) -->
-                <div class="star-rating" *ngIf="card.type === 'pending_rating'">
-                  <ion-icon name="star" *ngFor="let star of [1,2,3,4,5]; trackBy: trackByIndex"></ion-icon>
-                </div>
-              </div>
-              
-              <!-- Button stays at bottom -->
-              <ion-button fill="clear" size="small" class="card-cta" (click)="$event.stopPropagation(); onDynamicCardClick(card)" *ngIf="card">
-                {{ card.ctaText }}
-                <ion-icon name="arrow-forward" slot="end"></ion-icon>
-              </ion-button>
-            </div>
-          </ion-card-content>
-        </ion-card>
-      </div>
-    </div>
-    
     <!-- Smart Island (hidden, for non-lesson notifications) -->
     <app-smart-island #smartIsland style="display: none;"></app-smart-island>
     
     
-    <!-- Tutor Dashboard Grid: 2x2 layout -->
-    <div class="tutor-dashboard-grid" *ngIf="isTutorUser" [class.tutor-dashboard-grid--with-this-week]="timelineEvents.length > 0">
+    <!-- Tutor Dashboard Grid: 2x2 layout (students share the same shell; tutor-only widgets gated separately) -->
+    <div class="tutor-dashboard-grid" *ngIf="isTutorUser || isStudentUser" [class.tutor-dashboard-grid--with-this-week]="timelineEvents.length > 0">
       <div class="grid-cell-upnext">
-        <h2 class="desktop-tutor-section-title" *ngIf="!isMobile && isTutorUser">{{ (nextLesson ? 'HOME.UP_NEXT' : 'HOME.YOUR_SCHEDULE') | translate }}</h2>
+        <h2 class="desktop-tutor-section-title" *ngIf="!isMobile && (isTutorUser || isStudentUser)">{{ (nextLesson ? 'HOME.UP_NEXT' : 'HOME.YOUR_SCHEDULE') | translate }}</h2>
 
         <!-- Upcoming Schedule Section -->
 
@@ -868,7 +535,7 @@
     <!-- ═══ MOBILE: Meetup-style cards ═══ -->
 
     <!-- Mobile Loading Skeleton -->
-    <div class="m-skel-home" *ngIf="isMobile && isLoadingLessons && isTutorUser">
+    <div class="m-skel-home" *ngIf="isMobile && isLoadingLessons && (isTutorUser || isStudentUser)">
       <div class="m-skel-section">
         <div class="m-skel-line m-skel-section-title"></div>
         <div class="m-skel-card">
@@ -903,7 +570,7 @@
     </div>
 
     <!-- Mobile Up Next — Centered vertical card matching empty state layout -->
-    <div class="mobile-section mobile-section-upnext-filled m-stagger m-stagger-1" *ngIf="isMobile && !isLoadingLessons && nextLesson && isTutorUser" [class.m-stagger-go]="mobileStaggerReady" [class.m-stagger-done]="mobileStaggerDone">
+    <div class="mobile-section mobile-section-upnext-filled m-stagger m-stagger-1" *ngIf="isMobile && !isLoadingLessons && nextLesson && (isTutorUser || isStudentUser)" [class.m-stagger-go]="mobileStaggerReady" [class.m-stagger-done]="mobileStaggerDone">
       <h3 class="mobile-section-title">{{ 'HOME.UP_NEXT' | translate }}</h3>
       <div class="m-card-empty-standalone m-card-filled-lesson" *ngIf="nextLesson as nextClass" (click)="onTutorUpNextCardShellClick($event)">
         <span style="display: none;">{{ countdownTick }}</span>
@@ -988,7 +655,7 @@
     </div>
 
     <!-- Mobile Empty State -->
-    <div class="mobile-section mobile-section-upnext-empty m-stagger m-stagger-1" *ngIf="!isLoadingLessons && !nextLesson" [class.m-stagger-go]="mobileStaggerReady" [class.m-stagger-done]="mobileStaggerDone">
+    <div class="mobile-section mobile-section-upnext-empty m-stagger m-stagger-1" *ngIf="!isLoadingLessons && !nextLesson && (isTutorUser || isStudentUser)" [class.m-stagger-go]="mobileStaggerReady" [class.m-stagger-done]="mobileStaggerDone">
       <h3 class="mobile-section-title">{{ 'HOME.YOUR_SCHEDULE' | translate }}</h3>
       <div class="m-card-empty-standalone">
         <div class="m-card-empty-calendar-wrap">
@@ -996,18 +663,22 @@
         </div>
         <h3 class="m-card-empty-title">{{ emptyStateTitle }}</h3>
         <p class="m-card-empty-subtitle">{{ emptyStateMessage }}</p>
-        <a *ngIf="pendingFeedbackCount === 0 && !hasProfileCriticalInsights" class="m-card-empty-link" [routerLink]="hasAvailability ? '/tabs/tutor-calendar' : '/tabs/availability-setup'">
+        <a *ngIf="isTutorUser && pendingFeedbackCount === 0 && !hasProfileCriticalInsights" class="m-card-empty-link" [routerLink]="hasAvailability ? '/tabs/tutor-calendar' : '/tabs/availability-setup'">
           <span [@buttonTextFade]="buttonTextState" class="button-text-animated">{{ hasAvailability ? ('HOME.VIEW_CALENDAR' | translate) : ('HOME.SET_AVAILABILITY' | translate) }}</span>
           <img class="m-card-empty-link-chevron m-card-empty-link-arrow-img" src="assets/setup-availability-arrow.png" alt="" />
         </a>
-        <span *ngIf="pendingFeedbackCount > 0 || hasProfileCriticalInsights" class="m-card-empty-link m-card-empty-link--disabled">{{ hasAvailability ? ('HOME.VIEW_CALENDAR' | translate) : ('HOME.SET_AVAILABILITY' | translate) }}</span>
+        <span *ngIf="isTutorUser && (pendingFeedbackCount > 0 || hasProfileCriticalInsights)" class="m-card-empty-link m-card-empty-link--disabled">{{ hasAvailability ? ('HOME.VIEW_CALENDAR' | translate) : ('HOME.SET_AVAILABILITY' | translate) }}</span>
+        <a *ngIf="isStudentUser" class="m-card-empty-link" (click)="openSearchTutors(); $event.preventDefault()">
+          <span class="button-text-animated">{{ 'HOME.FIND_TUTORS' | translate }}</span>
+          <img class="m-card-empty-link-chevron m-card-empty-link-arrow-img" src="assets/setup-availability-arrow.png" alt="" />
+        </a>
       </div>
     </div>
 
     <!-- ═══ DESKTOP: Original centered cards (unchanged) ═══ -->
 
     <!-- Desktop Loading State -->
-    <div class="empty-state-clean loading-skeleton-state" *ngIf="!isMobile && isLoadingLessons && isTutorUser">
+    <div class="empty-state-clean loading-skeleton-state" *ngIf="!isMobile && isLoadingLessons && (isTutorUser || isStudentUser)">
       <div class="empty-state-clean-inner">
         <div class="skeleton-icon-circle"></div>
         <div class="skeleton-text-group">
@@ -1020,7 +691,7 @@
     </div>
 
     <!-- Desktop Up Next Card -->
-    <div class="empty-state-clean" *ngIf="!isMobile && !isLoadingLessons && nextLesson && isTutorUser">
+    <div class="empty-state-clean" *ngIf="!isMobile && !isLoadingLessons && nextLesson && (isTutorUser || isStudentUser)">
       <div class="empty-state-clean-inner upnext-filled" *ngIf="nextLesson as nextClass" (click)="onTutorUpNextCardShellClick($event)">
         <span style="display: none;">{{ countdownTick }}</span>
         <div class="upnext-filled-badges">
@@ -1134,11 +805,28 @@
       </div>
     </div>
 
+    <!-- Desktop Empty State — student (matches tutor layout; CTA to find tutors) -->
+    <div class="empty-state-clean" *ngIf="!isMobile && !isNarrowTutorHomeViewport && isStudentUser && !isLoadingLessons && !nextLesson">
+      <div class="empty-state-clean-inner">
+        <div class="empty-state-clean-icon empty-state-clean-icon--calendar anim-persist">
+          <img class="empty-state-clean-calendar-art" [src]="isDarkModeActive ? 'assets/calendar-mobile-original.png' : 'assets/calendar-mobile.png'" alt="" />
+        </div>
+        <div class="empty-state-clean-text">
+          <h3>{{ emptyStateTitle }}</h3>
+          <p>{{ emptyStateMessage }}</p>
+        </div>
+        <ion-button fill="solid" expand="block" class="empty-state-clean-btn" (click)="openSearchTutors()">
+          {{ 'HOME.FIND_TUTORS' | translate }}
+          <img slot="end" class="empty-state-clean-btn-arrow-img" src="assets/setup-availability-arrow.png" alt="" />
+        </ion-button>
+      </div>
+    </div>
+
       </div><!-- /grid-cell-upnext -->
 
       <!-- Mobile: This Week — avatar stack + lesson count -->
       <app-mobile-this-week
-        *ngIf="isMobile && isTutorUser && !isLoadingLessons"
+        *ngIf="isMobile && (isTutorUser || isStudentUser) && !isLoadingLessons"
         [showNothingYet]="thisWeekMobileShowNothingYet"
         [emptyLabel]="thisWeekEmptyLabel"
         [avatars]="thisWeekAvatars"
@@ -1148,10 +836,63 @@
         (thisWeekTap)="onThisWeekTap()">
       </app-mobile-this-week>
 
-      <!-- Earnings (Row 1, Right) -->
-      <div class="grid-cell-earnings" *ngIf="!insightsLoading">
-        <h2 class="desktop-tutor-section-title" *ngIf="!isMobile">{{ 'HOME.EARNINGS_TITLE' | translate }}</h2>
-        <div class="earnings-card-widget" [class.skip-entry-animation]="returningFromEarnings">
+      <!-- Row 1, Right — tutors: Earnings widget; students: Journey widget -->
+      <div class="grid-cell-earnings" *ngIf="!insightsLoading && (isTutorUser || isStudentUser)">
+        <h2 class="desktop-tutor-section-title" *ngIf="!isMobile && isTutorUser">{{ 'HOME.EARNINGS_TITLE' | translate }}</h2>
+        <h2 class="desktop-tutor-section-title" *ngIf="!isMobile && isStudentUser">{{ 'HOME.JOURNEY_TITLE' | translate }}</h2>
+
+        <!-- Premium pre-lesson warm-up card (Batch 9). Only renders when
+             the next lesson is in the next 30 minutes and a focused
+             mini-quiz is ready. Free students see nothing here (they get
+             previous-lesson notes elsewhere). -->
+        <div class="home-warmup-card" *ngIf="isStudentUser && warmup">
+          <div class="home-warmup-eyebrow">
+            <ion-icon name="flash-outline"></ion-icon>
+            <span>{{ 'HOME.WARMUP_EYEBROW' | translate }}</span>
+          </div>
+          <h3 class="home-warmup-title">{{ 'HOME.WARMUP_TITLE' | translate }}</h3>
+          <p class="home-warmup-body">{{ warmup.personalizedHeader || warmup.focus }}</p>
+          <button type="button" class="home-warmup-cta" (click)="startWarmup()">
+            <span>{{ 'HOME.WARMUP_CTA' | translate }}</span>
+            <ion-icon name="arrow-forward"></ion-icon>
+          </button>
+        </div>
+
+        <app-journey-widget
+          *ngIf="isStudentUser"
+          variant="full"
+          [state]="journeyWidgetState"
+          [phaseLabels]="journeyPhaseLabels"
+          [currentPhaseIndex]="journeyCurrentPhaseIndex"
+          [phaseTitle]="journeyPhaseTitle"
+          [summary]="journeySummary"
+          [nextLessonFocus]="journeyNextLessonFocus"
+          [goalLabel]="journeyGoalLabel"
+          [languageLabel]="journeyLanguageLabel"
+          [masteryAverage]="journeyMasteryAverage"
+          [lessonsCompleted]="journeyLessonsCompleted"
+          [estimatedLessons]="journeyEstimatedLessons"
+          [progressState]="journeyProgressState"
+          [progressStateLabel]="journeyProgressStateLabel"
+          [windowProgressPercent]="journeyWindowProgressPercent"
+          [isPremium]="journeyIsPremium"
+          (widgetTap)="goToJourney()"
+          (setGoalTap)="openSetGoalFlow()"
+          (buildPlanTap)="openBuildPlanFlow()"
+          (resumePlanTap)="resumePausedPlan()">
+        </app-journey-widget>
+
+        <!-- Premium-when-unframed value reminder. Premium without a plan is
+             still a great deal — surface it so paused / unframed students
+             don't feel like premium is wasted. Free students see the existing
+             upsell card instead (handled elsewhere). -->
+        <app-premium-when-unframed
+          *ngIf="isStudentUser && journeyIsPremium && (journeyWidgetState === 'unframed' || journeyWidgetState === 'paused')"
+          [visible]="true"
+          [mode]="journeyWidgetState === 'paused' ? 'paused' : 'unframed'">
+        </app-premium-when-unframed>
+
+        <div class="earnings-card-widget" *ngIf="isTutorUser" [class.skip-entry-animation]="returningFromEarnings">
           <div class="earnings-card-body">
             <div class="earnings-label">{{ 'HOME.TOTAL_BALANCE' | translate }}</div>
             <div class="earnings-balance" (click)="toggleWalletVisibility($event)">
@@ -1233,6 +974,7 @@
           <div class="coming-up-section-head" *ngIf="!isMobile">
             <h2 class="desktop-tutor-section-title">{{ 'HOME.THIS_WEEK' | translate }}</h2>
             <ion-button *ngIf="isTutorUser" fill="clear" class="see-all-btn" routerLink="/tabs/tutor-calendar">{{ 'HOME.FULL_SCHEDULE' | translate }}</ion-button>
+            <ion-button *ngIf="isStudentUser" fill="clear" class="see-all-btn" routerLink="/tabs/lessons">{{ 'HOME.FULL_SCHEDULE' | translate }}</ion-button>
           </div>
           <div class="timeline-section timeline-section--week-strip">
             <div class="tw-week-scroll">
@@ -1331,15 +1073,19 @@
 
       <!-- Mobile: Quick Actions (horizontal scroll) -->
       <app-mobile-quick-actions
-        *ngIf="isMobile && isTutorUser && !isLoadingLessons"
+        *ngIf="isMobile && (isTutorUser || isStudentUser) && !isLoadingLessons"
         [quickActionsReady]="quickActionsReady"
         [quickActionsAnimated]="quickActionsAnimated"
         [staggerReady]="mobileStaggerReady"
         [staggerDone]="mobileStaggerDone"
         [isDarkModeActive]="isDarkModeActive"
+        [showCreateMaterial]="isTutorUser"
+        [showPractice]="isStudentUser"
+        [practiceDueCount]="practiceDueCount"
         (navigateToExplore)="onClassesQuickAction()"
         (navigateToCreateMaterial)="navigateToCreateMaterial($event)"
-        (navigateToForum)="navigateToForum()">
+        (navigateToForum)="navigateToForum()"
+        (navigateToPractice)="navigateToPractice()">
       </app-mobile-quick-actions>
 
       <!-- Mobile: Pending Actions (only when there are items) -->
@@ -1361,7 +1107,7 @@
       </app-mobile-recent-students>
 
       <!-- Quick Actions — desktop: always full width + 4-up row (same with or without This Week) -->
-      <div class="grid-cell-actions full-width" *ngIf="!isMobile && !isLoadingLessons">
+      <div class="grid-cell-actions full-width" *ngIf="!isMobile && !isLoadingLessons && (isTutorUser || isStudentUser)" [class.grid-cell-actions--student]="isStudentUser">
         <h2 class="desktop-tutor-section-title desktop-tutor-section-title--actions">{{ 'HOME.QUICK_ACTIONS' | translate }}</h2>
         <div class="actions-grid">
           <div class="quick-action-card qa-classes qa-with-asset" (click)="onClassesQuickAction()">
@@ -1373,13 +1119,24 @@
               <span class="qa-sub">{{ 'HOME.CLASSES_SUB' | translate }}</span>
             </div>
           </div>
-          <div class="quick-action-card qa-create-material qa-with-asset" (click)="navigateToCreateMaterial($event)">
+          <div class="quick-action-card qa-create-material qa-with-asset" *ngIf="isTutorUser" (click)="navigateToCreateMaterial($event)">
             <div class="qa-icon">
               <img class="qa-icon-img" [src]="isDarkModeActive ? 'assets/quick-actions-create-material-original.png' : 'assets/quick-actions-create-material.png'" alt="" />
             </div>
             <div class="qa-text">
               <span class="qa-label">{{ 'HOME.CREATE_MATERIAL' | translate }}</span>
               <span class="qa-sub">{{ 'HOME.CREATE_MATERIAL_SUB' | translate }}</span>
+            </div>
+          </div>
+          <div class="quick-action-card qa-practice" *ngIf="isStudentUser" (click)="navigateToPractice()">
+            <div class="qa-icon qa-icon--practice">
+              <ion-icon name="layers-outline"></ion-icon>
+              <span class="qa-badge" *ngIf="practiceDueCount > 0">{{ practiceDueCount > 99 ? '99+' : practiceDueCount }}</span>
+            </div>
+            <div class="qa-text">
+              <span class="qa-label">{{ 'HOME.PRACTICE' | translate }}</span>
+              <span class="qa-sub" *ngIf="practiceDueCount > 0">{{ 'HOME.PRACTICE_DUE_SUB' | translate: { count: practiceDueCount } }}</span>
+              <span class="qa-sub" *ngIf="practiceDueCount === 0">{{ 'HOME.PRACTICE_EMPTY_SUB' | translate }}</span>
             </div>
           </div>
           <div class="quick-action-card qa-forum qa-with-asset" (click)="navigateToForum()">
@@ -1448,21 +1205,7 @@
     </ion-modal>
 
     
-    <!-- Learning Plan Summary Card (Students) -->
-    <div class="learning-plan-card" *ngIf="isStudentUser && learningPlanData" (click)="navigateToProgressPlan()">
-      <div class="lp-phase-indicator">
-        <span class="lp-phase-label">Phase {{ learningPlanCurrentPhase }} of {{ learningPlanTotalPhases }}</span>
-        <div class="lp-phase-dots">
-          <span *ngFor="let dot of learningPlanPhaseDots; trackBy: trackByIndex" class="lp-dot" [class.filled]="dot"></span>
-        </div>
-      </div>
-      <h3 class="lp-phase-title">{{ learningPlanPhaseTitle }}</h3>
-      <p class="lp-summary">{{ learningPlanSummary }}</p>
-      <div class="lp-focus" *ngIf="learningPlanNextFocus">
-        <ion-icon name="bulb-outline"></ion-icon>
-        <span>Focus area: {{ learningPlanNextFocus }}</span>
-      </div>
-    </div>
+    <!-- (Legacy student "learning-plan-card" removed — see app-journey-widget above) -->
 
     <!-- Explore Pills — Students -->
     <div class="explore-pills" *ngIf="isStudentUser && !isLoadingLessons">

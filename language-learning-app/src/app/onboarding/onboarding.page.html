@@ -454,6 +454,15 @@
               class="custom-goal-textarea"></textarea>
             <span class="custom-goal-hint">{{ learningGoalDescription.length }}/200</span>
           </div>
+
+          <button
+            type="button"
+            class="goal-skip-link"
+            (click)="chooseSkipGoalSetup(); nextStep()">
+            <ion-icon name="leaf-outline" aria-hidden="true"></ion-icon>
+            <span>{{ 'ONBOARDING.STUDENT.SKIP_GOAL_LINK' | translate }}</span>
+          </button>
+          <p class="goal-skip-help">{{ 'ONBOARDING.STUDENT.SKIP_GOAL_HELP' | translate }}</p>
         </div>
 
         <!-- Step 5: Where are you now? -->

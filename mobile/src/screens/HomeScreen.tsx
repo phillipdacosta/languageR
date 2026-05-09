@@ -51,6 +51,7 @@ import ForumScreen from './ForumScreen';
 import { preloadMaterials } from '../services/materials';
 import { api } from '../services/api';
 import { getUnreadCount } from '../services/notifications';
+import { getDueCount } from '../services/reviewDeck';
 import { buildProcessedLessonCard, type ProcessedLessonCard } from '../utils/lessonCardModel';
 import LessonDetailOverlay, { type CardRect } from '../components/LessonDetailOverlay';
 import { RescheduleLessonModal } from '../components/RescheduleLessonModal';
@@ -227,15 +228,34 @@ export default function HomeScreen() {
   const { setHomeOverlayCoversTabBar, setLessonOverlayCoversTabBar } = useHomeTabBarOverlay();
   const userId = user?._id || user?.id || '';
   const isTutor = user?.userType === 'tutor';
+  const isStudent = user?.userType === 'student';
+
+  const [practiceDueCount, setPracticeDueCount] = useState(0);
 
   const openNotifications = useCallback(() => {
     /** `Notifications` is on the root stack (sibling of `Main`); navigate bubbles up. */
     navigation.navigate('Notifications' as never);
   }, [navigation]);
 
+  /** Opens the spaced-repetition deck on the root stack. */
+  const openPractice = useCallback(() => {
+    navigation.navigate('Practice' as never);
+  }, [navigation]);
+
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
+      // Refresh the Practice badge for students every time the home tab focuses.
+      if (isStudent) {
+        (async () => {
+          try {
+            const res = await getDueCount();
+            if (!cancelled) setPracticeDueCount(res.count || 0);
+          } catch {
+            if (!cancelled) setPracticeDueCount(0);
+          }
+        })();
+      }
       (async () => {
         try {
           const res = await getUnreadCount();
@@ -1205,18 +1225,35 @@ export default function HomeScreen() {
                 largeAsset={!colors.isDark}
                 onPress={isTutor ? openMyClasses : undefined}
               />
-              <ActionChip
-                image={
-                  colors.isDark
-                    ? require('../../assets/shared/quick-actions-create-material-original.png')
-                    : require('../../assets/shared/quick-actions-create-material.png')
-                }
-                label={t('HOME.CREATE_MATERIAL')}
-                sub={t('HOME.CREATE_MATERIAL_SUB')}
-                colors={colors}
-                onPress={openMaterials}
-                largeAsset={!colors.isDark}
-              />
+              {isTutor && (
+                <ActionChip
+                  image={
+                    colors.isDark
+                      ? require('../../assets/shared/quick-actions-create-material-original.png')
+                      : require('../../assets/shared/quick-actions-create-material.png')
+                  }
+                  label={t('HOME.CREATE_MATERIAL')}
+                  sub={t('HOME.CREATE_MATERIAL_SUB')}
+                  colors={colors}
+                  onPress={openMaterials}
+                  largeAsset={!colors.isDark}
+                />
+              )}
+              {isStudent && (
+                <ActionChip
+                  icon="layers-outline"
+                  label={t('HOME.PRACTICE')}
+                  sub={
+                    practiceDueCount > 0
+                      ? (t('HOME.PRACTICE_DUE_SUB', { count: practiceDueCount }) as string)
+                      : (t('HOME.PRACTICE_EMPTY_SUB') as string)
+                  }
+                  colors={colors}
+                  iconTone="mono"
+                  badgeCount={practiceDueCount}
+                  onPress={openPractice}
+                />
+              )}
               <ActionChip
                 image={
                   colors.isDark
@@ -2307,7 +2344,7 @@ function ComingUpRow({
 
 /* ─── Action Chip ─── */
 
-function ActionChip({ image, icon, label, sub, colors, onPress, largeAsset }: {
+function ActionChip({ image, icon, label, sub, colors, onPress, largeAsset, badgeCount, iconTone }: {
   image?: any;
   icon?: string;
   label: string;
@@ -2316,9 +2353,22 @@ function ActionChip({ image, icon, label, sub, colors, onPress, largeAsset }: {
   onPress?: () => void;
   /** Wider canvas padding in PNG — same scale for classes / materials / forum */
   largeAsset?: boolean;
+  /** Optional red bubble (e.g. "5 due") on the icon. 0 = no badge. */
+  badgeCount?: number;
+  /** Icon background tone. 'gold' = legacy beige; 'mono' = neutral grey. */
+  iconTone?: 'gold' | 'mono';
 }) {
   const isDark = colors.isDark;
-  const lift = !isDark;
+  const tone = iconTone || 'gold';
+  const iconBg = icon
+    ? tone === 'mono'
+      ? (isDark ? 'rgba(255,255,255,0.06)' : '#f0f0f0')
+      : (isDark ? 'rgba(176,158,114,0.08)' : 'rgba(176,158,114,0.1)')
+    : 'transparent';
+  const iconColor =
+    tone === 'mono'
+      ? (isDark ? colors.text : '#222')
+      : (isDark ? '#9A8E72' : '#B09E72');
   return (
     <TouchableOpacity
       style={[
@@ -2343,11 +2393,7 @@ function ActionChip({ image, icon, label, sub, colors, onPress, largeAsset }: {
             styles.actionChipIconWrap,
             styles.actionChipIconBg,
             image && styles.actionChipIconBgAsset,
-            {
-              backgroundColor: icon
-                ? (isDark ? 'rgba(176,158,114,0.08)' : 'rgba(176,158,114,0.1)')
-                : 'transparent',
-            },
+            { backgroundColor: iconBg },
           ]}
         >
           {image ? (
@@ -2356,8 +2402,20 @@ function ActionChip({ image, icon, label, sub, colors, onPress, largeAsset }: {
               style={[styles.actionChipImg, largeAsset && styles.actionChipImgLargeAsset]}
             />
           ) : (
-            <Ionicons name={icon as any} size={20} color={isDark ? '#9A8E72' : '#B09E72'} />
+            <Ionicons name={icon as any} size={20} color={iconColor} />
           )}
+          {badgeCount && badgeCount > 0 ? (
+            <View
+              style={[
+                styles.actionChipBadge,
+                { borderColor: isDark ? '#1c1c1e' : '#fff' },
+              ]}
+            >
+              <Text style={styles.actionChipBadgeText}>
+                {badgeCount > 99 ? '99+' : String(badgeCount)}
+              </Text>
+            </View>
+          ) : null}
         </View>
       ) : null}
       <View style={styles.actionChipText}>
@@ -2965,6 +3023,25 @@ const styles = StyleSheet.create({
   },
   actionChipImg: { width: 40, height: 40, resizeMode: 'contain' },
   actionChipImgLargeAsset: { transform: [{ scale: 1.38 }] },
+  actionChipBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 5,
+    borderRadius: 999,
+    backgroundColor: '#ff385c',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+  },
+  actionChipBadgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+    lineHeight: 14,
+  },
   actionChipText: {
     flexDirection: 'column',
     gap: 1,

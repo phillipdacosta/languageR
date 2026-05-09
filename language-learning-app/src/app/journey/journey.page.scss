@@ -1,0 +1,2546 @@
+// ── Journey full page ────────────────────────────────────────────
+// Airbnb-style: #fff / #f7f7f7 / #222 / #717171 — no blue tints.
+
+.journey-header {
+  ion-toolbar {
+    --background: #fff;
+    --border-width: 0;
+    border-bottom: 1px solid #e8e8e8;
+  }
+}
+
+// Back button gets a visible label so the "View roadmap" FLIP clone has a
+// real-sized destination to morph into. Monochrome to match the page.
+.journey-back-btn {
+  --color: #111;
+  --background-hover: rgba(0, 0, 0, 0.04);
+  --padding-start: 8px;
+  --padding-end: 12px;
+  font-weight: 700;
+
+  ion-icon {
+    font-size: 18px;
+    margin-right: 2px;
+  }
+
+  .journey-back-btn-label {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #111;
+  }
+}
+
+.journey-content {
+  // Generous bottom padding so the last card and "Continue" CTA aren't
+  // covered by the bottom tab bar (50px on mobile + safe-area inset).
+  --padding-top: 12px;
+  --padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px));
+  --padding-start: 0;
+  --padding-end: 0;
+  --background: #f7f7f7;
+}
+
+// ── Inline mode (embedded in tab1) ───────────────────────────────
+// Mirrors the earnings inline pattern. The host (tab1) provides scroll;
+// we just lay out the title row + body. The .go-back-link is the FLIP
+// destination from the home widget's "View roadmap" CTA.
+.journey-inline-wrapper {
+  padding: 76px 0 calc(120px + env(safe-area-inset-bottom, 0px));
+  background: #f7f7f7;
+}
+
+.inline-journey-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1080px;
+  margin: 0 auto 8px;
+  padding: 0 20px;
+}
+
+.inline-journey-title {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  color: #111;
+  margin: 0;
+}
+
+.inline-journey-header .go-back-link {
+  background: none;
+  border: none;
+  padding: 6px 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #222;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+// ── CEFR scale chip — milestone-gated, sits between header and roadmap ──
+// Compact pill: A1 A2 [B1] B2 C1 C2 with the active level bold + dot for
+// agreement. Tappable → opens details alert.
+.cefr-chip-wrap {
+  max-width: 1080px;
+  margin: 0 auto 16px;
+  padding: 0 20px;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.cefr-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border: 1px solid #e8e8e8;
+  background: #fff;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.02);
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+    border-color: #d8d8d8;
+  }
+
+  &--low-agreement { border-style: dashed; }
+}
+
+.cefr-chip-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #717171;
+}
+
+.cefr-chip-scale {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cefr-chip-step {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #b0b0b0;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: color 0.2s ease, background 0.2s ease;
+
+  &--active {
+    color: #fff;
+    background: #111;
+    font-weight: 800;
+  }
+}
+
+.cefr-chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #cfcfcf;
+
+  &--high   { background: #2e7d32; }   // green
+  &--medium { background: #f9a825; }   // amber
+  &--low    { background: #c62828; }   // red
+}
+
+.journey-section {
+  max-width: 1080px;
+  margin: 0 auto 24px;
+  padding: 0 20px;
+
+  &.journey-section--hero { margin-top: 8px; }
+
+  // Roadmap section reserves a right-side gutter for the floating
+  // action dock so the canvas + card can both span the same content
+  // width (visually equal). Section is `position: relative` so the
+  // dock can absolutely pin to the right gutter.
+  &.journey-section--roadmap {
+    position: relative;
+    padding-right: 84px;
+
+    @media (max-width: 600px) {
+      padding-right: 60px;
+    }
+  }
+}
+
+// ── Mastery Mode (Batch 13) ────────────────────────────────────────
+.journey-mastery-section { margin-top: 16px; }
+
+.journey-mastery-card {
+  background: linear-gradient(135deg, #111 0%, #1f1b2d 60%, #2a2236 100%);
+  color: #fff;
+  border-radius: 24px;
+  padding: 28px 24px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+  position: relative;
+  overflow: hidden;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: -40%;
+    right: -20%;
+    width: 320px;
+    height: 320px;
+    background: radial-gradient(circle, rgba(217, 119, 6, 0.18), transparent 60%);
+    pointer-events: none;
+  }
+}
+
+.journey-mastery-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  padding: 6px 10px;
+  border-radius: 999px;
+  margin-bottom: 16px;
+  position: relative;
+  z-index: 1;
+
+  ion-icon { font-size: 14px; }
+}
+
+.journey-mastery-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0 0 8px;
+  letter-spacing: -0.02em;
+  position: relative;
+  z-index: 1;
+}
+
+.journey-mastery-body {
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.72);
+  margin: 0 0 22px;
+  position: relative;
+  z-index: 1;
+}
+
+.journey-mastery-challenge {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 18px 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.journey-mastery-challenge-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+
+  ion-icon {
+    font-size: 28px;
+    color: #f59e0b;
+    flex-shrink: 0;
+  }
+}
+
+.journey-mastery-challenge-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.journey-mastery-challenge-theme {
+  font-size: 17px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.journey-mastery-challenge-header {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.78);
+  line-height: 1.5;
+  margin: 0 0 14px;
+}
+
+.journey-mastery-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 48px;
+  border: none;
+  border-radius: 14px;
+  background: #fff;
+  color: #111;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+
+  &:hover { transform: translateY(-1px); }
+  &:active { transform: translateY(0); opacity: 0.9; }
+}
+
+.journey-mastery-next {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: center;
+  margin: 12px 0 0;
+}
+
+.journey-mastery-empty {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 14px;
+  position: relative;
+  z-index: 1;
+
+  ion-icon {
+    font-size: 22px;
+    color: rgba(255, 255, 255, 0.55);
+  }
+  p {
+    font-size: 13.5px;
+    color: rgba(255, 255, 255, 0.72);
+    line-height: 1.45;
+    margin: 0;
+  }
+}
+
+// ── Empty state (no goal / no plan yet) ───────────────────────────
+.journey-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 0;
+}
+
+.journey-empty-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 18px;
+  padding: 32px 24px;
+  gap: 10px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.journey-empty-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: #f5f5f5;
+  color: #222;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 6px;
+
+  ion-icon { font-size: 26px; }
+}
+
+.journey-empty-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #222;
+  margin: 0;
+  line-height: 1.25;
+}
+
+.journey-empty-body {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #717171;
+  margin: 0 0 8px;
+  max-width: 360px;
+}
+
+.journey-empty-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 11px 18px;
+  background: #222;
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s ease;
+
+  &:hover { background: #000; }
+
+  ion-icon { font-size: 14px; }
+}
+
+.journey-empty-preview {
+  background: #fafafa;
+  border: 1px solid #f0f0f0;
+  border-radius: 16px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.journey-empty-preview-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #b0b0b0;
+}
+
+.journey-empty-phases {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.journey-empty-phase {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 10px;
+}
+
+.journey-empty-phase-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #f0f0f0;
+  color: #717171;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.journey-empty-phase-label {
+  font-size: 13px;
+  color: #444;
+  font-weight: 600;
+}
+
+.journey-empty-preview-foot {
+  font-size: 12px;
+  color: #717171;
+  margin: 0;
+  font-style: italic;
+}
+
+// ── Premium teaser (free users only) ──────────────────────────────
+.journey-premium-teaser {
+  margin-top: 14px;
+
+  .jpt-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    background: #fff;
+    border: 1px solid #e8e8e8;
+    border-radius: 14px;
+    cursor: pointer;
+    transition: box-shadow 0.18s ease, border-color 0.18s ease;
+
+    &:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.06); border-color: #d4d4d4; }
+    &:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(0,0,0,0.12); }
+  }
+
+  .jpt-icon {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: #222; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+
+    ion-icon { font-size: 17px; }
+  }
+
+  .jpt-text {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .jpt-title { font-size: 14px; font-weight: 700; color: #222; }
+  .jpt-sub   { font-size: 12.5px; color: #717171; line-height: 1.4; }
+
+  .jpt-chevron { color: #b0b0b0; font-size: 18px; flex-shrink: 0; }
+}
+
+// ── Hero: re-enable everything hidden by the compact full variant ─
+.journey-section--hero .journey-widget--full {
+  padding: 26px 28px;
+  gap: 18px;
+  border-radius: 20px;
+
+  .jw-path        { display: block; padding: 4px 4px 10px; }
+  .jw-body        { display: flex; flex-direction: row; align-items: flex-start; gap: 12px; }
+  .jw-body-icon   { display: flex; }
+  .jw-body-title  { font-size: 20px; }
+  .jw-body-summary {
+    display: -webkit-box;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-line-clamp: 6;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .jw-focus {
+    display: flex;
+    padding: 10px 0 0;
+    border-top: 1px solid #f0f0f0;
+  }
+  .jw-focus-label { font-size: 11px; }
+  .jw-focus-value { font-size: 14px; -webkit-line-clamp: 3; }
+  .jw-goal        { padding: 10px 12px; font-size: 13px; }
+}
+
+// ── Section heading ──────────────────────────────────────────────
+.journey-section-header {
+  margin-bottom: 14px;
+
+  &.journey-section-header--with-cta {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+
+    .journey-section-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .journey-section-header-text { flex: 1 1 auto; min-width: 200px; }
+  }
+
+  .journey-section-title {
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: #222;
+    margin: 0 0 4px;
+  }
+
+  .journey-section-sub {
+    font-size: 14px;
+    line-height: 1.5;
+    color: #717171;
+    margin: 0;
+  }
+}
+
+// ── Past-maps "visiting" badge ──────────────────────────────────
+.journey-visit-badge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgba(0,0,0,0.78);
+  color: #fff;
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.journey-visit-badge-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  line-height: 1.3;
+}
+.journey-visit-badge-readonly {
+  display: inline-block;
+  background: rgba(255,255,255,0.15);
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.journey-visit-badge-back {
+  background: #fff;
+  color: #111;
+  border: none;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+  &:hover { transform: translateY(-1px); }
+}
+
+// ── Scenic winding-path map ──────────────────────────────────────
+// Background image is set inline from chapterTheme. We provide a soft
+// fallback gradient + per-theme accent gradient when the asset 404s
+// (G35 — never block the journey from rendering).
+.journey-map-canvas {
+  position: relative;
+  width: 100%;
+  margin-bottom: 14px;
+  // Sized adaptively so the canvas + the detail card BOTH fit on the
+  // fold. The chrome reserved (header, padding, card, tab bar) is ~390px;
+  // the canvas takes whatever remains, clamped to a sane min/max so it
+  // never collapses or grows past a comfortable ceiling on huge monitors.
+  height: clamp(350px, calc(100dvh - 390px), 730px);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  border-radius: 18px;
+  overflow: visible; // labels on edge nodes can poke out
+  // Smooth cross-fade when chapterTheme changes (Batch 4 also relies on this).
+  transition: background-image 1.2s ease-in-out, background-color 1.2s ease-in-out;
+
+  // Phone — slightly smaller min/max so the card stays above the tab bar.
+  @media (max-width: 600px) {
+    height: clamp(310px, calc(100dvh - 350px), 470px);
+  }
+
+  // Hidden img used only to detect image load failure → we set
+  // backgroundFailed in TS, which adds the fallback class below.
+  .journey-map-bg-probe {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  // ── Winding path SVG overlay ───────────────────────────────────
+  // Stretches edge-to-edge in the same 100×100 viewBox the node
+  // coordinates use, so nodes sit on the curve.
+  .journey-map-path {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1; // under the dots (which are higher in the DOM order anyway)
+    overflow: visible;
+  }
+
+  // Outer halo — wider, soft, semi-transparent white so the path
+  // reads on dark/saturated backgrounds without a hard edge.
+  // Animated draw-in via stroke-dashoffset. CSS custom properties
+  // (--draw-duration, --draw-ease, --draw-delay) are overridden per
+  // theme below for visual variation between chapters.
+  .journey-map-path-halo {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.55);
+    stroke-width: 4;            // viewBox units (≈ 4% of canvas width)
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+    filter: blur(0.6px);
+    stroke-dasharray: 250;       // big enough to cover the longest path
+    stroke-dashoffset: 250;
+    animation: jm-path-draw var(--draw-duration, 1.5s) var(--draw-ease, cubic-bezier(0.65, 0, 0.35, 1)) var(--draw-delay, 0.2s) forwards;
+  }
+
+  // Inner line — dashed, charcoal, slightly translucent. Reads as a
+  // hand-drawn trail on every theme. Fades in once the halo finishes
+  // drawing, then a continuous slow "march" of the dashes makes the
+  // path feel alive.
+  .journey-map-path-line {
+    fill: none;
+    stroke: rgba(20, 20, 24, 0.65);
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 2.2 2.4;
+    vector-effect: non-scaling-stroke;
+    opacity: 0;
+    animation:
+      jm-path-fadein 0.6s ease-out var(--line-delay, 1.5s) forwards,
+      jm-path-march var(--march-speed, 18s) linear var(--line-delay, 1.5s) infinite;
+  }
+
+  // ── Per-chapter animation feel ──────────────────────────────────
+  // Same draw-in, different mood. The shape variation already comes
+  // from THEME_PATH_PTS in journey.page.ts.
+  &[data-theme="a1-desert"] {
+    --draw-duration: 1.6s;     --draw-ease: ease-out;
+    --line-delay: 1.6s;        --march-speed: 22s;          // slow, warm
+  }
+  &[data-theme="a2-coast"] {
+    --draw-duration: 1.4s;     --draw-ease: cubic-bezier(0.4, 0, 0.2, 1);
+    --line-delay: 1.4s;        --march-speed: 16s;          // wave-like
+  }
+  &[data-theme="b1-lake"] {
+    --draw-duration: 1.9s;     --draw-ease: linear;
+    --line-delay: 1.9s;        --march-speed: 24s;          // calm, steady
+  }
+  &[data-theme="b2-snow"] {
+    --draw-duration: 1.0s;     --draw-ease: cubic-bezier(0.65, 0, 0.35, 1);
+    --line-delay: 1.0s;        --march-speed: 12s;          // crisp, brisk
+  }
+  &[data-theme="c1-cherry"] {
+    --draw-duration: 2.1s;     --draw-ease: cubic-bezier(0.45, 0, 0.55, 1);
+    --line-delay: 2.1s;        --march-speed: 26s;          // gentle, romantic
+  }
+  &[data-theme="c2-tuscany"] {
+    --draw-duration: 1.6s;     --draw-ease: cubic-bezier(0.34, 0.85, 0.5, 1);
+    --line-delay: 1.6s;        --march-speed: 20s;          // sweeping
+  }
+
+  // ── Per-theme fallback gradients (G35) ───────────────────────────
+  // Each theme has a tasteful gradient that hints at the scene even
+  // when the image hasn't loaded.
+  &--fallback {
+    &[data-theme="a1-desert"]    { background: linear-gradient(180deg, #f8d7a4 0%, #e6a86a 50%, #b07842 100%); }
+    &[data-theme="a2-coast"]     { background: linear-gradient(180deg, #aee3f5 0%, #6ec3e3 50%, #2c83a8 100%); }
+    &[data-theme="b1-lake"]      { background: linear-gradient(180deg, #cfead3 0%, #88b893 50%, #4a7a5a 100%); }
+    &[data-theme="b2-snow"]      { background: linear-gradient(180deg, #eef3fb 0%, #d6e1f5 50%, #a8badd 100%); }
+    &[data-theme="c1-cherry"]    { background: linear-gradient(180deg, #fde2ec 0%, #f0a9c2 50%, #c66b89 100%); }
+    &[data-theme="c2-tuscany"]   { background: linear-gradient(180deg, #f5e6c5 0%, #e0b878 50%, #a07a3c 100%); }
+    // Universal fallback if data-theme is missing.
+    &:not([data-theme]) {
+      background: linear-gradient(180deg, #f5f5f5 0%, #d8d8d8 50%, #a8a8a8 100%);
+    }
+  }
+}
+
+
+// Node button — absolutely positioned, centred on its (x,y) coordinate.
+// Labels always float ABOVE the dot (path sits in the lower portion of canvas).
+.jm-node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column-reverse; // label on top, dot below
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  z-index: 2;
+  -webkit-tap-highlight-color: transparent;
+}
+
+// Node dot circle
+.jm-dot {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #8FAAF5;
+  border: 3px solid #fff;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+
+  ion-icon {
+    font-size: 15px;
+    color: #fff;
+  }
+
+  .jm-node--completed & {
+    background: #4C7EF4;
+    ion-icon { color: #fff; }
+  }
+
+  .jm-node--locked & {
+    background: #D6DBE8;
+    border-color: #fff;
+    ion-icon { color: #9AA4BE; font-size: 13px; }
+  }
+
+  .jm-node--active & {
+    width: 44px;
+    height: 44px;
+    background: #42aceb;
+    border: 4px solid #fff;
+    box-shadow:
+      0 0 0 5px rgba(76, 126, 244, 0.22),
+      0 4px 14px rgba(76, 126, 244, 0.35);
+  }
+
+  .jm-node--selected & {
+    transform: scale(1.12);
+    box-shadow:
+      0 0 0 6px rgba(76, 126, 244, 0.28),
+      0 4px 18px rgba(76, 126, 244, 0.4);
+  }
+
+  .jm-node:active & {
+    transform: scale(0.93);
+  }
+}
+
+// Pulsing ring on the active node
+.jm-pulse-ring {
+  position: absolute;
+  inset: -7px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(76, 126, 244, 0.55);
+  animation: jm-pulse 2.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+// Adaptive-split badge — small "✂" anchored to the top-right of the dot.
+// Apple-style: tiny, monochrome, soft shadow. Visible at all node statuses.
+.jm-split-badge {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1.5px solid #111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  pointer-events: none; // Tooltip via title attr; tap goes to parent button.
+
+  ion-icon {
+    font-size: 10px;
+    color: #111;
+  }
+}
+.jm-node--split .jm-dot {
+  // Subtle outline ring to draw the eye to the badge without being loud.
+  box-shadow:
+    0 3px 10px rgba(0, 0, 0, 0.18),
+    0 0 0 2px rgba(0, 0, 0, 0.06);
+}
+
+@keyframes jm-pulse {
+  0%, 100% { transform: scale(1);    opacity: 0.8; }
+  55%       { transform: scale(1.2); opacity: 0; }
+}
+
+// Path draw-in: animates the stroke-dashoffset from "fully hidden" to
+// "fully drawn", giving the impression of an ink trail unrolling.
+@keyframes jm-path-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+// Inner dashed line fade-in (sequenced after the halo finishes drawing).
+@keyframes jm-path-fadein {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+// Continuous "march" — one full dash+gap cycle = 4.6 viewBox units, so
+// any negative multiple of 4.6 produces a seamless loop.
+@keyframes jm-path-march {
+  to { stroke-dashoffset: -46; }
+}
+
+// Phase number + title label — frosted pill for legibility over the image.
+// Absolutely-positioned relative to the .jm-node button so it can flip
+// above/below the dot and anchor to a side of the dot when the node is
+// near the canvas edge. Default: centered above the dot.
+//
+// Spacing model: the .jm-node button's box equals the dot (label is out of
+// flow), so `100%` = the dot's bottom edge. To sit ABOVE the dot with a
+// small breathing gap we anchor the label's bottom at `100% + 4px`
+// (i.e. 4px above the dot's top). Mirrored for the below variant.
+$jm-label-gap: 4px;
+
+.jm-label {
+  position: absolute;
+  bottom: calc(100% + #{$jm-label-gap});
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  max-width: 92px;
+  text-align: center;
+  pointer-events: none;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-radius: 8px;
+  padding: 3px 7px 4px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  white-space: normal;
+}
+
+// Top-edge nodes: flip the label below the dot so it never escapes the
+// top of the canvas. Same gap, just mirrored.
+.jm-node--label-below .jm-label {
+  bottom: auto;
+  top: calc(100% + #{$jm-label-gap});
+}
+
+// Side-edge nodes: anchor the label so its OPPOSITE edge sits flush with
+// the dot's center (translateX(-50%) → 0%) and the label extends INWARD
+// from the canvas edge. This guarantees the label can't overflow even on
+// a narrow viewport because nothing of the label is to the outside of the
+// dot. Reading direction stays natural.
+.jm-node--label-start .jm-label {
+  left: 50%;
+  right: auto;
+  transform: translateX(-12px);   // small inset so label doesn't sit *exactly* on dot's centre
+  align-items: flex-start;
+  text-align: left;
+}
+.jm-node--label-end .jm-label {
+  left: auto;
+  right: 50%;
+  transform: translateX(12px);
+  align-items: flex-end;
+  text-align: right;
+}
+
+// Combined edge + top-flip cases need no extra rules — the orthogonal
+// modifiers (--label-below for vertical, --label-start / --label-end for
+// horizontal) compose cleanly because they touch different properties.
+
+// Label text: black in light mode for crisp Apple-style legibility on the
+// frosted-white pill. Status conveys via the dot — colored text isn't
+// needed and reads as visual noise. Locked stays muted as the only
+// hierarchy cue. Dark mode overrides further down switch to white.
+.jm-label-num {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  color: #111;
+
+  .jm-node--locked & { color: #8e8e93; }
+}
+
+.jm-label-title {
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: #111;
+  max-width: 86px;
+
+  .jm-node--active &  { font-weight: 700; }
+  .jm-node--locked &  { color: #8e8e93; }
+
+  @media (max-width: 600px) {
+    font-size: 9.5px;
+    max-width: 68px;
+  }
+}
+
+// ── Map action dock ─────────────────────────────────────────────
+// Pinned to the section's right-side gutter (the section reserves
+// `padding-right: 84px` exactly for this column). The dock sits OUTSIDE
+// the canvas/card content area so the canvas + card both render at the
+// same content width and look visually equal. Icon-only rounded buttons,
+// each keeping a title + aria-label so the hidden label is still
+// recoverable on hover and via assistive tech.
+.journey-map-actions--dock {
+  position: absolute;
+  top: 0;
+  right: 18px;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 48px;
+
+  @media (max-width: 600px) {
+    right: 12px;
+    width: 36px;
+    gap: 8px;
+  }
+}
+
+.journey-dock-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 999px;
+  color: #1f1f23;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+
+  ion-icon { font-size: 18px; }
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.10);
+    border-color: rgba(0, 0, 0, 0.16);
+  }
+
+  &:active { transform: translateY(0); }
+
+  @media (max-width: 600px) {
+    width: 36px;
+    height: 36px;
+    ion-icon { font-size: 16px; }
+  }
+
+  // Milestone replay variant — subtle warm tint to suggest celebration.
+  &--milestone {
+    color: #92400e;
+    background: #fff7ec;
+    border-color: rgba(245, 158, 11, 0.28);
+
+    &:hover {
+      color: #78350f;
+      background: #fff1de;
+    }
+  }
+
+  // AI regen — slightly stronger emphasis (the only "verb" in the dock).
+  &--ai {
+    color: #1f1f23;
+    border-color: rgba(0, 0, 0, 0.16);
+
+    &:hover {
+      background: #111;
+      color: #fff;
+      border-color: #111;
+    }
+
+    &.journey-dock-btn--locked {
+      color: #b0b0b0;
+      background: #fafafa;
+      border-color: rgba(0, 0, 0, 0.05);
+
+      &:hover {
+        background: #f0f0f0;
+        color: #717171;
+      }
+    }
+  }
+
+  // Dev-only preview — hot pink so it's impossible to ship to prod by
+  // accident. Hidden via *ngIf when environment.production is true.
+  &--dev {
+    color: #9d174d;
+    background: #fde2ec;
+    border: 1px dashed #d6336c;
+
+    &:hover {
+      background: #fbcedb;
+      color: #9d174d;
+    }
+  }
+}
+
+// Compact remaining-credits badge for the AI dock button.
+.journey-dock-counter {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background: #111;
+  color: #fff;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  box-shadow: 0 0 0 2px #fff;
+}
+
+// Legacy horizontal row — only the visit-history badge below uses these
+// rules now, but keep the namespace intact in case dock is unmounted.
+.journey-map-actions:not(.journey-map-actions--dock) {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+// Dev-only preview button — hot pink so it's impossible to ship to prod
+// by accident. Hidden via *ngIf when environment.production is true.
+.journey-dev-preview-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #fde2ec;
+  color: #9d174d;
+  border: 1px dashed #d6336c;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  ion-icon { font-size: 14px; }
+
+  &:hover {
+    background: #f9c8d8;
+  }
+}
+
+// ── Single phase detail card — mirrors home journey widget ────────
+.jpcd-card {
+  position: relative;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 18px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.10);
+  padding: 10px 16px 48px;   // bottom pad reserves space for the abs CTA
+  margin-top: 0;
+  animation: jpcd-enter 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes jpcd-enter {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+// In inline (panel) mode the page is appearing under a FLIP animation
+// from the home widget. The translateY/scale on jpcd-enter would shift
+// the card 6px while it's mid-animation, which makes the FLIP measure a
+// destination 6px above its final spot — and the real button visibly
+// "slides down" when it reveals. Use a pure opacity fade here so the
+// destination rect is stable from the moment the card mounts.
+:host(.inline) .jpcd-card {
+  animation: jpcd-enter-fade 0.22s ease both;
+}
+
+@keyframes jpcd-enter-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+// Top row: pill + action icons
+.jpcd-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.jpcd-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+// Phase pill (matches .jw-phase-pill)
+.jpcd-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #555;
+  background: #f3f4f6;
+  border-radius: 100px;
+  padding: 5px 11px 5px 7px;
+}
+
+.jpcd-pill-phase-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.jpcd-pill--active  { color: #2B5FD9; background: rgba(76,126,244,0.1); }
+.jpcd-pill--completed { color: #22a06b; background: rgba(34,160,107,0.1); }
+
+// Icon action buttons
+.jpcd-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #f4f4f4;
+  border: none;
+  cursor: pointer;
+  color: #555;
+  font-size: 15px;
+  transition: background 0.15s ease;
+
+  &:hover { background: #ebebeb; }
+  &.jpcd-icon-btn--close { color: #999; }
+}
+
+// Phase title (matches .jw-title)
+.jpcd-title {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: #111;
+  margin: 0 0 6px;
+  line-height: 1.2;
+}
+
+// Adaptive-split inline callout — sits between the title and the progress
+// bar, makes the structural change visible and explainable.
+.jpcd-split-callout {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  margin: 6px 0 10px;
+  background: #f7f7f7;
+  border: 1px solid #ebebeb;
+  border-radius: 12px;
+}
+.jpcd-split-icon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid #ebebeb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  ion-icon { font-size: 14px; color: #111; }
+}
+.jpcd-split-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.jpcd-split-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6c6c70;
+}
+.jpcd-split-body {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: #222;
+}
+.jpcd-split-why {
+  align-self: flex-start;
+  margin-top: 4px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #111;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  ion-icon { font-size: 13px; }
+  &:hover { text-decoration: underline; }
+}
+
+// Progress bar (matches .jw-progress)
+.jpcd-progress {
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.jpcd-progress-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 5px;
+}
+
+.jpcd-progress-key {
+  font-size: 12px;
+  color: #888;
+}
+
+.jpcd-progress-val {
+  font-size: 12px;
+  font-weight: 600;
+  color: #888;
+  &.jpcd-progress-val--ready { color: #22a06b; }
+}
+
+// Qualitative state pill — replaces the old "Mastery 75/100" string.
+// Defaults to a calm neutral grey; the "ready_soon" / "wrapping_up"
+// variants get a soft accent so the student feels momentum without
+// being told a number. Same shape across all states (no jump on update).
+.jpcd-progress-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 11px;
+  background: #f2f2f2;
+  color: #555;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.1px;
+  white-space: nowrap;
+
+  &.jpcd-progress-pill--ready {
+    background: rgba(34, 160, 107, 0.12);
+    color: #137333;
+  }
+  &.jpcd-progress-pill--wrap {
+    background: rgba(76, 126, 244, 0.12);
+    color: #2851c8;
+  }
+}
+
+.jpcd-progress-track {
+  height: 4px;
+  background: #f0f0f0;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.jpcd-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4C7EF4, #7AA4FF);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+// "How do I move on?" disclosure trigger. Quiet, ghost-style — sits
+// under the progress bar without competing with the primary CTA.
+.jpcd-progress-explain {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 6px 0 0;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #717171;
+  cursor: pointer;
+  transition: color 0.18s ease;
+
+  ion-icon {
+    font-size: 14px;
+    color: inherit;
+  }
+  &:hover { color: #222; }
+}
+
+// Next lesson focus (matches .jw-focus)
+.jpcd-focus {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.jpcd-focus-icon-wrap {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+// ─── Locked-phase preview ──────────────────────────────────────────
+// Read-only "what's coming" disclosure shown when the student taps
+// a future-phase node. Slightly muted typography differentiates it
+// from the active phase without making it feel disabled.
+// See docs/learning-journey/voice-and-framing.md.
+.jpcd-locked-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #888;
+  margin-bottom: 8px;
+
+  ion-icon {
+    font-size: 14px;
+    color: inherit;
+  }
+}
+
+.jpcd-locked-desc {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #555;
+  margin: 0 0 14px;
+}
+
+.jpcd-locked-section {
+  margin-bottom: 14px;
+}
+
+.jpcd-locked-key {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #888;
+  margin-bottom: 6px;
+}
+
+.jpcd-locked-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.jpcd-locked-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 12px;
+  background: transparent;
+  border: 1px solid #e5e5e5;
+  color: #555;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.jpcd-locked-outcome {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #555;
+  margin: 0;
+}
+
+.jpcd-locked-anchor {
+  font-size: 12.5px;
+  color: #888;
+  margin: 4px 0 14px;
+
+  strong {
+    color: #444;
+    font-weight: 600;
+  }
+}
+
+.jpcd-locked-back {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 0;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #717171;
+  cursor: pointer;
+  transition: color 0.18s ease;
+
+  ion-icon {
+    font-size: 14px;
+    color: inherit;
+  }
+
+  &:hover { color: #222; }
+}
+
+.jpcd-focus-img {
+  width: 28px;
+  height: 28px;
+}
+
+.jpcd-focus-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.jpcd-focus-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #999;
+}
+
+.jpcd-focus-body {
+  font-size: 13px;
+  line-height: 1.4;
+  color: #333;
+  margin: 0;
+}
+
+// CTA pill — absolute bottom-right of card (FLIP animation target)
+.jpcd-card .jw-primary-cta-row {
+  position: absolute;
+  bottom: 14px;
+  right: 16px;
+  padding-top: 0;
+}
+
+.jpcd-card .jw-primary-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px 10px 16px;
+  background: #111;
+  color: #fff;
+  border: 1px solid #111;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+
+  &:hover {
+    background: #000;
+    transform: translateY(-1px);
+  }
+
+  &:active { transform: translateY(0); }
+
+  ion-icon { font-size: 16px; }
+}
+
+.jpcd-card .jw-primary-cta-content {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 1px;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.jpcd-card .jw-primary-cta-label {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.jpcd-card .jw-primary-cta-sub {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+// Goal row (matches .jw-goal)
+.jpcd-goal {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 0 0;
+  border-top: 1px solid #f3f4f6;
+  margin-bottom: 4px;
+}
+
+.jpcd-goal-icon {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.jpcd-goal-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #444;
+}
+
+.jpcd-goal-value {
+  font-size: 12.5px;
+  color: #555;
+}
+
+// ── Roadmap ──────────────────────────────────────────────────────
+.journey-roadmap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.journey-phase {
+  position: relative;
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 14px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.journey-phase-rail {
+  position: relative;
+  display: flex;
+  justify-content: center;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 36px;
+    bottom: -28px;
+    width: 1px;
+    background: #e8e8e8;
+  }
+}
+
+.journey-phase:last-child .journey-phase-rail::before { display: none; }
+
+.journey-phase-dot {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 1.5px solid #d4d4d4;
+  z-index: 1;
+  flex-shrink: 0;
+
+  ion-icon { font-size: 14px; color: #b0b0b0; }
+}
+
+.journey-phase--completed .journey-phase-dot {
+  background: #222;
+  border-color: #222;
+  ion-icon { color: #fff; }
+}
+
+.journey-phase--active .journey-phase-dot {
+  background: #fff;
+  border: 2px solid #222;
+  box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.08);
+
+  .journey-phase-pulse {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #222;
+    animation: jp-pulse 1.8s ease-in-out infinite;
+  }
+}
+
+@keyframes jp-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%       { transform: scale(1.18); opacity: 0.75; }
+}
+
+.journey-phase-card {
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 14px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  padding: 14px 16px;
+  transition: border-color 0.2s ease, box-shadow 0.25s ease;
+}
+
+.journey-phase--active .journey-phase-card {
+  border-color: #222;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.journey-phase--locked .journey-phase-card { opacity: 0.65; }
+
+.journey-phase-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.journey-phase-head-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.journey-phase-eyebrow {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #b0b0b0;
+  margin-bottom: 2px;
+}
+
+.journey-phase-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #222;
+  margin: 0;
+}
+
+.journey-phase-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  min-width: 160px;
+  max-width: 220px;
+}
+
+.journey-phase-progress-text {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #717171;
+  text-align: right;
+  line-height: 1.3;
+
+  &.journey-phase-progress-text--ready {
+    color: #222;
+    font-weight: 700;
+  }
+}
+
+.journey-phase-progress-bar {
+  width: 140px;
+  height: 3px;
+  background: #f0f0f0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.journey-phase-progress-fill {
+  height: 100%;
+  background: #222;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.journey-phase-chevron {
+  font-size: 17px;
+  color: #b0b0b0;
+  flex-shrink: 0;
+}
+
+.journey-phase-body {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #f0f0f0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.journey-phase-desc {
+  font-size: 14px;
+  line-height: 1.55;
+  color: #717171;
+  margin: 0;
+}
+
+.journey-phase-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.journey-phase-tag {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #f0f0f0;
+  color: #717171;
+}
+
+.journey-phase-exit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #717171;
+
+  ion-icon { color: #717171; font-size: 14px; }
+}
+
+// ── Recommended materials ────────────────────────────────────────
+.journey-materials {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.journey-material-card {
+  display: grid;
+  grid-template-columns: 60px 1fr 18px;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.18s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    border-color: #d0d0d0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  }
+}
+
+.journey-material-thumb {
+  width: 60px;
+  height: 60px;
+  border-radius: 10px;
+  background: #f5f5f5;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  img { width: 100%; height: 100%; object-fit: cover; }
+}
+
+.journey-material-thumb--placeholder {
+  color: #b0b0b0;
+
+  ion-icon { font-size: 24px; }
+}
+
+.journey-material-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.journey-material-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #222;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.journey-material-desc {
+  font-size: 13px;
+  color: #717171;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.journey-material-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.journey-material-tag {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f0f0f0;
+  color: #717171;
+}
+
+.journey-material-chevron {
+  color: #b0b0b0;
+  font-size: 16px;
+}
+
+// ── Premium teaser ───────────────────────────────────────────────
+.journey-premium-teaser {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  border-radius: 16px;
+  background: #f7f7f7;
+  border: 1px solid #e8e8e8;
+}
+
+.journey-premium-teaser-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  color: #222;
+
+  ion-icon { font-size: 22px; }
+}
+
+.journey-premium-teaser-text {
+  h3 {
+    font-size: 15px;
+    font-weight: 700;
+    margin: 0 0 2px;
+    color: #222;
+  }
+  p {
+    font-size: 13px;
+    line-height: 1.5;
+    color: #717171;
+    margin: 0;
+  }
+}
+
+// ── Coming Up (per-tutor lane visible to the student) ─────────────
+.journey-coming-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.journey-coming-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 14px;
+  padding: 14px 16px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+
+  &:hover {
+    border-color: #c0c0c0;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    transform: translateY(-1px);
+  }
+}
+
+.journey-coming-when {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 60px;
+  flex-shrink: 0;
+  padding-right: 12px;
+  border-right: 1px solid #f0f0f0;
+
+  .journey-coming-day {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #717171;
+    letter-spacing: 0.04em;
+  }
+
+  .journey-coming-time {
+    font-size: 15px;
+    font-weight: 700;
+    color: #222;
+    margin-top: 2px;
+  }
+}
+
+.journey-coming-body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.journey-coming-tutor-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.journey-coming-tutor-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.journey-coming-tutor-name {
+  font-size: 13px;
+  color: #717171;
+
+  strong { color: #222; font-weight: 700; }
+}
+
+.journey-coming-focus {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #444;
+  margin: 0;
+
+  ion-icon { font-size: 14px; color: #717171; margin-top: 2px; flex-shrink: 0; }
+
+  &.journey-coming-focus--muted {
+    color: #b0b0b0;
+    font-style: italic;
+  }
+}
+
+.journey-coming-chevron {
+  color: #c0c0c0;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+// ── "Why this plan?" reference link ────────────────────────────────
+.journey-why-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px auto 0;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  color: #717171;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 999px;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  ion-icon { font-size: 14px; }
+
+  &:hover {
+    background: #f0f0f0;
+    color: #222;
+  }
+
+  // Milestone replay variant — subtle warm tint to suggest celebration.
+  &--milestone {
+    color: #92400e;
+    background: rgba(245, 158, 11, 0.08);
+
+    &:hover {
+      color: #78350f;
+      background: rgba(245, 158, 11, 0.16);
+    }
+  }
+}
+
+// ── AI regen header CTA ────────────────────────────────────────────
+.journey-ai-regen-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #fff;
+  color: #222;
+  border: 1px solid #222;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease;
+  white-space: nowrap;
+
+  ion-icon { font-size: 14px; }
+
+  &:hover {
+    background: #222;
+    color: #fff;
+  }
+
+  &.journey-ai-regen-btn--locked {
+    color: #b0b0b0;
+    border-color: #e0e0e0;
+    background: #fafafa;
+
+    &:hover {
+      background: #f0f0f0;
+      color: #717171;
+    }
+  }
+
+}
+
+.journey-ai-regen-counter {
+  font-size: 11px;
+  font-weight: 600;
+  color: #717171;
+  background: #f0f0f0;
+  padding: 1px 6px;
+  border-radius: 6px;
+  margin-left: 4px;
+
+  .journey-ai-regen-btn:hover & {
+    background: rgba(255,255,255,0.18);
+    color: #fff;
+  }
+
+}
+
+// ── Per-phase edit pencil + edit form ──────────────────────────────
+.journey-phase-edit-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  color: #717171;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+
+  ion-icon { font-size: 16px; }
+
+  &:hover {
+    background: #f0f0f0;
+    border-color: #e0e0e0;
+    color: #222;
+  }
+}
+
+.journey-phase-edit {
+  border-top: 1px solid #f0f0f0;
+  margin-top: 12px;
+  padding-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.journey-phase-edit-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #717171;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.journey-phase-edit-input,
+.journey-phase-edit-textarea {
+  width: 100%;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #222;
+  background: #fff;
+  font-family: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  &:focus {
+    outline: none;
+    border-color: #222;
+    box-shadow: 0 0 0 3px rgba(0,0,0,0.06);
+  }
+
+  &:disabled { opacity: 0.6; }
+}
+
+.journey-phase-edit-textarea {
+  resize: vertical;
+  min-height: 70px;
+  line-height: 1.5;
+}
+
+.journey-phase-edit-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.journey-phase-edit-btn-cancel,
+.journey-phase-edit-btn-save {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 84px;
+  padding: 9px 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+
+  ion-spinner { width: 18px; height: 18px; --color: #fff; }
+
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+.journey-phase-edit-btn-cancel {
+  background: #fff;
+  color: #717171;
+  border: 1px solid #e0e0e0;
+
+  &:hover:not(:disabled) {
+    background: #fafafa;
+    color: #222;
+    border-color: #c0c0c0;
+  }
+}
+
+.journey-phase-edit-btn-save {
+  background: #222;
+  color: #fff;
+  border: 1px solid #222;
+
+  &:hover:not(:disabled) { background: #000; }
+}
+
+// ── Dark Mode Support ────────────────────────────────────────────
+:host-context(html.ion-palette-dark) {
+  // Page structure
+  .journey-header ion-toolbar {
+    --background: #1c1c1e;
+    border-bottom-color: rgba(84, 84, 88, 0.65);
+  }
+
+  // ion-content understands CSS variables; regular divs need real background
+  .journey-content   { --background: #000; }
+  .journey-inline-wrapper { background: #000; }
+
+  // Inline title and back button (explicit colors override cascade)
+  .inline-journey-title { color: #fff; }
+  .inline-journey-header .go-back-link { color: #4c7ef4; }
+
+  .cefr-chip {
+    background: #1c1c1e;
+    border-color: rgba(84, 84, 88, 0.65);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04);
+
+    &:hover {
+      border-color: rgba(120, 120, 128, 0.7);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+    }
+  }
+  .cefr-chip-eyebrow { color: #98989d; }
+  .cefr-chip-step    { color: #6c6c70; }
+  .cefr-chip-step--active {
+    background: #fff;
+    color: #111;
+  }
+
+  // Back button (standalone mode)
+  .journey-back-btn {
+    --color: #fff;
+    --background-hover: rgba(255, 255, 255, 0.08);
+    .journey-back-btn-label { color: #fff; }
+  }
+
+  // Journey section titles
+  .journey-section-title { color: #fff; }
+
+  // Main detail card
+  .jpcd-card {
+    background: #1c1c1e;
+    border-color: rgba(84, 84, 88, 0.65);
+    box-shadow:
+      0 6px 24px rgba(0, 0, 0, 0.6),
+      0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  // Phase pill
+  .jpcd-pill {
+    color: #e5e5e7;
+    background: rgba(84, 84, 88, 0.16);
+    &.jpcd-pill--active    { color: #6b92f6; background: rgba(76, 126, 244, 0.15); }
+    &.jpcd-pill--completed { color: #32d74b; background: rgba(50, 215, 75, 0.15); }
+  }
+
+  // Icon action buttons
+  .jpcd-icon-btn {
+    background: rgba(84, 84, 88, 0.16);
+    color: #e5e5e7;
+    &:hover { background: rgba(84, 84, 88, 0.24); }
+    &.jpcd-icon-btn--close { color: #98989d; }
+  }
+
+  // Card title
+  .jpcd-title { color: #fff; }
+
+  // Adaptive-split callout
+  .jpcd-split-callout {
+    background: rgba(84, 84, 88, 0.16);
+    border-color: rgba(84, 84, 88, 0.4);
+  }
+  .jpcd-split-icon {
+    background: #1c1c1e;
+    border-color: rgba(84, 84, 88, 0.5);
+    ion-icon { color: #fff; }
+  }
+  .jpcd-split-eyebrow { color: #98989d; }
+  .jpcd-split-body { color: #e5e5e7; }
+  .jpcd-split-why { color: #fff; }
+
+  // Split badge on the map node
+  .jm-split-badge {
+    background: #1c1c1e;
+    border-color: #fff;
+    ion-icon { color: #fff; }
+  }
+  .jm-node--split .jm-dot {
+    box-shadow:
+      0 3px 10px rgba(0, 0, 0, 0.6),
+      0 0 0 2px rgba(255, 255, 255, 0.1);
+  }
+
+  // Progress section
+  .jpcd-progress-key   { color: #ababab; }
+  .jpcd-progress-val   { color: #e5e5e7; }
+  .jpcd-progress-track { background: rgba(84, 84, 88, 0.28); }
+  .jpcd-progress-fill  { background: #4c7ef4; }
+
+  // Qualitative pill — dark equivalents of the light-mode tints.
+  .jpcd-progress-pill {
+    background: rgba(255, 255, 255, 0.08);
+    color: #c7c7cc;
+
+    &.jpcd-progress-pill--ready {
+      background: rgba(48, 209, 88, 0.16);
+      color: #5fd692;
+    }
+    &.jpcd-progress-pill--wrap {
+      background: rgba(76, 126, 244, 0.18);
+      color: #8db1ff;
+    }
+  }
+
+  .jpcd-progress-explain {
+    color: #98989d;
+    &:hover { color: #fff; }
+  }
+
+  // Locked-phase preview — dark equivalents.
+  .jpcd-locked-eyebrow   { color: #98989d; }
+  .jpcd-locked-desc      { color: #c7c7cc; }
+  .jpcd-locked-key       { color: #98989d; }
+  .jpcd-locked-outcome   { color: #c7c7cc; }
+  .jpcd-locked-anchor    {
+    color: #98989d;
+    strong { color: #e5e5e7; }
+  }
+  .jpcd-locked-chip {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.12);
+    color: #c7c7cc;
+  }
+  .jpcd-locked-back {
+    color: #98989d;
+    &:hover { color: #fff; }
+  }
+
+  // Focus section
+  .jpcd-focus-eyebrow { color: #98989d; }
+  .jpcd-focus-body    { color: #e5e5e7; }
+
+  // Goal section
+  .jpcd-goal       { border-top-color: rgba(84, 84, 88, 0.36); }
+  .jpcd-goal-label { color: #c7c7cc; }
+  .jpcd-goal-value { color: #e5e5e7; }
+
+  // Roadmap elements
+  .journey-phase-rail::before { background: rgba(84, 84, 88, 0.36); }
+
+  .journey-phase-dot {
+    background: #1c1c1e;
+    border-color: rgba(84, 84, 88, 0.48);
+    ion-icon { color: #8e8e93; }
+  }
+
+  .journey-phase--completed .journey-phase-dot {
+    background: #e5e5e7;
+    border-color: #e5e5e7;
+    ion-icon { color: #1c1c1e; }
+  }
+
+  .journey-phase--active .journey-phase-dot {
+    background: #1c1c1e;
+    border-color: #e5e5e7;
+    box-shadow: 0 0 0 4px rgba(229, 229, 231, 0.16);
+    .journey-phase-pulse { background: #e5e5e7; }
+  }
+
+  .journey-phase-content   { color: #e5e5e7; }
+  .journey-phase-title     { color: #fff; }
+  .journey-phase-description { color: #c7c7cc; }
+  .journey-phase-focus     { color: #e5e5e7; }
+  .journey-phase-criteria  { color: #c7c7cc; }
+  .journey-phase-progress-num   { color: #4c7ef4; }
+  .journey-phase-progress-label { color: #8e8e93; }
+
+  // Map canvas nodes
+  .jm-dot {
+    border-color: #1c1c1e;
+    box-shadow:
+      0 3px 10px rgba(0, 0, 0, 0.4),
+      0 0 0 1px rgba(255, 255, 255, 0.1);
+  }
+
+  .jm-node--locked .jm-dot {
+    background: rgba(84, 84, 88, 0.32);
+    border-color: #1c1c1e;
+    ion-icon { color: #8e8e93; }
+  }
+
+  .jm-node--active .jm-dot {
+    border-color: #1c1c1e;
+    box-shadow:
+      0 0 0 5px rgba(76, 126, 244, 0.25),
+      0 4px 14px rgba(76, 126, 244, 0.4),
+      0 0 0 1px rgba(255, 255, 255, 0.1);
+  }
+
+  .jm-node--selected .jm-dot {
+    box-shadow:
+      0 0 0 6px rgba(76, 126, 244, 0.3),
+      0 4px 18px rgba(76, 126, 244, 0.45),
+      0 0 0 1px rgba(255, 255, 255, 0.1);
+  }
+
+  .jm-label {
+    background: rgba(28, 28, 30, 0.9);
+    color: #e5e5e7;
+    border: 1px solid rgba(84, 84, 88, 0.48);
+    box-shadow:
+      0 2px 8px rgba(0, 0, 0, 0.6),
+      0 0 0 1px rgba(255, 255, 255, 0.05);
+  }
+  // Override the explicit black/dark-grey text colors set in light mode.
+  .jm-label-num,
+  .jm-label-title { color: #fff; }
+  .jm-node--locked .jm-label-num,
+  .jm-node--locked .jm-label-title { color: #8e8e93; }
+
+  // Floating dock
+  .journey-dock-btn {
+    background: rgba(28, 28, 30, 0.9);
+    color: #e5e5e7;
+    border-color: rgba(84, 84, 88, 0.48);
+    box-shadow:
+      0 2px 12px rgba(0, 0, 0, 0.6),
+      0 0 0 1px rgba(255, 255, 255, 0.05);
+
+    &:hover {
+      background: rgba(44, 44, 46, 0.9);
+      border-color: rgba(84, 84, 88, 0.65);
+    }
+
+    &:active {
+      background: #1c1c1e;
+      color: #fff;
+      border-color: #e5e5e7;
+    }
+
+    &.journey-dock-btn--locked {
+      color: #8e8e93;
+      background: rgba(28, 28, 30, 0.6);
+      border-color: rgba(84, 84, 88, 0.24);
+      &:hover { background: rgba(28, 28, 30, 0.8); }
+    }
+  }
+
+  .journey-dock-counter {
+    background: #ff3b30;
+    color: #fff;
+    box-shadow: 0 0 0 2px #1c1c1e;
+  }
+
+  // Coming up items
+  .jmu-item {
+    background: rgba(28, 28, 30, 0.6);
+    border-color: rgba(84, 84, 88, 0.36);
+    &:hover {
+      background: rgba(28, 28, 30, 0.8);
+      border-color: rgba(84, 84, 88, 0.48);
+    }
+  }
+
+  .jmu-title { color: #fff; }
+  .jmu-type  { color: #c7c7cc; }
+  .jmu-meta  { color: #8e8e93; }
+
+  // Empty states
+  .journey-empty       { color: #c7c7cc; }
+  .journey-empty-title { color: #e5e5e7; }
+
+  // Edit forms
+  .jpcd-edit-row input,
+  .jpcd-edit-row textarea {
+    background: rgba(28, 28, 30, 0.6);
+    border-color: rgba(84, 84, 88, 0.48);
+    color: #e5e5e7;
+    &::placeholder { color: #8e8e93; }
+    &:focus {
+      border-color: #4c7ef4;
+      background: rgba(28, 28, 30, 0.8);
+    }
+  }
+
+  .jpcd-edit-actions button {
+    &[type="button"] {
+      background: rgba(84, 84, 88, 0.16);
+      color: #e5e5e7;
+      border-color: rgba(84, 84, 88, 0.36);
+      &:hover { background: rgba(84, 84, 88, 0.24); }
+    }
+
+    &[type="submit"] {
+      background: #4c7ef4;
+      color: #fff;
+      &:hover    { background: #3a6cf3; }
+      &:disabled { background: rgba(84, 84, 88, 0.16); color: #8e8e93; }
+    }
+  }
+}

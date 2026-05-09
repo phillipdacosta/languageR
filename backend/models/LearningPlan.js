@@ -1,5 +1,18 @@
 const mongoose = require('mongoose');
 
+// Tutor vote on the current phase. Tutors don't directly advance students
+// anymore — their action becomes a vote that biases the mastery threshold.
+// See docs/learning-journey/scenarios.md (G29, G30) and Batch 10.
+const tutorVoteSchema = new mongoose.Schema({
+  tutorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  tutorName: { type: String, default: '' },
+  vote: { type: String, enum: ['advance', 'hold'], required: true },
+  note: { type: String, default: '' },
+  setAt: { type: Date, default: Date.now },
+  // 14-day window. After this, vote is silently ignored (G16).
+  expiresAt: { type: Date, default: () => new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) }
+}, { _id: false });
+
 const phaseSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: { type: String, default: '' },
@@ -8,12 +21,34 @@ const phaseSchema = new mongoose.Schema({
   exitCriteria: { type: String, default: '' },
   estimatedLessons: { type: Number, default: 5 },
   lessonsCompleted: { type: Number, default: 0 },
+  // Per-lesson mastery scores (0–100) for lessons taken while this phase
+  // was active. Promotion is gated on the rolling average of this list.
+  // See backend/services/masteryService.js.
+  lessonScores: [{ type: Number, min: 0, max: 100 }],
+  // Per-lesson tutor IDs aligned with lessonScores (parallel arrays). Used by
+  // the decay rule (G12) which requires ≥ 2 distinct tutors before triggering.
+  lessonTutorIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  // Cached rolling-window average so the client doesn't recompute it.
+  // Maintained by learningPlanService whenever lessonScores changes.
+  masteryAverage: { type: Number, default: null, min: 0, max: 100 },
   status: {
     type: String,
     enum: ['locked', 'active', 'completed'],
     default: 'locked'
   },
-  completedAt: { type: Date, default: null }
+  completedAt: { type: Date, default: null },
+  // Set the first time a student edits any field on this phase. Used to
+  // signal to tutors that the framing here reflects the student's own
+  // priorities (high-signal cue), not the AI's default copy.
+  studentEditedAt: { type: Date, default: null },
+  // Tutor votes on this phase (Batch 10). One vote per tutor; latest wins (G29).
+  tutorVotes: [tutorVoteSchema],
+  // Batch 11: marks a phase that was created by adaptive splitting (so
+  // we don't re-split a sub-phase forever).
+  _isSplit: { type: Boolean, default: false },
+  // Batch 5: marks a fundamentals phase 0 added during calibration
+  // (skip splitting / decay logic on it).
+  _isFundamentals: { type: Boolean, default: false }
 }, { _id: false });
 
 const historyEntrySchema = new mongoose.Schema({
@@ -21,7 +56,50 @@ const historyEntrySchema = new mongoose.Schema({
   lessonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Lesson', default: null },
   changeDescription: { type: String, required: true },
   phaseIndexBefore: { type: Number, default: null },
-  phaseIndexAfter: { type: Number, default: null }
+  phaseIndexAfter: { type: Number, default: null },
+  // Mastery snapshot at the time of the entry (for promotion entries).
+  masteryAtAdvance: { type: Number, default: null },
+  // Why the phase changed — useful for support / debugging / future analytics.
+  reason: {
+    type: String,
+    enum: [
+      'mastery_met', 'max_lessons_safety', 'tutor_advance', 'tutor_skip',
+      'ai_advance', 'goal_change', 'created',
+      // Chapter system (Batch 1+)
+      'chapter_graduated', 'chapter_demoted', 'calibration_promoted', 'calibration_demoted',
+      'decay_warning', 'chapter_regenerated', 'tutor_vote_advance', 'tutor_vote_hold',
+      'admin_override',
+      // Batch 11: AI split a stuck phase into 2a/2b.
+      'phase_split',
+      null
+    ],
+    default: null
+  }
+}, { _id: false });
+
+// Snapshot of a completed chapter. Read-only by API design — there's no
+// update endpoint that touches chaptersCompleted (G9). Past chapters are
+// browsable via "Past maps" in the journey UI.
+const completedChapterSchema = new mongoose.Schema({
+  index: { type: Number, required: true },
+  level: { type: String, required: true },
+  theme: { type: String, required: true },
+  phases: [phaseSchema],
+  completedAt: { type: Date, default: Date.now },
+  masteryAtCompletion: { type: Number, default: null },
+  exitReason: {
+    type: String,
+    enum: ['graduated', 'demoted', 'calibrated'],
+    default: 'graduated'
+  }
+}, { _id: false });
+
+const recommendedMaterialSchema = new mongoose.Schema({
+  materialId: { type: mongoose.Schema.Types.ObjectId, ref: 'TutorMaterial', required: true },
+  matchedStruggles: [{ type: String }],
+  fromLessonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Lesson', default: null },
+  addedAt: { type: Date, default: Date.now },
+  dismissedAt: { type: Date, default: null }
 }, { _id: false });
 
 const tutorOverrideSchema = new mongoose.Schema({
@@ -34,6 +112,64 @@ const tutorOverrideSchema = new mongoose.Schema({
     required: true
   },
   note: { type: String, default: '' }
+}, { _id: false });
+
+// Per-tutor focus lane. When a student works with multiple tutors, each
+// tutor sets their own next-lesson focus for that student without
+// stomping on the other tutors' focus. The home-widget focus is then
+// resolved by `resolveNextFocus` based on the student's next upcoming
+// lesson and which tutor it's with.
+const tutorFocusEntrySchema = new mongoose.Schema({
+  tutorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  tutorName: { type: String, default: '' },
+  focus: { type: String, default: '' },
+  note: { type: String, default: '' },
+  setAt: { type: Date, default: Date.now }
+}, { _id: false });
+
+// CEFR estimate computed from the rolling window of LessonAnalysis records
+// (both AI and tutor sources). Internal estimate is recomputed after every
+// lesson; revealed estimate is gated to milestones to avoid noisy fluctuation.
+// See backend/services/cefrEstimatorService.js + docs/learning-journey/cefr-estimation.md.
+const cefrEstimateSchema = new mongoose.Schema({
+  level: { type: String, enum: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'], default: null },
+  numericLevel: { type: Number, default: null, min: 1, max: 6 },
+  confidence: { type: Number, default: null, min: 0, max: 100 },
+  agreement: { type: String, enum: ['high', 'medium', 'low', null], default: null },
+  sources: {
+    ai: { type: Number, default: 0 },
+    tutor: { type: Number, default: 0 }
+  },
+  lessonsConsidered: { type: Number, default: 0 },
+  computedAt: { type: Date, default: Date.now }
+}, { _id: false });
+
+const cefrDivergenceSchema = new mongoose.Schema({
+  gap: { type: Number, required: true },           // signed: tutorMean - aiMean (in CEFR levels)
+  aiLevel: { type: String, enum: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'], required: true },
+  tutorLevel: { type: String, enum: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'], required: true },
+  direction: { type: String, enum: ['tutor_higher', 'ai_higher'], required: true }
+}, { _id: false });
+
+const cefrRevealSchema = new mongoose.Schema({
+  level: { type: String, enum: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'], required: true },
+  numericLevel: { type: Number, required: true, min: 1, max: 6 },
+  confidence: { type: Number, default: null, min: 0, max: 100 },
+  agreement: { type: String, enum: ['high', 'medium', 'low'], default: 'medium' },
+  // Plain-English narrative (template-generated, English only for v1 — i18n later).
+  narrative: { type: String, default: '' },
+  sources: {
+    ai: { type: Number, default: 0 },
+    tutor: { type: Number, default: 0 }
+  },
+  lessonsAtReveal: { type: Number, default: 0 },
+  // Why this reveal fired: 'first_milestone' | 'chapter_graduation' | 'monthly_refresh'
+  trigger: { type: String, enum: ['first_milestone', 'chapter_graduation', 'monthly_refresh'], default: 'first_milestone' },
+  revealedAt: { type: Date, default: Date.now },
+  // Source disagreement (Batch 12 follow-up). Set only when AI vs tutor
+  // means diverge by ≥ 1 CEFR level. Drives the "AI tends to assess you
+  // at X; your tutors at Y" transparency UI.
+  divergence: { type: cefrDivergenceSchema, default: null }
 }, { _id: false });
 
 const learningPlanSchema = new mongoose.Schema({
@@ -74,6 +210,56 @@ const learningPlanSchema = new mongoose.Schema({
     default: 0
   },
   phases: [phaseSchema],
+
+  // Chapter system (Batch 1). Each chapter has 4 phases mapped to a CEFR
+  // level and a scenic background theme. See docs/learning-journey/.
+  chapterIndex: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 5
+  },
+  chapterLevel: {
+    type: String,
+    enum: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'],
+    default: 'A1'
+  },
+  chapterTheme: {
+    type: String,
+    default: 'a1-desert'
+  },
+  // Frozen snapshots of every completed chapter, oldest first. Read-only.
+  chaptersCompleted: [completedChapterSchema],
+  // Calibration window (G31, G32). Set when first 5 lessons of chapter 1
+  // are done — after this, the chapter is locked for normal advancement.
+  calibrationLockedAt: { type: Date, default: null },
+  // Decay tracking (G15). Incremented on first decay-trajectory match;
+  // cleared on demotion or after a recovery lesson. Used to gate the
+  // "soft warning then demote" two-step rule.
+  decayWarnings: { type: Number, default: 0 },
+  // Total demotions in the trailing 90 days. Used to surface human
+  // intervention card when ≥ 2 (G6). Cleaned on read.
+  demotionEvents: [{ type: Date }],
+
+  // Pending transition flags. Persisted (so multiple devices / refreshes
+  // see them until acknowledged) but cleared via dedicated endpoints.
+  // See docs/learning-journey/architecture.md.
+  pendingTransitions: {
+    chapterJustCompleted: { type: Boolean, default: false },
+    chapterDemotionPending: { type: Boolean, default: false },
+    chapterPromotionPending: { type: Boolean, default: false },
+    masteryModeEntered: { type: Boolean, default: false },
+    decayWarning: { type: Boolean, default: false },
+    humanInterventionSuggested: { type: Boolean, default: false },
+    // Batch 11: AI just split the active phase. Show a polite "I noticed
+    // X is harder than expected" toast on next journey-page visit.
+    phaseSplit: { type: Boolean, default: false },
+    // For G33: count how many times the celebration modal has been shown
+    // (max 3) before auto-dismissing. Frontend pings ack endpoint.
+    celebrationShownCount: { type: Number, default: 0 }
+  },
+
+
   weeklyRecommendations: {
     lessonFrequency: { type: String, default: '2x per week' },
     selfStudyMinutes: { type: Number, default: 15 },
@@ -89,6 +275,13 @@ const learningPlanSchema = new mongoose.Schema({
   },
   history: [historyEntrySchema],
   tutorOverrides: [tutorOverrideSchema],
+  // One focus entry per tutor that has set one. Newest setAt wins
+  // resolution ties when no upcoming lesson hint is available.
+  tutorFocusByTutorId: [tutorFocusEntrySchema],
+  // Snapshot of struggle-matched materials surfaced to the student between
+  // lessons. Populated for free students after each lesson analysis.
+  recommendedMaterials: [recommendedMaterialSchema],
+  recommendedMaterialsUpdatedAt: { type: Date, default: null },
   lastUpdatedAt: {
     type: Date,
     default: Date.now
@@ -104,9 +297,55 @@ const learningPlanSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['draft', 'active', 'completed', 'paused'],
+    // 'unframed' = student hasn't set a goal / wants to learn at their own
+    // pace. The plan exists as a thin shell so CEFR estimation, review-deck
+    // generation, and tutor briefings still have something to write into,
+    // but no phases/chapters are surfaced. Students can promote to a full
+    // plan whenever they want — see learningPlanService.promoteUnframedPlan.
+    // 'paused' = student had a real plan and asked us to hibernate it. All
+    // historical data is preserved; the journey UI is hidden until resumed.
+    enum: ['draft', 'active', 'completed', 'paused', 'mastery_mode', 'unframed'],
     default: 'draft'
-  }
+  },
+  // Lifecycle timestamps for the unframed / paused flow. Set when the plan
+  // enters that state; cleared on resume/promote. Used by the soft "Want a
+  // plan?" prompt so we can throttle by lessons-since-paused.
+  unframedAt: { type: Date, default: null },
+  pausedAt: { type: Date, default: null },
+  // Last time the student dismissed the "Want a plan?" prompt. Throttles
+  // re-firing — see post-lesson soft-prompt logic.
+  softPlanPromptDismissedAt: { type: Date, default: null },
+  // Lesson count snapshot when the plan went unframed/paused. Lets us
+  // compute "how many lessons since" for the soft-prompt cadence without
+  // walking the full lesson history.
+  lessonsAtUnframed: { type: Number, default: 0 },
+  // 'lesson' = AI-driven (premium), 'rule' = lesson-count-based (free), null = not yet
+  lastUpdateMode: {
+    type: String,
+    enum: ['lesson', 'rule', 'tutor_override', 'goal_change', null],
+    default: null
+  },
+  // Premium-only: timestamps of student-initiated AI regenerations.
+  // Used to enforce a rolling 30-day cap (default 2/month) without
+  // needing a separate counters collection. Pruned on read.
+  aiRegenerationsAt: [{ type: Date }],
+  // First time the student dismissed the "Your roadmap is ready" intro
+  // sheet. Used to show it exactly once after onboarding. Stays set so
+  // we can also drive a "Why this plan?" reference link without re-prompting.
+  journeyIntroSeenAt: { type: Date, default: null },
+
+  // CEFR estimation (see docs/learning-journey/cefr-estimation.md).
+  // internalCefrEstimate: refreshed after every lesson, used by AI plan
+  // prompts + tutor briefings. Never shown raw to the student.
+  // revealedCefrLevel: snapshot of the estimate the student has seen. Updated
+  // only at milestones (5+ lessons, chapter graduation, monthly thereafter).
+  // revealHistory: append-only timeline so students can browse their level evolution.
+  internalCefrEstimate: { type: cefrEstimateSchema, default: null },
+  revealedCefrLevel: { type: cefrRevealSchema, default: null },
+  revealHistory: [cefrRevealSchema],
+  // Pending UX flag: set when revealedCefrLevel is updated and the student
+  // hasn't seen the celebration/toast yet. Cleared by an ack endpoint.
+  pendingCefrReveal: { type: Boolean, default: false }
 }, {
   timestamps: true
 });

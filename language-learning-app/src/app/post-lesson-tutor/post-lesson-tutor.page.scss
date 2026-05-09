@@ -776,3 +776,109 @@
   background-repeat: no-repeat;
   background-position: right 12px center;
 }
+
+/* ── Captured corrections ─────────────────────────────────── */
+.corrections-section {
+  margin-top: 16px;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid var(--ion-color-step-100, #f0f0f0);
+  border-radius: 12px;
+
+  .corrections-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .corrections-section-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #222;
+
+    .opt {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--ion-color-medium, #717171);
+    }
+  }
+
+  .corrections-section-sub {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: var(--ion-color-medium, #717171);
+    line-height: 1.4;
+  }
+
+  .corrections-section-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .correction-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px;
+    background: #f7f7f7;
+    border-radius: 10px;
+  }
+
+  .correction-row-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    flex: 1 1 auto;
+
+    .correction-input--why {
+      grid-column: 1 / -1;
+    }
+
+    ion-input {
+      --background: #fff;
+      --padding-start: 10px;
+      --padding-end: 10px;
+      font-size: 13px;
+      min-height: 38px;
+    }
+  }
+
+  .correction-remove {
+    background: transparent;
+    border: 0;
+    padding: 4px;
+    color: var(--ion-color-medium, #717171);
+    cursor: pointer;
+    border-radius: 6px;
+
+    ion-icon { font-size: 18px; }
+
+    &:hover { background: rgba(0, 0, 0, 0.05); }
+  }
+
+  .correction-add {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    background: transparent;
+    border: 1px dashed #d4d4d4;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #222;
+    cursor: pointer;
+
+    ion-icon { font-size: 16px; }
+
+    &:hover {
+      background: #f7f7f7;
+      border-color: #222;
+    }
+  }
+}

@@ -215,6 +215,18 @@ const lessonAnalysisSchema = new mongoose.Schema({
     default: 'ai',
     index: true
   },
+
+  // Bias-adjusted CEFR level. For source: 'tutor' this is shifted down
+  // by ~0.5 levels (configurable in cefrEstimatorService) to correct for
+  // documented tutor inflation. For source: 'ai' this equals the raw level.
+  // Stored at write time so the aggregator can change formula without
+  // mutating historical analyses. See docs/learning-journey/cefr-estimation.md.
+  biasAdjustedLevel: {
+    type: String,
+    enum: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', null],
+    default: null
+  },
+  biasAdjustedNumeric: { type: Number, default: null, min: 0.5, max: 6 },
   
   // AI Processing
   aiModel: {
@@ -284,6 +296,28 @@ const lessonAnalysisSchema = new mongoose.Schema({
   
 }, {
   timestamps: true
+});
+
+// Pre-save hook: stamp biasAdjustedLevel from the raw proficiency level.
+// AI sources pass through unchanged; tutor sources get a downward shift to
+// correct for documented tutor inflation. Stored at write time so the
+// aggregator can change formula later without mutating historical docs.
+// See backend/services/cefrEstimatorService.js + docs/learning-journey/cefr-estimation.md.
+lessonAnalysisSchema.pre('save', function setBiasAdjusted(next) {
+  try {
+    const raw = this.overallAssessment?.proficiencyLevel;
+    if (!raw) return next();
+    const cefrEstimator = require('../services/cefrEstimatorService');
+    const adj = cefrEstimator.computeBiasAdjusted({
+      overallAssessment: { proficiencyLevel: raw },
+      source: this.source
+    });
+    this.biasAdjustedLevel = adj.level;
+    this.biasAdjustedNumeric = adj.numeric;
+  } catch (err) {
+    console.warn('[LessonAnalysis] biasAdjusted stamp failed (non-blocking):', err.message);
+  }
+  next();
 });
 
 // Indexes for efficient querying

@@ -551,14 +551,32 @@ router.post('/', verifyToken, async (req, res) => {
         // Get tutor's interface language preference
         const tutorLanguage = tutor.interfaceLanguage || 'en';
         console.log('🔍 [TRIAL LESSON] Tutor language:', tutorLanguage);
-        
-        // Generate the multilingual system message
+
+        // Pull the student's learning plan (if any) so the system message
+        // includes a "Their journey so far" block. We don't fail the trial
+        // booking if this lookup throws — the plan summary is a bonus.
+        let studentPlan = null;
+        try {
+          const LearningPlan = require('../models/LearningPlan');
+          const planLanguage = lesson.subject || language;
+          if (planLanguage) {
+            studentPlan = await LearningPlan.findOne({
+              studentId: student._id,
+              language: planLanguage,
+              status: { $in: ['draft', 'active', 'completed'] }
+            }).lean();
+          }
+        } catch (planErr) {
+          console.warn('🔍 [TRIAL LESSON] plan lookup failed (non-fatal):', planErr.message);
+        }
+
         const systemMessageContent = generateTrialLessonMessage({
           studentName: studentDisplayName,
           studentId: student._id.toString(),
           startTime: lessonDate,
           duration: lesson.duration,
-          tutorLanguage
+          tutorLanguage,
+          plan: studentPlan
         });
         
         console.log('🔍 [TRIAL LESSON] Message generated, length:', systemMessageContent.length);
@@ -2926,10 +2944,14 @@ router.post('/:id/generate-analysis', verifyToken, async (req, res) => {
 // POST /api/lessons/:id/tutor-note - Add tutor's supplementary note to lesson
 router.post('/:id/tutor-note', verifyToken, async (req, res) => {
   try {
-    const { text, quickImpression, homework, 
-            cefrLevel, grammarRating, fluencyRating, 
-            keyErrorAreas, strengths, areasToImprove, 
-            isTutorAssessment } = req.body;
+    const { text, quickImpression, homework,
+            cefrLevel, grammarRating, fluencyRating,
+            keyErrorAreas, strengths, areasToImprove,
+            isTutorAssessment,
+            // Optional: structured corrections the tutor explicitly captured
+            // ({ original, corrected, explanation? }[]). Pushed into the
+            // student's spaced-repetition deck.
+            capturedCorrections } = req.body;
     const lessonId = req.params.id;
     
     // Verify user is a tutor
@@ -3102,9 +3124,51 @@ router.post('/:id/tutor-note', verifyToken, async (req, res) => {
     }
     
     await analysis.save();
-    
+
     console.log(`✅ Tutor note saved for lesson ${lessonId}`);
-    
+
+    // If the tutor captured structured corrections, push them onto BOTH the
+    // analysis (so the student sees them on the recap) and the student's
+    // spaced-repetition deck (so they show up in daily practice). Idempotent.
+    if (Array.isArray(capturedCorrections) && capturedCorrections.length > 0) {
+      try {
+        // 1. Append onto LessonAnalysis.correctedExcerpts (so the lesson
+        //    recap UI surfaces them next to AI-extracted ones).
+        const cleanedExcerpts = capturedCorrections
+          .filter(c => c?.original && c?.corrected
+            && String(c.original).trim().length >= 2
+            && String(c.corrected).trim().length >= 2
+            && String(c.original).trim().toLowerCase() !== String(c.corrected).trim().toLowerCase())
+          .map(c => ({
+            context: (c.context || '').toString().trim(),
+            original: c.original.toString().trim(),
+            corrected: c.corrected.toString().trim(),
+            keyCorrections: c.explanation ? [c.explanation.toString().trim()] : []
+          }));
+
+        if (cleanedExcerpts.length > 0) {
+          analysis.correctedExcerpts = [
+            ...(analysis.correctedExcerpts || []),
+            ...cleanedExcerpts
+          ];
+          await analysis.save();
+        }
+
+        // 2. Push to the student's review deck.
+        const reviewDeckHydration = require('../services/reviewDeckHydrationService');
+        await reviewDeckHydration.addCorrections({
+          userId: lesson.studentId,
+          language: lesson.language || lesson.subject,
+          items: capturedCorrections,
+          lessonId: lesson._id,
+          analysisId: analysis._id,
+          source: 'tutor'
+        });
+      } catch (deckErr) {
+        console.error('⚠️ Failed to persist captured corrections (non-blocking):', deckErr);
+      }
+    }
+
     // If this was a tutor assessment (AI off), also mark TutorFeedback as completed
     if (isTutorAssessment) {
       try {

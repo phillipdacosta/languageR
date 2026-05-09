@@ -624,6 +624,107 @@
       </section>
     </ng-container>
 
+    <!-- ── Pre-lesson Briefing (tutor only) ─────────────────── -->
+    <ng-container *ngIf="isTutorUser && edPrepHasContent">
+      <div class="ed-divider"></div>
+      <section class="ed-row ed-briefing">
+        <button type="button" class="ed-briefing-header" (click)="toggleBriefingExpanded()" [attr.aria-expanded]="edPrepBriefingExpanded">
+          <div class="ed-briefing-header-text">
+            <span class="ed-briefing-eyebrow">{{ 'EVENT_DETAILS.BRIEFING.EYEBROW' | translate }}</span>
+            <h2 class="ed-section-label">{{ 'EVENT_DETAILS.BRIEFING.TITLE' | translate }}</h2>
+            <div class="ed-briefing-tags" *ngIf="edPrepPhasePillLabel || edPrepFirstTimePairing || edPrepStudentEdited">
+              <span *ngIf="edPrepPhasePillLabel" class="ed-phase-pill" [title]="'EVENT_DETAILS.BRIEFING.PHASE_TITLE' | translate">
+                <ion-icon name="map-outline"></ion-icon>
+                <span class="ed-phase-pill-index" *ngIf="edPrepPhasePillIndex">{{ edPrepPhasePillIndex }}</span>
+                <span class="ed-phase-pill-label">{{ edPrepPhasePillLabel }}</span>
+              </span>
+              <span *ngIf="edPrepFirstTimePairing" class="ed-first-pairing-pill">
+                <ion-icon name="sparkles-outline"></ion-icon>
+                {{ 'EVENT_DETAILS.BRIEFING.FIRST_PAIRING' | translate }}
+              </span>
+              <span *ngIf="edPrepStudentEdited" class="ed-student-edited-pill" [title]="'EVENT_DETAILS.BRIEFING.STUDENT_EDITED_HINT' | translate">
+                <ion-icon name="create-outline"></ion-icon>
+                {{ 'EVENT_DETAILS.BRIEFING.STUDENT_EDITED' | translate }}
+              </span>
+            </div>
+          </div>
+          <ion-icon [name]="edPrepBriefingExpanded ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon>
+        </button>
+
+        <div class="ed-briefing-body" *ngIf="edPrepBriefingExpanded">
+
+          <!-- Mastery + trajectory chip row -->
+          <div class="ed-briefing-stats" *ngIf="edPrepMasteryLabel || edPrepProficiencyChangeLabel">
+            <div class="ed-briefing-stat" *ngIf="edPrepMasteryLabel">
+              <span class="ed-briefing-stat-label">{{ edPrepMasteryLabel }}</span>
+              <div class="ed-briefing-stat-bar">
+                <div class="ed-briefing-stat-bar-fill" [style.width.%]="edPrepMasteryPercent"></div>
+              </div>
+            </div>
+            <div class="ed-briefing-trend" *ngIf="edPrepProficiencyChangeLabel">
+              <ion-icon *ngIf="edPrepProficiencyChangeIcon" [name]="edPrepProficiencyChangeIcon"></ion-icon>
+              <span>{{ edPrepProficiencyChangeLabel }}</span>
+            </div>
+          </div>
+
+          <!-- Suggested mini-agenda -->
+          <div class="ed-briefing-block" *ngIf="edPrep?.agenda?.length">
+            <h3 class="ed-briefing-block-title">{{ 'EVENT_DETAILS.BRIEFING.AGENDA_TITLE' | translate }}</h3>
+            <ul class="ed-briefing-list">
+              <li *ngFor="let item of edPrep!.agenda">{{ item }}</li>
+            </ul>
+          </div>
+
+          <!-- Top errors from last lesson -->
+          <div class="ed-briefing-block" *ngIf="edPrep?.latestAnalysis?.topErrors?.length">
+            <h3 class="ed-briefing-block-title">{{ 'EVENT_DETAILS.BRIEFING.TOP_ERRORS_TITLE' | translate }}</h3>
+            <ul class="ed-briefing-list ed-briefing-list--numbered">
+              <li *ngFor="let err of edPrep!.latestAnalysis!.topErrors">
+                <span class="ed-briefing-issue">{{ err.issue }}</span>
+                <span class="ed-briefing-meta" *ngIf="err.impact">· {{ err.impact }} impact</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Persistent challenges (carry over from previous lessons) -->
+          <div class="ed-briefing-block" *ngIf="edPrep?.latestAnalysis?.persistentChallenges?.length">
+            <h3 class="ed-briefing-block-title">{{ 'EVENT_DETAILS.BRIEFING.PERSISTENT_TITLE' | translate }}</h3>
+            <div class="ed-briefing-tags">
+              <span *ngFor="let c of edPrep!.latestAnalysis!.persistentChallenges" class="ed-briefing-tag">{{ c }}</span>
+            </div>
+          </div>
+
+          <!-- Concrete corrected excerpts to revisit -->
+          <div class="ed-briefing-block" *ngIf="edPrep?.latestAnalysis?.correctedExcerpts?.length">
+            <h3 class="ed-briefing-block-title">{{ 'EVENT_DETAILS.BRIEFING.EXCERPTS_TITLE' | translate }}</h3>
+            <div class="ed-briefing-excerpts">
+              <div *ngFor="let ex of edPrep!.latestAnalysis!.correctedExcerpts" class="ed-briefing-excerpt">
+                <div class="ed-briefing-excerpt-line ed-briefing-excerpt-line--wrong">
+                  <span class="ed-briefing-excerpt-tag">{{ 'EVENT_DETAILS.BRIEFING.SAID' | translate }}</span>
+                  <span>{{ ex.original }}</span>
+                </div>
+                <div class="ed-briefing-excerpt-line ed-briefing-excerpt-line--right">
+                  <span class="ed-briefing-excerpt-tag">{{ 'EVENT_DETAILS.BRIEFING.SHOULD_BE' | translate }}</span>
+                  <span>{{ ex.corrected }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Other tutors' recent notes — anonymized to first names. -->
+          <div class="ed-briefing-block" *ngIf="edPrep?.otherTutorNotes?.length">
+            <h3 class="ed-briefing-block-title">{{ 'EVENT_DETAILS.BRIEFING.OTHER_NOTES_TITLE' | translate }}</h3>
+            <ul class="ed-briefing-list">
+              <li *ngFor="let n of edPrep!.otherTutorNotes" class="ed-briefing-other-note">
+                <span class="ed-briefing-other-note-author">{{ n.tutorFirstName }}:</span>
+                <span class="ed-briefing-other-note-text">{{ n.text }}</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </ng-container>
+
     <!-- Prior Notes / Analysis section removed — consolidated into Notes above -->
 
     <!-- ── Learning Materials ──────────────────────────────── -->

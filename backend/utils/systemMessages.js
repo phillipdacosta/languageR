@@ -19,7 +19,12 @@ const translations = {
     tip3: "Prepare a short introduction activity to help break the ice and understand their speaking ability.",
     tip4: "Ask about their objectives and preferred learning style; this will help guide future lessons.",
     tip5: "Be welcoming and supportive—trial sessions often determine whether the student will continue with you.",
-    supportText: "If you have any questions, feel free to contact support at any time."
+    supportText: "If you have any questions, feel free to contact support at any time.",
+    journeyTitle: "Their journey so far",
+    journeyGoalLabel: "Goal",
+    journeyLevelLabel: "Self-assessed level",
+    journeyPhaseLabel: "Current phase",
+    journeyFocusLabel: "Suggested focus"
   },
   es: {
     title: 'Nueva Lección de Prueba Programada',
@@ -35,7 +40,12 @@ const translations = {
     tip3: 'Prepara una actividad de introducción corta para romper el hielo y comprender su capacidad de hablar.',
     tip4: 'Pregunta sobre sus objetivos y estilo de aprendizaje preferido; esto ayudará a guiar las lecciones futuras.',
     tip5: 'Sé acogedor y solidario: las sesiones de prueba a menudo determinan si el estudiante continuará contigo.',
-    supportText: 'Si tienes alguna pregunta, no dudes en contactar al soporte en cualquier momento.'
+    supportText: 'Si tienes alguna pregunta, no dudes en contactar al soporte en cualquier momento.',
+    journeyTitle: 'Su trayectoria hasta ahora',
+    journeyGoalLabel: 'Objetivo',
+    journeyLevelLabel: 'Nivel autoevaluado',
+    journeyPhaseLabel: 'Fase actual',
+    journeyFocusLabel: 'Enfoque sugerido'
   },
   de: {
     title: 'Neue Probestunde geplant',
@@ -51,7 +61,12 @@ const translations = {
     tip3: 'Bereiten Sie eine kurze Einführungsaktivität vor, um das Eis zu brechen und ihre Sprechfähigkeit zu verstehen.',
     tip4: 'Fragen Sie nach ihren Zielen und bevorzugtem Lernstil; dies wird helfen, zukünftige Lektionen zu gestalten.',
     tip5: 'Seien Sie freundlich und unterstützend—Probesitzungen bestimmen oft, ob der Schüler bei Ihnen weitermachen wird.',
-    supportText: 'Wenn Sie Fragen haben, können Sie sich jederzeit an den Support wenden.'
+    supportText: 'Wenn Sie Fragen haben, können Sie sich jederzeit an den Support wenden.',
+    journeyTitle: 'Sein bisheriger Lernweg',
+    journeyGoalLabel: 'Ziel',
+    journeyLevelLabel: 'Selbsteingeschätztes Niveau',
+    journeyPhaseLabel: 'Aktuelle Phase',
+    journeyFocusLabel: 'Vorgeschlagener Schwerpunkt'
   },
   fr: {
     title: 'Nouvelle leçon d\'essai programmée',
@@ -67,7 +82,12 @@ const translations = {
     tip3: 'Préparez une courte activité d\'introduction pour briser la glace et comprendre leur capacité d\'expression.',
     tip4: 'Renseignez-vous sur leurs objectifs et leur style d\'apprentissage préféré ; cela aidera à guider les futures leçons.',
     tip5: 'Soyez accueillant et encourageant—les sessions d\'essai déterminent souvent si l\'étudiant continuera avec vous.',
-    supportText: 'Si vous avez des questions, n\'hésitez pas à contacter le support à tout moment.'
+    supportText: 'Si vous avez des questions, n\'hésitez pas à contacter le support à tout moment.',
+    journeyTitle: 'Son parcours jusqu\'à présent',
+    journeyGoalLabel: 'Objectif',
+    journeyLevelLabel: 'Niveau auto-évalué',
+    journeyPhaseLabel: 'Phase actuelle',
+    journeyFocusLabel: 'Focus suggéré'
   },
   pt: {
     title: 'Nova Aula Experimental Agendada',
@@ -83,45 +103,99 @@ const translations = {
     tip3: 'Prepare uma atividade de introdução curta para quebrar o gelo e entender sua capacidade de falar.',
     tip4: 'Pergunte sobre seus objetivos e estilo de aprendizagem preferido; isso ajudará a orientar as aulas futuras.',
     tip5: 'Seja acolhedor e solidário—as sessões experimentais muitas vezes determinam se o aluno continuará com você.',
-    supportText: 'Se você tiver alguma dúvida, sinta-se à vontade para entrar em contato com o suporte a qualquer momento.'
+    supportText: 'Se você tiver alguma dúvida, sinta-se à vontade para entrar em contato com o suporte a qualquer momento.',
+    journeyTitle: 'Sua jornada até agora',
+    journeyGoalLabel: 'Objetivo',
+    journeyLevelLabel: 'Nível autoavaliado',
+    journeyPhaseLabel: 'Fase atual',
+    journeyFocusLabel: 'Foco sugerido'
   }
 };
 
 /**
- * Generate a trial lesson system message in the tutor's preferred language
+ * Build a short, tutor-language journey summary block from a LearningPlan.
+ * Returns an empty string if there is nothing meaningful to surface,
+ * so the calling system message stays clean.
+ *
+ * @param {Object} params
+ * @param {Object|null} params.plan       - LearningPlan document or POJO.
+ * @param {string}      params.tutorLanguage
+ * @returns {string} HTML-flavored block (or '')
+ */
+function buildJourneyBlock({ plan, tutorLanguage = 'en' }) {
+  if (!plan) return '';
+  const lang = translations[tutorLanguage] || translations.en;
+
+  const goalDescription = (plan.goal?.description || '').trim();
+  const goalType = (plan.goal?.type || '').trim();
+  const selfLevel = (plan.selfAssessedLevel || '').replace(/_/g, ' ').trim();
+  const phaseIdx = plan.currentPhaseIndex ?? 0;
+  const phase = (plan.phases || [])[phaseIdx] || null;
+  const phaseTitle = (phase?.title || '').trim();
+  const totalPhases = (plan.phases || []).length;
+  const focus = (plan.nextLessonFocus || '').trim();
+
+  const lines = [];
+  if (goalDescription || goalType) {
+    lines.push(`• ${lang.journeyGoalLabel}: <strong>${goalDescription || goalType}</strong>`);
+  }
+  if (selfLevel) {
+    lines.push(`• ${lang.journeyLevelLabel}: ${selfLevel}`);
+  }
+  if (phaseTitle) {
+    const phaseFrag = totalPhases
+      ? `<strong>${phaseTitle}</strong> (${phaseIdx + 1}/${totalPhases})`
+      : `<strong>${phaseTitle}</strong>`;
+    lines.push(`• ${lang.journeyPhaseLabel}: ${phaseFrag}`);
+  }
+  if (focus) {
+    lines.push(`• ${lang.journeyFocusLabel}: ${focus}`);
+  }
+  if (!lines.length) return '';
+
+  return `\n\n<strong>${lang.journeyTitle}</strong>\n\n${lines.join('\n')}`;
+}
+
+/**
+ * Generate a trial lesson system message in the tutor's preferred language.
+ *
+ * If a LearningPlan is provided, a "Their journey so far" block is folded
+ * in between the booking metadata and the prep tips so the tutor can size
+ * up the student before the call.
+ *
  * @param {Object} params - Message parameters
- * @param {string} params.studentName - The student's name
- * @param {string} params.studentId - The student's ID for profile link
- * @param {Date} params.startTime - Lesson start time
- * @param {number} params.duration - Lesson duration in minutes
+ * @param {string} params.studentName  - The student's name
+ * @param {string} params.studentId    - The student's ID for profile link
+ * @param {Date}   params.startTime    - Lesson start time
+ * @param {number} params.duration     - Lesson duration in minutes
  * @param {string} params.tutorLanguage - Tutor's interface language (en, es, de, fr, pt)
+ * @param {Object|null} [params.plan]   - LearningPlan to render a journey summary from
  * @returns {string} Formatted markdown message
  */
-function generateTrialLessonMessage({ studentName, studentId, startTime, duration, tutorLanguage = 'en' }) {
-  // Default to English if language not supported
+function generateTrialLessonMessage({ studentName, studentId, startTime, duration, tutorLanguage = 'en', plan = null }) {
   const lang = translations[tutorLanguage] || translations.en;
-  
-  // Format date and time
-  const date = startTime.toLocaleDateString(tutorLanguage === 'en' ? 'en-US' : tutorLanguage === 'es' ? 'es-ES' : tutorLanguage === 'de' ? 'de-DE' : tutorLanguage === 'fr' ? 'fr-FR' : 'pt-BR', {
+
+  const localeMap = { en: 'en-US', es: 'es-ES', de: 'de-DE', fr: 'fr-FR', pt: 'pt-BR' };
+  const locale = localeMap[tutorLanguage] || 'en-US';
+
+  const date = startTime.toLocaleDateString(locale, {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric'
   });
-  
-  const time = startTime.toLocaleTimeString(tutorLanguage === 'en' ? 'en-US' : tutorLanguage === 'es' ? 'es-ES' : tutorLanguage === 'de' ? 'de-DE' : tutorLanguage === 'fr' ? 'fr-FR' : 'pt-BR', {
+
+  const time = startTime.toLocaleTimeString(locale, {
     hour: 'numeric',
     minute: '2-digit',
     hour12: tutorLanguage === 'en'
   });
-  
-  // Build profile URL (frontend route)
+
   const profileUrl = `/student/${studentId}`;
-  
-  // Replace profile URL placeholder in tip1
   const tip1 = lang.tip1.replace('{{profileUrl}}', profileUrl);
-  
-  // Build the message (plain text format with HTML for bold)
+
+  const journeyBlock = buildJourneyBlock({ plan, tutorLanguage });
+
   const message = `<strong>${lang.title}</strong>
 
 ${lang.intro}
@@ -129,7 +203,7 @@ ${lang.intro}
 ${lang.studentLabel}: ${studentName}
 ${lang.dateLabel}: <strong>${date}</strong>
 ${lang.startTimeLabel}: <strong>${time}</strong>
-${lang.durationLabel}: ${typeof lang.durationMinutes === 'function' ? lang.durationMinutes(duration) : lang.durationMinutes}
+${lang.durationLabel}: ${typeof lang.durationMinutes === 'function' ? lang.durationMinutes(duration) : lang.durationMinutes}${journeyBlock}
 
 ${lang.preparationIntro}
 
@@ -149,6 +223,7 @@ ${lang.supportText}`;
 }
 
 module.exports = {
-  generateTrialLessonMessage
+  generateTrialLessonMessage,
+  buildJourneyBlock
 };
 

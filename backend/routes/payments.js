@@ -591,16 +591,32 @@ router.post('/book-lesson-with-payment', verifyToken, async (req, res) => {
       // Send system message to tutor if this is a trial lesson
       if (isTrialLesson) {
         try {
-          // Get tutor's interface language preference
           const tutorLanguage = tutor.interfaceLanguage || 'en';
-          
-          // Generate the multilingual system message
+
+          // Fold the student's learning plan into the system message so the
+          // tutor sees their goal/level/phase before the call. Non-fatal.
+          let studentPlan = null;
+          try {
+            const LearningPlan = require('../models/LearningPlan');
+            const planLanguage = populatedLesson.subject || language;
+            if (planLanguage) {
+              studentPlan = await LearningPlan.findOne({
+                studentId: student._id,
+                language: planLanguage,
+                status: { $in: ['draft', 'active', 'completed'] }
+              }).lean();
+            }
+          } catch (planErr) {
+            console.warn('🔍 [TRIAL] plan lookup failed (non-fatal):', planErr.message);
+          }
+
           const systemMessageContent = generateTrialLessonMessage({
             studentName: studentDisplayName,
             studentId: student._id.toString(),
             startTime: lessonDate,
             duration: populatedLesson.duration,
-            tutorLanguage
+            tutorLanguage,
+            plan: studentPlan
           });
           
           // Create conversation ID between tutor and student using auth0Ids

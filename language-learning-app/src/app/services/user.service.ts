@@ -100,6 +100,15 @@ export interface User {
     pendingVideo?: string;
     pendingVideoThumbnail?: string;
     pendingVideoType?: 'upload' | 'youtube' | 'vimeo';
+    // Structured learning goal (student-only, powers the Learning Plan / Journey)
+    learningGoal?: {
+      type?: 'conversational' | 'exam_prep' | 'professional' | 'travel' | 'relocation' | 'other' | null;
+      description?: string;
+      targetLevel?: string;
+      selfAssessedLevel?: 'complete_beginner' | 'some_basics' | 'simple_conversations' | 'intermediate' | 'advanced' | null;
+      timeline?: 'specific_date' | 'few_months' | 'no_rush' | null;
+      targetDate?: string | null;
+    };
     completedAt: string;
   };
   profile?: {
@@ -281,14 +290,21 @@ export class UserService {
 
   private async getAuthHeadersAsync(): Promise<HttpHeaders> {
     try {
-      // Get ID token claims which include user profile (email, name, picture)
-      const idTokenClaims = await this.authService.getIdTokenClaims();
+      // getAccessTokenSilently() silently refreshes the access token (and the
+      // ID token) when they are near expiry, using Auth0's refresh-token
+      // rotation. Calling it first guarantees that the idTokenClaims$ snapshot
+      // below is always fresh — solving the "401 Invalid or expired token"
+      // error that occurred after ~24h when only idTokenClaims$ was read.
+      await this.authService.getAccessToken().pipe(take(1)).toPromise();
 
-      // The ID token itself is in __raw
+      // Now read the fresh ID token. We still use the ID token (not the access
+      // token) as the bearer because the backend maps `email → dev-user-{email}`
+      // sub format, and the ID token carries the email claim.
+      const idTokenClaims = await this.authService.getIdTokenClaims();
       const idToken = idTokenClaims?.__raw;
-      
+
       if (!idToken) {
-        throw new Error('No ID token available');
+        throw new Error('No ID token available after refresh');
       }
 
       return new HttpHeaders({
@@ -296,9 +312,10 @@ export class UserService {
         'Content-Type': 'application/json'
       });
     } catch (error) {
-      console.error('❌ Error getting ID token:', error);
+      console.error('❌ Error getting auth token:', error);
 
-      // Fallback to dev token if Auth0 token fails
+      // Fallback to dev token if Auth0 token refresh fails (dev only — backend
+      // unconditionally rejects dev-token-* in production).
       const user = await this.authService.user$.pipe(take(1)).toPromise();
       const userEmail = user?.email || 'unknown';
       const tokenEmail = userEmail.replace('@', '-').replace(/\./g, '-');

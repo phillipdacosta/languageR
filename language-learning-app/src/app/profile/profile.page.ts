@@ -92,6 +92,29 @@ export class ProfilePage implements OnInit {
   goalCooldownActive: boolean = false;
   goalCooldownDateDisplay: string = '';
 
+  // Plan lifecycle controls (pause / resume / skip). Populated alongside the
+  // learning goal load. Drive the "Pause my plan" / "Resume my plan" / "Learn
+  // at my own pace" actions on the goal card.
+  planStatus: 'draft' | 'active' | 'completed' | 'paused' | 'mastery_mode' | 'unframed' | null = null;
+  planLanguage: string = '';
+  planIsPremium: boolean = false;
+  isUnframed: boolean = false;
+  isPaused: boolean = false;
+  hasStructuredPlan: boolean = false;
+
+  // CEFR estimate (Batch 12). Populated from the same /learning-plan/:lang
+  // endpoint we already call for the goal display.
+  cefrRevealed: import('../services/learning-plan.service').CefrReveal | null = null;
+  cefrScale: Array<{ level: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2'; active: boolean }> = [];
+  cefrSourcesLabel: string = '';
+  cefrAgreementShortLabel: string = '';
+  // Pre-computed evolution timeline for the template (no function calls).
+  cefrEvolution: Array<{
+    level: string;
+    dateLabel: string;
+    deltaSign: 'up' | 'down' | 'flat';
+  }> = [];
+
   // Cached display properties (avoids function calls in template)
   displayUser: any = null;
   isTutorUser = false;
@@ -655,7 +678,8 @@ export class ProfilePage implements OnInit {
 
     // Check cooldown from any existing plan
     if (user?.onboardingData?.languages?.length) {
-      this.learningPlanService.getPlan(user.onboardingData.languages[0])
+      this.planLanguage = user.onboardingData.languages[0];
+      this.learningPlanService.getPlan(this.planLanguage)
         .pipe(take(1)).subscribe({
           next: (res: any) => {
             if (res.plan?.lastGoalChangedAt) {
@@ -669,16 +693,236 @@ export class ProfilePage implements OnInit {
                 });
               }
             }
+            this.applyPlanLifecycleFromPlan(res?.plan, res?.entitlements);
+            this.applyCefrFromPlan(res?.plan);
           },
           error: () => {}
         });
     }
   }
 
+  /**
+   * Update the cached plan lifecycle flags from a fresh /learning-plan/:lang
+   * response. Drives the visibility of the Pause / Resume / Skip actions and
+   * the tier-aware copy that surrounds them.
+   */
+  private applyPlanLifecycleFromPlan(plan: any, entitlements: any) {
+    this.planStatus = plan?.status || null;
+    this.planIsPremium = entitlements?.tier === 'premium';
+    this.isUnframed = plan?.status === 'unframed';
+    this.isPaused = plan?.status === 'paused';
+    this.hasStructuredPlan = !!plan
+      && plan.status !== 'unframed'
+      && plan.status !== 'paused'
+      && (plan.phases?.length || 0) > 0;
+  }
+
+  private applyCefrFromPlan(plan: any) {
+    if (!plan?.revealedCefrLevel) {
+      this.cefrRevealed = null;
+      this.cefrScale = [];
+      this.cefrEvolution = [];
+      return;
+    }
+    this.cefrRevealed = plan.revealedCefrLevel;
+    this.cefrScale = Array.isArray(plan.cefrScale) ? plan.cefrScale : [];
+    const ai = plan.revealedCefrLevel.sources?.ai || 0;
+    const tu = plan.revealedCefrLevel.sources?.tutor || 0;
+    this.cefrSourcesLabel = `${ai} AI · ${tu} ${tu === 1 ? 'tutor' : 'tutors'}`;
+    const a = plan.revealedCefrLevel.agreement;
+    this.cefrAgreementShortLabel =
+      a === 'high'   ? 'High agreement' :
+      a === 'medium' ? 'Medium agreement' :
+                       'Mixed signals';
+
+    // Build the evolution timeline. Show last 6 reveals so it's a quick
+    // scan, not an exhaustive log. Pre-compute everything (no template fns).
+    const CEFR_NUM: Record<string, number> = { A1: 1, A2: 2, B1: 3, B2: 4, C1: 5, C2: 6 };
+    const history: Array<any> = Array.isArray(plan.revealHistory) ? plan.revealHistory : [];
+    const recent = history.slice(-6);
+    this.cefrEvolution = recent.map((r, i) => {
+      const prev = i > 0 ? recent[i - 1] : null;
+      const delta = prev ? (CEFR_NUM[r.level] || 0) - (CEFR_NUM[prev.level] || 0) : 0;
+      const dateLabel = r.revealedAt
+        ? new Date(r.revealedAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+        : '';
+      const deltaSign: 'up' | 'down' | 'flat' = delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat';
+      return { level: r.level, dateLabel, deltaSign };
+    });
+  }
+
+  /**
+   * Confirm + pause an active plan. Tier-aware copy: premium students see
+   * the "premium-without-a-plan still works" reassurance; free students see
+   * the simpler "we'll save your progress" copy.
+   */
+  async pauseMyPlan() {
+    if (!this.planLanguage || !this.hasStructuredPlan) return;
+    const message = this.planIsPremium
+      ? `<p style="margin:0 0 12px;font-size:14px;line-height:1.55;color:#222;">
+           Pausing keeps everything as-is. Your phases, chapter history, and
+           CEFR estimate are preserved.
+         </p>
+         <p style="margin:0;font-size:13px;line-height:1.5;color:#555;">
+           <strong>Premium still works while paused.</strong> AI lesson
+           analysis, your personalized review deck, and tutor briefings keep
+           running. Resume any time.
+         </p>`
+      : `<p style="margin:0 0 12px;font-size:14px;line-height:1.55;color:#222;">
+           Pausing keeps everything as-is. Your phases and history are
+           preserved.
+         </p>
+         <p style="margin:0;font-size:13px;line-height:1.5;color:#555;">
+           Resume any time — we'll pick up right where you left off.
+         </p>`;
+    const alert = await this.alertController.create({
+      header: 'Pause my plan?',
+      message,
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Pause',
+          handler: async () => {
+            const loading = await this.loadingController.create({ message: 'Pausing...' });
+            await loading.present();
+            this.learningPlanService.pausePlan(this.planLanguage).pipe(take(1)).subscribe({
+              next: async (res: any) => {
+                await loading.dismiss();
+                if (res?.success && res.plan) {
+                  this.applyPlanLifecycleFromPlan(res.plan, res.entitlements);
+                  const toast = await this.toastController.create({
+                    message: 'Your plan is paused.',
+                    duration: 2500, position: 'top'
+                  });
+                  await toast.present();
+                }
+              },
+              error: async () => {
+                await loading.dismiss();
+                const toast = await this.toastController.create({
+                  message: 'Could not pause your plan. Please try again.',
+                  duration: 2500, color: 'danger', position: 'top'
+                });
+                await toast.present();
+              }
+            });
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  /** Resume a paused plan in place. */
+  async resumeMyPlan() {
+    if (!this.planLanguage || !this.isPaused) return;
+    const loading = await this.loadingController.create({ message: 'Resuming...' });
+    await loading.present();
+    this.learningPlanService.resumePlan(this.planLanguage).pipe(take(1)).subscribe({
+      next: async (res: any) => {
+        await loading.dismiss();
+        if (res?.success && res.plan) {
+          this.applyPlanLifecycleFromPlan(res.plan, res.entitlements);
+          const toast = await this.toastController.create({
+            message: 'Your plan is back. Welcome back.',
+            duration: 2500, position: 'top'
+          });
+          await toast.present();
+        }
+      },
+      error: async () => {
+        await loading.dismiss();
+        const toast = await this.toastController.create({
+          message: 'Could not resume your plan. Please try again.',
+          duration: 2500, color: 'danger', position: 'top'
+        });
+        await toast.present();
+      }
+    });
+  }
+
+  /**
+   * Switch to "learn at my own pace" mode. Different from pause: the active
+   * chapter's phases are cleared (history is preserved). Promote later by
+   * setting a new goal — see promoteUnframedPlan on the backend.
+   */
+  async skipMyPlan() {
+    if (!this.planLanguage) return;
+    const message = this.planIsPremium
+      ? `<p style="margin:0 0 12px;font-size:14px;line-height:1.55;color:#222;">
+           You'll learn without a structured roadmap. Past chapters and
+           your CEFR history are kept.
+         </p>
+         <p style="margin:0;font-size:13px;line-height:1.5;color:#555;">
+           <strong>Premium still works without a plan.</strong> AI analysis,
+           review deck, and tutor briefings keep running on every lesson.
+           Add a goal any time to get a fresh roadmap.
+         </p>`
+      : `<p style="margin:0 0 12px;font-size:14px;line-height:1.55;color:#222;">
+           You'll learn without a structured roadmap. Past lessons and
+           CEFR estimate are kept.
+         </p>
+         <p style="margin:0;font-size:13px;line-height:1.5;color:#555;">
+           Add a goal any time to get a roadmap built for you.
+         </p>`;
+    const alert = await this.alertController.create({
+      header: 'Learn at my own pace?',
+      message,
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Switch to free pace',
+          handler: async () => {
+            const loading = await this.loadingController.create({ message: 'Switching...' });
+            await loading.present();
+            this.learningPlanService.skipPlan(this.planLanguage).pipe(take(1)).subscribe({
+              next: async (res: any) => {
+                await loading.dismiss();
+                if (res?.success && res.plan) {
+                  this.applyPlanLifecycleFromPlan(res.plan, res.entitlements);
+                  const toast = await this.toastController.create({
+                    message: 'You\'re now learning at your own pace.',
+                    duration: 2500, position: 'top'
+                  });
+                  await toast.present();
+                }
+              },
+              error: async () => {
+                await loading.dismiss();
+                const toast = await this.toastController.create({
+                  message: 'Could not switch modes. Please try again.',
+                  duration: 2500, color: 'danger', position: 'top'
+                });
+                await toast.present();
+              }
+            });
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
   async openGoalEditor() {
     const alert = await this.alertController.create({
       header: 'Change Learning Goal',
-      message: 'Changing your goal will regenerate your learning plan. You can only change it once every 7 days.',
+      cssClass: 'goal-change-alert',
+      message: `
+        <p style="margin:0 0 12px;font-size:14px;line-height:1.55;color:#222;">
+          <strong>What's kept</strong><br>
+          • Your current level and CEFR estimate<br>
+          • All past chapters and badges<br>
+          • Your tutors' notes about you
+        </p>
+        <p style="margin:0 0 12px;font-size:14px;line-height:1.55;color:#222;">
+          <strong>What changes</strong><br>
+          • Your current chapter restarts from <strong>Phase 1</strong> with new content matching your new goal<br>
+          • Phase progress in this chapter resets (your past lessons stay in your history)
+        </p>
+        <p style="margin:0;font-size:13px;line-height:1.5;color:#717171;">
+          You can change your goal once every <strong>7 days</strong>.
+        </p>
+      `,
       buttons: [
         { text: 'Cancel', role: 'cancel' },
         {
@@ -991,22 +1235,58 @@ export class ProfilePage implements OnInit {
   }
 
   /**
-   * Toggle AI analysis on/off
+   * Toggle AI analysis on/off.
+   *
+   * For premium students turning AI **off**, we surface a confirmation
+   * sheet first because most premium value (per-lesson plan updates,
+   * smarter focus, AI-rewritten plans) silently degrades when AI is off.
    */
   toggleAIAnalysis(event: any): void {
-    this.aiAnalysisEnabled = event.detail.checked;
-    
-    // Save to database
-    this.userService.updateAIAnalysisEnabled(this.aiAnalysisEnabled).subscribe({
+    const requested = !!event.detail.checked;
+    const previous = this.aiAnalysisEnabled;
+    if (requested === previous) return;
+
+    const isPremium = (this.currentUser as any)?.subscription?.tier === 'premium';
+    if (!requested && isPremium) {
+      // Optimistic revert in UI: keep showing ON until they confirm.
+      this.aiAnalysisEnabled = previous;
+      this.confirmPremiumAiOff(() => {
+        this.aiAnalysisEnabled = false;
+        this.persistAIAnalysisSetting(false);
+      });
+      return;
+    }
+
+    this.aiAnalysisEnabled = requested;
+    this.persistAIAnalysisSetting(requested);
+  }
+
+  /** Confirmation sheet when a Premium student is about to turn AI off. */
+  private async confirmPremiumAiOff(onConfirm: () => void): Promise<void> {
+    const alert = await this.alertController.create({
+      header: this.languageService.instant('PROFILE.AI_OFF_WARN_TITLE'),
+      message: this.languageService.instant('PROFILE.AI_OFF_WARN_BODY'),
+      buttons: [
+        { text: this.languageService.instant('COMMON.CANCEL'), role: 'cancel' },
+        {
+          text: this.languageService.instant('PROFILE.AI_OFF_WARN_CONFIRM'),
+          role: 'destructive',
+          handler: () => onConfirm()
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  private persistAIAnalysisSetting(enabled: boolean): void {
+    this.userService.updateAIAnalysisEnabled(enabled).subscribe({
       next: (user) => {
-        console.log('🤖 AI analysis setting saved to database:', this.aiAnalysisEnabled);
-        // Update the current user to ensure cache is updated
+        console.log('🤖 AI analysis setting saved to database:', enabled);
         this.currentUser = user;
       },
       error: (error) => {
         console.error('❌ Error saving AI analysis setting:', error);
-        // Revert on error
-        this.aiAnalysisEnabled = !this.aiAnalysisEnabled;
+        this.aiAnalysisEnabled = !enabled;
       }
     });
   }

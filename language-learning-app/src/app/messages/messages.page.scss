@@ -1756,6 +1756,90 @@
   }
 }
 
+// ── Tutor → student plan strip ────────────────────────────────────
+// Sits between the chat header and the messages list. Two compact rows:
+// row 1 = phase number + title pill, row 2 = next-lesson focus. Reads
+// like a quiet inline banner — purposefully not interactive (the lesson
+// briefing is the source of truth for actions).
+.plan-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 16px;
+  background: linear-gradient(180deg, #F5F8FF 0%, #EEF3FF 100%);
+  border-bottom: 1px solid rgba(76, 126, 244, 0.12);
+  border-top: 1px solid rgba(0, 0, 0, 0.04);
+  font-size: 13px;
+  color: #1f2a44;
+  flex-shrink: 0;
+}
+
+.plan-strip--mobile {
+  padding: 8px 14px;
+  font-size: 12.5px;
+}
+
+.plan-strip-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.plan-strip-leading {
+  font-size: 16px;
+  color: #4C7EF4;
+  flex: 0 0 auto;
+}
+
+.plan-strip-phase-idx {
+  flex: 0 0 auto;
+  background: #4C7EF4;
+  color: #fff;
+  font-weight: 700;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.plan-strip-phase-title {
+  font-weight: 600;
+  color: #1f3a8a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.plan-strip-row--focus {
+  color: #4b5563;
+  font-weight: 500;
+  padding-left: 24px;
+
+  ion-icon { font-size: 14px; color: #f59e0b; flex: 0 0 auto; }
+}
+
+.plan-strip-focus {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+@media (prefers-color-scheme: dark) {
+  .plan-strip {
+    background: linear-gradient(180deg, rgba(76, 126, 244, 0.08) 0%, rgba(76, 126, 244, 0.05) 100%);
+    border-bottom-color: rgba(76, 126, 244, 0.22);
+    border-top-color: rgba(255, 255, 255, 0.04);
+    color: #dbe5ff;
+  }
+  .plan-strip-phase-title { color: #dbe5ff; }
+  .plan-strip-row--focus { color: #c5c8d0; }
+}
+
 .chat-messages {
   flex: 1;
   overflow-y: auto;

@@ -618,6 +618,24 @@ router.put('/onboarding', verifyToken, async (req, res) => {
     } else {
       // Handle student onboarding data
       const { languages, goals, experienceLevel, preferredSchedule, learningGoal } = req.body;
+
+      // Capture the *previous* goal so we can detect a goal change after
+      // save and trigger plan regeneration (preserving demonstrated state).
+      // Without this hook the user.onboardingData.learningGoal updates but
+      // the LearningPlan stays stale.
+      const previousLearningGoal = user.onboardingData?.learningGoal
+        ? {
+            type: user.onboardingData.learningGoal.type,
+            description: user.onboardingData.learningGoal.description || '',
+            targetLevel: user.onboardingData.learningGoal.targetLevel || '',
+            timeline: user.onboardingData.learningGoal.timeline || 'no_rush'
+          }
+        : null;
+      // Stash on req for the post-save regen hook below (set after save).
+      req._previousLearningGoal = previousLearningGoal;
+      req._newLearningGoal = (learningGoal && learningGoal.type) ? learningGoal : null;
+      req._studentLanguages = Array.isArray(languages) ? languages : [];
+
       user.onboardingData = {
         languages: languages || [],
         goals: goals || [],
@@ -654,6 +672,56 @@ router.put('/onboarding', verifyToken, async (req, res) => {
         message: saveError.message,
         details: saveError.errors
       });
+    }
+
+    // "Learn at my own pace" path: student skipped goal setup. Create a thin
+    // unframed plan per selected language so the post-lesson pipeline still
+    // has something to write into (CEFR estimate, recommended materials,
+    // tutor briefings). They can promote any time from the profile.
+    if (user.userType === 'student' && req.body?.skipGoalSetup === true) {
+      const learningPlanService = require('../services/learningPlanService');
+      for (const lang of (req._studentLanguages || [])) {
+        try {
+          await learningPlanService.createUnframedPlan(user._id, lang);
+          console.log(`✅ [Onboarding] Unframed plan created for ${user.email} (${lang})`);
+        } catch (unframedErr) {
+          console.error(`❌ [Onboarding] Unframed plan creation failed for ${lang}:`, unframedErr.message);
+        }
+      }
+    }
+
+    // Goal-change side-effect: if a returning student's onboarding submit
+    // includes a different learningGoal than they had before, regenerate
+    // their LearningPlan(s) so the roadmap reflects the new intent.
+    // Preserves their demonstrated chapter level — see learningPlanService.
+    if (user.userType === 'student' && req._newLearningGoal && req._previousLearningGoal) {
+      const prev = req._previousLearningGoal;
+      const next = req._newLearningGoal;
+      const goalChanged =
+        prev.type !== next.type ||
+        (prev.description || '') !== (next.description || '') ||
+        (prev.targetLevel || '') !== (next.targetLevel || '') ||
+        (prev.timeline || 'no_rush') !== (next.timeline || 'no_rush');
+
+      if (goalChanged) {
+        const learningPlanService = require('../services/learningPlanService');
+        for (const lang of (req._studentLanguages || [])) {
+          try {
+            await learningPlanService.regeneratePlan(user._id, lang, next);
+            console.log(`✅ [Onboarding] Plan regenerated for goal change (${lang}) — chapter preserved`);
+          } catch (regenErr) {
+            if (regenErr.statusCode === 429) {
+              // Cooldown active — user.onboardingData was updated but the
+              // plan was not. The frontend cooldown banner already warns
+              // the student about this.
+              console.log(`⏳ [Onboarding] Goal-change cooldown active for ${user.email} (${lang}); plan kept as-is`);
+            } else {
+              console.error(`❌ [Onboarding] Plan regen failed for ${lang}:`, regenErr.message);
+              // Don't fail the onboarding — goal is saved, regen is best-effort.
+            }
+          }
+        }
+      }
     }
     
     res.json({

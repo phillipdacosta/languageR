@@ -216,6 +216,25 @@
                         [maxDisplay]="3">
                       </app-class-attendees>
                       <div class="mcal-card-loc" *ngIf="item.location">{{ item.location }}</div>
+
+                      <!-- Phase + focus chip — surfaces the student's
+                           journey context at a glance so the tutor doesn't
+                           have to open the briefing for triage. Only renders
+                           for 1:1 lessons where the student has a plan. -->
+                      <ng-container *ngIf="item.id && lessonPlanChips[item.id] as chip">
+                        <div class="mcal-plan-chip">
+                          <ion-icon name="map-outline" class="mcal-plan-chip-icon"></ion-icon>
+                          <span class="mcal-plan-chip-phase">
+                            <span class="mcal-plan-chip-idx">{{ chip.phaseIndex }}/{{ chip.totalPhases }}</span>
+                            <span class="mcal-plan-chip-title">{{ chip.phaseLabel }}</span>
+                          </span>
+                          <span class="mcal-plan-chip-focus" *ngIf="chip.focus">
+                            <span class="mcal-plan-chip-divider"></span>
+                            <ion-icon name="flash-outline"></ion-icon>
+                            {{ chip.focus }}
+                          </span>
+                        </div>
+                      </ng-container>
                     </div>
                   </div>
                 </button>

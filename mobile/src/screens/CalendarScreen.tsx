@@ -396,7 +396,12 @@ export default function CalendarScreen() {
   const gcalPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastGcalEventsFetchRef = useRef<number>(0);
   const GCAL_REFRESH_MIN_GAP_MS = 3 * 1000;
-  const GCAL_POLL_MS = 2 * 60 * 1000;
+  // Poll fast (2 min) only when the server-side push channel is dead so we don't
+  // miss changes. When watchActive=true we already get real-time updates via the
+  // 'gcal-changed' websocket signal — slow polling (10 min) is just paranoia in
+  // case the watch silently dies. This cuts Google API usage ~5x at scale.
+  const GCAL_POLL_FAST_MS = 2 * 60 * 1000;
+  const GCAL_POLL_SLOW_MS = 10 * 60 * 1000;
   const timelineScrollRef = useRef<ScrollView>(null);
   const dayCells: DayCell[] = useMemo(() => {
     const today = new Date();
@@ -577,8 +582,9 @@ export default function CalendarScreen() {
 
   const startGcalPolling = useCallback(() => {
     if (gcalPollRef.current) clearInterval(gcalPollRef.current);
-    gcalPollRef.current = setInterval(() => { loadGcalEvents(); }, GCAL_POLL_MS);
-  }, [loadGcalEvents]);
+    const intervalMs = gcalStatus.watchActive ? GCAL_POLL_SLOW_MS : GCAL_POLL_FAST_MS;
+    gcalPollRef.current = setInterval(() => { loadGcalEvents(); }, intervalMs);
+  }, [loadGcalEvents, gcalStatus.watchActive]);
 
   const stopGcalPolling = useCallback(() => {
     if (gcalPollRef.current) { clearInterval(gcalPollRef.current); gcalPollRef.current = null; }
@@ -716,10 +722,19 @@ export default function CalendarScreen() {
         stopGcalPolling();
       }
     });
+    // New lightweight signal: server emits 'gcal-changed' when Google reports
+    // a calendar change. We refetch our own visible window — the server can't
+    // know what week the client is viewing, so it must not push events itself.
+    const offChanged = socketService.on('gcal-changed', () => {
+      loadGcalEvents();
+    });
+    // Backward-compat: older deployed servers may still emit 'gcal-events-updated'.
+    // Treat it as a refresh trigger only and ignore the attached payload, which
+    // is scoped to the server's "current week" and would wipe future-week events.
     const offEvents = socketService.on('gcal-events-updated', () => {
       loadGcalEvents();
     });
-    return () => { offStatus(); offEvents(); };
+    return () => { offStatus(); offChanged(); offEvents(); };
   }, [isTutor, loadGcalStatus, loadGcalEvents, startGcalPolling, stopGcalPolling]);
 
   useEffect(() => {

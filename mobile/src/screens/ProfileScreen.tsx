@@ -25,6 +25,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useTranslation } from 'react-i18next';
 import i18n from 'i18next';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme, ThemeColors } from '../contexts/ThemeContext';
 import { api } from '../services/api';
@@ -153,6 +154,7 @@ export default function ProfileScreen() {
   const { colors, isDark, setDarkMode } = useTheme();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
 
   const [refreshing, setRefreshing] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -356,7 +358,28 @@ export default function ProfileScreen() {
   const handleTimeFormat = useCallback((fmt: '12h' | '24h') => { if (fmt !== timeFormat) updateProfile({ calendarTimeFormat: fmt }); }, [updateProfile, timeFormat]);
   const handleToggleReminders = useCallback((v: boolean) => updateProfile({ remindersEnabled: v }), [updateProfile]);
   const handleToggleWallet = useCallback((v: boolean) => updateProfile({ showWalletBalance: v }), [updateProfile]);
-  const handleToggleAI = useCallback((v: boolean) => updateProfile({ aiAnalysisEnabled: v }), [updateProfile]);
+  // Premium students who turn AI **off** get a confirmation sheet first —
+  // most of what they pay for (per-lesson plan updates, smarter focus,
+  // AI-rewritten roadmaps) silently degrades when AI is off.
+  const isPremiumUser = (user as any)?.subscription?.tier === 'premium';
+  const handleToggleAI = useCallback((v: boolean) => {
+    if (!v && isPremiumUser) {
+      Alert.alert(
+        t('PROFILE.AI_OFF_WARN_TITLE'),
+        t('PROFILE.AI_OFF_WARN_BODY'),
+        [
+          { text: t('COMMON.CANCEL'), style: 'cancel' },
+          {
+            text: t('PROFILE.AI_OFF_WARN_CONFIRM'),
+            style: 'destructive',
+            onPress: () => updateProfile({ aiAnalysisEnabled: false })
+          }
+        ]
+      );
+      return;
+    }
+    updateProfile({ aiAnalysisEnabled: v });
+  }, [updateProfile, isPremiumUser, t]);
   const handleSelectTimezone = useCallback((tz: string) => { setTzModalVisible(false); setTzSearch(''); updateProfile({ timezone: tz }); }, [updateProfile]);
 
   const handleSelectLanguage = useCallback((code: string) => {
@@ -561,6 +584,27 @@ export default function ProfileScreen() {
           <View style={[s.section, { borderBottomColor: C.border }]}>
             <Text style={[s.sectionTitle, { color: C.text }]}>{t('PROFILE_SCREEN.MY_LEARNING_GOAL')}</Text>
             <View style={s.goalRow}><View style={[s.goalIcon, { backgroundColor: C.inputBg }]}><Ionicons name={(learningGoal.icon || 'flag') as any} size={22} color={C.text} /></View><View style={{ flex: 1 }}><Text style={[s.goalType, { color: C.text }]}>{learningGoal.display}</Text></View></View>
+          </View>
+          </StaggerRow>
+        )}
+
+        {/* ═══ Plan (student) ═══ */}
+        {isStudent && (
+          <StaggerRow index={5}>
+          <View style={[s.section, { borderBottomColor: C.border }]}>
+            <Text style={[s.sectionTitle, { color: C.text }]}>{t('PROFILE_SCREEN.PLAN')}</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Upgrade' as never)} activeOpacity={0.6}>
+              <View style={[s.setRow, { borderBottomColor: C.border }]}>
+                <View style={[s.tzIconWrap, { backgroundColor: C.inputBg }]}>
+                  <Ionicons name="sparkles-outline" size={20} color={C.text} />
+                </View>
+                <View style={s.setLblWrap}>
+                  <Text style={[s.setLbl, { color: C.text }]}>{t('PROFILE_SCREEN.PLAN_ROW_LABEL')}</Text>
+                  <Text style={[s.setHint, { color: C.textSecondary }]}>{t('PROFILE_SCREEN.PLAN_ROW_HINT')}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={C.textTertiary} />
+              </View>
+            </TouchableOpacity>
           </View>
           </StaggerRow>
         )}

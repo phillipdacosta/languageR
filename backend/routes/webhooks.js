@@ -17,6 +17,7 @@ const Notification = require('../models/Notification');
 const paypalService = require('../services/paypalService');
 const Lesson = require('../models/Lesson');
 const alertService = require('../services/alertService');
+const subscriptionService = require('../services/subscriptionService');
 
 // Webhook endpoint MUST use raw body, not JSON parsed body
 // This is handled in server.js with express.raw() for this specific route
@@ -91,6 +92,26 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
 
       case 'charge.dispute.closed':
         await handleDisputeClosed(event.data.object);
+        break;
+
+      // ── Premium subscription lifecycle ───────────────────────────────
+      case 'checkout.session.completed':
+        await handleCheckoutSessionCompleted(event.data.object);
+        break;
+
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated':
+        await subscriptionService.syncSubscriptionFromStripe(event.data.object);
+        break;
+
+      case 'customer.subscription.deleted':
+        await subscriptionService.syncSubscriptionFromStripe(event.data.object);
+        break;
+
+      case 'invoice.payment_failed':
+        // Stripe will also fire customer.subscription.updated with status=past_due,
+        // but we log here for observability.
+        console.warn(`⚠️  [WEBHOOK] Invoice payment failed for customer ${event.data.object.customer}`);
         break;
 
       default:
@@ -566,6 +587,30 @@ async function handleTransferReversed(transfer) {
 async function handleDisputeClosed(dispute) {
   console.log(`✅ [WEBHOOK] Dispute closed: ${dispute.id} - Status: ${dispute.status}`);
   // Could update existing alert or create resolution note
+}
+
+/**
+ * Handle checkout.session.completed
+ * Fires once when a brand-new subscription is created via Stripe Checkout.
+ * We expand the related subscription and sync it to the local user record.
+ */
+async function handleCheckoutSessionCompleted(session) {
+  if (session.mode !== 'subscription' || !session.subscription) {
+    return;
+  }
+  console.log(`🔔 [WEBHOOK] Checkout completed for subscription ${session.subscription}`);
+  try {
+    const fullSubscription = await stripe.subscriptions.retrieve(session.subscription);
+    if (!fullSubscription.metadata?.userId && session.client_reference_id) {
+      // Stripe sometimes drops the subscription_data.metadata when the customer
+      // already exists. Backfill so syncSubscriptionFromStripe can match.
+      fullSubscription.metadata = fullSubscription.metadata || {};
+      fullSubscription.metadata.userId = session.client_reference_id;
+    }
+    await subscriptionService.syncSubscriptionFromStripe(fullSubscription);
+  } catch (err) {
+    console.error('❌ [WEBHOOK] checkout.session.completed sync failed:', err);
+  }
 }
 
 module.exports = router;
