@@ -27,6 +27,9 @@ Every scenario the journey system must handle. New behavior = new scenario added
 | G14 | Decay condition met but few lessons recently | Min lesson floor: never decay before 5 total lessons in current chapter. |
 | G15 | Student about to be demoted has no warning | Soft warning at first decay-trajectory match: "Your last few lessons were tough — let's review next time." If pattern continues 1 more lesson, then demote. |
 | G16 | Tutor vote expires unused (no lessons in 14 days) | Silently expire. No notification. Tutor sees in their UI: "Your last vote expired — no lessons taken in 14 days." |
+| G36 | Student in A2 P1 decays | Demote to **A1's last phase** marked `_isRecovery = true` (the "bridge phase"). They keep consolidation skills they had; only need to lock them in. Recovery phase uses stricter graduation gate (mastery 80, ≥ 2 distinct tutors OR an explicit advance vote). UI: green "Steady" chip on the home widget, green node badge on the roadmap, soft callout in the detail card. Voice: never "demoted", "fell back", or "regressed". |
+| G37 | Student graduates recovery, advances, decays again from same level | Increment `pingPongCount`. At `pingPongCount >= 1`: `pendingTransitions.humanInterventionSuggested` fires (existing post-lesson human-intervention card). At `pingPongCount >= 2`: `pendingTransitions.recoveryStuck` fires — new highest-priority `recovery_stuck` post-lesson card ("Let's catch our breath", CTA: message tutor). The system explicitly suggests a conversation, not another lesson. |
+| G38 | Recovery phase has only one tutor's data | Block graduation regardless of mastery score. The multi-source gate prevents a single tutor from pushing the student back into the level they just fell out of. Exception: the same tutor's explicit non-expired `advance` vote satisfies the gate (they've put their professional judgement on the record). |
 
 ## Premium AI
 
@@ -68,6 +71,17 @@ Every scenario the journey system must handle. New behavior = new scenario added
 |---|---|---|
 | G31 | Student starts on chapter 1, calibration says demote | Can't go below chapter 1. Instead: extend chapter 1 with extra "fundamentals" phase 0 (only generated in this case). |
 | G32 | Student promoted in calibration, then struggles | Normal mastery gate handles. Decay can demote them back. No special re-calibration. |
+
+## Pace / timeline
+
+| ID | Scenario | Required behavior |
+|---|---|---|
+| G39 | Student says "exam in 4 weeks" at onboarding | `paceCategory = 'urgent'` → AI prompt receives "design ~3 phases × ~3 lessons each, expect 3-4x per week cadence". `weeklyRecommendations.lessonFrequency` is overwritten with "3-4x per week" (deterministic — AI suggestion ignored). |
+| G40 | Student says "few months" with no targetDate | `paceCategory = 'focused'` → 3 phases × 4 lessons, "2-3x per week". |
+| G41 | Student selects "no rush" | `paceCategory = 'relaxed'` → 5 phases × 5 lessons, "1-2x per week". |
+| G42 | Student passes their `targetDate` without finishing the plan | `weeksToTarget` returns 0 → still `urgent` until they update the goal. We do not surface "you missed your date" — the next pace recompute happens on goal change. |
+| G43 | Student changes from "no rush" to "few months" mid-plan | `_regeneratePlanForGoalChange` recomputes `weeklyRecommendations` to "2-3x per week" and the AI regen for the current chapter targets 3 phases. Existing chapter history + CEFR state preserved. |
+| G44 | Free student, no AI on plan generation | `generateChapterFromTemplate` keeps the 4-phase pedagogical structure but `estimatedLessons` per phase is pace-tuned. Free students get pace-aware lesson budgets even without AI. |
 
 ## Frontend / state
 

@@ -397,6 +397,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   journeyProgressStateLabel = '';
   journeyWindowProgressPercent: number | null = null;
   journeyIsPremium = false;
+  // True when the active phase is a recovery (bridge) phase added after
+  // a chapter demotion. Drives the soft "Steady" chip in the home journey
+  // widget header — see journey-widget.component.html.
+  journeyIsRecovery = false;
 
   homePracticeMaterials: any[] = [];
   
@@ -2471,6 +2475,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.journeyMasteryAverage = activePhase?.masteryAverage ?? null;
     this.journeyLessonsCompleted = activePhase?.lessonsCompleted || 0;
     this.journeyEstimatedLessons = activePhase?.estimatedLessons || 5;
+    this.journeyIsRecovery = !!(activePhase as any)?._isRecovery;
     this.journeyProgressState = (activePhase as any)?.progressState || null;
     this.journeyWindowProgressPercent =
       typeof (activePhase as any)?.windowProgressPercent === 'number'

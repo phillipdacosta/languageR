@@ -111,3 +111,99 @@ Not every student wants — or is ready for — a structured roadmap. The system
 | Profile pause / resume / skip actions | `language-learning-app/src/app/profile/profile.page.{ts,html,scss}` |
 | Post-lesson soft prompt | `language-learning-app/src/app/post-lesson-student/post-lesson-student.page.{ts,html}` |
 | Localized strings | `language-learning-app/src/assets/i18n/en.json` → `HOME.JOURNEY_UNFRAMED_*`, `HOME.JOURNEY_PAUSED_*`, `HOME.PREMIUM_UNFRAMED.*`, `POST_LESSON.SOFT_PLAN_PROMPT.*`, `ONBOARDING.STUDENT.SKIP_GOAL_*` |
+
+## Recovery: the "bridge phase" after a demotion
+
+When a student decays (rolling mastery dips below the floor for the
+phase, multi-tutor and chapter-min-lesson conditions met), we don't
+drop them at Phase 1 of the previous chapter. We drop them onto the
+**last** phase of that chapter and mark it `_isRecovery = true`. This
+is the "bridge" back to the level they fell out of: they keep their
+consolidation skills and only need to lock them in before stepping
+back up.
+
+Voice rules — copy is **never** punitive:
+
+- **Never** say "demoted", "fell back", "regressed", or "you couldn't
+  keep up". The word we use externally is **steady** — students see a
+  green "Steady" chip on the journey widget header and a green node
+  badge with a leaf icon on the roadmap.
+- The recovery callout on the detail card is short: "Quick
+  consolidation here. We're locking in what you already know before
+  stepping you back up — no pressure, just steady reps." That's the
+  whole story; do not pad it with progress percentages or "X lessons to
+  go" lines.
+- Recovery uses a **stricter** graduation gate than a normal phase
+  (mastery 80, ≥ 2 distinct tutors OR an explicit advance vote). This
+  is intentional — we don't want a single tutor to push the student
+  back up into the level they just fell out of, only to fall again. We
+  do not surface this gate to the student; the system enforces it
+  silently.
+- Tutor briefings receive an explicit `recoveryStatus` block with
+  `isRecovery`, `pingPongCount`, `lastDemotedFromLevel`, and
+  `recoveryStuck`. The AI narrative is reshaped to "tone:
+  consolidation" or, for ping-pong, "tone: actively slow down".
+
+### Ping-pong (repeated demotions)
+
+If a student climbs out of the recovery bridge, advances to the chapter
+they fell out of, and then decays out of *that same chapter* again,
+that's a "ping-pong". We track it with `pingPongCount`. Surfaces:
+
+- `pingPongCount >= 1` → `pendingTransitions.humanInterventionSuggested`
+  fires. Existing post-lesson `human_intervention` card surfaces with a
+  "message your tutor" CTA.
+- `pingPongCount >= 2` → `pendingTransitions.recoveryStuck` fires. A
+  dedicated, **higher-priority** `recovery_stuck` card on the
+  post-lesson recap: "Let's catch our breath." CTA: message tutor.
+  This is the loudest signal we send a student about their plan, and
+  it deliberately suggests a conversation rather than another lesson.
+
+### Where to look in code (recovery)
+
+| Concern | File |
+|---|---|
+| Phase flag `_isRecovery` | `backend/models/LearningPlan.js` |
+| Plan-level `pingPongCount`, `lastDemotedFromLevel`, `pendingTransitions.recoveryStuck`, `chaptersCompleted.exitReason: 'recovery_graduated'` | `backend/models/LearningPlan.js` |
+| Demotion logic (lands on previous chapter's last phase as recovery, ping-pong increment) | `backend/services/learningPlanService.js` → `_demoteOneChapter` |
+| Recovery graduation gate (stricter mastery 80, multi-tutor / advance-vote) | `backend/services/masteryService.js` → `evaluateChapterGraduation` (`_isRecovery` branch) |
+| Recovery-aware tutor briefing | `backend/services/tutorBriefingService.js` |
+| Recovery chip on home journey widget | `language-learning-app/src/app/components/home/journey-widget.component.{ts,html,scss}` |
+| Recovery node badge + detail-card callout on journey page | `language-learning-app/src/app/journey/journey.page.{ts,html,scss}` |
+| `recovery_stuck` plan-update card on post-lesson recap | `language-learning-app/src/app/post-lesson-student/post-lesson-student.page.{ts}` |
+| Localized strings | `language-learning-app/src/assets/i18n/en.json` → `HOME.JOURNEY_RECOVERY_CHIP`, `JOURNEY.RECOVERY.*` |
+
+## Pace: making the timeline matter
+
+Until Batch 13, `goal.timeline` ('few_months', 'no_rush',
+'specific_date' + `goal.targetDate`) was a passive label in the AI
+prompt. It had no effect on phase count, lesson budget, or weekly
+cadence. Batch 13 introduces `paceService.js`, which translates the
+student's stated urgency into concrete pacing knobs:
+
+| paceCategory | Trigger | phaseCount | est. lessons / phase | weeklyRecommendations.lessonFrequency |
+|---|---|---|---|---|
+| `urgent`  | targetDate ≤ 6 weeks                              | 3 | 3 | 3-4x per week |
+| `focused` | targetDate 6–12 weeks, OR `timeline === 'few_months'` | 3 | 4 | 2-3x per week |
+| `steady`  | targetDate > 12 weeks, OR no urgency hints       | 4 | 5 | 2x per week |
+| `relaxed` | `timeline === 'no_rush'`                         | 5 | 5 | 1-2x per week |
+
+The pace knobs are injected into:
+
+- `generateInitialPlan` (initial plan AI prompt) → drives the AI's
+  phase count and per-phase lesson budget; `weeklyRecommendations` on
+  the saved plan is overwritten with the pace's deterministic numbers.
+- `chapterGenerationService.generateChapterWithAi` → next-chapter AI
+  prompt + clamping; phases sliced to `paceCategory.phaseCount` (3-5).
+- `chapterGenerationService.regenerateChapterForGoalChange` → goal
+  change AI prompt + clamping.
+- `chapterGenerationService.generateChapterFromTemplate` (free path) →
+  template phases keep the 4-step pedagogical structure but
+  `estimatedLessons` is pace-tuned.
+- `_regeneratePlanForGoalChange` → recomputes
+  `weeklyRecommendations.lessonFrequency` whenever the goal (and
+  therefore pace) changes.
+
+Voice rule for pace: never *show* the student their pace category. We
+just adjust the plan accordingly. The roadmap still reads as a
+roadmap, not as a deadline countdown — see "no exam vibes" above.

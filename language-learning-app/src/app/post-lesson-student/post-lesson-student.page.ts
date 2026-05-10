@@ -192,7 +192,7 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
   // intent-aligned CTAs. Acked here so the journey-page toast doesn't
   // re-fire later. Source: backend/services/learningPlanService.js.
   planUpdate: {
-    kind: 'decay_warning' | 'human_intervention' | 'phase_split';
+    kind: 'decay_warning' | 'human_intervention' | 'phase_split' | 'recovery_stuck';
     title: string;
     body: string;
     ctaLabel: string;
@@ -319,7 +319,18 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
       const flags = res.plan.pendingTransitions || {};
       // Order matters — we surface the highest-urgency flag first, and
       // ack only that one so a follow-up plays its part on the next lesson.
-      if (flags.humanInterventionSuggested) {
+      // recoveryStuck (≥ 2 ping-pongs) is the loudest signal: the system
+      // and the student keep bouncing between the same two chapter levels,
+      // and the right move is to let the tutor reset expectations.
+      if (flags.recoveryStuck) {
+        this.planUpdate = {
+          kind: 'recovery_stuck',
+          title: "Let's catch our breath",
+          body: "We've moved between two levels a couple of times. A short conversation with your tutor about pace and goals will sort this out far faster than another lesson.",
+          ctaLabel: 'Message your tutor',
+          ctaAction: 'message_tutor'
+        };
+      } else if (flags.humanInterventionSuggested) {
         this.planUpdate = {
           kind: 'human_intervention',
           title: 'A check-in might help',
@@ -360,10 +371,11 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
   private ackPlanUpdate() {
     if (this.planUpdateAcked || !this.planUpdate || !this.planUpdateLanguage) return;
     this.planUpdateAcked = true;
-    const map: Record<string, 'decayWarning' | 'humanInterventionSuggested' | 'phaseSplit'> = {
+    const map: Record<string, 'decayWarning' | 'humanInterventionSuggested' | 'phaseSplit' | 'recoveryStuck'> = {
       decay_warning: 'decayWarning',
       human_intervention: 'humanInterventionSuggested',
-      phase_split: 'phaseSplit'
+      phase_split: 'phaseSplit',
+      recovery_stuck: 'recoveryStuck'
     };
     const flag = map[this.planUpdate.kind];
     if (!flag) return;

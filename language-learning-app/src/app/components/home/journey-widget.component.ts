@@ -61,6 +61,12 @@ export class JourneyWidgetComponent implements OnChanges {
   @Input() windowProgressPercent: number | null = null;
   /** Premium tier flag — drives the "Premium" chip in the header. */
   @Input() isPremium = false;
+  /** True when the active phase is a recovery (bridge) phase that the
+   *  student landed on after a chapter demotion. Drives a soft eyebrow
+   *  ("Steadying things back at {level}") and tonal copy on the widget,
+   *  matching the recovery callout on the journey page. Voice rules in
+   *  docs/learning-journey/voice-and-framing.md. */
+  @Input() isRecovery = false;
   /** When true, hide the bottom "View roadmap →" CTA (e.g. on the journey page itself). */
   @Input() hideRoadmapCta = false;
   /** Smart adaptive primary CTA shown on the JOURNEY page (not on home).

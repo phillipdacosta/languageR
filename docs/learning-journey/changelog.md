@@ -2,6 +2,59 @@
 
 Every behavior change in the journey system. Newest at the top. Each entry: date, batch, change, rationale.
 
+## 2026-05-09 — Recovery bridge phase, ping-pong guardrails, and pace-driven plan generation (Batch 13)
+
+**Problem.** Three gaps surfaced together:
+
+1. **Decay landed students at A1 Phase 1 of the previous chapter.** A student decaying from A2 P1 was dropped to A1 P1 — losing all consolidation progress and feeling demoted in the hard sense. There was also no protection against the obvious failure mode: graduate, decay, graduate, decay (ping-pong).
+2. **No protection against ping-pong.** Once demoted, a student could climb back up under the same (lenient) graduation rule and immediately decay again. The system had no way to know "we keep bouncing between these two levels — slow down."
+3. **Timeline was a passive label.** `goal.timeline` ('few_months', 'no_rush', 'specific_date') and `goal.targetDate` made it into the AI prompt as text but did not influence phase count, lesson budget, or weekly cadence. A student saying "I have an exam in 4 weeks" got the same 4-phase × 5-lesson roadmap as someone with no rush.
+
+**Solution.**
+
+**1. Recovery bridge phase.**
+- Demotion now lands the student on the **last** phase of the previous chapter and marks it `_isRecovery = true` (new field on `phaseSchema`). They keep the consolidation skills they already had; they just need to lock them in before stepping back up.
+- `evaluateChapterGraduation` (in `masteryService.js`) gets an `_isRecovery` branch: stricter mastery threshold (`MASTERY_RECOVERY_THRESHOLD = 80`, vs the normal 70 phase floor / 80 chapter floor) AND a multi-source gate — graduation requires **either** ≥ 2 distinct tutors in the rolling window OR an explicit non-expired tutor `advance` vote. One tutor saying "they got it" is not enough to push a student back into the level they just fell out of.
+- `_applyMasteryPromotion` adds a `recovery_phase` branch that funnels recovery phases through chapter graduation with the recovery rules, regardless of array index.
+- `chaptersCompleted.exitReason` enum gains `recovery_graduated` so analytics can distinguish "earned" graduations from "recovered through the bridge".
+
+**2. Ping-pong tracking.**
+- New plan fields: `pingPongCount` (counter) and `lastDemotedFromLevel` (snapshot of the level the student fell out of at the last demotion).
+- On every demotion, if `lastDemotedFromLevel === fromLevel`, increment `pingPongCount`. We now know how many times this exact bounce has happened.
+- `pendingTransitions.recoveryStuck` is a new flag set when `pingPongCount >= 2`. `humanInterventionSuggested` now also fires at `pingPongCount >= 1` (in addition to the existing 2-demotions-in-90-days trigger).
+- New post-lesson plan-update card kind `recovery_stuck` ("Let's catch our breath. We've moved between two levels a couple of times. A short conversation with your tutor about pace and goals will sort this out far faster than another lesson."). It is the **highest priority** plan-update card — surfaced before `humanInterventionSuggested`, before `decayWarning`, before `phaseSplit`. CTA: message tutor.
+- `recoveryStuck` is included in the `ack-transition` allowed-flag list (`backend/routes/learningPlan.js`) and in `LearningPlanService.ackTransition`'s typed flag union.
+
+**3. Pace-driven plan generation.**
+- New `backend/services/paceService.js`: `weeksToTarget(goal)`, `paceCategory(goal)` (returns `relaxed | steady | focused | urgent`), `paceKnobs(category)` (returns `phaseCount`, `estimatedLessonsPerPhase`, `lessonFrequency`, `selfStudyMinutes`), `describe(goal)` (everything bundled), `buildAiPromptLine(goal)` (one-liner injected into prompts), `buildWeeklyRecommendations(goal)` (deterministic numbers for `weeklyRecommendations`).
+- Pace category mapping:
+  - `urgent` (targetDate ≤ 6 weeks) → 3 phases × 3 lessons, "3-4x per week"
+  - `focused` (targetDate 6–12 weeks OR `timeline === 'few_months'`) → 3 phases × 4 lessons, "2-3x per week"
+  - `steady` (targetDate > 12 weeks OR no urgency hints) → 4 phases × 5 lessons, "2x per week"
+  - `relaxed` (`timeline === 'no_rush'`) → 5 phases × 5 lessons, "1-2x per week"
+- Wired into:
+  - `learningPlanService.generateInitialPlan` — pace line in the AI prompt; `weeklyRecommendations` overwritten with `pace.buildWeeklyRecommendations(goal)`.
+  - `chapterGenerationService.generateChapterWithAi` — pace line in the AI prompt, target phase count enforced when slicing/clamping output.
+  - `chapterGenerationService.regenerateChapterForGoalChange` — same treatment for goal-change AI regen.
+  - `chapterGenerationService.generateChapterFromTemplate` — keeps the 4-phase pedagogical structure but `estimatedLessons` per phase is pace-tuned (free students get pace-aware lesson budgets even without AI).
+  - `_regeneratePlanForGoalChange` — recomputes `weeklyRecommendations` whenever the goal (and therefore pace) changes.
+
+**Frontend (`language-learning-app/`).**
+- `PhaseRow.isRecovery` field (`journey.page.ts`); populated from `_isRecovery` on the plan.
+- Recovery node badge on the roadmap (`journey.page.html` + `.scss`) — soft green leaf icon, mirrors the split badge but on the left side of the dot to avoid collision with the split badge on phases that happen to be both. `.jm-node--recovery .jm-dot` gets a soft green ring.
+- Recovery callout in the detail card (`.jpcd-recovery-callout`) — short, positive, with a leaf icon. Voice rules in `voice-and-framing.md`.
+- `JourneyWidgetComponent.isRecovery` input — drives a green "Steady" chip in the widget header (`HOME.JOURNEY_RECOVERY_CHIP`), wired from `Tab1Page.journeyIsRecovery` (read from `activePhase._isRecovery`).
+- `LearningPlanPhase` interface gains `_isRecovery?: boolean`. `LearningPlan` gains `pingPongCount`, `lastDemotedFromLevel`, `pendingTransitions.recoveryStuck`, and `chaptersCompleted.exitReason: 'recovery_graduated'`.
+- Post-lesson recap (`post-lesson-student.page.ts`) — new `recovery_stuck` plan-update card kind (highest priority), eager-acked on display so the journey-page toast doesn't replay it.
+- Tutor briefings (`backend/services/tutorBriefingService.js`) — both `ownSection` and `generalSection` now carry `recoveryStatus { isRecovery, pingPongCount, lastDemotedFromLevel, recoveryStuck, humanInterventionSuggested }`. The AI narrative is reshaped accordingly: "tone: consolidation" for recovery, "tone: actively slow down" for ping-pong stuck.
+
+**i18n.**
+- `HOME.JOURNEY_RECOVERY_CHIP` ("Steady").
+- `JOURNEY.RECOVERY.{NODE_BADGE,NODE_TOOLTIP,CARD_EYEBROW,CARD_BODY}`.
+- Post-lesson `recovery_stuck` card copy is precomputed in TS to match the existing pattern (`PostLessonStudentPageModule` does not import `TranslateModule`).
+
+**Why these all ship together.** The decay landing point (recovery bridge), the ping-pong tracker (so we know when recovery itself is failing), and the pace-driven generation (so urgency actually shapes the plan) are three knobs on the same problem: making the plan responsive to the student's real trajectory and stated timeline rather than running a fixed 4×5-lesson script per chapter.
+
 ## 2026-05-08 — Plans without a plan: `unframed` + `paused` lifecycle (free + premium)
 
 **Problem.** Not every student is ready to commit to a structured roadmap at onboarding, and not every existing student wants their plan running every week. Until now, the only options were "have a goal + a roadmap" or "have nothing at all" — and the second one meant the post-lesson pipeline (CEFR estimate, recommended materials, tutor briefings) had nowhere to write to. Premium students paying for AI analysis got nothing extra in the "no plan" state, which made premium feel wasted.

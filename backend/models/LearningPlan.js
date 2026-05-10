@@ -48,7 +48,14 @@ const phaseSchema = new mongoose.Schema({
   _isSplit: { type: Boolean, default: false },
   // Batch 5: marks a fundamentals phase 0 added during calibration
   // (skip splitting / decay logic on it).
-  _isFundamentals: { type: Boolean, default: false }
+  _isFundamentals: { type: Boolean, default: false },
+  // Batch 13: marks a phase that was created by a chapter demotion as the
+  // single active recovery target (always the LAST phase of the demoted-to
+  // chapter — the "bridge" back to the level the student fell out of).
+  // Recovery phases use a stricter graduation gate (see
+  // masteryService.MASTERY_RECOVERY_THRESHOLD) and require multi-tutor or
+  // tutor-vote confirmation to graduate, to prevent ping-pong demotions.
+  _isRecovery: { type: Boolean, default: false }
 }, { _id: false });
 
 const historyEntrySchema = new mongoose.Schema({
@@ -89,7 +96,14 @@ const completedChapterSchema = new mongoose.Schema({
   masteryAtCompletion: { type: Number, default: null },
   exitReason: {
     type: String,
-    enum: ['graduated', 'demoted', 'calibrated'],
+    // 'graduated'           — earned the chapter cleanly
+    // 'demoted'             — fell out due to decay
+    // 'calibrated'          — moved by calibration window
+    // 'recovery_graduated'  — graduated *out of* a recovery bridge phase
+    //                         (Batch 13). Distinguished so analytics can
+    //                         see which graduations came back through the
+    //                         bridge instead of climbing first-time.
+    enum: ['graduated', 'demoted', 'calibrated', 'recovery_graduated'],
     default: 'graduated'
   }
 }, { _id: false });
@@ -240,6 +254,16 @@ const learningPlanSchema = new mongoose.Schema({
   // Total demotions in the trailing 90 days. Used to surface human
   // intervention card when ≥ 2 (G6). Cleaned on read.
   demotionEvents: [{ type: Date }],
+  // Batch 13: ping-pong tracking. Incremented when a student is demoted
+  // back to a chapter level they had previously graduated FROM (i.e.,
+  // the recovery → graduate → re-decay loop). Drives a tighter
+  // human-intervention rule: 1 ping-pong = nudge, 2 = strong "let's
+  // talk to your tutor" surface (recoveryStuck flag).
+  pingPongCount: { type: Number, default: 0 },
+  // Snapshot of the chapter level the student was in immediately before
+  // a demotion landed. Used by the next promotion to detect "they bounced
+  // back to where they fell from" → ping-pong increment.
+  lastDemotedFromLevel: { type: String, enum: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', null], default: null },
 
   // Pending transition flags. Persisted (so multiple devices / refreshes
   // see them until acknowledged) but cleared via dedicated endpoints.
@@ -254,6 +278,11 @@ const learningPlanSchema = new mongoose.Schema({
     // Batch 11: AI just split the active phase. Show a polite "I noticed
     // X is harder than expected" toast on next journey-page visit.
     phaseSplit: { type: Boolean, default: false },
+    // Batch 13: pingPongCount has reached 2 — the student has bounced
+    // back to the same chapter twice. Surface a strong "let's slow down
+    // and talk to your tutor" card on the post-lesson recap. Acked
+    // separately from humanInterventionSuggested.
+    recoveryStuck: { type: Boolean, default: false },
     // For G33: count how many times the celebration modal has been shown
     // (max 3) before auto-dismissing. Frontend pings ack endpoint.
     celebrationShownCount: { type: Number, default: 0 }

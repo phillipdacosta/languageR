@@ -181,21 +181,27 @@
         [class.jm-node--locked]="node.row.status === 'locked'"
         [class.jm-node--selected]="node.row.expanded"
         [class.jm-node--split]="node.row.isSplit"
+        [class.jm-node--recovery]="node.row.isRecovery"
         [class.jm-node--label-below]="node.labelPlacement === 'below'"
         [class.jm-node--label-start]="node.labelAlign === 'start'"
         [class.jm-node--label-end]="node.labelAlign === 'end'"
         [style.left.%]="node.xPct"
         [style.top.%]="node.yPct"
-        [attr.aria-label]="('JOURNEY.PHASE' | translate) + ' ' + (node.index + 1) + ': ' + node.row.title + (node.row.isSplit ? ' (' + ('JOURNEY.SPLIT.NODE_BADGE' | translate) + ')' : '')"
+        [attr.aria-label]="('JOURNEY.PHASE' | translate) + ' ' + (node.index + 1) + ': ' + node.row.title + (node.row.isSplit ? ' (' + ('JOURNEY.SPLIT.NODE_BADGE' | translate) + ')' : '') + (node.row.isRecovery ? ' (' + ('JOURNEY.RECOVERY.NODE_BADGE' | translate) + ')' : '')"
         (click)="togglePhase(node.index)">
-        <!-- Split annotation — small, anchored to the dot. Only renders for
-             phases that were adaptively split. Tooltip explains on hover. -->
         <span
           *ngIf="node.row.isSplit"
           class="jm-split-badge"
           [title]="'JOURNEY.SPLIT.NODE_TOOLTIP' | translate"
           aria-hidden="true">
           <ion-icon name="cut-outline"></ion-icon>
+        </span>
+        <span
+          *ngIf="node.row.isRecovery"
+          class="jm-recovery-badge"
+          [title]="'JOURNEY.RECOVERY.NODE_TOOLTIP' | translate"
+          aria-hidden="true">
+          <ion-icon name="leaf-outline"></ion-icon>
         </span>
         <span class="jm-dot">
           <ion-icon *ngIf="node.row.status === 'completed'" name="checkmark"></ion-icon>
@@ -378,6 +384,20 @@
               {{ 'JOURNEY.SPLIT.WHY' | translate }}
               <ion-icon name="chevron-forward-outline" aria-hidden="true"></ion-icon>
             </button>
+          </div>
+        </div>
+
+        <!-- Recovery-bridge callout. Renders only on the recovery phase
+             (last phase of the demoted-to chapter). Voice: positive
+             reinforcement, never "you failed" — see
+             docs/learning-journey/voice-and-framing.md. -->
+        <div class="jpcd-recovery-callout" *ngIf="selectedRow.isRecovery">
+          <div class="jpcd-recovery-icon" aria-hidden="true">
+            <ion-icon name="leaf-outline"></ion-icon>
+          </div>
+          <div class="jpcd-recovery-text">
+            <span class="jpcd-recovery-eyebrow">{{ 'JOURNEY.RECOVERY.CARD_EYEBROW' | translate }}</span>
+            <p class="jpcd-recovery-body">{{ 'JOURNEY.RECOVERY.CARD_BODY' | translate }}</p>
           </div>
         </div>
 

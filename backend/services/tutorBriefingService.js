@@ -66,6 +66,19 @@ async function synthesizeTutorBriefing(studentId, requestingTutorId, language) {
   const ownAnalyses = analyses.filter(a => String(a.tutorId) === String(requestingTutorId));
   const otherAnalyses = analyses.filter(a => String(a.tutorId) !== String(requestingTutorId));
 
+  // Recovery + ping-pong context: the same on every section. The tutor
+  // needs to know if this student is on a "bridge" recovery phase (don't
+  // pile on; reinforce confidence) or has bounced repeatedly (consider
+  // explicitly slowing down and letting the student lead the pace).
+  const currentPhase = plan.phases?.[plan.currentPhaseIndex] || null;
+  const recoveryStatus = {
+    isRecovery: !!currentPhase?._isRecovery,
+    pingPongCount: plan.pingPongCount || 0,
+    lastDemotedFromLevel: plan.lastDemotedFromLevel || null,
+    recoveryStuck: !!plan.pendingTransitions?.recoveryStuck,
+    humanInterventionSuggested: !!plan.pendingTransitions?.humanInterventionSuggested
+  };
+
   // Own section is built directly from the requesting tutor's last analysis.
   let ownSection = null;
   if (ownAnalyses.length > 0) {
@@ -75,7 +88,8 @@ async function synthesizeTutorBriefing(studentId, requestingTutorId, language) {
       summary: last.studentSummary || last.summary || '',
       strugglesYouSurfaced: _normalizeStruggles(last),
       whatToDoNext: plan.nextLessonFocus || '',
-      yourLastVote: _findOwnVoteForCurrentPhase(plan, requestingTutorId)
+      yourLastVote: _findOwnVoteForCurrentPhase(plan, requestingTutorId),
+      recoveryStatus
     };
   } else {
     // First lesson with this student — provide a "first lesson" hint so the
@@ -84,7 +98,8 @@ async function synthesizeTutorBriefing(studentId, requestingTutorId, language) {
       firstLesson: true,
       goal: plan.goal || null,
       currentChapter: plan.chapterLevel || 'A1',
-      currentPhaseTitle: plan.phases?.[plan.currentPhaseIndex]?.title || ''
+      currentPhaseTitle: plan.phases?.[plan.currentPhaseIndex]?.title || '',
+      recoveryStatus
     };
   }
 
@@ -116,12 +131,14 @@ async function synthesizeTutorBriefing(studentId, requestingTutorId, language) {
   try {
     narrative = await _synthesizeNarrative({
       goal: plan.goal,
+      language,
       level: estimate?.level || plan.chapterLevel,
       chapterLevel: plan.chapterLevel,
       estimate,
       currentPhase: plan.phases?.[plan.currentPhaseIndex]?.title || '',
       topStruggles,
-      otherLessonCount: otherAnalyses.length
+      otherLessonCount: otherAnalyses.length,
+      recoveryStatus
     });
   } catch (err) {
     console.warn('[TutorBriefing] Narrative synthesis failed, sending structured only:', err.message);
@@ -137,7 +154,8 @@ async function synthesizeTutorBriefing(studentId, requestingTutorId, language) {
       sources: estimate.sources,
       lessonsConsidered: estimate.lessonsConsidered,
       chapterBucket: plan.chapterLevel
-    } : null
+    } : null,
+    recoveryStatus
   };
 
   return { ownSection, generalSection, plan };
@@ -174,25 +192,51 @@ function _findOwnVoteForCurrentPhase(plan, tutorId) {
 }
 
 async function _synthesizeNarrative(ctx) {
+  // Recovery context shapes the tone: a student on a recovery bridge
+  // needs reassurance and consolidation, not pressure to advance. A
+  // ping-pong student needs the tutor to actively slow down.
+  const r = ctx.recoveryStatus || {};
+  let recoveryLine = '';
+  if (r.recoveryStuck) {
+    recoveryLine = `\nRECOVERY STATUS: This student has bounced between ${r.lastDemotedFromLevel || 'a higher level'} and the recovery bridge ${r.pingPongCount} time(s). Tone: actively slow down, reduce new material, validate what they CAN do. Suggest scheduling a goal/expectations conversation.`;
+  } else if (r.isRecovery) {
+    recoveryLine = `\nRECOVERY STATUS: This student is currently on a recovery bridge phase (returning toward ${r.lastDemotedFromLevel || 'their previous level'}). Tone: confidence-rebuilding, consolidation. Avoid pushing for new structures — reinforce what they already know.`;
+  } else if (r.humanInterventionSuggested) {
+    recoveryLine = `\nRECOVERY STATUS: This student has been demoted recently. Be sensitive to confidence — favor wins over corrections this lesson.`;
+  }
+
+  const lang = (ctx.language || 'the target language').trim();
+
   const prompt = `You are writing a 2-3 sentence "general progress" briefing
 for a tutor about a student. The student also works with other tutors.
 You must NEVER name or attribute other tutors. Speak in aggregate.
 
 CONTEXT:
+- Target language: ${lang}
 - Goal: ${ctx.goal?.type || 'conversational'} (${ctx.goal?.description || ''})
 - Current chapter: ${ctx.level}
-- Current phase: ${ctx.currentPhase}
+- Current phase (roadmap title — goal-flavored, not a lesson script): ${ctx.currentPhase}
 - Other tutor lessons in record: ${ctx.otherLessonCount}
 - Most-flagged struggles across other tutors:
-${ctx.topStruggles.map(s => `  - ${s.key} (flagged in ${s.lessons} lessons)`).join('\n') || '  (none)'}
+${ctx.topStruggles.map(s => `  - ${s.key} (flagged in ${s.lessons} lessons)`).join('\n') || '  (none)'}${recoveryLine}
 
-Write 2-3 sentences. Practical and concrete. End with a tactical
-suggestion the tutor can apply in their next lesson.`;
+PEDAGOGICAL BRIDGE — keep tactical advice GENERAL (no granular textbook labels):
+- Do NOT invent language-specific constructions (e.g. do not say "ser vs estar", "accusative case", etc.) unless that exact idea already appears verbatim in the struggles list above.
+- It is fine to suggest the tutor briefly assess broad skill areas as needed for ${lang}: comfort with verbs and how ${lang} marks tense/aspect/person (many languages differ — English uses little verb inflection; others rely on it heavily), word forms / agreement where relevant, word order, and whether they can sustain the phase's scenario at all.
+- Frame this as optional calibration ("sense-check foundations before diving into the scenario") — one short clause, not a lecture.
+
+Write 2-3 sentences. Practical. End with ONE tactical suggestion the tutor can apply next lesson${r.recoveryStuck || r.isRecovery ? ' (consolidation-focused, not new-material-heavy)' : ''}.`;
 
   const completion = await getOpenAIClient().chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [
-      { role: 'system', content: 'You are a concise, practical tutoring coach. Never attribute work to specific tutors. 2-3 sentences max.' },
+      {
+        role: 'system',
+        content:
+          'You are a concise, practical tutoring coach. Never attribute work to specific tutors. '
+          + '2-3 sentences max. Prefer broad pedagogical categories over named grammar topics unless '
+          + 'the user prompt struggles list already names them. Respect typological diversity across languages.'
+      },
       { role: 'user', content: prompt }
     ],
     temperature: 0.4,

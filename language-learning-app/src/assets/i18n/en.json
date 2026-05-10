@@ -156,6 +156,12 @@
       "MODAL_BODY_2": "You don't lose any progress. The total number of lessons stays the same. You just get a clearer focus area at a time, instead of trying to absorb everything at once.",
       "MODAL_FOOTNOTE": "Splits only happen for premium plans, and only once per phase."
     },
+    "RECOVERY": {
+      "NODE_BADGE": "Steady ground",
+      "NODE_TOOLTIP": "A consolidation phase before stepping back up.",
+      "CARD_EYEBROW": "Steady ground",
+      "CARD_BODY": "Quick consolidation here. We're locking in what you already know before stepping you back up — no pressure, just steady reps."
+    },
     "PAST_MAPS": {
       "TITLE": "Past maps",
       "OPEN": "Past maps",
@@ -429,6 +435,7 @@
     "JOURNEY_DRAFT_BODY_FREE": "Your plan starts here. Complete your first lesson to start tracking progress and refining your focus.",
     "JOURNEY_DRAFT_BODY_PREMIUM": "Your plan starts here. After your first lesson, AI will refine it from real lesson data.",
     "JOURNEY_PREMIUM_CHIP": "Premium",
+    "JOURNEY_RECOVERY_CHIP": "Steady",
     "JOURNEY_VIEW_ROADMAP": "View roadmap",
     "JOURNEY_GETTING_STARTED": "Getting started",
     "JOURNEY_NEXT_FOCUS": "Next lesson focus",
@@ -1216,6 +1223,15 @@
       "DEFAULT": "Notification"
     }
   },
+  "ROLE_SELECT": {
+    "TITLE": "How will you use Barnabi?",
+    "SUBTITLE": "Choose your role to get the right experience for you.",
+    "STUDENT_TITLE": "I'm a Student",
+    "STUDENT_DESC": "I want to learn a new language with a tutor.",
+    "TUTOR_TITLE": "I'm a Tutor",
+    "TUTOR_DESC": "I want to teach and connect with students.",
+    "NEXT": "Continue"
+  },
   "LOGIN": {
     "TITLE": "Sign In",
     "SUBTITLE": "Continue your language learning journey",
@@ -1223,7 +1239,32 @@
     "SIGN_UP": "Sign Up",
     "FORGOT_PASSWORD": "Forgot Password?",
     "OR": "or",
-    "CONTINUE_WITH": "Continue with {{provider}}"
+    "CONTINUE_WITH": "Continue with {{provider}}",
+    "BRAND_NAME": "Barnabi",
+    "BRAND_TAGLINE": "Language Learning",
+    "WELCOME_BACK": "Welcome back",
+    "WELCOME_BACK_SUBTITLE": "Connect with tutors worldwide and continue your personalized language journey.",
+    "EMAIL_PLACEHOLDER": "Email address",
+    "PASSWORD_PLACEHOLDER": "Password",
+    "REMEMBER_ME": "Remember me",
+    "CONTINUE_GOOGLE": "Continue with Google",
+    "CONTINUE_FACEBOOK": "Continue with Facebook",
+    "NEW_HERE": "Don't have an account?",
+    "CREATE_ACCOUNT": "Sign up",
+    "HERO_HEADING": "Connect with tutors worldwide",
+    "HERO_SUBTITLE": "Book live lessons, follow a personalized learning path, and keep improving after every lesson.",
+    "HERO_TUTOR_STATUS": "Tutor online",
+    "HERO_TUTOR_NAME": "Maria",
+    "HERO_TUTOR_ROLE": "Spanish Tutor",
+    "HERO_GOAL_LABEL": "Goal",
+    "HERO_GOAL_VALUE": "Travel Spanish",
+    "HERO_NEXT_LESSON_LABEL": "Next lesson",
+    "HERO_NEXT_LESSON_VALUE": "Past tense",
+    "HERO_PROGRESS_LABEL": "Progress",
+    "HERO_PROGRESS_VALUE": "3 lessons completed",
+    "HERO_BUBBLE_HOLA": "¡Hola!",
+    "HERO_BUBBLE_BONJOUR": "Bonjour!",
+    "HERO_BUBBLE_CIAO": "Ciao!"
   },
   "ERRORS": {
     "GENERIC": "Something went wrong. Please try again.",

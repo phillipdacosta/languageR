@@ -61,6 +61,11 @@ interface PhaseRow {
   // detail card. (Phase 2 of the better-than-toast UX work — see
   // docs/learning-journey/scenarios.md.)
   isSplit: boolean;
+  // True for a recovery (bridge) phase — the last phase of the previous
+  // chapter the student was placed onto after a decay-driven demotion
+  // (Batch 13). Drives a soft framing on the journey UI ("you've got this,
+  // we're getting you back to {nextLevel}") and a chip on the node.
+  isRecovery: boolean;
   // Title of the immediately preceding phase. Surfaced on locked-phase
   // preview cards as "Continues from {previousPhaseTitle}" so the student
   // is anchored in *where they are now*. Empty string for phase 0.
@@ -466,6 +471,7 @@ export class JourneyPage implements OnInit, OnDestroy {
         draftDescription: '',
         draftFocusAreasText: '',
         isSplit: !!p._isSplit,
+        isRecovery: !!p._isRecovery,
         previousPhaseTitle
       };
     });
@@ -1187,6 +1193,7 @@ export class JourneyPage implements OnInit, OnDestroy {
         draftDescription: '',
         draftFocusAreasText: '',
         isSplit: false,
+        isRecovery: false,
         previousPhaseTitle: i > 0 ? (c.phaseTitles![i - 1] || '') : ''
       }));
     }

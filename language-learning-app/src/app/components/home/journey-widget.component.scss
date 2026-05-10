@@ -144,6 +144,25 @@
   ion-icon { font-size: 11px; }
 }
 
+// Recovery chip — soft green to match the journey-page recovery callout.
+// Sits next to the premium chip; doesn't take over the right edge so both
+// can coexist on a recovery + premium plan.
+.jw-recovery-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px 3px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #2f6b2f;
+  background: #e7f1e7;
+  border-radius: 999px;
+  margin-left: 6px;
+
+  ion-icon { font-size: 11px; }
+}
+
 // CTA row at the bottom of the widget — quiet link, monochrome.
 .jw-cta-row {
   display: flex;
@@ -748,6 +767,16 @@ html.ion-palette-dark {
 
     ion-icon {
       color: #1c1c1e;
+    }
+  }
+
+  // Recovery chip (dark)
+  .jw-recovery-chip {
+    color: #98d49b;
+    background: rgba(58, 95, 58, 0.22);
+
+    ion-icon {
+      color: #98d49b;
     }
   }
 

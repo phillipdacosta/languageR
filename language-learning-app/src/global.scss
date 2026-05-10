@@ -120,6 +120,14 @@ ion-content {
   --background: #f5f5f7;
 }
 
+/* Login: ion-content paints via shadow parts; transparent scroll layer +
+   rounded descendants can show black wedge artifacts in WebKit unless both
+   layers match the page (login.page.scss sets --background; this reinforces). */
+ion-content.login-content::part(background),
+ion-content.login-content::part(scroll) {
+  background: #ffffff;
+}
+
 /* Apply to all Ionic components */
 ion-content, ion-card, ion-item, ion-label, ion-button, ion-title, ion-header, ion-toolbar,
 ion-input, ion-textarea, ion-select, ion-datetime, ion-modal, ion-popover, ion-alert,

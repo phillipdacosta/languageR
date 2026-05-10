@@ -113,18 +113,49 @@ export class AuthService {
   }
 
   /**
-   * Login with redirect
+   * Login with redirect.
+   *
+   * Supports an optional Auth0 social `connection` (e.g. `google-oauth2`,
+   * `apple`) so callers can deep-link into a specific identity provider
+   * without a stop on the Universal Login chooser. `loginHint` is forwarded
+   * to Auth0 to pre-fill the email field on the hosted page when the user
+   * typed one before clicking Sign in. `screenHint: 'signup'` flips the
+   * hosted page into the sign-up tab — used by the "Create an account"
+   * link on the login page.
    */
-  loginWithRedirect(): void {
-    if (Capacitor.isNativePlatform()) {
-      this.auth0.loginWithRedirect({
-        async openUrl(url: string) {
-          await Browser.open({ url, windowName: '_self' });
-        }
-      });
-    } else {
-      this.auth0.loginWithRedirect();
-    }
+  loginWithRedirect(opts?: { connection?: string; loginHint?: string; screenHint?: 'login' | 'signup' }): void {
+    const authorizationParams: { [k: string]: string } = {};
+    if (opts?.connection) authorizationParams['connection'] = opts.connection;
+    if (opts?.loginHint) authorizationParams['login_hint'] = opts.loginHint;
+    if (opts?.screenHint) authorizationParams['screen_hint'] = opts.screenHint;
+    const redirectOpts = Object.keys(authorizationParams).length > 0
+      ? { authorizationParams }
+      : undefined;
+
+    console.log('🔐 AuthService.loginWithRedirect with opts:', redirectOpts);
+
+    // The @auth0/auth0-angular SDK wraps the underlying SPA-JS call in an
+    // Observable. We MUST subscribe — otherwise any rejection from the
+    // SPA-JS call (e.g. an invalid `connection` slug, missing config) is
+    // swallowed as an unhandled-promise warning and the user sees nothing
+    // happen. Subscribing lets us surface errors and confirm the redirect
+    // actually fired.
+    const redirect$ = Capacitor.isNativePlatform()
+      ? this.auth0.loginWithRedirect({
+          ...(redirectOpts || {}),
+          async openUrl(url: string) {
+            await Browser.open({ url, windowName: '_self' });
+          }
+        })
+      : (redirectOpts ? this.auth0.loginWithRedirect(redirectOpts) : this.auth0.loginWithRedirect());
+
+    redirect$.subscribe({
+      next: () => console.log('✅ AuthService.loginWithRedirect: redirect dispatched'),
+      error: (err: any) => {
+        console.error('❌ AuthService.loginWithRedirect FAILED:', err);
+        alert(`Sign-in failed: ${err?.message || err}\n\nIf this mentions "connection", check the connection slug in Auth0.`);
+      },
+    });
   }
 
   /**

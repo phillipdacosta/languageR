@@ -251,9 +251,20 @@ function generateChapterFromTemplate(level, goal) {
   const goalDescription = goal?.description || '';
   const goalType = goal?.type || 'conversational';
 
+  // Pace-tuned baseline lesson budget per phase. We deliberately keep
+  // the template's 4-phase pedagogical structure intact (free users
+  // always get foundation → practice → application → consolidation), but
+  // we let the student's stated timeline shrink/grow the per-phase
+  // lesson count. Mastery floor/ceiling still apply at runtime.
+  let baselineLessons = null;
+  try {
+    const pace = require('./paceService');
+    baselineLessons = pace.describe(goal).estimatedLessonsPerPhase;
+  } catch (_) {
+    baselineLessons = null;
+  }
+
   return tpl.phases.map((p) => {
-    // Goal-flavor: prepend a goal-relevant suggested topic to keep content
-    // tied to what the student actually wants. Other content stays.
     const goalTopic = _goalTopicSeed(goalType, goalDescription);
     return {
       title: p.title,
@@ -261,7 +272,7 @@ function generateChapterFromTemplate(level, goal) {
       focusAreas: p.focusAreas.slice(),
       suggestedTopics: goalTopic ? [goalTopic] : [],
       exitCriteria: p.exitCriteria,
-      estimatedLessons: p.estimatedLessons
+      estimatedLessons: baselineLessons || p.estimatedLessons
     };
   });
 }
@@ -315,12 +326,16 @@ async function generateChapterWithAi(plan, opts) {
   // surfaced repeatedly). Keep it tight to keep the prompt small.
   const recentStruggles = _extractRecentStruggles(plan);
 
+  const pace = require('./paceService');
+  const paceDescriptor = pace.describe(goal);
+
   const prompt = `Generate the next chapter of a personalized language learning plan.
 
 LANGUAGE: ${language}
 GOAL: ${goal.type || 'conversational'} — ${goal.description || ''}
 COMPLETED CHAPTER: ${completedChapterLevel} (chapter ${completedChapterIndex + 1})
 NEXT CHAPTER: ${nextLevel}
+${pace.buildAiPromptLine(goal)}
 
 TRAJECTORY THROUGH COMPLETED CHAPTER:
 ${JSON.stringify(trajectory, null, 2)}
@@ -328,12 +343,13 @@ ${JSON.stringify(trajectory, null, 2)}
 PERSISTENT STRUGGLES (focus the new chapter to reinforce these where natural):
 ${recentStruggles.length > 0 ? recentStruggles.map(s => `- ${s}`).join('\n') : '(none flagged)'}
 
-Design 4 sequential phases for the ${nextLevel} chapter that:
+Design ${paceDescriptor.phaseCount} sequential phases for the ${nextLevel} chapter that:
 1. Build on what they mastered in ${completedChapterLevel}
 2. Address persistent struggles where they're naturally relevant (don't force it)
 3. Stay keyed to their stated goal (${goal.type})
 4. Progress from foundation → practice → application → consolidation
-5. Each phase has a CONCRETE exit criterion (e.g., "tell a 3-minute story", not "feel comfortable")
+5. Each phase has ~${paceDescriptor.estimatedLessonsPerPhase} estimated lessons (urgency adjusts cadence, not depth-per-lesson)
+6. Each phase has a CONCRETE exit criterion (e.g., "tell a 3-minute story", not "feel comfortable")
 
 Return JSON:
 {
@@ -371,20 +387,24 @@ Return JSON:
     throw new Error('AI returned no phases.');
   }
 
-  // Clamp / sanitize. We accept 3-5 phases and pad to 4 if needed.
-  const cleaned = phases.slice(0, 4).map((p) => ({
+  // Clamp / sanitize, sized to the pace-derived phase count (3-5).
+  const targetPhaseCount = Math.max(3, Math.min(5, paceDescriptor.phaseCount));
+  const baselineLessons = paceDescriptor.estimatedLessonsPerPhase;
+  const cleaned = phases.slice(0, targetPhaseCount).map((p) => ({
     title: String(p.title || '').trim().slice(0, 60),
     description: String(p.description || '').trim().slice(0, 280),
     focusAreas: Array.isArray(p.focusAreas) ? p.focusAreas.map(s => String(s).slice(0, 60)).slice(0, 6) : [],
     suggestedTopics: Array.isArray(p.suggestedTopics) ? p.suggestedTopics.map(s => String(s).slice(0, 80)).slice(0, 4) : [],
     exitCriteria: String(p.exitCriteria || '').trim().slice(0, 200),
-    estimatedLessons: Number.isFinite(p.estimatedLessons) ? Math.max(3, Math.min(8, p.estimatedLessons)) : 5
+    estimatedLessons: Number.isFinite(p.estimatedLessons) ? Math.max(3, Math.min(8, p.estimatedLessons)) : baselineLessons
   }));
 
-  // Pad to 4 phases if AI returned fewer. Use template phases for the rest.
-  if (cleaned.length < 4) {
+  // Pad if AI returned fewer than the pace-target. Use template phases.
+  if (cleaned.length < targetPhaseCount) {
     const tpl = generateChapterFromTemplate(nextLevel, goal);
-    while (cleaned.length < 4) cleaned.push(tpl[cleaned.length]);
+    while (cleaned.length < targetPhaseCount && tpl[cleaned.length]) {
+      cleaned.push(tpl[cleaned.length]);
+    }
   }
 
   return cleaned;
@@ -531,7 +551,10 @@ async function _regenerateChapterForGoalChangeWithAi(plan, opts) {
     return `${t}${d}`;
   };
 
-  const prompt = `The student has changed their language-learning goal. Rewrite the current chapter's 4 phases to reflect the new goal — but DO NOT change their level (they have demonstrated proficiency at ${level} and we are preserving that).
+  const pace = require('./paceService');
+  const paceDescriptor = pace.describe(goal);
+
+  const prompt = `The student has changed their language-learning goal. Rewrite the current chapter's phases to reflect the new goal — but DO NOT change their level (they have demonstrated proficiency at ${level} and we are preserving that).
 
 LANGUAGE: ${language}
 CURRENT CEFR LEVEL: ${level} (preserved)
@@ -539,16 +562,18 @@ PREVIOUS GOAL: ${goalLine(oldGoal)}
 NEW GOAL: ${goalLine(goal)}
 TARGET LEVEL: ${goal.targetLevel || 'not specified'}
 TIMELINE: ${goal.timeline || 'no_rush'}
+${pace.buildAiPromptLine(goal)}
 
 PHASES THEY HAD BEFORE (do NOT repeat verbatim — vary topics + framing):
 ${prevList}
 
-Design 4 sequential phases for the ${level} chapter, calibrated to the new goal:
+Design ${paceDescriptor.phaseCount} sequential phases for the ${level} chapter, calibrated to the new goal and pace:
 1. Stay AT the ${level} level — do not pitch above or below
 2. Reframe content for the NEW goal type (${goal.type || 'conversational'})
 3. Genuinely different from the previous phases (different titles, different scenarios)
 4. Progress: foundation → practice → application → consolidation
-5. Each phase has a CONCRETE exit criterion (e.g., "tell a 3-minute story", not "feel comfortable")
+5. Each phase has ~${paceDescriptor.estimatedLessonsPerPhase} estimated lessons
+6. Each phase has a CONCRETE exit criterion (e.g., "tell a 3-minute story", not "feel comfortable")
 
 Return JSON:
 {
@@ -580,17 +605,18 @@ Return JSON:
 
   const raw = JSON.parse(completion.choices[0].message.content || '{}');
   const phases = Array.isArray(raw.phases) ? raw.phases : [];
-  if (phases.length < 4) {
-    throw new Error(`AI returned ${phases.length} phases, expected 4`);
+  const targetPhaseCount = Math.max(3, Math.min(5, paceDescriptor.phaseCount));
+  if (phases.length < Math.max(3, targetPhaseCount - 1)) {
+    throw new Error(`AI returned ${phases.length} phases, expected ~${targetPhaseCount}`);
   }
 
-  return phases.slice(0, 4).map((p) => ({
+  return phases.slice(0, targetPhaseCount).map((p) => ({
     title: String(p.title || '').slice(0, 80),
     description: String(p.description || '').slice(0, 280),
     focusAreas: Array.isArray(p.focusAreas) ? p.focusAreas.slice(0, 6) : [],
     suggestedTopics: Array.isArray(p.suggestedTopics) ? p.suggestedTopics.slice(0, 6) : [],
     exitCriteria: String(p.exitCriteria || '').slice(0, 200),
-    estimatedLessons: Number.isFinite(p.estimatedLessons) ? Math.max(3, Math.min(10, p.estimatedLessons)) : 5
+    estimatedLessons: Number.isFinite(p.estimatedLessons) ? Math.max(3, Math.min(10, p.estimatedLessons)) : paceDescriptor.estimatedLessonsPerPhase
   }));
 }
 

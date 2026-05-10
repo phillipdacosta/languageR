@@ -847,6 +847,37 @@
     0 0 0 2px rgba(0, 0, 0, 0.06);
 }
 
+// Recovery (bridge) badge — small leaf anchored to the dot. Same shape
+// as the split badge so the visual language stays consistent. Recovery
+// nodes get a soft ring instead of the split's harder outline so the
+// student doesn't read it as an alert.
+.jm-recovery-badge {
+  position: absolute;
+  top: -6px;
+  left: -8px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1.5px solid #5a8c5a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.10);
+  pointer-events: none;
+
+  ion-icon {
+    font-size: 10px;
+    color: #2f6b2f;
+  }
+}
+.jm-node--recovery .jm-dot {
+  box-shadow:
+    0 3px 10px rgba(0, 0, 0, 0.14),
+    0 0 0 2px rgba(90, 140, 90, 0.18);
+}
+
 @keyframes jm-pulse {
   0%, 100% { transform: scale(1);    opacity: 0.8; }
   55%       { transform: scale(1.2); opacity: 0; }
@@ -1273,6 +1304,51 @@ $jm-label-gap: 4px;
   cursor: pointer;
   ion-icon { font-size: 13px; }
   &:hover { text-decoration: underline; }
+}
+
+// Recovery (bridge phase) inline callout — same structural shape as the
+// split callout but with a softer green palette to read as
+// "consolidation / steady ground", not as an alert.
+.jpcd-recovery-callout {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  margin: 6px 0 10px;
+  background: #f3f7f3;
+  border: 1px solid #dde7dd;
+  border-radius: 12px;
+}
+.jpcd-recovery-icon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid #dde7dd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  ion-icon { font-size: 14px; color: #2f6b2f; }
+}
+.jpcd-recovery-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.jpcd-recovery-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #2f6b2f;
+}
+.jpcd-recovery-body {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: #1f4f1f;
 }
 
 // Progress bar (matches .jw-progress)
@@ -2334,6 +2410,31 @@ $jm-label-gap: 4px;
     box-shadow:
       0 3px 10px rgba(0, 0, 0, 0.6),
       0 0 0 2px rgba(255, 255, 255, 0.1);
+  }
+
+  // Recovery callout (dark)
+  .jpcd-recovery-callout {
+    background: rgba(58, 95, 58, 0.18);
+    border-color: rgba(106, 156, 106, 0.35);
+  }
+  .jpcd-recovery-icon {
+    background: #1c1c1e;
+    border-color: rgba(106, 156, 106, 0.4);
+    ion-icon { color: #98d49b; }
+  }
+  .jpcd-recovery-eyebrow { color: #98d49b; }
+  .jpcd-recovery-body { color: #d8e8d8; }
+
+  // Recovery badge on the map node
+  .jm-recovery-badge {
+    background: #1c1c1e;
+    border-color: #98d49b;
+    ion-icon { color: #98d49b; }
+  }
+  .jm-node--recovery .jm-dot {
+    box-shadow:
+      0 3px 10px rgba(0, 0, 0, 0.5),
+      0 0 0 2px rgba(152, 212, 155, 0.18);
   }
 
   // Progress section

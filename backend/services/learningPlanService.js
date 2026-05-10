@@ -187,6 +187,13 @@ ${prevList ? `- Phases they had before (do NOT repeat them as-is, vary topics + 
 - Generate genuinely different phase titles and topics that better reflect their preference, while still respecting their goal and level.`;
   }
 
+  // Pace: derive concrete pacing knobs from the student's stated timeline
+  // / target date. The same knobs flow into the AI prompt AND into
+  // weeklyRecommendations on the saved plan, so urgency actually shapes
+  // the roadmap (not just the prose).
+  const pace = require('./paceService');
+  const paceDescriptor = pace.describe(goal);
+
   const prompt = `You are an expert language teacher creating a personalized learning plan.
 
 STUDENT PROFILE:
@@ -197,11 +204,16 @@ STUDENT PROFILE:
 - Estimated CEFR (rolling, bias-corrected): ${actualCefr}${estimateMeta ? ` · agreement: ${estimateMeta.agreement} · based on ${estimateMeta.lessonsConsidered} lessons (${estimateMeta.sources.ai} AI / ${estimateMeta.sources.tutor} tutor)` : ''}
 - Target level: ${goal.targetLevel || 'not specified'}
 - Timeline: ${goal.timeline || 'no rush'}
+${pace.buildAiPromptLine(goal)}
 
 LATEST LESSON DATA:
 ${analysisContext}${regenContext}
 
-Create a structured learning plan with 3-5 phases. Each phase should be achievable in roughly 5 lessons. The plan should be specific to ${language}, not generic.
+Create a structured learning plan. Phase count and lesson budget MUST follow the PACE line above:
+- urgent / focused → fewer phases (3), tighter lessons each (3-4)
+- steady           → 4 phases × ~5 lessons
+- relaxed          → up to 5 phases × ~5 lessons
+The plan should be specific to ${language}, not generic.
 
 IMPORTANT:
 - The first phase should be "active" status, all others "locked"
@@ -275,7 +287,10 @@ Respond ONLY with valid JSON:
         lessonsCompleted: 0,
         status: i === 0 ? 'active' : 'locked'
       })),
-      weeklyRecommendations: result.weeklyRecommendations || {},
+      weeklyRecommendations: pace.buildWeeklyRecommendations(
+        goal,
+        result.weeklyRecommendations?.focusBetweenLessons || ''
+      ),
       studentSummary: result.studentSummary || '',
       nextLessonFocus: result.nextLessonFocus || '',
       lastUpdatedAt: new Date(),
@@ -467,18 +482,24 @@ async function _applyMasteryPromotion(plan, lessonAnalysis, opts = {}) {
   const hasMorePhases = plan.currentPhaseIndex < plan.phases.length - 1;
   const decision = mastery.evaluateAdvancement(currentPhase, hasMorePhases);
 
-  // ── Branch 1: Last phase in chapter → run chapter graduation ──
-  if (decision.reason === 'last_phase_in_chapter') {
+  // ── Branch 1: Last phase in chapter OR recovery phase → run chapter graduation ──
+  // Recovery phases live as the last phase of the previous chapter, so they
+  // also funnel through chapter graduation — but with the recovery rules
+  // applied inside `evaluateChapterGraduation` (stricter mastery threshold,
+  // multi-tutor / advance-vote requirement).
+  if (decision.reason === 'last_phase_in_chapter' || decision.reason === 'recovery_phase') {
     const grad = mastery.evaluateChapterGraduation(currentPhase);
     if (grad.graduate) {
       const result = await _completeChapterAndGenerateNext(plan, lessonAnalysis, grad);
       return { advanced: true, graduated: true, decision: grad, ...result };
     }
-    // Final phase but not yet ready to graduate — log progress.
+    // Final / recovery phase but not yet ready to graduate — log progress.
     plan.history.push({
       date: new Date(),
       lessonId: lessonAnalysis.lessonId || null,
-      changeDescription: `Lesson logged in final phase · mastery ${grad.mastery ?? 'n/a'}/${grad.thresholdUsed ?? mastery.CHAPTER_GRADUATION_THRESHOLD}`,
+      changeDescription: grad.isRecovery
+        ? `Recovery lesson logged · mastery ${grad.mastery ?? 'n/a'}/${grad.thresholdUsed ?? mastery.MASTERY_RECOVERY_THRESHOLD}`
+        : `Lesson logged in final phase · mastery ${grad.mastery ?? 'n/a'}/${grad.thresholdUsed ?? mastery.CHAPTER_GRADUATION_THRESHOLD}`,
       phaseIndexBefore: prevPhaseIndex,
       phaseIndexAfter: prevPhaseIndex,
       masteryAtAdvance: grad.mastery ?? null,
@@ -570,6 +591,11 @@ async function _completeChapterAndGenerateNext(plan, lessonAnalysis, gradDecisio
     finalPhase.completedAt = new Date();
   }
 
+  // Recovery-graduation? The phase we just promoted from was a recovery
+  // bridge created by an earlier demotion. Tag the snapshot so analytics
+  // can distinguish "earned graduation" from "recovered through the bridge".
+  const wasRecoveryGraduation = !!(finalPhase && finalPhase._isRecovery);
+
   // Snapshot the completed chapter (read-only forever — G9).
   plan.chaptersCompleted = plan.chaptersCompleted || [];
   plan.chaptersCompleted.push({
@@ -579,7 +605,7 @@ async function _completeChapterAndGenerateNext(plan, lessonAnalysis, gradDecisio
     phases: JSON.parse(JSON.stringify(plan.phases)), // deep clone
     completedAt: new Date(),
     masteryAtCompletion: gradDecision.mastery ?? null,
-    exitReason: 'graduated'
+    exitReason: wasRecoveryGraduation ? 'recovery_graduated' : 'graduated'
   });
 
   // Was this the final chapter (C2)? Enter mastery_mode (G5).
@@ -745,9 +771,24 @@ async function _applyDecayIfNeeded(plan) {
 
 /**
  * Demote the student one chapter back (decay or calibration-driven).
- * Snapshots the interrupted chapter, regenerates phases for the previous
- * chapter (template, since AI generation here would be wasteful), bumps
- * indexes back.
+ *
+ * Behaviour (Batch 13 — "bridge recovery"):
+ *   - Snapshots the interrupted chapter as 'demoted' / 'calibrated'.
+ *   - Regenerates phases for the previous chapter (template, since AI
+ *     generation here would be wasteful), then drops the student onto
+ *     the LAST phase of that chapter and marks it as `_isRecovery`.
+ *     This is the "bridge" back to the level they fell out of, so a
+ *     student who decayed from A2 P1 lands on A1 P4 (not A1 P1) — they
+ *     keep the consolidation skills they already had.
+ *   - Recovery phase uses a stricter graduation gate (mastery 80,
+ *     ≥ 2 distinct tutors OR an explicit advance vote) before they can
+ *     re-enter the chapter they fell out of (see masteryService).
+ *   - Tracks ping-pong: if `lastDemotedFromLevel` matches the level we
+ *     just demoted from, increment `pingPongCount` and surface
+ *     `humanInterventionSuggested` (count ≥ 1) and `recoveryStuck`
+ *     (count ≥ 2).
+ *
+ * Capped at chapter 1 — never demote below.
  */
 async function _demoteOneChapter(plan, source = 'decay') {
   const chapterConstants = require('./chapterConstants');
@@ -762,6 +803,11 @@ async function _demoteOneChapter(plan, source = 'decay') {
   const toLevel = chapterConstants.levelForChapterIndex(toIndex);
   const toTheme = chapterConstants.themeForChapterIndex(toIndex);
 
+  // Ping-pong detection: if the student previously fell out of fromLevel
+  // (i.e., they had been demoted from this level before) and they made
+  // it back up here only to fall again, that's a ping-pong.
+  const isPingPong = plan.lastDemotedFromLevel === fromLevel;
+
   // Snapshot current chapter as 'demoted' / 'calibrated'.
   plan.chaptersCompleted = plan.chaptersCompleted || [];
   plan.chaptersCompleted.push({
@@ -774,17 +820,16 @@ async function _demoteOneChapter(plan, source = 'decay') {
     exitReason: source === 'calibration' ? 'calibrated' : 'demoted'
   });
 
-  // Generate new phases for previous chapter.
+  // Generate new phases for previous chapter (template only — never AI here).
   let newPhases = [];
   try {
     if (chapterGen && typeof chapterGen.generateNextChapter === 'function') {
-      // Same generator — we just pass a different "next level" arg.
       newPhases = await chapterGen.generateNextChapter(plan, {
         completedChapterIndex: fromIndex,
         completedChapterLevel: fromLevel,
         nextLevel: toLevel,
         completedPhases: plan.phases,
-        forceTemplate: true   // demotion always uses template, never AI cost
+        forceTemplate: true
       });
     }
   } catch (err) {
@@ -794,27 +839,43 @@ async function _demoteOneChapter(plan, source = 'decay') {
     newPhases = _minimalChapterFallback(toLevel, plan.goal);
   }
 
+  // Hydrate the new chapter. The recovery phase is the LAST one; mark it,
+  // make it active, and lock the rest. Lessons/scores/tutorIds reset to
+  // give the recovery a clean rolling-window read.
+  const recoveryIndex = newPhases.length - 1;
   plan.chapterIndex = toIndex;
   plan.chapterLevel = toLevel;
   plan.chapterTheme = toTheme;
   plan.phases = newPhases.map((p, i) => ({
     ...p,
-    status: i === 0 ? 'active' : 'locked',
+    status: i === recoveryIndex ? 'active' : 'locked',
     lessonsCompleted: 0,
     lessonScores: [],
     lessonTutorIds: [],
     masteryAverage: null,
     completedAt: null,
     studentEditedAt: null,
-    tutorVotes: []
+    tutorVotes: [],
+    _isRecovery: i === recoveryIndex
   }));
-  plan.currentPhaseIndex = 0;
+  plan.currentPhaseIndex = recoveryIndex;
   plan.decayWarnings = 0;
 
-  // Track demotion for human-intervention rule (G6).
+  // Remember which level we fell out of, so the NEXT promotion (when
+  // they graduate the recovery phase) can detect ping-pong if they
+  // bounce back here.
+  plan.lastDemotedFromLevel = fromLevel;
+
+  // Ping-pong counter (independent of the 90-day demotion window —
+  // counts the number of times we've fallen out of the same level).
+  if (isPingPong) {
+    plan.pingPongCount = (plan.pingPongCount || 0) + 1;
+  }
+
+  // Track demotion for human-intervention rule (G6) — kept for the
+  // 90-day "two demotions in 90 days" surfacing.
   plan.demotionEvents = plan.demotionEvents || [];
   plan.demotionEvents.push(new Date());
-  // Prune > 90 days old.
   const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
   plan.demotionEvents = plan.demotionEvents.filter(d => new Date(d).getTime() > cutoff);
 
@@ -822,10 +883,10 @@ async function _demoteOneChapter(plan, source = 'decay') {
     date: new Date(),
     lessonId: null,
     changeDescription: source === 'calibration'
-      ? `Calibration demoted ${fromLevel} → ${toLevel}`
-      : `Decay demoted ${fromLevel} → ${toLevel}`,
+      ? `Calibration demoted ${fromLevel} → ${toLevel} (recovery on last phase)${isPingPong ? ' [ping-pong]' : ''}`
+      : `Decay demoted ${fromLevel} → ${toLevel} (recovery on last phase)${isPingPong ? ' [ping-pong]' : ''}`,
     phaseIndexBefore: 0,
-    phaseIndexAfter: 0,
+    phaseIndexAfter: recoveryIndex,
     masteryAtAdvance: null,
     reason: source === 'calibration' ? 'calibration_demoted' : 'chapter_demoted'
   });
@@ -833,11 +894,17 @@ async function _demoteOneChapter(plan, source = 'decay') {
   plan.pendingTransitions = plan.pendingTransitions || {};
   plan.pendingTransitions.chapterDemotionPending = true;
   plan.pendingTransitions.celebrationShownCount = 0;
-  if (plan.demotionEvents.length >= 2) {
+  // Surface human intervention as soon as we've ping-ponged once OR
+  // hit two demotions in the trailing 90 days (existing G6 behaviour).
+  if ((plan.pingPongCount || 0) >= 1 || plan.demotionEvents.length >= 2) {
     plan.pendingTransitions.humanInterventionSuggested = true;
   }
+  // Strong "let's pause and talk to your tutor" surface at ≥ 2 ping-pongs.
+  if ((plan.pingPongCount || 0) >= 2) {
+    plan.pendingTransitions.recoveryStuck = true;
+  }
 
-  console.log(`📉 [LearningPlan] Chapter demoted (${source}): ${fromLevel} → ${toLevel}`);
+  console.log(`📉 [LearningPlan] Chapter demoted (${source}): ${fromLevel} → ${toLevel} (recovery@phase ${recoveryIndex + 1}, pingPong=${plan.pingPongCount || 0})`);
 }
 
 /**
@@ -1924,9 +1991,18 @@ async function _regeneratePlanForGoalChange(plan, newGoal) {
   }));
   plan.currentPhaseIndex = 0;
 
-  // 5. Refresh goal-derived copy. Keep weeklyRecommendations as-is —
-  // it's not goal-specific and updatePlanAfterLesson refreshes it after
-  // the next lesson anyway.
+  // 5. Refresh goal-derived copy. weeklyRecommendations IS goal-specific
+  // now (pace), so recompute it here when the goal changes — keep any
+  // existing focusBetweenLessons copy if present.
+  try {
+    const pace = require('./paceService');
+    plan.weeklyRecommendations = pace.buildWeeklyRecommendations(
+      plan.goal,
+      plan.weeklyRecommendations?.focusBetweenLessons || ''
+    );
+  } catch (err) {
+    console.warn('[LearningPlan] Pace refresh on goal change failed (non-blocking):', err.message);
+  }
   const firstPhase = plan.phases[0];
   if (firstPhase) {
     plan.nextLessonFocus = firstPhase.description

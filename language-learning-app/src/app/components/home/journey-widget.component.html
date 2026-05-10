@@ -148,6 +148,10 @@
           <ion-icon name="sparkles-outline"></ion-icon>
           {{ 'HOME.JOURNEY_PREMIUM_CHIP' | translate }}
         </span>
+        <span class="jw-recovery-chip" *ngIf="isRecovery" aria-label="Recovery phase">
+          <ion-icon name="leaf-outline"></ion-icon>
+          {{ 'HOME.JOURNEY_RECOVERY_CHIP' | translate }}
+        </span>
       </div>
 
       <!-- Big editorial title -->

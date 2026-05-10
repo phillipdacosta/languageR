@@ -981,7 +981,7 @@ router.post('/:language/ack-transition', verifyToken, async (req, res) => {
     const allowed = [
       'chapterJustCompleted', 'chapterDemotionPending', 'chapterPromotionPending',
       'masteryModeEntered', 'decayWarning', 'humanInterventionSuggested',
-      'phaseSplit'
+      'phaseSplit', 'recoveryStuck'
     ];
     if (!allowed.includes(flag)) {
       return res.status(400).json({ success: false, message: 'Invalid flag.' });

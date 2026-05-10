@@ -1,0 +1,239 @@
+// role-select.page.scss — clean single-column role picker
+
+$brand-blue:        #3a7afe;
+$brand-blue-hover:  #2d68ed;
+$brand-blue-active: #2256d1;
+$ink-strong:        #0f1d3a;
+$ink-soft:          #5b6478;
+$ink-muted:         #8a93a6;
+$divider:           #e5e7eb;
+$btn-black:         #0f1216;
+$btn-black-hover:   #1f242c;
+$btn-black-active:  #2a3038;
+$btn-black-disabled: #c7cad1;
+
+.role-select-content {
+  --background: #f7f8fc;
+}
+
+.rs-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px 56px;
+  box-sizing: border-box;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+// ── Header ──────────────────────────────────────────────────────────
+.rs-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 44px;
+}
+
+.rs-logo {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  margin-bottom: 20px;
+}
+
+.rs-title {
+  font-size: 30px;
+  font-weight: 800;
+  color: $ink-strong;
+  letter-spacing: -0.6px;
+  line-height: 1.15;
+  margin: 0 0 10px;
+}
+
+.rs-subtitle {
+  font-size: 15px;
+  color: $ink-soft;
+  margin: 0;
+  line-height: 1.5;
+  max-width: 320px;
+}
+
+// ── Role cards ──────────────────────────────────────────────────────
+.rs-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  margin-bottom: 36px;
+}
+
+.rs-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  background: #ffffff;
+  border: 2px solid $divider;
+  border-radius: 18px;
+  padding: 20px 20px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.1s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+
+  &:hover {
+    border-color: #c5d4ff;
+    box-shadow: 0 4px 16px rgba(58, 122, 254, 0.08);
+  }
+
+  &:active {
+    transform: scale(0.99);
+  }
+
+  &--selected {
+    border-color: $brand-blue;
+    box-shadow: 0 4px 20px rgba(58, 122, 254, 0.14);
+  }
+}
+
+.rs-card-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  ion-icon {
+    font-size: 26px;
+    color: #fff;
+  }
+
+  &--student {
+    background: linear-gradient(135deg, #4f8df9 0%, #6ea8ff 100%);
+  }
+
+  &--tutor {
+    background: linear-gradient(135deg, #34c77b 0%, #5fdda1 100%);
+  }
+}
+
+.rs-card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.rs-card-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: $ink-strong;
+  line-height: 1.2;
+}
+
+.rs-card-desc {
+  font-size: 13px;
+  color: $ink-soft;
+  line-height: 1.4;
+}
+
+.rs-card-check {
+  flex-shrink: 0;
+
+  ion-icon {
+    font-size: 24px;
+    display: block;
+  }
+
+  // Selected checkmark
+  ion-icon[name="checkmark-circle"] {
+    color: $brand-blue;
+  }
+
+  // Unselected ring
+  ion-icon[name="ellipse-outline"] {
+    color: $divider;
+  }
+}
+
+// ── Next button ─────────────────────────────────────────────────────
+.rs-next-btn {
+  width: 100%;
+  height: 54px;
+  border-radius: 14px;
+  border: none;
+  background: $btn-black;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  letter-spacing: 0.1px;
+  transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.2s ease;
+  box-shadow: 0 6px 18px rgba(15, 18, 22, 0.22);
+
+  ion-icon {
+    font-size: 18px;
+  }
+
+  &:hover:not(:disabled) {
+    background: $btn-black-hover;
+  }
+
+  &:active:not(:disabled) {
+    background: $btn-black-active;
+    transform: scale(0.99);
+  }
+
+  &:disabled {
+    background: $btn-black-disabled;
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+}
+
+// ── Dark mode ────────────────────────────────────────────────────────
+@media (prefers-color-scheme: dark) {
+  .role-select-content {
+    --background: #0f1216;
+  }
+
+  .rs-title {
+    color: #f5f5f7;
+  }
+
+  .rs-subtitle {
+    color: #a1a8b6;
+  }
+
+  .rs-card {
+    background: #1c1f26;
+    border-color: #2a2f39;
+    box-shadow: none;
+
+    &--selected {
+      border-color: $brand-blue;
+    }
+  }
+
+  .rs-card-title {
+    color: #f5f5f7;
+  }
+
+  .rs-card-desc {
+    color: #a1a8b6;
+  }
+
+  .rs-card-check ion-icon[name="ellipse-outline"] {
+    color: #3a3f4b;
+  }
+}

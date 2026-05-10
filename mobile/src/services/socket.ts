@@ -73,6 +73,10 @@ export type UserEventName =
   | 'reaction_updated'
   | 'new_notification'
   | 'user_typing'
+  // Server emits after a Google Calendar push webhook fires for this user;
+  // payload-free "something changed, refetch your current window" signal.
+  // Web's WebSocketService listens to the same name; keep them in sync.
+  | 'gcal-changed'
   | 'gcal-events-updated'
   | 'gcal-status-updated'
   | 'conversation_archived'
@@ -165,6 +169,7 @@ class SocketService {
       'reaction_updated',
       'new_notification',
       'user_typing',
+      'gcal-changed',
       'gcal-events-updated',
       'gcal-status-updated',
       'conversation_archived',

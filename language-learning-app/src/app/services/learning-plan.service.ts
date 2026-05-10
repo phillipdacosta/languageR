@@ -23,6 +23,11 @@ export interface LearningPlanPhase {
   _isSplit?: boolean;
   /** True for the remedial "fundamentals" phase inserted on demotion. */
   _isFundamentals?: boolean;
+  /** True for a recovery (bridge) phase added when a chapter demotion lands
+   *  the student on the previous chapter's last phase (Batch 13). Drives
+   *  the recovery chip on the journey widget + callout on the journey
+   *  page detail card. */
+  _isRecovery?: boolean;
   /**
    * Coarse, *student-facing* progress state attached server-side. Hides
    * the raw mastery score and the 70 threshold so each lesson doesn't
@@ -106,7 +111,7 @@ export interface LearningPlan {
     phases: LearningPlanPhase[];
     completedAt: string;
     masteryAtCompletion: number | null;
-    exitReason: 'graduated' | 'demoted' | 'calibrated';
+    exitReason: 'graduated' | 'demoted' | 'calibrated' | 'recovery_graduated';
   }>;
   pendingTransitions?: {
     chapterJustCompleted?: boolean;
@@ -116,8 +121,19 @@ export interface LearningPlan {
     decayWarning?: boolean;
     humanInterventionSuggested?: boolean;
     phaseSplit?: boolean;
+    /** Strong "let's slow down and talk to your tutor" signal —
+     *  set when pingPongCount ≥ 2 (Batch 13). Surfaces a dedicated
+     *  card on the post-lesson recap. */
+    recoveryStuck?: boolean;
     celebrationShownCount?: number;
   };
+
+  /** Number of times the student has demoted out of the same chapter
+   *  level in a row (Batch 13). 1 = nudge, 2+ = recoveryStuck. */
+  pingPongCount?: number;
+  /** Snapshot of the chapter level the student fell out of at the last
+   *  demotion. Lets the next promotion detect bounce-back. */
+  lastDemotedFromLevel?: CefrLevel | null;
 
   // CEFR estimation (Batch 12). See backend/services/cefrEstimatorService.js.
   internalCefrEstimate?: CefrEstimate | null;
@@ -759,6 +775,7 @@ export class LearningPlanService {
       | 'decayWarning'
       | 'humanInterventionSuggested'
       | 'phaseSplit'
+      | 'recoveryStuck'
   ): Observable<{ success: boolean; pendingTransitions: NonNullable<LearningPlan['pendingTransitions']> }> {
     return this.userService.getCurrentUser().pipe(
       take(1),

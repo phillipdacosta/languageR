@@ -494,6 +494,10 @@
 }
 
 // Left Column: Conversations Panel
+// Desktop nav toolbar is position:fixed and overlays the top 56px of
+// ion-content (which is intentionally flush — see .messages-content above).
+// Pad the panel down so the title + animated search switcher clear the
+// toolbar. Mobile resets padding-top to 0 in the @media block below.
 .conversations-panel {
   width: 360px;
   min-width: 360px;
@@ -504,7 +508,8 @@
   height: 100vh;
   overflow: hidden;
   margin-top: 0;
-  padding-top: 0;
+  padding-top: 56px;
+  box-sizing: border-box;
 }
 
 // Fixed-height switcher: title and search bar occupy the same vertical space.

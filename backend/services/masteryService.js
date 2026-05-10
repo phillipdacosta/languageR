@@ -55,6 +55,24 @@ const CALIBRATION_DEMOTE_THRESHOLD = 40;        // avg of first 3 < 40 → demot
 // ── Tutor vote bias (Batch 10) ───────────────────────────────────
 const TUTOR_VOTE_THRESHOLD_DELTA = 5;           // each advance vote -5, each hold +5
 
+// ── Recovery tunables (Batch 13) ─────────────────────────────────
+// When a chapter demotion drops a student into the "bridge" recovery
+// phase (the last phase of the previous chapter), we hold them to a
+// stricter bar before letting them re-attempt the chapter they fell out
+// of — this prevents endless ping-pong demotions.
+//
+// Stricter than MASTERY_ADVANCE_THRESHOLD (70) but a touch softer than
+// CHAPTER_GRADUATION_THRESHOLD (80) — a recovery phase IS a graduation,
+// so we use the same 80 floor.
+const MASTERY_RECOVERY_THRESHOLD = 80;
+// Recovery requires a richer multi-source signal than a normal phase
+// (one tutor's "you got it" isn't enough). Either ≥2 distinct tutors in
+// the rolling window, OR an explicit tutor `advance` vote.
+const RECOVERY_MIN_DISTINCT_TUTORS = 2;
+// Slightly more lessons than the normal floor before recovery can
+// graduate, to give the bridge skills time to settle.
+const RECOVERY_MIN_LESSONS = 4;
+
 // Component weights when ALL signals are present.
 const WEIGHTS_FULL = {
   grammar: 0.30,
@@ -187,6 +205,13 @@ function applyTutorVoteBias(threshold, tutorVotes) {
  * @param {Boolean} hasMorePhases  Is there a next phase to advance to in this chapter?
  */
 function evaluateAdvancement(phase, hasMorePhases) {
+  // Recovery phases live as the last phase of the previous chapter and
+  // graduate the student back to the chapter they fell out of. Defer to
+  // the dedicated evaluator so the stricter gate is always applied,
+  // regardless of where in the array the recovery phase sits.
+  if (phase?._isRecovery) {
+    return { advance: false, reason: 'recovery_phase', message: 'Recovery phase — defer to chapter graduation with recovery rules.' };
+  }
   if (!hasMorePhases) {
     // Last phase in chapter — caller should run evaluateChapterGraduation instead.
     // We do NOT short-circuit here; we return a distinct reason so the caller
@@ -244,38 +269,68 @@ function evaluateAdvancement(phase, hasMorePhases) {
  * Tutor votes apply the same bias.
  */
 function evaluateChapterGraduation(phase) {
+  const isRecovery = !!phase?._isRecovery;
   const lessons = phase?.lessonsCompleted || 0;
   const scores = phase?.lessonScores || [];
   const window = scores.slice(-CHAPTER_GRADUATION_WINDOW);
   const avg = window.length > 0 ? Math.round(window.reduce((a, b) => a + b, 0) / window.length) : null;
-  const threshold = applyTutorVoteBias(CHAPTER_GRADUATION_THRESHOLD, phase?.tutorVotes);
+  // Recovery uses its own (stricter, multi-tutor-gated) base threshold.
+  const baseThreshold = isRecovery ? MASTERY_RECOVERY_THRESHOLD : CHAPTER_GRADUATION_THRESHOLD;
+  const minLessons = isRecovery ? RECOVERY_MIN_LESSONS : CHAPTER_GRADUATION_MIN_LESSONS;
+  const threshold = applyTutorVoteBias(baseThreshold, phase?.tutorVotes);
 
-  if (lessons < CHAPTER_GRADUATION_MIN_LESSONS) {
+  if (lessons < minLessons) {
     return {
       graduate: false,
-      reason: 'chapter_min_lessons',
-      message: `Need at least ${CHAPTER_GRADUATION_MIN_LESSONS} lessons in the final phase before graduating.`,
+      reason: isRecovery ? 'recovery_min_lessons' : 'chapter_min_lessons',
+      message: `Need at least ${minLessons} lessons in the ${isRecovery ? 'recovery' : 'final'} phase before graduating.`,
       mastery: avg,
-      thresholdUsed: threshold
+      thresholdUsed: threshold,
+      isRecovery
     };
+  }
+
+  // Recovery has an extra multi-source gate: ≥ 2 distinct tutors in the
+  // rolling window, OR an explicit (non-expired) tutor `advance` vote.
+  if (isRecovery) {
+    const tutorIds = (phase.lessonTutorIds || []).slice(-CHAPTER_GRADUATION_WINDOW).filter(Boolean).map(String);
+    const distinctTutors = new Set(tutorIds).size;
+    const now = Date.now();
+    const hasActiveAdvanceVote = Array.isArray(phase.tutorVotes) && phase.tutorVotes.some(v => {
+      if (!v || v.vote !== 'advance') return false;
+      if (!v.expiresAt) return false;
+      return new Date(v.expiresAt).getTime() >= now;
+    });
+    if (distinctTutors < RECOVERY_MIN_DISTINCT_TUTORS && !hasActiveAdvanceVote) {
+      return {
+        graduate: false,
+        reason: 'recovery_single_source',
+        message: `Recovery needs ${RECOVERY_MIN_DISTINCT_TUTORS}+ distinct tutors or an explicit advance vote before promoting back.`,
+        mastery: avg,
+        thresholdUsed: threshold,
+        isRecovery: true
+      };
+    }
   }
 
   if (avg !== null && avg >= threshold) {
     return {
       graduate: true,
-      reason: 'chapter_graduated',
-      message: `Rolling mastery (last ${window.length}) ${avg} ≥ chapter graduation threshold ${threshold}.`,
+      reason: isRecovery ? 'recovery_graduated' : 'chapter_graduated',
+      message: `Rolling mastery (last ${window.length}) ${avg} ≥ ${isRecovery ? 'recovery' : 'chapter graduation'} threshold ${threshold}.`,
       mastery: avg,
-      thresholdUsed: threshold
+      thresholdUsed: threshold,
+      isRecovery
     };
   }
 
   return {
     graduate: false,
-    reason: 'chapter_mastery_below',
-    message: avg === null ? 'No mastery data yet.' : `Rolling mastery ${avg} below chapter graduation threshold ${threshold}.`,
+    reason: isRecovery ? 'recovery_mastery_below' : 'chapter_mastery_below',
+    message: avg === null ? 'No mastery data yet.' : `Rolling mastery ${avg} below ${isRecovery ? 'recovery' : 'chapter graduation'} threshold ${threshold}.`,
     mastery: avg,
-    thresholdUsed: threshold
+    thresholdUsed: threshold,
+    isRecovery
   };
 }
 
@@ -441,5 +496,8 @@ module.exports = {
   CALIBRATION_LOCK_AFTER_LESSON,
   CALIBRATION_PROMOTE_THRESHOLD,
   CALIBRATION_DEMOTE_THRESHOLD,
-  TUTOR_VOTE_THRESHOLD_DELTA
+  TUTOR_VOTE_THRESHOLD_DELTA,
+  MASTERY_RECOVERY_THRESHOLD,
+  RECOVERY_MIN_DISTINCT_TUTORS,
+  RECOVERY_MIN_LESSONS
 };

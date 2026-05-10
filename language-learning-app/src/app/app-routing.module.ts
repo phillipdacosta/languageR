@@ -27,11 +27,16 @@ const routes: Routes = [
     path: 'callback',
     loadChildren: () => import('./callback/callback.module').then(m => m.CallbackPageModule)
   },
-          {
-            path: 'onboarding',
-            loadChildren: () => import('./onboarding/onboarding.module').then(m => m.OnboardingPageModule),
-            canActivate: [AuthGuard]
-          },
+  {
+    path: 'role-select',
+    loadChildren: () => import('./role-select/role-select.module').then(m => m.RoleSelectPageModule),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'onboarding',
+    loadChildren: () => import('./onboarding/onboarding.module').then(m => m.OnboardingPageModule),
+    canActivate: [AuthGuard]
+  },
           {
             path: 'tutor-onboarding',
             loadChildren: () => import('./tutor-onboarding/tutor-onboarding.module').then(m => m.TutorOnboardingPageModule),
