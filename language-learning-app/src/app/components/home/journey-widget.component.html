@@ -94,42 +94,150 @@
 
     <!-- ───────────────────────────────────────────────────────────
          UNFRAMED — student is learning at their own pace.
-         No phases, no progress bar — just a calm landing card with
-         a single "Build me a plan" CTA.
+         Mirrors the paused layout: head row with chip + level (if
+         earned), editorial title, body, optional "From your last
+         lesson" pill, badges block when chapters were graduated
+         pre-unframe, and a single "Build me a plan" CTA at the
+         bottom. Whole card stays tappable (→ resume == build plan).
          ─────────────────────────────────────────────────────────── -->
     <ng-container *ngIf="state === 'unframed'">
-      <div class="jw-empty-icon" aria-hidden="true">
-        <ion-icon name="leaf-outline"></ion-icon>
+      <div class="jw-paused">
+        <div class="jw-paused-head">
+          <span class="jw-paused-chip jw-paused-chip--unframed">
+            <ion-icon name="leaf-outline" aria-hidden="true"></ion-icon>
+            {{ 'HOME.JOURNEY_UNFRAMED_CHIP' | translate }}
+          </span>
+          <span class="jw-paused-level" *ngIf="cefrLevel">{{ cefrLevel }}</span>
+        </div>
+
+        <h3 class="jw-paused-title">{{ 'HOME.JOURNEY_UNFRAMED_TITLE' | translate }}</h3>
+        <p class="jw-paused-body">
+          <ng-container *ngIf="isPremium">
+            {{ 'HOME.JOURNEY_UNFRAMED_BODY_PREMIUM' | translate }}
+          </ng-container>
+          <ng-container *ngIf="!isPremium">
+            {{ 'HOME.JOURNEY_UNFRAMED_BODY_FREE' | translate }}
+          </ng-container>
+        </p>
+
+        <!-- Latest lesson reflection. Soft, backward-looking framing —
+             "from your last lesson", not "your next focus" — so it
+             respects the unframed contract. -->
+        <div class="jw-paused-highlight" *ngIf="latestLessonHighlight">
+          <span class="jw-paused-highlight-eyebrow">
+            {{ 'HOME.JOURNEY_UNFRAMED_HIGHLIGHT_EYEBROW' | translate }}
+          </span>
+          <p class="jw-paused-highlight-body">{{ latestLessonHighlight }}</p>
+          <span class="jw-paused-highlight-meta" *ngIf="latestLessonTutor || latestLessonAgo">
+            <ng-container *ngIf="latestLessonTutor">{{ latestLessonTutor }}</ng-container>
+            <ng-container *ngIf="latestLessonTutor && latestLessonAgo"> · </ng-container>
+            <ng-container *ngIf="latestLessonAgo">{{ latestLessonAgo }}</ng-container>
+          </span>
+        </div>
+
+        <!-- Badges section — preserves graduated-chapter pride for
+             students who built a structured plan before unframing. -->
+        <div class="jw-paused-badges">
+          <span class="jw-paused-badges-label">
+            {{ 'HOME.JOURNEY_PAUSED_BADGES_LABEL' | translate }}
+          </span>
+
+          <div class="jw-paused-badges-stack" *ngIf="visibleEarnedBadges.length">
+            <span
+              class="jw-paused-badge-disc"
+              *ngFor="let badge of visibleEarnedBadges; let i = index"
+              [style.z-index]="visibleEarnedBadges.length - i"
+              [style.background]="badge.color + '1A'"
+              [style.border-color]="badge.color + '4D'"
+              [attr.aria-label]="badge.name">
+              <ion-icon [name]="badge.icon" [style.color]="badge.color" aria-hidden="true"></ion-icon>
+            </span>
+            <span class="jw-paused-badge-overflow" *ngIf="earnedBadgesOverflow > 0">
+              +{{ earnedBadgesOverflow }}
+            </span>
+          </div>
+
+          <div class="jw-paused-badges-empty" *ngIf="!visibleEarnedBadges.length">
+            <div class="jw-paused-badges-empty-stack" aria-hidden="true">
+              <span class="jw-paused-badge-disc jw-paused-badge-disc--placeholder"></span>
+              <span class="jw-paused-badge-disc jw-paused-badge-disc--placeholder"></span>
+              <span class="jw-paused-badge-disc jw-paused-badge-disc--placeholder"></span>
+            </div>
+            <span class="jw-paused-badges-empty-caption">
+              {{ 'HOME.JOURNEY_PAUSED_BADGES_EMPTY_TITLE' | translate }}
+            </span>
+          </div>
+        </div>
+
+        <span class="jw-paused-cta">
+          {{ 'HOME.JOURNEY_UNFRAMED_CTA' | translate }}
+          <ion-icon name="arrow-forward-outline" aria-hidden="true"></ion-icon>
+        </span>
       </div>
-      <h3 class="jw-empty-title">{{ 'HOME.JOURNEY_UNFRAMED_TITLE' | translate }}</h3>
-      <p class="jw-empty-body">
-        <ng-container *ngIf="isPremium">
-          {{ 'HOME.JOURNEY_UNFRAMED_BODY_PREMIUM' | translate }}
-        </ng-container>
-        <ng-container *ngIf="!isPremium">
-          {{ 'HOME.JOURNEY_UNFRAMED_BODY_FREE' | translate }}
-        </ng-container>
-      </p>
-      <span class="jw-empty-cta">
-        {{ 'HOME.JOURNEY_UNFRAMED_CTA' | translate }}
-        <ion-icon name="arrow-forward-outline"></ion-icon>
-      </span>
     </ng-container>
 
     <!-- ───────────────────────────────────────────────────────────
-         PAUSED — student paused an existing plan. Single "Resume"
-         CTA. No progress is shown to avoid implying decay.
+         PAUSED — student paused an existing plan.
+         We celebrate what they've built so far: level, chapters
+         cleared, lessons taken. The numbers come pre-computed from
+         the parent so the template stays function-call-free.
          ─────────────────────────────────────────────────────────── -->
     <ng-container *ngIf="state === 'paused'">
-      <div class="jw-empty-icon" aria-hidden="true">
-        <ion-icon name="pause-circle-outline"></ion-icon>
+      <div class="jw-paused">
+        <div class="jw-paused-head">
+          <span class="jw-paused-chip">
+            <ion-icon name="pause-circle-outline" aria-hidden="true"></ion-icon>
+            {{ 'HOME.JOURNEY_PAUSED_CHIP' | translate }}
+          </span>
+          <span class="jw-paused-level" *ngIf="cefrLevel">{{ cefrLevel }}</span>
+          <span class="jw-paused-since" *ngIf="pausedSinceLabel">{{ pausedSinceLabel }}</span>
+        </div>
+
+        <h3 class="jw-paused-title">{{ 'HOME.JOURNEY_PAUSED_TITLE_REDESIGN' | translate }}</h3>
+        <p class="jw-paused-body">{{ 'HOME.JOURNEY_PAUSED_BODY_REDESIGN' | translate }}</p>
+
+        <div class="jw-paused-badges">
+          <span class="jw-paused-badges-label">{{ 'HOME.JOURNEY_PAUSED_BADGES_LABEL' | translate }}</span>
+
+          <!-- Earned gamification badges: stacked, highest-priority first
+               (consistency streaks → level → skill → lesson count). Each
+               disc is icon-only so the row stays compact even at 5 wide.
+               Hovering / tapping reveals the badge name via aria-label. -->
+          <div class="jw-paused-badges-stack" *ngIf="visibleEarnedBadges.length">
+            <span
+              class="jw-paused-badge-disc"
+              *ngFor="let badge of visibleEarnedBadges; let i = index"
+              [style.z-index]="visibleEarnedBadges.length - i"
+              [style.background]="badge.color + '1A'"
+              [style.border-color]="badge.color + '4D'"
+              [attr.aria-label]="badge.name">
+              <ion-icon [name]="badge.icon" [style.color]="badge.color" aria-hidden="true"></ion-icon>
+            </span>
+            <span class="jw-paused-badge-overflow" *ngIf="earnedBadgesOverflow > 0">
+              +{{ earnedBadgesOverflow }}
+            </span>
+          </div>
+
+          <!-- Empty state: no badges earned yet. Use placeholder outline
+               discs so the badges row keeps the same vertical footprint
+               as the filled state — un-pausing won't cause a layout shift. -->
+          <div class="jw-paused-badges-empty" *ngIf="!visibleEarnedBadges.length">
+            <div class="jw-paused-badges-empty-stack" aria-hidden="true">
+              <span class="jw-paused-badge-disc jw-paused-badge-disc--placeholder"></span>
+              <span class="jw-paused-badge-disc jw-paused-badge-disc--placeholder"></span>
+              <span class="jw-paused-badge-disc jw-paused-badge-disc--placeholder"></span>
+            </div>
+            <span class="jw-paused-badges-empty-caption">
+              {{ 'HOME.JOURNEY_PAUSED_BADGES_EMPTY_TITLE' | translate }}
+            </span>
+          </div>
+        </div>
+
+        <span class="jw-paused-cta">
+          {{ 'HOME.JOURNEY_PAUSED_CTA' | translate }}
+          <ion-icon name="arrow-forward-outline" aria-hidden="true"></ion-icon>
+        </span>
       </div>
-      <h3 class="jw-empty-title">{{ 'HOME.JOURNEY_PAUSED_TITLE' | translate }}</h3>
-      <p class="jw-empty-body">{{ 'HOME.JOURNEY_PAUSED_BODY' | translate }}</p>
-      <span class="jw-empty-cta">
-        {{ 'HOME.JOURNEY_PAUSED_CTA' | translate }}
-        <ion-icon name="arrow-forward-outline"></ion-icon>
-      </span>
     </ng-container>
 
     <ng-container *ngIf="state === 'draft' || state === 'active' || state === 'completed'">
@@ -198,11 +306,11 @@
       </p>
 
       <!-- Goal anchor chip -->
-      <div class="jw-goal" *ngIf="goalLabel">
+      <!-- <div class="jw-goal" *ngIf="goalLabel">
         <img src="assets/journey-goal.png" alt="" class="jw-goal-icon-img" />
         <span class="jw-goal-label">{{ 'HOME.JOURNEY_GOAL' | translate }}:</span>
         <span class="jw-goal-value">{{ goalLabel }}</span>
-      </div>
+      </div> -->
 
       <!-- Footer CTA, separated by hairline. Hidden on surfaces that already
            ARE the roadmap (e.g. /tabs/home/journey hero). -->

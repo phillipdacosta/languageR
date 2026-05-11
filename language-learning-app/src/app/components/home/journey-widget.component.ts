@@ -69,6 +69,32 @@ export class JourneyWidgetComponent implements OnChanges {
   @Input() isRecovery = false;
   /** When true, hide the bottom "View roadmap →" CTA (e.g. on the journey page itself). */
   @Input() hideRoadmapCta = false;
+
+  // ── Paused-state display data (precomputed by the parent page) ──────
+  /** Current CEFR level chip ("A1".."C2"). Shown on the paused card. */
+  @Input() cefrLevel = '';
+  /** Number of chapters the student has graduated through. */
+  @Input() chaptersCompletedCount = 0;
+  /** Total lessons across the whole journey (current + completed chapters). */
+  @Input() totalLessonsCompleted = 0;
+  /** Human label like "Paused 3 days ago". Empty when unknown. */
+  @Input() pausedSinceLabel = '';
+  /** Earned gamification badges to surface in the paused/unframed
+   *  card's badge stack. Source of truth is `GamificationService`;
+   *  parent passes the pre-filtered "earned only" subset. Each entry
+   *  is rendered as a small colored disc with an icon — consistency
+   *  streaks, lesson milestones, level achievements, skill badges. */
+  @Input() earnedBadges: Array<{ id: string; icon: string; color: string; name: string }> = [];
+
+  // ── Latest-lesson highlight (paused & unframed) ─────────────────────
+  /** One-line takeaway from the most recent lesson analysis, softly
+   *  framed (e.g. "Past tense agreement showed up again."). Empty when
+   *  no recent analysis is available. */
+  @Input() latestLessonHighlight = '';
+  /** Tutor first name attached to the highlight ("Maria"). Optional. */
+  @Input() latestLessonTutor = '';
+  /** Human "how long ago" label ("2 days ago"). Optional. */
+  @Input() latestLessonAgo = '';
   /** Smart adaptive primary CTA shown on the JOURNEY page (not on home).
    *  Owner provides a label + click handler; widget only renders the pill. */
   @Input() primaryCtaLabel = '';
@@ -95,10 +121,16 @@ export class JourneyWidgetComponent implements OnChanges {
   /** Right-aligned label for the progress row (e.g. "25% complete" / "Just starting" / "Ready to advance"). */
   phaseProgressRightLabel = '';
 
+  /** Cap of stacked badges shown before overflowing into "+N". */
+  private static readonly MAX_VISIBLE_BADGES = 5;
+  visibleEarnedBadges: Array<{ id: string; icon: string; color: string; name: string }> = [];
+  earnedBadgesOverflow = 0;
+
   ngOnChanges(_changes: SimpleChanges) {
     this.recomputePhaseNodes();
     this.recomputeMastery();
     this.recomputePhaseProgress();
+    this.recomputeBadgeStack();
   }
 
   private recomputePhaseNodes() {
@@ -136,6 +168,20 @@ export class JourneyWidgetComponent implements OnChanges {
       this.progressState === 'ready_soon' ||
       this.progressState === 'wrapping_up';
     this.masteryStatusLabel = '';
+  }
+
+  private recomputeBadgeStack() {
+    const all = this.earnedBadges || [];
+    const max = JourneyWidgetComponent.MAX_VISIBLE_BADGES;
+    if (all.length <= max) {
+      this.visibleEarnedBadges = all.slice();
+      this.earnedBadgesOverflow = 0;
+      return;
+    }
+    // Parent passes badges in priority order (streak → level → skill → lesson),
+    // so we keep the first N and overflow the rest into a "+N" pill.
+    this.visibleEarnedBadges = all.slice(0, max);
+    this.earnedBadgesOverflow = all.length - max;
   }
 
   private recomputePhaseProgress() {

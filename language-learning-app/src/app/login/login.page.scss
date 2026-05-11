@@ -190,62 +190,6 @@ $radius-card:       20px;
   }
 }
 
-// Remember / forgot row
-.form-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 6px;
-  margin-bottom: 6px;
-}
-
-.remember-me {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  user-select: none;
-
-  input[type='checkbox'] {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  .checkmark {
-    width: 18px;
-    height: 18px;
-    border-radius: 5px;
-    background: black;
-    color: #fff;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.15s ease, transform 0.15s ease;
-
-    ion-icon {
-      font-size: 14px;
-      opacity: 1;
-      transition: opacity 0.15s ease;
-    }
-  }
-
-  // Unchecked: hollow box
-  input[type='checkbox']:not(:checked) + .checkmark {
-    background: #fff;
-    border: 1.5px solid $field-border;
-
-    ion-icon {
-      opacity: 0;
-    }
-  }
-
-  .remember-label {
-    font-size: 14px;
-    font-weight: 500;
-    color: $ink-soft;
-  }
-}
 
 .link-button {
   background: none;
@@ -537,8 +481,8 @@ $radius-card:       20px;
 }
 
 .hero-chip-icon {
-  width: 38px;
-  height: 38px;
+  width: 48px;
+  height: 48px;
   border-radius: 10px;
   display: inline-flex;
   align-items: center;
@@ -551,15 +495,24 @@ $radius-card:       20px;
   }
 
   &--goal {
-    background: linear-gradient(135deg, #4f8df9 0%, #6ea8ff 100%);
+    background: none;
+    border-radius: 10px;
+    overflow: hidden;
+    object-fit: contain;
   }
 
   &--lesson {
-    background: linear-gradient(135deg, #5b9eff 0%, #87baff 100%);
+    background: none;
+    border-radius: 10px;
+    overflow: hidden;
+    object-fit: contain;
   }
 
   &--progress {
-    background: linear-gradient(135deg, #34c77b 0%, #5fdda1 100%);
+    background: none;
+    border-radius: 10px;
+    overflow: hidden;
+    object-fit: contain;
   }
 }
 
@@ -771,8 +724,7 @@ $radius-card:       20px;
     color: #f5f5f7;
   }
 
-  .welcome-subtitle,
-  .remember-label {
+  .welcome-subtitle {
     color: #a1a8b6;
   }
 

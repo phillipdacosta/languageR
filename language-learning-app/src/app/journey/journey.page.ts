@@ -34,6 +34,11 @@ interface PhaseRow {
   title: string;
   description: string;
   focusAreas: string[];
+  /** Goal-flavored scenario hints (e.g. "workplace and meetings") that
+   *  the plan generator attached when the student set their goal. These
+   *  are *separate* from focusAreas (which are skill-flavored) — they
+   *  give the student a visible signal that their goal was honored. */
+  suggestedTopics: string[];
   exitCriteria: string;
   status: 'completed' | 'active' | 'locked';
   lessonsCompleted: number;
@@ -227,6 +232,16 @@ export class JourneyPage implements OnInit, OnDestroy {
       this.loadPlan();
     });
     this.subs.push(sub);
+
+    // If the plan transitions to paused / unframed while this page is
+    // mounted (e.g. user pauses from Profile in another tab), feed that
+    // straight through applyPlan — which will short-circuit and bounce
+    // them back to home. Keeps tab1's widget and this surface honest.
+    const planSub = this.learningPlanService.planUpdates$.subscribe(update => {
+      if (!this.language || update.language !== this.language) return;
+      this.applyPlan(update.plan, update.entitlements || null);
+    });
+    this.subs.push(planSub);
   }
 
   ngOnDestroy() {
@@ -380,6 +395,20 @@ export class JourneyPage implements OnInit, OnDestroy {
   }
 
   private applyPlan(plan: LearningPlan, entitlements: ClientEntitlements | null) {
+    // Paused / unframed plans have no roadmap to view — bounce the user
+    // back to home so they only ever see the journey widget for those
+    // states. Inline mode emits goBack so tab1 can dismiss the panel
+    // (and run its reverse FLIP); standalone route navigates back to
+    // /tabs/home directly.
+    if (plan?.status === 'paused' || plan?.status === 'unframed') {
+      if (this.inline) {
+        this.goBackEvent.emit();
+      } else {
+        this.router.navigate(['/tabs/home'], { replaceUrl: true });
+      }
+      return;
+    }
+
     this.plan = plan;
     this.entitlements = entitlements;
     this.isPremium = entitlements?.tier === 'premium';
@@ -456,6 +485,7 @@ export class JourneyPage implements OnInit, OnDestroy {
         title: p.title || `Phase ${i + 1}`,
         description: p.description || '',
         focusAreas: p.focusAreas || [],
+        suggestedTopics: (p as any).suggestedTopics || [],
         exitCriteria: p.exitCriteria || '',
         status: (p.status as any) || 'locked',
         lessonsCompleted: done,
@@ -1178,6 +1208,7 @@ export class JourneyPage implements OnInit, OnDestroy {
         title: title || `Phase ${i + 1}`,
         description: '',
         focusAreas: [],
+        suggestedTopics: [],
         exitCriteria: '',
         status: 'completed' as const,
         lessonsCompleted: 0,

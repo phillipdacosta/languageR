@@ -347,6 +347,18 @@
             </div>
           </div>
 
+          <!-- Goal-flavored scenario hints. These differ from focusAreas
+               (which are skill-flavored) — they're the one place the
+               student's goal type ("Use it for work", "Travel") visibly
+               shapes a phase. Hidden when the generator didn't attach any. -->
+          <div class="jpcd-locked-section jpcd-locked-section--goal" *ngIf="selectedRow.suggestedTopics?.length">
+            <span class="jpcd-locked-key">{{ 'JOURNEY.LOCKED.GOAL_TOPICS_LABEL' | translate }}</span>
+            <div class="jpcd-locked-chips">
+              <span class="jpcd-locked-chip jpcd-locked-chip--goal"
+                *ngFor="let t of selectedRow.suggestedTopics">{{ t }}</span>
+            </div>
+          </div>
+
           <div class="jpcd-locked-section" *ngIf="selectedRow.exitCriteria">
             <span class="jpcd-locked-key">{{ 'JOURNEY.LOCKED.OUTCOME_LABEL' | translate }}</span>
             <p class="jpcd-locked-outcome">{{ selectedRow.exitCriteria }}</p>
@@ -438,6 +450,21 @@
           <div class="jpcd-focus-text">
             <span class="jpcd-focus-eyebrow">{{ 'HOME.JOURNEY_NEXT_FOCUS' | translate }}</span>
             <p class="jpcd-focus-body">{{ nextLessonFocus }}</p>
+          </div>
+        </div>
+
+        <!-- Goal-flavored scenarios for the active phase. Same data
+             surfaced on locked phases, but rendered as a single
+             discreet row under the goal label so it doesn't fight the
+             "next lesson focus" card for attention. -->
+        <div class="jpcd-active-goal-topics"
+          *ngIf="selectedRow.status === 'active' && selectedRow.suggestedTopics?.length">
+          <span class="jpcd-active-goal-topics-key">
+            {{ 'JOURNEY.ACTIVE_TOPICS_LABEL' | translate }}
+          </span>
+          <div class="jpcd-active-goal-topics-chips">
+            <span class="jpcd-active-goal-topics-chip"
+              *ngFor="let t of selectedRow.suggestedTopics">{{ t }}</span>
           </div>
         </div>
 

@@ -34,9 +34,6 @@ export class LoginPage implements OnInit, OnDestroy {
 
   isLoading = false;
   email = '';
-  password = '';
-  rememberMe = true;
-  showPassword = false;
 
   private routerSubscription?: Subscription;
 
@@ -85,10 +82,6 @@ export class LoginPage implements OnInit, OnDestroy {
     });
   }
 
-  togglePassword() {
-    this.showPassword = !this.showPassword;
-  }
-
   async signIn() {
     await this.startRedirect({
       loginHint: this.email?.trim() || undefined,
@@ -104,15 +97,6 @@ export class LoginPage implements OnInit, OnDestroy {
   }
 
   async goToCreateAccount() {
-    // Send users straight to Auth0's hosted signup. After they create their
-    // Auth0 account, the callback flow lands on /role-select (now
-    // authenticated) so they can pick student vs tutor before onboarding.
-    //
-    // Also flag this as a signup-intent attempt so the callback can show a
-    // friendly "you already had an account, signed you in" toast if Auth0
-    // matches them to an existing record (rather than silently dropping
-    // them on /tabs with no explanation).
-    localStorage.setItem('loginIntent', 'signup');
     await this.startRedirect({
       screenHint: 'signup',
       loginHint: this.email?.trim() || undefined,

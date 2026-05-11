@@ -35,37 +35,6 @@
               class="field-input" />
           </label>
 
-          <label class="field">
-            <ion-icon name="lock-closed-outline" class="field-icon" aria-hidden="true"></ion-icon>
-            <input
-              [type]="showPassword ? 'text' : 'password'"
-              autocomplete="current-password"
-              [placeholder]="'LOGIN.PASSWORD_PLACEHOLDER' | translate"
-              [(ngModel)]="password"
-              name="password"
-              class="field-input" />
-            <button
-              type="button"
-              class="field-trailing-btn"
-              (click)="togglePassword()"
-              [attr.aria-label]="showPassword ? 'Hide password' : 'Show password'">
-              <ion-icon [name]="showPassword ? 'eye-outline' : 'eye-off-outline'"></ion-icon>
-            </button>
-          </label>
-
-          <div class="form-row">
-            <label class="remember-me">
-              <input type="checkbox" [(ngModel)]="rememberMe" name="rememberMe" />
-              <span class="checkmark" aria-hidden="true">
-                <ion-icon name="checkmark"></ion-icon>
-              </span>
-              <span class="remember-label">{{ 'LOGIN.REMEMBER_ME' | translate }}</span>
-            </label>
-            <button type="button" class="link-button" (click)="goToForgotPassword()">
-              {{ 'LOGIN.FORGOT_PASSWORD' | translate }}
-            </button>
-          </div>
-
           <button type="submit" class="primary-btn" [disabled]="isLoading">
             <ion-spinner *ngIf="isLoading" name="crescent" class="primary-btn-spinner"></ion-spinner>
             <span *ngIf="!isLoading">{{ 'LOGIN.SIGN_IN' | translate }}</span>
@@ -145,9 +114,7 @@
 
         <!-- Goal card (mid-left) -->
         <div class="hero-chip hero-chip--goal">
-          <div class="hero-chip-icon hero-chip-icon--goal">
-            <ion-icon name="locate-outline"></ion-icon>
-          </div>
+          <img src="assets/login-goal-icon.png" alt="" class="hero-chip-icon hero-chip-icon--goal" aria-hidden="true" />
           <div class="hero-chip-meta">
             <span class="hero-chip-label">{{ 'LOGIN.HERO_GOAL_LABEL' | translate }}</span>
             <span class="hero-chip-value">{{ 'LOGIN.HERO_GOAL_VALUE' | translate }}</span>
@@ -159,9 +126,7 @@
 
         <!-- Next lesson card (lower-left) -->
         <div class="hero-chip hero-chip--lesson">
-          <div class="hero-chip-icon hero-chip-icon--lesson">
-            <ion-icon name="book-outline"></ion-icon>
-          </div>
+          <img src="assets/login-book-icon.png" alt="" class="hero-chip-icon hero-chip-icon--lesson" aria-hidden="true" />
           <div class="hero-chip-meta">
             <span class="hero-chip-label">{{ 'LOGIN.HERO_NEXT_LESSON_LABEL' | translate }}</span>
             <span class="hero-chip-value">{{ 'LOGIN.HERO_NEXT_LESSON_VALUE' | translate }}</span>
@@ -170,9 +135,7 @@
 
         <!-- Progress card (lower-right) -->
         <div class="hero-chip hero-chip--progress">
-          <div class="hero-chip-icon hero-chip-icon--progress">
-            <ion-icon name="stats-chart-outline"></ion-icon>
-          </div>
+          <img src="assets/login-chart-icon.png" alt="" class="hero-chip-icon hero-chip-icon--progress" aria-hidden="true" />
           <div class="hero-chip-meta">
             <span class="hero-chip-label">{{ 'LOGIN.HERO_PROGRESS_LABEL' | translate }}</span>
             <span class="hero-chip-value">{{ 'LOGIN.HERO_PROGRESS_VALUE' | translate }}</span>

@@ -1,0 +1,102 @@
+<ion-header class="set-goal-header" [translucent]="true">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button (click)="dismiss()" fill="clear" class="set-goal-close">
+        <ion-icon name="close" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>Add a learning goal</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="set-goal-content" [fullscreen]="true">
+  <div class="set-goal-inner">
+    <header class="set-goal-intro">
+      <h1>What are you working toward?</h1>
+      <p>
+        We'll shape your roadmap around this — the scenarios you practice,
+        the vocabulary you build first, and the way your tutor coaches you.
+      </p>
+    </header>
+
+    <section class="set-goal-section">
+      <h2 class="set-goal-section-label">Your goal</h2>
+      <div class="goal-grid">
+        <button
+          type="button"
+          *ngFor="let option of goalOptions"
+          class="goal-card"
+          [class.goal-card--selected]="selectedGoalType === option.value"
+          (click)="selectGoal(option.value)">
+          <span class="goal-card-icon" aria-hidden="true">
+            <ion-icon [name]="option.icon"></ion-icon>
+          </span>
+          <span class="goal-card-text">
+            <span class="goal-card-title">{{ option.label }}</span>
+            <span class="goal-card-desc">{{ option.description }}</span>
+          </span>
+          <span class="goal-card-check" *ngIf="selectedGoalType === option.value" aria-hidden="true">
+            <ion-icon name="checkmark"></ion-icon>
+          </span>
+        </button>
+      </div>
+
+      <div class="goal-other" *ngIf="selectedGoalType === 'other'">
+        <label for="goal-other-input">Tell us a bit more</label>
+        <ion-textarea
+          id="goal-other-input"
+          [(ngModel)]="description"
+          name="description"
+          placeholder="e.g. Read short stories without a dictionary"
+          autoGrow="true"
+          rows="2"
+          maxlength="160">
+        </ion-textarea>
+      </div>
+    </section>
+
+    <section class="set-goal-section">
+      <h2 class="set-goal-section-label">Timeline</h2>
+      <div class="timeline-list">
+        <button
+          type="button"
+          *ngFor="let option of timelineOptions"
+          class="timeline-row"
+          [class.timeline-row--selected]="selectedTimeline === option.value"
+          (click)="selectTimeline(option.value)">
+          <span class="timeline-icon" aria-hidden="true">
+            <ion-icon [name]="option.icon"></ion-icon>
+          </span>
+          <span class="timeline-label">{{ option.label }}</span>
+          <span class="timeline-check" *ngIf="selectedTimeline === option.value" aria-hidden="true">
+            <ion-icon name="checkmark-circle"></ion-icon>
+          </span>
+        </button>
+      </div>
+
+      <div class="timeline-date" *ngIf="selectedTimeline === 'specific_date'">
+        <label for="goal-target-date">Target date</label>
+        <ion-input
+          id="goal-target-date"
+          type="date"
+          [(ngModel)]="targetDate"
+          name="targetDate">
+        </ion-input>
+      </div>
+    </section>
+  </div>
+</ion-content>
+
+<ion-footer class="set-goal-footer">
+  <div class="set-goal-footer-inner">
+    <button
+      type="button"
+      class="set-goal-submit"
+      [disabled]="!canSubmit"
+      (click)="submit()">
+      <ion-spinner *ngIf="submitting" name="dots"></ion-spinner>
+      <span *ngIf="!submitting">Build my plan</span>
+      <ion-icon *ngIf="!submitting" name="arrow-forward" aria-hidden="true"></ion-icon>
+    </button>
+  </div>
+</ion-footer>

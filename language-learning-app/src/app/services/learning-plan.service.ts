@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, of } from 'rxjs';
+import { BehaviorSubject, Observable, Subject, of } from 'rxjs';
 import { switchMap, take, tap } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { UserService } from './user.service';
@@ -354,6 +354,14 @@ export class LearningPlanService {
    */
   private planCache = new Map<string, { success: boolean; plan: LearningPlan; entitlements?: ClientEntitlements }>();
 
+  /**
+   * Broadcast lifecycle changes (pause / resume / skip / promote) so any
+   * page already mounted with stale plan data — most notably the home tab
+   * — can re-render without forcing the user to refresh.
+   */
+  private planUpdatesSubject = new Subject<{ language: string; plan: LearningPlan; entitlements?: ClientEntitlements }>();
+  readonly planUpdates$ = this.planUpdatesSubject.asObservable();
+
   /** Expose the cached plan for a language so consumers can read it synchronously. */
   getCachedPlan(language: string) {
     return this.planCache.get(language) ?? null;
@@ -597,7 +605,7 @@ export class LearningPlanService {
           `${this.apiUrl}/${encodeURIComponent(language)}/skip`,
           {},
           { headers }
-        ).pipe(tap(res => { if (res?.success) this.planCache.set(language, res); }));
+        ).pipe(tap(res => this.broadcastPlanUpdate(language, res)));
       })
     );
   }
@@ -612,7 +620,7 @@ export class LearningPlanService {
           `${this.apiUrl}/${encodeURIComponent(language)}/pause`,
           {},
           { headers }
-        ).pipe(tap(res => { if (res?.success) this.planCache.set(language, res); }));
+        ).pipe(tap(res => this.broadcastPlanUpdate(language, res)));
       })
     );
   }
@@ -627,7 +635,7 @@ export class LearningPlanService {
           `${this.apiUrl}/${encodeURIComponent(language)}/resume`,
           {},
           { headers }
-        ).pipe(tap(res => { if (res?.success) this.planCache.set(language, res); }));
+        ).pipe(tap(res => this.broadcastPlanUpdate(language, res)));
       })
     );
   }
@@ -642,9 +650,18 @@ export class LearningPlanService {
           `${this.apiUrl}/${encodeURIComponent(language)}/promote`,
           { goal },
           { headers }
-        ).pipe(tap(res => { if (res?.success) this.planCache.set(language, res); }));
+        ).pipe(tap(res => this.broadcastPlanUpdate(language, res)));
       })
     );
+  }
+
+  private broadcastPlanUpdate(
+    language: string,
+    res: { success: boolean; plan: LearningPlan; entitlements?: ClientEntitlements } | null | undefined
+  ) {
+    if (!res?.success || !res.plan) return;
+    this.planCache.set(language, res);
+    this.planUpdatesSubject.next({ language, plan: res.plan, entitlements: res.entitlements });
   }
 
   /** Throttle the "Want a plan?" soft prompt for the next 30 days. */

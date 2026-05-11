@@ -240,6 +240,970 @@ const CHAPTER_TEMPLATES = {
 };
 
 /**
+ * Goal-flavored chapter overrides. The pedagogical *spine* at each level
+ * is the same across goals (e.g. A1 = foundation → practice → application
+ * → consolidation; B1 = complex past → conditionals → abstract topics →
+ * application). What changes per goal is the **scenario surface**:
+ *   - Phase titles describe the scenario the student practices in.
+ *   - focusAreas keep the level's skill targets and add scenario-flavored
+ *     vocab so the chip row reads true to the goal.
+ *   - exitCriteria phrase the milestone in goal-appropriate terms
+ *     (a Travel B1 student doesn't get "give a workplace presentation").
+ *
+ * Premium students get fully AI-generated phases once they complete
+ * their first chapter — see `generateChapterWithAi`. These templates
+ * power the free tier and the on-AI-failure fallback for premium.
+ *
+ * Shape mirrors `CHAPTER_TEMPLATES[level].phases`. When a goal isn't in
+ * a level's map (or the goal is "other"), we fall back to the base
+ * template via `_getTemplatePhases`.
+ */
+const CHAPTER_TEMPLATES_BY_GOAL = {
+  A1: {
+    professional: [
+      {
+        title: 'Greetings at work',
+        description: 'Introduce yourself, your role, and exchange basic pleasantries with colleagues.',
+        focusAreas: ['introducing your role', 'workplace greetings', 'common office vocabulary'],
+        exitCriteria: 'Can introduce yourself and your role in 4-5 sentences.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Daily work vocabulary',
+        description: 'Vocabulary for office life, tools, meetings, and time at work.',
+        focusAreas: ['office items', 'work schedule', 'days and times'],
+        exitCriteria: 'Can describe your typical workday in 4-5 sentences.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Workplace exchanges',
+        description: 'Handle short, common interactions with colleagues and clients.',
+        focusAreas: ['asking for help', 'small requests', 'short emails and chats'],
+        exitCriteria: 'Can ask a colleague for help and respond politely.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Scheduling and updates',
+        description: 'Talk about what you did, what you\'re working on, and what\'s next.',
+        focusAreas: ['simple past at work', 'plans for the week', 'connecting words'],
+        exitCriteria: 'Can give a 1-minute status update on a project.',
+        estimatedLessons: 5
+      }
+    ],
+    travel: [
+      {
+        title: 'Travel greetings and survival',
+        description: 'Get by with greetings, polite phrases, and asking for basics.',
+        focusAreas: ['polite greetings', 'numbers and prices', 'please / thank you / excuse me'],
+        exitCriteria: 'Can greet, ask for prices, and say thanks confidently.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Getting around',
+        description: 'Vocabulary for transport, directions, and accommodation.',
+        focusAreas: ['transport vocabulary', 'asking for directions', 'check-in phrases'],
+        exitCriteria: 'Can find your hotel and ask for directions to a landmark.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Cafés, shops, and restaurants',
+        description: 'Handle the everyday transactions a traveler runs into.',
+        focusAreas: ['ordering food and drink', 'asking what something is', 'paying'],
+        exitCriteria: 'Can order a meal and pay without switching languages.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Stories from the road',
+        description: 'Talk about where you\'ve been, where you\'re going, and what you saw.',
+        focusAreas: ['simple past', 'simple future', 'connecting words'],
+        exitCriteria: 'Can recap a day of your trip in 4-5 sentences.',
+        estimatedLessons: 5
+      }
+    ],
+    exam_prep: [
+      {
+        title: 'Exam-style introductions',
+        description: 'Master the personal-info opener every entry-level exam uses.',
+        focusAreas: ['self-introduction', 'family and home', 'numbers and dates'],
+        exitCriteria: 'Can answer a 1-minute "tell me about yourself" prompt.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Daily life under exam pressure',
+        description: 'Build the descriptive vocabulary exam tasks lean on most.',
+        focusAreas: ['daily routine', 'home and food', 'time expressions'],
+        exitCriteria: 'Can describe a typical day to an examiner clearly.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Short exchanges for role-plays',
+        description: 'Practice the question-answer rhythm exam role-plays expect.',
+        focusAreas: ['question formation', 'ordering and directions', 'short replies'],
+        exitCriteria: 'Can complete a 2-minute scripted role-play.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Past, present, future — for the exam',
+        description: 'Tie tenses together so timed prompts feel familiar.',
+        focusAreas: ['simple past', 'simple future', 'sequencing words'],
+        exitCriteria: 'Can tell a 1-minute story across three time frames.',
+        estimatedLessons: 5
+      }
+    ],
+    relocation: [
+      {
+        title: 'Settling-in basics',
+        description: 'The greetings, intros, and "I\'m new here" phrases for daily life.',
+        focusAreas: ['greetings and introductions', 'asking for repetition', 'numbers and prices'],
+        exitCriteria: 'Can introduce yourself to a neighbor or shopkeeper.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Home and neighborhood vocabulary',
+        description: 'Vocabulary for your home, the shops nearby, and the people you meet.',
+        focusAreas: ['home and rooms', 'shops and services', 'people and family'],
+        exitCriteria: 'Can describe your neighborhood in 4-5 sentences.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Errands and admin',
+        description: 'Handle the small transactions that fill a week — groceries, mail, appointments.',
+        focusAreas: ['shopping basics', 'making appointments', 'asking for help'],
+        exitCriteria: 'Can buy groceries and book a simple appointment.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Your story so far',
+        description: 'Talk about where you\'re from, what brought you here, and what\'s next.',
+        focusAreas: ['simple past', 'simple future', 'reasons and plans'],
+        exitCriteria: 'Can explain why you moved in 4-5 sentences.',
+        estimatedLessons: 5
+      }
+    ],
+    conversational: [
+      {
+        title: 'First conversations',
+        description: 'Greet people, introduce yourself, and exchange basic info.',
+        focusAreas: ['greetings', 'introductions', 'numbers 1-100'],
+        exitCriteria: 'Can hold a 1-minute introductory conversation.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Everyday vocabulary',
+        description: 'Vocabulary for daily life, food, family, and time.',
+        focusAreas: ['daily routine', 'food and drink', 'family members'],
+        exitCriteria: 'Can describe your day to a new friend.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Casual exchanges',
+        description: 'Short, friendly conversations in cafés, shops, and on the street.',
+        focusAreas: ['ordering', 'small talk', 'asking questions'],
+        exitCriteria: 'Can chat casually with a stranger for 2 minutes.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Telling your story',
+        description: 'Talk about your past, present, and what you\'re looking forward to.',
+        focusAreas: ['simple past', 'simple future', 'connecting words'],
+        exitCriteria: 'Can tell a 1-minute story about your week.',
+        estimatedLessons: 5
+      }
+    ]
+  },
+
+  // A2 — Elementary Expansion. Spine: past tense → future plans →
+  // opinions/preferences → real-world application.
+  A2: {
+    conversational: [
+      {
+        title: 'Past tense in stories',
+        description: 'Speak comfortably about recent events with friends.',
+        focusAreas: ['past tense', 'time expressions', 'sequencing'],
+        exitCriteria: 'Tell a 2-minute story about your weekend.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Plans with friends',
+        description: 'Talk about social plans, intentions, and predictions.',
+        focusAreas: ['future tense', 'modal verbs', 'plans vs intentions'],
+        exitCriteria: 'Describe your plans for next month socially.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Opinions on everyday topics',
+        description: 'Compare options and explain everyday preferences.',
+        focusAreas: ['opinion phrases', 'comparatives', 'reason connectors'],
+        exitCriteria: 'Compare two restaurants or movies and pick one.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Real conversations',
+        description: 'Apply A2 skills in everyday social settings.',
+        focusAreas: ['situational dialogues', 'small talk', 'casual register'],
+        exitCriteria: 'Hold a 5-minute conversation about your hobbies.',
+        estimatedLessons: 5
+      }
+    ],
+    professional: [
+      {
+        title: 'Past tense at work',
+        description: 'Recap recent work events and project history.',
+        focusAreas: ['past tense in updates', 'sequencing', 'time expressions'],
+        exitCriteria: 'Recap a recent project in 2 minutes.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Plans at work',
+        description: 'Talk about workplace plans, intentions, and next steps.',
+        focusAreas: ['future tense', 'modal verbs (need to, should)', 'plans vs intentions'],
+        exitCriteria: 'Outline a workplace plan for next month.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Opinions in meetings',
+        description: 'Compare options and recommend one in a workplace setting.',
+        focusAreas: ['opinion phrases', 'comparatives', 'reason connectors'],
+        exitCriteria: 'Compare two proposals and recommend one.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Real workplace conversations',
+        description: 'Apply A2 skills in everyday work contexts.',
+        focusAreas: ['workplace small talk', 'polite register', 'project updates'],
+        exitCriteria: 'Hold a 5-minute workplace conversation about a current task.',
+        estimatedLessons: 5
+      }
+    ],
+    travel: [
+      {
+        title: 'Past tense travel stories',
+        description: 'Speak comfortably about past trips and experiences.',
+        focusAreas: ['past tense', 'time expressions', 'sequencing'],
+        exitCriteria: 'Tell a 2-minute story about a recent trip.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Future travel plans',
+        description: 'Talk about itineraries, intentions, and predictions.',
+        focusAreas: ['future tense', 'modal verbs', 'plans vs intentions'],
+        exitCriteria: 'Describe your next trip in detail.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Opinions about places',
+        description: 'Compare destinations and explain travel preferences.',
+        focusAreas: ['opinion phrases', 'comparatives', 'reason connectors'],
+        exitCriteria: 'Compare two cities or hotels and pick one.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Conversations with locals',
+        description: 'Apply A2 skills with hosts, guides, and locals.',
+        focusAreas: ['travel dialogues', 'small talk with locals', 'cultural notes'],
+        exitCriteria: 'Hold a 5-minute conversation with a local about your trip.',
+        estimatedLessons: 5
+      }
+    ],
+    exam_prep: [
+      {
+        title: 'Narrating past events',
+        description: 'Build the past-tense fluency exam role-plays expect.',
+        focusAreas: ['past tense', 'time expressions', 'sequencing'],
+        exitCriteria: 'Tell a 2-minute exam-style past-event story.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Future plans on the exam',
+        description: 'Talk about upcoming plans under exam conditions.',
+        focusAreas: ['future tense', 'modal verbs', 'plans vs intentions'],
+        exitCriteria: 'Describe plans for next month for the examiner.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Comparing options for role-plays',
+        description: 'Justify a choice between two options to an examiner.',
+        focusAreas: ['opinion phrases', 'comparatives', 'reason connectors'],
+        exitCriteria: 'Compare two options and justify your choice.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Mock-exam conversations',
+        description: 'Apply A2 skills in full exam-style role-plays.',
+        focusAreas: ['situational dialogues', 'exam phrasing', 'register'],
+        exitCriteria: 'Complete a 5-minute mock exam interview.',
+        estimatedLessons: 5
+      }
+    ],
+    relocation: [
+      {
+        title: 'The story of your move',
+        description: 'Speak comfortably about your move and life before.',
+        focusAreas: ['past tense', 'time expressions', 'sequencing'],
+        exitCriteria: 'Tell a 2-minute story about why you moved.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Settling-in plans',
+        description: 'Talk about plans for your first months in your new home.',
+        focusAreas: ['future tense', 'modal verbs', 'plans vs intentions'],
+        exitCriteria: 'Describe your plans for settling in.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Comparing old life and new',
+        description: 'Compare your new place to where you used to live.',
+        focusAreas: ['opinion phrases', 'comparatives', 'reason connectors'],
+        exitCriteria: 'Compare your new and old homes with reasons.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Neighborhood conversations',
+        description: 'Apply A2 skills with neighbors, shopkeepers, and locals.',
+        focusAreas: ['neighborhood small talk', 'polite register', 'daily-life dialogues'],
+        exitCriteria: 'Hold a 5-minute conversation with a neighbor about your week.',
+        estimatedLessons: 5
+      }
+    ]
+  },
+
+  // B1 — Intermediate Confidence. Spine: complex past structures →
+  // conditionals/hypotheticals → abstract topics → application.
+  B1: {
+    conversational: [
+      {
+        title: 'Layered stories',
+        description: 'Recount stories with backstory, consequence, and reported speech.',
+        focusAreas: ['past perfect', 'reported speech', 'time clauses'],
+        exitCriteria: 'Recount a multi-part story to a friend.',
+        estimatedLessons: 5
+      },
+      {
+        title: '"What if" with friends',
+        description: 'Discuss hypothetical situations and life choices.',
+        focusAreas: ['1st/2nd conditional', 'hypothetical phrases', 'wish'],
+        exitCriteria: 'Discuss what-if with a friend for 3 minutes.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Opinions on life and society',
+        description: 'Defend a personal opinion with supporting reasons.',
+        focusAreas: ['abstract nouns', 'agreeing/disagreeing', 'reason chains'],
+        exitCriteria: 'Defend an opinion about a life choice with 3+ reasons.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Storytelling in social settings',
+        description: 'Tell a polished story to a small group.',
+        focusAreas: ['narrative pacing', 'audience awareness', 'connecting words'],
+        exitCriteria: 'Give a 3-minute story at a social gathering.',
+        estimatedLessons: 5
+      }
+    ],
+    professional: [
+      {
+        title: 'Project history',
+        description: 'Recount projects with their setup, decisions, and outcomes.',
+        focusAreas: ['past perfect', 'reported speech', 'time clauses'],
+        exitCriteria: 'Recount a project with its setup and outcome.',
+        estimatedLessons: 5
+      },
+      {
+        title: '"What if" in business decisions',
+        description: 'Discuss hypothetical decisions and trade-offs at work.',
+        focusAreas: ['1st/2nd conditional', 'hedging', 'hypothetical phrases'],
+        exitCriteria: 'Discuss what-if scenarios for a project decision.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Defending a proposal',
+        description: 'Argue for a proposal with structured reasoning.',
+        focusAreas: ['abstract nouns', 'agreeing/disagreeing in meetings', 'reason chains'],
+        exitCriteria: 'Defend a proposal with 3+ supporting reasons.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Project presentations',
+        description: 'Present a project clearly to colleagues.',
+        focusAreas: ['workplace vocab', 'meeting phrases', 'presentation language'],
+        exitCriteria: 'Give a 3-minute project presentation.',
+        estimatedLessons: 5
+      }
+    ],
+    travel: [
+      {
+        title: 'Travel stories with depth',
+        description: 'Recount layered travel stories with side plots and reported speech.',
+        focusAreas: ['past perfect', 'reported speech', 'time clauses'],
+        exitCriteria: 'Recount a multi-day trip with depth.',
+        estimatedLessons: 5
+      },
+      {
+        title: '"What if" on the road',
+        description: 'Discuss hypothetical travel scenarios and choices.',
+        focusAreas: ['1st/2nd conditional', 'hypothetical phrases', 'wish'],
+        exitCriteria: 'Discuss what-if scenarios for a future trip.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Opinions about places',
+        description: 'Defend a take on a destination, culture, or cuisine.',
+        focusAreas: ['abstract nouns', 'cultural commentary', 'reason chains'],
+        exitCriteria: 'Defend an opinion about a destination with 3+ reasons.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Trip recap or planning chats',
+        description: 'Recommend, plan, or recount a trip in a flowing exchange.',
+        focusAreas: ['recommendation language', 'storytelling', 'connecting words'],
+        exitCriteria: 'Give a 3-minute trip recap or planning chat.',
+        estimatedLessons: 5
+      }
+    ],
+    exam_prep: [
+      {
+        title: 'Exam-style narration',
+        description: 'Produce layered past-event monologues for the exam.',
+        focusAreas: ['past perfect', 'reported speech', 'time clauses'],
+        exitCriteria: 'Deliver an exam-style narration with depth.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Hypothetical exam prompts',
+        description: 'Handle "what would you do if" prompts with confidence.',
+        focusAreas: ['1st/2nd conditional', 'hypothetical phrases', 'wish'],
+        exitCriteria: 'Handle a 3-minute hypothetical prompt.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Exam-essay opinions',
+        description: 'Defend a position in an exam essay or monologue.',
+        focusAreas: ['abstract nouns', 'opinion essays', 'reason chains'],
+        exitCriteria: 'Defend an opinion in an exam task with 3+ reasons.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Exam-style presentations',
+        description: 'Deliver a polished exam presentation under timed conditions.',
+        focusAreas: ['presentation language', 'register', 'exam phrasing'],
+        exitCriteria: 'Give a 3-minute exam-style presentation.',
+        estimatedLessons: 5
+      }
+    ],
+    relocation: [
+      {
+        title: 'Your move, in depth',
+        description: 'Recount your move with its decisions and consequences.',
+        focusAreas: ['past perfect', 'reported speech', 'time clauses'],
+        exitCriteria: 'Recount your move with backstory and outcome.',
+        estimatedLessons: 5
+      },
+      {
+        title: '"What if" about your new life',
+        description: 'Discuss hypothetical paths and trade-offs in your relocation.',
+        focusAreas: ['1st/2nd conditional', 'hypothetical phrases', 'wish'],
+        exitCriteria: 'Discuss what-if scenarios about your new life.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Cultural opinions',
+        description: 'Defend a take on cultural differences with supporting reasons.',
+        focusAreas: ['abstract nouns', 'cultural commentary', 'reason chains'],
+        exitCriteria: 'Defend an opinion about cultural differences with 3+ reasons.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'How you\'re adapting',
+        description: 'Tell people how the transition is going in a flowing exchange.',
+        focusAreas: ['storytelling', 'opinion + reasons', 'connecting words'],
+        exitCriteria: 'Give a 3-minute talk about how you\'re adapting.',
+        estimatedLessons: 5
+      }
+    ]
+  },
+
+  // B2 — Upper-Intermediate Fluency. Spine: nuance/idioms → argumentation
+  // → cultural depth → polish.
+  B2: {
+    conversational: [
+      {
+        title: 'Idioms in casual talk',
+        description: 'Use idioms and collocations naturally with friends.',
+        focusAreas: ['common idioms', 'collocations', 'register awareness'],
+        exitCriteria: 'Use 5+ idioms naturally in a casual conversation.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Friendly debate',
+        description: 'Hold your own in a debate over a current topic.',
+        focusAreas: ['advanced connectors', 'concession', 'rebuttal phrases'],
+        exitCriteria: 'Hold a 5-minute friendly debate.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Pop-culture depth',
+        description: 'Discuss films, books, and trending topics with confidence.',
+        focusAreas: ['cultural references', 'humor', 'media literacy'],
+        exitCriteria: 'Discuss a film or book with confidence.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Casual polish',
+        description: 'Refine accuracy and flow in everyday speech.',
+        focusAreas: ['error correction', 'fluency drills', 'rhythm'],
+        exitCriteria: 'Speak for 5 minutes with minimal hesitation socially.',
+        estimatedLessons: 5
+      }
+    ],
+    professional: [
+      {
+        title: 'Workplace idioms',
+        description: 'Use business idioms and collocations naturally.',
+        focusAreas: ['business idioms', 'collocations', 'register awareness'],
+        exitCriteria: 'Use 5+ workplace idioms naturally.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Debate in meetings',
+        description: 'Make and rebut arguments in a workplace decision.',
+        focusAreas: ['advanced connectors', 'concession', 'rebuttal phrases'],
+        exitCriteria: 'Hold a 5-minute debate on a workplace decision.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Industry and culture',
+        description: 'Discuss industry trends and company culture with confidence.',
+        focusAreas: ['business commentary', 'media literacy', 'professional humor'],
+        exitCriteria: 'Discuss industry trends with confidence.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Professional polish',
+        description: 'Refine accuracy and flow in workplace settings.',
+        focusAreas: ['error correction', 'fluency drills', 'professional rhythm'],
+        exitCriteria: 'Speak for 5 minutes with minimal hesitation at work.',
+        estimatedLessons: 5
+      }
+    ],
+    travel: [
+      {
+        title: 'Idioms with locals',
+        description: 'Pick up and use idioms naturally in travel conversations.',
+        focusAreas: ['common idioms', 'regional expressions', 'register awareness'],
+        exitCriteria: 'Use 5+ idioms naturally with a local host.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Debating destinations',
+        description: 'Argue for and against destinations or cultural takes.',
+        focusAreas: ['advanced connectors', 'concession', 'rebuttal phrases'],
+        exitCriteria: 'Hold a 5-minute debate about destinations or culture.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Culture on the road',
+        description: 'Discuss history, food, and culture of a destination at depth.',
+        focusAreas: ['cultural references', 'regional humor', 'media literacy'],
+        exitCriteria: 'Discuss the culture of a destination with confidence.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Travel polish',
+        description: 'Refine accuracy and flow in travel scenarios.',
+        focusAreas: ['error correction', 'fluency drills', 'rhythm'],
+        exitCriteria: 'Speak for 5 minutes with minimal hesitation while traveling.',
+        estimatedLessons: 5
+      }
+    ],
+    exam_prep: [
+      {
+        title: 'Idioms for the exam',
+        description: 'Use idioms appropriately in exam speaking and writing.',
+        focusAreas: ['common idioms', 'collocations', 'register awareness'],
+        exitCriteria: 'Use 5+ idioms appropriately in exam tasks.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Argumentation in exam essays',
+        description: 'Construct exam-quality arguments on current events.',
+        focusAreas: ['advanced connectors', 'concession', 'rebuttal phrases'],
+        exitCriteria: 'Construct a 5-minute argument on a current event.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Cultural depth for the exam',
+        description: 'Discuss films, books, or articles at exam quality.',
+        focusAreas: ['cultural references', 'humor', 'media literacy'],
+        exitCriteria: 'Deliver an exam-quality cultural monologue.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Exam polish',
+        description: 'Refine accuracy and flow under exam conditions.',
+        focusAreas: ['error correction', 'fluency drills', 'exam pacing'],
+        exitCriteria: 'Speak for 5 minutes with minimal hesitation on an exam task.',
+        estimatedLessons: 5
+      }
+    ],
+    relocation: [
+      {
+        title: 'Idioms in daily life',
+        description: 'Pick up and use idioms naturally with locals.',
+        focusAreas: ['common idioms', 'regional expressions', 'register awareness'],
+        exitCriteria: 'Use 5+ idioms naturally with neighbors or colleagues.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Debating local topics',
+        description: 'Argue your take on a community or local issue.',
+        focusAreas: ['advanced connectors', 'concession', 'rebuttal phrases'],
+        exitCriteria: 'Hold a 5-minute debate on a local topic.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Local culture in depth',
+        description: 'Discuss local culture, history, and news with confidence.',
+        focusAreas: ['cultural references', 'regional humor', 'media literacy'],
+        exitCriteria: 'Discuss local culture with confidence.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Daily-life polish',
+        description: 'Refine accuracy and flow across daily-life settings.',
+        focusAreas: ['error correction', 'fluency drills', 'rhythm'],
+        exitCriteria: 'Speak for 5 minutes with minimal hesitation in daily life.',
+        estimatedLessons: 5
+      }
+    ]
+  },
+
+  // C1 — Advanced Mastery. Spine: sophisticated structures → specialized
+  // vocabulary → persuasion/rhetoric → consolidation.
+  C1: {
+    conversational: [
+      {
+        title: 'Sophisticated everyday speech',
+        description: 'Use C1 structures expressively in everyday talk.',
+        focusAreas: ['inversion', 'cleft sentences', 'subjunctive'],
+        exitCriteria: 'Use C1 structures naturally in casual speech.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Deep dives in your interests',
+        description: 'Discuss your passions and interests at depth.',
+        focusAreas: ['hobby-specific vocab', 'enthusiast language', 'cultural references'],
+        exitCriteria: 'Discuss a passion topic with a native enthusiast.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Persuasion in social settings',
+        description: 'Persuade and negotiate in extended social discussions.',
+        focusAreas: ['persuasive language', 'negotiation phrases', 'leadership tone'],
+        exitCriteria: 'Persuade a friend in a 10-minute discussion.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Casual register mastery',
+        description: 'Switch register seamlessly across social contexts.',
+        focusAreas: ['register switching', 'subtle nuance', 'cultural fluency'],
+        exitCriteria: 'Switch register seamlessly across casual contexts.',
+        estimatedLessons: 5
+      }
+    ],
+    professional: [
+      {
+        title: 'Sophisticated business speech',
+        description: 'Use C1 structures appropriately in formal business contexts.',
+        focusAreas: ['inversion', 'cleft sentences', 'subjunctive'],
+        exitCriteria: 'Use C1 structures naturally in formal business settings.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Your field at depth',
+        description: 'Discuss your professional field with a native speaker.',
+        focusAreas: ['domain-specific vocab', 'jargon', 'technical phrasing'],
+        exitCriteria: 'Discuss your field with a native speaker.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Negotiation and leadership',
+        description: 'Lead negotiations and meetings with native-level command.',
+        focusAreas: ['persuasive language', 'negotiation phrases', 'leadership tone'],
+        exitCriteria: 'Lead a 10-minute meeting or negotiation.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Workplace register mastery',
+        description: 'Switch register seamlessly across workplace contexts.',
+        focusAreas: ['register switching', 'subtle nuance', 'cultural fluency'],
+        exitCriteria: 'Switch register seamlessly between formal and casual at work.',
+        estimatedLessons: 5
+      }
+    ],
+    travel: [
+      {
+        title: 'Sophisticated travel speech',
+        description: 'Use C1 structures expressively when recounting and discussing trips.',
+        focusAreas: ['inversion', 'cleft sentences', 'subjunctive'],
+        exitCriteria: 'Use C1 structures naturally in travel narratives.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Travel and culture at depth',
+        description: 'Discuss travel, history, and culture with a local expert.',
+        focusAreas: ['regional vocab', 'cultural jargon', 'sophisticated travel phrasing'],
+        exitCriteria: 'Discuss culture or history at depth with a local expert.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Persuasion on the road',
+        description: 'Negotiate and persuade in extended travel conversations.',
+        focusAreas: ['persuasive language', 'negotiation phrases', 'host-guest dynamics'],
+        exitCriteria: 'Negotiate or persuade in a 10-minute travel conversation.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Travel register mastery',
+        description: 'Switch register seamlessly across travel contexts.',
+        focusAreas: ['register switching', 'subtle nuance', 'cultural fluency'],
+        exitCriteria: 'Switch register seamlessly between formal and casual on the road.',
+        estimatedLessons: 5
+      }
+    ],
+    exam_prep: [
+      {
+        title: 'Sophisticated exam structures',
+        description: 'Use C1 structures appropriately in exam essays and monologues.',
+        focusAreas: ['inversion', 'cleft sentences', 'subjunctive'],
+        exitCriteria: 'Use C1 structures naturally in exam tasks.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Exam-topic depth',
+        description: 'Discuss exam-typical themes (society, science, culture) with depth.',
+        focusAreas: ['academic vocab', 'exam-domain jargon', 'formal phrasing'],
+        exitCriteria: 'Discuss an exam-typical topic with depth.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Argumentative exam tasks',
+        description: 'Construct extended argumentative essays and debate-style monologues.',
+        focusAreas: ['persuasive language', 'argumentation', 'formal tone'],
+        exitCriteria: 'Deliver a 10-minute argumentative exam task.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Exam register mastery',
+        description: 'Switch register seamlessly across formal and informal exam tasks.',
+        focusAreas: ['register switching', 'exam-appropriate nuance', 'cultural fluency'],
+        exitCriteria: 'Switch register seamlessly across exam task types.',
+        estimatedLessons: 5
+      }
+    ],
+    relocation: [
+      {
+        title: 'Sophisticated daily-life speech',
+        description: 'Use C1 structures expressively in your new life.',
+        focusAreas: ['inversion', 'cleft sentences', 'subjunctive'],
+        exitCriteria: 'Use C1 structures naturally in daily conversations.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Local affairs at depth',
+        description: 'Discuss local politics, culture, and news at depth.',
+        focusAreas: ['local-affairs vocab', 'regional jargon', 'civic phrasing'],
+        exitCriteria: 'Discuss local politics or news at depth.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Civic and social advocacy',
+        description: 'Advocate for a position in community settings.',
+        focusAreas: ['persuasive language', 'advocacy phrases', 'civic register'],
+        exitCriteria: 'Advocate for a position in a 10-minute community discussion.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Local register mastery',
+        description: 'Switch register seamlessly across local contexts.',
+        focusAreas: ['register switching', 'subtle nuance', 'cultural fluency'],
+        exitCriteria: 'Switch register seamlessly between formal and casual locally.',
+        estimatedLessons: 5
+      }
+    ]
+  },
+
+  // C2 — Near-Native Expression. Spine: stylistic precision →
+  // cultural mastery → expert communication → mastery.
+  C2: {
+    conversational: [
+      {
+        title: 'Stylistic precision in speech',
+        description: 'Choose the perfect word and tone for every casual context.',
+        focusAreas: ['lexical precision', 'stylistic variation', 'literary devices'],
+        exitCriteria: 'Edit your own speech for style and tone.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Pop-culture mastery',
+        description: 'Analyze films, songs, and literature at depth.',
+        focusAreas: ['cultural commentary', 'literary analysis', 'media depth'],
+        exitCriteria: 'Analyze a film, song, or piece of literature at depth.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Expert talks on your passions',
+        description: 'Deliver a polished talk on a passion topic.',
+        focusAreas: ['public speaking', 'persuasive structure', 'narrative control'],
+        exitCriteria: 'Deliver a polished 15-minute talk on a passion topic.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Casual mastery',
+        description: 'Final polish — indistinguishable from a fluent native socially.',
+        focusAreas: ['nuance refinement', 'creative expression', 'mastery maintenance'],
+        exitCriteria: 'Indistinguishable from a fluent speaker in any casual context.',
+        estimatedLessons: 5
+      }
+    ],
+    professional: [
+      {
+        title: 'Stylistic precision at work',
+        description: 'Choose the perfect word and tone for business writing and speech.',
+        focusAreas: ['lexical precision', 'business stylistic variation', 'register'],
+        exitCriteria: 'Edit your own emails and proposals for style and tone.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Business and industry mastery',
+        description: 'Analyze industry trends and business literature at depth.',
+        focusAreas: ['business commentary', 'market literacy', 'industry analysis'],
+        exitCriteria: 'Analyze industry trends or business literature at depth.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Expert business communication',
+        description: 'Deliver a polished professional presentation or negotiation.',
+        focusAreas: ['public speaking', 'professional negotiation', 'academic writing'],
+        exitCriteria: 'Deliver a polished 15-minute professional presentation.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Professional mastery',
+        description: 'Final polish — indistinguishable from a fluent native at work.',
+        focusAreas: ['nuance refinement', 'professional creativity', 'mastery maintenance'],
+        exitCriteria: 'Indistinguishable from a fluent speaker in any professional context.',
+        estimatedLessons: 5
+      }
+    ],
+    travel: [
+      {
+        title: 'Stylistic precision in travel writing',
+        description: 'Choose the perfect word and tone for narratives and recommendations.',
+        focusAreas: ['lexical precision', 'stylistic variation', 'descriptive prose'],
+        exitCriteria: 'Edit a travel narrative for style and tone.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Travel-culture mastery',
+        description: 'Analyze the history, literature, and culture of a destination at depth.',
+        focusAreas: ['cultural commentary', 'historical context', 'regional literary analysis'],
+        exitCriteria: 'Analyze the culture or history of a destination at depth.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Expert travel communication',
+        description: 'Deliver a polished travel talk, interview, or guided tour.',
+        focusAreas: ['public speaking', 'storytelling', 'persuasive description'],
+        exitCriteria: 'Deliver a polished 15-minute travel talk or interview.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Travel mastery',
+        description: 'Final polish — indistinguishable from a fluent native on the road.',
+        focusAreas: ['nuance refinement', 'regional mastery', 'mastery maintenance'],
+        exitCriteria: 'Indistinguishable from a fluent speaker in any travel context.',
+        estimatedLessons: 5
+      }
+    ],
+    exam_prep: [
+      {
+        title: 'Stylistic precision for the exam',
+        description: 'Choose the perfect word and tone for exam essays.',
+        focusAreas: ['lexical precision', 'stylistic variation', 'literary devices'],
+        exitCriteria: 'Edit your own exam essays for style and tone.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Exam-task cultural analysis',
+        description: 'Analyze literature and articles to C2 exam standard.',
+        focusAreas: ['cultural commentary', 'literary analysis', 'critical reading'],
+        exitCriteria: 'Analyze a literary or media piece to exam standard.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Expert exam communication',
+        description: 'Deliver a polished extended exam essay or monologue.',
+        focusAreas: ['academic writing', 'public speaking', 'examiner-ready precision'],
+        exitCriteria: 'Deliver a polished 15-minute exam task.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Exam mastery',
+        description: 'Final polish — indistinguishable from a fluent native on any exam task.',
+        focusAreas: ['nuance refinement', 'exam-level creativity', 'mastery maintenance'],
+        exitCriteria: 'Indistinguishable from a fluent speaker on any exam task.',
+        estimatedLessons: 5
+      }
+    ],
+    relocation: [
+      {
+        title: 'Stylistic precision in daily correspondence',
+        description: 'Choose the perfect word and tone for everyday writing and speech.',
+        focusAreas: ['lexical precision', 'stylistic variation', 'register'],
+        exitCriteria: 'Edit your own correspondence for style and tone.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Mastery of your new home',
+        description: 'Analyze the history, literature, and culture of your country at depth.',
+        focusAreas: ['cultural commentary', 'historical context', 'local media literacy'],
+        exitCriteria: 'Analyze the culture or history of your country at depth.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Expert local communication',
+        description: 'Deliver a polished talk in a community or civic setting.',
+        focusAreas: ['public speaking', 'persuasive structure', 'civic register'],
+        exitCriteria: 'Deliver a polished 15-minute talk in a community setting.',
+        estimatedLessons: 5
+      },
+      {
+        title: 'Daily-life mastery',
+        description: 'Final polish — indistinguishable from a fluent native in any daily context.',
+        focusAreas: ['nuance refinement', 'cultural mastery', 'mastery maintenance'],
+        exitCriteria: 'Indistinguishable from a fluent speaker in any daily-life context.',
+        estimatedLessons: 5
+      }
+    ]
+  }
+};
+
+/**
+ * Look up the phase array best matching the level + goal combination,
+ * falling back gracefully when no goal-specific override exists.
+ */
+function _getTemplatePhases(level, goalType) {
+  const baseLevel = CHAPTER_TEMPLATES[level] ? level : 'A1';
+  const goalKey = goalType || 'conversational';
+  const goalOverride = CHAPTER_TEMPLATES_BY_GOAL[baseLevel]
+    && CHAPTER_TEMPLATES_BY_GOAL[baseLevel][goalKey];
+  if (Array.isArray(goalOverride) && goalOverride.length) {
+    return goalOverride;
+  }
+  return CHAPTER_TEMPLATES[baseLevel].phases;
+}
+
+/**
  * Generate a chapter from a CEFR template, lightly flavored by the
  * student's goal. Deterministic — no AI cost. Used by:
  *   - free students always
@@ -247,9 +1211,9 @@ const CHAPTER_TEMPLATES = {
  *   - all students on demotion (no AI cost on regression)
  */
 function generateChapterFromTemplate(level, goal) {
-  const tpl = CHAPTER_TEMPLATES[level] || CHAPTER_TEMPLATES.A1;
   const goalDescription = goal?.description || '';
   const goalType = goal?.type || 'conversational';
+  const phases = _getTemplatePhases(level, goalType);
 
   // Pace-tuned baseline lesson budget per phase. We deliberately keep
   // the template's 4-phase pedagogical structure intact (free users
@@ -264,7 +1228,7 @@ function generateChapterFromTemplate(level, goal) {
     baselineLessons = null;
   }
 
-  return tpl.phases.map((p) => {
+  return phases.map((p) => {
     const goalTopic = _goalTopicSeed(goalType, goalDescription);
     return {
       title: p.title,

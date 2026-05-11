@@ -35,6 +35,8 @@ import { environment } from '../../environments/environment';
 import { SmartIslandService, DynamicCard } from '../services/smart-island.service';
 import { TranslateService } from '@ngx-translate/core';
 import { LearningPlanService, LearningPlan } from '../services/learning-plan.service';
+import { TranscriptionService, LessonAnalysis } from '../services/transcription.service';
+import { GamificationService, Badge as GamBadge } from '../services/gamification.service';
 import { ReviewDeckService } from '../services/review-deck.service';
 import { AnalysisTranslationService } from '../services/analysis-translation.service';
 import { HomeInlineToolbarService } from '../services/home-inline-toolbar.service';
@@ -402,6 +404,32 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   // widget header — see journey-widget.component.html.
   journeyIsRecovery = false;
 
+  // Inputs that power the redesigned paused-state card. We pre-compute
+  // these on the page rather than in the widget so the template stays
+  // function-call-free.
+  journeyCefrLevel = '';
+  journeyChaptersCompletedCount = 0;
+  journeyTotalLessonsCompleted = 0;
+  journeyPausedSinceLabel = '';
+  journeyChapterBadges: Array<{ level: string; label: string }> = [];
+
+  /** Earned gamification badges (consistency streaks, lesson milestones,
+   *  level achievements, skill badges) shown on the paused / unframed
+   *  journey widget. Sourced from `GamificationService` so the home
+   *  card and the Progress page (`tab3`) agree on what's earned. */
+  journeyEarnedBadges: Array<{ id: string; icon: string; color: string; name: string }> = [];
+
+  // Soft "from your last lesson" reflection — only shown on
+  // paused / unframed cards. Populated from the latest LessonAnalysis
+  // when one exists; left empty otherwise (template hides the pill).
+  journeyLatestLessonHighlight = '';
+  journeyLatestLessonTutor = '';
+  journeyLatestLessonAgo = '';
+  /** Avoid re-fetching the same student's latest analysis / badge
+   *  inputs on every plan update. Cleared when the student changes. */
+  private _latestHighlightFetchedForUserId: string | null = null;
+  private _earnedBadgesFetchedForUserId: string | null = null;
+
   homePracticeMaterials: any[] = [];
   
   // Cache of current students array for efficient label updates
@@ -596,6 +624,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     private translateService: TranslateService,
     private activatedRoute: ActivatedRoute,
     private learningPlanService: LearningPlanService,
+    private transcriptionService: TranscriptionService,
+    private gamification: GamificationService,
     private reviewDeckService: ReviewDeckService,
     private analysisTranslation: AnalysisTranslationService,
     private homeInlineToolbar: HomeInlineToolbarService,
@@ -699,6 +729,28 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     ).subscribe(count => {
       this.unreadMessages = count;
       this.cdr.markForCheck();
+    });
+
+    // Keep the journey widget in sync with plan lifecycle changes that
+    // happen on other pages (pause / resume / skip / promote on Profile,
+    // Post-Lesson, etc.) so the home card updates without a refresh.
+    this.learningPlanService.planUpdates$.pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(update => {
+      const home = this.journeyLanguageLabel || this.currentUser?.onboardingData?.languages?.[0];
+      if (!home || home !== update.language) return;
+      this.applyLearningPlan(update.plan, update.entitlements || null);
+
+      // Paused / unframed plans have no roadmap to view — make sure the
+      // inline Journey panel isn't sitting on top of home (and isn't
+      // pre-mounted in the background either). Resuming will re-trigger
+      // the preload via applyLearningPlan's existing setTimeout.
+      const status = update.plan?.status;
+      if (status === 'paused' || status === 'unframed') {
+        if (this.showJourneyView) this.showJourneyView = false;
+        this.journeyPreloaded = false;
+        this.cdr.detectChanges();
+      }
     });
     
     // Subscribe to Smart Island dynamic card updates
@@ -2496,6 +2548,17 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     } else {
       this.journeyWidgetState = 'active';
     }
+
+    this.computeJourneyPausedDisplay(plan);
+    if (plan.status === 'paused' || plan.status === 'unframed') {
+      this.maybeFetchLatestLessonHighlight();
+      this.maybeFetchEarnedBadges();
+    } else {
+      this.journeyLatestLessonHighlight = '';
+      this.journeyLatestLessonTutor = '';
+      this.journeyLatestLessonAgo = '';
+      this.journeyEarnedBadges = [];
+    }
     this.cdr.detectChanges();
 
     // For 'unframed' / 'paused' there's no journey roadmap to navigate to,
@@ -2540,6 +2603,255 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     if (this.journeyIsPremium && plan.language) {
       this.loadWarmup(plan.language);
     }
+  }
+
+  /**
+   * Pre-compute the data the paused-state journey card needs: current
+   * CEFR level chip, chapter badges (one per completed chapter), total
+   * lessons across the chapter, and a human-friendly "paused N days ago"
+   * label. Mirrors the rule against logic in templates.
+   */
+  private computeJourneyPausedDisplay(plan: any) {
+    if (!plan) {
+      this.journeyCefrLevel = '';
+      this.journeyChaptersCompletedCount = 0;
+      this.journeyTotalLessonsCompleted = 0;
+      this.journeyPausedSinceLabel = '';
+      this.journeyChapterBadges = [];
+      return;
+    }
+
+    // Only surface a level chip when the student has actually *earned*
+    // one — either through a CEFR reveal milestone or a chapter
+    // graduation. A brand-new plan defaults to `chapterLevel = 'A1'`
+    // (see backend/models/LearningPlan.js), which would otherwise read
+    // as "you're A1" even with 0 lessons taken.
+    this.journeyCefrLevel = plan.revealedCefrLevel?.level || '';
+
+    const completed = Array.isArray(plan.chaptersCompleted) ? plan.chaptersCompleted : [];
+    // Demotions and calibrations aren't trophies — only graduations
+    // (and recovery graduations) count as earned badges.
+    const earned = completed.filter((c: any) =>
+      c?.exitReason === 'graduated' || c?.exitReason === 'recovery_graduated'
+    );
+
+    this.journeyChaptersCompletedCount = earned.length;
+    this.journeyChapterBadges = earned
+      .map((c: any) => ({ level: (c?.level || '').toString(), label: (c?.level || '').toString() }))
+      .filter((b: { level: string }) => !!b.level);
+
+    const currentChapterLessons = (plan.phases || []).reduce(
+      (sum: number, p: any) => sum + (p?.lessonsCompleted || 0), 0
+    );
+    const completedChapterLessons = completed.reduce(
+      (sum: number, c: any) =>
+        sum + ((c?.phases || []).reduce(
+          (s: number, p: any) => s + (p?.lessonsCompleted || 0), 0
+        )),
+      0
+    );
+    this.journeyTotalLessonsCompleted = currentChapterLessons + completedChapterLessons;
+
+    this.journeyPausedSinceLabel = this.formatPausedSinceLabel(plan.pausedAt);
+  }
+
+  /**
+   * Fetch the student's most recent LessonAnalysis once per session and
+   * derive a soft, backward-looking one-liner for the journey widget's
+   * paused / unframed cards. Priority of signals mirrors the backend's
+   * `_generateRuleBasedFocus` (persistent → top error → area → recommend),
+   * but the phrasing is reframed as a *takeaway* — "showed up again"
+   * not "focus on next time" — to respect the unframed contract.
+   */
+  private maybeFetchLatestLessonHighlight() {
+    const userId = this.currentUser?.id;
+    if (!userId) return;
+
+    if (this._latestHighlightFetchedForUserId === userId) {
+      // Already fetched this session for this student. We re-use the
+      // existing precomputed strings without re-hitting the API.
+      return;
+    }
+    this._latestHighlightFetchedForUserId = userId;
+
+    this.transcriptionService.getLatestAnalysis(userId).pipe(take(1)).subscribe({
+      next: (analysis: LessonAnalysis | null) => {
+        if (!analysis) {
+          this.journeyLatestLessonHighlight = '';
+          this.journeyLatestLessonTutor = '';
+          this.journeyLatestLessonAgo = '';
+          this.cdr.detectChanges();
+          return;
+        }
+        this.applyLatestLessonHighlight(analysis);
+      },
+      error: () => {
+        // Non-blocking; widget simply hides the highlight pill.
+        this.journeyLatestLessonHighlight = '';
+        this.journeyLatestLessonTutor = '';
+        this.journeyLatestLessonAgo = '';
+      }
+    });
+  }
+
+  private applyLatestLessonHighlight(analysis: LessonAnalysis) {
+    const persistent = (analysis.progressionMetrics?.persistentChallenges || [])
+      .find(s => typeof s === 'string' && s.trim());
+    const topError = (analysis.topErrors || [])
+      .slice()
+      .sort((a, b) => (a.rank || 99) - (b.rank || 99))[0];
+    const area = (analysis.areasForImprovement || [])
+      .find(s => typeof s === 'string' && s.trim());
+    const recommended = (analysis.recommendedFocus || [])
+      .find(s => typeof s === 'string' && s.trim());
+
+    let primary: string | null = null;
+    let kind: 'persistent' | 'top' | 'area' | 'rec' | null = null;
+    if (persistent) { primary = persistent; kind = 'persistent'; }
+    else if (topError?.issue) { primary = topError.issue; kind = 'top'; }
+    else if (area) { primary = area; kind = 'area'; }
+    else if (recommended) { primary = recommended; kind = 'rec'; }
+
+    if (!primary) {
+      this.journeyLatestLessonHighlight = '';
+    } else {
+      const tight = primary.replace(/\s+/g, ' ').trim().replace(/[.!?]+$/, '');
+      const templates: Record<typeof kind & string, string> = {
+        persistent: `${tight} showed up again — worth another pass.`,
+        top: `${tight} kept tripping you last lesson.`,
+        area: `${tight} is the area we leaned into most.`,
+        rec: `${tight} came up as a useful next thing to try.`
+      };
+      let line = templates[kind as 'persistent' | 'top' | 'area' | 'rec'];
+      // Capitalize the first letter so quotes/lowercase issues from the
+      // analyzer don't bleed into the UI.
+      line = line.charAt(0).toUpperCase() + line.slice(1);
+      if (line.length > 180) line = line.slice(0, 177).replace(/\s+\S*$/, '') + '…';
+      this.journeyLatestLessonHighlight = line;
+    }
+
+    // Tutor first-name comes from the analysis only as an id; we don't
+    // refetch the user. If a future analysis payload includes
+    // `tutorFirstName` we can wire it here. For now we leave the meta
+    // line off when we don't have it — the template handles the absence.
+    this.journeyLatestLessonTutor = '';
+    this.journeyLatestLessonAgo = this.formatTimeAgoLabel(analysis.lessonDate);
+    this.cdr.detectChanges();
+  }
+
+  /**
+   * Fetch the student's lesson analyses once per session and derive the
+   * earned gamification badges to show on the journey widget. Single
+   * source of truth is `GamificationService` (also used by `tab3`).
+   *
+   * Skill averages are derived inline from the analyses payload using
+   * the same conversions as the Progress page — keeps the journey
+   * widget honest about which "skill" badges have actually been earned
+   * without needing to round-trip through tab3's stats object.
+   */
+  private maybeFetchEarnedBadges() {
+    const userId = this.currentUser?.id;
+    if (!userId) return;
+    if (this._earnedBadgesFetchedForUserId === userId) return;
+    this._earnedBadgesFetchedForUserId = userId;
+
+    const headers = this.userService.getAuthHeadersSync();
+    const url = `${environment.apiUrl}/transcription/my-analyses?limit=200`;
+
+    this.http.get<any>(url, { headers }).pipe(take(1)).subscribe({
+      next: (response) => {
+        const raw: any[] = (response && response.analyses) || [];
+        const analyses = raw.filter((a: any) =>
+          !a?.isTrialLesson && !(a?.isOfficeHours === true && a?.officeHoursType === 'quick')
+        );
+        if (analyses.length === 0) {
+          this.journeyEarnedBadges = [];
+          this.cdr.detectChanges();
+          return;
+        }
+
+        const averages = this.computeSkillAveragesForBadges(analyses);
+        const badges = this.gamification.computeBadges({ analyses, averages });
+        const showcase: GamBadge[] = this.gamification.pickShowcaseBadges(badges, 5);
+        this.journeyEarnedBadges = showcase.map(b => ({
+          id: b.id, icon: b.icon, color: b.color, name: b.name
+        }));
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        // Non-blocking; widget falls back to the empty-state discs.
+        this.journeyEarnedBadges = [];
+      }
+    });
+  }
+
+  /** Mirrors tab3's average calculation just enough to drive skill
+   *  badges. Pronunciation / listening aren't yet emitted by the
+   *  analyzer (see tab3), so they remain 0 here to match. */
+  private computeSkillAveragesForBadges(analyses: any[]): {
+    grammar: number; fluency: number; vocabulary: number; pronunciation: number; listening: number;
+  } {
+    if (!analyses.length) {
+      return { grammar: 0, fluency: 0, vocabulary: 0, pronunciation: 0, listening: 0 };
+    }
+    const avg = (vals: number[]) => vals.length
+      ? Math.round(vals.reduce((s, v) => s + v, 0) / vals.length)
+      : 0;
+    const vocabToScore = (range: string | undefined): number => {
+      switch ((range || 'moderate').toLowerCase()) {
+        case 'limited': return 40;
+        case 'moderate': return 65;
+        case 'good': return 80;
+        case 'excellent': return 95;
+        default: return 65;
+      }
+    };
+    const grammar = avg(analyses.map(a => a?.grammarAnalysis?.accuracyScore || 0));
+    const fluency = avg(analyses.map(a => a?.fluencyAnalysis?.overallFluencyScore || 0));
+    const vocabulary = avg(analyses.map(a => vocabToScore(a?.vocabularyAnalysis?.vocabularyRange)));
+    return { grammar, fluency, vocabulary, pronunciation: 0, listening: 0 };
+  }
+
+  private formatTimeAgoLabel(date: Date | string | null | undefined): string {
+    if (!date) return '';
+    const t = typeof date === 'string' ? new Date(date).getTime() : new Date(date).getTime();
+    if (isNaN(t)) return '';
+    const diff = Date.now() - t;
+    if (diff < 0) return '';
+    const day = 86_400_000;
+    const days = Math.floor(diff / day);
+    if (days < 1) {
+      const hours = Math.floor(diff / 3_600_000);
+      if (hours < 1) return 'Just now';
+      return hours === 1 ? '1 hour ago' : `${hours} hours ago`;
+    }
+    if (days === 1) return 'Yesterday';
+    if (days < 7) return `${days} days ago`;
+    if (days < 30) {
+      const weeks = Math.floor(days / 7);
+      return weeks === 1 ? '1 week ago' : `${weeks} weeks ago`;
+    }
+    const months = Math.floor(days / 30);
+    return months === 1 ? '1 month ago' : `${months} months ago`;
+  }
+
+  private formatPausedSinceLabel(pausedAt: string | null | undefined): string {
+    if (!pausedAt) return '';
+    const start = new Date(pausedAt);
+    if (isNaN(start.getTime())) return '';
+    const diffMs = Date.now() - start.getTime();
+    if (diffMs < 0) return '';
+    const day = 86_400_000;
+    const days = Math.floor(diffMs / day);
+    if (days < 1) return 'Paused today';
+    if (days === 1) return 'Paused yesterday';
+    if (days < 7) return `Paused ${days} days ago`;
+    if (days < 30) {
+      const weeks = Math.floor(days / 7);
+      return weeks === 1 ? 'Paused 1 week ago' : `Paused ${weeks} weeks ago`;
+    }
+    const months = Math.floor(days / 30);
+    return months === 1 ? 'Paused 1 month ago' : `Paused ${months} months ago`;
   }
 
   /** Open the chapter-complete modal on the home page when a pending
@@ -2991,8 +3303,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   }
 
   /**
-   * Tapped from the journey-widget paused-state CTA. Resumes the paused plan
-   * in place and re-renders the active home widget on success.
+   * Tapped from the journey-widget paused-state CTA. Confirms with the
+   * student before resuming (re-engaging the structured plan is a real
+   * commitment), then resumes in place and re-renders the active home
+   * widget on success.
    */
   async resumePausedPlan() {
     const language = this.journeyLanguageLabel || this.currentUser?.onboardingData?.languages?.[0];
@@ -3000,16 +3314,50 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       this.openSetGoalFlow();
       return;
     }
-    this.learningPlanService.resumePlan(language).pipe(take(1)).subscribe({
-      next: (res: any) => {
-        if (res?.success && res.plan) {
-          this.applyLearningPlan(res.plan, res.entitlements || null);
+
+    const alert = await this.alertController.create({
+      header: this.translateService.instant('HOME.JOURNEY_RESUME_CONFIRM_HEADER'),
+      message: this.translateService.instant('HOME.JOURNEY_RESUME_CONFIRM_MESSAGE'),
+      cssClass: 'journey-resume-confirm-alert',
+      buttons: [
+        {
+          text: this.translateService.instant('HOME.JOURNEY_RESUME_CONFIRM_CANCEL'),
+          role: 'cancel'
+        },
+        {
+          text: this.translateService.instant('HOME.JOURNEY_RESUME_CONFIRM_CONFIRM'),
+          handler: async () => {
+            const loading = await this.loadingController.create({
+              message: this.translateService.instant('HOME.JOURNEY_RESUME_CONFIRM_CONFIRM') + '…',
+              spinner: 'crescent'
+            });
+            await loading.present();
+
+            this.learningPlanService.resumePlan(language).pipe(take(1)).subscribe({
+              next: async () => {
+                // No direct applyLearningPlan() call — the service's
+                // planUpdates$ broadcast (subscribed in ngOnInit) handles
+                // the home-card refresh, so any other paused surface
+                // (profile, post-lesson prompt) gets the same update.
+                await loading.dismiss();
+              },
+              error: async (err) => {
+                await loading.dismiss();
+                console.error('Failed to resume plan', err);
+                const toast = await this.toastController.create({
+                  message: 'Could not resume your plan. Please try again.',
+                  duration: 2500,
+                  color: 'danger',
+                  position: 'top'
+                });
+                await toast.present();
+              }
+            });
+          }
         }
-      },
-      error: (err) => {
-        console.error('Failed to resume plan', err);
-      }
+      ]
     });
+    await alert.present();
   }
 
   loadHomePracticeMaterials(language: string) {

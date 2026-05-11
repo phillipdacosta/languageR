@@ -1520,6 +1520,51 @@ $jm-label-gap: 4px;
   font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
+
+  // Goal-flavored chips read as student-personal context, not a
+  // skill checklist — soft tinted background, no hard border.
+  &--goal {
+    background: #eef4ff;
+    border-color: transparent;
+    color: #2a4a8c;
+    font-weight: 600;
+  }
+}
+
+// Active-phase variant of the goal-topics row. Lower visual weight than
+// the next-lesson focus card so it complements rather than competes.
+.jpcd-active-goal-topics {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 14px 0 10px;
+}
+
+.jpcd-active-goal-topics-key {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #888;
+}
+
+.jpcd-active-goal-topics-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.jpcd-active-goal-topics-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 12px;
+  background: #eef4ff;
+  color: #2a4a8c;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .jpcd-locked-outcome {
@@ -2476,6 +2521,17 @@ $jm-label-gap: 4px;
     background: rgba(255, 255, 255, 0.04);
     border-color: rgba(255, 255, 255, 0.12);
     color: #c7c7cc;
+
+    &--goal {
+      background: rgba(106, 158, 255, 0.18);
+      border-color: transparent;
+      color: #b9d2ff;
+    }
+  }
+  .jpcd-active-goal-topics-key { color: #98989d; }
+  .jpcd-active-goal-topics-chip {
+    background: rgba(106, 158, 255, 0.18);
+    color: #b9d2ff;
   }
   .jpcd-locked-back {
     color: #98989d;

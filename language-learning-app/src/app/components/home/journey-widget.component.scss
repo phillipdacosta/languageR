@@ -702,6 +702,265 @@
   border-radius: 8px;
 }
 
+// ── Paused & unframed states ─────────────────────────────────────
+// Apple-clean redesign: celebrate the progress they've already
+// banked (level, lessons, chapters) instead of a static "your plan
+// is paused" line. Unframed reuses the same shell so the two states
+// feel like siblings. Whole card is still the primary CTA target —
+// the styled CTA at the bottom is an affordance, not a button.
+.journey-widget--paused,
+.journey-widget--unframed {
+  cursor: pointer;
+  padding: 24px 22px 18px;
+}
+
+.jw-paused {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.jw-paused-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.jw-paused-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #222;
+  background: #f4f4f4;
+  border-radius: 999px;
+  text-transform: none;
+
+  ion-icon { font-size: 13px; color: #222; }
+
+  // Unframed = "at your own pace" — soft green to differentiate
+  // from the neutral paused chip while reading as positive, not a warning.
+  &--unframed {
+    color: #1f6b3a;
+    background: #e6f3ec;
+
+    ion-icon { color: #1f6b3a; }
+  }
+}
+
+.jw-paused-level {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #fff;
+  background: #111;
+  border-radius: 999px;
+}
+
+.jw-paused-since {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 500;
+  color: #8a8a8a;
+  letter-spacing: -0.005em;
+}
+
+.jw-paused-title {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.18;
+  letter-spacing: -0.018em;
+  color: #111;
+  margin: 0;
+}
+
+.jw-paused-body {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #6a6a6a;
+  margin: -6px 0 0;
+  max-width: 380px;
+}
+
+// "From your last lesson" reflection card — only renders when there
+// is recent analysis data. Quiet surface so it reads as a takeaway,
+// not a CTA.
+.jw-paused-highlight {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  background: #fafafa;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 14px;
+}
+
+.jw-paused-highlight-eyebrow {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8a8a8a;
+}
+
+.jw-paused-highlight-body {
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: #222;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.jw-paused-highlight-meta {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #8a8a8a;
+  letter-spacing: 0.01em;
+}
+
+// Badges: stacked CEFR discs for graduated chapters, or a quiet empty
+// placeholder when the student hasn't earned any badges yet.
+.jw-paused-badges {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.jw-paused-badges-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8a8a8a;
+}
+
+.jw-paused-badges-stack {
+  display: inline-flex;
+  align-items: center;
+  // Negative margin between discs creates the stacked / overlapping
+  // avatars effect. Each disc has a white ring drawn with its own
+  // border so the overlap reads cleanly on any background.
+  padding-left: 6px;
+}
+
+.jw-paused-badge-disc {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  // Background + border colors are set inline per-badge via [style.*]
+  // bindings, using the badge's accent hex with low alpha — keeps the
+  // disc subtle while still reading as a "this is mine" marker.
+  background: rgba(0, 0, 0, 0.04);
+  border: 1.5px solid rgba(0, 0, 0, 0.08);
+  // White outer ring lets the discs overlap cleanly on any surface.
+  outline: 2px solid #fff;
+  outline-offset: -2px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  margin-left: -10px;
+  transition: transform 0.2s ease;
+
+  ion-icon {
+    font-size: 20px;
+  }
+
+  &:first-child {
+    margin-left: 0;
+  }
+}
+
+.journey-widget--paused:hover .jw-paused-badge-disc {
+  transform: translateY(-1px);
+}
+
+.jw-paused-badge-overflow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  min-width: 40px;
+  padding: 0 10px;
+  margin-left: 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #6a6a6a;
+  background: #f4f4f4;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+// Empty state — placeholder discs + inline caption. Same vertical
+// footprint as the filled badges stack so un-pausing doesn't cause a
+// layout shift on the home card.
+.jw-paused-badges-empty {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.jw-paused-badges-empty-stack {
+  display: inline-flex;
+  align-items: center;
+  padding-left: 6px;
+  flex-shrink: 0;
+}
+
+.jw-paused-badge-disc--placeholder {
+  background: #fafafa;
+  border: 2px dashed #e0e0e0;
+  outline: none;
+  box-shadow: none;
+  color: transparent;
+  ion-icon { display: none; }
+  &::before { content: ''; }
+}
+
+.jw-paused-badges-empty-caption {
+  font-size: 13px;
+  font-weight: 500;
+  color: #8a8a8a;
+  line-height: 1.35;
+  min-width: 0;
+}
+
+.jw-paused-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  padding-top: 14px;
+  border-top: 1px solid #ededed;
+  font-size: 14px;
+  font-weight: 700;
+  color: #111;
+  letter-spacing: -0.005em;
+  align-self: stretch;
+
+  ion-icon {
+    font-size: 15px;
+    transition: transform 0.2s ease;
+  }
+}
+
+.journey-widget--paused:hover .jw-paused-cta ion-icon {
+  transform: translateX(2px);
+}
+
 // ── Dark Mode Support ────────────────────────────────────────────
 // ViewEncapsulation.None — styles are global, so use html.ion-palette-dark directly.
 html.ion-palette-dark {
@@ -1002,5 +1261,82 @@ html.ion-palette-dark {
     .jwc-chevron {
       color: #8e8e93;
     }
+  }
+
+  // Paused / unframed states
+  .jw-paused-chip {
+    color: #e5e5e7;
+    background: rgba(84, 84, 88, 0.16);
+
+    ion-icon { color: #e5e5e7; }
+
+    &--unframed {
+      color: #9bd7ad;
+      background: rgba(48, 110, 70, 0.24);
+
+      ion-icon { color: #9bd7ad; }
+    }
+  }
+
+  .jw-paused-highlight {
+    background: rgba(84, 84, 88, 0.14);
+    border-color: rgba(84, 84, 88, 0.36);
+  }
+
+  .jw-paused-highlight-eyebrow,
+  .jw-paused-highlight-meta {
+    color: #98989d;
+  }
+
+  .jw-paused-highlight-body {
+    color: #e5e5e7;
+  }
+
+  .jw-paused-level {
+    color: #1c1c1e;
+    background: #e5e5e7;
+  }
+
+  .jw-paused-since {
+    color: #8e8e93;
+  }
+
+  .jw-paused-title {
+    color: #fff;
+  }
+
+  .jw-paused-body {
+    color: #c7c7cc;
+  }
+
+  .jw-paused-badges-label {
+    color: #98989d;
+  }
+
+  .jw-paused-badge-disc {
+    // White outer ring becomes a card-tinted ring in dark mode so the
+    // discs still read as discrete tokens against the dark surface.
+    outline-color: #1c1c1e;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  }
+
+  .jw-paused-badge-overflow {
+    color: #c7c7cc;
+    background: rgba(84, 84, 88, 0.16);
+    border-color: rgba(84, 84, 88, 0.36);
+  }
+
+  .jw-paused-badge-disc--placeholder {
+    background: rgba(84, 84, 88, 0.16);
+    border-color: rgba(84, 84, 88, 0.5);
+  }
+
+  .jw-paused-badges-empty-caption {
+    color: #98989d;
+  }
+
+  .jw-paused-cta {
+    color: #e5e5e7;
+    border-top-color: rgba(84, 84, 88, 0.36);
   }
 }

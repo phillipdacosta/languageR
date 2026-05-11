@@ -20,6 +20,7 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { environment } from '../../environments/environment';
 import { TutorFeedbackService } from '../services/tutor-feedback.service';
 import { LearningPlanService, GOAL_TYPE_LABELS, LEVEL_LABELS } from '../services/learning-plan.service';
+import { SetGoalComponent } from '../modals/set-goal/set-goal.component';
 
 @Component({
   selector: 'app-profile',
@@ -904,6 +905,49 @@ export class ProfilePage implements OnInit {
   }
 
   async openGoalEditor() {
+    // Unframed students don't have an active chapter to reset, so the
+    // "Change Learning Goal" alert (which talks about chapter restarts +
+    // a 7-day cooldown) is misleading here. For them the action is purely
+    // additive — they're moving from "no plan" to "first plan". We can't
+    // route them back through `/onboarding` either: the onboarding page's
+    // safety check bounces anyone with `onboardingCompleted=true` straight
+    // back out. Instead we open a focused goal-picker modal that calls
+    // `LearningPlanService.promoteUnframedPlan` directly — the journey
+    // widget then refreshes itself via `planUpdates$`.
+    if (this.isUnframed) {
+      if (!this.planLanguage) {
+        // Defensive fallback — shouldn't happen for a real unframed plan,
+        // but the onboarding fallback is still better than a silent fail.
+        this.router.navigate(['/onboarding']);
+        return;
+      }
+      const modal = await this.modalController.create({
+        component: SetGoalComponent,
+        cssClass: 'set-goal-modal',
+        backdropDismiss: true,
+        componentProps: {
+          language: this.planLanguage
+        }
+      });
+      await modal.present();
+      const result = await modal.onDidDismiss();
+      if (result?.data?.saved) {
+        // Re-pull the plan so the unframed card hides and the goal card
+        // replaces it without a page reload. The modal already
+        // broadcasts via planUpdates$, so the home journey widget will
+        // refresh independently — this call only refreshes the local
+        // profile-page lifecycle flags.
+        if (this.planLanguage) {
+          this.learningPlanService.getPlan(this.planLanguage)
+            .pipe(take(1)).subscribe({
+              next: (res: any) => this.applyPlanLifecycleFromPlan(res?.plan, res?.entitlements),
+              error: () => {}
+            });
+        }
+      }
+      return;
+    }
+
     const alert = await this.alertController.create({
       header: 'Change Learning Goal',
       cssClass: 'goal-change-alert',

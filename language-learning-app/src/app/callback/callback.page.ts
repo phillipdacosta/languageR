@@ -48,25 +48,6 @@ export class CallbackPage implements OnInit {
     private location: Location
   ) {}
 
-  /**
-   * If the user clicked "Create an account" but Auth0 matched them to an
-   * existing record, surface a friendly toast so the experience is
-   * "Welcome back" instead of silently landing them on /tabs.
-   */
-  private async maybeShowSignupExistsToast(userExists: boolean) {
-    const intent = localStorage.getItem('loginIntent');
-    localStorage.removeItem('loginIntent');
-    if (intent !== 'signup' || !userExists) return;
-
-    const toast = await this.toastController.create({
-      message: 'Looks like you already have an account — we signed you in.',
-      duration: 3500,
-      position: 'top',
-      color: 'primary',
-    });
-    await toast.present();
-  }
-
   ngOnInit() {
     // Add a small delay to ensure the page is fully loaded
     setTimeout(() => {
@@ -242,8 +223,6 @@ export class CallbackPage implements OnInit {
             // Existing user with returnUrl - go directly there, bypassing onboarding check
             console.log('✅ CALLBACK: userExists=true, treating as existing user, navigating to returnUrl:', returnUrl);
 
-            await this.maybeShowSignupExistsToast(true);
-
             // Set flag so the destination page knows user just logged in
             // and can set up back button interception
             localStorage.setItem('justCompletedLogin', returnUrl);
@@ -256,7 +235,6 @@ export class CallbackPage implements OnInit {
           } else {
             // New user with returnUrl - need role selection first, then onboarding
             console.log('⚠️ CALLBACK checkUserInDatabase: NEW user with returnUrl, going to role-select first');
-            localStorage.removeItem('loginIntent');
             localStorage.setItem('returnUrl', returnUrl);
             await this.router.navigate(['/role-select'], { replaceUrl: true });
             return;
@@ -266,7 +244,6 @@ export class CallbackPage implements OnInit {
 
       // No returnUrl - simply redirect to tabs and let OnboardingGuard handle routing
       console.log('🔍 CALLBACK: No returnUrl, redirecting to tabs (OnboardingGuard will handle routing)');
-      await this.maybeShowSignupExistsToast(true);
       await this.router.navigate(['/tabs'], { replaceUrl: true });
     } catch (error) {
       console.error('❌ CALLBACK: Error in checkUserInDatabase:', error);
@@ -398,8 +375,6 @@ export class CallbackPage implements OnInit {
             // Existing user with returnUrl - go directly there, bypassing onboarding check
             console.log('✅ CALLBACK: userExists=true, treating as existing user, navigating to returnUrl:', returnUrl);
 
-            await this.maybeShowSignupExistsToast(true);
-
             // Set flag so the destination page knows user just logged in
             // and can set up back button interception
             localStorage.setItem('justCompletedLogin', returnUrl);
@@ -412,7 +387,6 @@ export class CallbackPage implements OnInit {
           } else {
             // New user with returnUrl - need role selection first, then onboarding
             console.log('⚠️ CALLBACK: NEW user with returnUrl, going to role-select first');
-            localStorage.removeItem('loginIntent');
             if (returnUrl) {
               localStorage.setItem('returnUrl', returnUrl); // Put it back
             }
@@ -421,9 +395,6 @@ export class CallbackPage implements OnInit {
           }
         }
 
-        // No returnUrl path: surface the toast for existing users (true)
-        // or clear the intent for new users (false).
-        await this.maybeShowSignupExistsToast(userExists);
       }
 
       // No returnUrl - simply redirect to tabs and let OnboardingGuard handle the routing logic

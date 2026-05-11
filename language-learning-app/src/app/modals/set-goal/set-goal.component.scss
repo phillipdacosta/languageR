@@ -1,0 +1,370 @@
+// Clean, Apple-leaning surface — generous whitespace, soft borders,
+// touch-friendly hit targets. No gradients on tappable cards; selection
+// is signaled with a tinted border + checkmark, not a filled background,
+// so the card never reads as a "primary action" when it's just an option.
+
+.set-goal-header {
+  ion-toolbar {
+    --background: #fff;
+    --border-color: transparent;
+    --padding-start: 8px;
+    --padding-end: 8px;
+  }
+
+  ion-title {
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: #1a1a1a;
+  }
+}
+
+.set-goal-close {
+  --color: #6a6a6a;
+  --padding-start: 12px;
+  --padding-end: 12px;
+
+  ion-icon { font-size: 22px; }
+}
+
+.set-goal-content {
+  --background: #fff;
+}
+
+.set-goal-inner {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 16px 20px 96px;
+}
+
+.set-goal-intro {
+  margin: 4px 0 24px;
+
+  h1 {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #1a1a1a;
+    margin: 0 0 8px;
+    line-height: 1.2;
+  }
+
+  p {
+    font-size: 14.5px;
+    color: #6a6a6a;
+    line-height: 1.5;
+    margin: 0;
+    max-width: 480px;
+  }
+}
+
+.set-goal-section {
+  margin-bottom: 28px;
+}
+
+.set-goal-section-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8a8a8a;
+  margin: 0 0 12px;
+}
+
+// ── Goal type grid ────────────────────────────────────────────────
+.goal-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.goal-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+
+  &:active {
+    transform: scale(0.99);
+  }
+
+  &--selected {
+    border-color: #1a1a1a;
+    background: #fafafa;
+  }
+}
+
+.goal-card-icon {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: #f4f4f4;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #1a1a1a;
+
+  ion-icon { font-size: 20px; }
+}
+
+.goal-card-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.goal-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a1a;
+  letter-spacing: -0.01em;
+}
+
+.goal-card-desc {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #6a6a6a;
+  line-height: 1.4;
+}
+
+.goal-card-check {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #1a1a1a;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  ion-icon { font-size: 14px; }
+}
+
+// ── "Other" textarea ──────────────────────────────────────────────
+.goal-other {
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: #fafafa;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
+
+  label {
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #8a8a8a;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  ion-textarea {
+    --background: transparent;
+    --color: #1a1a1a;
+    --padding-start: 0;
+    --padding-end: 0;
+    --placeholder-color: #b0b0b0;
+    --placeholder-opacity: 1;
+    font-size: 14.5px;
+    min-height: 44px;
+  }
+}
+
+// ── Timeline list ────────────────────────────────────────────────
+.timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.timeline-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease;
+
+  &--selected {
+    border-color: #1a1a1a;
+    background: #fafafa;
+  }
+}
+
+.timeline-icon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #f4f4f4;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #1a1a1a;
+
+  ion-icon { font-size: 16px; }
+}
+
+.timeline-label {
+  flex: 1;
+  font-size: 14.5px;
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+.timeline-check {
+  color: #1a1a1a;
+  ion-icon { font-size: 22px; }
+}
+
+.timeline-date {
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: #fafafa;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
+
+  label {
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #8a8a8a;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  ion-input {
+    --background: transparent;
+    --color: #1a1a1a;
+    --padding-start: 0;
+    --padding-end: 0;
+    font-size: 14.5px;
+  }
+}
+
+// ── Footer CTA ────────────────────────────────────────────────────
+.set-goal-footer {
+  ion-toolbar { --background: transparent; }
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0) 0%, #fff 40%);
+  padding: 16px 20px 20px;
+  border-top: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.set-goal-footer-inner {
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.set-goal-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 52px;
+  padding: 0 22px;
+  background: #1a1a1a;
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+
+  ion-icon { font-size: 18px; }
+  ion-spinner { --color: #fff; height: 22px; width: 22px; }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  &:not(:disabled):active {
+    transform: scale(0.99);
+  }
+}
+
+// ── Dark mode ────────────────────────────────────────────────────
+:host-context(.dark),
+:host-context([data-theme='dark']),
+:host-context(body.dark) {
+  .set-goal-header ion-toolbar { --background: #1c1c1e; }
+  .set-goal-header ion-title { color: #fff; }
+  .set-goal-content { --background: #1c1c1e; }
+  .set-goal-intro h1 { color: #fff; }
+  .set-goal-intro p { color: #c7c7cc; }
+  .set-goal-section-label { color: #8e8e93; }
+
+  .goal-card,
+  .timeline-row {
+    background: #2c2c2e;
+    border-color: rgba(255, 255, 255, 0.08);
+
+    &--selected {
+      background: #3a3a3c;
+      border-color: #fff;
+    }
+  }
+
+  .goal-card-icon,
+  .timeline-icon {
+    background: rgba(255, 255, 255, 0.08);
+    color: #e5e5e7;
+  }
+
+  .goal-card-title,
+  .timeline-label { color: #fff; }
+  .goal-card-desc { color: #98989d; }
+
+  .goal-card-check {
+    background: #fff;
+    color: #1a1a1a;
+  }
+
+  .timeline-check { color: #fff; }
+
+  .goal-other,
+  .timeline-date {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.1);
+
+    label { color: #8e8e93; }
+
+    ion-textarea,
+    ion-input {
+      --color: #fff;
+      --placeholder-color: #6a6a6a;
+    }
+  }
+
+  .set-goal-footer {
+    background: linear-gradient(to bottom, rgba(28, 28, 30, 0) 0%, #1c1c1e 40%);
+    border-top-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .set-goal-submit {
+    background: #fff;
+    color: #1a1a1a;
+
+    ion-spinner { --color: #1a1a1a; }
+  }
+}
