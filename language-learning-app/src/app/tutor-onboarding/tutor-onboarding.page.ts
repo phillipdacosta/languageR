@@ -7,10 +7,13 @@ import { UserService, TutorOnboardingData } from '../services/user.service';
 import { LanguageService, LanguageOption, SupportedLanguage } from '../services/language.service';
 import { TranslateService } from '@ngx-translate/core';
 import { OnboardingGuard } from '../guards/onboarding.guard';
-import { Observable } from 'rxjs';
-import { take } from 'rxjs/operators';
+import { Observable, Subscription } from 'rxjs';
+import { take, filter } from 'rxjs/operators';
 import { LoadingController, AlertController, ModalController, ToastController } from '@ionic/angular';
 import { CountrySelectModalComponent } from '../components/country-select-modal/country-select-modal.component';
+import { LoadingService } from '../services/loading.service';
+
+export type TutorOnboardingNativeLangChip = { code: string; name: string; native: string; nameKey?: string };
 
 @Component({
   selector: 'app-tutor-onboarding',
@@ -21,49 +24,58 @@ import { CountrySelectModalComponent } from '../components/country-select-modal/
 export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   user$: Observable<User | null>;
   currentStep = 1;
-  totalSteps = 9; // Name + Residence + Native Language + Languages + Experience + Schedule + Bio + Rate + Video
+  totalSteps = 10; // Name + Origin + Residence + Native + Languages + Experience + Schedule + Bio + Rate + Video
+
+  tutorWizardTitleKey = 'ONBOARDING.TUTOR_OB.STEP1_TITLE';
+  tutorWizardSubtitleKey = 'ONBOARDING.TUTOR_OB.STEP1_SUBTITLE';
+  tutorWizardProgressPercent = 0;
 
   // Language selection pre-step
   preStepPhase: 'language' | 'welcome' | 'done' = 'language';
+  private preLanguageReturn: { phase: 'welcome' | 'done'; showPreview: boolean } = { phase: 'welcome', showPreview: false };
   welcomeRevealed: boolean = false;
   availableInterfaceLanguages: LanguageOption[] = [];
   selectedInterfaceLanguage: SupportedLanguage = 'en';
   selectedLanguageFlag = '🇬🇧';
 
-  // Rotating heading animation
-  headingTexts = [
-    'Choose your language',
-    'Elige tu idioma',
-    'Choisissez votre langue',
-    'Escolha seu idioma',
-    'Wählen Sie Ihre Sprache',
-    'Scegli la tua lingua',
-    'Выберите ваш язык',
-    '选择你的语言',
-    '言語を選択してください',
-    '언어를 선택하세요',
-    'اختر لغتك',
-    'अपनी भाषा चुनें',
-    'Kies je taal',
-    'Wybierz swój język',
-    'Dilinizi seçin',
-    'Välj ditt språk',
-    'Velg ditt språk',
-    'Vælg dit sprog',
-    'Valitse kielesi',
-    'Επιλέξτε τη γλώσσα σας',
-    'Vyberte svůj jazyk',
-    'Alegeți limba dvs.',
-    'Виберіть вашу мову',
-    'Chọn ngôn ngữ của bạn',
-    'เลือกภาษาของคุณ',
-    'Pilih bahasa Anda',
-    'Pilih bahasa anda',
-    'בחר את השפה שלך',
-    'زبان خود را انتخاب کنید'
+  // Rotating heading (language picker): multilingual lines from i18n.
+  readonly headingRotationKeys: readonly string[] = [
+    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_01',
+    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_02',
+    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_03',
+    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_04',
+    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_05',
+    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_06',
+    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_07',
+    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_08',
+    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_09',
+    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_10',
+    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_11',
+    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_12',
+    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_13',
+    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_14',
+    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_15',
+    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_16',
+    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_17',
+    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_18',
+    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_19',
+    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_20',
+    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_21',
+    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_22',
+    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_23',
+    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_24',
+    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_25',
+    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_26',
+    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_27',
+    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_28',
+    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_29',
   ];
   activeHeadingIndex = 0;
-  private headingInterval: any;
+  private headingInterval: ReturnType<typeof setInterval> | null = null;
+  private headingRotationStartTimeout: ReturnType<typeof setTimeout> | null = null;
+  private headingRotationLoadSub: Subscription | null = null;
+  private languageApplyDebounce: ReturnType<typeof setTimeout> | null = null;
+  private static readonly LANGUAGE_APPLY_DEBOUNCE_MS = 800;
 
   // Preview & Welcome state
   showPreview = false;
@@ -218,16 +230,77 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
   private previousStep = 0;
 
   // Available options
-  availableLanguages = [
-    'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese',
-    'Russian', 'Chinese', 'Japanese', 'Korean', 'Arabic', 'Hindi',
-    'Dutch', 'Polish', 'Turkish', 'Swedish', 'Norwegian', 'Danish',
-    'Finnish', 'Greek', 'Czech', 'Romanian', 'Ukrainian', 'Vietnamese',
-    'Thai', 'Indonesian', 'Malay', 'Hebrew', 'Persian'
-  ];
+  private static readonly NATIVE_LANG_EN_SLUG: Readonly<Record<string, string>> = {
+    en: 'ENGLISH',
+    es: 'SPANISH',
+    fr: 'FRENCH',
+    de: 'GERMAN',
+    it: 'ITALIAN',
+    pt: 'PORTUGUESE',
+    ru: 'RUSSIAN',
+    zh: 'CHINESE',
+    ja: 'JAPANESE',
+    ko: 'KOREAN',
+    ar: 'ARABIC',
+    hi: 'HINDI',
+    nl: 'DUTCH',
+    pl: 'POLISH',
+    tr: 'TURKISH',
+    sv: 'SWEDISH',
+    no: 'NORWEGIAN',
+    da: 'DANISH',
+    fi: 'FINNISH',
+    el: 'GREEK',
+    cs: 'CZECH',
+    ro: 'ROMANIAN',
+    uk: 'UKRAINIAN',
+    vi: 'VIETNAMESE',
+    th: 'THAI',
+    id: 'INDONESIAN',
+    ms: 'MALAY',
+    he: 'HEBREW',
+    fa: 'PERSIAN',
+  };
+
+  learnableLanguages: { value: string; nameKey: string }[] = (
+    [
+      'English',
+      'Spanish',
+      'French',
+      'German',
+      'Italian',
+      'Portuguese',
+      'Russian',
+      'Chinese',
+      'Japanese',
+      'Korean',
+      'Arabic',
+      'Hindi',
+      'Dutch',
+      'Polish',
+      'Turkish',
+      'Swedish',
+      'Norwegian',
+      'Danish',
+      'Finnish',
+      'Greek',
+      'Czech',
+      'Romanian',
+      'Ukrainian',
+      'Vietnamese',
+      'Thai',
+      'Indonesian',
+      'Malay',
+      'Hebrew',
+      'Persian',
+    ] as const
+  ).map((value) => ({
+    value,
+    nameKey: `ONBOARDING.LANG_EN_NAME.${String(value).replace(/ /g, '_').toUpperCase()}`,
+  }));
 
   // Native language options with ISO codes (same as student onboarding)
-  nativeLanguageOptions = [
+  nativeLanguageOptions: TutorOnboardingNativeLangChip[] = [
     { code: 'en', name: 'English', native: 'English' },
     { code: 'es', name: 'Spanish', native: 'Español' },
     { code: 'fr', name: 'French', native: 'Français' },
@@ -400,7 +473,8 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
     private toastController: ToastController,
     private onboardingGuard: OnboardingGuard,
     private cdr: ChangeDetectorRef,
-    private translateService: TranslateService
+    private translateService: TranslateService,
+    private loadingService: LoadingService
   ) {
     this.user$ = this.authService.user$;
     this.availableInterfaceLanguages = this.languageService.supportedLanguages;
@@ -408,26 +482,92 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
   }
 
   ngOnDestroy() {
+    this.clearLanguageApplyDebounce();
+    this.headingRotationLoadSub?.unsubscribe();
+    this.headingRotationLoadSub = null;
+    this.cancelHeadingRotationSchedule();
     this.stopHeadingRotation();
+  }
+
+  private clearLanguageApplyDebounce(): void {
+    if (this.languageApplyDebounce != null) {
+      clearTimeout(this.languageApplyDebounce);
+      this.languageApplyDebounce = null;
+    }
+  }
+
+  private scheduleInterfaceLanguageApply(lang: SupportedLanguage): void {
+    this.clearLanguageApplyDebounce();
+    this.languageApplyDebounce = setTimeout(() => {
+      this.languageApplyDebounce = null;
+      this.languageService.setLanguage(lang);
+      this.cdr.detectChanges();
+    }, TutorOnboardingPage.LANGUAGE_APPLY_DEBOUNCE_MS);
+  }
+
+  /** After global loading overlay is gone (onboarding guard), document load, then 4s — begin rotating headings. */
+  private scheduleHeadingRotationAfterLoad(): void {
+    this.cancelHeadingRotationSchedule();
+    this.stopHeadingRotation();
+    this.headingRotationLoadSub?.unsubscribe();
+    this.headingRotationLoadSub = null;
+
+    const startAfterDelay = () => {
+      this.headingRotationStartTimeout = setTimeout(() => {
+        this.headingRotationStartTimeout = null;
+        this.activeHeadingIndex = 0;
+        this.startHeadingRotation();
+      }, 4000);
+    };
+
+    const afterDocumentLoaded = () => {
+      if (typeof document === 'undefined' || typeof window === 'undefined') {
+        startAfterDelay();
+        return;
+      }
+      if (document.readyState === 'complete') {
+        startAfterDelay();
+      } else {
+        window.addEventListener('load', () => startAfterDelay(), { once: true });
+      }
+    };
+
+    this.headingRotationLoadSub = this.loadingService.loading$
+      .pipe(filter((isLoading) => !isLoading), take(1))
+      .subscribe(() => {
+        this.headingRotationLoadSub = null;
+        afterDocumentLoaded();
+      });
+  }
+
+  private cancelHeadingRotationSchedule(): void {
+    if (this.headingRotationStartTimeout != null) {
+      clearTimeout(this.headingRotationStartTimeout);
+      this.headingRotationStartTimeout = null;
+    }
   }
 
   private startHeadingRotation() {
     this.stopHeadingRotation();
     this.headingInterval = setInterval(() => {
-      this.activeHeadingIndex = (this.activeHeadingIndex + 1) % this.headingTexts.length;
+      this.activeHeadingIndex = (this.activeHeadingIndex + 1) % this.headingRotationKeys.length;
       this.cdr.detectChanges();
     }, 2400);
   }
 
   private stopHeadingRotation() {
-    if (this.headingInterval) {
+    if (this.headingInterval != null) {
       clearInterval(this.headingInterval);
       this.headingInterval = null;
     }
   }
 
   ngOnInit() {
-    this.startHeadingRotation();
+    this.nativeLanguageOptions = this.nativeLanguageOptions.map((l) => ({
+      ...l,
+      nameKey: `ONBOARDING.LANG_EN_NAME.${TutorOnboardingPage.NATIVE_LANG_EN_SLUG[l.code] ?? l.code.toUpperCase()}`,
+    }));
+    this.scheduleHeadingRotationAfterLoad();
 
     // Check if user is authenticated
     this.authService.isAuthenticated$.pipe(take(1)).subscribe(isAuthenticated => {
@@ -462,32 +602,75 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
         });
       });
     });
+
+    this.syncTutorWizardCopy();
   }
 
   ngAfterViewChecked() {
-    // Focus first input and scroll sidebar when step changes
     if (this.currentStep !== this.previousStep) {
       this.previousStep = this.currentStep;
+      this.syncTutorWizardCopy();
       setTimeout(() => {
         this.focusFirstInput();
-        this.scrollCurrentStepIntoView();
       }, 100);
     }
   }
 
-  private scrollCurrentStepIntoView() {
-    const currentStepEl = document.querySelector('.step-item.current');
-    if (currentStepEl) {
-      currentStepEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  private syncTutorWizardCopy(): void {
+    const base = 'ONBOARDING.TUTOR_OB';
+    switch (this.currentStep) {
+      case 1:
+        this.tutorWizardTitleKey = `${base}.STEP1_TITLE`;
+        this.tutorWizardSubtitleKey = `${base}.STEP1_SUBTITLE`;
+        break;
+      case 2:
+        this.tutorWizardTitleKey = `${base}.STEP_ORIGIN_TITLE`;
+        this.tutorWizardSubtitleKey = `${base}.STEP_ORIGIN_SUBTITLE`;
+        break;
+      case 3:
+        this.tutorWizardTitleKey = `${base}.STEP2_TITLE`;
+        this.tutorWizardSubtitleKey = `${base}.STEP2_SUBTITLE`;
+        break;
+      case 4:
+        this.tutorWizardTitleKey = `${base}.STEP3_TITLE`;
+        this.tutorWizardSubtitleKey = `${base}.STEP3_SUBTITLE`;
+        break;
+      case 5:
+        this.tutorWizardTitleKey = `${base}.STEP4_TITLE`;
+        this.tutorWizardSubtitleKey = `${base}.STEP4_SUBTITLE`;
+        break;
+      case 6:
+        this.tutorWizardTitleKey = `${base}.STEP5_TITLE`;
+        this.tutorWizardSubtitleKey = `${base}.STEP5_SUBTITLE`;
+        break;
+      case 7:
+        this.tutorWizardTitleKey = `${base}.STEP6_TITLE`;
+        this.tutorWizardSubtitleKey = `${base}.STEP6_SUBTITLE`;
+        break;
+      case 8:
+        this.tutorWizardTitleKey = `${base}.STEP7_TITLE`;
+        this.tutorWizardSubtitleKey = `${base}.STEP7_SUBTITLE`;
+        break;
+      case 9:
+        this.tutorWizardTitleKey = `${base}.STEP8_TITLE`;
+        this.tutorWizardSubtitleKey = `${base}.STEP8_SUBTITLE`;
+        break;
+      case 10:
+      default:
+        this.tutorWizardTitleKey = `${base}.STEP9_TITLE`;
+        this.tutorWizardSubtitleKey = `${base}.STEP9_SUBTITLE`;
+        break;
     }
+    this.tutorWizardProgressPercent =
+      this.totalSteps > 0 ? (this.currentStep / this.totalSteps) * 100 : 0;
   }
 
   private focusFirstInput() {
     if (this.currentStep === 1 && this.firstNameInput?.nativeElement) {
       this.firstNameInput.nativeElement.focus();
-    } else if (this.currentStep === 7 && this.summaryInput?.nativeElement) {
+    } else if (this.currentStep === 8 && this.summaryInput?.nativeElement) {
       this.summaryInput.nativeElement.focus();
-    } else if (this.currentStep === 7 && this.bioInput?.nativeElement && !this.summaryInput?.nativeElement) {
+    } else if (this.currentStep === 8 && this.bioInput?.nativeElement && !this.summaryInput?.nativeElement) {
       this.bioInput.nativeElement.focus();
     }
   }
@@ -495,20 +678,29 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
   selectInterfaceLanguage(lang: SupportedLanguage) {
     this.selectedInterfaceLanguage = lang;
     this.selectedLanguageFlag = this.languageService.getLanguageOption(lang)?.flag || '🇬🇧';
-    this.languageService.setLanguage(lang);
+    this.scheduleInterfaceLanguageApply(lang);
   }
 
   confirmLanguageSelection() {
+    this.clearLanguageApplyDebounce();
+    this.languageService.setLanguage(this.selectedInterfaceLanguage);
+    this.cancelHeadingRotationSchedule();
     this.stopHeadingRotation();
-    this.preStepPhase = 'welcome';
-    this.welcomeRevealed = false;
-    setTimeout(() => { this.welcomeRevealed = true; this.cdr.detectChanges(); }, 3800);
+    const ret = this.preLanguageReturn;
+    if (ret.phase === 'done') {
+      this.preStepPhase = 'done';
+      this.showPreview = ret.showPreview;
+    } else {
+      this.preStepPhase = 'welcome';
+      this.welcomeRevealed = false;
+      setTimeout(() => { this.welcomeRevealed = true; this.cdr.detectChanges(); }, 3800);
+    }
   }
 
   goBackToLanguageSelect() {
     this.preStepPhase = 'language';
     this.welcomeRevealed = false;
-    this.startHeadingRotation();
+    this.scheduleHeadingRotationAfterLoad();
   }
 
   startOnboarding() {
@@ -522,15 +714,19 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
 
     const srcText = srcTitle.textContent?.trim() || '';
     const srcStyles = window.getComputedStyle(srcTitle);
+    const centerX = (r: DOMRect) => r.left + r.width / 2;
 
     const clone = document.createElement('div');
     clone.textContent = srcText;
     Object.assign(clone.style, {
       position: 'fixed',
-      left: `${srcRect.left}px`,
+      // h1 is often full-width with text-align:center; anchor horizontal center so the fly-in matches the settled title.
+      left: `${centerX(srcRect)}px`,
       top: `${srcRect.top}px`,
-      width: `${srcRect.width}px`,
+      transform: 'translateX(-50%)',
+      width: 'auto',
       height: `${srcRect.height}px`,
+      textAlign: 'center',
       zIndex: '10000',
       pointerEvents: 'none',
       fontFamily: srcStyles.fontFamily,
@@ -559,8 +755,9 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
 
       requestAnimationFrame(() => {
         clone.textContent = destText;
-        clone.style.left = `${destRect.left}px`;
+        clone.style.left = `${centerX(destRect)}px`;
         clone.style.top = `${destRect.top}px`;
+        clone.style.transform = 'translateX(-50%)';
         clone.style.width = 'auto';
         clone.style.height = `${destRect.height}px`;
         clone.style.fontSize = destStyles.fontSize;
@@ -569,8 +766,9 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
       setTimeout(() => {
         const finalRect = dest.getBoundingClientRect();
         clone.style.transition = 'none';
-        clone.style.left = `${finalRect.left}px`;
+        clone.style.left = `${centerX(finalRect)}px`;
         clone.style.top = `${finalRect.top}px`;
+        clone.style.transform = 'translateX(-50%)';
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
             dest.style.opacity = '1';
@@ -581,7 +779,7 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
       }, 550);
     };
 
-    const destSelector = '.onboarding-header h1';
+    const destSelector = '.cm-details-wizard-header h1';
     const checkDest = () => {
       const dest = document.querySelector(destSelector) as HTMLElement;
       if (dest) flyToDestination(dest);
@@ -625,8 +823,13 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
   }
 
   goToLanguageSelect() {
+    this.preLanguageReturn = {
+      phase: this.preStepPhase as 'welcome' | 'done',
+      showPreview: this.showPreview,
+    };
+    this.showPreview = false;
     this.preStepPhase = 'language';
-    this.startHeadingRotation();
+    this.scheduleHeadingRotationAfterLoad();
   }
 
   setNativeLanguage(code: string) {
@@ -767,9 +970,22 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
   previewSelectedLanguages: string = '';
 
   showPreviewPage() {
-    const nativeLang = this.nativeLanguageOptions.find(l => l.code === this.nativeLanguage);
-    this.previewNativeLanguageName = nativeLang ? nativeLang.name : this.nativeLanguage;
-    this.previewSelectedLanguages = this.selectedLanguages.join(', ');
+    const nativeLang = this.nativeLanguageOptions.find(l => l.code === this.nativeLanguage) as
+      | { code: string; name: string; native: string; nameKey?: string }
+      | undefined;
+    if (nativeLang?.nameKey) {
+      const t = this.translateService.instant(nativeLang.nameKey);
+      this.previewNativeLanguageName = t !== nativeLang.nameKey ? t : nativeLang.name;
+    } else {
+      this.previewNativeLanguageName = nativeLang ? nativeLang.name : this.nativeLanguage;
+    }
+    this.previewSelectedLanguages = this.selectedLanguages
+      .map((lang) => {
+        const k = `ONBOARDING.LANG_EN_NAME.${lang.replace(/ /g, '_').toUpperCase()}`;
+        const t = this.translateService.instant(k);
+        return t !== k ? t : lang;
+      })
+      .join(', ');
     this.showPreview = true;
     this.hasReachedPreview = true;
     // Scroll to top when preview page is shown
@@ -786,12 +1002,21 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
     this.showPreview = false;
     if (step) {
       this.currentStep = step;
+      this.previousStep = step;
     }
+    this.syncTutorWizardCopy();
   }
 
   getNativeLanguageName(): string {
-    const lang = this.nativeLanguageOptions.find(l => l.code === this.nativeLanguage);
-    return lang ? lang.name : this.nativeLanguage;
+    const lang = this.nativeLanguageOptions.find(l => l.code === this.nativeLanguage) as
+      | { code: string; name: string; nameKey?: string }
+      | undefined;
+    if (!lang) return this.nativeLanguage;
+    if (lang.nameKey) {
+      const t = this.translateService.instant(lang.nameKey);
+      return t !== lang.nameKey ? t : lang.name;
+    }
+    return lang.name;
   }
 
   async completeOnboarding() {
@@ -893,30 +1118,28 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
     }
   }
 
-  getProgressPercentage(): number {
-    return (this.currentStep / this.totalSteps) * 100;
-  }
-
   canProceed(): boolean {
     switch (this.currentStep) {
       case 1:
-        return this.firstName.trim() !== '' && this.lastName.trim() !== '' && this.country !== '';
+        return this.firstName.trim() !== '' && this.lastName.trim() !== '';
       case 2:
-        return this.residenceCountry !== ''; // Residence country step
+        return this.country !== '';
       case 3:
-        return this.nativeLanguage !== ''; // Native language step
+        return this.residenceCountry !== '';
       case 4:
-        return this.selectedLanguages.length > 0;
+        return this.nativeLanguage !== '';
       case 5:
-        return this.selectedExperience !== '';
+        return this.selectedLanguages.length > 0;
       case 6:
-        return this.selectedSchedule !== '';
+        return this.selectedExperience !== '';
       case 7:
-        return this.profileBio.length > 0; // Bio step
+        return this.selectedSchedule !== '';
       case 8:
-        return this.hourlyRate >= 10; // Minimum $10/hr for platform profitability
+        return this.profileBio.length > 0;
       case 9:
-        return !this.hasVideoLinkPending; // Video is optional, but block if user has an unsubmitted link
+        return this.hourlyRate >= 10;
+      case 10:
+        return !this.hasVideoLinkPending;
       default:
         return false;
     }

@@ -1,3 +1,5 @@
+@import '../../shared/styles/cm-details-wizard-shell.scss';
+
 // Airbnb-Inspired Tutor Onboarding (Approval Flow) - Two Column Layout
 // Clean, modern, matches home page design language
 
@@ -18,6 +20,24 @@ $ob-accent: #222222;
   justify-content: center;
   padding: 20px;
   background: linear-gradient(135deg, #fafafa 0%, #f5f5f7 50%, #f0f0f2 100%);
+}
+
+.onboarding-container.tutor-approval-wizard-page {
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 0;
+  background: #ffffff;
+}
+
+.tutor-approval-wizard {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+  position: relative;
+  padding: 56px 0 0;
+  box-sizing: border-box;
 }
 
 .loading-state {

@@ -33,6 +33,15 @@ export class TutorOnboardingComponent implements OnInit {
   currentUser: any = null;
   currentStepIndex = 0;
   loading = true;
+
+  /** Cached step surface for templates (no getters / method calls in HTML). */
+  approvalStepId = 'photo';
+  approvalStepIcon = 'person-circle';
+  approvalStepTitle = '';
+  approvalStepDescription = '';
+  approvalStepCompleted = false;
+  approvalWizardProgressPercent = 0;
+  approvalStepBadgeText = '';
   
   // Subscribe to approval status from UserService
   approvalStatus$ = this.userService.tutorApprovalStatus$;
@@ -154,6 +163,7 @@ export class TutorOnboardingComponent implements OnInit {
     this.steps[2].completed = status.credentialsApproved;
     this.steps[3].completed = status.stripeComplete;
     this.steps[4].completed = status.tosComplete;
+    this.syncApprovalWizardDisplay();
     
     // Update credential display state
     this.governmentIdStatus = status.governmentIdApproved ? 'approved' 
@@ -282,6 +292,7 @@ export class TutorOnboardingComponent implements OnInit {
       this.showToast('Failed to load onboarding status', 'danger');
     } finally {
       this.loading = false;
+      this.syncApprovalWizardDisplay();
     }
   }
 
@@ -312,6 +323,29 @@ export class TutorOnboardingComponent implements OnInit {
     return this.steps[this.currentStepIndex];
   }
 
+  private syncApprovalWizardDisplay(): void {
+    const s = this.steps[this.currentStepIndex];
+    if (!s) {
+      return;
+    }
+    this.approvalStepId = s.id;
+    this.approvalStepIcon = s.icon;
+    this.approvalStepTitle = s.title;
+    this.approvalStepDescription = s.description;
+    this.approvalStepCompleted = s.completed;
+    const n = this.steps.length;
+    this.approvalWizardProgressPercent = n > 0 ? ((this.currentStepIndex + 1) / n) * 100 : 0;
+    this.approvalStepBadgeText = n > 0 ? `${this.currentStepIndex + 1} / ${n}` : '';
+  }
+
+  selectApprovalStep(i: number): void {
+    if (i < 0 || i >= this.steps.length) {
+      return;
+    }
+    this.currentStepIndex = i;
+    this.syncApprovalWizardDisplay();
+  }
+
   get isFirstStep(): boolean {
     return this.currentStepIndex === 0;
   }
@@ -336,12 +370,14 @@ export class TutorOnboardingComponent implements OnInit {
   previousStep() {
     if (this.currentStepIndex > 0) {
       this.currentStepIndex--;
+      this.syncApprovalWizardDisplay();
     }
   }
 
   nextStep() {
     if (this.currentStepIndex < this.steps.length - 1) {
       this.currentStepIndex++;
+      this.syncApprovalWizardDisplay();
     }
   }
 

@@ -11,6 +11,8 @@ $ob-bg-hover: #f7f7f7;
 $ob-bg-subtle: #f7f7f7;
 $ob-accent: #222222;
 
+@import '../shared/styles/cm-details-wizard-shell.scss';
+
 // ═══════════════════════════════════════════════════
 // PRE-STEP: Language Selection & Welcome
 // ═══════════════════════════════════════════════════
@@ -55,8 +57,8 @@ $ob-accent: #222222;
   .pre-step-app-icon {
     width: 72px;
     height: 72px;
-    border-radius: 18px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    // border-radius: 18px;
+    // box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   }
 
   .welcome-icon {
@@ -110,11 +112,15 @@ $ob-accent: #222222;
   text-align: center;
   margin-top: 16px;
   line-height: 1.5;
-
+  max-width: 100%;
+  padding-inline: 4px;
+  box-sizing: border-box;
+  white-space: nowrap;
   a {
     color: $ob-text-secondary;
     text-decoration: underline;
     text-underline-offset: 2px;
+    white-space: nowrap;
 
     &:hover {
       color: $ob-text-primary;
@@ -283,16 +289,31 @@ $ob-accent: #222222;
 
 .welcome-hero {
   display: flex;
+  flex-direction: row;
+  justify-content: center;
+  width: 100%;
+  padding: 40px 0;
+  flex-shrink: 0;
+  transition: padding 0.6s cubic-bezier(0.32, 0.72, 0, 1);
+
+  .welcome-revealed & {
+    padding: 0 0 16px;
+  }
+}
+
+// Keeps mascot + headline one unit (wide layout used to put margin:auto on h1 only, which split the row).
+.welcome-hero-cluster {
+  display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 40px 0;
-  transition: flex-direction 0s 0.3s, padding 0.6s cubic-bezier(0.32, 0.72, 0, 1);
+  gap: 0;
+  max-width: 100%;
+  transition: flex-direction 0s 0.3s, gap 0.45s cubic-bezier(0.32, 0.72, 0, 1);
 
   .welcome-revealed & {
     flex-direction: row;
-    padding: 0 0 16px;
-    gap: 8px;
+    align-items: center;
+    gap: 4px;
   }
 }
 
@@ -300,11 +321,16 @@ $ob-accent: #222222;
   width: 220px;
   height: 220px;
   flex-shrink: 0;
-  transition: width 0.6s cubic-bezier(0.32, 0.72, 0, 1), height 0.6s cubic-bezier(0.32, 0.72, 0, 1);
+  transform: translateX(0);
+  transition:
+    width 0.6s cubic-bezier(0.32, 0.72, 0, 1),
+    height 0.6s cubic-bezier(0.32, 0.72, 0, 1),
+    transform 0.6s cubic-bezier(0.32, 0.72, 0, 1);
 
   .welcome-revealed & {
     width: 72px;
     height: 72px;
+    transform: translateX(6px);
   }
 }
 
@@ -315,6 +341,7 @@ $ob-accent: #222222;
   letter-spacing: -0.5px;
   margin: 0;
   line-height: 1.2;
+  text-align: center;
   opacity: 0;
   transform: translateX(20px);
   transition: opacity 0.5s ease 0.15s, transform 0.5s ease 0.15s;
@@ -322,6 +349,7 @@ $ob-accent: #222222;
   .welcome-revealed & {
     opacity: 1;
     transform: translateX(0);
+    text-align: left;
   }
 }
 
@@ -504,6 +532,109 @@ $ob-accent: #222222;
   }
 }
 
+// Tutor welcome: use full viewport width (scrollbar at edge); wide feature grid on larger screens.
+.pre-step-container.welcome-phase {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 0;
+  padding-bottom: max(24px, env(safe-area-inset-bottom, 0px));
+  height: auto;
+  min-height: calc(100vh - 56px);
+  background: #ffffff;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+
+  .pre-step-inner.welcome-inner {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    max-width: min(1120px, 100%);
+    width: 100%;
+    margin: 0 auto;
+    padding: 12px 24px 40px;
+    box-sizing: border-box;
+    min-height: 0;
+    align-items: stretch;
+  }
+
+  .welcome-hero {
+    padding: 28px 0 20px;
+  }
+
+  .welcome-hero-cluster {
+    margin-left: auto;
+    margin-right: auto;
+    max-width: min(960px, 100%);
+  }
+
+  .welcome-title {
+    max-width: none;
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .welcome-body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  &.welcome-revealed .welcome-body {
+    flex: 1;
+    min-height: 0;
+  }
+
+  &.welcome-revealed .welcome-body .pre-step-cta {
+    margin-top: auto;
+  }
+
+  .welcome-subtitle {
+    max-width: 560px;
+  }
+
+  .welcome-features {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+    max-width: none;
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+
+    @media (min-width: 720px) {
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+  }
+
+  .welcome-feature-card {
+    min-height: 100%;
+  }
+
+  .welcome-body .pre-step-cta {
+    align-self: center;
+    width: 100%;
+    max-width: 400px;
+  }
+
+  .welcome-how-it-works {
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+  }
+
+  .welcome-trust {
+    max-width: none;
+    width: 100%;
+    justify-content: center;
+    gap: 20px 40px;
+    flex-wrap: wrap;
+  }
+}
+
 @media (max-width: 520px) {
   .pre-step-container {
     padding: 20px 16px;
@@ -652,6 +783,38 @@ ion-header {
   justify-content: center;
   padding: 40px 20px;
   background: linear-gradient(135deg, #fafafa 0%, #f5f5f7 50%, #f0f0f2 100%);
+}
+
+.onboarding-container--wizard {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 0;
+  background: #ffffff;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.onboarding-wizard-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  background: transparent;
+  border-radius: 0;
+  padding: 16px 0 0;
+  box-sizing: border-box;
+  box-shadow: none;
+}
+
+.step-content-card--wizard {
+  max-width: none;
+  padding-bottom: 0;
+  margin: 0 auto;
 }
 
 .onboarding-content {
@@ -1115,9 +1278,10 @@ ion-header {
     }
     
     .field-hint {
-      font-size: 12px;
+      font-size: 13px;
       color: $ob-text-secondary;
-      margin: -4px 0 8px 0;
+      margin: 6px 0 16px 0;
+      line-height: 1.45;
       font-weight: 400;
     }
     
@@ -1170,7 +1334,12 @@ ion-header {
     .field-note {
       font-size: 13px;
       color: $ob-text-secondary;
-      margin: 6px 0 0 0;
+      margin: 6px 0 16px 0;
+      line-height: 1.45;
+    }
+
+    &.rate-field .field-note {
+      margin-top: 14px;
     }
     
     .optional-label {
@@ -1489,7 +1658,7 @@ ion-header {
 .video-description {
   font-size: 14px;
   color: $ob-text-secondary;
-  margin: 0 0 20px 0;
+  margin: 0 0 24px 0;
   line-height: 1.5;
   text-align: center;
 }
@@ -1808,10 +1977,20 @@ ion-header {
   box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 14px rgba(0,0,0,0.05);
   max-width: 520px;
   width: 100%;
-  animation: stepFadeIn 0.3s ease-out;
+  opacity: 0;
+  transform: translateY(8px);
+  animation-name: stepFadeIn;
+  animation-duration: 0.3s;
+  animation-timing-function: ease-out;
+  animation-fill-mode: forwards;
 
+  &:nth-child(1) { animation-delay: 0s; }
   &:nth-child(2) { animation-delay: 0.06s; }
   &:nth-child(3) { animation-delay: 0.12s; }
+  &:nth-child(4) { animation-delay: 0.18s; }
+  &:nth-child(5) { animation-delay: 0.24s; }
+  &:nth-child(6) { animation-delay: 0.30s; }
+  &:nth-child(7) { animation-delay: 0.36s; }
 }
 
 .preview-detail-header {

@@ -25,9 +25,9 @@
 
     <div class="pre-step-rotating-heading">
       <span
-        *ngFor="let text of headingTexts; let i = index"
+        *ngFor="let headingKey of headingRotationKeys; let i = index"
         class="rotating-text"
-        [class.visible]="i === activeHeadingIndex">{{ text }}</span>
+        [class.visible]="i === activeHeadingIndex">{{ headingKey | translate }}</span>
     </div>
     <p class="pre-step-subtitle">{{ 'ONBOARDING.LANG_SELECT.CHOOSE_SUBTITLE' | translate }}</p>
 
@@ -94,8 +94,10 @@
     </div> -->
 
     <div class="welcome-hero">
-      <dotlottie-player src="/assets/Celebration.lottie" autoplay speed="1" class="welcome-celebration-lottie"></dotlottie-player>
-      <h1 class="welcome-title">{{ 'ONBOARDING.WELCOME_SCREEN.GREETING' | translate }}</h1>
+      <div class="welcome-hero-cluster">
+        <dotlottie-player src="/assets/Celebration.lottie" autoplay speed="1" class="welcome-celebration-lottie"></dotlottie-player>
+        <h1 class="welcome-title">{{ 'ONBOARDING.WELCOME_SCREEN.GREETING' | translate }}</h1>
+      </div>
     </div>
 
     <div class="welcome-body">
@@ -197,172 +199,41 @@
   </ion-toolbar>
 </ion-header>
 
-<div class="onboarding-container" *ngIf="!showPreview && !showWelcome && preStepPhase === 'done'">
-  <!-- Two Column Layout -->
-  <div class="onboarding-content">
-    
-    <!-- Left Column: Progress & Navigation -->
-    <div class="left-column">
-      <!-- Header -->
-      <div class="onboarding-header">
-        <h1>{{ 'ONBOARDING.STUDENT.WELCOME_TITLE' | translate }}</h1>
-        <p>{{ 'ONBOARDING.STUDENT.WELCOME_SUBTITLE' | translate }}</p>
-      </div>
-
-      <!-- Progress Bar -->
-      <div class="progress-section">
-        <div class="progress-bar-bg">
-          <div class="progress-bar-fill" [style.width.%]="getProgressPercentage()"></div>
-        </div>
-        <p class="progress-text">{{ 'ONBOARDING.STEP_INDICATOR' | translate:{ current: currentStep, total: totalSteps } }}</p>
-      </div>
-
-      <!-- Steps List -->
-      <div class="steps-list">
-        <div 
-          class="step-item"
-          [class.completed]="currentStep > 1"
-          [class.current]="currentStep === 1"
-          (click)="currentStep = 1">
-          <div class="step-indicator">
-            <ion-icon *ngIf="currentStep > 1" name="checkmark-circle"></ion-icon>
-            <span *ngIf="currentStep <= 1" class="step-number">1</span>
-          </div>
-          <div class="step-info">
-            <h3>{{ 'ONBOARDING.STUDENT.SIDEBAR_ABOUT' | translate }}</h3>
-            <p>{{ 'ONBOARDING.STUDENT.SIDEBAR_ABOUT_DESC' | translate }}</p>
-          </div>
-        </div>
-
-        <div 
-          class="step-item"
-          [class.completed]="currentStep > 2"
-          [class.current]="currentStep === 2"
-          (click)="currentStep > 1 ? currentStep = 2 : null">
-          <div class="step-indicator">
-            <ion-icon *ngIf="currentStep > 2" name="checkmark-circle"></ion-icon>
-            <span *ngIf="currentStep <= 2" class="step-number">2</span>
-          </div>
-          <div class="step-info">
-            <h3>{{ 'ONBOARDING.STUDENT.SIDEBAR_NATIVE' | translate }}</h3>
-            <p>{{ 'ONBOARDING.STUDENT.SIDEBAR_NATIVE_DESC' | translate }}</p>
-          </div>
-        </div>
-
-        <div 
-          class="step-item"
-          [class.completed]="currentStep > 3"
-          [class.current]="currentStep === 3"
-          (click)="currentStep > 2 ? currentStep = 3 : null">
-          <div class="step-indicator">
-            <ion-icon *ngIf="currentStep > 3" name="checkmark-circle"></ion-icon>
-            <span *ngIf="currentStep <= 3" class="step-number">3</span>
-          </div>
-          <div class="step-info">
-            <h3>{{ 'ONBOARDING.STUDENT.SIDEBAR_LANGUAGES' | translate }}</h3>
-            <p>{{ 'ONBOARDING.STUDENT.SIDEBAR_LANGUAGES_DESC' | translate }}</p>
-          </div>
-        </div>
-
-        <div 
-          class="step-item"
-          [class.completed]="currentStep > 4"
-          [class.current]="currentStep === 4"
-          (click)="currentStep > 3 ? currentStep = 4 : null">
-          <div class="step-indicator">
-            <ion-icon *ngIf="currentStep > 4" name="checkmark-circle"></ion-icon>
-            <span *ngIf="currentStep <= 4" class="step-number">4</span>
-          </div>
-          <div class="step-info">
-            <h3>Your Goal</h3>
-            <p>What you want to achieve</p>
-          </div>
-        </div>
-
-        <div 
-          class="step-item"
-          [class.completed]="currentStep > 5"
-          [class.current]="currentStep === 5"
-          (click)="currentStep > 4 ? currentStep = 5 : null">
-          <div class="step-indicator">
-            <ion-icon *ngIf="currentStep > 5" name="checkmark-circle"></ion-icon>
-            <span *ngIf="currentStep <= 5" class="step-number">5</span>
-          </div>
-          <div class="step-info">
-            <h3>Your Level</h3>
-            <p>Where you're starting from</p>
-          </div>
-        </div>
-
-        <div 
-          class="step-item"
-          [class.completed]="currentStep > 6"
-          [class.current]="currentStep === 6"
-          (click)="currentStep > 5 ? currentStep = 6 : null">
-          <div class="step-indicator">
-            <ion-icon *ngIf="currentStep > 6" name="checkmark-circle"></ion-icon>
-            <span *ngIf="currentStep <= 6" class="step-number">6</span>
-          </div>
-          <div class="step-info">
-            <h3>Timeline</h3>
-            <p>Your target pace</p>
-          </div>
-        </div>
-
-        <!-- Review Step - only visible after user has reached preview -->
-        <div 
-          class="step-item review-step"
-          *ngIf="hasReachedPreview"
-          [class.current]="false"
-          (click)="showPreviewPage()">
-          <div class="step-indicator review-indicator">
-            <ion-icon name="document-text"></ion-icon>
-          </div>
-          <div class="step-info">
-            <h3>{{ 'ONBOARDING.STUDENT.SIDEBAR_REVIEW' | translate }}</h3>
-            <p>{{ 'ONBOARDING.STUDENT.SIDEBAR_REVIEW_DESC' | translate }}</p>
-          </div>
+<div class="onboarding-container onboarding-container--wizard" *ngIf="!showPreview && !showWelcome && preStepPhase === 'done'">
+  <div class="onboarding-wizard-card">
+    <div class="cm-wizard-viewport-scroll" [class.cm-wizard-viewport-scroll--fit]="currentStep === 2 || currentStep === 3 || currentStep === 5">
+    <div class="cm-details-wizard-page-shell">
+      <div class="cm-details-wizard-page-toolbar">
+        <p class="cm-details-wizard-page-toolbar-title">{{ 'ONBOARDING.STUDENT.WIZARD_FLOW_TITLE' | translate }}</p>
+        <div class="cm-details-wizard-page-toolbar-end">
+          <button
+            type="button"
+            class="cm-details-wizard-text-link"
+            *ngIf="hasReachedPreview"
+            (click)="showPreviewPage()">
+            {{ 'ONBOARDING.STUDENT.WIZARD_REVIEW_LINK' | translate }}
+          </button>
+          <span class="cm-details-wizard-step-indicator">{{ 'ONBOARDING.STEP_INDICATOR' | translate:{ current: currentStep, total: totalSteps } }}</span>
         </div>
       </div>
 
-      <!-- Navigation Buttons -->
-      <div class="nav-buttons">
-        <ion-button 
-          fill="clear" 
-          (click)="previousStep()">
-          <ion-icon name="chevron-back" slot="start"></ion-icon>
-          {{ 'ONBOARDING.NAV.PREVIOUS' | translate }}
-        </ion-button>
+      <div class="cm-details-wizard">
+        <div class="cm-details-wizard-progress" aria-hidden="true">
+          <div class="cm-details-wizard-progress-fill" [style.width.%]="studentWizardProgressPercent"></div>
+        </div>
 
-        <ion-button 
-          fill="clear" 
-          class="next-step-btn"
-          *ngIf="currentStep < totalSteps"
-          [disabled]="!canProceed()"
-          (click)="nextStep()">
-          {{ 'ONBOARDING.NAV.NEXT' | translate }}
-          <ion-icon name="chevron-forward" slot="end"></ion-icon>
-        </ion-button>
-      </div>
-    </div>
+        <div class="cm-details-wizard-scroll">
+          <div class="cm-details-wizard-scroll-inner">
+            <div class="cm-step-header cm-details-wizard-header">
+              <h1>{{ studentWizardTitleKey | translate }}</h1>
+              <p>{{ studentWizardSubtitleKey | translate }}</p>
+            </div>
 
-    <!-- Vertical Separator -->
-    <div class="separator"></div>
-
-    <!-- Right Column: Current Step Content -->
-    <div class="right-column">
-      <div class="right-col-progress">
-        <div class="right-col-progress-fill" [style.width.%]="(currentStep / totalSteps) * 100"></div>
-      </div>
-      <img src="assets/barnabi-notes.png" class="right-column-mascot" alt="" aria-hidden="true" />
-      <div class="step-content-scrollable">
-        <div class="step-content-card">
+            <div class="cm-details-wizard-panel">
+              <div class="step-content-card step-content-card--wizard">
         
         <!-- Step 1: Name -->
         <div *ngIf="currentStep === 1">
-          <h2 class="step-title">{{ 'ONBOARDING.STUDENT.STEP1_TITLE' | translate }}</h2>
-          <p class="step-description">{{ 'ONBOARDING.STUDENT.STEP1_SUBTITLE' | translate }}</p>
-
           <div class="form-fields">
             <div class="form-field">
               <label>{{ 'ONBOARDING.STUDENT.STEP1_FIRST_NAME' | translate }}</label>
@@ -389,9 +260,6 @@
 
         <!-- Step 2: Native Language -->
         <div *ngIf="currentStep === 2">
-          <h2 class="step-title">{{ 'ONBOARDING.STUDENT.STEP2_TITLE' | translate }}</h2>
-          <p class="step-description">{{ 'ONBOARDING.STUDENT.STEP2_SUBTITLE' | translate }}</p>
-
           <div class="language-grid">
             <button 
               *ngFor="let lang of nativeLanguageOptions" 
@@ -399,32 +267,26 @@
               [class.selected]="nativeLanguage === lang.code"
               (click)="setNativeLanguage(lang.code)">
               <span class="language-native">{{ lang.native }}</span>
-              <span class="language-name">({{ lang.name }})</span>
+              <span class="language-name">({{ lang.nameKey | translate }})</span>
             </button>
           </div>
         </div>
 
         <!-- Step 3: Languages to Learn -->
         <div *ngIf="currentStep === 3">
-          <h2 class="step-title">{{ 'ONBOARDING.STUDENT.STEP3_TITLE' | translate }}</h2>
-          <p class="step-description">{{ 'ONBOARDING.STUDENT.STEP3_SUBTITLE' | translate }}</p>
-
           <div class="options-grid">
             <button 
-              *ngFor="let language of availableLanguages"
+              *ngFor="let lang of learnableLanguages"
               class="option-button"
-              [class.selected]="selectedLanguages.includes(language)"
-              (click)="toggleLanguage(language)">
-              {{ language }}
+              [class.selected]="selectedLanguages.includes(lang.value)"
+              (click)="toggleLanguage(lang.value)">
+              {{ lang.nameKey | translate }}
             </button>
           </div>
         </div>
 
         <!-- Step 4: What's your goal? -->
         <div *ngIf="currentStep === 4">
-          <h2 class="step-title">What's your goal?</h2>
-          <p class="step-description">This helps us create a personalized learning path for you.</p>
-
           <div class="goal-cards-grid">
             <button 
               *ngFor="let goal of goalTypeOptions"
@@ -435,8 +297,8 @@
                 <ion-icon [name]="goal.icon"></ion-icon>
               </div>
               <div class="goal-type-text">
-                <span class="goal-type-label">{{ goal.label }}</span>
-                <span class="goal-type-desc">{{ goal.description }}</span>
+                <span class="goal-type-label">{{ goal.labelKey | translate }}</span>
+                <span class="goal-type-desc">{{ goal.descKey | translate }}</span>
               </div>
               <div class="goal-type-check" *ngIf="learningGoalType === goal.value">
                 <ion-icon name="checkmark-circle"></ion-icon>
@@ -444,15 +306,16 @@
             </button>
           </div>
 
-          <div class="custom-goal-input" *ngIf="learningGoalType === 'other'">
-            <label>Describe your goal</label>
+          <div class="custom-goal-input" #customGoalPanel *ngIf="learningGoalType === 'other'">
+            <label>{{ 'ONBOARDING.STUDENT.CUSTOM_GOAL_LABEL' | translate }}</label>
             <textarea
+              #customGoalTextarea
               [(ngModel)]="learningGoalDescription"
-              placeholder="e.g., Connect with my partner's family, prepare for a trip abroad..."
+              [placeholder]="'ONBOARDING.STUDENT.CUSTOM_GOAL_PLACEHOLDER' | translate"
               maxlength="200"
               rows="3"
               class="custom-goal-textarea"></textarea>
-            <span class="custom-goal-hint">{{ learningGoalDescription.length }}/200</span>
+            <span class="custom-goal-hint">{{ 'ONBOARDING.CHAR_COUNT' | translate:{ current: learningGoalDescription.length, max: 200 } }}</span>
           </div>
 
           <button
@@ -467,9 +330,6 @@
 
         <!-- Step 5: Where are you now? -->
         <div *ngIf="currentStep === 5">
-          <h2 class="step-title">Where are you now?</h2>
-          <p class="step-description">No pressure -- this just helps us start you at the right place.</p>
-
           <div class="level-cards-list">
             <button 
               *ngFor="let level of levelOptions"
@@ -477,8 +337,8 @@
               [class.selected]="selfAssessedLevel === level.value"
               (click)="setSelfAssessedLevel(level.value)">
               <div class="level-card-text">
-                <span class="level-card-label">{{ level.label }}</span>
-                <span class="level-card-desc">{{ level.description }}</span>
+                <span class="level-card-label">{{ level.labelKey | translate }}</span>
+                <span class="level-card-desc">{{ level.descKey | translate }}</span>
               </div>
               <div class="level-card-check" *ngIf="selfAssessedLevel === level.value">
                 <ion-icon name="checkmark-circle"></ion-icon>
@@ -489,9 +349,6 @@
 
         <!-- Step 6: Timeline -->
         <div *ngIf="currentStep === 6">
-          <h2 class="step-title">Do you have a target date?</h2>
-          <p class="step-description">This helps us pace your learning plan. You can always change it later.</p>
-
           <div class="timeline-cards-list">
             <button 
               *ngFor="let tl of timelineOptions"
@@ -501,7 +358,7 @@
               <div class="timeline-card-icon">
                 <ion-icon [name]="tl.icon"></ion-icon>
               </div>
-              <span class="timeline-card-label">{{ tl.label }}</span>
+              <span class="timeline-card-label">{{ tl.labelKey | translate }}</span>
               <div class="timeline-card-check" *ngIf="goalTimeline === tl.value">
                 <ion-icon name="checkmark-circle"></ion-icon>
               </div>
@@ -509,7 +366,7 @@
           </div>
 
           <div class="date-picker-wrapper" *ngIf="goalTimeline === 'specific_date'">
-            <label>Target date</label>
+            <label>{{ 'ONBOARDING.STUDENT.TIMELINE_TARGET_DATE_LABEL' | translate }}</label>
             <input 
               type="date"
               [(ngModel)]="goalTargetDate"
@@ -517,35 +374,41 @@
               [min]="'2026-04-01'">
           </div>
         </div>
-      </div>
-      </div>
 
-      <!-- Action Button - Outside scrollable container -->
-      <div class="action-button-wrapper">
-        <ion-button 
-          *ngIf="currentStep < totalSteps"
-          size="large"
-          class="primary-action"
-          [disabled]="!canProceed()"
-          (click)="nextStep()">
-          {{ 'ONBOARDING.NAV.CONTINUE' | translate }}
-          <ion-icon name="arrow-forward" slot="end"></ion-icon>
-        </ion-button>
-      </div>
-
-      <div class="action-button-wrapper">
-        <ion-button 
-          *ngIf="currentStep === totalSteps"
-          size="large"
-          class="submit-action"
-          [disabled]="!canProceed()"
-          (click)="showPreviewPage()">
-          {{ 'ONBOARDING.NAV.DONE' | translate }}
-          <ion-icon name="checkmark" slot="end"></ion-icon>
-        </ion-button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
+    </div>
+  </div>
 
+  <div class="cm-wizard-viewport-footer" role="navigation" [attr.aria-label]="'ONBOARDING.WIZARD_FOOTER_NAV_A11Y' | translate">
+    <div class="cm-wizard-viewport-footer__start">
+      <button type="button" class="cm-wizard-viewport-footer__back" (click)="previousStep()">
+        {{ 'ONBOARDING.NAV.PREVIOUS' | translate }}
+      </button>
+    </div>
+    <div class="cm-wizard-viewport-footer__spacer"></div>
+    <button
+      type="button"
+      class="cm-wizard-viewport-footer__primary"
+      *ngIf="currentStep < totalSteps"
+      [disabled]="!canProceed()"
+      (click)="nextStep()">
+      {{ 'ONBOARDING.NAV.CONTINUE' | translate }}
+      <ion-icon name="arrow-forward-outline" aria-hidden="true"></ion-icon>
+    </button>
+    <button
+      type="button"
+      class="cm-wizard-viewport-footer__primary"
+      *ngIf="currentStep === totalSteps"
+      [disabled]="!canProceed()"
+      (click)="showPreviewPage()">
+      {{ 'ONBOARDING.NAV.DONE' | translate }}
+      <ion-icon name="checkmark" aria-hidden="true"></ion-icon>
+    </button>
   </div>
 </div>
 
@@ -621,12 +484,12 @@
           <div class="preview-detail-icon">
             <ion-icon name="globe"></ion-icon>
           </div>
-          <h3>Languages</h3>
+          <h3>{{ 'ONBOARDING.STUDENT.PREVIEW_LANGUAGE_SECTION' | translate }}</h3>
           <button class="edit-link" (click)="goBackToEdit(3)">{{ 'ONBOARDING.NAV.EDIT' | translate }}</button>
         </div>
         <div class="preview-detail-rows">
           <div class="preview-detail-row">
-            <span class="detail-label">Learning</span>
+            <span class="detail-label">{{ 'ONBOARDING.STUDENT.PREVIEW_LEARNING' | translate }}</span>
             <span class="detail-value">{{ previewSelectedLanguages }}</span>
           </div>
         </div>
@@ -637,20 +500,20 @@
           <div class="preview-detail-icon">
             <ion-icon name="rocket"></ion-icon>
           </div>
-          <h3>Goal & Level</h3>
+          <h3>{{ 'ONBOARDING.STUDENT.PREVIEW_GOAL_LEVEL_SECTION' | translate }}</h3>
           <button class="edit-link" (click)="goBackToEdit(4)">{{ 'ONBOARDING.NAV.EDIT' | translate }}</button>
         </div>
         <div class="preview-detail-rows">
           <div class="preview-detail-row">
-            <span class="detail-label">Goal</span>
+            <span class="detail-label">{{ 'ONBOARDING.STUDENT.PREVIEW_GOAL' | translate }}</span>
             <span class="detail-value">{{ previewGoalLabel }}</span>
           </div>
           <div class="preview-detail-row">
-            <span class="detail-label">Current Level</span>
+            <span class="detail-label">{{ 'ONBOARDING.STUDENT.PREVIEW_CURRENT_LEVEL' | translate }}</span>
             <span class="detail-value">{{ previewLevelLabel }}</span>
           </div>
           <div class="preview-detail-row">
-            <span class="detail-label">Timeline</span>
+            <span class="detail-label">{{ 'ONBOARDING.STUDENT.PREVIEW_TIMELINE_ROW' | translate }}</span>
             <span class="detail-value">{{ previewTimelineLabel }}</span>
           </div>
         </div>

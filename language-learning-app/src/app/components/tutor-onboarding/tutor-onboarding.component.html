@@ -1,4 +1,4 @@
-<div class="onboarding-container">
+<div class="onboarding-container tutor-approval-wizard-page">
   <!-- Hidden file input for picture upload -->
   <input 
     type="file" 
@@ -13,98 +13,60 @@
     <p>Loading...</p>
   </div>
 
-  <!-- Onboarding Content - Two Column Layout -->
-  <div *ngIf="!loading" class="onboarding-content">
-    
-    <!-- Close Button -->
-    <button class="close-button" (click)="closeOnboarding()">
+  <div *ngIf="!loading" class="tutor-approval-wizard">
+    <button type="button" class="close-button" (click)="closeOnboarding()">
       <ion-icon name="close"></ion-icon>
     </button>
-    
-    <!-- Left Column: Progress & Navigation -->
-    <div class="left-column">
-      <img src="assets/barnabi-notes.png" class="left-column-mascot" alt="" aria-hidden="true" />
-      <!-- Header -->
-      <div class="onboarding-header">
-        <h1>Tutor Approval</h1>
-        <p>Complete these final steps to start teaching</p>
+
+    <div class="cm-wizard-viewport-scroll">
+    <div class="cm-details-wizard-page-shell tutor-approval-wizard-shell">
+      <div class="cm-details-wizard-page-toolbar">
+        <p class="cm-details-wizard-page-toolbar-title">Tutor Approval</p>
+        <span class="cm-details-wizard-step-indicator">{{ approvalStepBadgeText }}</span>
       </div>
 
-      <!-- Progress Bar -->
-      <div class="progress-section">
-        <div class="progress-bar-bg">
-          <div class="progress-bar-fill" [style.width.%]="progressPercentage"></div>
+      <div class="cm-details-wizard">
+        <div class="cm-details-wizard-progress" aria-hidden="true">
+          <div class="cm-details-wizard-progress-fill" [style.width.%]="approvalWizardProgressPercent"></div>
         </div>
-        <p class="progress-text">{{ completedStepsCount }} of {{ steps.length }} steps completed</p>
-      </div>
 
-      <!-- Steps List -->
-      <div class="steps-list">
-        <div 
-          *ngFor="let step of steps; let i = index" 
-          class="step-item"
-          [class.completed]="step.completed"
-          [class.current]="i === currentStepIndex"
-          (click)="currentStepIndex = i">
-          <div class="step-indicator">
-            <ion-icon *ngIf="step.completed" name="checkmark-circle"></ion-icon>
-            <span *ngIf="!step.completed" class="step-number">{{ i + 1 }}</span>
-          </div>
-          <div class="step-info">
-            <h3>{{ step.title }}</h3>
-            <p>{{ step.description }}</p>
-          </div>
+        <div class="cm-details-wizard-step-chips" role="tablist" aria-label="Approval steps">
+          <button
+            type="button"
+            *ngFor="let step of steps; let i = index"
+            class="cm-details-wizard-step-chip"
+            [class.cm-details-wizard-step-chip--done]="step.completed"
+            [class.cm-details-wizard-step-chip--current]="i === currentStepIndex"
+            (click)="selectApprovalStep(i)"
+            role="tab"
+            [attr.aria-selected]="i === currentStepIndex">
+            <span class="cm-details-wizard-step-chip-num">
+              <ion-icon *ngIf="step.completed" name="checkmark" aria-hidden="true"></ion-icon>
+              <span *ngIf="!step.completed">{{ i + 1 }}</span>
+            </span>
+            <span class="cm-details-wizard-step-chip-text">
+              <strong>{{ step.title }}</strong>
+              <span>{{ step.description }}</span>
+            </span>
+          </button>
         </div>
-      </div>
 
-      <!-- Navigation Buttons -->
-      <div class="nav-buttons">
-        <ion-button 
-          fill="clear" 
-          [disabled]="isFirstStep"
-          (click)="previousStep()">
-          <ion-icon name="chevron-back" slot="start"></ion-icon>
-          Previous
-        </ion-button>
+        <div class="cm-details-wizard-scroll">
+          <div class="cm-details-wizard-scroll-inner">
+            <div class="cm-step-header cm-details-wizard-header tutor-approval-wizard-header">
+              <div class="tutor-approval-header-icon" aria-hidden="true">
+                <ion-icon [name]="approvalStepIcon"></ion-icon>
+              </div>
+              <h1>{{ approvalStepTitle }}</h1>
+              <p>{{ approvalStepDescription }}</p>
+            </div>
 
-        <ion-button 
-          fill="clear" 
-          *ngIf="!isLastStep"
-          (click)="nextStep()">
-          Next
-          <ion-icon name="chevron-forward" slot="end"></ion-icon>
-        </ion-button>
-      </div>
-
-      <!-- Skip Option -->
-      <ion-button 
-        [fill]="allStepsComplete ? 'solid' : 'clear'"
-        size="small"
-        class="skip-button"
-        [class.done-button]="allStepsComplete"
-        (click)="skipForNow()">
-        {{ allStepsComplete ? 'Done! 🎉' : "I'll do this later" }}
-      </ion-button>
-    </div>
-
-    <!-- Vertical Separator -->
-    <div class="separator"></div>
-
-    <!-- Right Column: Current Step Content -->
-    <div class="right-column">
-      <div class="step-content-card">
-        <!-- Step Icon -->
-        <div class="step-icon-circle">
-          <ion-icon [name]="currentStep.icon"></ion-icon>
-        </div>
-        
-        <h2 class="step-title">{{ currentStep.title }}</h2>
-        <p class="step-description">{{ currentStep.description }}</p>
-
+            <div class="cm-details-wizard-panel">
+              <div class="step-content-card tutor-approval-step-card">
         <!-- Step-specific content -->
         <div class="step-content">
           <!-- Photo Step -->
-          <div *ngIf="currentStep.id === 'photo'" class="photo-step">
+          <div *ngIf="approvalStepId === 'photo'" class="photo-step">
             <!-- Custom uploaded photo (completed) -->
             <div class="current-photo-large" *ngIf="steps[0].completed && currentUser?.picture">
               <img [src]="currentUser.picture" alt="Profile photo">
@@ -155,7 +117,7 @@
           </div>
 
           <!-- Video Step -->
-          <div *ngIf="currentStep.id === 'video'" class="video-step">
+          <div *ngIf="approvalStepId === 'video'" class="video-step">
                         <!-- Show current status below the upload UI if video exists -->
                         <div *ngIf="approvalStatus?.videoComplete" class="video-status-info">
                           <div *ngIf="approvalStatus?.videoApproved" class="status-badge success">
@@ -186,7 +148,7 @@
           </div>
 
           <!-- Credentials Step -->
-          <div *ngIf="currentStep.id === 'credentials'" class="credentials-step">
+          <div *ngIf="approvalStepId === 'credentials'" class="credentials-step">
             
             <!-- Hidden file inputs -->
             <input type="file" id="gov-id-input" accept="image/*,.pdf" style="display: none;"
@@ -371,7 +333,7 @@
           </div>
 
           <!-- Payment Setup Step -->
-          <div *ngIf="currentStep.id === 'stripe'" class="stripe-step">
+          <div *ngIf="approvalStepId === 'stripe'" class="stripe-step">
             
             <!-- Already completed state -->
             <div *ngIf="approvalStatus?.stripeComplete" class="status-card-large success">
@@ -580,10 +542,9 @@
               </div>
             </div>
           </div>
-        </div>
 
           <!-- TOS Step -->
-          <div *ngIf="currentStep.id === 'tos'" class="tos-step">
+          <div *ngIf="approvalStepId === 'tos'" class="tos-step">
             <!-- Already Accepted -->
             <div *ngIf="steps[4].completed" class="status-card-large success">
               <ion-icon name="checkmark-circle"></ion-icon>
@@ -660,29 +621,29 @@
 
         <!-- Primary Action Button (Photo & Video steps only) -->
         <ion-button 
-          *ngIf="currentStep.id === 'photo' || currentStep.id === 'video'"
+          *ngIf="approvalStepId === 'photo' || approvalStepId === 'video'"
           expand="block" 
           size="large"
           class="primary-action"
-          [disabled]="currentStep.completed"
+          [disabled]="approvalStepCompleted"
           (click)="handleStepAction()">
           <ion-icon 
-            [name]="currentStep.id === 'photo' ? 'camera-outline' : currentStep.icon" 
+            [name]="approvalStepId === 'photo' ? 'camera-outline' : approvalStepIcon" 
             slot="start">
           </ion-icon>
-          <span *ngIf="currentStep.id === 'photo'">
+          <span *ngIf="approvalStepId === 'photo'">
             {{ steps[0].completed ? 'Change Photo' : 'Upload Profile Photo' }}
           </span>
           
-          <span *ngIf="currentStep.id === 'video'">
-            {{ currentStep.completed ? 'Completed' : currentStep.title }}
+          <span *ngIf="approvalStepId === 'video'">
+            {{ approvalStepCompleted ? 'Completed' : approvalStepTitle }}
           </span>
         </ion-button>
-        <p *ngIf="currentStep.id === 'photo'">You can change your photo later in the settings but it must always be a professional photo.</p>
+        <p *ngIf="approvalStepId === 'photo'">You can change your photo later in the settings but it must always be a professional photo.</p>
 
         <!-- Primary Action Button (Payment step - only shown on setup-method sub-step) -->
         <ion-button 
-          *ngIf="currentStep.id === 'stripe' && paymentSetupStep === 'setup-method' && !approvalStatus?.stripeComplete"
+          *ngIf="approvalStepId === 'stripe' && paymentSetupStep === 'setup-method' && !approvalStatus?.stripeComplete"
           expand="block" 
           size="large"
           class="primary-action"
@@ -697,7 +658,7 @@
 
         <!-- Primary Action Button (TOS step) -->
         <ion-button 
-          *ngIf="currentStep.id === 'tos' && !steps[4].completed"
+          *ngIf="approvalStepId === 'tos' && !steps[4].completed"
           expand="block" 
           size="large"
           class="primary-action"
@@ -706,9 +667,31 @@
           <ion-icon name="shield-checkmark" slot="start"></ion-icon>
           {{ 'TUTOR_APPROVAL.TOS_ACCEPT_BUTTON' | translate }}
         </ion-button>
+        </div>
+
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
+    </div>
 
+  <div class="cm-wizard-viewport-footer tutor-approval-viewport-footer" role="navigation" aria-label="Approval steps">
+    <div class="cm-wizard-viewport-footer__start">
+      <button type="button" class="cm-wizard-viewport-footer__back" [disabled]="isFirstStep" (click)="previousStep()">
+        Previous
+      </button>
+      <button type="button" class="cm-details-wizard-text-link tutor-approval-skip" (click)="skipForNow()">
+        {{ allStepsComplete ? 'Done! 🎉' : "I'll do this later" }}
+      </button>
+    </div>
+    <div class="cm-wizard-viewport-footer__spacer"></div>
+    <button type="button" class="cm-wizard-viewport-footer__primary" *ngIf="!isLastStep" (click)="nextStep()">
+      Next
+      <ion-icon name="arrow-forward-outline" aria-hidden="true"></ion-icon>
+    </button>
+  </div>
   </div>
 </div>
 
