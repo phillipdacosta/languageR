@@ -1,9 +1,17 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input, OnDestroy, OnInit, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController, ToastController } from '@ionic/angular';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { forkJoin, Subscription } from 'rxjs';
 import { take } from 'rxjs/operators';
 import { LearningPlanService } from '../../services/learning-plan.service';
+import {
+  recommendedMode as computeRecommendedMode,
+  weeksToTarget,
+  normalizeGoalTargetDate,
+} from '../../shared/goal-pace.helper';
+import { translateLangToDatetimeLocale } from '../../shared/datetime-locale.helper';
 
 /**
  * Focused goal-picker for unframed students promoting their plan to a
@@ -27,14 +35,14 @@ type Timeline = 'specific_date' | 'few_months' | 'no_rush';
 
 interface GoalOption {
   value: GoalType;
-  label: string;
+  labelKey: string;
   icon: string;
-  description: string;
+  descKey: string;
 }
 
 interface TimelineOption {
   value: Timeline;
-  label: string;
+  labelKey: string;
   icon: string;
 }
 
@@ -43,9 +51,12 @@ interface TimelineOption {
   templateUrl: './set-goal.component.html',
   styleUrls: ['./set-goal.component.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, FormsModule]
+  imports: [CommonModule, IonicModule, FormsModule, TranslateModule]
 })
-export class SetGoalComponent implements OnInit {
+export class SetGoalComponent implements OnInit, OnDestroy {
+  /** Smooth-scroll target once pacing copy is bound. */
+  @ViewChild('pacingSuggestionBanner') pacingSuggestionBanner?: ElementRef<HTMLElement>;
+
   /** Language whose plan we're promoting. Required. */
   @Input() language!: string;
   /** Pre-fill the type chooser if the student had a prior goal. */
@@ -54,31 +65,52 @@ export class SetGoalComponent implements OnInit {
   @Input() initialDescription = '';
 
   readonly goalOptions: GoalOption[] = [
-    { value: 'conversational', label: 'Become conversational', icon: 'chatbubbles-outline', description: 'Hold natural conversations with native speakers' },
-    { value: 'exam_prep',     label: 'Prepare for an exam',    icon: 'school-outline',      description: 'DELF, DELE, JLPT, or other certification' },
-    { value: 'professional',  label: 'Use it for work',         icon: 'briefcase-outline',   description: 'Meetings, emails, and business communication' },
-    { value: 'travel',        label: 'Travel and get by',       icon: 'airplane-outline',    description: 'Navigate confidently while traveling abroad' },
-    { value: 'relocation',    label: 'Moving to a new country', icon: 'home-outline',        description: 'Settle in and handle daily life in a new place' },
-    { value: 'other',         label: 'Something else',          icon: 'sparkles-outline',    description: "I'll describe my goal" }
+    { value: 'conversational', labelKey: 'LEARNING_PLAN.GOAL_LABEL_CONVERSATIONAL', icon: 'chatbubbles-outline', descKey: 'ONBOARDING.STUDENT.GOAL_DESC_CONVERSATIONAL' },
+    { value: 'exam_prep',      labelKey: 'LEARNING_PLAN.GOAL_LABEL_EXAM_PREP',      icon: 'school-outline',      descKey: 'ONBOARDING.STUDENT.GOAL_DESC_EXAM_PREP' },
+    { value: 'professional',   labelKey: 'LEARNING_PLAN.GOAL_LABEL_PROFESSIONAL',   icon: 'briefcase-outline',   descKey: 'ONBOARDING.STUDENT.GOAL_DESC_PROFESSIONAL' },
+    { value: 'travel',         labelKey: 'LEARNING_PLAN.GOAL_LABEL_TRAVEL',         icon: 'airplane-outline',    descKey: 'ONBOARDING.STUDENT.GOAL_DESC_TRAVEL' },
+    { value: 'relocation',     labelKey: 'LEARNING_PLAN.GOAL_LABEL_RELOCATION',     icon: 'home-outline',        descKey: 'ONBOARDING.STUDENT.GOAL_DESC_RELOCATION' },
+    { value: 'other',          labelKey: 'LEARNING_PLAN.GOAL_LABEL_OTHER',          icon: 'sparkles-outline',    descKey: 'ONBOARDING.STUDENT.GOAL_DESC_OTHER' }
   ];
 
   readonly timelineOptions: TimelineOption[] = [
-    { value: 'no_rush',       label: 'No rush, just steady progress', icon: 'leaf-outline' },
-    { value: 'few_months',    label: 'Within a few months',           icon: 'time-outline' },
-    { value: 'specific_date', label: 'By a specific date',            icon: 'calendar-outline' }
+    { value: 'no_rush',       labelKey: 'ONBOARDING.STUDENT.TIMELINE_OPTION_NO_RUSH',       icon: 'leaf-outline' },
+    { value: 'few_months',    labelKey: 'ONBOARDING.STUDENT.TIMELINE_OPTION_FEW_MONTHS',    icon: 'time-outline' },
+    { value: 'specific_date', labelKey: 'ONBOARDING.STUDENT.TIMELINE_OPTION_SPECIFIC_DATE', icon: 'calendar-outline' }
   ];
 
   selectedGoalType: GoalType | '' = '';
   description = '';
   selectedTimeline: Timeline = 'no_rush';
   targetDate = '';
+  readonly minTargetDate: string = new Date().toISOString().split('T')[0];
+  datePickerLocale = 'en-US';
 
   submitting = false;
+
+  /**
+   * Non-blocking nudge: if the picked goal + deadline matches an
+   * "unframed serves you better" combo (exam_prep ≤ 12 weeks,
+   * professional ≤ 4 weeks), surface a soft suggestion and let the
+   * student dismiss the modal to stay on single lessons. See
+   * `shared/goal-pace.helper.ts`.
+   */
+  pacingSuggestion: { weeks: number } | null = null;
+
+  pacingBannerTitle = '';
+  pacingBannerBody = '';
+  pacingBannerPrimary = '';
+  pacingBannerDismiss = '';
+
+  private pacingBannerI18nSub: Subscription | null = null;
+  private translateLangSub: Subscription | null = null;
 
   constructor(
     private modalController: ModalController,
     private learningPlanService: LearningPlanService,
-    private toastController: ToastController
+    private toastController: ToastController,
+    private translate: TranslateService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
@@ -88,6 +120,23 @@ export class SetGoalComponent implements OnInit {
     if (this.initialDescription) {
       this.description = this.initialDescription;
     }
+    this.translateLangSub = this.translate.onLangChange.subscribe(() => {
+      this.refreshDatePickerLocale();
+      this.bindPacingBannerLabels();
+    });
+    this.refreshDatePickerLocale();
+    this.refreshPacingSuggestion();
+  }
+
+  private refreshDatePickerLocale(): void {
+    this.datePickerLocale = translateLangToDatetimeLocale(this.translate.currentLang);
+  }
+
+  ngOnDestroy(): void {
+    this.pacingBannerI18nSub?.unsubscribe();
+    this.pacingBannerI18nSub = null;
+    this.translateLangSub?.unsubscribe();
+    this.translateLangSub = null;
   }
 
   selectGoal(value: GoalType) {
@@ -95,6 +144,7 @@ export class SetGoalComponent implements OnInit {
     if (value !== 'other') {
       this.description = '';
     }
+    this.refreshPacingSuggestion();
   }
 
   selectTimeline(value: Timeline) {
@@ -102,6 +152,84 @@ export class SetGoalComponent implements OnInit {
     if (value !== 'specific_date') {
       this.targetDate = '';
     }
+    this.refreshPacingSuggestion();
+  }
+
+  onTargetDateChange(rawValue?: unknown) {
+    const incoming = typeof rawValue === 'undefined' ? this.targetDate : rawValue;
+    const n = normalizeGoalTargetDate(incoming);
+    if (n) {
+      this.targetDate = n;
+    } else if (typeof rawValue === 'string') {
+      this.targetDate = rawValue;
+    }
+    this.refreshPacingSuggestion();
+  }
+
+  private refreshPacingSuggestion() {
+    const goal = {
+      type: this.selectedGoalType || null,
+      timeline: this.selectedTimeline,
+      targetDate: this.targetDate || null,
+    };
+    if (computeRecommendedMode(goal) !== 'single_lessons') {
+      this.pacingSuggestion = null;
+      this.bindPacingBannerLabels();
+      return;
+    }
+    const weeks = weeksToTarget(goal);
+    this.pacingSuggestion = { weeks: weeks ?? 0 };
+    this.bindPacingBannerLabels();
+  }
+
+  private bindPacingBannerLabels(): void {
+    this.pacingBannerI18nSub?.unsubscribe();
+    this.pacingBannerI18nSub = null;
+    if (!this.pacingSuggestion) {
+      this.pacingBannerTitle = '';
+      this.pacingBannerBody = '';
+      this.pacingBannerPrimary = '';
+      this.pacingBannerDismiss = '';
+      return;
+    }
+    const weeks = this.pacingSuggestion.weeks;
+    this.pacingBannerI18nSub = forkJoin({
+      title: this.translate.get('ONBOARDING.STUDENT.PACING_SUGGESTION_TITLE'),
+      body: this.translate.get('ONBOARDING.STUDENT.PACING_SUGGESTION_BODY_UNFRAMED', { weeks }),
+      primary: this.translate.get('ONBOARDING.STUDENT.PACING_SUGGESTION_STAY'),
+      dismiss: this.translate.get('ONBOARDING.STUDENT.PACING_SUGGESTION_DISMISS'),
+    }).subscribe((t) => {
+      this.pacingBannerTitle = t.title;
+      this.pacingBannerBody = t.body;
+      this.pacingBannerPrimary = t.primary;
+      this.pacingBannerDismiss = t.dismiss;
+      this.cdr.detectChanges();
+      this.scheduleScrollPacingSuggestionIntoView();
+    });
+  }
+
+  private scheduleScrollPacingSuggestionIntoView(): void {
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        const el = this.pacingSuggestionBanner?.nativeElement;
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      });
+    }, 0);
+  }
+
+  /**
+   * Student accepted the "stay on single lessons" suggestion. They're
+   * already on an unframed plan (this modal only opens for unframed
+   * students), so we just dismiss without promoting.
+   */
+  stayOnSingleLessons() {
+    this.dismiss(false);
+  }
+
+  dismissPacingSuggestion() {
+    this.pacingSuggestion = null;
+    this.bindPacingBannerLabels();
   }
 
   /** Mirrors onboarding's enabling logic: type required, description
@@ -134,7 +262,7 @@ export class SetGoalComponent implements OnInit {
     this.learningPlanService.promoteUnframedPlan(this.language, goal).pipe(take(1)).subscribe({
       next: async () => {
         const toast = await this.toastController.create({
-          message: 'Your plan is ready — opening your journey.',
+          message: this.translate.instant('ONBOARDING.SET_GOAL.TOAST_SUCCESS'),
           duration: 2200,
           color: 'success',
           position: 'top'
@@ -146,7 +274,7 @@ export class SetGoalComponent implements OnInit {
       error: async (err) => {
         this.submitting = false;
         const message = err?.error?.message
-          || 'We couldn\'t build your plan just now. Please try again in a moment.';
+          || this.translate.instant('ONBOARDING.SET_GOAL.TOAST_ERROR_FALLBACK');
         const toast = await this.toastController.create({
           message,
           duration: 3000,

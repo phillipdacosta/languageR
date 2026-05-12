@@ -19,7 +19,7 @@ import { getTimezoneLabel, formatTimeInTz, formatDateInTz } from '../shared/time
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { environment } from '../../environments/environment';
 import { TutorFeedbackService } from '../services/tutor-feedback.service';
-import { LearningPlanService, GOAL_TYPE_LABELS, LEVEL_LABELS } from '../services/learning-plan.service';
+import { LearningPlanService } from '../services/learning-plan.service';
 import { SetGoalComponent } from '../modals/set-goal/set-goal.component';
 
 @Component({
@@ -86,10 +86,12 @@ export class ProfilePage implements OnInit {
   loadingEarnings = false;
 
   // Learning Goal display (students only, precomputed for template)
-  learningGoalDisplay: string = '';
+  learningGoalTypeKey: string = '';
+  learningGoalCustomDesc: string = '';
   learningGoalIcon: string = 'rocket-outline';
-  learningGoalLevelDisplay: string = '';
-  learningGoalTimelineDisplay: string = '';
+  learningGoalLevelKey: string = '';
+  learningGoalTimelineKey: string = '';
+  learningGoalTimelineDate: string = '';
   goalCooldownActive: boolean = false;
   goalCooldownDateDisplay: string = '';
 
@@ -648,7 +650,8 @@ export class ProfilePage implements OnInit {
   private computeLearningGoalDisplay(user: any) {
     const goal = user?.onboardingData?.learningGoal;
     if (!goal?.type) {
-      this.learningGoalDisplay = '';
+      this.learningGoalTypeKey = '';
+      this.learningGoalCustomDesc = '';
       return;
     }
 
@@ -661,20 +664,34 @@ export class ProfilePage implements OnInit {
       other: 'sparkles-outline'
     };
 
-    this.learningGoalDisplay = GOAL_TYPE_LABELS[goal.type] || goal.type;
-    if (goal.type === 'other' && goal.description) {
-      this.learningGoalDisplay = goal.description;
+    if (goal.type === 'other') {
+      this.learningGoalTypeKey = '';
+      this.learningGoalCustomDesc = goal.description || 'LEARNING_PLAN.GOAL_LABEL_OTHER';
+    } else {
+      this.learningGoalTypeKey = 'LEARNING_PLAN.GOAL_LABEL_' + goal.type.toUpperCase();
+      this.learningGoalCustomDesc = '';
     }
     this.learningGoalIcon = GOAL_ICONS[goal.type] || 'rocket-outline';
-    this.learningGoalLevelDisplay = goal.selfAssessedLevel
-      ? (LEVEL_LABELS[goal.selfAssessedLevel] || goal.selfAssessedLevel) : '';
+
+    const LEVEL_KEY_MAP: Record<string, string> = {
+      complete_beginner: 'ONBOARDING.STUDENT.LEVEL_OPTION_COMPLETE_BEGINNER',
+      some_basics: 'ONBOARDING.STUDENT.LEVEL_OPTION_SOME_BASICS',
+      simple_conversations: 'ONBOARDING.STUDENT.LEVEL_OPTION_SIMPLE_CONVERSATIONS',
+      intermediate: 'ONBOARDING.STUDENT.LEVEL_OPTION_INTERMEDIATE',
+      advanced: 'ONBOARDING.STUDENT.LEVEL_OPTION_ADVANCED'
+    };
+    this.learningGoalLevelKey = goal.selfAssessedLevel
+      ? (LEVEL_KEY_MAP[goal.selfAssessedLevel] || '') : '';
 
     if (goal.timeline === 'specific_date' && goal.targetDate) {
-      this.learningGoalTimelineDisplay = `By ${new Date(goal.targetDate).toLocaleDateString()}`;
+      this.learningGoalTimelineKey = 'ONBOARDING.STUDENT.PREVIEW_TIMELINE_BY_DATE';
+      this.learningGoalTimelineDate = new Date(goal.targetDate).toLocaleDateString();
     } else if (goal.timeline === 'few_months') {
-      this.learningGoalTimelineDisplay = 'Within a few months';
+      this.learningGoalTimelineKey = 'ONBOARDING.STUDENT.TIMELINE_OPTION_FEW_MONTHS';
+      this.learningGoalTimelineDate = '';
     } else {
-      this.learningGoalTimelineDisplay = 'No rush, steady progress';
+      this.learningGoalTimelineKey = 'ONBOARDING.STUDENT.TIMELINE_OPTION_NO_RUSH';
+      this.learningGoalTimelineDate = '';
     }
 
     // Check cooldown from any existing plan

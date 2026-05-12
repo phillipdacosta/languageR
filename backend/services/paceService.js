@@ -35,16 +35,58 @@ const PACE = {
   URGENT:  'urgent'     // specific_date, < 6 weeks out
 };
 
+// Recommendation thresholds — when goal + targetDate suggest the structured
+// chapter roadmap is the wrong shape and the student would be better served
+// by the unframed single-lessons path. See Batch 13 voice-and-framing notes.
+const EXAM_PREP_TIGHT_WEEKS = 12;
+const PROFESSIONAL_TIGHT_WEEKS = 4;
+
+function normalizeTargetDate(raw) {
+  if (raw == null || raw === '') return null;
+  if (typeof raw === 'string') {
+    const s = String(raw).trim();
+    if (!s) return null;
+    const datePart = s.includes('T') ? s.split('T')[0] : s;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) return datePart;
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return null;
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+  if (Array.isArray(raw) && raw.length >= 3) {
+    const y = Number(raw[0]);
+    const m = Number(raw[1]);
+    const day = Number(raw[2]);
+    if (!Number.isNaN(y) && !Number.isNaN(m) && !Number.isNaN(day)) {
+      return `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+    return null;
+  }
+  if (typeof raw === 'object' && raw !== null && 'year' in raw && 'month' in raw && 'day' in raw) {
+    const y = Number(raw.year);
+    const m = Number(raw.month);
+    const day = Number(raw.day);
+    if (!Number.isNaN(y) && !Number.isNaN(m) && !Number.isNaN(day)) {
+      return `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+  }
+  return null;
+}
+
 /**
  * Compute weeks remaining until the student's stated target date.
  * Returns null if no target date is set or it's already past.
  */
 function weeksToTarget(goal) {
-  const td = goal?.targetDate ? new Date(goal.targetDate) : null;
-  if (!td || isNaN(td.getTime())) return null;
-  const diff = td.getTime() - Date.now();
+  const nd = normalizeTargetDate(goal?.targetDate);
+  if (!nd) return null;
+  const [yy, mm, dd] = nd.split('-').map(Number);
+  const endOfDayUtc = Date.UTC(yy, mm - 1, dd, 23, 59, 59, 999);
+  const diff = endOfDayUtc - Date.now();
   if (diff <= 0) return 0;
-  return Math.max(0, Math.round(diff / MS_PER_WEEK));
+  return Math.max(0, Math.floor(diff / MS_PER_WEEK));
 }
 
 /**
@@ -164,6 +206,32 @@ function buildWeeklyRecommendations(goal, focusBetweenLessons = '') {
   };
 }
 
+/**
+ * Recommend either the structured roadmap or the unframed single-lessons
+ * path based on the student's goal + timeline. Used by the goal-pick UIs
+ * (onboarding + SetGoalComponent) to surface a soft, non-blocking
+ * suggestion — the student can always override.
+ *
+ *   exam_prep + specific_date ≤ 12 weeks       → 'single_lessons'
+ *   professional + specific_date ≤ 4 weeks     → 'single_lessons'
+ *   any other combo                            → 'plan'
+ *
+ * Deliberately conservative: only `specific_date` triggers a downgrade —
+ * `few_months` and `no_rush` stay on the roadmap because we can't say the
+ * deadline is actually tight without a real date.
+ */
+function recommendedMode(goal) {
+  if (!goal?.type || !goal?.timeline) return 'plan';
+  if (goal.timeline !== 'specific_date') return 'plan';
+  const wk = weeksToTarget(goal);
+  if (wk === null) return 'plan';
+  // exam_prep + specific_date: always recommend single_lessons (kept in sync
+  // with frontend `shared/goal-pace.helper.ts`).
+  if (goal.type === 'exam_prep') return 'single_lessons';
+  if (goal.type === 'professional' && wk <= PROFESSIONAL_TIGHT_WEEKS) return 'single_lessons';
+  return 'plan';
+}
+
 module.exports = {
   PACE,
   weeksToTarget,
@@ -171,5 +239,8 @@ module.exports = {
   paceKnobs,
   describe,
   buildAiPromptLine,
-  buildWeeklyRecommendations
+  buildWeeklyRecommendations,
+  recommendedMode,
+  EXAM_PREP_TIGHT_WEEKS,
+  PROFESSIONAL_TIGHT_WEEKS
 };

@@ -6,11 +6,17 @@ import { UserService, OnboardingData, TutorOnboardingData, User } from '../servi
 import { LanguageService, LanguageOption, SupportedLanguage } from '../services/language.service';
 import { TranslateService } from '@ngx-translate/core';
 import { OnboardingGuard } from '../guards/onboarding.guard';
-import { Observable, Subscription } from 'rxjs';
+import { Observable, Subscription, forkJoin } from 'rxjs';
 import { take, timeout, retry, catchError, filter } from 'rxjs/operators';
 import { LoadingController, AlertController, ModalController } from '@ionic/angular';
 import { CountrySelectModalComponent } from '../components/country-select-modal/country-select-modal.component';
 import { LoadingService } from '../services/loading.service';
+import {
+  recommendedMode as computeRecommendedMode,
+  weeksToTarget,
+  normalizeGoalTargetDate,
+} from '../shared/goal-pace.helper';
+import { translateLangToDatetimeLocale } from '../shared/datetime-locale.helper';
 
 export type OnboardingNativeLangChip = { code: string; name: string; native: string; nameKey?: string };
 export type StudentGoalCardOption = { value: string; labelKey: string; descKey: string; icon: string };
@@ -41,6 +47,8 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   availableInterfaceLanguages: LanguageOption[] = [];
   selectedInterfaceLanguage: SupportedLanguage = 'en';
   selectedLanguageFlag = '🇬🇧';
+  termsOfServiceHref = '/terms?lang=en';
+  privacyPolicyHref = '/privacy?lang=en';
 
   // Rotating heading (language picker): multilingual lines from i18n.
   readonly headingRotationKeys: readonly string[] = [
@@ -78,6 +86,10 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   private headingInterval: ReturnType<typeof setInterval> | null = null;
   private headingRotationStartTimeout: ReturnType<typeof setTimeout> | null = null;
   private headingRotationLoadSub: Subscription | null = null;
+  /** Cancels in-flight pacing-banner i18n when goal/date changes or component destroys. */
+  private pacingSuggestionI18nSub: Subscription | null = null;
+  /** Re-binds pacing banner copy when the interface language changes. */
+  private translateLangSub: Subscription | null = null;
   /** Delay before applying `setLanguage` after a tap (avoids instant full-page language flicker). */
   private languageApplyDebounce: ReturnType<typeof setTimeout> | null = null;
   private static readonly LANGUAGE_APPLY_DEBOUNCE_MS = 800;
@@ -92,6 +104,7 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   @ViewChild('firstNameInput') firstNameInput?: ElementRef<HTMLInputElement>;
   @ViewChild('customGoalPanel') customGoalPanel?: ElementRef<HTMLElement>;
   @ViewChild('customGoalTextarea') customGoalTextarea?: ElementRef<HTMLTextAreaElement>;
+  @ViewChild('pacingSuggestionBanner') pacingSuggestionBanner?: ElementRef<HTMLElement>;
   
   private lastFocusedStep = 0;
 
@@ -145,12 +158,29 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   selfAssessedLevel: string = '';
   goalTimeline: string = 'no_rush';
   goalTargetDate: string = '';
+  readonly minTargetDate: string = new Date().toISOString().split('T')[0];
+  /** BCP 47 locale for `ion-datetime` (localized month/weekday/cancel labels). */
+  datePickerLocale = 'en-US';
 
   /** When true, the student opted to skip the goal/level/timeline steps and
    *  start with an unframed plan ("I'll start by trying a lesson"). Backend
    *  creates a thin shell plan automatically since `learningGoal` is omitted
    *  from the onboarding payload. */
   skipGoalSetup: boolean = false;
+
+  /**
+   * Soft, non-blocking suggestion shown on the timeline step when the
+   * student's goal + deadline combo suggests single lessons would serve
+   * them better than the structured roadmap (e.g. exam in ≤ 12 weeks).
+   * `null` = no suggestion. See `shared/goal-pace.helper.ts`.
+   */
+  pacingSuggestion: { weeks: number; goalType: string } | null = null;
+
+  /** Pre-resolved pacing-banner strings (avoid translate pipe before JSON finishes loading). */
+  pacingSuggestionTitle = '';
+  pacingSuggestionBody = '';
+  pacingSuggestionAccept = '';
+  pacingSuggestionDismiss = '';
 
   private static readonly NATIVE_LANG_EN_SLUG: Readonly<Record<string, string>> = {
     en: 'ENGLISH',
@@ -344,15 +374,6 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     { code: 'fa', name: 'Persian', native: 'فارسی' }
   ];
 
-  availableGoals = [
-    { key: 'ONBOARDING.STUDENT.GOAL_TRAVEL', value: 'Travel and tourism' },
-    { key: 'ONBOARDING.STUDENT.GOAL_BUSINESS', value: 'Business communication' },
-    { key: 'ONBOARDING.STUDENT.GOAL_ACADEMIC', value: 'Academic studies' },
-    { key: 'ONBOARDING.STUDENT.GOAL_CULTURE', value: 'Cultural understanding' },
-    { key: 'ONBOARDING.STUDENT.GOAL_PERSONAL', value: 'Personal interest' },
-    { key: 'ONBOARDING.STUDENT.GOAL_CAREER', value: 'Career advancement' },
-    { key: 'ONBOARDING.STUDENT.GOAL_FRIENDS', value: 'Make new friends' }
-  ];
 
   experienceLevels = [
     { key: 'ONBOARDING.STUDENT.LEVEL_BEGINNER', value: 'Beginner' },
@@ -367,7 +388,6 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     { key: 'ONBOARDING.STUDENT.SCHEDULE_FLEXIBLE', value: 'Flexible schedule' }
   ];
 
-  translatedGoalsList = '';
   translatedExperienceLevel = '';
   translatedSchedule = '';
 
@@ -514,12 +534,17 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     this.user$ = this.authService.user$;
     this.availableInterfaceLanguages = this.languageService.supportedLanguages;
     this.selectedInterfaceLanguage = this.languageService.getCurrentLanguage();
+    this.refreshPublicLegalLinks();
   }
 
   ngOnDestroy() {
     this.clearLanguageApplyDebounce();
     this.headingRotationLoadSub?.unsubscribe();
     this.headingRotationLoadSub = null;
+    this.pacingSuggestionI18nSub?.unsubscribe();
+    this.pacingSuggestionI18nSub = null;
+    this.translateLangSub?.unsubscribe();
+    this.translateLangSub = null;
     this.cancelHeadingRotationSchedule();
     this.stopHeadingRotation();
   }
@@ -529,6 +554,12 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
       clearTimeout(this.languageApplyDebounce);
       this.languageApplyDebounce = null;
     }
+  }
+
+  private refreshPublicLegalLinks(): void {
+    const lang = encodeURIComponent(this.selectedInterfaceLanguage);
+    this.termsOfServiceHref = `/terms?lang=${lang}`;
+    this.privacyPolicyHref = `/privacy?lang=${lang}`;
   }
 
   private scheduleInterfaceLanguageApply(lang: SupportedLanguage): void {
@@ -646,7 +677,20 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
       );
     });
 
+    this.translateLangSub = this.translateService.onLangChange.subscribe(() => {
+      this.refreshDatePickerLocale();
+      this.bindPacingSuggestionLabels();
+      if (this.showPreview) {
+        this.computePreviewLabels();
+      }
+    });
+
     this.syncStudentWizardCopy();
+    this.refreshDatePickerLocale();
+  }
+
+  private refreshDatePickerLocale(): void {
+    this.datePickerLocale = translateLangToDatetimeLocale(this.translateService.currentLang);
   }
 
   ngAfterViewChecked() {
@@ -685,6 +729,7 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
       case 6:
         this.studentWizardTitleKey = 'ONBOARDING.STUDENT.TIMELINE_WIZARD_TITLE';
         this.studentWizardSubtitleKey = 'ONBOARDING.STUDENT.TIMELINE_WIZARD_SUBTITLE';
+        this.refreshPacingSuggestion();
         break;
       default:
         this.studentWizardTitleKey = 'ONBOARDING.STUDENT.STEP1_TITLE';
@@ -704,12 +749,14 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   selectInterfaceLanguage(lang: SupportedLanguage) {
     this.selectedInterfaceLanguage = lang;
     this.selectedLanguageFlag = this.languageService.getLanguageOption(lang)?.flag || '🇬🇧';
+    this.refreshPublicLegalLinks();
     this.scheduleInterfaceLanguageApply(lang);
   }
 
   confirmLanguageSelection() {
     this.clearLanguageApplyDebounce();
     this.languageService.setLanguage(this.selectedInterfaceLanguage);
+    this.refreshPublicLegalLinks();
     this.cancelHeadingRotationSchedule();
     this.stopHeadingRotation();
     const ret = this.preLanguageReturn;
@@ -726,6 +773,7 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   goBackToLanguageSelect() {
     this.preStepPhase = 'language';
     this.welcomeRevealed = false;
+    this.refreshPublicLegalLinks();
     this.scheduleHeadingRotationAfterLoad();
   }
 
@@ -883,21 +931,6 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     this.nativeLanguage = code;
   }
 
-  toggleGoal(value: string) {
-    const index = this.learningGoals.indexOf(value);
-    if (index > -1) {
-      this.learningGoals.splice(index, 1);
-    } else {
-      this.learningGoals.push(value);
-    }
-    this.translatedGoalsList = this.learningGoals
-      .map(v => {
-        const goal = this.availableGoals.find(g => g.value === v);
-        return goal ? this.translateService.instant(goal.key) : v;
-      })
-      .join(', ');
-  }
-
   setExperienceLevel(value: string) {
     this.experienceLevel = value;
     const level = this.experienceLevels.find(l => l.value === value);
@@ -913,6 +946,7 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   setLearningGoalType(value: string) {
     this.learningGoalType = value;
     this.skipGoalSetup = false;
+    this.refreshPacingSuggestion();
     if (value !== 'other') {
       this.learningGoalDescription = '';
       return;
@@ -970,6 +1004,8 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     this.selfAssessedLevel = '';
     this.goalTimeline = '';
     this.goalTargetDate = '';
+    this.pacingSuggestion = null;
+    this.bindPacingSuggestionLabels();
   }
 
   setSelfAssessedLevel(value: string) {
@@ -981,6 +1017,117 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     if (value !== 'specific_date') {
       this.goalTargetDate = '';
     }
+    this.refreshPacingSuggestion();
+  }
+
+  onGoalTargetDateChange(rawValue?: unknown) {
+    // ion-datetime can emit either a plain `YYYY-MM-DD` string or a full
+    // ISO datetime. We normalize so `weeksToTarget` is deterministic, then
+    // push the canonical date back into the model so downstream payloads
+    // (and the preview row) read a single shape.
+    const incoming = typeof rawValue === 'undefined' ? this.goalTargetDate : rawValue;
+    const n = normalizeGoalTargetDate(incoming);
+    if (n) {
+      this.goalTargetDate = n;
+    } else if (typeof rawValue === 'string') {
+      this.goalTargetDate = rawValue;
+    }
+    this.refreshPacingSuggestion();
+    this.cdr.detectChanges();
+  }
+
+  /**
+   * Recompute `pacingSuggestion` from the current goal type + timeline +
+   * target date. Called whenever any of those change. Surfaces a soft
+   * "single lessons may serve you better" nudge for deadline-driven
+   * goals that don't fit the chapter roadmap shape.
+   */
+  private refreshPacingSuggestion() {
+    const goal = {
+      type: this.learningGoalType,
+      timeline: this.goalTimeline,
+      targetDate: this.goalTargetDate,
+    };
+    if (computeRecommendedMode(goal) !== 'single_lessons') {
+      this.pacingSuggestion = null;
+      this.bindPacingSuggestionLabels();
+      return;
+    }
+    const weeks = weeksToTarget(goal);
+    this.pacingSuggestion = {
+      weeks: weeks ?? 0,
+      goalType: this.learningGoalType,
+    };
+    this.bindPacingSuggestionLabels();
+  }
+
+  /**
+   * Resolves pacing-banner copy via `TranslateService.get` so strings appear
+   * after locale JSON finishes loading (the `translate` pipe can otherwise
+   * render raw keys on first paint).
+   */
+  private bindPacingSuggestionLabels(): void {
+    this.pacingSuggestionI18nSub?.unsubscribe();
+    this.pacingSuggestionI18nSub = null;
+    if (!this.pacingSuggestion) {
+      this.pacingSuggestionTitle = '';
+      this.pacingSuggestionBody = '';
+      this.pacingSuggestionAccept = '';
+      this.pacingSuggestionDismiss = '';
+      return;
+    }
+    const weeks = this.pacingSuggestion.weeks;
+    const goalType = this.pacingSuggestion.goalType;
+    const bodyKey =
+      goalType === 'exam_prep'
+        ? 'ONBOARDING.STUDENT.PACING_SUGGESTION_BODY_EXAM'
+        : 'ONBOARDING.STUDENT.PACING_SUGGESTION_BODY';
+    this.pacingSuggestionI18nSub = forkJoin({
+      title: this.translateService.get('ONBOARDING.STUDENT.PACING_SUGGESTION_TITLE'),
+      body: this.translateService.get(bodyKey, { weeks }),
+      accept: this.translateService.get('ONBOARDING.STUDENT.PACING_SUGGESTION_ACCEPT'),
+      dismiss: this.translateService.get('ONBOARDING.STUDENT.PACING_SUGGESTION_DISMISS'),
+    }).subscribe((t) => {
+      let bodyOut = t.body;
+      if (goalType === 'exam_prep' && (bodyOut === bodyKey || !bodyOut)) {
+        bodyOut = this.translateService.instant('ONBOARDING.STUDENT.PACING_SUGGESTION_BODY', { weeks });
+      }
+      this.pacingSuggestionTitle = t.title;
+      this.pacingSuggestionBody = bodyOut;
+      this.pacingSuggestionAccept = t.accept;
+      this.pacingSuggestionDismiss = t.dismiss;
+      this.cdr.detectChanges();
+      this.scheduleScrollPacingSuggestionIntoView();
+    });
+  }
+
+  /** After the banner mounts and copy is bound, smooth-scroll it into the wizard viewport. */
+  private scheduleScrollPacingSuggestionIntoView(): void {
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        const el = this.pacingSuggestionBanner?.nativeElement;
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      });
+    }, 0);
+  }
+
+  /**
+   * Student accepted the soft "use single lessons instead" suggestion.
+   * Mirrors `chooseSkipGoalSetup` but keeps the structured fields the
+   * student already filled in (goal type, level) cleared so the backend
+   * creates a true unframed plan. Jumps straight to the preview page.
+   */
+  acceptPacingSuggestion() {
+    this.skipGoalSetup = true;
+    this.pacingSuggestion = null;
+    this.bindPacingSuggestionLabels();
+    this.showPreviewPage();
+  }
+
+  dismissPacingSuggestion() {
+    this.pacingSuggestion = null;
+    this.bindPacingSuggestionLabels();
   }
 
   // Precomputed labels for the preview page (no functions in templates)
@@ -1060,11 +1207,21 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
       }
     }
 
-    if (this.goalTimeline === 'specific_date' && this.goalTargetDate.trim()) {
-      this.previewTimelineLabel = this.translateService.instant(
-        'ONBOARDING.STUDENT.PREVIEW_TIMELINE_BY_DATE',
-        { date: this.goalTargetDate }
-      );
+    if (this.goalTimeline === 'specific_date') {
+      const rawDate = normalizeGoalTargetDate(this.goalTargetDate as unknown);
+      if (rawDate) {
+        const [y, m, d] = rawDate.split('-').map(Number);
+        const locale = this.translateService.currentLang || undefined;
+        const formattedDate = new Date(y, m - 1, d).toLocaleDateString(locale, {
+          month: 'long', day: 'numeric', year: 'numeric'
+        });
+        this.previewTimelineLabel = this.translateService.instant(
+          'ONBOARDING.STUDENT.PREVIEW_TIMELINE_BY_DATE',
+          { date: formattedDate }
+        );
+      } else {
+        this.previewTimelineLabel = this.translateService.instant('ONBOARDING.STUDENT.PREVIEW_TIMELINE_NOT_SET');
+      }
     } else if (!this.goalTimeline.trim()) {
       this.previewTimelineLabel = this.translateService.instant('ONBOARDING.STUDENT.PREVIEW_TIMELINE_NOT_SET');
     } else {
@@ -1153,6 +1310,12 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     if (step) {
       this.currentStep = step;
       this.lastFocusedStep = step;
+      if (step === 4) {
+        this.skipGoalSetup = false;
+      }
+      if (step === 4 || step === 6) {
+        this.refreshPacingSuggestion();
+      }
     }
     this.syncStudentWizardCopy();
   }
@@ -1244,8 +1407,19 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
         };
         if (this.skipGoalSetup) {
           // Signal "learn at my own pace" — backend creates an unframed plan
-          // for each selected language post-onboarding.
+          // for each selected language post-onboarding. Still forward any
+          // level / timeline / target-date the student filled in so the
+          // backend can keep that context (useful for tutor matching and
+          // for upgrading to a structured plan later).
           onboardingData.skipGoalSetup = true;
+          onboardingData.learningGoal = {
+            type: '',
+            description: '',
+            targetLevel: '',
+            selfAssessedLevel: this.selfAssessedLevel,
+            timeline: this.goalTimeline,
+            targetDate: this.goalTimeline === 'specific_date' && this.goalTargetDate ? this.goalTargetDate : null
+          };
         } else {
           onboardingData.learningGoal = {
             type: this.learningGoalType,

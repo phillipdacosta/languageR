@@ -141,6 +141,18 @@ const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: 'terms',
+    loadComponent: () =>
+      import('./legal/public-legal/public-legal.page').then((m) => m.PublicLegalPage),
+    data: { legalDoc: 'terms' },
+  },
+  {
+    path: 'privacy',
+    loadComponent: () =>
+      import('./legal/public-legal/public-legal.page').then((m) => m.PublicLegalPage),
+    data: { legalDoc: 'privacy' },
+  },
+  {
     path: 'terms-privacy',
     loadChildren: () => import('./legal/terms-privacy/terms-privacy.module').then( m => m.TermsPrivacyPageModule)
   },

@@ -59,8 +59,8 @@
 
     <p class="pre-step-legal">
       {{ 'ONBOARDING.LEGAL.AGREE_PREFIX' | translate }}
-      <a href="/terms" target="_blank">{{ 'ONBOARDING.LEGAL.TERMS' | translate }}</a> {{ 'ONBOARDING.LEGAL.AND' | translate }}
-      <a href="/privacy" target="_blank">{{ 'ONBOARDING.LEGAL.PRIVACY' | translate }}</a>
+      <a [href]="termsOfServiceHref" target="_blank" rel="noopener noreferrer">{{ 'ONBOARDING.LEGAL.TERMS' | translate }}</a> {{ 'ONBOARDING.LEGAL.AND' | translate }}
+      <a [href]="privacyPolicyHref" target="_blank" rel="noopener noreferrer">{{ 'ONBOARDING.LEGAL.PRIVACY' | translate }}</a>
     </p>
   </div>
 </div>

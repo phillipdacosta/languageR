@@ -59,8 +59,8 @@
 
     <p class="pre-step-legal">
       {{ 'ONBOARDING.LEGAL.AGREE_PREFIX' | translate }}
-      <a href="/terms" target="_blank">{{ 'ONBOARDING.LEGAL.TERMS' | translate }}</a> {{ 'ONBOARDING.LEGAL.AND' | translate }}
-      <a href="/privacy" target="_blank">{{ 'ONBOARDING.LEGAL.PRIVACY' | translate }}</a>
+      <a [href]="termsOfServiceHref" target="_blank" rel="noopener noreferrer">{{ 'ONBOARDING.LEGAL.TERMS' | translate }}</a> {{ 'ONBOARDING.LEGAL.AND' | translate }}
+      <a [href]="privacyPolicyHref" target="_blank" rel="noopener noreferrer">{{ 'ONBOARDING.LEGAL.PRIVACY' | translate }}</a>
     </p>
   </div>
 </div>
@@ -366,12 +366,33 @@
           </div>
 
           <div class="date-picker-wrapper" *ngIf="goalTimeline === 'specific_date'">
-            <label>{{ 'ONBOARDING.STUDENT.TIMELINE_TARGET_DATE_LABEL' | translate }}</label>
-            <input 
-              type="date"
+            <label class="date-picker-label">{{ 'ONBOARDING.STUDENT.TIMELINE_TARGET_DATE_LABEL' | translate }}</label>
+            <ion-datetime
+              class="goal-inline-datetime"
+              presentation="date"
               [(ngModel)]="goalTargetDate"
-              class="modern-input"
-              [min]="'2026-04-01'">
+              (ngModelChange)="onGoalTargetDateChange($event)"
+              [min]="minTargetDate"
+              [locale]="datePickerLocale">
+            </ion-datetime>
+          </div>
+
+          <div #pacingSuggestionBanner class="pacing-suggestion" *ngIf="pacingSuggestion">
+            <div class="pacing-suggestion-icon">
+              <ion-icon name="bulb-outline"></ion-icon>
+            </div>
+            <div class="pacing-suggestion-body">
+              <h4 class="pacing-suggestion-title">{{ pacingSuggestionTitle }}</h4>
+              <p class="pacing-suggestion-text">{{ pacingSuggestionBody }}</p>
+              <div class="pacing-suggestion-actions">
+                <button type="button" class="pacing-suggestion-cta pacing-suggestion-cta--primary" (click)="acceptPacingSuggestion()">
+                  {{ pacingSuggestionAccept }}
+                </button>
+                <button type="button" class="pacing-suggestion-cta pacing-suggestion-cta--ghost" (click)="dismissPacingSuggestion()">
+                  {{ pacingSuggestionDismiss }}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 

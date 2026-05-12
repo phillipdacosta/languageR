@@ -1754,38 +1754,116 @@ ion-header {
     letter-spacing: 0.1px;
   }
 
-  input[type="date"] {
+  .date-picker-label {
+    display: block;
+  }
+
+  .goal-inline-datetime {
     width: 100%;
-    padding: 14px 16px;
+    border-radius: 14px;
+    overflow: hidden;
     border: 1.5px solid $ob-border;
-    border-radius: 12px;
-    font-size: 15px;
-    font-family: inherit;
-    color: $ob-text-primary;
     background: #ffffff;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+    &::part(calendar-day today) {
+      color: $ob-text-primary;
+      font-weight: 700;
+    }
+
+    &::part(calendar-day active),
+    &::part(calendar-day today active) {
+      background: $ob-text-primary;
+      color: #ffffff;
+      border-radius: 50%;
+    }
+  }
+}
+
+// Pacing suggestion banner — soft nudge toward single lessons when the
+// student's goal + deadline doesn't fit the structured roadmap shape.
+.pacing-suggestion {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-top: 20px;
+  padding: 16px 18px;
+  background: #FFF8EC;
+  border: 1px solid #F4D58A;
+  border-radius: 14px;
+  animation: stepFadeIn 0.25s ease-out;
+
+  .pacing-suggestion-icon {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: #FCE8B6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    ion-icon {
+      font-size: 20px;
+      color: #8B5A00;
+    }
+  }
+
+  .pacing-suggestion-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .pacing-suggestion-title {
+    margin: 0 0 4px;
+    font-size: 14px;
+    font-weight: 600;
+    color: $ob-text-primary;
+    letter-spacing: -0.1px;
+  }
+
+  .pacing-suggestion-text {
+    margin: 0 0 12px;
+    font-size: 13px;
+    line-height: 1.45;
+    color: $ob-text-secondary;
+  }
+
+  .pacing-suggestion-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .pacing-suggestion-cta {
     appearance: none;
-    -webkit-appearance: none;
+    border: none;
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.1s ease;
 
-    &:focus {
-      outline: none;
-      border-color: $ob-text-primary;
-      box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.04);
+    &:active {
+      transform: scale(0.97);
     }
 
-    &::-webkit-date-and-time-value {
-      text-align: left;
-    }
-
-    &::-webkit-calendar-picker-indicator {
-      opacity: 0.5;
-      cursor: pointer;
-      padding: 4px;
-      border-radius: 4px;
-      transition: opacity 0.2s ease;
+    &.pacing-suggestion-cta--primary {
+      background: $ob-text-primary;
+      color: #ffffff;
 
       &:hover {
-        opacity: 0.8;
+        background: lighten($ob-text-primary, 8%);
+      }
+    }
+
+    &.pacing-suggestion-cta--ghost {
+      background: transparent;
+      color: $ob-text-secondary;
+      border: 1px solid $ob-border;
+
+      &:hover {
+        background: rgba(0, 0, 0, 0.04);
       }
     }
   }
@@ -2534,3 +2612,5 @@ ion-header {
     font-size: 14px;
   }
 }
+
+@import '../shared/styles/onboarding-tutor-shared-dark';

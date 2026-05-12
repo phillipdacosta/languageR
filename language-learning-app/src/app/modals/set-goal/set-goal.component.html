@@ -5,22 +5,21 @@
         <ion-icon name="close" slot="icon-only"></ion-icon>
       </ion-button>
     </ion-buttons>
-    <ion-title>Add a learning goal</ion-title>
+    <ion-title>{{ 'ONBOARDING.SET_GOAL.MODAL_TITLE' | translate }}</ion-title>
   </ion-toolbar>
 </ion-header>
 
 <ion-content class="set-goal-content" [fullscreen]="true">
   <div class="set-goal-inner">
     <header class="set-goal-intro">
-      <h1>What are you working toward?</h1>
+      <h1>{{ 'ONBOARDING.SET_GOAL.INTRO_TITLE' | translate }}</h1>
       <p>
-        We'll shape your roadmap around this — the scenarios you practice,
-        the vocabulary you build first, and the way your tutor coaches you.
+        {{ 'ONBOARDING.SET_GOAL.INTRO_BODY' | translate }}
       </p>
     </header>
 
     <section class="set-goal-section">
-      <h2 class="set-goal-section-label">Your goal</h2>
+      <h2 class="set-goal-section-label">{{ 'ONBOARDING.SET_GOAL.SECTION_GOAL' | translate }}</h2>
       <div class="goal-grid">
         <button
           type="button"
@@ -32,8 +31,8 @@
             <ion-icon [name]="option.icon"></ion-icon>
           </span>
           <span class="goal-card-text">
-            <span class="goal-card-title">{{ option.label }}</span>
-            <span class="goal-card-desc">{{ option.description }}</span>
+            <span class="goal-card-title">{{ option.labelKey | translate }}</span>
+            <span class="goal-card-desc">{{ option.descKey | translate }}</span>
           </span>
           <span class="goal-card-check" *ngIf="selectedGoalType === option.value" aria-hidden="true">
             <ion-icon name="checkmark"></ion-icon>
@@ -42,12 +41,12 @@
       </div>
 
       <div class="goal-other" *ngIf="selectedGoalType === 'other'">
-        <label for="goal-other-input">Tell us a bit more</label>
+        <label for="goal-other-input">{{ 'ONBOARDING.SET_GOAL.OTHER_LABEL' | translate }}</label>
         <ion-textarea
           id="goal-other-input"
           [(ngModel)]="description"
           name="description"
-          placeholder="e.g. Read short stories without a dictionary"
+          [placeholder]="'ONBOARDING.SET_GOAL.OTHER_PLACEHOLDER' | translate"
           autoGrow="true"
           rows="2"
           maxlength="160">
@@ -56,7 +55,7 @@
     </section>
 
     <section class="set-goal-section">
-      <h2 class="set-goal-section-label">Timeline</h2>
+      <h2 class="set-goal-section-label">{{ 'ONBOARDING.SET_GOAL.SECTION_TIMELINE' | translate }}</h2>
       <div class="timeline-list">
         <button
           type="button"
@@ -67,7 +66,7 @@
           <span class="timeline-icon" aria-hidden="true">
             <ion-icon [name]="option.icon"></ion-icon>
           </span>
-          <span class="timeline-label">{{ option.label }}</span>
+          <span class="timeline-label">{{ option.labelKey | translate }}</span>
           <span class="timeline-check" *ngIf="selectedTimeline === option.value" aria-hidden="true">
             <ion-icon name="checkmark-circle"></ion-icon>
           </span>
@@ -75,13 +74,33 @@
       </div>
 
       <div class="timeline-date" *ngIf="selectedTimeline === 'specific_date'">
-        <label for="goal-target-date">Target date</label>
-        <ion-input
-          id="goal-target-date"
-          type="date"
+        <label>{{ 'ONBOARDING.STUDENT.TIMELINE_TARGET_DATE_LABEL' | translate }}</label>
+        <ion-datetime
+          class="set-goal-inline-datetime"
+          presentation="date"
           [(ngModel)]="targetDate"
-          name="targetDate">
-        </ion-input>
+          (ngModelChange)="onTargetDateChange($event)"
+          [min]="minTargetDate"
+          [locale]="datePickerLocale">
+        </ion-datetime>
+      </div>
+
+      <div #pacingSuggestionBanner class="pacing-suggestion" *ngIf="pacingSuggestion">
+        <div class="pacing-suggestion-icon">
+          <ion-icon name="bulb-outline"></ion-icon>
+        </div>
+        <div class="pacing-suggestion-body">
+          <h4 class="pacing-suggestion-title">{{ pacingBannerTitle }}</h4>
+          <p class="pacing-suggestion-text">{{ pacingBannerBody }}</p>
+          <div class="pacing-suggestion-actions">
+            <button type="button" class="pacing-suggestion-cta pacing-suggestion-cta--primary" (click)="stayOnSingleLessons()">
+              {{ pacingBannerPrimary }}
+            </button>
+            <button type="button" class="pacing-suggestion-cta pacing-suggestion-cta--ghost" (click)="dismissPacingSuggestion()">
+              {{ pacingBannerDismiss }}
+            </button>
+          </div>
+        </div>
       </div>
     </section>
   </div>
@@ -95,7 +114,7 @@
       [disabled]="!canSubmit"
       (click)="submit()">
       <ion-spinner *ngIf="submitting" name="dots"></ion-spinner>
-      <span *ngIf="!submitting">Build my plan</span>
+      <span *ngIf="!submitting">{{ 'ONBOARDING.SET_GOAL.SUBMIT_CTA' | translate }}</span>
       <ion-icon *ngIf="!submitting" name="arrow-forward" aria-hidden="true"></ion-icon>
     </button>
   </div>

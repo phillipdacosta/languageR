@@ -1,0 +1,79 @@
+.public-legal-header ion-toolbar {
+  --background: rgba(var(--ion-background-color-rgb, 255, 255, 255), 0.92);
+  --border-width: 0 0 1px 0;
+  --border-color: rgba(0, 0, 0, 0.06);
+  backdrop-filter: saturate(180%) blur(12px);
+}
+
+.public-legal-content {
+  --background: var(--ion-background-color, #f7f7f8);
+}
+
+.public-legal-inner {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 32px 20px 64px;
+}
+
+/* ── Document header ── */
+.public-legal-doc-header {
+  margin-bottom: 36px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+}
+
+.public-legal-doc-title {
+  margin: 0 0 8px;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  color: var(--ion-text-color, #1c1c1e);
+}
+
+.public-legal-meta {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ion-color-medium, #6b6b70);
+}
+
+/* ── Sections ── */
+.public-legal-section {
+  margin-bottom: 32px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.public-legal-section-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 0 10px;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--ion-text-color, #1c1c1e);
+}
+
+.public-legal-section-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: rgba(var(--ion-color-primary-rgb, 255, 90, 95), 0.10);
+  color: var(--ion-color-primary, #ff5a5f);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.public-legal-section-body {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--ion-text-color, #3a3a3c);
+  white-space: pre-line;
+}

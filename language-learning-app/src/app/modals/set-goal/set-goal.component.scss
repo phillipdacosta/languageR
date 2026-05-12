@@ -235,10 +235,6 @@
 
 .timeline-date {
   margin-top: 12px;
-  padding: 12px 14px;
-  background: #fafafa;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 12px;
 
   label {
     font-size: 11.5px;
@@ -250,12 +246,109 @@
     margin-bottom: 4px;
   }
 
-  ion-input {
-    --background: transparent;
-    --color: #1a1a1a;
-    --padding-start: 0;
-    --padding-end: 0;
-    font-size: 14.5px;
+  .set-goal-inline-datetime {
+    width: 100%;
+    margin-top: 6px;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    background: #ffffff;
+
+    &::part(calendar-day today) {
+      color: #1a1a1a;
+      font-weight: 700;
+    }
+
+    &::part(calendar-day active),
+    &::part(calendar-day today active) {
+      background: #1a1a1a;
+      color: #ffffff;
+      border-radius: 50%;
+    }
+  }
+}
+
+// ── Pacing suggestion ─────────────────────────────────────────────
+// Soft, non-blocking nudge shown when the picked goal + deadline combo
+// is better served by single lessons than the structured roadmap.
+.pacing-suggestion {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 14px 16px;
+  background: #fff8ec;
+  border: 1px solid #f4d58a;
+  border-radius: 14px;
+
+  .pacing-suggestion-icon {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    background: #fce8b6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    ion-icon {
+      font-size: 18px;
+      color: #8b5a00;
+    }
+  }
+
+  .pacing-suggestion-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .pacing-suggestion-title {
+    margin: 0 0 4px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #1a1a1a;
+    letter-spacing: -0.01em;
+  }
+
+  .pacing-suggestion-text {
+    margin: 0 0 10px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: #6a6a6a;
+  }
+
+  .pacing-suggestion-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .pacing-suggestion-cta {
+    appearance: none;
+    border: none;
+    border-radius: 999px;
+    padding: 7px 13px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.1s ease;
+
+    &:active { transform: scale(0.97); }
+
+    &--primary {
+      background: #1a1a1a;
+      color: #fff;
+
+      &:hover { background: #333; }
+    }
+
+    &--ghost {
+      background: transparent;
+      color: #6a6a6a;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+
+      &:hover { background: rgba(0, 0, 0, 0.04); }
+    }
   }
 }
 
@@ -304,6 +397,7 @@
 }
 
 // ── Dark mode ────────────────────────────────────────────────────
+:host-context(html.ion-palette-dark),
 :host-context(.dark),
 :host-context([data-theme='dark']),
 :host-context(body.dark) {
@@ -353,6 +447,25 @@
     ion-input {
       --color: #fff;
       --placeholder-color: #6a6a6a;
+    }
+  }
+
+  .set-goal-inline-datetime {
+    --background: #2c2c2e;
+    --title-color: #f5f5f7;
+    width: 100%;
+    border-color: rgba(255, 255, 255, 0.12);
+    background: #2c2c2e;
+    color: #f5f5f7;
+
+    &::part(calendar-day today) {
+      color: #f5f5f7;
+    }
+
+    &::part(calendar-day active),
+    &::part(calendar-day today active) {
+      background: #f5f5f7;
+      color: #1c1c1e;
     }
   }
 

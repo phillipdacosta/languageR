@@ -1,0 +1,1334 @@
+{
+  "ar": {
+    "s": {
+      "GOAL_WIZARD_TITLE": "ما هدفك؟",
+      "GOAL_WIZARD_SUBTITLE": "يساعدنا ذلك على إنشاء مسار تعلم مخصص لك.",
+      "PREVIEW_GOAL_LEVEL_SECTION": "الهدف والمستوى",
+      "PREVIEW_GOAL": "الهدف",
+      "PREVIEW_CURRENT_LEVEL": "المستوى الحالي",
+      "PREVIEW_TIMELINE_ROW": "الجدول الزمني",
+      "PREVIEW_TIMELINE_NOT_SET": "لا يوجد تاريخ مستهدف بعد",
+      "PREVIEW_TIMELINE_BY_DATE": "بحلول {{date}}",
+      "PREVIEW_LEVEL_NOT_SET": "غير محدد — يمكنك إضافته لاحقاً من ملفك",
+      "SKIP_GOAL_LINK": "سأبدأ بتجربة درس",
+      "SKIP_GOAL_HELP": "يمكنك تخطي الهدف الآن وإضافته لاحقاً من ملفك، وسنبني خطة عندها.",
+      "SKIP_GOAL_PREVIEW": "أتعلم بوتيرتي الخاصة"
+    },
+    "ls": {
+      "sub": "اختر لغة التطبيق المفضلة لديك",
+      "rot": [
+        "اختر لغتك",
+        "اضبط لغة الواجهة",
+        "ابدأ بلغتك",
+        "لغة واحدة في كل التطبيق",
+        "واصل بلغتك المفضلة"
+      ]
+    },
+    "a11y": "التنقل بين الخطوات",
+    "w": {
+      "TRUST_SECURE": "خاص وآمن",
+      "TRUST_TIME": "يستغرق دقيقتين",
+      "TRUST_FREE": "لا حاجة لبطاقة ائتمان للتسجيل",
+      "FEAT1_TITLE": "اعثر على معلم",
+      "FEAT1_DESC": "تصفح معلمين موثوقين يتناسبون مع أهدافك وجدولك",
+      "FEAT2_TITLE": "ابدأ الدرس",
+      "FEAT2_DESC": "انضم إلى دروس فيديو عالية الدقة من أي مكان وجهاز",
+      "FEAT3_TITLE": "تابع تقدمك",
+      "FEAT3_DESC": "راقب تحسنك برؤى مدعومة بالذكاء الاصطناعي بعد كل درس",
+      "TUTOR_FEAT1_TITLE": "حدد جدولك",
+      "TUTOR_FEAT1_DESC": "تحكم بوقت توفرك للتدريس",
+      "TUTOR_FEAT2_TITLE": "درّس مباشرة",
+      "TUTOR_FEAT2_DESC": "دروس فيديو عالية الدقة مع أدوات تدريس مدمجة",
+      "TUTOR_FEAT3_TITLE": "احصل على أجر",
+      "TUTOR_FEAT3_DESC": "اكسب وفق شروطك مع مدفوعات شفافة",
+      "HOW_LABEL": "كيف يعمل",
+      "HOW_STEP1": "أضبط ملفك",
+      "HOW_STEP2": "اعثر على معلم",
+      "HOW_STEP3": "ابدأ التعلم",
+      "TUTOR_HOW_STEP1": "ابنِ ملفك",
+      "TUTOR_HOW_STEP2": "حدد توفرك",
+      "TUTOR_HOW_STEP3": "ابدأ التدريس"
+    }
+  },
+  "cs": {
+    "s": {
+      "GOAL_WIZARD_TITLE": "Jaký je váš cíl?",
+      "GOAL_WIZARD_SUBTITLE": "Pomůže nám vytvořit personalizovanou studijní cestu.",
+      "PREVIEW_GOAL_LEVEL_SECTION": "Cíl a úroveň",
+      "PREVIEW_GOAL": "Cíl",
+      "PREVIEW_CURRENT_LEVEL": "Současná úroveň",
+      "PREVIEW_TIMELINE_ROW": "Časový rámec",
+      "PREVIEW_TIMELINE_NOT_SET": "Zatím bez cílového data",
+      "PREVIEW_TIMELINE_BY_DATE": "Do {{date}}",
+      "PREVIEW_LEVEL_NOT_SET": "Nevybráno — doplníte později v profilu",
+      "SKIP_GOAL_LINK": "Začnu zkusit lekci",
+      "SKIP_GOAL_HELP": "Cíl teď přeskočíte a kdykoli ho doplníte v profilu; pak sestavíme plán.",
+      "SKIP_GOAL_PREVIEW": "Učím se vlastním tempem"
+    },
+    "ls": {
+      "sub": "Zvolte preferovaný jazyk aplikace",
+      "rot": [
+        "Zvolte svůj jazyk",
+        "Nastavte jazyk rozhraní",
+        "Začněte ve svém jazyce",
+        "Jeden jazyk v celé aplikaci",
+        "Pokračujte v preferovaném jazyce"
+      ]
+    },
+    "a11y": "Kroková navigace",
+    "w": {
+      "TRUST_SECURE": "Soukromé a bezpečné",
+      "TRUST_TIME": "Zabere to 2 minuty",
+      "TRUST_FREE": "K registraci nepotřebujete kreditní kartu",
+      "FEAT1_TITLE": "Najděte lektora",
+      "FEAT1_DESC": "Prohlížejte ověřené lektory podle cílů a času",
+      "FEAT2_TITLE": "Začněte lekci",
+      "FEAT2_DESC": "Připojte se k HD videohovorům odkudkoli a z jakéhokoli zařízení",
+      "FEAT3_TITLE": "Sledujte pokrok",
+      "FEAT3_DESC": "Po každé lekci uvidíte zlepšení díky přehledům s AI",
+      "TUTOR_FEAT1_TITLE": "Nastavte si rozvrh",
+      "TUTOR_FEAT1_DESC": "Určete, kdy můžete vyučovat",
+      "TUTOR_FEAT2_TITLE": "Učte živě",
+      "TUTOR_FEAT2_DESC": "HD výuka s integrovanými nástroji",
+      "TUTOR_FEAT3_TITLE": "Dostávejte výplatu",
+      "TUTOR_FEAT3_DESC": "Vydělávejte podle svých pravidel s transparentními platbami",
+      "HOW_LABEL": "Jak to funguje",
+      "HOW_STEP1": "Nastavte si profil",
+      "HOW_STEP2": "Najděte lektora",
+      "HOW_STEP3": "Začněte se učit",
+      "TUTOR_HOW_STEP1": "Vytvořte profil",
+      "TUTOR_HOW_STEP2": "Nastavte dostupnost",
+      "TUTOR_HOW_STEP3": "Začněte vyučovat"
+    }
+  },
+  "da": {
+    "s": {
+      "GOAL_WIZARD_TITLE": "Hvad er dit mål?",
+      "GOAL_WIZARD_SUBTITLE": "Det hjælper os med at lave en personlig læringssti til dig.",
+      "PREVIEW_GOAL_LEVEL_SECTION": "Mål og niveau",
+      "PREVIEW_GOAL": "Mål",
+      "PREVIEW_CURRENT_LEVEL": "Nuværende niveau",
+      "PREVIEW_TIMELINE_ROW": "Tidsramme",
+      "PREVIEW_TIMELINE_NOT_SET": "Intet måldato endnu",
+      "PREVIEW_TIMELINE_BY_DATE": "Senest {{date}}",
+      "PREVIEW_LEVEL_NOT_SET": "Ikke valgt — kan tilføjes senere i din profil",
+      "SKIP_GOAL_LINK": "Jeg starter med at prøve en lektion",
+      "SKIP_GOAL_HELP": "Spring målet over nu. Du kan tilføje det når som helst i din profil, så bygger vi en plan.",
+      "SKIP_GOAL_PREVIEW": "Lærer i mit eget tempo"
+    },
+    "ls": {
+      "sub": "Vælg dit foretrukne appsprog",
+      "rot": [
+        "Vælg dit sprog",
+        "Indstil grænsefladesproget",
+        "Start på dit sprog",
+        "Ét sprog i hele appen",
+        "Fortsæt på dit foretrukne sprog"
+      ]
+    },
+    "a11y": "Trinnavigation",
+    "w": {
+      "TRUST_SECURE": "Privat og sikkert",
+      "TRUST_TIME": "Det tager 2 minutter",
+      "TRUST_FREE": "Intet kreditkort kræves for at tilmelde dig",
+      "FEAT1_TITLE": "Find en tutor",
+      "FEAT1_DESC": "Gennemse verificerede tutorer der matcher dine mål og din kalender",
+      "FEAT2_TITLE": "Start lektion",
+      "FEAT2_DESC": "Deltag i HD-videolektioner hvor som helst, på enhver enhed",
+      "FEAT3_TITLE": "Følg din fremgang",
+      "FEAT3_DESC": "Se din udvikling med AI-drevne indsigter efter hver lektion",
+      "TUTOR_FEAT1_TITLE": "Sæt din tidsplan",
+      "TUTOR_FEAT1_DESC": "Styr hvornår du er tilgængelig til at undervise",
+      "TUTOR_FEAT2_TITLE": "Undervis live",
+      "TUTOR_FEAT2_DESC": "HD-video med indbyggede undervisningsværktøjer",
+      "TUTOR_FEAT3_TITLE": "Få udbetaling",
+      "TUTOR_FEAT3_DESC": "Tjen på dine præmisser med gennemsigtige udbetalinger",
+      "HOW_LABEL": "Sådan virker det",
+      "HOW_STEP1": "Opsæt din profil",
+      "HOW_STEP2": "Find en tutor",
+      "HOW_STEP3": "Begynd at lære",
+      "TUTOR_HOW_STEP1": "Byg din profil",
+      "TUTOR_HOW_STEP2": "Angiv tilgængelighed",
+      "TUTOR_HOW_STEP3": "Begynd at undervise"
+    }
+  },
+  "de": {
+    "s": {
+      "GOAL_WIZARD_TITLE": "Was ist dein Ziel?",
+      "GOAL_WIZARD_SUBTITLE": "So erstellen wir einen persönlichen Lernpfad für dich.",
+      "PREVIEW_GOAL_LEVEL_SECTION": "Ziel & Niveau",
+      "PREVIEW_GOAL": "Ziel",
+      "PREVIEW_CURRENT_LEVEL": "Aktuelles Niveau",
+      "PREVIEW_TIMELINE_ROW": "Zeitrahmen",
+      "PREVIEW_TIMELINE_NOT_SET": "Noch kein Zieldatum",
+      "PREVIEW_TIMELINE_BY_DATE": "Bis {{date}}",
+      "PREVIEW_LEVEL_NOT_SET": "Nicht gewählt — später im Profil ergänzbar",
+      "SKIP_GOAL_LINK": "Ich starte mit einer Probestunde",
+      "SKIP_GOAL_HELP": "Ziel vorerst überspringen. Du kannst es jederzeit im Profil ergänzen — dann erstellen wir eine Roadmap.",
+      "SKIP_GOAL_PREVIEW": "Lerne in meinem eigenen Tempo"
+    },
+    "ls": {
+      "sub": "Wählen Sie Ihre bevorzugte App-Sprache",
+      "rot": [
+        "Wählen Sie Ihre Sprache",
+        "Stellen Sie die Oberflächensprache ein",
+        "Starten Sie in Ihrer Sprache",
+        "Eine Sprache in der gesamten App",
+        "Weiter in Ihrer bevorzugten Sprache"
+      ]
+    },
+    "a11y": "Schrittnavigation"
+  },
+  "el": {
+    "s": {
+      "GOAL_WIZARD_TITLE": "Ποιος είναι ο στόχος σας;",
+      "GOAL_WIZARD_SUBTITLE": "Μας βοηθά να δημιουργήσουμε μια εξατομικευμένη διαδρομή μάθησης.",
+      "PREVIEW_GOAL_LEVEL_SECTION": "Στόχος και επίπεδο",
+      "PREVIEW_GOAL": "Στόχος",
+      "PREVIEW_CURRENT_LEVEL": "Τρέχον επίπεδο",
+      "PREVIEW_TIMELINE_ROW": "Χρονοδιάγραμμα",
+      "PREVIEW_TIMELINE_NOT_SET": "Δεν έχει οριστεί ακόμη ημερομηνία-στόχος",
+      "PREVIEW_TIMELINE_BY_DATE": "Έως {{date}}",
+      "PREVIEW_LEVEL_NOT_SET": "Δεν επιλέχθηκε — μπορείτε να το προσθέσετε αργότερα από το προφίλ",
+      "SKIP_GOAL_LINK": "Θα ξεκινήσω δοκιμάζοντας ένα μάθημα",
+      "SKIP_GOAL_HELP": "Παραλείψτε τον στόχο τώρα. Μπορείτε να τον προσθέσετε οποτεδήποτε από το προφίλ και τότε θα φτιάξουμε πλάνο.",
+      "SKIP_GOAL_PREVIEW": "Μαθαίνω με τον δικό μου ρυθμό"
+    },
+    "ls": {
+      "sub": "Επιλέξτε την προτιμώμενη γλώσσα εφαρμογής",
+      "rot": [
+        "Επιλέξτε τη γλώσσα σας",
+        "Ορίστε τη γλώσσα διεπαφής",
+        "Ξεκινήστε στη γλώσσα σας",
+        "Μία γλώσσα σε όλη την εφαρμογή",
+        "Συνεχίστε στην προτιμώμενη γλώσσα"
+      ]
+    },
+    "a11y": "Πλοήγηση βημάτων",
+    "w": {
+      "TRUST_SECURE": "Ιδιωτικό και ασφαλές",
+      "TRUST_TIME": "Χρειάζεται 2 λεπτά",
+      "TRUST_FREE": "Δεν απαιτείται πιστωτική κάρτα για εγγραφή",
+      "FEAT1_TITLE": "Βρείτε καθηγητή",
+      "FEAT1_DESC": "Περιηγηθείτε σε επαληθευμένους καθηγητές που ταιριάζουν με τους στόχους και το πρόγραμμά σας",
+      "FEAT2_TITLE": "Ξεκινήστε μάθημα",
+      "FEAT2_DESC": "Συμμετάσχετε σε μαθήματα βίντεο HD από παντού, σε οποιαδήποτε συσκευή",
+      "FEAT3_TITLE": "Παρακολουθήστε την πρόοδο",
+      "FEAT3_DESC": "Δείτε τη βελτίωσή σας με πληροφορίες τροφοδοτούμενες από AI μετά από κάθε μάθημα",
+      "TUTOR_FEAT1_TITLE": "Ορίστε το πρόγραμμά σας",
+      "TUTOR_FEAT1_DESC": "Ελέγξτε πότε είστε διαθέσιμοι για διδασκαλία",
+      "TUTOR_FEAT2_TITLE": "Διδάξτε ζωντανά",
+      "TUTOR_FEAT2_DESC": "Μαθήματα βίντεο HD με ενσωματωμένα εργαλεία διδασκαλίας",
+      "TUTOR_FEAT3_TITLE": "Λάβετε πληρωμή",
+      "TUTOR_FEAT3_DESC": "Κερδίστε με τους δικούς σας όρους με διαφανείς πληρωμές",
+      "HOW_LABEL": "Πώς λειτουργεί",
+      "HOW_STEP1": "Ρυθμίστε το προφίλ σας",
+      "HOW_STEP2": "Βρείτε καθηγητή",
+      "HOW_STEP3": "Ξεκινήστε να μαθαίνετε",
+      "TUTOR_HOW_STEP1": "Χτίστε το προφίλ σας",
+      "TUTOR_HOW_STEP2": "Ορίστε διαθεσιμότητα",
+      "TUTOR_HOW_STEP3": "Ξεκινήστε να διδάσκετε"
+    }
+  },
+  "es": {
+    "s": {
+      "GOAL_WIZARD_TITLE": "¿Cuál es tu objetivo?",
+      "GOAL_WIZARD_SUBTITLE": "Nos ayuda a crear una ruta de aprendizaje personalizada.",
+      "PREVIEW_GOAL_LEVEL_SECTION": "Objetivo y nivel",
+      "PREVIEW_GOAL": "Objetivo",
+      "PREVIEW_CURRENT_LEVEL": "Nivel actual",
+      "PREVIEW_TIMELINE_ROW": "Plazo",
+      "PREVIEW_TIMELINE_NOT_SET": "Aún sin fecha objetivo",
+      "PREVIEW_TIMELINE_BY_DATE": "Para el {{date}}",
+      "PREVIEW_LEVEL_NOT_SET": "Sin seleccionar: puedes añadirlo luego en tu perfil",
+      "SKIP_GOAL_LINK": "Empezaré probando una clase",
+      "SKIP_GOAL_HELP": "Omite el objetivo por ahora. Puedes añadirlo cuando quieras desde tu perfil y crearemos un plan.",
+      "SKIP_GOAL_PREVIEW": "Aprendo a mi ritmo"
+    },
+    "ls": {
+      "sub": "Elige el idioma preferido de la app",
+      "rot": [
+        "Elige tu idioma",
+        "Configura el idioma de la interfaz",
+        "Empieza en tu idioma",
+        "Un solo idioma en toda la app",
+        "Continúa en tu idioma preferido"
+      ]
+    },
+    "a11y": "Navegación por pasos"
+  },
+  "fa": {
+    "s": {
+      "GOAL_WIZARD_TITLE": "هدف شما چیست؟",
+      "GOAL_WIZARD_SUBTITLE": "به ما کمک می‌کند مسیر یادگیری شخصی‌سازی‌شده بسازیم.",
+      "PREVIEW_GOAL_LEVEL_SECTION": "هدف و سطح",
+      "PREVIEW_GOAL": "هدف",
+      "PREVIEW_CURRENT_LEVEL": "سطح فعلی",
+      "PREVIEW_TIMELINE_ROW": "زمان‌بندی",
+      "PREVIEW_TIMELINE_NOT_SET": "هنوز تاریخ هدف تعیین نشده",
+      "PREVIEW_TIMELINE_BY_DATE": "تا {{date}}",
+      "PREVIEW_LEVEL_NOT_SET": "انتخاب نشده — بعداً از پروفایل می‌توانید اضافه کنید",
+      "SKIP_GOAL_LINK": "اول با یک درس شروع می‌کنم",
+      "SKIP_GOAL_HELP": "فعلاً هدف را رد کنید؛ هر زمان از پروفایل می‌توانید اضافه کنید و آن‌وقت نقشه می‌سازیم.",
+      "SKIP_GOAL_PREVIEW": "با سرعت خودم یاد می‌گیرم"
+    },
+    "ls": {
+      "sub": "زبان رابط کاربری را انتخاب کنید",
+      "rot": [
+        "زبان خود را انتخاب کنید",
+        "رابط را به فارسی تنظیم کنید",
+        "همین حالا زبان را انتخاب کنید",
+        "یک زبان در سراسر برنامه",
+        "به زبان دلخواه ادامه دهید"
+      ]
+    },
+    "a11y": "پیمایش گام‌ها",
+    "w": {
+      "TRUST_SECURE": "خصوصی و امن",
+      "TRUST_TIME": "فقط دو دقیقه طول می‌کشد",
+      "TRUST_FREE": "برای ثبت‌نام به کارت اعتباری نیاز نیست",
+      "FEAT1_TITLE": "معلم پیدا کنید",
+      "FEAT1_DESC": "میان معلم‌های تأییدشده بگردید که با اهداف و برنامهٔ شما هماهنگ‌اند",
+      "FEAT2_TITLE": "درس را شروع کنید",
+      "FEAT2_DESC": "به کلاس‌های ویدیویی HD از هر جا و هر دستگاهی بپیوندید",
+      "FEAT3_TITLE": "پیشرفت را دنبال کنید",
+      "FEAT3_DESC": "بعد از هر درس با بینش‌های مبتنی بر هوش مصنوعی بهبود خود را ببینید",
+      "TUTOR_FEAT1_TITLE": "برنامهٔ خود را تنظیم کنید",
+      "TUTOR_FEAT1_DESC": "زمان در دسترس بودن برای تدریس را کنترل کنید",
+      "TUTOR_FEAT2_TITLE": "زنده تدریس کنید",
+      "TUTOR_FEAT2_DESC": "کلاس‌های ویدیویی HD با ابزارهای آموزشی داخلی",
+      "TUTOR_FEAT3_TITLE": "درآمد بگیرید",
+      "TUTOR_FEAT3_DESC": "با پرداخت‌های شفاف، مطابق شرایط خود درآمد کسب کنید",
+      "HOW_LABEL": "چطور کار می‌کند",
+      "HOW_STEP1": "پروفایل خود را تنظیم کنید",
+      "HOW_STEP2": "معلم پیدا کنید",
+      "HOW_STEP3": "یادگیری را شروع کنید",
+      "TUTOR_HOW_STEP1": "پروفایل بسازید",
+      "TUTOR_HOW_STEP2": "دسترسی‌تان را مشخص کنید",
+      "TUTOR_HOW_STEP3": "تدریس را شروع کنید"
+    }
+  },
+  "fi": {
+    "s": {
+      "GOAL_WIZARD_TITLE": "Mikä on tavoitteesi?",
+      "GOAL_WIZARD_SUBTITLE": "Auttaa meitä luomaan sinulle henkilökohtaisen oppimispolun.",
+      "PREVIEW_GOAL_LEVEL_SECTION": "Tavoite ja taso",
+      "PREVIEW_GOAL": "Tavoite",
+      "PREVIEW_CURRENT_LEVEL": "Nykyinen taso",
+      "PREVIEW_TIMELINE_ROW": "Aikataulu",
+      "PREVIEW_TIMELINE_NOT_SET": "Ei vielä tavoitepäivää",
+      "PREVIEW_TIMELINE_BY_DATE": "Mennessä {{date}}",
+      "PREVIEW_LEVEL_NOT_SET": "Ei valittu — voit lisätä myöhemmin profiilista",
+      "SKIP_GOAL_LINK": "Aloitan kokeilemalla oppituntia",
+      "SKIP_GOAL_HELP": "Ohita tavoite toistaiseksi. Voit lisätä sen milloin tahansa profiilista, ja rakennamme suunnitelman silloin.",
+      "SKIP_GOAL_PREVIEW": "Opin omaan tahtiini"
+    },
+    "ls": {
+      "sub": "Valitse sovelluksen kieli",
+      "rot": [
+        "Valitse kielesi",
+        "Aseta käyttöliittymän kieli",
+        "Aloita omalla kielelläsi",
+        "Yksi kieli koko sovelluksessa",
+        "Jatka valitsemallasi kielellä"
+      ]
+    },
+    "a11y": "Askelnavigointi",
+    "w": {
+      "TRUST_SECURE": "Yksityinen ja turvallinen",
+      "TRUST_TIME": "Kestää 2 minuuttia",
+      "TRUST_FREE": "Luottokorttia ei tarvita rekisteröitymiseen",
+      "FEAT1_TITLE": "Löydä tutor",
+      "FEAT1_DESC": "Selaa vahvistettuja tutoreita, jotka sopivat tavoitteisiisi ja aikatauluusi",
+      "FEAT2_TITLE": "Aloita oppitunti",
+      "FEAT2_DESC": "Liity HD-videotunneille mistä tahansa, millä tahansa laitteella",
+      "FEAT3_TITLE": "Seuraa edistymistä",
+      "FEAT3_DESC": "Näe kehityksesi tekoälypohjaisilla oivalluksilla jokaisen tunnin jälkeen",
+      "TUTOR_FEAT1_TITLE": "Aseta aikataulusi",
+      "TUTOR_FEAT1_DESC": "Hallitse milloin olet tavoitettavissa opettamiseen",
+      "TUTOR_FEAT2_TITLE": "Opeta livenä",
+      "TUTOR_FEAT2_DESC": "HD-videotunnit sisäänrakennetuin opetusvälinein",
+      "TUTOR_FEAT3_TITLE": "Saa maksuja",
+      "TUTOR_FEAT3_DESC": "Ansaitse omilla ehdoillasi läpinäkyvillä maksuilla",
+      "HOW_LABEL": "Näin se toimii",
+      "HOW_STEP1": "Tee profiilisi",
+      "HOW_STEP2": "Löydä tutor",
+      "HOW_STEP3": "Aloita oppiminen",
+      "TUTOR_HOW_STEP1": "Rakenna profiilisi",
+      "TUTOR_HOW_STEP2": "Määritä saatavuus",
+      "TUTOR_HOW_STEP3": "Aloita opettaminen"
+    }
+  },
+  "fr": {
+    "s": {
+      "GOAL_WIZARD_TITLE": "Quel est votre objectif ?",
+      "GOAL_WIZARD_SUBTITLE": "Cela nous aide à créer un parcours d'apprentissage personnalisé.",
+      "PREVIEW_GOAL_LEVEL_SECTION": "Objectif et niveau",
+      "PREVIEW_GOAL": "Objectif",
+      "PREVIEW_CURRENT_LEVEL": "Niveau actuel",
+      "PREVIEW_TIMELINE_ROW": "Échéance",
+      "PREVIEW_TIMELINE_NOT_SET": "Pas encore de date cible",
+      "PREVIEW_TIMELINE_BY_DATE": "D'ici le {{date}}",
+      "PREVIEW_LEVEL_NOT_SET": "Non sélectionné — vous pourrez l'ajouter plus tard dans votre profil",
+      "SKIP_GOAL_LINK": "Je commence par essayer une leçon",
+      "SKIP_GOAL_HELP": "Ignorez l'objectif pour l'instant. Vous pourrez l'ajouter à tout moment depuis votre profil, et nous construirons un plan.",
+      "SKIP_GOAL_PREVIEW": "J'apprends à mon rythme"
+    },
+    "ls": {
+      "sub": "Choisissez la langue de l'application",
+      "rot": [
+        "Choisissez votre langue",
+        "Réglez la langue de l'interface",
+        "Commencez dans votre langue",
+        "Une langue pour toute l'application",
+        "Continuez dans votre langue préférée"
+      ]
+    },
+    "a11y": "Navigation par étapes"
+  },
+  "he": {
+    "s": {
+      "GOAL_WIZARD_TITLE": "מה המטרה שלך?",
+      "GOAL_WIZARD_SUBTITLE": "זה עוזר לנו ליצור מסלל למידה מותאם אישית.",
+      "PREVIEW_GOAL_LEVEL_SECTION": "מטרה ורמה",
+      "PREVIEW_GOAL": "מטרה",
+      "PREVIEW_CURRENT_LEVEL": "רמה נוכחית",
+      "PREVIEW_TIMELINE_ROW": "לוח זמנים",
+      "PREVIEW_TIMELINE_NOT_SET": "עדיין אין תאריך יעד",
+      "PREVIEW_TIMELINE_BY_DATE": "עד {{date}}",
+      "PREVIEW_LEVEL_NOT_SET": "לא נבחר — אפשר להוסיף מאוחר יותר מהפרופיל",
+      "SKIP_GOAL_LINK": "אתחיל בנסיון שיעור",
+      "SKIP_GOAL_HELP": "דלגו על המטרה לעת עתה. תוכלו להוסיף בכל עת מהפרופיל, ואז נבנה מפת דרכים.",
+      "SKIP_GOAL_PREVIEW": "לומדים בקצב שלי"
+    },
+    "ls": {
+      "sub": "בחרו את שפת הממשק המועדפת",
+      "rot": [
+        "בחרו את השפה שלכם",
+        "הגדירו את שפת הממשק",
+        "התחילו בשפה שלכם",
+        "שפה אחת בכל האפליקציה",
+        "המשיכו בשפה המועדפת"
+      ]
+    },
+    "a11y": "ניווט בין שלבים",
+    "w": {
+      "TRUST_SECURE": "פרטי ומאובטח",
+      "TRUST_TIME": "לוקח שתי דקות",
+      "TRUST_FREE": "אין צורך בכרטיס אשראי כדי להירשם",
+      "FEAT1_TITLE": "מצאו מורה פרטי",
+      "FEAT1_DESC": "עיינו במורים מאומתים שמתאימים למטרות וללוח הזמנים שלכם",
+      "FEAT2_TITLE": "התחילו שיעור",
+      "FEAT2_DESC": "הצטרפו לשיעורי וידאו באיכות HD מכל מקום, בכל מכשיר",
+      "FEAT3_TITLE": "עקבו אחרי ההתקדמות",
+      "FEAT3_DESC": "ראו את השיפור שלכם עם תובנות מבוססות בינה מלאכותית אחרי כל שיעור",
+      "TUTOR_FEAT1_TITLE": "קבעו את לוח הזמנים",
+      "TUTOR_FEAT1_DESC": "שלטו מתי אתם זמינים ללמד",
+      "TUTOR_FEAT2_TITLE": "למדו בשידור חי",
+      "TUTOR_FEAT2_DESC": "שיעורי וידאו HD עם כלי הוראה מובנים",
+      "TUTOR_FEAT3_TITLE": "קבלו תשלום",
+      "TUTOR_FEAT3_DESC": "הרוויחו בתנאים שלכם עם תשלומים שקופים",
+      "HOW_LABEL": "איך זה עובד",
+      "HOW_STEP1": "הגדירו את הפרופיל",
+      "HOW_STEP2": "מצאו מורה",
+      "HOW_STEP3": "התחילו ללמוד",
+      "TUTOR_HOW_STEP1": "בנו פרופיל",
+      "TUTOR_HOW_STEP2": "הגדירו זמינות",
+      "TUTOR_HOW_STEP3": "התחילו ללמד"
+    }
+  },
+  "hi": {
+    "s": {
+      "GOAL_WIZARD_TITLE": "आपका लक्ष्य क्या है?",
+      "GOAL_WIZARD_SUBTITLE": "इससे हम आपके लिए व्यक्तिगत सीखने का रास्ता बना सकते हैं।",
+      "PREVIEW_GOAL_LEVEL_SECTION": "लक्ष्य और स्तर",
+      "PREVIEW_GOAL": "लक्ष्य",
+      "PREVIEW_CURRENT_LEVEL": "वर्तमान स्तर",
+      "PREVIEW_TIMELINE_ROW": "समयसीमा",
+      "PREVIEW_TIMELINE_NOT_SET": "अभी तक कोई लक्ष्य तिथि नहीं",
+      "PREVIEW_TIMELINE_BY_DATE": "{{date}} तक",
+      "PREVIEW_LEVEL_NOT_SET": "चयनित नहीं — बाद में प्रोफ़ाइल से जोड़ सकते हैं",
+      "SKIP_GOAL_LINK": "मैं पाठ आज़मा कर शुरू करूँगा/करूँगी",
+      "SKIP_GOAL_HELP": "अभी लक्ष्य छोड़ें। कभी भी प्रोफ़ाइल से जोड़ सकते हैं, तब हम रोडमैप बनाएंगे।",
+      "SKIP_GOAL_PREVIEW": "अपनी गति से सीख रहा/रही हूँ"
+    },
+    "ls": {
+      "sub": "ऐप की अपनी पसंदीदा भाषा चुनें",
+      "rot": [
+        "अपनी भाषा चुनें",
+        "इंटरफ़ेस भाषा सेट करें",
+        "अपनी भाषा में शुरू करें",
+        "पूरे ऐप में एक भाषा",
+        "अपनी पसंदीदा भाषा में जारी रखें"
+      ]
+    },
+    "a11y": "चरण नेविगेशन",
+    "w": {
+      "TRUST_SECURE": "निजी और सुरक्षित",
+      "TRUST_TIME": "2 मिनट लगते हैं",
+      "TRUST_FREE": "साइन अप के लिए क्रेडिट कार्ड की ज़रूरत नहीं",
+      "FEAT1_TITLE": "ट्यूटर खोजें",
+      "FEAT1_DESC": "अपने लक्ष्यों और समय के अनुसार सत्यापित ट्यूटर देखें",
+      "FEAT2_TITLE": "पाठ शुरू करें",
+      "FEAT2_DESC": "कहीं से भी, किसी भी डिवाइस पर HD वीडियो पाठ में शामिल हों",
+      "FEAT3_TITLE": "प्रगति ट्रैक करें",
+      "FEAT3_DESC": "हर पाठ के बाद AI आधारित अंतर्दृष्टि से सुधार देखें",
+      "TUTOR_FEAT1_TITLE": "अपना शेड्यूल सेट करें",
+      "TUTOR_FEAT1_DESC": "जब आप पढ़ाने के लिए उपलब्ध हैं, नियंत्रित करें",
+      "TUTOR_FEAT2_TITLE": "लाइव पढ़ाएं",
+      "TUTOR_FEAT2_DESC": "अंतर्निहित शिक्षण उपकरणों के साथ HD वीडियो पाठ",
+      "TUTOR_FEAT3_TITLE": "भुगतान पाएं",
+      "TUTOR_FEAT3_DESC": "पारदर्शी भुगतान के साथ अपनी शर्तों पर कमाएँ",
+      "HOW_LABEL": "यह कैसे काम करता है",
+      "HOW_STEP1": "अपनी प्रोफ़ाइल सेट करें",
+      "HOW_STEP2": "ट्यूटर खोजें",
+      "HOW_STEP3": "सीखना शुरू करें",
+      "TUTOR_HOW_STEP1": "प्रोफ़ाइल बनाएं",
+      "TUTOR_HOW_STEP2": "उपलब्धता सेट करें",
+      "TUTOR_HOW_STEP3": "पढ़ाना शुरू करें"
+    }
+  },
+  "id": {
+    "s": {
+      "GOAL_WIZARD_TITLE": "Apa tujuanmu?",
+      "GOAL_WIZARD_SUBTITLE": "Ini membantu kami membuat jalur belajar yang dipersonalisasi.",
+      "PREVIEW_GOAL_LEVEL_SECTION": "Tujuan & level",
+      "PREVIEW_GOAL": "Tujuan",
+      "PREVIEW_CURRENT_LEVEL": "Level saat ini",
+      "PREVIEW_TIMELINE_ROW": "Linimasa",
+      "PREVIEW_TIMELINE_NOT_SET": "Belum ada tanggal target",
+      "PREVIEW_TIMELINE_BY_DATE": "Pada {{date}}",
+      "PREVIEW_LEVEL_NOT_SET": "Belum dipilih — bisa ditambahkan nanti dari profil",
+      "SKIP_GOAL_LINK": "Saya mulai dengan mencoba pelajaran",
+      "SKIP_GOAL_HELP": "Lewati tujuan dulu. Anda bisa menambahkannya kapan saja dari profil, lalu kami buat peta perjalanan.",
+      "SKIP_GOAL_PREVIEW": "Belajar dengan ritme saya sendiri"
+    },
+    "ls": {
+      "sub": "Pilih bahasa aplikasi pilihan Anda",
+      "rot": [
+        "Pilih bahasa Anda",
+        "Atur bahasa antarmuka",
+        "Mulai dalam bahasa Anda",
+        "Satu bahasa di seluruh aplikasi",
+        "Lanjutkan dalam bahasa pilihan"
+      ]
+    },
+    "a11y": "Navigasi langkah",
+    "w": {
+      "TRUST_SECURE": "Privat dan aman",
+      "TRUST_TIME": "Hanya 2 menit",
+      "TRUST_FREE": "Tidak perlu kartu kredit untuk mendaftar",
+      "FEAT1_TITLE": "Cari tutor",
+      "FEAT1_DESC": "Jelajahi tutor terverifikasi yang sesuai tujuan dan jadwal Anda",
+      "FEAT2_TITLE": "Mulai pelajaran",
+      "FEAT2_DESC": "Ikuti pelajaran video HD dari mana saja, di perangkat apa pun",
+      "FEAT3_TITLE": "Lacak kemajuan",
+      "FEAT3_DESC": "Lihat peningkatan Anda dengan wawasan berbasis AI setelah setiap pelajaran",
+      "TUTOR_FEAT1_TITLE": "Atur jadwal Anda",
+      "TUTOR_FEAT1_DESC": "Kendalikan kapan Anda tersedia mengajar",
+      "TUTOR_FEAT2_TITLE": "Mengajar secara langsung",
+      "TUTOR_FEAT2_DESC": "Pelajaran video HD dengan alat mengajar bawaan",
+      "TUTOR_FEAT3_TITLE": "Dapatkan bayaran",
+      "TUTOR_FEAT3_DESC": "Hasilkan sesuai syarat Anda dengan pembayaran transparan",
+      "HOW_LABEL": "Cara kerjanya",
+      "HOW_STEP1": "Siapkan profil Anda",
+      "HOW_STEP2": "Cari tutor",
+      "HOW_STEP3": "Mulai belajar",
+      "TUTOR_HOW_STEP1": "Bangun profil Anda",
+      "TUTOR_HOW_STEP2": "Atur ketersediaan",
+      "TUTOR_HOW_STEP3": "Mulai mengajar"
+    }
+  },
+  "it": {
+    "s": {
+      "GOAL_WIZARD_TITLE": "Qual è il tuo obiettivo?",
+      "GOAL_WIZARD_SUBTITLE": "Ci aiuta a creare un percorso di apprendimento personalizzato.",
+      "PREVIEW_GOAL_LEVEL_SECTION": "Obiettivo e livello",
+      "PREVIEW_GOAL": "Obiettivo",
+      "PREVIEW_CURRENT_LEVEL": "Livello attuale",
+      "PREVIEW_TIMELINE_ROW": "Tempistiche",
+      "PREVIEW_TIMELINE_NOT_SET": "Nessuna data obiettivo ancora",
+      "PREVIEW_TIMELINE_BY_DATE": "Entro il {{date}}",
+      "PREVIEW_LEVEL_NOT_SET": "Non selezionato — puoi aggiungerlo più tardi dal profilo",
+      "SKIP_GOAL_LINK": "Inizio provando una lezione",
+      "SKIP_GOAL_HELP": "Salta l'obiettivo per ora. Potrai aggiungerlo quando vuoi dal profilo e creeremo un piano.",
+      "SKIP_GOAL_PREVIEW": "Imparo al mio ritmo"
+    },
+    "ls": {
+      "sub": "Scegli la lingua preferita dell'app",
+      "rot": [
+        "Scegli la tua lingua",
+        "Imposta la lingua dell'interfaccia",
+        "Inizia nella tua lingua",
+        "Una lingua in tutta l'app",
+        "Continua nella lingua preferita"
+      ]
+    },
+    "a11y": "Navigazione passi",
+    "w": {
+      "TRUST_SECURE": "Privato e sicuro",
+      "TRUST_TIME": "Richiede 2 minuti",
+      "TRUST_FREE": "Nessuna carta di credito per registrarsi",
+      "FEAT1_TITLE": "Trova un tutor",
+      "FEAT1_DESC": "Sfoglia tutor verificati in linea con obiettivi e orari",
+      "FEAT2_TITLE": "Inizia una lezione",
+      "FEAT2_DESC": "Partecipa a lezioni video HD ovunque, su qualsiasi dispositivo",
+      "FEAT3_TITLE": "Monitora i progressi",
+      "FEAT3_DESC": "Vedi i miglioramenti con approfondimenti basati sull'IA dopo ogni lezione",
+      "TUTOR_FEAT1_TITLE": "Imposta il tuo calendario",
+      "TUTOR_FEAT1_DESC": "Decidi quando sei disponibile a insegnare",
+      "TUTOR_FEAT2_TITLE": "Insegna dal vivo",
+      "TUTOR_FEAT2_DESC": "Lezioni video HD con strumenti didattici integrati",
+      "TUTOR_FEAT3_TITLE": "Ricevi pagamenti",
+      "TUTOR_FEAT3_DESC": "Guadagna alle tue condizioni con pagamenti trasparenti",
+      "HOW_LABEL": "Come funziona",
+      "HOW_STEP1": "Configura il profilo",
+      "HOW_STEP2": "Trova un tutor",
+      "HOW_STEP3": "Inizia a imparare",
+      "TUTOR_HOW_STEP1": "Crea il profilo",
+      "TUTOR_HOW_STEP2": "Imposta la disponibilità",
+      "TUTOR_HOW_STEP3": "Inizia a insegnare"
+    }
+  },
+  "ja": {
+    "s": {
+      "GOAL_WIZARD_TITLE": "目標は何ですか？",
+      "GOAL_WIZARD_SUBTITLE": "あなた専用の学習パスを作るために役立ちます。",
+      "PREVIEW_GOAL_LEVEL_SECTION": "目標とレベル",
+      "PREVIEW_GOAL": "目標",
+      "PREVIEW_CURRENT_LEVEL": "現在のレベル",
+      "PREVIEW_TIMELINE_ROW": "スケジュール",
+      "PREVIEW_TIMELINE_NOT_SET": "まだ目標日はありません",
+      "PREVIEW_TIMELINE_BY_DATE": "{{date}} まで",
+      "PREVIEW_LEVEL_NOT_SET": "未選択 — 後からプロフィールで追加できます",
+      "SKIP_GOAL_LINK": "まずはレッスンを試します",
+      "SKIP_GOAL_HELP": "今は目標をスキップできます。いつでもプロフィールから追加でき、そのときにロードマップを作成します。",
+      "SKIP_GOAL_PREVIEW": "自分のペースで学んでいます"
+    },
+    "ls": {
+      "sub": "アプリの表示言語を選んでください",
+      "rot": [
+        "言語を選択してください",
+        "インターフェース言語を設定",
+        "あなたの言語で始める",
+        "アプリ全体で同じ言語",
+        "お好みの言語で続ける"
+      ]
+    },
+    "a11y": "ステップのナビゲーション",
+    "w": {
+      "TRUST_SECURE": "プライベートで安全",
+      "TRUST_TIME": "所要時間は約2分",
+      "TRUST_FREE": "登録にクレジットカードは不要です",
+      "FEAT1_TITLE": "チューターを見つける",
+      "FEAT1_DESC": "目標とスケジュールに合う認定チューターを探す",
+      "FEAT2_TITLE": "レッスンを始める",
+      "FEAT2_DESC": "どこからでも、どの端末でもHDビデオレッスンに参加",
+      "FEAT3_TITLE": "進捗を確認",
+      "FEAT3_DESC": "各レッスン後にAIのインサイトで上達を可視化",
+      "TUTOR_FEAT1_TITLE": "スケジュールを設定",
+      "TUTOR_FEAT1_DESC": "指導可能な時間を自分で管理",
+      "TUTOR_FEAT2_TITLE": "ライブで教える",
+      "TUTOR_FEAT2_DESC": "教材ツール付きのHDビデオレッスン",
+      "TUTOR_FEAT3_TITLE": "報酬を受け取る",
+      "TUTOR_FEAT3_DESC": "透明な支払いで自分のペースで収入を得る",
+      "HOW_LABEL": "仕組み",
+      "HOW_STEP1": "プロフィールを設定",
+      "HOW_STEP2": "チューターを見つける",
+      "HOW_STEP3": "学習を始める",
+      "TUTOR_HOW_STEP1": "プロフィールを作る",
+      "TUTOR_HOW_STEP2": "空き時間を設定",
+      "TUTOR_HOW_STEP3": "指導を始める"
+    }
+  },
+  "ko": {
+    "s": {
+      "GOAL_WIZARD_TITLE": "목표가 무엇인가요?",
+      "GOAL_WIZARD_SUBTITLE": "맞춤 학습 경로를 만드는 데 도움이 됩니다.",
+      "PREVIEW_GOAL_LEVEL_SECTION": "목표와 수준",
+      "PREVIEW_GOAL": "목표",
+      "PREVIEW_CURRENT_LEVEL": "현재 수준",
+      "PREVIEW_TIMELINE_ROW": "일정",
+      "PREVIEW_TIMELINE_NOT_SET": "아직 목표 날짜 없음",
+      "PREVIEW_TIMELINE_BY_DATE": "{{date}}까지",
+      "PREVIEW_LEVEL_NOT_SET": "선택 안 함 — 나중에 프로필에서 추가할 수 있어요",
+      "SKIP_GOAL_LINK": "먼저 수업을 체험해 볼게요",
+      "SKIP_GOAL_HELP": "지금은 목표를 건너뛸 수 있어요. 언제든 프로필에서 추가하면 그때 로드맵을 만들어 드려요.",
+      "SKIP_GOAL_PREVIEW": "제 속도로 배우고 있어요"
+    },
+    "ls": {
+      "sub": "앱에서 사용할 언어를 선택하세요",
+      "rot": [
+        "언어를 선택하세요",
+        "인터페이스 언어를 설정하세요",
+        "내 언어로 시작하기",
+        "앱 전체에서 하나의 언어",
+        "선호하는 언어로 계속하기"
+      ]
+    },
+    "a11y": "단계 탐색",
+    "w": {
+      "TRUST_SECURE": "비공개이며 안전합니다",
+      "TRUST_TIME": "2분이면 됩니다",
+      "TRUST_FREE": "가입에 신용카드가 필요하지 않습니다",
+      "FEAT1_TITLE": "튜터 찾기",
+      "FEAT1_DESC": "목표와 일정에 맞는 인증 튜터를 둘러보세요",
+      "FEAT2_TITLE": "수업 시작하기",
+      "FEAT2_DESC": "어디서나 어떤 기기로든 HD 화상 수업에 참여하세요",
+      "FEAT3_TITLE": "진행 상황 추적",
+      "FEAT3_DESC": "매 수업 후 AI 기반 인사이트로 향상도를 확인하세요",
+      "TUTOR_FEAT1_TITLE": "일정 설정하기",
+      "TUTOR_FEAT1_DESC": "언제 가르칠 수 있는지 직접 관리하세요",
+      "TUTOR_FEAT2_TITLE": "라이브로 가르치기",
+      "TUTOR_FEAT2_DESC": "내장된 수업 도구가 있는 HD 화상 수업",
+      "TUTOR_FEAT3_TITLE": "수익 받기",
+      "TUTOR_FEAT3_DESC": "투명한 정산으로 내 조건에 맞게 수익을 올리세요",
+      "HOW_LABEL": "이용 방법",
+      "HOW_STEP1": "프로필 설정",
+      "HOW_STEP2": "튜터 찾기",
+      "HOW_STEP3": "학습 시작하기",
+      "TUTOR_HOW_STEP1": "프로필 만들기",
+      "TUTOR_HOW_STEP2": "가능 시간 설정",
+      "TUTOR_HOW_STEP3": "가르치기 시작"
+    }
+  },
+  "ms": {
+    "s": {
+      "GOAL_WIZARD_TITLE": "Apakah matlamat anda?",
+      "GOAL_WIZARD_SUBTITLE": "Ini membantu kami membina laluan pembelajaran peribadi.",
+      "PREVIEW_GOAL_LEVEL_SECTION": "Matlamat & tahap",
+      "PREVIEW_GOAL": "Matlamat",
+      "PREVIEW_CURRENT_LEVEL": "Tahap semasa",
+      "PREVIEW_TIMELINE_ROW": "Garis masa",
+      "PREVIEW_TIMELINE_NOT_SET": "Tiada tarikh sasaran lagi",
+      "PREVIEW_TIMELINE_BY_DATE": "Menjelang {{date}}",
+      "PREVIEW_LEVEL_NOT_SET": "Tidak dipilih — boleh ditambah kemudian dari profil",
+      "SKIP_GOAL_LINK": "Saya mula dengan mencuba pelajaran",
+      "SKIP_GOAL_HELP": "Langkau matlamat buat masa ini. Anda boleh menambahnya bila-bila masa dari profil, dan kami akan bina pelan.",
+      "SKIP_GOAL_PREVIEW": "Belajar mengikut rentak saya"
+    },
+    "ls": {
+      "sub": "Pilih bahasa aplikasi pilihan anda",
+      "rot": [
+        "Pilih bahasa anda",
+        "Tetapkan bahasa antara muka",
+        "Mula dalam bahasa anda",
+        "Satu bahasa untuk keseluruhan aplikasi",
+        "Teruskan dalam bahasa pilihan"
+      ]
+    },
+    "a11y": "Navigasi langkah",
+    "w": {
+      "TRUST_SECURE": "Peribadi dan selamat",
+      "TRUST_TIME": "Hanya 2 minit",
+      "TRUST_FREE": "Tiada kad kredit diperlukan untuk mendaftar",
+      "FEAT1_TITLE": "Cari tutor",
+      "FEAT1_DESC": "Layari tutor disahkan yang sepadan dengan matlamat dan jadual anda",
+      "FEAT2_TITLE": "Mulakan pelajaran",
+      "FEAT2_DESC": "Sertai pelajaran video HD dari mana-mana, pada mana-mana peranti",
+      "FEAT3_TITLE": "Jejaki kemajuan",
+      "FEAT3_DESC": "Lihat peningkatan anda dengan panduan dikuasakan AI selepas setiap pelajaran",
+      "TUTOR_FEAT1_TITLE": "Tetapkan jadual anda",
+      "TUTOR_FEAT1_DESC": "Kawal bila anda tersedia untuk mengajar",
+      "TUTOR_FEAT2_TITLE": "Mengajar secara langsung",
+      "TUTOR_FEAT2_DESC": "Pelajaran video HD dengan alat pengajaran terbina dalam",
+      "TUTOR_FEAT3_TITLE": "Dapatkan bayaran",
+      "TUTOR_FEAT3_DESC": "Pendapatan mengikut terma anda dengan bayaran telus",
+      "HOW_LABEL": "Bagaimana ia berfungsi",
+      "HOW_STEP1": "Sediakan profil anda",
+      "HOW_STEP2": "Cari tutor",
+      "HOW_STEP3": "Mula belajar",
+      "TUTOR_HOW_STEP1": "Bina profil anda",
+      "TUTOR_HOW_STEP2": "Tetapkan ketersediaan",
+      "TUTOR_HOW_STEP3": "Mula mengajar"
+    }
+  },
+  "nl": {
+    "s": {
+      "GOAL_WIZARD_TITLE": "Wat is je doel?",
+      "GOAL_WIZARD_SUBTITLE": "Zo maken we een persoonlijk leerpad voor je.",
+      "PREVIEW_GOAL_LEVEL_SECTION": "Doel en niveau",
+      "PREVIEW_GOAL": "Doel",
+      "PREVIEW_CURRENT_LEVEL": "Huidig niveau",
+      "PREVIEW_TIMELINE_ROW": "Tijdlijn",
+      "PREVIEW_TIMELINE_NOT_SET": "Nog geen streefdatum",
+      "PREVIEW_TIMELINE_BY_DATE": "Tegen {{date}}",
+      "PREVIEW_LEVEL_NOT_SET": "Niet gekozen — later toe te voegen vanuit je profiel",
+      "SKIP_GOAL_LINK": "Ik begin met een les proberen",
+      "SKIP_GOAL_HELP": "Sla het doel nu over. Je kunt het altijd in je profiel toevoegen; dan maken we een plan.",
+      "SKIP_GOAL_PREVIEW": "Ik leer in mijn eigen tempo"
+    },
+    "ls": {
+      "sub": "Kies je voorkeurstaal voor de app",
+      "rot": [
+        "Kies je taal",
+        "Stel de interfacetaal in",
+        "Begin in je eigen taal",
+        "Eén taal in de hele app",
+        "Ga verder in je voorkeurstaal"
+      ]
+    },
+    "a11y": "Stapnavigatie",
+    "w": {
+      "TRUST_SECURE": "Privé en veilig",
+      "TRUST_TIME": "Duurt 2 minuten",
+      "TRUST_FREE": "Geen creditcard nodig om je aan te melden",
+      "FEAT1_TITLE": "Vind een tutor",
+      "FEAT1_DESC": "Blader door geverifieerde tutors die bij je doelen en planning passen",
+      "FEAT2_TITLE": "Start een les",
+      "FEAT2_DESC": "Doe mee aan HD-videolessen, overal, op elk apparaat",
+      "FEAT3_TITLE": "Volg je voortgang",
+      "FEAT3_DESC": "Zie je verbetering met AI-inzichten na elke les",
+      "TUTOR_FEAT1_TITLE": "Stel je rooster in",
+      "TUTOR_FEAT1_DESC": "Bepaal wanneer je beschikbaar bent om te geven",
+      "TUTOR_FEAT2_TITLE": "Geef live les",
+      "TUTOR_FEAT2_DESC": "HD-videolessen met ingebouwde tools",
+      "TUTOR_FEAT3_TITLE": "Word betaald",
+      "TUTOR_FEAT3_DESC": "Verdien op jouw voorwaarden met transparante uitbetalingen",
+      "HOW_LABEL": "Zo werkt het",
+      "HOW_STEP1": "Stel je profiel in",
+      "HOW_STEP2": "Vind een tutor",
+      "HOW_STEP3": "Begin met leren",
+      "TUTOR_HOW_STEP1": "Bouw je profiel op",
+      "TUTOR_HOW_STEP2": "Stel beschikbaarheid in",
+      "TUTOR_HOW_STEP3": "Begin met lesgeven"
+    }
+  },
+  "no": {
+    "s": {
+      "GOAL_WIZARD_TITLE": "Hva er målet ditt?",
+      "GOAL_WIZARD_SUBTITLE": "Det hjelper oss å lage en personlig læringssti.",
+      "PREVIEW_GOAL_LEVEL_SECTION": "Mål og nivå",
+      "PREVIEW_GOAL": "Mål",
+      "PREVIEW_CURRENT_LEVEL": "Nåværende nivå",
+      "PREVIEW_TIMELINE_ROW": "Tidslinje",
+      "PREVIEW_TIMELINE_NOT_SET": "Ingen måldato ennå",
+      "PREVIEW_TIMELINE_BY_DATE": "Innen {{date}}",
+      "PREVIEW_LEVEL_NOT_SET": "Ikke valgt — kan legges til senere i profilen",
+      "SKIP_GOAL_LINK": "Jeg starter med å prøve en leksjon",
+      "SKIP_GOAL_HELP": "Hopp over målet nå. Du kan legge det til når som helst fra profilen, så lager vi en plan.",
+      "SKIP_GOAL_PREVIEW": "Lærer i eget tempo"
+    },
+    "ls": {
+      "sub": "Velg foretrukket appspråk",
+      "rot": [
+        "Velg språket ditt",
+        "Angi grensesnittspråk",
+        "Start på språket ditt",
+        "Ett språk i hele appen",
+        "Fortsett på foretrukket språk"
+      ]
+    },
+    "a11y": "Trinnnavigasjon",
+    "w": {
+      "TRUST_SECURE": "Privat og trygt",
+      "TRUST_TIME": "Tar 2 minutter",
+      "TRUST_FREE": "Ingen kredittkort kreves for å registrere deg",
+      "FEAT1_TITLE": "Finn en veileder",
+      "FEAT1_DESC": "Utforsk verifiserte veiledere som matcher målene og timeplanen din",
+      "FEAT2_TITLE": "Start leksjon",
+      "FEAT2_DESC": "Bli med på HD-videoundervisning hvor som helst, på hvilken som helst enhet",
+      "FEAT3_TITLE": "Følg fremgangen",
+      "FEAT3_DESC": "Se forbedringen med AI-drevne innsikter etter hver leksjon",
+      "TUTOR_FEAT1_TITLE": "Sett timeplanen din",
+      "TUTOR_FEAT1_DESC": "Styr når du er tilgjengelig for undervisning",
+      "TUTOR_FEAT2_TITLE": "Undervis live",
+      "TUTOR_FEAT2_DESC": "HD-video med innebygde undervisningsverktøy",
+      "TUTOR_FEAT3_TITLE": "Få utbetaling",
+      "TUTOR_FEAT3_DESC": "Tjen på dine premisser med transparente utbetalinger",
+      "HOW_LABEL": "Slik fungerer det",
+      "HOW_STEP1": "Sett opp profilen din",
+      "HOW_STEP2": "Finn en veileder",
+      "HOW_STEP3": "Begynn å lære",
+      "TUTOR_HOW_STEP1": "Bygg profilen din",
+      "TUTOR_HOW_STEP2": "Angi tilgjengelighet",
+      "TUTOR_HOW_STEP3": "Begynn å undervise"
+    }
+  },
+  "pl": {
+    "s": {
+      "GOAL_WIZARD_TITLE": "Jaki jest Twój cel?",
+      "GOAL_WIZARD_SUBTITLE": "Pomaga nam to stworzyć spersonalizowaną ścieżkę nauki.",
+      "PREVIEW_GOAL_LEVEL_SECTION": "Cel i poziom",
+      "PREVIEW_GOAL": "Cel",
+      "PREVIEW_CURRENT_LEVEL": "Obecny poziom",
+      "PREVIEW_TIMELINE_ROW": "Harmonogram",
+      "PREVIEW_TIMELINE_NOT_SET": "Brak daty docelowej",
+      "PREVIEW_TIMELINE_BY_DATE": "Do {{date}}",
+      "PREVIEW_LEVEL_NOT_SET": "Nie wybrano — możesz dodać później w profilu",
+      "SKIP_GOAL_LINK": "Zacznę od wypróbowania lekcji",
+      "SKIP_GOAL_HELP": "Pomiń cel na razie. Dodasz go w każdej chwili w profilu, a wtedy zbudujemy plan.",
+      "SKIP_GOAL_PREVIEW": "Uczę się we własnym tempie"
+    },
+    "ls": {
+      "sub": "Wybierz preferowany język aplikacji",
+      "rot": [
+        "Wybierz swój język",
+        "Ustaw język interfejsu",
+        "Zacznij w swoim języku",
+        "Jeden język w całej aplikacji",
+        "Kontynuuj w preferowanym języku"
+      ]
+    },
+    "a11y": "Nawigacja kroków",
+    "w": {
+      "TRUST_SECURE": "Prywatnie i bezpiecznie",
+      "TRUST_TIME": "Zajmuje 2 minuty",
+      "TRUST_FREE": "Do rejestracji nie potrzebujesz karty kredytowej",
+      "FEAT1_TITLE": "Znajdź korepetytora",
+      "FEAT1_DESC": "Przeglądaj zweryfikowanych korepetytorów dopasowanych do celów i harmonogramu",
+      "FEAT2_TITLE": "Rozpocznij lekcję",
+      "FEAT2_DESC": "Dołącz do lekcji wideo HD z dowolnego miejsca i urządzenia",
+      "FEAT3_TITLE": "Śledź postępy",
+      "FEAT3_DESC": "Zobacz swoją poprawę dzięki analizom wspieranym przez AI po każdej lekcji",
+      "TUTOR_FEAT1_TITLE": "Ustal swój harmonogram",
+      "TUTOR_FEAT1_DESC": "Kontroluj, kiedy możesz uczyć",
+      "TUTOR_FEAT2_TITLE": "Ucz na żywo",
+      "TUTOR_FEAT2_DESC": "Lekcje wideo HD z wbudowanymi narzędziami",
+      "TUTOR_FEAT3_TITLE": "Otrzymuj wynagrodzenie",
+      "TUTOR_FEAT3_DESC": "Zarabiaj na swoich zasadach z przejrzystymi wypłatami",
+      "HOW_LABEL": "Jak to działa",
+      "HOW_STEP1": "Skonfiguruj profil",
+      "HOW_STEP2": "Znajdź korepetytora",
+      "HOW_STEP3": "Zacznij się uczyć",
+      "TUTOR_HOW_STEP1": "Zbuduj profil",
+      "TUTOR_HOW_STEP2": "Ustaw dostępność",
+      "TUTOR_HOW_STEP3": "Zacznij uczyć"
+    }
+  },
+  "pt": {
+    "s": {
+      "GOAL_WIZARD_TITLE": "Qual é o seu objetivo?",
+      "GOAL_WIZARD_SUBTITLE": "Ajuda-nos a criar um percurso de aprendizagem personalizado.",
+      "PREVIEW_GOAL_LEVEL_SECTION": "Objetivo e nível",
+      "PREVIEW_GOAL": "Objetivo",
+      "PREVIEW_CURRENT_LEVEL": "Nível atual",
+      "PREVIEW_TIMELINE_ROW": "Prazo",
+      "PREVIEW_TIMELINE_NOT_SET": "Ainda sem data alvo",
+      "PREVIEW_TIMELINE_BY_DATE": "Até {{date}}",
+      "PREVIEW_LEVEL_NOT_SET": "Não selecionado — pode adicionar depois no perfil",
+      "SKIP_GOAL_LINK": "Vou começar experimentando uma aula",
+      "SKIP_GOAL_HELP": "Ignore o objetivo por agora. Pode adicioná-lo a qualquer momento no perfil e criaremos um plano.",
+      "SKIP_GOAL_PREVIEW": "Aprendo no meu ritmo"
+    },
+    "ls": {
+      "sub": "Escolha o idioma preferido do app",
+      "rot": [
+        "Escolha seu idioma",
+        "Defina o idioma da interface",
+        "Comece no seu idioma",
+        "Um idioma em todo o aplicativo",
+        "Continue no idioma preferido"
+      ]
+    },
+    "a11y": "Navegação por passos"
+  },
+  "ro": {
+    "s": {
+      "GOAL_WIZARD_TITLE": "Care este obiectivul tău?",
+      "GOAL_WIZARD_SUBTITLE": "Ne ajută să creăm o cale de învățare personalizată.",
+      "PREVIEW_GOAL_LEVEL_SECTION": "Obiectiv și nivel",
+      "PREVIEW_GOAL": "Obiectiv",
+      "PREVIEW_CURRENT_LEVEL": "Nivel curent",
+      "PREVIEW_TIMELINE_ROW": "Cronologie",
+      "PREVIEW_TIMELINE_NOT_SET": "Încă fără dată țintă",
+      "PREVIEW_TIMELINE_BY_DATE": "Până la {{date}}",
+      "PREVIEW_LEVEL_NOT_SET": "Neselectat — poți adăuga mai târziu din profil",
+      "SKIP_GOAL_LINK": "Încep încercând o lecție",
+      "SKIP_GOAL_HELP": "Sari peste obiectiv acum. Îl poți adăuga oricând din profil, iar atunci construim un plan.",
+      "SKIP_GOAL_PREVIEW": "Învăț în ritmul meu"
+    },
+    "ls": {
+      "sub": "Alegeți limba preferată a aplicației",
+      "rot": [
+        "Alegeți limba dvs.",
+        "Setați limba interfeței",
+        "Începeți în limba dvs.",
+        "O singură limbă în tot restul aplicației",
+        "Continuați în limba preferată"
+      ]
+    },
+    "a11y": "Navigare pe pași",
+    "w": {
+      "TRUST_SECURE": "Privat și sigur",
+      "TRUST_TIME": "Durează 2 minute",
+      "TRUST_FREE": "Nu este nevoie de card pentru înscriere",
+      "FEAT1_TITLE": "Găsește un tutor",
+      "FEAT1_DESC": "Răsfoiește tutori verificați potriviți obiectivelor și programului tău",
+      "FEAT2_TITLE": "Începe lecția",
+      "FEAT2_DESC": "Participă la lecții video HD de oriunde, pe orice dispozitiv",
+      "FEAT3_TITLE": "Urmărește progresul",
+      "FEAT3_DESC": "Vezi îmbunătățirea cu perspective bazate pe AI după fiecare lecție",
+      "TUTOR_FEAT1_TITLE": "Stabilește programul",
+      "TUTOR_FEAT1_DESC": "Controlează când ești disponibil să predai",
+      "TUTOR_FEAT2_TITLE": "Predă live",
+      "TUTOR_FEAT2_DESC": "Lecții video HD cu instrumente integrate",
+      "TUTOR_FEAT3_TITLE": "Primește plata",
+      "TUTOR_FEAT3_DESC": "Câștigă în termenii tăi cu plăți transparente",
+      "HOW_LABEL": "Cum funcționează",
+      "HOW_STEP1": "Configurează profilul",
+      "HOW_STEP2": "Găsește un tutor",
+      "HOW_STEP3": "Începe să înveți",
+      "TUTOR_HOW_STEP1": "Construiește profilul",
+      "TUTOR_HOW_STEP2": "Setează disponibilitatea",
+      "TUTOR_HOW_STEP3": "Începe să predai"
+    }
+  },
+  "ru": {
+    "s": {
+      "GOAL_WIZARD_TITLE": "Какая у вас цель?",
+      "GOAL_WIZARD_SUBTITLE": "Это помогает нам создать персональную траекторию обучения.",
+      "PREVIEW_GOAL_LEVEL_SECTION": "Цель и уровень",
+      "PREVIEW_GOAL": "Цель",
+      "PREVIEW_CURRENT_LEVEL": "Текущий уровень",
+      "PREVIEW_TIMELINE_ROW": "Сроки",
+      "PREVIEW_TIMELINE_NOT_SET": "Целевая дата пока не указана",
+      "PREVIEW_TIMELINE_BY_DATE": "К {{date}}",
+      "PREVIEW_LEVEL_NOT_SET": "Не выбрано — можно добавить позже в профиле",
+      "SKIP_GOAL_LINK": "Начну с пробного урока",
+      "SKIP_GOAL_HELP": "Пока пропустите цель. Её можно добавить в любой момент в профиле — тогда мы построим план.",
+      "SKIP_GOAL_PREVIEW": "Учусь в своём темпе"
+    },
+    "ls": {
+      "sub": "Выберите язык интерфейса приложения",
+      "rot": [
+        "Выберите ваш язык",
+        "Настройте язык интерфейса",
+        "Начните на своём языке",
+        "Один язык во всём приложении",
+        "Продолжите на предпочитаемом языке"
+      ]
+    },
+    "a11y": "Пошаговая навигация",
+    "w": {
+      "TRUST_SECURE": "Конфиденциально и безопасно",
+      "TRUST_TIME": "Займёт 2 минуты",
+      "TRUST_FREE": "Для регистрации не нужна банковская карта",
+      "FEAT1_TITLE": "Найдите репетитора",
+      "FEAT1_DESC": "Просматривайте проверенных репетиторов под ваши цели и расписание",
+      "FEAT2_TITLE": "Начните урок",
+      "FEAT2_DESC": "Подключайтесь к HD‑видеоурокам откуда угодно и с любого устройства",
+      "FEAT3_TITLE": "Отслеживайте прогресс",
+      "FEAT3_DESC": "Смотрите прогресс с аналитикой на базе ИИ после каждого урока",
+      "TUTOR_FEAT1_TITLE": "Настройте расписание",
+      "TUTOR_FEAT1_DESC": "Управляйте временем доступности для преподавания",
+      "TUTOR_FEAT2_TITLE": "Преподавайте онлайн",
+      "TUTOR_FEAT2_DESC": "HD‑видеоуроки со встроенными инструментами",
+      "TUTOR_FEAT3_TITLE": "Получайте оплату",
+      "TUTOR_FEAT3_DESC": "Зарабатывайте на своих условиях с прозрачными выплатами",
+      "HOW_LABEL": "Как это работает",
+      "HOW_STEP1": "Настройте профиль",
+      "HOW_STEP2": "Найдите репетитора",
+      "HOW_STEP3": "Начните учиться",
+      "TUTOR_HOW_STEP1": "Создайте профиль",
+      "TUTOR_HOW_STEP2": "Укажите доступность",
+      "TUTOR_HOW_STEP3": "Начните преподавать"
+    }
+  },
+  "sv": {
+    "s": {
+      "GOAL_WIZARD_TITLE": "Vad är ditt mål?",
+      "GOAL_WIZARD_SUBTITLE": "Det hjälper oss att skapa en personlig inlärningsväg.",
+      "PREVIEW_GOAL_LEVEL_SECTION": "Mål och nivå",
+      "PREVIEW_GOAL": "Mål",
+      "PREVIEW_CURRENT_LEVEL": "Nuvarande nivå",
+      "PREVIEW_TIMELINE_ROW": "Tidslinje",
+      "PREVIEW_TIMELINE_NOT_SET": "Inget måldatum ännu",
+      "PREVIEW_TIMELINE_BY_DATE": "Senast {{date}}",
+      "PREVIEW_LEVEL_NOT_SET": "Inte valt — kan läggas till senare i profilen",
+      "SKIP_GOAL_LINK": "Jag börjar med att prova en lektion",
+      "SKIP_GOAL_HELP": "Hoppa över målet nu. Du kan lägga till det när som helst i profilen, då bygger vi en plan.",
+      "SKIP_GOAL_PREVIEW": "Jag lär i min egen takt"
+    },
+    "ls": {
+      "sub": "Välj önskat appspråk",
+      "rot": [
+        "Välj ditt språk",
+        "Ställ in gränssnittsspråk",
+        "Börja på ditt språk",
+        "Ett språk i hela appen",
+        "Fortsätt på ditt föredragna språk"
+      ]
+    },
+    "a11y": "Stegnavigering",
+    "w": {
+      "TRUST_SECURE": "Privat och säkert",
+      "TRUST_TIME": "Tar 2 minuter",
+      "TRUST_FREE": "Inget kreditkort krävs för att registrera dig",
+      "FEAT1_TITLE": "Hitta en handledare",
+      "FEAT1_DESC": "Bläddra bland verifierade handledare som matchar dina mål och ditt schema",
+      "FEAT2_TITLE": "Starta lektion",
+      "FEAT2_DESC": "Gå med i HD‑videolektioner var som helst, på vilken enhet som helst",
+      "FEAT3_TITLE": "Följ framstegen",
+      "FEAT3_DESC": "Se din utveckling med AI‑drivna insikter efter varje lektion",
+      "TUTOR_FEAT1_TITLE": "Ställ in ditt schema",
+      "TUTOR_FEAT1_DESC": "Styr när du är tillgänglig att undervisa",
+      "TUTOR_FEAT2_TITLE": "Undervisa live",
+      "TUTOR_FEAT2_DESC": "HD‑videolektioner med inbyggda verktyg",
+      "TUTOR_FEAT3_TITLE": "Få betalt",
+      "TUTOR_FEAT3_DESC": "Tjäna på dina villkor med transparenta utbetalningar",
+      "HOW_LABEL": "Så funkar det",
+      "HOW_STEP1": "Sätt upp din profil",
+      "HOW_STEP2": "Hitta en handledare",
+      "HOW_STEP3": "Börja lära dig",
+      "TUTOR_HOW_STEP1": "Bygg din profil",
+      "TUTOR_HOW_STEP2": "Ange tillgänglighet",
+      "TUTOR_HOW_STEP3": "Börja undervisa"
+    }
+  },
+  "th": {
+    "s": {
+      "GOAL_WIZARD_TITLE": "เป้าหมายของคุณคืออะไร?",
+      "GOAL_WIZARD_SUBTITLE": "ช่วยให้เราสร้างเส้นทางการเรียนรู้เฉพาะบุคคล",
+      "PREVIEW_GOAL_LEVEL_SECTION": "เป้าหมายและระดับ",
+      "PREVIEW_GOAL": "เป้าหมาย",
+      "PREVIEW_CURRENT_LEVEL": "ระดับปัจจุบัน",
+      "PREVIEW_TIMELINE_ROW": "ไทม์ไลน์",
+      "PREVIEW_TIMELINE_NOT_SET": "ยังไม่มีวันเป้าหมาย",
+      "PREVIEW_TIMELINE_BY_DATE": "ภายใน {{date}}",
+      "PREVIEW_LEVEL_NOT_SET": "ยังไม่ได้เลือก — เพิ่มทีหลังในโปรไฟล์ได้",
+      "SKIP_GOAL_LINK": "ฉันจะเริ่มจากลองเรียนครั้งหนึ่ง",
+      "SKIP_GOAL_HELP": "ข้ามเป้าหมายไปก่อน เพิ่มได้ทุกเมื่อจากโปรไฟล์ แล้วเราจะสร้างแผนให้",
+      "SKIP_GOAL_PREVIEW": "เรียนตามจังหวะของฉัน"
+    },
+    "ls": {
+      "sub": "เลือกภาษาที่ต้องการใช้ในแอป",
+      "rot": [
+        "เลือกภาษาของคุณ",
+        "ตั้งค่าภาษาของอินเทอร์เฟซ",
+        "เริ่มต้นด้วยภาษาของคุณ",
+        "ภาษาเดียวทั้งแอป",
+        "ดำเนินต่อด้วยภาษาที่ต้องการ"
+      ]
+    },
+    "a11y": "การนำทางขั้นตอน",
+    "w": {
+      "TRUST_SECURE": "เป็นส่วนตัวและปลอดภัย",
+      "TRUST_TIME": "ใช้เวลา 2 นาที",
+      "TRUST_FREE": "ไม่ต้องใช้บัตรเครดิตในการสมัคร",
+      "FEAT1_TITLE": "ค้นหาติวเตอร์",
+      "FEAT1_DESC": "เรียกดูติวเตอร์ที่ยืนยันแล้วให้ตรงกับเป้าหมายและตารางของคุณ",
+      "FEAT2_TITLE": "เริ่มบทเรียน",
+      "FEAT2_DESC": "เข้าร่วมบทเรียนวิดีโอ HD ได้ทุกที่บนอุปกรณ์ใดก็ได้",
+      "FEAT3_TITLE": "ติดตามความคืบหน้า",
+      "FEAT3_DESC": "เห็นความก้าวหน้าด้วยข้อมูลเชิงลึกจาก AI หลังทุกบทเรียน",
+      "TUTOR_FEAT1_TITLE": "ตั้งตารางเวลาของคุณ",
+      "TUTOR_FEAT1_DESC": "กำหนดเวลาที่พร้อมสอน",
+      "TUTOR_FEAT2_TITLE": "สอนสด",
+      "TUTOR_FEAT2_DESC": "บทเรียนวิดีโอ HD พร้อมเครื่องมือสอนในตัว",
+      "TUTOR_FEAT3_TITLE": "รับค่าตอบแทน",
+      "TUTOR_FEAT3_DESC": "สร้างรายได้ตามเงื่อนไขของคุณด้วยการจ่ายเงินที่โปร่งใส",
+      "HOW_LABEL": "วิธีการทำงาน",
+      "HOW_STEP1": "ตั้งค่าโปรไฟล์ของคุณ",
+      "HOW_STEP2": "ค้นหาติวเตอร์",
+      "HOW_STEP3": "เริ่มเรียน",
+      "TUTOR_HOW_STEP1": "สร้างโปรไฟล์",
+      "TUTOR_HOW_STEP2": "ตั้งค่าความพร้อม",
+      "TUTOR_HOW_STEP3": "เริ่มสอน"
+    }
+  },
+  "tr": {
+    "s": {
+      "GOAL_WIZARD_TITLE": "Hedefiniz nedir?",
+      "GOAL_WIZARD_SUBTITLE": "Kişiselleştirilmiş bir öğrenme yolu oluşturmamıza yardımcı olur.",
+      "PREVIEW_GOAL_LEVEL_SECTION": "Hedef ve seviye",
+      "PREVIEW_GOAL": "Hedef",
+      "PREVIEW_CURRENT_LEVEL": "Mevcut seviye",
+      "PREVIEW_TIMELINE_ROW": "Zaman çizelgesi",
+      "PREVIEW_TIMELINE_NOT_SET": "Henüz hedef tarih yok",
+      "PREVIEW_TIMELINE_BY_DATE": "{{date}} tarihine kadar",
+      "PREVIEW_LEVEL_NOT_SET": "Seçilmedi — daha sonra profilden ekleyebilirsiniz",
+      "SKIP_GOAL_LINK": "Önce bir ders deneyerek başlayacağım",
+      "SKIP_GOAL_HELP": "Hedefi şimdilik atlayın. İstediğiniz zaman profilden ekleyebilirsiniz; o zaman bir yol haritası oluştururuz.",
+      "SKIP_GOAL_PREVIEW": "Kendi hızımda öğreniyorum"
+    },
+    "ls": {
+      "sub": "Uygulama için tercih ettiğiniz dili seçin",
+      "rot": [
+        "Dilinizi seçin",
+        "Arayüz dilini ayarlayın",
+        "Kendi dilinizde başlayın",
+        "Tüm uygulamada tek dil",
+        "Tercih ettiğiniz dilde devam edin"
+      ]
+    },
+    "a11y": "Adım gezintisi",
+    "w": {
+      "TRUST_SECURE": "Gizli ve güvenli",
+      "TRUST_TIME": "2 dakika sürer",
+      "TRUST_FREE": "Kayıt için kredi kartı gerekmez",
+      "FEAT1_TITLE": "Eğitmen bulun",
+      "FEAT1_DESC": "Hedeflerinize ve programınıza uyan doğrulanmış eğitmenlere göz atın",
+      "FEAT2_TITLE": "Derse başlayın",
+      "FEAT2_DESC": "Her yerden, her cihazdan HD video derslerine katılın",
+      "FEAT3_TITLE": "İlerlemenizi takip edin",
+      "FEAT3_DESC": "Her dersten sonra yapay zekâ destekli içgörülerle gelişiminizi görün",
+      "TUTOR_FEAT1_TITLE": "Programınızı ayarlayın",
+      "TUTOR_FEAT1_DESC": "Ne zaman müsait olduğunuzu kontrol edin",
+      "TUTOR_FEAT2_TITLE": "Canlı öğretin",
+      "TUTOR_FEAT2_DESC": "Yerleşik araçlarla HD video dersleri",
+      "TUTOR_FEAT3_TITLE": "Ödeme alın",
+      "TUTOR_FEAT3_DESC": "Şeffaf ödemelerle kendi koşullarınızda kazanın",
+      "HOW_LABEL": "Nasıl çalışır",
+      "HOW_STEP1": "Profilinizi oluşturun",
+      "HOW_STEP2": "Eğitmen bulun",
+      "HOW_STEP3": "Öğrenmeye başlayın",
+      "TUTOR_HOW_STEP1": "Profilinizi oluşturun",
+      "TUTOR_HOW_STEP2": "Müsaitliği belirleyin",
+      "TUTOR_HOW_STEP3": "Öğretmeye başlayın"
+    }
+  },
+  "uk": {
+    "s": {
+      "GOAL_WIZARD_TITLE": "Яка у вас мета?",
+      "GOAL_WIZARD_SUBTITLE": "Це допомагає нам створити персоналізований шлях навчання.",
+      "PREVIEW_GOAL_LEVEL_SECTION": "Мета та рівень",
+      "PREVIEW_GOAL": "Мета",
+      "PREVIEW_CURRENT_LEVEL": "Поточний рівень",
+      "PREVIEW_TIMELINE_ROW": "Терміни",
+      "PREVIEW_TIMELINE_NOT_SET": "Ще немає цільової дати",
+      "PREVIEW_TIMELINE_BY_DATE": "До {{date}}",
+      "PREVIEW_LEVEL_NOT_SET": "Не вибрано — можна додати пізніше в профілі",
+      "SKIP_GOAL_LINK": "Почну з пробного уроку",
+      "SKIP_GOAL_HELP": "Поки що пропустіть мету. Додати можна будь-коли в профілі — тоді побудуємо план.",
+      "SKIP_GOAL_PREVIEW": "Навчаюся у власному темпі"
+    },
+    "ls": {
+      "sub": "Оберіть бажану мову інтерфейсу застосунку",
+      "rot": [
+        "Виберіть вашу мову",
+        "Налаштуйте мову інтерфейсу",
+        "Почніть своєю мовою",
+        "Одна мова в усьому застосунку",
+        "Продовжуйте обраною мовою"
+      ]
+    },
+    "a11y": "Покрокова навігація",
+    "w": {
+      "TRUST_SECURE": "Приватно й безпечно",
+      "TRUST_TIME": "Займає 2 хвилини",
+      "TRUST_FREE": "Для реєстрації не потрібна банківська карта",
+      "FEAT1_TITLE": "Знайдіть репетитора",
+      "FEAT1_DESC": "Переглядайте перевірених репетиторів під ваші цілі та розклад",
+      "FEAT2_TITLE": "Почніть урок",
+      "FEAT2_DESC": "Долучайтеся до HD‑відеоуроків звідусіль і з будь‑якого пристрою",
+      "FEAT3_TITLE": "Відстежуйте прогрес",
+      "FEAT3_DESC": "Бачте покращення з аналітикою на базі ШІ після кожного уроку",
+      "TUTOR_FEAT1_TITLE": "Налаштуйте розклад",
+      "TUTOR_FEAT1_DESC": "Керуйте часом доступності для викладання",
+      "TUTOR_FEAT2_TITLE": "Викладайте наживо",
+      "TUTOR_FEAT2_DESC": "HD‑відеоуроки з вбудованими інструментами",
+      "TUTOR_FEAT3_TITLE": "Отримуйте оплату",
+      "TUTOR_FEAT3_DESC": "Заробляйте на своїх умовах із прозорими виплатами",
+      "HOW_LABEL": "Як це працює",
+      "HOW_STEP1": "Налаштуйте профіль",
+      "HOW_STEP2": "Знайдіть репетитора",
+      "HOW_STEP3": "Почніть навчатися",
+      "TUTOR_HOW_STEP1": "Створіть профіль",
+      "TUTOR_HOW_STEP2": "Вкажіть доступність",
+      "TUTOR_HOW_STEP3": "Почніть викладати"
+    }
+  },
+  "vi": {
+    "s": {
+      "GOAL_WIZARD_TITLE": "Mục tiêu của bạn là gì?",
+      "GOAL_WIZARD_SUBTITLE": "Giúp chúng tôi tạo lộ trình học cá nhân hóa.",
+      "PREVIEW_GOAL_LEVEL_SECTION": "Mục tiêu & trình độ",
+      "PREVIEW_GOAL": "Mục tiêu",
+      "PREVIEW_CURRENT_LEVEL": "Trình độ hiện tại",
+      "PREVIEW_TIMELINE_ROW": "Mốc thời gian",
+      "PREVIEW_TIMELINE_NOT_SET": "Chưa có ngày mục tiêu",
+      "PREVIEW_TIMELINE_BY_DATE": "Trước {{date}}",
+      "PREVIEW_LEVEL_NOT_SET": "Chưa chọn — có thể thêm sau trong hồ sơ",
+      "SKIP_GOAL_LINK": "Tôi sẽ bắt đầu bằng một buổi học thử",
+      "SKIP_GOAL_HELP": "Bỏ qua mục tiêu tạm thời. Bạn có thể thêm bất cứ lúc nào trong hồ sơ; khi đó chúng tôi sẽ lập lộ trình.",
+      "SKIP_GOAL_PREVIEW": "Học theo nhịp của riêng tôi"
+    },
+    "ls": {
+      "sub": "Chọn ngôn ngữ ưa thích cho ứng dụng",
+      "rot": [
+        "Chọn ngôn ngữ của bạn",
+        "Đặt ngôn ngữ giao diện",
+        "Bắt đầu bằng ngôn ngữ của bạn",
+        "Một ngôn ngữ cho toàn bộ ứng dụng",
+        "Tiếp tục bằng ngôn ngữ ưa thích"
+      ]
+    },
+    "a11y": "Điều hướng theo bước",
+    "w": {
+      "TRUST_SECURE": "Riêng tư và an toàn",
+      "TRUST_TIME": "Chỉ mất 2 phút",
+      "TRUST_FREE": "Không cần thẻ tín dụng để đăng ký",
+      "FEAT1_TITLE": "Tìm gia sư",
+      "FEAT1_DESC": "Duyệt các gia sư đã xác minh phù hợp mục tiêu và lịch của bạn",
+      "FEAT2_TITLE": "Bắt đầu buổi học",
+      "FEAT2_DESC": "Tham gia học video HD mọi lúc, mọi thiết bị",
+      "FEAT3_TITLE": "Theo dõi tiến độ",
+      "FEAT3_DESC": "Xem sự tiến bộ với thông tin chi tiết bằng AI sau mỗi buổi học",
+      "TUTOR_FEAT1_TITLE": "Đặt lịch của bạn",
+      "TUTOR_FEAT1_DESC": "Kiểm soát khi nào bạn sẵn sàng dạy",
+      "TUTOR_FEAT2_TITLE": "Dạy trực tiếp",
+      "TUTOR_FEAT2_DESC": "Buổi học video HD kèm công cụ dạy học tích hợp",
+      "TUTOR_FEAT3_TITLE": "Nhận thanh toán",
+      "TUTOR_FEAT3_DESC": "Kiếm tiền theo điều kiện của bạn với thanh toán minh bạch",
+      "HOW_LABEL": "Cách hoạt động",
+      "HOW_STEP1": "Thiết lập hồ sơ",
+      "HOW_STEP2": "Tìm gia sư",
+      "HOW_STEP3": "Bắt đầu học",
+      "TUTOR_HOW_STEP1": "Xây dựng hồ sơ",
+      "TUTOR_HOW_STEP2": "Đặt lịch rảnh",
+      "TUTOR_HOW_STEP3": "Bắt đầu dạy"
+    }
+  },
+  "zh": {
+    "s": {
+      "GOAL_WIZARD_TITLE": "你的目标是什么？",
+      "GOAL_WIZARD_SUBTITLE": "帮助我们为你创建个性化学习路径。",
+      "PREVIEW_GOAL_LEVEL_SECTION": "目标与水平",
+      "PREVIEW_GOAL": "目标",
+      "PREVIEW_CURRENT_LEVEL": "当前水平",
+      "PREVIEW_TIMELINE_ROW": "时间安排",
+      "PREVIEW_TIMELINE_NOT_SET": "尚未设置目标日期",
+      "PREVIEW_TIMELINE_BY_DATE": "{{date}} 前",
+      "PREVIEW_LEVEL_NOT_SET": "未选择 — 可稍后在个人资料中补充",
+      "SKIP_GOAL_LINK": "我先试上一节课",
+      "SKIP_GOAL_HELP": "暂时跳过目标。你随时可在个人资料中添加，届时我们会生成学习路线。",
+      "SKIP_GOAL_PREVIEW": "按自己的节奏学习"
+    },
+    "ls": {
+      "sub": "选择你在应用中使用的语言",
+      "rot": [
+        "选择你的语言",
+        "设置界面语言",
+        "用你的语言开始",
+        "全应用统一语言",
+        "使用你偏好的语言继续"
+      ]
+    },
+    "a11y": "步骤导航",
+    "w": {
+      "TRUST_SECURE": "私密且安全",
+      "TRUST_TIME": "只需约 2 分钟",
+      "TRUST_FREE": "注册无需信用卡",
+      "FEAT1_TITLE": "寻找导师",
+      "FEAT1_DESC": "浏览通过验证、符合目标与日程的导师",
+      "FEAT2_TITLE": "开始上课",
+      "FEAT2_DESC": "随时随地用任意设备加入高清视频课",
+      "FEAT3_TITLE": "跟踪进度",
+      "FEAT3_DESC": "每节课后通过 AI 洞察查看提升情况",
+      "TUTOR_FEAT1_TITLE": "设置你的时间安排",
+      "TUTOR_FEAT1_DESC": "自主控制可授课时间",
+      "TUTOR_FEAT2_TITLE": "直播授课",
+      "TUTOR_FEAT2_DESC": "内置教学工具的高清视频课",
+      "TUTOR_FEAT3_TITLE": "获得报酬",
+      "TUTOR_FEAT3_DESC": "以透明结算按你的方式获得收入",
+      "HOW_LABEL": "运作方式",
+      "HOW_STEP1": "完善个人资料",
+      "HOW_STEP2": "寻找导师",
+      "HOW_STEP3": "开始学习",
+      "TUTOR_HOW_STEP1": "建立个人资料",
+      "TUTOR_HOW_STEP2": "设置可授课时间",
+      "TUTOR_HOW_STEP3": "开始授课"
+    }
+  }
+}

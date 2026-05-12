@@ -37,6 +37,8 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
   availableInterfaceLanguages: LanguageOption[] = [];
   selectedInterfaceLanguage: SupportedLanguage = 'en';
   selectedLanguageFlag = '🇬🇧';
+  termsOfServiceHref = '/terms?lang=en';
+  privacyPolicyHref = '/privacy?lang=en';
 
   // Rotating heading (language picker): multilingual lines from i18n.
   readonly headingRotationKeys: readonly string[] = [
@@ -479,6 +481,7 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
     this.user$ = this.authService.user$;
     this.availableInterfaceLanguages = this.languageService.supportedLanguages;
     this.selectedInterfaceLanguage = this.languageService.getCurrentLanguage();
+    this.refreshPublicLegalLinks();
   }
 
   ngOnDestroy() {
@@ -494,6 +497,12 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
       clearTimeout(this.languageApplyDebounce);
       this.languageApplyDebounce = null;
     }
+  }
+
+  private refreshPublicLegalLinks(): void {
+    const lang = encodeURIComponent(this.selectedInterfaceLanguage);
+    this.termsOfServiceHref = `/terms?lang=${lang}`;
+    this.privacyPolicyHref = `/privacy?lang=${lang}`;
   }
 
   private scheduleInterfaceLanguageApply(lang: SupportedLanguage): void {
@@ -678,12 +687,14 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
   selectInterfaceLanguage(lang: SupportedLanguage) {
     this.selectedInterfaceLanguage = lang;
     this.selectedLanguageFlag = this.languageService.getLanguageOption(lang)?.flag || '🇬🇧';
+    this.refreshPublicLegalLinks();
     this.scheduleInterfaceLanguageApply(lang);
   }
 
   confirmLanguageSelection() {
     this.clearLanguageApplyDebounce();
     this.languageService.setLanguage(this.selectedInterfaceLanguage);
+    this.refreshPublicLegalLinks();
     this.cancelHeadingRotationSchedule();
     this.stopHeadingRotation();
     const ret = this.preLanguageReturn;
@@ -700,6 +711,7 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
   goBackToLanguageSelect() {
     this.preStepPhase = 'language';
     this.welcomeRevealed = false;
+    this.refreshPublicLegalLinks();
     this.scheduleHeadingRotationAfterLoad();
   }
 

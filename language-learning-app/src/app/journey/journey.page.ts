@@ -423,9 +423,10 @@ export class JourneyPage implements OnInit, OnDestroy {
     this.phaseTitle = activePhase?.title || '';
     this.summary = plan.studentSummary || '';
     this.nextLessonFocus = plan.nextLessonFocus || '';
-    this.goalLabel = plan.goal?.description
-      || this.translate.instant('LEARNING_PLAN.GOAL_LABEL_' + ((plan.goal?.type || 'OTHER').toUpperCase()))
-      || '';
+    const goalType = plan.goal?.type || 'other';
+    this.goalLabel = (goalType === 'other' && plan.goal?.description)
+      ? plan.goal.description
+      : (this.translate.instant('LEARNING_PLAN.GOAL_LABEL_' + goalType.toUpperCase()) || '');
 
     if (plan.status === 'completed') this.widgetState = 'completed';
     else if (plan.status === 'draft') this.widgetState = 'draft';

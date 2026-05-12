@@ -316,9 +316,9 @@
     <!-- Student-specific sections -->
     <ng-container *ngIf="isStudentUser">
       <!-- My Learning Goal Card -->
-      <ion-card class="learning-goal-card" *ngIf="!isViewingOtherUser && learningGoalDisplay && !isUnframed">
+      <ion-card class="learning-goal-card" *ngIf="!isViewingOtherUser && (learningGoalTypeKey || learningGoalCustomDesc) && !isUnframed">
         <ion-card-header>
-          <ion-card-title>My Learning Goal</ion-card-title>
+          <ion-card-title>{{ 'PROFILE.MY_LEARNING_GOAL' | translate }}</ion-card-title>
         </ion-card-header>
         <ion-card-content>
           <div class="lg-card-inner">
@@ -327,21 +327,23 @@
                 <ion-icon [name]="learningGoalIcon"></ion-icon>
               </div>
               <div class="lg-goal-info">
-                <span class="lg-goal-type">{{ learningGoalDisplay }}</span>
+                <span class="lg-goal-type" *ngIf="learningGoalTypeKey">{{ learningGoalTypeKey | translate }}</span>
+                <span class="lg-goal-type" *ngIf="!learningGoalTypeKey">{{ learningGoalCustomDesc }}</span>
                 <div class="lg-goal-meta">
-                  <span class="lg-goal-level" *ngIf="learningGoalLevelDisplay">{{ learningGoalLevelDisplay }}</span>
-                  <span class="lg-meta-dot" *ngIf="learningGoalLevelDisplay && learningGoalTimelineDisplay"></span>
-                  <span class="lg-goal-timeline" *ngIf="learningGoalTimelineDisplay">{{ learningGoalTimelineDisplay }}</span>
+                  <span class="lg-goal-level" *ngIf="learningGoalLevelKey">{{ learningGoalLevelKey | translate }}</span>
+                  <span class="lg-meta-dot" *ngIf="learningGoalLevelKey && learningGoalTimelineKey"></span>
+                  <span class="lg-goal-timeline" *ngIf="learningGoalTimelineKey && !learningGoalTimelineDate">{{ learningGoalTimelineKey | translate }}</span>
+                  <span class="lg-goal-timeline" *ngIf="learningGoalTimelineKey && learningGoalTimelineDate">{{ learningGoalTimelineKey | translate : { date: learningGoalTimelineDate } }}</span>
                 </div>
               </div>
             </div>
             <button class="lg-edit-link" (click)="openGoalEditor()" [disabled]="goalCooldownActive">
-              Edit
+              {{ 'PROFILE.EDIT' | translate }}
             </button>
           </div>
           <div class="lg-cooldown-notice" *ngIf="goalCooldownActive">
             <ion-icon name="time-outline"></ion-icon>
-            <span>You can update your goal again on {{ goalCooldownDateDisplay }}</span>
+            <span>{{ 'PROFILE.GOAL_COOLDOWN_NOTICE' | translate : { date: goalCooldownDateDisplay } }}</span>
           </div>
 
           <!-- Plan lifecycle actions -->
