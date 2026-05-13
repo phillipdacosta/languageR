@@ -5,6 +5,8 @@ Fill missing translations for tutor checklist + approval flow.
 - HOME.GROWTH: any string value still identical to en.json
 - TUTOR_APPROVAL: same
 - PROFILE_SCREEN: deep-merge from en when missing keys; translate strings still identical to en
+- ONBOARDING.WELCOME_SCREEN: deep-merge missing keys from en; translate stale strings (own update
+  pass so leaf keys like CTA do not collide with other sections)
 
 Uses Google Translate via deep-translator; preserves {{placeholders}}.
 """
@@ -213,6 +215,19 @@ def process_locale(en: dict[str, Any], path: Path, dry_run: bool) -> int:
         else:
             deep_merge_missing_strings(data["PROFILE_SCREEN"], en_ps)
 
+    # 2) ONBOARDING.WELCOME_SCREEN — merge missing keys (e.g. CHANGE_ROLE)
+    en_onboarding = en.get("ONBOARDING")
+    en_welcome: dict[str, Any] | None = None
+    if isinstance(en_onboarding, dict):
+        ws = en_onboarding.get("WELCOME_SCREEN")
+        if isinstance(ws, dict):
+            en_welcome = ws
+            ob = data.setdefault("ONBOARDING", {})
+            if "WELCOME_SCREEN" not in ob or not isinstance(ob.get("WELCOME_SCREEN"), dict):
+                ob["WELCOME_SCREEN"] = json.loads(json.dumps(ws))
+            else:
+                deep_merge_missing_strings(ob["WELCOME_SCREEN"], ws)
+
     updates: dict[str, str] = {}
     collect_string_updates(stem, en["HOME"]["GROWTH"], data.setdefault("HOME", {}).setdefault("GROWTH", {}), updates)
     collect_string_updates(stem, en["TUTOR_APPROVAL"], data.setdefault("TUTOR_APPROVAL", {}), updates)
@@ -224,29 +239,49 @@ def process_locale(en: dict[str, Any], path: Path, dry_run: bool) -> int:
             updates,
         )
 
-    if not updates:
+    welcome_updates: dict[str, str] = {}
+    if en_welcome is not None:
+        loc_ws = data.setdefault("ONBOARDING", {}).setdefault("WELCOME_SCREEN", {})
+        if not isinstance(loc_ws, dict):
+            data["ONBOARDING"]["WELCOME_SCREEN"] = {}
+            loc_ws = data["ONBOARDING"]["WELCOME_SCREEN"]
+        collect_string_updates(stem, en_welcome, loc_ws, welcome_updates)
+
+    if not updates and not welcome_updates:
         return 0
 
-    keys_order = list(updates.keys())
+    total_slots = len(updates) + len(welcome_updates)
     if dry_run:
-        return len(keys_order)
+        return total_slots
 
-    texts = [updates[k] for k in keys_order]
     translator = GoogleTranslator(source="en", target=gt)
-    translated = translate_texts(translator, texts)
-    print(f"  [{stem}] translated {len(texts)} strings", flush=True)
 
-    flat_out = dict(zip(keys_order, translated))
-    apply_flat_updates(data["HOME"]["GROWTH"], en["HOME"]["GROWTH"], flat_out)
-    apply_flat_updates(data["TUTOR_APPROVAL"], en["TUTOR_APPROVAL"], flat_out)
-    if isinstance(data.get("PROFILE_SCREEN"), dict) and isinstance(en.get("PROFILE_SCREEN"), dict):
-        apply_flat_updates(data["PROFILE_SCREEN"], en["PROFILE_SCREEN"], flat_out)
+    if updates:
+        keys_order = list(updates.keys())
+        texts = [updates[k] for k in keys_order]
+        translated = translate_texts(translator, texts)
+        print(f"  [{stem}] translated {len(texts)} strings", flush=True)
 
-    if not dry_run:
-        tmp_path = path.with_suffix(path.suffix + ".tmp")
-        tmp_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        tmp_path.replace(path)
-    return len(keys_order)
+        flat_out = dict(zip(keys_order, translated))
+        apply_flat_updates(data["HOME"]["GROWTH"], en["HOME"]["GROWTH"], flat_out)
+        apply_flat_updates(data["TUTOR_APPROVAL"], en["TUTOR_APPROVAL"], flat_out)
+        if isinstance(data.get("PROFILE_SCREEN"), dict) and isinstance(en.get("PROFILE_SCREEN"), dict):
+            apply_flat_updates(data["PROFILE_SCREEN"], en["PROFILE_SCREEN"], flat_out)
+
+    if welcome_updates:
+        w_keys = list(welcome_updates.keys())
+        w_texts = [welcome_updates[k] for k in w_keys]
+        w_translated = translate_texts(translator, w_texts)
+        print(f"  [{stem}] welcome_screen: {len(w_texts)} strings", flush=True)
+        w_flat = dict(zip(w_keys, w_translated))
+        loc_ws = data.setdefault("ONBOARDING", {}).get("WELCOME_SCREEN")
+        if isinstance(loc_ws, dict) and en_welcome is not None:
+            apply_flat_updates(loc_ws, en_welcome, w_flat)
+
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    tmp_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    tmp_path.replace(path)
+    return total_slots
 
 
 def main() -> None:

@@ -234,9 +234,9 @@ export class CallbackPage implements OnInit {
             return;
           } else {
             // New user with returnUrl - need role selection first, then onboarding
-            console.log('⚠️ CALLBACK checkUserInDatabase: NEW user with returnUrl, going to role-select first');
+            console.log('⚠️ CALLBACK checkUserInDatabase: NEW user with returnUrl, signup-language first');
             localStorage.setItem('returnUrl', returnUrl);
-            await this.router.navigate(['/role-select'], { replaceUrl: true });
+            await this.router.navigate(['/signup-language'], { replaceUrl: true });
             return;
           }
         }
@@ -386,11 +386,11 @@ export class CallbackPage implements OnInit {
             return;
           } else {
             // New user with returnUrl - need role selection first, then onboarding
-            console.log('⚠️ CALLBACK: NEW user with returnUrl, going to role-select first');
+            console.log('⚠️ CALLBACK: NEW user with returnUrl, signup-language first');
             if (returnUrl) {
               localStorage.setItem('returnUrl', returnUrl); // Put it back
             }
-            await this.router.navigate(['/role-select'], { replaceUrl: true });
+            await this.router.navigate(['/signup-language'], { replaceUrl: true });
             return;
           }
         }

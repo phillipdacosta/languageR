@@ -346,6 +346,22 @@ const userSchema = new mongoose.Schema({
     trim: true,
     comment: 'ISO 639-1 language code of student\'s native language for analysis feedback'
   },
+  // Additional languages the tutor speaks, each with a CEFR proficiency level
+  spokenLanguages: {
+    type: [
+      {
+        code: { type: String, required: true, trim: true },
+        level: {
+          type: String,
+          enum: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'],
+          required: true
+        },
+        _id: false
+      }
+    ],
+    default: [],
+    comment: 'Additional languages the tutor can speak with CEFR proficiency levels'
+  },
   // Interface language preference for the app UI
   interfaceLanguage: {
     type: String,

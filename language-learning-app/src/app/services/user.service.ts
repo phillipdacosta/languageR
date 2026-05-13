@@ -145,6 +145,7 @@ export interface OnboardingData {
   goals: string[];
   experienceLevel: string;
   preferredSchedule: string;
+  spokenLanguages?: { code: string; level: string }[];
   learningGoal?: {
     type: string;
     description?: string;
@@ -168,6 +169,7 @@ export interface TutorOnboardingData {
   introductionVideo?: string;
   videoThumbnail?: string;
   videoType?: 'upload' | 'youtube' | 'vimeo';
+  spokenLanguages?: { code: string; level: string }[];
 }
 
 export interface Tutor {

@@ -16,6 +16,7 @@ export interface User {
   picture?: string;
   email_verified?: boolean;
   userType?: string;
+  spokenLanguages?: { code: string; level: string }[];
   onboardingData?: {
     languages?: string[];
     goals?: string[];

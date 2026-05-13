@@ -24,7 +24,7 @@
  *
  * Required env vars (set in `config.env` locally, Render dashboard in prod):
  *   AUTH0_DOMAIN          e.g. dev-h6q8nxbfbq8psb4k.us.auth0.com
- *   AUTH0_AUDIENCE        e.g. https://{domain}/api/v2/   (the API audience)
+ *   AUTH0_AUDIENCE        e.g. https://api.barnabi.com   (the custom Auth0 API audience)
  *   AUTH0_CLIENT_ID       e.g. veJihab93y2EdvOK10ve1TvwSffMTflj  (ID token aud)
  *   ALLOW_DEV_TOKENS      'true' to allow dev-token-... in dev (optional; off in prod)
  */

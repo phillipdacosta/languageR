@@ -145,7 +145,7 @@ export class AppComponent implements OnInit, OnDestroy {
       const isPublicRoute = publicRoutes.some(route => url.includes(route));
       const isStaticPublicRoute = /^\/(terms|privacy)(\?|\/|$)/.test(url);
 
-      if (url.includes('/tabs') || url.includes('/onboarding') || isStaticPublicRoute) {
+      if (url.includes('/tabs') || url.includes('/onboarding') || url.includes('/signup-language') || url.includes('/role-select') || isStaticPublicRoute) {
         // Landed on an authenticated page or static public page — safe to reveal everything
         if (loginHoldTimer) { clearTimeout(loginHoldTimer); loginHoldTimer = null; }
         this.loadingService.hide();

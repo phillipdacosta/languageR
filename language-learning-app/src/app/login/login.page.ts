@@ -18,9 +18,9 @@ import { environment } from '../../environments/environment';
  * field is intentionally cosmetic — credentials are typed on the Auth0
  * page where they're handled securely. Social buttons (Google / Facebook)
  * deep-link straight to the matching Auth0 connection so users skip the
- * provider chooser. The "Create an account" link routes to onboarding,
- * which already owns role selection (student vs tutor) and signs the user
- * up via Auth0 with `screen_hint=signup`.
+ * provider chooser. The "Create an account" link routes through Auth0 signup
+ * (`screen_hint=signup`); new accounts land on signup-language for interface
+ * language first, then role selection (student vs tutor).
  */
 @Component({
   selector: 'app-login',
@@ -70,7 +70,7 @@ export class LoginPage implements OnInit, OnDestroy {
       if (auth0User?.email) {
         const userExists = await this.checkUserExistsByEmail(auth0User.email);
         if (!userExists) {
-          await this.router.navigate(['/role-select'], { replaceUrl: true });
+          await this.router.navigate(['/signup-language'], { replaceUrl: true });
           return;
         }
       }

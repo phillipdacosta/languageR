@@ -28,6 +28,11 @@ const routes: Routes = [
     loadChildren: () => import('./callback/callback.module').then(m => m.CallbackPageModule)
   },
   {
+    path: 'signup-language',
+    loadChildren: () => import('./signup-language/signup-language.module').then(m => m.SignupLanguagePageModule),
+    canActivate: [AuthGuard]
+  },
+  {
     path: 'role-select',
     loadChildren: () => import('./role-select/role-select.module').then(m => m.RoleSelectPageModule),
     canActivate: [AuthGuard]

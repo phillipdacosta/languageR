@@ -88,7 +88,7 @@ export class OnboardingGuard implements CanActivate {
         if (!user || !user.email) {
           this.loadingService.hide();
           const savedUserType = localStorage.getItem('selectedUserType');
-          this.router.navigate([savedUserType ? (savedUserType === 'tutor' ? '/tutor-onboarding' : '/onboarding') : '/role-select']);
+          this.router.navigate([savedUserType ? (savedUserType === 'tutor' ? '/tutor-onboarding' : '/onboarding') : '/signup-language']);
           return of(false);
         }
 
@@ -99,7 +99,7 @@ export class OnboardingGuard implements CanActivate {
         console.error('OnboardingGuard: error checking onboarding status:', error);
         this.loadingService.hide();
         const savedUserType = localStorage.getItem('selectedUserType');
-        this.router.navigate([savedUserType ? (savedUserType === 'tutor' ? '/tutor-onboarding' : '/onboarding') : '/role-select']);
+        this.router.navigate([savedUserType ? (savedUserType === 'tutor' ? '/tutor-onboarding' : '/onboarding') : '/signup-language']);
         return of(false);
       })
     );
@@ -157,11 +157,11 @@ export class OnboardingGuard implements CanActivate {
 
           this.loadingService.hide();
 
-          // If user has not yet picked a role, take them through role selection
-          // first; otherwise honor their previous selection on retry.
+          // If user has not yet picked a role, start on signup-language
+          // (interface language) first; otherwise honor their previous selection on retry.
           const savedUserType = localStorage.getItem('selectedUserType');
           if (!savedUserType) {
-            this.router.navigate(['/role-select']);
+            this.router.navigate(['/signup-language']);
           } else {
             const onboardingRoute = savedUserType === 'tutor' ? '/tutor-onboarding' : '/onboarding';
             this.router.navigate([onboardingRoute]);
@@ -198,14 +198,14 @@ export class OnboardingGuard implements CanActivate {
           this.loadingService.hide();
 
           // Prefer the role stored on the user record. If neither the DB nor
-          // localStorage knows the user's role yet, route to /role-select so
-          // they can choose before continuing into the right onboarding flow.
+          // localStorage knows the user's role yet, route to /signup-language
+          // first, then role selection, then the correct onboarding flow.
           const dbUserType = userResult.user?.userType;
           const savedUserType = localStorage.getItem('selectedUserType');
           const userType = dbUserType || savedUserType;
 
           if (!userType) {
-            this.router.navigate(['/role-select']);
+            this.router.navigate(['/signup-language']);
           } else {
             const onboardingRoute = userType === 'tutor' ? '/tutor-onboarding' : '/onboarding';
             this.router.navigate([onboardingRoute]);
@@ -230,7 +230,7 @@ export class OnboardingGuard implements CanActivate {
         // If no cache, route based on whether the user has picked a role yet
         this.loadingService.hide();
         const savedUserType = localStorage.getItem('selectedUserType');
-        this.router.navigate([savedUserType ? (savedUserType === 'tutor' ? '/tutor-onboarding' : '/onboarding') : '/role-select']);
+        this.router.navigate([savedUserType ? (savedUserType === 'tutor' ? '/tutor-onboarding' : '/onboarding') : '/signup-language']);
         observer.next(false);
         observer.complete();
       });

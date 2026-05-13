@@ -295,6 +295,7 @@ router.get('/me', verifyToken, async (req, res) => {
         payoutDetails: user.payoutDetails, // ADD THIS
         profile: user.profile,
         nativeLanguage: user.nativeLanguage,
+        spokenLanguages: user.spokenLanguages || [],
         interfaceLanguage: user.interfaceLanguage,
         stats: user.stats,
         createdAt: user.createdAt,
@@ -464,6 +465,7 @@ router.post('/', verifyToken, async (req, res) => {
         payoutDetails: user.payoutDetails,
         profile: user.profile,
         nativeLanguage: user.nativeLanguage,
+        spokenLanguages: user.spokenLanguages || [],
         interfaceLanguage: user.interfaceLanguage,
         stats: user.stats,
         createdAt: user.createdAt,
@@ -597,7 +599,7 @@ router.put('/onboarding', verifyToken, async (req, res) => {
     
     if (user.userType === 'tutor') {
       // Handle tutor onboarding data
-      const { languages, experience, schedule, summary, bio, hourlyRate, introductionVideo, videoThumbnail, videoType, nativeLanguage, firstName, lastName, country, residenceCountry } = req.body;
+      const { languages, experience, schedule, summary, bio, hourlyRate, introductionVideo, videoThumbnail, videoType, nativeLanguage, firstName, lastName, country, residenceCountry, spokenLanguages } = req.body;
       user.onboardingData = {
         firstName: formatName(firstName || user.firstName || ''),
         lastName: formatName(lastName || user.lastName || ''),
@@ -614,7 +616,7 @@ router.put('/onboarding', verifyToken, async (req, res) => {
         videoType: videoType || 'upload',
         completedAt: new Date()
       };
-      
+
       // Update user-level fields
       if (nativeLanguage) {
         user.nativeLanguage = nativeLanguage;
@@ -625,9 +627,16 @@ router.put('/onboarding', verifyToken, async (req, res) => {
       if (residenceCountry) {
         user.residenceCountry = residenceCountry; // Where they currently live (for payouts)
       }
+      if (Array.isArray(spokenLanguages)) {
+        // Validate each entry has a valid code and CEFR level before saving
+        const validLevels = new Set(['A1', 'A2', 'B1', 'B2', 'C1', 'C2']);
+        user.spokenLanguages = spokenLanguages
+          .filter(s => s && typeof s.code === 'string' && s.code.trim() && validLevels.has(s.level))
+          .map(s => ({ code: s.code.trim(), level: s.level }));
+      }
     } else {
       // Handle student onboarding data
-      const { languages, goals, experienceLevel, preferredSchedule, learningGoal } = req.body;
+      const { languages, goals, experienceLevel, preferredSchedule, learningGoal, spokenLanguages: studentSpokenLanguages } = req.body;
 
       // Capture the *previous* goal so we can detect a goal change after
       // save and trigger plan regeneration (preserving demonstrated state).
@@ -662,6 +671,12 @@ router.put('/onboarding', verifyToken, async (req, res) => {
           timeline: learningGoal.timeline || 'no_rush',
           targetDate: learningGoal.targetDate || null
         };
+      }
+      if (Array.isArray(studentSpokenLanguages)) {
+        const validLevels = new Set(['A1', 'A2', 'B1', 'B2', 'C1', 'C2']);
+        user.spokenLanguages = studentSpokenLanguages
+          .filter(s => s && typeof s.code === 'string' && s.code.trim() && validLevels.has(s.level))
+          .map(s => ({ code: s.code.trim(), level: s.level }));
       }
     }
     
@@ -752,6 +767,7 @@ router.put('/onboarding', verifyToken, async (req, res) => {
         onboardingData: user.onboardingData,
         profile: user.profile,
         nativeLanguage: user.nativeLanguage,
+        spokenLanguages: user.spokenLanguages || [],
         interfaceLanguage: user.interfaceLanguage,
         stats: user.stats,
         createdAt: user.createdAt,
@@ -888,6 +904,7 @@ router.put('/profile', verifyToken, async (req, res) => {
         onboardingData: user.onboardingData,
         profile: user.profile,
         nativeLanguage: user.nativeLanguage,
+        spokenLanguages: user.spokenLanguages || [],
         interfaceLanguage: user.interfaceLanguage,
         stats: user.stats,
         createdAt: user.createdAt,

@@ -3,14 +3,13 @@ import '@dotlottie/player-component';
 import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { UserService, OnboardingData, TutorOnboardingData, User } from '../services/user.service';
-import { LanguageService, LanguageOption, SupportedLanguage } from '../services/language.service';
+import { LanguageService, SupportedLanguage } from '../services/language.service';
 import { TranslateService } from '@ngx-translate/core';
 import { OnboardingGuard } from '../guards/onboarding.guard';
 import { Observable, Subscription, forkJoin } from 'rxjs';
-import { take, timeout, retry, catchError, filter } from 'rxjs/operators';
+import { take, timeout, retry, catchError } from 'rxjs/operators';
 import { LoadingController, AlertController, ModalController } from '@ionic/angular';
 import { CountrySelectModalComponent } from '../components/country-select-modal/country-select-modal.component';
-import { LoadingService } from '../services/loading.service';
 import {
   recommendedMode as computeRecommendedMode,
   weeksToTarget,
@@ -21,6 +20,12 @@ import { COUNTRIES_ONBOARDING_LIST } from '../data/country-onboarding-list';
 import { TEACHABLE_LANGUAGE_EN_NAMES } from '../data/teachable-language-order';
 import { FlagService } from '../services/flag.service';
 import { LocaleDisplayService, TEACHABLE_ENGLISH_NAME_TO_ISO639 } from '../services/locale-display.service';
+import {
+  LANGUAGE_SELECT_RETURN_CONTEXT,
+  LanguageSelectReturnPayload,
+  ONBOARDING_AFTER_LANGUAGE_RESTORE,
+  SIGNUP_INTERFACE_LANG_COMPLETED_KEY,
+} from '../signup-language/language-select-flow.storage';
 
 export type OnboardingNativeLangChip = { code: string; native: string; interfaceLabel: string };
 export type StudentGoalCardOption = { value: string; labelKey: string; descKey: string; icon: string };
@@ -36,7 +41,7 @@ export type StudentTimelineCardOption = { value: string; labelKey: string; icon:
 export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   user$: Observable<any>;
   currentStep = 1;
-  totalSteps = 6; // Students: Name + Native Language + Languages + Goal + Level + Timeline
+  totalSteps = 8; // Students: Name + Native Language + Spoken Languages + CEFR Levels + Languages + Goal + Level + Timeline
   currentUser: User | null = null;
 
   /** Translation keys for focused wizard header (template uses translate pipe — no getters). */
@@ -44,59 +49,16 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   studentWizardSubtitleKey = 'ONBOARDING.STUDENT.STEP1_SUBTITLE';
   studentWizardProgressPercent = 0;
 
-  // Language selection pre-step
-  preStepPhase: 'language' | 'welcome' | 'done' = 'language';
-  private preLanguageReturn: { phase: 'welcome' | 'done'; showPreview: boolean } = { phase: 'welcome', showPreview: false };
+  // Welcome then student wizard (first-time interface language is `/signup-language`).
+  preStepPhase: 'welcome' | 'done' = 'welcome';
   welcomeRevealed: boolean = false;
-  availableInterfaceLanguages: LanguageOption[] = [];
   selectedInterfaceLanguage: SupportedLanguage = 'en';
   selectedLanguageFlag = '🇬🇧';
-  termsOfServiceHref = '/terms?lang=en';
-  privacyPolicyHref = '/privacy?lang=en';
 
-  // Rotating heading (language picker): multilingual lines from i18n.
-  readonly headingRotationKeys: readonly string[] = [
-    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_01',
-    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_02',
-    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_03',
-    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_04',
-    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_05',
-    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_06',
-    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_07',
-    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_08',
-    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_09',
-    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_10',
-    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_11',
-    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_12',
-    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_13',
-    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_14',
-    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_15',
-    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_16',
-    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_17',
-    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_18',
-    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_19',
-    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_20',
-    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_21',
-    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_22',
-    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_23',
-    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_24',
-    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_25',
-    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_26',
-    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_27',
-    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_28',
-    'ONBOARDING.LANG_SELECT.HEADING_ROTATE_29',
-  ];
-  activeHeadingIndex = 0;
-  private headingInterval: ReturnType<typeof setInterval> | null = null;
-  private headingRotationStartTimeout: ReturnType<typeof setTimeout> | null = null;
-  private headingRotationLoadSub: Subscription | null = null;
   /** Cancels in-flight pacing-banner i18n when goal/date changes or component destroys. */
   private pacingSuggestionI18nSub: Subscription | null = null;
   /** Re-binds pacing banner copy when the interface language changes. */
   private translateLangSub: Subscription | null = null;
-  /** Delay before applying `setLanguage` after a tap (avoids instant full-page language flicker). */
-  private languageApplyDebounce: ReturnType<typeof setTimeout> | null = null;
-  private static readonly LANGUAGE_APPLY_DEBOUNCE_MS = 800;
 
   // Preview & Welcome state
   showPreview = false;
@@ -157,6 +119,59 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   nativeLanguage = 'en'; // Default to English
+
+  /** Additional languages the student speaks, each with a CEFR proficiency level. */
+  spokenLanguages: { code: string; level: string }[] = [];
+
+  readonly cefrLevels: { value: string; label: string; desc: string }[] = [
+    { value: 'A1', label: 'A1', desc: 'Beginner' },
+    { value: 'A2', label: 'A2', desc: 'Elementary' },
+    { value: 'B1', label: 'B1', desc: 'Intermediate' },
+    { value: 'B2', label: 'B2', desc: 'Upper-Intermediate' },
+    { value: 'C1', label: 'C1', desc: 'Advanced' },
+    { value: 'C2', label: 'C2', desc: 'Mastery' },
+  ];
+
+  get spokenLanguageOptions() {
+    const learningIsoCodes = new Set(
+      this.selectedLanguages
+        .map(name => TEACHABLE_ENGLISH_NAME_TO_ISO639[name])
+        .filter(Boolean)
+    );
+    return this.nativeLanguageOptions.filter(
+      l => l.code !== this.nativeLanguage && !learningIsoCodes.has(l.code)
+    );
+  }
+
+  toggleSpokenLanguage(code: string): void {
+    const idx = this.spokenLanguages.findIndex(s => s.code === code);
+    if (idx >= 0) {
+      this.spokenLanguages.splice(idx, 1);
+    } else {
+      this.spokenLanguages = [...this.spokenLanguages, { code, level: 'B2' }];
+    }
+  }
+
+  isSpokenLanguageSelected(code: string): boolean {
+    return this.spokenLanguages.some(s => s.code === code);
+  }
+
+  getSpokenLanguageLevel(code: string): string {
+    return this.spokenLanguages.find(s => s.code === code)?.level ?? '';
+  }
+
+  setSpokenLanguageLevel(code: string, level: string): void {
+    const entry = this.spokenLanguages.find(s => s.code === code);
+    if (entry) {
+      entry.level = level;
+      this.spokenLanguages = [...this.spokenLanguages];
+    }
+  }
+
+  getSpokenLanguageDisplayName(code: string): string {
+    return this.nativeLanguageOptions.find(l => l.code === code)?.interfaceLabel || code;
+  }
+
   selectedLanguages: string[] = [];
   learningGoals: string[] = [];
   experienceLevel = '';
@@ -285,7 +300,11 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   tutorBio = '';
   tutorHourlyRate = 25;
 
-  teachableLanguageRows: { value: string; interfaceLabel: string }[] = [];
+  teachableLanguageRows: { value: string; iso: string; interfaceLabel: string }[] = [];
+
+  get filteredTeachableLanguageRows() {
+    return this.teachableLanguageRows.filter(r => r.iso !== this.nativeLanguage);
+  }
 
   // Native language options with ISO codes
   nativeLanguageOptions: OnboardingNativeLangChip[] = [
@@ -365,117 +384,84 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     private onboardingGuard: OnboardingGuard,
     private cdr: ChangeDetectorRef,
     private translateService: TranslateService,
-    private loadingService: LoadingService,
     private flagService: FlagService,
     private localeDisplay: LocaleDisplayService
   ) {
     this.user$ = this.authService.user$;
-    this.availableInterfaceLanguages = this.languageService.supportedLanguages;
     this.selectedInterfaceLanguage = this.languageService.getCurrentLanguage();
     this.refreshLanguageToolbarFlag();
-    this.refreshPublicLegalLinks();
   }
 
   ngOnDestroy() {
-    this.clearLanguageApplyDebounce();
     this.localeUiSub?.unsubscribe();
     this.localeUiSub = null;
-    this.headingRotationLoadSub?.unsubscribe();
-    this.headingRotationLoadSub = null;
     this.pacingSuggestionI18nSub?.unsubscribe();
     this.pacingSuggestionI18nSub = null;
     this.translateLangSub?.unsubscribe();
     this.translateLangSub = null;
-    this.cancelHeadingRotationSchedule();
-    this.stopHeadingRotation();
   }
 
-  private clearLanguageApplyDebounce(): void {
-    if (this.languageApplyDebounce != null) {
-      clearTimeout(this.languageApplyDebounce);
-      this.languageApplyDebounce = null;
-    }
-  }
-
-  private refreshPublicLegalLinks(): void {
-    const lang = encodeURIComponent(this.selectedInterfaceLanguage);
-    this.termsOfServiceHref = `/terms?lang=${lang}`;
-    this.privacyPolicyHref = `/privacy?lang=${lang}`;
-  }
-
-  private scheduleInterfaceLanguageApply(lang: SupportedLanguage): void {
-    this.clearLanguageApplyDebounce();
-    this.languageApplyDebounce = setTimeout(() => {
-      this.languageApplyDebounce = null;
-      this.languageService.setLanguage(lang);
-      this.cdr.detectChanges();
-    }, OnboardingPage.LANGUAGE_APPLY_DEBOUNCE_MS);
-  }
-
-  /** After global loading overlay is gone (onboarding guard), document load, then 4s — begin rotating headings. */
-  private scheduleHeadingRotationAfterLoad(): void {
-    this.cancelHeadingRotationSchedule();
-    this.stopHeadingRotation();
-    this.headingRotationLoadSub?.unsubscribe();
-    this.headingRotationLoadSub = null;
-
-    const startAfterDelay = () => {
-      this.headingRotationStartTimeout = setTimeout(() => {
-        this.headingRotationStartTimeout = null;
-        this.activeHeadingIndex = 0;
-        this.startHeadingRotation();
-      }, 4000);
+  private persistSignupLanguageReturn(): void {
+    const payload: LanguageSelectReturnPayload = {
+      phase: this.preStepPhase,
+      showPreview: this.showPreview,
     };
-
-    const afterDocumentLoaded = () => {
-      if (typeof document === 'undefined' || typeof window === 'undefined') {
-        startAfterDelay();
-        return;
-      }
-      if (document.readyState === 'complete') {
-        startAfterDelay();
-      } else {
-        window.addEventListener('load', () => startAfterDelay(), { once: true });
-      }
-    };
-
-    this.headingRotationLoadSub = this.loadingService.loading$
-      .pipe(filter((isLoading) => !isLoading), take(1))
-      .subscribe(() => {
-        this.headingRotationLoadSub = null;
-        afterDocumentLoaded();
-      });
+    sessionStorage.setItem(LANGUAGE_SELECT_RETURN_CONTEXT, JSON.stringify(payload));
   }
 
-  private cancelHeadingRotationSchedule(): void {
-    if (this.headingRotationStartTimeout != null) {
-      clearTimeout(this.headingRotationStartTimeout);
-      this.headingRotationStartTimeout = null;
-    }
+  /** Opens `/signup-language` (welcome header or wizard language control). */
+  openSignupLanguageEditor(): void {
+    this.persistSignupLanguageReturn();
+    void this.router.navigate(['/signup-language']);
   }
 
-  private startHeadingRotation() {
-    this.stopHeadingRotation();
-    this.headingInterval = setInterval(() => {
-      this.activeHeadingIndex = (this.activeHeadingIndex + 1) % this.headingRotationKeys.length;
-      this.cdr.detectChanges();
-    }, 2400);
-  }
-
-  private stopHeadingRotation() {
-    if (this.headingInterval != null) {
-      clearInterval(this.headingInterval);
-      this.headingInterval = null;
-    }
+  /** Go back to `/role-select` so the user can switch between student/tutor. */
+  changeRole(): void {
+    void this.router.navigate(['/role-select']);
   }
 
   ngOnInit() {
+    const restoreRaw = sessionStorage.getItem(ONBOARDING_AFTER_LANGUAGE_RESTORE);
+    const hasRole = !!localStorage.getItem('selectedUserType');
+    const langCompleted =
+      sessionStorage.getItem(SIGNUP_INTERFACE_LANG_COMPLETED_KEY) === '1';
+
+    if (!hasRole && !restoreRaw) {
+      if (langCompleted) {
+        void this.router.navigate(['/role-select'], { replaceUrl: true });
+        return;
+      }
+      void this.router.navigate(['/signup-language'], { replaceUrl: true });
+      return;
+    }
+
+    if (restoreRaw) {
+      sessionStorage.removeItem(ONBOARDING_AFTER_LANGUAGE_RESTORE);
+      try {
+        const o = JSON.parse(restoreRaw) as LanguageSelectReturnPayload;
+        this.preStepPhase = o.phase;
+        this.showPreview = o.showPreview;
+        this.selectedInterfaceLanguage = this.languageService.getCurrentLanguage();
+        this.refreshLanguageToolbarFlag();
+      } catch {
+        /* ignore malformed restore */
+      }
+    }
+
+    // Whenever we land on the welcome phase (fresh visit, reload, or signup-language
+    // restore), schedule the reveal animation so the title/body fade in and the
+    // lottie shrinks into place. Without this, a hard reload leaves the page stuck
+    // in its pre-reveal hidden state.
+    if (this.preStepPhase === 'welcome' && !this.showPreview && !this.showWelcome) {
+      this.welcomeRevealed = false;
+      setTimeout(() => this.revealWelcome(), 3800);
+    }
+
     this.localeUiSub = this.languageService.currentLanguage$.subscribe(() => {
       this.bindLocaleSensitiveUi();
       this.cdr.markForCheck();
     });
     this.bindLocaleSensitiveUi();
-    this.scheduleHeadingRotationAfterLoad();
 
     // Check if user is authenticated
     this.authService.isAuthenticated$.pipe(take(1)).subscribe(isAuthenticated => {
@@ -548,6 +534,7 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
 
     this.teachableLanguageRows = TEACHABLE_LANGUAGE_EN_NAMES.map((v) => ({
       value: v,
+      iso: TEACHABLE_ENGLISH_NAME_TO_ISO639[v] ?? '',
       interfaceLabel: this.localeDisplay.languageName(
         TEACHABLE_ENGLISH_NAME_TO_ISO639[v] ?? 'en',
         ui
@@ -565,8 +552,9 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     this.refreshLanguageToolbarFlag();
   }
 
-  /** Keeps header emoji in sync with `selectedInterfaceLanguage`. */
+  /** Keeps header emoji + code in sync with the currently active interface language. */
   private refreshLanguageToolbarFlag(): void {
+    this.selectedInterfaceLanguage = this.languageService.getCurrentLanguage();
     this.selectedLanguageFlag =
       this.languageService.getLanguageOption(this.selectedInterfaceLanguage)?.flag ?? '🇬🇧';
   }
@@ -602,14 +590,22 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
         this.studentWizardSubtitleKey = 'ONBOARDING.STUDENT.STEP3_SUBTITLE';
         break;
       case 4:
+        this.studentWizardTitleKey = 'ONBOARDING.TUTOR_OB.STEP_SPOKEN_TITLE';
+        this.studentWizardSubtitleKey = 'ONBOARDING.TUTOR_OB.STEP_SPOKEN_SUBTITLE';
+        break;
+      case 5:
+        this.studentWizardTitleKey = 'ONBOARDING.TUTOR_OB.STEP_SPOKEN_LEVELS_TITLE';
+        this.studentWizardSubtitleKey = 'ONBOARDING.TUTOR_OB.STEP_SPOKEN_LEVELS_SUBTITLE';
+        break;
+      case 6:
         this.studentWizardTitleKey = 'ONBOARDING.STUDENT.GOAL_WIZARD_TITLE';
         this.studentWizardSubtitleKey = 'ONBOARDING.STUDENT.GOAL_WIZARD_SUBTITLE';
         break;
-      case 5:
+      case 7:
         this.studentWizardTitleKey = 'ONBOARDING.STUDENT.LEVEL_WIZARD_TITLE';
         this.studentWizardSubtitleKey = 'ONBOARDING.STUDENT.LEVEL_WIZARD_SUBTITLE';
         break;
-      case 6:
+      case 8:
         this.studentWizardTitleKey = 'ONBOARDING.STUDENT.TIMELINE_WIZARD_TITLE';
         this.studentWizardSubtitleKey = 'ONBOARDING.STUDENT.TIMELINE_WIZARD_SUBTITLE';
         this.refreshPacingSuggestion();
@@ -634,14 +630,14 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
       case 3:
         this.focusFirstInQueryList(this.wizardTeachableChips);
         break;
-      case 4:
+      case 6:
         if (this.learningGoalType === 'other') {
           this.customGoalTextarea?.nativeElement?.focus();
         } else {
           this.focusFirstInQueryList(this.wizardGoalCards);
         }
         break;
-      case 5:
+      case 7:
         this.focusFirstInQueryList(this.wizardLevelCards);
         break;
       case 6:
@@ -657,35 +653,16 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     el?.focus();
   }
 
-  selectInterfaceLanguage(lang: SupportedLanguage) {
-    this.selectedInterfaceLanguage = lang;
-    this.refreshLanguageToolbarFlag();
-    this.refreshPublicLegalLinks();
-    this.scheduleInterfaceLanguageApply(lang);
-  }
-
-  confirmLanguageSelection() {
-    this.clearLanguageApplyDebounce();
-    this.languageService.setLanguage(this.selectedInterfaceLanguage);
-    this.refreshPublicLegalLinks();
-    this.cancelHeadingRotationSchedule();
-    this.stopHeadingRotation();
-    const ret = this.preLanguageReturn;
-    if (ret.phase === 'done') {
-      this.preStepPhase = 'done';
-      this.showPreview = ret.showPreview;
-    } else {
-      this.preStepPhase = 'welcome';
-      this.welcomeRevealed = false;
-      setTimeout(() => { this.welcomeRevealed = true; this.cdr.detectChanges(); }, 3800);
-    }
-  }
-
-  goBackToLanguageSelect() {
-    this.preStepPhase = 'language';
-    this.welcomeRevealed = false;
-    this.refreshPublicLegalLinks();
-    this.scheduleHeadingRotationAfterLoad();
+  private revealWelcome(): void {
+    this.welcomeRevealed = true;
+    this.cdr.detectChanges();
+    // The CSS transition shrinks the lottie from 220px to 72px over 0.6s.
+    // The dotlottie-player's ResizeObserver stops playback during that resize,
+    // so we re-trigger play once the transition has settled.
+    setTimeout(() => {
+      const player = document.querySelector('.welcome-celebration-lottie') as any;
+      player?.play?.();
+    }, 750);
   }
 
   startOnboarding() {
@@ -733,11 +710,13 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
       landed = true;
       dest.style.transition = 'none';
       dest.style.opacity = '0';
-      const destRect = dest.getBoundingClientRect();
-      const destStyles = window.getComputedStyle(dest);
-      const destText = dest.textContent?.trim() || '';
 
+      // Measure dest after one rAF so the wizard layout has had a chance to settle.
       requestAnimationFrame(() => {
+        const destRect = dest.getBoundingClientRect();
+        const destStyles = window.getComputedStyle(dest);
+        const destText = dest.textContent?.trim() || '';
+
         clone.textContent = destText;
         clone.style.left = `${centerX(destRect)}px`;
         clone.style.top = `${destRect.top}px`;
@@ -745,22 +724,43 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
         clone.style.width = 'auto';
         clone.style.height = `${destRect.height}px`;
         clone.style.fontSize = destStyles.fontSize;
-      });
 
-      setTimeout(() => {
-        const finalRect = dest.getBoundingClientRect();
-        clone.style.transition = 'none';
-        clone.style.left = `${centerX(finalRect)}px`;
-        clone.style.top = `${finalRect.top}px`;
-        clone.style.transform = 'translateX(-50%)';
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
+        // After the main 500ms flight: re-measure dest in case layout shifted
+        // during flight (fonts/assets/flex centering settling), nudge the clone
+        // to the exact final position, then crossfade clone → real h1.
+        setTimeout(() => {
+          const finalRect = dest.getBoundingClientRect();
+          const finalLeft = centerX(finalRect);
+          const finalTop = finalRect.top;
+          const currentLeft = parseFloat(clone.style.left) || 0;
+          const currentTop = parseFloat(clone.style.top) || 0;
+          const drifted =
+            Math.abs(finalLeft - currentLeft) > 0.5 ||
+            Math.abs(finalTop - currentTop) > 0.5;
+
+          const startCrossfade = () => {
+            dest.style.transition = 'opacity 0.18s ease';
             dest.style.opacity = '1';
-            if (clone.parentNode) clone.remove();
-            setTimeout(() => { dest.style.transition = ''; dest.style.opacity = ''; }, 50);
-          });
-        });
-      }, 550);
+            clone.style.transition = 'opacity 0.18s ease';
+            clone.style.opacity = '0';
+            setTimeout(() => {
+              if (clone.parentNode) clone.remove();
+              dest.style.transition = '';
+              dest.style.opacity = '';
+            }, 200);
+          };
+
+          if (drifted) {
+            clone.style.transition =
+              'left 0.18s cubic-bezier(0.32, 0.72, 0, 1), top 0.18s cubic-bezier(0.32, 0.72, 0, 1)';
+            clone.style.left = `${finalLeft}px`;
+            clone.style.top = `${finalTop}px`;
+            setTimeout(startCrossfade, 180);
+          } else {
+            startCrossfade();
+          }
+        }, 520);
+      });
     };
 
     const destSelector = '.cm-details-wizard-header h1';
@@ -800,15 +800,16 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
       }
     }
 
-    // "Learn at my own pace" path: skip picking a framed goal on step 4, but still
-    // show level (5) and timeline (6) before review. Preview/Done stay on step 6.
-    if (this.currentStep === 4 && this.skipGoalSetup) {
-      this.currentStep = 5;
-      return;
-    }
-
     if (this.currentStep < this.totalSteps) {
       this.currentStep++;
+      // Skip CEFR level step if no spoken languages were selected
+      if (this.currentStep === 5 && this.spokenLanguages.length === 0) {
+        this.currentStep++;
+      }
+      // "Learn at my own pace" path: skip picking a framed goal on step 6
+      if (this.currentStep === 6 && this.skipGoalSetup) {
+        this.currentStep++;
+      }
     }
   }
 
@@ -817,17 +818,11 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
       this.preStepPhase = 'welcome';
     } else {
       this.currentStep--;
+      // Skip CEFR level step going back if no spoken languages were selected
+      if (this.currentStep === 5 && this.spokenLanguages.length === 0) {
+        this.currentStep--;
+      }
     }
-  }
-
-  goToLanguageSelect() {
-    this.preLanguageReturn = {
-      phase: this.preStepPhase as 'welcome' | 'done',
-      showPreview: this.showPreview,
-    };
-    this.showPreview = false;
-    this.preStepPhase = 'language';
-    this.scheduleHeadingRotationAfterLoad();
   }
 
   toggleLanguage(language: string) {
@@ -835,11 +830,22 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
       this.selectedLanguages = [];
     } else {
       this.selectedLanguages = [language];
+      // Remove from spokenLanguages if the user now picks it as their learning language
+      const iso = TEACHABLE_ENGLISH_NAME_TO_ISO639[language];
+      if (iso) {
+        this.spokenLanguages = this.spokenLanguages.filter(s => s.code !== iso);
+      }
     }
   }
 
   setNativeLanguage(code: string) {
     this.nativeLanguage = code;
+    // Clear selected learning language if it matches the new native language
+    this.selectedLanguages = this.selectedLanguages.filter(
+      lang => TEACHABLE_ENGLISH_NAME_TO_ISO639[lang] !== code
+    );
+    // Also remove from spoken languages if present
+    this.spokenLanguages = this.spokenLanguages.filter(s => s.code !== code);
   }
 
   setExperienceLevel(value: string) {
@@ -1047,6 +1053,7 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   previewTimelineLabel: string = '';
   previewNativeLanguageName: string = '';
   previewSelectedLanguages: string = '';
+  previewSpokenLanguages: { name: string; level: string }[] = [];
 
   private computePreviewLabels() {
     const ui = this.languageService.getCurrentLanguage();
@@ -1058,6 +1065,12 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
         return iso ? this.localeDisplay.languageName(iso, ui) : lang;
       })
       .join(', ');
+    this.previewSpokenLanguages = this.spokenLanguages
+      .filter(s => s.code && s.level)
+      .map(s => ({
+        name: this.nativeLanguageOptions.find(l => l.code === s.code)?.interfaceLabel ?? s.code,
+        level: s.level
+      }));
     if (this.skipGoalSetup) {
       this.previewGoalLabel = this.translateService.instant('ONBOARDING.STUDENT.SKIP_GOAL_PREVIEW');
     } else if (this.learningGoalType === 'other') {
@@ -1292,7 +1305,7 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
             : this.selfAssessedLevel === 'advanced' ? 'Advanced' : 'Beginner';
 
         // Student onboarding
-        const onboardingData: OnboardingData & { userType: string; picture?: string; nativeLanguage?: string; interfaceLanguage?: string; learningGoal?: any; skipGoalSetup?: boolean } = {
+        const onboardingData: OnboardingData & { userType: string; picture?: string; nativeLanguage?: string; interfaceLanguage?: string; learningGoal?: any; skipGoalSetup?: boolean; spokenLanguages?: { code: string; level: string }[] } = {
           userType: 'student',
           firstName: this.formatName(this.firstName),
           lastName: this.formatName(this.lastName),
@@ -1302,7 +1315,8 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
           goals: this.learningGoals.length > 0 ? this.learningGoals : (this.learningGoalType ? [this.learningGoalType] : []),
           experienceLevel: legacyLevel,
           preferredSchedule: this.preferredSchedule || 'Flexible schedule',
-          picture: auth0User.picture
+          picture: auth0User.picture,
+          spokenLanguages: this.spokenLanguages.filter(s => s.code && s.level)
         };
         if (this.skipGoalSetup) {
           // Signal "learn at my own pace" — backend creates an unframed plan
@@ -1466,13 +1480,17 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
       case 3:
         return this.selectedLanguages.length > 0;
       case 4:
+        return true; // Spoken languages are optional
+      case 5:
+        return this.spokenLanguages.every(s => s.level !== '');
+      case 6:
         if (this.skipGoalSetup) return true;
         if (!this.learningGoalType) return false;
         if (this.learningGoalType === 'other' && !this.learningGoalDescription.trim()) return false;
         return true;
-      case 5:
+      case 7:
         return this.skipGoalSetup || this.selfAssessedLevel !== '';
-      case 6:
+      case 8:
         return this.skipGoalSetup || this.goalTimeline !== '';
       default:
         return false;

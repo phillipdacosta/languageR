@@ -16,6 +16,7 @@ import { COUNTRIES_ONBOARDING_LIST } from '../data/country-onboarding-list';
 import { TEACHABLE_LANGUAGE_EN_NAMES } from '../data/teachable-language-order';
 import { FlagService } from '../services/flag.service';
 import { LocaleDisplayService, TEACHABLE_ENGLISH_NAME_TO_ISO639 } from '../services/locale-display.service';
+import { SIGNUP_INTERFACE_LANG_COMPLETED_KEY } from '../signup-language/language-select-flow.storage';
 
 export type TutorOnboardingNativeLangChip = { code: string; native: string; interfaceLabel: string };
 
@@ -28,7 +29,7 @@ export type TutorOnboardingNativeLangChip = { code: string; native: string; inte
 export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   user$: Observable<User | null>;
   currentStep = 1;
-  totalSteps = 9; // Name + Origin + Residence + Native + Languages + Experience + Schedule + Bio + Rate
+  totalSteps = 11; // Name + Origin + Residence + Native + Spoken Languages + Spoken Levels + Teaching Languages + Experience + Schedule + Bio + Rate
 
   tutorWizardTitleKey = 'ONBOARDING.TUTOR_OB.STEP1_TITLE';
   tutorWizardSubtitleKey = 'ONBOARDING.TUTOR_OB.STEP1_SUBTITLE';
@@ -207,6 +208,52 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
   }
   residenceCountry = ''; // Where do you currently reside? (for payout purposes)
   nativeLanguage = 'en'; // Default to English
+
+  /** CEFR levels the tutor can speak (additional languages, not the native one). */
+  spokenLanguages: { code: string; level: string }[] = [];
+
+  readonly cefrLevels: { value: string; label: string; desc: string }[] = [
+    { value: 'A1', label: 'A1', desc: 'Beginner' },
+    { value: 'A2', label: 'A2', desc: 'Elementary' },
+    { value: 'B1', label: 'B1', desc: 'Intermediate' },
+    { value: 'B2', label: 'B2', desc: 'Upper-intermediate' },
+    { value: 'C1', label: 'C1', desc: 'Advanced' },
+    { value: 'C2', label: 'C2', desc: 'Proficient' },
+  ];
+
+  toggleSpokenLanguage(code: string): void {
+    const idx = this.spokenLanguages.findIndex(s => s.code === code);
+    if (idx >= 0) {
+      this.spokenLanguages.splice(idx, 1);
+    } else {
+      this.spokenLanguages = [...this.spokenLanguages, { code, level: 'B2' }];
+    }
+  }
+
+  isSpokenLanguageSelected(code: string): boolean {
+    return this.spokenLanguages.some(s => s.code === code);
+  }
+
+  getSpokenLanguageLevel(code: string): string {
+    return this.spokenLanguages.find(s => s.code === code)?.level ?? '';
+  }
+
+  setSpokenLanguageLevel(code: string, level: string): void {
+    const entry = this.spokenLanguages.find(s => s.code === code);
+    if (entry) {
+      entry.level = level;
+      this.spokenLanguages = [...this.spokenLanguages];
+    }
+  }
+
+  getSpokenLanguageDisplayName(code: string): string {
+    return this.nativeLanguageOptions.find(l => l.code === code)?.interfaceLabel || code;
+  }
+
+  get spokenLanguageOptions() {
+    return this.nativeLanguageOptions.filter(l => l.code !== this.nativeLanguage);
+  }
+
   selectedLanguages: string[] = [];
   selectedExperience = '';
   selectedSchedule = '';
@@ -458,12 +505,23 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
   }
 
   ngOnInit() {
+    const skipInterfaceLanguageStep =
+      sessionStorage.getItem(SIGNUP_INTERFACE_LANG_COMPLETED_KEY) === '1' ||
+      localStorage.getItem('selectedUserType') === 'tutor';
+
+    if (skipInterfaceLanguageStep) {
+      this.preStepPhase = 'welcome';
+      this.welcomeRevealed = false;
+      setTimeout(() => this.revealWelcome(), 3800);
+    } else {
+      this.scheduleHeadingRotationAfterLoad();
+    }
+
     this.localeUiSub = this.languageService.currentLanguage$.subscribe(() => {
       this.bindLocaleSensitiveUi();
       this.cdr.markForCheck();
     });
     this.bindLocaleSensitiveUi();
-    this.scheduleHeadingRotationAfterLoad();
 
     // Check if user is authenticated
     this.authService.isAuthenticated$.pipe(take(1)).subscribe(isAuthenticated => {
@@ -537,22 +595,30 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
         this.tutorWizardSubtitleKey = `${base}.STEP3_SUBTITLE`;
         break;
       case 5:
+        this.tutorWizardTitleKey = `${base}.STEP_SPOKEN_TITLE`;
+        this.tutorWizardSubtitleKey = `${base}.STEP_SPOKEN_SUBTITLE`;
+        break;
+      case 6:
+        this.tutorWizardTitleKey = `${base}.STEP_SPOKEN_LEVELS_TITLE`;
+        this.tutorWizardSubtitleKey = `${base}.STEP_SPOKEN_LEVELS_SUBTITLE`;
+        break;
+      case 7:
         this.tutorWizardTitleKey = `${base}.STEP4_TITLE`;
         this.tutorWizardSubtitleKey = `${base}.STEP4_SUBTITLE`;
         break;
-      case 6:
+      case 8:
         this.tutorWizardTitleKey = `${base}.STEP5_TITLE`;
         this.tutorWizardSubtitleKey = `${base}.STEP5_SUBTITLE`;
         break;
-      case 7:
+      case 9:
         this.tutorWizardTitleKey = `${base}.STEP6_TITLE`;
         this.tutorWizardSubtitleKey = `${base}.STEP6_SUBTITLE`;
         break;
-      case 8:
+      case 10:
         this.tutorWizardTitleKey = `${base}.STEP7_TITLE`;
         this.tutorWizardSubtitleKey = `${base}.STEP7_SUBTITLE`;
         break;
-      case 9:
+      case 11:
       default:
         this.tutorWizardTitleKey = `${base}.STEP8_TITLE`;
         this.tutorWizardSubtitleKey = `${base}.STEP8_SUBTITLE`;
@@ -577,18 +643,21 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
         this.focusFirstInQueryList(this.tutorNativeChips);
         break;
       case 5:
+      case 6:
+        break; // spoken languages / levels — no single focusable element
+      case 7:
         this.focusFirstInQueryList(this.tutorTeachableChips);
         break;
-      case 6:
+      case 8:
         this.focusFirstInQueryList(this.tutorExpChips);
         break;
-      case 7:
+      case 9:
         this.focusFirstInQueryList(this.tutorScheduleChips);
         break;
-      case 8:
+      case 10:
         this.summaryInput?.nativeElement?.focus();
         break;
-      case 9:
+      case 11:
         this.tutorRateRangeEl?.nativeElement?.focus();
         break;
       default:
@@ -621,8 +690,13 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
     } else {
       this.preStepPhase = 'welcome';
       this.welcomeRevealed = false;
-      setTimeout(() => { this.welcomeRevealed = true; this.cdr.detectChanges(); }, 3800);
+      setTimeout(() => this.revealWelcome(), 3800);
     }
+  }
+
+  /** Go back to `/role-select` so the user can switch between student/tutor. */
+  changeRole(): void {
+    void this.router.navigate(['/role-select']);
   }
 
   goBackToLanguageSelect() {
@@ -630,6 +704,18 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
     this.welcomeRevealed = false;
     this.refreshPublicLegalLinks();
     this.scheduleHeadingRotationAfterLoad();
+  }
+
+  private revealWelcome(): void {
+    this.welcomeRevealed = true;
+    this.cdr.detectChanges();
+    // The CSS transition shrinks the lottie from 220px to 72px over 0.6s.
+    // The dotlottie-player's ResizeObserver stops playback during that resize,
+    // so we re-trigger play once the transition has settled.
+    setTimeout(() => {
+      const player = document.querySelector('.welcome-celebration-lottie') as any;
+      player?.play?.();
+    }, 750);
   }
 
   startOnboarding() {
@@ -678,11 +764,13 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
       landed = true;
       dest.style.transition = 'none';
       dest.style.opacity = '0';
-      const destRect = dest.getBoundingClientRect();
-      const destStyles = window.getComputedStyle(dest);
-      const destText = dest.textContent?.trim() || '';
 
+      // Measure dest after one rAF so the wizard layout has had a chance to settle.
       requestAnimationFrame(() => {
+        const destRect = dest.getBoundingClientRect();
+        const destStyles = window.getComputedStyle(dest);
+        const destText = dest.textContent?.trim() || '';
+
         clone.textContent = destText;
         clone.style.left = `${centerX(destRect)}px`;
         clone.style.top = `${destRect.top}px`;
@@ -690,22 +778,43 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
         clone.style.width = 'auto';
         clone.style.height = `${destRect.height}px`;
         clone.style.fontSize = destStyles.fontSize;
-      });
 
-      setTimeout(() => {
-        const finalRect = dest.getBoundingClientRect();
-        clone.style.transition = 'none';
-        clone.style.left = `${centerX(finalRect)}px`;
-        clone.style.top = `${finalRect.top}px`;
-        clone.style.transform = 'translateX(-50%)';
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
+        // After the main 500ms flight: re-measure dest in case layout shifted
+        // during flight (fonts/assets/flex centering settling), nudge the clone
+        // to the exact final position, then crossfade clone → real h1.
+        setTimeout(() => {
+          const finalRect = dest.getBoundingClientRect();
+          const finalLeft = centerX(finalRect);
+          const finalTop = finalRect.top;
+          const currentLeft = parseFloat(clone.style.left) || 0;
+          const currentTop = parseFloat(clone.style.top) || 0;
+          const drifted =
+            Math.abs(finalLeft - currentLeft) > 0.5 ||
+            Math.abs(finalTop - currentTop) > 0.5;
+
+          const startCrossfade = () => {
+            dest.style.transition = 'opacity 0.18s ease';
             dest.style.opacity = '1';
-            if (clone.parentNode) clone.remove();
-            setTimeout(() => { dest.style.transition = ''; dest.style.opacity = ''; }, 50);
-          });
-        });
-      }, 550);
+            clone.style.transition = 'opacity 0.18s ease';
+            clone.style.opacity = '0';
+            setTimeout(() => {
+              if (clone.parentNode) clone.remove();
+              dest.style.transition = '';
+              dest.style.opacity = '';
+            }, 200);
+          };
+
+          if (drifted) {
+            clone.style.transition =
+              'left 0.18s cubic-bezier(0.32, 0.72, 0, 1), top 0.18s cubic-bezier(0.32, 0.72, 0, 1)';
+            clone.style.left = `${finalLeft}px`;
+            clone.style.top = `${finalTop}px`;
+            setTimeout(startCrossfade, 180);
+          } else {
+            startCrossfade();
+          }
+        }, 520);
+      });
     };
 
     const destSelector = '.cm-details-wizard-header h1';
@@ -740,6 +849,10 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
   nextStep() {
     if (this.canProceed() && this.currentStep < this.totalSteps) {
       this.currentStep++;
+      // Skip CEFR level step if no spoken languages were selected
+      if (this.currentStep === 6 && this.spokenLanguages.length === 0) {
+        this.currentStep++;
+      }
     }
   }
 
@@ -748,6 +861,10 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
       this.preStepPhase = 'welcome';
     } else {
       this.currentStep--;
+      // Skip CEFR level step going back if no spoken languages were selected
+      if (this.currentStep === 6 && this.spokenLanguages.length === 0) {
+        this.currentStep--;
+      }
     }
   }
 
@@ -893,6 +1010,7 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
 
   previewNativeLanguageName: string = '';
   previewSelectedLanguages: string = '';
+  previewSpokenLanguages: { name: string; level: string }[] = [];
 
   showPreviewPage() {
     const ui = this.languageService.getCurrentLanguage();
@@ -904,6 +1022,12 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
         return iso ? this.localeDisplay.languageName(iso, ui) : lang;
       })
       .join(', ');
+    this.previewSpokenLanguages = this.spokenLanguages
+      .filter(s => s.code && s.level)
+      .map(s => ({
+        name: this.nativeLanguageOptions.find(l => l.code === s.code)?.interfaceLabel ?? s.code,
+        level: s.level
+      }));
     this.showPreview = true;
     this.hasReachedPreview = true;
     // Scroll to top when preview page is shown
@@ -963,7 +1087,8 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
         schedule: this.selectedSchedule,
         summary: this.formatText(this.profileSummary),
         bio: this.formatText(this.profileBio),
-        hourlyRate: this.hourlyRate
+        hourlyRate: this.hourlyRate,
+        spokenLanguages: this.spokenLanguages.filter(s => s.code && s.level)
       };
 
       console.log('Saving tutor onboarding data to database:', onboardingData);
@@ -1038,14 +1163,17 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
       case 4:
         return this.nativeLanguage !== '';
       case 5:
-        return this.selectedLanguages.length > 0;
       case 6:
-        return this.selectedExperience !== '';
+        return true; // spoken languages and levels are optional
       case 7:
-        return this.selectedSchedule !== '';
+        return this.selectedLanguages.length > 0;
       case 8:
-        return this.profileBio.length > 0;
+        return this.selectedExperience !== '';
       case 9:
+        return this.selectedSchedule !== '';
+      case 10:
+        return this.profileBio.length > 0;
+      case 11:
         return this.hourlyRate >= 10;
       default:
         return false;

@@ -1,3 +1,19 @@
+<ion-header>
+  <ion-toolbar class="onboarding-toolbar pre-step-toolbar">
+    <ion-buttons slot="start">
+      <div class="app-icon-container">
+        <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="app-icon">
+        <span class="app-name">Barnabi</span>
+      </div>
+    </ion-buttons>
+    <ion-buttons slot="end">
+      <ion-button fill="clear" class="logout-btn" (click)="handleLogout()">
+        <ion-icon name="log-out-outline" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
 <ion-content class="role-select-content">
   <div class="rs-shell">
 
@@ -47,14 +63,19 @@
 
     </div>
 
-    <button
-      type="button"
-      class="rs-next-btn"
-      [disabled]="!selectedRole"
-      (click)="next()">
-      {{ 'ROLE_SELECT.NEXT' | translate }}
-      <ion-icon name="arrow-forward-outline"></ion-icon>
-    </button>
+    <div class="rs-actions">
+      <button type="button" class="rs-back-btn" (click)="goBack()">
+        {{ 'COMMON.BACK' | translate }}
+      </button>
+      <button
+        type="button"
+        class="rs-next-btn"
+        [disabled]="!selectedRole"
+        (click)="next()">
+        {{ 'ROLE_SELECT.NEXT' | translate }}
+        <ion-icon name="arrow-forward-outline"></ion-icon>
+      </button>
+    </div>
 
   </div>
 </ion-content>

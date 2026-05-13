@@ -15,8 +15,8 @@ export const environment = {
   },
   auth0: {
     domain: 'dev-h6q8nxbfbq8psb4k.us.auth0.com',
-    clientId: 'veJihab93y2EdvOK10ve1TvwSffMTflj',
+    clientId: 'GOoBQhd850NcpUZxqZRgVQU4pEams1QI',
     redirectUri: 'https://languager-frontend.onrender.com/callback',
-    audience: 'https://dev-h6q8nxbfbq8psb4k.us.auth0.com/api/v2/' // Auth0 Management API
+    audience: 'https://api.barnabi.com' // Custom Auth0 API identifier (must match the API audience in the Auth0 dashboard)
   }
 };

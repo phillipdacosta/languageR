@@ -106,7 +106,7 @@
       <div class="welcome-features">
         <div class="welcome-feature-card">
           <div class="feature-icon">
-            <ion-icon name="calendar"></ion-icon>
+            <ion-icon name="map-outline"></ion-icon>
           </div>
           <div class="feature-text">
             <span class="feature-title">{{ 'ONBOARDING.WELCOME_SCREEN.TUTOR_FEAT1_TITLE' | translate }}</span>
@@ -124,7 +124,7 @@
         </div>
         <div class="welcome-feature-card">
           <div class="feature-icon">
-            <ion-icon name="wallet"></ion-icon>
+            <ion-icon name="library-outline"></ion-icon>
           </div>
           <div class="feature-text">
             <span class="feature-title">{{ 'ONBOARDING.WELCOME_SCREEN.TUTOR_FEAT3_TITLE' | translate }}</span>
@@ -153,10 +153,16 @@
         </div>
       </div>
 
-      <button class="pre-step-cta" (click)="startOnboarding()">
-        {{ 'ONBOARDING.WELCOME_SCREEN.CTA' | translate }}
-        <ion-icon name="arrow-forward"></ion-icon>
-      </button>
+      <div class="welcome-cta-row">
+        <button type="button" class="welcome-back-btn" (click)="changeRole()">
+          <ion-icon name="chevron-back" aria-hidden="true"></ion-icon>
+          <span>{{ 'ONBOARDING.WELCOME_SCREEN.CHANGE_ROLE' | translate }}</span>
+        </button>
+        <button class="pre-step-cta welcome-primary-cta" (click)="startOnboarding()">
+          {{ 'ONBOARDING.WELCOME_SCREEN.CTA' | translate }}
+          <ion-icon name="arrow-forward"></ion-icon>
+        </button>
+      </div>
 
       <div class="welcome-trust">
         <div class="trust-item">
@@ -201,7 +207,7 @@
 
 <div class="onboarding-container onboarding-container--wizard" *ngIf="!showPreview && !showWelcome && preStepPhase === 'done'">
   <div class="onboarding-wizard-card">
-    <div class="cm-wizard-viewport-scroll" [class.cm-wizard-viewport-scroll--fit]="currentStep === 6 || currentStep === 7 || currentStep === 9">
+    <div class="cm-wizard-viewport-scroll" [class.cm-wizard-viewport-scroll--fit]="currentStep === 8 || currentStep === 9 || currentStep === 11">
     <div class="cm-details-wizard-page-shell">
       <div class="cm-details-wizard-page-toolbar">
         <p class="cm-details-wizard-page-toolbar-title">{{ 'ONBOARDING.TUTOR_OB.WIZARD_FLOW_TITLE' | translate }}</p>
@@ -322,8 +328,46 @@
           </div>
         </div>
 
-        <!-- Step 5: Languages -->
-        <div *ngIf="currentStep === 5">
+        <!-- Step 5: Spoken Languages (pick languages, native excluded) -->
+        <div *ngIf="currentStep === 5" class="spoken-languages-step">
+          <p class="spoken-lang-hint">Select any additional languages you speak.</p>
+          <div class="language-grid spoken-lang-grid">
+            <button
+              *ngFor="let lang of spokenLanguageOptions"
+              type="button"
+              class="language-chip"
+              [class.selected]="isSpokenLanguageSelected(lang.code)"
+              (click)="toggleSpokenLanguage(lang.code)">
+              <span class="language-native">{{ lang.interfaceLabel }}</span>
+              <span class="language-name" *ngIf="lang.native && lang.native !== lang.interfaceLabel">{{ lang.native }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 6: CEFR levels for each selected spoken language -->
+        <div *ngIf="currentStep === 6" class="spoken-languages-step">
+          <div class="spoken-lang-levels">
+            <div *ngFor="let entry of spokenLanguages" class="spoken-lang-level-row">
+              <span class="spoken-lang-level-name">
+                {{ getSpokenLanguageDisplayName(entry.code) }}
+              </span>
+              <div class="cefr-chips">
+                <button
+                  *ngFor="let lvl of cefrLevels"
+                  type="button"
+                  class="cefr-chip"
+                  [class.selected]="entry.level === lvl.value"
+                  (click)="setSpokenLanguageLevel(entry.code, lvl.value)">
+                  <span class="cefr-chip-label">{{ lvl.label }}</span>
+                  <span class="cefr-chip-desc">{{ lvl.desc }}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 7: Teaching Languages -->
+        <div *ngIf="currentStep === 7">
           <div class="options-grid">
             <button 
               *ngFor="let lang of teachableLanguageRows"
@@ -336,8 +380,8 @@
           </div>
         </div>
 
-        <!-- Step 6: Experience -->
-        <div *ngIf="currentStep === 6" class="experience-step">
+        <!-- Step 8: Experience -->
+        <div *ngIf="currentStep === 8" class="experience-step">
           <div class="options-list experience-options">
             <button 
               *ngFor="let experience of experienceLevels"
@@ -350,8 +394,8 @@
           </div>
         </div>
 
-        <!-- Step 7: Availability -->
-        <div *ngIf="currentStep === 7" class="availability-step">
+        <!-- Step 9: Availability -->
+        <div *ngIf="currentStep === 9" class="availability-step">
           <div class="options-list availability-options">
             <button 
               *ngFor="let schedule of scheduleOptions"
@@ -364,8 +408,8 @@
           </div>
         </div>
 
-        <!-- Step 8: Bio -->
-        <div *ngIf="currentStep === 8">
+        <!-- Step 10: Bio -->
+        <div *ngIf="currentStep === 10">
           <div class="form-fields">
             <div class="form-field">
               <label>{{ 'ONBOARDING.TUTOR_OB.STEP7_SUMMARY_LABEL' | translate }} <span class="optional-label">({{ 'ONBOARDING.TUTOR_OB.STEP7_SUMMARY_OPTIONAL' | translate }})</span></label>
@@ -389,10 +433,10 @@
                 [(ngModel)]="profileBio"
                 (blur)="formatBioOnBlur()"
                 [placeholder]="'ONBOARDING.TUTOR_OB.STEP7_BIO_PLACEHOLDER' | translate"
-                rows="4"
-                maxlength="200"
+                rows="5"
+                maxlength="300"
                 class="modern-textarea"></textarea>
-              <div class="char-count">{{ 'ONBOARDING.CHAR_COUNT' | translate:{ current: profileBio.length, max: 200 } }}</div>
+              <div class="char-count">{{ 'ONBOARDING.CHAR_COUNT' | translate:{ current: profileBio.length, max: 300 } }}</div>
             </div>
             
             <p class="update-note">
@@ -402,8 +446,8 @@
           </div>
         </div>
 
-        <!-- Step 9: Hourly Rate -->
-        <div *ngIf="currentStep === 9" class="rate-step">
+        <!-- Step 11: Hourly Rate -->
+        <div *ngIf="currentStep === 11" class="rate-step">
           <div class="form-fields">
             <div class="form-field rate-field">
               <label>{{ 'ONBOARDING.TUTOR_OB.STEP8_RATE_LABEL' | translate }}</label>
@@ -554,6 +598,14 @@
           <div class="preview-detail-row">
             <span class="detail-label">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_NATIVE_LANG' | translate }}</span>
             <span class="detail-value">{{ previewNativeLanguageName }}</span>
+          </div>
+          <div class="preview-detail-row" *ngIf="previewSpokenLanguages.length > 0">
+            <span class="detail-label">Also speaks</span>
+            <div class="detail-value spoken-langs-preview">
+              <span class="spoken-lang-tag" *ngFor="let sl of previewSpokenLanguages">
+                {{ sl.name }} <span class="spoken-lang-cefr">{{ sl.level }}</span>
+              </span>
+            </div>
           </div>
           <div class="preview-detail-row">
             <span class="detail-label">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_TEACHES' | translate }}</span>

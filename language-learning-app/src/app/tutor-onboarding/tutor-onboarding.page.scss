@@ -179,9 +179,8 @@ $ob-accent: #222222;
   }
 
   &.selected {
-    border-color: $ob-text-primary;
+    border-color: #48afec;
     background: #fafafa;
-    box-shadow: 0 0 0 1px $ob-text-primary;
   }
 
   .lang-flag {
@@ -216,6 +215,55 @@ $ob-accent: #222222;
       font-size: 22px;
       color: $ob-text-primary;
     }
+  }
+}
+
+.welcome-cta-row {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+
+  .welcome-back-btn {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 16px 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: $ob-text-primary;
+    background: #ffffff;
+    border: 1.5px solid rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    letter-spacing: -0.1px;
+    -webkit-appearance: none;
+    appearance: none;
+    white-space: nowrap;
+
+    ion-icon {
+      font-size: 16px;
+    }
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.04);
+    }
+
+    &:active {
+      transform: scale(0.98);
+    }
+  }
+
+  .welcome-primary-cta {
+    flex: 3;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
   }
 }
 
@@ -1517,6 +1565,102 @@ ion-header {
   }
 }
 
+// ── Spoken Languages Step ──────────────────────────────────────
+.spoken-languages-step {
+  .spoken-lang-hint {
+    font-size: 14px;
+    color: $ob-text-secondary;
+    margin: 0 0 16px;
+    line-height: 1.5;
+  }
+}
+
+.spoken-lang-grid {
+  margin-bottom: 24px;
+}
+
+.spoken-lang-levels {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 4px;
+  padding-top: 20px;
+  border-top: 1px solid $ob-border-light;
+}
+
+.spoken-lang-level-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.spoken-lang-level-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: $ob-text-primary;
+  letter-spacing: -0.1px;
+}
+
+.cefr-chips {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+}
+
+.cefr-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 6px;
+  border: 1.5px solid $ob-border;
+  border-radius: 10px;
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+
+  .cefr-chip-label {
+    font-size: 14px;
+    font-weight: 700;
+    color: $ob-text-primary;
+    letter-spacing: -0.2px;
+    line-height: 1;
+  }
+
+  .cefr-chip-desc {
+    font-size: 9px;
+    color: $ob-text-tertiary;
+    text-align: center;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  &:hover:not(.selected) {
+    border-color: #c0c0c0;
+    background: $ob-bg-hover;
+  }
+
+  &.selected {
+    border-color: $ob-accent;
+    background: $ob-accent;
+    box-shadow: 0 2px 8px rgba(34, 34, 34, 0.18);
+
+    .cefr-chip-label,
+    .cefr-chip-desc {
+      color: #ffffff;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .cefr-chips {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 // Options Grid (for teaching languages)
 .options-grid {
   display: grid;
@@ -2136,6 +2280,34 @@ ion-header {
     color: $ob-text-primary;
     text-align: right;
     word-break: break-word;
+
+    &.spoken-langs-preview {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: flex-end;
+
+      .spoken-lang-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: #f4f4f4;
+        border-radius: 20px;
+        padding: 2px 10px;
+        font-size: 13px;
+        font-weight: 500;
+        color: $ob-text-primary;
+
+        .spoken-lang-cefr {
+          background: #007AFF;
+          color: white;
+          border-radius: 10px;
+          padding: 0px 6px;
+          font-size: 11px;
+          font-weight: 600;
+        }
+      }
+    }
 
     &.video-badge {
       background: #34C759;
