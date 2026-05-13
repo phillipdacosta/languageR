@@ -3501,10 +3501,17 @@ ion-app.dark {
 }
 
 .profile-checklist-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   margin-bottom: 14px;
+
+  .pcl-header-text {
+    width: 100%;
+  }
+
+  .pcl-header-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
 
   .pcl-warn-icon {
     font-size: 18px;
@@ -3532,6 +3539,21 @@ ion-app.dark {
 
     ion-icon { font-size: 13px; }
   }
+
+  .pcl-subtitle {
+    margin: 5px 0 0 26px;
+    font-size: 12px;
+    color: var(--ion-color-medium, #6b7280);
+    line-height: 1.4;
+  }
+
+  .pcl-availability-note {
+    margin: 3px 0 0 26px;
+    font-size: 11px;
+    color: var(--ion-color-warning, #f59e0b);
+    font-weight: 500;
+    line-height: 1.3;
+  }
 }
 
 .profile-checklist-items {
@@ -3550,6 +3572,13 @@ ion-app.dark {
   color: var(--ion-text-color, #1a1a1a);
   transition: background 0.15s ease;
   cursor: pointer;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  appearance: none;
+  -webkit-appearance: none;
 
   &:hover { background: rgba(0, 0, 0, 0.03); }
 
@@ -3577,6 +3606,23 @@ ion-app.dark {
     .pcl-check { color: #34c759; }
     .pcl-label { text-decoration: line-through; text-decoration-color: rgba(0,0,0,0.2); }
   }
+
+  &.pcl-item--pending-review {
+    opacity: 1;
+
+    .pcl-check {
+      color: #e8893c;
+    }
+
+    .pcl-label {
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .pcl-arrow {
+      color: #e8893c;
+    }
+  }
 }
 
 :host-context(html.ion-palette-dark) {
@@ -3588,6 +3634,10 @@ ion-app.dark {
 
   .pcl-title { color: #fff; }
 
+  .pcl-subtitle { color: #8e8e93; }
+
+  .pcl-availability-note { color: #ff9f0a; }
+
   .pcl-hidden-label {
     background: rgba(232, 137, 60, 0.15);
   }
@@ -3598,6 +3648,11 @@ ion-app.dark {
     .pcl-check { color: #555; }
     .pcl-arrow { color: #555; }
     &.pcl-item--done .pcl-check { color: #30d158; }
+
+    &.pcl-item--pending-review {
+      .pcl-check { color: #ff9f0a; }
+      .pcl-arrow { color: #ff9f0a; }
+    }
   }
 }
 

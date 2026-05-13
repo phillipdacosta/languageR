@@ -382,6 +382,16 @@ const userSchema = new mongoose.Schema({
     default: false,
     comment: 'Whether tutors Connect account has payouts enabled'
   },
+  stripeIdentityVerified: {
+    type: Boolean,
+    default: false,
+    comment: 'Whether Stripe has fully verified the tutor identity (charges_enabled + payouts_enabled + no outstanding requirements). When true, we skip Barnabi manual government-ID review.'
+  },
+  stripeAccountDisabled: {
+    type: Boolean,
+    default: false,
+    comment: 'True when Stripe has flagged the Connect account as disabled / blocked (requirements.disabled_reason set, or past-due requirements present). Used to re-show the manual government-ID step as a fallback.'
+  },
   // Tax classification for payout routing
   isUSPersonForTax: {
     type: Boolean,

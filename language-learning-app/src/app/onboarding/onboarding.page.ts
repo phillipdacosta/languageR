@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewChecked, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ViewChildren, QueryList, ElementRef, AfterViewChecked, ChangeDetectorRef } from '@angular/core';
 import '@dotlottie/player-component';
 import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
@@ -17,8 +17,12 @@ import {
   normalizeGoalTargetDate,
 } from '../shared/goal-pace.helper';
 import { translateLangToDatetimeLocale } from '../shared/datetime-locale.helper';
+import { COUNTRIES_ONBOARDING_LIST } from '../data/country-onboarding-list';
+import { TEACHABLE_LANGUAGE_EN_NAMES } from '../data/teachable-language-order';
+import { FlagService } from '../services/flag.service';
+import { LocaleDisplayService, TEACHABLE_ENGLISH_NAME_TO_ISO639 } from '../services/locale-display.service';
 
-export type OnboardingNativeLangChip = { code: string; name: string; native: string; nameKey?: string };
+export type OnboardingNativeLangChip = { code: string; native: string; interfaceLabel: string };
 export type StudentGoalCardOption = { value: string; labelKey: string; descKey: string; icon: string };
 export type StudentLevelCardOption = { value: string; labelKey: string; descKey: string };
 export type StudentTimelineCardOption = { value: string; labelKey: string; icon: string };
@@ -105,6 +109,12 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   @ViewChild('customGoalPanel') customGoalPanel?: ElementRef<HTMLElement>;
   @ViewChild('customGoalTextarea') customGoalTextarea?: ElementRef<HTMLTextAreaElement>;
   @ViewChild('pacingSuggestionBanner') pacingSuggestionBanner?: ElementRef<HTMLElement>;
+
+  @ViewChildren('wizardNativeChip') wizardNativeChips?: QueryList<ElementRef<HTMLButtonElement>>;
+  @ViewChildren('wizardTeachableChip') wizardTeachableChips?: QueryList<ElementRef<HTMLButtonElement>>;
+  @ViewChildren('wizardGoalCard') wizardGoalCards?: QueryList<ElementRef<HTMLButtonElement>>;
+  @ViewChildren('wizardLevelCard') wizardLevelCards?: QueryList<ElementRef<HTMLButtonElement>>;
+  @ViewChildren('wizardTimelineCard') wizardTimelineCards?: QueryList<ElementRef<HTMLButtonElement>>;
   
   private lastFocusedStep = 0;
 
@@ -182,37 +192,8 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   pacingSuggestionAccept = '';
   pacingSuggestionDismiss = '';
 
-  private static readonly NATIVE_LANG_EN_SLUG: Readonly<Record<string, string>> = {
-    en: 'ENGLISH',
-    es: 'SPANISH',
-    fr: 'FRENCH',
-    de: 'GERMAN',
-    it: 'ITALIAN',
-    pt: 'PORTUGUESE',
-    ru: 'RUSSIAN',
-    zh: 'CHINESE',
-    ja: 'JAPANESE',
-    ko: 'KOREAN',
-    ar: 'ARABIC',
-    hi: 'HINDI',
-    nl: 'DUTCH',
-    pl: 'POLISH',
-    tr: 'TURKISH',
-    sv: 'SWEDISH',
-    no: 'NORWEGIAN',
-    da: 'DANISH',
-    fi: 'FINNISH',
-    el: 'GREEK',
-    cs: 'CZECH',
-    ro: 'ROMANIAN',
-    uk: 'UKRAINIAN',
-    vi: 'VIETNAMESE',
-    th: 'THAI',
-    id: 'INDONESIAN',
-    ms: 'MALAY',
-    he: 'HEBREW',
-    fa: 'PERSIAN',
-  };
+  /** Re-binds country + language chip labels when the interface language changes. */
+  private localeUiSub: Subscription | null = null;
 
   goalTypeOptions: StudentGoalCardOption[] = [
     {
@@ -304,76 +285,44 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   tutorBio = '';
   tutorHourlyRate = 25;
 
-  learnableLanguages: { value: string; nameKey: string }[] = (
-    [
-      'English',
-      'Spanish',
-      'French',
-      'German',
-      'Italian',
-      'Portuguese',
-      'Russian',
-      'Chinese',
-      'Japanese',
-      'Korean',
-      'Arabic',
-      'Hindi',
-      'Dutch',
-      'Polish',
-      'Turkish',
-      'Swedish',
-      'Norwegian',
-      'Danish',
-      'Finnish',
-      'Greek',
-      'Czech',
-      'Romanian',
-      'Ukrainian',
-      'Vietnamese',
-      'Thai',
-      'Indonesian',
-      'Malay',
-      'Hebrew',
-      'Persian',
-    ] as const
-  ).map((value) => ({
-    value,
-    nameKey: `ONBOARDING.LANG_EN_NAME.${String(value).replace(/ /g, '_').toUpperCase()}`,
-  }));
+  teachableLanguageRows: { value: string; interfaceLabel: string }[] = [];
 
   // Native language options with ISO codes
   nativeLanguageOptions: OnboardingNativeLangChip[] = [
-    { code: 'en', name: 'English', native: 'English' },
-    { code: 'es', name: 'Spanish', native: 'Español' },
-    { code: 'fr', name: 'French', native: 'Français' },
-    { code: 'de', name: 'German', native: 'Deutsch' },
-    { code: 'it', name: 'Italian', native: 'Italiano' },
-    { code: 'pt', name: 'Portuguese', native: 'Português' },
-    { code: 'ru', name: 'Russian', native: 'Русский' },
-    { code: 'zh', name: 'Chinese', native: '中文' },
-    { code: 'ja', name: 'Japanese', native: '日本語' },
-    { code: 'ko', name: 'Korean', native: '한국어' },
-    { code: 'ar', name: 'Arabic', native: 'العربية' },
-    { code: 'hi', name: 'Hindi', native: 'हिन्दी' },
-    { code: 'nl', name: 'Dutch', native: 'Nederlands' },
-    { code: 'pl', name: 'Polish', native: 'Polski' },
-    { code: 'tr', name: 'Turkish', native: 'Türkçe' },
-    { code: 'sv', name: 'Swedish', native: 'Svenska' },
-    { code: 'no', name: 'Norwegian', native: 'Norsk' },
-    { code: 'da', name: 'Danish', native: 'Dansk' },
-    { code: 'fi', name: 'Finnish', native: 'Suomi' },
-    { code: 'el', name: 'Greek', native: 'Ελληνικά' },
-    { code: 'cs', name: 'Czech', native: 'Čeština' },
-    { code: 'ro', name: 'Romanian', native: 'Română' },
-    { code: 'uk', name: 'Ukrainian', native: 'Українська' },
-    { code: 'vi', name: 'Vietnamese', native: 'Tiếng Việt' },
-    { code: 'th', name: 'Thai', native: 'ไทย' },
-    { code: 'id', name: 'Indonesian', native: 'Bahasa Indonesia' },
-    { code: 'ms', name: 'Malay', native: 'Bahasa Melayu' },
-    { code: 'he', name: 'Hebrew', native: 'עברית' },
-    { code: 'fa', name: 'Persian', native: 'فارسی' }
+    { code: 'en', native: 'English', interfaceLabel: '' },
+    { code: 'es', native: 'Español', interfaceLabel: '' },
+    { code: 'fr', native: 'Français', interfaceLabel: '' },
+    { code: 'de', native: 'Deutsch', interfaceLabel: '' },
+    { code: 'it', native: 'Italiano', interfaceLabel: '' },
+    { code: 'pt', native: 'Português', interfaceLabel: '' },
+    { code: 'ru', native: 'Русский', interfaceLabel: '' },
+    { code: 'zh', native: '中文', interfaceLabel: '' },
+    { code: 'ja', native: '日本語', interfaceLabel: '' },
+    { code: 'ko', native: '한국어', interfaceLabel: '' },
+    { code: 'ar', native: 'العربية', interfaceLabel: '' },
+    { code: 'hi', native: 'हिन्दी', interfaceLabel: '' },
+    { code: 'nl', native: 'Nederlands', interfaceLabel: '' },
+    { code: 'pl', native: 'Polski', interfaceLabel: '' },
+    { code: 'tr', native: 'Türkçe', interfaceLabel: '' },
+    { code: 'sv', native: 'Svenska', interfaceLabel: '' },
+    { code: 'no', native: 'Norsk', interfaceLabel: '' },
+    { code: 'da', native: 'Dansk', interfaceLabel: '' },
+    { code: 'fi', native: 'Suomi', interfaceLabel: '' },
+    { code: 'el', native: 'Ελληνικά', interfaceLabel: '' },
+    { code: 'cs', native: 'Čeština', interfaceLabel: '' },
+    { code: 'ro', native: 'Română', interfaceLabel: '' },
+    { code: 'uk', native: 'Українська', interfaceLabel: '' },
+    { code: 'vi', native: 'Tiếng Việt', interfaceLabel: '' },
+    { code: 'th', native: 'ไทย', interfaceLabel: '' },
+    { code: 'id', native: 'Bahasa Indonesia', interfaceLabel: '' },
+    { code: 'ms', native: 'Bahasa Melayu', interfaceLabel: '' },
+    { code: 'he', native: 'עברית', interfaceLabel: '' },
+    { code: 'fa', native: 'فارسی', interfaceLabel: '' },
   ];
 
+  tutorCountryOptions = [...COUNTRIES_ONBOARDING_LIST];
+
+  tutorCountryDisplayLabel = '';
 
   experienceLevels = [
     { key: 'ONBOARDING.STUDENT.LEVEL_BEGINNER', value: 'Beginner' },
@@ -390,119 +339,6 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
 
   translatedExperienceLevel = '';
   translatedSchedule = '';
-
-  // Tutor-specific options - comprehensive list with flags
-  tutorCountryOptions = [
-    { name: 'Afghanistan', flag: '🇦🇫' },
-    { name: 'Albania', flag: '🇦🇱' },
-    { name: 'Algeria', flag: '🇩🇿' },
-    { name: 'Argentina', flag: '🇦🇷' },
-    { name: 'Armenia', flag: '🇦🇲' },
-    { name: 'Australia', flag: '🇦🇺' },
-    { name: 'Austria', flag: '🇦🇹' },
-    { name: 'Azerbaijan', flag: '🇦🇿' },
-    { name: 'Bahrain', flag: '🇧🇭' },
-    { name: 'Bangladesh', flag: '🇧🇩' },
-    { name: 'Belarus', flag: '🇧🇾' },
-    { name: 'Belgium', flag: '🇧🇪' },
-    { name: 'Bolivia', flag: '🇧🇴' },
-    { name: 'Bosnia and Herzegovina', flag: '🇧🇦' },
-    { name: 'Brazil', flag: '🇧🇷' },
-    { name: 'Bulgaria', flag: '🇧🇬' },
-    { name: 'Cambodia', flag: '🇰🇭' },
-    { name: 'Canada', flag: '🇨🇦' },
-    { name: 'Chile', flag: '🇨🇱' },
-    { name: 'China', flag: '🇨🇳' },
-    { name: 'Colombia', flag: '🇨🇴' },
-    { name: 'Costa Rica', flag: '🇨🇷' },
-    { name: 'Croatia', flag: '🇭🇷' },
-    { name: 'Cuba', flag: '🇨🇺' },
-    { name: 'Czech Republic', flag: '🇨🇿' },
-    { name: 'Denmark', flag: '🇩🇰' },
-    { name: 'Dominican Republic', flag: '🇩🇴' },
-    { name: 'Ecuador', flag: '🇪🇨' },
-    { name: 'Egypt', flag: '🇪🇬' },
-    { name: 'El Salvador', flag: '🇸🇻' },
-    { name: 'Estonia', flag: '🇪🇪' },
-    { name: 'Ethiopia', flag: '🇪🇹' },
-    { name: 'Finland', flag: '🇫🇮' },
-    { name: 'France', flag: '🇫🇷' },
-    { name: 'Georgia', flag: '🇬🇪' },
-    { name: 'Germany', flag: '🇩🇪' },
-    { name: 'Ghana', flag: '🇬🇭' },
-    { name: 'Greece', flag: '🇬🇷' },
-    { name: 'Guatemala', flag: '🇬🇹' },
-    { name: 'Honduras', flag: '🇭🇳' },
-    { name: 'Hong Kong', flag: '🇭🇰' },
-    { name: 'Hungary', flag: '🇭🇺' },
-    { name: 'Iceland', flag: '🇮🇸' },
-    { name: 'India', flag: '🇮🇳' },
-    { name: 'Indonesia', flag: '🇮🇩' },
-    { name: 'Iran', flag: '🇮🇷' },
-    { name: 'Iraq', flag: '🇮🇶' },
-    { name: 'Ireland', flag: '🇮🇪' },
-    { name: 'Israel', flag: '🇮🇱' },
-    { name: 'Italy', flag: '🇮🇹' },
-    { name: 'Jamaica', flag: '🇯🇲' },
-    { name: 'Japan', flag: '🇯🇵' },
-    { name: 'Jordan', flag: '🇯🇴' },
-    { name: 'Kazakhstan', flag: '🇰🇿' },
-    { name: 'Kenya', flag: '🇰🇪' },
-    { name: 'Kuwait', flag: '🇰🇼' },
-    { name: 'Latvia', flag: '🇱🇻' },
-    { name: 'Lebanon', flag: '🇱🇧' },
-    { name: 'Libya', flag: '🇱🇾' },
-    { name: 'Lithuania', flag: '🇱🇹' },
-    { name: 'Luxembourg', flag: '🇱🇺' },
-    { name: 'Malaysia', flag: '🇲🇾' },
-    { name: 'Mexico', flag: '🇲🇽' },
-    { name: 'Morocco', flag: '🇲🇦' },
-    { name: 'Netherlands', flag: '🇳🇱' },
-    { name: 'New Zealand', flag: '🇳🇿' },
-    { name: 'Nicaragua', flag: '🇳🇮' },
-    { name: 'Nigeria', flag: '🇳🇬' },
-    { name: 'North Korea', flag: '🇰🇵' },
-    { name: 'Norway', flag: '🇳🇴' },
-    { name: 'Oman', flag: '🇴🇲' },
-    { name: 'Pakistan', flag: '🇵🇰' },
-    { name: 'Palestine', flag: '🇵🇸' },
-    { name: 'Panama', flag: '🇵🇦' },
-    { name: 'Paraguay', flag: '🇵🇾' },
-    { name: 'Peru', flag: '🇵🇪' },
-    { name: 'Philippines', flag: '🇵🇭' },
-    { name: 'Poland', flag: '🇵🇱' },
-    { name: 'Portugal', flag: '🇵🇹' },
-    { name: 'Puerto Rico', flag: '🇵🇷' },
-    { name: 'Qatar', flag: '🇶🇦' },
-    { name: 'Romania', flag: '🇷🇴' },
-    { name: 'Russia', flag: '🇷🇺' },
-    { name: 'Saudi Arabia', flag: '🇸🇦' },
-    { name: 'Serbia', flag: '🇷🇸' },
-    { name: 'Singapore', flag: '🇸🇬' },
-    { name: 'Slovakia', flag: '🇸🇰' },
-    { name: 'Slovenia', flag: '🇸🇮' },
-    { name: 'South Africa', flag: '🇿🇦' },
-    { name: 'South Korea', flag: '🇰🇷' },
-    { name: 'Spain', flag: '🇪🇸' },
-    { name: 'Sri Lanka', flag: '🇱🇰' },
-    { name: 'Sweden', flag: '🇸🇪' },
-    { name: 'Switzerland', flag: '🇨🇭' },
-    { name: 'Syria', flag: '🇸🇾' },
-    { name: 'Taiwan', flag: '🇹🇼' },
-    { name: 'Thailand', flag: '🇹🇭' },
-    { name: 'Tunisia', flag: '🇹🇳' },
-    { name: 'Turkey', flag: '🇹🇷' },
-    { name: 'Ukraine', flag: '🇺🇦' },
-    { name: 'United Arab Emirates', flag: '🇦🇪' },
-    { name: 'United Kingdom', flag: '🇬🇧' },
-    { name: 'United States', flag: '🇺🇸' },
-    { name: 'Uruguay', flag: '🇺🇾' },
-    { name: 'Uzbekistan', flag: '🇺🇿' },
-    { name: 'Venezuela', flag: '🇻🇪' },
-    { name: 'Vietnam', flag: '🇻🇳' },
-    { name: 'Yemen', flag: '🇾🇪' },
-    { name: 'Other', flag: '🌍' }
-  ];
 
   tutorExperienceOptions = [
     'Beginner (0-1 years)',
@@ -529,16 +365,21 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     private onboardingGuard: OnboardingGuard,
     private cdr: ChangeDetectorRef,
     private translateService: TranslateService,
-    private loadingService: LoadingService
+    private loadingService: LoadingService,
+    private flagService: FlagService,
+    private localeDisplay: LocaleDisplayService
   ) {
     this.user$ = this.authService.user$;
     this.availableInterfaceLanguages = this.languageService.supportedLanguages;
     this.selectedInterfaceLanguage = this.languageService.getCurrentLanguage();
+    this.refreshLanguageToolbarFlag();
     this.refreshPublicLegalLinks();
   }
 
   ngOnDestroy() {
     this.clearLanguageApplyDebounce();
+    this.localeUiSub?.unsubscribe();
+    this.localeUiSub = null;
     this.headingRotationLoadSub?.unsubscribe();
     this.headingRotationLoadSub = null;
     this.pacingSuggestionI18nSub?.unsubscribe();
@@ -629,10 +470,11 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   ngOnInit() {
-    this.nativeLanguageOptions = this.nativeLanguageOptions.map((l) => ({
-      ...l,
-      nameKey: `ONBOARDING.LANG_EN_NAME.${OnboardingPage.NATIVE_LANG_EN_SLUG[l.code] ?? l.code.toUpperCase()}`,
-    }));
+    this.localeUiSub = this.languageService.currentLanguage$.subscribe(() => {
+      this.bindLocaleSensitiveUi();
+      this.cdr.markForCheck();
+    });
+    this.bindLocaleSensitiveUi();
     this.scheduleHeadingRotationAfterLoad();
 
     // Check if user is authenticated
@@ -680,6 +522,7 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     this.translateLangSub = this.translateService.onLangChange.subscribe(() => {
       this.refreshDatePickerLocale();
       this.bindPacingSuggestionLabels();
+      this.bindLocaleSensitiveUi();
       if (this.showPreview) {
         this.computePreviewLabels();
       }
@@ -693,13 +536,53 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     this.datePickerLocale = translateLangToDatetimeLocale(this.translateService.currentLang);
   }
 
+  private bindLocaleSensitiveUi(): void {
+    const ui = this.languageService.getCurrentLanguage();
+    const otherKey = 'ONBOARDING.COUNTRY_MODAL.OTHER';
+    const otherT = this.translateService.instant(otherKey);
+    const otherLbl = otherT !== otherKey ? otherT : 'Other';
+
+    for (const row of this.nativeLanguageOptions) {
+      row.interfaceLabel = this.localeDisplay.languageName(row.code, ui);
+    }
+
+    this.teachableLanguageRows = TEACHABLE_LANGUAGE_EN_NAMES.map((v) => ({
+      value: v,
+      interfaceLabel: this.localeDisplay.languageName(
+        TEACHABLE_ENGLISH_NAME_TO_ISO639[v] ?? 'en',
+        ui
+      ),
+    }));
+
+    this.tutorCountryDisplayLabel = this.tutorCountry
+      ? this.localeDisplay.localizedCountryRow(
+          this.tutorCountry,
+          ui,
+          this.flagService.getCountryCodeFromCountryName(this.tutorCountry),
+          otherLbl
+        )
+      : '';
+    this.refreshLanguageToolbarFlag();
+  }
+
+  /** Keeps header emoji in sync with `selectedInterfaceLanguage`. */
+  private refreshLanguageToolbarFlag(): void {
+    this.selectedLanguageFlag =
+      this.languageService.getLanguageOption(this.selectedInterfaceLanguage)?.flag ?? '🇬🇧';
+  }
+
   ngAfterViewChecked() {
+    const wizardActive =
+      this.preStepPhase === 'done' && !this.showPreview && !this.showWelcome;
+    if (!wizardActive) {
+      return;
+    }
     if (this.currentStep !== this.lastFocusedStep) {
       this.lastFocusedStep = this.currentStep;
       this.syncStudentWizardCopy();
       setTimeout(() => {
         this.focusFirstInput();
-      }, 100);
+      }, 120);
     }
   }
 
@@ -741,14 +624,42 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   private focusFirstInput() {
-    if (this.currentStep === 1 && this.firstNameInput?.nativeElement) {
-      this.firstNameInput.nativeElement.focus();
+    switch (this.currentStep) {
+      case 1:
+        this.firstNameInput?.nativeElement?.focus();
+        break;
+      case 2:
+        this.focusFirstInQueryList(this.wizardNativeChips);
+        break;
+      case 3:
+        this.focusFirstInQueryList(this.wizardTeachableChips);
+        break;
+      case 4:
+        if (this.learningGoalType === 'other') {
+          this.customGoalTextarea?.nativeElement?.focus();
+        } else {
+          this.focusFirstInQueryList(this.wizardGoalCards);
+        }
+        break;
+      case 5:
+        this.focusFirstInQueryList(this.wizardLevelCards);
+        break;
+      case 6:
+        this.focusFirstInQueryList(this.wizardTimelineCards);
+        break;
+      default:
+        break;
     }
+  }
+
+  private focusFirstInQueryList(list: QueryList<ElementRef<HTMLElement>> | undefined): void {
+    const el = list?.first?.nativeElement;
+    el?.focus();
   }
 
   selectInterfaceLanguage(lang: SupportedLanguage) {
     this.selectedInterfaceLanguage = lang;
-    this.selectedLanguageFlag = this.languageService.getLanguageOption(lang)?.flag || '🇬🇧';
+    this.refreshLanguageToolbarFlag();
     this.refreshPublicLegalLinks();
     this.scheduleInterfaceLanguageApply(lang);
   }
@@ -1138,20 +1049,13 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   previewSelectedLanguages: string = '';
 
   private computePreviewLabels() {
-    const nativeLang = this.nativeLanguageOptions.find(l => l.code === this.nativeLanguage) as
-      | { code: string; name: string; native: string; nameKey?: string }
-      | undefined;
-    if (nativeLang?.nameKey) {
-      const t = this.translateService.instant(nativeLang.nameKey);
-      this.previewNativeLanguageName = t !== nativeLang.nameKey ? t : nativeLang.name;
-    } else {
-      this.previewNativeLanguageName = nativeLang ? nativeLang.name : this.nativeLanguage;
-    }
+    const ui = this.languageService.getCurrentLanguage();
+    const nativeLang = this.nativeLanguageOptions.find((l) => l.code === this.nativeLanguage);
+    this.previewNativeLanguageName = nativeLang?.interfaceLabel ?? this.nativeLanguage;
     this.previewSelectedLanguages = this.selectedLanguages
       .map((lang) => {
-        const k = `ONBOARDING.LANG_EN_NAME.${lang.replace(/ /g, '_').toUpperCase()}`;
-        const t = this.translateService.instant(k);
-        return t !== k ? t : lang;
+        const iso = TEACHABLE_ENGLISH_NAME_TO_ISO639[lang];
+        return iso ? this.localeDisplay.languageName(iso, ui) : lang;
       })
       .join(', ');
     if (this.skipGoalSetup) {
@@ -1267,6 +1171,7 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     const { data } = await modal.onWillDismiss();
     if (data && data.selectedCountry) {
       this.tutorCountry = data.selectedCountry;
+      this.bindLocaleSensitiveUi();
     }
   }
 
@@ -1309,7 +1214,7 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     this.showPreview = false;
     if (step) {
       this.currentStep = step;
-      this.lastFocusedStep = step;
+      this.lastFocusedStep = 0;
       if (step === 4) {
         this.skipGoalSetup = false;
       }
@@ -1321,15 +1226,9 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   getNativeLanguageName(): string {
-    const lang = this.nativeLanguageOptions.find(l => l.code === this.nativeLanguage) as
-      | { code: string; name: string; nameKey?: string }
-      | undefined;
+    const lang = this.nativeLanguageOptions.find((l) => l.code === this.nativeLanguage);
     if (!lang) return this.nativeLanguage;
-    if (lang.nameKey) {
-      const t = this.translateService.instant(lang.nameKey);
-      return t !== lang.nameKey ? t : lang.name;
-    }
-    return lang.name;
+    return lang.interfaceLabel || this.nativeLanguage;
   }
 
   async completeOnboarding() {

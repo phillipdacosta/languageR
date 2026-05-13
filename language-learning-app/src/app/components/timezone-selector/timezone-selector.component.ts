@@ -1,7 +1,7 @@
-import { Component, OnInit, Input } from '@angular/core';
+import { AfterViewInit, Component, OnDestroy, OnInit, Input, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, ModalController } from '@ionic/angular';
+import { IonicModule, ModalController, IonSearchbar } from '@ionic/angular';
 import { 
   getTimezonesWithOffsets, 
   getTimezonesByRegion, 
@@ -17,12 +17,15 @@ import {
   standalone: true,
   imports: [CommonModule, FormsModule, IonicModule]
 })
-export class TimezoneSelectorComponent implements OnInit {
+export class TimezoneSelectorComponent implements OnInit, AfterViewInit, OnDestroy {
   @Input() selectedTimezone: string = '';
+  @ViewChild('timezoneSearch') timezoneSearch?: IonSearchbar;
   searchTerm: string = '';
   timezonesByRegion: Record<string, TimezoneOption[]> = {};
   filteredTimezonesByRegion: Record<string, TimezoneOption[]> = {};
   regionKeys: string[] = [];
+
+  private searchFocusTimer: ReturnType<typeof setTimeout> | null = null;
   
   constructor(private modalController: ModalController) {}
 
@@ -36,6 +39,23 @@ export class TimezoneSelectorComponent implements OnInit {
     // If no timezone selected, detect current one
     if (!this.selectedTimezone) {
       this.selectedTimezone = detectUserTimezone();
+    }
+  }
+
+  ngAfterViewInit(): void {
+    if (this.searchFocusTimer != null) {
+      clearTimeout(this.searchFocusTimer);
+    }
+    this.searchFocusTimer = setTimeout(() => {
+      this.searchFocusTimer = null;
+      void this.timezoneSearch?.setFocus();
+    }, 280);
+  }
+
+  ngOnDestroy(): void {
+    if (this.searchFocusTimer != null) {
+      clearTimeout(this.searchFocusTimer);
+      this.searchFocusTimer = null;
     }
   }
 

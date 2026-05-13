@@ -3,9 +3,20 @@ import { Injectable, NgZone } from '@angular/core';
 export interface GrowthInsight {
   id: string;
   icon: string;
-  text: string;
+  messageKey: string;
+  messageParams?: Record<string, string | number>;
   route: string;
   priority: number;
+}
+
+export interface ProfileChecklistItem {
+  id: string;
+  labelKey: string;
+  labelParams?: Record<string, string | number>;
+  done: boolean;
+  /** Submitted by tutor but waiting on admin (or video) review — show orange, not green. */
+  pendingReview?: boolean;
+  route: string;
 }
 
 export interface GrowthContext {
@@ -46,9 +57,22 @@ export interface GrowthContext {
   hasCustomPhoto: boolean;
   hasVideo: boolean;
   videoApproved: boolean;
+  /** Combined upload state — kept for legacy growth-insight rules. */
   credentialsComplete: boolean;
+  /** Combined admin-approved state — kept for legacy growth-insight rules. */
   credentialsApproved: boolean;
+  /** True when manual identity step applies (PayPal/manual/Stripe-disabled). */
+  identityRequired: boolean;
+  /** Government-ID document uploaded by tutor. */
+  governmentIdUploaded: boolean;
+  /** Government-ID admin-approved OR Stripe Identity verified. */
+  identitySatisfied: boolean;
+  /** Teaching certifications uploaded. */
+  certificationsUploaded: boolean;
+  /** At least one teaching certification admin-approved. */
+  certificationsApproved: boolean;
   hasPayoutSetup: boolean;
+  tosComplete: boolean;
   tutorApproved: boolean;
 }
 
@@ -85,14 +109,123 @@ function emptyState(): GrowthState {
   };
 }
 
+/**
+ * Map checklist row id to tutor approval wizard `steps[].id`
+ * (photo, video, stripe, identity, qualifications, tos).
+ *
+ * The wizard's `seekToApprovalStepById` handles the case where the target
+ * step is hidden (e.g. Stripe-verified tutors don't see `identity`) by
+ * sliding forward to the next visible step.
+ */
+export function mapProfileChecklistIdToApprovalWizardStepId(checklistId: string): string {
+  if (checklistId === 'payout') return 'stripe';
+  if (checklistId === 'credentials') return 'identity'; // legacy alias
+  return checklistId; // photo, video, identity, qualifications, tos pass through directly
+}
+
+/** Shared tutor profile checklist rows (home + calendar).
+ *
+ * Steps mirror the approval wizard order:
+ *   photo → video → payout → identity → qualifications → tos
+ *
+ * Rules per row:
+ * - `done` = the user-side action is complete (uploaded / accepted / configured).
+ * - `*_PENDING` label = action complete but admin has not yet approved.
+ * - `identity` row is hidden entirely when Stripe Connect handles KYC.
+ *
+ * Each row is evaluated INDEPENDENTLY: identity does not depend on
+ * qualifications and vice-versa.
+ */
+export function buildTutorProfileChecklist(
+  ctx: Pick<
+    GrowthContext,
+    | 'hasCustomPhoto'
+    | 'hasVideo'
+    | 'videoApproved'
+    | 'identityRequired'
+    | 'governmentIdUploaded'
+    | 'identitySatisfied'
+    | 'certificationsUploaded'
+    | 'certificationsApproved'
+    | 'hasPayoutSetup'
+    | 'tosComplete'
+  >
+): ProfileChecklistItem[] {
+  const items: ProfileChecklistItem[] = [];
+
+  items.push({
+    id: 'photo',
+    labelKey: 'HOME.GROWTH.CHECKLIST_PHOTO',
+    done: ctx.hasCustomPhoto,
+    pendingReview: false,
+    route: '/tutor-approval',
+  });
+
+  const videoPendingReview = ctx.hasVideo && !ctx.videoApproved;
+  items.push({
+    id: 'video',
+    labelKey: videoPendingReview
+      ? 'HOME.GROWTH.CHECKLIST_VIDEO_PENDING'
+      : 'HOME.GROWTH.CHECKLIST_VIDEO',
+    done: ctx.hasVideo,
+    pendingReview: videoPendingReview,
+    route: '/tabs/profile',
+  });
+
+  items.push({
+    id: 'payout',
+    labelKey: 'HOME.GROWTH.CHECKLIST_PAYOUT',
+    done: ctx.hasPayoutSetup,
+    pendingReview: false,
+    route: '/tutor-approval',
+  });
+
+  // Hide manual identity row when Stripe Connect owns KYC for this tutor.
+  if (ctx.identityRequired) {
+    const identityActionDone = ctx.governmentIdUploaded;
+    const identityPendingReview = identityActionDone && !ctx.identitySatisfied;
+    items.push({
+      id: 'identity',
+      labelKey: identityPendingReview
+        ? 'HOME.GROWTH.CHECKLIST_IDENTITY_PENDING'
+        : 'HOME.GROWTH.CHECKLIST_IDENTITY',
+      done: identityActionDone,
+      pendingReview: identityPendingReview,
+      route: '/tutor-approval',
+    });
+  }
+
+  const qualificationsPendingReview =
+    ctx.certificationsUploaded && !ctx.certificationsApproved;
+  items.push({
+    id: 'qualifications',
+    labelKey: qualificationsPendingReview
+      ? 'HOME.GROWTH.CHECKLIST_QUALIFICATIONS_PENDING'
+      : 'HOME.GROWTH.CHECKLIST_QUALIFICATIONS',
+    done: ctx.certificationsUploaded,
+    pendingReview: qualificationsPendingReview,
+    route: '/tutor-approval',
+  });
+
+  items.push({
+    id: 'tos',
+    labelKey: 'HOME.GROWTH.CHECKLIST_TOS',
+    done: ctx.tosComplete,
+    pendingReview: false,
+    route: '/tutor-approval',
+  });
+
+  return items;
+}
+
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class TutorGrowthService {
   private insights: GrowthInsight[] = [];
   private _allRaw: GrowthInsight[] = [];
   private _activeIndex = 0;
-  private _rotationTimer: any = null;
+  private _rotationTimer: ReturnType<typeof setTimeout> | null = null;
   private _paused = false;
   private readonly ROTATION_MS = 30000;
   private _onUpdate: (() => void) | null = null;
@@ -100,7 +233,7 @@ export class TutorGrowthService {
   /** True when the active insights include profile-critical items (photo, video, creds, payout). */
   hasProfileCritical = false;
   /** All outstanding profile checklist items (for inline display). */
-  profileChecklist: { id: string; label: string; done: boolean; route: string }[] = [];
+  profileChecklist: ProfileChecklistItem[] = [];
 
   constructor(private ngZone: NgZone) {}
 
@@ -142,49 +275,98 @@ export class TutorGrowthService {
     const raw: GrowthInsight[] = [];
 
     // ── Profile completion (non-dismissable, highest priority) ──
-    // Each item is checked independently — a tutor can be "approved" but
-    // still lose visibility if their photo was wiped or payout disconnected.
     if (!ctx.hasCustomPhoto) {
-      raw.push({ id: 'profile_photo', icon: '⚠️', text: 'Upload a profile photo — your profile is hidden until you do', route: '/tutor-approval', priority: 200 });
+      raw.push({
+        id: 'profile_photo',
+        icon: '⚠️',
+        messageKey: 'HOME.GROWTH.INSIGHT_PROFILE_PHOTO',
+        route: '/tutor-approval',
+        priority: 200,
+      });
     }
     if (!ctx.hasVideo) {
-      raw.push({ id: 'profile_video', icon: '⚠️', text: 'Upload an introduction video to get listed', route: '/tabs/profile', priority: 198 });
+      raw.push({
+        id: 'profile_video',
+        icon: '⚠️',
+        messageKey: 'HOME.GROWTH.INSIGHT_PROFILE_VIDEO',
+        route: '/tabs/profile',
+        priority: 198,
+      });
     } else if (!ctx.videoApproved) {
-      raw.push({ id: 'profile_video_pending', icon: '⏳', text: 'Your introduction video is pending review', route: '/tabs/profile', priority: 110 });
+      raw.push({
+        id: 'profile_video_pending',
+        icon: '⏳',
+        messageKey: 'HOME.GROWTH.INSIGHT_VIDEO_PENDING',
+        route: '/tabs/profile',
+        priority: 110,
+      });
     }
     if (!ctx.credentialsComplete) {
-      raw.push({ id: 'profile_credentials', icon: '⚠️', text: 'Upload your credentials to get verified', route: '/tutor-approval', priority: 196 });
+      raw.push({
+        id: 'profile_credentials',
+        icon: '⚠️',
+        messageKey: 'HOME.GROWTH.INSIGHT_UPLOAD_CREDENTIALS',
+        route: '/tutor-approval',
+        priority: 196,
+      });
     } else if (!ctx.credentialsApproved) {
-      raw.push({ id: 'profile_credentials_pending', icon: '⏳', text: 'Your credentials are pending review', route: '/tutor-approval', priority: 108 });
+      raw.push({
+        id: 'profile_credentials_pending',
+        icon: '⏳',
+        messageKey: 'HOME.GROWTH.INSIGHT_CREDENTIALS_PENDING',
+        route: '/tutor-approval',
+        priority: 108,
+      });
     }
     if (!ctx.hasPayoutSetup) {
-      raw.push({ id: 'profile_payout', icon: '⚠️', text: 'Connect a payout method to receive payments', route: '/tutor-approval', priority: 194 });
+      raw.push({
+        id: 'profile_payout',
+        icon: '⚠️',
+        messageKey: 'HOME.GROWTH.INSIGHT_CONNECT_PAYOUT',
+        route: '/tutor-approval',
+        priority: 194,
+      });
     }
 
-    // Build full profile checklist for inline display
-    this.profileChecklist = [
-      { id: 'photo', label: 'Profile photo', done: ctx.hasCustomPhoto, route: '/tutor-approval' },
-      { id: 'video', label: ctx.hasVideo && !ctx.videoApproved ? 'Intro video (pending review)' : 'Introduction video', done: ctx.hasVideo, route: '/tabs/profile' },
-      { id: 'credentials', label: ctx.credentialsComplete && !ctx.credentialsApproved ? 'Credentials (pending review)' : 'Credentials', done: ctx.credentialsComplete, route: '/tutor-approval' },
-      { id: 'payout', label: 'Payout method', done: ctx.hasPayoutSetup, route: '/tutor-approval' },
-    ];
+    this.profileChecklist = buildTutorProfileChecklist(ctx);
 
     // ── Self-resolving: Set availability (only if profile requirements are met) ──
     const hasProfileItems = !ctx.hasCustomPhoto || !ctx.hasVideo || !ctx.credentialsComplete || !ctx.hasPayoutSetup;
     if (!ctx.hasAvailability && !hasProfileItems) {
-      raw.push({ id: 'set_availability', icon: '', text: 'Set your availability to start getting bookings', route: '/tabs/availability-setup', priority: 100 });
+      raw.push({
+        id: 'set_availability',
+        icon: '',
+        messageKey: 'HOME.GROWTH.INSIGHT_SET_AVAILABILITY',
+        route: '/tabs/availability-setup',
+        priority: 100,
+      });
     }
 
     // ── Self-resolving: Pending feedback ──
     if (ctx.pendingFeedbackCount > 0) {
       const n = ctx.pendingFeedbackCount;
-      raw.push({ id: 'pending_feedback', icon: '📝', text: `${n} pending feedback${n > 1 ? 's' : ''} — completing them boosts your ranking`, route: '/tabs/tab1', priority: 95 });
+      raw.push({
+        id: 'pending_feedback',
+        icon: '📝',
+        messageKey:
+          n === 1 ? 'HOME.GROWTH.INSIGHT_PENDING_FEEDBACK_ONE' : 'HOME.GROWTH.INSIGHT_PENDING_FEEDBACK_MANY',
+        messageParams: n === 1 ? undefined : { count: n },
+        route: '/tabs/tab1',
+        priority: 95,
+      });
     }
 
     // ── Self-resolving: Unread messages ──
     if (ctx.unreadMessages > 0) {
       const n = ctx.unreadMessages;
-      raw.push({ id: 'unread_messages', icon: '💬', text: `${n} unread message${n > 1 ? 's' : ''} — fast replies build student trust`, route: '/tabs/messages', priority: 90 });
+      raw.push({
+        id: 'unread_messages',
+        icon: '💬',
+        messageKey: n === 1 ? 'HOME.GROWTH.INSIGHT_UNREAD_ONE' : 'HOME.GROWTH.INSIGHT_UNREAD_MANY',
+        messageParams: n === 1 ? undefined : { count: n },
+        route: '/tabs/messages',
+        priority: 90,
+      });
     }
 
     // ── Delta-based: Forum activity ──
@@ -192,7 +374,14 @@ export class TutorGrowthService {
       const cooldown = now - this._state.forumLastSeenAt < 2 * DAY_MS;
       if (!cooldown) {
         const n = ctx.activeForumThreadsInLanguage;
-        raw.push({ id: 'forum_active', icon: '💬', text: `${n} active thread${n > 1 ? 's' : ''} in your language — chime in to get noticed`, route: '/tabs/forum', priority: 72 });
+        raw.push({
+          id: 'forum_active',
+          icon: '💬',
+          messageKey: n === 1 ? 'HOME.GROWTH.INSIGHT_FORUM_ONE' : 'HOME.GROWTH.INSIGHT_FORUM_MANY',
+          messageParams: n === 1 ? undefined : { count: n },
+          route: '/tabs/forum',
+          priority: 72,
+        });
       }
     }
 
@@ -203,11 +392,7 @@ export class TutorGrowthService {
     const dPurchases = ctx.totalPurchases - (snap?.purchases || 0);
 
     if (dViews > 0 || dQuiz > 0 || dPurchases > 0) {
-      const parts: string[] = [];
-      if (dViews > 0) parts.push(`${dViews} new view${dViews > 1 ? 's' : ''}`);
-      if (dQuiz > 0) parts.push(`${dQuiz} new quiz attempt${dQuiz > 1 ? 's' : ''}`);
-      if (dPurchases > 0) parts.push(`${dPurchases} new purchase${dPurchases > 1 ? 's' : ''}`);
-      raw.push({ id: 'material_stats', icon: '📊', text: `Your materials: ${parts.join(', ')}`, route: '/tabs/tab1', priority: 55 });
+      raw.push(this.materialStatsInsight(dViews, dQuiz, dPurchases));
     }
 
     // ── Escalating: Stale material / first material ──
@@ -217,19 +402,44 @@ export class TutorGrowthService {
       const dismissedAt = this._state.materialNagDismissedAt;
 
       if (stage === 0 && daysSince >= 14) {
-        raw.push({ id: 'create_material', icon: '📚', text: `It's been ${daysSince} days since your last material — new content drives profile views`, route: '/tabs/tab1', priority: 60 });
+        raw.push({
+          id: 'create_material',
+          icon: '📚',
+          messageKey: 'HOME.GROWTH.INSIGHT_CREATE_MATERIAL',
+          messageParams: { days: daysSince },
+          route: '/tabs/tab1',
+          priority: 60,
+        });
       } else if (stage === 1 && daysSince >= 30 && now - dismissedAt > 14 * DAY_MS) {
-        raw.push({ id: 'create_material', icon: '📚', text: `${daysSince} days without new content — fresh material keeps students engaged`, route: '/tabs/tab1', priority: 58 });
+        raw.push({
+          id: 'create_material',
+          icon: '📚',
+          messageKey: 'HOME.GROWTH.INSIGHT_CREATE_MATERIAL_STALE',
+          messageParams: { days: daysSince },
+          route: '/tabs/tab1',
+          priority: 58,
+        });
       }
-      // stage >= 2: permanently suppressed
     } else if (ctx.materialCount === 0 && ctx.totalStudents > 0) {
       const stage = this._state.materialNagStage;
       const dismissedAt = this._state.materialNagDismissedAt;
 
       if (stage === 0) {
-        raw.push({ id: 'first_material', icon: '📚', text: 'Create your first material — students browse content before booking', route: '/tabs/tab1', priority: 62 });
+        raw.push({
+          id: 'first_material',
+          icon: '📚',
+          messageKey: 'HOME.GROWTH.INSIGHT_FIRST_MATERIAL',
+          route: '/tabs/tab1',
+          priority: 62,
+        });
       } else if (stage === 1 && now - dismissedAt > 14 * DAY_MS) {
-        raw.push({ id: 'first_material', icon: '📚', text: 'Students look for content when choosing tutors — even one quiz helps', route: '/tabs/tab1', priority: 58 });
+        raw.push({
+          id: 'first_material',
+          icon: '📚',
+          messageKey: 'HOME.GROWTH.INSIGHT_FIRST_MATERIAL_NUDGE',
+          route: '/tabs/tab1',
+          priority: 58,
+        });
       }
     }
 
@@ -239,9 +449,23 @@ export class TutorGrowthService {
       const cooldownOver = now - this._state.officeHoursDismissedAt > 7 * DAY_MS;
 
       if (scheduleChanged && cooldownOver && ctx.nextGapHours >= 2) {
-        raw.push({ id: 'office_hours_gap', icon: '🕐', text: `${ctx.nextGapHours}h gap between your next lessons — office hours could fill it`, route: '/tabs/availability-setup', priority: 68 });
+        raw.push({
+          id: 'office_hours_gap',
+          icon: '🕐',
+          messageKey: 'HOME.GROWTH.INSIGHT_OFFICE_GAP',
+          messageParams: { hours: ctx.nextGapHours },
+          route: '/tabs/availability-setup',
+          priority: 68,
+        });
       } else if (cooldownOver && ctx.freeHoursThisWeek >= 6 && !this.isDismissedRecently('office_hours_free', 7)) {
-        raw.push({ id: 'office_hours_free', icon: '🕐', text: `${ctx.freeHoursThisWeek} open hours this week — enable office hours for drop-in students`, route: '/tabs/availability-setup', priority: 65 });
+        raw.push({
+          id: 'office_hours_free',
+          icon: '🕐',
+          messageKey: 'HOME.GROWTH.INSIGHT_OFFICE_FREE',
+          messageParams: { hours: ctx.freeHoursThisWeek },
+          route: '/tabs/availability-setup',
+          priority: 65,
+        });
       }
     }
 
@@ -252,10 +476,24 @@ export class TutorGrowthService {
         if (ctx.lastGroupClassAt) {
           const daysSince = Math.floor((now - new Date(ctx.lastGroupClassAt).getTime()) / DAY_MS);
           if (daysSince >= 30) {
-            raw.push({ id: 'group_class', icon: '👥', text: `No group class in ${daysSince} days — your ${ctx.totalStudents} students could benefit from one`, route: '/tabs/tutor-calendar', priority: 50 });
+            raw.push({
+              id: 'group_class',
+              icon: '👥',
+              messageKey: 'HOME.GROWTH.INSIGHT_GROUP_CLASS',
+              messageParams: { days: daysSince, students: ctx.totalStudents },
+              route: '/tabs/tutor-calendar',
+              priority: 50,
+            });
           }
         } else {
-          raw.push({ id: 'first_group_class', icon: '👥', text: `You have ${ctx.totalStudents} students — a group class is a great way to engage them`, route: '/tabs/tutor-calendar', priority: 48 });
+          raw.push({
+            id: 'first_group_class',
+            icon: '👥',
+            messageKey: 'HOME.GROWTH.INSIGHT_FIRST_GROUP_CLASS',
+            messageParams: { students: ctx.totalStudents },
+            route: '/tabs/tutor-calendar',
+            priority: 48,
+          });
         }
       }
     }
@@ -263,21 +501,40 @@ export class TutorGrowthService {
     // ── Day-scoped: Morning prep ──
     if (hour >= 5 && hour < 12 && ctx.lessonsToday > 0 && this._state.morningPrepDay !== today) {
       const n = ctx.lessonsToday;
-      raw.push({ id: 'morning_prep', icon: '☀️', text: `${n} lesson${n > 1 ? 's' : ''} today — review your notes before they start`, route: '/tabs/tutor-calendar', priority: 42 });
+      raw.push({
+        id: 'morning_prep',
+        icon: '☀️',
+        messageKey: n === 1 ? 'HOME.GROWTH.INSIGHT_MORNING_PREP_ONE' : 'HOME.GROWTH.INSIGHT_MORNING_PREP_MANY',
+        messageParams: n === 1 ? undefined : { count: n },
+        route: '/tabs/tutor-calendar',
+        priority: 42,
+      });
     }
 
     // ── Day-scoped: Evening recap (skip if morning prep was already dismissed today) ──
     if (hour >= 17 && ctx.completedToday > 0 && this._state.eveningRecapDay !== today && this._state.morningPrepDay !== today) {
       const n = ctx.completedToday;
-      raw.push({ id: 'evening_recap', icon: '✅', text: `${n} lesson${n > 1 ? 's' : ''} done today — great session${n > 1 ? 's' : ''}, ${ctx.tutorName}`, route: '/tabs/tutor-calendar', priority: 25 });
+      raw.push({
+        id: 'evening_recap',
+        icon: '✅',
+        messageKey: n === 1 ? 'HOME.GROWTH.INSIGHT_EVENING_RECAP_ONE' : 'HOME.GROWTH.INSIGHT_EVENING_RECAP_MANY',
+        messageParams: n === 1 ? { name: ctx.tutorName } : { count: n, name: ctx.tutorName },
+        route: '/tabs/tutor-calendar',
+        priority: 25,
+      });
     }
 
     // ── Onboarding: Share profile (tutors who have never had a completed/past session) ──
-    // Do not use totalStudents alone — studentId is often an unpopulated string, so unique count stays 0.
     if (ctx.hasAvailability && !ctx.hasUpcomingLessons && !ctx.hasEverHadBooking) {
       const cooldownOver = now - this._state.shareProfileDismissedAt > 30 * DAY_MS;
       if (cooldownOver) {
-        raw.push({ id: 'share_profile', icon: '🔗', text: 'Your profile is live — share the link to get your first booking', route: '/tabs/profile', priority: 54 });
+        raw.push({
+          id: 'share_profile',
+          icon: '🔗',
+          messageKey: 'HOME.GROWTH.INSIGHT_SHARE_PROFILE',
+          route: '/tabs/profile',
+          priority: 54,
+        });
       }
     }
 
@@ -285,16 +542,39 @@ export class TutorGrowthService {
 
     this._allRaw = [...raw].sort((a, b) => b.priority - a.priority);
 
-    const profileInsightIds = new Set(['profile_photo', 'profile_video', 'profile_video_pending', 'profile_credentials', 'profile_credentials_pending', 'profile_payout']);
+    const profileInsightIds = new Set([
+      'profile_photo',
+      'profile_video',
+      'profile_video_pending',
+      'profile_credentials',
+      'profile_credentials_pending',
+      'profile_payout',
+    ]);
     const filtered = raw
-      .filter(i => profileInsightIds.has(i.id) || !this.isDismissedRecently(i.id, 5))
+      .filter((i) => profileInsightIds.has(i.id) || !this.isDismissedRecently(i.id, 5))
       .sort((a, b) => b.priority - a.priority)
       .slice(0, 3);
 
     this.insights = filtered;
     this._activeIndex = 0;
-    this.hasProfileCritical = filtered.some(i => profileInsightIds.has(i.id));
+    this.hasProfileCritical = filtered.some((i) => profileInsightIds.has(i.id));
     this.startRotation();
+  }
+
+  private materialStatsInsight(dv: number, dq: number, dp: number): GrowthInsight {
+    const bits = `${dv > 0 ? 'V' : ''}${dq > 0 ? 'Q' : ''}${dp > 0 ? 'P' : ''}`;
+    const params: Record<string, number> = {};
+    if (dv > 0) params['v'] = dv;
+    if (dq > 0) params['q'] = dq;
+    if (dp > 0) params['p'] = dp;
+    return {
+      id: 'material_stats',
+      icon: '📊',
+      messageKey: `HOME.GROWTH.MAT_STATS_${bits}`,
+      messageParams: params,
+      route: '/tabs/tab1',
+      priority: 55,
+    };
   }
 
   // ── Interaction ──
@@ -327,7 +607,6 @@ export class TutorGrowthService {
     const now = Date.now();
     const today = this.dayKey();
 
-    // Update state based on insight type
     switch (insight.id) {
       case 'material_stats':
         this._state.materialSnapshot = null;
@@ -362,7 +641,7 @@ export class TutorGrowthService {
     this._state.dismissed[insight.id] = now;
     this.saveState();
 
-    this.insights = this.insights.filter(i => i.id !== insight.id);
+    this.insights = this.insights.filter((i) => i.id !== insight.id);
     if (this._activeIndex >= this.insights.length) {
       this._activeIndex = 0;
     }
@@ -370,24 +649,22 @@ export class TutorGrowthService {
     if (this.insights.length <= 1) this.stopRotation();
   }
 
-  /** Called when material_stats insight is shown — saves current totals as baseline */
   snapshotMaterialStats(views: number, quizAttempts: number, purchases: number): void {
     this._state.materialSnapshot = { views, quizAttempts, purchases };
     this.saveState();
   }
 
-  /** Called when office_hours_gap insight is shown — saves schedule hash */
   snapshotScheduleHash(hash: string): void {
     this._state.officeHoursScheduleHash = hash;
     this.saveState();
   }
 
   getAllWithStatus(): { insight: GrowthInsight; dismissed: boolean; active: boolean }[] {
-    const activeIds = new Set(this.insights.map(i => i.id));
-    return this._allRaw.map(i => ({
+    const activeIds = new Set(this.insights.map((i) => i.id));
+    return this._allRaw.map((i) => ({
       insight: i,
       dismissed: this.isDismissedRecently(i.id, 5),
-      active: activeIds.has(i.id)
+      active: activeIds.has(i.id),
     }));
   }
 
@@ -424,7 +701,7 @@ export class TutorGrowthService {
 
     this.saveState();
 
-    const activeIds = new Set(this.insights.map(i => i.id));
+    const activeIds = new Set(this.insights.map((i) => i.id));
     if (!activeIds.has(insight.id)) {
       this.insights.push(insight);
       this.insights.sort((a, b) => b.priority - a.priority);
@@ -438,8 +715,6 @@ export class TutorGrowthService {
     this._onUpdate = null;
   }
 
-  // ── Private helpers ──
-
   private dayKey(): string {
     const d = new Date();
     return `${d.getFullYear()}_${d.getMonth()}_${d.getDate()}`;
@@ -448,7 +723,7 @@ export class TutorGrowthService {
   private isDismissedRecently(id: string, days: number): boolean {
     const at = this._state.dismissed[id];
     if (!at) return false;
-    return (Date.now() - at) < days * DAY_MS;
+    return Date.now() - at < days * DAY_MS;
   }
 
   private loadState(): GrowthState {
@@ -464,7 +739,6 @@ export class TutorGrowthService {
 
   private saveState(): void {
     try {
-      // Prune dismissed entries older than 60 days
       const now = Date.now();
       for (const key of Object.keys(this._state.dismissed)) {
         if (now - this._state.dismissed[key] > 60 * DAY_MS) {
@@ -472,7 +746,9 @@ export class TutorGrowthService {
         }
       }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this._state));
-    } catch { /* storage full */ }
+    } catch {
+      /* storage full */
+    }
   }
 
   private startRotation(): void {

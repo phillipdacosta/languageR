@@ -255,6 +255,8 @@
                 [placeholder]="'ONBOARDING.STUDENT.STEP1_LAST_PLACEHOLDER' | translate"
                 class="modern-input">
             </div>
+            <p class="name-step-subtext">{{ 'ONBOARDING.NAME.PUBLIC_DISPLAY_SUBTEXT' | translate }}</p>
+            <p class="name-step-subtext name-step-subtext--example">{{ 'ONBOARDING.NAME.PUBLIC_DISPLAY_EXAMPLE' | translate }}</p>
           </div>
         </div>
 
@@ -263,11 +265,12 @@
           <div class="language-grid">
             <button 
               *ngFor="let lang of nativeLanguageOptions" 
+              #wizardNativeChip
               class="language-chip"
               [class.selected]="nativeLanguage === lang.code"
               (click)="setNativeLanguage(lang.code)">
-              <span class="language-native">{{ lang.native }}</span>
-              <span class="language-name">({{ lang.nameKey | translate }})</span>
+              <span class="language-native">{{ lang.interfaceLabel }}</span>
+              <span class="language-name" *ngIf="lang.native && lang.native !== lang.interfaceLabel">{{ lang.native }}</span>
             </button>
           </div>
         </div>
@@ -276,11 +279,12 @@
         <div *ngIf="currentStep === 3">
           <div class="options-grid">
             <button 
-              *ngFor="let lang of learnableLanguages"
+              *ngFor="let lang of teachableLanguageRows"
+              #wizardTeachableChip
               class="option-button"
               [class.selected]="selectedLanguages.includes(lang.value)"
               (click)="toggleLanguage(lang.value)">
-              {{ lang.nameKey | translate }}
+              {{ lang.interfaceLabel }}
             </button>
           </div>
         </div>
@@ -290,6 +294,7 @@
           <div class="goal-cards-grid">
             <button 
               *ngFor="let goal of goalTypeOptions"
+              #wizardGoalCard
               class="goal-type-card"
               [class.selected]="learningGoalType === goal.value"
               (click)="setLearningGoalType(goal.value)">
@@ -333,6 +338,7 @@
           <div class="level-cards-list">
             <button 
               *ngFor="let level of levelOptions"
+              #wizardLevelCard
               class="level-card"
               [class.selected]="selfAssessedLevel === level.value"
               (click)="setSelfAssessedLevel(level.value)">
@@ -352,6 +358,7 @@
           <div class="timeline-cards-list">
             <button 
               *ngFor="let tl of timelineOptions"
+              #wizardTimelineCard
               class="timeline-card"
               [class.selected]="goalTimeline === tl.value"
               (click)="setGoalTimeline(tl.value)">
@@ -447,7 +454,12 @@
 
         <div class="preview-hero-summary">
           <div class="preview-summary-item">
-            <span class="summary-emoji">👋</span>
+            <div class="profile-picture-container" *ngIf="user$ | async as user; else defaultEmoji">
+              <img [src]="user.picture" [alt]="firstName + ' ' + lastName" class="profile-picture" />
+            </div>
+            <ng-template #defaultEmoji>
+              <span class="summary-emoji">👋</span>
+            </ng-template>
             <span class="summary-text">{{ firstName }} {{ lastName }}</span>
           </div>
           <div class="preview-summary-item">

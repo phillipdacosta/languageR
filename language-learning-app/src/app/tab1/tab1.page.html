@@ -34,6 +34,37 @@
     <app-create-material #createMaterialRef [inline]="true" (goBackEvent)="onCreateMaterialGoBack()" (modalExpandEvent)="onModalExpand($event)"></app-create-material>
   </div>
 
+  <!-- Tutor approval wizard (mobile): same inline pattern as Create Material -->
+  <div class="tutor-approval-inline-panel" *ngIf="isTutorApprovalWizardModalOpen && isMobile">
+    <app-tutor-onboarding
+      [presentAsModal]="true"
+      [initialApprovalStepId]="tutorApprovalWizardModalInitialStepId"
+      (dismissed)="onTutorApprovalWizardDismissedFromChild()">
+    </app-tutor-onboarding>
+  </div>
+
+  <!-- Tutor approval wizard (desktop): expanded Create Material wizard shell (near-full viewport + deep backdrop) -->
+  <div
+    class="cm-modal-backdrop"
+    *ngIf="isTutorApprovalWizardModalOpen && !isMobile"
+    [class.cm-modal-backdrop--visible]="tutorApprovalWizardBackdropVisible"
+    [class.cm-modal-backdrop--deep]="tutorApprovalWizardBackdropVisible"
+    (click)="onTutorApprovalWizardBackdropClick($event)">
+    <div
+      class="cm-modal-container cm-modal--expanded"
+      [class.cm-modal--ready]="tutorApprovalWizardModalReady"
+      (click)="$event.stopPropagation()">
+      <div class="cm-modal-body cm-modal-body--tutor-approval">
+        <app-tutor-onboarding
+          *ngIf="isTutorApprovalWizardModalOpen"
+          [presentAsModal]="true"
+          [initialApprovalStepId]="tutorApprovalWizardModalInitialStepId"
+          (dismissed)="onTutorApprovalWizardDismissedFromChild()">
+        </app-tutor-onboarding>
+      </div>
+    </div>
+  </div>
+
   <!-- Schedule Class (mobile, tutor) -->
   <div class="schedule-class-inline-panel" *ngIf="showScheduleClassView && isMobile">
     <app-schedule-class
@@ -210,14 +241,19 @@
             {{ scheduleClassModalRef?.wizardHostBackLabelKey | translate }}
           </button>
         </div>
-        <div class="cm-modal-topbar-center cm-modal-topbar-center--schedule-stack">
-          <span class="cm-schedule-modal-title cm-schedule-modal-title--inline">{{ (scheduleClassModalRef?.scheduleModalTitleKey || 'SCHEDULE_CLASS.MODAL_TITLE') | translate }}</span>
-          <span
-            class="cm-schedule-wizard-fraction"
-            *ngIf="scheduleClassModalRef?.scheduleHubShowsWizardChrome"
-          >
-            {{ scheduleClassModalRef.displayStepIndex }}/{{ scheduleClassModalRef.displayStepTotal }}
-          </span>
+        <div
+          class="cm-modal-topbar-center cm-modal-topbar-center--schedule-wizard-toolbar"
+          *ngIf="scheduleClassModalRef?.scheduleHubShowsWizardChrome"
+        >
+          <p class="cm-details-wizard-page-toolbar-title">
+            {{ (scheduleClassModalRef?.scheduleModalTitleKey || 'SCHEDULE_CLASS.MODAL_TITLE') | translate }}
+          </p>
+          <span class="cm-details-wizard-step-indicator">{{ 'ONBOARDING.STEP_INDICATOR' | translate: (scheduleClassModalRef?.wizardStepIndicatorI18nParams || { current: 1, total: 1 }) }}</span>
+        </div>
+        <div class="cm-modal-topbar-center" *ngIf="!scheduleClassModalRef?.scheduleHubShowsWizardChrome">
+          <span class="cm-schedule-modal-title cm-schedule-modal-title--inline">{{
+            (scheduleClassModalRef?.scheduleModalTitleKey || 'SCHEDULE_CLASS.MODAL_TITLE') | translate
+          }}</span>
         </div>
         <div class="cm-modal-topbar-right">
           <button type="button" class="cm-modal-exit" (click)="onScheduleClassGoBack()">
@@ -226,10 +262,10 @@
         </div>
       </div>
       <div
-        class="cm-schedule-wizard-progress"
+        class="cm-schedule-wizard-progress cm-details-wizard-progress"
         *ngIf="scheduleClassModalRef?.scheduleHubShowsWizardChrome"
       >
-        <div class="cm-schedule-wizard-progress-fill" [style.width.%]="scheduleClassModalRef.progressPercent"></div>
+        <div class="cm-schedule-wizard-progress-fill cm-details-wizard-progress-fill" [style.width.%]="scheduleClassModalRef.progressPercent"></div>
       </div>
       <div class="cm-modal-body cm-modal-body--schedule-class">
         <app-schedule-class
@@ -365,7 +401,7 @@
           <ng-container *ngFor="let row of growthInsightSlideRow; trackBy: trackGrowthInsightSlide">
             <span class="growth-ticker-mobile-fade-wrap">
               <span class="growth-ticker-icon">{{ row.insight.icon }}</span>
-              <span class="growth-ticker-text-mobile">{{ row.insight.text }}</span>
+              <span class="growth-ticker-text-mobile">{{ row.insight.messageKey | translate:(row.insight.messageParams || {}) }}</span>
             </span>
           </ng-container>
           <span class="growth-dots growth-dots--mobile" *ngIf="growthCount > 1">
@@ -374,7 +410,7 @@
                   [class.growth-dot--active]="i === growthIndex"
                   (click)="onGrowthInsightDotClick(i); $event.stopPropagation()">
             </span>
-            <button class="growth-view-all growth-view-all--mobile" (click)="openGrowthInsightsModal(); $event.stopPropagation()">View all</button>
+            <button class="growth-view-all growth-view-all--mobile" (click)="openGrowthInsightsModal(); $event.stopPropagation()">{{ 'HOME.GROWTH.VIEW_ALL' | translate }}</button>
           </span>
         </p>
       </div>
@@ -414,10 +450,10 @@
                 <ng-container *ngFor="let row of growthInsightSlideRow; trackBy: trackGrowthInsightSlide">
                   <span class="growth-ticker-text">
                     <span class="growth-ticker-icon">{{ row.insight.icon }}</span>
-                    {{ row.insight.text }}
+                    {{ row.insight.messageKey | translate:(row.insight.messageParams || {}) }}
                   </span>
                 </ng-container>
-                <button class="growth-dismiss-btn" (click)="onGrowthInsightDismiss(); $event.stopPropagation()" aria-label="Dismiss">
+                <button class="growth-dismiss-btn" (click)="onGrowthInsightDismiss(); $event.stopPropagation()" [attr.aria-label]="'HOME.GROWTH.DISMISS' | translate">
                   <ion-icon name="close-outline"></ion-icon>
                 </button>
               </span>
@@ -428,7 +464,7 @@
                       (click)="onGrowthInsightDotClick(i)">
                 </span>
               </span>
-              <button class="growth-view-all" (click)="openGrowthInsightsModal(); $event.stopPropagation()">View all</button>
+              <button class="growth-view-all" (click)="openGrowthInsightsModal(); $event.stopPropagation()">{{ 'HOME.GROWTH.VIEW_ALL' | translate }}</button>
             </ng-container>
             <ng-template #staticWelcome>
               <ng-container *ngIf="welcomeMessageText"><span class="welcome-tutor-desktop-sep"> </span>{{ welcomeMessageText }}</ng-container>
@@ -459,7 +495,7 @@
     <div class="growth-modal-backdrop" *ngIf="isGrowthModalOpen" (click)="closeGrowthInsightsModal()">
       <div class="growth-modal" (click)="$event.stopPropagation()">
         <div class="growth-modal-header">
-          <h3 class="growth-modal-title">Suggestions for you</h3>
+          <h3 class="growth-modal-title">{{ 'HOME.GROWTH.MODAL_TITLE' | translate }}</h3>
           <button class="growth-modal-close" (click)="closeGrowthInsightsModal()">
             <ion-icon name="close-outline"></ion-icon>
           </button>
@@ -469,11 +505,11 @@
                class="growth-modal-item"
                [class.growth-modal-item--dismissed]="item.dismissed">
             <span class="growth-modal-item-icon">{{ item.insight.icon }}</span>
-            <span class="growth-modal-item-text">{{ item.insight.text }}</span>
+            <span class="growth-modal-item-text">{{ item.insight.messageKey | translate:(item.insight.messageParams || {}) }}</span>
             <button *ngIf="item.dismissed"
                     class="growth-modal-restore-btn"
                     (click)="onGrowthInsightRestore(item.insight)">
-              Show again
+              {{ 'HOME.GROWTH.MODAL_SHOW_AGAIN' | translate }}
             </button>
             <button *ngIf="!item.dismissed && item.active"
                     class="growth-modal-dismiss-btn"
@@ -485,23 +521,38 @@
       </div>
     </div>
     
-    <!-- Inline Profile Checklist (replaces old banner cards) -->
-    <div class="profile-checklist-section" *ngIf="isTutorUser && hasProfileCriticalInsights && profileChecklist.length > 0">
-      <div class="profile-checklist-header">
-        <ion-icon name="alert-circle-outline" class="pcl-warn-icon"></ion-icon>
-        <span class="pcl-title">{{ profileChecklistDoneCount }} / {{ profileChecklistTotal }} complete</span>
-        <span class="pcl-hidden-label" *ngIf="profileChecklistDoneCount < profileChecklistTotal">
-          <ion-icon name="eye-off-outline"></ion-icon> Hidden from students
-        </span>
-      </div>
-      <div class="profile-checklist-items">
-        <a *ngFor="let item of profileChecklist"
-           class="pcl-item" [class.pcl-item--done]="item.done"
-           [routerLink]="item.route">
-          <ion-icon [name]="item.done ? 'checkmark-circle' : 'ellipse-outline'" class="pcl-check"></ion-icon>
-          <span class="pcl-label">{{ item.label }}</span>
-          <ion-icon name="chevron-forward-outline" class="pcl-arrow" *ngIf="!item.done"></ion-icon>
-        </a>
+    <!-- Inline Profile Checklist (replaces old banner cards); outer wrapper animates height so schedule below eases down -->
+    <div class="profile-checklist-anim" *ngIf="isTutorUser && hasProfileCriticalInsights && profileChecklist.length > 0">
+      <div class="profile-checklist-anim__inner">
+        <div class="profile-checklist-section">
+          <div class="profile-checklist-header">
+            <div class="pcl-header-text">
+              <div class="pcl-header-top">
+                <ion-icon name="alert-circle-outline" class="pcl-warn-icon"></ion-icon>
+                <span class="pcl-title">{{ 'HOME.GROWTH.PROFILE_PROGRESS' | translate:{ done: profileChecklistDoneCount, total: profileChecklistTotal } }}</span>
+                <span class="pcl-hidden-label" *ngIf="profileChecklistDoneCount < profileChecklistTotal">
+                  <ion-icon name="eye-off-outline"></ion-icon> {{ 'HOME.GROWTH.PROFILE_HIDDEN' | translate }}
+                </span>
+              </div>
+              <p class="pcl-subtitle" *ngIf="profileChecklistDoneCount < profileChecklistTotal">{{ 'HOME.GROWTH.PROFILE_CHECKLIST_SUBTITLE' | translate }}</p>
+              <p class="pcl-availability-note" *ngIf="profileChecklistDoneCount < profileChecklistTotal">{{ 'HOME.GROWTH.PROFILE_CHECKLIST_AVAILABILITY_NOTE' | translate }}</p>
+            </div>
+          </div>
+          <div class="profile-checklist-items">
+            <button type="button" *ngFor="let item of profileChecklist"
+               class="pcl-item"
+               [class.pcl-item--done]="item.done && !item.pendingReview"
+               [class.pcl-item--pending-review]="item.pendingReview"
+               (click)="openTutorApprovalWizardFromChecklist(item)">
+              <ion-icon
+                class="pcl-check"
+                [name]="item.pendingReview ? 'time-outline' : (item.done ? 'checkmark-circle' : 'ellipse-outline')">
+              </ion-icon>
+              <span class="pcl-label">{{ item.labelKey | translate:(item.labelParams || {}) }}</span>
+              <ion-icon name="chevron-forward-outline" class="pcl-arrow" *ngIf="!item.done || item.pendingReview"></ion-icon>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
     
@@ -627,7 +678,7 @@
           <div class="upnext-class-detail-item" *ngIf="upNextFormattedPrice">
             <ion-icon name="card-outline"></ion-icon>
             <span class="upnext-class-detail-primary">{{ upNextFormattedPrice }}</span>
-            <span class="upnext-class-detail-secondary">per student</span>
+            <span class="upnext-class-detail-secondary">{{ 'HOME.PER_STUDENT' | translate }}</span>
           </div>
           <div class="upnext-class-detail-item" *ngIf="upNextLevelLabel">
             <ion-icon name="school-outline"></ion-icon>
@@ -920,13 +971,13 @@
                *ngIf="!isMobile && isTutorUser && !earningsBalanceLoading && !isWeeklyGoalMasked"
                [class.is-reached]="isWeeklyGoalReached">
             <div class="earnings-goal__head">
-              <span class="earnings-goal__label">Weekly goal</span>
+              <span class="earnings-goal__label">{{ 'HOME.WEEKLY_GOAL_TITLE' | translate }}</span>
               <button
                 *ngIf="!isEditingWeeklyGoal"
                 type="button"
                 class="earnings-goal__edit-btn"
                 (click)="startEditWeeklyGoal(); $event.stopPropagation()"
-                aria-label="Edit weekly goal">
+                [attr.aria-label]="'HOME.WEEKLY_GOAL_EDIT_ARIA' | translate">
                 <ion-icon name="pencil-outline"></ion-icon>
               </button>
             </div>
@@ -963,8 +1014,8 @@
                 step="10"
                 autofocus
                 (keydown.escape)="cancelEditWeeklyGoal()" />
-              <button type="button" class="earnings-goal__cancel" (click)="cancelEditWeeklyGoal()">Cancel</button>
-              <button type="submit" class="earnings-goal__save">Save</button>
+              <button type="button" class="earnings-goal__cancel" (click)="cancelEditWeeklyGoal()">{{ 'COMMON.CANCEL' | translate }}</button>
+              <button type="submit" class="earnings-goal__save">{{ 'COMMON.SAVE' | translate }}</button>
             </form>
           </div>
 

@@ -16,6 +16,7 @@ const Payment = require('../models/Payment');
 const Notification = require('../models/Notification');
 const paypalService = require('../services/paypalService');
 const Lesson = require('../models/Lesson');
+const User = require('../models/User');
 const alertService = require('../services/alertService');
 const subscriptionService = require('../services/subscriptionService');
 
@@ -70,8 +71,7 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
         break;
 
       case 'account.updated':
-        console.log(`🔔 [WEBHOOK] Stripe Connect account updated: ${event.data.object.id}`);
-        // Could update tutor onboarding status here if needed
+        await handleConnectAccountUpdated(event.data.object);
         break;
 
       case 'payment_intent.payment_failed':
@@ -124,6 +124,68 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
     res.status(500).send('Webhook handler error');
   }
 });
+
+/**
+ * Handle Stripe Connect account.updated event.
+ * Keeps `stripeConnectOnboarded`, `stripePayoutsEnabled`, and
+ * `stripeIdentityVerified` in sync so the tutor approval wizard can
+ * conditionally hide the manual government-ID step.
+ */
+async function handleConnectAccountUpdated(account) {
+  console.log(`🔔 [WEBHOOK] account.updated: ${account.id}`);
+  try {
+    const user = await User.findOne({ stripeConnectAccountId: account.id });
+    if (!user) {
+      console.warn(`⚠️  [WEBHOOK] No user found for Stripe Connect account ${account.id}`);
+      return;
+    }
+
+    const onboarded = !!(account.charges_enabled && account.payouts_enabled);
+    const requirementsDue = account.requirements?.currently_due?.length || 0;
+    const pastDue = account.requirements?.past_due?.length || 0;
+    const eventuallyDue = account.requirements?.eventually_due?.length || 0;
+    const identityVerified =
+      onboarded && requirementsDue === 0 && pastDue === 0 && eventuallyDue === 0;
+    const disabledReason = account.requirements?.disabled_reason || null;
+    const accountDisabled = !!(
+      disabledReason ||
+      pastDue > 0 ||
+      (account.details_submitted && account.charges_enabled === false)
+    );
+
+    let changed = false;
+
+    if (onboarded && !user.stripeConnectOnboarded) {
+      user.stripeConnectOnboarded = true;
+      user.stripeConnectOnboardedAt = user.stripeConnectOnboardedAt || new Date();
+      if (user.payoutProvider === 'none') {
+        user.payoutProvider = 'stripe';
+      }
+      changed = true;
+      console.log(`✅ [WEBHOOK] Tutor ${user.email} Stripe Connect onboarded via webhook`);
+    }
+    if (user.stripePayoutsEnabled !== !!account.payouts_enabled) {
+      user.stripePayoutsEnabled = !!account.payouts_enabled;
+      changed = true;
+    }
+    if (user.stripeIdentityVerified !== identityVerified) {
+      user.stripeIdentityVerified = identityVerified;
+      changed = true;
+      console.log(`🔄 [WEBHOOK] stripeIdentityVerified=${identityVerified} for ${user.email}`);
+    }
+    if (user.stripeAccountDisabled !== accountDisabled) {
+      user.stripeAccountDisabled = accountDisabled;
+      changed = true;
+      console.log(`🔄 [WEBHOOK] stripeAccountDisabled=${accountDisabled} (${disabledReason || 'pastDue/charges'}) for ${user.email}`);
+    }
+
+    if (changed) {
+      await user.save();
+    }
+  } catch (err) {
+    console.error('❌ [WEBHOOK] handleConnectAccountUpdated failed:', err);
+  }
+}
 
 /**
  * Handle payout.paid event

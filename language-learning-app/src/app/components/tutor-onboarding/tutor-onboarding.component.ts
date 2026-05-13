@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, LoadingController, AlertController, ToastController, ModalController } from '@ionic/angular';
@@ -12,14 +12,24 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { PayoutSelectionModalComponent } from '../payout-selection-modal/payout-selection-modal.component';
 import { FileUploadService } from '../../services/file-upload.service';
 import { ImageCropperComponent } from '../image-cropper/image-cropper.component';
+import { isStripeSupportedCountry } from '../../data/stripe-supported-countries';
+
+type ApprovalStepId = 'photo' | 'video' | 'stripe' | 'identity' | 'qualifications' | 'tos';
 
 interface OnboardingStep {
-  id: string;
-  title: string;
-  description: string;
+  id: ApprovalStepId;
+  titleKey: string;
+  descriptionKey: string;
   completed: boolean;
   icon: string;
   action?: string;
+  /**
+   * Steps can be hidden dynamically — currently used to skip the manual
+   * `identity` step when Stripe has already KYC'd the tutor. Hidden steps are
+   * excluded from progress, the step indicator, prev/next navigation, and the
+   * "all complete" check.
+   */
+  visible: boolean;
 }
 
 @Component({
@@ -30,6 +40,12 @@ interface OnboardingStep {
   imports: [CommonModule, FormsModule, IonicModule, SharedModule]
 })
 export class TutorOnboardingComponent implements OnInit {
+  /** When true, close/skip dismiss a parent modal instead of routing home. */
+  @Input() presentAsModal = false;
+  /** After first load, jump to this wizard step id (e.g. photo, credentials, stripe). */
+  @Input() initialApprovalStepId: string | null = null;
+  @Output() dismissed = new EventEmitter<void>();
+
   currentUser: any = null;
   currentStepIndex = 0;
   loading = true;
@@ -37,64 +53,111 @@ export class TutorOnboardingComponent implements OnInit {
   /** Cached step surface for templates (no getters / method calls in HTML). */
   approvalStepId = 'photo';
   approvalStepIcon = 'person-circle';
-  approvalStepTitle = '';
-  approvalStepDescription = '';
+  approvalStepTitleKey = '';
+  approvalStepDescriptionKey = '';
   approvalStepCompleted = false;
   approvalWizardProgressPercent = 0;
-  approvalStepBadgeText = '';
+  /** Params for `ONBOARDING.STEP_INDICATOR` (matches student / tutor onboarding wizard). */
+  approvalStepIndicatorI18nParams: { current: number; total: number } = { current: 1, total: 1 };
+
+  /** Top bar + footer (avoid getters in template). */
+  approvalWizardIsFirstStep = true;
+  approvalWizardIsLastStep = false;
+  approvalWizardAllStepsComplete = false;
+  approvalWizardTopBackVisible = false;
+  approvalWizardPreviousStepTitleKey = '';
+  /** Widen shell + panel (photo, video, payout, credentials) to use modal width. */
+  approvalWizardWideContentLayout = false;
   
   // Subscribe to approval status from UserService
   approvalStatus$ = this.userService.tutorApprovalStatus$;
   approvalStatus: any = null;
 
+  /**
+   * Wizard order — payout BEFORE identity so we can hide the manual gov-ID
+   * step when Stripe Connect has already KYC'd the tutor.
+   *
+   * 1. photo            – profile picture
+   * 2. video            – introduction video
+   * 3. stripe           – payout setup (Stripe Connect or PayPal)
+   * 4. identity         – manual government-ID upload (skipped when Stripe-verified)
+   * 5. qualifications   – teaching certifications + optional documents
+   * 6. tos              – terms of service
+   */
   steps: OnboardingStep[] = [
     {
       id: 'photo',
-      title: 'Upload Profile Photo',
-      description: 'Add a professional photo so students can recognize you',
+      titleKey: 'TUTOR_APPROVAL.STEP_PHOTO_TITLE',
+      descriptionKey: 'TUTOR_APPROVAL.STEP_PHOTO_DESC',
       completed: false,
       icon: 'person-circle',
-      action: 'upload-photo'
+      action: 'upload-photo',
+      visible: true
     },
     {
       id: 'video',
-      title: 'Record Introduction Video',
-      description: 'Create a short video introducing yourself and your teaching style',
+      titleKey: 'TUTOR_APPROVAL.STEP_VIDEO_TITLE',
+      descriptionKey: 'TUTOR_APPROVAL.STEP_VIDEO_DESC',
       completed: false,
       icon: 'videocam',
-      action: 'upload-video'
-    },
-    {
-      id: 'credentials',
-      title: 'Upload Credentials',
-      description: 'Verify your identity and teaching qualifications',
-      completed: false,
-      icon: 'shield-checkmark',
-      action: 'upload-credentials'
+      action: 'upload-video',
+      visible: true
     },
     {
       id: 'stripe',
-      title: 'Connect Bank Account',
-      description: 'Set up payments to receive earnings',
+      titleKey: 'TUTOR_APPROVAL.STEP_PAYMENT_TITLE',
+      descriptionKey: 'TUTOR_APPROVAL.STEP_PAYMENT_DESC',
       completed: false,
       icon: 'card',
-      action: 'stripe-onboard'
+      action: 'stripe-onboard',
+      visible: true
+    },
+    {
+      id: 'identity',
+      titleKey: 'TUTOR_APPROVAL.STEP_IDENTITY_TITLE',
+      descriptionKey: 'TUTOR_APPROVAL.STEP_IDENTITY_DESC',
+      completed: false,
+      icon: 'id-card',
+      action: 'upload-identity',
+      visible: true
+    },
+    {
+      id: 'qualifications',
+      titleKey: 'TUTOR_APPROVAL.STEP_QUALIFICATIONS_TITLE',
+      descriptionKey: 'TUTOR_APPROVAL.STEP_QUALIFICATIONS_DESC',
+      completed: false,
+      icon: 'ribbon',
+      action: 'upload-qualifications',
+      visible: true
     },
     {
       id: 'tos',
-      title: 'Terms & Agreement',
-      description: 'Review and accept the terms of service',
+      titleKey: 'TUTOR_APPROVAL.STEP_TOS_TITLE',
+      descriptionKey: 'TUTOR_APPROVAL.STEP_TOS_DESC',
       completed: false,
       icon: 'document-text',
-      action: 'accept-tos'
+      action: 'accept-tos',
+      visible: true
     }
   ];
+
+  /** Computed: only the steps that should appear in nav, progress, indicator. */
+  visibleSteps: OnboardingStep[] = [];
+
+  /** Convenience flags for the template (avoid steps[N] by index in HTML). */
+  photoStepCompleted = false;
+  videoStepCompleted = false;
+  payoutStepCompleted = false;
+  identityStepCompleted = false;
+  identityStepVisible = true;
+  qualificationsStepCompleted = false;
+  tosStepCompleted = false;
 
   // Credential upload state
   uploadedCertifications: any[] = [];
   uploadedAdditionalDocs: any[] = [];
   governmentIdStatus: string = 'not_uploaded';
-  governmentIdStatusLabel: string = 'Not Uploaded';
+  governmentIdStatusLabelKey = 'TUTOR_APPROVAL.GOV_ID_STATUS_NOT_UPLOADED';
   certificationNameInput: string = '';
   isUploadingCredential: boolean = false;
 
@@ -110,6 +173,11 @@ export class TutorOnboardingComponent implements OnInit {
   determinedPayoutMethod: 'stripe' | 'paypal' | null = null;
   paypalEmail = '';
   paypalEmailError = '';
+  /** True when payout routing is driven by `residenceCountry` (post-onboarding). */
+  isCountryDrivenPayoutRouting = false;
+  /** Plain-English explanation of why a payout method was chosen ("Spain → Stripe Connect"). */
+  payoutMethodReasonKey = '';
+  payoutMethodReasonParams: Record<string, string> = {};
 
   // TOS state
   tosChecked = false;
@@ -125,10 +193,16 @@ export class TutorOnboardingComponent implements OnInit {
     private toastController: ToastController,
     private sanitizer: DomSanitizer,
     private modalController: ModalController,
-    private fileUploadService: FileUploadService
+    private fileUploadService: FileUploadService,
+    private readonly elRef: ElementRef<HTMLElement>,
+    private readonly cdr: ChangeDetectorRef
   ) {}
 
   async ngOnInit() {
+    // Initialize the visible-step cache so the wizard renders cleanly before
+    // the first status emission lands.
+    this.recomputeVisibleSteps();
+
     // Subscribe to approval status from service
     this.approvalStatus$.subscribe(status => {
       if (status) {
@@ -148,38 +222,149 @@ export class TutorOnboardingComponent implements OnInit {
       }
     });
     
-    await this.loadOnboardingStatus();
+    const shouldAutoAdvance = !this.initialApprovalStepId;
+    await this.loadOnboardingStatus(shouldAutoAdvance);
+    if (this.initialApprovalStepId) {
+      this.seekToApprovalStepById(this.initialApprovalStepId);
+    }
+  }
+
+  /**
+   * Jump wizard to a step by id. Accepts legacy aliases:
+   *   - 'credentials' → 'identity'  (split: identity first, then qualifications)
+   *   - 'payout'      → 'stripe'
+   * If the resolved step is hidden, falls through to the next visible step.
+   */
+  private seekToApprovalStepById(stepId: string): void {
+    const aliasMap: Record<string, ApprovalStepId> = {
+      credentials: 'identity',
+      payout: 'stripe'
+    };
+    const target = (aliasMap[stepId] ?? stepId) as ApprovalStepId;
+    let idx = this.steps.findIndex(s => s.id === target && s.visible);
+    if (idx < 0) {
+      // Target hidden — jump to the next visible step after the requested one,
+      // or the first visible step as a last resort.
+      const declaredIdx = this.steps.findIndex(s => s.id === target);
+      idx = declaredIdx >= 0
+        ? this.steps.findIndex((s, i) => i > declaredIdx && s.visible)
+        : -1;
+      if (idx < 0) {
+        idx = this.steps.findIndex(s => s.visible);
+      }
+    }
+    if (idx >= 0) {
+      this.currentStepIndex = idx;
+      this.syncApprovalWizardDisplay();
+    }
+  }
+
+  private exitModalOrNavigateHome(): void {
+    if (this.presentAsModal) {
+      this.dismissed.emit();
+      return;
+    }
+    this.router.navigate(['/tabs/home']);
   }
 
   // Ionic lifecycle hook - refresh data when page becomes active
   ionViewWillEnter() {
+    if (this.presentAsModal) {
+      return;
+    }
     console.log('🔄 [TUTOR-APPROVAL] ionViewWillEnter - refreshing onboarding status');
     this.loadOnboardingStatus();
   }
 
+  /** Look up a step by id (only across all steps, not just visible). */
+  private getStep(id: ApprovalStepId): OnboardingStep | undefined {
+    return this.steps.find(s => s.id === id);
+  }
+
+  /** Re-derive `visibleSteps` and convenience flags from raw `steps`. */
+  private recomputeVisibleSteps(): void {
+    this.visibleSteps = this.steps.filter(s => s.visible);
+    this.photoStepCompleted = !!this.getStep('photo')?.completed;
+    this.videoStepCompleted = !!this.getStep('video')?.completed;
+    this.payoutStepCompleted = !!this.getStep('stripe')?.completed;
+    const identity = this.getStep('identity');
+    this.identityStepCompleted = !!identity?.completed;
+    this.identityStepVisible = !!identity?.visible;
+    this.qualificationsStepCompleted = !!this.getStep('qualifications')?.completed;
+    this.tosStepCompleted = !!this.getStep('tos')?.completed;
+  }
+
   private updateStepsFromStatus(status: any) {
-    this.steps[0].completed = status.photoComplete;
-    this.steps[1].completed = status.videoApproved;
-    this.steps[2].completed = status.credentialsApproved;
-    this.steps[3].completed = status.stripeComplete;
-    this.steps[4].completed = status.tosComplete;
+    // The manual gov-ID step is hidden whenever the tutor is on a healthy
+    // Stripe path (country supported + account not disabled) OR Stripe has
+    // already verified them. UserService computes this for us as
+    // `status.identityRequired` so frontend + backend agree.
+    const stripeIdentityVerified = status.stripeIdentityVerified === true;
+    const identitySatisfied = status.identitySatisfied === true;
+    const identityRequired = status.identityRequired === true;
+
+    const photo = this.getStep('photo');
+    if (photo) photo.completed = status.photoComplete;
+
+    const video = this.getStep('video');
+    if (video) video.completed = status.videoApproved;
+
+    const stripe = this.getStep('stripe');
+    if (stripe) stripe.completed = status.stripeComplete;
+
+    const identity = this.getStep('identity');
+    if (identity) {
+      // When the step is hidden, mark it complete so it doesn't drag down the
+      // "all steps complete" check or the credentials-approved gate.
+      identity.completed = identitySatisfied || !identityRequired;
+      identity.visible = identityRequired;
+    }
+
+    const qualifications = this.getStep('qualifications');
+    if (qualifications) qualifications.completed = !!status.certificationsApproved;
+
+    const tos = this.getStep('tos');
+    if (tos) tos.completed = !!status.tosComplete;
+
+    this.recomputeVisibleSteps();
+
+    // If the current step just became hidden (e.g. Stripe verified mid-flow),
+    // slide forward to the next visible step so the wizard never strands the
+    // user on an invisible step.
+    const currentStep = this.steps[this.currentStepIndex];
+    if (currentStep && !currentStep.visible) {
+      const nextIdx = this.steps.findIndex(
+        (s, i) => i > this.currentStepIndex && s.visible
+      );
+      this.currentStepIndex = nextIdx >= 0 ? nextIdx : Math.max(0, this.steps.findIndex(s => s.visible));
+    }
+
     this.syncApprovalWizardDisplay();
-    
+
     // Update credential display state
-    this.governmentIdStatus = status.governmentIdApproved ? 'approved' 
+    this.governmentIdStatus = status.governmentIdApproved ? 'approved'
       : status.governmentIdRejected ? 'rejected'
-      : status.governmentIdUploaded ? 'pending' 
+      : status.governmentIdUploaded ? 'pending'
       : 'not_uploaded';
-    this.governmentIdStatusLabel = this.governmentIdStatus === 'approved' ? 'Approved'
-      : this.governmentIdStatus === 'rejected' ? 'Rejected'
-      : this.governmentIdStatus === 'pending' ? 'Pending Review'
-      : 'Not Uploaded';
-    
+    this.governmentIdStatusLabelKey =
+      this.governmentIdStatus === 'approved'
+        ? 'TUTOR_APPROVAL.GOV_ID_STATUS_APPROVED'
+        : this.governmentIdStatus === 'rejected'
+          ? 'TUTOR_APPROVAL.GOV_ID_STATUS_REJECTED'
+          : this.governmentIdStatus === 'pending'
+            ? 'TUTOR_APPROVAL.GOV_ID_STATUS_PENDING'
+            : 'TUTOR_APPROVAL.GOV_ID_STATUS_NOT_UPLOADED';
+
     console.log('📊 [TUTOR-APPROVAL] Updated steps from status:', {
       photo: status.photoComplete,
       video: status.videoApproved,
-      credentials: status.credentialsApproved,
-      stripe: status.stripeComplete
+      stripe: status.stripeComplete,
+      identityVisible: identity?.visible,
+      identityCompleted: identity?.completed,
+      identityRequired,
+      qualifications: status.certificationsApproved,
+      tos: status.tosComplete,
+      stripeIdentityVerified
     });
   }
 
@@ -207,28 +392,43 @@ export class TutorOnboardingComponent implements OnInit {
       console.log('📹 [TUTOR-APPROVAL] Video approved:', user.tutorOnboarding?.videoApproved);
       console.log('📹 [TUTOR-APPROVAL] Video rejected:', user.tutorOnboarding?.videoRejected);
 
-      // Load existing tax info if available
+      // Load existing tax info (legacy fallback for users without residenceCountry)
       if (user.isUSPersonForTax !== null && user.isUSPersonForTax !== undefined) {
         this.isUSPersonForTax = user.isUSPersonForTax;
         console.log('📋 [TUTOR-APPROVAL] Loaded isUSPersonForTax:', this.isUSPersonForTax);
       }
       if (user.hasUSBankAccount !== null && user.hasUSBankAccount !== undefined) {
         this.hasUSBankAccount = user.hasUSBankAccount;
-        console.log('📋 [TUTOR-APPROVAL] Loaded hasUSBankAccount:', this.hasUSBankAccount);
       }
-      
-      // If tax info is already complete, skip to the appropriate step
-      if (this.isUSPersonForTax !== null) {
+
+      // Country-driven payout routing (primary path).
+      // residenceCountry is collected during initial tutor onboarding, so almost
+      // every tutor will hit this branch. We only fall back to the US-centric
+      // tax/bank questions for legacy users who completed onboarding before the
+      // residenceCountry field existed.
+      const residence = (user.residenceCountry || '').trim();
+      if (residence) {
+        this.isCountryDrivenPayoutRouting = true;
+        if (isStripeSupportedCountry(residence)) {
+          this.determinedPayoutMethod = 'stripe';
+          this.payoutMethodReasonKey = 'TUTOR_APPROVAL.METHOD_REASON_STRIPE_COUNTRY';
+        } else {
+          this.determinedPayoutMethod = 'paypal';
+          this.payoutMethodReasonKey = 'TUTOR_APPROVAL.METHOD_REASON_PAYPAL_COUNTRY';
+        }
+        this.payoutMethodReasonParams = { country: residence };
+        this.paymentSetupStep = 'setup-method';
+        console.log(`💰 [TUTOR-APPROVAL] Country-driven routing: ${residence} → ${this.determinedPayoutMethod}`);
+      } else if (this.isUSPersonForTax !== null) {
+        this.isCountryDrivenPayoutRouting = false;
+        // Legacy fallback: tax info answered but no residenceCountry stored
         if (this.isUSPersonForTax === false) {
-          // Non-US person - skip to setup
           this.determinedPayoutMethod = 'paypal';
           this.paymentSetupStep = 'setup-method';
         } else if (this.hasUSBankAccount !== null) {
-          // US person with bank status known
           this.determinedPayoutMethod = this.hasUSBankAccount ? 'stripe' : 'paypal';
           this.paymentSetupStep = 'setup-method';
         } else {
-          // US person but bank status unknown
           this.paymentSetupStep = 'bank-account';
         }
       }
@@ -250,20 +450,27 @@ export class TutorOnboardingComponent implements OnInit {
         this.tosChecked = true;
       }
 
-      // Update step 4 title/description based on payout provider
-      if (user.payoutProvider === 'paypal') {
-        this.steps[3].title = 'PayPal Connected';
-        this.steps[3].description = 'Receive earnings via PayPal';
-      } else if (user.payoutProvider === 'manual') {
-        this.steps[3].title = 'Manual Payout Setup';
-        this.steps[3].description = 'Earnings will be processed manually';
-      } else if (user.stripeConnectOnboarded) {
-        this.steps[3].title = 'Stripe Connected';
-        this.steps[3].description = 'Receive earnings via Stripe';
-      } else {
-        this.steps[3].title = 'Connect Bank Account';
-        this.steps[3].description = 'Set up payments to receive earnings';
+      // Update payout step title/description based on chosen provider
+      const payoutStep = this.getStep('stripe');
+      if (payoutStep) {
+        if (user.payoutProvider === 'paypal') {
+          payoutStep.titleKey = 'TUTOR_APPROVAL.STEP_PAYMENT_TITLE_PAYPAL';
+          payoutStep.descriptionKey = 'TUTOR_APPROVAL.STEP_PAYMENT_DESC_PAYPAL';
+        } else if (user.payoutProvider === 'manual') {
+          payoutStep.titleKey = 'TUTOR_APPROVAL.STEP_PAYMENT_TITLE_MANUAL';
+          payoutStep.descriptionKey = 'TUTOR_APPROVAL.STEP_PAYMENT_DESC_MANUAL';
+        } else if (user.stripeConnectOnboarded) {
+          payoutStep.titleKey = 'TUTOR_APPROVAL.STEP_PAYMENT_TITLE_STRIPE';
+          payoutStep.descriptionKey = 'TUTOR_APPROVAL.STEP_PAYMENT_DESC_STRIPE';
+        } else {
+          payoutStep.titleKey = 'TUTOR_APPROVAL.STEP_PAYMENT_TITLE';
+          payoutStep.descriptionKey = 'TUTOR_APPROVAL.STEP_PAYMENT_DESC';
+        }
       }
+
+      // Recompute visible-step cache so step indicator + nav reflect any new
+      // visibility (e.g. Stripe-verified tutors don't see the identity step).
+      this.recomputeVisibleSteps();
 
       // Auto-fetch Vimeo thumbnail if missing
       if (videoUrl && 
@@ -276,12 +483,22 @@ export class TutorOnboardingComponent implements OnInit {
       // The UserService will automatically update tutorApprovalStatus$
       // which we're subscribed to in ngOnInit, so no need to manually set steps here
 
-      // Only auto-advance to first incomplete step on initial load
-      // Don't change step when refreshing after an upload (user should stay on current step)
+      // Only auto-advance to first incomplete VISIBLE step on initial load.
+      // Don't change step when refreshing after an upload (user should stay on
+      // their current step).
       if (autoAdvanceStep) {
-        this.currentStepIndex = this.steps.findIndex(step => !step.completed);
-        if (this.currentStepIndex === -1) {
-          this.currentStepIndex = this.steps.length - 1; // All complete
+        const firstIncompleteIdx = this.steps.findIndex(step => step.visible && !step.completed);
+        if (firstIncompleteIdx >= 0) {
+          this.currentStepIndex = firstIncompleteIdx;
+        } else {
+          // All visible steps complete → land on the last visible step.
+          const lastVisibleIdx = (() => {
+            for (let i = this.steps.length - 1; i >= 0; i--) {
+              if (this.steps[i].visible) return i;
+            }
+            return 0;
+          })();
+          this.currentStepIndex = lastVisibleIdx;
         }
       }
 
@@ -329,55 +546,68 @@ export class TutorOnboardingComponent implements OnInit {
       return;
     }
     this.approvalStepId = s.id;
+    this.approvalWizardWideContentLayout =
+      this.approvalStepId === 'photo' ||
+      this.approvalStepId === 'video' ||
+      this.approvalStepId === 'stripe' ||
+      this.approvalStepId === 'identity' ||
+      this.approvalStepId === 'qualifications';
     this.approvalStepIcon = s.icon;
-    this.approvalStepTitle = s.title;
-    this.approvalStepDescription = s.description;
+    this.approvalStepTitleKey = s.titleKey;
+    this.approvalStepDescriptionKey = s.descriptionKey;
     this.approvalStepCompleted = s.completed;
-    const n = this.steps.length;
-    this.approvalWizardProgressPercent = n > 0 ? ((this.currentStepIndex + 1) / n) * 100 : 0;
-    this.approvalStepBadgeText = n > 0 ? `${this.currentStepIndex + 1} / ${n}` : '';
-  }
 
-  selectApprovalStep(i: number): void {
-    if (i < 0 || i >= this.steps.length) {
-      return;
-    }
-    this.currentStepIndex = i;
-    this.syncApprovalWizardDisplay();
-  }
+    // Step indicator + progress operate on VISIBLE steps so hiding the manual
+    // identity step (Stripe-verified tutors) cleanly removes it from the
+    // "Step 3 of 5" affordance.
+    const visible = this.visibleSteps;
+    const visibleIdx = visible.indexOf(s);
+    const total = visible.length;
+    this.approvalWizardProgressPercent = total > 0 && visibleIdx >= 0
+      ? ((visibleIdx + 1) / total) * 100
+      : 0;
+    this.approvalStepIndicatorI18nParams = total > 0 && visibleIdx >= 0
+      ? { current: visibleIdx + 1, total }
+      : { current: 1, total: 1 };
 
-  get isFirstStep(): boolean {
-    return this.currentStepIndex === 0;
-  }
-
-  get isLastStep(): boolean {
-    return this.currentStepIndex === this.steps.length - 1;
-  }
-
-  get allStepsComplete(): boolean {
-    return this.steps.every(step => step.completed);
+    this.approvalWizardIsFirstStep = visibleIdx === 0;
+    this.approvalWizardIsLastStep = total > 0 && visibleIdx >= total - 1;
+    this.approvalWizardAllStepsComplete = visible.every(step => step.completed);
+    this.approvalWizardTopBackVisible = visibleIdx > 0;
+    const prevVisible = visibleIdx > 0 ? visible[visibleIdx - 1] : null;
+    this.approvalWizardPreviousStepTitleKey = prevVisible?.titleKey ?? '';
   }
 
   get progressPercentage(): number {
-    const completedCount = this.steps.filter(step => step.completed).length;
-    return (completedCount / this.steps.length) * 100;
+    const total = this.visibleSteps.length;
+    if (total === 0) return 0;
+    const completed = this.visibleSteps.filter(step => step.completed).length;
+    return (completed / total) * 100;
   }
 
   get completedStepsCount(): number {
-    return this.steps.filter(step => step.completed).length;
+    return this.visibleSteps.filter(step => step.completed).length;
   }
 
+  /** Move to the previous VISIBLE step. */
   previousStep() {
-    if (this.currentStepIndex > 0) {
-      this.currentStepIndex--;
-      this.syncApprovalWizardDisplay();
+    for (let i = this.currentStepIndex - 1; i >= 0; i--) {
+      if (this.steps[i].visible) {
+        this.currentStepIndex = i;
+        this.syncApprovalWizardDisplay();
+        return;
+      }
     }
   }
 
+  /** Move to the next VISIBLE step. */
   nextStep() {
-    if (this.currentStepIndex < this.steps.length - 1) {
-      this.currentStepIndex++;
-      this.syncApprovalWizardDisplay();
+    for (let i = this.currentStepIndex + 1; i < this.steps.length; i++) {
+      if (this.steps[i].visible) {
+        this.currentStepIndex = i;
+        this.syncApprovalWizardDisplay();
+        return;
+      }
     }
   }
 
@@ -390,6 +620,7 @@ export class TutorOnboardingComponent implements OnInit {
     this.hasUSBankAccount = hasUSBank;
   }
 
+  /** Legacy US-tax flow — only used when `residenceCountry` is not yet set. */
   nextPaymentStep() {
     if (this.paymentSetupStep === 'tax-status') {
       if (this.isUSPersonForTax === false) {
@@ -397,18 +628,11 @@ export class TutorOnboardingComponent implements OnInit {
         this.determinedPayoutMethod = 'paypal';
         this.paymentSetupStep = 'setup-method';
       } else {
-        // US Person → Ask about bank account
+        // US Person → ask about bank account
         this.paymentSetupStep = 'bank-account';
       }
     } else if (this.paymentSetupStep === 'bank-account') {
-      // Determine payout method based on answers
-      if (this.hasUSBankAccount) {
-        // US Person + US Bank → Stripe
-        this.determinedPayoutMethod = 'stripe';
-      } else {
-        // US Person + No US Bank → PayPal
-        this.determinedPayoutMethod = 'paypal';
-      }
+      this.determinedPayoutMethod = this.hasUSBankAccount ? 'stripe' : 'paypal';
       this.paymentSetupStep = 'setup-method';
     }
   }
@@ -417,13 +641,16 @@ export class TutorOnboardingComponent implements OnInit {
     if (this.paymentSetupStep === 'bank-account') {
       this.paymentSetupStep = 'tax-status';
     } else if (this.paymentSetupStep === 'setup-method') {
-      if (this.isUSPersonForTax) {
-        this.paymentSetupStep = 'bank-account';
-      } else {
-        this.paymentSetupStep = 'tax-status';
+      // From the summary screen, the back button only matters for the legacy
+      // tax-question flow. Country-driven users have no prior sub-step here.
+      const residence = (this.currentUser?.residenceCountry || '').trim();
+      if (residence) {
+        return;
       }
+      this.paymentSetupStep = this.isUSPersonForTax ? 'bank-account' : 'tax-status';
     }
   }
+
 
   editTaxInfo() {
     this.paymentSetupStep = 'tax-status';
@@ -439,7 +666,7 @@ export class TutorOnboardingComponent implements OnInit {
     
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(this.paypalEmail.trim())) {
-      this.paypalEmailError = 'Please enter a valid email address';
+      this.paypalEmailError = 'TUTOR_APPROVAL.ERR_PAYPAL_EMAIL_INVALID';
     }
   }
 
@@ -470,7 +697,9 @@ export class TutorOnboardingComponent implements OnInit {
         this.triggerPictureUpload();
         break;
       case 'upload-video':
-        this.router.navigate(['/tabs/profile'], { queryParams: { action: 'upload-video' } });
+        if (!this.presentAsModal) {
+          this.router.navigate(['/tabs/profile'], { queryParams: { action: 'upload-video' } });
+        }
         break;
       case 'stripe-onboard':
         await this.startStripeOnboarding();
@@ -658,6 +887,7 @@ export class TutorOnboardingComponent implements OnInit {
         this.certificationNameInput = ''; // Reset
         // Refresh data but stay on credentials step (don't auto-advance)
         await this.loadOnboardingStatus(false);
+        this.scheduleScrollLatestCredentialIntoView(credentialType);
       } else {
         this.showToast('Failed to upload document', 'danger');
       }
@@ -677,6 +907,35 @@ export class TutorOnboardingComponent implements OnInit {
 
   async onAdditionalDocSelected(event: any) {
     await this.onCredentialSelected(event, 'additionalDocument');
+  }
+
+  private scheduleScrollLatestCredentialIntoView(
+    credentialType: 'governmentId' | 'teachingCertification' | 'additionalDocument'
+  ): void {
+    const onIdentity = credentialType === 'governmentId' && this.approvalStepId === 'identity';
+    const onQualifications = credentialType !== 'governmentId' && this.approvalStepId === 'qualifications';
+    if (!onIdentity && !onQualifications) {
+      return;
+    }
+    this.cdr.detectChanges();
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        this.scrollLatestCredentialIntoView(credentialType);
+      });
+    });
+  }
+
+  private scrollLatestCredentialIntoView(
+    credentialType: 'governmentId' | 'teachingCertification' | 'additionalDocument'
+  ): void {
+    const anchorId =
+      credentialType === 'teachingCertification'
+        ? 'tutor-cred-cert-last-anchor'
+        : credentialType === 'additionalDocument'
+          ? 'tutor-cred-doc-last-anchor'
+          : 'tutor-cred-gov-anchor';
+    const el = this.elRef.nativeElement.querySelector(`#${anchorId}`) as HTMLElement | null;
+    el?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
   }
 
   async removeCredential(credentialType: 'governmentId' | 'teachingCertification' | 'additionalDocument', credentialId?: string) {
@@ -759,6 +1018,22 @@ export class TutorOnboardingComponent implements OnInit {
   }
 
   private async setupStripeConnect(isUSPersonForTax?: boolean | null, hasUSBankAccount?: boolean | null) {
+    const residenceCountry = (this.currentUser?.residenceCountry || '').trim();
+
+    // Defensive: bail early if we know Stripe can't support this country.
+    if (residenceCountry && !isStripeSupportedCountry(residenceCountry)) {
+      this.showToast(`Stripe Connect is not available in ${residenceCountry}. Please choose PayPal.`, 'danger');
+      this.determinedPayoutMethod = 'paypal';
+      return;
+    }
+    if (!residenceCountry && isUSPersonForTax !== true) {
+      // No country + claimed non-US-person → can't use Stripe Connect via the
+      // legacy flow either. Route the user to PayPal instead.
+      this.showToast('Please choose PayPal — your country of residence has not been set.', 'danger');
+      this.determinedPayoutMethod = 'paypal';
+      return;
+    }
+
     const loading = await this.loadingController.create({
       message: 'Setting up Stripe...'
     });
@@ -766,11 +1041,16 @@ export class TutorOnboardingComponent implements OnInit {
 
     try {
       console.log('🏦 [STRIPE] Making API request to:', `${environment.apiUrl}/payments/stripe-connect/onboard`);
-      
+
+      const body: Record<string, unknown> = { isUSPersonForTax, hasUSBankAccount };
+      if (residenceCountry) {
+        body['residenceCountry'] = residenceCountry;
+      }
+
       const response = await firstValueFrom(
         this.http.post<any>(
           `${environment.apiUrl}/payments/stripe-connect/onboard`,
-          { isUSPersonForTax, hasUSBankAccount },
+          body,
           { headers: this.userService.getAuthHeadersSync() }
         )
       );
@@ -846,7 +1126,7 @@ export class TutorOnboardingComponent implements OnInit {
             {
               text: 'OK',
               handler: () => {
-                this.router.navigate(['/tabs/home']);
+                this.exitModalOrNavigateHome();
               }
             }
           ]
@@ -861,7 +1141,7 @@ export class TutorOnboardingComponent implements OnInit {
   }
 
   skipForNow() {
-    this.router.navigate(['/tabs/home']);
+    this.exitModalOrNavigateHome();
   }
 
   async showToast(message: string, color: string = 'primary') {
@@ -875,7 +1155,7 @@ export class TutorOnboardingComponent implements OnInit {
   }
 
   closeOnboarding() {
-    this.router.navigate(['/tabs/home']);
+    this.exitModalOrNavigateHome();
   }
 
   getVideoType(videoUrl?: string): 'upload' | 'youtube' | 'vimeo' {

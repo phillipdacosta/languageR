@@ -1250,6 +1250,20 @@ ion-header {
       }
     }
   }
+
+  .name-step-subtext {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.45;
+    font-weight: 400;
+    color: $ob-text-secondary;
+
+    &--example {
+      margin-top: 6px;
+      color: $ob-text-tertiary;
+      font-style: italic;
+    }
+  }
 }
 
 // Language Grid (for native language selection)
@@ -2100,6 +2114,60 @@ ion-header {
       flex-shrink: 0;
       width: 28px;
       text-align: center;
+    }
+
+    .profile-picture-container {
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      
+      .profile-picture {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid rgba(34, 34, 34, 0.1);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        
+        &:hover {
+          transform: scale(1.05);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+      }
+    }
+  }
+}
+
+// Dark mode support for profile pictures
+@media (prefers-color-scheme: dark) {
+  .preview-hero-summary {
+    .preview-summary-item {
+      .profile-picture-container {
+        .profile-picture {
+          border: 2px solid rgba(255, 255, 255, 0.2);
+          
+          &:hover {
+            box-shadow: 0 2px 8px rgba(255, 255, 255, 0.1);
+          }
+        }
+      }
+    }
+  }
+}
+
+// Ionic dark mode support
+:host-context(html.ion-palette-dark) {
+  .preview-hero-summary {
+    .preview-summary-item {
+      .profile-picture-container {
+        .profile-picture {
+          border: 2px solid rgba(255, 255, 255, 0.2);
+          
+          &:hover {
+            box-shadow: 0 2px 8px rgba(255, 255, 255, 0.1);
+          }
+        }
+      }
     }
 
     .summary-text {

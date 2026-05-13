@@ -33,6 +33,7 @@ import { PremiumWhenUnframedComponent } from '../components/home/premium-when-un
 import { MeshGradientBackgroundComponent } from '../components/mesh-gradient-background/mesh-gradient-background.component';
 import { JourneyIntroComponent } from '../journey/journey-intro.component';
 import { JourneyPage } from '../journey/journey.page';
+import { TutorOnboardingComponent } from '../components/tutor-onboarding/tutor-onboarding.component';
 
 import { Tab1PageRoutingModule } from './tab1-routing.module';
 
@@ -71,7 +72,8 @@ import { Tab1PageRoutingModule } from './tab1-routing.module';
     PremiumWhenUnframedComponent,
     MeshGradientBackgroundComponent,
     JourneyIntroComponent,
-    JourneyPage
+    JourneyPage,
+    TutorOnboardingComponent
   ],
   declarations: [Tab1Page]
 })

@@ -6,6 +6,7 @@ import { Router, RouterModule, NavigationEnd, ActivatedRoute } from '@angular/ro
 import { UserService, User } from '../services/user.service';
 import { LessonService, Lesson } from '../services/lesson.service';
 import { ClassService } from '../services/class.service';
+import { buildTutorProfileChecklist, ProfileChecklistItem, mapProfileChecklistIdToApprovalWizardStepId } from '../services/tutor-growth.service';
 import { WebSocketService } from '../services/websocket.service';
 import { Calendar, EventInput } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -19,6 +20,7 @@ import { PlatformService } from '../services/platform.service';
 import { trigger, state, style, transition, animate, query, stagger } from '@angular/animations';
 import { ClassAttendeesComponent } from '../components/class-attendees/class-attendees.component';
 import { BlockTimeComponent } from '../modals/block-time/block-time.component';
+import { TutorOnboardingComponent } from '../components/tutor-onboarding/tutor-onboarding.component';
 import { HttpClient } from '@angular/common/http';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
@@ -116,7 +118,8 @@ interface AgendaSection {
     TotalAvailabilityPipe,
     BookedHoursPipe,
     TranslateModule,
-    RouterModule
+    RouterModule,
+    TutorOnboardingComponent
   ],
   animations: [
     trigger('slideInUp', [
@@ -180,27 +183,36 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     return !(govIdUploaded && certsUploaded);
   }
 
-  get profileChecklist(): { id: string; label: string; done: boolean; route: string }[] {
+  get profileChecklist(): ProfileChecklistItem[] {
     const user = this.currentUser;
     if (!user) return [];
     const creds = user.tutorCredentials;
     const hasVideo = !!(user.onboardingData?.introductionVideo || user.onboardingData?.pendingVideo);
     const videoApproved = user.tutorOnboarding?.videoApproved === true;
     const govIdUploaded = !!(creds?.governmentId?.url && creds.governmentId.status !== 'not_uploaded');
+    const govIdApproved = creds?.governmentId?.status === 'approved';
+    const stripeIdentityVerified = (user as any).stripeIdentityVerified === true;
+    const identitySatisfied = stripeIdentityVerified || govIdApproved;
     const certsUploaded = (creds?.teachingCertifications?.length ?? 0) > 0;
-    const credsComplete = govIdUploaded && certsUploaded;
-    const credsApproved = creds?.governmentId?.status === 'approved' && !!(creds?.teachingCertifications?.some((c: any) => c.status === 'approved'));
+    const certsApproved = !!(creds?.teachingCertifications?.some((c: any) => c.status === 'approved'));
     const hasPayout = user.stripeConnectOnboarded || user.payoutProvider === 'paypal' || user.payoutProvider === 'manual';
-    return [
-      { id: 'photo', label: 'Profile photo', done: this.hasCustomProfilePhoto, route: '/tutor-approval' },
-      { id: 'video', label: hasVideo && !videoApproved ? 'Intro video (pending review)' : 'Introduction video', done: hasVideo, route: '/tabs/profile' },
-      { id: 'creds', label: credsComplete && !credsApproved ? 'Credentials (pending review)' : 'Credentials', done: credsComplete, route: '/tutor-approval' },
-      { id: 'payout', label: 'Payout method', done: !!hasPayout, route: '/tutor-approval' },
-    ];
+    const identityRequired = this.approvalStatus?.identityRequired !== false;
+    return buildTutorProfileChecklist({
+      hasCustomPhoto: this.hasCustomProfilePhoto,
+      hasVideo,
+      videoApproved,
+      identityRequired,
+      governmentIdUploaded: govIdUploaded,
+      identitySatisfied,
+      certificationsUploaded: certsUploaded,
+      certificationsApproved: certsApproved,
+      hasPayoutSetup: !!hasPayout,
+      tosComplete: !!user.tosAcceptedAt,
+    });
   }
 
   get profileChecklistDoneCount(): number {
-    return this.profileChecklist.filter(i => i.done).length;
+    return this.profileChecklist.filter(i => i.done && !i.pendingReview).length;
   }
 
   // Outstanding feedback
@@ -211,6 +223,11 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   feedbackGraceExpired: boolean = false;
   private feedbackGraceInterval: any = null;
   private static readonly FEEDBACK_GRACE_MS = 2 * 60 * 60 * 1000; // 2 hours
+
+  isTutorApprovalWizardModalOpen = false;
+  tutorApprovalWizardModalInitialStepId: string | null = null;
+  tutorApprovalWizardBackdropVisible = false;
+  tutorApprovalWizardModalReady = false;
   
   private calendar?: Calendar;
   events: EventInput[] = [];
@@ -4295,6 +4312,48 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
 
   closeFeedbackModal(): void {
     this.isFeedbackModalOpen = false;
+  }
+
+  openTutorApprovalWizardFromChecklist(item: ProfileChecklistItem): void {
+    this.tutorApprovalWizardModalInitialStepId = mapProfileChecklistIdToApprovalWizardStepId(item.id);
+    this.isTutorApprovalWizardModalOpen = true;
+    this.tutorApprovalWizardBackdropVisible = false;
+    this.tutorApprovalWizardModalReady = false;
+    this.cdr.markForCheck();
+    if (this.isMobileView) {
+      return;
+    }
+    document.body.classList.add('cm-desktop-modal-open');
+    requestAnimationFrame(() => {
+      this.tutorApprovalWizardBackdropVisible = true;
+      this.cdr.markForCheck();
+    });
+    setTimeout(() => {
+      this.tutorApprovalWizardModalReady = true;
+      this.cdr.markForCheck();
+    }, 350);
+  }
+
+  onTutorApprovalWizardBackdropClick(ev: MouseEvent): void {
+    if ((ev.target as HTMLElement).classList.contains('cm-modal-backdrop')) {
+      this.closeTutorApprovalWizardModal(true);
+    }
+  }
+
+  onTutorApprovalWizardDismissedFromChild(): void {
+    this.closeTutorApprovalWizardModal(true);
+  }
+
+  private closeTutorApprovalWizardModal(refreshUser: boolean): void {
+    this.isTutorApprovalWizardModalOpen = false;
+    this.tutorApprovalWizardModalInitialStepId = null;
+    this.tutorApprovalWizardBackdropVisible = false;
+    this.tutorApprovalWizardModalReady = false;
+    document.body.classList.remove('cm-desktop-modal-open');
+    if (refreshUser) {
+      void firstValueFrom(this.userService.getCurrentUser(true));
+    }
+    this.cdr.markForCheck();
   }
 
   navigateToFeedback(lessonId: string, feedbackId: string): void {

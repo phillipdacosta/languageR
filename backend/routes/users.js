@@ -7,6 +7,7 @@ const { upload, uploadImage, uploadDocument, uploadVideoWithCompression, uploadI
 const TutorMaterial = require('../models/TutorMaterial');
 const { initializeGCS } = require('../config/gcs');
 const rateLimit = require('express-rate-limit');
+const { applyApprovalIfReady } = require('../utils/tutorApproval');
 
 /**
  * Capitalizes a name properly (title case)
@@ -279,7 +280,16 @@ router.get('/me', verifyToken, async (req, res) => {
         tutorOnboarding: user.tutorOnboarding,
         tutorCredentials: user.tutorCredentials,
         tutorApproved: user.tutorApproved,
+        // Tutor approval status drivers — required so the home/calendar
+        // banner can mark each step done/pending without a refresh.
+        tosAcceptedAt: user.tosAcceptedAt,
+        tosVersion: user.tosVersion,
+        stripeIdentityVerified: user.stripeIdentityVerified,
+        stripeAccountDisabled: user.stripeAccountDisabled,
+        isUSPersonForTax: user.isUSPersonForTax,
+        hasUSBankAccount: user.hasUSBankAccount,
         stripeConnectOnboarded: user.stripeConnectOnboarded,
+        stripePayoutsEnabled: user.stripePayoutsEnabled,
         stripeCustomerId: user.stripeCustomerId, // ADD THIS - Critical for saved card payments!
         payoutProvider: user.payoutProvider, // ADD THIS
         payoutDetails: user.payoutDetails, // ADD THIS
@@ -1634,27 +1644,16 @@ router.put('/profile-picture', verifyToken, async (req, res) => {
 
     // Update picture
     user.picture = imageUrl;
-    
-    // For tutors: Check if all approval steps are now complete
+
+    // For tutors: re-evaluate approval after photo change. Promote to
+    // fully-approved only when every gate passes (photo, video-approved,
+    // payout, identity, qualifications, TOS).
     if (user.userType === 'tutor' && !user.tutorApproved) {
       user.tutorOnboarding = user.tutorOnboarding || {};
-      const photoComplete = !!imageUrl;
-      const videoApproved = user.tutorOnboarding.videoApproved === true;
-      
-      // Check for ANY payout method (Stripe, PayPal, or Manual)
-      const hasStripe = user.stripeConnectOnboarded === true;
-      const hasPayPal = user.payoutProvider === 'paypal' && !!user.payoutDetails?.paypalEmail;
-      const hasManual = user.payoutProvider === 'manual';
-      const payoutComplete = hasStripe || hasPayPal || hasManual;
-      
-      if (photoComplete && videoApproved && payoutComplete) {
-        user.tutorApproved = true;
-        user.tutorOnboarding.photoUploaded = true;
-        user.tutorOnboarding.completedAt = new Date();
-        console.log(`🎉 Tutor ${user.email} is now FULLY APPROVED (all steps complete after photo upload)`);
-      }
+      user.tutorOnboarding.photoUploaded = true;
+      applyApprovalIfReady(user);
     }
-    
+
     await user.save();
 
     console.log('✅ Profile picture updated for user:', user.email);
@@ -2784,6 +2783,11 @@ router.post('/tutor/accept-tos', verifyToken, async (req, res) => {
     const { tosVersion } = req.body;
     user.tosAcceptedAt = new Date();
     user.tosVersion = tosVersion || '1.0';
+
+    // Re-evaluate full approval — when TOS is the last missing gate, this
+    // flips `tutorApproved` to true so the tutor becomes searchable.
+    applyApprovalIfReady(user);
+
     await user.save();
 
     console.log(`✅ [TOS] Tutor ${user.email} accepted TOS v${user.tosVersion}`);
@@ -2791,7 +2795,8 @@ router.post('/tutor/accept-tos', verifyToken, async (req, res) => {
     res.json({
       success: true,
       tosAcceptedAt: user.tosAcceptedAt,
-      tosVersion: user.tosVersion
+      tosVersion: user.tosVersion,
+      tutorApproved: user.tutorApproved === true
     });
   } catch (error) {
     console.error('❌ Error accepting TOS:', error);

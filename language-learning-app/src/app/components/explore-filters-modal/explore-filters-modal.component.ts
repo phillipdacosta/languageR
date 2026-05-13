@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController } from '@ionic/angular';
@@ -21,9 +21,11 @@ export interface ExploreFilters {
   standalone: true,
   imports: [CommonModule, IonicModule, FormsModule, SharedModule]
 })
-export class ExploreFiltersModalComponent implements OnInit {
+export class ExploreFiltersModalComponent implements OnInit, AfterViewInit, OnDestroy {
   @Input() initialFilters!: ExploreFilters;
   @Input() totalClassCount = 0;
+
+  @ViewChild('classSearchInput') classSearchInput?: ElementRef<HTMLInputElement>;
 
   filters: ExploreFilters = {
     language: 'any',
@@ -83,6 +85,8 @@ export class ExploreFiltersModalComponent implements OnInit {
   filteredLanguages: typeof this.availableLanguages = [];
   activeFilterCount = 0;
 
+  private primaryFocusTimer: ReturnType<typeof setTimeout> | null = null;
+
   constructor(private modalCtrl: ModalController) {}
 
   ngOnInit() {
@@ -92,6 +96,27 @@ export class ExploreFiltersModalComponent implements OnInit {
     }
     this.filteredLanguages = [...this.availableLanguages];
     this.computeActiveFilterCount();
+  }
+
+  ngAfterViewInit(): void {
+    this.schedulePrimarySearchFocus();
+  }
+
+  ngOnDestroy(): void {
+    if (this.primaryFocusTimer != null) {
+      clearTimeout(this.primaryFocusTimer);
+      this.primaryFocusTimer = null;
+    }
+  }
+
+  private schedulePrimarySearchFocus(): void {
+    if (this.primaryFocusTimer != null) {
+      clearTimeout(this.primaryFocusTimer);
+    }
+    this.primaryFocusTimer = setTimeout(() => {
+      this.primaryFocusTimer = null;
+      this.classSearchInput?.nativeElement?.focus();
+    }, 280);
   }
 
   toggleSection(section: string) {

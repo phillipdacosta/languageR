@@ -240,6 +240,8 @@ export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, Afte
   /** Synced when `currentStep` changes — for template (no method calls in HTML). */
   isLastScheduleStep = false;
   progressPercent = 0;
+  /** Params for `ONBOARDING.STEP_INDICATOR` in wizard toolbars (tab1 + inline explore). */
+  wizardStepIndicatorI18nParams: { current: number; total: number } = { current: 1, total: 1 };
 
   /** Previous nav enabled (classic: not on first form step; wizard: not on type step) */
   get canSchedulePrevious(): boolean {
@@ -353,6 +355,7 @@ export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, Afte
         this.wizardReviewDescriptionHtml = null;
         this.wizardReviewThumbnailSrc = '';
         this.updateScheduleSubmitLabels();
+        this.wizardStepIndicatorI18nParams = { current: 1, total: 1 };
         if (this.hostChromeFooter) {
           this.wizardLayoutChange.emit();
         }
@@ -388,6 +391,10 @@ export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, Afte
     }
     const t = this.displayStepTotal;
     this.progressPercent = t <= 0 ? 0 : (this.displayStepIndex / t) * 100;
+    this.wizardStepIndicatorI18nParams = {
+      current: this.displayStepIndex,
+      total: this.displayStepTotal,
+    };
     if (this.inline) {
       this.hideInlineWizardFooter = this.hostChromeFooter;
     }

@@ -12,6 +12,7 @@
 <ion-content>
   <!-- Search Bar -->
   <ion-searchbar
+    #timezoneSearch
     [(ngModel)]="searchTerm"
     placeholder="Search timezones..."
     (ionInput)="onSearchChange($event)"

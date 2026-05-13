@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { environment } from '../../environments/environment';
 import { SupportedLanguage } from './language.service';
 import { setGlobalTimeFormat } from '../shared/timezone.utils';
+import { isStripeSupportedCountry } from '../data/stripe-supported-countries';
 
 export interface User {
   id: string;
@@ -71,6 +72,10 @@ export interface User {
   tutorApproved?: boolean;
   stripeConnectOnboarded?: boolean;
   stripeConnectAccountId?: string;
+  /** True once Stripe Connect KYC has fully verified the tutor (payouts enabled + no outstanding requirements). When true, the manual Government-ID step is skipped because Stripe already vouches for identity. */
+  stripeIdentityVerified?: boolean;
+  /** True when Stripe has flagged the Connect account as disabled (rejected, past-due requirements, or `requirements.disabled_reason` set). When true, we re-show the manual Government-ID step as a fallback. */
+  stripeAccountDisabled?: boolean;
   // Payout settings
   payoutProvider?: 'stripe' | 'paypal' | 'manual' | 'none';
   payoutDetails?: {
@@ -253,10 +258,16 @@ export class UserService {
     governmentIdUploaded: boolean;
     governmentIdApproved: boolean;
     governmentIdRejected: boolean;
+    /** True when Stripe has fully KYC'd the tutor (skip manual gov-ID). */
+    stripeIdentityVerified: boolean;
+    /** True if identity is satisfied via either Stripe KYC or admin-approved gov-ID. */
+    identitySatisfied: boolean;
+    /** True when the manual gov-ID step should be shown in the wizard. Driven by payout path: false for healthy Stripe-path tutors, true for PayPal/manual or Stripe-disabled. */
+    identityRequired: boolean;
     certificationsUploaded: boolean;
     certificationsApproved: boolean;
-    credentialsComplete: boolean; // All required credentials uploaded
-    credentialsApproved: boolean; // All required credentials approved
+    credentialsComplete: boolean; // All required credentials uploaded (or Stripe-verified)
+    credentialsApproved: boolean; // All required credentials approved (identity + at least one teaching cert)
     tosComplete: boolean;
     fullyApproved: boolean;
     needsApproval: boolean;
@@ -461,10 +472,39 @@ export class UserService {
     const governmentIdUploaded = !!(creds?.governmentId?.url && creds.governmentId.status !== 'not_uploaded');
     const governmentIdApproved = creds?.governmentId?.status === 'approved';
     const governmentIdRejected = creds?.governmentId?.status === 'rejected';
+
+    // Stripe Connect handles its own KYC; when verified we skip the manual
+    // Government-ID upload step (and treat identity as satisfied).
+    const stripeIdentityVerified = user.stripeIdentityVerified === true;
+    const stripeAccountDisabled = user.stripeAccountDisabled === true;
+    const identitySatisfied = stripeIdentityVerified || governmentIdApproved;
+
+    // Decide whether to SHOW the manual gov-ID step in the wizard.
+    // Rule:
+    //   1. Already Stripe-verified → not needed (Stripe owns identity).
+    //   2. Tutor explicitly on PayPal/manual payout → needed (we own identity).
+    //   3. Country supports Stripe AND Stripe account isn't disabled → not needed
+    //      (we expect Stripe to KYC them; webhook re-flips this back if Stripe
+    //      rejects or asks for more docs).
+    //   4. Otherwise (no country, country not Stripe-supported, Stripe disabled) → needed.
+    const payoutProvider = user.payoutProvider || 'none';
+    const onPayPalOrManual = payoutProvider === 'paypal' || payoutProvider === 'manual';
+    const onStripePathHealthy =
+      !onPayPalOrManual &&
+      isStripeSupportedCountry(user.residenceCountry) &&
+      !stripeAccountDisabled;
+    const identityRequired = !stripeIdentityVerified && !onStripePathHealthy;
+
+    // identityUploaded reflects "have we collected something for identity?".
+    // When the step is hidden (not required) and Stripe will handle it, treat
+    // the identity slot as complete for the credentials-complete checklist.
+    const identityUploaded =
+      stripeIdentityVerified || (!identityRequired) || governmentIdUploaded;
+
     const certificationsUploaded = !!(creds?.teachingCertifications && creds.teachingCertifications.length > 0);
     const certificationsApproved = !!(creds?.teachingCertifications?.some(c => c.status === 'approved'));
-    const credentialsComplete = governmentIdUploaded && certificationsUploaded;
-    const credentialsApproved = governmentIdApproved && certificationsApproved;
+    const credentialsComplete = identityUploaded && certificationsUploaded;
+    const credentialsApproved = identitySatisfied && certificationsApproved;
 
     const tosComplete = !!user.tosAcceptedAt;
 
@@ -483,6 +523,9 @@ export class UserService {
       governmentIdUploaded,
       governmentIdApproved,
       governmentIdRejected,
+      stripeIdentityVerified,
+      identitySatisfied,
+      identityRequired,
       certificationsUploaded,
       certificationsApproved,
       credentialsComplete,

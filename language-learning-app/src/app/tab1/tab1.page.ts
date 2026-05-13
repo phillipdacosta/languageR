@@ -41,7 +41,7 @@ import { ReviewDeckService } from '../services/review-deck.service';
 import { AnalysisTranslationService } from '../services/analysis-translation.service';
 import { HomeInlineToolbarService } from '../services/home-inline-toolbar.service';
 import { MaterialService, TutorMaterial } from '../services/material.service';
-import { TutorGrowthService, GrowthInsight, GrowthContext } from '../services/tutor-growth.service';
+import { TutorGrowthService, GrowthInsight, GrowthContext, ProfileChecklistItem, mapProfileChecklistIdToApprovalWizardStepId, buildTutorProfileChecklist } from '../services/tutor-growth.service';
 import { ScheduleClassPage } from '../tutor-calendar/schedule-class/schedule-class.page';
 import { MOCK_CLASS_ATTENDEES_PREVIEW } from '../constants/mock-class-attendees-preview';
 
@@ -355,6 +355,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   showOnboardingBanner = false;
   profileHiddenNoVideo = false;
   tutorOnboardingStatus: any = null;
+  /** Latest snapshot from `userService.tutorApprovalStatus$` — used by the
+   *  profile-checklist builder so we can hide the manual identity step when
+   *  Stripe Connect handles KYC for this tutor. */
+  private tutorApprovalStatusSnapshot: any = null;
   hasCustomProfilePhoto = false; // True only if user has uploaded a custom photo (not Google photo)
   isTutorUser = false; // Use property instead of function call in template
   isStudentUser = false; // Use property instead of function call in template
@@ -562,7 +566,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   /** True when the growth ticker contains profile-critical items (should override next lesson display). */
   hasProfileCriticalInsights = false;
   /** Profile completion checklist for inline welcome display. */
-  profileChecklist: { id: string; label: string; done: boolean; route: string }[] = [];
+  profileChecklist: ProfileChecklistItem[] = [];
   profileChecklistDoneCount = 0;
   profileChecklistTotal = 0;
   /** Single-item row; `epoch` bumps every visible change so trackBy never reuses a cached view (restarts CSS fade). */
@@ -632,6 +636,19 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     private materialService: MaterialService,
     private tutorGrowthService: TutorGrowthService
   ) {
+    // Cache the latest tutor approval status. Rebuilds the profile checklist
+    // SYNCHRONOUSLY from the snapshot so any wizard step (TOS accepted,
+    // payout connected, doc uploaded, admin approval, …) reflects in the
+    // home banner without a refresh and without re-issuing network calls.
+    this.userService.tutorApprovalStatus$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(status => {
+        this.tutorApprovalStatusSnapshot = status;
+        if (this.isTutorUser && status) {
+          this.rebuildProfileChecklistFromStatus(status);
+        }
+      });
+
     // Subscribe to currentUser$ observable to get updates automatically
     // Use asyncScheduler to prevent synchronous emission from blocking
     this.userService.currentUser$
@@ -829,6 +846,11 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         this.refreshPrevNotesTranslationState();
         this.cdr.detectChanges();
       }
+    });
+
+    this.translateService.onLangChange.pipe(takeUntil(this.destroy$)).subscribe(() => {
+      this.updateWeeklyEarningsLabels();
+      this.cdr.markForCheck();
     });
 
     this.homeInlineToolbar.onOpenEarningsRequest$
@@ -4961,8 +4983,40 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
 
       const user = this.currentUser;
       const creds = user?.tutorCredentials;
-      const govIdUploaded = !!(creds?.governmentId?.url && creds.governmentId.status !== 'not_uploaded');
-      const certsUploaded = !!(creds?.teachingCertifications && creds.teachingCertifications.length > 0);
+      // ── Source approval-related flags from the central status snapshot ──
+      // The snapshot is computed inside UserService.updateTutorApprovalStatus
+      // and emitted SYNCHRONOUSLY, while `currentUser$` is throttled with
+      // observeOn(asyncScheduler). Reading from `this.currentUser` here would
+      // see the previous user (stale `tosAcceptedAt`, stale credential
+      // statuses, etc.) until the next tick, which is why TOS acceptance
+      // appeared to require a refresh. The snapshot reflects the fresh user
+      // immediately, so the checklist updates the moment any wizard step
+      // completes.
+      const status = this.tutorApprovalStatusSnapshot;
+      const govIdUploaded =
+        status?.governmentIdUploaded ??
+        !!(creds?.governmentId?.url && creds.governmentId.status !== 'not_uploaded');
+      const govIdApproved =
+        status?.governmentIdApproved ?? creds?.governmentId?.status === 'approved';
+      const identitySatisfied =
+        status?.identitySatisfied ??
+        ((user as any)?.stripeIdentityVerified === true || govIdApproved);
+      const certsUploaded =
+        status?.certificationsUploaded ??
+        !!(creds?.teachingCertifications && creds.teachingCertifications.length > 0);
+      const certsApproved =
+        status?.certificationsApproved ??
+        !!(creds?.teachingCertifications?.some((c: any) => c.status === 'approved'));
+      // Default to true (show the row) when status hasn't loaded yet.
+      const identityRequired = status?.identityRequired !== false;
+      const tosComplete = status?.tosComplete ?? !!user?.tosAcceptedAt;
+      const hasPayoutSetup =
+        status?.stripeComplete ?? this.tutorOnboardingStatus?.stripeComplete === true;
+      const hasVideo =
+        status?.videoComplete ??
+        !!(user?.onboardingData?.introductionVideo || user?.onboardingData?.pendingVideo);
+      const videoApproved = status?.videoApproved ?? user?.tutorOnboarding?.videoApproved === true;
+      const hasCustomPhoto = status?.photoComplete ?? this.hasCustomProfilePhoto;
 
       const ctx: GrowthContext = {
         hasAvailability: this.hasAvailability,
@@ -4989,13 +5043,19 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         recentForumPostCount: 0,
         activeForumThreadsInLanguage: 0,
         tutorRating: this.tutorRating,
-        hasCustomPhoto: this.hasCustomProfilePhoto,
-        hasVideo: !!(user?.onboardingData?.introductionVideo || user?.onboardingData?.pendingVideo),
-        videoApproved: user?.tutorOnboarding?.videoApproved === true,
+        hasCustomPhoto,
+        hasVideo,
+        videoApproved,
         credentialsComplete: govIdUploaded && certsUploaded,
-        credentialsApproved: creds?.governmentId?.status === 'approved' && !!(creds?.teachingCertifications?.some((c: any) => c.status === 'approved')),
-        hasPayoutSetup: this.tutorOnboardingStatus?.stripeComplete === true,
-        tutorApproved: user?.tutorApproved === true,
+        credentialsApproved: govIdApproved && certsApproved,
+        identityRequired,
+        governmentIdUploaded: govIdUploaded,
+        identitySatisfied,
+        certificationsUploaded: certsUploaded,
+        certificationsApproved: certsApproved,
+        hasPayoutSetup,
+        tosComplete,
+        tutorApproved: status?.fullyApproved ?? user?.tutorApproved === true,
       };
 
       this.tutorGrowthService.compute(ctx);
@@ -5060,13 +5120,54 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.growthIndex = idx;
     this.growthCount = this.tutorGrowthService.count;
     this.growthPaused = this.tutorGrowthService.paused;
-    this.hasProfileCriticalInsights = this.tutorGrowthService.hasProfileCritical;
     this.profileChecklist = this.tutorGrowthService.profileChecklist;
-    this.profileChecklistDoneCount = this.profileChecklist.filter(i => i.done).length;
+    this.profileChecklistDoneCount = this.profileChecklist.filter(
+      i => i.done && !i.pendingReview
+    ).length;
     this.profileChecklistTotal = this.profileChecklist.length;
+    // Derive the banner visibility from the checklist itself so it disappears
+    // the moment every step is done (independent of stale insight state).
+    this.hasProfileCriticalInsights =
+      this.profileChecklistTotal > 0 &&
+      this.profileChecklistDoneCount < this.profileChecklistTotal;
     this.growthInsightSlideRow = insight
       ? [{ epoch: this._growthSlideEpoch, insight }]
       : [];
+  }
+
+  /**
+   * Lightweight, network-free checklist rebuild driven by the
+   * `tutorApprovalStatus$` snapshot. Called whenever any wizard step
+   * completes (or admin approves) so the banner reflects the change
+   * immediately, without waiting for the next full insight recompute.
+   */
+  private rebuildProfileChecklistFromStatus(status: any): void {
+    if (!status) return;
+
+    const checklist = buildTutorProfileChecklist({
+      hasCustomPhoto: status.photoComplete === true,
+      hasVideo: status.videoComplete === true,
+      videoApproved: status.videoApproved === true,
+      identityRequired: status.identityRequired !== false,
+      governmentIdUploaded: status.governmentIdUploaded === true,
+      identitySatisfied: status.identitySatisfied === true,
+      certificationsUploaded: status.certificationsUploaded === true,
+      certificationsApproved: status.certificationsApproved === true,
+      hasPayoutSetup: status.stripeComplete === true,
+      tosComplete: status.tosComplete === true,
+    });
+
+    this.profileChecklist = checklist;
+    this.profileChecklistDoneCount = checklist.filter(
+      i => i.done && !i.pendingReview
+    ).length;
+    this.profileChecklistTotal = checklist.length;
+    // Show the banner whenever any required step is still incomplete; hide
+    // it the moment everything is done so the section disappears smoothly.
+    this.hasProfileCriticalInsights = this.profileChecklistDoneCount < checklist.length;
+    // Keep the growth-service mirror in sync for any other consumers.
+    this.tutorGrowthService.profileChecklist = checklist;
+    this.cdr.markForCheck();
   }
 
   private estimateFreeHoursThisWeek(): number {
@@ -6961,6 +7062,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   
   // Track if feedback modal is open
   isFeedbackModalOpen = false;
+
+  /** Tutor approval wizard from profile checklist (Create Material–style desktop card) */
+  isTutorApprovalWizardModalOpen = false;
+  tutorApprovalWizardModalInitialStepId: string | null = null;
+  tutorApprovalWizardBackdropVisible = false;
+  tutorApprovalWizardModalReady = false;
 
   /**
    * Open modal to show all upcoming lessons (Airbnb style)
@@ -9603,13 +9710,13 @@ navigateToLessons() {
         // Open Stripe onboarding in new window
         window.open(response.onboardingUrl, '_blank');
         
-        const toast = await this.toastController.create({
-          message: 'Complete the setup in the new window. Refresh this page when done.',
-          duration: 5000,
-          color: 'primary',
-          position: 'top'
-        });
-        await toast.present();
+        // const toast = await this.toastController.create({
+        //   message: 'Complete the setup in the new window. Refresh this page when done.',
+        //   duration: 5000,
+        //   color: 'primary',
+        //   position: 'top'
+        // });
+        // await toast.present();
       }
     } catch (error: any) {
       console.error('❌ Error starting Stripe Connect onboarding:', error);
@@ -9753,26 +9860,35 @@ navigateToLessons() {
     this.isWeeklyGoalMasked = !this.showWalletBalance && !this.walletTemporarilyVisible;
 
     const fmt = (n: number) => (Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`);
-    this.weeklyEarningsGoalLabel = `${fmt(earned)} of ${fmt(this.weeklyEarningsGoal)} goal`;
+    this.weeklyEarningsGoalLabel = this.translateService.instant('HOME.WEEKLY_GOAL_PROGRESS', {
+      earned: fmt(earned),
+      goal: fmt(this.weeklyEarningsGoal),
+    });
 
     // Sub-label priority (first match wins).
     const combined = earned + scheduled;
-    const lessonWord = scheduledCount === 1 ? 'lesson' : 'lessons';
+    const lessonsKey = scheduledCount === 1 ? 'HOME.LESSON_SINGULAR' : 'HOME.LESSON_PLURAL';
+    const lessons = this.translateService.instant(lessonsKey);
 
     if (this.isWeeklyGoalReached) {
-      this.weeklyEarningsGoalSubLabel = 'Goal reached — nice work';
+      this.weeklyEarningsGoalSubLabel = this.translateService.instant('HOME.WEEKLY_GOAL_REACHED');
       return;
     }
 
     if (earned > 0) {
       if (combined >= this.weeklyEarningsGoal && scheduled > 0) {
-        this.weeklyEarningsGoalSubLabel = `On pace · ${fmt(scheduled)} scheduled this week`;
+        this.weeklyEarningsGoalSubLabel = this.translateService.instant('HOME.WEEKLY_GOAL_ON_PACE', {
+          amount: fmt(scheduled),
+        });
       } else {
         const today = new Date();
         const daysLeft = Math.max(1, 7 - today.getDay());
         const remaining = Math.max(0, this.weeklyEarningsGoal - earned);
         const perDay = Math.ceil(remaining / daysLeft);
-        this.weeklyEarningsGoalSubLabel = `$${perDay}/day to hit goal`;
+        const perDayStr = `$${perDay}`;
+        this.weeklyEarningsGoalSubLabel = this.translateService.instant('HOME.WEEKLY_GOAL_PER_DAY', {
+          amount: perDayStr,
+        });
       }
       return;
     }
@@ -9780,14 +9896,21 @@ navigateToLessons() {
     if (scheduled > 0) {
       const shortfall = Math.max(0, this.weeklyEarningsGoal - scheduled);
       this.weeklyEarningsGoalSubLabel = shortfall > 0
-        ? `${scheduledCount} ${lessonWord} scheduled · ${fmt(shortfall)} to go`
-        : `${scheduledCount} ${lessonWord} scheduled · on pace`;
+        ? this.translateService.instant('HOME.WEEKLY_GOAL_SCHEDULED_TO_GO', {
+            count: scheduledCount,
+            lessons,
+            shortfall: fmt(shortfall),
+          })
+        : this.translateService.instant('HOME.WEEKLY_GOAL_SCHEDULED_ON_PACE', {
+            count: scheduledCount,
+            lessons,
+          });
       return;
     }
 
     this.weeklyEarningsGoalSubLabel = this.hasAvailability
-      ? 'Open for bookings — no lessons yet'
-      : 'Add availability to start earning';
+      ? this.translateService.instant('HOME.WEEKLY_GOAL_OPEN_BOOKINGS')
+      : this.translateService.instant('HOME.WEEKLY_GOAL_ADD_AVAILABILITY');
   }
 
   startEditWeeklyGoal(): void {
@@ -10834,6 +10957,49 @@ navigateToLessons() {
     this.router.navigate(['/post-lesson-tutor', lessonId], {
       queryParams: { feedbackId }
     });
+  }
+
+  openTutorApprovalWizardFromChecklist(item: ProfileChecklistItem): void {
+    this.tutorApprovalWizardModalInitialStepId = mapProfileChecklistIdToApprovalWizardStepId(item.id);
+    this.isTutorApprovalWizardModalOpen = true;
+    this.tutorApprovalWizardBackdropVisible = false;
+    this.tutorApprovalWizardModalReady = false;
+    this.cdr.markForCheck();
+    if (this.isMobile) {
+      this.ionContent?.scrollToTop(0);
+    } else {
+      document.body.classList.add('cm-desktop-modal-open');
+      requestAnimationFrame(() => {
+        this.tutorApprovalWizardBackdropVisible = true;
+        this.cdr.markForCheck();
+      });
+      setTimeout(() => {
+        this.tutorApprovalWizardModalReady = true;
+        this.cdr.markForCheck();
+      }, 350);
+    }
+  }
+
+  onTutorApprovalWizardBackdropClick(ev: MouseEvent): void {
+    if ((ev.target as HTMLElement).classList.contains('cm-modal-backdrop')) {
+      this.closeTutorApprovalWizardModal(true);
+    }
+  }
+
+  onTutorApprovalWizardDismissedFromChild(): void {
+    this.closeTutorApprovalWizardModal(true);
+  }
+
+  private closeTutorApprovalWizardModal(refreshUser: boolean): void {
+    this.isTutorApprovalWizardModalOpen = false;
+    this.tutorApprovalWizardModalInitialStepId = null;
+    this.tutorApprovalWizardBackdropVisible = false;
+    this.tutorApprovalWizardModalReady = false;
+    document.body.classList.remove('cm-desktop-modal-open');
+    if (refreshUser) {
+      void firstValueFrom(this.userService.getCurrentUser(true));
+    }
+    this.cdr.markForCheck();
   }
 
   /**
