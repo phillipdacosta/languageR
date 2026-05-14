@@ -77,6 +77,8 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   @ViewChildren('wizardGoalCard') wizardGoalCards?: QueryList<ElementRef<HTMLButtonElement>>;
   @ViewChildren('wizardLevelCard') wizardLevelCards?: QueryList<ElementRef<HTMLButtonElement>>;
   @ViewChildren('wizardTimelineCard') wizardTimelineCards?: QueryList<ElementRef<HTMLButtonElement>>;
+  @ViewChildren('wizardSpokenLangChip') wizardSpokenLangChips?: QueryList<ElementRef<HTMLButtonElement>>;
+  @ViewChildren('wizardSpokenCefrChip') wizardSpokenCefrChips?: QueryList<ElementRef<HTMLButtonElement>>;
   
   private lastFocusedStep = 0;
 
@@ -630,6 +632,12 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
       case 3:
         this.focusFirstInQueryList(this.wizardTeachableChips);
         break;
+      case 4:
+        this.focusFirstInQueryList(this.wizardSpokenLangChips);
+        break;
+      case 5:
+        this.focusFirstInQueryList(this.wizardSpokenCefrChips);
+        break;
       case 6:
         if (this.learningGoalType === 'other') {
           this.customGoalTextarea?.nativeElement?.focus();
@@ -640,7 +648,7 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
       case 7:
         this.focusFirstInQueryList(this.wizardLevelCards);
         break;
-      case 6:
+      case 8:
         this.focusFirstInQueryList(this.wizardTimelineCards);
         break;
       default:

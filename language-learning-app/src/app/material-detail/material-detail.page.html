@@ -6,7 +6,8 @@
       </button>
       <div class="app-icon-container md-toolbar-brand md-toolbar-brand-desktop" (click)="goHome()">
         <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="app-icon">
-        <span class="app-name">Barnabi</span>
+        <img src="assets/barnabi-logo.png" alt="Barnabi" class="app-name-logo barnabi-wordmark-for-light-ui" />
+        <img src="assets/barnabi-logo-wordmark-white.png" alt="" class="app-name-logo barnabi-wordmark-for-dark-ui" aria-hidden="true" />
       </div>
     </div>
     <div class="md-toolbar-end md-toolbar-end-desktop" slot="end">
@@ -72,7 +73,8 @@
             <div class="md-media-branded" *ngIf="material.materialType === 'video_quiz' && material.videoEmbedUrl">
               <div class="md-brand-bar">
                 <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="md-brand-logo" />
-                <span class="md-brand-name">Barnabi</span>
+                <img src="assets/barnabi-logo.png" alt="Barnabi" class="md-brand-name-logo barnabi-wordmark-for-light-ui" />
+                <img src="assets/barnabi-logo-wordmark-white.png" alt="" class="md-brand-name-logo barnabi-wordmark-for-dark-ui" aria-hidden="true" />
               </div>
               <div class="md-video-wrap">
                 <div class="md-video" *ngIf="videoEmbedUrl">
@@ -89,7 +91,8 @@
             <div class="md-media-branded" *ngIf="material.materialType === 'listening' && audioEmbedUrl && material.audioProvider !== 'direct'">
               <div class="md-brand-bar">
                 <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="md-brand-logo" />
-                <span class="md-brand-name">Barnabi</span>
+                <img src="assets/barnabi-logo.png" alt="Barnabi" class="md-brand-name-logo barnabi-wordmark-for-light-ui" />
+                <img src="assets/barnabi-logo-wordmark-white.png" alt="" class="md-brand-name-logo barnabi-wordmark-for-dark-ui" aria-hidden="true" />
               </div>
               <div class="md-audio">
                 <iframe [src]="audioEmbedUrl" frameborder="0" allow="autoplay; encrypted-media"></iframe>

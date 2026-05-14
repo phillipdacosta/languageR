@@ -13,6 +13,7 @@ import {
   ONBOARDING_AFTER_LANGUAGE_RESTORE,
   LanguageSelectReturnPayload,
   SIGNUP_INTERFACE_LANG_COMPLETED_KEY,
+  SIGNUP_LANGUAGE_COMPLETED_LS_KEY,
 } from './language-select-flow.storage';
 
 @Component({
@@ -81,6 +82,10 @@ export class SignupLanguagePage implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    // Auto-skip (when initial selection is already resolved) is handled by
+    // SignupLanguageGuard on the route — by the time we reach here the user
+    // intentionally wants to see the picker. We still defend against an
+    // unauthenticated state here in case the route guard order changes.
     this.authService.isAuthenticated$.pipe(take(1)).subscribe((isAuthenticated) => {
       if (!isAuthenticated) {
         void this.router.navigate(['/login'], { replaceUrl: true });
@@ -214,6 +219,11 @@ export class SignupLanguagePage implements OnInit, OnDestroy {
     });
 
     sessionStorage.setItem(SIGNUP_INTERFACE_LANG_COMPLETED_KEY, '1');
+    try {
+      localStorage.setItem(SIGNUP_LANGUAGE_COMPLETED_LS_KEY, '1');
+    } catch {
+      /* localStorage may be unavailable; ignore */
+    }
 
     const ctxRaw = sessionStorage.getItem(LANGUAGE_SELECT_RETURN_CONTEXT);
     if (ctxRaw) {

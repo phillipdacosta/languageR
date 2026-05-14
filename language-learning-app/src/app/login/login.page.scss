@@ -72,17 +72,23 @@ $radius-card:       20px;
   align-items: center;
   gap: 12px;
   margin-bottom: 56px;
+  // Let the text column consume remaining row width so long taglines wrap
+  // instead of widening the row and stretching flex children.
+  min-width: 0;
 
   .brand-icon {
     width: 44px;
     height: 44px;
     object-fit: contain;
-    flex-shrink: 0;
+    flex: 0 0 auto;
   }
 
   .brand-text {
     display: flex;
     flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+    flex: 1 1 auto;
     line-height: 1.1;
   }
 
@@ -93,7 +99,27 @@ $radius-card:       20px;
     letter-spacing: -0.3px;
   }
 
+  // Do NOT set `display` here — this class is shared by the light + dark
+  // wordmark `<img>`s; only one should be visible (global.scss hides the
+  // dark PNG with `.barnabi-wordmark-for-dark-ui { display: none }`). A
+  // higher-specificity `display: block` on `.brand-name-logo` was
+  // overriding that and drew both images (artifacts between title + tagline).
+  //
+  // Column flex defaults to `align-items: stretch` on the cross axis; the
+  // parent `.brand-text` uses `align-items: flex-start` so wordmarks keep
+  // intrinsic width and are not stretched by long taglines.
+  .brand-name-logo {
+    height: 26px;
+    width: auto;
+    max-width: 100%;
+    object-fit: contain;
+    object-position: left center;
+    flex: 0 0 auto;
+  }
+
   .brand-tagline {
+    width: 100%;
+    max-width: 100%;
     font-size: 12px;
     font-weight: 500;
     color: #7b7b7b;
@@ -728,6 +754,11 @@ $radius-card:       20px;
     color: #a1a8b6;
   }
 
+  .brand-mark .brand-tagline {
+    color: #d1d5db;
+    opacity: 1;
+  }
+
   .field {
     background: #1c1f26;
     border-color: #2a2f39;
@@ -775,5 +806,28 @@ $radius-card:       20px;
   // pane reads as one continuous image even on a dark page.
   .login-hero-pane {
     background-color: $hero-sky;
+  }
+
+  :host .barnabi-wordmark-for-light-ui {
+    display: none !important;
+  }
+
+  :host .barnabi-wordmark-for-dark-ui {
+    display: inline-block !important;
+    transform: translateX(-4px);
+    filter: drop-shadow(0 0.5px rgba(0, 0, 0, 0.95)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+  }
+
+  :host .brand-name-logo.barnabi-wordmark-for-dark-ui {
+    height: 38px;
+  }
+}
+
+// Ionic `dark.class` palette: tagline must not stay mid-gray on dark chrome
+// when OS light mode leaves `prefers-color-scheme: dark` inactive.
+:host-context(html.ion-palette-dark) {
+  .brand-mark .brand-tagline {
+    color: #d1d5db;
+    opacity: 1;
   }
 }

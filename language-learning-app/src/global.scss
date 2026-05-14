@@ -56,7 +56,7 @@
   /* Barnabi toolbar wordmark + icon (matches onboarding / tutor-onboarding) */
   --app-brand-icon-size: 42px;
   --app-brand-icon-radius: 10px;
-  --app-brand-name-size: 17px;
+  --app-brand-name-size: 20px;
   --app-brand-name-weight: 600;
   --app-brand-name-color: #000000;
   --app-brand-name-letter-spacing: 0.2px;
@@ -102,6 +102,27 @@
     line-height: 1.1;
     white-space: nowrap;
   }
+
+  .app-name-logo {
+    height: var(--app-brand-name-size);
+    margin-left: var(--app-brand-name-margin-left);
+    vertical-align: middle;
+  }
+
+  .bd-brand-name-logo {
+    height: 15px;
+    vertical-align: middle;
+  }
+
+  .tc-brand-name-logo {
+    height: 15px;
+    vertical-align: middle;
+  }
+}
+
+/* Barnabi wordmark: two PNGs in templates — hide white wordmark on light UI */
+.barnabi-wordmark-for-dark-ui {
+  display: none;
 }
 
 * {
@@ -2535,7 +2556,41 @@ html.ion-palette-dark {
     --background: #000000;
   }
 
-  // Dark mode modal surface: lighter than page (#000) so the modal reads as a distinct layer
+  .barnabi-wordmark-for-light-ui {
+    display: none !important;
+  }
+
+  .barnabi-wordmark-for-dark-ui {
+    display: inline-block !important;
+    opacity: 1;
+    /* Align with light wordmark: white asset has slightly more left clearspace */
+    transform: translateX(-4px);
+    /* Crisp edge on translucent / gradient toolbars (no color invert) */
+    filter: drop-shadow(0 0.5px rgba(0, 0, 0, 0.95)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+  }
+
+  .app-icon-container .app-name-logo.barnabi-wordmark-for-dark-ui,
+  ion-toolbar .app-name-logo.barnabi-wordmark-for-dark-ui {
+    height: 32px;
+  }
+
+  .brand-mark .brand-name-logo.barnabi-wordmark-for-dark-ui {
+    height: 38px;
+  }
+
+  .md-brand-name-logo.barnabi-wordmark-for-dark-ui {
+    height: 18px;
+  }
+
+  .cm-brand-name-logo.barnabi-wordmark-for-dark-ui {
+    height: 18px;
+  }
+
+  .bd-brand-name-logo.barnabi-wordmark-for-dark-ui,
+  .tc-brand-name-logo.barnabi-wordmark-for-dark-ui {
+    height: 20px;
+  }
+
   $modal-bg-dark: #242426;
   $modal-border-dark: rgba(255, 255, 255, 0.12);
 
@@ -4239,5 +4294,20 @@ ion-modal.journey-intro-expanded {
     --height: 96%;
     --border-radius: 16px;
   }
+}
+
+// Empty <i> separators inside the Barnabi wordmark exist purely to break the
+// text node so browser auto-translate (Chrome/Edge/Safari) cannot match
+// "Barnabi" as a single word. They must never affect layout, italics, or
+// line-break behavior.
+.notranslate > i:empty {
+  display: inline;
+  font-style: inherit;
+  width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  letter-spacing: 0;
+  word-spacing: 0;
 }
 

@@ -845,23 +845,34 @@ export class UserService {
   }
 
   /**
-   * Initialize user data after authentication
+   * Initialize user data after authentication.
+   *
+   * Forwards the local interface-language pick (set by the picker or by
+   * `LanguageService.initializeLanguage`) so the backend can seed a brand
+   * new user's `interfaceLanguage` with the user's actual choice instead
+   * of falling back to the schema default 'en'. The backend ignores it
+   * for users that already have the field set.
    */
   initializeUser(auth0User: any): Observable<User> {
-    // Get user type from localStorage (set during login)
     const userType = localStorage.getItem('selectedUserType') || 'student';
+    const interfaceLanguage = (typeof localStorage !== 'undefined')
+      ? (localStorage.getItem('userLanguage') || undefined)
+      : undefined;
 
     if (!auth0User?.email) {
       console.error('🔍 UserService initializeUser: No email in Auth0 user data!');
     }
-    
-    const userData = {
+
+    const userData: Partial<User> = {
       email: auth0User.email,
       name: auth0User.name,
       auth0Picture: auth0User.picture,
       emailVerified: auth0User.email_verified,
-      userType: userType as 'student' | 'tutor'
+      userType: userType as 'student' | 'tutor',
     };
+    if (interfaceLanguage) {
+      (userData as any).interfaceLanguage = interfaceLanguage;
+    }
 
     return this.createOrUpdateUser(userData);
   }

@@ -2,6 +2,7 @@ import { NgModule } from '@angular/core';
 import { NoPreloading, RouterModule, Routes } from '@angular/router';
 import { AuthGuard } from './guards/auth.guard';
 import { OnboardingGuard } from './guards/onboarding.guard';
+import { SignupLanguageGuard } from './signup-language/signup-language.guard';
 
 const routes: Routes = [
   {
@@ -30,7 +31,7 @@ const routes: Routes = [
   {
     path: 'signup-language',
     loadChildren: () => import('./signup-language/signup-language.module').then(m => m.SignupLanguagePageModule),
-    canActivate: [AuthGuard]
+    canActivate: [AuthGuard, SignupLanguageGuard]
   },
   {
     path: 'role-select',

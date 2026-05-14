@@ -8,6 +8,7 @@ import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
 import { environment } from '../../environments/environment';
 import { LoadingService } from './loading.service';
+import { LanguageService } from './language.service';
 
 export interface User {
   sub: string;
@@ -178,20 +179,16 @@ export class AuthService {
       
       // Hide loading when logging out
       this.loadingService.hide();
-      
-      // Preserve user preferences before clearing localStorage
-      const userLanguage = localStorage.getItem('userLanguage');
-      console.log('🌐 Preserving language preference:', userLanguage);
-      
-      // Clear localStorage
+
+      // Preserve user-facing language preferences (both the active locale
+      // and any unsynced explicit picker choice) before nuking storage.
+      const preserved = AuthService.captureLanguagePreferences();
+      console.log('🌐 Preserving language preferences:', preserved);
+
       localStorage.clear();
       sessionStorage.clear();
-      
-      // Restore preserved language preference
-      if (userLanguage) {
-        localStorage.setItem('userLanguage', userLanguage);
-        console.log('✅ Restored language preference:', userLanguage);
-      }
+
+      AuthService.restoreLanguagePreferences(preserved);
       
       // Clear Auth0 related localStorage items
       const keysToRemove = [];
@@ -287,9 +284,11 @@ export class AuthService {
     // Preserve critical items before clearing localStorage
     const selectedUserType = localStorage.getItem('selectedUserType');
     const returnUrl = localStorage.getItem('returnUrl');
+    const preservedLanguage = AuthService.captureLanguagePreferences();
     
     console.log('🔧 AuthService: selectedUserType to preserve:', selectedUserType);
     console.log('🔧 AuthService: returnUrl to preserve:', returnUrl);
+    console.log('🔧 AuthService: language preferences to preserve:', preservedLanguage);
     
     // Clear local state
     this.userSubject.next(null);
@@ -310,7 +309,8 @@ export class AuthService {
       localStorage.setItem('returnUrl', returnUrl);
       console.log('✅ AuthService: Preserved returnUrl:', returnUrl);
     }
-    
+
+    AuthService.restoreLanguagePreferences(preservedLanguage);
     console.log('🔧 AuthService: localStorage AFTER restore:', Object.keys(localStorage));
     
     // Clear Auth0 specific items
@@ -348,31 +348,48 @@ export class AuthService {
   }
 
   /**
+   * Snapshot the language-preference keys we must keep across a
+   * `localStorage.clear()` (logout / clearAuth0State / force / nuclear).
+   * Without this the durable `userLanguagePicked` marker — which lets us
+   * sync a fresh picker choice up to the backend after the next sign-in
+   * — gets wiped, and the user's UI language silently reverts to the
+   * server-stored default on every logout/login cycle.
+   */
+  private static captureLanguagePreferences(): Record<string, string> {
+    const snapshot: Record<string, string> = {};
+    if (typeof localStorage === 'undefined') return snapshot;
+    for (const key of LanguageService.PRESERVE_THROUGH_CLEAR_KEYS) {
+      const value = localStorage.getItem(key);
+      if (value != null) snapshot[key] = value;
+    }
+    return snapshot;
+  }
+
+  /** Counterpart to `captureLanguagePreferences`. */
+  private static restoreLanguagePreferences(snapshot: Record<string, string>): void {
+    if (typeof localStorage === 'undefined') return;
+    for (const [key, value] of Object.entries(snapshot)) {
+      localStorage.setItem(key, value);
+    }
+  }
+
+  /**
    * Force logout (clears everything locally and redirects)
    */
   forceLogout(): void {
     console.log('🚀 AuthService: Force logout - clearing all state...');
-    
-    // Preserve user preferences
-    const userLanguage = localStorage.getItem('userLanguage');
-    
-    // Clear local state
+
+    const preserved = AuthService.captureLanguagePreferences();
+
     this.userSubject.next(null);
     this.isLoadingSubject.next(false);
-    
-    // Hide loading
     this.loadingService.hide();
-    
-    // Clear all storage
+
     localStorage.clear();
     sessionStorage.clear();
-    
-    // Restore language preference
-    if (userLanguage) {
-      localStorage.setItem('userLanguage', userLanguage);
-    }
-    
-    // Redirect to login
+
+    AuthService.restoreLanguagePreferences(preserved);
+
     this.router.navigate(['/login']);
   }
 
@@ -381,25 +398,17 @@ export class AuthService {
    */
   nuclearLogout(): void {
     console.log('🚀 AuthService: Nuclear logout - clearing everything and reloading...');
-    
-    // Preserve user preferences
-    const userLanguage = localStorage.getItem('userLanguage');
-    
-    // Clear local state
+
+    const preserved = AuthService.captureLanguagePreferences();
+
     this.userSubject.next(null);
     this.isLoadingSubject.next(false);
-    
-    // Hide loading
     this.loadingService.hide();
-    
-    // Clear all storage
+
     localStorage.clear();
     sessionStorage.clear();
-    
-    // Restore language preference
-    if (userLanguage) {
-      localStorage.setItem('userLanguage', userLanguage);
-    }
+
+    AuthService.restoreLanguagePreferences(preserved);
     
     // Clear all cookies
     document.cookie.split(";").forEach(function(c) { 

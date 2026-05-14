@@ -7,6 +7,7 @@ import { AuthService } from '../services/auth.service';
 import { LoadingService } from '../services/loading.service';
 import { take } from 'rxjs/operators';
 import { Subscription } from 'rxjs';
+import { TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 
 /**
@@ -43,7 +44,8 @@ export class LoginPage implements OnInit, OnDestroy {
     private location: Location,
     private loadingController: LoadingController,
     private alertController: AlertController,
-    private loadingService: LoadingService
+    private loadingService: LoadingService,
+    private translate: TranslateService
   ) {
     this.routerSubscription = this.router.events.subscribe(event => {
       if (event instanceof NavigationStart) {
@@ -121,7 +123,7 @@ export class LoginPage implements OnInit, OnDestroy {
   private async startRedirect(opts: { connection?: string; loginHint?: string; screenHint?: 'login' | 'signup' } = {}) {
     this.isLoading = true;
     const loading = await this.loadingController.create({
-      message: 'Signing you in…',
+      message: this.translate.instant('LOGIN.SIGNING_IN'),
       spinner: 'crescent',
     });
     await loading.present();
@@ -130,7 +132,7 @@ export class LoginPage implements OnInit, OnDestroy {
       this.authService.loginWithRedirect(opts);
     } catch (error) {
       console.error('Login error:', error);
-      await this.showErrorAlert('Login failed. Please try again.');
+      await this.showErrorAlert(this.translate.instant('LOGIN.REDIRECT_FAILED'));
       this.isLoading = false;
       await loading.dismiss();
     }
@@ -138,9 +140,9 @@ export class LoginPage implements OnInit, OnDestroy {
 
   private async showErrorAlert(message: string) {
     const alert = await this.alertController.create({
-      header: 'Error',
-      message: message,
-      buttons: ['OK'],
+      header: this.translate.instant('LOGIN.ERROR_TITLE'),
+      message,
+      buttons: [this.translate.instant('COMMON.OK')],
     });
     await alert.present();
   }

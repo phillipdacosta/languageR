@@ -7,7 +7,8 @@
         <!-- Home (no back): Barnabi bird + name — same as desktop toolbar -->
         <div class="app-icon-container brand-default mobile-toolbar-brand-home" *ngIf="showMobileBarnabiInToolbar" (click)="navigateTo('/tabs/home')">
           <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="app-icon">
-          <span class="app-name">Barnabi</span>
+          <img src="assets/barnabi-logo.png" alt="Barnabi" class="app-name-logo barnabi-wordmark-for-light-ui" />
+          <img src="assets/barnabi-logo-wordmark-white.png" alt="" class="app-name-logo barnabi-wordmark-for-dark-ui" aria-hidden="true" />
         </div>
         <!-- Mobile: back when not home, or home + inline My Materials / Explore Classes -->
         <ion-button class="mobile-back-btn" *ngIf="showMobileBackInToolbar" fill="clear" (click)="onMobileToolbarBack()">
@@ -48,7 +49,8 @@
       <!-- App Icon -->
       <div class="app-icon-container" slot="start" (click)="navigateTo('/tabs/home')">
         <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="app-icon">
-        <span class="app-name">Barnabi</span>
+        <img src="assets/barnabi-logo.png" alt="Barnabi" class="app-name-logo barnabi-wordmark-for-light-ui" />
+        <img src="assets/barnabi-logo-wordmark-white.png" alt="" class="app-name-logo barnabi-wordmark-for-dark-ui" aria-hidden="true" />
       </div>
 
       <div class="desktop-nav-buttons" slot="end" #navButtonsContainer>

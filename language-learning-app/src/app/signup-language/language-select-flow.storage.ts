@@ -15,3 +15,20 @@ export const ONBOARDING_AFTER_LANGUAGE_RESTORE = 'onboardingAfterLanguageRestore
  * language picker again.
  */
 export const SIGNUP_INTERFACE_LANG_COMPLETED_KEY = 'signupInterfaceLangCompleted';
+
+/**
+ * Persistent flag (localStorage): the initial interface-language selection
+ * has been resolved — either the user picked one manually, or a supported
+ * language was auto-detected from the browser. When set, /signup-language
+ * auto-redirects to /role-select unless a force-open flag or return-context
+ * is present so the user explicitly wants to change language.
+ */
+export const SIGNUP_LANGUAGE_COMPLETED_LS_KEY = 'signupLanguageCompleted';
+
+/**
+ * Transient flag (sessionStorage): the user explicitly requested the language
+ * picker even though the initial selection is already complete (e.g. tapped
+ * "Back" on role-select). signup-language reads and clears this so the
+ * picker shows once.
+ */
+export const LANGUAGE_PICKER_OPEN_KEY = 'languagePickerOpen';

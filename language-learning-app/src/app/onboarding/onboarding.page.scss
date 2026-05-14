@@ -587,8 +587,7 @@ $ob-accent: #222222;
   flex-direction: column;
   align-items: stretch;
   justify-content: flex-start;
-  height: auto;
-  min-height: calc(100vh - 56px);
+  height: calc(100vh - 56px);
   padding: 0;
   padding-bottom: max(24px, env(safe-area-inset-bottom, 0px));
   overflow-x: hidden;
@@ -653,6 +652,10 @@ $ob-accent: #222222;
     align-self: center;
     width: 100%;
     max-width: 400px;
+  }
+
+  .welcome-cta-row {
+    margin-top: auto;
   }
 
   .welcome-trust {
@@ -1307,7 +1310,7 @@ ion-header {
     color: $ob-text-secondary;
 
     &--example {
-      margin-top: 6px;
+      margin-top: -15px;
       color: $ob-text-tertiary;
       font-style: italic;
     }

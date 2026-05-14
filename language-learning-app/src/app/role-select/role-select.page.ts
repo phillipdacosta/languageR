@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { AlertController } from '@ionic/angular';
 import { TranslateService } from '@ngx-translate/core';
 import { AuthService } from '../services/auth.service';
+import { LANGUAGE_PICKER_OPEN_KEY } from '../signup-language/language-select-flow.storage';
 
 @Component({
   selector: 'app-role-select',
@@ -25,6 +26,10 @@ export class RoleSelectPage {
   }
 
   goBack(): void {
+    // signup-language auto-skips when the initial selection is already
+    // complete. Flag this navigation as an explicit "open the picker"
+    // request so the user can change language from here.
+    sessionStorage.setItem(LANGUAGE_PICKER_OPEN_KEY, '1');
     void this.router.navigate(['/signup-language']);
   }
 

@@ -233,9 +233,7 @@ export class AppComponent implements OnInit, OnDestroy {
               this.userService.loadPayoutStatus();
             }
             
-            if (currentUser?.interfaceLanguage) {
-              this.languageService.setLanguage(currentUser.interfaceLanguage);
-            }
+            this.reconcileInterfaceLanguage(currentUser);
 
             // Check if reminders are enabled from user profile (database)
             const remindersEnabled = currentUser?.profile?.remindersEnabled !== false; // Default true
@@ -544,6 +542,68 @@ export class AppComponent implements OnInit, OnDestroy {
     });
   }
   
+  /**
+   * Reconcile the local UI language with the server-stored preference.
+   *
+   * Product rule: the local active language is the source of truth for
+   * the device. The server tracks it.
+   *   - `localStorage.userLanguage` is written by `LanguageService` on
+   *     every `setLanguage` call (browser detect during `initializeLanguage`
+   *     uses `source: 'auto'`; the picker uses `source: 'user'`).
+   *   - On every authenticated sync we compare local to server and push
+   *     local up if they differ.
+   *   - `USER_PICK_KEY` is a durable record of the most recent explicit
+   *     picker selection; it survives `localStorage.clear()` in the auth
+   *     flow (see `AuthService.captureLanguagePreferences`) so a failed
+   *     PUT retries on the next sign-in. It is cleared once the sync
+   *     succeeds (or the server already matches).
+   *
+   * Cross-device consequence (intentional): opening the app on a device
+   * with a different browser locale overwrites the server-side preference
+   * to match that device's locale. If the user wants a specific language
+   * across devices they pick it once via the picker.
+   */
+  private reconcileInterfaceLanguage(currentUser: any): void {
+    const serverLang = currentUser?.interfaceLanguage as string | undefined;
+    const pickedLang = this.languageService.getPendingPick();
+    const localLang = (typeof localStorage !== 'undefined')
+      ? localStorage.getItem(LanguageService.USER_LANGUAGE_KEY)
+      : null;
+
+    const target: string | null =
+      (localLang && this.languageService.isSupported(localLang)) ? localLang
+      : (serverLang && this.languageService.isSupported(serverLang)) ? serverLang
+      : null;
+
+    if (!target) {
+      return;
+    }
+
+    if (target !== serverLang) {
+      console.log('🌐 Syncing local interfaceLanguage up to server:', {
+        local: target,
+        server: serverLang,
+        picker: !!pickedLang,
+      });
+      this.userService.updateInterfaceLanguage(target as any).subscribe({
+        next: () => {
+          if (pickedLang) {
+            this.languageService.consumePendingPick();
+          }
+        },
+        error: (err) => {
+          console.error('❌ Failed to sync interfaceLanguage (will retry next login):', err);
+        },
+      });
+      return;
+    }
+
+    // Server already matches local. Clear any stale pick marker.
+    if (pickedLang) {
+      this.languageService.consumePendingPick();
+    }
+  }
+
   /**
    * Check for pending tutor feedback globally (when app loads).
    * The home page Quick Actions and profile page handle the UI.

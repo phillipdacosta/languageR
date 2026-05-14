@@ -283,6 +283,8 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
   @ViewChild('tutorRateRange', { read: ElementRef }) tutorRateRangeEl?: ElementRef<HTMLElement>;
 
   @ViewChildren('tutorNativeChip') tutorNativeChips?: QueryList<ElementRef<HTMLButtonElement>>;
+  @ViewChildren('tutorSpokenLangChip') tutorSpokenLangChips?: QueryList<ElementRef<HTMLButtonElement>>;
+  @ViewChildren('tutorSpokenCefrChip') tutorSpokenCefrChips?: QueryList<ElementRef<HTMLButtonElement>>;
   @ViewChildren('tutorTeachableChip') tutorTeachableChips?: QueryList<ElementRef<HTMLButtonElement>>;
   @ViewChildren('tutorExpChip') tutorExpChips?: QueryList<ElementRef<HTMLButtonElement>>;
   @ViewChildren('tutorScheduleChip') tutorScheduleChips?: QueryList<ElementRef<HTMLButtonElement>>;
@@ -643,8 +645,11 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
         this.focusFirstInQueryList(this.tutorNativeChips);
         break;
       case 5:
+        this.focusFirstInQueryList(this.tutorSpokenLangChips);
+        break;
       case 6:
-        break; // spoken languages / levels — no single focusable element
+        this.focusFirstInQueryList(this.tutorSpokenCefrChips);
+        break;
       case 7:
         this.focusFirstInQueryList(this.tutorTeachableChips);
         break;

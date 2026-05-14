@@ -6,7 +6,8 @@
     <ion-buttons slot="start">
       <div class="app-icon-container">
         <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="app-icon">
-        <span class="app-name">Barnabi</span>
+        <img src="assets/barnabi-logo.png" alt="Barnabi" class="app-name-logo barnabi-wordmark-for-light-ui" />
+        <img src="assets/barnabi-logo-wordmark-white.png" alt="" class="app-name-logo barnabi-wordmark-for-dark-ui" aria-hidden="true" />
       </div>
     </ion-buttons>
     <ion-buttons slot="end">
@@ -123,7 +124,8 @@
     <ion-buttons slot="start">
       <div class="app-icon-container">
         <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="app-icon">
-        <span class="app-name">Barnabi</span>
+        <img src="assets/barnabi-logo.png" alt="Barnabi" class="app-name-logo barnabi-wordmark-for-light-ui" />
+        <img src="assets/barnabi-logo-wordmark-white.png" alt="" class="app-name-logo barnabi-wordmark-for-dark-ui" aria-hidden="true" />
       </div>
     </ion-buttons>
     <ion-buttons slot="end">
@@ -235,6 +237,7 @@
             <button
               *ngFor="let lang of spokenLanguageOptions"
               type="button"
+              #wizardSpokenLangChip
               class="language-chip"
               [class.selected]="isSpokenLanguageSelected(lang.code)"
               (click)="toggleSpokenLanguage(lang.code)">
@@ -255,6 +258,7 @@
                 <button
                   *ngFor="let lvl of cefrLevels"
                   type="button"
+                  #wizardSpokenCefrChip
                   class="cefr-chip"
                   [class.selected]="entry.level === lvl.value"
                   (click)="setSpokenLanguageLevel(entry.code, lvl.value)">

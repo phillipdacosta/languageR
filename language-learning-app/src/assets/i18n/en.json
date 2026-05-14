@@ -1479,7 +1479,10 @@
     "HERO_PROGRESS_VALUE": "3 lessons completed",
     "HERO_BUBBLE_HOLA": "¡Hola!",
     "HERO_BUBBLE_BONJOUR": "Bonjour!",
-    "HERO_BUBBLE_CIAO": "Ciao!"
+    "HERO_BUBBLE_CIAO": "Ciao!",
+    "SIGNING_IN": "Signing you in…",
+    "ERROR_TITLE": "Error",
+    "REDIRECT_FAILED": "Login failed. Please try again."
   },
   "ERRORS": {
     "GENERIC": "Something went wrong. Please try again.",

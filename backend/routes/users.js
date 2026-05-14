@@ -10,6 +10,16 @@ const rateLimit = require('express-rate-limit');
 const { applyApprovalIfReady } = require('../utils/tutorApproval');
 
 /**
+ * UI interface language codes accepted on POST /, PUT /profile, PUT /onboarding.
+ * Must match `User` model `interfaceLanguage.enum` and Angular `LanguageService`.
+ */
+const SUPPORTED_INTERFACE_LANGUAGES = Object.freeze([
+  'en', 'es', 'fr', 'pt', 'de', 'it', 'ru', 'zh', 'ja', 'ko',
+  'ar', 'hi', 'nl', 'pl', 'tr', 'sv', 'no', 'da', 'fi', 'el',
+  'cs', 'ro', 'uk', 'vi', 'th', 'id', 'ms', 'he', 'fa',
+]);
+
+/**
  * Capitalizes a name properly (title case)
  * "JASON DERULA" -> "Jason Derula"
  * "jason derula" -> "Jason Derula"
@@ -348,8 +358,17 @@ router.get('/coaching-metrics', verifyToken, async (req, res) => {
 router.post('/', verifyToken, async (req, res) => {
   try {
     const { email, name, picture, emailVerified, userType } = req.body;
-    
-    console.log('🔍 Creating/updating user with data:', { email, name, userType });
+
+    // Validate interfaceLanguage from payload (sent by frontend `initializeUser`
+    // so a brand-new user's chosen UI language is persisted at creation time,
+    // instead of falling back to the schema default 'en' and clobbering the
+    // user's selection on the first subsequent /users/me fetch).
+    const requestedInterfaceLang = (req.body.interfaceLanguage
+      && SUPPORTED_INTERFACE_LANGUAGES.includes(req.body.interfaceLanguage))
+      ? req.body.interfaceLanguage
+      : null;
+
+    console.log('🔍 Creating/updating user with data:', { email, name, userType, requestedInterfaceLang });
     console.log('🔍 Full request body:', req.body);
     
     // Check if user already exists by auth0Id first, then by email
@@ -411,7 +430,11 @@ router.post('/', verifyToken, async (req, res) => {
           picture: auth0Picture,
           emailVerified: emailVerified !== undefined ? emailVerified : (req.user.email_verified || false),
           userType: userType || 'student', // Default to student
-          onboardingCompleted: false
+          onboardingCompleted: false,
+          // Seed interfaceLanguage from the client's local pick (browser
+          // auto-detect or explicit picker). Falls through to the schema
+          // default 'en' when no valid value was provided.
+          ...(requestedInterfaceLang ? { interfaceLanguage: requestedInterfaceLang } : {})
         });
         
         console.log('🔍 New user object created:', user);
@@ -588,8 +611,8 @@ router.put('/onboarding', verifyToken, async (req, res) => {
       }
     }
     
-    // Save interface language if provided during onboarding
-    if (req.body.interfaceLanguage && ['en', 'es', 'fr', 'pt', 'de'].includes(req.body.interfaceLanguage)) {
+    // Save interface language if provided during onboarding (same whitelist as POST /profile).
+    if (req.body.interfaceLanguage && SUPPORTED_INTERFACE_LANGUAGES.includes(req.body.interfaceLanguage)) {
       user.interfaceLanguage = req.body.interfaceLanguage;
       console.log('🌐 Interface language set during onboarding:', req.body.interfaceLanguage);
     }
@@ -852,16 +875,7 @@ router.put('/profile', verifyToken, async (req, res) => {
     
     console.log('📝 After update - showWalletBalance:', user.profile.showWalletBalance, 'remindersEnabled:', user.profile.remindersEnabled);
     
-    // Update interface language if provided. Keep in sync with frontend SupportedLanguage list
-    // (language-learning-app/src/app/services/language.service.ts).
-    const SUPPORTED_INTERFACE_LANGUAGES = [
-      'en', 'es', 'fr', 'pt', 'de',
-      'it', 'ru', 'zh', 'ja', 'ko',
-      'ar', 'hi', 'nl', 'pl', 'tr',
-      'sv', 'no', 'da', 'fi', 'el',
-      'cs', 'ro', 'uk', 'vi', 'th',
-      'id', 'ms', 'he', 'fa'
-    ];
+    // Update interface language if provided (module-level SUPPORTED_INTERFACE_LANGUAGES).
     if (interfaceLanguage !== undefined && SUPPORTED_INTERFACE_LANGUAGES.includes(interfaceLanguage)) {
       user.interfaceLanguage = interfaceLanguage;
       console.log('🌐 Interface language updated to:', interfaceLanguage);
