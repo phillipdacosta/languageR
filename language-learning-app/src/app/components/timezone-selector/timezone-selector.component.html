@@ -1,48 +1,68 @@
-<ion-header>
-  <ion-toolbar>
-    <ion-title>Select Timezone</ion-title>
-    <ion-buttons slot="end">
-      <ion-button (click)="cancel()">
-        <ion-icon name="close"></ion-icon>
-      </ion-button>
-    </ion-buttons>
-  </ion-toolbar>
-</ion-header>
-
 <ion-content>
-  <!-- Search Bar -->
-  <ion-searchbar
-    #timezoneSearch
-    [(ngModel)]="searchTerm"
-    placeholder="Search timezones..."
-    (ionInput)="onSearchChange($event)"
-    debounce="300"
-    show-clear-button="focus">
-  </ion-searchbar>
+  <ion-button class="floating-close-button" fill="clear" (click)="cancel()">
+    <ion-icon name="close" slot="icon-only"></ion-icon>
+  </ion-button>
 
-  <!-- Timezone List -->
-  <ion-list>
-    <ion-item
-      *ngFor="let timezone of getAllFilteredTimezones()"
-      button
-      (click)="selectTimezone(timezone)"
-      [class.selected]="isSelected(timezone)">
-      <ion-label>
-        <h2>{{ timezone.label }}</h2>
-        <p>{{ timezone.offset }}</p>
-      </ion-label>
-      <ion-icon 
-        *ngIf="isSelected(timezone)" 
-        name="checkmark" 
-        color="primary"
-        slot="end">
-      </ion-icon>
-    </ion-item>
-  </ion-list>
+  <div class="modal-content">
+    <div class="icon-wrapper">
+      <ion-icon name="globe-outline"></ion-icon>
+    </div>
 
-  <!-- No Results -->
-  <div *ngIf="getAllFilteredTimezones().length === 0 && searchTerm.trim()" class="no-results">
-    <p>No timezones found matching "{{ searchTerm }}"</p>
+    <h1 class="modal-heading">{{ modalHeading }}</h1>
+
+    <p class="modal-description">{{ modalDescription }}</p>
+
+    <p class="modal-current-tz" *ngIf="modalCurrentTzLine">{{ modalCurrentTzLine }}</p>
+
+    <div class="search-wrapper">
+      <ion-searchbar
+        #timezoneSearch
+        [(ngModel)]="searchTerm"
+        [placeholder]="searchPlaceholderText"
+        (ionInput)="onSearchInput()"
+        mode="ios"
+        debounce="200"
+        show-clear-button="focus"
+        class="modern-search">
+      </ion-searchbar>
+    </div>
+
+    <div class="timezone-list">
+      <button
+        type="button"
+        *ngFor="let timezone of flatFilteredTimezones; trackBy: trackByTimezone"
+        class="timezone-item"
+        [class.selected]="isSelected(timezone)"
+        (click)="selectPendingTimezone(timezone)">
+        <div class="timezone-labels">
+          <span class="timezone-name">{{ timezone.label }}</span>
+          <span class="timezone-offset">{{ timezone.offset }}</span>
+        </div>
+        <ion-icon
+          *ngIf="isSelected(timezone)"
+          name="checkmark-circle"
+          class="check-icon">
+        </ion-icon>
+      </button>
+    </div>
+
+    <div *ngIf="flatFilteredTimezones.length === 0 && searchTerm.trim()" class="no-results">
+      <ion-icon name="search-outline"></ion-icon>
+      <p>{{ noResultsLabel }} <strong>"{{ searchTerm }}"</strong></p>
+    </div>
   </div>
 </ion-content>
 
+<ion-footer class="timezone-modal-footer">
+  <ion-toolbar>
+    <ion-buttons slot="end">
+      <ion-button
+        class="change-action"
+        fill="solid"
+        [disabled]="pendingTimezone === savedTimezone"
+        (click)="confirmChange()">
+        {{ changeButtonLabel }}
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-footer>

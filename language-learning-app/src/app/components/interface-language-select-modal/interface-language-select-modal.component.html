@@ -1,0 +1,67 @@
+<ion-content>
+  <ion-button class="floating-close-button" fill="clear" (click)="dismiss()">
+    <ion-icon name="close" slot="icon-only"></ion-icon>
+  </ion-button>
+
+  <div class="modal-content">
+    <div class="icon-wrapper">
+      <ion-icon name="language-outline"></ion-icon>
+    </div>
+
+    <h1 class="modal-heading">{{ 'PROFILE_SCREEN.INTERFACE_LANGUAGE' | translate }}</h1>
+
+    <p class="modal-description">{{ 'PROFILE.INTERFACE_LANGUAGE_DESC' | translate }}</p>
+
+    <div class="search-wrapper">
+      <ion-searchbar
+        #langSearch
+        [(ngModel)]="searchTerm"
+        [placeholder]="'ONBOARDING.COUNTRY_MODAL.SEARCH_PLACEHOLDER' | translate"
+        (ionInput)="filterLanguages()"
+        mode="ios"
+        debounce="200"
+        show-clear-button="focus"
+        class="modern-search">
+      </ion-searchbar>
+    </div>
+
+    <div class="language-list">
+      <button
+        type="button"
+        *ngFor="let lang of filteredLanguages; trackBy: trackByCode"
+        class="language-item"
+        [class.selected]="pendingCode === lang.code"
+        (click)="selectLanguage(lang.code)">
+        <span class="language-flag" aria-hidden="true">{{ lang.flag }}</span>
+        <span class="language-labels">
+          <span class="language-native">{{ lang.nativeName }}</span>
+          <span class="language-english" *ngIf="lang.name && lang.name !== lang.nativeName">{{ lang.name }}</span>
+        </span>
+        <ion-icon
+          *ngIf="pendingCode === lang.code"
+          name="checkmark-circle"
+          class="check-icon">
+        </ion-icon>
+      </button>
+    </div>
+
+    <div *ngIf="filteredLanguages.length === 0 && searchTerm.trim()" class="no-results">
+      <ion-icon name="search-outline"></ion-icon>
+      <p>{{ 'ONBOARDING.COUNTRY_MODAL.NO_RESULTS' | translate }} <strong>"{{ searchTerm }}"</strong></p>
+    </div>
+  </div>
+</ion-content>
+
+<ion-footer class="interface-lang-modal-footer">
+  <ion-toolbar>
+    <ion-buttons slot="end">
+      <ion-button
+        class="change-action"
+        fill="solid"
+        [disabled]="pendingCode === selectedCode"
+        (click)="confirmChange()">
+        {{ 'PROFILE_SCREEN.CHANGE' | translate }}
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-footer>

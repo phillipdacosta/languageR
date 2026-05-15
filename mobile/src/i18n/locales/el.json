@@ -1537,6 +1537,10 @@
     "ABOUT_ME": "Σχετικά με εμένα",
     "EXPERIENCE": "Εμπειρία",
     "SCHEDULE": "Πρόγραμμα",
-    "EXPERIENCE_LEVEL": "Επίπεδο εμπειρίας"
+    "EXPERIENCE_LEVEL": "Επίπεδο εμπειρίας",
+    "TIMEZONE_MODAL_TITLE": "Επιλέξτε ζώνη ώρας",
+    "TIMEZONE_MODAL_DESC": "Επιλέξτε τη ζώνη ώρας για τους χρόνους μαθημάτων και τα ημερολόγια.",
+    "TIMEZONE_MODAL_CURRENT": "Τρέχουσα: {{value}}",
+    "TIMEZONE_SEARCH_PLACEHOLDER": "Αναζήτηση ζωνών ώρας..."
   }
 }

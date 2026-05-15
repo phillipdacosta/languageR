@@ -2011,7 +2011,11 @@
     "ABOUT_ME": "עליי",
     "EXPERIENCE": "ניסיון",
     "SCHEDULE": "לוח זמנים",
-    "EXPERIENCE_LEVEL": "רמת ניסיון"
+    "EXPERIENCE_LEVEL": "רמת ניסיון",
+    "TIMEZONE_MODAL_TITLE": "בחר אזור זמן",
+    "TIMEZONE_MODAL_DESC": "בחר את אזור הזמן עבור מועדי השיעורים והיומנים.",
+    "TIMEZONE_MODAL_CURRENT": "נוכחי: {{value}}",
+    "TIMEZONE_SEARCH_PLACEHOLDER": "חפש אזורי זמן..."
   },
   "ROLE_SELECT": {
     "TITLE": "איך תשתמש בברנבי?",

@@ -2005,7 +2005,11 @@
     "ABOUT_ME": "O mně",
     "EXPERIENCE": "Zkušenosti",
     "SCHEDULE": "Rozvrh",
-    "EXPERIENCE_LEVEL": "Úroveň zkušeností"
+    "EXPERIENCE_LEVEL": "Úroveň zkušeností",
+    "TIMEZONE_MODAL_TITLE": "Vyberte časové pásmo",
+    "TIMEZONE_MODAL_DESC": "Zvolte časové pásmo pro časy lekcí a kalendáře.",
+    "TIMEZONE_MODAL_CURRENT": "Aktuální: {{value}}",
+    "TIMEZONE_SEARCH_PLACEHOLDER": "Hledat časová pásma..."
   },
   "ROLE_SELECT": {
     "TITLE": "Jak budete Barnabi používat?",

@@ -561,18 +561,17 @@
               <button [class.active]="timeFormat === '24h'" (click)="setTimeFormat('24h')">24h</button>
             </div>
           </ion-item>
-          <ion-item>
-            <ion-icon name="language" slot="start"></ion-icon>
-            <ion-label>{{ 'PROFILE_SCREEN.INTERFACE_LANGUAGE' | translate }}</ion-label>
-            <ion-select 
-              [(ngModel)]="selectedInterfaceLanguage" 
-              (ionChange)="onInterfaceLanguageChange($event)" 
-              interface="action-sheet"
-              slot="end">
-              <ion-select-option *ngFor="let lang of availableLanguages" [value]="lang.code">
-                {{ lang.flag }} {{ lang.nativeName | translate }}
-              </ion-select-option>
-            </ion-select>
+          <ion-item button (click)="openInterfaceLanguageModal()" class="timezone-item interface-language-item" lines="none">
+            <div class="timezone-content">
+              <div class="timezone-icon-wrapper">
+                <ion-icon name="language-outline"></ion-icon>
+              </div>
+              <div class="timezone-info">
+                <h3>{{ 'PROFILE_SCREEN.INTERFACE_LANGUAGE' | translate }}</h3>
+                <p class="timezone-value">{{ interfaceLanguageLabel }}</p>
+              </div>
+              <ion-icon name="chevron-forward" class="chevron-icon"></ion-icon>
+            </div>
           </ion-item>
           <ion-item button>
             <ion-icon name="moon" slot="start"></ion-icon>

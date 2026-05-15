@@ -1623,7 +1623,11 @@
     "ABOUT_ME": "About me",
     "EXPERIENCE": "Experience",
     "SCHEDULE": "Schedule",
-    "EXPERIENCE_LEVEL": "Experience level"
+    "EXPERIENCE_LEVEL": "Experience level",
+    "TIMEZONE_MODAL_TITLE": "Select timezone",
+    "TIMEZONE_MODAL_DESC": "Choose the timezone used for lesson times and calendars.",
+    "TIMEZONE_MODAL_CURRENT": "Current: {{value}}",
+    "TIMEZONE_SEARCH_PLACEHOLDER": "Search timezones..."
   },
   "TUTOR_APPROVAL": {
     "TOS_ACCEPTED": "Terms Accepted",

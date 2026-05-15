@@ -1538,6 +1538,10 @@
     "ABOUT_ME": "Om mig",
     "EXPERIENCE": "Erfarenhet",
     "SCHEDULE": "Schema",
-    "EXPERIENCE_LEVEL": "Erfarenhetsnivå"
+    "EXPERIENCE_LEVEL": "Erfarenhetsnivå",
+    "TIMEZONE_MODAL_TITLE": "Välj tidszon",
+    "TIMEZONE_MODAL_DESC": "Välj tidszon för lektionstider och kalendrar.",
+    "TIMEZONE_MODAL_CURRENT": "Nuvarande: {{value}}",
+    "TIMEZONE_SEARCH_PLACEHOLDER": "Sök tidszoner..."
   }
 }

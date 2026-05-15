@@ -2006,7 +2006,11 @@
     "ABOUT_ME": "मेरे बारे में",
     "EXPERIENCE": "अनुभव",
     "SCHEDULE": "अनुसूची",
-    "EXPERIENCE_LEVEL": "अनुभव स्तर"
+    "EXPERIENCE_LEVEL": "अनुभव स्तर",
+    "TIMEZONE_MODAL_TITLE": "समय क्षेत्र चुनें",
+    "TIMEZONE_MODAL_DESC": "पाठ समय और कैलेंडर के लिए उपयोग किया जाने वाला समय क्षेत्र चुनें।",
+    "TIMEZONE_MODAL_CURRENT": "वर्तमान: {{value}}",
+    "TIMEZONE_SEARCH_PLACEHOLDER": "समय क्षेत्र खोजें..."
   },
   "ROLE_SELECT": {
     "TITLE": "आप बरनबी का उपयोग कैसे करेंगे?",

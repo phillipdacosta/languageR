@@ -1538,6 +1538,10 @@
     "ABOUT_ME": "自己紹介",
     "EXPERIENCE": "経験",
     "SCHEDULE": "スケジュール",
-    "EXPERIENCE_LEVEL": "経験レベル"
+    "EXPERIENCE_LEVEL": "経験レベル",
+    "TIMEZONE_MODAL_TITLE": "タイムゾーンを選択",
+    "TIMEZONE_MODAL_DESC": "レッスン時間とカレンダーに使うタイムゾーンを選びます。",
+    "TIMEZONE_MODAL_CURRENT": "現在: {{value}}",
+    "TIMEZONE_SEARCH_PLACEHOLDER": "タイムゾーンを検索..."
   }
 }

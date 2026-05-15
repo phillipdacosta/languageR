@@ -12,6 +12,7 @@ import { filter, take, takeUntil } from 'rxjs/operators';
 import { LoadingController, AlertController, ModalController, ToastController, Platform } from '@ionic/angular';
 import { VideoUploadComponent } from '../components/video-upload/video-upload.component';
 import { TimezoneSelectorComponent } from '../components/timezone-selector/timezone-selector.component';
+import { InterfaceLanguageSelectModalComponent } from '../components/interface-language-select-modal/interface-language-select-modal.component';
 import { PayoutSelectionModalComponent } from '../components/payout-selection-modal/payout-selection-modal.component';
 import { ImageCropperComponent } from '../components/image-cropper/image-cropper.component';
 import { detectUserTimezone } from '../shared/timezone.constants';
@@ -63,6 +64,8 @@ export class ProfilePage implements OnInit {
   // Language support
   availableLanguages: LanguageOption[] = [];
   selectedInterfaceLanguage: SupportedLanguage = 'en';
+  /** Shown on the settings row (flag + native name). */
+  interfaceLanguageLabel = '';
 
   // Stripe Connect (for tutors)
   stripeConnectOnboarded = false;
@@ -178,7 +181,11 @@ export class ProfilePage implements OnInit {
     this.user$ = this.authService.user$;
     this.isAuthenticated$ = this.authService.isAuthenticated$;
     this.isDarkMode$ = this.themeService.darkMode$;
-    this.availableLanguages = this.languageService.supportedLanguages;
+    // TEMP: RTL languages (ar, he, fa) hidden from interface language picker
+    // this.availableLanguages = this.languageService.supportedLanguages;
+    this.availableLanguages = this.languageService.supportedLanguages.filter(
+      (l) => l.code !== 'ar' && l.code !== 'he' && l.code !== 'fa'
+    );
   }
 
   ngOnInit() {
@@ -299,7 +306,8 @@ export class ProfilePage implements OnInit {
       
       // Set current interface language
       this.selectedInterfaceLanguage = user?.interfaceLanguage || this.languageService.getCurrentLanguage();
-      
+      this.refreshInterfaceLanguageLabel();
+
       // Load tutor-specific data in parallel
       if (this.isTutorUser) {
         Promise.all([
@@ -1116,6 +1124,8 @@ export class ProfilePage implements OnInit {
     this.payoutSetupTitleKey = this._computePayoutSetupTitleKey();
     this.payoutSetupDescriptionKey = this._computePayoutSetupDescriptionKey();
 
+    this.refreshInterfaceLanguageLabel();
+
     // Formatted feedback items
     this.formattedFeedbackItems = this.pendingFeedbackItems.map(fb => ({
       item: fb,
@@ -1520,27 +1530,43 @@ export class ProfilePage implements OnInit {
     });
   }
 
+  private refreshInterfaceLanguageLabel(): void {
+    const opt = this.languageService.getLanguageOption(this.selectedInterfaceLanguage);
+    this.interfaceLanguageLabel = opt ? `${opt.flag} ${opt.nativeName}` : this.selectedInterfaceLanguage;
+  }
+
+  async openInterfaceLanguageModal(): Promise<void> {
+    const modal = await this.modalController.create({
+      component: InterfaceLanguageSelectModalComponent,
+      componentProps: {
+        languages: this.availableLanguages,
+        selectedCode: this.selectedInterfaceLanguage,
+      },
+      cssClass: 'modern-modal',
+      showBackdrop: true,
+      backdropDismiss: true,
+    });
+    await modal.present();
+    const { data } = await modal.onWillDismiss();
+    const next = data?.selectedLanguage as SupportedLanguage | undefined;
+    if (next && next !== this.selectedInterfaceLanguage) {
+      await this.applyInterfaceLanguage(next);
+    }
+  }
+
   /**
-   * Handle interface language change
+   * Apply interface language (from modal or legacy ion-select).
    */
-  async onInterfaceLanguageChange(event: any) {
-    const newLanguage = event.detail.value as SupportedLanguage;
+  async applyInterfaceLanguage(newLanguage: SupportedLanguage): Promise<void> {
     console.log('🌐 Interface language changed to:', newLanguage);
 
-    // Update UI immediately
     this.languageService.setLanguage(newLanguage);
+    this.selectedInterfaceLanguage = newLanguage;
+    this.refreshInterfaceLanguageLabel();
 
-    // Save to backend
     this.userService.updateInterfaceLanguage(newLanguage).subscribe({
-      next: async (updatedUser) => {
+      next: async () => {
         console.log('✅ Interface language saved to backend');
-        // const toast = await this.toastController.create({
-        //   message: this.languageService.instant('PROFILE.INTERFACE_LANGUAGE') + ' updated',
-        //   duration: 2000,
-        //   position: 'bottom',
-        //   color: 'success'
-        // });
-        // await toast.present();
       },
       error: async (error) => {
         console.error('❌ Error saving interface language:', error);
@@ -1806,7 +1832,10 @@ export class ProfilePage implements OnInit {
       component: TimezoneSelectorComponent,
       componentProps: {
         selectedTimezone: this.currentUser?.profile?.timezone || detectUserTimezone()
-      }
+      },
+      cssClass: 'modern-modal',
+      showBackdrop: true,
+      backdropDismiss: true,
     });
 
     await modal.present();

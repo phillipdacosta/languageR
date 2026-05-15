@@ -1,4 +1,4 @@
-// Match interface-language-select-modal + country-select (modern-modal shell)
+// Match country-select-modal (modern-modal shell): Apple-style list + search
 :host {
   display: flex;
   flex-direction: column;
@@ -85,17 +85,8 @@ ion-content::part(scroll) {
   font-size: 16px;
   line-height: 1.5;
   color: #717171;
-  margin: 0 0 12px;
+  margin: 0 0 32px;
   font-weight: 400;
-}
-
-.modal-current-tz {
-  font-size: 15px;
-  line-height: 1.45;
-  color: #222222;
-  font-weight: 600;
-  margin: 0 0 28px;
-  letter-spacing: -0.2px;
 }
 
 .search-wrapper {
@@ -117,7 +108,7 @@ ion-content::part(scroll) {
   }
 }
 
-.timezone-list {
+.language-list {
   flex: 1;
   max-height: 520px;
   overflow-y: auto;
@@ -144,7 +135,7 @@ ion-content::part(scroll) {
   }
 }
 
-.timezone-item {
+.language-item {
   width: 100%;
   display: flex;
   align-items: center;
@@ -172,7 +163,7 @@ ion-content::part(scroll) {
     border: 2px solid #222222;
     padding: 12px 14px;
 
-    .timezone-name {
+    .language-native {
       font-weight: 600;
     }
 
@@ -182,7 +173,24 @@ ion-content::part(scroll) {
   }
 }
 
-.timezone-labels {
+.language-flag {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  line-height: 1;
+  background: #f7f7f7;
+  border-radius: 10px;
+}
+
+.selected .language-flag {
+  background: #ffffff;
+}
+
+.language-labels {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -190,14 +198,14 @@ ion-content::part(scroll) {
   gap: 2px;
 }
 
-.timezone-name {
+.language-native {
   font-size: 16px;
   font-weight: 500;
   color: #222222;
   letter-spacing: -0.2px;
 }
 
-.timezone-offset {
+.language-english {
   font-size: 13px;
   color: #717171;
   font-weight: 400;
@@ -209,7 +217,7 @@ ion-content::part(scroll) {
   color: #222222;
 }
 
-ion-footer.timezone-modal-footer {
+ion-footer.interface-lang-modal-footer {
   flex-shrink: 0;
   box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.06);
 
@@ -280,19 +288,14 @@ ion-footer.timezone-modal-footer {
 
   .modal-description {
     font-size: 15px;
-    margin-bottom: 8px;
+    margin-bottom: 24px;
   }
 
-  .modal-current-tz {
-    font-size: 14px;
-    margin-bottom: 20px;
-  }
-
-  .timezone-list {
+  .language-list {
     max-height: 360px;
   }
 
-  .timezone-item {
+  .language-item {
     padding: 12px 14px;
   }
 }
@@ -327,12 +330,9 @@ ion-footer.timezone-modal-footer {
     color: #f5f5f7;
   }
 
-  .modal-description {
+  .modal-description,
+  .language-english {
     color: #8e8e93;
-  }
-
-  .modal-current-tz {
-    color: #e5e5ea;
   }
 
   .search-wrapper .modern-search {
@@ -342,7 +342,7 @@ ion-footer.timezone-modal-footer {
     --icon-color: #8e8e93;
   }
 
-  .timezone-list {
+  .language-list {
     background: #1c1c1e;
 
     &::-webkit-scrollbar-thumb {
@@ -354,7 +354,7 @@ ion-footer.timezone-modal-footer {
     }
   }
 
-  .timezone-item {
+  .language-item {
     background: #2c2c2e;
 
     &:hover {
@@ -365,7 +365,7 @@ ion-footer.timezone-modal-footer {
       background: rgba(255, 255, 255, 0.08);
       border-color: rgba(255, 255, 255, 0.85);
 
-      .timezone-name {
+      .language-native {
         color: #f5f5f7;
       }
 
@@ -375,19 +375,23 @@ ion-footer.timezone-modal-footer {
     }
   }
 
-  .timezone-name {
-    color: #f5f5f7;
+  .language-flag {
+    background: rgba(255, 255, 255, 0.08);
   }
 
-  .timezone-offset {
-    color: #8e8e93;
+  .selected .language-flag {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  .language-native {
+    color: #f5f5f7;
   }
 
   .check-icon {
     color: #8e8e93;
   }
 
-  ion-footer.timezone-modal-footer {
+  ion-footer.interface-lang-modal-footer {
     box-shadow: 0 -2px 20px rgba(0, 0, 0, 0.35);
 
     ion-toolbar {

@@ -948,7 +948,11 @@
     "ABOUT_ME": "Sobre mim",
     "EXPERIENCE": "Experiência",
     "SCHEDULE": "Agenda",
-    "EXPERIENCE_LEVEL": "Nível de experiência"
+    "EXPERIENCE_LEVEL": "Nível de experiência",
+    "TIMEZONE_MODAL_TITLE": "Selecionar fuso horário",
+    "TIMEZONE_MODAL_DESC": "Escolha o fuso horário usado para os horários das aulas e calendários.",
+    "TIMEZONE_MODAL_CURRENT": "Atual: {{value}}",
+    "TIMEZONE_SEARCH_PLACEHOLDER": "Pesquisar fusos horários..."
   },
   "TUTOR_APPROVAL": {
     "TOS_ACCEPTED": "Termos Aceitos",

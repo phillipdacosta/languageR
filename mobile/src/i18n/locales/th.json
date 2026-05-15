@@ -1537,6 +1537,10 @@
     "ABOUT_ME": "เกี่ยวกับฉัน",
     "EXPERIENCE": "ประสบการณ์",
     "SCHEDULE": "ตารางเวลา",
-    "EXPERIENCE_LEVEL": "ระดับประสบการณ์"
+    "EXPERIENCE_LEVEL": "ระดับประสบการณ์",
+    "TIMEZONE_MODAL_TITLE": "เลือกเขตเวลา",
+    "TIMEZONE_MODAL_DESC": "เลือกเขตเวลาสำหรับเวลาเรียนและปฏิทิน",
+    "TIMEZONE_MODAL_CURRENT": "ปัจจุบัน: {{value}}",
+    "TIMEZONE_SEARCH_PLACEHOLDER": "ค้นหาเขตเวลา..."
   }
 }

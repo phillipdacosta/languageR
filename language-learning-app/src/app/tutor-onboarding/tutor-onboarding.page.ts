@@ -306,7 +306,8 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
     { code: 'zh', native: '中文', interfaceLabel: '' },
     { code: 'ja', native: '日本語', interfaceLabel: '' },
     { code: 'ko', native: '한국어', interfaceLabel: '' },
-    { code: 'ar', native: 'العربية', interfaceLabel: '' },
+    // TEMP: RTL languages hidden from pickers (ar, he, fa)
+    // { code: 'ar', native: 'العربية', interfaceLabel: '' },
     { code: 'hi', native: 'हिन्दी', interfaceLabel: '' },
     { code: 'nl', native: 'Nederlands', interfaceLabel: '' },
     { code: 'pl', native: 'Polski', interfaceLabel: '' },
@@ -323,8 +324,8 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
     { code: 'th', native: 'ไทย', interfaceLabel: '' },
     { code: 'id', native: 'Bahasa Indonesia', interfaceLabel: '' },
     { code: 'ms', native: 'Bahasa Melayu', interfaceLabel: '' },
-    { code: 'he', native: 'עברית', interfaceLabel: '' },
-    { code: 'fa', native: 'فارسی', interfaceLabel: '' },
+    // { code: 'he', native: 'עברית', interfaceLabel: '' },
+    // { code: 'fa', native: 'فارسی', interfaceLabel: '' },
   ];
 
   countryOptions = [...COUNTRIES_ONBOARDING_LIST];
@@ -368,7 +369,11 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
     private localeDisplay: LocaleDisplayService
   ) {
     this.user$ = this.authService.user$;
-    this.availableInterfaceLanguages = this.languageService.supportedLanguages;
+    // TEMP: RTL languages (ar, he, fa) hidden from interface language picker
+    // this.availableInterfaceLanguages = this.languageService.supportedLanguages;
+    this.availableInterfaceLanguages = this.languageService.supportedLanguages.filter(
+      (l) => l.code !== 'ar' && l.code !== 'he' && l.code !== 'fa'
+    );
     this.selectedInterfaceLanguage = this.languageService.getCurrentLanguage();
     this.refreshLanguageToolbarFlag();
     this.refreshPublicLegalLinks();

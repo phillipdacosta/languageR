@@ -2005,7 +2005,11 @@
     "ABOUT_ME": "درباره من",
     "EXPERIENCE": "تجربه",
     "SCHEDULE": "برنامه زمانی",
-    "EXPERIENCE_LEVEL": "سطح تجربه"
+    "EXPERIENCE_LEVEL": "سطح تجربه",
+    "TIMEZONE_MODAL_TITLE": "انتخاب منطقه زمانی",
+    "TIMEZONE_MODAL_DESC": "منطقه زمانی را برای زمان‌های درس و تقویم‌ها انتخاب کنید.",
+    "TIMEZONE_MODAL_CURRENT": "فعلی: {{value}}",
+    "TIMEZONE_SEARCH_PLACEHOLDER": "جستجوی مناطق زمانی..."
   },
   "ROLE_SELECT": {
     "TITLE": "چگونه از بارنابی استفاده خواهید کرد؟",

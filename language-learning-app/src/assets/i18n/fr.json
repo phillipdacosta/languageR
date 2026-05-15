@@ -1239,7 +1239,11 @@
     "ABOUT_ME": "À propos de moi",
     "EXPERIENCE": "Expérience",
     "SCHEDULE": "Planning",
-    "EXPERIENCE_LEVEL": "Niveau d’expérience"
+    "EXPERIENCE_LEVEL": "Niveau d’expérience",
+    "TIMEZONE_MODAL_TITLE": "Sélectionner le fuseau horaire",
+    "TIMEZONE_MODAL_DESC": "Choisissez le fuseau horaire pour les horaires des cours et les calendriers.",
+    "TIMEZONE_MODAL_CURRENT": "Actuel : {{value}}",
+    "TIMEZONE_SEARCH_PLACEHOLDER": "Rechercher des fuseaux horaires..."
   },
   "TUTOR_APPROVAL": {
     "WIZARD_FLOW_TITLE": "Approbation du tuteur",

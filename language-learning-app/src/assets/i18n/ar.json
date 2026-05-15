@@ -2006,7 +2006,11 @@
     "ABOUT_ME": "نبذة عني",
     "EXPERIENCE": "الخبرة",
     "SCHEDULE": "الجدول",
-    "EXPERIENCE_LEVEL": "مستوى الخبرة"
+    "EXPERIENCE_LEVEL": "مستوى الخبرة",
+    "TIMEZONE_MODAL_TITLE": "اختر المنطقة الزمنية",
+    "TIMEZONE_MODAL_DESC": "اختر المنطقة الزمنية المستخدمة لأوقات الدروس والتقويمات.",
+    "TIMEZONE_MODAL_CURRENT": "الحالية: {{value}}",
+    "TIMEZONE_SEARCH_PLACEHOLDER": "ابحث عن المناطق الزمنية..."
   },
   "ROLE_SELECT": {
     "TITLE": "كيف ستستخدم برنابي؟",

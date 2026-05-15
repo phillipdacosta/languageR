@@ -2006,7 +2006,11 @@
     "ABOUT_ME": "Hakkımda",
     "EXPERIENCE": "Deneyim",
     "SCHEDULE": "Program",
-    "EXPERIENCE_LEVEL": "Deneyim seviyesi"
+    "EXPERIENCE_LEVEL": "Deneyim seviyesi",
+    "TIMEZONE_MODAL_TITLE": "Saat dilimini seçin",
+    "TIMEZONE_MODAL_DESC": "Ders saatleri ve takvimler için kullanılan saat dilimini seçin.",
+    "TIMEZONE_MODAL_CURRENT": "Şu anki: {{value}}",
+    "TIMEZONE_SEARCH_PLACEHOLDER": "Saat dilimlerinde ara..."
   },
   "ROLE_SELECT": {
     "TITLE": "Barnabi'yi nasıl kullanacaksınız?",

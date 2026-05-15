@@ -1538,6 +1538,10 @@
     "ABOUT_ME": "소개",
     "EXPERIENCE": "경력",
     "SCHEDULE": "일정",
-    "EXPERIENCE_LEVEL": "경력 수준"
+    "EXPERIENCE_LEVEL": "경력 수준",
+    "TIMEZONE_MODAL_TITLE": "시간대 선택",
+    "TIMEZONE_MODAL_DESC": "수업 시간과 캘린더에 사용할 시간대를 선택하세요.",
+    "TIMEZONE_MODAL_CURRENT": "현재: {{value}}",
+    "TIMEZONE_SEARCH_PLACEHOLDER": "시간대 검색..."
   }
 }

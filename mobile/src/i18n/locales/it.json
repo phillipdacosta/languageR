@@ -1538,6 +1538,10 @@
     "ABOUT_ME": "Su di me",
     "EXPERIENCE": "Esperienza",
     "SCHEDULE": "Programma",
-    "EXPERIENCE_LEVEL": "Livello di esperienza"
+    "EXPERIENCE_LEVEL": "Livello di esperienza",
+    "TIMEZONE_MODAL_TITLE": "Seleziona fuso orario",
+    "TIMEZONE_MODAL_DESC": "Scegli il fuso orario per gli orari delle lezioni e i calendari.",
+    "TIMEZONE_MODAL_CURRENT": "Attuale: {{value}}",
+    "TIMEZONE_SEARCH_PLACEHOLDER": "Cerca fusi orari..."
   }
 }

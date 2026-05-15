@@ -8,6 +8,7 @@ import { ProfilePageRoutingModule } from './profile-routing.module';
 import { ProfilePage } from './profile.page';
 import { SharedModule } from '../shared/shared.module';
 import { PicturePreviewModalComponent } from '../components/picture-preview-modal/picture-preview-modal.component';
+import { InterfaceLanguageSelectModalComponent } from '../components/interface-language-select-modal/interface-language-select-modal.component';
 import { SafeUrlPipe } from '../pipes/safe-url.pipe';
 
 @NgModule({
@@ -16,7 +17,8 @@ import { SafeUrlPipe } from '../pipes/safe-url.pipe';
     FormsModule,
     IonicModule,
     ProfilePageRoutingModule,
-    SharedModule
+    SharedModule,
+    InterfaceLanguageSelectModalComponent
   ],
   declarations: [
     ProfilePage,

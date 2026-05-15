@@ -1538,6 +1538,10 @@
     "ABOUT_ME": "关于我",
     "EXPERIENCE": "经验",
     "SCHEDULE": "时间安排",
-    "EXPERIENCE_LEVEL": "经验等级"
+    "EXPERIENCE_LEVEL": "经验等级",
+    "TIMEZONE_MODAL_TITLE": "选择时区",
+    "TIMEZONE_MODAL_DESC": "选择用于课程时间和日历的时区。",
+    "TIMEZONE_MODAL_CURRENT": "当前：{{value}}",
+    "TIMEZONE_SEARCH_PLACEHOLDER": "搜索时区..."
   }
 }

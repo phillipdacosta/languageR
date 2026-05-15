@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { BehaviorSubject, Observable, forkJoin, of } from 'rxjs';
+import { catchError, filter, take } from 'rxjs/operators';
 import { SIGNUP_LANGUAGE_COMPLETED_LS_KEY } from '../signup-language/language-select-flow.storage';
 
 export type SupportedLanguage =
@@ -25,6 +26,13 @@ export interface LanguageOption {
 export class LanguageService {
   private currentLanguageSubject = new BehaviorSubject<SupportedLanguage>('en');
   public currentLanguage$: Observable<SupportedLanguage> = this.currentLanguageSubject.asObservable();
+
+  /**
+   * All locale JSON is loaded and applied before any `translate.use()` call.
+   * Otherwise ngx-translate v17 uses TranslateNoOpLoader with `{}`, which can
+   * overwrite real strings and force English fallback for nested keys.
+   */
+  private readonly translationsBootstrapped = new BehaviorSubject<boolean>(false);
 
   private static readonly RTL_LANGUAGES: ReadonlySet<SupportedLanguage> = new Set<SupportedLanguage>([
     'ar', 'he', 'fa',
@@ -87,27 +95,43 @@ export class LanguageService {
     private translate: TranslateService,
     private http: HttpClient
   ) {
-    // Set default language
-    this.translate.setDefaultLang('en');
-    
-    // Manually set up translation loader for version 17.x
-    this.setupTranslations();
+    this.bootstrapAllTranslations();
   }
 
   /**
-   * Set up translations manually for ngx-translate v17
+   * Load every supported locale once, then register fallback. Must finish
+   * before `translate.use()` so the noop loader never clobbers real bundles.
    */
-  private setupTranslations(): void {
-    this.supportedLanguages.forEach(lang => {
-      this.http.get<any>(`./assets/i18n/${lang.code}.json`).subscribe(
-        translations => {
-          this.translate.setTranslation(lang.code, translations);
-        },
-        error => {
-          console.warn(`Failed to load translations for ${lang.code}:`, error);
+  private bootstrapAllTranslations(): void {
+    const requests = this.supportedLanguages.map((lang) =>
+      this.http.get<Record<string, unknown>>(`./assets/i18n/${lang.code}.json`).pipe(
+        catchError((err) => {
+          console.warn(`Failed to load translations for ${lang.code}:`, err);
+          return of({} as Record<string, unknown>);
+        })
+      )
+    );
+
+    forkJoin(requests).subscribe((bundles) => {
+      bundles.forEach((data, i) => {
+        const code = this.supportedLanguages[i].code;
+        if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+          this.translate.setTranslation(code, data as never, false);
         }
-      );
+      });
+      this.translate.setFallbackLang('en');
+      this.translationsBootstrapped.next(true);
     });
+  }
+
+  private runWhenTranslationsReady(fn: () => void): void {
+    if (this.translationsBootstrapped.value) {
+      fn();
+      return;
+    }
+    this.translationsBootstrapped
+      .pipe(filter((ready) => ready === true), take(1))
+      .subscribe(() => fn());
   }
 
   /**
@@ -130,30 +154,32 @@ export class LanguageService {
    * forwards `localStorage.userLanguage` in the POST /api/users payload.
    */
   public initializeLanguage(userProfileLanguage?: string): void {
-    let languageToUse: SupportedLanguage;
+    this.runWhenTranslationsReady(() => {
+      let languageToUse: SupportedLanguage;
 
-    if (userProfileLanguage && this.isSupported(userProfileLanguage)) {
-      console.log('🌐 Using language from user profile:', userProfileLanguage);
-      languageToUse = userProfileLanguage as SupportedLanguage;
-    } else {
-      const savedLang = localStorage.getItem(LanguageService.USER_LANGUAGE_KEY);
-      if (savedLang && this.isSupported(savedLang)) {
-        console.log('🌐 Using language from localStorage:', savedLang);
-        languageToUse = savedLang as SupportedLanguage;
+      if (userProfileLanguage && this.isSupported(userProfileLanguage)) {
+        console.log('🌐 Using language from user profile:', userProfileLanguage);
+        languageToUse = userProfileLanguage as SupportedLanguage;
       } else {
-        const detected = this.detectBrowserLanguage();
-        console.log('🌐 Using browser/default language:', detected ?? 'en');
-        languageToUse = detected ?? 'en';
+        const savedLang = localStorage.getItem(LanguageService.USER_LANGUAGE_KEY);
+        if (savedLang && this.isSupported(savedLang)) {
+          console.log('🌐 Using language from localStorage:', savedLang);
+          languageToUse = savedLang as SupportedLanguage;
+        } else {
+          const detected = this.detectBrowserLanguage();
+          console.log('🌐 Using browser/default language:', detected ?? 'en');
+          languageToUse = detected ?? 'en';
+        }
       }
-    }
 
-    this.setLanguage(languageToUse, { source: 'auto' });
+      this.setLanguage(languageToUse, { source: 'auto' });
 
-    try {
-      localStorage.setItem(SIGNUP_LANGUAGE_COMPLETED_LS_KEY, '1');
-    } catch {
-      /* localStorage may be unavailable (private mode); silently ignore */
-    }
+      try {
+        localStorage.setItem(SIGNUP_LANGUAGE_COMPLETED_LS_KEY, '1');
+      } catch {
+        /* localStorage may be unavailable (private mode); silently ignore */
+      }
+    });
   }
 
   /**
@@ -198,29 +224,31 @@ export class LanguageService {
     lang: SupportedLanguage,
     options: { source?: 'user' | 'auto' } = {}
   ): void {
-    const source = options.source ?? 'user';
+    this.runWhenTranslationsReady(() => {
+      const source = options.source ?? 'user';
 
-    if (!this.isSupported(lang)) {
-      console.warn(`Language ${lang} is not supported. Falling back to English.`);
-      lang = 'en';
-    }
+      if (!this.isSupported(lang)) {
+        console.warn(`Language ${lang} is not supported. Falling back to English.`);
+        lang = 'en';
+      }
 
-    console.log('🌐 Setting language to:', lang, `(source: ${source})`);
-    // Update subject before `translate.use()` so synchronous `onLangChange`
-    // subscribers (and Intl formatters reading `getCurrentLanguage()`) see
-    // the new code immediately — `translate.use` may emit during its call.
-    this.currentLanguageSubject.next(lang);
-    this.translate.use(lang);
+      console.log('🌐 Setting language to:', lang, `(source: ${source})`);
+      // Update subject before `translate.use()` so synchronous `onLangChange`
+      // subscribers (and Intl formatters reading `getCurrentLanguage()`) see
+      // the new code immediately — `translate.use` may emit during its call.
+      this.currentLanguageSubject.next(lang);
+      this.translate.use(lang);
 
-    localStorage.setItem(LanguageService.USER_LANGUAGE_KEY, lang);
-    if (source === 'user') {
-      localStorage.setItem(LanguageService.USER_PICK_KEY, lang);
-    }
+      localStorage.setItem(LanguageService.USER_LANGUAGE_KEY, lang);
+      if (source === 'user') {
+        localStorage.setItem(LanguageService.USER_PICK_KEY, lang);
+      }
 
-    if (typeof document !== 'undefined') {
-      document.documentElement.lang = lang;
-      document.documentElement.dir = LanguageService.RTL_LANGUAGES.has(lang) ? 'rtl' : 'ltr';
-    }
+      if (typeof document !== 'undefined') {
+        document.documentElement.lang = lang;
+        document.documentElement.dir = LanguageService.RTL_LANGUAGES.has(lang) ? 'rtl' : 'ltr';
+      }
+    });
   }
 
   /**

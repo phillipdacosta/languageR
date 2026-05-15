@@ -2005,7 +2005,11 @@
     "ABOUT_ME": "Tietoa minusta",
     "EXPERIENCE": "Kokemus",
     "SCHEDULE": "Aikataulu",
-    "EXPERIENCE_LEVEL": "Kokemustaso"
+    "EXPERIENCE_LEVEL": "Kokemustaso",
+    "TIMEZONE_MODAL_TITLE": "Valitse aikavyöhyke",
+    "TIMEZONE_MODAL_DESC": "Valitse aikavyöhyke oppituntien aikoja ja kalentereita varten.",
+    "TIMEZONE_MODAL_CURRENT": "Nykyinen: {{value}}",
+    "TIMEZONE_SEARCH_PLACEHOLDER": "Hae aikavyöhykkeitä..."
   },
   "ROLE_SELECT": {
     "TITLE": "Miten aiot käyttää Barnabia?",

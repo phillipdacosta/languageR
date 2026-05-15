@@ -948,7 +948,11 @@
     "ABOUT_ME": "Sobre mí",
     "EXPERIENCE": "Experiencia",
     "SCHEDULE": "Horario",
-    "EXPERIENCE_LEVEL": "Nivel de experiencia"
+    "EXPERIENCE_LEVEL": "Nivel de experiencia",
+    "TIMEZONE_MODAL_TITLE": "Seleccionar zona horaria",
+    "TIMEZONE_MODAL_DESC": "Elige la zona horaria para los horarios de las clases y los calendarios.",
+    "TIMEZONE_MODAL_CURRENT": "Actual: {{value}}",
+    "TIMEZONE_SEARCH_PLACEHOLDER": "Buscar zonas horarias..."
   },
   "TUTOR_APPROVAL": {
     "TOS_ACCEPTED": "Términos Aceptados",

@@ -1538,6 +1538,10 @@
     "ABOUT_ME": "O mnie",
     "EXPERIENCE": "Doświadczenie",
     "SCHEDULE": "Harmonogram",
-    "EXPERIENCE_LEVEL": "Poziom doświadczenia"
+    "EXPERIENCE_LEVEL": "Poziom doświadczenia",
+    "TIMEZONE_MODAL_TITLE": "Wybierz strefę czasową",
+    "TIMEZONE_MODAL_DESC": "Wybierz strefę czasową dla godzin lekcji i kalendarzy.",
+    "TIMEZONE_MODAL_CURRENT": "Bieżąca: {{value}}",
+    "TIMEZONE_SEARCH_PLACEHOLDER": "Szukaj stref czasowych..."
   }
 }

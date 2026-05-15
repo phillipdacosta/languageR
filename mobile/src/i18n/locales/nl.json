@@ -1538,6 +1538,10 @@
     "ABOUT_ME": "Over mij",
     "EXPERIENCE": "Ervaring",
     "SCHEDULE": "Schema",
-    "EXPERIENCE_LEVEL": "Ervaringsniveau"
+    "EXPERIENCE_LEVEL": "Ervaringsniveau",
+    "TIMEZONE_MODAL_TITLE": "Tijdzone selecteren",
+    "TIMEZONE_MODAL_DESC": "Kies de tijdzone voor lestijden en agenda's.",
+    "TIMEZONE_MODAL_CURRENT": "Huidig: {{value}}",
+    "TIMEZONE_SEARCH_PLACEHOLDER": "Zoek tijdzones..."
   }
 }

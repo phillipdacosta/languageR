@@ -76,7 +76,11 @@ export class SignupLanguagePage implements OnInit, OnDestroy {
     private cdr: ChangeDetectorRef,
     private userService: UserService
   ) {
-    this.availableInterfaceLanguages = this.languageService.supportedLanguages;
+    // TEMP: RTL languages (ar, he, fa) hidden from interface language picker
+    // this.availableInterfaceLanguages = this.languageService.supportedLanguages;
+    this.availableInterfaceLanguages = this.languageService.supportedLanguages.filter(
+      (l) => l.code !== 'ar' && l.code !== 'he' && l.code !== 'fa'
+    );
     this.selectedInterfaceLanguage = this.languageService.getCurrentLanguage();
     this.refreshPublicLegalLinks();
   }

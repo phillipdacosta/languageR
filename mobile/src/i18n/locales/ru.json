@@ -1538,6 +1538,10 @@
     "ABOUT_ME": "Обо мне",
     "EXPERIENCE": "Опыт",
     "SCHEDULE": "Расписание",
-    "EXPERIENCE_LEVEL": "Уровень опыта"
+    "EXPERIENCE_LEVEL": "Уровень опыта",
+    "TIMEZONE_MODAL_TITLE": "Выберите часовой пояс",
+    "TIMEZONE_MODAL_DESC": "Выберите часовой пояс для времени уроков и календарей.",
+    "TIMEZONE_MODAL_CURRENT": "Текущий: {{value}}",
+    "TIMEZONE_SEARCH_PLACEHOLDER": "Искать часовые пояса..."
   }
 }

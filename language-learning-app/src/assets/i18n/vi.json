@@ -2005,7 +2005,11 @@
     "ABOUT_ME": "Giới thiệu",
     "EXPERIENCE": "Kinh nghiệm",
     "SCHEDULE": "Lịch trình",
-    "EXPERIENCE_LEVEL": "Mức độ kinh nghiệm"
+    "EXPERIENCE_LEVEL": "Mức độ kinh nghiệm",
+    "TIMEZONE_MODAL_TITLE": "Chọn múi giờ",
+    "TIMEZONE_MODAL_DESC": "Chọn múi giờ dùng cho giờ học và lịch.",
+    "TIMEZONE_MODAL_CURRENT": "Hiện tại: {{value}}",
+    "TIMEZONE_SEARCH_PLACEHOLDER": "Tìm múi giờ..."
   },
   "ROLE_SELECT": {
     "TITLE": "Bạn sẽ sử dụng Barnabi như thế nào?",

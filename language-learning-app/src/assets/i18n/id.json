@@ -2005,7 +2005,11 @@
     "ABOUT_ME": "Tentang saya",
     "EXPERIENCE": "Pengalaman",
     "SCHEDULE": "Jadwal",
-    "EXPERIENCE_LEVEL": "Tingkat pengalaman"
+    "EXPERIENCE_LEVEL": "Tingkat pengalaman",
+    "TIMEZONE_MODAL_TITLE": "Pilih zona waktu",
+    "TIMEZONE_MODAL_DESC": "Pilih zona waktu untuk jadwal pelajaran dan kalender.",
+    "TIMEZONE_MODAL_CURRENT": "Saat ini: {{value}}",
+    "TIMEZONE_SEARCH_PLACEHOLDER": "Cari zona waktu..."
   },
   "ROLE_SELECT": {
     "TITLE": "Bagaimana Anda akan menggunakan Barnabi?",

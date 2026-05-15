@@ -1534,6 +1534,10 @@
     "ABOUT_ME": "Tentang saya",
     "EXPERIENCE": "Pengalaman",
     "SCHEDULE": "Jadual",
-    "EXPERIENCE_LEVEL": "Tahap pengalaman"
+    "EXPERIENCE_LEVEL": "Tahap pengalaman",
+    "TIMEZONE_MODAL_TITLE": "Pilih zon masa",
+    "TIMEZONE_MODAL_DESC": "Pilih zon masa untuk masa pelajaran dan kalendar.",
+    "TIMEZONE_MODAL_CURRENT": "Semasa: {{value}}",
+    "TIMEZONE_SEARCH_PLACEHOLDER": "Cari zon masa..."
   }
 }

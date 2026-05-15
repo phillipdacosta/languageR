@@ -1538,6 +1538,10 @@
     "ABOUT_ME": "Om mig",
     "EXPERIENCE": "Erfaring",
     "SCHEDULE": "Tidsplan",
-    "EXPERIENCE_LEVEL": "Erfaringsniveau"
+    "EXPERIENCE_LEVEL": "Erfaringsniveau",
+    "TIMEZONE_MODAL_TITLE": "Vælg tidszone",
+    "TIMEZONE_MODAL_DESC": "Vælg den tidszone, der bruges til lektionstider og kalendere.",
+    "TIMEZONE_MODAL_CURRENT": "Aktuel: {{value}}",
+    "TIMEZONE_SEARCH_PLACEHOLDER": "Søg efter tidszoner..."
   }
 }
