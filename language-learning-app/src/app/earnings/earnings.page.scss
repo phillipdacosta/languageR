@@ -14,9 +14,17 @@ $accent-orange: #E07912;
 $accent-red: #C13515;
 $radius: 12px;
 
+/* Split earnings layout: sidebar + main (shared by inline + routed). */
+$earnings-split-bp: 901px;
+$earnings-split-max: 900px;
+
 // Routed tab: full page white behind scroll (light mode)
 ion-content.earnings-routed-ion-content {
   --background: #ffffff;
+
+  @media (min-width: $earnings-split-bp) {
+    --padding-start: 0;
+  }
 }
 
 // ----- Header -----
@@ -241,7 +249,7 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
   display: flex;
   flex-direction: column;
   gap: 16px;
-  max-width: 960px;
+  max-width: 1180px;
   margin: 0 auto;
   width: 100%;
   box-sizing: border-box;
@@ -249,12 +257,13 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
   > .inline-earnings-header {
     margin-bottom: 0;
     padding-top: 4px;
+  }
 
-    @media (max-width: 600px) {
-      .inline-earnings-title {
-        font-size: 24px;
-      }
-    }
+  /* Eat into tab1 inline panel horizontal padding so the sidebar aligns further left. */
+  @media (min-width: $earnings-split-bp) {
+    margin-left: -48px;
+    width: calc(100% + 48px);
+    max-width: none;
   }
 }
 
@@ -383,17 +392,12 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
   }
 }
 
-// ----- Inline Chrome (legacy; unused — header is direct child of .earnings-inline-wrapper) -----
-.inline-earnings-chrome {
-  padding-bottom: 0;
-}
-
-// ----- Inline Header -----
+// ----- Inline header: Go back top-right above the earnings layout (home inline panel) -----
 .inline-earnings-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 20px;
+  justify-content: flex-end;
+  margin-bottom: 4px;
 
   .inline-earnings-title {
     font-size: 28px;
@@ -409,6 +413,186 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
   max-width: 960px;
   margin: 0 auto;
   padding: 24px 20px 40px;
+}
+
+/* Routed + inline: left-align split grid and expand max-width on wide screens. */
+.earnings-content.earnings-layout {
+  @media (min-width: $earnings-split-bp) {
+    max-width: none;
+    margin-left: 0;
+    margin-right: auto;
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}
+
+// ----- Split layout (1/4 nav + 3/4 panel) — Airbnb-style earnings chrome -----
+.earnings-layout {
+  @media (min-width: $earnings-split-bp) {
+    display: grid;
+    grid-template-columns: 1fr 5fr;
+    grid-template-areas:
+      'sidebar main';
+    /* Real gutter between tracks; vertical rule lives on main (border-left), not sidebar. */
+    column-gap: 80px;
+    row-gap: 0;
+    align-items: stretch;
+    max-width: 1180px;
+    padding-top: 8px;
+  }
+
+  @media (max-width: $earnings-split-max) {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 100%;
+  }
+}
+
+.earnings-content.earnings-layout.earnings-content--inline {
+  @media (min-width: $earnings-split-bp) {
+    display: grid;
+  }
+}
+
+.earnings-layout__sidebar {
+  grid-area: sidebar;
+
+  @media (min-width: $earnings-split-bp) {
+    align-self: stretch;
+    padding-left: 0;
+    padding-right: 8px;
+    margin: 0;
+    box-sizing: border-box;
+  }
+
+  @media (max-width: $earnings-split-max) {
+    display: none;
+  }
+}
+
+.earnings-layout__page-title {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.6px;
+  color: $text-primary;
+  margin: 0 0 20px;
+  line-height: 1.1;
+}
+
+.earnings-layout__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.earnings-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: $text-primary;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+  transition: background 0.2s ease, color 0.2s ease;
+
+  ion-icon {
+    font-size: 20px;
+    color: $text-secondary;
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.04);
+  }
+
+  &.earnings-nav-item--active {
+    background: #f3f4f6;
+    ion-icon { color: $text-primary; }
+  }
+
+  @media (min-width: $earnings-split-bp) {
+    padding-left: 10px;
+    padding-right: 12px;
+  }
+}
+
+.earnings-layout__segment {
+  grid-area: segment;
+  display: none;
+
+  @media (max-width: $earnings-split-max) {
+    display: block;
+  }
+}
+
+.earnings-segment {
+  --background: #f3f4f6;
+  border-radius: 12px;
+  padding: 4px;
+
+  ion-segment-button {
+    --indicator-color: #ffffff;
+    --color: #6b7280;
+    --color-checked: #111827;
+    min-height: 40px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+}
+
+.earnings-layout__main {
+  grid-area: main;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+
+  @media (min-width: $earnings-split-bp) {
+    padding-left: 40px;
+    border-left: 1px solid $border;
+    box-sizing: border-box;
+  }
+}
+
+.earnings-layout__panel-head {
+  margin-bottom: 4px;
+}
+
+.earnings-layout__panel-title {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: $text-primary;
+  margin: 0;
+  line-height: 1.15;
+}
+
+.earnings-layout__panel-sub {
+  margin: 8px 0 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: $text-primary;
+}
+
+.earnings-routed-header {
+  @media (min-width: $earnings-split-bp) {
+    ion-toolbar {
+      --min-height: 0;
+      --padding-top: 8px;
+      --padding-bottom: 0;
+    }
+    ion-title {
+      display: none;
+    }
+  }
 }
 
 // =============================================================
@@ -2911,8 +3095,43 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
   .inline-earnings-header .inline-earnings-title {
     color: #f5f5f7 !important;
   }
+
+  .earnings-layout__page-title,
+  .earnings-layout__panel-title,
+  .earnings-layout__panel-sub {
+    color: #f5f5f7 !important;
+  }
+
+  .earnings-nav-item {
+    color: #f5f5f7 !important;
+    ion-icon { color: #8e8e93 !important; }
+    &:hover { background: rgba(255, 255, 255, 0.06) !important; }
+    &.earnings-nav-item--active {
+      background: #2c2c2e !important;
+      ion-icon { color: #f5f5f7 !important; }
+    }
+  }
+
+  .earnings-segment {
+    --background: #2c2c2e !important;
+    ion-segment-button {
+      --color: #8e8e93 !important;
+      --color-checked: #f5f5f7 !important;
+      --indicator-color: #3a3a3c !important;
+    }
+  }
+
+  .earnings-layout__main {
+    @media (min-width: $earnings-split-bp) {
+      border-left-color: rgba(255, 255, 255, 0.12) !important;
+    }
+  }
+
   .go-back-link {
-    color: #8e8e93 !important;
+    color: #d1d1d6 !important;
+    &:hover {
+      opacity: 0.88 !important;
+    }
   }
 
   .earnings-surface-card {
@@ -2955,9 +3174,9 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
 
   .loading-container,
   .error-container {
-    ion-icon { color: #555 !important; }
-    ion-spinner { --color: #8e8e93 !important; }
-    p { color: #8e8e93 !important; }
+    ion-icon { color: #8e8e93 !important; }
+    ion-spinner { --color: #aeaeb2 !important; }
+    p { color: #aeaeb2 !important; }
   }
   .retry-btn {
     color: #f5f5f7 !important;
@@ -2988,10 +3207,10 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
     border-color: #2c2c2e !important;
   }
   .balance-stat {
-    .stat-label { color: #8e8e93 !important; }
-    .stat-value { color: #f5f5f7 !important; &.masked { color: #555 !important; } }
+    .stat-label { color: #aeaeb2 !important; }
+    .stat-value { color: #f5f5f7 !important; &.masked { color: #8e8e93 !important; } }
     .stat-value-hover { color: #f5f5f7 !important; }
-    .stat-sub { color: #636366 !important; }
+    .stat-sub { color: #aeaeb2 !important; }
   }
   .pending-stat .stat-label { color: $accent-orange !important; }
   .available-stat .stat-label { color: $accent-green !important; }
@@ -3002,7 +3221,7 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
     border-color: #f5f5f7 !important;
     color: #000000 !important;
     &:hover:not(:disabled) { background: #fff !important; }
-    &:disabled { background: #2c2c2e !important; border-color: #3a3a3c !important; color: #555 !important; }
+    &:disabled { background: #2c2c2e !important; border-color: #3a3a3c !important; color: #8e8e93 !important; }
   }
 
   .balance-hero-main {
@@ -3010,19 +3229,19 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
     border-color: #2c2c2e !important;
   }
   .balance-hero-label { color: $accent-green !important; }
-  .balance-hero-amount { color: #f5f5f7 !important; &.masked { color: #555 !important; } }
+  .balance-hero-amount { color: #f5f5f7 !important; &.masked { color: #8e8e93 !important; } }
   .balance-hero-withdraw-btn {
     background: #f5f5f7 !important;
     color: #000000 !important;
     &:hover:not(:disabled) { background: #fff !important; }
-    &:disabled { background: #2c2c2e !important; color: #555 !important; }
+    &:disabled { background: #2c2c2e !important; color: #8e8e93 !important; }
   }
   .balance-hero-stat {
     background: #1c1c1e !important;
     border-color: #2c2c2e !important;
-    .stat-label { color: #8e8e93 !important; }
-    .stat-value { color: #f5f5f7 !important; &.masked { color: #555 !important; } }
-    .stat-sub { color: #636366 !important; }
+    .stat-label { color: #aeaeb2 !important; }
+    .stat-value { color: #f5f5f7 !important; &.masked { color: #8e8e93 !important; } }
+    .stat-sub { color: #aeaeb2 !important; }
     &.pending-stat .stat-label { color: $accent-orange !important; }
   }
 
@@ -3035,7 +3254,7 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
   .transfer-icon-wrap { background: #2c2c2e !important; ion-icon { color: #8e8e93 !important; } }
   .transfer-details {
     .transfer-method { color: #f5f5f7 !important; }
-    .transfer-date { color: #8e8e93 !important; }
+    .transfer-date { color: #aeaeb2 !important; }
   }
   .transfer-right .transfer-amount { color: #f5f5f7 !important; }
 
@@ -3044,24 +3263,27 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
     border-color: #2c2c2e !important;
   }
   .chart-card-title { color: #f5f5f7 !important; }
-  .chart-card-subtitle { color: #8e8e93 !important; }
+  .chart-card-subtitle { color: #aeaeb2 !important; }
   .chart-period-toggle {
     background: #2c2c2e !important;
     .period-btn {
-      color: #8e8e93 !important;
+      color: #aeaeb2 !important;
       &:hover:not(.active) { color: #f5f5f7 !important; background: rgba(255,255,255,0.06) !important; }
-      &.active { background: #3a3a3c !important; color: #6eacd9 !important; box-shadow: 0 1px 3px rgba(0,0,0,0.3) !important; }
+      &.active { background: #3a3a3c !important; color: #7ab8e8 !important; box-shadow: 0 1px 3px rgba(0,0,0,0.3) !important; }
     }
   }
   .chart-total-row {
-    .chart-total-amount { color: #f5f5f7 !important; &.masked { color: #555 !important; } }
-    .chart-total-label { color: #8e8e93 !important; }
+    .chart-total-amount { color: #f5f5f7 !important; &.masked { color: #8e8e93 !important; } }
+    .chart-total-label { color: #aeaeb2 !important; }
     .chart-change-badge {
       &.up { color: #30d158; background: rgba(48, 209, 88, 0.15); }
       &.down { color: #ff453a; background: rgba(255, 69, 58, 0.15); }
     }
   }
-  .chart-empty-state { ion-icon { color: #555 !important; } p { color: #8e8e93 !important; } }
+  .chart-empty-state {
+    ion-icon { color: #8e8e93 !important; }
+    p { color: #aeaeb2 !important; }
+  }
 
   .transactions-section .section-header h2 { color: #f5f5f7 !important; }
   .clear-link { color: #f5f5f7 !important; }
@@ -3084,12 +3306,12 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
   .table-footer {
     background: #1a1a1a !important;
     border-top-color: #2c2c2e !important;
-    .showing-count { color: #636366 !important; }
+    .showing-count { color: #aeaeb2 !important; }
   }
   .txn-table {
     thead tr {
       border-bottom-color: #2c2c2e !important;
-      th { color: #8e8e93 !important; }
+      th { color: #aeaeb2 !important; }
     }
     tbody .txn-row {
       border-bottom-color: rgba(255,255,255,0.06) !important;
@@ -3097,17 +3319,17 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
       &.refunded { background: rgba($accent-red,0.06) !important; &:hover { background: rgba($accent-red,0.1) !important; } }
       td { color: #f5f5f7 !important; }
     }
-    .date-col { .date-primary { color: #f5f5f7 !important; } .date-secondary { color: #8e8e93 !important; } }
+    .date-col { .date-primary { color: #f5f5f7 !important; } .date-secondary { color: #aeaeb2 !important; } }
     .student-col {
-      .avatar.fallback { background: #2c2c2e !important; ion-icon { color: #636366 !important; } }
+      .avatar.fallback { background: #2c2c2e !important; ion-icon { color: #8e8e93 !important; } }
       .student-meta { .name { color: #f5f5f7 !important; } .type-label { &.material-label { color: #4298d2 !important; } } }
     }
-    .status-col { .status-text { color: #f5f5f7 !important; } .status-note { color: #8e8e93 !important; } }
+    .status-col { .status-text { color: #f5f5f7 !important; } .status-note { color: #aeaeb2 !important; } }
     .amount-col {
       color: #f5f5f7 !important;
-      &.fee { color: #8e8e93 !important; }
-      &.earnings { color: #f5f5f7 !important; .zero { color: #555 !important; } .reduced { color: $accent-orange !important; } .tentative { color: #8e8e93 !important; } }
-      .struck { color: #636366 !important; }
+      &.fee { color: #aeaeb2 !important; }
+      &.earnings { color: #f5f5f7 !important; .zero { color: #8e8e93 !important; } .reduced { color: $accent-orange !important; } .tentative { color: #aeaeb2 !important; } }
+      .struck { color: #8e8e93 !important; }
     }
   }
 
@@ -3120,14 +3342,14 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
     &.clickable:hover { background: rgba(255,255,255,0.04) !important; }
     &.refunded { background: rgba($accent-red,0.06) !important; }
   }
-  .txn-mobile-student .avatar.fallback { background: #2c2c2e !important; ion-icon { color: #636366 !important; } }
+  .txn-mobile-student .avatar.fallback { background: #2c2c2e !important; ion-icon { color: #8e8e93 !important; } }
   .txn-mobile-meta {
     .txn-mobile-name { color: #f5f5f7 !important; }
-    .txn-mobile-date { color: #8e8e93 !important; }
+    .txn-mobile-date { color: #aeaeb2 !important; }
   }
   .txn-mobile-amount-col {
-    .txn-mobile-amount { color: #f5f5f7 !important; &.zero { color: #555 !important; } &.tentative { color: #8e8e93 !important; } }
-    .txn-mobile-status { color: #8e8e93 !important; }
+    .txn-mobile-amount { color: #f5f5f7 !important; &.zero { color: #8e8e93 !important; } &.tentative { color: #aeaeb2 !important; } }
+    .txn-mobile-status { color: #aeaeb2 !important; }
   }
   .txn-mobile-labels .type-label {
     &.tip { background: rgba($accent-orange, 0.15) !important; }
@@ -3136,13 +3358,13 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
   }
 
   .empty-state {
-    ion-icon { color: #555 !important; }
+    ion-icon { color: #8e8e93 !important; }
     .empty-title { color: #f5f5f7 !important; }
-    .empty-sub { color: #8e8e93 !important; }
+    .empty-sub { color: #aeaeb2 !important; }
   }
 
   .withdrawal-success-title { color: #f5f5f7 !important; }
   .withdrawal-success-detail { color: #f5f5f7 !important; }
-  .withdrawal-success-note { color: #8e8e93 !important; }
+  .withdrawal-success-note { color: #aeaeb2 !important; }
   .withdrawal-success-done-btn { background: #f5f5f7 !important; color: #000 !important; }
 }

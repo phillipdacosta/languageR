@@ -611,26 +611,26 @@
 
           <!-- Week View Grid -->
           <div class="custom-week-grid" *ngIf="customView === 'week'">
-            <!-- Day Headers -->
-            <div class="week-header">
-              <div class="time-gutter"></div>
-              <div class="day-header" *ngFor="let day of weekDays; trackBy: trackByDayLabel" [class.today]="day.date | isToday">
-                <div class="day-name">{{ day.shortDay }}</div>
-                <div class="day-number">{{ day.dayNumber }}</div>
-              </div>
-            </div>
-
-            <!-- Time Grid -->
+            <!-- Scrollable body (header is sticky INSIDE so both share the same viewport width) -->
             <div class="week-body" #weekBodyContainer>
+              <!-- Day Headers — sticky top, lives inside the scroller so 1fr widths match exactly -->
+              <div class="week-header">
+                <div class="time-gutter"></div>
+                <div class="day-header" *ngFor="let day of weekDays; trackBy: trackByDayLabel" [class.today]="day.date | isToday">
+                  <div class="day-name">{{ day.shortDay }}</div>
+                  <div class="day-number">{{ day.dayNumber }}</div>
+                </div>
+              </div>
+
+              <!-- Time + Day columns -->
+              <div class="week-content">
               <div class="time-column">
                 <div class="time-slot" *ngFor="let hour of timeSlots; trackBy: trackByIndex">
                   <span class="time-label">{{ hour }}</span>
                 </div>
               </div>
 
-              <!-- Day Columns -->
-              <div class="day-columns">
-                <div class="day-column" *ngFor="let day of weekDays; trackBy: trackByDayLabel">
+              <div class="day-column" *ngFor="let day of weekDays; trackBy: trackByDayLabel">
                   <!-- Hour lines -->
                   <div class="hour-line" *ngFor="let hour of timeSlots; trackBy: trackByIndex"></div>
                   
@@ -688,9 +688,9 @@
                   <!-- Current time indicator -->
                   <div class="time-indicator" *ngIf="day.date | isToday" [style.top.px]="currentTimePosition"></div>
                 </div>
-              </div>
-            </div>
-          </div>
+              </div> <!-- /.week-content -->
+            </div> <!-- /.week-body -->
+          </div> <!-- /.custom-week-grid -->
 
           <!-- Day View -->
           <div class="custom-day-view" *ngIf="customView === 'day'">

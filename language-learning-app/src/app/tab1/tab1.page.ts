@@ -943,6 +943,15 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           this.closeTutorBookingModal();
           this.cdr.markForCheck();
         }
+        // Close the earnings inline panel silently on any router navigation
+        // (tab switch, back gesture, deep link, etc.) so we never return to
+        // a home view that still shows the earnings surface.
+        if (this.showEarningsView) {
+          this.showEarningsView = false;
+          this.returningFromEarnings = false;
+          this.returningFromInline = false;
+          this.cdr.detectChanges();
+        }
       }
       if (event instanceof NavigationEnd) {
         const url = (event as NavigationEnd).urlAfterRedirects || (event as NavigationEnd).url;
@@ -1976,6 +1985,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     }
     if (this.showForumView && !toMaterial) {
       this.closeForumModal(false);
+    }
+    if (this.showEarningsView) {
+      this.showEarningsView = false;
+      this.returningFromEarnings = false;
+      this.returningFromInline = false;
+      this.cdr.detectChanges();
     }
   }
 

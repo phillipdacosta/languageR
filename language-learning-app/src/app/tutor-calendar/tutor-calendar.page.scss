@@ -1528,7 +1528,7 @@ ion-content {
 // Day Headers
 .week-header {
   display: grid;
-  grid-template-columns: 60px repeat(7, 1fr);
+  grid-template-columns: 60px repeat(7, minmax(0, 1fr));
   border-bottom: 1px solid #EBEBEB;
   background: #ffffff;
   position: sticky;
@@ -1591,16 +1591,22 @@ ion-content {
   }
 }
 
-// Week Body (Time Grid)
+// Week Body — scroller; header is sticky INSIDE so both share the same viewport width,
+// meaning 1fr resolves identically for header and content.
 .week-body {
   flex: 1;
-  display: grid;
-  grid-template-columns: 60px 1fr;
-  overflow-y: auto !important;
+  display: block;
+  overflow-y: auto;
   overflow-x: hidden;
   min-height: 0;
-  // padding-bottom: 100px; // Add extra space at bottom
-  
+}
+
+// Content grid — time-column + 7 day-columns
+.week-content {
+  display: grid;
+  grid-template-columns: 60px repeat(7, minmax(0, 1fr));
+  align-content: start;
+
   .time-column {
     border-right: 1px solid #F0F0F0;
     background: #ffffff;
@@ -1645,76 +1651,69 @@ ion-content {
       }
     }
   }
-  
-  .day-columns {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
+
+  .day-column {
+    border-right: 1px solid #F0F0F0;
     position: relative;
-    padding-bottom: 100px; // Extra space at bottom
     
-    .day-column {
-      border-right: 1px solid #F0F0F0;
-      position: relative;
+    &:last-child {
+      border-right: none;
+    }
+    
+    .hour-line:last-child {
+      margin-bottom: 100px; // Extra space after last hour line
+    }
+    
+    .hour-line {
+      height: 110px; // Increased to 110px for maximum readability (Outlook uses ~110-120px)
+      border-top: 1px solid #F0F0F0;
+      position: relative; // For 30-min line positioning
       
-      &:last-child {
-        border-right: none;
+      &:first-child {
+        border-top: none;
       }
       
-      .hour-line:last-child {
-        margin-bottom: 100px; // Extra space after last hour line
-      }
-      
-      .hour-line {
-        height: 110px; // Increased to 110px for maximum readability (Outlook uses ~110-120px)
-        border-top: 1px solid #F0F0F0;
-        position: relative; // For 30-min line positioning
-        
-        &:first-child {
-          border-top: none;
-        }
-        
-        // 30-minute dashed line
-        &::after {
-          content: '';
-          position: absolute;
-          top: 55px; // Half of 110px
-          left: 0;
-          right: 0;
-          height: 1px;
-          border-top: 1px dashed #EBEBEB;
-        }
-      }
-      
-      .event-container {
+      // 30-minute dashed line
+      &::after {
+        content: '';
         position: absolute;
-        top: 0;
+        top: 55px; // Half of 110px
         left: 0;
         right: 0;
-        bottom: 0;
-        padding: 0 4px;
+        height: 1px;
+        border-top: 1px dashed #EBEBEB;
       }
+    }
+    
+    .event-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 0 4px;
+    }
+    
+    // Current time indicator
+    .time-indicator {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: #FF3B30;
+      z-index: 5;
       
-      // Current time indicator
-      .time-indicator {
+      &::before {
+        content: '';
         position: absolute;
-        left: 0;
-        right: 0;
-        height: 2px;
+        left: -6px;
+        top: -6px;
+        width: 10px;
+        height: 10px;
         background: #FF3B30;
-        z-index: 5;
-        
-        &::before {
-          content: '';
-          position: absolute;
-          left: -6px;
-          top: -6px;
-          width: 10px;
-          height: 10px;
-          background: #FF3B30;
-          border-radius: 50%;
-          border: 2px solid #ffffff;
-          box-shadow: 0 2px 4px rgba(255, 59, 48, 0.3);
-        }
+        border-radius: 50%;
+        border: 2px solid #ffffff;
+        box-shadow: 0 2px 4px rgba(255, 59, 48, 0.3);
       }
     }
   }
@@ -1805,6 +1804,7 @@ ion-content {
   flex: 1;
   display: grid;
   grid-template-columns: 60px 1fr;
+  scrollbar-gutter: stable;
   overflow-y: auto !important;
   overflow-x: hidden;
   position: relative;
@@ -6767,11 +6767,11 @@ ion-app.dark {
 
   .custom-toolbar {
     background: #000000;
-    border-bottom-color: rgba(255, 255, 255, 0.15);
+    border-bottom-color: rgba(255, 255, 255, 0.22);
 
     .nav-btn {
       background: #2c2c2e;
-      border-color: #3a3a3c;
+      border-color: rgba(255, 255, 255, 0.22);
 
       ion-icon {
         color: #f5f5f7;
@@ -6779,29 +6779,29 @@ ion-app.dark {
 
       &:hover:not(:disabled) {
         background: #3a3a3c;
-        border-color: #48484a;
+        border-color: rgba(255, 255, 255, 0.28);
       }
     }
 
     .today-btn {
       background: #2c2c2e;
-      border-color: #3a3a3c;
+      border-color: rgba(255, 255, 255, 0.22);
       color: #f5f5f7;
 
       &:hover:not(:disabled) {
         background: #3a3a3c;
-        border-color: #48484a;
+        border-color: rgba(255, 255, 255, 0.28);
       }
     }
 
     .gcal-sync-btn {
       background: #2c2c2e;
-      border-color: #3a3a3c;
+      border-color: rgba(255, 255, 255, 0.22);
       color: #f5f5f7;
 
       &:hover:not(:disabled) {
         background: #3a3a3c;
-        border-color: #48484a;
+        border-color: rgba(255, 255, 255, 0.28);
       }
     }
 
@@ -6810,14 +6810,14 @@ ion-app.dark {
     }
 
     .view-switcher {
-      border-color: #3a3a3c;
+      border-color: rgba(255, 255, 255, 0.22);
 
       button {
         background: #2c2c2e;
-        color: #8e8e93;
+        color: #d1d1d6;
 
         &:not(:last-child) {
-          border-right-color: #3a3a3c;
+          border-right-color: rgba(255, 255, 255, 0.18);
         }
 
         &.active {
@@ -6836,17 +6836,17 @@ ion-app.dark {
   // ── Week header (day columns) ──
   .week-header {
     background: #000000;
-    border-bottom-color: rgba(255, 255, 255, 0.15);
+    border-bottom-color: rgba(255, 255, 255, 0.22);
 
     .time-gutter {
-      border-right-color: rgba(255, 255, 255, 0.12);
+      border-right-color: rgba(255, 255, 255, 0.18);
     }
 
     .day-header {
-      border-right-color: rgba(255, 255, 255, 0.12);
+      border-right-color: rgba(255, 255, 255, 0.18);
 
       .day-name {
-        color: #8e8e93;
+        color: #aeaeb2;
       }
 
       .day-number {
@@ -6863,34 +6863,34 @@ ion-app.dark {
   .week-body {
     .time-column {
       background: #000000;
-      border-right-color: rgba(255, 255, 255, 0.12);
+      border-right-color: rgba(255, 255, 255, 0.18);
 
       .time-slot {
-        border-top-color: rgba(255, 255, 255, 0.1);
+        border-top-color: rgba(255, 255, 255, 0.16);
 
         &::after {
-          border-top-color: rgba(255, 255, 255, 0.06);
+          border-top-color: rgba(255, 255, 255, 0.12);
         }
 
         .time-label {
-          color: #8e8e93;
+          color: #c7c7cc;
         }
       }
     }
 
-    .day-columns .day-column {
-      border-right-color: rgba(255, 255, 255, 0.12);
+    .day-column {
+      border-right-color: rgba(255, 255, 255, 0.18);
 
       .hour-line {
-        border-top-color: rgba(255, 255, 255, 0.1);
+        border-top-color: rgba(255, 255, 255, 0.16);
 
         &::after {
-          border-top-color: rgba(255, 255, 255, 0.06);
+          border-top-color: rgba(255, 255, 255, 0.12);
         }
       }
 
       .time-indicator::before {
-        border-color: #000000;
+        border-color: #1c1c1e;
       }
     }
   }
@@ -6902,7 +6902,7 @@ ion-app.dark {
 
   .day-view-header {
     background: #000000;
-    border-bottom-color: rgba(255, 255, 255, 0.15);
+    border-bottom-color: rgba(255, 255, 255, 0.22);
 
     .day-view-date {
       h3 {
@@ -6910,7 +6910,7 @@ ion-app.dark {
       }
 
       p {
-        color: #8e8e93;
+        color: #aeaeb2;
       }
     }
 
@@ -6939,29 +6939,29 @@ ion-app.dark {
   .day-view-body {
     .time-column {
       background: #000000;
-      border-right-color: rgba(255, 255, 255, 0.12);
+      border-right-color: rgba(255, 255, 255, 0.18);
 
       .time-slot {
-        border-top-color: rgba(255, 255, 255, 0.1);
+        border-top-color: rgba(255, 255, 255, 0.16);
 
         &::after {
-          border-top-color: rgba(255, 255, 255, 0.06);
+          border-top-color: rgba(255, 255, 255, 0.12);
         }
 
         .time-label {
-          color: #8e8e93;
+          color: #c7c7cc;
         }
       }
     }
 
     .day-content {
-      border-left-color: rgba(255, 255, 255, 0.12);
+      border-left-color: rgba(255, 255, 255, 0.18);
 
       .hour-line {
-        border-top-color: rgba(255, 255, 255, 0.1);
+        border-top-color: rgba(255, 255, 255, 0.16);
 
         &::after {
-          border-top-color: rgba(255, 255, 255, 0.06);
+          border-top-color: rgba(255, 255, 255, 0.12);
         }
       }
 
@@ -7131,15 +7131,15 @@ ion-app.dark {
     }
 
     .mobile-header-toggle {
-      border-color: #3a3a3c;
+      border-color: rgba(255, 255, 255, 0.22);
       background: #2c2c2e;
 
       button {
-        color: #8e8e93;
+        color: #d1d1d6;
         background: transparent;
 
         &:not(:last-child) {
-          border-right-color: #3a3a3c;
+          border-right-color: rgba(255, 255, 255, 0.18);
         }
 
         &.active {
@@ -7190,7 +7190,7 @@ ion-app.dark {
       border-bottom-color: rgba(255, 255, 255, 0.12);
 
       .legend-item {
-        color: #8e8e93;
+        color: #aeaeb2;
       }
 
       .legend-dot.available {
@@ -7770,7 +7770,7 @@ ion-app.dark {
   }
 
   .week-header {
-    grid-template-columns: 44px repeat(7, 1fr);
+    grid-template-columns: 44px repeat(7, minmax(0, 1fr));
 
     .day-header {
       padding: 8px 2px;
@@ -7788,9 +7788,11 @@ ion-app.dark {
     }
   }
 
-  .week-body {
-    grid-template-columns: 44px 1fr;
+  .week-content {
+    grid-template-columns: 44px repeat(7, minmax(0, 1fr));
+  }
 
+  .week-body {
     .time-column .time-slot {
       padding-right: 4px;
 
@@ -7799,7 +7801,7 @@ ion-app.dark {
       }
     }
 
-    .day-columns .day-column .event-container .calendar-event {
+    .day-column .event-container .calendar-event {
       padding: 2px 3px;
 
       .event-time {
@@ -7848,11 +7850,11 @@ ion-app.dark {
 :host-context(html.ion-palette-dark) {
   .custom-toolbar.mobile-toolbar {
     background: #000000;
-    border-bottom-color: rgba(255, 255, 255, 0.15);
+    border-bottom-color: rgba(255, 255, 255, 0.22);
 
     .nav-btn {
       background: #2c2c2e;
-      border-color: #3a3a3c;
+      border-color: rgba(255, 255, 255, 0.22);
 
       ion-icon {
         color: #f5f5f7;
@@ -7861,7 +7863,7 @@ ion-app.dark {
 
     .today-btn {
       background: #2c2c2e;
-      border-color: #3a3a3c;
+      border-color: rgba(255, 255, 255, 0.22);
       color: #f5f5f7;
     }
 
@@ -7870,19 +7872,24 @@ ion-app.dark {
     }
 
     .view-switcher-mobile {
-      border-color: #3a3a3c;
+      border-color: rgba(255, 255, 255, 0.22);
 
       button {
         background: #2c2c2e;
-        color: #8e8e93;
+        color: #d1d1d6;
 
         &:not(:last-child) {
-          border-right-color: #3a3a3c;
+          border-right-color: rgba(255, 255, 255, 0.18);
         }
 
         &.active {
           background: #4298d2;
           color: #fff;
+        }
+
+        &:not(.active):hover {
+          background: #3a3a3c;
+          color: #f5f5f7;
         }
       }
     }

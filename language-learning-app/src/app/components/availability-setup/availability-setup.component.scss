@@ -887,15 +887,15 @@
     text-align: right;
     padding-right: 10px;
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', system-ui, sans-serif;
-    transition: color 0.25s ease, text-shadow 0.25s ease, transform 0.25s ease;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    transition: color 0.25s ease, text-shadow 0.25s ease, font-weight 0.25s ease;
   }
 
   .time-slot-row.highlighted .time-label {
     color: #007AFF;
     font-weight: 600;
     text-shadow: 0 0 8px rgba(0, 122, 255, 0.35);
-    transform: scale(1.05);
-    font-size: 12.5px;
   }
 }
 
@@ -1035,6 +1035,7 @@
     text-align: right;
     padding-right: 10px;
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', system-ui, sans-serif;
+    white-space: nowrap;
   }
 
   .day-columns {
@@ -1365,6 +1366,7 @@
       width: 60px;
       font-size: 10px;
       padding-right: 10px;
+      white-space: nowrap;
     }
 
     .day-columns .day-column {

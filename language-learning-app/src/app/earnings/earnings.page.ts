@@ -145,6 +145,11 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   displayLimit: number = 20;
   allTransactionsLoaded: boolean = false;
   withdrawalHistory: WithdrawalHistory[] = [];
+
+  /** Wide layout: sidebar nav; narrow: ion-segment. */
+  earningsActiveSection: 'details' | 'transfers' | 'transactions' = 'details';
+  /** Right-column heading — translation key (avoids method calls in template). */
+  earningsPanelTitleKey = 'EARNINGS.PANEL_DETAILS';
   
   // Filters
   selectedDateRange: 'all' | 'today' | 'week' | 'month' | 'year' | 'custom' = 'all';
@@ -233,7 +238,9 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       this._hasInitiallyLoaded = true;
       this._lastDataFetch = cache.lastFetch;
       this.cdr.detectChanges();
-      this.scheduleChartCreation();
+      if (this.earningsActiveSection === 'details') {
+        this.scheduleChartCreation();
+      }
       this.setupWebSocketListeners();
 
       this.loadWalletVisibilitySetting();
@@ -265,7 +272,9 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       this.saveToCache();
     }
     this.cdr.detectChanges();
-    this.scheduleChartCreation();
+    if (this.earningsActiveSection === 'details') {
+      this.scheduleChartCreation();
+    }
     this.setupWebSocketListeners();
   }
 
@@ -284,7 +293,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   }
 
   ngAfterViewInit() {
-    if (!this.loading) {
+    if (!this.loading && this.earningsActiveSection === 'details') {
       this.scheduleChartCreation();
     }
   }
@@ -296,8 +305,10 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   async ionViewWillEnter() {
     if (!this._hasInitiallyLoaded) return;
 
-    // Always recreate chart — canvas can lose its render after navigation
-    this.scheduleChartCreation();
+    // Always recreate chart when Details is visible — canvas can lose its render after navigation
+    if (this.earningsActiveSection === 'details') {
+      this.scheduleChartCreation();
+    }
 
     const cacheAge = Date.now() - this._lastDataFetch;
     if (cacheAge <= this._cacheValidityMs) return;
@@ -326,7 +337,9 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
         prevBalance.lifetime !== this.balance.lifetime;
 
       if (newPaymentsJson !== prevPaymentsJson || balanceChanged) {
-        this.scheduleChartCreation();
+        if (this.earningsActiveSection === 'details') {
+          this.scheduleChartCreation();
+        }
       }
     } catch (e) {
       // Silent refresh failed — keep showing cached data
@@ -497,6 +510,33 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
 
   goToHome() {
     this.router.navigate(['/tabs/home']);
+  }
+
+  onSelectEarningsSection(section: 'details' | 'transfers' | 'transactions'): void {
+    this.earningsActiveSection = section;
+    switch (section) {
+      case 'details':
+        this.earningsPanelTitleKey = 'EARNINGS.PANEL_DETAILS';
+        break;
+      case 'transfers':
+        this.earningsPanelTitleKey = 'EARNINGS.TRANSFERS_TITLE';
+        break;
+      case 'transactions':
+        this.earningsPanelTitleKey = 'EARNINGS.TXN_TITLE';
+        break;
+    }
+    this.cdr.detectChanges();
+    if (section === 'details') {
+      requestAnimationFrame(() => this.scheduleChartCreation());
+    }
+  }
+
+  onEarningsSegmentChange(ev: Event): void {
+    const detail = (ev as CustomEvent<{ value: string }>).detail;
+    const v = detail?.value;
+    if (v === 'details' || v === 'transfers' || v === 'transactions') {
+      this.onSelectEarningsSection(v);
+    }
   }
 
   goBack() {

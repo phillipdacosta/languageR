@@ -21,6 +21,11 @@ import { environment } from '../../environments/environment';
 import { TutorFeedbackService } from '../services/tutor-feedback.service';
 import { LearningPlanService } from '../services/learning-plan.service';
 import { SetGoalComponent } from '../modals/set-goal/set-goal.component';
+import {
+  TutorGrowthService,
+  ProfileChecklistItem,
+  buildTutorProfileChecklist
+} from '../services/tutor-growth.service';
 
 @Component({
   selector: 'app-profile',
@@ -79,6 +84,21 @@ export class ProfilePage implements OnInit {
   pendingFeedbackCount: number = 0;
   pendingFeedbackItems: any[] = [];
 
+  // Shared tutor profile checklist (mirrors home / tutor-calendar). Drives the
+  // "outstanding items" banner so all three pages stay in sync from a single
+  // source of truth (tutorApprovalStatus$ → buildTutorProfileChecklist).
+  profileChecklist: ProfileChecklistItem[] = [];
+  profileChecklistDoneCount = 0;
+  profileChecklistTotal = 0;
+  hasProfileCriticalInsights = false;
+
+  /** Split layout (mirrors earnings): sidebar + main on wide; segment on narrow. */
+  profileActiveSection: 'personal' | 'payments' | 'stats' | 'teaching' | 'learning' | 'settings' =
+    'personal';
+  profilePanelTitleKey = 'PROFILE_SCREEN.PANEL_PERSONAL';
+  profilePanelSubKey: string | null = 'PROFILE_SCREEN.PANEL_PERSONAL_SUB';
+  profileNavItems: Array<{ id: string; labelKey: string; icon: string }> = [];
+
   // Earnings (for tutors)
   totalEarnings = 0;
   pendingEarnings = 0;
@@ -124,12 +144,15 @@ export class ProfilePage implements OnInit {
   isStudentUser = false;
   fullName = '';
   discoverableName = '';
+  /** i18n key: PROFILE_SCREEN.DISCOVERABLE_TO_STUDENTS_PREFIX or _TUTORS_PREFIX */
+  discoverablePrefixKey = 'PROFILE_SCREEN.DISCOVERABLE_TO_STUDENTS_PREFIX';
   displayUserInitials = '';
   hasCustomProfilePicture = false;
   timezoneLabel = 'Auto-detected';
-  payoutSetupTitle = 'Connect Bank Account';
-  payoutSetupText = 'Set up payouts to receive earnings from your lessons.';
-  payoutProviderName = '';
+  payoutSetupTitleKey = 'PROFILE_SCREEN.PAYOUT_CONNECT_BANK_TITLE';
+  payoutSetupDescriptionKey = 'PROFILE_SCREEN.PAYOUT_SETUP_DESCRIPTION';
+  /** i18n key for provider label in "Payouts enabled (…)" */
+  payoutProviderLabelKey = '';
   formattedFeedbackItems: { item: any; date: string; time: string }[] = [];
 
   constructor(
@@ -149,7 +172,8 @@ export class ProfilePage implements OnInit {
     private platform: Platform,
     private websocketService: WebSocketService,
     private tutorFeedbackService: TutorFeedbackService,
-    private learningPlanService: LearningPlanService
+    private learningPlanService: LearningPlanService,
+    private tutorGrowthService: TutorGrowthService
   ) {
     this.user$ = this.authService.user$;
     this.isAuthenticated$ = this.authService.isAuthenticated$;
@@ -181,6 +205,7 @@ export class ProfilePage implements OnInit {
         // to avoid confusion between payout providers
         this.stripeConnectOnboarded = status.stripeComplete;
         console.log(`💰 [PROFILE] Payment status from service: ${this.stripeConnectOnboarded}`);
+        this.rebuildProfileChecklistFromStatus(status);
       }
     });
     
@@ -540,6 +565,54 @@ export class ProfilePage implements OnInit {
 
     // 3. Always trigger a background refresh to pick up any new changes
     this.tutorFeedbackService.refreshPendingFeedback();
+  }
+
+  /**
+   * Rebuild the shared tutor profile checklist from the latest approval status
+   * snapshot. Mirrors the home / tutor-calendar logic so the same banner data
+   * powers all three pages.
+   */
+  private rebuildProfileChecklistFromStatus(status: any): void {
+    if (!status) return;
+    if (!this.isTutorUser) return;
+
+    const checklist = buildTutorProfileChecklist({
+      hasCustomPhoto: status.photoComplete === true,
+      hasVideo: status.videoComplete === true,
+      videoApproved: status.videoApproved === true,
+      identityRequired: status.identityRequired !== false,
+      governmentIdUploaded: status.governmentIdUploaded === true,
+      identitySatisfied: status.identitySatisfied === true,
+      certificationsUploaded: status.certificationsUploaded === true,
+      certificationsApproved: status.certificationsApproved === true,
+      hasPayoutSetup: status.stripeComplete === true,
+      tosComplete: status.tosComplete === true,
+    });
+
+    this.profileChecklist = checklist;
+    this.profileChecklistDoneCount = checklist.filter(
+      (i) => i.done && !i.pendingReview
+    ).length;
+    this.profileChecklistTotal = checklist.length;
+    this.hasProfileCriticalInsights = this.profileChecklistDoneCount < checklist.length;
+    this.tutorGrowthService.profileChecklist = checklist;
+  }
+
+  /** Open the tutor approval flow at the step the user clicked. */
+  openProfileChecklistItem(item: ProfileChecklistItem): void {
+    if (!item) return;
+    if (item.id === 'video') {
+      const el = document.getElementById('intro-video-section');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        el.classList.add('highlight-pulse');
+        setTimeout(() => el.classList.remove('highlight-pulse'), 2000);
+        return;
+      }
+    }
+    this.router.navigate([item.route || '/tutor-approval'], {
+      queryParams: { step: item.id }
+    });
   }
 
   // Feedback modal state
@@ -1019,6 +1092,9 @@ export class ProfilePage implements OnInit {
 
     // Discoverable name
     this.discoverableName = this._computeDiscoverableName(user);
+    this.discoverablePrefixKey = this.isTutorUser
+      ? 'PROFILE_SCREEN.DISCOVERABLE_TO_STUDENTS_PREFIX'
+      : 'PROFILE_SCREEN.DISCOVERABLE_TO_TUTORS_PREFIX';
 
     // Initials
     if (user?.name) {
@@ -1036,9 +1112,9 @@ export class ProfilePage implements OnInit {
     this.timezoneLabel = tz ? getTimezoneLabel(tz) : 'Auto-detected';
 
     // Payout display
-    this.payoutProviderName = this._computePayoutProviderName();
-    this.payoutSetupTitle = this._computePayoutSetupTitle();
-    this.payoutSetupText = this._computePayoutSetupText();
+    this.payoutProviderLabelKey = this._computePayoutProviderLabelKey();
+    this.payoutSetupTitleKey = this._computePayoutSetupTitleKey();
+    this.payoutSetupDescriptionKey = this._computePayoutSetupDescriptionKey();
 
     // Formatted feedback items
     this.formattedFeedbackItems = this.pendingFeedbackItems.map(fb => ({
@@ -1046,6 +1122,77 @@ export class ProfilePage implements OnInit {
       date: this.formatFeedbackDate(fb.lesson?.startTime),
       time: this.formatFeedbackTime(fb.lesson?.startTime)
     }));
+
+    this.syncProfileLayoutState();
+  }
+
+  /** Build sidebar nav + keep active section valid (own profile only). */
+  private syncProfileLayoutState(): void {
+    if (this.isViewingOtherUser) {
+      this.profileNavItems = [];
+      return;
+    }
+    const items: Array<{ id: string; labelKey: string; icon: string }> = [];
+    items.push({ id: 'personal', labelKey: 'PROFILE_SCREEN.NAV_PERSONAL', icon: 'person-outline' });
+    if (this.isTutorUser) {
+      items.push({ id: 'payments', labelKey: 'PROFILE_SCREEN.PAYOUTS', icon: 'wallet-outline' });
+    }
+    items.push({ id: 'stats', labelKey: 'PROFILE_SCREEN.NAV_STATS', icon: 'stats-chart-outline' });
+    if (this.isTutorUser) {
+      items.push({ id: 'teaching', labelKey: 'PROFILE_SCREEN.NAV_TEACHING', icon: 'videocam-outline' });
+    }
+    if (this.isStudentUser) {
+      items.push({ id: 'learning', labelKey: 'PROFILE_SCREEN.NAV_LEARNING', icon: 'school-outline' });
+    }
+    items.push({ id: 'settings', labelKey: 'PROFILE_SCREEN.SETTINGS', icon: 'settings-outline' });
+    this.profileNavItems = items;
+
+    const allowed = new Set(items.map((i) => i.id));
+    if (!allowed.has(this.profileActiveSection)) {
+      this.profileActiveSection = 'personal';
+    }
+    this.applyProfilePanelTitles();
+  }
+
+  onSelectProfileSection(section: string): void {
+    if (!section) return;
+    this.profileActiveSection = section as typeof this.profileActiveSection;
+    this.applyProfilePanelTitles();
+  }
+
+  onProfileSegmentChange(ev: CustomEvent): void {
+    const v = (ev as any)?.detail?.value as string | undefined;
+    if (v) {
+      this.onSelectProfileSection(v);
+    }
+  }
+
+  private applyProfilePanelTitles(): void {
+    switch (this.profileActiveSection) {
+      case 'payments':
+        this.profilePanelTitleKey = 'PROFILE_SCREEN.PANEL_PAYOUTS';
+        this.profilePanelSubKey = 'PROFILE_SCREEN.PANEL_PAYOUTS_SUB';
+        break;
+      case 'stats':
+        this.profilePanelTitleKey = 'PROFILE_SCREEN.PANEL_STATS';
+        this.profilePanelSubKey = 'PROFILE_SCREEN.PANEL_STATS_SUB';
+        break;
+      case 'teaching':
+        this.profilePanelTitleKey = 'PROFILE_SCREEN.PANEL_TEACHING';
+        this.profilePanelSubKey = 'PROFILE_SCREEN.PANEL_TEACHING_SUB';
+        break;
+      case 'learning':
+        this.profilePanelTitleKey = 'PROFILE_SCREEN.PANEL_LEARNING';
+        this.profilePanelSubKey = 'PROFILE_SCREEN.PANEL_LEARNING_SUB';
+        break;
+      case 'settings':
+        this.profilePanelTitleKey = 'PROFILE_SCREEN.PANEL_SETTINGS';
+        this.profilePanelSubKey = 'PROFILE_SCREEN.PANEL_SETTINGS_SUB';
+        break;
+      default:
+        this.profilePanelTitleKey = 'PROFILE_SCREEN.PANEL_PERSONAL';
+        this.profilePanelSubKey = 'PROFILE_SCREEN.PANEL_PERSONAL_SUB';
+    }
   }
 
   private _computeDiscoverableName(user: any): string {
@@ -1066,25 +1213,37 @@ export class ProfilePage implements OnInit {
     return 'Unknown';
   }
 
-  private _computePayoutProviderName(): string {
+  private _computePayoutProviderLabelKey(): string {
     switch (this.payoutProvider) {
-      case 'stripe': return 'Stripe';
-      case 'paypal': return 'PayPal';
-      case 'manual': return 'Manual Transfer';
-      default: return '';
+      case 'stripe':
+        return 'PROFILE_SCREEN.PROVIDER_STRIPE';
+      case 'paypal':
+        return 'PROFILE_SCREEN.PROVIDER_PAYPAL';
+      case 'manual':
+        return 'PROFILE_SCREEN.PROVIDER_MANUAL';
+      default:
+        return '';
     }
   }
 
-  private _computePayoutSetupTitle(): string {
-    if (!this.payoutOptions) return 'Connect Bank Account';
-    if (this.payoutOptions.stripe?.available && this.payoutOptions.stripe?.recommended) return 'Connect Bank Account';
-    if (this.payoutOptions.paypal?.available && this.payoutOptions.paypal?.recommended) return 'Connect Account';
-    return 'Set Up Payouts';
+  private _computePayoutSetupTitleKey(): string {
+    if (!this.payoutOptions) return 'PROFILE_SCREEN.PAYOUT_CONNECT_BANK_TITLE';
+    if (this.payoutOptions.stripe?.available && this.payoutOptions.stripe?.recommended) {
+      return 'PROFILE_SCREEN.PAYOUT_CONNECT_BANK_TITLE';
+    }
+    if (this.payoutOptions.paypal?.available && this.payoutOptions.paypal?.recommended) {
+      return 'PROFILE_SCREEN.PAYOUT_CONNECT_PAYPAL_TITLE';
+    }
+    return 'PROFILE_SCREEN.PAYOUT_SETUP_PRIMARY_TITLE';
   }
 
-  private _computePayoutSetupText(): string {
-    if (!this.payoutOptions) return 'Set up payouts to receive earnings from your lessons.';
-    return 'Set up payouts to receive earnings from your lessons.';
+  private _computePayoutSetupDescriptionKey(): string {
+    if (!this.payoutOptions) return 'PROFILE_SCREEN.PAYOUT_SETUP_DESCRIPTION';
+    const { stripe, paypal, manual } = this.payoutOptions;
+    if (stripe?.available && stripe?.recommended) return 'PROFILE_SCREEN.PAYOUT_SETUP_DESCRIPTION';
+    if (paypal?.available && paypal?.recommended) return 'PROFILE_SCREEN.PAYOUT_SETUP_DESCRIPTION';
+    if (manual?.available) return 'PROFILE_SCREEN.PAYOUT_SETUP_DESCRIPTION_MANUAL';
+    return 'PROFILE_SCREEN.PAYOUT_SETUP_DESCRIPTION';
   }
 
   goBack(): void {
@@ -1849,51 +2008,25 @@ export class ProfilePage implements OnInit {
       }
 
       console.log(`💰 [PROFILE] Final payout status: provider=${this.payoutProvider}, setup=${this.hasPayoutSetup}`);
+      this.syncDisplayUserProperties();
     } catch (error) {
       console.error('❌ Error checking payout status:', error);
     }
   }
 
-  // Get payout provider display name
+  // Legacy helpers (return i18n keys for translate pipe if used elsewhere)
   getPayoutProviderName(): string {
-    switch (this.payoutProvider) {
-      case 'stripe': return 'Stripe';
-      case 'paypal': return 'PayPal';
-      case 'manual': return 'Manual Transfer';
-      default: return '';
-    }
+    return this._computePayoutProviderLabelKey();
   }
 
   // Get payout setup instructions based on what's available
   getPayoutSetupText(): string {
-    if (!this.payoutOptions) return 'Set up payouts to receive earnings from your lessons.';
-    
-    const { stripe, paypal, manual } = this.payoutOptions;
-    
-    if (stripe.available && stripe.recommended) {
-      return 'Set up payouts to receive earnings from your lessons.';
-    } else if (paypal.available && paypal.recommended) {
-      return 'Set up payouts to receive earnings from your lessons.';
-    } else if (manual.available) {
-      return 'Set up manual payouts to receive earnings from your lessons.';
-    } else {
-      return 'Set up payouts to receive earnings from your lessons.';
-    }
+    return this._computePayoutSetupDescriptionKey();
   }
 
   // Get payout setup title
   getPayoutSetupTitle(): string {
-    if (!this.payoutOptions) return 'Connect Bank Account';
-    
-    const { stripe, paypal } = this.payoutOptions;
-    
-    if (stripe.available && stripe.recommended) {
-      return 'Connect Bank Account';
-    } else if (paypal.available && paypal.recommended) {
-      return 'Connect Account';
-    } else {
-      return 'Set Up Payouts';
-    }
+    return this._computePayoutSetupTitleKey();
   }
 
   // Start Stripe Connect onboarding OR open payout selection modal
@@ -1911,6 +2044,8 @@ export class ProfilePage implements OnInit {
 
         if (optionsResponse.success) {
           this.payoutOptions = optionsResponse.options;
+          this.payoutSetupTitleKey = this._computePayoutSetupTitleKey();
+          this.payoutSetupDescriptionKey = this._computePayoutSetupDescriptionKey();
         }
       }
 
