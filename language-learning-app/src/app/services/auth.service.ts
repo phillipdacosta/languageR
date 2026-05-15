@@ -45,7 +45,8 @@ export class AuthService {
   constructor(
     private auth0: Auth0Service,
     private router: Router,
-    private loadingService: LoadingService
+    private loadingService: LoadingService,
+    private languageService: LanguageService,
   ) {
     this.initializeAuth();
   }
@@ -124,12 +125,31 @@ export class AuthService {
    * typed one before clicking Sign in. `screenHint: 'signup'` flips the
    * hosted page into the sign-up tab — used by the "Create an account"
    * link on the login page.
+   *
+   * `ui_locales` is always set from the active Barnabi interface language
+   * (`LanguageService`, same source as `localStorage.userLanguage`) so
+   * Auth0 Universal Login (and IdPs that honor OIDC `ui_locales`, e.g.
+   * Google) match the language the user already sees on our login page.
    */
-  loginWithRedirect(opts?: { connection?: string; loginHint?: string; screenHint?: 'login' | 'signup' }): void {
+  loginWithRedirect(opts?: { connection?: string; loginHint?: string; screenHint?: 'login' | 'signup'; prompt?: 'login' | 'select_account' | 'consent' | 'none' }): void {
     const authorizationParams: { [k: string]: string } = {};
     if (opts?.connection) authorizationParams['connection'] = opts.connection;
     if (opts?.loginHint) authorizationParams['login_hint'] = opts.loginHint;
     if (opts?.screenHint) authorizationParams['screen_hint'] = opts.screenHint;
+    // `prompt` overrides Auth0's silent SSO. After `/v2/logout` the upstream
+    // IdP (Google, etc.) and Auth0 SSO may still be alive, so the next
+    // /authorize call would otherwise auto-sign the user back in with the
+    // same account — they never see the chooser. The login page passes
+    // `prompt: 'login'` (or `'select_account'` for Google) for all explicit
+    // sign-in actions to restore the account-picker behavior.
+    if (opts?.prompt) authorizationParams['prompt'] = opts.prompt;
+
+    const lang = this.languageService.getCurrentLanguage();
+    if (lang && this.languageService.isSupported(lang)) {
+      authorizationParams['ui_locales'] =
+        lang === 'en' ? 'en' : `${lang} en`;
+    }
+
     const redirectOpts = Object.keys(authorizationParams).length > 0
       ? { authorizationParams }
       : undefined;

@@ -1677,7 +1677,10 @@
     "UPLOAD_VIDEO": "Muat Naik Video",
     "PAYMENT_SETUP_REQUIRED": "Persediaan Pembayaran Diperlukan",
     "PAYMENT_SETUP_MSG": "Anda mesti melengkapkan persediaan pembayaran sebelum mencipta kelas atau menetapkan ketersediaan. Sila sediakan kaedah pembayaran anda di tab Profil.",
-    "GO_TO_PROFILE": "Pergi ke Profil"
+    "GO_TO_PROFILE": "Pergi ke Profil",
+    "SYNC": "Segerak",
+    "SYNCING": "Menyegerakkan…",
+    "HOURS_AVAILABLE_TOOLBAR": "{{hours}} jam tersedia"
   },
   "EVENT_DETAILS": {
     "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",

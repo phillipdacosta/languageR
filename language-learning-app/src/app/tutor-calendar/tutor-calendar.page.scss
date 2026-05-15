@@ -206,13 +206,24 @@ ion-content {
   --color: #ffffff;
   --border-radius: 12px;
   --border-width: 1px;
-  height: 44px;
+  height: auto;
+  min-height: 44px;
   font-weight: 600;
   font-size: 14px;
   text-transform: none;
   letter-spacing: 0;
   transition: all 0.2s ease;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+  --padding-top: 10px;
+  --padding-bottom: 10px;
+  --padding-start: 14px;
+  --padding-end: 14px;
+
+  &::part(native) {
+    white-space: normal;
+    line-height: 1.25;
+    text-align: center;
+  }
 
   &:hover {
     --background: #222222;
@@ -244,7 +255,8 @@ ion-content {
     font-size: 15px;
   }
   .action-btn {
-    height: 44px;
+    height: auto;
+    min-height: 44px;
     font-size: 14px;
   }
 }

@@ -1678,7 +1678,10 @@
     "UPLOAD_VIDEO": "वीडियो अपलोड करें",
     "PAYMENT_SETUP_REQUIRED": "भुगतान सेटअप आवश्यक",
     "PAYMENT_SETUP_MSG": "कक्षाएँ बनाने या उपलब्धता सेट करने से पहले आपको भुगतान सेटअप पूरा करना होगा। कृपया प्रोफ़ाइल टैब में अपनी भुगतान विधि सेट करें।",
-    "GO_TO_PROFILE": "प्रोफ़ाइल पर जाएँ"
+    "GO_TO_PROFILE": "प्रोफ़ाइल पर जाएँ",
+    "SYNC": "सिंक करें",
+    "SYNCING": "सिंक हो रहा है…",
+    "HOURS_AVAILABLE_TOOLBAR": "{{hours}} घंटे उपलब्ध"
   },
   "EVENT_DETAILS": {
     "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",

@@ -1678,7 +1678,10 @@
     "UPLOAD_VIDEO": "Video Yükle",
     "PAYMENT_SETUP_REQUIRED": "Ödeme Kurulumu Gerekli",
     "PAYMENT_SETUP_MSG": "Sınıf oluşturmadan veya müsaitlik ayarlamadan önce ödeme kurulumunu tamamlamalısınız. Lütfen Profil sekmesinden ödeme yönteminizi ayarlayın.",
-    "GO_TO_PROFILE": "Profile Git"
+    "GO_TO_PROFILE": "Profile Git",
+    "SYNC": "Senkronize et",
+    "SYNCING": "Senkronize ediliyor…",
+    "HOURS_AVAILABLE_TOOLBAR": "{{hours}} saat müsait"
   },
   "EVENT_DETAILS": {
     "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",

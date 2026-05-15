@@ -1678,7 +1678,10 @@
     "UPLOAD_VIDEO": "영상 업로드",
     "PAYMENT_SETUP_REQUIRED": "결제 설정 필요",
     "PAYMENT_SETUP_MSG": "클래스를 만들거나 가용 시간을 설정하기 전에 결제 설정을 완료해야 합니다. 프로필 탭에서 지급 방법을 설정해 주세요.",
-    "GO_TO_PROFILE": "프로필로 이동"
+    "GO_TO_PROFILE": "프로필로 이동",
+    "SYNC": "동기화",
+    "SYNCING": "동기화 중…",
+    "HOURS_AVAILABLE_TOOLBAR": "{{hours}}시간 가능"
   },
   "EVENT_DETAILS": {
     "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",

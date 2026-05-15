@@ -206,8 +206,11 @@ export class LanguageService {
     }
 
     console.log('🌐 Setting language to:', lang, `(source: ${source})`);
-    this.translate.use(lang);
+    // Update subject before `translate.use()` so synchronous `onLangChange`
+    // subscribers (and Intl formatters reading `getCurrentLanguage()`) see
+    // the new code immediately — `translate.use` may emit during its call.
     this.currentLanguageSubject.next(lang);
+    this.translate.use(lang);
 
     localStorage.setItem(LanguageService.USER_LANGUAGE_KEY, lang);
     if (source === 'user') {

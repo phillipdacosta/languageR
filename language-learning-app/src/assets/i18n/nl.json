@@ -1678,7 +1678,10 @@
     "UPLOAD_VIDEO": "Video Uploaden",
     "PAYMENT_SETUP_REQUIRED": "Betalingsinstelling Vereist",
     "PAYMENT_SETUP_MSG": "Je moet de betalingsinstelling voltooien voordat je lessen kunt maken of beschikbaarheid kunt instellen. Stel je uitbetalingsmethode in via het tabblad Profiel.",
-    "GO_TO_PROFILE": "Naar Profiel"
+    "GO_TO_PROFILE": "Naar Profiel",
+    "SYNC": "Synchroniseren",
+    "SYNCING": "Bezig met synchroniseren…",
+    "HOURS_AVAILABLE_TOOLBAR": "{{hours}} u beschikbaar"
   },
   "EVENT_DETAILS": {
     "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",

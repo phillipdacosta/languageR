@@ -1678,7 +1678,10 @@
     "UPLOAD_VIDEO": "Carica Video",
     "PAYMENT_SETUP_REQUIRED": "Configurazione Pagamento Necessaria",
     "PAYMENT_SETUP_MSG": "Devi completare la configurazione del pagamento prima di creare corsi o impostare la disponibilità. Configura il tuo metodo di pagamento nella scheda Profilo.",
-    "GO_TO_PROFILE": "Vai al Profilo"
+    "GO_TO_PROFILE": "Vai al Profilo",
+    "SYNC": "Sincronizza",
+    "SYNCING": "Sincronizzazione…",
+    "HOURS_AVAILABLE_TOOLBAR": "{{hours}} h disponibili"
   },
   "EVENT_DETAILS": {
     "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",

@@ -13,7 +13,8 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { filter, takeUntil } from 'rxjs/operators';
+import { LanguageService } from '../services/language.service';
+import { filter, takeUntil, distinctUntilChanged, skip } from 'rxjs/operators';
 import { Subject, firstValueFrom } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { PlatformService } from '../services/platform.service';
@@ -378,10 +379,11 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   get agendaRangeLabel(): string {
     const start = this.mobileWeekStart ? this.getStartOfDay(this.mobileWeekStart) : this.getStartOfDay(new Date());
     const end = this.addDays(start, this.agendaDaysToShow - 1);
+    const loc = this.calendarLocale();
     return "".concat(
-      formatDateInTz(start, this.userTz, { month: 'short', day: 'numeric', year: undefined }),
+      formatDateInTz(start, this.userTz, { month: 'short', day: 'numeric', year: undefined }, loc),
       ' – ',
-      formatDateInTz(end, this.userTz, { month: 'short', day: 'numeric', year: undefined })
+      formatDateInTz(end, this.userTz, { month: 'short', day: 'numeric', year: undefined }, loc)
     );
   }
 
@@ -467,7 +469,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
 
   formatTime(date: Date): string {
-    return formatTimeInTz(date, this.userTz, undefined, !this.is24h);
+    return formatTimeInTz(date, this.userTz, this.calendarLocale(), !this.is24h);
   }
 
   formatDuration(minutes: number): string {
@@ -522,8 +524,14 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     private tutorFeedbackService: TutorFeedbackService,
     private translate: TranslateService,
     private navCtrl: NavController,
-    private learningPlanService: LearningPlanService
+    private learningPlanService: LearningPlanService,
+    private languageService: LanguageService,
   ) { }
+
+  /** BCP 47 tag for Intl — matches active Barnabi UI language. */
+  private calendarLocale(): string {
+    return this.languageService.getCurrentLanguage();
+  }
 
   private evaluateViewport() {
     if (typeof window === 'undefined') {
@@ -569,14 +577,15 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.mobileWeekStart = start;
     const days: MobileDayContext[] = [];
     const count = this.mobileViewMode === 'agenda' ? this.agendaDaysToShow : this.mobileDaysToShow;
+    const loc = this.calendarLocale();
     for (let i = 0; i < count; i++) {
       const current = this.addDays(start, i);
       days.push({
         date: current,
-        dayName: formatDateInTz(current, this.userTz, { weekday: 'long', month: undefined, day: undefined, year: undefined }),
-        shortDay: formatDateInTz(current, this.userTz, { weekday: 'short', month: undefined, day: undefined, year: undefined }),
+        dayName: formatDateInTz(current, this.userTz, { weekday: 'long', month: undefined, day: undefined, year: undefined }, loc),
+        shortDay: formatDateInTz(current, this.userTz, { weekday: 'short', month: undefined, day: undefined, year: undefined }, loc),
         dayNumber: current.getDate().toString(),
-        monthLabel: formatDateInTz(current, this.userTz, { month: 'long', day: undefined, year: undefined }),
+        monthLabel: formatDateInTz(current, this.userTz, { month: 'long', day: undefined, year: undefined }, loc),
         isToday: this.isSameDay(current, new Date())
       });
     }
@@ -904,7 +913,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       }
     }
 
-    const dateLabel = dayStart.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+    const dateLabel = formatDateInTz(dayStart, this.userTz, { weekday: 'long', month: 'short', day: 'numeric' }, this.calendarLocale());
     return {
       label: dateLabel,
       totalHours: Math.round((dayMinutes / 60) * 10) / 10,
@@ -1114,8 +1123,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
 
   private getAgendaLabels(date: Date, offset: number): { dayLabel: string; dateLabel: string; relative?: string } {
-    const dateLabel = formatDateInTz(date, this.userTz, { month: 'long', day: 'numeric', year: undefined });
-    const dayLabel = formatDateInTz(date, this.userTz, { weekday: 'long', month: undefined, day: undefined, year: undefined });
+    const loc = this.calendarLocale();
+    const dateLabel = formatDateInTz(date, this.userTz, { month: 'long', day: 'numeric', year: undefined }, loc);
+    const dayLabel = formatDateInTz(date, this.userTz, { weekday: 'long', month: undefined, day: undefined, year: undefined }, loc);
     let relative: string | undefined;
     if (offset === 1) {
       relative = this.translate.instant('TUTOR_CALENDAR.TOMORROW');
@@ -1238,6 +1248,17 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     
     // Initialize custom calendar
     this.initializeCustomCalendar();
+
+    // Rebuild Intl-based labels when language changes. Subscribe *after*
+    // `initializeCustomCalendar()` so the BehaviorSubject's initial replay does
+    // not call `updateWeekDays()` before `currentWeekStart` is set. Use
+    // `currentLanguage$` (not `onLangChange`): `onLangChange` can fire inside
+    // `translate.use()` before `currentLanguageSubject.next()`, so
+    // `getCurrentLanguage()` still saw the old locale.
+    this.languageService.currentLanguage$
+      .pipe(skip(1), distinctUntilChanged(), takeUntil(this.destroy$))
+      .subscribe(() => this.onInterfaceLanguageChanged());
+
     this.startTimeUpdater();
     
     // Check if we're in reschedule mode
@@ -3079,6 +3100,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
 
   // Calendar settings
   calendarTimeFormat: '12h' | '24h' = '12h';
+  /** Passed to `eventTime` pipe so it re-renders when the UI language changes. */
+  calendarEventLocale = 'en';
   calendarDefaultView: 'week' | 'day' = 'week';
   get shortDateTimeFormat(): string { return this.calendarTimeFormat === '24h' ? 'M/d/yy, HH:mm' : 'M/d/yy, h:mm a'; }
   tutorTimezoneLabel = '';
@@ -3783,6 +3806,26 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
 
   // ============ CUSTOM CALENDAR METHODS ============
+
+  private onInterfaceLanguageChanged(): void {
+    this.calendarEventLocale = this.calendarLocale();
+    this.updateWeekDays();
+    this.updateWeekTitle();
+    this.generateTimeSlots();
+    if (this.selectedDayForDayView?.date) {
+      this.updateSelectedDayForDayView(new Date(this.selectedDayForDayView.date.getTime()));
+    }
+    if (this.isMobileView) {
+      const anchor = this.selectedMobileDay?.date ?? new Date();
+      if (this.mobileViewMode === 'day') {
+        this.setupDayMode(anchor);
+      } else {
+        this.setupAgendaMode(this.mobileWeekStart);
+      }
+    }
+    this.computeWeekAvailability();
+    this.cdr.markForCheck();
+  }
   
   private initializeCustomCalendar() {
     // Set current week start (Sunday)
@@ -3799,6 +3842,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.updateSelectedDayForDayView(today);
     
     // Generate time slots (6 AM to 10 PM)
+    this.calendarEventLocale = this.calendarLocale();
     this.generateTimeSlots();
     
     // Update week title
@@ -3819,26 +3863,28 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   
   private updateWeekDays() {
     this.weekDays = [];
+    const loc = this.calendarLocale();
     for (let i = 0; i < 7; i++) {
       const date = new Date(this.currentWeekStart);
       date.setDate(this.currentWeekStart.getDate() + i);
       
       this.weekDays.push({
         date: date,
-        shortDay: formatDateInTz(date, this.userTz, { weekday: 'short', month: undefined, day: undefined, year: undefined }),
+        shortDay: formatDateInTz(date, this.userTz, { weekday: 'short', month: undefined, day: undefined, year: undefined }, loc),
         dayNumber: date.getDate().toString(),
-        dayName: formatDateInTz(date, this.userTz, { weekday: 'long', month: undefined, day: undefined, year: undefined })
+        dayName: formatDateInTz(date, this.userTz, { weekday: 'long', month: undefined, day: undefined, year: undefined }, loc)
       });
     }
   }
 
   private updateSelectedDayForDayView(date: Date) {
+    const loc = this.calendarLocale();
     this.selectedDayForDayView = {
       date: new Date(date),
-      shortDay: formatDateInTz(date, this.userTz, { weekday: 'short', month: undefined, day: undefined, year: undefined }),
+      shortDay: formatDateInTz(date, this.userTz, { weekday: 'short', month: undefined, day: undefined, year: undefined }, loc),
       dayNumber: date.getDate().toString(),
-      dayName: formatDateInTz(date, this.userTz, { weekday: 'long', month: undefined, day: undefined, year: undefined }),
-      monthLabel: formatDateInTz(date, this.userTz, { month: 'long', day: undefined, year: undefined }),
+      dayName: formatDateInTz(date, this.userTz, { weekday: 'long', month: undefined, day: undefined, year: undefined }, loc),
+      monthLabel: formatDateInTz(date, this.userTz, { month: 'long', day: undefined, year: undefined }, loc),
       year: date.getFullYear()
     };
   }
@@ -3856,22 +3902,25 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   
   private generateTimeSlots() {
     this.timeSlots = [];
+    const loc = this.calendarLocale();
     for (let hour = 0; hour <= 23; hour++) {
       if (this.is24h) {
         this.timeSlots.push(`${hour.toString().padStart(2, '0')}:00`);
       } else {
-        const period = hour >= 12 ? 'PM' : 'AM';
-        const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
-        this.timeSlots.push(`${displayHour} ${period}`);
+        const ref = new Date(2020, 0, 15, hour, 0, 0, 0);
+        this.timeSlots.push(
+          new Intl.DateTimeFormat(loc, { hour: 'numeric', hour12: true }).format(ref)
+        );
       }
     }
   }
   
   private updateWeekTitle() {
-    const startMonth = formatDateInTz(this.currentWeekStart, this.userTz, { month: 'long', day: undefined, year: undefined });
+    const loc = this.calendarLocale();
+    const startMonth = formatDateInTz(this.currentWeekStart, this.userTz, { month: 'long', day: undefined, year: undefined }, loc);
     const endDate = new Date(this.currentWeekStart);
     endDate.setDate(this.currentWeekStart.getDate() + 6);
-    const endMonth = formatDateInTz(endDate, this.userTz, { month: 'long', day: undefined, year: undefined });
+    const endMonth = formatDateInTz(endDate, this.userTz, { month: 'long', day: undefined, year: undefined }, loc);
 
     if (startMonth === endMonth) {
       this.currentWeekTitle = `${startMonth} ${this.currentWeekStart.getFullYear()}`;
@@ -4365,12 +4414,12 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
 
   formatFeedbackDate(dateStr: any): string {
     if (!dateStr) return '';
-    return formatDateInTz(dateStr, this.userTz, { weekday: 'short', month: 'short', day: 'numeric', year: undefined });
+    return formatDateInTz(dateStr, this.userTz, { weekday: 'short', month: 'short', day: 'numeric', year: undefined }, this.calendarLocale());
   }
 
   formatFeedbackTime(dateStr: any): string {
     if (!dateStr) return '';
-    return formatTimeInTz(dateStr, this.userTz, undefined, !this.is24h);
+    return formatTimeInTz(dateStr, this.userTz, this.calendarLocale(), !this.is24h);
   }
 
   trackByIndex(index: number): number { return index; }

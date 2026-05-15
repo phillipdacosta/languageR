@@ -1677,7 +1677,10 @@
     "UPLOAD_VIDEO": "Nahrát video",
     "PAYMENT_SETUP_REQUIRED": "Vyžadováno nastavení plateb",
     "PAYMENT_SETUP_MSG": "Před vytvářením tříd nebo nastavením dostupnosti musíte dokončit nastavení plateb. Nastavte si způsob výplaty na kartě Profil.",
-    "GO_TO_PROFILE": "Přejít na profil"
+    "GO_TO_PROFILE": "Přejít na profil",
+    "SYNC": "Synchronizovat",
+    "SYNCING": "Synchronizuji…",
+    "HOURS_AVAILABLE_TOOLBAR": "{{hours}} h k dispozici"
   },
   "EVENT_DETAILS": {
     "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",

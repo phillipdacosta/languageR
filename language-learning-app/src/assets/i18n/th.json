@@ -1677,7 +1677,10 @@
     "UPLOAD_VIDEO": "อัปโหลดวิดีโอ",
     "PAYMENT_SETUP_REQUIRED": "ต้องตั้งค่าการชำระเงิน",
     "PAYMENT_SETUP_MSG": "คุณต้องตั้งค่าการชำระเงินก่อนสร้างคลาสเรียนหรือตั้งค่าเวลาว่าง กรุณาตั้งค่าวิธีรับเงินในแท็บโปรไฟล์",
-    "GO_TO_PROFILE": "ไปที่โปรไฟล์"
+    "GO_TO_PROFILE": "ไปที่โปรไฟล์",
+    "SYNC": "ซิงค์",
+    "SYNCING": "กำลังซิงค์…",
+    "HOURS_AVAILABLE_TOOLBAR": "{{hours}} ชม. ว่าง"
   },
   "EVENT_DETAILS": {
     "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",

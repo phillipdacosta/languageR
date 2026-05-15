@@ -1678,7 +1678,10 @@
     "UPLOAD_VIDEO": "رفع فيديو",
     "PAYMENT_SETUP_REQUIRED": "إعداد الدفع مطلوب",
     "PAYMENT_SETUP_MSG": "يجب إكمال إعداد الدفع قبل إنشاء الحصص أو تعيين التوفر. يرجى إعداد طريقة الدفع في تبويب الملف الشخصي.",
-    "GO_TO_PROFILE": "الذهاب للملف الشخصي"
+    "GO_TO_PROFILE": "الذهاب للملف الشخصي",
+    "SYNC": "مزامنة",
+    "SYNCING": "جارٍ المزامنة…",
+    "HOURS_AVAILABLE_TOOLBAR": "{{hours}} ساعة متاحة"
   },
   "EVENT_DETAILS": {
     "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",

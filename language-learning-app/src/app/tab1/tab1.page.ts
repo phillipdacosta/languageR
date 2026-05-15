@@ -8995,10 +8995,20 @@ navigateToLessons() {
       document.body.appendChild(viewDetailsClone);
     }
 
-    // Step 3: Switch to earnings view & scroll to top so layout is stable
+    // Step 3: Switch to earnings view & scroll to top so layout is stable.
+    // We must reset scroll SYNCHRONOUSLY on the underlying scroll element BEFORE
+    // measuring dest rects. ion-content.scrollToTop(0) returns a Promise and the
+    // scroll can still be at the old position when we read getBoundingClientRect,
+    // which makes the withdraw clone fly to the wrong (too-high) destination and
+    // then snap down after the 520ms safety re-read — most visible when the
+    // profile-checklist-section pushes the page down and the user has scrolled.
     this.showEarningsView = true;
     this.cdr.detectChanges();
-    this.ionContent?.scrollToTop(0);
+    if (this._scrollElRef) {
+      this._scrollElRef.scrollTop = 0;
+    } else {
+      this.ionContent?.scrollToTop(0);
+    }
 
     // Step 4a: View Details → Go back (destination always available in inline chrome)
     requestAnimationFrame(() => {
@@ -9224,10 +9234,14 @@ navigateToLessons() {
     }
 
     // Step 3: Suppress all entry animations on the home view so nothing flashes/drifts.
+    // We need this on desktop too: the profile-checklist-anim's reveal animation
+    // (grid 0fr → 1fr over 580ms) re-fires on every home re-mount and pushes the
+    // earnings card down mid-flight, leaving the withdraw clone parked at the
+    // (stale) top-of-card destRect while the real button settles lower.
+    // ':host(.returning-from-inline) .content-wrapper *:not(.anim-persist)' kills
+    // entry animations so the home layout is in its final state when we measure.
     this.returningFromEarnings = true;
-    if (this.isMobile) {
-      this.returningFromInline = true;
-    }
+    this.returningFromInline = true;
 
     // Step 4: Switch back to home view
     this.showEarningsView = false;

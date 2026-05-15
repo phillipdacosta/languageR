@@ -1677,7 +1677,10 @@
     "UPLOAD_VIDEO": "بارگذاری ویدیو",
     "PAYMENT_SETUP_REQUIRED": "تنظیم پرداخت لازم است",
     "PAYMENT_SETUP_MSG": "قبل از ایجاد کلاس‌ها یا تنظیم دسترس‌پذیری باید تنظیمات پرداخت را تکمیل کنید. لطفاً روش پرداخت خود را در تب پروفایل تنظیم کنید.",
-    "GO_TO_PROFILE": "رفتن به پروفایل"
+    "GO_TO_PROFILE": "رفتن به پروفایل",
+    "SYNC": "همگام‌سازی",
+    "SYNCING": "در حال همگام‌سازی…",
+    "HOURS_AVAILABLE_TOOLBAR": "{{hours}} ساعت آزاد"
   },
   "EVENT_DETAILS": {
     "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",

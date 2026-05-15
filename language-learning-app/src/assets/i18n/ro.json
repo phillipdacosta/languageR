@@ -1677,7 +1677,10 @@
     "UPLOAD_VIDEO": "Încarcă videoclip",
     "PAYMENT_SETUP_REQUIRED": "Configurare plată necesară",
     "PAYMENT_SETUP_MSG": "Trebuie să finalizezi configurarea plății înainte de a crea cursuri sau de a seta disponibilitatea. Configurează metoda de plată în fila Profil.",
-    "GO_TO_PROFILE": "Mergi la profil"
+    "GO_TO_PROFILE": "Mergi la profil",
+    "SYNC": "Sincronizează",
+    "SYNCING": "Se sincronizează…",
+    "HOURS_AVAILABLE_TOOLBAR": "{{hours}} h disponibile"
   },
   "EVENT_DETAILS": {
     "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",

@@ -1342,7 +1342,10 @@
     "DISCARD": "Discard",
     "WAITING_FOR_STUDENTS": "No lessons booked yet — waiting for students.",
     "DAY_OFF": "Day off",
-    "THIS_WEEK": "this week"
+    "THIS_WEEK": "this week",
+    "SYNC": "ซิงค์",
+    "SYNCING": "กำลังซิงค์…",
+    "HOURS_AVAILABLE_TOOLBAR": "{{hours}} ชม. ว่าง"
   },
   "EVENT_DETAILS": {
     "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",

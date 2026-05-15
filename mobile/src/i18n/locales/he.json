@@ -1362,7 +1362,10 @@
     "DISCARD": "Don't save",
     "WAITING_FOR_STUDENTS": "No lessons booked yet — waiting for students.",
     "DAY_OFF": "Day off",
-    "THIS_WEEK": "this week"
+    "THIS_WEEK": "this week",
+    "SYNC": "סנכרון",
+    "SYNCING": "מסנכרן…",
+    "HOURS_AVAILABLE_TOOLBAR": "{{hours}} שע׳ פנויות"
   },
   "EVENT_DETAILS": {
     "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",

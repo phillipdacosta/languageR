@@ -1683,7 +1683,10 @@
     "UPLOAD_VIDEO": "העלה סרטון",
     "PAYMENT_SETUP_REQUIRED": "נדרשת הגדרת תשלום",
     "PAYMENT_SETUP_MSG": "עליך להשלים את הגדרת התשלום לפני יצירת שיעורים או הגדרת זמינות. הגדר את שיטת התשלום בלשונית הפרופיל.",
-    "GO_TO_PROFILE": "עבור לפרופיל"
+    "GO_TO_PROFILE": "עבור לפרופיל",
+    "SYNC": "סנכרון",
+    "SYNCING": "מסנכרן…",
+    "HOURS_AVAILABLE_TOOLBAR": "{{hours}} שע׳ פנויות"
   },
   "EVENT_DETAILS": {
     "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",

@@ -1678,7 +1678,10 @@
     "UPLOAD_VIDEO": "Upload video",
     "PAYMENT_SETUP_REQUIRED": "Betalingsopsætning påkrævet",
     "PAYMENT_SETUP_MSG": "Du skal fuldføre betalingsopsætningen før du opretter klasser eller angiver tilgængelighed. Opsæt din udbetalingsmetode under fanen Profil.",
-    "GO_TO_PROFILE": "Gå til profil"
+    "GO_TO_PROFILE": "Gå til profil",
+    "SYNC": "Synkroniser",
+    "SYNCING": "Synkroniserer…",
+    "HOURS_AVAILABLE_TOOLBAR": "{{hours}} t tilgængelig"
   },
   "EVENT_DETAILS": {
     "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",

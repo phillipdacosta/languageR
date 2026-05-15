@@ -1678,7 +1678,10 @@
     "UPLOAD_VIDEO": "Ladda upp video",
     "PAYMENT_SETUP_REQUIRED": "Betalningsinställning krävs",
     "PAYMENT_SETUP_MSG": "Du måste slutföra betalningsinställningen innan du skapar klasser eller anger tillgänglighet. Ställ in din utbetalningsmetod under fliken Profil.",
-    "GO_TO_PROFILE": "Gå till profil"
+    "GO_TO_PROFILE": "Gå till profil",
+    "SYNC": "Synkronisera",
+    "SYNCING": "Synkroniserar…",
+    "HOURS_AVAILABLE_TOOLBAR": "{{hours}} h tillgängligt"
   },
   "EVENT_DETAILS": {
     "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",

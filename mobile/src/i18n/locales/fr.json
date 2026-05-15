@@ -1487,7 +1487,10 @@
     "GCAL_ENABLE_PUSH": "Envoyer les leçons vers Google",
     "GCAL_DISABLE_PUSH": "Arrêter l'envoi des leçons",
     "GCAL_DISCONNECT": "Déconnecter Google Calendar",
-    "GCAL_DISCONNECT_CONFIRM": "Cela supprimera la connexion Google Calendar. Êtes-vous sûr ?"
+    "GCAL_DISCONNECT_CONFIRM": "Cela supprimera la connexion Google Calendar. Êtes-vous sûr ?",
+    "SYNC": "Synchroniser",
+    "SYNCING": "Synchronisation…",
+    "HOURS_AVAILABLE_TOOLBAR": "{{hours}} h disponibles"
   },
   "EVENT_DETAILS": {
     "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",

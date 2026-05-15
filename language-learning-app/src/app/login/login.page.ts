@@ -85,23 +85,31 @@ export class LoginPage implements OnInit, OnDestroy {
   }
 
   async signIn() {
+    // `prompt: 'login'` forces Auth0 to ignore any existing SSO session and
+    // show the universal-login form, so users can sign in as a different
+    // account after logging out (otherwise Auth0 + the upstream IdP silently
+    // re-auth them with the same email).
     await this.startRedirect({
       loginHint: this.email?.trim() || undefined,
+      prompt: 'login',
     });
   }
 
   async signInWithGoogle() {
-    await this.startRedirect({ connection: 'google-oauth2' });
+    // `prompt: 'select_account'` is forwarded to Google so the account
+    // chooser is shown even when the user is still signed in to Google.
+    await this.startRedirect({ connection: 'google-oauth2', prompt: 'select_account' });
   }
 
   async signInWithFacebook() {
-    await this.startRedirect({ connection: 'Facebook' });
+    await this.startRedirect({ connection: 'Facebook', prompt: 'login' });
   }
 
   async goToCreateAccount() {
     await this.startRedirect({
       screenHint: 'signup',
       loginHint: this.email?.trim() || undefined,
+      prompt: 'login',
     });
   }
 
@@ -109,7 +117,7 @@ export class LoginPage implements OnInit, OnDestroy {
     // Auth0 hosts password reset; redirect into the hosted page so the
     // built-in "Forgot password?" link is available without us shipping
     // our own reset UI.
-    this.startRedirect({ loginHint: this.email?.trim() || undefined });
+    this.startRedirect({ loginHint: this.email?.trim() || undefined, prompt: 'login' });
   }
 
   /**
@@ -120,7 +128,7 @@ export class LoginPage implements OnInit, OnDestroy {
    * the subsequent loginWithRedirect, leaving the user bounced back to
    * /login. The Auth0 SDK handles existing sessions cleanly on its own.
    */
-  private async startRedirect(opts: { connection?: string; loginHint?: string; screenHint?: 'login' | 'signup' } = {}) {
+  private async startRedirect(opts: { connection?: string; loginHint?: string; screenHint?: 'login' | 'signup'; prompt?: 'login' | 'select_account' | 'consent' | 'none' } = {}) {
     this.isLoading = true;
     const loading = await this.loadingController.create({
       message: this.translate.instant('LOGIN.SIGNING_IN'),

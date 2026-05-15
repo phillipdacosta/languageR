@@ -2213,7 +2213,10 @@
     "GCAL_ENABLE_PUSH": "Push lessons to Google",
     "GCAL_DISABLE_PUSH": "Stop pushing lessons",
     "GCAL_DISCONNECT": "Disconnect Google Calendar",
-    "GCAL_DISCONNECT_CONFIRM": "This will remove the Google Calendar connection. Are you sure?"
+    "GCAL_DISCONNECT_CONFIRM": "This will remove the Google Calendar connection. Are you sure?",
+    "SYNC": "Sync",
+    "SYNCING": "Syncing...",
+    "HOURS_AVAILABLE_TOOLBAR": "{{hours}} h available"
   },
   "MATERIAL_DETAIL": {
     "READING_PASSAGE": "Reading Passage",

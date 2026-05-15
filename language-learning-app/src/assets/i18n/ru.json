@@ -1678,7 +1678,10 @@
     "UPLOAD_VIDEO": "Загрузить видео",
     "PAYMENT_SETUP_REQUIRED": "Требуется настройка оплаты",
     "PAYMENT_SETUP_MSG": "Вы должны завершить настройку оплаты перед созданием занятий или установкой доступности. Настройте способ выплат во вкладке «Профиль».",
-    "GO_TO_PROFILE": "Перейти к профилю"
+    "GO_TO_PROFILE": "Перейти к профилю",
+    "SYNC": "Синхронизировать",
+    "SYNCING": "Синхронизация…",
+    "HOURS_AVAILABLE_TOOLBAR": "{{hours}} ч доступно"
   },
   "EVENT_DETAILS": {
     "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",

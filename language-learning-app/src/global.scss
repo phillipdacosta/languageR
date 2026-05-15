@@ -1667,8 +1667,10 @@ ion-modal.all-lessons-modal {
   cursor: pointer;
   transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif !important;
-  white-space: nowrap;
-  line-height: 1;
+  white-space: normal;
+  line-height: 1.25;
+  text-align: center;
+  max-width: min(220px, 36vw);
   margin: 0;
   position: relative;
 

@@ -535,8 +535,8 @@
               <button class="today-btn" type="button" (click)="navigateToday()">{{ 'TUTOR_CALENDAR.TODAY' | translate }}</button>
               <button class="gcal-sync-btn" type="button" *ngIf="gcalConnected" (click)="syncGoogleCalendar()" [disabled]="gcalSyncing">
                 <img src="assets/google.png" alt="Google" class="gcal-sync-icon" [class.spinning]="gcalSyncing" />
-                <span *ngIf="!gcalSyncing">Sync</span>
-                <span *ngIf="gcalSyncing">Syncing...</span>
+                <span *ngIf="!gcalSyncing">{{ 'TUTOR_CALENDAR.SYNC' | translate }}</span>
+                <span *ngIf="gcalSyncing">{{ 'TUTOR_CALENDAR.SYNCING' | translate }}</span>
               </button>
               <button class="desktop-avail-pill"
                       type="button"
@@ -544,7 +544,7 @@
                       *ngIf="weekAvailabilityGrossHours > 0 && customView === 'week' && !isOnboardingIncomplete && pendingFeedbackCount === 0"
                       (click)="openAvailabilityModal()">
                 <ion-icon name="time-outline"></ion-icon>
-                {{ weekAvailabilityHours }}h available
+                {{ 'TUTOR_CALENDAR.HOURS_AVAILABLE_TOOLBAR' | translate:{ hours: weekAvailabilityHours } }}
               </button>
               <div class="view-switcher view-switcher-mobile" *ngIf="isCompactToolbar">
                 <button [class.active]="customView === 'week'" (click)="switchView('week')">{{ 'TUTOR_CALENDAR.WEEK' | translate }}</button>
@@ -680,7 +680,7 @@
                       <!-- Text content -->
                       <div class="event-content">
                         <div class="event-title" *ngIf="!event.isAvailability">{{ event.studentName }}</div>
-                        <div class="event-time">{{ event | eventTime:userTz:calendarTimeFormat }}</div>
+                        <div class="event-time">{{ event | eventTime:userTz:calendarTimeFormat:calendarEventLocale }}</div>
                       </div>
                     </div>
                   </div>
@@ -767,7 +767,7 @@
                     <!-- Text content -->
                     <div class="event-content">
                       <div class="event-title" *ngIf="!event.isAvailability">{{ event.studentName }}</div>
-                      <div class="event-time">{{ event | eventTime:userTz:calendarTimeFormat }}</div>
+                      <div class="event-time">{{ event | eventTime:userTz:calendarTimeFormat:calendarEventLocale }}</div>
                     </div>
                   </div>
                 </div>

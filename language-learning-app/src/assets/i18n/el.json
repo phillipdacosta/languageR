@@ -1677,7 +1677,10 @@
     "UPLOAD_VIDEO": "Ανέβασμα Βίντεο",
     "PAYMENT_SETUP_REQUIRED": "Απαιτείται Ρύθμιση Πληρωμής",
     "PAYMENT_SETUP_MSG": "Πρέπει να ολοκληρώσετε τη ρύθμιση πληρωμής πριν δημιουργήσετε μαθήματα ή ορίσετε διαθεσιμότητα. Ρυθμίστε τη μέθοδο πληρωμής σας στην καρτέλα Προφίλ.",
-    "GO_TO_PROFILE": "Μετάβαση στο Προφίλ"
+    "GO_TO_PROFILE": "Μετάβαση στο Προφίλ",
+    "SYNC": "Συγχρονισμός",
+    "SYNCING": "Συγχρονισμός…",
+    "HOURS_AVAILABLE_TOOLBAR": "{{hours}} ώ διαθέσιμα"
   },
   "EVENT_DETAILS": {
     "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",

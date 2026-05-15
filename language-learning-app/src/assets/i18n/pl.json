@@ -1678,7 +1678,10 @@
     "UPLOAD_VIDEO": "Prześlij Film",
     "PAYMENT_SETUP_REQUIRED": "Wymagana Konfiguracja Płatności",
     "PAYMENT_SETUP_MSG": "Musisz dokończyć konfigurację płatności przed tworzeniem zajęć lub ustawianiem dostępności. Skonfiguruj metodę wypłat w zakładce Profil.",
-    "GO_TO_PROFILE": "Przejdź do Profilu"
+    "GO_TO_PROFILE": "Przejdź do Profilu",
+    "SYNC": "Synchronizuj",
+    "SYNCING": "Synchronizowanie…",
+    "HOURS_AVAILABLE_TOOLBAR": "{{hours}} h dostępne"
   },
   "EVENT_DETAILS": {
     "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",

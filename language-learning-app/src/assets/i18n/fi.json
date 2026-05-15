@@ -1677,7 +1677,10 @@
     "UPLOAD_VIDEO": "Lataa video",
     "PAYMENT_SETUP_REQUIRED": "Maksuasetukset vaaditaan",
     "PAYMENT_SETUP_MSG": "Sinun on suoritettava maksuasetukset ennen luokkien luomista tai saatavuuden asettamista. Määritä maksutapasi Profiili-välilehdellä.",
-    "GO_TO_PROFILE": "Siirry profiiliin"
+    "GO_TO_PROFILE": "Siirry profiiliin",
+    "SYNC": "Synkronoi",
+    "SYNCING": "Synkronoidaan…",
+    "HOURS_AVAILABLE_TOOLBAR": "{{hours}} h vapaana"
   },
   "EVENT_DETAILS": {
     "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",

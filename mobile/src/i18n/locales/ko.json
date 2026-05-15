@@ -1343,7 +1343,10 @@
     "DISCARD": "Discard",
     "WAITING_FOR_STUDENTS": "No lessons booked yet — waiting for students.",
     "DAY_OFF": "Day off",
-    "THIS_WEEK": "this week"
+    "THIS_WEEK": "this week",
+    "SYNC": "동기화",
+    "SYNCING": "동기화 중…",
+    "HOURS_AVAILABLE_TOOLBAR": "{{hours}}시간 가능"
   },
   "EVENT_DETAILS": {
     "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",

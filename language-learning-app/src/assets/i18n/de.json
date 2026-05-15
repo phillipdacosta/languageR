@@ -1784,7 +1784,10 @@
     "UPLOAD_VIDEO": "Video Hochladen",
     "PAYMENT_SETUP_REQUIRED": "Zahlungseinrichtung Erforderlich",
     "PAYMENT_SETUP_MSG": "Du musst die Zahlungseinrichtung abschließen, bevor du Kurse erstellen oder Verfügbarkeit festlegen kannst. Bitte richte deine Auszahlungsmethode im Profil-Tab ein.",
-    "GO_TO_PROFILE": "Zum Profil"
+    "GO_TO_PROFILE": "Zum Profil",
+    "SYNC": "Synchronisieren",
+    "SYNCING": "Synchronisiert…",
+    "HOURS_AVAILABLE_TOOLBAR": "{{hours}} h verfügbar"
   },
   "EVENT_DETAILS": {
     "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",

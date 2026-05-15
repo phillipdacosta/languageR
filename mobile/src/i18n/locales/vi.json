@@ -1342,7 +1342,10 @@
     "DISCARD": "Discard",
     "WAITING_FOR_STUDENTS": "No lessons booked yet — waiting for students.",
     "DAY_OFF": "Day off",
-    "THIS_WEEK": "this week"
+    "THIS_WEEK": "this week",
+    "SYNC": "Đồng bộ",
+    "SYNCING": "Đang đồng bộ…",
+    "HOURS_AVAILABLE_TOOLBAR": "{{hours}} giờ trống"
   },
   "EVENT_DETAILS": {
     "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",

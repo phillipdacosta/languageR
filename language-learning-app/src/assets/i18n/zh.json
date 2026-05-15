@@ -1678,7 +1678,10 @@
     "UPLOAD_VIDEO": "上传视频",
     "PAYMENT_SETUP_REQUIRED": "需要设置支付",
     "PAYMENT_SETUP_MSG": "创建课程或设置可用时间之前，您必须完成支付设置。请在个人资料标签中设置收款方式。",
-    "GO_TO_PROFILE": "前往个人资料"
+    "GO_TO_PROFILE": "前往个人资料",
+    "SYNC": "同步",
+    "SYNCING": "正在同步…",
+    "HOURS_AVAILABLE_TOOLBAR": "{{hours}} 小时可预约"
   },
   "EVENT_DETAILS": {
     "SIDEBAR_NOTES_EMPTY_TITLE": "No prior lesson notes",
