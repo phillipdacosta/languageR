@@ -20,7 +20,7 @@
   <div class="leaving-overlay" *ngIf="isEndingCall">
     <div class="leaving-content">
       <ion-spinner name="crescent" color="light"></ion-spinner>
-      <span>Leaving...</span>
+      <span>{{ 'VIDEO_CALL.LEAVING' | translate }}</span>
     </div>
   </div>
 
@@ -29,13 +29,13 @@
     <div class="timer-display" [class.overage]="isInOverage()">
       <ion-icon name="time-outline"></ion-icon>
       <span class="time">{{ getFormattedElapsedTime() }}</span>
-      <span class="overage-label" *ngIf="isInOverage()">Over booked time</span>
+      <span class="overage-label" *ngIf="isInOverage()">{{ 'VIDEO_CALL.OVER_BOOKED_TIME' | translate }}</span>
     </div>
     
     <!-- Next Lesson Warning (Tutors Only) - Right of timer -->
     <div class="next-lesson-warning" *ngIf="showNextEventWarning && userRole === 'tutor'">
       <span class="warning-text" [class.urgent]="nextEventMinutesAway <= 0">
-        Your next lesson starts in {{ getNextEventDisplayTime() }}
+        {{ 'VIDEO_CALL.NEXT_LESSON_STARTS' | translate:{ time: nextLessonStartsText } }}
       </span>
     </div>
   </div>
@@ -48,7 +48,7 @@
       <div class="whiteboard-fixed">
         <div class="whiteboard-header-fixed">
           <div class="header-left">
-            <h3>Whiteboard</h3>
+            <h3>{{ 'VIDEO_CALL.WHITEBOARD' | translate }}</h3>
             
             <!-- Agora Fastboard has its own built-in toolbar -->
             <div class="header-toolbar" style="display: none;">
@@ -81,7 +81,7 @@
               <!-- Text Size (for text tool) -->
               <select class="text-size-mini" *ngIf="currentTool === 'text'" [(ngModel)]="currentTextSize" (mousedown)="$event.preventDefault()" (change)="setTextSize(currentTextSize)">
                 <option [value]="12">Small</option>
-                <option [value]="16">Normal</option>
+                <option [value]="16">{{ 'VIDEO_CALL.NORMAL' | translate }}</option>
                 <option [value]="24">Large</option>
                 <option [value]="32">XL</option>
               </select>
@@ -166,14 +166,14 @@
             <!-- Loading indicator -->
             <div class="whiteboard-loading" *ngIf="isWhiteboardLoading">
               <ion-spinner name="crescent"></ion-spinner>
-              <p>Loading whiteboard...</p>
+              <p>{{ 'VIDEO_CALL.LOADING_WHITEBOARD' | translate }}</p>
             </div>
             
             <!-- Fallback message if whiteboard fails to load -->
             <div class="whiteboard-error" *ngIf="!fastboardApp && !isWhiteboardLoading && showWhiteboard">
               <ion-icon name="warning-outline"></ion-icon>
-              <p>Whiteboard unavailable</p>
-              <ion-button size="small" (click)="initializeWhiteboard()">Retry</ion-button>
+              <p>{{ 'VIDEO_CALL.WHITEBOARD_UNAVAILABLE' | translate }}</p>
+              <ion-button size="small" (click)="initializeWhiteboard()">{{ 'VIDEO_CALL.RETRY' | translate }}</ion-button>
             </div>
           </div>
         </div>
@@ -200,11 +200,11 @@
         <div class="screen-share-controls">
           <div class="control-item">
             <ion-icon name="desktop"></ion-icon>
-            <span>Screen Sharing</span>
+            <span>{{ 'VIDEO_CALL.SCREEN_SHARING' | translate }}</span>
           </div>
           <ion-button (click)="stopScreenShare()" color="danger" fill="clear" size="small">
             <ion-icon name="stop-circle"></ion-icon>
-            Stop Sharing
+            {{ 'VIDEO_CALL.STOP_SHARING' | translate }}
           </ion-button>
         </div>
       </div>
@@ -216,7 +216,7 @@
           <div #localVideoPip class="pip-video-element">
             <!-- Local camera feed will be displayed here -->
           </div>
-          <div class="pip-label">You</div>
+          <div class="pip-label">{{ 'VIDEO_CALL.YOU' | translate }}</div>
         </div>
         
         <!-- Remote participants cameras -->
@@ -226,7 +226,7 @@
           <div class="pip-video-element">
             <!-- Remote camera feed will be displayed here -->
           </div>
-          <div class="pip-label">{{ participant.name || 'Participant' }}</div>
+          <div class="pip-label">{{ participant.name || 'VIDEO_CALL.PARTICIPANT' | translate }}</div>
           <!-- Camera off placeholder -->
           <div class="pip-placeholder" *ngIf="participant.isVideoOff">
             <ion-avatar>
@@ -250,7 +250,7 @@
             <img *ngIf="remoteParticipantProfilePicture" [src]="remoteParticipantProfilePicture" alt="Remote participant" referrerpolicy="no-referrer">
             <ion-icon *ngIf="!remoteParticipantProfilePicture" name="person" class="avatar-icon"></ion-icon>
           </ion-avatar>
-          <p>Camera Off</p>
+          <p>{{ 'VIDEO_CALL.CAMERA_OFF' | translate }}</p>
         </div>
         
         <!-- Remote user mute indicator (overlay on main video) -->
@@ -263,11 +263,11 @@
         </div>
 
         <!-- Student Intent Banner (tutor only) -->
-        <div class="intent-banner" *ngIf="showIntentBanner && studentLessonIntent && intentDisplay[studentLessonIntent]" (click)="dismissIntentBanner()">
-          <span class="intent-banner-emoji">{{ intentDisplay[studentLessonIntent].emoji }}</span>
+        <div class="intent-banner" *ngIf="showIntentBanner && studentLessonIntent && intentBannerLabelKey" (click)="dismissIntentBanner()">
+          <span class="intent-banner-emoji">{{ intentDisplay[studentLessonIntent]?.emoji }}</span>
           <div class="intent-banner-text">
-            <span class="intent-banner-label">Student wants: <strong>{{ intentDisplay[studentLessonIntent].label }}</strong></span>
-            <span class="intent-banner-hint">{{ intentDisplay[studentLessonIntent].hint }}</span>
+            <span class="intent-banner-label">{{ 'VIDEO_CALL.STUDENT_WANTS' | translate }} <strong>{{ intentBannerLabelKey | translate }}</strong></span>
+            <span class="intent-banner-hint">{{ intentBannerHintKey | translate }}</span>
           </div>
           <ion-icon name="close" class="intent-banner-close"></ion-icon>
         </div>
@@ -275,7 +275,7 @@
       <ng-template #remoteMainPlaceholder>
         <div class="video-placeholder">
           <ion-icon name="person"></ion-icon>
-          <p>Waiting for other participants...</p>
+          <p>{{ 'VIDEO_CALL.WAITING_PARTICIPANTS' | translate }}</p>
         </div>
       </ng-template>
     </div>
@@ -304,7 +304,7 @@
                   <img *ngIf="participant.profilePicture" [src]="participant.profilePicture" alt="{{ participant.name }}" referrerpolicy="no-referrer">
                   <ion-icon *ngIf="!participant.profilePicture" name="person" class="avatar-icon"></ion-icon>
                 </ion-avatar>
-                <p>Camera Off</p>
+                <p>{{ 'VIDEO_CALL.CAMERA_OFF' | translate }}</p>
               </div>
             </div>
             
@@ -317,7 +317,7 @@
                   <img *ngIf="participant.profilePicture" [src]="participant.profilePicture" alt="{{ participant.name }}" referrerpolicy="no-referrer">
                   <ion-icon *ngIf="!participant.profilePicture" name="person" class="avatar-icon"></ion-icon>
                 </ion-avatar>
-                <p>Camera Off</p>
+                <p>{{ 'VIDEO_CALL.CAMERA_OFF' | translate }}</p>
               </div>
             </div>
             
@@ -345,7 +345,7 @@
               <img *ngIf="tutorParticipant?.profilePicture" [src]="tutorParticipant?.profilePicture" alt="{{ tutorParticipant?.name }}" referrerpolicy="no-referrer">
               <ion-icon *ngIf="!tutorParticipant?.profilePicture" name="person" class="avatar-icon"></ion-icon>
             </ion-avatar>
-            <p>Camera Off</p>
+            <p>{{ 'VIDEO_CALL.CAMERA_OFF' | translate }}</p>
           </div>
           
           <!-- Tutor info overlay (always visible, shows on top of video or placeholder) -->
@@ -353,14 +353,14 @@
             <div class="remote-user-label">
               <ion-icon [name]="tutorParticipant?.isMuted ? 'mic-off-outline' : 'mic-outline'" 
                         [class.muted]="tutorParticipant?.isMuted"></ion-icon>
-              <span>{{tutorParticipant?.name || 'Tutor'}}</span>
+              <span>{{tutorParticipant?.name || 'VIDEO_CALL.TUTOR' | translate}}</span>
             </div>
           </div>
         </div>
         <ng-template #tutorMainPlaceholder>
           <div class="video-placeholder">
             <ion-icon name="person"></ion-icon>
-            <p>Waiting for tutor...</p>
+            <p>{{ 'VIDEO_CALL.WAITING_TUTOR' | translate }}</p>
           </div>
         </ng-template>
       </ng-container>
@@ -369,7 +369,7 @@
     <!-- Virtual Background Controls Panel -->
     <div class="virtual-bg-controls" *ngIf="showVirtualBackgroundControls">
       <div class="controls-header">
-        <h3>Virtual Background</h3>
+        <h3>{{ 'VIDEO_CALL.VIRTUAL_BACKGROUND' | translate }}</h3>
         <ion-button fill="clear" size="small" (click)="toggleVirtualBackgroundControls()">
           <ion-icon name="close-outline"></ion-icon>
         </ion-button>
@@ -380,28 +380,28 @@
           class="bg-option-btn blur-option"
           (click)="setBackgroundBlur()">
           <ion-icon name="blur"></ion-icon>
-          <span>Enable Blur</span>
+          <span>{{ 'VIDEO_CALL.ENABLE_BLUR' | translate }}</span>
         </button>
         
         <button 
           class="bg-option-btn black-option"
           (click)="setBackgroundColor('#000000')">
           <div class="color-preview black"></div>
-          <span>Black Background</span>
+          <span>{{ 'VIDEO_CALL.BLACK_BACKGROUND' | translate }}</span>
         </button>
         
         <button 
           class="bg-option-btn normal-option"
           (click)="disableVirtualBackground()">
           <ion-icon name="videocam-outline"></ion-icon>
-          <span>Normal</span>
+          <span>{{ 'VIDEO_CALL.NORMAL' | translate }}</span>
         </button>
         
       </div>
       
       <div class="status-info" *ngIf="isVirtualBackgroundEnabled">
         <ion-icon name="checkmark-circle" color="success"></ion-icon>
-        <span>Virtual background active</span>
+        <span>{{ 'VIDEO_CALL.VB_ACTIVE' | translate }}</span>
       </div>
     </div>
 
@@ -427,7 +427,7 @@
                 <img *ngIf="participant.profilePicture" [src]="participant.profilePicture" alt="{{ participant.name }}" referrerpolicy="no-referrer">
                 <ion-icon *ngIf="!participant.profilePicture" name="person" class="avatar-icon"></ion-icon>
               </ion-avatar>
-              <p>Camera Off</p>
+              <p>{{ 'VIDEO_CALL.CAMERA_OFF' | translate }}</p>
             </div>
           </div>
           
@@ -440,7 +440,7 @@
                 <img *ngIf="participant.profilePicture" [src]="participant.profilePicture" alt="{{ participant.name }}" referrerpolicy="no-referrer">
                 <ion-icon *ngIf="!participant.profilePicture" name="person" class="avatar-icon"></ion-icon>
               </ion-avatar>
-              <p>Camera Off</p>
+              <p>{{ 'VIDEO_CALL.CAMERA_OFF' | translate }}</p>
             </div>
           </div>
           
@@ -465,7 +465,7 @@
               <img *ngIf="remoteParticipantProfilePicture" [src]="remoteParticipantProfilePicture" alt="Remote participant" referrerpolicy="no-referrer">
               <ion-icon *ngIf="!remoteParticipantProfilePicture" name="person" class="avatar-icon"></ion-icon>
             </ion-avatar>
-            <p>Camera Off</p>
+            <p>{{ 'VIDEO_CALL.CAMERA_OFF' | translate }}</p>
           </div>
           <div class="participant-label">
             <ion-icon [name]="isRemoteUserMuted ? 'mic-off-outline' : 'mic-outline'" 
@@ -484,11 +484,11 @@
               <img *ngIf="myProfilePicture" [src]="myProfilePicture" alt="You" referrerpolicy="no-referrer">
               <ion-icon *ngIf="!myProfilePicture" name="person" class="avatar-icon"></ion-icon>
             </ion-avatar>
-            <p>Camera Off</p>
+            <p>{{ 'VIDEO_CALL.CAMERA_OFF' | translate }}</p>
           </div>
           <div class="participant-label">
             <ion-icon [name]="isMuted ? 'mic-off-outline' : 'mic-outline'"></ion-icon>
-            <span>You</span>
+            <span>{{ 'VIDEO_CALL.YOU' | translate }}</span>
           </div>
         </div>
       </ng-container>
@@ -500,7 +500,7 @@
     <!-- Chat Panel -->
     <div class="chat-panel" *ngIf="showChat">
       <div class="chat-header">
-        <h3>Chat with {{ remoteParticipantLabel }}</h3>
+        <h3>{{ 'VIDEO_CALL.CHAT_WITH' | translate:{ name: remoteParticipantLabel } }}</h3>
         <ion-button (click)="toggleChat()" size="small" fill="clear">
           <ion-icon name="close-outline"></ion-icon>
         </ion-button>
@@ -511,7 +511,7 @@
         <button class="resources-toggle" (click)="toggleResourcesSection()">
           <div class="resources-toggle-left">
             <ion-icon name="folder-outline"></ion-icon>
-            <span>Resources & Documents</span>
+            <span>{{ 'VIDEO_CALL.RESOURCES_DOCUMENTS' | translate }}</span>
             <span class="resources-count">{{ resourceMessages.length }}</span>
           </div>
           <ion-icon [name]="showResourcesSection ? 'chevron-up-outline' : 'chevron-down-outline'" class="resources-chevron"></ion-icon>
@@ -544,13 +544,13 @@
         <!-- Loading state -->
         <div *ngIf="isLoadingMessages" class="loading-state">
           <ion-spinner name="crescent"></ion-spinner>
-          <p>Loading messages...</p>
+          <p>{{ 'VIDEO_CALL.LOADING_MESSAGES' | translate }}</p>
         </div>
         
         <!-- Empty state -->
         <div *ngIf="!isLoadingMessages && chatMessages.length === 0" class="empty-state">
           <ion-icon name="chatbubbles-outline"></ion-icon>
-          <p>No messages yet</p>
+          <p>{{ 'VIDEO_CALL.NO_MESSAGES_YET' | translate }}</p>
         </div>
         
         <!-- Messages -->
@@ -572,9 +572,9 @@
               <div class="reply-to-content">
                 <span class="reply-to-sender">{{ message.replyTo.senderName }}</span>
                 <span class="reply-to-text" *ngIf="message.replyTo.type === 'text'">{{ message.replyTo.content }}</span>
-                <span class="reply-to-text" *ngIf="message.replyTo.type === 'image'">📷 Photo</span>
-                <span class="reply-to-text" *ngIf="message.replyTo.type === 'file'">📄 {{ message.replyTo.fileName }}</span>
-                <span class="reply-to-text" *ngIf="message.replyTo.type === 'voice'">🎤 Voice message</span>
+                <span class="reply-to-text" *ngIf="message.replyTo.type === 'image'">{{ 'VIDEO_CALL.REPLY_PHOTO' | translate }}</span>
+                <span class="reply-to-text" *ngIf="message.replyTo.type === 'file'">{{ 'VIDEO_CALL.REPLY_FILE' | translate }} {{ message.replyTo.fileName }}</span>
+                <span class="reply-to-text" *ngIf="message.replyTo.type === 'voice'">{{ 'VIDEO_CALL.REPLY_VOICE' | translate }}</span>
               </div>
             </div>
             
@@ -582,7 +582,7 @@
             <div *ngIf="isCorrection(message)" class="correction-card">
               <div class="correction-header">
                 <ion-icon name="school-outline"></ion-icon>
-                <span>Correction</span>
+                <span>{{ 'VIDEO_CALL.CORRECTION' | translate }}</span>
               </div>
               <div class="correction-body">
                 <div class="correction-row incorrect">
@@ -644,11 +644,11 @@
         <div class="context-menu-content">
           <button class="context-menu-item" (click)="onContextMenuAction('reply')">
             <ion-icon name="arrow-undo-outline"></ion-icon>
-            <span>Reply</span>
+            <span>{{ 'VIDEO_CALL.REPLY' | translate }}</span>
           </button>
           <button class="context-menu-item" (click)="onContextMenuAction('copy')" *ngIf="contextMenuMessage?.content">
             <ion-icon name="copy-outline"></ion-icon>
-            <span>Copy</span>
+            <span>{{ 'VIDEO_CALL.COPY' | translate }}</span>
           </button>
         </div>
       </div>
@@ -660,14 +660,14 @@
       <div *ngIf="replyingToMessage" class="replying-to-container">
         <div class="replying-to-header">
           <ion-icon name="arrow-undo-outline" class="reply-icon"></ion-icon>
-          <span class="replying-to-label">Replying to {{ isMyMessage(replyingToMessage) ? 'yourself' : remoteParticipantLabel }}</span>
+          <span class="replying-to-label">{{ 'VIDEO_CALL.REPLYING_TO' | translate:{ name: (isMyMessage(replyingToMessage) ? replyingToYourselfLabel : remoteParticipantLabel) } }}</span>
           <ion-icon name="close-outline" class="close-reply-icon" (click)="clearReply()"></ion-icon>
         </div>
         <div class="replying-to-preview">
           <span *ngIf="replyingToMessage.type === 'text'">{{ replyingToMessage.content }}</span>
-          <span *ngIf="replyingToMessage.type === 'image'">📷 Photo</span>
+          <span *ngIf="replyingToMessage.type === 'image'">{{ 'VIDEO_CALL.REPLY_PHOTO' | translate }}</span>
           <span *ngIf="replyingToMessage.type === 'file'">📄 {{ replyingToMessage.fileName }}</span>
-          <span *ngIf="replyingToMessage.type === 'voice'">🎤 Voice message</span>
+          <span *ngIf="replyingToMessage.type === 'voice'">{{ 'VIDEO_CALL.REPLY_VOICE' | translate }}</span>
         </div>
       </div>
       
@@ -675,17 +675,17 @@
       <div *ngIf="pendingVoiceNote" class="voice-preview">
         <div class="voice-preview-header">
           <ion-icon name="mic-circle"></ion-icon>
-          <span class="voice-preview-label">Voice note {{ pendingVoiceNote.duration }}s</span>
+          <span class="voice-preview-label">{{ 'VIDEO_CALL.VOICE_NOTE' | translate:{ duration: pendingVoiceNote.duration } }}</span>
         </div>
         <audio [src]="pendingVoiceNote.url" controls></audio>
         <div class="voice-preview-actions">
           <ion-button fill="clear" size="small" color="medium" (click)="clearPendingVoiceNote()">
             <ion-icon slot="start" name="trash-outline"></ion-icon>
-            Discard
+            {{ 'VIDEO_CALL.DISCARD' | translate }}
           </ion-button>
           <ion-button size="small" (click)="sendPendingVoiceNote()" [disabled]="isUploading">
             <ion-icon slot="start" name="send"></ion-icon>
-            Send
+            {{ 'VIDEO_CALL.SEND' | translate }}
           </ion-button>
         </div>
       </div>
@@ -694,21 +694,21 @@
       <div *ngIf="showCorrectionInput && userRole === 'tutor'" class="correction-input-container">
         <div class="correction-input-header">
           <ion-icon name="school-outline"></ion-icon>
-          <span>Add Correction</span>
+          <span>{{ 'VIDEO_CALL.ADD_CORRECTION' | translate }}</span>
           <ion-icon name="close-outline" class="close-correction" (click)="toggleCorrectionInput()"></ion-icon>
         </div>
         <div class="correction-input-fields">
           <div class="correction-field">
-            <span class="correction-field-label incorrect-label">✗ What they said</span>
-            <ion-input [(ngModel)]="correctionOriginal" placeholder="e.g. I go yesterday..." class="correction-field-input"></ion-input>
+            <span class="correction-field-label incorrect-label">{{ 'VIDEO_CALL.WHAT_THEY_SAID' | translate }}</span>
+            <ion-input [(ngModel)]="correctionOriginal" [placeholder]="'VIDEO_CALL.CORRECTION_ORIGINAL_PLACEHOLDER' | translate" class="correction-field-input"></ion-input>
           </div>
           <div class="correction-field">
-            <span class="correction-field-label correct-label">✓ Correct version</span>
-            <ion-input [(ngModel)]="correctionFixed" placeholder="e.g. I went yesterday..." class="correction-field-input" (keyup.enter)="sendCorrection()"></ion-input>
+            <span class="correction-field-label correct-label">{{ 'VIDEO_CALL.CORRECT_VERSION' | translate }}</span>
+            <ion-input [(ngModel)]="correctionFixed" [placeholder]="'VIDEO_CALL.CORRECTION_FIXED_PLACEHOLDER' | translate" class="correction-field-input" (keyup.enter)="sendCorrection()"></ion-input>
           </div>
         </div>
         <button class="correction-send-btn" (click)="sendCorrection()" [disabled]="!correctionOriginal.trim() || !correctionFixed.trim()">
-          Send Correction
+          {{ 'VIDEO_CALL.SEND_CORRECTION' | translate }}
         </button>
       </div>
       
@@ -730,7 +730,7 @@
         
         <ion-input 
           [(ngModel)]="newMessage" 
-          placeholder="Write your message..."
+          [placeholder]="'VIDEO_CALL.WRITE_MESSAGE' | translate"
           (keyup.enter)="sendMessage()"
           class="message-input"
           [disabled]="isUploading || isRecording">
@@ -744,13 +744,13 @@
         <!-- Upload progress indicator -->
         <div *ngIf="isUploading" class="upload-progress">
           <ion-spinner name="crescent"></ion-spinner>
-          <span>Uploading...</span>
+          <span>{{ 'VIDEO_CALL.UPLOADING' | translate }}</span>
         </div>
         
         <!-- Recording indicator -->
         <div *ngIf="isRecording" class="recording-indicator">
           <ion-icon name="radio-button-on" color="danger"></ion-icon>
-          <span>Recording... {{formatRecordingDuration()}}</span>
+          <span>{{ 'VIDEO_CALL.RECORDING' | translate:{ duration: recordingDurationLabel } }}</span>
         </div>
       </div>
     </div>
@@ -759,7 +759,7 @@
     <!-- Floating Notes Panel (Tutor Only) - Bottom Left -->
     <div class="floating-notes-panel" *ngIf="showNotes && userRole === 'tutor'">
       <div class="floating-notes-header">
-        <h3>Lesson Notes</h3>
+        <h3>{{ 'VIDEO_CALL.LESSON_NOTES' | translate }}</h3>
         <div class="floating-notes-header-actions">
           <span class="notes-save-status" *ngIf="notesLastSaved">
             {{ formatNotesSaveTime(notesLastSaved) }}
@@ -772,13 +772,13 @@
       
       <div class="notes-privacy-notice">
         <ion-icon name="eye-off-outline"></ion-icon>
-        <span>Not visible to student at this time</span>
+        <span>{{ 'VIDEO_CALL.NOT_VISIBLE_STUDENT' | translate }}</span>
       </div>
       
       <div class="floating-notes-content">
         <!-- Quick Impressions -->
         <div class="notes-section">
-          <label class="notes-label">Quick Impression</label>
+          <label class="notes-label">{{ 'VIDEO_CALL.QUICK_IMPRESSION' | translate }}</label>
           <div class="impressions">
             <button
               *ngFor="let option of impressionOptions"
@@ -793,7 +793,7 @@
         
         <!-- Strengths -->
         <div class="notes-section">
-          <label class="notes-label">Strengths</label>
+          <label class="notes-label">{{ 'VIDEO_CALL.STRENGTHS' | translate }}</label>
           <div class="chip-wrap">
             <button
               *ngFor="let s of strengthOptions"
@@ -807,7 +807,7 @@
         
         <!-- Areas to Improve -->
         <div class="notes-section">
-          <label class="notes-label">Areas to Improve</label>
+          <label class="notes-label">{{ 'VIDEO_CALL.AREAS_IMPROVE' | translate }}</label>
           <div class="chip-wrap">
             <button
               *ngFor="let a of improvementOptions"
@@ -821,7 +821,7 @@
         
         <!-- Error Areas -->
         <div class="notes-section">
-          <label class="notes-label">Key Error Areas</label>
+          <label class="notes-label">{{ 'VIDEO_CALL.KEY_ERROR_AREAS' | translate }}</label>
           <div class="chip-wrap">
             <button
               *ngFor="let area of errorAreaOptions"
@@ -835,10 +835,10 @@
         
         <!-- Note Text -->
         <div class="notes-section">
-          <label class="notes-label">Your Note</label>
+          <label class="notes-label">{{ 'VIDEO_CALL.YOUR_NOTE' | translate }}</label>
           <ion-textarea
             [(ngModel)]="lessonNoteText"
-            placeholder="Write your notes during the lesson..."
+            [placeholder]="'VIDEO_CALL.NOTE_PLACEHOLDER' | translate"
             rows="4"
             maxlength="1000"
             (ionInput)="autoSaveNotes()">
@@ -847,10 +847,10 @@
         
         <!-- Homework -->
         <div class="notes-section">
-          <label class="notes-label">Homework (Optional)</label>
+          <label class="notes-label">{{ 'VIDEO_CALL.HOMEWORK_OPTIONAL' | translate }}</label>
           <ion-textarea
             [(ngModel)]="lessonHomework"
-            placeholder="Suggest practice..."
+            [placeholder]="'VIDEO_CALL.HOMEWORK_PLACEHOLDER' | translate"
             rows="2"
             maxlength="500"
             (ionInput)="autoSaveNotes()">
@@ -860,7 +860,7 @@
         <!-- Save Status -->
         <div class="notes-footer" *ngIf="savingNotes">
           <ion-spinner name="crescent" size="small"></ion-spinner>
-          <span>Saving...</span>
+          <span>{{ 'VIDEO_CALL.SAVING' | translate }}</span>
         </div>
       </div>
     </div>
@@ -868,10 +868,10 @@
     <!-- Floating Vocabulary Panel (Both Roles) - Bottom Right -->
     <div class="floating-vocab-panel" *ngIf="showVocabulary">
       <div class="floating-vocab-header">
-        <h3>Vocabulary</h3>
+        <h3>{{ 'VIDEO_CALL.VOCABULARY' | translate }}</h3>
         <div class="floating-vocab-header-actions">
           <span class="vocab-save-status" *ngIf="vocabLastSaved">
-            Saved
+            {{ 'VIDEO_CALL.SAVED' | translate }}
           </span>
           <ion-button (click)="toggleVocabulary()" size="small" fill="clear">
             <ion-icon name="close-outline"></ion-icon>
@@ -883,8 +883,8 @@
         <!-- Empty state -->
         <div *ngIf="vocabularyItems.length === 0 && !isAddingVocab" class="vocab-empty-state">
           <ion-icon name="book-outline"></ion-icon>
-          <p>No words yet</p>
-          <span>Add new vocabulary during the lesson</span>
+          <p>{{ 'VIDEO_CALL.NO_WORDS_YET' | translate }}</p>
+          <span>{{ 'VIDEO_CALL.ADD_VOCAB_HINT' | translate }}</span>
         </div>
         
         <!-- Vocabulary list -->
@@ -905,21 +905,21 @@
         <!-- Add vocabulary form -->
         <div *ngIf="isAddingVocab" class="vocab-add-form">
           <div class="vocab-add-row">
-            <ion-input [(ngModel)]="newVocabWord" placeholder="Word or phrase" class="vocab-input"></ion-input>
+            <ion-input [(ngModel)]="newVocabWord" [placeholder]="'VIDEO_CALL.WORD_OR_PHRASE' | translate" class="vocab-input"></ion-input>
             <span class="vocab-add-arrow">→</span>
-            <ion-input [(ngModel)]="newVocabTranslation" placeholder="Translation" class="vocab-input"></ion-input>
+            <ion-input [(ngModel)]="newVocabTranslation" [placeholder]="'VIDEO_CALL.TRANSLATION' | translate" class="vocab-input"></ion-input>
           </div>
-          <ion-input [(ngModel)]="newVocabExample" placeholder="Example sentence (optional)" class="vocab-input vocab-example-input" (keyup.enter)="addVocabularyItem()"></ion-input>
+          <ion-input [(ngModel)]="newVocabExample" [placeholder]="'VIDEO_CALL.EXAMPLE_OPTIONAL' | translate" class="vocab-input vocab-example-input" (keyup.enter)="addVocabularyItem()"></ion-input>
           <div class="vocab-add-actions">
-            <button class="vocab-cancel-btn" (click)="cancelAddVocab()">Cancel</button>
-            <button class="vocab-save-btn" (click)="addVocabularyItem()" [disabled]="!newVocabWord.trim() || !newVocabTranslation.trim()">Add</button>
+            <button class="vocab-cancel-btn" (click)="cancelAddVocab()">{{ 'VIDEO_CALL.CANCEL' | translate }}</button>
+            <button class="vocab-save-btn" (click)="addVocabularyItem()" [disabled]="!newVocabWord.trim() || !newVocabTranslation.trim()">{{ 'VIDEO_CALL.ADD' | translate }}</button>
           </div>
         </div>
         
         <!-- Add button -->
         <button *ngIf="!isAddingVocab" class="vocab-add-btn" (click)="isAddingVocab = true">
           <ion-icon name="add-outline"></ion-icon>
-          <span>Add word</span>
+          <span>{{ 'VIDEO_CALL.ADD_WORD' | translate }}</span>
         </button>
       </div>
     </div>
@@ -927,9 +927,9 @@
     <!-- Floating Goals/Agenda Panel (Both Roles) -->
     <div class="floating-goals-panel" *ngIf="showGoals">
       <div class="floating-goals-header">
-        <h3>Lesson Goals</h3>
+        <h3>{{ 'VIDEO_CALL.LESSON_GOALS' | translate }}</h3>
         <div class="floating-goals-header-actions">
-          <span class="goals-optional-label">Optional</span>
+          <span class="goals-optional-label">{{ 'VIDEO_CALL.OPTIONAL' | translate }}</span>
           <ion-button (click)="toggleGoals()" size="small" fill="clear">
             <ion-icon name="close-outline"></ion-icon>
           </ion-button>
@@ -940,8 +940,8 @@
         <!-- Empty state -->
         <div *ngIf="goalItems.length === 0 && !isAddingGoal" class="goals-empty-state">
           <ion-icon name="flag-outline"></ion-icon>
-          <p>No goals set</p>
-          <span>Set goals to stay focused during the lesson</span>
+          <p>{{ 'VIDEO_CALL.NO_GOALS' | translate }}</p>
+          <span>{{ 'VIDEO_CALL.SET_GOALS_HINT' | translate }}</span>
         </div>
         
         <!-- Goals list -->
@@ -959,17 +959,17 @@
         
         <!-- Add goal form -->
         <div *ngIf="isAddingGoal" class="goal-add-form">
-          <ion-input [(ngModel)]="newGoalText" placeholder="What do you want to work on?" class="goal-input" (keyup.enter)="addGoalItem()"></ion-input>
+          <ion-input [(ngModel)]="newGoalText" [placeholder]="'VIDEO_CALL.GOAL_PLACEHOLDER' | translate" class="goal-input" (keyup.enter)="addGoalItem()"></ion-input>
           <div class="goal-add-actions">
-            <button class="goal-cancel-btn" (click)="cancelAddGoal()">Cancel</button>
-            <button class="goal-save-btn" (click)="addGoalItem()" [disabled]="!newGoalText.trim()">Add</button>
+            <button class="goal-cancel-btn" (click)="cancelAddGoal()">{{ 'VIDEO_CALL.CANCEL' | translate }}</button>
+            <button class="goal-save-btn" (click)="addGoalItem()" [disabled]="!newGoalText.trim()">{{ 'VIDEO_CALL.ADD' | translate }}</button>
           </div>
         </div>
         
         <!-- Add button -->
         <button *ngIf="!isAddingGoal" class="goal-add-btn" (click)="isAddingGoal = true">
           <ion-icon name="add-outline"></ion-icon>
-          <span>Add goal</span>
+          <span>{{ 'VIDEO_CALL.ADD_GOAL' | translate }}</span>
         </button>
       </div>
     </div>
@@ -980,14 +980,14 @@
         <div class="control-btn" [class.active-danger]="isMuted">
           <ion-icon [name]="isMuted ? 'mic-off' : 'mic-outline'"></ion-icon>
         </div>
-        <span class="control-label" [class.danger]="isMuted">{{ isMuted ? 'Unmute' : 'Mute' }}</span>
+        <span class="control-label" [class.danger]="isMuted">{{ (isMuted ? 'VIDEO_CALL.UNMUTE' : 'VIDEO_CALL.MUTE') | translate }}</span>
       </div>
       
       <div class="control-item" (click)="toggleVideo()">
         <div class="control-btn" [class.active-danger]="isVideoOff">
           <ion-icon [name]="isVideoOff ? 'videocam-off' : 'videocam-outline'"></ion-icon>
         </div>
-        <span class="control-label" [class.danger]="isVideoOff">{{ isVideoOff ? 'Start Video' : 'Camera' }}</span>
+        <span class="control-label" [class.danger]="isVideoOff">{{ (isVideoOff ? 'VIDEO_CALL.START_VIDEO' : 'VIDEO_CALL.CAMERA') | translate }}</span>
       </div>
       
       <div class="control-item" 
@@ -996,14 +996,14 @@
         <div class="control-btn" [class.active-primary]="isScreenSharing">
           <ion-icon [name]="isScreenSharing ? 'stop-circle-outline' : 'desktop-outline'"></ion-icon>
         </div>
-        <span class="control-label" [class.primary]="isScreenSharing">{{ isScreenSharing ? 'Stop Share' : 'Share' }}</span>
+        <span class="control-label" [class.primary]="isScreenSharing">{{ (isScreenSharing ? 'VIDEO_CALL.STOP_SHARE' : 'VIDEO_CALL.SHARE') | translate }}</span>
       </div>
       
       <div class="control-item" (click)="toggleChat()">
         <div class="control-btn" [class.active-primary]="showChat">
           <ion-icon name="chatbubble-outline"></ion-icon>
         </div>
-        <span class="control-label">Chat</span>
+        <span class="control-label">{{ 'VIDEO_CALL.CHAT' | translate }}</span>
       </div>
 
       <!-- More Menu Toggle -->
@@ -1011,14 +1011,14 @@
         <div class="control-btn" [class.active-primary]="showMoreMenu">
           <ion-icon name="grid-outline"></ion-icon>
         </div>
-        <span class="control-label" [class.primary]="showMoreMenu">More</span>
+        <span class="control-label" [class.primary]="showMoreMenu">{{ 'VIDEO_CALL.MORE' | translate }}</span>
       </div>
       
       <div class="control-item end-call" (click)="!isEndingCall && confirmEndCall()" [class.disabled]="isEndingCall">
         <div class="control-btn danger">
           <ion-icon name="call" style="transform: rotate(135deg);"></ion-icon>
         </div>
-        <span class="control-label danger">{{ isEndingCall ? 'Leaving...' : 'Leave' }}</span>
+        <span class="control-label danger">{{ (isEndingCall ? 'VIDEO_CALL.LEAVING' : 'VIDEO_CALL.LEAVE') | translate }}</span>
       </div>
     </div>
 
@@ -1029,25 +1029,25 @@
         <div class="more-menu-icon" [class.active]="showVirtualBackgroundControls">
           <ion-icon name="color-filter-outline"></ion-icon>
         </div>
-        <span class="more-menu-label">Effects</span>
+        <span class="more-menu-label">{{ 'VIDEO_CALL.EFFECTS' | translate }}</span>
       </div>
       <div class="more-menu-item" (click)="toggleWhiteboard(); toggleMoreMenu()">
         <div class="more-menu-icon" [class.active]="showWhiteboard">
           <ion-icon name="easel-outline"></ion-icon>
         </div>
-        <span class="more-menu-label">Whiteboard</span>
+        <span class="more-menu-label">{{ 'VIDEO_CALL.WHITEBOARD' | translate }}</span>
       </div>
       <div class="more-menu-item" (click)="toggleVocabulary(); toggleMoreMenu()">
         <div class="more-menu-icon" [class.active]="showVocabulary">
           <ion-icon name="book-outline"></ion-icon>
         </div>
-        <span class="more-menu-label">Vocabulary</span>
+        <span class="more-menu-label">{{ 'VIDEO_CALL.VOCABULARY' | translate }}</span>
       </div>
       <div class="more-menu-item" (click)="toggleGoals(); toggleMoreMenu()">
         <div class="more-menu-icon" [class.active]="showGoals">
           <ion-icon name="flag-outline"></ion-icon>
         </div>
-        <span class="more-menu-label">Goals</span>
+        <span class="more-menu-label">{{ 'VIDEO_CALL.GOALS' | translate }}</span>
       </div>
       <div class="more-menu-item" 
            *ngIf="userRole === 'tutor'"
@@ -1055,7 +1055,7 @@
         <div class="more-menu-icon" [class.active]="showNotes">
           <ion-icon name="document-text-outline"></ion-icon>
         </div>
-        <span class="more-menu-label">Notes</span>
+        <span class="more-menu-label">{{ 'VIDEO_CALL.NOTES' | translate }}</span>
       </div>
     </div>
 
@@ -1071,13 +1071,13 @@
   </button>
   <div class="talk-time-header">
     <ion-icon name="mic-outline" class="talk-time-icon"></ion-icon>
-    <span class="talk-time-title">Speaking Time</span>
+    <span class="talk-time-title">{{ 'VIDEO_CALL.SPEAKING_TIME' | translate }}</span>
   </div>
 
   <!-- Pre-lesson waiting state -->
   <div class="talk-time-waiting" *ngIf="isWaitingForLessonStart">
     <ion-icon name="time-outline" class="waiting-icon"></ion-icon>
-    <span class="waiting-text">Tracking starts when lesson begins</span>
+    <span class="waiting-text">{{ 'VIDEO_CALL.TRACKING_STARTS' | translate }}</span>
   </div>
 
   <!-- Active talk time tracking (only after lesson starts) -->

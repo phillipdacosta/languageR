@@ -24,6 +24,7 @@ import { RescheduleLessonModalComponent } from '../components/reschedule-lesson-
 import { RescheduleProposalModalComponent } from '../components/reschedule-proposal-modal/reschedule-proposal-modal.component';
 import { LessonSummaryComponent } from '../modals/lesson-summary/lesson-summary.component';
 import { formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
+import { translateLangToDatetimeLocale } from '../shared/datetime-locale.helper';
 import { NotesModalComponent } from '../components/notes-modal/notes-modal.component';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
 import { TutorNoteModalComponent } from '../components/tutor-note-modal/tutor-note-modal.component';
@@ -850,6 +851,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
 
     this.translateService.onLangChange.pipe(takeUntil(this.destroy$)).subscribe(() => {
       this.updateWeeklyEarningsLabels();
+      this.invalidateNextLessonCache();
+      this.refreshPreComputedTemplateValues();
       this.cdr.markForCheck();
     });
 
@@ -5674,7 +5677,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     const end = lesson.endTime
       ? new Date(lesson.endTime)
       : new Date(start.getTime() + (Number(lesson.duration) || 60) * 60000);
-    return `${formatTimeInTz(start, this.userTz, undefined, true)} – ${formatTimeInTz(end, this.userTz, undefined, true)}`;
+    const loc = this.currentLocale;
+    return `${formatTimeInTz(start, this.userTz, loc, true)} – ${formatTimeInTz(end, this.userTz, loc, true)}`;
   }
 
   /**
@@ -6154,6 +6158,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     return '';
   }
 
+  /** Clears the Up Next cache so date/time strings recompute (e.g. after locale change). */
+  private invalidateNextLessonCache(): void {
+    this._cachedFirstLessonHash = '';
+    this._cachedFirstLesson = undefined;
+  }
+
   /** Refreshes time-sensitive pre-computed fields on the cached nextLesson object. */
   private refreshNextLessonTimeSensitiveFields(): void {
     const cached = this._cachedFirstLesson;
@@ -6164,7 +6174,23 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       cached.joinLabel = this.calculateJoinLabel(cached.lesson);
       cached.joinButtonText = this.computeUpNextJoinButtonText(cached.lesson);
       cached.showStartsInLine = this.computeShowStartsInLine(cached.lesson);
+      this.refreshNextLessonLocaleFields(cached, cached.lesson);
     }
+  }
+
+  /** Recomputes locale-dependent Up Next strings (date badge, time range, duration). */
+  private refreshNextLessonLocaleFields(cached: any, lesson: Lesson): void {
+    if (!cached || !lesson?.startTime) return;
+    const lessonDate = new Date(lesson.startTime);
+    const dateBadge = this.lessonDateBadgeParts(lessonDate);
+    cached.dateBadgeMonth = dateBadge.month;
+    cached.dateBadgeDay = dateBadge.dayNum;
+    cached.dateBadgeWeekday = dateBadge.weekdayShort;
+    cached.detailTimeRange = this.formatEventDetailsTimeRange(lesson);
+    cached.durationLabel = this.computeDurationLabel(lesson);
+    cached.lessonTime = this.formatLessonTime(lesson);
+    cached.dateTag = this.getDateTag(lessonDate);
+    cached.detailDatePrimary = this.formatEventDetailsDatePrimary(lessonDate);
   }
 
   /**
@@ -6477,7 +6503,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     // MUST include both lessons and cancelledLessons since getNextLesson() checks both
     const lessonsHash = this.lessons.map(l => `${l._id}:${l.startTime}:${l.status}`).join(',');
     const cancelledHash = this.cancelledLessons.map(l => `${l._id}:${l.startTime}:${l.status}`).join(',');
-    const currentHash = `next:${lessonsHash}:${cancelledHash}:${Date.now() - (Date.now() % 60000)}`; // Update every minute
+    const currentHash = `next:${lessonsHash}:${cancelledHash}:${this.currentLocale}:${Date.now() - (Date.now() % 60000)}`; // Update every minute + on locale change
     
     // Return cached value if inputs haven't changed
     if (this._cachedFirstLessonHash === currentHash && this._cachedFirstLesson !== undefined) {
@@ -6495,7 +6521,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     // Create a hash of the inputs to detect changes
     const selectedDateStr = this.selectedDate ? this.selectedDate.toISOString() : 'null';
     const lessonsHash = this.lessons.map(l => `${l._id}:${l.startTime}:${l.status}`).join(',');
-    const currentHash = `${selectedDateStr}:${lessonsHash}:${Date.now() - (Date.now() % 60000)}`; // Update every minute
+    const currentHash = `${selectedDateStr}:${lessonsHash}:${this.currentLocale}:${Date.now() - (Date.now() % 60000)}`; // Update every minute + on locale change
     
     // Return cached value if inputs haven't changed
     if (this._cachedFirstLessonHash === currentHash && this._cachedFirstLesson !== undefined) {
@@ -7145,9 +7171,11 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   allLessonsUnfiltered: any[] = [];
   
   // Get current month label for display
-  /** Current UI locale for date/time formatting (e.g. 'en', 'fr') */
+  /** BCP 47 locale for date/time formatting, aligned with the active UI language. */
   get currentLocale(): string {
-    return this.translateService.currentLang || this.translateService.defaultLang || 'en';
+    return translateLangToDatetimeLocale(
+      this.translateService.currentLang || this.translateService.defaultLang || 'en'
+    );
   }
 
   get currentMonthLabel(): string {
@@ -7359,11 +7387,39 @@ navigateToLessons() {
     if (nl?.lesson?._id) {
       const presence = this.lessonPresence.get(String(nl.lesson._id));
       this.nextLessonOtherJoined = !!presence;
-      this.nextLessonOtherName = presence?.participantName || '';
+      this.nextLessonOtherName = presence ? this.formatUpNextOtherParticipantName(nl) : '';
     } else {
       this.nextLessonOtherJoined = false;
       this.nextLessonOtherName = '';
     }
+  }
+
+  /** "First L." for the other participant on the Up Next in-call indicator. */
+  private formatUpNextOtherParticipantName(nextClass: any): string {
+    if (nextClass?.isClass || nextClass?.lesson?.isClass) {
+      return nextClass?.name || nextClass?.lesson?.className || 'Class';
+    }
+    if (nextClass?.firstName || nextClass?.lastName) {
+      return this.isTutorUser
+        ? this.formatStudentDisplayName(nextClass)
+        : this.formatTutorDisplayName(nextClass);
+    }
+    const lesson = nextClass?.lesson as Lesson | undefined;
+    const other = lesson
+      ? (this.isTutorUser ? lesson.studentId : lesson.tutorId)
+      : null;
+    if (typeof other === 'object' && other) {
+      return this.isTutorUser
+        ? this.formatStudentDisplayName(other)
+        : this.formatTutorDisplayName(other);
+    }
+    const presence = lesson?._id
+      ? this.lessonPresence.get(String(lesson._id))
+      : null;
+    const raw = presence?.participantName || '';
+    return presence?.participantRole === 'tutor'
+      ? this.formatTutorDisplayName(raw)
+      : this.formatStudentDisplayName(raw);
   }
 
   private loadPreviousNotes() {
@@ -8474,14 +8530,15 @@ navigateToLessons() {
                 }
               }
               
+              const otherParticipant = isTutor ? detailedLesson.studentId : detailedLesson.tutorId;
+              const participantName =
+                typeof otherParticipant === 'object' && otherParticipant
+                  ? (isTutor
+                      ? this.formatStudentDisplayName(otherParticipant)
+                      : this.formatTutorDisplayName(otherParticipant))
+                  : (isTutor ? 'Student' : 'Tutor');
               this.lessonPresence.set(normalizedLessonId, {
-                participantName: isTutor 
-                  ? (detailedLesson.studentId && typeof detailedLesson.studentId === 'object' 
-                      ? (detailedLesson.studentId as any)?.name || 'Student'
-                      : 'Student')
-                  : (detailedLesson.tutorId && typeof detailedLesson.tutorId === 'object'
-                      ? (detailedLesson.tutorId as any)?.name || 'Tutor'
-                      : 'Tutor'),
+                participantName,
                 participantPicture: participantPicture,
                 participantRole: isTutor ? 'student' : 'tutor',
                 joinedAt: typeof participantData.joinedAt === 'string' 
@@ -8511,7 +8568,9 @@ navigateToLessons() {
     const other = isTutor ? lesson.studentId : lesson.tutorId;
     
     if (typeof other === 'object' && other) {
-      return (other as any)?.name || (other as any)?.email || 'Unknown';
+      return isTutor
+        ? this.formatStudentDisplayName(other)
+        : this.formatTutorDisplayName(other);
     }
     
     return 'Unknown';

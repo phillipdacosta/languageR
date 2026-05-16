@@ -134,6 +134,15 @@ export class LanguageService {
       .subscribe(() => fn());
   }
 
+  /** Emits once when all locale JSON bundles are registered with ngx-translate. */
+  public whenTranslationsReady(): Observable<boolean> {
+    return this.translationsBootstrapped.pipe(filter((ready) => ready === true), take(1));
+  }
+
+  public areTranslationsReady(): boolean {
+    return this.translationsBootstrapped.value;
+  }
+
   /**
    * Initialize language with smart detection priority:
    * 1. User profile language (if provided)

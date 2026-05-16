@@ -11,8 +11,19 @@ import { TranscriptionService, LessonAnalysis } from '../services/transcription.
 import { ReminderService } from '../services/reminder.service';
 import { firstValueFrom } from 'rxjs';
 import { Subject, Subscription, takeUntil } from 'rxjs';
-import { LearningPlanService, LearningPlanSummary, GOAL_TYPE_LABELS } from '../services/learning-plan.service';
+import { LearningPlanService, LearningPlanSummary } from '../services/learning-plan.service';
 import { AnalysisTranslationService } from '../services/analysis-translation.service';
+import { TranslateService } from '@ngx-translate/core';
+import { LanguageService } from '../services/language.service';
+
+const GOAL_TYPE_I18N_KEYS: Record<string, string> = {
+  conversational: 'LEARNING_PLAN.GOAL_LABEL_CONVERSATIONAL',
+  exam_prep: 'LEARNING_PLAN.GOAL_LABEL_EXAM_PREP',
+  professional: 'LEARNING_PLAN.GOAL_LABEL_PROFESSIONAL',
+  travel: 'LEARNING_PLAN.GOAL_LABEL_TRAVEL',
+  relocation: 'LEARNING_PLAN.GOAL_LABEL_RELOCATION',
+  other: 'LEARNING_PLAN.GOAL_LABEL_OTHER',
+};
 
 @Component({
   selector: 'app-pre-call',
@@ -74,6 +85,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
   previousLessonNotes: LessonAnalysis | null = null;
   originalPreviousLessonNotes: LessonAnalysis | null = null;
   loadingPreviousNotes = false;
+  previousNotesChecked = false;
   prevNotesAnalysisId: string | null = null;
   prevNotesTranslating = false;
   prevNotesShowingTranslation = false;
@@ -90,12 +102,11 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
   
   // Student lesson intent
   selectedIntent: string | null = null;
-  intentOptions = [
-    { id: 'easy', emoji: '😌', label: 'Keep it light' },
-    { id: 'conversational', emoji: '💬', label: 'Conversational' },
-    { id: 'focused', emoji: '🎯', label: 'Focused' },
-    { id: 'challenge', emoji: '🔥', label: 'Challenge me' },
-  ];
+  intentOptions: { id: string; emoji: string; label: string }[] = [];
+
+  previewTitle = '';
+  lessonSubtitle = '';
+  presenceJoinedLine = '';
 
   // Error recovery
   showRetryButton = false;
@@ -126,10 +137,19 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
     private cdr: ChangeDetectorRef,
     private reminderService: ReminderService,
     private learningPlanService: LearningPlanService,
-    private analysisTranslation: AnalysisTranslationService
+    private analysisTranslation: AnalysisTranslationService,
+    private translate: TranslateService,
+    private languageService: LanguageService
   ) {}
 
   async ngOnInit() {
+    this.languageService.whenTranslationsReady().pipe(takeUntil(this.destroy$)).subscribe(() => {
+      this.applyI18n();
+    });
+    this.translate.onLangChange.pipe(takeUntil(this.destroy$)).subscribe(() => {
+      this.applyI18n();
+    });
+
     const params = this.route.snapshot.queryParams;
     this.lessonId = params['lessonId'] || '';
     this.isClass = params['isClass'] === 'true';
@@ -163,8 +183,8 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
       this.isTutor = false;
       this.waitingForTutorAcceptance = true;
       this.tutorHasAccepted = false;
-      this.lessonTitle = 'Waiting for Tutor...';
-      this.participantName = 'Tutor will join soon';
+      this.lessonTitle = this.t('PRE_CALL.WAITING_FOR_TUTOR_TITLE');
+      this.participantName = this.t('PRE_CALL.TUTOR_JOIN_SOON');
       
       // Connect to WebSocket to listen for tutor acceptance
       console.log('🔌 Connecting to WebSocket...');
@@ -199,7 +219,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
               
               // Show success notification
               const toast = await this.toastController.create({
-                message: `${acceptance.tutorName} is ready! You can now enter the classroom.`,
+                message: this.t('PRE_CALL.TUTOR_READY_TOAST', { name: acceptance.tutorName }),
                 duration: 4000,
                 color: 'success',
                 icon: 'checkmark-circle',
@@ -221,6 +241,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
               this.otherParticipantJoined = true;
               this.otherParticipantName = presence.participantName;
               this.otherParticipantPicture = presence.participantPicture || '';
+              this.refreshPresenceJoinedLine();
               this.cdr.detectChanges();
             }
           });
@@ -268,8 +289,8 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
       console.log('⚡ Office Hours Waiting Room Mode');
       this.isTutor = true;
       this.isOfficeHoursWaitingRoom = true;
-      this.lessonTitle = 'Office Hours - Waiting Room';
-      this.participantName = 'Waiting for student...';
+      this.lessonTitle = this.t('PRE_CALL.OFFICE_HOURS_WAITING_ROOM');
+      this.participantName = this.t('PRE_CALL.WAITING_FOR_STUDENT');
       this.isLoading = false;
       
       // Ensure office hours are enabled when entering waiting room
@@ -303,7 +324,9 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
     console.log('✅ Pre-call in regular mode (not waiting room), lessonId:', this.lessonId, 'isOfficeHoursWaitingRoom:', this.isOfficeHoursWaitingRoom);
     
     if (!this.lessonId) {
-      this.errorMessage = this.isClass ? 'Class ID is required' : 'Lesson ID is required';
+      this.errorMessage = this.isClass
+        ? this.t('PRE_CALL.CLASS_ID_REQUIRED')
+        : this.t('PRE_CALL.LESSON_ID_REQUIRED');
       this.isLoading = false;
       console.log('❌ No lessonId provided, stopping initialization');
       return;
@@ -353,6 +376,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
           this.otherParticipantJoined = true;
           this.otherParticipantName = presence.participantName;
           this.otherParticipantPicture = presence.participantPicture || '';
+          this.refreshPresenceJoinedLine();
         }
       });
     
@@ -391,6 +415,9 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
 
   ionViewWillEnter() {
     this.refreshPrevNotesTranslationState();
+    if (this.languageService.areTranslationsReady()) {
+      this.applyI18n();
+    }
   }
 
   async ngAfterViewInit() {
@@ -443,11 +470,11 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
       if (session?.status === 'completed') {
         console.log('⛔ Lesson already completed, preventing rejoin');
         const alert = await this.alertController.create({
-          header: 'Lesson Already Ended',
-          message: 'This lesson has already been completed and cannot be rejoined.',
+          header: this.t('PRE_CALL.LESSON_ALREADY_ENDED_HEADER'),
+          message: this.t('PRE_CALL.LESSON_ALREADY_ENDED_MESSAGE'),
           buttons: [
             {
-              text: 'OK',
+              text: this.t('COMMON.OK'),
               handler: () => {
                 this.router.navigate(['/tabs/home']);
               }
@@ -490,11 +517,12 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
         // For tutors, show student info. For students, show tutor info.
         if (this.isTutor) {
           this.participantName = this.studentName;
-          this.lessonTitle = `Class with ${this.studentName}`;
+          this.lessonTitle = this.t('PRE_CALL.CLASS_WITH', { name: this.studentName });
         } else {
           this.participantName = this.tutorName;
-          this.lessonTitle = `${this.tutorName}'s Lesson`;
+          this.lessonTitle = this.t('PRE_CALL.LESSON_WITH', { name: this.tutorName });
         }
+        this.refreshLessonSubtitle();
         
         // Check if the other participant has already joined
         // The lesson.participants object contains join/leave info
@@ -536,6 +564,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
                 this.otherParticipantName = this.tutorName;
                 this.otherParticipantPicture = lesson.tutorId?.picture || '';
               }
+              this.refreshPresenceJoinedLine();
             } else {
               console.log('⏳ Other participant not yet in lesson');
             }
@@ -548,9 +577,12 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
       }
     } catch (error) {
       console.error('Error loading session details:', error);
-      this.lessonTitle = this.isClass ? 'Language Class' : 'Language Lesson';
-      this.tutorName = 'Tutor';
-      this.studentName = 'Student';
+      this.lessonTitle = this.isClass
+        ? this.t('PRE_CALL.LANGUAGE_CLASS')
+        : this.t('PRE_CALL.LANGUAGE_LESSON');
+      this.tutorName = this.t('PRE_CALL.DEFAULT_TUTOR');
+      this.studentName = this.t('PRE_CALL.DEFAULT_STUDENT');
+      this.refreshLessonSubtitle();
       this.participantName = this.isTutor ? this.studentName : this.tutorName;
       // Still allow entry even if lesson details partially failed
       this.isLessonReady = true;
@@ -565,6 +597,9 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
         isOfficeHoursWaitingRoom: this.isOfficeHoursWaitingRoom,
         buttonShouldBeEnabled: this.isLessonReady && !this.isOfficeHoursWaitingRoom
       });
+      if (this.languageService.areTranslationsReady()) {
+        this.applyI18n();
+      }
     }
   }
 
@@ -635,11 +670,11 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
       this.isLoading = false;
       
       if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-        this.errorMessage = 'Camera and microphone permissions are required. Please allow access and try again.';
+        this.errorMessage = this.t('PRE_CALL.ERROR_PERMISSION');
       } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-        this.errorMessage = 'No camera or microphone found. Please connect a device and try again.';
+        this.errorMessage = this.t('PRE_CALL.ERROR_NO_DEVICE');
       } else {
-        this.errorMessage = 'Unable to access camera or microphone. Please check your device settings and try again.';
+        this.errorMessage = this.t('PRE_CALL.ERROR_DEVICE_ACCESS');
       }
       
       // Add retry button functionality
@@ -666,6 +701,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
     // and the UI will show the audio level at 0% when muted
     
     console.log(`🎤 Microphone state toggled: ${this.isMuted ? 'muted' : 'unmuted'} (for call entry only - audio monitoring continues)`);
+    this.refreshLocalizedStrings();
   }
 
   async toggleCamera() {
@@ -714,23 +750,25 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
       
       // Update video element
       this.updateVideoPreview();
+      this.refreshLocalizedStrings();
     } else if (!this.isVideoOff) {
       // If stream doesn't exist and user wants to enable video, request it
       await this.setupPreview();
     }
+    this.refreshLocalizedStrings();
   }
 
   async testDevices() {
     const alert = await this.alertController.create({
-      header: 'Test Devices',
-      message: 'This will open device settings. You can test your microphone and camera here.',
+      header: this.t('PRE_CALL.TEST_DEVICES_HEADER'),
+      message: this.t('PRE_CALL.TEST_DEVICES_MESSAGE'),
       buttons: [
         {
-          text: 'Cancel',
+          text: this.t('PRE_CALL.CANCEL'),
           role: 'cancel'
         },
         {
-          text: 'Open Settings',
+          text: this.t('PRE_CALL.OPEN_SETTINGS'),
           handler: () => {
             // Request devices again to trigger permission dialog
             this.setupPreview();
@@ -769,7 +807,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
     }
     
     const loading = await this.loadingController.create({
-      message: 'Entering classroom...',
+      message: this.t('PRE_CALL.ENTERING_CLASSROOM'),
       spinner: 'crescent'
     });
     await loading.present();
@@ -819,7 +857,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
       await loading.dismiss();
       
       // Extract error message from Error object
-      let errorMessage = 'Failed to enter classroom';
+      let errorMessage = this.t('PRE_CALL.FAILED_ENTER_CLASSROOM');
       if (error?.message) {
         errorMessage = error.message;
       } else if (error?.error?.message) {
@@ -827,9 +865,9 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
       }
       
       const alert = await this.alertController.create({
-        header: 'Unable to Join Lesson',
+        header: this.t('PRE_CALL.UNABLE_TO_JOIN_HEADER'),
         message: errorMessage,
-        buttons: ['OK']
+        buttons: [this.t('COMMON.OK')]
       });
       await alert.present();
     }
@@ -1011,6 +1049,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
           this.previousLessonNotes = analysis;
           this.originalPreviousLessonNotes = { ...analysis };
           this.loadingPreviousNotes = false;
+          this.previousNotesChecked = true;
           this.initPrevNotesTranslation(analysis);
         },
         error: (error) => {
@@ -1020,12 +1059,14 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
           });
           this.previousLessonNotes = null;
           this.loadingPreviousNotes = false;
+          this.previousNotesChecked = true;
         }
       });
     } catch (error) {
       console.error('❌ Error loading previous lesson notes:', error);
       this.previousLessonNotes = null;
       this.loadingPreviousNotes = false;
+      this.previousNotesChecked = true;
     }
   }
 
@@ -1041,13 +1082,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
           if (res.success && res.summaries?.length) {
             const summary = res.summaries[0];
             this.planSummary = summary;
-            this.planGoalLabel = GOAL_TYPE_LABELS[summary.goal?.type] || summary.goal?.description || '';
-            this.planPhaseLabel = summary.currentPhase
-              ? `Phase ${summary.currentPhaseIndex + 1} of ${summary.totalPhases}: ${summary.currentPhase.title}`
-              : '';
-            this.planNextFocus = summary.nextLessonFocus || '';
-            this.planStudentSummary = summary.studentSummary || '';
-            this.planSelfAssessedLevel = summary.selfAssessedLevel || '';
+            this.applyPlanSummaryLabels(summary);
             this.hasPlanData = true;
             this.cdr.detectChanges();
           }
@@ -1309,9 +1344,11 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
       console.error('❌ Failed to set background blur:', error);
       
       const alert = await this.alertController.create({
-        header: 'Background Blur Error',
-        message: `Failed to enable background blur: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        buttons: ['OK']
+        header: this.t('PRE_CALL.BLUR_ERROR_HEADER'),
+        message: this.t('PRE_CALL.BLUR_ERROR_MESSAGE', {
+          error: error instanceof Error ? error.message : this.t('PRE_CALL.UNKNOWN_ERROR'),
+        }),
+        buttons: [this.t('COMMON.OK')]
       });
       await alert.present();
     }
@@ -1348,9 +1385,11 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
       console.error('❌ Failed to set background color:', error);
       
       const alert = await this.alertController.create({
-        header: 'Background Color Error',
-        message: `Failed to set background color: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        buttons: ['OK']
+        header: this.t('PRE_CALL.COLOR_ERROR_HEADER'),
+        message: this.t('PRE_CALL.COLOR_ERROR_MESSAGE', {
+          error: error instanceof Error ? error.message : this.t('PRE_CALL.UNKNOWN_ERROR'),
+        }),
+        buttons: [this.t('COMMON.OK')]
       });
       await alert.present();
     }
@@ -1708,11 +1747,11 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
     
     // Show alert to student
     const alert = await this.alertController.create({
-      header: 'Session Expired',
-      message: 'You took too long to enter the classroom. The session has been cancelled to avoid wasting the tutor\'s time. You have not been charged.',
+      header: this.t('PRE_CALL.SESSION_EXPIRED_HEADER'),
+      message: this.t('PRE_CALL.SESSION_EXPIRED_MESSAGE'),
       buttons: [
         {
-          text: 'Find Another Tutor',
+          text: this.t('PRE_CALL.FIND_ANOTHER_TUTOR'),
           handler: async () => {
             console.log('🚪 Student timeout - using goBack() logic');
             
@@ -1808,11 +1847,11 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
       this.stopHeartbeat();
       
       const alert = await this.alertController.create({
-        header: '⚠️ Schedule Conflict',
-        message: err.error?.message || 'You have a lesson/class starting soon. Office Hours have been disabled.',
+        header: this.t('PRE_CALL.SCHEDULE_CONFLICT_HEADER'),
+        message: err.error?.message || this.t('PRE_CALL.SCHEDULE_CONFLICT_MESSAGE'),
         buttons: [
           {
-            text: 'OK',
+            text: this.t('COMMON.OK'),
             handler: () => {
               this.router.navigate(['/tabs/tutor-calendar']);
             }
@@ -1854,9 +1893,9 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
       await this.userService.toggleOfficeHours(false).toPromise();
       
       const alert = await this.alertController.create({
-        header: 'Office Hours Disabled',
-        message: 'You missed a student request. Office Hours have been automatically disabled. Please only enable when you\'re actively monitoring.',
-        buttons: ['OK']
+        header: this.t('PRE_CALL.OFFICE_HOURS_DISABLED_HEADER'),
+        message: this.t('PRE_CALL.MISSED_REQUEST_MESSAGE'),
+        buttons: [this.t('COMMON.OK')]
       });
       await alert.present();
       
@@ -1943,7 +1982,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
       } catch (error) {
         console.error('⚠️ Failed to restart camera preview after acceptance:', error);
         // Don't block the flow - user can manually retry or continue without preview
-        this.errorMessage = 'Camera preview failed to restart. You can still enter the classroom.';
+        this.errorMessage = this.t('PRE_CALL.ERROR_PREVIEW_RESTART');
       }
       
       // Setup presence listeners (these weren't set up in waiting room mode)
@@ -1963,6 +2002,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
             this.otherParticipantJoined = true;
             this.otherParticipantName = presence.participantName;
             this.otherParticipantPicture = presence.participantPicture || '';
+            this.refreshPresenceJoinedLine();
           }
         });
       
@@ -2034,17 +2074,17 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
       
       // Show clear notification to tutor
       const alert = await this.alertController.create({
-        header: 'Office Hours Disabled',
-        message: 'Your Office Hours have been automatically disabled to prevent student confusion. You can re-enable them anytime from your calendar.',
+        header: this.t('PRE_CALL.OFFICE_HOURS_DISABLED_HEADER'),
+        message: this.t('PRE_CALL.OH_DISABLED_AFTER_DECLINE'),
         buttons: [
           {
-            text: 'OK',
+            text: this.t('COMMON.OK'),
             handler: () => {
               this.router.navigate(['/tabs/tutor-calendar']);
             }
           },
           {
-            text: 'Re-enable Now',
+            text: this.t('PRE_CALL.RE_ENABLE_NOW'),
             handler: async () => {
               try {
                 await this.userService.toggleOfficeHours(true).toPromise();
@@ -2053,7 +2093,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
                 this.router.navigate(['/tabs/tutor-calendar']);
                 
                 const toast = await this.toastController.create({
-                  message: '✅ Office Hours re-enabled',
+                  message: this.t('PRE_CALL.OH_RE_ENABLED'),
                   duration: 2000,
                   color: 'success',
                   position: 'top'
@@ -2099,20 +2139,23 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
     }
 
     // Show alert to user
+    const cancelMessage = this.isTutor
+      ? (cancellation.cancelledBy === 'student'
+          ? this.t('PRE_CALL.STUDENT_TIMEOUT_TUTOR_MSG')
+          : this.t('PRE_CALL.SESSION_CANCELLED_MSG'))
+      : (cancellation.cancelledBy === 'tutor'
+          ? this.t('PRE_CALL.TUTOR_UNAVAILABLE_MSG')
+          : this.t('PRE_CALL.STUDENT_CANCELLED_MSG'));
     const alert = await this.alertController.create({
-      header: this.isTutor ? 'Session Cancelled' : 'Session Unavailable',
-      message: this.isTutor
-        ? (cancellation.cancelledBy === 'student' 
-            ? `The student didn't enter the classroom in time, so the session was cancelled. You can continue waiting for other students.`
-            : `The session has been cancelled.`)
-        : (cancellation.cancelledBy === 'tutor' 
-            ? `Something came up for this tutor and they're unable to join right now. Don't worry—you haven't been charged! Try finding another available tutor in the search.`
-            : `The student has cancelled this session.`),
+      header: this.isTutor
+        ? this.t('PRE_CALL.SESSION_CANCELLED_HEADER')
+        : this.t('PRE_CALL.SESSION_UNAVAILABLE_HEADER'),
+      message: cancelMessage,
       buttons: [
         {
-          text: this.isTutor 
-            ? (cancellation.cancelledBy === 'student' ? 'OK' : 'Continue Waiting')
-            : 'Find Tutors',
+          text: this.isTutor
+            ? (cancellation.cancelledBy === 'student' ? this.t('COMMON.OK') : this.t('PRE_CALL.CONTINUE_WAITING'))
+            : this.t('PRE_CALL.FIND_TUTORS'),
           handler: async () => {
             if (this.isTutor) {
               // Tutor: Stay in waiting room and re-enable office hours if student timed out
@@ -2125,8 +2168,8 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
                   // Restore waiting room state to listen for new requests
                   console.log('🔄 Restoring office hours waiting room state');
                   this.isOfficeHoursWaitingRoom = true;
-                  this.lessonTitle = 'Office Hours - Waiting Room';
-                  this.participantName = 'Waiting for student...';
+                  this.lessonTitle = this.t('PRE_CALL.OFFICE_HOURS_WAITING_ROOM');
+                  this.participantName = this.t('PRE_CALL.WAITING_FOR_STUDENT');
                   this.lessonId = ''; // Clear the cancelled lesson ID
                   
                   // Restart heartbeat to show as actively available in tutor search
@@ -2284,6 +2327,106 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
         this.cdr.detectChanges();
       }
     });
+  }
+
+  private t(key: string, params?: Record<string, string | number>): string {
+    return this.translate.instant(key, params);
+  }
+
+  private applyI18n(): void {
+    this.refreshLocalizedStrings();
+    this.refreshLessonTitles();
+    if (this.planSummary) {
+      this.applyPlanSummaryLabels(this.planSummary);
+    }
+    this.cdr.detectChanges();
+  }
+
+  private refreshLocalizedStrings(): void {
+    this.previewTitle = this.t('PRE_CALL.PREVIEW_TITLE', {
+      mic: this.t(this.isMuted ? 'PRE_CALL.MIC_OFF' : 'PRE_CALL.MIC_ON'),
+      camera: this.t(this.isVideoOff ? 'PRE_CALL.CAMERA_OFF' : 'PRE_CALL.CAMERA_ON'),
+    });
+    this.intentOptions = [
+      { id: 'easy', emoji: '😌', label: this.t('PRE_CALL.INTENT_EASY') },
+      { id: 'conversational', emoji: '💬', label: this.t('PRE_CALL.INTENT_CONVERSATIONAL') },
+      { id: 'focused', emoji: '🎯', label: this.t('PRE_CALL.INTENT_FOCUSED') },
+      { id: 'challenge', emoji: '🔥', label: this.t('PRE_CALL.INTENT_CHALLENGE') },
+    ];
+    this.refreshLessonSubtitle();
+    this.refreshPresenceJoinedLine();
+  }
+
+  private refreshLessonSubtitle(): void {
+    const studentFallback = this.t('PRE_CALL.YOUR_STUDENT');
+    const tutorFallback = this.t('PRE_CALL.YOUR_TUTOR');
+    if (this.isTutor && !this.isTrialLesson) {
+      this.lessonSubtitle = this.t('PRE_CALL.TUTOR_SUBTITLE_REGULAR', {
+        name: this.studentName || studentFallback,
+      });
+    } else if (this.isTutor && this.isTrialLesson) {
+      this.lessonSubtitle = this.t('PRE_CALL.TUTOR_SUBTITLE_TRIAL', {
+        name: this.studentName || studentFallback,
+      });
+    } else if (!this.isTutor && !this.isTrialLesson) {
+      this.lessonSubtitle = this.t('PRE_CALL.STUDENT_SUBTITLE_REGULAR');
+    } else {
+      this.lessonSubtitle = this.t('PRE_CALL.STUDENT_SUBTITLE_TRIAL', {
+        name: this.tutorName || tutorFallback,
+      });
+    }
+  }
+
+  private refreshPresenceJoinedLine(): void {
+    const fallback = this.isTutor ? this.t('PRE_CALL.STUDENT') : this.t('PRE_CALL.TUTOR');
+    const name = this.otherParticipantName || fallback;
+    this.presenceJoinedLine = this.t('PRE_CALL.PARTICIPANT_JOINED', { name });
+  }
+
+  private refreshLessonTitles(): void {
+    if (this.waitingForTutorAcceptance) {
+      this.lessonTitle = this.t('PRE_CALL.WAITING_FOR_TUTOR_TITLE');
+      this.participantName = this.t('PRE_CALL.TUTOR_JOIN_SOON');
+      this.refreshLessonSubtitle();
+      return;
+    }
+    if (this.isOfficeHoursWaitingRoom && !this.lessonId) {
+      this.lessonTitle = this.t('PRE_CALL.OFFICE_HOURS_WAITING_ROOM');
+      this.participantName = this.t('PRE_CALL.WAITING_FOR_STUDENT');
+      this.refreshLessonSubtitle();
+      return;
+    }
+    if (this.isTutor && this.studentName) {
+      this.lessonTitle = this.t('PRE_CALL.CLASS_WITH', { name: this.studentName });
+    } else if (!this.isTutor && this.tutorName) {
+      this.lessonTitle = this.t('PRE_CALL.LESSON_WITH', { name: this.tutorName });
+    } else if (!this.lessonTitle) {
+      this.lessonTitle = this.isClass
+        ? this.t('PRE_CALL.LANGUAGE_CLASS')
+        : this.t('PRE_CALL.LANGUAGE_LESSON');
+    }
+    this.refreshLessonSubtitle();
+  }
+
+  private goalLabelForType(type: string | undefined, description?: string): string {
+    if (type && GOAL_TYPE_I18N_KEYS[type]) {
+      return this.t(GOAL_TYPE_I18N_KEYS[type]);
+    }
+    return description || '';
+  }
+
+  private applyPlanSummaryLabels(summary: LearningPlanSummary): void {
+    this.planGoalLabel = this.goalLabelForType(summary.goal?.type, summary.goal?.description);
+    this.planPhaseLabel = summary.currentPhase
+      ? this.t('PRE_CALL.PHASE_LABEL', {
+          current: String(summary.currentPhaseIndex + 1),
+          total: String(summary.totalPhases),
+          title: summary.currentPhase.title,
+        })
+      : '';
+    this.planNextFocus = summary.nextLessonFocus || '';
+    this.planStudentSummary = summary.studentSummary || '';
+    this.planSelfAssessedLevel = summary.selfAssessedLevel || '';
   }
 }
 

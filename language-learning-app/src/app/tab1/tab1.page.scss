@@ -3825,7 +3825,7 @@ right: 26px;
 }
 
 .upnext-filled-schedule-duration {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 500;
   color: #8e8e93;
   letter-spacing: 0.02em;
@@ -10391,21 +10391,13 @@ right: 26px;
 }
 
 .participant-in-call {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 85px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  z-index: 2;
+  margin: 4px 0 0;
   pointer-events: none;
   animation: fadeInCall 0.4s ease-out;
-
-  @media (max-width: 600px) {
-    bottom: 56px;
-  }
 
   .in-call-dot {
     width: 7px;

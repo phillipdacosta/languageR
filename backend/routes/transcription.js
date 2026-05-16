@@ -176,6 +176,142 @@ async function analyzeAudioEnergy(audioBuffer, mimeType = 'audio/mpeg') {
 }
 
 /**
+ * Run ffmpeg silencedetect on an audio buffer and return the list of
+ * speech intervals (the inverse of silence) in seconds, relative to the
+ * start of the buffer. Used to derive tutor speech windows from the
+ * remote Agora audio track for mic-bleed filtering.
+ *
+ * Returns: {
+ *   intervals: Array<{ startSec: number, endSec: number }>,
+ *   durationSeconds: number,
+ *   rmsLevelDb: number,
+ *   silenceRatio: number
+ * }
+ */
+async function extractSpeechIntervals(audioBuffer, mimeType = 'audio/webm') {
+  return new Promise((resolve) => {
+    const inputStream = Readable.from(audioBuffer);
+    let stderrOutput = '';
+
+    const defaultResult = { intervals: [], durationSeconds: 0, rmsLevelDb: -91, silenceRatio: 1 };
+
+    ffmpeg(inputStream)
+      .audioChannels(1)
+      .audioFrequency(16000)
+      .audioFilters([
+        // Slightly more sensitive than the student-side VAD because the tutor
+        // signal is already clean and loud (it's the original Agora stream,
+        // not a re-captured one). 0.4s minimum silence avoids splitting
+        // natural pauses inside a tutor sentence into many intervals.
+        'silencedetect=noise=-40dB:d=0.4',
+        'astats=metadata=1:reset=0'
+      ])
+      .format('null')
+      .on('stderr', (line) => {
+        stderrOutput += line + '\n';
+      })
+      .on('error', (err) => {
+        console.warn('⚠️ Tutor reference VAD failed (non-critical):', err.message);
+        resolve(defaultResult);
+      })
+      .on('end', () => {
+        try {
+          const rmsMatch = stderrOutput.match(/RMS level dB:\s*([-\d.]+)/);
+          const durationMatch = stderrOutput.match(/Duration:\s*(\d+):(\d+):([\d.]+)/);
+
+          const rmsLevelDb = rmsMatch ? parseFloat(rmsMatch[1]) : -91;
+          let durationSeconds = 0;
+          if (durationMatch) {
+            durationSeconds = parseInt(durationMatch[1]) * 3600 + parseInt(durationMatch[2]) * 60 + parseFloat(durationMatch[3]);
+          }
+
+          const silenceStarts = [...stderrOutput.matchAll(/silence_start:\s*([\d.]+)/g)].map(m => parseFloat(m[1]));
+          const silenceEnds = [...stderrOutput.matchAll(/silence_end:\s*([\d.]+)/g)].map(m => parseFloat(m[1]));
+
+          // Build silence intervals first
+          const silenceIntervals = [];
+          let totalSilence = 0;
+          for (let i = 0; i < Math.max(silenceStarts.length, silenceEnds.length); i++) {
+            const start = i < silenceStarts.length ? silenceStarts[i] : 0;
+            const end = i < silenceEnds.length ? silenceEnds[i] : (durationSeconds > 0 ? durationSeconds : start);
+            if (end > start) {
+              silenceIntervals.push({ startSec: start, endSec: end });
+              totalSilence += end - start;
+            }
+          }
+
+          // Invert silence intervals to get speech intervals
+          const intervals = [];
+          let cursor = 0;
+          for (const s of silenceIntervals) {
+            if (s.startSec > cursor + 0.01) {
+              intervals.push({ startSec: Math.max(0, cursor), endSec: s.startSec });
+            }
+            cursor = Math.max(cursor, s.endSec);
+          }
+          if (durationSeconds > cursor + 0.01) {
+            intervals.push({ startSec: cursor, endSec: durationSeconds });
+          }
+
+          const silenceRatio = durationSeconds > 0 ? totalSilence / durationSeconds : 1;
+          const merged = mergeIntervals(intervals, 0.2);
+
+          console.log(`🎯 Tutor speech intervals: ${merged.length} intervals across ${durationSeconds.toFixed(1)}s (RMS=${rmsLevelDb}dB, silence=${(silenceRatio * 100).toFixed(1)}%)`);
+
+          resolve({
+            intervals: merged,
+            durationSeconds,
+            rmsLevelDb,
+            silenceRatio: Math.round(silenceRatio * 1000) / 1000
+          });
+        } catch (parseErr) {
+          console.warn('⚠️ Failed to parse tutor reference VAD output:', parseErr.message);
+          resolve(defaultResult);
+        }
+      })
+      .save('/dev/null');
+  });
+}
+
+/**
+ * Merge intervals that are within `gapTolerance` seconds of each other so
+ * that natural micro-pauses inside the tutor's speech don't fragment the
+ * interval list.
+ */
+function mergeIntervals(intervals, gapTolerance = 0.2) {
+  if (!intervals || intervals.length === 0) return [];
+  const sorted = [...intervals].sort((a, b) => a.startSec - b.startSec);
+  const result = [sorted[0]];
+  for (let i = 1; i < sorted.length; i++) {
+    const last = result[result.length - 1];
+    const cur = sorted[i];
+    if (cur.startSec <= last.endSec + gapTolerance) {
+      last.endSec = Math.max(last.endSec, cur.endSec);
+    } else {
+      result.push({ ...cur });
+    }
+  }
+  return result;
+}
+
+/**
+ * Returns true if [segStart, segEnd] overlaps any of the provided tutor
+ * speech intervals, applying a small symmetric tolerance to absorb the
+ * minor drift between the student-side and tutor-side recorders.
+ */
+function segmentOverlapsTutor(segStart, segEnd, tutorIntervals, toleranceSec = 0.3) {
+  if (!tutorIntervals || tutorIntervals.length === 0) return false;
+  const lo = segStart - toleranceSec;
+  const hi = segEnd + toleranceSec;
+  for (const iv of tutorIntervals) {
+    if (iv.endSec >= lo && iv.startSec <= hi) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Get target language from student's profile
  */
 async function getTargetLanguageFromStudent(studentId) {
@@ -876,6 +1012,71 @@ router.post('/:transcriptId/audio', verifyToken, upload.single('audio'), async (
 });
 
 /**
+ * @route   POST /api/transcription/:transcriptId/tutor-reference
+ * @desc    Receive the tutor's clean Agora remote-audio track and extract
+ *          the time intervals where the tutor was actually speaking. These
+ *          intervals are later used to filter out student-tagged segments
+ *          that overlap (microphone bleed from the student's speakers back
+ *          into their mic).
+ *
+ *          The audio is NOT transcribed — we only need to know WHEN the
+ *          tutor was talking. VAD is essentially free (ffmpeg silencedetect)
+ *          so this adds no per-lesson cost.
+ * @access  Private
+ */
+router.post('/:transcriptId/tutor-reference', verifyToken, upload.single('audio'), async (req, res) => {
+  try {
+    const { transcriptId } = req.params;
+
+    console.log('🎯 ========== TUTOR REFERENCE UPLOAD RECEIVED ==========');
+    console.log('🎯 Transcript ID:', transcriptId);
+    console.log('🎯 Has file:', !!req.file);
+    console.log('🎯 File size:', req.file?.size, 'bytes');
+    console.log('🎯 File mimetype:', req.file?.mimetype);
+
+    if (!req.file) {
+      console.error('❌ No tutor reference audio file in request');
+      return res.status(400).json({ message: 'Audio file is required' });
+    }
+
+    const transcript = await LessonTranscript.findById(transcriptId);
+    if (!transcript) {
+      console.error('❌ Transcript not found:', transcriptId);
+      return res.status(404).json({ message: 'Transcript not found' });
+    }
+
+    const vadResult = await extractSpeechIntervals(req.file.buffer, req.file.mimetype);
+
+    transcript.tutorSpeechIntervals = vadResult.intervals;
+    transcript.tutorReferenceMeta = {
+      durationSeconds: vadResult.durationSeconds,
+      rmsLevelDb: vadResult.rmsLevelDb,
+      silenceRatio: vadResult.silenceRatio,
+      processedAt: new Date(),
+      sizeBytes: req.file.size
+    };
+
+    await transcript.save();
+
+    const totalSpeechSec = vadResult.intervals.reduce((sum, iv) => sum + (iv.endSec - iv.startSec), 0);
+    console.log(`✅ Tutor reference processed: ${vadResult.intervals.length} speech intervals, ${totalSpeechSec.toFixed(1)}s of speech in ${vadResult.durationSeconds.toFixed(1)}s of audio`);
+    console.log('🎯 ========== TUTOR REFERENCE UPLOAD COMPLETE ==========');
+
+    res.json({
+      message: 'Tutor reference processed successfully',
+      intervalsExtracted: vadResult.intervals.length,
+      totalSpeechSeconds: Math.round(totalSpeechSec * 100) / 100,
+      durationSeconds: Math.round(vadResult.durationSeconds * 100) / 100
+    });
+
+  } catch (error) {
+    console.error('❌ Error processing tutor reference:', error);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ message: 'Tutor reference processing failed', error: error.message });
+  }
+});
+
+/**
  * @route   POST /api/transcription/:transcriptId/complete
  * @desc    Mark transcription as complete and trigger analysis
  * @access  Private
@@ -1557,15 +1758,71 @@ async function analyzeLesson(transcriptId) {
     .limit(3);
     
     console.log(`📊 Found ${previousAnalyses.length} previous completed analyses for progression tracking`);
-    
+
+    // ========================================================================
+    // MIC BLEED FILTER — Drop student-tagged segments that overlap tutor speech
+    //
+    // The student client records its local microphone. If the tutor's voice
+    // leaks through the student's speakers and back into their mic, it gets
+    // transcribed and tagged as "student" — corrupting the analysis. We
+    // capture the tutor's clean Agora remote-audio track separately, run VAD
+    // on it, and mark any student segment whose [start, end] falls inside a
+    // tutor-speaking interval as `excludedByTutorOverlap`. Excluded segments
+    // are persisted (for debugging) but skipped by analysis below.
+    //
+    // Segment batch-time is recovered from segment.timestamp relative to
+    // transcript.startTime, since the existing pipeline uploads all student
+    // audio as one concatenated blob with this offset baked in at line ~800.
+    // ========================================================================
+    const tutorIntervals = (transcript.tutorSpeechIntervals || []).map(iv => ({
+      startSec: iv.startSec,
+      endSec: iv.endSec
+    }));
+
+    let excludedCount = 0;
+    if (tutorIntervals.length > 0) {
+      const transcriptStartMs = transcript.startTime ? transcript.startTime.getTime() : 0;
+      transcript.segments.forEach(seg => {
+        if (seg.speaker !== 'student') return;
+        if (!seg.duration || seg.duration <= 0) return; // can't determine bounds; leave as-is
+        if (!seg.timestamp) return;
+
+        const segStartSec = (seg.timestamp.getTime() - transcriptStartMs) / 1000;
+        const segEndSec = segStartSec + seg.duration;
+
+        if (segmentOverlapsTutor(segStartSec, segEndSec, tutorIntervals)) {
+          seg.excludedByTutorOverlap = true;
+          excludedCount++;
+        }
+      });
+
+      if (excludedCount > 0) {
+        console.log(`🚫 Mic-bleed filter: excluded ${excludedCount} student segments overlapping ${tutorIntervals.length} tutor speech intervals`);
+        // Persist exclusion flags so they survive into the saved transcript
+        try {
+          await transcript.save();
+        } catch (saveErr) {
+          console.warn('⚠️ Failed to persist exclusion flags (non-critical):', saveErr.message);
+        }
+      } else {
+        console.log(`✅ Mic-bleed filter: no student segments overlap tutor speech (${tutorIntervals.length} intervals checked)`);
+      }
+    } else {
+      console.log('ℹ️ Mic-bleed filter: no tutor reference intervals available — skipping (likely a legacy lesson or tutor reference upload failed)');
+    }
+
     // Separate student and tutor segments
-    const studentSegments = transcript.segments.filter(s => s.speaker === 'student');
+    // NOTE: studentSegments excludes any segments flagged as tutor-bleed above
+    const studentSegments = transcript.segments.filter(
+      s => s.speaker === 'student' && !s.excludedByTutorOverlap
+    );
     const tutorSegments = transcript.segments.filter(s => s.speaker === 'tutor');
-    
+
     // CRITICAL DEBUG: Log what we're actually analyzing
     console.log('🔍 TRANSCRIPT DEBUG INFO:');
     console.log(`   Total segments: ${transcript.segments.length}`);
-    console.log(`   Student segments: ${studentSegments.length}`);
+    console.log(`   Student segments (analyzed): ${studentSegments.length}`);
+    console.log(`   Student segments excluded by tutor overlap: ${excludedCount}`);
     console.log(`   Tutor segments: ${tutorSegments.length}`);
     console.log(`   Transcript language: ${transcript.language}`);
     

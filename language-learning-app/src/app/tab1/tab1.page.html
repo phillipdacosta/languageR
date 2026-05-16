@@ -686,7 +686,7 @@
           </div>
         </div>
 
-        <p class="m-card-empty-subtitle m-filled-countdown" *ngIf="nextClass.lesson?.status !== 'cancelled' && nextClass.showStartsInLine">
+        <p class="m-card-empty-subtitle m-filled-countdown" *ngIf="nextClass.lesson?.status !== 'cancelled' && nextClass.showStartsInLine && !nextLessonOtherJoined">
             {{ 'HOME.STARTS_IN_TIME' | translate:{ time: nextClass.countdown } }}
           </p>
 
@@ -802,7 +802,7 @@
           </div>
         </div>
 
-        <p class="upnext-filled-countdown" *ngIf="nextClass.lesson?.status !== 'cancelled' && nextClass.showStartsInLine">
+        <p class="upnext-filled-countdown" *ngIf="nextClass.lesson?.status !== 'cancelled' && nextClass.showStartsInLine && !nextLessonOtherJoined">
           {{ 'HOME.STARTS_IN_TIME' | translate:{ time: nextClass.countdown } }}
         </p>
         <app-class-attendees *ngIf="nextClass.lesson?.isClass && nextLessonClassAttendeesDisplay.length" [attendees]="nextLessonClassAttendeesDisplay" [capacity]="nextClass.lesson.capacity" [maxDisplay]="3"></app-class-attendees>
