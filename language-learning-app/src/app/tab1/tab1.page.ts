@@ -41,6 +41,7 @@ import { GamificationService, Badge as GamBadge } from '../services/gamification
 import { ReviewDeckService } from '../services/review-deck.service';
 import { AnalysisTranslationService } from '../services/analysis-translation.service';
 import { HomeInlineToolbarService } from '../services/home-inline-toolbar.service';
+import { EarningsPage } from '../earnings/earnings.page';
 import { MaterialService, TutorMaterial } from '../services/material.service';
 import { TutorGrowthService, GrowthInsight, GrowthContext, ProfileChecklistItem, mapProfileChecklistIdToApprovalWizardStepId, buildTutorProfileChecklist } from '../services/tutor-growth.service';
 import { ScheduleClassPage } from '../tutor-calendar/schedule-class/schedule-class.page';
@@ -867,6 +868,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         }
       });
 
+    this.activatedRoute.queryParams
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => this.restoreEarningsAfterLessonReturn());
+
     this.loadUserStats();
     
     // Subscribe to wallet balance updates for students
@@ -1669,6 +1674,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         this.ionContent?.scrollToTop(0);
       }
     }
+
+    this.restoreEarningsAfterLessonReturn();
     
     // Check if we need to force reload (e.g., after booking a lesson)
     const navigation = this.router.getCurrentNavigation();
@@ -8995,6 +9002,13 @@ navigateToLessons() {
   navigateToEarnings() {
     // === FLIP Animation: Home → Earnings ===
 
+    // The home "View Details" entry always lands on the Details tab so the
+    // FLIP animation can find its destination buttons. Any pending return
+    // section (e.g. from a previous lesson-detail trip) is consumed here so
+    // the panel doesn't reopen on Transactions and leave the Withdraw clone
+    // floating mid-screen.
+    EarningsPage.pendingReturnSection = null;
+
     // Step 1: Capture source button rects from the home earnings card
     const earningsSrc = this.isMobile ? '.earnings-mobile-card' : '.grid-cell-earnings';
     const srcWithdraw = this.isMobile ? null : document.querySelector('.grid-cell-earnings .withdraw-btn') as HTMLElement;
@@ -9204,16 +9218,18 @@ navigateToLessons() {
             }
           }, 1000);
 
-          // Safety fallback: generous timeout for very slow connections (15s)
+          // Safety fallback: drop the clone quickly if the destination
+          // never appears (e.g. earnings opened on Transactions, not Details)
+          // so we never leave a parked "Withdraw Funds" pill on screen.
           setTimeout(() => {
             if (!landed) {
               observer.disconnect();
               if (pulseAnim) { pulseAnim.cancel(); pulseAnim = null; }
+              withdrawClone.style.transition = 'opacity 0.2s ease';
               withdrawClone.style.opacity = '0';
-              withdrawClone.style.transition = 'opacity 0.3s ease';
-              setTimeout(() => { if (withdrawClone.parentNode) withdrawClone.remove(); }, 350);
+              setTimeout(() => { if (withdrawClone.parentNode) withdrawClone.remove(); }, 220);
             }
-          }, 15000);
+          }, 1500);
         } else {
           // Panel not found — fade out
           withdrawClone.style.opacity = '0';
@@ -9425,6 +9441,25 @@ navigateToLessons() {
 
     // Refresh earnings summary data when returning to home view
     this.loadTutorEarnings();
+  }
+
+  /** Re-open inline earnings on the Transactions (or other) tab after lesson detail back. */
+  private restoreEarningsAfterLessonReturn(): void {
+    const params = this.activatedRoute.snapshot.queryParamMap;
+    if (params.get('openEarnings') !== '1' || !this.isTutorUser) {
+      return;
+    }
+    EarningsPage.applyReturnSectionParam(params.get('earningsSection'));
+    this.closeAllInlinePanelsExceptEarnings();
+    this.showEarningsView = true;
+    this.cdr.detectChanges();
+    this.ionContent?.scrollToTop(0);
+    void this.router.navigate([], {
+      relativeTo: this.activatedRoute,
+      queryParams: { openEarnings: null, earningsSection: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   private closeAllInlinePanelsExceptEarnings(): void {

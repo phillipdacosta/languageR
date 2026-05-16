@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, Input, Output, EventEmitter, ViewChild, E
 import '@dotlottie/player-component';
 import { CommonModule, Location } from '@angular/common';
 import { IonicModule, AlertController, ToastController, ModalController, NavController, ViewWillEnter, InfiniteScrollCustomEvent } from '@ionic/angular';
-import { Router, RouterModule } from '@angular/router';
+import { Router, RouterModule, ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { UserService } from '../services/user.service';
 import { WebSocketService } from '../services/websocket.service';
@@ -88,6 +88,19 @@ interface WithdrawalHistory {
   schemas: [CUSTOM_ELEMENTS_SCHEMA]
 })
 export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillEnter {
+  /** Restores transactions/details/transfers tab when returning from lesson detail. */
+  static pendingReturnSection: 'details' | 'transfers' | 'transactions' | null = null;
+
+  static stashReturnSection(section: 'details' | 'transfers' | 'transactions'): void {
+    EarningsPage.pendingReturnSection = section;
+  }
+
+  static applyReturnSectionParam(sectionParam: string | null | undefined): void {
+    if (sectionParam === 'details' || sectionParam === 'transfers' || sectionParam === 'transactions') {
+      EarningsPage.pendingReturnSection = sectionParam;
+    }
+  }
+
   // Inline mode: when embedded inside another page (e.g., home page)
   @Input() inline: boolean = false;
   @Output() goBackEvent = new EventEmitter<void>();
@@ -204,6 +217,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     private http: HttpClient,
     private userService: UserService,
     private router: Router,
+    private route: ActivatedRoute,
     private location: Location,
     private websocketService: WebSocketService,
     private alertController: AlertController,
@@ -228,6 +242,13 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   }
 
   async ngOnInit() {
+    if (!this.inline) {
+      this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
+        EarningsPage.applyReturnSectionParam(params['earningsSection']);
+        this.applyPendingReturnSection();
+      });
+    }
+
     const cache = EarningsPage._dataCache;
     const cacheAge = cache ? Date.now() - cache.lastFetch : Infinity;
 
@@ -249,6 +270,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       if (cacheAge > 10000) {
         this.silentRefresh();
       }
+      this.applyPendingReturnSection();
       return;
     }
 
@@ -276,6 +298,20 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       this.scheduleChartCreation();
     }
     this.setupWebSocketListeners();
+    this.applyPendingReturnSection();
+  }
+
+  private applyPendingReturnSection(): void {
+    const section = EarningsPage.pendingReturnSection;
+    if (!section) {
+      return;
+    }
+    EarningsPage.pendingReturnSection = null;
+    if (this.earningsActiveSection !== section) {
+      this.onSelectEarningsSection(section);
+    } else {
+      this.cdr.detectChanges();
+    }
   }
 
   private async loadUserJoinDate() {
@@ -304,6 +340,8 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
    */
   async ionViewWillEnter() {
     if (!this._hasInitiallyLoaded) return;
+
+    this.applyPendingReturnSection();
 
     // Always recreate chart when Details is visible — canvas can lose its render after navigation
     if (this.earningsActiveSection === 'details') {
@@ -556,7 +594,14 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     // It will try to load a lesson first, then fall back to class if not found
     const eventId = lessonId || classId;
     if (eventId) {
-      this.router.navigate(['/tabs/lessons', eventId]);
+      EarningsPage.stashReturnSection(this.earningsActiveSection);
+      this.router.navigate(['/tabs/lessons', eventId], {
+        queryParams: {
+          returnTo: 'earnings',
+          earningsSection: this.earningsActiveSection,
+          ...(this.inline ? { earningsInline: '1' } : {}),
+        },
+      });
     }
   }
 

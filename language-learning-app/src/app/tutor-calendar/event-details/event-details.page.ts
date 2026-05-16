@@ -5,6 +5,7 @@ import { IonicModule, ModalController, ToastController, LoadingController, ViewW
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { LessonService, Lesson, CachedLessonDetailBundle } from '../../services/lesson.service';
+import { EarningsPage } from '../../earnings/earnings.page';
 import { AnalysisTranslationService } from '../../services/analysis-translation.service';
 import { ClassService } from '../../services/class.service';
 import { UserService, User } from '../../services/user.service';
@@ -2567,6 +2568,28 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   goBack() {
     if (this.isModal) {
       this.modalController.dismiss();
+      return;
+    }
+    const returnTo = this.route.snapshot.queryParamMap.get('returnTo');
+    if (returnTo === 'earnings') {
+      const sectionParam = this.route.snapshot.queryParamMap.get('earningsSection');
+      const earningsInline = this.route.snapshot.queryParamMap.get('earningsInline') === '1';
+      const section =
+        sectionParam === 'details' || sectionParam === 'transfers' || sectionParam === 'transactions'
+          ? sectionParam
+          : 'transactions';
+      EarningsPage.stashReturnSection(section);
+      if (earningsInline) {
+        void this.router.navigate(['/tabs/home'], {
+          queryParams: { openEarnings: '1', earningsSection: section },
+          replaceUrl: true,
+        });
+      } else {
+        void this.router.navigate(['/tabs/home/earnings'], {
+          queryParams: { earningsSection: section },
+          replaceUrl: true,
+        });
+      }
       return;
     }
     this.location.back();
