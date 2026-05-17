@@ -689,6 +689,7 @@
 <ion-modal
   [isOpen]="isWithdrawalModalOpen"
   (didDismiss)="onWithdrawalModalDismissed()"
+  (didPresent)="onWithdrawalModalPresented()"
   [class.withdrawal-modal--home-context]="inline"
   class="withdrawal-modal">
   
@@ -732,50 +733,49 @@
             <ion-icon name="wallet"></ion-icon>
           </div>
           <h2 class="modal-heading">{{ 'EARNINGS.WITHDRAW_TITLE' | translate }}</h2>
-          <p class="modal-description">{{ 'EARNINGS.WITHDRAW_DESC' | translate }}</p>
+          <p class="modal-description">
+            {{ 'EARNINGS.WITHDRAW_DESC' | translate }}
+            <span class="withdrawal-available-badge">${{ formatCurrency(balance.available) }}</span>
+          </p>
         </div>
 
-        <!-- 2×2 grid: row2 fees cell and payout method share height -->
+        <div class="amount-section withdrawal-amount-hero">
+          <label class="section-label">{{ 'EARNINGS.WITHDRAW_AMOUNT_SECTION' | translate }}</label>
+          <div class="amount-input-wrapper" (click)="onWithdrawalAmountWrapperClick($event)">
+            <div class="currency-symbol">$</div>
+            <input
+              #withdrawalAmountInput
+              type="text"
+              inputmode="decimal"
+              class="amount-input"
+              [value]="withdrawalDisplayValue"
+              (input)="onWithdrawalAmountInput($event)"
+              (blur)="onWithdrawalAmountBlur()"
+              placeholder="0.00">
+            <button type="button" class="max-button" (click)="setMaxWithdrawalAmount(); $event.stopPropagation()">{{ 'EARNINGS.WITHDRAW_MAX' | translate }}</button>
+          </div>
+          <p class="withdrawal-min-note" *ngIf="selectedWithdrawalMethod === 'paypal'">{{ 'EARNINGS.WITHDRAW_MIN_PAYPAL' | translate }}</p>
+          <div class="amount-error-slot" aria-live="polite">
+            <p
+              class="amount-error"
+              *ngIf="withdrawalAmount > balance.available">
+              {{ 'EARNINGS.WITHDRAW_EXCEEDS_BALANCE' | translate }}
+            </p>
+            <p
+              class="amount-error"
+              *ngIf="withdrawalAmount <= balance.available && selectedWithdrawalMethod === 'paypal' && withdrawalAmount > 0 && withdrawalAmount < 10">
+              {{ 'EARNINGS.WITHDRAW_MIN_10' | translate }}
+            </p>
+            <p
+              class="amount-error"
+              *ngIf="withdrawalAmount <= balance.available && selectedWithdrawalMethod === 'stripe_connect' && withdrawalAmount > 0 && withdrawalAmount < 0.01">
+              {{ 'EARNINGS.WITHDRAW_INVALID_AMOUNT' | translate }}
+            </p>
+          </div>
+        </div>
+
+        <!-- 2-column grid: fees + payout method -->
         <div class="withdrawal-container">
-          <div class="balance-card withdrawal-grid-balance">
-            <div class="balance-label">{{ 'EARNINGS.WITHDRAW_BALANCE_LABEL' | translate }}</div>
-            <div class="balance-amount">${{ formatCurrency(balance.available) }}</div>
-            <div class="balance-note" *ngIf="selectedWithdrawalMethod === 'paypal'">{{ 'EARNINGS.WITHDRAW_MIN_PAYPAL' | translate }}</div>
-          </div>
-
-          <div class="amount-section withdrawal-grid-amount">
-            <label class="section-label">{{ 'EARNINGS.WITHDRAW_AMOUNT_SECTION' | translate }}</label>
-            <div class="amount-input-wrapper">
-              <div class="currency-symbol">$</div>
-              <input
-                type="text"
-                inputmode="decimal"
-                class="amount-input"
-                [(ngModel)]="formattedWithdrawalAmount"
-                (keydown)="onWithdrawalKeydown($event)"
-                (blur)="onWithdrawalAmountBlur()"
-                placeholder="0.00">
-              <button class="max-button" (click)="setMaxWithdrawalAmount()">MAX</button>
-            </div>
-            <div class="amount-error-slot" aria-live="polite">
-              <p
-                class="amount-error"
-                *ngIf="withdrawalAmount > balance.available">
-                {{ 'EARNINGS.WITHDRAW_EXCEEDS_BALANCE' | translate }}
-              </p>
-              <p
-                class="amount-error"
-                *ngIf="withdrawalAmount <= balance.available && selectedWithdrawalMethod === 'paypal' && withdrawalAmount > 0 && withdrawalAmount < 10">
-                {{ 'EARNINGS.WITHDRAW_MIN_10' | translate }}
-              </p>
-              <p
-                class="amount-error"
-                *ngIf="withdrawalAmount <= balance.available && selectedWithdrawalMethod === 'stripe_connect' && withdrawalAmount > 0 && withdrawalAmount < 0.01">
-                {{ 'EARNINGS.WITHDRAW_INVALID_AMOUNT' | translate }}
-              </p>
-            </div>
-          </div>
-
           <div class="withdrawal-grid-fees">
             <!-- Fee Breakdown Card (PayPal): fixed-height swap — no layout jump -->
             <div class="fee-breakdown-card fee-breakdown-card--paypal" *ngIf="selectedWithdrawalMethod === 'paypal'">
@@ -843,7 +843,7 @@
 
           <div class="method-section withdrawal-grid-method">
               <!-- Stripe Option -->
-              <div 
+              <div
                 *ngIf="payoutProvider === 'stripe'"
                 class="method-card"
                 [class.selected]="selectedWithdrawalMethod === 'stripe_connect'"
@@ -905,6 +905,32 @@
     </ion-content>
 
     <ion-footer *ngIf="!withdrawalSuccess" class="withdrawal-modal-footer ion-no-border">
+      <div class="withdrawal-footer-meta">
+        <div class="withdrawal-powered-by" *ngIf="payoutProvider === 'stripe'">
+          <img
+            src="assets/icon/powered-by-stripe-blurple.png"
+            alt="Powered by Stripe"
+            class="withdrawal-powered-by-badge withdrawal-powered-by-badge--light" />
+          <img
+            src="assets/icon/powered-by-stripe-dark.png"
+            alt=""
+            class="withdrawal-powered-by-badge withdrawal-powered-by-badge--dark"
+            aria-hidden="true" />
+        </div>
+        <div class="withdrawal-powered-by" *ngIf="payoutProvider === 'paypal'">
+          <img
+            src="assets/icon/powered-by-paypal.png"
+            alt="Powered by PayPal"
+            class="withdrawal-powered-by-badge withdrawal-powered-by-badge--paypal" />
+        </div>
+        <p class="withdrawal-terms">
+          {{ 'EARNINGS.WITHDRAW_TERMS_PREFIX' | translate }}
+          <button type="button" class="withdrawal-terms-link" (click)="openWithdrawalSupport()">
+            {{ 'EARNINGS.WITHDRAW_TERMS_LINK' | translate }}
+          </button>
+          {{ 'EARNINGS.WITHDRAW_TERMS_SUFFIX' | translate }}
+        </p>
+      </div>
       <div class="withdrawal-modal-actions">
         <ion-button
           expand="block"

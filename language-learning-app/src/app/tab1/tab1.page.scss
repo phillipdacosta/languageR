@@ -505,11 +505,13 @@ ion-content {
   visibility: hidden !important;
 }
 
-// Inline Earnings Panel (embedded earnings view) — white canvas; elevated cards match lessons page
+// Inline Earnings Panel (embedded earnings view) — white canvas; elevated cards match lessons page.
+// Left-aligned with generous Airbnb-style horizontal padding so the inline view's
+// sidebar lines up with the routed profile page (`.profile-container--split`).
 .earnings-inline-panel {
   padding: 16px 16px 32px;
-  max-width: 1200px;
-  margin: 0 auto;
+  max-width: none;
+  margin: 0;
   animation: earningsPanelReveal 0.5s ease-out forwards;
   position: relative;
   z-index: 1;
@@ -517,8 +519,12 @@ ion-content {
   background: #ffffff;
 
   @media (min-width: 769px) {
-    padding: 24px 24px 40px;
-    padding-top: 87px;
+    padding: 87px 80px 40px;
+  }
+
+  @media (min-width: 1280px) {
+    padding-left: 120px;
+    padding-right: 120px;
   }
 }
 

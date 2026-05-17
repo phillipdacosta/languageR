@@ -10757,22 +10757,22 @@ navigateToLessons() {
       
       // STEP 2: Show confirmation alert popup (matches reschedule confirmation style)
       const alert = await this.alertController.create({
-        header: 'Cancel Lesson',
-        message: `Are you sure you want to cancel this lesson? ${participantName} will be notified and this action cannot be undone.`,
+        header: this.translateService.instant('ALERTS.LESSON.CANCEL_HEADER'),
+        message: this.translateService.instant('ALERTS.LESSON.CANCEL_MESSAGE', { name: participantName }),
         buttons: [
           {
-            text: 'Go Back',
+            text: this.translateService.instant('ALERTS.LESSON.GO_BACK'),
             role: 'cancel',
             cssClass: 'alert-cancel-button'
           },
           {
-            text: 'Reschedule instead?',
+            text: this.translateService.instant('ALERTS.LESSON.RESCHEDULE_INSTEAD'),
             handler: () => {
               if (!this.hasLessonStarted(lesson)) {
                 void this.rescheduleLesson(lessonId, lesson);
               } else {
                 void this.toastController.create({
-                  message: 'This lesson has already started and cannot be rescheduled.',
+                  message: this.translateService.instant('ALERTS.LESSON.LESSON_STARTED_NO_RESCHEDULE'),
                   duration: 3000,
                   position: 'bottom',
                   color: 'medium'
@@ -10782,7 +10782,7 @@ navigateToLessons() {
             }
           },
           {
-            text: 'Cancel Lesson',
+            text: this.translateService.instant('ALERTS.LESSON.CANCEL_LESSON_BTN'),
             role: 'confirm',
             cssClass: 'alert-confirm-button',
             handler: () => {
@@ -10800,7 +10800,7 @@ navigateToLessons() {
   // Execute the actual cancel lesson API call (called from alert confirmation)
   private async executeCancelLesson(lessonId: string) {
     const loading = await this.loadingController.create({
-      message: 'Cancelling lesson...',
+      message: this.translateService.instant('ALERTS.LESSON.CANCELLING'),
       spinner: 'crescent'
     });
     await loading.present();
@@ -10821,7 +10821,7 @@ navigateToLessons() {
       if (response?.success) {
         // Show success toast
         const toast = await this.toastController.create({
-          message: 'Lesson cancelled successfully',
+          message: this.translateService.instant('ALERTS.LESSON.CANCELLED_SUCCESS'),
           duration: 3000,
           position: 'bottom',
           color: 'success'

@@ -108,6 +108,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
 
   // Earnings chart
   @ViewChild('earningsChartCanvas') earningsChartCanvas!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('withdrawalAmountInput') withdrawalAmountInput?: ElementRef<HTMLInputElement>;
   private earningsChart: Chart | null = null;
   chartPeriod: '1m' | '6m' | 'all' = '1m';
   chartPeriodLabel: string = '';
@@ -194,6 +195,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   // Withdrawal modal state
   isWithdrawalModalOpen: boolean = false;
   withdrawalAmount: number = 0;
+  withdrawalRaw: string = ''; // user-typed string (digits + optional single '.')
   selectedWithdrawalMethod: 'stripe_connect' | 'paypal' | null = null;
   withdrawing: boolean = false;
 
@@ -1128,6 +1130,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     }
 
     this.withdrawalAmount = 0;
+    this.withdrawalRaw = '';
 
     if (this.payoutProvider === 'stripe') {
       this.selectedWithdrawalMethod = 'stripe_connect';
@@ -1143,6 +1146,11 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     this.isWithdrawalModalOpen = false;
   }
 
+  openWithdrawalSupport(): void {
+    this.closeWithdrawalModal();
+    void this.router.navigate(['/terms']);
+  }
+
   onWithdrawalModalDismissed() {
     this.withdrawalSuccess = false;
     this.withdrawalSuccessRevealed = false;
@@ -1151,45 +1159,87 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     this.withdrawalModalDismissing = false;
   }
 
+  onWithdrawalModalPresented(): void {
+    if (this.withdrawalSuccess) {
+      return;
+    }
+    this.focusWithdrawalAmountInput();
+  }
+
+  onWithdrawalAmountWrapperClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement;
+    if (target.closest('.max-button') || target.classList.contains('amount-input')) {
+      return;
+    }
+    this.focusWithdrawalAmountInput();
+  }
+
+  focusWithdrawalAmountInput(): void {
+    setTimeout(() => {
+      const input =
+        this.withdrawalAmountInput?.nativeElement ??
+        document.querySelector<HTMLInputElement>('.withdrawal-modal .amount-input');
+      if (!input) {
+        return;
+      }
+      input.focus();
+    }, 100);
+  }
+
   selectWithdrawalMethod(method: 'stripe_connect' | 'paypal') {
     this.selectedWithdrawalMethod = method;
   }
 
   setMaxWithdrawalAmount() {
     this.withdrawalAmount = this.balance.available;
+    this.withdrawalRaw = this.formatCurrency(this.balance.available);
   }
 
-  // Getter/setter for formatted withdrawal amount input
-  get formattedWithdrawalAmount(): string {
-    return this.formatCurrency(this.withdrawalAmount);
+  get withdrawalDisplayValue(): string {
+    return this.withdrawalRaw;
   }
 
-  set formattedWithdrawalAmount(value: string) {
-    // Remove any non-numeric characters except decimal point
-    const cleaned = value.replace(/[^0-9.]/g, '');
-    const numValue = parseFloat(cleaned);
-    if (!isNaN(numValue)) {
-      this.withdrawalAmount = numValue;
-    } else if (cleaned === '' || cleaned === '.') {
-      this.withdrawalAmount = 0;
+  onWithdrawalAmountInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    let value = input.value;
+
+    // Strip anything that isn't a digit or decimal
+    value = value.replace(/[^0-9.]/g, '');
+
+    // Only allow one decimal point
+    const firstDot = value.indexOf('.');
+    if (firstDot !== -1) {
+      value = value.slice(0, firstDot + 1) + value.slice(firstDot + 1).replace(/\./g, '');
+    }
+
+    // Limit to 2 decimal places
+    if (firstDot !== -1) {
+      const [whole, frac = ''] = value.split('.');
+      value = whole + '.' + frac.slice(0, 2);
+    }
+
+    // Cap at $99,999.99
+    const num = parseFloat(value);
+    if (!isNaN(num) && num > 99999.99) {
+      value = '99999.99';
+    }
+
+    this.withdrawalRaw = value;
+    this.withdrawalAmount = isNaN(parseFloat(value)) ? 0 : parseFloat(value);
+
+    if (input.value !== value) {
+      input.value = value;
     }
   }
 
-  onWithdrawalKeydown(event: KeyboardEvent) {
-    const allowed = [
-      'Backspace', 'Delete', 'Tab', 'Escape', 'Enter',
-      'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
-      'Home', 'End'
-    ];
-    if (allowed.includes(event.key)) return;
-    if ((event.metaKey || event.ctrlKey) && ['a', 'c', 'v', 'x', 'z'].includes(event.key)) return;
-    if (event.key === '.' && !(event.target as HTMLInputElement).value.includes('.')) return;
-    if (event.key >= '0' && event.key <= '9') return;
-    event.preventDefault();
-  }
-
-  onWithdrawalAmountBlur() {
-    this.withdrawalAmount = parseFloat(this.formatCurrency(this.withdrawalAmount));
+  onWithdrawalAmountBlur(): void {
+    if (this.withdrawalRaw === '' || this.withdrawalRaw === '.') {
+      this.withdrawalRaw = '';
+      this.withdrawalAmount = 0;
+    } else {
+      this.withdrawalAmount = parseFloat(this.withdrawalRaw) || 0;
+      this.withdrawalRaw = this.formatCurrency(this.withdrawalAmount);
+    }
   }
 
   canWithdraw(): boolean {

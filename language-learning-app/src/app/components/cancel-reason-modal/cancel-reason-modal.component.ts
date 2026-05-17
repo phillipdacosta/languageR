@@ -3,12 +3,13 @@ import { ModalController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { UserService } from '../../services/user.service';
 import { formatTimeInTz, formatDateInTz, isSameDayInTimezone } from '../../shared/timezone.utils';
 
 export interface CancellationReason {
   id: string;
-  label: string;
+  labelKey: string;
   icon: string;
   requiresNote?: boolean;
 }
@@ -18,7 +19,7 @@ export interface CancellationReason {
   templateUrl: './cancel-reason-modal.component.html',
   styleUrls: ['./cancel-reason-modal.component.scss'],
   standalone: true,
-  imports: [CommonModule, FormsModule, IonicModule]
+  imports: [CommonModule, FormsModule, IonicModule, TranslateModule]
 })
 export class CancelReasonModalComponent implements OnInit {
   @Input() participantName?: string;
@@ -29,107 +30,106 @@ export class CancelReasonModalComponent implements OnInit {
   @Input() lessonDuration?: number; // in minutes
   @Input() entityType: 'lesson' | 'class' = 'lesson';
   @Input() className?: string;
-  /** Class cover image URL (from Class.thumbnail); when missing, class flow falls back to people icon */
   @Input() classThumbnailUrl?: string;
 
   get isClass(): boolean {
     return this.entityType === 'class';
   }
 
-  get titleText(): string {
-    return this.isClass ? 'Why are you cancelling this class?' : 'Why are you cancelling?';
+  get titleTextKey(): string {
+    return this.isClass ? 'ALERTS.CANCEL_REASON.TITLE_CLASS' : 'ALERTS.CANCEL_REASON.TITLE_LESSON';
   }
 
   get lessonTitleText(): string {
     if (this.isClass) {
-      return this.className || this.lessonSubject || 'Group class';
+      return this.className || this.lessonSubject || this.t('ALERTS.CANCEL_REASON.GROUP_CLASS');
     }
     if (this.participantName) {
-      return `Lesson with ${this.participantName}`;
+      return this.t('ALERTS.CANCEL_REASON.LESSON_WITH', { name: this.participantName });
     }
-    return this.lessonSubject || 'Lesson';
+    return this.lessonSubject || this.t('ALERTS.CANCEL_REASON.LESSON_FALLBACK');
   }
 
-  /** Left footer: pivot to reschedule (lesson or class cancel flow) */
-  get secondaryFooterCtaLabel(): string {
-    return 'Reschedule instead?';
+  get secondaryFooterCtaLabelKey(): string {
+    return 'ALERTS.CANCEL_REASON.RESCHEDULE_INSTEAD';
   }
 
   get infoText(): string {
     if (this.isClass) {
-      return 'Your reason helps us improve. All invited and confirmed students will be notified of the cancellation.';
+      return this.t('ALERTS.CANCEL_REASON.INFO_CLASS');
     }
-    return `Your reason will help us improve our service. ${this.participantName || 'Your participant'} will be notified of the cancellation.`;
+    const name = this.participantName || this.t('ALERTS.CANCEL_REASON.INFO_LESSON_FALLBACK');
+    return this.t('ALERTS.CANCEL_REASON.INFO_LESSON', { name });
   }
 
   selectedReason: CancellationReason | null = null;
   otherReasonText: string = '';
   isWithin12Hours: boolean = false;
   formattedDateTime: string = '';
-  formattedDuration: string = '';
-  
-  // Pre-written cancellation reasons
+
   studentReasons: CancellationReason[] = [
-    { id: 'schedule_conflict', label: 'Schedule conflict / I\'m busy', icon: 'calendar-outline' },
-    { id: 'not_prepared', label: 'I\'m not prepared for this lesson', icon: 'book-outline' },
-    { id: 'technical_issues', label: 'Technical issues / internet problems', icon: 'wifi-outline' },
-    { id: 'found_different_tutor', label: 'I found a different tutor', icon: 'person-outline' },
-    { id: 'other', label: 'Other reason', icon: 'ellipsis-horizontal-outline', requiresNote: true }
+    { id: 'schedule_conflict', labelKey: 'ALERTS.CANCEL_REASON.REASON_SCHEDULE_STUDENT', icon: 'calendar-outline' },
+    { id: 'not_prepared', labelKey: 'ALERTS.CANCEL_REASON.REASON_NOT_PREPARED', icon: 'book-outline' },
+    { id: 'technical_issues', labelKey: 'ALERTS.CANCEL_REASON.REASON_TECHNICAL', icon: 'wifi-outline' },
+    { id: 'found_different_tutor', labelKey: 'ALERTS.CANCEL_REASON.REASON_DIFFERENT_TUTOR', icon: 'person-outline' },
+    { id: 'other', labelKey: 'ALERTS.CANCEL_REASON.REASON_OTHER', icon: 'ellipsis-horizontal-outline', requiresNote: true }
   ];
 
   tutorReasons: CancellationReason[] = [
-    { id: 'schedule_conflict', label: 'Schedule conflict / I\'m busy', icon: 'calendar-outline' },
-    { id: 'technical_issues', label: 'Technical issues / internet problems', icon: 'wifi-outline' },
-    { id: 'other', label: 'Other reason', icon: 'ellipsis-horizontal-outline', requiresNote: true }
+    { id: 'schedule_conflict', labelKey: 'ALERTS.CANCEL_REASON.REASON_SCHEDULE_TUTOR', icon: 'calendar-outline' },
+    { id: 'technical_issues', labelKey: 'ALERTS.CANCEL_REASON.REASON_TECHNICAL', icon: 'wifi-outline' },
+    { id: 'other', labelKey: 'ALERTS.CANCEL_REASON.REASON_OTHER', icon: 'ellipsis-horizontal-outline', requiresNote: true }
   ];
 
   reasons: CancellationReason[] = [];
 
   constructor(
     private modalController: ModalController,
-    private userService: UserService
+    private userService: UserService,
+    private translate: TranslateService
   ) {}
+
+  private t(key: string, params?: Record<string, string>): string {
+    return this.translate.instant(key, params);
+  }
 
   private get userTz(): string | undefined {
     return this.userService.getCurrentUserValue()?.profile?.timezone || undefined;
   }
 
   ngOnInit() {
-    // Select reasons based on context
     if (this.entityType === 'class') {
       this.reasons = this.tutorReasons;
     } else {
       this.reasons = this.userRole === 'tutor' ? this.tutorReasons : this.studentReasons;
     }
-    
-    // Check if cancellation is within 12 hours and format date/time
+
     if (this.lessonStartTime) {
       const now = new Date();
       const lessonTime = new Date(this.lessonStartTime);
       const hoursUntilLesson = (lessonTime.getTime() - now.getTime()) / (1000 * 60 * 60);
       this.isWithin12Hours = hoursUntilLesson < 12 && hoursUntilLesson > 0;
-      
-      // Format date and time for display
       this.formattedDateTime = this.formatLessonDateTime(lessonTime);
     }
-    
-    // Format duration
+
     if (this.lessonDuration) {
       this.formattedDuration = this.formatDuration(this.lessonDuration);
     }
   }
-  
+
+  formattedDuration = '';
+
   private formatLessonDateTime(date: Date): string {
     const today = new Date();
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    
+
     let dayLabel: string;
     if (this.userTz) {
       if (isSameDayInTimezone(date, today, this.userTz)) {
-        dayLabel = 'Today';
+        dayLabel = this.t('HOME.TODAY');
       } else if (isSameDayInTimezone(date, tomorrow, this.userTz)) {
-        dayLabel = 'Tomorrow';
+        dayLabel = this.t('HOME.TOMORROW');
       } else {
         dayLabel = formatDateInTz(date, this.userTz, {
           weekday: 'short',
@@ -140,9 +140,9 @@ export class CancelReasonModalComponent implements OnInit {
       }
     } else {
       if (date.toDateString() === today.toDateString()) {
-        dayLabel = 'Today';
+        dayLabel = this.t('HOME.TODAY');
       } else if (date.toDateString() === tomorrow.toDateString()) {
-        dayLabel = 'Tomorrow';
+        dayLabel = this.t('HOME.TOMORROW');
       } else {
         dayLabel = formatDateInTz(date, undefined, {
           weekday: 'short',
@@ -152,12 +152,11 @@ export class CancelReasonModalComponent implements OnInit {
         });
       }
     }
-    
+
     const timeStr = formatTimeInTz(date, this.userTz);
-    
-    return `${dayLabel} at ${timeStr}`;
+    return `${dayLabel} · ${timeStr}`;
   }
-  
+
   private formatDuration(minutes: number): string {
     if (minutes < 60) {
       return `${minutes} min`;
@@ -172,7 +171,6 @@ export class CancelReasonModalComponent implements OnInit {
 
   selectReason(reason: CancellationReason) {
     this.selectedReason = reason;
-    // Clear other reason text if not selecting "other"
     if (reason.id !== 'other') {
       this.otherReasonText = '';
     }
@@ -192,7 +190,6 @@ export class CancelReasonModalComponent implements OnInit {
     this.modalController.dismiss({ cancelled: true });
   }
 
-  /** Skip picking a reason; parent opens reschedule (lesson or class). */
   rescheduleInstead() {
     this.modalController.dismiss({ rescheduleInstead: true });
   }
@@ -203,19 +200,18 @@ export class CancelReasonModalComponent implements OnInit {
 
   confirm() {
     if (!this.canConfirm()) return;
-    
-    const reasonText = this.selectedReason?.id === 'other' 
-      ? this.otherReasonText.trim() 
-      : this.selectedReason?.label;
-    
+
+    const reasonText = this.selectedReason?.id === 'other'
+      ? this.otherReasonText.trim()
+      : this.t(this.selectedReason!.labelKey);
+
     this.modalController.dismiss({
       cancelled: false,
       reason: {
         id: this.selectedReason!.id,
         label: reasonText,
-        originalLabel: this.selectedReason!.label
+        originalLabel: this.t(this.selectedReason!.labelKey)
       }
     });
   }
 }
-

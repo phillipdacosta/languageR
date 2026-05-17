@@ -1,24 +1,23 @@
 <div class="early-exit-modal">
   <div class="modal-header">
     <ion-icon name="time-outline" class="header-icon"></ion-icon>
-    <h2>Leaving Early?</h2>
-    <p>There are <strong>{{ minutesRemaining }} minutes</strong> remaining in your scheduled lesson.</p>
+    <h2>{{ 'ALERTS.EARLY_EXIT.TITLE' | translate }}</h2>
+    <p>{{ 'ALERTS.EARLY_EXIT.MINUTES_REMAINING' | translate:{ minutes: minutesRemaining } }}</p>
   </div>
 
   <div class="modal-content">
     <p class="info-text">
-      The lesson will continue until the scheduled end time. You can rejoin at any time before then.
+      {{ 'ALERTS.EARLY_EXIT.INFO' | translate }}
     </p>
 
     <div class="action-buttons">
-      <!-- Rejoin Call - Primary Action -->
       <button class="action-btn rejoin-btn primary" (click)="rejoinCall()">
         <div class="btn-icon-wrapper">
           <ion-icon name="videocam-outline"></ion-icon>
         </div>
         <div class="btn-content">
-          <h3>Rejoin Call</h3>
-          <p>Go back to the lesson</p>
+          <h3>{{ 'ALERTS.EARLY_EXIT.REJOIN_TITLE' | translate }}</h3>
+          <p>{{ 'ALERTS.EARLY_EXIT.REJOIN_SUB' | translate }}</p>
         </div>
         <ion-icon name="chevron-forward-outline" class="chevron"></ion-icon>
       </button>
@@ -26,14 +25,14 @@
 
     <p class="note-text">
       <ion-icon name="information-circle-outline"></ion-icon>
-      Your lesson analysis will be available after the scheduled end time.
+      {{ 'ALERTS.EARLY_EXIT.ANALYSIS_NOTE' | translate }}
     </p>
   </div>
 
   <div class="modal-footer">
     <ion-button fill="clear" (click)="dismiss()">
       <ion-icon name="close-outline" slot="start"></ion-icon>
-      I'm done for now
+      {{ 'ALERTS.EARLY_EXIT.DONE_FOR_NOW' | translate }}
     </ion-button>
   </div>
 </div>

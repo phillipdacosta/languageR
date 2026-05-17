@@ -259,16 +259,14 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
     padding-top: 4px;
   }
 
-  /* Eat into tab1 inline panel horizontal padding so the sidebar aligns further left. */
   @media (min-width: $earnings-split-bp) {
-    margin-left: -48px;
-    width: calc(100% + 48px);
     max-width: none;
   }
 }
 
 .earnings-content--inline {
-  padding: 0 0 32px !important;
+  padding-top: 0 !important;
+  padding-bottom: 32px !important;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -415,14 +413,34 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
   padding: 24px 20px 40px;
 }
 
-/* Routed + inline: left-align split grid and expand max-width on wide screens. */
+/* Routed: left-align split grid and expand max-width on wide screens.
+   Provides the full Airbnb-style 80px gutter (120px on very wide screens). */
 .earnings-content.earnings-layout {
   @media (min-width: $earnings-split-bp) {
     max-width: none;
     margin-left: 0;
     margin-right: auto;
-    padding-left: 20px;
-    padding-right: 20px;
+    padding-left: 80px;
+    padding-right: 80px;
+  }
+
+  @media (min-width: 1280px) {
+    padding-left: 120px;
+    padding-right: 120px;
+  }
+}
+
+/* Inline (rendered inside tab1's .earnings-inline-panel which already provides
+   the full 80px/120px Airbnb-style gutter). Skip extra horizontal padding here. */
+.earnings-content.earnings-layout.earnings-content--inline {
+  @media (min-width: $earnings-split-bp) {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  @media (min-width: 1280px) {
+    padding-left: 0;
+    padding-right: 0;
   }
 }
 
@@ -430,14 +448,14 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
 .earnings-layout {
   @media (min-width: $earnings-split-bp) {
     display: grid;
-    grid-template-columns: 1fr 5fr;
+    grid-template-columns: 240px 1fr;
     grid-template-areas:
       'sidebar main';
     /* Real gutter between tracks; vertical rule lives on main (border-left), not sidebar. */
-    column-gap: 80px;
+    column-gap: 96px;
     row-gap: 0;
     align-items: stretch;
-    max-width: 1180px;
+    max-width: 1100px;
     padding-top: 8px;
   }
 
@@ -2194,11 +2212,34 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 // =============================================================
-// WITHDRAWAL MODAL
+// WITHDRAWAL MODAL — light default; dark via ion-palette-dark tokens
 // =============================================================
 .withdrawal-modal {
+  --wd-bg: #ffffff;
+  --wd-surface: #f7f7f7;
+  --wd-balance-bg: #000000;
+  --wd-balance-label: rgba(255, 255, 255, 0.85);
+  --wd-balance-amount: #ffffff;
+  --wd-balance-note: rgba(255, 255, 255, 0.7);
+  --wd-text: #{$text-primary};
+  --wd-text-muted: #{$text-secondary};
+  --wd-border-subtle: #{$border};
+  --wd-input-focus-bg: #f0f0f0;
+  --wd-selected-bg: #f0f0f0;
+  --wd-no-fee-badge-bg: #f0f0f0;
+  --wd-no-fee-badge-text: #{$text-primary};
+  --wd-btn-primary-bg: #{$text-primary};
+  --wd-btn-primary-color: #ffffff;
+  --wd-btn-primary-hover: #333333;
+  --wd-btn-cancel-border: #cfcfcf;
+  --wd-btn-cancel-color: #{$text-primary};
+  --wd-btn-cancel-hover-bg: #{$text-primary};
+  --wd-btn-cancel-hover-color: #ffffff;
+  --wd-radio-border: #{$border};
+  --wd-radio-dot: #{$text-primary};
   ion-content {
-    --background: #{$bg-subtle};
+    --background: var(--wd-bg);
+    --color: var(--wd-text);
 
     @media (max-width: 768px) {
       --padding-top: env(safe-area-inset-top, 0px);
@@ -2206,10 +2247,112 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
   }
 
   ion-footer.withdrawal-modal-footer {
-    --background: #{$bg-subtle};
-    background: $bg-subtle;
-    border-top: 1px solid $border;
-    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.06);
+    --background: var(--wd-bg);
+    background: var(--wd-bg);
+    border-top: none;
+    box-shadow: none;
+  }
+
+  .floating-close-button {
+    --color: var(--wd-text-muted);
+
+    &:hover {
+      --color: var(--wd-text);
+    }
+  }
+
+  .modal-header {
+    .modal-heading {
+      color: var(--wd-text);
+    }
+
+    .modal-description {
+      color: var(--wd-text-muted);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+  }
+
+  .withdrawal-available-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    background: var(--wd-surface);
+    border: 1px solid var(--wd-border-subtle);
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--wd-text);
+    letter-spacing: -0.2px;
+    line-height: 1.2;
+  }
+
+  .withdrawal-footer-meta {
+    max-width: 880px;
+    margin: 0 auto;
+    width: 100%;
+    padding: 12px 20px 0;
+    box-sizing: border-box;
+    text-align: center;
+
+    @media (max-width: 768px) {
+      padding: 8px 16px 0;
+    }
+  }
+
+  .withdrawal-powered-by {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 10px;
+    line-height: 0;
+  }
+
+  .withdrawal-powered-by-badge {
+    height: 28px;
+    width: auto;
+    max-width: min(100%, 220px);
+    display: block;
+    object-fit: contain;
+  }
+
+  .withdrawal-powered-by-badge--dark {
+    display: none;
+  }
+
+  .withdrawal-terms {
+    margin: 0 0 14px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--wd-text-muted);
+    max-width: 520px;
+    margin-left: auto;
+    margin-right: auto;
+
+    @media (max-width: 768px) {
+      font-size: 11px;
+      margin-bottom: 10px;
+    }
+  }
+
+  .withdrawal-terms-link {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    font-size: inherit;
+    color: var(--wd-text-muted);
+    text-decoration: underline;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+
+    &:hover {
+      color: var(--wd-text);
+    }
   }
 
   .withdrawal-modal-actions {
@@ -2250,20 +2393,20 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
 
   .withdrawal-action-btn--cancel {
     --border-width: 1px;
-    --border-color: #cfcfcf;
-    --color: #222222;
+    --border-color: var(--wd-btn-cancel-border);
+    --color: var(--wd-btn-cancel-color);
     --background: transparent;
 
     &:hover {
-      --background: #222222;
-      --color: #ffffff;
+      --background: var(--wd-btn-cancel-hover-bg);
+      --color: var(--wd-btn-cancel-hover-color);
     }
   }
 
   .withdrawal-action-btn--primary {
-    --background: #222222;
-    --color: #ffffff;
-    --background-hover: #333333;
+    --background: var(--wd-btn-primary-bg);
+    --color: var(--wd-btn-primary-color);
+    --background-hover: var(--wd-btn-primary-hover);
     --box-shadow: none;
 
     &:disabled {
@@ -2282,6 +2425,40 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
     @media (max-width: 768px) {
       padding: 20px 16px 12px;
     }
+  }
+}
+
+:host-context(html.ion-palette-dark) .withdrawal-modal,
+html.ion-palette-dark .withdrawal-modal {
+  --wd-bg: #000000;
+  --wd-surface: #141414;
+  --wd-balance-bg: #141414;
+  --wd-balance-label: rgba(255, 255, 255, 0.85);
+  --wd-balance-amount: #f5f5f7;
+  --wd-balance-note: rgba(255, 255, 255, 0.7);
+  --wd-text: #f5f5f7;
+  --wd-text-muted: #8e8e93;
+  --wd-border-subtle: rgba(255, 255, 255, 0.08);
+  --wd-input-focus-bg: #1c1c1e;
+  --wd-selected-bg: #1c1c1e;
+  --wd-no-fee-badge-bg: #1c1c1e;
+  --wd-no-fee-badge-text: #f5f5f7;
+  --wd-btn-primary-bg: #f5f5f7;
+  --wd-btn-primary-color: #000000;
+  --wd-btn-primary-hover: #ffffff;
+  --wd-btn-cancel-border: rgba(255, 255, 255, 0.22);
+  --wd-btn-cancel-color: #f5f5f7;
+  --wd-btn-cancel-hover-bg: #f5f5f7;
+  --wd-btn-cancel-hover-color: #000000;
+  --wd-radio-border: rgba(255, 255, 255, 0.2);
+  --wd-radio-dot: #f5f5f7;
+
+  .withdrawal-powered-by-badge--light {
+    display: none;
+  }
+
+  .withdrawal-powered-by-badge--dark {
+    display: block;
   }
 }
 
@@ -2358,26 +2535,15 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
 .withdrawal-container {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-template-rows: auto auto;
+  grid-template-rows: auto;
   column-gap: 24px;
   row-gap: 16px;
   margin-bottom: 20px;
   align-items: stretch;
 
-  .withdrawal-grid-balance {
-    grid-column: 1;
-    grid-row: 1;
-  }
-
-  .withdrawal-grid-amount {
-    grid-column: 2;
-    grid-row: 1;
-    margin-bottom: 0;
-  }
-
   .withdrawal-grid-fees {
     grid-column: 1;
-    grid-row: 2;
+    grid-row: 1;
     display: flex;
     flex-direction: column;
     min-height: 0;
@@ -2397,7 +2563,7 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
 
   .method-section.withdrawal-grid-method {
     grid-column: 2;
-    grid-row: 2;
+    grid-row: 1;
     margin-bottom: 0;
     display: flex;
     flex-direction: column;
@@ -2408,7 +2574,7 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
       display: block;
       font-size: 14px;
       font-weight: 600;
-      color: $text-primary;
+      color: var(--wd-text);
       margin: 0 0 12px;
       letter-spacing: -0.01em;
 
@@ -2427,7 +2593,7 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
       padding: 16px;
 
       &.selected {
-        padding: 15px;
+        padding: 16px;
       }
 
       .method-content {
@@ -2476,48 +2642,12 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
   }
 }
 
-// Balance Card (in modal)
-.balance-card {
-  background: $accent-green;
-  border-radius: $radius;
-  padding: 20px;
-  text-align: center;
-  
-  .balance-label {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.85);
-    font-weight: 500;
-    margin-bottom: 4px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-  
-  .balance-amount {
-    font-size: 32px;
-    font-weight: 700;
-    color: white;
-    letter-spacing: -1px;
-  }
-  
-  .balance-note {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.7);
-    margin-top: 4px;
-  }
-
-  @media (max-width: 768px) {
-    padding: 14px 16px;
-    .balance-amount { font-size: 26px; }
-    .balance-label { font-size: 11px; }
-  }
-}
-
-// Fee Breakdown
-.fee-breakdown-card {
-  background: white;
+// Fee Breakdown (withdrawal modal)
+.withdrawal-modal .fee-breakdown-card {
+  background: var(--wd-surface);
   border-radius: $radius;
   padding: 16px;
-  border: 1px solid $border;
+  border: none;
 
   @media (max-width: 768px) { padding: 12px; }
   
@@ -2529,7 +2659,7 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
     
     .breakdown-label {
       font-size: 13px;
-      color: $text-secondary;
+      color: var(--wd-text-muted);
       flex: 1;
       display: flex;
       align-items: center;
@@ -2548,7 +2678,7 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
     .breakdown-value {
       font-size: 14px;
       font-weight: 600;
-      color: $text-primary;
+      color: var(--wd-text);
       text-align: right;
       
       &.fee-value { color: $accent-red; }
@@ -2562,13 +2692,13 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
       .breakdown-label {
         font-size: 14px;
         font-weight: 600;
-        color: $text-primary;
+        color: var(--wd-text);
       }
       
       .breakdown-value.total {
         font-size: 18px;
         font-weight: 700;
-        color: $accent-green;
+        color: var(--wd-text);
       }
     }
 
@@ -2625,44 +2755,44 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
     
     ion-icon {
       font-size: 28px;
-      color: $text-tertiary;
+      color: var(--wd-text-muted);
       margin-bottom: 8px;
     }
     
     p {
       font-size: 13px;
-      color: $text-secondary;
+      color: var(--wd-text-muted);
       margin: 0;
     }
   }
   
   .breakdown-divider {
     height: 1px;
-    background: $border;
+    background: var(--wd-border-subtle);
     margin: 8px 0;
   }
   
   &.stripe-card {
-    border: 1px solid $accent-green;
+    border: none;
     
     .no-fee-badge {
       display: inline-flex;
       align-items: center;
       gap: 6px;
       padding: 6px 12px;
-      background: $accent-green;
+      background: var(--wd-no-fee-badge-bg);
       border-radius: 6px;
       margin-bottom: 8px;
       
       ion-icon {
         font-size: 16px;
-        color: white;
+        color: var(--wd-no-fee-badge-text);
       }
       
       span {
         font-size: 12px;
         font-weight: 600;
-        color: white;
+        color: var(--wd-no-fee-badge-text);
         text-transform: uppercase;
         letter-spacing: 0.3px;
       }
@@ -2680,19 +2810,19 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
       align-items: center;
       gap: 6px;
       padding: 8px 12px;
-      background: rgba($accent-green, 0.06);
+      background: transparent;
       border-radius: 8px;
       margin-top: 8px;
       
       ion-icon {
         font-size: 16px;
-        color: $accent-green;
+        color: var(--wd-text-muted);
         flex-shrink: 0;
       }
       
       span {
         font-size: 12px;
-        color: $text-primary;
+        color: var(--wd-text-muted);
       }
 
       @media (max-width: 768px) {
@@ -2714,15 +2844,15 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
     }
 
     .stripe-receive-value--muted {
-      color: $text-tertiary;
-      opacity: 0.55;
+      color: var(--wd-text-muted);
+      opacity: 0.72;
       font-weight: 600;
     }
   }
 }
 
 // PayPal fee card: crossfade panels inside fixed min-height (no jump when amount crosses $10)
-.fee-breakdown-card--paypal {
+.withdrawal-modal .fee-breakdown-card--paypal {
   .fee-breakdown-swap {
     position: relative;
     min-height: 292px;
@@ -2762,81 +2892,109 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
   }
 }
 
-// Amount Section (modal)
-.amount-section {
-  margin-bottom: 16px;
+// Amount Section (withdrawal modal)
+.withdrawal-modal .amount-section {
+  margin-bottom: 0;
+  width: 100%;
 
-  @media (max-width: 768px) { margin-bottom: 0; }
-  
+  &.withdrawal-amount-hero {
+    text-align: center;
+    margin-bottom: 20px;
+
+    .section-label {
+      text-align: center;
+    }
+
+    .amount-input-wrapper {
+      max-width: 300px;
+      margin: 0 auto;
+      cursor: text;
+    }
+
+    .withdrawal-min-note {
+      margin: 8px 0 0;
+      font-size: 12px;
+      color: var(--wd-text-muted);
+    }
+
+    .amount-error-slot {
+      max-width: 300px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+  }
+
   .section-label {
     display: block;
     font-size: 14px;
     font-weight: 600;
-    color: $text-primary;
+    color: var(--wd-text);
     margin-bottom: 8px;
 
     @media (max-width: 768px) { font-size: 13px; margin-bottom: 6px; }
   }
-  
+
   .amount-input-wrapper {
     position: relative;
     display: flex;
     align-items: center;
-    background: white;
+    gap: 6px;
+    background: var(--wd-surface);
     border-radius: 8px;
-    border: 1px solid $border;
-    overflow: hidden;
+    border: 1px solid var(--wd-border-subtle);
+    padding: 4px;
+    box-sizing: border-box;
     transition: border-color 0.15s;
-    
+
     &:focus-within {
-      border-color: $text-primary;
+      border-color: var(--wd-text);
     }
-    
+
     .currency-symbol {
-      padding-left: 14px;
+      padding-left: 10px;
       font-size: 18px;
       font-weight: 600;
-      color: $text-primary;
+      color: var(--wd-text);
+      flex-shrink: 0;
 
-      @media (max-width: 768px) { padding-left: 12px; font-size: 16px; }
+      @media (max-width: 768px) { padding-left: 8px; font-size: 16px; }
     }
-    
+
     .amount-input {
       flex: 1;
+      min-width: 0;
       border: none;
       outline: none;
-      padding: 12px 10px;
+      padding: 8px 4px;
       font-size: 18px;
       font-weight: 600;
-      color: $text-primary;
+      color: var(--wd-text);
       background: transparent;
-      
-      &::placeholder { color: $text-tertiary; }
-      
-      &::-webkit-inner-spin-button,
-      &::-webkit-outer-spin-button {
-        -webkit-appearance: none;
-        margin: 0;
-      }
-      -moz-appearance: textfield;
+      cursor: text;
+      user-select: none;
+      -webkit-user-select: none;
+      caret-color: var(--wd-text);
 
-      @media (max-width: 768px) { padding: 10px 8px; font-size: 16px; }
+      &::placeholder { color: var(--wd-text-muted); }
+
+      @media (max-width: 768px) { padding: 8px 2px; font-size: 16px; }
     }
-    
+
     .max-button {
-      background: $text-primary;
-      color: white;
+      background: var(--wd-btn-primary-bg);
+      color: var(--wd-btn-primary-color);
       border: none;
-      padding: 6px 14px;
-      margin-right: 6px;
+      padding: 6px 12px;
+      margin: 0;
       border-radius: 6px;
       font-size: 11px;
       font-weight: 700;
       cursor: pointer;
       letter-spacing: 0.5px;
+      flex-shrink: 0;
       transition: background 0.15s;
-      
-      &:hover { background: #444; }
+
+      &:hover { background: var(--wd-btn-primary-hover); }
     }
   }
 
@@ -2871,8 +3029,8 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
   }
 }
 
-// Method Section (modal)
-.method-section {
+// Method Section (withdrawal modal)
+.withdrawal-modal .method-section {
   margin-bottom: 16px;
 
   @media (max-width: 768px) { margin-bottom: 0; }
@@ -2881,27 +3039,26 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
     display: block;
     font-size: 14px;
     font-weight: 600;
-    color: $text-primary;
+    color: var(--wd-text);
     margin-bottom: 8px;
   }
   
   .method-card {
-    background: white;
+    background: var(--wd-surface);
     border-radius: 8px;
-    border: 1px solid $border;
+    border: none;
     padding: 12px;
     margin-bottom: 8px;
     cursor: pointer;
-    transition: border-color 0.15s;
+    transition: background 0.15s;
     
     &:hover {
-      border-color: $text-secondary;
+      background: var(--wd-selected-bg);
     }
     
     &.selected {
-      border-color: $text-primary;
-      border-width: 2px;
-      padding: 11px;
+      background: var(--wd-selected-bg);
+      padding: 12px;
     }
 
     @media (max-width: 768px) {
@@ -2940,7 +3097,7 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
         .method-name {
           font-size: 15px;
           font-weight: 600;
-          color: $text-primary;
+          color: var(--wd-text);
           margin-bottom: 2px;
 
           @media (max-width: 768px) { font-size: 14px; margin-bottom: 1px; }
@@ -2948,14 +3105,14 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
         
         .method-detail {
           font-size: 13px;
-          color: $text-secondary;
+          color: var(--wd-text-muted);
 
           @media (max-width: 768px) { font-size: 12px; }
         }
         
         .method-timing {
           font-size: 12px;
-          color: $accent-green;
+          color: var(--wd-text-muted);
           font-weight: 500;
           margin-top: 2px;
 
@@ -2968,7 +3125,7 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
           width: 22px;
           height: 22px;
           border-radius: 50%;
-          border: 2px solid $border;
+          border: 2px solid var(--wd-radio-border);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -2978,13 +3135,13 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
             width: 10px;
             height: 10px;
             border-radius: 50%;
-            background: $text-primary;
+            background: var(--wd-radio-dot);
             transform: scale(0);
             transition: transform 0.15s;
           }
           
           &.checked {
-            border-color: $text-primary;
+            border-color: var(--wd-radio-dot);
             
             .radio-dot {
               transform: scale(1);
@@ -2997,7 +3154,7 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
   
   .no-method-message {
     background: #FFF8F0;
-    border: 1px solid #FFE0B2;
+    border: none;
     border-radius: $radius;
     padding: 16px;
     display: flex;
@@ -3055,10 +3212,6 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
   
   .modal-header .modal-heading {
     font-size: 20px;
-  }
-  
-  .balance-card .balance-amount {
-    font-size: 28px;
   }
 }
 
@@ -3368,3 +3521,4 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
   .withdrawal-success-note { color: #aeaeb2 !important; }
   .withdrawal-success-done-btn { background: #f5f5f7 !important; color: #000 !important; }
 }
+
