@@ -1195,46 +1195,46 @@ export class UserService {
   }
 
   /**
-   * Detect and save user's timezone automatically
-   * This should be called on login or when the app starts
+   * Detect and save user's timezone automatically.
+   * Returns whether the caller should notify the user:
+   *   - `unchanged` — already matched, no write
+   *   - `initial`   — first-time save (no prior timezone); stay silent
+   *   - `changed`   — user had a different timezone; OK to show a toast
    */
-  detectAndSaveTimezone(): Observable<boolean> {
+  detectAndSaveTimezone(): Observable<'unchanged' | 'initial' | 'changed'> {
     try {
       const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-      // Get current user to check existing timezone
       return this.getCurrentUser().pipe(
         take(1),
         switchMap(user => {
           const currentTimezone = user?.profile?.timezone;
-          
-          // Only update if timezone changed or doesn't exist
-          if (!currentTimezone || currentTimezone !== detectedTimezone) {
-            return this.updateProfile({ timezone: detectedTimezone }).pipe(
-              map(() => true),
-              catchError(error => {
-                // 404 happens for brand-new users whose record hasn't been
-                // provisioned yet — onboarding will set the timezone. Stay quiet.
-                if (error?.status !== 404) {
-                  console.error('❌ Failed to save timezone:', error);
-                }
-                return of(false);
-              })
-            );
-          } else {
-            return of(false); // No update needed
+
+          if (currentTimezone === detectedTimezone) {
+            return of('unchanged' as const);
           }
+
+          const outcome = currentTimezone ? 'changed' as const : 'initial' as const;
+          return this.updateProfile({ timezone: detectedTimezone }).pipe(
+            map(() => outcome),
+            catchError(error => {
+              if (error?.status !== 404) {
+                console.error('❌ Failed to save timezone:', error);
+              }
+              return of('unchanged' as const);
+            })
+          );
         }),
         catchError(error => {
           if (error?.status !== 404) {
             console.error('❌ Error detecting/saving timezone:', error);
           }
-          return of(false);
+          return of('unchanged' as const);
         })
       );
     } catch (error) {
       console.error('❌ Error in detectAndSaveTimezone:', error);
-      return of(false);
+      return of('unchanged');
     }
   }
 

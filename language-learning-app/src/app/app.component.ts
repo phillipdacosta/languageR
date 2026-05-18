@@ -206,19 +206,22 @@ export class AppComponent implements OnInit, OnDestroy {
         
         // Detect and save timezone automatically
         this.userService.detectAndSaveTimezone().subscribe({
-          next: async (updated) => {
-            if (updated) {
-              const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-              const label = getTimezoneLabel(tz);
-              const toast = await this.toastController.create({
-                message: `Timezone updated to ${label}`,
-                duration: 3000,
-                position: 'bottom',
-                icon: 'globe-outline',
-                color: 'primary'
-              });
-              await toast.present();
+          next: async (result) => {
+            // Only toast when the user already had a timezone and it changed
+            // (e.g. they traveled). First login saves silently.
+            if (result !== 'changed') {
+              return;
             }
+            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            const label = getTimezoneLabel(tz);
+            const toast = await this.toastController.create({
+              message: `Timezone updated to ${label}`,
+              duration: 3000,
+              position: 'bottom',
+              icon: 'globe-outline',
+              color: 'primary'
+            });
+            await toast.present();
           },
           error: (error) => {
             // 404 is expected for new users in the pre-onboarding window —
