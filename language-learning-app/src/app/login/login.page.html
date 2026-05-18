@@ -1,122 +1,162 @@
-<!-- login.page.html -->
-<ion-content class="login-content">
-    <div class="login-wrapper">
-      <!-- Hero Section -->
-      <div class="hero-section">
-        <div class="logo-container">
-          <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="app-logo">
-        </div>
-        <h1 class="app-title">Barnabi</h1>
-        <p class="app-subtitle">Connect with tutors worldwide</p>
-      </div>
-  
-      <!-- User Type Selection -->
-      <div class="auth-section" *ngIf="!selectedUserType">
-        <h3 class="section-title">Choose your account type</h3>
-        <div class="user-type-options">
-          <ion-button 
-            expand="block" 
-            size="large"
-            class="user-type-button student-button" 
-            (click)="selectUserType('student')">
-            <ion-icon name="school" slot="start"></ion-icon>
-            I'm a Student
-            <p class="button-description">Learn languages with expert tutors</p>
-          </ion-button>
-          
-          <ion-button 
-            expand="block" 
-            size="large"
-            class="user-type-button tutor-button" 
-            (click)="selectUserType('tutor')">
-            <ion-icon name="person" slot="start"></ion-icon>
-            I'm a Tutor
-            <p class="button-description">Teach languages and earn money</p>
-          </ion-button>
-        </div>
-      </div>
+<!--
+  Sign-in page. Two-column on >=900px viewports:
+    Left  — brand mark, "Welcome back" form, social buttons, account link
+    Right — illustrated hero with overlaid floating chips (translatable)
+  On narrow viewports the right column is hidden and the left column
+  centers itself so phones get a clean single-column form.
+-->
+<ion-content class="login-content" [scrollY]="true">
+  <div class="login-shell">
 
-      <!-- Login Actions (shown after user type selection) -->
-      <div class="auth-section" *ngIf="selectedUserType">
-        <div class="selected-type-info">
-          <ion-icon [name]="selectedUserType === 'student' ? 'school' : 'person'" class="type-icon"></ion-icon>
-          <span class="type-text">{{ selectedUserType === 'student' ? 'Student' : 'Tutor' }} Account</span>
-          <ion-button fill="clear" size="small" (click)="goBackToTypeSelection()">
-            Change
-          </ion-button>
+    <!-- ─── Left: form column ────────────────────────────────────────── -->
+    <section class="login-form-pane">
+      <div class="login-form-inner">
+
+        <header class="brand-mark">
+          <img src="assets/mascot-bird.png" alt="Barnabi mascot" class="brand-icon" />
+          <div class="brand-text">
+            <img src="assets/barnabi-logo.png" alt="Barnabi" class="brand-name-logo barnabi-wordmark-for-light-ui" />
+            <img src="assets/barnabi-logo-wordmark-white.png" alt="" class="brand-name-logo barnabi-wordmark-for-dark-ui" aria-hidden="true" />
+            <span class="brand-tagline">{{ 'LOGIN.BRAND_TAGLINE' | translate }}</span>
+          </div>
+        </header>
+
+        <h1 class="welcome-title">{{ 'LOGIN.WELCOME_BACK' | translate }}</h1>
+        <p class="welcome-subtitle">{{ 'LOGIN.WELCOME_BACK_SUBTITLE' | translate }}</p>
+
+        <form class="login-form" (ngSubmit)="signIn()" novalidate>
+          <label class="field">
+            <ion-icon name="mail-outline" class="field-icon" aria-hidden="true"></ion-icon>
+            <input
+              type="email"
+              autocomplete="email"
+              [placeholder]="'LOGIN.EMAIL_PLACEHOLDER' | translate"
+              [(ngModel)]="email"
+              name="email"
+              class="field-input" />
+          </label>
+
+          <button type="submit" class="primary-btn" [disabled]="isLoading">
+            <ion-spinner *ngIf="isLoading" name="crescent" class="primary-btn-spinner"></ion-spinner>
+            <span *ngIf="!isLoading">{{ 'LOGIN.SIGN_IN' | translate }}</span>
+          </button>
+        </form>
+
+        <div class="divider">
+          <span>{{ 'LOGIN.OR' | translate }}</span>
         </div>
-        
-        <ion-button 
-          expand="block" 
-          size="large"
-          (click)="login()"
-          [disabled]="isLoading"
-          class="login-btn">
-          <ion-spinner name="crescent" *ngIf="isLoading" slot="start"></ion-spinner>
-          <ion-icon name="log-in" slot="start" *ngIf="!isLoading"></ion-icon>
-          {{ isLoading ? 'Signing in...' : (selectedUserType === 'student' ? 'Sign In as Student' : 'Sign In as Tutor') }}
-        </ion-button>
+
+        <div class="social-row" [class.social-row--single]="!facebookLoginEnabled">
+          <button type="button" class="social-btn" (click)="signInWithGoogle()" [disabled]="isLoading">
+            <img src="assets/google.png" alt="" class="social-icon" />
+            <span>{{ 'LOGIN.CONTINUE_GOOGLE' | translate }}</span>
+          </button>
+          <button
+            *ngIf="facebookLoginEnabled"
+            type="button"
+            class="social-btn"
+            (click)="signInWithFacebook()"
+            [disabled]="isLoading">
+            <ion-icon name="logo-facebook" class="social-icon-facebook" aria-hidden="true"></ion-icon>
+            <span>{{ 'LOGIN.CONTINUE_FACEBOOK' | translate }}</span>
+          </button>
+        </div>
+
+        <p class="account-cta">
+          {{ 'LOGIN.NEW_HERE' | translate }}
+          <button type="button" class="link-button link-button--inline" (click)="goToCreateAccount()">
+            {{ 'LOGIN.CREATE_ACCOUNT' | translate }}
+          </button>
+        </p>
+
       </div>
-  
-      <!-- Features Grid -->
-      <div class="features-grid">
-        <div class="feature-card">
-          <div class="feature-icon video">
-            <ion-icon name="videocam"></ion-icon>
-          </div>
-          <p>Live Video Lessons</p>
+    </section>
+
+    <!--
+      ─── Right: hero column ──────────────────────────────────────────
+      Decorative on narrow viewports (hidden via CSS). The image is the
+      Barnabi illustration on a soft sky-blue backdrop; everything else
+      (heading, subtitle, floating chips) is HTML so each string remains
+      translatable through ngx-translate. Chips are positioned in % of
+      the hero pane so they track the pane size, not the image's drawn
+      bubbles.
+    -->
+    <aside class="login-hero-pane" aria-hidden="true">
+      <div class="hero-canvas">
+        <!-- Dedicated layer for the raster — avoids WebKit painting black
+             fringes when `background-image` shares the same box as
+             `border-radius` + overflow clipping on ion-content scroll layers. -->
+        <div class="hero-art" aria-hidden="true"></div>
+
+        <div class="hero-headline">
+          <h2 class="hero-title">{{ 'LOGIN.HERO_HEADING' | translate }}</h2>
+          <p class="hero-subtitle">{{ 'LOGIN.HERO_SUBTITLE' | translate }}</p>
         </div>
-        
-        <div class="feature-card">
-          <div class="feature-icon native">
-            <ion-icon name="people"></ion-icon>
+
+        <!-- Tutor status chip (top-right) -->
+        <div class="hero-chip hero-chip--tutor">
+          <div class="hero-tutor-avatar">
+            <img src="assets/tutor-avatar.png" alt="" />
           </div>
-          <p>Native Speakers</p>
-        </div>
-        
-        <div class="feature-card">
-          <div class="feature-icon progress">
-            <ion-icon name="trophy"></ion-icon>
+          <div class="hero-tutor-meta">
+            <span class="hero-tutor-status">
+              <span class="hero-presence-dot"></span>
+              {{ 'LOGIN.HERO_TUTOR_STATUS' | translate }}
+            </span>
+            <span class="hero-tutor-name">{{ 'LOGIN.HERO_TUTOR_NAME' | translate }}</span>
+            <span class="hero-tutor-role">{{ 'LOGIN.HERO_TUTOR_ROLE' | translate }}</span>
           </div>
-          <p>Track Progress</p>
         </div>
-        
-        <div class="feature-card">
-          <div class="feature-icon flexible">
-            <ion-icon name="time"></ion-icon>
+
+        <!-- Speech bubbles -->
+        <div class="hero-bubble hero-bubble--hola">{{ 'LOGIN.HERO_BUBBLE_HOLA' | translate }}</div>
+        <div class="hero-bubble hero-bubble--bonjour">{{ 'LOGIN.HERO_BUBBLE_BONJOUR' | translate }}</div>
+        <div class="hero-bubble hero-bubble--ciao">{{ 'LOGIN.HERO_BUBBLE_CIAO' | translate }}</div>
+
+        <!-- Goal card (mid-left) -->
+        <div class="hero-chip hero-chip--goal">
+          <img src="assets/login-goal-icon.png" alt="" class="hero-chip-icon hero-chip-icon--goal" aria-hidden="true" />
+          <div class="hero-chip-meta">
+            <span class="hero-chip-label">{{ 'LOGIN.HERO_GOAL_LABEL' | translate }}</span>
+            <span class="hero-chip-value">{{ 'LOGIN.HERO_GOAL_VALUE' | translate }}</span>
+            <span class="hero-progress">
+              <span class="hero-progress-fill"></span>
+            </span>
           </div>
-          <p>Flexible Schedule</p>
         </div>
+
+        <!-- Next lesson card (lower-left) -->
+        <div class="hero-chip hero-chip--lesson">
+          <img src="assets/login-book-icon.png" alt="" class="hero-chip-icon hero-chip-icon--lesson" aria-hidden="true" />
+          <div class="hero-chip-meta">
+            <span class="hero-chip-label">{{ 'LOGIN.HERO_NEXT_LESSON_LABEL' | translate }}</span>
+            <span class="hero-chip-value">{{ 'LOGIN.HERO_NEXT_LESSON_VALUE' | translate }}</span>
+          </div>
+        </div>
+
+        <!-- Progress card (lower-right) -->
+        <div class="hero-chip hero-chip--progress">
+          <img src="assets/login-chart-icon.png" alt="" class="hero-chip-icon hero-chip-icon--progress" aria-hidden="true" />
+          <div class="hero-chip-meta">
+            <span class="hero-chip-label">{{ 'LOGIN.HERO_PROGRESS_LABEL' | translate }}</span>
+            <span class="hero-chip-value">{{ 'LOGIN.HERO_PROGRESS_VALUE' | translate }}</span>
+          </div>
+        </div>
+
       </div>
-  
-      <!-- Debug Buttons (only show in dev) -->
-      <div class="debug-buttons">
-        <ion-button 
-          fill="clear" 
-          size="small"
-          (click)="clearAuthAndReload()"
-          class="debug-btn">
-          <ion-icon name="refresh" slot="start"></ion-icon>
-          Reset Auth
-        </ion-button>
-        
-        <ion-button 
-          fill="clear" 
-          size="small"
-          (click)="forceLogout()"
-          class="debug-btn">
-          <ion-icon name="log-out" slot="start"></ion-icon>
-          Force Logout
-        </ion-button>
-        
-        <ion-button 
-          fill="clear" 
-          size="small"
-          (click)="nuclearLogout()"
-          class="debug-btn">
-          <ion-icon name="nuclear" slot="start"></ion-icon>
-          Nuclear Logout
-        </ion-button>
-      </div>
-    </div>
-  </ion-content>
+    </aside>
+
+    <!--
+      Decorative plant + books that bridge the column seam — sibling of
+      both panes, anchored to `.login-shell` (which is `position: relative`)
+      so its bounds are not clipped by either column. Hidden on narrow
+      viewports where the hero column itself is hidden.
+    -->
+    <img
+      src="assets/login-hero-plant.png"
+      alt=""
+      class="login-overflow-plant"
+      aria-hidden="true" />
+
+  </div>
+</ion-content>

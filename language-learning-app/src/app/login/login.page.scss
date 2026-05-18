@@ -1,336 +1,833 @@
-// login.page.scss
+// login.page.scss — Apple-clean two-column sign-in surface.
+//
+// Layout:
+//   - >= 900px viewport: 1fr | 1fr split, form left / illustrated hero right
+//   - < 900px:           hero pane hides, form column centers itself
+//
+// Hero pane uses the imported background JPEG as artwork only; every
+// floating chip and headline is HTML so its text remains translatable.
+
+// ── Tokens ───────────────────────────────────────────────────────────
+$brand-blue:        #3a7afe;
+$brand-blue-hover:  #2d68ed;
+$brand-blue-active: #2256d1;
+$ink-strong:        #0f1d3a;
+$ink-soft:          #5b6478;
+$ink-muted:         #8a93a6;
+$divider:           #e5e7eb;
+$field-bg:          #ffffff;
+$field-border:      #e3e6ec;
+$field-border-focus: #b6c8ff;
+$hero-sky:          #d8e9ff;
+$hero-tint:         #c7defc;
+$radius-md:         12px;
+$radius-lg:         16px;
+$radius-card:       20px;
 
 .login-content {
-    --background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    
-  
-  // Dark mode support using Ionic's class-based approach
-  html.ion-palette-dark & {
-    --background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  --background: #ffffff;
+}
+
+// Shadow scroll/background fills are forced white from global.scss
+// (`ion-content.login-content::part(...)`) so compositing fixes aren't
+// blocked by view encapsulation.
+
+// ── Outer shell ──────────────────────────────────────────────────────
+.login-shell {
+  // `position: relative` so `.login-overflow-plant` can absolutely-position
+  // itself against the seam between the form column and the hero column.
+  position: relative;
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr;
+  background: #ffffff;
+
+  @media (min-width: 900px) {
+    grid-template-columns: minmax(420px, 1fr) 1fr;
   }
+}
+
+// ── Left column: form ───────────────────────────────────────────────
+.login-form-pane {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 56px 32px;
+
+  @media (max-width: 480px) {
+    padding: 40px 20px;
   }
-  
-  .login-wrapper {
-    min-height: 100vh;
+}
+
+.login-form-inner {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+}
+
+// Brand mark (top-left of the form)
+.brand-mark {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 56px;
+  // Let the text column consume remaining row width so long taglines wrap
+  // instead of widening the row and stretching flex children.
+  min-width: 0;
+
+  .brand-icon {
+    width: 44px;
+    height: 44px;
+    object-fit: contain;
+    flex: 0 0 auto;
+  }
+
+  .brand-text {
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    padding: 40px 24px;
-    max-width: 480px;
-    margin: 0 auto;
+    align-items: flex-start;
+    min-width: 0;
+    flex: 1 1 auto;
+    line-height: 1.1;
   }
-  
-  // Hero Section
-  .hero-section {
-    text-align: center;
-    margin-bottom: 48px;
-    animation: fadeInUp 0.6s ease-out;
-  }
-  
-  .logo-container {
-    margin-bottom: 24px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    
-    .app-logo {
-      width: 80px;
-      height: 80px;
-      object-fit: contain;
-    }
-  }
-  
-  .app-title {
-    font-size: 36px;
+
+  .brand-name {
+    font-size: 25px;
     font-weight: 700;
-    color: #fff;
-    margin: 0 0 8px 0;
-    letter-spacing: -0.5px;
+    color: black;
+    letter-spacing: -0.3px;
   }
-  
-  .app-subtitle {
-    font-size: 16px;
-    color: rgba(255, 255, 255, 0.85);
-    margin: 0;
-    font-weight: 400;
+
+  // Do NOT set `display` here — this class is shared by the light + dark
+  // wordmark `<img>`s; only one should be visible (global.scss hides the
+  // dark PNG with `.barnabi-wordmark-for-dark-ui { display: none }`). A
+  // higher-specificity `display: block` on `.brand-name-logo` was
+  // overriding that and drew both images (artifacts between title + tagline).
+  //
+  // Column flex defaults to `align-items: stretch` on the cross axis; the
+  // parent `.brand-text` uses `align-items: flex-start` so wordmarks keep
+  // intrinsic width and are not stretched by long taglines.
+  .brand-name-logo {
+    height: 26px;
+    width: auto;
+    max-width: 100%;
+    object-fit: contain;
+    object-position: left center;
+    flex: 0 0 auto;
   }
-  
-  // Auth Section
-  .auth-section {
+
+  .brand-tagline {
     width: 100%;
-    margin-bottom: 48px;
-    animation: fadeInUp 0.6s ease-out 0.2s backwards;
-    
-    .login-btn {
-      --background: #fff;
-      --background-hover: #f5f5f5;
-      --background-activated: #ebebeb;
-      --color: #1a1a1a;
-      --border-radius: 12px;
-      --box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-      height: 56px;
-      font-weight: 600;
-      font-size: 16px;
-      text-transform: none;
-      margin-bottom: 20px;
-      
-      ion-icon {
-        font-size: 22px;
-      }
-    }
-    
-    .google-btn {
-      --border-color: rgba(255, 255, 255, 0.3);
-      --color: #fff;
-      --border-radius: 12px;
-      --border-width: 2px;
-      height: 56px;
-      font-weight: 600;
-      font-size: 16px;
-      text-transform: none;
-      backdrop-filter: blur(10px);
-      background: rgba(255, 255, 255, 0.1);
-      
-      ion-icon {
-        font-size: 22px;
-      }
-      
-      &:hover {
-        background: rgba(255, 255, 255, 0.15);
-      }
+    max-width: 100%;
+    font-size: 12px;
+    font-weight: 500;
+    color: #7b7b7b;
+    opacity: 0.85;
+    letter-spacing: 0.1px;
+  }
+}
+
+.welcome-title {
+  font-size: 38px;
+  font-weight: 800;
+  color: $ink-strong;
+  margin: 0 0 12px;
+  letter-spacing: -0.8px;
+  line-height: 1.1;
+}
+
+.welcome-subtitle {
+  font-size: 15px;
+  color: $ink-soft;
+  margin: 0 0 36px;
+  line-height: 1.5;
+}
+
+// ── Form fields ──────────────────────────────────────────────────────
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: $field-bg;
+  border: 1px solid $field-border;
+  border-radius: $radius-md;
+  padding: 0 14px;
+  height: 52px;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+
+  &:focus-within {
+    border-color: $field-border-focus;
+    box-shadow: 0 0 0 4px rgba(58, 122, 254, 0.12);
+  }
+
+  .field-icon {
+    font-size: 18px;
+    color: $ink-muted;
+    flex-shrink: 0;
+    margin-right: 10px;
+  }
+
+  .field-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 15px;
+    font-weight: 500;
+    color: $ink-strong;
+    height: 100%;
+    padding: 0;
+    min-width: 0;
+
+    &::placeholder {
+      color: $ink-muted;
+      font-weight: 400;
     }
   }
-  
-  .divider {
+
+  .field-trailing-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 6px;
+    margin: 0 -6px 0 4px;
+    color: $ink-muted;
     display: flex;
     align-items: center;
-    margin: 20px 0;
-    
-    &::before,
-    &::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: rgba(255, 255, 255, 0.2);
-    }
-    
-    span {
-      padding: 0 16px;
-      color: rgba(255, 255, 255, 0.7);
-      font-size: 14px;
-      font-weight: 500;
-    }
-  }
-  
-  // Features Grid
-  .features-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
-    width: 100%;
-    animation: fadeInUp 0.6s ease-out 0.4s backwards;
-    
-    @media (min-width: 400px) {
-      gap: 20px;
-    }
-  }
-  
-  .feature-card {
-    background: rgba(255, 255, 255, 0.15);
-    backdrop-filter: blur(10px);
-    border-radius: 16px;
-    padding: 20px 16px;
-    text-align: center;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    transition: all 0.3s ease;
-    
-    &:hover {
-      transform: translateY(-4px);
-      background: rgba(255, 255, 255, 0.2);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-    }
-    
-    .feature-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 12px;
-      
-      ion-icon {
-        font-size: 24px;
-        color: #fff;
-      }
-      
-      &.video {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      }
-      
-      &.native {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-      }
-      
-      &.progress {
-        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-      }
-      
-      &.flexible {
-        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-      }
-    }
-    
-    p {
-      margin: 0;
-      font-size: 13px;
-      font-weight: 500;
-      color: #fff;
-      line-height: 1.4;
-    }
-  }
-  
-// User Type Selection
-.section-title {
-  color: #fff;
-  font-size: 20px;
-  font-weight: 600;
-  text-align: center;
-  margin-bottom: 24px;
-}
+    justify-content: center;
+    border-radius: 8px;
+    transition: color 0.15s ease, background 0.15s ease;
 
-.user-type-options {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.user-type-button {
-  --background: rgba(255, 255, 255, 0.15);
-  --background-hover: rgba(255, 255, 255, 0.25);
-  --color: #fff;
-  --border-radius: 16px;
-  --padding: 20px;
-  height: auto;
-  min-height: 80px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  transition: all 0.3s ease;
-  
-  &:hover {
-    --background: var(--background-hover);
-    transform: translateY(-2px);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  }
-  
-  ion-icon {
-    font-size: 32px;
-    margin-bottom: 8px;
-  }
-  
-  .button-description {
-    font-size: 14px;
-    opacity: 0.8;
-    margin: 4px 0 0 0;
-    font-weight: 400;
-  }
-}
-
-.student-button {
-  --background: rgba(76, 175, 80, 0.2);
-  --background-hover: rgba(76, 175, 80, 0.3);
-  border-color: rgba(76, 175, 80, 0.3);
-  border: none;
-}
-
-.tutor-button {
-  --background: rgba(33, 150, 243, 0.2);
-  --background-hover: rgba(33, 150, 243, 0.3);
-  border-color: rgba(33, 150, 243, 0.3);
-  border: none;
-}
-
-.selected-type-info {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  margin-bottom: 24px;
-  padding: 16px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  backdrop-filter: blur(10px);
-  
-  .type-icon {
-    font-size: 24px;
-    color: #fff;
-  }
-  
-  .type-text {
-    color: #fff;
-    font-size: 18px;
-    font-weight: 600;
-  }
-}
-
-// Debug Buttons
-.debug-buttons {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-  margin-top: 24px;
-}
-
-.debug-btn {
-  --color: rgba(255, 255, 255, 0.6);
-  font-size: 12px;
-  
-  ion-icon {
-    font-size: 16px;
-  }
-}
-  
-  // Animations
-  @keyframes fadeInUp {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-  
-  // Responsive adjustments
-  @media (min-width: 768px) {
-    .login-wrapper {
-      padding: 60px 40px;
-    }
-    
-    .hero-section {
-      margin-bottom: 56px;
-    }
-    
-    .app-title {
-      font-size: 48px;
-    }
-    
-    .app-subtitle {
+    ion-icon {
       font-size: 18px;
     }
-    
-    .auth-section {
-      margin-bottom: 56px;
-    }
-    
-    .features-grid {
-      grid-template-columns: repeat(4, 1fr);
+
+    &:hover {
+      color: $ink-soft;
+      background: rgba(0, 0, 0, 0.04);
     }
   }
+}
+
+
+.link-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: $brand-blue;
+  padding: 0;
+  transition: color 0.15s ease;
+
+  &:hover {
+    color: $brand-blue-hover;
+  }
+
+  &:active {
+    color: $brand-blue-active;
+  }
+
+  &--inline {
+    margin-left: 4px;
+  }
+}
+
+// ── Primary button ──────────────────────────────────────────────────
+.primary-btn {
+  margin-top: 8px;
+  height: 52px;
+  border-radius: $radius-md;
+  border: none;
+  background: black;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0.1px;
+  transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.2s ease;
+  box-shadow: 0 11px 26px rgb(65 217 255 / 29%);
+
+  &:hover {
+    background: $brand-blue-hover;
+  }
+
+  &:active {
+    background: $brand-blue-active;
+    transform: scale(0.99);
+  }
+
+  &:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
+  .primary-btn-spinner {
+    --color: #ffffff;
+    width: 22px;
+    height: 22px;
+  }
+}
+
+// ── Divider ─────────────────────────────────────────────────────────
+.divider {
+  display: flex;
+  align-items: center;
+  margin: 24px 0;
+
+  &::before,
+  &::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: $divider;
+  }
+
+  span {
+    padding: 0 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: $ink-muted;
+    text-transform: lowercase;
+  }
+}
+
+// ── Social row ──────────────────────────────────────────────────────
+.social-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+
+  &--single {
+    grid-template-columns: 1fr;
+  }
+
+  @media (max-width: 380px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.social-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 50px;
+  padding: 0 14px;
+  background: #ffffff;
+  border: 1px solid $field-border;
+  border-radius: $radius-md;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: $ink-strong;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  &:hover {
+    background: #fafbfd;
+    border-color: #d6dae2;
+  }
+
+  &:active {
+    transform: scale(0.99);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .social-icon {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+    flex-shrink: 0;
+  }
+
+  .social-icon-facebook {
+    font-size: 20px;
+    color: #1877f2;
+    flex-shrink: 0;
+  }
+}
+
+.account-cta {
+  margin-top: 32px;
+  text-align: center;
+  font-size: 14px;
+  color: $ink-soft;
+}
+
+// ── Right column: hero ──────────────────────────────────────────────
+// Single seamless image surface: pane + canvas share the same sky-blue
+// fill as the JPEG so any letterbox space dissolves into the artwork.
+// The inner edge (where the form column meets the hero column) is
+// rounded to match the original two-column mockup. Outer edge stays
+// flush with the page so the hero reads as a continuous band — clipping
+// only removes the empty sky-blue letterbox at the inner corners, not
+// any artwork from the illustration.
+.login-hero-pane {
+  display: none;
+  padding: 0;
+  align-items: stretch;
+  justify-content: stretch;
+  background-color: $hero-sky;
+  border-top-left-radius: 24px;
+  border-bottom-left-radius: 24px;
+  overflow: hidden;
+
+  @media (min-width: 900px) {
+    display: flex;
+  }
+}
+
+// Image layer — kept separate from any clipping host to avoid the WebKit
+// "background-image + border-radius on the same box" painting bug.
+//
+// The hero JPEG is a full scene (world map, city silhouettes, Barnabi
+// reading bottom-right) so it fills the pane via `cover`, anchored to
+// the bottom so Barnabi himself never gets cropped off as the pane grows
+// taller than the image's 3:4 aspect.
+.hero-art {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: url('/assets/login-hero.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.hero-canvas {
+  position: relative;
+  flex: 1;
+  background-color: #c8e0fc;
+  min-height: 600px;
+
+  // Soft gradient veil above the artwork — keeps the headline legible
+  // regardless of the underlying illustration's brightness.
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      180deg,
+      rgba(216, 233, 255, 0.55) 0%,
+      rgba(216, 233, 255, 0) 35%
+    );
+    pointer-events: none;
+    z-index: 1;
+  }
+}
+
+// ── Decorative plant + books that bridge the column seam ────────────
+// Sibling of both panes inside `.login-shell` (which is `position:
+// relative`). Sits at the bottom of the page, anchored horizontally so
+// the plant + pot land in the white form column and the books land in
+// the sky-blue hero column. `pointer-events: none` so it never blocks
+// the form. Hidden on narrow viewports — the hero column itself is
+// hidden there, so an overflow into the form column would look orphaned.
+.login-overflow-plant {
+  position: absolute;
+  bottom: 10px;
+  // The PNG composition: plant pot centered-left, books stacked to the right.
+  // Anchoring the image's left edge at `50% - 80px` (image is 200px wide → 
+  // center sits ~20px right of the column seam) places the plant in the white
+  // form column and books in the blue hero column.
+  left: calc(53% - 80px);
+  width: 200px;
+  height: auto;
+  z-index: 5;
+  pointer-events: none;
+  user-select: none;
+  display: none;
+
+  @media (min-width: 900px) {
+    display: block;
+  }
+}
+
+// Headline block (top-center / top-left)
+.hero-headline {
+  position: absolute;
+  top: 6%;
+  left: 7%;
+  right: 38%;
+  z-index: 3;
+
+  .hero-title {
+    font-size: 34px;
+    font-weight: 800;
+    color: $ink-strong;
+    margin: 0 0 14px;
+    line-height: 1.12;
+    letter-spacing: -0.6px;
+  }
+
+  .hero-subtitle {
+    font-size: 14px;
+    color: $ink-soft;
+    margin: 0;
+    line-height: 1.5;
+    max-width: 320px;
+  }
+}
+
+// ── Floating chips ──────────────────────────────────────────────────
+// Shared chip surface — soft white cards with subtle shadow.
+.hero-chip {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 12px 16px;
+  box-shadow:
+    0 12px 28px rgba(15, 29, 58, 0.10),
+    0 2px 6px rgba(15, 29, 58, 0.06);
+  z-index: 4;
+  animation: heroChipFloat 5.4s ease-in-out infinite;
+  will-change: transform;
+}
+
+.hero-chip-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  ion-icon {
+    font-size: 20px;
+    color: #ffffff;
+  }
+
+  &--goal {
+    background: none;
+    border-radius: 10px;
+    overflow: hidden;
+    object-fit: contain;
+  }
+
+  &--lesson {
+    background: none;
+    border-radius: 10px;
+    overflow: hidden;
+    object-fit: contain;
+  }
+
+  &--progress {
+    background: none;
+    border-radius: 10px;
+    overflow: hidden;
+    object-fit: contain;
+  }
+}
+
+.hero-chip-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+
+  .hero-chip-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: $ink-muted;
+    text-transform: none;
+    letter-spacing: 0.1px;
+  }
+
+  .hero-chip-value {
+    font-size: 14px;
+    font-weight: 700;
+    color: $ink-strong;
+    line-height: 1.2;
+  }
+}
+
+// Tutor card — top-right
+.hero-chip--tutor {
+  top: 22%;
+  right: 6%;
+  padding: 20px 24px 20px 20px;
+  animation-delay: -1.2s;
+
+  .hero-tutor-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: linear-gradient(135deg, #ffd6c2 0%, #ffb595 100%);
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+
+  .hero-tutor-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  .hero-tutor-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: $ink-soft;
+  }
+
+  .hero-presence-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #34c77b;
+    box-shadow: 0 0 0 2px rgba(52, 199, 123, 0.18);
+  }
+
+  .hero-tutor-name {
+    font-size: 18px;
+    font-weight: 700;
+    color: $ink-strong;
+    line-height: 1.1;
+  }
+
+  .hero-tutor-role {
+    font-size: 13px;
+    font-weight: 500;
+    color: $ink-muted;
+    line-height: 1.1;
+  }
+}
+
+// Goal card — middle-left, with progress bar
+.hero-chip--goal {
+  top: 44%;
+  left: 5%;
+  animation-delay: -2.8s;
+
+  .hero-progress {
+    margin-top: 6px;
+    width: 92px;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(58, 122, 254, 0.16);
+    display: block;
+    overflow: hidden;
+  }
+
+  .hero-progress-fill {
+    display: block;
+    width: 62%;
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, $brand-blue 0%, #6da4ff 100%);
+  }
+}
+
+// Next-lesson card — lower-left
+.hero-chip--lesson {
+  top: 78%;
+  left: 20%;
+  animation-delay: -0.6s;
+}
+
+// Progress card — moved to lower-left so it doesn't cover Barnabi, who
+// now sits in the lower-right of the hero illustration.
+.hero-chip--progress {
+  bottom: 6%;
+  left: 70%;
+  animation-delay: -3.6s;
+}
+
+// ── Speech bubbles ──────────────────────────────────────────────────
+// Standalone "say hello in many languages" elements floating around
+// the bird character.
+.hero-bubble {
+  position: absolute;
+  z-index: 4;
+  padding: 10px 16px;
+  border-radius: 18px;
+  font-size: 14px;
+  font-weight: 600;
+  color: $ink-strong;
+  box-shadow: 0 10px 22px rgba(15, 29, 58, 0.12);
+  animation: heroChipFloat 6.8s ease-in-out infinite;
+  white-space: nowrap;
+}
+
+.hero-bubble--hola {
+  top: 39%;
+  left: 38%;
+  background: #d8e9ff;
+  color: #2256d1;
+  border-bottom-left-radius: 6px;
+  animation-delay: -1.8s;
+}
+
+.hero-bubble--bonjour {
+  top: 48%;
+  right: 18%;
+  background: #fff3c2;
+  color: #8a6300;
+  border-bottom-right-radius: 6px;
+  animation-delay: -2.4s;
+}
+
+// Moved off the right side — the new hero artwork places Barnabi in the
+// lower-right, so the bubble sits over the city silhouettes on the left
+// instead where it has clean negative space.
+.hero-bubble--ciao {
+  top: 58%;
+  left: 14%;
+  background: #d6f6e0;
+  color: #1f7a3d;
+  border-bottom-left-radius: 6px;
+  animation-delay: -3.2s;
+}
+
+// ── Animations ──────────────────────────────────────────────────────
+@keyframes heroChipFloat {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+
+// ── Responsive: collapse hero, tighten form on phones ───────────────
+@media (max-width: 899px) {
+  .login-shell {
+    min-height: 100vh;
+  }
+
+  .brand-mark {
+    margin-bottom: 40px;
+  }
+
+  .welcome-title {
+    font-size: 30px;
+  }
+}
+
+// Dark mode — neutral surface so the colored chips and brand still
+// read correctly. Matches the rest of the app's dark palette.
+@media (prefers-color-scheme: dark) {
+  .login-content {
+    --background: #0f1216;
+  }
+
+  .login-shell {
+    background: #0f1216;
+  }
+
+  .welcome-title {
+    color: #f5f5f7;
+  }
+
+  .welcome-subtitle {
+    color: #a1a8b6;
+  }
+
+  .brand-mark .brand-tagline {
+    color: #d1d5db;
+    opacity: 1;
+  }
+
+  .field {
+    background: #1c1f26;
+    border-color: #2a2f39;
+
+    .field-input {
+      color: #f5f5f7;
+      &::placeholder { color: #6e7686; }
+    }
+
+    &:focus-within {
+      border-color: rgba(58, 122, 254, 0.6);
+      box-shadow: 0 0 0 4px rgba(58, 122, 254, 0.18);
+    }
+  }
+
+  .social-btn {
+    background: #1c1f26;
+    border-color: #2a2f39;
+    color: #f5f5f7;
+
+    &:hover {
+      background: #232732;
+    }
+
+    .social-icon-facebook {
+      color: #4f9bff;
+    }
+  }
+
+  .divider {
+    &::before,
+    &::after {
+      background: #2a2f39;
+    }
+    span {
+      color: #6e7686;
+    }
+  }
+
+  .account-cta {
+    color: #a1a8b6;
+  }
+
+  // Hero column stays a light island — match the JPEG's sky-blue so the
+  // pane reads as one continuous image even on a dark page.
+  .login-hero-pane {
+    background-color: $hero-sky;
+  }
+
+  :host .barnabi-wordmark-for-light-ui {
+    display: none !important;
+  }
+
+  :host .barnabi-wordmark-for-dark-ui {
+    display: inline-block !important;
+    transform: translateX(-4px);
+    filter: drop-shadow(0 0.5px rgba(0, 0, 0, 0.95)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+  }
+
+  :host .brand-name-logo.barnabi-wordmark-for-dark-ui {
+    height: 38px;
+  }
+}
+
+// Ionic `dark.class` palette: tagline must not stay mid-gray on dark chrome
+// when OS light mode leaves `prefers-color-scheme: dark` inactive.
+:host-context(html.ion-palette-dark) {
+  .brand-mark .brand-tagline {
+    color: #d1d5db;
+    opacity: 1;
+  }
+}

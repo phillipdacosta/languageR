@@ -10,13 +10,24 @@
         <span class="mac-sub">{{ 'HOME.CLASSES_SUB' | translate }}</span>
       </div>
     </button>
-    <button type="button" class="mobile-action-card mac-action-create-material qa-pop qa-pop-2" (click)="navigateToCreateMaterial.emit($event)">
+    <button type="button" class="mobile-action-card mac-action-create-material qa-pop qa-pop-2" *ngIf="showCreateMaterial" (click)="navigateToCreateMaterial.emit($event)">
       <div class="mac-icon">
         <img class="mac-icon-img" [src]="isDarkModeActive ? 'assets/quick-actions-create-material-original.png' : 'assets/quick-actions-create-material.png'" alt="" />
       </div>
       <div class="mac-text">
         <span class="mac-title">{{ 'HOME.CREATE_MATERIAL' | translate }}</span>
         <span class="mac-sub">{{ 'HOME.CREATE_MATERIAL_SUB' | translate }}</span>
+      </div>
+    </button>
+    <button type="button" class="mobile-action-card mac-action-practice qa-pop qa-pop-2" *ngIf="showPractice" (click)="navigateToPractice.emit()">
+      <div class="mac-icon mac-icon--practice">
+        <ion-icon name="layers-outline"></ion-icon>
+        <span class="mac-badge" *ngIf="practiceDueCount > 0">{{ practiceDueCount > 99 ? '99+' : practiceDueCount }}</span>
+      </div>
+      <div class="mac-text">
+        <span class="mac-title">{{ 'HOME.PRACTICE' | translate }}</span>
+        <span class="mac-sub" *ngIf="practiceDueCount > 0">{{ 'HOME.PRACTICE_DUE_SUB' | translate: { count: practiceDueCount } }}</span>
+        <span class="mac-sub" *ngIf="practiceDueCount === 0">{{ 'HOME.PRACTICE_EMPTY_SUB' | translate }}</span>
       </div>
     </button>
     <button type="button" class="mobile-action-card mac-action-forum qa-pop qa-pop-3" (click)="navigateToForum.emit()">

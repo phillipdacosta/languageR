@@ -22,6 +22,8 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
   @Input() thumbnailUrl: string = '';
   @Input() videoType: 'upload' | 'youtube' | 'vimeo' = 'upload';
   @Input() enableModalPlayer: boolean = false; // New input to enable modal mode
+  /** When true, the upload UI spans the parent width (e.g. tutor approval wizard next to payout step). */
+  @Input() fullWidthLayout = false;
   @Input() isVideoApproved: boolean = false; // New input to check if tutor's video is approved
   @Input() hasPendingVideo: boolean = false; // New input to show pending review status
   @Output() videoUploaded = new EventEmitter<VideoUploadData>();

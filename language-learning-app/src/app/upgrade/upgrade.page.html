@@ -1,0 +1,120 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar class="upgrade-toolbar">
+    <ion-buttons slot="start">
+      <ion-button (click)="goBack()" aria-label="Back">
+        <ion-icon name="chevron-back-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>{{ 'UPGRADE.TITLE' | translate }}</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="upgrade-content">
+  <div class="upgrade-container">
+
+    <!-- Loading skeleton -->
+    <div class="upgrade-skeleton" *ngIf="loading">
+      <div class="sk sk--head"></div>
+      <div class="sk sk--card"></div>
+    </div>
+
+    <ng-container *ngIf="!loading">
+
+      <!-- Premium-with-AI-off banner — surfaces the gap between what the
+           student is paying for and what they're using. -->
+      <section class="upgrade-ai-off-banner" *ngIf="showAiOffBanner">
+        <div class="upgrade-ai-off-banner-icon"><ion-icon name="bulb-outline"></ion-icon></div>
+        <div class="upgrade-ai-off-banner-text">
+          <h3>{{ 'UPGRADE.AI_OFF_BANNER_TITLE' | translate }}</h3>
+          <p>{{ 'UPGRADE.AI_OFF_BANNER_BODY' | translate }}</p>
+        </div>
+        <button
+          class="upgrade-ai-off-banner-cta"
+          type="button"
+          [disabled]="aiTogglePending"
+          (click)="enableAiNow()">
+          <ion-spinner *ngIf="aiTogglePending" name="dots"></ion-spinner>
+          <span *ngIf="!aiTogglePending">{{ 'UPGRADE.AI_OFF_BANNER_CTA' | translate }}</span>
+        </button>
+      </section>
+
+      <!-- Hero -->
+      <header class="upgrade-hero">
+        <span class="upgrade-eyebrow">
+          <ion-icon name="sparkles-outline"></ion-icon>
+          {{ 'UPGRADE.EYEBROW' | translate }}
+        </span>
+        <h1 class="upgrade-title">{{ 'UPGRADE.HERO_TITLE' | translate }}</h1>
+        <p class="upgrade-sub">{{ 'UPGRADE.HERO_SUB' | translate }}</p>
+      </header>
+
+      <!-- Comparison cards -->
+      <section class="upgrade-cards">
+        <article class="plan-card">
+          <header class="plan-card-head">
+            <span class="plan-tag">{{ 'UPGRADE.FREE_TAG' | translate }}</span>
+            <h3 class="plan-name">{{ 'UPGRADE.FREE_NAME' | translate }}</h3>
+            <span class="plan-price">$0<small>/mo</small></span>
+          </header>
+          <ul class="plan-perks">
+            <li *ngFor="let perk of freePerks">
+              <ion-icon name="checkmark-outline"></ion-icon>
+              <span>{{ perk }}</span>
+            </li>
+          </ul>
+        </article>
+
+        <article class="plan-card plan-card--premium">
+          <header class="plan-card-head">
+            <span class="plan-tag plan-tag--premium">
+              <ion-icon name="sparkles-outline"></ion-icon>
+              {{ 'UPGRADE.PREMIUM_TAG' | translate }}
+            </span>
+            <h3 class="plan-name">{{ 'UPGRADE.PREMIUM_NAME' | translate }}</h3>
+            <span class="plan-price">$9<small>/mo</small></span>
+          </header>
+          <ul class="plan-perks">
+            <li *ngFor="let perk of premiumPerks">
+              <ion-icon name="checkmark-outline"></ion-icon>
+              <span>{{ perk }}</span>
+            </li>
+          </ul>
+
+          <!-- Primary CTA -->
+          <button
+            *ngIf="!isPremium"
+            class="upgrade-btn"
+            (click)="startCheckout()"
+            [disabled]="busy">
+            <ion-spinner *ngIf="busy" name="dots"></ion-spinner>
+            <span *ngIf="!busy">{{ 'UPGRADE.START_CHECKOUT' | translate }}</span>
+          </button>
+
+          <!-- Manage CTA -->
+          <button
+            *ngIf="isPremium"
+            class="upgrade-btn upgrade-btn--ghost"
+            (click)="openPortal()"
+            [disabled]="busy">
+            <ion-spinner *ngIf="busy" name="dots"></ion-spinner>
+            <span *ngIf="!busy">{{ 'UPGRADE.MANAGE_PLAN' | translate }}</span>
+          </button>
+
+          <p class="upgrade-fineprint">{{ 'UPGRADE.FINEPRINT' | translate }}</p>
+        </article>
+      </section>
+
+      <!-- Status (when premium) -->
+      <section class="upgrade-status" *ngIf="isPremium && summary">
+        <div class="upgrade-status-row">
+          <span class="upgrade-status-label">{{ 'UPGRADE.STATUS_LABEL' | translate }}</span>
+          <span class="upgrade-status-value">{{ summary.status | titlecase }}</span>
+        </div>
+        <div class="upgrade-status-row" *ngIf="summary.renewsAt">
+          <span class="upgrade-status-label">{{ 'UPGRADE.RENEWS_LABEL' | translate }}</span>
+          <span class="upgrade-status-value">{{ summary.renewsAt | date:'mediumDate' }}</span>
+        </div>
+      </section>
+    </ng-container>
+  </div>
+</ion-content>

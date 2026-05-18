@@ -308,3 +308,110 @@ ion-footer {
   }
 }
 
+
+/* ── Captured corrections (optional) ─────────────────────── */
+.corrections-field {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--ion-color-step-100, #f0f0f0);
+
+  .corrections-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .corrections-header-text {
+    h3 {
+      margin: 0 0 4px;
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .corrections-sub {
+      margin: 0;
+      font-size: 13px;
+      color: var(--ion-color-medium, #717171);
+      line-height: 1.4;
+    }
+  }
+
+  .corrections-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .correction-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px;
+    background: var(--ion-color-step-50, #f7f7f7);
+    border-radius: 12px;
+  }
+
+  .correction-row-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    flex: 1 1 auto;
+
+    .correction-input--why {
+      grid-column: 1 / -1;
+    }
+  }
+
+  .correction-input {
+    --background: #fff;
+    --padding-start: 10px;
+    --padding-end: 10px;
+    --padding-top: 8px;
+    --padding-bottom: 8px;
+    --border-radius: 8px;
+    font-size: 14px;
+    min-height: 40px;
+  }
+
+  .correction-remove {
+    background: transparent;
+    border: 0;
+    padding: 6px;
+    color: var(--ion-color-medium, #717171);
+    cursor: pointer;
+    border-radius: 8px;
+
+    ion-icon {
+      font-size: 20px;
+    }
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.05);
+    }
+  }
+
+  .correction-add {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: transparent;
+    border: 1px dashed var(--ion-color-step-150, #d4d4d4);
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ion-text-color, #222);
+    cursor: pointer;
+
+    ion-icon {
+      font-size: 18px;
+    }
+
+    &:hover {
+      background: var(--ion-color-step-50, #f7f7f7);
+      border-color: var(--ion-text-color, #222);
+    }
+  }
+}

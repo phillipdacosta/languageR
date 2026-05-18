@@ -21,6 +21,7 @@ export class TutorNoteModalComponent {
     quickImpression: string;
     text: string;
     homework: string;
+    capturedCorrections: CapturedCorrection[];
   }>();
   @Output() modalDismissed = new EventEmitter<void>();
 
@@ -34,6 +35,12 @@ export class TutorNoteModalComponent {
   selectedTag: string = '';
   noteText: string = '';
   homework: string = '';
+
+  // Optional structured corrections — feeds the student's spaced-repetition
+  // deck. Lazily expanded on first "+ Add correction" click so the modal
+  // stays simple by default.
+  showCorrections = false;
+  corrections: CapturedCorrection[] = [];
 
   quillModules = {
     toolbar: [
@@ -52,20 +59,60 @@ export class TutorNoteModalComponent {
     return (div.textContent || div.innerText || '').length;
   }
 
+  addCorrectionRow() {
+    if (!this.showCorrections) {
+      this.showCorrections = true;
+    }
+    this.corrections.push({ original: '', corrected: '', explanation: '' });
+  }
+
+  removeCorrectionRow(index: number) {
+    this.corrections.splice(index, 1);
+    if (this.corrections.length === 0) {
+      this.showCorrections = false;
+    }
+  }
+
+  trackByIndex(index: number) {
+    return index;
+  }
+
+  private validCorrections(): CapturedCorrection[] {
+    return this.corrections
+      .map(c => ({
+        original: (c.original || '').trim(),
+        corrected: (c.corrected || '').trim(),
+        explanation: (c.explanation || '').trim()
+      }))
+      .filter(c => c.original.length >= 2 && c.corrected.length >= 2 && c.original.toLowerCase() !== c.corrected.toLowerCase());
+  }
+
   canSave(): boolean {
-    return !!(this.selectedTag || this.noteText.trim() || this.homework.trim());
+    return !!(
+      this.selectedTag ||
+      this.noteText.trim() ||
+      this.homework.trim() ||
+      this.validCorrections().length > 0
+    );
   }
 
   saveNote() {
     this.noteSaved.emit({
       quickImpression: this.selectedTag,
       text: this.noteText,
-      homework: this.homework
+      homework: this.homework,
+      capturedCorrections: this.validCorrections()
     });
   }
 
   dismiss() {
     this.modalDismissed.emit();
   }
+}
+
+export interface CapturedCorrection {
+  original: string;
+  corrected: string;
+  explanation?: string;
 }
 

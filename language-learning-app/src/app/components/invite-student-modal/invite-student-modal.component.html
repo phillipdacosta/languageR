@@ -28,6 +28,7 @@
     <!-- Search Bar -->
     <div class="search-wrapper" *ngIf="!loadingStudents && students.length > 0">
       <ion-searchbar 
+        #inviteStudentSearch
         [(ngModel)]="searchTerm"
         [placeholder]="'HOME.INVITE_SEARCH_PLACEHOLDER' | translate"
         (ionInput)="filterStudents()"

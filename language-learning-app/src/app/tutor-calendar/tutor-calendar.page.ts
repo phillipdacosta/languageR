@@ -6,19 +6,22 @@ import { Router, RouterModule, NavigationEnd, ActivatedRoute } from '@angular/ro
 import { UserService, User } from '../services/user.service';
 import { LessonService, Lesson } from '../services/lesson.service';
 import { ClassService } from '../services/class.service';
+import { buildTutorProfileChecklist, ProfileChecklistItem, mapProfileChecklistIdToApprovalWizardStepId } from '../services/tutor-growth.service';
 import { WebSocketService } from '../services/websocket.service';
 import { Calendar, EventInput } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { filter, takeUntil } from 'rxjs/operators';
+import { LanguageService } from '../services/language.service';
+import { filter, takeUntil, distinctUntilChanged, skip } from 'rxjs/operators';
 import { Subject, firstValueFrom } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { PlatformService } from '../services/platform.service';
 import { trigger, state, style, transition, animate, query, stagger } from '@angular/animations';
 import { ClassAttendeesComponent } from '../components/class-attendees/class-attendees.component';
 import { BlockTimeComponent } from '../modals/block-time/block-time.component';
+import { TutorOnboardingComponent } from '../components/tutor-onboarding/tutor-onboarding.component';
 import { HttpClient } from '@angular/common/http';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
@@ -26,6 +29,7 @@ import { Haptics, NotificationType } from '@capacitor/haptics';
 import { Browser } from '@capacitor/browser';
 import { environment } from '../../environments/environment';
 import { TutorFeedbackService } from '../services/tutor-feedback.service';
+import { LearningPlanService, LearningPlanSummary } from '../services/learning-plan.service';
 import { getHoursInTz, getMinutesInTz, formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
 // Performance pipes
 import { EventsForDayPipe } from './pipes/events-for-day.pipe';
@@ -73,6 +77,10 @@ interface TimelineEntry {
   capacity?: number;
   id?: string; // Lesson ID or Class ID
   isLesson?: boolean; // True if this is a 1:1 lesson
+  // Plan-context fields used by the tiny phase/focus chip on the
+  // upcoming-lesson card. Populated post-build via loadPlanChipsForTimeline.
+  studentId?: string;
+  studentLanguage?: string;
   isGoogleCalendar?: boolean;
   thumbnail?: string; // Thumbnail image for classes
 }
@@ -111,7 +119,8 @@ interface AgendaSection {
     TotalAvailabilityPipe,
     BookedHoursPipe,
     TranslateModule,
-    RouterModule
+    RouterModule,
+    TutorOnboardingComponent
   ],
   animations: [
     trigger('slideInUp', [
@@ -175,27 +184,36 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     return !(govIdUploaded && certsUploaded);
   }
 
-  get profileChecklist(): { id: string; label: string; done: boolean; route: string }[] {
+  get profileChecklist(): ProfileChecklistItem[] {
     const user = this.currentUser;
     if (!user) return [];
     const creds = user.tutorCredentials;
     const hasVideo = !!(user.onboardingData?.introductionVideo || user.onboardingData?.pendingVideo);
     const videoApproved = user.tutorOnboarding?.videoApproved === true;
     const govIdUploaded = !!(creds?.governmentId?.url && creds.governmentId.status !== 'not_uploaded');
+    const govIdApproved = creds?.governmentId?.status === 'approved';
+    const stripeIdentityVerified = (user as any).stripeIdentityVerified === true;
+    const identitySatisfied = stripeIdentityVerified || govIdApproved;
     const certsUploaded = (creds?.teachingCertifications?.length ?? 0) > 0;
-    const credsComplete = govIdUploaded && certsUploaded;
-    const credsApproved = creds?.governmentId?.status === 'approved' && !!(creds?.teachingCertifications?.some((c: any) => c.status === 'approved'));
+    const certsApproved = !!(creds?.teachingCertifications?.some((c: any) => c.status === 'approved'));
     const hasPayout = user.stripeConnectOnboarded || user.payoutProvider === 'paypal' || user.payoutProvider === 'manual';
-    return [
-      { id: 'photo', label: 'Profile photo', done: this.hasCustomProfilePhoto, route: '/tutor-approval' },
-      { id: 'video', label: hasVideo && !videoApproved ? 'Intro video (pending review)' : 'Introduction video', done: hasVideo, route: '/tabs/profile' },
-      { id: 'creds', label: credsComplete && !credsApproved ? 'Credentials (pending review)' : 'Credentials', done: credsComplete, route: '/tutor-approval' },
-      { id: 'payout', label: 'Payout method', done: !!hasPayout, route: '/tutor-approval' },
-    ];
+    const identityRequired = this.approvalStatus?.identityRequired !== false;
+    return buildTutorProfileChecklist({
+      hasCustomPhoto: this.hasCustomProfilePhoto,
+      hasVideo,
+      videoApproved,
+      identityRequired,
+      governmentIdUploaded: govIdUploaded,
+      identitySatisfied,
+      certificationsUploaded: certsUploaded,
+      certificationsApproved: certsApproved,
+      hasPayoutSetup: !!hasPayout,
+      tosComplete: !!user.tosAcceptedAt,
+    });
   }
 
   get profileChecklistDoneCount(): number {
-    return this.profileChecklist.filter(i => i.done).length;
+    return this.profileChecklist.filter(i => i.done && !i.pendingReview).length;
   }
 
   // Outstanding feedback
@@ -206,6 +224,11 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   feedbackGraceExpired: boolean = false;
   private feedbackGraceInterval: any = null;
   private static readonly FEEDBACK_GRACE_MS = 2 * 60 * 60 * 1000; // 2 hours
+
+  isTutorApprovalWizardModalOpen = false;
+  tutorApprovalWizardModalInitialStepId: string | null = null;
+  tutorApprovalWizardBackdropVisible = false;
+  tutorApprovalWizardModalReady = false;
   
   private calendar?: Calendar;
   events: EventInput[] = [];
@@ -265,6 +288,13 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   mobileTimeline: TimelineEntry[] = [];
   mobileTimelineEvents: TimelineEntry[] = [];
   isLoadingMobileData = true;
+
+  // Plan-context chips for upcoming-lesson cards. Keyed by lessonId so the
+  // template can read directly without method calls. Populated lazily from
+  // /api/learning-plan/student/:id/summary; cached at the studentId level
+  // so multiple lessons with the same student incur a single fetch.
+  lessonPlanChips: { [lessonId: string]: { phaseLabel: string; phaseIndex: number; totalPhases: number; focus: string } } = {};
+  private studentPlanSummaryCache = new Map<string, LearningPlanSummary[]>();
 
   // Today summary (computed once per timeline build)
   todaySummaryLessonCount = 0;
@@ -349,10 +379,11 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   get agendaRangeLabel(): string {
     const start = this.mobileWeekStart ? this.getStartOfDay(this.mobileWeekStart) : this.getStartOfDay(new Date());
     const end = this.addDays(start, this.agendaDaysToShow - 1);
+    const loc = this.calendarLocale();
     return "".concat(
-      formatDateInTz(start, this.userTz, { month: 'short', day: 'numeric', year: undefined }),
+      formatDateInTz(start, this.userTz, { month: 'short', day: 'numeric', year: undefined }, loc),
       ' – ',
-      formatDateInTz(end, this.userTz, { month: 'short', day: 'numeric', year: undefined })
+      formatDateInTz(end, this.userTz, { month: 'short', day: 'numeric', year: undefined }, loc)
     );
   }
 
@@ -438,7 +469,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
 
   formatTime(date: Date): string {
-    return formatTimeInTz(date, this.userTz, undefined, !this.is24h);
+    return formatTimeInTz(date, this.userTz, this.calendarLocale(), !this.is24h);
   }
 
   formatDuration(minutes: number): string {
@@ -492,8 +523,15 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     private http: HttpClient,
     private tutorFeedbackService: TutorFeedbackService,
     private translate: TranslateService,
-    private navCtrl: NavController
+    private navCtrl: NavController,
+    private learningPlanService: LearningPlanService,
+    private languageService: LanguageService,
   ) { }
+
+  /** BCP 47 tag for Intl — matches active Barnabi UI language. */
+  private calendarLocale(): string {
+    return this.languageService.getCurrentLanguage();
+  }
 
   private evaluateViewport() {
     if (typeof window === 'undefined') {
@@ -539,14 +577,15 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.mobileWeekStart = start;
     const days: MobileDayContext[] = [];
     const count = this.mobileViewMode === 'agenda' ? this.agendaDaysToShow : this.mobileDaysToShow;
+    const loc = this.calendarLocale();
     for (let i = 0; i < count; i++) {
       const current = this.addDays(start, i);
       days.push({
         date: current,
-        dayName: formatDateInTz(current, this.userTz, { weekday: 'long', month: undefined, day: undefined, year: undefined }),
-        shortDay: formatDateInTz(current, this.userTz, { weekday: 'short', month: undefined, day: undefined, year: undefined }),
+        dayName: formatDateInTz(current, this.userTz, { weekday: 'long', month: undefined, day: undefined, year: undefined }, loc),
+        shortDay: formatDateInTz(current, this.userTz, { weekday: 'short', month: undefined, day: undefined, year: undefined }, loc),
         dayNumber: current.getDate().toString(),
-        monthLabel: formatDateInTz(current, this.userTz, { month: 'long', day: undefined, year: undefined }),
+        monthLabel: formatDateInTz(current, this.userTz, { month: 'long', day: undefined, year: undefined }, loc),
         isToday: this.isSameDay(current, new Date())
       });
     }
@@ -722,6 +761,72 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.mobileAvailabilityBlocks = availabilityBlocks;
 
     this.computeTodaySummary(activeDay, timelineEvents, availabilityBlocks);
+
+    // Fire-and-forget: populate the phase/focus chips for each 1:1 lesson
+    // card. Cached per-student so flipping days is cheap.
+    void this.loadPlanChipsForTimeline();
+  }
+
+  /**
+   * For each upcoming 1:1 lesson in the current mobile timeline, fetch the
+   * student's plan summary and decorate `lessonPlanChips` with phase + focus
+   * data so the card chip renders. No-op for classes / availability / past
+   * lessons. Per-student fetches are cached for the page lifetime.
+   */
+  private async loadPlanChipsForTimeline(): Promise<void> {
+    const lessons = (this.mobileTimelineEvents || []).filter(
+      e => e.isLesson && !e.isPast && !e.isCancelled && e.id && e.studentId && e.studentLanguage
+    );
+    if (!lessons.length) return;
+
+    // Group by studentId so we only hit the summary endpoint once per student.
+    const byStudent = new Map<string, TimelineEntry[]>();
+    for (const lesson of lessons) {
+      const sid = String(lesson.studentId);
+      const list = byStudent.get(sid) || [];
+      list.push(lesson);
+      byStudent.set(sid, list);
+    }
+
+    const tasks: Promise<void>[] = [];
+    for (const [studentId, items] of byStudent) {
+      tasks.push(this.fetchAndApplyPlanChips(studentId, items));
+    }
+    await Promise.all(tasks);
+    this.cdr.markForCheck();
+  }
+
+  private async fetchAndApplyPlanChips(studentId: string, items: TimelineEntry[]): Promise<void> {
+    let summaries = this.studentPlanSummaryCache.get(studentId) || null;
+    if (!summaries) {
+      try {
+        const resp = await this.learningPlanService.getStudentPlanSummary(studentId).toPromise();
+        summaries = resp?.summaries || [];
+        this.studentPlanSummaryCache.set(studentId, summaries);
+      } catch {
+        // 404 = student has no plan yet — that's a valid "no chip" state.
+        this.studentPlanSummaryCache.set(studentId, []);
+        summaries = [];
+      }
+    }
+
+    if (!summaries.length) return;
+
+    for (const item of items) {
+      if (!item.id) continue;
+      const lang = (item.studentLanguage || '').toLowerCase().trim();
+      const match = summaries.find(s => (s.language || '').toLowerCase().trim() === lang)
+        || summaries.find(s => s.status === 'active')
+        || summaries[0];
+      if (!match || !match.currentPhase) continue;
+      const phaseTitle = match.currentPhase.title || `Phase ${match.currentPhaseIndex + 1}`;
+      this.lessonPlanChips[item.id] = {
+        phaseLabel: phaseTitle,
+        phaseIndex: match.currentPhaseIndex + 1,
+        totalPhases: match.totalPhases,
+        focus: (match.nextLessonFocus || '').trim()
+      };
+    }
   }
 
   private computeTodaySummary(day: MobileDayContext, events: TimelineEntry[], availability: TimelineEntry[]) {
@@ -808,7 +913,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       }
     }
 
-    const dateLabel = dayStart.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+    const dateLabel = formatDateInTz(dayStart, this.userTz, { weekday: 'long', month: 'short', day: 'numeric' }, this.calendarLocale());
     return {
       label: dateLabel,
       totalHours: Math.round((dayMinutes / 60) * 10) / 10,
@@ -976,13 +1081,17 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       isTrialLesson,
       isClass: isClass || false,
       isOfficeHours: isOfficeHours || false,
-      isCancelled: isCancelled, // Use the local variable that was updated from classesMap
+      isCancelled: isCancelled,
       attendees,
       capacity,
       thumbnail,
       id: extended.lessonId || extended.classId,
       isLesson: isLesson,
-      isGoogleCalendar
+      isGoogleCalendar,
+      // Carried through so the post-build plan-chip loader can match
+      // each timeline entry to the right student plan summary.
+      studentId: isLesson ? (extended.studentId || undefined) : undefined,
+      studentLanguage: isLesson ? (extended.subjectRaw || extended.subject || undefined) : undefined
     };
   }
 
@@ -1014,8 +1123,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
 
   private getAgendaLabels(date: Date, offset: number): { dayLabel: string; dateLabel: string; relative?: string } {
-    const dateLabel = formatDateInTz(date, this.userTz, { month: 'long', day: 'numeric', year: undefined });
-    const dayLabel = formatDateInTz(date, this.userTz, { weekday: 'long', month: undefined, day: undefined, year: undefined });
+    const loc = this.calendarLocale();
+    const dateLabel = formatDateInTz(date, this.userTz, { month: 'long', day: 'numeric', year: undefined }, loc);
+    const dayLabel = formatDateInTz(date, this.userTz, { weekday: 'long', month: undefined, day: undefined, year: undefined }, loc);
     let relative: string | undefined;
     if (offset === 1) {
       relative = this.translate.instant('TUTOR_CALENDAR.TOMORROW');
@@ -1033,17 +1143,36 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   };
 
   private gcalWsSub: any = null;
+  private gcalChangedSub: any = null;
 
   ngOnInit() {
     // Listen for lesson cancelled events (from event-details-modal)
     window.addEventListener('lesson-cancelled', this.lessonCancelledHandler);
 
-    // Listen for real-time Google Calendar push updates via WebSocket
+    // Real-time Google Calendar update signal: server emits "something changed"
+    // and the client refetches the window it is currently viewing. We can't rely
+    // on the server pushing us a fixed week's worth of events because the user
+    // may have navigated to a future week — pushing current-week events would
+    // wipe their view. Refetching against `currentWeekStart` always gets the
+    // right window.
+    this.gcalChangedSub = this.websocketService.on('gcal-changed')
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        if (!this.gcalConnected) return;
+        this.gcalLoadingInProgress = false;
+        this.loadGoogleCalendarEvents();
+      });
+
+    // Backward-compat: the old payload-carrying event is still emitted by older
+    // server versions. Treat it as a refresh trigger only — don't trust the
+    // attached events because they are scoped to the server's notion of "this
+    // week" rather than the client's currently-viewed window.
     this.gcalWsSub = this.websocketService.on('gcal-events-updated')
       .pipe(takeUntil(this.destroy$))
-      .subscribe((data: any) => {
-        if (!data?.events || !this.gcalConnected) return;
-        this.mergeGcalWebSocketEvents(data.events);
+      .subscribe(() => {
+        if (!this.gcalConnected) return;
+        this.gcalLoadingInProgress = false;
+        this.loadGoogleCalendarEvents();
       });
 
     // Re-fetch Google Calendar events whenever WebSocket reconnects,
@@ -1119,6 +1248,17 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     
     // Initialize custom calendar
     this.initializeCustomCalendar();
+
+    // Rebuild Intl-based labels when language changes. Subscribe *after*
+    // `initializeCustomCalendar()` so the BehaviorSubject's initial replay does
+    // not call `updateWeekDays()` before `currentWeekStart` is set. Use
+    // `currentLanguage$` (not `onLangChange`): `onLangChange` can fire inside
+    // `translate.use()` before `currentLanguageSubject.next()`, so
+    // `getCurrentLanguage()` still saw the old locale.
+    this.languageService.currentLanguage$
+      .pipe(skip(1), distinctUntilChanged(), takeUntil(this.destroy$))
+      .subscribe(() => this.onInterfaceLanguageChanged());
+
     this.startTimeUpdater();
     
     // Check if we're in reschedule mode
@@ -1494,14 +1634,20 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
             this.gcalSyncEnabled = status.syncEnabled ?? true;
             this.gcalPushToGoogle = status.pushToGoogle ?? true;
             this.gcalLastSyncAt = status.lastSyncAt ? new Date(status.lastSyncAt) : null;
+            this.gcalWatchActive = !!status.watchActive;
             if (this.gcalConnected) {
               this.startGcalPolling();
               if (!this.gcalEventsLoaded) {
                 this.loadGoogleCalendarEvents();
               }
               // Auto-register webhook if not active (e.g. BACKEND_PUBLIC_URL was set after initial connect)
-              if (!(status as any).watchActive) {
+              if (!status.watchActive) {
                 this.userService.registerGoogleCalendarWatch().subscribe({
+                  next: () => {
+                    // Watch is now active; downshift polling to slow rate.
+                    this.gcalWatchActive = true;
+                    this.startGcalPolling();
+                  },
                   error: (err: any) => console.warn('[GCal] Watch registration failed:', err?.error?.error || err.message)
                 });
               }
@@ -1794,7 +1940,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           studentName: studentName,
           studentDisplayName: studentName,
           studentAvatar: student?.picture || student?.avatar || student?.photoUrl,
+          studentId: student?._id || student?.id || (typeof lesson.studentId === 'string' ? lesson.studentId : null),
           subject: subjectWithType,
+          subjectRaw: subject,
           status: lesson.status,
           timeStr: timeStr,
           price: lesson.price,
@@ -2952,6 +3100,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
 
   // Calendar settings
   calendarTimeFormat: '12h' | '24h' = '12h';
+  /** Passed to `eventTime` pipe so it re-renders when the UI language changes. */
+  calendarEventLocale = 'en';
   calendarDefaultView: 'week' | 'day' = 'week';
   get shortDateTimeFormat(): string { return this.calendarTimeFormat === '24h' ? 'M/d/yy, HH:mm' : 'M/d/yy, h:mm a'; }
   tutorTimezoneLabel = '';
@@ -2969,7 +3119,14 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   private gcalLoadingInProgress = false;
   private gcalPollInterval: any = null;
   private gcalLastFetchTime = 0;
-  private static readonly GCAL_POLL_MS = 2 * 60 * 1000;
+  private gcalWatchActive = false;
+  // Polling acts as a fallback for the websocket push. When the watch channel
+  // is healthy (server is receiving Google webhooks) we don't need to spam the
+  // backend — Google will tell us about changes in real time. We still poll
+  // slowly as paranoia in case the watch silently dies between status checks.
+  // Without an active watch we poll faster because it's the only refresh path.
+  private static readonly GCAL_POLL_FAST_MS = 2 * 60 * 1000;
+  private static readonly GCAL_POLL_SLOW_MS = 10 * 60 * 1000;
   private static readonly GCAL_DEBOUNCE_MS = 10 * 1000;
 
   connectGoogleCalendar() {
@@ -3218,39 +3375,16 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.loadGoogleCalendarEvents();
   }
 
-  private mergeGcalWebSocketEvents(rawEvents: any[]) {
-    const nonGcalEvents = this.events.filter(e => !(e.extendedProps as any)?.isGoogleCalendar);
-
-    const gcalEvents: EventInput[] = rawEvents
-      .filter((evt: any) => !evt.allDay)
-      .map((evt: any) => ({
-        id: `gcal-${evt.id}`,
-        title: evt.summary || 'Busy',
-        start: new Date(evt.start).toISOString(),
-        end: new Date(evt.end).toISOString(),
-        backgroundColor: '#6b7280',
-        borderColor: '#4b5563',
-        textColor: '#ffffff',
-        classNames: ['calendar-gcal-event'],
-        extendedProps: {
-          isGoogleCalendar: true,
-          summary: evt.summary || 'Busy',
-          type: 'google-calendar'
-        }
-      }));
-
-    this.events = [...nonGcalEvents, ...gcalEvents];
-    this.updateCalendarEvents();
-    this.cdr.detectChanges();
-  }
-
   private startGcalPolling() {
     this.stopGcalPolling();
+    const intervalMs = this.gcalWatchActive
+      ? TutorCalendarPage.GCAL_POLL_SLOW_MS
+      : TutorCalendarPage.GCAL_POLL_FAST_MS;
     this.gcalPollInterval = setInterval(() => {
       if (this.gcalConnected) {
         this.loadGoogleCalendarEvents();
       }
-    }, TutorCalendarPage.GCAL_POLL_MS);
+    }, intervalMs);
   }
 
   private stopGcalPolling() {
@@ -3672,6 +3806,26 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
 
   // ============ CUSTOM CALENDAR METHODS ============
+
+  private onInterfaceLanguageChanged(): void {
+    this.calendarEventLocale = this.calendarLocale();
+    this.updateWeekDays();
+    this.updateWeekTitle();
+    this.generateTimeSlots();
+    if (this.selectedDayForDayView?.date) {
+      this.updateSelectedDayForDayView(new Date(this.selectedDayForDayView.date.getTime()));
+    }
+    if (this.isMobileView) {
+      const anchor = this.selectedMobileDay?.date ?? new Date();
+      if (this.mobileViewMode === 'day') {
+        this.setupDayMode(anchor);
+      } else {
+        this.setupAgendaMode(this.mobileWeekStart);
+      }
+    }
+    this.computeWeekAvailability();
+    this.cdr.markForCheck();
+  }
   
   private initializeCustomCalendar() {
     // Set current week start (Sunday)
@@ -3688,6 +3842,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.updateSelectedDayForDayView(today);
     
     // Generate time slots (6 AM to 10 PM)
+    this.calendarEventLocale = this.calendarLocale();
     this.generateTimeSlots();
     
     // Update week title
@@ -3708,26 +3863,28 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   
   private updateWeekDays() {
     this.weekDays = [];
+    const loc = this.calendarLocale();
     for (let i = 0; i < 7; i++) {
       const date = new Date(this.currentWeekStart);
       date.setDate(this.currentWeekStart.getDate() + i);
       
       this.weekDays.push({
         date: date,
-        shortDay: formatDateInTz(date, this.userTz, { weekday: 'short', month: undefined, day: undefined, year: undefined }),
+        shortDay: formatDateInTz(date, this.userTz, { weekday: 'short', month: undefined, day: undefined, year: undefined }, loc),
         dayNumber: date.getDate().toString(),
-        dayName: formatDateInTz(date, this.userTz, { weekday: 'long', month: undefined, day: undefined, year: undefined })
+        dayName: formatDateInTz(date, this.userTz, { weekday: 'long', month: undefined, day: undefined, year: undefined }, loc)
       });
     }
   }
 
   private updateSelectedDayForDayView(date: Date) {
+    const loc = this.calendarLocale();
     this.selectedDayForDayView = {
       date: new Date(date),
-      shortDay: formatDateInTz(date, this.userTz, { weekday: 'short', month: undefined, day: undefined, year: undefined }),
+      shortDay: formatDateInTz(date, this.userTz, { weekday: 'short', month: undefined, day: undefined, year: undefined }, loc),
       dayNumber: date.getDate().toString(),
-      dayName: formatDateInTz(date, this.userTz, { weekday: 'long', month: undefined, day: undefined, year: undefined }),
-      monthLabel: formatDateInTz(date, this.userTz, { month: 'long', day: undefined, year: undefined }),
+      dayName: formatDateInTz(date, this.userTz, { weekday: 'long', month: undefined, day: undefined, year: undefined }, loc),
+      monthLabel: formatDateInTz(date, this.userTz, { month: 'long', day: undefined, year: undefined }, loc),
       year: date.getFullYear()
     };
   }
@@ -3745,22 +3902,25 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   
   private generateTimeSlots() {
     this.timeSlots = [];
+    const loc = this.calendarLocale();
     for (let hour = 0; hour <= 23; hour++) {
       if (this.is24h) {
         this.timeSlots.push(`${hour.toString().padStart(2, '0')}:00`);
       } else {
-        const period = hour >= 12 ? 'PM' : 'AM';
-        const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
-        this.timeSlots.push(`${displayHour} ${period}`);
+        const ref = new Date(2020, 0, 15, hour, 0, 0, 0);
+        this.timeSlots.push(
+          new Intl.DateTimeFormat(loc, { hour: 'numeric', hour12: true }).format(ref)
+        );
       }
     }
   }
   
   private updateWeekTitle() {
-    const startMonth = formatDateInTz(this.currentWeekStart, this.userTz, { month: 'long', day: undefined, year: undefined });
+    const loc = this.calendarLocale();
+    const startMonth = formatDateInTz(this.currentWeekStart, this.userTz, { month: 'long', day: undefined, year: undefined }, loc);
     const endDate = new Date(this.currentWeekStart);
     endDate.setDate(this.currentWeekStart.getDate() + 6);
-    const endMonth = formatDateInTz(endDate, this.userTz, { month: 'long', day: undefined, year: undefined });
+    const endMonth = formatDateInTz(endDate, this.userTz, { month: 'long', day: undefined, year: undefined }, loc);
 
     if (startMonth === endMonth) {
       this.currentWeekTitle = `${startMonth} ${this.currentWeekStart.getFullYear()}`;
@@ -3779,6 +3939,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       this.checkAndLoadMoreData(this.currentWeekStart, weekEnd);
       // Regenerate availability events for the new week
       this.loadAndUpdateCalendarData();
+      // Refetch Google Calendar events for the new week's window. Without this,
+      // the calendar would keep showing whatever week's gcal events were loaded
+      // on first paint, hiding events that exist in the week the user navigated to.
+      this.refreshGcalForVisibleWindow();
     } else {
       // Day view - go back one day
       const newDate = new Date(this.selectedDayForDayView.date);
@@ -3799,6 +3963,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       this.checkAndLoadMoreData(this.currentWeekStart, weekEnd);
       // Regenerate availability events for the new week
       this.loadAndUpdateCalendarData();
+      this.refreshGcalForVisibleWindow();
     } else {
       // Day view - go forward one day
       const newDate = new Date(this.selectedDayForDayView.date);
@@ -3820,10 +3985,20 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       this.updateWeekTitle();
       // Regenerate availability events for today's week
       this.loadAndUpdateCalendarData();
+      this.refreshGcalForVisibleWindow();
     } else {
       // Day view - go to today
       this.updateSelectedDayForDayView(today);
     }
+  }
+
+  // Force a Google Calendar refetch for the currently-visible week, bypassing the
+  // load-once-per-page-load gate but respecting the in-flight guard so rapid
+  // navigation clicks coalesce into a single request.
+  private refreshGcalForVisibleWindow() {
+    if (!this.gcalConnected) return;
+    this.gcalLoadingInProgress = false;
+    this.loadGoogleCalendarEvents();
   }
   
   isToday(date: Date): boolean {
@@ -4188,6 +4363,48 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.isFeedbackModalOpen = false;
   }
 
+  openTutorApprovalWizardFromChecklist(item: ProfileChecklistItem): void {
+    this.tutorApprovalWizardModalInitialStepId = mapProfileChecklistIdToApprovalWizardStepId(item.id);
+    this.isTutorApprovalWizardModalOpen = true;
+    this.tutorApprovalWizardBackdropVisible = false;
+    this.tutorApprovalWizardModalReady = false;
+    this.cdr.markForCheck();
+    if (this.isMobileView) {
+      return;
+    }
+    document.body.classList.add('cm-desktop-modal-open');
+    requestAnimationFrame(() => {
+      this.tutorApprovalWizardBackdropVisible = true;
+      this.cdr.markForCheck();
+    });
+    setTimeout(() => {
+      this.tutorApprovalWizardModalReady = true;
+      this.cdr.markForCheck();
+    }, 350);
+  }
+
+  onTutorApprovalWizardBackdropClick(ev: MouseEvent): void {
+    if ((ev.target as HTMLElement).classList.contains('cm-modal-backdrop')) {
+      this.closeTutorApprovalWizardModal(true);
+    }
+  }
+
+  onTutorApprovalWizardDismissedFromChild(): void {
+    this.closeTutorApprovalWizardModal(true);
+  }
+
+  private closeTutorApprovalWizardModal(refreshUser: boolean): void {
+    this.isTutorApprovalWizardModalOpen = false;
+    this.tutorApprovalWizardModalInitialStepId = null;
+    this.tutorApprovalWizardBackdropVisible = false;
+    this.tutorApprovalWizardModalReady = false;
+    document.body.classList.remove('cm-desktop-modal-open');
+    if (refreshUser) {
+      void firstValueFrom(this.userService.getCurrentUser(true));
+    }
+    this.cdr.markForCheck();
+  }
+
   navigateToFeedback(lessonId: string, feedbackId: string): void {
     this.closeFeedbackModal();
     this.router.navigate(['/post-lesson-tutor', lessonId], {
@@ -4197,12 +4414,12 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
 
   formatFeedbackDate(dateStr: any): string {
     if (!dateStr) return '';
-    return formatDateInTz(dateStr, this.userTz, { weekday: 'short', month: 'short', day: 'numeric', year: undefined });
+    return formatDateInTz(dateStr, this.userTz, { weekday: 'short', month: 'short', day: 'numeric', year: undefined }, this.calendarLocale());
   }
 
   formatFeedbackTime(dateStr: any): string {
     if (!dateStr) return '';
-    return formatTimeInTz(dateStr, this.userTz, undefined, !this.is24h);
+    return formatTimeInTz(dateStr, this.userTz, this.calendarLocale(), !this.is24h);
   }
 
   trackByIndex(index: number): number { return index; }

@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, Input, Output, EventEmitter, ViewChild, E
 import '@dotlottie/player-component';
 import { CommonModule, Location } from '@angular/common';
 import { IonicModule, AlertController, ToastController, ModalController, NavController, ViewWillEnter, InfiniteScrollCustomEvent } from '@ionic/angular';
-import { Router, RouterModule } from '@angular/router';
+import { Router, RouterModule, ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { UserService } from '../services/user.service';
 import { WebSocketService } from '../services/websocket.service';
@@ -88,6 +88,19 @@ interface WithdrawalHistory {
   schemas: [CUSTOM_ELEMENTS_SCHEMA]
 })
 export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillEnter {
+  /** Restores transactions/details/transfers tab when returning from lesson detail. */
+  static pendingReturnSection: 'details' | 'transfers' | 'transactions' | null = null;
+
+  static stashReturnSection(section: 'details' | 'transfers' | 'transactions'): void {
+    EarningsPage.pendingReturnSection = section;
+  }
+
+  static applyReturnSectionParam(sectionParam: string | null | undefined): void {
+    if (sectionParam === 'details' || sectionParam === 'transfers' || sectionParam === 'transactions') {
+      EarningsPage.pendingReturnSection = sectionParam;
+    }
+  }
+
   // Inline mode: when embedded inside another page (e.g., home page)
   @Input() inline: boolean = false;
   @Output() goBackEvent = new EventEmitter<void>();
@@ -95,6 +108,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
 
   // Earnings chart
   @ViewChild('earningsChartCanvas') earningsChartCanvas!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('withdrawalAmountInput') withdrawalAmountInput?: ElementRef<HTMLInputElement>;
   private earningsChart: Chart | null = null;
   chartPeriod: '1m' | '6m' | 'all' = '1m';
   chartPeriodLabel: string = '';
@@ -145,6 +159,11 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   displayLimit: number = 20;
   allTransactionsLoaded: boolean = false;
   withdrawalHistory: WithdrawalHistory[] = [];
+
+  /** Wide layout: sidebar nav; narrow: ion-segment. */
+  earningsActiveSection: 'details' | 'transfers' | 'transactions' = 'details';
+  /** Right-column heading — translation key (avoids method calls in template). */
+  earningsPanelTitleKey = 'EARNINGS.PANEL_DETAILS';
   
   // Filters
   selectedDateRange: 'all' | 'today' | 'week' | 'month' | 'year' | 'custom' = 'all';
@@ -176,6 +195,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   // Withdrawal modal state
   isWithdrawalModalOpen: boolean = false;
   withdrawalAmount: number = 0;
+  withdrawalRaw: string = ''; // user-typed string (digits + optional single '.')
   selectedWithdrawalMethod: 'stripe_connect' | 'paypal' | null = null;
   withdrawing: boolean = false;
 
@@ -199,6 +219,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     private http: HttpClient,
     private userService: UserService,
     private router: Router,
+    private route: ActivatedRoute,
     private location: Location,
     private websocketService: WebSocketService,
     private alertController: AlertController,
@@ -223,6 +244,13 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   }
 
   async ngOnInit() {
+    if (!this.inline) {
+      this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
+        EarningsPage.applyReturnSectionParam(params['earningsSection']);
+        this.applyPendingReturnSection();
+      });
+    }
+
     const cache = EarningsPage._dataCache;
     const cacheAge = cache ? Date.now() - cache.lastFetch : Infinity;
 
@@ -233,7 +261,9 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       this._hasInitiallyLoaded = true;
       this._lastDataFetch = cache.lastFetch;
       this.cdr.detectChanges();
-      this.scheduleChartCreation();
+      if (this.earningsActiveSection === 'details') {
+        this.scheduleChartCreation();
+      }
       this.setupWebSocketListeners();
 
       this.loadWalletVisibilitySetting();
@@ -242,6 +272,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       if (cacheAge > 10000) {
         this.silentRefresh();
       }
+      this.applyPendingReturnSection();
       return;
     }
 
@@ -265,8 +296,24 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       this.saveToCache();
     }
     this.cdr.detectChanges();
-    this.scheduleChartCreation();
+    if (this.earningsActiveSection === 'details') {
+      this.scheduleChartCreation();
+    }
     this.setupWebSocketListeners();
+    this.applyPendingReturnSection();
+  }
+
+  private applyPendingReturnSection(): void {
+    const section = EarningsPage.pendingReturnSection;
+    if (!section) {
+      return;
+    }
+    EarningsPage.pendingReturnSection = null;
+    if (this.earningsActiveSection !== section) {
+      this.onSelectEarningsSection(section);
+    } else {
+      this.cdr.detectChanges();
+    }
   }
 
   private async loadUserJoinDate() {
@@ -284,7 +331,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   }
 
   ngAfterViewInit() {
-    if (!this.loading) {
+    if (!this.loading && this.earningsActiveSection === 'details') {
       this.scheduleChartCreation();
     }
   }
@@ -296,8 +343,12 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   async ionViewWillEnter() {
     if (!this._hasInitiallyLoaded) return;
 
-    // Always recreate chart — canvas can lose its render after navigation
-    this.scheduleChartCreation();
+    this.applyPendingReturnSection();
+
+    // Always recreate chart when Details is visible — canvas can lose its render after navigation
+    if (this.earningsActiveSection === 'details') {
+      this.scheduleChartCreation();
+    }
 
     const cacheAge = Date.now() - this._lastDataFetch;
     if (cacheAge <= this._cacheValidityMs) return;
@@ -326,7 +377,9 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
         prevBalance.lifetime !== this.balance.lifetime;
 
       if (newPaymentsJson !== prevPaymentsJson || balanceChanged) {
-        this.scheduleChartCreation();
+        if (this.earningsActiveSection === 'details') {
+          this.scheduleChartCreation();
+        }
       }
     } catch (e) {
       // Silent refresh failed — keep showing cached data
@@ -499,6 +552,33 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     this.router.navigate(['/tabs/home']);
   }
 
+  onSelectEarningsSection(section: 'details' | 'transfers' | 'transactions'): void {
+    this.earningsActiveSection = section;
+    switch (section) {
+      case 'details':
+        this.earningsPanelTitleKey = 'EARNINGS.PANEL_DETAILS';
+        break;
+      case 'transfers':
+        this.earningsPanelTitleKey = 'EARNINGS.TRANSFERS_TITLE';
+        break;
+      case 'transactions':
+        this.earningsPanelTitleKey = 'EARNINGS.TXN_TITLE';
+        break;
+    }
+    this.cdr.detectChanges();
+    if (section === 'details') {
+      requestAnimationFrame(() => this.scheduleChartCreation());
+    }
+  }
+
+  onEarningsSegmentChange(ev: Event): void {
+    const detail = (ev as CustomEvent<{ value: string }>).detail;
+    const v = detail?.value;
+    if (v === 'details' || v === 'transfers' || v === 'transactions') {
+      this.onSelectEarningsSection(v);
+    }
+  }
+
   goBack() {
     if (this.inline) {
       this.goBackEvent.emit();
@@ -516,7 +596,14 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     // It will try to load a lesson first, then fall back to class if not found
     const eventId = lessonId || classId;
     if (eventId) {
-      this.router.navigate(['/tabs/lessons', eventId]);
+      EarningsPage.stashReturnSection(this.earningsActiveSection);
+      this.router.navigate(['/tabs/lessons', eventId], {
+        queryParams: {
+          returnTo: 'earnings',
+          earningsSection: this.earningsActiveSection,
+          ...(this.inline ? { earningsInline: '1' } : {}),
+        },
+      });
     }
   }
 
@@ -1043,6 +1130,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     }
 
     this.withdrawalAmount = 0;
+    this.withdrawalRaw = '';
 
     if (this.payoutProvider === 'stripe') {
       this.selectedWithdrawalMethod = 'stripe_connect';
@@ -1058,6 +1146,11 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     this.isWithdrawalModalOpen = false;
   }
 
+  openWithdrawalSupport(): void {
+    this.closeWithdrawalModal();
+    void this.router.navigate(['/terms']);
+  }
+
   onWithdrawalModalDismissed() {
     this.withdrawalSuccess = false;
     this.withdrawalSuccessRevealed = false;
@@ -1066,45 +1159,87 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     this.withdrawalModalDismissing = false;
   }
 
+  onWithdrawalModalPresented(): void {
+    if (this.withdrawalSuccess) {
+      return;
+    }
+    this.focusWithdrawalAmountInput();
+  }
+
+  onWithdrawalAmountWrapperClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement;
+    if (target.closest('.max-button') || target.classList.contains('amount-input')) {
+      return;
+    }
+    this.focusWithdrawalAmountInput();
+  }
+
+  focusWithdrawalAmountInput(): void {
+    setTimeout(() => {
+      const input =
+        this.withdrawalAmountInput?.nativeElement ??
+        document.querySelector<HTMLInputElement>('.withdrawal-modal .amount-input');
+      if (!input) {
+        return;
+      }
+      input.focus();
+    }, 100);
+  }
+
   selectWithdrawalMethod(method: 'stripe_connect' | 'paypal') {
     this.selectedWithdrawalMethod = method;
   }
 
   setMaxWithdrawalAmount() {
     this.withdrawalAmount = this.balance.available;
+    this.withdrawalRaw = this.formatCurrency(this.balance.available);
   }
 
-  // Getter/setter for formatted withdrawal amount input
-  get formattedWithdrawalAmount(): string {
-    return this.formatCurrency(this.withdrawalAmount);
+  get withdrawalDisplayValue(): string {
+    return this.withdrawalRaw;
   }
 
-  set formattedWithdrawalAmount(value: string) {
-    // Remove any non-numeric characters except decimal point
-    const cleaned = value.replace(/[^0-9.]/g, '');
-    const numValue = parseFloat(cleaned);
-    if (!isNaN(numValue)) {
-      this.withdrawalAmount = numValue;
-    } else if (cleaned === '' || cleaned === '.') {
-      this.withdrawalAmount = 0;
+  onWithdrawalAmountInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    let value = input.value;
+
+    // Strip anything that isn't a digit or decimal
+    value = value.replace(/[^0-9.]/g, '');
+
+    // Only allow one decimal point
+    const firstDot = value.indexOf('.');
+    if (firstDot !== -1) {
+      value = value.slice(0, firstDot + 1) + value.slice(firstDot + 1).replace(/\./g, '');
+    }
+
+    // Limit to 2 decimal places
+    if (firstDot !== -1) {
+      const [whole, frac = ''] = value.split('.');
+      value = whole + '.' + frac.slice(0, 2);
+    }
+
+    // Cap at $99,999.99
+    const num = parseFloat(value);
+    if (!isNaN(num) && num > 99999.99) {
+      value = '99999.99';
+    }
+
+    this.withdrawalRaw = value;
+    this.withdrawalAmount = isNaN(parseFloat(value)) ? 0 : parseFloat(value);
+
+    if (input.value !== value) {
+      input.value = value;
     }
   }
 
-  onWithdrawalKeydown(event: KeyboardEvent) {
-    const allowed = [
-      'Backspace', 'Delete', 'Tab', 'Escape', 'Enter',
-      'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
-      'Home', 'End'
-    ];
-    if (allowed.includes(event.key)) return;
-    if ((event.metaKey || event.ctrlKey) && ['a', 'c', 'v', 'x', 'z'].includes(event.key)) return;
-    if (event.key === '.' && !(event.target as HTMLInputElement).value.includes('.')) return;
-    if (event.key >= '0' && event.key <= '9') return;
-    event.preventDefault();
-  }
-
-  onWithdrawalAmountBlur() {
-    this.withdrawalAmount = parseFloat(this.formatCurrency(this.withdrawalAmount));
+  onWithdrawalAmountBlur(): void {
+    if (this.withdrawalRaw === '' || this.withdrawalRaw === '.') {
+      this.withdrawalRaw = '';
+      this.withdrawalAmount = 0;
+    } else {
+      this.withdrawalAmount = parseFloat(this.withdrawalRaw) || 0;
+      this.withdrawalRaw = this.formatCurrency(this.withdrawalAmount);
+    }
   }
 
   canWithdraw(): boolean {

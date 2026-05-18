@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { environment } from '../../environments/environment';
 import { SupportedLanguage } from './language.service';
 import { setGlobalTimeFormat } from '../shared/timezone.utils';
+import { isStripeSupportedCountry } from '../data/stripe-supported-countries';
 
 export interface User {
   id: string;
@@ -71,6 +72,10 @@ export interface User {
   tutorApproved?: boolean;
   stripeConnectOnboarded?: boolean;
   stripeConnectAccountId?: string;
+  /** True once Stripe Connect KYC has fully verified the tutor (payouts enabled + no outstanding requirements). When true, the manual Government-ID step is skipped because Stripe already vouches for identity. */
+  stripeIdentityVerified?: boolean;
+  /** True when Stripe has flagged the Connect account as disabled (rejected, past-due requirements, or `requirements.disabled_reason` set). When true, we re-show the manual Government-ID step as a fallback. */
+  stripeAccountDisabled?: boolean;
   // Payout settings
   payoutProvider?: 'stripe' | 'paypal' | 'manual' | 'none';
   payoutDetails?: {
@@ -100,6 +105,15 @@ export interface User {
     pendingVideo?: string;
     pendingVideoThumbnail?: string;
     pendingVideoType?: 'upload' | 'youtube' | 'vimeo';
+    // Structured learning goal (student-only, powers the Learning Plan / Journey)
+    learningGoal?: {
+      type?: 'conversational' | 'exam_prep' | 'professional' | 'travel' | 'relocation' | 'other' | null;
+      description?: string;
+      targetLevel?: string;
+      selfAssessedLevel?: 'complete_beginner' | 'some_basics' | 'simple_conversations' | 'intermediate' | 'advanced' | null;
+      timeline?: 'specific_date' | 'few_months' | 'no_rush' | null;
+      targetDate?: string | null;
+    };
     completedAt: string;
   };
   profile?: {
@@ -131,6 +145,7 @@ export interface OnboardingData {
   goals: string[];
   experienceLevel: string;
   preferredSchedule: string;
+  spokenLanguages?: { code: string; level: string }[];
   learningGoal?: {
     type: string;
     description?: string;
@@ -154,6 +169,7 @@ export interface TutorOnboardingData {
   introductionVideo?: string;
   videoThumbnail?: string;
   videoType?: 'upload' | 'youtube' | 'vimeo';
+  spokenLanguages?: { code: string; level: string }[];
 }
 
 export interface Tutor {
@@ -244,10 +260,16 @@ export class UserService {
     governmentIdUploaded: boolean;
     governmentIdApproved: boolean;
     governmentIdRejected: boolean;
+    /** True when Stripe has fully KYC'd the tutor (skip manual gov-ID). */
+    stripeIdentityVerified: boolean;
+    /** True if identity is satisfied via either Stripe KYC or admin-approved gov-ID. */
+    identitySatisfied: boolean;
+    /** True when the manual gov-ID step should be shown in the wizard. Driven by payout path: false for healthy Stripe-path tutors, true for PayPal/manual or Stripe-disabled. */
+    identityRequired: boolean;
     certificationsUploaded: boolean;
     certificationsApproved: boolean;
-    credentialsComplete: boolean; // All required credentials uploaded
-    credentialsApproved: boolean; // All required credentials approved
+    credentialsComplete: boolean; // All required credentials uploaded (or Stripe-verified)
+    credentialsApproved: boolean; // All required credentials approved (identity + at least one teaching cert)
     tosComplete: boolean;
     fullyApproved: boolean;
     needsApproval: boolean;
@@ -277,18 +299,35 @@ export class UserService {
   constructor(
     private http: HttpClient,
     private authService: AuthService
-  ) {}
+  ) {
+    // Recompute tutor-approval + payout status on EVERY currentUser$ emit so
+    // any consumer that updates the user (picture upload, video upload, payout
+    // setup, profile edit, etc.) keeps the shared checklist + Payouts tab in
+    // perfect sync without each caller needing to remember to refresh.
+    this.currentUserSubject.subscribe(user => {
+      if (user && user.userType === 'tutor') {
+        this.updateTutorApprovalStatus(user);
+      }
+    });
+  }
 
   private async getAuthHeadersAsync(): Promise<HttpHeaders> {
     try {
-      // Get ID token claims which include user profile (email, name, picture)
-      const idTokenClaims = await this.authService.getIdTokenClaims();
+      // getAccessTokenSilently() silently refreshes the access token (and the
+      // ID token) when they are near expiry, using Auth0's refresh-token
+      // rotation. Calling it first guarantees that the idTokenClaims$ snapshot
+      // below is always fresh — solving the "401 Invalid or expired token"
+      // error that occurred after ~24h when only idTokenClaims$ was read.
+      await this.authService.getAccessToken().pipe(take(1)).toPromise();
 
-      // The ID token itself is in __raw
+      // Now read the fresh ID token. We still use the ID token (not the access
+      // token) as the bearer because the backend maps `email → dev-user-{email}`
+      // sub format, and the ID token carries the email claim.
+      const idTokenClaims = await this.authService.getIdTokenClaims();
       const idToken = idTokenClaims?.__raw;
-      
+
       if (!idToken) {
-        throw new Error('No ID token available');
+        throw new Error('No ID token available after refresh');
       }
 
       return new HttpHeaders({
@@ -296,9 +335,10 @@ export class UserService {
         'Content-Type': 'application/json'
       });
     } catch (error) {
-      console.error('❌ Error getting ID token:', error);
+      console.error('❌ Error getting auth token:', error);
 
-      // Fallback to dev token if Auth0 token fails
+      // Fallback to dev token if Auth0 token refresh fails (dev only — backend
+      // unconditionally rejects dev-token-* in production).
       const user = await this.authService.user$.pipe(take(1)).toPromise();
       const userEmail = user?.email || 'unknown';
       const tokenEmail = userEmail.replace('@', '-').replace(/\./g, '-');
@@ -425,17 +465,22 @@ export class UserService {
       (user.auth0Picture && user.picture !== user.auth0Picture) // Different from original Auth0 photo
     );
     const photoComplete = !!hasCustomPhoto;
-    // Video is complete if there's either a pendingVideo (awaiting review), an approved introductionVideo, OR it was rejected
-    const videoComplete = !!user.onboardingData?.pendingVideo || 
-                          !!user.onboardingData?.introductionVideo || 
-                          user.tutorOnboarding?.videoRejected === true;
+    // Video is complete when there's either a pending submission (awaiting
+    // review) or an approved video on file. We intentionally do NOT treat a
+    // bare `videoRejected` flag as complete — the Teaching Profile section
+    // shows the upload empty-state in that case, so the checklist must agree
+    // and prompt the tutor to re-upload.
+    const videoComplete = !!user.onboardingData?.pendingVideo ||
+                          !!user.onboardingData?.introductionVideo;
     const videoApproved = user.tutorOnboarding?.videoApproved === true;
     const videoRejected = user.tutorOnboarding?.videoRejected === true;
     const hasApprovedVideo = !!user.onboardingData?.introductionVideo; // Has at least one approved video
     
-    // Check for any payout method: Stripe, PayPal, or Manual
+    // Check for any payout method: Stripe, PayPal, or Manual.
+    // PayPal is considered complete as soon as payoutProvider is set to 'paypal' — the
+    // email is validated before saving so having the provider flag is sufficient.
     const hasStripe = user.stripeConnectOnboarded === true;
-    const hasPayPal = user.payoutProvider === 'paypal' && !!user.payoutDetails?.paypalEmail;
+    const hasPayPal = user.payoutProvider === 'paypal';
     const hasManual = user.payoutProvider === 'manual';
     const stripeComplete = hasStripe || hasPayPal || hasManual;
 
@@ -444,10 +489,39 @@ export class UserService {
     const governmentIdUploaded = !!(creds?.governmentId?.url && creds.governmentId.status !== 'not_uploaded');
     const governmentIdApproved = creds?.governmentId?.status === 'approved';
     const governmentIdRejected = creds?.governmentId?.status === 'rejected';
+
+    // Stripe Connect handles its own KYC; when verified we skip the manual
+    // Government-ID upload step (and treat identity as satisfied).
+    const stripeIdentityVerified = user.stripeIdentityVerified === true;
+    const stripeAccountDisabled = user.stripeAccountDisabled === true;
+    const identitySatisfied = stripeIdentityVerified || governmentIdApproved;
+
+    // Decide whether to SHOW the manual gov-ID step in the wizard.
+    // Rule:
+    //   1. Already Stripe-verified → not needed (Stripe owns identity).
+    //   2. Tutor explicitly on PayPal/manual payout → needed (we own identity).
+    //   3. Country supports Stripe AND Stripe account isn't disabled → not needed
+    //      (we expect Stripe to KYC them; webhook re-flips this back if Stripe
+    //      rejects or asks for more docs).
+    //   4. Otherwise (no country, country not Stripe-supported, Stripe disabled) → needed.
+    const payoutProvider = user.payoutProvider || 'none';
+    const onPayPalOrManual = payoutProvider === 'paypal' || payoutProvider === 'manual';
+    const onStripePathHealthy =
+      !onPayPalOrManual &&
+      isStripeSupportedCountry(user.residenceCountry) &&
+      !stripeAccountDisabled;
+    const identityRequired = !stripeIdentityVerified && !onStripePathHealthy;
+
+    // identityUploaded reflects "have we collected something for identity?".
+    // When the step is hidden (not required) and Stripe will handle it, treat
+    // the identity slot as complete for the credentials-complete checklist.
+    const identityUploaded =
+      stripeIdentityVerified || (!identityRequired) || governmentIdUploaded;
+
     const certificationsUploaded = !!(creds?.teachingCertifications && creds.teachingCertifications.length > 0);
     const certificationsApproved = !!(creds?.teachingCertifications?.some(c => c.status === 'approved'));
-    const credentialsComplete = governmentIdUploaded && certificationsUploaded;
-    const credentialsApproved = governmentIdApproved && certificationsApproved;
+    const credentialsComplete = identityUploaded && certificationsUploaded;
+    const credentialsApproved = identitySatisfied && certificationsApproved;
 
     const tosComplete = !!user.tosAcceptedAt;
 
@@ -466,6 +540,9 @@ export class UserService {
       governmentIdUploaded,
       governmentIdApproved,
       governmentIdRejected,
+      stripeIdentityVerified,
+      identitySatisfied,
+      identityRequired,
       certificationsUploaded,
       certificationsApproved,
       credentialsComplete,
@@ -476,6 +553,26 @@ export class UserService {
     };
 
     this.tutorApprovalStatusSubject.next(status);
+
+    // Keep `payoutStatus$` in lock-step with `tutorApprovalStatus$` so the
+    // profile Payouts tab can never disagree with the profile checklist.
+    // We only refresh the provider/hasPayoutSetup pair here and preserve the
+    // cached `options` (loaded once via `loadPayoutStatus()` on app init).
+    const prev = this.payoutStatusSubject.value;
+    const provider = (user.payoutProvider || 'none') as 'stripe' | 'paypal' | 'manual' | 'none';
+    let hasPayoutSetup = false;
+    if (provider === 'stripe') {
+      hasPayoutSetup = user.stripeConnectOnboarded === true;
+    } else if (provider === 'paypal' || provider === 'manual') {
+      hasPayoutSetup = true;
+    }
+    if (prev.provider !== provider || prev.hasPayoutSetup !== hasPayoutSetup) {
+      this.payoutStatusSubject.next({
+        provider,
+        hasPayoutSetup,
+        options: prev.options,
+      });
+    }
   }
 
   /**
@@ -506,12 +603,14 @@ export class UserService {
         const user = await this.getCurrentUser(true).toPromise();
         const payoutProvider = user?.payoutProvider || 'none';
         
-        // Determine if payout is set up
+        // Determine if payout is set up. Must stay consistent with the
+        // tutorApprovalStatus.stripeComplete logic above so the profile
+        // Payouts tab and the shared profile checklist never disagree.
         let hasPayoutSetup = false;
         if (payoutProvider === 'stripe') {
           hasPayoutSetup = user?.stripeConnectOnboarded === true;
         } else if (payoutProvider === 'paypal') {
-          hasPayoutSetup = !!user?.payoutDetails?.paypalEmail;
+          hasPayoutSetup = true;
         } else if (payoutProvider === 'manual') {
           hasPayoutSetup = true;
         }
@@ -783,23 +882,34 @@ export class UserService {
   }
 
   /**
-   * Initialize user data after authentication
+   * Initialize user data after authentication.
+   *
+   * Forwards the local interface-language pick (set by the picker or by
+   * `LanguageService.initializeLanguage`) so the backend can seed a brand
+   * new user's `interfaceLanguage` with the user's actual choice instead
+   * of falling back to the schema default 'en'. The backend ignores it
+   * for users that already have the field set.
    */
   initializeUser(auth0User: any): Observable<User> {
-    // Get user type from localStorage (set during login)
     const userType = localStorage.getItem('selectedUserType') || 'student';
+    const interfaceLanguage = (typeof localStorage !== 'undefined')
+      ? (localStorage.getItem('userLanguage') || undefined)
+      : undefined;
 
     if (!auth0User?.email) {
       console.error('🔍 UserService initializeUser: No email in Auth0 user data!');
     }
-    
-    const userData = {
+
+    const userData: Partial<User> = {
       email: auth0User.email,
       name: auth0User.name,
       auth0Picture: auth0User.picture,
       emailVerified: auth0User.email_verified,
-      userType: userType as 'student' | 'tutor'
+      userType: userType as 'student' | 'tutor',
     };
+    if (interfaceLanguage) {
+      (userData as any).interfaceLanguage = interfaceLanguage;
+    }
 
     return this.createOrUpdateUser(userData);
   }

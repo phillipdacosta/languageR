@@ -111,15 +111,19 @@ class StripeService {
    * Create Stripe Connect account for tutor
    * @param {Object} params
    * @param {string} params.email - Tutor email
-   * @param {string} params.country - Country code (default: 'US')
+   * @param {string} params.country - ISO 3166-1 alpha-2 country code (required;
+   *   must be a Stripe-supported country — see utils/stripeSupportedCountries.js)
    * @param {Object} params.metadata - Additional metadata
    * @returns {Promise<Object>} Stripe Connect Account object
    */
-  async createConnectAccount({ email, country = 'US', metadata = {} }) {
+  async createConnectAccount({ email, country, metadata = {} }) {
+    if (!country || typeof country !== 'string' || country.length !== 2) {
+      throw new Error(`createConnectAccount: invalid country (got "${country}"). Expected ISO 3166-1 alpha-2.`);
+    }
     try {
       const account = await stripe.accounts.create({
         type: 'express', // Express accounts for easier onboarding
-        country,
+        country: country.toUpperCase(),
         email,
         capabilities: {
           card_payments: { requested: true },

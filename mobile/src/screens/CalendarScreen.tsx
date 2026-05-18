@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,9 @@ import {
   RefreshControl,
   ActivityIndicator,
   Animated,
+  Easing,
   Modal,
+  Pressable,
   Dimensions,
   Alert,
   ActionSheetIOS,
@@ -16,12 +18,17 @@ import {
   Image,
   StatusBar,
   AppState,
+  PanResponder,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets, initialWindowMetrics } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Image as ExpoImage } from 'expo-image';
+import Svg, { Line as SvgLine } from 'react-native-svg';
 import * as WebBrowser from 'expo-web-browser';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../hooks/useAuth';
@@ -46,8 +53,20 @@ import {
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const DAY_CELL_SIZE = 40;
 const ACCENT_BLUE = '#08a0e8';
+const MONTH_CELL_SIZE = Math.floor((SCREEN_W - 16) / 7);
+const MONTH_CIRCLE_SIZE = Math.min(MONTH_CELL_SIZE - 8, 52);
+// Stacked avatar sizing for class cells
+const STACK_AVATAR_SIZE = Math.round(MONTH_CIRCLE_SIZE * 0.56);
+const STACK_AVATAR_STEP = Math.round(STACK_AVATAR_SIZE * 0.68); // horizontal step between avatar centers
+const STACK_TOTAL_W = STACK_AVATAR_SIZE + STACK_AVATAR_STEP;
+const STACK_LEFT_ORIGIN = Math.round((MONTH_CIRCLE_SIZE - STACK_TOTAL_W) / 2);
+const STACK_TOP = Math.round((MONTH_CIRCLE_SIZE - STACK_AVATAR_SIZE) / 2);
 const TODAY_BG = '#4298d3';
 const TIMELINE_HOUR_HEIGHT = 120;
+// Sheet row avatar sizes
+const SHEET_AVATAR = 44;
+const SHEET_STACK = 28;
+const SHEET_STACK_STEP = 20; // horizontal offset between stacked items
 const TIMELINE_LABEL_W = 72;
 const TIMELINE_LINE_GAP = 6;
 const TIMELINE_LEFT_PAD = 16;
@@ -117,6 +136,153 @@ function formatDisplayName(person: any): string {
   return '';
 }
 
+function formatDuration(mins: number): string {
+  if (mins < 60) return `${mins}m`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m === 0 ? `${h}h` : `${h}h ${m}m`;
+}
+
+function getInitials(person: any): string {
+  if (!person) return '?';
+  const first = person.firstName || (person.name ? person.name.split(' ')[0] : '') || '';
+  const last = person.lastName || (person.name ? (person.name.split(' ')[1] || '') : '') || '';
+  return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase() || '?';
+}
+
+const GOOGLE_LOGO = require('../../assets/shared/google.png');
+
+// Skeleton components
+function CalendarSkeleton({ viewMode, colors }: { viewMode: 'week' | 'month'; colors: any }) {
+  // Month: wave through 42 grid circles. Week: wave through 7 day circles + 8 timeline rows.
+  const MONTH_CELLS = 42;
+  const WEEK_CIRCLES = 7;
+  const WEEK_ROWS = 8;
+  const cellCount = viewMode === 'month' ? MONTH_CELLS : WEEK_CIRCLES + WEEK_ROWS;
+  const WAVE_W = 2.5; // glow width in cells
+
+  const wavePos = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(wavePos, {
+        toValue: cellCount,
+        duration: cellCount * 70,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [wavePos, cellCount]);
+
+  const cellOpacities = useMemo(
+    () =>
+      Array.from({ length: cellCount }, (_, i) =>
+        wavePos.interpolate({
+          inputRange: [Math.max(0, i - WAVE_W), i, Math.min(cellCount, i + WAVE_W)],
+          outputRange: [0.45, 1.0, 0.45],
+          extrapolate: 'clamp',
+        }),
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [cellCount],
+  );
+
+  const baseBg = colors.isDark ? '#2a2a2e' : '#e8e8ec';
+
+  // Static block (header / nav — not animated)
+  const staticBlock = (w: number | string, h: number, br = 4, style?: any) => (
+    <View style={[{ width: w as any, height: h, borderRadius: br, backgroundColor: baseBg }, style]} />
+  );
+
+  // Animated block driven by the wave
+  const waveBlock = (index: number, w: number | string, h: number, br = 4, style?: any) => (
+    <Animated.View
+      style={[{ width: w as any, height: h, borderRadius: br, backgroundColor: baseBg, opacity: cellOpacities[index] }, style]}
+    />
+  );
+
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.surface }}>
+      {viewMode === 'month' ? (
+        <>
+          {/* Header — static */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16 }}>
+            {staticBlock(80, 20)}
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {staticBlock(70, 32, 16)}
+              {staticBlock(50, 32, 16)}
+            </View>
+          </View>
+          {/* Month nav — static */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12 }}>
+            {staticBlock(20, 20, 10)}
+            {staticBlock(120, 18)}
+            {staticBlock(20, 20, 10)}
+          </View>
+          {/* Day headers — static */}
+          <View style={{ flexDirection: 'row', paddingHorizontal: 8, paddingVertical: 8 }}>
+            {Array.from({ length: 7 }).map((_, i) => (
+              <View key={i} style={{ flex: 1, alignItems: 'center' }}>
+                {staticBlock(20, 12, 2)}
+              </View>
+            ))}
+          </View>
+          {/* Grid circles — waving */}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 8 }}>
+            {Array.from({ length: MONTH_CELLS }).map((_, i) => (
+              <View key={i} style={{ width: MONTH_CELL_SIZE, height: MONTH_CELL_SIZE, alignItems: 'center', justifyContent: 'center' }}>
+                {waveBlock(i, MONTH_CIRCLE_SIZE - 8, MONTH_CIRCLE_SIZE - 8, (MONTH_CIRCLE_SIZE - 8) / 2)}
+              </View>
+            ))}
+          </View>
+        </>
+      ) : (
+        <>
+          {/* Header — static */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16 }}>
+            {staticBlock(80, 20)}
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {staticBlock(70, 32, 16)}
+              {staticBlock(50, 32, 16)}
+            </View>
+          </View>
+          {/* Week day circles — waving (indices 0–6) */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, gap: 16 }}>
+            {staticBlock(20, 20, 10)}
+            <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-around' }}>
+              {Array.from({ length: WEEK_CIRCLES }).map((_, i) => (
+                <View key={i} style={{ alignItems: 'center', gap: 4 }}>
+                  {staticBlock(20, 12, 2)}
+                  {waveBlock(i, 28, 28, 14)}
+                </View>
+              ))}
+            </View>
+            {staticBlock(20, 20, 10)}
+          </View>
+          {/* Date bar — static */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 10 }}>
+            {staticBlock(120, 24)}
+            <View style={{ flexDirection: 'row', gap: 6 }}>
+              {staticBlock(60, 24, 12)}
+              {staticBlock(80, 24, 12)}
+            </View>
+          </View>
+          {/* Timeline rows — waving (indices 7–14) */}
+          <View style={{ flex: 1, paddingHorizontal: 16 }}>
+            {Array.from({ length: WEEK_ROWS }).map((_, i) => (
+              <View key={i} style={{ height: 60, flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 4 }}>
+                {staticBlock(40, 12, 2)}
+                {waveBlock(WEEK_CIRCLES + i, '82%', 32, 8)}
+              </View>
+            ))}
+          </View>
+        </>
+      )}
+    </View>
+  );
+}
+
 const FAB_OPTIONS = [
   { key: 'availability', icon: 'calendar-outline' as const, labelKey: 'TUTOR_CALENDAR.SET_AVAILABILITY' },
   { key: 'blockTime', icon: 'time-outline' as const, labelKey: 'TUTOR_CALENDAR.BLOCK_TIME' },
@@ -139,6 +305,61 @@ export default function CalendarScreen() {
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [viewMode, setViewMode] = useState<'week' | 'month'>('month');
+  const [displayedViewMode, setDisplayedViewMode] = useState<'week' | 'month'>('month');
+  const viewFade = useRef(new Animated.Value(1)).current;
+  const [skeletonViewMode, setSkeletonViewMode] = useState<'week' | 'month'>('month'); // For skeleton while loading
+  const [viewPickerVisible, setViewPickerVisible] = useState(false);
+  const vpTranslateY = useRef(new Animated.Value(SCREEN_H)).current;
+  const vpBackdropOpacity = useRef(new Animated.Value(0)).current;
+  const [monthViewDate, setMonthViewDate] = useState(() => new Date());
+  const [daySheetDate, setDaySheetDate] = useState<Date | null>(null);
+  const [daySheetVisible, setDaySheetVisible] = useState(false);
+  const daySheetTranslateY = useRef(new Animated.Value(SCREEN_H)).current;
+  const daySheetBackdropOpacity = useRef(new Animated.Value(0)).current;
+
+  // Pullable sheet state
+  const [sheetHeight, setSheetHeight] = useState<'compact' | 'expanded'>('compact');
+  const panY = useRef(new Animated.Value(0)).current;
+  const lastPanY = useRef(0);
+
+  const sheetPanResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 8 && Math.abs(g.dy) > Math.abs(g.dx),
+      onPanResponderGrant: () => {
+        panY.stopAnimation(val => { lastPanY.current = val; });
+      },
+      onPanResponderMove: (_, g) => {
+        const PULL_LIMIT = SCREEN_H * 0.45;
+        const raw = lastPanY.current + g.dy;
+        panY.setValue(Math.max(-PULL_LIMIT, Math.min(0, raw)));
+      },
+      onPanResponderRelease: (_, g) => {
+        const cur = lastPanY.current + g.dy;
+        const EXPAND_THRESHOLD = -100;
+        if (cur < EXPAND_THRESHOLD || g.vy < -0.6) {
+          const target = -SCREEN_H * 0.42;
+          lastPanY.current = target;
+          setSheetHeight('expanded');
+          Animated.spring(panY, { toValue: target, useNativeDriver: true, damping: 22, stiffness: 220 }).start();
+        } else if (cur > -30 && g.vy > 0.5) {
+          // swipe down → close
+          panY.setValue(0);
+          lastPanY.current = 0;
+          setSheetHeight('compact');
+          // Trigger full close
+          Animated.timing(panY, { toValue: 0, duration: 1, useNativeDriver: true }).start();
+          setTimeout(closeDaySheet, 10);
+        } else {
+          lastPanY.current = 0;
+          setSheetHeight('compact');
+          Animated.spring(panY, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 220 }).start();
+        }
+      },
+    })
+  ).current;
+
+  const prefetchedUrls = useRef(new Set<string>()).current;
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [availability, setAvailability] = useState<AvailabilityBlock[]>([]);
@@ -175,10 +396,13 @@ export default function CalendarScreen() {
   const gcalPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastGcalEventsFetchRef = useRef<number>(0);
   const GCAL_REFRESH_MIN_GAP_MS = 3 * 1000;
-  const GCAL_POLL_MS = 2 * 60 * 1000;
+  // Poll fast (2 min) only when the server-side push channel is dead so we don't
+  // miss changes. When watchActive=true we already get real-time updates via the
+  // 'gcal-changed' websocket signal — slow polling (10 min) is just paranoia in
+  // case the watch silently dies. This cuts Google API usage ~5x at scale.
+  const GCAL_POLL_FAST_MS = 2 * 60 * 1000;
+  const GCAL_POLL_SLOW_MS = 10 * 60 * 1000;
   const timelineScrollRef = useRef<ScrollView>(null);
-  const didScrollToNow = useRef(false);
-
   const dayCells: DayCell[] = useMemo(() => {
     const today = new Date();
     const cells: DayCell[] = [];
@@ -306,18 +530,37 @@ export default function CalendarScreen() {
 
   const fetchData = useCallback(async () => {
     if (!userId) return;
-    const rangeStart = new Date(weekStart);
-    rangeStart.setDate(rangeStart.getDate() - 14);
-    const rangeEnd = new Date(weekStart);
-    rangeEnd.setDate(rangeEnd.getDate() + 35);
+    // Range covers the week view window AND the full month currently shown in month view
+    const weekRangeStart = new Date(weekStart);
+    weekRangeStart.setDate(weekRangeStart.getDate() - 14);
+    const weekRangeEnd = new Date(weekStart);
+    weekRangeEnd.setDate(weekRangeEnd.getDate() + 35);
+
+    const monthStart = new Date(monthViewDate.getFullYear(), monthViewDate.getMonth(), 1);
+    const monthEnd = new Date(monthViewDate.getFullYear(), monthViewDate.getMonth() + 1, 0);
+
+    const rangeStart = weekRangeStart < monthStart ? weekRangeStart : monthStart;
+    const rangeEnd = weekRangeEnd > monthEnd ? weekRangeEnd : monthEnd;
+
     const [avail, lsns, cls, fb] = await Promise.all([
       calendarService.getAvailability(),
       calendarService.getTutorLessons(userId, rangeStart, rangeEnd),
       calendarService.getTutorClasses(userId, rangeStart, rangeEnd),
       isTutor ? calendarService.getPendingFeedback() : Promise.resolve({ items: [], count: 0 }),
     ]);
+
+    // Prefetch all avatars so they appear instantly when the calendar renders
+    const avatarUrls = [
+      ...lsns.map((l: any) => l.studentId?.picture).filter(Boolean),
+      ...cls.flatMap((c: any) => (c.confirmedStudents || c.attendees || []).map((s: any) => s?.picture).filter(Boolean)),
+    ] as string[];
+    const newUrls = [...new Set(avatarUrls)].filter(url => !prefetchedUrls.has(url));
+    if (newUrls.length > 0) {
+      await Promise.all(newUrls.map(url => ExpoImage.prefetch(url, { cachePolicy: 'memory-disk' }).then(() => prefetchedUrls.add(url)).catch(() => {})));
+    }
+
     setAvailability(avail); setLessons(lsns); setClasses(cls); setFeedbackCount(fb.count);
-  }, [userId, weekStart, isTutor]);
+  }, [userId, weekStart, monthViewDate, isTutor, prefetchedUrls]);
 
   const loadGcalStatus = useCallback(async () => {
     if (!isTutor) return;
@@ -339,8 +582,9 @@ export default function CalendarScreen() {
 
   const startGcalPolling = useCallback(() => {
     if (gcalPollRef.current) clearInterval(gcalPollRef.current);
-    gcalPollRef.current = setInterval(() => { loadGcalEvents(); }, GCAL_POLL_MS);
-  }, [loadGcalEvents]);
+    const intervalMs = gcalStatus.watchActive ? GCAL_POLL_SLOW_MS : GCAL_POLL_FAST_MS;
+    gcalPollRef.current = setInterval(() => { loadGcalEvents(); }, intervalMs);
+  }, [loadGcalEvents, gcalStatus.watchActive]);
 
   const stopGcalPolling = useCallback(() => {
     if (gcalPollRef.current) { clearInterval(gcalPollRef.current); gcalPollRef.current = null; }
@@ -478,10 +722,19 @@ export default function CalendarScreen() {
         stopGcalPolling();
       }
     });
+    // New lightweight signal: server emits 'gcal-changed' when Google reports
+    // a calendar change. We refetch our own visible window — the server can't
+    // know what week the client is viewing, so it must not push events itself.
+    const offChanged = socketService.on('gcal-changed', () => {
+      loadGcalEvents();
+    });
+    // Backward-compat: older deployed servers may still emit 'gcal-events-updated'.
+    // Treat it as a refresh trigger only and ignore the attached payload, which
+    // is scoped to the server's "current week" and would wipe future-week events.
     const offEvents = socketService.on('gcal-events-updated', () => {
       loadGcalEvents();
     });
-    return () => { offStatus(); offEvents(); };
+    return () => { offStatus(); offChanged(); offEvents(); };
   }, [isTutor, loadGcalStatus, loadGcalEvents, startGcalPolling, stopGcalPolling]);
 
   useEffect(() => {
@@ -508,6 +761,25 @@ export default function CalendarScreen() {
 
   useEffect(() => { if (gcalStatus.connected) loadGcalEvents(); }, [weekStart, gcalStatus.connected]);
 
+  // Persist + restore view mode preference
+  useEffect(() => {
+    AsyncStorage.getItem('calendarViewMode').then(v => {
+      if (v === 'week' || v === 'month') {
+        setViewMode(v);
+        setDisplayedViewMode(v);
+        setSkeletonViewMode(v);
+      }
+    });
+  }, []);
+  useEffect(() => {
+    AsyncStorage.setItem('calendarViewMode', viewMode);
+  }, [viewMode]);
+
+  // Re-fetch when navigating to a different month in month view
+  useEffect(() => {
+    if (userId) fetchData();
+  }, [monthViewDate]);
+
   const onRefresh = useCallback(async () => { setRefreshing(true); await fetchData(); setRefreshing(false); }, [fetchData]);
 
   const shiftWeek = (dir: number) => {
@@ -517,7 +789,224 @@ export default function CalendarScreen() {
     setSelectedDate(dir > 0 ? new Date(next) : (() => { const d = new Date(next); d.setDate(d.getDate() + 6); return d; })());
   };
 
-  const goToToday = () => { setWeekStart(getMonday(new Date())); setSelectedDate(new Date()); };
+  const goToToday = () => {
+    setWeekStart(getMonday(new Date()));
+    setSelectedDate(new Date());
+    setMonthViewDate(new Date());
+  };
+
+  const viewModeRef = useRef(viewMode);
+  useEffect(() => { viewModeRef.current = viewMode; }, [viewMode]);
+  const selectedDateRef = useRef(selectedDate);
+  useEffect(() => { selectedDateRef.current = selectedDate; }, [selectedDate]);
+
+  const switchView = useCallback((mode: 'week' | 'month') => {
+    if (mode === viewModeRef.current) return;
+    Animated.timing(viewFade, {
+      toValue: 0,
+      duration: 140,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start(() => {
+      setDisplayedViewMode(mode);
+      setViewMode(mode);
+      Animated.timing(viewFade, {
+        toValue: 1,
+        duration: 180,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start(() => {
+        // After the new view is fully visible, scroll to now if week view and today is selected
+        if (mode === 'week' && isSameDay(selectedDateRef.current, new Date())) {
+          const nowOffset = Math.max(
+            0,
+            ((minutesSinceMidnight(new Date()) - TIMELINE_START_HOUR * 60) / 60) * TIMELINE_HOUR_HEIGHT - 100,
+          );
+          setTimeout(() => {
+            timelineScrollRef.current?.scrollTo({ y: nowOffset, animated: true });
+          }, 80);
+        }
+      });
+    });
+  }, [viewFade]);
+
+  const showViewPicker = useCallback(() => {
+    vpTranslateY.setValue(SCREEN_H);
+    vpBackdropOpacity.setValue(0);
+    setViewPickerVisible(true);
+    Animated.parallel([
+      Animated.timing(vpBackdropOpacity, { toValue: 1, duration: 200, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.timing(vpTranslateY, { toValue: 0, duration: 300, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+    ]).start();
+  }, [vpTranslateY, vpBackdropOpacity]);
+
+  const hideViewPicker = useCallback((mode?: 'week' | 'month') => {
+    Animated.parallel([
+      Animated.timing(vpBackdropOpacity, { toValue: 0, duration: 180, easing: Easing.in(Easing.quad), useNativeDriver: true }),
+      Animated.timing(vpTranslateY, { toValue: SCREEN_H, duration: 240, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
+    ]).start(() => {
+      setViewPickerVisible(false);
+      if (mode) {
+        switchView(mode);
+        AsyncStorage.setItem('calendarViewMode', mode).catch(() => {});
+        setSkeletonViewMode(mode);
+      }
+    });
+  }, [vpTranslateY, vpBackdropOpacity]);
+
+  const shiftMonth = (dir: number) => {
+    setMonthViewDate(prev => {
+      const next = new Date(prev);
+      next.setDate(1);
+      next.setMonth(next.getMonth() + dir);
+      return next;
+    });
+  };
+
+  /* ─── Day-events sheet animation ──────────────────────────── */
+  const openDaySheet = useCallback((day: Date) => {
+    setDaySheetDate(day);
+    setDaySheetVisible(true);
+  }, []);
+
+  const closeDaySheet = useCallback(() => {
+    daySheetTranslateY.stopAnimation();
+    daySheetBackdropOpacity.stopAnimation();
+    Animated.parallel([
+      Animated.timing(daySheetBackdropOpacity, {
+        toValue: 0,
+        duration: 180,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.timing(daySheetTranslateY, {
+        toValue: SCREEN_H,
+        duration: 240,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setDaySheetVisible(false);
+      setDaySheetDate(null);
+      setSheetHeight('compact');
+      panY.setValue(0);
+      lastPanY.current = 0;
+    });
+  }, [daySheetTranslateY, daySheetBackdropOpacity, panY]);
+
+  useLayoutEffect(() => {
+    if (!daySheetVisible) return;
+    daySheetTranslateY.stopAnimation();
+    daySheetBackdropOpacity.stopAnimation();
+    daySheetTranslateY.setValue(SCREEN_H);
+    daySheetBackdropOpacity.setValue(0);
+    panY.setValue(0);
+    lastPanY.current = 0;
+    setSheetHeight('compact');
+    Animated.parallel([
+      Animated.timing(daySheetBackdropOpacity, {
+        toValue: 1,
+        duration: 200,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.timing(daySheetTranslateY, {
+        toValue: 0,
+        duration: 300,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [daySheetVisible, daySheetTranslateY, daySheetBackdropOpacity, panY]);
+
+  // Days for month grid — Sunday-first, padded to full 6-row grid
+  const monthDays = useMemo(() => {
+    const year = monthViewDate.getFullYear();
+    const month = monthViewDate.getMonth();
+    const firstOfMonth = new Date(year, month, 1);
+    const lastOfMonth = new Date(year, month + 1, 0);
+    const gridStart = new Date(firstOfMonth);
+    gridStart.setDate(gridStart.getDate() - firstOfMonth.getDay()); // Sunday = 0
+    const days: Date[] = [];
+    const cur = new Date(gridStart);
+    while (cur <= lastOfMonth || days.length % 7 !== 0) {
+      days.push(new Date(cur));
+      cur.setDate(cur.getDate() + 1);
+    }
+    return { days, month, year };
+  }, [monthViewDate]);
+
+  // Events for the tapped day, shown in the bottom sheet
+  const daySheetEntries = useMemo(() => {
+    if (!daySheetDate) return [];
+    type DaySheetEntry = {
+      id: string;
+      type: 'lesson' | 'class' | 'gcal';
+      title: string;
+      startTime: Date;
+      endTime: Date;
+      durationMin: number;
+      color: string;
+      avatar?: string;
+      thumbnail?: string; // For classes
+      classStudents: { picture?: string; name?: string }[];
+      rawLesson?: CalendarLesson;
+      rawClass?: CalendarClass;
+    };
+    const entries: DaySheetEntry[] = [];
+    lessons
+      .filter(l => isSameDay(new Date(l.startTime), daySheetDate) && l.status !== 'cancelled')
+      .forEach(l => {
+        const start = new Date(l.startTime);
+        const end = new Date(l.endTime || start.getTime() + (l.duration || 30) * 60000);
+        const durationMin = l.duration || Math.round((end.getTime() - start.getTime()) / 60000);
+        entries.push({
+          id: l._id, type: 'lesson',
+          title: formatDisplayName(l.studentId) || 'Lesson',
+          startTime: start, endTime: end, durationMin,
+          color: '#007AFF',
+          avatar: l.studentId?.picture,
+          classStudents: [],
+          rawLesson: l,
+        });
+      });
+    classes
+      .filter(c => isSameDay(new Date(c.startTime), daySheetDate))
+      .forEach(c => {
+        const start = new Date(c.startTime);
+        const end = new Date(c.endTime || start.getTime() + (c.duration || 60) * 60000);
+        const durationMin = c.duration || Math.round((end.getTime() - start.getTime()) / 60000);
+        const students = (c.confirmedStudents || c.attendees || []).map((s: any) => ({
+          picture: s?.picture,
+          name: formatDisplayName(s),
+        }));
+        entries.push({
+          id: c._id, type: 'class',
+          title: c.name || c.title || 'Group Class',
+          startTime: start, endTime: end, durationMin,
+          color: '#8b5cf6',
+          thumbnail: c.thumbnail,
+          classStudents: students,
+          rawClass: c,
+        });
+      });
+    gcalEvents
+      .filter(ge => ge.start && isSameDay(new Date(ge.start), daySheetDate) && !ge.allDay)
+      .forEach(ge => {
+        const start = new Date(ge.start!);
+        const end = new Date(ge.end!);
+        const durationMin = Math.round((end.getTime() - start.getTime()) / 60000);
+        entries.push({
+          id: ge.id, type: 'gcal',
+          title: ge.summary || 'Google Calendar',
+          startTime: start, endTime: end, durationMin,
+          color: '#4285F4',
+          classStudents: [],
+        });
+      });
+    entries.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+    return entries;
+  }, [daySheetDate, lessons, classes, gcalEvents]);
 
   const toggleFab = () => {
     const toValue = fabOpen ? 0 : 1;
@@ -637,9 +1126,33 @@ export default function CalendarScreen() {
     deferShellUntilListReady: true,
   });
 
-  // Scroll to current time once after content loads + entrance animation settles
+  // Calendar-specific fade-in (avoids tab flash but gives smooth entrance)
+  const calendarFade = useRef(new Animated.Value(0)).current;
+  const calendarAnimated = useRef(false);
+
   useEffect(() => {
-    if (loading || didScrollToNow.current) return;
+    if (loading) {
+      calendarFade.setValue(0);
+      calendarAnimated.current = false;
+      return;
+    }
+    if (calendarAnimated.current) return;
+    calendarAnimated.current = true;
+    
+    const timer = setTimeout(() => {
+      Animated.timing(calendarFade, {
+        toValue: 1,
+        duration: 280,
+        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+        useNativeDriver: true,
+      }).start();
+    }, 50); // Small delay to ensure background is solid
+    return () => clearTimeout(timer);
+  }, [loading, calendarFade]);
+
+  // Scroll to current time on initial week view load (switchView handles subsequent transitions)
+  useEffect(() => {
+    if (loading || viewMode !== 'week') return;
     if (!isSameDay(selectedDate, new Date())) return;
     const nowOffset = Math.max(
       0,
@@ -647,30 +1160,36 @@ export default function CalendarScreen() {
     );
     const timer = setTimeout(() => {
       timelineScrollRef.current?.scrollTo({ y: nowOffset, animated: true });
-      didScrollToNow.current = true;
-    }, 380);
+    }, 500);
     return () => clearTimeout(timer);
-  }, [loading, selectedDate]);
+  }, [loading]);
 
   if (loading) return (
     <SafeAreaView style={[st.safe, { backgroundColor: C.surface }]} edges={['top']}>
-      <View style={st.loadWrap}><ActivityIndicator size="large" color={C.textSecondary} /></View>
+      <CalendarSkeleton viewMode={skeletonViewMode} colors={colors} />
     </SafeAreaView>
   );
 
   return (
     <SafeAreaView style={[st.safe, { backgroundColor: C.surface }]} edges={['top']}>
-      <Animated.View style={shellMotion}>
+      <Animated.View style={[shellMotion, { opacity: calendarFade }]}>
       {/* Header */}
       <View style={[st.header, { backgroundColor: C.surface }]}>
         <Text style={[st.headerTitle, { color: C.text }]}>{t('TABS.CALENDAR')}</Text>
-        <TouchableOpacity onPress={goToToday} activeOpacity={0.7} style={[st.todayBtn, { backgroundColor: C.inputBg }]}>
-          <Text style={[st.todayBtnText, { color: C.accent }]}>{t('HOME.TODAY')}</Text>
-        </TouchableOpacity>
+        <View style={st.headerActions}>
+          <TouchableOpacity onPress={showViewPicker} activeOpacity={0.7} style={[st.viewPickerBtn, { backgroundColor: C.inputBg }]}>
+            <Ionicons name={viewMode === 'month' ? 'grid-outline' : 'calendar-outline'} size={13} color={C.accent} />
+            <Text style={[st.viewPickerText, { color: C.accent }]}>{viewMode === 'week' ? 'Week' : 'Month'}</Text>
+            <Ionicons name="chevron-down" size={11} color={C.accent} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={goToToday} activeOpacity={0.7} style={[st.todayBtn, { backgroundColor: C.inputBg }]}>
+            <Text style={[st.todayBtnText, { color: C.accent }]}>{t('HOME.TODAY')}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Week Strip */}
-      <View style={[st.weekStrip, { backgroundColor: C.surface, borderBottomColor: C.border }]}>
+      {/* Week Strip — hidden in month view */}
+      {displayedViewMode === 'week' && <View style={[st.weekStrip, { backgroundColor: C.surface, borderBottomColor: C.border }]}>
         <TouchableOpacity onPress={() => shiftWeek(-7)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="chevron-back" size={20} color={C.textSecondary} />
         </TouchableOpacity>
@@ -685,7 +1204,7 @@ export default function CalendarScreen() {
                       cell.isSelected && cell.isToday
                         ? TODAY_BG
                         : cell.isSelected
-                          ? (isDark ? '#ffffff' : '#000000')
+                          ? C.accent
                           : cell.isToday
                             ? TODAY_BG
                             : C.textSecondary,
@@ -698,7 +1217,7 @@ export default function CalendarScreen() {
                 style={[
                   st.dateCircle,
                   cell.isToday && { backgroundColor: TODAY_BG },
-                  cell.isSelected && !cell.isToday && { backgroundColor: '#000000' },
+                  cell.isSelected && !cell.isToday && { backgroundColor: C.accent },
                 ]}
               >
                 <Text style={[st.dateLabel, { color: cell.isSelected || cell.isToday ? '#fff' : C.text }]}>{cell.dateLabel}</Text>
@@ -710,10 +1229,10 @@ export default function CalendarScreen() {
         <TouchableOpacity onPress={() => shiftWeek(7)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="chevron-forward" size={20} color={C.textSecondary} />
         </TouchableOpacity>
-      </View>
+      </View>}
 
-      {/* Date Bar */}
-      <View style={[st.dateBar, { backgroundColor: C.surface }]}>
+      {/* Date Bar — hidden in month view */}
+      {displayedViewMode === 'week' && <View style={[st.dateBar, { backgroundColor: C.surface }]}>
         <View style={st.dateBarLeft}>
           <Text style={[st.dateBarDay, { color: C.text }]}>
             {isSameDay(selectedDate, new Date()) ? t('HOME.TODAY') : selectedDate.toLocaleDateString(undefined, { weekday: 'long' })}
@@ -743,11 +1262,194 @@ export default function CalendarScreen() {
             </TouchableOpacity>
           )}
         </View>
-      </View>
+      </View>}
       </Animated.View>
 
-      {/* Timeline */}
+      {/* Timeline or Month view */}
       <Animated.View style={[{ flex: 1 }, listGateMotion]}>
+      <Animated.View style={{ flex: 1, opacity: viewFade }}>
+
+      {displayedViewMode === 'month' ? (
+        <View style={{ flex: 1 }}>
+          {/* Month navigation */}
+          <View style={[st.monthNav, { borderBottomColor: C.border }]}>
+            <TouchableOpacity onPress={() => shiftMonth(-1)} hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}>
+              <Ionicons name="chevron-back" size={20} color={C.textSecondary} />
+            </TouchableOpacity>
+            <Text style={[st.monthNavTitle, { color: C.text }]}>
+              {monthViewDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+            </Text>
+            <TouchableOpacity onPress={() => shiftMonth(1)} hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}>
+              <Ionicons name="chevron-forward" size={20} color={C.textSecondary} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Day-of-week headers */}
+          <View style={st.monthDayHeaders}>
+            {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
+              <Text key={d} style={[st.monthDayHeader, { color: C.textTertiary }]}>{d}</Text>
+            ))}
+          </View>
+
+          {/* Month grid */}
+          <View style={st.monthGrid}>
+            {monthDays.days.map((day, i) => {
+              const today = new Date();
+              const isThisMonth = day.getMonth() === monthDays.month;
+              const isToday = isSameDay(day, today);
+              const isSelected = isSameDay(day, selectedDate);
+
+              // Collect all events with their avatars
+              const dayLessons = lessons.filter(l => isSameDay(new Date(l.startTime), day) && l.status !== 'cancelled');
+              const dayClasses = classes.filter(c => isSameDay(new Date(c.startTime), day));
+              const dayGcal = gcalEvents.filter(ge => ge.start && isSameDay(new Date(ge.start), day) && !ge.allDay);
+
+              // Class students — all enrolled, for initials fallback if no photo
+              const classStudents: { picture?: string; name?: string; personObj?: any }[] = dayClasses.flatMap(c =>
+                (c.confirmedStudents || c.attendees || []).map((s: any) => ({
+                  picture: s?.picture || null,
+                  name: formatDisplayName(s),
+                  personObj: s,
+                }))
+              );
+              const hasClassStudents = classStudents.length > 0;
+
+              const lessonStudent = dayLessons[0]?.studentId || null;
+              const lessonAvatar = lessonStudent?.picture || null;
+
+              const totalEvents = dayLessons.length + dayClasses.length + dayGcal.length;
+              const hasEvents = totalEvents > 0;
+
+              // Check if tutor has availability set for this day
+              const hasAvailability = availability.some(b =>
+                b.type !== 'unavailable' &&
+                b.type !== 'class' &&
+                (b.absoluteStart
+                  ? isSameDay(new Date(b.absoluteStart), day)
+                  : b.day === day.getDay())
+              );
+
+              // Display priority: classes → lesson → google event
+              // Classes always show stacked avatars (initials if no photo)
+              const showStackedAvatars = hasClassStudents || (dayClasses.length > 0 && dayGcal.length === 0 && dayLessons.length === 0);
+              const primaryAvatar = !showStackedAvatars ? lessonAvatar : null;
+              const primaryLessonStudent = !showStackedAvatars ? lessonStudent : null;
+              const isGcalOnly = !showStackedAvatars && !lessonStudent && dayGcal.length > 0;
+              const stackAvatars = classStudents.slice(0, 2);
+              const stackRemaining = classStudents.length - 2;
+              const extraCount = showStackedAvatars
+                ? (classStudents.length - 2 > 0 ? classStudents.length - 2 : 0) + dayLessons.length + dayGcal.length
+                : totalEvents - 1;
+
+              // Cell is an empty placeholder for outside-month days (maintains grid spacing)
+              if (!isThisMonth) {
+                return (
+                  <View key={i} style={st.monthCell}>
+                    <View style={[st.monthCellCircle, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }]}>
+                      <Text style={[st.monthCellText, { color: C.textTertiary, opacity: 0.4 }]}>{day.getDate()}</Text>
+                    </View>
+                  </View>
+                );
+              }
+
+              return (
+                <TouchableOpacity
+                  key={i}
+                  style={st.monthCell}
+                  activeOpacity={0.65}
+                  onPress={() => {
+                    setSelectedDate(day);
+                    openDaySheet(day);
+                  }}
+                >
+                  <View style={[
+                    st.monthCellCircle,
+                    // BASE — driven SOLELY by availability so all cells with the same
+                    // availability look identical, regardless of events.
+                    hasAvailability && {
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.95)',
+                      borderWidth: StyleSheet.hairlineWidth,
+                      borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)',
+                    },
+                    !hasAvailability && {
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                    },
+                    // Today: accent ring on top of the base
+                    isToday && { borderWidth: 2, borderColor: TODAY_BG },
+                  ]}>
+                    {/* Clipped layer — keeps avatars inside the circle shape */}
+                    <View style={st.monthCellAvatarClip}>
+                      {showStackedAvatars ? (
+                        // Stacked class-student avatars (photo or initials)
+                        <>
+                          {stackAvatars.length === 0 ? (
+                            // No students enrolled yet — grey people icon
+                            <View style={{ alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+                              <Ionicons name="people" size={Math.round(MONTH_CIRCLE_SIZE * 0.44)} color={C.textTertiary} />
+                            </View>
+                          ) : stackAvatars.map((s, si) => {
+                            const left = stackAvatars.length === 1
+                              ? (MONTH_CIRCLE_SIZE - STACK_AVATAR_SIZE) / 2
+                              : si === 0 ? STACK_LEFT_ORIGIN : STACK_LEFT_ORIGIN + STACK_AVATAR_STEP;
+                            return s.picture ? (
+                              <ExpoImage
+                                key={si}
+                                source={{ uri: s.picture }}
+                                style={{ position: 'absolute', width: STACK_AVATAR_SIZE, height: STACK_AVATAR_SIZE, borderRadius: STACK_AVATAR_SIZE / 2, left, top: STACK_TOP, borderWidth: 1.5, borderColor: '#fff' }}
+                                cachePolicy="memory-disk"
+                                transition={0}
+                              />
+                            ) : (
+                              <View
+                                key={si}
+                                style={{ position: 'absolute', width: STACK_AVATAR_SIZE, height: STACK_AVATAR_SIZE, borderRadius: STACK_AVATAR_SIZE / 2, left, top: STACK_TOP, borderWidth: 1.5, borderColor: '#fff', backgroundColor: '#8b5cf6', alignItems: 'center', justifyContent: 'center' }}
+                              >
+                                <Text style={{ color: '#fff', fontSize: Math.round(STACK_AVATAR_SIZE * 0.35), fontWeight: '700' }}>
+                                  {getInitials(s.personObj)}
+                                </Text>
+                              </View>
+                            );
+                          })}
+                        </>
+                      ) : hasEvents && primaryAvatar ? (
+                        <ExpoImage source={{ uri: primaryAvatar }} style={st.monthCellAvatar} cachePolicy="memory-disk" transition={0} />
+                      ) : hasEvents && primaryLessonStudent ? (
+                        // Lesson student with no photo — show initials
+                        <View style={[st.monthCellAvatar, { backgroundColor: '#007AFF', alignItems: 'center', justifyContent: 'center' }]}>
+                          <Text style={{ color: '#fff', fontSize: Math.round(MONTH_CIRCLE_SIZE * 0.28), fontWeight: '700' }}>
+                            {getInitials(primaryLessonStudent)}
+                          </Text>
+                        </View>
+                      ) : isGcalOnly ? (
+                        // Google Calendar event — small centred logo, not full-bleed
+                        <>
+                          <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : '#fff' }} />
+                          <Image
+                            source={GOOGLE_LOGO}
+                            style={{ width: MONTH_CIRCLE_SIZE * 0.52, height: MONTH_CIRCLE_SIZE * 0.52, resizeMode: 'contain' }}
+                          />
+                        </>
+                      ) : (
+                        // No events — just the date number
+                        <Text style={[st.monthCellText, { color: isToday ? TODAY_BG : hasAvailability ? C.text : C.textTertiary }]}>
+                          {day.getDate()}
+                        </Text>
+                      )}
+                    </View>
+
+                    {/* "+N" badge — outside clip layer so it's never cut off */}
+                    {hasEvents && extraCount > 0 && (
+                      <View style={st.monthExtraBadge}>
+                        <Text style={st.monthExtraBadgeText}>+{extraCount}</Text>
+                      </View>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      ) : (
       <ScrollView
         style={st.scroll}
         contentContainerStyle={st.scrollContent}
@@ -813,18 +1515,34 @@ export default function CalendarScreen() {
                       <Text style={[st.timelineHourLabel, { color: C.textTertiary }]}>
                         {formatHourLabel(hour, timeFormat as '12h' | '24h')}
                       </Text>
-                      <View style={[st.timelineLine, { backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)' }]} />
+                      <View style={[st.timelineLine, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)' }]} />
+                      {/* 30-min dashed subdivision line (skip on terminator row) */}
+                      {idx < hourCount && (
+                        <View pointerEvents="none" style={st.halfHourLine}>
+                          <Svg width="100%" height={1}>
+                            <SvgLine
+                              x1="0"
+                              y1="0.5"
+                              x2="100%"
+                              y2="0.5"
+                              stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}
+                              strokeWidth={1}
+                              strokeDasharray="3,4"
+                            />
+                          </Svg>
+                        </View>
+                      )}
                     </View>
                   );
                 })}
 
-              {/* Vertical separator between time labels and event grid */}
+                {/* Vertical separator — very subtle, just enough to anchor the label column */}
                 <View
                   style={[
                     st.timelineVerticalRule,
                     {
                       height: gridHeight,
-                      backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)',
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
                       left: TIMELINE_LABEL_W,
                     },
                   ]}
@@ -908,7 +1626,7 @@ export default function CalendarScreen() {
                         {/* Class: full-bleed thumbnail */}
                         {isClass && (
                           thumbnail
-                            ? <Image source={{ uri: thumbnail }} style={st.timelineEventThumb} resizeMode="cover" />
+                            ? <ExpoImage source={{ uri: thumbnail }} style={st.timelineEventThumb} contentFit="cover" cachePolicy="memory-disk" transition={0} />
                             : (
                               <View style={[st.timelineEventThumbPlaceholder, { backgroundColor: isDark ? 'rgba(139,92,246,0.2)' : 'rgba(139,92,246,0.1)' }]}>
                                 <Ionicons name="people" size={18} color="#8b5cf6" />
@@ -920,7 +1638,7 @@ export default function CalendarScreen() {
                         {!isClass && !isGoogle && (
                           <View style={st.timelineEventAvatarWrap}>
                             {entry.avatar
-                              ? <Image source={{ uri: entry.avatar }} style={st.timelineEventAvatar} />
+                              ? <ExpoImage source={{ uri: entry.avatar }} style={st.timelineEventAvatar} cachePolicy="memory-disk" transition={0} />
                               : (
                                 <View style={[st.timelineEventAvatarFallback, { backgroundColor: accentColor }]}>
                                   <Text style={st.timelineEventAvatarInitials}>{initials}</Text>
@@ -982,6 +1700,8 @@ export default function CalendarScreen() {
           );
         })()}
       </ScrollView>
+      )}
+      </Animated.View>
       </Animated.View>
 
       {/* FAB with Blur Overlay */}
@@ -1018,6 +1738,197 @@ export default function CalendarScreen() {
           </TouchableOpacity>
         </View>
       )}
+
+      {/* Day Events Sheet - Pullable */}
+      <Modal visible={daySheetVisible} transparent animationType="none" statusBarTranslucent onRequestClose={closeDaySheet}>
+        <View style={st.dsRoot}>
+          <Animated.View style={[StyleSheet.absoluteFill, { opacity: daySheetBackdropOpacity }]}>
+            <Pressable style={[StyleSheet.absoluteFill, st.dsBackdrop]} onPress={closeDaySheet} />
+          </Animated.View>
+          {/* Combined slide-in + pan offset via Animated.add */}
+          <Animated.View style={[st.dsSheetSlot, {
+            transform: [{ translateY: Animated.add(daySheetTranslateY, panY) }],
+          }]}>
+            {/* Draggable handle zone */}
+            <View {...sheetPanResponder.panHandlers}>
+              <View style={st.dsDateHeader}>
+                <View style={[st.dsHandle, { backgroundColor: 'rgba(255,255,255,0.3)', marginVertical: 0, marginBottom: 12 }]} />
+                <Text style={st.dsDateText}>
+                  {daySheetDate?.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                </Text>
+              </View>
+            </View>
+
+            {/* Scrollable content — height driven by sheetHeight state */}
+            <View style={[
+              st.dsCardBody,
+              {
+                backgroundColor: isDark ? '#1c1c1e' : '#ffffff',
+                height: sheetHeight === 'expanded' ? SCREEN_H * 0.55 : SCREEN_H * 0.34,
+                borderTopLeftRadius: 20,
+                borderTopRightRadius: 20,
+                marginTop: -20,
+              }
+            ]}>
+              {daySheetEntries.length === 0 ? (
+                <View style={st.dsEmptyState}>
+                  <Ionicons name="calendar-outline" size={32} color={C.textTertiary} style={{ marginBottom: 10 }} />
+                  <Text style={[st.dsEmptyTitle, { color: C.text }]}>Nothing scheduled</Text>
+                  <Text style={[st.dsEmpty, { color: C.textTertiary }]}>No lessons or classes on this day.</Text>
+                </View>
+              ) : (
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
+                  {daySheetEntries.map((entry, i) => (
+                    <View key={entry.id}>
+                      {i > 0 && <View style={[st.dsDivider, { backgroundColor: C.border }]} />}
+                      <TouchableOpacity
+                        style={st.dsEventRow}
+                        activeOpacity={entry.type === 'gcal' ? 1 : 0.7}
+                        onPress={() => {
+                          if (entry.type === 'gcal') return;
+                          if (entry.type === 'lesson' && entry.rawLesson) {
+                            const te = {
+                              id: entry.id, type: 'lesson' as const,
+                              startTime: entry.startTime, endTime: entry.endTime,
+                              title: entry.title, lesson: entry.rawLesson,
+                            };
+                            closeDaySheet();
+                            setTimeout(() => openTimelineLessonOverlay(te as any), 280);
+                          } else if (entry.type === 'class' && entry.rawClass) {
+                            const te = {
+                              id: entry.id, type: 'class' as const,
+                              startTime: entry.startTime, endTime: entry.endTime,
+                              title: entry.title, calendarClass: entry.rawClass,
+                            };
+                            closeDaySheet();
+                            setTimeout(() => openTimelineLessonOverlay(te as any), 280);
+                          }
+                        }}
+                      >
+                        {/* Left: avatar or thumbnail */}
+                        {entry.type === 'lesson' ? (
+                          <View style={st.dsAvatarWrap}>
+                            {entry.avatar
+                              ? <ExpoImage source={{ uri: entry.avatar }} style={st.dsAvatarImg} cachePolicy="memory-disk" transition={0} />
+                              : <View style={[st.dsAvatarImg, { backgroundColor: entry.color, alignItems: 'center', justifyContent: 'center' }]}>
+                                  <Text style={{ color: '#fff', fontSize: 17, fontWeight: '700' }}>
+                                    {entry.rawLesson?.studentId ? getInitials(entry.rawLesson.studentId) : '?'}
+                                  </Text>
+                                </View>
+                            }
+                          </View>
+                        ) : entry.type === 'class' ? (
+                          <View style={st.dsClassThumbWrap}>
+                            {entry.thumbnail
+                              ? <ExpoImage source={{ uri: entry.thumbnail }} style={st.dsClassThumb} cachePolicy="memory-disk" transition={0} contentFit="cover" />
+                              : <View style={[st.dsClassThumb, { backgroundColor: entry.color, alignItems: 'center', justifyContent: 'center' }]}>
+                                  <Ionicons name="people" size={20} color="#fff" />
+                                </View>
+                            }
+                          </View>
+                        ) : (
+                          <View style={st.dsAvatarWrap}>
+                            <Image source={GOOGLE_LOGO} style={[st.dsAvatarImg, { resizeMode: 'contain', backgroundColor: '#fff' }]} />
+                          </View>
+                        )}
+
+                        {/* Right: title + time + going */}
+                        <View style={st.dsEventBody}>
+                          <Text style={[st.dsEventTitle, { color: isDark ? '#fff' : '#111' }]} numberOfLines={1}>
+                            {entry.title}
+                          </Text>
+                          <View style={st.dsEventMeta}>
+                            <Text style={[st.dsEventTime, { color: C.textSecondary }]}>
+                              {formatTime(entry.startTime)} – {formatTime(entry.endTime)}
+                            </Text>
+                            <Text style={[st.dsEventDurText, { color: C.textTertiary }]}>·</Text>
+                            <Text style={[st.dsEventDurText, { color: C.textTertiary }]}>{formatDuration(entry.durationMin)}</Text>
+                          </View>
+                          {entry.type === 'class' && (
+                            entry.classStudents.length > 0 ? (
+                              <View style={st.dsGoingSection}>
+                                <Text style={[st.dsGoingLabel, { color: C.textSecondary }]}>Going</Text>
+                                <View style={st.dsGoingAvatars}>
+                                  {entry.classStudents.slice(0, 3).map((s, si) => (
+                                    s.picture ? (
+                                      <ExpoImage key={si} source={{ uri: s.picture }}
+                                        style={[st.dsGoingAvatar, { marginLeft: si > 0 ? -8 : 0, zIndex: 10 - si }]}
+                                        cachePolicy="memory-disk"
+                                        transition={0}
+                                      />
+                                    ) : (
+                                      <View key={si} style={[
+                                        st.dsGoingAvatar,
+                                        { marginLeft: si > 0 ? -8 : 0, zIndex: 10 - si, backgroundColor: entry.color, alignItems: 'center', justifyContent: 'center' }
+                                      ]}>
+                                        <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>
+                                          {(s.name || '?').charAt(0)}
+                                        </Text>
+                                      </View>
+                                    )
+                                  ))}
+                                  {entry.classStudents.length > 3 && (
+                                    <View style={[st.dsGoingAvatar, { marginLeft: -8, backgroundColor: C.border, alignItems: 'center', justifyContent: 'center' }]}>
+                                      <Text style={[st.dsGoingPlusText, { color: C.textSecondary }]}>
+                                        +{entry.classStudents.length - 3}
+                                      </Text>
+                                    </View>
+                                  )}
+                                </View>
+                              </View>
+                            ) : (
+                              <View style={st.dsGoingSection}>
+                                <Ionicons name="people-outline" size={13} color={C.textTertiary} />
+                                <Text style={[st.dsGoingLabel, { color: C.textTertiary, fontStyle: 'italic' }]}>
+                                  No one signed up yet
+                                </Text>
+                              </View>
+                            )
+                          )}
+                        </View>
+                        {entry.type !== 'gcal' && <Ionicons name="chevron-forward" size={14} color={C.textTertiary} />}
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
+
+      {/* View Picker — cross-platform custom sheet */}
+      <Modal visible={viewPickerVisible} transparent animationType="none" onRequestClose={() => hideViewPicker()}>
+        <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+          <Animated.View style={[StyleSheet.absoluteFill, { opacity: vpBackdropOpacity, backgroundColor: 'rgba(0,0,0,0.45)' }]}>
+            <Pressable style={StyleSheet.absoluteFill} onPress={() => hideViewPicker()} />
+          </Animated.View>
+          <Animated.View style={{ transform: [{ translateY: vpTranslateY }] }}>
+            <View style={[st.vpSheet, { backgroundColor: C.card }]}>
+              <View style={[st.vpHandle, { backgroundColor: C.border }]} />
+              <Text style={[st.vpTitle, { color: C.textSecondary }]}>Calendar View</Text>
+              {(['month', 'week'] as const).map((mode) => (
+                <TouchableOpacity
+                  key={mode}
+                  style={[st.vpOption, viewMode === mode && { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }]}
+                  onPress={() => hideViewPicker(mode)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={mode === 'week' ? 'calendar-outline' : 'grid-outline'}
+                    size={20}
+                    color={viewMode === mode ? C.accent : C.text}
+                  />
+                  <Text style={[st.vpOptionText, { color: viewMode === mode ? C.accent : C.text }]}>
+                    {mode === 'week' ? 'Week View' : 'Month View'}
+                  </Text>
+                  {viewMode === mode && <Ionicons name="checkmark" size={18} color={C.accent} style={{ marginLeft: 'auto' }} />}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
 
       {/* Availability Detail Modal */}
       <Modal visible={availModalVisible} animationType="slide" presentationStyle="fullScreen">
@@ -1122,6 +2033,9 @@ const st = StyleSheet.create({
   loadWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 10 },
   headerTitle: { fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  viewPickerBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14 },
+  viewPickerText: { fontSize: 12, fontWeight: '600' },
   todayBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16 },
   todayBtnText: { fontSize: 13, fontWeight: '600' },
 
@@ -1142,7 +2056,7 @@ const st = StyleSheet.create({
   pillText: { fontSize: 12, fontWeight: '600' },
 
   scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 0, paddingTop: 0, paddingBottom: 80 },
+  scrollContent: { paddingHorizontal: 0, paddingTop: 0, paddingBottom: 16 },
 
   pclCard: { borderRadius: 14, padding: 16, marginBottom: 12, borderWidth: 1 },
   pclHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
@@ -1183,7 +2097,7 @@ const st = StyleSheet.create({
     paddingLeft: TIMELINE_LEFT_PAD,
     paddingRight: 12,
     paddingTop: 12,
-    paddingBottom: 8,
+    paddingBottom: 0,
   },
   timelineRow: {
     height: TIMELINE_HOUR_HEIGHT,
@@ -1196,14 +2110,22 @@ const st = StyleSheet.create({
   },
   timelineHourLabel: {
     width: TIMELINE_LABEL_W,
-    fontSize: 11,
-    fontWeight: '500',
+    fontSize: 10,
+    fontWeight: '400',
     textAlign: 'right',
     paddingRight: 10,
     marginTop: -6,
+    letterSpacing: 0.1,
   },
   timelineLine: {
     flex: 1,
+    height: StyleSheet.hairlineWidth,
+  },
+  halfHourLine: {
+    position: 'absolute',
+    top: TIMELINE_HOUR_HEIGHT / 2,
+    left: TIMELINE_LABEL_W + TIMELINE_LINE_GAP,
+    right: 0,
     height: 1,
   },
   timelineVerticalRule: {
@@ -1216,7 +2138,6 @@ const st = StyleSheet.create({
     top: 0,
     left: TIMELINE_LABEL_W + TIMELINE_LINE_GAP,
     right: 0,
-    // height is set inline (gridHeight) — do not set bottom here
   },
   timelineEventCard: {
     position: 'absolute',
@@ -1315,7 +2236,7 @@ const st = StyleSheet.create({
   nowLine: { flex: 1, height: 2, backgroundColor: '#E53935' },
   timelineNoEvents: {
     position: 'absolute',
-    left: 0,
+    left: TIMELINE_LABEL_W + TIMELINE_LINE_GAP,
     right: 0,
     alignItems: 'center',
   },
@@ -1344,6 +2265,70 @@ const st = StyleSheet.create({
   emptySub: { fontSize: 14, textAlign: 'center', lineHeight: 20 },
   emptyCta: { marginTop: 12, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
   emptyCtaText: { fontSize: 15, fontWeight: '600' },
+
+  monthNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
+  monthNavTitle: { fontSize: 16, fontWeight: '700', letterSpacing: -0.2 },
+  monthDayHeaders: { flexDirection: 'row', paddingHorizontal: 8, paddingTop: 12, paddingBottom: 6 },
+  monthDayHeader: { flex: 1, textAlign: 'center', fontSize: 11, fontWeight: '600', letterSpacing: 0.3 },
+  monthGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 8, paddingTop: 4, paddingBottom: 20 },
+  monthCell: { width: MONTH_CELL_SIZE, height: MONTH_CELL_SIZE, alignItems: 'center', justifyContent: 'center' },
+  monthCellCircle: { width: MONTH_CIRCLE_SIZE, height: MONTH_CIRCLE_SIZE, borderRadius: MONTH_CIRCLE_SIZE / 2, alignItems: 'center', justifyContent: 'center' },
+  monthCellAvatarClip: { ...StyleSheet.absoluteFillObject, borderRadius: MONTH_CIRCLE_SIZE / 2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  monthCellAvatar: { width: MONTH_CIRCLE_SIZE, height: MONTH_CIRCLE_SIZE, borderRadius: MONTH_CIRCLE_SIZE / 2 },
+  monthCellText: { fontSize: 15, fontWeight: '500' },
+  monthExtraBadge: {
+    position: 'absolute', bottom: 0, right: 0,
+    backgroundColor: '#1c1c1e',
+    borderRadius: 10, minWidth: 18, height: 18,
+    alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 3,
+    borderWidth: 1.5, borderColor: '#fff',
+  },
+  monthExtraBadgeText: { color: '#fff', fontSize: 9, fontWeight: '700' },
+  monthEventIndicator: {
+    position: 'absolute',
+    bottom: -1,
+    left: MONTH_CIRCLE_SIZE / 2 - 2,
+    width: 4, height: 4, borderRadius: 2,
+  },
+
+  dsRoot: { flex: 1, justifyContent: 'flex-end' },
+  dsBackdrop: { backgroundColor: 'rgba(0,0,0,0.45)' },
+  dsSheetSlot: { width: '100%' },
+  dsDateHeader: { flexDirection: 'column', alignItems: 'center', backgroundColor: '#1c1c2e', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 28, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
+  dsDateText: { fontSize: 16, fontWeight: '700', color: '#ffffff', alignSelf: 'flex-start' },
+  dsCard: { backgroundColor: 'transparent' },
+  dsCardBody: { overflow: 'hidden' },
+  dsHandle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginVertical: 10 },
+  dsEmpty: { textAlign: 'center', fontSize: 14, padding: 4 },
+  dsEmptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 36, paddingHorizontal: 24 },
+  dsEmptyTitle: { fontSize: 16, fontWeight: '600', marginBottom: 6 },
+  dsDivider: { height: StyleSheet.hairlineWidth, marginLeft: 76 },
+  dsEventRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 18, gap: 14 },
+  // Lesson single avatar
+  dsAvatarWrap: { width: SHEET_AVATAR, alignItems: 'center' },
+  dsAvatarImg: { width: SHEET_AVATAR, height: SHEET_AVATAR, borderRadius: SHEET_AVATAR / 2 },
+  // Class thumbnail
+  dsClassThumbWrap: { width: SHEET_AVATAR, alignItems: 'center' },
+  dsClassThumb: { width: SHEET_AVATAR, height: SHEET_AVATAR, borderRadius: 12, backgroundColor: '#f0f0f0' },
+  // Going avatars section
+  dsGoingSection: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 },
+  dsGoingLabel: { fontSize: 12, fontWeight: '500' },
+  dsGoingAvatars: { flexDirection: 'row', alignItems: 'center' },
+  dsGoingAvatar: { width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, borderColor: '#fff' },
+  dsGoingPlusText: { fontSize: 10, fontWeight: '600' },
+  // Content
+  dsEventBody: { flex: 1 },
+  dsEventTitle: { fontSize: 15, fontWeight: '600', marginBottom: 4 },
+  dsEventMeta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  dsEventTime: { fontSize: 13, fontWeight: '400' },
+  dsEventDurPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20 },
+  dsEventDurText: { fontSize: 12, fontWeight: '500' },
+  vpSheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 32, paddingHorizontal: 16, paddingTop: 12, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 12 },
+  vpHandle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
+  vpTitle: { fontSize: 12, fontWeight: '600', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 8, paddingHorizontal: 4 },
+  vpOption: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, paddingHorizontal: 12, borderRadius: 12, marginBottom: 4 },
+  vpOptionText: { fontSize: 16, fontWeight: '500' },
 
   fabContainer: { position: 'absolute', right: 20, bottom: 24, alignItems: 'flex-end', zIndex: 100 },
   fab: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 10, elevation: 8 },

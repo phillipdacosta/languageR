@@ -24,12 +24,11 @@ $lesson-card-w: 310px;
 $lesson-card-r: 28px;
 $lesson-card-px: 24px;
 $lesson-card-py: 10px;
-$lesson-card-avatar: 60px;
+$lesson-card-avatar: 80px;
+$lesson-card-avatar-radius: $lesson-card-avatar * 0.25; // rounded square tile (~Up Next proportion)
 $lesson-grid-gap: 20px;
 
-// ─── Scrollbar Stability ──────────────────
-// Reserve scrollbar gutter so content doesn't shift left
-// when the lesson list becomes long enough to scroll.
+// ─── Host / ion-content setup ────────────
 :host {
   ion-content {
     --overflow: auto;
@@ -39,6 +38,37 @@ $lesson-grid-gap: 20px;
   ion-content::part(scroll) {
     scrollbar-gutter: stable;
     background: #ffffff;
+  }
+}
+
+// ─── Sticky header (inside ion-content scroll area) ───
+// Sits at top: 0 of the scroll viewport so its white background
+// also covers the strip beneath the fixed desktop nav toolbar.
+// Inner content gets padding-top on desktop to clear the toolbar.
+.lessons-sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #ffffff;
+  border-bottom: 1px solid $border-light;
+}
+
+.lessons-sticky-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+
+  // Desktop: push inner content below the fixed 54px global nav toolbar
+  @media (min-width: 769px) {
+    padding-top: calc(14px + 54px);
+  }
+
+  @media (max-width: 600px) {
+    padding: 12px 16px;
+    gap: 16px;
   }
 }
 
@@ -61,87 +91,26 @@ $lesson-grid-gap: 20px;
 
 // ─── Page Title ─────────────────────────────
 .page-title {
-  font-size: 24px;
-  font-weight: 600;
+  font-size: 22px;
+  font-weight: 700;
   color: $text-primary;
   letter-spacing: -0.3px;
-  margin: 0 0 32px 0;
+  margin: 0;
   line-height: 1.2;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 // ─── Page Container ────────────────────────
 .lessons-page {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 20px 16px 40px;
+  padding: 24px 16px 40px;
   animation: fadeIn 0.35s ease-out;
 
-  @media (min-width: 769px) {
-    padding-top: 90px;
-  }
-
   @media (max-width: 600px) {
-    padding: 16px 16px 32px;
+    padding: 20px 16px 32px;
   }
-}
-
-// ─── Stats Row ─────────────────────────────
-.stats-row {
-  display: flex;
-  align-items: center;
-  margin-bottom: 40px;
-  padding: 0 4px;
-  animation: fadeInUp 0.4s ease-out both;
-}
-
-.stat-cell {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex: 1;
-}
-
-.stat-divider {
-  width: 1px;
-  height: 28px;
-  background: $border-light;
-  opacity: 0.5;
-}
-
-.stat-number {
-  font-size: 20px;
-  font-weight: 700;
-  color: $text-primary;
-  letter-spacing: -0.3px;
-  line-height: 1.2;
-
-  &.cancelled {
-    color: #E31C5F;
-  }
-}
-
-.stat-label-row {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 3px;
-}
-
-.stat-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 3px;
-
-  &.dot-total { background: $text-muted; }
-  &.dot-upcoming { background: #34C759; }
-  &.dot-completed { background: #7c3aed; }
-  &.dot-cancelled { background: #FF385C; }
-}
-
-.stat-label-row > span:not(.stat-dot) {
-  font-size: 12px;
-  font-weight: 500;
-  color: $text-secondary;
 }
 
 // ─── Filter Tabs ───────────────────────────
@@ -195,10 +164,8 @@ $lesson-grid-gap: 20px;
   display: flex;
   align-items: center;
   gap: 16px;
-  margin-bottom: 20px;
-  padding: 0 4px;
   flex-wrap: wrap;
-  animation: fadeInUp 0.4s 0.1s ease-out both;
+  flex: 1;
 
   @media (max-width: 600px) {
     gap: 10px;
@@ -208,12 +175,12 @@ $lesson-grid-gap: 20px;
 .filters-trigger-btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 20px;
+  gap: 6px;
+  padding: 8px 14px;
   background: #fff;
-  border: 2px solid $text-primary;
-  border-radius: 30px;
-  font-size: 14px;
+  border: 1.5px solid $text-primary;
+  border-radius: 24px;
+  font-size: 13px;
   font-weight: 600;
   color: $text-primary;
   cursor: pointer;
@@ -228,7 +195,7 @@ $lesson-grid-gap: 20px;
   }
 
   ion-icon {
-    font-size: 18px;
+    font-size: 16px;
   }
 
   .filter-count {
@@ -395,6 +362,7 @@ $lesson-grid-gap: 20px;
 .lesson-grid-card {
   width: 100%;
   max-width: $lesson-card-w;
+  height: 100%;
   box-sizing: border-box;
   margin: 0 auto;
   display: flex;
@@ -423,7 +391,7 @@ $lesson-grid-gap: 20px;
 }
 
 .lgc-inner {
-  padding:10px 10px 16px;
+  padding: 18px 10px 16px;
   text-align: center;
   display: flex;
   flex-direction: column;
@@ -434,65 +402,146 @@ $lesson-grid-gap: 20px;
   flex: 1;
 
   @media (max-width: 400px) {
-    padding: 10px 18px 12px;
+    padding: 18px 18px 12px;
   }
 }
 
-.lgc-date-badge {
-  background: $bg-subtle;
-  border: 1px solid $border-light;
+.lgc-date-time-wrap {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.lgc-date-time-block {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  align-self: center;
+  gap: 14px; 
+    padding: 12px 18px 12px 12px;
+    background: #f7f7f9;
+    border-radius: 16px;
+}
+
+.lgc-dt-chip {
+  width: 36px;
+  height: 40px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid rgba(0,0,0,0.06);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 0;
   flex-shrink: 0;
-  box-sizing: border-box;
+
+  &--today {
+    background: #e4fbff;
+
+    .lgc-dt-month,
+    .lgc-dt-day { color: #ff3b30; }
+
+    .lgc-dt-weekday { color: rgba(255, 59, 48, 0.7); }
+  }
 }
 
-// Compact calendar chip — centered; uniform radius.
-.lgc-date-badge--inline {
-  width: 32px;
-  padding: 3px 4px 4px;
-  border-radius: 6px;
+.lgc-dt-month {
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #ff3b30;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
 }
 
-.lgc-date-time-block {
+.lgc-dt-day {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1d1d1f;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+}
+
+.lgc-dt-weekday {
+  font-size: 7px;
+  font-weight: 500;
+  text-transform: uppercase;
+  color: #8e8e93;
+  letter-spacing: 0.04em;
+  line-height: 1.3;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+}
+
+.lgc-dt-info {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
+  gap: 3px;
+  align-items: flex-start;
+  min-width: 0;
 }
 
-.lgc-date-badge-month {
-  font-size: 8px;
+.lgc-dt-time {
+  display: block;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  color: #1d1d1f;
+  letter-spacing: -0.2px;
+  line-height: 1.2;
+  white-space: nowrap;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+}
+
+.lgc-dt-duration {
+  display: block;
+  font-size: 9px;
+  font-weight: 500;
+  color: #8e8e93;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
-  color: #ff385c;
-  line-height: 1;
-  margin-bottom: 1px;
-}
-
-.lgc-date-badge-day {
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: -0.03em;
-  color: $text-primary;
-  line-height: 1.05;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
 }
 
 .lgc-avatar-wrap {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding-top: 14px;
+  padding-top: 0;
+}
+
+// Class thumbnail
+.lgc-class-thumb-wrap {
+  width: 100%;
+}
+
+.lgc-class-thumb {
+  width: 100%;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 10px;
+  display: block;
+
+  &--placeholder {
+    background: $bg-subtle;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    ion-icon {
+      font-size: 32px;
+      color: $text-muted;
+    }
+  }
 }
 
 .lgc-avatar {
   width: $lesson-card-avatar;
   height: $lesson-card-avatar;
-  border-radius: 50%;
+  border-radius: $lesson-card-avatar-radius;
   overflow: hidden;
   background: $bg-subtle;
   border: 1px solid $border-light;
@@ -577,6 +626,14 @@ $lesson-grid-gap: 20px;
   color: $text-muted;
 }
 
+.lgc-title-wrap {
+  height: calc(22px * 1.25 * 2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
 .lgc-title {
   margin: 0;
   font-size: 22px;
@@ -586,27 +643,230 @@ $lesson-grid-gap: 20px;
   line-height: 1.25;
   max-width: 100%;
   word-break: break-word;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  text-align: center;
 }
 
-.lgc-subtitle {
-  margin: -6px 0 0;
+// Going attendees section (classes)
+.lgc-going {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.lgc-going-avatars {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lgc-going-av {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid #ffffff;
+  background: $bg-subtle;
+  flex-shrink: 0;
+  position: relative;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+}
+
+.lgc-going-initials {
+  font-size: 11px;
+  font-weight: 600;
+  color: $text-secondary;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.lgc-going-more {
+  font-size: 11px;
+  font-weight: 600;
+  color: $text-secondary;
+  margin-left: 6px;
+}
+
+.lgc-going-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: $text-secondary;
+}
+
+.lgc-going-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  color: $text-muted;
   font-size: 12px;
   font-weight: 400;
-  color: $text-secondary;
-  line-height: 1.35;
+
+  ion-icon {
+    font-size: 20px;
+    opacity: 0.4;
+  }
 }
 
-.lgc-subtitle-under-badge {
+// Middle flex zone — fills space between date/time row and stats section.
+// When the feedback banner is shown, centers the banner+desc group vertically.
+.lgc-mid {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  min-height: 0;
+}
+
+.lgc-mid--has-feedback-banner {
+  justify-content: center;
+  gap: 0;
+}
+
+.lgc-mid--has-feedback-banner .lgc-feedback-banner-slot {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  position: relative;
+  bottom: 10px;
+}
+
+.lgc-feedback-banner-slot .lgc-feedback-banner {
   margin: 0;
-  text-align: center;
-  max-width: 100%;
 }
 
 .lgc-desc {
   width: 100%;
-  flex: 1;
   padding: 14px 22px;
   box-sizing: border-box;
+}
+
+.lgc-mid:not(.lgc-mid--has-feedback-banner) .lgc-desc {
+  flex: 1;
+}
+
+// When banner shown, collapse the desc padding so it doesn't push the group off-center
+.lgc-mid--has-feedback-banner .lgc-desc {
+  flex: 0 0 auto;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+// Collapse sep margin too so it doesn't add stray space below the group
+.lgc-mid--has-feedback-banner .lgc-sep {
+  margin: 6px 0 0;
+}
+
+.lgc-desc-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  width: 100%;
+  justify-content: center;
+}
+
+// Outstanding feedback — compact Apple-style notification chip
+.lgc-feedback-banner {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: 12px;
+  border-width: 1px;
+  border-style: solid;
+  transition: all 0.2s ease;
+}
+
+.lgc-feedback-banner--tutor {
+  background: #fff7ed;
+  border-color: #ffffff;
+}
+
+.lgc-feedback-banner--student {
+  background: #f0f4ff;
+  border-color: #ffffff;
+}
+
+.lgc-feedback-banner-icon-wrap {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  ion-icon {
+    font-size: 14px;
+  }
+}
+
+.lgc-feedback-banner--tutor .lgc-feedback-banner-icon-wrap {
+  background: #ffedd5;
+
+  ion-icon {
+    color: #c2410c;
+  }
+}
+
+.lgc-feedback-banner--student .lgc-feedback-banner-icon-wrap {
+  background: #e0e7ff;
+
+  ion-icon {
+    color: #4b5eaa;
+  }
+}
+
+.lgc-feedback-banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+  text-align: left;
+}
+
+.lgc-feedback-banner-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: $text-primary;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+.lgc-feedback-banner-sub {
+  font-size: 11px;
+  font-weight: 400;
+  color: $text-secondary;
+  line-height: 1.3;
+}
+
+.lgc-feedback-warn-icon {
+  font-size: 15px;
+  color: #f97316;
+  flex-shrink: 0;
+  margin-top: 2px; // optical alignment with first line of text
 }
 
 .lgc-desc-text {
@@ -768,6 +1028,13 @@ $spinner-colors: #8b5cf6, #3b82f6, #06b6d4, #10b981, #f59e0b, #ec4899;
   text-align: center;
   line-height: 1.2;
   text-transform: lowercase;
+}
+
+.lgc-stat-tip {
+  font-size: 11px;
+  font-weight: 500;
+  color: #34c759;
+  letter-spacing: 0;
 }
 
 // ─── Lessons Card (wrapper) ────────────────
@@ -1859,6 +2126,78 @@ $spinner-colors: #8b5cf6, #3b82f6, #06b6d4, #10b981, #f59e0b, #ec4899;
   }
 }
 
+// ── Toggle-style filter buttons ──────────────────────────
+.lf-toggle-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.lf-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 14px 0;
+  background: none;
+  border: none;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: opacity $transition-fast;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:active {
+    opacity: 0.7;
+  }
+}
+
+.lf-toggle-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 16px;
+  color: $text-primary;
+  font-weight: 400;
+}
+
+.lf-toggle-icon {
+  font-size: 20px;
+  color: $text-secondary;
+}
+
+.lf-toggle-switch {
+  width: 48px;
+  height: 28px;
+  border-radius: 14px;
+  background: #e5e5e5;
+  position: relative;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+
+  &.on {
+    background: $text-primary;
+  }
+}
+
+.lf-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+  transition: transform 0.2s ease;
+
+  .lf-toggle-switch.on & {
+    transform: translateX(20px);
+  }
+}
+
 // ── Dark mode ────────────────────────────────────────────
 :host-context(html.ion-palette-dark) {
   ion-content {
@@ -1869,38 +2208,17 @@ $spinner-colors: #8b5cf6, #3b82f6, #06b6d4, #10b981, #f59e0b, #ec4899;
     --background: #000000;
   }
 
+  .lessons-sticky-header {
+    background: #000000;
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+  }
+
   .page-title {
     color: #f5f5f7;
   }
 
   .lessons-page {
     background: transparent;
-  }
-
-  .stats-row .stat-pill {
-    background: #2c2c2e;
-
-    &:hover {
-      background: #3a3a3c;
-    }
-
-    &.skeleton .stat-number {
-      background: linear-gradient(90deg, #3a3a3c 25%, #48484a 50%, #3a3a3c 75%);
-      background-size: 200% 100%;
-      animation: shimmerPulse 1.5s ease-in-out infinite;
-    }
-  }
-
-  .stat-number {
-    color: #f5f5f7;
-
-    &.cancelled {
-      color: #ff6b6b;
-    }
-  }
-
-  .stat-label {
-    color: #8e8e93;
   }
 
   .filters-trigger-btn {
@@ -1970,16 +2288,76 @@ $spinner-colors: #8b5cf6, #3b82f6, #06b6d4, #10b981, #f59e0b, #ec4899;
 
   ion-content::part(scroll) {
     background: #000000;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.28) rgba(255, 255, 255, 0.06);
+
+    &::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.22);
+      border-radius: 8px;
+    }
+
+    &::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.34);
+    }
   }
 
   .lesson-grid-card {
-    background: #1c1c1e;
-    border-color: rgba(255, 255, 255, 0.08);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    background: #252528;
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.06),
+      0 4px 22px rgba(0, 0, 0, 0.45);
 
     &:hover {
-      box-shadow: 0 6px 28px rgba(0, 0, 0, 0.5);
+      border-color: rgba(255, 255, 255, 0.16);
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.08),
+        0 8px 32px rgba(0, 0, 0, 0.55);
     }
+  }
+
+  .lgc-feedback-banner--tutor {
+    background: rgba(249, 115, 22, 0.22);
+    border-color: rgba(251, 191, 36, 0.5);
+  }
+
+  .lgc-feedback-banner--student {
+    background: rgba(66, 152, 210, 0.2);
+    border-color: rgba(120, 190, 240, 0.45);
+  }
+
+  .lgc-feedback-banner--tutor .lgc-feedback-banner-icon-wrap {
+    background: rgba(249, 115, 22, 0.35);
+
+    ion-icon {
+      color: #fcd34d;
+    }
+  }
+
+  .lgc-feedback-banner--student .lgc-feedback-banner-icon-wrap {
+    background: rgba(66, 152, 210, 0.35);
+
+    ion-icon {
+      color: #7ec8f5;
+    }
+  }
+
+  .lgc-feedback-banner-title {
+    color: #f5f5f7;
+  }
+
+  .lgc-feedback-banner-sub {
+    color: #e8e6e4;
   }
 
   .lgc-avatar {
@@ -1991,34 +2369,37 @@ $spinner-colors: #8b5cf6, #3b82f6, #06b6d4, #10b981, #f59e0b, #ec4899;
     color: #f5f5f7;
   }
 
-  .lgc-date-badge {
+
+  .lgc-desc-text {
+    color: #c7c7cc;
+  }
+
+  .lgc-date-time-block {
     background: #2c2c2e;
-    border-color: rgba(255, 255, 255, 0.12);
   }
 
-  .lgc-date-badge-month {
-    color: #ff6b8a;
+  .lgc-dt-chip {
+    background: #3a3a3c;
+    border-color: rgba(255,255,255,0.1);
   }
 
-  .lgc-date-badge-day {
+  .lgc-dt-day,
+  .lgc-dt-time {
     color: #f5f5f7;
   }
 
-  .lgc-subtitle {
-    color: #8e8e93;
-  }
-
-  .lgc-desc-text {
+  .lgc-dt-weekday,
+  .lgc-dt-duration {
     color: #aeaeb2;
   }
 
   .lgc-desc-empty,
   .lgc-desc-generating {
-    color: #8e8e93;
+    color: #aeaeb2;
   }
 
   .lgc-sep {
-    border-top-color: rgba(255, 255, 255, 0.1);
+    border-top-color: rgba(255, 255, 255, 0.14);
   }
 
   .lgc-stat-value {
@@ -2026,7 +2407,11 @@ $spinner-colors: #8b5cf6, #3b82f6, #06b6d4, #10b981, #f59e0b, #ec4899;
   }
 
   .lgc-stat-label {
-    color: #636366;
+    color: #aeaeb2;
+  }
+
+  .lgc-stat-tip {
+    color: #23a544;
   }
 
   .lgc-stack-av {
@@ -2082,7 +2467,7 @@ $spinner-colors: #8b5cf6, #3b82f6, #06b6d4, #10b981, #f59e0b, #ec4899;
   }
 
   .meta-sep {
-    color: #636366;
+    color: #8e8e93;
   }
 
   .class-students-meta,
@@ -2289,6 +2674,33 @@ $spinner-colors: #8b5cf6, #3b82f6, #06b6d4, #10b981, #f59e0b, #ec4899;
     }
   }
 
+  .lf-toggle-btn {
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .lf-toggle-info {
+    color: #f5f5f7;
+  }
+
+  .lf-toggle-icon {
+    color: #8e8e93;
+  }
+
+  .lf-toggle-switch {
+    background: #3a3a3c;
+
+    &.on {
+      background: #f5f5f7;
+    }
+  }
+
+  .lf-toggle-thumb {
+    background: #1c1c1e;
+
+    .lf-toggle-switch.on & {
+      background: #1c1c1e;
+    }
+  }
 }
 
 // Lessons filters modal dark mode is handled in global.scss

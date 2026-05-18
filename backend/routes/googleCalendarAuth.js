@@ -9,6 +9,45 @@ const crypto = require('crypto');
 const pendingStates = new Map();
 const webhookDebounceTimers = new Map();
 
+// Per-tutor cache of Google event IDs that came from Barnabi-pushed lessons.
+// We use this to filter pushed lessons out of the gcal events list (so a Barnabi
+// booking doesn't appear twice on the calendar). Hitting the Lesson collection
+// on every fetch is wasteful — at scale a tutor may make many fetches per minute
+// (poll + navigation + websocket signal). 60s TTL is a good balance: brand-new
+// bookings show within a minute, but steady-state load on Mongo drops by ~99%.
+const BARNABI_IDS_TTL_MS = 60 * 1000;
+const barnabiIdsCache = new Map(); // userId -> { ids: Set<string>, expiresAt: number }
+
+async function getBarnabiEventIds(userId) {
+  const cacheKey = userId.toString();
+  const cached = barnabiIdsCache.get(cacheKey);
+  const now = Date.now();
+  if (cached && cached.expiresAt > now) return cached.ids;
+
+  const lessons = await Lesson.find({
+    tutorId: userId,
+    googleCalendarEventId: { $ne: null }
+  }).select('googleCalendarEventId').lean();
+  const ids = new Set(lessons.map(l => l.googleCalendarEventId));
+  barnabiIdsCache.set(cacheKey, { ids, expiresAt: now + BARNABI_IDS_TTL_MS });
+  return ids;
+}
+
+// Called when a Barnabi lesson is created/updated/deleted so the next fetch
+// sees the change immediately (don't wait for TTL). Exported below.
+function invalidateBarnabiIdsCache(userId) {
+  if (!userId) return;
+  barnabiIdsCache.delete(userId.toString());
+}
+
+// Periodic GC so the cache doesn't grow unbounded for inactive tutors.
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of barnabiIdsCache) {
+    if (v.expiresAt <= now) barnabiIdsCache.delete(k);
+  }
+}, 5 * 60 * 1000).unref?.();
+
 const SCOPES = [
   'https://www.googleapis.com/auth/calendar.readonly',
   'https://www.googleapis.com/auth/calendar.events',
@@ -258,8 +297,30 @@ async function getAuthenticatedClient(userId) {
       });
       oauth2Client.setCredentials(credentials);
     } catch (refreshErr) {
-      console.error('[GCal Auth] Token refresh failed:', refreshErr.message);
-      await User.findByIdAndUpdate(userId, { 'googleCalendar.connected': false });
+      // Only force-disconnect when Google has *actually* revoked the grant.
+      // For transient errors (network blip, 5xx, rate limit, clock skew) we leave
+      // `connected: true` so the next call / cron can retry — silently flipping
+      // tutors to disconnected used to strand them with no further refresh attempts.
+      const errorBody = refreshErr.response?.data?.error || refreshErr.data?.error;
+      const errorMessage = (refreshErr.message || '').toLowerCase();
+      const grantRevoked =
+        errorBody === 'invalid_grant' ||
+        errorBody === 'invalid_client' ||
+        errorMessage.includes('invalid_grant') ||
+        errorMessage.includes('token has been expired or revoked');
+
+      if (grantRevoked) {
+        console.error('[GCal Auth] Refresh token revoked, marking disconnected:', refreshErr.message);
+        await User.findByIdAndUpdate(userId, {
+          'googleCalendar.connected': false,
+          'googleCalendar.watchChannelId': null,
+          'googleCalendar.watchResourceId': null,
+          'googleCalendar.watchExpiration': null,
+          'googleCalendar.watchToken': null
+        });
+      } else {
+        console.warn('[GCal Auth] Transient token refresh failure (not disconnecting):', refreshErr.message);
+      }
       return null;
     }
   }
@@ -293,6 +354,8 @@ async function registerWatch(userId) {
 
     const user = await User.findById(userId);
     const calendarId = user?.googleCalendar?.calendarId || 'primary';
+    const previousChannelId = user?.googleCalendar?.watchChannelId || null;
+    const previousResourceId = user?.googleCalendar?.watchResourceId || null;
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
     const channelId = crypto.randomUUID();
@@ -318,6 +381,13 @@ async function registerWatch(userId) {
       'googleCalendar.watchExpiration': expiration,
       'googleCalendar.watchToken': watchToken
     });
+
+    // Stop the now-orphaned previous channel so Google isn't sending duplicate
+    // notifications. Fire-and-forget — failure here doesn't matter, the channel
+    // will expire on its own within 7 days.
+    if (previousChannelId && previousResourceId && previousChannelId !== channelId) {
+      stopChannelById(userId, previousChannelId, previousResourceId).catch(() => {});
+    }
 
     console.log(`[GCal Watch] ✅ Registered channel ${channelId} for user ${userId}, expires ${expiration.toISOString()}`);
     return { channelId, resourceId: response.data.resourceId, expiration };
@@ -367,6 +437,25 @@ async function clearWatchFields(userId) {
   });
 }
 
+// Stop a specific channel by id without mutating the user's stored watch fields.
+// Used after a successful renewal where the stored fields already point at the
+// new channel — we just want Google to drop the previous (now-orphaned) channel.
+async function stopChannelById(userId, channelId, resourceId) {
+  if (!channelId || !resourceId) return;
+  try {
+    const oauth2Client = await getAuthenticatedClient(userId);
+    if (!oauth2Client) return;
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+    await calendar.channels.stop({ requestBody: { id: channelId, resourceId } });
+    console.log(`[GCal Watch] Stopped replaced channel ${channelId} for user ${userId}`);
+  } catch (err) {
+    // Channel may already be gone (404/410) — safe to ignore.
+    if (err.code !== 404 && err.code !== 410) {
+      console.warn(`[GCal Watch] Failed to stop replaced channel ${channelId}:`, err.message);
+    }
+  }
+}
+
 // Fetch events for a user (reusable by both the API endpoint and the webhook handler)
 async function fetchEventsForUser(userId, timeMin, timeMax) {
   const oauth2Client = await getAuthenticatedClient(userId);
@@ -376,13 +465,10 @@ async function fetchEventsForUser(userId, timeMin, timeMax) {
   const calendarId = user?.googleCalendar?.calendarId || 'primary';
   const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
-  // Get Google Calendar event IDs that were pushed from Barnabi lessons
-  // so we can exclude them (avoid showing duplicates of Barnabi lessons)
-  const barnabiLessons = await Lesson.find({
-    tutorId: userId,
-    googleCalendarEventId: { $ne: null }
-  }).select('googleCalendarEventId').lean();
-  const barnabiEventIds = new Set(barnabiLessons.map(l => l.googleCalendarEventId));
+  // Get Google Calendar event IDs that were pushed from Barnabi lessons so we
+  // can exclude them (avoid showing duplicates of Barnabi lessons). Cached per
+  // tutor with a 60s TTL — invalidated explicitly when lessons change.
+  const barnabiEventIds = await getBarnabiEventIds(userId);
 
   const response = await calendar.events.list({
     calendarId,
@@ -393,14 +479,27 @@ async function fetchEventsForUser(userId, timeMin, timeMax) {
     maxResults: 250
   });
 
-  const events = (response.data.items || []).map(evt => ({
+  const rawCount = (response.data.items || []).length;
+  const allMapped = (response.data.items || []).map(evt => ({
     id: evt.id,
     summary: evt.summary || '(No title)',
     start: evt.start?.dateTime || evt.start?.date,
     end: evt.end?.dateTime || evt.end?.date,
     allDay: !evt.start?.dateTime,
-    status: evt.status
-  })).filter(evt => evt.status !== 'cancelled' && !barnabiEventIds.has(evt.id));
+    status: evt.status,
+    updated: evt.updated
+  }));
+  const events = allMapped.filter(evt => evt.status !== 'cancelled' && !barnabiEventIds.has(evt.id));
+
+  // Diagnostic: log a compact summary so we can see exactly what Google returned
+  // for a given window and which events were dropped by our filters. Helps debug
+  // "I added an event in Google Calendar but Barnabi doesn't show it" reports.
+  const dropped = allMapped.length - events.length;
+  console.log(
+    `[GCal Fetch] user=${userId} cal=${calendarId} window=${timeMin}..${timeMax} ` +
+    `raw=${rawCount} kept=${events.length} dropped=${dropped} ` +
+    `titles=${JSON.stringify(events.slice(0, 6).map(e => `${e.summary}@${e.start}${e.allDay ? ' [allDay]' : ''}`))}`
+  );
 
   await User.findByIdAndUpdate(userId, { 'googleCalendar.lastSyncAt': new Date() });
   return events;
@@ -409,6 +508,14 @@ async function fetchEventsForUser(userId, timeMin, timeMax) {
 // GET /api/auth/google-calendar/events — Fetch events for a date range
 router.get('/google-calendar/events', verifyToken, async (req, res) => {
   try {
+    // Force fresh responses — Express's default weak ETag would let the browser
+    // 304-cache stale data when Google's events.list happens to return the same
+    // payload twice in a row (which masks "I just added an event but it's not
+    // showing" bugs). Always return 200 with the full body.
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+
     const dbUser = await User.findOne({ email: req.user.email });
     if (!dbUser) {
       return res.status(404).json({ error: 'User not found' });
@@ -498,13 +605,26 @@ router.get('/google-calendar/debug-scopes', verifyToken, async (req, res) => {
     if (!dbUser) return res.status(404).json({ error: 'User not found' });
 
     const gcal = dbUser.googleCalendar || {};
+    const _rawB = process.env.BACKEND_PUBLIC_URL;
+    const _backendBase = _rawB ? _rawB.trim().replace(/\/+$/, '') : null;
+    const _watch = {
+      backendPublicUrlSet: Boolean(_backendBase),
+      webhookUrl: _backendBase ? `${_backendBase}/api/webhooks/google-calendar` : null,
+      channelId: gcal.watchChannelId || null,
+      resourceId: gcal.watchResourceId || null,
+      watchExpiration: gcal.watchExpiration || null,
+      watchActive: Boolean(
+        gcal.watchChannelId && gcal.watchExpiration && new Date(gcal.watchExpiration) > new Date()
+      )
+    };
     if (!gcal.accessToken) {
       return res.json({
         connected: gcal.connected || false,
         email: gcal.email || null,
         savedGrantedScopes: gcal.grantedScopes || null,
         liveScopes: null,
-        note: 'No access token stored.'
+        note: 'No access token stored.',
+        watch: _watch
       });
     }
 
@@ -530,6 +650,32 @@ router.get('/google-calendar/debug-scopes', verifyToken, async (req, res) => {
         s === 'https://www.googleapis.com/auth/calendar.readonly' ||
         s === 'https://www.googleapis.com/auth/calendar.events' ||
         s === 'https://www.googleapis.com/auth/calendar'
+      ),
+      watch: _watch
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/auth/google-calendar/watch-diagnostics — same watch fields as debug-scopes; safe for quick browser check
+router.get('/google-calendar/watch-diagnostics', verifyToken, async (req, res) => {
+  try {
+    const dbUser = await User.findOne({ email: req.user.email });
+    if (!dbUser) return res.status(404).json({ error: 'User not found' });
+    const g = dbUser.googleCalendar || {};
+    const raw = process.env.BACKEND_PUBLIC_URL;
+    const backendBase = raw ? raw.trim().replace(/\/+$/, '') : null;
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.json({
+      connected: g.connected || false,
+      email: g.email || null,
+      backendPublicUrlSet: Boolean(backendBase),
+      webhookUrl: backendBase ? `${backendBase}/api/webhooks/google-calendar` : null,
+      channelId: g.watchChannelId || null,
+      watchExpiration: g.watchExpiration || null,
+      watchActive: Boolean(
+        g.watchChannelId && g.watchExpiration && new Date(g.watchExpiration) > new Date()
       )
     });
   } catch (err) {
@@ -540,17 +686,21 @@ router.get('/google-calendar/debug-scopes', verifyToken, async (req, res) => {
 // POST /api/auth/google-calendar/register-watch — Manually (re-)register push notifications
 router.post('/google-calendar/register-watch', verifyToken, async (req, res) => {
   try {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.set('Pragma', 'no-cache');
+
     const dbUser = await User.findOne({ email: req.user.email });
     if (!dbUser) return res.status(404).json({ error: 'User not found' });
     if (!dbUser.googleCalendar?.connected) return res.status(400).json({ error: 'Google Calendar not connected' });
 
-    await stopWatch(dbUser._id).catch(() => {});
+    // registerWatch now overwrites stored fields and stops the prior channel
+    // itself on success — never strand the user with no watch on a transient failure.
     const result = await registerWatch(dbUser._id);
-    if (result) {
-      res.json({ success: true, channelId: result.channelId, expiration: result.expiration });
-    } else {
-      res.status(500).json({ error: 'Failed to register watch. Check BACKEND_PUBLIC_URL and Google domain verification.' });
+    if (!result) {
+      return res.status(500).json({ error: 'Failed to register watch. Check BACKEND_PUBLIC_URL and Google domain verification.' });
     }
+
+    res.json({ success: true, channelId: result.channelId, expiration: result.expiration });
   } catch (err) {
     console.error('[GCal] Manual watch registration error:', err.message);
     res.status(500).json({ error: err.message });
@@ -563,22 +713,19 @@ const WEBHOOK_DEBOUNCE_MS = 2000;
 
 async function processWebhookForUser(userId, io) {
   try {
-    const now = new Date();
-    const weekStart = new Date(now);
-    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-    weekStart.setHours(0, 0, 0, 0);
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekEnd.getDate() + 6);
-    weekEnd.setHours(23, 59, 59, 999);
-
-    const events = await fetchEventsForUser(userId, weekStart.toISOString(), weekEnd.toISOString());
-    if (!events) return;
-
+    // We emit a lightweight "something changed" signal instead of fetching events
+    // ourselves. The server doesn't know which window the client is viewing —
+    // pushing events for the *current* week would wipe out future-week events
+    // the client may be displaying. The client refetches its own visible window.
     const room = `mongo:${userId.toString()}`;
     if (io) {
-      io.to(room).emit('gcal-events-updated', { events });
-      console.log(`[GCal Webhook] Pushed ${events.length} events to room ${room}`);
+      io.to(room).emit('gcal-changed', { userId: userId.toString(), at: Date.now() });
+      console.log(`[GCal Webhook] Notified room ${room} of calendar change`);
     }
+
+    // Refresh lastSyncAt so the UI's "last synced" hint stays current even when
+    // the client isn't actively viewing the calendar.
+    await User.findByIdAndUpdate(userId, { 'googleCalendar.lastSyncAt': new Date() });
   } catch (err) {
     console.error(`[GCal Webhook] Error processing for user ${userId}:`, err.message);
   }
@@ -631,9 +778,10 @@ router.post('/webhooks/google-calendar', async (req, res) => {
   }
 });
 
-// Exported for use by the cron renewal job
+// Exported for use by the cron renewal job and the lesson lifecycle (cache invalidation)
 router.registerWatch = registerWatch;
 router.stopWatch = stopWatch;
 router.getAuthenticatedClient = getAuthenticatedClient;
+router.invalidateBarnabiIdsCache = invalidateBarnabiIdsCache;
 
 module.exports = router;

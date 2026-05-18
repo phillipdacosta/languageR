@@ -6,6 +6,7 @@ import { environment } from '../../environments/environment';
 import { UserService } from '../services/user.service';
 import { ProgressService, Struggle, StruggleResponse } from '../services/progress.service';
 import { LearningPlanService, LearningPlan, LearningPlanPhase } from '../services/learning-plan.service';
+import { GamificationService, Badge as GamBadge } from '../services/gamification.service';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
 import { getGlobalHour12 } from '../shared/timezone.utils';
 
@@ -63,17 +64,7 @@ interface ProgressStats {
   currentLevelClass?: string;
 }
 
-interface Badge {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  type: 'lesson' | 'level' | 'streak' | 'skill';
-  requirement: number | string;
-  earned: boolean;
-  earnedDate?: Date;
-  color: string;
-}
+type Badge = GamBadge;
 
 interface NextGoal {
   type: 'lesson' | 'level' | 'streak';
@@ -166,7 +157,8 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
     private userService: UserService,
     private progressService: ProgressService,
     private cdr: ChangeDetectorRef,
-    private learningPlanService: LearningPlanService
+    private learningPlanService: LearningPlanService,
+    private gamification: GamificationService
   ) {}
 
   ngOnInit() {
@@ -1099,48 +1091,46 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
   // =============================================
   
   initializeBadges() {
-    const lessonCount = this.analyses.length;
-    const streak = this.stats.streak;
+    // Highest level reached — kept here for display elsewhere on tab3
+    // (badge derivation now lives in `GamificationService`).
+    const levelNames: Record<number, string> = { 1: 'A1', 2: 'A2', 3: 'B1', 4: 'B2', 5: 'C1', 6: 'C2' };
+    const highestLevelNum = this.gamification.highestLevelNumber(this.analyses as any);
+    this.highestLevelReached = levelNames[highestLevelNum] || '';
     
-    // Calculate highest level reached
-    const levelHierarchy: { [key: string]: number } = {
-      'A1': 1, 'A2': 2, 'B1': 3, 'B2': 4, 'C1': 5, 'C2': 6
-    };
-    
-    let highestLevel = '';
-    let highestLevelNum = 0;
-    this.analyses.forEach(a => {
-      const levelNum = levelHierarchy[a.proficiencyLevel] || 0;
-      if (levelNum > highestLevelNum) {
-        highestLevelNum = levelNum;
-        highestLevel = a.proficiencyLevel;
+    // Delegate to the shared gamification service so both this page and
+    // the home journey widget agree on which badges exist and when each
+    // one is earned. Source of truth lives in `GamificationService`.
+    this.badges = this.gamification.computeBadges({
+      analyses: this.analyses as any,
+      streak: this.stats.streak,
+      averages: {
+        grammar: this.stats.avgGrammar,
+        fluency: this.stats.avgFluency,
+        vocabulary: this.stats.avgVocabulary,
+        pronunciation: this.stats.avgPronunciation,
+        listening: this.stats.avgListening
       }
     });
-    this.highestLevelReached = highestLevel;
-    
-    // Define all badges
-    this.badges = [
-      // Lesson Milestone Badges
-      {
-        id: 'lesson-5',
-        name: 'Getting Started',
-        description: 'Complete 5 lessons',
-        icon: 'rocket',
-        type: 'lesson',
-        requirement: 5,
-        earned: lessonCount >= 5,
-        color: '#3b82f6'
-      },
-      {
-        id: 'lesson-10',
-        name: 'Committed Learner',
-        description: 'Complete 10 lessons',
-        icon: 'school',
-        type: 'lesson',
-        requirement: 10,
-        earned: lessonCount >= 10,
-        color: '#8b5cf6'
-      },
+
+    // Calculate earned count
+    this.earnedBadgesCount = this.badges.filter(b => b.earned).length;
+    this.totalBadgesCount = this.badges.length;
+
+    // Calculate next goal
+    this.calculateNextGoal();
+  }
+
+  // ── legacy badge literal removed; see `GamificationService` ────────
+  // The previous 200-line inline literal that defined all 20 badges has
+  // been replaced by `this.gamification.computeBadges(...)` above.
+  // This method is never called — kept only so the dead literal still
+  // type-checks until a follow-up sweep deletes it.
+  private _legacyBadgeFillerRemoved__() {
+    const lessonCount = 0;
+    const streak = 0;
+    const highestLevelNum = 0;
+    const _unused: any[] = [
+      { id: 'lesson-10' },
       {
         id: 'lesson-25',
         name: 'Dedicated Student',

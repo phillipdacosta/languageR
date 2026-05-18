@@ -113,26 +113,47 @@ router.get('/', verifyToken, async (req, res) => {
  * @route   GET /api/review-deck/needs-review
  * @desc    Get items that need review (spaced repetition)
  * @access  Private
+ * @query   limit, language
  */
 router.get('/needs-review', verifyToken, async (req, res) => {
   try {
-    // Get user from auth token
     const user = await User.findOne({ auth0Id: req.user.sub });
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    
-    const { limit } = req.query;
-    
-    const items = await ReviewDeckItem.getItemsNeedingReview(
-      user._id,
-      parseInt(limit) || 10
-    );
-    
+
+    const { limit, language } = req.query;
+
+    const items = await ReviewDeckItem.getItemsNeedingReview(user._id, {
+      limit: parseInt(limit) || 10,
+      language: language || null
+    });
+
     res.json({ items });
-    
   } catch (error) {
     console.error('Error fetching items needing review:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+/**
+ * @route   GET /api/review-deck/needs-review/count
+ * @desc    Lightweight count of items currently due — used by the home Practice badge.
+ * @access  Private
+ * @query   language
+ */
+router.get('/needs-review/count', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const count = await ReviewDeckItem.countItemsNeedingReview(
+      user._id,
+      req.query.language || null
+    );
+    res.json({ count });
+  } catch (error) {
+    console.error('Error counting items needing review:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -193,33 +214,37 @@ router.get('/stats', verifyToken, async (req, res) => {
 
 /**
  * @route   PUT /api/review-deck/:id/review
- * @desc    Mark an item as reviewed
+ * @desc    Mark an item as reviewed. Body: { quality: 'again' | 'good' | 'easy' }
+ *          quality drives the next SRS interval. Defaults to 'good'.
  * @access  Private
  */
 router.put('/:id/review', verifyToken, async (req, res) => {
   try {
-    // Get user from auth token
     const user = await User.findOne({ auth0Id: req.user.sub });
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    
+
     const item = await ReviewDeckItem.findOne({
       _id: req.params.id,
       userId: user._id
     });
-    
+
     if (!item) {
       return res.status(404).json({ message: 'Item not found' });
     }
-    
-    await item.markReviewed();
-    
+
+    const quality = ['again', 'good', 'easy'].includes(req.body?.quality)
+      ? req.body.quality
+      : 'good';
+
+    await item.markReviewed(quality);
+
     res.json({
       message: 'Marked as reviewed',
       item
     });
-    
+
   } catch (error) {
     console.error('Error marking item as reviewed:', error);
     res.status(500).json({ message: 'Server error' });

@@ -6,13 +6,14 @@ import { UserService } from '../../services/user.service';
 import { environment } from '../../../environments/environment';
 import { firstValueFrom } from 'rxjs';
 import { CommonModule } from '@angular/common';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
 @Component({
   selector: 'app-early-exit-modal',
   templateUrl: './early-exit-modal.component.html',
   styleUrls: ['./early-exit-modal.component.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule]
+  imports: [CommonModule, IonicModule, TranslateModule]
 })
 export class EarlyExitModalComponent {
   @Input() lessonId!: string;
@@ -25,8 +26,13 @@ export class EarlyExitModalComponent {
     private alertController: AlertController,
     private router: Router,
     private http: HttpClient,
-    private userService: UserService
+    private userService: UserService,
+    private translate: TranslateService
   ) {}
+
+  private t(key: string): string {
+    return this.translate.instant(key);
+  }
 
   /**
    * Close modal without taking any action
@@ -57,9 +63,9 @@ export class EarlyExitModalComponent {
         this.modalDismissed.emit({ action: 'dismissed' });
         
         const alert = await this.alertController.create({
-          header: 'Lesson Ended',
-          message: 'This lesson has been completed and cannot be rejoined.',
-          buttons: ['OK']
+          header: this.t('ALERTS.EARLY_EXIT.ENDED_HEADER'),
+          message: this.t('ALERTS.EARLY_EXIT.ENDED_MESSAGE'),
+          buttons: [this.t('COMMON.OK')]
         });
         await alert.present();
         return;
@@ -81,9 +87,9 @@ export class EarlyExitModalComponent {
       console.error('❌ Error checking lesson status:', error);
       
       const errorAlert = await this.alertController.create({
-        header: 'Error',
-        message: 'Unable to rejoin the lesson. Please try again.',
-        buttons: ['OK']
+        header: this.t('ALERTS.EARLY_EXIT.REJOIN_ERROR_HEADER'),
+        message: this.t('ALERTS.EARLY_EXIT.REJOIN_ERROR_MESSAGE'),
+        buttons: [this.t('COMMON.OK')]
       });
       await errorAlert.present();
     }

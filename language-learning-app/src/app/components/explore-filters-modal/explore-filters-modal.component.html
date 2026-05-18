@@ -49,7 +49,7 @@
     <div class="filter-section">
       <div class="search-input-wrapper">
         <ion-icon name="search-outline" class="search-icon"></ion-icon>
-        <input type="text" class="search-input" placeholder="Search classes by name or tutor"
+        <input #classSearchInput type="text" class="search-input" placeholder="Search classes by name or tutor"
                [(ngModel)]="filters.searchQuery" (input)="onSearchChange()">
       </div>
     </div>

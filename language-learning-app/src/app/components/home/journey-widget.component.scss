@@ -1,0 +1,1342 @@
+// ── Journey Widget ──────────────────────────────────────────────
+// Airbnb-style: black / white / grey palette.
+// One accent: #222 (near-black) for active state + pill.
+// No blue tints. Clean, generous whitespace, subtle shadows.
+
+.journey-widget {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 22px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 20px;
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+
+  &:hover:not(.journey-widget--loading) {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    border-color: rgba(0, 0, 0, 0.09);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.15);
+  }
+
+  &.journey-widget--loading {
+    cursor: default;
+    pointer-events: none;
+  }
+}
+
+// ── Loading skeleton ─────────────────────────────────────────────
+.jw-skeleton {
+  background: linear-gradient(90deg, #f5f5f5 0%, #ebebeb 50%, #f5f5f5 100%);
+  background-size: 200% 100%;
+  border-radius: 8px;
+  animation: jw-shimmer 1.4s ease-in-out infinite;
+
+  &.jw-skeleton--pill { width: 80px; height: 22px; border-radius: 999px; margin-bottom: 10px; }
+  &.jw-skeleton--row  { width: 100%; height: 36px; margin-bottom: 10px; }
+  &.jw-skeleton--title { width: 60%; height: 22px; margin-bottom: 8px; }
+  &.jw-skeleton--line { width: 90%; height: 14px; }
+}
+
+@keyframes jw-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+// ── Empty / no-goal ──────────────────────────────────────────────
+.journey-widget--empty-goal {
+  align-items: center;
+  text-align: center;
+  padding: 28px 22px;
+
+  .jw-empty-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f5f5f5;
+    color: #222;
+    font-size: 24px;
+    margin-bottom: 10px;
+  }
+
+  .jw-empty-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 0 0 6px;
+    color: #222;
+  }
+
+  .jw-empty-body {
+    font-size: 14px;
+    line-height: 1.5;
+    color: #717171;
+    margin: 0 0 12px;
+    max-width: 300px;
+  }
+
+  .jw-empty-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #222;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+
+    ion-icon { font-size: 13px; }
+  }
+}
+
+// ── Header ───────────────────────────────────────────────────────
+.jw-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.jw-phase-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px 5px 5px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #222;
+  background: #f4f4f4;
+  border-radius: 999px;
+
+  ion-icon { font-size: 13px; color: #222; }
+}
+
+.jw-phase-pill-icon {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  flex-shrink: 0;
+  display: block;
+}
+
+.jw-premium-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px 3px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #fff;
+  background: #222;
+  border-radius: 999px;
+  margin-left: auto; // pin to the right edge of the header
+
+  ion-icon { font-size: 11px; }
+}
+
+// Recovery chip — soft green to match the journey-page recovery callout.
+// Sits next to the premium chip; doesn't take over the right edge so both
+// can coexist on a recovery + premium plan.
+.jw-recovery-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px 3px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #2f6b2f;
+  background: #e7f1e7;
+  border-radius: 999px;
+  margin-left: 6px;
+
+  ion-icon { font-size: 11px; }
+}
+
+// CTA row at the bottom of the widget — quiet link, monochrome.
+.jw-cta-row {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 6px;
+}
+
+// Primary CTA row — only shown on the journey page hero.
+// Bottom-right black pill mirroring the earnings "Withdraw Funds" button so
+// the FLIP morph from "View roadmap →" feels familiar.
+.jw-primary-cta-row {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 4px;
+}
+
+.jw-primary-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px 10px 16px;
+  background: #111;
+  color: #fff;
+  border: 1px solid #111;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+
+  &:hover {
+    background: #000;
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  ion-icon {
+    font-size: 16px;
+  }
+}
+
+.jw-primary-cta-content {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 1px;
+  align-items: flex-start;
+  text-align: left;
+  min-width: 0;
+}
+
+.jw-primary-cta-label {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.jw-primary-cta-sub {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.jw-cta-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #111;
+  text-decoration: none;
+
+  ion-icon {
+    font-size: 14px;
+    transition: transform 0.2s ease;
+  }
+}
+
+.journey-widget--full:hover .jw-cta-link ion-icon {
+  transform: translateX(2px);
+}
+
+// ── Phase path ───────────────────────────────────────────────────
+.jw-path {
+  position: relative;
+  padding: 2px 0 10px;
+}
+
+.jw-path-line {
+  position: absolute;
+  top: 18px;
+  left: 12px;
+  right: 12px;
+  height: 1px;
+  background: #e8e8e8;
+  z-index: 0;
+}
+
+.jw-path-nodes {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 4px;
+}
+
+.jw-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.jw-node-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 1.5px solid #d4d4d4;
+  position: relative;
+  transition: border-color 0.2s ease, background 0.2s ease;
+
+  ion-icon { font-size: 13px; color: #717171; }
+}
+
+.jw-node--completed .jw-node-dot {
+  background: #222;
+  border-color: #222;
+  ion-icon { color: #fff; }
+}
+
+.jw-node--active .jw-node-dot {
+  background: #fff;
+  border: 2px solid #222;
+
+  .jw-node-ring {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #222;
+  }
+}
+
+.jw-node--locked .jw-node-dot {
+  background: #fafafa;
+  border-color: #e8e8e8;
+  ion-icon { color: #b0b0b0; }
+}
+
+.jw-node--destination .jw-node-dot {
+  background: #fafafa;
+  border: 1.5px dashed #d4d4d4;
+  ion-icon { color: #b0b0b0; }
+}
+
+.jw-node-index {
+  font-size: 11px;
+  font-weight: 600;
+  color: #b0b0b0;
+}
+
+.jw-node--active .jw-node-index   { color: #222; font-weight: 700; }
+.jw-node--completed .jw-node-index { color: #717171; }
+
+.jw-node-label {
+  font-size: 10.5px;
+  line-height: 1.2;
+  text-align: center;
+  color: #b0b0b0;
+  word-break: break-word;
+  margin-top: 2px;
+}
+
+.jw-node--active .jw-node-label {
+  color: #222;
+  font-weight: 700;
+}
+
+.jw-node--completed .jw-node-label { color: #717171; }
+
+// ── Phase headline (replaces old jw-body — no redundant icon) ────
+.jw-phase-headline {
+  margin-bottom: 10px;
+}
+
+.jw-body-title {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: #222;
+  margin: 0;
+}
+
+.jw-body-summary {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #717171;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.jw-body-summary--draft {
+  font-style: italic;
+  color: #b0b0b0;
+  font-size: 13px;
+}
+
+// ── Mastery progress bar ──────────────────────────────────────────
+.jw-mastery {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+.jw-mastery-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.jw-mastery-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #717171;
+
+  &.jw-mastery-label--ready {
+    color: #222;
+    font-weight: 700;
+  }
+}
+
+.jw-mastery-bar {
+  width: 100%;
+  height: 3px;
+  background: #ebebeb;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.jw-mastery-fill {
+  height: 100%;
+  background: #b0b0b0;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+
+  &.jw-mastery-fill--ready {
+    background: #222;
+  }
+}
+
+// ── Next lesson focus ────────────────────────────────────────────
+.jw-focus {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.jw-focus-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding-top: 1px;
+}
+
+.jw-focus-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8a8a8a;
+}
+
+.jw-focus-value {
+  font-size: 14.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: #222;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+// ── Goal anchor ──────────────────────────────────────────────────
+.jw-goal {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #f7f7f7;
+  border-radius: 12px;
+  font-size: 13px;
+}
+
+.jw-goal-icon { font-size: 14px; color: #444; flex-shrink: 0; }
+
+.jw-goal-icon-img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  flex-shrink: 0;
+  display: block;
+}
+
+.jw-goal-label {
+  font-weight: 700;
+  color: #222;
+}
+
+.jw-goal-value {
+  color: #444;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+// ── COMPACT variant ──────────────────────────────────────────────
+.journey-widget--compact {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  min-height: 52px;
+
+  .jw-skeleton--pill { width: 60px; height: 16px; margin-bottom: 0; }
+  .jw-skeleton--row  { flex: 1 1 auto; height: 16px; margin-bottom: 0; }
+
+  .jwc-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #f5f5f5;
+    color: #222;
+    flex-shrink: 0;
+    ion-icon { font-size: 15px; }
+  }
+
+  .jwc-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 9px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #222;
+    background: #f0f0f0;
+    border-radius: 999px;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .jwc-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .jwc-eyebrow {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #b0b0b0;
+    line-height: 1.2;
+  }
+
+  .jwc-title {
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.25;
+    color: #222;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .jwc-chevron {
+    font-size: 15px;
+    color: #b0b0b0;
+    flex-shrink: 0;
+  }
+}
+
+// ── Big editorial title ──────────────────────────────────────────
+.jw-title {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.18;
+  letter-spacing: -0.015em;
+  color: #111;
+  margin: 0 0 18px;
+  // Cap to two lines so long phase names don't blow up the card.
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+// ── Phase progress (replaces .jw-mastery in full variant) ────────
+.jw-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.jw-progress-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.jw-progress-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #6a6a6a;
+}
+
+.jw-progress-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: #222;
+
+  &.jw-progress-value--ready {
+    color: #111;
+  }
+}
+
+.jw-progress-bar {
+  width: 100%;
+  height: 4px;
+  background: #ededed;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.jw-progress-fill {
+  height: 100%;
+  background: #222;
+  border-radius: 999px;
+  transition: width 0.45s cubic-bezier(0.32, 0.72, 0, 1);
+
+  &.jw-progress-fill--ready {
+    background: #111;
+  }
+}
+
+// ── FULL variant — refined editorial card ────────────────────────
+.journey-widget--full {
+  flex: 1 1 auto;
+  padding: 22px 22px 14px;
+  gap: 0;
+  border-radius: 18px;
+  align-items: stretch;
+  text-align: left;
+
+  .jw-header { justify-content: flex-start; margin-bottom: 14px; width: 100%; }
+  .jw-premium-chip { margin-left: auto; }
+
+  // Stepper hidden — pill already shows "Phase X of Y"
+  .jw-path { display: none; }
+  // Old mastery block hidden — replaced by .jw-progress
+  .jw-mastery { display: none; }
+
+  // Focus row gets a hairline separator above
+  .jw-focus {
+    width: 100%;
+    margin: 4px 0 14px;
+    padding-top: 14px;
+    border-top: 1px solid #ededed;
+  }
+
+  // Goal chip stays full-width but tighter
+  .jw-goal {
+    width: 100%;
+    font-size: 13px;
+    padding: 10px 12px;
+    background: #f7f7f7;
+    border-radius: 12px;
+    margin-bottom: 14px;
+  }
+
+  // Footer CTA gets a hairline separator above
+  .jw-cta-row {
+    width: 100%;
+    padding-top: 12px;
+    border-top: 1px solid #ededed;
+  }
+
+  .jw-body-summary--draft {
+    margin-top: -6px;
+    margin-bottom: 14px;
+  }
+}
+
+// ── Focus row — uses bespoke icon image ──────────────────────────
+.journey-widget--full .jw-focus-icon-wrap {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  ion-icon { font-size: 16px; color: #222; }
+}
+
+.jw-focus-icon-img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  display: block;
+  border-radius: 8px;
+}
+
+// ── Paused & unframed states ─────────────────────────────────────
+// Apple-clean redesign: celebrate the progress they've already
+// banked (level, lessons, chapters) instead of a static "your plan
+// is paused" line. Unframed reuses the same shell so the two states
+// feel like siblings. Whole card is still the primary CTA target —
+// the styled CTA at the bottom is an affordance, not a button.
+.journey-widget--paused,
+.journey-widget--unframed {
+  cursor: pointer;
+  padding: 24px 22px 18px;
+}
+
+.jw-paused {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.jw-paused-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.jw-paused-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #222;
+  background: #f4f4f4;
+  border-radius: 999px;
+  text-transform: none;
+
+  ion-icon { font-size: 13px; color: #222; }
+
+  // Unframed = "at your own pace" — soft green to differentiate
+  // from the neutral paused chip while reading as positive, not a warning.
+  &--unframed {
+    color: #1f6b3a;
+    background: #e6f3ec;
+
+    ion-icon { color: #1f6b3a; }
+  }
+}
+
+.jw-paused-level {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #fff;
+  background: #111;
+  border-radius: 999px;
+}
+
+.jw-paused-since {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 500;
+  color: #8a8a8a;
+  letter-spacing: -0.005em;
+}
+
+.jw-paused-title {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.18;
+  letter-spacing: -0.018em;
+  color: #111;
+  margin: 0;
+}
+
+.jw-paused-body {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #6a6a6a;
+  margin: -6px 0 0;
+  max-width: 380px;
+}
+
+// "From your last lesson" reflection card — only renders when there
+// is recent analysis data. Quiet surface so it reads as a takeaway,
+// not a CTA.
+.jw-paused-highlight {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  background: #fafafa;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 14px;
+}
+
+.jw-paused-highlight-eyebrow {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8a8a8a;
+}
+
+.jw-paused-highlight-body {
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: #222;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.jw-paused-highlight-meta {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #8a8a8a;
+  letter-spacing: 0.01em;
+}
+
+// Badges: stacked CEFR discs for graduated chapters, or a quiet empty
+// placeholder when the student hasn't earned any badges yet.
+.jw-paused-badges {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.jw-paused-badges-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8a8a8a;
+}
+
+.jw-paused-badges-stack {
+  display: inline-flex;
+  align-items: center;
+  // Negative margin between discs creates the stacked / overlapping
+  // avatars effect. Each disc has a white ring drawn with its own
+  // border so the overlap reads cleanly on any background.
+  padding-left: 6px;
+}
+
+.jw-paused-badge-disc {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  // Background + border colors are set inline per-badge via [style.*]
+  // bindings, using the badge's accent hex with low alpha — keeps the
+  // disc subtle while still reading as a "this is mine" marker.
+  background: rgba(0, 0, 0, 0.04);
+  border: 1.5px solid rgba(0, 0, 0, 0.08);
+  // White outer ring lets the discs overlap cleanly on any surface.
+  outline: 2px solid #fff;
+  outline-offset: -2px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  margin-left: -10px;
+  transition: transform 0.2s ease;
+
+  ion-icon {
+    font-size: 20px;
+  }
+
+  &:first-child {
+    margin-left: 0;
+  }
+}
+
+.journey-widget--paused:hover .jw-paused-badge-disc {
+  transform: translateY(-1px);
+}
+
+.jw-paused-badge-overflow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  min-width: 40px;
+  padding: 0 10px;
+  margin-left: 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #6a6a6a;
+  background: #f4f4f4;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+// Empty state — placeholder discs + inline caption. Same vertical
+// footprint as the filled badges stack so un-pausing doesn't cause a
+// layout shift on the home card.
+.jw-paused-badges-empty {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.jw-paused-badges-empty-stack {
+  display: inline-flex;
+  align-items: center;
+  padding-left: 6px;
+  flex-shrink: 0;
+}
+
+.jw-paused-badge-disc--placeholder {
+  background: #fafafa;
+  border: 2px dashed #e0e0e0;
+  outline: none;
+  box-shadow: none;
+  color: transparent;
+  ion-icon { display: none; }
+  &::before { content: ''; }
+}
+
+.jw-paused-badges-empty-caption {
+  font-size: 13px;
+  font-weight: 500;
+  color: #8a8a8a;
+  line-height: 1.35;
+  min-width: 0;
+}
+
+.jw-paused-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  padding-top: 14px;
+  border-top: 1px solid #ededed;
+  font-size: 14px;
+  font-weight: 700;
+  color: #111;
+  letter-spacing: -0.005em;
+  align-self: stretch;
+
+  ion-icon {
+    font-size: 15px;
+    transition: transform 0.2s ease;
+  }
+}
+
+.journey-widget--paused:hover .jw-paused-cta ion-icon {
+  transform: translateX(2px);
+}
+
+// ── Dark Mode Support ────────────────────────────────────────────
+// ViewEncapsulation.None — styles are global, so use html.ion-palette-dark directly.
+html.ion-palette-dark {
+  // Main widget container
+  .journey-widget {
+    background: #1c1c1e;
+    border-color: rgba(84, 84, 88, 0.65);
+    box-shadow: 
+      0 6px 28px rgba(0, 0, 0, 0.6),
+      0 1px 0 rgba(255, 255, 255, 0.05);
+
+    &:hover:not(.journey-widget--loading) {
+      box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.7),
+        0 1px 0 rgba(255, 255, 255, 0.08);
+      border-color: rgba(84, 84, 88, 0.8);
+    }
+
+    &:focus-visible {
+      box-shadow: 0 0 0 3px rgba(76, 126, 244, 0.4);
+    }
+  }
+
+  // Loading skeletons
+  .jw-skeleton {
+    background: linear-gradient(90deg, rgba(84, 84, 88, 0.16) 0%, rgba(84, 84, 88, 0.08) 50%, rgba(84, 84, 88, 0.16) 100%);
+  }
+
+  // Empty state
+  .journey-widget--empty-goal {
+    .jw-empty-icon {
+      background: rgba(84, 84, 88, 0.16);
+      color: #e5e5e7;
+    }
+
+    .jw-empty-title {
+      color: #fff;
+    }
+
+    .jw-empty-body {
+      color: #c7c7cc;
+    }
+
+    .jw-empty-cta {
+      color: #e5e5e7;
+    }
+  }
+
+  // Phase pill
+  .jw-phase-pill {
+    color: #e5e5e7;
+    background: rgba(84, 84, 88, 0.16);
+
+    ion-icon {
+      color: #e5e5e7;
+    }
+  }
+
+  // Premium chip
+  .jw-premium-chip {
+    color: #1c1c1e;
+    background: #e5e5e7;
+
+    ion-icon {
+      color: #1c1c1e;
+    }
+  }
+
+  // Recovery chip (dark)
+  .jw-recovery-chip {
+    color: #98d49b;
+    background: rgba(58, 95, 58, 0.22);
+
+    ion-icon {
+      color: #98d49b;
+    }
+  }
+
+  // CTA links
+  .jw-cta-link {
+    color: #e5e5e7;
+  }
+
+  // Primary CTA button
+  .jw-primary-cta-btn {
+    background: #e5e5e7;
+    color: #1c1c1e;
+    border-color: #e5e5e7;
+
+    &:hover {
+      background: #fff;
+    }
+
+    .jw-primary-cta-sub {
+      color: rgba(28, 28, 30, 0.7);
+    }
+  }
+
+  // Path elements
+  .jw-path-line {
+    background: rgba(84, 84, 88, 0.36);
+  }
+
+  .jw-node-dot {
+    background: #1c1c1e;
+    border-color: rgba(84, 84, 88, 0.48);
+
+    ion-icon {
+      color: #8e8e93;
+    }
+  }
+
+  .jw-node--completed .jw-node-dot {
+    background: #e5e5e7;
+    border-color: #e5e5e7;
+
+    ion-icon {
+      color: #1c1c1e;
+    }
+  }
+
+  .jw-node--active .jw-node-dot {
+    background: #1c1c1e;
+    border-color: #e5e5e7;
+
+    .jw-node-ring {
+      background: #e5e5e7;
+    }
+  }
+
+  .jw-node--locked .jw-node-dot {
+    background: rgba(28, 28, 30, 0.8);
+    border-color: rgba(84, 84, 88, 0.36);
+
+    ion-icon {
+      color: #8e8e93;
+    }
+  }
+
+  .jw-node--destination .jw-node-dot {
+    background: rgba(28, 28, 30, 0.8);
+    border-color: rgba(84, 84, 88, 0.48);
+
+    ion-icon {
+      color: #8e8e93;
+    }
+  }
+
+  .jw-node-index {
+    color: #8e8e93;
+  }
+
+  .jw-node--active .jw-node-index {
+    color: #e5e5e7;
+  }
+
+  .jw-node--completed .jw-node-index {
+    color: #c7c7cc;
+  }
+
+  .jw-node-label {
+    color: #8e8e93;
+  }
+
+  .jw-node--active .jw-node-label {
+    color: #e5e5e7;
+  }
+
+  .jw-node--completed .jw-node-label {
+    color: #c7c7cc;
+  }
+
+  // Text elements
+  .jw-body-title,
+  .jw-title {
+    color: #fff;
+  }
+
+  .jw-body-summary {
+    color: #c7c7cc;
+  }
+
+  .jw-body-summary--draft {
+    color: #8e8e93;
+  }
+
+  // Mastery progress
+  .jw-mastery-label {
+    color: #c7c7cc;
+
+    &.jw-mastery-label--ready {
+      color: #e5e5e7;
+    }
+  }
+
+  .jw-mastery-bar {
+    background: rgba(84, 84, 88, 0.16);
+  }
+
+  .jw-mastery-fill {
+    background: #8e8e93;
+
+    &.jw-mastery-fill--ready {
+      background: #e5e5e7;
+    }
+  }
+
+  // Phase progress (full variant)
+  .jw-progress-label {
+    color: #c7c7cc;
+  }
+
+  .jw-progress-value {
+    color: #e5e5e7;
+
+    &.jw-progress-value--ready {
+      color: #fff;
+    }
+  }
+
+  .jw-progress-bar {
+    background: rgba(84, 84, 88, 0.16);
+  }
+
+  .jw-progress-fill {
+    background: #e5e5e7;
+
+    &.jw-progress-fill--ready {
+      background: #fff;
+    }
+  }
+
+  // Focus section
+  .jw-focus-label {
+    color: #98989d;
+  }
+
+  .jw-focus-value {
+    color: #e5e5e7;
+  }
+
+  .journey-widget--full .jw-focus-icon-wrap ion-icon {
+    color: #e5e5e7;
+  }
+
+  // Goal section
+  .jw-goal {
+    background: rgba(84, 84, 88, 0.16);
+  }
+
+  .jw-goal-icon {
+    color: #c7c7cc;
+  }
+
+  .jw-goal-label {
+    color: #e5e5e7;
+  }
+
+  .jw-goal-value {
+    color: #c7c7cc;
+  }
+
+  // Full variant borders
+  .journey-widget--full {
+    .jw-focus {
+      border-top-color: rgba(84, 84, 88, 0.36);
+    }
+
+    .jw-goal {
+      background: rgba(84, 84, 88, 0.16);
+    }
+
+    .jw-cta-row {
+      border-top-color: rgba(84, 84, 88, 0.36);
+    }
+  }
+
+  // Compact variant
+  .journey-widget--compact {
+    .jwc-icon {
+      background: rgba(84, 84, 88, 0.16);
+      color: #e5e5e7;
+    }
+
+    .jwc-pill {
+      color: #e5e5e7;
+      background: rgba(84, 84, 88, 0.16);
+    }
+
+    .jwc-eyebrow {
+      color: #8e8e93;
+    }
+
+    .jwc-title {
+      color: #e5e5e7;
+    }
+
+    .jwc-chevron {
+      color: #8e8e93;
+    }
+  }
+
+  // Paused / unframed states
+  .jw-paused-chip {
+    color: #e5e5e7;
+    background: rgba(84, 84, 88, 0.16);
+
+    ion-icon { color: #e5e5e7; }
+
+    &--unframed {
+      color: #9bd7ad;
+      background: rgba(48, 110, 70, 0.24);
+
+      ion-icon { color: #9bd7ad; }
+    }
+  }
+
+  .jw-paused-highlight {
+    background: rgba(84, 84, 88, 0.14);
+    border-color: rgba(84, 84, 88, 0.36);
+  }
+
+  .jw-paused-highlight-eyebrow,
+  .jw-paused-highlight-meta {
+    color: #98989d;
+  }
+
+  .jw-paused-highlight-body {
+    color: #e5e5e7;
+  }
+
+  .jw-paused-level {
+    color: #1c1c1e;
+    background: #e5e5e7;
+  }
+
+  .jw-paused-since {
+    color: #8e8e93;
+  }
+
+  .jw-paused-title {
+    color: #fff;
+  }
+
+  .jw-paused-body {
+    color: #c7c7cc;
+  }
+
+  .jw-paused-badges-label {
+    color: #98989d;
+  }
+
+  .jw-paused-badge-disc {
+    // White outer ring becomes a card-tinted ring in dark mode so the
+    // discs still read as discrete tokens against the dark surface.
+    outline-color: #1c1c1e;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  }
+
+  .jw-paused-badge-overflow {
+    color: #c7c7cc;
+    background: rgba(84, 84, 88, 0.16);
+    border-color: rgba(84, 84, 88, 0.36);
+  }
+
+  .jw-paused-badge-disc--placeholder {
+    background: rgba(84, 84, 88, 0.16);
+    border-color: rgba(84, 84, 88, 0.5);
+  }
+
+  .jw-paused-badges-empty-caption {
+    color: #98989d;
+  }
+
+  .jw-paused-cta {
+    color: #e5e5e7;
+    border-top-color: rgba(84, 84, 88, 0.36);
+  }
+}

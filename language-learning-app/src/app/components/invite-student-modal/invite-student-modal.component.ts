@@ -1,5 +1,5 @@
-import { Component, EventEmitter, Input, OnDestroy, OnInit, Output, ChangeDetectorRef } from '@angular/core';
-import { ModalController, ToastController } from '@ionic/angular';
+import { Component, EventEmitter, Input, OnDestroy, OnInit, Output, ChangeDetectorRef, ViewChild } from '@angular/core';
+import { ModalController, ToastController, IonSearchbar } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { FormsModule } from '@angular/forms';
@@ -63,6 +63,8 @@ export class InviteStudentModalComponent implements OnInit, OnDestroy {
   @Input() classId!: string;
   @Input() classData?: any; // Class object with invitedStudents
 
+  @ViewChild('inviteStudentSearch') inviteStudentSearch?: IonSearchbar;
+
   /** Fired after a successful invite so the host can refresh lessons while the modal stays open. */
   @Output() invitationsSent = new EventEmitter<{ count: number }>();
 
@@ -88,6 +90,7 @@ export class InviteStudentModalComponent implements OnInit, OnDestroy {
   inviteFooterLabel = '';
 
   private readonly destroy$ = new Subject<void>();
+  private inviteSearchFocusTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private modalController: ModalController,
@@ -109,8 +112,26 @@ export class InviteStudentModalComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.inviteSearchFocusTimer != null) {
+      clearTimeout(this.inviteSearchFocusTimer);
+      this.inviteSearchFocusTimer = null;
+    }
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  /** Focus search after list loads (`*ngIf` renders `ion-searchbar`) and modal animation settles. */
+  private scheduleInviteSearchFocus(): void {
+    if (this.students.length === 0) {
+      return;
+    }
+    if (this.inviteSearchFocusTimer != null) {
+      clearTimeout(this.inviteSearchFocusTimer);
+    }
+    this.inviteSearchFocusTimer = setTimeout(() => {
+      this.inviteSearchFocusTimer = null;
+      void this.inviteStudentSearch?.setFocus();
+    }, 380);
   }
 
   private refreshInviteFooterLabel(): void {
@@ -217,6 +238,7 @@ export class InviteStudentModalComponent implements OnInit, OnDestroy {
           // Trigger change detection
           this.refreshInviteFooterLabel();
           this.cdr.detectChanges();
+          this.scheduleInviteSearchFocus();
         } else {
           this.loadingStudents = false;
           this.refreshInviteFooterLabel();

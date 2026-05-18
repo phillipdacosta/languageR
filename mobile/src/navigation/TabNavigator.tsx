@@ -46,12 +46,17 @@ function TabNavigatorInner() {
 
   return (
     <Tab.Navigator
+      detachInactiveScreens
+      sceneContainerStyle={{ backgroundColor: colors.background }}
       screenOptions={{
         headerShown: false,
         tabBarStyle: getTabBarStyle(colors),
         tabBarActiveTintColor: colors.text,
         tabBarInactiveTintColor: colors.textTertiary,
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginBottom: 6 },
+        animation: 'none',
+        freezeOnBlur: true,
+        sceneStyle: { backgroundColor: colors.background },
       }}
       tabBar={(props) => (
         <SlidingTabBar {...props} homeOverlayCoversTabBar={homeOverlayCoversTabBar} lessonOverlayCoversTabBar={lessonOverlayCoversTabBar} screenHidesTabBar={screenHidesTabBar} />

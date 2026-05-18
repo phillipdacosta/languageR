@@ -12,4 +12,6 @@ export type RootStackParamList = {
   };
   PostLessonStudent: { lessonId: string };
   PostLessonTutor: { lessonId: string; fromVideoCall?: boolean };
+  Practice: undefined;
+  Upgrade: undefined;
 };

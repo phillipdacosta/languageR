@@ -346,10 +346,16 @@ export class LessonService {
     return this.recordCallEnd(lessonId, speakingTime);
   }
 
-  // Save tutor's supplementary note
+  // Save tutor's supplementary note. Optional `capturedCorrections` are
+  // pushed into the student's spaced-repetition deck server-side.
   saveTutorNote(
     lessonId: string,
-    note: { text: string; quickImpression: string; homework: string }
+    note: {
+      text: string;
+      quickImpression: string;
+      homework: string;
+      capturedCorrections?: Array<{ original: string; corrected: string; explanation?: string }>;
+    }
   ): Observable<{ success: boolean; message: string }> {
     const headers = this.userService.getAuthHeadersSync();
     return this.http.post<{ success: boolean; message: string }>(

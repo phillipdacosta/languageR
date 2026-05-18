@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { CanDeactivate } from '@angular/router';
 import { AlertController } from '@ionic/angular';
+import { TranslateService } from '@ngx-translate/core';
 
 export interface HasUnsavedChanges {
   hasUnsavedChanges: boolean;
@@ -9,23 +10,26 @@ export interface HasUnsavedChanges {
 
 @Injectable({ providedIn: 'root' })
 export class UnsavedChangesGuard implements CanDeactivate<HasUnsavedChanges> {
-  constructor(private alertController: AlertController) {}
+  constructor(
+    private alertController: AlertController,
+    private translate: TranslateService
+  ) {}
 
   async canDeactivate(component: HasUnsavedChanges): Promise<boolean> {
     if (!component.hasUnsavedChanges) return true;
 
     return new Promise<boolean>(async (resolve) => {
       const alert = await this.alertController.create({
-        header: 'Selection not saved',
-        message: 'You have selected time slots that are not saved.',
+        header: this.translate.instant('ALERTS.CALENDAR.UNSAVED_HEADER'),
+        message: this.translate.instant('ALERTS.CALENDAR.UNSAVED_MSG'),
         buttons: [
           {
-            text: "Don't save",
+            text: this.translate.instant('ALERTS.CALENDAR.DONT_SAVE'),
             role: 'destructive',
             handler: () => resolve(true),
           },
           {
-            text: 'Save',
+            text: this.translate.instant('ALERTS.CALENDAR.SAVE'),
             handler: async () => {
               try {
                 await component.saveAvailability();

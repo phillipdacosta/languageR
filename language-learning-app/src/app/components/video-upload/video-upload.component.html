@@ -1,4 +1,4 @@
-<div class="video-upload-container">
+<div class="video-upload-container" [class.video-upload-container--full]="fullWidthLayout">
   <!-- Mode Toggle (only show if no video uploaded yet) -->
   <div class="upload-mode-toggle" *ngIf="!videoUrl">
     <button 

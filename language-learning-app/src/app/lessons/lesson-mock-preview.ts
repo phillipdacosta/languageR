@@ -30,6 +30,7 @@ export const LESSON_MOCK_SPECS: LessonMockSpec[] = [
   { id: '__mock_tutor_completed__', cardRole: 'tutor', status: 'completed', durationMin: 60, price: 35, otherName: 'Daniel K.', otherPicture: 'https://randomuser.me/api/portraits/men/46.jpg', actualDurationMin: 60, actualPrice: 35 },
   { id: '__mock_tutor_upcoming__', cardRole: 'tutor', status: 'scheduled', durationMin: 60, price: 40, otherName: 'James L.', otherPicture: 'https://randomuser.me/api/portraits/men/22.jpg' },
   { id: '__mock_tutor_feedback_needed__', cardRole: 'tutor', status: 'completed', durationMin: 45, price: 25, otherName: 'Amy W.', otherPicture: 'https://randomuser.me/api/portraits/women/33.jpg', actualDurationMin: 45, actualPrice: 25 },
+  { id: '__mock_tutor_feedback_optional__', cardRole: 'tutor', status: 'completed', durationMin: 60, price: 30, otherName: 'Olivia C.', otherPicture: 'https://randomuser.me/api/portraits/women/12.jpg', actualDurationMin: 60, actualPrice: 30 },
   { id: '__mock_tutor_tip_received__', cardRole: 'tutor', status: 'completed', durationMin: 60, price: 35, otherName: 'Daniel K.', otherPicture: 'https://randomuser.me/api/portraits/men/46.jpg', tipSent: true, actualDurationMin: 60, actualPrice: 35 },
   { id: '__mock_student_analysis_empty__', cardRole: 'student', status: 'completed', durationMin: 45, price: 20, otherName: 'Hana T.', otherPicture: 'https://randomuser.me/api/portraits/women/90.jpg', actualDurationMin: 44, actualPrice: 20 },
   { id: '__mock_student_tutor_feedback__', cardRole: 'student', status: 'completed', durationMin: 50, price: 30, otherName: 'Liam B.', otherPicture: 'https://randomuser.me/api/portraits/men/11.jpg', actualDurationMin: 50, actualPrice: 30 },
@@ -209,14 +210,27 @@ function applyMockAnalysisData(lesson: any, id: string): void {
       lesson.notes = 'Covered ser vs estar in present tense. Student struggled with temporary vs permanent states — assign extra practice on contextual usage.';
       break;
     case '__mock_tutor_feedback_needed__':
+      // AI was DISABLED → tutor feedback required, banner visible, skip hidden
+      lesson.aiAnalysisEnabledAtTime = false;
+      lesson.requiresTutorFeedback = true;
       lesson.tutorFeedback = { _id: `mock-fb-${id}`, lessonId: id, tutorId: lesson.tutorId?._id || '', studentId: lesson.studentId?._id || '', status: 'pending', required: true, strengths: [], areasForImprovement: [], homework: '', overallNotes: '', createdAt: new Date().toISOString(), remindersSent: 0 };
       lesson.notes = 'Feedback has not been submitted yet.';
+      break;
+    case '__mock_tutor_feedback_optional__':
+      // AI was ENABLED → tutor feedback is optional, no banner, skip visible
+      lesson.aiAnalysisEnabledAtTime = true;
+      lesson.notes = 'Optional note: AI handled the analysis for this lesson.';
       break;
     case '__mock_tutor_tip_received__':
       lesson.tutorNote = {
         text: 'Reviewed reading comprehension strategies. Student showed strong analytical skills with short passages.',
       };
-      lesson.notes = 'Reviewed reading comprehension strategies. Student showed strong analytical skills with short passages.';
+      lesson.tip = {
+        amount: 8,
+        paidAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+        stripeFee: 0.53,
+        tutorReceived: 7.47,
+      };
       break;
     case '__mock_tutor_no_notes__':
       break;

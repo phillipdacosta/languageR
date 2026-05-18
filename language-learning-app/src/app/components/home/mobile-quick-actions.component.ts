@@ -17,7 +17,14 @@ export class MobileQuickActionsComponent {
   @Input() staggerReady = false;
   @Input() staggerDone = false;
   @Input() isDarkModeActive = false;
+  /** Tutors only — students get Practice in this slot instead. */
+  @Input() showCreateMaterial = true;
+  /** Student-only — opens spaced-repetition deck. */
+  @Input() showPractice = false;
+  /** Live count of cards due for review. 0 = no badge. */
+  @Input() practiceDueCount = 0;
   @Output() navigateToExplore = new EventEmitter<void>();
   @Output() navigateToCreateMaterial = new EventEmitter<MouseEvent>();
   @Output() navigateToForum = new EventEmitter<void>();
+  @Output() navigateToPractice = new EventEmitter<void>();
 }

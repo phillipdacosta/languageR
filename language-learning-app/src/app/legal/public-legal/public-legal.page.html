@@ -1,0 +1,25 @@
+<ion-header class="public-legal-header">
+  <ion-toolbar>
+    <ion-title>{{ copy.docTitle }}</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="public-legal-content" [fullscreen]="true">
+  <div class="public-legal-inner">
+    <header class="public-legal-doc-header">
+      <h1 class="public-legal-doc-title">{{ copy.docTitle }}</h1>
+      <p class="public-legal-meta">{{ copy.lastUpdated }}</p>
+    </header>
+
+    <section
+      class="public-legal-section"
+      *ngFor="let s of copy.sections; let i = index"
+    >
+      <h2 class="public-legal-section-title">
+        <span class="public-legal-section-num">{{ i + 1 }}</span>
+        {{ s.title }}
+      </h2>
+      <p class="public-legal-section-body">{{ s.body }}</p>
+    </section>
+  </div>
+</ion-content>

@@ -1,6 +1,23 @@
 // Load environment variables FIRST before any other imports
 require('dotenv').config({ path: './config.env' });
 
+// Loud check for the auth config so missing values don't silently fall back
+// to dev tokens. verifyAuth.js itself throws in production if AUTH0_DOMAIN is
+// missing; here we just warn in dev so contributors notice.
+(function checkAuthEnv() {
+  const isProd = process.env.NODE_ENV === 'production';
+  if (!process.env.AUTH0_DOMAIN) {
+    const msg = '[boot] AUTH0_DOMAIN is not set — Auth0 JWT verification will reject all real tokens';
+    if (isProd) {
+      throw new Error(msg);
+    }
+    console.warn(`⚠️  ${msg}. Add it to config.env (see config.env.example).`);
+  }
+  if (isProd && process.env.ALLOW_DEV_TOKENS === 'true') {
+    console.warn('⚠️  ALLOW_DEV_TOKENS=true in production — this is ignored by verifyAuth, but you should remove it from your env to avoid confusion.');
+  }
+})();
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -143,6 +160,8 @@ app.use('/api/tutor-feedback', require('./routes/tutorFeedback'));
 app.use('/api/review-deck', require('./routes/review-deck'));
 app.use('/api/vocabulary', require('./routes/vocabulary'));
 app.use('/api/learning-plan', require('./routes/learningPlan'));
+app.use('/api/subscription', require('./routes/subscription'));
+app.use('/api/quizzes', require('./routes/quizzes'));
 app.use('/api/taxonomy', require('./routes/taxonomy'));
 app.use('/api/bundles', require('./routes/bundles'));
 
@@ -235,6 +254,7 @@ io.use(async (socket, next) => {
 io.on('connection', async (socket) => {
   const userId = socket.userId;
   console.log(`✅ User connected: ${userId}, socket.id: ${socket.id}`);
+  console.log(`[archive-sync] socket joined room=user:${userId} sock=${socket.id} clientUA=${socket.handshake.headers['user-agent']?.slice(0, 60) || 'n/a'}`);
   
   // Store user connection by Auth0 ID
   connectedUsers.set(userId, socket.id);
@@ -566,34 +586,108 @@ server.listen(PORT, '0.0.0.0', () => {
   });
   console.log('⏰ Cron job started: Check material availability (every 6 hours)');
 
-  // Renew expiring Google Calendar watch channels every 12 hours
+  // Google Calendar watch renewal — runs hourly, catches:
+  //   1. Channels expiring within the next 24h (proactive renewal before Google kills them)
+  //   2. Connected users with NO watch (watchExpiration: null) — registration that
+  //      previously failed (e.g. BACKEND_PUBLIC_URL set after initial connect, transient
+  //      Google API error, etc.). Without this, those users would never be re-tried.
+  //   3. Already-expired channels (watchExpiration in the past).
+  // Renewal is non-destructive: we only call registerWatch (which overwrites the stored
+  // channel id). The previous channel is left to expire naturally, so a transient failure
+  // can't strand a user with no watch at all.
+  // Concurrency-bounded: ~2 sec per user × 10 in parallel = ~200 users/min, scales to
+  // tens of thousands of tutors without exceeding Google quota or taking longer than
+  // the cron interval to drain.
   const gcalRoutes = require('./routes/googleCalendarAuth');
-  cron.schedule('0 */12 * * *', async () => {
+  const GCAL_RENEW_CONCURRENCY = parseInt(process.env.GCAL_RENEW_CONCURRENCY || '10', 10);
+
+  async function processGcalUsersInBatches(users, label) {
+    let done = 0, failed = 0;
+    for (let i = 0; i < users.length; i += GCAL_RENEW_CONCURRENCY) {
+      const batch = users.slice(i, i + GCAL_RENEW_CONCURRENCY);
+      const results = await Promise.allSettled(batch.map(u => gcalRoutes.registerWatch(u._id)));
+      for (let j = 0; j < results.length; j++) {
+        const r = results[j];
+        if (r.status === 'fulfilled' && r.value) {
+          done++;
+        } else {
+          failed++;
+          if (r.status === 'rejected') {
+            console.error(`[GCal ${label}] Failed for user ${batch[j]._id}:`, r.reason?.message || r.reason);
+          }
+        }
+      }
+    }
+    console.log(`[GCal ${label}] Done: ${done} renewed, ${failed} failed of ${users.length}`);
+  }
+
+  cron.schedule('15 * * * *', async () => {
     if (!process.env.BACKEND_PUBLIC_URL) return;
-    console.log('[GCal Cron] Checking for expiring watch channels...');
     try {
       const User = require('./models/User');
       const cutoff = new Date(Date.now() + 24 * 60 * 60 * 1000);
       const users = await User.find({
         'googleCalendar.connected': true,
-        'googleCalendar.watchExpiration': { $lt: cutoff, $ne: null }
-      }).select('_id googleCalendar.watchChannelId');
+        'googleCalendar.refreshToken': { $ne: null },
+        $or: [
+          { 'googleCalendar.watchExpiration': null },
+          { 'googleCalendar.watchExpiration': { $lt: cutoff } }
+        ]
+      }).select('_id').lean();
 
-      console.log(`[GCal Cron] Found ${users.length} channels to renew`);
-      for (const user of users) {
-        try {
-          await gcalRoutes.stopWatch(user._id);
-          await gcalRoutes.registerWatch(user._id);
-          console.log(`[GCal Cron] Renewed watch for user ${user._id}`);
-        } catch (err) {
-          console.error(`[GCal Cron] Failed to renew for user ${user._id}:`, err.message);
-        }
-      }
+      if (users.length === 0) return;
+      console.log(`[GCal Cron] Renewing watch for ${users.length} user(s) (concurrency=${GCAL_RENEW_CONCURRENCY})`);
+      await processGcalUsersInBatches(users, 'Cron');
     } catch (err) {
       console.error('[GCal Cron] Error in watch renewal job:', err.message);
     }
   });
-  console.log('⏰ Cron job started: Google Calendar watch renewal (every 12 hours)');
+  console.log('⏰ Cron job started: Google Calendar watch renewal (hourly)');
+
+  // Backfill on boot: register watch for any connected user without an active one.
+  // Runs once 30s after startup so the server is fully warm. This recovers users
+  // whose watch died while the server was down or who were connected before
+  // BACKEND_PUBLIC_URL was configured.
+  // Streams via a Mongo cursor so we don't load every backfill candidate into
+  // memory at once — important if many tutors need backfill after a long outage.
+  if (process.env.BACKEND_PUBLIC_URL) {
+    setTimeout(async () => {
+      try {
+        const User = require('./models/User');
+        const now = new Date();
+        const cursor = User.find({
+          'googleCalendar.connected': true,
+          'googleCalendar.refreshToken': { $ne: null },
+          $or: [
+            { 'googleCalendar.watchExpiration': null },
+            { 'googleCalendar.watchExpiration': { $lt: now } }
+          ]
+        }).select('_id').lean().cursor();
+
+        const buffer = [];
+        let total = 0;
+        for await (const user of cursor) {
+          buffer.push(user);
+          if (buffer.length >= 100) {
+            await processGcalUsersInBatches(buffer, 'Boot');
+            total += buffer.length;
+            buffer.length = 0;
+          }
+        }
+        if (buffer.length > 0) {
+          await processGcalUsersInBatches(buffer, 'Boot');
+          total += buffer.length;
+        }
+        if (total === 0) {
+          console.log('[GCal Boot] No connected tutors needed watch backfill');
+        } else {
+          console.log(`[GCal Boot] Backfill complete: ${total} users processed`);
+        }
+      } catch (err) {
+        console.error('[GCal Boot] Backfill error:', err.message);
+      }
+    }, 30 * 1000);
+  }
 
   // Initialize audio backup and retry cron jobs
   initializeAudioCronJobs();
@@ -602,6 +696,24 @@ server.listen(PORT, '0.0.0.0', () => {
   // Initialize coaching badge evaluator
   const { startCoachingBadgeEvaluator } = require('./jobs/evaluateCoachingBadges');
   startCoachingBadgeEvaluator();
+
+  // End-of-day premium quiz batch (Batch 8). Runs every hour and lets
+  // per-user filters (cap, cooldown, paused) decide who actually gets a
+  // push. Fast and idempotent.
+  const { runQuizEndOfDayBatch } = require('./jobs/quizEndOfDayBatch');
+  cron.schedule('0 * * * *', () => {
+    runQuizEndOfDayBatch().catch(err => console.error('[Cron] EOD quiz batch error:', err));
+  });
+  console.log('⏰ Cron job started: End-of-day quiz batch (every hour)');
+
+  // Mastery Mode weekly micro-challenges (Batch 13). Runs once daily —
+  // the underlying check is idempotent and gated on a 7-day window per
+  // user, so daily runs cost almost nothing if nothing's due.
+  const { runMasteryModeWeeklyCron } = require('./jobs/masteryModeWeekly');
+  cron.schedule('30 9 * * *', () => {
+    runMasteryModeWeeklyCron().catch(err => console.error('[Cron] Mastery weekly error:', err));
+  });
+  console.log('⏰ Cron job started: Mastery Mode weekly sweep (09:30 daily)');
   
   // Run auto-cancel immediately on startup for testing
   console.log('🚀 Running auto-cancel check immediately on startup...');

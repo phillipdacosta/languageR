@@ -57,6 +57,33 @@
     </div>
   </div>
 
+  <!-- Conversation kebab menu (Apple-clean overflow). Opens above the row
+       when the user clicks the three-dots button. Click-outside dismisses
+       via the overlay, action handlers run on the menu items below. -->
+  <div class="kebab-menu-overlay"
+       *ngIf="openKebabConversationId"
+       (click)="closeKebabMenu()">
+    <div class="kebab-menu"
+         *ngIf="kebabMenuPos"
+         [style.top.px]="kebabMenuPos.top"
+         [style.left.px]="kebabMenuPos.left"
+         (click)="$event.stopPropagation()">
+      <button class="kebab-menu-item"
+              type="button"
+              (click)="onKebabArchive()">
+        <ion-icon [name]="conversationsFilter === 'archived' ? 'arrow-undo-outline' : 'archive-outline'"></ion-icon>
+        <span>{{ conversationsFilter === 'archived' ? 'Move to Inbox' : 'Archive' }}</span>
+      </button>
+      <button class="kebab-menu-item kebab-menu-item--danger"
+              type="button"
+              *ngIf="!kebabMenuHideDelete"
+              (click)="onKebabDelete()">
+        <ion-icon name="trash-outline"></ion-icon>
+        <span>Delete</span>
+      </button>
+    </div>
+  </div>
+
   <div class="messages-container" [class.desktop-layout]="isDesktop">
     
     <!-- Desktop Two-Column Layout -->
@@ -65,34 +92,41 @@
          *ngIf="isDesktop">
       <!-- Left Column: Conversation List -->
       <div class="conversations-panel">
-        <div class="conversations-header">
-          <h2>{{ 'MESSAGES.TITLE' | translate }}</h2>
-          <div class="header-actions">
-            <ion-button fill="clear" size="small">
-              <ion-icon name="create-outline"></ion-icon>
-            </ion-button>
-            <ion-button fill="clear" size="small">
-              <ion-icon name="search-outline"></ion-icon>
-            </ion-button>
+        <!-- Header: fixed-height container crossfades title ↔ search bar -->
+        <div class="messages-header-switcher" [class.search-is-open]="searchOpen">
+          <!-- Title row -->
+          <div class="messages-main-heading messages-header-layer">
+            <h2 class="messages-main-title">{{ 'MESSAGES.TITLE' | translate }}</h2>
+            <div class="messages-heading-actions">
+              <ion-button fill="clear" size="small">
+                <ion-icon name="create-outline"></ion-icon>
+              </ion-button>
+            </div>
           </div>
-        </div>
 
-        <!-- Conversations Search Header -->
-        <div class="conversations-search-header" [@slideInUp]>
-          <ion-icon name="search-outline" class="search-icon"></ion-icon>
-          <input
-            type="text"
-            class="search-input"
-            [placeholder]="'MESSAGES.SEARCH_BY_NAME' | translate"
-            [value]="searchTerm"
-            (input)="onSearchChange($any($event.target).value)"
-          />
-          <ion-icon 
-            *ngIf="searchTerm" 
-            name="close-circle" 
-            class="clear-icon"
-            (click)="clearSearch()">
-          </ion-icon>
+          <!-- Search bar: icon lives inside the pill so it physically travels
+               as the pill's left edge sweeps across to its open position -->
+          <div class="messages-header-layer messages-header-layer--search">
+            <div class="search-pill" (click)="!searchOpen && openSearch()">
+              <ion-icon name="search-outline" class="search-pill-icon"></ion-icon>
+              <input
+                type="text"
+                class="search-input conversations-search-input"
+                [placeholder]="'MESSAGES.SEARCH_ALL_MESSAGES' | translate"
+                [value]="searchTerm"
+                (input)="onSearchChange($any($event.target).value)"
+              />
+              <ion-icon
+                *ngIf="searchTerm"
+                name="close-circle"
+                class="clear-icon"
+                (click)="clearSearch()">
+              </ion-icon>
+            </div>
+            <button class="search-cancel-btn" (click)="closeSearch()">
+              {{ 'MESSAGES.CANCEL' | translate }}
+            </button>
+          </div>
         </div>
 
         <!-- Conversations Filter Buttons -->
@@ -109,6 +143,12 @@
             (click)="setConversationsFilter('unread')">
             {{ 'MESSAGES.UNREAD' | translate }}
           </button>
+          <button
+            class="filter-button"
+            [class.active]="conversationsFilter === 'archived'"
+            (click)="setConversationsFilter('archived')">
+            Archived
+          </button>
         </div>
 
         <!-- Loading State (only on initial load) -->
@@ -121,6 +161,7 @@
           <div 
             *ngFor="let conversation of filteredConversations; let i = index; trackBy: trackByConversationId" 
             class="conversation-item"
+            [class.has-kebab-open]="openKebabConversationId === conversation.conversationId"
             [attr.data-conversation-id]="conversation.conversationId"
             [class.active]="selectedConversation?.conversationId === conversation.conversationId"
             (click)="selectConversation(conversation, $event)"
@@ -170,23 +211,30 @@
             </ng-template>
             <div class="conversation-info">
               <div class="conversation-header-row">
-                <h3>{{ conversation.otherUser?.name || 'Unknown User' }}</h3>
+                <h3>
+                  <span *ngIf="!conversation.isGroup"
+                        [innerHTML]="(conversation.otherUser?.name || 'Unknown User') | highlight:searchTerm"></span>
+                  <span *ngIf="conversation.isGroup"
+                        [innerHTML]="(conversation.groupName || conversation.participantNamesList || 'Group') | highlight:searchTerm"></span>
+                  <span class="conversation-pill conversation-pill--cancelled"
+                        *ngIf="conversation.classCancelled">Cancelled</span>
+                </h3>
                 <span class="timestamp">{{ formatTime(conversation.lastMessage.createdAt) }}</span>
               </div>
               <div class="conversation-preview-row">
                 <p class="preview-text" 
                    [class.sent-by-me]="conversation.lastMessage.senderId === getCurrentUserId()">
                   <!-- For reactions, show the person's name who reacted -->
-                  <span *ngIf="conversation.lastMessage.type === 'reaction' && conversation.lastMessage.senderId !== getCurrentUserId()">
-                    {{ conversation.otherUser?.name }}: {{ conversation.lastMessage.content }}
-                  </span>
+                  <span *ngIf="conversation.lastMessage.type === 'reaction' && conversation.lastMessage.senderId !== getCurrentUserId()"
+                        [innerHTML]="((conversation.otherUser?.name || '') + ': ' + conversation.lastMessage.content) | highlight:searchTerm"></span>
                   <span *ngIf="conversation.lastMessage.type === 'reaction' && conversation.lastMessage.senderId === getCurrentUserId()">
-                    {{ 'MESSAGES.YOU' | translate }}: {{ conversation.lastMessage.content }}
+                    {{ 'MESSAGES.YOU' | translate }}: <span [innerHTML]="conversation.lastMessage.content | highlight:searchTerm"></span>
                   </span>
                   <span *ngIf="conversation.lastMessage.type !== 'reaction' && conversation.lastMessage.senderId === getCurrentUserId()">{{ 'MESSAGES.YOU' | translate }}: </span>
                   <!-- Regular message content -->
-                  <span *ngIf="conversation.lastMessage.type !== 'reaction' && conversation.lastMessage.type !== 'system' && !conversation.lastMessage.isSystemMessage">{{ conversation.lastMessage.content }}</span>
-                  <!-- System messages with HTML -->
+                  <span *ngIf="conversation.lastMessage.type !== 'reaction' && conversation.lastMessage.type !== 'system' && !conversation.lastMessage.isSystemMessage"
+                        [innerHTML]="conversation.lastMessage.content | highlight:searchTerm"></span>
+                  <!-- System messages with HTML (no highlight to avoid breaking markup) -->
                   <span *ngIf="conversation.lastMessage.type !== 'reaction' && (conversation.lastMessage.type === 'system' || conversation.lastMessage.isSystemMessage)" [innerHTML]="conversation.lastMessage.content"></span>
                 </p>
                 <ion-badge *ngIf="conversation.unreadCount > 0" color="primary" class="unread-badge">
@@ -194,22 +242,35 @@
                 </ion-badge>
               </div>
             </div>
+
+            <!-- Kebab overflow trigger. Hidden by default; surfaces on row hover
+                 (CSS) or while its menu is open. Stops click propagation so the
+                 row doesn't get selected. Apple-clean: 32px hit target, calm icon. -->
+            <button
+              class="conversation-kebab"
+              type="button"
+              aria-label="More actions"
+              (click)="openKebabMenu($event, conversation)">
+              <ion-icon name="ellipsis-horizontal"></ion-icon>
+            </button>
           </div>
         </div>
 
         <!-- Search Empty State -->
-        <div *ngIf="!isInitialLoad && searchTerm && filteredConversations.length === 0 && conversations.length > 0" class="empty-state search-empty-state" [@fadeInOut]>
+        <div *ngIf="!isInitialLoad && !isFilterSwitching && searchTerm && filteredConversations.length === 0 && conversations.length > 0" class="empty-state search-empty-state" [@fadeInOut]>
           <ion-icon name="search-outline" class="empty-icon"></ion-icon>
           <p>{{ 'MESSAGES.SEARCH_EMPTY_TITLE' | translate }}</p>
           <p class="empty-hint">{{ 'MESSAGES.SEARCH_EMPTY_HINT' | translate }}</p>
         </div>
 
         <!-- Empty State -->
-        <div *ngIf="!isInitialLoad && conversations.length === 0 && showEmptyState && !searchTerm" class="empty-state" [@fadeInOut]>
-          <ion-icon name="chatbubbles-outline" class="empty-icon"></ion-icon>
-          <p>{{ 'MESSAGES.NO_CONVERSATIONS_YET' | translate }}</p>
-          <p class="empty-hint" *ngIf="currentUserType === 'student'">{{ 'MESSAGES.EMPTY_STATE_STUDENT' | translate }}</p>
-          <p class="empty-hint" *ngIf="currentUserType === 'tutor'">{{ 'MESSAGES.EMPTY_STATE_TUTOR' | translate }}</p>
+        <div *ngIf="!isInitialLoad && !isFilterSwitching && filteredConversations.length === 0 && !searchTerm" class="empty-state" [@fadeInOut]>
+          <ion-icon [name]="conversationsFilter === 'archived' ? 'archive-outline' : 'chatbubbles-outline'" class="empty-icon"></ion-icon>
+          <p *ngIf="conversationsFilter === 'archived'">No archived conversations</p>
+          <p class="empty-hint" *ngIf="conversationsFilter === 'archived'">Conversations you archive will appear here.</p>
+          <p *ngIf="conversationsFilter !== 'archived'">{{ 'MESSAGES.NO_CONVERSATIONS_YET' | translate }}</p>
+          <p class="empty-hint" *ngIf="conversationsFilter !== 'archived' && currentUserType === 'student'">{{ 'MESSAGES.EMPTY_STATE_STUDENT' | translate }}</p>
+          <p class="empty-hint" *ngIf="conversationsFilter !== 'archived' && currentUserType === 'tutor'">{{ 'MESSAGES.EMPTY_STATE_TUTOR' | translate }}</p>
         </div>
       </div>
 
@@ -264,10 +325,6 @@
              (mouseenter)="showHoverCard()"
              (mouseleave)="hideHoverCard()">
         </div>
-        <span class="other-user-local-time" *ngIf="otherUserLocalTime">
-          <ion-icon name="time-outline"></ion-icon>
-          {{ otherUserLocalTime }}
-        </span>
       </div>
 
         <ion-button size="small" fill="clear" (click)="openBookLesson(); $event.stopPropagation()" *ngIf="selectedConversation && currentUserType === 'student' && !selectedIsClassBroadcast">
@@ -316,7 +373,7 @@
               <div class="hover-card-actions">
                 <span class="local-time" *ngIf="otherUserLocalTime">
                   <ion-icon name="time-outline"></ion-icon>
-                  {{ otherUserLocalTime }}
+                  {{ 'MESSAGES.LOCAL_TIME_FOR_THEM' | translate: { time: otherUserLocalTime } }}
                 </span>
               </div>
 
@@ -335,6 +392,22 @@
                 </ion-button>
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- Tutor → student plan strip (desktop). Renders just below the
+             chat header so it's the first thing the tutor sees when they
+             open the thread. Surface-only: tap the briefing CTA to open
+             the lesson briefing for full context. -->
+        <div class="plan-strip" *ngIf="studentPlanStrip as plan">
+          <div class="plan-strip-row">
+            <ion-icon name="map-outline" class="plan-strip-leading"></ion-icon>
+            <span class="plan-strip-phase-idx">{{ plan.phaseIndex }}/{{ plan.totalPhases }}</span>
+            <span class="plan-strip-phase-title">{{ plan.phaseLabel }}</span>
+          </div>
+          <div class="plan-strip-row plan-strip-row--focus" *ngIf="plan.focus">
+            <ion-icon name="flash-outline"></ion-icon>
+            <span class="plan-strip-focus">{{ plan.focus }}</span>
           </div>
         </div>
 
@@ -527,8 +600,20 @@
           You're no longer a member of this class conversation. History is read-only.
         </div>
 
+        <div
+          class="composer-local-time"
+          *ngIf="otherUserLocalTime && !selectedConversation?.archived"
+        >
+          <ion-icon name="time-outline" aria-hidden="true"></ion-icon>
+          <span>{{ 'MESSAGES.LOCAL_TIME_FOR_THEM' | translate: { time: otherUserLocalTime } }}</span>
+        </div>
+
         <!-- Message Input -->
-        <div class="message-input-container" *ngIf="!selectedConversation?.archived">
+        <div
+          class="message-input-container"
+          *ngIf="!selectedConversation?.archived"
+          [class.message-input--below-local-time]="otherUserLocalTime"
+        >
           <!-- Hidden file inputs -->
           <input type="file" #imageInput accept="image/*" (change)="onFileSelected($event, 'image')" style="display: none;">
           <input type="file" #documentInput accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx" (change)="onFileSelected($event, 'file')" style="display: none;">
@@ -718,8 +803,8 @@
     <div class="mobile-messages-wrapper" *ngIf="!isDesktop">
       <!-- Conversation List View (Mobile) -->
       <div class="conversations-panel" *ngIf="!selectedConversation">
-        <div class="conversations-header">
-          <h2>{{ 'MESSAGES.TITLE' | translate }}</h2>
+        <div class="messages-main-heading messages-main-heading--title-only">
+          <h2 class="messages-main-title">{{ 'MESSAGES.TITLE' | translate }}</h2>
         </div>
 
         <!-- Mobile: Conversations Search Header -->
@@ -728,7 +813,7 @@
           <input
             type="text"
             class="search-input"
-            [placeholder]="'MESSAGES.SEARCH_BY_NAME' | translate"
+            [placeholder]="'MESSAGES.SEARCH_ALL_MESSAGES' | translate"
             [value]="searchTerm"
             (input)="onSearchChange($any($event.target).value)"
           />
@@ -754,6 +839,12 @@
             (click)="setConversationsFilter('unread')">
             {{ 'MESSAGES.UNREAD' | translate }}
           </button>
+          <button
+            class="filter-button"
+            [class.active]="conversationsFilter === 'archived'"
+            (click)="setConversationsFilter('archived')">
+            Archived
+          </button>
         </div>
 
         <div *ngIf="isInitialLoad && isLoading" class="loading-container">
@@ -764,6 +855,7 @@
           <div 
             *ngFor="let conversation of filteredConversations; let i = index; trackBy: trackByConversationId" 
             class="conversation-item"
+            [class.has-kebab-open]="openKebabConversationId === conversation.conversationId"
             [attr.data-conversation-id]="conversation.conversationId"
             (click)="selectConversation(conversation, $event)"
             [@slideInUp]
@@ -786,7 +878,11 @@
             </ion-avatar>
             <div class="conversation-info">
               <div class="conversation-header-row">
-                <h3>{{ conversation.otherUser?.name || 'Unknown User' }}</h3>
+                <h3>
+                  {{ conversation.otherUser?.name || 'Unknown User' }}
+                  <span class="conversation-pill conversation-pill--cancelled"
+                        *ngIf="conversation.classCancelled">Cancelled</span>
+                </h3>
                 <span class="timestamp">{{ formatTime(conversation.lastMessage.createdAt) }}</span>
               </div>
               <div class="conversation-preview-row">
@@ -808,21 +904,33 @@
                 </ion-badge>
               </div>
             </div>
+
+            <!-- Kebab overflow trigger (mobile list). Always visible on
+                 mobile since hover affordances don't apply on touch. -->
+            <button
+              class="conversation-kebab conversation-kebab--mobile"
+              type="button"
+              aria-label="More actions"
+              (click)="openKebabMenu($event, conversation)">
+              <ion-icon name="ellipsis-horizontal"></ion-icon>
+            </button>
           </div>
         </div>
 
         <!-- Search Empty State (Mobile) -->
-        <div *ngIf="!isInitialLoad && searchTerm && filteredConversations.length === 0 && conversations.length > 0" class="empty-state search-empty-state" [@fadeInOut]>
+        <div *ngIf="!isInitialLoad && !isFilterSwitching && searchTerm && filteredConversations.length === 0 && conversations.length > 0" class="empty-state search-empty-state" [@fadeInOut]>
           <ion-icon name="search-outline" class="empty-icon"></ion-icon>
           <h2>{{ 'MESSAGES.SEARCH_EMPTY_TITLE' | translate }}</h2>
           <p class="empty-hint">{{ 'MESSAGES.SEARCH_EMPTY_HINT' | translate }}</p>
         </div>
 
-        <div *ngIf="!isInitialLoad && conversations.length === 0 && showEmptyState && !searchTerm" class="empty-state" [@fadeInOut]>
-          <ion-icon name="chatbubbles-outline" class="empty-icon"></ion-icon>
-          <h2>{{ 'MESSAGES.NO_MESSAGES_YET' | translate }}</h2>
-          <p *ngIf="currentUserType === 'student'">{{ 'MESSAGES.EMPTY_STATE_STUDENT_MOBILE' | translate }}</p>
-          <p *ngIf="currentUserType === 'tutor'">{{ 'MESSAGES.EMPTY_STATE_TUTOR' | translate }}</p>
+        <div *ngIf="!isInitialLoad && !isFilterSwitching && filteredConversations.length === 0 && !searchTerm" class="empty-state" [@fadeInOut]>
+          <ion-icon [name]="conversationsFilter === 'archived' ? 'archive-outline' : 'chatbubbles-outline'" class="empty-icon"></ion-icon>
+          <h2 *ngIf="conversationsFilter === 'archived'">No archived conversations</h2>
+          <p *ngIf="conversationsFilter === 'archived'">Conversations you archive will appear here.</p>
+          <h2 *ngIf="conversationsFilter !== 'archived'">{{ 'MESSAGES.NO_MESSAGES_YET' | translate }}</h2>
+          <p *ngIf="conversationsFilter !== 'archived' && currentUserType === 'student'">{{ 'MESSAGES.EMPTY_STATE_STUDENT_MOBILE' | translate }}</p>
+          <p *ngIf="conversationsFilter !== 'archived' && currentUserType === 'tutor'">{{ 'MESSAGES.EMPTY_STATE_TUTOR' | translate }}</p>
         </div>
       </div>
 
@@ -876,7 +984,7 @@
                 </p>
                 <p class="time-status-mobile" *ngIf="otherUserLocalTime">
                   <ion-icon name="time-outline"></ion-icon>
-                  <span>{{ otherUserLocalTime }}</span>
+                  <span>{{ 'MESSAGES.LOCAL_TIME_FOR_THEM' | translate: { time: otherUserLocalTime } }}</span>
                 </p>
               </div>
             </div>
@@ -892,6 +1000,21 @@
             (click)="openBookLesson(); $event.stopPropagation()">
             <ion-icon name="calendar-outline" slot="icon-only"></ion-icon>
           </ion-button>
+        </div>
+
+        <!-- Tutor → student plan strip (mobile). Same data as the desktop
+             strip; rendered between the mobile chat header and the message
+             list so it sits above the conversation. -->
+        <div class="plan-strip plan-strip--mobile" *ngIf="studentPlanStrip as plan">
+          <div class="plan-strip-row">
+            <ion-icon name="map-outline" class="plan-strip-leading"></ion-icon>
+            <span class="plan-strip-phase-idx">{{ plan.phaseIndex }}/{{ plan.totalPhases }}</span>
+            <span class="plan-strip-phase-title">{{ plan.phaseLabel }}</span>
+          </div>
+          <div class="plan-strip-row plan-strip-row--focus" *ngIf="plan.focus">
+            <ion-icon name="flash-outline"></ion-icon>
+            <span class="plan-strip-focus">{{ plan.focus }}</span>
+          </div>
         </div>
 
         <div class="chat-messages" #chatContainer>

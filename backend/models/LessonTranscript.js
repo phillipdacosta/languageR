@@ -47,6 +47,13 @@ const transcriptSegmentSchema = new mongoose.Schema({
     min: 0,
     max: 1,
     default: null
+  },
+  // True when this student-tagged segment overlaps a tutor speech interval
+  // (mic bleed). Excluded segments are kept for debugging but skipped by
+  // the analysis step.
+  excludedByTutorOverlap: {
+    type: Boolean,
+    default: false
   }
 });
 
@@ -138,7 +145,24 @@ const lessonTranscriptSchema = new mongoose.Schema({
     hasSpeech: Boolean,
     analyzedAt: { type: Date, default: Date.now }
   }],
-  
+
+  // Tutor speech intervals (in batch-time seconds, aligned to the concatenated
+  // student audio batch). Used to filter out student segments that overlap
+  // tutor speech captured from the Agora remote audio track — solves the
+  // microphone bleed problem where the tutor's voice comes through the
+  // student's speakers and gets re-recorded by the student's mic.
+  tutorSpeechIntervals: [{
+    startSec: Number,
+    endSec: Number
+  }],
+  tutorReferenceMeta: {
+    durationSeconds: Number,
+    rmsLevelDb: Number,
+    silenceRatio: Number,
+    processedAt: Date,
+    sizeBytes: Number
+  },
+
   fullText: String  // Concatenated transcript text (used by analysis)
 }, {
   timestamps: true

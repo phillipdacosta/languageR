@@ -272,6 +272,27 @@ export class TranscriptionService {
   }
 
   /**
+   * Upload the tutor's clean Agora remote-audio track for VAD-only
+   * processing on the backend. This audio is NEVER transcribed — it's used
+   * solely to detect when the tutor was speaking so we can filter out
+   * student-tagged segments contaminated by speaker bleed.
+   */
+  uploadTutorReference(transcriptId: string, audioBlob: Blob): Observable<any> {
+    const formData = new FormData();
+    formData.append('audio', audioBlob, 'tutor-reference.webm');
+
+    const authHeaders = this.userService.getAuthHeadersSync();
+    const authToken = authHeaders.get('Authorization') || authHeaders.get('authorization');
+    const headers = new HttpHeaders({
+      'Authorization': authToken || ''
+    });
+
+    console.log(`🎯 Uploading tutor reference audio (${audioBlob.size} bytes) for VAD`);
+
+    return this.http.post(`${this.apiUrl}/${transcriptId}/tutor-reference`, formData, { headers });
+  }
+
+  /**
    * Complete transcription and trigger analysis
    */
   completeTranscription(): Observable<any> {

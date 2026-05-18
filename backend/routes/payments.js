@@ -23,6 +23,11 @@ const Notification = require('../models/Notification');
 const Message = require('../models/Message');
 const { generateTrialLessonMessage } = require('../utils/systemMessages');
 const { formatNameWithInitial } = require('../utils/nameFormatter');
+const { applyApprovalIfReady } = require('../utils/tutorApproval');
+const {
+  getStripeCountryCode,
+  isStripeSupportedCountry
+} = require('../utils/stripeSupportedCountries');
 const TutorFeedback = require('../models/TutorFeedback');
 const { toZonedTime } = require('date-fns-tz');
 const { pushLessonToGoogleCalendar } = require('../services/googleCalendarService');
@@ -591,16 +596,32 @@ router.post('/book-lesson-with-payment', verifyToken, async (req, res) => {
       // Send system message to tutor if this is a trial lesson
       if (isTrialLesson) {
         try {
-          // Get tutor's interface language preference
           const tutorLanguage = tutor.interfaceLanguage || 'en';
-          
-          // Generate the multilingual system message
+
+          // Fold the student's learning plan into the system message so the
+          // tutor sees their goal/level/phase before the call. Non-fatal.
+          let studentPlan = null;
+          try {
+            const LearningPlan = require('../models/LearningPlan');
+            const planLanguage = populatedLesson.subject || language;
+            if (planLanguage) {
+              studentPlan = await LearningPlan.findOne({
+                studentId: student._id,
+                language: planLanguage,
+                status: { $in: ['draft', 'active', 'completed'] }
+              }).lean();
+            }
+          } catch (planErr) {
+            console.warn('🔍 [TRIAL] plan lookup failed (non-fatal):', planErr.message);
+          }
+
           const systemMessageContent = generateTrialLessonMessage({
             studentName: studentDisplayName,
             studentId: student._id.toString(),
             startTime: lessonDate,
             duration: populatedLesson.duration,
-            tutorLanguage
+            tutorLanguage,
+            plan: studentPlan
           });
           
           // Create conversation ID between tutor and student using auth0Ids
@@ -884,9 +905,9 @@ router.post('/stripe-connect/onboard', verifyToken, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Only tutors can onboard to Stripe Connect' });
     }
 
-    const { isUSPersonForTax, hasUSBankAccount } = req.body;
+    const { isUSPersonForTax, hasUSBankAccount, residenceCountry } = req.body;
 
-    // Save tax classification info if provided
+    // Save tax classification info if provided (legacy US-only flow)
     if (isUSPersonForTax !== undefined) {
       user.isUSPersonForTax = isUSPersonForTax;
       user.taxInfoCompletedAt = new Date();
@@ -896,15 +917,45 @@ router.post('/stripe-connect/onboard', verifyToken, async (req, res) => {
       user.hasUSBankAccount = hasUSBankAccount;
       console.log(`📋 Bank info saved for ${user.email}: hasUSBank=${hasUSBankAccount}`);
     }
+
+    // Persist a freshly-supplied residenceCountry (e.g. legacy users picking it now)
+    if (residenceCountry && typeof residenceCountry === 'string' && residenceCountry.trim()) {
+      user.residenceCountry = residenceCountry.trim();
+    }
+
+    // Legacy back-compat: pre-residenceCountry users who completed the
+    // US-tax flow with isUSPerson=true + hasUSBankAccount=true were implicitly
+    // routed to a hard-coded US Stripe Connect account. Preserve that so they
+    // don't get blocked.
+    if (!user.residenceCountry && user.isUSPersonForTax === true && user.hasUSBankAccount === true) {
+      user.residenceCountry = 'United States';
+    }
     await user.save();
+
+    // Resolve the country for Stripe: prefer explicit body, fall back to user.residenceCountry
+    const countryName = (residenceCountry && residenceCountry.trim()) || user.residenceCountry || '';
+    const countryCode = getStripeCountryCode(countryName);
+
+    if (!countryCode) {
+      // Defensive: frontend should already have routed non-Stripe countries to PayPal.
+      return res.status(400).json({
+        success: false,
+        code: 'STRIPE_COUNTRY_UNSUPPORTED',
+        message: countryName
+          ? `Stripe Connect is not available in ${countryName}. Please choose PayPal as your payout method.`
+          : 'Country of residence is required to set up Stripe Connect. Please complete your profile first.'
+      });
+    }
 
     // Create Stripe Connect account if doesn't exist
     if (!user.stripeConnectAccountId) {
       const account = await stripeService.createConnectAccount({
         email: user.email,
+        country: countryCode,
         metadata: {
           userId: user._id.toString(),
-          userName: user.name
+          userName: user.name,
+          residenceCountry: countryName
         }
       });
 
@@ -1675,26 +1726,37 @@ router.get('/stripe-connect/status', verifyToken, async (req, res) => {
     const onboarded = account.charges_enabled && account.payouts_enabled;
     const wasJustOnboarded = onboarded && !user.stripeConnectOnboarded;
 
+    // Stripe has fully KYC-cleared the tutor when payouts are enabled AND there
+    // are no outstanding requirements. That means we can skip Barnabi's manual
+    // government-ID review for this user.
+    const requirementsDue = account.requirements?.currently_due?.length || 0;
+    const pastDue = account.requirements?.past_due?.length || 0;
+    const eventuallyDue = account.requirements?.eventually_due?.length || 0;
+    const stripeIdentityVerified =
+      onboarded && requirementsDue === 0 && pastDue === 0 && eventuallyDue === 0;
+
+    // Stripe-disabled signal: Stripe rejected the account, blocked it, or has
+    // overdue requirements. Used to re-show the manual gov-ID fallback step.
+    const disabledReason = account.requirements?.disabled_reason || null;
+    const accountDisabled = !!(
+      disabledReason ||
+      pastDue > 0 ||
+      (account.details_submitted && account.charges_enabled === false)
+    );
+
     // Update user if onboarding completed
     if (wasJustOnboarded) {
       user.stripeConnectOnboarded = true;
       user.stripeConnectOnboardedAt = new Date();
       user.stripePayoutsEnabled = true; // Enable payouts (required for withdrawals)
       user.payoutProvider = 'stripe'; // Set payout provider when Stripe is connected
-      
-      // Check if all tutor approval steps are now complete
       user.tutorOnboarding = user.tutorOnboarding || {};
-      const photoComplete = user.tutorOnboarding.photoUploaded || !!user.picture;
-      const videoApproved = user.tutorOnboarding.videoApproved === true;
-      const stripeComplete = true; // We just completed it
-      
-      if (photoComplete && videoApproved && stripeComplete && !user.tutorApproved) {
-        user.tutorApproved = true;
-        user.tutorOnboarding.stripeConnected = true;
-        user.tutorOnboarding.completedAt = new Date();
-        console.log(`🎉 Tutor ${user.email} is now FULLY APPROVED (all steps complete)`);
-      }
-      
+      user.tutorOnboarding.stripeConnected = true;
+
+      // Promote to fully-approved only when every gate (photo, video-approved,
+      // payout, identity, qualifications, TOS) is satisfied.
+      applyApprovalIfReady(user);
+
       await user.save();
       console.log(`✅ Tutor ${user.email} completed Stripe Connect onboarding`);
 
@@ -1760,11 +1822,25 @@ router.get('/stripe-connect/status', verifyToken, async (req, res) => {
       }
     }
 
-    // Always sync stripePayoutsEnabled with Stripe's current status
+    // Always sync stripePayoutsEnabled + stripeIdentityVerified + stripeAccountDisabled with Stripe's current status
+    let needsSave = false;
     if (user.stripePayoutsEnabled !== account.payouts_enabled) {
       user.stripePayoutsEnabled = account.payouts_enabled;
-      await user.save();
+      needsSave = true;
       console.log(`🔄 Synced stripePayoutsEnabled to ${account.payouts_enabled} for ${user.email}`);
+    }
+    if (user.stripeIdentityVerified !== stripeIdentityVerified) {
+      user.stripeIdentityVerified = stripeIdentityVerified;
+      needsSave = true;
+      console.log(`🔄 Synced stripeIdentityVerified to ${stripeIdentityVerified} for ${user.email}`);
+    }
+    if (user.stripeAccountDisabled !== accountDisabled) {
+      user.stripeAccountDisabled = accountDisabled;
+      needsSave = true;
+      console.log(`🔄 Synced stripeAccountDisabled to ${accountDisabled} (${disabledReason || 'pastDue/charges'}) for ${user.email}`);
+    }
+    if (needsSave) {
+      await user.save();
     }
 
     res.json({
@@ -1773,7 +1849,11 @@ router.get('/stripe-connect/status', verifyToken, async (req, res) => {
       accountId: user.stripeConnectAccountId,
       chargesEnabled: account.charges_enabled,
       payoutsEnabled: account.payouts_enabled,
-      detailsSubmitted: account.details_submitted
+      detailsSubmitted: account.details_submitted,
+      identityVerified: stripeIdentityVerified,
+      accountDisabled,
+      disabledReason,
+      requirementsDue
     });
   } catch (error) {
     console.error('❌ Error checking Stripe Connect status:', error);
@@ -2055,22 +2135,13 @@ router.post('/setup-paypal', verifyToken, async (req, res) => {
     user.payoutProvider = 'paypal';
     user.payoutDetails = user.payoutDetails || {};
     user.payoutDetails.paypalEmail = paypalEmail;
-    
+
     // Mark payout setup as complete for onboarding
     user.tutorOnboarding = user.tutorOnboarding || {};
     user.tutorOnboarding.stripeConnected = true; // Use same flag for any payout method
-    
-    // Check if all onboarding steps complete
-    const photoComplete = user.tutorOnboarding.photoUploaded || !!user.picture;
-    const videoApproved = user.tutorOnboarding.videoApproved === true;
-    const payoutComplete = true; // Just completed
-    
-    if (photoComplete && videoApproved && payoutComplete && !user.tutorApproved) {
-      user.tutorApproved = true;
-      user.tutorOnboarding.completedAt = new Date();
-      console.log(`🎉 Tutor ${user.email} is now FULLY APPROVED (PayPal setup)`);
-    }
-    
+
+    applyApprovalIfReady(user);
+
     await user.save();
     
     console.log(`✅ PayPal setup complete for tutor ${user.email}: ${paypalEmail}`);
@@ -2117,22 +2188,13 @@ router.post('/setup-manual', verifyToken, async (req, res) => {
 
     // Update payout provider
     user.payoutProvider = 'manual';
-    
+
     // Mark payout setup as complete for onboarding
     user.tutorOnboarding = user.tutorOnboarding || {};
     user.tutorOnboarding.stripeConnected = true; // Use same flag for any payout method
-    
-    // Check if all onboarding steps complete
-    const photoComplete = user.tutorOnboarding.photoUploaded || !!user.picture;
-    const videoApproved = user.tutorOnboarding.videoApproved === true;
-    const payoutComplete = true; // Just completed
-    
-    if (photoComplete && videoApproved && payoutComplete && !user.tutorApproved) {
-      user.tutorApproved = true;
-      user.tutorOnboarding.completedAt = new Date();
-      console.log(`🎉 Tutor ${user.email} is now FULLY APPROVED (Manual payout setup)`);
-    }
-    
+
+    applyApprovalIfReady(user);
+
     await user.save();
     
     console.log(`✅ Manual payout setup complete for tutor ${user.email}`);

@@ -7,6 +7,17 @@ const { upload, uploadImage, uploadDocument, uploadVideoWithCompression, uploadI
 const TutorMaterial = require('../models/TutorMaterial');
 const { initializeGCS } = require('../config/gcs');
 const rateLimit = require('express-rate-limit');
+const { applyApprovalIfReady } = require('../utils/tutorApproval');
+
+/**
+ * UI interface language codes accepted on POST /, PUT /profile, PUT /onboarding.
+ * Must match `User` model `interfaceLanguage.enum` and Angular `LanguageService`.
+ */
+const SUPPORTED_INTERFACE_LANGUAGES = Object.freeze([
+  'en', 'es', 'fr', 'pt', 'de', 'it', 'ru', 'zh', 'ja', 'ko',
+  'ar', 'hi', 'nl', 'pl', 'tr', 'sv', 'no', 'da', 'fi', 'el',
+  'cs', 'ro', 'uk', 'vi', 'th', 'id', 'ms', 'he', 'fa',
+]);
 
 /**
  * Capitalizes a name properly (title case)
@@ -279,12 +290,22 @@ router.get('/me', verifyToken, async (req, res) => {
         tutorOnboarding: user.tutorOnboarding,
         tutorCredentials: user.tutorCredentials,
         tutorApproved: user.tutorApproved,
+        // Tutor approval status drivers — required so the home/calendar
+        // banner can mark each step done/pending without a refresh.
+        tosAcceptedAt: user.tosAcceptedAt,
+        tosVersion: user.tosVersion,
+        stripeIdentityVerified: user.stripeIdentityVerified,
+        stripeAccountDisabled: user.stripeAccountDisabled,
+        isUSPersonForTax: user.isUSPersonForTax,
+        hasUSBankAccount: user.hasUSBankAccount,
         stripeConnectOnboarded: user.stripeConnectOnboarded,
+        stripePayoutsEnabled: user.stripePayoutsEnabled,
         stripeCustomerId: user.stripeCustomerId, // ADD THIS - Critical for saved card payments!
         payoutProvider: user.payoutProvider, // ADD THIS
         payoutDetails: user.payoutDetails, // ADD THIS
         profile: user.profile,
         nativeLanguage: user.nativeLanguage,
+        spokenLanguages: user.spokenLanguages || [],
         interfaceLanguage: user.interfaceLanguage,
         stats: user.stats,
         createdAt: user.createdAt,
@@ -337,8 +358,17 @@ router.get('/coaching-metrics', verifyToken, async (req, res) => {
 router.post('/', verifyToken, async (req, res) => {
   try {
     const { email, name, picture, emailVerified, userType } = req.body;
-    
-    console.log('🔍 Creating/updating user with data:', { email, name, userType });
+
+    // Validate interfaceLanguage from payload (sent by frontend `initializeUser`
+    // so a brand-new user's chosen UI language is persisted at creation time,
+    // instead of falling back to the schema default 'en' and clobbering the
+    // user's selection on the first subsequent /users/me fetch).
+    const requestedInterfaceLang = (req.body.interfaceLanguage
+      && SUPPORTED_INTERFACE_LANGUAGES.includes(req.body.interfaceLanguage))
+      ? req.body.interfaceLanguage
+      : null;
+
+    console.log('🔍 Creating/updating user with data:', { email, name, userType, requestedInterfaceLang });
     console.log('🔍 Full request body:', req.body);
     
     // Check if user already exists by auth0Id first, then by email
@@ -400,7 +430,11 @@ router.post('/', verifyToken, async (req, res) => {
           picture: auth0Picture,
           emailVerified: emailVerified !== undefined ? emailVerified : (req.user.email_verified || false),
           userType: userType || 'student', // Default to student
-          onboardingCompleted: false
+          onboardingCompleted: false,
+          // Seed interfaceLanguage from the client's local pick (browser
+          // auto-detect or explicit picker). Falls through to the schema
+          // default 'en' when no valid value was provided.
+          ...(requestedInterfaceLang ? { interfaceLanguage: requestedInterfaceLang } : {})
         });
         
         console.log('🔍 New user object created:', user);
@@ -454,6 +488,7 @@ router.post('/', verifyToken, async (req, res) => {
         payoutDetails: user.payoutDetails,
         profile: user.profile,
         nativeLanguage: user.nativeLanguage,
+        spokenLanguages: user.spokenLanguages || [],
         interfaceLanguage: user.interfaceLanguage,
         stats: user.stats,
         createdAt: user.createdAt,
@@ -576,8 +611,8 @@ router.put('/onboarding', verifyToken, async (req, res) => {
       }
     }
     
-    // Save interface language if provided during onboarding
-    if (req.body.interfaceLanguage && ['en', 'es', 'fr', 'pt', 'de'].includes(req.body.interfaceLanguage)) {
+    // Save interface language if provided during onboarding (same whitelist as POST /profile).
+    if (req.body.interfaceLanguage && SUPPORTED_INTERFACE_LANGUAGES.includes(req.body.interfaceLanguage)) {
       user.interfaceLanguage = req.body.interfaceLanguage;
       console.log('🌐 Interface language set during onboarding:', req.body.interfaceLanguage);
     }
@@ -587,7 +622,7 @@ router.put('/onboarding', verifyToken, async (req, res) => {
     
     if (user.userType === 'tutor') {
       // Handle tutor onboarding data
-      const { languages, experience, schedule, summary, bio, hourlyRate, introductionVideo, videoThumbnail, videoType, nativeLanguage, firstName, lastName, country, residenceCountry } = req.body;
+      const { languages, experience, schedule, summary, bio, hourlyRate, introductionVideo, videoThumbnail, videoType, nativeLanguage, firstName, lastName, country, residenceCountry, spokenLanguages } = req.body;
       user.onboardingData = {
         firstName: formatName(firstName || user.firstName || ''),
         lastName: formatName(lastName || user.lastName || ''),
@@ -604,7 +639,7 @@ router.put('/onboarding', verifyToken, async (req, res) => {
         videoType: videoType || 'upload',
         completedAt: new Date()
       };
-      
+
       // Update user-level fields
       if (nativeLanguage) {
         user.nativeLanguage = nativeLanguage;
@@ -615,9 +650,34 @@ router.put('/onboarding', verifyToken, async (req, res) => {
       if (residenceCountry) {
         user.residenceCountry = residenceCountry; // Where they currently live (for payouts)
       }
+      if (Array.isArray(spokenLanguages)) {
+        // Validate each entry has a valid code and CEFR level before saving
+        const validLevels = new Set(['A1', 'A2', 'B1', 'B2', 'C1', 'C2']);
+        user.spokenLanguages = spokenLanguages
+          .filter(s => s && typeof s.code === 'string' && s.code.trim() && validLevels.has(s.level))
+          .map(s => ({ code: s.code.trim(), level: s.level }));
+      }
     } else {
       // Handle student onboarding data
-      const { languages, goals, experienceLevel, preferredSchedule, learningGoal } = req.body;
+      const { languages, goals, experienceLevel, preferredSchedule, learningGoal, spokenLanguages: studentSpokenLanguages } = req.body;
+
+      // Capture the *previous* goal so we can detect a goal change after
+      // save and trigger plan regeneration (preserving demonstrated state).
+      // Without this hook the user.onboardingData.learningGoal updates but
+      // the LearningPlan stays stale.
+      const previousLearningGoal = user.onboardingData?.learningGoal
+        ? {
+            type: user.onboardingData.learningGoal.type,
+            description: user.onboardingData.learningGoal.description || '',
+            targetLevel: user.onboardingData.learningGoal.targetLevel || '',
+            timeline: user.onboardingData.learningGoal.timeline || 'no_rush'
+          }
+        : null;
+      // Stash on req for the post-save regen hook below (set after save).
+      req._previousLearningGoal = previousLearningGoal;
+      req._newLearningGoal = (learningGoal && learningGoal.type) ? learningGoal : null;
+      req._studentLanguages = Array.isArray(languages) ? languages : [];
+
       user.onboardingData = {
         languages: languages || [],
         goals: goals || [],
@@ -634,6 +694,12 @@ router.put('/onboarding', verifyToken, async (req, res) => {
           timeline: learningGoal.timeline || 'no_rush',
           targetDate: learningGoal.targetDate || null
         };
+      }
+      if (Array.isArray(studentSpokenLanguages)) {
+        const validLevels = new Set(['A1', 'A2', 'B1', 'B2', 'C1', 'C2']);
+        user.spokenLanguages = studentSpokenLanguages
+          .filter(s => s && typeof s.code === 'string' && s.code.trim() && validLevels.has(s.level))
+          .map(s => ({ code: s.code.trim(), level: s.level }));
       }
     }
     
@@ -655,6 +721,56 @@ router.put('/onboarding', verifyToken, async (req, res) => {
         details: saveError.errors
       });
     }
+
+    // "Learn at my own pace" path: student skipped goal setup. Create a thin
+    // unframed plan per selected language so the post-lesson pipeline still
+    // has something to write into (CEFR estimate, recommended materials,
+    // tutor briefings). They can promote any time from the profile.
+    if (user.userType === 'student' && req.body?.skipGoalSetup === true) {
+      const learningPlanService = require('../services/learningPlanService');
+      for (const lang of (req._studentLanguages || [])) {
+        try {
+          await learningPlanService.createUnframedPlan(user._id, lang);
+          console.log(`✅ [Onboarding] Unframed plan created for ${user.email} (${lang})`);
+        } catch (unframedErr) {
+          console.error(`❌ [Onboarding] Unframed plan creation failed for ${lang}:`, unframedErr.message);
+        }
+      }
+    }
+
+    // Goal-change side-effect: if a returning student's onboarding submit
+    // includes a different learningGoal than they had before, regenerate
+    // their LearningPlan(s) so the roadmap reflects the new intent.
+    // Preserves their demonstrated chapter level — see learningPlanService.
+    if (user.userType === 'student' && req._newLearningGoal && req._previousLearningGoal) {
+      const prev = req._previousLearningGoal;
+      const next = req._newLearningGoal;
+      const goalChanged =
+        prev.type !== next.type ||
+        (prev.description || '') !== (next.description || '') ||
+        (prev.targetLevel || '') !== (next.targetLevel || '') ||
+        (prev.timeline || 'no_rush') !== (next.timeline || 'no_rush');
+
+      if (goalChanged) {
+        const learningPlanService = require('../services/learningPlanService');
+        for (const lang of (req._studentLanguages || [])) {
+          try {
+            await learningPlanService.regeneratePlan(user._id, lang, next);
+            console.log(`✅ [Onboarding] Plan regenerated for goal change (${lang}) — chapter preserved`);
+          } catch (regenErr) {
+            if (regenErr.statusCode === 429) {
+              // Cooldown active — user.onboardingData was updated but the
+              // plan was not. The frontend cooldown banner already warns
+              // the student about this.
+              console.log(`⏳ [Onboarding] Goal-change cooldown active for ${user.email} (${lang}); plan kept as-is`);
+            } else {
+              console.error(`❌ [Onboarding] Plan regen failed for ${lang}:`, regenErr.message);
+              // Don't fail the onboarding — goal is saved, regen is best-effort.
+            }
+          }
+        }
+      }
+    }
     
     res.json({
       success: true,
@@ -674,6 +790,7 @@ router.put('/onboarding', verifyToken, async (req, res) => {
         onboardingData: user.onboardingData,
         profile: user.profile,
         nativeLanguage: user.nativeLanguage,
+        spokenLanguages: user.spokenLanguages || [],
         interfaceLanguage: user.interfaceLanguage,
         stats: user.stats,
         createdAt: user.createdAt,
@@ -758,16 +875,7 @@ router.put('/profile', verifyToken, async (req, res) => {
     
     console.log('📝 After update - showWalletBalance:', user.profile.showWalletBalance, 'remindersEnabled:', user.profile.remindersEnabled);
     
-    // Update interface language if provided. Keep in sync with frontend SupportedLanguage list
-    // (language-learning-app/src/app/services/language.service.ts).
-    const SUPPORTED_INTERFACE_LANGUAGES = [
-      'en', 'es', 'fr', 'pt', 'de',
-      'it', 'ru', 'zh', 'ja', 'ko',
-      'ar', 'hi', 'nl', 'pl', 'tr',
-      'sv', 'no', 'da', 'fi', 'el',
-      'cs', 'ro', 'uk', 'vi', 'th',
-      'id', 'ms', 'he', 'fa'
-    ];
+    // Update interface language if provided (module-level SUPPORTED_INTERFACE_LANGUAGES).
     if (interfaceLanguage !== undefined && SUPPORTED_INTERFACE_LANGUAGES.includes(interfaceLanguage)) {
       user.interfaceLanguage = interfaceLanguage;
       console.log('🌐 Interface language updated to:', interfaceLanguage);
@@ -810,6 +918,7 @@ router.put('/profile', verifyToken, async (req, res) => {
         onboardingData: user.onboardingData,
         profile: user.profile,
         nativeLanguage: user.nativeLanguage,
+        spokenLanguages: user.spokenLanguages || [],
         interfaceLanguage: user.interfaceLanguage,
         stats: user.stats,
         createdAt: user.createdAt,
@@ -1566,27 +1675,16 @@ router.put('/profile-picture', verifyToken, async (req, res) => {
 
     // Update picture
     user.picture = imageUrl;
-    
-    // For tutors: Check if all approval steps are now complete
+
+    // For tutors: re-evaluate approval after photo change. Promote to
+    // fully-approved only when every gate passes (photo, video-approved,
+    // payout, identity, qualifications, TOS).
     if (user.userType === 'tutor' && !user.tutorApproved) {
       user.tutorOnboarding = user.tutorOnboarding || {};
-      const photoComplete = !!imageUrl;
-      const videoApproved = user.tutorOnboarding.videoApproved === true;
-      
-      // Check for ANY payout method (Stripe, PayPal, or Manual)
-      const hasStripe = user.stripeConnectOnboarded === true;
-      const hasPayPal = user.payoutProvider === 'paypal' && !!user.payoutDetails?.paypalEmail;
-      const hasManual = user.payoutProvider === 'manual';
-      const payoutComplete = hasStripe || hasPayPal || hasManual;
-      
-      if (photoComplete && videoApproved && payoutComplete) {
-        user.tutorApproved = true;
-        user.tutorOnboarding.photoUploaded = true;
-        user.tutorOnboarding.completedAt = new Date();
-        console.log(`🎉 Tutor ${user.email} is now FULLY APPROVED (all steps complete after photo upload)`);
-      }
+      user.tutorOnboarding.photoUploaded = true;
+      applyApprovalIfReady(user);
     }
-    
+
     await user.save();
 
     console.log('✅ Profile picture updated for user:', user.email);
@@ -2716,6 +2814,11 @@ router.post('/tutor/accept-tos', verifyToken, async (req, res) => {
     const { tosVersion } = req.body;
     user.tosAcceptedAt = new Date();
     user.tosVersion = tosVersion || '1.0';
+
+    // Re-evaluate full approval — when TOS is the last missing gate, this
+    // flips `tutorApproved` to true so the tutor becomes searchable.
+    applyApprovalIfReady(user);
+
     await user.save();
 
     console.log(`✅ [TOS] Tutor ${user.email} accepted TOS v${user.tosVersion}`);
@@ -2723,7 +2826,8 @@ router.post('/tutor/accept-tos', verifyToken, async (req, res) => {
     res.json({
       success: true,
       tosAcceptedAt: user.tosAcceptedAt,
-      tosVersion: user.tosVersion
+      tosVersion: user.tosVersion,
+      tutorApproved: user.tutorApproved === true
     });
   } catch (error) {
     console.error('❌ Error accepting TOS:', error);

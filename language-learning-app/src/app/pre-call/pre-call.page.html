@@ -4,12 +4,12 @@
     <!-- Left Panel: Video Preview and Controls -->
     <div class="preview-panel">
       <!-- Go Back Button -->
-      <button class="go-back-button" (click)="goBack()" aria-label="Go back">
-        Go Back
+      <button class="go-back-button" (click)="goBack()" [attr.aria-label]="'PRE_CALL.GO_BACK_ARIA' | translate">
+        {{ 'PRE_CALL.GO_BACK' | translate }}
       </button>
       
       <div class="preview-header">
-        <h3 class="preview-title">Join with mic {{ isMuted ? 'OFF' : 'ON' }} and camera {{ isVideoOff ? 'OFF' : 'ON' }}</h3>
+        <h3 class="preview-title">{{ previewTitle }}</h3>
       </div>
 
       <!-- Video Preview -->
@@ -33,8 +33,8 @@
         
         <div class="video-placeholder" *ngIf="(isVideoOff || isLoading) && !errorMessage">
           <ion-icon name="person" class="placeholder-icon"></ion-icon>
-          <p *ngIf="isVideoOff">Camera is off</p>
-          <p *ngIf="isLoading && !isVideoOff">Loading camera...</p>
+          <p *ngIf="isVideoOff">{{ 'PRE_CALL.CAMERA_IS_OFF' | translate }}</p>
+          <p *ngIf="isLoading && !isVideoOff">{{ 'PRE_CALL.LOADING_CAMERA' | translate }}</p>
         </div>
         <div class="error-message" *ngIf="errorMessage">
           <ion-icon name="alert-circle-outline"></ion-icon>
@@ -46,7 +46,7 @@
             (click)="retrySetup()"
             class="retry-button">
             <ion-icon name="refresh-outline" slot="start"></ion-icon>
-            Try Again
+            {{ 'PRE_CALL.TRY_AGAIN' | translate }}
           </ion-button>
         </div>
       </div>
@@ -58,25 +58,25 @@
             <div class="control-btn" [class.active-danger]="isMuted">
               <ion-icon [name]="isMuted ? 'mic-off' : 'mic-outline'"></ion-icon>
             </div>
-            <span class="control-label" [class.danger]="isMuted">{{ isMuted ? 'Unmute' : 'Mute' }}</span>
+            <span class="control-label" [class.danger]="isMuted">{{ (isMuted ? 'PRE_CALL.UNMUTE' : 'PRE_CALL.MUTE') | translate }}</span>
           </div>
           <div class="control-item" (click)="toggleCamera()">
             <div class="control-btn" [class.active-danger]="isVideoOff">
               <ion-icon [name]="isVideoOff ? 'videocam-off' : 'videocam-outline'"></ion-icon>
             </div>
-            <span class="control-label" [class.danger]="isVideoOff">{{ isVideoOff ? 'Start Video' : 'Camera' }}</span>
+            <span class="control-label" [class.danger]="isVideoOff">{{ (isVideoOff ? 'PRE_CALL.START_VIDEO' : 'PRE_CALL.CAMERA') | translate }}</span>
           </div>
           <div class="control-item" (click)="toggleVirtualBackgroundControls()">
             <div class="control-btn" [class.active-primary]="showVirtualBackgroundControls">
               <ion-icon name="color-filter-outline"></ion-icon>
             </div>
-            <span class="control-label" [class.primary]="showVirtualBackgroundControls">Effects</span>
+            <span class="control-label" [class.primary]="showVirtualBackgroundControls">{{ 'PRE_CALL.EFFECTS' | translate }}</span>
           </div>
           <div class="control-item" (click)="testDevices()">
             <div class="control-btn">
               <ion-icon name="settings-outline"></ion-icon>
             </div>
-            <span class="control-label">Devices</span>
+            <span class="control-label">{{ 'PRE_CALL.DEVICES' | translate }}</span>
           </div>
         </div>
         
@@ -98,7 +98,7 @@
     <!-- Virtual Background Controls Panel -->
     <div class="virtual-bg-controls" *ngIf="showVirtualBackgroundControls">
       <div class="controls-header">
-        <h3>Virtual Background</h3>
+        <h3>{{ 'PRE_CALL.VIRTUAL_BACKGROUND' | translate }}</h3>
         <ion-button fill="clear" size="small" (click)="toggleVirtualBackgroundControls()">
           <ion-icon name="close"></ion-icon>
         </ion-button>
@@ -109,55 +109,44 @@
           class="bg-option-btn blur-option"
           (click)="setBackgroundBlur()">
           <ion-icon name="blur"></ion-icon>
-          <span>Enable Blur</span>
+          <span>{{ 'PRE_CALL.ENABLE_BLUR' | translate }}</span>
         </button>
         
         <button 
           class="bg-option-btn black-option"
           (click)="setBackgroundColor('#000000')">
           <div class="color-preview black"></div>
-          <span>Black Background</span>
+          <span>{{ 'PRE_CALL.BLACK_BACKGROUND' | translate }}</span>
         </button>
         
         <button 
           class="bg-option-btn normal-option"
           (click)="disableVirtualBackground()">
           <ion-icon name="videocam-outline"></ion-icon>
-          <span>Normal</span>
+          <span>{{ 'PRE_CALL.NORMAL' | translate }}</span>
         </button>
       </div>
       
       <div class="status-info" *ngIf="isVirtualBackgroundEnabled">
         <ion-icon name="checkmark-circle" color="success"></ion-icon>
-        <span>Virtual background active</span>
+        <span>{{ 'PRE_CALL.VB_ACTIVE' | translate }}</span>
       </div>
     </div>
 
     <!-- Right Panel: Lesson Info -->
     <div class="info-panel">
       <div class="lesson-header">
-        <h1 class="lesson-title">{{ lessonTitle || 'Language Lesson' }}</h1>
+        <h1 class="lesson-title">{{ lessonTitle || ('PRE_CALL.LANGUAGE_LESSON' | translate) }}</h1>
         <div class="trial-badge" *ngIf="isTrialLesson">
           <ion-icon name="star"></ion-icon>
-          <span>Trial Lesson</span>
+          <span>{{ 'PRE_CALL.TRIAL_LESSON' | translate }}</span>
         </div>
       </div>
-      <p class="lesson-subtitle" *ngIf="isTutor && !isTrialLesson">
-        Enter the classroom to join {{ studentName || 'your student' }}
-      </p>
-      <p class="lesson-subtitle" *ngIf="isTutor && isTrialLesson">
-        This is a trial lesson with {{ studentName || 'your student' }}
-      </p>
-      <p class="lesson-subtitle" *ngIf="!isTutor && !isTrialLesson">
-        Enter the classroom to meet your tutor
-      </p>
-      <p class="lesson-subtitle" *ngIf="!isTutor && isTrialLesson">
-        This is your trial lesson with {{ tutorName || 'your tutor' }}
-      </p>
+      <p class="lesson-subtitle">{{ lessonSubtitle }}</p>
 
       <!-- Student Lesson Intent Chips -->
       <div class="intent-section" *ngIf="!isTutor">
-        <p class="intent-title">How should today's lesson feel?</p>
+        <p class="intent-title">{{ 'PRE_CALL.INTENT_TITLE' | translate }}</p>
         <div class="intent-chips">
           <button
             *ngFor="let opt of intentOptions"
@@ -182,8 +171,7 @@
         <div class="presence-info">
           <p class="presence-text">
             <ion-icon name="person-circle-outline"></ion-icon>
-            <span *ngIf="isTutor">{{ otherParticipantName || 'Student' }} has joined lesson</span>
-            <span *ngIf="!isTutor">{{ otherParticipantName || 'Tutor' }} has joined lesson</span>
+            <span>{{ presenceJoinedLine }}</span>
           </p>
         </div>
       </div>
@@ -191,18 +179,18 @@
       <!-- Learning Plan Context (for tutors) -->
       <div class="learning-plan-context-card" *ngIf="isTutor && hasPlanData">
         <div class="notes-header">
-          <h3>Learning Plan</h3>
+          <h3>{{ 'PRE_CALL.LEARNING_PLAN' | translate }}</h3>
         </div>
         <div class="lpc-row" *ngIf="planGoalLabel">
-          <span class="lpc-label">Goal</span>
+          <span class="lpc-label">{{ 'PRE_CALL.GOAL' | translate }}</span>
           <span class="lpc-value">{{ planGoalLabel }}</span>
         </div>
         <div class="lpc-row" *ngIf="planPhaseLabel">
-          <span class="lpc-label">Current Phase</span>
+          <span class="lpc-label">{{ 'PRE_CALL.CURRENT_PHASE' | translate }}</span>
           <span class="lpc-value">{{ planPhaseLabel }}</span>
         </div>
         <div class="lpc-row" *ngIf="planNextFocus">
-          <span class="lpc-label">Suggested Focus</span>
+          <span class="lpc-label">{{ 'PRE_CALL.SUGGESTED_FOCUS' | translate }}</span>
           <span class="lpc-value">{{ planNextFocus }}</span>
         </div>
         <p class="lpc-summary" *ngIf="planStudentSummary">{{ planStudentSummary }}</p>
@@ -211,23 +199,23 @@
       <!-- Trial Lesson Plan Context (shows goal + level only) -->
       <div class="learning-plan-context-card" *ngIf="isTutor && isTrialLesson && !hasPlanData && planSelfAssessedLevel">
         <div class="notes-header">
-          <h3>Student Context</h3>
+          <h3>{{ 'PRE_CALL.STUDENT_CONTEXT' | translate }}</h3>
         </div>
         <div class="lpc-row" *ngIf="planGoalLabel">
-          <span class="lpc-label">Goal</span>
+          <span class="lpc-label">{{ 'PRE_CALL.GOAL' | translate }}</span>
           <span class="lpc-value">{{ planGoalLabel }}</span>
         </div>
         <div class="lpc-row" *ngIf="planSelfAssessedLevel">
-          <span class="lpc-label">Self-Assessed Level</span>
+          <span class="lpc-label">{{ 'PRE_CALL.SELF_ASSESSED_LEVEL' | translate }}</span>
           <span class="lpc-value">{{ planSelfAssessedLevel }}</span>
         </div>
-        <p class="lpc-summary">First lesson -- assess current level, identify gaps, discuss preferences.</p>
+        <p class="lpc-summary">{{ 'PRE_CALL.TRIAL_FIRST_LESSON_SUMMARY' | translate }}</p>
       </div>
 
       <!-- Previous Lesson Notes (for tutors and students, not trial lessons) -->
-      <div class="previous-notes-card" *ngIf="!isTrialLesson && (previousLessonNotes || loadingPreviousNotes)">
+      <div class="previous-notes-card" *ngIf="!isTrialLesson && !isClass && (loadingPreviousNotes || previousNotesChecked)">
         <div class="notes-header">
-          <h3>Last Lesson Notes</h3>
+          <h3>{{ 'PRE_CALL.LAST_LESSON_NOTES' | translate }}</h3>
           <div class="notes-header-right" *ngIf="previousLessonNotes && !loadingPreviousNotes">
             <button class="pc-translate-btn" *ngIf="prevNotesAnalysisId && previousLessonNotes?.source !== 'tutor'" (click)="togglePrevNotesTranslation()" [disabled]="prevNotesTranslating" [class.showing-translation]="prevNotesShowingTranslation">
               <ion-icon name="language-outline" aria-hidden="true"></ion-icon>
@@ -243,25 +231,36 @@
         
         <div *ngIf="loadingPreviousNotes" class="loading-notes">
           <ion-spinner name="crescent" color="medium"></ion-spinner>
-          <span>Loading previous lesson...</span>
+          <span>{{ 'PRE_CALL.LOADING_PREVIOUS_LESSON' | translate }}</span>
         </div>
-        
+
+        <!-- Empty state — no previous analyses yet -->
+        <div *ngIf="!loadingPreviousNotes && previousNotesChecked && !previousLessonNotes" class="notes-empty-state">
+          <div class="notes-empty-icon">
+            <ion-icon name="document-text-outline"></ion-icon>
+          </div>
+          <h4 class="notes-empty-title">{{ 'PRE_CALL.NO_PREVIOUS_NOTES_TITLE' | translate }}</h4>
+          <p class="notes-empty-body">
+            {{ (isTutor ? 'PRE_CALL.NO_PREVIOUS_NOTES_BODY_TUTOR' : 'PRE_CALL.NO_PREVIOUS_NOTES_BODY_STUDENT') | translate }}
+          </p>
+        </div>
+
         <div *ngIf="previousLessonNotes && !loadingPreviousNotes" class="notes-content">
           <!-- Topics Discussed / Summary -->
           <div class="notes-section" *ngIf="previousLessonNotes.overallAssessment?.summary">
-            <div class="section-label">What You Worked On</div>
+            <div class="section-label">{{ 'PRE_CALL.WHAT_YOU_WORKED_ON' | translate }}</div>
             <div class="section-text">{{ previousLessonNotes.overallAssessment.summary }}</div>
           </div>
           
           <!-- Progress Note -->
           <div class="notes-section" *ngIf="previousLessonNotes.overallAssessment?.progressFromLastLesson">
-            <div class="section-label">Progress</div>
+            <div class="section-label">{{ 'PRE_CALL.PROGRESS' | translate }}</div>
             <div class="section-text">{{ previousLessonNotes.overallAssessment.progressFromLastLesson }}</div>
           </div>
           
           <!-- Strengths -->
           <div class="notes-section" *ngIf="previousLessonNotes.strengths?.length">
-            <div class="section-label">What They Did Well</div>
+            <div class="section-label">{{ 'PRE_CALL.STRENGTHS' | translate }}</div>
             <ul class="section-list">
               <li *ngFor="let strength of previousLessonNotes.strengths">
                 {{ strength }}
@@ -271,7 +270,7 @@
           
           <!-- Struggles -->
           <div class="notes-section" *ngIf="previousLessonNotes.areasForImprovement?.length">
-            <div class="section-label">What They Struggled With</div>
+            <div class="section-label">{{ 'PRE_CALL.STRUGGLES' | translate }}</div>
             <ul class="section-list">
               <li *ngFor="let area of previousLessonNotes.areasForImprovement">
                 {{ area }}
@@ -281,7 +280,7 @@
           
           <!-- Error Patterns with Examples -->
           <div class="notes-section" *ngIf="previousLessonNotes.errorPatterns && previousLessonNotes.errorPatterns.length">
-            <div class="section-label">Common Mistakes</div>
+            <div class="section-label">{{ 'PRE_CALL.COMMON_MISTAKES' | translate }}</div>
             <div *ngFor="let error of previousLessonNotes.errorPatterns" class="error-pattern">
               <div class="error-pattern-name">{{ error.pattern }} <span class="error-frequency">({{ error.frequency }}x)</span></div>
               <div *ngIf="error.examples && error.examples.length && error.examples[0].original" class="error-example">
@@ -294,7 +293,7 @@
           
           <!-- Recommended Focus -->
           <div class="notes-section" *ngIf="previousLessonNotes.recommendedFocus?.length">
-            <div class="section-label">Goals for Today</div>
+            <div class="section-label">{{ 'PRE_CALL.GOALS_FOR_TODAY' | translate }}</div>
             <ul class="section-list">
               <li *ngFor="let focus of previousLessonNotes.recommendedFocus">
                 {{ focus }}
@@ -304,7 +303,7 @@
           
           <!-- Homework Check -->
           <div class="notes-section" *ngIf="previousLessonNotes.homeworkSuggestions?.length">
-            <div class="section-label">Check Their Homework</div>
+            <div class="section-label">{{ 'PRE_CALL.CHECK_HOMEWORK' | translate }}</div>
             <div class="section-text">{{ previousLessonNotes.homeworkSuggestions[0] }}</div>
           </div>
         </div>
@@ -315,9 +314,9 @@
         <div class="countdown-content">
           <ion-icon name="time-outline" [class.urgent]="studentEntryCountdown <= 10"></ion-icon>
           <div class="countdown-text">
-            <p class="countdown-message">Please enter the classroom soon!</p>
+            <p class="countdown-message">{{ 'PRE_CALL.ENTER_SOON' | translate }}</p>
             <p class="countdown-timer" [class.urgent]="studentEntryCountdown <= 10">
-              {{ studentEntryCountdown }}s remaining
+              {{ 'PRE_CALL.COUNTDOWN_REMAINING' | translate:{ count: studentEntryCountdown } }}
             </p>
           </div>
         </div>
@@ -328,18 +327,18 @@
         expand="block" 
         (click)="enterClassroom()"
         [disabled]="!isLessonReady || isOfficeHoursWaitingRoom || waitingForTutorAcceptance">
-        <span *ngIf="!isOfficeHoursWaitingRoom && !waitingForTutorAcceptance">Enter classroom</span>
-        <span *ngIf="isOfficeHoursWaitingRoom">Waiting for student...</span>
+        <span *ngIf="!isOfficeHoursWaitingRoom && !waitingForTutorAcceptance">{{ 'PRE_CALL.ENTER_CLASSROOM' | translate }}</span>
+        <span *ngIf="isOfficeHoursWaitingRoom">{{ 'PRE_CALL.WAITING_FOR_STUDENT' | translate }}</span>
         <span *ngIf="waitingForTutorAcceptance">
           <ion-spinner name="dots"></ion-spinner>
-          Waiting for tutor to accept...
+          {{ 'PRE_CALL.WAITING_FOR_TUTOR_ACCEPT' | translate }}
         </span>
       </ion-button>
       
       <!-- Show message when tutor accepts (stays visible even after tutor joins) -->
       <div class="tutor-ready-message" *ngIf="tutorHasAccepted">
         <ion-icon name="checkmark-circle" color="success"></ion-icon>
-        <p>Tutor is ready! You can enter when ready.</p>
+        <p>{{ 'PRE_CALL.TUTOR_READY' | translate }}</p>
       </div>
     </div>
   </div>
@@ -351,10 +350,10 @@
     <div class="modal-icon">
       <ion-icon name="flash"></ion-icon>
     </div>
-    <h2>⚡ A Student Wants to Join!</h2>
-    <p class="student-info">{{ pendingOfficeHoursRequest?.data?.studentName || 'A student' }} is requesting an office hours session</p>
-    <p class="duration-info">Duration: {{ pendingOfficeHoursRequest?.data?.duration || 15 }} minutes</p>
-    <p class="warning-text">⏰ {{ requestTimeRemaining }} seconds remaining</p>
+    <h2>{{ 'PRE_CALL.OFFICE_HOURS_REQUEST_TITLE' | translate }}</h2>
+    <p class="student-info">{{ 'PRE_CALL.OFFICE_HOURS_REQUEST_BODY' | translate:{ name: pendingOfficeHoursRequest?.data?.studentName || ('PRE_CALL.A_STUDENT' | translate) } }}</p>
+    <p class="duration-info">{{ 'PRE_CALL.DURATION_MINUTES' | translate:{ count: pendingOfficeHoursRequest?.data?.duration || 15 } }}</p>
+    <p class="warning-text">{{ 'PRE_CALL.SECONDS_REMAINING' | translate:{ count: requestTimeRemaining } }}</p>
     
     <div class="button-group">
       <ion-button 
@@ -364,7 +363,7 @@
         class="accept-button"
         (click)="acceptOfficeHoursRequest()">
         <ion-icon name="checkmark-circle" slot="start"></ion-icon>
-        Accept
+        {{ 'PRE_CALL.ACCEPT' | translate }}
       </ion-button>
       
       <ion-button 
@@ -375,9 +374,8 @@
         class="decline-button"
         (click)="declineOfficeHoursRequest()">
         <ion-icon name="close-circle" slot="start"></ion-icon>
-        Decline
+        {{ 'PRE_CALL.DECLINE' | translate }}
       </ion-button>
     </div>
   </div>
 </div>
-

@@ -1,0 +1,802 @@
+// Dark appearance for student onboarding + tutor onboarding when the app
+// uses `html.ion-palette-dark` (Ionic dark palette). Imported last from each
+// page stylesheet so these tokens override light defaults.
+
+:host-context(html.ion-palette-dark) {
+  $d-text: #f5f5f7;
+  $d-text-2: #a1a1a6;
+  $d-text-3: #8e8e93;
+  $d-surface: #1c1c1e;
+  $d-surface-2: #2c2c2e;
+  $d-surface-3: #3a3a3c;
+  $d-border: rgba(255, 255, 255, 0.12);
+  $d-border-strong: rgba(255, 255, 255, 0.22);
+  $d-fill: rgba(255, 255, 255, 0.06);
+  $d-blue: #64b5ff;
+
+  // ── Pre-step (language + welcome) ───────────────────────────────
+  .pre-step-container {
+    background: linear-gradient(180deg, #000000 0%, #1c1c1e 55%, #121212 100%);
+  }
+
+  .pre-step-rotating-heading .rotating-text {
+    color: $d-text;
+  }
+
+  .pre-step-subtitle,
+  .pre-step-legal {
+    color: $d-text-3;
+  }
+
+  .pre-step-legal a {
+    color: $d-text-2;
+
+    &:hover {
+      color: $d-text;
+    }
+  }
+
+  .pre-step-lang-card {
+    background: $d-surface-2;
+    border-color: $d-border;
+
+    &:hover {
+      background: $d-surface-3;
+      border-color: $d-border-strong;
+    }
+
+    &.selected {
+      border-color: $d-text;
+      background: rgba(245, 245, 247, 0.08);
+      box-shadow: 0 0 0 1px rgba(245, 245, 247, 0.35);
+    }
+
+    .lang-native-name {
+      color: $d-text;
+    }
+
+    .lang-english-name {
+      color: $d-text-2;
+    }
+
+    .lang-check ion-icon {
+      color: $d-text;
+    }
+  }
+
+  .pre-step-cta {
+    background: #f5f5f7;
+    color: #1c1c1e;
+
+    &:hover {
+      background: #e5e5ea;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+    }
+  }
+
+  .pre-step-back-link {
+    color: $d-text-2;
+
+    &:hover {
+      color: $d-text;
+      background: $d-fill;
+    }
+  }
+
+  .pre-step-container.welcome-phase {
+    background: #000000;
+  }
+
+  .welcome-title {
+    color: $d-text;
+  }
+
+  .welcome-subtitle {
+    color: $d-text-2;
+  }
+
+  .welcome-features .welcome-feature-card {
+    background: $d-surface-2;
+    border-color: $d-border;
+
+    &:hover {
+      border-color: $d-border-strong;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+    }
+
+    .feature-icon {
+      background: $d-surface-3;
+
+      ion-icon {
+        color: $d-text;
+      }
+    }
+
+    .feature-title {
+      color: $d-text;
+    }
+
+    .feature-desc {
+      color: $d-text-3;
+    }
+  }
+
+  .welcome-how-it-works {
+    .how-label {
+      color: $d-text-3;
+    }
+
+    .how-step .how-text {
+      color: $d-text-2;
+    }
+
+    .how-connector {
+      background: $d-border-strong;
+    }
+  }
+
+  .welcome-trust {
+    border-top-color: $d-border;
+
+    .trust-item ion-icon,
+    .trust-item span {
+      color: $d-text-3;
+    }
+  }
+
+  // ── Header toolbar ───────────────────────────────────────────────
+  ion-header ion-toolbar.onboarding-toolbar {
+    --background: #1c1c1e;
+    --color: #f5f5f7;
+    --border-color: transparent;
+    border-bottom-color: $d-border;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+
+    .lang-switch-btn {
+      border-color: $d-border;
+      background: $d-fill;
+
+      .lang-switch-code {
+        color: $d-text;
+      }
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: $d-border-strong;
+      }
+    }
+
+    .logout-btn {
+      --color: #f5f5f7;
+
+      &:hover {
+        --color: #ffffff;
+      }
+    }
+  }
+
+  // ── Legacy two-column shell (still used on some breakpoints) ──
+  .onboarding-container {
+    background: linear-gradient(135deg, #000000 0%, #1c1c1e 45%, #0d0d0f 100%);
+  }
+
+  .onboarding-container--wizard {
+    background: #000000;
+  }
+
+  .onboarding-content {
+    background: $d-surface;
+    box-shadow:
+      0 0 0 1px $d-border,
+      0 24px 48px rgba(0, 0, 0, 0.55);
+  }
+
+  .left-column {
+    background: linear-gradient(
+      220deg,
+      rgba(80, 140, 220, 0.18) 0%,
+      rgba(36, 38, 44, 0.98) 28%,
+      rgba(44, 44, 46, 0.95) 52%,
+      rgba(38, 36, 48, 0.55) 72%,
+      rgba(60, 120, 200, 0.14) 100%
+    );
+    background-size: 280% 280%;
+
+    &::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.22);
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.35);
+      }
+    }
+  }
+
+  .onboarding-header {
+    h1 {
+      color: $d-text;
+    }
+
+    p {
+      color: $d-text-2;
+    }
+  }
+
+  .progress-section {
+    .progress-bar-bg {
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .progress-bar-fill {
+      background: #f5f5f7;
+    }
+
+    .progress-text {
+      color: $d-text-2;
+    }
+  }
+
+  .steps-list .step-item {
+    &:not(:last-child)::after {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    &:hover {
+      background: $d-fill;
+    }
+
+    &.current {
+      background: rgba(255, 255, 255, 0.08);
+
+      .step-info h3 {
+        color: $d-text;
+      }
+    }
+
+    &.completed {
+      .step-info h3 {
+        color: $d-text-2;
+      }
+
+      .step-info p {
+        color: $d-text-3;
+      }
+    }
+
+    &:not(.current):not(.completed) {
+      .step-indicator {
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      .step-info h3 {
+        color: $d-text-2;
+      }
+
+      .step-info p {
+        color: $d-text-3;
+      }
+    }
+
+    .step-indicator .step-number {
+      color: $d-text-2;
+    }
+
+    &.current .step-indicator {
+      background: #f5f5f7;
+      box-shadow: 0 0 0 3px rgba(245, 245, 247, 0.18);
+
+      .step-number {
+        color: #1c1c1e;
+      }
+    }
+
+    .step-info h3 {
+      color: $d-text;
+    }
+
+    .step-info p {
+      color: $d-text-2;
+    }
+
+    &.review-step {
+      border-top-color: $d-border;
+
+      .step-info h3 {
+        color: #f5f5f7;
+      }
+    }
+  }
+
+  .nav-buttons {
+    border-top-color: $d-border;
+
+    ion-button {
+      --background: #f5f5f7;
+      --color: #1c1c1e;
+      --background-activated: #d1d1d6;
+      --background-hover: #e5e5ea;
+
+      &[fill='clear'] {
+        --background: transparent;
+        --color: #f5f5f7;
+      }
+    }
+  }
+
+  .separator {
+    background: linear-gradient(
+      to bottom,
+      transparent 0%,
+      rgba(255, 255, 255, 0.12) 12%,
+      rgba(255, 255, 255, 0.12) 88%,
+      transparent 100%
+    );
+  }
+
+  .right-col-progress {
+    background: rgba(255, 255, 255, 0.1);
+
+    .right-col-progress-fill {
+      background: #f5f5f7;
+    }
+  }
+
+  .step-content-scrollable {
+    &::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.22);
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.35);
+      }
+    }
+  }
+
+  .step-content-card {
+    .step-title {
+      color: $d-text;
+    }
+
+    .step-description {
+      color: $d-text-2;
+    }
+  }
+
+  .form-fields .form-field {
+    label {
+      color: $d-text;
+    }
+
+    .modern-input {
+      background: $d-surface-2;
+      border-color: $d-border;
+      color: $d-text;
+
+      &:focus {
+        border-color: $d-blue;
+        box-shadow: 0 0 0 3px rgba(100, 181, 255, 0.2);
+      }
+
+      &::placeholder {
+        color: $d-text-3;
+      }
+    }
+  }
+
+  .language-grid .language-chip,
+  .options-grid .option-button {
+    background: $d-surface-2;
+    border-color: $d-border;
+    color: $d-text;
+
+    .language-native {
+      color: $d-text;
+    }
+
+    .language-name {
+      color: $d-text-2;
+    }
+
+    &:hover {
+      border-color: $d-border-strong;
+      background: $d-surface-3;
+    }
+
+    &.selected {
+      background: rgba(245, 245, 247, 0.08);
+      border-color: #f5f5f7;
+    }
+  }
+
+  .goals-list .goal-button,
+  .options-list .option-button-block {
+    background: $d-surface-2;
+    border-color: $d-border;
+    color: $d-text;
+
+    .checkbox-icon {
+      color: $d-text-3;
+    }
+
+    &:hover {
+      border-color: $d-border-strong;
+      background: $d-surface-3;
+    }
+
+    &.selected {
+      background: rgba(245, 245, 247, 0.08);
+      border-color: #f5f5f7;
+
+      .checkbox-icon {
+        color: #f5f5f7;
+      }
+    }
+  }
+
+  .goal-cards-grid .goal-type-card {
+    background: $d-surface-2;
+    border-color: $d-border;
+
+    .goal-type-icon {
+      background: $d-surface-3;
+
+      ion-icon {
+        color: $d-text-2;
+      }
+    }
+
+    .goal-type-label {
+      color: $d-text;
+    }
+
+    .goal-type-desc {
+      color: $d-text-2;
+    }
+
+    &:hover {
+      border-color: $d-border-strong;
+      background: $d-surface-3;
+    }
+
+    &.selected {
+      background: rgba(245, 245, 247, 0.08);
+      border-color: #f5f5f7;
+      box-shadow: 0 0 0 3px rgba(245, 245, 247, 0.12);
+
+      .goal-type-icon {
+        background: rgba(255, 255, 255, 0.12);
+
+        ion-icon {
+          color: $d-text;
+        }
+      }
+    }
+  }
+
+  .custom-goal-input {
+    label {
+      color: $d-text-2;
+    }
+
+    .custom-goal-textarea {
+      background: $d-surface-2;
+      border-color: $d-border;
+      color: $d-text;
+
+      &:focus {
+        border-color: $d-blue;
+        box-shadow: 0 0 0 3px rgba(100, 181, 255, 0.2);
+      }
+
+      &::placeholder {
+        color: $d-text-3;
+      }
+    }
+
+    .custom-goal-hint {
+      color: $d-text-3;
+    }
+  }
+
+  .goal-skip-link {
+    color: $d-text-2;
+
+    &:hover {
+      color: $d-text;
+    }
+  }
+
+  .goal-skip-help {
+    color: $d-text-3;
+  }
+
+  .level-cards-list .level-card {
+    background: $d-surface-2;
+    border-color: $d-border;
+
+    .level-card-label {
+      color: $d-text;
+    }
+
+    .level-card-desc {
+      color: $d-text-2;
+    }
+
+    &:hover {
+      border-color: $d-border-strong;
+      background: $d-surface-3;
+    }
+
+    &.selected {
+      background: rgba(245, 245, 247, 0.08);
+      border-color: #f5f5f7;
+    }
+  }
+
+  .timeline-cards-list .timeline-card {
+    background: $d-surface-2;
+    border-color: $d-border;
+
+    .timeline-card-icon {
+      background: $d-surface-3;
+
+      ion-icon {
+        color: $d-text-2;
+      }
+    }
+
+    .timeline-card-label {
+      color: $d-text;
+    }
+
+    &:hover {
+      border-color: $d-border-strong;
+      background: $d-surface-3;
+    }
+
+    &.selected {
+      background: rgba(245, 245, 247, 0.08);
+      border-color: #f5f5f7;
+
+      .timeline-card-icon {
+        background: rgba(255, 255, 255, 0.12);
+
+        ion-icon {
+          color: $d-text;
+        }
+      }
+    }
+  }
+
+  .date-picker-wrapper {
+    label,
+    .date-picker-label {
+      color: $d-text-2;
+    }
+
+    .goal-inline-datetime {
+      --background: #{$d-surface-2};
+      --title-color: #{$d-text};
+      background: $d-surface-2;
+      border-color: $d-border;
+      color: $d-text;
+
+      &::part(calendar-day today) {
+        color: $d-text;
+      }
+
+      &::part(calendar-day active),
+      &::part(calendar-day today active) {
+        background: #f5f5f7;
+        color: #1c1c1e;
+      }
+    }
+  }
+
+  .pacing-suggestion {
+    background: rgba(255, 200, 120, 0.12);
+    border-color: rgba(255, 200, 120, 0.35);
+
+    .pacing-suggestion-icon {
+      background: rgba(255, 200, 120, 0.2);
+
+      ion-icon {
+        color: #ffd699;
+      }
+    }
+
+    .pacing-suggestion-title {
+      color: $d-text;
+    }
+
+    .pacing-suggestion-text {
+      color: $d-text-2;
+    }
+
+    .pacing-suggestion-cta--primary {
+      background: #f5f5f7;
+      color: #1c1c1e;
+
+      &:hover {
+        background: #e5e5ea;
+      }
+    }
+
+    .pacing-suggestion-cta--ghost {
+      color: $d-text-2;
+      border-color: $d-border;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.06);
+      }
+    }
+  }
+
+  .primary-action,
+  .submit-action {
+    --background: #f5f5f7;
+    --background-activated: #d1d1d6;
+    --background-hover: #e5e5ea;
+    --color: #1c1c1e;
+  }
+
+  .country-select-button {
+    background: $d-surface-2;
+    border-color: $d-border;
+    color: $d-text;
+
+    &:hover {
+      background: $d-surface-3;
+      border-color: $d-border-strong;
+    }
+
+    ion-icon {
+      color: $d-text-2;
+    }
+  }
+
+  .video-description {
+    color: $d-text-2;
+  }
+
+  // ── Preview (review before submit) ──────────────────────────────
+  .preview-container {
+    background: linear-gradient(160deg, #000000 0%, #1c1c1e 50%, #0a0a0c 100%);
+  }
+
+  .preview-hero-col {
+    background: $d-surface;
+
+    &::after {
+      background: linear-gradient(
+        180deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.12) 50%,
+        transparent 100%
+      );
+    }
+  }
+
+  .preview-hero-title {
+    color: $d-text;
+  }
+
+  .preview-hero-subtitle {
+    color: $d-text-2;
+  }
+
+  .preview-hero-summary {
+    background: $d-surface-2;
+    border: 1px solid $d-border;
+    border-radius: 14px;
+
+    .preview-summary-item .summary-text {
+      color: $d-text;
+    }
+  }
+
+  .preview-hero-actions .preview-back-btn {
+    color: $d-text-2;
+
+    &:hover {
+      color: $d-text;
+    }
+  }
+
+  .preview-details-col {
+    &::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+    }
+  }
+
+  .preview-detail-card {
+    background: $d-surface-2;
+    box-shadow: 0 0 0 1px $d-border, 0 16px 40px rgba(0, 0, 0, 0.45);
+  }
+
+  .preview-detail-header {
+    border-bottom-color: $d-border;
+
+    .preview-detail-icon {
+      background: $d-surface-3;
+
+      ion-icon {
+        color: $d-text;
+      }
+    }
+
+    h3 {
+      color: $d-text;
+    }
+
+    .edit-link {
+      color: $d-blue;
+
+      &:hover {
+        background: rgba(100, 181, 255, 0.12);
+      }
+    }
+  }
+
+  .preview-detail-row {
+    & + .preview-detail-row {
+      border-top-color: $d-border;
+    }
+
+    .detail-label {
+      color: $d-text-2;
+    }
+
+    .detail-value {
+      color: $d-text;
+    }
+  }
+
+  // ── Success / congrats overlay ───────────────────────────────────
+  .success-page {
+    background: #000000;
+  }
+
+  .hero-title {
+    color: $d-text;
+  }
+
+  .hero-subtitle {
+    color: $d-text-2;
+  }
+
+  .highlights-card {
+    background: $d-surface-2;
+    border-color: $d-border;
+    box-shadow: 0 0 0 1px $d-border, 0 12px 32px rgba(0, 0, 0, 0.4);
+  }
+
+  .detail-icon-wrap {
+    background: $d-surface-3;
+
+    ion-icon {
+      color: $d-text;
+    }
+  }
+
+  .detail-value {
+    color: $d-text;
+  }
+
+  .info-note {
+    background: $d-surface-3;
+
+    ion-icon,
+    span {
+      color: $d-text-2;
+    }
+  }
+
+  .done-btn {
+    background: #f5f5f7;
+    color: #1c1c1e;
+
+    &:hover {
+      background: #e5e5ea;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    }
+  }
+}

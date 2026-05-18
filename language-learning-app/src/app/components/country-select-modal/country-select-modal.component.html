@@ -23,6 +23,7 @@
     <!-- Search Bar -->
     <div class="search-wrapper">
       <ion-searchbar
+        #countrySearch
         [(ngModel)]="searchTerm"
         [placeholder]="'ONBOARDING.COUNTRY_MODAL.SEARCH_PLACEHOLDER' | translate"
         (ionInput)="filterCountries()"
@@ -36,7 +37,7 @@
     <!-- Country List -->
     <div class="country-list">
       <div
-        *ngFor="let country of filteredCountries; let i = index"
+        *ngFor="let country of filteredRows; let i = index"
         class="country-item"
         [class.selected]="selectedCountry === country.name"
         (click)="selectCountry(country.name)">
@@ -46,7 +47,7 @@
             [size]="28">
           </app-flag-icon>
         </div>
-        <span class="country-name">{{ country.name }}</span>
+        <span class="country-name">{{ country.displayLabel }}</span>
         <ion-icon 
           *ngIf="selectedCountry === country.name" 
           name="checkmark-circle"
@@ -56,7 +57,7 @@
     </div>
 
     <!-- No Results -->
-    <div *ngIf="filteredCountries?.length === 0 && searchTerm.trim()" class="no-results">
+    <div *ngIf="filteredRows?.length === 0 && searchTerm.trim()" class="no-results">
       <ion-icon name="search-outline"></ion-icon>
       <p>{{ 'ONBOARDING.COUNTRY_MODAL.NO_RESULTS' | translate }} <strong>"{{ searchTerm }}"</strong></p>
     </div>

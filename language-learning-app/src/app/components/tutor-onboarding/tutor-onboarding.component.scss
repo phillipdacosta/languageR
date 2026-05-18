@@ -1,3 +1,5 @@
+@import '../../shared/styles/cm-details-wizard-shell.scss';
+
 // Airbnb-Inspired Tutor Onboarding (Approval Flow) - Two Column Layout
 // Clean, modern, matches home page design language
 
@@ -10,6 +12,8 @@ $ob-border-light: #ebebeb;
 $ob-bg-hover: #f7f7f7;
 $ob-bg-subtle: #f7f7f7;
 $ob-accent: #222222;
+// Uniform width for approval-wizard CTAs (baseline: Connect Stripe / PayPal + long i18n).
+$ob-wizard-cta-uniform-width: min(22.5rem, calc(100% - 16px));
 
 .onboarding-container {
   min-height: 100vh;
@@ -18,6 +22,471 @@ $ob-accent: #222222;
   justify-content: center;
   padding: 20px;
   background: linear-gradient(135deg, #fafafa 0%, #f5f5f7 50%, #f0f0f2 100%);
+}
+
+.tutor-approval-wizard-page.tutor-onboarding--modal-shell {
+  min-height: 100%;
+  min-height: 100dvh;
+
+  .tutor-approval-wizard {
+    min-height: 100%;
+    min-height: 100dvh;
+  }
+}
+
+// Desktop profile-checklist card: fill Create Material–sized modal, scroll inside
+:host-context(.cm-modal-body--tutor-approval) {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+
+  .onboarding-container.tutor-approval-wizard-page {
+    min-height: 0;
+    flex: 1;
+    height: auto;
+  }
+
+  .tutor-approval-wizard-page.tutor-onboarding--modal-shell {
+    min-height: 0;
+    height: auto;
+    flex: 1;
+
+    .tutor-approval-wizard {
+      min-height: 0;
+      flex: 1;
+    }
+  }
+}
+
+:host {
+  display: block;
+  min-height: 100%;
+}
+
+// Soft entrance when a wizard step (or payout sub-panel) is inserted via *ngIf
+@keyframes tutor-approval-step-pane-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+:host .tutor-approval-wizard .tutor-approval-step-pane {
+  animation: tutor-approval-step-pane-in 0.48s cubic-bezier(0.22, 1, 0.36, 1) both;
+
+  &.tutor-approval-step-pane--sub {
+    animation-duration: 0.38s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host .tutor-approval-wizard .tutor-approval-step-pane {
+    animation: none;
+  }
+}
+
+.onboarding-container.tutor-approval-wizard-page {
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 0;
+  background: #ffffff;
+  min-height: 0;
+  flex: 1;
+}
+
+.tutor-approval-wizard {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+  position: relative;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+// Create Material–style modal chrome (matches tab1 `.cm-modal-topbar` / back / exit)
+.tutor-approval-modal-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-shrink: 0;
+  padding: 16px 24px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fff;
+  z-index: 10;
+}
+
+.tutor-approval-modal-topbar__left {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1;
+}
+
+.tutor-approval-modal-topbar__right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.tutor-approval-modal-topbar__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 8px 12px 8px 4px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 500;
+  color: #1d1d1f;
+  cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  transition: background 0.15s ease;
+  max-width: 100%;
+  text-align: left;
+
+  ion-icon {
+    flex-shrink: 0;
+    font-size: 22px;
+    color: #636366;
+  }
+
+  &:hover {
+    background: #f5f5f7;
+  }
+}
+
+.tutor-approval-modal-topbar__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 20px;
+  border-radius: 8px;
+  border: 1px solid #222;
+  background: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1d1d1f;
+  cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: #f5f5f7;
+  }
+}
+
+:host-context(html.ion-palette-dark) {
+  .tutor-approval-modal-topbar {
+    background: #1c1c1e;
+    border-bottom-color: #3a3a3c;
+  }
+
+  .tutor-approval-modal-topbar__back {
+    color: #f5f5f7;
+
+    &:hover {
+      background: #2c2c2e;
+    }
+
+    ion-icon {
+      color: #aeaeb2;
+    }
+  }
+
+  .tutor-approval-modal-topbar__close {
+    background: #1c1c1e;
+    border-color: #48484a;
+    color: #f5f5f7;
+
+    &:hover {
+      background: #2c2c2e;
+    }
+  }
+
+  ion-button.credential-cta {
+    --background: #f5f5f7;
+    --background-hover: #ffffff;
+    --background-activated: #e5e5ea;
+    --color: #1c1c1e;
+  }
+
+  .credential-section--optional .credential-add-inline {
+    background: #f5f5f7;
+    color: #1c1c1e;
+
+    &:hover:not(:disabled) {
+      background: #ffffff;
+    }
+  }
+}
+
+// Terms & Agreement: shared wizard shell caps header/panel at 520px — widen for readable legal copy.
+:host .tutor-approval-wizard.tutor-approval-wizard--tos-step {
+  .cm-details-wizard-page-shell.tutor-approval-wizard-shell {
+    max-width: min(960px, 100%);
+  }
+
+  .cm-details-wizard-header.cm-details-wizard-header--tight {
+    max-width: min(920px, 100%);
+  }
+
+  .cm-details-wizard-panel {
+    max-width: min(920px, 100%);
+  }
+
+  .step-content-card.tutor-approval-step-card {
+    max-width: 100%;
+    text-align: left;
+  }
+
+  .tos-step {
+    .tos-section-title {
+      text-align: left;
+    }
+
+    .tos-scroll-area {
+      padding: 20px 24px;
+
+      @media (min-width: 768px) {
+        padding: 22px 28px;
+      }
+    }
+  }
+}
+
+// Photo / video / payout / credentials — relax 520px shell so content uses modal width (TOS uses `--tos-step` instead; mutually exclusive).
+:host .tutor-approval-wizard.tutor-approval-wizard--wide-content {
+  .cm-details-wizard-page-shell.tutor-approval-wizard-shell {
+    max-width: min(960px, 100%);
+  }
+
+  .cm-details-wizard-header.cm-details-wizard-header--tight {
+    max-width: min(920px, 100%);
+  }
+
+  .cm-details-wizard-panel {
+    max-width: min(920px, 100%);
+  }
+
+  .step-content-card.tutor-approval-step-card {
+    max-width: 100%;
+  }
+
+  .photo-step .info-cards {
+    @media (min-width: 700px) {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px 16px;
+      align-items: stretch;
+    }
+
+    .info-card {
+      @media (min-width: 700px) {
+        min-height: 100%;
+        padding: 14px 16px;
+      }
+
+      .info-text h4 {
+        @media (min-width: 700px) {
+          font-size: 15px;
+        }
+      }
+
+      .info-text p {
+        @media (min-width: 700px) {
+          font-size: 13px;
+          line-height: 1.45;
+        }
+      }
+    }
+  }
+
+  // Center the intro video block in the widened panel (thumbnail + actions stay aligned with title).
+  .step-content .video-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 100%;
+    width: 100%;
+    margin-inline: auto;
+
+    .video-status-info {
+      width: 100%;
+      max-width: min(36rem, 100%);
+      display: flex;
+      justify-content: center;
+    }
+
+    app-video-upload {
+      display: block;
+      width: 100%;
+      max-width: min(36rem, 100%);
+      margin-inline: auto;
+    }
+  }
+
+  .credentials-step.credentials-step--wizard {
+    max-width: 100%;
+
+    .credential-section {
+      padding: 14px 16px;
+
+      @media (min-width: 768px) {
+        padding: 18px 22px;
+      }
+    }
+
+    .section-header .section-text h3 {
+      @media (min-width: 768px) {
+        font-size: 15px;
+      }
+    }
+
+    .section-header .section-text p {
+      @media (min-width: 768px) {
+        font-size: 13px;
+        line-height: 1.4;
+      }
+    }
+
+    .cert-item {
+      @media (min-width: 700px) {
+        flex-wrap: nowrap;
+        padding: 12px 14px;
+      }
+    }
+  }
+}
+
+// Match other steps: single column panel for credentials. Fill modal height: flex chain + no nested scroll; extra space above "Tutor Approval".
+.tutor-approval-wizard {
+  min-height: 0;
+
+  .cm-wizard-viewport-scroll.tutor-approval-wizard-viewport {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+
+    > .tutor-approval-wizard-shell {
+      flex: 0 0 auto;
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding-top: 24px;
+      box-sizing: border-box;
+    }
+
+    .cm-details-wizard-page-toolbar {
+      margin-bottom: 12px;
+    }
+
+    .cm-details-wizard {
+      flex: 0 0 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: visible;
+    }
+
+    .cm-details-wizard-progress {
+      margin-bottom: 12px;
+      flex-shrink: 0;
+    }
+
+    .cm-details-wizard-scroll.tutor-approval-wizard-step-scroll {
+      flex: 0 0 auto;
+      min-height: 0;
+      overflow-x: hidden;
+      overflow-y: visible;
+    }
+
+    .cm-details-wizard-scroll-inner {
+      min-height: 0;
+      justify-content: flex-start;
+      padding: 4px 0 8px;
+
+      @media (min-width: 768px) {
+        padding-top: 6px;
+        padding-bottom: 10px;
+      }
+    }
+
+    .cm-details-wizard-header--tight h1 {
+      font-size: 22px;
+      margin-bottom: 6px;
+    }
+
+    .cm-details-wizard-header--tight p {
+      font-size: 15px;
+      line-height: 1.35;
+    }
+
+    .photo-step {
+      .current-photo-large {
+        width: 88px;
+        height: 88px;
+        margin: 8px auto;
+
+        img {
+          border-radius: 44px;
+        }
+
+        .check-badge {
+          font-size: 24px;
+        }
+      }
+
+      .info-cards {
+        gap: 8px;
+        margin: 29px 0 60px;
+      }
+
+      .info-card {
+        padding: 10px 12px;
+      }
+
+      .no-photo-large {
+        margin: 8px auto;
+
+        ion-icon {
+          font-size: 64px;
+        }
+      }
+    }
+
+    .credentials-step--wizard {
+      gap: 8px;
+    }
+
+    .primary-action {
+      margin-top: 8px;
+      margin-bottom: 4px;
+    }
+
+    .step-content > p {
+      margin: 4px 0 0;
+      font-size: 12px;
+      line-height: 1.35;
+      color: $ob-text-secondary;
+      padding-top: 20px;
+    }
+  }
 }
 
 .loading-state {
@@ -54,40 +523,6 @@ $ob-accent: #222222;
   overflow: hidden;
   position: relative;
   flex-shrink: 0;
-}
-
-.close-button {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: $ob-bg-subtle;
-  border: 1px solid $ob-border-light;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.25s ease, transform 0.15s ease;
-  z-index: 10;
-  
-  ion-icon {
-    font-size: 20px;
-    color: $ob-text-secondary;
-  }
-  
-  &:hover {
-    background: $ob-border-light;
-    
-    ion-icon {
-      color: $ob-text-primary;
-    }
-  }
-  
-  &:active {
-    transform: scale(0.95);
-  }
 }
 
 // Left Column - Progress & Navigation
@@ -375,7 +810,7 @@ $ob-accent: #222222;
   padding: 0 0 12px 0;
   margin: 0 auto;
   flex-shrink: 0;
-  
+
   .step-icon-circle {
     width: 44px;
     height: 44px;
@@ -529,7 +964,7 @@ $ob-accent: #222222;
       p {
         margin: 0;
         font-size: 13px;
-        color: $ob-text-primary;
+        color: #eeae00;
         line-height: 1.4;
         font-weight: 500;
       }
@@ -540,8 +975,8 @@ $ob-accent: #222222;
   .info-cards {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    margin: 12px 0;
+    gap: 14px;
+    margin: 16px 0 22px;
     text-align: left;
     
     .info-card {
@@ -709,9 +1144,17 @@ $ob-accent: #222222;
   }
   
   .video-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     width: 100%;
     max-width: 600px;
     margin: 0 auto;
+
+    app-video-upload {
+      display: block;
+      width: 100%;
+    }
   }
 
   .video-status-info {
@@ -766,12 +1209,70 @@ $ob-accent: #222222;
   text-transform: none;
   letter-spacing: -0.2px;
   margin-bottom: 6px;
-  margin-top: 8px;
+  margin-top: 18px;
   flex-shrink: 0;
   transition: transform 0.15s ease;
   
   &:active {
     transform: scale(0.98);
+  }
+
+  &--payout {
+    margin-top: 28px;
+    min-height: 50px;
+    height: auto;
+    padding-top: 4px;
+    padding-bottom: 4px;
+
+    .primary-action__payout-brand {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-inline-end: 10px;
+    }
+
+    .primary-action__payout-img {
+      height: 22px;
+      width: auto;
+      max-width: 72px;
+      display: block;
+      object-fit: contain;
+
+      &--paypal {
+        height: 18px;
+        max-width: 64px;
+      }
+    }
+  }
+
+  // Same width as Connect Stripe / PayPal — all wizard primaries align to this pill.
+  &--wizard-footer-match {
+    display: block;
+    width: $ob-wizard-cta-uniform-width;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 16px;
+    margin-bottom: 6px;
+    height: auto;
+    min-height: 44px;
+    --padding-top: 10px;
+    --padding-bottom: 10px;
+    --padding-start: 24px;
+    --padding-end: 24px;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+
+    ion-icon[slot='start'] {
+      font-size: 18px;
+      margin-inline-end: 6px;
+    }
+  }
+
+  // Connect Stripe/PayPal: same compact width as other wizard primaries, slightly taller for logos.
+  &.primary-action--payout.primary-action--wizard-footer-match {
+    margin-top: 22px;
+    min-height: 48px;
   }
 }
 
@@ -919,51 +1420,125 @@ $ob-accent: #222222;
   }
 }
 
-// Credentials Step Styles
+// Credentials Step Styles (stacked wizard — matches photo-step info cards + black CTAs)
 .credentials-step {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  text-align: left;
 
-  .info-cards {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-top: 4px;
+  &.credentials-step--wizard {
+    gap: 12px;
+    max-width: 520px;
 
-    .info-card {
-      display: flex;
-      align-items: flex-start;
+    .credentials-columns {
+      grid-template-columns: 1fr;
       gap: 12px;
-      padding: 14px;
-      background: $ob-bg-subtle;
-      border-radius: 12px;
-      border: 1px solid $ob-border-light;
+    }
 
-      ion-icon {
-        font-size: 20px;
-        flex-shrink: 0;
-        margin-top: 1px;
+    .credentials-columns__col {
+      gap: 12px;
+    }
+
+    .credential-section {
+      background: $ob-bg-subtle;
+      border: 1px solid $ob-border-light;
+      border-radius: 12px;
+      padding: 12px 14px;
+      box-shadow: none;
+
+      &.credential-section--optional {
+        background: $ob-bg-subtle;
+        border: 1px solid $ob-border-light;
+        opacity: 1;
       }
 
-      .info-text {
-        flex: 1;
+      .section-header {
+        margin-bottom: 10px;
+        gap: 10px;
 
-        h4 {
-          margin: 0 0 2px;
-          font-size: 13px;
-          font-weight: 600;
-          color: $ob-text-primary;
+        .section-icon {
+          color: #636366;
+          font-size: 20px;
         }
 
-        p {
-          margin: 0;
+        .section-text h3 {
+          font-size: 14px;
+        }
+
+        .section-text p {
           font-size: 12px;
-          color: $ob-text-secondary;
           line-height: 1.35;
         }
       }
+
+      .upload-zone .drop-area {
+        padding: 14px 12px;
+        gap: 4px;
+
+        &:hover {
+          border-color: #c4c4c4;
+          background: #fafafa;
+        }
+
+        ion-icon {
+          font-size: 22px;
+        }
+
+        p {
+          font-size: 13px;
+        }
+
+        .file-types {
+          font-size: 11px;
+        }
+      }
+
+      .cert-name-input {
+        margin-bottom: 8px;
+      }
+
+      .cert-list {
+        margin-bottom: 8px;
+        gap: 6px;
+      }
+
+      .cert-item {
+        padding: 8px 10px;
+      }
     }
+
+    ion-button.credential-cta {
+      margin-top: 6px;
+      margin-bottom: 0;
+      margin-left: auto;
+      margin-right: auto;
+      min-height: 42px;
+      font-size: 13px;
+    }
+  }
+
+  .credentials-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px 20px;
+    align-items: start;
+    width: 100%;
+    text-align: left;
+
+    @media (max-width: 699px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .credentials-columns__col {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-width: 0;
   }
 
   .credential-section {
@@ -973,13 +1548,53 @@ $ob-accent: #222222;
     border: 1px solid $ob-border-light;
     transition: border-color 0.2s ease;
 
-    &.optional-section {
-      background: transparent;
-      border: 1px dashed $ob-border;
-      opacity: 0.85;
+    &.credential-section--optional {
+      .optional-tag {
+        font-size: 11px;
+        font-weight: 400;
+        color: $ob-text-tertiary;
+        background: rgba(255, 255, 255, 0.6);
+        padding: 2px 8px;
+        border-radius: 100px;
+        margin-left: 6px;
+      }
 
-      &:hover {
-        opacity: 1;
+      .section-header--additional-docs {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 14px;
+
+        .section-text {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .credential-add-inline {
+          flex-shrink: 0;
+          align-self: flex-start;
+          margin: 0;
+          padding: 6px 14px;
+          border: none;
+          border-radius: 8px;
+          background: #1d1d1f;
+          color: #fff;
+          font-size: 14px;
+          font-weight: 600;
+          letter-spacing: -0.02em;
+          cursor: pointer;
+          font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+          transition: background 0.15s ease, opacity 0.15s ease;
+
+          &:hover:not(:disabled) {
+            background: #000;
+          }
+
+          &:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+          }
+        }
       }
     }
 
@@ -991,7 +1606,7 @@ $ob-accent: #222222;
 
       .section-icon {
         font-size: 22px;
-        color: var(--ion-color-primary);
+        color: #636366;
         margin-top: 2px;
         flex-shrink: 0;
       }
@@ -1062,8 +1677,8 @@ $ob-accent: #222222;
         transition: all 0.2s ease;
 
         &:hover {
-          border-color: var(--ion-color-primary);
-          background: rgba(var(--ion-color-primary-rgb), 0.03);
+          border-color: #c4c4c4;
+          background: #fafafa;
         }
 
         &:active {
@@ -1252,26 +1867,27 @@ $ob-accent: #222222;
         }
       }
     }
-
-    .add-cert-btn {
-      --border-radius: 10px;
-      --padding-top: 10px;
-      --padding-bottom: 10px;
-      font-size: 13px;
-      font-weight: 500;
-      letter-spacing: 0;
-    }
-
-    .optional-tag {
-      font-size: 11px;
-      font-weight: 400;
-      color: $ob-text-tertiary;
-      background: $ob-bg-subtle;
-      padding: 2px 8px;
-      border-radius: 100px;
-      margin-left: 6px;
-    }
   }
+}
+
+ion-button.credential-cta {
+  --background: #1d1d1f;
+  --background-hover: #000000;
+  --background-activated: #000000;
+  --color: #ffffff;
+  --border-radius: 12px;
+  --box-shadow: none;
+  --padding-top: 12px;
+  --padding-bottom: 12px;
+  --padding-start: 24px;
+  --padding-end: 24px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-transform: none;
+  margin: 0 auto;
+  display: block;
+  width: $ob-wizard-cta-uniform-width;
 }
 
 // Status pills (shared)
@@ -1365,16 +1981,17 @@ $ob-accent: #222222;
   .tax-question-card,
   .payment-method-card {
     background: $ob-bg-subtle;
-    border-radius: 12px;
-    padding: 10px;
-    margin-bottom: 6px;
+    border-radius: 16px;
+    padding: 24px 22px 28px;
+    margin-bottom: 12px;
+    border: 1px solid $ob-border-light;
   }
   
   .question-header {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-bottom: 6px;
+    gap: 12px;
+    margin-bottom: 12px;
     
     .question-icon {
       font-size: 24px;
@@ -1392,18 +2009,18 @@ $ob-accent: #222222;
   .question-subtitle {
     font-size: 13px;
     color: $ob-text-secondary;
-    margin: 0 0 12px 0;
-    line-height: 1.4;
+    margin: 0 0 20px 0;
+    line-height: 1.5;
   }
   
   .question-box {
     background: white;
-    border-radius: 12px;
-    padding: 14px;
-    margin-bottom: 12px;
+    border-radius: 14px;
+    padding: 20px 18px 22px;
+    margin-bottom: 18px;
     
     h4 {
-      margin: 0 0 6px 0;
+      margin: 0 0 8px 0;
       font-size: 15px;
       font-weight: 600;
       color: $ob-text-primary;
@@ -1412,22 +2029,22 @@ $ob-accent: #222222;
     .help-text {
       font-size: 12px;
       color: $ob-text-secondary;
-      margin: 0 0 12px 0;
-      line-height: 1.4;
+      margin: 0 0 14px 0;
+      line-height: 1.45;
     }
   }
   
   .answer-options {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 18px;
   }
   
   .answer-option {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 14px;
+    padding: 16px 14px;
     border: 1px solid $ob-border;
     border-radius: 12px;
     cursor: pointer;
@@ -1442,7 +2059,7 @@ $ob-accent: #222222;
     &.selected {
       border-color: $ob-accent;
       border-width: 2px;
-      padding: 13px;
+      padding: 15px 13px;
       background: $ob-bg-subtle;
     }
     
@@ -1481,7 +2098,7 @@ $ob-accent: #222222;
       flex: 1;
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      gap: 4px;
       
       .option-label {
         font-size: 14px;
@@ -1516,21 +2133,34 @@ $ob-accent: #222222;
     --border-radius: 12px;
     --box-shadow: none;
     font-weight: 600;
-    margin-top: 8px;
+    margin-top: 16px;
     height: 44px;
     font-size: 14px;
     text-transform: none;
     letter-spacing: -0.2px;
   }
+
+  // Legacy tax flow — same width as Connect Stripe.
+  .tax-question-card > ion-button.continue-btn {
+    display: block;
+    width: $ob-wizard-cta-uniform-width;
+    margin-left: auto;
+    margin-right: auto;
+  }
   
   .button-row {
     display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
     gap: 12px;
-    margin-top: 4px;
+    margin-top: 22px;
     margin-bottom: 0;
     
     ion-button {
-      flex: 1;
+      flex: 0 0 auto;
+      width: $ob-wizard-cta-uniform-width;
+      max-width: 100%;
       --border-radius: 12px;
       font-weight: 600;
       height: 44px;
@@ -1545,54 +2175,82 @@ $ob-accent: #222222;
     }
   }
   
-  // Payment method card
-  .determined-method {
+  // Payout method summary (Stripe / PayPal hero)
+  .payout-method-hero {
     text-align: center;
-    margin-bottom: 6px;
-    
-    .method-badge {
-      display: inline-flex;
+    padding: 28px 22px 26px;
+    margin: 0 0 22px;
+    border-radius: 16px;
+    border: 1px solid $ob-border-light;
+    background: #ffffff;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+
+    &__mark {
+      display: flex;
       align-items: center;
-      gap: 6px;
-      padding: 8px 16px;
-      border-radius: 10px;
-      font-size: 14px;
-      font-weight: 600;
-      margin-bottom: 6px;
-      
-      ion-icon {
-        font-size: 18px;
+      justify-content: center;
+      margin-bottom: 14px;
+    }
+
+    // Same PNG assets as earnings withdrawal modal (`stripe-icon.png` / `paypal-icon.png`)
+    &__brand-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      overflow: hidden;
+
+      img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
       }
-      
-      &.stripe {
-        background: $ob-accent;
-        color: white;
-      }
-      
-      &.paypal {
-        background: $ob-accent;
-        color: white;
+
+      @media (max-width: 480px) {
+        width: 46px;
+        height: 46px;
       }
     }
-    
-    .method-reason {
-      font-size: 12px;
+
+    &__title {
+      margin: 0 0 12px;
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.35px;
+      color: $ob-text-primary;
+      line-height: 1.25;
+    }
+
+    &__reason {
+      margin: 0 auto;
+      max-width: 28rem;
+      font-size: 15px;
+      line-height: 1.55;
       color: $ob-text-secondary;
-      margin: 0;
-      line-height: 1.3;
+    }
+
+    &--paypal {
+      background: linear-gradient(180deg, #f4f8ff 0%, #ffffff 55%);
+    }
+
+    &--stripe {
+      background: linear-gradient(180deg, #fafaff 0%, #ffffff 50%);
     }
   }
-  
+
   .tax-summary {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    padding: 10px;
+    gap: 10px;
+    padding: 14px 16px;
     background: white;
-    border-radius: 12px;
-    margin-bottom: 8px;
+    border-radius: 14px;
+    margin: 0 0 20px;
     border: 1px solid $ob-border-light;
     
     .summary-item {
@@ -1616,7 +2274,7 @@ $ob-accent: #222222;
   }
   
   .paypal-setup {
-    margin-bottom: 8px;
+    margin: 20px 0 8px;
     
     .paypal-email-item {
       --background: white;
@@ -1665,46 +2323,162 @@ $ob-accent: #222222;
     }
   }
   
-  .info-cards {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
+  // "Change PayPal email" row shown below the success card
+  .payout-edit-row {
+    display: flex;
+    justify-content: center;
+    margin-top: 12px;
+  }
+
+  .payout-edit-btn {
+    display: inline-flex;
+    align-items: center;
     gap: 6px;
-    margin-top: 6px;
-    
-    @media (max-width: 500px) {
-      grid-template-columns: 1fr;
+    background: none;
+    border: 1px solid rgba(0,0,0,0.12);
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: $ob-text-secondary;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+
+    ion-icon { font-size: 14px; }
+
+    &:hover {
+      background: rgba(0,0,0,0.04);
+      border-color: rgba(0,0,0,0.22);
     }
-    
-    .info-card {
-      display: flex;
-      align-items: flex-start;
-      gap: 8px;
-      padding: 10px;
-      background: white;
-      border-radius: 12px;
-      border: 1px solid $ob-border-light;
-      
-      ion-icon {
-        font-size: 16px;
-        flex-shrink: 0;
-        margin-top: 2px;
+  }
+
+  // Cancel row inside the edit-email form
+  .payout-edit-cancel-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 8px;
+  }
+
+  .payout-edit-cancel-btn {
+    background: none;
+    border: none;
+    font-size: 13px;
+    font-weight: 500;
+    color: $ob-text-secondary;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: color 0.15s;
+
+    &:hover { color: $ob-text-primary; }
+  }
+
+  // Compact payout footnotes (replaces tall stacked info cards)
+  .payout-info-micro {
+    margin: 16px 0 0;
+    padding: 12px 2px 0;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+
+    &__item {
+      margin-bottom: 8px;
+
+      &:last-child {
+        margin-bottom: 0;
       }
-      
-      .info-text {
-        h4 {
-          margin: 0 0 1px 0;
-          font-size: 12px;
-          font-weight: 600;
-          color: $ob-text-primary;
-        }
-        
-        p {
-          margin: 0;
-          font-size: 10px;
-          color: $ob-text-secondary;
-          line-height: 1.2;
-        }
+    }
+
+    &__label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      line-height: 1.25;
+      color: $ob-text-secondary;
+      margin-bottom: 1px;
+    }
+
+    &__desc {
+      display: block;
+      font-size: 11px;
+      font-weight: 400;
+      line-height: 1.35;
+      color: $ob-text-secondary;
+      opacity: 0.92;
+    }
+  }
+}
+
+// Dark mode — payout / tax cards (wizard)
+:host-context(html.ion-palette-dark) {
+  .stripe-step {
+    .tax-question-card,
+    .payment-method-card {
+      background: #1c1c1e;
+      border-color: #38383a;
+    }
+
+    .question-box {
+      background: #2c2c2e;
+      border: 1px solid #38383a;
+    }
+
+    .answer-option {
+      background: #2c2c2e;
+      border-color: #38383a;
+
+      &:hover {
+        background: #2c2c2e;
+        border-color: #636366;
       }
+
+      &.selected {
+        background: #2c2c2e;
+      }
+    }
+
+    .payout-method-hero {
+      background: #1c1c1e;
+      border-color: #38383a;
+      box-shadow: none;
+
+      &--stripe {
+        background: linear-gradient(180deg, #1e1e28 0%, #1c1c1e 52%);
+      }
+
+      &--paypal {
+        background: linear-gradient(180deg, #0f1a28 0%, #1c1c1e 55%);
+      }
+
+      &__title {
+        color: #f5f5f7;
+      }
+
+      &__reason {
+        color: #98989f;
+      }
+    }
+
+    .tax-summary {
+      background: #2c2c2e;
+      border-color: #38383a;
+    }
+
+    .payout-info-micro {
+      border-top-color: rgba(255, 255, 255, 0.08);
+
+      &__label {
+        color: #aeaeb2;
+      }
+
+      &__desc {
+        color: #8e8e93;
+        opacity: 1;
+      }
+    }
+
+    .paypal-setup .paypal-email-item {
+      --background: #2c2c2e;
+      border-color: #38383a;
     }
   }
 }

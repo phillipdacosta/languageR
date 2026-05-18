@@ -345,21 +345,28 @@
           </button>
         </div>
 
-        <!-- Wizard: top bar (Create Material–style) -->
-        <div class="sc-wizard-top" *ngIf="useWizardLayout && !hostChromeFooter">
-          <button type="button" class="sc-wizard-back-link" *ngIf="wizardScreenId === 'type'" (click)="requestClose()">
-            <ion-icon name="chevron-back-outline"></ion-icon>
-            <span>{{ 'SCHEDULE_CLASS.GO_BACK' | translate }}</span>
-          </button>
-          <button type="button" class="sc-wizard-back-link" *ngIf="wizardScreenId !== 'type'" (click)="previousStep()">
-            <ion-icon name="chevron-back-outline"></ion-icon>
-            <span>{{ 'SCHEDULE_CLASS.BACK' | translate }}</span>
-          </button>
-          <div class="sc-wizard-progress-block" *ngIf="wizardScreenId !== 'type'">
-            <div class="sc-wizard-progress-track">
-              <div class="sc-wizard-progress-fill" [style.width.%]="progressPercent"></div>
+        <!-- Wizard: toolbar + progress rail (matches onboarding / tutor-onboarding) -->
+        <div class="sc-wizard-onboarding-chrome" *ngIf="useWizardLayout && !hostChromeFooter">
+          <div class="sc-wizard-back-row">
+            <button type="button" class="sc-wizard-back-link" *ngIf="wizardScreenId === 'type'" (click)="requestClose()">
+              <ion-icon name="chevron-back-outline"></ion-icon>
+              <span>{{ 'SCHEDULE_CLASS.GO_BACK' | translate }}</span>
+            </button>
+            <button type="button" class="sc-wizard-back-link" *ngIf="wizardScreenId !== 'type'" (click)="previousStep()">
+              <ion-icon name="chevron-back-outline"></ion-icon>
+              <span>{{ 'SCHEDULE_CLASS.BACK' | translate }}</span>
+            </button>
+          </div>
+          <div class="cm-details-wizard-page-shell sc-wizard-page-shell--embedded">
+            <div class="cm-details-wizard-page-toolbar">
+              <p class="cm-details-wizard-page-toolbar-title">{{ scheduleModalTitleKey | translate }}</p>
+              <span class="cm-details-wizard-step-indicator">{{ 'ONBOARDING.STEP_INDICATOR' | translate: wizardStepIndicatorI18nParams }}</span>
             </div>
-            <p class="sc-wizard-step-text">{{ 'SCHEDULE_CLASS.STEP_OF' | translate: { current: displayStepIndex, total: displayStepTotal } }}</p>
+            <div class="cm-details-wizard sc-wizard-cm-progress-only">
+              <div class="cm-details-wizard-progress" aria-hidden="true">
+                <div class="cm-details-wizard-progress-fill" [style.width.%]="progressPercent"></div>
+              </div>
+            </div>
           </div>
         </div>
 

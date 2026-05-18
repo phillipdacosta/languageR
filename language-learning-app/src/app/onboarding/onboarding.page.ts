@@ -1,15 +1,36 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewChecked, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ViewChildren, QueryList, ElementRef, AfterViewChecked, ChangeDetectorRef } from '@angular/core';
 import '@dotlottie/player-component';
 import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { UserService, OnboardingData, TutorOnboardingData, User } from '../services/user.service';
-import { LanguageService, LanguageOption, SupportedLanguage } from '../services/language.service';
+import { LanguageService, SupportedLanguage } from '../services/language.service';
 import { TranslateService } from '@ngx-translate/core';
 import { OnboardingGuard } from '../guards/onboarding.guard';
-import { Observable } from 'rxjs';
+import { Observable, Subscription, forkJoin } from 'rxjs';
 import { take, timeout, retry, catchError } from 'rxjs/operators';
 import { LoadingController, AlertController, ModalController } from '@ionic/angular';
 import { CountrySelectModalComponent } from '../components/country-select-modal/country-select-modal.component';
+import {
+  recommendedMode as computeRecommendedMode,
+  weeksToTarget,
+  normalizeGoalTargetDate,
+} from '../shared/goal-pace.helper';
+import { translateLangToDatetimeLocale } from '../shared/datetime-locale.helper';
+import { COUNTRIES_ONBOARDING_LIST } from '../data/country-onboarding-list';
+import { TEACHABLE_LANGUAGE_EN_NAMES } from '../data/teachable-language-order';
+import { FlagService } from '../services/flag.service';
+import { LocaleDisplayService, TEACHABLE_ENGLISH_NAME_TO_ISO639 } from '../services/locale-display.service';
+import {
+  LANGUAGE_SELECT_RETURN_CONTEXT,
+  LanguageSelectReturnPayload,
+  ONBOARDING_AFTER_LANGUAGE_RESTORE,
+  SIGNUP_INTERFACE_LANG_COMPLETED_KEY,
+} from '../signup-language/language-select-flow.storage';
+
+export type OnboardingNativeLangChip = { code: string; native: string; interfaceLabel: string };
+export type StudentGoalCardOption = { value: string; labelKey: string; descKey: string; icon: string };
+export type StudentLevelCardOption = { value: string; labelKey: string; descKey: string };
+export type StudentTimelineCardOption = { value: string; labelKey: string; icon: string };
 
 @Component({
   selector: 'app-onboarding',
@@ -20,50 +41,24 @@ import { CountrySelectModalComponent } from '../components/country-select-modal/
 export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   user$: Observable<any>;
   currentStep = 1;
-  totalSteps = 6; // Students: Name + Native Language + Languages + Goal + Level + Timeline
+  totalSteps = 8; // Students: Name + Native Language + Spoken Languages + CEFR Levels + Languages + Goal + Level + Timeline
   currentUser: User | null = null;
 
-  // Language selection pre-step
-  preStepPhase: 'language' | 'welcome' | 'done' = 'language';
+  /** Translation keys for focused wizard header (template uses translate pipe — no getters). */
+  studentWizardTitleKey = 'ONBOARDING.STUDENT.STEP1_TITLE';
+  studentWizardSubtitleKey = 'ONBOARDING.STUDENT.STEP1_SUBTITLE';
+  studentWizardProgressPercent = 0;
+
+  // Welcome then student wizard (first-time interface language is `/signup-language`).
+  preStepPhase: 'welcome' | 'done' = 'welcome';
   welcomeRevealed: boolean = false;
-  availableInterfaceLanguages: LanguageOption[] = [];
   selectedInterfaceLanguage: SupportedLanguage = 'en';
   selectedLanguageFlag = '🇬🇧';
 
-  // Rotating heading animation
-  headingTexts = [
-    'Choose your language',
-    'Elige tu idioma',
-    'Choisissez votre langue',
-    'Escolha seu idioma',
-    'Wählen Sie Ihre Sprache',
-    'Scegli la tua lingua',
-    'Выберите ваш язык',
-    '选择你的语言',
-    '言語を選択してください',
-    '언어를 선택하세요',
-    'اختر لغتك',
-    'अपनी भाषा चुनें',
-    'Kies je taal',
-    'Wybierz swój język',
-    'Dilinizi seçin',
-    'Välj ditt språk',
-    'Velg ditt språk',
-    'Vælg dit sprog',
-    'Valitse kielesi',
-    'Επιλέξτε τη γλώσσα σας',
-    'Vyberte svůj jazyk',
-    'Alegeți limba dvs.',
-    'Виберіть вашу мову',
-    'Chọn ngôn ngữ của bạn',
-    'เลือกภาษาของคุณ',
-    'Pilih bahasa Anda',
-    'Pilih bahasa anda',
-    'בחר את השפה שלך',
-    'زبان خود را انتخاب کنید'
-  ];
-  activeHeadingIndex = 0;
-  private headingInterval: any;
+  /** Cancels in-flight pacing-banner i18n when goal/date changes or component destroys. */
+  private pacingSuggestionI18nSub: Subscription | null = null;
+  /** Re-binds pacing banner copy when the interface language changes. */
+  private translateLangSub: Subscription | null = null;
 
   // Preview & Welcome state
   showPreview = false;
@@ -73,6 +68,17 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
 
   // ViewChild references for autofocus
   @ViewChild('firstNameInput') firstNameInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('customGoalPanel') customGoalPanel?: ElementRef<HTMLElement>;
+  @ViewChild('customGoalTextarea') customGoalTextarea?: ElementRef<HTMLTextAreaElement>;
+  @ViewChild('pacingSuggestionBanner') pacingSuggestionBanner?: ElementRef<HTMLElement>;
+
+  @ViewChildren('wizardNativeChip') wizardNativeChips?: QueryList<ElementRef<HTMLButtonElement>>;
+  @ViewChildren('wizardTeachableChip') wizardTeachableChips?: QueryList<ElementRef<HTMLButtonElement>>;
+  @ViewChildren('wizardGoalCard') wizardGoalCards?: QueryList<ElementRef<HTMLButtonElement>>;
+  @ViewChildren('wizardLevelCard') wizardLevelCards?: QueryList<ElementRef<HTMLButtonElement>>;
+  @ViewChildren('wizardTimelineCard') wizardTimelineCards?: QueryList<ElementRef<HTMLButtonElement>>;
+  @ViewChildren('wizardSpokenLangChip') wizardSpokenLangChips?: QueryList<ElementRef<HTMLButtonElement>>;
+  @ViewChildren('wizardSpokenCefrChip') wizardSpokenCefrChips?: QueryList<ElementRef<HTMLButtonElement>>;
   
   private lastFocusedStep = 0;
 
@@ -115,6 +121,59 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   nativeLanguage = 'en'; // Default to English
+
+  /** Additional languages the student speaks, each with a CEFR proficiency level. */
+  spokenLanguages: { code: string; level: string }[] = [];
+
+  readonly cefrLevels: { value: string; label: string; desc: string }[] = [
+    { value: 'A1', label: 'A1', desc: 'Beginner' },
+    { value: 'A2', label: 'A2', desc: 'Elementary' },
+    { value: 'B1', label: 'B1', desc: 'Intermediate' },
+    { value: 'B2', label: 'B2', desc: 'Upper-Intermediate' },
+    { value: 'C1', label: 'C1', desc: 'Advanced' },
+    { value: 'C2', label: 'C2', desc: 'Mastery' },
+  ];
+
+  get spokenLanguageOptions() {
+    const learningIsoCodes = new Set(
+      this.selectedLanguages
+        .map(name => TEACHABLE_ENGLISH_NAME_TO_ISO639[name])
+        .filter(Boolean)
+    );
+    return this.nativeLanguageOptions.filter(
+      l => l.code !== this.nativeLanguage && !learningIsoCodes.has(l.code)
+    );
+  }
+
+  toggleSpokenLanguage(code: string): void {
+    const idx = this.spokenLanguages.findIndex(s => s.code === code);
+    if (idx >= 0) {
+      this.spokenLanguages.splice(idx, 1);
+    } else {
+      this.spokenLanguages = [...this.spokenLanguages, { code, level: 'B2' }];
+    }
+  }
+
+  isSpokenLanguageSelected(code: string): boolean {
+    return this.spokenLanguages.some(s => s.code === code);
+  }
+
+  getSpokenLanguageLevel(code: string): string {
+    return this.spokenLanguages.find(s => s.code === code)?.level ?? '';
+  }
+
+  setSpokenLanguageLevel(code: string, level: string): void {
+    const entry = this.spokenLanguages.find(s => s.code === code);
+    if (entry) {
+      entry.level = level;
+      this.spokenLanguages = [...this.spokenLanguages];
+    }
+  }
+
+  getSpokenLanguageDisplayName(code: string): string {
+    return this.nativeLanguageOptions.find(l => l.code === code)?.interfaceLabel || code;
+  }
+
   selectedLanguages: string[] = [];
   learningGoals: string[] = [];
   experienceLevel = '';
@@ -126,29 +185,115 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   selfAssessedLevel: string = '';
   goalTimeline: string = 'no_rush';
   goalTargetDate: string = '';
+  readonly minTargetDate: string = new Date().toISOString().split('T')[0];
+  /** BCP 47 locale for `ion-datetime` (localized month/weekday/cancel labels). */
+  datePickerLocale = 'en-US';
 
-  goalTypeOptions = [
-    { value: 'conversational', label: 'Become conversational', icon: 'chatbubbles-outline', description: 'Hold natural conversations with native speakers' },
-    { value: 'exam_prep', label: 'Prepare for an exam', icon: 'school-outline', description: 'DELF, DELE, JLPT, or other certification' },
-    { value: 'professional', label: 'Use it for work', icon: 'briefcase-outline', description: 'Meetings, emails, and business communication' },
-    { value: 'travel', label: 'Travel and get by', icon: 'airplane-outline', description: 'Navigate confidently while traveling abroad' },
-    { value: 'relocation', label: 'Moving to a new country', icon: 'home-outline', description: 'Settle in and handle daily life in a new place' },
-    { value: 'other', label: 'Something else', icon: 'sparkles-outline', description: "I'll describe my goal" }
+  /** When true, the student opted to skip the goal/level/timeline steps and
+   *  start with an unframed plan ("I'll start by trying a lesson"). Backend
+   *  creates a thin shell plan automatically since `learningGoal` is omitted
+   *  from the onboarding payload. */
+  skipGoalSetup: boolean = false;
+
+  /**
+   * Soft, non-blocking suggestion shown on the timeline step when the
+   * student's goal + deadline combo suggests single lessons would serve
+   * them better than the structured roadmap (e.g. exam in ≤ 12 weeks).
+   * `null` = no suggestion. See `shared/goal-pace.helper.ts`.
+   */
+  pacingSuggestion: { weeks: number; goalType: string } | null = null;
+
+  /** Pre-resolved pacing-banner strings (avoid translate pipe before JSON finishes loading). */
+  pacingSuggestionTitle = '';
+  pacingSuggestionBody = '';
+  pacingSuggestionAccept = '';
+  pacingSuggestionDismiss = '';
+
+  /** Re-binds country + language chip labels when the interface language changes. */
+  private localeUiSub: Subscription | null = null;
+
+  goalTypeOptions: StudentGoalCardOption[] = [
+    {
+      value: 'conversational',
+      labelKey: 'LEARNING_PLAN.GOAL_LABEL_CONVERSATIONAL',
+      descKey: 'ONBOARDING.STUDENT.GOAL_DESC_CONVERSATIONAL',
+      icon: 'chatbubbles-outline',
+    },
+    {
+      value: 'exam_prep',
+      labelKey: 'LEARNING_PLAN.GOAL_LABEL_EXAM_PREP',
+      descKey: 'ONBOARDING.STUDENT.GOAL_DESC_EXAM_PREP',
+      icon: 'school-outline',
+    },
+    {
+      value: 'professional',
+      labelKey: 'LEARNING_PLAN.GOAL_LABEL_PROFESSIONAL',
+      descKey: 'ONBOARDING.STUDENT.GOAL_DESC_PROFESSIONAL',
+      icon: 'briefcase-outline',
+    },
+    {
+      value: 'travel',
+      labelKey: 'LEARNING_PLAN.GOAL_LABEL_TRAVEL',
+      descKey: 'ONBOARDING.STUDENT.GOAL_DESC_TRAVEL',
+      icon: 'airplane-outline',
+    },
+    {
+      value: 'relocation',
+      labelKey: 'LEARNING_PLAN.GOAL_LABEL_RELOCATION',
+      descKey: 'ONBOARDING.STUDENT.GOAL_DESC_RELOCATION',
+      icon: 'home-outline',
+    },
+    {
+      value: 'other',
+      labelKey: 'LEARNING_PLAN.GOAL_LABEL_OTHER',
+      descKey: 'ONBOARDING.STUDENT.GOAL_DESC_OTHER',
+      icon: 'sparkles-outline',
+    },
   ];
 
-  levelOptions = [
-    { value: 'complete_beginner', label: 'Complete beginner', description: "I haven't studied this language before" },
-    { value: 'some_basics', label: 'I know some basics', description: 'I can say a few words and simple phrases' },
-    { value: 'simple_conversations', label: 'I can hold simple conversations', description: 'I get by with everyday topics' },
-    { value: 'intermediate', label: "I'm intermediate", description: 'I can express myself but want to improve' },
-    { value: 'advanced', label: "I'm advanced", description: "I'm refining my skills and nuance" }
+  levelOptions: StudentLevelCardOption[] = [
+    {
+      value: 'complete_beginner',
+      labelKey: 'ONBOARDING.STUDENT.LEVEL_OPTION_COMPLETE_BEGINNER',
+      descKey: 'ONBOARDING.STUDENT.LEVEL_DESC_COMPLETE_BEGINNER',
+    },
+    {
+      value: 'some_basics',
+      labelKey: 'ONBOARDING.STUDENT.LEVEL_OPTION_SOME_BASICS',
+      descKey: 'ONBOARDING.STUDENT.LEVEL_DESC_SOME_BASICS',
+    },
+    {
+      value: 'simple_conversations',
+      labelKey: 'ONBOARDING.STUDENT.LEVEL_OPTION_SIMPLE_CONVERSATIONS',
+      descKey: 'ONBOARDING.STUDENT.LEVEL_DESC_SIMPLE_CONVERSATIONS',
+    },
+    {
+      value: 'intermediate',
+      labelKey: 'ONBOARDING.STUDENT.LEVEL_OPTION_INTERMEDIATE',
+      descKey: 'ONBOARDING.STUDENT.LEVEL_DESC_INTERMEDIATE',
+    },
+    {
+      value: 'advanced',
+      labelKey: 'ONBOARDING.STUDENT.LEVEL_OPTION_ADVANCED',
+      descKey: 'ONBOARDING.STUDENT.LEVEL_DESC_ADVANCED',
+    },
   ];
 
-  timelineOptions = [
-    { value: 'specific_date', label: 'By a specific date', icon: 'calendar-outline' },
-    { value: 'few_months', label: 'Within a few months', icon: 'time-outline' },
-    { value: 'no_rush', label: 'No rush, just steady progress', icon: 'leaf-outline' }
+  timelineOptions: StudentTimelineCardOption[] = [
+    { value: 'specific_date', labelKey: 'ONBOARDING.STUDENT.TIMELINE_OPTION_SPECIFIC_DATE', icon: 'calendar-outline' },
+    { value: 'few_months', labelKey: 'ONBOARDING.STUDENT.TIMELINE_OPTION_FEW_MONTHS', icon: 'time-outline' },
+    { value: 'no_rush', labelKey: 'ONBOARDING.STUDENT.TIMELINE_OPTION_NO_RUSH', icon: 'leaf-outline' },
   ];
+
+  /** Maps structured goal type to shared plan copy (see `LEARNING_PLAN` i18n). */
+  private readonly learningGoalTypeToI18nKey: Record<string, string> = {
+    conversational: 'LEARNING_PLAN.GOAL_LABEL_CONVERSATIONAL',
+    exam_prep: 'LEARNING_PLAN.GOAL_LABEL_EXAM_PREP',
+    professional: 'LEARNING_PLAN.GOAL_LABEL_PROFESSIONAL',
+    travel: 'LEARNING_PLAN.GOAL_LABEL_TRAVEL',
+    relocation: 'LEARNING_PLAN.GOAL_LABEL_RELOCATION',
+    other: 'LEARNING_PLAN.GOAL_LABEL_OTHER',
+  };
 
   // Tutor-specific data
   tutorCountry = '';
@@ -157,57 +302,49 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   tutorBio = '';
   tutorHourlyRate = 25;
 
-  // Available options
-  availableLanguages = [
-    'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese',
-    'Russian', 'Chinese', 'Japanese', 'Korean', 'Arabic', 'Hindi',
-    'Dutch', 'Polish', 'Turkish', 'Swedish', 'Norwegian', 'Danish',
-    'Finnish', 'Greek', 'Czech', 'Romanian', 'Ukrainian', 'Vietnamese',
-    'Thai', 'Indonesian', 'Malay', 'Hebrew', 'Persian'
-  ];
+  teachableLanguageRows: { value: string; iso: string; interfaceLabel: string }[] = [];
+
+  get filteredTeachableLanguageRows() {
+    return this.teachableLanguageRows.filter(r => r.iso !== this.nativeLanguage);
+  }
 
   // Native language options with ISO codes
-  nativeLanguageOptions = [
-    { code: 'en', name: 'English', native: 'English' },
-    { code: 'es', name: 'Spanish', native: 'Español' },
-    { code: 'fr', name: 'French', native: 'Français' },
-    { code: 'de', name: 'German', native: 'Deutsch' },
-    { code: 'it', name: 'Italian', native: 'Italiano' },
-    { code: 'pt', name: 'Portuguese', native: 'Português' },
-    { code: 'ru', name: 'Russian', native: 'Русский' },
-    { code: 'zh', name: 'Chinese', native: '中文' },
-    { code: 'ja', name: 'Japanese', native: '日本語' },
-    { code: 'ko', name: 'Korean', native: '한국어' },
-    { code: 'ar', name: 'Arabic', native: 'العربية' },
-    { code: 'hi', name: 'Hindi', native: 'हिन्दी' },
-    { code: 'nl', name: 'Dutch', native: 'Nederlands' },
-    { code: 'pl', name: 'Polish', native: 'Polski' },
-    { code: 'tr', name: 'Turkish', native: 'Türkçe' },
-    { code: 'sv', name: 'Swedish', native: 'Svenska' },
-    { code: 'no', name: 'Norwegian', native: 'Norsk' },
-    { code: 'da', name: 'Danish', native: 'Dansk' },
-    { code: 'fi', name: 'Finnish', native: 'Suomi' },
-    { code: 'el', name: 'Greek', native: 'Ελληνικά' },
-    { code: 'cs', name: 'Czech', native: 'Čeština' },
-    { code: 'ro', name: 'Romanian', native: 'Română' },
-    { code: 'uk', name: 'Ukrainian', native: 'Українська' },
-    { code: 'vi', name: 'Vietnamese', native: 'Tiếng Việt' },
-    { code: 'th', name: 'Thai', native: 'ไทย' },
-    { code: 'id', name: 'Indonesian', native: 'Bahasa Indonesia' },
-    { code: 'ms', name: 'Malay', native: 'Bahasa Melayu' },
-    { code: 'he', name: 'Hebrew', native: 'עברית' },
-    { code: 'fa', name: 'Persian', native: 'فارسی' }
+  nativeLanguageOptions: OnboardingNativeLangChip[] = [
+    { code: 'en', native: 'English', interfaceLabel: '' },
+    { code: 'es', native: 'Español', interfaceLabel: '' },
+    { code: 'fr', native: 'Français', interfaceLabel: '' },
+    { code: 'de', native: 'Deutsch', interfaceLabel: '' },
+    { code: 'it', native: 'Italiano', interfaceLabel: '' },
+    { code: 'pt', native: 'Português', interfaceLabel: '' },
+    { code: 'ru', native: 'Русский', interfaceLabel: '' },
+    { code: 'zh', native: '中文', interfaceLabel: '' },
+    { code: 'ja', native: '日本語', interfaceLabel: '' },
+    { code: 'ko', native: '한국어', interfaceLabel: '' },
+    // TEMP: RTL languages hidden from pickers (ar, he, fa)
+    // { code: 'ar', native: 'العربية', interfaceLabel: '' },
+    { code: 'hi', native: 'हिन्दी', interfaceLabel: '' },
+    { code: 'nl', native: 'Nederlands', interfaceLabel: '' },
+    { code: 'pl', native: 'Polski', interfaceLabel: '' },
+    { code: 'tr', native: 'Türkçe', interfaceLabel: '' },
+    { code: 'sv', native: 'Svenska', interfaceLabel: '' },
+    { code: 'no', native: 'Norsk', interfaceLabel: '' },
+    { code: 'da', native: 'Dansk', interfaceLabel: '' },
+    { code: 'fi', native: 'Suomi', interfaceLabel: '' },
+    { code: 'el', native: 'Ελληνικά', interfaceLabel: '' },
+    { code: 'cs', native: 'Čeština', interfaceLabel: '' },
+    { code: 'ro', native: 'Română', interfaceLabel: '' },
+    { code: 'uk', native: 'Українська', interfaceLabel: '' },
+    { code: 'vi', native: 'Tiếng Việt', interfaceLabel: '' },
+    { code: 'th', native: 'ไทย', interfaceLabel: '' },
+    { code: 'id', native: 'Bahasa Indonesia', interfaceLabel: '' },
+    { code: 'ms', native: 'Bahasa Melayu', interfaceLabel: '' },
+    // { code: 'he', native: 'עברית', interfaceLabel: '' },
+    // { code: 'fa', native: 'فارسی', interfaceLabel: '' },
   ];
 
-  availableGoals = [
-    { key: 'ONBOARDING.STUDENT.GOAL_TRAVEL', value: 'Travel and tourism' },
-    { key: 'ONBOARDING.STUDENT.GOAL_BUSINESS', value: 'Business communication' },
-    { key: 'ONBOARDING.STUDENT.GOAL_ACADEMIC', value: 'Academic studies' },
-    { key: 'ONBOARDING.STUDENT.GOAL_CULTURE', value: 'Cultural understanding' },
-    { key: 'ONBOARDING.STUDENT.GOAL_PERSONAL', value: 'Personal interest' },
-    { key: 'ONBOARDING.STUDENT.GOAL_CAREER', value: 'Career advancement' },
-    { key: 'ONBOARDING.STUDENT.GOAL_FRIENDS', value: 'Make new friends' }
-  ];
+  tutorCountryOptions = [...COUNTRIES_ONBOARDING_LIST];
+
+  tutorCountryDisplayLabel = '';
 
   experienceLevels = [
     { key: 'ONBOARDING.STUDENT.LEVEL_BEGINNER', value: 'Beginner' },
@@ -222,122 +359,8 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     { key: 'ONBOARDING.STUDENT.SCHEDULE_FLEXIBLE', value: 'Flexible schedule' }
   ];
 
-  translatedGoalsList = '';
   translatedExperienceLevel = '';
   translatedSchedule = '';
-
-  // Tutor-specific options - comprehensive list with flags
-  tutorCountryOptions = [
-    { name: 'Afghanistan', flag: '🇦🇫' },
-    { name: 'Albania', flag: '🇦🇱' },
-    { name: 'Algeria', flag: '🇩🇿' },
-    { name: 'Argentina', flag: '🇦🇷' },
-    { name: 'Armenia', flag: '🇦🇲' },
-    { name: 'Australia', flag: '🇦🇺' },
-    { name: 'Austria', flag: '🇦🇹' },
-    { name: 'Azerbaijan', flag: '🇦🇿' },
-    { name: 'Bahrain', flag: '🇧🇭' },
-    { name: 'Bangladesh', flag: '🇧🇩' },
-    { name: 'Belarus', flag: '🇧🇾' },
-    { name: 'Belgium', flag: '🇧🇪' },
-    { name: 'Bolivia', flag: '🇧🇴' },
-    { name: 'Bosnia and Herzegovina', flag: '🇧🇦' },
-    { name: 'Brazil', flag: '🇧🇷' },
-    { name: 'Bulgaria', flag: '🇧🇬' },
-    { name: 'Cambodia', flag: '🇰🇭' },
-    { name: 'Canada', flag: '🇨🇦' },
-    { name: 'Chile', flag: '🇨🇱' },
-    { name: 'China', flag: '🇨🇳' },
-    { name: 'Colombia', flag: '🇨🇴' },
-    { name: 'Costa Rica', flag: '🇨🇷' },
-    { name: 'Croatia', flag: '🇭🇷' },
-    { name: 'Cuba', flag: '🇨🇺' },
-    { name: 'Czech Republic', flag: '🇨🇿' },
-    { name: 'Denmark', flag: '🇩🇰' },
-    { name: 'Dominican Republic', flag: '🇩🇴' },
-    { name: 'Ecuador', flag: '🇪🇨' },
-    { name: 'Egypt', flag: '🇪🇬' },
-    { name: 'El Salvador', flag: '🇸🇻' },
-    { name: 'Estonia', flag: '🇪🇪' },
-    { name: 'Ethiopia', flag: '🇪🇹' },
-    { name: 'Finland', flag: '🇫🇮' },
-    { name: 'France', flag: '🇫🇷' },
-    { name: 'Georgia', flag: '🇬🇪' },
-    { name: 'Germany', flag: '🇩🇪' },
-    { name: 'Ghana', flag: '🇬🇭' },
-    { name: 'Greece', flag: '🇬🇷' },
-    { name: 'Guatemala', flag: '🇬🇹' },
-    { name: 'Honduras', flag: '🇭🇳' },
-    { name: 'Hong Kong', flag: '🇭🇰' },
-    { name: 'Hungary', flag: '🇭🇺' },
-    { name: 'Iceland', flag: '🇮🇸' },
-    { name: 'India', flag: '🇮🇳' },
-    { name: 'Indonesia', flag: '🇮🇩' },
-    { name: 'Iran', flag: '🇮🇷' },
-    { name: 'Iraq', flag: '🇮🇶' },
-    { name: 'Ireland', flag: '🇮🇪' },
-    { name: 'Israel', flag: '🇮🇱' },
-    { name: 'Italy', flag: '🇮🇹' },
-    { name: 'Jamaica', flag: '🇯🇲' },
-    { name: 'Japan', flag: '🇯🇵' },
-    { name: 'Jordan', flag: '🇯🇴' },
-    { name: 'Kazakhstan', flag: '🇰🇿' },
-    { name: 'Kenya', flag: '🇰🇪' },
-    { name: 'Kuwait', flag: '🇰🇼' },
-    { name: 'Latvia', flag: '🇱🇻' },
-    { name: 'Lebanon', flag: '🇱🇧' },
-    { name: 'Libya', flag: '🇱🇾' },
-    { name: 'Lithuania', flag: '🇱🇹' },
-    { name: 'Luxembourg', flag: '🇱🇺' },
-    { name: 'Malaysia', flag: '🇲🇾' },
-    { name: 'Mexico', flag: '🇲🇽' },
-    { name: 'Morocco', flag: '🇲🇦' },
-    { name: 'Netherlands', flag: '🇳🇱' },
-    { name: 'New Zealand', flag: '🇳🇿' },
-    { name: 'Nicaragua', flag: '🇳🇮' },
-    { name: 'Nigeria', flag: '🇳🇬' },
-    { name: 'North Korea', flag: '🇰🇵' },
-    { name: 'Norway', flag: '🇳🇴' },
-    { name: 'Oman', flag: '🇴🇲' },
-    { name: 'Pakistan', flag: '🇵🇰' },
-    { name: 'Palestine', flag: '🇵🇸' },
-    { name: 'Panama', flag: '🇵🇦' },
-    { name: 'Paraguay', flag: '🇵🇾' },
-    { name: 'Peru', flag: '🇵🇪' },
-    { name: 'Philippines', flag: '🇵🇭' },
-    { name: 'Poland', flag: '🇵🇱' },
-    { name: 'Portugal', flag: '🇵🇹' },
-    { name: 'Puerto Rico', flag: '🇵🇷' },
-    { name: 'Qatar', flag: '🇶🇦' },
-    { name: 'Romania', flag: '🇷🇴' },
-    { name: 'Russia', flag: '🇷🇺' },
-    { name: 'Saudi Arabia', flag: '🇸🇦' },
-    { name: 'Serbia', flag: '🇷🇸' },
-    { name: 'Singapore', flag: '🇸🇬' },
-    { name: 'Slovakia', flag: '🇸🇰' },
-    { name: 'Slovenia', flag: '🇸🇮' },
-    { name: 'South Africa', flag: '🇿🇦' },
-    { name: 'South Korea', flag: '🇰🇷' },
-    { name: 'Spain', flag: '🇪🇸' },
-    { name: 'Sri Lanka', flag: '🇱🇰' },
-    { name: 'Sweden', flag: '🇸🇪' },
-    { name: 'Switzerland', flag: '🇨🇭' },
-    { name: 'Syria', flag: '🇸🇾' },
-    { name: 'Taiwan', flag: '🇹🇼' },
-    { name: 'Thailand', flag: '🇹🇭' },
-    { name: 'Tunisia', flag: '🇹🇳' },
-    { name: 'Turkey', flag: '🇹🇷' },
-    { name: 'Ukraine', flag: '🇺🇦' },
-    { name: 'United Arab Emirates', flag: '🇦🇪' },
-    { name: 'United Kingdom', flag: '🇬🇧' },
-    { name: 'United States', flag: '🇺🇸' },
-    { name: 'Uruguay', flag: '🇺🇾' },
-    { name: 'Uzbekistan', flag: '🇺🇿' },
-    { name: 'Venezuela', flag: '🇻🇪' },
-    { name: 'Vietnam', flag: '🇻🇳' },
-    { name: 'Yemen', flag: '🇾🇪' },
-    { name: 'Other', flag: '🌍' }
-  ];
 
   tutorExperienceOptions = [
     'Beginner (0-1 years)',
@@ -363,34 +386,85 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     private modalController: ModalController,
     private onboardingGuard: OnboardingGuard,
     private cdr: ChangeDetectorRef,
-    private translateService: TranslateService
+    private translateService: TranslateService,
+    private flagService: FlagService,
+    private localeDisplay: LocaleDisplayService
   ) {
     this.user$ = this.authService.user$;
-    this.availableInterfaceLanguages = this.languageService.supportedLanguages;
     this.selectedInterfaceLanguage = this.languageService.getCurrentLanguage();
+    this.refreshLanguageToolbarFlag();
   }
 
   ngOnDestroy() {
-    this.stopHeadingRotation();
+    this.localeUiSub?.unsubscribe();
+    this.localeUiSub = null;
+    this.pacingSuggestionI18nSub?.unsubscribe();
+    this.pacingSuggestionI18nSub = null;
+    this.translateLangSub?.unsubscribe();
+    this.translateLangSub = null;
   }
 
-  private startHeadingRotation() {
-    this.stopHeadingRotation();
-    this.headingInterval = setInterval(() => {
-      this.activeHeadingIndex = (this.activeHeadingIndex + 1) % this.headingTexts.length;
-      this.cdr.detectChanges();
-    }, 2400);
+  private persistSignupLanguageReturn(): void {
+    const payload: LanguageSelectReturnPayload = {
+      phase: this.preStepPhase,
+      showPreview: this.showPreview,
+    };
+    sessionStorage.setItem(LANGUAGE_SELECT_RETURN_CONTEXT, JSON.stringify(payload));
   }
 
-  private stopHeadingRotation() {
-    if (this.headingInterval) {
-      clearInterval(this.headingInterval);
-      this.headingInterval = null;
-    }
+  /** Opens `/signup-language` (welcome header or wizard language control). */
+  openSignupLanguageEditor(): void {
+    this.persistSignupLanguageReturn();
+    void this.router.navigate(['/signup-language']);
+  }
+
+  /** Go back to `/role-select` so the user can switch between student/tutor. */
+  changeRole(): void {
+    void this.router.navigate(['/role-select']);
   }
 
   ngOnInit() {
-    this.startHeadingRotation();
+    const restoreRaw = sessionStorage.getItem(ONBOARDING_AFTER_LANGUAGE_RESTORE);
+    const hasRole = !!localStorage.getItem('selectedUserType');
+    const langCompleted =
+      sessionStorage.getItem(SIGNUP_INTERFACE_LANG_COMPLETED_KEY) === '1';
+
+    if (!hasRole && !restoreRaw) {
+      if (langCompleted) {
+        void this.router.navigate(['/role-select'], { replaceUrl: true });
+        return;
+      }
+      void this.router.navigate(['/signup-language'], { replaceUrl: true });
+      return;
+    }
+
+    if (restoreRaw) {
+      sessionStorage.removeItem(ONBOARDING_AFTER_LANGUAGE_RESTORE);
+      try {
+        const o = JSON.parse(restoreRaw) as LanguageSelectReturnPayload;
+        this.preStepPhase = o.phase;
+        this.showPreview = o.showPreview;
+        this.selectedInterfaceLanguage = this.languageService.getCurrentLanguage();
+        this.refreshLanguageToolbarFlag();
+      } catch {
+        /* ignore malformed restore */
+      }
+    }
+
+    // Whenever we land on the welcome phase (fresh visit, reload, or signup-language
+    // restore), schedule the reveal animation so the title/body fade in and the
+    // lottie shrinks into place. Without this, a hard reload leaves the page stuck
+    // in its pre-reveal hidden state.
+    if (this.preStepPhase === 'welcome' && !this.showPreview && !this.showWelcome) {
+      this.welcomeRevealed = false;
+      setTimeout(() => this.revealWelcome(), 3800);
+    }
+
+    this.localeUiSub = this.languageService.currentLanguage$.subscribe(() => {
+      this.bindLocaleSensitiveUi();
+      this.cdr.markForCheck();
+    });
+    this.bindLocaleSensitiveUi();
 
     // Check if user is authenticated
     this.authService.isAuthenticated$.pipe(take(1)).subscribe(isAuthenticated => {
@@ -429,61 +503,175 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
         },
         error => {
           console.error('Error getting user profile:', error);
-          this.showError('Authentication failed. Please log in again.', true);
+          this.showError(this.translateService.instant('ONBOARDING.ALERTS.AUTH_FAILED'), true);
         }
       );
     });
 
-    // Get userType from localStorage (set during user type selection)
-    const selectedUserType = localStorage.getItem('selectedUserType');
-    console.log('🔍 Selected user type from localStorage:', selectedUserType);
-    
-    if (selectedUserType === 'tutor') {
-      this.totalSteps = 3; // Tutors: Name + Languages + Tutor Profile (country, experience, schedule, bio, rate, video)
+    this.translateLangSub = this.translateService.onLangChange.subscribe(() => {
+      this.refreshDatePickerLocale();
+      this.bindPacingSuggestionLabels();
+      this.bindLocaleSensitiveUi();
+      if (this.showPreview) {
+        this.computePreviewLabels();
+      }
+    });
+
+    this.syncStudentWizardCopy();
+    this.refreshDatePickerLocale();
+  }
+
+  private refreshDatePickerLocale(): void {
+    this.datePickerLocale = translateLangToDatetimeLocale(this.translateService.currentLang);
+  }
+
+  private bindLocaleSensitiveUi(): void {
+    const ui = this.languageService.getCurrentLanguage();
+    const otherKey = 'ONBOARDING.COUNTRY_MODAL.OTHER';
+    const otherT = this.translateService.instant(otherKey);
+    const otherLbl = otherT !== otherKey ? otherT : 'Other';
+
+    for (const row of this.nativeLanguageOptions) {
+      row.interfaceLabel = this.localeDisplay.languageName(row.code, ui);
     }
+
+    this.teachableLanguageRows = TEACHABLE_LANGUAGE_EN_NAMES.map((v) => ({
+      value: v,
+      iso: TEACHABLE_ENGLISH_NAME_TO_ISO639[v] ?? '',
+      interfaceLabel: this.localeDisplay.languageName(
+        TEACHABLE_ENGLISH_NAME_TO_ISO639[v] ?? 'en',
+        ui
+      ),
+    }));
+
+    this.tutorCountryDisplayLabel = this.tutorCountry
+      ? this.localeDisplay.localizedCountryRow(
+          this.tutorCountry,
+          ui,
+          this.flagService.getCountryCodeFromCountryName(this.tutorCountry),
+          otherLbl
+        )
+      : '';
+    this.refreshLanguageToolbarFlag();
+  }
+
+  /** Keeps header emoji + code in sync with the currently active interface language. */
+  private refreshLanguageToolbarFlag(): void {
+    this.selectedInterfaceLanguage = this.languageService.getCurrentLanguage();
+    this.selectedLanguageFlag =
+      this.languageService.getLanguageOption(this.selectedInterfaceLanguage)?.flag ?? '🇬🇧';
   }
 
   ngAfterViewChecked() {
-    // Focus first input and scroll sidebar when step changes
+    const wizardActive =
+      this.preStepPhase === 'done' && !this.showPreview && !this.showWelcome;
+    if (!wizardActive) {
+      return;
+    }
     if (this.currentStep !== this.lastFocusedStep) {
       this.lastFocusedStep = this.currentStep;
+      this.syncStudentWizardCopy();
       setTimeout(() => {
         this.focusFirstInput();
-        this.scrollCurrentStepIntoView();
-      }, 100);
+      }, 120);
     }
   }
 
-  private scrollCurrentStepIntoView() {
-    const currentStepEl = document.querySelector('.step-item.current');
-    if (currentStepEl) {
-      currentStepEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  /** Keeps wizard header + progress bar in sync with `currentStep`. */
+  private syncStudentWizardCopy(): void {
+    switch (this.currentStep) {
+      case 1:
+        this.studentWizardTitleKey = 'ONBOARDING.STUDENT.STEP1_TITLE';
+        this.studentWizardSubtitleKey = 'ONBOARDING.STUDENT.STEP1_SUBTITLE';
+        break;
+      case 2:
+        this.studentWizardTitleKey = 'ONBOARDING.STUDENT.STEP2_TITLE';
+        this.studentWizardSubtitleKey = 'ONBOARDING.STUDENT.STEP2_SUBTITLE';
+        break;
+      case 3:
+        this.studentWizardTitleKey = 'ONBOARDING.STUDENT.STEP3_TITLE';
+        this.studentWizardSubtitleKey = 'ONBOARDING.STUDENT.STEP3_SUBTITLE';
+        break;
+      case 4:
+        this.studentWizardTitleKey = 'ONBOARDING.TUTOR_OB.STEP_SPOKEN_TITLE';
+        this.studentWizardSubtitleKey = 'ONBOARDING.TUTOR_OB.STEP_SPOKEN_SUBTITLE';
+        break;
+      case 5:
+        this.studentWizardTitleKey = 'ONBOARDING.TUTOR_OB.STEP_SPOKEN_LEVELS_TITLE';
+        this.studentWizardSubtitleKey = 'ONBOARDING.TUTOR_OB.STEP_SPOKEN_LEVELS_SUBTITLE';
+        break;
+      case 6:
+        this.studentWizardTitleKey = 'ONBOARDING.STUDENT.GOAL_WIZARD_TITLE';
+        this.studentWizardSubtitleKey = 'ONBOARDING.STUDENT.GOAL_WIZARD_SUBTITLE';
+        break;
+      case 7:
+        this.studentWizardTitleKey = 'ONBOARDING.STUDENT.LEVEL_WIZARD_TITLE';
+        this.studentWizardSubtitleKey = 'ONBOARDING.STUDENT.LEVEL_WIZARD_SUBTITLE';
+        break;
+      case 8:
+        this.studentWizardTitleKey = 'ONBOARDING.STUDENT.TIMELINE_WIZARD_TITLE';
+        this.studentWizardSubtitleKey = 'ONBOARDING.STUDENT.TIMELINE_WIZARD_SUBTITLE';
+        this.refreshPacingSuggestion();
+        break;
+      default:
+        this.studentWizardTitleKey = 'ONBOARDING.STUDENT.STEP1_TITLE';
+        this.studentWizardSubtitleKey = 'ONBOARDING.STUDENT.STEP1_SUBTITLE';
+        break;
     }
+    this.studentWizardProgressPercent =
+      this.totalSteps > 0 ? (this.currentStep / this.totalSteps) * 100 : 0;
   }
 
   private focusFirstInput() {
-    if (this.currentStep === 1 && this.firstNameInput?.nativeElement) {
-      this.firstNameInput.nativeElement.focus();
+    switch (this.currentStep) {
+      case 1:
+        this.firstNameInput?.nativeElement?.focus();
+        break;
+      case 2:
+        this.focusFirstInQueryList(this.wizardNativeChips);
+        break;
+      case 3:
+        this.focusFirstInQueryList(this.wizardTeachableChips);
+        break;
+      case 4:
+        this.focusFirstInQueryList(this.wizardSpokenLangChips);
+        break;
+      case 5:
+        this.focusFirstInQueryList(this.wizardSpokenCefrChips);
+        break;
+      case 6:
+        if (this.learningGoalType === 'other') {
+          this.customGoalTextarea?.nativeElement?.focus();
+        } else {
+          this.focusFirstInQueryList(this.wizardGoalCards);
+        }
+        break;
+      case 7:
+        this.focusFirstInQueryList(this.wizardLevelCards);
+        break;
+      case 8:
+        this.focusFirstInQueryList(this.wizardTimelineCards);
+        break;
+      default:
+        break;
     }
   }
 
-  selectInterfaceLanguage(lang: SupportedLanguage) {
-    this.selectedInterfaceLanguage = lang;
-    this.selectedLanguageFlag = this.languageService.getLanguageOption(lang)?.flag || '🇬🇧';
-    this.languageService.setLanguage(lang);
+  private focusFirstInQueryList(list: QueryList<ElementRef<HTMLElement>> | undefined): void {
+    const el = list?.first?.nativeElement;
+    el?.focus();
   }
 
-  confirmLanguageSelection() {
-    this.stopHeadingRotation();
-    this.preStepPhase = 'welcome';
-    this.welcomeRevealed = false;
-    setTimeout(() => { this.welcomeRevealed = true; this.cdr.detectChanges(); }, 3800);
-  }
-
-  goBackToLanguageSelect() {
-    this.preStepPhase = 'language';
-    this.welcomeRevealed = false;
-    this.startHeadingRotation();
+  private revealWelcome(): void {
+    this.welcomeRevealed = true;
+    this.cdr.detectChanges();
+    // The CSS transition shrinks the lottie from 220px to 72px over 0.6s.
+    // The dotlottie-player's ResizeObserver stops playback during that resize,
+    // so we re-trigger play once the transition has settled.
+    setTimeout(() => {
+      const player = document.querySelector('.welcome-celebration-lottie') as any;
+      player?.play?.();
+    }, 750);
   }
 
   startOnboarding() {
@@ -497,15 +685,18 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
 
     const srcText = srcTitle.textContent?.trim() || '';
     const srcStyles = window.getComputedStyle(srcTitle);
+    const centerX = (r: DOMRect) => r.left + r.width / 2;
 
     const clone = document.createElement('div');
     clone.textContent = srcText;
     Object.assign(clone.style, {
       position: 'fixed',
-      left: `${srcRect.left}px`,
+      left: `${centerX(srcRect)}px`,
       top: `${srcRect.top}px`,
-      width: `${srcRect.width}px`,
+      transform: 'translateX(-50%)',
+      width: 'auto',
       height: `${srcRect.height}px`,
+      textAlign: 'center',
       zIndex: '10000',
       pointerEvents: 'none',
       fontFamily: srcStyles.fontFamily,
@@ -528,35 +719,60 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
       landed = true;
       dest.style.transition = 'none';
       dest.style.opacity = '0';
-      const destRect = dest.getBoundingClientRect();
-      const destStyles = window.getComputedStyle(dest);
-      const destText = dest.textContent?.trim() || '';
 
+      // Measure dest after one rAF so the wizard layout has had a chance to settle.
       requestAnimationFrame(() => {
+        const destRect = dest.getBoundingClientRect();
+        const destStyles = window.getComputedStyle(dest);
+        const destText = dest.textContent?.trim() || '';
+
         clone.textContent = destText;
-        clone.style.left = `${destRect.left}px`;
+        clone.style.left = `${centerX(destRect)}px`;
         clone.style.top = `${destRect.top}px`;
+        clone.style.transform = 'translateX(-50%)';
         clone.style.width = 'auto';
         clone.style.height = `${destRect.height}px`;
         clone.style.fontSize = destStyles.fontSize;
-      });
 
-      setTimeout(() => {
-        const finalRect = dest.getBoundingClientRect();
-        clone.style.transition = 'none';
-        clone.style.left = `${finalRect.left}px`;
-        clone.style.top = `${finalRect.top}px`;
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
+        // After the main 500ms flight: re-measure dest in case layout shifted
+        // during flight (fonts/assets/flex centering settling), nudge the clone
+        // to the exact final position, then crossfade clone → real h1.
+        setTimeout(() => {
+          const finalRect = dest.getBoundingClientRect();
+          const finalLeft = centerX(finalRect);
+          const finalTop = finalRect.top;
+          const currentLeft = parseFloat(clone.style.left) || 0;
+          const currentTop = parseFloat(clone.style.top) || 0;
+          const drifted =
+            Math.abs(finalLeft - currentLeft) > 0.5 ||
+            Math.abs(finalTop - currentTop) > 0.5;
+
+          const startCrossfade = () => {
+            dest.style.transition = 'opacity 0.18s ease';
             dest.style.opacity = '1';
-            if (clone.parentNode) clone.remove();
-            setTimeout(() => { dest.style.transition = ''; dest.style.opacity = ''; }, 50);
-          });
-        });
-      }, 550);
+            clone.style.transition = 'opacity 0.18s ease';
+            clone.style.opacity = '0';
+            setTimeout(() => {
+              if (clone.parentNode) clone.remove();
+              dest.style.transition = '';
+              dest.style.opacity = '';
+            }, 200);
+          };
+
+          if (drifted) {
+            clone.style.transition =
+              'left 0.18s cubic-bezier(0.32, 0.72, 0, 1), top 0.18s cubic-bezier(0.32, 0.72, 0, 1)';
+            clone.style.left = `${finalLeft}px`;
+            clone.style.top = `${finalTop}px`;
+            setTimeout(startCrossfade, 180);
+          } else {
+            startCrossfade();
+          }
+        }, 520);
+      });
     };
 
-    const destSelector = '.onboarding-header h1';
+    const destSelector = '.cm-details-wizard-header h1';
     const checkDest = () => {
       const dest = document.querySelector(destSelector) as HTMLElement;
       if (dest) flyToDestination(dest);
@@ -586,16 +802,23 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   nextStep() {
-    // Validate current step before proceeding
     if (this.currentStep === 1) {
       if (!this.firstName.trim() || !this.lastName.trim()) {
-        alert('Please enter your first and last name');
+        alert(this.translateService.instant('ONBOARDING.ALERTS.NAME_REQUIRED'));
         return;
       }
     }
-    
+
     if (this.currentStep < this.totalSteps) {
       this.currentStep++;
+      // Skip CEFR level step if no spoken languages were selected
+      if (this.currentStep === 5 && this.spokenLanguages.length === 0) {
+        this.currentStep++;
+      }
+      // "Learn at my own pace" path: skip picking a framed goal on step 6
+      if (this.currentStep === 6 && this.skipGoalSetup) {
+        this.currentStep++;
+      }
     }
   }
 
@@ -604,40 +827,34 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
       this.preStepPhase = 'welcome';
     } else {
       this.currentStep--;
+      // Skip CEFR level step going back if no spoken languages were selected
+      if (this.currentStep === 5 && this.spokenLanguages.length === 0) {
+        this.currentStep--;
+      }
     }
   }
 
-  goToLanguageSelect() {
-    this.preStepPhase = 'language';
-    this.startHeadingRotation();
-  }
-
   toggleLanguage(language: string) {
-    const index = this.selectedLanguages.indexOf(language);
-    if (index > -1) {
-      this.selectedLanguages.splice(index, 1);
+    if (this.selectedLanguages.includes(language)) {
+      this.selectedLanguages = [];
     } else {
-      this.selectedLanguages.push(language);
+      this.selectedLanguages = [language];
+      // Remove from spokenLanguages if the user now picks it as their learning language
+      const iso = TEACHABLE_ENGLISH_NAME_TO_ISO639[language];
+      if (iso) {
+        this.spokenLanguages = this.spokenLanguages.filter(s => s.code !== iso);
+      }
     }
   }
 
   setNativeLanguage(code: string) {
     this.nativeLanguage = code;
-  }
-
-  toggleGoal(value: string) {
-    const index = this.learningGoals.indexOf(value);
-    if (index > -1) {
-      this.learningGoals.splice(index, 1);
-    } else {
-      this.learningGoals.push(value);
-    }
-    this.translatedGoalsList = this.learningGoals
-      .map(v => {
-        const goal = this.availableGoals.find(g => g.value === v);
-        return goal ? this.translateService.instant(goal.key) : v;
-      })
-      .join(', ');
+    // Clear selected learning language if it matches the new native language
+    this.selectedLanguages = this.selectedLanguages.filter(
+      lang => TEACHABLE_ENGLISH_NAME_TO_ISO639[lang] !== code
+    );
+    // Also remove from spoken languages if present
+    this.spokenLanguages = this.spokenLanguages.filter(s => s.code !== code);
   }
 
   setExperienceLevel(value: string) {
@@ -654,9 +871,67 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
 
   setLearningGoalType(value: string) {
     this.learningGoalType = value;
+    this.skipGoalSetup = false;
+    this.refreshPacingSuggestion();
     if (value !== 'other') {
       this.learningGoalDescription = '';
+      return;
     }
+    this.cdr.detectChanges();
+    requestAnimationFrame(() => {
+      const panel = this.customGoalPanel?.nativeElement;
+      if (panel) {
+        this.smoothScrollPanelIntoWizardViewport(panel);
+      }
+      this.customGoalTextarea?.nativeElement?.focus({ preventScroll: true });
+    });
+  }
+
+  /** Scrolls the nearest overflow parent so `panel` is visible; avoids focus() cancelling smooth scroll. */
+  private smoothScrollPanelIntoWizardViewport(panel: HTMLElement): void {
+    const scrollParent = this.findVerticalScrollParent(panel);
+    const prefersReduced =
+      typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const behavior: ScrollBehavior = prefersReduced ? 'auto' : 'smooth';
+
+    if (scrollParent) {
+      const cRect = scrollParent.getBoundingClientRect();
+      const tRect = panel.getBoundingClientRect();
+      const padding = 12;
+      const nextTop = scrollParent.scrollTop + (tRect.top - cRect.top) - padding;
+      scrollParent.scrollTo({ top: Math.max(0, nextTop), behavior });
+      return;
+    }
+
+    panel.scrollIntoView({ behavior, block: 'start', inline: 'nearest' });
+  }
+
+  private findVerticalScrollParent(from: HTMLElement): HTMLElement | null {
+    let el: HTMLElement | null = from.parentElement;
+    while (el) {
+      const { overflowY } = getComputedStyle(el);
+      if ((overflowY === 'auto' || overflowY === 'scroll') && el.scrollHeight > el.clientHeight + 1) {
+        return el;
+      }
+      el = el.parentElement;
+    }
+    return null;
+  }
+
+  /**
+   * Second-path entry on the goal step: skip goal/level/timeline and create
+   * an unframed plan after onboarding. Selecting an actual goal afterwards
+   * unsets the flag (see setLearningGoalType).
+   */
+  chooseSkipGoalSetup() {
+    this.skipGoalSetup = true;
+    this.learningGoalType = '';
+    this.learningGoalDescription = '';
+    this.selfAssessedLevel = '';
+    this.goalTimeline = '';
+    this.goalTargetDate = '';
+    this.pacingSuggestion = null;
+    this.bindPacingSuggestionLabels();
   }
 
   setSelfAssessedLevel(value: string) {
@@ -668,6 +943,117 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     if (value !== 'specific_date') {
       this.goalTargetDate = '';
     }
+    this.refreshPacingSuggestion();
+  }
+
+  onGoalTargetDateChange(rawValue?: unknown) {
+    // ion-datetime can emit either a plain `YYYY-MM-DD` string or a full
+    // ISO datetime. We normalize so `weeksToTarget` is deterministic, then
+    // push the canonical date back into the model so downstream payloads
+    // (and the preview row) read a single shape.
+    const incoming = typeof rawValue === 'undefined' ? this.goalTargetDate : rawValue;
+    const n = normalizeGoalTargetDate(incoming);
+    if (n) {
+      this.goalTargetDate = n;
+    } else if (typeof rawValue === 'string') {
+      this.goalTargetDate = rawValue;
+    }
+    this.refreshPacingSuggestion();
+    this.cdr.detectChanges();
+  }
+
+  /**
+   * Recompute `pacingSuggestion` from the current goal type + timeline +
+   * target date. Called whenever any of those change. Surfaces a soft
+   * "single lessons may serve you better" nudge for deadline-driven
+   * goals that don't fit the chapter roadmap shape.
+   */
+  private refreshPacingSuggestion() {
+    const goal = {
+      type: this.learningGoalType,
+      timeline: this.goalTimeline,
+      targetDate: this.goalTargetDate,
+    };
+    if (computeRecommendedMode(goal) !== 'single_lessons') {
+      this.pacingSuggestion = null;
+      this.bindPacingSuggestionLabels();
+      return;
+    }
+    const weeks = weeksToTarget(goal);
+    this.pacingSuggestion = {
+      weeks: weeks ?? 0,
+      goalType: this.learningGoalType,
+    };
+    this.bindPacingSuggestionLabels();
+  }
+
+  /**
+   * Resolves pacing-banner copy via `TranslateService.get` so strings appear
+   * after locale JSON finishes loading (the `translate` pipe can otherwise
+   * render raw keys on first paint).
+   */
+  private bindPacingSuggestionLabels(): void {
+    this.pacingSuggestionI18nSub?.unsubscribe();
+    this.pacingSuggestionI18nSub = null;
+    if (!this.pacingSuggestion) {
+      this.pacingSuggestionTitle = '';
+      this.pacingSuggestionBody = '';
+      this.pacingSuggestionAccept = '';
+      this.pacingSuggestionDismiss = '';
+      return;
+    }
+    const weeks = this.pacingSuggestion.weeks;
+    const goalType = this.pacingSuggestion.goalType;
+    const bodyKey =
+      goalType === 'exam_prep'
+        ? 'ONBOARDING.STUDENT.PACING_SUGGESTION_BODY_EXAM'
+        : 'ONBOARDING.STUDENT.PACING_SUGGESTION_BODY';
+    this.pacingSuggestionI18nSub = forkJoin({
+      title: this.translateService.get('ONBOARDING.STUDENT.PACING_SUGGESTION_TITLE'),
+      body: this.translateService.get(bodyKey, { weeks }),
+      accept: this.translateService.get('ONBOARDING.STUDENT.PACING_SUGGESTION_ACCEPT'),
+      dismiss: this.translateService.get('ONBOARDING.STUDENT.PACING_SUGGESTION_DISMISS'),
+    }).subscribe((t) => {
+      let bodyOut = t.body;
+      if (goalType === 'exam_prep' && (bodyOut === bodyKey || !bodyOut)) {
+        bodyOut = this.translateService.instant('ONBOARDING.STUDENT.PACING_SUGGESTION_BODY', { weeks });
+      }
+      this.pacingSuggestionTitle = t.title;
+      this.pacingSuggestionBody = bodyOut;
+      this.pacingSuggestionAccept = t.accept;
+      this.pacingSuggestionDismiss = t.dismiss;
+      this.cdr.detectChanges();
+      this.scheduleScrollPacingSuggestionIntoView();
+    });
+  }
+
+  /** After the banner mounts and copy is bound, smooth-scroll it into the wizard viewport. */
+  private scheduleScrollPacingSuggestionIntoView(): void {
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        const el = this.pacingSuggestionBanner?.nativeElement;
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      });
+    }, 0);
+  }
+
+  /**
+   * Student accepted the soft "use single lessons instead" suggestion.
+   * Mirrors `chooseSkipGoalSetup` but keeps the structured fields the
+   * student already filled in (goal type, level) cleared so the backend
+   * creates a true unframed plan. Jumps straight to the preview page.
+   */
+  acceptPacingSuggestion() {
+    this.skipGoalSetup = true;
+    this.pacingSuggestion = null;
+    this.bindPacingSuggestionLabels();
+    this.showPreviewPage();
+  }
+
+  dismissPacingSuggestion() {
+    this.pacingSuggestion = null;
+    this.bindPacingSuggestionLabels();
   }
 
   // Precomputed labels for the preview page (no functions in templates)
@@ -676,26 +1062,111 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   previewTimelineLabel: string = '';
   previewNativeLanguageName: string = '';
   previewSelectedLanguages: string = '';
+  previewSpokenLanguages: { name: string; level: string }[] = [];
 
   private computePreviewLabels() {
-    const nativeLang = this.nativeLanguageOptions.find(l => l.code === this.nativeLanguage);
-    this.previewNativeLanguageName = nativeLang ? nativeLang.name : this.nativeLanguage;
-    this.previewSelectedLanguages = this.selectedLanguages.join(', ');
-    if (this.learningGoalType === 'other') {
-      this.previewGoalLabel = this.learningGoalDescription || 'Custom goal';
+    const ui = this.languageService.getCurrentLanguage();
+    const nativeLang = this.nativeLanguageOptions.find((l) => l.code === this.nativeLanguage);
+    this.previewNativeLanguageName = nativeLang?.interfaceLabel ?? this.nativeLanguage;
+    this.previewSelectedLanguages = this.selectedLanguages
+      .map((lang) => {
+        const iso = TEACHABLE_ENGLISH_NAME_TO_ISO639[lang];
+        return iso ? this.localeDisplay.languageName(iso, ui) : lang;
+      })
+      .join(', ');
+    this.previewSpokenLanguages = this.spokenLanguages
+      .filter(s => s.code && s.level)
+      .map(s => ({
+        name: this.nativeLanguageOptions.find(l => l.code === s.code)?.interfaceLabel ?? s.code,
+        level: s.level
+      }));
+    if (this.skipGoalSetup) {
+      this.previewGoalLabel = this.translateService.instant('ONBOARDING.STUDENT.SKIP_GOAL_PREVIEW');
+    } else if (this.learningGoalType === 'other') {
+      this.previewGoalLabel =
+        this.learningGoalDescription.trim() ||
+        this.translateService.instant('LEARNING_PLAN.GOAL_LABEL_OTHER');
     } else {
-      const goalOpt = this.goalTypeOptions.find(o => o.value === this.learningGoalType);
-      this.previewGoalLabel = goalOpt?.label || this.learningGoalType;
+      const goalI18n = this.learningGoalType
+        ? this.learningGoalTypeToI18nKey[this.learningGoalType]
+        : '';
+      if (goalI18n) {
+        const fromKey = this.translateService.instant(goalI18n);
+        if (fromKey !== goalI18n) {
+          this.previewGoalLabel = fromKey;
+        } else {
+          const goalOpt = this.goalTypeOptions.find(o => o.value === this.learningGoalType);
+          if (goalOpt) {
+            const fb = this.translateService.instant(goalOpt.labelKey);
+            this.previewGoalLabel = fb !== goalOpt.labelKey ? fb : this.learningGoalType;
+          } else {
+            this.previewGoalLabel = this.learningGoalType;
+          }
+        }
+      } else {
+        const goalOpt = this.goalTypeOptions.find(o => o.value === this.learningGoalType);
+        if (goalOpt) {
+          const fb = this.translateService.instant(goalOpt.labelKey);
+          this.previewGoalLabel = fb !== goalOpt.labelKey ? fb : this.learningGoalType;
+        } else {
+          this.previewGoalLabel = this.learningGoalType;
+        }
+      }
     }
 
-    const levelOpt = this.levelOptions.find(o => o.value === this.selfAssessedLevel);
-    this.previewLevelLabel = levelOpt?.label || this.selfAssessedLevel;
-
-    if (this.goalTimeline === 'specific_date' && this.goalTargetDate) {
-      this.previewTimelineLabel = `By ${this.goalTargetDate}`;
+    const levelTrimmed = this.selfAssessedLevel.trim();
+    if (!levelTrimmed) {
+      this.previewLevelLabel = this.translateService.instant('ONBOARDING.STUDENT.PREVIEW_LEVEL_NOT_SET');
     } else {
-      const tlOpt = this.timelineOptions.find(o => o.value === this.goalTimeline);
-      this.previewTimelineLabel = tlOpt?.label || 'No rush';
+      const levelKey = `ONBOARDING.STUDENT.LEVEL_OPTION_${levelTrimmed.toUpperCase()}`;
+      const fromKey = this.translateService.instant(levelKey);
+      if (fromKey !== levelKey) {
+        this.previewLevelLabel = fromKey;
+      } else {
+        const levelOpt = this.levelOptions.find(o => o.value === this.selfAssessedLevel);
+        if (levelOpt) {
+          const fb = this.translateService.instant(levelOpt.labelKey);
+          this.previewLevelLabel = fb !== levelOpt.labelKey ? fb : this.selfAssessedLevel;
+        } else {
+          this.previewLevelLabel = this.selfAssessedLevel;
+        }
+      }
+    }
+
+    if (this.goalTimeline === 'specific_date') {
+      const rawDate = normalizeGoalTargetDate(this.goalTargetDate as unknown);
+      if (rawDate) {
+        const [y, m, d] = rawDate.split('-').map(Number);
+        const locale = this.translateService.currentLang || undefined;
+        const formattedDate = new Date(y, m - 1, d).toLocaleDateString(locale, {
+          month: 'long', day: 'numeric', year: 'numeric'
+        });
+        this.previewTimelineLabel = this.translateService.instant(
+          'ONBOARDING.STUDENT.PREVIEW_TIMELINE_BY_DATE',
+          { date: formattedDate }
+        );
+      } else {
+        this.previewTimelineLabel = this.translateService.instant('ONBOARDING.STUDENT.PREVIEW_TIMELINE_NOT_SET');
+      }
+    } else if (!this.goalTimeline.trim()) {
+      this.previewTimelineLabel = this.translateService.instant('ONBOARDING.STUDENT.PREVIEW_TIMELINE_NOT_SET');
+    } else {
+      const tlKey = `ONBOARDING.STUDENT.TIMELINE_OPTION_${this.goalTimeline.toUpperCase()}`;
+      const fromKey = this.translateService.instant(tlKey);
+      if (fromKey !== tlKey) {
+        this.previewTimelineLabel = fromKey;
+      } else {
+        const tlOpt = this.timelineOptions.find(o => o.value === this.goalTimeline);
+        if (tlOpt) {
+          const fb = this.translateService.instant(tlOpt.labelKey);
+          this.previewTimelineLabel =
+            fb !== tlOpt.labelKey
+              ? fb
+              : this.translateService.instant('ONBOARDING.STUDENT.PREVIEW_TIMELINE_NOT_SET');
+        } else {
+          this.previewTimelineLabel = this.translateService.instant('ONBOARDING.STUDENT.PREVIEW_TIMELINE_NOT_SET');
+        }
+      }
     }
   }
 
@@ -722,6 +1193,7 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     const { data } = await modal.onWillDismiss();
     if (data && data.selectedCountry) {
       this.tutorCountry = data.selectedCountry;
+      this.bindLocaleSensitiveUi();
     }
   }
 
@@ -764,12 +1236,21 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     this.showPreview = false;
     if (step) {
       this.currentStep = step;
+      this.lastFocusedStep = 0;
+      if (step === 4) {
+        this.skipGoalSetup = false;
+      }
+      if (step === 4 || step === 6) {
+        this.refreshPacingSuggestion();
+      }
     }
+    this.syncStudentWizardCopy();
   }
 
   getNativeLanguageName(): string {
-    const lang = this.nativeLanguageOptions.find(l => l.code === this.nativeLanguage);
-    return lang ? lang.name : this.nativeLanguage;
+    const lang = this.nativeLanguageOptions.find((l) => l.code === this.nativeLanguage);
+    if (!lang) return this.nativeLanguage;
+    return lang.interfaceLabel || this.nativeLanguage;
   }
 
   async completeOnboarding() {
@@ -833,26 +1314,44 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
             : this.selfAssessedLevel === 'advanced' ? 'Advanced' : 'Beginner';
 
         // Student onboarding
-        const onboardingData: OnboardingData & { userType: string; picture?: string; nativeLanguage?: string; interfaceLanguage?: string; learningGoal?: any } = {
+        const onboardingData: OnboardingData & { userType: string; picture?: string; nativeLanguage?: string; interfaceLanguage?: string; learningGoal?: any; skipGoalSetup?: boolean; spokenLanguages?: { code: string; level: string }[] } = {
           userType: 'student',
           firstName: this.formatName(this.firstName),
           lastName: this.formatName(this.lastName),
           nativeLanguage: this.nativeLanguage,
           interfaceLanguage: this.selectedInterfaceLanguage,
           languages: this.selectedLanguages,
-          goals: this.learningGoals.length > 0 ? this.learningGoals : [this.learningGoalType],
+          goals: this.learningGoals.length > 0 ? this.learningGoals : (this.learningGoalType ? [this.learningGoalType] : []),
           experienceLevel: legacyLevel,
           preferredSchedule: this.preferredSchedule || 'Flexible schedule',
           picture: auth0User.picture,
-          learningGoal: {
+          spokenLanguages: this.spokenLanguages.filter(s => s.code && s.level)
+        };
+        if (this.skipGoalSetup) {
+          // Signal "learn at my own pace" — backend creates an unframed plan
+          // for each selected language post-onboarding. Still forward any
+          // level / timeline / target-date the student filled in so the
+          // backend can keep that context (useful for tutor matching and
+          // for upgrading to a structured plan later).
+          onboardingData.skipGoalSetup = true;
+          onboardingData.learningGoal = {
+            type: '',
+            description: '',
+            targetLevel: '',
+            selfAssessedLevel: this.selfAssessedLevel,
+            timeline: this.goalTimeline,
+            targetDate: this.goalTimeline === 'specific_date' && this.goalTargetDate ? this.goalTargetDate : null
+          };
+        } else {
+          onboardingData.learningGoal = {
             type: this.learningGoalType,
             description: this.learningGoalDescription,
             targetLevel: '',
             selfAssessedLevel: this.selfAssessedLevel,
             timeline: this.goalTimeline,
             targetDate: this.goalTimeline === 'specific_date' && this.goalTargetDate ? this.goalTargetDate : null
-          }
-        };
+          };
+        }
 
         console.log('💾 Saving student onboarding data (user will be created if needed)');
         console.log('🖼️ Student onboarding picture:', auth0User.picture);
@@ -907,7 +1406,7 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
       this.isSubmitting = false;
       
       // Determine error message
-      let errorMessage = 'Failed to complete setup. Please try again.';
+      let errorMessage = this.translateService.instant('ONBOARDING.ALERTS.SETUP_FAILED');
       let showReloginButton = false;
       
       if (error.message) {
@@ -981,10 +1480,6 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     this.router.navigate(['/tabs/home'], { replaceUrl: true });
   }
 
-  getProgressPercentage(): number {
-    return (this.currentStep / this.totalSteps) * 100;
-  }
-
   canProceed(): boolean {
     switch (this.currentStep) {
       case 1:
@@ -994,19 +1489,31 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
       case 3:
         return this.selectedLanguages.length > 0;
       case 4:
+        return true; // Spoken languages are optional
+      case 5:
+        return this.spokenLanguages.every(s => s.level !== '');
+      case 6:
+        if (this.skipGoalSetup) return true;
         if (!this.learningGoalType) return false;
         if (this.learningGoalType === 'other' && !this.learningGoalDescription.trim()) return false;
         return true;
-      case 5:
-        return this.selfAssessedLevel !== '';
-      case 6:
-        return this.goalTimeline !== '';
+      case 7:
+        return this.skipGoalSetup || this.selfAssessedLevel !== '';
+      case 8:
+        return this.skipGoalSetup || this.goalTimeline !== '';
       default:
         return false;
     }
   }
 
   navigateToHome() {
+    // Signal to the home page that the student just finished onboarding so
+    // the journey intro modal fires exactly once on their first landing.
+    // Skipped for unframed students — there's no roadmap to introduce.
+    if (!this.skipGoalSetup) {
+      try { sessionStorage.setItem('showJourneyIntro', 'true'); } catch (_) {}
+    }
+
     const returnUrl = localStorage.getItem('returnUrl');
     if (returnUrl) {
       console.log('🔄 Onboarding complete, returning to saved URL:', returnUrl);

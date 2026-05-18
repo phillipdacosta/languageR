@@ -357,6 +357,11 @@ ion-content {
   &.ion-content--earnings-open {
     --background: #ffffff !important;
   }
+
+  // Inline journey panel: same as earnings
+  &.ion-content--journey-open {
+    --background: #ffffff !important;
+  }
 }
 
 :host-context(html.ion-palette-dark) {
@@ -365,7 +370,8 @@ ion-content {
       --background: transparent;
     }
 
-    &.ion-content--earnings-open {
+    &.ion-content--earnings-open,
+    &.ion-content--journey-open {
       --background: #000000 !important;
     }
   }
@@ -485,11 +491,27 @@ ion-content {
   }
 }
 
-// Inline Earnings Panel (embedded earnings view) — white canvas; elevated cards match lessons page
+// Hides the smart CTA pill while it flies in from the home widget, then
+// fades back in when the clone hands off (cross-fade with the FLIP clone
+// avoids a visible "pop" at landing).
+:host ::ng-deep .journey-inline-panel .jw-primary-cta-btn,
+:host ::ng-deep .journey-inline-panel .jw-primary-cta-row {
+  transition: opacity 0.16s ease;
+}
+:host ::ng-deep .journey-inline-panel.journey-cta-fly-in .jw-primary-cta-btn,
+:host ::ng-deep .journey-inline-panel.journey-cta-fly-in .jw-primary-cta-row {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+
+// Inline Earnings Panel (embedded earnings view) — white canvas; elevated cards match lessons page.
+// Left-aligned with generous Airbnb-style horizontal padding so the inline view's
+// sidebar lines up with the routed profile page (`.profile-container--split`).
 .earnings-inline-panel {
   padding: 16px 16px 32px;
-  max-width: 1200px;
-  margin: 0 auto;
+  max-width: none;
+  margin: 0;
   animation: earningsPanelReveal 0.5s ease-out forwards;
   position: relative;
   z-index: 1;
@@ -497,8 +519,12 @@ ion-content {
   background: #ffffff;
 
   @media (min-width: 769px) {
-    padding: 24px 24px 40px;
-    padding-top: 87px;
+    padding: 87px 80px 40px;
+  }
+
+  @media (min-width: 1280px) {
+    padding-left: 120px;
+    padding-right: 120px;
   }
 }
 
@@ -559,80 +585,6 @@ ion-content {
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-// ── Desktop: Modal Overlay ──────────────────────────────
-.cm-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 100000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0);
-  backdrop-filter: blur(0px);
-  -webkit-backdrop-filter: blur(0px);
-  transition:
-    background 0.4s ease,
-    backdrop-filter 0.4s ease,
-    -webkit-backdrop-filter 0.4s ease;
-
-  &.cm-modal-backdrop--visible {
-    background: rgba(0, 0, 0, 0.32);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-  }
-
-  &.cm-modal-backdrop--deep {
-    background: rgba(0, 0, 0, 0.72);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-  }
-}
-
-.cm-modal-container {
-  position: relative;
-  background: #fff;
-  border-radius: 24px;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.15);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-
-  width: 860px;
-  max-width: 90vw;
-  height: min(580px, 80vh);
-  min-height: 420px;
-  max-height: 80vh;
-
-  animation: cmModalEnter 0.3s ease-out both;
-
-  &.cm-modal--ready {
-    transition:
-      width 0.45s cubic-bezier(0.32, 0.72, 0, 1),
-      max-width 0.45s cubic-bezier(0.32, 0.72, 0, 1),
-      height 0.45s cubic-bezier(0.32, 0.72, 0, 1),
-      min-height 0.45s cubic-bezier(0.32, 0.72, 0, 1),
-      max-height 0.45s cubic-bezier(0.32, 0.72, 0, 1),
-      border-radius 0.45s cubic-bezier(0.32, 0.72, 0, 1);
-  }
-
-  ::ng-deep .cm-nav-bar { display: none !important; }
-
-  &:not(.cm-modal--expanded) {
-    ::ng-deep .cm-library-sticky { display: none !important; }
-    ::ng-deep .cm-library { padding-top: 0 !important; }
-  }
-
-  &.cm-modal--expanded {
-    width: calc(100vw - 120px);
-    max-width: calc(100vw - 120px);
-    height: calc(100vh - 48px);
-    min-height: calc(100vh - 48px);
-    max-height: calc(100vh - 48px);
-    border-radius: 20px;
-  }
-
 }
 
 // ── Sidebar: on the backdrop, left of the card ──────────
@@ -696,6 +648,22 @@ ion-content {
     border-color: rgba(255, 255, 255, 0.85);
     background: rgba(255, 255, 255, 0.14);
     .cm-modal-sidebar-img { opacity: 1; }
+  }
+}
+
+// Create Material: container embed tweaks (dimensions + backdrop live in global cm-modal-shell-global)
+.cm-modal-container {
+  ::ng-deep .cm-nav-bar {
+    display: none !important;
+  }
+
+  &:not(.cm-modal--expanded) {
+    ::ng-deep .cm-library-sticky {
+      display: none !important;
+    }
+    ::ng-deep .cm-library {
+      padding-top: 0 !important;
+    }
   }
 }
 
@@ -895,21 +863,52 @@ ion-content {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
 }
 
-// Schedule class wizard — match Create Material modal chrome (fraction + rail + footer)
+// Schedule class wizard — onboarding-style toolbar (title + step) + progress rail
 .cm-modal-topbar--schedule-wizard {
   max-height: none;
   min-height: 56px;
   align-items: center;
   padding-top: 14px;
   padding-bottom: 12px;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(0, auto);
 }
 
-.cm-modal-topbar-center--schedule-stack {
+.cm-modal-topbar-center--schedule-wizard-toolbar {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 4px;
-  line-height: 1.2;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  width: 100%;
+  text-align: left;
+}
+
+.cm-modal-topbar-center--schedule-wizard-toolbar .cm-details-wizard-page-toolbar-title {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+  color: #1d1d1f;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+}
+
+.cm-modal-topbar-center--schedule-wizard-toolbar .cm-details-wizard-step-indicator {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6e6e73;
+  font-variant-numeric: tabular-nums;
+}
+
+.cm-schedule-wizard-progress.cm-details-wizard-progress {
+  margin-bottom: 0;
+}
+
+.cm-schedule-wizard-progress.cm-details-wizard-progress .cm-schedule-wizard-progress-fill.cm-details-wizard-progress-fill {
+  background: #359aff;
 }
 
 .cm-schedule-modal-title--inline {
@@ -917,15 +916,6 @@ ion-content {
   font-weight: 600;
   color: #86868b;
   letter-spacing: 0.02em;
-}
-
-.cm-schedule-wizard-fraction {
-  font-size: 16px;
-  font-weight: 600;
-  color: #1d1d1f;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
 }
 
 .cm-schedule-wizard-progress {
@@ -940,7 +930,6 @@ ion-content {
 .cm-schedule-wizard-progress-fill {
   height: 100%;
   min-width: 0;
-  background: #1d1d1f;
   border-radius: 2px;
   transition: width 0.28s ease;
 }
@@ -1202,11 +1191,6 @@ ion-content {
   &:active { transform: scale(0.97); }
 }
 
-@keyframes cmModalEnter {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
 // Create Material modal — dark mode (gateway lives in app-create-material; chrome is here)
 :host-context(html.ion-palette-dark) {
   .cm-modal-container {
@@ -1228,16 +1212,20 @@ ion-content {
     color: #8e8e93;
   }
 
-  .cm-schedule-wizard-fraction {
+  .cm-modal-topbar-center--schedule-wizard-toolbar .cm-details-wizard-page-toolbar-title {
     color: #f5f5f7;
+  }
+
+  .cm-modal-topbar-center--schedule-wizard-toolbar .cm-details-wizard-step-indicator {
+    color: #8e8e93;
   }
 
   .cm-schedule-wizard-progress {
     background: #3a3a3c;
   }
 
-  .cm-schedule-wizard-progress-fill {
-    background: #f5f5f7;
+  .cm-schedule-wizard-progress.cm-details-wizard-progress .cm-schedule-wizard-progress-fill.cm-details-wizard-progress-fill {
+    background: #0a84ff;
   }
 
   .cm-modal-body--schedule-class {
@@ -1939,6 +1927,26 @@ ion-content {
 
       &:hover {
         color: #222222;
+      }
+    }
+
+    &.earnings-mobile-card--student-placeholder {
+      .emc-balance--empty {
+        cursor: default;
+      }
+
+      .emc-placeholder-line {
+        display: block;
+        width: 56px;
+        height: 6px;
+        border-radius: 3px;
+        background: rgba(0, 0, 0, 0.08);
+      }
+
+      .view-details-link--hidden-spacer {
+        visibility: hidden;
+        pointer-events: none;
+        user-select: none;
       }
     }
   }
@@ -2971,7 +2979,7 @@ ion-content {
   &.empty-state-clean-icon--calendar {
     background: transparent;
     box-shadow: none;
-    width: 120px;
+    width: 160px;
     height: 120px;
     margin-bottom: 16px;
     border-radius: 16px;
@@ -3823,7 +3831,7 @@ right: 26px;
 }
 
 .upnext-filled-schedule-duration {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 500;
   color: #8e8e93;
   letter-spacing: 0.02em;
@@ -4999,7 +5007,7 @@ right: 26px;
   width: 52px;
   height: 56px;
   border-radius: 12px;
-  background: #f2f2f7;
+  background: #ffffff;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -8505,6 +8513,13 @@ right: 26px;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  align-self: stretch;  // match Up Next column height
+
+  app-journey-widget {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+  }
 
   @media (max-width: 968px) {
     display: none !important;
@@ -8535,6 +8550,30 @@ right: 26px;
   .timeline-section {
     margin-bottom: 0;
   }
+
+  .this-week-empty {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: #fafafa;
+    border-radius: 12px;
+    border: 1px solid #f0f0f0;
+
+    &__icon {
+      font-size: 18px;
+      color: #9ca3af;
+      flex-shrink: 0;
+    }
+
+    &__text {
+      font-size: 14px;
+      font-weight: 500;
+      color: #6b7280;
+      margin: 0;
+      line-height: 1.3;
+    }
+  }
 }
 
 .grid-cell-stats {
@@ -8553,6 +8592,10 @@ right: 26px;
   .actions-grid {
     flex: 1 1 auto;
     min-height: 0;
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  &.grid-cell-actions--student .actions-grid {
     grid-template-columns: repeat(4, 1fr);
   }
 
@@ -8723,6 +8766,29 @@ right: 26px;
     ion-icon { color: #B09E72; }
   }
 
+  &.qa-practice .qa-icon--practice {
+    background: #f0f0f0;
+    position: relative;
+    ion-icon { color: #222; font-size: 22px; }
+  }
+
+  &.qa-practice .qa-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #ff385c;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+    box-shadow: 0 0 0 2px #fff;
+  }
+
   // PNG quick actions — no background plate behind artwork
   &.qa-with-asset .qa-icon:has(.qa-icon-img) {
     background: transparent;
@@ -8829,12 +8895,88 @@ right: 26px;
 }
 
 // =============================================
+// PRE-LESSON WARM-UP CARD (Batch 9) — premium-only,
+// shows 30 min before next lesson on home page.
+// =============================================
+.home-warmup-card {
+  background: linear-gradient(180deg, #111 0%, #1c1c1e 100%);
+  color: #fff;
+  border-radius: 20px;
+  padding: 18px 20px;
+  margin: 0 0 16px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.18);
+  animation: home-warmup-enter 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.home-warmup-card::before {
+  content: '';
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(closest-side, rgba(255,200,90,0.18), transparent 70%);
+  pointer-events: none;
+}
+.home-warmup-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  ion-icon { font-size: 13px; color: #ffd17a; }
+}
+.home-warmup-title {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  margin: 0 0 6px;
+  line-height: 1.25;
+}
+.home-warmup-body {
+  font-size: 14px;
+  font-weight: 400;
+  color: rgba(255,255,255,0.78);
+  margin: 0 0 14px;
+  line-height: 1.5;
+}
+.home-warmup-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  color: #111;
+  border: none;
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+  &:hover { transform: translateY(-1px); background: #f5f5f5; }
+  &:active { transform: translateY(0); }
+  ion-icon { font-size: 16px; }
+}
+@keyframes home-warmup-enter {
+  0%   { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+// =============================================
 // EARNINGS CARD WIDGET — Sidebar
 // =============================================
 .earnings-card-widget {
   background: #ffffff;
   border-radius: 20px;
-  padding: 24px;
+  padding: 20px;
   box-shadow: $lesson-card-home-shadow;
   border: $lesson-card-home-border;
   animation: fadeInUp 0.4s ease-out 0.15s both;
@@ -8856,13 +8998,13 @@ right: 26px;
   }
   
   .earnings-card-body {
-    margin-bottom: 20px;
+    margin-bottom: 12px;
     flex: 1; // Push withdraw button to bottom when Pending is hidden
     
     .earnings-label {
       font-size: 14px;
       color: #6b7280;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
       font-weight: 500;
     }
     
@@ -8872,10 +9014,11 @@ right: 26px;
       color: #1f2937;
       letter-spacing: -1px;
       cursor: pointer;
-      margin-bottom: 16px;
+      margin-bottom: 8px;
       line-height: 1.1;
+      box-sizing: content-box;
       /* Air under “Total Balance” — scaled coin still reads tight to the label without this */
-      padding-top: 10px;
+      padding-top: 4px;
 
       /* Layout stays 0.85em; drawn ≈ 2.85em. Nudge left + reserve inline space so dots aren’t covered. */
       .home-dollar-icon {
@@ -8909,13 +9052,34 @@ right: 26px;
     .earnings-balance-skeleton {
       display: block;
     }
+
+    .earnings-balance--placeholder {
+      cursor: default;
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+    }
+
+    .earnings-placeholder-dash {
+      display: inline-block;
+      width: 56px;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(0, 0, 0, 0.08);
+    }
     
     .earnings-pending {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 12px 0;
+      padding: 8px 0;
       border-top: 1px solid #f3f4f6;
+      box-sizing: border-box;
+
+      .pending-amount-masked {
+        color: #d1d5db;
+        letter-spacing: 1px;
+      }
 
       .pending-label {
         font-size: 14px;
@@ -8951,12 +9115,12 @@ right: 26px;
   // Weekly earnings goal (desktop only): FLAT section between Pending and Withdraw.
   // Uses a hairline divider (same pattern as .earnings-pending) — no nested card surface.
   .earnings-goal {
-    margin: 0 0 16px 0;
-    padding: 14px 0 2px 0;
+    margin: 0 0 12px 0;
+    padding: 10px 0 0 0;
     border-top: 1px solid #f3f4f6;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 4px;
 
     .earnings-goal__head {
       display: flex;
@@ -8998,13 +9162,18 @@ right: 26px;
     }
 
     .earnings-goal__amount {
-      font-size: 18px;
+      font-size: 16px;
       font-weight: 700;
       color: #1f2937;
       letter-spacing: -0.3px;
       line-height: 1.1;
       font-variant-numeric: tabular-nums;
       margin-top: -2px;
+    }
+
+    .earnings-goal__amount-masked {
+      color: #d1d5db;
+      letter-spacing: 1px;
     }
 
     .earnings-goal__bar {
@@ -9043,6 +9212,11 @@ right: 26px;
                   background-color 0.25s ease;
       min-width: 2px;
       z-index: 2;
+
+      &.earnings-goal__bar-fill--masked {
+        min-width: 0;
+        background: transparent;
+      }
     }
 
     .earnings-goal__sub {
@@ -9051,6 +9225,12 @@ right: 26px;
       color: #9ca3af;
       letter-spacing: 0;
       font-variant-numeric: tabular-nums;
+      margin-top: 2px;
+    }
+
+    .earnings-goal__sub-masked {
+      color: #d1d5db;
+      letter-spacing: 2px;
     }
 
     // Reached state — softer, encouraging green.
@@ -10264,21 +10444,13 @@ right: 26px;
 }
 
 .participant-in-call {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 85px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  z-index: 2;
+  margin: 4px 0 0;
   pointer-events: none;
   animation: fadeInCall 0.4s ease-out;
-
-  @media (max-width: 600px) {
-    bottom: 56px;
-  }
 
   .in-call-dot {
     width: 7px;
@@ -13373,7 +13545,7 @@ right: 26px;
   }
   .welcome-section .welcome-subtitle,
   .welcome-banner .welcome-subtitle {
-    color: #8e8e93 !important;
+    color: #aeaeb2 !important;
   }
   @media (max-width: 600px) {
     .content-wrapper {
@@ -13387,7 +13559,7 @@ right: 26px;
       }
 
       .welcome-subtitle {
-        color: #8e8e93 !important;
+        color: #aeaeb2 !important;
       }
     }
   }
@@ -13399,12 +13571,12 @@ right: 26px;
     &:hover:not(.growth-dot--active) { background: #636366 !important; }
   }
   .growth-dismiss-btn {
-    color: #636366 !important;
-    &:hover { color: #8e8e93 !important; }
+    color: #8e8e93 !important;
+    &:hover { color: #d1d1d6 !important; }
   }
   .growth-view-all {
-    color: #48484a !important;
-    &:hover { color: #636366 !important; }
+    color: #c7c7cc !important;
+    &:hover { color: #f5f5f7 !important; }
   }
   .growth-modal {
     background: #1c1c1e !important;
@@ -13417,22 +13589,22 @@ right: 26px;
     color: #f5f5f7 !important;
   }
   .growth-modal-close {
-    color: #636366 !important;
-    &:hover { background: #2c2c2e !important; color: #8e8e93 !important; }
+    color: #8e8e93 !important;
+    &:hover { background: #2c2c2e !important; color: #f5f5f7 !important; }
   }
   .growth-modal-item {
     &:hover { background: #2c2c2e !important; }
-    &--dismissed .growth-modal-item-text { text-decoration-color: #48484a !important; }
+    &--dismissed .growth-modal-item-text { text-decoration-color: #636366 !important; }
   }
   .growth-modal-item-text { color: #e5e5ea !important; }
   .growth-modal-restore-btn {
     border-color: #3a3a3c !important;
-    color: #8e8e93 !important;
+    color: #aeaeb2 !important;
     &:hover { background: #2c2c2e !important; color: #f5f5f7 !important; }
   }
   .growth-modal-dismiss-btn {
-    color: #48484a !important;
-    &:hover { color: #636366 !important; background: #2c2c2e !important; }
+    color: #aeaeb2 !important;
+    &:hover { color: #f5f5f7 !important; background: #2c2c2e !important; }
   }
 
   // ── Search bar ───────────────────────────────────────
@@ -13608,6 +13780,7 @@ right: 26px;
     .earnings-pending {
       border-top-color: #3a3a3a !important;
       .pending-label { color: #999 !important; }
+      .pending-amount-masked { color: #555 !important; }
     }
     .withdraw-btn {
       --border-color: #4d4d4d !important;
@@ -13626,10 +13799,13 @@ right: 26px;
         &:hover { background: #2f2f2f !important; color: #ffffff !important; }
       }
       .earnings-goal__amount { color: #ffffff !important; }
+      .earnings-goal__amount-masked { color: #555 !important; }
       .earnings-goal__bar { background: #2f2f2f !important; }
       .earnings-goal__bar-scheduled { background: rgba(66, 152, 211, 0.42) !important; }
       .earnings-goal__bar-fill { background: #4298d3 !important; }
+      .earnings-goal__bar-fill--masked { background: transparent !important; }
       .earnings-goal__sub { color: #8a8f95 !important; }
+      .earnings-goal__sub-masked { color: #555 !important; }
 
       &.is-reached {
         .earnings-goal__bar-fill { background: #22c55e !important; }
@@ -14495,6 +14671,18 @@ right: 26px;
       0 1px 2px rgba(0, 0, 0, 0.2),
       0 4px 12px rgba(0, 0, 0, 0.3),
       0 8px 24px rgba(0, 0, 0, 0.2) !important;
+
+    @media (max-width: 600px) {
+      scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
+
+      &::-webkit-scrollbar-thumb {
+        background-color: rgba(255, 255, 255, 0.28) !important;
+      }
+
+      &::-webkit-scrollbar-thumb:hover {
+        background-color: rgba(255, 255, 255, 0.4) !important;
+      }
+    }
   }
   
   .timeline-card {
@@ -16364,9 +16552,39 @@ ion-modal.reschedule-proposal-modal {
 }
 
 // ── Profile Completion Checklist ──
+// Height eases in (grid 0fr → 1fr) so "Your Schedule" shifts down smoothly; opacity for a soft reveal.
+
+@keyframes pcl-profile-checklist-reveal {
+  from {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+  to {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+}
+
+.profile-checklist-anim {
+  margin: 0 16px 16px;
+}
+
+@supports (grid-template-rows: 0fr) {
+  .profile-checklist-anim {
+    display: grid;
+    grid-template-rows: 0fr;
+    animation: pcl-profile-checklist-reveal 0.58s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  .profile-checklist-anim__inner {
+    min-height: 0;
+    overflow: hidden;
+    padding-bottom: 8px;
+  }
+}
 
 .profile-checklist-section {
-  margin: 0 16px 16px;
+  margin: 0;
   background: var(--ion-card-background, #fff);
   border-radius: 14px;
   padding: 16px 18px;
@@ -16375,10 +16593,17 @@ ion-modal.reschedule-proposal-modal {
 }
 
 .profile-checklist-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   margin-bottom: 14px;
+
+  .pcl-header-text {
+    width: 100%;
+  }
+
+  .pcl-header-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
 
   .pcl-warn-icon {
     font-size: 18px;
@@ -16406,6 +16631,21 @@ ion-modal.reschedule-proposal-modal {
 
     ion-icon { font-size: 13px; }
   }
+
+  .pcl-subtitle {
+    margin: 5px 0 0 26px;
+    font-size: 12px;
+    color: var(--ion-color-medium, #6b7280);
+    line-height: 1.4;
+  }
+
+  .pcl-availability-note {
+    margin: 3px 0 0 26px;
+    font-size: 11px;
+    color: #e8893c;
+    font-weight: 500;
+    line-height: 1.3;
+  }
 }
 
 .profile-checklist-items {
@@ -16424,6 +16664,13 @@ ion-modal.reschedule-proposal-modal {
   color: var(--ion-text-color, #1a1a1a);
   transition: background 0.15s ease;
   cursor: pointer;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  appearance: none;
+  -webkit-appearance: none;
 
   &:hover { background: rgba(0, 0, 0, 0.03); }
 
@@ -16451,6 +16698,23 @@ ion-modal.reschedule-proposal-modal {
     .pcl-check { color: #34c759; }
     .pcl-label { text-decoration: line-through; text-decoration-color: rgba(0,0,0,0.2); }
   }
+
+  &.pcl-item--pending-review {
+    opacity: 1;
+
+    .pcl-check {
+      color: #e8893c;
+    }
+
+    .pcl-label {
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .pcl-arrow {
+      color: #e8893c;
+    }
+  }
 }
 
 :host-context(html.ion-palette-dark) {
@@ -16462,6 +16726,10 @@ ion-modal.reschedule-proposal-modal {
 
   .pcl-title { color: #fff; }
 
+  .pcl-subtitle { color: #8e8e93; }
+
+  .pcl-availability-note { color: #ff9f0a; }
+
   .pcl-hidden-label {
     background: rgba(232, 137, 60, 0.15);
   }
@@ -16472,6 +16740,24 @@ ion-modal.reschedule-proposal-modal {
     .pcl-check { color: #555; }
     .pcl-arrow { color: #555; }
     &.pcl-item--done .pcl-check { color: #30d158; }
+
+    &.pcl-item--pending-review {
+      .pcl-check { color: #ff9f0a; }
+      .pcl-arrow { color: #ff9f0a; }
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-checklist-anim {
+    animation: none;
+    opacity: 1;
+  }
+
+  @supports (grid-template-rows: 0fr) {
+    .profile-checklist-anim {
+      grid-template-rows: 1fr;
+    }
   }
 }
 

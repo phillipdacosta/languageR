@@ -7,13 +7,24 @@ This document describes the implementation of multi-language support (i18n) for 
 ## Implementation Date
 December 7, 2025
 
+**Document updated:** May 14, 2026 — 29 interface languages, shared backend whitelist (`SUPPORTED_INTERFACE_LANGUAGES`), login / profile sync behavior (`setLanguage` source + `reconcileInterfaceLanguage`).
+
 ## Supported Languages
 
-- **English (en)** - Default
-- **Spanish (es)**
-- **French (fr)**
-- **Portuguese (pt)**
-- **German (de)**
+The interface language picker and backend accept **29** codes (see `language-learning-app/src/app/services/language.service.ts`: `SupportedLanguage` and `supportedLanguages`).
+
+| Code | Code | Code | Code |
+|------|------|------|------|
+| en English (default) | es Spanish | fr French | pt Portuguese |
+| de German | it Italian | ru Russian | zh Chinese |
+| ja Japanese | ko Korean | ar Arabic | hi Hindi |
+| nl Dutch | pl Polish | tr Turkish | sv Swedish |
+| no Norwegian | da Danish | fi Finnish | el Greek |
+| cs Czech | ro Romanian | uk Ukrainian | vi Vietnamese |
+| th Thai | id Indonesian | ms Malay | he Hebrew |
+| fa Persian | | | |
+
+RTL document direction is applied for **ar**, **he**, and **fa** (`document.documentElement.dir`).
 
 ## Architecture
 
@@ -26,11 +37,8 @@ npm install @ngx-translate/core @ngx-translate/http-loader
 
 #### Translation Files
 Location: `language-learning-app/src/assets/i18n/`
-- `en.json` - English translations
-- `es.json` - Spanish translations
-- `fr.json` - French translations
-- `pt.json` - Portuguese translations
-- `de.json` - German translations
+
+One JSON file per supported code (e.g. `en.json`, `de.json`, `fa.json`, …). `LanguageService` registers each file via `setupTranslations()`.
 
 Each file contains structured translations organized by feature:
 ```json
@@ -56,22 +64,26 @@ Each file contains structured translations organized by feature:
 
 ### 2. Language Service
 
-**File:** `src/app/services/language.service.ts`
+**File:** `language-learning-app/src/app/services/language.service.ts`
 
 Central service managing all language-related functionality:
 
 **Key Features:**
-- Language detection priority: User Profile → localStorage → Browser Language → English
-- Supports runtime language switching
-- Updates HTML lang attribute for accessibility
-- Provides both synchronous (`instant()`) and async (`get()`) translation methods
+- Language resolution priority: explicit user pick (`USER_PICK_KEY`) → server profile → localStorage previous → browser detect → `en`.
+- `setLanguage(..., { source: 'user' })` writes the **durable** `userLanguagePicked` localStorage key (the actual language code, not a boolean). `setLanguage(..., { source: 'auto' })` leaves that key alone — auto-applied values must not masquerade as user picks.
+- `LanguageService.PRESERVE_THROUGH_CLEAR_KEYS` is preserved by `AuthService` across every `localStorage.clear()` (logout / `clearAuth0State` / force / nuclear) so a fresh pick survives a sign-out/sign-in round trip.
+- Supports runtime language switching; sets `document.documentElement.lang` and `dir` (RTL for ar/he/fa).
+- Provides both synchronous (`instant()`) and async (`get()`) translation methods.
 
-**Public Methods:**
+**Public Methods (representative):**
 ```typescript
 initializeLanguage(userProfileLanguage?: string): void
-setLanguage(lang: SupportedLanguage): void
+setLanguage(lang: SupportedLanguage, options?: { source?: 'user' | 'auto' }): void
+getPendingPick(): SupportedLanguage | null
+consumePendingPick(): void
 getCurrentLanguage(): SupportedLanguage
 isSupported(lang: string): boolean
+getLanguageOption(code: string): LanguageOption | undefined
 instant(key: string, params?: any): string
 get(key: string, params?: any): Observable<string>
 ```
@@ -79,43 +91,62 @@ get(key: string, params?: any): Observable<string>
 ### 3. Application Integration
 
 **app.component.ts:**
-- Initializes language service on app startup
-- Loads user's interface language preference after authentication
-- Updates language when user profile changes
+- Calls `initializeLanguage()` on startup.
+- After auth, loads the user profile and runs `reconcileInterfaceLanguage()` in priority order:
+  1. **Explicit pick** (`getPendingPick()` returns a code) wins. If it matches the server, `consumePendingPick()` clears the marker. If it differs, call `updateInterfaceLanguage` and clear the marker on success.
+  2. **Browser-detect seed**. When the server still shows the schema default `'en'` and `localStorage.userLanguage` (set by `initializeLanguage`'s `navigator.languages` detection) is something else, push the local value up via `updateInterfaceLanguage`. Applies to **both** new accounts and existing accounts that pre-date the language-detect work — any record that never had an explicit preference gets seeded from the browser locale on first sign-in. After this seed lands the server holds a non-default value and branch 3 takes over.
+  3. **Apply server**. Any non-default server value is treated as an explicit saved preference and applied via `setLanguage(..., { source: 'auto' })`. Opening the app from a different-locale browser doesn't overwrite it. (Edge case: a user who deliberately picks `'en'` won't be distinguishable from the schema default by this heuristic; one tap of the picker on the alternate device fixes it. A future `interfaceLanguageExplicit` flag on the User model would remove the heuristic.)
+- For brand-new users, `UserService.initializeUser` also includes `localStorage.userLanguage` in the `POST /api/users` payload, so the browser-detected language is persisted on the user record at creation time (covers the case where the user completes sign-up in one round trip without re-entering the reconcile path).
 
 ### 4. Backend Support
 
 #### User Model Updates
 **File:** `backend/models/User.js`
 
-Added field:
+Added field (enum must stay aligned with the Angular picker and `SUPPORTED_INTERFACE_LANGUAGES` in `users.js`):
 ```javascript
 interfaceLanguage: {
   type: String,
-  enum: ['en', 'es', 'fr', 'pt', 'de'],
+  enum: [
+    'en', 'es', 'fr', 'pt', 'de', 'it', 'ru', 'zh', 'ja', 'ko',
+    'ar', 'hi', 'nl', 'pl', 'tr', 'sv', 'no', 'da', 'fi', 'el',
+    'cs', 'ro', 'uk', 'vi', 'th', 'id', 'ms', 'he', 'fa'
+  ],
   default: 'en',
   trim: true,
   comment: 'Preferred language for app interface (UI text)'
 }
 ```
 
-#### API Endpoint
+#### API
 **File:** `backend/routes/users.js`
 
-Updated `PUT /api/users/profile` to accept `interfaceLanguage` parameter:
+A single module-level whitelist validates `interfaceLanguage` everywhere it is accepted from the client:
+
 ```javascript
-if (interfaceLanguage && ['en', 'es', 'fr', 'pt', 'de'].includes(interfaceLanguage)) {
-  user.interfaceLanguage = interfaceLanguage;
-}
+const SUPPORTED_INTERFACE_LANGUAGES = Object.freeze([
+  'en', 'es', 'fr', 'pt', 'de', 'it', 'ru', 'zh', 'ja', 'ko',
+  'ar', 'hi', 'nl', 'pl', 'tr', 'sv', 'no', 'da', 'fi', 'el',
+  'cs', 'ro', 'uk', 'vi', 'th', 'id', 'ms', 'he', 'fa',
+]);
 ```
+
+Used for:
+
+- **`POST /api/users`** — optional `interfaceLanguage` on create (e.g. first login payload from `initializeUser`)
+- **`PUT /api/users/profile`** — profile updates
+- **`PUT /api/users/onboarding`** — onboarding completion body
+
+Each path checks `SUPPORTED_INTERFACE_LANGUAGES.includes(...)` before assigning.
 
 #### User Service Updates
-**File:** `src/app/services/user.service.ts`
+**File:** `language-learning-app/src/app/services/user.service.ts`
 
-Added method:
 ```typescript
-updateInterfaceLanguage(language: 'en' | 'es' | 'fr' | 'pt' | 'de'): Observable<User>
+updateInterfaceLanguage(language: SupportedLanguage): Observable<User>
 ```
+
+(`SupportedLanguage` is imported from `LanguageService`.)
 
 ## User Experience Features
 
@@ -396,7 +427,7 @@ public readonly supportedLanguages: LanguageOption[] = [
 ### Issue: Query parameter not working
 
 **Check:**
-- Language code is valid (en, es, fr, pt, de)
+- Language code is one of the supported interface codes (see `SupportedLanguage` / `SUPPORTED_INTERFACE_LANGUAGES` above)
 - LanguageService is injected
 - ngOnInit checks query params
 - URL format: `/tutor/123?lang=es`

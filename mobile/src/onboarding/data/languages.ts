@@ -38,8 +38,10 @@ export const INTERFACE_LANGUAGE_OPTIONS: InterfaceLanguageOption[] = [
   { code: 'fa', name: 'Persian', nativeName: 'فارسی', flag: '🇮🇷' },
 ];
 
-/** Backend only persists interfaceLanguage for these codes (users.js) */
-export const INTERFACE_LANG_PERSIST_WHITELIST = new Set(['en', 'es', 'fr', 'pt', 'de']);
+/** Codes the backend accepts for `interfaceLanguage` — same set as INTERFACE_LANGUAGE_OPTIONS */
+export const INTERFACE_LANG_PERSIST_WHITELIST = new Set(
+  INTERFACE_LANGUAGE_OPTIONS.map((o) => o.code)
+);
 
 export interface NativeLanguageOption {
   code: string;

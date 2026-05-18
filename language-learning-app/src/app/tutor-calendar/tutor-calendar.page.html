@@ -7,6 +7,37 @@
       TEST Auto-Cancel
     </ion-button>
   </div> -->
+
+  <!-- Tutor approval wizard (mobile): inline panel inside content (full height) -->
+  <div class="tutor-approval-inline-panel" *ngIf="isTutorApprovalWizardModalOpen && isMobileView">
+    <app-tutor-onboarding
+      [presentAsModal]="true"
+      [initialApprovalStepId]="tutorApprovalWizardModalInitialStepId"
+      (dismissed)="onTutorApprovalWizardDismissedFromChild()">
+    </app-tutor-onboarding>
+  </div>
+
+  <!-- Tutor approval wizard (desktop): expanded Create Material wizard shell (near-full viewport + deep backdrop) -->
+  <div
+    class="cm-modal-backdrop"
+    *ngIf="isTutorApprovalWizardModalOpen && !isMobileView"
+    [class.cm-modal-backdrop--visible]="tutorApprovalWizardBackdropVisible"
+    [class.cm-modal-backdrop--deep]="tutorApprovalWizardBackdropVisible"
+    (click)="onTutorApprovalWizardBackdropClick($event)">
+    <div
+      class="cm-modal-container cm-modal--expanded"
+      [class.cm-modal--ready]="tutorApprovalWizardModalReady"
+      (click)="$event.stopPropagation()">
+      <div class="cm-modal-body cm-modal-body--tutor-approval">
+        <app-tutor-onboarding
+          *ngIf="isTutorApprovalWizardModalOpen"
+          [presentAsModal]="true"
+          [initialApprovalStepId]="tutorApprovalWizardModalInitialStepId"
+          (dismissed)="onTutorApprovalWizardDismissedFromChild()">
+        </app-tutor-onboarding>
+      </div>
+    </div>
+  </div>
   
   <!-- Reschedule Mode Banner -->
   <div class="reschedule-banner" *ngIf="rescheduleMode">
@@ -216,6 +247,25 @@
                         [maxDisplay]="3">
                       </app-class-attendees>
                       <div class="mcal-card-loc" *ngIf="item.location">{{ item.location }}</div>
+
+                      <!-- Phase + focus chip — surfaces the student's
+                           journey context at a glance so the tutor doesn't
+                           have to open the briefing for triage. Only renders
+                           for 1:1 lessons where the student has a plan. -->
+                      <ng-container *ngIf="item.id && lessonPlanChips[item.id] as chip">
+                        <div class="mcal-plan-chip">
+                          <ion-icon name="map-outline" class="mcal-plan-chip-icon"></ion-icon>
+                          <span class="mcal-plan-chip-phase">
+                            <span class="mcal-plan-chip-idx">{{ chip.phaseIndex }}/{{ chip.totalPhases }}</span>
+                            <span class="mcal-plan-chip-title">{{ chip.phaseLabel }}</span>
+                          </span>
+                          <span class="mcal-plan-chip-focus" *ngIf="chip.focus">
+                            <span class="mcal-plan-chip-divider"></span>
+                            <ion-icon name="flash-outline"></ion-icon>
+                            {{ chip.focus }}
+                          </span>
+                        </div>
+                      </ng-container>
                     </div>
                   </div>
                 </button>
@@ -448,7 +498,7 @@
                   <div class="sidebar-gcal-toggle-item">
                     <div class="toggle-text">
                       <span class="toggle-title">Push lessons to Google</span>
-                      <span class="toggle-desc">Add Barnabi lessons to Google Calendar</span>
+                      <span class="toggle-desc"><img src="assets/barnabi-logo.png" alt="Barnabi" class="tc-brand-name-logo barnabi-wordmark-for-light-ui" /><img src="assets/barnabi-logo-wordmark-white.png" alt="" class="tc-brand-name-logo barnabi-wordmark-for-dark-ui" aria-hidden="true" /> lessons to Google Calendar</span>
                     </div>
                     <ion-toggle [(ngModel)]="gcalPushToGoogle" (ionChange)="onGcalSettingChange('pushToGoogle')"></ion-toggle>
                   </div>
@@ -485,8 +535,8 @@
               <button class="today-btn" type="button" (click)="navigateToday()">{{ 'TUTOR_CALENDAR.TODAY' | translate }}</button>
               <button class="gcal-sync-btn" type="button" *ngIf="gcalConnected" (click)="syncGoogleCalendar()" [disabled]="gcalSyncing">
                 <img src="assets/google.png" alt="Google" class="gcal-sync-icon" [class.spinning]="gcalSyncing" />
-                <span *ngIf="!gcalSyncing">Sync</span>
-                <span *ngIf="gcalSyncing">Syncing...</span>
+                <span *ngIf="!gcalSyncing">{{ 'TUTOR_CALENDAR.SYNC' | translate }}</span>
+                <span *ngIf="gcalSyncing">{{ 'TUTOR_CALENDAR.SYNCING' | translate }}</span>
               </button>
               <button class="desktop-avail-pill"
                       type="button"
@@ -494,7 +544,7 @@
                       *ngIf="weekAvailabilityGrossHours > 0 && customView === 'week' && !isOnboardingIncomplete && pendingFeedbackCount === 0"
                       (click)="openAvailabilityModal()">
                 <ion-icon name="time-outline"></ion-icon>
-                {{ weekAvailabilityHours }}h available
+                {{ 'TUTOR_CALENDAR.HOURS_AVAILABLE_TOOLBAR' | translate:{ hours: weekAvailabilityHours } }}
               </button>
               <div class="view-switcher view-switcher-mobile" *ngIf="isCompactToolbar">
                 <button [class.active]="customView === 'week'" (click)="switchView('week')">{{ 'TUTOR_CALENDAR.WEEK' | translate }}</button>
@@ -508,20 +558,31 @@
               <!-- Inline Profile Checklist -->
               <div class="profile-checklist-section" *ngIf="isOnboardingIncomplete && profileChecklist.length > 0">
                 <div class="profile-checklist-header">
-                  <ion-icon name="alert-circle-outline" class="pcl-warn-icon"></ion-icon>
-                  <span class="pcl-title">{{ profileChecklistDoneCount }} / {{ profileChecklist.length }} complete</span>
-                  <span class="pcl-hidden-label" *ngIf="profileChecklistDoneCount < profileChecklist.length">
-                    <ion-icon name="eye-off-outline"></ion-icon> Hidden from students
-                  </span>
+                  <div class="pcl-header-text">
+                    <div class="pcl-header-top">
+                      <ion-icon name="alert-circle-outline" class="pcl-warn-icon"></ion-icon>
+                      <span class="pcl-title">{{ 'HOME.GROWTH.PROFILE_PROGRESS' | translate:{ done: profileChecklistDoneCount, total: profileChecklist.length } }}</span>
+                      <span class="pcl-hidden-label" *ngIf="profileChecklistDoneCount < profileChecklist.length">
+                        <ion-icon name="eye-off-outline"></ion-icon> {{ 'HOME.GROWTH.PROFILE_HIDDEN' | translate }}
+                      </span>
+                    </div>
+                    <p class="pcl-subtitle" *ngIf="profileChecklistDoneCount < profileChecklist.length">{{ 'HOME.GROWTH.PROFILE_CHECKLIST_SUBTITLE' | translate }}</p>
+                    <p class="pcl-availability-note" *ngIf="profileChecklistDoneCount < profileChecklist.length">{{ 'HOME.GROWTH.PROFILE_CHECKLIST_AVAILABILITY_NOTE' | translate }}</p>
+                  </div>
                 </div>
                 <div class="profile-checklist-items">
-                  <a *ngFor="let item of profileChecklist"
-                     class="pcl-item" [class.pcl-item--done]="item.done"
-                     [routerLink]="item.route">
-                    <ion-icon [name]="item.done ? 'checkmark-circle' : 'ellipse-outline'" class="pcl-check"></ion-icon>
-                    <span class="pcl-label">{{ item.label }}</span>
-                    <ion-icon name="chevron-forward-outline" class="pcl-arrow" *ngIf="!item.done"></ion-icon>
-                  </a>
+                  <button type="button" *ngFor="let item of profileChecklist"
+                     class="pcl-item"
+                     [class.pcl-item--done]="item.done && !item.pendingReview"
+                     [class.pcl-item--pending-review]="item.pendingReview"
+                     (click)="openTutorApprovalWizardFromChecklist(item)">
+                    <ion-icon
+                      class="pcl-check"
+                      [name]="item.pendingReview ? 'time-outline' : (item.done ? 'checkmark-circle' : 'ellipse-outline')">
+                    </ion-icon>
+                    <span class="pcl-label">{{ item.labelKey | translate:(item.labelParams || {}) }}</span>
+                    <ion-icon name="chevron-forward-outline" class="pcl-arrow" *ngIf="!item.done || item.pendingReview"></ion-icon>
+                  </button>
                 </div>
               </div>
 
@@ -550,26 +611,26 @@
 
           <!-- Week View Grid -->
           <div class="custom-week-grid" *ngIf="customView === 'week'">
-            <!-- Day Headers -->
-            <div class="week-header">
-              <div class="time-gutter"></div>
-              <div class="day-header" *ngFor="let day of weekDays; trackBy: trackByDayLabel" [class.today]="day.date | isToday">
-                <div class="day-name">{{ day.shortDay }}</div>
-                <div class="day-number">{{ day.dayNumber }}</div>
-              </div>
-            </div>
-
-            <!-- Time Grid -->
+            <!-- Scrollable body (header is sticky INSIDE so both share the same viewport width) -->
             <div class="week-body" #weekBodyContainer>
+              <!-- Day Headers — sticky top, lives inside the scroller so 1fr widths match exactly -->
+              <div class="week-header">
+                <div class="time-gutter"></div>
+                <div class="day-header" *ngFor="let day of weekDays; trackBy: trackByDayLabel" [class.today]="day.date | isToday">
+                  <div class="day-name">{{ day.shortDay }}</div>
+                  <div class="day-number">{{ day.dayNumber }}</div>
+                </div>
+              </div>
+
+              <!-- Time + Day columns -->
+              <div class="week-content">
               <div class="time-column">
                 <div class="time-slot" *ngFor="let hour of timeSlots; trackBy: trackByIndex">
                   <span class="time-label">{{ hour }}</span>
                 </div>
               </div>
 
-              <!-- Day Columns -->
-              <div class="day-columns">
-                <div class="day-column" *ngFor="let day of weekDays; trackBy: trackByDayLabel">
+              <div class="day-column" *ngFor="let day of weekDays; trackBy: trackByDayLabel">
                   <!-- Hour lines -->
                   <div class="hour-line" *ngFor="let hour of timeSlots; trackBy: trackByIndex"></div>
                   
@@ -619,7 +680,7 @@
                       <!-- Text content -->
                       <div class="event-content">
                         <div class="event-title" *ngIf="!event.isAvailability">{{ event.studentName }}</div>
-                        <div class="event-time">{{ event | eventTime:userTz:calendarTimeFormat }}</div>
+                        <div class="event-time">{{ event | eventTime:userTz:calendarTimeFormat:calendarEventLocale }}</div>
                       </div>
                     </div>
                   </div>
@@ -627,9 +688,9 @@
                   <!-- Current time indicator -->
                   <div class="time-indicator" *ngIf="day.date | isToday" [style.top.px]="currentTimePosition"></div>
                 </div>
-              </div>
-            </div>
-          </div>
+              </div> <!-- /.week-content -->
+            </div> <!-- /.week-body -->
+          </div> <!-- /.custom-week-grid -->
 
           <!-- Day View -->
           <div class="custom-day-view" *ngIf="customView === 'day'">
@@ -706,7 +767,7 @@
                     <!-- Text content -->
                     <div class="event-content">
                       <div class="event-title" *ngIf="!event.isAvailability">{{ event.studentName }}</div>
-                      <div class="event-time">{{ event | eventTime:userTz:calendarTimeFormat }}</div>
+                      <div class="event-time">{{ event | eventTime:userTz:calendarTimeFormat:calendarEventLocale }}</div>
                     </div>
                   </div>
                 </div>
@@ -788,7 +849,7 @@
           <span class="airbnb-month-label">{{ pendingFeedbackCount }} {{ pendingFeedbackCount !== 1 ? ('TUTOR_CALENDAR.LESSONS_NEED_FEEDBACK' | translate) : ('TUTOR_CALENDAR.LESSON_NEED_FEEDBACK' | translate) }}</span>
         </div>
         <div class="feedback-modal-icon">
-          <ion-icon name="clipboard-outline"></ion-icon>
+          <ion-icon name="warning-outline"></ion-icon>
         </div>
       </div>
     </ion-header>

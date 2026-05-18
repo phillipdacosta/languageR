@@ -1,0 +1,82 @@
+<ion-header>
+  <ion-toolbar class="onboarding-toolbar pre-step-toolbar">
+    <ion-buttons slot="start">
+      <div class="app-icon-container">
+        <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="app-icon">
+        <img src="assets/barnabi-logo.png" alt="Barnabi" class="app-name-logo barnabi-wordmark-for-light-ui" />
+        <img src="assets/barnabi-logo-wordmark-white.png" alt="" class="app-name-logo barnabi-wordmark-for-dark-ui" aria-hidden="true" />
+      </div>
+    </ion-buttons>
+    <ion-buttons slot="end">
+      <ion-button fill="clear" class="logout-btn" (click)="handleLogout()">
+        <ion-icon name="log-out-outline" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="role-select-content">
+  <div class="rs-shell">
+
+    <header class="rs-header">
+      <img src="assets/icons-app-bird-2.png" alt="" class="rs-logo" />
+      <h1 class="rs-title">{{ 'ROLE_SELECT.TITLE' | translate }}</h1>
+      <p class="rs-subtitle">{{ 'ROLE_SELECT.SUBTITLE' | translate }}</p>
+    </header>
+
+    <div class="rs-cards">
+
+      <button
+        type="button"
+        class="rs-card"
+        [class.rs-card--selected]="selectedRole === 'student'"
+        (click)="selectRole('student')">
+        <div class="rs-card-icon rs-card-icon--student">
+          <ion-icon name="school-outline"></ion-icon>
+        </div>
+        <div class="rs-card-body">
+          <span class="rs-card-title">{{ 'ROLE_SELECT.STUDENT_TITLE' | translate }}</span>
+          <span class="rs-card-desc">{{ 'ROLE_SELECT.STUDENT_DESC' | translate }}</span>
+        </div>
+        <div class="rs-card-check" aria-hidden="true">
+          <ion-icon name="checkmark-circle" *ngIf="selectedRole === 'student'"></ion-icon>
+          <ion-icon name="ellipse-outline" *ngIf="selectedRole !== 'student'"></ion-icon>
+        </div>
+      </button>
+
+      <button
+        type="button"
+        class="rs-card"
+        [class.rs-card--selected]="selectedRole === 'tutor'"
+        (click)="selectRole('tutor')">
+        <div class="rs-card-icon rs-card-icon--tutor">
+          <ion-icon name="people-outline"></ion-icon>
+        </div>
+        <div class="rs-card-body">
+          <span class="rs-card-title">{{ 'ROLE_SELECT.TUTOR_TITLE' | translate }}</span>
+          <span class="rs-card-desc">{{ 'ROLE_SELECT.TUTOR_DESC' | translate }}</span>
+        </div>
+        <div class="rs-card-check" aria-hidden="true">
+          <ion-icon name="checkmark-circle" *ngIf="selectedRole === 'tutor'"></ion-icon>
+          <ion-icon name="ellipse-outline" *ngIf="selectedRole !== 'tutor'"></ion-icon>
+        </div>
+      </button>
+
+    </div>
+
+    <div class="rs-actions">
+      <button type="button" class="rs-back-btn" (click)="goBack()">
+        {{ 'COMMON.BACK' | translate }}
+      </button>
+      <button
+        type="button"
+        class="rs-next-btn"
+        [disabled]="!selectedRole"
+        (click)="next()">
+        {{ 'ROLE_SELECT.NEXT' | translate }}
+        <ion-icon name="arrow-forward-outline"></ion-icon>
+      </button>
+    </div>
+
+  </div>
+</ion-content>

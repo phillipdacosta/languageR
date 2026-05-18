@@ -2,6 +2,19 @@ const { google } = require('googleapis');
 const User = require('../models/User');
 const Lesson = require('../models/Lesson');
 
+// Lazy require to avoid circular dependency at module load time. The route
+// module exports an in-memory cache invalidator we call whenever a Barnabi
+// lesson's googleCalendarEventId changes — so the next /events fetch sees the
+// new state immediately instead of waiting for the 60s cache TTL.
+function invalidateBarnabiIdsCache(tutorId) {
+  try {
+    const gcalRoutes = require('../routes/googleCalendarAuth');
+    if (typeof gcalRoutes.invalidateBarnabiIdsCache === 'function') {
+      gcalRoutes.invalidateBarnabiIdsCache(tutorId);
+    }
+  } catch { /* invalidation is best-effort */ }
+}
+
 function getOAuth2Client() {
   const redirectUri = process.env.GOOGLE_CALENDAR_REDIRECT_URI
     || (process.env.GOOGLE_OAUTH_REDIRECT_URI || 'http://localhost:3000/api/auth/youtube/callback').replace('/youtube/callback', '/google-calendar/callback');
@@ -101,6 +114,7 @@ async function pushLessonToGoogleCalendar(lesson) {
     const gcalEventId = response.data.id;
 
     await Lesson.findByIdAndUpdate(lesson._id, { googleCalendarEventId: gcalEventId });
+    invalidateBarnabiIdsCache(tutor._id);
     console.log(`[GCal Service] Pushed lesson ${lesson._id} to Google Calendar as event ${gcalEventId}`);
     return gcalEventId;
   } catch (err) {
@@ -132,10 +146,18 @@ async function removeLessonFromGoogleCalendar(lesson) {
     });
 
     await Lesson.findByIdAndUpdate(lessonDoc._id, { googleCalendarEventId: null });
+    invalidateBarnabiIdsCache(tutor._id);
     console.log(`[GCal Service] Removed event ${lessonDoc.googleCalendarEventId} for lesson ${lessonDoc._id}`);
   } catch (err) {
     if (err.code === 404 || err.code === 410) {
-      await Lesson.findByIdAndUpdate(lesson._id || lesson, { googleCalendarEventId: null });
+      const idToClear = lesson._id || lesson;
+      await Lesson.findByIdAndUpdate(idToClear, { googleCalendarEventId: null });
+      // We don't always have the tutorId here (lesson may be a string id) but
+      // the TTL will catch it within 60s and any explicit fetch can refresh.
+      const lessonDocAfter = typeof lesson === 'string' ? null : lesson;
+      if (lessonDocAfter?.tutorId) {
+        invalidateBarnabiIdsCache(lessonDocAfter.tutorId._id || lessonDocAfter.tutorId);
+      }
       return;
     }
     console.error(`[GCal Service] Failed to remove event:`, err.message);

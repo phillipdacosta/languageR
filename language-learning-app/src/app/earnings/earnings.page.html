@@ -1,7 +1,7 @@
 <!-- Routed page mode: show with ion-header + ion-content wrappers -->
 <ng-container *ngIf="!inline">
-  <ion-header class="ion-no-border">
-    <ion-toolbar>
+  <ion-header class="ion-no-border earnings-routed-header">
+    <ion-toolbar class="earnings-routed-toolbar">
       <ion-title>{{ 'EARNINGS.TITLE' | translate }}</ion-title>
     </ion-toolbar>
   </ion-header>
@@ -11,14 +11,11 @@
   </ion-content>
 </ng-container>
 
-<!-- Inline mode: render content directly without ion-header/ion-content -->
+<!-- Inline mode: Go back sits above the layout (right), same as before the split nav. -->
 <div class="earnings-inline-wrapper" *ngIf="inline">
-  <!-- Title row: flush on page (not a card); .go-back-link kept for home → earnings FLIP -->
   <div class="inline-earnings-header">
-    <h2 class="inline-earnings-title">{{ 'EARNINGS.TITLE' | translate }}</h2>
-    <button class="go-back-link" (click)="goBack()">{{ 'EARNINGS.GO_BACK' | translate }}</button>
+    <button type="button" class="go-back-link" (click)="goBack()">{{ 'EARNINGS.GO_BACK' | translate }}</button>
   </div>
-  <!-- Rest of content via template -->
   <ng-container *ngTemplateOutlet="earningsBody"></ng-container>
 </div>
 
@@ -50,9 +47,48 @@
     <button class="retry-btn" (click)="loadEarnings()">{{ 'EARNINGS.TRY_AGAIN' | translate }}</button>
   </div>
 
-  <!-- Earnings Content -->
-  <div *ngIf="!loading && !error" class="earnings-content earnings-fade-in" [class.inline-no-slide]="inline" [class.earnings-content--inline]="inline">
+  <!-- Earnings Content — split nav (1/4) + panel (3/4) on wide view; segment + panel on narrow -->
+  <div *ngIf="!loading && !error" class="earnings-content earnings-fade-in earnings-layout" [class.inline-no-slide]="inline" [class.earnings-content--inline]="inline">
 
+    <aside class="earnings-layout__sidebar" aria-label="Earnings navigation">
+      <h1 class="earnings-layout__page-title">{{ 'EARNINGS.TITLE' | translate }}</h1>
+      <nav class="earnings-layout__nav">
+        <button type="button" class="earnings-nav-item" [class.earnings-nav-item--active]="earningsActiveSection === 'details'" (click)="onSelectEarningsSection('details')">
+          <ion-icon name="wallet-outline" aria-hidden="true"></ion-icon>
+          <span>{{ 'EARNINGS.NAV_DETAILS' | translate }}</span>
+        </button>
+        <button type="button" class="earnings-nav-item" [class.earnings-nav-item--active]="earningsActiveSection === 'transfers'" (click)="onSelectEarningsSection('transfers')">
+          <ion-icon name="swap-horizontal-outline" aria-hidden="true"></ion-icon>
+          <span>{{ 'EARNINGS.TRANSFERS_TITLE' | translate }}</span>
+        </button>
+        <button type="button" class="earnings-nav-item" [class.earnings-nav-item--active]="earningsActiveSection === 'transactions'" (click)="onSelectEarningsSection('transactions')">
+          <ion-icon name="receipt-outline" aria-hidden="true"></ion-icon>
+          <span>{{ 'EARNINGS.TXN_TITLE' | translate }}</span>
+        </button>
+      </nav>
+    </aside>
+
+    <div class="earnings-layout__segment">
+      <ion-segment class="earnings-segment" [value]="earningsActiveSection" (ionChange)="onEarningsSegmentChange($event)">
+        <ion-segment-button value="details">
+          <ion-label>{{ 'EARNINGS.NAV_DETAILS' | translate }}</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="transfers">
+          <ion-label>{{ 'EARNINGS.TRANSFERS_TITLE' | translate }}</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="transactions">
+          <ion-label>{{ 'EARNINGS.TXN_TITLE' | translate }}</ion-label>
+        </ion-segment-button>
+      </ion-segment>
+    </div>
+
+    <main class="earnings-layout__main">
+      <header class="earnings-layout__panel-head">
+        <h2 class="earnings-layout__panel-title">{{ earningsPanelTitleKey | translate }}</h2>
+        <p class="earnings-layout__panel-sub" *ngIf="earningsActiveSection === 'details'">{{ 'EARNINGS.DETAILS_SUMMARY' | translate }}</p>
+      </header>
+
+      <ng-container *ngIf="earningsActiveSection === 'details'">
     <!-- Desktop + mobile balance / withdraw (single surface card when inline) -->
     <div class="earnings-balance-cluster" [class.earnings-surface-card]="inline">
 
@@ -141,8 +177,8 @@
     </div>
     <!-- /earnings-balance-cluster -->
 
-    <!-- Earnings Over Time Chart -->
-    <div class="earnings-chart-card" *ngIf="recentPayments.length > 0">
+    <!-- Earnings Over Time Chart (always shown on Details; empty state inside when no data) -->
+    <div class="earnings-chart-card">
       <div class="chart-card-header">
         <div class="chart-card-title-group">
           <h2 class="chart-card-title">{{ 'EARNINGS.CHART_TITLE' | translate }}</h2>
@@ -192,13 +228,17 @@
         <p>{{ 'EARNINGS.CHART_NO_DATA' | translate }}</p>
       </div>
     </div>
+      </ng-container>
 
-    <!-- Transfer Records Section -->
-    <div class="transfers-section" *ngIf="withdrawalHistory.length > 0" [class.earnings-surface-card]="inline">
-      <div class="section-header">
-        <h2>{{ 'EARNINGS.TRANSFERS_TITLE' | translate }}</h2>
+      <ng-container *ngIf="earningsActiveSection === 'transfers'">
+    <!-- Transfer Records -->
+    <div class="transfers-section earnings-surface-card">
+      <div *ngIf="withdrawalHistory.length === 0" class="empty-state transfers-empty">
+        <ion-icon name="swap-horizontal-outline"></ion-icon>
+        <p class="empty-title">{{ 'EARNINGS.TRANSFERS_EMPTY_TITLE' | translate }}</p>
+        <p class="empty-sub">{{ 'EARNINGS.TRANSFERS_EMPTY_SUB' | translate }}</p>
       </div>
-      <div class="transfers-list">
+      <div class="transfers-list" *ngIf="withdrawalHistory.length > 0">
         <div class="transfer-card" *ngFor="let w of withdrawalHistory">
           <div class="transfer-icon-wrap">
             <ion-icon [name]="w.method === 'paypal' ? 'logo-paypal' : 'card-outline'"></ion-icon>
@@ -219,13 +259,11 @@
         </div>
       </div>
     </div>
+      </ng-container>
 
+      <ng-container *ngIf="earningsActiveSection === 'transactions'">
     <!-- Transactions Section -->
-    <div class="transactions-section" [class.earnings-surface-card]="inline">
-      <div class="section-header">
-        <h2>{{ 'EARNINGS.TXN_TITLE' | translate }}</h2>
-      </div>
-
+    <div class="transactions-section earnings-surface-card">
       <!-- Airbnb-style Filters Trigger -->
       <div class="filters-trigger-container">
         <button class="filters-trigger-btn" (click)="openFiltersModal()">
@@ -434,6 +472,9 @@
         </ion-infinite-scroll-content>
       </ion-infinite-scroll>
     </div>
+      </ng-container>
+
+    </main>
   </div>
 </ng-template>
 
@@ -648,6 +689,7 @@
 <ion-modal
   [isOpen]="isWithdrawalModalOpen"
   (didDismiss)="onWithdrawalModalDismissed()"
+  (didPresent)="onWithdrawalModalPresented()"
   [class.withdrawal-modal--home-context]="inline"
   class="withdrawal-modal">
   
@@ -691,50 +733,49 @@
             <ion-icon name="wallet"></ion-icon>
           </div>
           <h2 class="modal-heading">{{ 'EARNINGS.WITHDRAW_TITLE' | translate }}</h2>
-          <p class="modal-description">{{ 'EARNINGS.WITHDRAW_DESC' | translate }}</p>
+          <p class="modal-description">
+            {{ 'EARNINGS.WITHDRAW_DESC' | translate }}
+            <span class="withdrawal-available-badge">${{ formatCurrency(balance.available) }}</span>
+          </p>
         </div>
 
-        <!-- 2×2 grid: row2 fees cell and payout method share height -->
+        <div class="amount-section withdrawal-amount-hero">
+          <label class="section-label">{{ 'EARNINGS.WITHDRAW_AMOUNT_SECTION' | translate }}</label>
+          <div class="amount-input-wrapper" (click)="onWithdrawalAmountWrapperClick($event)">
+            <div class="currency-symbol">$</div>
+            <input
+              #withdrawalAmountInput
+              type="text"
+              inputmode="decimal"
+              class="amount-input"
+              [value]="withdrawalDisplayValue"
+              (input)="onWithdrawalAmountInput($event)"
+              (blur)="onWithdrawalAmountBlur()"
+              placeholder="0.00">
+            <button type="button" class="max-button" (click)="setMaxWithdrawalAmount(); $event.stopPropagation()">{{ 'EARNINGS.WITHDRAW_MAX' | translate }}</button>
+          </div>
+          <p class="withdrawal-min-note" *ngIf="selectedWithdrawalMethod === 'paypal'">{{ 'EARNINGS.WITHDRAW_MIN_PAYPAL' | translate }}</p>
+          <div class="amount-error-slot" aria-live="polite">
+            <p
+              class="amount-error"
+              *ngIf="withdrawalAmount > balance.available">
+              {{ 'EARNINGS.WITHDRAW_EXCEEDS_BALANCE' | translate }}
+            </p>
+            <p
+              class="amount-error"
+              *ngIf="withdrawalAmount <= balance.available && selectedWithdrawalMethod === 'paypal' && withdrawalAmount > 0 && withdrawalAmount < 10">
+              {{ 'EARNINGS.WITHDRAW_MIN_10' | translate }}
+            </p>
+            <p
+              class="amount-error"
+              *ngIf="withdrawalAmount <= balance.available && selectedWithdrawalMethod === 'stripe_connect' && withdrawalAmount > 0 && withdrawalAmount < 0.01">
+              {{ 'EARNINGS.WITHDRAW_INVALID_AMOUNT' | translate }}
+            </p>
+          </div>
+        </div>
+
+        <!-- 2-column grid: fees + payout method -->
         <div class="withdrawal-container">
-          <div class="balance-card withdrawal-grid-balance">
-            <div class="balance-label">{{ 'EARNINGS.WITHDRAW_BALANCE_LABEL' | translate }}</div>
-            <div class="balance-amount">${{ formatCurrency(balance.available) }}</div>
-            <div class="balance-note" *ngIf="selectedWithdrawalMethod === 'paypal'">{{ 'EARNINGS.WITHDRAW_MIN_PAYPAL' | translate }}</div>
-          </div>
-
-          <div class="amount-section withdrawal-grid-amount">
-            <label class="section-label">{{ 'EARNINGS.WITHDRAW_AMOUNT_SECTION' | translate }}</label>
-            <div class="amount-input-wrapper">
-              <div class="currency-symbol">$</div>
-              <input
-                type="text"
-                inputmode="decimal"
-                class="amount-input"
-                [(ngModel)]="formattedWithdrawalAmount"
-                (keydown)="onWithdrawalKeydown($event)"
-                (blur)="onWithdrawalAmountBlur()"
-                placeholder="0.00">
-              <button class="max-button" (click)="setMaxWithdrawalAmount()">MAX</button>
-            </div>
-            <div class="amount-error-slot" aria-live="polite">
-              <p
-                class="amount-error"
-                *ngIf="withdrawalAmount > balance.available">
-                {{ 'EARNINGS.WITHDRAW_EXCEEDS_BALANCE' | translate }}
-              </p>
-              <p
-                class="amount-error"
-                *ngIf="withdrawalAmount <= balance.available && selectedWithdrawalMethod === 'paypal' && withdrawalAmount > 0 && withdrawalAmount < 10">
-                {{ 'EARNINGS.WITHDRAW_MIN_10' | translate }}
-              </p>
-              <p
-                class="amount-error"
-                *ngIf="withdrawalAmount <= balance.available && selectedWithdrawalMethod === 'stripe_connect' && withdrawalAmount > 0 && withdrawalAmount < 0.01">
-                {{ 'EARNINGS.WITHDRAW_INVALID_AMOUNT' | translate }}
-              </p>
-            </div>
-          </div>
-
           <div class="withdrawal-grid-fees">
             <!-- Fee Breakdown Card (PayPal): fixed-height swap — no layout jump -->
             <div class="fee-breakdown-card fee-breakdown-card--paypal" *ngIf="selectedWithdrawalMethod === 'paypal'">
@@ -802,7 +843,7 @@
 
           <div class="method-section withdrawal-grid-method">
               <!-- Stripe Option -->
-              <div 
+              <div
                 *ngIf="payoutProvider === 'stripe'"
                 class="method-card"
                 [class.selected]="selectedWithdrawalMethod === 'stripe_connect'"
@@ -864,6 +905,32 @@
     </ion-content>
 
     <ion-footer *ngIf="!withdrawalSuccess" class="withdrawal-modal-footer ion-no-border">
+      <div class="withdrawal-footer-meta">
+        <div class="withdrawal-powered-by" *ngIf="payoutProvider === 'stripe'">
+          <img
+            src="assets/icon/powered-by-stripe-blurple.png"
+            alt="Powered by Stripe"
+            class="withdrawal-powered-by-badge withdrawal-powered-by-badge--light" />
+          <img
+            src="assets/icon/powered-by-stripe-dark.png"
+            alt=""
+            class="withdrawal-powered-by-badge withdrawal-powered-by-badge--dark"
+            aria-hidden="true" />
+        </div>
+        <div class="withdrawal-powered-by" *ngIf="payoutProvider === 'paypal'">
+          <img
+            src="assets/icon/powered-by-paypal.png"
+            alt="Powered by PayPal"
+            class="withdrawal-powered-by-badge withdrawal-powered-by-badge--paypal" />
+        </div>
+        <p class="withdrawal-terms">
+          {{ 'EARNINGS.WITHDRAW_TERMS_PREFIX' | translate }}
+          <button type="button" class="withdrawal-terms-link" (click)="openWithdrawalSupport()">
+            {{ 'EARNINGS.WITHDRAW_TERMS_LINK' | translate }}
+          </button>
+          {{ 'EARNINGS.WITHDRAW_TERMS_SUFFIX' | translate }}
+        </p>
+      </div>
       <div class="withdrawal-modal-actions">
         <ion-button
           expand="block"

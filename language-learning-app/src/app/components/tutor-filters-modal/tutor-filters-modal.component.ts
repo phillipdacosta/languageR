@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, OnDestroy } from '@angular/core';
+import { Component, Input, OnInit, OnDestroy, AfterViewInit, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController } from '@ionic/angular';
@@ -28,9 +28,12 @@ interface QuickPick {
   standalone: true,
   imports: [CommonModule, FormsModule, IonicModule, SharedModule]
 })
-export class TutorFiltersModalComponent implements OnInit, OnDestroy {
+export class TutorFiltersModalComponent implements OnInit, OnDestroy, AfterViewInit {
   private destroy$ = new Subject<void>();
   private countSubject$ = new Subject<void>();
+  private languageSearchFocusTimer: ReturnType<typeof setTimeout> | null = null;
+
+  @ViewChild('languageSearchInput') languageSearchInput?: ElementRef<HTMLInputElement>;
   
   @Input() initialFilters!: TutorSearchFilters;
   
@@ -224,7 +227,28 @@ export class TutorFiltersModalComponent implements OnInit, OnDestroy {
     this.triggerCountUpdate();
   }
 
+  ngAfterViewInit(): void {
+    this.scheduleLanguageSearchFocus();
+  }
+
+  private scheduleLanguageSearchFocus(): void {
+    if (!this.expandedSections.has('language')) {
+      return;
+    }
+    if (this.languageSearchFocusTimer != null) {
+      clearTimeout(this.languageSearchFocusTimer);
+    }
+    this.languageSearchFocusTimer = setTimeout(() => {
+      this.languageSearchFocusTimer = null;
+      this.languageSearchInput?.nativeElement?.focus();
+    }, 280);
+  }
+
   ngOnDestroy() {
+    if (this.languageSearchFocusTimer != null) {
+      clearTimeout(this.languageSearchFocusTimer);
+      this.languageSearchFocusTimer = null;
+    }
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -235,6 +259,9 @@ export class TutorFiltersModalComponent implements OnInit, OnDestroy {
       this.expandedSections.delete(section);
     } else {
       this.expandedSections.add(section);
+      if (section === 'language') {
+        setTimeout(() => this.scheduleLanguageSearchFocus(), 0);
+      }
     }
   }
 

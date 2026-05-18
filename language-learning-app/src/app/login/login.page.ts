@@ -7,8 +7,22 @@ import { AuthService } from '../services/auth.service';
 import { LoadingService } from '../services/loading.service';
 import { take } from 'rxjs/operators';
 import { Subscription } from 'rxjs';
+import { TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 
+/**
+ * Sign-in surface. The visual design is a two-column "Welcome back" page
+ * (form on the left, illustrated hero on the right) but the underlying
+ * authentication is unchanged: every button funnels into Auth0's hosted
+ * Universal Login via redirect. The email field, when filled, is forwarded
+ * as `login_hint` so Auth0 pre-fills it on the hosted page; the password
+ * field is intentionally cosmetic — credentials are typed on the Auth0
+ * page where they're handled securely. Social buttons (Google / Facebook)
+ * deep-link straight to the matching Auth0 connection so users skip the
+ * provider chooser. The "Create an account" link routes through Auth0 signup
+ * (`screen_hint=signup`); new accounts land on signup-language for interface
+ * language first, then role selection (student vs tutor).
+ */
 @Component({
   selector: 'app-login',
   templateUrl: './login.page.html',
@@ -16,8 +30,12 @@ import { environment } from '../../environments/environment';
   standalone: false,
 })
 export class LoginPage implements OnInit, OnDestroy {
+  /** Set true once Auth0 Facebook uses your own Meta app keys (email scope works). */
+  facebookLoginEnabled = false;
+
   isLoading = false;
-  selectedUserType: 'student' | 'tutor' | null = null;
+  email = '';
+
   private routerSubscription?: Subscription;
 
   constructor(
@@ -26,9 +44,9 @@ export class LoginPage implements OnInit, OnDestroy {
     private location: Location,
     private loadingController: LoadingController,
     private alertController: AlertController,
-    private loadingService: LoadingService
+    private loadingService: LoadingService,
+    private translate: TranslateService
   ) {
-    // Log all navigation attempts to debug race conditions
     this.routerSubscription = this.router.events.subscribe(event => {
       if (event instanceof NavigationStart) {
         console.log('🔀 NAVIGATION DETECTED:', event.url);
@@ -37,148 +55,104 @@ export class LoginPage implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    console.log('🚀 LoginPage: ngOnInit() called');
-    console.log('🚀 LoginPage: localStorage contents:', Object.keys(localStorage));
-    console.log('🚀 LoginPage: returnUrl in localStorage:', localStorage.getItem('returnUrl'));
-    // On native, the splash screen handles the loading transition —
-    // don't remove the loading overlay (it prevents a purple flash).
     if (!Capacitor.isNativePlatform()) {
       this.loadingService.hide();
     }
-    
-    // Check if user is already authenticated (use take(1) to prevent multiple redirects)
+
     this.authService.isAuthenticated$.pipe(take(1)).subscribe(async isAuthenticated => {
-      console.log('🚀 LoginPage: isAuthenticated?', isAuthenticated);
-      if (isAuthenticated) {
-        // Check for return URL (for users already logged in trying to access protected actions)
-        const returnUrl = localStorage.getItem('returnUrl');
-        if (returnUrl) {
-          console.log('🔄 LoginPage: User already authenticated, redirecting to returnUrl:', returnUrl);
-          
-          // Check if user needs onboarding first
-          const auth0User = await this.authService.getUserProfile().pipe(take(1)).toPromise();
-          console.log('🔍 LoginPage: Got auth0User:', auth0User?.email);
-          
-          if (auth0User && auth0User.email) {
-            // Check if user exists in database
-            const userExists = await this.checkUserExistsByEmail(auth0User.email);
-            console.log('🔍 LoginPage: User exists in database?', userExists);
-            
-            if (!userExists) {
-              // New user - send to onboarding first, keep returnUrl for after
-              console.log('⚠️ LoginPage: New user with returnUrl, going to onboarding first');
-              // returnUrl stays in localStorage for onboarding to use
-              await this.router.navigate(['/onboarding'], { replaceUrl: true });
-              return;
-            }
-          }
-          
-          // Existing user - go directly to returnUrl
-          localStorage.removeItem('returnUrl');
-          console.log('🔄 LoginPage: Removed returnUrl from localStorage');
-          
-          // Set flag so the destination page knows to override back button
-          localStorage.setItem('justCompletedLogin', returnUrl);
-          console.log('🔄 LoginPage: Set justCompletedLogin flag to:', returnUrl);
-          
-          console.log('🔄 LoginPage: About to replace login with /tabs/home and navigate');
-          
-          // Replace the login page with /tabs/home in history
-          this.location.replaceState('/tabs/home');
-          
-          // Then navigate to the target (adds to history)
-          // Result: [/tabs/home, /tutor/123]
-          const navigationResult = await this.router.navigateByUrl(returnUrl);
-          console.log('🔄 LoginPage: Navigation result:', navigationResult);
-          console.log('🔄 LoginPage: Current URL after navigation:', this.router.url);
-        } else {
-          console.log('🔄 LoginPage: User already authenticated, redirecting to tabs');
-          await this.router.navigate(['/tabs'], { replaceUrl: true });
-        }
-      } else {
-        console.log('🚀 LoginPage: User NOT authenticated, showing login UI');
+      if (!isAuthenticated) return;
+
+      const returnUrl = localStorage.getItem('returnUrl');
+      if (!returnUrl) {
+        await this.router.navigate(['/tabs'], { replaceUrl: true });
+        return;
       }
+
+      const auth0User = await this.authService.getUserProfile().pipe(take(1)).toPromise();
+      if (auth0User?.email) {
+        const userExists = await this.checkUserExistsByEmail(auth0User.email);
+        if (!userExists) {
+          await this.router.navigate(['/signup-language'], { replaceUrl: true });
+          return;
+        }
+      }
+
+      localStorage.removeItem('returnUrl');
+      localStorage.setItem('justCompletedLogin', returnUrl);
+      this.location.replaceState('/tabs/home');
+      await this.router.navigateByUrl(returnUrl);
     });
   }
 
-  selectUserType(userType: 'student' | 'tutor') {
-    console.log('🚀 LoginPage: Selected user type:', userType);
-    this.selectedUserType = userType;
-    
-    // Store user type in localStorage for the callback to use
-    localStorage.setItem('selectedUserType', userType);
-    console.log('🚀 LoginPage: Stored userType in localStorage:', localStorage.getItem('selectedUserType'));
+  async signIn() {
+    // `prompt: 'login'` forces Auth0 to ignore any existing SSO session and
+    // show the universal-login form, so users can sign in as a different
+    // account after logging out (otherwise Auth0 + the upstream IdP silently
+    // re-auth them with the same email).
+    await this.startRedirect({
+      loginHint: this.email?.trim() || undefined,
+      prompt: 'login',
+    });
   }
 
-  goBackToTypeSelection() {
-    console.log('🚀 LoginPage: Going back to user type selection');
-    this.selectedUserType = null;
-    localStorage.removeItem('selectedUserType');
+  async signInWithGoogle() {
+    // `prompt: 'select_account'` is forwarded to Google so the account
+    // chooser is shown even when the user is still signed in to Google.
+    await this.startRedirect({ connection: 'google-oauth2', prompt: 'select_account' });
   }
 
-  async login() {
-    if (!this.selectedUserType) {
-      console.error('No user type selected');
-      return;
-    }
+  async signInWithFacebook() {
+    await this.startRedirect({ connection: 'Facebook', prompt: 'login' });
+  }
 
-    console.log('🚀 LoginPage: login() called');
-    console.log('🚀 LoginPage: returnUrl BEFORE clearAuth0State:', localStorage.getItem('returnUrl'));
+  async goToCreateAccount() {
+    await this.startRedirect({
+      screenHint: 'signup',
+      loginHint: this.email?.trim() || undefined,
+      prompt: 'login',
+    });
+  }
 
+  goToForgotPassword() {
+    // Auth0 hosts password reset; redirect into the hosted page so the
+    // built-in "Forgot password?" link is available without us shipping
+    // our own reset UI.
+    this.startRedirect({ loginHint: this.email?.trim() || undefined, prompt: 'login' });
+  }
+
+  /**
+   * Single funnel for every redirect-based sign-in path on this page.
+   * Shows the loading overlay, then hands off to the Auth0 SDK. We do NOT
+   * call clearAuth0State() / auth0.logout() here — that triggers a
+   * navigation to Auth0's logout endpoint which races with (and kills)
+   * the subsequent loginWithRedirect, leaving the user bounced back to
+   * /login. The Auth0 SDK handles existing sessions cleanly on its own.
+   */
+  private async startRedirect(opts: { connection?: string; loginHint?: string; screenHint?: 'login' | 'signup'; prompt?: 'login' | 'select_account' | 'consent' | 'none' } = {}) {
     this.isLoading = true;
     const loading = await this.loadingController.create({
-      message: `Signing you in as ${this.selectedUserType}...`,
-      spinner: 'crescent'
+      message: this.translate.instant('LOGIN.SIGNING_IN'),
+      spinner: 'crescent',
     });
     await loading.present();
 
     try {
-      // Clear any existing Auth0 state first
-      console.log('🚀 LoginPage: About to call clearAuth0State()');
-      this.authService.clearAuth0State();
-      console.log('🚀 LoginPage: returnUrl AFTER clearAuth0State:', localStorage.getItem('returnUrl'));
-      
-      // Wait a moment for state to clear
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Use redirect instead of popup to avoid COOP issues
-      console.log('🚀 LoginPage: About to call loginWithRedirect()');
-      this.authService.loginWithRedirect();
+      this.authService.loginWithRedirect(opts);
     } catch (error) {
       console.error('Login error:', error);
-      await this.showErrorAlert('Login failed. Please try again.');
+      await this.showErrorAlert(this.translate.instant('LOGIN.REDIRECT_FAILED'));
       this.isLoading = false;
       await loading.dismiss();
     }
   }
 
-
-
   private async showErrorAlert(message: string) {
     const alert = await this.alertController.create({
-      header: 'Error',
-      message: message,
-      buttons: ['OK']
+      header: this.translate.instant('LOGIN.ERROR_TITLE'),
+      message,
+      buttons: [this.translate.instant('COMMON.OK')],
     });
     await alert.present();
-  }
-
-  clearAuthAndReload() {
-    // Clear all authentication data using AuthService
-    this.authService.clearAuth0State();
-    
-    // Reload the page to start fresh
-    window.location.reload();
-  }
-
-  forceLogout() {
-    // Use the force logout method from AuthService
-    this.authService.forceLogout();
-  }
-
-  nuclearLogout() {
-    // Use the nuclear logout method from AuthService
-    this.authService.nuclearLogout();
   }
 
   ngOnDestroy() {
@@ -191,24 +165,15 @@ export class LoginPage implements OnInit, OnDestroy {
     try {
       const response = await fetch(`${environment.backendUrl}/api/users/check-email`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
       });
-      
-      if (!response.ok) {
-        console.log('❌ API call failed:', response.status);
-        return false;
-      }
-      
+      if (!response.ok) return false;
       const result = await response.json();
-      console.log('🔍 LoginPage: Email check result:', result);
       return result.exists || false;
     } catch (error) {
       console.error('❌ Error checking user by email:', error);
       return false;
     }
   }
-
 }

@@ -7,7 +7,7 @@
   <div class="cancel-reason-content">
     <!-- Header Section -->
     <div class="modal-header-section">
-      <h1 class="modal-title">{{ titleText }}</h1>
+      <h1 class="modal-title">{{ titleTextKey | translate }}</h1>
     </div>
 
     <!-- Lesson / Class Info Card -->
@@ -45,14 +45,14 @@
     <div class="late-cancellation-warning" *ngIf="isWithin12Hours && !isClass">
       <ion-icon name="warning-outline"></ion-icon>
       <div class="warning-text">
-        <strong>Late cancellation</strong>
-        <p>Cancelling within 12 hours of your lesson may result in charges. Consider rescheduling instead.</p>
+        <strong>{{ 'ALERTS.CANCEL_REASON.LATE_TITLE' | translate }}</strong>
+        <p>{{ 'ALERTS.CANCEL_REASON.LATE_BODY' | translate }}</p>
       </div>
     </div>
 
     <!-- Reason Selection -->
     <div class="reasons-list">
-      <p class="select-reason-label">Please select a reason</p>
+      <p class="select-reason-label">{{ 'ALERTS.CANCEL_REASON.SELECT_REASON' | translate }}</p>
       
       <button 
         *ngFor="let reason of reasons"
@@ -62,7 +62,7 @@
         <div class="reason-icon">
           <ion-icon [name]="reason.icon"></ion-icon>
         </div>
-        <span class="reason-label">{{ reason.label }}</span>
+        <span class="reason-label">{{ reason.labelKey | translate }}</span>
         <ion-icon 
           name="checkmark-circle" 
           class="check-icon"
@@ -75,7 +75,7 @@
     <div class="other-reason-input" *ngIf="selectedReason?.id === 'other'">
       <ion-textarea
         [(ngModel)]="otherReasonText"
-        placeholder="Please tell us why you're cancelling..."
+        [placeholder]="'ALERTS.CANCEL_REASON.OTHER_PLACEHOLDER' | translate"
         [rows]="3"
         [maxlength]="300"
         class="reason-textarea">
@@ -98,14 +98,14 @@
         expand="block" 
         fill="outline" 
         (click)="onSecondaryFooterClick()">
-        {{ secondaryFooterCtaLabel }}
+        {{ secondaryFooterCtaLabelKey | translate }}
       </ion-button>
       <ion-button 
         expand="block"
         class="btn-continue"
         [disabled]="!canConfirm()"
         (click)="confirm()">
-        Continue
+        {{ 'ALERTS.CANCEL_REASON.CONTINUE' | translate }}
       </ion-button>
     </div>
   </ion-toolbar>

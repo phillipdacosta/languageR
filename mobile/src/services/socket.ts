@@ -73,8 +73,14 @@ export type UserEventName =
   | 'reaction_updated'
   | 'new_notification'
   | 'user_typing'
+  // Server emits after a Google Calendar push webhook fires for this user;
+  // payload-free "something changed, refetch your current window" signal.
+  // Web's WebSocketService listens to the same name; keep them in sync.
+  | 'gcal-changed'
   | 'gcal-events-updated'
-  | 'gcal-status-updated';
+  | 'gcal-status-updated'
+  | 'conversation_archived'
+  | 'conversation_unarchived';
 
 type UserEventHandler = (payload: any) => void;
 
@@ -163,8 +169,11 @@ class SocketService {
       'reaction_updated',
       'new_notification',
       'user_typing',
+      'gcal-changed',
       'gcal-events-updated',
       'gcal-status-updated',
+      'conversation_archived',
+      'conversation_unarchived',
     ];
     for (const evt of USER_EVENTS) {
       this.socket.on(evt, (payload: any) => this.dispatchUserEvent(evt, payload));

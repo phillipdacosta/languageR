@@ -1,121 +1,188 @@
-import { Component, OnInit, Input } from '@angular/core';
+import {
+  AfterViewInit,
+  ChangeDetectorRef,
+  Component,
+  DestroyRef,
+  OnDestroy,
+  OnInit,
+  Input,
+  ViewChild,
+  inject,
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, ModalController } from '@ionic/angular';
-import { 
-  getTimezonesWithOffsets, 
-  getTimezonesByRegion, 
+import { IonicModule, ModalController, IonSearchbar } from '@ionic/angular';
+import { TranslateService } from '@ngx-translate/core';
+import { merge } from 'rxjs';
+import {
+  getTimezonesByRegion,
   detectUserTimezone,
   TimezoneOption,
-  TIMEZONE_REGIONS
 } from '../../shared/timezone.constants';
+import { getTimezoneLabel } from '../../shared/timezone.utils';
 
 @Component({
   selector: 'app-timezone-selector',
   templateUrl: './timezone-selector.component.html',
   styleUrls: ['./timezone-selector.component.scss'],
   standalone: true,
-  imports: [CommonModule, FormsModule, IonicModule]
+  imports: [CommonModule, FormsModule, IonicModule],
 })
-export class TimezoneSelectorComponent implements OnInit {
+export class TimezoneSelectorComponent implements OnInit, AfterViewInit, OnDestroy {
+  /** Profile (or parent) timezone when the modal opens; used to enable/disable Change. */
   @Input() selectedTimezone: string = '';
-  searchTerm: string = '';
-  timezonesByRegion: Record<string, TimezoneOption[]> = {};
-  filteredTimezonesByRegion: Record<string, TimezoneOption[]> = {};
-  regionKeys: string[] = [];
-  
-  constructor(private modalController: ModalController) {}
+  @ViewChild('timezoneSearch') timezoneSearch?: IonSearchbar;
 
-  ngOnInit() {
-    // Get timezones with offsets populated, then group by region
-    const timezonesWithOffsets = getTimezonesWithOffsets();
+  searchTerm = '';
+  timezonesByRegion: Record<string, TimezoneOption[]> = {};
+  flatFilteredTimezones: TimezoneOption[] = [];
+  /** Timezone saved when the modal opened (normalized). */
+  savedTimezone = '';
+  /** Highlighted row; applied when the user taps Change. */
+  pendingTimezone = '';
+  /** Shown under the description (reflects pending selection). */
+  currentTimezoneSummary = '';
+
+  /** Bound in the template; refreshed on language change (Ionic modal + overlay CD). */
+  modalHeading = '';
+  modalDescription = '';
+  modalCurrentTzLine = '';
+  searchPlaceholderText = '';
+  noResultsLabel = '';
+  changeButtonLabel = '';
+
+  private searchFocusTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private readonly modalController = inject(ModalController);
+  private readonly translate = inject(TranslateService);
+  private readonly cdr = inject(ChangeDetectorRef);
+  private readonly destroyRef = inject(DestroyRef);
+
+  ngOnInit(): void {
     this.timezonesByRegion = getTimezonesByRegion();
-    this.filteredTimezonesByRegion = { ...this.timezonesByRegion };
-    this.regionKeys = Object.keys(this.timezonesByRegion);
-    
-    // If no timezone selected, detect current one
-    if (!this.selectedTimezone) {
-      this.selectedTimezone = detectUserTimezone();
+    const fromInput = this.selectedTimezone?.trim();
+    this.savedTimezone = fromInput || detectUserTimezone();
+    this.pendingTimezone = this.savedTimezone;
+    this.rebuildFlatList();
+    this.refreshModalI18n();
+
+    merge(this.translate.onLangChange, this.translate.onFallbackLangChange)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.refreshModalI18n());
+  }
+
+  ngAfterViewInit(): void {
+    this.scheduleSearchFocus();
+  }
+
+  ngOnDestroy(): void {
+    if (this.searchFocusTimer != null) {
+      clearTimeout(this.searchFocusTimer);
+      this.searchFocusTimer = null;
     }
   }
 
-  /**
-   * Filter timezones based on search term
-   */
-  onSearchChange(event: any) {
-    const searchTerm = event.detail.value?.toLowerCase() || '';
-    
-    if (!searchTerm) {
-      this.filteredTimezonesByRegion = { ...this.timezonesByRegion };
+  private scheduleSearchFocus(): void {
+    if (this.searchFocusTimer != null) {
+      clearTimeout(this.searchFocusTimer);
+    }
+    this.searchFocusTimer = setTimeout(() => {
+      this.searchFocusTimer = null;
+      void this.timezoneSearch?.setFocus();
+    }, 280);
+  }
+
+  onSearchInput(): void {
+    this.rebuildFlatList();
+  }
+
+  private rebuildFlatList(): void {
+    const q = this.searchTerm.toLowerCase().trim();
+    if (!q) {
+      this.flatFilteredTimezones = this.flattenRegions(this.timezonesByRegion);
       return;
     }
-    
-    // Filter timezones in each region
     const filtered: Record<string, TimezoneOption[]> = {};
-    
-    Object.keys(this.timezonesByRegion).forEach(region => {
-      const regionTimezones = this.timezonesByRegion[region].filter(tz => 
-        tz.label.toLowerCase().includes(searchTerm) ||
-        tz.value.toLowerCase().includes(searchTerm) ||
-        tz.offset.toLowerCase().includes(searchTerm)
+    Object.keys(this.timezonesByRegion).forEach((region) => {
+      const regionTimezones = this.timezonesByRegion[region].filter(
+        (tz) =>
+          tz.label.toLowerCase().includes(q) ||
+          tz.value.toLowerCase().includes(q) ||
+          tz.offset.toLowerCase().includes(q)
       );
-      
       if (regionTimezones.length > 0) {
         filtered[region] = regionTimezones;
       }
     });
-    
-    this.filteredTimezonesByRegion = filtered;
+    this.flatFilteredTimezones = this.flattenRegions(filtered);
   }
 
-  /**
-   * Select a timezone
-   */
-  selectTimezone(timezone: TimezoneOption) {
-    this.selectedTimezone = timezone.value;
-    // Auto-save when selected (like country selector)
-    this.save();
-  }
-
-  /**
-   * Save and close
-   */
-  save() {
-    this.modalController.dismiss({
-      timezone: this.selectedTimezone
-    });
-  }
-
-  /**
-   * Cancel and close
-   */
-  cancel() {
-    this.modalController.dismiss();
-  }
-
-  /**
-   * Check if timezone is selected
-   */
-  isSelected(timezone: TimezoneOption): boolean {
-    return this.selectedTimezone === timezone.value;
-  }
-
-  /**
-   * Get filtered region keys (only regions with timezones after filtering)
-   */
-  getFilteredRegionKeys(): string[] {
-    return Object.keys(this.filteredTimezonesByRegion);
-  }
-
-  /**
-   * Get all filtered timezones as a flat list (for simple list display)
-   */
-  getAllFilteredTimezones(): TimezoneOption[] {
+  private flattenRegions(regions: Record<string, TimezoneOption[]>): TimezoneOption[] {
     const all: TimezoneOption[] = [];
-    Object.values(this.filteredTimezonesByRegion).forEach(regionTimezones => {
+    Object.values(regions).forEach((regionTimezones) => {
       all.push(...regionTimezones);
     });
     return all;
   }
-}
 
+  private refreshCurrentTimezoneSummary(): void {
+    const id = this.pendingTimezone?.trim();
+    if (!id) {
+      this.currentTimezoneSummary = '';
+      return;
+    }
+    const flat = this.flattenRegions(this.timezonesByRegion);
+    const match = flat.find((t) => t.value === id);
+    if (match) {
+      this.currentTimezoneSummary = `${match.label} · ${match.offset}`;
+    } else {
+      this.currentTimezoneSummary = getTimezoneLabel(id);
+    }
+  }
+
+  private refreshModalI18n(): void {
+    this.modalHeading = this.translate.instant('PROFILE_SCREEN.TIMEZONE_MODAL_TITLE');
+    this.modalDescription = this.translate.instant('PROFILE_SCREEN.TIMEZONE_MODAL_DESC');
+    this.searchPlaceholderText = this.translate.instant('PROFILE_SCREEN.TIMEZONE_SEARCH_PLACEHOLDER');
+    this.noResultsLabel = this.translate.instant('ONBOARDING.COUNTRY_MODAL.NO_RESULTS');
+    this.changeButtonLabel = this.translate.instant('PROFILE_SCREEN.CHANGE');
+    this.updateModalCurrentTzLine();
+    this.cdr.markForCheck();
+  }
+
+  private updateModalCurrentTzLine(): void {
+    this.refreshCurrentTimezoneSummary();
+    this.modalCurrentTzLine = this.currentTimezoneSummary
+      ? this.translate.instant('PROFILE_SCREEN.TIMEZONE_MODAL_CURRENT', {
+          value: this.currentTimezoneSummary,
+        })
+      : '';
+  }
+
+  selectPendingTimezone(timezone: TimezoneOption): void {
+    this.pendingTimezone = timezone.value;
+    this.updateModalCurrentTzLine();
+    this.cdr.markForCheck();
+  }
+
+  confirmChange(): void {
+    if (this.pendingTimezone === this.savedTimezone) {
+      void this.modalController.dismiss();
+      return;
+    }
+    void this.modalController.dismiss({ timezone: this.pendingTimezone });
+  }
+
+  cancel(): void {
+    void this.modalController.dismiss();
+  }
+
+  isSelected(timezone: TimezoneOption): boolean {
+    return this.pendingTimezone === timezone.value;
+  }
+
+  trackByTimezone(_index: number, timezone: TimezoneOption): string {
+    return timezone.value;
+  }
+}

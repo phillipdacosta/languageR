@@ -41,7 +41,17 @@ const memberSchema = new mongoose.Schema({
   // backward compat with the current badge logic, but having a timestamp
   // here lets the conversations-list query compute unread counts without
   // scanning every historical message.
-  lastReadAt: { type: Date, default: null }
+  lastReadAt: { type: Date, default: null },
+  // Per-user inbox state, independent of roster (`leftAt`):
+  //   • `archivedAt` — user moved the thread to their Archived folder. Hidden
+  //     from the default inbox, visible under the Archived filter, still
+  //     receives new messages. Reversible via unarchive.
+  //   • `hiddenAt` — user permanently removed the thread from their UI.
+  //     Combined with `leftAt = now` for groups, this also takes them off
+  //     the active roster so no future messages are delivered. For class
+  //     tutors we set only `hiddenAt` (never `leftAt`) — see route docs.
+  archivedAt: { type: Date, default: null },
+  hiddenAt: { type: Date, default: null }
 }, { _id: false });
 
 const conversationSchema = new mongoose.Schema({

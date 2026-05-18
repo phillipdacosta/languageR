@@ -346,6 +346,22 @@ const userSchema = new mongoose.Schema({
     trim: true,
     comment: 'ISO 639-1 language code of student\'s native language for analysis feedback'
   },
+  // Additional languages the tutor speaks, each with a CEFR proficiency level
+  spokenLanguages: {
+    type: [
+      {
+        code: { type: String, required: true, trim: true },
+        level: {
+          type: String,
+          enum: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'],
+          required: true
+        },
+        _id: false
+      }
+    ],
+    default: [],
+    comment: 'Additional languages the tutor can speak with CEFR proficiency levels'
+  },
   // Interface language preference for the app UI
   interfaceLanguage: {
     type: String,
@@ -381,6 +397,16 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
     comment: 'Whether tutors Connect account has payouts enabled'
+  },
+  stripeIdentityVerified: {
+    type: Boolean,
+    default: false,
+    comment: 'Whether Stripe has fully verified the tutor identity (charges_enabled + payouts_enabled + no outstanding requirements). When true, we skip Barnabi manual government-ID review.'
+  },
+  stripeAccountDisabled: {
+    type: Boolean,
+    default: false,
+    comment: 'True when Stripe has flagged the Connect account as disabled / blocked (requirements.disabled_reason set, or past-due requirements present). Used to re-show the manual government-ID step as a fallback.'
   },
   // Tax classification for payout routing
   isUSPersonForTax: {
@@ -624,7 +650,57 @@ const userSchema = new mongoose.Schema({
 
   // Branding & referral tracking
   materialReferralViews: { type: Number, default: 0 },
-  isAmbassador: { type: Boolean, default: false }
+  isAmbassador: { type: Boolean, default: false },
+
+  // Premium subscription (students). Tutors keep their own monetization (earnings).
+  // Reads should always go through services/entitlementsService.js, never direct.
+  subscription: {
+    tier: {
+      type: String,
+      enum: ['free', 'premium'],
+      default: 'free',
+      index: true
+    },
+    status: {
+      type: String,
+      enum: ['active', 'past_due', 'canceled', 'trialing'],
+      default: 'active'
+    },
+    source: {
+      type: String,
+      enum: ['stripe', 'apple_iap', 'google_iap', 'comp', null],
+      default: null
+    },
+    externalId: { type: String, default: null },
+    startedAt: { type: Date, default: null },
+    renewsAt: { type: Date, default: null },
+    canceledAt: { type: Date, default: null },
+    trialEndsAt: { type: Date, default: null }
+  },
+
+  // Last "your teaching is sticking" notification timestamp per (other) student.
+  // Keyed by studentId string; used to enforce 1 notification per tutor/student/week
+  // (G22). See backend/services/tutorBriefingService.js.
+  teachingStickingLastNotifiedAt: {
+    type: Map,
+    of: Date,
+    default: () => new Map()
+  },
+
+  // Per-tutor CEFR bias calibration (Batch 12 follow-up). Set only on tutor
+  // accounts. When a tutor has accumulated enough comparable data (their
+  // CEFR estimates side-by-side with AI assessments on the same students),
+  // we replace the global TUTOR_BIAS_OFFSET with their empirical mean delta.
+  // Refreshed lazily via cefrEstimatorService.getTutorBiasOffset (cached
+  // for TUTOR_BIAS_CACHE_TTL_MS) and persisted here so concurrent reads
+  // hit the cache. See docs/learning-journey/cefr-estimation.md.
+  tutorBias: {
+    offset: { type: Number, default: null },     // CEFR levels (e.g. 0.7 means tutor grades 0.7 levels higher than AI)
+    sampleSize: { type: Number, default: 0 },    // # of comparable AI/tutor pairs used to compute it
+    computedAt: { type: Date, default: null },
+    // Track confidence so the aggregator can fall back to global if low.
+    confidence: { type: String, enum: ['low', 'medium', 'high', null], default: null }
+  }
 });
 
 // Update the updatedAt field before saving

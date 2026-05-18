@@ -17,6 +17,75 @@
       <p class="celebrate-subtitle" *ngIf="isTrialLesson">See {{ tutorFirstName }}'s schedule below to book more lessons.</p>
     </div>
 
+    <!-- Plan-update card (Phase 3 of the better-than-toast UX). Surfaces
+         freshly-fired learning-plan transition flags right after the lesson
+         with intent-aligned CTAs. Acknowledged on display so the journey
+         page toast doesn't replay later. -->
+    <div
+      *ngIf="planUpdate"
+      class="plan-update-card"
+      [class.plan-update-card--high]="planUpdate.kind === 'human_intervention'"
+      [class.plan-update-card--medium]="planUpdate.kind === 'decay_warning'"
+      [class.plan-update-card--info]="planUpdate.kind === 'phase_split'">
+      <div class="plan-update-icon" aria-hidden="true">
+        <ion-icon *ngIf="planUpdate.kind === 'human_intervention'" name="chatbubbles-outline"></ion-icon>
+        <ion-icon *ngIf="planUpdate.kind === 'decay_warning'" name="information-circle-outline"></ion-icon>
+        <ion-icon *ngIf="planUpdate.kind === 'phase_split'" name="cut-outline"></ion-icon>
+      </div>
+      <div class="plan-update-body">
+        <h3 class="plan-update-title">{{ planUpdate.title }}</h3>
+        <p class="plan-update-text">{{ planUpdate.body }}</p>
+        <div class="plan-update-actions">
+          <button
+            type="button"
+            class="plan-update-cta"
+            (click)="onPlanUpdateCta()">
+            {{ planUpdate.ctaLabel }}
+          </button>
+          <button
+            *ngIf="planUpdate.ctaAction !== 'dismiss'"
+            type="button"
+            class="plan-update-close"
+            (click)="dismissPlanUpdate()"
+            aria-label="Dismiss">
+            <ion-icon name="close-outline"></ion-icon>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- "Want a plan?" soft prompt — surfaces only for unframed / paused
+         students after enough lessons (3+) and a 30-day dismissal window
+         has passed. Never shown alongside a higher-priority plan-update card.
+         Copy is precomputed on softPlanPrompt to keep the template free of
+         pipe / function calls. -->
+    <div
+      *ngIf="softPlanPrompt && !planUpdate"
+      class="plan-update-card plan-update-card--info">
+      <div class="plan-update-icon" aria-hidden="true">
+        <ion-icon name="map-outline"></ion-icon>
+      </div>
+      <div class="plan-update-body">
+        <h3 class="plan-update-title">{{ softPlanPrompt.title }}</h3>
+        <p class="plan-update-text">{{ softPlanPrompt.body }}</p>
+        <div class="plan-update-actions">
+          <button
+            type="button"
+            class="plan-update-cta"
+            (click)="onSoftPlanPromptAccept()">
+            {{ softPlanPrompt.ctaLabel }}
+          </button>
+          <button
+            type="button"
+            class="plan-update-close"
+            (click)="onSoftPlanPromptDismiss()"
+            aria-label="Dismiss">
+            <ion-icon name="close-outline"></ion-icon>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div class="main-card" [class.single-column]="!aiAnalysisEnabled && !isTrialLesson" [class.tip-active]="showTipSection && !tipSubmitted">
       <!-- LEFT PANEL: Tutor Info & Actions -->
       <div class="left-panel">
@@ -140,22 +209,37 @@
               <h2>Your analysis is ready</h2>
             </div>
             
-            <!-- Quick Summary -->
+            <!-- Quick Summary — qualitative-first by default. Raw scores are
+                 available on tap so the recap doesn't read like a graded test.
+                 Chips are pre-built in TS (no template function calls — see
+                 AGENTS.md). -->
             <div class="quick-summary">
-              <div class="summary-card">
-                <span class="summary-label">Level</span>
-                <span class="summary-value">{{ analysis.overallAssessment?.proficiencyLevel || 'N/A' }}</span>
-              </div>
-              <div class="summary-card">
-                <span class="summary-label">Vocabulary</span>
-                <span class="summary-value">{{ analysis.vocabularyAnalysis?.uniqueWordCount || 0 }}</span>
-              </div>
-              <div class="summary-card">
-                <span class="summary-label">Grammar</span>
-                <span class="summary-value">{{ analysis.grammarAnalysis?.accuracyScore || 0 }}%</span>
+              <div
+                class="summary-card"
+                *ngFor="let chip of quickSummaryChips"
+                [class.summary-card--strong]="chip.tone === 'strong'"
+                [class.summary-card--solid]="chip.tone === 'solid'"
+                [class.summary-card--building]="chip.tone === 'building'"
+                [class.summary-card--needs-work]="chip.tone === 'needs_work'">
+                <span class="summary-label">{{ chip.label }}</span>
+                <span class="summary-value">
+                  {{ showAnalysisDetails ? chip.detail : chip.qualitative }}
+                </span>
               </div>
             </div>
-            
+
+            <!-- Quiet "Show details / Hide details" toggle. Lets the
+                 number-curious see the underlying signals without putting
+                 a percentage in front of every student. -->
+            <button
+              type="button"
+              class="summary-detail-toggle"
+              (click)="toggleAnalysisDetails()"
+              [attr.aria-pressed]="showAnalysisDetails">
+              <ion-icon [name]="showAnalysisDetails ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
+              <span>{{ showAnalysisDetails ? 'Hide scores' : 'Show scores' }}</span>
+            </button>
+
             <!-- View Full Analysis Button -->
             <button class="action-btn primary full-width" (click)="viewFullAnalysis()">
               <ion-icon name="analytics-outline"></ion-icon>

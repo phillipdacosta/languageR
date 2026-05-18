@@ -59,6 +59,46 @@
         rows="3">
       </ion-textarea>
     </div>
+
+    <!-- Captured corrections (optional) — pushed into student's review deck -->
+    <div class="corrections-field">
+      <div class="corrections-header">
+        <div class="corrections-header-text">
+          <h3>Capture corrections</h3>
+          <p class="corrections-sub">Each correction becomes a flashcard in the student's daily review.</p>
+        </div>
+      </div>
+
+      <div class="corrections-list" *ngIf="corrections.length">
+        <div class="correction-row" *ngFor="let c of corrections; let i = index; trackBy: trackByIndex">
+          <div class="correction-row-fields">
+            <ion-input
+              [(ngModel)]="c.original"
+              placeholder="Student said…"
+              fill="outline"
+              class="correction-input correction-input--original"></ion-input>
+            <ion-input
+              [(ngModel)]="c.corrected"
+              placeholder="Should be…"
+              fill="outline"
+              class="correction-input correction-input--corrected"></ion-input>
+            <ion-input
+              [(ngModel)]="c.explanation"
+              placeholder="Why (optional)"
+              fill="outline"
+              class="correction-input correction-input--why"></ion-input>
+          </div>
+          <button type="button" class="correction-remove" (click)="removeCorrectionRow(i)" aria-label="Remove correction">
+            <ion-icon name="close-outline"></ion-icon>
+          </button>
+        </div>
+      </div>
+
+      <button type="button" class="correction-add" (click)="addCorrectionRow()">
+        <ion-icon name="add-outline"></ion-icon>
+        <span>Add a correction</span>
+      </button>
+    </div>
   </div>
 </ion-content>
 

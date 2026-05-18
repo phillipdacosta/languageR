@@ -22,11 +22,13 @@ import { getRootNavigation } from '../utils/navigationRoot';
 import { LessonDateHeaderCenter, formatDateBadgeParts } from '../components/LessonDateHeaderCenter';
 import { SolidToolbarWithBlur } from '../components/SolidToolbarWithBlur';
 import type { Lesson } from '../services/lessons';
+import { isGroupClassLesson } from '../utils/lessonCardModel';
 import {
   getJoinGateState,
   formatTimeUntilLessonStart,
   isLessonInProgressSlot,
 } from '../services/lessons';
+import { getLessonPrep, type LessonPrep } from '../services/learningPlan';
 
 function formatDisplayName(person: any): string {
   if (!person) return '';
@@ -60,7 +62,7 @@ export default function EventDetailScreen() {
   const lesson: CalendarLesson | undefined = route.params?.lesson;
   const calendarClass: CalendarClass | undefined = route.params?.calendarClass;
   const fromLessons = !!route.params?.fromLessons;
-  const isClass = !!calendarClass;
+  const isClass = !!calendarClass || isGroupClassLesson(lesson as Lesson | undefined);
   const item = lesson || calendarClass;
 
   const [joinUiTick, setJoinUiTick] = useState(0);
@@ -69,6 +71,75 @@ export default function EventDetailScreen() {
     const tid = setInterval(() => setJoinUiTick(n => n + 1), 10000);
     return () => clearInterval(tid);
   }, [(item as any)?._id]);
+
+  // ── Pre-lesson briefing (tutor only) ──────────────────────
+  // Fetches mastery + recent errors + corrected excerpts for the
+  // student so the tutor walks into the lesson prepared.
+  const [prep, setPrep] = useState<LessonPrep | null>(null);
+  const isTutorViewer = user?.userType === 'tutor';
+  const briefingStudentId = lesson
+    ? (typeof lesson.studentId === 'string'
+        ? lesson.studentId
+        : (lesson.studentId as any)?._id)
+    : null;
+  const briefingLanguage = lesson?.language || lesson?.subject || null;
+  useEffect(() => {
+    let cancelled = false;
+    if (!isTutorViewer || !briefingStudentId || !briefingLanguage) {
+      setPrep(null);
+      return;
+    }
+    (async () => {
+      try {
+        const res = await getLessonPrep(briefingStudentId, briefingLanguage);
+        if (!cancelled && res.success && res.prep) {
+          setPrep(res.prep);
+        }
+      } catch (err) {
+        console.warn('[EventDetail] lesson-prep fetch failed:', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isTutorViewer, briefingStudentId, briefingLanguage]);
+
+  const briefingHasContent = useMemo(() => {
+    if (!prep) return false;
+    return !!(
+      prep.agenda?.length ||
+      prep.latestAnalysis?.topErrors?.length ||
+      prep.latestAnalysis?.persistentChallenges?.length ||
+      prep.latestAnalysis?.correctedExcerpts?.length ||
+      (prep.plan?.currentPhase?.masteryAverage !== null &&
+        prep.plan?.currentPhase?.masteryAverage !== undefined)
+    );
+  }, [prep]);
+
+  const masteryAvg = prep?.plan?.currentPhase?.masteryAverage ?? null;
+  const masteryLabel = masteryAvg !== null ? `Mastery ${masteryAvg}/100` : '';
+  const masteryPercent = masteryAvg !== null ? Math.max(0, Math.min(100, masteryAvg)) : 0;
+
+  // Compact phase pill + first-pairing badge for the briefing header.
+  // Mirrors the web tutor briefing so tutors get the same at-a-glance
+  // context regardless of platform.
+  const phasePillTitle = prep?.plan?.currentPhase?.title || '';
+  const phasePillIndex =
+    prep?.plan && prep.plan.totalPhases
+      ? `${(prep.plan.currentPhaseIndex ?? 0) + 1}/${prep.plan.totalPhases}`
+      : '';
+  const isFirstPairing = !!prep?.firstTimePairing;
+  const isStudentEdited = !!prep?.plan?.currentPhase?.studentEditedAt;
+
+  const proficiencyChange = prep?.latestAnalysis?.proficiencyChange ?? null;
+  const trendIcon: 'arrow-up' | 'remove' | 'arrow-down' | null =
+    proficiencyChange === 'improved' ? 'arrow-up'
+    : proficiencyChange === 'declined' ? 'arrow-down'
+    : proficiencyChange === 'maintained' ? 'remove'
+    : null;
+  const trendLabel =
+    proficiencyChange === 'improved' ? t('EVENT_DETAILS.BRIEFING.TREND_UP')
+    : proficiencyChange === 'declined' ? t('EVENT_DETAILS.BRIEFING.TREND_DOWN')
+    : proficiencyChange === 'maintained' ? t('EVENT_DETAILS.BRIEFING.TREND_FLAT')
+    : '';
 
   const lessonForJoinGate = useMemo((): Lesson | null => {
     if (!item) return null;
@@ -188,9 +259,13 @@ export default function EventDetailScreen() {
 
   const { month: headerMonth, day: headerDay } = formatDateBadgeParts(details.start);
   const headerTimeRange = `${formatTime(details.start)} – ${formatTime(details.end)}`;
-  const headerTimeLine = isClass
-    ? `${t('LESSONS_PAGE.CLASS')} · ${headerTimeRange}`
-    : headerTimeRange;
+  const headerWeekday = details.start
+    .toLocaleDateString(undefined, { weekday: 'short' })
+    .replace(/\./g, '')
+    .toUpperCase();
+  const headerDurationLine = '';
+  const headerIsToday = details.start.toDateString() === new Date().toDateString();
+  const headerTimeLine = headerTimeRange;
 
   const classCoverMode =
     isClass && !!details.avatar && typeof details.avatar === 'string';
@@ -326,6 +401,10 @@ export default function EventDetailScreen() {
               <LessonDateHeaderCenter
                 dateBadgeMonth={headerMonth}
                 dateBadgeDay={headerDay}
+                weekdayShort={headerWeekday}
+                timeRange={headerTimeRange}
+                durationLine={headerDurationLine}
+                isToday={headerIsToday}
                 timeLine={headerTimeLine}
                 isDark={isDark}
                 textPrimary={C.text}
@@ -356,6 +435,10 @@ export default function EventDetailScreen() {
               <LessonDateHeaderCenter
                 dateBadgeMonth={headerMonth}
                 dateBadgeDay={headerDay}
+                weekdayShort={headerWeekday}
+                timeRange={headerTimeRange}
+                durationLine={headerDurationLine}
+                isToday={headerIsToday}
                 timeLine={headerTimeLine}
                 isDark={isDark}
                 textPrimary={C.text}
@@ -370,6 +453,207 @@ export default function EventDetailScreen() {
         )}
 
         <View style={classCoverMode ? { paddingHorizontal: 16 } : undefined}>
+        {/* Pre-lesson briefing — tutor-only, hidden when no useful data */}
+        {isTutorViewer && briefingHasContent && prep && (
+          <View style={[st.section, { backgroundColor: C.card, borderColor: C.border }]}>
+            <Text style={[st.briefingEyebrow, { color: C.textSecondary }]}>
+              {t('EVENT_DETAILS.BRIEFING.EYEBROW')}
+            </Text>
+            <Text style={[st.sectionTitle, { color: C.text, marginTop: 2 }]}>
+              {t('EVENT_DETAILS.BRIEFING.TITLE')}
+            </Text>
+
+            {/* Phase pill + first-pairing badge + student-edited cue */}
+            {(phasePillTitle || isFirstPairing || isStudentEdited) ? (
+              <View style={st.briefingPillRow}>
+                {!!phasePillTitle && (
+                  <View style={[st.phasePill, { backgroundColor: C.surface, borderColor: C.border }]}>
+                    <Ionicons name="map-outline" size={12} color={C.text} />
+                    {!!phasePillIndex && (
+                      <Text style={[st.phasePillIndex, { color: C.textSecondary }]}>
+                        {phasePillIndex}
+                      </Text>
+                    )}
+                    <Text
+                      style={[st.phasePillLabel, { color: C.text }]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {phasePillTitle}
+                    </Text>
+                  </View>
+                )}
+                {isFirstPairing && (
+                  <View style={[st.firstPairingPill, { backgroundColor: C.text }]}>
+                    <Ionicons name="sparkles-outline" size={12} color={C.card} />
+                    <Text style={[st.firstPairingPillText, { color: C.card }]}>
+                      {t('EVENT_DETAILS.BRIEFING.FIRST_PAIRING')}
+                    </Text>
+                  </View>
+                )}
+                {isStudentEdited && (
+                  <View style={[st.studentEditedPill, { borderColor: C.textSecondary, backgroundColor: C.card }]}>
+                    <Ionicons name="create-outline" size={12} color={C.text} />
+                    <Text style={[st.studentEditedPillText, { color: C.text }]}>
+                      {t('EVENT_DETAILS.BRIEFING.STUDENT_EDITED')}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            ) : null}
+
+            {/* Mastery + trend chip row */}
+            {(masteryLabel || trendLabel) ? (
+              <View style={st.briefingStatRow}>
+                {!!masteryLabel && (
+                  <View style={st.briefingStat}>
+                    <Text style={[st.briefingStatLabel, { color: C.text }]}>{masteryLabel}</Text>
+                    <View style={[st.briefingBar, { backgroundColor: C.borderLight }]}>
+                      <View
+                        style={[
+                          st.briefingBarFill,
+                          { width: `${masteryPercent}%`, backgroundColor: C.text },
+                        ]}
+                      />
+                    </View>
+                  </View>
+                )}
+                {!!trendLabel && (
+                  <View style={[st.briefingTrend, { backgroundColor: C.surface }]}>
+                    {trendIcon && (
+                      <Ionicons
+                        name={`${trendIcon}-outline` as any}
+                        size={14}
+                        color={C.textSecondary}
+                      />
+                    )}
+                    <Text style={[st.briefingTrendText, { color: C.textSecondary }]}>
+                      {trendLabel}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            ) : null}
+
+            {/* Suggested mini-agenda */}
+            {prep.agenda?.length ? (
+              <View style={{ marginTop: 16 }}>
+                <Text style={[st.briefingBlockTitle, { color: C.textSecondary }]}>
+                  {t('EVENT_DETAILS.BRIEFING.AGENDA_TITLE')}
+                </Text>
+                {prep.agenda.map((item, idx) => (
+                  <View key={`agenda-${idx}`} style={st.briefingBullet}>
+                    <View style={[st.briefingBulletDot, { backgroundColor: C.text }]} />
+                    <Text style={[st.briefingBulletText, { color: C.text }]}>{item}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
+            {/* Top errors */}
+            {prep.latestAnalysis?.topErrors?.length ? (
+              <View style={{ marginTop: 16 }}>
+                <Text style={[st.briefingBlockTitle, { color: C.textSecondary }]}>
+                  {t('EVENT_DETAILS.BRIEFING.TOP_ERRORS_TITLE')}
+                </Text>
+                {prep.latestAnalysis.topErrors.map((err, idx) => (
+                  <View key={`err-${idx}`} style={st.briefingBullet}>
+                    <Text style={[st.briefingBulletNum, { color: C.text }]}>{idx + 1}.</Text>
+                    <Text style={[st.briefingBulletText, { color: C.text }]}>
+                      <Text style={{ fontWeight: '700' }}>{err.issue}</Text>
+                      {err.impact ? (
+                        <Text style={{ color: C.textSecondary }}>{`  ·  ${err.impact} impact`}</Text>
+                      ) : null}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
+            {/* Persistent challenges */}
+            {prep.latestAnalysis?.persistentChallenges?.length ? (
+              <View style={{ marginTop: 16 }}>
+                <Text style={[st.briefingBlockTitle, { color: C.textSecondary }]}>
+                  {t('EVENT_DETAILS.BRIEFING.PERSISTENT_TITLE')}
+                </Text>
+                <View style={st.briefingTagRow}>
+                  {prep.latestAnalysis.persistentChallenges.map((c, idx) => (
+                    <View
+                      key={`pc-${idx}`}
+                      style={[st.briefingTag, { backgroundColor: C.surface }]}
+                    >
+                      <Text style={[st.briefingTagText, { color: C.textSecondary }]}>
+                        {c}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            ) : null}
+
+            {/* Recent corrected excerpts */}
+            {prep.latestAnalysis?.correctedExcerpts?.length ? (
+              <View style={{ marginTop: 16 }}>
+                <Text style={[st.briefingBlockTitle, { color: C.textSecondary }]}>
+                  {t('EVENT_DETAILS.BRIEFING.EXCERPTS_TITLE')}
+                </Text>
+                {prep.latestAnalysis.correctedExcerpts.map((ex, idx) => (
+                  <View
+                    key={`ex-${idx}`}
+                    style={[
+                      st.briefingExcerpt,
+                      { backgroundColor: C.surface, borderColor: C.border },
+                    ]}
+                  >
+                    <View style={st.briefingExcerptLine}>
+                      <Text style={[st.briefingExcerptTag, { color: C.textTertiary }]}>
+                        {t('EVENT_DETAILS.BRIEFING.SAID')}
+                      </Text>
+                      <Text
+                        style={[
+                          st.briefingExcerptOriginal,
+                          { color: C.textSecondary },
+                        ]}
+                      >
+                        {ex.original}
+                      </Text>
+                    </View>
+                    <View style={st.briefingExcerptLine}>
+                      <Text style={[st.briefingExcerptTag, { color: C.textTertiary }]}>
+                        {t('EVENT_DETAILS.BRIEFING.SHOULD_BE')}
+                      </Text>
+                      <Text
+                        style={[st.briefingExcerptCorrected, { color: C.text }]}
+                      >
+                        {ex.corrected}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
+            {/* Other tutors' recent notes — anonymized first names */}
+            {prep.otherTutorNotes && prep.otherTutorNotes.length > 0 ? (
+              <View style={{ marginTop: 16 }}>
+                <Text style={[st.briefingBlockTitle, { color: C.textSecondary }]}>
+                  {t('EVENT_DETAILS.BRIEFING.OTHER_NOTES_TITLE')}
+                </Text>
+                {prep.otherTutorNotes.map((n, idx) => (
+                  <View key={`otn-${idx}`} style={st.briefingOtherNoteRow}>
+                    <Text style={[st.briefingOtherNoteAuthor, { color: C.text }]}>
+                      {n.tutorFirstName}:
+                    </Text>
+                    <Text style={[st.briefingOtherNoteText, { color: C.textSecondary }]}>
+                      {n.text}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </View>
+        )}
+
         {/* Schedule */}
         <View style={[st.section, { backgroundColor: C.card, borderColor: C.border }]}>
           <Text style={[st.sectionTitle, { color: C.text }]}>{t('TUTOR_CALENDAR.SCHEDULE')}</Text>
@@ -382,7 +666,7 @@ export default function EventDetailScreen() {
           <View style={st.infoRow}>
             <Ionicons name="time-outline" size={18} color={C.textSecondary} />
             <Text style={[st.infoText, { color: C.text }]}>
-              {formatTime(details.start)} – {formatTime(details.end)} ({details.duration} {t('HOME.MINS')})
+              {formatTime(details.start)} – {formatTime(details.end)}
             </Text>
           </View>
           {details.price !== undefined && details.price > 0 && (
@@ -565,4 +849,192 @@ const st = StyleSheet.create({
   actionBtnText: { fontSize: 16, fontWeight: '600' },
   actionBtnOutline: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 48, borderRadius: 12, borderWidth: 1.5 },
   actionBtnOutlineText: { fontSize: 15, fontWeight: '600' },
+
+  // Pre-lesson briefing (tutor-only)
+  briefingEyebrow: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  briefingPillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+  },
+  briefingOtherNoteRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 6,
+    alignItems: 'flex-start',
+  },
+  briefingOtherNoteAuthor: {
+    fontSize: 13,
+    fontWeight: '700',
+    flexShrink: 0,
+  },
+  briefingOtherNoteText: {
+    fontSize: 13,
+    lineHeight: 18,
+    flex: 1,
+  },
+  phasePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    maxWidth: 240,
+  },
+  phasePillIndex: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  phasePillLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    flexShrink: 1,
+  },
+  firstPairingPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  firstPairingPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  studentEditedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+  },
+  studentEditedPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  briefingStatRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flexWrap: 'wrap',
+    marginTop: 12,
+  },
+  briefingStat: {
+    flex: 1,
+    minWidth: 180,
+  },
+  briefingStatLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  briefingBar: {
+    height: 4,
+    borderRadius: 999,
+    overflow: 'hidden',
+    width: '100%',
+  },
+  briefingBarFill: {
+    height: 4,
+    borderRadius: 999,
+  },
+  briefingTrend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  briefingTrendText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  briefingBlockTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+  },
+  briefingBullet: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginBottom: 6,
+  },
+  briefingBulletDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    marginTop: 8,
+  },
+  briefingBulletNum: {
+    fontSize: 13,
+    fontWeight: '700',
+    minWidth: 18,
+  },
+  briefingBulletText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  briefingTagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  briefingTag: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  briefingTagText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  briefingExcerpt: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 10,
+    marginBottom: 8,
+  },
+  briefingExcerptLine: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginBottom: 4,
+  },
+  briefingExcerptTag: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    width: 56,
+    marginTop: 2,
+  },
+  briefingExcerptOriginal: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    textDecorationLine: 'line-through',
+  },
+  briefingExcerptCorrected: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '600',
+  },
 });

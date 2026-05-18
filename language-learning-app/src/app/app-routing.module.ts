@@ -2,6 +2,7 @@ import { NgModule } from '@angular/core';
 import { NoPreloading, RouterModule, Routes } from '@angular/router';
 import { AuthGuard } from './guards/auth.guard';
 import { OnboardingGuard } from './guards/onboarding.guard';
+import { SignupLanguageGuard } from './signup-language/signup-language.guard';
 
 const routes: Routes = [
   {
@@ -27,11 +28,21 @@ const routes: Routes = [
     path: 'callback',
     loadChildren: () => import('./callback/callback.module').then(m => m.CallbackPageModule)
   },
-          {
-            path: 'onboarding',
-            loadChildren: () => import('./onboarding/onboarding.module').then(m => m.OnboardingPageModule),
-            canActivate: [AuthGuard]
-          },
+  {
+    path: 'signup-language',
+    loadChildren: () => import('./signup-language/signup-language.module').then(m => m.SignupLanguagePageModule),
+    canActivate: [AuthGuard, SignupLanguageGuard]
+  },
+  {
+    path: 'role-select',
+    loadChildren: () => import('./role-select/role-select.module').then(m => m.RoleSelectPageModule),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'onboarding',
+    loadChildren: () => import('./onboarding/onboarding.module').then(m => m.OnboardingPageModule),
+    canActivate: [AuthGuard]
+  },
           {
             path: 'tutor-onboarding',
             loadChildren: () => import('./tutor-onboarding/tutor-onboarding.module').then(m => m.TutorOnboardingPageModule),
@@ -134,6 +145,18 @@ const routes: Routes = [
     path: 'availability-setup',
     loadComponent: () => import('./pages/availability-setup/availability-setup.page').then( m => m.AvailabilitySetupPage),
     canActivate: [AuthGuard]
+  },
+  {
+    path: 'terms',
+    loadComponent: () =>
+      import('./legal/public-legal/public-legal.page').then((m) => m.PublicLegalPage),
+    data: { legalDoc: 'terms' },
+  },
+  {
+    path: 'privacy',
+    loadComponent: () =>
+      import('./legal/public-legal/public-legal.page').then((m) => m.PublicLegalPage),
+    data: { legalDoc: 'privacy' },
   },
   {
     path: 'terms-privacy',

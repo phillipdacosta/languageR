@@ -10,6 +10,8 @@ import PreCallScreen from '../screens/PreCallScreen';
 import VideoCallScreen from '../screens/VideoCallScreen';
 import PostLessonStudentScreen from '../screens/PostLessonStudentScreen';
 import PostLessonTutorScreen from '../screens/PostLessonTutorScreen';
+import PracticeScreen from '../screens/PracticeScreen';
+import UpgradeScreen from '../screens/UpgradeScreen';
 import TabNavigator from './TabNavigator';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import type { RootStackParamList } from './types';
@@ -82,6 +84,24 @@ export default function RootNavigator() {
             name="PostLessonTutor"
             component={PostLessonTutorScreen}
             options={{ headerShown: false, animation: 'slide_from_right' }}
+          />
+          <Stack.Screen
+            name="Practice"
+            component={PracticeScreen}
+            options={{
+              headerShown: false,
+              animation: 'slide_from_right',
+              gestureEnabled: true,
+            }}
+          />
+          <Stack.Screen
+            name="Upgrade"
+            component={UpgradeScreen}
+            options={{
+              headerShown: false,
+              animation: 'slide_from_bottom',
+              gestureEnabled: true,
+            }}
           />
         </Stack.Group>
       )}

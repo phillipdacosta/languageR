@@ -82,6 +82,11 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
   customStrength: string = '';
   customAreaToImprove: string = '';
 
+  // Optional structured corrections — go straight onto the student's
+  // spaced-repetition deck server-side. Lazily expanded.
+  showCorrections = false;
+  capturedCorrections: Array<{ original: string; corrected: string; explanation?: string }> = [];
+
   // Learning Plan overrides
   showPlanOverride = false;
   planOverrideAction: string = '';
@@ -285,6 +290,28 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
     this.quickImpression = value;
   }
 
+  addCorrectionRow() {
+    if (!this.showCorrections) this.showCorrections = true;
+    this.capturedCorrections.push({ original: '', corrected: '', explanation: '' });
+  }
+
+  removeCorrectionRow(index: number) {
+    this.capturedCorrections.splice(index, 1);
+    if (this.capturedCorrections.length === 0) this.showCorrections = false;
+  }
+
+  trackByIndex(i: number) { return i; }
+
+  private validCorrections() {
+    return this.capturedCorrections
+      .map(c => ({
+        original: (c.original || '').trim(),
+        corrected: (c.corrected || '').trim(),
+        explanation: (c.explanation || '').trim()
+      }))
+      .filter(c => c.original.length >= 2 && c.corrected.length >= 2 && c.original.toLowerCase() !== c.corrected.toLowerCase());
+  }
+
   toggleErrorArea(area: string) {
     const idx = this.selectedErrorAreas.indexOf(area);
     if (idx >= 0) {
@@ -358,7 +385,12 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
         quickImpression: this.quickImpression,
         homework: this.homework
       };
-      
+
+      const validCorrections = this.validCorrections();
+      if (validCorrections.length > 0) {
+        payload.capturedCorrections = validCorrections;
+      }
+
       if (!this.studentAiEnabled) {
         payload.cefrLevel = this.cefrLevel;
         payload.grammarRating = this.grammarRating;

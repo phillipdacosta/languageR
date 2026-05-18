@@ -16,6 +16,7 @@ const { formatNameWithInitial } = require('../utils/nameFormatter');
 const { triggerManualRelease } = require('../jobs/releaseEarnings'); // Added manual trigger
 const autoReleaseClassPayments = require('../jobs/autoReleaseClassPayments'); // Manual finalize classes
 const { initializeGCS } = require('../config/gcs');
+const { applyApprovalIfReady } = require('../utils/tutorApproval');
 
 // Admin middleware - check if user is admin
 async function requireAdmin(req, res, next) {
@@ -273,23 +274,11 @@ router.post('/approve-video/:userId', verifyToken, requireAdmin, async (req, res
       tutor.tutorOnboarding.videoApproved = true;
       tutor.tutorOnboarding.videoApprovedAt = new Date();
 
-      // Check if all onboarding steps are complete (including credentials)
-      const photoComplete = !!tutor.picture;
-      const videoApproved = true; // We just approved it
-      const hasStripe = tutor.stripeConnectOnboarded === true;
-      const hasPayPal = tutor.payoutProvider === 'paypal' && !!tutor.payoutDetails?.paypalEmail;
-      const hasManual = tutor.payoutProvider === 'manual';
-      const payoutComplete = hasStripe || hasPayPal || hasManual;
-      const credentialsApproved = checkAllCredentialsApproved(tutor);
-
-      if (photoComplete && videoApproved && payoutComplete && credentialsApproved) {
-        tutor.tutorApproved = true;
-        tutor.tutorOnboarding.completedAt = new Date();
-        console.log(`🎉 Tutor ${tutor.email} is now FULLY APPROVED (video approved by admin)`);
-      } else {
-        console.log(`📋 Tutor ${tutor.email} video approved but not fully approved yet:`, {
-          photoComplete, videoApproved, payoutComplete, credentialsApproved
-        });
+      // Promote to fully-approved only when every gate passes (photo,
+      // video-approved, payout, identity, qualifications, TOS).
+      const snapshot = applyApprovalIfReady(tutor);
+      if (!snapshot.isFullyApproved) {
+        console.log(`📋 Tutor ${tutor.email} video approved but not fully approved yet:`, snapshot);
       }
 
     await tutor.save();
@@ -459,18 +448,7 @@ router.post('/approve-tutor/:userId', verifyToken, requireAdmin, async (req, res
     tutor.tutorOnboarding.rejectionReason = null;
     tutor.tutorOnboarding.videoApprovedAt = new Date();
 
-    // Check if fully approved (including credentials)
-    const photoComplete = !!tutor.picture;
-    const hasStripe = tutor.stripeConnectOnboarded === true;
-    const hasPayPal = tutor.payoutProvider === 'paypal' && !!tutor.payoutDetails?.paypalEmail;
-    const hasManual = tutor.payoutProvider === 'manual';
-    const payoutComplete = hasStripe || hasPayPal || hasManual;
-    const credentialsApproved = checkAllCredentialsApproved(tutor);
-
-    if (photoComplete && payoutComplete && credentialsApproved) {
-      tutor.tutorApproved = true;
-      tutor.tutorOnboarding.completedAt = new Date();
-    }
+    applyApprovalIfReady(tutor);
 
     await tutor.save();
 
@@ -1876,20 +1854,31 @@ router.post('/finalize-classes', verifyToken, requireAdmin, async (req, res) => 
 // ============================================================
 
 /**
- * Helper: Check if all required credentials are approved
+ * Helper: Check if all required credentials are approved.
+ *
+ * Identity:
+ *   - If Stripe Connect KYC'd the tutor (`stripeIdentityVerified`), we trust
+ *     Stripe and skip the manual government-ID check.
+ *   - Otherwise (PayPal/manual payout or Stripe still pending), the tutor must
+ *     have an admin-approved government-ID upload.
+ *
+ * Teaching qualifications:
+ *   - Always require at least one approved teaching certification.
+ *
+ * Additional documents are optional.
  */
 function checkAllCredentialsApproved(tutor) {
   const creds = tutor.tutorCredentials;
   if (!creds) return false;
-  
-  // Government ID must be approved
-  if (creds.governmentId?.status !== 'approved') return false;
-  
-  // At least one teaching certification must be approved
-  if (!creds.teachingCertifications?.length || 
+
+  const identitySatisfied =
+    tutor.stripeIdentityVerified === true ||
+    creds.governmentId?.status === 'approved';
+  if (!identitySatisfied) return false;
+
+  if (!creds.teachingCertifications?.length ||
       !creds.teachingCertifications.some(c => c.status === 'approved')) return false;
-  
-  // Additional documents are optional — no requirement
+
   return true;
 }
 
@@ -1964,23 +1953,8 @@ router.post('/review-credential/:userId', verifyToken, requireAdmin, async (req,
       credentialName = doc.label || doc.documentType || 'Document';
     }
 
-    // Check if ALL approval conditions are now met
-    const photoComplete = !!tutor.picture;
-    const videoApproved = tutor.tutorOnboarding?.videoApproved === true;
-    const hasStripe = tutor.stripeConnectOnboarded === true;
-    const hasPayPal = tutor.payoutProvider === 'paypal' && !!tutor.payoutDetails?.paypalEmail;
-    const hasManual = tutor.payoutProvider === 'manual';
-    const payoutComplete = hasStripe || hasPayPal || hasManual;
-    const credentialsApproved = checkAllCredentialsApproved(tutor);
-
-    const wasApproved = tutor.tutorApproved;
-
-    if (photoComplete && videoApproved && payoutComplete && credentialsApproved) {
-      tutor.tutorApproved = true;
-      if (!tutor.tutorOnboarding) tutor.tutorOnboarding = {};
-      tutor.tutorOnboarding.completedAt = new Date();
-      console.log(`🎉 Tutor ${tutor.email} is now FULLY APPROVED (all credentials + video + photo + payout approved)`);
-    }
+    const wasApproved = tutor.tutorApproved === true;
+    applyApprovalIfReady(tutor);
 
     await tutor.save();
 

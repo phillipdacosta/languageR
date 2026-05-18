@@ -1,3 +1,5 @@
+@import '../shared/styles/cm-details-wizard-shell.scss';
+
 // ── Top spacing (matches home .content-wrapper) ─────────
 :host {
   display: block;
@@ -3279,6 +3281,11 @@
   letter-spacing: 0.2px;
 }
 
+.cm-brand-name-logo {
+  height: 14px;
+  vertical-align: middle;
+}
+
 .cm-preview-video-wrap {
   position: relative;
   width: 100%;
@@ -3563,231 +3570,6 @@
 
   &.cm-actions--end {
     justify-content: flex-end;
-  }
-}
-
-.cm-btn-secondary {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 14px 24px;
-  background: #fff;
-  color: #222;
-  border: 1.5px solid #e0e0e0;
-  border-radius: 12px;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  &:hover {
-    border-color: #222;
-  }
-
-  ion-icon {
-    font-size: 18px;
-  }
-}
-
-// ── Desktop details sub-wizard (one field per step) ─────
-.cm-form--details-wizard {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-}
-
-.cm-details-wizard {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-}
-
-.cm-details-wizard-progress {
-  height: 3px;
-  background: #ebebeb;
-  border-radius: 2px;
-  margin-bottom: 20px;
-  overflow: hidden;
-}
-
-.cm-details-wizard-progress-fill {
-  height: 100%;
-  background: #1d1d1f;
-  border-radius: 2px;
-  transition: width 0.35s cubic-bezier(0.32, 0.72, 0, 1);
-}
-
-.cm-details-wizard-scroll {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-.cm-details-wizard-scroll-inner {
-  box-sizing: border-box;
-  min-height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 8px 0 16px;
-
-  // Desktop: anchor step copy under the progress bar; avoid vertically centered “floating” blocks
-  @media (min-width: 768px) {
-    justify-content: flex-start;
-    padding-top: 16px;
-    padding-bottom: 24px;
-  }
-}
-
-.cm-details-wizard-header {
-  text-align: center;
-  max-width: 520px;
-  margin-left: auto;
-  margin-right: auto;
-  margin-bottom: 28px;
-
-  @media (min-width: 768px) {
-    margin-bottom: 44px;
-  }
-
-  &.cm-details-wizard-header--tight {
-    margin-bottom: 12px;
-
-    @media (min-width: 768px) {
-      margin-bottom: 12px;
-    }
-  }
-
-  h1 {
-    font-size: 26px;
-    font-weight: 700;
-    letter-spacing: -0.4px;
-    color: #1d1d1f;
-    margin: 0 0 10px;
-    line-height: 1.25;
-  }
-
-  p {
-    margin: 0;
-    font-size: 16px;
-    line-height: 1.45;
-    color: #6e6e73;
-  }
-}
-
-.cm-details-wizard-panel {
-  max-width: 520px;
-  margin: 0 auto;
-  width: 100%;
-}
-
-.cm-details-wizard-field-row {
-  flex-direction: column;
-  gap: 20px;
-
-  @media (min-width: 600px) {
-    flex-direction: row;
-    align-items: flex-start;
-
-    .cm-field {
-      flex: 1;
-      min-width: 0;
-    }
-  }
-}
-
-.cm-details-wizard-footer {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 24px;
-  padding-top: 20px;
-  border-top: 1px solid #ebebeb;
-  flex-shrink: 0;
-}
-
-.cm-details-wizard-footer-start {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
-}
-
-.cm-details-wizard-footer-spacer {
-  flex: 1;
-  min-width: 0;
-}
-
-.cm-details-wizard-back {
-  flex-shrink: 0;
-}
-
-.cm-details-wizard-save {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  flex-shrink: 0;
-  padding: 12px 20px;
-  border-radius: 12px;
-  border: 1.5px solid #e0e0e0;
-  background: #fff;
-  font-size: 15px;
-  font-weight: 600;
-  color: #1d1d1f;
-  cursor: pointer;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
-  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
-
-  ion-spinner {
-    width: 16px;
-    height: 16px;
-    color: #1a8d3a;
-  }
-
-  &:hover:not(:disabled) {
-    background: #f0faf3;
-    border-color: #28a745;
-  }
-
-  &:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-  }
-}
-
-.cm-details-wizard-next {
-  flex-shrink: 0;
-}
-
-.cm-btn-primary {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 14px 28px;
-  background: #222;
-  color: #fff;
-  border: none;
-  border-radius: 12px;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  &:hover:not(:disabled) {
-    background: #000;
-  }
-
-  &:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-
-  ion-icon {
-    font-size: 18px;
   }
 }
 

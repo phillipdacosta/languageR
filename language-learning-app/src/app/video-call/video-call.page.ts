@@ -20,6 +20,8 @@ import { createFastboard, FastboardApp, mount } from '@netless/fastboard';
 import { VocabularyService, VocabEntry, GoalEntry } from '../services/vocabulary.service';
 import { environment } from '../../environments/environment';
 import { formatTimeInTz } from '../shared/timezone.utils';
+import { TranslateService } from '@ngx-translate/core';
+import { LanguageService } from '../services/language.service';
 
 @Component({
   selector: 'app-video-call',
@@ -94,46 +96,11 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   // Resources/Documents section in chat
   showResourcesSection = false;
   
-  // Options for notes form
-  impressionOptions = [
-    { value: 'excellent', label: '🌟 Excellent Progress!', color: 'success' },
-    { value: 'great', label: '✅ Great Job!', color: 'primary' },
-    { value: 'good', label: '👍 Good Effort', color: 'secondary' },
-    { value: 'needs-work', label: '💪 Needs More Practice', color: 'warning' }
-  ];
-  
-  strengthOptions = [
-    'Conversational fluency',
-    'Vocabulary usage',
-    'Grammar accuracy',
-    'Pronunciation',
-    'Listening comprehension',
-    'Confidence',
-    'Complex sentences',
-    'Natural expressions'
-  ];
-  
-  improvementOptions = [
-    'Grammar accuracy',
-    'Verb conjugation',
-    'Vocabulary range',
-    'Pronunciation',
-    'Fluency/speed',
-    'Listening skills',
-    'Sentence complexity',
-    'Idiomatic expressions'
-  ];
-  
-  errorAreaOptions = [
-    'Verb conjugation',
-    'Gender agreement',
-    'Prepositions',
-    'Tense usage',
-    'Vocabulary',
-    'Pronunciation',
-    'Sentence structure',
-    'Articles'
-  ];
+  // Options for notes form (labels filled from i18n in applyVideoCallI18n)
+  impressionOptions: Array<{ value: string; label: string; color: string }> = [];
+  strengthOptions: string[] = [];
+  improvementOptions: string[] = [];
+  errorAreaOptions: string[] = [];
   
   isDrawing = false;
   isConnected = false;
@@ -220,12 +187,12 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   // Student lesson intent (shown to tutor)
   studentLessonIntent: string | null = null;
   showIntentBanner = false;
-  intentDisplay: Record<string, { emoji: string; label: string; hint: string }> = {
-    easy: { emoji: '😌', label: 'Keep it light', hint: 'Easy pace, minimal corrections' },
-    conversational: { emoji: '💬', label: 'Conversational', hint: 'Free talk, follow their lead' },
-    focused: { emoji: '🎯', label: 'Focused', hint: 'Stay on topic, correct actively' },
-    challenge: { emoji: '🔥', label: 'Challenge me', hint: 'Push harder, introduce new material' },
-  };
+  intentDisplay: Record<string, { emoji: string; label: string; hint: string }> = {};
+  intentBannerLabelKey = '';
+  intentBannerHintKey = '';
+  nextLessonStartsText = '';
+  replyingToYourselfLabel = '';
+  recordingDurationLabel = '';
   
   // Next event warning (for tutors)
   showNextEventWarning: boolean = false;
@@ -273,6 +240,16 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   private batchAudioBlobs: Blob[] = []; // All recorded audio stored for batch upload
   private transcriptionStream: MediaStream | null = null;
   private transcriptionMimeType: string = 'audio/webm';
+
+  // Tutor reference capture (Agora remote audio track) — used for VAD-only
+  // mic-bleed filtering on the backend. Mirrors the student sampling-window
+  // lifecycle so both streams stay aligned in batch-time.
+  private tutorReferenceRecorder: MediaRecorder | null = null;
+  private tutorReferenceAudioChunks: Blob[] = [];
+  private batchTutorReferenceBlobs: Blob[] = [];
+  private tutorReferenceStream: MediaStream | null = null;
+  private tutorReferenceMimeType: string = 'audio/webm';
+  private isCurrentlyRecordingTutorRef = false;
   
   // Deepgram real-time transcription
   private deepgramService: DeepgramAudioService | null = null;
@@ -412,10 +389,19 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     private earlyExitService: EarlyExitService,
     private ngZone: NgZone,
     private reminderService: ReminderService,
-    private vocabularyService: VocabularyService
+    private vocabularyService: VocabularyService,
+    private translate: TranslateService,
+    private languageService: LanguageService
   ) { }
 
   async ngOnInit() {
+    this.languageService.whenTranslationsReady().pipe(takeUntil(this.destroy$)).subscribe(() => {
+      this.applyVideoCallI18n();
+    });
+    this.translate.onLangChange.pipe(takeUntil(this.destroy$)).subscribe(() => {
+      this.applyVideoCallI18n();
+    });
+
     const qp = this.route.snapshot.queryParams as any;
 
     // Detect if this is a class
@@ -533,7 +519,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
   private async initializeVideoCallViaLessonParams(qp: any) {
     const loading = await this.loadingController.create({
-      message: 'Joining lesson...',
+      message: this.t('VIDEO_CALL.JOINING_LESSON'),
       spinner: 'crescent'
     });
     await loading.present();
@@ -541,21 +527,21 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     try {
       // Browser support
       if (!this.agoraService.isBrowserSupported()) {
-        throw new Error('Your browser does not support video calls. Please use a modern browser.');
+        throw new Error(this.t('VIDEO_CALL.ERROR_BROWSER_UNSUPPORTED'));
       }
 
       // Permissions
-      loading.message = 'Requesting camera and microphone access...';
+      loading.message = this.t('VIDEO_CALL.REQUESTING_CAMERA_ACCESS');
       const permissionsGranted = await this.agoraService.requestPermissions();
       if (!permissionsGranted) {
-        throw new Error('Camera and microphone permissions are required for video calls');
+        throw new Error(this.t('VIDEO_CALL.ERROR_PERMISSIONS_REQUIRED'));
       }
 
       // CRITICAL: Always start with a completely fresh Agora client.
       // Pre-call creates a client + tracks for virtual background preview, but reusing that
       // client can cause subtle issues where remote users aren't detected on rejoin.
       // Resetting guarantees the same clean state as a page refresh (which always works).
-      loading.message = 'Connecting to video call...';
+      loading.message = this.t('VIDEO_CALL.CONNECTING_TO_CALL');
       await this.agoraService.resetForVideoCall();
       await this.agoraService.initializeClient();
 
@@ -718,6 +704,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             
             if (lesson.studentLessonIntent && this.userRole === 'tutor') {
               this.studentLessonIntent = lesson.studentLessonIntent;
+              this.refreshIntentBannerKeys();
               this.showIntentBanner = true;
             }
 
@@ -1013,14 +1000,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       console.error('Error initializing video call via lesson params:', error);
       
       // Extract error message from Error object
-      let errorMessage = 'Failed to connect to video call.';
-      if (error?.message) {
-        errorMessage = error.message;
-      } else if (error?.error?.message) {
-        errorMessage = error.error.message;
-      }
-      
-      await this.showError(errorMessage);
+      await this.showError(this.mapVideoCallConnectError(error));
     } finally {
       await loading.dismiss();
     }
@@ -1028,7 +1008,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
   async initializeVideoCall() {
     const loading = await this.loadingController.create({
-      message: 'Requesting permissions...',
+      message: this.t('VIDEO_CALL.REQUESTING_PERMISSIONS'),
       spinner: 'crescent'
     });
     await loading.present();
@@ -1036,15 +1016,15 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     try {
       // Check browser support first
       if (!this.agoraService.isBrowserSupported()) {
-        throw new Error('Your browser does not support video calls. Please use a modern browser like Chrome, Firefox, or Safari.');
+        throw new Error(this.t('VIDEO_CALL.ERROR_BROWSER_UNSUPPORTED'));
       }
 
       // First, request permissions
-      loading.message = 'Requesting camera and microphone access...';
+      loading.message = this.t('VIDEO_CALL.REQUESTING_CAMERA_ACCESS');
       const permissionsGranted = await this.agoraService.requestPermissions();
 
       if (!permissionsGranted) {
-        throw new Error('Camera and microphone permissions are required for video calls');
+        throw new Error(this.t('VIDEO_CALL.ERROR_PERMISSIONS_REQUIRED'));
       }
 
       // If already connected (joined via lessons flow), just set up UI and skip re-join
@@ -1058,7 +1038,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         this.cdr.detectChanges(); // Force UI update
       } else {
         // Initialize Agora client and join when not already connected
-        loading.message = 'Connecting to video call...';
+        loading.message = this.t('VIDEO_CALL.CONNECTING_TO_CALL');
         await this.agoraService.initializeClient();
         await this.agoraService.joinChannel(this.channelName);
         this.isConnected = true;
@@ -1109,22 +1089,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     } catch (error: any) {
       console.error('Error initializing video call:', error);
 
-      let errorMessage = 'Failed to connect to video call.';
-      if (error?.message) {
-        errorMessage = error.message;
-      } else if (error?.error?.message) {
-        errorMessage = error.error.message;
-      } else if (error instanceof Error) {
-        if (error.message.includes('permission')) {
-          errorMessage = 'Camera and microphone permissions are required. Please allow access and try again.';
-        } else if (error.message.includes('NotAllowedError')) {
-          errorMessage = 'Camera and microphone access was denied. Please check your browser settings and allow access.';
-        } else if (error.message.includes('NotFoundError')) {
-          errorMessage = 'No camera or microphone found. Please connect a camera and microphone and try again.';
-        }
-      }
-
-      await this.showError(errorMessage);
+      await this.showError(this.mapVideoCallConnectError(error));
     } finally {
       await loading.dismiss();
     }
@@ -1413,6 +1378,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             this.lessonService.getLesson(this.lessonId).subscribe(res => {
               if (res?.lesson?.studentLessonIntent && !this.studentLessonIntent) {
                 this.studentLessonIntent = res.lesson.studentLessonIntent;
+                this.refreshIntentBannerKeys();
                 this.showIntentBanner = true;
                 this.cdr.detectChanges();
               }
@@ -3751,11 +3717,11 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       if (data.lessonId === this.lessonId) {
         // Show alert to current user
         const alert = await this.alertController.create({
-          header: 'Lesson Ended',
-          message: data.message + ' The lesson has been completed.',
+          header: this.t('VIDEO_CALL.LESSON_ENDED_HEADER'),
+          message: this.t('VIDEO_CALL.LESSON_ENDED_MESSAGE', { message: data.message || '' }),
           buttons: [
             {
-              text: 'OK',
+              text: this.t('VIDEO_CALL.OK'),
               handler: async () => {
                 // Leave the call without showing early exit modal (other participant ended it)
                 await this.endCall(true); // Pass true to indicate other participant ended
@@ -4062,6 +4028,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       // Start timer
       this.recordingTimer = setInterval(() => {
         this.recordingDuration++;
+        this.recordingDurationLabel = this.formatRecordingDuration();
         
         // Auto-stop after 60 seconds
         if (this.recordingDuration >= 60) {
@@ -4318,17 +4285,17 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         return; // Silent return — no alert needed
       }
       
-      let errorMessage = 'Failed to share screen. Please try again.';
+      let errorMessage = this.t('VIDEO_CALL.SCREEN_SHARE_FAILED');
       if (errorName === 'NotSupportedError' || errorMsg.includes('NotSupportedError')) {
-        errorMessage = 'Screen sharing is not supported in this browser.';
+        errorMessage = this.t('VIDEO_CALL.SCREEN_SHARE_NOT_SUPPORTED');
       } else if (errorName === 'NotReadableError' || errorMsg.includes('NotReadableError')) {
-        errorMessage = 'Could not access the screen. Another app may be blocking it.';
+        errorMessage = this.t('VIDEO_CALL.SCREEN_SHARE_NOT_READABLE');
       }
       
       const alert = await this.alertController.create({
-        header: 'Screen Sharing Error',
+        header: this.t('VIDEO_CALL.SCREEN_SHARE_ERROR_HEADER'),
         message: errorMessage,
-        buttons: ['OK']
+        buttons: [this.t('VIDEO_CALL.OK')]
       });
       await alert.present();
     }
@@ -4343,7 +4310,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
   private async proceedWithScreenShare() {
     const loading = await this.loadingController.create({
-      message: 'Starting screen share...',
+      message: this.t('VIDEO_CALL.STARTING_SCREEN_SHARE'),
       spinner: 'crescent'
     });
     await loading.present();
@@ -4386,7 +4353,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       
       // Show success message with cursor tip
       const toast = await this.toastController.create({
-        message: 'Screen sharing started. For cursor visibility, share "Entire Screen" not browser tabs.',
+        message: this.t('VIDEO_CALL.SCREEN_SHARE_STARTED'),
         duration: 4000,
         color: 'success',
         position: 'top'
@@ -4435,7 +4402,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       
       // Show success message
       const toast = await this.toastController.create({
-        message: 'Screen sharing stopped',
+        message: this.t('VIDEO_CALL.SCREEN_SHARE_STOPPED'),
         duration: 2000,
         color: 'primary',
         position: 'top'
@@ -4525,19 +4492,19 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
       // Show options for whiteboard sharing
       const alert = await this.alertController.create({
-        header: 'Share Whiteboard',
-        message: 'How would you like to share the whiteboard?',
+        header: this.t('VIDEO_CALL.SHARE_WHITEBOARD_HEADER'),
+        message: this.t('VIDEO_CALL.SHARE_WHITEBOARD_MESSAGE'),
         buttons: [
           {
-            text: 'Share Canvas Only',
+            text: this.t('VIDEO_CALL.SHARE_CANVAS_ONLY'),
             handler: () => this.shareCanvasAsVideo()
           },
           {
-            text: 'Share Full Screen',
+            text: this.t('VIDEO_CALL.SHARE_FULL_SCREEN'),
             handler: () => this.shareScreenWithWhiteboard()
           },
           {
-            text: 'Cancel',
+            text: this.t('VIDEO_CALL.CANCEL'),
             role: 'cancel'
           }
         ]
@@ -4549,7 +4516,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       console.error('❌ Whiteboard screen sharing error:', error);
       
       const toast = await this.toastController.create({
-        message: 'Failed to start whiteboard sharing. Please try again.',
+        message: this.t('VIDEO_CALL.WHITEBOARD_SHARE_FAILED'),
         duration: 3000,
         color: 'danger',
         position: 'top'
@@ -4602,7 +4569,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       console.log('✅ Canvas sharing started successfully');
       
       const toast = await this.toastController.create({
-        message: '🎨 Whiteboard canvas is now being shared!',
+        message: this.t('VIDEO_CALL.WHITEBOARD_CANVAS_SHARED'),
         duration: 3000,
         color: 'success',
         position: 'top'
@@ -4613,7 +4580,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       console.error('❌ Canvas sharing failed:', error);
       
       const toast = await this.toastController.create({
-        message: 'Failed to share canvas. Please try again.',
+        message: this.t('VIDEO_CALL.WHITEBOARD_CANVAS_FAILED'),
         duration: 3000,
         color: 'danger',
         position: 'top'
@@ -4626,7 +4593,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     try {
       // Guide user to avoid mirror effect
       const toast = await this.toastController.create({
-        message: '💡 Tip: Select "Entire Screen" when prompted to avoid mirror effect',
+        message: this.t('VIDEO_CALL.SCREEN_SHARE_TIP'),
         duration: 4000,
         color: 'primary',
         position: 'top'
@@ -4640,7 +4607,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       console.error('❌ Full screen sharing failed:', error);
       
       const errorToast = await this.toastController.create({
-        message: 'Failed to share screen. Please try again.',
+        message: this.t('VIDEO_CALL.SCREEN_SHARE_FAILED'),
         duration: 3000,
         color: 'danger',
         position: 'top'
@@ -4671,9 +4638,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       console.error('❌ Failed to set background blur in video call:', error);
       
       const alert = await this.alertController.create({
-        header: 'Background Blur Error',
-        message: 'Failed to enable background blur. Make sure your browser supports this feature.',
-        buttons: ['OK']
+        header: this.t('VIDEO_CALL.BLUR_ERROR_HEADER'),
+        message: this.t('VIDEO_CALL.BLUR_ERROR_MESSAGE'),
+        buttons: [this.t('VIDEO_CALL.OK')]
       });
       await alert.present();
     }
@@ -4692,9 +4659,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       console.error('❌ Failed to set background color in video call:', error);
       
       const alert = await this.alertController.create({
-        header: 'Background Color Error',
-        message: 'Failed to set background color. Make sure your browser supports this feature.',
-        buttons: ['OK']
+        header: this.t('VIDEO_CALL.COLOR_ERROR_HEADER'),
+        message: this.t('VIDEO_CALL.COLOR_ERROR_MESSAGE'),
+        buttons: [this.t('VIDEO_CALL.OK')]
       });
       await alert.present();
     }
@@ -5612,16 +5579,16 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
   async confirmEndCall() {
     const alert = await this.alertController.create({
-      header: 'Leave Lesson',
-      message: 'Are you sure you want to leave this lesson?',
+      header: this.t('VIDEO_CALL.LEAVE_LESSON_HEADER'),
+      message: this.t('VIDEO_CALL.LEAVE_LESSON_MESSAGE'),
       cssClass: 'leave-confirmation-alert',
       buttons: [
         {
-          text: 'Cancel',
+          text: this.t('VIDEO_CALL.CANCEL'),
           role: 'cancel'
         },
         {
-          text: 'Leave',
+          text: this.t('VIDEO_CALL.LEAVE'),
           role: 'destructive',
           handler: () => {
             this.endCall();
@@ -6044,7 +6011,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       
       // Show error toast
       const toast = await this.toastController.create({
-        message: 'Failed to load whiteboard. Please try again.',
+        message: this.t('VIDEO_CALL.WHITEBOARD_LOAD_FAILED'),
         duration: 3000,
         color: 'danger'
       });
@@ -6290,6 +6257,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         const minutesUntil = Math.round((startTime.getTime() - now.getTime()) / (60 * 1000));
         
         this.nextEventMinutesAway = minutesUntil;
+        this.refreshNextLessonStartsText();
         this.nextEventType = nextLesson.isClass ? 'class' : 'lesson';
         this.showNextEventWarning = true;
         
@@ -6310,13 +6278,15 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
    * Get formatted display time for next event warning
    * Shows minutes only, with special handling for urgent cases
    */
-  getNextEventDisplayTime(): string {
+  private refreshNextLessonStartsText(): void {
     if (this.nextEventMinutesAway <= 0) {
-      return 'NOW!';
+      this.nextLessonStartsText = this.t('VIDEO_CALL.NEXT_LESSON_NOW');
     } else if (this.nextEventMinutesAway === 1) {
-      return '1 minute';
+      this.nextLessonStartsText = this.t('VIDEO_CALL.NEXT_LESSON_ONE_MIN');
     } else {
-      return `${this.nextEventMinutesAway} minutes`;
+      this.nextLessonStartsText = this.t('VIDEO_CALL.NEXT_LESSON_N_MINS', {
+        count: String(this.nextEventMinutesAway),
+      });
     }
   }
 
@@ -6357,17 +6327,17 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
   private async showError(message: string) {
     const alert = await this.alertController.create({
-      header: 'Video Call Error',
+      header: this.t('VIDEO_CALL.VIDEO_CALL_ERROR_HEADER'),
       message: message,
       buttons: [
         {
-          text: 'Try Again',
+          text: this.t('VIDEO_CALL.TRY_AGAIN'),
           handler: () => {
             this.initializeVideoCall();
           }
         },
         {
-          text: 'Cancel',
+          text: this.t('VIDEO_CALL.CANCEL'),
           handler: () => {
             this.router.navigate(['/tabs']);
           }
@@ -6394,15 +6364,17 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
     // Show alert to user
     const alert = await this.alertController.create({
-      header: 'Session Ended',
-      message: cancellation.cancelledBy === 'tutor' 
-        ? `Something came up for this tutor and they had to leave. Don't worry—you haven't been charged! Try finding another available tutor in the search.`
-        : this.userRole === 'tutor' 
-          ? `The student didn't enter the classroom in time, so the session was cancelled to avoid wasting your time.`
-          : `The student has left the session.`,
+      header: this.t('VIDEO_CALL.SESSION_ENDED_HEADER'),
+      message: cancellation.cancelledBy === 'tutor'
+        ? this.t('VIDEO_CALL.SESSION_CANCELLED_TUTOR_LEFT')
+        : this.userRole === 'tutor'
+          ? this.t('VIDEO_CALL.SESSION_CANCELLED_STUDENT_NO_SHOW')
+          : this.t('VIDEO_CALL.SESSION_CANCELLED_STUDENT_LEFT'),
       buttons: [
         {
-          text: this.userRole === 'tutor' ? 'Back to Waiting Room' : 'Find Tutors',
+          text: this.userRole === 'tutor'
+            ? this.t('VIDEO_CALL.BACK_TO_WAITING_ROOM')
+            : this.t('VIDEO_CALL.FIND_TUTORS'),
           handler: () => {
             if (this.userRole === 'tutor') {
               // Tutor: Return to pre-call waiting room with office hours enabled
@@ -6548,9 +6520,12 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     this.showOverageWarning = true;
     
     const alert = await this.alertController.create({
-      header: 'Time Warning',
-      message: `Your booked ${this.bookedDuration} minutes is ending soon. You'll be charged $${this.perMinuteRate.toFixed(2)}/minute if you continue.`,
-      buttons: ['OK']
+      header: this.t('VIDEO_CALL.TIME_WARNING_HEADER'),
+      message: this.t('VIDEO_CALL.TIME_WARNING_MESSAGE', {
+        minutes: String(this.bookedDuration),
+        rate: this.perMinuteRate.toFixed(2),
+      }),
+      buttons: [this.t('VIDEO_CALL.OK')]
     });
     
     await alert.present();
@@ -6613,10 +6588,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     });
 
     // Set speaker names
-    this.localSpeakerName = 'You';
-    this.remoteSpeakerName = this.userRole === 'tutor' 
-      ? (this.studentName || 'Student') 
-      : (this.tutorName || 'Tutor');
+    this.refreshSpeakerLabels();
 
     // Skip for classes, trial lessons, and office hours (quick lessons)
     if (this.isClass || this.isTrialLesson || this.isOfficeHours) {
@@ -6645,9 +6617,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     // Update display live every 2 seconds and check if it's time to show the popup
     this.talkTimeCheckInterval = setInterval(() => {
       // Re-sync remote speaker name in case it loaded late
-      const updatedRemoteName = this.userRole === 'tutor' 
-        ? (this.studentName || 'Student') 
-        : (this.tutorName || 'Tutor');
+      const updatedRemoteName = this.getRemoteSpeakerLabel();
       if (updatedRemoteName !== this.remoteSpeakerName) {
         this.remoteSpeakerName = updatedRemoteName;
       }
@@ -7165,7 +7135,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       }, 1000); // Small delay to ensure Agora is initialized
       
       // Show a subtle toast (non-blocking)
-      this.showToast('Transcription resumed', 'success', 2000);
+      this.showToast(this.t('VIDEO_CALL.TRANSCRIPTION_RESUMED'), 'success', 2000);
       
     } catch (error) {
       console.error('❌ Error checking transcription session:', error);
@@ -7496,13 +7466,19 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         }
       }
       this.transcriptionMimeType = selectedType;
-      
+      // Tutor reference uses the same mime type so both batches decode
+      // identically on the backend.
+      this.tutorReferenceMimeType = selectedType;
+
       // Calculate sampling windows (guaranteed to be non-empty for 25/50 min)
       this.samplingWindows = this.calculateSamplingWindows(lessonDuration);
       this.lessonStartTimestamp = Date.now();
       this.batchAudioBlobs = [];
       this.transcriptionAudioChunks = [];
       this.isCurrentlyRecording = false;
+      this.batchTutorReferenceBlobs = [];
+      this.tutorReferenceAudioChunks = [];
+      this.isCurrentlyRecordingTutorRef = false;
       
       console.log(`📊 Sampling strategy for ${lessonDuration}min lesson:`, this.samplingWindows);
       console.log(`📊 Total recording time: ${this.samplingWindows.reduce((sum, w) => sum + (w.endMin - w.startMin), 0)} minutes`);
@@ -7545,7 +7521,11 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Start recording for a sampling window.
+   * Start recording for a sampling window. Starts the student-mic recorder
+   * AND a parallel tutor-reference recorder (pulling from Agora's remote
+   * audio track) so both streams stay aligned in batch-time. The tutor
+   * reference is used server-side for VAD-only mic-bleed filtering — it is
+   * NEVER transcribed.
    */
   private startWindowRecording(): void {
     if (!this.transcriptionStream || this.isCurrentlyRecording) return;
@@ -7574,6 +7554,12 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       // Collect data every 30 seconds within the window
       this.transcriptionRecorder.start(30000);
       this.isCurrentlyRecording = true;
+
+      // Kick off the parallel tutor-reference recorder for this window.
+      // Started immediately after the student recorder so the two streams
+      // begin within milliseconds of each other (drift is absorbed by the
+      // overlap tolerance on the backend).
+      this.startTutorReferenceWindowRecording();
       
     } catch (error) {
       console.error('❌ Error starting window recording:', error);
@@ -7581,7 +7567,8 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Stop recording for a sampling window and save the audio blob.
+   * Stop recording for a sampling window and save the audio blob. Stops
+   * both the student-mic recorder and the tutor-reference recorder.
    */
   private stopWindowRecording(): void {
     if (!this.transcriptionRecorder || !this.isCurrentlyRecording) return;
@@ -7609,11 +7596,126 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     
     this.transcriptionRecorder = null;
     this.isCurrentlyRecording = false;
+
+    // Stop the parallel tutor-reference recorder for this window
+    this.stopTutorReferenceWindowRecording();
+  }
+
+  /**
+   * Locate the tutor's IRemoteAudioTrack via Agora and build a MediaStream
+   * from it. Returns null if the tutor hasn't published audio yet (e.g.
+   * they joined a moment after the student started recording). The next
+   * sampling window will simply retry.
+   */
+  private getTutorMediaStream(): MediaStream | null {
+    try {
+      const remoteUsers = this.agoraService.getRemoteUsers();
+      if (!remoteUsers || remoteUsers.size === 0) {
+        return null;
+      }
+
+      for (const [uid, user] of remoteUsers.entries()) {
+        const audioTrack = (user as any).audioTrack;
+        if (!audioTrack) continue;
+
+        // In 1:1 lessons the only remote audio track IS the tutor's
+        // (guards in startLessonTranscription ensure userRole === 'student').
+        // If the lesson is a class, identify by isTutor flag.
+        const identity = this.remoteUserIdentities.get(uid);
+        if (this.isClass && identity && !identity.isTutor) {
+          continue;
+        }
+
+        const mediaStreamTrack: MediaStreamTrack | undefined = audioTrack.getMediaStreamTrack?.();
+        if (!mediaStreamTrack) continue;
+
+        return new MediaStream([mediaStreamTrack]);
+      }
+    } catch (error) {
+      console.warn('⚠️ Failed to acquire tutor MediaStream from Agora (non-fatal):', error);
+    }
+    return null;
+  }
+
+  /**
+   * Start the tutor-reference MediaRecorder for the current sampling window.
+   * Silently no-ops if the tutor audio track isn't published yet.
+   */
+  private startTutorReferenceWindowRecording(): void {
+    if (this.isCurrentlyRecordingTutorRef) return;
+
+    const tutorStream = this.getTutorMediaStream();
+    if (!tutorStream) {
+      console.log('⏭️ Tutor reference: no remote audio track available yet — skipping this window');
+      return;
+    }
+
+    this.tutorReferenceStream = tutorStream;
+
+    try {
+      this.tutorReferenceRecorder = new MediaRecorder(tutorStream, {
+        mimeType: this.tutorReferenceMimeType,
+        audioBitsPerSecond: 32000
+      });
+
+      this.tutorReferenceAudioChunks = [];
+
+      this.tutorReferenceRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          this.tutorReferenceAudioChunks.push(event.data);
+        }
+      };
+
+      this.tutorReferenceRecorder.onerror = (event) => {
+        console.error('❌ Tutor reference MediaRecorder error:', event);
+      };
+
+      this.tutorReferenceRecorder.start(30000);
+      this.isCurrentlyRecordingTutorRef = true;
+      console.log('🎯 Tutor reference recording started for window');
+    } catch (error) {
+      console.error('❌ Error starting tutor reference recording:', error);
+      this.tutorReferenceRecorder = null;
+      this.tutorReferenceStream = null;
+    }
+  }
+
+  /**
+   * Stop the tutor-reference recorder for the current sampling window and
+   * save the blob for batch upload.
+   */
+  private stopTutorReferenceWindowRecording(): void {
+    if (!this.tutorReferenceRecorder || !this.isCurrentlyRecordingTutorRef) return;
+
+    const recorder = this.tutorReferenceRecorder;
+
+    recorder.onstop = () => {
+      if (this.tutorReferenceAudioChunks.length > 0) {
+        const windowBlob = new Blob(this.tutorReferenceAudioChunks, { type: this.tutorReferenceMimeType });
+        if (windowBlob.size > 1000) {
+          this.batchTutorReferenceBlobs.push(windowBlob);
+          console.log(`🎯 Tutor reference window saved: ${windowBlob.size} bytes (${this.batchTutorReferenceBlobs.length} windows stored)`);
+        }
+      }
+      this.tutorReferenceAudioChunks = [];
+    };
+
+    if (recorder.state === 'recording') {
+      recorder.stop();
+    }
+
+    this.tutorReferenceRecorder = null;
+    this.tutorReferenceStream = null;
+    this.isCurrentlyRecordingTutorRef = false;
   }
 
   /**
    * BATCH UPLOAD: Upload all sampled audio windows as a single concatenated blob at lesson end.
    * This replaces the old per-30-second upload approach.
+   *
+   * Also uploads the parallel tutor-reference batch BEFORE the student
+   * batch, so the backend has the tutor speech intervals ready when the
+   * student transcript is completed and analysis runs.
    */
   private async uploadBatchAudio(): Promise<void> {
     console.log('🎙️ ========== BATCH UPLOAD CALLED ==========');
@@ -7641,24 +7743,83 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       this.transcriptionRecorder = null;
       this.isCurrentlyRecording = false;
     }
+
+    // Flush any in-flight tutor reference window in parallel
+    if (this.isCurrentlyRecordingTutorRef && this.tutorReferenceRecorder) {
+      await new Promise<void>((resolve) => {
+        const recorder = this.tutorReferenceRecorder!;
+        recorder.onstop = () => {
+          if (this.tutorReferenceAudioChunks.length > 0) {
+            const windowBlob = new Blob(this.tutorReferenceAudioChunks, { type: this.tutorReferenceMimeType });
+            if (windowBlob.size > 1000) {
+              this.batchTutorReferenceBlobs.push(windowBlob);
+            }
+          }
+          this.tutorReferenceAudioChunks = [];
+          resolve();
+        };
+        if (recorder.state === 'recording') {
+          recorder.stop();
+        } else {
+          resolve();
+        }
+      });
+      this.tutorReferenceRecorder = null;
+      this.tutorReferenceStream = null;
+      this.isCurrentlyRecordingTutorRef = false;
+    }
     
     if (this.batchAudioBlobs.length === 0) {
       console.log('⏭️ No audio windows to upload');
       return;
     }
-    
-    // Concatenate all window blobs into one
+
+    const transcriptId = this.transcriptionService.currentTranscriptId;
+    if (!transcriptId) {
+      console.error('❌ No transcript ID for batch upload');
+      return;
+    }
+
+    // Upload tutor reference FIRST so its intervals are stored before the
+    // student transcript triggers analysis. Failures here are non-fatal —
+    // the student analysis still runs, just without the mic-bleed filter.
+    if (this.batchTutorReferenceBlobs.length > 0) {
+      const tutorBlob = new Blob(this.batchTutorReferenceBlobs, { type: this.tutorReferenceMimeType });
+      console.log(`🎯 Uploading tutor reference batch: ${tutorBlob.size} bytes from ${this.batchTutorReferenceBlobs.length} windows`);
+
+      if (tutorBlob.size >= 1000) {
+        try {
+          await new Promise<void>((resolve, reject) => {
+            this.transcriptionService.uploadTutorReference(transcriptId, tutorBlob)
+              .subscribe({
+                next: (response) => {
+                  console.log('✅ Tutor reference upload success:', response);
+                  resolve();
+                },
+                error: (error) => {
+                  console.error('⚠️ Tutor reference upload failed (non-fatal):', error);
+                  reject(error);
+                }
+              });
+          });
+        } catch (error) {
+          // Swallow — analysis will proceed without mic-bleed filter
+          console.warn('⚠️ Proceeding without tutor reference (mic-bleed filter disabled for this lesson)');
+        }
+      } else {
+        console.log('⏭️ Tutor reference blob too small, skipping upload');
+      }
+      this.batchTutorReferenceBlobs = [];
+    } else {
+      console.log('ℹ️ No tutor reference windows captured — likely tutor audio track was unavailable');
+    }
+
+    // Concatenate all student window blobs into one
     const combinedBlob = new Blob(this.batchAudioBlobs, { type: this.transcriptionMimeType });
     console.log(`📦 Combined batch audio: ${combinedBlob.size} bytes from ${this.batchAudioBlobs.length} windows`);
     
     if (combinedBlob.size < 1000) {
       console.log('⏭️ Combined blob too small, skipping');
-      return;
-    }
-    
-    const transcriptId = this.transcriptionService.currentTranscriptId;
-    if (!transcriptId) {
-      console.error('❌ No transcript ID for batch upload');
       return;
     }
     
@@ -7740,6 +7901,17 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         }
         this.transcriptionRecorder = null;
       }
+
+      // Stop tutor reference recorder if still active. Do NOT stop the
+      // underlying MediaStreamTrack — it belongs to Agora and the tutor's
+      // audio still needs to be playable.
+      if (this.tutorReferenceRecorder) {
+        if (this.tutorReferenceRecorder.state === 'recording') {
+          this.tutorReferenceRecorder.stop();
+        }
+        this.tutorReferenceRecorder = null;
+      }
+      this.tutorReferenceStream = null;
       
       // Release microphone
       if (this.transcriptionStream) {
@@ -7754,6 +7926,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       this.transcriptionAudioChunks = [];
       this.batchAudioBlobs = [];
       this.isCurrentlyRecording = false;
+      this.tutorReferenceAudioChunks = [];
+      this.batchTutorReferenceBlobs = [];
+      this.isCurrentlyRecordingTutorRef = false;
       
       console.log('✅ Sampled audio capture stopped');
     } catch (error) {
@@ -7922,18 +8097,18 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   async promptTutorNote() {
     try {
       const toast = await this.toastController.create({
-        header: '📝 Quick Note?',
-        message: 'Add a note for your student? (optional)',
+        header: this.t('VIDEO_CALL.QUICK_NOTE_HEADER'),
+        message: this.t('VIDEO_CALL.QUICK_NOTE_MESSAGE'),
         duration: 8000,
         position: 'bottom',
         cssClass: 'tutor-note-toast',
         buttons: [
           {
-            text: 'Skip',
+            text: this.t('VIDEO_CALL.SKIP'),
             role: 'cancel'
           },
           {
-            text: 'Add Note',
+            text: this.t('VIDEO_CALL.ADD_NOTE'),
             handler: () => {
               // Navigate to home tab and trigger modal opening via localStorage
               this.router.navigate(['/tabs/home']).then(() => {
@@ -7979,5 +8154,124 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     } catch (error) {
       console.error('❌ [VIDEO-CALL] Exception creating/playing audio:', error);
     }
+  }
+
+  private t(key: string, params?: Record<string, string | number>): string {
+    return this.translate.instant(key, params);
+  }
+
+  private mapVideoCallConnectError(error: any): string {
+    const msg = String(error?.message || error?.error?.message || '');
+    if (msg.includes('permission') || msg.includes('NotAllowedError')) {
+      return this.t('PRE_CALL.ERROR_PERMISSION');
+    }
+    if (msg.includes('NotFoundError')) {
+      return this.t('PRE_CALL.ERROR_NO_DEVICE');
+    }
+    if (msg.includes('browser does not support') || msg.includes('ERROR_BROWSER_UNSUPPORTED')) {
+      return this.t('VIDEO_CALL.ERROR_BROWSER_UNSUPPORTED');
+    }
+    if (msg.includes('permissions are required') || msg.includes('ERROR_PERMISSIONS_REQUIRED')) {
+      return this.t('VIDEO_CALL.ERROR_PERMISSIONS_REQUIRED');
+    }
+    return this.t('VIDEO_CALL.ERROR_CONNECT_FAILED');
+  }
+
+  private intentTranslationSuffix(intent: string): string {
+    const map: Record<string, string> = {
+      easy: 'EASY',
+      conversational: 'CONVERSATIONAL',
+      focused: 'FOCUSED',
+      challenge: 'CHALLENGE',
+    };
+    return map[intent] || 'FOCUSED';
+  }
+
+  private refreshIntentBannerKeys(): void {
+    if (!this.studentLessonIntent) {
+      this.intentBannerLabelKey = '';
+      this.intentBannerHintKey = '';
+      return;
+    }
+    const suffix = this.intentTranslationSuffix(this.studentLessonIntent);
+    this.intentBannerLabelKey = `VIDEO_CALL.INTENT_${suffix}_LABEL`;
+    this.intentBannerHintKey = `VIDEO_CALL.INTENT_${suffix}_HINT`;
+  }
+
+  private getRemoteSpeakerLabel(): string {
+    return this.userRole === 'tutor'
+      ? (this.studentName || this.t('VIDEO_CALL.STUDENT'))
+      : (this.tutorName || this.t('VIDEO_CALL.TUTOR'));
+  }
+
+  private refreshSpeakerLabels(): void {
+    this.localSpeakerName = this.t('VIDEO_CALL.YOU');
+    this.remoteSpeakerName = this.getRemoteSpeakerLabel();
+  }
+
+  private applyVideoCallI18n(): void {
+    this.replyingToYourselfLabel = this.t('VIDEO_CALL.REPLYING_TO_SELF');
+    this.refreshIntentBannerKeys();
+    this.refreshSpeakerLabels();
+    this.impressionOptions = [
+      { value: 'excellent', label: this.t('VIDEO_CALL.IMPRESSION_EXCELLENT'), color: 'success' },
+      { value: 'great', label: this.t('VIDEO_CALL.IMPRESSION_GREAT'), color: 'primary' },
+      { value: 'good', label: this.t('VIDEO_CALL.IMPRESSION_GOOD'), color: 'secondary' },
+      { value: 'needs-work', label: this.t('VIDEO_CALL.IMPRESSION_NEEDS_WORK'), color: 'warning' },
+    ];
+    this.strengthOptions = [
+      this.t('VIDEO_CALL.STRENGTH_CONVERSATIONAL_FLUENCY'),
+      this.t('VIDEO_CALL.STRENGTH_VOCABULARY'),
+      this.t('VIDEO_CALL.STRENGTH_GRAMMAR'),
+      this.t('VIDEO_CALL.STRENGTH_PRONUNCIATION'),
+      this.t('VIDEO_CALL.STRENGTH_LISTENING'),
+      this.t('VIDEO_CALL.STRENGTH_CONFIDENCE'),
+      this.t('VIDEO_CALL.STRENGTH_COMPLEX_SENTENCES'),
+      this.t('VIDEO_CALL.STRENGTH_NATURAL_EXPRESSIONS'),
+    ];
+    this.improvementOptions = [
+      this.t('VIDEO_CALL.IMPROVE_GRAMMAR'),
+      this.t('VIDEO_CALL.IMPROVE_VERB_CONJUGATION'),
+      this.t('VIDEO_CALL.IMPROVE_VOCABULARY'),
+      this.t('VIDEO_CALL.IMPROVE_PRONUNCIATION'),
+      this.t('VIDEO_CALL.IMPROVE_FLUENCY'),
+      this.t('VIDEO_CALL.IMPROVE_LISTENING'),
+      this.t('VIDEO_CALL.IMPROVE_SENTENCE_COMPLEXITY'),
+      this.t('VIDEO_CALL.IMPROVE_IDIOMATIC'),
+    ];
+    this.errorAreaOptions = [
+      this.t('VIDEO_CALL.ERROR_VERB_CONJUGATION'),
+      this.t('VIDEO_CALL.ERROR_GENDER_AGREEMENT'),
+      this.t('VIDEO_CALL.ERROR_PREPOSITIONS'),
+      this.t('VIDEO_CALL.ERROR_TENSE'),
+      this.t('VIDEO_CALL.ERROR_VOCABULARY'),
+      this.t('VIDEO_CALL.ERROR_PRONUNCIATION'),
+      this.t('VIDEO_CALL.ERROR_SENTENCE_STRUCTURE'),
+      this.t('VIDEO_CALL.ERROR_ARTICLES'),
+    ];
+    this.intentDisplay = {
+      easy: {
+        emoji: '😌',
+        label: this.t('VIDEO_CALL.INTENT_EASY_LABEL'),
+        hint: this.t('VIDEO_CALL.INTENT_EASY_HINT'),
+      },
+      conversational: {
+        emoji: '💬',
+        label: this.t('VIDEO_CALL.INTENT_CONVERSATIONAL_LABEL'),
+        hint: this.t('VIDEO_CALL.INTENT_CONVERSATIONAL_HINT'),
+      },
+      focused: {
+        emoji: '🎯',
+        label: this.t('VIDEO_CALL.INTENT_FOCUSED_LABEL'),
+        hint: this.t('VIDEO_CALL.INTENT_FOCUSED_HINT'),
+      },
+      challenge: {
+        emoji: '🔥',
+        label: this.t('VIDEO_CALL.INTENT_CHALLENGE_LABEL'),
+        hint: this.t('VIDEO_CALL.INTENT_CHALLENGE_HINT'),
+      },
+    };
+    this.refreshNextLessonStartsText();
+    this.cdr.detectChanges();
   }
 }

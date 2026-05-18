@@ -151,8 +151,8 @@
         <div class="forum-empty-visual">
           <ion-icon name="chatbubbles-outline"></ion-icon>
         </div>
-        <h3 class="forum-empty-title">{{ 'FORUM.EMPTY_TITLE' | translate }}</h3>
-        <p class="forum-empty-text">{{ 'FORUM.EMPTY_SUBTITLE' | translate }}</p>
+        <h3 class="forum-empty-title">{{ forumEmptyTitleKey | translate }}</h3>
+        <p class="forum-empty-text">{{ forumEmptySubtitleKey | translate }}</p>
         <button type="button" class="forum-empty-cta" *ngIf="canStartThread" (click)="startNewThread()">
           <ion-icon name="add-outline"></ion-icon>
           {{ 'FORUM.START_THREAD' | translate }}

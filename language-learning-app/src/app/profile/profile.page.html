@@ -1,13 +1,81 @@
 <ion-content class="profile-content">
-      <div class="profile-container" *ngIf="displayUser">
+      <div class="profile-container" *ngIf="displayUser" [class.profile-container--split]="!isViewingOtherUser">
         <!-- Back button when viewing another user's profile -->
         <button class="inline-back-btn" *ngIf="isViewingOtherUser" (click)="goBack()">
           <ion-icon name="chevron-back-outline"></ion-icon>
-          <span>Back</span>
+          <span>{{ 'PROFILE_SCREEN.BACK' | translate }}</span>
         </button>
+
+        <div class="profile-content-layout profile-layout" [class.profile-layout--guest]="isViewingOtherUser">
+
+          <aside class="profile-layout__sidebar" *ngIf="!isViewingOtherUser" aria-label="Account settings navigation">
+            <h1 class="profile-layout__page-title">{{ 'PROFILE_SCREEN.ACCOUNT_SETTINGS' | translate }}</h1>
+            <nav class="profile-layout__nav">
+              <button type="button"
+                      class="profile-nav-item"
+                      *ngFor="let nav of profileNavItems"
+                      [class.profile-nav-item--active]="profileActiveSection === nav.id"
+                      (click)="onSelectProfileSection(nav.id)">
+                <ion-icon [name]="nav.icon" aria-hidden="true"></ion-icon>
+                <span>{{ nav.labelKey | translate }}</span>
+              </button>
+            </nav>
+          </aside>
+
+          <div class="profile-layout__segment" *ngIf="!isViewingOtherUser">
+            <ion-segment class="profile-segment" [value]="profileActiveSection" (ionChange)="onProfileSegmentChange($event)">
+              <ion-segment-button *ngFor="let nav of profileNavItems" [value]="nav.id">
+                <ion-label>{{ nav.labelKey | translate }}</ion-label>
+              </ion-segment-button>
+            </ion-segment>
+          </div>
+
+          <main class="profile-layout__main">
+            <header class="profile-layout__panel-head" *ngIf="!isViewingOtherUser">
+              <h2 class="profile-layout__panel-title">{{ profilePanelTitleKey | translate }}</h2>
+              <p class="profile-layout__panel-sub" *ngIf="profilePanelSubKey">{{ profilePanelSubKey | translate }}</p>
+            </header>
+
+    <!-- Outstanding items banner — always visible above all tabs -->
+    <div class="profile-checklist-anim"
+         *ngIf="!isViewingOtherUser && isTutorUser && hasProfileCriticalInsights && profileChecklist.length > 0">
+      <div class="profile-checklist-anim__inner">
+        <div class="profile-checklist-section">
+          <div class="profile-checklist-header">
+            <div class="pcl-header-text">
+              <div class="pcl-header-top">
+                <ion-icon name="alert-circle-outline" class="pcl-warn-icon"></ion-icon>
+                <span class="pcl-title">{{ 'HOME.GROWTH.PROFILE_PROGRESS' | translate:{ done: profileChecklistDoneCount, total: profileChecklistTotal } }}</span>
+                <span class="pcl-hidden-label" *ngIf="profileChecklistDoneCount < profileChecklistTotal">
+                  <ion-icon name="eye-off-outline"></ion-icon> {{ 'HOME.GROWTH.PROFILE_HIDDEN' | translate }}
+                </span>
+              </div>
+              <p class="pcl-subtitle" *ngIf="profileChecklistDoneCount < profileChecklistTotal">{{ 'HOME.GROWTH.PROFILE_CHECKLIST_SUBTITLE' | translate }}</p>
+              <p class="pcl-availability-note" *ngIf="profileChecklistDoneCount < profileChecklistTotal">{{ 'HOME.GROWTH.PROFILE_CHECKLIST_AVAILABILITY_NOTE' | translate }}</p>
+            </div>
+          </div>
+          <div class="profile-checklist-items">
+            <button type="button" *ngFor="let item of profileChecklist"
+                    class="pcl-item"
+                    [class.pcl-item--done]="item.done && !item.pendingReview"
+                    [class.pcl-item--pending-review]="item.pendingReview"
+                    (click)="openProfileChecklistItem(item)">
+              <ion-icon
+                class="pcl-check"
+                [name]="item.pendingReview ? 'time-outline' : (item.done ? 'checkmark-circle' : 'ellipse-outline')">
+              </ion-icon>
+              <span class="pcl-label">{{ item.labelKey | translate:(item.labelParams || {}) }}</span>
+              <ion-icon name="chevron-forward-outline" class="pcl-arrow" *ngIf="!item.done || item.pendingReview"></ion-icon>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+        <ng-container *ngIf="isViewingOtherUser || profileActiveSection === 'personal'">
         <!-- User Profile Card -->
         <ion-card class="profile-card">
-          <ion-card-header>
+          <ion-card-header *ngIf="isViewingOtherUser">
             <ion-card-title>{{ 'PROFILE_SCREEN.PROFILE' | translate }}</ion-card-title>
           </ion-card-header>
           <ion-card-content>
@@ -33,43 +101,19 @@
               <div class="profile-info">
                 <h2 class="profile-name">{{ fullName }}</h2>
                 <p class="profile-discoverable-name" *ngIf="!isViewingOtherUser">
-                  Discoverable to {{isTutorUser ? 'students': 'tutors'}} as <strong>{{ discoverableName }}</strong>
+                  {{ discoverablePrefixKey | translate }} <strong>{{ discoverableName }}</strong>
                 </p>
                 <p class="profile-email" *ngIf="isViewingOtherUser && isTutorUser">{{ displayUser?.email }}</p>
-                
-                <!-- Visibility Status for Tutors — always reserve space to prevent layout shift -->
-                <div class="visibility-status" *ngIf="!isViewingOtherUser && isTutorUser">
-                  <!-- Skeleton placeholder while loading -->
-                  <div class="visibility-skeleton" *ngIf="!visibilityLoaded">
-                    <ion-skeleton-text [animated]="true" style="width: 140px; height: 22px; border-radius: 6px;"></ion-skeleton-text>
-                  </div>
-                  <!-- Actual badge once loaded -->
-                  <ng-container *ngIf="visibilityLoaded">
-                    <div class="visibility-badge" [class.visible]="isTutorVisible" [class.hidden]="!isTutorVisible">
-                      <ion-icon [name]="isTutorVisible ? 'eye' : 'eye-off'"></ion-icon>
-                      <span>{{ isTutorVisible ? 'Visible to Students' : 'Hidden from Students' }}</span>
-                    </div>
-                    <p class="visibility-reason" *ngIf="!isTutorVisible && visibilityMissingItems.length > 0">
-                      {{ visibilityMissingText }}
-                    </p>
-                    <button class="feedback-action-btn" 
-                            *ngIf="pendingFeedbackCount > 0"
-                            (click)="openFeedbackModal()">
-                      <ion-icon name="clipboard-outline"></ion-icon>
-                      Leave Feedback ({{ pendingFeedbackCount }})
-                    </button>
-                  </ng-container>
-                </div>
                 
                 <!-- Picture actions when picture exists -->
                 <div class="picture-actions-inline" *ngIf="!isViewingOtherUser && hasCustomProfilePicture">
                   <ion-button fill="outline" size="small" (click)="triggerPictureUpload()">
                     <ion-icon slot="start" name="camera"></ion-icon>
-                    Change Photo
+                    {{ 'PROFILE_SCREEN.CHANGE_PICTURE' | translate }}
                   </ion-button>
                   <ion-button fill="outline" size="small" (click)="editPicture()">
                     <ion-icon slot="start" name="create-outline"></ion-icon>
-                    Edit
+                    {{ 'PROFILE_SCREEN.EDIT' | translate }}
                   </ion-button>
                 </div>
                 
@@ -77,7 +121,7 @@
                 <div class="picture-actions-inline" *ngIf="!isViewingOtherUser && !hasCustomProfilePicture">
                   <ion-button fill="outline" size="small" (click)="triggerPictureUpload()">
                     <ion-icon slot="start" name="camera"></ion-icon>
-                    Add Photo
+                    {{ 'PROFILE_SCREEN.ADD_PHOTO' | translate }}
                   </ion-button>
                 </div>
                 
@@ -96,7 +140,7 @@
                 <div class="languages-section" *ngIf="isStudentUser && displayUser?.languagesLearning?.length">
                   <ion-icon name="school-outline"></ion-icon>
                   <div class="languages-list">
-                    <span>Learning: </span>
+                    <span>{{ 'PROFILE_SCREEN.LEARNING_LANGUAGES_PREFIX' | translate }}</span>
                     <span *ngFor="let lang of displayUser?.languagesLearning; let last = last" class="language-item">
                       <span>{{ lang }}</span>
                       <app-flag-icon [language]="lang" [size]="16" cssClass="language-flag" style="margin-left: 4px;"></app-flag-icon>
@@ -118,31 +162,15 @@
           </ion-card-content>
         </ion-card>
 
-    <!-- Stripe Connect Setup Card (Tutors Only) -->
-    
-    <!-- Warning Banner for Non-Onboarded Tutors -->
-    <!-- Only show after loading is complete (hasPayoutSetup !== undefined) -->
-    <ion-card class="warning-banner" *ngIf="!isViewingOtherUser && isTutorUser && hasPayoutSetup === false" color="warning">
-      <ion-card-content>
-        <div class="warning-content">
-          <ion-icon name="warning" color="warning"></ion-icon>
-          <div class="warning-text">
-            <h3>⚠️ Payment Setup Required</h3>
-            <p><strong>Your profile is hidden from students</strong> until you connect your bank account. Complete the setup below to start accepting bookings.</p>
-          </div>
-        </div>
-      </ion-card-content>
-    </ion-card>
-    
-    <ion-card class="stripe-connect-card" *ngIf="!isViewingOtherUser && isTutorUser">
-      <ion-card-header>
-        <ion-card-title>{{ 'PROFILE_SCREEN.PAYOUTS' | translate }}</ion-card-title>
-      </ion-card-header>
+        </ng-container>
+
+    <ng-container *ngIf="!isViewingOtherUser && profileActiveSection === 'payments' && isTutorUser">
+    <ion-card class="stripe-connect-card">
       <ion-card-content [class.stripe-connected]="hasPayoutSetup === true">
         <!-- Loading State -->
         <div class="stripe-connect-content" *ngIf="hasPayoutSetup === undefined">
           <ion-spinner></ion-spinner>
-          <p style="margin-top: 12px; color: #666;">Loading payment status...</p>
+          <p style="margin-top: 12px; color: #666;">{{ 'PROFILE_SCREEN.PAYOUT_LOADING_PAYMENT_STATUS' | translate }}</p>
         </div>
         
         <!-- Not Connected State -->
@@ -151,8 +179,8 @@
             <ion-icon name="wallet-outline"></ion-icon>
           </div>
           <div class="stripe-text">
-            <h3>💰 {{ payoutSetupTitle }}</h3>
-            <p>{{ payoutSetupText }}</p>
+            <h3>💰 {{ payoutSetupTitleKey | translate }}</h3>
+            <p>{{ payoutSetupDescriptionKey | translate }}</p>
           </div>
           <ion-button 
             fill="clear"
@@ -160,7 +188,7 @@
             [disabled]="isLoadingStripeConnect"
             class="compact-button">
             <ion-spinner *ngIf="isLoadingStripeConnect" name="crescent" slot="start"></ion-spinner>
-            {{ isLoadingStripeConnect ? 'Loading...' : 'Set Up Payouts' }}
+            {{ isLoadingStripeConnect ? ('PROFILE_SCREEN.LOADING' | translate) : ('PROFILE_SCREEN.PAYOUT_SETUP_BUTTON' | translate) }}
           </ion-button>
         </div>
         
@@ -169,10 +197,13 @@
           <div class="success-header">
             <ion-icon name="checkmark-circle" color="success"></ion-icon>
             <div class="stripe-success-text">
-              <h4>✓ Payouts Enabled ({{ payoutProviderName }})</h4>
-              <p *ngIf="payoutProvider === 'stripe'">Earnings will be automatically transferred to your bank account</p>
-              <p *ngIf="payoutProvider === 'paypal'">Earnings will be automatically transferred to your PayPal account</p>
-              <p *ngIf="payoutProvider === 'manual'">Earnings will be processed manually by our team</p>
+              <h4 *ngIf="payoutProviderLabelKey">
+                ✓ {{ 'PROFILE_SCREEN.PAYOUTS_ENABLED' | translate }} ({{ payoutProviderLabelKey | translate }})
+              </h4>
+              <h4 *ngIf="!payoutProviderLabelKey">✓ {{ 'PROFILE_SCREEN.PAYOUTS_ENABLED' | translate }}</h4>
+              <p *ngIf="payoutProvider === 'stripe'">{{ 'PROFILE_SCREEN.PAYOUTS_EARNINGS_BANK' | translate }}</p>
+              <p *ngIf="payoutProvider === 'paypal'">{{ 'PROFILE_SCREEN.PAYOUTS_EARNINGS_PAYPAL' | translate }}</p>
+              <p *ngIf="payoutProvider === 'manual'">{{ 'PROFILE_SCREEN.PAYOUTS_EARNINGS_MANUAL' | translate }}</p>
             </div>
           </div>
           <ion-button 
@@ -182,7 +213,7 @@
             [disabled]="isLoadingStripeConnect"
             class="compact-button">
             <ion-icon name="create-outline" slot="start"></ion-icon>
-            {{ isLoadingStripeConnect ? 'Loading...' : 'Edit Payout Settings' }}
+            {{ isLoadingStripeConnect ? ('PROFILE_SCREEN.LOADING' | translate) : ('PROFILE_SCREEN.EDIT_PAYOUT_SETTINGS' | translate) }}
           </ion-button>
           <ion-button 
             *ngIf="payoutProvider !== 'stripe'"
@@ -191,17 +222,16 @@
             [disabled]="isLoadingStripeConnect"
             class="compact-button">
             <ion-icon name="create-outline" slot="start"></ion-icon>
-            {{ isLoadingStripeConnect ? 'Loading...' : 'Change Payout Method' }}
+            {{ isLoadingStripeConnect ? ('PROFILE_SCREEN.LOADING' | translate) : ('PROFILE_SCREEN.CHANGE_PAYOUT_METHOD' | translate) }}
           </ion-button>
         </div>
       </ion-card-content>
     </ion-card>
+    </ng-container>
 
     <!-- User Stats - Only show for own profile -->
-    <ion-card class="stats-card" *ngIf="!isViewingOtherUser">
-      <ion-card-header>
-        <ion-card-title>{{ isTutorUser ? ('PROFILE_SCREEN.TEACHING_STATS' | translate) : ('PROFILE_SCREEN.LEARNING_PROGRESS' | translate)   }}</ion-card-title>
-      </ion-card-header>
+    <ng-container *ngIf="!isViewingOtherUser && profileActiveSection === 'stats'">
+    <ion-card class="stats-card">
       <ion-card-content>
         <div class="stats-grid">
           <div class="stat-item">
@@ -234,33 +264,17 @@
           </div>
         </div>
         <ion-button fill="clear" size="small" class="view-progress-link" routerLink="/tabs/progress">
-          {{ isTutorUser ? 'View Coaching Performance' : 'View Detailed Progress' }}
+          {{ isTutorUser ? ('PROFILE_SCREEN.VIEW_COACHING_PERFORMANCE' | translate) : ('PROFILE_SCREEN.VIEW_DETAILED_PROGRESS' | translate) }}
           <ion-icon name="arrow-forward" slot="end"></ion-icon>
         </ion-button>
       </ion-card-content>
     </ion-card>
+    </ng-container>
 
     <!-- Tutor-specific sections (only for tutors) -->
-    <ng-container *ngIf="isTutorUser">
-      <!-- Pending Video Approval Banner -->
-      <ion-card class="warning-banner" *ngIf="!isViewingOtherUser && hasPendingVideo" color="warning">
-        <ion-card-content>
-          <div class="warning-content">
-            <ion-icon name="hourglass" color="warning"></ion-icon>
-            <div class="warning-text">
-              <h3>⏳ Video Pending Approval</h3>
-              <p>Your new introduction video is under review by our team. Your current video will remain visible to students until the new video is approved. This typically takes 24-48 hours.</p>
-            </div>
-          </div>
-        </ion-card-content>
-      </ion-card>
-      
+    <ng-container *ngIf="isTutorUser && (isViewingOtherUser || (!isViewingOtherUser && profileActiveSection === 'teaching'))">
       <!-- Tutor Video Section - Only show for own profile -->
       <ion-card class="tutor-video-card" id="intro-video-section" *ngIf="!isViewingOtherUser">
-        <ion-card-header>
-          <ion-card-title>{{'PROFILE_SCREEN.INTRO_VIDEO' | translate}}</ion-card-title>
-          <ion-card-subtitle>{{'PROFILE_SCREEN.INTRO_VIDEO_SUBTITLE' | translate}}</ion-card-subtitle>
-        </ion-card-header>
         <ion-card-content>
           <div class="video-section">
             <p class="video-description">
@@ -284,7 +298,7 @@
 
       <!-- About Section -->
       <ion-card class="content-card" *ngIf="displayUser?.bio">
-        <ion-card-header>
+        <ion-card-header *ngIf="isViewingOtherUser">
           <ion-card-title>{{'PROFILE_SCREEN.ABOUT_ME' | translate}}</ion-card-title>
         </ion-card-header>
         <ion-card-content>
@@ -294,7 +308,7 @@
 
       <!-- Experience Section -->
       <ion-card class="content-card" *ngIf="displayUser?.experience">
-        <ion-card-header>
+        <ion-card-header *ngIf="isViewingOtherUser">
           <ion-card-title>{{ 'PROFILE_SCREEN.EXPERIENCE' | translate }}</ion-card-title>
         </ion-card-header>
         <ion-card-content>
@@ -304,7 +318,7 @@
 
       <!-- Schedule Section -->
       <ion-card class="content-card" *ngIf="displayUser?.schedule">
-        <ion-card-header>
+        <ion-card-header *ngIf="isViewingOtherUser">
           <ion-card-title>{{ 'PROFILE_SCREEN.SCHEDULE' | translate }}</ion-card-title>
         </ion-card-header>
         <ion-card-content>
@@ -314,11 +328,11 @@
     </ng-container>
 
     <!-- Student-specific sections -->
-    <ng-container *ngIf="isStudentUser">
+    <ng-container *ngIf="isStudentUser && (isViewingOtherUser || (!isViewingOtherUser && profileActiveSection === 'learning'))">
       <!-- My Learning Goal Card -->
-      <ion-card class="learning-goal-card" *ngIf="!isViewingOtherUser && learningGoalDisplay">
-        <ion-card-header>
-          <ion-card-title>My Learning Goal</ion-card-title>
+      <ion-card class="learning-goal-card" *ngIf="!isViewingOtherUser && (learningGoalTypeKey || learningGoalCustomDesc) && !isUnframed">
+        <ion-card-header *ngIf="isViewingOtherUser">
+          <ion-card-title>{{ 'PROFILE.MY_LEARNING_GOAL' | translate }}</ion-card-title>
         </ion-card-header>
         <ion-card-content>
           <div class="lg-card-inner">
@@ -327,28 +341,164 @@
                 <ion-icon [name]="learningGoalIcon"></ion-icon>
               </div>
               <div class="lg-goal-info">
-                <span class="lg-goal-type">{{ learningGoalDisplay }}</span>
+                <span class="lg-goal-type" *ngIf="learningGoalTypeKey">{{ learningGoalTypeKey | translate }}</span>
+                <span class="lg-goal-type" *ngIf="!learningGoalTypeKey">{{ learningGoalCustomDesc }}</span>
                 <div class="lg-goal-meta">
-                  <span class="lg-goal-level" *ngIf="learningGoalLevelDisplay">{{ learningGoalLevelDisplay }}</span>
-                  <span class="lg-meta-dot" *ngIf="learningGoalLevelDisplay && learningGoalTimelineDisplay"></span>
-                  <span class="lg-goal-timeline" *ngIf="learningGoalTimelineDisplay">{{ learningGoalTimelineDisplay }}</span>
+                  <span class="lg-goal-level" *ngIf="learningGoalLevelKey">{{ learningGoalLevelKey | translate }}</span>
+                  <span class="lg-meta-dot" *ngIf="learningGoalLevelKey && learningGoalTimelineKey"></span>
+                  <span class="lg-goal-timeline" *ngIf="learningGoalTimelineKey && !learningGoalTimelineDate">{{ learningGoalTimelineKey | translate }}</span>
+                  <span class="lg-goal-timeline" *ngIf="learningGoalTimelineKey && learningGoalTimelineDate">{{ learningGoalTimelineKey | translate : { date: learningGoalTimelineDate } }}</span>
                 </div>
               </div>
             </div>
             <button class="lg-edit-link" (click)="openGoalEditor()" [disabled]="goalCooldownActive">
-              Edit
+              {{ 'PROFILE.EDIT' | translate }}
             </button>
           </div>
           <div class="lg-cooldown-notice" *ngIf="goalCooldownActive">
             <ion-icon name="time-outline"></ion-icon>
-            <span>You can update your goal again on {{ goalCooldownDateDisplay }}</span>
+            <span>{{ 'PROFILE.GOAL_COOLDOWN_NOTICE' | translate : { date: goalCooldownDateDisplay } }}</span>
           </div>
+
+          <!-- Plan lifecycle actions -->
+          <div class="lg-plan-actions" *ngIf="hasStructuredPlan && !isPaused">
+            <button class="lg-plan-action lg-plan-action--secondary" (click)="pauseMyPlan()">
+              <ion-icon name="pause-circle-outline"></ion-icon>
+              <span>Pause my plan</span>
+            </button>
+            <button class="lg-plan-action lg-plan-action--ghost" (click)="skipMyPlan()">
+              <ion-icon name="leaf-outline"></ion-icon>
+              <span>Learn at my own pace</span>
+            </button>
+          </div>
+          <div class="lg-plan-actions" *ngIf="isPaused">
+            <button class="lg-plan-action lg-plan-action--primary" (click)="resumeMyPlan()">
+              <ion-icon name="play-outline"></ion-icon>
+              <span>Resume my plan</span>
+            </button>
+            <button class="lg-plan-action lg-plan-action--ghost" (click)="skipMyPlan()">
+              <ion-icon name="leaf-outline"></ion-icon>
+              <span>Learn at my own pace</span>
+            </button>
+          </div>
+        </ion-card-content>
+      </ion-card>
+
+      <!-- Unframed Card — shown when student opted out of a structured plan -->
+      <ion-card class="learning-goal-card learning-goal-card--unframed" *ngIf="!isViewingOtherUser && isUnframed">
+        <ion-card-content>
+          <div class="lg-unframed-inner">
+            <div class="lg-unframed-icon">
+              <ion-icon name="leaf-outline"></ion-icon>
+            </div>
+            <h3 class="lg-unframed-title">Learning at your own pace</h3>
+            <p class="lg-unframed-body" *ngIf="planIsPremium">
+              Premium still works without a plan — AI analysis, your review
+              deck, and tutor briefings keep running on every lesson.
+            </p>
+            <p class="lg-unframed-body" *ngIf="!planIsPremium">
+              You'll keep growing with every lesson. Add a goal any time to
+              get a personalized roadmap.
+            </p>
+            <button class="lg-plan-action lg-plan-action--primary" (click)="openGoalEditor()">
+              <ion-icon name="rocket-outline"></ion-icon>
+              <span>Add a learning goal</span>
+            </button>
+          </div>
+        </ion-card-content>
+      </ion-card>
+
+      <!-- CEFR Estimate Card — milestone-gated. Only own profile. -->
+      <ion-card class="cefr-card" *ngIf="!isViewingOtherUser">
+        <ion-card-header *ngIf="isViewingOtherUser">
+          <ion-card-title>{{ 'JOURNEY.CEFR.PROFILE_HEADING' | translate }}</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <!-- Revealed state -->
+          <ng-container *ngIf="cefrRevealed">
+            <div class="cefr-card-row">
+              <div class="cefr-card-level-wrap">
+                <span class="cefr-card-level-eyebrow">{{ 'JOURNEY.CEFR.YOUR_LEVEL' | translate }}</span>
+                <span class="cefr-card-level">{{ cefrRevealed.level }}</span>
+              </div>
+              <div class="cefr-card-scale">
+                <span
+                  *ngFor="let s of cefrScale"
+                  class="cefr-card-scale-step"
+                  [class.cefr-card-scale-step--active]="s.active">
+                  {{ s.level }}
+                </span>
+              </div>
+            </div>
+            <p class="cefr-card-narrative">{{ cefrRevealed.narrative }}</p>
+            <div class="cefr-card-meta">
+              <span class="cefr-card-meta-item">
+                <strong>{{ 'JOURNEY.CEFR.BASED_ON' | translate }}:</strong>
+                {{ cefrSourcesLabel }}
+              </span>
+              <span class="cefr-card-meta-dot"></span>
+              <span class="cefr-card-meta-item">
+                <span class="cefr-card-agreement-dot"
+                  [class.cefr-card-agreement-dot--high]="cefrRevealed.agreement === 'high'"
+                  [class.cefr-card-agreement-dot--medium]="cefrRevealed.agreement === 'medium'"
+                  [class.cefr-card-agreement-dot--low]="cefrRevealed.agreement === 'low'">
+                </span>
+                {{ cefrAgreementShortLabel }}
+              </span>
+            </div>
+
+            <!-- Source divergence — only when AI vs tutor means differ ≥ 1 level -->
+            <div class="cefr-divergence" *ngIf="cefrRevealed.divergence">
+              <ion-icon name="alert-circle-outline" aria-hidden="true"></ion-icon>
+              <div class="cefr-divergence-text">
+                <strong>{{ 'JOURNEY.CEFR.DIVERGENCE_TITLE' | translate }}</strong>
+                <span>
+                  {{ 'JOURNEY.CEFR.DIVERGENCE_BODY' | translate:{
+                    aiLevel: cefrRevealed.divergence.aiLevel,
+                    tutorLevel: cefrRevealed.divergence.tutorLevel
+                  } }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Evolution timeline — last few reveals so the student sees their journey -->
+            <div class="cefr-evolution" *ngIf="cefrEvolution.length > 1">
+              <h4 class="cefr-evolution-title">{{ 'JOURNEY.CEFR.EVOLUTION_TITLE' | translate }}</h4>
+              <ol class="cefr-evolution-timeline">
+                <li
+                  *ngFor="let rev of cefrEvolution; let last = last"
+                  class="cefr-evolution-step"
+                  [class.cefr-evolution-step--current]="last">
+                  <span class="cefr-evolution-dot"
+                    [class.cefr-evolution-dot--up]="rev.deltaSign === 'up'"
+                    [class.cefr-evolution-dot--down]="rev.deltaSign === 'down'"
+                    [class.cefr-evolution-dot--flat]="rev.deltaSign === 'flat'">
+                  </span>
+                  <div class="cefr-evolution-meta">
+                    <span class="cefr-evolution-level">{{ rev.level }}</span>
+                    <span class="cefr-evolution-date">{{ rev.dateLabel }}</span>
+                  </div>
+                </li>
+              </ol>
+            </div>
+          </ng-container>
+
+          <!-- Not yet revealed -->
+          <ng-container *ngIf="!cefrRevealed">
+            <div class="cefr-card-empty">
+              <div class="cefr-card-empty-icon" aria-hidden="true">
+                <ion-icon name="hourglass-outline"></ion-icon>
+              </div>
+              <h4 class="cefr-card-empty-title">{{ 'JOURNEY.CEFR.PROFILE_NOT_YET_TITLE' | translate }}</h4>
+              <p class="cefr-card-empty-body">{{ 'JOURNEY.CEFR.PROFILE_NOT_YET_BODY' | translate }}</p>
+            </div>
+          </ng-container>
         </ion-card-content>
       </ion-card>
 
       <!-- About Section -->
       <ion-card class="content-card" *ngIf="displayUser?.bio">
-        <ion-card-header>
+        <ion-card-header *ngIf="isViewingOtherUser">
           <ion-card-title>{{ 'PROFILE_SCREEN.ABOUT_ME' | translate }}</ion-card-title>
         </ion-card-header>
         <ion-card-content>
@@ -358,7 +508,7 @@
 
       <!-- Experience Level -->
       <ion-card class="content-card" *ngIf="displayUser?.experienceLevel">
-        <ion-card-header>
+        <ion-card-header *ngIf="isViewingOtherUser">
           <ion-card-title>{{ 'PROFILE_SCREEN.EXPERIENCE_LEVEL' | translate }}</ion-card-title>
         </ion-card-header>
         <ion-card-content>
@@ -369,11 +519,8 @@
       </ion-card>
     </ng-container>
 
-    <!-- Settings - Only show for own profile -->
-    <ion-card class="settings-card" *ngIf="!isViewingOtherUser">
-      <ion-card-header>
-        <ion-card-title>{{ 'PROFILE_SCREEN.SETTINGS' | translate }}</ion-card-title>
-      </ion-card-header>
+    <ng-container *ngIf="!isViewingOtherUser && profileActiveSection === 'settings'">
+    <ion-card class="settings-card">
       <ion-card-content>
         <ion-list>
           <ion-item button routerLink="/review-deck" *ngIf="isStudentUser">
@@ -404,26 +551,26 @@
           <ion-item lines="none" class="time-format-item">
             <ion-icon name="time-outline" slot="start"></ion-icon>
             <ion-label>
-              <h3>Time Format</h3>
-              <p>{{ timeFormat === '12h' ? 'e.g. 2:30 PM' : 'e.g. 14:30' }}</p>
+              <h3>{{ 'PROFILE_SCREEN.TIME_FORMAT' | translate }}</h3>
+              <p *ngIf="timeFormat === '12h'">{{ 'PROFILE_SCREEN.TIME_FORMAT_HINT_12H' | translate }}</p>
+              <p *ngIf="timeFormat === '24h'">{{ 'PROFILE_SCREEN.TIME_FORMAT_HINT_24H' | translate }}</p>
             </ion-label>
             <div slot="end" class="time-format-toggle">
               <button [class.active]="timeFormat === '12h'" (click)="setTimeFormat('12h')">12h</button>
               <button [class.active]="timeFormat === '24h'" (click)="setTimeFormat('24h')">24h</button>
             </div>
           </ion-item>
-          <ion-item>
-            <ion-icon name="language" slot="start"></ion-icon>
-            <ion-label>{{ 'PROFILE_SCREEN.INTERFACE_LANGUAGE' | translate }}</ion-label>
-            <ion-select 
-              [(ngModel)]="selectedInterfaceLanguage" 
-              (ionChange)="onInterfaceLanguageChange($event)" 
-              interface="action-sheet"
-              slot="end">
-              <ion-select-option *ngFor="let lang of availableLanguages" [value]="lang.code">
-                {{ lang.flag }} {{ lang.nativeName | translate }}
-              </ion-select-option>
-            </ion-select>
+          <ion-item button (click)="openInterfaceLanguageModal()" class="timezone-item interface-language-item" lines="none">
+            <div class="timezone-content">
+              <div class="timezone-icon-wrapper">
+                <ion-icon name="language-outline"></ion-icon>
+              </div>
+              <div class="timezone-info">
+                <h3>{{ 'PROFILE_SCREEN.INTERFACE_LANGUAGE' | translate }}</h3>
+                <p class="timezone-value">{{ interfaceLanguageLabel }}</p>
+              </div>
+              <ion-icon name="chevron-forward" class="chevron-icon"></ion-icon>
+            </div>
           </ion-item>
           <ion-item button>
             <ion-icon name="moon" slot="start"></ion-icon>
@@ -432,19 +579,19 @@
           </ion-item>
           <ion-item button>
             <ion-icon name="notifications" slot="start"></ion-icon>
-            <ion-label>Lesson Reminders</ion-label>
+            <ion-label>{{ 'PROFILE_SCREEN.LESSON_REMINDERS' | translate }}</ion-label>
             <ion-toggle slot="end" [checked]="remindersEnabled" (ionChange)="toggleReminders($event)"></ion-toggle>
           </ion-item>
           <ion-item button *ngIf="isTutorUser">
             <ion-icon name="wallet" slot="start"></ion-icon>
-            <ion-label>Show Wallet Balance</ion-label>
+            <ion-label>{{ 'PROFILE_SCREEN.SHOW_WALLET_BALANCE' | translate }}</ion-label>
             <ion-toggle slot="end" [checked]="showWalletBalance" (ionChange)="toggleShowWalletBalance($event)"></ion-toggle>
           </ion-item>
           <ion-item button *ngIf="isStudentUser">
             <ion-icon name="analytics" slot="start"></ion-icon>
             <ion-label>
-              <h3>AI Lesson Review</h3>
-              <p>When enabled, AI analyzes key moments of your lessons to provide detailed grammar, vocabulary, and fluency feedback. When disabled, your tutor will assess your progress directly. Your CEFR level is tracked either way.</p>
+              <h3>{{ 'PROFILE_SCREEN.AI_LESSON_REVIEW' | translate }}</h3>
+              <p>{{ 'PROFILE_SCREEN.AI_LESSON_REVIEW_DESC' | translate }}</p>
             </ion-label>
             <ion-toggle slot="end" [checked]="aiAnalysisEnabled" (ionChange)="toggleAIAnalysis($event)"></ion-toggle>
           </ion-item>
@@ -460,11 +607,14 @@
     <ion-button 
       fill="clear"
       (click)="logout()"
-      class="logout-button"
-      *ngIf="!isViewingOtherUser">
+      class="logout-button">
       <ion-icon name="log-out" slot="start"></ion-icon>
       {{ 'PROFILE_SCREEN.SIGN_OUT' | translate }}
     </ion-button>
+    </ng-container>
+
+          </main>
+        </div>
   </div>
 
   <!-- Skeleton Loading State -->
@@ -511,7 +661,7 @@
     <ng-template>
       <ion-header>
         <ion-toolbar>
-          <ion-title>Introduction Video</ion-title>
+          <ion-title>{{ 'PROFILE_SCREEN.INTRO_VIDEO' | translate }}</ion-title>
           <ion-buttons slot="end">
             <ion-button (click)="isVideoPlayerModalOpen = false">
               <ion-icon name="close" slot="icon-only"></ion-icon>
@@ -575,7 +725,7 @@
             <span class="airbnb-month-label">{{ pendingFeedbackCount }} lesson{{ pendingFeedbackCount !== 1 ? 's' : '' }} need your feedback</span>
           </div>
           <div class="feedback-modal-icon">
-            <ion-icon name="clipboard-outline"></ion-icon>
+            <ion-icon name="warning-outline"></ion-icon>
           </div>
         </div>
       </ion-header>
@@ -609,4 +759,35 @@
       </ion-content>
     </ng-template>
   </ion-modal>
+
+  <!-- Tutor approval wizard modal (mobile: full-screen panel) -->
+  <div class="tutor-approval-inline-panel" *ngIf="isTutorApprovalWizardModalOpen && isMobileViewport">
+    <app-tutor-onboarding
+      [presentAsModal]="true"
+      [initialApprovalStepId]="tutorApprovalWizardModalInitialStepId"
+      (dismissed)="onTutorApprovalWizardDismissedFromChild()">
+    </app-tutor-onboarding>
+  </div>
+
+  <!-- Tutor approval wizard modal (desktop: backdrop + centered panel) -->
+  <div
+    class="cm-modal-backdrop"
+    *ngIf="isTutorApprovalWizardModalOpen && !isMobileViewport"
+    [class.cm-modal-backdrop--visible]="tutorApprovalWizardBackdropVisible"
+    [class.cm-modal-backdrop--deep]="tutorApprovalWizardBackdropVisible"
+    (click)="onTutorApprovalWizardBackdropClick($event)">
+    <div
+      class="cm-modal-container cm-modal--expanded"
+      [class.cm-modal--ready]="tutorApprovalWizardModalReady"
+      (click)="$event.stopPropagation()">
+      <div class="cm-modal-body cm-modal-body--tutor-approval">
+        <app-tutor-onboarding
+          *ngIf="isTutorApprovalWizardModalOpen"
+          [presentAsModal]="true"
+          [initialApprovalStepId]="tutorApprovalWizardModalInitialStepId"
+          (dismissed)="onTutorApprovalWizardDismissedFromChild()">
+        </app-tutor-onboarding>
+      </div>
+    </div>
+  </div>
 </ion-content>

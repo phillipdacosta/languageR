@@ -1,0 +1,144 @@
+// Desktop modal shell (Create Material) — shared by tab1 + tutor-calendar.
+// Tutor approval uses `.cm-modal--expanded` + `.cm-modal-backdrop--deep` in markup to match
+// the Create Material bundle/material wizard (near-full viewport), not the 860×580 gateway card.
+
+@keyframes cmModalEnter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.cm-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0);
+  backdrop-filter: blur(0px);
+  -webkit-backdrop-filter: blur(0px);
+  transition:
+    background 0.4s ease,
+    backdrop-filter 0.4s ease,
+    -webkit-backdrop-filter 0.4s ease;
+
+  &.cm-modal-backdrop--visible {
+    background: rgba(0, 0, 0, 0.32);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+
+  &.cm-modal-backdrop--deep {
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+}
+
+.cm-modal-container {
+  position: relative;
+  background: #fff;
+  border-radius: 24px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+
+  width: 860px;
+  max-width: 90vw;
+  height: min(580px, 80vh);
+  min-height: 420px;
+  max-height: 80vh;
+
+  animation: cmModalEnter 0.3s ease-out both;
+
+  &.cm-modal--ready {
+    transition:
+      width 0.45s cubic-bezier(0.32, 0.72, 0, 1),
+      max-width 0.45s cubic-bezier(0.32, 0.72, 0, 1),
+      height 0.45s cubic-bezier(0.32, 0.72, 0, 1),
+      min-height 0.45s cubic-bezier(0.32, 0.72, 0, 1),
+      max-height 0.45s cubic-bezier(0.32, 0.72, 0, 1),
+      border-radius 0.45s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  &.cm-modal--expanded {
+    width: calc(100vw - 120px);
+    max-width: calc(100vw - 120px);
+    height: calc(100vh - 48px);
+    min-height: calc(100vh - 48px);
+    max-height: calc(100vh - 48px);
+    border-radius: 20px;
+  }
+}
+
+// Tutor approval wizard body: fill the white card, scroll inside
+.cm-modal-body.cm-modal-body--tutor-approval {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+  position: relative;
+
+  app-tutor-onboarding {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+}
+
+// Mobile: same inline shell pattern as Create Material on home
+.tutor-approval-inline-panel {
+  max-width: 1400px;
+  margin: 0 auto;
+  height: 100%;
+  animation: cmInlineTutorApprovalReveal 0.48s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  @media (min-width: 769px) {
+    padding-top: 67px;
+  }
+
+  app-tutor-onboarding {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+  }
+}
+
+@keyframes cmInlineTutorApprovalReveal {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+html.ion-palette-dark {
+  .cm-modal-container {
+    background: #1c1c1e;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.55);
+  }
+
+  .cm-modal-body.cm-modal-body--tutor-approval {
+    background: #1c1c1e;
+  }
+}

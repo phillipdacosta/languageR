@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../services/auth.service';
@@ -12,6 +12,7 @@ import { filter, take, takeUntil } from 'rxjs/operators';
 import { LoadingController, AlertController, ModalController, ToastController, Platform } from '@ionic/angular';
 import { VideoUploadComponent } from '../components/video-upload/video-upload.component';
 import { TimezoneSelectorComponent } from '../components/timezone-selector/timezone-selector.component';
+import { InterfaceLanguageSelectModalComponent } from '../components/interface-language-select-modal/interface-language-select-modal.component';
 import { PayoutSelectionModalComponent } from '../components/payout-selection-modal/payout-selection-modal.component';
 import { ImageCropperComponent } from '../components/image-cropper/image-cropper.component';
 import { detectUserTimezone } from '../shared/timezone.constants';
@@ -19,7 +20,14 @@ import { getTimezoneLabel, formatTimeInTz, formatDateInTz } from '../shared/time
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { environment } from '../../environments/environment';
 import { TutorFeedbackService } from '../services/tutor-feedback.service';
-import { LearningPlanService, GOAL_TYPE_LABELS, LEVEL_LABELS } from '../services/learning-plan.service';
+import { LearningPlanService } from '../services/learning-plan.service';
+import { SetGoalComponent } from '../modals/set-goal/set-goal.component';
+import {
+  TutorGrowthService,
+  ProfileChecklistItem,
+  buildTutorProfileChecklist,
+  mapProfileChecklistIdToApprovalWizardStepId
+} from '../services/tutor-growth.service';
 
 @Component({
   selector: 'app-profile',
@@ -57,6 +65,8 @@ export class ProfilePage implements OnInit {
   // Language support
   availableLanguages: LanguageOption[] = [];
   selectedInterfaceLanguage: SupportedLanguage = 'en';
+  /** Shown on the settings row (flag + native name). */
+  interfaceLanguageLabel = '';
 
   // Stripe Connect (for tutors)
   stripeConnectOnboarded = false;
@@ -78,6 +88,21 @@ export class ProfilePage implements OnInit {
   pendingFeedbackCount: number = 0;
   pendingFeedbackItems: any[] = [];
 
+  // Shared tutor profile checklist (mirrors home / tutor-calendar). Drives the
+  // "outstanding items" banner so all three pages stay in sync from a single
+  // source of truth (tutorApprovalStatus$ → buildTutorProfileChecklist).
+  profileChecklist: ProfileChecklistItem[] = [];
+  profileChecklistDoneCount = 0;
+  profileChecklistTotal = 0;
+  hasProfileCriticalInsights = false;
+
+  /** Split layout (mirrors earnings): sidebar + main on wide; segment on narrow. */
+  profileActiveSection: 'personal' | 'payments' | 'stats' | 'teaching' | 'learning' | 'settings' =
+    'personal';
+  profilePanelTitleKey = 'PROFILE_SCREEN.PANEL_PERSONAL';
+  profilePanelSubKey: string | null = 'PROFILE_SCREEN.PANEL_PERSONAL_SUB';
+  profileNavItems: Array<{ id: string; labelKey: string; icon: string }> = [];
+
   // Earnings (for tutors)
   totalEarnings = 0;
   pendingEarnings = 0;
@@ -85,12 +110,44 @@ export class ProfilePage implements OnInit {
   loadingEarnings = false;
 
   // Learning Goal display (students only, precomputed for template)
-  learningGoalDisplay: string = '';
+  learningGoalTypeKey: string = '';
+  learningGoalCustomDesc: string = '';
   learningGoalIcon: string = 'rocket-outline';
-  learningGoalLevelDisplay: string = '';
-  learningGoalTimelineDisplay: string = '';
+  learningGoalLevelKey: string = '';
+  learningGoalTimelineKey: string = '';
+  learningGoalTimelineDate: string = '';
   goalCooldownActive: boolean = false;
   goalCooldownDateDisplay: string = '';
+
+  // Plan lifecycle controls (pause / resume / skip). Populated alongside the
+  // learning goal load. Drive the "Pause my plan" / "Resume my plan" / "Learn
+  // at my own pace" actions on the goal card.
+  planStatus: 'draft' | 'active' | 'completed' | 'paused' | 'mastery_mode' | 'unframed' | null = null;
+  planLanguage: string = '';
+  planIsPremium: boolean = false;
+  isUnframed: boolean = false;
+  isPaused: boolean = false;
+  hasStructuredPlan: boolean = false;
+
+  // CEFR estimate (Batch 12). Populated from the same /learning-plan/:lang
+  // endpoint we already call for the goal display.
+  cefrRevealed: import('../services/learning-plan.service').CefrReveal | null = null;
+  cefrScale: Array<{ level: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2'; active: boolean }> = [];
+  cefrSourcesLabel: string = '';
+  cefrAgreementShortLabel: string = '';
+  // Pre-computed evolution timeline for the template (no function calls).
+  cefrEvolution: Array<{
+    level: string;
+    dateLabel: string;
+    deltaSign: 'up' | 'down' | 'flat';
+  }> = [];
+
+  // Tutor approval wizard modal state (mirrors tab1 pattern)
+  isTutorApprovalWizardModalOpen = false;
+  tutorApprovalWizardModalInitialStepId: string | null = null;
+  tutorApprovalWizardBackdropVisible = false;
+  tutorApprovalWizardModalReady = false;
+  isMobileViewport = false;
 
   // Cached display properties (avoids function calls in template)
   displayUser: any = null;
@@ -98,12 +155,15 @@ export class ProfilePage implements OnInit {
   isStudentUser = false;
   fullName = '';
   discoverableName = '';
+  /** i18n key: PROFILE_SCREEN.DISCOVERABLE_TO_STUDENTS_PREFIX or _TUTORS_PREFIX */
+  discoverablePrefixKey = 'PROFILE_SCREEN.DISCOVERABLE_TO_STUDENTS_PREFIX';
   displayUserInitials = '';
   hasCustomProfilePicture = false;
   timezoneLabel = 'Auto-detected';
-  payoutSetupTitle = 'Connect Bank Account';
-  payoutSetupText = 'Set up payouts to receive earnings from your lessons.';
-  payoutProviderName = '';
+  payoutSetupTitleKey = 'PROFILE_SCREEN.PAYOUT_CONNECT_BANK_TITLE';
+  payoutSetupDescriptionKey = 'PROFILE_SCREEN.PAYOUT_SETUP_DESCRIPTION';
+  /** i18n key for provider label in "Payouts enabled (…)" */
+  payoutProviderLabelKey = '';
   formattedFeedbackItems: { item: any; date: string; time: string }[] = [];
 
   constructor(
@@ -123,12 +183,18 @@ export class ProfilePage implements OnInit {
     private platform: Platform,
     private websocketService: WebSocketService,
     private tutorFeedbackService: TutorFeedbackService,
-    private learningPlanService: LearningPlanService
+    private learningPlanService: LearningPlanService,
+    private tutorGrowthService: TutorGrowthService,
+    private cdr: ChangeDetectorRef
   ) {
     this.user$ = this.authService.user$;
     this.isAuthenticated$ = this.authService.isAuthenticated$;
     this.isDarkMode$ = this.themeService.darkMode$;
-    this.availableLanguages = this.languageService.supportedLanguages;
+    // TEMP: RTL languages (ar, he, fa) hidden from interface language picker
+    // this.availableLanguages = this.languageService.supportedLanguages;
+    this.availableLanguages = this.languageService.supportedLanguages.filter(
+      (l) => l.code !== 'ar' && l.code !== 'he' && l.code !== 'fa'
+    );
   }
 
   ngOnInit() {
@@ -155,6 +221,7 @@ export class ProfilePage implements OnInit {
         // to avoid confusion between payout providers
         this.stripeConnectOnboarded = status.stripeComplete;
         console.log(`💰 [PROFILE] Payment status from service: ${this.stripeConnectOnboarded}`);
+        this.rebuildProfileChecklistFromStatus(status);
       }
     });
     
@@ -248,7 +315,8 @@ export class ProfilePage implements OnInit {
       
       // Set current interface language
       this.selectedInterfaceLanguage = user?.interfaceLanguage || this.languageService.getCurrentLanguage();
-      
+      this.refreshInterfaceLanguageLabel();
+
       // Load tutor-specific data in parallel
       if (this.isTutorUser) {
         Promise.all([
@@ -516,6 +584,81 @@ export class ProfilePage implements OnInit {
     this.tutorFeedbackService.refreshPendingFeedback();
   }
 
+  /**
+   * Rebuild the shared tutor profile checklist from the latest approval status
+   * snapshot. Mirrors the home / tutor-calendar logic so the same banner data
+   * powers all three pages.
+   */
+  private rebuildProfileChecklistFromStatus(status: any): void {
+    if (!status) return;
+    if (!this.isTutorUser) return;
+
+    const checklist = buildTutorProfileChecklist({
+      hasCustomPhoto: status.photoComplete === true,
+      hasVideo: status.videoComplete === true,
+      videoApproved: status.videoApproved === true,
+      identityRequired: status.identityRequired !== false,
+      governmentIdUploaded: status.governmentIdUploaded === true,
+      identitySatisfied: status.identitySatisfied === true,
+      certificationsUploaded: status.certificationsUploaded === true,
+      certificationsApproved: status.certificationsApproved === true,
+      hasPayoutSetup: status.stripeComplete === true,
+      tosComplete: status.tosComplete === true,
+    });
+
+    this.profileChecklist = checklist;
+    this.profileChecklistDoneCount = checklist.filter(
+      (i) => i.done && !i.pendingReview
+    ).length;
+    this.profileChecklistTotal = checklist.length;
+    this.hasProfileCriticalInsights = this.profileChecklistDoneCount < checklist.length;
+    this.tutorGrowthService.profileChecklist = checklist;
+  }
+
+  /** Open the tutor approval flow at the step the user clicked. */
+  openProfileChecklistItem(item: ProfileChecklistItem): void {
+    if (!item) return;
+    this.isMobileViewport = this.platform.is('mobile') || this.platform.is('mobileweb');
+    this.tutorApprovalWizardModalInitialStepId = mapProfileChecklistIdToApprovalWizardStepId(item.id);
+    this.isTutorApprovalWizardModalOpen = true;
+    this.tutorApprovalWizardBackdropVisible = false;
+    this.tutorApprovalWizardModalReady = false;
+    this.cdr.markForCheck();
+    if (!this.isMobileViewport) {
+      document.body.classList.add('cm-desktop-modal-open');
+      requestAnimationFrame(() => {
+        this.tutorApprovalWizardBackdropVisible = true;
+        this.cdr.markForCheck();
+      });
+      setTimeout(() => {
+        this.tutorApprovalWizardModalReady = true;
+        this.cdr.markForCheck();
+      }, 350);
+    }
+  }
+
+  onTutorApprovalWizardBackdropClick(ev: MouseEvent): void {
+    if ((ev.target as HTMLElement).classList.contains('cm-modal-backdrop')) {
+      this.closeTutorApprovalWizardModal(true);
+    }
+  }
+
+  onTutorApprovalWizardDismissedFromChild(): void {
+    this.closeTutorApprovalWizardModal(true);
+  }
+
+  private closeTutorApprovalWizardModal(refreshUser: boolean): void {
+    this.isTutorApprovalWizardModalOpen = false;
+    this.tutorApprovalWizardModalInitialStepId = null;
+    this.tutorApprovalWizardBackdropVisible = false;
+    this.tutorApprovalWizardModalReady = false;
+    document.body.classList.remove('cm-desktop-modal-open');
+    this.cdr.markForCheck();
+    if (refreshUser) {
+      void firstValueFrom(this.userService.getCurrentUser(true));
+    }
+  }
+
   // Feedback modal state
   isFeedbackModalOpen = false;
 
@@ -624,7 +767,8 @@ export class ProfilePage implements OnInit {
   private computeLearningGoalDisplay(user: any) {
     const goal = user?.onboardingData?.learningGoal;
     if (!goal?.type) {
-      this.learningGoalDisplay = '';
+      this.learningGoalTypeKey = '';
+      this.learningGoalCustomDesc = '';
       return;
     }
 
@@ -637,25 +781,40 @@ export class ProfilePage implements OnInit {
       other: 'sparkles-outline'
     };
 
-    this.learningGoalDisplay = GOAL_TYPE_LABELS[goal.type] || goal.type;
-    if (goal.type === 'other' && goal.description) {
-      this.learningGoalDisplay = goal.description;
+    if (goal.type === 'other') {
+      this.learningGoalTypeKey = '';
+      this.learningGoalCustomDesc = goal.description || 'LEARNING_PLAN.GOAL_LABEL_OTHER';
+    } else {
+      this.learningGoalTypeKey = 'LEARNING_PLAN.GOAL_LABEL_' + goal.type.toUpperCase();
+      this.learningGoalCustomDesc = '';
     }
     this.learningGoalIcon = GOAL_ICONS[goal.type] || 'rocket-outline';
-    this.learningGoalLevelDisplay = goal.selfAssessedLevel
-      ? (LEVEL_LABELS[goal.selfAssessedLevel] || goal.selfAssessedLevel) : '';
+
+    const LEVEL_KEY_MAP: Record<string, string> = {
+      complete_beginner: 'ONBOARDING.STUDENT.LEVEL_OPTION_COMPLETE_BEGINNER',
+      some_basics: 'ONBOARDING.STUDENT.LEVEL_OPTION_SOME_BASICS',
+      simple_conversations: 'ONBOARDING.STUDENT.LEVEL_OPTION_SIMPLE_CONVERSATIONS',
+      intermediate: 'ONBOARDING.STUDENT.LEVEL_OPTION_INTERMEDIATE',
+      advanced: 'ONBOARDING.STUDENT.LEVEL_OPTION_ADVANCED'
+    };
+    this.learningGoalLevelKey = goal.selfAssessedLevel
+      ? (LEVEL_KEY_MAP[goal.selfAssessedLevel] || '') : '';
 
     if (goal.timeline === 'specific_date' && goal.targetDate) {
-      this.learningGoalTimelineDisplay = `By ${new Date(goal.targetDate).toLocaleDateString()}`;
+      this.learningGoalTimelineKey = 'ONBOARDING.STUDENT.PREVIEW_TIMELINE_BY_DATE';
+      this.learningGoalTimelineDate = new Date(goal.targetDate).toLocaleDateString();
     } else if (goal.timeline === 'few_months') {
-      this.learningGoalTimelineDisplay = 'Within a few months';
+      this.learningGoalTimelineKey = 'ONBOARDING.STUDENT.TIMELINE_OPTION_FEW_MONTHS';
+      this.learningGoalTimelineDate = '';
     } else {
-      this.learningGoalTimelineDisplay = 'No rush, steady progress';
+      this.learningGoalTimelineKey = 'ONBOARDING.STUDENT.TIMELINE_OPTION_NO_RUSH';
+      this.learningGoalTimelineDate = '';
     }
 
     // Check cooldown from any existing plan
     if (user?.onboardingData?.languages?.length) {
-      this.learningPlanService.getPlan(user.onboardingData.languages[0])
+      this.planLanguage = user.onboardingData.languages[0];
+      this.learningPlanService.getPlan(this.planLanguage)
         .pipe(take(1)).subscribe({
           next: (res: any) => {
             if (res.plan?.lastGoalChangedAt) {
@@ -669,16 +828,279 @@ export class ProfilePage implements OnInit {
                 });
               }
             }
+            this.applyPlanLifecycleFromPlan(res?.plan, res?.entitlements);
+            this.applyCefrFromPlan(res?.plan);
           },
           error: () => {}
         });
     }
   }
 
+  /**
+   * Update the cached plan lifecycle flags from a fresh /learning-plan/:lang
+   * response. Drives the visibility of the Pause / Resume / Skip actions and
+   * the tier-aware copy that surrounds them.
+   */
+  private applyPlanLifecycleFromPlan(plan: any, entitlements: any) {
+    this.planStatus = plan?.status || null;
+    this.planIsPremium = entitlements?.tier === 'premium';
+    this.isUnframed = plan?.status === 'unframed';
+    this.isPaused = plan?.status === 'paused';
+    this.hasStructuredPlan = !!plan
+      && plan.status !== 'unframed'
+      && plan.status !== 'paused'
+      && (plan.phases?.length || 0) > 0;
+  }
+
+  private applyCefrFromPlan(plan: any) {
+    if (!plan?.revealedCefrLevel) {
+      this.cefrRevealed = null;
+      this.cefrScale = [];
+      this.cefrEvolution = [];
+      return;
+    }
+    this.cefrRevealed = plan.revealedCefrLevel;
+    this.cefrScale = Array.isArray(plan.cefrScale) ? plan.cefrScale : [];
+    const ai = plan.revealedCefrLevel.sources?.ai || 0;
+    const tu = plan.revealedCefrLevel.sources?.tutor || 0;
+    this.cefrSourcesLabel = `${ai} AI · ${tu} ${tu === 1 ? 'tutor' : 'tutors'}`;
+    const a = plan.revealedCefrLevel.agreement;
+    this.cefrAgreementShortLabel =
+      a === 'high'   ? 'High agreement' :
+      a === 'medium' ? 'Medium agreement' :
+                       'Mixed signals';
+
+    // Build the evolution timeline. Show last 6 reveals so it's a quick
+    // scan, not an exhaustive log. Pre-compute everything (no template fns).
+    const CEFR_NUM: Record<string, number> = { A1: 1, A2: 2, B1: 3, B2: 4, C1: 5, C2: 6 };
+    const history: Array<any> = Array.isArray(plan.revealHistory) ? plan.revealHistory : [];
+    const recent = history.slice(-6);
+    this.cefrEvolution = recent.map((r, i) => {
+      const prev = i > 0 ? recent[i - 1] : null;
+      const delta = prev ? (CEFR_NUM[r.level] || 0) - (CEFR_NUM[prev.level] || 0) : 0;
+      const dateLabel = r.revealedAt
+        ? new Date(r.revealedAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+        : '';
+      const deltaSign: 'up' | 'down' | 'flat' = delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat';
+      return { level: r.level, dateLabel, deltaSign };
+    });
+  }
+
+  /**
+   * Confirm + pause an active plan. Tier-aware copy: premium students see
+   * the "premium-without-a-plan still works" reassurance; free students see
+   * the simpler "we'll save your progress" copy.
+   */
+  async pauseMyPlan() {
+    if (!this.planLanguage || !this.hasStructuredPlan) return;
+    const message = this.planIsPremium
+      ? `<p style="margin:0 0 12px;font-size:14px;line-height:1.55;color:#222;">
+           Pausing keeps everything as-is. Your phases, chapter history, and
+           CEFR estimate are preserved.
+         </p>
+         <p style="margin:0;font-size:13px;line-height:1.5;color:#555;">
+           <strong>Premium still works while paused.</strong> AI lesson
+           analysis, your personalized review deck, and tutor briefings keep
+           running. Resume any time.
+         </p>`
+      : `<p style="margin:0 0 12px;font-size:14px;line-height:1.55;color:#222;">
+           Pausing keeps everything as-is. Your phases and history are
+           preserved.
+         </p>
+         <p style="margin:0;font-size:13px;line-height:1.5;color:#555;">
+           Resume any time — we'll pick up right where you left off.
+         </p>`;
+    const alert = await this.alertController.create({
+      header: 'Pause my plan?',
+      message,
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Pause',
+          handler: async () => {
+            const loading = await this.loadingController.create({ message: 'Pausing...' });
+            await loading.present();
+            this.learningPlanService.pausePlan(this.planLanguage).pipe(take(1)).subscribe({
+              next: async (res: any) => {
+                await loading.dismiss();
+                if (res?.success && res.plan) {
+                  this.applyPlanLifecycleFromPlan(res.plan, res.entitlements);
+                  const toast = await this.toastController.create({
+                    message: 'Your plan is paused.',
+                    duration: 2500, position: 'top'
+                  });
+                  await toast.present();
+                }
+              },
+              error: async () => {
+                await loading.dismiss();
+                const toast = await this.toastController.create({
+                  message: 'Could not pause your plan. Please try again.',
+                  duration: 2500, color: 'danger', position: 'top'
+                });
+                await toast.present();
+              }
+            });
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  /** Resume a paused plan in place. */
+  async resumeMyPlan() {
+    if (!this.planLanguage || !this.isPaused) return;
+    const loading = await this.loadingController.create({ message: 'Resuming...' });
+    await loading.present();
+    this.learningPlanService.resumePlan(this.planLanguage).pipe(take(1)).subscribe({
+      next: async (res: any) => {
+        await loading.dismiss();
+        if (res?.success && res.plan) {
+          this.applyPlanLifecycleFromPlan(res.plan, res.entitlements);
+          const toast = await this.toastController.create({
+            message: 'Your plan is back. Welcome back.',
+            duration: 2500, position: 'top'
+          });
+          await toast.present();
+        }
+      },
+      error: async () => {
+        await loading.dismiss();
+        const toast = await this.toastController.create({
+          message: 'Could not resume your plan. Please try again.',
+          duration: 2500, color: 'danger', position: 'top'
+        });
+        await toast.present();
+      }
+    });
+  }
+
+  /**
+   * Switch to "learn at my own pace" mode. Different from pause: the active
+   * chapter's phases are cleared (history is preserved). Promote later by
+   * setting a new goal — see promoteUnframedPlan on the backend.
+   */
+  async skipMyPlan() {
+    if (!this.planLanguage) return;
+    const message = this.planIsPremium
+      ? `<p style="margin:0 0 12px;font-size:14px;line-height:1.55;color:#222;">
+           You'll learn without a structured roadmap. Past chapters and
+           your CEFR history are kept.
+         </p>
+         <p style="margin:0;font-size:13px;line-height:1.5;color:#555;">
+           <strong>Premium still works without a plan.</strong> AI analysis,
+           review deck, and tutor briefings keep running on every lesson.
+           Add a goal any time to get a fresh roadmap.
+         </p>`
+      : `<p style="margin:0 0 12px;font-size:14px;line-height:1.55;color:#222;">
+           You'll learn without a structured roadmap. Past lessons and
+           CEFR estimate are kept.
+         </p>
+         <p style="margin:0;font-size:13px;line-height:1.5;color:#555;">
+           Add a goal any time to get a roadmap built for you.
+         </p>`;
+    const alert = await this.alertController.create({
+      header: 'Learn at my own pace?',
+      message,
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Switch to free pace',
+          handler: async () => {
+            const loading = await this.loadingController.create({ message: 'Switching...' });
+            await loading.present();
+            this.learningPlanService.skipPlan(this.planLanguage).pipe(take(1)).subscribe({
+              next: async (res: any) => {
+                await loading.dismiss();
+                if (res?.success && res.plan) {
+                  this.applyPlanLifecycleFromPlan(res.plan, res.entitlements);
+                  const toast = await this.toastController.create({
+                    message: 'You\'re now learning at your own pace.',
+                    duration: 2500, position: 'top'
+                  });
+                  await toast.present();
+                }
+              },
+              error: async () => {
+                await loading.dismiss();
+                const toast = await this.toastController.create({
+                  message: 'Could not switch modes. Please try again.',
+                  duration: 2500, color: 'danger', position: 'top'
+                });
+                await toast.present();
+              }
+            });
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
   async openGoalEditor() {
+    // Unframed students don't have an active chapter to reset, so the
+    // "Change Learning Goal" alert (which talks about chapter restarts +
+    // a 7-day cooldown) is misleading here. For them the action is purely
+    // additive — they're moving from "no plan" to "first plan". We can't
+    // route them back through `/onboarding` either: the onboarding page's
+    // safety check bounces anyone with `onboardingCompleted=true` straight
+    // back out. Instead we open a focused goal-picker modal that calls
+    // `LearningPlanService.promoteUnframedPlan` directly — the journey
+    // widget then refreshes itself via `planUpdates$`.
+    if (this.isUnframed) {
+      if (!this.planLanguage) {
+        // Defensive fallback — shouldn't happen for a real unframed plan,
+        // but the onboarding fallback is still better than a silent fail.
+        this.router.navigate(['/onboarding']);
+        return;
+      }
+      const modal = await this.modalController.create({
+        component: SetGoalComponent,
+        cssClass: 'set-goal-modal',
+        backdropDismiss: true,
+        componentProps: {
+          language: this.planLanguage
+        }
+      });
+      await modal.present();
+      const result = await modal.onDidDismiss();
+      if (result?.data?.saved) {
+        // Re-pull the plan so the unframed card hides and the goal card
+        // replaces it without a page reload. The modal already
+        // broadcasts via planUpdates$, so the home journey widget will
+        // refresh independently — this call only refreshes the local
+        // profile-page lifecycle flags.
+        if (this.planLanguage) {
+          this.learningPlanService.getPlan(this.planLanguage)
+            .pipe(take(1)).subscribe({
+              next: (res: any) => this.applyPlanLifecycleFromPlan(res?.plan, res?.entitlements),
+              error: () => {}
+            });
+        }
+      }
+      return;
+    }
+
     const alert = await this.alertController.create({
       header: 'Change Learning Goal',
-      message: 'Changing your goal will regenerate your learning plan. You can only change it once every 7 days.',
+      cssClass: 'goal-change-alert',
+      message: `
+        <p style="margin:0 0 12px;font-size:14px;line-height:1.55;color:#222;">
+          <strong>What's kept</strong><br>
+          • Your current level and CEFR estimate<br>
+          • All past chapters and badges<br>
+          • Your tutors' notes about you
+        </p>
+        <p style="margin:0 0 12px;font-size:14px;line-height:1.55;color:#222;">
+          <strong>What changes</strong><br>
+          • Your current chapter restarts from <strong>Phase 1</strong> with new content matching your new goal<br>
+          • Phase progress in this chapter resets (your past lessons stay in your history)
+        </p>
+        <p style="margin:0;font-size:13px;line-height:1.5;color:#717171;">
+          You can change your goal once every <strong>7 days</strong>.
+        </p>
+      `,
       buttons: [
         { text: 'Cancel', role: 'cancel' },
         {
@@ -714,6 +1136,9 @@ export class ProfilePage implements OnInit {
 
     // Discoverable name
     this.discoverableName = this._computeDiscoverableName(user);
+    this.discoverablePrefixKey = this.isTutorUser
+      ? 'PROFILE_SCREEN.DISCOVERABLE_TO_STUDENTS_PREFIX'
+      : 'PROFILE_SCREEN.DISCOVERABLE_TO_TUTORS_PREFIX';
 
     // Initials
     if (user?.name) {
@@ -722,18 +1147,27 @@ export class ProfilePage implements OnInit {
       this.displayUserInitials = '?';
     }
 
-    // Custom picture
+    // Custom picture — must match the same logic used by user.service's
+    // tutor-approval `photoComplete` flag so the Personal Info CTA and the
+    // shared profile checklist never disagree about whether a custom photo
+    // is set.
     const pic = user?.picture;
-    this.hasCustomProfilePicture = !!pic && pic.includes('storage.googleapis.com') && pic.includes('profile-pictures');
+    const auth0Pic = (user as any)?.auth0Picture;
+    this.hasCustomProfilePicture = !!pic && (
+      pic.includes('storage.googleapis.com') ||
+      (!!auth0Pic && pic !== auth0Pic)
+    );
 
     // Timezone
     const tz = this.currentUser?.profile?.timezone;
     this.timezoneLabel = tz ? getTimezoneLabel(tz) : 'Auto-detected';
 
     // Payout display
-    this.payoutProviderName = this._computePayoutProviderName();
-    this.payoutSetupTitle = this._computePayoutSetupTitle();
-    this.payoutSetupText = this._computePayoutSetupText();
+    this.payoutProviderLabelKey = this._computePayoutProviderLabelKey();
+    this.payoutSetupTitleKey = this._computePayoutSetupTitleKey();
+    this.payoutSetupDescriptionKey = this._computePayoutSetupDescriptionKey();
+
+    this.refreshInterfaceLanguageLabel();
 
     // Formatted feedback items
     this.formattedFeedbackItems = this.pendingFeedbackItems.map(fb => ({
@@ -741,6 +1175,77 @@ export class ProfilePage implements OnInit {
       date: this.formatFeedbackDate(fb.lesson?.startTime),
       time: this.formatFeedbackTime(fb.lesson?.startTime)
     }));
+
+    this.syncProfileLayoutState();
+  }
+
+  /** Build sidebar nav + keep active section valid (own profile only). */
+  private syncProfileLayoutState(): void {
+    if (this.isViewingOtherUser) {
+      this.profileNavItems = [];
+      return;
+    }
+    const items: Array<{ id: string; labelKey: string; icon: string }> = [];
+    items.push({ id: 'personal', labelKey: 'PROFILE_SCREEN.NAV_PERSONAL', icon: 'person-outline' });
+    if (this.isTutorUser) {
+      items.push({ id: 'payments', labelKey: 'PROFILE_SCREEN.PAYOUTS', icon: 'wallet-outline' });
+    }
+    items.push({ id: 'stats', labelKey: 'PROFILE_SCREEN.NAV_STATS', icon: 'stats-chart-outline' });
+    if (this.isTutorUser) {
+      items.push({ id: 'teaching', labelKey: 'PROFILE_SCREEN.NAV_TEACHING', icon: 'videocam-outline' });
+    }
+    if (this.isStudentUser) {
+      items.push({ id: 'learning', labelKey: 'PROFILE_SCREEN.NAV_LEARNING', icon: 'school-outline' });
+    }
+    items.push({ id: 'settings', labelKey: 'PROFILE_SCREEN.SETTINGS', icon: 'settings-outline' });
+    this.profileNavItems = items;
+
+    const allowed = new Set(items.map((i) => i.id));
+    if (!allowed.has(this.profileActiveSection)) {
+      this.profileActiveSection = 'personal';
+    }
+    this.applyProfilePanelTitles();
+  }
+
+  onSelectProfileSection(section: string): void {
+    if (!section) return;
+    this.profileActiveSection = section as typeof this.profileActiveSection;
+    this.applyProfilePanelTitles();
+  }
+
+  onProfileSegmentChange(ev: CustomEvent): void {
+    const v = (ev as any)?.detail?.value as string | undefined;
+    if (v) {
+      this.onSelectProfileSection(v);
+    }
+  }
+
+  private applyProfilePanelTitles(): void {
+    switch (this.profileActiveSection) {
+      case 'payments':
+        this.profilePanelTitleKey = 'PROFILE_SCREEN.PANEL_PAYOUTS';
+        this.profilePanelSubKey = 'PROFILE_SCREEN.PANEL_PAYOUTS_SUB';
+        break;
+      case 'stats':
+        this.profilePanelTitleKey = 'PROFILE_SCREEN.PANEL_STATS';
+        this.profilePanelSubKey = 'PROFILE_SCREEN.PANEL_STATS_SUB';
+        break;
+      case 'teaching':
+        this.profilePanelTitleKey = 'PROFILE_SCREEN.PANEL_TEACHING';
+        this.profilePanelSubKey = 'PROFILE_SCREEN.PANEL_TEACHING_SUB';
+        break;
+      case 'learning':
+        this.profilePanelTitleKey = 'PROFILE_SCREEN.PANEL_LEARNING';
+        this.profilePanelSubKey = 'PROFILE_SCREEN.PANEL_LEARNING_SUB';
+        break;
+      case 'settings':
+        this.profilePanelTitleKey = 'PROFILE_SCREEN.PANEL_SETTINGS';
+        this.profilePanelSubKey = 'PROFILE_SCREEN.PANEL_SETTINGS_SUB';
+        break;
+      default:
+        this.profilePanelTitleKey = 'PROFILE_SCREEN.PANEL_PERSONAL';
+        this.profilePanelSubKey = 'PROFILE_SCREEN.PANEL_PERSONAL_SUB';
+    }
   }
 
   private _computeDiscoverableName(user: any): string {
@@ -761,25 +1266,37 @@ export class ProfilePage implements OnInit {
     return 'Unknown';
   }
 
-  private _computePayoutProviderName(): string {
+  private _computePayoutProviderLabelKey(): string {
     switch (this.payoutProvider) {
-      case 'stripe': return 'Stripe';
-      case 'paypal': return 'PayPal';
-      case 'manual': return 'Manual Transfer';
-      default: return '';
+      case 'stripe':
+        return 'PROFILE_SCREEN.PROVIDER_STRIPE';
+      case 'paypal':
+        return 'PROFILE_SCREEN.PROVIDER_PAYPAL';
+      case 'manual':
+        return 'PROFILE_SCREEN.PROVIDER_MANUAL';
+      default:
+        return '';
     }
   }
 
-  private _computePayoutSetupTitle(): string {
-    if (!this.payoutOptions) return 'Connect Bank Account';
-    if (this.payoutOptions.stripe?.available && this.payoutOptions.stripe?.recommended) return 'Connect Bank Account';
-    if (this.payoutOptions.paypal?.available && this.payoutOptions.paypal?.recommended) return 'Connect Account';
-    return 'Set Up Payouts';
+  private _computePayoutSetupTitleKey(): string {
+    if (!this.payoutOptions) return 'PROFILE_SCREEN.PAYOUT_CONNECT_BANK_TITLE';
+    if (this.payoutOptions.stripe?.available && this.payoutOptions.stripe?.recommended) {
+      return 'PROFILE_SCREEN.PAYOUT_CONNECT_BANK_TITLE';
+    }
+    if (this.payoutOptions.paypal?.available && this.payoutOptions.paypal?.recommended) {
+      return 'PROFILE_SCREEN.PAYOUT_CONNECT_PAYPAL_TITLE';
+    }
+    return 'PROFILE_SCREEN.PAYOUT_SETUP_PRIMARY_TITLE';
   }
 
-  private _computePayoutSetupText(): string {
-    if (!this.payoutOptions) return 'Set up payouts to receive earnings from your lessons.';
-    return 'Set up payouts to receive earnings from your lessons.';
+  private _computePayoutSetupDescriptionKey(): string {
+    if (!this.payoutOptions) return 'PROFILE_SCREEN.PAYOUT_SETUP_DESCRIPTION';
+    const { stripe, paypal, manual } = this.payoutOptions;
+    if (stripe?.available && stripe?.recommended) return 'PROFILE_SCREEN.PAYOUT_SETUP_DESCRIPTION';
+    if (paypal?.available && paypal?.recommended) return 'PROFILE_SCREEN.PAYOUT_SETUP_DESCRIPTION';
+    if (manual?.available) return 'PROFILE_SCREEN.PAYOUT_SETUP_DESCRIPTION_MANUAL';
+    return 'PROFILE_SCREEN.PAYOUT_SETUP_DESCRIPTION';
   }
 
   goBack(): void {
@@ -991,22 +1508,58 @@ export class ProfilePage implements OnInit {
   }
 
   /**
-   * Toggle AI analysis on/off
+   * Toggle AI analysis on/off.
+   *
+   * For premium students turning AI **off**, we surface a confirmation
+   * sheet first because most premium value (per-lesson plan updates,
+   * smarter focus, AI-rewritten plans) silently degrades when AI is off.
    */
   toggleAIAnalysis(event: any): void {
-    this.aiAnalysisEnabled = event.detail.checked;
-    
-    // Save to database
-    this.userService.updateAIAnalysisEnabled(this.aiAnalysisEnabled).subscribe({
+    const requested = !!event.detail.checked;
+    const previous = this.aiAnalysisEnabled;
+    if (requested === previous) return;
+
+    const isPremium = (this.currentUser as any)?.subscription?.tier === 'premium';
+    if (!requested && isPremium) {
+      // Optimistic revert in UI: keep showing ON until they confirm.
+      this.aiAnalysisEnabled = previous;
+      this.confirmPremiumAiOff(() => {
+        this.aiAnalysisEnabled = false;
+        this.persistAIAnalysisSetting(false);
+      });
+      return;
+    }
+
+    this.aiAnalysisEnabled = requested;
+    this.persistAIAnalysisSetting(requested);
+  }
+
+  /** Confirmation sheet when a Premium student is about to turn AI off. */
+  private async confirmPremiumAiOff(onConfirm: () => void): Promise<void> {
+    const alert = await this.alertController.create({
+      header: this.languageService.instant('PROFILE.AI_OFF_WARN_TITLE'),
+      message: this.languageService.instant('PROFILE.AI_OFF_WARN_BODY'),
+      buttons: [
+        { text: this.languageService.instant('COMMON.CANCEL'), role: 'cancel' },
+        {
+          text: this.languageService.instant('PROFILE.AI_OFF_WARN_CONFIRM'),
+          role: 'destructive',
+          handler: () => onConfirm()
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  private persistAIAnalysisSetting(enabled: boolean): void {
+    this.userService.updateAIAnalysisEnabled(enabled).subscribe({
       next: (user) => {
-        console.log('🤖 AI analysis setting saved to database:', this.aiAnalysisEnabled);
-        // Update the current user to ensure cache is updated
+        console.log('🤖 AI analysis setting saved to database:', enabled);
         this.currentUser = user;
       },
       error: (error) => {
         console.error('❌ Error saving AI analysis setting:', error);
-        // Revert on error
-        this.aiAnalysisEnabled = !this.aiAnalysisEnabled;
+        this.aiAnalysisEnabled = !enabled;
       }
     });
   }
@@ -1020,27 +1573,43 @@ export class ProfilePage implements OnInit {
     });
   }
 
+  private refreshInterfaceLanguageLabel(): void {
+    const opt = this.languageService.getLanguageOption(this.selectedInterfaceLanguage);
+    this.interfaceLanguageLabel = opt ? `${opt.flag} ${opt.nativeName}` : this.selectedInterfaceLanguage;
+  }
+
+  async openInterfaceLanguageModal(): Promise<void> {
+    const modal = await this.modalController.create({
+      component: InterfaceLanguageSelectModalComponent,
+      componentProps: {
+        languages: this.availableLanguages,
+        selectedCode: this.selectedInterfaceLanguage,
+      },
+      cssClass: 'modern-modal',
+      showBackdrop: true,
+      backdropDismiss: true,
+    });
+    await modal.present();
+    const { data } = await modal.onWillDismiss();
+    const next = data?.selectedLanguage as SupportedLanguage | undefined;
+    if (next && next !== this.selectedInterfaceLanguage) {
+      await this.applyInterfaceLanguage(next);
+    }
+  }
+
   /**
-   * Handle interface language change
+   * Apply interface language (from modal or legacy ion-select).
    */
-  async onInterfaceLanguageChange(event: any) {
-    const newLanguage = event.detail.value as SupportedLanguage;
+  async applyInterfaceLanguage(newLanguage: SupportedLanguage): Promise<void> {
     console.log('🌐 Interface language changed to:', newLanguage);
 
-    // Update UI immediately
     this.languageService.setLanguage(newLanguage);
+    this.selectedInterfaceLanguage = newLanguage;
+    this.refreshInterfaceLanguageLabel();
 
-    // Save to backend
     this.userService.updateInterfaceLanguage(newLanguage).subscribe({
-      next: async (updatedUser) => {
+      next: async () => {
         console.log('✅ Interface language saved to backend');
-        // const toast = await this.toastController.create({
-        //   message: this.languageService.instant('PROFILE.INTERFACE_LANGUAGE') + ' updated',
-        //   duration: 2000,
-        //   position: 'bottom',
-        //   color: 'success'
-        // });
-        // await toast.present();
       },
       error: async (error) => {
         console.error('❌ Error saving interface language:', error);
@@ -1122,9 +1691,11 @@ export class ProfilePage implements OnInit {
           if (this.currentUser) {
             this.currentUser.picture = uploadResult.imageUrl;
           }
-          
-          // Also reload from server to ensure consistency
-          this.userService.getCurrentUser().subscribe(user => {
+
+          // Force a server refresh so currentUser$ re-emits with the new
+          // picture URL — that drives updateTutorApprovalStatus which keeps
+          // the profile checklist + Payouts tab perfectly in sync.
+          this.userService.getCurrentUser(true).subscribe(user => {
             this.currentUser = user;
           });
 
@@ -1306,7 +1877,10 @@ export class ProfilePage implements OnInit {
       component: TimezoneSelectorComponent,
       componentProps: {
         selectedTimezone: this.currentUser?.profile?.timezone || detectUserTimezone()
-      }
+      },
+      cssClass: 'modern-modal',
+      showBackdrop: true,
+      backdropDismiss: true,
     });
 
     await modal.present();
@@ -1508,51 +2082,25 @@ export class ProfilePage implements OnInit {
       }
 
       console.log(`💰 [PROFILE] Final payout status: provider=${this.payoutProvider}, setup=${this.hasPayoutSetup}`);
+      this.syncDisplayUserProperties();
     } catch (error) {
       console.error('❌ Error checking payout status:', error);
     }
   }
 
-  // Get payout provider display name
+  // Legacy helpers (return i18n keys for translate pipe if used elsewhere)
   getPayoutProviderName(): string {
-    switch (this.payoutProvider) {
-      case 'stripe': return 'Stripe';
-      case 'paypal': return 'PayPal';
-      case 'manual': return 'Manual Transfer';
-      default: return '';
-    }
+    return this._computePayoutProviderLabelKey();
   }
 
   // Get payout setup instructions based on what's available
   getPayoutSetupText(): string {
-    if (!this.payoutOptions) return 'Set up payouts to receive earnings from your lessons.';
-    
-    const { stripe, paypal, manual } = this.payoutOptions;
-    
-    if (stripe.available && stripe.recommended) {
-      return 'Set up payouts to receive earnings from your lessons.';
-    } else if (paypal.available && paypal.recommended) {
-      return 'Set up payouts to receive earnings from your lessons.';
-    } else if (manual.available) {
-      return 'Set up manual payouts to receive earnings from your lessons.';
-    } else {
-      return 'Set up payouts to receive earnings from your lessons.';
-    }
+    return this._computePayoutSetupDescriptionKey();
   }
 
   // Get payout setup title
   getPayoutSetupTitle(): string {
-    if (!this.payoutOptions) return 'Connect Bank Account';
-    
-    const { stripe, paypal } = this.payoutOptions;
-    
-    if (stripe.available && stripe.recommended) {
-      return 'Connect Bank Account';
-    } else if (paypal.available && paypal.recommended) {
-      return 'Connect Account';
-    } else {
-      return 'Set Up Payouts';
-    }
+    return this._computePayoutSetupTitleKey();
   }
 
   // Start Stripe Connect onboarding OR open payout selection modal
@@ -1570,6 +2118,8 @@ export class ProfilePage implements OnInit {
 
         if (optionsResponse.success) {
           this.payoutOptions = optionsResponse.options;
+          this.payoutSetupTitleKey = this._computePayoutSetupTitleKey();
+          this.payoutSetupDescriptionKey = this._computePayoutSetupDescriptionKey();
         }
       }
 

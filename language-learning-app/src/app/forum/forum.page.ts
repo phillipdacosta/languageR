@@ -77,6 +77,10 @@ export class ForumPage implements OnInit, OnDestroy {
   /** Only students may create threads; tutors browse only. */
   canStartThread = false;
 
+  /** Empty-state copy keys — set from user role (no role calls in template). */
+  forumEmptyTitleKey = 'FORUM.EMPTY_TITLE';
+  forumEmptySubtitleKey = 'FORUM.EMPTY_SUBTITLE_FALLBACK';
+
   private readonly destroy$ = new Subject<void>();
 
   constructor(
@@ -92,6 +96,17 @@ export class ForumPage implements OnInit, OnDestroy {
       .subscribe(user => {
         this.currentUserId = user?.id || null;
         this.canStartThread = user?.userType === 'student';
+        const role = user?.userType;
+        if (role === 'tutor') {
+          this.forumEmptyTitleKey = 'FORUM.EMPTY_TITLE_TUTOR';
+          this.forumEmptySubtitleKey = 'FORUM.EMPTY_SUBTITLE_TUTOR';
+        } else if (role === 'student') {
+          this.forumEmptyTitleKey = 'FORUM.EMPTY_TITLE';
+          this.forumEmptySubtitleKey = 'FORUM.EMPTY_SUBTITLE';
+        } else {
+          this.forumEmptyTitleKey = 'FORUM.EMPTY_TITLE';
+          this.forumEmptySubtitleKey = 'FORUM.EMPTY_SUBTITLE_FALLBACK';
+        }
         this.refreshDisplayThreads();
         this.cdr.markForCheck();
       });

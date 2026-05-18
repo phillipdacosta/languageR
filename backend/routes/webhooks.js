@@ -16,7 +16,9 @@ const Payment = require('../models/Payment');
 const Notification = require('../models/Notification');
 const paypalService = require('../services/paypalService');
 const Lesson = require('../models/Lesson');
+const User = require('../models/User');
 const alertService = require('../services/alertService');
+const subscriptionService = require('../services/subscriptionService');
 
 // Webhook endpoint MUST use raw body, not JSON parsed body
 // This is handled in server.js with express.raw() for this specific route
@@ -69,8 +71,7 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
         break;
 
       case 'account.updated':
-        console.log(`🔔 [WEBHOOK] Stripe Connect account updated: ${event.data.object.id}`);
-        // Could update tutor onboarding status here if needed
+        await handleConnectAccountUpdated(event.data.object);
         break;
 
       case 'payment_intent.payment_failed':
@@ -93,6 +94,26 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
         await handleDisputeClosed(event.data.object);
         break;
 
+      // ── Premium subscription lifecycle ───────────────────────────────
+      case 'checkout.session.completed':
+        await handleCheckoutSessionCompleted(event.data.object);
+        break;
+
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated':
+        await subscriptionService.syncSubscriptionFromStripe(event.data.object);
+        break;
+
+      case 'customer.subscription.deleted':
+        await subscriptionService.syncSubscriptionFromStripe(event.data.object);
+        break;
+
+      case 'invoice.payment_failed':
+        // Stripe will also fire customer.subscription.updated with status=past_due,
+        // but we log here for observability.
+        console.warn(`⚠️  [WEBHOOK] Invoice payment failed for customer ${event.data.object.customer}`);
+        break;
+
       default:
         console.log(`ℹ️  [WEBHOOK] Unhandled event type: ${event.type}`);
     }
@@ -103,6 +124,68 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
     res.status(500).send('Webhook handler error');
   }
 });
+
+/**
+ * Handle Stripe Connect account.updated event.
+ * Keeps `stripeConnectOnboarded`, `stripePayoutsEnabled`, and
+ * `stripeIdentityVerified` in sync so the tutor approval wizard can
+ * conditionally hide the manual government-ID step.
+ */
+async function handleConnectAccountUpdated(account) {
+  console.log(`🔔 [WEBHOOK] account.updated: ${account.id}`);
+  try {
+    const user = await User.findOne({ stripeConnectAccountId: account.id });
+    if (!user) {
+      console.warn(`⚠️  [WEBHOOK] No user found for Stripe Connect account ${account.id}`);
+      return;
+    }
+
+    const onboarded = !!(account.charges_enabled && account.payouts_enabled);
+    const requirementsDue = account.requirements?.currently_due?.length || 0;
+    const pastDue = account.requirements?.past_due?.length || 0;
+    const eventuallyDue = account.requirements?.eventually_due?.length || 0;
+    const identityVerified =
+      onboarded && requirementsDue === 0 && pastDue === 0 && eventuallyDue === 0;
+    const disabledReason = account.requirements?.disabled_reason || null;
+    const accountDisabled = !!(
+      disabledReason ||
+      pastDue > 0 ||
+      (account.details_submitted && account.charges_enabled === false)
+    );
+
+    let changed = false;
+
+    if (onboarded && !user.stripeConnectOnboarded) {
+      user.stripeConnectOnboarded = true;
+      user.stripeConnectOnboardedAt = user.stripeConnectOnboardedAt || new Date();
+      if (user.payoutProvider === 'none') {
+        user.payoutProvider = 'stripe';
+      }
+      changed = true;
+      console.log(`✅ [WEBHOOK] Tutor ${user.email} Stripe Connect onboarded via webhook`);
+    }
+    if (user.stripePayoutsEnabled !== !!account.payouts_enabled) {
+      user.stripePayoutsEnabled = !!account.payouts_enabled;
+      changed = true;
+    }
+    if (user.stripeIdentityVerified !== identityVerified) {
+      user.stripeIdentityVerified = identityVerified;
+      changed = true;
+      console.log(`🔄 [WEBHOOK] stripeIdentityVerified=${identityVerified} for ${user.email}`);
+    }
+    if (user.stripeAccountDisabled !== accountDisabled) {
+      user.stripeAccountDisabled = accountDisabled;
+      changed = true;
+      console.log(`🔄 [WEBHOOK] stripeAccountDisabled=${accountDisabled} (${disabledReason || 'pastDue/charges'}) for ${user.email}`);
+    }
+
+    if (changed) {
+      await user.save();
+    }
+  } catch (err) {
+    console.error('❌ [WEBHOOK] handleConnectAccountUpdated failed:', err);
+  }
+}
 
 /**
  * Handle payout.paid event
@@ -566,6 +649,30 @@ async function handleTransferReversed(transfer) {
 async function handleDisputeClosed(dispute) {
   console.log(`✅ [WEBHOOK] Dispute closed: ${dispute.id} - Status: ${dispute.status}`);
   // Could update existing alert or create resolution note
+}
+
+/**
+ * Handle checkout.session.completed
+ * Fires once when a brand-new subscription is created via Stripe Checkout.
+ * We expand the related subscription and sync it to the local user record.
+ */
+async function handleCheckoutSessionCompleted(session) {
+  if (session.mode !== 'subscription' || !session.subscription) {
+    return;
+  }
+  console.log(`🔔 [WEBHOOK] Checkout completed for subscription ${session.subscription}`);
+  try {
+    const fullSubscription = await stripe.subscriptions.retrieve(session.subscription);
+    if (!fullSubscription.metadata?.userId && session.client_reference_id) {
+      // Stripe sometimes drops the subscription_data.metadata when the customer
+      // already exists. Backfill so syncSubscriptionFromStripe can match.
+      fullSubscription.metadata = fullSubscription.metadata || {};
+      fullSubscription.metadata.userId = session.client_reference_id;
+    }
+    await subscriptionService.syncSubscriptionFromStripe(fullSubscription);
+  } catch (err) {
+    console.error('❌ [WEBHOOK] checkout.session.completed sync failed:', err);
+  }
 }
 
 module.exports = router;

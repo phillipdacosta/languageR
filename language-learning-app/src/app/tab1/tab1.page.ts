@@ -24,6 +24,7 @@ import { RescheduleLessonModalComponent } from '../components/reschedule-lesson-
 import { RescheduleProposalModalComponent } from '../components/reschedule-proposal-modal/reschedule-proposal-modal.component';
 import { LessonSummaryComponent } from '../modals/lesson-summary/lesson-summary.component';
 import { formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
+import { translateLangToDatetimeLocale } from '../shared/datetime-locale.helper';
 import { NotesModalComponent } from '../components/notes-modal/notes-modal.component';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
 import { TutorNoteModalComponent } from '../components/tutor-note-modal/tutor-note-modal.component';
@@ -35,10 +36,14 @@ import { environment } from '../../environments/environment';
 import { SmartIslandService, DynamicCard } from '../services/smart-island.service';
 import { TranslateService } from '@ngx-translate/core';
 import { LearningPlanService, LearningPlan } from '../services/learning-plan.service';
+import { TranscriptionService, LessonAnalysis } from '../services/transcription.service';
+import { GamificationService, Badge as GamBadge } from '../services/gamification.service';
+import { ReviewDeckService } from '../services/review-deck.service';
 import { AnalysisTranslationService } from '../services/analysis-translation.service';
 import { HomeInlineToolbarService } from '../services/home-inline-toolbar.service';
+import { EarningsPage } from '../earnings/earnings.page';
 import { MaterialService, TutorMaterial } from '../services/material.service';
-import { TutorGrowthService, GrowthInsight, GrowthContext } from '../services/tutor-growth.service';
+import { TutorGrowthService, GrowthInsight, GrowthContext, ProfileChecklistItem, mapProfileChecklistIdToApprovalWizardStepId, buildTutorProfileChecklist } from '../services/tutor-growth.service';
 import { ScheduleClassPage } from '../tutor-calendar/schedule-class/schedule-class.page';
 import { MOCK_CLASS_ATTENDEES_PREVIEW } from '../constants/mock-class-attendees-preview';
 
@@ -352,9 +357,26 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   showOnboardingBanner = false;
   profileHiddenNoVideo = false;
   tutorOnboardingStatus: any = null;
+  /** Latest snapshot from `userService.tutorApprovalStatus$` — used by the
+   *  profile-checklist builder so we can hide the manual identity step when
+   *  Stripe Connect handles KYC for this tutor. */
+  private tutorApprovalStatusSnapshot: any = null;
   hasCustomProfilePhoto = false; // True only if user has uploaded a custom photo (not Google photo)
   isTutorUser = false; // Use property instead of function call in template
   isStudentUser = false; // Use property instead of function call in template
+
+  // Premium pre-lesson warm-up (Batch 9). Populated only when the next
+  // lesson is in the next 30 minutes. Free students never see this card.
+  warmup: null | {
+    lessonId: string;
+    startsAt: string;
+    focus: string;
+    quiz: any;
+    personalizedHeader: string;
+  } = null;
+
+  // Live count of spaced-repetition cards due — drives the Practice quick action badge.
+  practiceDueCount = 0;
 
   // Learning Plan precomputed properties (no functions in template)
   learningPlanData: any = null;
@@ -364,6 +386,55 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   learningPlanSummary = '';
   learningPlanNextFocus = '';
   learningPlanPhaseDots: boolean[] = [];
+
+  // Journey widget bindings (replaces blank student earnings slot on home)
+  journeyWidgetState: 'loading' | 'empty-goal' | 'draft' | 'active' | 'completed' | 'unframed' | 'paused' = 'loading';
+  journeyPhaseLabels: string[] = [];
+  journeyCurrentPhaseIndex = 0;
+  journeyPhaseTitle = '';
+  journeySummary = '';
+  journeyNextLessonFocus = '';
+  journeyGoalLabel = '';
+  journeyLanguageLabel = '';
+  journeyMasteryAverage: number | null = null;
+  journeyLessonsCompleted = 0;
+  journeyEstimatedLessons = 5;
+  // Server-attached qualitative state (see masteryService.phaseProgressState).
+  // Replaces the old "Mastery 75%" exam-style copy. See voice-and-framing.md.
+  journeyProgressState: 'getting_started' | 'building' | 'progressing' | 'ready_soon' | 'wrapping_up' | null = null;
+  journeyProgressStateLabel = '';
+  journeyWindowProgressPercent: number | null = null;
+  journeyIsPremium = false;
+  // True when the active phase is a recovery (bridge) phase added after
+  // a chapter demotion. Drives the soft "Steady" chip in the home journey
+  // widget header — see journey-widget.component.html.
+  journeyIsRecovery = false;
+
+  // Inputs that power the redesigned paused-state card. We pre-compute
+  // these on the page rather than in the widget so the template stays
+  // function-call-free.
+  journeyCefrLevel = '';
+  journeyChaptersCompletedCount = 0;
+  journeyTotalLessonsCompleted = 0;
+  journeyPausedSinceLabel = '';
+  journeyChapterBadges: Array<{ level: string; label: string }> = [];
+
+  /** Earned gamification badges (consistency streaks, lesson milestones,
+   *  level achievements, skill badges) shown on the paused / unframed
+   *  journey widget. Sourced from `GamificationService` so the home
+   *  card and the Progress page (`tab3`) agree on what's earned. */
+  journeyEarnedBadges: Array<{ id: string; icon: string; color: string; name: string }> = [];
+
+  // Soft "from your last lesson" reflection — only shown on
+  // paused / unframed cards. Populated from the latest LessonAnalysis
+  // when one exists; left empty otherwise (template hides the pill).
+  journeyLatestLessonHighlight = '';
+  journeyLatestLessonTutor = '';
+  journeyLatestLessonAgo = '';
+  /** Avoid re-fetching the same student's latest analysis / badge
+   *  inputs on every plan update. Cleared when the student changes. */
+  private _latestHighlightFetchedForUserId: string | null = null;
+  private _earnedBadgesFetchedForUserId: string | null = null;
 
   homePracticeMaterials: any[] = [];
   
@@ -497,7 +568,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   /** True when the growth ticker contains profile-critical items (should override next lesson display). */
   hasProfileCriticalInsights = false;
   /** Profile completion checklist for inline welcome display. */
-  profileChecklist: { id: string; label: string; done: boolean; route: string }[] = [];
+  profileChecklist: ProfileChecklistItem[] = [];
   profileChecklistDoneCount = 0;
   profileChecklistTotal = 0;
   /** Single-item row; `epoch` bumps every visible change so trackBy never reuses a cached view (restarts CSS fade). */
@@ -559,11 +630,27 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     private translateService: TranslateService,
     private activatedRoute: ActivatedRoute,
     private learningPlanService: LearningPlanService,
+    private transcriptionService: TranscriptionService,
+    private gamification: GamificationService,
+    private reviewDeckService: ReviewDeckService,
     private analysisTranslation: AnalysisTranslationService,
     private homeInlineToolbar: HomeInlineToolbarService,
     private materialService: MaterialService,
     private tutorGrowthService: TutorGrowthService
   ) {
+    // Cache the latest tutor approval status. Rebuilds the profile checklist
+    // SYNCHRONOUSLY from the snapshot so any wizard step (TOS accepted,
+    // payout connected, doc uploaded, admin approval, …) reflects in the
+    // home banner without a refresh and without re-issuing network calls.
+    this.userService.tutorApprovalStatus$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(status => {
+        this.tutorApprovalStatusSnapshot = status;
+        if (this.isTutorUser && status) {
+          this.rebuildProfileChecklistFromStatus(status);
+        }
+      });
+
     // Subscribe to currentUser$ observable to get updates automatically
     // Use asyncScheduler to prevent synchronous emission from blocking
     this.userService.currentUser$
@@ -576,6 +663,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         this.currentUser = user;
         this.isTutorUser = this.isTutor(); // Set property once
         this.isStudentUser = this.isStudent(); // Set property once
+        if (this.isStudentUser) {
+          this.loadPracticeDueCount();
+        }
         
         // Update showWalletBalance immediately when user profile changes
         // This ensures instant update when toggled in profile page
@@ -659,6 +749,28 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       this.unreadMessages = count;
       this.cdr.markForCheck();
     });
+
+    // Keep the journey widget in sync with plan lifecycle changes that
+    // happen on other pages (pause / resume / skip / promote on Profile,
+    // Post-Lesson, etc.) so the home card updates without a refresh.
+    this.learningPlanService.planUpdates$.pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(update => {
+      const home = this.journeyLanguageLabel || this.currentUser?.onboardingData?.languages?.[0];
+      if (!home || home !== update.language) return;
+      this.applyLearningPlan(update.plan, update.entitlements || null);
+
+      // Paused / unframed plans have no roadmap to view — make sure the
+      // inline Journey panel isn't sitting on top of home (and isn't
+      // pre-mounted in the background either). Resuming will re-trigger
+      // the preload via applyLearningPlan's existing setTimeout.
+      const status = update.plan?.status;
+      if (status === 'paused' || status === 'unframed') {
+        if (this.showJourneyView) this.showJourneyView = false;
+        this.journeyPreloaded = false;
+        this.cdr.detectChanges();
+      }
+    });
     
     // Subscribe to Smart Island dynamic card updates
     this.smartIslandService.currentCard$.pipe(
@@ -738,6 +850,13 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       }
     });
 
+    this.translateService.onLangChange.pipe(takeUntil(this.destroy$)).subscribe(() => {
+      this.updateWeeklyEarningsLabels();
+      this.invalidateNextLessonCache();
+      this.refreshPreComputedTemplateValues();
+      this.cdr.markForCheck();
+    });
+
     this.homeInlineToolbar.onOpenEarningsRequest$
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
@@ -748,6 +867,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           this.ionContent?.scrollToTop(0);
         }
       });
+
+    this.activatedRoute.queryParams
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => this.restoreEarningsAfterLessonReturn());
 
     this.loadUserStats();
     
@@ -827,6 +950,15 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         if (this.isTutorBookingModalOpen) {
           this.closeTutorBookingModal();
           this.cdr.markForCheck();
+        }
+        // Close the earnings inline panel silently on any router navigation
+        // (tab switch, back gesture, deep link, etc.) so we never return to
+        // a home view that still shows the earnings surface.
+        if (this.showEarningsView) {
+          this.showEarningsView = false;
+          this.returningFromEarnings = false;
+          this.returningFromInline = false;
+          this.cdr.detectChanges();
         }
       }
       if (event instanceof NavigationEnd) {
@@ -1510,6 +1642,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     }
     this.refreshPrevNotesTranslationState();
 
+    // Refresh the Practice badge so returning from the review deck
+    // reflects newly mastered cards immediately.
+    if (this.isStudentUser) {
+      this.loadPracticeDueCount();
+    }
+
     if (this.showCreateMaterialView && this.createMaterialRef?.restoreSection) {
       this.createMaterialRef.restoreSection();
     }
@@ -1536,6 +1674,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         this.ionContent?.scrollToTop(0);
       }
     }
+
+    this.restoreEarningsAfterLessonReturn();
     
     // Check if we need to force reload (e.g., after booking a lesson)
     const navigation = this.router.getCurrentNavigation();
@@ -1855,6 +1995,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     }
     if (this.showForumView && !toMaterial) {
       this.closeForumModal(false);
+    }
+    if (this.showEarningsView) {
+      this.showEarningsView = false;
+      this.returningFromEarnings = false;
+      this.returningFromInline = false;
+      this.cdr.detectChanges();
     }
   }
 
@@ -2384,25 +2530,881 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   }
   
   loadLearningPlan(language: string) {
+    this.journeyLanguageLabel = language || '';
     this.learningPlanService.getPlan(language).pipe(take(1)).subscribe({
-      next: (res) => {
+      next: (res: any) => {
         if (res.success && res.plan) {
-          const plan = res.plan;
-          this.learningPlanData = plan;
-          this.learningPlanCurrentPhase = plan.currentPhaseIndex + 1;
-          this.learningPlanTotalPhases = plan.phases.length;
-          const activePhase = plan.phases[plan.currentPhaseIndex];
-          this.learningPlanPhaseTitle = activePhase?.title || '';
-          this.learningPlanSummary = plan.studentSummary || '';
-          this.learningPlanNextFocus = plan.nextLessonFocus || '';
-          this.learningPlanPhaseDots = plan.phases.map(
-            (p: any) => p.status === 'completed' || p.status === 'active'
-          );
-          this.cdr.detectChanges();
+          this.applyLearningPlan(res.plan, res.entitlements || null);
+        } else {
+          this.applyLearningPlanMissing();
         }
       },
-      error: () => {}
+      error: (err) => {
+        if (err?.status === 404) {
+          this.applyLearningPlanMissing();
+        } else {
+          this.journeyWidgetState = 'empty-goal';
+          this.cdr.detectChanges();
+        }
+      }
     });
+  }
+
+  private applyLearningPlan(plan: any, entitlements: any = null) {
+    this.learningPlanData = plan;
+    this.journeyIsPremium = entitlements?.tier === 'premium';
+    this.learningPlanCurrentPhase = (plan.currentPhaseIndex || 0) + 1;
+    this.learningPlanTotalPhases = (plan.phases || []).length;
+    const activePhase = plan.phases?.[plan.currentPhaseIndex || 0];
+    this.learningPlanPhaseTitle = activePhase?.title || '';
+    this.learningPlanSummary = plan.studentSummary || '';
+    this.learningPlanNextFocus = plan.nextLessonFocus || '';
+    this.learningPlanPhaseDots = (plan.phases || []).map(
+      (p: any) => p.status === 'completed' || p.status === 'active'
+    );
+
+    this.journeyPhaseLabels = (plan.phases || []).map((p: any) => p.title || '');
+    this.journeyCurrentPhaseIndex = plan.currentPhaseIndex || 0;
+    this.journeyPhaseTitle = activePhase?.title || '';
+    this.journeySummary = plan.studentSummary || '';
+    this.journeyNextLessonFocus = plan.nextLessonFocus || '';
+    this.journeyGoalLabel = plan.goal?.description
+      || this.translateService.instant('LEARNING_PLAN.GOAL_LABEL_' + (plan.goal?.type || 'OTHER').toUpperCase())
+      || '';
+    this.journeyMasteryAverage = activePhase?.masteryAverage ?? null;
+    this.journeyLessonsCompleted = activePhase?.lessonsCompleted || 0;
+    this.journeyEstimatedLessons = activePhase?.estimatedLessons || 5;
+    this.journeyIsRecovery = !!(activePhase as any)?._isRecovery;
+    this.journeyProgressState = (activePhase as any)?.progressState || null;
+    this.journeyWindowProgressPercent =
+      typeof (activePhase as any)?.windowProgressPercent === 'number'
+        ? (activePhase as any).windowProgressPercent
+        : null;
+    this.journeyProgressStateLabel = this.journeyProgressState
+      ? this.translateService.instant(`JOURNEY.PROGRESS_STATE.${this.journeyProgressState.toUpperCase()}`)
+      : '';
+
+    if (plan.status === 'completed') {
+      this.journeyWidgetState = 'completed';
+    } else if (plan.status === 'draft') {
+      this.journeyWidgetState = 'draft';
+    } else if (plan.status === 'unframed') {
+      this.journeyWidgetState = 'unframed';
+    } else if (plan.status === 'paused') {
+      this.journeyWidgetState = 'paused';
+    } else {
+      this.journeyWidgetState = 'active';
+    }
+
+    this.computeJourneyPausedDisplay(plan);
+    if (plan.status === 'paused' || plan.status === 'unframed') {
+      this.maybeFetchLatestLessonHighlight();
+      this.maybeFetchEarnedBadges();
+    } else {
+      this.journeyLatestLessonHighlight = '';
+      this.journeyLatestLessonTutor = '';
+      this.journeyLatestLessonAgo = '';
+      this.journeyEarnedBadges = [];
+    }
+    this.cdr.detectChanges();
+
+    // For 'unframed' / 'paused' there's no journey roadmap to navigate to,
+    // so stop here. We still want CEFR estimate + recommendations to flow
+    // (those happen on the post-lesson pipeline server-side).
+    if (plan.status === 'unframed' || plan.status === 'paused') {
+      return;
+    }
+
+    // Warm the browser image cache for the journey map background so it's
+    // already decoded by the time the user taps "View roadmap". We do this
+    // while the user is still on the home page — effectively zero cost.
+    const chapterTheme: string = (plan as any).chapterTheme || 'a1-desert';
+    const preloadImg = new Image();
+    preloadImg.src = `assets/journey-backgrounds/${chapterTheme}.png`;
+
+    // Pre-mount the journey component hidden (behind *ngIf="journeyPreloaded")
+    // so Angular bootstraps it, the cache-first getPlanWithCache returns
+    // synchronously, and the SVG path + canvas are computed while the user is
+    // still on the home page. Tap → instant reveal with no loading delay.
+    // Defer slightly so the home page renders first (don't compete with the
+    // initial LCP paint).
+    if (!this.journeyPreloaded) {
+      setTimeout(() => { this.journeyPreloaded = true; this.cdr.detectChanges(); }, 800);
+    }
+
+    // Show the "Your roadmap is ready" intro only when the student just finished
+    // onboarding in this browser session (flag set by onboarding.page.ts) and
+    // the plan has never been formally introduced before.
+    const justOnboarded = (() => { try { return sessionStorage.getItem('showJourneyIntro') === 'true'; } catch (_) { return false; } })();
+    if (justOnboarded && !plan.journeyIntroSeenAt && (plan.phases || []).length) {
+      setTimeout(() => this.openJourneyIntroModal(plan, this.journeyLanguageLabel), 400);
+    }
+
+    // Chapter transition celebration (Batch 4). When a student lands on
+    // home with a pending chapter transition flag, surface the same
+    // celebration modal here so the moment isn't gated behind a tab swap.
+    // The modal acks the flag so it won't re-open.
+    void this.maybeShowChapterCelebrationOnHome(plan);
+
+    // Pre-lesson warm-up check (premium, Batch 9). Best-effort, non-blocking.
+    if (this.journeyIsPremium && plan.language) {
+      this.loadWarmup(plan.language);
+    }
+  }
+
+  /**
+   * Pre-compute the data the paused-state journey card needs: current
+   * CEFR level chip, chapter badges (one per completed chapter), total
+   * lessons across the chapter, and a human-friendly "paused N days ago"
+   * label. Mirrors the rule against logic in templates.
+   */
+  private computeJourneyPausedDisplay(plan: any) {
+    if (!plan) {
+      this.journeyCefrLevel = '';
+      this.journeyChaptersCompletedCount = 0;
+      this.journeyTotalLessonsCompleted = 0;
+      this.journeyPausedSinceLabel = '';
+      this.journeyChapterBadges = [];
+      return;
+    }
+
+    // Only surface a level chip when the student has actually *earned*
+    // one — either through a CEFR reveal milestone or a chapter
+    // graduation. A brand-new plan defaults to `chapterLevel = 'A1'`
+    // (see backend/models/LearningPlan.js), which would otherwise read
+    // as "you're A1" even with 0 lessons taken.
+    this.journeyCefrLevel = plan.revealedCefrLevel?.level || '';
+
+    const completed = Array.isArray(plan.chaptersCompleted) ? plan.chaptersCompleted : [];
+    // Demotions and calibrations aren't trophies — only graduations
+    // (and recovery graduations) count as earned badges.
+    const earned = completed.filter((c: any) =>
+      c?.exitReason === 'graduated' || c?.exitReason === 'recovery_graduated'
+    );
+
+    this.journeyChaptersCompletedCount = earned.length;
+    this.journeyChapterBadges = earned
+      .map((c: any) => ({ level: (c?.level || '').toString(), label: (c?.level || '').toString() }))
+      .filter((b: { level: string }) => !!b.level);
+
+    const currentChapterLessons = (plan.phases || []).reduce(
+      (sum: number, p: any) => sum + (p?.lessonsCompleted || 0), 0
+    );
+    const completedChapterLessons = completed.reduce(
+      (sum: number, c: any) =>
+        sum + ((c?.phases || []).reduce(
+          (s: number, p: any) => s + (p?.lessonsCompleted || 0), 0
+        )),
+      0
+    );
+    this.journeyTotalLessonsCompleted = currentChapterLessons + completedChapterLessons;
+
+    this.journeyPausedSinceLabel = this.formatPausedSinceLabel(plan.pausedAt);
+  }
+
+  /**
+   * Fetch the student's most recent LessonAnalysis once per session and
+   * derive a soft, backward-looking one-liner for the journey widget's
+   * paused / unframed cards. Priority of signals mirrors the backend's
+   * `_generateRuleBasedFocus` (persistent → top error → area → recommend),
+   * but the phrasing is reframed as a *takeaway* — "showed up again"
+   * not "focus on next time" — to respect the unframed contract.
+   */
+  private maybeFetchLatestLessonHighlight() {
+    const userId = this.currentUser?.id;
+    if (!userId) return;
+
+    if (this._latestHighlightFetchedForUserId === userId) {
+      // Already fetched this session for this student. We re-use the
+      // existing precomputed strings without re-hitting the API.
+      return;
+    }
+    this._latestHighlightFetchedForUserId = userId;
+
+    this.transcriptionService.getLatestAnalysis(userId).pipe(take(1)).subscribe({
+      next: (analysis: LessonAnalysis | null) => {
+        if (!analysis) {
+          this.journeyLatestLessonHighlight = '';
+          this.journeyLatestLessonTutor = '';
+          this.journeyLatestLessonAgo = '';
+          this.cdr.detectChanges();
+          return;
+        }
+        this.applyLatestLessonHighlight(analysis);
+      },
+      error: () => {
+        // Non-blocking; widget simply hides the highlight pill.
+        this.journeyLatestLessonHighlight = '';
+        this.journeyLatestLessonTutor = '';
+        this.journeyLatestLessonAgo = '';
+      }
+    });
+  }
+
+  private applyLatestLessonHighlight(analysis: LessonAnalysis) {
+    const persistent = (analysis.progressionMetrics?.persistentChallenges || [])
+      .find(s => typeof s === 'string' && s.trim());
+    const topError = (analysis.topErrors || [])
+      .slice()
+      .sort((a, b) => (a.rank || 99) - (b.rank || 99))[0];
+    const area = (analysis.areasForImprovement || [])
+      .find(s => typeof s === 'string' && s.trim());
+    const recommended = (analysis.recommendedFocus || [])
+      .find(s => typeof s === 'string' && s.trim());
+
+    let primary: string | null = null;
+    let kind: 'persistent' | 'top' | 'area' | 'rec' | null = null;
+    if (persistent) { primary = persistent; kind = 'persistent'; }
+    else if (topError?.issue) { primary = topError.issue; kind = 'top'; }
+    else if (area) { primary = area; kind = 'area'; }
+    else if (recommended) { primary = recommended; kind = 'rec'; }
+
+    if (!primary) {
+      this.journeyLatestLessonHighlight = '';
+    } else {
+      const tight = primary.replace(/\s+/g, ' ').trim().replace(/[.!?]+$/, '');
+      const templates: Record<typeof kind & string, string> = {
+        persistent: `${tight} showed up again — worth another pass.`,
+        top: `${tight} kept tripping you last lesson.`,
+        area: `${tight} is the area we leaned into most.`,
+        rec: `${tight} came up as a useful next thing to try.`
+      };
+      let line = templates[kind as 'persistent' | 'top' | 'area' | 'rec'];
+      // Capitalize the first letter so quotes/lowercase issues from the
+      // analyzer don't bleed into the UI.
+      line = line.charAt(0).toUpperCase() + line.slice(1);
+      if (line.length > 180) line = line.slice(0, 177).replace(/\s+\S*$/, '') + '…';
+      this.journeyLatestLessonHighlight = line;
+    }
+
+    // Tutor first-name comes from the analysis only as an id; we don't
+    // refetch the user. If a future analysis payload includes
+    // `tutorFirstName` we can wire it here. For now we leave the meta
+    // line off when we don't have it — the template handles the absence.
+    this.journeyLatestLessonTutor = '';
+    this.journeyLatestLessonAgo = this.formatTimeAgoLabel(analysis.lessonDate);
+    this.cdr.detectChanges();
+  }
+
+  /**
+   * Fetch the student's lesson analyses once per session and derive the
+   * earned gamification badges to show on the journey widget. Single
+   * source of truth is `GamificationService` (also used by `tab3`).
+   *
+   * Skill averages are derived inline from the analyses payload using
+   * the same conversions as the Progress page — keeps the journey
+   * widget honest about which "skill" badges have actually been earned
+   * without needing to round-trip through tab3's stats object.
+   */
+  private maybeFetchEarnedBadges() {
+    const userId = this.currentUser?.id;
+    if (!userId) return;
+    if (this._earnedBadgesFetchedForUserId === userId) return;
+    this._earnedBadgesFetchedForUserId = userId;
+
+    const headers = this.userService.getAuthHeadersSync();
+    const url = `${environment.apiUrl}/transcription/my-analyses?limit=200`;
+
+    this.http.get<any>(url, { headers }).pipe(take(1)).subscribe({
+      next: (response) => {
+        const raw: any[] = (response && response.analyses) || [];
+        const analyses = raw.filter((a: any) =>
+          !a?.isTrialLesson && !(a?.isOfficeHours === true && a?.officeHoursType === 'quick')
+        );
+        if (analyses.length === 0) {
+          this.journeyEarnedBadges = [];
+          this.cdr.detectChanges();
+          return;
+        }
+
+        const averages = this.computeSkillAveragesForBadges(analyses);
+        const badges = this.gamification.computeBadges({ analyses, averages });
+        const showcase: GamBadge[] = this.gamification.pickShowcaseBadges(badges, 5);
+        this.journeyEarnedBadges = showcase.map(b => ({
+          id: b.id, icon: b.icon, color: b.color, name: b.name
+        }));
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        // Non-blocking; widget falls back to the empty-state discs.
+        this.journeyEarnedBadges = [];
+      }
+    });
+  }
+
+  /** Mirrors tab3's average calculation just enough to drive skill
+   *  badges. Pronunciation / listening aren't yet emitted by the
+   *  analyzer (see tab3), so they remain 0 here to match. */
+  private computeSkillAveragesForBadges(analyses: any[]): {
+    grammar: number; fluency: number; vocabulary: number; pronunciation: number; listening: number;
+  } {
+    if (!analyses.length) {
+      return { grammar: 0, fluency: 0, vocabulary: 0, pronunciation: 0, listening: 0 };
+    }
+    const avg = (vals: number[]) => vals.length
+      ? Math.round(vals.reduce((s, v) => s + v, 0) / vals.length)
+      : 0;
+    const vocabToScore = (range: string | undefined): number => {
+      switch ((range || 'moderate').toLowerCase()) {
+        case 'limited': return 40;
+        case 'moderate': return 65;
+        case 'good': return 80;
+        case 'excellent': return 95;
+        default: return 65;
+      }
+    };
+    const grammar = avg(analyses.map(a => a?.grammarAnalysis?.accuracyScore || 0));
+    const fluency = avg(analyses.map(a => a?.fluencyAnalysis?.overallFluencyScore || 0));
+    const vocabulary = avg(analyses.map(a => vocabToScore(a?.vocabularyAnalysis?.vocabularyRange)));
+    return { grammar, fluency, vocabulary, pronunciation: 0, listening: 0 };
+  }
+
+  private formatTimeAgoLabel(date: Date | string | null | undefined): string {
+    if (!date) return '';
+    const t = typeof date === 'string' ? new Date(date).getTime() : new Date(date).getTime();
+    if (isNaN(t)) return '';
+    const diff = Date.now() - t;
+    if (diff < 0) return '';
+    const day = 86_400_000;
+    const days = Math.floor(diff / day);
+    if (days < 1) {
+      const hours = Math.floor(diff / 3_600_000);
+      if (hours < 1) return 'Just now';
+      return hours === 1 ? '1 hour ago' : `${hours} hours ago`;
+    }
+    if (days === 1) return 'Yesterday';
+    if (days < 7) return `${days} days ago`;
+    if (days < 30) {
+      const weeks = Math.floor(days / 7);
+      return weeks === 1 ? '1 week ago' : `${weeks} weeks ago`;
+    }
+    const months = Math.floor(days / 30);
+    return months === 1 ? '1 month ago' : `${months} months ago`;
+  }
+
+  private formatPausedSinceLabel(pausedAt: string | null | undefined): string {
+    if (!pausedAt) return '';
+    const start = new Date(pausedAt);
+    if (isNaN(start.getTime())) return '';
+    const diffMs = Date.now() - start.getTime();
+    if (diffMs < 0) return '';
+    const day = 86_400_000;
+    const days = Math.floor(diffMs / day);
+    if (days < 1) return 'Paused today';
+    if (days === 1) return 'Paused yesterday';
+    if (days < 7) return `Paused ${days} days ago`;
+    if (days < 30) {
+      const weeks = Math.floor(days / 7);
+      return weeks === 1 ? 'Paused 1 week ago' : `Paused ${weeks} weeks ago`;
+    }
+    const months = Math.floor(days / 30);
+    return months === 1 ? 'Paused 1 month ago' : `Paused ${months} months ago`;
+  }
+
+  /** Open the chapter-complete modal on the home page when a pending
+   *  transition flag is set. Mirrors the journey page logic but takes
+   *  precedence: by acking from here, the journey page won't re-show. */
+  private async maybeShowChapterCelebrationOnHome(plan: any) {
+    if (!plan?.pendingTransitions) return;
+    if (this.learningPlanService.chapterTransitionShownThisSession) return;
+
+    const flags = plan.pendingTransitions;
+    let mode: 'graduated' | 'demoted' | 'mastery_mode' | 'promoted' | null = null;
+    if (flags.masteryModeEntered) mode = 'mastery_mode';
+    else if (flags.chapterJustCompleted) mode = 'graduated';
+    else if (flags.chapterPromotionPending) mode = 'promoted';
+    else if (flags.chapterDemotionPending) mode = 'demoted';
+
+    if (!mode) return;
+    this.learningPlanService.chapterTransitionShownThisSession = true;
+
+    // Lazy import to keep the home-tab bundle small.
+    const { ChapterCompleteModalComponent } =
+      await import('../journey/chapter-complete-modal/chapter-complete-modal.component');
+
+    const lastCompleted = (plan.chaptersCompleted || []).slice(-1)[0];
+    const fromLevel = lastCompleted?.level || null;
+    const toLevel = plan.chapterLevel || null;
+
+    const modal = await this.modalCtrl.create({
+      component: ChapterCompleteModalComponent,
+      cssClass: 'chapter-complete-modal',
+      backdropDismiss: false,
+      componentProps: {
+        mode,
+        fromLevel,
+        toLevel,
+        masteryAtCompletion: lastCompleted?.masteryAtCompletion ?? null,
+        lessonsCompleted: lastCompleted
+          ? (lastCompleted.phases || []).reduce(
+              (s: number, p: any) => s + (p.lessonsCompleted || 0), 0)
+          : null
+      }
+    });
+    await modal.present();
+    await modal.onDidDismiss();
+
+    // Ack the flag so subsequent app loads don't re-open. Best-effort.
+    const flag =
+      mode === 'graduated'    ? 'chapterJustCompleted' :
+      mode === 'demoted'      ? 'chapterDemotionPending' :
+      mode === 'mastery_mode' ? 'masteryModeEntered' :
+      /* promoted */            'chapterPromotionPending';
+    this.learningPlanService.ackTransition(plan.language, flag as any)
+      .pipe(take(1)).subscribe({ next: () => {}, error: () => {} });
+  }
+
+  /** Polls the warm-up endpoint. Returns null for free users / no upcoming
+   *  lesson — the card simply doesn't render in that case. */
+  private loadWarmup(language: string) {
+    this.learningPlanService.getWarmup(language).pipe(take(1)).subscribe({
+      next: (res) => {
+        this.warmup = res?.warmup || null;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.warmup = null;
+      }
+    });
+  }
+
+  /** Open a placeholder quiz route. Real quiz player is built alongside the
+   *  Materials → Quiz section (Batch 8 surfacing). For now we surface the
+   *  quiz title via toast and persist completion when the user dismisses. */
+  async startWarmup() {
+    if (!this.warmup?.quiz) return;
+    const toast = await this.toastController.create({
+      message: this.translateService.instant('HOME.WARMUP_STARTED', { title: this.warmup.quiz.title }),
+      duration: 2500,
+      color: 'primary',
+      position: 'top'
+    });
+    await toast.present();
+    // After the user opens it, hide the card to avoid nagging.
+    this.warmup = null;
+    this.cdr.markForCheck();
+  }
+
+  private async openJourneyIntroModal(plan: any, language: string) {
+    // Prevent duplicate modals within the same session.
+    if (this.learningPlanService.introModalShownThisSession) return;
+
+    // Belt-and-suspenders: if a journey-intro modal is already on screen, bail out.
+    const existing = await this.modalCtrl.getTop();
+    if (existing?.classList.contains('journey-intro-modal')) return;
+
+    // Consume the sessionStorage flag so subsequent tab visits don't re-open.
+    try { sessionStorage.removeItem('showJourneyIntro'); } catch (_) {}
+    this.learningPlanService.introModalShownThisSession = true;
+
+    const { JourneyIntroComponent } = await import('../journey/journey-intro.component');
+    const modal = await this.modalCtrl.create({
+      component: JourneyIntroComponent,
+      componentProps: {
+        phaseLabels: (plan.phases || []).map((p: any) => p.title || ''),
+        plan,
+        language,
+        calledFromHome: true
+      },
+      cssClass: 'journey-intro-modal'
+    });
+    await modal.present();
+    const { data } = await modal.onDidDismiss();
+    if (data?.reason === 'done' || data?.reason === 'skip') {
+      this.learningPlanService.markIntroSeen(language).pipe(take(1)).subscribe();
+    }
+  }
+
+  private applyLearningPlanMissing() {
+    const hasGoal = !!this.currentUser?.onboardingData?.learningGoal?.type;
+    if (hasGoal) {
+      const language = this.currentUser?.onboardingData?.languages?.[0];
+      if (language) {
+        this.learningPlanService.createInitialPlan(language).pipe(take(1)).subscribe({
+          next: (res: any) => {
+            if (res?.success && res.plan) {
+              this.applyLearningPlan(res.plan, res.entitlements || null);
+            } else {
+              this.journeyWidgetState = 'empty-goal';
+              this.cdr.detectChanges();
+            }
+          },
+          error: () => {
+            this.journeyWidgetState = 'empty-goal';
+            this.cdr.detectChanges();
+          }
+        });
+        return;
+      }
+    }
+    this.journeyWidgetState = 'empty-goal';
+    this.cdr.detectChanges();
+  }
+
+  /** Toggled by the home journey widget's "View roadmap" CTA. Mirrors the
+   *  earnings inline pattern so the FLIP flight is short and feels native. */
+  showJourneyView = false;
+  /** True once the learning plan has loaded — causes <app-journey-page> to
+   *  be mounted hidden in the background so the canvas is ready before
+   *  the user taps "View roadmap". */
+  journeyPreloaded = false;
+  journeyCtaHidden = false; // hides .jw-primary-cta-btn via CSS during FLIP flight
+
+  goToJourney() {
+    // === FLIP Animation: Home "View roadmap" link → Inline Journey black pill ===
+    // Sequential timeline (no overlapping text):
+    //   0-100ms : outgoing text fades out
+    //   60-460ms: wrapper morphs (position, size, bg, border-radius, padding)
+    //   440-540ms: incoming text fades in
+    // Padding lives ONLY on the wrapper; both layers force padding:0 so they
+    // don't double-up the cloned button's class-defined padding.
+
+    const srcEl = document.querySelector('app-journey-widget .jw-cta-link') as HTMLElement | null;
+    const srcRect = srcEl?.getBoundingClientRect();
+
+    if (!srcEl || !srcRect) {
+      this.showJourneyView = true;
+      this.cdr.detectChanges();
+      this.ionContent?.scrollToTop(0);
+      return;
+    }
+
+    const srcCS = getComputedStyle(srcEl);
+
+    const clone = document.createElement('div');
+    Object.assign(clone.style, {
+      position: 'fixed',
+      left: `${srcRect.left}px`,
+      top: `${srcRect.top}px`,
+      width: `${srcRect.width}px`,
+      height: `${srcRect.height}px`,
+      margin: '0',
+      padding: '0',
+      background: 'transparent',
+      borderRadius: srcCS.borderRadius || '0',
+      zIndex: '10000',
+      pointerEvents: 'none',
+      transition: 'none',
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      boxSizing: 'border-box',
+      overflow: 'hidden',
+    } as Partial<CSSStyleDeclaration>);
+
+    // Outgoing layer — cloned source. inset:0 fills the wrapper. Padding/bg
+    // forced off so the wrapper owns visual chrome. Flex alignment is left
+    // un-overridden so the cloned element keeps its class-defined layout
+    // (matches what the real source/dest looks like).
+    const outgoing = srcEl.cloneNode(true) as HTMLElement;
+    Object.assign(outgoing.style, {
+      position: 'absolute',
+      inset: '0',
+      margin: '0',
+      padding: '0',
+      background: 'transparent',
+      border: 'none',
+      whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      opacity: '1',
+      transition: 'opacity 0.1s ease 0s',
+    } as Partial<CSSStyleDeclaration>);
+    clone.appendChild(outgoing);
+
+    document.body.appendChild(clone);
+
+    // Hide the real CTA button until landing so the clone owns the visual.
+    this.journeyCtaHidden = true;
+    this.showJourneyView = true;
+    this.cdr.detectChanges();
+    this.ionContent?.scrollToTop(0);
+
+    let landed = false;
+    let pulseAnim: Animation | null = null;
+
+    const flyToDestination = (dest: HTMLElement) => {
+      if (landed) return;
+      landed = true;
+      if (pulseAnim) { pulseAnim.cancel(); pulseAnim = null; }
+
+      const destRect = dest.getBoundingClientRect();
+      const destCS = getComputedStyle(dest);
+
+      // Single-text morph: the outgoing source clone fades out fast, the
+      // wrapper morphs as an empty pill (no text overlap during transit),
+      // and at landing the REAL destination button is unhidden — its CSS
+      // opacity transition handles the text reveal. This avoids the
+      // double-text ghosting that came from cross-fading two cloned text
+      // layers with very different shapes (1-line vs 2-line).
+      const morphEase = 'cubic-bezier(0.32, 0.72, 0, 1)';
+      clone.style.transition = [
+        `left 0.4s ${morphEase} 0.06s`,
+        `top 0.4s ${morphEase} 0.06s`,
+        `width 0.4s ${morphEase} 0.06s`,
+        `height 0.4s ${morphEase} 0.06s`,
+        `border-radius 0.4s ${morphEase} 0.06s`,
+        `padding 0.4s ${morphEase} 0.06s`,
+        `background-color 0.32s ease 0.1s`,
+      ].join(', ');
+
+      requestAnimationFrame(() => {
+        clone.style.left = `${destRect.left}px`;
+        clone.style.top = `${destRect.top}px`;
+        clone.style.width = `${destRect.width}px`;
+        clone.style.height = `${destRect.height}px`;
+        clone.style.backgroundColor = destCS.backgroundColor;
+        clone.style.borderRadius = destCS.borderRadius;
+        clone.style.padding = destCS.padding;
+        outgoing.style.opacity = '0';
+      });
+
+      setTimeout(() => {
+        const finalRect = dest.getBoundingClientRect();
+        clone.style.transition = 'none';
+        clone.style.left = `${finalRect.left}px`;
+        clone.style.top = `${finalRect.top}px`;
+        clone.style.width = `${finalRect.width}px`;
+        clone.style.height = `${finalRect.height}px`;
+
+        requestAnimationFrame(() => {
+          this.journeyCtaHidden = false;
+          this.cdr.detectChanges();
+          clone.style.transition = 'opacity 0.18s ease';
+          clone.style.opacity = '0';
+          setTimeout(() => { if (clone.parentNode) clone.remove(); }, 220);
+        });
+      }, 480);
+    };
+
+    const existing = document.querySelector('.journey-inline-panel .jw-primary-cta-btn') as HTMLElement | null;
+    if (existing) { flyToDestination(existing); return; }
+
+    const panelEl = document.querySelector('.journey-inline-panel');
+    if (!panelEl) {
+      clone.style.opacity = '0';
+      setTimeout(() => { if (clone.parentNode) clone.remove(); }, 250);
+      return;
+    }
+
+    const observer = new MutationObserver(() => {
+      const dest = document.querySelector('.journey-inline-panel .jw-primary-cta-btn') as HTMLElement | null;
+      if (dest) { observer.disconnect(); flyToDestination(dest); }
+    });
+    observer.observe(panelEl, { childList: true, subtree: true });
+
+    setTimeout(() => {
+      if (!landed && clone.parentNode) {
+        pulseAnim = clone.animate([
+          { transform: 'scale(1)', opacity: 1 },
+          { transform: 'scale(1.04)', opacity: 0.85 },
+          { transform: 'scale(1)', opacity: 1 }
+        ], { duration: 1600, iterations: Infinity, easing: 'ease-in-out' });
+      }
+    }, 1000);
+
+    setTimeout(() => {
+      if (!landed) {
+        observer.disconnect();
+        if (pulseAnim) { pulseAnim.cancel(); pulseAnim = null; }
+        clone.style.transition = 'opacity 0.3s ease';
+        clone.style.opacity = '0';
+        setTimeout(() => { if (clone.parentNode) clone.remove(); }, 350);
+      }
+    }, 15000);
+  }
+
+  onJourneyGoBack() {
+    // === FLIP Animation: Inline Journey black pill → Home "View roadmap" ===
+    // We cloneNode the source pill so the initial frame is PIXEL-PERFECT.
+    // Then we transition to match the destination link's computed styles.
+
+    const srcEl = document.querySelector('.journey-inline-panel .jw-primary-cta-btn') as HTMLElement | null;
+    const srcRect = srcEl?.getBoundingClientRect();
+
+    if (!srcEl || !srcRect) {
+      this.showJourneyView = false;
+      this.cdr.detectChanges();
+      return;
+    }
+
+    // Sequential timing: outgoing fades out → wrapper morphs → incoming fades in.
+    const srcCS = getComputedStyle(srcEl);
+
+    const clone = document.createElement('div');
+    Object.assign(clone.style, {
+      position: 'fixed',
+      left: `${srcRect.left}px`,
+      top: `${srcRect.top}px`,
+      width: `${srcRect.width}px`,
+      height: `${srcRect.height}px`,
+      margin: '0',
+      zIndex: '10000',
+      pointerEvents: 'none',
+      transition: 'none',
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      boxSizing: 'border-box',
+      overflow: 'hidden',
+      backgroundColor: srcCS.backgroundColor,
+      borderRadius: srcCS.borderRadius,
+      padding: srcCS.padding,
+    } as Partial<CSSStyleDeclaration>);
+
+    const outgoing = srcEl.cloneNode(true) as HTMLElement;
+    Object.assign(outgoing.style, {
+      position: 'absolute',
+      inset: '0',
+      margin: '0',
+      padding: '0',
+      background: 'transparent',
+      border: 'none',
+      whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      opacity: '1',
+      transition: 'opacity 0.1s ease 0s',
+    } as Partial<CSSStyleDeclaration>);
+    clone.appendChild(outgoing);
+
+    document.body.appendChild(clone);
+
+    this.showJourneyView = false;
+    this.cdr.detectChanges();
+    this.ionContent?.scrollToTop(0);
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const dest = document.querySelector('.content-wrapper app-journey-widget .jw-cta-link') as HTMLElement | null;
+
+        if (dest) {
+          dest.style.transition = 'none';
+          dest.style.opacity = '0';
+          const destRect = dest.getBoundingClientRect();
+          const destCS = getComputedStyle(dest);
+
+          // Single-text morph (see goToJourney for rationale): the outgoing
+          // source clone fades out fast, the wrapper morphs as an empty
+          // pill, and at landing the real destination element fades in.
+          const morphEase = 'cubic-bezier(0.32, 0.72, 0, 1)';
+          clone.style.transition = [
+            `left 0.4s ${morphEase} 0.06s`,
+            `top 0.4s ${morphEase} 0.06s`,
+            `width 0.4s ${morphEase} 0.06s`,
+            `height 0.4s ${morphEase} 0.06s`,
+            `border-radius 0.4s ${morphEase} 0.06s`,
+            `padding 0.4s ${morphEase} 0.06s`,
+            `background-color 0.32s ease 0.1s`,
+          ].join(', ');
+
+          requestAnimationFrame(() => {
+            clone.style.left = `${destRect.left}px`;
+            clone.style.top = `${destRect.top}px`;
+            clone.style.width = `${destRect.width}px`;
+            clone.style.height = `${destRect.height}px`;
+            clone.style.backgroundColor = destCS.backgroundColor;
+            clone.style.borderRadius = destCS.borderRadius;
+            clone.style.padding = destCS.padding;
+            outgoing.style.opacity = '0';
+          });
+
+          setTimeout(() => {
+            const finalRect = dest.getBoundingClientRect();
+            clone.style.transition = 'none';
+            clone.style.left = `${finalRect.left}px`;
+            clone.style.top = `${finalRect.top}px`;
+            clone.style.width = `${finalRect.width}px`;
+            clone.style.height = `${finalRect.height}px`;
+
+            requestAnimationFrame(() => {
+              clone.style.transition = 'opacity 0.18s ease';
+              clone.style.opacity = '0';
+              dest.style.transition = 'opacity 0.18s ease';
+              dest.style.opacity = '1';
+              setTimeout(() => {
+                if (clone.parentNode) clone.remove();
+                dest.style.transition = '';
+                dest.style.opacity = '';
+              }, 220);
+            });
+          }, 480);
+        } else {
+          clone.style.transition = 'opacity 0.3s ease';
+          clone.style.opacity = '0';
+          setTimeout(() => { if (clone.parentNode) clone.remove(); }, 350);
+        }
+      });
+    });
+  }
+
+  openSetGoalFlow() {
+    this.router.navigate(['/tabs/profile'], { queryParams: { editGoal: '1' } });
+  }
+
+  /**
+   * Tapped from the journey-widget unframed-state CTA. Sends the student to
+   * the profile page where the "Add a learning goal" form lives. Same target
+   * as openSetGoalFlow — kept as a separate handler so analytics stays clean.
+   */
+  openBuildPlanFlow() {
+    this.router.navigate(['/tabs/profile'], { queryParams: { editGoal: '1', from: 'unframed' } });
+  }
+
+  /**
+   * Tapped from the journey-widget paused-state CTA. Confirms with the
+   * student before resuming (re-engaging the structured plan is a real
+   * commitment), then resumes in place and re-renders the active home
+   * widget on success.
+   */
+  async resumePausedPlan() {
+    const language = this.journeyLanguageLabel || this.currentUser?.onboardingData?.languages?.[0];
+    if (!language) {
+      this.openSetGoalFlow();
+      return;
+    }
+
+    const alert = await this.alertController.create({
+      header: this.translateService.instant('HOME.JOURNEY_RESUME_CONFIRM_HEADER'),
+      message: this.translateService.instant('HOME.JOURNEY_RESUME_CONFIRM_MESSAGE'),
+      cssClass: 'journey-resume-confirm-alert',
+      buttons: [
+        {
+          text: this.translateService.instant('HOME.JOURNEY_RESUME_CONFIRM_CANCEL'),
+          role: 'cancel'
+        },
+        {
+          text: this.translateService.instant('HOME.JOURNEY_RESUME_CONFIRM_CONFIRM'),
+          handler: async () => {
+            const loading = await this.loadingController.create({
+              message: this.translateService.instant('HOME.JOURNEY_RESUME_CONFIRM_CONFIRM') + '…',
+              spinner: 'crescent'
+            });
+            await loading.present();
+
+            this.learningPlanService.resumePlan(language).pipe(take(1)).subscribe({
+              next: async () => {
+                // No direct applyLearningPlan() call — the service's
+                // planUpdates$ broadcast (subscribed in ngOnInit) handles
+                // the home-card refresh, so any other paused surface
+                // (profile, post-lesson prompt) gets the same update.
+                await loading.dismiss();
+              },
+              error: async (err) => {
+                await loading.dismiss();
+                console.error('Failed to resume plan', err);
+                const toast = await this.toastController.create({
+                  message: 'Could not resume your plan. Please try again.',
+                  duration: 2500,
+                  color: 'danger',
+                  position: 'top'
+                });
+                await toast.present();
+              }
+            });
+          }
+        }
+      ]
+    });
+    await alert.present();
   }
 
   loadHomePracticeMaterials(language: string) {
@@ -2527,6 +3529,33 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
 
   navigateToForum(): void {
     this.openForumModal();
+  }
+
+  /**
+   * Open the spaced-repetition review deck. Single source of truth for
+   * the Practice quick action (mobile + desktop).
+   */
+  navigateToPractice(): void {
+    this.router.navigate(['/review-deck']);
+  }
+
+  /**
+   * Refresh the "N due" badge for the Practice quick action.
+   * Called on home init and after returning from the review deck.
+   */
+  loadPracticeDueCount(): void {
+    if (!this.isStudentUser) {
+      this.practiceDueCount = 0;
+      return;
+    }
+    this.reviewDeckService.getNeedsReviewCount().subscribe({
+      next: (res) => {
+        this.practiceDueCount = res?.count || 0;
+      },
+      error: () => {
+        this.practiceDueCount = 0;
+      }
+    });
   }
 
   openForumModal(): void {
@@ -3979,8 +5008,40 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
 
       const user = this.currentUser;
       const creds = user?.tutorCredentials;
-      const govIdUploaded = !!(creds?.governmentId?.url && creds.governmentId.status !== 'not_uploaded');
-      const certsUploaded = !!(creds?.teachingCertifications && creds.teachingCertifications.length > 0);
+      // ── Source approval-related flags from the central status snapshot ──
+      // The snapshot is computed inside UserService.updateTutorApprovalStatus
+      // and emitted SYNCHRONOUSLY, while `currentUser$` is throttled with
+      // observeOn(asyncScheduler). Reading from `this.currentUser` here would
+      // see the previous user (stale `tosAcceptedAt`, stale credential
+      // statuses, etc.) until the next tick, which is why TOS acceptance
+      // appeared to require a refresh. The snapshot reflects the fresh user
+      // immediately, so the checklist updates the moment any wizard step
+      // completes.
+      const status = this.tutorApprovalStatusSnapshot;
+      const govIdUploaded =
+        status?.governmentIdUploaded ??
+        !!(creds?.governmentId?.url && creds.governmentId.status !== 'not_uploaded');
+      const govIdApproved =
+        status?.governmentIdApproved ?? creds?.governmentId?.status === 'approved';
+      const identitySatisfied =
+        status?.identitySatisfied ??
+        ((user as any)?.stripeIdentityVerified === true || govIdApproved);
+      const certsUploaded =
+        status?.certificationsUploaded ??
+        !!(creds?.teachingCertifications && creds.teachingCertifications.length > 0);
+      const certsApproved =
+        status?.certificationsApproved ??
+        !!(creds?.teachingCertifications?.some((c: any) => c.status === 'approved'));
+      // Default to true (show the row) when status hasn't loaded yet.
+      const identityRequired = status?.identityRequired !== false;
+      const tosComplete = status?.tosComplete ?? !!user?.tosAcceptedAt;
+      const hasPayoutSetup =
+        status?.stripeComplete ?? this.tutorOnboardingStatus?.stripeComplete === true;
+      const hasVideo =
+        status?.videoComplete ??
+        !!(user?.onboardingData?.introductionVideo || user?.onboardingData?.pendingVideo);
+      const videoApproved = status?.videoApproved ?? user?.tutorOnboarding?.videoApproved === true;
+      const hasCustomPhoto = status?.photoComplete ?? this.hasCustomProfilePhoto;
 
       const ctx: GrowthContext = {
         hasAvailability: this.hasAvailability,
@@ -4007,13 +5068,19 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         recentForumPostCount: 0,
         activeForumThreadsInLanguage: 0,
         tutorRating: this.tutorRating,
-        hasCustomPhoto: this.hasCustomProfilePhoto,
-        hasVideo: !!(user?.onboardingData?.introductionVideo || user?.onboardingData?.pendingVideo),
-        videoApproved: user?.tutorOnboarding?.videoApproved === true,
+        hasCustomPhoto,
+        hasVideo,
+        videoApproved,
         credentialsComplete: govIdUploaded && certsUploaded,
-        credentialsApproved: creds?.governmentId?.status === 'approved' && !!(creds?.teachingCertifications?.some((c: any) => c.status === 'approved')),
-        hasPayoutSetup: this.tutorOnboardingStatus?.stripeComplete === true,
-        tutorApproved: user?.tutorApproved === true,
+        credentialsApproved: govIdApproved && certsApproved,
+        identityRequired,
+        governmentIdUploaded: govIdUploaded,
+        identitySatisfied,
+        certificationsUploaded: certsUploaded,
+        certificationsApproved: certsApproved,
+        hasPayoutSetup,
+        tosComplete,
+        tutorApproved: status?.fullyApproved ?? user?.tutorApproved === true,
       };
 
       this.tutorGrowthService.compute(ctx);
@@ -4078,13 +5145,54 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.growthIndex = idx;
     this.growthCount = this.tutorGrowthService.count;
     this.growthPaused = this.tutorGrowthService.paused;
-    this.hasProfileCriticalInsights = this.tutorGrowthService.hasProfileCritical;
     this.profileChecklist = this.tutorGrowthService.profileChecklist;
-    this.profileChecklistDoneCount = this.profileChecklist.filter(i => i.done).length;
+    this.profileChecklistDoneCount = this.profileChecklist.filter(
+      i => i.done && !i.pendingReview
+    ).length;
     this.profileChecklistTotal = this.profileChecklist.length;
+    // Derive the banner visibility from the checklist itself so it disappears
+    // the moment every step is done (independent of stale insight state).
+    this.hasProfileCriticalInsights =
+      this.profileChecklistTotal > 0 &&
+      this.profileChecklistDoneCount < this.profileChecklistTotal;
     this.growthInsightSlideRow = insight
       ? [{ epoch: this._growthSlideEpoch, insight }]
       : [];
+  }
+
+  /**
+   * Lightweight, network-free checklist rebuild driven by the
+   * `tutorApprovalStatus$` snapshot. Called whenever any wizard step
+   * completes (or admin approves) so the banner reflects the change
+   * immediately, without waiting for the next full insight recompute.
+   */
+  private rebuildProfileChecklistFromStatus(status: any): void {
+    if (!status) return;
+
+    const checklist = buildTutorProfileChecklist({
+      hasCustomPhoto: status.photoComplete === true,
+      hasVideo: status.videoComplete === true,
+      videoApproved: status.videoApproved === true,
+      identityRequired: status.identityRequired !== false,
+      governmentIdUploaded: status.governmentIdUploaded === true,
+      identitySatisfied: status.identitySatisfied === true,
+      certificationsUploaded: status.certificationsUploaded === true,
+      certificationsApproved: status.certificationsApproved === true,
+      hasPayoutSetup: status.stripeComplete === true,
+      tosComplete: status.tosComplete === true,
+    });
+
+    this.profileChecklist = checklist;
+    this.profileChecklistDoneCount = checklist.filter(
+      i => i.done && !i.pendingReview
+    ).length;
+    this.profileChecklistTotal = checklist.length;
+    // Show the banner whenever any required step is still incomplete; hide
+    // it the moment everything is done so the section disappears smoothly.
+    this.hasProfileCriticalInsights = this.profileChecklistDoneCount < checklist.length;
+    // Keep the growth-service mirror in sync for any other consumers.
+    this.tutorGrowthService.profileChecklist = checklist;
+    this.cdr.markForCheck();
   }
 
   private estimateFreeHoursThisWeek(): number {
@@ -4576,7 +5684,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     const end = lesson.endTime
       ? new Date(lesson.endTime)
       : new Date(start.getTime() + (Number(lesson.duration) || 60) * 60000);
-    return `${formatTimeInTz(start, this.userTz, undefined, true)} – ${formatTimeInTz(end, this.userTz, undefined, true)}`;
+    const loc = this.currentLocale;
+    return `${formatTimeInTz(start, this.userTz, loc, true)} – ${formatTimeInTz(end, this.userTz, loc, true)}`;
   }
 
   /**
@@ -5056,6 +6165,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     return '';
   }
 
+  /** Clears the Up Next cache so date/time strings recompute (e.g. after locale change). */
+  private invalidateNextLessonCache(): void {
+    this._cachedFirstLessonHash = '';
+    this._cachedFirstLesson = undefined;
+  }
+
   /** Refreshes time-sensitive pre-computed fields on the cached nextLesson object. */
   private refreshNextLessonTimeSensitiveFields(): void {
     const cached = this._cachedFirstLesson;
@@ -5066,7 +6181,23 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       cached.joinLabel = this.calculateJoinLabel(cached.lesson);
       cached.joinButtonText = this.computeUpNextJoinButtonText(cached.lesson);
       cached.showStartsInLine = this.computeShowStartsInLine(cached.lesson);
+      this.refreshNextLessonLocaleFields(cached, cached.lesson);
     }
+  }
+
+  /** Recomputes locale-dependent Up Next strings (date badge, time range, duration). */
+  private refreshNextLessonLocaleFields(cached: any, lesson: Lesson): void {
+    if (!cached || !lesson?.startTime) return;
+    const lessonDate = new Date(lesson.startTime);
+    const dateBadge = this.lessonDateBadgeParts(lessonDate);
+    cached.dateBadgeMonth = dateBadge.month;
+    cached.dateBadgeDay = dateBadge.dayNum;
+    cached.dateBadgeWeekday = dateBadge.weekdayShort;
+    cached.detailTimeRange = this.formatEventDetailsTimeRange(lesson);
+    cached.durationLabel = this.computeDurationLabel(lesson);
+    cached.lessonTime = this.formatLessonTime(lesson);
+    cached.dateTag = this.getDateTag(lessonDate);
+    cached.detailDatePrimary = this.formatEventDetailsDatePrimary(lessonDate);
   }
 
   /**
@@ -5159,7 +6290,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   }
 
   private syncThisWeekMobileNothingYet(): void {
-    if (!this.isTutorUser || this.isLoadingLessons) {
+    if (!(this.isTutorUser || this.isStudentUser) || this.isLoadingLessons) {
       this.thisWeekMobileShowNothingYet = false;
       this.thisWeekAvatars = [];
       this.thisWeekLessonCount = 0;
@@ -5193,6 +6324,16 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         key = 'class_' + ((lesson as any).className || lesson.subject || 'group');
         name = (lesson as any).className || lesson.subject || 'Group Class';
         avatar = (lesson as any).classData?.thumbnail || null;
+      } else if (this.isStudentUser) {
+        const tutor = lesson.tutorId as any;
+        const tutorId = typeof tutor === 'string' ? tutor : tutor?._id || tutor?.id || 'unknown';
+        key = String(tutorId);
+        name = tutor && typeof tutor === 'object'
+          ? this.formatTutorDisplayName(tutor)
+          : 'Tutor';
+        avatar = tutor && typeof tutor === 'object'
+          ? (tutor.picture || tutor.profilePicture || null)
+          : null;
       } else {
         const student = lesson.studentId as any;
         const studentId = typeof student === 'string' ? student : student?._id || student?.id || 'unknown';
@@ -5228,9 +6369,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     }
   }
 
-  /** Mobile tutor home: headline + subtitle match desktop welcome (not MOBILE_TUTOR_DASHBOARD). */
+  /** Mobile home: headline + subtitle (tutor dashboard layout — students share the same chrome). */
   private syncTutorMobileWelcomeSection(): void {
-    if (!this.isTutorUser || !this.isMobile) {
+    if (!this.isMobile || (!this.isTutorUser && !this.isStudentUser)) {
       this.tutorMobileWelcomeTitle = '';
       this.tutorMobileWelcomeSubtitle = '';
       return;
@@ -5244,11 +6385,16 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       this.tutorMobileWelcomeSubtitle = '';
       return;
     }
+    if (this.isStudentUser) {
+      // Invitation / default lines are rendered in the template (student branch).
+      this.tutorMobileWelcomeSubtitle = '';
+      return;
+    }
     this.tutorMobileWelcomeSubtitle = this.getWelcomeMessage();
   }
 
   private syncTutorMobileUpNextCoverUrl(): void {
-    if (!this.isMobile || !this.isTutorUser) {
+    if (!this.isMobile || (!this.isTutorUser && !this.isStudentUser)) {
       this.tutorMobileUpNextCoverUrl = null;
       return;
     }
@@ -5320,6 +6466,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   }
 
   getEmptyStateTitle(): string {
+    if (this.isStudentUser) {
+      return this.translateService.instant('HOME.STUDENT_HOME_SCHEDULE_EMPTY_TITLE');
+    }
     if (!this.hadLessonsToday) {
       return this.translateService.instant('HOME.EMPTY_TITLE_CLEAR');
     }
@@ -5327,6 +6476,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   }
 
   getEmptyStateMessage(): string {
+    if (this.isStudentUser) {
+      return this.translateService.instant('HOME.STUDENT_HOME_SCHEDULE_EMPTY_MSG');
+    }
     if (!this.hasAvailability) {
       return this.translateService.instant('HOME.EMPTY_MSG_NO_AVAILABILITY');
     }
@@ -5358,7 +6510,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     // MUST include both lessons and cancelledLessons since getNextLesson() checks both
     const lessonsHash = this.lessons.map(l => `${l._id}:${l.startTime}:${l.status}`).join(',');
     const cancelledHash = this.cancelledLessons.map(l => `${l._id}:${l.startTime}:${l.status}`).join(',');
-    const currentHash = `next:${lessonsHash}:${cancelledHash}:${Date.now() - (Date.now() % 60000)}`; // Update every minute
+    const currentHash = `next:${lessonsHash}:${cancelledHash}:${this.currentLocale}:${Date.now() - (Date.now() % 60000)}`; // Update every minute + on locale change
     
     // Return cached value if inputs haven't changed
     if (this._cachedFirstLessonHash === currentHash && this._cachedFirstLesson !== undefined) {
@@ -5376,7 +6528,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     // Create a hash of the inputs to detect changes
     const selectedDateStr = this.selectedDate ? this.selectedDate.toISOString() : 'null';
     const lessonsHash = this.lessons.map(l => `${l._id}:${l.startTime}:${l.status}`).join(',');
-    const currentHash = `${selectedDateStr}:${lessonsHash}:${Date.now() - (Date.now() % 60000)}`; // Update every minute
+    const currentHash = `${selectedDateStr}:${lessonsHash}:${this.currentLocale}:${Date.now() - (Date.now() % 60000)}`; // Update every minute + on locale change
     
     // Return cached value if inputs haven't changed
     if (this._cachedFirstLessonHash === currentHash && this._cachedFirstLesson !== undefined) {
@@ -5959,6 +7111,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   // Track if feedback modal is open
   isFeedbackModalOpen = false;
 
+  /** Tutor approval wizard from profile checklist (Create Material–style desktop card) */
+  isTutorApprovalWizardModalOpen = false;
+  tutorApprovalWizardModalInitialStepId: string | null = null;
+  tutorApprovalWizardBackdropVisible = false;
+  tutorApprovalWizardModalReady = false;
+
   /**
    * Open modal to show all upcoming lessons (Airbnb style)
    */
@@ -6020,9 +7178,11 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   allLessonsUnfiltered: any[] = [];
   
   // Get current month label for display
-  /** Current UI locale for date/time formatting (e.g. 'en', 'fr') */
+  /** BCP 47 locale for date/time formatting, aligned with the active UI language. */
   get currentLocale(): string {
-    return this.translateService.currentLang || this.translateService.defaultLang || 'en';
+    return translateLangToDatetimeLocale(
+      this.translateService.currentLang || this.translateService.defaultLang || 'en'
+    );
   }
 
   get currentMonthLabel(): string {
@@ -6184,7 +7344,7 @@ navigateToLessons() {
     if (this.thisWeekSingleLesson?._id) {
       this.router.navigate(['/tabs/lessons', this.thisWeekSingleLesson._id]);
     } else {
-      this.router.navigate(['/tabs/tutor-calendar']);
+      this.router.navigate([this.isStudentUser ? '/tabs/lessons' : '/tabs/tutor-calendar']);
     }
   }
 
@@ -6234,11 +7394,39 @@ navigateToLessons() {
     if (nl?.lesson?._id) {
       const presence = this.lessonPresence.get(String(nl.lesson._id));
       this.nextLessonOtherJoined = !!presence;
-      this.nextLessonOtherName = presence?.participantName || '';
+      this.nextLessonOtherName = presence ? this.formatUpNextOtherParticipantName(nl) : '';
     } else {
       this.nextLessonOtherJoined = false;
       this.nextLessonOtherName = '';
     }
+  }
+
+  /** "First L." for the other participant on the Up Next in-call indicator. */
+  private formatUpNextOtherParticipantName(nextClass: any): string {
+    if (nextClass?.isClass || nextClass?.lesson?.isClass) {
+      return nextClass?.name || nextClass?.lesson?.className || 'Class';
+    }
+    if (nextClass?.firstName || nextClass?.lastName) {
+      return this.isTutorUser
+        ? this.formatStudentDisplayName(nextClass)
+        : this.formatTutorDisplayName(nextClass);
+    }
+    const lesson = nextClass?.lesson as Lesson | undefined;
+    const other = lesson
+      ? (this.isTutorUser ? lesson.studentId : lesson.tutorId)
+      : null;
+    if (typeof other === 'object' && other) {
+      return this.isTutorUser
+        ? this.formatStudentDisplayName(other)
+        : this.formatTutorDisplayName(other);
+    }
+    const presence = lesson?._id
+      ? this.lessonPresence.get(String(lesson._id))
+      : null;
+    const raw = presence?.participantName || '';
+    return presence?.participantRole === 'tutor'
+      ? this.formatTutorDisplayName(raw)
+      : this.formatStudentDisplayName(raw);
   }
 
   private loadPreviousNotes() {
@@ -7349,14 +8537,15 @@ navigateToLessons() {
                 }
               }
               
+              const otherParticipant = isTutor ? detailedLesson.studentId : detailedLesson.tutorId;
+              const participantName =
+                typeof otherParticipant === 'object' && otherParticipant
+                  ? (isTutor
+                      ? this.formatStudentDisplayName(otherParticipant)
+                      : this.formatTutorDisplayName(otherParticipant))
+                  : (isTutor ? 'Student' : 'Tutor');
               this.lessonPresence.set(normalizedLessonId, {
-                participantName: isTutor 
-                  ? (detailedLesson.studentId && typeof detailedLesson.studentId === 'object' 
-                      ? (detailedLesson.studentId as any)?.name || 'Student'
-                      : 'Student')
-                  : (detailedLesson.tutorId && typeof detailedLesson.tutorId === 'object'
-                      ? (detailedLesson.tutorId as any)?.name || 'Tutor'
-                      : 'Tutor'),
+                participantName,
                 participantPicture: participantPicture,
                 participantRole: isTutor ? 'student' : 'tutor',
                 joinedAt: typeof participantData.joinedAt === 'string' 
@@ -7386,7 +8575,9 @@ navigateToLessons() {
     const other = isTutor ? lesson.studentId : lesson.tutorId;
     
     if (typeof other === 'object' && other) {
-      return (other as any)?.name || (other as any)?.email || 'Unknown';
+      return isTutor
+        ? this.formatStudentDisplayName(other)
+        : this.formatTutorDisplayName(other);
     }
     
     return 'Unknown';
@@ -7811,6 +9002,13 @@ navigateToLessons() {
   navigateToEarnings() {
     // === FLIP Animation: Home → Earnings ===
 
+    // The home "View Details" entry always lands on the Details tab so the
+    // FLIP animation can find its destination buttons. Any pending return
+    // section (e.g. from a previous lesson-detail trip) is consumed here so
+    // the panel doesn't reopen on Transactions and leave the Withdraw clone
+    // floating mid-screen.
+    EarningsPage.pendingReturnSection = null;
+
     // Step 1: Capture source button rects from the home earnings card
     const earningsSrc = this.isMobile ? '.earnings-mobile-card' : '.grid-cell-earnings';
     const srcWithdraw = this.isMobile ? null : document.querySelector('.grid-cell-earnings .withdraw-btn') as HTMLElement;
@@ -7885,10 +9083,20 @@ navigateToLessons() {
       document.body.appendChild(viewDetailsClone);
     }
 
-    // Step 3: Switch to earnings view & scroll to top so layout is stable
+    // Step 3: Switch to earnings view & scroll to top so layout is stable.
+    // We must reset scroll SYNCHRONOUSLY on the underlying scroll element BEFORE
+    // measuring dest rects. ion-content.scrollToTop(0) returns a Promise and the
+    // scroll can still be at the old position when we read getBoundingClientRect,
+    // which makes the withdraw clone fly to the wrong (too-high) destination and
+    // then snap down after the 520ms safety re-read — most visible when the
+    // profile-checklist-section pushes the page down and the user has scrolled.
     this.showEarningsView = true;
     this.cdr.detectChanges();
-    this.ionContent?.scrollToTop(0);
+    if (this._scrollElRef) {
+      this._scrollElRef.scrollTop = 0;
+    } else {
+      this.ionContent?.scrollToTop(0);
+    }
 
     // Step 4a: View Details → Go back (destination always available in inline chrome)
     requestAnimationFrame(() => {
@@ -8010,16 +9218,18 @@ navigateToLessons() {
             }
           }, 1000);
 
-          // Safety fallback: generous timeout for very slow connections (15s)
+          // Safety fallback: drop the clone quickly if the destination
+          // never appears (e.g. earnings opened on Transactions, not Details)
+          // so we never leave a parked "Withdraw Funds" pill on screen.
           setTimeout(() => {
             if (!landed) {
               observer.disconnect();
               if (pulseAnim) { pulseAnim.cancel(); pulseAnim = null; }
+              withdrawClone.style.transition = 'opacity 0.2s ease';
               withdrawClone.style.opacity = '0';
-              withdrawClone.style.transition = 'opacity 0.3s ease';
-              setTimeout(() => { if (withdrawClone.parentNode) withdrawClone.remove(); }, 350);
+              setTimeout(() => { if (withdrawClone.parentNode) withdrawClone.remove(); }, 220);
             }
-          }, 15000);
+          }, 1500);
         } else {
           // Panel not found — fade out
           withdrawClone.style.opacity = '0';
@@ -8114,10 +9324,14 @@ navigateToLessons() {
     }
 
     // Step 3: Suppress all entry animations on the home view so nothing flashes/drifts.
+    // We need this on desktop too: the profile-checklist-anim's reveal animation
+    // (grid 0fr → 1fr over 580ms) re-fires on every home re-mount and pushes the
+    // earnings card down mid-flight, leaving the withdraw clone parked at the
+    // (stale) top-of-card destRect while the real button settles lower.
+    // ':host(.returning-from-inline) .content-wrapper *:not(.anim-persist)' kills
+    // entry animations so the home layout is in its final state when we measure.
     this.returningFromEarnings = true;
-    if (this.isMobile) {
-      this.returningFromInline = true;
-    }
+    this.returningFromInline = true;
 
     // Step 4: Switch back to home view
     this.showEarningsView = false;
@@ -8227,6 +9441,25 @@ navigateToLessons() {
 
     // Refresh earnings summary data when returning to home view
     this.loadTutorEarnings();
+  }
+
+  /** Re-open inline earnings on the Transactions (or other) tab after lesson detail back. */
+  private restoreEarningsAfterLessonReturn(): void {
+    const params = this.activatedRoute.snapshot.queryParamMap;
+    if (params.get('openEarnings') !== '1' || !this.isTutorUser) {
+      return;
+    }
+    EarningsPage.applyReturnSectionParam(params.get('earningsSection'));
+    this.closeAllInlinePanelsExceptEarnings();
+    this.showEarningsView = true;
+    this.cdr.detectChanges();
+    this.ionContent?.scrollToTop(0);
+    void this.router.navigate([], {
+      relativeTo: this.activatedRoute,
+      queryParams: { openEarnings: null, earningsSection: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   private closeAllInlinePanelsExceptEarnings(): void {
@@ -8600,13 +9833,13 @@ navigateToLessons() {
         // Open Stripe onboarding in new window
         window.open(response.onboardingUrl, '_blank');
         
-        const toast = await this.toastController.create({
-          message: 'Complete the setup in the new window. Refresh this page when done.',
-          duration: 5000,
-          color: 'primary',
-          position: 'top'
-        });
-        await toast.present();
+        // const toast = await this.toastController.create({
+        //   message: 'Complete the setup in the new window. Refresh this page when done.',
+        //   duration: 5000,
+        //   color: 'primary',
+        //   position: 'top'
+        // });
+        // await toast.present();
       }
     } catch (error: any) {
       console.error('❌ Error starting Stripe Connect onboarding:', error);
@@ -8750,26 +9983,35 @@ navigateToLessons() {
     this.isWeeklyGoalMasked = !this.showWalletBalance && !this.walletTemporarilyVisible;
 
     const fmt = (n: number) => (Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`);
-    this.weeklyEarningsGoalLabel = `${fmt(earned)} of ${fmt(this.weeklyEarningsGoal)} goal`;
+    this.weeklyEarningsGoalLabel = this.translateService.instant('HOME.WEEKLY_GOAL_PROGRESS', {
+      earned: fmt(earned),
+      goal: fmt(this.weeklyEarningsGoal),
+    });
 
     // Sub-label priority (first match wins).
     const combined = earned + scheduled;
-    const lessonWord = scheduledCount === 1 ? 'lesson' : 'lessons';
+    const lessonsKey = scheduledCount === 1 ? 'HOME.LESSON_SINGULAR' : 'HOME.LESSON_PLURAL';
+    const lessons = this.translateService.instant(lessonsKey);
 
     if (this.isWeeklyGoalReached) {
-      this.weeklyEarningsGoalSubLabel = 'Goal reached — nice work';
+      this.weeklyEarningsGoalSubLabel = this.translateService.instant('HOME.WEEKLY_GOAL_REACHED');
       return;
     }
 
     if (earned > 0) {
       if (combined >= this.weeklyEarningsGoal && scheduled > 0) {
-        this.weeklyEarningsGoalSubLabel = `On pace · ${fmt(scheduled)} scheduled this week`;
+        this.weeklyEarningsGoalSubLabel = this.translateService.instant('HOME.WEEKLY_GOAL_ON_PACE', {
+          amount: fmt(scheduled),
+        });
       } else {
         const today = new Date();
         const daysLeft = Math.max(1, 7 - today.getDay());
         const remaining = Math.max(0, this.weeklyEarningsGoal - earned);
         const perDay = Math.ceil(remaining / daysLeft);
-        this.weeklyEarningsGoalSubLabel = `$${perDay}/day to hit goal`;
+        const perDayStr = `$${perDay}`;
+        this.weeklyEarningsGoalSubLabel = this.translateService.instant('HOME.WEEKLY_GOAL_PER_DAY', {
+          amount: perDayStr,
+        });
       }
       return;
     }
@@ -8777,14 +10019,21 @@ navigateToLessons() {
     if (scheduled > 0) {
       const shortfall = Math.max(0, this.weeklyEarningsGoal - scheduled);
       this.weeklyEarningsGoalSubLabel = shortfall > 0
-        ? `${scheduledCount} ${lessonWord} scheduled · ${fmt(shortfall)} to go`
-        : `${scheduledCount} ${lessonWord} scheduled · on pace`;
+        ? this.translateService.instant('HOME.WEEKLY_GOAL_SCHEDULED_TO_GO', {
+            count: scheduledCount,
+            lessons,
+            shortfall: fmt(shortfall),
+          })
+        : this.translateService.instant('HOME.WEEKLY_GOAL_SCHEDULED_ON_PACE', {
+            count: scheduledCount,
+            lessons,
+          });
       return;
     }
 
     this.weeklyEarningsGoalSubLabel = this.hasAvailability
-      ? 'Open for bookings — no lessons yet'
-      : 'Add availability to start earning';
+      ? this.translateService.instant('HOME.WEEKLY_GOAL_OPEN_BOOKINGS')
+      : this.translateService.instant('HOME.WEEKLY_GOAL_ADD_AVAILABILITY');
   }
 
   startEditWeeklyGoal(): void {
@@ -9508,22 +10757,22 @@ navigateToLessons() {
       
       // STEP 2: Show confirmation alert popup (matches reschedule confirmation style)
       const alert = await this.alertController.create({
-        header: 'Cancel Lesson',
-        message: `Are you sure you want to cancel this lesson? ${participantName} will be notified and this action cannot be undone.`,
+        header: this.translateService.instant('ALERTS.LESSON.CANCEL_HEADER'),
+        message: this.translateService.instant('ALERTS.LESSON.CANCEL_MESSAGE', { name: participantName }),
         buttons: [
           {
-            text: 'Go Back',
+            text: this.translateService.instant('ALERTS.LESSON.GO_BACK'),
             role: 'cancel',
             cssClass: 'alert-cancel-button'
           },
           {
-            text: 'Reschedule instead?',
+            text: this.translateService.instant('ALERTS.LESSON.RESCHEDULE_INSTEAD'),
             handler: () => {
               if (!this.hasLessonStarted(lesson)) {
                 void this.rescheduleLesson(lessonId, lesson);
               } else {
                 void this.toastController.create({
-                  message: 'This lesson has already started and cannot be rescheduled.',
+                  message: this.translateService.instant('ALERTS.LESSON.LESSON_STARTED_NO_RESCHEDULE'),
                   duration: 3000,
                   position: 'bottom',
                   color: 'medium'
@@ -9533,7 +10782,7 @@ navigateToLessons() {
             }
           },
           {
-            text: 'Cancel Lesson',
+            text: this.translateService.instant('ALERTS.LESSON.CANCEL_LESSON_BTN'),
             role: 'confirm',
             cssClass: 'alert-confirm-button',
             handler: () => {
@@ -9551,7 +10800,7 @@ navigateToLessons() {
   // Execute the actual cancel lesson API call (called from alert confirmation)
   private async executeCancelLesson(lessonId: string) {
     const loading = await this.loadingController.create({
-      message: 'Cancelling lesson...',
+      message: this.translateService.instant('ALERTS.LESSON.CANCELLING'),
       spinner: 'crescent'
     });
     await loading.present();
@@ -9572,7 +10821,7 @@ navigateToLessons() {
       if (response?.success) {
         // Show success toast
         const toast = await this.toastController.create({
-          message: 'Lesson cancelled successfully',
+          message: this.translateService.instant('ALERTS.LESSON.CANCELLED_SUCCESS'),
           duration: 3000,
           position: 'bottom',
           color: 'success'
@@ -9833,6 +11082,49 @@ navigateToLessons() {
     });
   }
 
+  openTutorApprovalWizardFromChecklist(item: ProfileChecklistItem): void {
+    this.tutorApprovalWizardModalInitialStepId = mapProfileChecklistIdToApprovalWizardStepId(item.id);
+    this.isTutorApprovalWizardModalOpen = true;
+    this.tutorApprovalWizardBackdropVisible = false;
+    this.tutorApprovalWizardModalReady = false;
+    this.cdr.markForCheck();
+    if (this.isMobile) {
+      this.ionContent?.scrollToTop(0);
+    } else {
+      document.body.classList.add('cm-desktop-modal-open');
+      requestAnimationFrame(() => {
+        this.tutorApprovalWizardBackdropVisible = true;
+        this.cdr.markForCheck();
+      });
+      setTimeout(() => {
+        this.tutorApprovalWizardModalReady = true;
+        this.cdr.markForCheck();
+      }, 350);
+    }
+  }
+
+  onTutorApprovalWizardBackdropClick(ev: MouseEvent): void {
+    if ((ev.target as HTMLElement).classList.contains('cm-modal-backdrop')) {
+      this.closeTutorApprovalWizardModal(true);
+    }
+  }
+
+  onTutorApprovalWizardDismissedFromChild(): void {
+    this.closeTutorApprovalWizardModal(true);
+  }
+
+  private closeTutorApprovalWizardModal(refreshUser: boolean): void {
+    this.isTutorApprovalWizardModalOpen = false;
+    this.tutorApprovalWizardModalInitialStepId = null;
+    this.tutorApprovalWizardBackdropVisible = false;
+    this.tutorApprovalWizardModalReady = false;
+    document.body.classList.remove('cm-desktop-modal-open');
+    if (refreshUser) {
+      void firstValueFrom(this.userService.getCurrentUser(true));
+    }
+    this.cdr.markForCheck();
+  }
+
   /**
    * Open pending feedback modal (Airbnb style, matches Upcoming Lessons modal)
    */
@@ -9865,7 +11157,7 @@ navigateToLessons() {
         : '';
       return {
         text: `${fb.studentName || 'Student'} — ${date}`,
-        icon: 'clipboard-outline',
+        icon: 'warning-outline',
         handler: () => {
           this.openFeedbackForm(fb.lessonId, fb._id);
         }
@@ -9922,9 +11214,14 @@ navigateToLessons() {
   /**
    * Handle tutor note saved event
    */
-  async onTutorNoteSaved(noteData: { quickImpression: string; text: string; homework: string }) {
+  async onTutorNoteSaved(noteData: {
+    quickImpression: string;
+    text: string;
+    homework: string;
+    capturedCorrections?: Array<{ original: string; corrected: string; explanation?: string }>;
+  }) {
     if (!this.tutorNoteModalData) return;
-    
+
     try {
       await firstValueFrom(
         this.lessonService.saveTutorNote(this.tutorNoteModalData.lessonId, noteData)

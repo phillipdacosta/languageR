@@ -87,7 +87,8 @@ export class OnboardingGuard implements CanActivate {
       switchMap(user => {
         if (!user || !user.email) {
           this.loadingService.hide();
-          this.router.navigate(['/onboarding']);
+          const savedUserType = localStorage.getItem('selectedUserType');
+          this.router.navigate([savedUserType ? (savedUserType === 'tutor' ? '/tutor-onboarding' : '/onboarding') : '/signup-language']);
           return of(false);
         }
 
@@ -96,9 +97,9 @@ export class OnboardingGuard implements CanActivate {
       }),
       catchError(error => {
         console.error('OnboardingGuard: error checking onboarding status:', error);
-        // On error, redirect to onboarding to be safe
         this.loadingService.hide();
-        this.router.navigate(['/onboarding']);
+        const savedUserType = localStorage.getItem('selectedUserType');
+        this.router.navigate([savedUserType ? (savedUserType === 'tutor' ? '/tutor-onboarding' : '/onboarding') : '/signup-language']);
         return of(false);
       })
     );
@@ -153,13 +154,18 @@ export class OnboardingGuard implements CanActivate {
             result: false,
             timestamp: Date.now()
           });
-          
+
           this.loadingService.hide();
-          
-          // Route to appropriate onboarding based on user type from localStorage
-          const userType = localStorage.getItem('selectedUserType') || 'student';
-          const onboardingRoute = userType === 'tutor' ? '/tutor-onboarding' : '/onboarding';
-          this.router.navigate([onboardingRoute]);
+
+          // If user has not yet picked a role, start on signup-language
+          // (interface language) first; otherwise honor their previous selection on retry.
+          const savedUserType = localStorage.getItem('selectedUserType');
+          if (!savedUserType) {
+            this.router.navigate(['/signup-language']);
+          } else {
+            const onboardingRoute = savedUserType === 'tutor' ? '/tutor-onboarding' : '/onboarding';
+            this.router.navigate([onboardingRoute]);
+          }
           observer.next(false);
           observer.complete();
           return;
@@ -190,11 +196,20 @@ export class OnboardingGuard implements CanActivate {
         } else {
           console.log('⚠️ OnboardingGuard: User has NOT completed onboarding, redirecting');
           this.loadingService.hide();
-          
-          // Route to appropriate onboarding based on user type
-          const userType = userResult.user?.userType || 'student';
-          const onboardingRoute = userType === 'tutor' ? '/tutor-onboarding' : '/onboarding';
-          this.router.navigate([onboardingRoute]);
+
+          // Prefer the role stored on the user record. If neither the DB nor
+          // localStorage knows the user's role yet, route to /signup-language
+          // first, then role selection, then the correct onboarding flow.
+          const dbUserType = userResult.user?.userType;
+          const savedUserType = localStorage.getItem('selectedUserType');
+          const userType = dbUserType || savedUserType;
+
+          if (!userType) {
+            this.router.navigate(['/signup-language']);
+          } else {
+            const onboardingRoute = userType === 'tutor' ? '/tutor-onboarding' : '/onboarding';
+            this.router.navigate([onboardingRoute]);
+          }
           observer.next(false);
           observer.complete();
         }
@@ -212,9 +227,10 @@ export class OnboardingGuard implements CanActivate {
           return;
         }
         
-        // If no cache, redirect to onboarding as fallback
+        // If no cache, route based on whether the user has picked a role yet
         this.loadingService.hide();
-        this.router.navigate(['/onboarding']);
+        const savedUserType = localStorage.getItem('selectedUserType');
+        this.router.navigate([savedUserType ? (savedUserType === 'tutor' ? '/tutor-onboarding' : '/onboarding') : '/signup-language']);
         observer.next(false);
         observer.complete();
       });
