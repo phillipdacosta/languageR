@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../services/auth.service';
@@ -25,7 +25,8 @@ import { SetGoalComponent } from '../modals/set-goal/set-goal.component';
 import {
   TutorGrowthService,
   ProfileChecklistItem,
-  buildTutorProfileChecklist
+  buildTutorProfileChecklist,
+  mapProfileChecklistIdToApprovalWizardStepId
 } from '../services/tutor-growth.service';
 
 @Component({
@@ -141,6 +142,13 @@ export class ProfilePage implements OnInit {
     deltaSign: 'up' | 'down' | 'flat';
   }> = [];
 
+  // Tutor approval wizard modal state (mirrors tab1 pattern)
+  isTutorApprovalWizardModalOpen = false;
+  tutorApprovalWizardModalInitialStepId: string | null = null;
+  tutorApprovalWizardBackdropVisible = false;
+  tutorApprovalWizardModalReady = false;
+  isMobileViewport = false;
+
   // Cached display properties (avoids function calls in template)
   displayUser: any = null;
   isTutorUser = false;
@@ -176,7 +184,8 @@ export class ProfilePage implements OnInit {
     private websocketService: WebSocketService,
     private tutorFeedbackService: TutorFeedbackService,
     private learningPlanService: LearningPlanService,
-    private tutorGrowthService: TutorGrowthService
+    private tutorGrowthService: TutorGrowthService,
+    private cdr: ChangeDetectorRef
   ) {
     this.user$ = this.authService.user$;
     this.isAuthenticated$ = this.authService.isAuthenticated$;
@@ -609,18 +618,45 @@ export class ProfilePage implements OnInit {
   /** Open the tutor approval flow at the step the user clicked. */
   openProfileChecklistItem(item: ProfileChecklistItem): void {
     if (!item) return;
-    if (item.id === 'video') {
-      const el = document.getElementById('intro-video-section');
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        el.classList.add('highlight-pulse');
-        setTimeout(() => el.classList.remove('highlight-pulse'), 2000);
-        return;
-      }
+    this.isMobileViewport = this.platform.is('mobile') || this.platform.is('mobileweb');
+    this.tutorApprovalWizardModalInitialStepId = mapProfileChecklistIdToApprovalWizardStepId(item.id);
+    this.isTutorApprovalWizardModalOpen = true;
+    this.tutorApprovalWizardBackdropVisible = false;
+    this.tutorApprovalWizardModalReady = false;
+    this.cdr.markForCheck();
+    if (!this.isMobileViewport) {
+      document.body.classList.add('cm-desktop-modal-open');
+      requestAnimationFrame(() => {
+        this.tutorApprovalWizardBackdropVisible = true;
+        this.cdr.markForCheck();
+      });
+      setTimeout(() => {
+        this.tutorApprovalWizardModalReady = true;
+        this.cdr.markForCheck();
+      }, 350);
     }
-    this.router.navigate([item.route || '/tutor-approval'], {
-      queryParams: { step: item.id }
-    });
+  }
+
+  onTutorApprovalWizardBackdropClick(ev: MouseEvent): void {
+    if ((ev.target as HTMLElement).classList.contains('cm-modal-backdrop')) {
+      this.closeTutorApprovalWizardModal(true);
+    }
+  }
+
+  onTutorApprovalWizardDismissedFromChild(): void {
+    this.closeTutorApprovalWizardModal(true);
+  }
+
+  private closeTutorApprovalWizardModal(refreshUser: boolean): void {
+    this.isTutorApprovalWizardModalOpen = false;
+    this.tutorApprovalWizardModalInitialStepId = null;
+    this.tutorApprovalWizardBackdropVisible = false;
+    this.tutorApprovalWizardModalReady = false;
+    document.body.classList.remove('cm-desktop-modal-open');
+    this.cdr.markForCheck();
+    if (refreshUser) {
+      void firstValueFrom(this.userService.getCurrentUser(true));
+    }
   }
 
   // Feedback modal state
@@ -1111,9 +1147,16 @@ export class ProfilePage implements OnInit {
       this.displayUserInitials = '?';
     }
 
-    // Custom picture
+    // Custom picture — must match the same logic used by user.service's
+    // tutor-approval `photoComplete` flag so the Personal Info CTA and the
+    // shared profile checklist never disagree about whether a custom photo
+    // is set.
     const pic = user?.picture;
-    this.hasCustomProfilePicture = !!pic && pic.includes('storage.googleapis.com') && pic.includes('profile-pictures');
+    const auth0Pic = (user as any)?.auth0Picture;
+    this.hasCustomProfilePicture = !!pic && (
+      pic.includes('storage.googleapis.com') ||
+      (!!auth0Pic && pic !== auth0Pic)
+    );
 
     // Timezone
     const tz = this.currentUser?.profile?.timezone;
@@ -1648,9 +1691,11 @@ export class ProfilePage implements OnInit {
           if (this.currentUser) {
             this.currentUser.picture = uploadResult.imageUrl;
           }
-          
-          // Also reload from server to ensure consistency
-          this.userService.getCurrentUser().subscribe(user => {
+
+          // Force a server refresh so currentUser$ re-emits with the new
+          // picture URL — that drives updateTutorApprovalStatus which keeps
+          // the profile checklist + Payouts tab perfectly in sync.
+          this.userService.getCurrentUser(true).subscribe(user => {
             this.currentUser = user;
           });
 

@@ -299,7 +299,17 @@ export class UserService {
   constructor(
     private http: HttpClient,
     private authService: AuthService
-  ) {}
+  ) {
+    // Recompute tutor-approval + payout status on EVERY currentUser$ emit so
+    // any consumer that updates the user (picture upload, video upload, payout
+    // setup, profile edit, etc.) keeps the shared checklist + Payouts tab in
+    // perfect sync without each caller needing to remember to refresh.
+    this.currentUserSubject.subscribe(user => {
+      if (user && user.userType === 'tutor') {
+        this.updateTutorApprovalStatus(user);
+      }
+    });
+  }
 
   private async getAuthHeadersAsync(): Promise<HttpHeaders> {
     try {
@@ -455,17 +465,22 @@ export class UserService {
       (user.auth0Picture && user.picture !== user.auth0Picture) // Different from original Auth0 photo
     );
     const photoComplete = !!hasCustomPhoto;
-    // Video is complete if there's either a pendingVideo (awaiting review), an approved introductionVideo, OR it was rejected
-    const videoComplete = !!user.onboardingData?.pendingVideo || 
-                          !!user.onboardingData?.introductionVideo || 
-                          user.tutorOnboarding?.videoRejected === true;
+    // Video is complete when there's either a pending submission (awaiting
+    // review) or an approved video on file. We intentionally do NOT treat a
+    // bare `videoRejected` flag as complete — the Teaching Profile section
+    // shows the upload empty-state in that case, so the checklist must agree
+    // and prompt the tutor to re-upload.
+    const videoComplete = !!user.onboardingData?.pendingVideo ||
+                          !!user.onboardingData?.introductionVideo;
     const videoApproved = user.tutorOnboarding?.videoApproved === true;
     const videoRejected = user.tutorOnboarding?.videoRejected === true;
     const hasApprovedVideo = !!user.onboardingData?.introductionVideo; // Has at least one approved video
     
-    // Check for any payout method: Stripe, PayPal, or Manual
+    // Check for any payout method: Stripe, PayPal, or Manual.
+    // PayPal is considered complete as soon as payoutProvider is set to 'paypal' — the
+    // email is validated before saving so having the provider flag is sufficient.
     const hasStripe = user.stripeConnectOnboarded === true;
-    const hasPayPal = user.payoutProvider === 'paypal' && !!user.payoutDetails?.paypalEmail;
+    const hasPayPal = user.payoutProvider === 'paypal';
     const hasManual = user.payoutProvider === 'manual';
     const stripeComplete = hasStripe || hasPayPal || hasManual;
 
@@ -538,6 +553,26 @@ export class UserService {
     };
 
     this.tutorApprovalStatusSubject.next(status);
+
+    // Keep `payoutStatus$` in lock-step with `tutorApprovalStatus$` so the
+    // profile Payouts tab can never disagree with the profile checklist.
+    // We only refresh the provider/hasPayoutSetup pair here and preserve the
+    // cached `options` (loaded once via `loadPayoutStatus()` on app init).
+    const prev = this.payoutStatusSubject.value;
+    const provider = (user.payoutProvider || 'none') as 'stripe' | 'paypal' | 'manual' | 'none';
+    let hasPayoutSetup = false;
+    if (provider === 'stripe') {
+      hasPayoutSetup = user.stripeConnectOnboarded === true;
+    } else if (provider === 'paypal' || provider === 'manual') {
+      hasPayoutSetup = true;
+    }
+    if (prev.provider !== provider || prev.hasPayoutSetup !== hasPayoutSetup) {
+      this.payoutStatusSubject.next({
+        provider,
+        hasPayoutSetup,
+        options: prev.options,
+      });
+    }
   }
 
   /**
@@ -568,12 +603,14 @@ export class UserService {
         const user = await this.getCurrentUser(true).toPromise();
         const payoutProvider = user?.payoutProvider || 'none';
         
-        // Determine if payout is set up
+        // Determine if payout is set up. Must stay consistent with the
+        // tutorApprovalStatus.stripeComplete logic above so the profile
+        // Payouts tab and the shared profile checklist never disagree.
         let hasPayoutSetup = false;
         if (payoutProvider === 'stripe') {
           hasPayoutSetup = user?.stripeConnectOnboarded === true;
         } else if (payoutProvider === 'paypal') {
-          hasPayoutSetup = !!user?.payoutDetails?.paypalEmail;
+          hasPayoutSetup = true;
         } else if (payoutProvider === 'manual') {
           hasPayoutSetup = true;
         }

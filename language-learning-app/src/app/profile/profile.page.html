@@ -36,6 +36,42 @@
               <p class="profile-layout__panel-sub" *ngIf="profilePanelSubKey">{{ profilePanelSubKey | translate }}</p>
             </header>
 
+    <!-- Outstanding items banner — always visible above all tabs -->
+    <div class="profile-checklist-anim"
+         *ngIf="!isViewingOtherUser && isTutorUser && hasProfileCriticalInsights && profileChecklist.length > 0">
+      <div class="profile-checklist-anim__inner">
+        <div class="profile-checklist-section">
+          <div class="profile-checklist-header">
+            <div class="pcl-header-text">
+              <div class="pcl-header-top">
+                <ion-icon name="alert-circle-outline" class="pcl-warn-icon"></ion-icon>
+                <span class="pcl-title">{{ 'HOME.GROWTH.PROFILE_PROGRESS' | translate:{ done: profileChecklistDoneCount, total: profileChecklistTotal } }}</span>
+                <span class="pcl-hidden-label" *ngIf="profileChecklistDoneCount < profileChecklistTotal">
+                  <ion-icon name="eye-off-outline"></ion-icon> {{ 'HOME.GROWTH.PROFILE_HIDDEN' | translate }}
+                </span>
+              </div>
+              <p class="pcl-subtitle" *ngIf="profileChecklistDoneCount < profileChecklistTotal">{{ 'HOME.GROWTH.PROFILE_CHECKLIST_SUBTITLE' | translate }}</p>
+              <p class="pcl-availability-note" *ngIf="profileChecklistDoneCount < profileChecklistTotal">{{ 'HOME.GROWTH.PROFILE_CHECKLIST_AVAILABILITY_NOTE' | translate }}</p>
+            </div>
+          </div>
+          <div class="profile-checklist-items">
+            <button type="button" *ngFor="let item of profileChecklist"
+                    class="pcl-item"
+                    [class.pcl-item--done]="item.done && !item.pendingReview"
+                    [class.pcl-item--pending-review]="item.pendingReview"
+                    (click)="openProfileChecklistItem(item)">
+              <ion-icon
+                class="pcl-check"
+                [name]="item.pendingReview ? 'time-outline' : (item.done ? 'checkmark-circle' : 'ellipse-outline')">
+              </ion-icon>
+              <span class="pcl-label">{{ item.labelKey | translate:(item.labelParams || {}) }}</span>
+              <ion-icon name="chevron-forward-outline" class="pcl-arrow" *ngIf="!item.done || item.pendingReview"></ion-icon>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
         <ng-container *ngIf="isViewingOtherUser || profileActiveSection === 'personal'">
         <!-- User Profile Card -->
         <ion-card class="profile-card">
@@ -126,43 +162,6 @@
           </ion-card-content>
         </ion-card>
 
-    <!-- Outstanding items banner — shared with home and tutor-calendar.
-         Same data source (tutorApprovalStatus$ → buildTutorProfileChecklist)
-         so all three pages stay in sync. -->
-    <div class="profile-checklist-anim"
-         *ngIf="!isViewingOtherUser && isTutorUser && hasProfileCriticalInsights && profileChecklist.length > 0">
-      <div class="profile-checklist-anim__inner">
-        <div class="profile-checklist-section">
-          <div class="profile-checklist-header">
-            <div class="pcl-header-text">
-              <div class="pcl-header-top">
-                <ion-icon name="alert-circle-outline" class="pcl-warn-icon"></ion-icon>
-                <span class="pcl-title">{{ 'HOME.GROWTH.PROFILE_PROGRESS' | translate:{ done: profileChecklistDoneCount, total: profileChecklistTotal } }}</span>
-                <span class="pcl-hidden-label" *ngIf="profileChecklistDoneCount < profileChecklistTotal">
-                  <ion-icon name="eye-off-outline"></ion-icon> {{ 'HOME.GROWTH.PROFILE_HIDDEN' | translate }}
-                </span>
-              </div>
-              <p class="pcl-subtitle" *ngIf="profileChecklistDoneCount < profileChecklistTotal">{{ 'HOME.GROWTH.PROFILE_CHECKLIST_SUBTITLE' | translate }}</p>
-              <p class="pcl-availability-note" *ngIf="profileChecklistDoneCount < profileChecklistTotal">{{ 'HOME.GROWTH.PROFILE_CHECKLIST_AVAILABILITY_NOTE' | translate }}</p>
-            </div>
-          </div>
-          <div class="profile-checklist-items">
-            <button type="button" *ngFor="let item of profileChecklist"
-                    class="pcl-item"
-                    [class.pcl-item--done]="item.done && !item.pendingReview"
-                    [class.pcl-item--pending-review]="item.pendingReview"
-                    (click)="openProfileChecklistItem(item)">
-              <ion-icon
-                class="pcl-check"
-                [name]="item.pendingReview ? 'time-outline' : (item.done ? 'checkmark-circle' : 'ellipse-outline')">
-              </ion-icon>
-              <span class="pcl-label">{{ item.labelKey | translate:(item.labelParams || {}) }}</span>
-              <ion-icon name="chevron-forward-outline" class="pcl-arrow" *ngIf="!item.done || item.pendingReview"></ion-icon>
-            </button>
-          </div>
-        </div>
-        </div>
-    </div>
         </ng-container>
 
     <ng-container *ngIf="!isViewingOtherUser && profileActiveSection === 'payments' && isTutorUser">
@@ -760,4 +759,35 @@
       </ion-content>
     </ng-template>
   </ion-modal>
+
+  <!-- Tutor approval wizard modal (mobile: full-screen panel) -->
+  <div class="tutor-approval-inline-panel" *ngIf="isTutorApprovalWizardModalOpen && isMobileViewport">
+    <app-tutor-onboarding
+      [presentAsModal]="true"
+      [initialApprovalStepId]="tutorApprovalWizardModalInitialStepId"
+      (dismissed)="onTutorApprovalWizardDismissedFromChild()">
+    </app-tutor-onboarding>
+  </div>
+
+  <!-- Tutor approval wizard modal (desktop: backdrop + centered panel) -->
+  <div
+    class="cm-modal-backdrop"
+    *ngIf="isTutorApprovalWizardModalOpen && !isMobileViewport"
+    [class.cm-modal-backdrop--visible]="tutorApprovalWizardBackdropVisible"
+    [class.cm-modal-backdrop--deep]="tutorApprovalWizardBackdropVisible"
+    (click)="onTutorApprovalWizardBackdropClick($event)">
+    <div
+      class="cm-modal-container cm-modal--expanded"
+      [class.cm-modal--ready]="tutorApprovalWizardModalReady"
+      (click)="$event.stopPropagation()">
+      <div class="cm-modal-body cm-modal-body--tutor-approval">
+        <app-tutor-onboarding
+          *ngIf="isTutorApprovalWizardModalOpen"
+          [presentAsModal]="true"
+          [initialApprovalStepId]="tutorApprovalWizardModalInitialStepId"
+          (dismissed)="onTutorApprovalWizardDismissedFromChild()">
+        </app-tutor-onboarding>
+      </div>
+    </div>
+  </div>
 </ion-content>

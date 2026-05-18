@@ -328,14 +328,25 @@
           <div *ngIf="approvalStepId === 'stripe'" class="stripe-step">
             
             <!-- Already completed state -->
-            <div *ngIf="approvalStatus?.stripeComplete" class="status-card-large success tutor-approval-step-pane tutor-approval-step-pane--sub">
-              <ion-icon name="checkmark-circle"></ion-icon>
-              <p>{{ 'TUTOR_APPROVAL.PAYMENT_CONNECTED' | translate }}</p>
-              <span class="provider-badge" *ngIf="currentUser?.payoutProvider === 'stripe'">{{ 'TUTOR_APPROVAL.PAYMENT_VIA_STRIPE' | translate }}</span>
-              <span class="provider-badge" *ngIf="currentUser?.payoutProvider === 'paypal'">{{ 'TUTOR_APPROVAL.PAYMENT_VIA_PAYPAL' | translate }}</span>
-            </div>
-            
-            <!-- Not completed - show tax questions first -->
+            <ng-container *ngIf="approvalStatus?.stripeComplete">
+              <div class="status-card-large success tutor-approval-step-pane tutor-approval-step-pane--sub">
+                <ion-icon name="checkmark-circle"></ion-icon>
+                <p>{{ 'TUTOR_APPROVAL.PAYMENT_CONNECTED' | translate }}</p>
+                <span class="provider-badge" *ngIf="currentUser?.payoutProvider === 'stripe'">{{ 'TUTOR_APPROVAL.PAYMENT_VIA_STRIPE' | translate }}</span>
+                <span class="provider-badge" *ngIf="currentUser?.payoutProvider === 'paypal'">
+                  {{ 'TUTOR_APPROVAL.PAYMENT_VIA_PAYPAL' | translate }}
+                  <ng-container *ngIf="currentUser?.payoutDetails?.paypalEmail"> · {{ currentUser?.payoutDetails?.paypalEmail }}</ng-container>
+                </span>
+              </div>
+              <div class="payout-edit-row" *ngIf="currentUser?.payoutProvider === 'paypal'">
+                <button type="button" class="payout-edit-btn" (click)="startEditPayoutEmail()">
+                  <ion-icon name="pencil-outline"></ion-icon>
+                  {{ 'TUTOR_APPROVAL.PAYPAL_CHANGE_EMAIL' | translate }}
+                </button>
+              </div>
+            </ng-container>
+
+            <!-- Not yet completed -->
             <div *ngIf="!approvalStatus?.stripeComplete" class="payment-setup-flow">
               
               <!-- STEP 1: Tax Status Question (legacy only — country-driven users skip this) -->

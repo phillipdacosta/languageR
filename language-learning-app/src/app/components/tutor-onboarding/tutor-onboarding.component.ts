@@ -173,6 +173,8 @@ export class TutorOnboardingComponent implements OnInit {
   determinedPayoutMethod: 'stripe' | 'paypal' | null = null;
   paypalEmail = '';
   paypalEmailError = '';
+  /** When true, completed PayPal screen shows the edit form instead of the success card. */
+  editingPayoutEmail = false;
   /** True when payout routing is driven by `residenceCountry` (post-onboarding). */
   isCountryDrivenPayoutRouting = false;
   /** Plain-English explanation of why a payout method was chosen ("Spain → Stripe Connect"). */
@@ -655,6 +657,36 @@ export class TutorOnboardingComponent implements OnInit {
   editTaxInfo() {
     this.paymentSetupStep = 'tax-status';
     this.determinedPayoutMethod = null;
+  }
+
+  async startEditPayoutEmail() {
+    const modal = await this.modalController.create({
+      component: PayoutSelectionModalComponent,
+      cssClass: 'payout-selection-modal'
+    });
+
+    await modal.present();
+    const { data } = await modal.onWillDismiss();
+
+    if (!data) return;
+
+    switch (data.provider) {
+      case 'stripe':
+        await this.setupStripeConnect(data.isUSPersonForTax, data.hasUSBankAccount);
+        break;
+      case 'paypal':
+        await this.setupPayPal(data.paypalEmail, data.isUSPersonForTax, data.hasUSBankAccount);
+        break;
+      case 'manual':
+        await this.setupManualPayout(data.isUSPersonForTax, data.hasUSBankAccount);
+        break;
+    }
+  }
+
+  cancelEditPayoutEmail() {
+    this.editingPayoutEmail = false;
+    this.paypalEmail = '';
+    this.paypalEmailError = '';
   }
 
   validatePayPalEmail() {
@@ -1309,6 +1341,7 @@ export class TutorOnboardingComponent implements OnInit {
 
       if (response.success) {
         this.showToast('PayPal setup complete! You can now receive payments.', 'success');
+        this.editingPayoutEmail = false;
         await this.loadOnboardingStatus(); // Refresh status
       } else {
         this.showToast('Failed to setup PayPal: ' + (response.message || 'Unknown error'), 'danger');

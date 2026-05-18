@@ -232,7 +232,7 @@
 
         <!-- Step 4: Other spoken languages (excludes native + selected learning language) -->
         <div *ngIf="currentStep === 4" class="spoken-languages-step">
-          <p class="spoken-lang-hint">Select any additional languages you speak.</p>
+          <p class="spoken-lang-hint">{{ 'ONBOARDING.SPOKEN_LANG_HINT' | translate }}</p>
           <div class="language-grid spoken-lang-grid">
             <button
               *ngFor="let lang of spokenLanguageOptions"
@@ -491,7 +491,7 @@
             <span class="detail-value">{{ previewNativeLanguageName }}</span>
           </div>
           <div class="preview-detail-row" *ngIf="previewSpokenLanguages.length > 0">
-            <span class="detail-label">Also speaks</span>
+            <span class="detail-label">{{ 'ONBOARDING.PREVIEW_ALSO_SPEAKS' | translate }}</span>
             <div class="detail-value spoken-langs-preview">
               <span class="spoken-lang-tag" *ngFor="let sl of previewSpokenLanguages">
                 {{ sl.name }} <span class="spoken-lang-cefr">{{ sl.level }}</span>

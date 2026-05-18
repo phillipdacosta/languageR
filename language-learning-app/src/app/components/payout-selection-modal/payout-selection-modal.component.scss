@@ -26,6 +26,31 @@ ion-content {
   overflow: hidden;
 }
 
+// ─── Current method notice ───
+.current-method-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 56px 24px 0;
+  padding: 10px 14px;
+  background: #f0faf0;
+  border: 1px solid #d4edda;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #2d8a4e;
+
+  &__icon {
+    font-size: 16px;
+    flex-shrink: 0;
+    color: #22c55e;
+  }
+
+  &__text {
+    line-height: 1.4;
+    strong { font-weight: 600; }
+  }
+}
+
 // ─── Close Button (Airbnb circle) ───
 .close-button {
   position: absolute;

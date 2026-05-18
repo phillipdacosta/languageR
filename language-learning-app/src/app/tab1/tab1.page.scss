@@ -8550,6 +8550,46 @@ right: 26px;
   .timeline-section {
     margin-bottom: 0;
   }
+
+  .this-week-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 20px;
+    text-align: center;
+    background: #ffffff;
+    border-radius: 16px;
+    border: 1px solid #f0f0f0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+
+    &__icon {
+      font-size: 36px;
+      color: #d1d5db;
+      margin-bottom: 12px;
+    }
+
+    &__title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #374151;
+      margin: 0 0 6px;
+    }
+
+    &__sub {
+      font-size: 13px;
+      color: #9ca3af;
+      margin: 0 0 16px;
+      line-height: 1.4;
+    }
+
+    &__btn {
+      --border-radius: 8px;
+      --border-color: #d1d5db;
+      --color: #374151;
+      font-size: 13px;
+    }
+  }
 }
 
 .grid-cell-stats {
@@ -8952,7 +8992,7 @@ right: 26px;
 .earnings-card-widget {
   background: #ffffff;
   border-radius: 20px;
-  padding: 24px;
+  padding: 20px;
   box-shadow: $lesson-card-home-shadow;
   border: $lesson-card-home-border;
   animation: fadeInUp 0.4s ease-out 0.15s both;
@@ -8974,13 +9014,13 @@ right: 26px;
   }
   
   .earnings-card-body {
-    margin-bottom: 20px;
+    margin-bottom: 12px;
     flex: 1; // Push withdraw button to bottom when Pending is hidden
     
     .earnings-label {
       font-size: 14px;
       color: #6b7280;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
       font-weight: 500;
     }
     
@@ -8990,10 +9030,11 @@ right: 26px;
       color: #1f2937;
       letter-spacing: -1px;
       cursor: pointer;
-      margin-bottom: 16px;
+      margin-bottom: 8px;
       line-height: 1.1;
+      box-sizing: content-box;
       /* Air under “Total Balance” — scaled coin still reads tight to the label without this */
-      padding-top: 10px;
+      padding-top: 4px;
 
       /* Layout stays 0.85em; drawn ≈ 2.85em. Nudge left + reserve inline space so dots aren’t covered. */
       .home-dollar-icon {
@@ -9047,8 +9088,14 @@ right: 26px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 12px 0;
+      padding: 8px 0;
       border-top: 1px solid #f3f4f6;
+      box-sizing: border-box;
+
+      .pending-amount-masked {
+        color: #d1d5db;
+        letter-spacing: 1px;
+      }
 
       .pending-label {
         font-size: 14px;
@@ -9084,12 +9131,12 @@ right: 26px;
   // Weekly earnings goal (desktop only): FLAT section between Pending and Withdraw.
   // Uses a hairline divider (same pattern as .earnings-pending) — no nested card surface.
   .earnings-goal {
-    margin: 0 0 16px 0;
-    padding: 14px 0 2px 0;
+    margin: 0 0 12px 0;
+    padding: 10px 0 0 0;
     border-top: 1px solid #f3f4f6;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 4px;
 
     .earnings-goal__head {
       display: flex;
@@ -9131,13 +9178,18 @@ right: 26px;
     }
 
     .earnings-goal__amount {
-      font-size: 18px;
+      font-size: 16px;
       font-weight: 700;
       color: #1f2937;
       letter-spacing: -0.3px;
       line-height: 1.1;
       font-variant-numeric: tabular-nums;
       margin-top: -2px;
+    }
+
+    .earnings-goal__amount-masked {
+      color: #d1d5db;
+      letter-spacing: 1px;
     }
 
     .earnings-goal__bar {
@@ -9176,6 +9228,11 @@ right: 26px;
                   background-color 0.25s ease;
       min-width: 2px;
       z-index: 2;
+
+      &.earnings-goal__bar-fill--masked {
+        min-width: 0;
+        background: transparent;
+      }
     }
 
     .earnings-goal__sub {
@@ -9184,6 +9241,12 @@ right: 26px;
       color: #9ca3af;
       letter-spacing: 0;
       font-variant-numeric: tabular-nums;
+      margin-top: 2px;
+    }
+
+    .earnings-goal__sub-masked {
+      color: #d1d5db;
+      letter-spacing: 2px;
     }
 
     // Reached state — softer, encouraging green.
@@ -13733,6 +13796,7 @@ right: 26px;
     .earnings-pending {
       border-top-color: #3a3a3a !important;
       .pending-label { color: #999 !important; }
+      .pending-amount-masked { color: #555 !important; }
     }
     .withdraw-btn {
       --border-color: #4d4d4d !important;
@@ -13751,10 +13815,13 @@ right: 26px;
         &:hover { background: #2f2f2f !important; color: #ffffff !important; }
       }
       .earnings-goal__amount { color: #ffffff !important; }
+      .earnings-goal__amount-masked { color: #555 !important; }
       .earnings-goal__bar { background: #2f2f2f !important; }
       .earnings-goal__bar-scheduled { background: rgba(66, 152, 211, 0.42) !important; }
       .earnings-goal__bar-fill { background: #4298d3 !important; }
+      .earnings-goal__bar-fill--masked { background: transparent !important; }
       .earnings-goal__sub { color: #8a8f95 !important; }
+      .earnings-goal__sub-masked { color: #555 !important; }
 
       &.is-reached {
         .earnings-goal__bar-fill { background: #22c55e !important; }

@@ -964,7 +964,7 @@ $ob-wizard-cta-uniform-width: min(22.5rem, calc(100% - 16px));
       p {
         margin: 0;
         font-size: 13px;
-        color: $ob-text-primary;
+        color: #eeae00;
         line-height: 1.4;
         font-weight: 500;
       }
@@ -2323,6 +2323,56 @@ ion-button.credential-cta {
     }
   }
   
+  // "Change PayPal email" row shown below the success card
+  .payout-edit-row {
+    display: flex;
+    justify-content: center;
+    margin-top: 12px;
+  }
+
+  .payout-edit-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: 1px solid rgba(0,0,0,0.12);
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: $ob-text-secondary;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+
+    ion-icon { font-size: 14px; }
+
+    &:hover {
+      background: rgba(0,0,0,0.04);
+      border-color: rgba(0,0,0,0.22);
+    }
+  }
+
+  // Cancel row inside the edit-email form
+  .payout-edit-cancel-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 8px;
+  }
+
+  .payout-edit-cancel-btn {
+    background: none;
+    border: none;
+    font-size: 13px;
+    font-weight: 500;
+    color: $ob-text-secondary;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: color 0.15s;
+
+    &:hover { color: $ob-text-primary; }
+  }
+
   // Compact payout footnotes (replaces tall stacked info cards)
   .payout-info-micro {
     margin: 16px 0 0;

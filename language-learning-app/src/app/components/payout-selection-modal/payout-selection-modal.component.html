@@ -12,6 +12,17 @@
     <p>Loading payment options...</p>
   </div>
 
+  <!-- Current method notice (shown whenever the tutor already has a payout set up) -->
+  <div *ngIf="!loading && currentProvider && currentProvider !== 'none'" class="current-method-notice">
+    <ion-icon name="checkmark-circle" class="current-method-notice__icon"></ion-icon>
+    <span class="current-method-notice__text">
+      Currently connected:
+      <strong *ngIf="currentProvider === 'stripe'">Stripe Connect</strong>
+      <strong *ngIf="currentProvider === 'paypal'">PayPal<ng-container *ngIf="paypalEmail"> · {{ paypalEmail }}</ng-container></strong>
+      <strong *ngIf="currentProvider === 'manual'">Manual Transfer</strong>
+    </span>
+  </div>
+
   <!-- Main Wizard -->
   <div *ngIf="!loading" class="wizard-container">
 
