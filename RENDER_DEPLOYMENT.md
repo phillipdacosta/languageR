@@ -48,7 +48,7 @@ After deployment, go to your backend service settings and add these environment 
 ### 3. Update Frontend URLs
 
 After your services are deployed, you'll get URLs like:
-- Backend: `https://languager-backend-2-0.onrender.com`
+- Backend: `https://api.barnabi.ai` (custom domain → `languager-backend-2-0.onrender.com`)
 - Frontend: `https://languager-frontend.onrender.com`
 
 Update the following files with your actual URLs:
