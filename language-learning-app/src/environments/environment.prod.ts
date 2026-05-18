@@ -1,7 +1,7 @@
 export const environment = {
   production: true, // This enables production build optimizations
-  apiUrl: 'https://languager-backend-2-0.onrender.com/api', // Backend API URL
-  backendUrl: 'https://languager-backend-2-0.onrender.com',
+  apiUrl: 'https://api.barnabi.ai/api', // Backend API URL (custom domain → Render service)
+  backendUrl: 'https://api.barnabi.ai',
   stripePublishableKey: 'pk_test_51SsQr8APHD8TltVxFOXQ8CzoUcwH8DTA4M9qfuKahOj6v6T6257HsLJzPjsPdMmJ5E2jzrF8UNwnOP2xx0wfLLTj004HuD4ZMo',
   agora: {
     appId: '134e5b056b944b66b14fc9e275726131', // Replace with your actual Agora App ID
