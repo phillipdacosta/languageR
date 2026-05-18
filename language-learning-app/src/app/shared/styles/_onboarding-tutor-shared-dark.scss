@@ -2,7 +2,10 @@
 // uses `html.ion-palette-dark` (Ionic dark palette). Imported last from each
 // page stylesheet so these tokens override light defaults.
 
+@import 'onboarding-buttons-dark';
+
 :host-context(html.ion-palette-dark) {
+  $ob-dark-canvas: #000000;
   $d-text: #f5f5f7;
   $d-text-2: #a1a1a6;
   $d-text-3: #8e8e93;
@@ -14,10 +17,38 @@
   $d-fill: rgba(255, 255, 255, 0.06);
   $d-blue: #64b5ff;
 
-  // ── Pre-step (language + welcome) ───────────────────────────────
-  .pre-step-container {
-    background: linear-gradient(180deg, #000000 0%, #1c1c1e 55%, #121212 100%);
+  // Host page canvas when Ionic dark palette is active
+  background: $ob-dark-canvas;
+
+  // ── Unified page canvas (all onboarding / tutor-onboarding steps) ──
+  .pre-step-container,
+  .pre-step-container.pre-step-container--scrollable,
+  .pre-step-container.welcome-phase,
+  .onboarding-container,
+  .onboarding-container--wizard,
+  .preview-container,
+  .success-page {
+    background: $ob-dark-canvas;
   }
+
+  .onboarding-wizard-card,
+  .cm-wizard-viewport-scroll,
+  .cm-details-wizard-page-shell,
+  .cm-details-wizard,
+  .cm-details-wizard-scroll,
+  .cm-details-wizard-scroll-inner,
+  .cm-details-wizard-panel,
+  .step-content-card,
+  .step-content-card--wizard {
+    background: transparent;
+  }
+
+  .cm-wizard-viewport-footer {
+    background: $ob-dark-canvas;
+    border-top-color: rgba(255, 255, 255, 0.08);
+  }
+
+  // ── Pre-step (language + welcome) ───────────────────────────────
 
   .pre-step-rotating-heading .rotating-text {
     color: $d-text;
@@ -36,6 +67,10 @@
     }
   }
 
+  .pre-step-logo .pre-step-app-icon {
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+  }
+
   .pre-step-lang-card {
     background: $d-surface-2;
     border-color: $d-border;
@@ -46,9 +81,9 @@
     }
 
     &.selected {
-      border-color: $d-text;
-      background: rgba(245, 245, 247, 0.08);
-      box-shadow: 0 0 0 1px rgba(245, 245, 247, 0.35);
+      border-color: $d-blue;
+      background: rgba(100, 181, 255, 0.1);
+      box-shadow: 0 0 0 1px rgba(100, 181, 255, 0.35);
     }
 
     .lang-native-name {
@@ -60,18 +95,17 @@
     }
 
     .lang-check ion-icon {
-      color: $d-text;
+      color: $d-blue;
     }
   }
 
-  .pre-step-cta {
-    background: #f5f5f7;
-    color: #1c1c1e;
+  .pre-step-cta,
+  .welcome-primary-cta {
+    @include ob-dark-button-primary-native;
+  }
 
-    &:hover {
-      background: #e5e5ea;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
-    }
+  .welcome-cta-row .welcome-back-btn {
+    @include ob-dark-button-secondary-native;
   }
 
   .pre-step-back-link {
@@ -81,10 +115,6 @@
       color: $d-text;
       background: $d-fill;
     }
-  }
-
-  .pre-step-container.welcome-phase {
-    background: #000000;
   }
 
   .welcome-title {
@@ -142,11 +172,12 @@
 
   // ── Header toolbar ───────────────────────────────────────────────
   ion-header ion-toolbar.onboarding-toolbar {
-    --background: #1c1c1e;
+    --background: #{$ob-dark-canvas};
     --color: #f5f5f7;
     --border-color: transparent;
-    border-bottom-color: $d-border;
-    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+    background: $ob-dark-canvas;
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+    box-shadow: none;
 
     .lang-switch-btn {
       border-color: $d-border;
@@ -172,14 +203,6 @@
   }
 
   // ── Legacy two-column shell (still used on some breakpoints) ──
-  .onboarding-container {
-    background: linear-gradient(135deg, #000000 0%, #1c1c1e 45%, #0d0d0f 100%);
-  }
-
-  .onboarding-container--wizard {
-    background: #000000;
-  }
-
   .onboarding-content {
     background: $d-surface;
     box-shadow:
@@ -306,14 +329,13 @@
     border-top-color: $d-border;
 
     ion-button {
-      --background: #f5f5f7;
-      --color: #1c1c1e;
-      --background-activated: #d1d1d6;
-      --background-hover: #e5e5ea;
+      @include ob-dark-button-primary-ion;
 
       &[fill='clear'] {
         --background: transparent;
-        --color: #f5f5f7;
+        --color: #{$ob-dark-btn-secondary-fg};
+        --background-hover: transparent;
+        --background-activated: transparent;
       }
     }
   }
@@ -356,12 +378,36 @@
     }
   }
 
+  .form-fields {
+    .name-step-subtext {
+      color: $d-text-2;
+
+      &--example {
+        color: $d-text-3;
+      }
+    }
+  }
+
   .form-fields .form-field {
     label {
       color: $d-text;
     }
 
-    .modern-input {
+    .field-hint,
+    .field-note {
+      color: $d-text-2;
+    }
+
+    .char-count {
+      color: $d-text-3;
+    }
+
+    .optional-label {
+      color: $d-text-2;
+    }
+
+    .modern-input,
+    .modern-textarea {
       background: $d-surface-2;
       border-color: $d-border;
       color: $d-text;
@@ -373,6 +419,87 @@
 
       &::placeholder {
         color: $d-text-3;
+      }
+    }
+
+    .update-note {
+      background: $d-surface-2;
+      border: 1px solid $d-border;
+      color: $d-text-2;
+
+      ion-icon {
+        color: $d-blue;
+      }
+    }
+
+    &.rate-field {
+      .rate-slider-container .rate-display {
+        .rate-value {
+          color: $d-text;
+        }
+
+        .rate-note {
+          color: $d-text-2;
+        }
+      }
+
+      .rate-slider,
+      ion-range.rate-slider {
+        --bar-background: rgba(255, 255, 255, 0.12);
+        --bar-background-active: #{$d-blue};
+        --knob-background: #f5f5f7;
+        --knob-box-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+        --pin-background: #f5f5f7;
+        --pin-color: #1c1c1e;
+      }
+    }
+  }
+
+  .rate-step {
+    .rate-display .rate-value {
+      color: #f5f5f7;
+    }
+
+    .rate-display .rate-note {
+      color: #a1a1a6;
+    }
+
+    .rate-slider,
+    ion-range.rate-slider {
+      --bar-background: rgba(255, 255, 255, 0.12);
+      --bar-background-active: #{$d-blue};
+      --knob-background: #f5f5f7;
+      --knob-box-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+      --pin-background: #f5f5f7;
+      --pin-color: #1c1c1e;
+    }
+  }
+
+  .cefr-chips .cefr-chip {
+    background: $d-surface-2;
+    border-color: $d-border;
+
+    .cefr-chip-label {
+      color: $d-text;
+    }
+
+    .cefr-chip-desc {
+      color: $d-text-3;
+    }
+
+    &:hover:not(.selected) {
+      border-color: $d-border-strong;
+      background: $d-surface-3;
+    }
+
+    &.selected {
+      background: rgba(245, 245, 247, 0.12);
+      border-color: #f5f5f7;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2);
+
+      .cefr-chip-label,
+      .cefr-chip-desc {
+        color: $d-text;
       }
     }
   }
@@ -608,12 +735,7 @@
     }
 
     .pacing-suggestion-cta--primary {
-      background: #f5f5f7;
-      color: #1c1c1e;
-
-      &:hover {
-        background: #e5e5ea;
-      }
+      @include ob-dark-button-primary-native;
     }
 
     .pacing-suggestion-cta--ghost {
@@ -627,11 +749,14 @@
   }
 
   .primary-action,
-  .submit-action {
-    --background: #f5f5f7;
-    --background-activated: #d1d1d6;
-    --background-hover: #e5e5ea;
-    --color: #1c1c1e;
+  .submit-action,
+  .continue-btn,
+  .skip-button.done-button {
+    @include ob-dark-button-primary-ion;
+  }
+
+  .preview-hero-actions .submit-action {
+    @include ob-dark-button-primary-ion;
   }
 
   .country-select-button {
@@ -654,12 +779,8 @@
   }
 
   // ── Preview (review before submit) ──────────────────────────────
-  .preview-container {
-    background: linear-gradient(160deg, #000000 0%, #1c1c1e 50%, #0a0a0c 100%);
-  }
-
   .preview-hero-col {
-    background: $d-surface;
+    background: transparent;
 
     &::after {
       background: linear-gradient(
@@ -747,10 +868,6 @@
   }
 
   // ── Success / congrats overlay ───────────────────────────────────
-  .success-page {
-    background: #000000;
-  }
-
   .hero-title {
     color: $d-text;
   }
@@ -787,11 +904,9 @@
   }
 
   .done-btn {
-    background: #f5f5f7;
-    color: #1c1c1e;
+    @include ob-dark-button-primary-native;
 
-    &:hover {
-      background: #e5e5ea;
+    &:hover:not(:disabled) {
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
     }
   }

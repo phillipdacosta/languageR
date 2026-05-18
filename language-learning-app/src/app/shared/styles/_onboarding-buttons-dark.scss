@@ -1,0 +1,59 @@
+// Shared dark-mode CTA tokens for onboarding flows (student + tutor).
+// Use inside :host-context(html.ion-palette-dark) { ... }.
+
+$ob-dark-btn-primary-bg: #f5f5f7;
+$ob-dark-btn-primary-bg-hover: #e5e5ea;
+$ob-dark-btn-primary-bg-active: #d1d1d6;
+$ob-dark-btn-primary-fg: #1c1c1e;
+$ob-dark-btn-primary-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+
+$ob-dark-btn-secondary-bg: #2c2c2e;
+$ob-dark-btn-secondary-bg-hover: #3a3a3c;
+$ob-dark-btn-secondary-border: rgba(255, 255, 255, 0.12);
+$ob-dark-btn-secondary-border-hover: rgba(255, 255, 255, 0.22);
+$ob-dark-btn-secondary-fg: #f5f5f7;
+
+@mixin ob-dark-button-primary-native {
+  background: $ob-dark-btn-primary-bg;
+  color: $ob-dark-btn-primary-fg;
+  border: none;
+
+  &:hover:not(:disabled) {
+    background: $ob-dark-btn-primary-bg-hover;
+    box-shadow: $ob-dark-btn-primary-shadow;
+  }
+
+  &:active:not(:disabled) {
+    background: $ob-dark-btn-primary-bg-active;
+    transform: none;
+    box-shadow: none;
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+@mixin ob-dark-button-primary-ion {
+  --background: #{$ob-dark-btn-primary-bg};
+  --background-hover: #{$ob-dark-btn-primary-bg-hover};
+  --background-activated: #{$ob-dark-btn-primary-bg-active};
+  --color: #{$ob-dark-btn-primary-fg};
+  --box-shadow: none;
+}
+
+@mixin ob-dark-button-secondary-native {
+  background: $ob-dark-btn-secondary-bg;
+  color: $ob-dark-btn-secondary-fg;
+  border: 1.5px solid $ob-dark-btn-secondary-border;
+
+  &:hover:not(:disabled) {
+    background: $ob-dark-btn-secondary-bg-hover;
+    border-color: $ob-dark-btn-secondary-border-hover;
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+}

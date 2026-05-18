@@ -44,14 +44,15 @@ ion-footer {
   --background-activated: #{$border-color};
   --color: #{$text-secondary};
   --border-radius: 50%;
-  border: 1px solid $border-color-dark;
+  --border-width: 0;
+  border: none;
   border-radius: 50%;
+  overflow: hidden;
   cursor: pointer;
   transition: all 0.2s ease;
 
   &:hover {
     --color: #{$text-primary};
-    border-color: $text-tertiary;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
   }
 
@@ -227,10 +228,14 @@ ion-footer {
   ion-content { --background: #242426 !important; }
 
   .floating-close-button {
-    --background: #3a3a3c !important;
+    --background: rgba(255, 255, 255, 0.1) !important;
+    --background-hover: rgba(255, 255, 255, 0.16) !important;
     --color: #f5f5f7 !important;
-    border-color: rgba(255, 255, 255, 0.15) !important;
-    &:hover { --color: #fff !important; border-color: rgba(255, 255, 255, 0.3) !important; }
+    border: none !important;
+
+    &:hover {
+      --color: #fff !important;
+    }
   }
 
   .modal-title { color: #f5f5f7 !important; }

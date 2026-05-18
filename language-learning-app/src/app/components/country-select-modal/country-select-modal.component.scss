@@ -34,7 +34,9 @@ ion-content::part(scroll) {
   width: 36px;
   height: 36px;
   margin: 0;
-  border: 1px solid #ebebeb;
+  --border-width: 0;
+  border: none;
+  overflow: hidden;
 
   ion-icon {
     font-size: 24px;
@@ -268,3 +270,101 @@ ion-content::part(scroll) {
   }
 }
 
+// Dark mode — align with global `ion-modal.modern-modal` sheet (#242426)
+:host-context(html.ion-palette-dark) {
+  ion-content {
+    --background: #242426;
+    background: #242426;
+  }
+
+  .floating-close-button {
+    --background: rgba(255, 255, 255, 0.1);
+    --background-hover: rgba(255, 255, 255, 0.16);
+    --color: #f5f5f7;
+    border: none;
+  }
+
+  .modal-content {
+    background: #242426;
+  }
+
+  .icon-wrapper {
+    background: rgba(255, 255, 255, 0.08);
+
+    ion-icon {
+      color: #f5f5f7;
+    }
+  }
+
+  .modal-heading {
+    color: #f5f5f7;
+  }
+
+  .modal-description {
+    color: #8e8e93;
+  }
+
+  .search-wrapper .modern-search {
+    --background: rgba(255, 255, 255, 0.08);
+    --color: #f5f5f7;
+    --placeholder-color: #8e8e93;
+    --icon-color: #8e8e93;
+  }
+
+  .country-list {
+    background: #1c1c1e;
+
+    &::-webkit-scrollbar-thumb {
+      background: #48484a;
+
+      &:hover {
+        background: #636366;
+      }
+    }
+  }
+
+  .country-item {
+    background: #2c2c2e;
+
+    &:hover {
+      box-shadow: 0 2px 16px rgba(0, 0, 0, 0.45);
+    }
+
+    &.selected {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.85);
+
+      .country-name {
+        color: #f5f5f7;
+      }
+
+      .check-icon {
+        color: #f5f5f7;
+      }
+    }
+  }
+
+  .country-flag {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .country-item.selected .country-flag {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  .country-name {
+    color: #f5f5f7;
+  }
+
+  .check-icon {
+    color: #8e8e93;
+  }
+
+  .no-results {
+    color: #8e8e93;
+
+    p strong {
+      color: #f5f5f7;
+    }
+  }
+}

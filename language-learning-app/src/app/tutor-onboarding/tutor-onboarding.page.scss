@@ -128,19 +128,6 @@ $ob-accent: #222222;
   }
 }
 
-.pre-step-language-scroll {
-  flex: 1;
-  min-height: 0;
-  width: 100%;
-  overflow-y: auto;
-  margin-bottom: 24px;
-  -webkit-overflow-scrolling: touch;
-
-  &::-webkit-scrollbar {
-    width: 0;
-  }
-}
-
 .pre-step-language-grid {
   display: flex;
   flex-direction: column;
@@ -2125,7 +2112,7 @@ ion-header {
     .summary-text {
       font-size: 15px;
       font-weight: 500;
-      color: $ob-text-primary;
+      color: #f5f5f7;
       line-height: 1.4;
     }
   }
@@ -2672,4 +2659,5 @@ ion-header {
   }
 }
 
+@import '../shared/styles/onboarding-language-picker';
 @import '../shared/styles/onboarding-tutor-shared-dark';
