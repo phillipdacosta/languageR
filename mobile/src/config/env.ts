@@ -18,7 +18,7 @@
  * builds intentionally pin the prod values.
  */
 
-const PROD_API_BASE = 'https://languager-backend.onrender.com';
+const PROD_API_BASE = 'https://languager-backend-2-0.onrender.com';
 
 const PROD_AUTH0 = {
   domain: 'dev-h6q8nxbfbq8psb4k.us.auth0.com',

@@ -1,7 +1,7 @@
 export const environment = {
   production: false, // Development mode for easier debugging on Render
-  apiUrl: 'https://languager-backend.onrender.com/api', // Backend API URL
-  backendUrl: 'https://languager-backend.onrender.com',
+  apiUrl: 'https://languager-backend-2-0.onrender.com/api', // Backend API URL
+  backendUrl: 'https://languager-backend-2-0.onrender.com',
   stripePublishableKey: 'pk_test_51SsQr8APHD8TltVxFOXQ8CzoUcwH8DTA4M9qfuKahOj6v6T6257HsLJzPjsPdMmJ5E2jzrF8UNwnOP2xx0wfLLTj004HuD4ZMo',
   agora: {
     appId: '134e5b056b944b66b14fc9e275726131',
