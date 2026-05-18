@@ -76,6 +76,24 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Region/instance echo — verifies which Render region/service is serving traffic.
+// Reads env vars Render injects into every container; safe to expose publicly
+// (no secrets, just metadata about the running instance).
+const buildRegionPayload = () => ({
+  region: process.env.RENDER_REGION || null,
+  serviceId: process.env.RENDER_SERVICE_ID || null,
+  serviceName: process.env.RENDER_SERVICE_NAME || null,
+  serviceType: process.env.RENDER_SERVICE_TYPE || null,
+  instanceId: process.env.RENDER_INSTANCE_ID || null,
+  gitCommit: process.env.RENDER_GIT_COMMIT || null,
+  gitBranch: process.env.RENDER_GIT_BRANCH || null,
+  nodeEnv: process.env.NODE_ENV || null,
+  timestamp: new Date().toISOString(),
+  uptimeSec: Math.round(process.uptime()),
+});
+app.get('/region', (req, res) => res.json(buildRegionPayload()));
+app.get('/api/region', (req, res) => res.json(buildRegionPayload()));
+
 // Middleware
 app.use(helmet());
 app.use(morgan('combined'));
