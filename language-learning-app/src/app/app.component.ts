@@ -221,7 +221,11 @@ export class AppComponent implements OnInit, OnDestroy {
             }
           },
           error: (error) => {
-            console.error('❌ Error detecting/saving timezone:', error);
+            // 404 is expected for new users in the pre-onboarding window —
+            // their profile (and timezone) gets saved during onboarding.
+            if (error?.status !== 404) {
+              console.error('❌ Error detecting/saving timezone:', error);
+            }
           }
         });
         
@@ -254,7 +258,9 @@ export class AppComponent implements OnInit, OnDestroy {
             }
           },
           error: (error) => {
-            console.error('❌ Error loading user profile for language:', error);
+            if (error?.status !== 404) {
+              console.error('❌ Error loading user profile for language:', error);
+            }
           }
         });
         
