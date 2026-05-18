@@ -155,18 +155,24 @@ router.get('/debug', verifyToken, async (req, res) => {
 
 // GET /api/users/me - Get current user
 router.get('/me', verifyToken, async (req, res) => {
-  console.log('🔍 Getting current user:', req.user);
+  // Disable caching so a stale 404 (from before auto-provisioning landed)
+  // is never served by a CDN or browser cache.
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.set('Pragma', 'no-cache');
+
+  console.log('🔍 [GET /me] req.user keys:', Object.keys(req.user || {}));
+  console.log('🔍 [GET /me] sub:', req.user?.sub, 'email:', req.user?.email, 'auth0Sub:', req.user?.auth0Sub);
   try {
     // Try to find user by auth0Id first, then by email as fallback
     let user = await User.findOne({ auth0Id: req.user.sub });
     
     if (!user && req.user.email) {
-      console.log('🔍 User not found by auth0Id, trying email:', req.user.email);
+      console.log('🔍 [GET /me] No match for auth0Id, trying email:', req.user.email);
       user = await User.findOne({ email: req.user.email });
       
       // If found by email, update the auth0Id to match the current token
       if (user) {
-        console.log('🔍 Found user by email, updating auth0Id from', user.auth0Id, 'to', req.user.sub);
+        console.log('🔍 [GET /me] Found by email, syncing auth0Id', user.auth0Id, '→', req.user.sub);
         user.auth0Id = req.user.sub;
         await user.save();
       }
@@ -179,7 +185,7 @@ router.get('/me', verifyToken, async (req, res) => {
     // Onboarding flows (`POST /`, `PUT /onboarding`) populate the rest of the
     // profile shortly after.
     if (!user && req.user.email) {
-      console.log('🆕 No record for authenticated user, auto-provisioning stub:', req.user.email);
+      console.log('🆕 [GET /me] No record for authenticated user, auto-provisioning stub:', req.user.email);
       try {
         const auth0Picture = req.user.picture || req.user.picture_url || null;
         user = await User.create({
@@ -192,22 +198,29 @@ router.get('/me', verifyToken, async (req, res) => {
           userType: 'student', // Onboarding overrides this when tutor is picked
           onboardingCompleted: false
         });
+        console.log('✅ [GET /me] Stub provisioned for', req.user.email, 'id:', user._id);
       } catch (createErr) {
         // Lost a create-race against another request (POST / or PUT /onboarding):
         // fall back to the now-existing record so we still return cleanly.
         if (createErr && createErr.code === 11000) {
-          console.warn('⚠️ Stub auto-create raced with another insert, re-fetching');
+          console.warn('⚠️ [GET /me] Stub auto-create raced with another insert, re-fetching');
           user = await User.findOne({ auth0Id: req.user.sub })
             || await User.findOne({ email: req.user.email });
         } else {
-          throw createErr;
+          // Don't 404 — this is an unexpected backend bug we want to see as 500
+          // in logs, not silently disguised as "User not found".
+          console.error('❌ [GET /me] Failed to auto-provision user:', createErr);
+          return res.status(500).json({
+            error: 'Failed to provision user',
+            details: createErr?.message || String(createErr)
+          });
         }
       }
     }
 
     if (!user) {
-      console.log('🔍 User not found and could not auto-provision (missing email on token)');
-      return res.status(404).json({ error: 'User not found' });
+      console.log('🔍 [GET /me] User not found and email missing on token — returning 404');
+      return res.status(404).json({ error: 'User not found', reason: 'no-email-on-token' });
     }
     
     // Sync picture from Auth0 if it's different (handles Google profile picture updates)
