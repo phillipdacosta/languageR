@@ -576,7 +576,7 @@
     
     
     <!-- Tutor Dashboard Grid: 2x2 layout (students share the same shell; tutor-only widgets gated separately) -->
-    <div class="tutor-dashboard-grid" *ngIf="isTutorUser || isStudentUser" [class.tutor-dashboard-grid--with-this-week]="true">
+    <div class="tutor-dashboard-grid" *ngIf="isTutorUser || isStudentUser" [class.tutor-dashboard-grid--with-this-week]="timelineEvents.length > 0">
       <div class="grid-cell-upnext">
         <h2 class="desktop-tutor-section-title" *ngIf="!isMobile && (isTutorUser || isStudentUser)">{{ (nextLesson ? 'HOME.UP_NEXT' : 'HOME.YOUR_SCHEDULE') | translate }}</h2>
 
@@ -1041,7 +1041,7 @@
         </div>
       </div>
       <!-- Coming Up (Row 2, Left) — only when lessons exist -->
-      <div class="grid-cell-comingup">
+      <div class="grid-cell-comingup" *ngIf="timelineEvents.length > 0">
         <ng-container *ngIf="!isLoadingLessons">
           <div class="coming-up-section-head" *ngIf="!isMobile">
             <h2 class="desktop-tutor-section-title">{{ 'HOME.THIS_WEEK' | translate }}</h2>
@@ -1051,12 +1051,8 @@
 
           <!-- Empty state when no lessons this week -->
           <div class="this-week-empty" *ngIf="timelineEvents.length === 0">
-            <ion-icon name="calendar-outline" class="this-week-empty__icon"></ion-icon>
-            <p class="this-week-empty__title">{{ 'HOME.THIS_WEEK_EMPTY_TITLE' | translate }}</p>
-            <p class="this-week-empty__sub">{{ 'HOME.THIS_WEEK_EMPTY_SUB' | translate }}</p>
-            <ion-button fill="outline" size="small" [routerLink]="isTutorUser ? '/tabs/tutor-calendar' : '/tabs/lessons'" class="this-week-empty__btn">
-              {{ isTutorUser ? ('HOME.THIS_WEEK_EMPTY_CTA_TUTOR' | translate) : ('HOME.THIS_WEEK_EMPTY_CTA_STUDENT' | translate) }}
-            </ion-button>
+            <ion-icon name="calendar-outline" class="this-week-empty__icon" aria-hidden="true"></ion-icon>
+            <p class="this-week-empty__text">{{ 'HOME.THIS_WEEK_NOTHING_YET' | translate }}</p>
           </div>
           <div class="timeline-section timeline-section--week-strip" *ngIf="timelineEvents.length > 0">
             <div class="tw-week-scroll">
