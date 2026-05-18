@@ -26,6 +26,7 @@ $radius-card:       20px;
 
 .login-content {
   --background: #ffffff;
+  --overflow: hidden;
 }
 
 // Shadow scroll/background fills are forced white from global.scss
@@ -37,13 +38,14 @@ $radius-card:       20px;
   // `position: relative` so `.login-overflow-plant` can absolutely-position
   // itself against the seam between the form column and the hero column.
   position: relative;
-  min-height: 100vh;
+  height: 100%;
   display: grid;
   grid-template-columns: 1fr;
   background: #ffffff;
+  overflow: hidden;
 
   @media (min-width: 900px) {
-    grid-template-columns: minmax(420px, 1fr) 1fr;
+    grid-template-columns: minmax(0, 1fr) 1fr;
   }
 }
 
@@ -52,10 +54,12 @@ $radius-card:       20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 56px 32px;
+  height: 100%;
+  overflow-y: auto;
+  padding: clamp(24px, 5vh, 56px) 32px;
 
   @media (max-width: 480px) {
-    padding: 40px 20px;
+    padding: clamp(20px, 4vh, 40px) 20px;
   }
 }
 
@@ -71,7 +75,7 @@ $radius-card:       20px;
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 56px;
+  margin-bottom: clamp(24px, 4.5vh, 56px);
   // Let the text column consume remaining row width so long taglines wrap
   // instead of widening the row and stretching flex children.
   min-width: 0;
@@ -140,7 +144,7 @@ $radius-card:       20px;
 .welcome-subtitle {
   font-size: 15px;
   color: $ink-soft;
-  margin: 0 0 36px;
+  margin: 0 0 clamp(18px, 3vh, 36px);
   line-height: 1.5;
 }
 
@@ -389,6 +393,7 @@ $radius-card:       20px;
   border-top-left-radius: 24px;
   border-bottom-left-radius: 24px;
   overflow: hidden;
+  height: 100%;
 
   @media (min-width: 900px) {
     display: flex;
@@ -417,7 +422,7 @@ $radius-card:       20px;
   position: relative;
   flex: 1;
   background-color: #c8e0fc;
-  min-height: 600px;
+  min-height: 0;
 
   // Soft gradient veil above the artwork — keeps the headline legible
   // regardless of the underlying illustration's brightness.
@@ -494,49 +499,51 @@ $radius-card:       20px;
   position: absolute;
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   background: #ffffff;
-  border-radius: 14px;
-  padding: 12px 16px;
+  border-radius: 12px;
+  padding: 9px 12px;
   box-shadow:
-    0 12px 28px rgba(15, 29, 58, 0.10),
-    0 2px 6px rgba(15, 29, 58, 0.06);
+    0 8px 20px rgba(15, 29, 58, 0.09),
+    0 2px 5px rgba(15, 29, 58, 0.05);
   z-index: 4;
   animation: heroChipFloat 5.4s ease-in-out infinite;
   will-change: transform;
+  // Cap width so long translations don't overflow the hero pane
+  max-width: 180px;
 }
 
 .hero-chip-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 10px;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 
   ion-icon {
-    font-size: 20px;
+    font-size: 16px;
     color: #ffffff;
   }
 
   &--goal {
     background: none;
-    border-radius: 10px;
+    border-radius: 8px;
     overflow: hidden;
     object-fit: contain;
   }
 
   &--lesson {
     background: none;
-    border-radius: 10px;
+    border-radius: 8px;
     overflow: hidden;
     object-fit: contain;
   }
 
   &--progress {
     background: none;
-    border-radius: 10px;
+    border-radius: 8px;
     overflow: hidden;
     object-fit: contain;
   }
@@ -545,22 +552,29 @@ $radius-card:       20px;
 .hero-chip-meta {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
   min-width: 0;
+  overflow: hidden;
 
   .hero-chip-label {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
     color: $ink-muted;
     text-transform: none;
     letter-spacing: 0.1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .hero-chip-value {
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 700;
     color: $ink-strong;
     line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 
@@ -568,12 +582,13 @@ $radius-card:       20px;
 .hero-chip--tutor {
   top: 22%;
   right: 6%;
-  padding: 20px 24px 20px 20px;
+  padding: 12px 16px 12px 12px;
   animation-delay: -1.2s;
+  max-width: 200px;
 
   .hero-tutor-avatar {
-    width: 64px;
-    height: 64px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     overflow: hidden;
     background: linear-gradient(135deg, #ffd6c2 0%, #ffb595 100%);
@@ -594,37 +609,48 @@ $radius-card:       20px;
     flex-direction: column;
     gap: 1px;
     min-width: 0;
+    overflow: hidden;
   }
 
   .hero-tutor-status {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    font-size: 13px;
+    gap: 5px;
+    font-size: 11px;
     font-weight: 600;
     color: $ink-soft;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .hero-presence-dot {
-    width: 7px;
-    height: 7px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
     background: #34c77b;
     box-shadow: 0 0 0 2px rgba(52, 199, 123, 0.18);
+    flex-shrink: 0;
   }
 
   .hero-tutor-name {
-    font-size: 18px;
+    font-size: 14px;
     font-weight: 700;
     color: $ink-strong;
     line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .hero-tutor-role {
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 500;
     color: $ink-muted;
     line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 
@@ -635,9 +661,9 @@ $radius-card:       20px;
   animation-delay: -2.8s;
 
   .hero-progress {
-    margin-top: 6px;
-    width: 92px;
-    height: 4px;
+    margin-top: 5px;
+    width: 76px;
+    height: 3px;
     border-radius: 999px;
     background: rgba(58, 122, 254, 0.16);
     display: block;
@@ -653,19 +679,27 @@ $radius-card:       20px;
   }
 }
 
-// Next-lesson card — lower-left
+// Next-lesson card — lower-right (swapped with progress)
 .hero-chip--lesson {
-  top: 78%;
-  left: 20%;
+  bottom: 6%;
+  right: 10%;
+  top: auto;
+  left: auto;
   animation-delay: -0.6s;
 }
 
-// Progress card — moved to lower-left so it doesn't cover Barnabi, who
-// now sits in the lower-right of the hero illustration.
+// Progress card — lower-left (swapped with lesson)
 .hero-chip--progress {
-  bottom: 6%;
-  left: 70%;
+  top: 78%;
+  left: 20%;
+  bottom: auto;
+  right: auto;
   animation-delay: -3.6s;
+  max-width: 220px;
+
+  .hero-chip-value {
+    white-space: normal;
+  }
 }
 
 // ── Speech bubbles ──────────────────────────────────────────────────
@@ -674,14 +708,17 @@ $radius-card:       20px;
 .hero-bubble {
   position: absolute;
   z-index: 4;
-  padding: 10px 16px;
-  border-radius: 18px;
-  font-size: 14px;
+  padding: 7px 13px;
+  border-radius: 14px;
+  font-size: 12px;
   font-weight: 600;
   color: $ink-strong;
-  box-shadow: 0 10px 22px rgba(15, 29, 58, 0.12);
+  box-shadow: 0 7px 16px rgba(15, 29, 58, 0.10);
   animation: heroChipFloat 6.8s ease-in-out infinite;
-  white-space: nowrap;
+  // Allow wrapping for long translations; cap width so it doesn't spill out
+  max-width: 120px;
+  text-align: center;
+  line-height: 1.3;
 }
 
 .hero-bubble--hola {
@@ -722,12 +759,8 @@ $radius-card:       20px;
 
 // ── Responsive: collapse hero, tighten form on phones ───────────────
 @media (max-width: 899px) {
-  .login-shell {
-    min-height: 100vh;
-  }
-
   .brand-mark {
-    margin-bottom: 40px;
+    margin-bottom: clamp(20px, 3.5vh, 40px);
   }
 
   .welcome-title {
