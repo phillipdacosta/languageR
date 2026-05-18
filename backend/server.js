@@ -24,6 +24,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
+const axios = require('axios');
 const http = require('http');
 const { Server } = require('socket.io');
 const cron = require('node-cron');
@@ -77,22 +78,58 @@ app.get('/health', (req, res) => {
 });
 
 // Region/instance echo — verifies which Render region/service is serving traffic.
-// Reads env vars Render injects into every container; safe to expose publicly
-// (no secrets, just metadata about the running instance).
-const buildRegionPayload = () => ({
-  region: process.env.RENDER_REGION || null,
+// Render does NOT inject RENDER_REGION; the dashboard region is the source of
+// truth, but to prove it at runtime we also geolocate the container's egress IP
+// via ipinfo.io. Result is cached in-memory to avoid hammering the geo API.
+let geoCache = { value: null, expiresAt: 0, error: null };
+const GEO_TTL_MS = 60 * 60 * 1000; // 1h
+
+async function getEgressGeo() {
+  const now = Date.now();
+  if (geoCache.value && now < geoCache.expiresAt) return geoCache.value;
+  try {
+    const { data } = await axios.get('https://ipinfo.io/json', { timeout: 4000 });
+    const value = {
+      ip: data.ip || null,
+      city: data.city || null,
+      region: data.region || null,
+      country: data.country || null,
+      org: data.org || null,
+      hostingProvider: data.org || null,
+      timezone: data.timezone || null,
+      loc: data.loc || null,
+      source: 'ipinfo.io',
+    };
+    geoCache = { value, expiresAt: now + GEO_TTL_MS, error: null };
+    return value;
+  } catch (err) {
+    geoCache = { value: null, expiresAt: now + 60 * 1000, error: err.message };
+    return { error: err.message, source: 'ipinfo.io' };
+  }
+}
+
+const buildRegionPayload = (geo) => ({
+  configuredRegion: process.env.RENDER_REGION || null,
   serviceId: process.env.RENDER_SERVICE_ID || null,
   serviceName: process.env.RENDER_SERVICE_NAME || null,
   serviceType: process.env.RENDER_SERVICE_TYPE || null,
   instanceId: process.env.RENDER_INSTANCE_ID || null,
+  externalUrl: process.env.RENDER_EXTERNAL_URL || null,
+  externalHostname: process.env.RENDER_EXTERNAL_HOSTNAME || null,
   gitCommit: process.env.RENDER_GIT_COMMIT || null,
   gitBranch: process.env.RENDER_GIT_BRANCH || null,
   nodeEnv: process.env.NODE_ENV || null,
+  geo,
   timestamp: new Date().toISOString(),
   uptimeSec: Math.round(process.uptime()),
 });
-app.get('/region', (req, res) => res.json(buildRegionPayload()));
-app.get('/api/region', (req, res) => res.json(buildRegionPayload()));
+
+const regionHandler = async (req, res) => {
+  const geo = await getEgressGeo();
+  res.json(buildRegionPayload(geo));
+};
+app.get('/region', regionHandler);
+app.get('/api/region', regionHandler);
 
 // Middleware
 app.use(helmet());
