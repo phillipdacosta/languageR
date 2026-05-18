@@ -1213,7 +1213,11 @@ export class UserService {
             return this.updateProfile({ timezone: detectedTimezone }).pipe(
               map(() => true),
               catchError(error => {
-                console.error('❌ Failed to save timezone:', error);
+                // 404 happens for brand-new users whose record hasn't been
+                // provisioned yet — onboarding will set the timezone. Stay quiet.
+                if (error?.status !== 404) {
+                  console.error('❌ Failed to save timezone:', error);
+                }
                 return of(false);
               })
             );
@@ -1222,7 +1226,9 @@ export class UserService {
           }
         }),
         catchError(error => {
-          console.error('❌ Error detecting/saving timezone:', error);
+          if (error?.status !== 404) {
+            console.error('❌ Error detecting/saving timezone:', error);
+          }
           return of(false);
         })
       );

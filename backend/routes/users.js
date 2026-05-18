@@ -171,9 +171,42 @@ router.get('/me', verifyToken, async (req, res) => {
         await user.save();
       }
     }
-    
+
+    // Auto-create a minimal record for first-time visitors. The token already
+    // proves the user is authenticated via Auth0, so creating a stub record
+    // here removes the post-auth/pre-onboarding race that previously surfaced
+    // as a 404 for brand-new users (existing users always had a record).
+    // Onboarding flows (`POST /`, `PUT /onboarding`) populate the rest of the
+    // profile shortly after.
+    if (!user && req.user.email) {
+      console.log('🆕 No record for authenticated user, auto-provisioning stub:', req.user.email);
+      try {
+        const auth0Picture = req.user.picture || req.user.picture_url || null;
+        user = await User.create({
+          auth0Id: req.user.sub,
+          email: req.user.email,
+          name: req.user.name || req.user.given_name || req.user.email.split('@')[0] || 'User',
+          picture: auth0Picture,
+          auth0Picture: auth0Picture,
+          emailVerified: req.user.email_verified || false,
+          userType: 'student', // Onboarding overrides this when tutor is picked
+          onboardingCompleted: false
+        });
+      } catch (createErr) {
+        // Lost a create-race against another request (POST / or PUT /onboarding):
+        // fall back to the now-existing record so we still return cleanly.
+        if (createErr && createErr.code === 11000) {
+          console.warn('⚠️ Stub auto-create raced with another insert, re-fetching');
+          user = await User.findOne({ auth0Id: req.user.sub })
+            || await User.findOne({ email: req.user.email });
+        } else {
+          throw createErr;
+        }
+      }
+    }
+
     if (!user) {
-      console.log('🔍 User not found by auth0Id or email');
+      console.log('🔍 User not found and could not auto-provision (missing email on token)');
       return res.status(404).json({ error: 'User not found' });
     }
     
