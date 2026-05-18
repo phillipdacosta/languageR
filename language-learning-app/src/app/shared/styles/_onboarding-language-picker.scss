@@ -1,0 +1,73 @@
+// Language-picker layout: fixed viewport column with an inner scroll list.
+// Use class `pre-step-container--scrollable` on the language pre-step shell.
+
+.pre-step-container.pre-step-container--scrollable {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  height: calc(100dvh - 56px);
+  max-height: calc(100dvh - 56px);
+  overflow: hidden;
+  box-sizing: border-box;
+
+  .pre-step-inner {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+    max-height: 100%;
+    width: 100%;
+    max-width: 480px;
+  }
+}
+
+.pre-step-language-scroll {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  margin-bottom: 24px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+  padding-right: 14px;
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(15, 29, 58, 0.28) transparent;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 999px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: rgba(15, 29, 58, 0.24);
+    border-radius: 999px;
+  }
+
+  &:hover::-webkit-scrollbar-thumb {
+    background: rgba(15, 29, 58, 0.38);
+  }
+}
+
+:host-context(html.ion-palette-dark) {
+  .pre-step-language-scroll {
+    scrollbar-color: rgba(255, 255, 255, 0.32) transparent;
+
+    &::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.28);
+    }
+
+    &:hover::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.42);
+    }
+  }
+}

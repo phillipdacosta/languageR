@@ -32,7 +32,9 @@ ion-content::part(scroll) {
   width: 36px;
   height: 36px;
   margin: 0;
-  border: 1px solid #ebebeb;
+  --border-width: 0;
+  border: none;
+  overflow: hidden;
 
   ion-icon {
     font-size: 24px;
@@ -311,7 +313,7 @@ ion-footer.interface-lang-modal-footer {
     --background: rgba(255, 255, 255, 0.1);
     --background-hover: rgba(255, 255, 255, 0.16);
     --color: #f5f5f7;
-    border-color: rgba(255, 255, 255, 0.12);
+    border: none;
   }
 
   .modal-content {
