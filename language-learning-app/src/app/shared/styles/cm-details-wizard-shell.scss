@@ -104,6 +104,11 @@
     padding-top: 16px;
     padding-bottom: 24px;
   }
+
+  @media (max-height: 720px) {
+    padding-top: 8px;
+    padding-bottom: 12px;
+  }
 }
 
 .cm-details-wizard-header {
@@ -115,6 +120,15 @@
 
   @media (min-width: 768px) {
     margin-bottom: 44px;
+  }
+
+  // On short viewports (Windows 150% on 1366px = ~512px height), keep spacing tight
+  @media (max-height: 720px) {
+    margin-bottom: 20px;
+
+    h1 {
+      font-size: 22px;
+    }
   }
 
   &.cm-details-wizard-header--tight {

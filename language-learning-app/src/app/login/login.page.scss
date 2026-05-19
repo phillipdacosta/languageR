@@ -768,6 +768,41 @@ $radius-card:       20px;
   }
 }
 
+// ── Short viewport: Windows 150% on laptop produces ~512px height ───
+// The login form uses clamp() for vertical padding already, but the
+// title and brand mark still need nudging at very tight heights.
+@media (max-height: 640px) {
+  .welcome-title {
+    font-size: 28px;
+    margin-bottom: 6px;
+  }
+
+  .welcome-subtitle {
+    margin-bottom: clamp(12px, 2vh, 24px);
+  }
+
+  .divider {
+    margin: 16px 0;
+  }
+
+  .account-cta {
+    margin-top: 20px;
+  }
+
+  // Keep hero chips from clashing when the hero pane is short
+  .hero-chip--tutor {
+    top: 14%;
+  }
+
+  .hero-chip--goal {
+    top: 38%;
+  }
+
+  .hero-chip--progress {
+    top: 70%;
+  }
+}
+
 // Dark mode — neutral surface so the colored chips and brand still
 // read correctly. Matches the rest of the app's dark palette.
 @media (prefers-color-scheme: dark) {

@@ -677,6 +677,58 @@ $ob-accent: #222222;
   }
 }
 
+// Short viewport breakpoint: Windows at 150% DPI on laptop screens
+// produces ~512px effective height. Shrink the large Lottie animation
+// and tighten vertical spacing so content fits without excessive scrolling.
+@media (max-height: 700px) {
+  .welcome-celebration-lottie {
+    width: 140px;
+    height: 140px;
+  }
+
+  .welcome-hero {
+    padding: 16px 0;
+  }
+
+  .welcome-subtitle {
+    margin-bottom: 16px;
+    font-size: 15px;
+  }
+
+  .welcome-features {
+    margin-bottom: 16px;
+    gap: 8px;
+
+    .welcome-feature-card {
+      padding: 10px 14px;
+
+      .feature-icon,
+      .feature-icon-img {
+        width: 44px;
+        height: 44px;
+      }
+    }
+  }
+
+  .welcome-trust {
+    margin-top: 12px;
+    padding-top: 10px;
+  }
+
+  .pre-step-logo {
+    margin-bottom: 20px;
+
+    .pre-step-app-icon {
+      width: 56px;
+      height: 56px;
+    }
+  }
+
+  .pre-step-rotating-heading {
+    margin-bottom: 16px;
+  }
+}
+
 // Onboarding Toolbar
 ion-header {
   ion-toolbar.onboarding-toolbar {
@@ -2427,7 +2479,7 @@ ion-header {
   }
 }
 
-// Mobile: stack columns
+// Mobile: stack columns (superseded by shared _onboarding-review-preview.scss @960px breakpoint)
 @media (max-width: 768px) {
   .preview-container {
     overflow-y: auto;

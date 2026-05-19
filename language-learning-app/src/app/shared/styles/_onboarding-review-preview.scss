@@ -651,7 +651,7 @@ $preview-border: #ebebeb;
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 960px) {
   .preview-container {
     height: auto;
     min-height: 100vh;
@@ -689,6 +689,49 @@ $preview-border: #ebebeb;
 
   .preview-detail-card {
     max-width: 100%;
+  }
+}
+
+// Compact vertical layout for short viewports (Windows 150% on laptops ≈ 512px height)
+@media (max-height: 680px) {
+  .preview-flow-stepper {
+    padding: 12px 20px 10px;
+  }
+
+  .preview-flow-step {
+    font-size: 12px;
+  }
+
+  .preview-hero-col {
+    padding: 20px 28px;
+  }
+
+  .preview-hero-title {
+    font-size: 22px;
+    margin-bottom: 4px;
+  }
+
+  .preview-hero-subtitle {
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+
+  .preview-profile-card {
+    padding: 14px 16px;
+    margin-bottom: 10px;
+  }
+
+  .preview-setup-card {
+    padding: 14px 16px;
+    margin-bottom: 14px;
+  }
+
+  .preview-details-col {
+    padding: 20px 32px 28px;
+  }
+
+  .preview-detail-card {
+    padding: 14px 18px;
   }
 }
 
