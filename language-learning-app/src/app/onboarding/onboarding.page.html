@@ -457,7 +457,7 @@
           <ion-button
             expand="block"
             class="submit-action"
-            [disabled]="isSubmitting"
+            [disabled]="isSubmitting || !studentProfileComplete"
             (click)="completeOnboarding()">
             <ion-spinner *ngIf="isSubmitting" name="crescent" class="btn-spinner"></ion-spinner>
             <span *ngIf="!isSubmitting">{{ 'ONBOARDING.NAV.COMPLETE_SETUP' | translate }}</span>

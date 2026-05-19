@@ -9,7 +9,7 @@ import { TranslateService } from '@ngx-translate/core';
 import { OnboardingGuard } from '../guards/onboarding.guard';
 import { Observable, Subscription } from 'rxjs';
 import { take, filter } from 'rxjs/operators';
-import { LoadingController, AlertController, ModalController, ToastController } from '@ionic/angular';
+import { LoadingController, AlertController, ModalController, ToastController, IonRange } from '@ionic/angular';
 import { CountrySelectModalComponent } from '../components/country-select-modal/country-select-modal.component';
 import { LoadingService } from '../services/loading.service';
 import { COUNTRIES_ONBOARDING_LIST } from '../data/country-onboarding-list';
@@ -280,7 +280,8 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
   @ViewChild('summaryInput') summaryInput?: ElementRef<HTMLTextAreaElement>;
   @ViewChild('countryOriginButton') countryOriginButton?: ElementRef<HTMLButtonElement>;
   @ViewChild('countryResidenceButton') countryResidenceButton?: ElementRef<HTMLButtonElement>;
-  @ViewChild('tutorRateRange', { read: ElementRef }) tutorRateRangeEl?: ElementRef<HTMLElement>;
+  @ViewChild('wizardViewportScroll', { read: ElementRef }) wizardViewportScroll?: ElementRef<HTMLElement>;
+  @ViewChild('tutorRateRange') tutorRateRange?: IonRange;
 
   @ViewChildren('tutorNativeChip') tutorNativeChips?: QueryList<ElementRef<HTMLButtonElement>>;
   @ViewChildren('tutorSpokenLangChip') tutorSpokenLangChips?: QueryList<ElementRef<HTMLButtonElement>>;
@@ -574,12 +575,38 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
       return;
     }
     if (this.currentStep !== this.previousStep) {
+      const enteredStep = this.currentStep;
       this.previousStep = this.currentStep;
       this.syncTutorWizardCopy();
-      setTimeout(() => {
-        this.focusFirstInput();
-      }, 120);
+      this.resetWizardViewportScroll();
+      if (enteredStep === 11) {
+        // ion-range miscalculates the active bar when mounted inside a transform
+        // animation or when autofocus opens the pin — fix layout after paint.
+        this.scheduleRateRangeLayoutFix();
+      } else {
+        setTimeout(() => this.focusFirstInput(), 120);
+      }
     }
+  }
+
+  private resetWizardViewportScroll(): void {
+    const el = this.wizardViewportScroll?.nativeElement;
+    if (el) {
+      el.scrollTop = 0;
+    }
+  }
+
+  private scheduleRateRangeLayoutFix(): void {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.dispatchEvent(new Event('resize'));
+        const range = this.tutorRateRange;
+        if (range) {
+          const value = this.hourlyRate;
+          range.value = value;
+        }
+      });
+    });
   }
 
   private syncTutorWizardCopy(): void {
@@ -668,7 +695,7 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
         this.summaryInput?.nativeElement?.focus();
         break;
       case 11:
-        this.tutorRateRangeEl?.nativeElement?.focus();
+        // Do not autofocus ion-range — pin + bar glitch on first paint.
         break;
       default:
         break;
@@ -1021,6 +1048,23 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
   previewNativeLanguageName: string = '';
   previewSelectedLanguages: string = '';
   previewSpokenLanguages: { name: string; level: string }[] = [];
+  previewProfileInitials = '';
+  previewTimezoneLabel = '';
+
+  readonly tutorPreviewFlowSteps: ReadonlyArray<{ labelKey: string; done: boolean; current: boolean }> = [
+    { labelKey: 'ONBOARDING.TUTOR_OB.PREVIEW_FLOW_WELCOME', done: true, current: false },
+    { labelKey: 'ONBOARDING.TUTOR_OB.PREVIEW_FLOW_BASIC', done: true, current: false },
+    { labelKey: 'ONBOARDING.TUTOR_OB.PREVIEW_FLOW_TEACHING', done: true, current: false },
+    { labelKey: 'ONBOARDING.TUTOR_OB.PREVIEW_FLOW_PROFILE', done: true, current: false },
+    { labelKey: 'ONBOARDING.TUTOR_OB.PREVIEW_FLOW_REVIEW', done: false, current: true },
+  ];
+
+  readonly tutorPreviewChecklistKeys: readonly string[] = [
+    'ONBOARDING.TUTOR_OB.PREVIEW_CHECKLIST_BASIC',
+    'ONBOARDING.TUTOR_OB.PREVIEW_CHECKLIST_TEACHING',
+    'ONBOARDING.TUTOR_OB.PREVIEW_CHECKLIST_PROFILE',
+    'ONBOARDING.TUTOR_OB.PREVIEW_CHECKLIST_AVAILABILITY',
+  ];
 
   showPreviewPage() {
     const ui = this.languageService.getCurrentLanguage();
@@ -1038,6 +1082,14 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
         name: this.nativeLanguageOptions.find(l => l.code === s.code)?.interfaceLabel ?? s.code,
         level: s.level
       }));
+    const firstInitial = (this.firstName?.trim().charAt(0) || '').toUpperCase();
+    const lastInitial = (this.lastName?.trim().charAt(0) || '').toUpperCase();
+    this.previewProfileInitials = (firstInitial + lastInitial) || '?';
+    try {
+      this.previewTimezoneLabel = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    } catch {
+      this.previewTimezoneLabel = '';
+    }
     this.showPreview = true;
     this.hasReachedPreview = true;
     // Scroll to top when preview page is shown
@@ -1182,6 +1234,60 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
       default:
         return false;
     }
+  }
+
+  /**
+   * True only when every required field across all steps is filled.
+   * Used on the review page to gate the Complete Setup button and
+   * to drive the checklist/progress ring.
+   */
+  get tutorProfileComplete(): boolean {
+    return (
+      this.firstName.trim() !== '' &&
+      this.lastName.trim() !== '' &&
+      this.country !== '' &&
+      this.residenceCountry !== '' &&
+      this.nativeLanguage !== '' &&
+      this.selectedLanguages.length > 0 &&
+      this.selectedExperience !== '' &&
+      this.selectedSchedule !== '' &&
+      this.profileBio.trim().length > 0 &&
+      this.hourlyRate >= 10
+    );
+  }
+
+  get tutorPreviewChecklistStatus(): Array<{ key: string; complete: boolean }> {
+    return [
+      {
+        key: 'ONBOARDING.TUTOR_OB.PREVIEW_CHECKLIST_BASIC',
+        complete: this.firstName.trim() !== '' && this.lastName.trim() !== '' &&
+                  this.country !== '' && this.residenceCountry !== '',
+      },
+      {
+        key: 'ONBOARDING.TUTOR_OB.PREVIEW_CHECKLIST_TEACHING',
+        complete: this.nativeLanguage !== '' && this.selectedLanguages.length > 0 &&
+                  this.selectedExperience !== '',
+      },
+      {
+        key: 'ONBOARDING.TUTOR_OB.PREVIEW_CHECKLIST_PROFILE',
+        complete: this.profileBio.trim().length > 0 && this.hourlyRate >= 10,
+      },
+      {
+        key: 'ONBOARDING.TUTOR_OB.PREVIEW_CHECKLIST_AVAILABILITY',
+        complete: this.selectedSchedule !== '',
+      },
+    ];
+  }
+
+  get tutorPreviewProgressPercent(): number {
+    const items = this.tutorPreviewChecklistStatus;
+    const done = items.filter(i => i.complete).length;
+    return Math.round((done / items.length) * 100);
+  }
+
+  /** SVG stroke-dashoffset for the 100% ring (circumference = 97.4). */
+  get tutorPreviewProgressOffset(): number {
+    return 97.4 - (97.4 * this.tutorPreviewProgressPercent) / 100;
   }
 
   private async showToast(message: string, color: string = 'success') {
