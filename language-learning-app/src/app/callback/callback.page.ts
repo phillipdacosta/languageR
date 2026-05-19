@@ -200,25 +200,9 @@ export class CallbackPage implements OnInit {
           console.log('🔍 CALLBACK: User exists in database?', userExists);
           console.log('🔍 CALLBACK: userExists value:', userExists, 'type:', typeof userExists);
           
-          // If user doesn't exist, create them now with Auth0 profile data (including picture)
-          if (!userExists) {
-            console.log('📝 CALLBACK checkUserInDatabase: About to initialize NEW user with auth0User:', {
-              email: auth0User.email,
-              name: auth0User.name,
-              picture: auth0User.picture
-            });
-            try {
-              const createdUser = await this.userService.initializeUser(auth0User).toPromise();
-              console.log('✅ CALLBACK checkUserInDatabase: User initialized:', {
-                id: createdUser?.id,
-                email: createdUser?.email,
-                picture: createdUser?.picture
-              });
-            } catch (error) {
-              console.error('❌ CALLBACK checkUserInDatabase: User initialization ERROR:', error);
-            }
-          }
-          
+          // We no longer pre-create a user record here. The DB row is only
+          // written when onboarding completes (PUT /api/users/onboarding),
+          // so a brand-new user simply gets routed into the onboarding flow.
           if (userExists) {
             // Existing user with returnUrl - go directly there, bypassing onboarding check
             console.log('✅ CALLBACK: userExists=true, treating as existing user, navigating to returnUrl:', returnUrl);
@@ -340,23 +324,12 @@ export class CallbackPage implements OnInit {
         console.log('  → userExists =', userExists, '(type:', typeof userExists, ')');
         
         if (!userExists) {
-          // New user - initialize in database
-          try {
-            console.log('📝 CALLBACK: About to initialize user with auth0User:', {
-              email: auth0User.email,
-              name: auth0User.name,
-              picture: auth0User.picture
-            });
-            const createdUser = await this.userService.initializeUser(auth0User).toPromise();
-            console.log('✅ CALLBACK: User initialized in database:', {
-              id: createdUser?.id,
-              email: createdUser?.email,
-              picture: createdUser?.picture
-            });
-          } catch (error) {
-            console.error('❌ CALLBACK: User initialization ERROR:', error);
-            console.log('⚠️ CALLBACK: User initialization failed, continuing to onboarding');
-          }
+          // Brand-new user — do not create the DB row here. The user document
+          // is created atomically when they complete onboarding
+          // (PUT /api/users/onboarding) so a partially finished signup never
+          // leaves an incomplete stub behind. OnboardingGuard handles routing
+          // to /signup-language → /onboarding | /tutor-onboarding below.
+          console.log('🆕 CALLBACK: New user (no DB row yet) — will be created on onboarding completion');
         } else {
           console.log('✅ CALLBACK: User already exists in database');
         }

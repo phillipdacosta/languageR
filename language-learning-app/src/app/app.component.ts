@@ -209,7 +209,7 @@ export class AppComponent implements OnInit, OnDestroy {
           next: async (result) => {
             // Only toast when the user already had a timezone and it changed
             // (e.g. they traveled). First login saves silently.
-            if (result !== 'changed') {
+            if (result !== 'changed' || this.isOnboardingFlowRoute()) {
               return;
             }
             const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -375,6 +375,19 @@ export class AppComponent implements OnInit, OnDestroy {
     });
   }
   
+  /** Suppress timezone-change toast on setup flows (onboarding, tutor onboarding, etc.). */
+  private isOnboardingFlowRoute(): boolean {
+    const path = this.router.url.split('?')[0];
+    return (
+      path === '/onboarding' ||
+      path.startsWith('/onboarding/') ||
+      path === '/tutor-onboarding' ||
+      path.startsWith('/tutor-onboarding/') ||
+      path === '/tutor-approval' ||
+      path.startsWith('/tutor-approval/')
+    );
+  }
+
   private hideSplashScreen() {
     if (this.splashHidden) return;
     this.splashHidden = true;

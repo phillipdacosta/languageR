@@ -1069,23 +1069,17 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
     this.isSubmitting = true;
 
     try {
-      console.log('🔍 Creating/updating tutor in database...');
       const auth0User = await this.authService.getUserProfile().pipe(take(1)).toPromise();
-      
+
       if (!auth0User) {
         throw new Error('No Auth0 user data available');
       }
 
-      console.log('🔍 Auth0User data:', auth0User);
-
-      // Create or update user in database
-      console.log('🔍 About to call initializeUser...');
-      const user = await this.userService.initializeUser(auth0User).toPromise();
-      console.log('🔍 Tutor created/updated in database:', user);
-      console.log('🔍 Tutor userType:', user?.userType);
-
-      // Prepare tutor onboarding data
-      const onboardingData: TutorOnboardingData & { nativeLanguage?: string; residenceCountry?: string; interfaceLanguage?: string } = {
+      // No pre-onboarding POST. The user document is created atomically by
+      // PUT /api/users/onboarding below with the full tutor payload, so a
+      // failed request never leaves a half-populated record behind.
+      const onboardingData: TutorOnboardingData & { userType: 'tutor'; nativeLanguage?: string; residenceCountry?: string; interfaceLanguage?: string } = {
+        userType: 'tutor',
         firstName: this.formatName(this.firstName),
         lastName: this.formatName(this.lastName),
         country: this.country,

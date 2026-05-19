@@ -39,7 +39,9 @@
           class="pre-step-lang-card"
           [class.selected]="selectedInterfaceLanguage === lang.code"
           (click)="selectInterfaceLanguage(lang.code)">
-          <span class="lang-flag">{{ lang.flag }}</span>
+          <span class="lang-flag">
+            <app-flag-icon [language]="lang.name" [size]="28"></app-flag-icon>
+          </span>
           <div class="lang-labels">
             <span class="lang-native-name">{{ lang.nativeName }}</span>
             <span class="lang-english-name">{{ lang.name }}</span>
@@ -210,7 +212,7 @@
 
 <div class="onboarding-container onboarding-container--wizard" *ngIf="!showPreview && !showWelcome && preStepPhase === 'done'">
   <div class="onboarding-wizard-card">
-    <div class="cm-wizard-viewport-scroll" [class.cm-wizard-viewport-scroll--fit]="currentStep === 8 || currentStep === 9 || currentStep === 11">
+    <div class="cm-wizard-viewport-scroll" [class.cm-wizard-viewport-scroll--fit]="currentStep === 8 || currentStep === 11">
     <div class="cm-details-wizard-page-shell">
       <div class="cm-details-wizard-page-toolbar">
         <p class="cm-details-wizard-page-toolbar-title">{{ 'ONBOARDING.TUTOR_OB.WIZARD_FLOW_TITLE' | translate }}</p>

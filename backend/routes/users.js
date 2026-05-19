@@ -178,49 +178,18 @@ router.get('/me', verifyToken, async (req, res) => {
       }
     }
 
-    // Auto-create a minimal record for first-time visitors. The token already
-    // proves the user is authenticated via Auth0, so creating a stub record
-    // here removes the post-auth/pre-onboarding race that previously surfaced
-    // as a 404 for brand-new users (existing users always had a record).
-    // Onboarding flows (`POST /`, `PUT /onboarding`) populate the rest of the
-    // profile shortly after.
-    if (!user && req.user.email) {
-      console.log('🆕 [GET /me] No record for authenticated user, auto-provisioning stub:', req.user.email);
-      try {
-        const auth0Picture = req.user.picture || req.user.picture_url || null;
-        user = await User.create({
-          auth0Id: req.user.sub,
-          email: req.user.email,
-          name: req.user.name || req.user.given_name || req.user.email.split('@')[0] || 'User',
-          picture: auth0Picture,
-          auth0Picture: auth0Picture,
-          emailVerified: req.user.email_verified || false,
-          userType: 'student', // Onboarding overrides this when tutor is picked
-          onboardingCompleted: false
-        });
-        console.log('✅ [GET /me] Stub provisioned for', req.user.email, 'id:', user._id);
-      } catch (createErr) {
-        // Lost a create-race against another request (POST / or PUT /onboarding):
-        // fall back to the now-existing record so we still return cleanly.
-        if (createErr && createErr.code === 11000) {
-          console.warn('⚠️ [GET /me] Stub auto-create raced with another insert, re-fetching');
-          user = await User.findOne({ auth0Id: req.user.sub })
-            || await User.findOne({ email: req.user.email });
-        } else {
-          // Don't 404 — this is an unexpected backend bug we want to see as 500
-          // in logs, not silently disguised as "User not found".
-          console.error('❌ [GET /me] Failed to auto-provision user:', createErr);
-          return res.status(500).json({
-            error: 'Failed to provision user',
-            details: createErr?.message || String(createErr)
-          });
-        }
-      }
-    }
-
+    // No auto-provisioning here. The user document is only created when
+    // onboarding completes (PUT /api/users/onboarding) so we never persist
+    // an incomplete stub with the wrong userType or empty profile fields.
+    // Brand-new users will see 404 here until they finish onboarding —
+    // app.component.ts and onboarding pages already treat 404 as the
+    // expected pre-onboarding state.
     if (!user) {
-      console.log('🔍 [GET /me] User not found and email missing on token — returning 404');
-      return res.status(404).json({ error: 'User not found', reason: 'no-email-on-token' });
+      console.log('🔍 [GET /me] No user document yet (pre-onboarding) — returning 404');
+      return res.status(404).json({
+        error: 'User not found',
+        reason: req.user.email ? 'pre-onboarding' : 'no-email-on-token'
+      });
     }
     
     // Sync picture from Auth0 if it's different (handles Google profile picture updates)
