@@ -687,6 +687,55 @@ $ob-accent: #222222;
   }
 }
 
+@media (max-height: 700px) {
+  .welcome-celebration-lottie {
+    width: 140px;
+    height: 140px;
+  }
+
+  .welcome-hero {
+    padding: 16px 0;
+  }
+
+  .welcome-subtitle {
+    margin-bottom: 16px;
+    font-size: 15px;
+  }
+
+  .welcome-features {
+    margin-bottom: 16px;
+    gap: 8px;
+
+    .welcome-feature-card {
+      padding: 10px 14px;
+
+      .feature-icon,
+      .feature-icon-img {
+        width: 44px;
+        height: 44px;
+      }
+    }
+  }
+
+  .welcome-trust {
+    margin-top: 12px;
+    padding-top: 10px;
+  }
+
+  .pre-step-logo {
+    margin-bottom: 20px;
+
+    .pre-step-app-icon {
+      width: 56px;
+      height: 56px;
+    }
+  }
+
+  .pre-step-rotating-heading {
+    margin-bottom: 16px;
+  }
+}
+
 // Onboarding Toolbar
 ion-header {
   ion-toolbar.onboarding-toolbar {
@@ -713,8 +762,9 @@ ion-header {
       appearance: none;
 
       .lang-switch-flag {
-        font-size: 18px;
-        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        flex-shrink: 0;
       }
 
       .lang-switch-code {

@@ -12,7 +12,9 @@
     </ion-buttons>
     <ion-buttons slot="end">
       <button type="button" class="lang-switch-btn" (click)="openSignupLanguageEditor()">
-        <span class="lang-switch-flag">{{ selectedLanguageFlag }}</span>
+        <span class="lang-switch-flag">
+          <app-flag-icon [language]="selectedLanguageEnglishName" [size]="18"></app-flag-icon>
+        </span>
         <span class="lang-switch-code">{{ selectedInterfaceLanguage | uppercase }}</span>
       </button>
       <ion-button fill="clear" class="logout-btn" (click)="handleLogout()">
@@ -130,7 +132,9 @@
     </ion-buttons>
     <ion-buttons slot="end">
       <button type="button" class="lang-switch-btn" (click)="openSignupLanguageEditor()">
-        <span class="lang-switch-flag">{{ selectedLanguageFlag }}</span>
+        <span class="lang-switch-flag">
+          <app-flag-icon [language]="selectedLanguageEnglishName" [size]="18"></app-flag-icon>
+        </span>
         <span class="lang-switch-code">{{ selectedInterfaceLanguage | uppercase }}</span>
       </button>
       <ion-button fill="clear" class="logout-btn" (click)="handleLogout()">

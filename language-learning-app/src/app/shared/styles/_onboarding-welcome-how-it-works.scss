@@ -64,3 +64,13 @@
     display: none;
   }
 }
+
+@media (max-height: 700px) {
+  .welcome-how-it-works {
+    margin-bottom: 16px;
+
+    .how-label {
+      margin-bottom: 10px;
+    }
+  }
+}
