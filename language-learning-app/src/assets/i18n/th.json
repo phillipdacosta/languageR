@@ -615,7 +615,12 @@
       "TIP_5": "Be welcoming and supportive—trial sessions often determine whether the student will continue with you.",
       "SUPPORT_TEXT": "If you have any questions, feel free to contact support at any time."
     },
-    "SEARCH_ALL_MESSAGES": "ค้นหาทุกข้อความ"
+    "SEARCH_ALL_MESSAGES": "ค้นหาทุกข้อความ",
+    "VOICE_NOTE": "บันทึกเสียง 0",
+    "DISCARD": "ทิ้ง",
+    "SEND": "ส่ง",
+    "UPLOADING": "กำลังอัปโหลด...",
+    "RECORDING": "กำลังบันทึก... {{duration}}s"
   },
   "NOTIFICATIONS": {
     "TITLE": "การแจ้งเตือน",
@@ -2588,7 +2593,8 @@
       "COPY_FAILED": "ไม่สามารถคัดลอกข้อความ",
       "REPLYING_TO_SELF": "ตัวคุณเอง",
       "REPLYING_TO": "กำลังตอบกลับ {{name}}",
-      "UNKNOWN": "ไม่ทราบ"
+      "UNKNOWN": "ไม่ทราบ",
+      "MORE": "มากกว่า..."
     },
     "MATERIAL": {
       "LOGIN_HEADER": "เข้าสู่ระบบเพื่อดำเนินการต่อ",

@@ -192,6 +192,7 @@ ALERTS_EN: dict = {
         "COPY": "Copy",
         "FORWARD": "Forward",
         "DELETE": "Delete",
+        "MORE": "More...",
         "COPIED": "Message copied",
         "COPY_FAILED": "Failed to copy message",
         "REPLYING_TO_SELF": "yourself",

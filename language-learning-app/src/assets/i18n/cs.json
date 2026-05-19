@@ -615,7 +615,12 @@
       "TIP_5": "Be welcoming and supportive—trial sessions often determine whether the student will continue with you.",
       "SUPPORT_TEXT": "If you have any questions, feel free to contact support at any time."
     },
-    "SEARCH_ALL_MESSAGES": "Hledat ve všech zprávách"
+    "SEARCH_ALL_MESSAGES": "Hledat ve všech zprávách",
+    "VOICE_NOTE": "Hlasová poznámka {{duration}}s",
+    "DISCARD": "Vyřadit",
+    "SEND": "Poslat",
+    "UPLOADING": "Nahrávání...",
+    "RECORDING": "Nahrávání... {{duration}}s"
   },
   "NOTIFICATIONS": {
     "TITLE": "Oznámení",
@@ -2588,7 +2593,8 @@
       "COPY_FAILED": "Zprávu se nepodařilo zkopírovat",
       "REPLYING_TO_SELF": "sebe",
       "REPLYING_TO": "Odpověď na {{name}}",
-      "UNKNOWN": "Neznámý"
+      "UNKNOWN": "Neznámý",
+      "MORE": "Více..."
     },
     "MATERIAL": {
       "LOGIN_HEADER": "Chcete-li pokračovat, přihlaste se",

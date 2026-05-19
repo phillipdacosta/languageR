@@ -1854,7 +1854,7 @@
   min-height: 0;
   
   @media (max-width: 768px) {
-    padding-bottom: calc(130px + env(safe-area-inset-bottom));
+    padding-bottom: calc(180px + env(safe-area-inset-bottom));
   }
   
   // Hide the list until initial scroll position is set — avoids a visible jump
@@ -1878,7 +1878,7 @@
   // Extra padding when reply preview is showing
   &.has-reply-preview {
     @media (max-width: 768px) {
-      padding-bottom: calc(160px + env(safe-area-inset-bottom)); // Space for input + reply preview
+      padding-bottom: calc(210px + env(safe-area-inset-bottom)); // Space for input + reply preview
     }
   }
 }
@@ -2573,88 +2573,205 @@
   }
 }
 
-/** Other user's local time, directly above the desktop message composer. */
-.composer-local-time {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 10px 24px 6px;
-  border-top: 0.5px solid rgba(0, 0, 0, 0.08);
-  background: #ffffff;
-  font-size: 12px;
-  font-weight: 400;
-  color: #86868b;
-  letter-spacing: -0.1px;
+/** Composer — padded footer + rounded gray card (Airbnb-style). */
+.message-composer {
   flex-shrink: 0;
-
-  ion-icon {
-    font-size: 14px;
-    opacity: 0.7;
-  }
-}
-
-.message-input-container {
-  display: flex;
-  align-items: center;
-  padding: 12px 24px 16px;
-  border-top: 0.5px solid rgba(0, 0, 0, 0.08);
-  background: white;
-  gap: 6px;
+  background: #ffffff;
+  border-top: 0.5px solid rgba(0, 0, 0, 0.06);
+  padding: 16px 24px 20px;
   position: relative;
   z-index: 10;
-  flex-shrink: 0;
-
-  &.message-input--below-local-time {
-    border-top: none;
-    padding-top: 4px;
-  }
 
   @media (max-width: 768px) {
-    padding: 12px 16px;
-    padding-bottom: calc(12px + env(safe-area-inset-bottom));
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
     width: 100%;
+    padding: 12px 16px calc(14px + env(safe-area-inset-bottom));
     box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.06);
     z-index: 1000;
-    border-top: 0.5px solid rgba(0, 0, 0, 0.08);
+  }
+}
+
+.message-composer-card {
+  background: #f7f7f7;
+  border-radius: 16px;
+  padding: 14px 16px 16px;
+  overflow: hidden;
+
+  @media (max-width: 768px) {
+    border-radius: 14px;
+    padding: 12px 14px 14px;
+  }
+}
+
+/** Local time strip at top of the gray card. */
+.composer-local-time {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 4px 12px;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 400;
+  color: #717171;
+  letter-spacing: -0.1px;
+  flex-shrink: 0;
+
+  ion-icon {
+    font-size: 14px;
+    opacity: 0.85;
+  }
+}
+
+.message-input-container {
+  display: block;
+  padding: 0;
+  background: transparent;
+  position: relative;
+
+  &.message-input--below-local-time {
+    padding-top: 0;
+  }
+}
+
+.message-input-box {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 120px;
+  padding: 16px 16px 12px;
+  background: #ffffff;
+  border: 1px solid #dddddd;
+  border-radius: 12px;
+  transition: border-color 0.2s ease;
+
+  &:focus-within {
+    border-color: #b0b0b0;
+    box-shadow: none;
   }
 
-  ion-button {
-    --color: #717171;
-    --padding-start: 8px;
-    --padding-end: 8px;
-    margin: 0;
-    
-    &:hover {
-      --color: #222222;
-    }
+  @media (max-width: 768px) {
+    min-height: 108px;
+    padding: 14px 14px 10px;
+    border-radius: 10px;
+  }
+}
+
+.message-input {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 28px;
+  --background: transparent;
+  --padding-start: 0;
+  --padding-end: 0;
+  --padding-top: 0;
+  --padding-bottom: 0;
+  --highlight-color-focused: transparent;
+  --highlight-color-valid: transparent;
+  --highlight-color-invalid: transparent;
+  --highlight-height: 0;
+  --border-width: 0;
+  --border-color: transparent;
+  --placeholder-color: #717171;
+  --placeholder-opacity: 1;
+  font-size: 15px;
+  line-height: 1.45;
+  color: #222222;
+
+  &::part(native) {
+    padding: 0;
+    min-height: 28px;
+  }
+}
+
+.message-input-actions {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-shrink: 0;
+  margin-top: 12px;
+  padding-top: 2px;
+}
+
+.message-input-actions-start {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: -4px;
+}
+
+.composer-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #717171;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  -webkit-appearance: none;
+  appearance: none;
+
+  ion-icon {
+    font-size: 20px;
   }
 
-  .message-input {
-    flex: 1;
-    --padding-start: 16px;
-    --padding-end: 16px;
-    --background: #f7f7f7;
-    --highlight-color-focused: transparent;
-    --highlight-color-valid: transparent;
-    --highlight-color-invalid: transparent;
-    --highlight-height: 0;
-    --border-width: 0;
-    --border-color: transparent;
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    border-radius: 24px;
-    font-size: 15px;
-    height: 44px;
-    overflow: hidden;
-    transition: border-color 0.2s ease;
-    
-    &:focus-within {
-      border-color: #222222;
-    }
+  &:hover:not(:disabled) {
+    background: rgba(0, 0, 0, 0.05);
+    color: #222222;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.composer-send-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  margin: 0;
+  margin-right: -2px;
+  margin-bottom: -2px;
+  border: none;
+  border-radius: 50%;
+  background: #222222;
+  color: #ffffff;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease, transform 0.1s ease;
+  -webkit-appearance: none;
+  appearance: none;
+
+  ion-icon {
+    font-size: 17px;
+    font-weight: 600;
+  }
+
+  &:hover:not(:disabled) {
+    background: #000000;
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.96);
+  }
+
+  &:disabled {
+    background: #f0f0f0;
+    color: #c7c7c7;
+    cursor: not-allowed;
   }
 }
 
@@ -4225,10 +4342,18 @@
     color: #aeaeb2;
   }
 
-  .composer-local-time {
+  .message-composer {
     background: #000000;
-    color: #aeaeb2;
     border-top-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .message-composer-card {
+    background: #1c1c1e;
+  }
+
+  .composer-local-time {
+    background: transparent;
+    color: #aeaeb2;
   }
 
   .chat-header {
@@ -4408,26 +4533,49 @@
     }
   }
 
-  .message-input-container {
-    background: #000000;
-    border-top-color: rgba(255, 255, 255, 0.12);
+  .message-input-box {
+    background: #2c2c2e;
+    border-color: rgba(255, 255, 255, 0.14);
 
-    ion-button {
-      --color: #8e8e93;
+    &:focus-within {
+      border-color: rgba(255, 255, 255, 0.28);
+      box-shadow: none;
+    }
+  }
 
-      &:hover {
-        --color: #f5f5f7;
-      }
+  .message-input {
+    --placeholder-color: #8e8e93;
+    color: #f5f5f7;
+  }
+
+  .composer-tool-btn {
+    color: #8e8e93;
+
+    &:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.08);
+      color: #f5f5f7;
+    }
+  }
+
+  .composer-send-btn {
+    background: #f5f5f7;
+    color: #1c1c1e;
+
+    &:hover:not(:disabled) {
+      background: #ffffff;
     }
 
-    .message-input {
-      --background: #2c2c2e;
-      border-color: rgba(255, 255, 255, 0.12);
-
-      &:focus-within {
-        border-color: #4298d2;
-      }
+    &:disabled {
+      background: #3a3a3c;
+      color: #636366;
     }
+  }
+
+  .upload-progress,
+  .upload-progress-mobile,
+  .recording-indicator,
+  .recording-indicator-mobile {
+    background: #2c2c2e;
   }
 
   .loading-overlay {

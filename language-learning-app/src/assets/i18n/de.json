@@ -1039,7 +1039,12 @@
       "TIP_5": "Seien Sie freundlich und unterstützend—Probesitzungen bestimmen oft, ob der Schüler bei Ihnen weitermachen wird.",
       "SUPPORT_TEXT": "Wenn Sie Fragen haben, können Sie sich jederzeit an den Support wenden."
     },
-    "SEARCH_ALL_MESSAGES": "Alle Nachrichten durchsuchen"
+    "SEARCH_ALL_MESSAGES": "Alle Nachrichten durchsuchen",
+    "VOICE_NOTE": "Sprachnotiz {{duration}}s",
+    "DISCARD": "Verwerfen",
+    "SEND": "Schicken",
+    "UPLOADING": "Hochladen...",
+    "RECORDING": "Aufnahme... {{duration}}s"
   },
   "NOTIFICATIONS": {
     "TITLE": "Benachrichtigungen",
@@ -2667,7 +2672,8 @@
       "COPY_FAILED": "Nachricht konnte nicht kopiert werden",
       "REPLYING_TO_SELF": "selbst",
       "REPLYING_TO": "Antwort auf {{name}}",
-      "UNKNOWN": "Unbekannt"
+      "UNKNOWN": "Unbekannt",
+      "MORE": "Mehr..."
     },
     "MATERIAL": {
       "LOGIN_HEADER": "Melden Sie sich an, um fortzufahren",

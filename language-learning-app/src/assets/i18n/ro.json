@@ -615,7 +615,12 @@
       "TIP_5": "Be welcoming and supportive—trial sessions often determine whether the student will continue with you.",
       "SUPPORT_TEXT": "If you have any questions, feel free to contact support at any time."
     },
-    "SEARCH_ALL_MESSAGES": "Caută în toate mesajele"
+    "SEARCH_ALL_MESSAGES": "Caută în toate mesajele",
+    "VOICE_NOTE": "Notă vocală {{duration}}s",
+    "DISCARD": "Aruncă",
+    "SEND": "Trimite",
+    "UPLOADING": "Se încarcă...",
+    "RECORDING": "Înregistrare... {{duration}}s"
   },
   "NOTIFICATIONS": {
     "TITLE": "Notificări",
@@ -2588,7 +2593,8 @@
       "COPY_FAILED": "Nu s-a putut copia mesajul",
       "REPLYING_TO_SELF": "te",
       "REPLYING_TO": "Răspunzând la {{name}}",
-      "UNKNOWN": "Necunoscut"
+      "UNKNOWN": "Necunoscut",
+      "MORE": "Mai mult..."
     },
     "MATERIAL": {
       "LOGIN_HEADER": "Conectați-vă pentru a continua",

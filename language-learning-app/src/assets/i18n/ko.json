@@ -615,7 +615,12 @@
       "TIP_5": "Be welcoming and supportive—trial sessions often determine whether the student will continue with you.",
       "SUPPORT_TEXT": "If you have any questions, feel free to contact support at any time."
     },
-    "SEARCH_ALL_MESSAGES": "모든 메시지 검색"
+    "SEARCH_ALL_MESSAGES": "모든 메시지 검색",
+    "VOICE_NOTE": "음성 메모 {{duration}}s",
+    "DISCARD": "버리다",
+    "SEND": "보내다",
+    "UPLOADING": "업로드 중...",
+    "RECORDING": "녹음중... {{duration}}s"
   },
   "NOTIFICATIONS": {
     "TITLE": "알림",
@@ -2589,7 +2594,8 @@
       "COPY_FAILED": "메시지를 복사하지 못했습니다.",
       "REPLYING_TO_SELF": "당신 자신",
       "REPLYING_TO": "{{name}}에 답장을 보내다",
-      "UNKNOWN": "알려지지 않은"
+      "UNKNOWN": "알려지지 않은",
+      "MORE": "더..."
     },
     "MATERIAL": {
       "LOGIN_HEADER": "계속하려면 로그인하세요.",

@@ -615,7 +615,12 @@
       "TIP_5": "Be welcoming and supportive—trial sessions often determine whether the student will continue with you.",
       "SUPPORT_TEXT": "If you have any questions, feel free to contact support at any time."
     },
-    "SEARCH_ALL_MESSAGES": "सभी संदेशों में खोजें"
+    "SEARCH_ALL_MESSAGES": "सभी संदेशों में खोजें",
+    "VOICE_NOTE": "वॉइस नोट {{duration}}एस",
+    "DISCARD": "खारिज करना",
+    "SEND": "भेजना",
+    "UPLOADING": "अपलोड हो रहा है...",
+    "RECORDING": "रिकॉर्डिंग... {{duration}}s"
   },
   "NOTIFICATIONS": {
     "TITLE": "सूचनाएँ",
@@ -2589,7 +2594,8 @@
       "COPY_FAILED": "संदेश कॉपी करने में विफल",
       "REPLYING_TO_SELF": "अपने आप को",
       "REPLYING_TO": "{{नाम}} को उत्तर दिया जा रहा है",
-      "UNKNOWN": "अज्ञात"
+      "UNKNOWN": "अज्ञात",
+      "MORE": "अधिक..."
     },
     "MATERIAL": {
       "LOGIN_HEADER": "जारी रखने के लिए लॉग इन करें",

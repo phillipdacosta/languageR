@@ -617,7 +617,12 @@
       "TIP_5": "Be welcoming and supportive—trial sessions often determine whether the student will continue with you.",
       "SUPPORT_TEXT": "If you have any questions, feel free to contact support at any time."
     },
-    "SEARCH_ALL_MESSAGES": "חיפוש בכל ההודעות"
+    "SEARCH_ALL_MESSAGES": "חיפוש בכל ההודעות",
+    "VOICE_NOTE": "הערה קולית {{duration}}s",
+    "DISCARD": "לְהַשְׁלִיך",
+    "SEND": "לִשְׁלוֹחַ",
+    "UPLOADING": "מעלה...",
+    "RECORDING": "הקלטה... {{duration}}s"
   },
   "NOTIFICATIONS": {
     "TITLE": "התראות",
@@ -2590,7 +2595,8 @@
       "COPY_FAILED": "העתקת ההודעה נכשלה",
       "REPLYING_TO_SELF": "עַצמְךָ",
       "REPLYING_TO": "משיב ל- {{name}}",
-      "UNKNOWN": "לֹא יְדוּעַ"
+      "UNKNOWN": "לֹא יְדוּעַ",
+      "MORE": "יוֹתֵר..."
     },
     "MATERIAL": {
       "LOGIN_HEADER": "היכנס כדי להמשיך",

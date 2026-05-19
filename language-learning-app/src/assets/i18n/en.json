@@ -1389,7 +1389,7 @@
   "MESSAGES": {
     "TITLE": "Messages",
     "NEW_MESSAGE": "New Message",
-    "TYPE_MESSAGE": "Type a message...",
+    "TYPE_MESSAGE": "Write a message...",
     "NO_MESSAGES": "No messages yet",
     "CONVERSATIONS": "Conversations",
     "SEARCH_CONVERSATIONS": "Search conversations",
@@ -1415,6 +1415,11 @@
     "VIEW_PROFILE": "View Profile",
     "VIEW_CLASS_DETAILS": "View Class Details",
     "LOCAL_TIME_FOR_THEM": "It's {{time}} for them",
+    "VOICE_NOTE": "Voice note {{duration}}s",
+    "DISCARD": "Discard",
+    "SEND": "Send",
+    "UPLOADING": "Uploading...",
+    "RECORDING": "Recording... {{duration}}s",
     "TRIAL_LESSON_SYSTEM_MESSAGE": {
       "TITLE": "New Trial Lesson Scheduled",
       "INTRO": "A new student has booked a trial lesson with you.",
@@ -3211,6 +3216,7 @@
       "COPY": "Copy",
       "FORWARD": "Forward",
       "DELETE": "Delete",
+      "MORE": "More...",
       "COPIED": "Message copied",
       "COPY_FAILED": "Failed to copy message",
       "REPLYING_TO_SELF": "yourself",

@@ -1039,7 +1039,12 @@
       "TIP_5": "Seja acolhedor e solidário—as sessões experimentais muitas vezes determinam se o aluno continuará com você.",
       "SUPPORT_TEXT": "Se você tiver alguma dúvida, sinta-se à vontade para entrar em contato com o suporte a qualquer momento."
     },
-    "SEARCH_ALL_MESSAGES": "Pesquisar em todas as mensagens"
+    "SEARCH_ALL_MESSAGES": "Pesquisar em todas as mensagens",
+    "VOICE_NOTE": "Nota de voz {{duration}}s",
+    "DISCARD": "Descartar",
+    "SEND": "Enviar",
+    "UPLOADING": "Fazendo upload...",
+    "RECORDING": "Gravando... {{duration}}s"
   },
   "NOTIFICATIONS": {
     "TITLE": "Notificações",
@@ -2667,7 +2672,8 @@
       "COPY_FAILED": "Falha ao copiar a mensagem",
       "REPLYING_TO_SELF": "você mesmo",
       "REPLYING_TO": "Respondendo a {{name}}",
-      "UNKNOWN": "Desconhecido"
+      "UNKNOWN": "Desconhecido",
+      "MORE": "Mais..."
     },
     "MATERIAL": {
       "LOGIN_HEADER": "Faça login para continuar",

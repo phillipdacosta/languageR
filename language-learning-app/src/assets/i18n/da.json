@@ -615,7 +615,12 @@
       "TIP_5": "Be welcoming and supportive—trial sessions often determine whether the student will continue with you.",
       "SUPPORT_TEXT": "If you have any questions, feel free to contact support at any time."
     },
-    "SEARCH_ALL_MESSAGES": "Søg i alle beskeder"
+    "SEARCH_ALL_MESSAGES": "Søg i alle beskeder",
+    "VOICE_NOTE": "Stemmenote {{duration}}s",
+    "DISCARD": "Kassér",
+    "SEND": "Sende",
+    "UPLOADING": "Uploader...",
+    "RECORDING": "Optager... {{duration}}s"
   },
   "NOTIFICATIONS": {
     "TITLE": "Notifikationer",
@@ -2589,7 +2594,8 @@
       "COPY_FAILED": "Kunne ikke kopiere beskeden",
       "REPLYING_TO_SELF": "dig selv",
       "REPLYING_TO": "Svarer til {{name}}",
-      "UNKNOWN": "Ukendt"
+      "UNKNOWN": "Ukendt",
+      "MORE": "Mere..."
     },
     "MATERIAL": {
       "LOGIN_HEADER": "Log ind for at fortsætte",

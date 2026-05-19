@@ -615,7 +615,12 @@
       "TIP_5": "Be welcoming and supportive—trial sessions often determine whether the student will continue with you.",
       "SUPPORT_TEXT": "If you have any questions, feel free to contact support at any time."
     },
-    "SEARCH_ALL_MESSAGES": "Tìm trong tất cả tin nhắn"
+    "SEARCH_ALL_MESSAGES": "Tìm trong tất cả tin nhắn",
+    "VOICE_NOTE": "Ghi chú bằng giọng nói {{duration}}s",
+    "DISCARD": "Loại bỏ",
+    "SEND": "Gửi",
+    "UPLOADING": "Đang tải lên...",
+    "RECORDING": "Đang ghi... {{duration}}s"
   },
   "NOTIFICATIONS": {
     "TITLE": "Thông báo",
@@ -2588,7 +2593,8 @@
       "COPY_FAILED": "Không sao chép được tin nhắn",
       "REPLYING_TO_SELF": "bản thân bạn",
       "REPLYING_TO": "Đang trả lời {{name}}",
-      "UNKNOWN": "Không xác định"
+      "UNKNOWN": "Không xác định",
+      "MORE": "Hơn..."
     },
     "MATERIAL": {
       "LOGIN_HEADER": "Đăng nhập để tiếp tục",

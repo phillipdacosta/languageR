@@ -615,7 +615,12 @@
       "TIP_5": "Be welcoming and supportive—trial sessions often determine whether the student will continue with you.",
       "SUPPORT_TEXT": "If you have any questions, feel free to contact support at any time."
     },
-    "SEARCH_ALL_MESSAGES": "Cari di semua pesan"
+    "SEARCH_ALL_MESSAGES": "Cari di semua pesan",
+    "VOICE_NOTE": "Catatan suara {{duration}}s",
+    "DISCARD": "Membuang",
+    "SEND": "Mengirim",
+    "UPLOADING": "Mengunggah...",
+    "RECORDING": "Merekam... {{duration}}s"
   },
   "NOTIFICATIONS": {
     "TITLE": "Notifikasi",
@@ -2588,7 +2593,8 @@
       "COPY_FAILED": "Gagal menyalin pesan",
       "REPLYING_TO_SELF": "dirimu sendiri",
       "REPLYING_TO": "Membalas ke {{name}}",
-      "UNKNOWN": "Tidak dikenal"
+      "UNKNOWN": "Tidak dikenal",
+      "MORE": "Lagi..."
     },
     "MATERIAL": {
       "LOGIN_HEADER": "Masuk untuk melanjutkan",

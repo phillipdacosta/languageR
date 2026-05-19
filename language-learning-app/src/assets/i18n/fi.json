@@ -615,7 +615,12 @@
       "TIP_5": "Be welcoming and supportive—trial sessions often determine whether the student will continue with you.",
       "SUPPORT_TEXT": "If you have any questions, feel free to contact support at any time."
     },
-    "SEARCH_ALL_MESSAGES": "Hae kaikista viesteistä"
+    "SEARCH_ALL_MESSAGES": "Hae kaikista viesteistä",
+    "VOICE_NOTE": "Äänimuistio {{duration}}s",
+    "DISCARD": "Hävitä",
+    "SEND": "Lähetä",
+    "UPLOADING": "Ladataan...",
+    "RECORDING": "Nauhoitus... {{duration}}s"
   },
   "NOTIFICATIONS": {
     "TITLE": "Ilmoitukset",
@@ -2588,7 +2593,8 @@
       "COPY_FAILED": "Viestin kopioiminen epäonnistui",
       "REPLYING_TO_SELF": "itseäsi",
       "REPLYING_TO": "Vastataan numeroon {{name}}",
-      "UNKNOWN": "Tuntematon"
+      "UNKNOWN": "Tuntematon",
+      "MORE": "Lisää..."
     },
     "MATERIAL": {
       "LOGIN_HEADER": "Kirjaudu sisään jatkaaksesi",
