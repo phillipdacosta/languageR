@@ -1506,6 +1506,22 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     }
   }
 
+  /**
+   * True only when every required field across all student steps is filled.
+   * Used on the review page to gate the Complete Setup button.
+   */
+  get studentProfileComplete(): boolean {
+    const nameOk = this.firstName.trim() !== '' && this.lastName.trim() !== '';
+    const nativeLangOk = this.nativeLanguage !== '';
+    const learnLangOk = this.selectedLanguages.length > 0;
+    const goalOk = this.skipGoalSetup ||
+      (!!this.learningGoalType &&
+        (this.learningGoalType !== 'other' || this.learningGoalDescription.trim() !== '') &&
+        this.selfAssessedLevel !== '' &&
+        this.goalTimeline !== '');
+    return nameOk && nativeLangOk && learnLangOk && goalOk;
+  }
+
   navigateToHome() {
     // Signal to the home page that the student just finished onboarding so
     // the journey intro modal fires exactly once on their first landing.

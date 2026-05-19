@@ -13,6 +13,7 @@ $ob-accent: #222222;
 
 @import '../shared/styles/cm-details-wizard-shell.scss';
 @import '../shared/styles/onboarding-welcome-how-it-works';
+@import '../shared/styles/onboarding-review-preview';
 
 // ═══════════════════════════════════════════════════
 // PRE-STEP: Language Selection & Welcome
@@ -1147,6 +1148,16 @@ ion-header {
   }
 }
 
+// ion-range mis-measures its track when the parent uses transform during enter.
+@keyframes rateStepFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 // Thin progress bar at top of right column
 .right-col-progress {
   width: 100%;
@@ -1216,8 +1227,12 @@ ion-header {
   margin: 0 auto;
   min-height: 0;
 
-  > div {
+  > div:not(.rate-step) {
     animation: stepFadeIn 0.3s ease-out;
+  }
+
+  > div.rate-step {
+    animation: rateStepFadeIn 0.25s ease-out;
   }
 
   .step-title {
@@ -1355,8 +1370,11 @@ ion-header {
     &.rate-field {
       .rate-slider-container {
         margin: 16px 0;
+        min-height: 108px;
 
         .rate-slider {
+          display: block;
+          width: 100%;
           --bar-background: #{$ob-border-light};
           --bar-background-active: #{$ob-accent};
           --bar-height: 6px;
@@ -1730,7 +1748,8 @@ ion-header {
 // Rate step specific styling
 .rate-step {
   padding-bottom: 0;
-  
+  contain: layout style;
+
   .step-title {
     font-size: 20px;
     margin-bottom: 4px;
@@ -1885,402 +1904,6 @@ ion-header {
   .options-grid {
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
     gap: 8px;
-  }
-}
-
-// Preview Page — Two-column layout
-// ==========================================
-.preview-container {
-  width: 100%;
-  height: 100vh;
-  overflow: hidden;
-  background: linear-gradient(160deg, #f8f8fa 0%, #f2f2f5 40%, #eeeef2 100%);
-  animation: stepFadeIn 0.35s ease-out;
-}
-
-.preview-layout {
-  display: flex;
-  width: 100%;
-  height: 100%;
-}
-
-.preview-hero-col {
-  width: 42%;
-  min-width: 340px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 48px 40px;
-  background: #ffffff;
-  position: relative;
-
-  &::after {
-    content: '';
-    position: absolute;
-    right: 0;
-    top: 10%;
-    height: 80%;
-    width: 1px;
-    background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.06) 50%, transparent 100%);
-  }
-}
-
-.preview-hero-inner {
-  max-width: 360px;
-  width: 100%;
-}
-
-.preview-hero-badge {
-  width: 52px;
-  height: 52px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, #34c759 0%, #30b350 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 20px;
-  box-shadow: 0 4px 12px rgba(52, 199, 89, 0.25);
-
-  ion-icon {
-    font-size: 26px;
-    color: #fff;
-  }
-}
-
-.preview-hero-title {
-  font-size: 28px;
-  font-weight: 700;
-  color: $ob-text-primary;
-  margin: 0 0 8px 0;
-  letter-spacing: -0.5px;
-  line-height: 1.2;
-}
-
-.preview-hero-subtitle {
-  font-size: 15px;
-  color: $ob-text-secondary;
-  margin: 0 0 32px 0;
-  line-height: 1.55;
-}
-
-.preview-hero-summary {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin-bottom: 36px;
-  padding: 20px;
-  background: #f9f9fb;
-  border-radius: 14px;
-
-  .preview-summary-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-
-    .summary-emoji {
-      font-size: 20px;
-      flex-shrink: 0;
-      width: 28px;
-      text-align: center;
-    }
-
-    .profile-picture-container {
-      flex-shrink: 0;
-      width: 28px;
-      height: 28px;
-      
-      .profile-picture {
-        width: 100%;
-        height: 100%;
-        border-radius: 50%;
-        object-fit: cover;
-        border: 2px solid rgba(34, 34, 34, 0.1);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-        
-        &:hover {
-          transform: scale(1.05);
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-      }
-    }
-  }
-}
-
-// Dark mode support for profile pictures
-@media (prefers-color-scheme: dark) {
-  .preview-hero-summary {
-    .preview-summary-item {
-      .profile-picture-container {
-        .profile-picture {
-          border: 2px solid rgba(255, 255, 255, 0.2);
-          
-          &:hover {
-            box-shadow: 0 2px 8px rgba(255, 255, 255, 0.1);
-          }
-        }
-      }
-    }
-  }
-}
-
-// Ionic dark mode support
-:host-context(html.ion-palette-dark) {
-  .preview-hero-summary {
-    .preview-summary-item {
-      .profile-picture-container {
-        .profile-picture {
-          border: 2px solid rgba(255, 255, 255, 0.2);
-          
-          &:hover {
-            box-shadow: 0 2px 8px rgba(255, 255, 255, 0.1);
-          }
-        }
-      }
-    }
-
-    .summary-text {
-      font-size: 15px;
-      font-weight: 500;
-      color: #f5f5f7;
-      line-height: 1.4;
-    }
-  }
-}
-
-.preview-hero-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-
-  .submit-action {
-    --background: #222222;
-    --background-activated: #000000;
-    --background-hover: #111111;
-    --color: #ffffff;
-    --border-radius: 14px;
-    --box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-    height: 52px;
-    font-size: 16px;
-    font-weight: 600;
-    text-transform: none;
-    letter-spacing: -0.2px;
-    width: 100%;
-
-    .btn-spinner {
-      width: 20px;
-      height: 20px;
-      margin-right: 8px;
-    }
-  }
-
-  .preview-back-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    background: none;
-    border: none;
-    font-size: 14px;
-    font-weight: 500;
-    color: $ob-text-secondary;
-    cursor: pointer;
-    padding: 10px;
-    border-radius: 10px;
-    transition: color 0.2s ease;
-
-    ion-icon { font-size: 16px; }
-
-    &:hover { color: $ob-text-primary; }
-  }
-}
-
-.preview-details-col {
-  flex: 1;
-  overflow-y: auto;
-  padding: 48px 40px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  align-content: center;
-  justify-content: center;
-
-  &::-webkit-scrollbar { width: 6px; }
-  &::-webkit-scrollbar-track { background: transparent; }
-  &::-webkit-scrollbar-thumb {
-    background: rgba(0,0,0,0.12);
-    border-radius: 3px;
-  }
-}
-
-.preview-detail-card {
-  background: #ffffff;
-  border-radius: 16px;
-  padding: 20px 24px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 14px rgba(0,0,0,0.05);
-  max-width: 520px;
-  width: 100%;
-  opacity: 0;
-  transform: translateY(8px);
-  animation-name: stepFadeIn;
-  animation-duration: 0.3s;
-  animation-timing-function: ease-out;
-  animation-fill-mode: forwards;
-
-  &:nth-child(1) { animation-delay: 0s; }
-  &:nth-child(2) { animation-delay: 0.06s; }
-  &:nth-child(3) { animation-delay: 0.12s; }
-  &:nth-child(4) { animation-delay: 0.18s; }
-  &:nth-child(5) { animation-delay: 0.24s; }
-  &:nth-child(6) { animation-delay: 0.30s; }
-  &:nth-child(7) { animation-delay: 0.36s; }
-}
-
-.preview-detail-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid rgba(0,0,0,0.05);
-
-  .preview-detail-icon {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    background: #f2f2f7;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-
-    ion-icon {
-      font-size: 16px;
-      color: $ob-text-primary;
-    }
-  }
-
-  h3 {
-    font-size: 15px;
-    font-weight: 600;
-    color: $ob-text-primary;
-    margin: 0;
-    flex: 1;
-  }
-
-  .edit-link {
-    background: none;
-    border: none;
-    color: #007AFF;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    padding: 4px 10px;
-    border-radius: 6px;
-    transition: background 0.2s ease;
-
-    &:hover { background: rgba(0, 122, 255, 0.08); }
-  }
-}
-
-.preview-detail-rows {
-  display: flex;
-  flex-direction: column;
-}
-
-.preview-detail-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding: 10px 0;
-
-  & + .preview-detail-row {
-    border-top: 1px solid rgba(0,0,0,0.04);
-  }
-
-  .detail-label {
-    font-size: 14px;
-    color: $ob-text-secondary;
-    flex-shrink: 0;
-    margin-right: 16px;
-  }
-
-  .detail-value {
-    font-size: 14px;
-    font-weight: 500;
-    color: $ob-text-primary;
-    text-align: right;
-    word-break: break-word;
-
-    &.spoken-langs-preview {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      justify-content: flex-end;
-
-      .spoken-lang-tag {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        background: #f4f4f4;
-        border-radius: 20px;
-        padding: 2px 10px;
-        font-size: 13px;
-        font-weight: 500;
-        color: $ob-text-primary;
-
-        .spoken-lang-cefr {
-          background: #007AFF;
-          color: white;
-          border-radius: 10px;
-          padding: 0px 6px;
-          font-size: 11px;
-          font-weight: 600;
-        }
-      }
-    }
-
-    &.video-badge {
-      background: #34C759;
-      color: white;
-      padding: 2px 10px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 600;
-    }
-  }
-}
-
-@media (max-width: 768px) {
-  .preview-container {
-    overflow-y: auto;
-    height: auto;
-    min-height: 100vh;
-  }
-
-  .preview-layout {
-    flex-direction: column;
-    height: auto;
-  }
-
-  .preview-hero-col {
-    width: 100%;
-    min-width: 0;
-    padding: 32px 24px;
-
-    &::after { display: none; }
-  }
-
-  .preview-hero-inner {
-    max-width: 100%;
-  }
-
-  .preview-details-col {
-    padding: 24px;
-    overflow-y: visible;
-  }
-
-  .preview-detail-card {
-    max-width: 100%;
   }
 }
 
