@@ -1,0 +1,37 @@
+// Welcome screen: ensure CTA/trust are always visible without shrinking elements.
+// Keeps all original sizes; only fixes layout overflow caused by long locales.
+
+.pre-step-container.welcome-phase {
+  height: calc(100dvh - 56px);
+  height: calc(100svh - 56px);
+  overflow-y: auto;
+
+  .pre-step-inner.welcome-inner {
+    flex: 1 1 auto;
+    min-height: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+  }
+
+  &.welcome-revealed .welcome-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+
+    // Override the max-height animation cap so long content isn't clipped.
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  // Pin CTA + trust to bottom of the flex column.
+  .welcome-cta-row {
+    flex-shrink: 0;
+    margin-top: auto;
+  }
+
+  .welcome-trust {
+    flex-shrink: 0;
+  }
+}

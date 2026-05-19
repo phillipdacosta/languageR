@@ -12,6 +12,7 @@ $ob-bg-subtle: #f7f7f7;
 $ob-accent: #222222;
 
 @import '../shared/styles/cm-details-wizard-shell.scss';
+@import '../shared/styles/onboarding-welcome-how-it-works';
 
 // ═══════════════════════════════════════════════════
 // PRE-STEP: Language Selection & Welcome
@@ -488,63 +489,6 @@ $ob-accent: #222222;
   }
 }
 
-// How it works stepper
-.welcome-how-it-works {
-  margin-bottom: 32px;
-  text-align: center;
-
-  .how-label {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-    color: $ob-text-tertiary;
-    margin: 0 0 14px 0;
-  }
-
-  .how-steps {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0;
-  }
-
-  .how-step {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-
-    .how-num {
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      background: $ob-text-primary;
-      color: #fff;
-      font-size: 12px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
-
-    .how-text {
-      font-size: 13px;
-      font-weight: 500;
-      color: $ob-text-secondary;
-      white-space: nowrap;
-    }
-  }
-
-  .how-connector {
-    width: 24px;
-    height: 1px;
-    background: $ob-border;
-    margin: 0 6px;
-    flex-shrink: 0;
-  }
-}
-
 // Trust Signals (Welcome page)
 .welcome-trust {
   display: flex;
@@ -723,23 +667,6 @@ $ob-accent: #222222;
 
       .feature-text .feature-desc {
         font-size: 11px;
-      }
-    }
-  }
-
-  .welcome-how-it-works {
-    .how-steps {
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .how-connector {
-      display: none;
-    }
-
-    .how-step {
-      .how-text {
-        font-size: 12px;
       }
     }
   }
@@ -2660,4 +2587,5 @@ ion-header {
 }
 
 @import '../shared/styles/onboarding-language-picker';
+@import '../shared/styles/onboarding-welcome-fit';
 @import '../shared/styles/onboarding-tutor-shared-dark';
