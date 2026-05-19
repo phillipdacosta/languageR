@@ -19,6 +19,8 @@ services:
         sync: false
       - key: AUTH0_AUDIENCE
         sync: false
+      - key: AUTH0_CLIENT_ID
+        sync: false
       - key: AGORA_APP_ID
         sync: false
       - key: AGORA_APP_CERT

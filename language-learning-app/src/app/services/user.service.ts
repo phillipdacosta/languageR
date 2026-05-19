@@ -1220,9 +1220,18 @@ export class UserService {
             return of('unchanged' as const);
           }
 
-          const outcome = currentTimezone ? 'changed' as const : 'initial' as const;
+          const isTimezoneChange = !!currentTimezone;
           return this.updateProfile({ timezone: detectedTimezone }).pipe(
-            map(() => outcome),
+            map(() => {
+              if (!isTimezoneChange) {
+                return 'initial' as const;
+              }
+              // During onboarding, sync silently — no "timezone updated" toast.
+              if (!user?.onboardingCompleted) {
+                return 'initial' as const;
+              }
+              return 'changed' as const;
+            }),
             catchError(error => {
               if (error?.status !== 404) {
                 console.error('❌ Failed to save timezone:', error);

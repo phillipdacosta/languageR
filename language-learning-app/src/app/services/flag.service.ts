@@ -40,6 +40,9 @@ export class FlagService {
     ['Malay', 'my'],
     ['Tagalog', 'ph'],
     ['Swahili', 'ke'],
+    ['Romanian', 'ro'],
+    ['Ukrainian', 'ua'],
+    ['Persian', 'ir'],
   ]);
 
   // Map country names to ISO 3166-1 alpha-2 country codes

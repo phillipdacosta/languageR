@@ -37,7 +37,9 @@
           class="pre-step-lang-card"
           [class.selected]="selectedInterfaceLanguage === lang.code"
           (click)="selectInterfaceLanguage(lang.code)">
-          <span class="lang-flag">{{ lang.flag }}</span>
+          <span class="lang-flag">
+            <app-flag-icon [language]="lang.name" [size]="28"></app-flag-icon>
+          </span>
           <div class="lang-labels">
             <span class="lang-native-name">{{ lang.nativeName }}</span>
             <span class="lang-english-name">{{ lang.name }}</span>
