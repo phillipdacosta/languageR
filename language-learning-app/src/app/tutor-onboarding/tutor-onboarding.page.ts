@@ -263,6 +263,9 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
   profileSummary = '';
   profileBio = '';
   hourlyRate = 25;
+  // Defer mounting ion-range until the step's enter animation has settled so
+  // the knob renders at its final position instead of sliding from 0.
+  tutorRateRangeReady = false;
   introductionVideo = ''; // Introduction video URL
   thumbnailUrl = ''; // Custom thumbnail URL for the video
   videoType: 'upload' | 'youtube' | 'vimeo' = 'upload'; // Video type
@@ -578,13 +581,15 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
     }
     if (this.currentStep !== this.previousStep) {
       const enteredStep = this.currentStep;
+      const leftStep = this.previousStep;
       this.previousStep = this.currentStep;
       this.syncTutorWizardCopy();
       this.resetWizardViewportScroll();
+      if (leftStep === 11 && enteredStep !== 11) {
+        this.tutorRateRangeReady = false;
+      }
       if (enteredStep === 11) {
-        // ion-range miscalculates the active bar when mounted inside a transform
-        // animation or when autofocus opens the pin — fix layout after paint.
-        this.scheduleRateRangeLayoutFix();
+        this.deferMountRateRange();
       } else {
         setTimeout(() => this.focusFirstInput(), 120);
       }
@@ -598,15 +603,16 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
     }
   }
 
-  private scheduleRateRangeLayoutFix(): void {
+  // Wait until the parent step's fade-in animation has settled before mounting
+  // ion-range. Mounting during the animation caused the knob to render at value 0
+  // and visibly slide to its real position. With a stable layout, ion-range
+  // computes its knob and active-bar positions correctly on first paint.
+  private deferMountRateRange(): void {
+    this.tutorRateRangeReady = false;
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        window.dispatchEvent(new Event('resize'));
-        const range = this.tutorRateRange;
-        if (range) {
-          const value = this.hourlyRate;
-          range.value = value;
-        }
+        this.tutorRateRangeReady = true;
+        this.cdr.detectChanges();
       });
     });
   }

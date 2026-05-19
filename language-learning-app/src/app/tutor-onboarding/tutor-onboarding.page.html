@@ -464,6 +464,7 @@
               <label>{{ 'ONBOARDING.TUTOR_OB.STEP8_RATE_LABEL' | translate }}</label>
               <div class="rate-slider-container">
                 <ion-range
+                  *ngIf="tutorRateRangeReady"
                   #tutorRateRange
                   [(ngModel)]="hourlyRate"
                   [min]="10"

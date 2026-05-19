@@ -1198,15 +1198,9 @@ ion-header {
   }
 }
 
-// ion-range mis-measures its track when the parent uses transform during enter.
-@keyframes rateStepFadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
+// Rate step skips the parent fade-in animation entirely. ion-range cannot be
+// mounted reliably inside a parent that is mid-animation (the knob renders at
+// value 0 and slides into position). See deferMountRateRange() in the .ts.
 
 // Thin progress bar at top of right column
 .right-col-progress {
@@ -1279,10 +1273,6 @@ ion-header {
 
   > div:not(.rate-step) {
     animation: stepFadeIn 0.3s ease-out;
-  }
-
-  > div.rate-step {
-    animation: rateStepFadeIn 0.25s ease-out;
   }
 
   .step-title {
@@ -1421,6 +1411,9 @@ ion-header {
       .rate-slider-container {
         margin: 16px 0;
         min-height: 108px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
 
         .rate-slider {
           display: block;
