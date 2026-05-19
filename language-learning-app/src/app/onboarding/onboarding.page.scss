@@ -703,8 +703,9 @@ ion-header {
       appearance: none;
 
       .lang-switch-flag {
-        font-size: 18px;
-        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        flex-shrink: 0;
       }
 
       .lang-switch-code {

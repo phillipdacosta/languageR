@@ -42,6 +42,7 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
   availableInterfaceLanguages: LanguageOption[] = [];
   selectedInterfaceLanguage: SupportedLanguage = 'en';
   selectedLanguageFlag = '🇬🇧';
+  selectedLanguageEnglishName = 'English';
   termsOfServiceHref = '/terms?lang=en';
   privacyPolicyHref = '/privacy?lang=en';
 
@@ -436,8 +437,9 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
   }
 
   private refreshLanguageToolbarFlag(): void {
-    this.selectedLanguageFlag =
-      this.languageService.getLanguageOption(this.selectedInterfaceLanguage)?.flag ?? '🇬🇧';
+    const option = this.languageService.getLanguageOption(this.selectedInterfaceLanguage);
+    this.selectedLanguageFlag = option?.flag ?? '🇬🇧';
+    this.selectedLanguageEnglishName = option?.name ?? 'English';
   }
 
   private refreshPublicLegalLinks(): void {

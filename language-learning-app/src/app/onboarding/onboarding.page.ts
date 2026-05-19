@@ -54,6 +54,7 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   welcomeRevealed: boolean = false;
   selectedInterfaceLanguage: SupportedLanguage = 'en';
   selectedLanguageFlag = '🇬🇧';
+  selectedLanguageEnglishName = 'English';
 
   /** Cancels in-flight pacing-banner i18n when goal/date changes or component destroys. */
   private pacingSuggestionI18nSub: Subscription | null = null;
@@ -555,11 +556,12 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     this.refreshLanguageToolbarFlag();
   }
 
-  /** Keeps header emoji + code in sync with the currently active interface language. */
+  /** Keeps header flag + code in sync with the currently active interface language. */
   private refreshLanguageToolbarFlag(): void {
     this.selectedInterfaceLanguage = this.languageService.getCurrentLanguage();
-    this.selectedLanguageFlag =
-      this.languageService.getLanguageOption(this.selectedInterfaceLanguage)?.flag ?? '🇬🇧';
+    const option = this.languageService.getLanguageOption(this.selectedInterfaceLanguage);
+    this.selectedLanguageFlag = option?.flag ?? '🇬🇧';
+    this.selectedLanguageEnglishName = option?.name ?? 'English';
   }
 
   ngAfterViewChecked() {
