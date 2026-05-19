@@ -29,29 +29,29 @@
       <div class="action-menu">
         <button class="action-item" (click)="onContextMenuAction('reply')">
           <ion-icon name="arrow-undo-outline"></ion-icon>
-          <span>Reply</span>
+          <span>{{ 'ALERTS.MESSAGES.REPLY' | translate }}</span>
         </button>
         
         <button class="action-item" *ngIf="contextMenuMessage?.type === 'text'" 
                 (click)="onContextMenuAction('copy')">
           <ion-icon name="copy-outline"></ion-icon>
-          <span>Copy</span>
+          <span>{{ 'ALERTS.MESSAGES.COPY' | translate }}</span>
         </button>
         
         <button class="action-item" (click)="onContextMenuAction('forward')">
           <ion-icon name="arrow-redo-outline"></ion-icon>
-          <span>Forward</span>
+          <span>{{ 'ALERTS.MESSAGES.FORWARD' | translate }}</span>
         </button>
         
         <button class="action-item" *ngIf="contextMenuMessage && isMyMessage(contextMenuMessage)" 
                 (click)="onContextMenuAction('delete')">
           <ion-icon name="trash-outline" color="danger"></ion-icon>
-          <span class="text-danger">Delete</span>
+          <span class="text-danger">{{ 'ALERTS.MESSAGES.DELETE' | translate }}</span>
         </button>
         
         <button class="action-item" (click)="onContextMenuAction('more')">
           <ion-icon name="ellipsis-horizontal"></ion-icon>
-          <span>More...</span>
+          <span>{{ 'ALERTS.MESSAGES.MORE' | translate }}</span>
         </button>
       </div>
     </div>
@@ -372,7 +372,7 @@
               <!-- Row 2: Time + Action Buttons -->
               <div class="hover-card-actions">
                 <span class="local-time" *ngIf="otherUserLocalTime">
-                  <ion-icon name="time-outline"></ion-icon>
+                  <ion-icon [name]="otherUserLocalTimeIcon" aria-hidden="true"></ion-icon>
                   {{ 'MESSAGES.LOCAL_TIME_FOR_THEM' | translate: { time: otherUserLocalTime } }}
                 </span>
               </div>
@@ -580,17 +580,17 @@
         <div *ngIf="pendingVoiceNote" class="voice-preview">
           <div class="voice-preview-header">
             <ion-icon name="mic-circle"></ion-icon>
-            <span class="voice-preview-label">Voice note {{ pendingVoiceNote.duration }}s</span>
+            <span class="voice-preview-label">{{ 'MESSAGES.VOICE_NOTE' | translate:{ duration: pendingVoiceNote.duration } }}</span>
           </div>
           <audio [src]="pendingVoiceNote.url" controls></audio>
           <div class="voice-preview-actions">
             <ion-button fill="clear" size="small" color="medium" (click)="clearPendingVoiceNote()">
               <ion-icon slot="start" name="trash-outline"></ion-icon>
-              Discard
+              {{ 'MESSAGES.DISCARD' | translate }}
             </ion-button>
             <ion-button size="small" (click)="sendPendingVoiceNote()" [disabled]="isUploading">
               <ion-icon slot="start" name="send"></ion-icon>
-              Send
+              {{ 'MESSAGES.SEND' | translate }}
             </ion-button>
           </div>
         </div>
@@ -600,56 +600,67 @@
           You're no longer a member of this class conversation. History is read-only.
         </div>
 
+        <div class="message-composer" *ngIf="!selectedConversation?.archived">
+          <div class="message-composer-card">
         <div
           class="composer-local-time"
-          *ngIf="otherUserLocalTime && !selectedConversation?.archived"
+          *ngIf="otherUserLocalTime"
         >
-          <ion-icon name="time-outline" aria-hidden="true"></ion-icon>
+          <ion-icon [name]="otherUserLocalTimeIcon" aria-hidden="true"></ion-icon>
           <span>{{ 'MESSAGES.LOCAL_TIME_FOR_THEM' | translate: { time: otherUserLocalTime } }}</span>
         </div>
 
-        <!-- Message Input -->
         <div
           class="message-input-container"
-          *ngIf="!selectedConversation?.archived"
           [class.message-input--below-local-time]="otherUserLocalTime"
         >
-          <!-- Hidden file inputs -->
           <input type="file" #imageInput accept="image/*" (change)="onFileSelected($event, 'image')" style="display: none;">
           <input type="file" #documentInput accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx" (change)="onFileSelected($event, 'file')" style="display: none;">
           
-          <ion-button fill="clear" size="small" (click)="imageInput.click()" [disabled]="isUploading">
-            <ion-icon name="image-outline"></ion-icon>
-          </ion-button>
-          <ion-button fill="clear" size="small" (click)="documentInput.click()" [disabled]="isUploading">
-            <ion-icon name="attach-outline"></ion-icon>
-          </ion-button>
-          <ion-button fill="clear" size="small" (click)="toggleVoiceRecording()" [disabled]="isUploading">
-            <ion-icon [name]="isRecording ? 'stop-circle' : 'mic-outline'" [color]="isRecording ? 'danger' : ''"></ion-icon>
-          </ion-button>
-          <ion-input
-            #messageInput
-            [(ngModel)]="newMessage"
-            [placeholder]="'MESSAGES.TYPE_MESSAGE' | translate"
-            (ionInput)="onInputChange()"
-            (keydown.enter)="sendMessage()"
-            class="message-input"
-            [disabled]="isUploading || isRecording">
-          </ion-input>
-          <ion-button fill="clear" size="small" (click)="sendMessage()" [disabled]="!newMessage.trim() || isSending || isUploading || isRecording">
-            <ion-icon name="send-outline"></ion-icon>
-          </ion-button>
-          
-          <!-- Upload progress indicator -->
+          <div class="message-input-box">
+            <ion-textarea
+              #messageInput
+              [(ngModel)]="newMessage"
+              [placeholder]="'MESSAGES.TYPE_MESSAGE' | translate"
+              [autoGrow]="true"
+              [rows]="1"
+              (ionInput)="onInputChange()"
+              (keydown.enter)="onComposerEnter($event)"
+              class="message-input"
+              [disabled]="isUploading || isRecording">
+            </ion-textarea>
+            <div class="message-input-actions">
+              <div class="message-input-actions-start">
+                <button type="button" class="composer-tool-btn" (click)="imageInput.click()" [disabled]="isUploading" aria-label="Attach image">
+                  <ion-icon name="image-outline" aria-hidden="true"></ion-icon>
+                </button>
+                <button type="button" class="composer-tool-btn" (click)="documentInput.click()" [disabled]="isUploading" aria-label="Attach file">
+                  <ion-icon name="attach-outline" aria-hidden="true"></ion-icon>
+                </button>
+                <button type="button" class="composer-tool-btn" (click)="toggleVoiceRecording()" [disabled]="isUploading" aria-label="Record voice message">
+                  <ion-icon [name]="isRecording ? 'stop-circle' : 'mic-outline'" [color]="isRecording ? 'danger' : ''" aria-hidden="true"></ion-icon>
+                </button>
+              </div>
+              <button
+                type="button"
+                class="composer-send-btn"
+                (click)="sendMessage()"
+                [disabled]="!newMessage.trim() || isSending || isUploading || isRecording"
+                aria-label="Send message">
+                <ion-icon name="arrow-up" aria-hidden="true"></ion-icon>
+              </button>
+            </div>
+          </div>
+
           <div *ngIf="isUploading" class="upload-progress">
             <ion-spinner name="crescent"></ion-spinner>
-            <span>Uploading...</span>
+            <span>{{ 'MESSAGES.UPLOADING' | translate }}</span>
           </div>
-          
-          <!-- Recording indicator -->
           <div *ngIf="isRecording" class="recording-indicator">
             <ion-icon name="radio-button-on" color="danger"></ion-icon>
-            <span>Recording... {{ recordingDuration }}s</span>
+            <span>{{ 'MESSAGES.RECORDING' | translate:{ duration: recordingDuration } }}</span>
+          </div>
+        </div>
           </div>
         </div>
       </div>
@@ -983,7 +994,7 @@
                   {{ selectedConversation.otherUser.userType || 'User' }}
                 </p>
                 <p class="time-status-mobile" *ngIf="otherUserLocalTime">
-                  <ion-icon name="time-outline"></ion-icon>
+                  <ion-icon [name]="otherUserLocalTimeIcon" aria-hidden="true"></ion-icon>
                   <span>{{ 'MESSAGES.LOCAL_TIME_FOR_THEM' | translate: { time: otherUserLocalTime } }}</span>
                 </p>
               </div>
@@ -1158,17 +1169,17 @@
         <div *ngIf="pendingVoiceNote" class="voice-preview">
           <div class="voice-preview-header">
             <ion-icon name="mic-circle"></ion-icon>
-            <span class="voice-preview-label">Voice note {{ pendingVoiceNote.duration }}s</span>
+            <span class="voice-preview-label">{{ 'MESSAGES.VOICE_NOTE' | translate:{ duration: pendingVoiceNote.duration } }}</span>
           </div>
           <audio [src]="pendingVoiceNote.url" controls></audio>
           <div class="voice-preview-actions">
             <ion-button fill="clear" size="small" color="medium" (click)="clearPendingVoiceNote()">
               <ion-icon slot="start" name="trash-outline"></ion-icon>
-              Discard
+              {{ 'MESSAGES.DISCARD' | translate }}
             </ion-button>
             <ion-button size="small" (click)="sendPendingVoiceNote()" [disabled]="isUploading">
               <ion-icon slot="start" name="send"></ion-icon>
-              Send
+              {{ 'MESSAGES.SEND' | translate }}
             </ion-button>
           </div>
         </div>
@@ -1177,40 +1188,56 @@
           You're no longer a member of this class conversation. History is read-only.
         </div>
 
-        <div class="message-input-container" *ngIf="!selectedConversation?.archived">
-          <!-- Hidden file inputs -->
-          <input type="file" #imageInputMobile accept="image/*" (change)="onFileSelected($event, 'image')" style="display: none;">
-          <input type="file" #documentInputMobile accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx" (change)="onFileSelected($event, 'file')" style="display: none;">
-          
-          <ion-button fill="clear" size="small" (click)="imageInputMobile.click()" [disabled]="isUploading">
-            <ion-icon name="image-outline"></ion-icon>
-          </ion-button>
-          <ion-button fill="clear" size="small" (click)="documentInputMobile.click()" [disabled]="isUploading">
-            <ion-icon name="attach-outline"></ion-icon>
-          </ion-button>
-          <ion-button fill="clear" size="small" (click)="toggleVoiceRecording()" [disabled]="isUploading">
-            <ion-icon [name]="isRecording ? 'stop-circle' : 'mic-outline'" [color]="isRecording ? 'danger' : ''"></ion-icon>
-          </ion-button>
-          <ion-input
-            #messageInput
-            [(ngModel)]="newMessage"
-            [placeholder]="'MESSAGES.TYPE_MESSAGE' | translate"
-            (ionInput)="onInputChange()"
-            (keydown.enter)="sendMessage()"
-            [disabled]="isUploading || isRecording">
-          </ion-input>
-          <ion-button fill="clear" (click)="sendMessage()" [disabled]="!newMessage.trim() || isSending || isUploading || isRecording">
-            <ion-icon name="send"></ion-icon>
-          </ion-button>
-          
-          <!-- Upload/Recording indicators -->
-          <div *ngIf="isUploading" class="upload-progress-mobile">
-            <ion-spinner name="crescent"></ion-spinner>
-            <span>Uploading...</span>
+        <div class="message-composer" *ngIf="!selectedConversation?.archived">
+          <div class="message-composer-card">
+          <div class="message-input-container">
+            <input type="file" #imageInputMobile accept="image/*" (change)="onFileSelected($event, 'image')" style="display: none;">
+            <input type="file" #documentInputMobile accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx" (change)="onFileSelected($event, 'file')" style="display: none;">
+
+            <div class="message-input-box">
+              <ion-textarea
+                #messageInput
+                [(ngModel)]="newMessage"
+                [placeholder]="'MESSAGES.TYPE_MESSAGE' | translate"
+                [autoGrow]="true"
+                [rows]="1"
+                (ionInput)="onInputChange()"
+                (keydown.enter)="onComposerEnter($event)"
+                class="message-input"
+                [disabled]="isUploading || isRecording">
+              </ion-textarea>
+              <div class="message-input-actions">
+                <div class="message-input-actions-start">
+                  <button type="button" class="composer-tool-btn" (click)="imageInputMobile.click()" [disabled]="isUploading" aria-label="Attach image">
+                    <ion-icon name="image-outline" aria-hidden="true"></ion-icon>
+                  </button>
+                  <button type="button" class="composer-tool-btn" (click)="documentInputMobile.click()" [disabled]="isUploading" aria-label="Attach file">
+                    <ion-icon name="attach-outline" aria-hidden="true"></ion-icon>
+                  </button>
+                  <button type="button" class="composer-tool-btn" (click)="toggleVoiceRecording()" [disabled]="isUploading" aria-label="Record voice message">
+                    <ion-icon [name]="isRecording ? 'stop-circle' : 'mic-outline'" [color]="isRecording ? 'danger' : ''" aria-hidden="true"></ion-icon>
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  class="composer-send-btn"
+                  (click)="sendMessage()"
+                  [disabled]="!newMessage.trim() || isSending || isUploading || isRecording"
+                  aria-label="Send message">
+                  <ion-icon name="arrow-up" aria-hidden="true"></ion-icon>
+                </button>
+              </div>
+            </div>
+
+            <div *ngIf="isUploading" class="upload-progress-mobile">
+              <ion-spinner name="crescent"></ion-spinner>
+              <span>{{ 'MESSAGES.UPLOADING' | translate }}</span>
+            </div>
+            <div *ngIf="isRecording" class="recording-indicator-mobile">
+              <ion-icon name="radio-button-on" color="danger"></ion-icon>
+              <span>{{ 'MESSAGES.RECORDING' | translate:{ duration: recordingDuration } }}</span>
+            </div>
           </div>
-          <div *ngIf="isRecording" class="recording-indicator-mobile">
-            <ion-icon name="radio-button-on" color="danger"></ion-icon>
-            <span>{{ recordingDuration }}s</span>
           </div>
         </div>
       </div>

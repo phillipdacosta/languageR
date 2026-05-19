@@ -1039,7 +1039,12 @@
       "TIP_5": "Soyez accueillant et encourageant—les sessions d'essai déterminent souvent si l'étudiant continuera avec vous.",
       "SUPPORT_TEXT": "Si vous avez des questions, n'hésitez pas à contacter le support à tout moment."
     },
-    "SEARCH_ALL_MESSAGES": "Rechercher dans tous les messages"
+    "SEARCH_ALL_MESSAGES": "Rechercher dans tous les messages",
+    "VOICE_NOTE": "Note vocale {{duration}}s",
+    "DISCARD": "Jeter",
+    "SEND": "Envoyer",
+    "UPLOADING": "Téléchargement...",
+    "RECORDING": "Enregistrement... {{duration}}s"
   },
   "NOTIFICATIONS": {
     "TITLE": "Notifications",
@@ -2667,7 +2672,8 @@
       "COPY_FAILED": "Échec de la copie du message",
       "REPLYING_TO_SELF": "toi-même",
       "REPLYING_TO": "Répondre à {{name}}",
-      "UNKNOWN": "Inconnu"
+      "UNKNOWN": "Inconnu",
+      "MORE": "Plus..."
     },
     "MATERIAL": {
       "LOGIN_HEADER": "Connectez-vous pour continuer",

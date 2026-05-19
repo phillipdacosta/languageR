@@ -615,7 +615,12 @@
       "TIP_5": "Be welcoming and supportive—trial sessions often determine whether the student will continue with you.",
       "SUPPORT_TEXT": "If you have any questions, feel free to contact support at any time."
     },
-    "SEARCH_ALL_MESSAGES": "Αναζήτηση σε όλα τα μηνύματα"
+    "SEARCH_ALL_MESSAGES": "Αναζήτηση σε όλα τα μηνύματα",
+    "VOICE_NOTE": "Φωνητική σημείωση {{duration}}s",
+    "DISCARD": "Απορρίπτω",
+    "SEND": "Στέλνω",
+    "UPLOADING": "Μεταφόρτωση...",
+    "RECORDING": "Ηχογράφηση... {{duration}}s"
   },
   "NOTIFICATIONS": {
     "TITLE": "Ειδοποιήσεις",
@@ -2588,7 +2593,8 @@
       "COPY_FAILED": "Αποτυχία αντιγραφής μηνύματος",
       "REPLYING_TO_SELF": "σύ ο ίδιος",
       "REPLYING_TO": "Απάντηση σε {{name}}",
-      "UNKNOWN": "Αγνωστος"
+      "UNKNOWN": "Αγνωστος",
+      "MORE": "Περισσότερο..."
     },
     "MATERIAL": {
       "LOGIN_HEADER": "Συνδεθείτε για να συνεχίσετε",

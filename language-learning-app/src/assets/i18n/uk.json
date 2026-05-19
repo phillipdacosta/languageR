@@ -615,7 +615,12 @@
       "TIP_5": "Be welcoming and supportive—trial sessions often determine whether the student will continue with you.",
       "SUPPORT_TEXT": "If you have any questions, feel free to contact support at any time."
     },
-    "SEARCH_ALL_MESSAGES": "Шукати у всіх повідомленнях"
+    "SEARCH_ALL_MESSAGES": "Шукати у всіх повідомленнях",
+    "VOICE_NOTE": "Голосова нотатка {{duration}}s",
+    "DISCARD": "Відкинути",
+    "SEND": "Надіслати",
+    "UPLOADING": "Завантаження...",
+    "RECORDING": "Запис... {{duration}}s"
   },
   "NOTIFICATIONS": {
     "TITLE": "Сповіщення",
@@ -2588,7 +2593,8 @@
       "COPY_FAILED": "Не вдалося скопіювати повідомлення",
       "REPLYING_TO_SELF": "себе",
       "REPLYING_TO": "Відповідаючи на {{name}}",
-      "UNKNOWN": "Невідомий"
+      "UNKNOWN": "Невідомий",
+      "MORE": "більше..."
     },
     "MATERIAL": {
       "LOGIN_HEADER": "Увійдіть, щоб продовжити",

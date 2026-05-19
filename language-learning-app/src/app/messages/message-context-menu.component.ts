@@ -27,27 +27,27 @@ import { ModalController } from '@ionic/angular';
         <div class="action-menu">
           <button class="action-item" (click)="onAction('reply')">
             <ion-icon name="arrow-undo-outline"></ion-icon>
-            <span>Reply</span>
+            <span>{{ 'ALERTS.MESSAGES.REPLY' | translate }}</span>
           </button>
           
           <button class="action-item" *ngIf="messageType === 'text'" (click)="onAction('copy')">
             <ion-icon name="copy-outline"></ion-icon>
-            <span>Copy</span>
+            <span>{{ 'ALERTS.MESSAGES.COPY' | translate }}</span>
           </button>
           
           <button class="action-item" (click)="onAction('forward')">
             <ion-icon name="arrow-redo-outline"></ion-icon>
-            <span>Forward</span>
+            <span>{{ 'ALERTS.MESSAGES.FORWARD' | translate }}</span>
           </button>
           
           <button class="action-item" *ngIf="isMyMessage" (click)="onAction('delete')">
             <ion-icon name="trash-outline" color="danger"></ion-icon>
-            <span class="text-danger">Delete</span>
+            <span class="text-danger">{{ 'ALERTS.MESSAGES.DELETE' | translate }}</span>
           </button>
           
           <button class="action-item" (click)="onAction('more')">
             <ion-icon name="ellipsis-horizontal"></ion-icon>
-            <span>More...</span>
+            <span>{{ 'ALERTS.MESSAGES.MORE' | translate }}</span>
           </button>
         </div>
       </div>

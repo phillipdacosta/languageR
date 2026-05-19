@@ -720,8 +720,14 @@ export class UserService {
       }),
       map(response => response.user),
       tap(user => {
-        this.currentUserSubject.next(user);
-        setGlobalTimeFormat(user?.profile?.calendarTimeFormat || '12h');
+        // Merge response onto cached user — PUT /profile cherry-picks fields and
+        // can omit tutor-approval data (tosAcceptedAt, stripeIdentityVerified,
+        // residenceCountry, etc). Replacing the subject would flip the approval
+        // checklist to incomplete and surface the "outstanding items" banner.
+        const cached = this.currentUserSubject.value;
+        const merged: User = cached ? { ...cached, ...user } as User : user;
+        this.currentUserSubject.next(merged);
+        setGlobalTimeFormat(merged?.profile?.calendarTimeFormat || '12h');
       })
     );
   }

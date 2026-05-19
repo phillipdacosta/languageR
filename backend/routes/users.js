@@ -969,13 +969,19 @@ router.put('/profile', verifyToken, async (req, res) => {
         stats: user.stats,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
-        // Include tutor-specific fields to prevent banner flashing
+        // Include tutor-specific fields so the frontend can recompute the
+        // approval checklist without flipping items to incomplete on a partial
+        // response (toggling 24h, etc).
         tutorApproved: user.tutorApproved,
         tutorOnboarding: user.tutorOnboarding,
         tutorCredentials: user.tutorCredentials,
         stripeConnectOnboarded: user.stripeConnectOnboarded,
+        stripeIdentityVerified: user.stripeIdentityVerified,
+        stripeAccountDisabled: user.stripeAccountDisabled,
         payoutProvider: user.payoutProvider,
-        payoutDetails: user.payoutDetails
+        payoutDetails: user.payoutDetails,
+        tosAcceptedAt: user.tosAcceptedAt,
+        residenceCountry: user.residenceCountry
       }
     });
   } catch (error) {

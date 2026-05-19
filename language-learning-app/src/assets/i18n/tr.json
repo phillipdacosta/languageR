@@ -615,7 +615,12 @@
       "TIP_5": "Be welcoming and supportive—trial sessions often determine whether the student will continue with you.",
       "SUPPORT_TEXT": "If you have any questions, feel free to contact support at any time."
     },
-    "SEARCH_ALL_MESSAGES": "Tüm mesajlarda ara"
+    "SEARCH_ALL_MESSAGES": "Tüm mesajlarda ara",
+    "VOICE_NOTE": "Sesli notlar",
+    "DISCARD": "At",
+    "SEND": "Göndermek",
+    "UPLOADING": "Yükleniyor...",
+    "RECORDING": "Kaydediliyor... {{duration}}s"
   },
   "NOTIFICATIONS": {
     "TITLE": "Bildirimler",
@@ -2589,7 +2594,8 @@
       "COPY_FAILED": "Mesaj kopyalanamadı",
       "REPLYING_TO_SELF": "kendin",
       "REPLYING_TO": "{{name}}'e yanıt veriyorsun",
-      "UNKNOWN": "Bilinmiyor"
+      "UNKNOWN": "Bilinmiyor",
+      "MORE": "Daha fazla..."
     },
     "MATERIAL": {
       "LOGIN_HEADER": "Devam etmek için giriş yapın",

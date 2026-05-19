@@ -1039,7 +1039,12 @@
       "TIP_5": "Sé acogedor y solidario: las sesiones de prueba a menudo determinan si el estudiante continuará contigo.",
       "SUPPORT_TEXT": "Si tienes alguna pregunta, no dudes en contactar al soporte en cualquier momento."
     },
-    "SEARCH_ALL_MESSAGES": "Buscar en todos los mensajes"
+    "SEARCH_ALL_MESSAGES": "Buscar en todos los mensajes",
+    "VOICE_NOTE": "Nota de voz {{duration}}s",
+    "DISCARD": "Desechar",
+    "SEND": "Enviar",
+    "UPLOADING": "Subiendo...",
+    "RECORDING": "Grabando... {{duration}}s"
   },
   "NOTIFICATIONS": {
     "TITLE": "Notificaciones",
@@ -2667,7 +2672,8 @@
       "COPY_FAILED": "No se pudo copiar el mensaje",
       "REPLYING_TO_SELF": "tú mismo",
       "REPLYING_TO": "Respondiendo a {{name}}",
-      "UNKNOWN": "Desconocido"
+      "UNKNOWN": "Desconocido",
+      "MORE": "Más..."
     },
     "MATERIAL": {
       "LOGIN_HEADER": "Inicia sesión para continuar",

@@ -615,7 +615,12 @@
       "TIP_5": "Be welcoming and supportive—trial sessions often determine whether the student will continue with you.",
       "SUPPORT_TEXT": "If you have any questions, feel free to contact support at any time."
     },
-    "SEARCH_ALL_MESSAGES": "搜索所有消息"
+    "SEARCH_ALL_MESSAGES": "搜索所有消息",
+    "VOICE_NOTE": "语音注释 0s",
+    "DISCARD": "丢弃",
+    "SEND": "发送",
+    "UPLOADING": "正在上传...",
+    "RECORDING": "录音中...0s"
   },
   "NOTIFICATIONS": {
     "TITLE": "通知",
@@ -2589,7 +2594,8 @@
       "COPY_FAILED": "复制消息失败",
       "REPLYING_TO_SELF": "你自己",
       "REPLYING_TO": "回复0",
-      "UNKNOWN": "未知"
+      "UNKNOWN": "未知",
+      "MORE": "更多的..."
     },
     "MATERIAL": {
       "LOGIN_HEADER": "登录以继续",

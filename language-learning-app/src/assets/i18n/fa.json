@@ -615,7 +615,12 @@
       "TIP_5": "Be welcoming and supportive—trial sessions often determine whether the student will continue with you.",
       "SUPPORT_TEXT": "If you have any questions, feel free to contact support at any time."
     },
-    "SEARCH_ALL_MESSAGES": "جستجو در همه پیام‌ها"
+    "SEARCH_ALL_MESSAGES": "جستجو در همه پیام‌ها",
+    "VOICE_NOTE": "یادداشت صوتی {{duration}}s",
+    "DISCARD": "دور انداختن",
+    "SEND": "ارسال کنید",
+    "UPLOADING": "در حال آپلود...",
+    "RECORDING": "در حال ضبط... {{duration}}s"
   },
   "NOTIFICATIONS": {
     "TITLE": "اعلان‌ها",
@@ -2588,7 +2593,8 @@
       "COPY_FAILED": "پیام کپی نشد",
       "REPLYING_TO_SELF": "خودت",
       "REPLYING_TO": "در حال پاسخ به {{name}}",
-      "UNKNOWN": "ناشناس"
+      "UNKNOWN": "ناشناس",
+      "MORE": "بیشتر..."
     },
     "MATERIAL": {
       "LOGIN_HEADER": "برای ادامه وارد شوید",

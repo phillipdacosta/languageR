@@ -126,6 +126,8 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   showCheckout = false; // Toggle for checkout in details panel
   checkoutData: { tutorId: string; date: string; time: string; duration: number; timezone?: string } | null = null;
   otherUserLocalTime = '';
+  /** Icon for their local time strip: sun (day) or moon (night) in their timezone. */
+  otherUserLocalTimeIcon = 'sunny-outline';
   private localTimeInterval: any = null;
   /** Set when the open thread is a class-broadcast chat (for template, no method calls). */
   selectedIsClassBroadcast = false;
@@ -2535,6 +2537,16 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  /** Enter sends; Shift+Enter inserts a newline in the composer textarea. */
+  onComposerEnter(event: Event): void {
+    const keyboardEvent = event as KeyboardEvent;
+    if (keyboardEvent.shiftKey) {
+      return;
+    }
+    keyboardEvent.preventDefault();
+    this.sendMessage();
+  }
+
   sendMessage() {
     if (!this.newMessage.trim() || !this.selectedConversation?.otherUser || this.isSending) {
       return;
@@ -3581,6 +3593,33 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     return '';
   }
 
+  /** True when local hour in `timezone` is daytime (6:00–17:59). */
+  private isDaytimeInTimezone(timezone: string): boolean {
+    try {
+      const hourPart = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone,
+        hour: 'numeric',
+        hour12: false,
+      })
+        .formatToParts(new Date())
+        .find((p) => p.type === 'hour');
+      const hour = hourPart ? parseInt(hourPart.value, 10) : 12;
+      return hour >= 6 && hour < 18;
+    } catch {
+      return true;
+    }
+  }
+
+  private syncOtherUserLocalTimeIcon(timezone: string | undefined): void {
+    if (!timezone) {
+      this.otherUserLocalTimeIcon = 'sunny-outline';
+      return;
+    }
+    this.otherUserLocalTimeIcon = this.isDaytimeInTimezone(timezone)
+      ? 'sunny-outline'
+      : 'moon-outline';
+  }
+
   /**
    * Class-anchored group threads have no single "the other person" in the
    * header; hide the "It's … for them" line (mirrors mobile ChatScreen).
@@ -3599,13 +3638,16 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   updateOtherUserLocalTime() {
     if (this.isClassBroadcastThread(this.selectedConversation)) {
       this.otherUserLocalTime = '';
+      this.otherUserLocalTimeIcon = 'sunny-outline';
       return;
     }
     const user = this.selectedConversation?.otherUser;
     if (user?.timezone) {
       this.otherUserLocalTime = this.getUserLocalTime(user) || '';
+      this.syncOtherUserLocalTimeIcon(user.timezone);
     } else {
       this.otherUserLocalTime = '';
+      this.otherUserLocalTimeIcon = 'sunny-outline';
     }
   }
 
@@ -3613,6 +3655,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     this.stopLocalTimeClock();
     if (this.isClassBroadcastThread(this.selectedConversation)) {
       this.otherUserLocalTime = '';
+      this.otherUserLocalTimeIcon = 'sunny-outline';
       return;
     }
     this.updateOtherUserLocalTime();
@@ -3625,6 +3668,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       this.localTimeInterval = null;
     }
     this.otherUserLocalTime = '';
+    this.otherUserLocalTimeIcon = 'sunny-outline';
   }
 
   openOtherUserProfile(event?: MouseEvent) {
