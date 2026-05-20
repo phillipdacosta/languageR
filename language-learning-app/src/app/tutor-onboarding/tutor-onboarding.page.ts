@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, ViewChildren, QueryList, ElementRef, AfterViewChecked, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ViewChildren, QueryList, ElementRef, AfterViewChecked, ChangeDetectorRef, HostBinding } from '@angular/core';
 import '@dotlottie/player-component';
 import { Router } from '@angular/router';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
@@ -27,6 +27,11 @@ export type TutorOnboardingNativeLangChip = { code: string; native: string; inte
   standalone: false,
 })
 export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
+  @HostBinding('class.onboarding-page--wizard-main')
+  get onboardingPageWizardMainActive(): boolean {
+    return !this.showWelcome && !this.showPreview && this.preStepPhase === 'done';
+  }
+
   user$: Observable<User | null>;
   currentStep = 1;
   totalSteps = 11; // Name + Origin + Residence + Native + Spoken Languages + Spoken Levels + Teaching Languages + Experience + Schedule + Bio + Rate

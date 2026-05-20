@@ -1,7 +1,7 @@
 <!-- ═══════════════════════════════════════════════════ -->
 <!-- PRE-STEP: Welcome Screen                           -->
 <!-- ═══════════════════════════════════════════════════ -->
-<ion-header *ngIf="preStepPhase === 'welcome'">
+<ion-header *ngIf="preStepPhase === 'welcome'" class="ion-no-border">
   <ion-toolbar class="onboarding-toolbar pre-step-toolbar">
     <ion-buttons slot="start">
       <div class="app-icon-container">
@@ -121,7 +121,7 @@
 <!-- ═══════════════════════════════════════════════════ -->
 <!-- MAIN ONBOARDING (shown after pre-step)             -->
 <!-- ═══════════════════════════════════════════════════ -->
-<ion-header *ngIf="!showWelcome && preStepPhase === 'done'">
+<ion-header *ngIf="!showWelcome && preStepPhase === 'done'" class="ion-no-border onboarding-wizard-header">
   <ion-toolbar class="onboarding-toolbar">
     <ion-buttons slot="start">
       <div class="app-icon-container">
@@ -142,13 +142,9 @@
       </ion-button>
     </ion-buttons>
   </ion-toolbar>
-</ion-header>
-
-<div class="onboarding-container onboarding-container--wizard" *ngIf="!showPreview && !showWelcome && preStepPhase === 'done'">
-  <div class="onboarding-wizard-card">
-    <div class="cm-wizard-viewport-scroll" [class.cm-wizard-viewport-scroll--fit]="currentStep === 2 || currentStep === 3 || currentStep === 5">
-    <div class="cm-details-wizard-page-shell">
-      <div class="cm-details-wizard-page-toolbar">
+  <ion-toolbar class="onboarding-wizard-toolbar">
+    <div class="onboarding-wizard-toolbar__inner">
+      <div class="cm-details-wizard-page-toolbar cm-details-wizard-page-toolbar--header">
         <p class="cm-details-wizard-page-toolbar-title">{{ 'ONBOARDING.STUDENT.WIZARD_FLOW_TITLE' | translate }}</p>
         <div class="cm-details-wizard-page-toolbar-end">
           <button
@@ -161,12 +157,18 @@
           <span class="cm-details-wizard-step-indicator">{{ 'ONBOARDING.STEP_INDICATOR' | translate:{ current: currentStep, total: totalSteps } }}</span>
         </div>
       </div>
+      <div class="cm-details-wizard-progress cm-details-wizard-progress--header" aria-hidden="true">
+        <div class="cm-details-wizard-progress-fill" [style.width.%]="studentWizardProgressPercent"></div>
+      </div>
+    </div>
+  </ion-toolbar>
+</ion-header>
 
+<div class="onboarding-container onboarding-container--wizard" *ngIf="!showPreview && !showWelcome && preStepPhase === 'done'">
+  <div class="onboarding-wizard-card">
+    <div class="cm-wizard-viewport-scroll" [class.cm-wizard-viewport-scroll--fit]="currentStep === 2 || currentStep === 3 || currentStep === 5">
+    <div class="cm-details-wizard-page-shell">
       <div class="cm-details-wizard">
-        <div class="cm-details-wizard-progress" aria-hidden="true">
-          <div class="cm-details-wizard-progress-fill" [style.width.%]="studentWizardProgressPercent"></div>
-        </div>
-
         <div class="cm-details-wizard-scroll">
           <div class="cm-details-wizard-scroll-inner">
             <div class="cm-step-header cm-details-wizard-header">

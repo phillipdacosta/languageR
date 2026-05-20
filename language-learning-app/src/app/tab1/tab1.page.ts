@@ -2543,7 +2543,11 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         if (err?.status === 404) {
           this.applyLearningPlanMissing();
         } else {
-          this.journeyWidgetState = 'empty-goal';
+          // Don't flash "Tell us your goal" at a student who actually
+          // finished onboarding with a goal. Stay in skeleton — the next
+          // ionViewWillEnter / user refresh will recover.
+          const hasGoal = !!this.currentUser?.onboardingData?.learningGoal?.type;
+          this.journeyWidgetState = hasGoal ? 'loading' : 'empty-goal';
           this.cdr.detectChanges();
         }
       }
@@ -3015,30 +3019,47 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     }
   }
 
-  private applyLearningPlanMissing() {
+  private applyLearningPlanMissing(retryCount: number = 0) {
     const hasGoal = !!this.currentUser?.onboardingData?.learningGoal?.type;
-    if (hasGoal) {
-      const language = this.currentUser?.onboardingData?.languages?.[0];
-      if (language) {
-        this.learningPlanService.createInitialPlan(language).pipe(take(1)).subscribe({
-          next: (res: any) => {
-            if (res?.success && res.plan) {
-              this.applyLearningPlan(res.plan, res.entitlements || null);
-            } else {
-              this.journeyWidgetState = 'empty-goal';
-              this.cdr.detectChanges();
-            }
-          },
-          error: () => {
-            this.journeyWidgetState = 'empty-goal';
-            this.cdr.detectChanges();
-          }
-        });
-        return;
-      }
+    const language = this.currentUser?.onboardingData?.languages?.[0];
+
+    if (!hasGoal) {
+      this.journeyWidgetState = 'empty-goal';
+      this.cdr.detectChanges();
+      return;
     }
-    this.journeyWidgetState = 'empty-goal';
+
+    if (!language) {
+      this.journeyWidgetState = 'loading';
+      this.cdr.detectChanges();
+      return;
+    }
+
+    // Keep the skeleton up while the backend finishes creating the plan;
+    // never flash "Tell us your goal" at a student who already has one.
+    this.journeyWidgetState = 'loading';
     this.cdr.detectChanges();
+
+    this.learningPlanService.createInitialPlan(language).pipe(take(1)).subscribe({
+      next: (res: any) => {
+        if (res?.success && res.plan) {
+          this.applyLearningPlan(res.plan, res.entitlements || null);
+        } else if (retryCount < 2) {
+          setTimeout(() => this.applyLearningPlanMissing(retryCount + 1), 1200);
+        } else {
+          this.journeyWidgetState = 'empty-goal';
+          this.cdr.detectChanges();
+        }
+      },
+      error: () => {
+        if (retryCount < 2) {
+          setTimeout(() => this.applyLearningPlanMissing(retryCount + 1), 1200);
+        } else {
+          this.journeyWidgetState = 'empty-goal';
+          this.cdr.detectChanges();
+        }
+      }
+    });
   }
 
   /** Toggled by the home journey widget's "View roadmap" CTA. Mirrors the
