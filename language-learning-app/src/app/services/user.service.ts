@@ -313,37 +313,41 @@ export class UserService {
   }
 
   /**
-   * Public: returns the raw bearer token used to talk to the backend. Real
-   * Auth0 ID token when available; dev-token-{email} only in non-prod builds.
-   * Throws in production builds when Auth0 fails so callers see real errors
-   * instead of silently sending a token the backend will reject.
+   * Returns the raw bearer token used to talk to the backend. Kept for
+   * non-HttpClient callers (fetch, socket.io) that the interceptor can't
+   * reach. HttpClient callers no longer need this — `ApiAuthInterceptor`
+   * attaches the token automatically.
    */
   public getBearerTokenAsync(): Promise<string> {
     return buildBearerToken(this.authService);
   }
 
   private async getAuthHeadersAsync(): Promise<HttpHeaders> {
-    const token = await buildBearerToken(this.authService);
-    return new HttpHeaders({
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    });
+    // DEPRECATED for HttpClient callers — interceptor stamps Authorization.
+    // We still try to compute the token here so non-HttpClient code paths
+    // (none currently) wouldn't lose auth, but failures are swallowed since
+    // the interceptor will resolve the real token at request time anyway.
+    try {
+      const token = await buildBearerToken(this.authService);
+      return new HttpHeaders({
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      });
+    } catch {
+      return new HttpHeaders({ 'Content-Type': 'application/json' });
+    }
   }
 
   private getAuthHeaders(userEmail: string): HttpHeaders {
-    // Synchronous variant kept for legacy call sites. Only safe in non-prod
-    // builds; in prod the resulting dev-token is rejected by the backend, so
-    // we throw to make the mistake loud.
-    if (environment.production) {
-      throw new Error(
-        'getAuthHeaders(email) is a dev-only shortcut and cannot be used in production. ' +
-        'Switch the caller to getAuthHeadersAsync()/getBearerTokenAsync().'
-      );
-    }
+    // DEPRECATED. Header construction is now centralised in
+    // `ApiAuthInterceptor`, which always overwrites `Authorization` for
+    // requests targeting `environment.backendUrl`. This stub remains so
+    // legacy call sites continue to compile and supply a Content-Type while
+    // the interceptor handles auth.
     const tokenEmail = userEmail.replace('@', '-').replace(/\./g, '-');
-    const mockToken = `dev-token-${tokenEmail}`;
+    const placeholder = `dev-token-${tokenEmail}`;
     return new HttpHeaders({
-      'Authorization': `Bearer ${mockToken}`,
+      'Authorization': `Bearer ${placeholder}`,
       'Content-Type': 'application/json',
       'X-Requested-With': 'XMLHttpRequest'
     });
