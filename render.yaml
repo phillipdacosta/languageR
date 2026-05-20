@@ -40,5 +40,9 @@ services:
     name: languager-frontend
     env: static
     rootDir: language-learning-app
-    buildCommand: npm ci && npm run build -- --configuration=staging
+    # Use the production Angular configuration so environment.prod.ts is the
+    # one bundled into the deployed app. Anything that depended on the
+    # "staging" file (which had production: false) should now read from
+    # environment.prod.ts.
+    buildCommand: npm ci && npm run build -- --configuration=production
     staticPublishPath: www

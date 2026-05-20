@@ -70,6 +70,16 @@ export class JourneyWidgetComponent implements OnChanges {
   /** When true, hide the bottom "View roadmap →" CTA (e.g. on the journey page itself). */
   @Input() hideRoadmapCta = false;
 
+  /** True when the student's literal next booked event is a trial lesson.
+   *  When set, the "Next lesson focus" card is replaced by trial-aware
+   *  framing so we don't advertise plan focus areas right before a
+   *  meet-and-greet. Per-tutor — fires even for a 10-lesson student
+   *  booking with a brand-new tutor for the first time. */
+  @Input() pendingTrial = false;
+  /** Tutor first name attached to the upcoming trial (empty if no booking
+   *  yet — e.g. a brand-new student who hasn't picked a tutor). */
+  @Input() nextTrialTutorFirstName = '';
+
   // ── Paused-state display data (precomputed by the parent page) ──────
   /** Current CEFR level chip ("A1".."C2"). Shown on the paused card. */
   @Input() cefrLevel = '';

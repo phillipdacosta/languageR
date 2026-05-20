@@ -442,8 +442,28 @@
           </button>
         </div>
 
-        <!-- Next lesson focus -->
-        <div class="jpcd-focus" *ngIf="nextLessonFocus && selectedRow.status === 'active'">
+        <!-- Next lesson focus.
+             When the literal next event is a trial (incl. a returning
+             student's first booking with a new tutor), swap in trial
+             framing. The plan-level `nextLessonFocus` is unchanged — we
+             just stop surfacing it as "what happens next" right before
+             a meet-and-greet. -->
+        <div class="jpcd-focus jpcd-focus--trial" *ngIf="pendingTrial && selectedRow.status === 'active'">
+          <span class="jpcd-focus-icon-wrap">
+            <img src="assets/journey-focus.png" alt="" class="jpcd-focus-img" />
+          </span>
+          <div class="jpcd-focus-text">
+            <span class="jpcd-focus-eyebrow" *ngIf="nextTrialTutorFirstName">
+              {{ 'HOME.JOURNEY_TRIAL_FOCUS_EYEBROW_WITH_TUTOR' | translate:{ tutor: nextTrialTutorFirstName } }}
+            </span>
+            <span class="jpcd-focus-eyebrow" *ngIf="!nextTrialTutorFirstName">
+              {{ 'HOME.JOURNEY_TRIAL_FOCUS_EYEBROW' | translate }}
+            </span>
+            <p class="jpcd-focus-body">{{ 'HOME.JOURNEY_TRIAL_FOCUS_BODY' | translate }}</p>
+          </div>
+        </div>
+
+        <div class="jpcd-focus" *ngIf="!pendingTrial && nextLessonFocus && selectedRow.status === 'active'">
           <span class="jpcd-focus-icon-wrap">
             <img src="assets/journey-focus.png" alt="" class="jpcd-focus-img" />
           </span>

@@ -410,6 +410,13 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   // widget header — see journey-widget.component.html.
   journeyIsRecovery = false;
 
+  // True when the student's literal next booked event is a trial — either
+  // their first-ever lesson or a meet-and-greet with a brand-new tutor.
+  // Drives a trial-aware framing on the "Next lesson focus" card so we
+  // don't advertise plan focus areas right before a discovery call.
+  journeyPendingTrial = false;
+  journeyNextTrialTutorFirstName = '';
+
   // Inputs that power the redesigned paused-state card. We pre-compute
   // these on the page rather than in the widget so the template stays
   // function-call-free.
@@ -6290,6 +6297,18 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     }
     this.refreshNextLessonTimeSensitiveFields();
     this.refreshWeeklyEarningsProgress();
+
+    // Trial-aware journey framing: when the literal next event is a trial
+    // booking, the journey widget swaps "Next lesson focus" for a "Trial
+    // with {tutor}" card. Per-tutor — fires even for a 10-lesson student
+    // booking with a brand-new tutor for the first time.
+    if (this.isStudentUser && nl?.isTrialLesson) {
+      this.journeyPendingTrial = true;
+      this.journeyNextTrialTutorFirstName = nl?.firstName || '';
+    } else {
+      this.journeyPendingTrial = false;
+      this.journeyNextTrialTutorFirstName = '';
+    }
   }
 
   /** Real enrollments when present; otherwise mock list so Up Next “Going” is visible in dev/preview. */

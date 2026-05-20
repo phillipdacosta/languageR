@@ -294,6 +294,9 @@ export interface ComingUpItem {
   duration: number | null;
   tutor: { id: string; firstName: string; name: string; picture: string };
   focus: string;
+  /** True when this specific booking is a trial (per-tutor — a returning
+   *  student gets `true` if it's their first lesson with *this* tutor). */
+  isTrialLesson?: boolean;
 }
 
 export interface RecommendedMaterial {

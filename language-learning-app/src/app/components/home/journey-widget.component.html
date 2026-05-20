@@ -282,8 +282,28 @@
         </div>
       </div>
 
-      <!-- Next lesson focus — separated by hairline -->
-      <div class="jw-focus" *ngIf="nextLessonFocus && state !== 'completed'">
+      <!-- Next lesson focus — separated by hairline.
+           When the literal next booked event is a trial (per-tutor: also
+           true for a returning student booking with a new tutor for the
+           first time), we swap the plan-level focus for trial framing.
+           The student's plan is unchanged — we just stop advertising
+           "ordering food at a restaurant" right before a meet-and-greet. -->
+      <div class="jw-focus jw-focus--trial" *ngIf="pendingTrial && state !== 'completed'">
+        <span class="jw-focus-icon-wrap" aria-hidden="true">
+          <img src="assets/journey-focus.png" alt="" class="jw-focus-icon-img" />
+        </span>
+        <div class="jw-focus-text">
+          <span class="jw-focus-label" *ngIf="nextTrialTutorFirstName">
+            {{ 'HOME.JOURNEY_TRIAL_FOCUS_EYEBROW_WITH_TUTOR' | translate:{ tutor: nextTrialTutorFirstName } }}
+          </span>
+          <span class="jw-focus-label" *ngIf="!nextTrialTutorFirstName">
+            {{ 'HOME.JOURNEY_TRIAL_FOCUS_EYEBROW' | translate }}
+          </span>
+          <span class="jw-focus-value">{{ 'HOME.JOURNEY_TRIAL_FOCUS_BODY' | translate }}</span>
+        </div>
+      </div>
+
+      <div class="jw-focus" *ngIf="!pendingTrial && nextLessonFocus && state !== 'completed'">
         <span class="jw-focus-icon-wrap" aria-hidden="true">
           <img src="assets/journey-focus.png" alt="" class="jw-focus-icon-img" />
         </span>

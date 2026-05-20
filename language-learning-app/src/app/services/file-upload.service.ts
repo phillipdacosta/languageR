@@ -1,9 +1,10 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { from, Observable } from 'rxjs';
 import { AuthService } from './auth.service';
-import { take, switchMap } from 'rxjs/operators';
+import { switchMap } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
+import { buildBearerToken } from './auth-token.util';
 
 @Injectable({
   providedIn: 'root'
@@ -25,36 +26,27 @@ export class FileUploadService {
     compressionInfo?: any;
     uploadStats?: any;
   }> {
-    return this.authService.user$.pipe(
-      take(1),
-      switchMap(user => {
-        const userEmail = user?.email || 'unknown';
-        
-        const formData = new FormData();
-        formData.append('video', file);
-        
-                return this.http.post<{ 
-                  success: boolean; 
-                  videoUrl: string; 
-                  compressionInfo?: any;
-                  uploadStats?: any;
-                }>(
-          `${this.apiUrl}/users/tutor-video-upload`,
-          formData,
-          { 
-            headers: this.getAuthHeaders(userEmail),
-            reportProgress: true
-          }
-        );
-      })
+    const formData = new FormData();
+    formData.append('video', file);
+
+    return from(this.buildAuthHeaders()).pipe(
+      switchMap(headers => this.http.post<{
+        success: boolean;
+        videoUrl: string;
+        compressionInfo?: any;
+        uploadStats?: any;
+      }>(
+        `${this.apiUrl}/users/tutor-video-upload`,
+        formData,
+        { headers, reportProgress: true }
+      ))
     );
   }
 
-  private getAuthHeaders(userEmail: string): HttpHeaders {
-    return new HttpHeaders({
-      'Authorization': `Bearer dev-token-${userEmail.replace(/@/g, '-').replace(/\./g, '-')}`,
-      // Don't set Content-Type for FormData - let browser set it with boundary
-    });
+  private async buildAuthHeaders(): Promise<HttpHeaders> {
+    const token = await buildBearerToken(this.authService);
+    // Don't set Content-Type for FormData - let browser set it with boundary
+    return new HttpHeaders({ Authorization: `Bearer ${token}` });
   }
 
   /**
@@ -82,26 +74,18 @@ export class FileUploadService {
     success: boolean; 
     imageUrl: string; 
   }> {
-    return this.authService.user$.pipe(
-      take(1),
-      switchMap(user => {
-        const userEmail = user?.email || 'unknown';
-        
-        const formData = new FormData();
-        formData.append('image', file);
-        
-        return this.http.post<{ 
-          success: boolean; 
-          imageUrl: string; 
-        }>(
-          `${this.apiUrl}/users/profile-picture-upload`,
-          formData,
-          { 
-            headers: this.getAuthHeaders(userEmail),
-            reportProgress: true
-          }
-        );
-      })
+    const formData = new FormData();
+    formData.append('image', file);
+
+    return from(this.buildAuthHeaders()).pipe(
+      switchMap(headers => this.http.post<{
+        success: boolean;
+        imageUrl: string;
+      }>(
+        `${this.apiUrl}/users/profile-picture-upload`,
+        formData,
+        { headers, reportProgress: true }
+      ))
     );
   }
 
