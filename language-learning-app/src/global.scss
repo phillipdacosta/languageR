@@ -120,6 +120,23 @@
   }
 }
 
+/* Onboarding / signup / role-select header — strip Ionic MD shadow + thick border */
+ion-header:has(ion-toolbar.onboarding-toolbar) {
+  box-shadow: none !important;
+
+  &::after {
+    display: none !important;
+  }
+
+  ion-toolbar.onboarding-toolbar,
+  ion-toolbar.onboarding-wizard-toolbar {
+    --border-width: 0 !important;
+    --box-shadow: none !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+}
+
 /* Barnabi wordmark: two PNGs in templates — hide white wordmark on light UI */
 .barnabi-wordmark-for-dark-ui {
   display: none;

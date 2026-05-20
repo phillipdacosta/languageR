@@ -300,6 +300,60 @@
   margin-bottom: 16px;
   flex-shrink: 0;
   width: 100%;
+
+  &--header {
+    margin-bottom: 10px;
+  }
+}
+
+// Second row in ion-header: flow title, step indicator, progress rail
+ion-header.onboarding-wizard-header {
+  ion-toolbar.onboarding-toolbar {
+    --min-height: 56px;
+  }
+
+  ion-toolbar.onboarding-wizard-toolbar {
+    --background: #ffffff;
+    --border-width: 0;
+    --box-shadow: none;
+    --min-height: auto;
+    --padding-top: 0;
+    --padding-bottom: 0;
+    --padding-start: 0;
+    --padding-end: 0;
+    border: none;
+    box-shadow: none;
+  }
+
+  .onboarding-wizard-toolbar__inner {
+    width: 100%;
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 4px 20px 12px;
+    box-sizing: border-box;
+  }
+
+  .cm-details-wizard-progress--header {
+    margin-bottom: 0;
+    width: 100%;
+  }
+}
+
+// Host class set from onboarding / tutor-onboarding when the main wizard is visible
+:host.onboarding-page--wizard-main {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+
+  ion-header.onboarding-wizard-header {
+    flex-shrink: 0;
+  }
+
+  .onboarding-container--wizard {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
 }
 
 .cm-details-wizard-page-toolbar-end {

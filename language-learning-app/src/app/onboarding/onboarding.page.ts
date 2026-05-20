@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, ViewChildren, QueryList, ElementRef, AfterViewChecked, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ViewChildren, QueryList, ElementRef, AfterViewChecked, ChangeDetectorRef, HostBinding } from '@angular/core';
 import '@dotlottie/player-component';
 import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
@@ -39,6 +39,11 @@ export type StudentTimelineCardOption = { value: string; labelKey: string; icon:
   standalone: false,
 })
 export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
+  @HostBinding('class.onboarding-page--wizard-main')
+  get onboardingPageWizardMainActive(): boolean {
+    return !this.showWelcome && !this.showPreview && this.preStepPhase === 'done';
+  }
+
   user$: Observable<any>;
   currentStep = 1;
   totalSteps = 8; // Students: Name + Native Language + Spoken Languages + CEFR Levels + Languages + Goal + Level + Timeline
