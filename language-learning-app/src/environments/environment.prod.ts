@@ -4,10 +4,12 @@ export const environment = {
   backendUrl: 'https://api.barnabi.ai',
   stripePublishableKey: 'pk_test_51SsQr8APHD8TltVxFOXQ8CzoUcwH8DTA4M9qfuKahOj6v6T6257HsLJzPjsPdMmJ5E2jzrF8UNwnOP2xx0wfLLTj004HuD4ZMo',
   agora: {
-    appId: '134e5b056b944b66b14fc9e275726131', // Replace with your actual Agora App ID
-    token: '007eJxTYBD+/FDjz5O5jcZTuuN+tAQ9e+dkf+dbravQlC8TTKJsN15SYDA0Nkk1TTIwNUuyNDFJMjNLMjRJS7ZMNTI3NTcyMzQ2jOX+m9EQyMgQEubLysgAgSC+EENOYl56aWJ6qm5yTmJxsa6BgSEDAwDVlST1', // Will be generated dynamically
+    appId: '134e5b056b944b66b14fc9e275726131',
+    // No baked-in token in prod. Tokens are always minted by the backend
+    // using AGORA_APP_CERT (see backend/routes/lessons.js + routes/classes.js).
+    token: '',
     channel: 'language-class-001',
-    uid: null // Let Agora assign a random UID
+    uid: null
   },
   agoraWhiteboard: {
     appId: 'LlbHYLHIEfCEJZXtHZ664A/hz-fQn1QNhGOwQ', // From Agora Console Whiteboard

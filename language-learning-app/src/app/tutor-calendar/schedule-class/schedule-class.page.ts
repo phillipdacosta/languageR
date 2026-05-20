@@ -1524,19 +1524,15 @@ export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, Afte
     const formData = new FormData();
     formData.append('thumbnail', file);
 
-    // Get current user for auth token
     const currentUser = this.userService.getCurrentUserValue();
     if (!currentUser || !currentUser.email) {
       throw new Error('User not authenticated');
     }
 
-    // Create headers with ONLY Authorization - don't set Content-Type for FormData
-    // Browser will automatically set Content-Type with boundary for multipart/form-data
-    const userEmail = currentUser.email;
-    const authToken = `Bearer dev-token-${userEmail.replace('@', '-').replace(/\./g, '-')}`;
+    // Don't set Content-Type - let the browser set it with the multipart boundary.
+    const bearer = await this.userService.getBearerTokenAsync();
     const headers = new HttpHeaders({
-      'Authorization': authToken
-      // Don't set Content-Type - let browser handle it for multipart/form-data
+      Authorization: `Bearer ${bearer}`
     });
     
     const response = await this.http.post<{ success: boolean; imageUrl: string }>(

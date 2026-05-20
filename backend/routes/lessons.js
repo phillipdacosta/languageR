@@ -1754,6 +1754,12 @@ router.post('/:id/join', verifyToken, async (req, res) => {
       console.log('🔧 DEV: Using temporary token from environment for channel:', channelName);
       token = TEMP_TOKEN;
     } else if (AGORA_APP_CERT && AGORA_APP_CERT !== 'your-agora-app-certificate-here') {
+      if (!AGORA_APP_ID) {
+        return res.status(500).json({
+          error: 'Server misconfiguration: AGORA_APP_ID is not set. Set it on the server and redeploy.',
+          code: 'AGORA_APP_ID_MISSING'
+        });
+      }
       token = RtcTokenBuilder.buildTokenWithUserAccount(
         AGORA_APP_ID,
         AGORA_APP_CERT,
@@ -1764,8 +1770,20 @@ router.post('/:id/join', verifyToken, async (req, res) => {
       );
       console.log('✅ Generated certificate-based token for channel:', channelName);
     } else {
-      console.warn('⚠️ No valid token method available; proceeding with null token');
-      token = null;
+      // No valid token method available. Fail loudly instead of handing the
+      // client a null token (which causes Agora to fail with a confusing
+      // CAN_NOT_GET_GATEWAY_SERVER / "dynamic key or token timeout" error).
+      console.error('❌ Cannot mint Agora token: AGORA_APP_CERT missing and no dev temp token available', {
+        NODE_ENV: process.env.NODE_ENV,
+        hasAppId: !!AGORA_APP_ID,
+        hasAppCert: !!AGORA_APP_CERT,
+        hasTempToken: !!TEMP_TOKEN,
+        isDevelopment
+      });
+      return res.status(500).json({
+        error: 'Server misconfiguration: Agora token cannot be generated. Set AGORA_APP_CERT (and AGORA_APP_ID) on the server, or AGORA_TEMP_TOKEN in development.',
+        code: 'AGORA_TOKEN_UNAVAILABLE'
+      });
     }
 
     // Record participant join FIRST (before checking for start time)

@@ -1401,9 +1401,14 @@ router.post('/:classId/join', verifyToken, async (req, res) => {
       console.log('⚠️ WARNING: Using TEMP TOKEN - This limits concurrent users to 2!');
       console.log('🔧 DEV: Using temporary token from environment for channel:', channelName);
       console.log('❌ This will cause issues with 3+ users in classes!');
-      // For dev with temp token, use fixed channel name
       token = TEMP_TOKEN;
     } else if (AGORA_APP_CERT && AGORA_APP_CERT !== 'your-agora-app-certificate-here') {
+      if (!AGORA_APP_ID) {
+        return res.status(500).json({
+          error: 'Server misconfiguration: AGORA_APP_ID is not set. Set it on the server and redeploy.',
+          code: 'AGORA_APP_ID_MISSING'
+        });
+      }
       token = RtcTokenBuilder.buildTokenWithUserAccount(
         AGORA_APP_ID,
         AGORA_APP_CERT,
@@ -1415,8 +1420,18 @@ router.post('/:classId/join', verifyToken, async (req, res) => {
       console.log('✅ Generated certificate-based token for class channel:', channelName);
       console.log('📝 Token generation method: CERTIFICATE (unlimited users supported)');
     } else {
-      console.warn('⚠️ No valid token method available; proceeding with null token');
-      token = null;
+      // Fail loudly instead of returning a null token.
+      console.error('❌ Cannot mint Agora token for class: AGORA_APP_CERT missing and no dev temp token available', {
+        NODE_ENV: process.env.NODE_ENV,
+        hasAppId: !!AGORA_APP_ID,
+        hasAppCert: !!AGORA_APP_CERT,
+        hasTempToken: !!TEMP_TOKEN,
+        isDevelopment
+      });
+      return res.status(500).json({
+        error: 'Server misconfiguration: Agora token cannot be generated. Set AGORA_APP_CERT (and AGORA_APP_ID) on the server, or AGORA_TEMP_TOKEN in development.',
+        code: 'AGORA_TOKEN_UNAVAILABLE'
+      });
     }
 
     // 💳 CAPTURE PAYMENT: Charge student when they join the class

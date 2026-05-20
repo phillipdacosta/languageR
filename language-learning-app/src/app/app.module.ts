@@ -25,6 +25,7 @@ import { AppComponent } from './app.component';
 import { TokenGeneratorService } from './services/token-generator.service';
 import { PlatformService } from './services/platform.service';
 import { CustomUrlSerializerService } from './services/custom-url-serializer.service';
+import { ApiAuthInterceptor } from './services/api-auth.interceptor';
 import { GlobalLoadingComponent } from './components/global-loading/global-loading.component';
 import { ReminderNotificationComponent } from './components/reminder-notification/reminder-notification.component';
 import { EarlyExitModalComponent } from './components/early-exit-modal/early-exit-modal.component';
@@ -63,6 +64,10 @@ import { CommonModule } from '@angular/common';
   providers: [
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
     { provide: UrlSerializer, useClass: CustomUrlSerializerService },
+    // Attach Auth0 bearer token to every backend request. This is the single
+    // source of truth for `Authorization` headers on HttpClient traffic; per-
+    // call header construction in pages/services is now redundant.
+    { provide: HTTP_INTERCEPTORS, useClass: ApiAuthInterceptor, multi: true },
     TokenGeneratorService,
     PlatformService,
     provideAnimationsAsync()

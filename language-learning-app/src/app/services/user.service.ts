@@ -4,6 +4,7 @@ import { Observable, BehaviorSubject, Subject, from, of } from 'rxjs';
 import { map, tap, take, switchMap, catchError } from 'rxjs/operators';
 import { AuthService } from './auth.service';
 import { environment } from '../../environments/environment';
+import { buildBearerToken } from './auth-token.util';
 import { SupportedLanguage } from './language.service';
 import { setGlobalTimeFormat } from '../shared/timezone.utils';
 import { isStripeSupportedCountry } from '../data/stripe-supported-countries';
@@ -311,57 +312,44 @@ export class UserService {
     });
   }
 
+  /**
+   * Returns the raw bearer token used to talk to the backend. Kept for
+   * non-HttpClient callers (fetch, socket.io) that the interceptor can't
+   * reach. HttpClient callers no longer need this — `ApiAuthInterceptor`
+   * attaches the token automatically.
+   */
+  public getBearerTokenAsync(): Promise<string> {
+    return buildBearerToken(this.authService);
+  }
+
   private async getAuthHeadersAsync(): Promise<HttpHeaders> {
+    // DEPRECATED for HttpClient callers — interceptor stamps Authorization.
+    // We still try to compute the token here so non-HttpClient code paths
+    // (none currently) wouldn't lose auth, but failures are swallowed since
+    // the interceptor will resolve the real token at request time anyway.
     try {
-      // getAccessTokenSilently() silently refreshes the access token (and the
-      // ID token) when they are near expiry, using Auth0's refresh-token
-      // rotation. Calling it first guarantees that the idTokenClaims$ snapshot
-      // below is always fresh — solving the "401 Invalid or expired token"
-      // error that occurred after ~24h when only idTokenClaims$ was read.
-      await this.authService.getAccessToken().pipe(take(1)).toPromise();
-
-      // Now read the fresh ID token. We still use the ID token (not the access
-      // token) as the bearer because the backend maps `email → dev-user-{email}`
-      // sub format, and the ID token carries the email claim.
-      const idTokenClaims = await this.authService.getIdTokenClaims();
-      const idToken = idTokenClaims?.__raw;
-
-      if (!idToken) {
-        throw new Error('No ID token available after refresh');
-      }
-
+      const token = await buildBearerToken(this.authService);
       return new HttpHeaders({
-        'Authorization': `Bearer ${idToken}`,
-        'Content-Type': 'application/json'
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
       });
-    } catch (error) {
-      console.error('❌ Error getting auth token:', error);
-
-      // Fallback to dev token if Auth0 token refresh fails (dev only — backend
-      // unconditionally rejects dev-token-* in production).
-      const user = await this.authService.user$.pipe(take(1)).toPromise();
-      const userEmail = user?.email || 'unknown';
-      const tokenEmail = userEmail.replace('@', '-').replace(/\./g, '-');
-      const mockToken = `dev-token-${tokenEmail}`;
-      
-      return new HttpHeaders({
-        'Authorization': `Bearer ${mockToken}`,
-        'Content-Type': 'application/json'
-      });
+    } catch {
+      return new HttpHeaders({ 'Content-Type': 'application/json' });
     }
   }
 
   private getAuthHeaders(userEmail: string): HttpHeaders {
-    // This synchronous version is deprecated - use getAuthHeadersAsync instead
-    // Use dev token format for now since Auth0 interceptor isn't working properly
-    // Convert email to token format: replace @ and . with -
+    // DEPRECATED. Header construction is now centralised in
+    // `ApiAuthInterceptor`, which always overwrites `Authorization` for
+    // requests targeting `environment.backendUrl`. This stub remains so
+    // legacy call sites continue to compile and supply a Content-Type while
+    // the interceptor handles auth.
     const tokenEmail = userEmail.replace('@', '-').replace(/\./g, '-');
-    const mockToken = `dev-token-${tokenEmail}`;
-    
+    const placeholder = `dev-token-${tokenEmail}`;
     return new HttpHeaders({
-      'Authorization': `Bearer ${mockToken}`,
+      'Authorization': `Bearer ${placeholder}`,
       'Content-Type': 'application/json',
-      'X-Requested-With': 'XMLHttpRequest' // Helps backend identify AJAX requests
+      'X-Requested-With': 'XMLHttpRequest'
     });
   }
 

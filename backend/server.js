@@ -16,6 +16,19 @@ require('dotenv').config({ path: './config.env' });
   if (isProd && process.env.ALLOW_DEV_TOKENS === 'true') {
     console.warn('⚠️  ALLOW_DEV_TOKENS=true in production — this is ignored by verifyAuth, but you should remove it from your env to avoid confusion.');
   }
+
+  // Agora: in production we MUST be able to mint certificate-signed tokens.
+  // Without these, the lessons/classes routes return 500 and the frontend's
+  // video call dies with a cryptic Agora "dynamic key or token timeout".
+  if (isProd) {
+    if (!process.env.AGORA_APP_ID) {
+      throw new Error('[boot] AGORA_APP_ID is not set in production');
+    }
+    const cert = process.env.AGORA_APP_CERT;
+    if (!cert || cert === 'your-agora-app-certificate-here') {
+      throw new Error('[boot] AGORA_APP_CERT is not set in production — Agora tokens cannot be minted');
+    }
+  }
 })();
 
 const express = require('express');
@@ -42,6 +55,13 @@ const { checkMaterialAvailability } = require('./jobs/checkMaterialAvailability'
 const { initializeAudioCronJobs } = require('./cron/audioBackupCron');
 
 const app = express();
+
+// Trust the first proxy in front of us (Render / load balancer) so that
+// req.ip and X-Forwarded-For are honored correctly. Required by
+// express-rate-limit to identify clients without throwing
+// ERR_ERL_UNEXPECTED_X_FORWARDED_FOR.
+app.set('trust proxy', 1);
+
 const server = http.createServer(app);
 
 const allowedOrigins = [

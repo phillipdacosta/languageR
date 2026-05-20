@@ -1,6 +1,8 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { AuthService } from './auth.service';
+import { buildBearerToken } from './auth-token.util';
 
 export interface DeepgramTranscript {
   text: string;
@@ -39,7 +41,7 @@ export class DeepgramAudioService {
   private transcripts: DeepgramTranscript[] = [];
   private currentTranscriptId: string | null = null;
   
-  constructor() {}
+  constructor(private authService: AuthService) {}
   
   /**
    * Start real-time transcription with Deepgram
@@ -291,12 +293,12 @@ export class DeepgramAudioService {
       formData.append('audio', audioBlob, 'audio.wav');
       formData.append('speaker', speaker);
       
-      // Use existing HTTP endpoint (but we need to start transcription first)
+      const bearer = await buildBearerToken(this.authService);
       const response = await fetch(`${environment.backendUrl}/api/transcription/${this.currentTranscriptId}/audio`, {
         method: 'POST',
         body: formData,
         headers: {
-          'Authorization': `Bearer dev-token-phillip-dacosta` // TODO: Get real token
+          'Authorization': `Bearer ${bearer}`
         }
       });
       

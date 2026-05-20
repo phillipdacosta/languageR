@@ -177,6 +177,14 @@ export class JourneyPage implements OnInit, OnDestroy {
   // tutor will work on next, then tap to open the lesson detail.
   comingUp: Array<ComingUpItem & { dateLabel: string; timeLabel: string }> = [];
 
+  // True when the student's *literal next event* is a trial booking — either
+  // their first-ever lesson, or a meet-and-greet with a brand-new tutor after
+  // a long history with someone else. Drives a trial-aware framing on the
+  // "Next lesson focus" card so the plan isn't advertising "ordering food at
+  // a restaurant" right before a 30-min discovery call.
+  pendingTrial = false;
+  nextTrialTutorFirstName = '';
+
   isPremium = false;
   goalChangeCooldownDays = 7;
 
@@ -1600,6 +1608,7 @@ export class JourneyPage implements OnInit, OnDestroy {
               timeLabel: d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
             };
           });
+          this.recomputeTrialFraming();
           this.recomputePrimaryCta();
           this.cdr.markForCheck();
         }
@@ -1609,6 +1618,7 @@ export class JourneyPage implements OnInit, OnDestroy {
       },
       error: () => {
         this.comingUp = [];
+        this.recomputeTrialFraming();
         this.loadPracticeDueCount();
       }
     });
@@ -1642,6 +1652,20 @@ export class JourneyPage implements OnInit, OnDestroy {
    *   3. Plan exists, no lessons yet    → "Book your first lesson"
    *   4. Default (active learner)       → "Find a tutor"
    */
+  /** Derive the trial-aware framing for the journey hero. We trust the
+   *  literal next booked event — comingUp[0].isTrialLesson — because the
+   *  backend marks per-tutor trials regardless of total lessons taken. */
+  private recomputeTrialFraming() {
+    const next = this.comingUp[0];
+    if (next?.isTrialLesson) {
+      this.pendingTrial = true;
+      this.nextTrialTutorFirstName = next.tutor?.firstName || '';
+    } else {
+      this.pendingTrial = false;
+      this.nextTrialTutorFirstName = '';
+    }
+  }
+
   private recomputePrimaryCta() {
     if (this.widgetState === 'loading' || this.widgetState === 'empty-goal') {
       this.primaryCtaLabel = '';

@@ -196,7 +196,12 @@ router.get('/:language/coming-up', verifyToken, async (req, res) => {
           name: t.name || `${t.firstName || ''} ${t.lastName || ''}`.trim(),
           picture: t.picture || ''
         },
-        focus: lane?.focus || ''
+        focus: lane?.focus || '',
+        // Surfaced so the journey/home widget can swap "Next lesson focus"
+        // for a trial-aware framing when the literal next event is a
+        // meet-and-greet (per-tutor trial — true even for a 10-lesson
+        // student booking with a new tutor for the first time).
+        isTrialLesson: !!l.isTrialLesson
       };
     });
 

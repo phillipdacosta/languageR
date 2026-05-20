@@ -6,6 +6,7 @@ import { UserService } from './user.service';
 import { environment } from '../../environments/environment';
 import { Message } from './messaging.service';
 import { take } from 'rxjs/operators';
+import { buildBearerToken } from './auth-token.util';
 
 @Injectable({
   providedIn: 'root'
@@ -437,22 +438,27 @@ export class WebSocketService {
       return;
     }
 
-    this.authService.user$.pipe(take(1)).subscribe(user => {
+    this.authService.user$.pipe(take(1)).subscribe(async user => {
       if (!user) {
         console.error('❌ WebSocket: No user available for connection');
         return;
       }
 
-      // Get token using the same method as UserService
       const userEmail = user.email || 'unknown';
-      const tokenEmail = userEmail.replace('@', '-').replace(/\./g, '-');
-      const token = `dev-token-${tokenEmail}`;
-      
+
+      let token: string;
+      try {
+        token = await buildBearerToken(this.authService);
+      } catch (err) {
+        console.error('❌ WebSocket: Failed to acquire auth token, aborting connect:', err);
+        return;
+      }
+
       const socketUrl = environment.backendUrl;
       const socketStartTime = performance.now();
-      
+
       console.log('🔌 WebSocket: Creating new socket connection for user:', userEmail);
-      
+
       this.socket = io(socketUrl, {
         auth: {
           token: token

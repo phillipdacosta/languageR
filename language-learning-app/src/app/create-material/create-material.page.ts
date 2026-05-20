@@ -1374,8 +1374,8 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     const formData = new FormData();
     formData.append('thumbnail', this.thumbnailFile);
 
-    const token = `Bearer dev-token-${currentUser.email.replace('@', '-').replace(/\./g, '-')}`;
-    const headers = new HttpHeaders({ Authorization: token });
+    const bearer = await this.userService.getBearerTokenAsync();
+    const headers = new HttpHeaders({ Authorization: `Bearer ${bearer}` });
 
     const res: any = await this.http.post(
       `${environment.backendUrl}/api/materials/upload-thumbnail`,
