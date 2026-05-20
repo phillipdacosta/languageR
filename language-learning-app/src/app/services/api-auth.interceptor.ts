@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, Injector } from '@angular/core';
 import {
   HttpEvent,
   HttpHandler,
@@ -38,7 +38,21 @@ import { buildBearerToken } from './auth-token.util';
  */
 @Injectable()
 export class ApiAuthInterceptor implements HttpInterceptor {
-  constructor(private authService: AuthService) {}
+  // Lazy-inject AuthService to avoid a "Circular dependency detected for
+  // InjectionToken HTTP_INTERCEPTORS" error. AuthService depends on
+  // HttpClient (which itself depends on HTTP_INTERCEPTORS); resolving it
+  // eagerly in the constructor closes the cycle. Using Injector.get() at
+  // intercept time breaks it.
+  private cachedAuthService: AuthService | null = null;
+
+  constructor(private injector: Injector) {}
+
+  private get authService(): AuthService {
+    if (!this.cachedAuthService) {
+      this.cachedAuthService = this.injector.get(AuthService);
+    }
+    return this.cachedAuthService;
+  }
 
   intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
     if (!this.shouldAttachAuth(req)) {
