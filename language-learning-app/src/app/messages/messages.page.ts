@@ -3576,21 +3576,15 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   getUserLocalTime(user: any): string {
-    if (user?.timezone) {
-      try {
-        const formatter = new Intl.DateTimeFormat('en-US', {
-          timeZone: user.timezone,
-          hour: 'numeric',
-          minute: '2-digit',
-          hour12: getGlobalHour12()
-        });
-        return formatter.format(new Date());
-      } catch (error) {
-        console.warn('Invalid timezone:', user.timezone);
-        return '';
-      }
+    if (!user?.timezone) {
+      return '';
     }
-    return '';
+    try {
+      return formatTimeInTz(new Date(), user.timezone);
+    } catch (error) {
+      console.warn('Invalid timezone:', user.timezone);
+      return '';
+    }
   }
 
   /** True when local hour in `timezone` is daytime (6:00–17:59). */

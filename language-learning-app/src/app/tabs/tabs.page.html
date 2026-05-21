@@ -97,7 +97,7 @@
                 #messagesBtn>
           <!-- <ion-icon name="chatbubbles"></ion-icon> -->
           <ion-label [attr.data-text]="'TABS.MESSAGES' | translate">{{ 'TABS.MESSAGES' | translate }}</ion-label>
-          <span class="new-badge" *ngIf="(unreadCount$ | async)! > 0">new</span>
+          <span class="new-badge" *ngIf="(unreadCount$ | async)! > 0">{{ 'TABS.NEW_BADGE' | translate }}</span>
         </button>
         
         <button class="nav-button" 

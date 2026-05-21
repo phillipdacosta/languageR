@@ -869,6 +869,15 @@ $lesson-grid-gap: 20px;
   margin-top: 2px; // optical alignment with first line of text
 }
 
+.lgc-desc-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
 .lgc-desc-text {
   margin: 0;
   font-size: 14px;
@@ -878,6 +887,37 @@ $lesson-grid-gap: 20px;
   text-align: center;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.lgc-desc-translate-btn {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 2px 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #4a90d9;
+  letter-spacing: -0.05px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  ion-icon {
+    font-size: 13px;
+  }
+
+  &:hover:not([disabled]) {
+    background: rgba(74, 144, 217, 0.08);
+    color: #2d6db6;
+  }
+
+  &[disabled] {
+    opacity: 0.6;
+    cursor: default;
+  }
 }
 
 .lgc-desc-empty {

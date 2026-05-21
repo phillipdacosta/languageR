@@ -2175,26 +2175,36 @@ router.patch('/:id', verifyToken, async (req, res) => {
           const tutorUser = await User.findById(user._id);
           if (tutorUser && Array.isArray(tutorUser.availability)) {
             const classIdStr = classObj._id.toString();
+            // Always purge any stale class-block for this class id, even on drafts.
             tutorUser.availability = tutorUser.availability.filter(
               (slot) => !(slot.id === classIdStr && slot.type === 'class')
             );
-            const d = new Date(classObj.startTime);
-            const day = d.getDay();
-            const pad = (n) => n.toString().padStart(2, '0');
-            const timeStr = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-            const de = new Date(classObj.endTime);
-            const timeStrEnd = `${pad(de.getHours())}:${pad(de.getMinutes())}`;
-            tutorUser.availability.push({
-              id: classIdStr,
-              absoluteStart: classObj.startTime,
-              absoluteEnd: classObj.endTime,
-              day,
-              startTime: timeStr,
-              endTime: timeStrEnd,
-              type: 'class',
-              title: `Class: ${classObj.name}`,
-              color: '#8b5cf6',
-            });
+            // Only re-add a class block when the class is actually scheduled
+            // and the times are real. Drafts use a sentinel 2099-01-01
+            // placeholder and must never appear in availability — they leak
+            // into the tutor's calendar and re-save as "available" slots.
+            const isScheduled = classObj.status && classObj.status !== 'draft';
+            const startMs = classObj.startTime ? new Date(classObj.startTime).getTime() : NaN;
+            const isRealStart = Number.isFinite(startMs) && new Date(classObj.startTime).getUTCFullYear() < 2090;
+            if (isScheduled && isRealStart) {
+              const d = new Date(classObj.startTime);
+              const day = d.getDay();
+              const pad = (n) => n.toString().padStart(2, '0');
+              const timeStr = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+              const de = new Date(classObj.endTime);
+              const timeStrEnd = `${pad(de.getHours())}:${pad(de.getMinutes())}`;
+              tutorUser.availability.push({
+                id: classIdStr,
+                absoluteStart: classObj.startTime,
+                absoluteEnd: classObj.endTime,
+                day,
+                startTime: timeStr,
+                endTime: timeStrEnd,
+                type: 'class',
+                title: `Class: ${classObj.name}`,
+                color: '#8b5cf6',
+              });
+            }
             await tutorUser.save();
           }
         }

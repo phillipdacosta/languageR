@@ -2111,19 +2111,43 @@ async function translateAnalysisFields(analysis, targetLanguageCode) {
     messages: [
       {
         role: 'system',
-        content: `You are a professional translator. Translate ALL text values in the provided JSON to ${targetLang}.
-
-RULES:
-- Translate ONLY the text values, preserve all JSON keys exactly as they are.
-- When you encounter quoted speech in a foreign language (e.g. "Ich habe meine Freundin getroffen"), keep those quotes in the original language — only translate the surrounding explanation text and parenthetical translations.
-- Preserve any HTML tags as-is.
-- Preserve emoji characters as-is.
-- Return valid JSON only, matching the exact same structure as the input.`
+        content: `Translate values to ${targetLang}. Keep JSON keys, HTML tags, emoji, and any in-quote foreign-language phrases unchanged. Return JSON only.`
       },
+      { role: 'user', content: JSON.stringify(fieldsToTranslate) }
+    ],
+    temperature: 0.3,
+    response_format: { type: 'json_object' }
+  });
+
+  const translated = JSON.parse(completion.choices[0].message.content);
+  translated.translatedAt = new Date();
+  return translated;
+}
+
+/**
+ * Translate prose fields on a TutorFeedback document to `targetLanguageCode`.
+ * Mirrors `translateAnalysisFields` but with a slimmer field set so the
+ * lessons-list path can serve localized tutor-written notes too. Returns a
+ * plain object suitable for storing in `feedback.translations.set(lang, …)`.
+ */
+async function translateFeedbackFields(feedback, targetLanguageCode) {
+  const targetLang = getLanguageName(targetLanguageCode);
+
+  const fieldsToTranslate = {
+    overallNotes: feedback?.overallNotes || '',
+    homework: feedback?.homework || '',
+    strengths: feedback?.strengths || [],
+    areasForImprovement: feedback?.areasForImprovement || []
+  };
+
+  const completion = await getOpenAIClient().chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [
       {
-        role: 'user',
-        content: JSON.stringify(fieldsToTranslate)
-      }
+        role: 'system',
+        content: `Translate values to ${targetLang}. Keep JSON keys, HTML tags, and emoji unchanged. Return JSON only.`
+      },
+      { role: 'user', content: JSON.stringify(fieldsToTranslate) }
     ],
     temperature: 0.3,
     response_format: { type: 'json_object' }
@@ -2139,6 +2163,7 @@ module.exports = {
   analyzeLessonTranscript,
   generateProgressReport,
   filterAndPrioritizeErrors,
-  translateAnalysisFields
+  translateAnalysisFields,
+  translateFeedbackFields
 };
 

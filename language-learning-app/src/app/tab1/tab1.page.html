@@ -631,6 +631,12 @@
           <div *ngIf="!tutorMobileUpNextCoverUrl" class="m-filled-avatar-placeholder">
             <ion-icon name="person"></ion-icon>
           </div>
+          <span
+            class="badge-inline badge-trial m-filled-avatar-badge"
+            [class.pop-float]="!mobileStaggerDone"
+            *ngIf="nextClass.isTrialLesson && nextClass.lesson?.status !== 'cancelled'">
+            <ion-icon name="star"></ion-icon> {{ 'HOME.STATUS_TRIAL' | translate }}
+          </span>
         </div>
         <div class="m-filled-class-cover-wrap" *ngIf="nextClass.lesson?.isClass">
           <img *ngIf="tutorMobileUpNextCoverUrl" class="m-filled-class-cover-img" [src]="tutorMobileUpNextCoverUrl" alt="" referrerpolicy="no-referrer" />
@@ -644,9 +650,20 @@
           <span *ngIf="!nextClass.lesson?.isClass">{{ nextClass | displayName }}</span>
         </h3>
 
-        <span class="badge-inline badge-trial m-filled-badge" [class.pop-float]="!mobileStaggerDone" *ngIf="nextClass.isTrialLesson && nextClass.lesson?.status !== 'cancelled'">
-          <ion-icon name="star"></ion-icon> {{ 'HOME.STATUS_TRIAL' | translate }}
-        </span>
+        <div class="m-upnext-tagline-row" *ngIf="upNextTagline">
+          <p class="m-card-empty-subtitle m-upnext-tagline">{{ upNextTagline }}</p>
+          <button
+            type="button"
+            class="m-upnext-translate-btn"
+            *ngIf="upNextShowTranslateButton"
+            [disabled]="upNextTaglineTranslating"
+            (click)="toggleUpNextTaglineTranslation(); $event.stopPropagation()">
+            <ion-icon name="language-outline" aria-hidden="true"></ion-icon>
+            <span *ngIf="upNextTaglineTranslating">{{ 'COMMON.TRANSLATING' | translate }}</span>
+            <span *ngIf="!upNextTaglineTranslating && !upNextTaglineIsTranslated">{{ 'COMMON.TRANSLATE' | translate }}</span>
+            <span *ngIf="!upNextTaglineTranslating && upNextTaglineIsTranslated">{{ 'COMMON.SHOW_ORIGINAL' | translate }}</span>
+          </button>
+        </div>
 
         <div class="home-m-upnext-date">
           <div class="tw-date-badge" [class.tw-date-badge--today]="nextClass.isToday">
@@ -656,15 +673,6 @@
           </div>
           <span class="tw-date-badge__time upnext-date-time">{{ nextClass.detailTimeRange }}</span>
         </div>
-
-        <p class="m-card-empty-subtitle m-upnext-meta">
-          <ng-container *ngIf="!nextClass.lesson?.isClass && nextClass.subject">
-            <span *ngIf="flagService.getFlagPath(nextClass.subject)" class="m-upnext-flag-wrap">
-              <img [src]="flagService.getFlagPath(nextClass.subject)" class="flag-icon-inline" [alt]="nextClass.subject + ' flag'" />
-            </span>
-            <span>{{ nextClass.subject }}</span>
-          </ng-container>
-        </p>
 
         <app-class-attendees
           *ngIf="nextClass.lesson?.isClass && nextLessonClassAttendeesDisplay.length"
@@ -746,9 +754,6 @@
       <div class="empty-state-clean-inner upnext-filled" *ngIf="nextLesson as nextClass" (click)="onTutorUpNextCardShellClick($event)">
         <span style="display: none;">{{ countdownTick }}</span>
         <div class="upnext-filled-badges">
-          <span class="badge-inline badge-trial" *ngIf="nextClass.isTrialLesson && nextClass.lesson?.status !== 'cancelled'">
-            <ion-icon name="star"></ion-icon> {{ 'HOME.STATUS_TRIAL' | translate }}
-          </span>
           <span class="badge-inline badge-cancelled" *ngIf="nextClass.lesson?.status === 'cancelled'">
             {{ 'HOME.STATUS_CANCELLED' | translate }}
           </span>
@@ -777,49 +782,90 @@
           <ion-icon *ngIf="!nextClass.avatar || nextClass.avatar === 'assets/avatar.png'" name="person" class="avatar-placeholder"></ion-icon>
         </ion-avatar>
         <div class="upnext-filled-text">
-          <h3>
-            <span *ngIf="nextClass.lesson?.isClass">{{ nextClass.lesson.className || nextClass.lesson.subject || ('HOME.GROUP_CLASS' | translate) }}</span>
-            <span *ngIf="!nextClass.lesson?.isClass">{{ nextClass | displayName }}</span>
-          </h3>
-          <p class="upnext-filled-meta" *ngIf="!nextClass.lesson?.isClass">
-            <img *ngIf="flagService.getFlagPath(nextClass.subject)"
-                 [src]="flagService.getFlagPath(nextClass.subject)"
-                 class="flag-icon-inline"
-                 [alt]="nextClass.subject + ' flag'" />
-            <span class="upnext-filled-meta-subject">{{ nextClass.subject }}</span>
-          </p>
+          <div class="upnext-filled-name-row">
+            <h3>
+              <span *ngIf="nextClass.lesson?.isClass">{{ nextClass.lesson.className || nextClass.lesson.subject || ('HOME.GROUP_CLASS' | translate) }}</span>
+              <span *ngIf="!nextClass.lesson?.isClass">{{ nextClass | displayName }}</span>
+            </h3>
+            <span
+              class="badge-inline badge-trial upnext-filled-trial-pill"
+              *ngIf="nextClass.isTrialLesson && nextClass.lesson?.status !== 'cancelled'">
+              <ion-icon name="star"></ion-icon>
+              <span>{{ 'HOME.TRIAL_LESSON' | translate }}</span>
+            </span>
+          </div>
+          <div class="upnext-filled-tagline-row" *ngIf="upNextTagline">
+            <p class="upnext-filled-tagline">{{ upNextTagline }}</p>
+            <button
+              type="button"
+              class="upnext-filled-translate-btn"
+              *ngIf="upNextShowTranslateButton"
+              [disabled]="upNextTaglineTranslating"
+              (click)="toggleUpNextTaglineTranslation(); $event.stopPropagation()">
+              <ion-icon name="language-outline" aria-hidden="true"></ion-icon>
+              <span *ngIf="upNextTaglineTranslating">{{ 'COMMON.TRANSLATING' | translate }}</span>
+              <span *ngIf="!upNextTaglineTranslating && !upNextTaglineIsTranslated">{{ 'COMMON.TRANSLATE' | translate }}</span>
+              <span *ngIf="!upNextTaglineTranslating && upNextTaglineIsTranslated">{{ 'COMMON.SHOW_ORIGINAL' | translate }}</span>
+            </button>
+          </div>
         </div>
 
         <div class="upnext-filled-schedule">
-          <div class="tw-date-badge" [class.tw-date-badge--today]="nextClass.isToday">
-            <span class="tw-date-badge__month">{{ nextClass.dateBadgeMonth }}</span>
-            <span class="tw-date-badge__day">{{ nextClass.dateBadgeDay }}</span>
-            <span class="tw-date-badge__weekday">{{ nextClass.dateBadgeWeekday }}</span>
+          <div class="upnext-filled-schedule-col upnext-filled-schedule-col--date">
+            <div class="tw-date-badge" [class.tw-date-badge--today]="nextClass.isToday">
+              <span class="tw-date-badge__month">{{ nextClass.dateBadgeMonth }}</span>
+              <span class="tw-date-badge__day">{{ nextClass.dateBadgeDay }}</span>
+              <span class="tw-date-badge__weekday">{{ nextClass.dateBadgeWeekday }}</span>
+            </div>
           </div>
-          <div class="upnext-filled-schedule-info">
-            <span class="upnext-filled-schedule-time">{{ nextClass.detailTimeRange }}</span>
-            <span class="upnext-filled-schedule-duration">{{ nextClass.durationLabel }}</span>
+          <span class="upnext-filled-schedule-divider" aria-hidden="true"></span>
+          <div class="upnext-filled-schedule-col upnext-filled-schedule-col--time">
+            <ion-icon class="upnext-filled-schedule-icon" name="time-outline" aria-hidden="true"></ion-icon>
+            <div class="upnext-filled-schedule-info">
+              <span class="upnext-filled-schedule-time">{{ nextClass.detailTimeRange }}</span>
+              <span class="upnext-filled-schedule-duration">{{ nextClass.durationLabel }}</span>
+            </div>
           </div>
+          <ng-container *ngIf="upNextStatusLabel">
+            <span class="upnext-filled-schedule-divider" aria-hidden="true"></span>
+            <div class="upnext-filled-schedule-col upnext-filled-schedule-col--status">
+              <span
+                class="upnext-filled-status-chip"
+                [class.upnext-filled-status-chip--ready]="upNextStatusVariant === 'ready'"
+                [class.upnext-filled-status-chip--live]="upNextStatusVariant === 'live'"
+                [class.upnext-filled-status-chip--soon]="upNextStatusVariant === 'soon'">
+                <span class="upnext-filled-status-dot" *ngIf="upNextStatusVariant !== 'later'"></span>
+                <span>{{ upNextStatusLabel }}</span>
+              </span>
+              <span class="upnext-filled-status-hint" *ngIf="upNextStatusHint">{{ upNextStatusHint }}</span>
+            </div>
+          </ng-container>
         </div>
 
-        <p class="upnext-filled-countdown" *ngIf="nextClass.lesson?.status !== 'cancelled' && nextClass.showStartsInLine && !nextLessonOtherJoined">
-          {{ 'HOME.STARTS_IN_TIME' | translate:{ time: nextClass.countdown } }}
-        </p>
         <app-class-attendees *ngIf="nextClass.lesson?.isClass && nextLessonClassAttendeesDisplay.length" [attendees]="nextLessonClassAttendeesDisplay" [capacity]="nextClass.lesson.capacity" [maxDisplay]="3"></app-class-attendees>
         <p class="cancel-reason" *ngIf="nextClass.lesson?.status === 'cancelled' && nextClass.lesson?.cancelReason === 'minimum_not_met'" style="text-align: center;">
           <ion-icon name="information-circle-outline"></ion-icon> {{ 'HOME.CANCELLED_INSUFFICIENT' | translate }}
         </p>
+
+        <div class="upnext-filled-actions" *ngIf="nextClass.lesson?.status !== 'cancelled'">
+          <ion-button fill="outline" expand="block" class="empty-state-clean-btn" [class.active]="nextClass.isInProgress" (click)="joinStudentLesson(nextClass); $event.stopPropagation()">
+            <span class="upnext-filled-actions-label">{{ nextClass.joinButtonText || nextClass.joinLabel || ('HOME.JOIN_LESSON' | translate) }}</span>
+            <ion-icon slot="end" name="arrow-forward" class="upnext-filled-actions-arrow" aria-hidden="true"></ion-icon>
+          </ion-button>
+        </div>
+
+        <div class="upnext-filled-footer" *ngIf="nextClass.lesson?.status !== 'cancelled' && !nextLessonOtherJoined && previousNotesData">
+          <button
+            type="button"
+            class="upnext-filled-footer-link"
+            (click)="showPreviousNotesModal(); $event.stopPropagation()">
+            {{ 'HOME.PREVIOUS_NOTES_LINK' | translate }}
+          </button>
+        </div>
+
         <div class="participant-in-call" *ngIf="nextLessonOtherJoined && nextClass.lesson?.status !== 'cancelled'">
           <span class="in-call-dot"></span>
           <span class="in-call-text">{{ 'HOME.PARTICIPANT_IN_CALL' | translate:{ name: nextLessonOtherName } }}</span>
-        </div>
-        <button class="previous-notes-link" *ngIf="previousNotesData" (click)="showPreviousNotesModal(); $event.stopPropagation()">
-          <ion-icon name="document-text-outline"></ion-icon><span>Notes from last lesson</span><ion-icon name="chevron-forward-outline" class="chevron"></ion-icon>
-        </button>
-        <div class="upnext-filled-actions" *ngIf="nextClass.lesson?.status !== 'cancelled'">
-          <ion-button fill="outline" expand="block" class="empty-state-clean-btn" [class.active]="nextClass.isInProgress" (click)="joinStudentLesson(nextClass); $event.stopPropagation()">
-            {{ nextClass.joinButtonText || nextClass.joinLabel || ('HOME.JOIN_LESSON' | translate) }}
-          </ion-button>
         </div>
         <ion-button *ngIf="!nextClass.isInProgress && nextClass.lesson?.status !== 'cancelled'" [id]="'exp-next-class-menu-' + nextClass.lesson._id" fill="clear" class="upnext-filled-menu" (click)="$event.stopPropagation()">
           <ion-icon slot="icon-only" name="ellipsis-horizontal"></ion-icon>
@@ -982,55 +1028,58 @@
             <div class="earnings-goal__head">
               <span class="earnings-goal__label">{{ 'HOME.WEEKLY_GOAL_TITLE' | translate }}</span>
               <button
-                *ngIf="!isEditingWeeklyGoal"
                 type="button"
                 class="earnings-goal__edit-btn"
+                [class.earnings-goal__edit-btn--hidden]="isEditingWeeklyGoal"
+                [attr.aria-hidden]="isEditingWeeklyGoal"
+                [tabindex]="isEditingWeeklyGoal ? -1 : 0"
                 (click)="startEditWeeklyGoal(); $event.stopPropagation()"
                 [attr.aria-label]="'HOME.WEEKLY_GOAL_EDIT_ARIA' | translate">
                 <ion-icon name="pencil-outline"></ion-icon>
               </button>
             </div>
 
-            <div class="earnings-goal__amount" *ngIf="!isEditingWeeklyGoal">
-              <ng-container *ngIf="showWalletBalance || walletTemporarilyVisible">{{ weeklyEarningsGoalLabel }}</ng-container>
-              <span class="earnings-goal__amount-masked" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$•••• / $••••</span>
-            </div>
-
-            <div class="earnings-goal__bar" *ngIf="!isEditingWeeklyGoal">
-              <!-- Ghost layer: earned + scheduled. Only renders when scheduled extends past earned. -->
-              <div
-                class="earnings-goal__bar-scheduled"
-                *ngIf="(showWalletBalance || walletTemporarilyVisible) && !isWeeklyGoalReached && weeklyEarningsScheduledPercent > weeklyEarningsGoalPercent"
-                [style.width.%]="weeklyEarningsScheduledPercent">
+            <!-- Amount row + edit share grid row 1; bar/sub stay put (no shift). -->
+            <div class="earnings-goal__body">
+              <div class="earnings-goal__amount" [class.earnings-goal__pane--hidden]="isEditingWeeklyGoal">
+                <ng-container *ngIf="showWalletBalance || walletTemporarilyVisible">{{ weeklyEarningsGoalLabel }}</ng-container>
+                <span class="earnings-goal__amount-masked" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$•••• / $••••</span>
               </div>
-              <div
-                class="earnings-goal__bar-fill"
-                [class.earnings-goal__bar-fill--masked]="!showWalletBalance && !walletTemporarilyVisible"
-                [style.width.%]="(showWalletBalance || walletTemporarilyVisible) ? weeklyEarningsGoalPercent : 0"></div>
-            </div>
 
-            <div class="earnings-goal__sub" *ngIf="!isEditingWeeklyGoal">
-              <ng-container *ngIf="showWalletBalance || walletTemporarilyVisible">{{ weeklyEarningsGoalSubLabel }}</ng-container>
-              <span class="earnings-goal__sub-masked" *ngIf="!showWalletBalance && !walletTemporarilyVisible">••••••••</span>
-            </div>
+              <form
+                class="earnings-goal__edit"
+                [class.earnings-goal__pane--hidden]="!isEditingWeeklyGoal"
+                (submit)="saveWeeklyGoal(); $event.preventDefault()">
+                <span class="earnings-goal__currency" aria-hidden="true">$</span>
+                <input
+                  type="number"
+                  class="earnings-goal__input"
+                  [(ngModel)]="weeklyGoalEditValue"
+                  name="weeklyGoalEditValue"
+                  min="1"
+                  step="10"
+                  autofocus
+                  (keydown.escape)="cancelEditWeeklyGoal()" />
+                <button type="button" class="earnings-goal__cancel" (click)="cancelEditWeeklyGoal()">{{ 'COMMON.CANCEL' | translate }}</button>
+                <button type="submit" class="earnings-goal__save">{{ 'COMMON.SAVE' | translate }}</button>
+              </form>
 
-            <form
-              *ngIf="isEditingWeeklyGoal"
-              class="earnings-goal__edit"
-              (submit)="saveWeeklyGoal(); $event.preventDefault()">
-              <span class="earnings-goal__currency">$</span>
-              <input
-                type="number"
-                class="earnings-goal__input"
-                [(ngModel)]="weeklyGoalEditValue"
-                name="weeklyGoalEditValue"
-                min="1"
-                step="10"
-                autofocus
-                (keydown.escape)="cancelEditWeeklyGoal()" />
-              <button type="button" class="earnings-goal__cancel" (click)="cancelEditWeeklyGoal()">{{ 'COMMON.CANCEL' | translate }}</button>
-              <button type="submit" class="earnings-goal__save">{{ 'COMMON.SAVE' | translate }}</button>
-            </form>
+              <div class="earnings-goal__bar">
+                <div
+                  class="earnings-goal__bar-scheduled"
+                  *ngIf="(showWalletBalance || walletTemporarilyVisible) && !isWeeklyGoalReached && weeklyEarningsScheduledPercent > weeklyEarningsGoalPercent"
+                  [style.width.%]="weeklyEarningsScheduledPercent">
+                </div>
+                <div
+                  class="earnings-goal__bar-fill"
+                  [class.earnings-goal__bar-fill--masked]="!showWalletBalance && !walletTemporarilyVisible"
+                  [style.width.%]="(showWalletBalance || walletTemporarilyVisible) ? weeklyEarningsGoalPercent : 0"></div>
+              </div>
+
+              <div class="earnings-goal__sub">
+                <ng-container *ngIf="showWalletBalance || walletTemporarilyVisible">{{ weeklyEarningsGoalSubLabel }}</ng-container>
+              </div>
+            </div>
           </div>
 
           <ion-button fill="outline" expand="block" class="withdraw-btn" (click)="openWithdrawModal()">

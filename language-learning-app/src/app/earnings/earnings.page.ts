@@ -207,7 +207,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   withdrawalModalDismissing: boolean = false;
   
   // Wallet visibility (tied to profile setting)
-  showWalletBalance = false; // Hide by default
+  showWalletBalance = true;
   walletTemporarilyVisible = false; // For mobile tap-to-reveal
 
   userTz: string = '';
@@ -237,7 +237,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       )
       .subscribe(user => {
         if (user?.profile) {
-          this.showWalletBalance = user.profile.showWalletBalance || false;
+          this.showWalletBalance = user.profile.showWalletBalance ?? true;
           this.userTz = user.profile.timezone || '';
         }
       });
@@ -431,14 +431,14 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     try {
       const user = await firstValueFrom(this.userService.getCurrentUser(true));
       if (user?.profile) {
-        this.showWalletBalance = user.profile.showWalletBalance || false;
+        this.showWalletBalance = user.profile.showWalletBalance ?? true;
         if (user.profile.timezone) {
           this.userTz = user.profile.timezone;
         }
       }
     } catch (error) {
       console.error('❌ Error loading wallet visibility setting:', error);
-      this.showWalletBalance = false;
+      this.showWalletBalance = true;
     }
   }
   

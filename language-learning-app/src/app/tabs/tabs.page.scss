@@ -502,9 +502,12 @@
           margin-right: 0;
           transition: margin-right 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 
-          // Add extra space after button when badge is visible
           &:has(.new-badge) {
             margin-right: 28px;
+          }
+
+          &.active:has(.new-badge) {
+            margin-right: 36px;
           }
         }
 
@@ -514,6 +517,7 @@
           left: 100%;
           top: 50%;
           transform: translateY(-50%);
+          // Slightly overlaps the pill when inactive; slides clear when selected.
           margin-left: -8px;
           font-size: 9px;
           font-weight: 600;
@@ -521,12 +525,17 @@
           text-transform: uppercase;
           color: #ff3b30;
           background: rgba(255, 59, 48, 0.1);
-          padding: 2px 6px;
+          padding: 2px 5px;
           border-radius: 4px;
           line-height: 1;
           pointer-events: none;
           white-space: nowrap;
+          transition: margin-left 0.38s cubic-bezier(0.4, 0, 0.2, 1);
           animation: newBadgeSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        &.messages-button.active .new-badge {
+          margin-left: 10px;
         }
       }
 

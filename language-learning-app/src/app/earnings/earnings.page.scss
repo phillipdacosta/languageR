@@ -670,7 +670,8 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
   position: relative;
   cursor: pointer;
   min-width: 0;
-
+  background: white;
+  text-align: center;
   @media (max-width: 600px) { padding: 14px 12px; }
 
   .stat-label {
@@ -682,7 +683,7 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
   }
 
   .stat-value {
-    font-size: 22px;
+    font-size: 28px;
     font-weight: 600;
     color: $text-primary;
     letter-spacing: -0.5px;

@@ -182,7 +182,7 @@ export default function ProfileScreen() {
   const timezoneLabel = user?.profile?.timezone ? getTimezoneLabel(user.profile.timezone) : 'Auto-detected';
   const timeFormat: '12h' | '24h' = (user?.profile?.calendarTimeFormat as any) || '12h';
   const remindersEnabled = user?.profile?.remindersEnabled !== false;
-  const showWalletBalance = user?.profile?.showWalletBalance || false;
+  const showWalletBalance = user?.profile?.showWalletBalance ?? true;
   const aiAnalysisEnabled = user?.profile?.aiAnalysisEnabled !== false;
   const interfaceLang = user?.interfaceLanguage || 'en';
   const currentLangObj = LANGUAGES.find(l => l.code === interfaceLang) || LANGUAGES[0];

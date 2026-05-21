@@ -15,6 +15,43 @@ const { verifyToken, getUserFromRequest } = require('../middleware/videoUploadMi
 const { generateTrialLessonMessage } = require('../utils/systemMessages');
 const { formatNameWithInitial } = require('../utils/nameFormatter');
 const { pushLessonToGoogleCalendar, removeLessonFromGoogleCalendar, updateLessonOnGoogleCalendar } = require('../services/googleCalendarService');
+const { translateAnalysisFields, translateFeedbackFields } = require('../services/aiService');
+
+/**
+ * Languages the app's UI actually ships translations for. ANY lang code
+ * outside this set is silently coerced to '' (no translation) so a
+ * malicious client can't burn money on bogus codes like `?lang=zz` —
+ * the GPT call never fires and the DB cache stays clean.
+ *
+ * Keep in sync with `language-learning-app/src/assets/i18n/*.json`.
+ */
+const SUPPORTED_PROSE_LANGS = new Set([
+  'en', 'es', 'fr', 'de', 'it', 'pt', 'nl', 'da', 'sv', 'no', 'fi',
+  'pl', 'cs', 'ro', 'el', 'tr', 'ru', 'uk', 'he', 'ar', 'fa', 'hi',
+  'th', 'vi', 'id', 'ms', 'ja', 'ko', 'zh'
+]);
+
+/**
+ * Normalize a locale tag to the canonical short code we cache by
+ * (`pt-BR` → `pt`). Always returns lowercase, empty string for invalid input.
+ */
+function normalizeLangCode(raw) {
+  if (!raw || typeof raw !== 'string') return '';
+  return raw.toLowerCase().split(/[-_]/)[0].trim();
+}
+
+/**
+ * Resolve & validate a prose-translation target language from any source.
+ * Returns '' for English or unsupported codes — callers MUST treat this as
+ * "no translation needed". This is the single chokepoint that prevents
+ * unbounded GPT spend from arbitrary client input.
+ */
+function resolveProseLanguage(raw) {
+  const norm = normalizeLangCode(raw);
+  if (!norm || norm === 'en') return '';
+  return SUPPORTED_PROSE_LANGS.has(norm) ? norm : '';
+}
+
 
 // Helper function to get socket ID by auth0Id
 async function getUserSocketId(auth0Id) {
@@ -1159,7 +1196,10 @@ router.get('/my-lessons', verifyToken, async (req, res) => {
         prevLessonIds.push(prev._id);
       });
 
-      // Load analyses for previous lessons
+      // Load analyses for previous lessons. We do NOT translate inline —
+      // translation is opt-in via the per-card translate button, which
+      // calls POST /api/lessons/:lessonId/translate-context. That endpoint
+      // is rate-limited and validated, so it can't be abused to burn money.
       let prevAnalysisMap = new Map();
       let prevFeedbackMap = new Map();
       if (prevLessonIds.length > 0) {
@@ -1175,7 +1215,6 @@ router.get('/my-lessons', verifyToken, async (req, res) => {
         prevFeedbacks.forEach(f => prevFeedbackMap.set(f.lessonId.toString(), f));
       }
 
-      // Attach lastSessionContext to each upcoming lesson
       for (const l of upcomingLessons) {
         const key = `${l.tutorId?._id || l.tutorId}|${l.studentId?._id || l.studentId}`;
         const prev = prevLessonMap.get(key);
@@ -1203,6 +1242,8 @@ router.get('/my-lessons', verifyToken, async (req, res) => {
           summary: summary ? String(summary).slice(0, 250) : null,
           recommendedFocus: recommendedFocus.slice(0, 3),
           areasForImprovement: areasForImprovement.slice(0, 3),
+          summaryLanguage: 'en',
+          summaryTranslatable: !!pAnalysis || !!pFeedback,
         };
       }
     }
@@ -1217,6 +1258,111 @@ router.get('/my-lessons', verifyToken, async (req, res) => {
       success: false, 
       message: 'Failed to fetch lessons' 
     });
+  }
+});
+
+/**
+ * @route   POST /api/lessons/:lessonId/translate-context
+ * @desc    Translate the previous-session prose (summary, recommendedFocus,
+ *          areasForImprovement) shown under an upcoming lesson card into the
+ *          user's UI language. Opt-in (per-card button) — runs blocking so
+ *          the button can show a spinner. Cached in MongoDB on
+ *          LessonAnalysis.translations / TutorFeedback.translations, so
+ *          every (doc × lang) pair hits GPT at most once.
+ * @access  Private — caller must be the tutor or student on the lesson.
+ */
+router.post('/:lessonId/translate-context', verifyToken, async (req, res) => {
+  try {
+    const { lessonId } = req.params;
+    const targetLanguage = resolveProseLanguage(req.body?.targetLanguage || req.query?.lang);
+    if (!targetLanguage) {
+      return res.status(400).json({ success: false, message: 'Unsupported target language' });
+    }
+
+    const user = await getUserFromRequest(req);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const lesson = await Lesson.findById(lessonId).select('_id tutorId studentId').lean();
+    if (!lesson) {
+      return res.status(404).json({ success: false, message: 'Lesson not found' });
+    }
+
+    const uid = String(user._id);
+    if (String(lesson.tutorId) !== uid && String(lesson.studentId) !== uid) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+
+    // Find the prior completed lesson for this pair (same logic as the list
+    // endpoint above). We translate the prose attached to that prior lesson.
+    const prev = await Lesson.findOne({
+      tutorId: lesson.tutorId,
+      studentId: lesson.studentId,
+      status: { $in: ['completed', 'ended_early'] },
+    })
+      .sort({ startTime: -1 })
+      .select('_id notes')
+      .lean();
+
+    if (!prev) {
+      return res.json({ success: true, hasTranslation: false });
+    }
+
+    // Pull live (non-lean) docs so we can call .save() after translating.
+    const [pAnalysis, pFeedback] = await Promise.all([
+      LessonAnalysis.findOne({ lessonId: prev._id, status: 'completed' }),
+      TutorFeedback.findOne({ lessonId: prev._id, status: 'completed' }),
+    ]);
+
+    let summary = null;
+    let recommendedFocus = [];
+    let areasForImprovement = [];
+
+    if (pAnalysis) {
+      let cached = pAnalysis.translations?.get(targetLanguage);
+      if (!cached) {
+        cached = await translateAnalysisFields(pAnalysis.toObject(), targetLanguage);
+        if (!pAnalysis.translations) pAnalysis.translations = new Map();
+        pAnalysis.translations.set(targetLanguage, cached);
+        await pAnalysis.save();
+      }
+      summary = cached?.summary || pAnalysis.overallAssessment?.summary || null;
+      if (Array.isArray(cached?.recommendedFocus) && cached.recommendedFocus.length) {
+        recommendedFocus = cached.recommendedFocus;
+      }
+    }
+
+    if (pFeedback) {
+      let cached = pFeedback.translations?.get(targetLanguage);
+      const hasProse = !!(pFeedback.overallNotes || (pFeedback.areasForImprovement || []).length);
+      if (!cached && hasProse) {
+        cached = await translateFeedbackFields(pFeedback.toObject(), targetLanguage);
+        if (!pFeedback.translations) pFeedback.translations = new Map();
+        pFeedback.translations.set(targetLanguage, cached);
+        await pFeedback.save();
+      }
+      if (!summary && cached?.overallNotes) summary = cached.overallNotes;
+      if (Array.isArray(cached?.areasForImprovement) && cached.areasForImprovement.length) {
+        areasForImprovement = cached.areasForImprovement;
+      }
+    }
+
+    if (!summary) {
+      summary = prev.notes || null;
+    }
+
+    return res.json({
+      success: true,
+      hasTranslation: true,
+      language: targetLanguage,
+      summary: summary ? String(summary).slice(0, 250) : null,
+      recommendedFocus: (recommendedFocus || []).slice(0, 3),
+      areasForImprovement: (areasForImprovement || []).slice(0, 3),
+    });
+  } catch (error) {
+    console.error('[i18n] /translate-context failed:', error?.message || error);
+    return res.status(500).json({ success: false, message: 'Translation failed' });
   }
 });
 
