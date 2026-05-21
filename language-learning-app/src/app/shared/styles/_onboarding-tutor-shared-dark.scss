@@ -871,6 +871,54 @@
     }
   }
 
+  .onboarding-container--preview.preview-container {
+    background: $ob-dark-canvas;
+  }
+
+  .orb-profile-card {
+    background: $d-surface-2;
+    border-color: $d-border;
+    box-shadow: 0 0 0 1px $d-border, 0 16px 40px rgba(0, 0, 0, 0.45);
+  }
+
+  .orb-profile-name,
+  .orb-setup-heading,
+  .orb-section-label,
+  .orb-kv-val,
+  .orb-setup-list__item,
+  .orb-profile-detail-primary {
+    color: $d-text;
+  }
+
+  .orb-subtitle,
+  .orb-kv-key,
+  .orb-card-note,
+  .orb-profile-detail-secondary {
+    color: $d-text-2;
+  }
+
+  .orb-card-divider,
+  .orb-divider {
+    background: $d-border;
+  }
+
+  .orb-kv {
+    border-bottom-color: $d-border;
+  }
+
+  .orb-edit-link {
+    color: $d-blue;
+
+    &:hover {
+      background: rgba(100, 181, 255, 0.12);
+    }
+  }
+
+  .orb-lang-tag {
+    background: $d-surface-3;
+    color: $d-text;
+  }
+
   // ── Success / congrats overlay ───────────────────────────────────
   .hero-title {
     color: $d-text;

@@ -191,7 +191,7 @@
 <!-- ═══════════════════════════════════════════════════ -->
 <!-- MAIN ONBOARDING (shown after pre-step)             -->
 <!-- ═══════════════════════════════════════════════════ -->
-<ion-header *ngIf="!showWelcome && !showPreview && preStepPhase === 'done'" class="ion-no-border onboarding-wizard-header">
+<ion-header *ngIf="!showWelcome && preStepPhase === 'done'" class="ion-no-border onboarding-wizard-header">
   <ion-toolbar class="onboarding-toolbar">
     <ion-buttons slot="start">
       <div class="app-icon-container">
@@ -212,7 +212,7 @@
       </ion-button>
     </ion-buttons>
   </ion-toolbar>
-  <ion-toolbar class="onboarding-wizard-toolbar">
+  <ion-toolbar class="onboarding-wizard-toolbar" *ngIf="!showPreview">
     <div class="onboarding-wizard-toolbar__inner">
       <div class="cm-details-wizard-page-toolbar cm-details-wizard-page-toolbar--header">
         <p class="cm-details-wizard-page-toolbar-title">{{ 'ONBOARDING.TUTOR_OB.WIZARD_FLOW_TITLE' | translate }}</p>
@@ -524,241 +524,212 @@
   </div>
 </div>
 
-<!-- Preview Page -->
-<div class="preview-container" *ngIf="showPreview && !showWelcome">
-  <nav class="preview-flow-stepper" [attr.aria-label]="'ONBOARDING.TUTOR_OB.PREVIEW_FLOW_REVIEW' | translate">
-    <div
-      *ngFor="let step of tutorPreviewFlowSteps; let i = index"
-      class="preview-flow-step"
-      [class.preview-flow-step--done]="step.done"
-      [class.preview-flow-step--current]="step.current">
-      <span class="preview-flow-step__marker" aria-hidden="true">
-        <ion-icon *ngIf="step.done" name="checkmark"></ion-icon>
-        <span *ngIf="!step.done">{{ i + 1 }}</span>
-      </span>
-      <span class="preview-flow-step__label">{{ step.labelKey | translate }}</span>
-    </div>
-  </nav>
-
-  <div class="preview-layout">
-    <div class="preview-hero-col">
-      <div class="preview-hero-art" aria-hidden="true"></div>
-      <div class="preview-hero-veil" aria-hidden="true"></div>
-      <div class="preview-hero-inner">
-        <h1 class="preview-hero-title">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_TITLE' | translate }}</h1>
-        <p class="preview-hero-subtitle">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_SUBTITLE' | translate }}</p>
-
-        <div class="preview-profile-card">
-          <div class="preview-profile-card__top">
-            <div class="preview-profile-avatar">
-              <ng-container *ngIf="user$ | async as user; else previewAvatarInitials">
+<!-- Preview / Review (wizard shell + footer) -->
+<div class="preview-container onboarding-container onboarding-container--wizard onboarding-container--preview" *ngIf="showPreview && !showWelcome">
+  <div class="onboarding-wizard-card onboarding-wizard-card--preview">
+    <div #wizardViewportScroll class="cm-wizard-viewport-scroll preview-wizard-scroll">
+      <div class="orb-layout">
+        <aside class="orb-sidebar">
+          <div class="orb-profile-card">
+            <div class="orb-profile-avatar">
+              <ng-container *ngIf="user$ | async as user; else orbAvatarInitials">
                 <img *ngIf="user.picture" [src]="user.picture" [alt]="firstName + ' ' + lastName" />
-                <span *ngIf="!user.picture" class="preview-profile-initials">{{ previewProfileInitials }}</span>
+                <span *ngIf="!user.picture" class="orb-profile-initials">{{ previewProfileInitials }}</span>
               </ng-container>
-              <ng-template #previewAvatarInitials>
-                <span class="preview-profile-initials">{{ previewProfileInitials }}</span>
+              <ng-template #orbAvatarInitials>
+                <span class="orb-profile-initials">{{ previewProfileInitials }}</span>
               </ng-template>
             </div>
-            <div class="preview-profile-card__identity">
-              <p class="preview-profile-name">{{ firstName }} {{ lastName }}</p>
-              <span class="preview-role-badge">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_TUTOR_BADGE' | translate }}</span>
-            </div>
-          </div>
-          <div class="preview-profile-meta">
-            <div class="preview-meta-row">
-              <ion-icon name="globe-outline" aria-hidden="true"></ion-icon>
-              <span>{{ countryDisplayLabel }}</span>
-            </div>
-            <div class="preview-meta-row">
-              <ion-icon name="book-outline" aria-hidden="true"></ion-icon>
-              <span>{{ previewSelectedLanguages }}</span>
-            </div>
-            <div class="preview-meta-row">
-              <ion-icon name="cash-outline" aria-hidden="true"></ion-icon>
-              <span>{{ 'ONBOARDING.TUTOR_OB.PREVIEW_HOURLY_RATE' | translate:{ rate: hourlyRate } }}</span>
-            </div>
-          </div>
-        </div>
+            <h2 class="orb-profile-name">{{ firstName }} {{ lastName }}</h2>
+            <p class="orb-profile-role">
+              <span class="orb-role-badge">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_TUTOR_BADGE' | translate }}</span>
+            </p>
 
-        <div class="preview-setup-card">
-          <div class="preview-setup-card__header">
-            <div>
-              <p class="preview-setup-status" [class.preview-setup-status--incomplete]="!tutorProfileComplete">
-                {{ (tutorProfileComplete ? 'ONBOARDING.TUTOR_OB.PREVIEW_SETUP_STATUS' : 'ONBOARDING.TUTOR_OB.PREVIEW_SETUP_STATUS_INCOMPLETE') | translate }}
-              </p>
-              <p class="preview-setup-heading">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_SETUP_HEADING' | translate }}</p>
-            </div>
-            <div class="preview-setup-progress" aria-hidden="true">
-              <svg viewBox="0 0 36 36">
-                <circle class="preview-setup-progress__track" cx="18" cy="18" r="15.5"></circle>
-                <circle
-                  class="preview-setup-progress__fill"
-                  [class.preview-setup-progress__fill--incomplete]="!tutorProfileComplete"
-                  cx="18"
-                  cy="18"
-                  r="15.5"
-                  stroke-dasharray="97.4 97.4"
-                  [attr.stroke-dashoffset]="tutorPreviewProgressOffset"></circle>
-              </svg>
-              <div class="preview-setup-progress__label">
-                <strong>{{ tutorPreviewProgressPercent }}%</strong>
-                <span>{{ (tutorProfileComplete ? 'ONBOARDING.TUTOR_OB.PREVIEW_PROGRESS_ALL_SET' : 'ONBOARDING.TUTOR_OB.PREVIEW_PROGRESS_INCOMPLETE') | translate }}</span>
+            <div class="orb-profile-details">
+              <div class="orb-profile-detail">
+                <ion-icon name="globe-outline" aria-hidden="true"></ion-icon>
+                <div>
+                  <span class="orb-profile-detail-primary">{{ countryDisplayLabel }}</span>
+                  <span class="orb-profile-detail-secondary">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_FROM' | translate }}</span>
+                </div>
+              </div>
+              <div class="orb-profile-detail">
+                <ion-icon name="book-outline" aria-hidden="true"></ion-icon>
+                <div>
+                  <span class="orb-profile-detail-primary">{{ previewSelectedLanguages }}</span>
+                  <span class="orb-profile-detail-secondary">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_TEACHES' | translate }}</span>
+                </div>
+              </div>
+              <div class="orb-profile-detail">
+                <ion-icon name="cash-outline" aria-hidden="true"></ion-icon>
+                <div>
+                  <span class="orb-profile-detail-primary">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_HOURLY_RATE' | translate:{ rate: hourlyRate } }}</span>
+                </div>
               </div>
             </div>
-          </div>
-          <ul class="preview-setup-list">
-            <li class="preview-setup-list__item"
+
+            <div class="orb-card-divider"></div>
+
+            <div class="orb-setup-head">
+              <div class="orb-setup-head-text">
+                <p class="orb-setup-status" [class.orb-setup-status--incomplete]="!tutorProfileComplete">
+                  {{ (tutorProfileComplete ? 'ONBOARDING.TUTOR_OB.PREVIEW_SETUP_STATUS' : 'ONBOARDING.TUTOR_OB.PREVIEW_SETUP_STATUS_INCOMPLETE') | translate }}
+                </p>
+                <p class="orb-setup-heading">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_SETUP_HEADING' | translate }}</p>
+              </div>
+              <div class="orb-setup-progress" aria-hidden="true">
+                <svg viewBox="0 0 36 36">
+                  <circle class="orb-setup-progress__track" cx="18" cy="18" r="15.5"></circle>
+                  <circle
+                    class="orb-setup-progress__fill"
+                    [class.orb-setup-progress__fill--incomplete]="!tutorProfileComplete"
+                    cx="18"
+                    cy="18"
+                    r="15.5"
+                    stroke-dasharray="97.4 97.4"
+                    [attr.stroke-dashoffset]="tutorPreviewProgressOffset"></circle>
+                </svg>
+                <div class="orb-setup-progress__label">
+                  <strong>{{ tutorPreviewProgressPercent }}%</strong>
+                </div>
+              </div>
+            </div>
+            <ul class="orb-setup-list">
+              <li
+                class="orb-setup-list__item"
                 *ngFor="let item of tutorPreviewChecklistStatus"
-                [class.preview-setup-list__item--incomplete]="!item.complete">
-              <ion-icon [name]="item.complete ? 'checkmark-circle' : 'alert-circle'" aria-hidden="true"></ion-icon>
-              <span>{{ item.key | translate }}</span>
-            </li>
-          </ul>
-        </div>
+                [class.orb-setup-list__item--incomplete]="!item.complete">
+                <ion-icon [name]="item.complete ? 'checkmark-circle' : 'alert-circle'" aria-hidden="true"></ion-icon>
+                <span>{{ item.key | translate }}</span>
+              </li>
+            </ul>
 
-        <div class="preview-hero-actions">
-          <ion-button
-            expand="block"
-            class="submit-action"
-            [disabled]="isSubmitting || !tutorProfileComplete"
-            (click)="completeOnboarding()">
-            <ion-spinner *ngIf="isSubmitting" name="crescent" class="btn-spinner"></ion-spinner>
-            <span *ngIf="!isSubmitting">{{ 'ONBOARDING.NAV.COMPLETE_SETUP' | translate }}</span>
-            <ion-icon *ngIf="!isSubmitting" name="sparkles-outline" slot="end"></ion-icon>
-          </ion-button>
-          <button type="button" class="preview-back-btn" (click)="goBackToEdit()">
-            <ion-icon name="chevron-back-outline" aria-hidden="true"></ion-icon>
-            {{ 'ONBOARDING.NAV.GO_BACK' | translate }}
-          </button>
-        </div>
+            <p class="orb-card-note">
+              <ion-icon name="shield-checkmark-outline" aria-hidden="true"></ion-icon>
+              <span>{{ 'ONBOARDING.TUTOR_OB.PREVIEW_EDIT_LATER_NOTE' | translate }}</span>
+            </p>
+          </div>
+        </aside>
 
-        <p class="preview-footer-note">
-          <ion-icon name="shield-checkmark-outline" aria-hidden="true"></ion-icon>
-          <span>{{ 'ONBOARDING.TUTOR_OB.PREVIEW_EDIT_LATER_NOTE' | translate }}</span>
-        </p>
+        <main class="orb-main">
+          <h1 class="orb-title">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_TITLE' | translate }}</h1>
+          <p class="orb-subtitle">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_SUBTITLE' | translate }}</p>
+
+          <div class="orb-divider"></div>
+          <section class="orb-row">
+            <div class="orb-section-head">
+              <h2 class="orb-section-label">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_BASIC_INFO' | translate }}</h2>
+              <button type="button" class="orb-edit-link" (click)="goBackToEdit(1)">
+                <ion-icon name="create-outline" aria-hidden="true"></ion-icon>
+                {{ 'ONBOARDING.NAV.EDIT' | translate }}
+              </button>
+            </div>
+            <div class="orb-kv">
+              <span class="orb-kv-key">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_NAME' | translate }}</span>
+              <span class="orb-kv-val">{{ firstName }} {{ lastName }}</span>
+            </div>
+            <div class="orb-kv">
+              <span class="orb-kv-key">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_FROM' | translate }}</span>
+              <span class="orb-kv-val">{{ countryDisplayLabel }}</span>
+            </div>
+            <div class="orb-kv">
+              <span class="orb-kv-key">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_RESIDES' | translate }}</span>
+              <span class="orb-kv-val">{{ residenceCountryDisplayLabel }}</span>
+            </div>
+          </section>
+
+          <div class="orb-divider"></div>
+          <section class="orb-row">
+            <div class="orb-section-head">
+              <h2 class="orb-section-label">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_TEACHING' | translate }}</h2>
+              <button type="button" class="orb-edit-link" (click)="goBackToEdit(4)">
+                <ion-icon name="create-outline" aria-hidden="true"></ion-icon>
+                {{ 'ONBOARDING.NAV.EDIT' | translate }}
+              </button>
+            </div>
+            <div class="orb-kv">
+              <span class="orb-kv-key">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_NATIVE_LANG' | translate }}</span>
+              <span class="orb-kv-val">{{ previewNativeLanguageName }}</span>
+            </div>
+            <div class="orb-kv" *ngIf="previewSpokenLanguages.length > 0">
+              <span class="orb-kv-key">{{ 'ONBOARDING.PREVIEW_ALSO_SPEAKS' | translate }}</span>
+              <span class="orb-kv-val orb-kv-val--tags">
+                <span class="orb-lang-tag" *ngFor="let sl of previewSpokenLanguages">
+                  {{ sl.name }} <span class="orb-lang-cefr">{{ sl.level }}</span>
+                </span>
+              </span>
+            </div>
+            <div class="orb-kv">
+              <span class="orb-kv-key">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_TEACHES' | translate }}</span>
+              <span class="orb-kv-val">{{ previewSelectedLanguages }}</span>
+            </div>
+            <div class="orb-kv">
+              <span class="orb-kv-key">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_EXPERIENCE' | translate }}</span>
+              <span class="orb-kv-val">{{ translatedExperience }}</span>
+            </div>
+          </section>
+
+          <div class="orb-divider"></div>
+          <section class="orb-row">
+            <div class="orb-section-head">
+              <h2 class="orb-section-label">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_PROFILE' | translate }}</h2>
+              <button type="button" class="orb-edit-link" (click)="goBackToEdit(10)">
+                <ion-icon name="create-outline" aria-hidden="true"></ion-icon>
+                {{ 'ONBOARDING.NAV.EDIT' | translate }}
+              </button>
+            </div>
+            <div class="orb-kv orb-kv--stacked" *ngIf="profileSummary">
+              <span class="orb-kv-key">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_SUMMARY' | translate }}</span>
+              <span class="orb-kv-val orb-kv-val--block">{{ profileSummary }}</span>
+            </div>
+            <div class="orb-kv orb-kv--stacked">
+              <span class="orb-kv-key">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_BIO' | translate }}</span>
+              <span class="orb-kv-val orb-kv-val--block">{{ profileBio }}</span>
+            </div>
+            <div class="orb-kv">
+              <span class="orb-kv-key">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_RATE' | translate }}</span>
+              <span class="orb-kv-val">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_HOURLY_RATE' | translate:{ rate: hourlyRate } }}</span>
+            </div>
+          </section>
+
+          <div class="orb-divider"></div>
+          <section class="orb-row">
+            <div class="orb-section-head">
+              <h2 class="orb-section-label">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_AVAILABILITY' | translate }}</h2>
+              <button type="button" class="orb-edit-link" (click)="goBackToEdit(9)">
+                <ion-icon name="create-outline" aria-hidden="true"></ion-icon>
+                {{ 'ONBOARDING.NAV.EDIT' | translate }}
+              </button>
+            </div>
+            <div class="orb-kv">
+              <span class="orb-kv-key">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_SCHEDULE_LABEL' | translate }}</span>
+              <span class="orb-kv-val">{{ translatedSchedule }}</span>
+            </div>
+            <div class="orb-kv" *ngIf="previewTimezoneLabel">
+              <span class="orb-kv-key">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_TIMEZONE' | translate }}</span>
+              <span class="orb-kv-val">{{ previewTimezoneLabel }}</span>
+            </div>
+          </section>
+        </main>
       </div>
     </div>
 
-    <div class="preview-details-col">
-      <div class="preview-detail-card">
-        <div class="preview-detail-header">
-          <div class="preview-detail-icon">
-            <ion-icon name="person-outline"></ion-icon>
-          </div>
-          <div class="preview-detail-header__text">
-            <h3>{{ 'ONBOARDING.TUTOR_OB.PREVIEW_BASIC_INFO' | translate }}</h3>
-          </div>
-          <button type="button" class="edit-link" (click)="goBackToEdit(1)">
-            <ion-icon name="create-outline" aria-hidden="true"></ion-icon>
-            {{ 'ONBOARDING.NAV.EDIT' | translate }}
-          </button>
-        </div>
-        <div class="preview-detail-rows">
-          <div class="preview-detail-row">
-            <span class="detail-label">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_NAME' | translate }}</span>
-            <span class="detail-value">{{ firstName }} {{ lastName }}</span>
-          </div>
-          <div class="preview-detail-row">
-            <span class="detail-label">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_FROM' | translate }}</span>
-            <span class="detail-value">{{ countryDisplayLabel }}</span>
-          </div>
-          <div class="preview-detail-row">
-            <span class="detail-label">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_RESIDES' | translate }}</span>
-            <span class="detail-value">{{ residenceCountryDisplayLabel }}</span>
-          </div>
-        </div>
+    <div class="cm-wizard-viewport-footer" role="navigation" [attr.aria-label]="'ONBOARDING.WIZARD_FOOTER_NAV_A11Y' | translate">
+      <div class="cm-wizard-viewport-footer__start">
+        <button type="button" class="cm-wizard-viewport-footer__back" (click)="goBackToEdit()">
+          {{ 'ONBOARDING.NAV.GO_BACK' | translate }}
+        </button>
       </div>
-
-      <div class="preview-detail-card">
-        <div class="preview-detail-header">
-          <div class="preview-detail-icon">
-            <ion-icon name="school-outline"></ion-icon>
-          </div>
-          <div class="preview-detail-header__text">
-            <h3>{{ 'ONBOARDING.TUTOR_OB.PREVIEW_TEACHING' | translate }}</h3>
-          </div>
-          <button type="button" class="edit-link" (click)="goBackToEdit(4)">
-            <ion-icon name="create-outline" aria-hidden="true"></ion-icon>
-            {{ 'ONBOARDING.NAV.EDIT' | translate }}
-          </button>
-        </div>
-        <div class="preview-detail-rows">
-          <div class="preview-detail-row">
-            <span class="detail-label">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_NATIVE_LANG' | translate }}</span>
-            <span class="detail-value">{{ previewNativeLanguageName }}</span>
-          </div>
-          <div class="preview-detail-row" *ngIf="previewSpokenLanguages.length > 0">
-            <span class="detail-label">{{ 'ONBOARDING.PREVIEW_ALSO_SPEAKS' | translate }}</span>
-            <div class="detail-value spoken-langs-preview">
-              <span class="spoken-lang-tag" *ngFor="let sl of previewSpokenLanguages">
-                {{ sl.name }} <span class="spoken-lang-cefr">{{ sl.level }}</span>
-              </span>
-            </div>
-          </div>
-          <div class="preview-detail-row">
-            <span class="detail-label">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_TEACHES' | translate }}</span>
-            <span class="detail-value">{{ previewSelectedLanguages }}</span>
-          </div>
-          <div class="preview-detail-row">
-            <span class="detail-label">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_EXPERIENCE' | translate }}</span>
-            <span class="detail-value">{{ translatedExperience }}</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="preview-detail-card">
-        <div class="preview-detail-header">
-          <div class="preview-detail-icon">
-            <ion-icon name="document-text-outline"></ion-icon>
-          </div>
-          <div class="preview-detail-header__text">
-            <h3>{{ 'ONBOARDING.TUTOR_OB.PREVIEW_PROFILE' | translate }}</h3>
-          </div>
-          <button type="button" class="edit-link" (click)="goBackToEdit(10)">
-            <ion-icon name="create-outline" aria-hidden="true"></ion-icon>
-            {{ 'ONBOARDING.NAV.EDIT' | translate }}
-          </button>
-        </div>
-        <div class="preview-detail-rows">
-          <div class="preview-detail-row" *ngIf="profileSummary">
-            <span class="detail-label">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_SUMMARY' | translate }}</span>
-            <span class="detail-value">{{ profileSummary }}</span>
-          </div>
-          <div class="preview-detail-row">
-            <span class="detail-label">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_BIO' | translate }}</span>
-            <span class="detail-value">{{ profileBio }}</span>
-          </div>
-          <div class="preview-detail-row">
-            <span class="detail-label">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_RATE' | translate }}</span>
-            <span class="detail-value">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_HOURLY_RATE' | translate:{ rate: hourlyRate } }}</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="preview-detail-card">
-        <div class="preview-detail-header">
-          <div class="preview-detail-icon">
-            <ion-icon name="calendar-outline"></ion-icon>
-          </div>
-          <div class="preview-detail-header__text">
-            <h3>{{ 'ONBOARDING.TUTOR_OB.PREVIEW_AVAILABILITY' | translate }}</h3>
-          </div>
-          <button type="button" class="edit-link" (click)="goBackToEdit(9)">
-            <ion-icon name="create-outline" aria-hidden="true"></ion-icon>
-            {{ 'ONBOARDING.NAV.EDIT' | translate }}
-          </button>
-        </div>
-        <div class="preview-detail-rows">
-          <div class="preview-detail-row">
-            <span class="detail-label">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_SCHEDULE_LABEL' | translate }}</span>
-            <span class="detail-value">{{ translatedSchedule }}</span>
-          </div>
-          <div class="preview-detail-row" *ngIf="previewTimezoneLabel">
-            <span class="detail-label">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_TIMEZONE' | translate }}</span>
-            <span class="detail-value">{{ previewTimezoneLabel }}</span>
-          </div>
-        </div>
-      </div>
+      <div class="cm-wizard-viewport-footer__spacer"></div>
+      <button
+        type="button"
+        class="cm-wizard-viewport-footer__primary"
+        [disabled]="isSubmitting || !tutorProfileComplete"
+        (click)="completeOnboarding()">
+        <ion-spinner *ngIf="isSubmitting" name="crescent" class="btn-spinner"></ion-spinner>
+        <span *ngIf="!isSubmitting">{{ 'ONBOARDING.NAV.COMPLETE_SETUP' | translate }}</span>
+        <ion-icon *ngIf="!isSubmitting" name="checkmark" aria-hidden="true"></ion-icon>
+      </button>
     </div>
   </div>
 </div>

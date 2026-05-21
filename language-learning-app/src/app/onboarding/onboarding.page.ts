@@ -41,7 +41,7 @@ export type StudentTimelineCardOption = { value: string; labelKey: string; icon:
 export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   @HostBinding('class.onboarding-page--wizard-main')
   get onboardingPageWizardMainActive(): boolean {
-    return !this.showWelcome && !this.showPreview && this.preStepPhase === 'done';
+    return !this.showWelcome && this.preStepPhase === 'done';
   }
 
   user$: Observable<any>;
@@ -71,6 +71,7 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   showWelcome = false;
   isSubmitting = false;
   hasReachedPreview = false;
+  previewProfileInitials = '';
 
   // ViewChild references for autofocus
   @ViewChild('firstNameInput') firstNameInput?: ElementRef<HTMLInputElement>;
@@ -1175,6 +1176,10 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
         }
       }
     }
+
+    const firstInitial = (this.firstName?.trim().charAt(0) || '').toUpperCase();
+    const lastInitial = (this.lastName?.trim().charAt(0) || '').toUpperCase();
+    this.previewProfileInitials = (firstInitial + lastInitial) || '?';
   }
 
   // Tutor-specific methods
@@ -1231,9 +1236,9 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     this.hasReachedPreview = true;
     // Scroll to top when preview page is shown
     setTimeout(() => {
-      const previewContainer = document.querySelector('.preview-container');
-      if (previewContainer) {
-        previewContainer.scrollTop = 0;
+      const scrollEl = document.querySelector('.preview-wizard-scroll');
+      if (scrollEl instanceof HTMLElement) {
+        scrollEl.scrollTop = 0;
       }
       window.scrollTo(0, 0);
     }, 0);
@@ -1527,6 +1532,42 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
         this.selfAssessedLevel !== '' &&
         this.goalTimeline !== '');
     return nameOk && nativeLangOk && learnLangOk && goalOk;
+  }
+
+  get studentPreviewChecklistStatus(): Array<{ key: string; complete: boolean }> {
+    const goalsComplete =
+      this.skipGoalSetup ||
+      (!!this.learningGoalType &&
+        (this.learningGoalType !== 'other' || this.learningGoalDescription.trim() !== '') &&
+        this.selfAssessedLevel !== '' &&
+        this.goalTimeline !== '');
+    return [
+      {
+        key: 'ONBOARDING.STUDENT.PREVIEW_CHECKLIST_ABOUT',
+        complete:
+          this.firstName.trim() !== '' &&
+          this.lastName.trim() !== '' &&
+          this.nativeLanguage !== '',
+      },
+      {
+        key: 'ONBOARDING.STUDENT.PREVIEW_CHECKLIST_LEARNING',
+        complete: this.selectedLanguages.length > 0,
+      },
+      {
+        key: 'ONBOARDING.STUDENT.PREVIEW_CHECKLIST_GOALS',
+        complete: goalsComplete,
+      },
+    ];
+  }
+
+  get studentPreviewProgressPercent(): number {
+    const items = this.studentPreviewChecklistStatus;
+    const done = items.filter(i => i.complete).length;
+    return Math.round((done / items.length) * 100);
+  }
+
+  get studentPreviewProgressOffset(): number {
+    return 97.4 - (97.4 * this.studentPreviewProgressPercent) / 100;
   }
 
   navigateToHome() {

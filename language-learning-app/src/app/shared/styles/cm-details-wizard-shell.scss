@@ -556,6 +556,12 @@ ion-header.onboarding-wizard-header {
     font-size: 18px;
   }
 
+  .btn-spinner {
+    width: 18px;
+    height: 18px;
+    margin-right: 2px;
+  }
+
   &:hover:not(:disabled) {
     background: #333;
   }
