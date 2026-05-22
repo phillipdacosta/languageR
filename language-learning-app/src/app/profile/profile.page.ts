@@ -50,7 +50,7 @@ export class ProfilePage implements OnInit {
   hasPendingVideo = false; // Track if tutor has a pending video under review
   isDarkMode$: Observable<boolean>;
   remindersEnabled: boolean = true;
-  showWalletBalance: boolean = false;
+  showWalletBalance: boolean = true;
   aiAnalysisEnabled: boolean = true;
   timeFormat: '12h' | '24h' = '12h';
   
@@ -331,7 +331,7 @@ export class ProfilePage implements OnInit {
       }
       
       this.remindersEnabled = user?.profile?.remindersEnabled !== false;
-      this.showWalletBalance = user?.profile?.showWalletBalance || false;
+      this.showWalletBalance = user?.profile?.showWalletBalance ?? true;
       this.aiAnalysisEnabled = user?.profile?.aiAnalysisEnabled !== false;
       this.timeFormat = user?.profile?.calendarTimeFormat || '12h';
       

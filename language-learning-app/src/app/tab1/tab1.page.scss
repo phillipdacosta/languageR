@@ -2942,12 +2942,25 @@ ion-content {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   text-align: center;
-  padding: 65px 32px;
+  padding: 28px 32px;
   background: #ffffff;
   border-radius: 20px;
   border: $lesson-card-home-border;
   box-shadow: $lesson-card-home-shadow;
+  // Hold the empty and filled Up Next cards to the exact same overall height
+  // so switching between "no lesson scheduled" and "lesson booked" never
+  // changes the card size. Filled content is line-clamped to fit this budget.
+  // Override the desktop `.grid-cell-upnext` flex chain (`flex: 1 1 auto`)
+  // that would otherwise stretch this box to the earnings column's height.
+  height: 360px;
+  min-height: 360px;
+  max-height: 360px;
+  flex: 0 0 360px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 
   @media (max-width: 600px) {
     padding: 20px 16px;
@@ -2955,6 +2968,11 @@ ion-content {
     background: #ffffff;
     border: $lesson-card-home-border;
     box-shadow: $lesson-card-home-shadow;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    flex: 0 0 auto;
+    overflow: visible;
   }
 }
 
@@ -3215,6 +3233,13 @@ ion-content {
   display: flex; align-items: center; justify-content: center;
   ion-icon { font-size: 24px; color: #b0b0b0; }
 }
+.m-filled-avatar-badge {
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  z-index: 2;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+}
 .m-filled-class-cover-wrap {
   width: 120px;
   height: 76px;
@@ -3302,6 +3327,28 @@ ion-content {
   max-width: 260px;
   position: relative;
     bottom: 20px;
+}
+
+// Mobile Up Next tagline (replaces the language-flag meta row). Clamped to
+// 2 lines so the filled card stays the same height when there is or isn't a
+// last-session summary to show.
+.m-upnext-tagline {
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  margin: 0 !important;
+  line-height: 1.4;
+  letter-spacing: -0.1px;
+  max-width: 280px;
+  text-align: center;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: static !important;
+  bottom: auto !important;
 }
 
 // Mobile tutor Up Next: date · time · flag + subject (matches desktop upnext-filled-meta)
@@ -3619,9 +3666,11 @@ img.m-card-empty-link-arrow-img {
 // =============================================
 .upnext-filled {
   position: relative;
-  padding: 24px 32px 24px !important;
+  padding: 20px 24px 18px !important;
+  gap: 10px;
 
-  // Badges row — positioned absolutely so it doesn't push content down
+  // Reschedule status badges only — Trial moved next to the name.
+  // Absolutely positioned so it doesn't steal vertical room from the card.
   .upnext-filled-badges {
     position: absolute;
     top: 12px;
@@ -3635,6 +3684,129 @@ img.m-card-empty-link-arrow-img {
       display: none;
     }
   }
+}
+
+// Title block: name + inline TRIAL pill on the same line, then a 2-line
+// clamped tagline below — height-stable whether or not the tagline is set.
+.upnext-filled-text {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+}
+
+.upnext-filled-name-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  max-width: 100%;
+
+  h3 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1d1d1f;
+    margin: 0;
+    letter-spacing: -0.3px;
+    line-height: 1.2;
+  }
+}
+
+// Inline "Trial lesson" chip — orange Airbnb-style pill sitting next to the
+// name, replacing the avatar-corner badge approach. Overrides the global
+// `.badge-inline.badge-trial` defaults (uppercase tracking, top margin).
+.upnext-filled-trial-pill.badge-inline.badge-trial {
+  margin-top: 0;
+  padding: 3px 8px;
+  gap: 4px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ff9b4a 0%, #ff7a2e 100%);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  line-height: 1;
+  box-shadow: 0 1px 4px rgba(255, 140, 66, 0.22);
+
+  ion-icon {
+    font-size: 10px;
+    color: #ffffff;
+  }
+}
+
+// Tagline row: holds the tagline + an opt-in "Translate" / "Show original"
+// toggle. The button stays small and inline so the row reads as one unit
+// and the card height stays constant whether the button is visible or not.
+.upnext-filled-tagline-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+}
+
+.upnext-filled-translate-btn,
+.m-upnext-translate-btn {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 2px 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #4a90d9;
+  letter-spacing: -0.05px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  ion-icon {
+    font-size: 13px;
+  }
+
+  &:hover:not([disabled]) {
+    background: rgba(74, 144, 217, 0.08);
+    color: #2d6db6;
+  }
+
+  &[disabled] {
+    opacity: 0.6;
+    cursor: default;
+  }
+}
+
+.m-upnext-tagline-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+}
+
+// Tagline (lesson description). Kept to a strict 2-line block so the card
+// height never grows with longer summaries — text just ellipsizes.
+.upnext-filled-tagline {
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.45;
+  max-width: 420px;
+  letter-spacing: -0.1px;
+  text-align: center;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  height: calc(14px * 1.45 * 2);
 }
 .earnings-amount-text {
 position: relative;
@@ -3683,11 +3855,11 @@ right: 26px;
 
 // Avatar — replaces the calendar icon, same position & sizing
 .upnext-filled-avatar {
-  width: 88px;
-  height: 88px;
-  border-radius: 22px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
   overflow: hidden;
-  margin-bottom: 4px;
+  margin-bottom: 0;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
   flex-shrink: 0;
 
@@ -3698,7 +3870,7 @@ right: 26px;
   }
 
   .avatar-placeholder {
-    font-size: 32px;
+    font-size: 28px;
     color: #b0b0b0;
     width: 100%;
     height: 100%;
@@ -3709,35 +3881,10 @@ right: 26px;
   }
 
   @media (max-width: 600px) {
-    width: 72px;
-    height: 72px;
-    border-radius: 20px;
-    margin-bottom: 4px;
-  }
-}
-
-// Title block sits directly under the avatar with minimal margin so the
-// avatar/name/subject reads as a single hero unit. Schedule tray is a
-// sibling of this block, gap is governed by the parent card's `gap: 12px`.
-.upnext-filled-text {
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-
-  h3 {
-    font-size: 26px;
-    font-weight: 700;
-    color: #1d1d1f;
-    margin: 0;
-    letter-spacing: -0.4px;
-    line-height: 1.2;
-
-    @media (max-width: 600px) {
-      font-size: 22px;
-      letter-spacing: -0.3px;
-    }
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    margin-bottom: 0;
   }
 }
 
@@ -3788,24 +3935,81 @@ right: 26px;
   }
 }
 
-// Schedule tray — soft surface that groups the date tile with the time + duration.
-// Replaces `.upnext-filled-date-badge`; goal is to give the time/place block real
-// presence so the card no longer reads as four small floating items above the CTA.
+// Schedule tray — soft 3-column surface: date · time/duration · status.
+// Vertical dividers separate sections; status column shows a countdown chip
+// and a small hint, mirroring the design reference. Keeps fixed height.
 .upnext-filled-schedule {
-  display: inline-flex;
+  display: flex;
   flex-direction: row;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
-  gap: 14px;
-  padding: 12px 18px 12px 12px;
-  background: #f7f7f9;
-  border-radius: 16px;
-  margin: 4px auto 0;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.04);
+  gap: 0;
+  padding: 6px 10px;
+  background: #fafafa;
+  border-radius: 12px;
+  margin: 0 auto;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+  width: 100%;
+  max-width: 420px;
+  box-sizing: border-box;
+  min-height: 52px;
 
   .tw-date-badge {
     flex-shrink: 0;
+    width: 44px;
+    height: 46px;
+    border-radius: 10px;
   }
+
+  .tw-date-badge__month {
+    font-size: 8px;
+  }
+
+  .tw-date-badge__day {
+    font-size: 18px;
+  }
+
+  .tw-date-badge__weekday {
+    font-size: 8px;
+  }
+}
+
+.upnext-filled-schedule-col {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 10px;
+  min-width: 0;
+
+  &--date {
+    flex: 0 0 auto;
+  }
+
+  &--time {
+    flex: 1 1 auto;
+  }
+
+  &--status {
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+}
+
+.upnext-filled-schedule-divider {
+  width: 1px;
+  background: rgba(0, 0, 0, 0.08);
+  align-self: stretch;
+  margin: 2px 0;
+}
+
+.upnext-filled-schedule-icon {
+  font-size: 15px;
+  color: #8e8e93;
+  flex-shrink: 0;
 }
 
 .upnext-filled-schedule-info {
@@ -3817,44 +4021,129 @@ right: 26px;
 }
 
 .upnext-filled-schedule-time {
-  font-size: 17px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 700;
   color: #1d1d1f;
   letter-spacing: -0.2px;
-  line-height: 1.2;
+  line-height: 1.15;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
   white-space: nowrap;
 
   @media (max-width: 600px) {
-    font-size: 16px;
+    font-size: 13px;
   }
 }
 
 .upnext-filled-schedule-duration {
-  font-size: 10px;
-  font-weight: 500;
+  font-size: 9px;
+  font-weight: 600;
   color: #8e8e93;
-  letter-spacing: 0.02em;
-  line-height: 1.2;
+  letter-spacing: 0.04em;
+  line-height: 1.15;
   text-transform: uppercase;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
 }
 
-// Countdown — subtle, below meta.
-// `position: relative; top:` adds visual space above without affecting flow (so card height is unchanged).
-// The offset is capped at the parent's margin-bottom (12px) to avoid overlapping the Join button.
-.upnext-filled-countdown {
-  font-size: 13px;
-  font-weight: 500;
-  color: #b0b0b0;
-  margin: 0;
-  letter-spacing: 0.4px; // was 0.2px — label-like tracking, feels less cramped
-  text-transform: uppercase;
-  position: relative;
-  top: 12px;
-  @media (max-width: 600px) {
-    font-size: 12px;
+// Status chip — rounded pill with optional state dot. Variants drive only
+// color/background; dimensions stay constant so the schedule pill height is
+// stable across "Starts in 5m" vs "Live now" vs "Starts in 2h 30m".
+.upnext-filled-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: -0.1px;
+  line-height: 1;
+  white-space: nowrap;
+  background: #f1f1f3;
+  color: #3c3c43;
+
+  &--ready,
+  &--live {
+    background: #e7f6ec;
+    color: #137a3a;
   }
+
+  &--soon {
+    background: #fff4e0;
+    color: #a45a00;
+  }
+}
+
+.upnext-filled-status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+
+  .upnext-filled-status-chip--live & {
+    animation: pulse-dot 1.4s ease-in-out infinite;
+  }
+}
+
+.upnext-filled-status-hint {
+  font-size: 9px;
+  font-weight: 500;
+  color: #8e8e93;
+  letter-spacing: -0.05px;
+  line-height: 1.15;
+  text-align: center;
+}
+
+// Legacy countdown line — kept for backward compatibility but hidden in the
+// new layout (status is now shown inline in the schedule pill).
+.upnext-filled-countdown {
+  display: none;
+}
+
+// Footer below the CTA: bell + "We'll notify you when the lesson starts".
+// Acts as a height-stable closer for the card.
+.upnext-filled-footer {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #8e8e93;
+  letter-spacing: -0.05px;
+
+  ion-icon {
+    font-size: 14px;
+    color: #b0b0b0;
+  }
+
+  .upnext-filled-footer-link {
+    appearance: none;
+    background: none;
+    border: 0;
+    padding: 0;
+    color: #3c3c43;
+    font: inherit;
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-color: rgba(0, 0, 0, 0.18);
+    text-underline-offset: 2px;
+
+    &:hover {
+      color: #1d1d1f;
+      text-decoration-color: rgba(0, 0, 0, 0.4);
+    }
+  }
+}
+
+.upnext-filled-actions-label {
+  font-weight: 600;
+}
+
+.upnext-filled-actions-arrow {
+  font-size: 16px;
+  margin-left: 6px;
 }
 
 // Actions — wraps the join button
@@ -3883,15 +4172,15 @@ right: 26px;
 }
 
 .upnext-filled-actions {
-  margin-top: 4px;
+  margin-top: 2px;
   width: 100%;
   max-width: 320px;
 
   .empty-state-clean-btn {
     width: 100%;
     margin-inline: 0;
-    height: 52px;
-    --border-radius: 14px;
+    height: 46px;
+    --border-radius: 12px;
     font-size: 15px;
     font-weight: 600;
     letter-spacing: -0.1px;
@@ -8451,7 +8740,7 @@ right: 26px;
     &.upnext-filled {
       justify-content: center;
       padding: 24px;
-      gap: 12px;
+      gap: 23px;
 
       @media (max-width: 600px) {
         flex: none;
@@ -9121,12 +9410,66 @@ right: 26px;
     display: flex;
     flex-direction: column;
     gap: 4px;
+    min-width: 0;
+    width: 100%;
+    flex-shrink: 0;
+    box-sizing: border-box;
 
     .earnings-goal__head {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 8px;
+      flex-shrink: 0;
+      min-height: 26px;
+    }
+
+    // Fixed rows: amount/edit share row 1, bar row 2, sub row 3 — same geometry in
+    // masked, visible, and edit modes so $ and progress never jump.
+    .earnings-goal__body {
+      display: grid;
+      width: 100%;
+      min-width: 0;
+      flex-shrink: 0;
+      grid-template-columns: 1fr;
+      grid-template-rows: 32px 8px minmax(16px, auto);
+      gap: 4px;
+      align-items: center;
+    }
+
+    .earnings-goal__amount,
+    .earnings-goal__edit {
+      grid-row: 1;
+      grid-column: 1;
+      align-self: center;
+      min-width: 0;
+    }
+
+    .earnings-goal__amount {
+      display: flex;
+      align-items: center;
+      margin-top: 0;
+      min-height: 32px;
+    }
+
+    .earnings-goal__pane--hidden {
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .earnings-goal__edit.earnings-goal__pane--hidden {
+      display: none;
+    }
+
+    .earnings-goal__bar {
+      grid-row: 2;
+      grid-column: 1;
+    }
+
+    .earnings-goal__sub {
+      grid-row: 3;
+      grid-column: 1;
+      align-self: start;
     }
 
     // Sentence-case, matches .earnings-label / .pending-label voice.
@@ -9143,6 +9486,7 @@ right: 26px;
       border: none;
       width: 26px;
       height: 26px;
+      flex-shrink: 0;
       border-radius: 8px;
       display: inline-flex;
       align-items: center;
@@ -9155,9 +9499,14 @@ right: 26px;
 
       ion-icon { font-size: 15px; }
 
-      &:hover {
+      &:hover:not(.earnings-goal__edit-btn--hidden) {
         background: #f3f4f6;
         color: #1f2937;
+      }
+
+      &.earnings-goal__edit-btn--hidden {
+        visibility: hidden;
+        pointer-events: none;
       }
     }
 
@@ -9168,7 +9517,6 @@ right: 26px;
       letter-spacing: -0.3px;
       line-height: 1.1;
       font-variant-numeric: tabular-nums;
-      margin-top: -2px;
     }
 
     .earnings-goal__amount-masked {
@@ -9226,6 +9574,8 @@ right: 26px;
       letter-spacing: 0;
       font-variant-numeric: tabular-nums;
       margin-top: 2px;
+      min-height: 16px;
+      line-height: 1.35;
     }
 
     .earnings-goal__sub-masked {
@@ -9239,28 +9589,36 @@ right: 26px;
       .earnings-goal__sub { color: #16a34a; font-weight: 600; }
     }
 
-    // Inline edit mode — single row, Apple-style pill input + subtle actions.
     .earnings-goal__edit {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 2px 0 6px 0;
+      gap: 6px;
+      min-width: 0;
+      min-height: 32px;
+      box-sizing: border-box;
+      z-index: 1;
     }
 
     .earnings-goal__currency {
-      font-size: 15px;
-      font-weight: 600;
-      color: #6b7280;
+      flex-shrink: 0;
+      font-size: 16px;
+      font-weight: 700;
+      color: #1f2937;
+      letter-spacing: -0.3px;
+      line-height: 1.1;
+      font-variant-numeric: tabular-nums;
     }
 
     .earnings-goal__input {
-      flex: 1;
-      height: 36px;
-      padding: 0 10px;
-      border-radius: 10px;
+      flex: 1 1 0;
+      min-width: 0;
+      width: 0;
+      height: 30px;
+      padding: 0 8px;
+      border-radius: 8px;
       border: 1px solid #d1d5db;
       background: #ffffff;
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 600;
       color: #1f2937;
       letter-spacing: -0.2px;
@@ -9278,20 +9636,23 @@ right: 26px;
 
     .earnings-goal__cancel,
     .earnings-goal__save {
-      height: 34px;
-      padding: 0 12px;
-      border-radius: 10px;
-      font-size: 13px;
+      flex-shrink: 0;
+      height: 30px;
+      padding: 0 8px;
+      border-radius: 8px;
+      font-size: 12px;
       font-weight: 600;
       cursor: pointer;
       transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
       border: 1px solid transparent;
+      white-space: nowrap;
     }
 
     .earnings-goal__cancel {
       background: transparent;
       color: #6b7280;
       border-color: transparent;
+      padding: 0 4px;
 
       &:hover { color: #1f2937; }
     }

@@ -93,6 +93,7 @@
     "FIND_TUTORS": "Cari Tutor",
     "CALENDAR": "Kalendar",
     "MESSAGES": "Mesej",
+    "NEW_BADGE": "baru",
     "LESSONS": "Pelajaran",
     "PROGRESS": "Kemajuan",
     "ANALYTICS": "Analitik",
@@ -834,7 +835,8 @@
       "ORIGIN_DESC": "Bantu kami memperibadikan pengalaman anda",
       "RESIDENCE_DESC": "Ini menentukan kaedah pembayaran yang tersedia untuk anda",
       "SEARCH_PLACEHOLDER": "Cari negara...",
-      "NO_RESULTS": "Tiada negara yang sepadan dijumpai"
+      "NO_RESULTS": "Tiada negara yang sepadan dijumpai",
+      "OTHER": "Other"
     },
     "ALERTS": {
       "OK": "OK",
@@ -1001,7 +1003,11 @@
       "PACING_SUGGESTION_ACCEPT": "Gunakan pelajaran tunggal",
       "PACING_SUGGESTION_STAY": "Kekal pada pelajaran tunggal",
       "PACING_SUGGESTION_DISMISS": "Kekalkan rancangan saya",
-      "PACING_SUGGESTION_BODY_EXAM": "Dengan hanya {{weeks}} minggu kepada sasaran anda, pelajaran tunggal yang difokuskan biasanya mengalahkan peta jalan penuh. Anda sentiasa boleh menambah peta jalan kemudian."
+      "PACING_SUGGESTION_BODY_EXAM": "Dengan hanya {{weeks}} minggu kepada sasaran anda, pelajaran tunggal yang difokuskan biasanya mengalahkan peta jalan penuh. Anda sentiasa boleh menambah peta jalan kemudian.",
+      "PREVIEW_STUDENT_BADGE": "Pelajar",
+      "PREVIEW_CHECKLIST_ABOUT": "Tentang awak",
+      "PREVIEW_CHECKLIST_LEARNING": "Belajar bahasa",
+      "PREVIEW_CHECKLIST_GOALS": "Matlamat & tahap"
     },
     "TUTOR_OB": {
       "WELCOME_TITLE": "Selamat Datang, Tutor!",
@@ -1103,7 +1109,30 @@
       "WIZARD_REVIEW_LINK": "Lihat ringkasan",
       "STEP_ORIGIN_TITLE": "Anda dari mana?",
       "STEP_ORIGIN_SUBTITLE": "Pilih negara atau wilayah asal anda",
-      "PREVIEW_HOURLY_RATE": "${{rate}}/hr"
+      "PREVIEW_HOURLY_RATE": "${{rate}}/jam",
+      "STEP_SPOKEN_TITLE": "What other languages do you speak?",
+      "STEP_SPOKEN_SUBTITLE": "Optional — select any additional languages you can converse in",
+      "STEP_SPOKEN_LEVELS_TITLE": "What's your level in each?",
+      "STEP_SPOKEN_LEVELS_SUBTITLE": "Set your CEFR proficiency for each language you selected",
+      "PREVIEW_BASIC_INFO": "Maklumat Asas",
+      "PREVIEW_TUTOR_BADGE": "Tutor peribadi",
+      "PREVIEW_SETUP_STATUS": "Selesai",
+      "PREVIEW_SETUP_STATUS_INCOMPLETE": "Tindakan diperlukan",
+      "PREVIEW_SETUP_HEADING": "Sediakan senarai semak",
+      "PREVIEW_PROGRESS_INCOMPLETE": "tak lengkap",
+      "PREVIEW_CHECKLIST_BASIC": "Maklumat asas",
+      "PREVIEW_CHECKLIST_TEACHING": "Maklumat pengajaran",
+      "PREVIEW_CHECKLIST_PROFILE": "Profil & bio",
+      "PREVIEW_CHECKLIST_AVAILABILITY": "Ketersediaan",
+      "PREVIEW_PROGRESS_ALL_SET": "Semua siap!",
+      "PREVIEW_EDIT_LATER_NOTE": "Anda boleh mengedit apa sahaja kemudian dari papan pemuka anda",
+      "PREVIEW_TIMEZONE": "Zon masa",
+      "PREVIEW_SCHEDULE_LABEL": "Jadual",
+      "PREVIEW_FLOW_WELCOME": "Welcome",
+      "PREVIEW_FLOW_BASIC": "Basic Info",
+      "PREVIEW_FLOW_TEACHING": "Teaching Info",
+      "PREVIEW_FLOW_PROFILE": "Profile",
+      "PREVIEW_FLOW_REVIEW": "Review"
     },
     "CHAR_COUNT": "{{current}} / {{max}}",
     "WIZARD_FOOTER_NAV_A11Y": "Navigasi langkah",
@@ -1149,7 +1178,9 @@
       "SUBMIT_CTA": "Bina pelan saya",
       "TOAST_SUCCESS": "Pelan anda sedia — membuka perjalanan anda.",
       "TOAST_ERROR_FALLBACK": "Pelan tidak dapat dibina sekarang. Cuba lagi sebentar lagi."
-    }
+    },
+    "SPOKEN_LANG_HINT": "Select any additional languages you speak.",
+    "PREVIEW_ALSO_SPEAKS": "Juga bercakap"
   },
   "TUTOR_APPROVAL": {
     "WIZARD_FLOW_TITLE": "Kelulusan Tutor",

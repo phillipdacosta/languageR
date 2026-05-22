@@ -852,6 +852,20 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
         // Convert existing availability to selected slots
         if (res.availability && res.availability.length > 0) {
           console.log('🔧 All availability blocks:', res.availability.length);
+          // Hard guardrails to keep the editor honest:
+          // 1. Skip non-`available` blocks (class/break/unavailable). Those
+          //    are managed elsewhere; if we let them in, saving converts
+          //    them into user-set "available" slots and they leak forever.
+          // 2. Skip far-future sentinels (e.g. 2099-01-01 placeholders that
+          //    a draft class can produce).
+          const MAX_YEAR = new Date().getFullYear() + 5;
+          res.availability = res.availability.filter((b: any) => {
+            if (b?.type && b.type !== 'available') return false;
+            const probe = b?.absoluteStart ? new Date(b.absoluteStart) : null;
+            if (probe && probe.getUTCFullYear() > MAX_YEAR) return false;
+            return true;
+          });
+          console.log('🔧 Editable availability blocks after filter:', res.availability.length);
           res.availability.forEach(block => {
             // Prefer calendar date from block id ("YYYY-MM-DD-...") — matches save keys and
             // avoids UTC/local shifts from absoluteStart for evening slots.

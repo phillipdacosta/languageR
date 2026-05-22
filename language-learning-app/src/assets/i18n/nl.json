@@ -565,6 +565,7 @@
     "FIND_TUTORS": "Tutors zoeken",
     "CALENDAR": "Kalender",
     "MESSAGES": "Berichten",
+    "NEW_BADGE": "nieuw",
     "LESSONS": "Lessen",
     "PROGRESS": "Voortgang",
     "ANALYTICS": "Statistieken",
@@ -835,7 +836,8 @@
       "ORIGIN_DESC": "Helpt ons je ervaring te personaliseren",
       "RESIDENCE_DESC": "Dit bepaalt je beschikbare uitbetalingsmethoden",
       "SEARCH_PLACEHOLDER": "Landen zoeken...",
-      "NO_RESULTS": "Geen overeenkomende landen gevonden"
+      "NO_RESULTS": "Geen overeenkomende landen gevonden",
+      "OTHER": "Other"
     },
     "ALERTS": {
       "OK": "OK",
@@ -1002,7 +1004,11 @@
       "PACING_SUGGESTION_ACCEPT": "Gebruik losse lessen",
       "PACING_SUGGESTION_STAY": "Blijf bij losse lessen",
       "PACING_SUGGESTION_DISMISS": "Houd mij aan mijn plan",
-      "PACING_SUGGESTION_BODY_EXAM": "Met slechts {{weeks}} weken tot uw doel, verslaan gerichte losse lessen meestal een volledig stappenplan. Je kunt later altijd een stappenplan toevoegen."
+      "PACING_SUGGESTION_BODY_EXAM": "Met slechts {{weeks}} weken tot uw doel, verslaan gerichte losse lessen meestal een volledig stappenplan. Je kunt later altijd een stappenplan toevoegen.",
+      "PREVIEW_STUDENT_BADGE": "Leerling",
+      "PREVIEW_CHECKLIST_ABOUT": "Over jou",
+      "PREVIEW_CHECKLIST_LEARNING": "Taal leren",
+      "PREVIEW_CHECKLIST_GOALS": "Doelen & niveau"
     },
     "TUTOR_OB": {
       "WELCOME_TITLE": "Welkom, Tutor!",
@@ -1104,7 +1110,30 @@
       "WIZARD_REVIEW_LINK": "Bekijk overzicht",
       "STEP_ORIGIN_TITLE": "Waar kom je vandaan?",
       "STEP_ORIGIN_SUBTITLE": "Selecteer je land of regio van herkomst",
-      "PREVIEW_HOURLY_RATE": "${{rate}}/hr"
+      "PREVIEW_HOURLY_RATE": "${{rate}}/uur",
+      "STEP_SPOKEN_TITLE": "What other languages do you speak?",
+      "STEP_SPOKEN_SUBTITLE": "Optional — select any additional languages you can converse in",
+      "STEP_SPOKEN_LEVELS_TITLE": "What's your level in each?",
+      "STEP_SPOKEN_LEVELS_SUBTITLE": "Set your CEFR proficiency for each language you selected",
+      "PREVIEW_BASIC_INFO": "Basisinformatie",
+      "PREVIEW_TUTOR_BADGE": "Docent",
+      "PREVIEW_SETUP_STATUS": "Voltooid",
+      "PREVIEW_SETUP_STATUS_INCOMPLETE": "Actie vereist",
+      "PREVIEW_SETUP_HEADING": "Controlelijst voor instellen",
+      "PREVIEW_PROGRESS_INCOMPLETE": "Onvolledig",
+      "PREVIEW_CHECKLIST_BASIC": "Basisinformatie",
+      "PREVIEW_CHECKLIST_TEACHING": "Lesinformatie",
+      "PREVIEW_CHECKLIST_PROFILE": "Profiel & biografie",
+      "PREVIEW_CHECKLIST_AVAILABILITY": "Beschikbaarheid",
+      "PREVIEW_PROGRESS_ALL_SET": "Helemaal klaar!",
+      "PREVIEW_EDIT_LATER_NOTE": "U kunt alles later via uw dashboard bewerken",
+      "PREVIEW_TIMEZONE": "Tijdzone",
+      "PREVIEW_SCHEDULE_LABEL": "Schema",
+      "PREVIEW_FLOW_WELCOME": "Welcome",
+      "PREVIEW_FLOW_BASIC": "Basic Info",
+      "PREVIEW_FLOW_TEACHING": "Teaching Info",
+      "PREVIEW_FLOW_PROFILE": "Profile",
+      "PREVIEW_FLOW_REVIEW": "Review"
     },
     "CHAR_COUNT": "{{current}} / {{max}}",
     "WIZARD_FOOTER_NAV_A11Y": "Stapnavigatie",
@@ -1150,7 +1179,9 @@
       "SUBMIT_CTA": "Mijn plan maken",
       "TOAST_SUCCESS": "Je plan is klaar — we openen je traject.",
       "TOAST_ERROR_FALLBACK": "We konden je plan nu niet maken. Probeer het zo meteen opnieuw."
-    }
+    },
+    "SPOKEN_LANG_HINT": "Select any additional languages you speak.",
+    "PREVIEW_ALSO_SPEAKS": "Spreekt ook"
   },
   "TUTOR_APPROVAL": {
     "WIZARD_FLOW_TITLE": "Goedkeuring van de docent",

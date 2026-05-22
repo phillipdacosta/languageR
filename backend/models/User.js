@@ -290,8 +290,8 @@ const userSchema = new mongoose.Schema({
     },
     showWalletBalance: {
       type: Boolean,
-      default: false,
-      comment: 'Privacy setting: show or hide wallet balance (default hidden)'
+      default: true,
+      comment: 'Privacy setting: show or hide wallet balance (default visible for new users)'
     },
     remindersEnabled: {
       type: Boolean,

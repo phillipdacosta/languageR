@@ -66,6 +66,9 @@ interface ProcessedLesson {
   /** Card body: schedule line vs analysis summary vs empty */
   cardDescMode: 'schedule' | 'analysis' | 'analysis_generating' | 'analysis_empty';
   cardDescText: string;
+  /** True when this card's schedule-line prose can be translated on demand
+   * (previous-session summary from AI analysis / tutor feedback). */
+  cardDescCanTranslate: boolean;
   /** Airbnb-style footer stats (4 columns) */
   cardStats: { value: string; label: string; sub?: string }[];
   isToday: boolean;
@@ -86,6 +89,14 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
   isLoading = true;
   private destroy$ = new Subject<void>();
   private hasInitiallyLoaded = false;
+
+  /** Per-lesson opt-in translation state for schedule-line prose. */
+  private readonly cardDescI18n = new Map<string, {
+    original: string;
+    translated: string | null;
+    showingTranslated: boolean;
+    loading: boolean;
+  }>();
 
   private get userTz(): string | undefined { return this.currentUser?.profile?.timezone || undefined; }
 
@@ -470,7 +481,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
       processed = processed.filter(p => p.isTrial);
     }
 
-    this.processedLessons = this.appendPreviewMocks(processed);
+    this.processedLessons = this.applyCardDescTranslations(this.appendPreviewMocks(processed));
 
     // Reset pagination
     this.currentPage = 0;
@@ -482,7 +493,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
 
   private reprocessLessons() {
     const processed = this.filteredLessons.map(l => this.processLesson(l));
-    this.processedLessons = this.appendPreviewMocks(processed);
+    this.processedLessons = this.applyCardDescTranslations(this.appendPreviewMocks(processed));
     this.currentPage = 0;
     this.loadFirstPage();
   }
@@ -525,6 +536,9 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     if (o.isPast === undefined) {
       merged.isPast =
         o.id === '__mock_student_upcoming__' || o.id === '__mock_tutor_upcoming__' ? false : true;
+    }
+    if (merged.cardDescCanTranslate === undefined) {
+      merged.cardDescCanTranslate = false;
     }
     return merged;
   }
@@ -1190,6 +1204,15 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
       }
     }
 
+    const cardDescCanTranslate = !!(
+      (status === 'scheduled' || status === 'confirmed') &&
+      cardDescMode === 'schedule' &&
+      !lesson.isClass &&
+      lesson.lastSessionContext?.summaryTranslatable &&
+      !lesson.lastSessionContext?.isFirstLesson &&
+      cardDescText
+    );
+
     const tipRaw = (lesson as any).tip?.amount;
     const tipAmt = tipRaw ? Number(tipRaw) : 0;
     const durLabel = this.translate.instant('LESSONS_PAGE.DURATION_MIN');
@@ -1249,6 +1272,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
       classThumbnail: (lesson as any).classData?.thumbnail || (lesson as any).thumbnail || '',
       cardDescMode,
       cardDescText,
+      cardDescCanTranslate,
       cardStats,
       isToday: start.toDateString() === now.toDateString(),
       durationLabel: '',
@@ -1260,6 +1284,94 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     if (!t) return '';
     if (t.length <= max) return t;
     return `${t.slice(0, max - 1).trim()}…`;
+  }
+
+  showCardTranslateButton(pl: ProcessedLesson): boolean {
+    if (!pl.cardDescCanTranslate) return false;
+    const lang = this.lessonService.getProseLang();
+    return !!lang && lang !== 'en';
+  }
+
+  isCardDescTranslating(pl: ProcessedLesson): boolean {
+    return this.cardDescI18n.get(pl.id)?.loading ?? false;
+  }
+
+  isCardDescTranslated(pl: ProcessedLesson): boolean {
+    return this.cardDescI18n.get(pl.id)?.showingTranslated ?? false;
+  }
+
+  private applyCardDescTranslations(processed: ProcessedLesson[]): ProcessedLesson[] {
+    return processed.map(pl => {
+      const st = this.cardDescI18n.get(pl.id);
+      if (!st) return pl;
+      if (st.original !== pl.cardDescText && !st.showingTranslated) {
+        st.original = pl.cardDescText;
+        st.translated = null;
+        st.showingTranslated = false;
+      }
+      if (st.showingTranslated && st.translated) {
+        return { ...pl, cardDescText: st.translated };
+      }
+      return pl;
+    });
+  }
+
+  private patchProcessedLessonCardText(lessonId: string, text: string): void {
+    const patch = (arr: ProcessedLesson[]) => {
+      const idx = arr.findIndex(p => p.id === lessonId);
+      if (idx >= 0) arr[idx] = { ...arr[idx], cardDescText: text };
+    };
+    patch(this.processedLessons);
+    patch(this.processedDisplayed);
+  }
+
+  toggleCardDescTranslation(pl: ProcessedLesson, event?: Event): void {
+    event?.stopPropagation();
+    if (!pl.cardDescCanTranslate || this.isCardDescTranslating(pl)) return;
+
+    const lang = this.lessonService.getProseLang();
+    if (!lang || lang === 'en') return;
+
+    let st = this.cardDescI18n.get(pl.id);
+    if (!st) {
+      st = { original: pl.cardDescText, translated: null, showingTranslated: false, loading: false };
+      this.cardDescI18n.set(pl.id, st);
+    }
+
+    if (st.showingTranslated) {
+      st.showingTranslated = false;
+      this.patchProcessedLessonCardText(pl.id, st.original);
+      this.cdr.markForCheck();
+      return;
+    }
+
+    if (st.translated) {
+      st.showingTranslated = true;
+      this.patchProcessedLessonCardText(pl.id, st.translated);
+      this.cdr.markForCheck();
+      return;
+    }
+
+    st.loading = true;
+    this.cdr.markForCheck();
+
+    this.lessonService.translateLessonContext(pl.id, lang).subscribe({
+      next: (resp) => {
+        st!.loading = false;
+        if (resp?.success && resp.summary) {
+          const prefix = this.translate.instant('LESSONS_PAGE.LAST_SESSION_PREFIX') || '';
+          const translated = prefix + this.truncateCardText(resp.summary, 180);
+          st!.translated = translated;
+          st!.showingTranslated = true;
+          this.patchProcessedLessonCardText(pl.id, translated);
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        st!.loading = false;
+        this.cdr.markForCheck();
+      },
+    });
   }
 
   private getInitials(name: string): string {

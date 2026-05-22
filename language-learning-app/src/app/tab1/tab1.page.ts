@@ -23,7 +23,7 @@ import { InviteStudentModalComponent } from '../components/invite-student-modal/
 import { RescheduleLessonModalComponent } from '../components/reschedule-lesson-modal/reschedule-lesson-modal.component';
 import { RescheduleProposalModalComponent } from '../components/reschedule-proposal-modal/reschedule-proposal-modal.component';
 import { LessonSummaryComponent } from '../modals/lesson-summary/lesson-summary.component';
-import { formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
+import { formatTimeInTz, formatDateInTz, hasFutureTutorAvailability } from '../shared/timezone.utils';
 import { translateLangToDatetimeLocale } from '../shared/datetime-locale.helper';
 import { NotesModalComponent } from '../components/notes-modal/notes-modal.component';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
@@ -266,6 +266,30 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   nextLessonTutor: any = null;
   upNextFormattedPrice = '';
   upNextLevelLabel = '';
+  /** One-line tagline shown under the name in the Up Next card. Replaces the
+   * "Spanish flag" meta row and mirrors the lessons page card description
+   * (first-lesson hint or last-session summary). Empty string when nothing
+   * useful to say so the row collapses without changing card height. */
+  upNextTagline = '';
+  /** Compact countdown shown in the schedule pill's status column
+   * (e.g. "Starts in 5m" / "Live now"). Empty when nothing to surface. */
+  upNextStatusLabel = '';
+  /** Visual variant for the status chip — drives dot color and accent.
+   * 'ready' (≤15min) → green, 'live' (in progress) → green, 'soon' (≤1h)
+   * → amber, 'later' (>1h) → no dot, neutral grey. */
+  upNextStatusVariant: 'ready' | 'live' | 'soon' | 'later' | '' = '';
+  /** Short helper line under the status chip (e.g. "Be ready to join"). */
+  upNextStatusHint = '';
+  /** Original (English) tagline kept so the user can toggle back from a
+   * translated copy. Empty when the tagline hasn't been translated yet. */
+  upNextTaglineOriginal = '';
+  /** True while a translate request is in-flight for the Up Next card. */
+  upNextTaglineTranslating = false;
+  /** True when the Up Next card tagline is currently showing a translated copy. */
+  upNextTaglineIsTranslated = false;
+  /** Whether the current Up Next lesson has translatable prose
+   * (i.e. backend told us `summaryTranslatable: true`). */
+  upNextTaglineCanTranslate = false;
   /** Class Up Next: real or preview attendees for `app-class-attendees` (never overwrites API data). */
   nextLessonClassAttendeesDisplay: any[] = [];
   
@@ -316,7 +340,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   unreadMessages = 0;
   totalConversations = 0;
   walletBalance = 0; // TODO: Load from actual wallet service
-  showWalletBalance = false; // Hide by default
+  showWalletBalance = true;
   walletDisplay = '$•••••'; // Computed display value
   insightsLoading = true; // Loading state for insights panel
   walletTemporarilyVisible = false; // For mobile tap-to-reveal
@@ -677,7 +701,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         // Update showWalletBalance immediately when user profile changes
         // This ensures instant update when toggled in profile page
         if (user?.profile) {
-          this.showWalletBalance = user.profile.showWalletBalance || false;
+          this.showWalletBalance = user.profile.showWalletBalance ?? true;
           this.updateWalletDisplay();
         }
         
@@ -904,23 +928,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         
         // Immediately update hasAvailability based on the new data
         if (updatedAvailability && Array.isArray(updatedAvailability)) {
-          const timeNow = new Date();
-          
-          // Check if there is availability AND at least one slot is in the future
-          const hasFutureAvailability = updatedAvailability.some(slot => {
-            // Check if slot has absoluteEnd and it's in the future
-            if (slot.absoluteEnd) {
-              return new Date(slot.absoluteEnd) > timeNow;
-            }
-            // If no absoluteEnd, check absoluteStart
-            if (slot.absoluteStart) {
-              return new Date(slot.absoluteStart) > timeNow;
-            }
-            // If no absolute dates, assume it's a recurring pattern (future availability)
-            return true;
-          });
-          
-          this.hasAvailability = hasFutureAvailability || false;
+          this.hasAvailability = hasFutureTutorAvailability(updatedAvailability);
           this.buttonTextState = this.hasAvailability ? 'view' : 'add';
           this.availabilityBlocks = updatedAvailability;
           this.updateAvailabilitySummary();
@@ -4203,7 +4211,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     const cachedUser = this.userService.getCurrentUserValue();
     if (cachedUser) {
       // Apply cached settings immediately to prevent flash
-      this.showWalletBalance = cachedUser?.profile?.showWalletBalance || false;
+      this.showWalletBalance = cachedUser?.profile?.showWalletBalance ?? true;
       this.updateWalletDisplay();
       
     }
@@ -4215,7 +4223,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       if (user) {
         
         // Load show wallet balance setting from database
-        this.showWalletBalance = user?.profile?.showWalletBalance || false;
+        this.showWalletBalance = user?.profile?.showWalletBalance ?? true;
         
         
         // Update display property
@@ -4595,12 +4603,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         // Check if tutor has any future availability slots
         const availability = response?.availability || [];
         const now = new Date();
-        const hasFutureSlots = availability.some((block: any) => {
-          if (block.type === 'class') return false;
-          if (block.absoluteEnd) return new Date(block.absoluteEnd) > now;
-          if (block.absoluteStart) return new Date(block.absoluteStart) > now;
-          return true; // Recurring patterns
-        });
+        const hasFutureSlots = hasFutureTutorAvailability(availability, now);
         
         if (hasFutureSlots) {
           tutorsWithAvailability.push(tutor);
@@ -6211,6 +6214,51 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       cached.showStartsInLine = this.computeShowStartsInLine(cached.lesson);
       this.refreshNextLessonLocaleFields(cached, cached.lesson);
     }
+    this.refreshUpNextStatusFields(this.nextLesson, this.nextLesson?.lesson);
+  }
+
+  /**
+   * Drives the Up Next schedule pill's right-hand status column. Keeps the
+   * card height fixed by always populating the same label/hint slots from a
+   * small set of clearly-tiered states.
+   */
+  private refreshUpNextStatusFields(nl: any, lesson: any): void {
+    if (!nl || !lesson || lesson.status === 'cancelled') {
+      this.upNextStatusLabel = '';
+      this.upNextStatusVariant = '';
+      this.upNextStatusHint = '';
+      return;
+    }
+    const T = (k: string, p?: any) => this.translateService.instant(k, p) as string;
+    const now = Date.now();
+    const startMs = new Date(lesson.startTime).getTime();
+    const diffMs = startMs - now;
+    const diffMin = Math.round(diffMs / 60000);
+
+    if (this.isLessonInProgress(lesson) || nl.isInProgress) {
+      this.upNextStatusLabel = T('HOME.STATUS_LIVE_NOW');
+      this.upNextStatusVariant = 'live';
+      this.upNextStatusHint = T('HOME.STATUS_HINT_LIVE');
+      return;
+    }
+    if (diffMs <= 0) {
+      this.upNextStatusLabel = T('HOME.STATUS_STARTING_NOW');
+      this.upNextStatusVariant = 'ready';
+      this.upNextStatusHint = T('HOME.STATUS_HINT_READY');
+      return;
+    }
+    const countdown = nl.countdown || this.getTimeUntilLesson(lesson);
+    this.upNextStatusLabel = T('HOME.STATUS_STARTS_IN', { time: countdown });
+    if (diffMin <= 15) {
+      this.upNextStatusVariant = 'ready';
+      this.upNextStatusHint = T('HOME.STATUS_HINT_READY');
+    } else if (diffMin <= 60) {
+      this.upNextStatusVariant = 'soon';
+      this.upNextStatusHint = T('HOME.STATUS_HINT_SOON');
+    } else {
+      this.upNextStatusVariant = 'later';
+      this.upNextStatusHint = '';
+    }
   }
 
   /** Recomputes locale-dependent Up Next strings (date badge, time range, duration). */
@@ -6273,6 +6321,96 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     });
   }
 
+  /**
+   * Build the short description shown under the name in the Up Next card.
+   * - First-lesson pairings get the same FIRST_LESSON_TUTOR/STUDENT line
+   *   used on the lessons page.
+   * - Repeat pairings get a truncated last-session summary.
+   * - Group classes get the class description (truncated).
+   * Returns '' when there's nothing useful to say — the row collapses but the
+   * card height is held constant by min-height on .upnext-filled-text.
+   */
+  private computeUpNextTagline(nl: any, lesson: any): string {
+    if (!nl || !lesson) return '';
+    if (lesson.isClass) {
+      const desc = lesson.classData?.description || lesson.description || '';
+      return desc ? this.truncateTagline(desc, 90) : '';
+    }
+    const ctx = lesson.lastSessionContext || {};
+    const shortName = (nl?.firstName as string)
+      || (typeof nl?.name === 'string' ? nl.name.split(' ')[0] : '')
+      || '';
+    if (ctx.isFirstLesson) {
+      const key = this.isTutor() ? 'LESSONS_PAGE.FIRST_LESSON_TUTOR' : 'LESSONS_PAGE.FIRST_LESSON_STUDENT';
+      const text = this.translateService.instant(key, { name: shortName });
+      return text || '';
+    }
+    if (ctx.summary) {
+      const prefix = this.translateService.instant('LESSONS_PAGE.LAST_SESSION_PREFIX') || '';
+      return `${prefix}${this.truncateTagline(ctx.summary, 110)}`;
+    }
+    return '';
+  }
+
+  private truncateTagline(text: string, max: number): string {
+    if (!text) return '';
+    const clean = String(text).replace(/\s+/g, ' ').trim();
+    if (clean.length <= max) return clean;
+    return clean.slice(0, max - 1).replace(/\s+\S*$/, '') + '…';
+  }
+
+  /** Whether the translate button should be shown on the Up Next card.
+   * Hidden when UI is English, the tagline isn't translatable, or there's
+   * no tagline at all. */
+  get upNextShowTranslateButton(): boolean {
+    if (!this.upNextTaglineCanTranslate) return false;
+    const lang = this.lessonService.getProseLang();
+    return !!lang && lang !== 'en';
+  }
+
+  /** Toggle the Up Next tagline between original English and the user's UI
+   * language. First call hits the backend (cached server-side per language);
+   * subsequent toggles just swap between cached strings. */
+  toggleUpNextTaglineTranslation(): void {
+    if (this.upNextTaglineTranslating) return;
+    const lesson = this.nextLesson?.lesson;
+    const lessonId = lesson?._id;
+    if (!lessonId) return;
+
+    if (this.upNextTaglineIsTranslated) {
+      if (this.upNextTaglineOriginal) {
+        this.upNextTagline = this.upNextTaglineOriginal;
+        this.upNextTaglineIsTranslated = false;
+        this.cdr.markForCheck();
+      }
+      return;
+    }
+
+    const lang = this.lessonService.getProseLang();
+    if (!lang || lang === 'en') return;
+
+    this.upNextTaglineTranslating = true;
+    this.upNextTaglineOriginal = this.upNextTagline;
+    this.cdr.markForCheck();
+
+    this.lessonService.translateLessonContext(String(lessonId), lang).subscribe({
+      next: (resp) => {
+        this.upNextTaglineTranslating = false;
+        if (resp?.success && resp.summary) {
+          const prefix = this.translateService.instant('LESSONS_PAGE.LAST_SESSION_PREFIX') || '';
+          this.upNextTagline = `${prefix}${this.truncateTagline(resp.summary, 110)}`;
+          this.upNextTaglineIsTranslated = true;
+        }
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        console.warn('[upnext] translate-context failed:', err);
+        this.upNextTaglineTranslating = false;
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
   /** Refreshes all pre-computed template values that depend on user/lesson state. */
   private refreshPreComputedTemplateValues(): void {
     this.greetingText = this.getGreeting();
@@ -6295,6 +6433,25 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       this.upNextLevelLabel = '';
       this.nextLessonClassAttendeesDisplay = [];
     }
+    const prevTagline = this.upNextTagline;
+    this.upNextTagline = this.computeUpNextTagline(nl, lesson);
+    // Reset translation toggle whenever the source tagline changes (new
+    // lesson, new last-session summary, etc.). The user has to re-tap
+    // Translate; we never silently keep a stale translation around.
+    if (this.upNextTagline !== prevTagline) {
+      this.upNextTaglineOriginal = '';
+      this.upNextTaglineIsTranslated = false;
+      this.upNextTaglineTranslating = false;
+    }
+    const ctx = (lesson?.lastSessionContext) || {};
+    this.upNextTaglineCanTranslate = !!(
+      lesson &&
+      !lesson.isClass &&
+      !ctx.isFirstLesson &&
+      ctx.summaryTranslatable &&
+      this.upNextTagline
+    );
+    this.refreshUpNextStatusFields(nl, lesson);
     this.refreshNextLessonTimeSensitiveFields();
     this.refreshWeeklyEarningsProgress();
 
@@ -8306,24 +8463,7 @@ navigateToLessons() {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response) => {
-          
-          const timeNow = new Date();
-          
-          // Check if there is availability AND at least one slot is in the future
-          const hasFutureAvailability = response?.availability?.some(slot => {
-            // Check if slot has absoluteEnd and it's in the future
-            if (slot.absoluteEnd) {
-              return new Date(slot.absoluteEnd) > timeNow;
-            }
-            // If no absoluteEnd, check absoluteStart
-            if (slot.absoluteStart) {
-              return new Date(slot.absoluteStart) > timeNow;
-            }
-            // If no absolute dates, assume it's a recurring pattern (future availability)
-            return true;
-          });
-          
-          this.hasAvailability = hasFutureAvailability || false;
+          this.hasAvailability = hasFutureTutorAvailability(response?.availability);
           this.buttonTextState = this.hasAvailability ? 'view' : 'add';
           this.availabilityBlocks = response?.availability || [];
           this.updateAvailabilitySummary();

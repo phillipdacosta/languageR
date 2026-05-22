@@ -6,6 +6,9 @@ $preview-accent-blue: #359aff;
 $preview-success: #34c759;
 $preview-border: #ebebeb;
 
+// Wizard review: fixed width + typography (height grows with content; never clipped).
+$orb-preview-sidebar-width: 340px;
+
 .preview-container {
   position: fixed;
   inset: 0;
@@ -18,6 +21,477 @@ $preview-border: #ebebeb;
   flex-direction: column;
   background: #f5f5f7;
   animation: previewPageFadeIn 0.35s ease-out;
+}
+
+// Tutor review inside the main onboarding wizard (header + footer chrome).
+.onboarding-container--preview.preview-container {
+  position: relative;
+  inset: auto;
+  z-index: auto;
+  flex: 1;
+  min-height: 0;
+  height: auto;
+  width: 100%;
+  padding: 0;
+  animation: none;
+
+  .onboarding-wizard-card--preview {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    width: 100%;
+  }
+
+  .preview-wizard-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-padding-bottom: 24px;
+  }
+
+  .orb-layout {
+    flex: 1;
+    min-height: min-content;
+    padding-bottom: 32px;
+  }
+
+  .cm-wizard-viewport-footer {
+    position: relative;
+    z-index: 2;
+  }
+
+  background: #ffffff;
+}
+
+// ── Tutor review: lessons/:id style (left card + flat right sections) ──
+.orb-layout {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 20px 20px 28px;
+  box-sizing: border-box;
+  gap: 0;
+}
+
+.orb-sidebar {
+  order: -1;
+}
+
+.orb-profile-card {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  padding: 28px 24px 24px;
+  text-align: center;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    0 8px 30px rgba(0, 0, 0, 0.08);
+}
+
+.orb-profile-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  overflow: hidden;
+  margin: 0 auto 14px;
+  background: linear-gradient(135deg, #7c6cf0 0%, #5b4cdb 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+}
+
+.orb-profile-initials {
+  font-size: 28px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.3px;
+}
+
+.orb-profile-name {
+  font-size: 22px;
+  font-weight: 700;
+  color: $preview-text-primary;
+  margin: 0 0 8px;
+  letter-spacing: -0.3px;
+  line-height: 1.2;
+}
+
+.orb-profile-role {
+  margin: 0 0 18px;
+}
+
+.orb-role-badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  color: $preview-accent-blue;
+  background: rgba(53, 154, 255, 0.1);
+  padding: 4px 12px;
+  border-radius: 20px;
+}
+
+.orb-profile-details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: left;
+  margin-bottom: 4px;
+}
+
+.orb-profile-detail {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+
+  ion-icon {
+    font-size: 18px;
+    color: $preview-text-secondary;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  > div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+}
+
+.orb-profile-detail-primary {
+  font-size: 14px;
+  font-weight: 600;
+  color: $preview-text-primary;
+  line-height: 1.35;
+}
+
+.orb-profile-detail-secondary {
+  font-size: 12px;
+  color: $preview-text-secondary;
+}
+
+.orb-card-divider {
+  height: 1px;
+  background: $preview-border;
+  margin: 20px 0 18px;
+}
+
+.orb-setup-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+  margin-bottom: 12px;
+}
+
+.orb-setup-status {
+  font-size: 12px;
+  font-weight: 600;
+  color: $preview-success;
+  margin: 0 0 4px;
+
+  &--incomplete {
+    color: #ff3b30;
+  }
+}
+
+.orb-setup-heading {
+  font-size: 15px;
+  font-weight: 600;
+  color: $preview-text-primary;
+  margin: 0;
+}
+
+.orb-setup-progress {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+
+  svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+  }
+}
+
+.orb-setup-progress__track {
+  fill: none;
+  stroke: #f2f2f7;
+  stroke-width: 3;
+}
+
+.orb-setup-progress__fill {
+  fill: none;
+  stroke: $preview-success;
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.35s ease;
+
+  &--incomplete {
+    stroke: #ff9500;
+  }
+}
+
+.orb-setup-progress__label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  strong {
+    font-size: 11px;
+    font-weight: 700;
+    color: $preview-text-primary;
+  }
+}
+
+.orb-setup-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+
+.orb-setup-list__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: $preview-text-primary;
+
+  ion-icon {
+    font-size: 16px;
+    color: $preview-success;
+    flex-shrink: 0;
+  }
+
+  &--incomplete {
+    color: $preview-text-secondary;
+
+    ion-icon {
+      color: #ff3b30;
+    }
+  }
+}
+
+.orb-card-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 18px 0 0;
+  font-size: 12px;
+  color: $preview-text-secondary;
+  line-height: 1.45;
+  text-align: left;
+
+  ion-icon {
+    font-size: 16px;
+    color: $preview-accent-blue;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+}
+
+.orb-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.orb-title {
+  font-size: 32px;
+  font-weight: 700;
+  color: $preview-text-primary;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+  margin: 0 0 8px;
+}
+
+.orb-subtitle {
+  font-size: 15px;
+  color: $preview-text-secondary;
+  margin: 0;
+  line-height: 1.55;
+  max-width: 560px;
+}
+
+.orb-divider {
+  height: 1px;
+  background: $preview-border;
+  margin: 0;
+}
+
+.orb-row {
+  padding: 28px 0;
+}
+
+.orb-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.orb-section-label {
+  font-size: 22px;
+  font-weight: 600;
+  color: $preview-text-primary;
+  margin: 0;
+  letter-spacing: -0.2px;
+}
+
+.orb-edit-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: $preview-accent-blue;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 4px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+
+  ion-icon {
+    font-size: 16px;
+  }
+
+  &:hover {
+    background: rgba(53, 154, 255, 0.08);
+  }
+}
+
+.orb-kv {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f5f5f5;
+
+  &:last-of-type {
+    border-bottom: none;
+  }
+
+  &--stacked {
+    flex-direction: column;
+    gap: 6px;
+  }
+}
+
+.orb-kv-key {
+  font-size: 14px;
+  color: $preview-text-secondary;
+  flex-shrink: 0;
+}
+
+.orb-kv-val {
+  font-size: 14px;
+  font-weight: 500;
+  color: $preview-text-primary;
+  text-align: right;
+  max-width: 62%;
+  word-break: break-word;
+
+  &--block {
+    max-width: 100%;
+    text-align: left;
+    line-height: 1.5;
+    font-weight: 400;
+  }
+
+  &--tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: flex-end;
+    max-width: 70%;
+  }
+}
+
+.orb-lang-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f4f4f5;
+  border-radius: 20px;
+  padding: 2px 10px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.orb-lang-cefr {
+  background: $preview-accent-blue;
+  color: #ffffff;
+  border-radius: 10px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+@media (min-width: 960px) {
+  .orb-layout {
+    flex-direction: row;
+    gap: 56px;
+    padding: 32px 40px 40px;
+  }
+
+  .orb-sidebar {
+    flex: 0 0 372px;
+    order: 0;
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+  }
+
+  .orb-profile-card {
+    padding: 32px 28px 28px;
+  }
+
+  .orb-profile-avatar {
+    width: 96px;
+    height: 96px;
+    margin-bottom: 16px;
+  }
+
+  .orb-profile-name {
+    font-size: 26px;
+  }
+
+  .orb-title {
+    font-size: 32px;
+  }
+}
+
+@media (max-width: 959px) {
+  .orb-sidebar {
+    margin-bottom: 8px;
+  }
+
+  .orb-kv-val {
+    max-width: 55%;
+  }
 }
 
 @keyframes previewPageFadeIn {
@@ -652,86 +1126,143 @@ $preview-border: #ebebeb;
 }
 
 @media (max-width: 960px) {
-  .preview-container {
+  .preview-container:not(.onboarding-container--preview) {
     height: auto;
     min-height: 100vh;
     overflow-y: auto;
   }
 
-  .preview-flow-stepper {
-    padding: 16px;
-    justify-content: flex-start;
-    overflow-x: auto;
+  .onboarding-container--preview.preview-container {
+    overflow: hidden;
   }
 
-  .preview-layout {
-    flex-direction: column;
-    height: auto;
+  .orb-layout {
+    padding: 16px 16px 24px;
   }
 
-  .preview-hero-col {
-    width: 100%;
-    min-width: 0;
-    max-width: none;
-    border-right: none;
-    border-bottom: 1px solid $preview-border;
-    padding: 28px 24px;
+  .orb-title {
+    font-size: 26px;
   }
 
-  .preview-hero-inner {
-    max-width: 100%;
+  .orb-section-label {
+    font-size: 20px;
   }
 
-  .preview-details-col {
-    padding: 24px 20px 32px;
-    overflow-y: visible;
-  }
-
-  .preview-detail-card {
-    max-width: 100%;
+  .orb-kv-val {
+    max-width: 58%;
   }
 }
 
-// Compact vertical layout for short viewports (Windows 150% on laptops ≈ 512px height)
 @media (max-height: 680px) {
-  .preview-flow-stepper {
-    padding: 12px 20px 10px;
+  .orb-layout {
+    padding-top: 12px;
   }
 
-  .preview-flow-step {
-    font-size: 12px;
+  .onboarding-container--preview.preview-container .orb-layout {
+    padding-top: 20px;
   }
 
-  .preview-hero-col {
-    padding: 20px 28px;
+  .orb-profile-card {
+    padding: 20px 18px 18px;
   }
 
-  .preview-hero-title {
-    font-size: 22px;
-    margin-bottom: 4px;
+  .orb-row {
+    padding: 20px 0;
   }
 
-  .preview-hero-subtitle {
-    font-size: 13px;
-    margin-bottom: 16px;
+  .orb-title {
+    font-size: 24px;
+  }
+}
+
+// Wizard review summary card: consistent width/typography; natural height (no clipping).
+.onboarding-container--preview.preview-container {
+  .orb-sidebar {
+    flex: 0 0 $orb-preview-sidebar-width;
+    width: $orb-preview-sidebar-width;
+    max-width: $orb-preview-sidebar-width;
+    margin-left: auto;
+    margin-right: auto;
   }
 
-  .preview-profile-card {
-    padding: 14px 16px;
-    margin-bottom: 10px;
+  .orb-profile-card {
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    padding: 28px 24px 22px;
+    box-sizing: border-box;
+    display: block;
+    overflow: visible;
   }
 
-  .preview-setup-card {
-    padding: 14px 16px;
+  .orb-profile-avatar {
+    width: 88px;
+    height: 88px;
     margin-bottom: 14px;
   }
 
-  .preview-details-col {
-    padding: 20px 32px 28px;
+  .orb-profile-initials {
+    font-size: 28px;
   }
 
-  .preview-detail-card {
-    padding: 14px 18px;
+  .orb-profile-name {
+    font-size: 22px;
+    margin-bottom: 8px;
+  }
+
+  .orb-profile-role {
+    margin-bottom: 16px;
+  }
+
+  .orb-profile-details {
+    gap: 12px;
+  }
+
+  .orb-card-divider {
+    margin: 18px 0 16px;
+  }
+
+  .orb-setup-head {
+    margin-bottom: 12px;
+  }
+
+  .orb-setup-list {
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+  }
+
+  .orb-card-note {
+    margin: 16px 0 0;
+    padding-top: 0;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  @media (min-width: 960px) {
+    .orb-sidebar {
+      margin-left: 0;
+      margin-right: 0;
+      // Static flow: full card stays in the scroll area so the footer never covers it.
+      position: static;
+      align-self: flex-start;
+    }
+
+    // Override desktop-only larger card metrics so the summary card matches all breakpoints.
+    .orb-profile-card {
+      padding: 28px 24px 22px;
+    }
+
+    .orb-profile-avatar {
+      width: 88px;
+      height: 88px;
+      margin-bottom: 14px;
+    }
+
+    .orb-profile-name {
+      font-size: 22px;
+    }
   }
 }
 
@@ -740,43 +1271,43 @@ $preview-border: #ebebeb;
     background: #1c1c1e;
   }
 
-  .preview-flow-stepper,
-  .preview-hero-col,
-  .preview-profile-card,
-  .preview-setup-card,
-  .preview-detail-card {
+  .onboarding-container--preview.preview-container {
+    background: #000000;
+  }
+
+  .orb-profile-card {
     background: #2c2c2e;
     border-color: rgba(255, 255, 255, 0.1);
   }
 
-  .preview-hero-veil {
-    background: linear-gradient(
-      180deg,
-      rgba(28, 28, 30, 0.94) 0%,
-      rgba(28, 28, 30, 0.88) 55%,
-      rgba(28, 28, 30, 0.92) 100%
-    );
-  }
-
-  .preview-hero-title,
-  .preview-profile-name,
-  .preview-setup-heading,
-  .preview-detail-header__text h3,
-  .preview-detail-row .detail-value,
-  .preview-setup-list__item,
-  .preview-meta-row {
+  .orb-profile-name,
+  .orb-setup-heading,
+  .orb-section-label,
+  .orb-kv-val,
+  .orb-setup-list__item,
+  .orb-profile-detail-primary {
     color: #f5f5f7;
   }
 
-  .preview-hero-subtitle,
-  .preview-footer-note,
-  .preview-detail-row .detail-label {
+  .orb-subtitle,
+  .orb-kv-key,
+  .orb-card-note,
+  .orb-profile-detail-secondary {
     color: #a1a1a6;
   }
 
-  .preview-hero-actions .preview-back-btn {
-    background: #2c2c2e;
-    border-color: rgba(255, 255, 255, 0.12);
+  .orb-card-divider,
+  .orb-divider,
+  .orb-kv {
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .orb-divider {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .orb-lang-tag {
+    background: #3a3a3c;
     color: #f5f5f7;
   }
 }

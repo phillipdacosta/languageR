@@ -180,7 +180,20 @@
                     name="warning-outline"
                     class="lgc-feedback-warn-icon">
                   </ion-icon>
-                  <p class="lgc-desc-text">{{ pl.cardDescText }}</p>
+                  <div class="lgc-desc-copy">
+                    <p class="lgc-desc-text">{{ pl.cardDescText }}</p>
+                    <button
+                      type="button"
+                      class="lgc-desc-translate-btn"
+                      *ngIf="showCardTranslateButton(pl)"
+                      [disabled]="isCardDescTranslating(pl)"
+                      (click)="toggleCardDescTranslation(pl, $event)">
+                      <ion-icon name="language-outline" aria-hidden="true"></ion-icon>
+                      <span *ngIf="isCardDescTranslating(pl)">{{ 'COMMON.TRANSLATING' | translate }}</span>
+                      <span *ngIf="!isCardDescTranslating(pl) && !isCardDescTranslated(pl)">{{ 'COMMON.TRANSLATE' | translate }}</span>
+                      <span *ngIf="!isCardDescTranslating(pl) && isCardDescTranslated(pl)">{{ 'COMMON.SHOW_ORIGINAL' | translate }}</span>
+                    </button>
+                  </div>
                 </div>
               </ng-container>
               </div>

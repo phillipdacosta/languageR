@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, BehaviorSubject } from 'rxjs';
+import { TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { UserService } from './user.service';
 
@@ -144,6 +145,8 @@ export interface Lesson {
     summary?: string | null;
     recommendedFocus?: string[];
     areasForImprovement?: string[];
+    summaryLanguage?: string;
+    summaryTranslatable?: boolean;
   };
   
   // Issue Reporting & Investigation
@@ -252,7 +255,11 @@ export class LessonService {
   private detailCache = new Map<string, CachedLessonDetailBundle>();
   private lastCachedUserId: string | null = null;
 
-  constructor(private http: HttpClient, private userService: UserService) {
+  constructor(
+    private http: HttpClient,
+    private userService: UserService,
+    private translateService: TranslateService,
+  ) {
     this.userService.currentUser$.subscribe((u) => {
       const uid = ((u as any)?._id ?? (u as any)?.id ?? null);
       const next = uid != null ? String(uid) : null;
@@ -406,6 +413,16 @@ export class LessonService {
     return this.http.get<{ success: boolean; lessons: Lesson[] }>(url, { headers });
   }
 
+  /**
+   * Current UI locale, normalized to a short code (e.g. `pt-BR` → `pt`).
+   * Used when the user opts in to translating an individual card's
+   * previous-session prose via the per-card translate button.
+   */
+  getProseLang(): string {
+    const raw = this.translateService.currentLang || this.translateService.defaultLang || '';
+    return (raw || '').toLowerCase().split(/[-_]/)[0];
+  }
+
   // Get all lessons for current user
   getMyLessons(userId?: string): Observable<{ success: boolean; lessons: Lesson[] }> {
     const params: Record<string, string> = {};
@@ -414,6 +431,27 @@ export class LessonService {
     }
     const headers = this.userService.getAuthHeadersSync();
     return this.http.get<{ success: boolean; lessons: Lesson[] }>(`${this.baseUrl}/my-lessons`, { params, headers });
+  }
+
+  /**
+   * On-demand translation of the previous-session prose ("Last session: …",
+   * "First lesson with …", etc.) shown under an upcoming lesson card.
+   * Result is cached server-side in LessonAnalysis.translations /
+   * TutorFeedback.translations, so subsequent calls for the same
+   * (lesson, language) pair never hit GPT again.
+   */
+  translateLessonContext(lessonId: string, targetLanguage: string): Observable<{
+    success: boolean;
+    hasTranslation: boolean;
+    language?: string;
+    summary?: string | null;
+    recommendedFocus?: string[];
+    areasForImprovement?: string[];
+  }> {
+    return this.http.post<any>(
+      `${this.baseUrl}/${lessonId}/translate-context`,
+      { targetLanguage },
+    );
   }
 
   // Get specific lesson details

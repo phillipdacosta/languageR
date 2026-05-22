@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy, ViewChild, ViewChildren, QueryList, ElementRef, AfterViewChecked, ChangeDetectorRef, HostBinding } from '@angular/core';
-import '@dotlottie/player-component';
 import { Router } from '@angular/router';
+import '@dotlottie/player-component';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { AuthService, User } from '../services/auth.service';
 import { UserService, TutorOnboardingData } from '../services/user.service';
@@ -29,7 +29,7 @@ export type TutorOnboardingNativeLangChip = { code: string; native: string; inte
 export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   @HostBinding('class.onboarding-page--wizard-main')
   get onboardingPageWizardMainActive(): boolean {
-    return !this.showWelcome && !this.showPreview && this.preStepPhase === 'done';
+    return !this.showWelcome && this.preStepPhase === 'done';
   }
 
   user$: Observable<User | null>;
@@ -540,42 +540,35 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
       this.cdr.markForCheck();
     });
     this.bindLocaleSensitiveUi();
+    this.runAuthenticatedTutorOnboardingChecks();
+    this.syncTutorWizardCopy();
+  }
 
-    // Check if user is authenticated
+  private runAuthenticatedTutorOnboardingChecks(): void {
     this.authService.isAuthenticated$.pipe(take(1)).subscribe(isAuthenticated => {
       if (!isAuthenticated) {
         this.router.navigate(['/login']);
         return;
       }
 
-      // Safety check: Check if user has already completed onboarding
       this.authService.getUserProfile().pipe(take(1)).subscribe(user => {
         if (!user || !user.email) {
           this.router.navigate(['/login']);
           return;
         }
-        
-        console.log('✅ Tutor authenticated:', user.email);
-        
-        // Check database for onboarding status
+
         this.userService.getCurrentUser().pipe(take(1)).subscribe({
           next: (dbUser) => {
             if (dbUser?.onboardingCompleted) {
-              console.log('✅ Tutor onboarding already completed, redirecting to home');
               this.router.navigate(['/tabs/home'], { replaceUrl: true });
-              return;
             }
-            console.log('📝 Tutor needs to complete onboarding');
           },
-          error: (error) => {
-            // User doesn't exist in DB yet - that's okay, let them onboard
-            console.log('Tutor not in database yet, proceeding with onboarding');
-          }
+          error: () => {
+            // User doesn't exist in DB yet — proceed with onboarding.
+          },
         });
       });
     });
-
-    this.syncTutorWizardCopy();
   }
 
   ngAfterViewChecked() {
@@ -1072,13 +1065,6 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
     { labelKey: 'ONBOARDING.TUTOR_OB.PREVIEW_FLOW_REVIEW', done: false, current: true },
   ];
 
-  readonly tutorPreviewChecklistKeys: readonly string[] = [
-    'ONBOARDING.TUTOR_OB.PREVIEW_CHECKLIST_BASIC',
-    'ONBOARDING.TUTOR_OB.PREVIEW_CHECKLIST_TEACHING',
-    'ONBOARDING.TUTOR_OB.PREVIEW_CHECKLIST_PROFILE',
-    'ONBOARDING.TUTOR_OB.PREVIEW_CHECKLIST_AVAILABILITY',
-  ];
-
   showPreviewPage() {
     const ui = this.languageService.getCurrentLanguage();
     const nativeLang = this.nativeLanguageOptions.find((l) => l.code === this.nativeLanguage);
@@ -1107,9 +1093,11 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
     this.hasReachedPreview = true;
     // Scroll to top when preview page is shown
     setTimeout(() => {
-      const previewContainer = document.querySelector('.preview-container');
-      if (previewContainer) {
-        previewContainer.scrollTop = 0;
+      const scrollEl =
+        this.wizardViewportScroll?.nativeElement ??
+        document.querySelector('.preview-wizard-scroll');
+      if (scrollEl instanceof HTMLElement) {
+        scrollEl.scrollTop = 0;
       }
       window.scrollTo(0, 0);
     }, 0);
@@ -1269,33 +1257,39 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
     );
   }
 
-  get tutorPreviewChecklistStatus(): Array<{ key: string; complete: boolean }> {
-    return [
-      {
-        key: 'ONBOARDING.TUTOR_OB.PREVIEW_CHECKLIST_BASIC',
-        complete: this.firstName.trim() !== '' && this.lastName.trim() !== '' &&
-                  this.country !== '' && this.residenceCountry !== '',
-      },
-      {
-        key: 'ONBOARDING.TUTOR_OB.PREVIEW_CHECKLIST_TEACHING',
-        complete: this.nativeLanguage !== '' && this.selectedLanguages.length > 0 &&
-                  this.selectedExperience !== '',
-      },
-      {
-        key: 'ONBOARDING.TUTOR_OB.PREVIEW_CHECKLIST_PROFILE',
-        complete: this.profileBio.trim().length > 0 && this.hourlyRate >= 10,
-      },
-      {
-        key: 'ONBOARDING.TUTOR_OB.PREVIEW_CHECKLIST_AVAILABILITY',
-        complete: this.selectedSchedule !== '',
-      },
-    ];
+  get tutorChecklistBasicDone(): boolean {
+    return (
+      this.firstName.trim() !== '' &&
+      this.lastName.trim() !== '' &&
+      this.country !== '' &&
+      this.residenceCountry !== ''
+    );
+  }
+
+  get tutorChecklistTeachingDone(): boolean {
+    return (
+      this.nativeLanguage !== '' &&
+      this.selectedLanguages.length > 0 &&
+      this.selectedExperience !== ''
+    );
+  }
+
+  get tutorChecklistProfileDone(): boolean {
+    return this.profileBio.trim().length > 0 && this.hourlyRate >= 10;
+  }
+
+  get tutorChecklistAvailabilityDone(): boolean {
+    return this.selectedSchedule !== '';
   }
 
   get tutorPreviewProgressPercent(): number {
-    const items = this.tutorPreviewChecklistStatus;
-    const done = items.filter(i => i.complete).length;
-    return Math.round((done / items.length) * 100);
+    const done = [
+      this.tutorChecklistBasicDone,
+      this.tutorChecklistTeachingDone,
+      this.tutorChecklistProfileDone,
+      this.tutorChecklistAvailabilityDone,
+    ].filter(Boolean).length;
+    return Math.round((done / 4) * 100);
   }
 
   /** SVG stroke-dashoffset for the 100% ring (circumference = 97.4). */

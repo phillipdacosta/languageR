@@ -6,7 +6,7 @@ import { AuthService } from './auth.service';
 import { environment } from '../../environments/environment';
 import { buildBearerToken } from './auth-token.util';
 import { SupportedLanguage } from './language.service';
-import { setGlobalTimeFormat } from '../shared/timezone.utils';
+import { setGlobalTimeFormat, hasFutureTutorAvailability } from '../shared/timezone.utils';
 import { isStripeSupportedCountry } from '../data/stripe-supported-countries';
 
 export interface User {
@@ -764,11 +764,11 @@ export class UserService {
   }
   
   /**
-   * Get show wallet balance setting (default false for privacy)
+   * Get show wallet balance setting (default true for new users)
    */
   getShowWalletBalance(): boolean {
     const currentUser = this.currentUserSubject.value;
-    return currentUser?.profile?.showWalletBalance || false;
+    return currentUser?.profile?.showWalletBalance ?? true;
   }
   
   /**
@@ -846,6 +846,8 @@ export class UserService {
   clearCurrentUser(): void {
     this.currentUserSubject.next(null);
     this.initialLoadComplete = false;
+    this._hasAvailability = null;
+    this._availabilityBlocks = [];
   }
 
   /**
@@ -1104,12 +1106,7 @@ export class UserService {
         if (response.success && response.availability) {
           // Cache the availability state
           this._availabilityBlocks = response.availability;
-          const timeNow = new Date();
-          this._hasAvailability = response.availability.some(slot => {
-            if (slot.absoluteEnd) return new Date(slot.absoluteEnd) > timeNow;
-            if (slot.absoluteStart) return new Date(slot.absoluteStart) > timeNow;
-            return true;
-          });
+          this._hasAvailability = hasFutureTutorAvailability(response.availability);
 
           this.availabilityUpdatedSubject.next(response.availability);
         }
@@ -1137,6 +1134,12 @@ export class UserService {
           `${this.apiUrl}/users/availability${cacheBuster}`,
           { headers: this.getAuthHeaders(userEmail) }
         );
+      }),
+      tap(response => {
+        if (response?.availability) {
+          this._availabilityBlocks = response.availability;
+          this._hasAvailability = hasFutureTutorAvailability(response.availability);
+        }
       }),
       catchError(error => {
         console.error('📅 Error fetching availability:', error);

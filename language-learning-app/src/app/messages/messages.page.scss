@@ -2606,13 +2606,16 @@
   }
 }
 
-/** Local time strip at top of the gray card. */
+/** Local time strip at top of the gray card. Always reserves the same height
+ * so group threads (no "It's … for them" line) match single-thread composer size. */
 .composer-local-time {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
+  min-height: 30px;
   padding: 0 4px 12px;
+  box-sizing: border-box;
   background: transparent;
   font-size: 12px;
   font-weight: 400;
@@ -2623,6 +2626,11 @@
   ion-icon {
     font-size: 14px;
     opacity: 0.85;
+  }
+
+  &.composer-local-time--empty {
+    visibility: hidden;
+    pointer-events: none;
   }
 }
 

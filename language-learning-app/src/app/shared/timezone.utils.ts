@@ -19,6 +19,42 @@ export function getGlobalHour12(): boolean {
 }
 
 /**
+ * True when a tutor has at least one bookable availability block in the future.
+ * Used for home-page "Set availability" vs "View calendar" and related CTAs.
+ *
+ * - Ignores class blocks (synced from scheduled classes, not open availability).
+ * - Ignores unavailable/break blocks.
+ * - Requires absoluteEnd or absoluteStart in the future (no blind "recurring = true").
+ */
+export function hasFutureTutorAvailability(
+  blocks: any[] | null | undefined,
+  now: Date = new Date()
+): boolean {
+  if (!blocks?.length) {
+    return false;
+  }
+  const nowMs = now.getTime();
+  return blocks.some(block => {
+    if (!block) {
+      return false;
+    }
+    if (block.type === 'class' || block.type === 'unavailable' || block.type === 'break') {
+      return false;
+    }
+    if (block.type && block.type !== 'available') {
+      return false;
+    }
+    if (block.absoluteEnd) {
+      return new Date(block.absoluteEnd).getTime() > nowMs;
+    }
+    if (block.absoluteStart) {
+      return new Date(block.absoluteStart).getTime() > nowMs;
+    }
+    return false;
+  });
+}
+
+/**
  * Convert a wall-clock time (HH:mm on YYYY-MM-DD) from one IANA timezone to another.
  * Uses date-fns-tz for correct DST-aware conversion.
  */
@@ -149,12 +185,33 @@ export function formatTimeInTz(date: Date | string, timezone?: string, locale?: 
     const d = typeof date === 'string' ? new Date(date) : date;
     if (isNaN(d.getTime())) return '';
     const loc = locale && locale.length >= 2 ? locale : 'en-US';
-    return d.toLocaleTimeString(loc, {
+    const tzOpts: Intl.DateTimeFormatOptions = timezone ? { timeZone: timezone } : {};
+
+    if (!h12) {
+      // 24h: HH:mm, no AM/PM
+      return d.toLocaleTimeString(loc, {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        ...tzOpts,
+      });
+    }
+
+    // 12h: always include AM/PM (some locales omit dayPeriod with hour: 'numeric')
+    const formatter = new Intl.DateTimeFormat(loc, {
       hour: 'numeric',
       minute: '2-digit',
-      hour12: h12,
-      ...(timezone ? { timeZone: timezone } : {})
+      hour12: true,
+      ...tzOpts,
     });
+    const parts = formatter.formatToParts(d);
+    const hour = parts.find(p => p.type === 'hour')?.value ?? '';
+    const minute = parts.find(p => p.type === 'minute')?.value ?? '';
+    const dayPeriod = parts.find(p => p.type === 'dayPeriod')?.value?.trim() ?? '';
+    if (dayPeriod) {
+      return `${hour}:${minute} ${dayPeriod}`;
+    }
+    return formatter.format(d);
   } catch {
     return '';
   }

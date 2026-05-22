@@ -88,6 +88,21 @@ const tutorFeedbackSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
     index: true
+  },
+
+  // Cached translations of prose fields, keyed by ISO 639-1 language code
+  // (`pt`, `es`, …). Populated lazily by the lessons list handler when a
+  // non-English reader first requests this feedback's surrounding lesson.
+  translations: {
+    type: Map,
+    of: {
+      translatedAt: Date,
+      overallNotes: String,
+      homework: String,
+      strengths: [String],
+      areasForImprovement: [String]
+    },
+    default: {}
   }
 });
 

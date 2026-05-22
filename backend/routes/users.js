@@ -263,8 +263,8 @@ router.get('/me', verifyToken, async (req, res) => {
       needsSave = true;
     }
     if (user.profile.showWalletBalance === undefined) {
-      console.log('💰 User has no showWalletBalance, setting default to false');
-      user.profile.showWalletBalance = false;
+      console.log('💰 User has no showWalletBalance, setting default to true');
+      user.profile.showWalletBalance = true;
       needsSave = true;
     }
     if (user.profile.remindersEnabled === undefined) {
@@ -878,7 +878,7 @@ router.put('/profile', verifyToken, async (req, res) => {
       preferredLanguage: preferredLanguage !== undefined ? preferredLanguage : (user.profile?.preferredLanguage ?? 'en'),
       officeHoursEnabled: officeHoursEnabled !== undefined ? officeHoursEnabled : (user.profile?.officeHoursEnabled ?? false),
       officeHoursLastActive: user.profile?.officeHoursLastActive ?? null,
-      showWalletBalance: showWalletBalance !== undefined ? showWalletBalance : (user.profile?.showWalletBalance ?? false),
+      showWalletBalance: showWalletBalance !== undefined ? showWalletBalance : (user.profile?.showWalletBalance ?? true),
       remindersEnabled: remindersEnabled !== undefined ? remindersEnabled : (user.profile?.remindersEnabled ?? true),
       aiAnalysisEnabled: aiAnalysisEnabled !== undefined ? aiAnalysisEnabled : (user.profile?.aiAnalysisEnabled ?? true),
       calendarTimeFormat: calendarTimeFormat !== undefined ? calendarTimeFormat : (user.profile?.calendarTimeFormat ?? '12h'),

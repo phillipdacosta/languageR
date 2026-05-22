@@ -604,16 +604,15 @@
           <div class="message-composer-card">
         <div
           class="composer-local-time"
-          *ngIf="otherUserLocalTime"
+          [class.composer-local-time--empty]="!otherUserLocalTime"
         >
-          <ion-icon [name]="otherUserLocalTimeIcon" aria-hidden="true"></ion-icon>
-          <span>{{ 'MESSAGES.LOCAL_TIME_FOR_THEM' | translate: { time: otherUserLocalTime } }}</span>
+          <ng-container *ngIf="otherUserLocalTime">
+            <ion-icon [name]="otherUserLocalTimeIcon" aria-hidden="true"></ion-icon>
+            <span>{{ 'MESSAGES.LOCAL_TIME_FOR_THEM' | translate: { time: otherUserLocalTime } }}</span>
+          </ng-container>
         </div>
 
-        <div
-          class="message-input-container"
-          [class.message-input--below-local-time]="otherUserLocalTime"
-        >
+        <div class="message-input-container message-input--below-local-time">
           <input type="file" #imageInput accept="image/*" (change)="onFileSelected($event, 'image')" style="display: none;">
           <input type="file" #documentInput accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx" (change)="onFileSelected($event, 'file')" style="display: none;">
           
