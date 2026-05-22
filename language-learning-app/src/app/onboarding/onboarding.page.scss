@@ -423,8 +423,8 @@ $ob-accent: #222222;
   font-weight: 400;
   color: $ob-text-secondary;
   line-height: 1.6;
-  margin: 0 0 28px;
-  max-width: 400px;
+  margin: 0 0 20px;
+  max-width: 640px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -434,74 +434,6 @@ $ob-accent: #222222;
   min-width: 220px;
   max-width: 320px;
   padding: 14px 40px;
-}
-
-.welcome-features {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 32px;
-  max-width: 380px;
-  margin-left: auto;
-  margin-right: auto;
-
-  .welcome-feature-card {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 14px 16px;
-    background: #ffffff;
-    border: 1px solid $ob-border-light;
-    border-radius: 14px;
-    text-align: left;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
-
-    &:hover {
-      border-color: $ob-border;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-    }
-
-    .feature-icon {
-      width: 56px;
-      height: 56px;
-      border: none;
-      border-radius: 0;
-      background: none;
-      box-shadow: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      overflow: visible;
-
-      .feature-icon-img {
-        width: 56px;
-        height: 56px;
-        object-fit: contain;
-        display: block;
-        background: transparent;
-      }
-    }
-
-    .feature-text {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-
-      .feature-title {
-        font-size: 14px;
-        font-weight: 600;
-        color: $ob-text-primary;
-        letter-spacing: -0.1px;
-      }
-
-      .feature-desc {
-        font-size: 12px;
-        color: $ob-text-tertiary;
-        line-height: 1.4;
-      }
-    }
-  }
 }
 
 // Trust Signals (Welcome page)
@@ -574,6 +506,8 @@ $ob-accent: #222222;
   .welcome-body {
     display: flex;
     flex-direction: column;
+    align-items: center;
+    width: 100%;
   }
 
   &.welcome-revealed .welcome-body {
@@ -586,17 +520,10 @@ $ob-accent: #222222;
   }
 
   .welcome-features {
-    max-width: 560px;
+    width: 100%;
+    max-width: 960px;
     margin-left: auto;
     margin-right: auto;
-    width: 100%;
-  }
-
-  .welcome-how-it-works {
-    max-width: 720px;
-    margin-left: auto;
-    margin-right: auto;
-    width: 100%;
   }
 
   .welcome-body .pre-step-cta {
@@ -643,28 +570,6 @@ $ob-accent: #222222;
     font-size: 15px;
   }
 
-  .welcome-features {
-    gap: 10px;
-
-    .welcome-feature-card {
-      padding: 12px 14px;
-
-      .feature-icon {
-        width: 48px;
-        height: 48px;
-
-        .feature-icon-img {
-          width: 48px;
-          height: 48px;
-        }
-      }
-
-      .feature-text .feature-desc {
-        font-size: 11px;
-      }
-    }
-  }
-
   .welcome-trust {
     gap: 12px;
     flex-wrap: wrap;
@@ -694,21 +599,6 @@ $ob-accent: #222222;
   .welcome-subtitle {
     margin-bottom: 16px;
     font-size: 15px;
-  }
-
-  .welcome-features {
-    margin-bottom: 16px;
-    gap: 8px;
-
-    .welcome-feature-card {
-      padding: 10px 14px;
-
-      .feature-icon,
-      .feature-icon-img {
-        width: 44px;
-        height: 44px;
-      }
-    }
   }
 
   .welcome-trust {

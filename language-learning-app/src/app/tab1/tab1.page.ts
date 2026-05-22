@@ -33,6 +33,7 @@ import { FlagService } from '../services/flag.service';
 import { TutorFeedbackService, PendingFeedbackItem } from '../services/tutor-feedback.service';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
+import { buildStripeConnectPayloadForProfilePayout, parseStripeConnectReturnParams, stripStripeConnectQueryParams, StripeConnectReturnState } from '../utils/stripe-connect.util';
 import { SmartIslandService, DynamicCard } from '../services/smart-island.service';
 import { TranslateService } from '@ngx-translate/core';
 import { LearningPlanService, LearningPlan } from '../services/learning-plan.service';
@@ -901,7 +902,13 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
 
     this.activatedRoute.queryParams
       .pipe(takeUntil(this.destroy$))
-      .subscribe(() => this.restoreEarningsAfterLessonReturn());
+      .subscribe((params) => {
+        this.restoreEarningsAfterLessonReturn();
+        const stripeReturn = parseStripeConnectReturnParams(params);
+        if (stripeReturn) {
+          void this.handleStripeConnectReturn(stripeReturn);
+        }
+      });
 
     this.loadUserStats();
     
@@ -10004,7 +10011,7 @@ navigateToLessons() {
 
     try {
       const response = await firstValueFrom(
-        this.http.post<any>(`${environment.apiUrl}/payments/stripe-connect/onboard`, {}, {
+        this.http.post<any>(`${environment.apiUrl}/payments/stripe-connect/onboard`, buildStripeConnectPayloadForProfilePayout(), {
           headers: this.userService.getAuthHeadersSync()
         })
       );
@@ -10034,6 +10041,82 @@ navigateToLessons() {
     } finally {
       this.isLoadingStripeConnect = false;
     }
+  }
+
+  /** Reopen the approval wizard modal at a specific step (e.g. after Stripe return). */
+  openTutorApprovalWizardAtStep(stepId: string): void {
+    this.tutorApprovalWizardModalInitialStepId = stepId;
+    this.isTutorApprovalWizardModalOpen = true;
+    this.tutorApprovalWizardBackdropVisible = false;
+    this.tutorApprovalWizardModalReady = false;
+    this.cdr.markForCheck();
+    if (this.isMobile) {
+      this.ionContent?.scrollToTop(0);
+    } else {
+      document.body.classList.add('cm-desktop-modal-open');
+      requestAnimationFrame(() => {
+        this.tutorApprovalWizardBackdropVisible = true;
+        this.cdr.markForCheck();
+      });
+      setTimeout(() => {
+        this.tutorApprovalWizardModalReady = true;
+        this.cdr.markForCheck();
+      }, 350);
+    }
+  }
+
+  async handleStripeConnectReturn(state: StripeConnectReturnState): Promise<void> {
+    if (state.success) {
+      try {
+        const statusResponse = await firstValueFrom(
+          this.http.get<any>(`${environment.apiUrl}/payments/stripe-connect/status`, {
+            headers: this.userService.getAuthHeadersSync(),
+          })
+        );
+
+        if (statusResponse?.success && statusResponse.onboarded) {
+          const toast = await this.toastController.create({
+            message: '✅ Payout setup complete! Your earnings will be transferred to your bank.',
+            duration: 5000,
+            color: 'success',
+            position: 'top',
+          });
+          await toast.present();
+        } else {
+          const toast = await this.toastController.create({
+            message: 'Stripe setup not completed. Please try again to finish connecting your bank account.',
+            duration: 5000,
+            color: 'warning',
+            position: 'top',
+          });
+          await toast.present();
+        }
+      } catch {
+        // Skip toast if status check fails
+      }
+    }
+
+    setTimeout(() => {
+      this.userService.loadPayoutStatus();
+      void this.checkStripeConnectStatus();
+    }, 1000);
+
+    if (
+      state.returnContext === 'tutor-approval-wizard' &&
+      state.tutorApprovalStepId
+    ) {
+      this.openTutorApprovalWizardAtStep(state.tutorApprovalStepId);
+    } else if (state.returnContext === 'profile-payout' && this.isTutorUser) {
+      this.showEarningsView = true;
+      this.cdr.markForCheck();
+    }
+
+    const cleanedParams = stripStripeConnectQueryParams(this.activatedRoute.snapshot.queryParams);
+    this.router.navigate([], {
+      relativeTo: this.activatedRoute,
+      queryParams: cleanedParams,
+      replaceUrl: true,
+    });
   }
 
   onEarningsBalanceChanged(event: { available: number; pending: number }) {

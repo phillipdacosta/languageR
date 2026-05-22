@@ -43,7 +43,17 @@ export class PlatformService {
    * Check if running on web (desktop or PWA)
    */
   isWeb(): boolean {
-    return this.platform.is('desktop') || this.platform.is('pwa');
+    if (this.platform.is('desktop') || this.platform.is('pwa')) {
+      return true;
+    }
+    // Windows touch laptops and some browsers omit Ionic's `desktop` flag while still
+    // being a desktop browser — treat wide, non-hybrid, non-mobile-OS viewports as web.
+    if (!this.platform.is('hybrid') && !this.isIOS() && !this.isAndroid()) {
+      if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

@@ -28,9 +28,16 @@ import { App as CapacitorApp } from '@capacitor/app';
 import { Haptics, NotificationType } from '@capacitor/haptics';
 import { Browser } from '@capacitor/browser';
 import { environment } from '../../environments/environment';
+import { parseStripeConnectReturnParams, stripStripeConnectQueryParams, StripeConnectReturnState } from '../utils/stripe-connect.util';
 import { TutorFeedbackService } from '../services/tutor-feedback.service';
 import { LearningPlanService, LearningPlanSummary } from '../services/learning-plan.service';
 import { getHoursInTz, getMinutesInTz, formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
+import {
+  CALENDAR_WEEK_START_UI_OPTIONS,
+  CalendarWeekStartDay,
+  getStartOfCalendarWeek,
+  normalizeCalendarWeekStartsOn,
+} from '../shared/calendar-week.utils';
 // Performance pipes
 import { EventsForDayPipe } from './pipes/events-for-day.pipe';
 import { EventsForSelectedDayPipe } from './pipes/events-for-selected-day.pipe';
@@ -465,7 +472,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
 
   get is24h(): boolean {
-    return false;
+    return this.calendarTimeFormat === '24h';
   }
 
   formatTime(date: Date): string {
@@ -565,15 +572,14 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.buildMobileAgenda();
   }
 
-  private getMonday(date: Date): Date {
-    const d = this.getStartOfDay(date);
-    const day = d.getDay();
-    const diff = day === 0 ? -6 : 1 - day;
-    return this.addDays(d, diff);
+  private getWeekStartForDate(date: Date): Date {
+    return getStartOfCalendarWeek(date, this.calendarWeekStartsOn);
   }
 
   private setupMobileDays(anchor: Date, focus: Date = anchor) {
-    const start = this.mobileViewMode === 'day' ? this.getMonday(anchor) : this.getStartOfDay(anchor);
+    const start = this.mobileViewMode === 'day'
+      ? this.getWeekStartForDate(anchor)
+      : this.getStartOfDay(anchor);
     this.mobileWeekStart = start;
     const days: MobileDayContext[] = [];
     const count = this.mobileViewMode === 'agenda' ? this.agendaDaysToShow : this.mobileDaysToShow;
@@ -1208,8 +1214,23 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.userSubscription = this.userService.currentUser$.subscribe(user => {
       if (user) {
         const prevTimezone = this.currentUser?.profile?.timezone;
+        const prevTimeFormat = this.calendarTimeFormat;
+        const prevWeekStartsOn = this.calendarWeekStartsOn;
         this.currentUser = user;
         this.userTz = user.profile?.timezone || undefined;
+
+        const nextTimeFormat = user.profile?.calendarTimeFormat || '12h';
+        if (nextTimeFormat !== prevTimeFormat) {
+          this.calendarTimeFormat = nextTimeFormat;
+          this.generateTimeSlots();
+          this.cdr.markForCheck();
+        }
+
+        const nextWeekStartsOn = normalizeCalendarWeekStartsOn(user.profile?.calendarWeekStartsOn);
+        if (nextWeekStartsOn !== prevWeekStartsOn) {
+          this.calendarWeekStartsOn = nextWeekStartsOn;
+          this.applyWeekStartPreference();
+        }
         // Check if user has a custom uploaded photo (not just Google/Auth0 photo)
         this.hasCustomProfilePhoto = !!(user.picture && (
           user.picture.includes('storage.googleapis.com') || // GCS uploaded photo
@@ -1261,8 +1282,13 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
 
     this.startTimeUpdater();
     
-    // Check if we're in reschedule mode
+    // Check if we're in reschedule mode or returning from Stripe Connect
     this.route.queryParams.subscribe(params => {
+      const stripeReturn = parseStripeConnectReturnParams(params);
+      if (stripeReturn) {
+        void this.handleStripeConnectReturn(stripeReturn);
+      }
+
       if (params['mode'] === 'reschedule') {
         this.rescheduleMode = true;
         this.rescheduleLessonId = params['lessonId'] || null;
@@ -1618,12 +1644,19 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         // Calendar settings
         this.calendarTimeFormat = user?.profile?.calendarTimeFormat || '12h';
         this.calendarDefaultView = user?.profile?.calendarDefaultView || 'week';
+        this.calendarWeekStartsOn = normalizeCalendarWeekStartsOn(user?.profile?.calendarWeekStartsOn);
         this.tutorTimezoneLabel = user?.profile?.timezone
           ? user.profile.timezone.replace(/_/g, ' ')
           : Intl.DateTimeFormat().resolvedOptions().timeZone.replace(/_/g, ' ');
         this.generateTimeSlots();
         if (this.customView !== this.calendarDefaultView) {
           this.customView = this.calendarDefaultView;
+        }
+        this.currentWeekStart = this.getWeekStartForDate(new Date());
+        this.updateWeekDays();
+        this.updateWeekTitle();
+        if (this.isMobileView) {
+          this.setupMobileDays(new Date(), new Date());
         }
 
         // Check Google Calendar connection status and load events if connected
@@ -3103,6 +3136,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   /** Passed to `eventTime` pipe so it re-renders when the UI language changes. */
   calendarEventLocale = 'en';
   calendarDefaultView: 'week' | 'day' = 'week';
+  calendarWeekStartsOn: CalendarWeekStartDay = 0;
+  readonly calendarWeekStartOptions = CALENDAR_WEEK_START_UI_OPTIONS;
   get shortDateTimeFormat(): string { return this.calendarTimeFormat === '24h' ? 'M/d/yy, HH:mm' : 'M/d/yy, h:mm a'; }
   tutorTimezoneLabel = '';
   calendarSettingsExpanded = false;
@@ -3329,20 +3364,63 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.userService.updateGoogleCalendarSettings(payload).subscribe();
   }
 
-  updateCalendarSetting(type: 'timeFormat' | 'defaultView', value: string) {
+  updateCalendarSetting(type: 'timeFormat' | 'defaultView' | 'weekStartsOn', value: string | number) {
     if (type === 'timeFormat') {
       this.calendarTimeFormat = value as '12h' | '24h';
       this.generateTimeSlots();
     } else if (type === 'defaultView') {
       this.calendarDefaultView = value as 'week' | 'day';
       this.switchView(value as 'week' | 'day');
+    } else if (type === 'weekStartsOn') {
+      const next = normalizeCalendarWeekStartsOn(value);
+      if (next === this.calendarWeekStartsOn) {
+        return;
+      }
+      this.calendarWeekStartsOn = next;
+      this.applyWeekStartPreference();
     }
     this.cdr.detectChanges();
 
     const profileUpdate: any = {};
     if (type === 'timeFormat') profileUpdate.calendarTimeFormat = value;
     if (type === 'defaultView') profileUpdate.calendarDefaultView = value;
+    if (type === 'weekStartsOn') profileUpdate.calendarWeekStartsOn = this.calendarWeekStartsOn;
+    if (type === 'weekStartsOn') profileUpdate.calendarWeekStartsOnUserSet = true;
     this.userService.updateProfile(profileUpdate).subscribe();
+  }
+
+  private getCalendarFocusDate(): Date {
+    if (this.customView === 'day' && this.selectedDayForDayView?.date) {
+      return new Date(this.selectedDayForDayView.date);
+    }
+    if (this.isMobileView && this.mobileDays.length > 0) {
+      const idx = Math.min(Math.max(this.selectedMobileDayIndex, 0), this.mobileDays.length - 1);
+      return new Date(this.mobileDays[idx].date);
+    }
+    return new Date();
+  }
+
+  private applyWeekStartPreference(): void {
+    const focus = this.getCalendarFocusDate();
+    this.currentWeekStart = this.getWeekStartForDate(focus);
+    this.updateWeekDays();
+    this.updateWeekTitle();
+
+    if (this.isMobileView) {
+      const anchor = this.mobileDays[this.selectedMobileDayIndex]?.date ?? focus;
+      this.setupMobileDays(new Date(anchor), focus);
+      if (this.mobileViewMode === 'day') {
+        this.buildMobileTimeline();
+      } else {
+        this.buildMobileAgenda();
+      }
+    }
+
+    if (this.currentUser?.id) {
+      this.loadAndUpdateCalendarData();
+      this.refreshGcalForVisibleWindow();
+    }
+    this.cdr.markForCheck();
   }
 
   toggleCalendarSettings(event?: Event) {
@@ -3828,12 +3906,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
   
   private initializeCustomCalendar() {
-    // Set current week start (Sunday)
     const today = new Date();
-    const dayOfWeek = today.getDay();
-    this.currentWeekStart = new Date(today);
-    this.currentWeekStart.setDate(today.getDate() - dayOfWeek);
-    this.currentWeekStart.setHours(0, 0, 0, 0);
+    this.currentWeekStart = this.getWeekStartForDate(today);
     
     // Generate week days
     this.updateWeekDays();
@@ -3977,10 +4051,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   navigateToday() {
     const today = new Date();
     if (this.customView === 'week') {
-      const dayOfWeek = today.getDay();
-      this.currentWeekStart = new Date(today);
-      this.currentWeekStart.setDate(today.getDate() - dayOfWeek);
-      this.currentWeekStart.setHours(0, 0, 0, 0);
+      this.currentWeekStart = this.getWeekStartForDate(today);
       this.updateWeekDays();
       this.updateWeekTitle();
       // Regenerate availability events for today's week
@@ -4381,6 +4452,77 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       this.tutorApprovalWizardModalReady = true;
       this.cdr.markForCheck();
     }, 350);
+  }
+
+  openTutorApprovalWizardAtStep(stepId: string): void {
+    this.tutorApprovalWizardModalInitialStepId = stepId;
+    this.isTutorApprovalWizardModalOpen = true;
+    this.tutorApprovalWizardBackdropVisible = false;
+    this.tutorApprovalWizardModalReady = false;
+    this.cdr.markForCheck();
+    if (this.isMobileView) {
+      return;
+    }
+    document.body.classList.add('cm-desktop-modal-open');
+    requestAnimationFrame(() => {
+      this.tutorApprovalWizardBackdropVisible = true;
+      this.cdr.markForCheck();
+    });
+    setTimeout(() => {
+      this.tutorApprovalWizardModalReady = true;
+      this.cdr.markForCheck();
+    }, 350);
+  }
+
+  async handleStripeConnectReturn(state: StripeConnectReturnState): Promise<void> {
+    if (state.success) {
+      try {
+        const statusResponse = await firstValueFrom(
+          this.http.get<any>(`${environment.apiUrl}/payments/stripe-connect/status`, {
+            headers: this.userService.getAuthHeadersSync(),
+          })
+        );
+
+        if (statusResponse?.success && statusResponse.onboarded) {
+          const toast = await this.toastController.create({
+            message: '✅ Payout setup complete! Your earnings will be transferred to your bank.',
+            duration: 5000,
+            color: 'success',
+            position: 'top',
+          });
+          await toast.present();
+        } else {
+          const toast = await this.toastController.create({
+            message: 'Stripe setup not completed. Please try again to finish connecting your bank account.',
+            duration: 5000,
+            color: 'warning',
+            position: 'top',
+          });
+          await toast.present();
+        }
+      } catch {
+        // Skip toast if status check fails
+      }
+    }
+
+    setTimeout(() => {
+      this.userService.loadPayoutStatus();
+      void this.checkStripeConnectStatus();
+    }, 1000);
+
+    if (
+      state.returnContext === 'tutor-approval-wizard' &&
+      state.tutorApprovalStepId
+    ) {
+      this.openTutorApprovalWizardAtStep(state.tutorApprovalStepId);
+    }
+
+    const cleanedParams = stripStripeConnectQueryParams(this.route.snapshot.queryParams);
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: cleanedParams,
+      replaceUrl: true,
+    });
   }
 
   onTutorApprovalWizardBackdropClick(ev: MouseEvent): void {

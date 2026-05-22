@@ -165,7 +165,7 @@
         </ng-container>
 
     <ng-container *ngIf="!isViewingOtherUser && profileActiveSection === 'payments' && isTutorUser">
-    <ion-card class="stripe-connect-card">
+    <ion-card class="stripe-connect-card" id="profile-payout-section">
       <ion-card-content [class.stripe-connected]="hasPayoutSetup === true">
         <!-- Loading State -->
         <div class="stripe-connect-content" *ngIf="hasPayoutSetup === undefined">

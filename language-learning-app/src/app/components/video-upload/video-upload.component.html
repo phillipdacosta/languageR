@@ -1,39 +1,142 @@
-<div class="video-upload-container" [class.video-upload-container--full]="fullWidthLayout">
+<div
+  class="video-upload-container"
+  [class.video-upload-container--full]="fullWidthLayout"
+  [class.video-upload-container--wizard-column]="wizardColumnLayout"
+  [class.video-upload-container--wizard-review]="wizardColumnLayout && !!videoUrl">
   <!-- Mode Toggle (only show if no video uploaded yet) -->
   <div class="upload-mode-toggle" *ngIf="!videoUrl">
-    <button 
-      class="mode-btn" 
-      [class.active]="uploadMode === 'file'"
-      (click)="toggleUploadMode('file')">
-      <ion-icon name="cloud-upload-outline"></ion-icon>
-      {{ 'VIDEO_UPLOAD.UPLOAD_FILE' | translate }}
-    </button>
-    <button 
-      class="mode-btn" 
+    <button
+      class="mode-btn"
       [class.active]="uploadMode === 'link'"
       (click)="toggleUploadMode('link')">
       <ion-icon name="link-outline"></ion-icon>
       {{ 'VIDEO_UPLOAD.PASTE_LINK' | translate }}
     </button>
+    <button
+      class="mode-btn"
+      [class.active]="uploadMode === 'file'"
+      (click)="toggleUploadMode('file')">
+      <ion-icon name="cloud-upload-outline"></ion-icon>
+      {{ 'VIDEO_UPLOAD.UPLOAD_FILE' | translate }}
+    </button>
   </div>
 
-  <!-- FILE UPLOAD MODE -->
-  <div class="upload-section" *ngIf="!videoUrl && uploadMode === 'file'">
-    
+  <!-- Wizard: shared thumbnail + fixed-height panel so file/link modes match -->
+  <ng-container *ngIf="!videoUrl && wizardColumnLayout">
+    <div
+      class="thumbnail-upload-section thumbnail-upload-section--wizard-row wizard-shared-thumbnail">
+      <input #thumbnailFileInputWizard
+             type="file"
+             accept="image/jpeg,image/jpg,image/png"
+             (change)="onThumbnailSelected($event)"
+             style="display: none;">
+
+      <div class="thumbnail-wizard-row">
+        <ion-icon name="image-outline" class="thumbnail-wizard-row__icon" aria-hidden="true"></ion-icon>
+        <div class="thumbnail-wizard-row__text">
+          <p class="thumbnail-wizard-row__title">{{ 'VIDEO_UPLOAD.THUMBNAIL_LABEL_WIZARD' | translate }}</p>
+          <p class="thumbnail-wizard-row__hint">{{ 'VIDEO_UPLOAD.THUMBNAIL_HINT_WIZARD' | translate }}</p>
+        </div>
+        <button
+          type="button"
+          class="thumbnail-wizard-row__btn"
+          *ngIf="!thumbnailPreview"
+          (click)="thumbnailFileInputWizard.click(); $event.stopPropagation()">
+          {{ 'VIDEO_UPLOAD.THUMBNAIL_BTN' | translate }}
+        </button>
+        <div class="thumbnail-preview-small thumbnail-preview-small--wizard" *ngIf="thumbnailPreview">
+          <img [src]="thumbnailPreview" alt="Thumbnail preview">
+          <button type="button" class="remove-thumb-btn" (click)="removeThumbnail(); $event.stopPropagation()">
+            <ion-icon name="close-circle"></ion-icon>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="wizard-mode-panel">
+      <!-- FILE UPLOAD MODE -->
+      <div class="upload-section" *ngIf="uploadMode === 'file'">
+        <div class="upload-area"
+             [class.dragover]="isDragOver"
+             (dragover)="onDragOver($event)"
+             (dragleave)="onDragLeave($event)"
+             (drop)="onDrop($event)"
+             (click)="fileInputWizard.click()">
+
+          <input #fileInputWizard
+                 type="file"
+                 accept="video/*"
+                 (change)="onFileSelected($event)"
+                 style="display: none;">
+
+          <div class="upload-content">
+            <ion-icon name="videocam-outline" class="upload-icon"></ion-icon>
+            <h3>{{ 'VIDEO_UPLOAD.UPLOAD_TITLE' | translate }}</h3>
+            <p>{{ 'VIDEO_UPLOAD.UPLOAD_DESC_WIZARD' | translate }}</p>
+            <p class="upload-hint">{{ 'VIDEO_UPLOAD.UPLOAD_HINT' | translate }}</p>
+          </div>
+        </div>
+
+        <div class="upload-error" *ngIf="errorMessage">
+          <ion-icon name="warning-outline"></ion-icon>
+          <span>{{ errorMessage }}</span>
+        </div>
+      </div>
+
+      <!-- LINK PASTE MODE -->
+      <div class="link-section" *ngIf="uploadMode === 'link'">
+        <div class="link-input-area">
+          <ion-icon name="link-outline" class="link-icon"></ion-icon>
+          <h3>{{ 'VIDEO_UPLOAD.PASTE_TITLE' | translate }}</h3>
+          <p class="link-hint">{{ 'VIDEO_UPLOAD.PASTE_HINT' | translate }}</p>
+          <p class="link-privacy">{{ 'VIDEO_UPLOAD.PASTE_PRIVACY' | translate }}</p>
+
+          <div class="link-input-wrapper">
+            <ion-input
+              [(ngModel)]="videoLinkInput"
+              placeholder="https://www.youtube.com/watch?v=... or https://vimeo.com/..."
+              class="link-input"
+              (ionInput)="onLinkInputChange()">
+            </ion-input>
+          </div>
+
+          <button
+            class="add-video-cta"
+            [class.enabled]="videoLinkInput.trim()"
+            [disabled]="!videoLinkInput.trim()"
+            (click)="onPasteLink()">
+            <ion-icon name="checkmark-circle"></ion-icon>
+            {{ 'VIDEO_UPLOAD.ADD_VIDEO' | translate }}
+          </button>
+          <p class="add-video-hint" *ngIf="videoLinkInput.trim()">{{ 'VIDEO_UPLOAD.ADD_VIDEO_HINT' | translate }}</p>
+        </div>
+
+        <div class="upload-error" *ngIf="errorMessage">
+          <ion-icon name="warning-outline"></ion-icon>
+          <span>{{ errorMessage }}</span>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- FILE UPLOAD MODE (non-wizard) -->
+  <div class="upload-section" *ngIf="!videoUrl && uploadMode === 'file' && !wizardColumnLayout">
+
     <!-- Thumbnail Upload — shown first so it's visible before uploading a video -->
-    <div class="thumbnail-upload-section" *ngIf="!videoUrl">
-      <p class="thumbnail-label">{{ 'VIDEO_UPLOAD.THUMBNAIL_LABEL' | translate }}</p>
+    <div
+      class="thumbnail-upload-section"
+      *ngIf="!videoUrl">
       <input #thumbnailFileInput 
              type="file" 
              accept="image/jpeg,image/jpg,image/png" 
              (change)="onThumbnailSelected($event)"
              style="display: none;">
-      
+
+      <p class="thumbnail-label">{{ 'VIDEO_UPLOAD.THUMBNAIL_LABEL' | translate }}</p>
       <button class="thumbnail-upload-btn" (click)="thumbnailFileInput.click()" *ngIf="!thumbnailPreview">
         <ion-icon name="image-outline"></ion-icon>
         {{ 'VIDEO_UPLOAD.UPLOAD_THUMBNAIL' | translate }}
       </button>
-      
       <div class="thumbnail-preview-small" *ngIf="thumbnailPreview">
         <img [src]="thumbnailPreview" alt="Thumbnail preview">
         <button class="remove-thumb-btn" (click)="removeThumbnail()">
@@ -69,8 +172,8 @@
     </div>
   </div>
 
-  <!-- LINK PASTE MODE -->
-  <div class="link-section" *ngIf="!videoUrl && uploadMode === 'link'">
+  <!-- LINK PASTE MODE (non-wizard) -->
+  <div class="link-section" *ngIf="!videoUrl && uploadMode === 'link' && !wizardColumnLayout">
     <div class="link-input-area">
       <ion-icon name="link-outline" class="link-icon"></ion-icon>
       <h3>{{ 'VIDEO_UPLOAD.PASTE_TITLE' | translate }}</h3>
@@ -128,13 +231,43 @@
   
   <!-- VIDEO PREVIEW (for both modes) -->
   <div class="video-preview" *ngIf="videoUrl">
+    <div
+      *ngIf="wizardColumnLayout"
+      class="thumbnail-upload-section thumbnail-upload-section--wizard-row wizard-preview-thumbnail">
+      <input #thumbnailAfterVideoInput
+             type="file"
+             accept="image/jpeg,image/jpg,image/png"
+             (change)="onThumbnailSelected($event)"
+             style="display: none;">
+
+      <div class="thumbnail-wizard-row">
+        <ion-icon name="image-outline" class="thumbnail-wizard-row__icon" aria-hidden="true"></ion-icon>
+        <div class="thumbnail-wizard-row__text">
+          <p class="thumbnail-wizard-row__title">{{ 'VIDEO_UPLOAD.THUMBNAIL_LABEL_WIZARD' | translate }}</p>
+          <p class="thumbnail-wizard-row__hint">{{ 'VIDEO_UPLOAD.THUMBNAIL_HINT_WIZARD' | translate }}</p>
+        </div>
+        <button
+          type="button"
+          class="thumbnail-wizard-row__btn"
+          (click)="thumbnailAfterVideoInput.click(); $event.stopPropagation()">
+          <span *ngIf="thumbnailUrl || thumbnailPreview">{{ 'VIDEO_UPLOAD.THUMBNAIL_BTN_CHANGE' | translate }}</span>
+          <span *ngIf="!thumbnailUrl && !thumbnailPreview">{{ 'VIDEO_UPLOAD.THUMBNAIL_BTN' | translate }}</span>
+        </button>
+        <div class="thumbnail-preview-small thumbnail-preview-small--wizard" *ngIf="thumbnailUrl || thumbnailPreview">
+          <img [src]="thumbnailUrl || thumbnailPreview" alt="Thumbnail preview">
+          <button type="button" class="remove-thumb-btn" (click)="removeThumbnail(); $event.stopPropagation()">
+            <ion-icon name="close-circle"></ion-icon>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div class="video-thumbnail-wrapper" (click)="playVideo()">
-      <!-- Pending Review Badge -->
-      <div class="pending-review-badge" *ngIf="hasPendingVideo">
+      <div class="pending-review-badge" *ngIf="hasPendingVideo && !wizardColumnLayout">
         <ion-icon name="time-outline"></ion-icon>
         <span>{{ 'VIDEO_UPLOAD.PENDING_REVIEW' | translate }}</span>
       </div>
-      
+
       <!-- Show thumbnail if available with loading=eager for better quality -->
       <img *ngIf="thumbnailUrl" 
            [src]="thumbnailUrl" 
@@ -172,8 +305,8 @@
       </div>
     </div>
     
-    <!-- Thumbnail Upload Section for Videos (after upload) -->
-    <div class="thumbnail-section" *ngIf="videoUrl && !autoThumbnailGenerated && !thumbnailUrl">
+    <!-- Thumbnail Upload Section for Videos (after upload, non-wizard) -->
+    <div class="thumbnail-section" *ngIf="videoUrl && !wizardColumnLayout && !autoThumbnailGenerated && !thumbnailUrl">
       <h4>{{ 'VIDEO_UPLOAD.ADD_THUMBNAIL_TITLE' | translate }}</h4>
       <p class="thumbnail-benefit">{{ 'VIDEO_UPLOAD.THUMBNAIL_BENEFIT' | translate }}</p>
       

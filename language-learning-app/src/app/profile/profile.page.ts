@@ -19,6 +19,12 @@ import { detectUserTimezone } from '../shared/timezone.constants';
 import { getTimezoneLabel, formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { environment } from '../../environments/environment';
+import {
+  buildStripeConnectPayloadForProfilePayout,
+  parseStripeConnectReturnParams,
+  stripStripeConnectQueryParams,
+  StripeConnectReturnState,
+} from '../utils/stripe-connect.util';
 import { TutorFeedbackService } from '../services/tutor-feedback.service';
 import { LearningPlanService } from '../services/learning-plan.service';
 import { SetGoalComponent } from '../modals/set-goal/set-goal.component';
@@ -283,10 +289,9 @@ export class ProfilePage implements OnInit {
       }
 
       // Check if returning from Stripe Connect
-      if (params['stripe_success'] === 'true') {
-        this.handleStripeConnectReturn(true);
-      } else if (params['stripe_refresh'] === 'true') {
-        this.handleStripeConnectReturn(false);
+      const stripeReturn = parseStripeConnectReturnParams(params);
+      if (stripeReturn) {
+        void this.handleStripeConnectReturn(stripeReturn);
       }
 
       const userId = params['userId'];
@@ -1947,8 +1952,30 @@ export class ProfilePage implements OnInit {
     return getTimezoneLabel(timezone);
   }
 
+  /** Reopen the approval wizard modal at a specific step (e.g. after Stripe return). */
+  openTutorApprovalWizardAtStep(stepId: string): void {
+    this.isMobileViewport = this.platform.is('mobile') || this.platform.is('mobileweb');
+    this.tutorApprovalWizardModalInitialStepId = stepId;
+    this.isTutorApprovalWizardModalOpen = true;
+    this.tutorApprovalWizardBackdropVisible = false;
+    this.tutorApprovalWizardModalReady = false;
+    this.cdr.markForCheck();
+    if (!this.isMobileViewport) {
+      document.body.classList.add('cm-desktop-modal-open');
+      requestAnimationFrame(() => {
+        this.tutorApprovalWizardBackdropVisible = true;
+        this.cdr.markForCheck();
+      });
+      setTimeout(() => {
+        this.tutorApprovalWizardModalReady = true;
+        this.cdr.markForCheck();
+      }, 350);
+    }
+  }
+
   // Handle return from Stripe Connect onboarding
-  async handleStripeConnectReturn(success: boolean) {
+  async handleStripeConnectReturn(state: StripeConnectReturnState) {
+    const success = state.success;
     if (success) {
       // Verify with backend that Stripe Connect is actually complete
       // (user may have pressed back without finishing)
@@ -1990,9 +2017,25 @@ export class ProfilePage implements OnInit {
       this.userService.loadPayoutStatus();
       this.loadEarnings(); // Also refresh earnings
     }, 1000);
-    
-    // Clean up URL
-    this.router.navigate(['/tabs/profile'], { replaceUrl: true });
+
+    if (
+      state.returnContext === 'tutor-approval-wizard' &&
+      state.tutorApprovalStepId
+    ) {
+      this.openTutorApprovalWizardAtStep(state.tutorApprovalStepId);
+    } else if (state.returnContext === 'profile-payout') {
+      setTimeout(() => {
+        const payoutEl = document.getElementById('profile-payout-section');
+        payoutEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 400);
+    }
+
+    const cleanedParams = stripStripeConnectQueryParams(this.route.snapshot.queryParams);
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: cleanedParams,
+      replaceUrl: true,
+    });
   }
 
   // Load earnings summary and recent payments
@@ -2188,7 +2231,7 @@ export class ProfilePage implements OnInit {
       const response = await firstValueFrom(
         this.http.post<any>(
           `${environment.apiUrl}/payments/stripe-connect/onboard`,
-          {},
+          buildStripeConnectPayloadForProfilePayout(),
           { headers: this.userService.getAuthHeadersSync() }
         )
       );
@@ -2346,7 +2389,7 @@ export class ProfilePage implements OnInit {
 
     try {
       const response = await firstValueFrom(
-        this.http.post<any>(`${environment.apiUrl}/payments/stripe-connect/onboard`, {}, {
+        this.http.post<any>(`${environment.apiUrl}/payments/stripe-connect/onboard`, buildStripeConnectPayloadForProfilePayout(), {
           headers: this.userService.getAuthHeadersSync()
         })
       );

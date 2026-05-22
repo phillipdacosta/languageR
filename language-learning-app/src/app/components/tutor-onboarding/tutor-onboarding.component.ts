@@ -13,6 +13,8 @@ import { PayoutSelectionModalComponent } from '../payout-selection-modal/payout-
 import { FileUploadService } from '../../services/file-upload.service';
 import { ImageCropperComponent } from '../image-cropper/image-cropper.component';
 import { isStripeSupportedCountry } from '../../data/stripe-supported-countries';
+import { TranslateService } from '@ngx-translate/core';
+import { buildStripeConnectPayloadForApprovalWizardStep } from '../../utils/stripe-connect.util';
 
 type ApprovalStepId = 'photo' | 'video' | 'stripe' | 'identity' | 'qualifications' | 'tos';
 
@@ -68,6 +70,10 @@ export class TutorOnboardingComponent implements OnInit {
   approvalWizardPreviousStepTitleKey = '';
   /** Widen shell + panel (photo, video, payout, credentials) to use modal width. */
   approvalWizardWideContentLayout = false;
+  /** Split-column steps: title in left guidance column, not the wizard header above. */
+  approvalSplitStepLayout = false;
+  /** @deprecated Use approvalSplitStepLayout; kept for template compatibility. */
+  approvalWizardStepHeaderInCard = false;
   
   // Subscribe to approval status from UserService
   approvalStatus$ = this.userService.tutorApprovalStatus$;
@@ -146,6 +152,10 @@ export class TutorOnboardingComponent implements OnInit {
 
   /** Convenience flags for the template (avoid steps[N] by index in HTML). */
   photoStepCompleted = false;
+  photoUploadDragOver = false;
+  identityUploadDragOver = false;
+  certUploadDragOver = false;
+  additionalDocUploadDragOver = false;
   videoStepCompleted = false;
   payoutStepCompleted = false;
   identityStepCompleted = false;
@@ -175,6 +185,7 @@ export class TutorOnboardingComponent implements OnInit {
   paypalEmailError = '';
   /** When true, completed PayPal screen shows the edit form instead of the success card. */
   editingPayoutEmail = false;
+  readonly stripePrivacyPolicyUrl = 'https://stripe.com/privacy';
   /** True when payout routing is driven by `residenceCountry` (post-onboarding). */
   isCountryDrivenPayoutRouting = false;
   /** Plain-English explanation of why a payout method was chosen ("Spain → Stripe Connect"). */
@@ -185,6 +196,12 @@ export class TutorOnboardingComponent implements OnInit {
   tosChecked = false;
   tosAcceptedAt: Date | null = null;
   isAcceptingTos = false;
+
+  /** True when paste-link tab has text but user has not tapped Add Video. */
+  videoLinkPendingSubmit = false;
+  /** Preserved when leaving the video step before a video is added. */
+  approvalVideoDraftLink = '';
+  approvalVideoDraftUploadMode: 'file' | 'link' = 'link';
 
   constructor(
     private userService: UserService,
@@ -197,7 +214,8 @@ export class TutorOnboardingComponent implements OnInit {
     private modalController: ModalController,
     private fileUploadService: FileUploadService,
     private readonly elRef: ElementRef<HTMLElement>,
-    private readonly cdr: ChangeDetectorRef
+    private readonly cdr: ChangeDetectorRef,
+    private readonly translate: TranslateService
   ) {}
 
   async ngOnInit() {
@@ -553,7 +571,16 @@ export class TutorOnboardingComponent implements OnInit {
       this.approvalStepId === 'video' ||
       this.approvalStepId === 'stripe' ||
       this.approvalStepId === 'identity' ||
-      this.approvalStepId === 'qualifications';
+      this.approvalStepId === 'qualifications' ||
+      this.approvalStepId === 'tos';
+    this.approvalSplitStepLayout =
+      this.approvalStepId === 'photo' ||
+      this.approvalStepId === 'video' ||
+      this.approvalStepId === 'stripe' ||
+      this.approvalStepId === 'identity' ||
+      this.approvalStepId === 'qualifications' ||
+      this.approvalStepId === 'tos';
+    this.approvalWizardStepHeaderInCard = false;
     this.approvalStepIcon = s.icon;
     this.approvalStepTitleKey = s.titleKey;
     this.approvalStepDescriptionKey = s.descriptionKey;
@@ -602,8 +629,38 @@ export class TutorOnboardingComponent implements OnInit {
     }
   }
 
+  onVideoLinkPendingChange(pending: boolean): void {
+    this.videoLinkPendingSubmit = pending;
+  }
+
+  onVideoUploadDraftChanged(draft: { link: string; mode: 'file' | 'link' }): void {
+    this.approvalVideoDraftLink = draft.link;
+    this.approvalVideoDraftUploadMode = draft.mode;
+  }
+
+  private clearApprovalVideoDraft(): void {
+    this.approvalVideoDraftLink = '';
+    this.approvalVideoDraftUploadMode = 'link';
+    this.videoLinkPendingSubmit = false;
+  }
+
+  private async showVideoLinkPendingAlert(): Promise<void> {
+    const alert = await this.alertController.create({
+      header: this.translate.instant('TUTOR_APPROVAL.VIDEO_LINK_PENDING_TITLE'),
+      message: this.translate.instant('TUTOR_APPROVAL.VIDEO_LINK_PENDING_MESSAGE'),
+      buttons: [this.translate.instant('COMMON.OK')],
+      cssClass: 'tutor-approval-alert',
+    });
+    await alert.present();
+  }
+
   /** Move to the next VISIBLE step. */
-  nextStep() {
+  async nextStep() {
+    if (this.approvalStepId === 'video' && this.videoLinkPendingSubmit) {
+      await this.showVideoLinkPendingAlert();
+      return;
+    }
+
     for (let i = this.currentStepIndex + 1; i < this.steps.length; i++) {
       if (this.steps[i].visible) {
         this.currentStepIndex = i;
@@ -770,6 +827,98 @@ export class TutorOnboardingComponent implements OnInit {
     }
   }
 
+  onPhotoDragOver(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.photoUploadDragOver = true;
+  }
+
+  onPhotoDragLeave(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.photoUploadDragOver = false;
+  }
+
+  onPhotoDrop(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.photoUploadDragOver = false;
+    const file = event.dataTransfer?.files?.[0];
+    if (!file) {
+      return;
+    }
+    void this.onPictureSelected({ droppedFile: file });
+  }
+
+  onIdentityDragOver(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.identityUploadDragOver = true;
+  }
+
+  onIdentityDragLeave(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.identityUploadDragOver = false;
+  }
+
+  onIdentityDrop(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.identityUploadDragOver = false;
+    const file = event.dataTransfer?.files?.[0];
+    if (!file) {
+      return;
+    }
+    void this.uploadCredentialFile(file, 'governmentId');
+  }
+
+  onCertDragOver(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.certUploadDragOver = true;
+  }
+
+  onCertDragLeave(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.certUploadDragOver = false;
+  }
+
+  onCertDrop(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.certUploadDragOver = false;
+    const file = event.dataTransfer?.files?.[0];
+    if (!file) {
+      return;
+    }
+    void this.uploadCredentialFile(file, 'teachingCertification');
+  }
+
+  onAdditionalDocDragOver(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.additionalDocUploadDragOver = true;
+  }
+
+  onAdditionalDocDragLeave(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.additionalDocUploadDragOver = false;
+  }
+
+  onAdditionalDocDrop(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.additionalDocUploadDragOver = false;
+    const file = event.dataTransfer?.files?.[0];
+    if (!file) {
+      return;
+    }
+    void this.uploadCredentialFile(file, 'additionalDocument');
+  }
+
   /**
    * Trigger file picker for profile picture upload
    */
@@ -783,13 +932,16 @@ export class TutorOnboardingComponent implements OnInit {
   }
 
   /**
-   * Handle profile picture file selection
+   * Handle profile picture file selection (file input or drag-and-drop).
    */
-  async onPictureSelected(event: any) {
-    const file = event.target.files[0];
-    if (!file) return;
+  async onPictureSelected(
+    event: Event | { droppedFile?: File; target?: HTMLInputElement }
+  ) {
+    const { file, input } = this.parsePictureSelectionEvent(event);
+    if (!file) {
+      return;
+    }
 
-    // Validate image
     const validation = this.fileUploadService.validateImage(file);
     if (!validation.valid) {
       const alert = await this.alertController.create({
@@ -798,16 +950,15 @@ export class TutorOnboardingComponent implements OnInit {
         buttons: ['OK']
       });
       await alert.present();
-      // Reset file input
-      event.target.value = '';
+      this.resetPhotoFileInput(input);
       return;
     }
 
-    // Open cropper modal
     const modal = await this.modalController.create({
       component: ImageCropperComponent,
       componentProps: {
-        imageChangedEvent: event
+        imageFile: file,
+        aspectRatio: 1,
       },
       cssClass: 'image-cropper-modal'
     });
@@ -817,19 +968,41 @@ export class TutorOnboardingComponent implements OnInit {
     const { data, role } = await modal.onWillDismiss();
 
     if (role === 'crop' && data) {
-      // Convert blob to file
       const croppedFile = new File([data], file.name, { type: 'image/png' });
-      await this.uploadProfilePicture(croppedFile, event);
+      await this.uploadProfilePicture(croppedFile, input);
     } else {
-      // Reset file input if cancelled
-      event.target.value = '';
+      this.resetPhotoFileInput(input);
+    }
+  }
+
+  private parsePictureSelectionEvent(
+    event: Event | { droppedFile?: File; target?: HTMLInputElement }
+  ): { file?: File; input?: HTMLInputElement } {
+    if ('droppedFile' in event && event.droppedFile) {
+      return { file: event.droppedFile };
+    }
+    const target =
+      event instanceof Event
+        ? event.target
+        : event.target ?? null;
+    if (target instanceof HTMLInputElement) {
+      return { file: target.files?.[0], input: target };
+    }
+    return {};
+  }
+
+  private resetPhotoFileInput(input?: HTMLInputElement): void {
+    const el =
+      input ?? (document.getElementById('tutor-onboarding-photo-input') as HTMLInputElement | null);
+    if (el) {
+      el.value = '';
     }
   }
 
   /**
    * Upload profile picture to server
    */
-  async uploadProfilePicture(file: File, event: any) {
+  async uploadProfilePicture(file: File, input?: HTMLInputElement) {
     const loading = await this.loadingController.create({
       message: 'Uploading image...',
       spinner: 'crescent'
@@ -859,8 +1032,7 @@ export class TutorOnboardingComponent implements OnInit {
       this.showToast(error.error?.message || 'Failed to upload photo', 'danger');
     } finally {
       await loading.dismiss();
-      // Reset file input
-      event.target.value = '';
+      this.resetPhotoFileInput(input);
     }
   }
 
@@ -881,19 +1053,24 @@ export class TutorOnboardingComponent implements OnInit {
   async onCredentialSelected(event: any, credentialType: 'governmentId' | 'teachingCertification' | 'additionalDocument') {
     const file = event.target.files[0];
     if (!file) return;
+    await this.uploadCredentialFile(file, credentialType);
+    event.target.value = '';
+  }
 
+  private async uploadCredentialFile(
+    file: File,
+    credentialType: 'governmentId' | 'teachingCertification' | 'additionalDocument'
+  ): Promise<void> {
     // Validate file
     const maxSize = 10 * 1024 * 1024; // 10MB
     if (file.size > maxSize) {
       this.showToast('File is too large. Maximum size is 10MB.', 'danger');
-      event.target.value = '';
       return;
     }
 
     const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'application/pdf'];
     if (!allowedTypes.includes(file.type)) {
       this.showToast('Invalid file type. Please upload a JPG, PNG, or PDF.', 'danger');
-      event.target.value = '';
       return;
     }
 
@@ -929,7 +1106,6 @@ export class TutorOnboardingComponent implements OnInit {
     } finally {
       this.isUploadingCredential = false;
       await loading.dismiss();
-      event.target.value = '';
     }
   }
 
@@ -1074,7 +1250,10 @@ export class TutorOnboardingComponent implements OnInit {
     try {
       console.log('🏦 [STRIPE] Making API request to:', `${environment.apiUrl}/payments/stripe-connect/onboard`);
 
-      const body: Record<string, unknown> = { isUSPersonForTax, hasUSBankAccount };
+      const body: Record<string, unknown> = buildStripeConnectPayloadForApprovalWizardStep('stripe', {
+        isUSPersonForTax,
+        hasUSBankAccount,
+      });
       if (residenceCountry) {
         body['residenceCountry'] = residenceCountry;
       }
@@ -1218,6 +1397,7 @@ export class TutorOnboardingComponent implements OnInit {
   }
 
   async onVideoUploaded(videoData: { url: string; thumbnail: string; type: 'upload' | 'youtube' | 'vimeo' }) {
+    this.clearApprovalVideoDraft();
     console.log('📹 Video uploaded in tutor-approval flow:', videoData);
     console.log('🖼️ Thumbnail URL to save:', videoData.thumbnail);
     

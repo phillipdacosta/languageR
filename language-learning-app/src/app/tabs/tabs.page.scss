@@ -541,6 +541,10 @@
 
       .notification-container {
         z-index: 1;
+        position: relative;
+        // Extend hover hit area toward the dropdown (Windows pointer path gap)
+        padding-bottom: 10px;
+        margin-bottom: -10px;
       }
 
       .user-profile {

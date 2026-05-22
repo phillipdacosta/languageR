@@ -24,12 +24,18 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
   @Input() enableModalPlayer: boolean = false; // New input to enable modal mode
   /** When true, the upload UI spans the parent width (e.g. tutor approval wizard next to payout step). */
   @Input() fullWidthLayout = false;
+  /** When true, fills a wizard right column (flex grow upload zone). */
+  @Input() wizardColumnLayout = false;
+  /** Restored when the wizard remounts this step (e.g. user navigated away and back). */
+  @Input() restoreLinkInput = '';
+  @Input() restoreUploadMode: 'file' | 'link' = 'link';
   @Input() isVideoApproved: boolean = false; // New input to check if tutor's video is approved
   @Input() hasPendingVideo: boolean = false; // New input to show pending review status
   @Output() videoUploaded = new EventEmitter<VideoUploadData>();
   @Output() videoRemoved = new EventEmitter<void>();
   @Output() thumbnailClick = new EventEmitter<void>(); // New output for thumbnail clicks
   @Output() pendingStateChanged = new EventEmitter<boolean>(); // Emits true when user has an unsubmitted link
+  @Output() uploadDraftChanged = new EventEmitter<{ link: string; mode: 'file' | 'link' }>();
   @ViewChild('videoElement') videoElement?: ElementRef<HTMLVideoElement>;
   @ViewChild('iframeElement') iframeElement?: ElementRef<HTMLIFrameElement>;
   @ViewChild('videoPreview') videoPreviewElement?: ElementRef<HTMLVideoElement>;
@@ -39,7 +45,7 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
   errorMessage = '';
   
   // Toggle between upload modes
-  uploadMode: 'file' | 'link' = 'file';
+  uploadMode: 'file' | 'link' = 'link';
   videoLinkInput = '';
   
   // Thumbnail management
@@ -58,6 +64,8 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
   ) {}
 
   ngOnInit() {
+    this.applyRestoredUploadDraft();
+
     console.log('📹 VideoUploadComponent ngOnInit:', {
       videoUrl: this.videoUrl,
       thumbnailUrl: this.thumbnailUrl,
@@ -238,19 +246,35 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
-  // Toggle between upload modes
+  /** Restore wizard draft once on mount (parent passes saved state when step remounts). */
+  private applyRestoredUploadDraft(): void {
+    if (this.videoUrl) {
+      return;
+    }
+    this.uploadMode = this.restoreUploadMode === 'file' ? 'file' : 'link';
+    this.videoLinkInput = this.restoreLinkInput ?? '';
+    this.syncLinkPendingAndDraft();
+  }
+
+  private syncLinkPendingAndDraft(): void {
+    if (this.videoUrl) {
+      return;
+    }
+    const pending = this.uploadMode === 'link' && !!this.videoLinkInput.trim();
+    this.pendingStateChanged.emit(pending);
+    this.uploadDraftChanged.emit({ link: this.videoLinkInput, mode: this.uploadMode });
+  }
+
+  // Toggle between upload modes — keep link text and thumbnail when switching tabs
   toggleUploadMode(mode: 'file' | 'link') {
     this.uploadMode = mode;
     this.errorMessage = '';
-    this.customThumbnail = null;
-    this.thumbnailPreview = '';
-    this.videoLinkInput = '';
-    this.pendingStateChanged.emit(false);
+    this.syncLinkPendingAndDraft();
   }
 
   // Called when user types in the link input
   onLinkInputChange() {
-    this.pendingStateChanged.emit(!!this.videoLinkInput.trim());
+    this.syncLinkPendingAndDraft();
   }
 
   // Handle thumbnail file selection
@@ -385,7 +409,7 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
     this.videoLinkInput = '';
     this.isUploading = false;
     this.errorMessage = '';
-    this.pendingStateChanged.emit(false);
+    this.syncLinkPendingAndDraft();
   }
 
   // Validate and convert YouTube/Vimeo URLs
@@ -748,7 +772,16 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
     this.thumbnailPreview = '';
     this.customThumbnail = null;
     this.autoThumbnailGenerated = false;
+    this.externalVideoThumbnail = null;
     this.showThumbnailOverlay = true;
+
+    if (this.videoUrl) {
+      this.videoUploaded.emit({
+        url: this.videoUrl,
+        thumbnail: '',
+        type: this.videoType,
+      });
+    }
   }
 
   async changeVideo() {

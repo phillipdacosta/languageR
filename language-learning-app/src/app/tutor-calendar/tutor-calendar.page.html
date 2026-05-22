@@ -90,6 +90,17 @@
               </div>
             </div>
             <div class="inline-setting-group">
+              <label class="inline-setting-label">{{ 'TUTOR_CALENDAR.WEEK_STARTS_ON' | translate }}</label>
+              <div class="inline-segmented-control week-start-control">
+                <button
+                  *ngFor="let option of calendarWeekStartOptions"
+                  [class.active]="calendarWeekStartsOn === option.value"
+                  (click)="updateCalendarSetting('weekStartsOn', option.value)">
+                  {{ option.labelKey | translate }}
+                </button>
+              </div>
+            </div>
+            <div class="inline-setting-group">
               <label class="inline-setting-label">Timezone</label>
               <span class="inline-timezone">{{ tutorTimezoneLabel || 'Not set' }}</span>
             </div>
@@ -449,6 +460,17 @@
                 <div class="sidebar-segmented-control">
                   <button [class.active]="calendarDefaultView === 'week'" (click)="updateCalendarSetting('defaultView', 'week')">Week</button>
                   <button [class.active]="calendarDefaultView === 'day'" (click)="updateCalendarSetting('defaultView', 'day')">Day</button>
+                </div>
+              </div>
+              <div class="sidebar-setting-group">
+                <label class="sidebar-setting-label">{{ 'TUTOR_CALENDAR.WEEK_STARTS_ON' | translate }}</label>
+                <div class="sidebar-segmented-control week-start-control">
+                  <button
+                    *ngFor="let option of calendarWeekStartOptions"
+                    [class.active]="calendarWeekStartsOn === option.value"
+                    (click)="updateCalendarSetting('weekStartsOn', option.value)">
+                    {{ option.labelKey | translate }}
+                  </button>
                 </div>
               </div>
               <div class="sidebar-setting-group">

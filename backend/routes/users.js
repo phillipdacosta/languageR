@@ -822,7 +822,7 @@ router.put('/onboarding', verifyToken, async (req, res) => {
 // PUT /api/users/profile - Update user profile
 router.put('/profile', verifyToken, async (req, res) => {
   try {
-    const { bio, timezone, preferredLanguage, userType, picture, officeHoursEnabled, interfaceLanguage, showWalletBalance, remindersEnabled, aiAnalysisEnabled, calendarTimeFormat, calendarDefaultView, weeklyEarningsGoal } = req.body;
+    const { bio, timezone, preferredLanguage, userType, picture, officeHoursEnabled, interfaceLanguage, showWalletBalance, remindersEnabled, aiAnalysisEnabled, calendarTimeFormat, calendarDefaultView, calendarWeekStartsOn, calendarWeekStartsOnUserSet, weeklyEarningsGoal } = req.body;
     console.log('📝 Updating profile for user:', req.user.sub, 'officeHoursEnabled:', officeHoursEnabled, 'aiAnalysisEnabled:', aiAnalysisEnabled);
     
     const user = await User.findOne({ auth0Id: req.user.sub });
@@ -883,6 +883,16 @@ router.put('/profile', verifyToken, async (req, res) => {
       aiAnalysisEnabled: aiAnalysisEnabled !== undefined ? aiAnalysisEnabled : (user.profile?.aiAnalysisEnabled ?? true),
       calendarTimeFormat: calendarTimeFormat !== undefined ? calendarTimeFormat : (user.profile?.calendarTimeFormat ?? '12h'),
       calendarDefaultView: calendarDefaultView !== undefined ? calendarDefaultView : (user.profile?.calendarDefaultView ?? 'week'),
+      calendarWeekStartsOn: (() => {
+        if (calendarWeekStartsOn === undefined) {
+          return user.profile?.calendarWeekStartsOn ?? 0;
+        }
+        const n = Number(calendarWeekStartsOn);
+        return Number.isInteger(n) && n >= 0 && n <= 6 ? n : (user.profile?.calendarWeekStartsOn ?? 0);
+      })(),
+      calendarWeekStartsOnUserSet: calendarWeekStartsOnUserSet !== undefined
+        ? !!calendarWeekStartsOnUserSet
+        : (user.profile?.calendarWeekStartsOnUserSet ?? false),
       weeklyEarningsGoal: (weeklyEarningsGoal !== undefined && Number.isFinite(Number(weeklyEarningsGoal)) && Number(weeklyEarningsGoal) > 0)
         ? Math.round(Number(weeklyEarningsGoal))
         : (user.profile?.weeklyEarningsGoal ?? 500)

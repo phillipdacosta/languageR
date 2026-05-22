@@ -315,6 +315,17 @@ const userSchema = new mongoose.Schema({
       default: 'week',
       comment: 'Default calendar view when opening availability setup'
     },
+    calendarWeekStartsOn: {
+      type: Number,
+      enum: [0, 1, 2, 3, 4, 5, 6],
+      default: 0,
+      comment: 'First day of the calendar week (0=Sunday, 1=Monday, 6=Saturday)'
+    },
+    calendarWeekStartsOnUserSet: {
+      type: Boolean,
+      default: false,
+      comment: 'True once the user manually picks week start in calendar settings'
+    },
     weeklyEarningsGoal: {
       type: Number,
       default: 500,

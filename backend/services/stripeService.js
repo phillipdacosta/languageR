@@ -162,7 +162,7 @@ class StripeService {
         account: accountId,
         refresh_url: refreshUrl,
         return_url: returnUrl,
-        type: 'account_onboarding'
+        type: 'account_onboarding',
       });
       
       console.log(`🔗 Created Account Link for: ${accountId}`);
