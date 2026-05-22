@@ -1004,7 +1004,7 @@
       "PACING_SUGGESTION_STAY": "Tetap pada pelajaran tunggal",
       "PACING_SUGGESTION_DISMISS": "Pertahankan rencanaku",
       "PACING_SUGGESTION_BODY_EXAM": "Dengan target Anda hanya {{weeks}} minggu, pelajaran tunggal yang terfokus biasanya mengalahkan peta jalan yang lengkap. Anda selalu dapat menambahkan peta jalan nanti.",
-      "PREVIEW_STUDENT_BADGE": "Murid",
+      "PREVIEW_STUDENT_BADGE": "Pelajar",
       "PREVIEW_CHECKLIST_ABOUT": "Tentang kamu",
       "PREVIEW_CHECKLIST_LEARNING": "Belajar bahasa",
       "PREVIEW_CHECKLIST_GOALS": "Sasaran & level"
@@ -1115,7 +1115,7 @@
       "STEP_SPOKEN_LEVELS_TITLE": "Berapa level Anda di masing-masingnya?",
       "STEP_SPOKEN_LEVELS_SUBTITLE": "Tetapkan kemahiran CEFR Anda untuk setiap bahasa yang Anda pilih",
       "PREVIEW_BASIC_INFO": "Info Dasar",
-      "PREVIEW_TUTOR_BADGE": "guru",
+      "PREVIEW_TUTOR_BADGE": "Tutor privat",
       "PREVIEW_SETUP_STATUS": "Selesai",
       "PREVIEW_SETUP_STATUS_INCOMPLETE": "Diperlukan tindakan",
       "PREVIEW_SETUP_HEADING": "Daftar periksa pengaturan",

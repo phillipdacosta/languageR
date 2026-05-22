@@ -501,10 +501,21 @@
             <ul class="orb-setup-list">
               <li
                 class="orb-setup-list__item"
-                *ngFor="let item of studentPreviewChecklistStatus"
-                [class.orb-setup-list__item--incomplete]="!item.complete">
-                <ion-icon [name]="item.complete ? 'checkmark-circle' : 'alert-circle'" aria-hidden="true"></ion-icon>
-                <span>{{ item.key | translate }}</span>
+                [class.orb-setup-list__item--incomplete]="!studentChecklistAboutDone">
+                <ion-icon [name]="studentChecklistAboutDone ? 'checkmark-circle' : 'alert-circle'" aria-hidden="true"></ion-icon>
+                <span>{{ 'ONBOARDING.STUDENT.PREVIEW_CHECKLIST_ABOUT' | translate }}</span>
+              </li>
+              <li
+                class="orb-setup-list__item"
+                [class.orb-setup-list__item--incomplete]="!studentChecklistLearningDone">
+                <ion-icon [name]="studentChecklistLearningDone ? 'checkmark-circle' : 'alert-circle'" aria-hidden="true"></ion-icon>
+                <span>{{ 'ONBOARDING.STUDENT.PREVIEW_CHECKLIST_LEARNING' | translate }}</span>
+              </li>
+              <li
+                class="orb-setup-list__item"
+                [class.orb-setup-list__item--incomplete]="!studentChecklistGoalsDone">
+                <ion-icon [name]="studentChecklistGoalsDone ? 'checkmark-circle' : 'alert-circle'" aria-hidden="true"></ion-icon>
+                <span>{{ 'ONBOARDING.STUDENT.PREVIEW_CHECKLIST_GOALS' | translate }}</span>
               </li>
             </ul>
 

@@ -1004,7 +1004,7 @@
       "PACING_SUGGESTION_STAY": "Rămâi la lecții individuale",
       "PACING_SUGGESTION_DISMISS": "Păstrează-mi planul",
       "PACING_SUGGESTION_BODY_EXAM": "Cu doar {{weeks}} săptămâni până la țintă, lecțiile individuale concentrate depășesc de obicei o foaie de parcurs completă. Puteți adăuga oricând o foaie de parcurs mai târziu.",
-      "PREVIEW_STUDENT_BADGE": "Student",
+      "PREVIEW_STUDENT_BADGE": "Elev",
       "PREVIEW_CHECKLIST_ABOUT": "Despre tine",
       "PREVIEW_CHECKLIST_LEARNING": "Învățarea limbii",
       "PREVIEW_CHECKLIST_GOALS": "Obiective și nivel"
@@ -1115,7 +1115,7 @@
       "STEP_SPOKEN_LEVELS_TITLE": "Care este nivelul tău în fiecare?",
       "STEP_SPOKEN_LEVELS_SUBTITLE": "Setați-vă competența CEFR pentru fiecare limbă pe care ați selectat-o",
       "PREVIEW_BASIC_INFO": "Informații de bază",
-      "PREVIEW_TUTOR_BADGE": "Tutore",
+      "PREVIEW_TUTOR_BADGE": "Meditator",
       "PREVIEW_SETUP_STATUS": "Terminat",
       "PREVIEW_SETUP_STATUS_INCOMPLETE": "Acțiune necesară",
       "PREVIEW_SETUP_HEADING": "Configurați lista de verificare",

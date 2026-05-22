@@ -1004,7 +1004,7 @@
       "PACING_SUGGESTION_STAY": "در درس های مجرد بمانید",
       "PACING_SUGGESTION_DISMISS": "برنامه ام را حفظ کن",
       "PACING_SUGGESTION_BODY_EXAM": "در حالی که تنها {{weeks}} هفته به هدف شما باقی مانده است، دروس تک متمرکز معمولاً نقشه راه کامل را شکست می دهند. همیشه می توانید نقشه راه را بعداً اضافه کنید.",
-      "PREVIEW_STUDENT_BADGE": "دانشجو",
+      "PREVIEW_STUDENT_BADGE": "دانش‌آموز",
       "PREVIEW_CHECKLIST_ABOUT": "درباره شما",
       "PREVIEW_CHECKLIST_LEARNING": "یادگیری زبان",
       "PREVIEW_CHECKLIST_GOALS": "اهداف و سطح"
@@ -1115,7 +1115,7 @@
       "STEP_SPOKEN_LEVELS_TITLE": "سطح شما در هر کدام چیست؟",
       "STEP_SPOKEN_LEVELS_SUBTITLE": "مهارت CEFR خود را برای هر زبانی که انتخاب کرده اید تنظیم کنید",
       "PREVIEW_BASIC_INFO": "اطلاعات پایه",
-      "PREVIEW_TUTOR_BADGE": "معلم خصوصی",
+      "PREVIEW_TUTOR_BADGE": "مدرس",
       "PREVIEW_SETUP_STATUS": "تکمیل شد",
       "PREVIEW_SETUP_STATUS_INCOMPLETE": "اقدام لازم است",
       "PREVIEW_SETUP_HEADING": "تنظیم چک لیست",

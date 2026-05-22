@@ -6,6 +6,9 @@ $preview-accent-blue: #359aff;
 $preview-success: #34c759;
 $preview-border: #ebebeb;
 
+// Wizard review: fixed width + typography (height grows with content; never clipped).
+$orb-preview-sidebar-width: 340px;
+
 .preview-container {
   position: fixed;
   inset: 0;
@@ -46,11 +49,18 @@ $preview-border: #ebebeb;
     min-height: 0;
     overflow: auto;
     -webkit-overflow-scrolling: touch;
+    scroll-padding-bottom: 24px;
   }
 
   .orb-layout {
     flex: 1;
     min-height: min-content;
+    padding-bottom: 32px;
+  }
+
+  .cm-wizard-viewport-footer {
+    position: relative;
+    z-index: 2;
   }
 
   background: #ffffff;
@@ -1148,6 +1158,10 @@ $preview-border: #ebebeb;
     padding-top: 12px;
   }
 
+  .onboarding-container--preview.preview-container .orb-layout {
+    padding-top: 20px;
+  }
+
   .orb-profile-card {
     padding: 20px 18px 18px;
   }
@@ -1158,6 +1172,97 @@ $preview-border: #ebebeb;
 
   .orb-title {
     font-size: 24px;
+  }
+}
+
+// Wizard review summary card: consistent width/typography; natural height (no clipping).
+.onboarding-container--preview.preview-container {
+  .orb-sidebar {
+    flex: 0 0 $orb-preview-sidebar-width;
+    width: $orb-preview-sidebar-width;
+    max-width: $orb-preview-sidebar-width;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .orb-profile-card {
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    padding: 28px 24px 22px;
+    box-sizing: border-box;
+    display: block;
+    overflow: visible;
+  }
+
+  .orb-profile-avatar {
+    width: 88px;
+    height: 88px;
+    margin-bottom: 14px;
+  }
+
+  .orb-profile-initials {
+    font-size: 28px;
+  }
+
+  .orb-profile-name {
+    font-size: 22px;
+    margin-bottom: 8px;
+  }
+
+  .orb-profile-role {
+    margin-bottom: 16px;
+  }
+
+  .orb-profile-details {
+    gap: 12px;
+  }
+
+  .orb-card-divider {
+    margin: 18px 0 16px;
+  }
+
+  .orb-setup-head {
+    margin-bottom: 12px;
+  }
+
+  .orb-setup-list {
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+  }
+
+  .orb-card-note {
+    margin: 16px 0 0;
+    padding-top: 0;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  @media (min-width: 960px) {
+    .orb-sidebar {
+      margin-left: 0;
+      margin-right: 0;
+      // Static flow: full card stays in the scroll area so the footer never covers it.
+      position: static;
+      align-self: flex-start;
+    }
+
+    // Override desktop-only larger card metrics so the summary card matches all breakpoints.
+    .orb-profile-card {
+      padding: 28px 24px 22px;
+    }
+
+    .orb-profile-avatar {
+      width: 88px;
+      height: 88px;
+      margin-bottom: 14px;
+    }
+
+    .orb-profile-name {
+      font-size: 22px;
+    }
   }
 }
 

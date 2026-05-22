@@ -1534,36 +1534,35 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     return nameOk && nativeLangOk && learnLangOk && goalOk;
   }
 
-  get studentPreviewChecklistStatus(): Array<{ key: string; complete: boolean }> {
-    const goalsComplete =
+  get studentChecklistAboutDone(): boolean {
+    return (
+      this.firstName.trim() !== '' &&
+      this.lastName.trim() !== '' &&
+      this.nativeLanguage !== ''
+    );
+  }
+
+  get studentChecklistLearningDone(): boolean {
+    return this.selectedLanguages.length > 0;
+  }
+
+  get studentChecklistGoalsDone(): boolean {
+    return (
       this.skipGoalSetup ||
       (!!this.learningGoalType &&
         (this.learningGoalType !== 'other' || this.learningGoalDescription.trim() !== '') &&
         this.selfAssessedLevel !== '' &&
-        this.goalTimeline !== '');
-    return [
-      {
-        key: 'ONBOARDING.STUDENT.PREVIEW_CHECKLIST_ABOUT',
-        complete:
-          this.firstName.trim() !== '' &&
-          this.lastName.trim() !== '' &&
-          this.nativeLanguage !== '',
-      },
-      {
-        key: 'ONBOARDING.STUDENT.PREVIEW_CHECKLIST_LEARNING',
-        complete: this.selectedLanguages.length > 0,
-      },
-      {
-        key: 'ONBOARDING.STUDENT.PREVIEW_CHECKLIST_GOALS',
-        complete: goalsComplete,
-      },
-    ];
+        this.goalTimeline !== '')
+    );
   }
 
   get studentPreviewProgressPercent(): number {
-    const items = this.studentPreviewChecklistStatus;
-    const done = items.filter(i => i.complete).length;
-    return Math.round((done / items.length) * 100);
+    const done = [
+      this.studentChecklistAboutDone,
+      this.studentChecklistLearningDone,
+      this.studentChecklistGoalsDone,
+    ].filter(Boolean).length;
+    return Math.round((done / 3) * 100);
   }
 
   get studentPreviewProgressOffset(): number {

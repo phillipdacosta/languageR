@@ -1065,13 +1065,6 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
     { labelKey: 'ONBOARDING.TUTOR_OB.PREVIEW_FLOW_REVIEW', done: false, current: true },
   ];
 
-  readonly tutorPreviewChecklistKeys: readonly string[] = [
-    'ONBOARDING.TUTOR_OB.PREVIEW_CHECKLIST_BASIC',
-    'ONBOARDING.TUTOR_OB.PREVIEW_CHECKLIST_TEACHING',
-    'ONBOARDING.TUTOR_OB.PREVIEW_CHECKLIST_PROFILE',
-    'ONBOARDING.TUTOR_OB.PREVIEW_CHECKLIST_AVAILABILITY',
-  ];
-
   showPreviewPage() {
     const ui = this.languageService.getCurrentLanguage();
     const nativeLang = this.nativeLanguageOptions.find((l) => l.code === this.nativeLanguage);
@@ -1264,33 +1257,39 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
     );
   }
 
-  get tutorPreviewChecklistStatus(): Array<{ key: string; complete: boolean }> {
-    return [
-      {
-        key: 'ONBOARDING.TUTOR_OB.PREVIEW_CHECKLIST_BASIC',
-        complete: this.firstName.trim() !== '' && this.lastName.trim() !== '' &&
-                  this.country !== '' && this.residenceCountry !== '',
-      },
-      {
-        key: 'ONBOARDING.TUTOR_OB.PREVIEW_CHECKLIST_TEACHING',
-        complete: this.nativeLanguage !== '' && this.selectedLanguages.length > 0 &&
-                  this.selectedExperience !== '',
-      },
-      {
-        key: 'ONBOARDING.TUTOR_OB.PREVIEW_CHECKLIST_PROFILE',
-        complete: this.profileBio.trim().length > 0 && this.hourlyRate >= 10,
-      },
-      {
-        key: 'ONBOARDING.TUTOR_OB.PREVIEW_CHECKLIST_AVAILABILITY',
-        complete: this.selectedSchedule !== '',
-      },
-    ];
+  get tutorChecklistBasicDone(): boolean {
+    return (
+      this.firstName.trim() !== '' &&
+      this.lastName.trim() !== '' &&
+      this.country !== '' &&
+      this.residenceCountry !== ''
+    );
+  }
+
+  get tutorChecklistTeachingDone(): boolean {
+    return (
+      this.nativeLanguage !== '' &&
+      this.selectedLanguages.length > 0 &&
+      this.selectedExperience !== ''
+    );
+  }
+
+  get tutorChecklistProfileDone(): boolean {
+    return this.profileBio.trim().length > 0 && this.hourlyRate >= 10;
+  }
+
+  get tutorChecklistAvailabilityDone(): boolean {
+    return this.selectedSchedule !== '';
   }
 
   get tutorPreviewProgressPercent(): number {
-    const items = this.tutorPreviewChecklistStatus;
-    const done = items.filter(i => i.complete).length;
-    return Math.round((done / items.length) * 100);
+    const done = [
+      this.tutorChecklistBasicDone,
+      this.tutorChecklistTeachingDone,
+      this.tutorChecklistProfileDone,
+      this.tutorChecklistAvailabilityDone,
+    ].filter(Boolean).length;
+    return Math.round((done / 4) * 100);
   }
 
   /** SVG stroke-dashoffset for the 100% ring (circumference = 97.4). */

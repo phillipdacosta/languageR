@@ -1005,7 +1005,7 @@
       "PACING_SUGGESTION_STAY": "단일 레슨을 유지하세요",
       "PACING_SUGGESTION_DISMISS": "내 계획을 지켜라",
       "PACING_SUGGESTION_BODY_EXAM": "목표까지 단 {{weeks}}주밖에 남지 않았으므로 집중적인 단일 레슨이 일반적으로 전체 로드맵을 능가합니다. 나중에 언제든지 로드맵을 추가할 수 있습니다.",
-      "PREVIEW_STUDENT_BADGE": "학생",
+      "PREVIEW_STUDENT_BADGE": "학습자",
       "PREVIEW_CHECKLIST_ABOUT": "당신에 대해",
       "PREVIEW_CHECKLIST_LEARNING": "언어 학습",
       "PREVIEW_CHECKLIST_GOALS": "목표 및 레벨"
@@ -1116,7 +1116,7 @@
       "STEP_SPOKEN_LEVELS_TITLE": "각각의 레벨은 어떻게 되나요?",
       "STEP_SPOKEN_LEVELS_SUBTITLE": "선택한 각 언어에 대한 CEFR 숙련도를 설정하세요.",
       "PREVIEW_BASIC_INFO": "기본 정보",
-      "PREVIEW_TUTOR_BADGE": "가정 교사",
+      "PREVIEW_TUTOR_BADGE": "튜터",
       "PREVIEW_SETUP_STATUS": "완전한",
       "PREVIEW_SETUP_STATUS_INCOMPLETE": "조치 필요",
       "PREVIEW_SETUP_HEADING": "설정 체크리스트",

@@ -770,7 +770,7 @@
       "PACING_SUGGESTION_STAY": "Bleiben Sie bei einzelnen Lektionen",
       "PACING_SUGGESTION_DISMISS": "Behalte meinen Plan bei",
       "PACING_SUGGESTION_BODY_EXAM": "Da Ihr Ziel nur noch {{weeks}} Wochen entfernt ist, sind gezielte Einzellektionen in der Regel besser als eine vollständige Roadmap. Sie können später jederzeit eine Roadmap hinzufügen.",
-      "PREVIEW_STUDENT_BADGE": "Student",
+      "PREVIEW_STUDENT_BADGE": "Lernende",
       "PREVIEW_CHECKLIST_ABOUT": "Über dich",
       "PREVIEW_CHECKLIST_LEARNING": "Sprache lernen",
       "PREVIEW_CHECKLIST_GOALS": "Ziele & Niveau"
@@ -881,7 +881,7 @@
       "STEP_SPOKEN_LEVELS_TITLE": "Welches Niveau hast du jeweils?",
       "STEP_SPOKEN_LEVELS_SUBTITLE": "Legen Sie Ihre GER-Kenntnisse für jede von Ihnen ausgewählte Sprache fest",
       "PREVIEW_BASIC_INFO": "Grundlegende Informationen",
-      "PREVIEW_TUTOR_BADGE": "Tutor",
+      "PREVIEW_TUTOR_BADGE": "Nachhilfelehrer",
       "PREVIEW_SETUP_STATUS": "Vollendet",
       "PREVIEW_SETUP_STATUS_INCOMPLETE": "Aktion erforderlich",
       "PREVIEW_SETUP_HEADING": "Checkliste für die Einrichtung",

@@ -1004,7 +1004,7 @@
       "PACING_SUGGESTION_STAY": "Zůstaňte na jednotlivých lekcích",
       "PACING_SUGGESTION_DISMISS": "Dodrž můj plán",
       "PACING_SUGGESTION_BODY_EXAM": "Po pouhých {{weeks}} týdnech k dosažení vašeho cíle cílené jednotlivé lekce obvykle překonávají úplný plán. Cestovní mapu můžete kdykoli přidat později.",
-      "PREVIEW_STUDENT_BADGE": "Student",
+      "PREVIEW_STUDENT_BADGE": "Žák",
       "PREVIEW_CHECKLIST_ABOUT": "O vás",
       "PREVIEW_CHECKLIST_LEARNING": "Učení jazyka",
       "PREVIEW_CHECKLIST_GOALS": "Cíle a úroveň"
@@ -1115,7 +1115,7 @@
       "STEP_SPOKEN_LEVELS_TITLE": "Jaká je vaše úroveň v každém z nich?",
       "STEP_SPOKEN_LEVELS_SUBTITLE": "Nastavte své znalosti CEFR pro každý vybraný jazyk",
       "PREVIEW_BASIC_INFO": "Základní informace",
-      "PREVIEW_TUTOR_BADGE": "Tutor",
+      "PREVIEW_TUTOR_BADGE": "Lektor",
       "PREVIEW_SETUP_STATUS": "Dokončeno",
       "PREVIEW_SETUP_STATUS_INCOMPLETE": "Je vyžadována akce",
       "PREVIEW_SETUP_HEADING": "Kontrolní seznam nastavení",

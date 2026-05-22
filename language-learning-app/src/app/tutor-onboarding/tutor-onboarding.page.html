@@ -597,10 +597,27 @@
             <ul class="orb-setup-list">
               <li
                 class="orb-setup-list__item"
-                *ngFor="let item of tutorPreviewChecklistStatus"
-                [class.orb-setup-list__item--incomplete]="!item.complete">
-                <ion-icon [name]="item.complete ? 'checkmark-circle' : 'alert-circle'" aria-hidden="true"></ion-icon>
-                <span>{{ item.key | translate }}</span>
+                [class.orb-setup-list__item--incomplete]="!tutorChecklistBasicDone">
+                <ion-icon [name]="tutorChecklistBasicDone ? 'checkmark-circle' : 'alert-circle'" aria-hidden="true"></ion-icon>
+                <span>{{ 'ONBOARDING.TUTOR_OB.PREVIEW_CHECKLIST_BASIC' | translate }}</span>
+              </li>
+              <li
+                class="orb-setup-list__item"
+                [class.orb-setup-list__item--incomplete]="!tutorChecklistTeachingDone">
+                <ion-icon [name]="tutorChecklistTeachingDone ? 'checkmark-circle' : 'alert-circle'" aria-hidden="true"></ion-icon>
+                <span>{{ 'ONBOARDING.TUTOR_OB.PREVIEW_CHECKLIST_TEACHING' | translate }}</span>
+              </li>
+              <li
+                class="orb-setup-list__item"
+                [class.orb-setup-list__item--incomplete]="!tutorChecklistProfileDone">
+                <ion-icon [name]="tutorChecklistProfileDone ? 'checkmark-circle' : 'alert-circle'" aria-hidden="true"></ion-icon>
+                <span>{{ 'ONBOARDING.TUTOR_OB.PREVIEW_CHECKLIST_PROFILE' | translate }}</span>
+              </li>
+              <li
+                class="orb-setup-list__item"
+                [class.orb-setup-list__item--incomplete]="!tutorChecklistAvailabilityDone">
+                <ion-icon [name]="tutorChecklistAvailabilityDone ? 'checkmark-circle' : 'alert-circle'" aria-hidden="true"></ion-icon>
+                <span>{{ 'ONBOARDING.TUTOR_OB.PREVIEW_CHECKLIST_AVAILABILITY' | translate }}</span>
               </li>
             </ul>
 

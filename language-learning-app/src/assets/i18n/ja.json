@@ -1005,7 +1005,7 @@
       "PACING_SUGGESTION_STAY": "単発レッスンを継続する",
       "PACING_SUGGESTION_DISMISS": "私の計画を守ってください",
       "PACING_SUGGESTION_BODY_EXAM": "目標まであとわずか {{weeks}} 週間ですが、通常は、集中した 1 回のレッスンで完全なロードマップを達成できます。 ロードマップは後からいつでも追加できます。",
-      "PREVIEW_STUDENT_BADGE": "学生",
+      "PREVIEW_STUDENT_BADGE": "学習者",
       "PREVIEW_CHECKLIST_ABOUT": "あなたについて",
       "PREVIEW_CHECKLIST_LEARNING": "言語の学習",
       "PREVIEW_CHECKLIST_GOALS": "目標とレベル"
@@ -1116,7 +1116,7 @@
       "STEP_SPOKEN_LEVELS_TITLE": "それぞれのレベルはどれくらいですか？",
       "STEP_SPOKEN_LEVELS_SUBTITLE": "選択した言語ごとに CEFR 熟練度を設定します",
       "PREVIEW_BASIC_INFO": "基本情報",
-      "PREVIEW_TUTOR_BADGE": "家庭教師",
+      "PREVIEW_TUTOR_BADGE": "講師",
       "PREVIEW_SETUP_STATUS": "完了しました",
       "PREVIEW_SETUP_STATUS_INCOMPLETE": "アクションが必要です",
       "PREVIEW_SETUP_HEADING": "セットアップチェックリスト",

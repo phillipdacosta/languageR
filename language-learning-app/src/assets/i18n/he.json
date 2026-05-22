@@ -1006,7 +1006,7 @@
       "PACING_SUGGESTION_STAY": "הישארו בשיעורים בודדים",
       "PACING_SUGGESTION_DISMISS": "שמור על התוכנית שלי",
       "PACING_SUGGESTION_BODY_EXAM": "עם רק {{weeks}} שבועות ליעד שלך, שיעורים בודדים ממוקדים בדרך כלל ניצחו מפת דרכים מלאה. תמיד תוכל להוסיף מפת דרכים מאוחר יותר.",
-      "PREVIEW_STUDENT_BADGE": "סטוּדֶנט",
+      "PREVIEW_STUDENT_BADGE": "תלמיד",
       "PREVIEW_CHECKLIST_ABOUT": "עליך",
       "PREVIEW_CHECKLIST_LEARNING": "לימוד שפה",
       "PREVIEW_CHECKLIST_GOALS": "מטרות ורמה"
@@ -1117,7 +1117,7 @@
       "STEP_SPOKEN_LEVELS_TITLE": "מה הרמה שלך בכל אחד?",
       "STEP_SPOKEN_LEVELS_SUBTITLE": "הגדר את המיומנות שלך ב-CEFR עבור כל שפה שבחרת",
       "PREVIEW_BASIC_INFO": "מידע בסיסי",
-      "PREVIEW_TUTOR_BADGE": "מוֹרֶה",
+      "PREVIEW_TUTOR_BADGE": "מורה",
       "PREVIEW_SETUP_STATUS": "הושלם",
       "PREVIEW_SETUP_STATUS_INCOMPLETE": "נדרשת פעולה",
       "PREVIEW_SETUP_HEADING": "רשימת בדיקה להגדרה",
