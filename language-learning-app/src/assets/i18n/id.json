@@ -86,7 +86,8 @@
     "HERO_BUBBLE_CIAO": "Ciao!",
     "SIGNING_IN": "Sedang masuk…",
     "ERROR_TITLE": "Kesalahan",
-    "REDIRECT_FAILED": "Gagal masuk. Silakan coba lagi."
+    "REDIRECT_FAILED": "Gagal masuk. Silakan coba lagi.",
+    "COMPLETING_SIGN_IN": "Menyelesaikan proses masuk…"
   },
   "TABS": {
     "HOME": "Beranda",
@@ -571,7 +572,12 @@
     "WITHDRAW_POWERED_BY": "Didukung oleh",
     "WITHDRAW_TERMS_PREFIX": "Syarat & Ketentuan berlaku. Jangan ragu untuk menghubungi",
     "WITHDRAW_TERMS_LINK": "Dukungan",
-    "WITHDRAW_TERMS_SUFFIX": "jika Anda memerlukan bantuan."
+    "WITHDRAW_TERMS_SUFFIX": "jika Anda memerlukan bantuan.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_STRIPE": "Metode pembayaran Anda adalah Stripe Connect. Selesaikan pengaturan di Profil › Pembayaran sebelum Anda dapat menarik.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Metode pembayaran Anda adalah PayPal. Selesaikan pengaturan di Profil › Pembayaran sebelum Anda dapat menarik.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Selesaikan pengaturan pembayaran di Profil › Pembayaran sebelum Anda dapat menarik.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Silakan atur metode pembayaran Anda di Profil › Pembayaran sebelum meminta penarikan.",
+    "WITHDRAW_GO_TO_SETUP": "Buka Pengaturan"
   },
   "MESSAGES": {
     "TITLE": "Pesan",
@@ -622,7 +628,9 @@
     "DISCARD": "Membuang",
     "SEND": "Mengirim",
     "UPLOADING": "Mengunggah...",
-    "RECORDING": "Merekam... {{duration}}s"
+    "RECORDING": "Merekam... {{duration}}s",
+    "DROPDOWN_EMPTY_HINT": "Mulailah percakapan untuk melihatnya di sini",
+    "LOADING_CONVERSATIONS": "Memuat percakapan..."
   },
   "NOTIFICATIONS": {
     "TITLE": "Notifikasi",
@@ -1181,7 +1189,11 @@
       "TOAST_ERROR_FALLBACK": "Kami belum bisa membuat rencana sekarang. Coba lagi sebentar lagi."
     },
     "SPOKEN_LANG_HINT": "Pilih bahasa tambahan apa pun yang Anda kuasai.",
-    "PREVIEW_ALSO_SPEAKS": "Juga berbicara"
+    "PREVIEW_ALSO_SPEAKS": "Juga berbicara",
+    "LOADING": {
+      "CREATING_ACCOUNT": "Membuat akun Anda…",
+      "CHECKING_ACCOUNT": "Memeriksa akun Anda…"
+    }
   },
   "TUTOR_APPROVAL": {
     "WIZARD_FLOW_TITLE": "Persetujuan Guru",

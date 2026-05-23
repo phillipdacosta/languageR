@@ -521,7 +521,12 @@
     "WITHDRAW_POWERED_BY": "Τροφοδοτείται από",
     "WITHDRAW_TERMS_PREFIX": "Ισχύουν Όροι & Προϋποθέσεις. Μη διστάσετε να επικοινωνήσετε",
     "WITHDRAW_TERMS_LINK": "Υποστήριξη",
-    "WITHDRAW_TERMS_SUFFIX": "εάν χρειάζεστε βοήθεια."
+    "WITHDRAW_TERMS_SUFFIX": "εάν χρειάζεστε βοήθεια.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_STRIPE": "Ο τρόπος πληρωμής σας είναι Stripe Connect. Ολοκληρώστε τη ρύθμιση στο Προφίλ › Πληρωμές πριν μπορέσετε να κάνετε ανάληψη.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Ο τρόπος πληρωμής σας είναι το PayPal. Ολοκληρώστε τη ρύθμιση στο Προφίλ › Πληρωμές πριν μπορέσετε να κάνετε ανάληψη.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Ολοκληρώστε τη ρύθμιση πληρωμών στο Προφίλ › Πληρωμές προτού μπορέσετε να κάνετε ανάληψη.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Ρυθμίστε τη μέθοδο πληρωμής σας στο Προφίλ › Πληρωμές πριν ζητήσετε ανάληψη.",
+    "WITHDRAW_GO_TO_SETUP": "Μεταβείτε στο Setup"
   },
   "LOGIN": {
     "TITLE": "Σύνδεση",
@@ -558,7 +563,8 @@
     "HERO_BUBBLE_CIAO": "Ciao!",
     "SIGNING_IN": "Σύνδεση σε εξέλιξη…",
     "ERROR_TITLE": "Σφάλμα",
-    "REDIRECT_FAILED": "Η σύνδεση απέτυχε. Δοκιμάστε ξανά."
+    "REDIRECT_FAILED": "Η σύνδεση απέτυχε. Δοκιμάστε ξανά.",
+    "COMPLETING_SIGN_IN": "Ολοκλήρωση σύνδεσης…"
   },
   "TABS": {
     "HOME": "Αρχική",
@@ -622,7 +628,9 @@
     "DISCARD": "Απορρίπτω",
     "SEND": "Στέλνω",
     "UPLOADING": "Μεταφόρτωση...",
-    "RECORDING": "Ηχογράφηση... {{duration}}s"
+    "RECORDING": "Ηχογράφηση... {{duration}}s",
+    "DROPDOWN_EMPTY_HINT": "Ξεκινήστε μια συζήτηση για να το δείτε εδώ",
+    "LOADING_CONVERSATIONS": "Φόρτωση συνομιλιών..."
   },
   "NOTIFICATIONS": {
     "TITLE": "Ειδοποιήσεις",
@@ -1181,7 +1189,11 @@
       "TOAST_ERROR_FALLBACK": "Δεν μπορέσαμε να δημιουργήσουμε το πλάνο τώρα. Δοκιμάστε ξανά σε λίγο."
     },
     "SPOKEN_LANG_HINT": "Επιλέξτε τυχόν επιπλέον γλώσσες που μιλάτε.",
-    "PREVIEW_ALSO_SPEAKS": "Μιλάει επίσης"
+    "PREVIEW_ALSO_SPEAKS": "Μιλάει επίσης",
+    "LOADING": {
+      "CREATING_ACCOUNT": "Δημιουργία λογαριασμού…",
+      "CHECKING_ACCOUNT": "Έλεγχος του λογαριασμού σας…"
+    }
   },
   "TUTOR_APPROVAL": {
     "WIZARD_FLOW_TITLE": "Έγκριση καθηγητή",

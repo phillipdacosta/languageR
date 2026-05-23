@@ -310,7 +310,7 @@
        (click)="$event.stopPropagation()">
     <div class="messages-dropdown-header">
       <div class="messages-header-left">
-        <h3 class="messages-title">Messages</h3>
+        <h3 class="messages-title">{{ 'MESSAGES.TITLE' | translate }}</h3>
       </div>
       <button class="messages-close-btn" (click)="closeMessagesDropdown()">
         <ion-icon name="close"></ion-icon>
@@ -321,7 +321,7 @@
       <!-- Loading State -->
       <div *ngIf="isLoadingConversations" class="messages-loading">
         <ion-spinner name="crescent"></ion-spinner>
-        <p>Loading conversations...</p>
+        <p>{{ 'MESSAGES.LOADING_CONVERSATIONS' | translate }}</p>
       </div>
 
       <!-- Conversations List -->
@@ -357,8 +357,8 @@
       
       <!-- Empty State -->
       <div class="messages-empty" *ngIf="!isLoadingConversations && conversations.length === 0">
-        <p>No conversations yet</p>
-        <p class="messages-empty-subtitle">Start a conversation to see it here</p>
+        <p>{{ 'MESSAGES.NO_CONVERSATIONS_YET' | translate }}</p>
+        <p class="messages-empty-subtitle">{{ 'MESSAGES.DROPDOWN_EMPTY_HINT' | translate }}</p>
       </div>
     </div>
   </div>

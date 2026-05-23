@@ -521,7 +521,12 @@
     "WITHDRAW_POWERED_BY": "Cu sprijinul",
     "WITHDRAW_TERMS_PREFIX": "Se aplică termeni și condiții. Nu ezitați să contactați",
     "WITHDRAW_TERMS_LINK": "Sprijin",
-    "WITHDRAW_TERMS_SUFFIX": "daca ai nevoie de ajutor."
+    "WITHDRAW_TERMS_SUFFIX": "daca ai nevoie de ajutor.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_STRIPE": "Metoda dvs. de plată este Stripe Connect. Finalizați configurarea în Profil › Plăți înainte de a putea retrage.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Metoda dvs. de plată este PayPal. Finalizați configurarea în Profil › Plăți înainte de a putea retrage.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Finalizați configurarea plății în Profil › Plăți înainte de a putea retrage.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Vă rugăm să configurați metoda de plată în Profil › Plăți înainte de a solicita o retragere.",
+    "WITHDRAW_GO_TO_SETUP": "Accesați Configurare"
   },
   "LOGIN": {
     "TITLE": "Conectare",
@@ -558,7 +563,8 @@
     "HERO_BUBBLE_CIAO": "Ciao!",
     "SIGNING_IN": "Se conectează…",
     "ERROR_TITLE": "Eroare",
-    "REDIRECT_FAILED": "Conectarea a eșuat. Încearcă din nou."
+    "REDIRECT_FAILED": "Conectarea a eșuat. Încearcă din nou.",
+    "COMPLETING_SIGN_IN": "Se finalizează conectarea..."
   },
   "TABS": {
     "HOME": "Acasă",
@@ -622,7 +628,9 @@
     "DISCARD": "Aruncă",
     "SEND": "Trimite",
     "UPLOADING": "Se încarcă...",
-    "RECORDING": "Înregistrare... {{duration}}s"
+    "RECORDING": "Înregistrare... {{duration}}s",
+    "DROPDOWN_EMPTY_HINT": "Începeți o conversație pentru a o vedea aici",
+    "LOADING_CONVERSATIONS": "Se încarcă conversațiile..."
   },
   "NOTIFICATIONS": {
     "TITLE": "Notificări",
@@ -1181,7 +1189,11 @@
       "TOAST_ERROR_FALLBACK": "Nu am putut crea planul acum. Încearcă din nou într-un moment."
     },
     "SPOKEN_LANG_HINT": "Selectați orice limbi suplimentare pe care le vorbiți.",
-    "PREVIEW_ALSO_SPEAKS": "Vorbeste si"
+    "PREVIEW_ALSO_SPEAKS": "Vorbeste si",
+    "LOADING": {
+      "CREATING_ACCOUNT": "Se creează contul...",
+      "CHECKING_ACCOUNT": "Se verifică contul..."
+    }
   },
   "TUTOR_APPROVAL": {
     "WIZARD_FLOW_TITLE": "Aprobarea tutorelui",

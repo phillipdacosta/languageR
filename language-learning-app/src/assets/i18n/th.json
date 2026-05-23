@@ -86,7 +86,8 @@
     "HERO_BUBBLE_CIAO": "Ciao!",
     "SIGNING_IN": "กำลังเข้าสู่ระบบ…",
     "ERROR_TITLE": "ข้อผิดพลาด",
-    "REDIRECT_FAILED": "เข้าสู่ระบบไม่สำเร็จ โปรดลองอีกครั้ง"
+    "REDIRECT_FAILED": "เข้าสู่ระบบไม่สำเร็จ โปรดลองอีกครั้ง",
+    "COMPLETING_SIGN_IN": "กำลังลงชื่อเข้าใช้ให้เสร็จสิ้น..."
   },
   "TABS": {
     "HOME": "หน้าหลัก",
@@ -571,7 +572,12 @@
     "WITHDRAW_POWERED_BY": "ขับเคลื่อนโดย",
     "WITHDRAW_TERMS_PREFIX": "เป็นไปตามข้อกำหนดและเงื่อนไข อย่าลังเลที่จะติดต่อ",
     "WITHDRAW_TERMS_LINK": "สนับสนุน",
-    "WITHDRAW_TERMS_SUFFIX": "หากคุณต้องการความช่วยเหลือ"
+    "WITHDRAW_TERMS_SUFFIX": "หากคุณต้องการความช่วยเหลือ",
+    "WITHDRAW_METHOD_REQUIRED_MSG_STRIPE": "วิธีการชำระเงินของคุณคือ Stripe Connect ตั้งค่าให้เสร็จสิ้นในโปรไฟล์ › การจ่ายเงินก่อนจึงจะสามารถถอนออกได้",
+    "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "วิธีการชำระเงินของคุณคือ PayPal ตั้งค่าให้เสร็จสิ้นในโปรไฟล์ › การจ่ายเงินก่อนจึงจะสามารถถอนออกได้",
+    "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "ตั้งค่าการจ่ายเงินให้เสร็จสิ้นในโปรไฟล์ › การจ่ายเงินก่อนที่คุณจะสามารถถอนออกได้",
+    "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "โปรดตั้งค่าวิธีจ่ายเงินของคุณในโปรไฟล์ › การจ่ายเงินก่อนที่จะขอถอนเงิน",
+    "WITHDRAW_GO_TO_SETUP": "ไปที่การตั้งค่า"
   },
   "MESSAGES": {
     "TITLE": "ข้อความ",
@@ -622,7 +628,9 @@
     "DISCARD": "ทิ้ง",
     "SEND": "ส่ง",
     "UPLOADING": "กำลังอัปโหลด...",
-    "RECORDING": "กำลังบันทึก... {{duration}}s"
+    "RECORDING": "กำลังบันทึก... {{duration}}s",
+    "DROPDOWN_EMPTY_HINT": "เริ่มการสนทนาเพื่อดูได้ที่นี่",
+    "LOADING_CONVERSATIONS": "กำลังโหลดการสนทนา..."
   },
   "NOTIFICATIONS": {
     "TITLE": "การแจ้งเตือน",
@@ -1181,7 +1189,11 @@
       "TOAST_ERROR_FALLBACK": "สร้างแผนไม่สำเร็จตอนนี้ ลองอีกครั้งในอีกสักครู่"
     },
     "SPOKEN_LANG_HINT": "เลือกภาษาเพิ่มเติมที่คุณพูด",
-    "PREVIEW_ALSO_SPEAKS": "ยังพูดอีกด้วย"
+    "PREVIEW_ALSO_SPEAKS": "ยังพูดอีกด้วย",
+    "LOADING": {
+      "CREATING_ACCOUNT": "กำลังสร้างบัญชีของคุณ...",
+      "CHECKING_ACCOUNT": "กำลังตรวจสอบบัญชีของคุณ..."
+    }
   },
   "TUTOR_APPROVAL": {
     "WIZARD_FLOW_TITLE": "การอนุมัติกวดวิชา",

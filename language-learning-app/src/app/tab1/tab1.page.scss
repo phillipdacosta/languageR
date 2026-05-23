@@ -3811,6 +3811,7 @@ img.m-card-empty-link-arrow-img {
 .earnings-amount-text {
 position: relative;
 right: 26px;
+top: 4px;
 }
 
 // Class cover — landscape tile (tutor desktop Up Next). Slightly larger; padding trimmed to offset.
@@ -5303,22 +5304,6 @@ right: 26px;
   justify-content: center;
   gap: 0;
   flex-shrink: 0;
-
-  &--today {
-    background: #e4fbff;
-
-    .tw-date-badge__month {
-      color: #ff3b30;
-    }
-
-    .tw-date-badge__day {
-      color: #ff3b30;
-    }
-
-    .tw-date-badge__weekday {
-      color: rgba(#ff3b30, 0.7);
-    }
-  }
 }
 
 .tw-date-badge__month {
@@ -9269,7 +9254,13 @@ right: 26px;
   box-shadow: $lesson-card-home-shadow;
   border: $lesson-card-home-border;
   animation: fadeInUp 0.4s ease-out 0.15s both;
-  flex: 1; // Fill grid cell height to match sibling (Up Next card)
+  // Match `.empty-state-clean-inner` (360px) so the row never grows with locale.
+  height: 360px;
+  min-height: 360px;
+  max-height: 360px;
+  flex: 0 0 360px;
+  box-sizing: border-box;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   
@@ -9432,7 +9423,7 @@ right: 26px;
       min-width: 0;
       flex-shrink: 0;
       grid-template-columns: 1fr;
-      grid-template-rows: 32px 8px minmax(16px, auto);
+      grid-template-rows: 32px 8px 16px;
       gap: 4px;
       align-items: center;
     }
@@ -9450,6 +9441,10 @@ right: 26px;
       align-items: center;
       margin-top: 0;
       min-height: 32px;
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
     }
 
     .earnings-goal__pane--hidden {
@@ -9573,9 +9568,15 @@ right: 26px;
       color: #9ca3af;
       letter-spacing: 0;
       font-variant-numeric: tabular-nums;
-      margin-top: 2px;
+      margin-top: 0;
       min-height: 16px;
-      line-height: 1.35;
+      max-height: 16px;
+      line-height: 16px;
+      min-width: 0;
+      width: 100%;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
     }
 
     .earnings-goal__sub-masked {
@@ -9676,6 +9677,7 @@ right: 26px;
     letter-spacing: 0;
     margin: 0 0 12px 0;
     height: 48px;
+    white-space: nowrap;
     transition: all 0.2s ease;
     
     &:hover {
@@ -14383,10 +14385,6 @@ right: 26px;
 
   .tw-date-badge {
     background: #3a3a3c !important;
-
-    &.tw-date-badge--today {
-      background: #30aaff26 !important;
-    }
   }
 
   .tw-date-badge__month {

@@ -86,7 +86,8 @@
     "HERO_BUBBLE_CIAO": "Ciao!",
     "SIGNING_IN": "در حال ورود…",
     "ERROR_TITLE": "خطا",
-    "REDIRECT_FAILED": "ورود ناموفق بود. دوباره تلاش کنید."
+    "REDIRECT_FAILED": "ورود ناموفق بود. دوباره تلاش کنید.",
+    "COMPLETING_SIGN_IN": "تکمیل ورود به سیستم…"
   },
   "TABS": {
     "HOME": "خانه",
@@ -571,7 +572,12 @@
     "WITHDRAW_POWERED_BY": "پشتیبانی شده توسط",
     "WITHDRAW_TERMS_PREFIX": "شرایط و ضوابط اعمال می‌شود. در صورت نیاز با ",
     "WITHDRAW_TERMS_LINK": "پشتیبانی",
-    "WITHDRAW_TERMS_SUFFIX": " تماس بگیرید."
+    "WITHDRAW_TERMS_SUFFIX": " تماس بگیرید.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_STRIPE": "روش پرداخت شما Stripe Connect است. قبل از اینکه بتوانید برداشت کنید، تنظیمات را در نمایه › پرداخت‌ها کامل کنید.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "روش پرداخت شما پی پال است. قبل از اینکه بتوانید برداشت کنید، تنظیمات را در نمایه › پرداخت‌ها کامل کنید.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "قبل از اینکه بتوانید برداشت کنید، تنظیمات پرداخت را در نمایه › پرداخت ها تکمیل کنید.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "لطفاً قبل از درخواست برداشت، روش پرداخت خود را در نمایه › پرداخت‌ها تنظیم کنید.",
+    "WITHDRAW_GO_TO_SETUP": "به Setup بروید"
   },
   "MESSAGES": {
     "TITLE": "پیام‌ها",
@@ -622,7 +628,9 @@
     "DISCARD": "دور انداختن",
     "SEND": "ارسال کنید",
     "UPLOADING": "در حال آپلود...",
-    "RECORDING": "در حال ضبط... {{duration}}s"
+    "RECORDING": "در حال ضبط... {{duration}}s",
+    "DROPDOWN_EMPTY_HINT": "برای دیدن آن در اینجا گفتگو را شروع کنید",
+    "LOADING_CONVERSATIONS": "در حال بارگیری مکالمات..."
   },
   "NOTIFICATIONS": {
     "TITLE": "اعلان‌ها",
@@ -1181,7 +1189,11 @@
       "TOAST_ERROR_FALLBACK": "الان نتوانستیم برنامه را بسازیم. لطفاً کمی بعد دوباره امتحان کنید."
     },
     "SPOKEN_LANG_HINT": "هر زبان دیگری را که صحبت می کنید انتخاب کنید.",
-    "PREVIEW_ALSO_SPEAKS": "همچنین صحبت می کند"
+    "PREVIEW_ALSO_SPEAKS": "همچنین صحبت می کند",
+    "LOADING": {
+      "CREATING_ACCOUNT": "در حال ایجاد حساب کاربری شما…",
+      "CHECKING_ACCOUNT": "در حال بررسی حساب شما…"
+    }
   },
   "TUTOR_APPROVAL": {
     "WIZARD_FLOW_TITLE": "تایید معلم",

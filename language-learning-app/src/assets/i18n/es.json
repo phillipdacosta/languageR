@@ -521,7 +521,12 @@
     "WITHDRAW_POWERED_BY": "Desarrollado por",
     "WITHDRAW_TERMS_PREFIX": "Se aplican términos y condiciones. No dudes en contactar",
     "WITHDRAW_TERMS_LINK": "Soporte",
-    "WITHDRAW_TERMS_SUFFIX": "si necesitas ayuda."
+    "WITHDRAW_TERMS_SUFFIX": "si necesitas ayuda.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_STRIPE": "Su método de pago es Stripe Connect. Complete la configuración en Perfil › Pagos antes de poder retirar.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Su método de pago es PayPal. Complete la configuración en Perfil › Pagos antes de poder retirar.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Complete la configuración de pago en Perfil › Pagos antes de poder retirar.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Configure su método de pago en Perfil › Pagos antes de solicitar un retiro.",
+    "WITHDRAW_GO_TO_SETUP": "Ir a configuración"
   },
   "ONBOARDING": {
     "TITLE": "Bienvenido al Aprendizaje de Idiomas",
@@ -947,7 +952,11 @@
       "TOAST_ERROR_FALLBACK": "No pudimos crear tu plan ahora. Inténtalo de nuevo en un momento."
     },
     "SPOKEN_LANG_HINT": "Seleccione cualquier idioma adicional que hable.",
-    "PREVIEW_ALSO_SPEAKS": "tambien habla"
+    "PREVIEW_ALSO_SPEAKS": "tambien habla",
+    "LOADING": {
+      "CREATING_ACCOUNT": "Creando tu cuenta…",
+      "CHECKING_ACCOUNT": "Comprobando tu cuenta..."
+    }
   },
   "PROFILE": {
     "TITLE": "Perfil",
@@ -1068,7 +1077,9 @@
     "DISCARD": "Desechar",
     "SEND": "Enviar",
     "UPLOADING": "Subiendo...",
-    "RECORDING": "Grabando... {{duration}}s"
+    "RECORDING": "Grabando... {{duration}}s",
+    "DROPDOWN_EMPTY_HINT": "Inicie una conversación para verlo aquí.",
+    "LOADING_CONVERSATIONS": "Cargando conversaciones..."
   },
   "NOTIFICATIONS": {
     "TITLE": "Notificaciones",
@@ -1239,7 +1250,8 @@
     "HERO_BUBBLE_CIAO": "Ciao !",
     "SIGNING_IN": "Iniciando sesión…",
     "ERROR_TITLE": "Error",
-    "REDIRECT_FAILED": "No se pudo iniciar sesión. Inténtalo de nuevo."
+    "REDIRECT_FAILED": "No se pudo iniciar sesión. Inténtalo de nuevo.",
+    "COMPLETING_SIGN_IN": "Completando el inicio de sesión…"
   },
   "ERRORS": {
     "GENERIC": "Algo salió mal. Por favor, intenta de nuevo.",

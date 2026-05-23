@@ -1041,7 +1041,7 @@
 
             <!-- Amount row + edit share grid row 1; bar/sub stay put (no shift). -->
             <div class="earnings-goal__body">
-              <div class="earnings-goal__amount" [class.earnings-goal__pane--hidden]="isEditingWeeklyGoal">
+              <div class="earnings-goal__amount" [class.earnings-goal__pane--hidden]="isEditingWeeklyGoal" [attr.title]="weeklyEarningsGoalLabel">
                 <ng-container *ngIf="showWalletBalance || walletTemporarilyVisible">{{ weeklyEarningsGoalLabel }}</ng-container>
                 <span class="earnings-goal__amount-masked" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$•••• / $••••</span>
               </div>
@@ -1076,7 +1076,7 @@
                   [style.width.%]="(showWalletBalance || walletTemporarilyVisible) ? weeklyEarningsGoalPercent : 0"></div>
               </div>
 
-              <div class="earnings-goal__sub">
+              <div class="earnings-goal__sub" [attr.title]="weeklyEarningsGoalSubLabel">
                 <ng-container *ngIf="showWalletBalance || walletTemporarilyVisible">{{ weeklyEarningsGoalSubLabel }}</ng-container>
               </div>
             </div>

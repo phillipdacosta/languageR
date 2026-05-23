@@ -38,6 +38,7 @@
 
           <button type="submit" class="primary-btn" [disabled]="isLoading">
             <ion-spinner *ngIf="isLoading" name="crescent" class="primary-btn-spinner"></ion-spinner>
+            <span *ngIf="isLoading">{{ 'LOGIN.SIGNING_IN' | translate }}</span>
             <span *ngIf="!isLoading">{{ 'LOGIN.SIGN_IN' | translate }}</span>
           </button>
         </form>

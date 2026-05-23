@@ -521,7 +521,12 @@
     "WITHDRAW_POWERED_BY": "Offerto da",
     "WITHDRAW_TERMS_PREFIX": "Si applicano termini e condizioni. Non esitate a contattare",
     "WITHDRAW_TERMS_LINK": "Supporto",
-    "WITHDRAW_TERMS_SUFFIX": "se hai bisogno di aiuto"
+    "WITHDRAW_TERMS_SUFFIX": "se hai bisogno di aiuto",
+    "WITHDRAW_METHOD_REQUIRED_MSG_STRIPE": "Il tuo metodo di pagamento è Stripe Connect. Completa la configurazione in Profilo › Pagamenti prima di poter prelevare.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Il tuo metodo di pagamento è PayPal. Completa la configurazione in Profilo › Pagamenti prima di poter prelevare.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Completa la configurazione dei pagamenti nel Profilo › Pagamenti prima di poter prelevare.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Imposta il tuo metodo di pagamento nel Profilo › Pagamenti prima di richiedere un prelievo.",
+    "WITHDRAW_GO_TO_SETUP": "Vai a Configurazione"
   },
   "LOGIN": {
     "TITLE": "Accedi",
@@ -558,7 +563,8 @@
     "HERO_BUBBLE_CIAO": "Ciao!",
     "SIGNING_IN": "Accesso in corso…",
     "ERROR_TITLE": "Errore",
-    "REDIRECT_FAILED": "Accesso non riuscito. Riprova."
+    "REDIRECT_FAILED": "Accesso non riuscito. Riprova.",
+    "COMPLETING_SIGN_IN": "Completamento dell'accesso…"
   },
   "TABS": {
     "HOME": "Home",
@@ -622,7 +628,9 @@
     "DISCARD": "Scartare",
     "SEND": "Inviare",
     "UPLOADING": "Caricamento...",
-    "RECORDING": "Registrazione... {{duration}}s"
+    "RECORDING": "Registrazione... {{duration}}s",
+    "DROPDOWN_EMPTY_HINT": "Avvia una conversazione per vederlo qui",
+    "LOADING_CONVERSATIONS": "Caricamento conversazioni..."
   },
   "NOTIFICATIONS": {
     "TITLE": "Notifiche",
@@ -1182,7 +1190,11 @@
       "TOAST_ERROR_FALLBACK": "Non siamo riusciti a creare il piano ora. Riprova tra un attimo."
     },
     "SPOKEN_LANG_HINT": "Seleziona eventuali altre lingue che parli.",
-    "PREVIEW_ALSO_SPEAKS": "Parla anche"
+    "PREVIEW_ALSO_SPEAKS": "Parla anche",
+    "LOADING": {
+      "CREATING_ACCOUNT": "Creazione del tuo account…",
+      "CHECKING_ACCOUNT": "Controllo del tuo account…"
+    }
   },
   "TUTOR_APPROVAL": {
     "WIZARD_FLOW_TITLE": "Approvazione del tutor",

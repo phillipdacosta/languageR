@@ -5,15 +5,20 @@ import { BehaviorSubject } from 'rxjs';
   providedIn: 'root'
 })
 export class LoadingService {
+  private readonly defaultMessageKey = 'COMMON.LOADING';
   private loadingSubject = new BehaviorSubject<boolean>(false);
+  private messageKeySubject = new BehaviorSubject<string>(this.defaultMessageKey);
   public loading$ = this.loadingSubject.asObservable();
+  public messageKey$ = this.messageKeySubject.asObservable();
 
-  show() {
+  show(messageKey = this.defaultMessageKey) {
+    this.messageKeySubject.next(messageKey);
     this.loadingSubject.next(true);
   }
 
   hide() {
     this.loadingSubject.next(false);
+    this.messageKeySubject.next(this.defaultMessageKey);
   }
 
   isLoading(): boolean {

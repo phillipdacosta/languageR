@@ -13,6 +13,7 @@ import { FormsModule } from '@angular/forms';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
 import { TranslateService, TranslateModule } from '@ngx-translate/core';
 import { formatDateInTz, formatTimeInTz } from '../shared/timezone.utils';
+import { isStripeSupportedCountry } from '../data/stripe-supported-countries';
 
 // Register Chart.js components
 Chart.register(...registerables);
@@ -289,6 +290,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
         this.loadEarnings(),
         this.loadWithdrawalHistory()
       ]);
+      await this.applyDeterminedPayoutProviderWhenUnset();
     } finally {
       this.loading = false;
       this._hasInitiallyLoaded = true;
@@ -366,6 +368,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
         this.loadEarnings(),
         this.loadWithdrawalHistory()
       ]);
+      await this.applyDeterminedPayoutProviderWhenUnset();
       this._lastDataFetch = Date.now();
       this.saveToCache();
       this.cdr.detectChanges();
@@ -1091,6 +1094,91 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     }
   }
 
+  /** When payout isn't connected yet, still show the country-driven Stripe/PayPal method. */
+  private async applyDeterminedPayoutProviderWhenUnset(): Promise<void> {
+    if (this.payoutMethodConfigured) {
+      return;
+    }
+
+    const determined = await this.resolveDeterminedPayoutProvider();
+    if (!determined) {
+      return;
+    }
+
+    this.payoutProvider = determined;
+    if (determined === 'stripe') {
+      this.selectedWithdrawalMethod = 'stripe_connect';
+    } else if (determined === 'paypal') {
+      this.selectedWithdrawalMethod = 'paypal';
+    }
+  }
+
+  private async resolveDeterminedPayoutProvider(): Promise<'stripe' | 'paypal' | 'manual' | null> {
+    try {
+      const user = await firstValueFrom(this.userService.getCurrentUser());
+      if (!user || user.userType !== 'tutor') {
+        return null;
+      }
+
+      const residence = (user.residenceCountry || user.country || '').trim();
+      if (residence) {
+        return isStripeSupportedCountry(residence) ? 'stripe' : 'paypal';
+      }
+
+      const cachedOptions = this.userService.getPayoutStatus()?.options;
+      const fromOptions = this.determinedProviderFromOptions(cachedOptions);
+      if (fromOptions) {
+        return fromOptions;
+      }
+
+      const response = await firstValueFrom(
+        this.http.get<any>(`${environment.apiUrl}/payments/payout-options`, {
+          headers: this.userService.getAuthHeadersSync(),
+        })
+      );
+      return this.determinedProviderFromOptions(response?.options);
+    } catch {
+      return null;
+    }
+  }
+
+  private determinedProviderFromOptions(
+    options: Record<string, { available?: boolean; recommended?: boolean }> | null | undefined
+  ): 'stripe' | 'paypal' | 'manual' | null {
+    if (!options) {
+      return null;
+    }
+    if (options['stripe']?.available && options['stripe']?.recommended) {
+      return 'stripe';
+    }
+    if (options['paypal']?.available && options['paypal']?.recommended) {
+      return 'paypal';
+    }
+    if (options['stripe']?.available) {
+      return 'stripe';
+    }
+    if (options['paypal']?.available) {
+      return 'paypal';
+    }
+    if (options['manual']?.available) {
+      return 'manual';
+    }
+    return null;
+  }
+
+  private getWithdrawSetupRequiredMessage(): string {
+    switch (this.payoutProvider) {
+      case 'stripe':
+        return this.translateService.instant('EARNINGS.WITHDRAW_METHOD_REQUIRED_MSG_STRIPE');
+      case 'paypal':
+        return this.translateService.instant('EARNINGS.WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL');
+      case 'manual':
+        return this.translateService.instant('EARNINGS.WITHDRAW_METHOD_REQUIRED_MSG_MANUAL');
+      default:
+        return this.translateService.instant('EARNINGS.WITHDRAW_METHOD_REQUIRED_MSG_GENERIC');
+    }
+  }
+
   async loadWithdrawalHistory() {
     try {
       const response = await firstValueFrom(
@@ -1109,11 +1197,26 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   }
 
   async requestWithdrawal() {
+    await this.applyDeterminedPayoutProviderWhenUnset();
+
     if (!this.payoutMethodConfigured) {
       const alert = await this.alertController.create({
         header: this.translateService.instant('EARNINGS.WITHDRAW_METHOD_REQUIRED_TITLE'),
-        message: this.translateService.instant('EARNINGS.WITHDRAW_METHOD_REQUIRED_MSG'),
-        buttons: [this.translateService.instant('EARNINGS.OK')]
+        message: this.getWithdrawSetupRequiredMessage(),
+        buttons: [
+          {
+            text: this.translateService.instant('EARNINGS.OK'),
+            role: 'cancel',
+          },
+          {
+            text: this.translateService.instant('EARNINGS.WITHDRAW_GO_TO_SETUP'),
+            handler: () => {
+              void this.router.navigate(['/tabs/profile'], {
+                queryParams: { section: 'payments' },
+              });
+            },
+          },
+        ],
       });
       await alert.present();
       return;

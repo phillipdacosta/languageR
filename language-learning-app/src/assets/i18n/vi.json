@@ -86,7 +86,8 @@
     "HERO_BUBBLE_CIAO": "Ciao!",
     "SIGNING_IN": "Đang đăng nhập…",
     "ERROR_TITLE": "Lỗi",
-    "REDIRECT_FAILED": "Đăng nhập thất bại. Vui lòng thử lại."
+    "REDIRECT_FAILED": "Đăng nhập thất bại. Vui lòng thử lại.",
+    "COMPLETING_SIGN_IN": "Đang hoàn tất đăng nhập…"
   },
   "TABS": {
     "HOME": "Trang chủ",
@@ -571,7 +572,12 @@
     "WITHDRAW_POWERED_BY": "Được cung cấp bởi",
     "WITHDRAW_TERMS_PREFIX": "Điều khoản & Điều kiện được áp dụng. Đừng ngần ngại liên hệ",
     "WITHDRAW_TERMS_LINK": "Hỗ trợ",
-    "WITHDRAW_TERMS_SUFFIX": "nếu bạn cần giúp đỡ."
+    "WITHDRAW_TERMS_SUFFIX": "nếu bạn cần giúp đỡ.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_STRIPE": "Phương thức thanh toán của bạn là Stripe Connect. Hoàn tất thiết lập trong Hồ sơ > Khoản thanh toán trước khi bạn có thể rút tiền.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Phương thức thanh toán của bạn là PayPal. Hoàn tất thiết lập trong Hồ sơ > Khoản thanh toán trước khi bạn có thể rút tiền.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Hoàn tất thiết lập thanh toán trong Hồ sơ > Các khoản thanh toán trước khi bạn có thể rút tiền.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Vui lòng thiết lập phương thức thanh toán của bạn trong Hồ sơ > Xuất chi trước khi yêu cầu rút tiền.",
+    "WITHDRAW_GO_TO_SETUP": "Đi tới Cài đặt"
   },
   "MESSAGES": {
     "TITLE": "Tin nhắn",
@@ -622,7 +628,9 @@
     "DISCARD": "Loại bỏ",
     "SEND": "Gửi",
     "UPLOADING": "Đang tải lên...",
-    "RECORDING": "Đang ghi... {{duration}}s"
+    "RECORDING": "Đang ghi... {{duration}}s",
+    "DROPDOWN_EMPTY_HINT": "Bắt đầu một cuộc trò chuyện để xem nó ở đây",
+    "LOADING_CONVERSATIONS": "Đang tải cuộc trò chuyện..."
   },
   "NOTIFICATIONS": {
     "TITLE": "Thông báo",
@@ -1181,7 +1189,11 @@
       "TOAST_ERROR_FALLBACK": "Hiện chưa tạo được kế hoạch. Vui lòng thử lại sau giây lát."
     },
     "SPOKEN_LANG_HINT": "Chọn bất kỳ ngôn ngữ bổ sung nào bạn nói.",
-    "PREVIEW_ALSO_SPEAKS": "Cũng nói"
+    "PREVIEW_ALSO_SPEAKS": "Cũng nói",
+    "LOADING": {
+      "CREATING_ACCOUNT": "Đang tạo tài khoản của bạn…",
+      "CHECKING_ACCOUNT": "Đang kiểm tra tài khoản của bạn…"
+    }
   },
   "TUTOR_APPROVAL": {
     "WIZARD_FLOW_TITLE": "Phê duyệt của gia sư",

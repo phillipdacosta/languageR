@@ -86,7 +86,8 @@
     "HERO_BUBBLE_CIAO": "Ciao!",
     "SIGNING_IN": "Sedang log masuk…",
     "ERROR_TITLE": "Ralat",
-    "REDIRECT_FAILED": "Log masuk gagal. Sila cuba lagi."
+    "REDIRECT_FAILED": "Log masuk gagal. Sila cuba lagi.",
+    "COMPLETING_SIGN_IN": "Melengkapkan log masuk…"
   },
   "TABS": {
     "HOME": "Laman Utama",
@@ -571,7 +572,12 @@
     "WITHDRAW_POWERED_BY": "Dikuasakan oleh",
     "WITHDRAW_TERMS_PREFIX": "Tertakluk kepada terma & syarat. Jangan teragak-agak untuk menghubungi",
     "WITHDRAW_TERMS_LINK": "Sokongan",
-    "WITHDRAW_TERMS_SUFFIX": "jika anda memerlukan bantuan."
+    "WITHDRAW_TERMS_SUFFIX": "jika anda memerlukan bantuan.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_STRIPE": "Kaedah pembayaran anda ialah Stripe Connect. Lengkapkan persediaan dalam Profil › Pembayaran sebelum anda boleh mengeluarkan.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Kaedah pembayaran anda ialah PayPal. Lengkapkan persediaan dalam Profil › Pembayaran sebelum anda boleh mengeluarkan.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Lengkapkan persediaan pembayaran dalam Profil › Pembayaran sebelum anda boleh mengeluarkan.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Sila sediakan kaedah pembayaran anda dalam Profil › Pembayaran sebelum meminta pengeluaran.",
+    "WITHDRAW_GO_TO_SETUP": "Pergi ke Persediaan"
   },
   "MESSAGES": {
     "TITLE": "Mesej",
@@ -622,7 +628,9 @@
     "DISCARD": "Buang",
     "SEND": "Hantar",
     "UPLOADING": "Memuat naik...",
-    "RECORDING": "Rakaman... {{duration}}s"
+    "RECORDING": "Rakaman... {{duration}}s",
+    "DROPDOWN_EMPTY_HINT": "Mulakan perbualan untuk melihatnya di sini",
+    "LOADING_CONVERSATIONS": "Memuatkan perbualan..."
   },
   "NOTIFICATIONS": {
     "TITLE": "Pemberitahuan",
@@ -1181,7 +1189,11 @@
       "TOAST_ERROR_FALLBACK": "Pelan tidak dapat dibina sekarang. Cuba lagi sebentar lagi."
     },
     "SPOKEN_LANG_HINT": "Select any additional languages you speak.",
-    "PREVIEW_ALSO_SPEAKS": "Juga bercakap"
+    "PREVIEW_ALSO_SPEAKS": "Juga bercakap",
+    "LOADING": {
+      "CREATING_ACCOUNT": "Membuat akaun anda…",
+      "CHECKING_ACCOUNT": "Menyemak akaun anda…"
+    }
   },
   "TUTOR_APPROVAL": {
     "WIZARD_FLOW_TITLE": "Kelulusan Tutor",

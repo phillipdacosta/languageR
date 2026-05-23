@@ -521,7 +521,12 @@
     "WITHDRAW_POWERED_BY": "Drevet av",
     "WITHDRAW_TERMS_PREFIX": "Vilkår og betingelser gjelder. Ikke nøl med å ta kontakt",
     "WITHDRAW_TERMS_LINK": "Støtte",
-    "WITHDRAW_TERMS_SUFFIX": "hvis du trenger hjelp."
+    "WITHDRAW_TERMS_SUFFIX": "hvis du trenger hjelp.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_STRIPE": "Din utbetalingsmetode er Stripe Connect. Fullfør oppsettet i Profil › Utbetalinger før du kan ta ut.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Din utbetalingsmetode er PayPal. Fullfør oppsettet i Profil › Utbetalinger før du kan ta ut.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Fullfør utbetalingsoppsettet i Profil › Utbetalinger før du kan ta ut penger.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Sett opp utbetalingsmetoden din i Profil › Utbetalinger før du ber om et uttak.",
+    "WITHDRAW_GO_TO_SETUP": "Gå til Oppsett"
   },
   "LOGIN": {
     "TITLE": "Logg inn",
@@ -558,7 +563,8 @@
     "HERO_BUBBLE_CIAO": "Ciao!",
     "SIGNING_IN": "Logger deg inn…",
     "ERROR_TITLE": "Feil",
-    "REDIRECT_FAILED": "Innlogging mislyktes. Prøv igjen."
+    "REDIRECT_FAILED": "Innlogging mislyktes. Prøv igjen.",
+    "COMPLETING_SIGN_IN": "Fullfører pålogging …"
   },
   "TABS": {
     "HOME": "Hjem",
@@ -622,7 +628,9 @@
     "DISCARD": "Kast",
     "SEND": "Sende",
     "UPLOADING": "Laster opp ...",
-    "RECORDING": "Opptak... {{duration}}s"
+    "RECORDING": "Opptak... {{duration}}s",
+    "DROPDOWN_EMPTY_HINT": "Start en samtale for å se den her",
+    "LOADING_CONVERSATIONS": "Laster inn samtaler ..."
   },
   "NOTIFICATIONS": {
     "TITLE": "Varsler",
@@ -1182,7 +1190,11 @@
       "TOAST_ERROR_FALLBACK": "Vi klarte ikke å lage planen nå. Prøv igjen om et øyeblikk."
     },
     "SPOKEN_LANG_HINT": "Velg eventuelle andre språk du snakker.",
-    "PREVIEW_ALSO_SPEAKS": "Snakker også"
+    "PREVIEW_ALSO_SPEAKS": "Snakker også",
+    "LOADING": {
+      "CREATING_ACCOUNT": "Oppretter kontoen din …",
+      "CHECKING_ACCOUNT": "Sjekker kontoen din …"
+    }
   },
   "TUTOR_APPROVAL": {
     "WIZARD_FLOW_TITLE": "Veiledergodkjenning",

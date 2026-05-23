@@ -521,7 +521,12 @@
     "WITHDRAW_POWERED_BY": "Aangedreven door",
     "WITHDRAW_TERMS_PREFIX": "Algemene voorwaarden zijn van toepassing. Aarzel niet om contact op te nemen",
     "WITHDRAW_TERMS_LINK": "Support",
-    "WITHDRAW_TERMS_SUFFIX": "als je hulp nodig hebt."
+    "WITHDRAW_TERMS_SUFFIX": "als je hulp nodig hebt.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_STRIPE": "Je uitbetalingsmethode is Stripe Connect. Voltooi de configuratie in Profiel › Uitbetalingen voordat u kunt opnemen.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Uw uitbetalingsmethode is PayPal. Voltooi de configuratie in Profiel › Uitbetalingen voordat u kunt opnemen.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Voltooi de uitbetalingsinstellingen in Profiel ›Uitbetalingen voordat u kunt opnemen.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Stel uw uitbetalingsmethode in Profiel > Uitbetalingen in voordat u een opname aanvraagt.",
+    "WITHDRAW_GO_TO_SETUP": "Ga naar Instellingen"
   },
   "LOGIN": {
     "TITLE": "Inloggen",
@@ -558,7 +563,8 @@
     "HERO_BUBBLE_CIAO": "Ciao!",
     "SIGNING_IN": "Bezig met aanmelden…",
     "ERROR_TITLE": "Fout",
-    "REDIRECT_FAILED": "Aanmelden mislukt. Probeer het opnieuw."
+    "REDIRECT_FAILED": "Aanmelden mislukt. Probeer het opnieuw.",
+    "COMPLETING_SIGN_IN": "Inloggen voltooien…"
   },
   "TABS": {
     "HOME": "Home",
@@ -622,7 +628,9 @@
     "DISCARD": "Weggooien",
     "SEND": "Versturen",
     "UPLOADING": "Uploaden...",
-    "RECORDING": "Opname... {{duration}}s"
+    "RECORDING": "Opname... {{duration}}s",
+    "DROPDOWN_EMPTY_HINT": "Start een gesprek om het hier te zien",
+    "LOADING_CONVERSATIONS": "Gesprekken laden..."
   },
   "NOTIFICATIONS": {
     "TITLE": "Meldingen",
@@ -1182,7 +1190,11 @@
       "TOAST_ERROR_FALLBACK": "We konden je plan nu niet maken. Probeer het zo meteen opnieuw."
     },
     "SPOKEN_LANG_HINT": "Select any additional languages you speak.",
-    "PREVIEW_ALSO_SPEAKS": "Spreekt ook"
+    "PREVIEW_ALSO_SPEAKS": "Spreekt ook",
+    "LOADING": {
+      "CREATING_ACCOUNT": "Uw account aanmaken…",
+      "CHECKING_ACCOUNT": "Uw rekening controleren..."
+    }
   },
   "TUTOR_APPROVAL": {
     "WIZARD_FLOW_TITLE": "Goedkeuring van de docent",

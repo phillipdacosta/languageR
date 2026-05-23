@@ -521,7 +521,12 @@
     "WITHDRAW_POWERED_BY": "द्वारा संचालित",
     "WITHDRAW_TERMS_PREFIX": "नियम एवं शर्तें लागू. संपर्क करने में संकोच न करें",
     "WITHDRAW_TERMS_LINK": "सहायता",
-    "WITHDRAW_TERMS_SUFFIX": "यदि आपको सहायता की आवश्यकता है."
+    "WITHDRAW_TERMS_SUFFIX": "यदि आपको सहायता की आवश्यकता है.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_STRIPE": "आपकी भुगतान विधि स्ट्राइप कनेक्ट है। प्रोफ़ाइल में पूरा सेटअप › निकासी से पहले भुगतान।",
+    "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "आपकी भुगतान विधि PayPal है. प्रोफ़ाइल में पूरा सेटअप › निकासी से पहले भुगतान।",
+    "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "प्रोफ़ाइल में पूर्ण भुगतान सेटअप › निकासी से पहले भुगतान।",
+    "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "कृपया निकासी का अनुरोध करने से पहले प्रोफ़ाइल › भुगतान में अपनी भुगतान विधि सेट करें।",
+    "WITHDRAW_GO_TO_SETUP": "सेटअप पर जाएं"
   },
   "LOGIN": {
     "TITLE": "लॉग इन करें",
@@ -558,7 +563,8 @@
     "HERO_BUBBLE_CIAO": "Ciao!",
     "SIGNING_IN": "साइन इन हो रहा है…",
     "ERROR_TITLE": "त्रुटि",
-    "REDIRECT_FAILED": "लॉग इन विफल। कृपया पुनः प्रयास करें।"
+    "REDIRECT_FAILED": "लॉग इन विफल। कृपया पुनः प्रयास करें।",
+    "COMPLETING_SIGN_IN": "साइन इन पूरा हो रहा है…"
   },
   "TABS": {
     "HOME": "होम",
@@ -622,7 +628,9 @@
     "DISCARD": "खारिज करना",
     "SEND": "भेजना",
     "UPLOADING": "अपलोड हो रहा है...",
-    "RECORDING": "रिकॉर्डिंग... {{duration}}s"
+    "RECORDING": "रिकॉर्डिंग... {{duration}}s",
+    "DROPDOWN_EMPTY_HINT": "इसे यहां देखने के लिए बातचीत शुरू करें",
+    "LOADING_CONVERSATIONS": "बातचीत लोड हो रही है..."
   },
   "NOTIFICATIONS": {
     "TITLE": "सूचनाएँ",
@@ -1182,7 +1190,11 @@
       "TOAST_ERROR_FALLBACK": "अभी योजना नहीं बन पाई। कृपया कुछ देर बाद फिर कोशिश करें।"
     },
     "SPOKEN_LANG_HINT": "आप जो भी अतिरिक्त भाषा बोलते हैं उसका चयन करें।",
-    "PREVIEW_ALSO_SPEAKS": "बोलता भी है"
+    "PREVIEW_ALSO_SPEAKS": "बोलता भी है",
+    "LOADING": {
+      "CREATING_ACCOUNT": "आपका खाता बनाया जा रहा है...",
+      "CHECKING_ACCOUNT": "आपका खाता जांचा जा रहा है..."
+    }
   },
   "TUTOR_APPROVAL": {
     "WIZARD_FLOW_TITLE": "शिक्षक अनुमोदन",

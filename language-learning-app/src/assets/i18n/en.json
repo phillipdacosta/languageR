@@ -899,6 +899,11 @@
     "WITHDRAW_TERMS_SUFFIX": " if you need help.",
     "WITHDRAW_REQUEST": "Request Withdrawal",
     "WITHDRAW_METHOD_REQUIRED_TITLE": "Payout Method Required",
+    "WITHDRAW_METHOD_REQUIRED_MSG_STRIPE": "Your payout method is Stripe Connect. Complete setup in Profile › Payouts before you can withdraw.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Your payout method is PayPal. Complete setup in Profile › Payouts before you can withdraw.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Complete payout setup in Profile › Payouts before you can withdraw.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Please set up your payout method in Profile › Payouts before requesting a withdrawal.",
+    "WITHDRAW_GO_TO_SETUP": "Go to Setup",
     "WITHDRAW_METHOD_REQUIRED_MSG": "Please set up your payout method (Stripe or PayPal) in settings before requesting a withdrawal.",
     "WITHDRAW_NO_BALANCE_TITLE": "No Available Balance",
     "WITHDRAW_NO_BALANCE_MSG": "You have no funds available for withdrawal at this time.",
@@ -1096,6 +1101,10 @@
       "EDIT": "Edit",
       "START_LEARNING": "Start Learning",
       "GO_TO_DASHBOARD": "Go to Dashboard"
+    },
+    "LOADING": {
+      "CREATING_ACCOUNT": "Creating your account…",
+      "CHECKING_ACCOUNT": "Checking your account…"
     },
     "STUDENT": {
       "WELCOME_TITLE": "Welcome!",
@@ -1440,6 +1449,8 @@
     "SEARCH_EMPTY_TITLE": "Hmm, can't find that",
     "SEARCH_EMPTY_HINT": "Try searching with a different name",
     "NO_CONVERSATIONS_YET": "No conversations yet",
+    "DROPDOWN_EMPTY_HINT": "Start a conversation to see it here",
+    "LOADING_CONVERSATIONS": "Loading conversations...",
     "NO_MESSAGES_YET": "No messages yet",
     "START_CONVERSATION": "Start the conversation!",
     "SELECT_CONVERSATION": "Select a conversation",
@@ -1661,6 +1672,7 @@
     "HERO_BUBBLE_BONJOUR": "Bonjour!",
     "HERO_BUBBLE_CIAO": "Ciao!",
     "SIGNING_IN": "Signing you in…",
+    "COMPLETING_SIGN_IN": "Completing sign in…",
     "ERROR_TITLE": "Error",
     "REDIRECT_FAILED": "Login failed. Please try again."
   },

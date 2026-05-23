@@ -521,7 +521,12 @@
     "WITHDRAW_POWERED_BY": "Drevet af",
     "WITHDRAW_TERMS_PREFIX": "Vilkår og betingelser gælder. Tøv ikke med at kontakte",
     "WITHDRAW_TERMS_LINK": "Støtte",
-    "WITHDRAW_TERMS_SUFFIX": "hvis du har brug for hjælp."
+    "WITHDRAW_TERMS_SUFFIX": "hvis du har brug for hjælp.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_STRIPE": "Din udbetalingsmetode er Stripe Connect. Fuldfør opsætningen i Profil › Udbetalinger, før du kan hæve.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Din udbetalingsmetode er PayPal. Fuldfør opsætningen i Profil › Udbetalinger, før du kan hæve.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Fuldfør udbetalingsopsætning i Profil › Udbetalinger, før du kan hæve.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Indstil din udbetalingsmetode i Profil › Udbetalinger, før du anmoder om en udbetaling.",
+    "WITHDRAW_GO_TO_SETUP": "Gå til Opsætning"
   },
   "LOGIN": {
     "TITLE": "Log ind",
@@ -558,7 +563,8 @@
     "HERO_BUBBLE_CIAO": "Ciao!",
     "SIGNING_IN": "Logger dig ind…",
     "ERROR_TITLE": "Fejl",
-    "REDIRECT_FAILED": "Login mislykkedes. Prøv igen."
+    "REDIRECT_FAILED": "Login mislykkedes. Prøv igen.",
+    "COMPLETING_SIGN_IN": "Fuldfører login..."
   },
   "TABS": {
     "HOME": "Hjem",
@@ -622,7 +628,9 @@
     "DISCARD": "Kassér",
     "SEND": "Sende",
     "UPLOADING": "Uploader...",
-    "RECORDING": "Optager... {{duration}}s"
+    "RECORDING": "Optager... {{duration}}s",
+    "DROPDOWN_EMPTY_HINT": "Start en samtale for at se den her",
+    "LOADING_CONVERSATIONS": "Indlæser samtaler..."
   },
   "NOTIFICATIONS": {
     "TITLE": "Notifikationer",
@@ -1182,7 +1190,11 @@
       "TOAST_ERROR_FALLBACK": "Vi kunne ikke bygge din plan lige nu. Prøv igen om et øjeblik."
     },
     "SPOKEN_LANG_HINT": "Vælg eventuelle yderligere sprog, du taler.",
-    "PREVIEW_ALSO_SPEAKS": "taler også"
+    "PREVIEW_ALSO_SPEAKS": "taler også",
+    "LOADING": {
+      "CREATING_ACCOUNT": "Opretter din konto...",
+      "CHECKING_ACCOUNT": "Tjekker din konto..."
+    }
   },
   "TUTOR_APPROVAL": {
     "WIZARD_FLOW_TITLE": "Tutor godkendelse",

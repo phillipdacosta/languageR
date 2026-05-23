@@ -521,7 +521,12 @@
     "WITHDRAW_POWERED_BY": "Distribuído por",
     "WITHDRAW_TERMS_PREFIX": "Termos e Condições se aplicam. Não hesite em contactar",
     "WITHDRAW_TERMS_LINK": "Suporte",
-    "WITHDRAW_TERMS_SUFFIX": "se você precisar de ajuda."
+    "WITHDRAW_TERMS_SUFFIX": "se você precisar de ajuda.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_STRIPE": "Seu método de pagamento é Stripe Connect. Conclua a configuração em Perfil › Pagamentos antes de poder sacar.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Seu método de pagamento é PayPal. Conclua a configuração em Perfil › Pagamentos antes de poder sacar.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Conclua a configuração do pagamento em Perfil › Pagamentos antes de poder sacar.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Configure sua forma de pagamento em Perfil › Pagamentos antes de solicitar um saque.",
+    "WITHDRAW_GO_TO_SETUP": "Vá para configuração"
   },
   "ONBOARDING": {
     "TITLE": "Bem-vindo ao Aprendizado de Idiomas",
@@ -947,7 +952,11 @@
       "TOAST_ERROR_FALLBACK": "Não foi possível criar o plano agora. Tente novamente daqui a instantes."
     },
     "SPOKEN_LANG_HINT": "Selecione quaisquer idiomas adicionais que você fale.",
-    "PREVIEW_ALSO_SPEAKS": "Também fala"
+    "PREVIEW_ALSO_SPEAKS": "Também fala",
+    "LOADING": {
+      "CREATING_ACCOUNT": "Criando sua conta…",
+      "CHECKING_ACCOUNT": "Verificando sua conta…"
+    }
   },
   "PROFILE": {
     "TITLE": "Perfil",
@@ -1068,7 +1077,9 @@
     "DISCARD": "Descartar",
     "SEND": "Enviar",
     "UPLOADING": "Fazendo upload...",
-    "RECORDING": "Gravando... {{duration}}s"
+    "RECORDING": "Gravando... {{duration}}s",
+    "DROPDOWN_EMPTY_HINT": "Inicie uma conversa para ver aqui",
+    "LOADING_CONVERSATIONS": "Carregando conversas..."
   },
   "NOTIFICATIONS": {
     "TITLE": "Notificações",
@@ -1239,7 +1250,8 @@
     "HERO_BUBBLE_CIAO": "Ciao!",
     "SIGNING_IN": "A iniciar sessão…",
     "ERROR_TITLE": "Erro",
-    "REDIRECT_FAILED": "Falha ao iniciar sessão. Tente novamente."
+    "REDIRECT_FAILED": "Falha ao iniciar sessão. Tente novamente.",
+    "COMPLETING_SIGN_IN": "Concluindo login…"
   },
   "ERRORS": {
     "GENERIC": "Algo deu errado. Por favor, tente novamente.",

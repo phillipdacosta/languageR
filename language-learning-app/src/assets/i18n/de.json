@@ -521,7 +521,12 @@
     "WITHDRAW_POWERED_BY": "Angetrieben von",
     "WITHDRAW_TERMS_PREFIX": "Es gelten die Allgemeinen Geschäftsbedingungen. Zögern Sie nicht, uns zu kontaktieren",
     "WITHDRAW_TERMS_LINK": "Unterstützung",
-    "WITHDRAW_TERMS_SUFFIX": "wenn Sie Hilfe benötigen."
+    "WITHDRAW_TERMS_SUFFIX": "wenn Sie Hilfe benötigen.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_STRIPE": "Ihre Auszahlungsmethode ist Stripe Connect. Schließen Sie die Einrichtung unter Profil › Auszahlungen ab, bevor Sie eine Auszahlung vornehmen können.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Ihre Auszahlungsmethode ist PayPal. Schließen Sie die Einrichtung unter Profil › Auszahlungen ab, bevor Sie eine Auszahlung vornehmen können.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Schließen Sie die Auszahlungseinrichtung unter Profil › Auszahlungen ab, bevor Sie eine Auszahlung vornehmen können.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Bitte richten Sie Ihre Auszahlungsmethode unter Profil › Auszahlungen ein, bevor Sie eine Auszahlung beantragen.",
+    "WITHDRAW_GO_TO_SETUP": "Gehen Sie zu Setup"
   },
   "ONBOARDING": {
     "TITLE": "Willkommen beim Sprachenlernen",
@@ -947,7 +952,11 @@
       "TOAST_ERROR_FALLBACK": "Wir konnten deinen Plan gerade nicht erstellen. Bitte versuche es gleich noch einmal."
     },
     "SPOKEN_LANG_HINT": "Wählen Sie alle weiteren Sprachen aus, die Sie sprechen.",
-    "PREVIEW_ALSO_SPEAKS": "Spricht auch"
+    "PREVIEW_ALSO_SPEAKS": "Spricht auch",
+    "LOADING": {
+      "CREATING_ACCOUNT": "Erstellen Sie Ihr Konto…",
+      "CHECKING_ACCOUNT": "Überprüfen Sie Ihr Konto…"
+    }
   },
   "PROFILE": {
     "TITLE": "Profil",
@@ -1068,7 +1077,9 @@
     "DISCARD": "Verwerfen",
     "SEND": "Schicken",
     "UPLOADING": "Hochladen...",
-    "RECORDING": "Aufnahme... {{duration}}s"
+    "RECORDING": "Aufnahme... {{duration}}s",
+    "DROPDOWN_EMPTY_HINT": "Starten Sie ein Gespräch, um es hier zu sehen",
+    "LOADING_CONVERSATIONS": "Gespräche werden geladen..."
   },
   "NOTIFICATIONS": {
     "TITLE": "Benachrichtigungen",
@@ -1239,7 +1250,8 @@
     "HERO_BUBBLE_CIAO": "Ciao!",
     "SIGNING_IN": "Anmeldung läuft…",
     "ERROR_TITLE": "Fehler",
-    "REDIRECT_FAILED": "Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut."
+    "REDIRECT_FAILED": "Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut.",
+    "COMPLETING_SIGN_IN": "Anmeldung wird abgeschlossen…"
   },
   "ERRORS": {
     "GENERIC": "Etwas ist schief gelaufen. Bitte versuchen Sie es erneut.",

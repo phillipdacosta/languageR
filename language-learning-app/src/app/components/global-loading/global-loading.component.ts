@@ -8,7 +8,7 @@ import { Subscription } from 'rxjs';
     <div class="global-loading-overlay" *ngIf="isLoading">
       <div class="loading-content">
         <ion-spinner name="crescent"></ion-spinner>
-        <p>Loading...</p>
+        <p>{{ messageKey | translate }}</p>
       </div>
     </div>
   `,
@@ -54,14 +54,22 @@ import { Subscription } from 'rxjs';
 })
 export class GlobalLoadingComponent implements OnInit, OnDestroy {
   isLoading = false;
+  messageKey = 'COMMON.LOADING';
   private subscription: Subscription = new Subscription();
 
   constructor(private loadingService: LoadingService) {}
 
   ngOnInit() {
-    this.subscription = this.loadingService.loading$.subscribe(loading => {
-      this.isLoading = loading;
-    });
+    this.subscription.add(
+      this.loadingService.loading$.subscribe(loading => {
+        this.isLoading = loading;
+      })
+    );
+    this.subscription.add(
+      this.loadingService.messageKey$.subscribe(messageKey => {
+        this.messageKey = messageKey;
+      })
+    );
   }
 
   ngOnDestroy() {

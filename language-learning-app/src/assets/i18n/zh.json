@@ -521,7 +521,12 @@
     "WITHDRAW_POWERED_BY": "供电",
     "WITHDRAW_TERMS_PREFIX": "条款和条件适用。不要犹豫联系",
     "WITHDRAW_TERMS_LINK": "支持",
-    "WITHDRAW_TERMS_SUFFIX": "如果您需要帮助。"
+    "WITHDRAW_TERMS_SUFFIX": "如果您需要帮助。",
+    "WITHDRAW_METHOD_REQUIRED_MSG_STRIPE": "您的付款方式是 Stripe Connect。在提款之前，请在“个人资料”>“付款”中完成设置。",
+    "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "您的付款方式是 PayPal。在提款之前，请在“个人资料”>“付款”中完成设置。",
+    "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "在提款之前，请在“个人资料”>“付款”中完成付款设置。",
+    "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "请求提款之前，请在个人资料 › 付款中设置您的付款方式。",
+    "WITHDRAW_GO_TO_SETUP": "转到设置"
   },
   "LOGIN": {
     "TITLE": "登录",
@@ -558,7 +563,8 @@
     "HERO_BUBBLE_CIAO": "Ciao!",
     "SIGNING_IN": "正在登录…",
     "ERROR_TITLE": "错误",
-    "REDIRECT_FAILED": "登录失败，请重试。"
+    "REDIRECT_FAILED": "登录失败，请重试。",
+    "COMPLETING_SIGN_IN": "正在完成登录..."
   },
   "TABS": {
     "HOME": "首页",
@@ -622,7 +628,9 @@
     "DISCARD": "丢弃",
     "SEND": "发送",
     "UPLOADING": "正在上传...",
-    "RECORDING": "录音中...0s"
+    "RECORDING": "录音中...0s",
+    "DROPDOWN_EMPTY_HINT": "开始对话并在此处查看",
+    "LOADING_CONVERSATIONS": "正在加载对话..."
   },
   "NOTIFICATIONS": {
     "TITLE": "通知",
@@ -1182,7 +1190,11 @@
       "TOAST_ERROR_FALLBACK": "暂时无法生成计划，请稍后再试。"
     },
     "SPOKEN_LANG_HINT": "选择您所说的任何其他语言。",
-    "PREVIEW_ALSO_SPEAKS": "还说话"
+    "PREVIEW_ALSO_SPEAKS": "还说话",
+    "LOADING": {
+      "CREATING_ACCOUNT": "创建您的帐户...",
+      "CHECKING_ACCOUNT": "正在检查您的帐户..."
+    }
   },
   "TUTOR_APPROVAL": {
     "WIZARD_FLOW_TITLE": "导师批准",

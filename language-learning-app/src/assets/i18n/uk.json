@@ -521,7 +521,12 @@
     "WITHDRAW_POWERED_BY": "На основі",
     "WITHDRAW_TERMS_PREFIX": "Застосовуються положення та умови. Не соромтеся звертатися",
     "WITHDRAW_TERMS_LINK": "Підтримка",
-    "WITHDRAW_TERMS_SUFFIX": "якщо вам потрібна допомога."
+    "WITHDRAW_TERMS_SUFFIX": "якщо вам потрібна допомога.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_STRIPE": "Ваш метод виплати – Stripe Connect. Завершіть налаштування в Профілі › Виплати, перш ніж ви зможете зняти кошти.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Ваш метод виплати – PayPal. Завершіть налаштування в Профілі › Виплати, перш ніж ви зможете зняти кошти.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Завершіть налаштування виплат у Профілі › Виплати, перш ніж ви зможете зняти кошти.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Будь ласка, налаштуйте спосіб виплати в Профілі › Виплати, перш ніж запитувати зняття коштів.",
+    "WITHDRAW_GO_TO_SETUP": "Перейдіть до налаштування"
   },
   "LOGIN": {
     "TITLE": "Увійти",
@@ -558,7 +563,8 @@
     "HERO_BUBBLE_CIAO": "Ciao!",
     "SIGNING_IN": "Виконується вхід…",
     "ERROR_TITLE": "Помилка",
-    "REDIRECT_FAILED": "Не вдалося увійти. Спробуйте ще раз."
+    "REDIRECT_FAILED": "Не вдалося увійти. Спробуйте ще раз.",
+    "COMPLETING_SIGN_IN": "Завершення входу…"
   },
   "TABS": {
     "HOME": "Головна",
@@ -622,7 +628,9 @@
     "DISCARD": "Відкинути",
     "SEND": "Надіслати",
     "UPLOADING": "Завантаження...",
-    "RECORDING": "Запис... {{duration}}s"
+    "RECORDING": "Запис... {{duration}}s",
+    "DROPDOWN_EMPTY_HINT": "Почніть розмову, щоб побачити це тут",
+    "LOADING_CONVERSATIONS": "Завантаження бесід..."
   },
   "NOTIFICATIONS": {
     "TITLE": "Сповіщення",
@@ -1181,7 +1189,11 @@
       "TOAST_ERROR_FALLBACK": "Зараз не вдалося створити план. Спробуйте ще раз за хвилину."
     },
     "SPOKEN_LANG_HINT": "Виберіть додаткові мови, якими ви розмовляєте.",
-    "PREVIEW_ALSO_SPEAKS": "Також говорить"
+    "PREVIEW_ALSO_SPEAKS": "Також говорить",
+    "LOADING": {
+      "CREATING_ACCOUNT": "Створення облікового запису…",
+      "CHECKING_ACCOUNT": "Перевірка вашого облікового запису…"
+    }
   },
   "TUTOR_APPROVAL": {
     "WIZARD_FLOW_TITLE": "Схвалення репетитора",

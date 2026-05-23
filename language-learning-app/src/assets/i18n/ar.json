@@ -521,7 +521,12 @@
     "WITHDRAW_POWERED_BY": "مدعوم من",
     "WITHDRAW_TERMS_PREFIX": "تطبق الشروط والأحكام. لا تتردد في الاتصال",
     "WITHDRAW_TERMS_LINK": "الدعم",
-    "WITHDRAW_TERMS_SUFFIX": "إذا كنت بحاجة إلى مساعدة."
+    "WITHDRAW_TERMS_SUFFIX": "إذا كنت بحاجة إلى مساعدة.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_STRIPE": "طريقة الدفع الخاصة بك هي Stripe Connect. أكمل الإعداد في الملف الشخصي ›الدفعات قبل أن تتمكن من السحب.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "طريقة الدفع الخاصة بك هي PayPal. أكمل الإعداد في الملف الشخصي ›الدفعات قبل أن تتمكن من السحب.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "أكمل إعداد الدفع في الملف الشخصي ›الدفعات قبل أن تتمكن من السحب.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "يرجى إعداد طريقة الدفع الخاصة بك في الملف الشخصي › الدفعات قبل طلب السحب.",
+    "WITHDRAW_GO_TO_SETUP": "انتقل إلى الإعداد"
   },
   "LOGIN": {
     "TITLE": "تسجيل الدخول",
@@ -558,7 +563,8 @@
     "HERO_BUBBLE_CIAO": "Ciao!",
     "SIGNING_IN": "جارٍ تسجيل الدخول…",
     "ERROR_TITLE": "خطأ",
-    "REDIRECT_FAILED": "فشل تسجيل الدخول. يُرجى المحاولة مرة أخرى."
+    "REDIRECT_FAILED": "فشل تسجيل الدخول. يُرجى المحاولة مرة أخرى.",
+    "COMPLETING_SIGN_IN": "جارٍ إكمال تسجيل الدخول..."
   },
   "TABS": {
     "HOME": "الرئيسية",
@@ -622,7 +628,9 @@
     "DISCARD": "ينبذ",
     "SEND": "يرسل",
     "UPLOADING": "جارٍ التحميل...",
-    "RECORDING": "تسجيل....0s"
+    "RECORDING": "تسجيل....0s",
+    "DROPDOWN_EMPTY_HINT": "ابدأ محادثة لتراها هنا",
+    "LOADING_CONVERSATIONS": "جارٍ تحميل المحادثات..."
   },
   "NOTIFICATIONS": {
     "TITLE": "الإشعارات",
@@ -1182,7 +1190,11 @@
       "TOAST_ERROR_FALLBACK": "تعذّر إنشاء خطتك الآن. حاول مرة أخرى بعد لحظة."
     },
     "SPOKEN_LANG_HINT": "حدد أي لغات إضافية تتحدثها.",
-    "PREVIEW_ALSO_SPEAKS": "يتحدث أيضا"
+    "PREVIEW_ALSO_SPEAKS": "يتحدث أيضا",
+    "LOADING": {
+      "CREATING_ACCOUNT": "جارٍ إنشاء حسابك…",
+      "CHECKING_ACCOUNT": "جارٍ التحقق من حسابك…"
+    }
   },
   "TUTOR_APPROVAL": {
     "WIZARD_FLOW_TITLE": "موافقة المعلم",
