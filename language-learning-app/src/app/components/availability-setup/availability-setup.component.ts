@@ -9,6 +9,11 @@ import { ClassService } from '../../services/class.service';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { getTimezoneLabel } from '../../shared/timezone.utils';
+import {
+  CalendarWeekStartDay,
+  getStartOfCalendarWeek,
+  normalizeCalendarWeekStartsOn,
+} from '../../shared/calendar-week.utils';
 import { fromZonedTime } from 'date-fns-tz';
 import { trigger, state, style, transition, animate } from '@angular/animations';
 
@@ -73,6 +78,7 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   // Calendar settings
   calendarTimeFormat: '12h' | '24h' = '12h';
   calendarDefaultView: 'week' | 'day' = 'week';
+  calendarWeekStartsOn: CalendarWeekStartDay = 0;
 
   // Google Calendar state
   gcalConnected = false;
@@ -204,14 +210,9 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     }
   }
 
-  // Helper to get start of week (Sunday)
+  // Helper to get start of week using user preference
   private getStartOfWeek(date: Date): Date {
-    const d = new Date(date);
-    const day = d.getDay(); // 0 = Sunday, 1 = Monday, etc.
-    const diff = day; // Distance from Sunday (0 = already Sunday, 1 = go back 1 day, etc.)
-    d.setDate(d.getDate() - diff);
-    d.setHours(0, 0, 0, 0);
-    return d;
+    return getStartOfCalendarWeek(date, this.calendarWeekStartsOn);
   }
 
   // Now indicator state (simple, like tutor-calendar)
@@ -407,6 +408,14 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
         this.initializeTimeSlots();
         this.cdr.detectChanges();
       }
+
+      const nextWeekStartsOn = normalizeCalendarWeekStartsOn((user?.profile as any)?.calendarWeekStartsOn);
+      if (nextWeekStartsOn !== this.calendarWeekStartsOn) {
+        this.calendarWeekStartsOn = nextWeekStartsOn;
+        this.reanchorWeekFromFocus(this.isSingleDayMode && this.displayedWeekDays.length
+          ? new Date(this.displayedWeekDays[0].date)
+          : new Date());
+      }
     });
     
     // Check if we're in single day mode
@@ -485,13 +494,7 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   }
 
   private getWeekStart(date: Date): Date {
-    // Create a new date to avoid mutating the original
-    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    const day = d.getDay();
-    const diff = d.getDate() - day; // Adjust to get Sunday as start of week
-    d.setDate(diff);
-    d.setHours(0, 0, 0, 0);
-    return d;
+    return getStartOfCalendarWeek(date, this.calendarWeekStartsOn);
   }
   
   private updateWeekDaysForSingleDay(targetDate: Date) {
@@ -644,13 +647,19 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     });
   }
 
-  private initializeCurrentWeek() {
-    const today = new Date();
-    const dayOfWeek = today.getDay();
-    const sundayOffset = -dayOfWeek; // Get to Sunday of current week
-    this.currentWeek = new Date(today);
-    this.currentWeek.setDate(today.getDate() + sundayOffset);
-    this.currentWeek.setHours(0, 0, 0, 0);
+  private initializeCurrentWeek(focusDate: Date = new Date()) {
+    this.currentWeek = getStartOfCalendarWeek(focusDate, this.calendarWeekStartsOn);
+  }
+
+  private reanchorWeekFromFocus(focusDate: Date): void {
+    if (this.isSingleDayMode) {
+      this.updateWeekDaysForSingleDay(focusDate);
+    } else {
+      this.initializeCurrentWeek(focusDate);
+      this.updateWeekDays(focusDate);
+    }
+    this.forceRefreshAvailability();
+    this.cdr.detectChanges();
   }
 
   private updateWeekDays(focusDate?: Date) {
@@ -1882,7 +1891,12 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     if (user?.profile) {
       this.calendarTimeFormat = (user.profile as any).calendarTimeFormat || '12h';
       this.calendarDefaultView = (user.profile as any).calendarDefaultView || 'week';
+      this.calendarWeekStartsOn = normalizeCalendarWeekStartsOn((user.profile as any).calendarWeekStartsOn);
       this.initializeTimeSlots();
+      if (!this.isSingleDayMode) {
+        this.initializeCurrentWeek(new Date());
+        this.updateWeekDays(new Date());
+      }
     }
   }
 

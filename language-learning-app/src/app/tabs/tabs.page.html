@@ -23,9 +23,7 @@
       <ion-buttons slot="end">
         <!-- Tutor earnings "$" pill — home only, mobile only -->
         <button class="toolbar-earnings-pill" *ngIf="isTutorMobile" (click)="onToolbarEarningsTap()">$</button>
-        <ion-button fill="clear" class="notification-btn"
-                    (mouseenter)="onNotificationButtonMouseEnter()"
-                    (mouseleave)="onNotificationButtonMouseLeave()">
+        <ion-button fill="clear" class="notification-btn" (click)="toggleNotificationDropdown()">
           <ion-icon name="notifications-outline"></ion-icon>
           <span class="notification-dot" *ngIf="(unreadNotificationCount$ | async)! > 0"></span>
         </ion-button>
@@ -109,12 +107,14 @@
         </button>
         
         <!-- Notification Bell Icon -->
-        <div class="notification-container">
+        <div class="notification-container"
+             (mouseenter)="onNotificationContainerPointerEnter()"
+             (mouseleave)="onNotificationContainerPointerLeave()"
+             (pointerenter)="onNotificationContainerPointerEnter()"
+             (pointerleave)="onNotificationContainerPointerLeave()">
           <button type="button" #notificationBtn class="nav-button notification-btn" 
                   [class.active]="isCurrentRoute('/tabs/notifications')"
-                  (click)="onNotificationButtonClick()"
-                  (mouseenter)="onNotificationButtonMouseEnter()"
-                  (mouseleave)="onNotificationButtonMouseLeave()">
+                  (click)="onNotificationButtonClick()">
             <ion-icon name="notifications-outline"></ion-icon>
             <span class="notification-dot" *ngIf="(unreadNotificationCount$ | async)! > 0"></span>
           </button>
@@ -135,7 +135,7 @@
   <!-- Notification Dropdown (Desktop Only) - Outside toolbar for proper positioning -->
   <div class="notification-dropdown" 
        [class.show]="isNotificationDropdownOpen"
-       *ngIf="isWeb() && !showTabs" 
+       *ngIf="supportsDesktopDropdown()" 
        [style.top.px]="dropdownTop"
        [style.right.px]="dropdownRight"
        (mouseenter)="onNotificationDropdownMouseEnter()"
@@ -302,7 +302,7 @@
   <!-- Messages Dropdown (Desktop Only) - Similar to notifications -->
   <div class="messages-dropdown" 
        [class.show]="isMessagesDropdownOpen"
-       *ngIf="isWeb() && !showTabs" 
+       *ngIf="supportsDesktopDropdown()" 
        [style.top.px]="messagesDropdownTop"
        [style.right.px]="messagesDropdownRight"
        (mouseenter)="onMessagesDropdownMouseEnter()"

@@ -13,6 +13,7 @@
  */
 
 const express = require('express');
+const { resolveReturnUrl } = require('../utils/appUrl');
 const router = express.Router();
 const { verifyToken } = require('../middleware/videoUploadMiddleware');
 const paymentService = require('../services/paymentService');
@@ -963,12 +964,18 @@ router.post('/stripe-connect/onboard', verifyToken, async (req, res) => {
       await user.save();
     }
 
-    // Create account link for onboarding
-    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:8100';
+    const { frontendOrigin, returnPath, refreshPath } = req.body || {};
+    const { returnUrl, refreshUrl } = resolveReturnUrl({
+      req,
+      explicitOrigin: frontendOrigin,
+      returnPath,
+      refreshPath,
+    });
+
     const accountLink = await stripeService.createAccountLink({
       accountId: user.stripeConnectAccountId,
-      refreshUrl: `${baseUrl}/tabs/profile?stripe_refresh=true`,
-      returnUrl: `${baseUrl}/tabs/profile?stripe_success=true`
+      refreshUrl,
+      returnUrl,
     });
 
     res.json({

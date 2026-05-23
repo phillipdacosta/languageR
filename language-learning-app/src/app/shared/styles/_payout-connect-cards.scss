@@ -1,0 +1,447 @@
+// Shared Stripe / PayPal connect cards (profile + tutor approval wizard)
+
+.profile-payout-panel {
+  width: 100%;
+  padding: 8px 0 24px;
+  box-sizing: border-box;
+}
+
+.payout-connect-provider,
+.profile-payout-provider {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: 8px 0;
+  box-sizing: border-box;
+}
+
+.payout-connect-benefit {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+
+  &:not(:last-child) {
+    margin-bottom: 16px;
+  }
+
+  ion-icon {
+    flex-shrink: 0;
+    margin-top: 2px;
+    font-size: 20px;
+    color: #0a2540;
+  }
+
+  &__text {
+    min-width: 0;
+    text-align: left;
+
+    strong {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: #0a2540;
+      line-height: 1.3;
+    }
+
+    p {
+      margin: 4px 0 0;
+      font-size: 13px;
+      line-height: 1.45;
+      color: #425466;
+    }
+  }
+}
+
+.stripe-connect-card,
+.paypal-connect-card {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 32px 28px 24px;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e6ebf1;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  text-align: center;
+  box-sizing: border-box;
+
+  &--connected {
+    padding-top: 28px;
+  }
+
+  &__logo {
+    display: block;
+    margin: 0 auto;
+  }
+
+  &__title {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: baseline;
+    column-gap: 0.32em;
+    row-gap: 0.12em;
+    margin: 20px 0 0;
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1.35;
+    letter-spacing: -0.02em;
+    color: #0a2540;
+  }
+
+  &__title-part {
+    white-space: pre-wrap;
+  }
+
+  &__reason {
+    margin: 10px auto 0;
+    max-width: 28rem;
+    font-size: 14px;
+    line-height: 1.55;
+    color: #425466;
+  }
+
+  &__benefits {
+    margin: 24px 0 0;
+    padding: 16px;
+    background: #f6f9fc;
+    border-radius: 8px;
+    text-align: left;
+  }
+
+  &__email {
+    margin: 20px 0 0;
+    text-align: left;
+  }
+
+  &__email-label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #0a2540;
+  }
+
+  &__email-input {
+    width: 100%;
+    min-height: 44px;
+    padding: 0 14px;
+    border: 1px solid #e6ebf1;
+    border-radius: 8px;
+    background: #ffffff;
+    font-size: 15px;
+    color: #0a2540;
+    box-sizing: border-box;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+    &::placeholder {
+      color: #8898aa;
+    }
+
+    &:focus {
+      border-color: #0070ba;
+      box-shadow: 0 0 0 3px rgba(0, 112, 186, 0.12);
+    }
+  }
+
+  &__error {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: #fef2f2;
+    border-radius: 8px;
+    font-size: 12px;
+    color: #dc2626;
+    text-align: left;
+
+    ion-icon {
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+  }
+
+  &__legal {
+    margin: 16px 0;
+    font-size: 12px;
+    line-height: 1.55;
+    color: #425466;
+    text-align: center;
+  }
+
+  &__legal-line {
+    display: inline;
+    text-wrap: pretty;
+  }
+
+  &__legal-text {
+    white-space: normal;
+  }
+
+  &__legal-link {
+    display: inline;
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  &__cta {
+    width: 100%;
+    min-height: 48px;
+    padding: 0 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, opacity 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    &:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    &--secondary {
+      background: #ffffff;
+      border: 1px solid #e6ebf1;
+      margin-top: 16px;
+
+      &:hover:not(:disabled) {
+        background: #f6f9fc;
+      }
+    }
+  }
+
+  &__powered {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin: 20px 0 0;
+    font-size: 12px;
+    color: #8898aa;
+
+    img {
+      height: auto;
+      opacity: 0.9;
+    }
+  }
+
+  &__connected-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 16px 0 8px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #0a2540;
+
+    ion-icon {
+      font-size: 22px;
+    }
+  }
+
+  &__connected-email {
+    margin: 0 0 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #0070ba;
+  }
+
+  &__connected-desc {
+    margin: 0 0 4px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #425466;
+  }
+
+  &__legacy {
+    margin-top: 20px;
+    text-align: left;
+  }
+}
+
+.stripe-connect-card {
+  &__logo {
+    height: 28px;
+    width: auto;
+  }
+
+  &__brand {
+    color: #635bff;
+    flex-shrink: 0;
+  }
+
+  &__legal-link {
+    color: #635bff;
+  }
+
+  &__cta {
+    background: #0a2540;
+    color: #ffffff;
+
+    &:hover:not(:disabled) {
+      background: #1a3354;
+    }
+
+    &--secondary {
+      color: #0a2540;
+    }
+  }
+
+  &__powered img {
+    height: 14px;
+    width: auto;
+  }
+}
+
+.paypal-connect-card {
+  &__logo {
+    height: 32px;
+    width: auto;
+  }
+
+  &__brand {
+    color: #0070ba;
+    flex-shrink: 0;
+  }
+
+  &__legal-link {
+    color: #0070ba;
+  }
+
+  &__cta {
+    background: #0070ba;
+    color: #ffffff;
+
+    &:hover:not(:disabled) {
+      background: #005ea6;
+    }
+
+    &--secondary {
+      color: #0a2540;
+    }
+  }
+
+  &__powered img {
+    height: 22px;
+    width: auto;
+  }
+}
+
+html.ion-palette-dark {
+  .stripe-connect-card,
+  .paypal-connect-card {
+    background: #1c1c1e;
+    border-color: #38383a;
+    box-shadow: none;
+
+    &__title {
+      color: #f5f5f7;
+    }
+
+    &__reason {
+      color: #98989f;
+    }
+
+    &__benefits {
+      background: #2c2c2e;
+    }
+
+    &__email-input {
+      background: #2c2c2e;
+      border-color: #38383a;
+      color: #f5f5f7;
+    }
+
+    &__legal {
+      color: #98989f;
+    }
+
+    &__connected-badge {
+      color: #f5f5f7;
+    }
+
+    &__connected-desc {
+      color: #98989f;
+    }
+
+    &__powered {
+      color: #636366;
+    }
+
+    &__cta--secondary {
+      background: #1c1c1e;
+      border-color: #38383a;
+      color: #f5f5f7;
+
+      &:hover:not(:disabled) {
+        background: #2c2c2e;
+      }
+    }
+  }
+
+  .stripe-connect-card {
+    &__brand {
+      color: #7a73ff;
+    }
+
+    &__legal-link {
+      color: #7a73ff;
+    }
+
+    &__cta:not(&__cta--secondary) {
+      background: #f5f5f7;
+      color: #0a2540;
+
+      &:hover:not(:disabled) {
+        background: #ffffff;
+      }
+    }
+  }
+
+  .paypal-connect-card {
+    &__brand {
+      color: #47a3f3;
+    }
+
+    &__legal-link {
+      color: #47a3f3;
+    }
+
+    &__cta:not(&__cta--secondary) {
+      background: #0070ba;
+      color: #ffffff;
+
+      &:hover:not(:disabled) {
+        background: #005ea6;
+      }
+    }
+  }
+
+  .payout-connect-benefit {
+    ion-icon {
+      color: #f5f5f7;
+    }
+
+    &__text {
+      strong {
+        color: #f5f5f7;
+      }
+
+      p {
+        color: #98989f;
+      }
+    }
+  }
+}

@@ -61,7 +61,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   formattedNotifications$!: Observable<FormattedNotification[]>;
   // Notification dropdown state
   isNotificationDropdownOpen = false;
-  private notificationHoverTimer: any = null;
+  private notificationHoverTimer: ReturnType<typeof setTimeout> | null = null;
+  private notificationCloseTimer: ReturnType<typeof setTimeout> | null = null;
   private isHoveringNotificationDropdown = false;
   // Current route for tab highlighting
   currentRoute = '';
@@ -656,6 +657,14 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     return this.platformService.isWeb();
   }
 
+  /** Desktop top-nav dropdowns (notifications/messages) — not tied to Ionic `desktop` alone. */
+  supportsDesktopDropdown(): boolean {
+    if (this.showTabs || this.isMobile() || this.isMobileViewport()) {
+      return false;
+    }
+    return window.innerWidth >= 992 || this.platformService.isWeb();
+  }
+
   // Getter for unread count (for debugging)
   get unreadMessageCount(): number {
     return this.unreadCount$.value;
@@ -815,45 +824,54 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     }
   }
   
-  onNotificationButtonMouseEnter() {
-    if (this.isMobile() || this.isMobileViewport() || !this.isWeb() || this.showTabs) {
-      return; // Only on desktop
+  onNotificationContainerPointerEnter() {
+    if (!this.supportsDesktopDropdown()) {
+      return;
     }
-    
-    // Don't show dropdown if notifications tab is already active
+
     if (this.isCurrentRoute('/tabs/notifications')) {
       return;
     }
-    
-    // Clear any existing timer
+
+    if (this.notificationCloseTimer) {
+      clearTimeout(this.notificationCloseTimer);
+      this.notificationCloseTimer = null;
+    }
+
     if (this.notificationHoverTimer) {
       clearTimeout(this.notificationHoverTimer);
     }
-    
-    // Set timer for 600ms before opening (same as messages)
+
     this.notificationHoverTimer = setTimeout(() => {
+      this.notificationHoverTimer = null;
       this.openNotificationDropdown();
-    }, 600);
+    }, 350);
   }
 
-  onNotificationButtonMouseLeave() {
-    // Clear timer if user moves mouse away
+  onNotificationContainerPointerLeave() {
     if (this.notificationHoverTimer) {
       clearTimeout(this.notificationHoverTimer);
       this.notificationHoverTimer = null;
     }
-    
-    // Use a small delay to allow mouse to move to dropdown
-    // If mouse doesn't enter dropdown within 100ms, close it
-    setTimeout(() => {
+
+    if (this.notificationCloseTimer) {
+      clearTimeout(this.notificationCloseTimer);
+    }
+
+    this.notificationCloseTimer = setTimeout(() => {
+      this.notificationCloseTimer = null;
       if (this.isNotificationDropdownOpen && !this.isHoveringNotificationDropdown) {
         this.closeNotificationDropdown();
       }
-    }, 100);
+    }, 150);
   }
   
   onNotificationDropdownMouseEnter() {
     this.isHoveringNotificationDropdown = true;
+    if (this.notificationCloseTimer) {
+      clearTimeout(this.notificationCloseTimer);
+      this.notificationCloseTimer = null;
+    }
   }
   
   onNotificationDropdownMouseLeave() {
@@ -863,7 +881,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   openNotificationDropdown() {
-    if (this.isMobile() || this.isMobileViewport() || !this.isWeb() || this.showTabs) {
+    if (!this.supportsDesktopDropdown()) {
       return;
     }
     
@@ -899,7 +917,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
     const buttonRect = this.notificationBtn.nativeElement.getBoundingClientRect();
-    this.dropdownTop = buttonRect.bottom + window.scrollY + 12;
+    this.dropdownTop = buttonRect.bottom + window.scrollY + 4;
     this.dropdownRight = window.innerWidth - buttonRect.right - window.scrollX;
   }
 
@@ -1157,7 +1175,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: Event) {
     // Close dropdown if clicking outside of it (only on desktop)
-    if (this.isNotificationDropdownOpen && this.isWeb() && !this.showTabs) {
+    if (this.isNotificationDropdownOpen && this.supportsDesktopDropdown()) {
       const target = event.target as HTMLElement;
       const dropdown = document.querySelector('.notification-dropdown');
       const container = document.querySelector('.notification-container');
@@ -1169,7 +1187,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     }
     
     // Close messages dropdown if clicking outside of it (only on desktop)
-    if (this.isMessagesDropdownOpen && this.isWeb() && !this.showTabs) {
+    if (this.isMessagesDropdownOpen && this.supportsDesktopDropdown()) {
       const target = event.target as HTMLElement;
       const dropdown = document.querySelector('.messages-dropdown');
       const button = this.messagesBtn?.nativeElement;
@@ -1199,7 +1217,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   }
   
   onMessagesButtonMouseEnter() {
-    if (this.isMobile() || this.isMobileViewport() || !this.isWeb() || this.showTabs) {
+    if (!this.supportsDesktopDropdown()) {
       return; // Only on desktop
     }
     
@@ -1246,7 +1264,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   openMessagesDropdown() {
-    if (this.isMobile() || this.isMobileViewport() || !this.isWeb() || this.showTabs) {
+    if (!this.supportsDesktopDropdown()) {
       return;
     }
     

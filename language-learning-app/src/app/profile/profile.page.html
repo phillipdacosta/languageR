@@ -165,68 +165,84 @@
         </ng-container>
 
     <ng-container *ngIf="!isViewingOtherUser && profileActiveSection === 'payments' && isTutorUser">
-    <ion-card class="stripe-connect-card">
-      <ion-card-content [class.stripe-connected]="hasPayoutSetup === true">
-        <!-- Loading State -->
-        <div class="stripe-connect-content" *ngIf="hasPayoutSetup === undefined">
-          <ion-spinner></ion-spinner>
-          <p style="margin-top: 12px; color: #666;">{{ 'PROFILE_SCREEN.PAYOUT_LOADING_PAYMENT_STATUS' | translate }}</p>
-        </div>
-        
-        <!-- Not Connected State -->
-        <div class="stripe-connect-content" *ngIf="hasPayoutSetup === false">
-          <div class="stripe-icon">
-            <ion-icon name="wallet-outline"></ion-icon>
-          </div>
-          <div class="stripe-text">
-            <h3>💰 {{ payoutSetupTitleKey | translate }}</h3>
-            <p>{{ payoutSetupDescriptionKey | translate }}</p>
-          </div>
-          <ion-button 
-            fill="clear"
-            (click)="startStripeConnectOnboarding()"
-            [disabled]="isLoadingStripeConnect"
-            class="compact-button">
-            <ion-spinner *ngIf="isLoadingStripeConnect" name="crescent" slot="start"></ion-spinner>
-            {{ isLoadingStripeConnect ? ('PROFILE_SCREEN.LOADING' | translate) : ('PROFILE_SCREEN.PAYOUT_SETUP_BUTTON' | translate) }}
-          </ion-button>
-        </div>
-        
-        <!-- Connected State -->
-        <div class="stripe-connect-success" *ngIf="hasPayoutSetup === true">
-          <div class="success-header">
+    <div class="profile-payout-panel" id="profile-payout-section">
+      <!-- Loading -->
+      <div class="profile-payout-loading" *ngIf="hasPayoutSetup === undefined">
+        <ion-spinner></ion-spinner>
+        <p>{{ 'PROFILE_SCREEN.PAYOUT_LOADING_PAYMENT_STATUS' | translate }}</p>
+      </div>
+
+      <!-- Connected: Stripe -->
+      <div class="profile-payout-provider profile-payout-provider--connected" *ngIf="hasPayoutSetup === true && profileDeterminedPayoutMethod === 'stripe'">
+        <app-stripe-connect-card
+          [connected]="true"
+          [loading]="isLoadingStripeConnect"
+          [showSecondaryAction]="true"
+          secondaryActionLabelKey="PROFILE_SCREEN.EDIT_PAYOUT_SETTINGS"
+          (secondaryActionClick)="editStripeConnectAccount()">
+        </app-stripe-connect-card>
+      </div>
+
+      <!-- Connected: PayPal -->
+      <div class="profile-payout-provider profile-payout-provider--connected" *ngIf="hasPayoutSetup === true && profileDeterminedPayoutMethod === 'paypal'">
+        <app-paypal-connect-card
+          [connected]="true"
+          [connectedEmail]="profilePaypalEmailConnected"
+          [loading]="isLoadingStripeConnect"
+          [showSecondaryAction]="true"
+          secondaryActionLabelKey="PROFILE_SCREEN.CHANGE_PAYOUT_METHOD"
+          (secondaryActionClick)="startStripeConnectOnboarding()">
+        </app-paypal-connect-card>
+      </div>
+
+      <!-- Connected: Manual -->
+      <div class="profile-payout-provider profile-payout-provider--connected" *ngIf="hasPayoutSetup === true && profileDeterminedPayoutMethod === 'manual'">
+        <div class="profile-payout-method-hero">
+          <div class="profile-payout-connected-badge">
             <ion-icon name="checkmark-circle" color="success"></ion-icon>
-            <div class="stripe-success-text">
-              <h4 *ngIf="payoutProviderLabelKey">
-                ✓ {{ 'PROFILE_SCREEN.PAYOUTS_ENABLED' | translate }} ({{ payoutProviderLabelKey | translate }})
-              </h4>
-              <h4 *ngIf="!payoutProviderLabelKey">✓ {{ 'PROFILE_SCREEN.PAYOUTS_ENABLED' | translate }}</h4>
-              <p *ngIf="payoutProvider === 'stripe'">{{ 'PROFILE_SCREEN.PAYOUTS_EARNINGS_BANK' | translate }}</p>
-              <p *ngIf="payoutProvider === 'paypal'">{{ 'PROFILE_SCREEN.PAYOUTS_EARNINGS_PAYPAL' | translate }}</p>
-              <p *ngIf="payoutProvider === 'manual'">{{ 'PROFILE_SCREEN.PAYOUTS_EARNINGS_MANUAL' | translate }}</p>
-            </div>
+            <span>{{ 'PROFILE_SCREEN.PROVIDER_MANUAL' | translate }}</span>
           </div>
-          <ion-button 
-            *ngIf="payoutProvider === 'stripe'"
-            fill="clear"
-            (click)="editStripeConnectAccount()"
-            [disabled]="isLoadingStripeConnect"
-            class="compact-button">
-            <ion-icon name="create-outline" slot="start"></ion-icon>
-            {{ isLoadingStripeConnect ? ('PROFILE_SCREEN.LOADING' | translate) : ('PROFILE_SCREEN.EDIT_PAYOUT_SETTINGS' | translate) }}
-          </ion-button>
-          <ion-button 
-            *ngIf="payoutProvider !== 'stripe'"
-            fill="clear"
-            (click)="startStripeConnectOnboarding()"
-            [disabled]="isLoadingStripeConnect"
-            class="compact-button">
-            <ion-icon name="create-outline" slot="start"></ion-icon>
-            {{ isLoadingStripeConnect ? ('PROFILE_SCREEN.LOADING' | translate) : ('PROFILE_SCREEN.CHANGE_PAYOUT_METHOD' | translate) }}
-          </ion-button>
+          <p class="profile-payout-connected-desc">{{ 'PROFILE_SCREEN.PAYOUTS_EARNINGS_MANUAL' | translate }}</p>
+          <button type="button" class="profile-payout-edit-btn" (click)="startStripeConnectOnboarding()" [disabled]="isLoadingStripeConnect">
+            {{ 'PROFILE_SCREEN.CHANGE_PAYOUT_METHOD' | translate }}
+          </button>
         </div>
-      </ion-card-content>
-    </ion-card>
+      </div>
+
+      <!-- Setup: Stripe -->
+      <div class="profile-payout-provider" *ngIf="hasPayoutSetup === false && profileDeterminedPayoutMethod === 'stripe'">
+        <app-stripe-connect-card
+          [loading]="isLoadingStripeConnect"
+          (connectClick)="connectProfilePayout()">
+        </app-stripe-connect-card>
+      </div>
+
+      <!-- Setup: PayPal -->
+      <div class="profile-payout-provider" *ngIf="hasPayoutSetup === false && profileDeterminedPayoutMethod === 'paypal'">
+        <app-paypal-connect-card
+          [email]="profilePaypalEmail"
+          [emailErrorKey]="profilePaypalEmailError"
+          emailInputId="profile-paypal-email"
+          [reasonKey]="profilePayoutMethodReasonKey"
+          [reasonParams]="profilePayoutMethodReasonParams"
+          [loading]="isLoadingStripeConnect"
+          [connectDisabled]="profilePaypalConnectDisabled"
+          (emailChange)="onProfilePaypalEmailChange($event)"
+          (connectClick)="connectProfilePayout()">
+        </app-paypal-connect-card>
+      </div>
+
+      <!-- Setup: Manual / fallback -->
+      <div class="profile-payout-provider" *ngIf="hasPayoutSetup === false && profileDeterminedPayoutMethod === 'manual'">
+        <div class="profile-payout-method-hero">
+          <h2 class="profile-payout-method-hero__title">{{ payoutSetupTitleKey | translate }}</h2>
+          <p class="profile-payout-method-hero__reason">{{ payoutSetupDescriptionKey | translate }}</p>
+          <button type="button" class="profile-stripe-connect-card__cta" (click)="connectProfilePayout()" [disabled]="isLoadingStripeConnect">
+            {{ 'PROFILE_SCREEN.PAYOUT_SETUP_BUTTON' | translate }}
+          </button>
+        </div>
+      </div>
+    </div>
     </ng-container>
 
     <!-- User Stats - Only show for own profile -->

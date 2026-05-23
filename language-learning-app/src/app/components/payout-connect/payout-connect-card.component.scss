@@ -1,0 +1,7 @@
+@import '../../shared/styles/payout-connect-cards';
+
+app-stripe-connect-card,
+app-paypal-connect-card {
+  display: block;
+  width: 100%;
+}

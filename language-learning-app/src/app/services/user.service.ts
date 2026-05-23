@@ -7,6 +7,7 @@ import { environment } from '../../environments/environment';
 import { buildBearerToken } from './auth-token.util';
 import { SupportedLanguage } from './language.service';
 import { setGlobalTimeFormat, hasFutureTutorAvailability } from '../shared/timezone.utils';
+import { detectCalendarWeekStartsOn, normalizeCalendarWeekStartsOn } from '../shared/calendar-week.utils';
 import { isStripeSupportedCountry } from '../data/stripe-supported-countries';
 
 export interface User {
@@ -127,6 +128,8 @@ export interface User {
     aiAnalysisEnabled?: boolean;
     calendarTimeFormat?: '12h' | '24h';
     calendarDefaultView?: 'week' | 'day';
+    calendarWeekStartsOn?: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+    calendarWeekStartsOnUserSet?: boolean;
     weeklyEarningsGoal?: number;
   };
   stats?: {
@@ -296,6 +299,7 @@ export class UserService {
   // Cached availability state for tutors - updated when availability changes
   private _hasAvailability: boolean | null = null;
   private _availabilityBlocks: any[] = [];
+  private pendingAutoWeekStartUserId: string | null = null;
 
   constructor(
     private http: HttpClient,
@@ -433,6 +437,7 @@ export class UserService {
         }
         
         setGlobalTimeFormat(user?.profile?.calendarTimeFormat || '12h');
+        this.maybeAutoSetCalendarWeekStartsOn(user);
 
         // Update tutor approval status if user is a tutor
         if (user.userType === 'tutor') {
@@ -697,7 +702,7 @@ export class UserService {
   /**
    * Update user profile
    */
-  updateProfile(profileData: Partial<User['profile']> & { interfaceLanguage?: string; calendarTimeFormat?: string; calendarDefaultView?: string }): Observable<User> {
+  updateProfile(profileData: Partial<User['profile']> & { interfaceLanguage?: string; calendarTimeFormat?: string; calendarDefaultView?: string; calendarWeekStartsOn?: number; calendarWeekStartsOnUserSet?: boolean }): Observable<User> {
     return this.authService.user$.pipe(
       take(1),
       switchMap(user => {
@@ -716,8 +721,45 @@ export class UserService {
         const merged: User = cached ? { ...cached, ...user } as User : user;
         this.currentUserSubject.next(merged);
         setGlobalTimeFormat(merged?.profile?.calendarTimeFormat || '12h');
+        this.maybeAutoSetCalendarWeekStartsOn(merged);
       })
     );
+  }
+
+  /**
+   * Apply locale/country-based week start when the user has not chosen manually.
+   * Residence country wins over browser locale (matches Google Calendar behavior).
+   */
+  private maybeAutoSetCalendarWeekStartsOn(user: User): void {
+    if (!user?.id || user.profile?.calendarWeekStartsOnUserSet) {
+      return;
+    }
+    if (this.pendingAutoWeekStartUserId === user.id) {
+      return;
+    }
+
+    const detected = detectCalendarWeekStartsOn({
+      residenceCountry: user.residenceCountry,
+      country: user.country,
+      interfaceLanguage: user.interfaceLanguage,
+    });
+    const current = normalizeCalendarWeekStartsOn(user.profile?.calendarWeekStartsOn);
+    if (detected === current) {
+      return;
+    }
+
+    this.pendingAutoWeekStartUserId = user.id;
+    this.updateProfile({
+      calendarWeekStartsOn: detected,
+      calendarWeekStartsOnUserSet: false,
+    }).subscribe({
+      next: () => {
+        this.pendingAutoWeekStartUserId = null;
+      },
+      error: () => {
+        this.pendingAutoWeekStartUserId = null;
+      },
+    });
   }
 
   /**

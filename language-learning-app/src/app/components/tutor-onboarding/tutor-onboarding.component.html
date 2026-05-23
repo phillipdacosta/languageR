@@ -15,8 +15,11 @@
 
   <div *ngIf="!loading" class="tutor-approval-wizard"
     [class.tutor-approval-wizard--tos-step]="approvalStepId === 'tos'"
+    [class.tutor-approval-wizard--photo-step]="approvalStepId === 'photo'"
+    [class.tutor-approval-wizard--split-layout]="approvalSplitStepLayout"
+    [class.tutor-approval-wizard--video-step]="approvalSplitStepLayout"
     [class.tutor-approval-wizard--wide-content]="approvalWizardWideContentLayout">
-    <header class="tutor-approval-modal-topbar">
+    <header class="tutor-approval-modal-topbar tutor-approval-modal-topbar--wizard">
       <div class="tutor-approval-modal-topbar__left">
         <button
           *ngIf="approvalWizardTopBackVisible"
@@ -27,30 +30,27 @@
           {{ approvalWizardPreviousStepTitleKey | translate }}
         </button>
       </div>
+      <div class="tutor-approval-modal-topbar__center">
+        <span class="cm-details-wizard-step-indicator tutor-approval-modal-topbar__step">{{ 'ONBOARDING.STEP_INDICATOR' | translate: approvalStepIndicatorI18nParams }}</span>
+      </div>
       <div class="tutor-approval-modal-topbar__right">
         <button type="button" class="tutor-approval-modal-topbar__close" (click)="closeOnboarding()">
           {{ 'COMMON.CLOSE' | translate }}
         </button>
       </div>
     </header>
+    <div class="tutor-approval-wizard-progress cm-details-wizard-progress" aria-hidden="true">
+      <div class="tutor-approval-wizard-progress-fill cm-details-wizard-progress-fill" [style.width.%]="approvalWizardProgressPercent"></div>
+    </div>
 
     <div class="cm-wizard-viewport-scroll tutor-approval-wizard-viewport">
     <div class="cm-details-wizard-page-shell tutor-approval-wizard-shell">
-      <div class="cm-details-wizard-page-toolbar">
-        <p class="cm-details-wizard-page-toolbar-title">{{ 'TUTOR_APPROVAL.WIZARD_FLOW_TITLE' | translate }}</p>
-        <div class="cm-details-wizard-page-toolbar-end">
-          <span class="cm-details-wizard-step-indicator">{{ 'ONBOARDING.STEP_INDICATOR' | translate: approvalStepIndicatorI18nParams }}</span>
-        </div>
-      </div>
-
       <div class="cm-details-wizard">
-        <div class="cm-details-wizard-progress" aria-hidden="true">
-          <div class="cm-details-wizard-progress-fill" [style.width.%]="approvalWizardProgressPercent"></div>
-        </div>
-
         <div class="cm-details-wizard-scroll tutor-approval-wizard-step-scroll">
           <div class="cm-details-wizard-scroll-inner">
-            <div class="cm-step-header cm-details-wizard-header cm-details-wizard-header--tight">
+            <div
+              *ngIf="!approvalSplitStepLayout"
+              class="cm-step-header cm-details-wizard-header cm-details-wizard-header--tight">
               <h1>{{ approvalStepTitleKey | translate }}</h1>
               <p>{{ approvalStepDescriptionKey | translate }}</p>
             </div>
@@ -61,50 +61,101 @@
         <div class="step-content">
           <!-- Photo Step -->
           <div *ngIf="approvalStepId === 'photo'" class="photo-step tutor-approval-step-pane">
-            <!-- Custom uploaded photo (completed) -->
-            <div class="current-photo-large" *ngIf="photoStepCompleted && currentUser?.picture">
-              <img [src]="currentUser.picture" [attr.alt]="'TUTOR_APPROVAL.PHOTO_ALT_PROFILE' | translate">
-              <ion-icon name="checkmark-circle" class="check-badge" color="success"></ion-icon>
-            </div>
-            
-            <!-- Google profile photo only (needs custom upload) -->
-            <div class="google-photo-warning" *ngIf="!photoStepCompleted && currentUser?.picture">
-              <div class="photo-preview">
-                <img [src]="currentUser.picture" [attr.alt]="'TUTOR_APPROVAL.PHOTO_ALT_CURRENT' | translate" class="google-photo">
-              </div>
-              <div class="warning-message">
-                <ion-icon name="information-circle" color="warning"></ion-icon>
-                <p>{{ 'TUTOR_APPROVAL.PHOTO_GOOGLE_WARNING' | translate }}</p>
-              </div>
-            </div>
-            
-            <!-- No photo at all -->
-            <div class="no-photo-large" *ngIf="!currentUser?.picture">
-              <ion-icon name="person-circle-outline"></ion-icon>
-              <p>{{ 'TUTOR_APPROVAL.PHOTO_NONE' | translate }}</p>
-            </div>
-            
-            <!-- Info cards about photo requirements -->
-            <div class="info-cards">
-              <div class="info-card">
-                <ion-icon name="checkmark-circle-outline" color="success"></ion-icon>
-                <div class="info-text">
-                  <h4>{{ 'TUTOR_APPROVAL.PHOTO_INFO_1_TITLE' | translate }}</h4>
-                  <p>{{ 'TUTOR_APPROVAL.PHOTO_INFO_1_DESC' | translate }}</p>
+            <div class="photo-step-layout approval-split-layout approval-step-card">
+              <div class="photo-step-guidance approval-split-guidance">
+                <h3 class="approval-split-guidance__title">{{ 'TUTOR_APPROVAL.PHOTO_CHOOSE_TITLE' | translate }}</h3>
+                <p class="approval-split-guidance__desc">{{ 'TUTOR_APPROVAL.PHOTO_CHOOSE_DESC' | translate }}</p>
+
+                <div class="approval-split-guidance-list">
+                  <div class="approval-guidance-item">
+                    <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--face">
+                      <ion-icon name="person-outline" aria-hidden="true"></ion-icon>
+                    </div>
+                    <div class="approval-guidance-item__text">
+                      <h4>{{ 'TUTOR_APPROVAL.PHOTO_INFO_1_TITLE' | translate }}</h4>
+                      <p>{{ 'TUTOR_APPROVAL.PHOTO_INFO_1_DESC' | translate }}</p>
+                    </div>
+                  </div>
+                  <div class="approval-guidance-item">
+                    <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--light">
+                      <ion-icon name="shield-checkmark-outline" aria-hidden="true"></ion-icon>
+                    </div>
+                    <div class="approval-guidance-item__text">
+                      <h4>{{ 'TUTOR_APPROVAL.PHOTO_INFO_2_TITLE' | translate }}</h4>
+                      <p>{{ 'TUTOR_APPROVAL.PHOTO_INFO_2_DESC' | translate }}</p>
+                    </div>
+                  </div>
+                  <div class="approval-guidance-item">
+                    <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--recent">
+                      <ion-icon name="calendar-outline" aria-hidden="true"></ion-icon>
+                    </div>
+                    <div class="approval-guidance-item__text">
+                      <h4>{{ 'TUTOR_APPROVAL.PHOTO_INFO_3_TITLE' | translate }}</h4>
+                      <p>{{ 'TUTOR_APPROVAL.PHOTO_INFO_3_DESC' | translate }}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="photo-step-google-notice" *ngIf="!photoStepCompleted && currentUser?.picture">
+                  <ion-icon name="information-circle" color="primary" aria-hidden="true"></ion-icon>
+                  <p>{{ 'TUTOR_APPROVAL.PHOTO_GOOGLE_WARNING' | translate }}</p>
                 </div>
               </div>
-              <div class="info-card">
-                <ion-icon name="checkmark-circle-outline" color="success"></ion-icon>
-                <div class="info-text">
-                  <h4>{{ 'TUTOR_APPROVAL.PHOTO_INFO_2_TITLE' | translate }}</h4>
-                  <p>{{ 'TUTOR_APPROVAL.PHOTO_INFO_2_DESC' | translate }}</p>
+
+              <div class="photo-step-upload approval-split-main">
+                <div class="photo-step-upload-inner">
+                <div
+                  class="photo-upload-zone"
+                  role="button"
+                  tabindex="0"
+                  [class.photo-upload-zone--dragover]="photoUploadDragOver"
+                  [class.photo-upload-zone--completed]="photoStepCompleted"
+                  [attr.aria-label]="'TUTOR_APPROVAL.PHOTO_UPLOAD_CAMERA_A11Y' | translate"
+                  (click)="triggerPictureUpload()"
+                  (keydown.enter)="triggerPictureUpload()"
+                  (keydown.space)="triggerPictureUpload(); $event.preventDefault()"
+                  (dragover)="onPhotoDragOver($event)"
+                  (dragleave)="onPhotoDragLeave($event)"
+                  (drop)="onPhotoDrop($event)">
+                  <div class="photo-upload-avatar">
+                    <img
+                      *ngIf="currentUser?.picture"
+                      [src]="currentUser.picture"
+                      [attr.alt]="'TUTOR_APPROVAL.PHOTO_ALT_CURRENT' | translate" />
+                    <ion-icon
+                      *ngIf="!currentUser?.picture"
+                      name="person-circle-outline"
+                      aria-hidden="true"></ion-icon>
+                    <button
+                      type="button"
+                      class="photo-upload-camera"
+                      [attr.aria-label]="'TUTOR_APPROVAL.PHOTO_UPLOAD_CAMERA_A11Y' | translate"
+                      (click)="triggerPictureUpload(); $event.stopPropagation()">
+                      <ion-icon name="camera" aria-hidden="true"></ion-icon>
+                    </button>
+                    <ion-icon
+                      *ngIf="photoStepCompleted"
+                      name="checkmark-circle"
+                      class="photo-upload-check"
+                      color="success"
+                      aria-hidden="true"></ion-icon>
+                  </div>
+                  <p class="photo-upload-hint">{{ 'TUTOR_APPROVAL.PHOTO_DROP_HINT' | translate }}</p>
+                  <p class="photo-upload-formats">{{ 'TUTOR_APPROVAL.PHOTO_DROP_FORMATS' | translate }}</p>
                 </div>
-              </div>
-              <div class="info-card">
-                <ion-icon name="checkmark-circle-outline" color="success"></ion-icon>
-                <div class="info-text">
-                  <h4>{{ 'TUTOR_APPROVAL.PHOTO_INFO_3_TITLE' | translate }}</h4>
-                  <p>{{ 'TUTOR_APPROVAL.PHOTO_INFO_3_DESC' | translate }}</p>
+
+                <div class="photo-step-upload-footer">
+                  <button type="button" class="photo-upload-cta" (click)="triggerPictureUpload()">
+                    <ion-icon name="cloud-upload-outline" aria-hidden="true"></ion-icon>
+                    <span *ngIf="photoStepCompleted">{{ 'TUTOR_APPROVAL.PHOTO_BTN_CHANGE' | translate }}</span>
+                    <span *ngIf="!photoStepCompleted">{{ 'TUTOR_APPROVAL.PHOTO_BTN_UPLOAD' | translate }}</span>
+                  </button>
+
+                  <p class="photo-upload-note">
+                    <ion-icon name="lock-closed-outline" aria-hidden="true"></ion-icon>
+                    <span>{{ 'TUTOR_APPROVAL.PHOTO_SETTINGS_NOTE' | translate }}</span>
+                  </p>
+                </div>
                 </div>
               </div>
             </div>
@@ -112,38 +163,87 @@
 
           <!-- Video Step -->
           <div *ngIf="approvalStepId === 'video'" class="video-step tutor-approval-step-pane">
-                        <!-- Show current status below the upload UI if video exists -->
-                        <div *ngIf="approvalStatus?.videoComplete" class="video-status-info">
-                          <div *ngIf="approvalStatus?.videoApproved" class="status-badge success">
-                            <ion-icon name="checkmark-circle"></ion-icon>
-                            <span>{{ 'TUTOR_APPROVAL.VIDEO_STATUS_APPROVED' | translate }}</span>
-                          </div>
-                          <div *ngIf="!approvalStatus?.videoApproved && !approvalStatus?.videoRejected" class="status-badge pending">
-                            <ion-icon name="time-outline"></ion-icon>
-                            <span>{{ 'TUTOR_APPROVAL.VIDEO_STATUS_PENDING' | translate }}</span>
-                          </div>
-                          <div *ngIf="approvalStatus?.videoRejected && currentUser?.tutorOnboarding?.rejectionReason" class="status-badge rejected">
-                            <ion-icon name="close-circle"></ion-icon>
-                            <span>{{ 'TUTOR_APPROVAL.VIDEO_REJECTED_WITH_REASON' | translate: { reason: currentUser?.tutorOnboarding?.rejectionReason } }}</span>
-                          </div>
-                          <div *ngIf="approvalStatus?.videoRejected && !currentUser?.tutorOnboarding?.rejectionReason" class="status-badge rejected">
-                            <ion-icon name="close-circle"></ion-icon>
-                            <span>{{ 'TUTOR_APPROVAL.VIDEO_REJECTED_GENERIC' | translate }}</span>
-                          </div>
-                        </div>
-            <!-- Use the full video upload component (same as profile page) -->
-            <app-video-upload
-              [videoUrl]="getCurrentVideoUrl()"
-              [thumbnailUrl]="getCurrentThumbnailUrl()"
-              [videoType]="getCurrentVideoType()"
-              [enableModalPlayer]="true"
-              [fullWidthLayout]="true"
-              (thumbnailClick)="openVideoPlayerModal()"
-              (videoUploaded)="onVideoUploaded($event)"
-              (videoRemoved)="onVideoRemoved()">
-            </app-video-upload>
-            
+            <div class="video-step-layout approval-split-layout approval-step-card">
+              <div class="video-step-guidance approval-split-guidance">
+                <h3 class="approval-split-guidance__title">{{ 'TUTOR_APPROVAL.VIDEO_CHOOSE_TITLE' | translate }}</h3>
+                <p class="approval-split-guidance__desc">{{ 'TUTOR_APPROVAL.VIDEO_CHOOSE_DESC' | translate }}</p>
 
+                <div class="approval-split-guidance-list">
+                  <div class="approval-guidance-item">
+                    <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--video">
+                      <img
+                        src="assets/onboarding-icon-video.png"
+                        alt=""
+                        class="approval-guidance-item__icon-img"
+                        role="presentation" />
+                    </div>
+                    <div class="approval-guidance-item__text">
+                      <h4>{{ 'TUTOR_APPROVAL.VIDEO_INFO_1_TITLE' | translate }}</h4>
+                      <p>{{ 'TUTOR_APPROVAL.VIDEO_INFO_1_DESC' | translate }}</p>
+                    </div>
+                  </div>
+                  <div class="approval-guidance-item">
+                    <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--trust">
+                      <ion-icon name="people-outline" aria-hidden="true"></ion-icon>
+                    </div>
+                    <div class="approval-guidance-item__text">
+                      <h4>{{ 'TUTOR_APPROVAL.VIDEO_INFO_2_TITLE' | translate }}</h4>
+                      <p>{{ 'TUTOR_APPROVAL.VIDEO_INFO_2_DESC' | translate }}</p>
+                    </div>
+                  </div>
+                  <div class="approval-guidance-item">
+                    <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--star">
+                      <ion-icon name="star" aria-hidden="true"></ion-icon>
+                    </div>
+                    <div class="approval-guidance-item__text">
+                      <h4>{{ 'TUTOR_APPROVAL.VIDEO_INFO_3_TITLE' | translate }}</h4>
+                      <p>{{ 'TUTOR_APPROVAL.VIDEO_INFO_3_DESC' | translate }}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="video-step-upload approval-split-main">
+                <div
+                  class="video-step-upload-inner"
+                  [class.video-step-upload-inner--review]="approvalStatus?.videoComplete">
+                  <div *ngIf="approvalStatus?.videoComplete" class="video-step-review-status">
+                    <div *ngIf="approvalStatus?.videoApproved" class="status-badge success">
+                      <ion-icon name="checkmark-circle"></ion-icon>
+                      <span>{{ 'TUTOR_APPROVAL.VIDEO_STATUS_APPROVED' | translate }}</span>
+                    </div>
+                    <div *ngIf="!approvalStatus?.videoApproved && !approvalStatus?.videoRejected" class="status-badge pending">
+                      <ion-icon name="time-outline"></ion-icon>
+                      <span>{{ 'TUTOR_APPROVAL.VIDEO_STATUS_PENDING' | translate }}</span>
+                    </div>
+                    <div *ngIf="approvalStatus?.videoRejected && currentUser?.tutorOnboarding?.rejectionReason" class="status-badge rejected">
+                      <ion-icon name="close-circle"></ion-icon>
+                      <span>{{ 'TUTOR_APPROVAL.VIDEO_REJECTED_WITH_REASON' | translate: { reason: currentUser?.tutorOnboarding?.rejectionReason } }}</span>
+                    </div>
+                    <div *ngIf="approvalStatus?.videoRejected && !currentUser?.tutorOnboarding?.rejectionReason" class="status-badge rejected">
+                      <ion-icon name="close-circle"></ion-icon>
+                      <span>{{ 'TUTOR_APPROVAL.VIDEO_REJECTED_GENERIC' | translate }}</span>
+                    </div>
+                  </div>
+
+                  <app-video-upload
+                    [videoUrl]="getCurrentVideoUrl()"
+                    [thumbnailUrl]="getCurrentThumbnailUrl()"
+                    [videoType]="getCurrentVideoType()"
+                    [enableModalPlayer]="true"
+                    [fullWidthLayout]="true"
+                    [wizardColumnLayout]="true"
+                    [restoreLinkInput]="approvalVideoDraftLink"
+                    [restoreUploadMode]="approvalVideoDraftUploadMode"
+                    (thumbnailClick)="openVideoPlayerModal()"
+                    (videoUploaded)="onVideoUploaded($event)"
+                    (videoRemoved)="onVideoRemoved()"
+                    (pendingStateChanged)="onVideoLinkPendingChange($event)"
+                    (uploadDraftChanged)="onVideoUploadDraftChanged($event)">
+                  </app-video-upload>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- Hidden file inputs (shared between identity + qualifications steps) -->
@@ -155,199 +255,437 @@
             (change)="onAdditionalDocSelected($event)">
 
           <!-- Identity Step (manual government-ID — skipped for Stripe-verified tutors) -->
-          <div *ngIf="approvalStepId === 'identity'" class="credentials-step credentials-step--wizard tutor-approval-step-pane">
-            <div class="credential-section" id="tutor-cred-gov-anchor">
-              <div class="section-header">
-                <ion-icon name="id-card-outline" class="section-icon"></ion-icon>
-                <div class="section-text">
-                  <h3>{{ 'TUTOR_APPROVAL.GOV_ID_TITLE' | translate }}</h3>
-                  <p>{{ 'TUTOR_APPROVAL.GOV_ID_SUBTITLE' | translate }}</p>
-                </div>
-                <div class="status-pill" [ngClass]="governmentIdStatus">
-                  {{ governmentIdStatusLabelKey | translate }}
-                </div>
-              </div>
+          <div *ngIf="approvalStepId === 'identity'" class="identity-step tutor-approval-step-pane">
+            <div class="identity-step-layout approval-split-layout approval-step-card">
+              <div class="approval-split-guidance">
+                <h3 class="approval-split-guidance__title">{{ approvalStepTitleKey | translate }}</h3>
+                <p class="approval-split-guidance__desc">{{ approvalStepDescriptionKey | translate }}</p>
 
-              <!-- Upload zone (no document yet or rejected) -->
-              <div class="upload-zone"
-                *ngIf="!currentUser?.tutorCredentials?.governmentId?.url || currentUser?.tutorCredentials?.governmentId?.status === 'rejected'">
-                <div class="drop-area" (click)="triggerCredentialUpload('governmentId')">
-                  <ion-icon name="cloud-upload-outline"></ion-icon>
-                  <p>{{ 'TUTOR_APPROVAL.GOV_ID_TAP_UPLOAD' | translate }}</p>
-                  <span class="file-types">{{ 'TUTOR_APPROVAL.GOV_ID_FILE_TYPES' | translate }}</span>
-                </div>
-              </div>
-
-              <!-- Uploaded document preview -->
-              <div class="uploaded-doc" *ngIf="currentUser?.tutorCredentials?.governmentId?.url && currentUser?.tutorCredentials?.governmentId?.status !== 'rejected'">
-                <div class="doc-preview">
-                  <ion-icon name="document-text" color="primary"></ion-icon>
-                  <div class="doc-info">
-                    <span class="doc-name">{{ currentUser.tutorCredentials.governmentId.fileName }}</span>
-                    <span class="doc-status approved" *ngIf="currentUser.tutorCredentials.governmentId.status === 'approved'">
-                      {{ 'TUTOR_APPROVAL.CRED_DOC_APPROVED' | translate }}
-                    </span>
-                    <span class="doc-status pending" *ngIf="currentUser.tutorCredentials.governmentId.status === 'pending'">
-                      {{ 'TUTOR_APPROVAL.CRED_DOC_PENDING' | translate }}
-                    </span>
+                <div class="approval-split-guidance-list">
+                  <div class="approval-guidance-item">
+                    <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--id">
+                      <ion-icon name="id-card-outline" aria-hidden="true"></ion-icon>
+                    </div>
+                    <div class="approval-guidance-item__text">
+                      <h4>{{ 'TUTOR_APPROVAL.GOV_ID_TITLE' | translate }}</h4>
+                      <p>{{ 'TUTOR_APPROVAL.GOV_ID_SUBTITLE' | translate }}</p>
+                    </div>
+                  </div>
+                  <div class="approval-guidance-item">
+                    <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--secure">
+                      <ion-icon name="shield-checkmark-outline" aria-hidden="true"></ion-icon>
+                    </div>
+                    <div class="approval-guidance-item__text">
+                      <h4>{{ 'TUTOR_APPROVAL.CRED_INFO_SECURE_TITLE' | translate }}</h4>
+                      <p>{{ 'TUTOR_APPROVAL.CRED_INFO_SECURE_DESC' | translate }}</p>
+                    </div>
+                  </div>
+                  <div class="approval-guidance-item">
+                    <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--quick">
+                      <ion-icon name="time-outline" aria-hidden="true"></ion-icon>
+                    </div>
+                    <div class="approval-guidance-item__text">
+                      <h4>{{ 'TUTOR_APPROVAL.CRED_INFO_QUICK_TITLE' | translate }}</h4>
+                      <p>{{ 'TUTOR_APPROVAL.CRED_INFO_QUICK_DESC' | translate }}</p>
+                    </div>
                   </div>
                 </div>
-                <ion-button fill="clear" size="small" color="danger"
-                  *ngIf="currentUser.tutorCredentials.governmentId.status === 'pending'"
-                  (click)="removeCredential('governmentId')">
-                  <ion-icon name="trash-outline" slot="icon-only"></ion-icon>
-                </ion-button>
               </div>
 
-              <!-- Rejection reason -->
-              <div class="rejection-notice" *ngIf="currentUser?.tutorCredentials?.governmentId?.status === 'rejected'">
-                <ion-icon name="alert-circle" color="danger"></ion-icon>
-                <span *ngIf="currentUser.tutorCredentials.governmentId.rejectionReason">{{ currentUser.tutorCredentials.governmentId.rejectionReason }}</span>
-                <span *ngIf="!currentUser.tutorCredentials.governmentId.rejectionReason">{{ 'TUTOR_APPROVAL.GOV_ID_REJECTION_FALLBACK' | translate }}</span>
+              <div class="identity-step-upload approval-split-main">
+                <div class="identity-step-upload-inner" id="tutor-cred-gov-anchor">
+                  <div
+                    class="identity-step-status"
+                    *ngIf="governmentIdStatus !== 'not_uploaded'">
+                    <div
+                      class="status-badge"
+                      [class.success]="governmentIdStatus === 'approved'"
+                      [class.pending]="governmentIdStatus === 'pending'"
+                      [class.rejected]="governmentIdStatus === 'rejected'">
+                      <ion-icon
+                        [name]="governmentIdStatus === 'approved' ? 'checkmark-circle' : governmentIdStatus === 'rejected' ? 'close-circle' : 'time-outline'"
+                        aria-hidden="true"></ion-icon>
+                      <span>{{ governmentIdStatusLabelKey | translate }}</span>
+                    </div>
+                  </div>
+
+                  <div
+                    class="identity-rejection-notice"
+                    *ngIf="currentUser?.tutorCredentials?.governmentId?.status === 'rejected'">
+                    <ion-icon name="alert-circle" color="danger" aria-hidden="true"></ion-icon>
+                    <span *ngIf="currentUser.tutorCredentials.governmentId.rejectionReason">{{ currentUser.tutorCredentials.governmentId.rejectionReason }}</span>
+                    <span *ngIf="!currentUser.tutorCredentials.governmentId.rejectionReason">{{ 'TUTOR_APPROVAL.GOV_ID_REJECTION_FALLBACK' | translate }}</span>
+                  </div>
+
+                  <div
+                    *ngIf="!currentUser?.tutorCredentials?.governmentId?.url || currentUser?.tutorCredentials?.governmentId?.status === 'rejected'"
+                    class="identity-upload-zone"
+                    role="button"
+                    tabindex="0"
+                    [class.identity-upload-zone--dragover]="identityUploadDragOver"
+                    [attr.aria-label]="'TUTOR_APPROVAL.GOV_ID_DROP_HINT' | translate"
+                    (click)="triggerCredentialUpload('governmentId')"
+                    (keydown.enter)="triggerCredentialUpload('governmentId')"
+                    (keydown.space)="triggerCredentialUpload('governmentId'); $event.preventDefault()"
+                    (dragover)="onIdentityDragOver($event)"
+                    (dragleave)="onIdentityDragLeave($event)"
+                    (drop)="onIdentityDrop($event)">
+                    <div class="identity-upload-visual">
+                      <ion-icon name="id-card-outline" aria-hidden="true"></ion-icon>
+                    </div>
+                    <p class="identity-upload-hint">{{ 'TUTOR_APPROVAL.GOV_ID_DROP_HINT' | translate }}</p>
+                    <p class="identity-upload-formats">{{ 'TUTOR_APPROVAL.GOV_ID_FILE_TYPES' | translate }}</p>
+                  </div>
+
+                  <div
+                    *ngIf="currentUser?.tutorCredentials?.governmentId?.url && currentUser?.tutorCredentials?.governmentId?.status !== 'rejected'"
+                    class="identity-upload-zone identity-upload-zone--completed">
+                    <div class="identity-upload-visual identity-upload-visual--file">
+                      <ion-icon name="document-text-outline" aria-hidden="true"></ion-icon>
+                      <ion-icon
+                        *ngIf="currentUser.tutorCredentials.governmentId.status === 'approved'"
+                        name="checkmark-circle"
+                        class="identity-upload-check"
+                        color="success"
+                        aria-hidden="true"></ion-icon>
+                    </div>
+                    <p class="identity-upload-hint identity-upload-file-name">{{ currentUser.tutorCredentials.governmentId.fileName }}</p>
+                    <p class="identity-upload-formats">
+                      <span *ngIf="currentUser.tutorCredentials.governmentId.status === 'approved'">{{ 'TUTOR_APPROVAL.CRED_DOC_APPROVED' | translate }}</span>
+                      <span *ngIf="currentUser.tutorCredentials.governmentId.status === 'pending'">{{ 'TUTOR_APPROVAL.CRED_DOC_PENDING' | translate }}</span>
+                    </p>
+                  </div>
+
+                  <div class="identity-step-upload-footer">
+                    <button
+                      type="button"
+                      class="identity-upload-cta"
+                      *ngIf="!currentUser?.tutorCredentials?.governmentId?.url || currentUser?.tutorCredentials?.governmentId?.status === 'rejected'"
+                      [disabled]="isUploadingCredential"
+                      (click)="triggerCredentialUpload('governmentId')">
+                      <ion-icon name="cloud-upload-outline" aria-hidden="true"></ion-icon>
+                      <span>{{ 'TUTOR_APPROVAL.GOV_ID_BTN_UPLOAD' | translate }}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      class="identity-upload-cta identity-upload-cta--secondary"
+                      *ngIf="currentUser?.tutorCredentials?.governmentId?.status === 'pending'"
+                      [disabled]="isUploadingCredential"
+                      (click)="triggerCredentialUpload('governmentId')">
+                      <ion-icon name="refresh-outline" aria-hidden="true"></ion-icon>
+                      <span>{{ 'TUTOR_APPROVAL.GOV_ID_BTN_REPLACE' | translate }}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      class="identity-upload-remove"
+                      *ngIf="currentUser?.tutorCredentials?.governmentId?.status === 'pending'"
+                      (click)="removeCredential('governmentId')">
+                      {{ 'TUTOR_APPROVAL.GOV_ID_BTN_REMOVE' | translate }}
+                    </button>
+
+                    <p class="identity-upload-note">
+                      <ion-icon name="lock-closed-outline" aria-hidden="true"></ion-icon>
+                      <span>{{ 'TUTOR_APPROVAL.GOV_ID_PRIVACY_NOTE' | translate }}</span>
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
           <!-- Qualifications Step (teaching certifications + optional documents) -->
-          <div *ngIf="approvalStepId === 'qualifications'" class="credentials-step credentials-step--wizard tutor-approval-step-pane">
-            <div class="credential-section">
-              <div class="section-header">
-                <ion-icon name="ribbon-outline" class="section-icon"></ion-icon>
-                <div class="section-text">
-                  <h3>{{ 'TUTOR_APPROVAL.CRED_CERT_TITLE' | translate }}</h3>
-                  <p>{{ 'TUTOR_APPROVAL.CRED_CERT_SUBTITLE' | translate }}</p>
-                </div>
-              </div>
+          <div *ngIf="approvalStepId === 'qualifications'" class="qualifications-step tutor-approval-step-pane">
+            <div class="qualifications-step-layout approval-split-layout approval-step-card">
+              <div class="approval-split-guidance">
+                <h3 class="approval-split-guidance__title">{{ approvalStepTitleKey | translate }}</h3>
+                <p class="approval-split-guidance__desc">{{ approvalStepDescriptionKey | translate }}</p>
 
-              <div class="cert-name-input">
-                <ion-item lines="none" class="cert-name-item">
-                  <ion-input
-                    [label]="'TUTOR_APPROVAL.CRED_CERT_NAME_LABEL' | translate"
-                    labelPlacement="stacked"
-                    [placeholder]="'TUTOR_APPROVAL.CRED_CERT_NAME_PLACEHOLDER' | translate"
-                    [(ngModel)]="certificationNameInput">
-                  </ion-input>
-                </ion-item>
-              </div>
-
-              <div class="cert-list" *ngIf="uploadedCertifications.length > 0">
-                <div
-                  class="cert-item"
-                  *ngFor="let cert of uploadedCertifications; let i = index; let isLast = last"
-                  [attr.id]="isLast ? 'tutor-cred-cert-last-anchor' : null">
-                  <div class="cert-info">
-                    <ion-icon name="document-text" color="primary"></ion-icon>
-                    <div class="cert-details">
-                      <span class="cert-name">{{ cert.certificationName || cert.fileName }}</span>
-                      <span class="cert-file" *ngIf="cert.certificationName">{{ cert.fileName }}</span>
+                <div class="approval-split-guidance-list">
+                  <div class="approval-guidance-item">
+                    <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--cert">
+                      <ion-icon name="ribbon-outline" aria-hidden="true"></ion-icon>
+                    </div>
+                    <div class="approval-guidance-item__text">
+                      <h4>{{ 'TUTOR_APPROVAL.CRED_CERT_TITLE' | translate }}</h4>
+                      <p>{{ 'TUTOR_APPROVAL.CRED_CERT_SUBTITLE' | translate }}</p>
                     </div>
                   </div>
-                  <div class="cert-status-row">
-                    <div class="status-pill small approved" *ngIf="cert.status === 'approved'">
-                      {{ 'TUTOR_APPROVAL.CRED_DOC_APPROVED' | translate }}
+                  <div class="approval-guidance-item">
+                    <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--secure">
+                      <ion-icon name="shield-checkmark-outline" aria-hidden="true"></ion-icon>
                     </div>
-                    <div class="status-pill small rejected" *ngIf="cert.status === 'rejected'">
-                      {{ 'TUTOR_APPROVAL.CRED_DOC_REJECTED' | translate }}
+                    <div class="approval-guidance-item__text">
+                      <h4>{{ 'TUTOR_APPROVAL.CRED_INFO_SECURE_TITLE' | translate }}</h4>
+                      <p>{{ 'TUTOR_APPROVAL.CRED_INFO_SECURE_DESC' | translate }}</p>
                     </div>
-                    <div class="status-pill small pending" *ngIf="cert.status === 'pending'">
-                      {{ 'TUTOR_APPROVAL.CRED_DOC_PENDING' | translate }}
-                    </div>
-                    <ion-button fill="clear" size="small" color="danger"
-                      *ngIf="cert.status === 'pending'"
-                      (click)="removeCertification(i)">
-                      <ion-icon name="trash-outline" slot="icon-only"></ion-icon>
-                    </ion-button>
                   </div>
-                  <div class="rejection-notice small" *ngIf="cert.status === 'rejected'">
-                    <ion-icon name="alert-circle" color="danger"></ion-icon>
-                    <span *ngIf="cert.rejectionReason">{{ cert.rejectionReason }}</span>
-                    <span *ngIf="!cert.rejectionReason">{{ 'TUTOR_APPROVAL.CRED_REUPLOAD' | translate }}</span>
+                  <div class="approval-guidance-item">
+                    <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--quick">
+                      <ion-icon name="time-outline" aria-hidden="true"></ion-icon>
+                    </div>
+                    <div class="approval-guidance-item__text">
+                      <h4>{{ 'TUTOR_APPROVAL.CRED_INFO_QUICK_TITLE' | translate }}</h4>
+                      <p>{{ 'TUTOR_APPROVAL.CRED_INFO_QUICK_DESC' | translate }}</p>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <ion-button fill="solid" class="credential-cta"
-                (click)="triggerCredentialUpload('certification')"
-                [disabled]="isUploadingCredential">
-                <ion-icon name="add-circle-outline" slot="start"></ion-icon>
-                <span *ngIf="uploadedCertifications.length > 0">{{ 'TUTOR_APPROVAL.CRED_CERT_BTN_ADD' | translate }}</span>
-                <span *ngIf="uploadedCertifications.length === 0">{{ 'TUTOR_APPROVAL.CRED_CERT_BTN_UPLOAD' | translate }}</span>
-              </ion-button>
-            </div>
+              <div class="qualifications-step-upload approval-split-main">
+                <div class="qualifications-step-upload-inner">
+                  <section class="qualifications-panel">
+                    <div class="qualifications-field">
+                      <ion-item lines="none" class="qualifications-name-item">
+                        <ion-input
+                          [label]="'TUTOR_APPROVAL.CRED_CERT_NAME_LABEL' | translate"
+                          labelPlacement="stacked"
+                          [placeholder]="'TUTOR_APPROVAL.CRED_CERT_NAME_PLACEHOLDER' | translate"
+                          [(ngModel)]="certificationNameInput">
+                        </ion-input>
+                      </ion-item>
+                    </div>
 
-            <div class="credential-section credential-section--optional">
-              <div class="section-header section-header--additional-docs">
-                <ion-icon name="folder-open-outline" class="section-icon"></ion-icon>
-                <div class="section-text">
-                  <h3>{{ 'TUTOR_APPROVAL.CRED_ADDITIONAL_TITLE' | translate }} <span class="optional-tag">{{ 'TUTOR_APPROVAL.CRED_ADDITIONAL_OPTIONAL' | translate }}</span></h3>
-                  <p>{{ 'TUTOR_APPROVAL.CRED_ADDITIONAL_SUBTITLE' | translate }}</p>
-                </div>
-                <button
-                  type="button"
-                  class="credential-add-inline"
-                  [disabled]="isUploadingCredential"
-                  (click)="triggerCredentialUpload('additionalDocument')">
-                  {{ 'TUTOR_APPROVAL.CRED_ADDITIONAL_ADD' | translate }}
-                </button>
-              </div>
+                    <div class="qualifications-uploaded-list" *ngIf="uploadedCertifications.length > 0">
+                      <div
+                        class="qualifications-file-card"
+                        *ngFor="let cert of uploadedCertifications; let i = index; let isLast = last"
+                        [attr.id]="isLast ? 'tutor-cred-cert-last-anchor' : null"
+                        [class.approved]="cert.status === 'approved'"
+                        [class.pending]="cert.status === 'pending'"
+                        [class.rejected]="cert.status === 'rejected'">
+                        <div class="qualifications-file-card__icon">
+                          <ion-icon name="document-text-outline" aria-hidden="true"></ion-icon>
+                          <ion-icon
+                            *ngIf="cert.status === 'approved'"
+                            name="checkmark-circle"
+                            class="qualifications-file-card__check"
+                            color="success"
+                            aria-hidden="true"></ion-icon>
+                        </div>
+                        <div class="qualifications-file-card__body">
+                          <span class="qualifications-file-card__name">{{ cert.certificationName || cert.fileName }}</span>
+                          <span class="qualifications-file-card__meta" *ngIf="cert.certificationName">{{ cert.fileName }}</span>
+                          <span
+                            class="qualifications-file-card__status"
+                            *ngIf="cert.status === 'approved'">{{ 'TUTOR_APPROVAL.CRED_DOC_APPROVED' | translate }}</span>
+                          <span
+                            class="qualifications-file-card__status"
+                            *ngIf="cert.status === 'pending'">{{ 'TUTOR_APPROVAL.CRED_DOC_PENDING' | translate }}</span>
+                          <span
+                            class="qualifications-file-card__status rejected"
+                            *ngIf="cert.status === 'rejected'">{{ 'TUTOR_APPROVAL.CRED_DOC_REJECTED' | translate }}</span>
+                        </div>
+                        <button
+                          type="button"
+                          class="qualifications-file-card__remove"
+                          *ngIf="cert.status === 'pending'"
+                          (click)="removeCertification(i)">
+                          {{ 'TUTOR_APPROVAL.GOV_ID_BTN_REMOVE' | translate }}
+                        </button>
+                        <div class="qualifications-rejection-notice" *ngIf="cert.status === 'rejected'">
+                          <ion-icon name="alert-circle" color="danger" aria-hidden="true"></ion-icon>
+                          <span *ngIf="cert.rejectionReason">{{ cert.rejectionReason }}</span>
+                          <span *ngIf="!cert.rejectionReason">{{ 'TUTOR_APPROVAL.CRED_REUPLOAD' | translate }}</span>
+                        </div>
+                      </div>
+                    </div>
 
-              <div class="cert-list" *ngIf="uploadedAdditionalDocs.length > 0">
-                <div
-                  class="cert-item"
-                  *ngFor="let doc of uploadedAdditionalDocs; let i = index; let isLast = last"
-                  [attr.id]="isLast ? 'tutor-cred-doc-last-anchor' : null">
-                  <div class="cert-info">
-                    <ion-icon name="document-attach" color="medium"></ion-icon>
-                    <div class="cert-details">
-                      <span class="cert-name">{{ doc.label || doc.fileName }}</span>
-                      <span class="cert-file" *ngIf="doc.label">{{ doc.fileName }}</span>
+                    <div
+                      class="qualifications-upload-zone"
+                      [class.qualifications-upload-zone--compact]="uploadedCertifications.length > 0"
+                      [class.qualifications-upload-zone--dragover]="certUploadDragOver"
+                      role="button"
+                      tabindex="0"
+                      [attr.aria-label]="'TUTOR_APPROVAL.CRED_CERT_DROP_HINT' | translate"
+                      (click)="triggerCredentialUpload('certification')"
+                      (keydown.enter)="triggerCredentialUpload('certification')"
+                      (keydown.space)="triggerCredentialUpload('certification'); $event.preventDefault()"
+                      (dragover)="onCertDragOver($event)"
+                      (dragleave)="onCertDragLeave($event)"
+                      (drop)="onCertDrop($event)">
+                      <div class="qualifications-upload-visual">
+                        <ion-icon name="ribbon-outline" aria-hidden="true"></ion-icon>
+                      </div>
+                      <p class="qualifications-upload-hint">
+                        <span *ngIf="uploadedCertifications.length === 0">{{ 'TUTOR_APPROVAL.CRED_CERT_DROP_HINT' | translate }}</span>
+                        <span *ngIf="uploadedCertifications.length > 0">{{ 'TUTOR_APPROVAL.CRED_CERT_DROP_HINT_ADD' | translate }}</span>
+                      </p>
+                      <p class="qualifications-upload-formats">{{ 'TUTOR_APPROVAL.CRED_CERT_FILE_TYPES' | translate }}</p>
                     </div>
-                  </div>
-                  <div class="cert-status-row">
-                    <div class="status-pill small approved" *ngIf="doc.status === 'approved'">
-                      {{ 'TUTOR_APPROVAL.CRED_DOC_APPROVED' | translate }}
+
+                    <div class="qualifications-panel-footer">
+                      <button
+                        type="button"
+                        class="qualifications-upload-cta"
+                        [disabled]="isUploadingCredential"
+                        (click)="triggerCredentialUpload('certification')">
+                        <ion-icon name="cloud-upload-outline" aria-hidden="true"></ion-icon>
+                        <span *ngIf="uploadedCertifications.length === 0">{{ 'TUTOR_APPROVAL.CRED_CERT_BTN_UPLOAD' | translate }}</span>
+                        <span *ngIf="uploadedCertifications.length > 0">{{ 'TUTOR_APPROVAL.CRED_CERT_BTN_ADD' | translate }}</span>
+                      </button>
                     </div>
-                    <div class="status-pill small rejected" *ngIf="doc.status === 'rejected'">
-                      {{ 'TUTOR_APPROVAL.CRED_DOC_REJECTED' | translate }}
+                  </section>
+
+                  <section class="qualifications-panel qualifications-panel--optional">
+                    <div class="qualifications-panel-header">
+                      <h4 class="qualifications-panel-title">
+                        {{ 'TUTOR_APPROVAL.CRED_ADDITIONAL_TITLE' | translate }}
+                        <span class="qualifications-optional-tag">{{ 'TUTOR_APPROVAL.CRED_ADDITIONAL_OPTIONAL' | translate }}</span>
+                      </h4>
+                      <p class="qualifications-panel-desc">{{ 'TUTOR_APPROVAL.CRED_ADDITIONAL_SUBTITLE' | translate }}</p>
                     </div>
-                    <div class="status-pill small pending" *ngIf="doc.status === 'pending'">
-                      {{ 'TUTOR_APPROVAL.CRED_DOC_PENDING' | translate }}
+
+                    <div class="qualifications-uploaded-list" *ngIf="uploadedAdditionalDocs.length > 0">
+                      <div
+                        class="qualifications-file-card"
+                        *ngFor="let doc of uploadedAdditionalDocs; let i = index; let isLast = last"
+                        [attr.id]="isLast ? 'tutor-cred-doc-last-anchor' : null"
+                        [class.approved]="doc.status === 'approved'"
+                        [class.pending]="doc.status === 'pending'"
+                        [class.rejected]="doc.status === 'rejected'">
+                        <div class="qualifications-file-card__icon">
+                          <ion-icon name="document-attach-outline" aria-hidden="true"></ion-icon>
+                          <ion-icon
+                            *ngIf="doc.status === 'approved'"
+                            name="checkmark-circle"
+                            class="qualifications-file-card__check"
+                            color="success"
+                            aria-hidden="true"></ion-icon>
+                        </div>
+                        <div class="qualifications-file-card__body">
+                          <span class="qualifications-file-card__name">{{ doc.label || doc.fileName }}</span>
+                          <span class="qualifications-file-card__meta" *ngIf="doc.label">{{ doc.fileName }}</span>
+                          <span
+                            class="qualifications-file-card__status"
+                            *ngIf="doc.status === 'approved'">{{ 'TUTOR_APPROVAL.CRED_DOC_APPROVED' | translate }}</span>
+                          <span
+                            class="qualifications-file-card__status"
+                            *ngIf="doc.status === 'pending'">{{ 'TUTOR_APPROVAL.CRED_DOC_PENDING' | translate }}</span>
+                          <span
+                            class="qualifications-file-card__status rejected"
+                            *ngIf="doc.status === 'rejected'">{{ 'TUTOR_APPROVAL.CRED_DOC_REJECTED' | translate }}</span>
+                        </div>
+                        <button
+                          type="button"
+                          class="qualifications-file-card__remove"
+                          *ngIf="doc.status === 'pending'"
+                          (click)="removeAdditionalDoc(i)">
+                          {{ 'TUTOR_APPROVAL.GOV_ID_BTN_REMOVE' | translate }}
+                        </button>
+                      </div>
                     </div>
-                    <ion-button fill="clear" size="small" color="danger"
-                      *ngIf="doc.status === 'pending'"
-                      (click)="removeAdditionalDoc(i)">
-                      <ion-icon name="trash-outline" slot="icon-only"></ion-icon>
-                    </ion-button>
-                  </div>
+
+                    <div
+                      class="qualifications-upload-zone qualifications-upload-zone--optional"
+                      [class.qualifications-upload-zone--compact]="uploadedAdditionalDocs.length > 0"
+                      [class.qualifications-upload-zone--dragover]="additionalDocUploadDragOver"
+                      role="button"
+                      tabindex="0"
+                      [attr.aria-label]="'TUTOR_APPROVAL.CRED_ADDITIONAL_DROP_HINT' | translate"
+                      (click)="triggerCredentialUpload('additionalDocument')"
+                      (keydown.enter)="triggerCredentialUpload('additionalDocument')"
+                      (keydown.space)="triggerCredentialUpload('additionalDocument'); $event.preventDefault()"
+                      (dragover)="onAdditionalDocDragOver($event)"
+                      (dragleave)="onAdditionalDocDragLeave($event)"
+                      (drop)="onAdditionalDocDrop($event)">
+                      <div class="qualifications-upload-visual qualifications-upload-visual--muted">
+                        <ion-icon name="folder-open-outline" aria-hidden="true"></ion-icon>
+                      </div>
+                      <p class="qualifications-upload-hint">
+                        <span *ngIf="uploadedAdditionalDocs.length === 0">{{ 'TUTOR_APPROVAL.CRED_ADDITIONAL_DROP_HINT' | translate }}</span>
+                        <span *ngIf="uploadedAdditionalDocs.length > 0">{{ 'TUTOR_APPROVAL.CRED_ADDITIONAL_DROP_HINT_ADD' | translate }}</span>
+                      </p>
+                      <p class="qualifications-upload-formats">{{ 'TUTOR_APPROVAL.CRED_ADDITIONAL_FILE_TYPES' | translate }}</p>
+                    </div>
+
+                    <div class="qualifications-panel-footer">
+                      <button
+                        type="button"
+                        class="qualifications-upload-cta qualifications-upload-cta--secondary"
+                        [disabled]="isUploadingCredential"
+                        (click)="triggerCredentialUpload('additionalDocument')">
+                        <ion-icon name="add-circle-outline" aria-hidden="true"></ion-icon>
+                        <span *ngIf="uploadedAdditionalDocs.length === 0">{{ 'TUTOR_APPROVAL.CRED_BTN_ADD_DOCUMENT' | translate }}</span>
+                        <span *ngIf="uploadedAdditionalDocs.length > 0">{{ 'TUTOR_APPROVAL.CRED_ADDITIONAL_ADD' | translate }}</span>
+                      </button>
+                    </div>
+                  </section>
+
+                  <p class="qualifications-privacy-note">
+                    <ion-icon name="lock-closed-outline" aria-hidden="true"></ion-icon>
+                    <span>{{ 'TUTOR_APPROVAL.GOV_ID_PRIVACY_NOTE' | translate }}</span>
+                  </p>
                 </div>
               </div>
             </div>
           </div>
 
           <!-- Payment Setup Step -->
-          <div *ngIf="approvalStepId === 'stripe'" class="stripe-step">
-            
+          <div *ngIf="approvalStepId === 'stripe'" class="stripe-step tutor-approval-step-pane">
+            <div class="stripe-step-layout approval-split-layout approval-step-card">
+              <div class="approval-split-guidance">
+                <h3 class="approval-split-guidance__title">{{ approvalStepTitleKey | translate }}</h3>
+                <p class="approval-split-guidance__desc">{{ approvalStepDescriptionKey | translate }}</p>
+
+                <div class="approval-split-guidance-list">
+                  <div class="approval-guidance-item">
+                    <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--secure">
+                      <ion-icon name="lock-closed-outline" aria-hidden="true"></ion-icon>
+                    </div>
+                    <div class="approval-guidance-item__text">
+                      <h4>{{ 'TUTOR_APPROVAL.INFO_SECURE_PAYMENTS_TITLE' | translate }}</h4>
+                      <p>{{ 'TUTOR_APPROVAL.INFO_SECURE_PAYMENTS_DESC' | translate }}</p>
+                    </div>
+                  </div>
+                  <div class="approval-guidance-item">
+                    <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--weekly">
+                      <ion-icon name="calendar-outline" aria-hidden="true"></ion-icon>
+                    </div>
+                    <div class="approval-guidance-item__text">
+                      <h4>{{ 'TUTOR_APPROVAL.INFO_WEEKLY_TITLE' | translate }}</h4>
+                      <p>{{ 'TUTOR_APPROVAL.INFO_WEEKLY_DESC' | translate }}</p>
+                    </div>
+                  </div>
+                  <div class="approval-guidance-item">
+                    <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--payout">
+                      <ion-icon name="flash-outline" aria-hidden="true"></ion-icon>
+                    </div>
+                    <div class="approval-guidance-item__text">
+                      <h4>{{ 'TUTOR_APPROVAL.INFO_PAYOUT_FAST_TITLE' | translate }}</h4>
+                      <p>{{ 'TUTOR_APPROVAL.INFO_PAYOUT_FAST_DESC' | translate }}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="approval-split-main" [class.approval-split-main--form]="!approvalStatus?.stripeComplete">
+                <div class="approval-split-main-inner">
             <!-- Already completed state -->
             <ng-container *ngIf="approvalStatus?.stripeComplete">
-              <div class="status-card-large success tutor-approval-step-pane tutor-approval-step-pane--sub">
+              <div class="profile-payout-panel">
+              <div *ngIf="currentUser?.payoutProvider === 'stripe'" class="profile-payout-provider tutor-approval-step-pane--sub">
+                <app-stripe-connect-card [connected]="true"></app-stripe-connect-card>
+              </div>
+
+              <div *ngIf="currentUser?.payoutProvider === 'paypal'" class="profile-payout-provider tutor-approval-step-pane--sub">
+                <app-paypal-connect-card
+                  [connected]="true"
+                  [connectedEmail]="currentUser?.payoutDetails?.paypalEmail || ''"
+                  (editEmailClick)="startEditPayoutEmail()">
+                </app-paypal-connect-card>
+              </div>
+
+              <div *ngIf="currentUser?.payoutProvider !== 'stripe' && currentUser?.payoutProvider !== 'paypal'" class="status-card-large success tutor-approval-step-pane--sub">
                 <ion-icon name="checkmark-circle"></ion-icon>
                 <p>{{ 'TUTOR_APPROVAL.PAYMENT_CONNECTED' | translate }}</p>
-                <span class="provider-badge" *ngIf="currentUser?.payoutProvider === 'stripe'">{{ 'TUTOR_APPROVAL.PAYMENT_VIA_STRIPE' | translate }}</span>
-                <span class="provider-badge" *ngIf="currentUser?.payoutProvider === 'paypal'">
-                  {{ 'TUTOR_APPROVAL.PAYMENT_VIA_PAYPAL' | translate }}
-                  <ng-container *ngIf="currentUser?.payoutDetails?.paypalEmail"> · {{ currentUser?.payoutDetails?.paypalEmail }}</ng-container>
-                </span>
               </div>
-              <div class="payout-edit-row" *ngIf="currentUser?.payoutProvider === 'paypal'">
-                <button type="button" class="payout-edit-btn" (click)="startEditPayoutEmail()">
-                  <ion-icon name="pencil-outline"></ion-icon>
-                  {{ 'TUTOR_APPROVAL.PAYPAL_CHANGE_EMAIL' | translate }}
-                </button>
               </div>
             </ng-container>
 
             <!-- Not yet completed -->
-            <div *ngIf="!approvalStatus?.stripeComplete" class="payment-setup-flow">
+            <div *ngIf="!approvalStatus?.stripeComplete && paymentSetupStep !== 'setup-method'" class="payment-setup-flow">
               
               <!-- STEP 1: Tax Status Question (legacy only — country-driven users skip this) -->
               <div *ngIf="paymentSetupStep === 'tax-status' && !isCountryDrivenPayoutRouting" class="tax-question-card">
@@ -451,98 +789,40 @@
                 </div>
               </div>
               
-              <!-- STEP 3: Payment Method Setup -->
-              <div *ngIf="paymentSetupStep === 'setup-method'" class="payment-method-card tutor-approval-step-pane tutor-approval-step-pane--sub">
-                <div
-                  class="payout-method-hero"
-                  [class.payout-method-hero--stripe]="determinedPayoutMethod === 'stripe'"
-                  [class.payout-method-hero--paypal]="determinedPayoutMethod === 'paypal'">
-                  <div class="payout-method-hero__mark" aria-hidden="true">
-                    <div class="payout-method-hero__brand-icon" *ngIf="determinedPayoutMethod === 'stripe'">
-                      <img src="assets/icon/stripe-icon.png" alt="" width="48" height="48" decoding="async" />
-                    </div>
-                    <div class="payout-method-hero__brand-icon" *ngIf="determinedPayoutMethod === 'paypal'">
-                      <img src="assets/icon/paypal-icon.png" alt="" width="48" height="48" decoding="async" />
-                    </div>
-                  </div>
-                  <h2 class="payout-method-hero__title">
-                    <span *ngIf="determinedPayoutMethod === 'stripe'">{{ 'TUTOR_APPROVAL.METHOD_STRIPE' | translate }}</span>
-                    <span *ngIf="determinedPayoutMethod === 'paypal'">{{ 'TUTOR_APPROVAL.METHOD_PAYPAL' | translate }}</span>
-                  </h2>
-                  <p class="payout-method-hero__reason">
-                    <span *ngIf="isCountryDrivenPayoutRouting">{{ payoutMethodReasonKey | translate: payoutMethodReasonParams }}</span>
-                    <span *ngIf="!isCountryDrivenPayoutRouting && determinedPayoutMethod === 'stripe'">{{ 'TUTOR_APPROVAL.METHOD_REASON_STRIPE' | translate }}</span>
-                    <span *ngIf="!isCountryDrivenPayoutRouting && determinedPayoutMethod === 'paypal' && isUSPersonForTax">{{ 'TUTOR_APPROVAL.METHOD_REASON_PAYPAL_US' | translate }}</span>
-                    <span *ngIf="!isCountryDrivenPayoutRouting && determinedPayoutMethod === 'paypal' && !isUSPersonForTax">{{ 'TUTOR_APPROVAL.METHOD_REASON_PAYPAL_INTL' | translate }}</span>
-                  </p>
-                </div>
+            </div>
 
-                <!-- Tax Summary (legacy only) -->
-                <div class="tax-summary" *ngIf="!isCountryDrivenPayoutRouting">
-                  <div class="summary-item">
-                    <ion-icon [name]="isUSPersonForTax ? 'flag' : 'globe'"></ion-icon>
-                    <span *ngIf="isUSPersonForTax">{{ 'TUTOR_APPROVAL.SUMMARY_US_PERSON' | translate }}</span>
-                    <span *ngIf="!isUSPersonForTax">{{ 'TUTOR_APPROVAL.SUMMARY_NON_US_PERSON' | translate }}</span>
-                  </div>
-                  <div class="summary-item" *ngIf="isUSPersonForTax">
-                    <ion-icon [name]="hasUSBankAccount ? 'business' : 'card'"></ion-icon>
-                    <span *ngIf="hasUSBankAccount">{{ 'TUTOR_APPROVAL.SUMMARY_US_BANK' | translate }}</span>
-                    <span *ngIf="!hasUSBankAccount">{{ 'TUTOR_APPROVAL.SUMMARY_NO_US_BANK' | translate }}</span>
-                  </div>
-                  <ion-button fill="clear" size="small" (click)="editTaxInfo()">
-                    <ion-icon name="create-outline" slot="start"></ion-icon>
-                    {{ 'COMMON.EDIT' | translate }}
-                  </ion-button>
-                </div>
-                
-                <!-- PayPal Email Input (if PayPal is determined method) -->
-                <div *ngIf="determinedPayoutMethod === 'paypal'" class="paypal-setup">
-                  <ion-item lines="none" class="paypal-email-item">
-                    <ion-input
-                      [label]="'TUTOR_APPROVAL.PAYPAL_EMAIL_LABEL' | translate"
-                      labelPlacement="stacked"
-                      type="email"
-                      [(ngModel)]="paypalEmail"
-                      [placeholder]="'TUTOR_APPROVAL.PAYPAL_EMAIL_PLACEHOLDER' | translate"
-                      (ionInput)="validatePayPalEmail()">
-                    </ion-input>
-                  </ion-item>
-                  <div *ngIf="paypalEmailError" class="error-message">
-                    <ion-icon name="alert-circle"></ion-icon>
-                    <span>{{ paypalEmailError | translate }}</span>
-                  </div>
-                  <p class="paypal-note">
-                    <ion-icon name="information-circle"></ion-icon>
-                    {{ 'TUTOR_APPROVAL.PAYPAL_LINK_NOTE' | translate }}
-                  </p>
-                </div>
-                
-                <!-- Compact benefit copy (matches Withdraw modal asset treatment; avoids tall cards) -->
-                <div class="payout-info-micro">
-                  <div class="payout-info-micro__item" *ngIf="determinedPayoutMethod === 'stripe'">
-                    <span class="payout-info-micro__label">{{ 'TUTOR_APPROVAL.INFO_PAYOUT_FAST_TITLE' | translate }}</span>
-                    <span class="payout-info-micro__desc">{{ 'TUTOR_APPROVAL.INFO_PAYOUT_FAST_DESC' | translate }}</span>
-                  </div>
-                  <div class="payout-info-micro__item" *ngIf="determinedPayoutMethod === 'paypal'">
-                    <span class="payout-info-micro__label">{{ 'TUTOR_APPROVAL.INFO_PAYPAL_WORLD_TITLE' | translate }}</span>
-                    <span class="payout-info-micro__desc">{{ 'TUTOR_APPROVAL.INFO_PAYPAL_WORLD_DESC' | translate }}</span>
-                  </div>
-                  <div class="payout-info-micro__item">
-                    <span class="payout-info-micro__label">{{ 'TUTOR_APPROVAL.INFO_SECURE_PAYMENTS_TITLE' | translate }}</span>
-                    <span class="payout-info-micro__desc">{{ 'TUTOR_APPROVAL.INFO_SECURE_PAYMENTS_DESC' | translate }}</span>
-                  </div>
-                  <div class="payout-info-micro__item">
-                    <span class="payout-info-micro__label">{{ 'TUTOR_APPROVAL.INFO_WEEKLY_TITLE' | translate }}</span>
-                    <span class="payout-info-micro__desc">{{ 'TUTOR_APPROVAL.INFO_WEEKLY_DESC' | translate }}</span>
-                  </div>
-                </div>
-                
-                <!-- Back to tax questions (legacy only — country-driven users have no prior sub-step) -->
-                <div class="button-row" *ngIf="!isCountryDrivenPayoutRouting">
-                  <ion-button fill="outline" (click)="previousPaymentStep()">
-                    <ion-icon name="arrow-back" slot="start"></ion-icon>
-                    {{ 'COMMON.BACK' | translate }}
-                  </ion-button>
+            <!-- STEP 3: Payment Method Setup — shared connect cards (matches Profile › Payments) -->
+            <div *ngIf="!approvalStatus?.stripeComplete && paymentSetupStep === 'setup-method'" class="profile-payout-panel tutor-approval-step-pane tutor-approval-step-pane--sub">
+              <div *ngIf="determinedPayoutMethod === 'stripe'" class="profile-payout-provider">
+                <app-stripe-connect-card
+                  [connectDisabled]="wizardPaymentConnectDisabled"
+                  [showWizardLegacySummary]="!isCountryDrivenPayoutRouting"
+                  [isUSPersonForTax]="isUSPersonForTax"
+                  [hasUSBankAccount]="hasUSBankAccount"
+                  (connectClick)="setupPaymentMethod()"
+                  (editTaxInfoClick)="editTaxInfo()"
+                  (backClick)="previousPaymentStep()">
+                </app-stripe-connect-card>
+              </div>
+
+              <div *ngIf="determinedPayoutMethod === 'paypal'" class="profile-payout-provider">
+                <app-paypal-connect-card
+                  [email]="paypalEmail"
+                  [emailErrorKey]="paypalEmailError"
+                  emailInputId="wizard-paypal-email"
+                  [reasonKey]="wizardPaypalReasonKey"
+                  [reasonParams]="payoutMethodReasonParams"
+                  [connectDisabled]="wizardPaymentConnectDisabled"
+                  [showWizardLegacySummary]="!isCountryDrivenPayoutRouting"
+                  [isUSPersonForTax]="isUSPersonForTax"
+                  [hasUSBankAccount]="hasUSBankAccount"
+                  (emailChange)="onWizardPaypalEmailChange($event)"
+                  (connectClick)="setupPaymentMethod()"
+                  (editTaxInfoClick)="editTaxInfo()"
+                  (backClick)="previousPaymentStep()">
+                </app-paypal-connect-card>
+              </div>
+            </div>
                 </div>
               </div>
             </div>
@@ -550,129 +830,143 @@
 
           <!-- TOS Step -->
           <div *ngIf="approvalStepId === 'tos'" class="tos-step tutor-approval-step-pane">
-            <!-- Already Accepted -->
-            <div *ngIf="tosStepCompleted" class="status-card-large success">
-              <ion-icon name="checkmark-circle"></ion-icon>
-              <p>{{ 'TUTOR_APPROVAL.TOS_ACCEPTED' | translate }}</p>
-              <span class="accepted-date" *ngIf="tosAcceptedAt">
-                {{ 'TUTOR_APPROVAL.TOS_ACCEPTED_ON' | translate }} {{ tosAcceptedAt | date:'mediumDate' }}
-              </span>
-            </div>
+            <div class="tos-step-layout approval-split-layout approval-step-card">
+              <div class="approval-split-guidance">
+                <h3 class="approval-split-guidance__title">{{ approvalStepTitleKey | translate }}</h3>
+                <p class="approval-split-guidance__desc">{{ approvalStepDescriptionKey | translate }}</p>
 
-            <!-- Not Yet Accepted -->
-            <div *ngIf="!tosStepCompleted" class="tos-content">
-              <div class="tos-scroll-area">
-                <h3 class="tos-section-title">{{ 'TUTOR_APPROVAL.TOS_IC_TITLE' | translate }}</h3>
-                <p class="tos-paragraph">{{ 'TUTOR_APPROVAL.TOS_IC_INTRO' | translate }}</p>
-
-                <div class="tos-clause">
-                  <div class="clause-number">1</div>
-                  <div class="clause-body">
-                    <h4>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_1_TITLE' | translate }}</h4>
-                    <p>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_1_BODY' | translate }}</p>
+                <div class="approval-split-guidance-list" *ngIf="!tosStepCompleted">
+                  <div class="approval-guidance-item">
+                    <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--tos">
+                      <ion-icon name="document-text-outline" aria-hidden="true"></ion-icon>
+                    </div>
+                    <div class="approval-guidance-item__text">
+                      <h4>{{ 'TUTOR_APPROVAL.TOS_IC_TITLE' | translate }}</h4>
+                      <p>{{ 'TUTOR_APPROVAL.TOS_IC_INTRO' | translate }}</p>
+                    </div>
                   </div>
-                </div>
-
-                <div class="tos-clause">
-                  <div class="clause-number">2</div>
-                  <div class="clause-body">
-                    <h4>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_2_TITLE' | translate }}</h4>
-                    <p>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_2_BODY' | translate }}</p>
+                  <div class="approval-guidance-item">
+                    <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--secure">
+                      <ion-icon name="shield-checkmark-outline" aria-hidden="true"></ion-icon>
+                    </div>
+                    <div class="approval-guidance-item__text">
+                      <h4>{{ 'TUTOR_APPROVAL.TOS_GUIDE_RESPONSIBILITY_TITLE' | translate }}</h4>
+                      <p>{{ 'TUTOR_APPROVAL.TOS_GUIDE_RESPONSIBILITY_DESC' | translate }}</p>
+                    </div>
                   </div>
-                </div>
-
-                <div class="tos-clause">
-                  <div class="clause-number">3</div>
-                  <div class="clause-body">
-                    <h4>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_3_TITLE' | translate }}</h4>
-                    <p>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_3_BODY' | translate }}</p>
-                  </div>
-                </div>
-
-                <div class="tos-clause">
-                  <div class="clause-number">4</div>
-                  <div class="clause-body">
-                    <h4>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_4_TITLE' | translate }}</h4>
-                    <p>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_4_BODY' | translate }}</p>
-                  </div>
-                </div>
-
-                <div class="tos-clause">
-                  <div class="clause-number">5</div>
-                  <div class="clause-body">
-                    <h4>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_5_TITLE' | translate }}</h4>
-                    <p>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_5_BODY' | translate }}</p>
-                  </div>
-                </div>
-
-                <div class="tos-clause">
-                  <div class="clause-number">6</div>
-                  <div class="clause-body">
-                    <h4>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_6_TITLE' | translate }}</h4>
-                    <p>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_6_BODY' | translate }}</p>
+                  <div class="approval-guidance-item">
+                    <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--quick">
+                      <ion-icon name="checkmark-done-outline" aria-hidden="true"></ion-icon>
+                    </div>
+                    <div class="approval-guidance-item__text">
+                      <h4>{{ 'TUTOR_APPROVAL.TOS_GUIDE_FINAL_TITLE' | translate }}</h4>
+                      <p>{{ 'TUTOR_APPROVAL.TOS_GUIDE_FINAL_DESC' | translate }}</p>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div class="tos-accept-row">
-                <label class="tos-checkbox-label">
-                  <input type="checkbox" [(ngModel)]="tosChecked" class="tos-checkbox-input">
-                  <span class="tos-checkmark"></span>
-                  <span class="tos-label-text">{{ 'TUTOR_APPROVAL.TOS_CHECKBOX_LABEL' | translate }}</span>
-                </label>
+              <div class="tos-step-upload approval-split-main approval-split-main--scroll">
+                <div class="tos-step-upload-inner">
+                  <div *ngIf="tosStepCompleted" class="tos-success-card">
+                    <div class="tos-success-card__visual" aria-hidden="true">
+                      <div class="tos-success-card__ring"></div>
+                      <div class="tos-success-card__check">
+                        <ion-icon name="checkmark" aria-hidden="true"></ion-icon>
+                      </div>
+                    </div>
+                    <span class="tos-success-card__pill">{{ 'TUTOR_APPROVAL.TOS_ACCEPTED' | translate }}</span>
+                    <p class="tos-success-card__subtitle">{{ 'TUTOR_APPROVAL.TOS_ACCEPTED_SUBTITLE' | translate }}</p>
+                    <p class="tos-success-card__date" *ngIf="tosAcceptedAt">
+                      {{ 'TUTOR_APPROVAL.TOS_ACCEPTED_ON' | translate }} {{ tosAcceptedAt | date:'mediumDate' }}
+                    </p>
+                  </div>
+
+                  <section *ngIf="!tosStepCompleted" class="tos-panel">
+                    <div class="tos-panel-header">
+                      <div class="tos-panel-header__icon">
+                        <ion-icon name="document-text-outline" aria-hidden="true"></ion-icon>
+                      </div>
+                      <div class="tos-panel-header__text">
+                        <h4>{{ 'TUTOR_APPROVAL.TOS_IC_TITLE' | translate }}</h4>
+                        <p>{{ 'TUTOR_APPROVAL.TOS_IC_INTRO' | translate }}</p>
+                      </div>
+                    </div>
+
+                    <div class="tos-scroll-area">
+                      <div class="tos-clause-card">
+                        <div class="tos-clause-card__number">1</div>
+                        <div class="tos-clause-card__body">
+                          <h5>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_1_TITLE' | translate }}</h5>
+                          <p>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_1_BODY' | translate }}</p>
+                        </div>
+                      </div>
+
+                      <div class="tos-clause-card">
+                        <div class="tos-clause-card__number">2</div>
+                        <div class="tos-clause-card__body">
+                          <h5>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_2_TITLE' | translate }}</h5>
+                          <p>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_2_BODY' | translate }}</p>
+                        </div>
+                      </div>
+
+                      <div class="tos-clause-card">
+                        <div class="tos-clause-card__number">3</div>
+                        <div class="tos-clause-card__body">
+                          <h5>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_3_TITLE' | translate }}</h5>
+                          <p>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_3_BODY' | translate }}</p>
+                        </div>
+                      </div>
+
+                      <div class="tos-clause-card">
+                        <div class="tos-clause-card__number">4</div>
+                        <div class="tos-clause-card__body">
+                          <h5>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_4_TITLE' | translate }}</h5>
+                          <p>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_4_BODY' | translate }}</p>
+                        </div>
+                      </div>
+
+                      <div class="tos-clause-card">
+                        <div class="tos-clause-card__number">5</div>
+                        <div class="tos-clause-card__body">
+                          <h5>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_5_TITLE' | translate }}</h5>
+                          <p>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_5_BODY' | translate }}</p>
+                        </div>
+                      </div>
+
+                      <div class="tos-clause-card">
+                        <div class="tos-clause-card__number">6</div>
+                        <div class="tos-clause-card__body">
+                          <h5>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_6_TITLE' | translate }}</h5>
+                          <p>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_6_BODY' | translate }}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="tos-accept-card" [class.tos-accept-card--checked]="tosChecked">
+                      <label class="tos-checkbox-label">
+                        <input type="checkbox" [(ngModel)]="tosChecked" class="tos-checkbox-input">
+                        <span class="tos-checkmark"></span>
+                        <span class="tos-label-text">{{ 'TUTOR_APPROVAL.TOS_CHECKBOX_LABEL' | translate }}</span>
+                      </label>
+                    </div>
+
+                    <div class="tos-panel-footer">
+                      <button
+                        type="button"
+                        class="tos-accept-cta"
+                        [disabled]="!tosChecked || isAcceptingTos"
+                        (click)="acceptTos()">
+                        <ion-icon name="shield-checkmark-outline" aria-hidden="true"></ion-icon>
+                        <span>{{ 'TUTOR_APPROVAL.TOS_ACCEPT_BUTTON' | translate }}</span>
+                      </button>
+                    </div>
+                  </section>
+                </div>
               </div>
             </div>
           </div>
 
-        <!-- Primary Action Button (Photo & Video steps only) -->
-        <ion-button 
-          *ngIf="approvalStepId === 'photo' || approvalStepId === 'video'"
-          class="primary-action primary-action--wizard-footer-match"
-          [disabled]="approvalStepCompleted"
-          (click)="handleStepAction()">
-          <ion-icon 
-            [name]="approvalStepId === 'photo' ? 'camera-outline' : approvalStepIcon" 
-            slot="start">
-          </ion-icon>
-          <span *ngIf="approvalStepId === 'photo' && photoStepCompleted">{{ 'TUTOR_APPROVAL.PHOTO_BTN_CHANGE' | translate }}</span>
-          <span *ngIf="approvalStepId === 'photo' && !photoStepCompleted">{{ 'TUTOR_APPROVAL.PHOTO_BTN_UPLOAD' | translate }}</span>
-          
-          <span *ngIf="approvalStepId === 'video' && approvalStepCompleted">{{ 'TUTOR_APPROVAL.VIDEO_STEP_COMPLETED' | translate }}</span>
-          <span *ngIf="approvalStepId === 'video' && !approvalStepCompleted">{{ approvalStepTitleKey | translate }}</span>
-        </ion-button>
-        <p *ngIf="approvalStepId === 'photo'">{{ 'TUTOR_APPROVAL.PHOTO_SETTINGS_NOTE' | translate }}</p>
-
-        <!-- Primary Action Button (Payment step - only shown on setup-method sub-step) -->
-        <ion-button 
-          *ngIf="approvalStepId === 'stripe' && paymentSetupStep === 'setup-method' && !approvalStatus?.stripeComplete"
-          class="primary-action primary-action--payout primary-action--wizard-footer-match"
-          [disabled]="!canSetupPayment()"
-          (click)="setupPaymentMethod()">
-          <span slot="start" class="primary-action__payout-brand" aria-hidden="true">
-            <img
-              *ngIf="determinedPayoutMethod === 'stripe'"
-              class="primary-action__payout-img"
-              src="assets/icon/stripe-icon.png"
-              alt="" />
-            <img
-              *ngIf="determinedPayoutMethod === 'paypal'"
-              class="primary-action__payout-img primary-action__payout-img--paypal"
-              src="assets/icon/paypal-icon.png"
-              alt="" />
-          </span>
-          <span *ngIf="determinedPayoutMethod === 'stripe'">{{ 'TUTOR_APPROVAL.BTN_CONNECT_STRIPE' | translate }}</span>
-          <span *ngIf="determinedPayoutMethod === 'paypal'">{{ 'TUTOR_APPROVAL.BTN_CONNECT_PAYPAL' | translate }}</span>
-        </ion-button>
-
-        <!-- Primary Action Button (TOS step) — width matches footer Next CTA, not full-bleed block -->
-        <ion-button 
-          *ngIf="approvalStepId === 'tos' && !tosStepCompleted"
-          class="primary-action primary-action--wizard-footer-match"
-          [disabled]="!tosChecked || isAcceptingTos"
-          (click)="acceptTos()">
-          <ion-icon name="shield-checkmark" slot="start"></ion-icon>
-          {{ 'TUTOR_APPROVAL.TOS_ACCEPT_BUTTON' | translate }}
-        </ion-button>
         </div>
 
               </div>
@@ -703,6 +997,7 @@
 <ion-modal 
   [isOpen]="isVideoPlayerModalOpen"
   (didDismiss)="onVideoPlayerModalDismiss()"
+  [backdropDismiss]="true"
   cssClass="video-player-modal">
   <ng-template>
     <ion-header>
@@ -717,6 +1012,14 @@
     </ion-header>
     <ion-content class="video-player-content">
       <div *ngIf="videoPlayerData" class="video-player-container">
+        <button
+          type="button"
+          class="video-player-close-btn"
+          [attr.aria-label]="'COMMON.CLOSE' | translate"
+          (click)="onVideoPlayerModalDismiss(); $event.stopPropagation()">
+          <ion-icon name="close" aria-hidden="true"></ion-icon>
+        </button>
+
         <!-- Show thumbnail overlay first, then video on click -->
         <div *ngIf="!isVideoPlaying" class="modal-thumbnail-overlay" (click)="startVideoPlayback()">
           <img 

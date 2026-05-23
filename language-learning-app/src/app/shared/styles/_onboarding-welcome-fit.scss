@@ -19,10 +19,17 @@
     min-height: 0;
     display: flex;
     flex-direction: column;
+    align-items: center;
+    width: 100%;
 
     // Override the max-height animation cap so long content isn't clipped.
     max-height: none !important;
     overflow: visible !important;
+  }
+
+  .welcome-body {
+    align-items: center;
+    width: 100%;
   }
 
   // Pin CTA + trust to bottom of the flex column.
