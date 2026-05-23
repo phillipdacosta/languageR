@@ -25,7 +25,7 @@
         <button class="toolbar-earnings-pill" *ngIf="isTutorMobile" (click)="onToolbarEarningsTap()">$</button>
         <ion-button fill="clear" class="notification-btn" (click)="toggleNotificationDropdown()">
           <ion-icon name="notifications-outline"></ion-icon>
-          <span class="notification-dot" *ngIf="(unreadNotificationCount$ | async)! > 0"></span>
+          <span class="notification-dot" [class.badge-pop]="notificationBadgePop" *ngIf="(unreadNotificationCount$ | async)! > 0"></span>
         </ion-button>
         <div
           class="mobile-header-profile"
@@ -116,7 +116,7 @@
                   [class.active]="isCurrentRoute('/tabs/notifications')"
                   (click)="onNotificationButtonClick()">
             <ion-icon name="notifications-outline"></ion-icon>
-            <span class="notification-dot" *ngIf="(unreadNotificationCount$ | async)! > 0"></span>
+            <span class="notification-dot" [class.badge-pop]="notificationBadgePop" *ngIf="(unreadNotificationCount$ | async)! > 0"></span>
           </button>
         </div>
         
@@ -397,8 +397,9 @@
                     style="position: relative;">
       <ion-icon aria-hidden="true" [name]="isMessagesTabSelected ? 'chatbubbles' : 'chatbubbles-outline'"></ion-icon>
       <ion-label>{{ 'TABS.MESSAGES' | translate }}</ion-label>
-      <span *ngIf="(unreadCount$ | async)! > 0" 
-            class="notification-dot message-tab-notification-dot"></span>
+      <span *ngIf="(unreadCount$ | async)! > 0"
+            class="notification-dot message-tab-notification-dot"
+            [class.badge-pop]="messageBadgePop"></span>
     </ion-tab-button>
 
     <ion-tab-button tab="lessons" [routerLink]="['/tabs/lessons']" routerDirection="root" [class.tab-selected]="isLessonsTabSelected" [attr.aria-label]="'TABS.LESSONS' | translate">

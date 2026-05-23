@@ -206,6 +206,13 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   upNextCardAnimated = false;
   mobileStaggerReady = false;
   mobileStaggerDone = false;
+  /** Desktop tutor/student home: staggered column reveal after load. */
+  desktopEnterReady = false;
+  desktopEnterDone = false;
+  /** Animated earnings balance display (count-up). */
+  displayedEarningsText = '0.00';
+  /** One-shot progress bar shine when weekly goal updates. */
+  weeklyGoalBarShine = false;
   private _earningsOpenedFromOtherTab = false;
   @HostBinding('class.returning-from-inline') returningFromInline = false;
   @HostBinding('class.skip-tab-entry-animations') skipTabEntryAnimations = false;
@@ -8323,6 +8330,7 @@ navigateToLessons() {
           }, 50);
         } else if (!this.quickActionsAnimated && !this.isMobile) {
           setTimeout(() => {
+            this.desktopEnterReady = true;
             this.quickActionsReady = true;
             this.cdr.detectChanges();
             setTimeout(() => {
@@ -8332,6 +8340,8 @@ navigateToLessons() {
                 this.cdr.detectChanges();
                 setTimeout(() => {
                   this.upNextCardAnimated = true;
+                  this.desktopEnterDone = true;
+                  this.cdr.markForCheck();
                 }, 300);
               }, 80);
             }, 450);
@@ -8339,6 +8349,8 @@ navigateToLessons() {
         } else {
           this.upNextCardReady = true;
           this.upNextCardAnimated = true;
+          this.desktopEnterReady = true;
+          this.desktopEnterDone = true;
           this.mobileStaggerReady = true;
           this.mobileStaggerDone = true;
         }
@@ -10123,14 +10135,57 @@ navigateToLessons() {
   }
 
   onEarningsBalanceChanged(event: { available: number; pending: number }) {
-    this.tutorTotalEarnings = event.available || 0;
     this.tutorPendingEarnings = event.pending || 0;
-    this.walletBalance = this.tutorTotalEarnings;
+    this.animateEarningsCount(event.available || 0);
+    this.walletBalance = event.available || 0;
     this.updateWalletDisplay();
     this.cdr.detectChanges();
   }
 
   // Load tutor earnings summary
+  private animateEarningsCount(target: number): void {
+    this.tutorTotalEarnings = target;
+    const finish = (value: number) => {
+      this.displayedEarningsText = value.toFixed(2);
+      this.cdr.markForCheck();
+    };
+
+    if (typeof window === 'undefined') {
+      finish(target);
+      return;
+    }
+
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReduced || target <= 0) {
+      finish(target);
+      return;
+    }
+
+    const duration = 480;
+    const startTime = performance.now();
+    const step = (now: number) => {
+      const t = Math.min(1, (now - startTime) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      this.displayedEarningsText = (target * eased).toFixed(2);
+      this.cdr.markForCheck();
+      if (t < 1) {
+        requestAnimationFrame(step);
+      } else {
+        finish(target);
+      }
+    };
+    requestAnimationFrame(step);
+  }
+
+  private triggerWeeklyGoalBarShine(): void {
+    this.weeklyGoalBarShine = true;
+    this.cdr.markForCheck();
+    setTimeout(() => {
+      this.weeklyGoalBarShine = false;
+      this.cdr.markForCheck();
+    }, 950);
+  }
+
   async loadTutorEarnings() {
     if (!this.isTutorUser) {
       return;
@@ -10146,9 +10201,10 @@ navigateToLessons() {
 
       if (response.success) {
         // Show AVAILABLE balance only (ready to withdraw)
-        this.tutorTotalEarnings = response.balance.available || 0;
+        const nextBalance = response.balance.available || 0;
         this.tutorPendingEarnings = response.balance.pending || 0;
-        this.walletBalance = this.tutorTotalEarnings; // Show only available amount
+        this.animateEarningsCount(nextBalance);
+        this.walletBalance = nextBalance;
         this.updateWalletDisplay(); // Update the hidden/revealed display
       }
     } catch (error) {
@@ -10240,9 +10296,13 @@ navigateToLessons() {
 
     const earnedPct = Math.max(0, Math.min(100, (earned / goal) * 100));
     const combinedPct = Math.max(0, Math.min(100, ((earned + scheduled) / goal) * 100));
+    const prevEarnedPct = this.weeklyEarningsGoalPercent;
     this.weeklyEarningsGoalPercent = earnedPct;
     this.weeklyEarningsScheduledPercent = combinedPct;
     this.isWeeklyGoalReached = earned >= this.weeklyEarningsGoal;
+    if (!this.isMobile && earnedPct !== prevEarnedPct && earnedPct > 0) {
+      this.triggerWeeklyGoalBarShine();
+    }
 
     // When wallet balance is masked we hide the entire goal section — no need to compute
     // masked copy variants. Still set the flag so the template's *ngIf can gate visibility.

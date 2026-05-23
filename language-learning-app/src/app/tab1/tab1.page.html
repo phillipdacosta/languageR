@@ -565,7 +565,7 @@
           <span class="feedback-banner-subtitle">{{ feedbackBannerSubtitle }}</span>
         </div>
       </div>
-      <button class="feedback-banner-cta">
+      <button class="feedback-banner-cta link-chevron-nudge">
         {{ 'HOME.FEEDBACK_REVIEW' | translate }}
         <ion-icon name="arrow-forward-outline"></ion-icon>
       </button>
@@ -737,7 +737,7 @@
     <!-- ═══ DESKTOP: Original centered cards (unchanged) ═══ -->
 
     <!-- Desktop Loading State -->
-    <div class="empty-state-clean loading-skeleton-state" *ngIf="!isMobile && isLoadingLessons && (isTutorUser || isStudentUser)">
+    <div class="empty-state-clean loading-skeleton-state content-crossfade-in" *ngIf="!isMobile && isLoadingLessons && (isTutorUser || isStudentUser)">
       <div class="empty-state-clean-inner">
         <div class="skeleton-icon-circle"></div>
         <div class="skeleton-text-group">
@@ -750,7 +750,7 @@
     </div>
 
     <!-- Desktop Up Next Card -->
-    <div class="empty-state-clean" *ngIf="!isMobile && !isLoadingLessons && nextLesson && (isTutorUser || isStudentUser)">
+    <div class="empty-state-clean enter-stagger enter-stagger-1" [class.enter-stagger-go]="desktopEnterReady" [class.enter-stagger-done]="desktopEnterDone" *ngIf="!isMobile && !isLoadingLessons && nextLesson && (isTutorUser || isStudentUser)">
       <div class="empty-state-clean-inner upnext-filled" *ngIf="nextLesson as nextClass" (click)="onTutorUpNextCardShellClick($event)">
         <span style="display: none;">{{ countdownTick }}</span>
         <div class="upnext-filled-badges">
@@ -777,7 +777,7 @@
             <ion-icon name="people"></ion-icon>
           </div>
         </div>
-        <ion-avatar class="upnext-filled-avatar" *ngIf="!nextClass.lesson?.isClass">
+        <ion-avatar class="upnext-filled-avatar upnext-avatar-enter" *ngIf="!nextClass.lesson?.isClass">
           <img *ngIf="nextClass.avatar && nextClass.avatar !== 'assets/avatar.png'" [src]="nextClass.avatar" [alt]="nextClass | displayName" referrerpolicy="no-referrer" />
           <ion-icon *ngIf="!nextClass.avatar || nextClass.avatar === 'assets/avatar.png'" name="person" class="avatar-placeholder"></ion-icon>
         </ion-avatar>
@@ -886,7 +886,7 @@
     </div>
 
     <!-- Desktop Empty State (wide web only; narrow uses m-upnext-empty-block above) -->
-    <div class="empty-state-clean" *ngIf="!isMobile && !isNarrowTutorHomeViewport && isTutorUser && !isLoadingLessons && !nextLesson">
+    <div class="empty-state-clean enter-stagger enter-stagger-1" [class.enter-stagger-go]="desktopEnterReady" [class.enter-stagger-done]="desktopEnterDone" *ngIf="!isMobile && !isNarrowTutorHomeViewport && isTutorUser && !isLoadingLessons && !nextLesson">
       <div class="empty-state-clean-inner">
         <div class="empty-state-clean-icon empty-state-clean-icon--calendar anim-persist">
           <img class="empty-state-clean-calendar-art" [src]="isDarkModeActive ? 'assets/calendar-mobile-original.png' : 'assets/calendar-mobile.png'" alt="" />
@@ -903,7 +903,7 @@
     </div>
 
     <!-- Desktop Empty State — student (matches tutor layout; CTA to find tutors) -->
-    <div class="empty-state-clean" *ngIf="!isMobile && !isNarrowTutorHomeViewport && isStudentUser && !isLoadingLessons && !nextLesson">
+    <div class="empty-state-clean enter-stagger enter-stagger-1" [class.enter-stagger-go]="desktopEnterReady" [class.enter-stagger-done]="desktopEnterDone" *ngIf="!isMobile && !isNarrowTutorHomeViewport && isStudentUser && !isLoadingLessons && !nextLesson">
       <div class="empty-state-clean-inner">
         <div class="empty-state-clean-icon empty-state-clean-icon--calendar anim-persist">
           <img class="empty-state-clean-calendar-art" [src]="isDarkModeActive ? 'assets/calendar-mobile-original.png' : 'assets/calendar-mobile.png'" alt="" />
@@ -934,7 +934,7 @@
       </app-mobile-this-week>
 
       <!-- Row 1, Right — tutors: Earnings widget; students: Journey widget -->
-      <div class="grid-cell-earnings" *ngIf="!insightsLoading && (isTutorUser || isStudentUser)">
+      <div class="grid-cell-earnings enter-stagger enter-stagger-2" [class.enter-stagger-go]="desktopEnterReady" [class.enter-stagger-done]="desktopEnterDone" *ngIf="!insightsLoading && (isTutorUser || isStudentUser)">
         <h2 class="desktop-tutor-section-title" *ngIf="!isMobile && isTutorUser">{{ 'HOME.EARNINGS_TITLE' | translate }}</h2>
         <h2 class="desktop-tutor-section-title" *ngIf="!isMobile && isStudentUser">{{ 'HOME.JOURNEY_TITLE' | translate }}</h2>
 
@@ -949,7 +949,7 @@
           </div>
           <h3 class="home-warmup-title">{{ 'HOME.WARMUP_TITLE' | translate }}</h3>
           <p class="home-warmup-body">{{ warmup.personalizedHeader || warmup.focus }}</p>
-          <button type="button" class="home-warmup-cta" (click)="startWarmup()">
+          <button type="button" class="home-warmup-cta link-chevron-nudge" (click)="startWarmup()">
             <span>{{ 'HOME.WARMUP_CTA' | translate }}</span>
             <ion-icon name="arrow-forward"></ion-icon>
           </button>
@@ -1000,13 +1000,13 @@
           [mode]="journeyWidgetState === 'paused' ? 'paused' : 'unframed'">
         </app-premium-when-unframed>
 
-        <div class="earnings-card-widget" *ngIf="isTutorUser" [class.skip-entry-animation]="returningFromEarnings">
+        <div class="earnings-card-widget hover-lift" *ngIf="isTutorUser" [class.skip-entry-animation]="returningFromEarnings">
           <div class="earnings-card-body">
             <div class="earnings-label">{{ 'HOME.TOTAL_BALANCE' | translate }}</div>
             <div class="earnings-balance" (click)="toggleWalletVisibility($event)">
               <span *ngIf="earningsBalanceLoading" class="earnings-balance-skeleton"><ion-skeleton-text animated style="width: 120px; height: 40px; display: block; border-radius: 8px;"></ion-skeleton-text></span>
               <span *ngIf="!earningsBalanceLoading && !showWalletBalance && !walletTemporarilyVisible"><img class="home-dollar-icon" [src]="isDarkModeActive ? 'assets/home-earnings-dollar-dark.png' : 'assets/home-earnings-dollar.png'" alt="" role="presentation" /><span class="earnings-dots-display">••••</span></span>
-              <span *ngIf="!earningsBalanceLoading && (showWalletBalance || walletTemporarilyVisible)"><img class="home-dollar-icon" [src]="isDarkModeActive ? 'assets/home-earnings-dollar-dark.png' : 'assets/home-earnings-dollar.png'" alt="" role="presentation" /><span class="earnings-amount-text"> {{ tutorTotalEarnings.toFixed(2) }}</span></span>
+              <span *ngIf="!earningsBalanceLoading && (showWalletBalance || walletTemporarilyVisible)"><img class="home-dollar-icon" [class.anim-persist]="tutorTotalEarnings === 0" [src]="isDarkModeActive ? 'assets/home-earnings-dollar-dark.png' : 'assets/home-earnings-dollar.png'" alt="" role="presentation" /><span class="earnings-amount-text"> {{ displayedEarningsText }}</span></span>
             </div>
             <div
               class="earnings-pending"
@@ -1064,7 +1064,7 @@
                 <button type="submit" class="earnings-goal__save">{{ 'COMMON.SAVE' | translate }}</button>
               </form>
 
-              <div class="earnings-goal__bar">
+              <div class="earnings-goal__bar" [class.bar-shine]="weeklyGoalBarShine">
                 <div
                   class="earnings-goal__bar-scheduled"
                   *ngIf="(showWalletBalance || walletTemporarilyVisible) && !isWeeklyGoalReached && weeklyEarningsScheduledPercent > weeklyEarningsGoalPercent"
@@ -1085,14 +1085,14 @@
           <ion-button fill="outline" expand="block" class="withdraw-btn" (click)="openWithdrawModal()">
             {{ 'HOME.WITHDRAW_FUNDS' | translate }}
           </ion-button>
-          <button class="view-details-link" (click)="navigateToEarnings()">
+          <button class="view-details-link link-chevron-nudge" (click)="navigateToEarnings()">
             {{ 'HOME.VIEW_DETAILS' | translate }}
             <ion-icon name="arrow-forward-outline"></ion-icon>
           </button>
         </div>
       </div>
       <!-- Coming Up (Row 2, Left) — only when lessons exist -->
-      <div class="grid-cell-comingup" *ngIf="timelineEvents.length > 0">
+      <div class="grid-cell-comingup enter-stagger enter-stagger-3" [class.enter-stagger-go]="desktopEnterReady" [class.enter-stagger-done]="desktopEnterDone" *ngIf="timelineEvents.length > 0">
         <ng-container *ngIf="!isLoadingLessons">
           <div class="coming-up-section-head" *ngIf="!isMobile">
             <h2 class="desktop-tutor-section-title">{{ 'HOME.THIS_WEEK' | translate }}</h2>
@@ -1236,7 +1236,7 @@
       </app-mobile-recent-students>
 
       <!-- Quick Actions — desktop: always full width + 4-up row (same with or without This Week) -->
-      <div class="grid-cell-actions full-width" *ngIf="!isMobile && !isLoadingLessons && (isTutorUser || isStudentUser)" [class.grid-cell-actions--student]="isStudentUser">
+      <div class="grid-cell-actions full-width enter-stagger enter-stagger-4" [class.enter-stagger-go]="desktopEnterReady" [class.enter-stagger-done]="desktopEnterDone" *ngIf="!isMobile && !isLoadingLessons && (isTutorUser || isStudentUser)" [class.grid-cell-actions--student]="isStudentUser">
         <h2 class="desktop-tutor-section-title desktop-tutor-section-title--actions">{{ 'HOME.QUICK_ACTIONS' | translate }}</h2>
         <div class="actions-grid">
           <div class="quick-action-card qa-classes qa-with-asset" (click)="onClassesQuickAction()">
