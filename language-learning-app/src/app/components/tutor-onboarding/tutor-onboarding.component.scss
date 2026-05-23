@@ -3942,186 +3942,36 @@ ion-button.credential-cta {
     }
   }
   
+  .approval-split-main--form {
+    align-items: center;
+  }
+
   .payment-setup-flow {
     width: 100%;
+    max-width: 420px;
+    margin-inline: auto;
   }
 
   .payment-setup-method {
     width: 100%;
   }
 
-  .stripe-connect-card {
+  .payout-connect-provider {
+    padding: 8px 0;
+  }
+
+  .profile-payout-panel {
     width: 100%;
     max-width: 420px;
-    margin: 0 auto;
-    padding: 32px 28px 24px;
-    background: #ffffff;
-    border-radius: 12px;
-    border: 1px solid #e6ebf1;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
-    text-align: center;
+    margin-inline: auto;
+    padding: 8px 0 24px;
     box-sizing: border-box;
-
-    &__logo {
-      display: block;
-      height: 28px;
-      width: auto;
-      margin: 0 auto;
-    }
-
-    &__title {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      align-items: baseline;
-      column-gap: 0.32em;
-      row-gap: 0.12em;
-      margin: 20px 0 0;
-      font-size: 22px;
-      font-weight: 600;
-      line-height: 1.35;
-      letter-spacing: -0.02em;
-      color: #0a2540;
-    }
-
-    &__title-part {
-      white-space: pre-wrap;
-    }
-
-    &__brand {
-      color: #635bff;
-      flex-shrink: 0;
-    }
-
-    &__benefits {
-      margin: 24px 0 0;
-      padding: 16px;
-      background: #f6f9fc;
-      border-radius: 8px;
-      text-align: left;
-    }
-
-    &__legal {
-      margin: 20px 0 16px;
-      font-size: 12px;
-      line-height: 1.55;
-      color: #425466;
-      text-align: center;
-    }
-
-    &__legal-line {
-      display: inline;
-      text-wrap: pretty;
-    }
-
-    &__legal-text {
-      white-space: normal;
-    }
-
-    &__legal-link {
-      display: inline;
-      color: #635bff;
-      font-weight: 500;
-      text-decoration: none;
-      border: none;
-      outline: none;
-      box-shadow: none;
-      white-space: nowrap;
-
-      &:hover {
-        text-decoration: underline;
-      }
-
-      &:focus-visible {
-        text-decoration: underline;
-      }
-    }
-
-    &__cta {
-      width: 100%;
-      min-height: 48px;
-      padding: 0 20px;
-      border: none;
-      border-radius: 8px;
-      background: #0a2540;
-      color: #ffffff;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.15s ease, opacity 0.15s ease;
-
-      &:hover:not(:disabled) {
-        background: #1a3354;
-      }
-
-      &:disabled {
-        opacity: 0.45;
-        cursor: not-allowed;
-      }
-    }
-
-    &__powered {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      margin: 20px 0 0;
-      font-size: 12px;
-      color: #8898aa;
-
-      img {
-        height: 14px;
-        width: auto;
-        opacity: 0.85;
-      }
-    }
-
-    &__legacy {
-      margin-top: 20px;
-      text-align: left;
-
-      .tax-summary {
-        margin-bottom: 12px;
-      }
-    }
   }
 
-  .stripe-connect-benefit {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-
-    &:not(:last-child) {
-      margin-bottom: 16px;
-    }
-
-    ion-icon {
-      flex-shrink: 0;
-      margin-top: 2px;
-      font-size: 20px;
-      color: #0a2540;
-    }
-
-    &__text {
-      min-width: 0;
-
-      strong {
-        display: block;
-        font-size: 14px;
-        font-weight: 600;
-        color: #0a2540;
-        line-height: 1.3;
-      }
-
-      p {
-        margin: 4px 0 0;
-        font-size: 13px;
-        line-height: 1.45;
-        color: #425466;
-      }
-    }
+  .profile-payout-provider {
+    width: 100%;
   }
-  
+
   .tax-question-card,
   .payment-method-card {
     background: $ob-bg-subtle;
@@ -4602,46 +4452,7 @@ ion-button.credential-cta {
       }
     }
 
-    .stripe-connect-card {
-      background: #1c1c1e;
-      border-color: #38383a;
-      box-shadow: none;
-
-      &__title {
-        color: #f5f5f7;
-      }
-
-      &__brand {
-        color: #7a73ff;
-      }
-
-      &__benefits {
-        background: #2c2c2e;
-      }
-
-      &__legal {
-        color: #98989f;
-      }
-
-      &__legal-link {
-        color: #7a73ff;
-      }
-
-      &__cta {
-        background: #f5f5f7;
-        color: #0a2540;
-
-        &:hover:not(:disabled) {
-          background: #ffffff;
-        }
-      }
-
-      &__powered {
-        color: #636366;
-      }
-    }
-
-    .stripe-connect-benefit {
+    .payout-connect-benefit {
       ion-icon {
         color: #f5f5f7;
       }
@@ -4817,14 +4628,46 @@ ion-button.credential-cta {
   }
 
   .stripe-step .approval-split-main--form .approval-split-main-inner {
+    width: 100%;
+    max-width: 420px;
+    margin-inline: auto;
+    padding-inline: 0;
+    box-sizing: border-box;
+    align-items: center;
+
     @media (min-width: 768px) {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      width: min(420px, calc(100% - 48px));
+      width: min(420px, calc(100% - 64px));
       max-width: 420px;
+      padding-inline: 0;
     }
+  }
+
+  .stripe-step .approval-split-main--form {
+    align-items: center;
+
+    @media (max-width: 767px) {
+      padding-inline: 20px;
+    }
+  }
+
+  .stripe-step .payment-setup-flow {
+    width: 100%;
+    max-width: 420px;
+    margin-inline: auto;
+  }
+
+  .stripe-step .profile-payout-panel {
+    width: 100%;
+    max-width: 420px;
+    margin-inline: auto;
+  }
+
+  .stripe-step .profile-payout-provider {
+    width: 100%;
   }
 
   .photo-step-upload.approval-split-main,

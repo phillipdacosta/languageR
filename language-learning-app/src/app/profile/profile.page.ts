@@ -9,7 +9,7 @@ import { WebSocketService } from '../services/websocket.service';
 import { FileUploadService } from '../services/file-upload.service';
 import { Observable, firstValueFrom, Subject } from 'rxjs';
 import { filter, take, takeUntil } from 'rxjs/operators';
-import { LoadingController, AlertController, ModalController, ToastController, Platform } from '@ionic/angular';
+import { LoadingController, AlertController, ModalController, ToastController, Platform, ViewWillEnter } from '@ionic/angular';
 import { VideoUploadComponent } from '../components/video-upload/video-upload.component';
 import { TimezoneSelectorComponent } from '../components/timezone-selector/timezone-selector.component';
 import { InterfaceLanguageSelectModalComponent } from '../components/interface-language-select-modal/interface-language-select-modal.component';
@@ -25,6 +25,7 @@ import {
   stripStripeConnectQueryParams,
   StripeConnectReturnState,
 } from '../utils/stripe-connect.util';
+import { isStripeSupportedCountry } from '../data/stripe-supported-countries';
 import { TutorFeedbackService } from '../services/tutor-feedback.service';
 import { LearningPlanService } from '../services/learning-plan.service';
 import { SetGoalComponent } from '../modals/set-goal/set-goal.component';
@@ -41,7 +42,7 @@ import {
   styleUrls: ['./profile.page.scss'],
   standalone: false,
 })
-export class ProfilePage implements OnInit {
+export class ProfilePage implements OnInit, ViewWillEnter {
   @ViewChild(VideoUploadComponent) videoUploadComponent?: VideoUploadComponent;
   
   user$: Observable<any>;
@@ -77,13 +78,21 @@ export class ProfilePage implements OnInit {
   // Stripe Connect (for tutors)
   stripeConnectOnboarded = false;
   isLoadingStripeConnect = false;
-  private approvalStatusSubscription?: any;
   private destroy$ = new Subject<void>();
 
   // Payout options (for tutors)
   payoutOptions: any = null;
   hasPayoutSetup: boolean | undefined = undefined; // undefined = loading, false = not setup, true = setup
   payoutProvider: string = 'none'; // Current payout provider: 'stripe', 'paypal', 'manual', 'none'
+  profileDeterminedPayoutMethod: 'stripe' | 'paypal' | 'manual' | null = null;
+  isCountryDrivenProfilePayoutRouting = false;
+  profilePayoutMethodReasonKey = '';
+  profilePayoutMethodReasonParams: Record<string, string> = {};
+  readonly stripePrivacyPolicyUrl = 'https://stripe.com/privacy';
+  readonly paypalPrivacyPolicyUrl = 'https://www.paypal.com/us/legalhub/privacy-full';
+  profilePaypalEmail = '';
+  profilePaypalEmailError = '';
+  profilePaypalConnectDisabled = true;
 
   // Visibility status (for tutors)
   isTutorVisible: boolean = true;
@@ -100,6 +109,8 @@ export class ProfilePage implements OnInit {
   profileChecklist: ProfileChecklistItem[] = [];
   profileChecklistDoneCount = 0;
   profileChecklistTotal = 0;
+  /** Latest snapshot from tutorApprovalStatus$ — same pattern as home / tutor-calendar. */
+  private tutorApprovalStatusSnapshot: any = null;
   hasProfileCriticalInsights = false;
 
   /** Split layout (mirrors earnings): sidebar + main on wide; segment on narrow. */
@@ -220,16 +231,19 @@ export class ProfilePage implements OnInit {
     }
     
     // Subscribe to approval status from UserService
-    this.approvalStatusSubscription = this.userService.tutorApprovalStatus$.subscribe(status => {
-      if (status) {
-        // Note: stripeComplete now includes PayPal and Manual methods too (confusingly named)
-        // But we should NOT overwrite hasPayoutSetup here - let checkPayoutStatus() handle it
-        // to avoid confusion between payout providers
-        this.stripeConnectOnboarded = status.stripeComplete;
-        console.log(`💰 [PROFILE] Payment status from service: ${this.stripeConnectOnboarded}`);
-        this.rebuildProfileChecklistFromStatus(status);
-      }
-    });
+    this.userService.tutorApprovalStatus$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(status => {
+        this.tutorApprovalStatusSnapshot = status;
+        if (status) {
+          // Note: stripeComplete now includes PayPal and Manual methods too (confusingly named)
+          // But we should NOT overwrite hasPayoutSetup here - let checkPayoutStatus() handle it
+          // to avoid confusion between payout providers
+          this.stripeConnectOnboarded = status.stripeComplete;
+          console.log(`💰 [PROFILE] Payment status from service: ${this.stripeConnectOnboarded}`);
+          this.applyProfileChecklistFromStatus(status);
+        }
+      });
     
     // Subscribe to payout status updates from UserService
     this.userService.payoutStatus$.subscribe(payoutStatus => {
@@ -243,7 +257,8 @@ export class ProfilePage implements OnInit {
         }
         
         console.log('💰 [PROFILE] Payout status updated from service:', payoutStatus);
-        
+        this.syncProfilePayoutMethod();
+
         this.syncDisplayUserProperties();
         this.updateVisibilityStatus();
       }
@@ -276,6 +291,12 @@ export class ProfilePage implements OnInit {
     
     // Single queryParams subscription handles routing, scrollTo, and Stripe return
     this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
+      const userId = params['userId'];
+
+      if (!userId) {
+        this.applyProfileSectionQueryParam(params['section']);
+      }
+
       // ScrollTo support
       if (params['scrollTo']) {
         setTimeout(() => {
@@ -294,7 +315,6 @@ export class ProfilePage implements OnInit {
         void this.handleStripeConnectReturn(stripeReturn);
       }
 
-      const userId = params['userId'];
       if (userId) {
         this.isViewingOtherUser = true;
         this.loadOtherUserProfile(userId);
@@ -412,16 +432,22 @@ export class ProfilePage implements OnInit {
     });
     
     // Subscribe to currentUser$ to get updates when picture changes
-    this.userService.currentUser$.subscribe((updatedUser: any) => {
-      if (updatedUser && updatedUser['id'] === this.currentUser?.['id']) {
+    this.userService.currentUser$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((updatedUser: any) => {
+        if (!updatedUser || this.isViewingOtherUser) {
+          return;
+        }
+        if (this.currentUser && updatedUser.id !== this.currentUser.id) {
+          return;
+        }
         console.log('🔄 ProfilePage: Received currentUser$ update:', {
           picture: updatedUser?.picture,
           hasPicture: !!updatedUser?.picture
         });
         this.currentUser = updatedUser;
         this.syncDisplayUserProperties();
-      }
-    });
+      });
 
     // Ensure the toggle reflects the current theme state
     console.log('🎨 Profile page: Current dark mode state:', this.themeService.isDarkMode());
@@ -594,9 +620,10 @@ export class ProfilePage implements OnInit {
    * snapshot. Mirrors the home / tutor-calendar logic so the same banner data
    * powers all three pages.
    */
-  private rebuildProfileChecklistFromStatus(status: any): void {
-    if (!status) return;
-    if (!this.isTutorUser) return;
+  private applyProfileChecklistFromStatus(status: any): void {
+    if (!status || !this.isTutorUser || this.isViewingOtherUser) {
+      return;
+    }
 
     const checklist = buildTutorProfileChecklist({
       hasCustomPhoto: status.photoComplete === true,
@@ -618,6 +645,13 @@ export class ProfilePage implements OnInit {
     this.profileChecklistTotal = checklist.length;
     this.hasProfileCriticalInsights = this.profileChecklistDoneCount < checklist.length;
     this.tutorGrowthService.profileChecklist = checklist;
+    this.cdr.markForCheck();
+  }
+
+  ionViewWillEnter() {
+    if (!this.isViewingOtherUser && this.tutorApprovalStatusSnapshot) {
+      this.applyProfileChecklistFromStatus(this.tutorApprovalStatusSnapshot);
+    }
   }
 
   /** Open the tutor approval flow at the step the user clicked. */
@@ -1171,6 +1205,7 @@ export class ProfilePage implements OnInit {
     this.payoutProviderLabelKey = this._computePayoutProviderLabelKey();
     this.payoutSetupTitleKey = this._computePayoutSetupTitleKey();
     this.payoutSetupDescriptionKey = this._computePayoutSetupDescriptionKey();
+    this.syncProfilePayoutMethod();
 
     this.refreshInterfaceLanguageLabel();
 
@@ -1182,6 +1217,10 @@ export class ProfilePage implements OnInit {
     }));
 
     this.syncProfileLayoutState();
+
+    if (this.isTutorUser && this.tutorApprovalStatusSnapshot) {
+      this.applyProfileChecklistFromStatus(this.tutorApprovalStatusSnapshot);
+    }
   }
 
   /** Build sidebar nav + keep active section valid (own profile only). */
@@ -1206,7 +1245,10 @@ export class ProfilePage implements OnInit {
     this.profileNavItems = items;
 
     const allowed = new Set(items.map((i) => i.id));
-    if (!allowed.has(this.profileActiveSection)) {
+    const sectionQuery = this.route.snapshot.queryParamMap.get('section');
+    if (sectionQuery && allowed.has(sectionQuery)) {
+      this.profileActiveSection = sectionQuery as typeof this.profileActiveSection;
+    } else if (!allowed.has(this.profileActiveSection)) {
       this.profileActiveSection = 'personal';
     }
     this.applyProfilePanelTitles();
@@ -1216,6 +1258,38 @@ export class ProfilePage implements OnInit {
     if (!section) return;
     this.profileActiveSection = section as typeof this.profileActiveSection;
     this.applyProfilePanelTitles();
+  }
+
+  /** Deep-link / Stripe return: ?section=payments */
+  private applyProfileSectionQueryParam(section: string | string[] | undefined): void {
+    const raw = Array.isArray(section) ? section[0] : section;
+    if (!raw || this.isViewingOtherUser) {
+      return;
+    }
+    const allowed = new Set([
+      'personal',
+      'payments',
+      'stats',
+      'teaching',
+      'learning',
+      'settings',
+    ]);
+    if (allowed.has(raw)) {
+      this.profileActiveSection = raw as typeof this.profileActiveSection;
+      this.applyProfilePanelTitles();
+    }
+  }
+
+  private openProfilePayoutSection(): void {
+    this.profileActiveSection = 'payments';
+    this.applyProfilePanelTitles();
+    this.cdr.markForCheck();
+    setTimeout(() => {
+      document.getElementById('profile-payout-section')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }, 400);
   }
 
   onProfileSegmentChange(ev: CustomEvent): void {
@@ -1302,6 +1376,113 @@ export class ProfilePage implements OnInit {
     if (paypal?.available && paypal?.recommended) return 'PROFILE_SCREEN.PAYOUT_SETUP_DESCRIPTION';
     if (manual?.available) return 'PROFILE_SCREEN.PAYOUT_SETUP_DESCRIPTION_MANUAL';
     return 'PROFILE_SCREEN.PAYOUT_SETUP_DESCRIPTION';
+  }
+
+  /** Match tutor wizard: show Stripe or PayPal setup UI based on residence / payout options. */
+  private syncProfilePayoutMethod(): void {
+    if (!this.isTutorUser || this.isViewingOtherUser) {
+      this.profileDeterminedPayoutMethod = null;
+      return;
+    }
+
+    if (this.hasPayoutSetup === true) {
+      if (this.payoutProvider === 'stripe') {
+        this.profileDeterminedPayoutMethod = 'stripe';
+      } else if (this.payoutProvider === 'paypal') {
+        this.profileDeterminedPayoutMethod = 'paypal';
+      } else if (this.payoutProvider === 'manual') {
+        this.profileDeterminedPayoutMethod = 'manual';
+      }
+      return;
+    }
+
+    const residence = (this.currentUser?.residenceCountry || this.currentUser?.country || '').trim();
+    this.isCountryDrivenProfilePayoutRouting = !!residence;
+
+    if (residence) {
+      if (isStripeSupportedCountry(residence)) {
+        this.profileDeterminedPayoutMethod = 'stripe';
+        this.profilePayoutMethodReasonKey = 'TUTOR_APPROVAL.METHOD_REASON_STRIPE_COUNTRY';
+      } else {
+        this.profileDeterminedPayoutMethod = 'paypal';
+        this.profilePayoutMethodReasonKey = 'TUTOR_APPROVAL.METHOD_REASON_PAYPAL_COUNTRY';
+      }
+      this.profilePayoutMethodReasonParams = { country: residence };
+      return;
+    }
+
+    this.isCountryDrivenProfilePayoutRouting = false;
+    const opts = this.payoutOptions;
+    if (!opts) {
+      this.profileDeterminedPayoutMethod = null;
+      return;
+    }
+
+    if (opts.stripe?.available && opts.stripe?.recommended) {
+      this.profileDeterminedPayoutMethod = 'stripe';
+    } else if (opts.paypal?.available && opts.paypal?.recommended) {
+      this.profileDeterminedPayoutMethod = 'paypal';
+    } else if (opts.stripe?.available) {
+      this.profileDeterminedPayoutMethod = 'stripe';
+    } else if (opts.paypal?.available) {
+      this.profileDeterminedPayoutMethod = 'paypal';
+    } else if (opts.manual?.available) {
+      this.profileDeterminedPayoutMethod = 'manual';
+    } else {
+      this.profileDeterminedPayoutMethod = null;
+    }
+  }
+
+  get profilePaypalEmailConnected(): string {
+    return this.currentUser?.payoutDetails?.paypalEmail || '';
+  }
+
+  canConnectProfilePaypal(): boolean {
+    const email = this.profilePaypalEmail.trim();
+    return email.length > 0 && !this.profilePaypalEmailError;
+  }
+
+  onProfilePaypalEmailInput(): void {
+    this.profilePaypalEmailError = '';
+    const email = this.profilePaypalEmail.trim();
+    if (!email) {
+      this.profilePaypalConnectDisabled = true;
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      this.profilePaypalEmailError = 'TUTOR_APPROVAL.ERR_PAYPAL_EMAIL_INVALID';
+    }
+    this.profilePaypalConnectDisabled = !!this.profilePaypalEmailError;
+  }
+
+  onProfilePaypalEmailChange(value: string): void {
+    this.profilePaypalEmail = value;
+    this.onProfilePaypalEmailInput();
+  }
+
+  async connectProfilePayout(): Promise<void> {
+    if (this.profileDeterminedPayoutMethod === 'stripe') {
+      this.isLoadingStripeConnect = true;
+      try {
+        await this.setupStripeConnect();
+      } finally {
+        this.isLoadingStripeConnect = false;
+      }
+      return;
+    }
+    if (this.profileDeterminedPayoutMethod === 'paypal') {
+      this.onProfilePaypalEmailInput();
+      if (!this.canConnectProfilePaypal()) {
+        if (!this.profilePaypalEmail.trim()) {
+          this.profilePaypalEmailError = 'TUTOR_APPROVAL.ERR_PAYPAL_EMAIL_INVALID';
+        }
+        return;
+      }
+      await this.setupPayPal(this.profilePaypalEmail.trim());
+      return;
+    }
+    await this.startStripeConnectOnboarding();
   }
 
   goBack(): void {
@@ -2024,13 +2205,13 @@ export class ProfilePage implements OnInit {
     ) {
       this.openTutorApprovalWizardAtStep(state.tutorApprovalStepId);
     } else if (state.returnContext === 'profile-payout') {
-      setTimeout(() => {
-        const payoutEl = document.getElementById('profile-payout-section');
-        payoutEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 400);
+      this.openProfilePayoutSection();
     }
 
     const cleanedParams = stripStripeConnectQueryParams(this.route.snapshot.queryParams);
+    if (state.returnContext === 'profile-payout') {
+      cleanedParams['section'] = 'payments';
+    }
     this.router.navigate([], {
       relativeTo: this.route,
       queryParams: cleanedParams,
@@ -2125,6 +2306,8 @@ export class ProfilePage implements OnInit {
       }
 
       console.log(`💰 [PROFILE] Final payout status: provider=${this.payoutProvider}, setup=${this.hasPayoutSetup}`);
+      this.syncProfilePayoutMethod();
+      this.cdr.markForCheck();
       this.syncDisplayUserProperties();
     } catch (error) {
       console.error('❌ Error checking payout status:', error);
@@ -2482,10 +2665,6 @@ export class ProfilePage implements OnInit {
   ngOnDestroy() {
     this.destroy$.next();
     this.destroy$.complete();
-    
-    if (this.approvalStatusSubscription) {
-      this.approvalStatusSubscription.unsubscribe();
-    }
   }
 
 }

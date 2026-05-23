@@ -40,6 +40,9 @@ export function buildStripeConnectOnboardPayload(
   const returnParams = new URLSearchParams(search);
   returnParams.set('stripe_success', 'true');
   returnParams.set('stripeReturnContext', returnContext);
+  if (returnContext === 'profile-payout') {
+    returnParams.set('section', 'payments');
+  }
   if (returnContext === 'tutor-approval-wizard' && tutorApprovalStepId) {
     returnParams.set('tutorApprovalStep', tutorApprovalStepId);
   }
@@ -47,8 +50,8 @@ export function buildStripeConnectOnboardPayload(
   const refreshParams = new URLSearchParams(search);
   refreshParams.set('stripe_refresh', 'true');
   refreshParams.set('stripeReturnContext', returnContext);
-  if (returnContext === 'tutor-approval-wizard' && tutorApprovalStepId) {
-    refreshParams.set('tutorApprovalStep', tutorApprovalStepId);
+  if (returnContext === 'profile-payout') {
+    refreshParams.set('section', 'payments');
   }
 
   return {

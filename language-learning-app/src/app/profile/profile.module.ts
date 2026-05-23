@@ -11,6 +11,8 @@ import { PicturePreviewModalComponent } from '../components/picture-preview-moda
 import { InterfaceLanguageSelectModalComponent } from '../components/interface-language-select-modal/interface-language-select-modal.component';
 import { SafeUrlPipe } from '../pipes/safe-url.pipe';
 import { TutorOnboardingComponent } from '../components/tutor-onboarding/tutor-onboarding.component';
+import { StripeConnectCardComponent } from '../components/payout-connect/stripe-connect-card.component';
+import { PaypalConnectCardComponent } from '../components/payout-connect/paypal-connect-card.component';
 
 @NgModule({
   imports: [
@@ -20,7 +22,9 @@ import { TutorOnboardingComponent } from '../components/tutor-onboarding/tutor-o
     ProfilePageRoutingModule,
     SharedModule,
     InterfaceLanguageSelectModalComponent,
-    TutorOnboardingComponent
+    TutorOnboardingComponent,
+    StripeConnectCardComponent,
+    PaypalConnectCardComponent
   ],
   declarations: [
     ProfilePage,

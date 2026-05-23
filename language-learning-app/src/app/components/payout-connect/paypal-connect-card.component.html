@@ -1,0 +1,130 @@
+<div class="paypal-connect-card" [class.paypal-connect-card--connected]="connected">
+  <img
+    class="paypal-connect-card__logo"
+    src="assets/icon/paypal-icon.png"
+    alt="PayPal"
+    height="32"
+    decoding="async" />
+
+  <ng-container *ngIf="connected; else paypalSetup">
+    <div class="paypal-connect-card__connected-badge">
+      <ion-icon name="checkmark-circle" color="success"></ion-icon>
+      <span>{{ 'TUTOR_APPROVAL.PAYMENT_VIA_PAYPAL' | translate }}</span>
+    </div>
+    <p class="paypal-connect-card__connected-email" *ngIf="connectedEmail">{{ connectedEmail }}</p>
+    <p class="paypal-connect-card__connected-desc">{{ 'PROFILE_SCREEN.PAYOUTS_EARNINGS_PAYPAL' | translate }}</p>
+    <button
+      *ngIf="showSecondaryAction"
+      type="button"
+      class="paypal-connect-card__cta paypal-connect-card__cta--secondary"
+      [disabled]="loading"
+      (click)="secondaryActionClick.emit()">
+      <ion-spinner *ngIf="loading" name="crescent"></ion-spinner>
+      <span *ngIf="!loading">{{ secondaryActionLabelKey | translate }}</span>
+    </button>
+    <button
+      *ngIf="!showSecondaryAction"
+      type="button"
+      class="paypal-connect-card__cta paypal-connect-card__cta--secondary"
+      (click)="editEmailClick.emit()">
+      <ion-icon name="pencil-outline"></ion-icon>
+      {{ 'TUTOR_APPROVAL.PAYPAL_CHANGE_EMAIL' | translate }}
+    </button>
+  </ng-container>
+
+  <ng-template #paypalSetup>
+    <h2 class="paypal-connect-card__title">
+      <span class="paypal-connect-card__title-part">{{ 'TUTOR_APPROVAL.PAYPAL_CONNECT_TITLE_PREFIX' | translate }}</span>
+      <span class="paypal-connect-card__brand">PayPal</span>
+      <span class="paypal-connect-card__title-part">{{ 'TUTOR_APPROVAL.PAYPAL_CONNECT_TITLE_SUFFIX' | translate }}</span>
+    </h2>
+
+    <p class="paypal-connect-card__reason" *ngIf="reasonKey">
+      {{ reasonKey | translate: reasonParams }}
+    </p>
+
+    <div class="paypal-connect-card__benefits">
+      <div class="payout-connect-benefit">
+        <ion-icon name="globe-outline" aria-hidden="true"></ion-icon>
+        <div class="payout-connect-benefit__text">
+          <strong>{{ 'TUTOR_APPROVAL.PAYPAL_CONNECT_SECURE_TITLE' | translate }}</strong>
+          <p>{{ 'TUTOR_APPROVAL.PAYPAL_CONNECT_SECURE_DESC' | translate }}</p>
+        </div>
+      </div>
+      <div class="payout-connect-benefit">
+        <ion-icon name="flash-outline" aria-hidden="true"></ion-icon>
+        <div class="payout-connect-benefit__text">
+          <strong>{{ 'TUTOR_APPROVAL.PAYPAL_CONNECT_INSTANT_TITLE' | translate }}</strong>
+          <p>{{ 'TUTOR_APPROVAL.PAYPAL_CONNECT_INSTANT_DESC' | translate }}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="paypal-connect-card__email">
+      <label class="paypal-connect-card__email-label" [attr.for]="emailInputId">{{ 'TUTOR_APPROVAL.PAYPAL_EMAIL_LABEL' | translate }}</label>
+      <input
+        [id]="emailInputId"
+        class="paypal-connect-card__email-input"
+        type="email"
+        inputmode="email"
+        [ngModel]="email"
+        (ngModelChange)="onEmailInput($event)"
+        [placeholder]="'TUTOR_APPROVAL.PAYPAL_EMAIL_PLACEHOLDER' | translate" />
+    </div>
+
+    <div class="paypal-connect-card__error" *ngIf="emailErrorKey">
+      <ion-icon name="alert-circle-outline"></ion-icon>
+      <span>{{ emailErrorKey | translate }}</span>
+    </div>
+
+    <p class="paypal-connect-card__legal">
+      <span class="paypal-connect-card__legal-text">{{ 'TUTOR_APPROVAL.PAYPAL_CONNECT_LEGAL_PREFIX' | translate }}</span>
+      <a
+        class="paypal-connect-card__legal-link"
+        [href]="paypalPrivacyPolicyUrl"
+        target="_blank"
+        rel="noopener noreferrer">{{ 'TUTOR_APPROVAL.PAYPAL_CONNECT_PRIVACY_LINK' | translate }}</a>
+      <span class="paypal-connect-card__legal-text">{{ 'TUTOR_APPROVAL.PAYPAL_CONNECT_LEGAL_SUFFIX' | translate }}</span>
+    </p>
+
+    <button
+      type="button"
+      class="paypal-connect-card__cta"
+      [disabled]="connectDisabled || loading"
+      (click)="connectClick.emit()">
+      <ion-spinner *ngIf="loading" name="crescent"></ion-spinner>
+      <span *ngIf="!loading">{{ 'TUTOR_APPROVAL.PAYPAL_CONNECT_CTA' | translate }}</span>
+    </button>
+
+    <p class="paypal-connect-card__powered">
+      {{ 'TUTOR_APPROVAL.PAYPAL_CONNECT_POWERED' | translate }}
+      <img src="assets/icon/paypal-icon.png" alt="" width="22" height="22" decoding="async" />
+    </p>
+
+    <div class="paypal-connect-card__legacy" *ngIf="showWizardLegacySummary">
+      <div class="tax-summary">
+        <div class="summary-item">
+          <ion-icon [name]="isUSPersonForTax ? 'flag' : 'globe'"></ion-icon>
+          <span *ngIf="isUSPersonForTax">{{ 'TUTOR_APPROVAL.SUMMARY_US_PERSON' | translate }}</span>
+          <span *ngIf="!isUSPersonForTax">{{ 'TUTOR_APPROVAL.SUMMARY_NON_US_PERSON' | translate }}</span>
+        </div>
+        <div class="summary-item" *ngIf="isUSPersonForTax">
+          <ion-icon [name]="hasUSBankAccount ? 'business' : 'card'"></ion-icon>
+          <span *ngIf="hasUSBankAccount">{{ 'TUTOR_APPROVAL.SUMMARY_US_BANK' | translate }}</span>
+          <span *ngIf="!hasUSBankAccount">{{ 'TUTOR_APPROVAL.SUMMARY_NO_US_BANK' | translate }}</span>
+        </div>
+        <ion-button fill="clear" size="small" (click)="editTaxInfoClick.emit()">
+          <ion-icon name="create-outline" slot="start"></ion-icon>
+          {{ 'COMMON.EDIT' | translate }}
+        </ion-button>
+      </div>
+
+      <div class="button-row">
+        <ion-button fill="outline" (click)="backClick.emit()">
+          <ion-icon name="arrow-back" slot="start"></ion-icon>
+          {{ 'COMMON.BACK' | translate }}
+        </ion-button>
+      </div>
+    </div>
+  </ng-template>
+</div>

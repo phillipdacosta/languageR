@@ -15,6 +15,8 @@ import { ImageCropperComponent } from '../image-cropper/image-cropper.component'
 import { isStripeSupportedCountry } from '../../data/stripe-supported-countries';
 import { TranslateService } from '@ngx-translate/core';
 import { buildStripeConnectPayloadForApprovalWizardStep } from '../../utils/stripe-connect.util';
+import { StripeConnectCardComponent } from '../payout-connect/stripe-connect-card.component';
+import { PaypalConnectCardComponent } from '../payout-connect/paypal-connect-card.component';
 
 type ApprovalStepId = 'photo' | 'video' | 'stripe' | 'identity' | 'qualifications' | 'tos';
 
@@ -39,7 +41,7 @@ interface OnboardingStep {
   templateUrl: './tutor-onboarding.component.html',
   styleUrls: ['./tutor-onboarding.component.scss'],
   standalone: true,
-  imports: [CommonModule, FormsModule, IonicModule, SharedModule]
+  imports: [CommonModule, FormsModule, IonicModule, SharedModule, StripeConnectCardComponent, PaypalConnectCardComponent]
 })
 export class TutorOnboardingComponent implements OnInit {
   /** When true, close/skip dismiss a parent modal instead of routing home. */
@@ -186,11 +188,14 @@ export class TutorOnboardingComponent implements OnInit {
   /** When true, completed PayPal screen shows the edit form instead of the success card. */
   editingPayoutEmail = false;
   readonly stripePrivacyPolicyUrl = 'https://stripe.com/privacy';
+  readonly paypalPrivacyPolicyUrl = 'https://www.paypal.com/us/legalhub/privacy-full';
   /** True when payout routing is driven by `residenceCountry` (post-onboarding). */
   isCountryDrivenPayoutRouting = false;
   /** Plain-English explanation of why a payout method was chosen ("Spain → Stripe Connect"). */
   payoutMethodReasonKey = '';
   payoutMethodReasonParams: Record<string, string> = {};
+  wizardPaypalReasonKey = '';
+  wizardPaymentConnectDisabled = true;
 
   // TOS state
   tosChecked = false;
@@ -439,6 +444,7 @@ export class TutorOnboardingComponent implements OnInit {
         this.payoutMethodReasonParams = { country: residence };
         this.paymentSetupStep = 'setup-method';
         console.log(`💰 [TUTOR-APPROVAL] Country-driven routing: ${residence} → ${this.determinedPayoutMethod}`);
+        this.syncWizardPaymentConnectUi();
       } else if (this.isUSPersonForTax !== null) {
         this.isCountryDrivenPayoutRouting = false;
         // Legacy fallback: tax info answered but no residenceCountry stored
@@ -452,6 +458,8 @@ export class TutorOnboardingComponent implements OnInit {
           this.paymentSetupStep = 'bank-account';
         }
       }
+
+      this.syncWizardPaymentConnectUi();
 
       // Load credential data
       const creds = user.tutorCredentials;
@@ -673,10 +681,12 @@ export class TutorOnboardingComponent implements OnInit {
   // Payment setup flow methods
   setUSPersonStatus(isUSPerson: boolean) {
     this.isUSPersonForTax = isUSPerson;
+    this.syncWizardPaymentConnectUi();
   }
 
   setUSBankStatus(hasUSBank: boolean) {
     this.hasUSBankAccount = hasUSBank;
+    this.syncWizardPaymentConnectUi();
   }
 
   /** Legacy US-tax flow — only used when `residenceCountry` is not yet set. */
@@ -694,6 +704,7 @@ export class TutorOnboardingComponent implements OnInit {
       this.determinedPayoutMethod = this.hasUSBankAccount ? 'stripe' : 'paypal';
       this.paymentSetupStep = 'setup-method';
     }
+    this.syncWizardPaymentConnectUi();
   }
 
   previousPaymentStep() {
@@ -714,6 +725,32 @@ export class TutorOnboardingComponent implements OnInit {
   editTaxInfo() {
     this.paymentSetupStep = 'tax-status';
     this.determinedPayoutMethod = null;
+    this.syncWizardPaymentConnectUi();
+  }
+
+  onWizardPaypalEmailChange(value: string): void {
+    this.paypalEmail = value;
+    this.validatePayPalEmail();
+    this.syncWizardPaymentConnectUi();
+  }
+
+  private syncWizardPaymentConnectUi(): void {
+    if (this.determinedPayoutMethod === 'paypal') {
+      if (this.isCountryDrivenPayoutRouting) {
+        this.wizardPaypalReasonKey = this.payoutMethodReasonKey;
+      } else if (this.isUSPersonForTax === null) {
+        this.wizardPaypalReasonKey = '';
+      } else if (this.isUSPersonForTax) {
+        this.wizardPaypalReasonKey = 'TUTOR_APPROVAL.METHOD_REASON_PAYPAL_US';
+      } else {
+        this.wizardPaypalReasonKey = 'TUTOR_APPROVAL.METHOD_REASON_PAYPAL_INTL';
+      }
+      this.wizardPaymentConnectDisabled =
+        this.paypalEmail.trim().length === 0 || !!this.paypalEmailError;
+    } else {
+      this.wizardPaypalReasonKey = '';
+      this.wizardPaymentConnectDisabled = this.determinedPayoutMethod === null;
+    }
   }
 
   async startEditPayoutEmail() {
@@ -750,6 +787,7 @@ export class TutorOnboardingComponent implements OnInit {
     this.paypalEmailError = '';
     
     if (!this.paypalEmail.trim()) {
+      this.syncWizardPaymentConnectUi();
       return;
     }
     
@@ -757,6 +795,7 @@ export class TutorOnboardingComponent implements OnInit {
     if (!emailRegex.test(this.paypalEmail.trim())) {
       this.paypalEmailError = 'TUTOR_APPROVAL.ERR_PAYPAL_EMAIL_INVALID';
     }
+    this.syncWizardPaymentConnectUi();
   }
 
   canSetupPayment(): boolean {
@@ -767,7 +806,7 @@ export class TutorOnboardingComponent implements OnInit {
   }
 
   async setupPaymentMethod() {
-    if (!this.canSetupPayment()) {
+    if (this.wizardPaymentConnectDisabled) {
       return;
     }
 

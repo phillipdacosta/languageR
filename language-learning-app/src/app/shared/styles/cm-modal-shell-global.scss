@@ -142,3 +142,52 @@ html.ion-palette-dark {
     background: #1c1c1e;
   }
 }
+
+// Tutor approval wizard — payout connect card layout (styles live in payout-connect components)
+app-tutor-onboarding,
+.tutor-approval-wizard-page,
+.tutor-approval-wizard {
+  .payout-connect-provider,
+  .profile-payout-provider {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    max-width: 420px;
+    margin-inline: auto;
+    padding: 8px 16px;
+    box-sizing: border-box;
+  }
+
+  .stripe-step .approval-split-main--form {
+    align-items: center;
+  }
+
+  .stripe-step .approval-split-main--form .approval-split-main-inner {
+    width: 100%;
+    max-width: 420px;
+    margin-inline: auto;
+    padding-inline: 0;
+    box-sizing: border-box;
+    align-items: center;
+  }
+
+  .profile-payout-panel {
+    width: 100%;
+    max-width: 420px;
+    margin-inline: auto;
+    padding: 8px 0 24px;
+    box-sizing: border-box;
+  }
+}
+
+html.ion-palette-dark {
+  app-tutor-onboarding,
+  .tutor-approval-wizard-page,
+  .tutor-approval-wizard {
+    .stripe-step .approval-split-main--form {
+      @media (min-width: 768px) {
+        background: #1c1c1e;
+      }
+    }
+  }
+}

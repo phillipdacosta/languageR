@@ -546,37 +546,49 @@
         <!-- CUSTOM CALENDAR (NEW) -->
         <div class="custom-calendar-wrapper" [style.opacity]="isDesktopCalendarReady ? '1' : '0'" [style.transition]="'opacity 0.3s ease-in-out'">
           <!-- Calendar Toolbar -->
-          <div class="custom-toolbar" [class.onboarding-incomplete]="isOnboardingIncomplete || pendingFeedbackCount > 0" [class.mobile-toolbar]="isCompactToolbar">
-            <div class="toolbar-left" *ngIf="!isOnboardingIncomplete && pendingFeedbackCount === 0">
-              <button class="nav-btn" type="button" (click)="navigatePrevious()">
-                <ion-icon name="chevron-back"></ion-icon>
-              </button>
-              <button class="nav-btn" type="button" (click)="navigateNext()">
-                <ion-icon name="chevron-forward"></ion-icon>
-              </button>
-              <button class="today-btn" type="button" (click)="navigateToday()">{{ 'TUTOR_CALENDAR.TODAY' | translate }}</button>
-              <button class="gcal-sync-btn" type="button" *ngIf="gcalConnected" (click)="syncGoogleCalendar()" [disabled]="gcalSyncing">
-                <img src="assets/google.png" alt="Google" class="gcal-sync-icon" [class.spinning]="gcalSyncing" />
-                <span *ngIf="!gcalSyncing">{{ 'TUTOR_CALENDAR.SYNC' | translate }}</span>
-                <span *ngIf="gcalSyncing">{{ 'TUTOR_CALENDAR.SYNCING' | translate }}</span>
-              </button>
-              <button class="desktop-avail-pill"
-                      type="button"
-                      [class.mcal-pill-pop]="availabilityJustSaved"
-                      *ngIf="weekAvailabilityGrossHours > 0 && customView === 'week' && !isOnboardingIncomplete && pendingFeedbackCount === 0"
-                      (click)="openAvailabilityModal()">
-                <ion-icon name="time-outline"></ion-icon>
-                {{ 'TUTOR_CALENDAR.HOURS_AVAILABLE_TOOLBAR' | translate:{ hours: weekAvailabilityHours } }}
-              </button>
-              <div class="view-switcher view-switcher-mobile" *ngIf="isCompactToolbar">
-                <button [class.active]="customView === 'week'" (click)="switchView('week')">{{ 'TUTOR_CALENDAR.WEEK' | translate }}</button>
-                <button [class.active]="customView === 'day'" (click)="switchView('day')">{{ 'TUTOR_CALENDAR.DAY' | translate }}</button>
+          <div class="custom-toolbar"
+               [class.has-toolbar-banner]="isOnboardingIncomplete || pendingFeedbackCount > 0"
+               [class.mobile-toolbar]="isCompactToolbar">
+            <div class="toolbar-primary">
+              <div class="toolbar-left">
+                <button class="nav-btn" type="button" (click)="navigatePrevious()" [disabled]="isScreenLocked()">
+                  <ion-icon name="chevron-back"></ion-icon>
+                </button>
+                <button class="nav-btn" type="button" (click)="navigateNext()" [disabled]="isScreenLocked()">
+                  <ion-icon name="chevron-forward"></ion-icon>
+                </button>
+                <button class="today-btn" type="button" (click)="navigateToday()" [disabled]="isScreenLocked()">{{ 'TUTOR_CALENDAR.TODAY' | translate }}</button>
+                <button class="gcal-sync-btn" type="button" *ngIf="gcalConnected && !isOnboardingIncomplete && pendingFeedbackCount === 0" (click)="syncGoogleCalendar()" [disabled]="gcalSyncing">
+                  <img src="assets/google.png" alt="Google" class="gcal-sync-icon" [class.spinning]="gcalSyncing" />
+                  <span *ngIf="!gcalSyncing">{{ 'TUTOR_CALENDAR.SYNC' | translate }}</span>
+                  <span *ngIf="gcalSyncing">{{ 'TUTOR_CALENDAR.SYNCING' | translate }}</span>
+                </button>
+                <button class="desktop-avail-pill"
+                        type="button"
+                        [class.mcal-pill-pop]="availabilityJustSaved"
+                        *ngIf="weekAvailabilityGrossHours > 0 && customView === 'week' && !isOnboardingIncomplete && pendingFeedbackCount === 0"
+                        (click)="openAvailabilityModal()">
+                  <ion-icon name="time-outline"></ion-icon>
+                  {{ 'TUTOR_CALENDAR.HOURS_AVAILABLE_TOOLBAR' | translate:{ hours: weekAvailabilityHours } }}
+                </button>
+                <div class="view-switcher view-switcher-mobile" *ngIf="isCompactToolbar">
+                  <button [class.active]="customView === 'week'" (click)="switchView('week')">{{ 'TUTOR_CALENDAR.WEEK' | translate }}</button>
+                  <button [class.active]="customView === 'day'" (click)="switchView('day')">{{ 'TUTOR_CALENDAR.DAY' | translate }}</button>
+                </div>
+              </div>
+              <div class="toolbar-center">
+                <h2 class="calendar-title" *ngIf="customView === 'week'">{{ currentWeekTitle }}</h2>
+                <h2 class="calendar-title" *ngIf="customView === 'day'">{{ selectedDayForDayView.monthLabel }} {{ selectedDayForDayView.year }}</h2>
+              </div>
+              <div class="toolbar-right" *ngIf="!isCompactToolbar">
+                <div class="view-switcher">
+                  <button [class.active]="customView === 'week'" (click)="switchView('week')">{{ 'TUTOR_CALENDAR.WEEK' | translate }}</button>
+                  <button [class.active]="customView === 'day'" (click)="switchView('day')">{{ 'TUTOR_CALENDAR.DAY' | translate }}</button>
+                </div>
               </div>
             </div>
-            <div class="toolbar-center">
-              <h2 class="calendar-title" *ngIf="customView === 'week' && !isOnboardingIncomplete && pendingFeedbackCount === 0">{{ currentWeekTitle }}</h2>
-              <h2 class="calendar-title" *ngIf="customView === 'day' && !isOnboardingIncomplete && pendingFeedbackCount === 0">{{ selectedDayForDayView.monthLabel }} {{ selectedDayForDayView.year }}</h2>
-              
+
+            <div class="toolbar-banner" *ngIf="isOnboardingIncomplete || pendingFeedbackCount > 0">
               <!-- Inline Profile Checklist -->
               <div class="profile-checklist-section" *ngIf="isOnboardingIncomplete && profileChecklist.length > 0">
                 <div class="profile-checklist-header">
@@ -621,12 +633,6 @@
                   {{ 'TUTOR_CALENDAR.REVIEW' | translate }}
                   <ion-icon name="arrow-forward-outline"></ion-icon>
                 </button>
-              </div>
-            </div>
-            <div class="toolbar-right" *ngIf="!isOnboardingIncomplete && pendingFeedbackCount === 0 && !isCompactToolbar">
-              <div class="view-switcher">
-                <button [class.active]="customView === 'week'" (click)="switchView('week')">{{ 'TUTOR_CALENDAR.WEEK' | translate }}</button>
-                <button [class.active]="customView === 'day'" (click)="switchView('day')">{{ 'TUTOR_CALENDAR.DAY' | translate }}</button>
               </div>
             </div>
           </div>

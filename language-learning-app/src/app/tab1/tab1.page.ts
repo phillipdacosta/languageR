@@ -10107,8 +10107,11 @@ navigateToLessons() {
     ) {
       this.openTutorApprovalWizardAtStep(state.tutorApprovalStepId);
     } else if (state.returnContext === 'profile-payout' && this.isTutorUser) {
-      this.showEarningsView = true;
-      this.cdr.markForCheck();
+      void this.router.navigate(['/tabs/profile'], {
+        queryParams: { section: 'payments' },
+        replaceUrl: true,
+      });
+      return;
     }
 
     const cleanedParams = stripStripeConnectQueryParams(this.activatedRoute.snapshot.queryParams);

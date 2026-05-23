@@ -664,25 +664,28 @@
                 <div class="approval-split-main-inner">
             <!-- Already completed state -->
             <ng-container *ngIf="approvalStatus?.stripeComplete">
-              <div class="status-card-large success tutor-approval-step-pane--sub">
+              <div class="profile-payout-panel">
+              <div *ngIf="currentUser?.payoutProvider === 'stripe'" class="profile-payout-provider tutor-approval-step-pane--sub">
+                <app-stripe-connect-card [connected]="true"></app-stripe-connect-card>
+              </div>
+
+              <div *ngIf="currentUser?.payoutProvider === 'paypal'" class="profile-payout-provider tutor-approval-step-pane--sub">
+                <app-paypal-connect-card
+                  [connected]="true"
+                  [connectedEmail]="currentUser?.payoutDetails?.paypalEmail || ''"
+                  (editEmailClick)="startEditPayoutEmail()">
+                </app-paypal-connect-card>
+              </div>
+
+              <div *ngIf="currentUser?.payoutProvider !== 'stripe' && currentUser?.payoutProvider !== 'paypal'" class="status-card-large success tutor-approval-step-pane--sub">
                 <ion-icon name="checkmark-circle"></ion-icon>
                 <p>{{ 'TUTOR_APPROVAL.PAYMENT_CONNECTED' | translate }}</p>
-                <span class="provider-badge" *ngIf="currentUser?.payoutProvider === 'stripe'">{{ 'TUTOR_APPROVAL.PAYMENT_VIA_STRIPE' | translate }}</span>
-                <span class="provider-badge" *ngIf="currentUser?.payoutProvider === 'paypal'">
-                  {{ 'TUTOR_APPROVAL.PAYMENT_VIA_PAYPAL' | translate }}
-                  <ng-container *ngIf="currentUser?.payoutDetails?.paypalEmail"> · {{ currentUser?.payoutDetails?.paypalEmail }}</ng-container>
-                </span>
               </div>
-              <div class="payout-edit-row" *ngIf="currentUser?.payoutProvider === 'paypal'">
-                <button type="button" class="payout-edit-btn" (click)="startEditPayoutEmail()">
-                  <ion-icon name="pencil-outline"></ion-icon>
-                  {{ 'TUTOR_APPROVAL.PAYPAL_CHANGE_EMAIL' | translate }}
-                </button>
               </div>
             </ng-container>
 
             <!-- Not yet completed -->
-            <div *ngIf="!approvalStatus?.stripeComplete" class="payment-setup-flow">
+            <div *ngIf="!approvalStatus?.stripeComplete && paymentSetupStep !== 'setup-method'" class="payment-setup-flow">
               
               <!-- STEP 1: Tax Status Question (legacy only — country-driven users skip this) -->
               <div *ngIf="paymentSetupStep === 'tax-status' && !isCountryDrivenPayoutRouting" class="tax-question-card">
@@ -786,160 +789,38 @@
                 </div>
               </div>
               
-              <!-- STEP 3: Payment Method Setup -->
-              <div *ngIf="paymentSetupStep === 'setup-method'" class="payment-setup-method tutor-approval-step-pane tutor-approval-step-pane--sub">
+            </div>
 
-                <!-- Stripe Connect -->
-                <div *ngIf="determinedPayoutMethod === 'stripe'" class="stripe-connect-card">
-                  <img
-                    class="stripe-connect-card__logo"
-                    src="assets/icon/stripe-wordmark-blurple.svg"
-                    alt="Stripe"
-                    width="72"
-                    height="30"
-                    decoding="async" />
+            <!-- STEP 3: Payment Method Setup — shared connect cards (matches Profile › Payments) -->
+            <div *ngIf="!approvalStatus?.stripeComplete && paymentSetupStep === 'setup-method'" class="profile-payout-panel tutor-approval-step-pane tutor-approval-step-pane--sub">
+              <div *ngIf="determinedPayoutMethod === 'stripe'" class="profile-payout-provider">
+                <app-stripe-connect-card
+                  [connectDisabled]="wizardPaymentConnectDisabled"
+                  [showWizardLegacySummary]="!isCountryDrivenPayoutRouting"
+                  [isUSPersonForTax]="isUSPersonForTax"
+                  [hasUSBankAccount]="hasUSBankAccount"
+                  (connectClick)="setupPaymentMethod()"
+                  (editTaxInfoClick)="editTaxInfo()"
+                  (backClick)="previousPaymentStep()">
+                </app-stripe-connect-card>
+              </div>
 
-                  <h2 class="stripe-connect-card__title">
-                    <span class="stripe-connect-card__title-part">{{ 'TUTOR_APPROVAL.STRIPE_CONNECT_TITLE_PREFIX' | translate }}</span>
-                    <span class="stripe-connect-card__brand">Stripe</span>
-                    <span class="stripe-connect-card__title-part">{{ 'TUTOR_APPROVAL.STRIPE_CONNECT_TITLE_SUFFIX' | translate }}</span>
-                  </h2>
-
-                  <div class="stripe-connect-card__benefits">
-                    <div class="stripe-connect-benefit">
-                      <ion-icon name="shield-outline" aria-hidden="true"></ion-icon>
-                      <div class="stripe-connect-benefit__text">
-                        <strong>{{ 'TUTOR_APPROVAL.STRIPE_CONNECT_SECURE_TITLE' | translate }}</strong>
-                        <p>{{ 'TUTOR_APPROVAL.STRIPE_CONNECT_SECURE_DESC' | translate }}</p>
-                      </div>
-                    </div>
-                    <div class="stripe-connect-benefit">
-                      <ion-icon name="link-outline" aria-hidden="true"></ion-icon>
-                      <div class="stripe-connect-benefit__text">
-                        <strong>{{ 'TUTOR_APPROVAL.STRIPE_CONNECT_LINKING_TITLE' | translate }}</strong>
-                        <p>{{ 'TUTOR_APPROVAL.STRIPE_CONNECT_LINKING_DESC' | translate }}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <p class="stripe-connect-card__legal">
-                    <span class="stripe-connect-card__legal-line">
-                      <span class="stripe-connect-card__legal-text">{{ 'TUTOR_APPROVAL.STRIPE_CONNECT_LEGAL_PREFIX' | translate }}</span>
-                      <a
-                        class="stripe-connect-card__legal-link"
-                        [href]="stripePrivacyPolicyUrl"
-                        target="_blank"
-                        rel="noopener noreferrer">{{ 'TUTOR_APPROVAL.STRIPE_CONNECT_PRIVACY_LINK' | translate }}</a>
-                      <span class="stripe-connect-card__legal-text">{{ 'TUTOR_APPROVAL.STRIPE_CONNECT_LEGAL_SUFFIX' | translate }}</span>
-                    </span>
-                  </p>
-
-                  <button
-                    type="button"
-                    class="stripe-connect-card__cta"
-                    [disabled]="!canSetupPayment()"
-                    (click)="setupPaymentMethod()">
-                    {{ 'TUTOR_APPROVAL.STRIPE_CONNECT_CTA' | translate }}
-                  </button>
-
-                  <p class="stripe-connect-card__powered">
-                    {{ 'TUTOR_APPROVAL.STRIPE_CONNECT_POWERED' | translate }}
-                    <img
-                      src="assets/icon/stripe-wordmark-slate.svg"
-                      alt=""
-                      width="48"
-                      height="20"
-                      decoding="async" />
-                  </p>
-
-                  <div class="stripe-connect-card__legacy" *ngIf="!isCountryDrivenPayoutRouting">
-                    <div class="tax-summary">
-                      <div class="summary-item">
-                        <ion-icon [name]="isUSPersonForTax ? 'flag' : 'globe'"></ion-icon>
-                        <span *ngIf="isUSPersonForTax">{{ 'TUTOR_APPROVAL.SUMMARY_US_PERSON' | translate }}</span>
-                        <span *ngIf="!isUSPersonForTax">{{ 'TUTOR_APPROVAL.SUMMARY_NON_US_PERSON' | translate }}</span>
-                      </div>
-                      <div class="summary-item" *ngIf="isUSPersonForTax">
-                        <ion-icon [name]="hasUSBankAccount ? 'business' : 'card'"></ion-icon>
-                        <span *ngIf="hasUSBankAccount">{{ 'TUTOR_APPROVAL.SUMMARY_US_BANK' | translate }}</span>
-                        <span *ngIf="!hasUSBankAccount">{{ 'TUTOR_APPROVAL.SUMMARY_NO_US_BANK' | translate }}</span>
-                      </div>
-                      <ion-button fill="clear" size="small" (click)="editTaxInfo()">
-                        <ion-icon name="create-outline" slot="start"></ion-icon>
-                        {{ 'COMMON.EDIT' | translate }}
-                      </ion-button>
-                    </div>
-
-                    <div class="button-row">
-                      <ion-button fill="outline" (click)="previousPaymentStep()">
-                        <ion-icon name="arrow-back" slot="start"></ion-icon>
-                        {{ 'COMMON.BACK' | translate }}
-                      </ion-button>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- PayPal -->
-                <div *ngIf="determinedPayoutMethod === 'paypal'" class="payment-method-card">
-                  <div class="payout-method-hero payout-method-hero--paypal">
-                    <div class="payout-method-hero__mark" aria-hidden="true">
-                      <div class="payout-method-hero__brand-icon">
-                        <img src="assets/icon/paypal-icon.png" alt="" width="48" height="48" decoding="async" />
-                      </div>
-                    </div>
-                    <h2 class="payout-method-hero__title">{{ 'TUTOR_APPROVAL.METHOD_PAYPAL' | translate }}</h2>
-                    <p class="payout-method-hero__reason">
-                      <span *ngIf="isCountryDrivenPayoutRouting">{{ payoutMethodReasonKey | translate: payoutMethodReasonParams }}</span>
-                      <span *ngIf="!isCountryDrivenPayoutRouting && isUSPersonForTax">{{ 'TUTOR_APPROVAL.METHOD_REASON_PAYPAL_US' | translate }}</span>
-                      <span *ngIf="!isCountryDrivenPayoutRouting && !isUSPersonForTax">{{ 'TUTOR_APPROVAL.METHOD_REASON_PAYPAL_INTL' | translate }}</span>
-                    </p>
-                  </div>
-
-                  <div class="tax-summary" *ngIf="!isCountryDrivenPayoutRouting">
-                    <div class="summary-item">
-                      <ion-icon [name]="isUSPersonForTax ? 'flag' : 'globe'"></ion-icon>
-                      <span *ngIf="isUSPersonForTax">{{ 'TUTOR_APPROVAL.SUMMARY_US_PERSON' | translate }}</span>
-                      <span *ngIf="!isUSPersonForTax">{{ 'TUTOR_APPROVAL.SUMMARY_NON_US_PERSON' | translate }}</span>
-                    </div>
-                    <div class="summary-item" *ngIf="isUSPersonForTax">
-                      <ion-icon [name]="hasUSBankAccount ? 'business' : 'card'"></ion-icon>
-                      <span *ngIf="hasUSBankAccount">{{ 'TUTOR_APPROVAL.SUMMARY_US_BANK' | translate }}</span>
-                      <span *ngIf="!hasUSBankAccount">{{ 'TUTOR_APPROVAL.SUMMARY_NO_US_BANK' | translate }}</span>
-                    </div>
-                    <ion-button fill="clear" size="small" (click)="editTaxInfo()">
-                      <ion-icon name="create-outline" slot="start"></ion-icon>
-                      {{ 'COMMON.EDIT' | translate }}
-                    </ion-button>
-                  </div>
-
-                  <div class="paypal-setup">
-                    <ion-item lines="none" class="paypal-email-item">
-                      <ion-input
-                        [label]="'TUTOR_APPROVAL.PAYPAL_EMAIL_LABEL' | translate"
-                        labelPlacement="stacked"
-                        type="email"
-                        [(ngModel)]="paypalEmail"
-                        [placeholder]="'TUTOR_APPROVAL.PAYPAL_EMAIL_PLACEHOLDER' | translate"
-                        (ionInput)="validatePayPalEmail()">
-                      </ion-input>
-                    </ion-item>
-                    <div *ngIf="paypalEmailError" class="error-message">
-                      <ion-icon name="alert-circle"></ion-icon>
-                      <span>{{ paypalEmailError | translate }}</span>
-                    </div>
-                    <p class="paypal-note">
-                      <ion-icon name="information-circle"></ion-icon>
-                      {{ 'TUTOR_APPROVAL.PAYPAL_LINK_NOTE' | translate }}
-                    </p>
-                  </div>
-
-                  <div class="button-row" *ngIf="!isCountryDrivenPayoutRouting">
-                    <ion-button fill="outline" (click)="previousPaymentStep()">
-                      <ion-icon name="arrow-back" slot="start"></ion-icon>
-                      {{ 'COMMON.BACK' | translate }}
-                    </ion-button>
-                  </div>
-                </div>
+              <div *ngIf="determinedPayoutMethod === 'paypal'" class="profile-payout-provider">
+                <app-paypal-connect-card
+                  [email]="paypalEmail"
+                  [emailErrorKey]="paypalEmailError"
+                  emailInputId="wizard-paypal-email"
+                  [reasonKey]="wizardPaypalReasonKey"
+                  [reasonParams]="payoutMethodReasonParams"
+                  [connectDisabled]="wizardPaymentConnectDisabled"
+                  [showWizardLegacySummary]="!isCountryDrivenPayoutRouting"
+                  [isUSPersonForTax]="isUSPersonForTax"
+                  [hasUSBankAccount]="hasUSBankAccount"
+                  (emailChange)="onWizardPaypalEmailChange($event)"
+                  (connectClick)="setupPaymentMethod()"
+                  (editTaxInfoClick)="editTaxInfo()"
+                  (backClick)="previousPaymentStep()">
+                </app-paypal-connect-card>
               </div>
             </div>
                 </div>
@@ -1085,21 +966,6 @@
               </div>
             </div>
           </div>
-
-        <!-- Primary Action Button (Payment step - only shown on setup-method sub-step) -->
-        <ion-button 
-          *ngIf="approvalStepId === 'stripe' && paymentSetupStep === 'setup-method' && !approvalStatus?.stripeComplete && determinedPayoutMethod === 'paypal'"
-          class="primary-action primary-action--payout primary-action--wizard-footer-match"
-          [disabled]="!canSetupPayment()"
-          (click)="setupPaymentMethod()">
-          <span slot="start" class="primary-action__payout-brand" aria-hidden="true">
-            <img
-              class="primary-action__payout-img primary-action__payout-img--paypal"
-              src="assets/icon/paypal-icon.png"
-              alt="" />
-          </span>
-          <span>{{ 'TUTOR_APPROVAL.BTN_CONNECT_PAYPAL' | translate }}</span>
-        </ion-button>
 
         </div>
 

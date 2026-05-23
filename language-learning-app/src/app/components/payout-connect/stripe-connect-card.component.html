@@ -1,0 +1,101 @@
+<div class="stripe-connect-card" [class.stripe-connect-card--connected]="connected">
+  <img
+    class="stripe-connect-card__logo"
+    src="assets/icon/stripe-wordmark-blurple.svg"
+    alt="Stripe"
+    width="72"
+    height="30"
+    decoding="async" />
+
+  <ng-container *ngIf="connected; else stripeSetup">
+    <div class="stripe-connect-card__connected-badge">
+      <ion-icon name="checkmark-circle" color="success"></ion-icon>
+      <span>{{ 'TUTOR_APPROVAL.PAYMENT_VIA_STRIPE' | translate }}</span>
+    </div>
+    <p class="stripe-connect-card__connected-desc">{{ 'PROFILE_SCREEN.PAYOUTS_EARNINGS_BANK' | translate }}</p>
+    <button
+      *ngIf="showSecondaryAction"
+      type="button"
+      class="stripe-connect-card__cta stripe-connect-card__cta--secondary"
+      [disabled]="loading"
+      (click)="secondaryActionClick.emit()">
+      <ion-spinner *ngIf="loading" name="crescent"></ion-spinner>
+      <span *ngIf="!loading">{{ secondaryActionLabelKey | translate }}</span>
+    </button>
+  </ng-container>
+
+  <ng-template #stripeSetup>
+    <h2 class="stripe-connect-card__title">
+      <span class="stripe-connect-card__title-part">{{ 'TUTOR_APPROVAL.STRIPE_CONNECT_TITLE_PREFIX' | translate }}</span>
+      <span class="stripe-connect-card__brand">Stripe</span>
+      <span class="stripe-connect-card__title-part">{{ 'TUTOR_APPROVAL.STRIPE_CONNECT_TITLE_SUFFIX' | translate }}</span>
+    </h2>
+
+    <div class="stripe-connect-card__benefits">
+      <div class="payout-connect-benefit">
+        <ion-icon name="shield-outline" aria-hidden="true"></ion-icon>
+        <div class="payout-connect-benefit__text">
+          <strong>{{ 'TUTOR_APPROVAL.STRIPE_CONNECT_SECURE_TITLE' | translate }}</strong>
+          <p>{{ 'TUTOR_APPROVAL.STRIPE_CONNECT_SECURE_DESC' | translate }}</p>
+        </div>
+      </div>
+      <div class="payout-connect-benefit">
+        <ion-icon name="link-outline" aria-hidden="true"></ion-icon>
+        <div class="payout-connect-benefit__text">
+          <strong>{{ 'TUTOR_APPROVAL.STRIPE_CONNECT_LINKING_TITLE' | translate }}</strong>
+          <p>{{ 'TUTOR_APPROVAL.STRIPE_CONNECT_LINKING_DESC' | translate }}</p>
+        </div>
+      </div>
+    </div>
+
+    <p class="stripe-connect-card__legal">
+      <span class="stripe-connect-card__legal-text">{{ 'TUTOR_APPROVAL.STRIPE_CONNECT_LEGAL_PREFIX' | translate }}</span>
+      <a
+        class="stripe-connect-card__legal-link"
+        [href]="stripePrivacyPolicyUrl"
+        target="_blank"
+        rel="noopener noreferrer">{{ 'TUTOR_APPROVAL.STRIPE_CONNECT_PRIVACY_LINK' | translate }}</a>
+      <span class="stripe-connect-card__legal-text">{{ 'TUTOR_APPROVAL.STRIPE_CONNECT_LEGAL_SUFFIX' | translate }}</span>
+    </p>
+
+    <button
+      type="button"
+      class="stripe-connect-card__cta"
+      [disabled]="connectDisabled || loading"
+      (click)="connectClick.emit()">
+      <ion-spinner *ngIf="loading" name="crescent"></ion-spinner>
+      <span *ngIf="!loading">{{ 'TUTOR_APPROVAL.STRIPE_CONNECT_CTA' | translate }}</span>
+    </button>
+
+    <p class="stripe-connect-card__powered">
+      {{ 'TUTOR_APPROVAL.STRIPE_CONNECT_POWERED' | translate }}
+      <img src="assets/icon/stripe-wordmark-slate.svg" alt="" width="48" height="20" decoding="async" />
+    </p>
+
+    <div class="stripe-connect-card__legacy" *ngIf="showWizardLegacySummary">
+      <div class="tax-summary">
+        <div class="summary-item">
+          <ion-icon [name]="isUSPersonForTax ? 'flag' : 'globe'"></ion-icon>
+          <span *ngIf="isUSPersonForTax">{{ 'TUTOR_APPROVAL.SUMMARY_US_PERSON' | translate }}</span>
+          <span *ngIf="!isUSPersonForTax">{{ 'TUTOR_APPROVAL.SUMMARY_NON_US_PERSON' | translate }}</span>
+        </div>
+        <div class="summary-item" *ngIf="isUSPersonForTax">
+          <ion-icon [name]="hasUSBankAccount ? 'business' : 'card'"></ion-icon>
+          <span *ngIf="hasUSBankAccount">{{ 'TUTOR_APPROVAL.SUMMARY_US_BANK' | translate }}</span>
+          <span *ngIf="!hasUSBankAccount">{{ 'TUTOR_APPROVAL.SUMMARY_NO_US_BANK' | translate }}</span>
+        </div>
+        <ion-button fill="clear" size="small" (click)="editTaxInfoClick.emit()">
+          <ion-icon name="create-outline" slot="start"></ion-icon>
+          {{ 'COMMON.EDIT' | translate }}
+        </ion-button>
+      </div>
+
+      <div class="button-row">
+        <ion-button fill="outline" (click)="backClick.emit()">
+          <ion-icon name="arrow-back" slot="start"></ion-icon>
+          {{ 'COMMON.BACK' | translate }}
+        </ion-button>
+      </div>
+    </div>
+  </ng-template>
+</div>
