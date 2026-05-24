@@ -2973,6 +2973,12 @@ ion-content {
   box-sizing: border-box;
   overflow: hidden;
 
+  &:not(.upnext-filled) {
+    justify-content: center;
+    padding-top: 28px;
+    padding-bottom: 28px;
+  }
+
   @media (max-width: 600px) {
     padding: 20px 16px;
     border-radius: 16px;
@@ -3004,16 +3010,18 @@ ion-content {
     color: rgba(255, 255, 255, 0.95);
   }
 
-  // Tutor desktop Up Next empty — calendar illustration (no plate behind PNG)
+  // Tutor desktop Up Next empty — desk illustration (no plate behind PNG)
   &.empty-state-clean-icon--calendar {
     background: transparent;
     box-shadow: none;
-    width: 160px;
-    height: 120px;
-    margin-bottom: 16px;
+    width: 143px;
+    height: 134px;
+    margin: 0 0 12px;
     border-radius: 16px;
     overflow: visible;
     animation: none;
+    position: relative;
+    bottom: 20px;
 
     .empty-state-clean-calendar-art {
       width: 100%;
@@ -3022,7 +3030,7 @@ ion-content {
       display: block;
       pointer-events: none;
       user-select: none;
-      transform: scale(1.26);
+      transform: none;
       transform-origin: center center;
     }
   }
@@ -3231,6 +3239,10 @@ ion-content {
   border-radius: 28px;
   padding: 10px 24px 14px;
   gap: 10px;
+
+  &:not(.m-card-filled-lesson) {
+    padding-top: 10px;
+  }
 }
 
 .m-card-filled-lesson {
@@ -3295,8 +3307,8 @@ ion-content {
 }
 
 .m-card-empty-calendar-wrap {
-  width: 120px;
-  height: 120px;
+  width: 143px;
+  height: 134px;
   border-radius: 16px;
   background: transparent;
   overflow: visible;
@@ -3304,7 +3316,9 @@ ion-content {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  margin-bottom: 2px;
+  margin: 0 0 2px;
+  position: relative;
+  bottom: 20px;
 }
 
 .m-card-empty-calendar-art {
@@ -3314,7 +3328,7 @@ ion-content {
   display: block;
   pointer-events: none;
   user-select: none;
-  transform: scale(1.26);
+  transform: none;
   transform-origin: center center;
 }
 
@@ -8693,6 +8707,11 @@ top: 4px;
     justify-content: center;
     min-height: 0;
     padding: 24px;
+
+    &:not(.upnext-filled) {
+      justify-content: center;
+      padding-top: 24px;
+    }
     
     @media (max-width: 600px) {
       flex: none;
@@ -8826,6 +8845,195 @@ top: 4px;
   }
 }
 
+// ── Home widget skeletons (desktop earnings / journey / quick actions) ──
+.home-widget-skeleton-title {
+  width: 120px;
+  height: 18px;
+  border-radius: 6px;
+  margin: 0 0 16px 0;
+  flex-shrink: 0;
+  display: block;
+  background: linear-gradient(90deg, #e8e8ed 0%, #d1d1d6 50%, #e8e8ed 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.grid-cell-upnext > .home-widget-skeleton-title {
+  width: 148px;
+  height: 22px;
+}
+
+.earnings-card-widget-skeleton,
+.journey-widget-skeleton {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: $lesson-card-home-shadow;
+  border: $lesson-card-home-border;
+  height: 360px;
+  min-height: 360px;
+  max-height: 360px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.earnings-card-widget-skeleton {
+  .ecws-body {
+    margin-bottom: 12px;
+  }
+
+  .ecws-label {
+    width: 88px;
+    height: 14px;
+    margin-bottom: 8px;
+  }
+
+  .ecws-balance {
+    width: 128px;
+    height: 40px;
+    border-radius: 8px;
+  }
+
+  .ecws-goal {
+    padding-top: 10px;
+    border-top: 1px solid #f3f4f6;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .ecws-goal-label {
+    width: 96px;
+    height: 13px;
+  }
+
+  .ecws-goal-amount {
+    width: 168px;
+    height: 16px;
+  }
+
+  .ecws-goal-bar {
+    width: 100%;
+    height: 8px;
+    border-radius: 999px;
+  }
+
+  .ecws-goal-sub {
+    width: 210px;
+    height: 12px;
+  }
+
+  .ecws-withdraw {
+    width: 100%;
+    height: 48px;
+    border-radius: 12px;
+    margin-bottom: 12px;
+  }
+
+  .ecws-details {
+    width: 108px;
+    height: 14px;
+    margin: 0 auto;
+    border-radius: 4px;
+  }
+}
+
+.journey-widget-skeleton {
+  gap: 12px;
+
+  .jws-phase {
+    width: 72px;
+    height: 12px;
+  }
+
+  .jws-title {
+    width: 180px;
+    height: 22px;
+  }
+
+  .jws-summary {
+    width: 100%;
+    height: 14px;
+
+    &--short {
+      width: 72%;
+    }
+  }
+
+  .jws-progress {
+    width: 100%;
+    height: 8px;
+    border-radius: 999px;
+    margin-top: 4px;
+  }
+
+  .jws-cta {
+    width: 100%;
+    height: 44px;
+    border-radius: 12px;
+    margin-top: auto;
+  }
+}
+
+.actions-grid-skeleton {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 14px;
+}
+
+.quick-action-card-skeleton {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 20px 18px;
+  box-shadow: $lesson-card-home-shadow;
+  border: $lesson-card-home-border;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  min-height: 84px;
+  box-sizing: border-box;
+
+  .qacs-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    flex-shrink: 0;
+  }
+
+  .qacs-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .qacs-label {
+    width: 72px;
+    height: 14px;
+  }
+
+  .qacs-sub {
+    width: 96px;
+    height: 11px;
+  }
+}
+
+.grid-cell-earnings,
+.grid-cell-upnext,
+.grid-cell-actions {
+  .skeleton-line {
+    background: linear-gradient(90deg, #e8e8ed 0%, #d1d1d6 50%, #e8e8ed 100%);
+    background-size: 200% 100%;
+    border-radius: 6px;
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+}
+
 .grid-cell-comingup {
   grid-area: comingup;
   min-width: 0;
@@ -8854,24 +9062,118 @@ top: 4px;
   .this-week-empty {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 12px 16px;
-    background: #fafafa;
-    border-radius: 12px;
-    border: 1px solid #f0f0f0;
+    gap: 18px;
+    padding: 20px 22px;
+    background: #ffffff;
+    border-radius: 16px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 
-    &__icon {
-      font-size: 18px;
-      color: #9ca3af;
+    &__icon-wrap {
       flex-shrink: 0;
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(145deg, #f0f9fc 0%, #e3f2f8 100%);
+
+      &--art {
+        width: 45px;
+        height: 45px;
+        background: none;
+        border-radius: 0;
+        box-shadow: none;
+        margin-right: 20px;
+      }
     }
 
-    &__text {
-      font-size: 14px;
-      font-weight: 500;
-      color: #6b7280;
-      margin: 0;
+    &__art {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      pointer-events: none;
+      user-select: none;
+      transform: none;
+      transform-origin: center center;
+    }
+
+    &__icon {
+      font-size: 26px;
+      color: #0086b1;
+    }
+
+    &__content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    &__title {
+      margin: 0 0 4px;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #222222;
       line-height: 1.3;
+    }
+
+    &__sub {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 400;
+      color: #717171;
+      line-height: 1.45;
+    }
+
+    &__message {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: #484848;
+      line-height: 1.4;
+    }
+
+    &__cta {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 10px;
+      padding: 8px 16px;
+      border: 1px solid #d1d5db;
+      border-radius: 12px;
+      background: #ffffff;
+      font-size: 14px;
+      font-weight: 600;
+      color: #222222;
+      text-decoration: none;
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: -0.01em;
+      transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+
+      &:hover {
+        color: #000000;
+        border-color: #b8bcc4;
+        background: #fafafa;
+      }
+    }
+
+    &--compact {
+      padding: 16px 20px;
+
+      .this-week-empty__icon-wrap {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        background: linear-gradient(145deg, #f0fdf4 0%, #e8f5ec 100%);
+      }
+
+      .this-week-empty__icon {
+        font-size: 22px;
+        color: #008a05;
+      }
     }
   }
 }
@@ -9301,6 +9603,7 @@ top: 4px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  position: relative;
   
   // When returning from earnings view: suppress all CSS animations.
   // Card visibility is controlled entirely by inline JS (no CSS animation timing gaps).
@@ -9353,10 +9656,6 @@ top: 4px;
         top: 8px;
         transform: translateX(-0.78em) scale(calc(2.85 / 0.85));
         transform-origin: 0 55%;
-
-        &.anim-persist {
-          animation: breathe 3s ease-in-out infinite;
-        }
       }
 
       .earnings-dots-display {
@@ -9447,6 +9746,7 @@ top: 4px;
     width: 100%;
     flex-shrink: 0;
     box-sizing: border-box;
+    position: relative;
 
     .earnings-goal__head {
       display: flex;
@@ -9465,7 +9765,7 @@ top: 4px;
       min-width: 0;
       flex-shrink: 0;
       grid-template-columns: 1fr;
-      grid-template-rows: 32px 8px 16px;
+      grid-template-rows: 32px 28px 16px;
       gap: 4px;
       align-items: center;
     }
@@ -9498,9 +9798,58 @@ top: 4px;
       display: none;
     }
 
-    .earnings-goal__bar {
+    .earnings-goal__bar-track {
       grid-row: 2;
       grid-column: 1;
+      position: relative;
+      display: flex;
+      align-items: center;
+      min-width: 0;
+      height: 28px;
+      // Always reserve badge space so empty and reached bars are the same length.
+      padding-right: 56px;
+    }
+
+    .earnings-goal__bar {
+      grid-row: unset;
+      grid-column: unset;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .earnings-goal__bar-end {
+      position: absolute;
+      right: 0;
+      top: 50%;
+      width: 56px;
+      height: 56px;
+      margin-top: -28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .earnings-goal__bar-lottie-host {
+      width: 56px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: visible;
+      pointer-events: none;
+      transform-origin: center center;
+
+      .earnings-goal__bar-end--pop & {
+        animation: weeklyGoalBadgePop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+
+      svg {
+        display: block;
+        width: 100% !important;
+        height: 100% !important;
+        transform: none;
+      }
     }
 
     .earnings-goal__sub {
@@ -9563,7 +9912,6 @@ top: 4px;
 
     .earnings-goal__bar {
       position: relative;
-      width: 100%;
       height: 8px;
       border-radius: 999px;
       background: #eef0f2;
@@ -9578,7 +9926,7 @@ top: 4px;
       top: 0;
       left: 0;
       bottom: 0;
-      background: rgba(31, 41, 55, 0.32);
+      background: rgba(107, 114, 128, 0.28);
       border-radius: 999px;
       transition: width 0.45s cubic-bezier(0.2, 0.8, 0.2, 1),
                   background-color 0.25s ease;
@@ -9591,7 +9939,7 @@ top: 4px;
       top: 0;
       left: 0;
       bottom: 0;
-      background: #1f2937;
+      background: #0086b1;
       border-radius: 999px;
       transition: width 0.45s cubic-bezier(0.2, 0.8, 0.2, 1),
                   background-color 0.25s ease;
@@ -9626,10 +9974,9 @@ top: 4px;
       letter-spacing: 2px;
     }
 
-    // Reached state — softer, encouraging green.
+    // Reached state — success reads via sub-label + end icon.
     &.is-reached {
-      .earnings-goal__bar-fill { background: #22c55e; }
-      .earnings-goal__sub { color: #16a34a; font-weight: 600; }
+      .earnings-goal__sub { color: #000000; font-weight: 600; }
     }
 
     .earnings-goal__edit {
@@ -9740,12 +10087,12 @@ top: 4px;
     font-size: 14px;
     font-weight: 600;
     color: #222222;
-    text-decoration: underline;
+    text-decoration: none;
     cursor: pointer;
     transition: all 0.15s ease;
     
     &:hover {
-      text-decoration: underline;
+      text-decoration: none;
     }
     
     ion-icon {
@@ -11625,6 +11972,21 @@ top: 4px;
   }
   100% {
     background-position: -200% 0;
+  }
+}
+
+@keyframes weeklyGoalBadgePop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0.4;
+  }
+  55% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
   }
 }
 
@@ -14150,6 +14512,27 @@ top: 4px;
     color: var(--ion-text-color, #ffffff) !important;
   }
   
+  // Home widget skeletons — dark
+  .earnings-card-widget-skeleton,
+  .journey-widget-skeleton,
+  .quick-action-card-skeleton {
+    background: #2a2a2a !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    box-shadow: $lesson-card-home-shadow-dark !important;
+  }
+
+  .earnings-card-widget-skeleton .ecws-goal {
+    border-top-color: #3a3a3a !important;
+  }
+
+  .grid-cell-earnings .skeleton-line,
+  .grid-cell-upnext .skeleton-line,
+  .grid-cell-actions .skeleton-line,
+  .home-widget-skeleton-title {
+    background: linear-gradient(90deg, #3a3a3c 0%, #4a4a4c 50%, #3a3a3c 100%) !important;
+    background-size: 200% 100% !important;
+  }
+
   // Earnings card dark mode
   .earnings-card-widget {
     background: #2a2a2a !important;
@@ -14206,15 +14589,14 @@ top: 4px;
       .earnings-goal__amount { color: #ffffff !important; }
       .earnings-goal__amount-masked { color: #555 !important; }
       .earnings-goal__bar { background: #2f2f2f !important; }
-      .earnings-goal__bar-scheduled { background: rgba(66, 152, 211, 0.42) !important; }
-      .earnings-goal__bar-fill { background: #4298d3 !important; }
+      .earnings-goal__bar-scheduled { background: rgba(156, 163, 175, 0.32) !important; }
+      .earnings-goal__bar-fill { background: #0086b1 !important; }
       .earnings-goal__bar-fill--masked { background: transparent !important; }
       .earnings-goal__sub { color: #8a8f95 !important; }
       .earnings-goal__sub-masked { color: #555 !important; }
 
       &.is-reached {
-        .earnings-goal__bar-fill { background: #22c55e !important; }
-        .earnings-goal__sub { color: #4ade80 !important; }
+        .earnings-goal__sub { color: #4fb2ec !important; }
       }
 
       .earnings-goal__currency { color: #9aa0a6 !important; }
@@ -14513,6 +14895,60 @@ top: 4px;
   .tw-week-scroll::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.22) !important;
   }
+
+  .this-week-empty {
+    background: #2a2a2a !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.24) !important;
+
+    &__icon-wrap {
+      background: rgba(0, 134, 177, 0.15) !important;
+
+      &--art {
+        width: 45px !important;
+        height: 45px !important;
+        background: none !important;
+        box-shadow: none !important;
+        margin-right: 20px !important;
+      }
+    }
+
+    &__icon {
+      color: #5aa3f0 !important;
+    }
+
+    &__title {
+      color: #f5f5f7 !important;
+    }
+
+    &__sub,
+    &__message {
+      color: #8e8e93 !important;
+    }
+
+    &__cta {
+      color: #f5f5f7 !important;
+      text-decoration: none !important;
+      background: transparent !important;
+      border: 1px solid rgba(255, 255, 255, 0.18) !important;
+      border-radius: 12px !important;
+
+      &:hover {
+        color: #ffffff !important;
+        background: rgba(255, 255, 255, 0.06) !important;
+        border-color: rgba(255, 255, 255, 0.28) !important;
+      }
+    }
+
+    &--compact .this-week-empty__icon-wrap {
+      background: rgba(74, 222, 128, 0.12) !important;
+    }
+
+    &--compact .this-week-empty__icon {
+      color: #4ade80 !important;
+    }
+  }
+
   .cu-status-badge {
     &.confirmed {  color: #4ade80 !important; }
     &.in-progress { background: rgba(59, 130, 246, 0.15) !important; color: #60a5fa !important; }
@@ -14546,6 +14982,10 @@ top: 4px;
     &.empty-state-clean-icon--calendar {
       background: transparent !important;
       box-shadow: none !important;
+      width: 143px !important;
+      height: 134px !important;
+      position: relative !important;
+      bottom: 20px !important;
     }
   }
   .empty-state-clean-text {
@@ -14714,6 +15154,10 @@ top: 4px;
   }
   .m-card-empty-calendar-wrap {
     background: transparent !important;
+    width: 143px !important;
+    height: 134px !important;
+    position: relative !important;
+    bottom: 20px !important;
   }
   .m-card-empty-title { color: #ffffff !important; }
   .m-card-empty-subtitle { color: #8e8e93 !important; }

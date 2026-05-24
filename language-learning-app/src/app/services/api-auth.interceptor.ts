@@ -17,10 +17,10 @@ import { buildBearerToken } from './auth-token.util';
  * - Every outgoing `HttpClient` request to `environment.backendUrl` gets an
  *   `Authorization: Bearer <token>` header attached automatically.
  *
- * - In production builds the token is always a real Auth0 ID token
- *   (refreshed silently). If we can't get one we still send the request
- *   without auth so the backend can 401 cleanly and the UI can react —
- *   but we do not paper over the failure with a dev token.
+ * - In production builds the token is a valid Auth0 ID token when available,
+ *   otherwise a freshly refreshed access token. If token acquisition fails,
+ *   the request proceeds without auth; ApiUnauthorizedInterceptor recovers
+ *   the session on backend 401 responses.
  *
  * - In non-production builds, if Auth0 silent auth fails we fall back to
  *   the legacy `dev-token-{email}` shortcut (handled inside

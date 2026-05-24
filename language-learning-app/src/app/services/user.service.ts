@@ -7,7 +7,7 @@ import { environment } from '../../environments/environment';
 import { buildBearerToken } from './auth-token.util';
 import { SupportedLanguage } from './language.service';
 import { setGlobalTimeFormat, hasFutureTutorAvailability } from '../shared/timezone.utils';
-import { detectCalendarWeekStartsOn, normalizeCalendarWeekStartsOn } from '../shared/calendar-week.utils';
+import { detectCalendarWeekStartsOn, normalizeCalendarWeekStartsOn, CalendarWeekStartDay } from '../shared/calendar-week.utils';
 import { isStripeSupportedCountry } from '../data/stripe-supported-countries';
 
 export interface User {
@@ -300,6 +300,8 @@ export class UserService {
   private _hasAvailability: boolean | null = null;
   private _availabilityBlocks: any[] = [];
   private pendingAutoWeekStartUserId: string | null = null;
+  /** Optimistic week-start while PUT /profile is in flight — prevents stale /me from reverting. */
+  private pendingManualWeekStart: CalendarWeekStartDay | null = null;
 
   constructor(
     private http: HttpClient,
@@ -428,20 +430,22 @@ export class UserService {
         return response.user;
       }),
       tap(user => {
-        this.currentUserSubject.next(user);
+        const cached = this.currentUserSubject.value;
+        const merged = this.mergeUserState(cached, user);
+        this.currentUserSubject.next(merged);
         this.initialLoadComplete = true;
 
         // Cache email for resilient auth header generation on page refresh
-        if (user?.email) {
-          try { localStorage.setItem('currentUserEmail', user.email); } catch {}
+        if (merged?.email) {
+          try { localStorage.setItem('currentUserEmail', merged.email); } catch {}
         }
         
-        setGlobalTimeFormat(user?.profile?.calendarTimeFormat || '12h');
-        this.maybeAutoSetCalendarWeekStartsOn(user);
+        setGlobalTimeFormat(merged?.profile?.calendarTimeFormat || '12h');
+        this.maybeAutoSetCalendarWeekStartsOn(merged);
 
         // Update tutor approval status if user is a tutor
-        if (user.userType === 'tutor') {
-          this.updateTutorApprovalStatus(user);
+        if (merged.userType === 'tutor') {
+          this.updateTutorApprovalStatus(merged);
         }
       })
     );
@@ -703,6 +707,10 @@ export class UserService {
    * Update user profile
    */
   updateProfile(profileData: Partial<User['profile']> & { interfaceLanguage?: string; calendarTimeFormat?: string; calendarDefaultView?: string; calendarWeekStartsOn?: number; calendarWeekStartsOnUserSet?: boolean }): Observable<User> {
+    if (profileData.calendarWeekStartsOnUserSet && profileData.calendarWeekStartsOn !== undefined) {
+      this.pendingManualWeekStart = normalizeCalendarWeekStartsOn(profileData.calendarWeekStartsOn);
+    }
+
     return this.authService.user$.pipe(
       take(1),
       switchMap(user => {
@@ -712,18 +720,53 @@ export class UserService {
         });
       }),
       map(response => response.user),
-      tap(user => {
-        // Merge response onto cached user — PUT /profile cherry-picks fields and
-        // can omit tutor-approval data (tosAcceptedAt, stripeIdentityVerified,
-        // residenceCountry, etc). Replacing the subject would flip the approval
-        // checklist to incomplete and surface the "outstanding items" banner.
+      tap(incoming => {
         const cached = this.currentUserSubject.value;
-        const merged: User = cached ? { ...cached, ...user } as User : user;
+        const merged = this.mergeUserState(cached, incoming);
+        if (merged.profile?.calendarWeekStartsOnUserSet) {
+          this.pendingManualWeekStart = null;
+        }
         this.currentUserSubject.next(merged);
         setGlobalTimeFormat(merged?.profile?.calendarTimeFormat || '12h');
         this.maybeAutoSetCalendarWeekStartsOn(merged);
+      }),
+      catchError(err => {
+        this.pendingManualWeekStart = null;
+        throw err;
       })
     );
+  }
+
+  /**
+   * Merge incoming user onto cache without letting stale /me responses revert
+   * a manual calendar week-start choice.
+   */
+  private mergeUserState(cached: User | null, incoming: User): User {
+    const incomingProfile = (incoming.profile ?? {}) as NonNullable<User['profile']>;
+    let profile: NonNullable<User['profile']> = cached?.profile
+      ? { ...cached.profile, ...incomingProfile }
+      : { ...incomingProfile };
+
+    if (this.pendingManualWeekStart != null) {
+      profile.calendarWeekStartsOn = this.pendingManualWeekStart;
+      profile.calendarWeekStartsOnUserSet = true;
+    } else if (incomingProfile.calendarWeekStartsOnUserSet) {
+      profile.calendarWeekStartsOn = normalizeCalendarWeekStartsOn(incomingProfile.calendarWeekStartsOn);
+      profile.calendarWeekStartsOnUserSet = true;
+    } else if (cached?.profile?.calendarWeekStartsOnUserSet) {
+      const incomingUpdated = incoming.updatedAt ? new Date(incoming.updatedAt).getTime() : 0;
+      const cachedUpdated = cached.updatedAt ? new Date(cached.updatedAt).getTime() : 0;
+      const incomingConfirmsManual =
+        !!incomingProfile.calendarWeekStartsOnUserSet &&
+        incomingUpdated >= cachedUpdated;
+
+      if (!incomingConfirmsManual) {
+        profile.calendarWeekStartsOn = normalizeCalendarWeekStartsOn(cached.profile.calendarWeekStartsOn);
+        profile.calendarWeekStartsOnUserSet = true;
+      }
+    }
+
+    return cached ? ({ ...cached, ...incoming, profile } as User) : ({ ...incoming, profile } as User);
   }
 
   /**
@@ -732,6 +775,9 @@ export class UserService {
    */
   private maybeAutoSetCalendarWeekStartsOn(user: User): void {
     if (!user?.id || user.profile?.calendarWeekStartsOnUserSet) {
+      return;
+    }
+    if (this.pendingManualWeekStart != null) {
       return;
     }
     if (this.pendingAutoWeekStartUserId === user.id) {
@@ -890,6 +936,8 @@ export class UserService {
     this.initialLoadComplete = false;
     this._hasAvailability = null;
     this._availabilityBlocks = [];
+    this.pendingAutoWeekStartUserId = null;
+    this.pendingManualWeekStart = null;
   }
 
   /**

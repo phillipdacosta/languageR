@@ -1214,23 +1214,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.userSubscription = this.userService.currentUser$.subscribe(user => {
       if (user) {
         const prevTimezone = this.currentUser?.profile?.timezone;
-        const prevTimeFormat = this.calendarTimeFormat;
-        const prevWeekStartsOn = this.calendarWeekStartsOn;
         this.currentUser = user;
         this.userTz = user.profile?.timezone || undefined;
-
-        const nextTimeFormat = user.profile?.calendarTimeFormat || '12h';
-        if (nextTimeFormat !== prevTimeFormat) {
-          this.calendarTimeFormat = nextTimeFormat;
-          this.generateTimeSlots();
-          this.cdr.markForCheck();
-        }
-
-        const nextWeekStartsOn = normalizeCalendarWeekStartsOn(user.profile?.calendarWeekStartsOn);
-        if (nextWeekStartsOn !== prevWeekStartsOn) {
-          this.calendarWeekStartsOn = nextWeekStartsOn;
-          this.applyWeekStartPreference();
-        }
+        this.syncCalendarSettingsFromUser(user);
         // Check if user has a custom uploaded photo (not just Google/Auth0 photo)
         this.hasCustomProfilePhoto = !!(user.picture && (
           user.picture.includes('storage.googleapis.com') || // GCS uploaded photo
@@ -1267,6 +1253,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         }
       });
     
+    // Apply saved calendar settings before building the week grid
+    this.syncCalendarSettingsFromUser(this.userService.getCurrentUserValue());
+
     // Initialize custom calendar
     this.initializeCustomCalendar();
 
@@ -1567,6 +1556,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
 
   ionViewDidEnter() {
+    // Re-apply persisted calendar settings whenever the tab becomes active
+    this.syncCalendarSettingsFromUser(this.userService.getCurrentUserValue());
+
     // Check if we're coming from availability setup
     const currentUrl = this.router.url;
     
@@ -1641,23 +1633,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           this.loadLessonsAndClasses(user.id);
         }
         
-        // Calendar settings
-        this.calendarTimeFormat = user?.profile?.calendarTimeFormat || '12h';
-        this.calendarDefaultView = user?.profile?.calendarDefaultView || 'week';
-        this.calendarWeekStartsOn = normalizeCalendarWeekStartsOn(user?.profile?.calendarWeekStartsOn);
-        this.tutorTimezoneLabel = user?.profile?.timezone
-          ? user.profile.timezone.replace(/_/g, ' ')
-          : Intl.DateTimeFormat().resolvedOptions().timeZone.replace(/_/g, ' ');
-        this.generateTimeSlots();
-        if (this.customView !== this.calendarDefaultView) {
-          this.customView = this.calendarDefaultView;
-        }
-        this.currentWeekStart = this.getWeekStartForDate(new Date());
-        this.updateWeekDays();
-        this.updateWeekTitle();
-        if (this.isMobileView) {
-          this.setupMobileDays(new Date(), new Date());
-        }
+        // Calendar settings — preserve visible week when only the preference changes
+        this.syncCalendarSettingsFromUser(user);
 
         // Check Google Calendar connection status and load events if connected
         this.userService.getGoogleCalendarStatus().subscribe({
@@ -3365,6 +3342,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
 
   updateCalendarSetting(type: 'timeFormat' | 'defaultView' | 'weekStartsOn', value: string | number) {
+    const prevTimeFormat = this.calendarTimeFormat;
+    const prevDefaultView = this.calendarDefaultView;
+    const prevWeekStartsOn = this.calendarWeekStartsOn;
+
     if (type === 'timeFormat') {
       this.calendarTimeFormat = value as '12h' | '24h';
       this.generateTimeSlots();
@@ -3381,12 +3362,64 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     }
     this.cdr.detectChanges();
 
-    const profileUpdate: any = {};
-    if (type === 'timeFormat') profileUpdate.calendarTimeFormat = value;
-    if (type === 'defaultView') profileUpdate.calendarDefaultView = value;
-    if (type === 'weekStartsOn') profileUpdate.calendarWeekStartsOn = this.calendarWeekStartsOn;
-    if (type === 'weekStartsOn') profileUpdate.calendarWeekStartsOnUserSet = true;
-    this.userService.updateProfile(profileUpdate).subscribe();
+    const profileUpdate: Partial<User['profile']> & {
+      calendarWeekStartsOnUserSet?: boolean;
+    } = {};
+    if (type === 'timeFormat') profileUpdate.calendarTimeFormat = value as '12h' | '24h';
+    if (type === 'defaultView') profileUpdate.calendarDefaultView = value as 'week' | 'day';
+    if (type === 'weekStartsOn') {
+      profileUpdate.calendarWeekStartsOn = this.calendarWeekStartsOn;
+      profileUpdate.calendarWeekStartsOnUserSet = true;
+    }
+
+    this.userService.updateProfile(profileUpdate).subscribe({
+      error: () => {
+        if (type === 'timeFormat') {
+          this.calendarTimeFormat = prevTimeFormat;
+          this.generateTimeSlots();
+        } else if (type === 'defaultView') {
+          this.calendarDefaultView = prevDefaultView;
+          this.switchView(prevDefaultView);
+        } else if (type === 'weekStartsOn') {
+          this.calendarWeekStartsOn = prevWeekStartsOn;
+          this.applyWeekStartPreference();
+        }
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  /** Load calendar display prefs from the user profile (DB-backed via UserService cache). */
+  private syncCalendarSettingsFromUser(user: User | null | undefined): void {
+    if (!user?.profile) {
+      return;
+    }
+
+    const nextTimeFormat = user.profile.calendarTimeFormat || '12h';
+    const nextDefaultView = user.profile.calendarDefaultView || 'week';
+    const nextWeekStartsOn = normalizeCalendarWeekStartsOn(user.profile.calendarWeekStartsOn);
+    const timeFormatChanged = nextTimeFormat !== this.calendarTimeFormat;
+    const defaultViewChanged = nextDefaultView !== this.calendarDefaultView;
+    const weekStartChanged = nextWeekStartsOn !== this.calendarWeekStartsOn;
+
+    this.calendarTimeFormat = nextTimeFormat;
+    this.calendarDefaultView = nextDefaultView;
+    this.calendarWeekStartsOn = nextWeekStartsOn;
+    this.tutorTimezoneLabel = user.profile.timezone
+      ? user.profile.timezone.replace(/_/g, ' ')
+      : Intl.DateTimeFormat().resolvedOptions().timeZone.replace(/_/g, ' ');
+
+    if (timeFormatChanged) {
+      this.generateTimeSlots();
+    }
+    if (this.customView !== nextDefaultView) {
+      this.customView = nextDefaultView;
+    }
+    if (weekStartChanged) {
+      this.applyWeekStartPreference();
+    } else if (timeFormatChanged || defaultViewChanged) {
+      this.cdr.markForCheck();
+    }
   }
 
   private getCalendarFocusDate(): Date {

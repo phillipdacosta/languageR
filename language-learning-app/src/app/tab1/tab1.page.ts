@@ -1,4 +1,5 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy, NgZone, ViewChild, AfterViewInit, HostBinding } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy, NgZone, ViewChild, AfterViewInit, ElementRef, HostBinding } from '@angular/core';
+import lottie, { AnimationItem } from 'lottie-web';
 import { trigger, transition, style, animate } from '@angular/animations';
 import { ModalController, LoadingController, ToastController, ActionSheetController, PopoverController, AlertController, ViewDidLeave, NavController, IonContent } from '@ionic/angular';
 import { Router, NavigationStart, NavigationEnd, ActivatedRoute } from '@angular/router';
@@ -25,6 +26,11 @@ import { RescheduleProposalModalComponent } from '../components/reschedule-propo
 import { LessonSummaryComponent } from '../modals/lesson-summary/lesson-summary.component';
 import { formatTimeInTz, formatDateInTz, hasFutureTutorAvailability } from '../shared/timezone.utils';
 import { translateLangToDatetimeLocale } from '../shared/datetime-locale.helper';
+import {
+  CalendarWeekStartDay,
+  getStartOfCalendarWeek,
+  normalizeCalendarWeekStartsOn,
+} from '../shared/calendar-week.utils';
 import { NotesModalComponent } from '../components/notes-modal/notes-modal.component';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
 import { TutorNoteModalComponent } from '../components/tutor-note-modal/tutor-note-modal.component';
@@ -167,6 +173,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   tutorTotalEarnings = 0;
   tutorPendingEarnings = 0;
   earningsBalanceLoading = true; // true until first loadTutorEarnings() completes
+  /** Desktop earnings/journey column — skeleton until lessons, insights, and balance are ready. */
+  earningsColumnLoading = true;
+  /** Placeholder slots for quick-actions skeleton grid (no template method calls). */
+  quickActionsSkeletonSlots = [0, 1, 2, 3];
   private _earningsVisibilityHandler: (() => void) | null = null;
   private _lastEarningsVisibilityRefresh = 0;
 
@@ -213,6 +223,16 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   displayedEarningsText = '0.00';
   /** One-shot progress bar shine when weekly goal updates. */
   weeklyGoalBarShine = false;
+  /** Brief Lottie pop at the end of the weekly goal bar when the tutor hits their goal. */
+  weeklyGoalBadgePop = false;
+  private _weeklyGoalWasReached = false;
+  private _weeklyGoalProgressInitialized = false;
+  private _weeklyGoalCelebrationTimer: ReturnType<typeof setTimeout> | null = null;
+  private _weeklyGoalLottieAnim: AnimationItem | null = null;
+  private _weeklyGoalLottiePlayTimer: ReturnType<typeof setTimeout> | null = null;
+  private _weeklyGoalRestingFrameApplied = false;
+  private readonly weeklyGoalLottieSpeed = 1.75;
+  @ViewChild('weeklyGoalLottieHost') weeklyGoalLottieHost?: ElementRef<HTMLDivElement>;
   private _earningsOpenedFromOtherTab = false;
   @HostBinding('class.returning-from-inline') returningFromInline = false;
   @HostBinding('class.skip-tab-entry-animations') skipTabEntryAnimations = false;
@@ -313,6 +333,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   /** Mobile This Week: empty-state text (context-aware). */
   thisWeekMobileShowNothingYet = false;
   thisWeekEmptyLabel = '';
+  /** Desktop This Week empty: compact when Up Next already covers the week. */
+  thisWeekEmptyIsNothingElse = false;
   /** Mobile This Week: deduplicated student avatars + total lesson count for current week. */
   thisWeekAvatars: { name: string; avatar: string | null; lessonCount: number }[] = [];
   thisWeekLessonCount = 0;
@@ -759,6 +781,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           }, 1500);
         } else {
           this.earningsBalanceLoading = false;
+          this.syncEarningsColumnLoading();
           setTimeout(() => {
             this.loadStudentInsights();
             this.loadWalletBalance();
@@ -2101,6 +2124,15 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     if (this.statusInterval) {
       clearInterval(this.statusInterval);
     }
+    if (this._weeklyGoalCelebrationTimer) {
+      clearTimeout(this._weeklyGoalCelebrationTimer);
+      this._weeklyGoalCelebrationTimer = null;
+    }
+    if (this._weeklyGoalLottiePlayTimer) {
+      clearTimeout(this._weeklyGoalLottiePlayTimer);
+      this._weeklyGoalLottiePlayTimer = null;
+    }
+    this.destroyWeeklyGoalLottie();
     
     // Stop dynamic card refresh interval
     this.stopDynamicCardRefreshInterval();
@@ -4842,6 +4874,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   }
   
   // Update wallet display property
+  private syncEarningsColumnLoading(): void {
+    const tutorBalancePending = this.isTutorUser && this.earningsBalanceLoading;
+    this.earningsColumnLoading = this.isLoadingLessons || this.insightsLoading || tutorBalancePending;
+    this.cdr.markForCheck();
+  }
+
   private updateWalletDisplay(): void {
     this.walletDisplay = this.showWalletBalance 
       ? `$${this.walletBalance.toFixed(2)}` 
@@ -4924,6 +4962,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     
     // Insights loaded
     this.insightsLoading = false;
+    this.syncEarningsColumnLoading();
     
     // Check for upcoming lessons and show Smart Island moments
     this.checkUpcomingLessonsForIsland();
@@ -5397,6 +5436,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     
     // Insights loaded
     this.insightsLoading = false;
+    this.syncEarningsColumnLoading();
     
     // Check for upcoming lessons and show Smart Island moments
     this.checkUpcomingLessonsForIsland();
@@ -6577,6 +6617,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           return l.status === 'completed' && s >= weekStart && s < weekEnd;
         });
       this.thisWeekEmptyLabel = hadLessonsThisWeek ? 'HOME.THIS_WEEK_NOTHING_ELSE' : 'HOME.THIS_WEEK_NOTHING_YET';
+      this.thisWeekEmptyIsNothingElse = this.thisWeekEmptyLabel === 'HOME.THIS_WEEK_NOTHING_ELSE';
+    } else {
+      this.thisWeekEmptyIsNothingElse = false;
     }
   }
 
@@ -7195,7 +7238,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
     // Always omit the Up Next lesson — the Up Next card already shows it.
-    // If no other lessons remain, This Week will be hidden entirely.
+    // If no other lessons remain, This Week shows its empty state instead.
     const withoutNext = pool.filter(
       (lesson) => !nextClassLessonId || String(lesson._id) !== String(nextClassLessonId)
     );
@@ -7993,7 +8036,7 @@ navigateToLessons() {
     // Only show skeleton loader if explicitly requested (e.g., initial load)
     if (showSkeleton) {
       this.isLoadingLessons = true;
-      
+      this.syncEarningsColumnLoading();
     }
     
     try {
@@ -8307,6 +8350,7 @@ navigateToLessons() {
       this._isLoadingInProgress = false; // Reset flag
       if (showSkeleton) {
         this.isLoadingLessons = false;
+        this.syncEarningsColumnLoading();
         this.nextLessonTimeLabel = this.getNextLessonTimeLabel();
         this.hadLessonsToday = this.hadLessonsEarlierToday();
         this.hadOnlyCancelledLessonsToday = this.checkHadOnlyCancelledLessonsToday();
@@ -8962,10 +9006,22 @@ navigateToLessons() {
   }
  
   private getStartOfWeek(date: Date): Date {
-    const d = this.startOfDay(date);
-    const day = d.getDay();
-    d.setDate(d.getDate() - day);
-    return d;
+    return getStartOfCalendarWeek(this.startOfDay(date), this.getCalendarWeekStartsOn());
+  }
+
+  /** Matches tutor calendar setting (Sun / Mon / Sat week start). */
+  private getCalendarWeekStartsOn(): CalendarWeekStartDay {
+    return normalizeCalendarWeekStartsOn(this.currentUser?.profile?.calendarWeekStartsOn);
+  }
+
+  /** Days remaining in the user's calendar week (including today). */
+  private getDaysLeftInCalendarWeek(from: Date = new Date()): number {
+    const today = this.startOfDay(from);
+    const weekStart = this.getStartOfWeek(today);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+    const msLeft = weekEnd.getTime() - today.getTime();
+    return Math.max(1, Math.ceil(msLeft / (24 * 60 * 60 * 1000)));
   }
  
   private getDateStripDaysCount(): number {
@@ -10186,6 +10242,208 @@ navigateToLessons() {
     }, 950);
   }
 
+  private maybeTriggerWeeklyGoalCelebration(): void {
+    if (this.isWeeklyGoalMasked) {
+      return;
+    }
+    this.playWeeklyGoalCelebration();
+  }
+
+  private playWeeklyGoalCelebration(): void {
+    if (this.hasWeeklyGoalCelebrationShownThisWeek()) {
+      return;
+    }
+
+    if (this._weeklyGoalCelebrationTimer) {
+      clearTimeout(this._weeklyGoalCelebrationTimer);
+      this._weeklyGoalCelebrationTimer = null;
+    }
+
+    this.markWeeklyGoalCelebrationShownThisWeek();
+
+    this.weeklyGoalBadgePop = true;
+    this.cdr.detectChanges();
+    this._weeklyGoalLottiePlayTimer = setTimeout(() => {
+      this._weeklyGoalLottiePlayTimer = null;
+      this.startWeeklyGoalLottiePlayback();
+    }, 0);
+
+    this._weeklyGoalCelebrationTimer = setTimeout(() => {
+      this.weeklyGoalBadgePop = false;
+      this._weeklyGoalCelebrationTimer = null;
+      this.cdr.markForCheck();
+    }, 700);
+  }
+
+  private bindWeeklyGoalLottieCompleteHandler(): void {
+    if (!this._weeklyGoalLottieAnim) {
+      return;
+    }
+    this._weeklyGoalLottieAnim.removeEventListener('complete', this.onWeeklyGoalLottieComplete);
+    this._weeklyGoalLottieAnim.addEventListener('complete', this.onWeeklyGoalLottieComplete);
+  }
+
+  private onWeeklyGoalLottieComplete = (): void => {
+    this._weeklyGoalRestingFrameApplied = true;
+    this.goToWeeklyGoalLottieFinalFrame();
+    this.cdr.markForCheck();
+  };
+
+  /** Keep the success icon visible at its final frame for the rest of the week. */
+  private scheduleWeeklyGoalBadgeRestingFrame(): void {
+    if (this._weeklyGoalRestingFrameApplied && this._weeklyGoalLottieAnim) {
+      this.goToWeeklyGoalLottieFinalFrame();
+      return;
+    }
+
+    this.cdr.detectChanges();
+    if (this._weeklyGoalLottiePlayTimer) {
+      clearTimeout(this._weeklyGoalLottiePlayTimer);
+    }
+    this._weeklyGoalLottiePlayTimer = setTimeout(() => {
+      this._weeklyGoalLottiePlayTimer = null;
+      this.showWeeklyGoalBadgeRestingFrame();
+    }, 0);
+  }
+
+  private showWeeklyGoalBadgeRestingFrame(attempt = 0): void {
+    const host = this.weeklyGoalLottieHost?.nativeElement;
+    if (!host) {
+      if (attempt < 20) {
+        setTimeout(() => this.showWeeklyGoalBadgeRestingFrame(attempt + 1), 50);
+      }
+      return;
+    }
+
+    if (this._weeklyGoalLottieAnim) {
+      this.goToWeeklyGoalLottieFinalFrame();
+      this._weeklyGoalRestingFrameApplied = true;
+      return;
+    }
+
+    host.innerHTML = '';
+    this._weeklyGoalLottieAnim = lottie.loadAnimation({
+      container: host,
+      renderer: 'svg',
+      loop: false,
+      autoplay: false,
+      path: '/assets/weekly-goal-success.json',
+    });
+
+    const onReady = () => {
+      this._weeklyGoalLottieAnim?.removeEventListener('DOMLoaded', onReady);
+      this.goToWeeklyGoalLottieFinalFrame();
+      this._weeklyGoalRestingFrameApplied = true;
+    };
+    this._weeklyGoalLottieAnim.addEventListener('DOMLoaded', onReady);
+  }
+
+  private goToWeeklyGoalLottieFinalFrame(): void {
+    if (!this._weeklyGoalLottieAnim) {
+      return;
+    }
+    const lastFrame = Math.max(0, this._weeklyGoalLottieAnim.totalFrames - 1);
+    this._weeklyGoalLottieAnim.goToAndStop(lastFrame, true);
+  }
+
+  private syncWeeklyGoalCelebration(wasReached: boolean, nowReached: boolean): void {
+    if (!nowReached || this.isWeeklyGoalMasked) {
+      if (wasReached && !nowReached) {
+        this._weeklyGoalRestingFrameApplied = false;
+        this.destroyWeeklyGoalLottie();
+      }
+      return;
+    }
+
+    const alreadyCelebrated = this.hasWeeklyGoalCelebrationShownThisWeek();
+    const justReachedThisSession = this._weeklyGoalProgressInitialized && !wasReached;
+
+    if (!alreadyCelebrated && (justReachedThisSession || !this._weeklyGoalProgressInitialized)) {
+      this.maybeTriggerWeeklyGoalCelebration();
+      return;
+    }
+
+    if (alreadyCelebrated) {
+      this.scheduleWeeklyGoalBadgeRestingFrame();
+    }
+  }
+
+  private destroyWeeklyGoalLottie(): void {
+    if (this._weeklyGoalLottieAnim) {
+      this._weeklyGoalLottieAnim.removeEventListener('complete', this.onWeeklyGoalLottieComplete);
+      this._weeklyGoalLottieAnim.destroy();
+      this._weeklyGoalLottieAnim = null;
+    }
+    const host = this.weeklyGoalLottieHost?.nativeElement;
+    if (host) {
+      host.innerHTML = '';
+    }
+  }
+
+  private startWeeklyGoalLottiePlayback(attempt = 0): void {
+    const host = this.weeklyGoalLottieHost?.nativeElement;
+    if (!host) {
+      if (attempt < 12) {
+        this._weeklyGoalLottiePlayTimer = setTimeout(() => {
+          this.startWeeklyGoalLottiePlayback(attempt + 1);
+        }, 50);
+      }
+      return;
+    }
+
+    if (this._weeklyGoalLottieAnim) {
+      this._weeklyGoalLottieAnim.setSpeed(this.weeklyGoalLottieSpeed);
+      this._weeklyGoalLottieAnim.goToAndPlay(0, true);
+      this.bindWeeklyGoalLottieCompleteHandler();
+      return;
+    }
+
+    host.innerHTML = '';
+    this._weeklyGoalLottieAnim = lottie.loadAnimation({
+      container: host,
+      renderer: 'svg',
+      loop: false,
+      autoplay: true,
+      path: '/assets/weekly-goal-success.json',
+    });
+    this._weeklyGoalLottieAnim.setSpeed(this.weeklyGoalLottieSpeed);
+    this.bindWeeklyGoalLottieCompleteHandler();
+  }
+
+  private getWeeklyGoalCelebrationStorageKey(): string {
+    const uid = this.currentUser?.id || 'anonymous';
+    const weekStart = this.getStartOfWeek(new Date());
+    const y = weekStart.getFullYear();
+    const m = String(weekStart.getMonth() + 1).padStart(2, '0');
+    const d = String(weekStart.getDate()).padStart(2, '0');
+    return `weeklyGoalCelebrated_${uid}_${y}-${m}-${d}`;
+  }
+
+  private hasWeeklyGoalCelebrationShownThisWeek(): boolean {
+    try {
+      return localStorage.getItem(this.getWeeklyGoalCelebrationStorageKey()) === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  private markWeeklyGoalCelebrationShownThisWeek(): void {
+    try {
+      localStorage.setItem(this.getWeeklyGoalCelebrationStorageKey(), '1');
+    } catch { /* ignore */ }
+  }
+
+  /** Allow a fresh celebration when the tutor raises their weekly goal mid-week. */
+  private clearWeeklyGoalCelebrationThisWeek(): void {
+    try {
+      localStorage.removeItem(this.getWeeklyGoalCelebrationStorageKey());
+    } catch {
+      // ignore
+    }
+    this._weeklyGoalRestingFrameApplied = false;
+    this.destroyWeeklyGoalLottie();
+  }
+
   async loadTutorEarnings() {
     if (!this.isTutorUser) {
       return;
@@ -10211,7 +10469,7 @@ navigateToLessons() {
       console.error('❌ [TAB1] Error loading tutor earnings:', error);
     } finally {
       this.earningsBalanceLoading = false;
-      this.cdr.detectChanges();
+      this.syncEarningsColumnLoading();
     }
   }
 
@@ -10297,15 +10555,30 @@ navigateToLessons() {
     const earnedPct = Math.max(0, Math.min(100, (earned / goal) * 100));
     const combinedPct = Math.max(0, Math.min(100, ((earned + scheduled) / goal) * 100));
     const prevEarnedPct = this.weeklyEarningsGoalPercent;
-    this.weeklyEarningsGoalPercent = earnedPct;
+    const wasReached = this._weeklyGoalWasReached;
+    let nowReached = earned >= this.weeklyEarningsGoal;
+    this.isWeeklyGoalReached = nowReached;
+
+    if (this.isWeeklyGoalReached) {
+      this.weeklyEarningsGoalPercent = 100;
+    } else {
+      this.weeklyEarningsGoalPercent = earnedPct;
+    }
     this.weeklyEarningsScheduledPercent = combinedPct;
-    this.isWeeklyGoalReached = earned >= this.weeklyEarningsGoal;
+
+    this.syncWeeklyGoalCelebration(wasReached, nowReached);
+
+    if (!this._weeklyGoalProgressInitialized) {
+      this._weeklyGoalWasReached = nowReached;
+      this._weeklyGoalProgressInitialized = true;
+    } else {
+      this._weeklyGoalWasReached = nowReached;
+    }
+
     if (!this.isMobile && earnedPct !== prevEarnedPct && earnedPct > 0) {
       this.triggerWeeklyGoalBarShine();
     }
 
-    // When wallet balance is masked we hide the entire goal section — no need to compute
-    // masked copy variants. Still set the flag so the template's *ngIf can gate visibility.
     this.isWeeklyGoalMasked = !this.showWalletBalance && !this.walletTemporarilyVisible;
 
     const fmt = (n: number) => (Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`);
@@ -10314,7 +10587,6 @@ navigateToLessons() {
       goal: fmt(this.weeklyEarningsGoal),
     });
 
-    // Sub-label priority (first match wins).
     const combined = earned + scheduled;
     const lessonsKey = scheduledCount === 1 ? 'HOME.LESSON_SINGULAR' : 'HOME.LESSON_PLURAL';
     const lessons = this.translateService.instant(lessonsKey);
@@ -10330,8 +10602,7 @@ navigateToLessons() {
           amount: fmt(scheduled),
         });
       } else {
-        const today = new Date();
-        const daysLeft = Math.max(1, 7 - today.getDay());
+        const daysLeft = this.getDaysLeftInCalendarWeek();
         const remaining = Math.max(0, this.weeklyEarningsGoal - earned);
         const perDay = Math.ceil(remaining / daysLeft);
         const perDayStr = `$${perDay}`;
@@ -10381,11 +10652,15 @@ navigateToLessons() {
       return;
     }
     const previous = this.weeklyEarningsGoal;
+    const raisedGoal = next > previous;
     // Optimistic local update so UI feels instant; recompute percentages + sub-labels now.
     this.weeklyEarningsGoal = next;
     try { localStorage.setItem(this.weeklyGoalStorageKey, String(next)); } catch { /* ignore */ }
     this.isEditingWeeklyGoal = false;
     this.refreshWeeklyEarningsProgress();
+    if (raisedGoal) {
+      this.clearWeeklyGoalCelebrationThisWeek();
+    }
     this.cdr.markForCheck();
 
     // Persist to DB. On failure, roll back to previous value so local + server stay in sync.

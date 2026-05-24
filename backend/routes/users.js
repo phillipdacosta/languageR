@@ -884,15 +884,31 @@ router.put('/profile', verifyToken, async (req, res) => {
       calendarTimeFormat: calendarTimeFormat !== undefined ? calendarTimeFormat : (user.profile?.calendarTimeFormat ?? '12h'),
       calendarDefaultView: calendarDefaultView !== undefined ? calendarDefaultView : (user.profile?.calendarDefaultView ?? 'week'),
       calendarWeekStartsOn: (() => {
+        // Never let locale auto-detect revert a manual calendar week-start choice.
+        if (
+          calendarWeekStartsOnUserSet === false &&
+          user.profile?.calendarWeekStartsOnUserSet === true
+        ) {
+          return user.profile?.calendarWeekStartsOn ?? 0;
+        }
         if (calendarWeekStartsOn === undefined) {
           return user.profile?.calendarWeekStartsOn ?? 0;
         }
         const n = Number(calendarWeekStartsOn);
         return Number.isInteger(n) && n >= 0 && n <= 6 ? n : (user.profile?.calendarWeekStartsOn ?? 0);
       })(),
-      calendarWeekStartsOnUserSet: calendarWeekStartsOnUserSet !== undefined
-        ? !!calendarWeekStartsOnUserSet
-        : (user.profile?.calendarWeekStartsOnUserSet ?? false),
+      calendarWeekStartsOnUserSet: (() => {
+        if (
+          calendarWeekStartsOnUserSet === false &&
+          user.profile?.calendarWeekStartsOnUserSet === true
+        ) {
+          return true;
+        }
+        if (calendarWeekStartsOnUserSet !== undefined) {
+          return !!calendarWeekStartsOnUserSet;
+        }
+        return user.profile?.calendarWeekStartsOnUserSet ?? false;
+      })(),
       weeklyEarningsGoal: (weeklyEarningsGoal !== undefined && Number.isFinite(Number(weeklyEarningsGoal)) && Number(weeklyEarningsGoal) > 0)
         ? Math.round(Number(weeklyEarningsGoal))
         : (user.profile?.weeklyEarningsGoal ?? 500)

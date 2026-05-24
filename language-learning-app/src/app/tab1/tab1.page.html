@@ -576,9 +576,12 @@
     
     
     <!-- Tutor Dashboard Grid: 2x2 layout (students share the same shell; tutor-only widgets gated separately) -->
-    <div class="tutor-dashboard-grid" *ngIf="isTutorUser || isStudentUser" [class.tutor-dashboard-grid--with-this-week]="timelineEvents.length > 0">
+    <div class="tutor-dashboard-grid tutor-dashboard-grid--with-this-week" *ngIf="isTutorUser || isStudentUser">
       <div class="grid-cell-upnext">
-        <h2 class="desktop-tutor-section-title" *ngIf="!isMobile && (isTutorUser || isStudentUser)">{{ (nextLesson ? 'HOME.UP_NEXT' : 'HOME.YOUR_SCHEDULE') | translate }}</h2>
+        <ng-container *ngIf="!isMobile && (isTutorUser || isStudentUser)">
+          <div class="home-widget-skeleton-title skeleton-line" *ngIf="isLoadingLessons" aria-hidden="true"></div>
+          <h2 class="desktop-tutor-section-title" *ngIf="!isLoadingLessons">{{ (nextLesson ? 'HOME.UP_NEXT' : 'HOME.YOUR_SCHEDULE') | translate }}</h2>
+        </ng-container>
 
         <!-- Upcoming Schedule Section -->
 
@@ -718,13 +721,12 @@
       <h3 class="mobile-section-title">{{ 'HOME.YOUR_SCHEDULE' | translate }}</h3>
       <div class="m-card-empty-standalone">
         <div class="m-card-empty-calendar-wrap">
-          <img class="m-card-empty-calendar-art" [src]="isDarkModeActive ? 'assets/calendar-availability-original.png' : 'assets/calendar-availability.png'" alt="" />
+          <img class="m-card-empty-calendar-art" src="assets/up-next-empty-light.png" alt="" />
         </div>
         <h3 class="m-card-empty-title">{{ emptyStateTitle }}</h3>
         <p class="m-card-empty-subtitle">{{ emptyStateMessage }}</p>
         <a *ngIf="isTutorUser && pendingFeedbackCount === 0 && !hasProfileCriticalInsights" class="m-card-empty-link" [routerLink]="hasAvailability ? '/tabs/tutor-calendar' : '/tabs/availability-setup'">
           <span [@buttonTextFade]="buttonTextState" class="button-text-animated">{{ hasAvailability ? ('HOME.VIEW_CALENDAR' | translate) : ('HOME.SET_AVAILABILITY' | translate) }}</span>
-          <img class="m-card-empty-link-chevron m-card-empty-link-arrow-img" src="assets/setup-availability-arrow.png" alt="" />
         </a>
         <span *ngIf="isTutorUser && (pendingFeedbackCount > 0 || hasProfileCriticalInsights)" class="m-card-empty-link m-card-empty-link--disabled">{{ hasAvailability ? ('HOME.VIEW_CALENDAR' | translate) : ('HOME.SET_AVAILABILITY' | translate) }}</span>
         <a *ngIf="isStudentUser" class="m-card-empty-link" (click)="openSearchTutors(); $event.preventDefault()">
@@ -889,7 +891,7 @@
     <div class="empty-state-clean enter-stagger enter-stagger-1" [class.enter-stagger-go]="desktopEnterReady" [class.enter-stagger-done]="desktopEnterDone" *ngIf="!isMobile && !isNarrowTutorHomeViewport && isTutorUser && !isLoadingLessons && !nextLesson">
       <div class="empty-state-clean-inner">
         <div class="empty-state-clean-icon empty-state-clean-icon--calendar anim-persist">
-          <img class="empty-state-clean-calendar-art" [src]="isDarkModeActive ? 'assets/calendar-mobile-original.png' : 'assets/calendar-mobile.png'" alt="" />
+          <img class="empty-state-clean-calendar-art" src="assets/up-next-empty-light.png" alt="" />
         </div>
         <div class="empty-state-clean-text">
           <h3>{{ emptyStateTitle }}</h3>
@@ -897,7 +899,6 @@
         </div>
         <ion-button [disabled]="pendingFeedbackCount > 0 || hasProfileCriticalInsights" fill="solid" expand="block" class="empty-state-clean-btn" routerLink="{{ hasAvailability ? '/tabs/tutor-calendar' : '/tabs/availability-setup' }}">
           <span [@buttonTextFade]="buttonTextState" class="button-text-animated">{{ hasAvailability ? ('HOME.VIEW_CALENDAR' | translate) : ('HOME.SET_AVAILABILITY' | translate) }}</span>
-          <img slot="end" class="empty-state-clean-btn-arrow-img" src="assets/setup-availability-arrow.png" alt="" />
         </ion-button>
       </div>
     </div>
@@ -906,7 +907,7 @@
     <div class="empty-state-clean enter-stagger enter-stagger-1" [class.enter-stagger-go]="desktopEnterReady" [class.enter-stagger-done]="desktopEnterDone" *ngIf="!isMobile && !isNarrowTutorHomeViewport && isStudentUser && !isLoadingLessons && !nextLesson">
       <div class="empty-state-clean-inner">
         <div class="empty-state-clean-icon empty-state-clean-icon--calendar anim-persist">
-          <img class="empty-state-clean-calendar-art" [src]="isDarkModeActive ? 'assets/calendar-mobile-original.png' : 'assets/calendar-mobile.png'" alt="" />
+          <img class="empty-state-clean-calendar-art" src="assets/up-next-empty-light.png" alt="" />
         </div>
         <div class="empty-state-clean-text">
           <h3>{{ emptyStateTitle }}</h3>
@@ -934,7 +935,41 @@
       </app-mobile-this-week>
 
       <!-- Row 1, Right — tutors: Earnings widget; students: Journey widget -->
-      <div class="grid-cell-earnings enter-stagger enter-stagger-2" [class.enter-stagger-go]="desktopEnterReady" [class.enter-stagger-done]="desktopEnterDone" *ngIf="!insightsLoading && (isTutorUser || isStudentUser)">
+      <div class="grid-cell-earnings"
+           [class.enter-stagger]="!isMobile && !earningsColumnLoading"
+           [class.enter-stagger-2]="!isMobile && !earningsColumnLoading"
+           [class.enter-stagger-go]="desktopEnterReady"
+           [class.enter-stagger-done]="desktopEnterDone"
+           *ngIf="isTutorUser || isStudentUser">
+
+        <!-- Desktop skeleton — mirrors earnings / journey card (360px) -->
+        <ng-container *ngIf="!isMobile && earningsColumnLoading">
+          <div class="home-widget-skeleton-title skeleton-line"></div>
+          <div class="earnings-card-widget-skeleton" *ngIf="isTutorUser" aria-hidden="true">
+            <div class="ecws-body">
+              <div class="skeleton-line ecws-label"></div>
+              <div class="skeleton-line ecws-balance"></div>
+            </div>
+            <div class="ecws-goal">
+              <div class="skeleton-line ecws-goal-label"></div>
+              <div class="skeleton-line ecws-goal-amount"></div>
+              <div class="skeleton-line ecws-goal-bar"></div>
+              <div class="skeleton-line ecws-goal-sub"></div>
+            </div>
+            <div class="skeleton-line ecws-withdraw"></div>
+            <div class="skeleton-line ecws-details"></div>
+          </div>
+          <div class="journey-widget-skeleton" *ngIf="isStudentUser" aria-hidden="true">
+            <div class="skeleton-line jws-phase"></div>
+            <div class="skeleton-line jws-title"></div>
+            <div class="skeleton-line jws-summary"></div>
+            <div class="skeleton-line jws-summary jws-summary--short"></div>
+            <div class="skeleton-line jws-progress"></div>
+            <div class="skeleton-line jws-cta"></div>
+          </div>
+        </ng-container>
+
+        <ng-container *ngIf="!earningsColumnLoading">
         <h2 class="desktop-tutor-section-title" *ngIf="!isMobile && isTutorUser">{{ 'HOME.EARNINGS_TITLE' | translate }}</h2>
         <h2 class="desktop-tutor-section-title" *ngIf="!isMobile && isStudentUser">{{ 'HOME.JOURNEY_TITLE' | translate }}</h2>
 
@@ -1006,7 +1041,7 @@
             <div class="earnings-balance" (click)="toggleWalletVisibility($event)">
               <span *ngIf="earningsBalanceLoading" class="earnings-balance-skeleton"><ion-skeleton-text animated style="width: 120px; height: 40px; display: block; border-radius: 8px;"></ion-skeleton-text></span>
               <span *ngIf="!earningsBalanceLoading && !showWalletBalance && !walletTemporarilyVisible"><img class="home-dollar-icon" [src]="isDarkModeActive ? 'assets/home-earnings-dollar-dark.png' : 'assets/home-earnings-dollar.png'" alt="" role="presentation" /><span class="earnings-dots-display">••••</span></span>
-              <span *ngIf="!earningsBalanceLoading && (showWalletBalance || walletTemporarilyVisible)"><img class="home-dollar-icon" [class.anim-persist]="tutorTotalEarnings === 0" [src]="isDarkModeActive ? 'assets/home-earnings-dollar-dark.png' : 'assets/home-earnings-dollar.png'" alt="" role="presentation" /><span class="earnings-amount-text"> {{ displayedEarningsText }}</span></span>
+              <span *ngIf="!earningsBalanceLoading && (showWalletBalance || walletTemporarilyVisible)"><img class="home-dollar-icon" [src]="isDarkModeActive ? 'assets/home-earnings-dollar-dark.png' : 'assets/home-earnings-dollar.png'" alt="" role="presentation" /><span class="earnings-amount-text"> {{ displayedEarningsText }}</span></span>
             </div>
             <div
               class="earnings-pending"
@@ -1064,16 +1099,25 @@
                 <button type="submit" class="earnings-goal__save">{{ 'COMMON.SAVE' | translate }}</button>
               </form>
 
-              <div class="earnings-goal__bar" [class.bar-shine]="weeklyGoalBarShine">
-                <div
-                  class="earnings-goal__bar-scheduled"
-                  *ngIf="(showWalletBalance || walletTemporarilyVisible) && !isWeeklyGoalReached && weeklyEarningsScheduledPercent > weeklyEarningsGoalPercent"
-                  [style.width.%]="weeklyEarningsScheduledPercent">
+              <div class="earnings-goal__bar-track">
+                <div class="earnings-goal__bar" [class.bar-shine]="weeklyGoalBarShine">
+                  <div
+                    class="earnings-goal__bar-scheduled"
+                    *ngIf="(showWalletBalance || walletTemporarilyVisible) && !isWeeklyGoalReached && weeklyEarningsScheduledPercent > weeklyEarningsGoalPercent"
+                    [style.width.%]="weeklyEarningsScheduledPercent">
+                  </div>
+                  <div
+                    class="earnings-goal__bar-fill"
+                    [class.earnings-goal__bar-fill--masked]="!showWalletBalance && !walletTemporarilyVisible"
+                    [style.width.%]="(showWalletBalance || walletTemporarilyVisible) ? weeklyEarningsGoalPercent : 0"></div>
                 </div>
                 <div
-                  class="earnings-goal__bar-fill"
-                  [class.earnings-goal__bar-fill--masked]="!showWalletBalance && !walletTemporarilyVisible"
-                  [style.width.%]="(showWalletBalance || walletTemporarilyVisible) ? weeklyEarningsGoalPercent : 0"></div>
+                  class="earnings-goal__bar-end"
+                  *ngIf="isWeeklyGoalReached"
+                  [class.earnings-goal__bar-end--pop]="weeklyGoalBadgePop"
+                  aria-hidden="true">
+                  <div #weeklyGoalLottieHost class="earnings-goal__bar-lottie-host"></div>
+                </div>
               </div>
 
               <div class="earnings-goal__sub" [attr.title]="weeklyEarningsGoalSubLabel">
@@ -1090,20 +1134,32 @@
             <ion-icon name="arrow-forward-outline"></ion-icon>
           </button>
         </div>
+        </ng-container>
       </div>
-      <!-- Coming Up (Row 2, Left) — only when lessons exist -->
-      <div class="grid-cell-comingup enter-stagger enter-stagger-3" [class.enter-stagger-go]="desktopEnterReady" [class.enter-stagger-done]="desktopEnterDone" *ngIf="timelineEvents.length > 0">
+      <!-- Coming Up (Row 2) — always shown on desktop; empty state when no other lessons this week -->
+      <div class="grid-cell-comingup enter-stagger enter-stagger-3" [class.enter-stagger-go]="desktopEnterReady" [class.enter-stagger-done]="desktopEnterDone" *ngIf="!isMobile && !isLoadingLessons && (isTutorUser || isStudentUser)">
         <ng-container *ngIf="!isLoadingLessons">
           <div class="coming-up-section-head" *ngIf="!isMobile">
             <h2 class="desktop-tutor-section-title">{{ 'HOME.THIS_WEEK' | translate }}</h2>
-            <ion-button *ngIf="isTutorUser" fill="clear" class="see-all-btn" routerLink="/tabs/tutor-calendar">{{ 'HOME.FULL_SCHEDULE' | translate }}</ion-button>
-            <ion-button *ngIf="isStudentUser" fill="clear" class="see-all-btn" routerLink="/tabs/lessons">{{ 'HOME.FULL_SCHEDULE' | translate }}</ion-button>
           </div>
 
-          <!-- Empty state when no lessons this week -->
-          <div class="this-week-empty" *ngIf="timelineEvents.length === 0">
-            <ion-icon name="calendar-outline" class="this-week-empty__icon" aria-hidden="true"></ion-icon>
-            <p class="this-week-empty__text">{{ 'HOME.THIS_WEEK_NOTHING_YET' | translate }}</p>
+          <!-- Empty state when no other lessons this week -->
+          <div class="this-week-empty" [class.this-week-empty--compact]="thisWeekEmptyIsNothingElse" *ngIf="timelineEvents.length === 0">
+            <div class="this-week-empty__icon-wrap" [class.this-week-empty__icon-wrap--art]="!thisWeekEmptyIsNothingElse" aria-hidden="true">
+              <img *ngIf="!thisWeekEmptyIsNothingElse" class="this-week-empty__art" src="assets/this-week-empty-calendar.png" alt="" />
+              <ion-icon *ngIf="thisWeekEmptyIsNothingElse" name="checkmark-circle-outline" class="this-week-empty__icon"></ion-icon>
+            </div>
+            <div class="this-week-empty__content">
+              <ng-container *ngIf="thisWeekEmptyIsNothingElse">
+                <p class="this-week-empty__message">{{ thisWeekEmptyLabel | translate }}</p>
+              </ng-container>
+              <ng-container *ngIf="!thisWeekEmptyIsNothingElse">
+                <h3 class="this-week-empty__title">{{ 'HOME.THIS_WEEK_EMPTY_TITLE' | translate }}</h3>
+                <p class="this-week-empty__sub">{{ 'HOME.THIS_WEEK_EMPTY_SUB' | translate }}</p>
+                <a *ngIf="isTutorUser" class="this-week-empty__cta" routerLink="/tabs/tutor-calendar">{{ 'HOME.THIS_WEEK_EMPTY_CTA_TUTOR' | translate }}</a>
+                <button *ngIf="isStudentUser" type="button" class="this-week-empty__cta" (click)="openSearchTutors()">{{ 'HOME.THIS_WEEK_EMPTY_CTA_STUDENT' | translate }}</button>
+              </ng-container>
+            </div>
           </div>
           <div class="timeline-section timeline-section--week-strip" *ngIf="timelineEvents.length > 0">
             <div class="tw-week-scroll">
@@ -1236,7 +1292,26 @@
       </app-mobile-recent-students>
 
       <!-- Quick Actions — desktop: always full width + 4-up row (same with or without This Week) -->
-      <div class="grid-cell-actions full-width enter-stagger enter-stagger-4" [class.enter-stagger-go]="desktopEnterReady" [class.enter-stagger-done]="desktopEnterDone" *ngIf="!isMobile && !isLoadingLessons && (isTutorUser || isStudentUser)" [class.grid-cell-actions--student]="isStudentUser">
+      <div class="grid-cell-actions full-width"
+           [class.enter-stagger]="!isMobile && !isLoadingLessons"
+           [class.enter-stagger-4]="!isMobile && !isLoadingLessons"
+           [class.enter-stagger-go]="desktopEnterReady"
+           [class.enter-stagger-done]="desktopEnterDone"
+           *ngIf="!isMobile && (isTutorUser || isStudentUser)"
+           [class.grid-cell-actions--student]="isStudentUser">
+        <ng-container *ngIf="isLoadingLessons">
+          <div class="home-widget-skeleton-title skeleton-line"></div>
+          <div class="actions-grid-skeleton" aria-hidden="true">
+            <div class="quick-action-card-skeleton" *ngFor="let _ of quickActionsSkeletonSlots">
+              <div class="skeleton-line qacs-icon"></div>
+              <div class="qacs-text">
+                <div class="skeleton-line qacs-label"></div>
+                <div class="skeleton-line qacs-sub"></div>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+        <ng-container *ngIf="!isLoadingLessons">
         <h2 class="desktop-tutor-section-title desktop-tutor-section-title--actions">{{ 'HOME.QUICK_ACTIONS' | translate }}</h2>
         <div class="actions-grid">
           <div class="quick-action-card qa-classes qa-with-asset" (click)="onClassesQuickAction()">
@@ -1287,6 +1362,7 @@
             </div>
           </div>
         </div>
+        </ng-container>
       </div>
     </div><!-- /tutor-dashboard-grid -->
 
