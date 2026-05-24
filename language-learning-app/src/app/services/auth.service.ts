@@ -1,14 +1,14 @@
-import { Injectable } from '@angular/core';
+import { Injectable, Injector } from '@angular/core';
 import { AuthService as Auth0Service } from '@auth0/auth0-angular';
-import { Observable, BehaviorSubject, combineLatest, from, of } from 'rxjs';
-import { map, tap, take, catchError, switchMap } from 'rxjs/operators';
+import { Observable, BehaviorSubject, combineLatest, race, timer } from 'rxjs';
+import { map, take, filter, tap } from 'rxjs/operators';
 import { Router } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
 import { environment } from '../../environments/environment';
 import { LoadingService } from './loading.service';
 import { LanguageService } from './language.service';
+import { UserService } from './user.service';
 
 export interface User {
   sub: string;
@@ -41,18 +41,22 @@ export class AuthService {
   private isLoadingSubject = new BehaviorSubject<boolean>(true);
   private auth0Domain = environment.auth0.domain;
   private clientId = environment.auth0.clientId;
+  private sessionRecoveryInProgress = false;
+  private lastSessionRecoveryAt = 0;
+  private static readonly SESSION_RECOVERY_COOLDOWN_MS = 5000;
+  private static readonly AUTH_BOOTSTRAP_TIMEOUT_MS = 15000;
 
   constructor(
     private auth0: Auth0Service,
     private router: Router,
     private loadingService: LoadingService,
     private languageService: LanguageService,
+    private injector: Injector,
   ) {
     this.initializeAuth();
   }
 
   private initializeAuth(): void {
-    // Combine Auth0 observables
     combineLatest([
       this.auth0.isAuthenticated$,
       this.auth0.user$,
@@ -60,16 +64,38 @@ export class AuthService {
     ]).pipe(
       map(([isAuthenticated, user, isLoading]) => {
         this.isLoadingSubject.next(isLoading);
-        
+
         if (isAuthenticated && user) {
           this.userSubject.next(user as User);
         } else {
           this.userSubject.next(null);
         }
-        
+
         return { isAuthenticated, user, isLoading };
       })
     ).subscribe();
+
+    // Auth0 startup failures (corrupt cache, expired refresh token, etc.)
+    this.auth0.error$.subscribe(err => {
+      console.error('[AuthService] Auth0 SDK error:', err);
+      this.recoverSession('auth0_sdk_error');
+    });
+
+    // If bootstrap never completes, invalidate the stale local session instead
+    // of forcing isLoading false and leaving the app in a broken state.
+    race(
+      this.auth0.isLoading$.pipe(
+        filter(loading => !loading),
+        take(1),
+        map(() => 'ready' as const)
+      ),
+      timer(AuthService.AUTH_BOOTSTRAP_TIMEOUT_MS).pipe(map(() => 'timeout' as const))
+    ).subscribe(result => {
+      if (result === 'timeout' && this.isLoadingSubject.value) {
+        console.warn('[AuthService] Auth0 bootstrap timed out — recovering session');
+        this.recoverSession('auth_bootstrap_timeout');
+      }
+    });
   }
 
   /**
@@ -94,10 +120,76 @@ export class AuthService {
   }
 
   /**
-   * Get access token
+   * Get access token (cached when still valid).
    */
   getAccessToken(): Observable<string> {
     return this.auth0.getAccessTokenSilently();
+  }
+
+  /**
+   * Force a network token refresh. Used when the cached ID token expired.
+   */
+  refreshAccessToken(): Observable<string> {
+    return this.auth0.getAccessTokenSilently({ cacheMode: 'off' });
+  }
+
+  /**
+   * Clear a dead Auth0 session locally and route to login.
+   * Used on 401s, SDK bootstrap failures, and corrupt cache recovery.
+   */
+  recoverSession(reason: string): void {
+    const now = Date.now();
+    if (this.sessionRecoveryInProgress) {
+      return;
+    }
+    if (now - this.lastSessionRecoveryAt < AuthService.SESSION_RECOVERY_COOLDOWN_MS) {
+      return;
+    }
+    if (this.isPublicAuthRoute()) {
+      return;
+    }
+
+    this.sessionRecoveryInProgress = true;
+    this.lastSessionRecoveryAt = now;
+    console.warn('[AuthService] Recovering session:', reason);
+
+    const preserved = AuthService.captureLanguagePreferences();
+    this.userSubject.next(null);
+    this.isLoadingSubject.next(false);
+    this.loadingService.hide();
+
+    try {
+      this.injector.get(UserService).clearCurrentUser();
+    } catch {
+      // UserService unavailable during very early bootstrap — safe to ignore.
+    }
+
+    try {
+      localStorage.removeItem('currentUserEmail');
+    } catch {
+      // ignore
+    }
+
+    this.auth0.logout({ openUrl: false }).pipe(take(1)).subscribe({
+      next: () => {
+        AuthService.restoreLanguagePreferences(preserved);
+        this.sessionRecoveryInProgress = false;
+        this.router.navigate(['/login'], {
+          replaceUrl: true,
+          queryParams: { session: 'expired' },
+        });
+      },
+      error: () => {
+        AuthService.restoreLanguagePreferences(preserved);
+        this.sessionRecoveryInProgress = false;
+        this.router.navigate(['/login'], { replaceUrl: true });
+      },
+    });
+  }
+
+  private isPublicAuthRoute(): boolean {
+    const url = this.router.url || '';
+    return /^\/(login|callback|terms|privacy)(\/|\?|$)/.test(url);
   }
 
   /**

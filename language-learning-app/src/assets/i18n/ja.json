@@ -521,7 +521,12 @@
     "WITHDRAW_POWERED_BY": "搭載",
     "WITHDRAW_TERMS_PREFIX": "利用規約が適用されます。お気軽にお問い合わせください",
     "WITHDRAW_TERMS_LINK": "サポート",
-    "WITHDRAW_TERMS_SUFFIX": "助けが必要な場合。"
+    "WITHDRAW_TERMS_SUFFIX": "助けが必要な場合。",
+    "WITHDRAW_METHOD_REQUIRED_MSG_STRIPE": "支払い方法は Stripe Connect です。出金する前に、「プロフィール」 > 「支払い」で設定を完了してください。",
+    "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "お支払い方法は PayPal です。出金する前に、「プロフィール」 > 「支払い」で設定を完了してください。",
+    "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "出金する前に、[プロフィール] › [支払い] で支払いの設定を完了してください。",
+    "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "出金をリクエストする前に、プロフィール › 支払いで支払い方法を設定してください。",
+    "WITHDRAW_GO_TO_SETUP": "セットアップに移動"
   },
   "LOGIN": {
     "TITLE": "ログイン",
@@ -558,7 +563,8 @@
     "HERO_BUBBLE_CIAO": "Ciao!",
     "SIGNING_IN": "ログインしています…",
     "ERROR_TITLE": "エラー",
-    "REDIRECT_FAILED": "ログインに失敗しました。もう一度お試しください。"
+    "REDIRECT_FAILED": "ログインに失敗しました。もう一度お試しください。",
+    "COMPLETING_SIGN_IN": "サインインを完了しています…"
   },
   "TABS": {
     "HOME": "ホーム",
@@ -622,7 +628,9 @@
     "DISCARD": "破棄",
     "SEND": "送信",
     "UPLOADING": "アップロード中...",
-    "RECORDING": "録音中... {{duration}}s"
+    "RECORDING": "録音中... {{duration}}s",
+    "DROPDOWN_EMPTY_HINT": "ここで見るには会話を開始してください",
+    "LOADING_CONVERSATIONS": "会話を読み込んでいます..."
   },
   "NOTIFICATIONS": {
     "TITLE": "通知",
@@ -1182,7 +1190,11 @@
       "TOAST_ERROR_FALLBACK": "今はプランを作成できませんでした。しばらくしてからもう一度お試しください。"
     },
     "SPOKEN_LANG_HINT": "あなたが話す追加の言語を選択してください。",
-    "PREVIEW_ALSO_SPEAKS": "も話します"
+    "PREVIEW_ALSO_SPEAKS": "も話します",
+    "LOADING": {
+      "CREATING_ACCOUNT": "アカウントを作成中…",
+      "CHECKING_ACCOUNT": "アカウントを確認しています…"
+    }
   },
   "TUTOR_APPROVAL": {
     "WIZARD_FLOW_TITLE": "講師の承認",

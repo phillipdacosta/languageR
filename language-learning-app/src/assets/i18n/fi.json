@@ -521,7 +521,12 @@
     "WITHDRAW_POWERED_BY": "Voimanlähteenä",
     "WITHDRAW_TERMS_PREFIX": "Säännöt ja ehdot ovat voimassa. Älä epäröi ottaa yhteyttä",
     "WITHDRAW_TERMS_LINK": "Tukea",
-    "WITHDRAW_TERMS_SUFFIX": "jos tarvitset apua."
+    "WITHDRAW_TERMS_SUFFIX": "jos tarvitset apua.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_STRIPE": "Maksutapasi on Stripe Connect. Viimeistele asetukset kohdassa Profiili › Maksut ennen kuin voit kotiuttaa.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Maksutapasi on PayPal. Viimeistele asetukset kohdassa Profiili › Maksut ennen kuin voit kotiuttaa.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Suorita maksun määrittäminen profiilissa › Maksut ennen kuin voit kotiuttaa.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Määritä maksutapasi kohdassa Profiili › Maksut ennen kuin pyydät nostoa.",
+    "WITHDRAW_GO_TO_SETUP": "Siirry kohtaan Asetukset"
   },
   "LOGIN": {
     "TITLE": "Kirjaudu",
@@ -558,7 +563,8 @@
     "HERO_BUBBLE_CIAO": "Ciao!",
     "SIGNING_IN": "Kirjaudutaan…",
     "ERROR_TITLE": "Virhe",
-    "REDIRECT_FAILED": "Kirjautuminen epäonnistui. Yritä uudelleen."
+    "REDIRECT_FAILED": "Kirjautuminen epäonnistui. Yritä uudelleen.",
+    "COMPLETING_SIGN_IN": "Sisäänkirjautumista viimeistellään…"
   },
   "TABS": {
     "HOME": "Koti",
@@ -622,7 +628,9 @@
     "DISCARD": "Hävitä",
     "SEND": "Lähetä",
     "UPLOADING": "Ladataan...",
-    "RECORDING": "Nauhoitus... {{duration}}s"
+    "RECORDING": "Nauhoitus... {{duration}}s",
+    "DROPDOWN_EMPTY_HINT": "Aloita keskustelu nähdäksesi sen täällä",
+    "LOADING_CONVERSATIONS": "Ladataan keskusteluja..."
   },
   "NOTIFICATIONS": {
     "TITLE": "Ilmoitukset",
@@ -1181,7 +1189,11 @@
       "TOAST_ERROR_FALLBACK": "Suunnitelmaa ei voitu luoda juuri nyt. Yritä hetken kuluttua uudelleen."
     },
     "SPOKEN_LANG_HINT": "Valitse muut puhumasi kielet.",
-    "PREVIEW_ALSO_SPEAKS": "Puhuu myös"
+    "PREVIEW_ALSO_SPEAKS": "Puhuu myös",
+    "LOADING": {
+      "CREATING_ACCOUNT": "Luodaan tiliäsi…",
+      "CHECKING_ACCOUNT": "Tarkistetaan tiliäsi…"
+    }
   },
   "TUTOR_APPROVAL": {
     "WIZARD_FLOW_TITLE": "Ohjaajan hyväksyntä",

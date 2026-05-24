@@ -521,7 +521,12 @@
     "WITHDRAW_POWERED_BY": "Alimenté par",
     "WITHDRAW_TERMS_PREFIX": "Les conditions générales s'appliquent. N'hésitez pas à contacter",
     "WITHDRAW_TERMS_LINK": "Assistance",
-    "WITHDRAW_TERMS_SUFFIX": "si vous avez besoin d'aide."
+    "WITHDRAW_TERMS_SUFFIX": "si vous avez besoin d'aide.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_STRIPE": "Votre méthode de paiement est Stripe Connect. Terminez la configuration dans Profil > Paiements avant de pouvoir retirer.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Votre mode de paiement est PayPal. Terminez la configuration dans Profil > Paiements avant de pouvoir retirer.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Terminez la configuration des paiements dans Profil > Paiements avant de pouvoir retirer.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Veuillez configurer votre méthode de paiement dans Profil > Paiements avant de demander un retrait.",
+    "WITHDRAW_GO_TO_SETUP": "Allez dans Configuration"
   },
   "ONBOARDING": {
     "TITLE": "Bienvenue à l'apprentissage des langues",
@@ -947,7 +952,11 @@
       "TOAST_ERROR_FALLBACK": "Impossible de créer votre plan pour le moment. Réessayez dans un instant."
     },
     "SPOKEN_LANG_HINT": "Sélectionnez les langues supplémentaires que vous parlez.",
-    "PREVIEW_ALSO_SPEAKS": "Parle aussi"
+    "PREVIEW_ALSO_SPEAKS": "Parle aussi",
+    "LOADING": {
+      "CREATING_ACCOUNT": "Création de votre compte…",
+      "CHECKING_ACCOUNT": "Vérification de votre compte…"
+    }
   },
   "PROFILE": {
     "TITLE": "Profil",
@@ -1068,7 +1077,9 @@
     "DISCARD": "Jeter",
     "SEND": "Envoyer",
     "UPLOADING": "Téléchargement...",
-    "RECORDING": "Enregistrement... {{duration}}s"
+    "RECORDING": "Enregistrement... {{duration}}s",
+    "DROPDOWN_EMPTY_HINT": "Démarrez une conversation pour le voir ici",
+    "LOADING_CONVERSATIONS": "Chargement des conversations..."
   },
   "NOTIFICATIONS": {
     "TITLE": "Notifications",
@@ -1239,7 +1250,8 @@
     "HERO_BUBBLE_CIAO": "Ciao !",
     "SIGNING_IN": "Connexion en cours…",
     "ERROR_TITLE": "Erreur",
-    "REDIRECT_FAILED": "Échec de la connexion. Veuillez réessayer."
+    "REDIRECT_FAILED": "Échec de la connexion. Veuillez réessayer.",
+    "COMPLETING_SIGN_IN": "Connexion terminée…"
   },
   "ERRORS": {
     "GENERIC": "Quelque chose s'est mal passé. Veuillez réessayer.",

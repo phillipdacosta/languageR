@@ -1,5 +1,5 @@
 import { IonicModule } from '@ionic/angular';
-import { NgModule } from '@angular/core';
+import { NgModule, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -75,6 +75,7 @@ import { Tab1PageRoutingModule } from './tab1-routing.module';
     JourneyPage,
     TutorOnboardingComponent
   ],
-  declarations: [Tab1Page]
+  declarations: [Tab1Page],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class Tab1PageModule {}

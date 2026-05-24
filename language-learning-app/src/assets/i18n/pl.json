@@ -521,7 +521,12 @@
     "WITHDRAW_POWERED_BY": "Obsługiwane przez",
     "WITHDRAW_TERMS_PREFIX": "Obowiązują Warunki. Nie wahaj się skontaktować",
     "WITHDRAW_TERMS_LINK": "Wsparcie",
-    "WITHDRAW_TERMS_SUFFIX": "jeśli potrzebujesz pomocy."
+    "WITHDRAW_TERMS_SUFFIX": "jeśli potrzebujesz pomocy.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_STRIPE": "Twoja metoda wypłaty to Stripe Connect. Zakończ konfigurację w Profilu › Wypłaty, zanim będziesz mógł wypłacić.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Twoja metoda wypłaty to PayPal. Zakończ konfigurację w Profilu › Wypłaty, zanim będziesz mógł wypłacić.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Dokończ konfigurację wypłat w Profilu › Wypłaty, zanim będziesz mógł wypłacić.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Przed złożeniem wniosku o wypłatę skonfiguruj metodę wypłaty w Profilu › Wypłaty.",
+    "WITHDRAW_GO_TO_SETUP": "Przejdź do Ustawień"
   },
   "LOGIN": {
     "TITLE": "Zaloguj się",
@@ -558,7 +563,8 @@
     "HERO_BUBBLE_CIAO": "Ciao!",
     "SIGNING_IN": "Logowanie…",
     "ERROR_TITLE": "Błąd",
-    "REDIRECT_FAILED": "Logowanie nie powiodło się. Spróbuj ponownie."
+    "REDIRECT_FAILED": "Logowanie nie powiodło się. Spróbuj ponownie.",
+    "COMPLETING_SIGN_IN": "Kończę logowanie…"
   },
   "TABS": {
     "HOME": "Strona główna",
@@ -622,7 +628,9 @@
     "DISCARD": "Wyrzucać",
     "SEND": "Wysłać",
     "UPLOADING": "Przesyłanie...",
-    "RECORDING": "Nagrywanie... {{duration}}s"
+    "RECORDING": "Nagrywanie... {{duration}}s",
+    "DROPDOWN_EMPTY_HINT": "Rozpocznij rozmowę, aby zobaczyć ją tutaj",
+    "LOADING_CONVERSATIONS": "Ładowanie rozmów..."
   },
   "NOTIFICATIONS": {
     "TITLE": "Powiadomienia",
@@ -1182,7 +1190,11 @@
       "TOAST_ERROR_FALLBACK": "Nie udało się teraz utworzyć planu. Spróbuj ponownie za chwilę."
     },
     "SPOKEN_LANG_HINT": "Wybierz dodatkowe języki, którymi mówisz.",
-    "PREVIEW_ALSO_SPEAKS": "Mówi także"
+    "PREVIEW_ALSO_SPEAKS": "Mówi także",
+    "LOADING": {
+      "CREATING_ACCOUNT": "Tworzenie konta…",
+      "CHECKING_ACCOUNT": "Sprawdzam Twoje konto…"
+    }
   },
   "TUTOR_APPROVAL": {
     "WIZARD_FLOW_TITLE": "Zatwierdzenie nauczyciela",

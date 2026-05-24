@@ -13,7 +13,7 @@ import { environment } from '../../environments/environment';
     <ion-content class="ion-padding">
       <div class="callback-container">
         <ion-spinner name="crescent"></ion-spinner>
-        <p>Completing sign in...</p>
+        <p>{{ 'LOGIN.COMPLETING_SIGN_IN' | translate }}</p>
       </div>
     </ion-content>
   `,

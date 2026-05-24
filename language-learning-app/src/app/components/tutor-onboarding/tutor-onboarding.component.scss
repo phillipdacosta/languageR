@@ -1566,8 +1566,8 @@ $ob-wizard-cta-uniform-width: min(22.5rem, calc(100% - 16px));
       }
 
       &.pending {
-        background: #fffbf0;
-        color: #b37400;
+        color: #ff9100;
+        font-size: 13px;
         border: 1px solid $ob-border-light;
       }
 

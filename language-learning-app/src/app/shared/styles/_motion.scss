@@ -1,0 +1,144 @@
+// Shared motion tokens & utilities — Airbnb-style subtle life
+// Use transform + opacity only for performance.
+
+$motion-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+$motion-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+$motion-duration-fast: 0.2s;
+$motion-duration-enter: 0.45s;
+$motion-stagger-step: 80ms;
+
+@keyframes motionFadeInUp {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 16px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes motionBadgePop {
+  0% { transform: scale(0); opacity: 0; }
+  55% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes motionBarShine {
+  0% { transform: translateX(-120%); opacity: 0; }
+  20% { opacity: 0.55; }
+  100% { transform: translateX(220%); opacity: 0; }
+}
+
+@keyframes motionChevronNudge {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(3px); }
+}
+
+// Desktop + mobile stagger (CSS transitions — reliable on WKWebView)
+@media (min-width: 969px) {
+  .enter-stagger {
+  opacity: 0;
+  transform: translate3d(0, 20px, 0);
+  transition:
+    opacity $motion-duration-enter $motion-ease-out,
+    transform $motion-duration-enter $motion-ease-out;
+
+  &.enter-stagger-1 { transition-delay: 0ms; }
+  &.enter-stagger-2 { transition-delay: $motion-stagger-step; }
+  &.enter-stagger-3 { transition-delay: $motion-stagger-step * 2; }
+  &.enter-stagger-4 { transition-delay: $motion-stagger-step * 3; }
+  &.enter-stagger-5 { transition-delay: $motion-stagger-step * 4; }
+
+  &.enter-stagger-go {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+
+  &.enter-stagger-done {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  }
+}
+
+.hover-lift {
+  transition:
+    transform $motion-duration-fast ease,
+    box-shadow $motion-duration-fast ease;
+
+  @media (hover: hover) {
+    &:hover {
+      transform: translateY(-2px);
+    }
+  }
+
+  &:active {
+    transform: translateY(0) scale(0.98);
+  }
+}
+
+.link-chevron-nudge {
+  ion-icon,
+  .link-chevron {
+    transition: transform $motion-duration-fast ease;
+  }
+
+  @media (hover: hover) {
+    &:hover ion-icon,
+    &:hover .link-chevron {
+      transform: translateX(3px);
+    }
+  }
+}
+
+.badge-pop {
+  animation: motionBadgePop 0.45s $motion-ease-spring both;
+}
+
+.bar-shine {
+  position: relative;
+  overflow: hidden;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 45%;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.45) 50%,
+      transparent 100%
+    );
+    transform: translateX(-120%);
+    animation: motionBarShine 0.9s ease-out 0.35s both;
+    pointer-events: none;
+    z-index: 3;
+  }
+}
+
+.content-crossfade-in {
+  animation: motionFadeInUp 0.4s $motion-ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .enter-stagger {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .badge-pop,
+  .bar-shine::after,
+  .content-crossfade-in {
+    animation: none !important;
+  }
+
+  .hover-lift {
+    transition: none;
+  }
+}

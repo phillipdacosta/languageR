@@ -1,6 +1,7 @@
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
+import { TranslateModule } from '@ngx-translate/core';
 
 import { CallbackPageRoutingModule } from './callback-routing.module';
 import { CallbackPage } from './callback.page';
@@ -9,6 +10,7 @@ import { CallbackPage } from './callback.page';
   imports: [
     CommonModule,
     IonicModule,
+    TranslateModule,
     CallbackPageRoutingModule
   ],
   declarations: [CallbackPage]

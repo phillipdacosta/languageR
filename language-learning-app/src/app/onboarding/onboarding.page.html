@@ -611,6 +611,7 @@
         [disabled]="isSubmitting || !studentProfileComplete"
         (click)="completeOnboarding()">
         <ion-spinner *ngIf="isSubmitting" name="crescent" class="btn-spinner"></ion-spinner>
+        <span *ngIf="isSubmitting">{{ 'ONBOARDING.LOADING.CREATING_ACCOUNT' | translate }}</span>
         <span *ngIf="!isSubmitting">{{ 'ONBOARDING.NAV.COMPLETE_SETUP' | translate }}</span>
         <ion-icon *ngIf="!isSubmitting" name="checkmark" aria-hidden="true"></ion-icon>
       </button>

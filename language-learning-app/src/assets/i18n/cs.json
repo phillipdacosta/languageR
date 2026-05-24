@@ -521,7 +521,12 @@
     "WITHDRAW_POWERED_BY": "Provozováno na",
     "WITHDRAW_TERMS_PREFIX": "Platí smluvní podmínky. Neváhejte kontaktovat",
     "WITHDRAW_TERMS_LINK": "Podpora",
-    "WITHDRAW_TERMS_SUFFIX": "pokud potřebujete pomoc."
+    "WITHDRAW_TERMS_SUFFIX": "pokud potřebujete pomoc.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_STRIPE": "Vaší platební metodou je Stripe Connect. Než budete moci vybírat, dokončete nastavení v Profilu › Výplaty.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Vaší platební metodou je PayPal. Než budete moci vybírat, dokončete nastavení v Profilu › Výplaty.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Než budete moci vybírat, dokončete nastavení výplat v Profilu › Výplaty.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Před žádostí o výběr si prosím nastavte způsob výplaty v Profil › Výplaty.",
+    "WITHDRAW_GO_TO_SETUP": "Přejděte na Nastavení"
   },
   "LOGIN": {
     "TITLE": "Přihlásit se",
@@ -558,7 +563,8 @@
     "HERO_BUBBLE_CIAO": "Ciao!",
     "SIGNING_IN": "Přihlašování…",
     "ERROR_TITLE": "Chyba",
-    "REDIRECT_FAILED": "Přihlášení se nezdařilo. Zkuste to znovu."
+    "REDIRECT_FAILED": "Přihlášení se nezdařilo. Zkuste to znovu.",
+    "COMPLETING_SIGN_IN": "Dokončování přihlášení…"
   },
   "TABS": {
     "HOME": "Domů",
@@ -622,7 +628,9 @@
     "DISCARD": "Vyřadit",
     "SEND": "Poslat",
     "UPLOADING": "Nahrávání...",
-    "RECORDING": "Nahrávání... {{duration}}s"
+    "RECORDING": "Nahrávání... {{duration}}s",
+    "DROPDOWN_EMPTY_HINT": "Zahajte konverzaci, abyste to viděli zde",
+    "LOADING_CONVERSATIONS": "Načítání konverzací..."
   },
   "NOTIFICATIONS": {
     "TITLE": "Oznámení",
@@ -1181,7 +1189,11 @@
       "TOAST_ERROR_FALLBACK": "Plán se teď nepodařilo vytvořit. Zkuste to prosím za chvíli znovu."
     },
     "SPOKEN_LANG_HINT": "Vyberte další jazyky, kterými mluvíte.",
-    "PREVIEW_ALSO_SPEAKS": "Také mluví"
+    "PREVIEW_ALSO_SPEAKS": "Také mluví",
+    "LOADING": {
+      "CREATING_ACCOUNT": "Vytváření účtu…",
+      "CHECKING_ACCOUNT": "Kontrola vašeho účtu…"
+    }
   },
   "TUTOR_APPROVAL": {
     "WIZARD_FLOW_TITLE": "Schválení lektora",

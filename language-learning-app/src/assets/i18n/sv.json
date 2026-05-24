@@ -521,7 +521,12 @@
     "WITHDRAW_POWERED_BY": "Drivs av",
     "WITHDRAW_TERMS_PREFIX": "Regler och villkor gäller. Tveka inte att kontakta",
     "WITHDRAW_TERMS_LINK": "Stöd",
-    "WITHDRAW_TERMS_SUFFIX": "om du behöver hjälp."
+    "WITHDRAW_TERMS_SUFFIX": "om du behöver hjälp.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_STRIPE": "Din utbetalningsmetod är Stripe Connect. Slutför installationen i Profil › Utbetalningar innan du kan göra uttag.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Din utbetalningsmetod är PayPal. Slutför installationen i Profil › Utbetalningar innan du kan göra uttag.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Slutför utbetalningskonfigurationen i Profil › Utbetalningar innan du kan göra uttag.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Ställ in din utbetalningsmetod i Profil › Utbetalningar innan du begär ett uttag.",
+    "WITHDRAW_GO_TO_SETUP": "Gå till Setup"
   },
   "LOGIN": {
     "TITLE": "Logga in",
@@ -558,7 +563,8 @@
     "HERO_BUBBLE_CIAO": "Ciao!",
     "SIGNING_IN": "Loggar in…",
     "ERROR_TITLE": "Fel",
-    "REDIRECT_FAILED": "Inloggningen misslyckades. Försök igen."
+    "REDIRECT_FAILED": "Inloggningen misslyckades. Försök igen.",
+    "COMPLETING_SIGN_IN": "Slutför inloggningen..."
   },
   "TABS": {
     "HOME": "Hem",
@@ -622,7 +628,9 @@
     "DISCARD": "Kassera",
     "SEND": "Skicka",
     "UPLOADING": "Laddar upp...",
-    "RECORDING": "Inspelning... {{duration}}s"
+    "RECORDING": "Inspelning... {{duration}}s",
+    "DROPDOWN_EMPTY_HINT": "Starta en konversation för att se den här",
+    "LOADING_CONVERSATIONS": "Läser in konversationer..."
   },
   "NOTIFICATIONS": {
     "TITLE": "Aviseringar",
@@ -1182,7 +1190,11 @@
       "TOAST_ERROR_FALLBACK": "Vi kunde inte skapa planen just nu. Försök igen om en stund."
     },
     "SPOKEN_LANG_HINT": "Välj eventuella ytterligare språk du talar.",
-    "PREVIEW_ALSO_SPEAKS": "Talar också"
+    "PREVIEW_ALSO_SPEAKS": "Talar också",
+    "LOADING": {
+      "CREATING_ACCOUNT": "Skapar ditt konto...",
+      "CHECKING_ACCOUNT": "Kontrollerar ditt konto..."
+    }
   },
   "TUTOR_APPROVAL": {
     "WIZARD_FLOW_TITLE": "Handledares godkännande",

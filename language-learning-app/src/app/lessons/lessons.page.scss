@@ -437,15 +437,6 @@ $lesson-grid-gap: 20px;
   justify-content: center;
   gap: 0;
   flex-shrink: 0;
-
-  &--today {
-    background: #e4fbff;
-
-    .lgc-dt-month,
-    .lgc-dt-day { color: #ff3b30; }
-
-    .lgc-dt-weekday { color: rgba(255, 59, 48, 0.7); }
-  }
 }
 
 .lgc-dt-month {

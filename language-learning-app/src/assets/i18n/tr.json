@@ -521,7 +521,12 @@
     "WITHDRAW_POWERED_BY": "Tarafından desteklenmektedir",
     "WITHDRAW_TERMS_PREFIX": "Şartlar ve Koşullar geçerlidir. İletişime geçmekten çekinmeyin",
     "WITHDRAW_TERMS_LINK": "Destek",
-    "WITHDRAW_TERMS_SUFFIX": "yardıma ihtiyacınız varsa."
+    "WITHDRAW_TERMS_SUFFIX": "yardıma ihtiyacınız varsa.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_STRIPE": "Ödeme yönteminiz Stripe Connect'tir. Para çekmeden önce Profil › Ödemeler bölümünde kurulumu tamamlayın.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Ödeme yönteminiz PayPal'dır. Para çekmeden önce Profil › Ödemeler bölümünde kurulumu tamamlayın.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Para çekmeden önce Profil › Ödemeler bölümünde ödeme kurulumunu tamamlayın.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Lütfen para çekme talebinde bulunmadan önce Profil › Ödemeler bölümünde ödeme yönteminizi ayarlayın.",
+    "WITHDRAW_GO_TO_SETUP": "Kuruluma Git"
   },
   "LOGIN": {
     "TITLE": "Giriş yap",
@@ -558,7 +563,8 @@
     "HERO_BUBBLE_CIAO": "Ciao!",
     "SIGNING_IN": "Giriş yapılıyor…",
     "ERROR_TITLE": "Hata",
-    "REDIRECT_FAILED": "Giriş başarısız. Lütfen tekrar deneyin."
+    "REDIRECT_FAILED": "Giriş başarısız. Lütfen tekrar deneyin.",
+    "COMPLETING_SIGN_IN": "Oturum açma işlemi tamamlanıyor…"
   },
   "TABS": {
     "HOME": "Ana Sayfa",
@@ -622,7 +628,9 @@
     "DISCARD": "At",
     "SEND": "Göndermek",
     "UPLOADING": "Yükleniyor...",
-    "RECORDING": "Kaydediliyor... {{duration}}s"
+    "RECORDING": "Kaydediliyor... {{duration}}s",
+    "DROPDOWN_EMPTY_HINT": "Burada görmek için bir konuşma başlatın",
+    "LOADING_CONVERSATIONS": "Görüşmeler yükleniyor..."
   },
   "NOTIFICATIONS": {
     "TITLE": "Bildirimler",
@@ -1182,7 +1190,11 @@
       "TOAST_ERROR_FALLBACK": "Planı şu an oluşturamadık. Lütfen birazdan tekrar dene."
     },
     "SPOKEN_LANG_HINT": "Konuştuğunuz ek dilleri seçin.",
-    "PREVIEW_ALSO_SPEAKS": "Ayrıca konuşuyor"
+    "PREVIEW_ALSO_SPEAKS": "Ayrıca konuşuyor",
+    "LOADING": {
+      "CREATING_ACCOUNT": "Hesabınız oluşturuluyor…",
+      "CHECKING_ACCOUNT": "Hesabınız kontrol ediliyor…"
+    }
   },
   "TUTOR_APPROVAL": {
     "WIZARD_FLOW_TITLE": "Öğretmen Onayı",

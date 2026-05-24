@@ -40,7 +40,7 @@ export class OnboardingGuard implements CanActivate {
     state: RouterStateSnapshot
   ): Observable<boolean> {
     // Show loading immediately to prevent any flash
-    this.loadingService.show();
+    this.loadingService.show('ONBOARDING.LOADING.CHECKING_ACCOUNT');
     
     // Add a small delay to ensure loading overlay is rendered
     return new Observable(observer => {

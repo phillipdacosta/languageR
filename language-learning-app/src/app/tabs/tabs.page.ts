@@ -121,11 +121,37 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
 
   /** One-shot bounce when leaving Profile on mobile (cleared after animation). */
   tabBarBounceAfterProfile = false;
+  /** One-shot pop when unread notification count increases. */
+  notificationBadgePop = false;
+  /** One-shot pop when unread message count increases. */
+  messageBadgePop = false;
+  private notificationCountInitialized = false;
+  private messageCountInitialized = false;
+  private lastUnreadNotifications = 0;
+  private lastUnreadMessages = 0;
 
   private previousNavUrl = '';
 
   private normalizeNavPath(url: string): string {
     return url.split('?')[0].replace(/\/$/, '');
+  }
+
+  private triggerNotificationBadgePop(): void {
+    this.notificationBadgePop = true;
+    this.cdr.markForCheck();
+    setTimeout(() => {
+      this.notificationBadgePop = false;
+      this.cdr.markForCheck();
+    }, 480);
+  }
+
+  private triggerMessageBadgePop(): void {
+    this.messageBadgePop = true;
+    this.cdr.markForCheck();
+    setTimeout(() => {
+      this.messageBadgePop = false;
+      this.cdr.markForCheck();
+    }, 480);
   }
   
   // Computed property for calendar tab selection
@@ -251,6 +277,26 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       });
 
     this.translateService.onLangChange.pipe(takeUntil(this.destroy$)).subscribe(() => {
+      this.cdr.markForCheck();
+    });
+
+    this.unreadNotificationCount$.pipe(takeUntil(this.destroy$)).subscribe((count) => {
+      const next = count || 0;
+      if (this.notificationCountInitialized && next > this.lastUnreadNotifications) {
+        this.triggerNotificationBadgePop();
+      }
+      this.lastUnreadNotifications = next;
+      this.notificationCountInitialized = true;
+      this.cdr.markForCheck();
+    });
+
+    this.unreadCount$.pipe(takeUntil(this.destroy$)).subscribe((count) => {
+      const next = count || 0;
+      if (this.messageCountInitialized && next > this.lastUnreadMessages) {
+        this.triggerMessageBadgePop();
+      }
+      this.lastUnreadMessages = next;
+      this.messageCountInitialized = true;
       this.cdr.markForCheck();
     });
 

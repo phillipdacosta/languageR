@@ -86,7 +86,8 @@
     "HERO_BUBBLE_CIAO": "Ciao!",
     "SIGNING_IN": "מתחבר…",
     "ERROR_TITLE": "שגיאה",
-    "REDIRECT_FAILED": "ההתחברות נכשלה. נסה שוב."
+    "REDIRECT_FAILED": "ההתחברות נכשלה. נסה שוב.",
+    "COMPLETING_SIGN_IN": "משלים כניסה..."
   },
   "TABS": {
     "HOME": "דף הבית",
@@ -571,7 +572,12 @@
     "WITHDRAW_POWERED_BY": "מופעל על ידי",
     "WITHDRAW_TERMS_PREFIX": "חלים תנאים והגבלות. אל תהססו לפנות",
     "WITHDRAW_TERMS_LINK": "תְמִיכָה",
-    "WITHDRAW_TERMS_SUFFIX": "אם אתה צריך עזרה."
+    "WITHDRAW_TERMS_SUFFIX": "אם אתה צריך עזרה.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_STRIPE": "שיטת התשלום שלך היא Stripe Connect. השלם את ההגדרה בפרופיל › תשלומים לפני שתוכל למשוך.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "שיטת התשלום שלך היא PayPal. השלם את ההגדרה בפרופיל › תשלומים לפני שתוכל למשוך.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "השלם את הגדרת התשלומים בפרופיל › תשלומים לפני שתוכל למשוך.",
+    "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "הגדר את שיטת התשלום שלך בפרופיל › תשלומים לפני בקשת משיכה.",
+    "WITHDRAW_GO_TO_SETUP": "עבור אל הגדרות"
   },
   "MESSAGES": {
     "TITLE": "הודעות",
@@ -624,7 +630,9 @@
     "DISCARD": "לְהַשְׁלִיך",
     "SEND": "לִשְׁלוֹחַ",
     "UPLOADING": "מעלה...",
-    "RECORDING": "הקלטה... {{duration}}s"
+    "RECORDING": "הקלטה... {{duration}}s",
+    "DROPDOWN_EMPTY_HINT": "התחל שיחה כדי לראות את זה כאן",
+    "LOADING_CONVERSATIONS": "טוען שיחות..."
   },
   "NOTIFICATIONS": {
     "TITLE": "התראות",
@@ -1183,7 +1191,11 @@
       "TOAST_ERROR_FALLBACK": "לא הצלחנו ליצור את התוכנית כרגע. נסו שוב בעוד רגע."
     },
     "SPOKEN_LANG_HINT": "בחר כל שפות נוספות שאתה דובר.",
-    "PREVIEW_ALSO_SPEAKS": "גם מדבר"
+    "PREVIEW_ALSO_SPEAKS": "גם מדבר",
+    "LOADING": {
+      "CREATING_ACCOUNT": "יוצר את החשבון שלך...",
+      "CHECKING_ACCOUNT": "בודק את החשבון שלך..."
+    }
   },
   "TUTOR_APPROVAL": {
     "WIZARD_FLOW_TITLE": "אישור מורה",

@@ -8,7 +8,7 @@ import { provideAnimationsAsync } from '@angular/platform-browser/animations/asy
 import { IonicModule, IonicRouteStrategy } from '@ionic/angular';
 import { IonicStorageModule } from '@ionic/storage-angular';
 
-import { AuthModule, AuthHttpInterceptor } from '@auth0/auth0-angular';
+import { AuthModule } from '@auth0/auth0-angular';
 import { Capacitor } from '@capacitor/core';
 import { environment } from '../environments/environment';
 
@@ -26,6 +26,7 @@ import { TokenGeneratorService } from './services/token-generator.service';
 import { PlatformService } from './services/platform.service';
 import { CustomUrlSerializerService } from './services/custom-url-serializer.service';
 import { ApiAuthInterceptor } from './services/api-auth.interceptor';
+import { ApiUnauthorizedInterceptor } from './services/api-unauthorized.interceptor';
 import { GlobalLoadingComponent } from './components/global-loading/global-loading.component';
 import { ReminderNotificationComponent } from './components/reminder-notification/reminder-notification.component';
 import { EarlyExitModalComponent } from './components/early-exit-modal/early-exit-modal.component';
@@ -55,7 +56,11 @@ import { CommonModule } from '@angular/common';
       httpInterceptor: {
         allowedList: []
       },
-      useRefreshTokens: Capacitor.isNativePlatform(),
+      // Refresh-token rotation on web + native so sessions survive ID token
+      // expiry without fragile silent-iframe hangs. Requires "Refresh Token
+      // Rotation" enabled for this SPA in the Auth0 dashboard.
+      useRefreshTokens: true,
+      useRefreshTokensFallback: true,
       cacheLocation: 'localstorage',
       skipRedirectCallback: Capacitor.isNativePlatform()
     }),
@@ -64,10 +69,9 @@ import { CommonModule } from '@angular/common';
   providers: [
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
     { provide: UrlSerializer, useClass: CustomUrlSerializerService },
-    // Attach Auth0 bearer token to every backend request. This is the single
-    // source of truth for `Authorization` headers on HttpClient traffic; per-
-    // call header construction in pages/services is now redundant.
+    // ApiAuthInterceptor attaches tokens; ApiUnauthorizedInterceptor handles 401 recovery.
     { provide: HTTP_INTERCEPTORS, useClass: ApiAuthInterceptor, multi: true },
+    { provide: HTTP_INTERCEPTORS, useClass: ApiUnauthorizedInterceptor, multi: true },
     TokenGeneratorService,
     PlatformService,
     provideAnimationsAsync()
