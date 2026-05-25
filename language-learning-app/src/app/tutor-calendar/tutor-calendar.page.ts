@@ -170,57 +170,49 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   isMobilePlatform = false;
   isCompactToolbar = false;
   
+  /** Mirrors home + profile: banner visible while any checklist step still needs tutor action. */
+  hasProfileCriticalInsights = false;
+  profileChecklist: ProfileChecklistItem[] = [];
+  profileChecklistDoneCount = 0;
+  profileChecklistTotal = 0;
+
+  /** Alias used by template + availability guards (same signal as home/profile). */
   get isOnboardingIncomplete(): boolean {
-    const user = this.currentUser;
-    const creds = user?.tutorCredentials;
-    const hasPayoutSetup = user?.stripeConnectOnboarded || user?.payoutProvider === 'paypal' || user?.payoutProvider === 'manual';
-    const govIdUploaded = !!(creds?.governmentId?.url && creds.governmentId.status !== 'not_uploaded');
-    const certsUploaded = !!(creds?.teachingCertifications && creds.teachingCertifications.length > 0);
-    return !this.hasCustomProfilePhoto ||
-           !user?.tutorOnboarding?.videoApproved ||
-           !(govIdUploaded && certsUploaded) ||
-           !hasPayoutSetup;
+    return this.hasProfileCriticalInsights;
   }
 
-  /** True when government ID or teaching certs are missing (calendar onboarding banner). */
-  get bannerCredentialsIncomplete(): boolean {
-    const creds = this.currentUser?.tutorCredentials;
-    const gov = creds?.governmentId;
-    const govIdUploaded = !!(gov?.url && gov.status !== 'not_uploaded');
-    const certsUploaded = (creds?.teachingCertifications?.length ?? 0) > 0;
-    return !(govIdUploaded && certsUploaded);
-  }
+  /**
+   * Rebuild checklist from UserService approval snapshot (not stale currentUser).
+   * Matches profile.page.ts / tab1 so all three surfaces stay in sync.
+   */
+  private applyProfileChecklistFromStatus(status: any): void {
+    if (!status || this.currentUser?.userType !== 'tutor') {
+      return;
+    }
 
-  get profileChecklist(): ProfileChecklistItem[] {
-    const user = this.currentUser;
-    if (!user) return [];
-    const creds = user.tutorCredentials;
-    const hasVideo = !!(user.onboardingData?.introductionVideo || user.onboardingData?.pendingVideo);
-    const videoApproved = user.tutorOnboarding?.videoApproved === true;
-    const govIdUploaded = !!(creds?.governmentId?.url && creds.governmentId.status !== 'not_uploaded');
-    const govIdApproved = creds?.governmentId?.status === 'approved';
-    const stripeIdentityVerified = (user as any).stripeIdentityVerified === true;
-    const identitySatisfied = stripeIdentityVerified || govIdApproved;
-    const certsUploaded = (creds?.teachingCertifications?.length ?? 0) > 0;
-    const certsApproved = !!(creds?.teachingCertifications?.some((c: any) => c.status === 'approved'));
-    const hasPayout = user.stripeConnectOnboarded || user.payoutProvider === 'paypal' || user.payoutProvider === 'manual';
-    const identityRequired = this.approvalStatus?.identityRequired !== false;
-    return buildTutorProfileChecklist({
-      hasCustomPhoto: this.hasCustomProfilePhoto,
-      hasVideo,
-      videoApproved,
-      identityRequired,
-      governmentIdUploaded: govIdUploaded,
-      identitySatisfied,
-      certificationsUploaded: certsUploaded,
-      certificationsApproved: certsApproved,
-      hasPayoutSetup: !!hasPayout,
-      tosComplete: !!user.tosAcceptedAt,
+    const checklist = buildTutorProfileChecklist({
+      hasCustomPhoto: status.photoComplete === true,
+      hasVideo: status.videoComplete === true,
+      videoApproved: status.videoApproved === true,
+      // Strict === true so Stripe-handled KYC hides the row (same as approval wizard).
+      identityRequired: status.identityRequired === true,
+      governmentIdUploaded: status.governmentIdUploaded === true,
+      identitySatisfied: status.identitySatisfied === true,
+      certificationsUploaded: status.certificationsUploaded === true,
+      certificationsApproved: status.certificationsApproved === true,
+      hasPayoutSetup: status.stripeComplete === true,
+      tosComplete: status.tosComplete === true,
     });
-  }
 
-  get profileChecklistDoneCount(): number {
-    return this.profileChecklist.filter(i => i.done && !i.pendingReview).length;
+    this.profileChecklist = checklist;
+    this.profileChecklistDoneCount = checklist.filter(
+      (i) => i.done && !i.pendingReview
+    ).length;
+    this.profileChecklistTotal = checklist.length;
+    this.hasProfileCriticalInsights =
+      this.profileChecklistTotal > 0 &&
+      this.profileChecklistDoneCount < this.profileChecklistTotal;
+    this.cdr.markForCheck();
   }
 
   // Outstanding feedback
@@ -1199,7 +1191,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       if (status) {
         this.approvalStatus = status;
         this.stripeConnectOnboarded = status.stripeComplete;
-        
+        this.applyProfileChecklistFromStatus(status);
       }
     });
     
@@ -1526,6 +1518,12 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   ionViewWillEnter() {
     this.initializationAttempts = 0;
     this.isOfficeHoursEnabled = this.userService.getOfficeHoursStatus();
+
+    if (this.approvalStatus) {
+      this.applyProfileChecklistFromStatus(this.approvalStatus);
+    } else {
+      this.userService.refreshTutorApprovalStatus();
+    }
 
     // Don't show skeleton when returning from availability save — data is already present
     if (!this._pendingAvailPop) {

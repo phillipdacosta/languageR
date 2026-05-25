@@ -629,7 +629,7 @@ export class ProfilePage implements OnInit, ViewWillEnter {
       hasCustomPhoto: status.photoComplete === true,
       hasVideo: status.videoComplete === true,
       videoApproved: status.videoApproved === true,
-      identityRequired: status.identityRequired !== false,
+      identityRequired: status.identityRequired === true,
       governmentIdUploaded: status.governmentIdUploaded === true,
       identitySatisfied: status.identitySatisfied === true,
       certificationsUploaded: status.certificationsUploaded === true,

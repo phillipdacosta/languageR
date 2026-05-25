@@ -1203,6 +1203,164 @@
     "LOADING": {
       "CREATING_ACCOUNT": "Đang tạo tài khoản của bạn…",
       "CHECKING_ACCOUNT": "Đang kiểm tra tài khoản của bạn…"
+    },
+    "WIZARD_GUIDANCE": {
+      "STUDENT": {
+        "STEP1": {
+          "ITEM1_TITLE": "Tên hồ sơ công khai",
+          "ITEM1_DESC": "Chỉ tên và họ của bạn mới được hiển thị cho người khác",
+          "ITEM2_TITLE": "Xây dựng niềm tin sớm",
+          "ITEM2_DESC": "Tên thật giúp gia sư nhận ra bạn trong giờ học",
+          "ITEM3_TITLE": "Mất chưa đầy một phút",
+          "ITEM3_DESC": "Bạn có thể cập nhật thông tin này bất kỳ lúc nào từ hồ sơ của mình"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "Phản hồi bằng ngôn ngữ của bạn",
+          "ITEM1_DESC": "Tóm tắt bài học và ghi chú có thể được hiển thị bằng ngôn ngữ mẹ đẻ của bạn",
+          "ITEM2_TITLE": "Giao tiếp tốt hơn",
+          "ITEM2_DESC": "Giúp gia sư hiểu cách giải thích các khái niệm cho bạn",
+          "ITEM3_TITLE": "Trải nghiệm cá nhân hóa",
+          "ITEM3_DESC": "Chúng tôi điều chỉnh giao diện và mẹo phù hợp với ngôn ngữ của bạn"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Phù hợp với các gia sư phù hợp",
+          "ITEM1_DESC": "Chúng tôi tìm kiếm những gia sư dạy ngôn ngữ bạn đã chọn",
+          "ITEM2_TITLE": "Một trọng tâm tại một thời điểm",
+          "ITEM2_DESC": "Chọn ngôn ngữ bạn muốn tiến bộ ngay bây giờ",
+          "ITEM3_TITLE": "Thêm nhiều hơn sau",
+          "ITEM3_DESC": "Bạn có thể học thêm ngôn ngữ từ hồ sơ của mình"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Hoàn toàn tùy chọn",
+          "ITEM1_DESC": "Bỏ qua phần này nếu bạn chỉ nói ngôn ngữ mẹ đẻ và ngôn ngữ học tập của mình",
+          "ITEM2_TITLE": "Kết hợp gia sư tốt hơn",
+          "ITEM2_DESC": "Gia sư nói ngôn ngữ của bạn có thể thích nghi dễ dàng hơn",
+          "ITEM3_TITLE": "Thể hiện kỹ năng của bạn",
+          "ITEM3_DESC": "Học sinh đa ngôn ngữ thường nhận được đề xuất bài học phong phú hơn"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "Mức CEFR tiêu chuẩn",
+          "ITEM1_DESC": "A1–C2 giúp gia sư đánh giá bạn nên bắt đầu từ đâu",
+          "ITEM2_TITLE": "Tự đánh giá trung thực",
+          "ITEM2_DESC": "Không có câu trả lời sai - hãy chọn câu trả lời gần gũi nhất",
+          "ITEM3_TITLE": "Trận đấu thông minh hơn",
+          "ITEM3_DESC": "Trình độ giúp chúng tôi gợi ý gia sư phù hợp với khả năng của bạn"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "Đường dẫn được cá nhân hóa",
+          "ITEM1_DESC": "Mục tiêu của bạn định hình các đề xuất bài học và các cột mốc quan trọng",
+          "ITEM2_TITLE": "Luôn có động lực",
+          "ITEM2_DESC": "Mục tiêu rõ ràng giúp theo dõi tiến độ dễ dàng hơn",
+          "ITEM3_TITLE": "Bỏ qua nếu không chắc chắn",
+          "ITEM3_DESC": "Bạn có thể đặt hoặc thay đổi mục tiêu của mình bất kỳ lúc nào từ hồ sơ của mình"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "Không có áp lực",
+          "ITEM1_DESC": "Đây là điểm khởi đầu, không phải là bài kiểm tra",
+          "ITEM2_TITLE": "Gia sư phù hợp",
+          "ITEM2_DESC": "Giúp chúng tôi giới thiệu gia sư phù hợp với khả năng hiện tại của bạn",
+          "ITEM3_TITLE": "Điều chỉnh bất cứ lúc nào",
+          "ITEM3_DESC": "Trình độ của bạn có thể thay đổi khi bạn tiến bộ"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Tăng tốc kế hoạch của bạn",
+          "ITEM1_DESC": "Ngày mục tiêu giúp chúng tôi đề xuất nhịp điệu thực tế",
+          "ITEM2_TITLE": "Kỷ niệm các cột mốc quan trọng",
+          "ITEM2_DESC": "Làm việc hướng tới một buổi hẹn hò giúp duy trì động lực cao",
+          "ITEM3_TITLE": "Luôn linh hoạt",
+          "ITEM3_DESC": "Không vội? Thay vào đó hãy chọn tiến độ ổn định"
+        }
+      },
+      "TUTOR": {
+        "STEP1": {
+          "ITEM1_TITLE": "Tên hồ sơ công khai",
+          "ITEM1_DESC": "Học sinh nhìn thấy tên và họ của bạn",
+          "ITEM2_TITLE": "Ấn tượng đầu tiên chuyên nghiệp",
+          "ITEM2_DESC": "Sử dụng tên mà bạn muốn học sinh biết đến bạn",
+          "ITEM3_TITLE": "Nhanh chóng hoàn thành",
+          "ITEM3_DESC": "Bạn có thể chỉnh sửa thông tin này sau trong hồ sơ của mình"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "bạn đến từ đâu",
+          "ITEM1_DESC": "Giúp học sinh hiểu được nền tảng của bạn",
+          "ITEM2_TITLE": "Bối cảnh văn hóa",
+          "ITEM2_DESC": "Nguồn gốc có thể làm phong phú thêm cách bạn dạy ngôn ngữ và văn hóa",
+          "ITEM3_TITLE": "Hồ sơ tin cậy",
+          "ITEM3_DESC": "Thông tin chính xác tạo dựng niềm tin với học viên mới"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Phương thức thanh toán",
+          "ITEM1_DESC": "Nơi cư trú của bạn xác định các tùy chọn thanh toán có sẵn",
+          "ITEM2_TITLE": "Thiết lập an toàn",
+          "ITEM2_DESC": "Chi tiết thanh toán được mã hóa và xử lý bởi các đối tác của chúng tôi",
+          "ITEM3_TITLE": "Giảng dạy toàn cầu",
+          "ITEM3_DESC": "Dạy học viên trên toàn thế giới từ nơi bạn sống"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Ngôn ngữ phản hồi",
+          "ITEM1_DESC": "Ghi chú bài học và tóm tắt có thể sử dụng ngôn ngữ mẹ đẻ của bạn",
+          "ITEM2_TITLE": "Giao tiếp rõ ràng",
+          "ITEM2_DESC": "Giúp bạn viết phản hồi để học sinh hiểu",
+          "ITEM3_TITLE": "Công cụ cá nhân hóa",
+          "ITEM3_DESC": "Ứng dụng thích ứng với ngôn ngữ bạn làm việc tốt nhất"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "Tính năng bổ sung tùy chọn",
+          "ITEM1_DESC": "Thêm ngôn ngữ ngoài những gì bạn dạy nguyên bản",
+          "ITEM2_TITLE": "Kết nối sinh viên",
+          "ITEM2_DESC": "Những sinh viên chia sẻ ngôn ngữ của bạn có thể tìm thấy bạn nhanh hơn",
+          "ITEM3_TITLE": "Nổi bật",
+          "ITEM3_DESC": "Gia sư đa ngôn ngữ thu hút nhiều đối tượng hơn"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "tiêu chuẩn CEFR",
+          "ITEM1_DESC": "Mức độ tự báo cáo giúp học sinh biết phạm vi của bạn",
+          "ITEM2_TITLE": "Hãy chính xác",
+          "ITEM2_DESC": "Mức độ trung thực đặt ra những kỳ vọng đúng đắn",
+          "ITEM3_TITLE": "Hồ sơ rõ ràng",
+          "ITEM3_DESC": "Học sinh biết bạn nói ngôn ngữ nào và tốt như thế nào"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "Trọng tâm giảng dạy",
+          "ITEM1_DESC": "Chọn ngôn ngữ bạn tự tin giảng dạy nhất",
+          "ITEM2_TITLE": "Khám phá sinh viên",
+          "ITEM2_DESC": "Học sinh tìm kiếm theo ngôn ngữ họ muốn học",
+          "ITEM3_TITLE": "Mở rộng sau",
+          "ITEM3_DESC": "Bạn có thể thêm nhiều ngôn ngữ giảng dạy theo thời gian"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Hiển thị nền của bạn",
+          "ITEM1_DESC": "Kinh nghiệm giúp học viên chọn gia sư phù hợp",
+          "ITEM2_TITLE": "Đặt kỳ vọng",
+          "ITEM2_DESC": "Gia sư mới và cựu chiến binh thu hút những người học khác nhau",
+          "ITEM3_TITLE": "Xây dựng uy tín",
+          "ITEM3_DESC": "Ngay cả trải nghiệm không chính thức cũng được tính - hãy trung thực"
+        },
+        "STEP9": {
+          "ITEM1_TITLE": "Đặt phòng trống",
+          "ITEM1_DESC": "Cho học sinh biết khi nào bạn thường rảnh để dạy",
+          "ITEM2_TITLE": "Ít sự không phù hợp hơn",
+          "ITEM2_DESC": "Lịch trình rõ ràng giảm việc đặt chỗ qua lại",
+          "ITEM3_TITLE": "Cập nhật bất cứ lúc nào",
+          "ITEM3_DESC": "Điều chỉnh lịch trình của bạn khi thói quen của bạn thay đổi"
+        },
+        "STEP10": {
+          "ITEM1_TITLE": "Giới thiệu bản thân",
+          "ITEM1_DESC": "Tiểu sử ngắn gọn giúp sinh viên quyết định đăng ký với bạn",
+          "ITEM2_TITLE": "Thể hiện cá tính",
+          "ITEM2_DESC": "Chia sẻ phong cách giảng dạy của bạn và điều gì làm cho bài học của bạn trở nên đặc biệt",
+          "ITEM3_TITLE": "Tóm tắt tùy chọn",
+          "ITEM3_DESC": "Thêm dòng tiêu đề một dòng mà sinh viên nhìn thấy trong kết quả tìm kiếm"
+        },
+        "STEP11": {
+          "ITEM1_TITLE": "Tỷ lệ của bạn",
+          "ITEM1_DESC": "Đặt mức phí bạn tính cho một bài học 50 phút",
+          "ITEM2_TITLE": "Hướng dẫn thị trường",
+          "ITEM2_DESC": "Bạn có thể điều chỉnh tỷ lệ của mình khi nhận được đánh giá",
+          "ITEM3_TITLE": "Thay đổi bất cứ lúc nào",
+          "ITEM3_DESC": "Cập nhật giá từ hồ sơ gia sư của bạn bất cứ khi nào bạn muốn"
+        }
+      }
     }
   },
   "TUTOR_APPROVAL": {

@@ -1204,6 +1204,164 @@
     "LOADING": {
       "CREATING_ACCOUNT": "创建您的帐户...",
       "CHECKING_ACCOUNT": "正在检查您的帐户..."
+    },
+    "WIZARD_GUIDANCE": {
+      "STUDENT": {
+        "STEP1": {
+          "ITEM1_TITLE": "公开资料名称",
+          "ITEM1_DESC": "仅向其他人显示您的名字和姓氏首字母",
+          "ITEM2_TITLE": "尽早建立信任",
+          "ITEM2_DESC": "真实姓名有助于导师在课程中认出您",
+          "ITEM3_TITLE": "需要不到一分钟的时间",
+          "ITEM3_DESC": "您可以随时通过您的个人资料进行更新"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "用您的语言提供反馈",
+          "ITEM1_DESC": "课程摘要和笔记可以用您的母语显示",
+          "ITEM2_TITLE": "更好的沟通",
+          "ITEM2_DESC": "帮助导师了解如何向您解释概念",
+          "ITEM3_TITLE": "个性化体验",
+          "ITEM3_DESC": "我们根据您的语言定制界面和提示"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "与合适的导师匹配",
+          "ITEM1_DESC": "我们的导师会教授您选择的语言",
+          "ITEM2_TITLE": "一次一个焦点",
+          "ITEM2_DESC": "选择您现在想要取得进步的语言",
+          "ITEM3_TITLE": "稍后添加更多",
+          "ITEM3_DESC": "您可以从您的个人资料中学习其他语言"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "完全可选",
+          "ITEM1_DESC": "如果您只说母语和学习语言，请跳过此步骤",
+          "ITEM2_TITLE": "更好的导师匹配",
+          "ITEM2_DESC": "会说您语言的导师可以更轻松地适应",
+          "ITEM3_TITLE": "展示你的技能",
+          "ITEM3_DESC": "多语言学生通常会获得更丰富的课程推荐"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "标准 CEFR 级别",
+          "ITEM1_DESC": "A1–C2 帮助导师判断从哪里开始教你",
+          "ITEM2_TITLE": "诚实的自我评估",
+          "ITEM2_DESC": "没有错误的答案——选择最接近的答案",
+          "ITEM3_TITLE": "更智能的比赛",
+          "ITEM3_DESC": "级别帮助我们推荐适合您能力的导师"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "个性化路径",
+          "ITEM1_DESC": "您的目标决定了课程建议和里程碑",
+          "ITEM2_TITLE": "保持动力",
+          "ITEM2_DESC": "明确的目标可以更轻松地跟踪进度",
+          "ITEM3_TITLE": "如果不确定则跳过",
+          "ITEM3_DESC": "您可以随时从您的个人资料中设置或更改您的目标"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "无压力",
+          "ITEM1_DESC": "这是一个起点，而不是测试",
+          "ITEM2_TITLE": "合适的导师",
+          "ITEM2_DESC": "帮助我们推荐适合您当前能力的导师",
+          "ITEM3_TITLE": "随时调整",
+          "ITEM3_DESC": "你的水平会随着你的进步而改变"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "调整你的计划",
+          "ITEM1_DESC": "目标日期帮助我们提出现实的节奏",
+          "ITEM2_TITLE": "庆祝里程碑",
+          "ITEM2_DESC": "为约会而努力可以保持高昂的动力",
+          "ITEM3_TITLE": "保持灵活性",
+          "ITEM3_DESC": "不着急吗？选择稳步前进"
+        }
+      },
+      "TUTOR": {
+        "STEP1": {
+          "ITEM1_TITLE": "公开资料名称",
+          "ITEM1_DESC": "学生会看到您的名字和姓氏首字母",
+          "ITEM2_TITLE": "专业第一印象",
+          "ITEM2_DESC": "使用您希望学生认识您的名字",
+          "ITEM3_TITLE": "快速完成",
+          "ITEM3_DESC": "您可以稍后在您的个人资料中编辑此内容"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "你来自哪里",
+          "ITEM1_DESC": "帮助学生了解您的背景",
+          "ITEM2_TITLE": "文化背景",
+          "ITEM2_DESC": "起源可以丰富您教授语言和文化的方式",
+          "ITEM3_TITLE": "个人资料信任",
+          "ITEM3_DESC": "准确的信息增强新生的信心"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "支付方式",
+          "ITEM1_DESC": "您的居住地决定了可用的付款方式",
+          "ITEM2_TITLE": "安全设置",
+          "ITEM2_DESC": "付款详细信息由我们的合作伙伴加密和处理",
+          "ITEM3_TITLE": "全球教学",
+          "ITEM3_DESC": "在您居住的地方教世界各地的学生"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "反馈语言",
+          "ITEM1_DESC": "课程笔记和摘要可以使用您的母语",
+          "ITEM2_TITLE": "清晰的沟通",
+          "ITEM2_DESC": "帮助您撰写学生理解的反馈",
+          "ITEM3_TITLE": "个性化工具",
+          "ITEM3_DESC": "该应用程序最适合您使用的工作语言"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "可选附加功能",
+          "ITEM1_DESC": "添加超出您本机教授的语言",
+          "ITEM2_TITLE": "学生配对",
+          "ITEM2_DESC": "与您共享语言的学生可能会更快找到您",
+          "ITEM3_TITLE": "脱颖而出",
+          "ITEM3_DESC": "多语言导师吸引更广泛的受众"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "CEFR标准",
+          "ITEM1_DESC": "自我报告的水平可以帮助学生了解您的范围",
+          "ITEM2_TITLE": "准确无误",
+          "ITEM2_DESC": "诚实的水平设定了正确的期望",
+          "ITEM3_TITLE": "轮廓清晰度",
+          "ITEM3_DESC": "学生可以看到您讲哪些语言以及讲得如何"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "教学重点",
+          "ITEM1_DESC": "选择您最有信心教授的语言",
+          "ITEM2_TITLE": "学生发现",
+          "ITEM2_DESC": "学生按他们想学习的语言进行搜索",
+          "ITEM3_TITLE": "稍后展开",
+          "ITEM3_DESC": "随着时间的推移，您可以添加更多教学语言"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "展示你的背景",
+          "ITEM1_DESC": "经验帮助学生选择合适的导师",
+          "ITEM2_TITLE": "设定期望",
+          "ITEM2_DESC": "新导师和老导师对不同学习者有吸引力",
+          "ITEM3_TITLE": "建立信誉",
+          "ITEM3_DESC": "即使是非正式的经验也很重要——诚实"
+        },
+        "STEP9": {
+          "ITEM1_TITLE": "设置可用性",
+          "ITEM1_DESC": "让学生知道您通常有空授课的时间",
+          "ITEM2_TITLE": "更少的不匹配",
+          "ITEM2_DESC": "清晰的时间表减少来回预订",
+          "ITEM3_TITLE": "随时更新",
+          "ITEM3_DESC": "随着日常生活的变化调整你的日程安排"
+        },
+        "STEP10": {
+          "ITEM1_TITLE": "自我介绍一下",
+          "ITEM1_DESC": "简短的简历可以帮助学生决定向您预订",
+          "ITEM2_TITLE": "彰显个性",
+          "ITEM2_DESC": "分享您的教学风格以及您的课程有何特别之处",
+          "ITEM3_TITLE": "可选摘要",
+          "ITEM3_DESC": "添加学生在搜索结果中看到的一行标题"
+        },
+        "STEP11": {
+          "ITEM1_TITLE": "您的价格",
+          "ITEM1_DESC": "设置 50 分钟课程的收费",
+          "ITEM2_TITLE": "市场引导",
+          "ITEM2_DESC": "当您获得评论时，您可以调整您的费率",
+          "ITEM3_TITLE": "随时更改",
+          "ITEM3_DESC": "随时更新您的导师个人资料中的价格"
+        }
+      }
     }
   },
   "TUTOR_APPROVAL": {
