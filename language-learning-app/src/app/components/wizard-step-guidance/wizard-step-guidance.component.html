@@ -1,0 +1,18 @@
+<div class="approval-split-guidance ob-wizard-split-guidance">
+  <h3 class="approval-split-guidance__title">{{ titleKey | translate }}</h3>
+  <p class="approval-split-guidance__desc">{{ descKey | translate }}</p>
+
+  <div class="approval-split-guidance-list">
+    <div class="approval-guidance-item" *ngFor="let item of items">
+      <div
+        class="approval-guidance-item__icon-wrap"
+        [ngClass]="'approval-guidance-item__icon-wrap--' + item.iconModifier">
+        <ion-icon [name]="item.icon" aria-hidden="true"></ion-icon>
+      </div>
+      <div class="approval-guidance-item__text">
+        <h4>{{ item.titleKey | translate }}</h4>
+        <p>{{ item.descKey | translate }}</p>
+      </div>
+    </div>
+  </div>
+</div>

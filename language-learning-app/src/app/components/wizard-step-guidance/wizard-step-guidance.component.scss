@@ -1,0 +1,143 @@
+$ob-text-primary: #222222;
+$ob-text-secondary: #717171;
+
+:host {
+  display: block;
+  min-width: 0;
+
+  @media (min-width: 768px) {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: start;
+  }
+}
+
+.approval-split-guidance {
+  padding: 16px 20px 14px 43px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  text-align: left;
+
+  @media (min-width: 768px) {
+    padding-top: 28px;
+  }
+}
+
+.approval-split-guidance__title {
+  margin: 0 0 8px;
+  font-size: 28px;
+  font-weight: 800;
+  color: $ob-text-primary;
+  letter-spacing: -0.5px;
+  line-height: 1.15;
+  flex-shrink: 0;
+}
+
+.approval-split-guidance__desc {
+  margin: 0 0 20px;
+  font-size: 15px;
+  font-weight: 500;
+  color: $ob-text-secondary;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.approval-split-guidance-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.approval-guidance-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 12px;
+}
+
+.approval-guidance-item__icon-wrap {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  ion-icon {
+    font-size: 18px;
+  }
+
+  &--face {
+    background: #e8faf0;
+
+    ion-icon {
+      color: #34c759;
+    }
+  }
+
+  &--light,
+  &--secure {
+    background: #e8f2ff;
+
+    ion-icon {
+      color: #359aff;
+    }
+  }
+
+  &--recent,
+  &--quick,
+  &--weekly {
+    background: #fff8e6;
+
+    ion-icon {
+      color: #e6a800;
+    }
+  }
+
+  &--trust,
+  &--id,
+  &--cert {
+    background: #f3eeff;
+
+    ion-icon {
+      color: #7c3aed;
+    }
+  }
+
+  &--star,
+  &--payout {
+    background: #fff4e6;
+
+    ion-icon {
+      color: #e67e22;
+    }
+  }
+}
+
+.approval-guidance-item__text {
+  min-width: 0;
+
+  h4 {
+    margin: 0 0 2px;
+    font-size: 14px;
+    font-weight: 700;
+    color: $ob-text-primary;
+    line-height: 1.3;
+  }
+
+  p {
+    margin: 0;
+    font-size: 13px;
+    color: $ob-text-secondary;
+    line-height: 1.4;
+  }
+}

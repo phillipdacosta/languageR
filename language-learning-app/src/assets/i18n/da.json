@@ -155,6 +155,12 @@
     "STATUS_RESCHEDULED": "OMLAGT",
     "STATUS_RESCHEDULE_SENT": "OMLÆGNING SENDT",
     "STATUS_RESCHEDULE_REQUEST": "OMLÆGNINGSANMODNING",
+    "STATUS_STARTS_IN": "Starter i {{time}}",
+    "STATUS_STARTING_NOW": "Starter nu",
+    "STATUS_LIVE_NOW": "Live nu",
+    "STATUS_HINT_READY": "Vær klar til at deltage",
+    "STATUS_HINT_SOON": "Gør dig snart klar",
+    "STATUS_HINT_LIVE": "Lektion i gang",
     "LESSON_NUMBER": "Lektion {{number}}",
     "TODAY": "I dag",
     "STARTED": "STARTET",
@@ -279,6 +285,10 @@
     "WEEK_SAME_DAY_SESSIONS": "{{count}} sessioner",
     "THIS_WEEK_NOTHING_YET": "Intet endnu",
     "THIS_WEEK_NOTHING_ELSE": "Intet andet - for nu!",
+    "THIS_WEEK_EMPTY_TITLE": "Ingen undervisning i denne uge",
+    "THIS_WEEK_EMPTY_SUB": "Dine kommende lektioner vises her.",
+    "THIS_WEEK_EMPTY_CTA_TUTOR": "Se kalender",
+    "THIS_WEEK_EMPTY_CTA_STUDENT": "Find undervisere",
     "LESSON_SINGULAR": "lektie",
     "LESSON_PLURAL": "lektioner",
     "QUICK_ACTIONS": "Hurtige handlinger",
@@ -1194,6 +1204,164 @@
     "LOADING": {
       "CREATING_ACCOUNT": "Opretter din konto...",
       "CHECKING_ACCOUNT": "Tjekker din konto..."
+    },
+    "WIZARD_GUIDANCE": {
+      "STUDENT": {
+        "STEP1": {
+          "ITEM1_TITLE": "Offentligt profilnavn",
+          "ITEM1_DESC": "Kun dit fornavn og efterbogstav vises til andre",
+          "ITEM2_TITLE": "Skab tillid tidligt",
+          "ITEM2_DESC": "Et rigtigt navn hjælper vejledere med at genkende dig i undervisningen",
+          "ITEM3_TITLE": "Tager under et minut",
+          "ITEM3_DESC": "Du kan til enhver tid opdatere dette fra din profil"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "Feedback på dit sprog",
+          "ITEM1_DESC": "Lektionsresuméer og noter kan vises på dit modersmål",
+          "ITEM2_TITLE": "Bedre kommunikation",
+          "ITEM2_DESC": "Hjælper vejledere med at forstå, hvordan man forklarer begreber for dig",
+          "ITEM3_TITLE": "Personlig oplevelse",
+          "ITEM3_DESC": "Vi skræddersyer grænsefladen og tips til dit sprog"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Match med de rigtige undervisere",
+          "ITEM1_DESC": "Vi overfladelærere, der underviser i det sprog, du har valgt",
+          "ITEM2_TITLE": "Et fokus ad gangen",
+          "ITEM2_DESC": "Vælg det sprog, du vil gøre fremskridt på nu",
+          "ITEM3_TITLE": "Tilføj mere senere",
+          "ITEM3_DESC": "Du kan lære flere sprog fra din profil"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Fuldstændig valgfrit",
+          "ITEM1_DESC": "Spring dette over, hvis du kun taler dit modersmål og lærer sprog",
+          "ITEM2_TITLE": "Bedre tutor-matching",
+          "ITEM2_DESC": "Undervisere, der taler dine sprog, kan lettere tilpasse sig",
+          "ITEM3_TITLE": "Vis dine færdigheder",
+          "ITEM3_DESC": "Flersprogede elever får ofte rigere lektionsanbefalinger"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "Standard CEFR niveauer",
+          "ITEM1_DESC": "A1–C2 hjælper vejledere med at vurdere, hvor de skal starte med dig",
+          "ITEM2_TITLE": "Ærlig selvvurdering",
+          "ITEM2_DESC": "Der er ikke noget forkert svar - vælg det, der føles tættest på",
+          "ITEM3_TITLE": "Smartere kampe",
+          "ITEM3_DESC": "Niveauer hjælper os med at foreslå vejledere, der passer til dine evner"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "Personlig vej",
+          "ITEM1_DESC": "Dit mål former lektionsforslag og milepæle",
+          "ITEM2_TITLE": "Hold dig motiveret",
+          "ITEM2_DESC": "Klare mål gør det nemmere at spore fremskridt",
+          "ITEM3_TITLE": "Spring over, hvis du er usikker",
+          "ITEM3_DESC": "Du kan til enhver tid indstille eller ændre dit mål fra din profil"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "Intet pres",
+          "ITEM1_DESC": "Dette er et udgangspunkt, ikke en test",
+          "ITEM2_TITLE": "Rigtige undervisere",
+          "ITEM2_DESC": "Hjælper os med at anbefale vejledere til dine nuværende evner",
+          "ITEM3_TITLE": "Juster når som helst",
+          "ITEM3_DESC": "Dit niveau kan ændre sig, efterhånden som du forbedrer dig"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Sæt tempo i din plan",
+          "ITEM1_DESC": "En måldato hjælper os med at foreslå en realistisk rytme",
+          "ITEM2_TITLE": "Fejr milepæle",
+          "ITEM2_DESC": "At arbejde hen imod en date holder motivationen høj",
+          "ITEM3_TITLE": "Forbliv fleksibel",
+          "ITEM3_DESC": "Ingen hastværk? Vælg i stedet konstant fremgang"
+        }
+      },
+      "TUTOR": {
+        "STEP1": {
+          "ITEM1_TITLE": "Offentligt profilnavn",
+          "ITEM1_DESC": "Eleverne ser dit fornavn og efterbogstav",
+          "ITEM2_TITLE": "Professionelt førstehåndsindtryk",
+          "ITEM2_DESC": "Brug det navn, du ønsker, at eleverne skal kende dig under",
+          "ITEM3_TITLE": "Hurtig at færdiggøre",
+          "ITEM3_DESC": "Du kan redigere dette senere i din profil"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "Hvor du kommer fra",
+          "ITEM1_DESC": "Hjælper eleverne med at forstå din baggrund",
+          "ITEM2_TITLE": "Kulturel kontekst",
+          "ITEM2_DESC": "Origin kan berige, hvordan du underviser i sprog og kultur",
+          "ITEM3_TITLE": "Profil tillid",
+          "ITEM3_DESC": "Nøjagtige oplysninger skaber tillid hos nye studerende"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Udbetalingsmetoder",
+          "ITEM1_DESC": "Din bolig bestemmer tilgængelige betalingsmuligheder",
+          "ITEM2_TITLE": "Sikker opsætning",
+          "ITEM2_DESC": "Udbetalingsoplysninger krypteres og håndteres af vores partnere",
+          "ITEM3_TITLE": "Global undervisning",
+          "ITEM3_DESC": "Undervis elever fra hele verden, hvor du bor"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Feedback sprog",
+          "ITEM1_DESC": "Lektionsnoter og resuméer kan bruge dit modersmål",
+          "ITEM2_TITLE": "Klar kommunikation",
+          "ITEM2_DESC": "Hjælper dig med at skrive feedback, som eleverne forstår",
+          "ITEM3_TITLE": "Personlige værktøjer",
+          "ITEM3_DESC": "Appen tilpasser sig det sprog, du arbejder bedst på"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "Ekstraudstyr",
+          "ITEM1_DESC": "Tilføj sprog ud over det, du underviser i",
+          "ITEM2_TITLE": "Elevmatching",
+          "ITEM2_DESC": "Studerende, der deler dine sprog, kan muligvis finde dig hurtigere",
+          "ITEM3_TITLE": "Skil dig ud",
+          "ITEM3_DESC": "Flersprogede undervisere appellerer til et bredere publikum"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "CEFR standard",
+          "ITEM1_DESC": "Selvrapporterede niveauer hjælper eleverne med at kende din rækkevidde",
+          "ITEM2_TITLE": "Vær præcis",
+          "ITEM2_DESC": "Ærlige niveauer sætter de rigtige forventninger",
+          "ITEM3_TITLE": "Profil klarhed",
+          "ITEM3_DESC": "Eleverne kan se, hvilke sprog du taler, og hvor godt"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "Undervisningsfokus",
+          "ITEM1_DESC": "Vælg det sprog, du er mest sikker på at undervise",
+          "ITEM2_TITLE": "Elev opdagelse",
+          "ITEM2_DESC": "Eleverne søger efter det sprog, de ønsker at lære",
+          "ITEM3_TITLE": "Udvid senere",
+          "ITEM3_DESC": "Du kan tilføje flere undervisningssprog over tid"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Vis din baggrund",
+          "ITEM1_DESC": "Erfaring hjælper eleverne med at vælge den rigtige vejleder",
+          "ITEM2_TITLE": "Sæt forventninger",
+          "ITEM2_DESC": "Nye undervisere og veteraner appellerer til forskellige elever",
+          "ITEM3_TITLE": "Opbyg troværdighed",
+          "ITEM3_DESC": "Selv uformel oplevelse tæller – vær ærlig"
+        },
+        "STEP9": {
+          "ITEM1_TITLE": "Indstil tilgængelighed",
+          "ITEM1_DESC": "Fortæl eleverne, hvornår du typisk har fri til at undervise",
+          "ITEM2_TITLE": "Færre uoverensstemmelser",
+          "ITEM2_DESC": "Klare tidsplaner reducerer booking frem og tilbage",
+          "ITEM3_TITLE": "Opdater når som helst",
+          "ITEM3_DESC": "Juster din tidsplan, efterhånden som din rutine ændrer sig"
+        },
+        "STEP10": {
+          "ITEM1_TITLE": "Præsenter dig selv",
+          "ITEM1_DESC": "En kort biografi hjælper eleverne med at beslutte at booke hos dig",
+          "ITEM2_TITLE": "Vis personlighed",
+          "ITEM2_DESC": "Del din undervisningsstil og hvad der gør undervisningen med dig speciel",
+          "ITEM3_TITLE": "Valgfrit resumé",
+          "ITEM3_DESC": "Tilføj en overskrift på én linje, som eleverne ser i søgeresultaterne"
+        },
+        "STEP11": {
+          "ITEM1_TITLE": "Din sats",
+          "ITEM1_DESC": "Indstil, hvad du opkræver for en 50-minutters lektion",
+          "ITEM2_TITLE": "Markedsvejledning",
+          "ITEM2_DESC": "Du kan justere din sats, efterhånden som du får anmeldelser",
+          "ITEM3_TITLE": "Skift når som helst",
+          "ITEM3_DESC": "Opdater priser fra din underviserprofil, når du vil"
+        }
+      }
     }
   },
   "TUTOR_APPROVAL": {

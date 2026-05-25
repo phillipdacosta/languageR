@@ -3691,8 +3691,10 @@ img.m-card-empty-link-arrow-img {
 // =============================================
 .upnext-filled {
   position: relative;
-  padding: 20px 24px 18px !important;
-  gap: 10px;
+  // Center content with compact gaps — card stays 360px.
+  justify-content: center;
+  padding: 12px 24px 12px !important;
+  gap: 8px;
 
   // Reschedule status badges only — Trial moved next to the name.
   // Absolutely positioned so it doesn't steal vertical room from the card.
@@ -3879,10 +3881,10 @@ top: 4px;
   }
 }
 
-// Avatar — replaces the calendar icon, same position & sizing
+// Avatar — larger profile photo; vertical padding/gaps trimmed elsewhere to keep 360px card height.
 .upnext-filled-avatar {
-  width: 56px;
-  height: 56px;
+  width: 76px;
+  height: 76px;
   border-radius: 50%;
   overflow: hidden;
   margin-bottom: 0;
@@ -3900,7 +3902,7 @@ top: 4px;
   }
 
   .avatar-placeholder {
-    font-size: 28px;
+    font-size: 34px;
     color: #b0b0b0;
     width: 100%;
     height: 100%;
@@ -3974,15 +3976,15 @@ top: 4px;
   align-items: stretch;
   justify-content: center;
   gap: 0;
-  padding: 6px 10px;
-  background: #fafafa;
+  padding: 5px 10px;
+  // background: #fafafa;
   border-radius: 12px;
   margin: 0 auto;
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
   width: 100%;
   max-width: 420px;
   box-sizing: border-box;
-  min-height: 52px;
+  min-height: 48px;
 
   .tw-date-badge {
     flex-shrink: 0;
@@ -4202,14 +4204,14 @@ top: 4px;
 }
 
 .upnext-filled-actions {
-  margin-top: 2px;
+  margin-top: 0;
   width: 100%;
   max-width: 320px;
 
   .empty-state-clean-btn {
     width: 100%;
     margin-inline: 0;
-    height: 46px;
+    height: 44px;
     --border-radius: 12px;
     font-size: 15px;
     font-weight: 600;
@@ -8769,8 +8771,7 @@ top: 4px;
 
     &.upnext-filled {
       justify-content: center;
-      padding: 24px;
-      gap: 23px;
+      gap: 20px;
 
       @media (max-width: 600px) {
         flex: none;

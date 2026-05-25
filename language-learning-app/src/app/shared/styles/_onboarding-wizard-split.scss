@@ -1,0 +1,98 @@
+// Shared two-column wizard layout (matches tutor-approval split guidance).
+$ob-split-border-light: #ebebeb !default;
+
+// Full-width wizard chrome while split guidance is active (reference uses ~⅓ | gap | ⅔).
+:host.onboarding-page--wizard-main {
+  .onboarding-wizard-toolbar__inner {
+    max-width: 100%;
+    padding-left: 43px;
+    padding-right: 48px;
+    box-sizing: border-box;
+  }
+}
+
+.onboarding-container--wizard.ob-wizard-split-active {
+  .cm-wizard-viewport-scroll > .cm-details-wizard-page-shell {
+    max-width: 100%;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .cm-details-wizard-page-shell {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .cm-details-wizard-panel--split {
+    margin: 0;
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .step-content-card--wizard {
+    margin: 0;
+    max-width: 100%;
+    width: 100%;
+    padding: 0;
+    text-align: left;
+  }
+
+  .ob-wizard-split-layout.approval-split-layout.approval-step-card {
+    margin: 0;
+    max-width: 100%;
+    width: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+
+    @media (min-width: 768px) {
+      display: grid;
+      grid-template-columns: min(380px, 44%) minmax(0, 1fr);
+      grid-template-rows: 1fr;
+      align-items: stretch;
+      min-height: min(460px, calc(100dvh - 220px));
+    }
+  }
+
+  .ob-wizard-split-main.approval-split-main {
+    box-sizing: border-box;
+    text-align: left;
+    border-left: none;
+    padding: 20px 24px 24px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    width: 100%;
+
+    @media (min-width: 768px) {
+      grid-column: 2;
+      grid-row: 1;
+      position: relative;
+      width: 100%;
+      min-width: 0;
+      min-height: 0;
+      padding: 32px 48px;
+      border-left: 1px solid $ob-split-border-light;
+    }
+  }
+
+  .ob-wizard-split-main.approval-split-main--form {
+    @media (min-width: 768px) {
+      align-items: center;
+
+      .step-content-card--wizard {
+        width: 100%;
+        max-width: min(520px, 100%);
+        margin-inline: auto;
+      }
+    }
+  }
+
+  .cm-details-wizard-header {
+    display: none;
+  }
+}

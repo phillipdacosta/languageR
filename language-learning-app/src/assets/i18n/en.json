@@ -1357,6 +1357,164 @@
       "SUBMIT_CTA": "Build my plan",
       "TOAST_SUCCESS": "Your plan is ready — opening your journey.",
       "TOAST_ERROR_FALLBACK": "We couldn't build your plan just now. Please try again in a moment."
+    },
+    "WIZARD_GUIDANCE": {
+      "STUDENT": {
+        "STEP1": {
+          "ITEM1_TITLE": "Public profile name",
+          "ITEM1_DESC": "Only your first name and last initial are shown to others",
+          "ITEM2_TITLE": "Build trust early",
+          "ITEM2_DESC": "A real name helps tutors recognize you in lessons",
+          "ITEM3_TITLE": "Takes under a minute",
+          "ITEM3_DESC": "You can update this anytime from your profile"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "Feedback in your language",
+          "ITEM1_DESC": "Lesson summaries and notes can be shown in your native language",
+          "ITEM2_TITLE": "Better communication",
+          "ITEM2_DESC": "Helps tutors understand how to explain concepts to you",
+          "ITEM3_TITLE": "Personalized experience",
+          "ITEM3_DESC": "We tailor the interface and tips to your language"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Match with the right tutors",
+          "ITEM1_DESC": "We surface tutors who teach the language you chose",
+          "ITEM2_TITLE": "One focus at a time",
+          "ITEM2_DESC": "Pick the language you want to make progress in now",
+          "ITEM3_TITLE": "Add more later",
+          "ITEM3_DESC": "You can learn additional languages from your profile"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Completely optional",
+          "ITEM1_DESC": "Skip this if you only speak your native and learning language",
+          "ITEM2_TITLE": "Better tutor matching",
+          "ITEM2_DESC": "Tutors who speak your languages can adapt more easily",
+          "ITEM3_TITLE": "Showcase your skills",
+          "ITEM3_DESC": "Multilingual students often get richer lesson recommendations"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "Standard CEFR levels",
+          "ITEM1_DESC": "A1–C2 helps tutors gauge where to start with you",
+          "ITEM2_TITLE": "Honest self-assessment",
+          "ITEM2_DESC": "There is no wrong answer — pick what feels closest",
+          "ITEM3_TITLE": "Smarter matches",
+          "ITEM3_DESC": "Levels help us suggest tutors suited to your ability"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "Personalized path",
+          "ITEM1_DESC": "Your goal shapes lesson suggestions and milestones",
+          "ITEM2_TITLE": "Stay motivated",
+          "ITEM2_DESC": "Clear goals make it easier to track progress",
+          "ITEM3_TITLE": "Skip if unsure",
+          "ITEM3_DESC": "You can set or change your goal anytime from your profile"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "No pressure",
+          "ITEM1_DESC": "This is a starting point, not a test",
+          "ITEM2_TITLE": "Right-fit tutors",
+          "ITEM2_DESC": "Helps us recommend tutors for your current ability",
+          "ITEM3_TITLE": "Adjust anytime",
+          "ITEM3_DESC": "Your level can change as you improve"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Pace your plan",
+          "ITEM1_DESC": "A target date helps us suggest a realistic rhythm",
+          "ITEM2_TITLE": "Celebrate milestones",
+          "ITEM2_DESC": "Working toward a date keeps motivation high",
+          "ITEM3_TITLE": "Stay flexible",
+          "ITEM3_DESC": "No rush? Choose steady progress instead"
+        }
+      },
+      "TUTOR": {
+        "STEP1": {
+          "ITEM1_TITLE": "Public profile name",
+          "ITEM1_DESC": "Students see your first name and last initial",
+          "ITEM2_TITLE": "Professional first impression",
+          "ITEM2_DESC": "Use the name you want students to know you by",
+          "ITEM3_TITLE": "Quick to complete",
+          "ITEM3_DESC": "You can edit this later in your profile"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "Where you're from",
+          "ITEM1_DESC": "Helps students understand your background",
+          "ITEM2_TITLE": "Cultural context",
+          "ITEM2_DESC": "Origin can enrich how you teach language and culture",
+          "ITEM3_TITLE": "Profile trust",
+          "ITEM3_DESC": "Accurate info builds confidence with new students"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Payout methods",
+          "ITEM1_DESC": "Your residence determines available payment options",
+          "ITEM2_TITLE": "Secure setup",
+          "ITEM2_DESC": "Payout details are encrypted and handled by our partners",
+          "ITEM3_TITLE": "Global teaching",
+          "ITEM3_DESC": "Teach students worldwide from where you live"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Feedback language",
+          "ITEM1_DESC": "Lesson notes and summaries can use your native language",
+          "ITEM2_TITLE": "Clear communication",
+          "ITEM2_DESC": "Helps you write feedback students understand",
+          "ITEM3_TITLE": "Personalized tools",
+          "ITEM3_DESC": "The app adapts to the language you work in best"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "Optional extras",
+          "ITEM1_DESC": "Add languages beyond what you teach natively",
+          "ITEM2_TITLE": "Student matching",
+          "ITEM2_DESC": "Students who share your languages may find you faster",
+          "ITEM3_TITLE": "Stand out",
+          "ITEM3_DESC": "Multilingual tutors appeal to a wider audience"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "CEFR standard",
+          "ITEM1_DESC": "Self-reported levels help students know your range",
+          "ITEM2_TITLE": "Be accurate",
+          "ITEM2_DESC": "Honest levels set the right expectations",
+          "ITEM3_TITLE": "Profile clarity",
+          "ITEM3_DESC": "Students see which languages you speak and how well"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "Teaching focus",
+          "ITEM1_DESC": "Choose the language you're most confident teaching",
+          "ITEM2_TITLE": "Student discovery",
+          "ITEM2_DESC": "Students search by the language they want to learn",
+          "ITEM3_TITLE": "Expand later",
+          "ITEM3_DESC": "You can add more teaching languages over time"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Show your background",
+          "ITEM1_DESC": "Experience helps students choose the right tutor",
+          "ITEM2_TITLE": "Set expectations",
+          "ITEM2_DESC": "New tutors and veterans appeal to different learners",
+          "ITEM3_TITLE": "Build credibility",
+          "ITEM3_DESC": "Even informal experience counts — be honest"
+        },
+        "STEP9": {
+          "ITEM1_TITLE": "Set availability",
+          "ITEM1_DESC": "Let students know when you're typically free to teach",
+          "ITEM2_TITLE": "Fewer mismatches",
+          "ITEM2_DESC": "Clear schedules reduce booking back-and-forth",
+          "ITEM3_TITLE": "Update anytime",
+          "ITEM3_DESC": "Adjust your schedule as your routine changes"
+        },
+        "STEP10": {
+          "ITEM1_TITLE": "Introduce yourself",
+          "ITEM1_DESC": "A short bio helps students decide to book with you",
+          "ITEM2_TITLE": "Show personality",
+          "ITEM2_DESC": "Share your teaching style and what makes lessons with you special",
+          "ITEM3_TITLE": "Optional summary",
+          "ITEM3_DESC": "Add a one-line headline students see in search results"
+        },
+        "STEP11": {
+          "ITEM1_TITLE": "Your rate",
+          "ITEM1_DESC": "Set what you charge for a 50-minute lesson",
+          "ITEM2_TITLE": "Market guidance",
+          "ITEM2_DESC": "You can adjust your rate as you gain reviews",
+          "ITEM3_TITLE": "Change anytime",
+          "ITEM3_DESC": "Update pricing from your tutor profile whenever you want"
+        }
+      }
     }
   },
   "PROFILE": {

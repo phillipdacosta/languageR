@@ -155,6 +155,12 @@
     "STATUS_RESCHEDULED": "REPROGRAMADA",
     "STATUS_RESCHEDULE_SENT": "REPROGRAMACIÓN ENVIADA",
     "STATUS_RESCHEDULE_REQUEST": "SOLICITUD DE REPROGRAMACIÓN",
+    "STATUS_STARTS_IN": "Comienza en {{time}}",
+    "STATUS_STARTING_NOW": "Comienza ahora",
+    "STATUS_LIVE_NOW": "En vivo",
+    "STATUS_HINT_READY": "Prepárate para unirte",
+    "STATUS_HINT_SOON": "Prepárate pronto",
+    "STATUS_HINT_LIVE": "Lección en progreso",
     "LESSON_NUMBER": "Lección {{number}}",
     "TODAY": "Hoy",
     "STARTED": "INICIADA",
@@ -279,6 +285,10 @@
     "WEEK_SAME_DAY_SESSIONS": "{{count}} sesiones",
     "THIS_WEEK_NOTHING_YET": "Nada todavía",
     "THIS_WEEK_NOTHING_ELSE": "Nada más, ¡por ahora!",
+    "THIS_WEEK_EMPTY_TITLE": "No hay lecciones esta semana",
+    "THIS_WEEK_EMPTY_SUB": "Tus próximas lecciones aparecerán aquí.",
+    "THIS_WEEK_EMPTY_CTA_TUTOR": "Ver calendario",
+    "THIS_WEEK_EMPTY_CTA_STUDENT": "Buscar tutores",
     "LESSON_SINGULAR": "lección",
     "LESSON_PLURAL": "lecciones",
     "QUICK_ACTIONS": "Acciones Rápidas",
@@ -956,6 +966,164 @@
     "LOADING": {
       "CREATING_ACCOUNT": "Creando tu cuenta…",
       "CHECKING_ACCOUNT": "Comprobando tu cuenta..."
+    },
+    "WIZARD_GUIDANCE": {
+      "STUDENT": {
+        "STEP1": {
+          "ITEM1_TITLE": "Nombre del perfil público",
+          "ITEM1_DESC": "Solo se muestran a los demás su nombre y la inicial de su apellido",
+          "ITEM2_TITLE": "Genere confianza desde el principio",
+          "ITEM2_DESC": "Un nombre real ayuda a los tutores a reconocerte en las lecciones",
+          "ITEM3_TITLE": "Tarda menos de un minuto",
+          "ITEM3_DESC": "Puedes actualizar esto en cualquier momento desde tu perfil."
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "Comentarios en tu idioma",
+          "ITEM1_DESC": "Los resúmenes y notas de las lecciones se pueden mostrar en su idioma nativo.",
+          "ITEM2_TITLE": "Mejor comunicación",
+          "ITEM2_DESC": "Ayuda a los tutores a comprender cómo explicarle conceptos.",
+          "ITEM3_TITLE": "Experiencia personalizada",
+          "ITEM3_DESC": "Adaptamos la interfaz y los consejos a tu idioma."
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Combina con los tutores adecuados",
+          "ITEM1_DESC": "Buscamos tutores que enseñan el idioma que elijas",
+          "ITEM2_TITLE": "Un enfoque a la vez",
+          "ITEM2_DESC": "Elige el idioma en el que quieres progresar ahora",
+          "ITEM3_TITLE": "Añadir más después",
+          "ITEM3_DESC": "Puedes aprender idiomas adicionales desde tu perfil."
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Completamente opcional",
+          "ITEM1_DESC": "Omita esto si solo habla su idioma nativo y el que está aprendiendo",
+          "ITEM2_TITLE": "Mejor coincidencia de tutores",
+          "ITEM2_DESC": "Los tutores que hablan tus idiomas pueden adaptarse más fácilmente",
+          "ITEM3_TITLE": "Muestra tus habilidades",
+          "ITEM3_DESC": "Los estudiantes multilingües a menudo obtienen recomendaciones de lecciones más enriquecedoras"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "Niveles estándar del MCER",
+          "ITEM1_DESC": "A1–C2 ayuda a los tutores a evaluar por dónde empezar contigo",
+          "ITEM2_TITLE": "Autoevaluación honesta",
+          "ITEM2_DESC": "No hay una respuesta incorrecta: elige la que te parezca más cercana",
+          "ITEM3_TITLE": "Partidos más inteligentes",
+          "ITEM3_DESC": "Los niveles nos ayudan a sugerir tutores adecuados a su capacidad"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "Ruta personalizada",
+          "ITEM1_DESC": "Su objetivo da forma a las sugerencias de lecciones y a los hitos",
+          "ITEM2_TITLE": "Mantente motivado",
+          "ITEM2_DESC": "Los objetivos claros facilitan el seguimiento del progreso",
+          "ITEM3_TITLE": "Saltar si no está seguro",
+          "ITEM3_DESC": "Puedes establecer o cambiar tu objetivo en cualquier momento desde tu perfil"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "Sin presión",
+          "ITEM1_DESC": "Este es un punto de partida, no una prueba.",
+          "ITEM2_TITLE": "Tutores adecuados",
+          "ITEM2_DESC": "Nos ayuda a recomendar tutores para su capacidad actual.",
+          "ITEM3_TITLE": "Ajustar en cualquier momento",
+          "ITEM3_DESC": "Tu nivel puede cambiar a medida que mejoras"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Dale ritmo a tu plan",
+          "ITEM1_DESC": "Una fecha objetivo nos ayuda a sugerir un ritmo realista",
+          "ITEM2_TITLE": "Celebrar hitos",
+          "ITEM2_DESC": "Trabajar hacia una cita mantiene alta la motivación",
+          "ITEM3_TITLE": "Mantente flexible",
+          "ITEM3_DESC": "¿Sin prisas? Elija en su lugar un progreso constante"
+        }
+      },
+      "TUTOR": {
+        "STEP1": {
+          "ITEM1_TITLE": "Nombre del perfil público",
+          "ITEM1_DESC": "Los estudiantes ven su nombre y la inicial de su apellido",
+          "ITEM2_TITLE": "Primera impresión profesional",
+          "ITEM2_DESC": "Utilice el nombre por el que desea que los estudiantes lo conozcan.",
+          "ITEM3_TITLE": "Rápido de completar",
+          "ITEM3_DESC": "Puedes editar esto más tarde en tu perfil."
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "De donde eres",
+          "ITEM1_DESC": "Ayuda a los estudiantes a comprender sus antecedentes",
+          "ITEM2_TITLE": "Contexto cultural",
+          "ITEM2_DESC": "Origin puede enriquecer la forma de enseñar lengua y cultura",
+          "ITEM3_TITLE": "Perfil de confianza",
+          "ITEM3_DESC": "La información precisa genera confianza con los nuevos estudiantes"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Métodos de pago",
+          "ITEM1_DESC": "Su residencia determina las opciones de pago disponibles",
+          "ITEM2_TITLE": "Configuración segura",
+          "ITEM2_DESC": "Los detalles de pago están cifrados y manejados por nuestros socios",
+          "ITEM3_TITLE": "Enseñanza global",
+          "ITEM3_DESC": "Enseña a estudiantes de todo el mundo desde donde vives"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Idioma de comentarios",
+          "ITEM1_DESC": "Las notas de las lecciones y los resúmenes pueden utilizar su idioma nativo.",
+          "ITEM2_TITLE": "Comunicación clara",
+          "ITEM2_DESC": "Le ayuda a escribir comentarios que los estudiantes comprendan.",
+          "ITEM3_TITLE": "Herramientas personalizadas",
+          "ITEM3_DESC": "La aplicación se adapta mejor al idioma en el que trabajas"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "Extras opcionales",
+          "ITEM1_DESC": "Añade idiomas más allá de lo que enseñas de forma nativa",
+          "ITEM2_TITLE": "Emparejamiento de estudiantes",
+          "ITEM2_DESC": "Los estudiantes que comparten tus idiomas pueden encontrarte más rápido",
+          "ITEM3_TITLE": "Destacar",
+          "ITEM3_DESC": "Los tutores multilingües atraen a un público más amplio"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "Estándar MCER",
+          "ITEM1_DESC": "Los niveles autoinformados ayudan a los estudiantes a conocer su rango",
+          "ITEM2_TITLE": "Sea preciso",
+          "ITEM2_DESC": "Los niveles honestos establecen las expectativas correctas",
+          "ITEM3_TITLE": "Claridad del perfil",
+          "ITEM3_DESC": "Los estudiantes ven qué idiomas hablas y qué tan bien"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "Enfoque docente",
+          "ITEM1_DESC": "Elija el idioma con el que se sienta más seguro enseñando",
+          "ITEM2_TITLE": "descubrimiento estudiantil",
+          "ITEM2_DESC": "Los estudiantes buscan por el idioma que quieren aprender.",
+          "ITEM3_TITLE": "Ampliar más tarde",
+          "ITEM3_DESC": "Puedes agregar más idiomas de enseñanza con el tiempo"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Muestra tu fondo",
+          "ITEM1_DESC": "La experiencia ayuda a los estudiantes a elegir el tutor adecuado",
+          "ITEM2_TITLE": "Establecer expectativas",
+          "ITEM2_DESC": "Los nuevos tutores y los veteranos atraen a diferentes alumnos",
+          "ITEM3_TITLE": "Construir credibilidad",
+          "ITEM3_DESC": "Incluso la experiencia informal cuenta: sea honesto"
+        },
+        "STEP9": {
+          "ITEM1_TITLE": "Establecer disponibilidad",
+          "ITEM1_DESC": "Informe a los estudiantes cuándo normalmente está libre para enseñar",
+          "ITEM2_TITLE": "Menos desajustes",
+          "ITEM2_DESC": "Los horarios claros reducen las reservas de ida y vuelta",
+          "ITEM3_TITLE": "Actualiza en cualquier momento",
+          "ITEM3_DESC": "Ajusta tu horario a medida que cambia tu rutina"
+        },
+        "STEP10": {
+          "ITEM1_TITLE": "Preséntate",
+          "ITEM1_DESC": "Una breve biografía ayuda a los estudiantes a decidir reservar contigo",
+          "ITEM2_TITLE": "mostrar personalidad",
+          "ITEM2_DESC": "Comparte tu estilo de enseñanza y lo que hace que las lecciones contigo sean especiales.",
+          "ITEM3_TITLE": "Resumen opcional",
+          "ITEM3_DESC": "Agregue un título de una línea que los estudiantes vean en los resultados de búsqueda."
+        },
+        "STEP11": {
+          "ITEM1_TITLE": "Tu tarifa",
+          "ITEM1_DESC": "Establece lo que cobras por una lección de 50 minutos",
+          "ITEM2_TITLE": "Orientación del mercado",
+          "ITEM2_DESC": "Puedes ajustar tu tarifa a medida que obtienes reseñas",
+          "ITEM3_TITLE": "Cambiar en cualquier momento",
+          "ITEM3_DESC": "Actualiza los precios desde tu perfil de tutor cuando quieras"
+        }
+      }
     }
   },
   "PROFILE": {

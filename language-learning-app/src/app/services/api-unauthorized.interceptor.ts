@@ -54,6 +54,11 @@ export class ApiUnauthorizedInterceptor implements HttpInterceptor {
       return false;
     }
 
+    // Dev preview lessons — 401 is expected, not a dead session.
+    if (req.url.includes('__mock_')) {
+      return false;
+    }
+
     return true;
   }
 }

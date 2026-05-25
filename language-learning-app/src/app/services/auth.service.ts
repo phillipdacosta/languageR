@@ -78,7 +78,9 @@ export class AuthService {
     // Auth0 startup failures (corrupt cache, expired refresh token, etc.)
     this.auth0.error$.subscribe(err => {
       console.error('[AuthService] Auth0 SDK error:', err);
-      this.recoverSession('auth0_sdk_error');
+      if (this.isSessionFatalAuth0Error(err)) {
+        this.recoverSession('auth0_sdk_error');
+      }
     });
 
     // If bootstrap never completes, invalidate the stale local session instead
@@ -190,6 +192,21 @@ export class AuthService {
   private isPublicAuthRoute(): boolean {
     const url = this.router.url || '';
     return /^\/(login|callback|terms|privacy)(\/|\?|$)/.test(url);
+  }
+
+  /** Only treat errors that mean the stored session is unusable — not transient silent-auth noise. */
+  private isSessionFatalAuth0Error(err: unknown): boolean {
+    const code = String((err as { error?: string })?.error || '').toLowerCase();
+    const message = String((err as { message?: string })?.message || err || '').toLowerCase();
+    const combined = `${code} ${message}`;
+    return (
+      combined.includes('login_required') ||
+      combined.includes('invalid_grant') ||
+      combined.includes('missing_refresh_token') ||
+      combined.includes('consent_required') ||
+      combined.includes('refresh token') ||
+      combined.includes('session expired')
+    );
   }
 
   /**
