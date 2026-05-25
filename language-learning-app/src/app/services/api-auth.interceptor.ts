@@ -5,7 +5,7 @@ import {
   HttpInterceptor,
   HttpRequest,
 } from '@angular/common/http';
-import { Observable, from } from 'rxjs';
+import { Observable, from, throwError } from 'rxjs';
 import { catchError, switchMap } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { AuthService } from './auth.service';
@@ -19,8 +19,8 @@ import { buildBearerToken } from './auth-token.util';
  *
  * - In production builds the token is a valid Auth0 ID token when available,
  *   otherwise a freshly refreshed access token. If token acquisition fails,
- *   the request proceeds without auth; ApiUnauthorizedInterceptor recovers
- *   the session on backend 401 responses.
+ *   the request is aborted (not sent without auth) so a transient failure
+ *   right after OAuth does not produce a false-positive 401 logout.
  *
  * - In non-production builds, if Auth0 silent auth fails we fall back to
  *   the legacy `dev-token-{email}` shortcut (handled inside
@@ -67,17 +67,12 @@ export class ApiAuthInterceptor implements HttpInterceptor {
         return next.handle(authed);
       }),
       catchError(err => {
-        if (environment.production) {
-          console.error(
-            '[ApiAuthInterceptor] Failed to obtain Auth0 token for request; backend will 401:',
-            req.url,
-            err
-          );
-        }
-        // Strip any caller-supplied Authorization so we never accidentally
-        // smuggle a stale/dev token to prod. Backend returns 401 cleanly.
-        const stripped = req.clone({ headers: req.headers.delete('Authorization') });
-        return next.handle(stripped);
+        console.error(
+          '[ApiAuthInterceptor] Failed to obtain Auth0 token; request aborted:',
+          req.url,
+          err
+        );
+        return throwError(() => err);
       })
     );
   }

@@ -1204,6 +1204,164 @@
     "LOADING": {
       "CREATING_ACCOUNT": "Skapar ditt konto...",
       "CHECKING_ACCOUNT": "Kontrollerar ditt konto..."
+    },
+    "WIZARD_GUIDANCE": {
+      "STUDENT": {
+        "STEP1": {
+          "ITEM1_TITLE": "Offentligt profilnamn",
+          "ITEM1_DESC": "Endast ditt förnamn och efternamn visas för andra",
+          "ITEM2_TITLE": "Bygg förtroende tidigt",
+          "ITEM2_DESC": "Ett riktigt namn hjälper lärare att känna igen dig på lektionerna",
+          "ITEM3_TITLE": "Tar under en minut",
+          "ITEM3_DESC": "Du kan uppdatera detta när som helst från din profil"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "Feedback på ditt språk",
+          "ITEM1_DESC": "Lektionssammanfattningar och anteckningar kan visas på ditt modersmål",
+          "ITEM2_TITLE": "Bättre kommunikation",
+          "ITEM2_DESC": "Hjälper handledare att förstå hur man förklarar begrepp för dig",
+          "ITEM3_TITLE": "Personlig upplevelse",
+          "ITEM3_DESC": "Vi skräddarsyr gränssnittet och tipsen efter ditt språk"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Matcha med rätt handledare",
+          "ITEM1_DESC": "Vi ythandledare som lär ut det språk du valt",
+          "ITEM2_TITLE": "Ett fokus i taget",
+          "ITEM2_DESC": "Välj det språk du vill göra framsteg på nu",
+          "ITEM3_TITLE": "Lägg till mer senare",
+          "ITEM3_DESC": "Du kan lära dig ytterligare språk från din profil"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Helt valfritt",
+          "ITEM1_DESC": "Hoppa över detta om du bara talar ditt modersmål och lär dig språk",
+          "ITEM2_TITLE": "Bättre tutormatchning",
+          "ITEM2_DESC": "Handledare som talar dina språk kan anpassa sig lättare",
+          "ITEM3_TITLE": "Visa upp dina färdigheter",
+          "ITEM3_DESC": "Flerspråkiga elever får ofta rikare lektionsrekommendationer"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "Standard CEFR-nivåer",
+          "ITEM1_DESC": "A1–C2 hjälper handledare att bedöma var de ska börja med dig",
+          "ITEM2_TITLE": "Ärlig självbedömning",
+          "ITEM2_DESC": "Det finns inget fel svar – välj det som känns närmast",
+          "ITEM3_TITLE": "Smartare matcher",
+          "ITEM3_DESC": "Nivåer hjälper oss att föreslå handledare som passar din förmåga"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "Personlig väg",
+          "ITEM1_DESC": "Ditt mål formar lektionsförslag och milstolpar",
+          "ITEM2_TITLE": "Håll dig motiverad",
+          "ITEM2_DESC": "Tydliga mål gör det lättare att spåra framsteg",
+          "ITEM3_TITLE": "Hoppa över om du är osäker",
+          "ITEM3_DESC": "Du kan ställa in eller ändra ditt mål när som helst från din profil"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "Inget tryck",
+          "ITEM1_DESC": "Detta är en utgångspunkt, inte ett test",
+          "ITEM2_TITLE": "Rättanpassade lärare",
+          "ITEM2_DESC": "Hjälper oss att rekommendera handledare för din nuvarande förmåga",
+          "ITEM3_TITLE": "Justera när som helst",
+          "ITEM3_DESC": "Din nivå kan förändras när du förbättras"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Ta fart på din plan",
+          "ITEM1_DESC": "Ett måldatum hjälper oss att föreslå en realistisk rytm",
+          "ITEM2_TITLE": "Fira milstolpar",
+          "ITEM2_DESC": "Att arbeta mot en dejt håller motivationen hög",
+          "ITEM3_TITLE": "Var flexibel",
+          "ITEM3_DESC": "Ingen brådska? Välj stadiga framsteg istället"
+        }
+      },
+      "TUTOR": {
+        "STEP1": {
+          "ITEM1_TITLE": "Offentligt profilnamn",
+          "ITEM1_DESC": "Eleverna ser ditt förnamn och efternamn",
+          "ITEM2_TITLE": "Professionellt första intryck",
+          "ITEM2_DESC": "Använd det namn du vill att eleverna ska känna dig under",
+          "ITEM3_TITLE": "Snabbt att slutföra",
+          "ITEM3_DESC": "Du kan redigera detta senare i din profil"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "Var du kommer ifrån",
+          "ITEM1_DESC": "Hjälper eleverna att förstå din bakgrund",
+          "ITEM2_TITLE": "Kulturella sammanhang",
+          "ITEM2_DESC": "Ursprung kan berika hur du lär ut språk och kultur",
+          "ITEM3_TITLE": "Profilförtroende",
+          "ITEM3_DESC": "Korrekt information skapar förtroende hos nya studenter"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Utbetalningsmetoder",
+          "ITEM1_DESC": "Din bostad avgör tillgängliga betalningsalternativ",
+          "ITEM2_TITLE": "Säker installation",
+          "ITEM2_DESC": "Utbetalningsuppgifter är krypterade och hanteras av våra partners",
+          "ITEM3_TITLE": "Global undervisning",
+          "ITEM3_DESC": "Lär elever över hela världen där du bor"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Feedback språk",
+          "ITEM1_DESC": "Lektionsanteckningar och sammanfattningar kan använda ditt modersmål",
+          "ITEM2_TITLE": "Tydlig kommunikation",
+          "ITEM2_DESC": "Hjälper dig att skriva feedback som eleverna förstår",
+          "ITEM3_TITLE": "Personliga verktyg",
+          "ITEM3_DESC": "Appen anpassar sig till det språk du jobbar på bäst"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "Tillval",
+          "ITEM1_DESC": "Lägg till språk utöver det du undervisar inhemskt",
+          "ITEM2_TITLE": "Studentmatchning",
+          "ITEM2_DESC": "Elever som delar dina språk kan hitta dig snabbare",
+          "ITEM3_TITLE": "Framträda",
+          "ITEM3_DESC": "Flerspråkiga handledare tilltalar en bredare publik"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "CEFR-standard",
+          "ITEM1_DESC": "Självrapporterade nivåer hjälper eleverna att känna till ditt utbud",
+          "ITEM2_TITLE": "Var noggrann",
+          "ITEM2_DESC": "Ärliga nivåer sätter rätt förväntningar",
+          "ITEM3_TITLE": "Profiltydlighet",
+          "ITEM3_DESC": "Eleverna ser vilka språk du talar och hur bra"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "Undervisningsfokus",
+          "ITEM1_DESC": "Välj det språk du är mest säker på att lära ut",
+          "ITEM2_TITLE": "Studentupptäckt",
+          "ITEM2_DESC": "Elever söker på det språk de vill lära sig",
+          "ITEM3_TITLE": "Utöka senare",
+          "ITEM3_DESC": "Du kan lägga till fler undervisningsspråk med tiden"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Visa din bakgrund",
+          "ITEM1_DESC": "Erfarenhet hjälper eleverna att välja rätt handledare",
+          "ITEM2_TITLE": "Sätt förväntningar",
+          "ITEM2_DESC": "Nya lärare och veteraner tilltalar olika elever",
+          "ITEM3_TITLE": "Bygg trovärdighet",
+          "ITEM3_DESC": "Även informell erfarenhet räknas - var ärlig"
+        },
+        "STEP9": {
+          "ITEM1_TITLE": "Ställ in tillgänglighet",
+          "ITEM1_DESC": "Låt eleverna veta när du vanligtvis är ledig att undervisa",
+          "ITEM2_TITLE": "Färre missmatchningar",
+          "ITEM2_DESC": "Tydliga scheman minskar bokningen fram och tillbaka",
+          "ITEM3_TITLE": "Uppdatera när som helst",
+          "ITEM3_DESC": "Justera ditt schema när din rutin ändras"
+        },
+        "STEP10": {
+          "ITEM1_TITLE": "Presentera dig själv",
+          "ITEM1_DESC": "En kort biografi hjälper eleverna att bestämma sig för att boka med dig",
+          "ITEM2_TITLE": "Visa personlighet",
+          "ITEM2_DESC": "Dela din undervisningsstil och vad som gör lektionerna med dig speciella",
+          "ITEM3_TITLE": "Valfri sammanfattning",
+          "ITEM3_DESC": "Lägg till en enradsrubrik som eleverna ser i sökresultaten"
+        },
+        "STEP11": {
+          "ITEM1_TITLE": "Ditt pris",
+          "ITEM1_DESC": "Ställ in vad du tar betalt för en 50-minuters lektion",
+          "ITEM2_TITLE": "Marknadsvägledning",
+          "ITEM2_DESC": "Du kan justera ditt pris allt eftersom du får recensioner",
+          "ITEM3_TITLE": "Ändra när som helst",
+          "ITEM3_DESC": "Uppdatera priser från din handledareprofil när du vill"
+        }
+      }
     }
   },
   "TUTOR_APPROVAL": {

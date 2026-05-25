@@ -1204,6 +1204,164 @@
     "LOADING": {
       "CREATING_ACCOUNT": "Creazione del tuo account…",
       "CHECKING_ACCOUNT": "Controllo del tuo account…"
+    },
+    "WIZARD_GUIDANCE": {
+      "STUDENT": {
+        "STEP1": {
+          "ITEM1_TITLE": "Nome del profilo pubblico",
+          "ITEM1_DESC": "Agli altri verranno mostrati solo il tuo nome e l'iniziale del cognome",
+          "ITEM2_TITLE": "Costruisci presto la fiducia",
+          "ITEM2_DESC": "Un nome vero aiuta i tutor a riconoscerti durante le lezioni",
+          "ITEM3_TITLE": "Richiede meno di un minuto",
+          "ITEM3_DESC": "Puoi aggiornarlo in qualsiasi momento dal tuo profilo"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "Feedback nella tua lingua",
+          "ITEM1_DESC": "I riassunti e le note delle lezioni possono essere visualizzati nella tua lingua madre",
+          "ITEM2_TITLE": "Migliore comunicazione",
+          "ITEM2_DESC": "Aiuta i tutor a capire come spiegarti i concetti",
+          "ITEM3_TITLE": "Esperienza personalizzata",
+          "ITEM3_DESC": "Adattiamo l'interfaccia e i suggerimenti alla tua lingua"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Abbina i tutor giusti",
+          "ITEM1_DESC": "Mettiamo in evidenza tutor che insegnano la lingua che hai scelto",
+          "ITEM2_TITLE": "Un focus alla volta",
+          "ITEM2_DESC": "Scegli la lingua in cui vuoi progredire adesso",
+          "ITEM3_TITLE": "Aggiungine altro più tardi",
+          "ITEM3_DESC": "Puoi imparare altre lingue dal tuo profilo"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Completamente facoltativo",
+          "ITEM1_DESC": "Salta questo se parli solo la tua lingua madre e quella di apprendimento",
+          "ITEM2_TITLE": "Migliore abbinamento dei tutor",
+          "ITEM2_DESC": "I tutor che parlano la tua lingua possono adattarsi più facilmente",
+          "ITEM3_TITLE": "Metti in mostra le tue abilità",
+          "ITEM3_DESC": "Gli studenti multilingue spesso ricevono consigli più approfonditi sulle lezioni"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "Livelli standard del QCER",
+          "ITEM1_DESC": "A1–C2 aiuta i tutor a valutare da dove iniziare",
+          "ITEM2_TITLE": "Autovalutazione onesta",
+          "ITEM2_DESC": "Non esiste una risposta sbagliata: scegli ciò che ti sembra più vicino",
+          "ITEM3_TITLE": "Partite più intelligenti",
+          "ITEM3_DESC": "I livelli ci aiutano a suggerire tutor adatti alle tue capacità"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "Percorso personalizzato",
+          "ITEM1_DESC": "Il tuo obiettivo dà forma ai suggerimenti e ai traguardi delle lezioni",
+          "ITEM2_TITLE": "Rimani motivato",
+          "ITEM2_DESC": "Obiettivi chiari facilitano il monitoraggio dei progressi",
+          "ITEM3_TITLE": "Salta se non sei sicuro",
+          "ITEM3_DESC": "Puoi impostare o modificare il tuo obiettivo in qualsiasi momento dal tuo profilo"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "Nessuna pressione",
+          "ITEM1_DESC": "Questo è un punto di partenza, non un test",
+          "ITEM2_TITLE": "Tutor adatti",
+          "ITEM2_DESC": "Ci aiuta a consigliare tutor per le tue attuali capacità",
+          "ITEM3_TITLE": "Regola in qualsiasi momento",
+          "ITEM3_DESC": "Il tuo livello può cambiare man mano che migliori"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Stimola il tuo piano",
+          "ITEM1_DESC": "Una data target ci aiuta a suggerire un ritmo realistico",
+          "ITEM2_TITLE": "Festeggia i traguardi",
+          "ITEM2_DESC": "Lavorare per un appuntamento mantiene alta la motivazione",
+          "ITEM3_TITLE": "Rimani flessibile",
+          "ITEM3_DESC": "Nessuna fretta? Scegli invece un progresso costante"
+        }
+      },
+      "TUTOR": {
+        "STEP1": {
+          "ITEM1_TITLE": "Nome del profilo pubblico",
+          "ITEM1_DESC": "Gli studenti vedono il tuo nome e l'iniziale del cognome",
+          "ITEM2_TITLE": "Prima impressione professionale",
+          "ITEM2_DESC": "Usa il nome con cui vuoi che gli studenti ti conoscano",
+          "ITEM3_TITLE": "Veloce da completare",
+          "ITEM3_DESC": "Puoi modificarlo più tardi nel tuo profilo"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "Da dove vieni",
+          "ITEM1_DESC": "Aiuta gli studenti a comprendere il tuo background",
+          "ITEM2_TITLE": "Contesto culturale",
+          "ITEM2_DESC": "Origin può arricchire il modo in cui insegni la lingua e la cultura",
+          "ITEM3_TITLE": "Fiducia nel profilo",
+          "ITEM3_DESC": "Informazioni accurate creano fiducia nei nuovi studenti"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Metodi di pagamento",
+          "ITEM1_DESC": "La tua residenza determina le opzioni di pagamento disponibili",
+          "ITEM2_TITLE": "Configurazione sicura",
+          "ITEM2_DESC": "I dettagli del pagamento sono crittografati e gestiti dai nostri partner",
+          "ITEM3_TITLE": "Insegnamento globale",
+          "ITEM3_DESC": "Insegna agli studenti di tutto il mondo da dove vivi"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Linguaggio del feedback",
+          "ITEM1_DESC": "Gli appunti e i riassunti delle lezioni possono utilizzare la tua lingua madre",
+          "ITEM2_TITLE": "Comunicazione chiara",
+          "ITEM2_DESC": "Ti aiuta a scrivere feedback comprensibili agli studenti",
+          "ITEM3_TITLE": "Strumenti personalizzati",
+          "ITEM3_DESC": "L'app si adatta meglio alla lingua in cui lavori"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "Extra opzionali",
+          "ITEM1_DESC": "Aggiungi lingue oltre a quelle che insegni in modo nativo",
+          "ITEM2_TITLE": "Abbinamento degli studenti",
+          "ITEM2_DESC": "Gli studenti che condividono le tue lingue potrebbero trovarti più velocemente",
+          "ITEM3_TITLE": "Distinguiti",
+          "ITEM3_DESC": "I tutor multilingue si rivolgono a un pubblico più ampio"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "Norma del QCER",
+          "ITEM1_DESC": "I livelli auto-riferiti aiutano gli studenti a conoscere il tuo range",
+          "ITEM2_TITLE": "Sii accurato",
+          "ITEM2_DESC": "Livelli onesti stabiliscono le giuste aspettative",
+          "ITEM3_TITLE": "Chiarezza del profilo",
+          "ITEM3_DESC": "Gli studenti vedono quali lingue parli e quanto bene"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "Focus didattico",
+          "ITEM1_DESC": "Scegli la lingua con cui sei più sicuro nell'insegnare",
+          "ITEM2_TITLE": "Scoperta degli studenti",
+          "ITEM2_DESC": "Gli studenti effettuano la ricerca in base alla lingua che desiderano imparare",
+          "ITEM3_TITLE": "Espandi più tardi",
+          "ITEM3_DESC": "Puoi aggiungere più lingue di insegnamento nel tempo"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Mostra il tuo background",
+          "ITEM1_DESC": "L'esperienza aiuta gli studenti a scegliere il tutor giusto",
+          "ITEM2_TITLE": "Stabilisci le aspettative",
+          "ITEM2_DESC": "I nuovi tutor e i veterani si rivolgono a studenti diversi",
+          "ITEM3_TITLE": "Costruisci credibilità",
+          "ITEM3_DESC": "Anche l’esperienza informale conta: sii onesto"
+        },
+        "STEP9": {
+          "ITEM1_TITLE": "Imposta la disponibilità",
+          "ITEM1_DESC": "Fai sapere agli studenti quando in genere sei libero di insegnare",
+          "ITEM2_TITLE": "Meno discrepanze",
+          "ITEM2_DESC": "Gli orari chiari riducono le prenotazioni avanti e indietro",
+          "ITEM3_TITLE": "Aggiorna in qualsiasi momento",
+          "ITEM3_DESC": "Modifica il tuo programma man mano che la tua routine cambia"
+        },
+        "STEP10": {
+          "ITEM1_TITLE": "Presentati",
+          "ITEM1_DESC": "Una breve biografia aiuta gli studenti a decidere di prenotare con te",
+          "ITEM2_TITLE": "Mostra personalità",
+          "ITEM2_DESC": "Condividi con te il tuo stile di insegnamento e ciò che rende speciali le lezioni",
+          "ITEM3_TITLE": "Riepilogo facoltativo",
+          "ITEM3_DESC": "Aggiungi un titolo di una riga che gli studenti vedono nei risultati di ricerca"
+        },
+        "STEP11": {
+          "ITEM1_TITLE": "La tua tariffa",
+          "ITEM1_DESC": "Imposta l'importo da addebitare per una lezione di 50 minuti",
+          "ITEM2_TITLE": "Guida al mercato",
+          "ITEM2_DESC": "Puoi modificare la tariffa man mano che ottieni recensioni",
+          "ITEM3_TITLE": "Cambia in qualsiasi momento",
+          "ITEM3_DESC": "Aggiorna i prezzi dal tuo profilo tutor ogni volta che vuoi"
+        }
+      }
     }
   },
   "TUTOR_APPROVAL": {

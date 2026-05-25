@@ -1204,6 +1204,164 @@
     "LOADING": {
       "CREATING_ACCOUNT": "Tworzenie konta…",
       "CHECKING_ACCOUNT": "Sprawdzam Twoje konto…"
+    },
+    "WIZARD_GUIDANCE": {
+      "STUDENT": {
+        "STEP1": {
+          "ITEM1_TITLE": "Nazwa profilu publicznego",
+          "ITEM1_DESC": "Innym osobom widoczne jest tylko Twoje imię i inicjał nazwiska",
+          "ITEM2_TITLE": "Zbuduj zaufanie wcześnie",
+          "ITEM2_DESC": "Prawdziwe imię i nazwisko pomaga nauczycielom rozpoznać Cię na lekcjach",
+          "ITEM3_TITLE": "Zajmuje to niecałą minutę",
+          "ITEM3_DESC": "Możesz to zaktualizować w dowolnym momencie ze swojego profilu"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "Informacje zwrotne w Twoim języku",
+          "ITEM1_DESC": "Podsumowania lekcji i notatki mogą być wyświetlane w Twoim języku ojczystym",
+          "ITEM2_TITLE": "Lepsza komunikacja",
+          "ITEM2_DESC": "Pomaga nauczycielom zrozumieć, jak wyjaśniać Ci pojęcia",
+          "ITEM3_TITLE": "Spersonalizowane doświadczenie",
+          "ITEM3_DESC": "Dostosowujemy interfejs i wskazówki do Twojego języka"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Dopasuj się do odpowiednich nauczycieli",
+          "ITEM1_DESC": "Ujawniamy korepetytorów, którzy uczą wybranego przez Ciebie języka",
+          "ITEM2_TITLE": "Jedno skupienie na raz",
+          "ITEM2_DESC": "Wybierz język, w którym chcesz teraz robić postępy",
+          "ITEM3_TITLE": "Dodaj więcej później",
+          "ITEM3_DESC": "Możesz uczyć się dodatkowych języków ze swojego profilu"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Całkowicie opcjonalne",
+          "ITEM1_DESC": "Pomiń to, jeśli mówisz tylko w swoim ojczystym języku i uczysz się",
+          "ITEM2_TITLE": "Lepsze dopasowanie nauczyciela",
+          "ITEM2_DESC": "Korepetytorzy, którzy mówią w Twoim języku, mogą łatwiej się dostosować",
+          "ITEM3_TITLE": "Zaprezentuj swoje umiejętności",
+          "ITEM3_DESC": "Uczniowie wielojęzyczni często otrzymują bogatsze rekomendacje dotyczące lekcji"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "Standardowe poziomy CEFR",
+          "ITEM1_DESC": "Poziomy A1–C2 pomagają nauczycielom ocenić, od czego zacząć",
+          "ITEM2_TITLE": "Uczciwa samoocena",
+          "ITEM2_DESC": "Nie ma złej odpowiedzi — wybierz to, co wydaje Ci się najbliższe",
+          "ITEM3_TITLE": "Inteligentniejsze mecze",
+          "ITEM3_DESC": "Poziomy pomagają nam sugerować korepetytorów dostosowanych do Twoich umiejętności"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "Spersonalizowana ścieżka",
+          "ITEM1_DESC": "Twój cel kształtuje sugestie lekcji i kamienie milowe",
+          "ITEM2_TITLE": "Zachowaj motywację",
+          "ITEM2_DESC": "Jasne cele ułatwiają śledzenie postępów",
+          "ITEM3_TITLE": "Pomiń, jeśli nie jesteś pewien",
+          "ITEM3_DESC": "Możesz ustawić lub zmienić swój cel w dowolnym momencie w swoim profilu"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "Brak ciśnienia",
+          "ITEM1_DESC": "To jest punkt wyjścia, a nie test",
+          "ITEM2_TITLE": "Odpowiednio dopasowani nauczyciele",
+          "ITEM2_DESC": "Pomaga nam rekomendować korepetytorów dostosowanych do Twoich aktualnych umiejętności",
+          "ITEM3_TITLE": "Dostosuj w dowolnym momencie",
+          "ITEM3_DESC": "Twój poziom może się zmieniać wraz z postępem"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Tempo realizacji planu",
+          "ITEM1_DESC": "Docelowa data pomaga nam zasugerować realistyczny rytm",
+          "ITEM2_TITLE": "Świętuj kamienie milowe",
+          "ITEM2_DESC": "Dążenie do randki utrzymuje motywację na wysokim poziomie",
+          "ITEM3_TITLE": "Zachowaj elastyczność",
+          "ITEM3_DESC": "Nie ma pośpiechu? Zamiast tego wybierz stały postęp"
+        }
+      },
+      "TUTOR": {
+        "STEP1": {
+          "ITEM1_TITLE": "Nazwa profilu publicznego",
+          "ITEM1_DESC": "Uczniowie widzą Twoje imię i inicjał nazwiska",
+          "ITEM2_TITLE": "Profesjonalne pierwsze wrażenie",
+          "ITEM2_DESC": "Używaj imienia, pod którym chcesz, aby uczniowie Cię znali",
+          "ITEM3_TITLE": "Szybkie do wykonania",
+          "ITEM3_DESC": "Możesz to później edytować w swoim profilu"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "Skąd jesteś",
+          "ITEM1_DESC": "Pomaga uczniom zrozumieć Twoje pochodzenie",
+          "ITEM2_TITLE": "Kontekst kulturowy",
+          "ITEM2_DESC": "Origin może wzbogacić sposób nauczania języka i kultury",
+          "ITEM3_TITLE": "Zaufanie profilu",
+          "ITEM3_DESC": "Dokładne informacje budują zaufanie nowych uczniów"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Metody wypłaty",
+          "ITEM1_DESC": "Twoje miejsce zamieszkania określa dostępne opcje płatności",
+          "ITEM2_TITLE": "Bezpieczna konfiguracja",
+          "ITEM2_DESC": "Szczegóły wypłaty są szyfrowane i obsługiwane przez naszych partnerów",
+          "ITEM3_TITLE": "Nauczanie globalne",
+          "ITEM3_DESC": "Ucz uczniów na całym świecie, tam gdzie mieszkasz"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Język opinii",
+          "ITEM1_DESC": "Notatki i streszczenia lekcji mogą zawierać Twój język ojczysty",
+          "ITEM2_TITLE": "Przejrzysta komunikacja",
+          "ITEM2_DESC": "Pomaga w pisaniu informacji zwrotnych zrozumiałych dla uczniów",
+          "ITEM3_TITLE": "Spersonalizowane narzędzia",
+          "ITEM3_DESC": "Aplikacja najlepiej dostosowuje się do języka, w którym pracujesz"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "Opcjonalne dodatki",
+          "ITEM1_DESC": "Dodaj języki wykraczające poza to, czego uczysz natywnie",
+          "ITEM2_TITLE": "Dopasowanie uczniów",
+          "ITEM2_DESC": "Studenci, którzy posługują się tym samym językiem, mogą Cię szybciej znaleźć",
+          "ITEM3_TITLE": "Wyróżniać się",
+          "ITEM3_DESC": "Wielojęzyczni korepetytorzy przyciągają szerszą publiczność"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "Norma CEFR",
+          "ITEM1_DESC": "Poziomy zgłaszane przez uczniów pomagają uczniom poznać Twój zakres",
+          "ITEM2_TITLE": "Bądź dokładny",
+          "ITEM2_DESC": "Uczciwe poziomy wyznaczają właściwe oczekiwania",
+          "ITEM3_TITLE": "Przejrzystość profilu",
+          "ITEM3_DESC": "Uczniowie widzą, jakimi językami mówisz i jak dobrze"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "Nauczanie skupienia",
+          "ITEM1_DESC": "Wybierz język, którego uczysz z największą pewnością",
+          "ITEM2_TITLE": "Odkrycie studentów",
+          "ITEM2_DESC": "Uczniowie wyszukują według języka, którego chcą się uczyć",
+          "ITEM3_TITLE": "Rozwiń później",
+          "ITEM3_DESC": "Z czasem możesz dodać więcej języków nauczania"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Pokaż swoje tło",
+          "ITEM1_DESC": "Doświadczenie pomaga uczniom w wyborze odpowiedniego korepetytora",
+          "ITEM2_TITLE": "Ustal oczekiwania",
+          "ITEM2_DESC": "Nowi nauczyciele i weterani podobają się różnym uczniom",
+          "ITEM3_TITLE": "Buduj wiarygodność",
+          "ITEM3_DESC": "Nawet nieformalne doświadczenie się liczy – bądź szczery"
+        },
+        "STEP9": {
+          "ITEM1_TITLE": "Ustaw dostępność",
+          "ITEM1_DESC": "Poinformuj uczniów, kiedy zazwyczaj możesz uczyć",
+          "ITEM2_TITLE": "Mniej niedopasowań",
+          "ITEM2_DESC": "Przejrzyste harmonogramy ograniczają liczbę rezerwacji tam i z powrotem",
+          "ITEM3_TITLE": "Aktualizuj w dowolnym momencie",
+          "ITEM3_DESC": "Dostosuj swój harmonogram w miarę zmian w rutynie"
+        },
+        "STEP10": {
+          "ITEM1_TITLE": "Przedstaw się",
+          "ITEM1_DESC": "Krótka biografia pomaga uczniom podjąć decyzję o dokonaniu rezerwacji u Ciebie",
+          "ITEM2_TITLE": "Pokaż osobowość",
+          "ITEM2_DESC": "Podziel się swoim stylem nauczania i tym, co sprawia, że ​​lekcje z Tobą są wyjątkowe",
+          "ITEM3_TITLE": "Opcjonalne podsumowanie",
+          "ITEM3_DESC": "Dodaj jednowierszowy nagłówek, który uczniowie widzą w wynikach wyszukiwania"
+        },
+        "STEP11": {
+          "ITEM1_TITLE": "Twoja stawka",
+          "ITEM1_DESC": "Ustaw opłatę za 50-minutową lekcję",
+          "ITEM2_TITLE": "Wytyczne rynkowe",
+          "ITEM2_DESC": "Możesz dostosować stawkę w miarę zdobywania recenzji",
+          "ITEM3_TITLE": "Zmień w dowolnym momencie",
+          "ITEM3_DESC": "Aktualizuj ceny w swoim profilu nauczyciela, kiedy tylko chcesz"
+        }
+      }
     }
   },
   "TUTOR_APPROVAL": {
