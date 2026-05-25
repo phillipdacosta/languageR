@@ -155,6 +155,12 @@
     "STATUS_RESCHEDULED": "VERSCHOBEN",
     "STATUS_RESCHEDULE_SENT": "VERSCHIEBUNG GESENDET",
     "STATUS_RESCHEDULE_REQUEST": "VERSCHIEBUNGSANFRAGE",
+    "STATUS_STARTS_IN": "Beginnt in {{time}}",
+    "STATUS_STARTING_NOW": "Startet jetzt",
+    "STATUS_LIVE_NOW": "Live",
+    "STATUS_HINT_READY": "Sei bereit beizutreten",
+    "STATUS_HINT_SOON": "Mach dich bereit",
+    "STATUS_HINT_LIVE": "Lektion läuft",
     "LESSON_NUMBER": "Lektion {{number}}",
     "TODAY": "Heute",
     "STARTED": "GESTARTET",
@@ -279,6 +285,10 @@
     "WEEK_SAME_DAY_SESSIONS": "{{count}} Sitzungen",
     "THIS_WEEK_NOTHING_YET": "Noch nichts",
     "THIS_WEEK_NOTHING_ELSE": "Nichts anderes – vorerst!",
+    "THIS_WEEK_EMPTY_TITLE": "Diese Woche gibt es keinen Unterricht",
+    "THIS_WEEK_EMPTY_SUB": "Ihre bevorstehenden Lektionen werden hier angezeigt.",
+    "THIS_WEEK_EMPTY_CTA_TUTOR": "Kalender ansehen",
+    "THIS_WEEK_EMPTY_CTA_STUDENT": "Tutoren finden",
     "LESSON_SINGULAR": "Lektion",
     "LESSON_PLURAL": "Unterricht",
     "QUICK_ACTIONS": "Schnelle Aktionen",
@@ -956,6 +966,164 @@
     "LOADING": {
       "CREATING_ACCOUNT": "Erstellen Sie Ihr Konto…",
       "CHECKING_ACCOUNT": "Überprüfen Sie Ihr Konto…"
+    },
+    "WIZARD_GUIDANCE": {
+      "STUDENT": {
+        "STEP1": {
+          "ITEM1_TITLE": "Name des öffentlichen Profils",
+          "ITEM1_DESC": "Anderen werden nur Ihr Vorname und der Anfangsbuchstabe Ihres Nachnamens angezeigt",
+          "ITEM2_TITLE": "Bauen Sie frühzeitig Vertrauen auf",
+          "ITEM2_DESC": "Ein richtiger Name hilft den Tutoren, Sie im Unterricht zu erkennen",
+          "ITEM3_TITLE": "Dauert weniger als eine Minute",
+          "ITEM3_DESC": "Sie können dies jederzeit in Ihrem Profil aktualisieren"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "Feedback in Ihrer Sprache",
+          "ITEM1_DESC": "Zusammenfassungen und Notizen der Lektionen können in Ihrer Muttersprache angezeigt werden",
+          "ITEM2_TITLE": "Bessere Kommunikation",
+          "ITEM2_DESC": "Hilft den Tutoren zu verstehen, wie sie Ihnen Konzepte erklären können",
+          "ITEM3_TITLE": "Personalisierte Erfahrung",
+          "ITEM3_DESC": "Wir passen die Benutzeroberfläche und Tipps an Ihre Sprache an"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Finden Sie die richtigen Tutoren",
+          "ITEM1_DESC": "Wir stellen Nachhilfelehrer zur Verfügung, die die von Ihnen gewählte Sprache unterrichten",
+          "ITEM2_TITLE": "Ein Fokus nach dem anderen",
+          "ITEM2_DESC": "Wählen Sie jetzt die Sprache aus, in der Sie Fortschritte machen möchten",
+          "ITEM3_TITLE": "Fügen Sie später weitere hinzu",
+          "ITEM3_DESC": "Sie können über Ihr Profil weitere Sprachen lernen"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Völlig optional",
+          "ITEM1_DESC": "Überspringen Sie dies, wenn Sie nur Ihre Mutter- und Lernsprache sprechen",
+          "ITEM2_TITLE": "Bessere Abstimmung der Nachhilfelehrer",
+          "ITEM2_DESC": "Tutoren, die Ihre Sprache sprechen, können sich leichter anpassen",
+          "ITEM3_TITLE": "Stellen Sie Ihre Fähigkeiten unter Beweis",
+          "ITEM3_DESC": "Mehrsprachige Schüler erhalten oft umfassendere Unterrichtsempfehlungen"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "Standard-GER-Stufen",
+          "ITEM1_DESC": "A1–C2 hilft den Tutoren dabei, einzuschätzen, wo sie bei Ihnen anfangen sollen",
+          "ITEM2_TITLE": "Ehrliche Selbsteinschätzung",
+          "ITEM2_DESC": "Es gibt keine falsche Antwort – wählen Sie, was Ihnen am nächsten kommt",
+          "ITEM3_TITLE": "Intelligentere Übereinstimmungen",
+          "ITEM3_DESC": "Mithilfe der Niveaus können wir Ihnen Lehrer vorschlagen, die Ihren Fähigkeiten entsprechen"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "Personalisierter Weg",
+          "ITEM1_DESC": "Ihr Ziel prägt Unterrichtsvorschläge und Meilensteine",
+          "ITEM2_TITLE": "Bleiben Sie motiviert",
+          "ITEM2_DESC": "Klare Ziele erleichtern die Verfolgung des Fortschritts",
+          "ITEM3_TITLE": "Überspringen Sie, wenn Sie unsicher sind",
+          "ITEM3_DESC": "Sie können Ihr Ziel jederzeit in Ihrem Profil festlegen oder ändern"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "Kein Druck",
+          "ITEM1_DESC": "Dies ist ein Ausgangspunkt, kein Test",
+          "ITEM2_TITLE": "Passende Nachhilfelehrer",
+          "ITEM2_DESC": "Hilft uns, Nachhilfelehrer für Ihre aktuellen Fähigkeiten zu empfehlen",
+          "ITEM3_TITLE": "Passen Sie es jederzeit an",
+          "ITEM3_DESC": "Ihr Niveau kann sich ändern, wenn Sie sich verbessern"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Beschleunigen Sie Ihren Plan",
+          "ITEM1_DESC": "Ein Zieltermin hilft uns dabei, einen realistischen Rhythmus vorzuschlagen",
+          "ITEM2_TITLE": "Feiern Sie Meilensteine",
+          "ITEM2_DESC": "Wenn man auf ein Date hinarbeitet, bleibt die Motivation hoch",
+          "ITEM3_TITLE": "Bleiben Sie flexibel",
+          "ITEM3_DESC": "Keine Eile? Wählen Sie stattdessen einen stetigen Fortschritt"
+        }
+      },
+      "TUTOR": {
+        "STEP1": {
+          "ITEM1_TITLE": "Name des öffentlichen Profils",
+          "ITEM1_DESC": "Die Schüler sehen Ihren Vornamen und die Initialen Ihres Nachnamens",
+          "ITEM2_TITLE": "Professioneller erster Eindruck",
+          "ITEM2_DESC": "Verwenden Sie den Namen, unter dem die Schüler Sie kennen sollen",
+          "ITEM3_TITLE": "Schnell erledigt",
+          "ITEM3_DESC": "Sie können dies später in Ihrem Profil bearbeiten"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "Woher du kommst",
+          "ITEM1_DESC": "Hilft den Schülern, Ihren Hintergrund zu verstehen",
+          "ITEM2_TITLE": "Kultureller Kontext",
+          "ITEM2_DESC": "Herkunft kann die Art und Weise, wie Sie Sprache und Kultur unterrichten, bereichern",
+          "ITEM3_TITLE": "Profilvertrauen",
+          "ITEM3_DESC": "Präzise Informationen stärken das Selbstvertrauen neuer Schüler"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Auszahlungsmethoden",
+          "ITEM1_DESC": "Ihr Wohnort bestimmt die verfügbaren Zahlungsoptionen",
+          "ITEM2_TITLE": "Sichere Einrichtung",
+          "ITEM2_DESC": "Die Auszahlungsdaten werden verschlüsselt und von unseren Partnern verarbeitet",
+          "ITEM3_TITLE": "Globaler Unterricht",
+          "ITEM3_DESC": "Unterrichten Sie Schüler weltweit von Ihrem Wohnort aus"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Feedback-Sprache",
+          "ITEM1_DESC": "Unterrichtsnotizen und Zusammenfassungen können in Ihrer Muttersprache verfasst werden",
+          "ITEM2_TITLE": "Klare Kommunikation",
+          "ITEM2_DESC": "Hilft Ihnen, Feedback zu verfassen, das die Schüler verstehen",
+          "ITEM3_TITLE": "Personalisierte Werkzeuge",
+          "ITEM3_DESC": "Die App passt sich an die Sprache an, in der Sie am besten arbeiten"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "Optionale Extras",
+          "ITEM1_DESC": "Fügen Sie Sprachen hinzu, die über das hinausgehen, was Sie muttersprachlich unterrichten",
+          "ITEM2_TITLE": "Studenten-Matching",
+          "ITEM2_DESC": "Studierende, die Ihre Sprachen sprechen, finden Sie möglicherweise schneller",
+          "ITEM3_TITLE": "Heben Sie sich ab",
+          "ITEM3_DESC": "Mehrsprachige Nachhilfelehrer sprechen ein breiteres Publikum an"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "CEFR-Standard",
+          "ITEM1_DESC": "Selbstberichtete Niveaus helfen den Schülern, Ihren Bereich zu kennen",
+          "ITEM2_TITLE": "Seien Sie genau",
+          "ITEM2_DESC": "Ehrliche Ebenen wecken die richtigen Erwartungen",
+          "ITEM3_TITLE": "Profilklarheit",
+          "ITEM3_DESC": "Die Schüler sehen, welche Sprachen Sie sprechen und wie gut"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "Schwerpunkt Lehre",
+          "ITEM1_DESC": "Wählen Sie die Sprache, die Sie am sichersten unterrichten können",
+          "ITEM2_TITLE": "Schülerentdeckung",
+          "ITEM2_DESC": "Die Schüler suchen nach der Sprache, die sie lernen möchten",
+          "ITEM3_TITLE": "Später erweitern",
+          "ITEM3_DESC": "Sie können im Laufe der Zeit weitere Unterrichtssprachen hinzufügen"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Zeigen Sie Ihren Hintergrund",
+          "ITEM1_DESC": "Erfahrung hilft den Schülern, den richtigen Nachhilfelehrer auszuwählen",
+          "ITEM2_TITLE": "Setzen Sie Erwartungen",
+          "ITEM2_DESC": "Neue Tutoren und Veteranen sprechen unterschiedliche Lernende an",
+          "ITEM3_TITLE": "Bauen Sie Glaubwürdigkeit auf",
+          "ITEM3_DESC": "Auch informelle Erfahrungen zählen – seien Sie ehrlich"
+        },
+        "STEP9": {
+          "ITEM1_TITLE": "Verfügbarkeit festlegen",
+          "ITEM1_DESC": "Teilen Sie den Schülern mit, wann Sie normalerweise Zeit zum Unterrichten haben",
+          "ITEM2_TITLE": "Weniger Abweichungen",
+          "ITEM2_DESC": "Klare Zeitpläne reduzieren das Hin- und Herbuchen",
+          "ITEM3_TITLE": "Jederzeit aktualisieren",
+          "ITEM3_DESC": "Passen Sie Ihren Zeitplan an, wenn sich Ihre Routine ändert"
+        },
+        "STEP10": {
+          "ITEM1_TITLE": "Stellen Sie sich vor",
+          "ITEM1_DESC": "Eine kurze Biografie hilft Schülern bei der Entscheidung, bei Ihnen zu buchen",
+          "ITEM2_TITLE": "Zeigen Sie Persönlichkeit",
+          "ITEM2_DESC": "Teilen Sie Ihren Unterrichtsstil und das, was den Unterricht für Sie ausmacht, mit",
+          "ITEM3_TITLE": "Optionale Zusammenfassung",
+          "ITEM3_DESC": "Fügen Sie eine einzeilige Überschrift hinzu, die Schüler in den Suchergebnissen sehen"
+        },
+        "STEP11": {
+          "ITEM1_TITLE": "Ihr Tarif",
+          "ITEM1_DESC": "Legen Sie den Preis für eine 50-minütige Unterrichtsstunde fest",
+          "ITEM2_TITLE": "Marktführung",
+          "ITEM2_DESC": "Sie können Ihren Preis anpassen, wenn Sie Bewertungen erhalten",
+          "ITEM3_TITLE": "Jederzeit ändern",
+          "ITEM3_DESC": "Aktualisieren Sie die Preise jederzeit in Ihrem Lehrerprofil"
+        }
+      }
     }
   },
   "PROFILE": {

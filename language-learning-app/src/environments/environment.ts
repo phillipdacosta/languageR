@@ -18,5 +18,5 @@ export const environment = {
     clientId: 'GOoBQhd850NcpUZxqZRgVQU4pEams1QI',
     redirectUri: 'http://localhost:8100/callback',
     audience: 'https://api.barnabi.com' // Custom Auth0 API identifier (must match the API audience in the Auth0 dashboard)
-  }
+  },
 };

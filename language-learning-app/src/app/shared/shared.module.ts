@@ -10,6 +10,7 @@ import { CountrySelectModalComponent } from '../components/country-select-modal/
 import { PaymentDisputeModalComponent } from '../components/payment-dispute-modal/payment-dispute-modal.component';
 import { SafeUrlPipe } from './pipes/safe-url.pipe';
 import { DisplayNamePipe } from './pipes/display-name.pipe';
+import { WizardStepGuidanceComponent } from '../components/wizard-step-guidance/wizard-step-guidance.component';
 
 @NgModule({
   declarations: [
@@ -18,6 +19,7 @@ import { DisplayNamePipe } from './pipes/display-name.pipe';
     FlagIconComponent,
     CountrySelectModalComponent,
     PaymentDisputeModalComponent,
+    WizardStepGuidanceComponent,
     SafeUrlPipe,
     DisplayNamePipe
   ],
@@ -33,6 +35,7 @@ import { DisplayNamePipe } from './pipes/display-name.pipe';
     FlagIconComponent,
     CountrySelectModalComponent,
     PaymentDisputeModalComponent,
+    WizardStepGuidanceComponent,
     SafeUrlPipe,
     DisplayNamePipe,
     TranslateModule

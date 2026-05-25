@@ -206,6 +206,12 @@
     "STATUS_RESCHEDULED": "DIJADWALKAN ULANG",
     "STATUS_RESCHEDULE_SENT": "JADWAL ULANG DIKIRIM",
     "STATUS_RESCHEDULE_REQUEST": "PERMINTAAN JADWAL ULANG",
+    "STATUS_STARTS_IN": "Dimulai dalam {{time}}",
+    "STATUS_STARTING_NOW": "Segera dimulai",
+    "STATUS_LIVE_NOW": "Sedang berlangsung",
+    "STATUS_HINT_READY": "Bersiaplah untuk bergabung",
+    "STATUS_HINT_SOON": "Bersiaplah segera",
+    "STATUS_HINT_LIVE": "Pelajaran sedang berlangsung",
     "LESSON_NUMBER": "Pelajaran {{number}}",
     "TODAY": "Hari ini",
     "STARTED": "DIMULAI",
@@ -330,6 +336,10 @@
     "WEEK_SAME_DAY_SESSIONS": "0 sesi",
     "THIS_WEEK_NOTHING_YET": "Belum ada apa-apa",
     "THIS_WEEK_NOTHING_ELSE": "Tidak ada yang lain – untuk saat ini!",
+    "THIS_WEEK_EMPTY_TITLE": "Tidak ada pelajaran minggu ini",
+    "THIS_WEEK_EMPTY_SUB": "Pelajaran Anda yang akan datang akan muncul di sini.",
+    "THIS_WEEK_EMPTY_CTA_TUTOR": "Lihat Kalender",
+    "THIS_WEEK_EMPTY_CTA_STUDENT": "Cari Tutor",
     "LESSON_SINGULAR": "pelajaran",
     "LESSON_PLURAL": "pelajaran",
     "QUICK_ACTIONS": "Tindakan Cepat",
@@ -1193,6 +1203,164 @@
     "LOADING": {
       "CREATING_ACCOUNT": "Membuat akun Anda…",
       "CHECKING_ACCOUNT": "Memeriksa akun Anda…"
+    },
+    "WIZARD_GUIDANCE": {
+      "STUDENT": {
+        "STEP1": {
+          "ITEM1_TITLE": "Nama profil publik",
+          "ITEM1_DESC": "Hanya nama depan dan inisial belakang Anda yang ditampilkan kepada orang lain",
+          "ITEM2_TITLE": "Bangun kepercayaan sejak dini",
+          "ITEM2_DESC": "Nama asli membantu tutor mengenali Anda dalam pelajaran",
+          "ITEM3_TITLE": "Membutuhkan waktu kurang dari satu menit",
+          "ITEM3_DESC": "Anda dapat memperbaruinya kapan saja dari profil Anda"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "Umpan balik dalam bahasa Anda",
+          "ITEM1_DESC": "Ringkasan dan catatan pelajaran dapat ditampilkan dalam bahasa ibu Anda",
+          "ITEM2_TITLE": "Komunikasi yang lebih baik",
+          "ITEM2_DESC": "Membantu tutor memahami cara menjelaskan konsep kepada Anda",
+          "ITEM3_TITLE": "Pengalaman yang dipersonalisasi",
+          "ITEM3_DESC": "Kami menyesuaikan antarmuka dan tip dengan bahasa Anda"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Cocokkan dengan tutor yang tepat",
+          "ITEM1_DESC": "Kami menampilkan tutor yang mengajarkan bahasa yang Anda pilih",
+          "ITEM2_TITLE": "Satu fokus pada satu waktu",
+          "ITEM2_DESC": "Pilih bahasa yang ingin Anda tingkatkan sekarang",
+          "ITEM3_TITLE": "Tambahkan lagi nanti",
+          "ITEM3_DESC": "Anda dapat mempelajari bahasa tambahan dari profil Anda"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Sepenuhnya opsional",
+          "ITEM1_DESC": "Lewati ini jika Anda hanya berbicara bahasa ibu dan belajar bahasa Anda",
+          "ITEM2_TITLE": "Pencocokan tutor yang lebih baik",
+          "ITEM2_DESC": "Tutor yang menguasai bahasa Anda dapat beradaptasi dengan lebih mudah",
+          "ITEM3_TITLE": "Tunjukkan keahlian Anda",
+          "ITEM3_DESC": "Siswa multibahasa sering kali mendapatkan rekomendasi pelajaran yang lebih kaya"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "Tingkat CEFR standar",
+          "ITEM1_DESC": "A1–C2 membantu tutor mengukur dari mana Anda harus memulai",
+          "ITEM2_TITLE": "Penilaian diri yang jujur",
+          "ITEM2_DESC": "Tidak ada jawaban yang salah — pilihlah jawaban yang dirasa paling mendekati",
+          "ITEM3_TITLE": "Pertandingan yang lebih cerdas",
+          "ITEM3_DESC": "Level membantu kami menyarankan tutor yang sesuai dengan kemampuan Anda"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "Jalur yang dipersonalisasi",
+          "ITEM1_DESC": "Sasaran Anda membentuk saran pelajaran dan pencapaian",
+          "ITEM2_TITLE": "Tetap termotivasi",
+          "ITEM2_DESC": "Sasaran yang jelas memudahkan pelacakan kemajuan",
+          "ITEM3_TITLE": "Lewati jika tidak yakin",
+          "ITEM3_DESC": "Anda dapat menetapkan atau mengubah tujuan Anda kapan saja dari profil Anda"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "Tidak ada tekanan",
+          "ITEM1_DESC": "Ini adalah titik awal, bukan ujian",
+          "ITEM2_TITLE": "Tutor yang tepat",
+          "ITEM2_DESC": "Membantu kami merekomendasikan tutor untuk kemampuan Anda saat ini",
+          "ITEM3_TITLE": "Sesuaikan kapan saja",
+          "ITEM3_DESC": "Level Anda dapat berubah seiring peningkatan Anda"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Kecepatan rencana Anda",
+          "ITEM1_DESC": "Tanggal target membantu kami menyarankan ritme yang realistis",
+          "ITEM2_TITLE": "Rayakan pencapaian",
+          "ITEM2_DESC": "Berusaha untuk berkencan membuat motivasi tetap tinggi",
+          "ITEM3_TITLE": "Tetap fleksibel",
+          "ITEM3_DESC": "Tidak terburu-buru? Pilihlah kemajuan yang stabil"
+        }
+      },
+      "TUTOR": {
+        "STEP1": {
+          "ITEM1_TITLE": "Nama profil publik",
+          "ITEM1_DESC": "Siswa melihat nama depan dan inisial belakang Anda",
+          "ITEM2_TITLE": "Kesan pertama yang profesional",
+          "ITEM2_DESC": "Gunakan nama yang Anda ingin siswa mengenal Anda",
+          "ITEM3_TITLE": "Cepat untuk diselesaikan",
+          "ITEM3_DESC": "Anda dapat mengeditnya nanti di profil Anda"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "Dari mana asalmu",
+          "ITEM1_DESC": "Membantu siswa memahami latar belakang Anda",
+          "ITEM2_TITLE": "Konteks budaya",
+          "ITEM2_DESC": "Asal dapat memperkaya cara Anda mengajar bahasa dan budaya",
+          "ITEM3_TITLE": "Kepercayaan profil",
+          "ITEM3_DESC": "Informasi yang akurat membangun rasa percaya diri siswa baru"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Metode pembayaran",
+          "ITEM1_DESC": "Tempat tinggal Anda menentukan opsi pembayaran yang tersedia",
+          "ITEM2_TITLE": "Pengaturan aman",
+          "ITEM2_DESC": "Detail pembayaran dienkripsi dan ditangani oleh mitra kami",
+          "ITEM3_TITLE": "Pengajaran global",
+          "ITEM3_DESC": "Ajar siswa di seluruh dunia dari tempat Anda tinggal"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Bahasa umpan balik",
+          "ITEM1_DESC": "Catatan pelajaran dan ringkasan dapat menggunakan bahasa ibu Anda",
+          "ITEM2_TITLE": "Komunikasi yang jelas",
+          "ITEM2_DESC": "Membantu Anda menulis masukan yang dipahami siswa",
+          "ITEM3_TITLE": "Alat yang dipersonalisasi",
+          "ITEM3_DESC": "Aplikasi ini beradaptasi dengan bahasa yang paling Anda gunakan"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "Ekstra opsional",
+          "ITEM1_DESC": "Tambahkan bahasa di luar apa yang Anda ajarkan secara asli",
+          "ITEM2_TITLE": "Pencocokan siswa",
+          "ITEM2_DESC": "Siswa yang memahami bahasa Anda mungkin menemukan Anda lebih cepat",
+          "ITEM3_TITLE": "Menonjol",
+          "ITEM3_DESC": "Tutor multibahasa menarik khalayak yang lebih luas"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "standar CEFR",
+          "ITEM1_DESC": "Tingkat yang dilaporkan sendiri membantu siswa mengetahui jangkauan Anda",
+          "ITEM2_TITLE": "Akurat",
+          "ITEM2_DESC": "Tingkat yang jujur ​​menetapkan ekspektasi yang tepat",
+          "ITEM3_TITLE": "Kejelasan profil",
+          "ITEM3_DESC": "Siswa melihat bahasa apa yang Anda gunakan dan seberapa baik"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "Fokus pengajaran",
+          "ITEM1_DESC": "Pilih bahasa yang paling Anda yakini untuk diajarkan",
+          "ITEM2_TITLE": "Penemuan siswa",
+          "ITEM2_DESC": "Siswa mencari berdasarkan bahasa yang ingin mereka pelajari",
+          "ITEM3_TITLE": "Perluas nanti",
+          "ITEM3_DESC": "Anda dapat menambahkan lebih banyak pengajaran bahasa seiring berjalannya waktu"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Tunjukkan latar belakang Anda",
+          "ITEM1_DESC": "Pengalaman membantu siswa memilih tutor yang tepat",
+          "ITEM2_TITLE": "Tetapkan ekspektasi",
+          "ITEM2_DESC": "Tutor baru dan veteran menarik bagi pembelajar yang berbeda",
+          "ITEM3_TITLE": "Bangun kredibilitas",
+          "ITEM3_DESC": "Bahkan pengalaman informal pun penting — jujurlah"
+        },
+        "STEP9": {
+          "ITEM1_TITLE": "Tetapkan ketersediaan",
+          "ITEM1_DESC": "Beri tahu siswa kapan Anda biasanya punya waktu luang untuk mengajar",
+          "ITEM2_TITLE": "Lebih sedikit ketidakcocokan",
+          "ITEM2_DESC": "Jadwal yang jelas mengurangi pemesanan bolak-balik",
+          "ITEM3_TITLE": "Perbarui kapan saja",
+          "ITEM3_DESC": "Sesuaikan jadwal Anda seiring perubahan rutinitas Anda"
+        },
+        "STEP10": {
+          "ITEM1_TITLE": "Perkenalkan diri Anda",
+          "ITEM1_DESC": "Biografi singkat membantu siswa memutuskan untuk memesan dengan Anda",
+          "ITEM2_TITLE": "Tunjukkan kepribadian",
+          "ITEM2_DESC": "Bagikan gaya mengajar Anda dan apa yang membuat pelajaran bersama Anda istimewa",
+          "ITEM3_TITLE": "Ringkasan opsional",
+          "ITEM3_DESC": "Tambahkan judul satu baris yang dilihat siswa di hasil penelusuran"
+        },
+        "STEP11": {
+          "ITEM1_TITLE": "Tarif Anda",
+          "ITEM1_DESC": "Tetapkan tarif yang Anda kenakan untuk pelajaran 50 menit",
+          "ITEM2_TITLE": "Panduan pasar",
+          "ITEM2_DESC": "Anda dapat menyesuaikan tarif saat Anda mendapatkan ulasan",
+          "ITEM3_TITLE": "Berubah kapan saja",
+          "ITEM3_DESC": "Perbarui harga dari profil tutor Anda kapan pun Anda mau"
+        }
+      }
     }
   },
   "TUTOR_APPROVAL": {

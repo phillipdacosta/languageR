@@ -164,19 +164,22 @@
   </ion-toolbar>
 </ion-header>
 
-<div class="onboarding-container onboarding-container--wizard" *ngIf="!showPreview && !showWelcome && preStepPhase === 'done'">
+<div class="onboarding-container onboarding-container--wizard ob-wizard-split-active" *ngIf="!showPreview && !showWelcome && preStepPhase === 'done'">
   <div class="onboarding-wizard-card">
     <div class="cm-wizard-viewport-scroll" [class.cm-wizard-viewport-scroll--fit]="currentStep === 2 || currentStep === 3 || currentStep === 5">
     <div class="cm-details-wizard-page-shell">
       <div class="cm-details-wizard">
         <div class="cm-details-wizard-scroll">
           <div class="cm-details-wizard-scroll-inner">
-            <div class="cm-step-header cm-details-wizard-header">
-              <h1>{{ studentWizardTitleKey | translate }}</h1>
-              <p>{{ studentWizardSubtitleKey | translate }}</p>
-            </div>
+            <div class="cm-details-wizard-panel cm-details-wizard-panel--split">
+              <div class="ob-wizard-split-layout approval-split-layout approval-step-card">
+                <app-wizard-step-guidance
+                  [titleKey]="studentWizardTitleKey"
+                  [descKey]="studentWizardSubtitleKey"
+                  [items]="studentWizardGuidanceItems">
+                </app-wizard-step-guidance>
 
-            <div class="cm-details-wizard-panel">
+                <div class="ob-wizard-split-main approval-split-main approval-split-main--form">
               <div class="step-content-card step-content-card--wizard">
         
         <!-- Step 1: Name -->
@@ -390,6 +393,8 @@
           </div>
         </div>
 
+              </div>
+                </div>
               </div>
             </div>
           </div>

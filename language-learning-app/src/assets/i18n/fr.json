@@ -155,6 +155,12 @@
     "STATUS_RESCHEDULED": "REPORTÉE",
     "STATUS_RESCHEDULE_SENT": "REPORT ENVOYÉ",
     "STATUS_RESCHEDULE_REQUEST": "DEMANDE DE REPORT",
+    "STATUS_STARTS_IN": "Commence dans {{time}}",
+    "STATUS_STARTING_NOW": "Commence maintenant",
+    "STATUS_LIVE_NOW": "En direct",
+    "STATUS_HINT_READY": "Soyez prêt à rejoindre",
+    "STATUS_HINT_SOON": "Prépare-toi bientôt",
+    "STATUS_HINT_LIVE": "Leçon en cours",
     "LESSON_NUMBER": "Leçon {{number}}",
     "TODAY": "Aujourd'hui",
     "STARTED": "COMMENCÉE",
@@ -279,6 +285,10 @@
     "WEEK_SAME_DAY_SESSIONS": "{{count}} séances",
     "THIS_WEEK_NOTHING_YET": "Rien pour l'instant",
     "THIS_WEEK_NOTHING_ELSE": "Rien d'autre - pour l'instant !",
+    "THIS_WEEK_EMPTY_TITLE": "Pas de cours cette semaine",
+    "THIS_WEEK_EMPTY_SUB": "Vos prochaines leçons apparaîtront ici.",
+    "THIS_WEEK_EMPTY_CTA_TUTOR": "Voir le calendrier",
+    "THIS_WEEK_EMPTY_CTA_STUDENT": "Trouver des tuteurs",
     "LESSON_SINGULAR": "leçon",
     "LESSON_PLURAL": "leçons",
     "QUICK_ACTIONS": "Actions rapides",
@@ -956,6 +966,164 @@
     "LOADING": {
       "CREATING_ACCOUNT": "Création de votre compte…",
       "CHECKING_ACCOUNT": "Vérification de votre compte…"
+    },
+    "WIZARD_GUIDANCE": {
+      "STUDENT": {
+        "STEP1": {
+          "ITEM1_TITLE": "Nom du profil public",
+          "ITEM1_DESC": "Seuls votre prénom et votre dernière initiale sont montrés aux autres",
+          "ITEM2_TITLE": "Établissez la confiance dès le début",
+          "ITEM2_DESC": "Un vrai nom aide les tuteurs à vous reconnaître pendant les cours",
+          "ITEM3_TITLE": "Prend moins d'une minute",
+          "ITEM3_DESC": "Vous pouvez le mettre à jour à tout moment depuis votre profil"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "Commentaires dans votre langue",
+          "ITEM1_DESC": "Les résumés et les notes des cours peuvent être affichés dans votre langue maternelle",
+          "ITEM2_TITLE": "Meilleure communication",
+          "ITEM2_DESC": "Aide les tuteurs à comprendre comment vous expliquer les concepts",
+          "ITEM3_TITLE": "Expérience personnalisée",
+          "ITEM3_DESC": "Nous adaptons l'interface et les astuces à votre langue"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Rencontrez les bons tuteurs",
+          "ITEM1_DESC": "Nous faisons apparaître des tuteurs qui enseignent la langue que vous avez choisie",
+          "ITEM2_TITLE": "Un objectif à la fois",
+          "ITEM2_DESC": "Choisissez la langue dans laquelle vous souhaitez progresser maintenant",
+          "ITEM3_TITLE": "Ajoutez-en plus plus tard",
+          "ITEM3_DESC": "Vous pouvez apprendre des langues supplémentaires à partir de votre profil"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Complètement facultatif",
+          "ITEM1_DESC": "Ignorez ceci si vous ne parlez que votre langue maternelle et que vous apprenez.",
+          "ITEM2_TITLE": "Meilleure adéquation des tuteurs",
+          "ITEM2_DESC": "Les tuteurs qui parlent vos langues peuvent s’adapter plus facilement",
+          "ITEM3_TITLE": "Mettez en valeur vos compétences",
+          "ITEM3_DESC": "Les étudiants multilingues reçoivent souvent des recommandations de cours plus riches"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "Niveaux standards du CECR",
+          "ITEM1_DESC": "A1 – C2 aide les tuteurs à déterminer par où commencer avec vous",
+          "ITEM2_TITLE": "Auto-évaluation honnête",
+          "ITEM2_DESC": "Il n'y a pas de mauvaise réponse : choisissez celle qui vous semble la plus proche",
+          "ITEM3_TITLE": "Des matchs plus intelligents",
+          "ITEM3_DESC": "Les niveaux nous aident à vous proposer des tuteurs adaptés à vos capacités"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "Parcours personnalisé",
+          "ITEM1_DESC": "Votre objectif façonne les suggestions de cours et les jalons",
+          "ITEM2_TITLE": "Restez motivé",
+          "ITEM2_DESC": "Des objectifs clairs facilitent le suivi des progrès",
+          "ITEM3_TITLE": "Ignorer en cas de doute",
+          "ITEM3_DESC": "Vous pouvez définir ou modifier votre objectif à tout moment depuis votre profil"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "Aucune pression",
+          "ITEM1_DESC": "Ceci est un point de départ, pas un test",
+          "ITEM2_TITLE": "Des tuteurs adaptés",
+          "ITEM2_DESC": "Nous aide à recommander des tuteurs pour vos capacités actuelles",
+          "ITEM3_TITLE": "Ajustez à tout moment",
+          "ITEM3_DESC": "Votre niveau peut changer à mesure que vous vous améliorez"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Rythmez votre plan",
+          "ITEM1_DESC": "Une date cible nous aide à suggérer un rythme réaliste",
+          "ITEM2_TITLE": "Célébrez les jalons",
+          "ITEM2_DESC": "Travailler pour un rendez-vous maintient la motivation élevée",
+          "ITEM3_TITLE": "Restez flexible",
+          "ITEM3_DESC": "Rien ne presse ? Choisissez plutôt des progrès réguliers"
+        }
+      },
+      "TUTOR": {
+        "STEP1": {
+          "ITEM1_TITLE": "Nom du profil public",
+          "ITEM1_DESC": "Les étudiants voient votre prénom et votre dernière initiale",
+          "ITEM2_TITLE": "Première impression professionnelle",
+          "ITEM2_DESC": "Utilisez le nom sous lequel vous voulez que les élèves vous connaissent",
+          "ITEM3_TITLE": "Rapide à réaliser",
+          "ITEM3_DESC": "Vous pourrez le modifier plus tard dans votre profil"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "D'où tu viens",
+          "ITEM1_DESC": "Aide les étudiants à comprendre votre parcours",
+          "ITEM2_TITLE": "Contexte culturel",
+          "ITEM2_DESC": "Origin peut enrichir la façon dont vous enseignez la langue et la culture",
+          "ITEM3_TITLE": "Confiance du profil",
+          "ITEM3_DESC": "Des informations précises renforcent la confiance des nouveaux étudiants"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Méthodes de paiement",
+          "ITEM1_DESC": "Votre résidence détermine les options de paiement disponibles",
+          "ITEM2_TITLE": "Configuration sécurisée",
+          "ITEM2_DESC": "Les détails du paiement sont cryptés et gérés par nos partenaires",
+          "ITEM3_TITLE": "Enseignement global",
+          "ITEM3_DESC": "Enseignez à des étudiants du monde entier, là où vous vivez"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Langue des commentaires",
+          "ITEM1_DESC": "Les notes de cours et les résumés peuvent utiliser votre langue maternelle",
+          "ITEM2_TITLE": "Communication claire",
+          "ITEM2_DESC": "Vous aide à rédiger des commentaires que les élèves comprennent",
+          "ITEM3_TITLE": "Outils personnalisés",
+          "ITEM3_DESC": "L'application s'adapte le mieux à la langue dans laquelle vous travaillez"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "Suppléments optionnels",
+          "ITEM1_DESC": "Ajoutez des langues au-delà de ce que vous enseignez nativement",
+          "ITEM2_TITLE": "Appariement des étudiants",
+          "ITEM2_DESC": "Les étudiants qui partagent vos langues peuvent vous trouver plus rapidement",
+          "ITEM3_TITLE": "Ressortir",
+          "ITEM3_DESC": "Les tuteurs multilingues séduisent un public plus large"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "Norme CECR",
+          "ITEM1_DESC": "Les niveaux auto-déclarés aident les étudiants à connaître votre gamme",
+          "ITEM2_TITLE": "Soyez précis",
+          "ITEM2_DESC": "Les niveaux honnêtes définissent les bonnes attentes",
+          "ITEM3_TITLE": "Clarté du profil",
+          "ITEM3_DESC": "Les étudiants voient quelles langues vous parlez et dans quelle mesure"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "Objectif pédagogique",
+          "ITEM1_DESC": "Choisissez la langue que vous enseignez le plus à l'aise",
+          "ITEM2_TITLE": "Découverte étudiante",
+          "ITEM2_DESC": "Les étudiants recherchent par la langue qu'ils souhaitent apprendre",
+          "ITEM3_TITLE": "Développer plus tard",
+          "ITEM3_DESC": "Vous pouvez ajouter d'autres langues d'enseignement au fil du temps"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Montrez votre arrière-plan",
+          "ITEM1_DESC": "L'expérience aide les étudiants à choisir le bon tuteur",
+          "ITEM2_TITLE": "Définir les attentes",
+          "ITEM2_DESC": "Les nouveaux tuteurs et les vétérans attirent différents apprenants",
+          "ITEM3_TITLE": "Construire la crédibilité",
+          "ITEM3_DESC": "Même l’expérience informelle compte – soyez honnête"
+        },
+        "STEP9": {
+          "ITEM1_TITLE": "Définir la disponibilité",
+          "ITEM1_DESC": "Faites savoir aux étudiants quand vous êtes généralement libre d'enseigner",
+          "ITEM2_TITLE": "Moins de décalages",
+          "ITEM2_DESC": "Des horaires clairs réduisent les allers-retours de réservation",
+          "ITEM3_TITLE": "Mettre à jour à tout moment",
+          "ITEM3_DESC": "Ajustez votre emploi du temps à mesure que votre routine change"
+        },
+        "STEP10": {
+          "ITEM1_TITLE": "Présentez-vous",
+          "ITEM1_DESC": "Une courte biographie aide les étudiants à décider de réserver avec vous",
+          "ITEM2_TITLE": "Montrer la personnalité",
+          "ITEM2_DESC": "Partagez votre style d'enseignement et ce qui rend les cours avec vous spéciaux",
+          "ITEM3_TITLE": "Résumé facultatif",
+          "ITEM3_DESC": "Ajoutez un titre d'une ligne que les étudiants voient dans les résultats de recherche"
+        },
+        "STEP11": {
+          "ITEM1_TITLE": "Votre tarif",
+          "ITEM1_DESC": "Définissez le montant que vous facturez pour un cours de 50 minutes",
+          "ITEM2_TITLE": "Orientation du marché",
+          "ITEM2_DESC": "Vous pouvez ajuster votre tarif au fur et à mesure que vous recevez des avis",
+          "ITEM3_TITLE": "Changez à tout moment",
+          "ITEM3_DESC": "Mettez à jour les tarifs depuis votre profil de tuteur quand vous le souhaitez"
+        }
+      }
     }
   },
   "PROFILE": {

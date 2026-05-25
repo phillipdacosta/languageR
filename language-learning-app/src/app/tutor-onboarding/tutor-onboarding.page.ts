@@ -17,6 +17,8 @@ import { TEACHABLE_LANGUAGE_EN_NAMES } from '../data/teachable-language-order';
 import { FlagService } from '../services/flag.service';
 import { LocaleDisplayService, TEACHABLE_ENGLISH_NAME_TO_ISO639 } from '../services/locale-display.service';
 import { SIGNUP_INTERFACE_LANG_COMPLETED_KEY } from '../signup-language/language-select-flow.storage';
+import { WizardGuidanceItem } from '../shared/models/wizard-step-guidance.model';
+import { TUTOR_WIZARD_GUIDANCE } from '../shared/wizard-step-guidance.config';
 
 export type TutorOnboardingNativeLangChip = { code: string; native: string; interfaceLabel: string };
 
@@ -38,6 +40,7 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
 
   tutorWizardTitleKey = 'ONBOARDING.TUTOR_OB.STEP1_TITLE';
   tutorWizardSubtitleKey = 'ONBOARDING.TUTOR_OB.STEP1_SUBTITLE';
+  tutorWizardGuidanceItems: WizardGuidanceItem[] = TUTOR_WIZARD_GUIDANCE[1];
   tutorWizardProgressPercent = 0;
 
   // Language selection pre-step
@@ -666,6 +669,7 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
     }
     this.tutorWizardProgressPercent =
       this.totalSteps > 0 ? (this.currentStep / this.totalSteps) * 100 : 0;
+    this.tutorWizardGuidanceItems = TUTOR_WIZARD_GUIDANCE[this.currentStep] ?? [];
   }
 
   private focusFirstInput() {

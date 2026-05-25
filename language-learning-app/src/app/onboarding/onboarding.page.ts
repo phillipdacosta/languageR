@@ -26,6 +26,8 @@ import {
   ONBOARDING_AFTER_LANGUAGE_RESTORE,
   SIGNUP_INTERFACE_LANG_COMPLETED_KEY,
 } from '../signup-language/language-select-flow.storage';
+import { WizardGuidanceItem } from '../shared/models/wizard-step-guidance.model';
+import { STUDENT_WIZARD_GUIDANCE } from '../shared/wizard-step-guidance.config';
 
 export type OnboardingNativeLangChip = { code: string; native: string; interfaceLabel: string };
 export type StudentGoalCardOption = { value: string; labelKey: string; descKey: string; icon: string };
@@ -52,6 +54,7 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   /** Translation keys for focused wizard header (template uses translate pipe — no getters). */
   studentWizardTitleKey = 'ONBOARDING.STUDENT.STEP1_TITLE';
   studentWizardSubtitleKey = 'ONBOARDING.STUDENT.STEP1_SUBTITLE';
+  studentWizardGuidanceItems: WizardGuidanceItem[] = STUDENT_WIZARD_GUIDANCE[1];
   studentWizardProgressPercent = 0;
 
   // Welcome then student wizard (first-time interface language is `/signup-language`).
@@ -628,6 +631,7 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     }
     this.studentWizardProgressPercent =
       this.totalSteps > 0 ? (this.currentStep / this.totalSteps) * 100 : 0;
+    this.studentWizardGuidanceItems = STUDENT_WIZARD_GUIDANCE[this.currentStep] ?? [];
   }
 
   private focusFirstInput() {

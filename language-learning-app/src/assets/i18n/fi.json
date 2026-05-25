@@ -155,6 +155,12 @@
     "STATUS_RESCHEDULED": "AIKATAULUTETTU UUDELLEEN",
     "STATUS_RESCHEDULE_SENT": "UUDELLEENAIKATAULU LÄHETETTY",
     "STATUS_RESCHEDULE_REQUEST": "UUDELLEENAIKATAULUPYYNTÖ",
+    "STATUS_STARTS_IN": "Alkaa {{time}}",
+    "STATUS_STARTING_NOW": "Alkaa nyt",
+    "STATUS_LIVE_NOW": "Live nyt",
+    "STATUS_HINT_READY": "Ole valmis liittymään",
+    "STATUS_HINT_SOON": "Valmistaudu pian",
+    "STATUS_HINT_LIVE": "Oppitunti meneillään",
     "LESSON_NUMBER": "Oppitunti {{number}}",
     "TODAY": "Tänään",
     "STARTED": "ALKANUT",
@@ -279,6 +285,10 @@
     "WEEK_SAME_DAY_SESSIONS": "{{count}} istunnot",
     "THIS_WEEK_NOTHING_YET": "Ei vielä mitään",
     "THIS_WEEK_NOTHING_ELSE": "Ei mitään muuta - toistaiseksi!",
+    "THIS_WEEK_EMPTY_TITLE": "Ei oppitunteja tällä viikolla",
+    "THIS_WEEK_EMPTY_SUB": "Tulevat oppituntisi näkyvät täällä.",
+    "THIS_WEEK_EMPTY_CTA_TUTOR": "Näytä kalenteri",
+    "THIS_WEEK_EMPTY_CTA_STUDENT": "Etsi opettajia",
     "LESSON_SINGULAR": "oppitunti",
     "LESSON_PLURAL": "oppitunteja",
     "QUICK_ACTIONS": "Nopeat toiminnot",
@@ -1193,6 +1203,164 @@
     "LOADING": {
       "CREATING_ACCOUNT": "Luodaan tiliäsi…",
       "CHECKING_ACCOUNT": "Tarkistetaan tiliäsi…"
+    },
+    "WIZARD_GUIDANCE": {
+      "STUDENT": {
+        "STEP1": {
+          "ITEM1_TITLE": "Julkisen profiilin nimi",
+          "ITEM1_DESC": "Vain etunimesi ja sukunimesi näytetään muille",
+          "ITEM2_TITLE": "Rakenna luottamus ajoissa",
+          "ITEM2_DESC": "Oikea nimi auttaa ohjaajia tunnistamaan sinut tunneilla",
+          "ITEM3_TITLE": "Kestää alle minuutin",
+          "ITEM3_DESC": "Voit päivittää tämän milloin tahansa profiilistasi"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "Palaute omalla kielelläsi",
+          "ITEM1_DESC": "Oppituntien yhteenvedot ja muistiinpanot voidaan näyttää äidinkielelläsi",
+          "ITEM2_TITLE": "Parempi viestintä",
+          "ITEM2_DESC": "Auttaa ohjaajia ymmärtämään, kuinka käsitteet selitetään sinulle",
+          "ITEM3_TITLE": "Henkilökohtainen kokemus",
+          "ITEM3_DESC": "Räätälöimme käyttöliittymän ja vinkit kielellesi sopivaksi"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Yhdistä oikeiden ohjaajien kanssa",
+          "ITEM1_DESC": "Tarjoamme tutorit, jotka opettavat valitsemaasi kieltä",
+          "ITEM2_TITLE": "Yksi painopiste kerrallaan",
+          "ITEM2_DESC": "Valitse kieli, jolla haluat edistyä nyt",
+          "ITEM3_TITLE": "Lisää myöhemmin",
+          "ITEM3_DESC": "Voit oppia lisää kieliä profiilistasi"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Täysin valinnainen",
+          "ITEM1_DESC": "Ohita tämä, jos puhut vain äidinkieltäsi ja opit kieltäsi",
+          "ITEM2_TITLE": "Parempi tutor-sovitus",
+          "ITEM2_DESC": "Kieliäsi puhuvat tutorit voivat sopeutua helpommin",
+          "ITEM3_TITLE": "Esittele taitosi",
+          "ITEM3_DESC": "Monikieliset opiskelijat saavat usein runsaampia tuntisuosituksia"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "Normaalit CEFR-tasot",
+          "ITEM1_DESC": "A1–C2 auttaa ohjaajia arvioimaan, mistä aloittaa kanssasi",
+          "ITEM2_TITLE": "Rehellinen itsearviointi",
+          "ITEM2_DESC": "Ei ole väärää vastausta – valitse mikä tuntuu lähimmältä",
+          "ITEM3_TITLE": "Älykkäämpiä otteluita",
+          "ITEM3_DESC": "Tasot auttavat meitä ehdottamaan kykyjesi mukaisia ​​ohjaajia"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "Henkilökohtainen polku",
+          "ITEM1_DESC": "Tavoitteesi muokkaa oppituntiehdotuksia ja virstanpylväitä",
+          "ITEM2_TITLE": "Pysy motivoituneena",
+          "ITEM2_DESC": "Selkeät tavoitteet helpottavat edistymisen seuraamista",
+          "ITEM3_TITLE": "Ohita, jos olet epävarma",
+          "ITEM3_DESC": "Voit asettaa tai muuttaa tavoitteesi milloin tahansa profiilistasi"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "Ei paineita",
+          "ITEM1_DESC": "Tämä on lähtökohta, ei testi",
+          "ITEM2_TITLE": "Oikeanlaiset tutorit",
+          "ITEM2_DESC": "Auttaa meitä suosittelemaan ohjaajia nykyisten kykyjesi mukaan",
+          "ITEM3_TITLE": "Säädä milloin tahansa",
+          "ITEM3_DESC": "Tasosi voi muuttua, kun parannat"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Tahdista suunnitelmaasi",
+          "ITEM1_DESC": "Tavoitepäivämäärä auttaa meitä ehdottamaan realistista rytmiä",
+          "ITEM2_TITLE": "Juhli virstanpylväitä",
+          "ITEM2_DESC": "Treffien tekeminen pitää motivaation korkealla",
+          "ITEM3_TITLE": "Pysy joustavana",
+          "ITEM3_DESC": "Ei kiirettä? Valitse sen sijaan tasainen edistyminen"
+        }
+      },
+      "TUTOR": {
+        "STEP1": {
+          "ITEM1_TITLE": "Julkisen profiilin nimi",
+          "ITEM1_DESC": "Oppilaat näkevät etunimesi ja sukunimesi",
+          "ITEM2_TITLE": "Ammattimainen ensivaikutelma",
+          "ITEM2_DESC": "Käytä nimeä, jolla haluat oppilaiden tuntevan sinut",
+          "ITEM3_TITLE": "Nopea täyttää",
+          "ITEM3_DESC": "Voit muokata tätä myöhemmin profiilissasi"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "Mistä olet kotoisin",
+          "ITEM1_DESC": "Auttaa oppilaita ymmärtämään taustasi",
+          "ITEM2_TITLE": "Kulttuurikonteksti",
+          "ITEM2_DESC": "Alkuperä voi rikastuttaa tapaa, jolla opetat kieltä ja kulttuuria",
+          "ITEM3_TITLE": "Profiilin luottamus",
+          "ITEM3_DESC": "Tarkat tiedot lisäävät uusien opiskelijoiden luottamusta"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Maksutavat",
+          "ITEM1_DESC": "Asuinpaikkasi määrittää käytettävissä olevat maksuvaihtoehdot",
+          "ITEM2_TITLE": "Turvallinen asennus",
+          "ITEM2_DESC": "Maksutiedot ovat salattuja ja kumppanimme käsittelevät",
+          "ITEM3_TITLE": "Globaali opetus",
+          "ITEM3_DESC": "Opeta opiskelijoita ympäri maailmaa asuinpaikastasi"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Palautteen kieli",
+          "ITEM1_DESC": "Oppituntien muistiinpanot ja yhteenvedot voivat käyttää äidinkieltäsi",
+          "ITEM2_TITLE": "Selkeää viestintää",
+          "ITEM2_DESC": "Auttaa kirjoittamaan palautetta, jonka opiskelijat ymmärtävät",
+          "ITEM3_TITLE": "Henkilökohtaiset työkalut",
+          "ITEM3_DESC": "Sovellus mukautuu parhaiten käyttämääsi kieleen"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "Valinnaiset lisävarusteet",
+          "ITEM1_DESC": "Lisää kieliä äidinkielenään opettamasi lisäksi",
+          "ITEM2_TITLE": "Opiskelijoiden yhteensopivuus",
+          "ITEM2_DESC": "Opiskelijat, jotka käyttävät samaa kieltä, voivat löytää sinut nopeammin",
+          "ITEM3_TITLE": "Erotu joukosta",
+          "ITEM3_DESC": "Monikieliset tutorit vetoavat laajempaan yleisöön"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "CEFR-standardi",
+          "ITEM1_DESC": "Itse ilmoittamat tasot auttavat oppilaita tuntemaan alueesi",
+          "ITEM2_TITLE": "Ole tarkka",
+          "ITEM2_DESC": "Rehelliset tasot asettavat oikeat odotukset",
+          "ITEM3_TITLE": "Profiilin selkeys",
+          "ITEM3_DESC": "Oppilaat näkevät mitä kieliä puhut ja kuinka hyvin"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "Opetuksen keskittyminen",
+          "ITEM1_DESC": "Valitse kieli, jota opetat luotettavimmin",
+          "ITEM2_TITLE": "Opiskelija löytö",
+          "ITEM2_DESC": "Oppilaat tekevät hakuja kielen perusteella, jota he haluavat oppia",
+          "ITEM3_TITLE": "Laajenna myöhemmin",
+          "ITEM3_DESC": "Voit lisätä lisää opetuskieliä ajan myötä"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Näytä taustasi",
+          "ITEM1_DESC": "Kokemus auttaa opiskelijoita valitsemaan oikean ohjaajan",
+          "ITEM2_TITLE": "Aseta odotukset",
+          "ITEM2_DESC": "Uudet tutorit ja veteraanit vetoavat erilaisiin oppijoihin",
+          "ITEM3_TITLE": "Rakenna uskottavuutta",
+          "ITEM3_DESC": "Jopa epävirallisella kokemuksella on merkitystä – ole rehellinen"
+        },
+        "STEP9": {
+          "ITEM1_TITLE": "Aseta saatavuus",
+          "ITEM1_DESC": "Kerro opiskelijoille, kun olet yleensä vapaa opettamaan",
+          "ITEM2_TITLE": "Vähemmän ristiriitoja",
+          "ITEM2_DESC": "Selkeät aikataulut vähentävät varausten määrää edestakaisin",
+          "ITEM3_TITLE": "Päivitä milloin tahansa",
+          "ITEM3_DESC": "Muokkaa aikatauluasi rutiinisi muuttuessa"
+        },
+        "STEP10": {
+          "ITEM1_TITLE": "Esittele itsesi",
+          "ITEM1_DESC": "Lyhyt kuvaus auttaa oppilaita tekemään varauksen kanssasi",
+          "ITEM2_TITLE": "Näytä persoonallisuutta",
+          "ITEM2_DESC": "Jaa opetustyylisi ja se, mikä tekee oppitunneista kanssasi erityisiä",
+          "ITEM3_TITLE": "Valinnainen yhteenveto",
+          "ITEM3_DESC": "Lisää yksirivinen otsikko, jonka opiskelijat näkevät hakutuloksissa"
+        },
+        "STEP11": {
+          "ITEM1_TITLE": "Arvosi",
+          "ITEM1_DESC": "Määritä, mitä veloitat 50 minuutin oppitunnista",
+          "ITEM2_TITLE": "Markkinaohjeistus",
+          "ITEM2_DESC": "Voit muuttaa hintaasi sitä mukaa, kun saat arvosteluja",
+          "ITEM3_TITLE": "Vaihda milloin tahansa",
+          "ITEM3_DESC": "Päivitä hinnat ohjaajaprofiilistasi milloin haluat"
+        }
+      }
     }
   },
   "TUTOR_APPROVAL": {

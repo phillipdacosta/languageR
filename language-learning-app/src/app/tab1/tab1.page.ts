@@ -53,6 +53,7 @@ import { MaterialService, TutorMaterial } from '../services/material.service';
 import { TutorGrowthService, GrowthInsight, GrowthContext, ProfileChecklistItem, mapProfileChecklistIdToApprovalWizardStepId, buildTutorProfileChecklist } from '../services/tutor-growth.service';
 import { ScheduleClassPage } from '../tutor-calendar/schedule-class/schedule-class.page';
 import { MOCK_CLASS_ATTENDEES_PREVIEW } from '../constants/mock-class-attendees-preview';
+import { isLessonMockId } from '../lessons/lesson-mock-preview';
 
 @Component({
   selector: 'app-tab1',
@@ -1068,7 +1069,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     window.addEventListener('lesson-left' as any, (e: any) => {
       const leftLessonId = e?.detail?.lessonId;
       // Skip if upcoming lesson is a class (not a real lesson)
-      if (this.upcomingLesson && this.upcomingLesson._id === leftLessonId && !(this.upcomingLesson as any).isClass) {
+      if (
+        this.upcomingLesson &&
+        this.upcomingLesson._id === leftLessonId &&
+        !(this.upcomingLesson as any).isClass &&
+        !isLessonMockId(this.upcomingLesson._id)
+      ) {
         this.lessonService.getLessonStatus(this.upcomingLesson._id).subscribe(status => {
           if (status?.success) {
             (this.upcomingLesson as any).status = status.lesson?.status || (this.upcomingLesson as any).status;
@@ -1325,7 +1331,11 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       }, 5000);
       
       this.statusInterval = setInterval(() => {
-        if (this.upcomingLesson && !(this.upcomingLesson as any).isClass) {
+        if (
+          this.upcomingLesson &&
+          !(this.upcomingLesson as any).isClass &&
+          !isLessonMockId(this.upcomingLesson._id)
+        ) {
           this.ngZone.run(() => {
             this.lessonService.getLessonStatus(this.upcomingLesson!._id).subscribe(status => {
               if (status?.success && this.upcomingLesson) {
@@ -6606,8 +6616,11 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.thisWeekMobileShowNothingYet = this.thisWeekLessonCount === 0;
 
     if (this.thisWeekMobileShowNothingYet) {
+      const hasRealUpNext =
+        !!this.nextLesson &&
+        !isLessonMockId(this.nextLesson?.lesson?._id ?? this.nextLesson?.lessonId);
       const hadLessonsThisWeek =
-        this.nextLesson != null ||
+        hasRealUpNext ||
         this.pastLessons.some(l => {
           const s = new Date(l.startTime);
           return s >= weekStart && s < weekEnd;
@@ -7617,6 +7630,9 @@ navigateToLessons() {
 
   // Helper to navigate to pre-call for lesson or class
   async joinLessonById(lesson: Lesson) {
+    if (isLessonMockId(lesson._id)) {
+      return;
+    }
     const isClass = (lesson as any).isClass;
     
     
@@ -7685,7 +7701,7 @@ navigateToLessons() {
 
   private loadPreviousNotes() {
     const nl = this.nextLesson;
-    if (!nl?.lesson?._id || nl.lesson.isClass) {
+    if (!nl?.lesson?._id || nl.lesson.isClass || isLessonMockId(nl.lesson._id)) {
       this.previousNotesData = null;
       return;
     }
@@ -8729,7 +8745,7 @@ navigateToLessons() {
     // Check each lesson for existing participants
     for (const lesson of this.lessons) {
       // Skip classes - they don't exist in the lessons API
-      if ((lesson as any).isClass) {
+      if ((lesson as any).isClass || isLessonMockId(lesson._id)) {
         continue;
       }
       
@@ -8907,7 +8923,7 @@ navigateToLessons() {
   }
 
   async joinUpcomingLesson() {
-    if (!this.upcomingLesson || !this.currentUser) return;
+    if (!this.upcomingLesson || !this.currentUser || isLessonMockId(this.upcomingLesson._id)) return;
     
     const isClass = (this.upcomingLesson as any).isClass || false;
     
@@ -10756,6 +10772,7 @@ navigateToLessons() {
   async joinStudentLesson(student: any) {
     if (!student.lesson || !this.currentUser) return;
     const lesson = student.lesson as Lesson;
+    if (isLessonMockId(lesson._id)) return;
     const isClass = (lesson as any).isClass || false;
 
     if (lesson.status === 'cancelled') {

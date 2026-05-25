@@ -155,6 +155,12 @@
     "STATUS_RESCHEDULED": "PŘELOŽENO",
     "STATUS_RESCHEDULE_SENT": "PŘELOŽENÍ ODESLÁNO",
     "STATUS_RESCHEDULE_REQUEST": "ŽÁDOST O PŘELOŽENÍ",
+    "STATUS_STARTS_IN": "Začíná v {{time}}",
+    "STATUS_STARTING_NOW": "Začíná právě teď",
+    "STATUS_LIVE_NOW": "Právě probíhá",
+    "STATUS_HINT_READY": "Buďte připraveni se připojit",
+    "STATUS_HINT_SOON": "Připravte se brzy",
+    "STATUS_HINT_LIVE": "Probíhá lekce",
     "LESSON_NUMBER": "Lekce {{number}}",
     "TODAY": "Dnes",
     "STARTED": "ZAHÁJENO",
@@ -279,6 +285,10 @@
     "WEEK_SAME_DAY_SESSIONS": "{{count}} sezení",
     "THIS_WEEK_NOTHING_YET": "Zatím nic",
     "THIS_WEEK_NOTHING_ELSE": "Nic jiného – prozatím!",
+    "THIS_WEEK_EMPTY_TITLE": "Tento týden žádné lekce",
+    "THIS_WEEK_EMPTY_SUB": "Zde se zobrazí vaše nadcházející lekce.",
+    "THIS_WEEK_EMPTY_CTA_TUTOR": "Zobrazit kalendář",
+    "THIS_WEEK_EMPTY_CTA_STUDENT": "Najít lektory",
     "LESSON_SINGULAR": "lekce",
     "LESSON_PLURAL": "lekce",
     "QUICK_ACTIONS": "Rychlé akce",
@@ -1193,6 +1203,164 @@
     "LOADING": {
       "CREATING_ACCOUNT": "Vytváření účtu…",
       "CHECKING_ACCOUNT": "Kontrola vašeho účtu…"
+    },
+    "WIZARD_GUIDANCE": {
+      "STUDENT": {
+        "STEP1": {
+          "ITEM1_TITLE": "Název veřejného profilu",
+          "ITEM1_DESC": "Ostatním se zobrazí pouze vaše jméno a příjmení",
+          "ITEM2_TITLE": "Budujte důvěru brzy",
+          "ITEM2_DESC": "Skutečné jméno pomáhá lektorům, aby vás v lekcích poznali",
+          "ITEM3_TITLE": "Trvá méně než minutu",
+          "ITEM3_DESC": "Toto můžete kdykoli aktualizovat ze svého profilu"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "Zpětná vazba ve vašem jazyce",
+          "ITEM1_DESC": "Shrnutí lekcí a poznámky lze zobrazit ve vašem rodném jazyce",
+          "ITEM2_TITLE": "Lepší komunikace",
+          "ITEM2_DESC": "Pomáhá lektorům pochopit, jak vám vysvětlit pojmy",
+          "ITEM3_TITLE": "Personalizovaná zkušenost",
+          "ITEM3_DESC": "Rozhraní a tipy přizpůsobíme vašemu jazyku"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Spojte se se správnými lektory",
+          "ITEM1_DESC": "Jsme povrchní lektoři, kteří vyučují jazyk, který jste si vybrali",
+          "ITEM2_TITLE": "Jedno zaměření najednou",
+          "ITEM2_DESC": "Vyberte si jazyk, ve kterém chcete nyní pokročit",
+          "ITEM3_TITLE": "Přidejte další později",
+          "ITEM3_DESC": "Další jazyky se můžete naučit ze svého profilu"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Zcela volitelné",
+          "ITEM1_DESC": "Toto přeskočte, pokud mluvíte pouze svým rodným jazykem a učíte se",
+          "ITEM2_TITLE": "Lepší shoda učitelů",
+          "ITEM2_DESC": "Lektoři, kteří mluví vašimi jazyky, se mohou snadněji přizpůsobit",
+          "ITEM3_TITLE": "Ukažte své dovednosti",
+          "ITEM3_DESC": "Vícejazyční studenti často dostávají bohatší doporučení lekcí"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "Standardní úrovně CEFR",
+          "ITEM1_DESC": "A1–C2 pomáhá lektorům odhadnout, kde s vámi začít",
+          "ITEM2_TITLE": "Upřímné sebehodnocení",
+          "ITEM2_DESC": "Neexistuje žádná špatná odpověď – vyberte si, co je vám nejblíže",
+          "ITEM3_TITLE": "Chytřejší zápasy",
+          "ITEM3_DESC": "Úrovně nám pomáhají navrhovat lektory vhodné pro vaše schopnosti"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "Personalizovaná cesta",
+          "ITEM1_DESC": "Váš cíl utváří návrhy lekcí a milníky",
+          "ITEM2_TITLE": "Zůstaňte motivovaní",
+          "ITEM2_DESC": "Jasné cíle usnadňují sledování pokroku",
+          "ITEM3_TITLE": "Pokud si nejste jisti, přeskočte",
+          "ITEM3_DESC": "Svůj cíl můžete kdykoli nastavit nebo změnit ve svém profilu"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "Žádný tlak",
+          "ITEM1_DESC": "Toto je výchozí bod, nikoli test",
+          "ITEM2_TITLE": "Správní lektoři",
+          "ITEM2_DESC": "Pomáhá nám doporučit lektory pro vaše aktuální schopnosti",
+          "ITEM3_TITLE": "Upravte kdykoli",
+          "ITEM3_DESC": "Vaše úroveň se může změnit, jak se budete zlepšovat"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Upravte svůj plán",
+          "ITEM1_DESC": "Cílové datum nám pomáhá navrhnout realistický rytmus",
+          "ITEM2_TITLE": "Oslavte milníky",
+          "ITEM2_DESC": "Práce na rande udržuje motivaci vysokou",
+          "ITEM3_TITLE": "Zůstaňte flexibilní",
+          "ITEM3_DESC": "Žádný spěch? Místo toho zvolte stálý pokrok"
+        }
+      },
+      "TUTOR": {
+        "STEP1": {
+          "ITEM1_TITLE": "Název veřejného profilu",
+          "ITEM1_DESC": "Studenti uvidí vaše jméno a příjmení",
+          "ITEM2_TITLE": "Profesionální první dojem",
+          "ITEM2_DESC": "Použijte jméno, pod kterým vás mají studenti znát",
+          "ITEM3_TITLE": "Rychlé dokončení",
+          "ITEM3_DESC": "Později to můžete upravit ve svém profilu"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "odkud jsi",
+          "ITEM1_DESC": "Pomáhá studentům porozumět vašemu pozadí",
+          "ITEM2_TITLE": "Kulturní kontext",
+          "ITEM2_DESC": "Origin může obohatit způsob výuky jazyka a kultury",
+          "ITEM3_TITLE": "Důvěra profilu",
+          "ITEM3_DESC": "Přesné informace posilují důvěru u nových studentů"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Způsoby výplaty",
+          "ITEM1_DESC": "Vaše bydliště určuje dostupné platební možnosti",
+          "ITEM2_TITLE": "Zabezpečené nastavení",
+          "ITEM2_DESC": "Platební údaje jsou zašifrovány a zpracovány našimi partnery",
+          "ITEM3_TITLE": "Globální výuka",
+          "ITEM3_DESC": "Učte studenty po celém světě z místa, kde žijete"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Jazyk zpětné vazby",
+          "ITEM1_DESC": "Poznámky a shrnutí lekcí mohou používat váš rodný jazyk",
+          "ITEM2_TITLE": "Jasná komunikace",
+          "ITEM2_DESC": "Pomáhá vám napsat zpětnou vazbu, kterou studenti pochopí",
+          "ITEM3_TITLE": "Personalizované nástroje",
+          "ITEM3_DESC": "Aplikace se přizpůsobí jazyku, ve kterém nejlépe pracujete"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "Volitelné doplňky",
+          "ITEM1_DESC": "Přidejte jazyky nad rámec toho, co učíte nativně",
+          "ITEM2_TITLE": "Párování studentů",
+          "ITEM2_DESC": "Studenti, kteří sdílejí vaše jazyky, vás mohou najít rychleji",
+          "ITEM3_TITLE": "Vyčnívat",
+          "ITEM3_DESC": "Vícejazyční lektoři oslovují širší publikum"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "standard CEFR",
+          "ITEM1_DESC": "Samostatně nahlášené úrovně pomáhají studentům znát váš rozsah",
+          "ITEM2_TITLE": "Buďte přesní",
+          "ITEM2_DESC": "Poctivé úrovně nastavují správná očekávání",
+          "ITEM3_TITLE": "Přehlednost profilu",
+          "ITEM3_DESC": "Studenti vidí, kterými jazyky mluvíte a jak dobře"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "Zaměření výuky",
+          "ITEM1_DESC": "Vyberte si jazyk, který učíte s největší jistotou",
+          "ITEM2_TITLE": "Studentský objev",
+          "ITEM2_DESC": "Studenti vyhledávají podle jazyka, který se chtějí naučit",
+          "ITEM3_TITLE": "Rozbalte později",
+          "ITEM3_DESC": "Postupem času můžete přidat další výukové jazyky"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Ukažte své pozadí",
+          "ITEM1_DESC": "Zkušenosti pomáhají studentům vybrat si správného lektora",
+          "ITEM2_TITLE": "Nastavte očekávání",
+          "ITEM2_DESC": "Noví lektoři a veteráni oslovují různé studenty",
+          "ITEM3_TITLE": "Budujte důvěryhodnost",
+          "ITEM3_DESC": "I neformální zkušenost se počítá – buďte upřímní"
+        },
+        "STEP9": {
+          "ITEM1_TITLE": "Nastavit dostupnost",
+          "ITEM1_DESC": "Dejte studentům vědět, kdy máte obvykle volno k výuce",
+          "ITEM2_TITLE": "Méně neshod",
+          "ITEM2_DESC": "Jasné jízdní řády snižují počet rezervací tam a zpět",
+          "ITEM3_TITLE": "Aktualizujte kdykoli",
+          "ITEM3_DESC": "Upravte svůj rozvrh, když se změní vaše rutina"
+        },
+        "STEP10": {
+          "ITEM1_TITLE": "Představte se",
+          "ITEM1_DESC": "Krátký životopis pomůže studentům rozhodnout se u vás rezervovat",
+          "ITEM2_TITLE": "Ukázat osobnost",
+          "ITEM2_DESC": "Podělte se o svůj styl výuky a o to, čím jsou lekce výjimečné",
+          "ITEM3_TITLE": "Nepovinné shrnutí",
+          "ITEM3_DESC": "Přidejte jednořádkový nadpis, který studenti uvidí ve výsledcích vyhledávání"
+        },
+        "STEP11": {
+          "ITEM1_TITLE": "Vaše sazba",
+          "ITEM1_DESC": "Nastavte si, kolik si účtujete za 50minutovou lekci",
+          "ITEM2_TITLE": "Vedení trhu",
+          "ITEM2_DESC": "Svou sazbu můžete upravit podle toho, jak budete získávat recenze",
+          "ITEM3_TITLE": "Kdykoli změnit",
+          "ITEM3_DESC": "Aktualizujte ceny ze svého profilu lektora, kdykoli budete chtít"
+        }
+      }
     }
   },
   "TUTOR_APPROVAL": {

@@ -19,5 +19,5 @@ export const environment = {
     clientId: 'GOoBQhd850NcpUZxqZRgVQU4pEams1QI',
     redirectUri: 'https://languager-frontend.onrender.com/callback',
     audience: 'https://api.barnabi.com'
-  }
+  },
 };
