@@ -1,11 +1,12 @@
 import { Component, OnInit, ViewChild, OnDestroy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, Location } from '@angular/common';
 import { IonicModule, ViewWillEnter } from '@ionic/angular';
 import { Router, RouterModule, ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
-import { takeUntil, take } from 'rxjs/operators';
+import { takeUntil } from 'rxjs/operators';
 import { AvailabilitySetupComponent } from '../../components/availability-setup/availability-setup.component';
 import { UserService } from '../../services/user.service';
+import { buildTutorProfileChecklist } from '../../services/tutor-growth.service';
 import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
 
 @Component({
@@ -26,6 +27,7 @@ export class AvailabilitySetupPage implements OnInit, OnDestroy, ViewWillEnter, 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
+    private location: Location,
     private userService: UserService
   ) {}
 
@@ -38,37 +40,48 @@ export class AvailabilitySetupPage implements OnInit, OnDestroy, ViewWillEnter, 
       }
     });
     this.isInitialized = true;
-    this.checkProfileRequirements();
+
+    this.userService.tutorApprovalStatus$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(status => this.applyProfileBlockFromStatus(status));
   }
 
   ionViewWillEnter() {
     if (this.availabilityComponent) {
       this.availabilityComponent.forceRefreshAvailability();
     }
-    this.checkProfileRequirements();
+    this.userService.refreshTutorApprovalStatus();
   }
 
-  private checkProfileRequirements(): void {
-    this.userService.getCurrentUser().pipe(take(1)).subscribe(user => {
-      if (!user || user.userType !== 'tutor') return;
+  /** Same checklist source as home, profile, and tutor-calendar. */
+  private applyProfileBlockFromStatus(status: any): void {
+    if (!status) {
+      return;
+    }
 
-      const hasCustomPhoto = !!(user.picture && (
-        user.picture.includes('storage.googleapis.com') ||
-        (user.auth0Picture && user.picture !== user.auth0Picture)
-      ));
-      const hasVideo = !!(user.onboardingData?.introductionVideo || user.onboardingData?.pendingVideo);
-      const creds = user.tutorCredentials;
-      const govIdUploaded = !!(creds?.governmentId?.url && creds.governmentId.status !== 'not_uploaded');
-      const certsUploaded = !!(creds?.teachingCertifications && creds.teachingCertifications.length > 0);
-      const hasPayoutSetup = user.stripeConnectOnboarded ||
-        user.payoutProvider === 'paypal' || user.payoutProvider === 'manual';
-
-      this.profileBlocked = !hasCustomPhoto || !hasVideo || !(govIdUploaded && certsUploaded) || !hasPayoutSetup;
+    const checklist = buildTutorProfileChecklist({
+      hasCustomPhoto: status.photoComplete === true,
+      hasVideo: status.videoComplete === true,
+      videoApproved: status.videoApproved === true,
+      identityRequired: status.identityRequired === true,
+      governmentIdUploaded: status.governmentIdUploaded === true,
+      identitySatisfied: status.identitySatisfied === true,
+      certificationsUploaded: status.certificationsUploaded === true,
+      certificationsApproved: status.certificationsApproved === true,
+      hasPayoutSetup: status.stripeComplete === true,
+      tosComplete: status.tosComplete === true,
     });
+
+    const doneCount = checklist.filter(i => i.done && !i.pendingReview).length;
+    this.profileBlocked = checklist.length > 0 && doneCount < checklist.length;
   }
 
-  goToSetup(): void {
-    this.router.navigate(['/tutor-approval']);
+  goBack(): void {
+    if (window.history.length > 1) {
+      this.location.back();
+      return;
+    }
+    this.router.navigate(['/tabs/home']);
   }
 
   get hasUnsavedChanges(): boolean {
