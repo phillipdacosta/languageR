@@ -12,9 +12,9 @@
     <ion-icon name="alert-circle-outline" class="avail-blocked-icon"></ion-icon>
     <h3>Complete Your Profile First</h3>
     <p>You need to finish your profile setup before adding availability. This includes your photo, video, credentials, and payout method.</p>
-    <ion-button fill="solid" (click)="goToSetup()">
-      <ion-icon name="arrow-forward" slot="end"></ion-icon>
-      Continue Setup
+    <ion-button fill="outline" (click)="goBack()">
+      <ion-icon name="chevron-back" slot="start"></ion-icon>
+      Go Back
     </ion-button>
   </div>
   <app-availability-setup *ngIf="!profileBlocked" [targetDate]="selectedDate"></app-availability-setup>
