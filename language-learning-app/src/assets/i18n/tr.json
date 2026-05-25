@@ -1204,6 +1204,164 @@
     "LOADING": {
       "CREATING_ACCOUNT": "Hesabınız oluşturuluyor…",
       "CHECKING_ACCOUNT": "Hesabınız kontrol ediliyor…"
+    },
+    "WIZARD_GUIDANCE": {
+      "STUDENT": {
+        "STEP1": {
+          "ITEM1_TITLE": "Genel profil adı",
+          "ITEM1_DESC": "Başkalarına yalnızca adınız ve soyadınızın baş harfi gösterilir",
+          "ITEM2_TITLE": "Erken güven oluşturun",
+          "ITEM2_DESC": "Gerçek bir ad, öğretmenlerin sizi derslerde tanımasına yardımcı olur",
+          "ITEM3_TITLE": "Bir dakikadan az sürer",
+          "ITEM3_DESC": "Bunu istediğiniz zaman profilinizden güncelleyebilirsiniz"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "Kendi dilinizde geri bildirim",
+          "ITEM1_DESC": "Ders özetleri ve notları ana dilinizde gösterilebilir",
+          "ITEM2_TITLE": "Daha iyi iletişim",
+          "ITEM2_DESC": "Öğretmenlerin kavramları size nasıl açıklayacaklarını anlamalarına yardımcı olur",
+          "ITEM3_TITLE": "Kişiselleştirilmiş deneyim",
+          "ITEM3_DESC": "Arayüzü ve ipuçlarını dilinize göre uyarlıyoruz"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Doğru öğretmenlerle eşleştirin",
+          "ITEM1_DESC": "Seçtiğiniz dili öğreten öğretmenleri yüzeye çıkarıyoruz",
+          "ITEM2_TITLE": "Tek seferde tek odak",
+          "ITEM2_DESC": "Şimdi ilerleme kaydetmek istediğiniz dili seçin",
+          "ITEM3_TITLE": "Daha sonra daha fazlasını ekleyin",
+          "ITEM3_DESC": "Profilinizden ek diller öğrenebilirsiniz"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Tamamen isteğe bağlı",
+          "ITEM1_DESC": "Yalnızca ana dilinizi ve öğrendiğiniz dili konuşuyorsanız bunu atlayın",
+          "ITEM2_TITLE": "Daha iyi öğretmen eşleşmesi",
+          "ITEM2_DESC": "Dillerinizi konuşan öğretmenler daha kolay uyum sağlayabilir",
+          "ITEM3_TITLE": "Becerilerinizi sergileyin",
+          "ITEM3_DESC": "Çok dilli öğrenciler genellikle daha zengin ders önerileri alırlar"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "Standart CEFR seviyeleri",
+          "ITEM1_DESC": "A1–C2, öğretmenlerin sizinle nereden başlayacaklarını belirlemelerine yardımcı olur",
+          "ITEM2_TITLE": "Dürüst öz değerlendirme",
+          "ITEM2_DESC": "Yanlış cevap yok; size en yakın olanı seçin",
+          "ITEM3_TITLE": "Daha akıllı maçlar",
+          "ITEM3_DESC": "Seviyeler, yeteneğinize uygun öğretmenler önermemize yardımcı olur"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "Kişiselleştirilmiş yol",
+          "ITEM1_DESC": "Hedefiniz ders önerilerini ve kilometre taşlarını şekillendirir",
+          "ITEM2_TITLE": "Motivasyonunuzu koruyun",
+          "ITEM2_DESC": "Net hedefler ilerlemeyi izlemeyi kolaylaştırır",
+          "ITEM3_TITLE": "Emin değilseniz atlayın",
+          "ITEM3_DESC": "Hedefinizi istediğiniz zaman profilinizden belirleyebilir veya değiştirebilirsiniz"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "Baskı yok",
+          "ITEM1_DESC": "Bu bir başlangıç ​​noktasıdır, bir test değil",
+          "ITEM2_TITLE": "Uygun öğretmenler",
+          "ITEM2_DESC": "Mevcut yeteneğiniz için özel öğretmenler önermemize yardımcı olur",
+          "ITEM3_TITLE": "İstediğiniz zaman ayarlayın",
+          "ITEM3_DESC": "Siz geliştikçe seviyeniz değişebilir"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Planınızın hızını artırın",
+          "ITEM1_DESC": "Hedef tarih gerçekçi bir ritim önermemize yardımcı olur",
+          "ITEM2_TITLE": "Kilometre taşlarını kutlayın",
+          "ITEM2_DESC": "Bir randevuya doğru çalışmak motivasyonu yüksek tutar",
+          "ITEM3_TITLE": "Esnek kalın",
+          "ITEM3_DESC": "Aceleniz yok mu? Bunun yerine istikrarlı ilerlemeyi seçin"
+        }
+      },
+      "TUTOR": {
+        "STEP1": {
+          "ITEM1_TITLE": "Genel profil adı",
+          "ITEM1_DESC": "Öğrenciler adınızı ve soyadınızın baş harfini görür",
+          "ITEM2_TITLE": "Profesyonel ilk izlenim",
+          "ITEM2_DESC": "Öğrencilerin sizi tanımasını istediğiniz adı kullanın",
+          "ITEM3_TITLE": "Hızlı tamamlanır",
+          "ITEM3_DESC": "Bunu daha sonra profilinizde düzenleyebilirsiniz"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "nerelisin",
+          "ITEM1_DESC": "Öğrencilerin geçmişinizi anlamalarına yardımcı olur",
+          "ITEM2_TITLE": "Kültürel bağlam",
+          "ITEM2_DESC": "Köken, dili ve kültürü öğretme şeklinizi zenginleştirebilir",
+          "ITEM3_TITLE": "Profil güveni",
+          "ITEM3_DESC": "Doğru bilgi yeni öğrencilerde güven oluşturur"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Ödeme yöntemleri",
+          "ITEM1_DESC": "İkametiniz mevcut ödeme seçeneklerini belirler",
+          "ITEM2_TITLE": "Güvenli kurulum",
+          "ITEM2_DESC": "Ödeme ayrıntıları ortaklarımız tarafından şifrelenir ve işlenir",
+          "ITEM3_TITLE": "Küresel öğretim",
+          "ITEM3_DESC": "Yaşadığınız yerden dünyanın her yerindeki öğrencilere eğitim verin"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Geri bildirim dili",
+          "ITEM1_DESC": "Ders notları ve özetler ana dilinizi kullanabilir",
+          "ITEM2_TITLE": "Açık iletişim",
+          "ITEM2_DESC": "Öğrencilerin anlayabileceği geri bildirim yazmanıza yardımcı olur",
+          "ITEM3_TITLE": "Kişiselleştirilmiş araçlar",
+          "ITEM3_DESC": "Uygulama, çalıştığınız dile en iyi şekilde uyum sağlar"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "İsteğe bağlı ekstralar",
+          "ITEM1_DESC": "Yerel olarak öğrettiklerinizin ötesinde diller ekleyin",
+          "ITEM2_TITLE": "Öğrenci eşleştirme",
+          "ITEM2_DESC": "Dillerinizi paylaşan öğrenciler sizi daha hızlı bulabilir",
+          "ITEM3_TITLE": "Öne çıkın",
+          "ITEM3_DESC": "Çok dilli öğretmenler daha geniş bir kitleye hitap ediyor"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "CEFR standardı",
+          "ITEM1_DESC": "Kişisel olarak bildirilen seviyeler, öğrencilerin aralığınızı bilmesine yardımcı olur",
+          "ITEM2_TITLE": "Doğru ol",
+          "ITEM2_DESC": "Dürüst seviyeler doğru beklentileri belirler",
+          "ITEM3_TITLE": "Profil netliği",
+          "ITEM3_DESC": "Öğrenciler hangi dilleri ne kadar iyi konuştuğunuzu görür"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "Öğretim odağı",
+          "ITEM1_DESC": "Öğretirken kendinize en çok güvendiğiniz dili seçin",
+          "ITEM2_TITLE": "Öğrenci keşfi",
+          "ITEM2_DESC": "Öğrenciler öğrenmek istedikleri dile göre arama yaparlar",
+          "ITEM3_TITLE": "Daha sonra genişlet",
+          "ITEM3_DESC": "Zamanla daha fazla öğretim dili ekleyebilirsiniz"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Arka planınızı gösterin",
+          "ITEM1_DESC": "Deneyim, öğrencilerin doğru öğretmeni seçmesine yardımcı olur",
+          "ITEM2_TITLE": "Beklentileri belirleyin",
+          "ITEM2_DESC": "Yeni öğretmenler ve eski öğretmenler farklı öğrencilere hitap ediyor",
+          "ITEM3_TITLE": "Güvenilirlik oluşturun",
+          "ITEM3_DESC": "Gayri resmi deneyim bile önemlidir - dürüst olun"
+        },
+        "STEP9": {
+          "ITEM1_TITLE": "Kullanılabilirliği ayarla",
+          "ITEM1_DESC": "Genellikle ne zaman ders vermek için uygun olduğunuzu öğrencilere bildirin",
+          "ITEM2_TITLE": "Daha az uyumsuzluk",
+          "ITEM2_DESC": "Programların net olması, rezervasyonların ileri geri yapılmasını azaltır",
+          "ITEM3_TITLE": "İstediğiniz zaman güncelleyin",
+          "ITEM3_DESC": "Rutininiz değiştikçe programınızı ayarlayın"
+        },
+        "STEP10": {
+          "ITEM1_TITLE": "Kendinizi tanıtın",
+          "ITEM1_DESC": "Kısa bir özgeçmiş, öğrencilerin sizinle rezervasyon yapmaya karar vermesine yardımcı olur",
+          "ITEM2_TITLE": "Kişiliği göster",
+          "ITEM2_DESC": "Öğretme tarzınızı ve dersleri özel kılan şeyleri sizinle paylaşın",
+          "ITEM3_TITLE": "İsteğe bağlı özet",
+          "ITEM3_DESC": "Öğrencilerin arama sonuçlarında göreceği tek satırlık bir başlık ekleyin"
+        },
+        "STEP11": {
+          "ITEM1_TITLE": "Oranınız",
+          "ITEM1_DESC": "50 dakikalık ders için ne kadar ücret alacağınızı ayarlayın",
+          "ITEM2_TITLE": "Pazar rehberliği",
+          "ITEM2_DESC": "Yorum aldıkça oranınızı ayarlayabilirsiniz",
+          "ITEM3_TITLE": "İstediğiniz zaman değiştirin",
+          "ITEM3_DESC": "Fiyatlandırmayı istediğiniz zaman öğretmen profilinizden güncelleyin"
+        }
+      }
     }
   },
   "TUTOR_APPROVAL": {

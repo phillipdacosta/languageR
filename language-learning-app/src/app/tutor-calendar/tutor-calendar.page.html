@@ -595,13 +595,13 @@
                   <div class="pcl-header-text">
                     <div class="pcl-header-top">
                       <ion-icon name="alert-circle-outline" class="pcl-warn-icon"></ion-icon>
-                      <span class="pcl-title">{{ 'HOME.GROWTH.PROFILE_PROGRESS' | translate:{ done: profileChecklistDoneCount, total: profileChecklist.length } }}</span>
-                      <span class="pcl-hidden-label" *ngIf="profileChecklistDoneCount < profileChecklist.length">
+                      <span class="pcl-title">{{ 'HOME.GROWTH.PROFILE_PROGRESS' | translate:{ done: profileChecklistDoneCount, total: profileChecklistTotal } }}</span>
+                      <span class="pcl-hidden-label" *ngIf="profileChecklistDoneCount < profileChecklistTotal">
                         <ion-icon name="eye-off-outline"></ion-icon> {{ 'HOME.GROWTH.PROFILE_HIDDEN' | translate }}
                       </span>
                     </div>
-                    <p class="pcl-subtitle" *ngIf="profileChecklistDoneCount < profileChecklist.length">{{ 'HOME.GROWTH.PROFILE_CHECKLIST_SUBTITLE' | translate }}</p>
-                    <p class="pcl-availability-note" *ngIf="profileChecklistDoneCount < profileChecklist.length">{{ 'HOME.GROWTH.PROFILE_CHECKLIST_AVAILABILITY_NOTE' | translate }}</p>
+                    <p class="pcl-subtitle" *ngIf="profileChecklistDoneCount < profileChecklistTotal">{{ 'HOME.GROWTH.PROFILE_CHECKLIST_SUBTITLE' | translate }}</p>
+                    <p class="pcl-availability-note" *ngIf="profileChecklistDoneCount < profileChecklistTotal">{{ 'HOME.GROWTH.PROFILE_CHECKLIST_AVAILABILITY_NOTE' | translate }}</p>
                   </div>
                 </div>
                 <div class="profile-checklist-items">

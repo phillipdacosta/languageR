@@ -5127,7 +5127,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         status?.certificationsApproved ??
         !!(creds?.teachingCertifications?.some((c: any) => c.status === 'approved'));
       // Default to true (show the row) when status hasn't loaded yet.
-      const identityRequired = status?.identityRequired !== false;
+      const identityRequired = status?.identityRequired === true;
       const tosComplete = status?.tosComplete ?? !!user?.tosAcceptedAt;
       const hasPayoutSetup =
         status?.stripeComplete ?? this.tutorOnboardingStatus?.stripeComplete === true;
@@ -5267,7 +5267,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       hasCustomPhoto: status.photoComplete === true,
       hasVideo: status.videoComplete === true,
       videoApproved: status.videoApproved === true,
-      identityRequired: status.identityRequired !== false,
+      identityRequired: status.identityRequired === true,
       governmentIdUploaded: status.governmentIdUploaded === true,
       identitySatisfied: status.identitySatisfied === true,
       certificationsUploaded: status.certificationsUploaded === true,
