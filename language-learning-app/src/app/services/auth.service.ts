@@ -147,7 +147,7 @@ export class AuthService {
     if (now - this.lastSessionRecoveryAt < AuthService.SESSION_RECOVERY_COOLDOWN_MS) {
       return;
     }
-    if (this.isPublicAuthRoute()) {
+    if (this.shouldSkipSessionRecovery()) {
       return;
     }
 
@@ -189,9 +189,14 @@ export class AuthService {
     });
   }
 
-  private isPublicAuthRoute(): boolean {
+  /**
+   * Skip forced logout on public pages and the pre-account signup flow.
+   * New users are Auth0-authenticated but have no backend profile yet — a
+   * transient token attach failure must not bounce them back to /login.
+   */
+  shouldSkipSessionRecovery(): boolean {
     const url = this.router.url || '';
-    return /^\/(login|callback|terms|privacy)(\/|\?|$)/.test(url);
+    return /^\/(login|callback|terms|privacy|signup-language|role-select|onboarding|tutor-onboarding)(\/|\?|$)/.test(url);
   }
 
   /** Only treat errors that mean the stored session is unusable — not transient silent-auth noise. */

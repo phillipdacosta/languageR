@@ -44,13 +44,17 @@ export class ApiUnauthorizedInterceptor implements HttpInterceptor {
       return false;
     }
 
+    if (this.authService.shouldSkipSessionRecovery()) {
+      return false;
+    }
+
     const backendUrl = environment.backendUrl;
     if (!backendUrl || !req.url.startsWith(backendUrl)) {
       return false;
     }
 
     // Public endpoints that may 401 without implying a dead session.
-    if (req.url.includes('/users/by-email')) {
+    if (req.url.includes('/users/by-email') || req.url.includes('/users/check-email')) {
       return false;
     }
 

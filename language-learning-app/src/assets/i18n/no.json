@@ -1204,6 +1204,164 @@
     "LOADING": {
       "CREATING_ACCOUNT": "Oppretter kontoen din …",
       "CHECKING_ACCOUNT": "Sjekker kontoen din …"
+    },
+    "WIZARD_GUIDANCE": {
+      "STUDENT": {
+        "STEP1": {
+          "ITEM1_TITLE": "Offentlig profilnavn",
+          "ITEM1_DESC": "Bare ditt fornavn og etternavn vises til andre",
+          "ITEM2_TITLE": "Bygg tillit tidlig",
+          "ITEM2_DESC": "Et ekte navn hjelper veiledere å gjenkjenne deg i leksjonene",
+          "ITEM3_TITLE": "Tar under ett minutt",
+          "ITEM3_DESC": "Du kan oppdatere dette når som helst fra profilen din"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "Tilbakemelding på ditt språk",
+          "ITEM1_DESC": "Leksjonssammendrag og notater kan vises på ditt morsmål",
+          "ITEM2_TITLE": "Bedre kommunikasjon",
+          "ITEM2_DESC": "Hjelper veiledere å forstå hvordan de skal forklare konsepter for deg",
+          "ITEM3_TITLE": "Personlig opplevelse",
+          "ITEM3_DESC": "Vi skreddersyr grensesnittet og tipsene til ditt språk"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Match med de riktige veilederne",
+          "ITEM1_DESC": "Vi overflateveiledere som underviser i språket du velger",
+          "ITEM2_TITLE": "Ett fokus om gangen",
+          "ITEM2_DESC": "Velg språket du vil gjøre fremgang på nå",
+          "ITEM3_TITLE": "Legg til mer senere",
+          "ITEM3_DESC": "Du kan lære flere språk fra profilen din"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Helt valgfritt",
+          "ITEM1_DESC": "Hopp over dette hvis du bare snakker ditt morsmål og lærer språket ditt",
+          "ITEM2_TITLE": "Bedre veiledermatching",
+          "ITEM2_DESC": "Lærere som snakker språkene dine kan tilpasse seg lettere",
+          "ITEM3_TITLE": "Vis frem ferdighetene dine",
+          "ITEM3_DESC": "Flerspråklige elever får ofte rikere leksjonsanbefalinger"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "Standard CEFR-nivåer",
+          "ITEM1_DESC": "A1–C2 hjelper veiledere med å finne ut hvor de skal begynne med deg",
+          "ITEM2_TITLE": "Ærlig egenvurdering",
+          "ITEM2_DESC": "Det er ikke noe feil svar - velg det som føles nærmest",
+          "ITEM3_TITLE": "Smartere kamper",
+          "ITEM3_DESC": "Nivåer hjelper oss med å foreslå veiledere som passer til dine evner"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "Personlig bane",
+          "ITEM1_DESC": "Målet ditt former leksjonsforslag og milepæler",
+          "ITEM2_TITLE": "Hold deg motivert",
+          "ITEM2_DESC": "Klare mål gjør det lettere å spore fremgang",
+          "ITEM3_TITLE": "Hopp over hvis du er usikker",
+          "ITEM3_DESC": "Du kan angi eller endre målet ditt når som helst fra profilen din"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "Ikke noe press",
+          "ITEM1_DESC": "Dette er et utgangspunkt, ikke en test",
+          "ITEM2_TITLE": "Riktigtilpassede veiledere",
+          "ITEM2_DESC": "Hjelper oss å anbefale veiledere for din nåværende evne",
+          "ITEM3_TITLE": "Juster når som helst",
+          "ITEM3_DESC": "Nivået ditt kan endre seg etter hvert som du forbedrer deg"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Tempo planen din",
+          "ITEM1_DESC": "En måldato hjelper oss med å foreslå en realistisk rytme",
+          "ITEM2_TITLE": "Feire milepæler",
+          "ITEM2_DESC": "Å jobbe mot en date holder motivasjonen høy",
+          "ITEM3_TITLE": "Vær fleksibel",
+          "ITEM3_DESC": "Ingen hast? Velg jevn fremgang i stedet"
+        }
+      },
+      "TUTOR": {
+        "STEP1": {
+          "ITEM1_TITLE": "Offentlig profilnavn",
+          "ITEM1_DESC": "Elevene ser ditt fornavn og forbokstav",
+          "ITEM2_TITLE": "Profesjonelt førsteinntrykk",
+          "ITEM2_DESC": "Bruk navnet du vil at elevene skal kjenne deg under",
+          "ITEM3_TITLE": "Rask å fullføre",
+          "ITEM3_DESC": "Du kan redigere dette senere i profilen din"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "Hvor du er fra",
+          "ITEM1_DESC": "Hjelper elevene å forstå bakgrunnen din",
+          "ITEM2_TITLE": "Kulturell kontekst",
+          "ITEM2_DESC": "Opprinnelse kan berike hvordan du underviser i språk og kultur",
+          "ITEM3_TITLE": "Profil tillit",
+          "ITEM3_DESC": "Nøyaktig informasjon bygger tillit hos nye studenter"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Utbetalingsmetoder",
+          "ITEM1_DESC": "Boligen din bestemmer tilgjengelige betalingsmåter",
+          "ITEM2_TITLE": "Sikkert oppsett",
+          "ITEM2_DESC": "Utbetalingsdetaljer er kryptert og håndteres av våre partnere",
+          "ITEM3_TITLE": "Global undervisning",
+          "ITEM3_DESC": "Lær elever over hele verden fra der du bor"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Tilbakemeldingsspråk",
+          "ITEM1_DESC": "Leksjonsnotater og sammendrag kan bruke ditt morsmål",
+          "ITEM2_TITLE": "Tydelig kommunikasjon",
+          "ITEM2_DESC": "Hjelper deg å skrive tilbakemeldinger elevene forstår",
+          "ITEM3_TITLE": "Personlige verktøy",
+          "ITEM3_DESC": "Appen tilpasser seg det språket du jobber best på"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "Tilleggsutstyr",
+          "ITEM1_DESC": "Legg til språk utover det du lærer bort",
+          "ITEM2_TITLE": "Studentmatching",
+          "ITEM2_DESC": "Studenter som deler språkene dine, kan finne deg raskere",
+          "ITEM3_TITLE": "Skille seg ut",
+          "ITEM3_DESC": "Flerspråklige veiledere appellerer til et bredere publikum"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "CEFR standard",
+          "ITEM1_DESC": "Selvrapporterte nivåer hjelper elevene med å kjenne utvalget ditt",
+          "ITEM2_TITLE": "Vær nøyaktig",
+          "ITEM2_DESC": "Ærlige nivåer setter de riktige forventningene",
+          "ITEM3_TITLE": "Profil klarhet",
+          "ITEM3_DESC": "Elevene ser hvilke språk du snakker og hvor godt"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "Undervisningsfokus",
+          "ITEM1_DESC": "Velg språket du er tryggest på å undervise",
+          "ITEM2_TITLE": "Studentfunn",
+          "ITEM2_DESC": "Elevene søker etter språket de ønsker å lære",
+          "ITEM3_TITLE": "Utvid senere",
+          "ITEM3_DESC": "Du kan legge til flere undervisningsspråk over tid"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Vis bakgrunnen din",
+          "ITEM1_DESC": "Erfaring hjelper studentene å velge riktig veileder",
+          "ITEM2_TITLE": "Sett forventninger",
+          "ITEM2_DESC": "Nye veiledere og veteraner appellerer til forskjellige elever",
+          "ITEM3_TITLE": "Bygg troverdighet",
+          "ITEM3_DESC": "Selv uformell erfaring teller – vær ærlig"
+        },
+        "STEP9": {
+          "ITEM1_TITLE": "Angi tilgjengelighet",
+          "ITEM1_DESC": "Gi elevene beskjed når du vanligvis er ledig til å undervise",
+          "ITEM2_TITLE": "Færre uoverensstemmelser",
+          "ITEM2_DESC": "Tydelige tidsplaner reduserer bestilling frem og tilbake",
+          "ITEM3_TITLE": "Oppdater når som helst",
+          "ITEM3_DESC": "Juster timeplanen din etter hvert som rutinen endres"
+        },
+        "STEP10": {
+          "ITEM1_TITLE": "Introduser deg selv",
+          "ITEM1_DESC": "En kort biografi hjelper elevene med å bestemme seg for å bestille hos deg",
+          "ITEM2_TITLE": "Vis personlighet",
+          "ITEM2_DESC": "Del undervisningsstilen din og hva som gjør timene med deg spesielle",
+          "ITEM3_TITLE": "Valgfritt sammendrag",
+          "ITEM3_DESC": "Legg til en overskrift på én linje elevene ser i søkeresultatene"
+        },
+        "STEP11": {
+          "ITEM1_TITLE": "Din sats",
+          "ITEM1_DESC": "Angi hva du tar betalt for en 50-minutters leksjon",
+          "ITEM2_TITLE": "Markedsveiledning",
+          "ITEM2_DESC": "Du kan justere prisen etter hvert som du får anmeldelser",
+          "ITEM3_TITLE": "Endre når som helst",
+          "ITEM3_DESC": "Oppdater priser fra veilederprofilen din når du vil"
+        }
+      }
     }
   },
   "TUTOR_APPROVAL": {

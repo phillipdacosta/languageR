@@ -1203,6 +1203,164 @@
     "LOADING": {
       "CREATING_ACCOUNT": "Se creează contul...",
       "CHECKING_ACCOUNT": "Se verifică contul..."
+    },
+    "WIZARD_GUIDANCE": {
+      "STUDENT": {
+        "STEP1": {
+          "ITEM1_TITLE": "Nume de profil public",
+          "ITEM1_DESC": "Doar prenumele și inițiala dumneavoastră sunt afișate celorlalți",
+          "ITEM2_TITLE": "Creați încredere devreme",
+          "ITEM2_DESC": "Un nume adevărat îi ajută pe tutori să te recunoască în lecții",
+          "ITEM3_TITLE": "Durează mai puțin de un minut",
+          "ITEM3_DESC": "Puteți actualiza oricând acest lucru din profilul dvs"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "Feedback în limba dvs",
+          "ITEM1_DESC": "Rezumatele lecțiilor și notele pot fi afișate în limba ta maternă",
+          "ITEM2_TITLE": "Comunicare mai bună",
+          "ITEM2_DESC": "Ajută tutorii să înțeleagă cum să vă explice concepte",
+          "ITEM3_TITLE": "Experiență personalizată",
+          "ITEM3_DESC": "Adaptăm interfața și sfaturile la limba dvs"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Potriviți-vă cu tutorii potriviți",
+          "ITEM1_DESC": "Oferim tutori care predau limba pe care ați ales-o",
+          "ITEM2_TITLE": "Un focus la un moment dat",
+          "ITEM2_DESC": "Alegeți limba în care doriți să progresați acum",
+          "ITEM3_TITLE": "Adăugați mai multe mai târziu",
+          "ITEM3_DESC": "Puteți învăța limbi suplimentare din profilul dvs"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Complet optional",
+          "ITEM1_DESC": "Sari peste acest lucru dacă vorbești doar limba maternă și de învățare",
+          "ITEM2_TITLE": "Potrivire mai bună a profesorilor",
+          "ITEM2_DESC": "Tutorii care vorbesc limbile dumneavoastră se pot adapta mai ușor",
+          "ITEM3_TITLE": "Prezintă-ți abilitățile",
+          "ITEM3_DESC": "Elevii multilingvi primesc adesea recomandări de lecții mai bogate"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "Niveluri standard CEFR",
+          "ITEM1_DESC": "A1–C2 îi ajută pe tutori să evalueze de unde să înceapă cu tine",
+          "ITEM2_TITLE": "Autoevaluare sinceră",
+          "ITEM2_DESC": "Nu există un răspuns greșit - alegeți ceea ce vi se pare cel mai apropiat",
+          "ITEM3_TITLE": "Meciuri mai inteligente",
+          "ITEM3_DESC": "Nivelurile ne ajută să sugerăm tutori potriviți abilităților dvs"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "Calea personalizata",
+          "ITEM1_DESC": "Obiectivul tău modelează sugestiile de lecție și reperele",
+          "ITEM2_TITLE": "Rămâneți motivați",
+          "ITEM2_DESC": "Obiectivele clare facilitează urmărirea progresului",
+          "ITEM3_TITLE": "Omiteți dacă nu sunteți sigur",
+          "ITEM3_DESC": "Vă puteți stabili sau schimba obiectivul oricând din profilul dvs"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "Fără presiune",
+          "ITEM1_DESC": "Acesta este un punct de plecare, nu un test",
+          "ITEM2_TITLE": "Tutori potriviti",
+          "ITEM2_DESC": "Ne ajută să recomandăm tutori pentru abilitățile tale actuale",
+          "ITEM3_TITLE": "Ajustați oricând",
+          "ITEM3_DESC": "Nivelul tău se poate schimba pe măsură ce te îmbunătățești"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Urmează-ți planul",
+          "ITEM1_DESC": "O dată țintă ne ajută să sugerăm un ritm realist",
+          "ITEM2_TITLE": "Sărbătorește reperele",
+          "ITEM2_DESC": "Lucrul pentru o întâlnire menține motivația ridicată",
+          "ITEM3_TITLE": "Rămâneți flexibil",
+          "ITEM3_DESC": "Fără grabă? În schimb, alegeți un progres constant"
+        }
+      },
+      "TUTOR": {
+        "STEP1": {
+          "ITEM1_TITLE": "Nume de profil public",
+          "ITEM1_DESC": "Elevii văd prenumele și inițiala de familie",
+          "ITEM2_TITLE": "Prima impresie profesională",
+          "ITEM2_DESC": "Folosiți numele după care doriți să vă cunoască elevii",
+          "ITEM3_TITLE": "Rapid de completat",
+          "ITEM3_DESC": "Puteți edita acest lucru mai târziu în profilul dvs"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "De unde ești",
+          "ITEM1_DESC": "Ajută elevii să vă înțeleagă trecutul",
+          "ITEM2_TITLE": "Contextul cultural",
+          "ITEM2_DESC": "Originea poate îmbogăți modul în care predați limba și cultura",
+          "ITEM3_TITLE": "Încredere în profil",
+          "ITEM3_DESC": "Informațiile precise creează încrederea studenților noi"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Metode de plată",
+          "ITEM1_DESC": "Reședința dumneavoastră determină opțiunile de plată disponibile",
+          "ITEM2_TITLE": "Configurare sigură",
+          "ITEM2_DESC": "Detaliile de plată sunt criptate și gestionate de partenerii noștri",
+          "ITEM3_TITLE": "Predare globală",
+          "ITEM3_DESC": "Învățați studenții din întreaga lume de unde locuiți"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Limbajul feedback-ului",
+          "ITEM1_DESC": "Notele de lecție și rezumatele pot folosi limba ta maternă",
+          "ITEM2_TITLE": "Comunicare clară",
+          "ITEM2_DESC": "Vă ajută să scrieți feedback pe care elevii să le înțeleagă",
+          "ITEM3_TITLE": "Instrumente personalizate",
+          "ITEM3_DESC": "Aplicația se adaptează la limba în care lucrați cel mai bine"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "Suplimente opționale",
+          "ITEM1_DESC": "Adăugați limbi dincolo de ceea ce predați nativ",
+          "ITEM2_TITLE": "Potrivirea elevilor",
+          "ITEM2_DESC": "Elevii care vă împărtășesc limbile vă pot găsi mai repede",
+          "ITEM3_TITLE": "Iasă în evidență",
+          "ITEM3_DESC": "Tutorii multilingvi atrag un public mai larg"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "standard CEFR",
+          "ITEM1_DESC": "Nivelurile auto-raportate îi ajută pe elevi să vă cunoască intervalul",
+          "ITEM2_TITLE": "Fii precis",
+          "ITEM2_DESC": "Nivelurile oneste stabilesc așteptările corecte",
+          "ITEM3_TITLE": "Claritatea profilului",
+          "ITEM3_DESC": "Elevii văd ce limbi vorbiți și cât de bine"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "Concentrare pe predare",
+          "ITEM1_DESC": "Alegeți limba pe care o predați cel mai încrezător",
+          "ITEM2_TITLE": "Descoperirea elevilor",
+          "ITEM2_DESC": "Elevii caută după limba pe care doresc să o învețe",
+          "ITEM3_TITLE": "Extindeți mai târziu",
+          "ITEM3_DESC": "Puteți adăuga mai multe limbi de predare în timp"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Arată-ți fundalul",
+          "ITEM1_DESC": "Experiența îi ajută pe studenți să aleagă tutorele potrivit",
+          "ITEM2_TITLE": "Stabiliți așteptări",
+          "ITEM2_DESC": "Noi tutori și veterani atrag diferiți cursanți",
+          "ITEM3_TITLE": "Construiți credibilitate",
+          "ITEM3_DESC": "Chiar și experiența informală contează - fii sincer"
+        },
+        "STEP9": {
+          "ITEM1_TITLE": "Setați disponibilitatea",
+          "ITEM1_DESC": "Anunțați studenții când sunteți de obicei liber să predați",
+          "ITEM2_TITLE": "Mai puține nepotriviri",
+          "ITEM2_DESC": "Programele clare reduc rezervarea dus-întors",
+          "ITEM3_TITLE": "Actualizați oricând",
+          "ITEM3_DESC": "Ajustați-vă programul pe măsură ce rutina se schimbă"
+        },
+        "STEP10": {
+          "ITEM1_TITLE": "Prezintă-te",
+          "ITEM1_DESC": "O scurtă biografie îi ajută pe studenți să decidă să rezerve cu tine",
+          "ITEM2_TITLE": "Arată personalitate",
+          "ITEM2_DESC": "Împărtășește-ți stilul de predare și ceea ce face lecțiile cu tine speciale",
+          "ITEM3_TITLE": "Rezumat opțional",
+          "ITEM3_DESC": "Adăugați un titlu pe un rând pe care elevii îl văd în rezultatele căutării"
+        },
+        "STEP11": {
+          "ITEM1_TITLE": "Tariful dvs",
+          "ITEM1_DESC": "Stabiliți ceea ce percepeți pentru o lecție de 50 de minute",
+          "ITEM2_TITLE": "Îndrumarea pieței",
+          "ITEM2_DESC": "Vă puteți ajusta rata pe măsură ce obțineți recenzii",
+          "ITEM3_TITLE": "Schimbați-vă oricând",
+          "ITEM3_DESC": "Actualizați prețurile din profilul profesorului dvs. oricând doriți"
+        }
+      }
     }
   },
   "TUTOR_APPROVAL": {

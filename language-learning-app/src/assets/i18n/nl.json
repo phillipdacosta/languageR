@@ -1204,6 +1204,164 @@
     "LOADING": {
       "CREATING_ACCOUNT": "Uw account aanmaken…",
       "CHECKING_ACCOUNT": "Uw rekening controleren..."
+    },
+    "WIZARD_GUIDANCE": {
+      "STUDENT": {
+        "STEP1": {
+          "ITEM1_TITLE": "Openbare profielnaam",
+          "ITEM1_DESC": "Alleen uw voornaam en laatste initiaal worden aan anderen getoond",
+          "ITEM2_TITLE": "Bouw vroeg vertrouwen op",
+          "ITEM2_DESC": "Een echte naam helpt docenten je te herkennen in de lessen",
+          "ITEM3_TITLE": "Duurt minder dan een minuut",
+          "ITEM3_DESC": "Je kunt dit op elk gewenst moment bijwerken via je profiel"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "Feedback in uw taal",
+          "ITEM1_DESC": "Lessamenvattingen en aantekeningen kunnen in uw moedertaal worden weergegeven",
+          "ITEM2_TITLE": "Betere communicatie",
+          "ITEM2_DESC": "Helpt docenten begrijpen hoe ze concepten aan u kunnen uitleggen",
+          "ITEM3_TITLE": "Gepersonaliseerde ervaring",
+          "ITEM3_DESC": "Wij stemmen de interface en tips af op uw taal"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Match met de juiste docenten",
+          "ITEM1_DESC": "Wij bieden docenten aan die de door u gekozen taal onderwijzen",
+          "ITEM2_TITLE": "Eén focus tegelijk",
+          "ITEM2_DESC": "Kies de taal waarin u nu vooruitgang wilt boeken",
+          "ITEM3_TITLE": "Voeg later meer toe",
+          "ITEM3_DESC": "U kunt via uw profiel extra talen leren"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Volledig optioneel",
+          "ITEM1_DESC": "Sla dit over als u alleen uw moedertaal en leertaal spreekt",
+          "ITEM2_TITLE": "Beter matchen van docenten",
+          "ITEM2_DESC": "Docenten die jouw taal spreken, kunnen zich gemakkelijker aanpassen",
+          "ITEM3_TITLE": "Laat uw vaardigheden zien",
+          "ITEM3_DESC": "Meertalige studenten krijgen vaak rijkere lesaanbevelingen"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "Standaard ERK-niveaus",
+          "ITEM1_DESC": "Met A1–C2 kunnen docenten bepalen waar ze met jou moeten beginnen",
+          "ITEM2_TITLE": "Eerlijke zelfevaluatie",
+          "ITEM2_DESC": "Er is geen fout antwoord: kies wat het dichtst bij je ligt",
+          "ITEM3_TITLE": "Slimmere wedstrijden",
+          "ITEM3_DESC": "Niveaus helpen ons docenten voor te stellen die geschikt zijn voor jouw vaardigheden"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "Gepersonaliseerd pad",
+          "ITEM1_DESC": "Uw doel vormt lessuggesties en mijlpalen",
+          "ITEM2_TITLE": "Blijf gemotiveerd",
+          "ITEM2_DESC": "Duidelijke doelen maken het gemakkelijker om de voortgang bij te houden",
+          "ITEM3_TITLE": "Sla over als u niet zeker bent",
+          "ITEM3_DESC": "U kunt uw doel op elk gewenst moment via uw profiel instellen of wijzigen"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "Geen druk",
+          "ITEM1_DESC": "Dit is een startpunt, geen test",
+          "ITEM2_TITLE": "Juiste docenten",
+          "ITEM2_DESC": "Helpt ons docenten aan te bevelen voor uw huidige vaardigheden",
+          "ITEM3_TITLE": "Pas het op elk moment aan",
+          "ITEM3_DESC": "Je niveau kan veranderen naarmate je verbetert"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Tempo uw plan",
+          "ITEM1_DESC": "Een streefdatum helpt ons een realistisch ritme te suggereren",
+          "ITEM2_TITLE": "Vier mijlpalen",
+          "ITEM2_DESC": "Naar een date toewerken houdt de motivatie hoog",
+          "ITEM3_TITLE": "Blijf flexibel",
+          "ITEM3_DESC": "Geen haast? Kies in plaats daarvan voor gestage vooruitgang"
+        }
+      },
+      "TUTOR": {
+        "STEP1": {
+          "ITEM1_TITLE": "Openbare profielnaam",
+          "ITEM1_DESC": "De leerlingen zien uw voornaam en laatste initiaal",
+          "ITEM2_TITLE": "Professionele eerste indruk",
+          "ITEM2_DESC": "Gebruik de naam waaronder u wilt dat de leerlingen u kennen",
+          "ITEM3_TITLE": "Snel te voltooien",
+          "ITEM3_DESC": "Je kunt dit later in je profiel bewerken"
+        },
+        "STEP2": {
+          "ITEM1_TITLE": "Waar je vandaan komt",
+          "ITEM1_DESC": "Helpt studenten uw achtergrond te begrijpen",
+          "ITEM2_TITLE": "Culturele context",
+          "ITEM2_DESC": "Origin kan een verrijking zijn voor de manier waarop je taal en cultuur onderwijst",
+          "ITEM3_TITLE": "Profiel vertrouwen",
+          "ITEM3_DESC": "Nauwkeurige informatie schept vertrouwen bij nieuwe studenten"
+        },
+        "STEP3": {
+          "ITEM1_TITLE": "Uitbetalingsmethoden",
+          "ITEM1_DESC": "Uw woonplaats bepaalt de beschikbare betalingsmogelijkheden",
+          "ITEM2_TITLE": "Veilige installatie",
+          "ITEM2_DESC": "Uitbetalingsgegevens worden gecodeerd en verwerkt door onze partners",
+          "ITEM3_TITLE": "Mondiaal onderwijs",
+          "ITEM3_DESC": "Geef les aan studenten over de hele wereld, waar u ook woont"
+        },
+        "STEP4": {
+          "ITEM1_TITLE": "Feedbacktaal",
+          "ITEM1_DESC": "Lesnotities en samenvattingen kunnen uw moedertaal gebruiken",
+          "ITEM2_TITLE": "Duidelijke communicatie",
+          "ITEM2_DESC": "Helpt je feedback te schrijven die studenten begrijpen",
+          "ITEM3_TITLE": "Gepersonaliseerde hulpmiddelen",
+          "ITEM3_DESC": "De app past zich het beste aan aan de taal waarin u werkt"
+        },
+        "STEP5": {
+          "ITEM1_TITLE": "Optionele extra's",
+          "ITEM1_DESC": "Voeg talen toe die verder gaan dan wat u in uw moedertaal onderwijst",
+          "ITEM2_TITLE": "Matchen van studenten",
+          "ITEM2_DESC": "Studenten die jouw taal delen, kunnen je misschien sneller vinden",
+          "ITEM3_TITLE": "Val op",
+          "ITEM3_DESC": "Meertalige docenten spreken een breder publiek aan"
+        },
+        "STEP6": {
+          "ITEM1_TITLE": "CEFR-standaard",
+          "ITEM1_DESC": "Zelfgerapporteerde niveaus helpen studenten uw bereik te kennen",
+          "ITEM2_TITLE": "Wees nauwkeurig",
+          "ITEM2_DESC": "Eerlijke niveaus scheppen de juiste verwachtingen",
+          "ITEM3_TITLE": "Profielhelderheid",
+          "ITEM3_DESC": "Studenten zien welke talen je spreekt en hoe goed"
+        },
+        "STEP7": {
+          "ITEM1_TITLE": "Focus op lesgeven",
+          "ITEM1_DESC": "Kies de taal waarin u het meeste vertrouwen heeft",
+          "ITEM2_TITLE": "Ontdekking door studenten",
+          "ITEM2_DESC": "Studenten zoeken op de taal die ze willen leren",
+          "ITEM3_TITLE": "Later uitbreiden",
+          "ITEM3_DESC": "U kunt in de loop van de tijd meer onderwijstalen toevoegen"
+        },
+        "STEP8": {
+          "ITEM1_TITLE": "Laat je achtergrond zien",
+          "ITEM1_DESC": "Ervaring helpt studenten bij het kiezen van de juiste bijlesdocent",
+          "ITEM2_TITLE": "Stel verwachtingen",
+          "ITEM2_DESC": "Nieuwe docenten en veteranen spreken verschillende leerlingen aan",
+          "ITEM3_TITLE": "Bouw geloofwaardigheid op",
+          "ITEM3_DESC": "Zelfs informele ervaringen tellen mee – wees eerlijk"
+        },
+        "STEP9": {
+          "ITEM1_TITLE": "Beschikbaarheid instellen",
+          "ITEM1_DESC": "Laat studenten weten wanneer u doorgaans vrij bent om les te geven",
+          "ITEM2_TITLE": "Minder mismatches",
+          "ITEM2_DESC": "Duidelijke schema's verminderen het heen en weer boeken",
+          "ITEM3_TITLE": "Op elk gewenst moment bijwerken",
+          "ITEM3_DESC": "Pas uw schema aan als uw routine verandert"
+        },
+        "STEP10": {
+          "ITEM1_TITLE": "Stel jezelf voor",
+          "ITEM1_DESC": "Een korte biografie helpt studenten beslissen om bij u te boeken",
+          "ITEM2_TITLE": "Toon persoonlijkheid",
+          "ITEM2_DESC": "Deel uw lesstijl en wat lessen met u speciaal maakt",
+          "ITEM3_TITLE": "Optionele samenvatting",
+          "ITEM3_DESC": "Voeg een kop van één regel toe die leerlingen zien in de zoekresultaten"
+        },
+        "STEP11": {
+          "ITEM1_TITLE": "Jouw tarief",
+          "ITEM1_DESC": "Bepaal wat u vraagt ​​voor een les van 50 minuten",
+          "ITEM2_TITLE": "Marktbegeleiding",
+          "ITEM2_DESC": "U kunt uw tarief aanpassen naarmate u beoordelingen krijgt",
+          "ITEM3_TITLE": "Verander op elk moment",
+          "ITEM3_DESC": "Update de prijzen vanuit je docentprofiel wanneer je maar wilt"
+        }
+      }
     }
   },
   "TUTOR_APPROVAL": {
