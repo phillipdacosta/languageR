@@ -464,7 +464,7 @@
                       (click)="onGrowthInsightDotClick(i)">
                 </span>
               </span>
-              <button class="growth-view-all" (click)="openGrowthInsightsModal(); $event.stopPropagation()">{{ 'HOME.GROWTH.VIEW_ALL' | translate }}</button>
+              <button class="growth-view-all" *ngIf="growthCount > 1" (click)="openGrowthInsightsModal(); $event.stopPropagation()">{{ 'HOME.GROWTH.VIEW_ALL' | translate }}</button>
             </ng-container>
             <ng-template #staticWelcome>
               <ng-container *ngIf="welcomeMessageText"><span class="welcome-tutor-desktop-sep"> </span>{{ welcomeMessageText }}</ng-container>
@@ -539,7 +539,7 @@
             </div>
           </div>
           <div class="profile-checklist-items">
-            <button type="button" *ngFor="let item of profileChecklist"
+            <button type="button" *ngFor="let item of profileChecklistVisible"
                class="pcl-item"
                [class.pcl-item--done]="item.done && !item.pendingReview"
                [class.pcl-item--pending-review]="item.pendingReview"
@@ -1144,21 +1144,15 @@
           </div>
 
           <!-- Empty state when no other lessons this week -->
-          <div class="this-week-empty" [class.this-week-empty--compact]="thisWeekEmptyIsNothingElse" *ngIf="timelineEvents.length === 0">
-            <div class="this-week-empty__icon-wrap" [class.this-week-empty__icon-wrap--art]="!thisWeekEmptyIsNothingElse" aria-hidden="true">
-              <img *ngIf="!thisWeekEmptyIsNothingElse" class="this-week-empty__art" src="assets/this-week-empty-calendar.png" alt="" />
-              <ion-icon *ngIf="thisWeekEmptyIsNothingElse" name="checkmark-circle-outline" class="this-week-empty__icon"></ion-icon>
+          <div class="this-week-empty" *ngIf="timelineEvents.length === 0">
+            <div class="this-week-empty__icon-wrap this-week-empty__icon-wrap--art" aria-hidden="true">
+              <img class="this-week-empty__art" src="assets/this-week-empty-calendar.png" alt="" />
             </div>
             <div class="this-week-empty__content">
-              <ng-container *ngIf="thisWeekEmptyIsNothingElse">
-                <p class="this-week-empty__message">{{ thisWeekEmptyLabel | translate }}</p>
-              </ng-container>
-              <ng-container *ngIf="!thisWeekEmptyIsNothingElse">
-                <h3 class="this-week-empty__title">{{ 'HOME.THIS_WEEK_EMPTY_TITLE' | translate }}</h3>
-                <p class="this-week-empty__sub">{{ 'HOME.THIS_WEEK_EMPTY_SUB' | translate }}</p>
-                <a *ngIf="isTutorUser" class="this-week-empty__cta" routerLink="/tabs/tutor-calendar">{{ 'HOME.THIS_WEEK_EMPTY_CTA_TUTOR' | translate }}</a>
-                <button *ngIf="isStudentUser" type="button" class="this-week-empty__cta" (click)="openSearchTutors()">{{ 'HOME.THIS_WEEK_EMPTY_CTA_STUDENT' | translate }}</button>
-              </ng-container>
+              <h3 class="this-week-empty__title">{{ 'HOME.THIS_WEEK_EMPTY_TITLE' | translate }}</h3>
+              <p class="this-week-empty__sub">{{ 'HOME.THIS_WEEK_EMPTY_SUB' | translate }}</p>
+              <a *ngIf="isTutorUser" class="this-week-empty__cta" routerLink="/tabs/tutor-calendar">{{ 'HOME.THIS_WEEK_EMPTY_CTA_TUTOR' | translate }}</a>
+              <button *ngIf="isStudentUser" type="button" class="this-week-empty__cta" (click)="openSearchTutors()">{{ 'HOME.THIS_WEEK_EMPTY_CTA_STUDENT' | translate }}</button>
             </div>
           </div>
           <div class="timeline-section timeline-section--week-strip" *ngIf="timelineEvents.length > 0">

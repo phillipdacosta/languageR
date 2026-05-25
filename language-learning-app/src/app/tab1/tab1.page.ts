@@ -50,7 +50,7 @@ import { AnalysisTranslationService } from '../services/analysis-translation.ser
 import { HomeInlineToolbarService } from '../services/home-inline-toolbar.service';
 import { EarningsPage } from '../earnings/earnings.page';
 import { MaterialService, TutorMaterial } from '../services/material.service';
-import { TutorGrowthService, GrowthInsight, GrowthContext, ProfileChecklistItem, mapProfileChecklistIdToApprovalWizardStepId, buildTutorProfileChecklist } from '../services/tutor-growth.service';
+import { TutorGrowthService, GrowthInsight, GrowthContext, ProfileChecklistItem, mapProfileChecklistIdToApprovalWizardStepId, buildTutorProfileChecklist, getOutstandingProfileChecklistItems } from '../services/tutor-growth.service';
 import { ScheduleClassPage } from '../tutor-calendar/schedule-class/schedule-class.page';
 import { MOCK_CLASS_ATTENDEES_PREVIEW } from '../constants/mock-class-attendees-preview';
 import { isLessonMockId } from '../lessons/lesson-mock-preview';
@@ -631,6 +631,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   hasProfileCriticalInsights = false;
   /** Profile completion checklist for inline welcome display. */
   profileChecklist: ProfileChecklistItem[] = [];
+  /** Incomplete or pending-review rows only — completed steps are hidden from the list. */
+  profileChecklistVisible: ProfileChecklistItem[] = [];
   profileChecklistDoneCount = 0;
   profileChecklistTotal = 0;
   /** Single-item row; `epoch` bumps every visible change so trackBy never reuses a cached view (restarts CSS fade). */
@@ -641,6 +643,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   isGrowthModalOpen = false;
   growthModalItems: { insight: GrowthInsight; dismissed: boolean; active: boolean }[] = [];
   private _growthInsightsLoaded = false;
+  private _growthContext: GrowthContext | null = null;
 
   // Pre-computed template values (avoid function calls in template)
   greetingText = '';
@@ -725,6 +728,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         this.currentUser = user;
         this.isTutorUser = this.isTutor(); // Set property once
         this.isStudentUser = this.isStudent(); // Set property once
+        if (!this.isLoadingLessons) {
+          this.syncThisWeekMobileNothingYet();
+        }
         if (this.isStudentUser) {
           this.loadPracticeDueCount();
         }
@@ -2158,6 +2164,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     
     this.tutorGrowthService.destroy();
     this._growthInsightsLoaded = false;
+    this._growthContext = null;
 
     this.destroy$.next();
 
@@ -5165,8 +5172,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         hasCustomPhoto,
         hasVideo,
         videoApproved,
-        credentialsComplete: govIdUploaded && certsUploaded,
-        credentialsApproved: govIdApproved && certsApproved,
+        credentialsComplete: status?.credentialsComplete ?? (govIdUploaded && certsUploaded),
+        credentialsApproved: status?.credentialsApproved ?? (govIdApproved && certsApproved),
         identityRequired,
         governmentIdUploaded: govIdUploaded,
         identitySatisfied,
@@ -5177,6 +5184,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         tutorApproved: status?.fullyApproved ?? user?.tutorApproved === true,
       };
 
+      this._growthContext = ctx;
       this.tutorGrowthService.compute(ctx);
 
       // Only save baselines when the tutor actually sees the insight — otherwise delta is preserved for next session
@@ -5244,6 +5252,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       i => i.done && !i.pendingReview
     ).length;
     this.profileChecklistTotal = this.profileChecklist.length;
+    this.profileChecklistVisible = getOutstandingProfileChecklistItems(this.profileChecklist);
     // Derive the banner visibility from the checklist itself so it disappears
     // the moment every step is done (independent of stale insight state).
     this.hasProfileCriticalInsights =
@@ -5281,12 +5290,43 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       i => i.done && !i.pendingReview
     ).length;
     this.profileChecklistTotal = checklist.length;
+    this.profileChecklistVisible = getOutstandingProfileChecklistItems(checklist);
     // Show the banner whenever any required step is still incomplete; hide
     // it the moment everything is done so the section disappears smoothly.
     this.hasProfileCriticalInsights = this.profileChecklistDoneCount < checklist.length;
     // Keep the growth-service mirror in sync for any other consumers.
     this.tutorGrowthService.profileChecklist = checklist;
+    this.refreshGrowthInsightsFromApprovalStatus(status);
     this.cdr.markForCheck();
+  }
+
+  /**
+   * Recompute profile-related growth ticker items when approval status changes
+   * so completed steps disappear from the welcome line without a full refresh.
+   */
+  private refreshGrowthInsightsFromApprovalStatus(status: any): void {
+    if (!this._growthContext || !status) return;
+
+    const ctx: GrowthContext = {
+      ...this._growthContext,
+      hasCustomPhoto: status.photoComplete === true,
+      hasVideo: status.videoComplete === true,
+      videoApproved: status.videoApproved === true,
+      identityRequired: status.identityRequired === true,
+      governmentIdUploaded: status.governmentIdUploaded === true,
+      identitySatisfied: status.identitySatisfied === true,
+      certificationsUploaded: status.certificationsUploaded === true,
+      certificationsApproved: status.certificationsApproved === true,
+      credentialsComplete: status.credentialsComplete === true,
+      credentialsApproved: status.credentialsApproved === true,
+      hasPayoutSetup: status.stripeComplete === true,
+      tosComplete: status.tosComplete === true,
+      tutorApproved: status.fullyApproved === true,
+    };
+
+    this._growthContext = ctx;
+    this.tutorGrowthService.compute(ctx);
+    this.syncGrowthInsightProperties();
   }
 
   private estimateFreeHoursThisWeek(): number {
@@ -6629,11 +6669,19 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           const s = new Date(l.startTime);
           return l.status === 'completed' && s >= weekStart && s < weekEnd;
         });
-      this.thisWeekEmptyLabel = hadLessonsThisWeek ? 'HOME.THIS_WEEK_NOTHING_ELSE' : 'HOME.THIS_WEEK_NOTHING_YET';
-      this.thisWeekEmptyIsNothingElse = this.thisWeekEmptyLabel === 'HOME.THIS_WEEK_NOTHING_ELSE';
+      this.thisWeekEmptyLabel = this.isTutorUser
+        ? 'HOME.THIS_WEEK_NOTHING_YET'
+        : hadLessonsThisWeek
+          ? 'HOME.THIS_WEEK_NOTHING_ELSE'
+          : 'HOME.THIS_WEEK_NOTHING_YET';
+      // Tutors always get the calendar empty state + View Calendar CTA when the
+      // week strip is empty — even if Up Next already shows their only lesson.
+      this.thisWeekEmptyIsNothingElse =
+        !this.isTutorUser && this.thisWeekEmptyLabel === 'HOME.THIS_WEEK_NOTHING_ELSE';
     } else {
       this.thisWeekEmptyIsNothingElse = false;
     }
+    this.cdr.markForCheck();
   }
 
   /** Mobile home: headline + subtitle (tutor dashboard layout — students share the same chrome). */

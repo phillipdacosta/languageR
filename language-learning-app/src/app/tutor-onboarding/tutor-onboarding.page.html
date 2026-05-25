@@ -212,26 +212,6 @@
       </ion-button>
     </ion-buttons>
   </ion-toolbar>
-  <ion-toolbar class="onboarding-wizard-toolbar" *ngIf="!showPreview">
-    <div class="onboarding-wizard-toolbar__inner">
-      <div class="cm-details-wizard-page-toolbar cm-details-wizard-page-toolbar--header">
-        <p class="cm-details-wizard-page-toolbar-title">{{ 'ONBOARDING.TUTOR_OB.WIZARD_FLOW_TITLE' | translate }}</p>
-        <div class="cm-details-wizard-page-toolbar-end">
-          <button
-            type="button"
-            class="cm-details-wizard-text-link"
-            *ngIf="hasReachedPreview"
-            (click)="showPreviewPage()">
-            {{ 'ONBOARDING.TUTOR_OB.WIZARD_REVIEW_LINK' | translate }}
-          </button>
-          <span class="cm-details-wizard-step-indicator">{{ 'ONBOARDING.STEP_INDICATOR' | translate:{ current: currentStep, total: totalSteps } }}</span>
-        </div>
-      </div>
-      <div class="cm-details-wizard-progress cm-details-wizard-progress--header" aria-hidden="true">
-        <div class="cm-details-wizard-progress-fill" [style.width.%]="tutorWizardProgressPercent"></div>
-      </div>
-    </div>
-  </ion-toolbar>
 </ion-header>
 
 <div class="onboarding-container onboarding-container--wizard ob-wizard-split-active" *ngIf="!showPreview && !showWelcome && preStepPhase === 'done'">
@@ -244,12 +224,34 @@
             <div class="cm-details-wizard-panel cm-details-wizard-panel--split">
               <div class="ob-wizard-split-layout approval-split-layout approval-step-card">
                 <app-wizard-step-guidance
+                  [greetingKey]="tutorWizardGreetingKey"
                   [titleKey]="tutorWizardTitleKey"
                   [descKey]="tutorWizardSubtitleKey"
                   [items]="tutorWizardGuidanceItems">
                 </app-wizard-step-guidance>
 
                 <div class="ob-wizard-split-main approval-split-main approval-split-main--form">
+              <div class="ob-wizard-split-stepper">
+                <div class="onboarding-wizard-toolbar__inner">
+                  <div class="cm-details-wizard-page-toolbar cm-details-wizard-page-toolbar--header">
+                    <p class="cm-details-wizard-page-toolbar-title">{{ 'ONBOARDING.TUTOR_OB.WIZARD_FLOW_TITLE' | translate }}</p>
+                    <div class="cm-details-wizard-page-toolbar-end">
+                      <button
+                        type="button"
+                        class="cm-details-wizard-text-link"
+                        *ngIf="hasReachedPreview"
+                        (click)="showPreviewPage()">
+                        {{ 'ONBOARDING.TUTOR_OB.WIZARD_REVIEW_LINK' | translate }}
+                      </button>
+                      <span class="cm-details-wizard-step-indicator">{{ 'ONBOARDING.STEP_INDICATOR' | translate:{ current: currentStep, total: totalSteps } }}</span>
+                    </div>
+                  </div>
+                  <div class="cm-details-wizard-progress cm-details-wizard-progress--header" aria-hidden="true">
+                    <div class="cm-details-wizard-progress-fill" [style.width.%]="tutorWizardProgressPercent"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="ob-wizard-split-main-scroll">
               <div class="step-content-card step-content-card--wizard">
 
         <!-- Step 1: Name -->
@@ -490,6 +492,7 @@
         </div>
 
 
+              </div>
               </div>
                 </div>
               </div>

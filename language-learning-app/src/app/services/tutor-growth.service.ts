@@ -218,6 +218,13 @@ export function buildTutorProfileChecklist(
   return items;
 }
 
+/** Rows that still need tutor action or are awaiting admin review. */
+export function getOutstandingProfileChecklistItems(
+  items: ProfileChecklistItem[]
+): ProfileChecklistItem[] {
+  return items.filter((item) => !item.done || item.pendingReview);
+}
+
 @Injectable({
   providedIn: 'root',
 })

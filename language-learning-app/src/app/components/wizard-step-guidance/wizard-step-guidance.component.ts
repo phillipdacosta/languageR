@@ -8,6 +8,7 @@ import { WizardGuidanceItem } from '../../shared/models/wizard-step-guidance.mod
   standalone: false,
 })
 export class WizardStepGuidanceComponent {
+  @Input() greetingKey = '';
   @Input() titleKey = '';
   @Input() descKey = '';
   @Input() items: WizardGuidanceItem[] = [];
