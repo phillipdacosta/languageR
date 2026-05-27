@@ -1,5 +1,7 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, OnDestroy, OnInit, ChangeDetectorRef } from '@angular/core';
 import { animate, style, transition, trigger } from '@angular/animations';
+import { TranslateService } from '@ngx-translate/core';
+import { Subscription } from 'rxjs';
 import { WizardGuidanceItem } from '../../shared/models/wizard-step-guidance.model';
 
 @Component({
@@ -26,10 +28,27 @@ import { WizardGuidanceItem } from '../../shared/models/wizard-step-guidance.mod
     ]),
   ],
 })
-export class WizardStepGuidanceComponent {
+export class WizardStepGuidanceComponent implements OnInit, OnDestroy {
   @Input() greetingKey = '';
   @Input() titleKey = '';
   @Input() descKey = '';
   @Input() items: WizardGuidanceItem[] = [];
   @Input() stepNumber = 1;
+
+  private langChangeSub?: Subscription;
+
+  constructor(
+    private translate: TranslateService,
+    private cdr: ChangeDetectorRef
+  ) {}
+
+  ngOnInit(): void {
+    this.langChangeSub = this.translate.onLangChange.subscribe(() => {
+      this.cdr.markForCheck();
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.langChangeSub?.unsubscribe();
+  }
 }

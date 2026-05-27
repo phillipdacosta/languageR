@@ -1194,8 +1194,18 @@ ion-content {
 
   ion-icon { font-size: 18px; }
 
-  &:hover { background: #333; }
-  &:active { transform: scale(0.97); }
+  &:hover:not(:disabled) { background: #333; }
+  &:active:not(:disabled) { transform: scale(0.97); }
+
+  &:disabled {
+    background: #d1d1d6;
+    color: #ffffff;
+    opacity: 0.9;
+    cursor: not-allowed;
+    pointer-events: none;
+    transform: none;
+    box-shadow: none;
+  }
 }
 
 // Create Material modal — dark mode (gateway lives in app-create-material; chrome is here)
@@ -1288,7 +1298,13 @@ ion-content {
   .cm-modal-footer-btn {
     background: #f5f5f7;
     color: #1c1c1e;
-    &:hover { background: #e5e5ea; }
+    &:hover:not(:disabled) { background: #e5e5ea; }
+
+    &:disabled {
+      background: #3a3a3c;
+      color: #636366;
+      opacity: 1;
+    }
   }
   .cm-modal-footer-save {
     background: #2c2c2e;
@@ -14701,39 +14717,6 @@ top: 4px;
     &.qa-rating .qa-icon {
       background: rgba(176, 158, 114, 0.1) !important;
       ion-icon { color: #9A8E72 !important; }
-    }
-
-    /* Dark: legacy classes asset — drop light-mode-only scale */
-    &.qa-classes.qa-with-asset .qa-icon-img {
-      transform: none !important;
-    }
-
-    &:hover.qa-classes.qa-with-asset .qa-icon-img {
-      transform: scale(1.08) !important;
-    }
-
-    &.qa-create-material.qa-with-asset .qa-icon-img {
-      transform: none !important;
-    }
-
-    &:hover.qa-create-material.qa-with-asset .qa-icon-img {
-      transform: scale(1.08) !important;
-    }
-
-    &.qa-forum.qa-with-asset .qa-icon-img {
-      transform: none !important;
-    }
-
-    &:hover.qa-forum.qa-with-asset .qa-icon-img {
-      transform: scale(1.08) !important;
-    }
-
-    &.qa-rating.qa-with-asset .qa-icon-img {
-      transform: none !important;
-    }
-
-    &:hover.qa-rating.qa-with-asset .qa-icon-img {
-      transform: scale(1.08) !important;
     }
 
     .qa-label { color: #f5f5f7 !important; }

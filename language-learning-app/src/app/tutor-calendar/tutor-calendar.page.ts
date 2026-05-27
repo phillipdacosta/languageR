@@ -3307,7 +3307,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           }
         },
         {
-          text: this.gcalPushToGoogle ? 'Stop pushing lessons' : 'Push lessons to Google',
+          text: this.gcalPushToGoogle ? 'Stop adding to Google Calendar' : 'Add lessons to Google Calendar',
           icon: this.gcalPushToGoogle ? 'arrow-undo-outline' : 'arrow-redo-outline',
           handler: () => {
             this.gcalPushToGoogle = !this.gcalPushToGoogle;

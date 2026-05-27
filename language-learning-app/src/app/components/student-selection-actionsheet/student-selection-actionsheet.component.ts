@@ -1,13 +1,13 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController } from '@ionic/angular';
 
-interface Student {
+export interface SelectableStudent {
   _id: string;
   name: string;
   email: string;
   picture?: string;
-  userType?: 'student' | 'tutor';
 }
 
 @Component({
@@ -15,15 +15,20 @@ interface Student {
   templateUrl: './student-selection-actionsheet.component.html',
   styleUrls: ['./student-selection-actionsheet.component.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule]
+  imports: [CommonModule, IonicModule, FormsModule]
 })
 export class StudentSelectionActionsheetComponent implements OnInit {
-  @Input() students: Student[] = [];
+  @Input() students: SelectableStudent[] = [];
   @Input() selectedStudentIds: string[] = [];
-  @Input() maxStudents: number = 2;
-  
+  /** Legacy — kept for backwards compatibility. 0 = unlimited. */
+  @Input() maxStudents = 0;
+  @Input() title = 'Share with students';
+  @Input() subtitle = 'Select the students you want to share this quiz with.';
+  @Input() isLoading = false;
+  @Input() confirmLabel = 'Share';
 
   selectedIds: string[] = [];
+  searchQuery = '';
 
   constructor(private modalController: ModalController) {}
 
@@ -31,35 +36,43 @@ export class StudentSelectionActionsheetComponent implements OnInit {
     this.selectedIds = [...this.selectedStudentIds];
   }
 
-  formatStudentName(student: Student): string {
-    const nameParts = student.name.split(' ');
-    const firstName = nameParts[0] || '';
-    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
-    return lastName 
-      ? `${firstName} ${lastName.charAt(0).toUpperCase()}.`
-      : firstName;
+  get filteredStudents(): SelectableStudent[] {
+    const q = this.searchQuery.trim().toLowerCase();
+    if (!q) return this.students;
+    return this.students.filter(s =>
+      s.name.toLowerCase().includes(q) || s.email.toLowerCase().includes(q)
+    );
   }
 
-  isStudentSelected(studentId: string): boolean {
-    return this.selectedIds.includes(studentId);
+  get confirmText(): string {
+    const n = this.selectedIds.length;
+    if (n === 0) return this.confirmLabel;
+    return `${this.confirmLabel} with ${n} student${n !== 1 ? 's' : ''}`;
   }
 
-  isStudentDisabled(studentId: string): boolean {
-    const isSelected = this.isStudentSelected(studentId);
-    return !isSelected && this.selectedIds.length >= this.maxStudents;
+  isSelected(id: string): boolean {
+    return this.selectedIds.includes(id);
   }
 
-  toggleStudentSelection(studentId: string) {
-    if (this.isStudentDisabled(studentId)) {
-      return;
-    }
-
-    const index = this.selectedIds.indexOf(studentId);
-    if (index > -1) {
-      this.selectedIds.splice(index, 1);
+  toggle(id: string) {
+    const i = this.selectedIds.indexOf(id);
+    if (i > -1) {
+      this.selectedIds.splice(i, 1);
     } else {
-      this.selectedIds.push(studentId);
+      this.selectedIds.push(id);
     }
+  }
+
+  toggleAll() {
+    if (this.selectedIds.length === this.students.length) {
+      this.selectedIds = [];
+    } else {
+      this.selectedIds = this.students.map(s => s._id);
+    }
+  }
+
+  get allSelected(): boolean {
+    return this.students.length > 0 && this.selectedIds.length === this.students.length;
   }
 
   onDone() {
@@ -67,6 +80,6 @@ export class StudentSelectionActionsheetComponent implements OnInit {
   }
 
   onCancel() {
-    this.modalController.dismiss();
+    this.modalController.dismiss(null, 'cancel');
   }
 }

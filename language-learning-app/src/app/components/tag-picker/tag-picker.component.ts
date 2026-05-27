@@ -2,6 +2,7 @@ import { Component, Input, Output, EventEmitter, OnInit, ChangeDetectionStrategy
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { FormsModule } from '@angular/forms';
+import { TranslateModule } from '@ngx-translate/core';
 import { TaxonomyService, ContentTag } from '../../services/taxonomy.service';
 
 @Component({
@@ -9,7 +10,7 @@ import { TaxonomyService, ContentTag } from '../../services/taxonomy.service';
   templateUrl: './tag-picker.component.html',
   styleUrls: ['./tag-picker.component.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, FormsModule],
+  imports: [CommonModule, IonicModule, FormsModule, TranslateModule],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class TagPickerComponent implements OnInit {

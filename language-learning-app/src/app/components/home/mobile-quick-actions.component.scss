@@ -83,19 +83,9 @@ html.ion-palette-dark .mobile-section-actions .mobile-section-title,
   transform-origin: center center;
 }
 
-html.ion-palette-dark .mac-action-classes .mac-icon-img,
-[data-theme='dark'] .mac-action-classes .mac-icon-img {
-  transform: none;
-}
-
 .mac-action-create-material .mac-icon-img {
   transform: scale(1.26);
   transform-origin: center center;
-}
-
-html.ion-palette-dark .mac-action-create-material .mac-icon-img,
-[data-theme='dark'] .mac-action-create-material .mac-icon-img {
-  transform: none;
 }
 
 .mac-action-forum .mac-icon-img {
@@ -103,19 +93,9 @@ html.ion-palette-dark .mac-action-create-material .mac-icon-img,
   transform-origin: center center;
 }
 
-html.ion-palette-dark .mac-action-forum .mac-icon-img,
-[data-theme='dark'] .mac-action-forum .mac-icon-img {
-  transform: none;
-}
-
 .mac-action-reviews .mac-icon-img {
   transform: scale(1.26);
   transform-origin: center center;
-}
-
-html.ion-palette-dark .mac-action-reviews .mac-icon-img,
-[data-theme='dark'] .mac-action-reviews .mac-icon-img {
-  transform: none;
 }
 
 .mac-text {

@@ -16,7 +16,7 @@
     class="tp-search-input"
     [(ngModel)]="searchQuery"
     (input)="onSearch()"
-    placeholder="Search tags..."
+    [placeholder]="'CREATE_MATERIAL.TAG_PICKER_SEARCH_PLACEHOLDER' | translate"
   />
   <button class="tp-search-clear" type="button" *ngIf="searchQuery" (click)="clearSearch()">
     <ion-icon name="close-circle"></ion-icon>
@@ -99,5 +99,5 @@
 
 <div class="tp-limit" *ngIf="selectedTagIds.length >= maxTags">
   <ion-icon name="information-circle-outline"></ion-icon>
-  <span>Maximum {{ maxTags }} tags selected</span>
+  <span>{{ 'CREATE_MATERIAL.TAG_PICKER_MAX_TAGS' | translate: { max: maxTags } }}</span>
 </div>

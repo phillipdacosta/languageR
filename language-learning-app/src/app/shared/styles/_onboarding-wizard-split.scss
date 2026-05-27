@@ -18,7 +18,9 @@ $ob-split-viewport-height: calc(100dvh - 128px);
   }
 }
 
-.onboarding-container--wizard.ob-wizard-split-active {
+.onboarding-container--wizard.ob-wizard-split-active,
+.create-material-container.cm-details-wizard-split-active.ob-wizard-split-active,
+.cm-bundle-editor.cm-details-wizard-split-active.ob-wizard-split-active {
   animation: obWizardSplitFadeIn 0.45s cubic-bezier(0.32, 0.72, 0, 1) both;
 
   .onboarding-wizard-card {

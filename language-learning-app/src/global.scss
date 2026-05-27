@@ -93,6 +93,19 @@
     border-radius: var(--app-brand-icon-radius);
     object-fit: contain;
     flex-shrink: 0;
+
+    &.app-icon--mascot {
+      // Slightly larger than default icon — downscaling 1024→48px reads sharper than 42px
+      width: 48px;
+      height: 48px;
+      border-radius: 0;
+      object-fit: contain;
+      object-position: center;
+      image-rendering: -webkit-optimize-contrast;
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+      transform: translateZ(0);
+    }
   }
 
   .app-name {
@@ -110,16 +123,14 @@
     margin-left: var(--app-brand-name-margin-left);
     vertical-align: middle;
   }
+}
 
-  .bd-brand-name-logo {
-    height: 15px;
-    vertical-align: middle;
-  }
-
-  .tc-brand-name-logo {
-    height: 15px;
-    vertical-align: middle;
-  }
+/* Inline Barnabi wordmark in body copy (bundle detail, tutor calendar sidebar, etc.) */
+.bd-brand-name-logo,
+.tc-brand-name-logo {
+  height: 15px;
+  width: auto;
+  vertical-align: middle;
 }
 
 /* Onboarding / signup / role-select header — strip Ionic MD shadow + thick border */
@@ -139,8 +150,9 @@ ion-header:has(ion-toolbar.onboarding-toolbar) {
   }
 }
 
-/* Barnabi wordmark: two PNGs in templates — hide white wordmark on light UI */
-.barnabi-wordmark-for-dark-ui {
+/* Barnabi wordmark + toolbar mascot: two PNGs per theme — hide dark variants on light UI */
+.barnabi-wordmark-for-dark-ui,
+.barnabi-mascot-for-dark-ui {
   display: none;
 }
 
@@ -230,6 +242,32 @@ ion-input.modern-input {
 
 /* Image Cropper Modal */
 // Image Cropper Modal (matches reschedule modal design)
+ion-modal.share-students-modal {
+  --width: min(480px, 95vw);
+  --max-width: 480px;
+  --height: 80vh;
+  --border-radius: 20px;
+  --box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+
+  app-student-selection-actionsheet {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+
+    ion-content {
+      flex: 1;
+    }
+  }
+
+  @media (max-width: 600px) {
+    --width: 100%;
+    --max-width: 100%;
+    --height: 85vh;
+    --border-radius: 20px 20px 0 0;
+    align-items: flex-end;
+  }
+}
+
 ion-modal.image-cropper-modal {
   --width: 90%;
   --max-width: 700px;
@@ -2913,7 +2951,8 @@ html.ion-palette-dark {
     --background: #000000;
   }
 
-  .barnabi-wordmark-for-light-ui {
+  .barnabi-wordmark-for-light-ui,
+  .barnabi-mascot-for-light-ui {
     display: none !important;
   }
 
@@ -2924,6 +2963,10 @@ html.ion-palette-dark {
     transform: translateX(-6px);
     /* Crisp edge on translucent / gradient toolbars (no color invert) */
     filter: drop-shadow(0 0.5px rgba(0, 0, 0, 0.95)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+  }
+
+  .barnabi-mascot-for-dark-ui {
+    display: inline-block !important;
   }
 
   .app-icon-container .app-name-logo.barnabi-wordmark-for-dark-ui,

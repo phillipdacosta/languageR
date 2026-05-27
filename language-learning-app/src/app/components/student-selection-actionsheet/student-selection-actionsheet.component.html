@@ -1,31 +1,83 @@
+<ion-header class="actionsheet-header">
+  <div class="actionsheet-header-inner">
+    <h2>{{ title }}</h2>
+    <p class="actionsheet-subtitle">{{ subtitle }}</p>
+  </div>
+</ion-header>
+
 <ion-content class="actionsheet-content">
-  <div class="actionsheet-header">
-    <h2>Select Students</h2>
-    <p class="count-text">{{ selectedIds.length }}/{{ maxStudents }} selected</p>
+  <!-- Loading -->
+  <div class="actionsheet-loading" *ngIf="isLoading">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Finding your past students…</p>
   </div>
 
-  <div class="students-list">
-    <div 
-      *ngFor="let student of students" 
-      class="student-item"
-      [class.selected]="isStudentSelected(student._id)"
-      [class.disabled]="isStudentDisabled(student._id)"
-      (click)="toggleStudentSelection(student._id)">
-      <ion-avatar class="student-avatar">
-        <img *ngIf="student.picture" [src]="student.picture" [alt]="student.name">
-        <div *ngIf="!student.picture" class="avatar-placeholder">
-          {{ student.name.charAt(0).toUpperCase() }}
-        </div>
-      </ion-avatar>
-      <div class="student-name">{{ formatStudentName(student) }}</div>
-      <div class="checkbox" [class.checked]="isStudentSelected(student._id)">
-        <ion-icon *ngIf="isStudentSelected(student._id)" name="checkmark"></ion-icon>
-      </div>
+  <ng-container *ngIf="!isLoading">
+    <!-- Empty state -->
+    <div class="actionsheet-empty" *ngIf="students.length === 0">
+      <ion-icon name="people-outline"></ion-icon>
+      <p>No past students found.<br />Teach a lesson first and students will appear here.</p>
     </div>
-  </div>
 
-  <div class="actionsheet-footer">
-    <button class="done-btn" (click)="onDone()">Done</button>
-    <button class="cancel-btn" (click)="onCancel()">Cancel</button>
-  </div>
+    <ng-container *ngIf="students.length > 0">
+      <!-- Search -->
+      <div class="actionsheet-search">
+        <ion-icon name="search-outline"></ion-icon>
+        <input
+          type="text"
+          [(ngModel)]="searchQuery"
+          placeholder="Search students…"
+          class="actionsheet-search-input" />
+        <button *ngIf="searchQuery" (click)="searchQuery = ''" class="actionsheet-search-clear">
+          <ion-icon name="close-circle"></ion-icon>
+        </button>
+      </div>
+
+      <!-- Select all -->
+      <div class="actionsheet-select-all" (click)="toggleAll()">
+        <span>{{ allSelected ? 'Deselect all' : 'Select all' }}</span>
+        <div class="ssa-checkbox" [class.checked]="allSelected">
+          <ion-icon *ngIf="allSelected" name="checkmark"></ion-icon>
+        </div>
+      </div>
+
+      <!-- Students list -->
+      <div class="students-list">
+        <div
+          *ngFor="let s of filteredStudents"
+          class="student-item"
+          [class.selected]="isSelected(s._id)"
+          (click)="toggle(s._id)">
+          <div class="student-avatar">
+            <img *ngIf="s.picture" [src]="s.picture" [alt]="s.name" referrerpolicy="no-referrer" />
+            <div *ngIf="!s.picture" class="avatar-placeholder">{{ s.name.charAt(0).toUpperCase() }}</div>
+          </div>
+          <div class="student-info">
+            <span class="student-name">{{ s.name }}</span>
+            <span class="student-email">{{ s.email }}</span>
+          </div>
+          <div class="ssa-checkbox" [class.checked]="isSelected(s._id)">
+            <ion-icon *ngIf="isSelected(s._id)" name="checkmark"></ion-icon>
+          </div>
+        </div>
+
+        <div class="actionsheet-no-results" *ngIf="filteredStudents.length === 0">
+          No students match "{{ searchQuery }}"
+        </div>
+      </div>
+    </ng-container>
+  </ng-container>
 </ion-content>
+
+<ion-footer class="actionsheet-footer" *ngIf="!isLoading">
+  <div class="actionsheet-footer-inner">
+    <button type="button" class="cancel-btn" (click)="onCancel()">Cancel</button>
+    <button
+      type="button"
+      class="done-btn"
+      [disabled]="selectedIds.length === 0"
+      (click)="onDone()">
+      {{ confirmText }}
+    </button>
+  </div>
+</ion-footer>

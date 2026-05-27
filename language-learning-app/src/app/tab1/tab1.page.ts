@@ -127,15 +127,17 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   /** Desktop create-material modal topbar: "3/9" style count (centered with Save and exit). */
   modalTopbarCenterStep: string | null = null;
   /** From create-material `syncModalTopbarChrome` — material mid-steps + bundle share exit. */
-  modalTopbarNavBackLabel = '';
-  /** From create-material — previous bundle wizard step title. */
-  modalTopbarBundleWizardBackLabel = '';
+  modalTopbarNavBackLabelKey = 'CREATE_MATERIAL.NAV_BACK_SHORT';
+  /** From create-material — previous bundle wizard step i18n key. */
+  modalTopbarBundleWizardBackLabelKey = 'CREATE_MATERIAL.NAV_BACK_SHORT';
   modalShowGoBack = false;
   /** Bundle wizard step "How would you like to share this?" — same top bar as list `< Go back`. */
   modalShowBundleShareGoBack = false;
   /** Desktop bundle wizard (after share step): Go back in modal top bar */
   modalShowBundleWizardGoBack = false;
   modalDetailsWizardFooter = false;
+  /** True until create-material footer chrome reports the step allows Next. */
+  modalFooterNextDisabled = true;
   modalDetailsWizardShowBack = false;
   modalDetailsWizardShowSaveDraft = false;
   /** ngx-translate key from create-material (e.g. SAVE_DRAFT or COMMON.SAVE). */
@@ -144,7 +146,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   /** When set (e.g. bundle publish), overrides "Continue to Quiz" on last wizard step. */
   modalDetailsWizardLastStepKey: string | null = null;
   /** Footer Back text (previous step title), from create-material. */
-  modalFooterBackLabel: string | null = null;
+  modalFooterBackLabelKey: string | null = null;
   /** Web at ≤600px: use same tutor empty / Up Next UI as native mobile */
   isNarrowTutorHomeViewport = false;
   isDarkModeActive = false;
@@ -9835,8 +9837,8 @@ navigateToLessons() {
     this.modalIsEditingBundle = false;
     this.modalIsEditingMaterial = false;
     this.modalTopbarCenterStep = null;
-    this.modalTopbarNavBackLabel = '';
-    this.modalTopbarBundleWizardBackLabel = '';
+    this.modalTopbarNavBackLabelKey = 'CREATE_MATERIAL.NAV_BACK_SHORT';
+    this.modalTopbarBundleWizardBackLabelKey = 'CREATE_MATERIAL.NAV_BACK_SHORT';
     this.modalShowGoBack = false;
     this.modalShowBundleShareGoBack = false;
     this.modalShowBundleWizardGoBack = false;
@@ -9846,7 +9848,7 @@ navigateToLessons() {
     this.modalFooterSaveLabelKey = null;
     this.modalDetailsWizardIsLastStep = false;
     this.modalDetailsWizardLastStepKey = null;
-    this.modalFooterBackLabel = null;
+    this.modalFooterBackLabelKey = null;
     this.cdr.detectChanges();
 
     if (this._scrollElRef) {
@@ -9863,8 +9865,8 @@ navigateToLessons() {
       this.modalIsEditingBundle = false;
       this.modalIsEditingMaterial = false;
       this.modalTopbarCenterStep = null;
-      this.modalTopbarNavBackLabel = '';
-      this.modalTopbarBundleWizardBackLabel = '';
+      this.modalTopbarNavBackLabelKey = 'CREATE_MATERIAL.NAV_BACK_SHORT';
+      this.modalTopbarBundleWizardBackLabelKey = 'CREATE_MATERIAL.NAV_BACK_SHORT';
       this.modalShowGoBack = false;
       this.modalShowBundleShareGoBack = false;
       this.modalShowBundleWizardGoBack = false;
@@ -9874,7 +9876,7 @@ navigateToLessons() {
       this.modalFooterSaveLabelKey = null;
       this.modalDetailsWizardIsLastStep = false;
       this.modalDetailsWizardLastStepKey = null;
-      this.modalFooterBackLabel = null;
+      this.modalFooterBackLabelKey = null;
     } else {
       this.applyDesktopModalFooterVisibility();
       setTimeout(() => {
@@ -9927,12 +9929,12 @@ navigateToLessons() {
       this.modalShowBundleWizardGoBack = false;
       this.modalShowSaveExit = false;
       this.modalTopbarCenterStep = null;
-      this.modalTopbarNavBackLabel = '';
-      this.modalTopbarBundleWizardBackLabel = '';
+      this.modalTopbarNavBackLabelKey = 'CREATE_MATERIAL.NAV_BACK_SHORT';
+      this.modalTopbarBundleWizardBackLabelKey = 'CREATE_MATERIAL.NAV_BACK_SHORT';
       this.modalShowGoBack = false;
       this.modalDetailsWizardShowSaveDraft = false;
       this.modalFooterSaveLabelKey = null;
-      this.modalFooterBackLabel = null;
+      this.modalFooterBackLabelKey = null;
     }
     if (prev && !next && this.showCreateMaterialView) {
       requestAnimationFrame(() => {
@@ -9976,8 +9978,8 @@ navigateToLessons() {
     showBundleShareGoBack?: boolean;
     showBundleWizardGoBack?: boolean;
     centerStepLabel?: string | null;
-    topbarNavBackLabel?: string;
-    topbarBundleWizardBackLabel?: string;
+    topbarNavBackLabelKey?: string;
+    topbarBundleWizardBackLabelKey?: string;
     isEditingBundle?: boolean;
     isEditingMaterial?: boolean;
   }) {
@@ -9990,8 +9992,8 @@ navigateToLessons() {
     this.modalShowBundleShareGoBack = !!payload.showBundleShareGoBack;
     this.modalShowBundleWizardGoBack = !!payload.showBundleWizardGoBack;
     this.modalTopbarCenterStep = payload.centerStepLabel ?? null;
-    this.modalTopbarNavBackLabel = payload.topbarNavBackLabel ?? '';
-    this.modalTopbarBundleWizardBackLabel = payload.topbarBundleWizardBackLabel ?? '';
+    this.modalTopbarNavBackLabelKey = payload.topbarNavBackLabelKey ?? 'CREATE_MATERIAL.NAV_BACK_SHORT';
+    this.modalTopbarBundleWizardBackLabelKey = payload.topbarBundleWizardBackLabelKey ?? 'CREATE_MATERIAL.NAV_BACK_SHORT';
     this.applyDesktopModalFooterVisibility();
     this.cdr.detectChanges();
   }
@@ -10031,17 +10033,19 @@ navigateToLessons() {
     footerSaveLabelKey?: string | null;
     isLastStep: boolean;
     lastStepLabelKey?: string | null;
-    footerBackLabel?: string | null;
+    footerBackLabelKey?: string | null;
+    footerNextDisabled?: boolean;
   }) {
     if (this.isMobile) return;
     if (this.cmModalRouterOutletActive) return;
     this.modalDetailsWizardFooter = payload.active;
+    this.modalFooterNextDisabled = payload.active ? !!payload.footerNextDisabled : false;
     this.modalDetailsWizardShowBack = payload.showBack;
     this.modalDetailsWizardShowSaveDraft = !!payload.showSaveDraft;
     this.modalFooterSaveLabelKey = payload.footerSaveLabelKey ?? null;
     this.modalDetailsWizardIsLastStep = payload.isLastStep;
     this.modalDetailsWizardLastStepKey = payload.lastStepLabelKey ?? null;
-    this.modalFooterBackLabel = payload.footerBackLabel ?? null;
+    this.modalFooterBackLabelKey = payload.footerBackLabelKey ?? null;
     this.cdr.detectChanges();
   }
 

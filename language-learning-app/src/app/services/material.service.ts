@@ -70,6 +70,8 @@ export interface TutorMaterial {
   reviewStatus?: 'auto_approved' | 'pending_review' | 'approved' | 'rejected';
   reviewNote?: string;
   channelVerified?: boolean;
+  visibility?: 'private' | 'public' | 'past_students';
+  sharedStudentIds?: string[];
 }
 
 export interface CreateMaterialPayload {
@@ -90,6 +92,8 @@ export interface CreateMaterialPayload {
   quiz: QuizQuestion[];
   status?: string;
   contentAttested?: boolean;
+  visibility?: 'private' | 'public' | 'past_students';
+  sharedStudentIds?: string[];
 }
 
 export interface LinkedChannels {
@@ -168,6 +172,10 @@ export class MaterialService {
       return this.http.get<{ success: boolean; material: TutorMaterial }>(`${this.apiUrl}/${id}`, { headers, params });
     }
     return this.http.get<{ success: boolean; material: TutorMaterial }>(`${this.apiUrl}/${id}`, { params });
+  }
+
+  shareWithStudents(id: string, studentIds: string[]): Observable<{ success: boolean; material: TutorMaterial }> {
+    return this.updateMaterial(id, { visibility: 'past_students', sharedStudentIds: studentIds });
   }
 
   updateMaterial(id: string, payload: Partial<CreateMaterialPayload>): Observable<{ success: boolean; material: TutorMaterial }> {

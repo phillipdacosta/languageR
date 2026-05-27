@@ -1,4 +1,5 @@
-import { Component, OnInit, OnDestroy, Input, Output, EventEmitter, ChangeDetectorRef, HostBinding } from '@angular/core';
+import { Component, OnInit, OnDestroy, Input, Output, EventEmitter, ChangeDetectorRef, HostBinding, ElementRef } from '@angular/core';
+import { animate, style, transition, trigger } from '@angular/animations';
 import { Subscription } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
@@ -17,6 +18,15 @@ import { environment } from '../../environments/environment';
 import { HomeInlineToolbarService } from '../services/home-inline-toolbar.service';
 import { TagPickerComponent } from '../components/tag-picker/tag-picker.component';
 import { PlatformService } from '../services/platform.service';
+import { WizardGuidanceItem } from '../shared/models/wizard-step-guidance.model';
+import {
+  MATERIAL_DETAILS_WIZARD_GUIDANCE,
+  MATERIAL_PRICING_WIZARD_GUIDANCE,
+  MATERIAL_QUIZ_WIZARD_GUIDANCE,
+  MATERIAL_PREVIEW_WIZARD_GUIDANCE,
+  BUNDLE_WIZARD_GUIDANCE,
+  BundleWizardStepId,
+} from '../shared/material-details-wizard-guidance.config';
 
 type Step = 'type' | 'pricing' | 'details' | 'quiz' | 'preview';
 
@@ -33,22 +43,20 @@ type DetailsWizardStepId =
   | 'listeningAudio'
   | 'price';
 
-type BundleWizardStepId =
-  | 'bundleShare'
-  | 'bundleTitle'
-  | 'bundleDescription'
-  | 'bundleMaterials'
-  | 'bundleCover'
-  | 'bundleLanguageLevel'
-  | 'bundleTags'
-  | 'bundlePrice';
-
 @Component({
   selector: 'app-create-material',
   templateUrl: './create-material.page.html',
   styleUrls: ['./create-material.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, RouterModule, FormsModule, ReactiveFormsModule, SharedModule, QuillEditorComponent, TagPickerComponent]
+  imports: [CommonModule, IonicModule, RouterModule, FormsModule, ReactiveFormsModule, SharedModule, QuillEditorComponent, TagPickerComponent],
+  animations: [
+    trigger('wizardSplitContentSlideUp', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'translateY(20px)' }),
+        animate('380ms cubic-bezier(0.32, 0.72, 0, 1)', style({ opacity: 1, transform: 'translateY(0)' })),
+      ]),
+    ]),
+  ],
 })
 export class CreateMaterialPage implements OnInit, OnDestroy {
   @Input() inline = false;
@@ -63,10 +71,10 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     showBundleWizardGoBack?: boolean;
     /** e.g. "3/9" — desktop modal topbar center, aligned with mobile wizard count */
     centerStepLabel: string | null;
-    /** Translated label for material early/mid steps + bundle share exit (matches `navBackLabel`). */
-    topbarNavBackLabel: string;
-    /** Translated previous bundle wizard step title; empty when not on bundle wizard back. */
-    topbarBundleWizardBackLabel: string;
+    /** i18n key for modal topbar back (desktop tab1). */
+    topbarNavBackLabelKey: string;
+    /** i18n key for bundle wizard topbar back. */
+    topbarBundleWizardBackLabelKey: string;
     isEditingBundle?: boolean;
     isEditingMaterial?: boolean;
   }>();
@@ -79,7 +87,9 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     footerSaveLabelKey: string | null;
     isLastStep: boolean;
     lastStepLabelKey?: string | null;
-    footerBackLabel?: string | null;
+    footerBackLabelKey?: string | null;
+    /** Disable footer Next until required selection/input (pricing, bundle share, etc.). */
+    footerNextDisabled?: boolean;
   }>();
   /** Desktop modal sidebar + footer: tab1 must mirror the active library/create flow. */
   @Output() modalSidebarTabSync = new EventEmitter<'materials' | 'bundles'>();
@@ -87,6 +97,29 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
   get cmHostInlineClass(): boolean {
     return this.inline;
   }
+
+  @HostBinding('class.cm-host-details-split-wizard')
+  get cmHostDetailsSplitWizard(): boolean {
+    return this.materialCreateSplitWizardActive;
+  }
+
+  @HostBinding('class.cm-host-bundle-split-wizard')
+  get cmHostBundleSplitWizard(): boolean {
+    return this.bundleCreateSplitWizardActive;
+  }
+
+  materialPricingGuidanceItems: WizardGuidanceItem[] = MATERIAL_PRICING_WIZARD_GUIDANCE;
+  readonly materialPricingHeadlineKey = 'CREATE_MATERIAL.PRICING_TITLE';
+  readonly materialPricingSublineKey = 'CREATE_MATERIAL.PRICING_DESC';
+  materialQuizGuidanceItems: WizardGuidanceItem[] = MATERIAL_QUIZ_WIZARD_GUIDANCE;
+  readonly materialQuizHeadlineKey = 'CREATE_MATERIAL.QUIZ_TITLE';
+  readonly materialQuizSublineKey = 'CREATE_MATERIAL.QUIZ_DESC';
+  readonly materialQuizFlowTitleKey = 'CREATE_MATERIAL.QUIZ_WIZ_FLOW_TITLE';
+  materialPreviewGuidanceItems: WizardGuidanceItem[] = MATERIAL_PREVIEW_WIZARD_GUIDANCE;
+  readonly materialPreviewHeadlineKey = 'CREATE_MATERIAL.PREVIEW_TITLE';
+  readonly materialPreviewSublineKey = 'CREATE_MATERIAL.PREVIEW_DESC_NEW';
+  readonly quizOptionLetters = ['A', 'B', 'C', 'D', 'E', 'F'];
+  readonly materialPreviewFlowTitleKey = 'CREATE_MATERIAL.PREVIEW_WIZ_FLOW_TITLE';
 
   @HostBinding('class.cm-bundle-wizard-layout')
   get cmBundleWizardLayoutClass(): boolean {
@@ -121,6 +154,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
   isUploadingBundleCover = false;
   isSavingBundle = false;
   justPublishedId: string | null = null;
+  visibilityUpdatingId: string | null = null;
   copiedLinkId: string | null = null;
   currentUserId: string | null = null;
 
@@ -129,7 +163,10 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
   selectedPricing: 'free' | 'paid' | null = null;
 
   navBackLabel = '';
+  /** i18n key for desktop modal topbar back label. */
+  navBackLabelKey = 'CREATE_MATERIAL.NAV_BACK_SHORT';
   stepTitle = '';
+  stepTitleKey = '';
 
   private toolbarBackSub?: Subscription;
 
@@ -149,6 +186,12 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
   videoPreviewUrl: SafeResourceUrl | null = null;
   videoAutoplayUrl: SafeResourceUrl | null = null;
   videoThumbnail: string | null = null;
+  videoEmbedProvider: 'youtube' | 'vimeo' | null = null;
+  videoExternalWatchUrl: string | null = null;
+  videoEmbeddability: 'idle' | 'embeddable' | 'not_embeddable' = 'idle';
+  videoEmbedErrorCode: number | null = null;
+  private videoEmbedCheckedKey: string | null = null;
+  private videoEmbedCurrentKey: string | null = null;
 
   // Listening
   audioPreviewUrl: SafeResourceUrl | null = null;
@@ -181,6 +224,8 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
   detailsWizardStepId: DetailsWizardStepId = 'title';
   detailsWizardHeadlineKey = 'CREATE_MATERIAL.DETAILS_WIZ_TITLE_H';
   detailsWizardSublineKey = 'CREATE_MATERIAL.DETAILS_WIZ_TITLE_D';
+  detailsWizardGuidanceItems: WizardGuidanceItem[] = MATERIAL_DETAILS_WIZARD_GUIDANCE.title;
+  detailsWizardGuidanceStepNumber = 1;
   detailsWizardStepTotal = 0;
   detailsWizardProgressPercent = 100;
 
@@ -193,6 +238,15 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
   bundleWizardSublineKey = 'CREATE_MATERIAL.BUNDLE_WIZ_TITLE_D';
   bundleWizardStepTotal = 0;
   bundleWizardProgressPercent = 100;
+  bundleWizardGuidanceItems: WizardGuidanceItem[] = BUNDLE_WIZARD_GUIDANCE.bundleShare;
+  bundleWizardGuidanceStepNumber = 1;
+  readonly bundleWizardShareFlowTitleKey = 'CREATE_MATERIAL.BUNDLE_WIZ_SHARE_FLOW_TITLE';
+  readonly bundleWizardDetailsFlowTitleKey = 'CREATE_MATERIAL.BUNDLE_WIZ_FLOW_TITLE';
+  readonly materialTypeLabelKeys: Record<string, string> = {
+    video_quiz: 'CREATE_MATERIAL.TYPE_VIDEO_QUIZ',
+    reading: 'CREATE_MATERIAL.TYPE_READING',
+    listening: 'CREATE_MATERIAL.TYPE_LISTENING',
+  };
 
   /** After "Create a material" from bundle (no materials), back from type step returns to bundle wizard. */
   private resumeBundleAfterMaterial = false;
@@ -257,7 +311,8 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     private translate: TranslateService,
     private homeInlineToolbar: HomeInlineToolbarService,
     private bundleService: BundleService,
-    private platformService: PlatformService
+    private platformService: PlatformService,
+    private hostEl: ElementRef<HTMLElement>
   ) {}
 
   restoreSection() {
@@ -296,6 +351,15 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     this.translate.onLangChange.subscribe(() => {
       this.rebuildTranslatedLabels();
       this.updateNavState();
+      if (this.viewMode === 'bundle-create' && this.bundleWizardLayoutActive) {
+        this.syncBundleWizardFromIndex();
+      }
+      if (this.detailsWizardLayoutActive) {
+        this.syncDetailsWizardFromIndex();
+      }
+      this.emitDetailsModalFooterChrome();
+      this.syncModalTopbarChrome();
+      this.cdr.markForCheck();
     });
 
     if (this.inline) {
@@ -309,14 +373,14 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     this.toolbarBackSub?.unsubscribe();
     if (this.inline) {
       this.homeInlineToolbar.setMaterialsToolbarBackLabel('');
-      this.detailsModalFooterChromeEvent.emit({
+      this.emitModalFooterChrome({
         active: false,
         showBack: false,
         showSaveDraft: false,
         footerSaveLabelKey: null,
         isLastStep: false,
         lastStepLabelKey: null,
-        footerBackLabel: null,
+        footerBackLabelKey: null,
       });
     }
   }
@@ -473,6 +537,26 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
       this.emitModalSidebarTabSync('bundles');
       return;
     }
+    if (
+      this.viewMode === 'create' &&
+      this.inline &&
+      !this.platformService.isMobile() &&
+      !this.editingMaterialId
+    ) {
+      if (this.currentStep === 'preview') {
+        this.goBack();
+        return;
+      }
+      if (this.currentStep === 'quiz') {
+        this.returnToDetailsWizardFromQuiz();
+        return;
+      }
+      if (this.currentStep === 'details' && this.detailsWizardLayoutActive) {
+        this.onDetailsWizardBack();
+        return;
+      }
+    }
+
     // In create/edit mode
     const idx = this.stepOrder.indexOf(this.currentStep);
     if (idx <= 0 || (this.editingMaterialId && this.currentStep === 'details')) {
@@ -484,7 +568,9 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
 
   updateNavState() {
     if (this.viewMode === 'library') {
-      this.navBackLabel = this.translate.instant('CREATE_MATERIAL.NAV_BACK_SHORT');
+      this.navBackLabelKey = 'CREATE_MATERIAL.NAV_BACK_SHORT';
+      this.navBackLabel = this.translate.instant(this.navBackLabelKey);
+      this.stepTitleKey = '';
       this.stepTitle = '';
       if (this.inline) {
         this.homeInlineToolbar.setMaterialsToolbarBackLabel(this.navBackLabel);
@@ -494,8 +580,12 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
       return;
     }
     if (this.viewMode === 'bundle-create') {
-      this.navBackLabel = this.translate.instant('CREATE_MATERIAL.NAV_MY_MATERIALS');
-      this.stepTitle = this.editingBundleId ? 'Edit Bundle' : 'Create Bundle';
+      this.navBackLabelKey = 'CREATE_MATERIAL.NAV_MY_MATERIALS';
+      this.navBackLabel = this.translate.instant(this.navBackLabelKey);
+      this.stepTitleKey = this.editingBundleId
+        ? 'CREATE_MATERIAL.BUNDLE_EDIT_TITLE'
+        : 'CREATE_MATERIAL.BUNDLE_CREATE_TITLE';
+      this.stepTitle = this.translate.instant(this.stepTitleKey);
       this.bundleWizardLayoutActive = this.inline && !this.platformService.isMobile();
       if (this.bundleWizardLayoutActive) {
         if (this.bundleWizardStepIds.length === 0) {
@@ -511,14 +601,16 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
       this.syncModalTopbarChrome();
       return;
     }
-    this.stepTitle = this.translate.instant(this.stepTitleKeys[this.currentStep]) || '';
+    this.stepTitleKey = this.stepTitleKeys[this.currentStep] || '';
+    this.stepTitle = this.stepTitleKey ? this.translate.instant(this.stepTitleKey) : '';
     const idx = this.stepOrder.indexOf(this.currentStep);
     if (idx <= 0 || (this.editingMaterialId && this.currentStep === 'details')) {
-      this.navBackLabel = this.translate.instant('CREATE_MATERIAL.NAV_MY_MATERIALS');
+      this.navBackLabelKey = 'CREATE_MATERIAL.NAV_MY_MATERIALS';
     } else {
       const prevStep = this.stepOrder[idx - 1];
-      this.navBackLabel = this.translate.instant(this.stepTitleKeys[prevStep]) || this.translate.instant('CREATE_MATERIAL.NAV_BACK_SHORT');
+      this.navBackLabelKey = this.stepTitleKeys[prevStep] || 'CREATE_MATERIAL.NAV_BACK_SHORT';
     }
+    this.navBackLabel = this.translate.instant(this.navBackLabelKey);
 
     if (this.inline) {
       this.homeInlineToolbar.setMaterialsToolbarBackLabel(this.navBackLabel);
@@ -526,17 +618,18 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
 
     const onDetails = this.currentStep === 'details';
     this.detailsWizardLayoutActive = !this.platformService.isMobile() && onDetails;
-    if (!onDetails) {
-      this.detailsWizardStepIndex = 0;
-      this.detailsWizardStepIds = [];
-      this.detailsWizardStepTotal = 0;
-      this.detailsWizardProgressPercent = 100;
-    } else if (this.detailsWizardLayoutActive && this.detailsWizardStepIds.length === 0) {
-      this.initDetailsWizard();
-    } else if (this.detailsWizardLayoutActive && this.detailsWizardStepIds.length > 0) {
-      this.syncDetailsWizardFromIndex();
-    } else if (this.inline) {
-      this.emitDetailsModalFooterChrome();
+    const inMaterialCreateFlow =
+      this.currentStep === 'details' || this.currentStep === 'quiz' || this.currentStep === 'preview';
+    if (!inMaterialCreateFlow) {
+      this.clearMaterialCreateFlowProgress();
+    } else if (onDetails) {
+      if (this.detailsWizardLayoutActive && this.detailsWizardStepIds.length === 0) {
+        this.initDetailsWizard();
+      } else if (this.detailsWizardLayoutActive && this.detailsWizardStepIds.length > 0) {
+        this.syncDetailsWizardFromIndex();
+      } else if (this.inline) {
+        this.emitDetailsModalFooterChrome();
+      }
     }
 
     if (this.inline && !onDetails) {
@@ -551,6 +644,25 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     this.detailsWizardStepIndex = 0;
     this.rebuildDetailsWizardStepIds();
     this.syncDetailsWizardFromIndex();
+  }
+
+  private clearMaterialCreateFlowProgress(): void {
+    this.detailsWizardStepIndex = 0;
+    this.detailsWizardStepIds = [];
+    this.detailsWizardStepTotal = 0;
+    this.detailsWizardProgressPercent = 100;
+  }
+
+  /** Desktop modal: quiz → last details sub-step (preserves unified stepper). */
+  private returnToDetailsWizardFromQuiz(): void {
+    if (!this.detailsWizardStepIds.length) {
+      this.goBack();
+      return;
+    }
+    this.currentStep = 'details';
+    this.detailsWizardStepIndex = this.detailsWizardStepIds.length - 1;
+    this.updateNavState();
+    this.scrollDetailsWizardIntoView();
   }
 
   private rebuildDetailsWizardStepIds(): void {
@@ -604,26 +716,93 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
       this.detailsWizardHeadlineKey = copy?.h ?? 'CREATE_MATERIAL.DETAILS_WIZ_TITLE_H';
       this.detailsWizardSublineKey = copy?.d ?? 'CREATE_MATERIAL.DETAILS_WIZ_TITLE_D';
     }
+    this.detailsWizardGuidanceItems =
+      MATERIAL_DETAILS_WIZARD_GUIDANCE[id as keyof typeof MATERIAL_DETAILS_WIZARD_GUIDANCE] ??
+      MATERIAL_DETAILS_WIZARD_GUIDANCE.title;
+    this.detailsWizardGuidanceStepNumber = this.detailsWizardStepIndex + 1;
     this.syncDetailsWizardProgress();
     this.emitDetailsModalFooterChrome();
     this.syncModalTopbarChrome();
+    this.scheduleWizardStepAutofocus();
   }
 
   /** Back label for previous bundle wizard step (share step shows short “Pricing”, not the long headline). */
-  private translateBundleWizardPrevStepHeadline(prevId: BundleWizardStepId): string {
+  private bundleWizardPrevStepHeadlineKey(prevId: BundleWizardStepId): string {
     if (prevId === 'bundleShare') {
-      return this.translate.instant('CREATE_MATERIAL.STEP_PRICING');
+      return 'CREATE_MATERIAL.STEP_PRICING';
     }
-    const key = this.bundleWizardCopyKeys[prevId]?.h;
-    return key ? this.translate.instant(key) : this.translate.instant('CREATE_MATERIAL.NAV_BACK_SHORT');
+    return this.bundleWizardCopyKeys[prevId]?.h ?? 'CREATE_MATERIAL.NAV_BACK_SHORT';
   }
 
-  private computeBundleWizardFooterBackLabel(): string {
+  private computeBundleWizardFooterBackLabelKey(): string {
     if (this.bundleWizardStepIndex <= 0 || !this.bundleWizardStepIds.length) {
-      return this.translate.instant('COMMON.BACK');
+      return 'COMMON.BACK';
     }
     const prevId = this.bundleWizardStepIds[this.bundleWizardStepIndex - 1];
-    return this.translateBundleWizardPrevStepHeadline(prevId);
+    return this.bundleWizardPrevStepHeadlineKey(prevId);
+  }
+
+  private computeFooterNextDisabled(): boolean {
+    if (!this.inline || this.platformService.isMobile()) return false;
+
+    if (
+      this.viewMode === 'create' &&
+      this.currentStep === 'pricing' &&
+      !this.editingMaterialId &&
+      this.selectedPricing === null
+    ) {
+      return true;
+    }
+    if (
+      this.viewMode === 'bundle-create' &&
+      this.bundleWizardLayoutActive &&
+      this.bundleWizardStepId === 'bundleShare' &&
+      this.bundlePricingType === null
+    ) {
+      return true;
+    }
+    if (
+      this.viewMode === 'bundle-create' &&
+      this.bundleWizardLayoutActive &&
+      this.bundleWizardStepId === 'bundlePrice' &&
+      this.bundlePrice <= 0
+    ) {
+      return true;
+    }
+    if (this.viewMode === 'create' && this.currentStep === 'quiz' && this.quizArray.length === 0) {
+      return true;
+    }
+    if (this.viewMode === 'create' && this.currentStep === 'preview' && !this.contentAttested) {
+      return true;
+    }
+    return false;
+  }
+
+  private emitModalFooterChrome(payload: {
+    active: boolean;
+    showBack: boolean;
+    showSaveDraft: boolean;
+    footerSaveLabelKey: string | null;
+    isLastStep: boolean;
+    lastStepLabelKey?: string | null;
+    footerBackLabelKey?: string | null;
+  }): void {
+    this.detailsModalFooterChromeEvent.emit({
+      ...payload,
+      footerNextDisabled: payload.active ? this.computeFooterNextDisabled() : false,
+    });
+  }
+
+  /** Re-sync tab1 footer Next disabled state after quiz length or attestation changes. */
+  private refreshModalFooterChrome(): void {
+    if (this.inline) {
+      this.emitDetailsModalFooterChrome();
+    }
+  }
+
+  onContentAttestedChange(attested: boolean): void {
+    this.contentAttested = attested;
+    this.refreshModalFooterChrome();
   }
 
   private emitDetailsModalFooterChrome(): void {
@@ -635,28 +814,28 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
       !this.editingMaterialId &&
       !this.platformService.isMobile();
     if (desktopMaterialPricing) {
-      this.detailsModalFooterChromeEvent.emit({
+      this.emitModalFooterChrome({
         active: true,
         showBack: false,
         showSaveDraft: true,
         footerSaveLabelKey: this.materialFooterSaveLabelKey(),
         isLastStep: false,
         lastStepLabelKey: null,
-        footerBackLabel: null,
+        footerBackLabelKey: null,
       });
       return;
     }
 
     if (this.viewMode === 'bundle-create') {
       if (!this.bundleWizardLayoutActive || this.bundleWizardStepTotal <= 0) {
-        this.detailsModalFooterChromeEvent.emit({
+        this.emitModalFooterChrome({
           active: false,
           showBack: false,
           showSaveDraft: false,
           footerSaveLabelKey: null,
           isLastStep: false,
           lastStepLabelKey: null,
-          footerBackLabel: null,
+          footerBackLabelKey: null,
         });
         return;
       }
@@ -664,7 +843,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
       const desktopBundleWizard = !this.platformService.isMobile() && this.bundleWizardLayoutActive;
       const showFooterBack = desktopBundleWizard ? false : this.bundleWizardStepId !== 'bundleShare';
       const showBundleSaveDraft = !this.editingBundleId;
-      this.detailsModalFooterChromeEvent.emit({
+      this.emitModalFooterChrome({
         active: true,
         showBack: showFooterBack,
         showSaveDraft: showBundleSaveDraft,
@@ -673,7 +852,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
         lastStepLabelKey: bundleLast
           ? (this.editingBundleId ? 'CREATE_MATERIAL.BUNDLE_WIZ_UPDATE' : 'CREATE_MATERIAL.BUNDLE_WIZ_PUBLISH')
           : null,
-        footerBackLabel: showFooterBack ? this.computeBundleWizardFooterBackLabel() : null,
+        footerBackLabelKey: showFooterBack ? this.computeBundleWizardFooterBackLabelKey() : null,
       });
       return;
     }
@@ -690,14 +869,14 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
           ? 'CREATE_MATERIAL.SUBMIT_SAVE'
           : 'CREATE_MATERIAL.SUBMIT_PUBLISH'
         : 'CREATE_MATERIAL.QUIZ_PREVIEW_BTN';
-      this.detailsModalFooterChromeEvent.emit({
+      this.emitModalFooterChrome({
         active: true,
         showBack: true,
         showSaveDraft: true,
         footerSaveLabelKey: this.materialFooterSaveLabelKey(),
         isLastStep: true,
         lastStepLabelKey: lastKey,
-        footerBackLabel: this.translate.instant('COMMON.BACK'),
+        footerBackLabelKey: 'COMMON.BACK',
       });
       return;
     }
@@ -707,29 +886,79 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
       this.currentStep === 'details' &&
       !this.platformService.isMobile();
     if (!desktopDetails || this.detailsWizardStepTotal <= 0) {
-      this.detailsModalFooterChromeEvent.emit({
+      this.emitModalFooterChrome({
         active: false,
         showBack: false,
         showSaveDraft: false,
         footerSaveLabelKey: null,
         isLastStep: false,
         lastStepLabelKey: null,
-        footerBackLabel: null,
+        footerBackLabelKey: null,
       });
       return;
     }
     const t = this.detailsWizardStepTotal;
     const detailsLast = this.detailsWizardStepIndex >= t - 1;
     const detailsHasPrev = this.detailsWizardStepIndex > 0;
-    this.detailsModalFooterChromeEvent.emit({
+    this.emitModalFooterChrome({
       active: true,
       showBack: detailsHasPrev,
       showSaveDraft: true,
       footerSaveLabelKey: this.materialFooterSaveLabelKey(),
       isLastStep: detailsLast,
       lastStepLabelKey: null,
-      footerBackLabel: detailsHasPrev ? this.translate.instant('COMMON.BACK') : null,
+      footerBackLabelKey: detailsHasPrev ? 'COMMON.BACK' : null,
     });
+  }
+
+  /** After step transition animation, focus the primary field on the active wizard step. */
+  private scheduleWizardStepAutofocus(): void {
+    setTimeout(() => this.focusActiveWizardInput(), 420);
+  }
+
+  private focusActiveWizardInput(): void {
+    const root = this.hostEl.nativeElement;
+    let selector: string | null = null;
+
+    if (this.viewMode === 'create' && this.currentStep === 'details' && this.detailsWizardLayoutActive) {
+      const detailsSelectors: Partial<Record<DetailsWizardStepId, string>> = {
+        title: 'input[formControlName="title"]',
+        description: 'textarea[formControlName="description"]',
+        whyTake: 'textarea[formControlName="whyTakeThis"]',
+        languageLevel: 'select[formControlName="language"]',
+        customTopics: '.cm-topic-input',
+        videoUrl: 'input[formControlName="videoUrl"]',
+        listeningAudio: 'input[formControlName="audioUrl"]',
+        readingPassage: '.cm-quill-wrapper .ql-editor',
+      };
+      selector = detailsSelectors[this.detailsWizardStepId] ?? null;
+      if (this.detailsWizardStepId === 'tags') {
+        selector = 'app-tag-picker .tp-search-input';
+      }
+    } else if (this.viewMode === 'bundle-create' && this.bundleWizardLayoutActive) {
+      const bundleSelectors: Partial<Record<BundleWizardStepId, string>> = {
+        bundleTitle: 'input[type="text"]',
+        bundleDescription: 'textarea',
+        bundleLanguageLevel: 'select',
+        bundlePrice: '.cm-bundle-price-input input[type="number"]',
+      };
+      selector = bundleSelectors[this.bundleWizardStepId] ?? null;
+      if (this.bundleWizardStepId === 'bundleTags') {
+        selector = 'app-tag-picker .tp-search-input';
+      }
+    }
+
+    if (!selector) return;
+
+    const scope =
+      (root.querySelector('.cm-details-wizard--split, .cm-bundle-wizard') as HTMLElement | null) ?? root;
+    const el = scope.querySelector(selector) as HTMLElement | null;
+    if (!el || typeof el.focus !== 'function') return;
+    try {
+      el.focus({ preventScroll: true });
+    } catch {
+      el.focus();
+    }
   }
 
   private materialFooterSaveLabelKey(): string {
@@ -816,9 +1045,15 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
   }
 
   private scrollDetailsWizardIntoView(): void {
-    setTimeout(() => {
-      document.querySelector('.cm-details-wizard-scroll')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-    }, 0);
+    requestAnimationFrame(() => {
+      const root = this.hostEl.nativeElement;
+      const splitScroll = root.querySelector('.cm-details-wizard--split .ob-wizard-split-main-scroll') as HTMLElement | null;
+      if (splitScroll) {
+        splitScroll.scrollTop = 0;
+        return;
+      }
+      root.querySelector('.cm-details-wizard-scroll')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    });
   }
 
   private initBundleWizard(): void {
@@ -860,6 +1095,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     } else if (this.inline) {
       this.emitDetailsModalFooterChrome();
     }
+    this.refreshModalFooterChrome();
     this.cdr.markForCheck();
   }
 
@@ -878,9 +1114,18 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     const copy = this.bundleWizardCopyKeys[id];
     this.bundleWizardHeadlineKey = copy.h;
     this.bundleWizardSublineKey = copy.d;
+    this.bundleWizardGuidanceItems =
+      BUNDLE_WIZARD_GUIDANCE[id] ?? BUNDLE_WIZARD_GUIDANCE.bundleShare;
+    this.bundleWizardGuidanceStepNumber = this.bundleCreateFlowStepIndex;
     this.syncBundleWizardProgress();
     this.emitDetailsModalFooterChrome();
     this.syncModalTopbarChrome();
+    this.scheduleWizardStepAutofocus();
+  }
+
+  onBundleWizardFieldChange(): void {
+    this.refreshModalFooterChrome();
+    this.cdr.markForCheck();
   }
 
   private resetBundleWizardState(): void {
@@ -960,9 +1205,17 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
   }
 
   private scrollBundleWizardIntoView(): void {
-    setTimeout(() => {
-      document.querySelector('.cm-bundle-wizard .cm-details-wizard-scroll')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-    }, 0);
+    requestAnimationFrame(() => {
+      const root = this.hostEl.nativeElement;
+      const splitScroll = root.querySelector(
+        '.cm-bundle-wizard.cm-details-wizard--split .ob-wizard-split-main-scroll'
+      ) as HTMLElement | null;
+      if (splitScroll) {
+        splitScroll.scrollTop = 0;
+        return;
+      }
+      root.querySelector('.cm-bundle-wizard .cm-details-wizard-scroll')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    });
   }
 
   /** Desktop modal footer: material details wizard or bundle wizard. */
@@ -1011,6 +1264,14 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
       this.onBundleWizardBack();
       return;
     }
+    if (this.currentStep === 'preview') {
+      this.goBack();
+      return;
+    }
+    if (this.currentStep === 'quiz') {
+      this.returnToDetailsWizardFromQuiz();
+      return;
+    }
     this.onDetailsWizardBack();
   }
 
@@ -1050,14 +1311,14 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
         this.bundleWizardStepIndex > 0;
     }
     const centerStepLabel = this.computeModalCenterStepLabel();
-    let topbarBundleWizardBackLabel = '';
+    let topbarBundleWizardBackLabelKey = 'CREATE_MATERIAL.NAV_BACK_SHORT';
     if (
       showBundleWizardGoBack &&
       this.bundleWizardStepIndex > 0 &&
       this.bundleWizardStepIds?.length
     ) {
       const prevId = this.bundleWizardStepIds[this.bundleWizardStepIndex - 1];
-      topbarBundleWizardBackLabel = this.translateBundleWizardPrevStepHeadline(prevId);
+      topbarBundleWizardBackLabelKey = this.bundleWizardPrevStepHeadlineKey(prevId);
     }
     this.modalTopbarChromeEvent.emit({
       showSaveExit,
@@ -1065,8 +1326,8 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
       showBundleShareGoBack,
       showBundleWizardGoBack,
       centerStepLabel,
-      topbarNavBackLabel: this.navBackLabel,
-      topbarBundleWizardBackLabel,
+      topbarNavBackLabelKey: this.navBackLabelKey,
+      topbarBundleWizardBackLabelKey,
       isEditingBundle: !!this.editingBundleId,
       isEditingMaterial: !!this.editingMaterialId,
     });
@@ -1075,35 +1336,10 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
   /** Sub-step count for details + quiz + preview (matches mobile), or bundle wizard steps; null when N/A. */
   private computeModalCenterStepLabel(): string | null {
     if (this.editingMaterialId) return null;
-    if (this.viewMode === 'bundle-create' && this.bundleWizardLayoutActive && this.bundleWizardStepTotal > 0) {
-      if (this.bundleWizardStepIndex === 0) return null;
-      const contentSteps = this.bundleWizardStepTotal - 1;
-      if (contentSteps <= 0) return null;
-      return `${this.bundleWizardStepIndex}/${contentSteps}`;
+    if (this.viewMode === 'bundle-create' && this.bundleWizardLayoutActive) {
+      return null;
     }
-    if (this.viewMode !== 'create') return null;
-    if (this.currentStep === 'type' || this.currentStep === 'pricing') return null;
-    if (!this.selectedType || !this.selectedPricing) return null;
-    const dLen = this.detailsWizardStepTotal;
-    const subtotal = dLen + 2;
-    if (this.currentStep === 'details') {
-      if (this.detailsWizardLayoutActive && dLen > 0) {
-        return `${this.detailsWizardStepIndex + 1}/${subtotal}`;
-      }
-      return `${this.stepNumber}/${this.totalSteps}`;
-    }
-    if (this.currentStep === 'quiz') {
-      if (this.detailsWizardLayoutActive && dLen > 0) {
-        return `${dLen + 1}/${subtotal}`;
-      }
-      return `${this.stepNumber}/${this.totalSteps}`;
-    }
-    if (this.currentStep === 'preview') {
-      if (this.detailsWizardLayoutActive && dLen > 0) {
-        return `${dLen + 2}/${subtotal}`;
-      }
-      return `${this.stepNumber}/${this.totalSteps}`;
-    }
+    if (this.viewMode === 'create') return null;
     return null;
   }
 
@@ -1291,6 +1527,73 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
 
   dismissPublishBanner() {
     this.justPublishedId = null;
+  }
+
+  onMaterialVisibilityToggle(m: TutorMaterial, event: Event) {
+    const toggle = event.target as HTMLIonToggleElement | null;
+    const wantsPublic = !!toggle?.checked;
+    const isPublic = m.visibility === 'public';
+
+    if (wantsPublic === isPublic || this.visibilityUpdatingId === m._id) {
+      if (toggle) toggle.checked = isPublic;
+      return;
+    }
+
+    if (wantsPublic) {
+      if (toggle) toggle.checked = false;
+      void this.confirmMakeMaterialPublic(m, toggle);
+      return;
+    }
+
+    this.applyMaterialVisibility(m, 'private');
+  }
+
+  async confirmMakeMaterialPublic(m: TutorMaterial, toggle: HTMLIonToggleElement | null) {
+    const alert = await this.alertCtrl.create({
+      header: this.translate.instant('CREATE_MATERIAL.ALERT_MAKE_PUBLIC_TITLE'),
+      message: this.translate.instant('CREATE_MATERIAL.ALERT_MAKE_PUBLIC_MSG', { title: m.title }),
+      buttons: [
+        { text: this.translate.instant('COMMON.CANCEL'), role: 'cancel' },
+        {
+          text: this.translate.instant('CREATE_MATERIAL.ALERT_MAKE_PUBLIC_BTN'),
+          role: 'confirm',
+        },
+      ],
+    });
+    await alert.present();
+    const { role } = await alert.onDidDismiss();
+    if (role === 'confirm') {
+      this.applyMaterialVisibility(m, 'public', toggle);
+    } else if (toggle) {
+      toggle.checked = false;
+    }
+  }
+
+  applyMaterialVisibility(
+    m: TutorMaterial,
+    visibility: 'private' | 'public',
+    toggle?: HTMLIonToggleElement | null
+  ) {
+    this.visibilityUpdatingId = m._id;
+    this.cdr.markForCheck();
+    this.materialService.updateMaterial(m._id, { visibility }).subscribe({
+      next: (res) => {
+        this.visibilityUpdatingId = null;
+        if (res.success) {
+          m.visibility = visibility;
+          if (toggle) toggle.checked = visibility === 'public';
+        } else if (toggle) {
+          toggle.checked = m.visibility === 'public';
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.visibilityUpdatingId = null;
+        if (toggle) toggle.checked = m.visibility === 'public';
+        void this.showTranslatedToast('CREATE_MATERIAL.TOAST_VISIBILITY_FAILED');
+        this.cdr.markForCheck();
+      },
+    });
   }
 
   // ── Thumbnail ─────────────────────────────────────────
@@ -1666,22 +1969,160 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     if (!this.inline) return false;
     if (this.detailsWizardLayoutActive) return true;
     return (
-      this.viewMode === 'create' &&
-      this.currentStep === 'pricing' &&
-      !this.editingMaterialId &&
-      !this.platformService.isMobile()
+      this.materialPricingSplitWizardActive ||
+      this.materialQuizSplitWizardActive ||
+      this.materialPreviewSplitWizardActive
     );
   }
 
-  /** Pricing step DOM matches bundle wizard `bundleShare` (desktop inline modal only). */
-  get materialPricingDesktopInlineWizard(): boolean {
+  /** Desktop pricing step uses split guidance + form layout. */
+  /** Desktop bundle wizard uses split guidance + form layout. */
+  get bundleCreateSplitWizardActive(): boolean {
     return (
-      this.inline &&
+      !this.platformService.isMobile() &&
+      this.viewMode === 'bundle-create' &&
+      this.bundleWizardLayoutActive
+    );
+  }
+
+  get bundleWizardFlowTitleKey(): string {
+    return this.bundleWizardStepId === 'bundleShare'
+      ? this.bundleWizardShareFlowTitleKey
+      : this.bundleWizardDetailsFlowTitleKey;
+  }
+
+  get bundleCreateFlowStepIndex(): number {
+    return this.bundleWizardStepIndex + 1;
+  }
+
+  get bundleCreateFlowProgressPercent(): number {
+    const t = this.bundleWizardStepTotal;
+    if (t <= 0) return 100;
+    return (this.bundleCreateFlowStepIndex / t) * 100;
+  }
+
+  get bundleWizardSplitProgressPercent(): number {
+    return this.bundleCreateFlowProgressPercent;
+  }
+
+  get materialPricingSplitWizardActive(): boolean {
+    return (
       !this.platformService.isMobile() &&
       this.viewMode === 'create' &&
       this.currentStep === 'pricing' &&
       !this.editingMaterialId
     );
+  }
+
+  /** Details sub-wizard, pricing, quiz, or preview — two-column split layout. */
+  get materialCreateSplitWizardActive(): boolean {
+    return (
+      this.detailsWizardLayoutActive ||
+      this.materialPricingSplitWizardActive ||
+      this.materialQuizSplitWizardActive ||
+      this.materialPreviewSplitWizardActive
+    );
+  }
+
+  /** Desktop quiz builder uses split guidance + form layout. */
+  get materialQuizSplitWizardActive(): boolean {
+    return (
+      !this.platformService.isMobile() &&
+      this.viewMode === 'create' &&
+      this.currentStep === 'quiz' &&
+      !this.editingMaterialId
+    );
+  }
+
+  /** Desktop preview step uses split guidance + preview layout. */
+  get materialPreviewSplitWizardActive(): boolean {
+    return (
+      !this.platformService.isMobile() &&
+      this.viewMode === 'create' &&
+      this.currentStep === 'preview' &&
+      !this.editingMaterialId
+    );
+  }
+
+  /** Details sub-steps + quiz + preview share one step counter on desktop. */
+  get materialCreateFlowSubtotal(): number {
+    const d = this.detailsWizardStepTotal;
+    return d > 0 ? d + 2 : 0;
+  }
+
+  get materialCreateUsesUnifiedFlowStepper(): boolean {
+    return (
+      !this.platformService.isMobile() &&
+      !this.editingMaterialId &&
+      this.viewMode === 'create' &&
+      this.materialCreateFlowSubtotal > 0 &&
+      (this.currentStep === 'details' ||
+        this.currentStep === 'quiz' ||
+        this.currentStep === 'preview')
+    );
+  }
+
+  get materialCreateFlowStepIndex(): number {
+    const d = this.detailsWizardStepTotal;
+    if (this.currentStep === 'details') {
+      return this.detailsWizardStepIndex + 1;
+    }
+    if (this.currentStep === 'quiz') {
+      return d + 1;
+    }
+    if (this.currentStep === 'preview') {
+      return d + 2;
+    }
+    return this.stepNumber;
+  }
+
+  get materialCreateFlowProgressPercent(): number {
+    const sub = this.materialCreateFlowSubtotal;
+    if (sub <= 0) {
+      return (this.stepNumber / this.totalSteps) * 100;
+    }
+    return (this.materialCreateFlowStepIndex / sub) * 100;
+  }
+
+  get materialCreateFlowStepIndicator(): string {
+    const sub = this.materialCreateFlowSubtotal;
+    if (sub <= 0) {
+      return `${this.stepNumber}/${this.totalSteps}`;
+    }
+    return `${this.materialCreateFlowStepIndex}/${sub}`;
+  }
+
+  get detailsWizardSplitStepIndicator(): string {
+    if (this.materialCreateUsesUnifiedFlowStepper) {
+      return this.materialCreateFlowStepIndicator;
+    }
+    return `${this.detailsWizardStepIndex + 1}/${this.detailsWizardStepTotal}`;
+  }
+
+  get detailsWizardSplitProgressPercent(): number {
+    if (this.materialCreateUsesUnifiedFlowStepper) {
+      return this.materialCreateFlowProgressPercent;
+    }
+    return this.detailsWizardProgressPercent;
+  }
+
+  /** @deprecated Use materialCreateFlowProgressPercent */
+  get materialQuizWizardProgressPercent(): number {
+    return this.materialCreateFlowProgressPercent;
+  }
+
+  /** @deprecated Use materialCreateFlowStepIndicator */
+  get materialQuizStepIndicator(): string {
+    return this.materialCreateFlowStepIndicator;
+  }
+
+  get materialPricingWizardProgressPercent(): number {
+    return (this.stepNumber / this.totalSteps) * 100;
+  }
+
+  /** @deprecated Use materialPricingSplitWizardActive */
+  get materialPricingDesktopInlineWizard(): boolean {
+    return this.inline && this.materialPricingSplitWizardActive;
   }
 
   /** Desktop: no top step progress on type picker or share/pricing (clean intro steps). */
@@ -1692,7 +2133,10 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
       this.viewMode === 'create' &&
       !this.platformService.isMobile() &&
       !this.editingMaterialId &&
-      (this.currentStep === 'type' || this.currentStep === 'pricing')
+      (this.currentStep === 'type' ||
+        this.currentStep === 'pricing' ||
+        this.materialQuizSplitWizardActive ||
+        this.materialPreviewSplitWizardActive)
     ) {
       return false;
     }
@@ -1807,9 +2251,8 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
 
   parseVideoUrl(url: string) {
     if (!url) {
-      this.videoPreviewUrl = null;
-      this.videoAutoplayUrl = null;
-      this.videoThumbnail = null;
+      console.debug('[video-embed] parseVideoUrl: empty url, resetting');
+      this.resetVideoEmbedState();
       return;
     }
 
@@ -1820,32 +2263,72 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     for (const pat of ytPatterns) {
       const m = url.match(pat);
       if (m) {
+        const videoId = m[1];
+        // widget_referrer identifies this app to YouTube even when the HTTP Referer is
+        // empty (Capacitor WebView, no-referrer policies, etc.) — per
+        // https://developers.google.com/youtube/terms/required-minimum-functionality#embedded-player-api-client-identity
+        const widgetReferrer = encodeURIComponent('https://barnabi.ai');
         this.videoPreviewUrl = this.sanitizer.bypassSecurityTrustResourceUrl(
-          `https://www.youtube.com/embed/${m[1]}?modestbranding=1&rel=0&showinfo=0`
+          `https://www.youtube.com/embed/${videoId}?modestbranding=1&rel=0&showinfo=0&widget_referrer=${widgetReferrer}`
         );
         this.videoAutoplayUrl = this.sanitizer.bypassSecurityTrustResourceUrl(
-          `https://www.youtube.com/embed/${m[1]}?modestbranding=1&rel=0&showinfo=0&autoplay=1`
+          `https://www.youtube.com/embed/${videoId}?modestbranding=1&rel=0&showinfo=0&autoplay=1&widget_referrer=${widgetReferrer}`
         );
-        this.videoThumbnail = `https://img.youtube.com/vi/${m[1]}/hqdefault.jpg`;
+        this.videoThumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+        this.videoEmbedProvider = 'youtube';
+        this.videoExternalWatchUrl = `https://www.youtube.com/watch?v=${videoId}`;
+        console.debug('[video-embed] parseVideoUrl: matched YouTube id =', videoId);
+        this.markVideoEmbedReady('youtube', videoId);
         return;
       }
     }
 
     const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
     if (vimeoMatch) {
+      const videoId = vimeoMatch[1];
       this.videoPreviewUrl = this.sanitizer.bypassSecurityTrustResourceUrl(
-        `https://player.vimeo.com/video/${vimeoMatch[1]}?title=0&byline=0&portrait=0`
+        `https://player.vimeo.com/video/${videoId}?title=0&byline=0&portrait=0`
       );
       this.videoAutoplayUrl = this.sanitizer.bypassSecurityTrustResourceUrl(
-        `https://player.vimeo.com/video/${vimeoMatch[1]}?title=0&byline=0&portrait=0&autoplay=1`
+        `https://player.vimeo.com/video/${videoId}?title=0&byline=0&portrait=0&autoplay=1`
       );
       this.videoThumbnail = null;
+      this.videoEmbedProvider = 'vimeo';
+      this.videoExternalWatchUrl = `https://vimeo.com/${videoId}`;
+      console.debug('[video-embed] parseVideoUrl: matched Vimeo id =', videoId);
+      this.markVideoEmbedReady('vimeo', videoId);
       return;
     }
 
+    console.debug('[video-embed] parseVideoUrl: no match for url =', url);
+    this.resetVideoEmbedState();
+  }
+
+  private resetVideoEmbedState(): void {
     this.videoPreviewUrl = null;
     this.videoAutoplayUrl = null;
     this.videoThumbnail = null;
+    this.videoEmbedProvider = null;
+    this.videoExternalWatchUrl = null;
+    this.videoEmbeddability = 'idle';
+    this.videoEmbedErrorCode = null;
+    this.videoEmbedCheckedKey = null;
+    this.videoEmbedCurrentKey = null;
+  }
+
+  private markVideoEmbedReady(provider: 'youtube' | 'vimeo', id: string): void {
+    const key = `${provider}:${id}`;
+    this.videoEmbedCurrentKey = key;
+    this.videoEmbedCheckedKey = key;
+    this.videoEmbeddability = 'embeddable';
+    this.videoEmbedErrorCode = null;
+    this.cdr.markForCheck();
+  }
+
+  get videoEmbedProviderLabel(): string {
+    if (this.videoEmbedProvider === 'youtube') return 'YouTube';
+    if (this.videoEmbedProvider === 'vimeo') return 'Vimeo';
+    return '';
   }
 
   // ── Audio URL parsing ──────────────────────────────────
@@ -1958,6 +2441,35 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     }
 
     this.quizArray.push(group);
+    const newIndex = this.quizArray.length - 1;
+    this.refreshModalFooterChrome();
+    this.cdr.detectChanges();
+    this.scrollQuizQuestionIntoView(newIndex);
+  }
+
+  private scrollQuizQuestionIntoView(questionIndex: number): void {
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        const root = this.hostEl.nativeElement;
+        const scrollRoot =
+          (root.querySelector('.cm-quiz-wizard .ob-wizard-split-main-scroll') as HTMLElement | null) ||
+          (root.querySelector('.cm-step--quiz') as HTMLElement | null);
+        const card = root.querySelector(`#cm-question-${questionIndex}`) as HTMLElement | null;
+        if (!card) return;
+
+        if (scrollRoot && typeof scrollRoot.scrollTo === 'function') {
+          const scrollRect = scrollRoot.getBoundingClientRect();
+          const cardRect = card.getBoundingClientRect();
+          const offset = cardRect.top - scrollRect.top + scrollRoot.scrollTop - 24;
+          scrollRoot.scrollTo({ top: Math.max(0, offset), behavior: 'smooth' });
+        } else {
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        const questionInput = card.querySelector('input[formControlName="question"]') as HTMLInputElement | null;
+        questionInput?.focus({ preventScroll: true });
+      }, 400);
+    });
   }
 
   getQuestionType(qi: number): QuestionType {
@@ -1997,6 +2509,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
 
   removeQuestion(index: number) {
     this.quizArray.removeAt(index);
+    this.refreshModalFooterChrome();
   }
 
   setCorrectAnswer(questionIndex: number, optionIndex: number) {
@@ -2099,6 +2612,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
           this.editingYouTube = false;
           this.editingVimeo = false;
           this.editingSoundCloud = false;
+          this.updateVideoChannelStatus();
           if (!this.linkedChannels.youtubeChannelName && this.linkedChannels.youtubeChannelUrl) {
             await this.showTranslatedToast('CREATE_MATERIAL.TOAST_YT_URL_WARNING');
           } else {
@@ -2124,6 +2638,34 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
       (this.linkedChannels.youtubeChannelName && this.linkedChannels.youtubeVerified) ||
       (this.linkedChannels.vimeoChannelName && this.linkedChannels.vimeoVerified)
     );
+    if (this.hasVideoChannel && this.showChannelLinking) {
+      this.closeChannelLinking();
+    }
+  }
+
+  openChannelLinking() {
+    const wasOpen = this.showChannelLinking;
+    this.showChannelLinking = true;
+    this.cdr.detectChanges();
+    if (!wasOpen && this.viewMode === 'create' && this.currentStep === 'type') {
+      this.scrollTypeChannelLinkingIntoView();
+    }
+  }
+
+  private scrollTypeChannelLinkingIntoView() {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const panel = this.hostEl.nativeElement.querySelector('.cm-type-channel-linking') as HTMLElement | null;
+        panel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+  }
+
+  closeChannelLinking() {
+    this.showChannelLinking = false;
+    this.editingYouTube = false;
+    this.editingVimeo = false;
+    this.editingSoundCloud = false;
   }
 
   linkYouTube() {
@@ -2569,6 +3111,9 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     };
 
     payload.contentAttested = this.contentAttested;
+    if (!this.editingMaterialId) {
+      payload.visibility = 'private';
+    }
 
     if (this.selectedType === 'video_quiz') {
       payload.videoUrl = this.materialForm.value.videoUrl;
@@ -2602,16 +3147,48 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
           const publishedId = !isEditing && res.material?._id ? res.material._id : null;
           this.resetForm();
           this.viewMode = 'library';
-          this.updateNavState();
-          this.loadMyMaterials();
+          this.libraryTab = 'materials';
+          this.showBundlesList = false;
+
           if (publishedId) {
             this.justPublishedId = publishedId;
+            this.showMaterialsList = true;
+            if (this.inline) {
+              this.modalExpandEvent.emit(true);
+              this.emitModalSidebarTabSync('materials');
+            }
+          } else {
+            this.showMaterialsList = false;
           }
 
-          if (srcRect && !isEditing) {
-            this.animatePublish(srcRect);
+          this.updateNavState();
+
+          if (srcRect && publishedId) {
+            this.isLoadingMaterials = true;
+            this.materialService.getMyMaterials().subscribe({
+              next: (listRes) => {
+                this.isLoadingMaterials = false;
+                this.myMaterials = listRes.success ? listRes.materials : [];
+                const idx = this.myMaterials.findIndex((m) => m._id === publishedId);
+                if (idx > 0) {
+                  const [published] = this.myMaterials.splice(idx, 1);
+                  this.myMaterials.unshift(published);
+                }
+                this.cdr.detectChanges();
+                requestAnimationFrame(() => this.animatePublish(srcRect, publishedId));
+              },
+              error: () => {
+                this.isLoadingMaterials = false;
+                this.myMaterials = [];
+                this.cdr.markForCheck();
+                void this.showTranslatedToast('CREATE_MATERIAL.TOAST_MATERIAL_PUBLISHED');
+              },
+            });
           } else {
-            await this.showTranslatedToast(isEditing ? 'CREATE_MATERIAL.TOAST_MATERIAL_UPDATED' : 'CREATE_MATERIAL.TOAST_MATERIAL_PUBLISHED');
+            this.loadMyMaterials();
+            await this.showTranslatedToast(
+              isEditing ? 'CREATE_MATERIAL.TOAST_MATERIAL_UPDATED' : 'CREATE_MATERIAL.TOAST_MATERIAL_PUBLISHED'
+            );
           }
         }
       },
@@ -2629,9 +3206,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     this.currentStep = 'type';
     this.materialForm.reset({ level: 'any', price: 0 });
     this.quizArray.clear();
-    this.videoPreviewUrl = null;
-    this.videoAutoplayUrl = null;
-    this.videoThumbnail = null;
+    this.resetVideoEmbedState();
     this.audioPreviewUrl = null;
     this.audioProviderType = null;
     this.thumbnailFile = null;
@@ -2656,7 +3231,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
 
   // ── Publish FLIP animation ─────────────────────────────
 
-  private animatePublish(srcRect: DOMRect) {
+  private animatePublish(srcRect: DOMRect, materialId?: string | null) {
     const clone = document.createElement('div');
     Object.assign(clone.style, {
       position: 'fixed',
@@ -2679,9 +3254,13 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
 
     this.cdr.detectChanges();
 
+    const destSelector = materialId
+      ? `.cm-material-card[data-material-id="${materialId}"]`
+      : '.cm-material-card';
+
     const pollForDest = (attempts: number) => {
       requestAnimationFrame(() => {
-        const dest = document.querySelector('.cm-material-card') as HTMLElement;
+        const dest = document.querySelector(destSelector) as HTMLElement;
         if (dest) {
           const destRect = dest.getBoundingClientRect();
 
@@ -2700,7 +3279,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
               setTimeout(() => clone.remove(), 200);
             }, 500);
           });
-        } else if (attempts < 10) {
+        } else if (attempts < 40) {
           setTimeout(() => pollForDest(attempts + 1), 50);
         } else {
           clone.style.opacity = '0';
@@ -2902,6 +3481,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     } else {
       this.bundleSelectedMaterialIds = [...this.bundleSelectedMaterialIds, materialId];
     }
+    this.onBundleWizardFieldChange();
   }
 
   get publishedMaterials(): TutorMaterial[] {

@@ -6,7 +6,8 @@
       <ion-buttons slot="start">
         <!-- Home (no back): Barnabi bird + name — same as desktop toolbar -->
         <div class="app-icon-container brand-default mobile-toolbar-brand-home" *ngIf="showMobileBarnabiInToolbar" (click)="navigateTo('/tabs/home')">
-          <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="app-icon">
+          <img src="assets/mascot-toolbar.png" alt="Barnabi" class="app-icon app-icon--mascot barnabi-mascot-for-light-ui" width="48" height="48" decoding="sync">
+          <img src="assets/mascot-toolbar-dark.png" alt="" class="app-icon app-icon--mascot barnabi-mascot-for-dark-ui" width="48" height="48" decoding="sync" aria-hidden="true">
           <img src="assets/barnabi-logo.png" alt="Barnabi" class="app-name-logo barnabi-wordmark-for-light-ui" />
           <img src="assets/barnabi-logo-wordmark-white.png" alt="" class="app-name-logo barnabi-wordmark-for-dark-ui" aria-hidden="true" />
         </div>
@@ -46,7 +47,8 @@
     <ion-toolbar class="desktop-nav-toolbar">
       <!-- App Icon -->
       <div class="app-icon-container" slot="start" (click)="navigateTo('/tabs/home')">
-        <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="app-icon">
+        <img src="assets/mascot-toolbar.png" alt="Barnabi" class="app-icon app-icon--mascot barnabi-mascot-for-light-ui" width="48" height="48" decoding="sync">
+        <img src="assets/mascot-toolbar-dark.png" alt="" class="app-icon app-icon--mascot barnabi-mascot-for-dark-ui" width="48" height="48" decoding="sync" aria-hidden="true">
         <img src="assets/barnabi-logo.png" alt="Barnabi" class="app-name-logo barnabi-wordmark-for-light-ui" />
         <img src="assets/barnabi-logo-wordmark-white.png" alt="" class="app-name-logo barnabi-wordmark-for-dark-ui" aria-hidden="true" />
       </div>
@@ -159,9 +161,8 @@
       </div>
 
       <ng-container *ngIf="formattedNotifications$ | async as notifications">
-        <!-- Important Section (Unread Notifications) -->
+        <!-- Unread Notifications -->
         <div class="notification-section" *ngIf="!isLoadingNotifications && (notifications | notificationFilter:'unread').length > 0">
-          <h4 class="notification-section-title">{{ 'NOTIFICATIONS.DROPDOWN.IMPORTANT' | translate }}</h4>
           <div class="notification-item" 
                *ngFor="let notification of (notifications | notificationFilter:'unread'); trackBy: trackByNotificationId"
                [class.unread]="!notification.read"

@@ -67,7 +67,7 @@ ion-content {
     display: flex;
     flex-direction: column;
     border-right: 1px solid #EBEBEB;
-    overflow-y: auto;
+    overflow: hidden;
     z-index: 1;
 }
 
@@ -117,7 +117,12 @@ ion-content {
   flex-direction: column;
   gap: 24px;
   flex: 1;
-  
+  min-height: 0;
+
+  @media (min-width: 769px) {
+    overflow: hidden;
+  }
+
   // Mobile: collapsed by default
   @media (max-width: 768px) {
     max-height: 0;
@@ -137,6 +142,20 @@ ion-content {
   position: relative;
   flex-direction: column;
   top: 10px;
+  flex-shrink: 0;
+}
+
+// Scrollable sidebar sections — scrollbar does not affect the action button above
+.sidebar-scroll-body {
+  @media (min-width: 769px) {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    scrollbar-gutter: stable;
+  }
 }
 
 .schedule-lesson-btn {
@@ -580,6 +599,7 @@ ion-content {
     flex: 1;
     display: flex;
     flex-direction: column;
+    gap: 4px;
 
     .toggle-title {
       font-size: 12px;
@@ -591,6 +611,12 @@ ion-content {
       font-size: 11px;
       color: #8e8e93;
       line-height: 1.4;
+
+      .tc-brand-name-logo {
+        height: 12px;
+        width: auto;
+        vertical-align: middle;
+      }
     }
   }
 

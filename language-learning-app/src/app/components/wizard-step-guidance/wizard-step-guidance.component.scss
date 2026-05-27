@@ -107,6 +107,14 @@ $ob-text-secondary: #717171;
     }
   }
 
+  &--paid {
+    background: #eff6ff;
+
+    ion-icon {
+      color: #2563eb;
+    }
+  }
+
   &--recent,
   &--quick,
   &--weekly {
