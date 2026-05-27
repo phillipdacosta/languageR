@@ -10109,6 +10109,9 @@ navigateToLessons() {
         cmRef.showMaterialsList = true;
       } else {
         cmRef.showBundlesList = true;
+        if (typeof cmRef.loadBundles === 'function') {
+          cmRef.loadBundles();
+        }
       }
     }
     this.cdr.detectChanges();

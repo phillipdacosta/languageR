@@ -2049,7 +2049,9 @@
     "LABEL_OPTIONAL": "Optioneel",
     "BUNDLE_MATERIAL_QUESTIONS": "{{count}} vragen",
     "BUNDLE_PAID_IN_FREE_TITLE": "Let op: je neemt betaalde materialen op in een gratis bundel",
-    "BUNDLE_PAID_IN_FREE_BODY": "{{count}} betaald materiaal ter waarde van in totaal $ {{total}} wordt gratis voor iedereen die deze bundel krijgt. Dit is prima als je deze bundel wilt gebruiken om studenten aan te trekken; zorg er wel voor dat dit opzettelijk is gedaan."
+    "BUNDLE_PAID_IN_FREE_BODY": "{{count}} betaald materiaal ter waarde van in totaal $ {{total}} wordt gratis voor iedereen die deze bundel krijgt. Dit is prima als je deze bundel wilt gebruiken om studenten aan te trekken; zorg er wel voor dat dit opzettelijk is gedaan.",
+    "BUNDLES_LIST_EMPTY_TITLE": "Creëer je eerste bundel",
+    "BUNDLES_LIST_EMPTY_DESC": "Groepeer uw materialen in een gestructureerd leerpakket dat leerlingen samen kunnen ontgrendelen."
   },
   "EXPLORE_CLASSES": {
     "PAGE_TITLE": "Lessen Verkennen",

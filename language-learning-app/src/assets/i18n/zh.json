@@ -2049,7 +2049,9 @@
     "LABEL_OPTIONAL": "选修的",
     "BUNDLE_MATERIAL_QUESTIONS": "0问题",
     "BUNDLE_PAID_IN_FREE_TITLE": "请注意 — 您将在免费捆绑包中包含付费材料",
-    "BUNDLE_PAID_IN_FREE_BODY": "任何获得此捆绑包的人都将免费获得总价值为 1 美元的 0 份付费材料。如果你想用这个捆绑包来吸引学生，这很好——只要确保它是有意的。"
+    "BUNDLE_PAID_IN_FREE_BODY": "任何获得此捆绑包的人都将免费获得总价值为 1 美元的 0 份付费材料。如果你想用这个捆绑包来吸引学生，这很好——只要确保它是有意的。",
+    "BUNDLES_LIST_EMPTY_TITLE": "创建您的第一个捆绑包",
+    "BUNDLES_LIST_EMPTY_DESC": "将您的材料分组到一个结构化的学习包中，学生可以一起解锁。"
   },
   "EXPLORE_CLASSES": {
     "PAGE_TITLE": "探索课程",

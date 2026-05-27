@@ -2213,7 +2213,9 @@
     "LABEL_OPTIONAL": "Facultatif",
     "BUNDLE_MATERIAL_QUESTIONS": "{{count}} questions",
     "BUNDLE_PAID_IN_FREE_TITLE": "Attention : vous incluez du matériel payant dans un ensemble gratuit",
-    "BUNDLE_PAID_IN_FREE_BODY": "{{count}} matériel(s) payant(s) d'une valeur totale de {{total}} $ deviendront gratuits pour tous ceux qui recevront ce lot. C'est très bien si vous souhaitez utiliser cet ensemble pour attirer des étudiants – assurez-vous simplement que c'est intentionnel."
+    "BUNDLE_PAID_IN_FREE_BODY": "{{count}} matériel(s) payant(s) d'une valeur totale de {{total}} $ deviendront gratuits pour tous ceux qui recevront ce lot. C'est très bien si vous souhaitez utiliser cet ensemble pour attirer des étudiants – assurez-vous simplement que c'est intentionnel.",
+    "BUNDLES_LIST_EMPTY_TITLE": "Créez votre premier forfait",
+    "BUNDLES_LIST_EMPTY_DESC": "Regroupez vos supports dans un pack d'apprentissage structuré que les étudiants peuvent débloquer ensemble."
   },
   "EXPLORE_CLASSES": {
     "PAGE_TITLE": "Explorer les Cours",

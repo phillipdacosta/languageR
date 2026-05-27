@@ -2048,7 +2048,9 @@
     "LABEL_OPTIONAL": "Opsional",
     "BUNDLE_MATERIAL_QUESTIONS": "0 pertanyaan",
     "BUNDLE_PAID_IN_FREE_TITLE": "Perhatian — Anda menyertakan materi berbayar dalam paket gratis",
-    "BUNDLE_PAID_IN_FREE_BODY": "0 materi berbayar senilai total ${{total}} akan menjadi gratis bagi siapa saja yang mendapatkan bundel ini. Tidak masalah jika Anda ingin menggunakan paket ini untuk menarik siswa — pastikan saja hal tersebut disengaja."
+    "BUNDLE_PAID_IN_FREE_BODY": "0 materi berbayar senilai total ${{total}} akan menjadi gratis bagi siapa saja yang mendapatkan bundel ini. Tidak masalah jika Anda ingin menggunakan paket ini untuk menarik siswa — pastikan saja hal tersebut disengaja.",
+    "BUNDLES_LIST_EMPTY_TITLE": "Buat bundel pertama Anda",
+    "BUNDLES_LIST_EMPTY_DESC": "Kelompokkan materi Anda ke dalam paket pembelajaran terstruktur yang dapat dibuka bersama oleh siswa."
   },
   "EXPLORE_CLASSES": {
     "PAGE_TITLE": "Jelajahi Kelas",

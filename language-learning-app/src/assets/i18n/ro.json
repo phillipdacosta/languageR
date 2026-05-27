@@ -2048,7 +2048,9 @@
     "LABEL_OPTIONAL": "Opțional",
     "BUNDLE_MATERIAL_QUESTIONS": "{{count}} întrebări",
     "BUNDLE_PAID_IN_FREE_TITLE": "Atenție — includeți materiale plătite într-un pachet gratuit",
-    "BUNDLE_PAID_IN_FREE_BODY": "{{count}} materiale plătite în valoare totală de ${{total}} vor ​​deveni gratuite pentru oricine primește acest pachet. Este în regulă dacă doriți să utilizați acest pachet pentru a atrage studenți - asigurați-vă doar că este intenționat."
+    "BUNDLE_PAID_IN_FREE_BODY": "{{count}} materiale plătite în valoare totală de ${{total}} vor ​​deveni gratuite pentru oricine primește acest pachet. Este în regulă dacă doriți să utilizați acest pachet pentru a atrage studenți - asigurați-vă doar că este intenționat.",
+    "BUNDLES_LIST_EMPTY_TITLE": "Creați-vă primul pachet",
+    "BUNDLES_LIST_EMPTY_DESC": "Grupați-vă materialele într-un pachet de învățare structurat pe care elevii îl pot debloca împreună."
   },
   "EXPLORE_CLASSES": {
     "PAGE_TITLE": "Explorează cursuri",

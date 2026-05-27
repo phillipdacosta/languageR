@@ -2049,7 +2049,9 @@
     "LABEL_OPTIONAL": "Opzionale",
     "BUNDLE_MATERIAL_QUESTIONS": "{{count}} domande",
     "BUNDLE_PAID_IN_FREE_TITLE": "Attenzione: stai includendo materiali a pagamento in un pacchetto gratuito",
-    "BUNDLE_PAID_IN_FREE_BODY": "{{count}} materiali a pagamento del valore totale di ${{total}} diventeranno gratuiti per chiunque riceva questo pacchetto. Questo va bene se vuoi utilizzare questo pacchetto per attirare studenti: assicurati solo che sia intenzionale."
+    "BUNDLE_PAID_IN_FREE_BODY": "{{count}} materiali a pagamento del valore totale di ${{total}} diventeranno gratuiti per chiunque riceva questo pacchetto. Questo va bene se vuoi utilizzare questo pacchetto per attirare studenti: assicurati solo che sia intenzionale.",
+    "BUNDLES_LIST_EMPTY_TITLE": "Crea il tuo primo pacchetto",
+    "BUNDLES_LIST_EMPTY_DESC": "Raggruppa i tuoi materiali in un pacchetto di apprendimento strutturato che gli studenti possono sbloccare insieme."
   },
   "EXPLORE_CLASSES": {
     "PAGE_TITLE": "Esplora Corsi",

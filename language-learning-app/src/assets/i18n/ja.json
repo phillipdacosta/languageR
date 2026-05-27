@@ -2049,7 +2049,9 @@
     "LABEL_OPTIONAL": "オプション",
     "BUNDLE_MATERIAL_QUESTIONS": "{{count}} 質問",
     "BUNDLE_PAID_IN_FREE_TITLE": "注意 — 無料のバンドルに有料の素材が含まれています",
-    "BUNDLE_PAID_IN_FREE_BODY": "このバンドルを入手すると、合計 ${{total}} 相当の {{count}} 有料素材が無料になります。このバンドルを使用して学生を引きつけたい場合は、これで問題ありません。ただし、それが意図的であることを確認してください。"
+    "BUNDLE_PAID_IN_FREE_BODY": "このバンドルを入手すると、合計 ${{total}} 相当の {{count}} 有料素材が無料になります。このバンドルを使用して学生を引きつけたい場合は、これで問題ありません。ただし、それが意図的であることを確認してください。",
+    "BUNDLES_LIST_EMPTY_TITLE": "最初のバンドルを作成する",
+    "BUNDLES_LIST_EMPTY_DESC": "教材を構造化された学習パックにグループ化し、学生が一緒にロックを解除できるようにします。"
   },
   "EXPLORE_CLASSES": {
     "PAGE_TITLE": "クラスを探す",

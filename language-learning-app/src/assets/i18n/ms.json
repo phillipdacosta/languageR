@@ -2048,7 +2048,9 @@
     "LABEL_OPTIONAL": "Pilihan",
     "BUNDLE_MATERIAL_QUESTIONS": "{{count}} soalan",
     "BUNDLE_PAID_IN_FREE_TITLE": "Makluman — anda menyertakan bahan berbayar dalam himpunan percuma",
-    "BUNDLE_PAID_IN_FREE_BODY": "{{count}} bahan berbayar bernilai ${{total}} jumlah akan menjadi percuma untuk sesiapa sahaja yang mendapat berkas ini. Ini tidak mengapa jika anda ingin menggunakan himpunan ini untuk menarik pelajar — cuma pastikan ia disengajakan."
+    "BUNDLE_PAID_IN_FREE_BODY": "{{count}} bahan berbayar bernilai ${{total}} jumlah akan menjadi percuma untuk sesiapa sahaja yang mendapat berkas ini. Ini tidak mengapa jika anda ingin menggunakan himpunan ini untuk menarik pelajar — cuma pastikan ia disengajakan.",
+    "BUNDLES_LIST_EMPTY_TITLE": "Buat himpunan pertama anda",
+    "BUNDLES_LIST_EMPTY_DESC": "Kumpulkan bahan anda ke dalam pek pembelajaran berstruktur yang pelajar boleh buka kunci bersama-sama."
   },
   "EXPLORE_CLASSES": {
     "PAGE_TITLE": "Terokai Kelas",

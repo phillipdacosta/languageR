@@ -279,6 +279,24 @@
   ion-spinner { width: 28px; height: 28px; color: #222; }
 }
 
+.cm-library-loading--panel {
+  padding: 48px 0 64px;
+}
+
+.cm-library-panel--bundles {
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+}
+
+.cm-library-empty--bundles {
+  flex: 1;
+  justify-content: center;
+  padding: 48px 24px 56px;
+  margin: 0 auto;
+  max-width: 420px;
+}
+
 .cm-library-empty {
   text-align: center;
   padding: 80px 20px 40px;

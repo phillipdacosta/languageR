@@ -2385,6 +2385,8 @@
     "CREATE_FIRST": "Create your first material",
     "LIBRARY_TITLE": "My Materials",
     "LIBRARY_TITLE_BUNDLES": "My Bundles",
+    "BUNDLES_LIST_EMPTY_TITLE": "Create your first bundle",
+    "BUNDLES_LIST_EMPTY_DESC": "Group your materials into a structured learning pack that students can unlock together.",
     "BUNDLE_INTRO_TITLE": "What's a bundle?",
     "BUNDLE_INTRO_BODY": "A bundle groups your materials (videos, readings, listening exercises) into a structured learning pack. Students can purchase or access the entire bundle at once — great for themed content like \"Travel Spanish\" or \"Business English Basics\".",
     "BUNDLE_FIELD_TITLE": "Bundle title",

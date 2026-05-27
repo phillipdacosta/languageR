@@ -204,25 +204,25 @@
           <div class="cm-split-label">
             <ion-icon name="folder-outline"></ion-icon>
             <span>{{ 'CREATE_MATERIAL.GATEWAY_COL_BUNDLES' | translate }}</span>
-            <span class="cm-split-count" *ngIf="myBundles.length > 0">{{ myBundles.length }}</span>
+            <span class="cm-split-count">{{ myBundles.length }}</span>
           </div>
           <div class="cm-gateway-card">
             <div class="cm-gateway-hero">
               <img src="assets/bundles-gateway.png" alt="" />
             </div>
-            <button class="cm-gateway-row" *ngIf="myBundles.length > 0" (click)="openBundlesList()">
+            <button type="button" class="cm-gateway-row" (click)="openBundlesList()">
               <div class="cm-gateway-row-content">
                 <div class="cm-gateway-icon cm-gateway-icon--view">
                   <ion-icon name="folder-outline"></ion-icon>
                 </div>
                 <div class="cm-gateway-text">
                   <span class="cm-gateway-title">{{ 'CREATE_MATERIAL.GATEWAY_VIEW_BUNDLES' | translate }}</span>
-                  <span class="cm-gateway-subtitle">{{ (myBundles.length === 1 ? 'CREATE_MATERIAL.GATEWAY_BUNDLES_COUNT_ONE' : 'CREATE_MATERIAL.GATEWAY_BUNDLES_COUNT_OTHER') | translate:{ count: myBundles.length } }}</span>
+                  <span class="cm-gateway-subtitle">{{ bundleGatewayCountSubtitleKey | translate:{ count: myBundles.length } }}</span>
                 </div>
               </div>
               <ion-icon name="chevron-forward-outline" class="cm-gateway-chevron"></ion-icon>
             </button>
-            <button class="cm-gateway-row" (click)="startCreateBundle()">
+            <button type="button" class="cm-gateway-row" (click)="startCreateBundle()">
               <div class="cm-gateway-row-content">
                 <div class="cm-gateway-icon cm-gateway-icon--create">
                   <ion-icon name="add-outline"></ion-icon>
@@ -277,19 +277,19 @@
           <div class="cm-gateway-hero">
             <img src="assets/bundles-gateway.png" alt="" />
           </div>
-          <button class="cm-gateway-row" *ngIf="myBundles.length > 0" (click)="openBundlesList()">
+          <button type="button" class="cm-gateway-row" (click)="openBundlesList()">
             <div class="cm-gateway-row-content">
               <div class="cm-gateway-icon cm-gateway-icon--view">
                 <ion-icon name="folder-outline"></ion-icon>
               </div>
               <div class="cm-gateway-text">
                 <span class="cm-gateway-title">{{ 'CREATE_MATERIAL.GATEWAY_VIEW_BUNDLES' | translate }}</span>
-                <span class="cm-gateway-subtitle">{{ (myBundles.length === 1 ? 'CREATE_MATERIAL.GATEWAY_BUNDLES_COUNT_ONE' : 'CREATE_MATERIAL.GATEWAY_BUNDLES_COUNT_OTHER') | translate:{ count: myBundles.length } }}</span>
+                <span class="cm-gateway-subtitle">{{ bundleGatewayCountSubtitleKey | translate:{ count: myBundles.length } }}</span>
               </div>
             </div>
             <ion-icon name="chevron-forward-outline" class="cm-gateway-chevron"></ion-icon>
           </button>
-          <button class="cm-gateway-row" (click)="startCreateBundle()">
+          <button type="button" class="cm-gateway-row" (click)="startCreateBundle()">
             <div class="cm-gateway-row-content">
               <div class="cm-gateway-icon cm-gateway-icon--create">
                 <ion-icon name="add-outline"></ion-icon>
@@ -447,18 +447,35 @@
       </div>
 
       <!-- ══════ Bundles List (both mobile & desktop) ══════ -->
-      <div class="cm-library-panel" *ngIf="showBundlesList && !isLoadingBundles">
+      <div class="cm-library-panel cm-library-panel--bundles" *ngIf="showBundlesList">
         <div class="cm-list-header">
           <button class="cm-list-back" type="button" (click)="closeBundlesListToGateway()">
             <ion-icon name="chevron-back-outline"></ion-icon>
             {{ 'CREATE_MATERIAL.LIBRARY_LIST_BACK' | translate }}
           </button>
-          <button class="cm-btn-primary cm-btn-section-create" (click)="startCreateBundle()">
+          <button class="cm-btn-primary cm-btn-section-create" *ngIf="!isLoadingBundles && myBundles.length > 0" (click)="startCreateBundle()">
             <ion-icon name="add-outline"></ion-icon>
             {{ 'CREATE_MATERIAL.LIBRARY_LIST_NEW_BUNDLE' | translate }}
           </button>
         </div>
-        <div class="cm-bundle-grid">
+
+        <div class="cm-library-loading cm-library-loading--panel" *ngIf="isLoadingBundles">
+          <ion-spinner name="crescent"></ion-spinner>
+        </div>
+
+        <div class="cm-library-empty cm-library-empty--bundles" *ngIf="!isLoadingBundles && myBundles.length === 0">
+          <div class="cm-empty-icon">
+            <ion-icon name="folder-outline"></ion-icon>
+          </div>
+          <h3>{{ 'CREATE_MATERIAL.BUNDLES_LIST_EMPTY_TITLE' | translate }}</h3>
+          <p>{{ 'CREATE_MATERIAL.BUNDLES_LIST_EMPTY_DESC' | translate }}</p>
+          <button type="button" class="cm-btn-primary cm-btn-empty-create" (click)="startCreateBundle()">
+            <ion-icon name="add-outline"></ion-icon>
+            {{ 'CREATE_MATERIAL.LIBRARY_LIST_NEW_BUNDLE' | translate }}
+          </button>
+        </div>
+
+        <div class="cm-bundle-grid" *ngIf="!isLoadingBundles && myBundles.length > 0">
           <div class="cm-bundle-card" *ngFor="let b of myBundles">
             <div class="cm-bc-cover">
               <img *ngIf="b.coverImageUrl" [src]="b.coverImageUrl" [alt]="b.title" />

@@ -2049,7 +2049,9 @@
     "LABEL_OPTIONAL": "İsteğe bağlı",
     "BUNDLE_MATERIAL_QUESTIONS": "{{count}} sorular",
     "BUNDLE_PAID_IN_FREE_TITLE": "Dikkatli olun; ücretli malzemeleri ücretsiz bir pakete dahil ediyorsunuz",
-    "BUNDLE_PAID_IN_FREE_BODY": "Bu paketi alan herkes için toplamda 1$ değerinde {{count}} ücretli malzeme ücretsiz olacak. Bu paketi öğrencileri çekmek için kullanmak istiyorsanız sorun değil; yalnızca bunun kasıtlı olduğundan emin olun."
+    "BUNDLE_PAID_IN_FREE_BODY": "Bu paketi alan herkes için toplamda 1$ değerinde {{count}} ücretli malzeme ücretsiz olacak. Bu paketi öğrencileri çekmek için kullanmak istiyorsanız sorun değil; yalnızca bunun kasıtlı olduğundan emin olun.",
+    "BUNDLES_LIST_EMPTY_TITLE": "İlk paketinizi oluşturun",
+    "BUNDLES_LIST_EMPTY_DESC": "Materyallerinizi, öğrencilerin birlikte açabileceği yapılandırılmış bir öğrenme paketinde gruplandırın."
   },
   "EXPLORE_CLASSES": {
     "PAGE_TITLE": "Sınıfları Keşfet",

@@ -1985,6 +1985,13 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     );
   }
 
+  get bundleGatewayCountSubtitleKey(): string {
+    if (this.myBundles.length === 1) {
+      return 'CREATE_MATERIAL.GATEWAY_BUNDLES_COUNT_ONE';
+    }
+    return 'CREATE_MATERIAL.GATEWAY_BUNDLES_COUNT_OTHER';
+  }
+
   get bundleWizardFlowTitleKey(): string {
     return this.bundleWizardStepId === 'bundleShare'
       ? this.bundleWizardShareFlowTitleKey
@@ -3363,6 +3370,9 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     this.libraryTab = 'bundles';
     this.showBundlesList = true;
     this.showMaterialsList = false;
+    if (!this.isLoadingBundles && this.myBundles.length === 0) {
+      this.loadBundles();
+    }
     this.modalExpandEvent.emit(true);
     this.emitModalSidebarTabSync('bundles');
     this.syncModalTopbarChrome();

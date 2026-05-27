@@ -2049,7 +2049,9 @@
     "LABEL_OPTIONAL": "Valgfri",
     "BUNDLE_MATERIAL_QUESTIONS": "{{count}} spørsmål",
     "BUNDLE_PAID_IN_FREE_TITLE": "Vær oppmerksom - du inkluderer betalt materiale i en gratis pakke",
-    "BUNDLE_PAID_IN_FREE_BODY": "{{count}} betalt materiale til en verdi av ${{total}} totalt vil bli gratis for alle som får denne pakken. Dette er greit hvis du vil bruke denne pakken for å tiltrekke deg studenter - bare sørg for at det er med vilje."
+    "BUNDLE_PAID_IN_FREE_BODY": "{{count}} betalt materiale til en verdi av ${{total}} totalt vil bli gratis for alle som får denne pakken. Dette er greit hvis du vil bruke denne pakken for å tiltrekke deg studenter - bare sørg for at det er med vilje.",
+    "BUNDLES_LIST_EMPTY_TITLE": "Lag din første pakke",
+    "BUNDLES_LIST_EMPTY_DESC": "Grupper materialene dine i en strukturert læringspakke som elevene kan låse opp sammen."
   },
   "EXPLORE_CLASSES": {
     "PAGE_TITLE": "Utforsk klasser",

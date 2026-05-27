@@ -2049,7 +2049,9 @@
     "LABEL_OPTIONAL": "Fakultatywny",
     "BUNDLE_MATERIAL_QUESTIONS": "{{count}} pytań",
     "BUNDLE_PAID_IN_FREE_TITLE": "Uwaga – w darmowym pakiecie znajdują się płatne materiały",
-    "BUNDLE_PAID_IN_FREE_BODY": "{{count}} płatne materiały o łącznej wartości {{total}} USD staną się bezpłatne dla każdego, kto otrzyma ten pakiet. Nie ma w tym nic złego, jeśli chcesz wykorzystać ten pakiet do przyciągnięcia studentów — upewnij się tylko, że jest to zamierzone."
+    "BUNDLE_PAID_IN_FREE_BODY": "{{count}} płatne materiały o łącznej wartości {{total}} USD staną się bezpłatne dla każdego, kto otrzyma ten pakiet. Nie ma w tym nic złego, jeśli chcesz wykorzystać ten pakiet do przyciągnięcia studentów — upewnij się tylko, że jest to zamierzone.",
+    "BUNDLES_LIST_EMPTY_TITLE": "Stwórz swój pierwszy pakiet",
+    "BUNDLES_LIST_EMPTY_DESC": "Pogrupuj swoje materiały w uporządkowany pakiet edukacyjny, który uczniowie mogą wspólnie odblokować."
   },
   "EXPLORE_CLASSES": {
     "PAGE_TITLE": "Przeglądaj Zajęcia",

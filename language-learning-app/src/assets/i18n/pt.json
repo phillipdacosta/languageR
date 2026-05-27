@@ -2213,7 +2213,9 @@
     "LABEL_OPTIONAL": "Opcional",
     "BUNDLE_MATERIAL_QUESTIONS": "{{count}} perguntas",
     "BUNDLE_PAID_IN_FREE_TITLE": "Atenção: você está incluindo materiais pagos em um pacote gratuito",
-    "BUNDLE_PAID_IN_FREE_BODY": "{{count}} material(is) pago(s) no valor total de ${{total}} serão gratuitos para quem adquirir este pacote. Tudo bem se você quiser usar este pacote para atrair alunos – apenas certifique-se de que seja intencional."
+    "BUNDLE_PAID_IN_FREE_BODY": "{{count}} material(is) pago(s) no valor total de ${{total}} serão gratuitos para quem adquirir este pacote. Tudo bem se você quiser usar este pacote para atrair alunos – apenas certifique-se de que seja intencional.",
+    "BUNDLES_LIST_EMPTY_TITLE": "Crie seu primeiro pacote",
+    "BUNDLES_LIST_EMPTY_DESC": "Agrupe seus materiais em um pacote de aprendizagem estruturado que os alunos possam desbloquear juntos."
   },
   "EXPLORE_CLASSES": {
     "PAGE_TITLE": "Explorar Aulas",

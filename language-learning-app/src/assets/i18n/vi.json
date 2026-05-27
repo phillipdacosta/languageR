@@ -2048,7 +2048,9 @@
     "LABEL_OPTIONAL": "Không bắt buộc",
     "BUNDLE_MATERIAL_QUESTIONS": "{{count}} câu hỏi",
     "BUNDLE_PAID_IN_FREE_TITLE": "Lưu ý — bạn đang bao gồm các tài liệu trả phí trong một gói miễn phí",
-    "BUNDLE_PAID_IN_FREE_BODY": "{{count}} tài liệu trả phí trị giá tổng cộng $1 sẽ trở thành miễn phí cho bất kỳ ai nhận được gói này. Điều này là ổn nếu bạn muốn sử dụng gói này để thu hút sinh viên — chỉ cần đảm bảo rằng nó có chủ ý."
+    "BUNDLE_PAID_IN_FREE_BODY": "{{count}} tài liệu trả phí trị giá tổng cộng $1 sẽ trở thành miễn phí cho bất kỳ ai nhận được gói này. Điều này là ổn nếu bạn muốn sử dụng gói này để thu hút sinh viên — chỉ cần đảm bảo rằng nó có chủ ý.",
+    "BUNDLES_LIST_EMPTY_TITLE": "Tạo gói đầu tiên của bạn",
+    "BUNDLES_LIST_EMPTY_DESC": "Nhóm các tài liệu của bạn thành một gói học tập có cấu trúc mà học sinh có thể cùng nhau mở khóa."
   },
   "EXPLORE_CLASSES": {
     "PAGE_TITLE": "Khám phá lớp học",

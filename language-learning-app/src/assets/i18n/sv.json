@@ -2049,7 +2049,9 @@
     "LABEL_OPTIONAL": "Frivillig",
     "BUNDLE_MATERIAL_QUESTIONS": "{{count}} frågor",
     "BUNDLE_PAID_IN_FREE_TITLE": "Observera – du inkluderar betalt material i ett gratis paket",
-    "BUNDLE_PAID_IN_FREE_BODY": "{{count}} betalt material till ett värde av {{total}} totalt blir gratis för alla som får det här paketet. Det här är bra om du vill använda det här paketet för att locka studenter – se bara till att det är avsiktligt."
+    "BUNDLE_PAID_IN_FREE_BODY": "{{count}} betalt material till ett värde av {{total}} totalt blir gratis för alla som får det här paketet. Det här är bra om du vill använda det här paketet för att locka studenter – se bara till att det är avsiktligt.",
+    "BUNDLES_LIST_EMPTY_TITLE": "Skapa ditt första paket",
+    "BUNDLES_LIST_EMPTY_DESC": "Gruppera ditt material i ett strukturerat lärpaket som eleverna kan låsa upp tillsammans."
   },
   "EXPLORE_CLASSES": {
     "PAGE_TITLE": "Utforska klasser",

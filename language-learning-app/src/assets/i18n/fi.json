@@ -2048,7 +2048,9 @@
     "LABEL_OPTIONAL": "Valinnainen",
     "BUNDLE_MATERIAL_QUESTIONS": "{{count}} kysymystä",
     "BUNDLE_PAID_IN_FREE_TITLE": "Huomio – sisällytät maksullisia materiaaleja ilmaiseen nippuun",
-    "BUNDLE_PAID_IN_FREE_BODY": "{{count}} yhteensä ${{total}} arvoiset maksetut materiaalit ovat ilmaisia ​​kaikille tämän paketin saaville. Tämä on hienoa, jos haluat käyttää tätä pakettia opiskelijoiden houkuttelemiseen – varmista vain, että se on tarkoituksellista."
+    "BUNDLE_PAID_IN_FREE_BODY": "{{count}} yhteensä ${{total}} arvoiset maksetut materiaalit ovat ilmaisia ​​kaikille tämän paketin saaville. Tämä on hienoa, jos haluat käyttää tätä pakettia opiskelijoiden houkuttelemiseen – varmista vain, että se on tarkoituksellista.",
+    "BUNDLES_LIST_EMPTY_TITLE": "Luo ensimmäinen paketti",
+    "BUNDLES_LIST_EMPTY_DESC": "Ryhmittele materiaalisi jäsennellyksi oppimispaketiksi, jonka oppilaat voivat avata yhdessä."
   },
   "EXPLORE_CLASSES": {
     "PAGE_TITLE": "Selaa luokkia",

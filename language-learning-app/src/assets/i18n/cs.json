@@ -2048,7 +2048,9 @@
     "LABEL_OPTIONAL": "Volitelný",
     "BUNDLE_MATERIAL_QUESTIONS": "{{count}} otázek",
     "BUNDLE_PAID_IN_FREE_TITLE": "Pozor – zahrnujete placené materiály do bezplatného balíčku",
-    "BUNDLE_PAID_IN_FREE_BODY": "{{count}} placených materiálů v celkové hodnotě {{total}} $ bude zdarma pro každého, kdo získá tento balíček. To je v pořádku, pokud chcete tento balíček použít k přilákání studentů – jen se ujistěte, že je to záměrné."
+    "BUNDLE_PAID_IN_FREE_BODY": "{{count}} placených materiálů v celkové hodnotě {{total}} $ bude zdarma pro každého, kdo získá tento balíček. To je v pořádku, pokud chcete tento balíček použít k přilákání studentů – jen se ujistěte, že je to záměrné.",
+    "BUNDLES_LIST_EMPTY_TITLE": "Vytvořte svůj první balíček",
+    "BUNDLES_LIST_EMPTY_DESC": "Seskupte své materiály do strukturovaného výukového balíčku, který mohou studenti odemykat společně."
   },
   "EXPLORE_CLASSES": {
     "PAGE_TITLE": "Prozkoumat třídy",
