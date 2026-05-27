@@ -18,6 +18,17 @@ export interface WhiteboardTokenResponse {
   appId: string;
 }
 
+export interface WhiteboardSessionResponse {
+  success: boolean;
+  roomUUID: string;
+  roomToken: string;
+  appId: string;
+  region: string;
+  role: 'tutor' | 'student';
+}
+
+export type WhiteboardScope = 'lesson' | 'class';
+
 @Injectable({
   providedIn: 'root'
 })
@@ -72,5 +83,23 @@ export class WhiteboardService {
   deleteRoom(roomUUID: string): Observable<{ success: boolean; message: string }> {
     const headers = this.getAuthHeaders();
     return this.http.delete<{ success: boolean; message: string }>(`${this.apiUrl}/api/whiteboard/room/${roomUUID}`, { headers });
+  }
+
+  /**
+   * Atomic get-or-create for the whiteboard room belonging to a lesson/class.
+   *
+   * This is the only call the in-call client should make. The server enforces
+   * participant access, atomic creation (only the tutor may create), and
+   * issues a Writer room token good for several hours. Students who hit this
+   * before the tutor opens the board get a 409 with code
+   * `WHITEBOARD_NOT_STARTED` and should retry.
+   */
+  joinSession(scope: WhiteboardScope, id: string): Observable<WhiteboardSessionResponse> {
+    const headers = this.getAuthHeaders();
+    return this.http.post<WhiteboardSessionResponse>(
+      `${this.apiUrl}/api/whiteboard/session`,
+      { scope, id },
+      { headers }
+    );
   }
 }

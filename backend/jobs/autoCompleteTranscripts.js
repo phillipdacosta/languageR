@@ -118,6 +118,17 @@ async function autoCompleteTranscripts() {
           console.warn(`⚠️ [AutoComplete] Transcript ${transcript._id} has no student segments, marking as failed`);
           transcript.status = 'failed';
           await transcript.save();
+
+          // Resolve any `pending` LessonAnalysis placeholder so the lesson
+          // card doesn't show a "Generating analysis…" spinner forever.
+          try {
+            await LessonAnalysis.updateOne(
+              { lessonId: lesson._id, status: { $in: ['pending', 'processing'] } },
+              { $set: { status: 'insufficient_data', error: 'Transcript had no student speech.' } }
+            );
+          } catch (analysisErr) {
+            console.warn(`⚠️ [AutoComplete] Failed to clear pending analysis for ${lesson._id}: ${analysisErr.message}`);
+          }
           skippedCount++;
           continue;
         }

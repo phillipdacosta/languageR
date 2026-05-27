@@ -184,7 +184,7 @@ export function formatTimeInTz(date: Date | string, timezone?: string, locale?: 
   try {
     const d = typeof date === 'string' ? new Date(date) : date;
     if (isNaN(d.getTime())) return '';
-    const loc = locale && locale.length >= 2 ? locale : 'en-US';
+    const loc = toIntlLocale(locale);
     const tzOpts: Intl.DateTimeFormatOptions = timezone ? { timeZone: timezone } : {};
 
     if (!h12) {
@@ -231,7 +231,7 @@ export function formatDateInTz(
   try {
     const d = typeof date === 'string' ? new Date(date) : date;
     if (isNaN(d.getTime())) return '';
-    const loc = locale && locale.length >= 2 ? locale : 'en-US';
+    const loc = toIntlLocale(locale);
     const defaults: Intl.DateTimeFormatOptions = {
       month: 'short',
       day: 'numeric',
@@ -246,9 +246,33 @@ export function formatDateInTz(
 
 /**
  * Format a UTC Date as a time range (e.g., "2:30 PM – 3:00 PM") in the given timezone.
+ * @param locale BCP 47 locale for localized output.
  */
-export function formatTimeRangeInTz(start: Date | string, end: Date | string, timezone?: string): string {
-  return `${formatTimeInTz(start, timezone)} – ${formatTimeInTz(end, timezone)}`;
+export function formatTimeRangeInTz(
+  start: Date | string,
+  end: Date | string,
+  timezone?: string,
+  locale?: string,
+  hour12?: boolean
+): string {
+  return `${formatTimeInTz(start, timezone, locale, hour12)} – ${formatTimeInTz(end, timezone, locale, hour12)}`;
+}
+
+/** Normalize short app locale codes for Intl (e.g. ngx-translate `es` → `es`). */
+export function toIntlLocale(locale?: string): string {
+  const raw = (locale || 'en').trim();
+  if (!raw) return 'en-US';
+  if (raw.includes('-')) return raw;
+  const map: Record<string, string> = {
+    en: 'en-US',
+    pt: 'pt-BR',
+    zh: 'zh-CN',
+    no: 'nb-NO',
+    he: 'he-IL',
+    fa: 'fa-IR',
+    ar: 'ar',
+  };
+  return map[raw] || raw;
 }
 
 /**

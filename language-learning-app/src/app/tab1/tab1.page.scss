@@ -9406,8 +9406,8 @@ top: 4px;
   }
 
   &.qa-with-asset .qa-icon-img {
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
     object-fit: contain;
     display: block;
     pointer-events: none;
@@ -9417,31 +9417,40 @@ top: 4px;
 
   /* Books art has lots of canvas padding — read larger without widening the row */
   &.qa-classes.qa-with-asset .qa-icon-img {
-    transform: scale(1.34);
+    transform: scale(1.14);
     transform-origin: center center;
   }
 
   &:hover.qa-classes.qa-with-asset .qa-icon-img {
-    transform: scale(1.447) !important; /* 1.34 × hover 1.08 */
+    transform: scale(1.231) !important; /* 1.14 × hover 1.08 */
   }
 
   /* Notepad + speech bubbles — heavy canvas padding */
   &.qa-create-material.qa-with-asset .qa-icon-img {
-    transform: scale(1.48);
+    transform: scale(1.26);
     transform-origin: center center;
   }
 
   &:hover.qa-create-material.qa-with-asset .qa-icon-img {
-    transform: scale(1.598) !important; /* 1.48 × hover 1.08 */
+    transform: scale(1.361) !important; /* 1.26 × hover 1.08 */
   }
 
   &.qa-forum.qa-with-asset .qa-icon-img {
-    transform: scale(1.72);
+    transform: scale(1.46);
     transform-origin: center center;
   }
 
   &:hover.qa-forum.qa-with-asset .qa-icon-img {
-    transform: scale(1.858) !important; /* 1.72 × 1.08 */
+    transform: scale(1.577) !important; /* 1.46 × 1.08 */
+  }
+
+  &.qa-rating.qa-with-asset .qa-icon-img {
+    transform: scale(1.26);
+    transform-origin: center center;
+  }
+
+  &:hover.qa-rating.qa-with-asset .qa-icon-img {
+    transform: scale(1.361) !important; /* 1.26 × hover 1.08 */
   }
 
   .qa-text {
@@ -14716,6 +14725,14 @@ top: 4px;
     }
 
     &:hover.qa-forum.qa-with-asset .qa-icon-img {
+      transform: scale(1.08) !important;
+    }
+
+    &.qa-rating.qa-with-asset .qa-icon-img {
+      transform: none !important;
+    }
+
+    &:hover.qa-rating.qa-with-asset .qa-icon-img {
       transform: scale(1.08) !important;
     }
 

@@ -227,9 +227,8 @@
           </div>
         </div>
         
-        <!-- More Notifications Section (Read Notifications) -->
+        <!-- Read notifications (no section label) -->
         <div class="notification-section" *ngIf="!isLoadingNotifications">
-          <h4 class="notification-section-title">{{ 'NOTIFICATIONS.DROPDOWN.MORE' | translate }}</h4>
           <div *ngIf="(notifications | notificationFilter:'read').length > 0">
             <div class="notification-item" 
                  *ngFor="let notification of (notifications | notificationFilter:'read'); trackBy: trackByNotificationId"
@@ -288,14 +287,6 @@
           </div>
         </div>
       </ng-container>
-      
-      <!-- View All Footer -->
-      <div class="notification-dropdown-footer" *ngIf="!isLoadingNotifications">
-        <button class="view-all-btn" (click)="navigateToNotifications()">
-          <span>{{ 'NOTIFICATIONS.DROPDOWN.VIEW_ALL' | translate }}</span>
-          <ion-icon name="arrow-forward"></ion-icon>
-        </button>
-      </div>
     </div>
   </div>
 

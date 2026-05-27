@@ -1,4 +1,5 @@
 import { Lesson } from '../services/lesson.service';
+import { LearningPlanSummary, LessonPrep } from '../services/learning-plan.service';
 
 /** Keep in sync with mobile `lessonMockPreview.ts` */
 export function isLessonMockId(id: string | null | undefined): boolean {
@@ -110,6 +111,7 @@ export function buildMockLessonEntity(
     endTime: end.toISOString(),
     duration: spec.durationMin,
     subject: 'Spanish',
+    language: 'Spanish',
     price: spec.price,
     tutorId: tutorId as any,
     studentId: studentId as any,
@@ -148,6 +150,9 @@ function applyMockAnalysisData(lesson: any, id: string): void {
         studentSummary: 'Solid session focused on past tense. Good improvement in conversational flow.',
       };
       lesson.notes = 'Great progress with past tense conjugations today. Your conversational fluency improved noticeably — keep practicing irregular verbs.';
+      lesson.tutorNote = {
+        text: 'Buen progreso con el pretérito hoy. Sigue practicando los verbos irregulares antes de la próxima sesión.',
+      };
       break;
     case '__mock_student_generating__':
       lesson.aiAnalysis = { status: 'generating', hasAnalysis: false };
@@ -204,6 +209,23 @@ function applyMockAnalysisData(lesson: any, id: string): void {
       lesson.notes = 'Focus on listening comprehension next session. Try podcast exercises from unit 5.';
       break;
     case '__mock_tutor_completed__':
+      lesson.aiAnalysis = {
+        status: 'completed',
+        hasAnalysis: true,
+        overallAssessment: {
+          proficiencyLevel: 'B1 – Intermediate',
+          confidence: 78,
+          summary: 'Solid work on ser vs estar in present tense. Temporary vs permanent states still need contextual practice.',
+          progressFromLastLesson: 'Maintained B1 level with clearer self-corrections.',
+        },
+        grammarAnalysis: { accuracyScore: 70 },
+        vocabularyAnalysis: { uniqueWordCount: 80, vocabularyRange: 'Intermediate' },
+        fluencyAnalysis: { overallFluencyScore: 66 },
+        pronunciationAnalysis: { overallScore: 74 },
+        topicsDiscussed: ['Ser vs estar', 'Temporary states', 'Daily routines'],
+        recommendedFocus: ['Contextual ser/estar', 'Irregular preterite'],
+        studentSummary: 'Good session — push on past tense next.',
+      };
       lesson.tutorNote = {
         text: 'Covered ser vs estar in present tense. Student struggled with temporary vs permanent states — assign extra practice on contextual usage.',
       };
@@ -251,6 +273,8 @@ function applyMockAnalysisData(lesson: any, id: string): void {
         isFirstLesson: false,
         summary: 'Great progress with past tense conjugations today. Your conversational fluency improved noticeably — keep practicing irregular verbs.',
         recommendedFocus: ['Irregular preterite verbs', 'Ser vs estar contextual usage'],
+        summaryLanguage: 'es',
+        summaryTranslatable: true,
       };
       break;
     case '__mock_tutor_upcoming__':
@@ -258,14 +282,14 @@ function applyMockAnalysisData(lesson: any, id: string): void {
         isFirstLesson: false,
         summary: 'Covered ser vs estar in present tense. Student struggled with temporary vs permanent states — assign extra practice on contextual usage.',
         recommendedFocus: ['Contextual ser/estar', 'Irregular preterite'],
+        summaryLanguage: 'es',
+        summaryTranslatable: true,
       };
       break;
     default:
       break;
   }
 }
-
-// ── Mock Recommended Materials ──────────────────────────────────────
 
 export interface MockRecommendedMaterial {
   _id: string;
@@ -389,6 +413,139 @@ export function getMockRecommendedMaterials(mockId: string): MockRecommendedMate
 export interface MockBillingPayment {
   billing: { actualPrice?: number; actualDuration?: number; estimatedPrice?: number; estimatedDuration?: number; status?: string };
   payment: { status?: string; amount?: number; transferStatus?: string; tutorPayout?: number };
+}
+
+/** Mock IDs that show the Learning focus section on event details. */
+const MOCK_IDS_WITH_LEARNING_PLAN = new Set([
+  '__mock_student_upcoming__',
+  '__mock_tutor_upcoming__',
+  '__mock_student_completed__',
+  '__mock_tutor_completed__',
+  '__mock_student_tip__',
+  '__mock_tutor_tip_received__',
+  '__mock_student_tutor_feedback__',
+  '__mock_student_awaiting__',
+  '__mock_student_generating__',
+  '__mock_tutor_feedback_needed__',
+  '__mock_tutor_feedback_optional__',
+]);
+
+const MOCK_SPANISH_PLAN_SUMMARY: LearningPlanSummary = {
+  _id: 'mock-plan-spanish',
+  language: 'Spanish',
+  status: 'active',
+  goal: {
+    type: 'travel',
+    description: 'Get comfortable speaking before a trip to Barcelona',
+    targetLevel: 'B1',
+    timeline: '3 months',
+    timelinePressure: 'few_months',
+  },
+  currentPhaseIndex: 1,
+  totalPhases: 4,
+  currentPhase: {
+    title: 'Past Tense & Storytelling',
+    description: 'Tell short stories about past events using preterite and imperfect naturally.',
+    focusAreas: [
+      'Irregular preterite verbs',
+      'Ser vs estar in past contexts',
+      'Narrating weekend events',
+    ],
+    suggestedTopics: ['Weekend recap', 'Travel stories', 'Childhood memories'],
+    exitCriteria: 'Can narrate a 2-minute past event with mostly accurate verb forms',
+    estimatedLessons: 6,
+    lessonsCompleted: 2,
+    status: 'active',
+  },
+  studentSummary:
+    'Building conversational confidence for an upcoming trip. Prefers speaking practice over heavy grammar drills.',
+  nextLessonFocus:
+    'Practice irregular preterite verbs in natural conversation — weave in ser vs estar when describing past states.',
+  tutorOverrides: [],
+  selfAssessedLevel: 'simple_conversations',
+};
+
+function buildMockLessonPrep(summary: LearningPlanSummary, includeBriefing: boolean): LessonPrep {
+  const phase = summary.currentPhase!;
+  return {
+    plan: {
+      _id: summary._id,
+      language: summary.language,
+      status: summary.status,
+      goal: summary.goal,
+      studentSummary: summary.studentSummary,
+      nextLessonFocus: summary.nextLessonFocus,
+      currentPhaseIndex: summary.currentPhaseIndex,
+      totalPhases: summary.totalPhases,
+      currentPhase: {
+        title: phase.title,
+        description: phase.description,
+        focusAreas: phase.focusAreas,
+        suggestedTopics: phase.suggestedTopics,
+        exitCriteria: phase.exitCriteria,
+        lessonsCompleted: phase.lessonsCompleted,
+        estimatedLessons: phase.estimatedLessons,
+        masteryAverage: includeBriefing ? 62 : null,
+        lessonScores: includeBriefing ? [58, 65] : [],
+      },
+      tutorOverrides: summary.tutorOverrides,
+    },
+    latestAnalysis: includeBriefing
+      ? {
+          lessonId: 'mock-prev-lesson',
+          lessonDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+          proficiencyLevel: 'B1',
+          summary:
+            'Covered ser vs estar in present tense. Student struggled with temporary vs permanent states.',
+          topErrors: [
+            { rank: 1, issue: 'Ser vs estar with temporary states', impact: 'high', occurrences: 4 },
+            { rank: 2, issue: 'Irregular preterite stems (ir, ser)', impact: 'medium', occurrences: 3 },
+          ],
+          errorPatterns: [{ pattern: 'State vs identity confusion', severity: 'medium' }],
+          persistentChallenges: ['Ser vs estar', 'Irregular preterite'],
+          proficiencyChange: 'maintained',
+          areasForImprovement: ['Contextual ser/estar', 'Irregular preterite'],
+          recommendedFocus: ['Contextual ser/estar', 'Irregular preterite'],
+          correctedExcerpts: [
+            {
+              original: 'Yo estoy cansado ayer',
+              corrected: 'Yo estaba cansado ayer',
+              keyCorrections: ['Imperfect for past state'],
+            },
+          ],
+        }
+      : null,
+    agenda: [
+      'Warm up with a quick weekend recap using preterite',
+      'Target irregular verbs: ir, ser, tener in past-tense dialogue',
+      'Close with a 1-minute story using ser vs estar for past states',
+    ],
+    priorLessonCount: includeBriefing ? 3 : 1,
+    firstTimePairing: false,
+    otherTutorNotes: includeBriefing
+      ? [{ tutorFirstName: 'Ana', text: 'Strong vocabulary — push harder on verb accuracy.', setAt: new Date().toISOString() }]
+      : [],
+  };
+}
+
+/**
+ * Returns mock plan + lesson-prep for event-details preview (no network).
+ * Tutor upcoming mocks include the full briefing payload.
+ */
+export function getMockLearningPlanContext(
+  mockId: string
+): { summary: LearningPlanSummary; prep: LessonPrep } | null {
+  if (!MOCK_IDS_WITH_LEARNING_PLAN.has(mockId)) return null;
+  const includeBriefing =
+    mockId === '__mock_tutor_upcoming__' ||
+    mockId === '__mock_tutor_completed__' ||
+    mockId === '__mock_tutor_tip_received__' ||
+    mockId === '__mock_tutor_feedback_needed__' ||
+    mockId === '__mock_tutor_feedback_optional__';
+  return {
+    summary: MOCK_SPANISH_PLAN_SUMMARY,
+    prep: buildMockLessonPrep(MOCK_SPANISH_PLAN_SUMMARY, includeBriefing),
+  };
 }
 
 export function getMockBillingAndPayment(id: string): MockBillingPayment | null {

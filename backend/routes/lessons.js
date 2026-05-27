@@ -15,7 +15,7 @@ const { verifyToken, getUserFromRequest } = require('../middleware/videoUploadMi
 const { generateTrialLessonMessage } = require('../utils/systemMessages');
 const { formatNameWithInitial } = require('../utils/nameFormatter');
 const { pushLessonToGoogleCalendar, removeLessonFromGoogleCalendar, updateLessonOnGoogleCalendar } = require('../services/googleCalendarService');
-const { translateAnalysisFields, translateFeedbackFields } = require('../services/aiService');
+const { translateAnalysisFields, translateFeedbackFields, translateGenericFields } = require('../services/aiService');
 
 /**
  * Languages the app's UI actually ships translations for. ANY lang code
@@ -42,14 +42,109 @@ function normalizeLangCode(raw) {
 
 /**
  * Resolve & validate a prose-translation target language from any source.
- * Returns '' for English or unsupported codes — callers MUST treat this as
- * "no translation needed". This is the single chokepoint that prevents
- * unbounded GPT spend from arbitrary client input.
+ * Returns '' for unsupported codes. English is a valid target (e.g. German
+ * lesson notes → English UI).
  */
 function resolveProseLanguage(raw) {
   const norm = normalizeLangCode(raw);
-  if (!norm || norm === 'en') return '';
+  if (!norm) return '';
   return SUPPORTED_PROSE_LANGS.has(norm) ? norm : '';
+}
+
+/** Language the user reads the app in — interface preference, then native. */
+function getUserProseReadingLanguage(user) {
+  return (
+    normalizeLangCode(user?.interfaceLanguage) ||
+    normalizeLangCode(user?.nativeLanguage) ||
+    'en'
+  );
+}
+
+/** Best-effort language of last-session summary prose (not the lesson subject). */
+function inferSummaryProseLanguage({ pAnalysis, pFeedback, hasRawNotes, student, tutor }) {
+  if (pAnalysis) {
+    return (
+      normalizeLangCode(student?.nativeLanguage || student?.interfaceLanguage) || 'en'
+    );
+  }
+  if (pFeedback || hasRawNotes) {
+    return (
+      normalizeLangCode(tutor?.nativeLanguage || tutor?.interfaceLanguage) || 'en'
+    );
+  }
+  return 'en';
+}
+
+function assertProseTranslationTarget(user, targetLanguage) {
+  const readingLang = getUserProseReadingLanguage(user);
+  if (!SUPPORTED_PROSE_LANGS.has(readingLang)) {
+    return { ok: false, status: 400, message: 'Unsupported reading language on profile' };
+  }
+  if (targetLanguage !== readingLang) {
+    return {
+      ok: false,
+      status: 403,
+      message: 'Translation target must match your saved interface language',
+    };
+  }
+  return { ok: true, readingLang };
+}
+
+/**
+ * Build previous-session context for an upcoming lesson card / detail page.
+ * Prose is returned in source language; opt-in translation via translate-context.
+ */
+async function buildLastSessionContext(tutorId, studentId) {
+  const prev = await Lesson.findOne({
+    tutorId,
+    studentId,
+    status: { $in: ['completed', 'ended_early'] },
+  })
+    .sort({ startTime: -1 })
+    .select('_id notes')
+    .lean();
+
+  if (!prev) {
+    return { isFirstLesson: true };
+  }
+
+  const [pAnalysis, pFeedback, student, tutor] = await Promise.all([
+    LessonAnalysis.findOne({ lessonId: prev._id, status: 'completed' })
+      .select('tutorNote overallAssessment.summary recommendedFocus')
+      .lean(),
+    TutorFeedback.findOne({ lessonId: prev._id, status: 'completed' })
+      .select('overallNotes areasForImprovement')
+      .lean(),
+    User.findById(studentId).select('nativeLanguage interfaceLanguage').lean(),
+    User.findById(tutorId).select('nativeLanguage interfaceLanguage').lean(),
+  ]);
+
+  const summary =
+    pAnalysis?.overallAssessment?.summary ||
+    pAnalysis?.tutorNote?.text ||
+    pFeedback?.overallNotes ||
+    prev.notes ||
+    null;
+
+  const recommendedFocus = pAnalysis?.recommendedFocus || [];
+  const areasForImprovement = pFeedback?.areasForImprovement || [];
+  const summaryLanguage = inferSummaryProseLanguage({
+    pAnalysis,
+    pFeedback,
+    hasRawNotes: !!prev.notes,
+    student,
+    tutor,
+  });
+
+  return {
+    isFirstLesson: false,
+    previousLessonId: prev._id,
+    summary: summary ? String(summary).slice(0, 250) : null,
+    recommendedFocus: recommendedFocus.slice(0, 3),
+    areasForImprovement: areasForImprovement.slice(0, 3),
+    summaryLanguage,
+    summaryTranslatable: !!(summary && String(summary).trim()),
+  };
 }
 
 
@@ -1079,8 +1174,8 @@ router.get('/my-lessons', verifyToken, async (req, res) => {
         { studentId: userId }
       ]
     })
-    .populate('tutorId', 'name email picture firstName lastName')
-    .populate('studentId', 'name email picture firstName lastName')
+    .populate('tutorId', 'name email picture firstName lastName nativeLanguage interfaceLanguage')
+    .populate('studentId', 'name email picture firstName lastName nativeLanguage interfaceLanguage')
     .sort({ startTime: 1 });
 
     // Load LessonAnalysis for each lesson to check if analysis exists
@@ -1236,14 +1331,22 @@ router.get('/my-lessons', verifyToken, async (req, res) => {
         const recommendedFocus = pAnalysis?.recommendedFocus || [];
         const areasForImprovement = pFeedback?.areasForImprovement || [];
 
+        const summaryLanguage = inferSummaryProseLanguage({
+          pAnalysis,
+          pFeedback,
+          hasRawNotes: !!prev.notes,
+          student: l.studentId,
+          tutor: l.tutorId,
+        });
+
         l.lastSessionContext = {
           isFirstLesson: false,
           previousLessonId: prev._id,
           summary: summary ? String(summary).slice(0, 250) : null,
           recommendedFocus: recommendedFocus.slice(0, 3),
           areasForImprovement: areasForImprovement.slice(0, 3),
-          summaryLanguage: 'en',
-          summaryTranslatable: !!pAnalysis || !!pFeedback,
+          summaryLanguage,
+          summaryTranslatable: !!(summary && String(summary).trim()),
         };
       }
     }
@@ -1282,6 +1385,11 @@ router.post('/:lessonId/translate-context', verifyToken, async (req, res) => {
     const user = await getUserFromRequest(req);
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const targetCheck = assertProseTranslationTarget(user, targetLanguage);
+    if (!targetCheck.ok) {
+      return res.status(targetCheck.status).json({ success: false, message: targetCheck.message });
     }
 
     const lesson = await Lesson.findById(lessonId).select('_id tutorId studentId').lean();
@@ -1362,6 +1470,162 @@ router.post('/:lessonId/translate-context', verifyToken, async (req, res) => {
     });
   } catch (error) {
     console.error('[i18n] /translate-context failed:', error?.message || error);
+    return res.status(500).json({ success: false, message: 'Translation failed' });
+  }
+});
+
+/**
+ * @route   POST /api/lessons/:lessonId/translate-detail
+ * @desc    Translate all dynamic prose on the lesson detail page in one request.
+ *          Server-owned fields (last session, analysis, feedback) are cached in
+ *          MongoDB; client-owned sections (plan, prep, misc) are translated
+ *          on demand from the request body.
+ * @access  Private — caller must be the tutor or student on the lesson.
+ */
+router.post('/:lessonId/translate-detail', verifyToken, async (req, res) => {
+  try {
+    const { lessonId } = req.params;
+    const targetLanguage = resolveProseLanguage(req.body?.targetLanguage || req.query?.lang);
+    if (!targetLanguage) {
+      return res.status(400).json({ success: false, message: 'Unsupported target language' });
+    }
+
+    const user = await getUserFromRequest(req);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const targetCheck = assertProseTranslationTarget(user, targetLanguage);
+    if (!targetCheck.ok) {
+      return res.status(targetCheck.status).json({ success: false, message: targetCheck.message });
+    }
+
+    const lesson = await Lesson.findById(lessonId)
+      .select('_id tutorId studentId notes status cancelReasonText cancelReason issueDetails')
+      .lean();
+    if (!lesson) {
+      return res.status(404).json({ success: false, message: 'Lesson not found' });
+    }
+
+    const uid = String(user._id);
+    if (String(lesson.tutorId) !== uid && String(lesson.studentId) !== uid) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+
+    const result = {
+      success: true,
+      language: targetLanguage,
+      lastSession: null,
+      analysis: null,
+      feedback: null,
+      client: null,
+    };
+
+    // ── Last session (prior completed lesson for this pair) ──
+    const prev = await Lesson.findOne({
+      tutorId: lesson.tutorId,
+      studentId: lesson.studentId,
+      status: { $in: ['completed', 'ended_early'] },
+    })
+      .sort({ startTime: -1 })
+      .select('_id notes')
+      .lean();
+
+    if (prev) {
+      const [pAnalysis, pFeedback] = await Promise.all([
+        LessonAnalysis.findOne({ lessonId: prev._id, status: 'completed' }),
+        TutorFeedback.findOne({ lessonId: prev._id, status: 'completed' }),
+      ]);
+
+      let summary = null;
+      let recommendedFocus = [];
+      let areasForImprovement = [];
+
+      if (pAnalysis) {
+        let cached = pAnalysis.translations?.get(targetLanguage);
+        if (!cached) {
+          cached = await translateAnalysisFields(pAnalysis.toObject(), targetLanguage);
+          if (!pAnalysis.translations) pAnalysis.translations = new Map();
+          pAnalysis.translations.set(targetLanguage, cached);
+          await pAnalysis.save();
+        }
+        summary = cached?.summary || pAnalysis.overallAssessment?.summary || null;
+        if (Array.isArray(cached?.recommendedFocus) && cached.recommendedFocus.length) {
+          recommendedFocus = cached.recommendedFocus;
+        }
+      }
+
+      if (pFeedback) {
+        let cached = pFeedback.translations?.get(targetLanguage);
+        const hasProse = !!(pFeedback.overallNotes || (pFeedback.areasForImprovement || []).length);
+        if (!cached && hasProse) {
+          cached = await translateFeedbackFields(pFeedback.toObject(), targetLanguage);
+          if (!pFeedback.translations) pFeedback.translations = new Map();
+          pFeedback.translations.set(targetLanguage, cached);
+          await pFeedback.save();
+        }
+        if (!summary && cached?.overallNotes) summary = cached.overallNotes;
+        if (Array.isArray(cached?.areasForImprovement) && cached.areasForImprovement.length) {
+          areasForImprovement = cached.areasForImprovement;
+        }
+      }
+
+      if (!summary) {
+        summary = prev.notes || null;
+      }
+
+      if (summary || recommendedFocus.length || areasForImprovement.length) {
+        result.lastSession = {
+          summary: summary ? String(summary).slice(0, 250) : null,
+          recommendedFocus: (recommendedFocus || []).slice(0, 3),
+          areasForImprovement: (areasForImprovement || []).slice(0, 3),
+        };
+      }
+    }
+
+    // ── Current lesson analysis ──
+    const currentAnalysis = await LessonAnalysis.findOne({ lessonId: lesson._id, status: 'completed' });
+    if (currentAnalysis) {
+      let cached = currentAnalysis.translations?.get(targetLanguage);
+      if (!cached) {
+        cached = await translateAnalysisFields(currentAnalysis.toObject(), targetLanguage);
+        if (!currentAnalysis.translations) currentAnalysis.translations = new Map();
+        currentAnalysis.translations.set(targetLanguage, cached);
+        await currentAnalysis.save();
+      }
+      result.analysis = cached;
+    }
+
+    // ── Current lesson tutor feedback ──
+    const currentFeedback = await TutorFeedback.findOne({ lessonId: lesson._id, status: 'completed' });
+    if (currentFeedback) {
+      const hasProse = !!(
+        currentFeedback.overallNotes ||
+        (currentFeedback.strengths || []).length ||
+        (currentFeedback.areasForImprovement || []).length ||
+        currentFeedback.homework
+      );
+      if (hasProse) {
+        let cached = currentFeedback.translations?.get(targetLanguage);
+        if (!cached) {
+          cached = await translateFeedbackFields(currentFeedback.toObject(), targetLanguage);
+          if (!currentFeedback.translations) currentFeedback.translations = new Map();
+          currentFeedback.translations.set(targetLanguage, cached);
+          await currentFeedback.save();
+        }
+        result.feedback = cached;
+      }
+    }
+
+    // ── Client-provided sections (plan, prep, misc prose) ──
+    const clientSections = req.body?.clientSections;
+    if (clientSections && typeof clientSections === 'object' && Object.keys(clientSections).length) {
+      result.client = await translateGenericFields(clientSections, targetLanguage);
+    }
+
+    return res.json(result);
+  } catch (error) {
+    console.error('[i18n] /translate-detail failed:', error?.message || error);
     return res.status(500).json({ success: false, message: 'Translation failed' });
   }
 });
@@ -1632,8 +1896,8 @@ router.get('/popular-slots', verifyToken, async (req, res) => {
 router.get('/:id', verifyToken, async (req, res) => {
   try {
     const lesson = await Lesson.findById(req.params.id)
-      .populate('tutorId', 'name email picture firstName lastName profile auth0Id profilePicture onboardingData.bio onboardingData.summary onboardingData.languages onboardingData.hourlyRate nativeLanguage rating stats linkedChannels country residenceCountry')
-      .populate('studentId', 'name email picture firstName lastName profile auth0Id profilePicture onboardingData.bio onboardingData.summary onboardingData.languages onboardingData.experienceLevel onboardingData.goals nativeLanguage rating stats country residenceCountry');
+      .populate('tutorId', 'name email picture firstName lastName profile auth0Id profilePicture onboardingData.bio onboardingData.summary onboardingData.languages onboardingData.hourlyRate nativeLanguage interfaceLanguage rating stats linkedChannels country residenceCountry')
+      .populate('studentId', 'name email picture firstName lastName profile auth0Id profilePicture onboardingData.bio onboardingData.summary onboardingData.languages onboardingData.experienceLevel onboardingData.goals nativeLanguage interfaceLanguage rating stats country residenceCountry');
 
     if (!lesson) {
       return res.status(404).json({ 
@@ -1704,6 +1968,11 @@ router.get('/:id', verifyToken, async (req, res) => {
         totalLessons: tutorLessonCount,
         students: tutorStudentCount.length
       };
+    }
+
+    const isUpcoming = ['scheduled', 'confirmed', 'in_progress', 'pending_reschedule'].includes(lesson.status);
+    if (isUpcoming && tutorObjId && studentObjId) {
+      lessonObj.lastSessionContext = await buildLastSessionContext(tutorObjId, studentObjId);
     }
 
     res.json({ 
@@ -2890,73 +3159,78 @@ router.post('/:id/call-end', verifyToken, async (req, res) => {
           
           // Use the snapshot (not the live profile) to decide AI analysis
           const aiAnalysisEnabled = lessonForAnalysis.aiAnalysisEnabledAtTime !== false; // true or null → AI on
-          
+
           console.log(`🤖 AI Analysis Enabled (snapshot) for lesson ${lessonForAnalysis._id}: ${aiAnalysisEnabled}`);
-          
+
           if (!aiAnalysisEnabled) {
             return; // Skip AI analysis — tutor will provide manual feedback
           }
-          
-          // AI is enabled — generate placeholder analysis
-          console.log(`🤖 Generating AI analysis for lesson ${lessonForAnalysis._id}`);
-          
-          const actualDuration = lessonForAnalysis.actualDurationMinutes || lessonForAnalysis.duration;
-          const scheduledDuration = lessonForAnalysis.duration;
-          const endedEarly = actualDuration < scheduledDuration;
-          
-          const existingAnalysis = await LessonAnalysis.findOne({ lessonId: lessonForAnalysis._id });
-          
-          if (!existingAnalysis) {
-            await LessonAnalysis.create({
-              lessonId: lessonForAnalysis._id,
-              tutorId: lessonForAnalysis.tutorId._id,
-              studentId: lessonForAnalysis.studentId._id,
-              summary: endedEarly 
-                ? `This ${actualDuration}-minute lesson ended earlier than the scheduled ${scheduledDuration} minutes. The student made good initial progress on the topic.`
-                : `This ${actualDuration}-minute lesson covered the planned material effectively. The student demonstrated engagement throughout the session.`,
-              strengths: [
-                'Good pronunciation and accent work',
-                'Active participation in conversation',
-                'Quick to grasp new vocabulary'
-              ],
-              areasForImprovement: [
-                'Grammar structures in complex sentences',
-                'Verb conjugation in past tense',
-                'Building confidence in spontaneous speaking'
-              ],
-              recommendations: [
-                'Practice daily with language exchange partners',
-                'Focus on past tense exercises before next lesson',
-                'Watch movies/shows in target language with subtitles'
-              ],
-              status: 'completed',
-              generatedAt: new Date()
-            });
-            
-            console.log(`✅ Created LessonAnalysis document for lesson ${lessonForAnalysis._id}`);
-          } else {
-            console.log(`ℹ️ LessonAnalysis already exists for lesson ${lessonForAnalysis._id}`);
+
+          // Match `analyzeLesson()`'s eligibility so we don't strand cards
+          // on a perpetual "Generating analysis…" spinner for lessons that
+          // the analyzer is going to skip anyway.
+          if (lessonForAnalysis.isClass) {
+            console.log(`⏭️ Skipping analysis placeholder — group class ${lessonForAnalysis._id}`);
+            return;
+          }
+          if ((lessonForAnalysis.duration || 0) < 25) {
+            console.log(`⏭️ Skipping analysis placeholder — short session (${lessonForAnalysis.duration} min < 25) ${lessonForAnalysis._id}`);
+            return;
           }
 
-          // Create notification for the student that analysis is ready
-          await Notification.create({
-            userId: lessonForAnalysis.studentId._id,
-            type: 'lesson_analysis_ready',
-            title: 'Lesson Analysis Ready',
-            message: `Your analysis for the lesson with <strong>${formatDisplayName(lessonForAnalysis.tutorId)}</strong> is now available.`,
-            relatedUserPicture: lessonForAnalysis.tutorId.picture || null,
-            data: {
-              lessonId: lessonForAnalysis._id,
-              tutorName: formatDisplayName(lessonForAnalysis.tutorId),
-              lessonDate: lessonForAnalysis.startTime
-            }
-          });
+          // AI is enabled — create a `pending` placeholder so the lesson
+          // card shows the "Generating analysis…" spinner immediately.
+          // The real analyzer (transcription.js `analyzeLesson()`) replaces
+          // this row via `findOneAndUpdate({ upsert: true, overwrite: true })`
+          // once GPT-4 returns. If transcription never completes (e.g. the
+          // user closed their browser), the `autoCompleteTranscripts` cron
+          // picks up the lesson at its scheduled end time and runs the
+          // analyzer then — so the placeholder is guaranteed to resolve by
+          // the lesson's end time at the latest.
+          const existingAnalysis = await LessonAnalysis.findOne({ lessonId: lessonForAnalysis._id });
 
-          console.log(`✅ AI analysis auto-generated for lesson ${lessonForAnalysis._id}`);
+          if (!existingAnalysis) {
+            try {
+              // Schema requires several non-trivial fields; satisfy them
+              // with sentinel values that will be overwritten when
+              // `analyzeLesson()` upserts the real result.
+              await LessonAnalysis.create({
+                lessonId: lessonForAnalysis._id,
+                tutorId: lessonForAnalysis.tutorId._id,
+                studentId: lessonForAnalysis.studentId._id,
+                language: lessonForAnalysis.language || lessonForAnalysis.subject || 'unknown',
+                lessonDate: lessonForAnalysis.startTime || new Date(),
+                source: 'ai',
+                status: 'pending',
+                studentSummary: 'Analysis pending — will be ready by the scheduled end of the lesson.',
+                overallAssessment: {
+                  proficiencyLevel: 'B1',
+                  confidence: 0,
+                  summary: 'Analysis is being generated.'
+                }
+              });
+              console.log(`📝 Created pending LessonAnalysis placeholder for lesson ${lessonForAnalysis._id}`);
+            } catch (createErr) {
+              // If the placeholder fails validation, log and continue.
+              // The real analyzer will create the row when it finishes; the
+              // card just stays on "unavailable" until then (no spinner).
+              console.warn(`⚠️ Could not create LessonAnalysis placeholder for ${lessonForAnalysis._id}: ${createErr.message}`);
+            }
+          } else {
+            console.log(`ℹ️ LessonAnalysis already exists for lesson ${lessonForAnalysis._id} (status: ${existingAnalysis.status})`);
+          }
+
+          // NOTE: the "Lesson Analysis Ready" notification used to fire here,
+          // but it was misleading — at this point we only have a placeholder.
+          // The real notification is now emitted by the autoFinalize cron
+          // once the lesson is marked `completed`, or you can wire one to
+          // fire from `analyzeLesson()` when it transitions the row to
+          // `completed`.
         } catch (error) {
-          console.error(`❌ Error auto-generating AI analysis:`, error);
+          console.error(`❌ Error preparing AI analysis placeholder:`, error);
         }
-      }, 3000); // Generate analysis 3 seconds after call ends
+      }, 0); // Run on next tick — no need to delay; the real analyzer
+              // runs in parallel via `completeTranscription` / cron.
     }
 
     res.json({ 

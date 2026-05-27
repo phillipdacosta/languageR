@@ -39,9 +39,9 @@
         <span class="mac-sub">{{ 'HOME.FORUM_SUB' | translate }}</span>
       </div>
     </button>
-    <button class="mobile-action-card qa-pop qa-pop-4">
-      <div class="mac-icon mac-icon--reviews">
-        <ion-icon name="star-outline"></ion-icon>
+    <button class="mobile-action-card mac-action-reviews qa-pop qa-pop-4">
+      <div class="mac-icon">
+        <img class="mac-icon-img" [src]="isDarkModeActive ? 'assets/quick-actions-reviews-original.png' : 'assets/quick-actions-reviews.png'" alt="" />
       </div>
       <div class="mac-text">
         <span class="mac-title">{{ 'HOME.MY_REVIEWS' | translate }}</span>

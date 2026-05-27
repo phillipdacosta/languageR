@@ -40,6 +40,34 @@
     </div>
   </div>
 
+  <!-- Call diagnostics overlay (toggle via Ctrl/Cmd+Shift+S or ?stats=1) -->
+  <div class="call-stats-overlay" *ngIf="showCallStats && callStats">
+    <div class="cs-row cs-title">
+      <span>Call stats</span>
+      <button class="cs-close" (click)="toggleCallStats()" aria-label="Close stats">×</button>
+    </div>
+    <div class="cs-row"><span>Send</span><span>
+      {{ callStats.sendResolution ? (callStats.sendResolution.width + '×' + callStats.sendResolution.height) : '—' }}
+      <ng-container *ngIf="callStats.sendFrameRate != null">@{{ callStats.sendFrameRate }}fps</ng-container>
+    </span></div>
+    <div class="cs-row"><span>Bitrate</span><span>
+      {{ callStats.uplinkKbps != null ? callStats.uplinkKbps + ' kbps' : '—' }}
+      <ng-container *ngIf="callStats.targetBitrateKbps != null"> / target {{ callStats.targetBitrateKbps }}</ng-container>
+    </span></div>
+    <div class="cs-row"><span>RTT</span><span>{{ callStats.rtt != null ? callStats.rtt + ' ms' : '—' }}</span></div>
+    <div class="cs-row" *ngIf="callStats.networkQuality">
+      <span>Net</span><span>up {{ callStats.networkQuality.uplink }} / down {{ callStats.networkQuality.downlink }}</span>
+    </div>
+    <div class="cs-row cs-sub" *ngFor="let r of callStats.remotes">
+      <span>↓ {{ r.uid }}</span>
+      <span>
+        {{ r.receivedResolution ? (r.receivedResolution.width + '×' + r.receivedResolution.height) : '—' }}
+        <ng-container *ngIf="r.recvFrameRate != null">@{{ r.recvFrameRate }}fps</ng-container>
+        <ng-container *ngIf="r.downlinkKbps != null"> · {{ r.downlinkKbps }} kbps</ng-container>
+      </span>
+    </div>
+  </div>
+
   <div class="video-call-wrapper" [class.whiteboard-open]="showWhiteboard" [class.chat-open]="showChat">
     <!-- Main Content Area (above controls) -->
     <div class="main-content-area">

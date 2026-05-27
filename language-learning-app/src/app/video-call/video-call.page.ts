@@ -8,7 +8,6 @@ import { ClassService } from '../services/class.service';
 import { MessagingService, Message } from '../services/messaging.service';
 import { WebSocketService } from '../services/websocket.service';
 import { AuthService } from '../services/auth.service';
-import { EarlyExitService } from '../services/early-exit.service';
 import { ReminderService } from '../services/reminder.service';
 import { firstValueFrom, Subject, Subscription } from 'rxjs';
 import { takeUntil, take } from 'rxjs/operators';
@@ -51,6 +50,42 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       setTimeout(() => {
         this.adjustCanvasSize();
       }, 100);
+    }
+  }
+
+  @HostListener('window:keydown', ['$event'])
+  onGlobalKeydown(ev: KeyboardEvent) {
+    if ((ev.metaKey || ev.ctrlKey) && ev.shiftKey && (ev.key === 'S' || ev.key === 's')) {
+      ev.preventDefault();
+      this.toggleCallStats();
+    }
+  }
+
+  toggleCallStats() {
+    this.showCallStats = !this.showCallStats;
+    if (this.showCallStats) {
+      this.startCallStatsPolling();
+    } else {
+      this.stopCallStatsPolling();
+    }
+  }
+
+  private startCallStatsPolling() {
+    if (this.callStatsInterval) return;
+    const poll = async () => {
+      try {
+        this.callStats = await this.agoraService.getDiagnosticsSnapshot();
+        this.cdr.detectChanges();
+      } catch (_) {}
+    };
+    poll();
+    this.callStatsInterval = setInterval(poll, 1500);
+  }
+
+  private stopCallStatsPolling() {
+    if (this.callStatsInterval) {
+      clearInterval(this.callStatsInterval);
+      this.callStatsInterval = null;
     }
   }
 
@@ -106,6 +141,23 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   isConnected = false;
   isScreenSharing = false;
   isRemoteScreenSharing = false; // Track if someone else is sharing
+
+  // Call diagnostics overlay (hidden by default; enabled via `?stats=1` URL
+  // param or Ctrl/Cmd+Shift+S). Lets us see send resolution, framerate,
+  // bitrate, RTT, network-quality, and per-remote download stats live during
+  // a call instead of guessing why a session looked bad.
+  showCallStats = false;
+  callStats: {
+    uplinkKbps: number | null;
+    rtt: number | null;
+    sendResolution: { width: number; height: number } | null;
+    sendFrameRate: number | null;
+    encoderImpl: string | null;
+    targetBitrateKbps: number | null;
+    networkQuality: { uplink: number; downlink: number } | null;
+    remotes: { uid: string; downlinkKbps: number | null; recvFrameRate: number | null; receivedResolution: { width: number; height: number } | null }[];
+  } | null = null;
+  private callStatsInterval: any = null;
   
   // Whiteboard cursor sharing
   remoteCursors: Map<string, { x: number; y: number; name: string; color: string; lastUpdate: number }> = new Map();
@@ -386,7 +438,6 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     private toastController: ToastController,
     private transcriptionService: TranscriptionService,
     private deepgramAudioService: DeepgramAudioService,
-    private earlyExitService: EarlyExitService,
     private ngZone: NgZone,
     private reminderService: ReminderService,
     private vocabularyService: VocabularyService,
@@ -408,6 +459,29 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     this.isClass = qp?.isClass === 'true';
     console.log('🎓 VIDEO-CALL: isClass =', this.isClass);
 
+    // Optional call-quality diagnostics overlay. Enable in-call via
+    // `?stats=1` or Ctrl/Cmd+Shift+S. Hidden by default.
+    if (qp?.stats === '1' || qp?.stats === 'true') {
+      this.showCallStats = true;
+      this.startCallStatsPolling();
+    }
+
+    // Surface call-quality interventions to the user as a one-shot toast.
+    // Right now this fires when we auto-disable virtual background under CPU
+    // pressure, or when the uplink is sustained-bad and the user might want
+    // to switch networks.
+    this.agoraService.onPerformanceWarning = async (kind, detail) => {
+      try {
+        const toast = await this.toastController.create({
+          message: detail,
+          duration: 3500,
+          color: kind === 'cpu' ? 'warning' : 'medium',
+          position: 'top'
+        });
+        await toast.present();
+      } catch (_) {}
+    };
+
     // Set up real-time messaging callbacks first
     this.agoraService.onWhiteboardMessage = (data) => {
       this.handleRemoteWhiteboardData(data);
@@ -419,6 +493,19 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
     this.agoraService.onRemoteUserStateChange = (uid, state) => {
       this.handleRemoteUserStateChange(uid, state);
+    };
+
+    // Synchronous SDK event hooks so the participant tile / video tile appear
+    // the instant a peer joins the channel and the moment their tracks are
+    // playable, instead of waiting up to 1s for the polling fallback.
+    this.agoraService.onRemoteUserJoined = (_uid) => {
+      this.refreshRemoteParticipantsImmediately('joined');
+    };
+    this.agoraService.onRemoteUserPublished = (_uid, mediaType) => {
+      this.refreshRemoteParticipantsImmediately(`published-${mediaType}`);
+    };
+    this.agoraService.onRemoteUserLeft = (_uid) => {
+      this.refreshRemoteParticipantsImmediately('left');
     };
 
     this.agoraService.onVolumeIndicator = (volumes) => {
@@ -460,15 +547,6 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
     // Add beforeunload listener to handle browser close/refresh
     window.addEventListener('beforeunload', this.handleBeforeUnload.bind(this));
-    
-    // Listen for early exit confirmation to stop transcription
-    this.earlyExitService.lessonEndedEarly$.subscribe(async (lessonId) => {
-      console.log('🛑 VIDEO-CALL: Received lesson ended early notification for:', lessonId);
-      if (lessonId === this.lessonId) {
-        console.log('🛑 VIDEO-CALL: Stopping transcription for current lesson');
-        await this.stopTranscriptionImmediately();
-      }
-    });
 
     // Store query params for later use in ngAfterViewInit
     this.queryParams = qp;
@@ -1044,9 +1122,11 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         this.isConnected = true;
         this.cdr.detectChanges(); // Force UI update
         
-        // Enable adaptive quality monitoring for better video quality
+        // Subscribe to network-quality samples for diagnostics. The previous
+        // implementation also forcibly stepped down the camera encoder on a
+        // single bad sample (and rarely recovered) — that's been retired.
+        // Agora's send-side BWE now drives degradation gracefully on its own.
         this.agoraService.enableAdaptiveQuality();
-        console.log('📊 Adaptive video quality enabled');
       }
 
       // Set up local video display - wait for tracks to be ready
@@ -1294,6 +1374,12 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
   private remoteUserMonitorInterval: any = null;
   private joinSoundEnabled: boolean = false; // Prevent sound during initial join
+  // Idempotent gate for "remote count changed" side effects (join sound,
+  // whiteboard sync to the first peer, office-hours timer). Both the
+  // event-driven path (`refreshRemoteParticipantsImmediately`) and the 1s
+  // polling fallback feed into `announceRemoteCountChange`; whichever path
+  // sees the change first bumps this counter, so the other path no-ops.
+  private lastAnnouncedRemoteCount: number = 0;
 
   private monitorRemoteUsers() {
     // Prevent multiple intervals from being created
@@ -1385,26 +1471,11 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             });
           }
 
-          // Play join sound notification - but ONLY if:
-          // 1. There's actually a remote user (remoteUserCount > 0)
-          // 2. We're past the initial join phase (joinSoundEnabled = true)
-          if (this.remoteUserCount > 0 && this.joinSoundEnabled) {
-            console.log('🔔 [VIDEO-CALL] Playing join sound for new participant (count:', this.remoteUserCount, ')');
-            this.playJoinSound();
-          } else if (!this.joinSoundEnabled) {
-            console.log('ℹ️ [VIDEO-CALL] Skipping join sound (still in initial connection phase)');
-          } else {
-            console.log('ℹ️ [VIDEO-CALL] Skipping join sound (no remote users yet)');
-          }
-          
-          // For office hours: Start synchronized timer when second participant joins
-          if (this.isOfficeHours && previousCount === 0 && this.remoteUserCount === 1) {
-            console.log('⏱️ Second participant joined office hours session, starting timer...');
-            setTimeout(() => {
-              this.checkAndStartOfficeHoursTimer();
-            }, 1000);
-          }
-          
+          // Idempotent: plays the join sound + first-peer whiteboard sync
+          // / office-hours timer exactly once per net count change,
+          // regardless of whether the event path got here first.
+          this.announceRemoteCountChange(this.remoteUserCount);
+
           setTimeout(() => {
             if (this.isClass) {
               if (this.userRole === 'tutor' && !this.showWhiteboard) {
@@ -1421,10 +1492,8 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             }
           }, 100);
           
-          // Sync whiteboard state to the new participant (only if count was 0 before)
-          if (previousCount === 0) {
-            this.syncWhiteboardToNewParticipant();
-          }
+          // (Whiteboard sync + office-hours timer are handled by
+          // `announceRemoteCountChange` above so they fire exactly once.)
         }
         
         // Update participants list for multi-user classes ONLY when count changes
@@ -5204,6 +5273,86 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
+   * Synchronous response to `user-joined` / `user-published` / `user-left`
+   * SDK events. Previously the UI only learned about remote users via a
+   * 1-second polling fallback (`remoteUserMonitorInterval`), so a peer who
+   * joined could be invisible to the other side for up to a second after
+   * Agora knew about them — and on slow networks the gap stacked on top of
+   * track-publish delays. The poll is still there as a safety net; this is
+   * the hot path.
+   */
+  private refreshRemoteParticipantsImmediately(reason: string) {
+    try {
+      const remoteUsers = this.agoraService.getRemoteUsers();
+      const previousCount = this.remoteUserCount;
+      this.remoteUserCount = remoteUsers.size;
+
+      this.updateRemoteUserProperties();
+
+      if (this.isClass) {
+        this.updateParticipantsList();
+      }
+
+      // If somebody just newly published video, attach it to the right
+      // container right away rather than waiting for the next poll tick.
+      if (reason === 'published-video') {
+        if (this.isClass) {
+          if (this.userRole === 'tutor' && !this.showWhiteboard) {
+            this.playVideosInTutorGallery();
+          } else {
+            this.playRemoteVideosInParticipantTiles();
+          }
+        } else {
+          this.playRemoteVideoInCorrectContainer();
+        }
+      }
+
+      // Side effects on a count change run through a single idempotent
+      // gate so the event path and the polling fallback can't both fire
+      // the same notification.
+      this.announceRemoteCountChange(this.remoteUserCount);
+
+      this.cdr.detectChanges();
+    } catch (err) {
+      console.warn('refreshRemoteParticipantsImmediately failed:', reason, err);
+    }
+  }
+
+  /**
+   * Fire the "someone arrived/left" side effects exactly once per change,
+   * regardless of which code path observes it first.
+   *
+   *  - Plays the join sound on any net increase (skipped during the first
+   *    ~2s of the call so the local user's own join isn't announced).
+   *  - On the 0→N transition (the call going from "alone" to "in session"),
+   *    syncs whiteboard state to the new peer and kicks off the
+   *    office-hours timer.
+   *  - Always bumps `lastAnnouncedRemoteCount` so the alternate path
+   *    short-circuits.
+   *
+   * Callers may safely invoke this every tick / every event; it's a no-op
+   * when `currentCount` equals `lastAnnouncedRemoteCount`.
+   */
+  private announceRemoteCountChange(currentCount: number): void {
+    if (currentCount === this.lastAnnouncedRemoteCount) return;
+
+    const wasEmpty = this.lastAnnouncedRemoteCount === 0;
+    const grew = currentCount > this.lastAnnouncedRemoteCount;
+    this.lastAnnouncedRemoteCount = currentCount;
+
+    if (grew && currentCount > 0 && this.joinSoundEnabled) {
+      this.playJoinSound();
+    }
+
+    if (wasEmpty && currentCount > 0) {
+      this.syncWhiteboardToNewParticipant();
+      if (this.isOfficeHours) {
+        setTimeout(() => this.checkAndStartOfficeHoursTimer(), 1000);
+      }
+    }
+  }
+
+  /**
    * Recompute pre-calculated remote user properties for 1:1 template bindings.
    * Called whenever remote user states or participants change.
    */
@@ -5663,23 +5812,12 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       const goalItems = [...this.goalItems];
       
       if (!isPermanentEnd && !otherParticipantEnded) {
-        // Early exit — navigate to tabs, then show modal
+        // Early exit — just navigate to tabs.
+        // (Post-processing — transcription stop, analysis trigger, billing —
+        // all run inside `endCall` / `runBackgroundCleanup`, independently
+        // of any UI. No prompt needed here.)
         console.log('🚪 Navigating to tabs (early exit)...');
         await this.router.navigate(['/tabs']);
-        
-        if (lessonId && scheduledEndTime) {
-          const now = new Date();
-          const minutesRemaining = Math.round((scheduledEndTime.getTime() - now.getTime()) / 60000);
-          setTimeout(() => {
-            this.earlyExitService.triggerEarlyExit({
-              lessonId,
-              scheduledEndTime,
-              currentTime: now,
-              minutesRemaining: Math.max(0, minutesRemaining),
-              isClass
-            });
-          }, 200);
-        }
       } else if (isPermanentEnd) {
         // On-time exit — go straight to post-lesson page (call-end fires in background)
         console.log('🚪 On-time exit — navigating to post-lesson page...');
@@ -5719,12 +5857,6 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         vocabItems, goalItems, clientSpeakingSeconds
       });
       
-      // After navigation, prompt tutor to add note (always for tutors, regardless of who ended)
-      if (this.userRole === 'tutor') {
-        setTimeout(() => {
-          this.promptTutorNote();
-        }, 2000); // Give tutor a moment to breathe after lesson
-      }
     } catch (error) {
       console.error('Error ending call:', error);
       // Even on error, try to cleanup media
@@ -5756,7 +5888,23 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     clientSpeakingSeconds: { studentSeconds: number; tutorSeconds: number };
   }): Promise<void> {
     try {
-      // 1. Stop audio capture (if still running)
+      // 1. Record call-end FIRST (early-exit and on-time alike). This:
+      //    - Marks the lesson `ended_early` and stores actualDurationMinutes
+      //      so billing/cron logic can finalize it.
+      //    - Creates a `pending` LessonAnalysis placeholder so the lesson
+      //      card shows the "Generating analysis…" spinner immediately.
+      //    - Creates the TutorFeedback record if AI is disabled.
+      //   Done up-front so the placeholder is in the DB before
+      //   `completeTranscription` triggers the real analyzer (which then
+      //   upserts the placeholder row).
+      if (ctx.lessonId && !ctx.otherParticipantEnded) {
+        try {
+          await firstValueFrom(this.lessonService.endCall(ctx.lessonId, ctx.clientSpeakingSeconds));
+          console.log('✅ Background: call-end recorded (placeholder + status update)');
+        } catch (e) { console.warn('⚠️ Background: call-end failed (cron will finalize):', e); }
+      }
+
+      // 2. Stop audio capture (if still running)
       if (ctx.transcriptionEnabled && !ctx.transcriptionAlreadyDone) {
         try {
           await this.stopAudioCapture_FIXED();
@@ -5765,7 +5913,10 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         } catch (e) { console.warn('⚠️ Background: stopAudioCapture failed:', e); }
       }
 
-      // 2. Complete transcription (if not already done by pre-emptive trigger)
+      // 3. Complete transcription (if not already done by pre-emptive trigger)
+      //    Backend triggers `analyzeLesson()` here, which upserts the
+      //    LessonAnalysis row with the real GPT-4 result (overwriting the
+      //    placeholder from step 1).
       if (ctx.transcriptionEnabled && ctx.transcriptId && !ctx.transcriptionAlreadyDone) {
         try {
           console.log('📝 Background: completing transcription...');
@@ -5776,20 +5927,12 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         this.isTranscriptionEnabled = false;
       }
 
-      // 3. Call leave endpoint
+      // 4. Call leave endpoint
       if (ctx.lessonId) {
         try {
           await firstValueFrom(this.lessonService.leaveLesson(ctx.lessonId));
           console.log('✅ Background: leave endpoint called');
         } catch (e) { console.warn('⚠️ Background: leave endpoint failed:', e); }
-      }
-
-      // 4. Finalize lesson (for permanent/on-time exits)
-      if (ctx.isPermanentEnd && ctx.lessonId) {
-        try {
-          await firstValueFrom(this.lessonService.endCall(ctx.lessonId, ctx.clientSpeakingSeconds));
-          console.log('✅ Background: lesson finalized via call-end');
-        } catch (e) { console.warn('⚠️ Background: call-end failed (cron will finalize):', e); }
       }
 
       // 5. Save vocabulary/goals
@@ -5875,9 +6018,71 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   // ==================== AGORA WHITEBOARD METHODS ====================
-  
+
   /**
-   * Initialize Agora Fastboard whiteboard
+   * Resolve the whiteboard session via the atomic backend endpoint.
+   *
+   * The server is the single source of truth — it handles get-or-create,
+   * role enforcement (only tutor can create), and atomic UUID persistence.
+   * Students who reach this before the tutor has opened the board receive a
+   * 409 with `code: 'WHITEBOARD_NOT_STARTED'`; we transparently retry with
+   * back-off so the student auto-joins the moment the tutor creates it.
+   *
+   * This replaces the previous multi-step client flow (fetch lesson -> maybe
+   * create room -> PATCH lesson with UUID) that caused tutor and student to
+   * land in different rooms in prod when any of those steps lost a race.
+   */
+  private async resolveWhiteboardSession(): Promise<{ roomUUID: string; roomToken: string; appId: string; region: string; } | null> {
+    const scope: 'lesson' | 'class' = this.isClass ? 'class' : 'lesson';
+    const id = this.isClass ? this.classId : this.lessonId;
+
+    if (!id) {
+      console.error('❌ Cannot resolve whiteboard session: missing lesson/class id');
+      return null;
+    }
+
+    const maxAttempts = this.userRole === 'tutor' ? 1 : 8; // ~25s ceiling for students
+    const baseDelayMs = 1500;
+    let lastError: any = null;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        const response = await firstValueFrom(this.whiteboardService.joinSession(scope, id));
+        if (!response?.success || !response.roomUUID || !response.roomToken) {
+          throw new Error('Malformed whiteboard session response');
+        }
+        return {
+          roomUUID: response.roomUUID,
+          roomToken: response.roomToken,
+          appId: response.appId || environment.agoraWhiteboard.appId,
+          region: response.region || environment.agoraWhiteboard.region,
+        };
+      } catch (err: any) {
+        lastError = err;
+        const status = err?.status ?? err?.error?.status;
+        const code = err?.error?.code;
+
+        if (status === 409 && code === 'WHITEBOARD_NOT_STARTED' && this.userRole !== 'tutor') {
+          const delay = baseDelayMs + attempt * 500;
+          console.log(`🎨 Whiteboard not started by tutor yet (attempt ${attempt + 1}/${maxAttempts}); retrying in ${delay}ms`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+
+        console.error('❌ Whiteboard session request failed:', {
+          status,
+          code,
+          message: err?.error?.message || err?.message,
+        });
+        throw err;
+      }
+    }
+
+    throw lastError || new Error('Whiteboard session unavailable');
+  }
+
+  /**
+   * Initialize Agora Fastboard whiteboard.
    */
   async initializeWhiteboard() {
     if (this.fastboardApp || this.isWhiteboardLoading) {
@@ -5889,83 +6094,14 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     console.log('🎨 Initializing Agora Fastboard...');
 
     try {
-      // First, try to get existing whiteboard room UUID from the lesson/class
-      if (!this.whiteboardRoomUUID) {
-        console.log('🎨 Checking if lesson/class has existing whiteboard room...');
-        
-        try {
-          const lessonId = this.lessonId || this.classId;
-          if (lessonId) {
-            // Fetch the lesson/class to check for existing whiteboard room
-            let lessonData: any;
-            
-            if (this.isClass && this.classId) {
-              // Fetch class data
-              const classResponse = await this.classService.getClass(this.classId).toPromise();
-              lessonData = classResponse?.class;
-            } else if (this.lessonId) {
-              // Fetch lesson data
-              const lessonResponse = await this.lessonService.getLesson(this.lessonId).toPromise();
-              lessonData = lessonResponse?.lesson;
-            }
-            
-            if (lessonData?.whiteboardRoomUUID) {
-              console.log('✅ Found existing whiteboard room:', lessonData.whiteboardRoomUUID);
-              this.whiteboardRoomUUID = lessonData.whiteboardRoomUUID;
-              
-              // Generate a new room token for this user
-              const tokenResponse = await this.whiteboardService.getRoomToken(
-                this.whiteboardRoomUUID,
-                'writer'
-              ).toPromise();
-              
-              if (tokenResponse?.success) {
-                this.whiteboardRoomToken = tokenResponse.roomToken;
-                console.log('✅ Got room token for existing room');
-              }
-            }
-          }
-        } catch (error) {
-          console.warn('⚠️ Could not fetch existing whiteboard room:', error);
-        }
+      const session = await this.resolveWhiteboardSession();
+      if (!session) {
+        throw new Error('Whiteboard session unavailable');
       }
 
-      // Create whiteboard room if we still don't have one
-      if (!this.whiteboardRoomUUID) {
-        console.log('🎨 Creating new whiteboard room...');
-        const roomResponse = await this.whiteboardService.createRoom().toPromise();
-        
-        if (roomResponse?.success) {
-          this.whiteboardRoomUUID = roomResponse.roomUUID;
-          this.whiteboardRoomToken = roomResponse.roomToken;
-          console.log('✅ Whiteboard room created:', this.whiteboardRoomUUID);
-          
-          // Save the whiteboard room UUID to the lesson/class
-          const lessonId = this.lessonId || this.classId;
-          if (lessonId) {
-            try {
-              const updateData = {
-                whiteboardRoomUUID: this.whiteboardRoomUUID,
-                whiteboardCreatedAt: new Date()
-              };
-              
-              if (this.isClass && this.classId) {
-                // Update class
-                await this.classService.updateClass(this.classId, updateData).toPromise();
-                console.log('✅ Saved whiteboard room UUID to class');
-              } else if (this.lessonId) {
-                // Update lesson
-                await this.lessonService.updateLesson(this.lessonId, updateData).toPromise();
-                console.log('✅ Saved whiteboard room UUID to lesson');
-              }
-            } catch (error) {
-              console.error('❌ Failed to save whiteboard room UUID:', error);
-            }
-          }
-        } else {
-          throw new Error('Failed to create whiteboard room');
-        }
-      }
+      this.whiteboardRoomUUID = session.roomUUID;
+      this.whiteboardRoomToken = session.roomToken;
+      console.log('✅ Whiteboard session ready:', this.whiteboardRoomUUID);
 
       // Wait for container to be available
       if (!this.whiteboardContainerRef?.nativeElement) {
@@ -5978,12 +6114,11 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         throw new Error('Whiteboard container not found');
       }
 
-      // Initialize Agora Fastboard
       console.log('🎨 Creating Fastboard instance...');
       this.fastboardApp = await createFastboard({
         sdkConfig: {
-          appIdentifier: environment.agoraWhiteboard.appId,
-          region: environment.agoraWhiteboard.region,
+          appIdentifier: session.appId,
+          region: session.region as any,
         },
         joinRoom: {
           uuid: this.whiteboardRoomUUID,
@@ -5993,31 +6128,25 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             nickName: this.myName || 'User',
           }
         }
-        // DO NOT pass managerConfig - let mount() handle it
       });
 
-      // Mount the UI - this will create both the canvas AND the toolbar
       const ui = mount(this.fastboardApp, container);
-      
       console.log('✅ Agora Fastboard mounted with full UI', ui);
-      
-      // Optional: Listen for whiteboard events
+
       this.fastboardApp.manager.emitter.on('ready', () => {
         console.log('🎨 Whiteboard ready with full toolbar');
       });
 
     } catch (error) {
       console.error('❌ Failed to initialize whiteboard:', error);
-      
-      // Show error toast
+
       const toast = await this.toastController.create({
         message: this.t('VIDEO_CALL.WHITEBOARD_LOAD_FAILED'),
         duration: 3000,
         color: 'danger'
       });
       await toast.present();
-      
-      // Fall back to hiding whiteboard
+
       this.showWhiteboard = false;
     } finally {
       this.isWhiteboardLoading = false;
@@ -6046,7 +6175,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
   async ngOnDestroy() {
     console.log('🚪 VideoCall: ngOnDestroy called');
-    
+
+    this.stopCallStatsPolling();
+
     // Unsuppress the lesson reminder now that we're leaving the call
     if (this.lessonId) {
       this.reminderService.unsuppressForLesson(this.lessonId);
@@ -8088,45 +8219,6 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       
     } catch (error) {
       console.error('❌ Error in completeLessonWithSummary:', error);
-    }
-  }
-
-  /**
-   * Prompt tutor to add a quick note after lesson
-   */
-  async promptTutorNote() {
-    try {
-      const toast = await this.toastController.create({
-        header: this.t('VIDEO_CALL.QUICK_NOTE_HEADER'),
-        message: this.t('VIDEO_CALL.QUICK_NOTE_MESSAGE'),
-        duration: 8000,
-        position: 'bottom',
-        cssClass: 'tutor-note-toast',
-        buttons: [
-          {
-            text: this.t('VIDEO_CALL.SKIP'),
-            role: 'cancel'
-          },
-          {
-            text: this.t('VIDEO_CALL.ADD_NOTE'),
-            handler: () => {
-              // Navigate to home tab and trigger modal opening via localStorage
-              this.router.navigate(['/tabs/home']).then(() => {
-                // Signal to home page to open tutor note modal
-                localStorage.setItem('openTutorNoteModal', JSON.stringify({
-                  lessonId: this.lessonId,
-                  timestamp: Date.now()
-                }));
-                // Dispatch custom event to trigger modal
-                window.dispatchEvent(new CustomEvent('openTutorNoteModal'));
-              });
-            }
-          }
-        ]
-      });
-      await toast.present();
-    } catch (error) {
-      console.error('❌ Error showing tutor note toast:', error);
     }
   }
 

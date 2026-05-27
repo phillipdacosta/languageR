@@ -5,6 +5,12 @@ const User = require('../models/User');
 const entitlements = require('./entitlementsService');
 const postLessonRecommendations = require('./postLessonRecommendationService');
 const mastery = require('./masteryService');
+const bayes = require('./bayesianMastery');
+const struggleAggregator = require('./struggleAggregator');
+const focusResolver = require('./focusResolverService');
+const focusHistory = require('./focusHistoryService');
+const signalFusion = require('./signalFusionService');
+const phaseScope = require('./phaseSkillScopeService');
 
 // Grace window (ms) after a plan is first created during which we let
 // the student change their goal without invoking the cooldown. Lets
@@ -277,16 +283,26 @@ Respond ONLY with valid JSON:
       },
       selfAssessedLevel: selfLevel,
       currentPhaseIndex: 0,
-      phases: (result.phases || []).map((p, i) => ({
-        title: p.title,
-        description: p.description || '',
-        focusAreas: p.focusAreas || [],
-        suggestedTopics: p.suggestedTopics || [],
-        exitCriteria: p.exitCriteria || '',
-        estimatedLessons: p.estimatedLessons || 5,
-        lessonsCompleted: 0,
-        status: i === 0 ? 'active' : 'locked'
-      })),
+      phases: (() => {
+        const mapped = (result.phases || []).map((p, i) => ({
+          title: p.title,
+          description: p.description || '',
+          focusAreas: p.focusAreas || [],
+          suggestedTopics: p.suggestedTopics || [],
+          exitCriteria: p.exitCriteria || '',
+          estimatedLessons: p.estimatedLessons || 5,
+          lessonsCompleted: 0,
+          lessonScores: [],
+          lessonTutorIds: [],
+          masteryAverage: null,
+          focusSkillIds: [],
+          bayesianMasteryAverage: null,
+          status: i === 0 ? 'active' : 'locked',
+          tutorVotes: []
+        }));
+        phaseScope.syncAllPhases({ phases: mapped, language });
+        return mapped;
+      })(),
       weeklyRecommendations: pace.buildWeeklyRecommendations(
         goal,
         result.weeklyRecommendations?.focusBetweenLessons || ''
@@ -346,6 +362,33 @@ async function updatePlanAfterLesson(planId, lessonAnalysis) {
   if (plan.status === 'draft') plan.status = 'active';
 
   const student = await User.findById(plan.studentId);
+
+  // ── 0. Bayesian beliefs: decay → apply this lesson's evidence ─────
+  // Runs BEFORE the existing mastery/phase logic so any new gate or
+  // focus resolution that reads beliefs sees the latest state. Cheap:
+  // the beliefs Map is bounded to ~100 skills per plan.
+  const now = new Date();
+  _applyBeliefDecay(plan, now);
+  const evidenceBySkill = struggleAggregator.extractEvidenceFromLesson(lessonAnalysis, plan.language);
+  _applyEvidenceToBeliefs(plan, evidenceBySkill, now);
+  _applyKeyImprovementsToBeliefs(plan, lessonAnalysis, plan.language, now);
+  _applyPositiveSignalBeliefs(plan, lessonAnalysis, plan.language, now);
+  _refreshPhaseBayesianMastery(plan, now);
+
+  // ── 0b. Settle pending focus history entries against the new beliefs.
+  // Compares before/after means and tags each pending entry with its
+  // outcome (improved/stuck/worsened/untested). Stuck entries feed the
+  // focus resolver's upstream-diagnosis branch.
+  try {
+    focusHistory.settleFocus(plan, {
+      lessonId: lessonAnalysis.lessonId || null,
+      evidenceBySkill,
+      beliefsByIdAfter: plan.skillBeliefs,
+      now
+    });
+  } catch (err) {
+    console.error('[LearningPlan] Focus history settlement failed (non-blocking):', err.message);
+  }
 
   // 1. Score this lesson once. Used by both paths and pushed onto the phase.
   const lessonScore = mastery.computeMasteryScore(lessonAnalysis);
@@ -462,6 +505,164 @@ async function updatePlanAfterLesson(planId, lessonAnalysis) {
   return plan;
 }
 
+// ─────────────────────────────────────────────────────────────────
+//  Bayesian belief helpers (Phase 2 / Adaptive system).
+//
+//  These run inside updatePlanAfterLesson before the existing mastery /
+//  promotion logic so any consumer that reads plan.skillBeliefs sees
+//  the latest state. All mutations are local — caller saves the plan.
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Apply time decay to every belief on the plan. Walks the Map in place.
+ * Beliefs touched in this lesson will get their lastUpdatedAt re-stamped
+ * by `_applyEvidenceToBeliefs` immediately after.
+ */
+function _applyBeliefDecay(plan, now = new Date()) {
+  if (!plan?.skillBeliefs) return;
+  // Mongoose Maps need to be iterated with .entries() for safety.
+  const iter = typeof plan.skillBeliefs.entries === 'function'
+    ? plan.skillBeliefs.entries()
+    : Object.entries(plan.skillBeliefs);
+  for (const [skillId, belief] of iter) {
+    const decayed = bayes.decay(belief, now);
+    if (typeof plan.skillBeliefs.set === 'function') {
+      plan.skillBeliefs.set(skillId, decayed);
+    } else {
+      plan.skillBeliefs[skillId] = decayed;
+    }
+  }
+}
+
+/**
+ * Translate this lesson's per-skill evidence into Bayesian updates.
+ *
+ * Each evidence entry contributes failure pseudo-counts proportional to
+ * impact × occurrences. ASR-suspect entries are discounted (not zeroed,
+ * so a recurring real issue can still register).
+ *
+ * Beliefs not touched this lesson are left as-is (already decayed).
+ */
+function _applyEvidenceToBeliefs(plan, evidenceBySkill, now = new Date()) {
+  if (!evidenceBySkill || evidenceBySkill.size === 0) return;
+  if (!plan.skillBeliefs) plan.skillBeliefs = new Map();
+  for (const [skillId, ev] of evidenceBySkill.entries()) {
+    const impact = ev.impact || 'medium';
+    const occurrences = Math.max(1, ev.occurrences || 1);
+    const errorOccurrencesByImpact = { high: 0, medium: 0, low: 0 };
+    errorOccurrencesByImpact[impact] = occurrences;
+    if (ev.isLikelyTranscriptionError) {
+      // Down-weight rather than drop entirely — keeps a recurring
+      // "ASR-suspect but actually real" pattern from being invisible.
+      errorOccurrencesByImpact[impact] *= 0.3;
+    }
+    const { successWeight, failureWeight } = bayes.evidenceFromAnalysis({
+      errorOccurrencesByImpact,
+      improvedCount: 0,
+      inScopeNotFlagged: false
+    });
+    const current = typeof plan.skillBeliefs.get === 'function'
+      ? plan.skillBeliefs.get(skillId)
+      : plan.skillBeliefs[skillId];
+    const updated = bayes.update(current || null, successWeight, failureWeight, now);
+    if (typeof plan.skillBeliefs.set === 'function') {
+      plan.skillBeliefs.set(skillId, updated);
+    } else {
+      plan.skillBeliefs[skillId] = updated;
+    }
+  }
+}
+
+/**
+ * Apply success-side evidence from the analyzer's `keyImprovements`
+ * field. Each entry is canonicalized and credited as 1.2 pseudo-counts
+ * of success on the matching skill.
+ *
+ * Capped silently when canonicalization falls through to `unknown.*` —
+ * we don't want to inflate beliefs on synthesized skills that may not
+ * map cleanly to taxonomy entries.
+ */
+function _applyKeyImprovementsToBeliefs(plan, lessonAnalysis, language, now = new Date()) {
+  const improvements = lessonAnalysis?.progressionMetrics?.keyImprovements;
+  if (!Array.isArray(improvements) || improvements.length === 0) return;
+  const taxonomy = require('./skillTaxonomy');
+  if (!plan.skillBeliefs) plan.skillBeliefs = new Map();
+  for (const ki of improvements) {
+    if (typeof ki !== 'string' || !ki.trim()) continue;
+    const { skillId, confidence } = taxonomy.canonicalize(ki, language);
+    if (confidence === 'fallback') continue; // skip unknowns
+    const current = typeof plan.skillBeliefs.get === 'function'
+      ? plan.skillBeliefs.get(skillId)
+      : plan.skillBeliefs[skillId];
+    const updated = bayes.update(current || null, 1.2, 0, now);
+    if (typeof plan.skillBeliefs.set === 'function') {
+      plan.skillBeliefs.set(skillId, updated);
+    } else {
+      plan.skillBeliefs[skillId] = updated;
+    }
+  }
+}
+
+/**
+ * Credit strong pronunciation/fluency metrics as Bayesian success evidence.
+ */
+/**
+ * Sync phase.focusSkillIds and cache bayesianMasteryAverage on the active phase.
+ */
+function _refreshPhaseBayesianMastery(plan, now = new Date()) {
+  const phase = plan?.phases?.[plan.currentPhaseIndex];
+  if (!phase || !plan.language) return;
+  const skillIds = phaseScope.syncPhaseFocusSkillIds(phase, plan.language);
+  if (!skillIds.length) {
+    phase.bayesianMasteryAverage = null;
+    return;
+  }
+  const snapshot = bayes.phaseMasterySnapshot(plan.skillBeliefs, skillIds, now);
+  phase.bayesianMasteryAverage = snapshot.score;
+}
+
+function _applyPositiveSignalBeliefs(plan, lessonAnalysis, language, now = new Date()) {
+  const signals = signalFusion.extractPositiveSignals(lessonAnalysis, language);
+  if (!signals.length) return;
+  if (!plan.skillBeliefs) plan.skillBeliefs = new Map();
+  for (const { skillId, successWeight } of signals) {
+    if (!skillId || skillId.includes('.unknown.')) continue;
+    const current = typeof plan.skillBeliefs.get === 'function'
+      ? plan.skillBeliefs.get(skillId)
+      : plan.skillBeliefs[skillId];
+    const updated = bayes.update(current || null, successWeight, 0, now);
+    if (typeof plan.skillBeliefs.set === 'function') {
+      plan.skillBeliefs.set(skillId, updated);
+    } else {
+      plan.skillBeliefs[skillId] = updated;
+    }
+  }
+}
+
+/**
+ * Resolve and apply the next-lesson focus via the new resolver. Falls
+ * back to the legacy rule-based focus if the resolver throws — defense
+ * in depth so a single bug here never blocks the lesson update.
+ *
+ * Returns the resolver result on success, or null on fallback (legacy
+ * path will have already set plan.nextLessonFocus).
+ */
+async function _resolveNextFocus(plan, lessonAnalysis) {
+  try {
+    return await focusResolver.resolveAndApply({
+      plan,
+      language: plan.language,
+      lessonAnalysis,
+      fromLessonId: lessonAnalysis?.lessonId || null
+    });
+  } catch (err) {
+    console.error('[LearningPlan] Focus resolver failed (using rule fallback):', err.message);
+    const fallback = _generateRuleBasedFocus(plan, lessonAnalysis);
+    if (fallback) plan.nextLessonFocus = fallback;
+    return null;
+  }
+}
+
 /**
  * Apply the mastery-based promotion gate. Returns whether the phase
  * was advanced (or chapter graduated). Pure on inputs apart from
@@ -480,7 +681,7 @@ async function _applyMasteryPromotion(plan, lessonAnalysis, opts = {}) {
   if (!currentPhase) return { advanced: false, decision: null };
 
   const hasMorePhases = plan.currentPhaseIndex < plan.phases.length - 1;
-  const decision = mastery.evaluateAdvancement(currentPhase, hasMorePhases);
+  const decision = mastery.evaluateAdvancementForPlan(currentPhase, hasMorePhases, plan);
 
   // ── Branch 1: Last phase in chapter OR recovery phase → run chapter graduation ──
   // Recovery phases live as the last phase of the previous chapter, so they
@@ -488,7 +689,7 @@ async function _applyMasteryPromotion(plan, lessonAnalysis, opts = {}) {
   // applied inside `evaluateChapterGraduation` (stricter mastery threshold,
   // multi-tutor / advance-vote requirement).
   if (decision.reason === 'last_phase_in_chapter' || decision.reason === 'recovery_phase') {
-    const grad = mastery.evaluateChapterGraduation(currentPhase);
+    const grad = mastery.evaluateChapterGraduationForPlan(currentPhase, plan);
     if (grad.graduate) {
       const result = await _completeChapterAndGenerateNext(plan, lessonAnalysis, grad);
       return { advanced: true, graduated: true, decision: grad, ...result };
@@ -669,11 +870,14 @@ async function _completeChapterAndGenerateNext(plan, lessonAnalysis, gradDecisio
     lessonScores: [],
     lessonTutorIds: [],
     masteryAverage: null,
+    focusSkillIds: [],
+    bayesianMasteryAverage: null,
     completedAt: null,
     studentEditedAt: null,
     tutorVotes: []
   }));
   plan.currentPhaseIndex = 0;
+  phaseScope.syncAllPhases(plan);
   // Clear decay state on new chapter.
   plan.decayWarnings = 0;
 
@@ -853,12 +1057,15 @@ async function _demoteOneChapter(plan, source = 'decay') {
     lessonScores: [],
     lessonTutorIds: [],
     masteryAverage: null,
+    focusSkillIds: [],
+    bayesianMasteryAverage: null,
     completedAt: null,
     studentEditedAt: null,
     tutorVotes: [],
     _isRecovery: i === recoveryIndex
   }));
   plan.currentPhaseIndex = recoveryIndex;
+  phaseScope.syncAllPhases(plan);
   plan.decayWarnings = 0;
 
   // Remember which level we fell out of, so the NEXT promotion (when
@@ -1173,11 +1380,14 @@ async function _calibrationPromoteOneChapter(plan, lessonAnalysis, decision) {
     lessonScores: [],
     lessonTutorIds: [],
     masteryAverage: null,
+    focusSkillIds: [],
+    bayesianMasteryAverage: null,
     completedAt: null,
     studentEditedAt: null,
     tutorVotes: []
   }));
   plan.currentPhaseIndex = 0;
+  phaseScope.syncAllPhases(plan);
   plan.decayWarnings = 0;
 
   plan.history.push({
@@ -1436,15 +1646,37 @@ Respond ONLY with valid JSON:
   // is now plan.status === 'mastery_mode', set inside _completeChapterAndGenerateNext.
 
   plan.studentSummary = result.studentSummary || plan.studentSummary;
-  plan.nextLessonFocus = result.nextLessonFocus || plan.nextLessonFocus;
   if (result.weeklyRecommendations?.focusBetweenLessons) {
     plan.weeklyRecommendations.focusBetweenLessons = result.weeklyRecommendations.focusBetweenLessons;
   }
+
+  // Resolve the next-lesson focus through the new resolver. The
+  // resolver picks the skillId + source (tutor priority / upstream
+  // diagnosis / aggregator / phase default) and stamps focusHistory.
+  //
+  // For premium AI users, we prefer the AI's nextLessonFocus *string*
+  // if it referenced the resolver-picked skill — it carries warmer
+  // language. Otherwise we use the resolver's deterministic focus line
+  // so the student doesn't get a generic AI sentence overruling a real
+  // signal-driven pick. Either way, activeFocusSkillId is the
+  // resolver's choice (single source of truth).
+  const resolved = await _resolveNextFocus(plan, lessonAnalysis);
+  if (resolved && resolved.skillId && result.nextLessonFocus) {
+    const lowerAi = String(result.nextLessonFocus).toLowerCase();
+    const lowerSkill = (resolved.displayName || '').toLowerCase();
+    if (lowerSkill && lowerAi.includes(lowerSkill)) {
+      plan.nextLessonFocus = result.nextLessonFocus;
+    }
+  } else if (!resolved?.focusLine && result.nextLessonFocus) {
+    // Resolver had no signal at all — keep the AI line as a last resort.
+    plan.nextLessonFocus = result.nextLessonFocus;
+  }
+
   plan.lastUpdatedAt = new Date();
   plan.lastUpdatedFromLessonId = lessonAnalysis.lessonId || null;
   plan.lastUpdateMode = 'lesson';
 
-  console.log(`✅ [LearningPlan] Plan updated (AI). Phase: ${plan.currentPhaseIndex + 1}/${plan.phases.length}`);
+  console.log(`✅ [LearningPlan] Plan updated (AI). Phase: ${plan.currentPhaseIndex + 1}/${plan.phases.length}, focus: ${plan.activeFocusSource || 'none'} → ${plan.activeFocusSkillId || '<free-text>'}`);
   return plan;
 }
 
@@ -1463,24 +1695,17 @@ async function _updatePlanWithRules(plan, lessonAnalysis) {
 
   // Note: see _updatePlanWithAi note — plan.status terminal is now 'mastery_mode'.
 
-  // Personalized focus from the latest analysis (free tier, no AI cost).
-  const generatedFocus = _generateRuleBasedFocus(plan, lessonAnalysis);
-  if (generatedFocus) {
-    plan.nextLessonFocus = generatedFocus;
-  }
-
-  // Tutor override always wins — most recent wins.
-  const recentTutorFocus = (plan.tutorOverrides || [])
-    .filter(o => o.action === 'adjust_focus' && o.note)
-    .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
-  if (recentTutorFocus) {
-    plan.nextLessonFocus = recentTutorFocus.note;
-  }
+  // Focus selection: resolver is the new single source of truth
+  // (handles tutor overrides, structured tutor priorities, upstream
+  // diagnosis, aggregator top struggle, phase fallback). It also
+  // records the pick into focusHistory.
+  await _resolveNextFocus(plan, lessonAnalysis);
 
   plan.lastUpdatedAt = new Date();
   plan.lastUpdatedFromLessonId = lessonAnalysis.lessonId || null;
   plan.lastUpdateMode = 'rule';
 
+  console.log(`✅ [LearningPlan] Plan updated (rule). Phase: ${plan.currentPhaseIndex + 1}/${plan.phases.length}, focus: ${plan.activeFocusSource || 'none'} → ${plan.activeFocusSkillId || '<free-text>'}`);
   return plan;
 }
 
@@ -1984,12 +2209,15 @@ async function _regeneratePlanForGoalChange(plan, newGoal) {
     lessonScores: [],
     lessonTutorIds: [],
     masteryAverage: null,
+    focusSkillIds: [],
+    bayesianMasteryAverage: null,
     status: i === 0 ? 'active' : 'locked',
     completedAt: null,
     studentEditedAt: null,
     tutorVotes: []
   }));
   plan.currentPhaseIndex = 0;
+  phaseScope.syncAllPhases(plan);
 
   // 5. Refresh goal-derived copy. weeklyRecommendations IS goal-specific
   // now (pace), so recompute it here when the goal changes — keep any

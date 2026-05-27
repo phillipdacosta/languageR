@@ -1,4 +1,4 @@
-<div class="approval-split-guidance ob-wizard-split-guidance">
+<div class="approval-split-guidance ob-wizard-split-guidance" [@guidanceSlideUp]="stepNumber">
   <h1 *ngIf="greetingKey" class="approval-split-guidance__greeting">{{ greetingKey | translate }}</h1>
   <h3 class="approval-split-guidance__title">{{ titleKey | translate }}</h3>
   <p class="approval-split-guidance__desc">{{ descKey | translate }}</p>

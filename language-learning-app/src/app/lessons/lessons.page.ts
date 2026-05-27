@@ -14,7 +14,8 @@ import { FlipTransitionService } from '../services/flip-transition.service';
 import { Subject, firstValueFrom } from 'rxjs';
 import { takeUntil, filter, take } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
-import { formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
+import { formatDateInTz, formatTimeInTz, formatTimeRangeInTz, toIntlLocale } from '../shared/timezone.utils';
+import { buildMockLessonEntity } from './lesson-mock-preview';
 
 // Pre-computed lesson display model (avoids function calls in template)
 interface ProcessedLesson {
@@ -31,6 +32,11 @@ interface ProcessedLesson {
   formattedWeekday: string;
   formattedDate: string;
   formattedTimeRange: string;
+  /** Just the end time portion of the lesson (e.g. "6:00 PM").
+   * Shown on the "Analysis ready by …" spinner so the student knows the
+   * eta even if they left the lesson early — the cron always finalizes
+   * the analysis by the scheduled end time. */
+  formattedEndTime: string;
   duration: number;
   price: number;
   formattedPrice: string;
@@ -520,6 +526,39 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     } as Lesson;
   }
 
+  /** Locale-aware date chip + time range for lesson cards (real + mock). */
+  private formatCardDateFields(start: Date, end: Date): Pick<
+    ProcessedLesson,
+    'formattedMonth' | 'formattedDayNum' | 'formattedWeekday' | 'formattedDate' | 'formattedTimeRange' | 'formattedEndTime'
+  > {
+    const locale = toIntlLocale(this.translate.currentLang || this.translate.defaultLang || 'en');
+    const tz = this.userTz;
+    const fmtMonth = formatDateInTz(start, tz, { month: 'short', day: undefined, year: undefined }, locale);
+    const fmtDayNum = formatDateInTz(start, tz, { day: 'numeric', month: undefined, year: undefined }, locale);
+    const fmtWeekday = formatDateInTz(start, tz, { weekday: 'short', month: undefined, day: undefined, year: undefined }, locale);
+    const fmtMonthLong = formatDateInTz(start, tz, { month: 'long', day: undefined, year: undefined }, locale);
+    return {
+      formattedMonth: fmtMonth,
+      formattedDayNum: fmtDayNum,
+      formattedWeekday: fmtWeekday,
+      formattedDate: `${fmtMonthLong} ${fmtDayNum}`,
+      formattedTimeRange: formatTimeRangeInTz(start, end, tz, locale),
+      formattedEndTime: formatTimeInTz(end, tz, locale),
+    };
+  }
+
+  private mockCardDateFields(mockId: string): Pick<
+    ProcessedLesson,
+    'formattedMonth' | 'formattedDayNum' | 'formattedWeekday' | 'formattedDate' | 'formattedTimeRange' | 'formattedEndTime'
+  > {
+    const lesson = buildMockLessonEntity(mockId, this.currentUser);
+    if (!lesson?.startTime || !lesson?.endTime) {
+      const now = new Date();
+      return this.formatCardDateFields(now, now);
+    }
+    return this.formatCardDateFields(new Date(lesson.startTime), new Date(lesson.endTime));
+  }
+
   private mockProcessedLesson(base: ProcessedLesson, o: Partial<ProcessedLesson> & { id: string }): ProcessedLesson {
     const merged: ProcessedLesson = {
       ...base,
@@ -530,6 +569,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
       classAttendeesOverflow: 0,
       classStudentCount: 0,
       isPast: true,
+      ...this.mockCardDateFields(o.id),
       ...o,
       lesson: { ...base.lesson, _id: o.id } as Lesson,
     };
@@ -564,10 +604,6 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
         otherPicture: 'https://randomuser.me/api/portraits/women/44.jpg',
         otherInitials: 'MG',
         subject: 'Spanish',
-        formattedDate: 'April 8',
-        formattedMonth: 'Apr',
-        formattedDayNum: '8',
-        formattedTimeRange: '10:00 AM – 10:45 AM',
         status: 'completed',
         statusLabel: T('LESSONS_PAGE.STATUS_COMPLETED'),
         cardDescMode: 'analysis',
@@ -593,10 +629,6 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
         otherPicture: 'https://randomuser.me/api/portraits/men/32.jpg',
         otherInitials: 'CR',
         subject: 'Spanish',
-        formattedDate: 'April 14',
-        formattedMonth: 'Apr',
-        formattedDayNum: '14',
-        formattedTimeRange: '3:00 PM – 4:00 PM',
         status: 'scheduled',
         statusLabel: T('LESSONS_PAGE.STATUS_SCHEDULED'),
         cardDescMode: 'schedule',
@@ -620,10 +652,6 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
         otherPicture: 'https://randomuser.me/api/portraits/women/68.jpg',
         otherInitials: 'LP',
         subject: 'Spanish',
-        formattedDate: 'April 5',
-        formattedMonth: 'Apr',
-        formattedDayNum: '5',
-        formattedTimeRange: '11:00 AM – 11:30 AM',
         status: 'cancelled',
         statusLabel: T('LESSONS_PAGE.STATUS_CANCELLED'),
         cardDescMode: 'schedule',
@@ -647,10 +675,6 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
         otherPicture: 'https://randomuser.me/api/portraits/women/21.jpg',
         otherInitials: 'EV',
         subject: 'Spanish',
-        formattedDate: 'April 7',
-        formattedMonth: 'Apr',
-        formattedDayNum: '7',
-        formattedTimeRange: '2:00 PM – 2:45 PM',
         status: 'completed',
         statusLabel: T('LESSONS_PAGE.STATUS_COMPLETED'),
         cardDescMode: 'analysis',
@@ -675,10 +699,6 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
         otherPicture: 'https://randomuser.me/api/portraits/men/75.jpg',
         otherInitials: 'RT',
         subject: 'Spanish',
-        formattedDate: 'April 9',
-        formattedMonth: 'Apr',
-        formattedDayNum: '9',
-        formattedTimeRange: '12:00 PM – 12:45 PM',
         status: 'completed',
         statusLabel: T('LESSONS_PAGE.STATUS_COMPLETED'),
         cardDescMode: 'analysis_generating',
@@ -703,10 +723,6 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
         otherPicture: 'https://randomuser.me/api/portraits/women/55.jpg',
         otherInitials: 'SM',
         subject: 'Spanish',
-        formattedDate: 'April 9',
-        formattedMonth: 'Apr',
-        formattedDayNum: '9',
-        formattedTimeRange: '9:00 AM – 9:30 AM',
         status: 'completed',
         statusLabel: T('LESSONS_PAGE.STATUS_COMPLETED'),
         isTrial: true,
@@ -730,10 +746,6 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
         otherPicture: 'https://randomuser.me/api/portraits/women/44.jpg',
         otherInitials: 'MG',
         subject: 'Spanish',
-        formattedDate: 'April 6',
-        formattedMonth: 'Apr',
-        formattedDayNum: '6',
-        formattedTimeRange: '4:00 PM – 5:00 PM',
         status: 'completed',
         statusLabel: T('LESSONS_PAGE.STATUS_COMPLETED'),
         cardDescMode: 'analysis',
@@ -741,7 +753,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
           'Excellent session on subjunctive mood — you nailed the conditional triggers. Review irregular stems before next week.',
         cardStats: [
           { value: '60 min', label: dur },
-          { value: '$35', label: pri, sub: '+ $5 tip' },
+          { value: '$35', label: pri, sub: T('LESSONS_PAGE.CARD_STAT_TIP_SUB', { amount: '$5' }) },
           { value: T('LESSONS_PAGE.STATUS_COMPLETED'), label: sta },
         ],
         isTrial: false,
@@ -759,10 +771,6 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
         otherPicture: 'https://randomuser.me/api/portraits/women/90.jpg',
         otherInitials: 'HT',
         subject: 'Spanish',
-        formattedDate: 'April 3',
-        formattedMonth: 'Apr',
-        formattedDayNum: '3',
-        formattedTimeRange: '10:00 AM – 10:45 AM',
         status: 'completed',
         statusLabel: T('LESSONS_PAGE.STATUS_COMPLETED'),
         cardDescMode: 'analysis_empty',
@@ -786,10 +794,6 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
         otherPicture: 'https://randomuser.me/api/portraits/men/11.jpg',
         otherInitials: 'LB',
         subject: 'Spanish',
-        formattedDate: 'April 2',
-        formattedMonth: 'Apr',
-        formattedDayNum: '2',
-        formattedTimeRange: '1:00 PM – 1:50 PM',
         status: 'completed',
         statusLabel: T('LESSONS_PAGE.STATUS_COMPLETED'),
         cardDescMode: 'analysis',
@@ -815,10 +819,6 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
         otherPicture: 'https://randomuser.me/api/portraits/men/46.jpg',
         otherInitials: 'DK',
         subject: 'Spanish',
-        formattedDate: 'April 7',
-        formattedMonth: 'Apr',
-        formattedDayNum: '7',
-        formattedTimeRange: '1:00 PM – 2:00 PM',
         status: 'completed',
         statusLabel: T('LESSONS_PAGE.STATUS_COMPLETED'),
         cardDescMode: 'schedule',
@@ -843,10 +843,6 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
         otherPicture: 'https://randomuser.me/api/portraits/men/22.jpg',
         otherInitials: 'JL',
         subject: 'Spanish',
-        formattedDate: 'April 15',
-        formattedMonth: 'Apr',
-        formattedDayNum: '15',
-        formattedTimeRange: '11:00 AM – 12:00 PM',
         status: 'scheduled',
         statusLabel: T('LESSONS_PAGE.STATUS_SCHEDULED'),
         cardDescMode: 'schedule',
@@ -870,10 +866,6 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
         otherPicture: 'https://randomuser.me/api/portraits/women/33.jpg',
         otherInitials: 'AW',
         subject: 'Spanish',
-        formattedDate: 'April 6',
-        formattedMonth: 'Apr',
-        formattedDayNum: '6',
-        formattedTimeRange: '5:00 PM – 5:45 PM',
         status: 'completed',
         statusLabel: T('LESSONS_PAGE.STATUS_COMPLETED'),
         cardDescMode: 'schedule',
@@ -898,10 +890,6 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
         otherPicture: 'https://randomuser.me/api/portraits/women/12.jpg',
         otherInitials: 'OC',
         subject: 'Spanish',
-        formattedDate: 'April 5',
-        formattedMonth: 'Apr',
-        formattedDayNum: '5',
-        formattedTimeRange: '3:00 PM – 4:00 PM',
         status: 'completed',
         statusLabel: T('LESSONS_PAGE.STATUS_COMPLETED'),
         cardDescMode: 'schedule',
@@ -927,10 +915,6 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
         otherPicture: 'https://randomuser.me/api/portraits/men/46.jpg',
         otherInitials: 'DK',
         subject: 'Spanish',
-        formattedDate: 'April 4',
-        formattedMonth: 'Apr',
-        formattedDayNum: '4',
-        formattedTimeRange: '10:00 AM – 11:00 AM',
         status: 'completed',
         statusLabel: T('LESSONS_PAGE.STATUS_COMPLETED'),
         cardDescMode: 'schedule',
@@ -938,7 +922,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
           'Reviewed reading comprehension strategies. Student showed strong analytical skills with short passages.',
         cardStats: [
           { value: '60 min', label: dur },
-          { value: '$28', label: rec, sub: '+ $8 tip' },
+          { value: '$28', label: rec, sub: T('LESSONS_PAGE.CARD_STAT_TIP_SUB', { amount: '$8' }) },
           { value: T('LESSONS_PAGE.STATUS_COMPLETED'), label: sta },
         ],
         isTrial: false,
@@ -956,10 +940,6 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
         otherPicture: 'https://randomuser.me/api/portraits/women/77.jpg',
         otherInitials: 'PS',
         subject: 'Spanish',
-        formattedDate: 'April 1',
-        formattedMonth: 'Apr',
-        formattedDayNum: '1',
-        formattedTimeRange: '3:00 PM – 3:30 PM',
         status: 'completed',
         statusLabel: T('LESSONS_PAGE.STATUS_COMPLETED'),
         cardDescMode: 'schedule',
@@ -983,10 +963,6 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
         otherPicture: 'https://randomuser.me/api/portraits/men/52.jpg',
         otherInitials: 'MV',
         subject: 'Spanish',
-        formattedDate: 'April 10',
-        formattedMonth: 'Apr',
-        formattedDayNum: '10',
-        formattedTimeRange: '2:00 PM – 2:45 PM',
         status: 'cancelled',
         statusLabel: T('LESSONS_PAGE.STATUS_CANCELLED'),
         cardDescMode: 'schedule',
@@ -1025,14 +1001,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     const now = new Date();
 
     const tz = this.userTz;
-    const startStr = formatTimeInTz(start, tz);
-    const endStr = formatTimeInTz(end, tz);
-
-    const locale = this.translate.currentLang || this.translate.defaultLang || 'en';
-    const fmtMonth = formatDateInTz(start, tz, { month: 'short', day: undefined, year: undefined }, locale);
-    const fmtDayNum = formatDateInTz(start, tz, { day: 'numeric', month: undefined, year: undefined }, locale);
-    const fmtWeekday = formatDateInTz(start, tz, { weekday: 'short', month: undefined, day: undefined, year: undefined }, locale);
-    const fmtMonthLong = formatDateInTz(start, tz, { month: 'long', day: undefined, year: undefined }, locale);
+    const dateFields = this.formatCardDateFields(start, end);
 
     // Status
     let status = lesson.status;
@@ -1040,13 +1009,23 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     const isUpcoming = (status === 'scheduled' || status === 'confirmed' || status === 'in_progress' || status === 'pending_reschedule') && end >= now;
     const isPast = end < now;
 
-    // Analysis status
+    // Analysis status.
+    //
+    // Backend's `LessonAnalysis.status` enum is
+    //   pending | processing | completed | failed | insufficient_data
+    // — there is no 'generating' value server-side. Treat both `pending`
+    // (placeholder row created at call-end) and `processing` (analyzer is
+    // actively running) as the UI's "generating" so the lesson card shows
+    // a spinner from the moment the call ends until the analysis lands.
+    // The legacy `'generating'` value is also accepted for backwards-compat
+    // with the manual /generate-analysis route on the Lesson model.
     let analysisStatus: 'available' | 'generating' | 'unavailable' = 'unavailable';
     const aiAnalysis = lesson.aiAnalysis;
     const tutorFeedback = lesson.tutorFeedback;
+    const inFlightStatuses = new Set(['generating', 'pending', 'processing']);
     if (tutorFeedback?.status === 'completed') {
       analysisStatus = 'available';
-    } else if (aiAnalysis?.status === 'generating') {
+    } else if (aiAnalysis?.status && inFlightStatuses.has(aiAnalysis.status)) {
       analysisStatus = 'generating';
     } else if (aiAnalysis?.status === 'completed' || aiAnalysis?.hasAnalysis) {
       analysisStatus = 'available';
@@ -1208,9 +1187,9 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
       (status === 'scheduled' || status === 'confirmed') &&
       cardDescMode === 'schedule' &&
       !lesson.isClass &&
-      lesson.lastSessionContext?.summaryTranslatable &&
       !lesson.lastSessionContext?.isFirstLesson &&
-      cardDescText
+      cardDescText &&
+      this.lessonService.shouldOfferProseTranslation(lesson.lastSessionContext?.summaryLanguage)
     );
 
     const tipRaw = (lesson as any).tip?.amount;
@@ -1230,11 +1209,12 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
       otherName: other.name,
       otherPicture: other.picture === '/assets/default-avatar.png' ? '' : other.picture,
       otherInitials: initials.toUpperCase(),
-      formattedMonth: fmtMonth,
-      formattedDayNum: fmtDayNum,
-      formattedWeekday: fmtWeekday,
-      formattedDate: `${fmtMonthLong} ${fmtDayNum}`,
-      formattedTimeRange: `${startStr} – ${endStr}`,
+      formattedMonth: dateFields.formattedMonth,
+      formattedDayNum: dateFields.formattedDayNum,
+      formattedWeekday: dateFields.formattedWeekday,
+      formattedDate: dateFields.formattedDate,
+      formattedTimeRange: dateFields.formattedTimeRange,
+      formattedEndTime: dateFields.formattedEndTime,
       duration: lesson.duration,
       price: lesson.price,
       formattedPrice: (lesson.price || 0).toFixed(2),
@@ -1288,8 +1268,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
 
   showCardTranslateButton(pl: ProcessedLesson): boolean {
     if (!pl.cardDescCanTranslate) return false;
-    const lang = this.lessonService.getProseLang();
-    return !!lang && lang !== 'en';
+    return this.lessonService.canTranslateProse();
   }
 
   isCardDescTranslating(pl: ProcessedLesson): boolean {
@@ -1329,8 +1308,8 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     event?.stopPropagation();
     if (!pl.cardDescCanTranslate || this.isCardDescTranslating(pl)) return;
 
-    const lang = this.lessonService.getProseLang();
-    if (!lang || lang === 'en') return;
+    const lang = this.lessonService.getProseTranslationTarget();
+    if (!lang) return;
 
     let st = this.cardDescI18n.get(pl.id);
     if (!st) {
@@ -1385,7 +1364,11 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
       return {
         value: `$${base}`,
         label: this.translate.instant('LESSONS_PAGE.CARD_STAT_PRICE'),
-        sub: tipAmt > 0 ? `+ $${tipAmt.toFixed(tipAmt % 1 === 0 ? 0 : 2)} tip` : undefined,
+        sub: tipAmt > 0
+          ? this.translate.instant('LESSONS_PAGE.CARD_STAT_TIP_SUB', {
+              amount: `$${tipAmt.toFixed(tipAmt % 1 === 0 ? 0 : 2)}`,
+            })
+          : undefined,
       };
     }
     const raw = lesson.tutorPayout;
@@ -1395,7 +1378,11 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     return {
       value,
       label: this.translate.instant('LESSONS_PAGE.CARD_STAT_RECEIVED'),
-      sub: tipAmt > 0 ? `+ $${tipAmt.toFixed(tipAmt % 1 === 0 ? 0 : 2)} tip` : undefined,
+      sub: tipAmt > 0
+        ? this.translate.instant('LESSONS_PAGE.CARD_STAT_TIP_SUB', {
+            amount: `$${tipAmt.toFixed(tipAmt % 1 === 0 ? 0 : 2)}`,
+          })
+        : undefined,
     };
   }
 
@@ -1531,6 +1518,12 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   onLessonClick(pl: ProcessedLesson) {
+    if (pl.lesson && pl.id && !pl.id.startsWith('__mock_')) {
+      this.lessonService.updateCachedLessonDetail(pl.id, {
+        lesson: pl.lesson,
+        isClass: !!pl.isClass,
+      });
+    }
     this.router.navigate(['/tabs/lessons', pl.id]);
   }
 

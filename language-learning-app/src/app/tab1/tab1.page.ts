@@ -6468,8 +6468,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
    * no tagline at all. */
   get upNextShowTranslateButton(): boolean {
     if (!this.upNextTaglineCanTranslate) return false;
-    const lang = this.lessonService.getProseLang();
-    return !!lang && lang !== 'en';
+    return this.lessonService.canTranslateProse();
   }
 
   /** Toggle the Up Next tagline between original English and the user's UI
@@ -6490,8 +6489,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       return;
     }
 
-    const lang = this.lessonService.getProseLang();
-    if (!lang || lang === 'en') return;
+    const lang = this.lessonService.getProseTranslationTarget();
+    if (!lang) return;
 
     this.upNextTaglineTranslating = true;
     this.upNextTaglineOriginal = this.upNextTagline;
@@ -6552,8 +6551,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       lesson &&
       !lesson.isClass &&
       !ctx.isFirstLesson &&
-      ctx.summaryTranslatable &&
-      this.upNextTagline
+      this.upNextTagline &&
+      this.lessonService.shouldOfferProseTranslation(ctx.summaryLanguage)
     );
     this.refreshUpNextStatusFields(nl, lesson);
     this.refreshNextLessonTimeSensitiveFields();

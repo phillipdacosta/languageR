@@ -1298,21 +1298,6 @@ ion-modal.reschedule-lesson-modal {
   }
 }
 
-// Early Exit Modal Styling
-ion-modal.early-exit-modal {
-  --width: 90%;
-  --max-width: 500px;
-  --height: auto;
-  --max-height: 90vh;
-  --border-radius: 16px;
-  --box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-  
-  @media (max-width: 768px) {
-    --width: 95%;
-    --max-width: none;
-  }
-}
-
 // Confirm Action Modal Styling
 ion-modal.confirm-action-modal {
   --width: 95%;
@@ -3070,34 +3055,6 @@ html.ion-palette-dark {
     app-tutor-filters-modal ion-content,
     app-explore-filters-modal ion-content {
       --background: #{$modal-bg-dark} !important;
-    }
-  }
-
-  // Early exit modal (uses divs, not ion-content)
-  ion-modal.early-exit-modal {
-    --background: #{$modal-bg-dark} !important;
-    .early-exit-modal {
-      .modal-header {
-        color: #f5f5f7;
-        .header-icon { color: #8e8e93; }
-        h2 { color: #f5f5f7; }
-        p { color: #8e8e93; }
-      }
-      .modal-content {
-        color: #8e8e93;
-        .info-text { color: #8e8e93; }
-        .note-text { color: #8e8e93; }
-      }
-      .action-buttons .action-btn {
-        background: #2c2c2e !important;
-        border-color: rgba(255, 255, 255, 0.1) !important;
-        color: #f5f5f7 !important;
-        .btn-content h3 { color: #f5f5f7; }
-        .btn-content p { color: #8e8e93; }
-      }
-      .modal-footer ion-button {
-        --color: #8e8e93;
-      }
     }
   }
 
